@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UEG Terminal - Domestic Sync</title>
+    <title>UEG Terminal - Robust Sync</title>
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -17,7 +17,6 @@
             background-image: linear-gradient(rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.2) 50%); background-size: 100% 4px;
         }
         .terminal-container { background-color: var(--panel-color); width: 90%; max-width: 800px; border: 2px solid #333; position: relative; }
-        .countdown-panel { background-color: var(--panel-color); border-bottom: 3px solid #333; }
         .countdown-header {
             background-color: var(--header-color); padding: 15px; border-bottom: 2px solid #2a2a2a;
             display: flex; justify-content: space-between; align-items: center;
@@ -52,7 +51,7 @@
         <div class="countdown-panel">
             <div class="countdown-header">
                 <div>
-                    <div id="sync-text" style="font-size: 0.8rem; color: #888;">MOSS // ESTABLISHING CONNECTION...</div>
+                    <div id="sync-text" style="font-size: 0.8rem; color: #888;">MOSS // INITIALIZING SYSTEM...</div>
                     <div id="status-title" class="header-main">COUNTDOWN</div>
                 </div>
                 <div class="refresh-control">
@@ -80,7 +79,7 @@
         </div>
 
         <div class="sync-info">
-            <span id="server-source">SOURCE: DOMESTIC_TIME_SERVER</span>
+            <span id="server-source">SOURCE: SEARCHING...</span>
             <span id="offset-val">CALIBRATING...</span>
         </div>
     </div>
@@ -98,33 +97,58 @@
 
         let timeOffset = 0;
         let refreshCounter = 60;
+        let isSynced = false;
 
-        // --- 核心：使用国内苏宁接口进行校准 ---
-        // 苏宁接口返回格式: {"sysTime2":"2023-10-27 10:00:00","sysTime1":"20231027100000"}
+        // --- 容错式校准逻辑 ---
         async function calibrateTime() {
             const syncText = document.getElementById('sync-text');
             const offsetText = document.getElementById('offset-val');
+            const sourceText = document.getElementById('server-source');
             
-            try {
-                const startTime = Date.now();
-                // 苏宁时间接口，国内访问极快
-                const response = await fetch('https://quan.suning.com/getSysTime.do');
-                const data = await response.json();
-                
-                // 将返回的字符串转为时间戳
-                const serverTime = new Date(data.sysTime2.replace(/-/g, '/')).getTime();
-                const endTime = Date.now();
-                
-                // 计算延迟和偏移
-                const latency = (endTime - startTime) / 2;
-                timeOffset = (serverTime + latency) - endTime;
+            // 备选接口列表（都是国内快速接口）
+            const apis = [
+                { url: 'https://quan.suning.com/getSysTime.do', type: 'suning' },
+                { url: 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp', type: 'taobao' }
+            ];
 
-                syncText.innerText = "MOSS // DOMESTIC SERVER SYNCED";
-                offsetText.innerText = `OFFSET: ${Math.round(timeOffset)}ms | LATENCY: ${Math.round(latency)}ms`;
-            } catch (e) {
-                syncText.innerText = "MOSS // SYNC FAILED - USING LOCAL";
-                offsetText.innerText = "OFFSET: 0ms (OFFLINE)";
+            for (let api of apis) {
+                try {
+                    const startTime = Date.now();
+                    // 设置 3 秒超时，防止卡死
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                    const response = await fetch(api.url, { signal: controller.signal });
+                    const data = await response.json();
+                    clearTimeout(timeoutId);
+
+                    let serverTime;
+                    if (api.type === 'suning') {
+                        serverTime = new Date(data.sysTime2.replace(/-/g, '/')).getTime();
+                    } else if (api.type === 'taobao') {
+                        serverTime = parseInt(data.data.t);
+                    }
+
+                    const endTime = Date.now();
+                    const latency = (endTime - startTime) / 2;
+                    timeOffset = (serverTime + latency) - endTime;
+
+                    isSynced = true;
+                    syncText.innerText = "MOSS // DOMESTIC SERVER SYNCED";
+                    sourceText.innerText = `SOURCE: ${api.type.toUpperCase()}_NODE`;
+                    offsetText.innerText = `OFFSET: ${Math.round(timeOffset)}ms | LATENCY: ${Math.round(latency)}ms`;
+                    return; // 成功后跳出函数
+                } catch (e) {
+                    console.warn(`Sync failed with ${api.type}, trying next...`);
+                }
             }
+
+            // 如果运行到这里，说明所有 API 都失败了
+            isSynced = false;
+            syncText.innerText = "MOSS // SYNC FAILED - RETRYING IN 5S...";
+            sourceText.innerText = "SOURCE: OFFLINE_RETRY_MODE";
+            // 5秒后再次尝试，而不刷新界面
+            setTimeout(calibrateTime, 5000);
         }
 
         const refreshToggle = document.getElementById('auto-refresh-toggle');
@@ -137,6 +161,7 @@
         }
 
         function update() {
+            // 即便没同步成功，也先用本地时间跑着，避免界面空白
             const now = new Date(Date.now() + timeOffset);
             const nowInSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
@@ -156,7 +181,6 @@
                 document.getElementById("minutes").innerText = pad(Math.floor((diff % 3600) / 60));
                 document.getElementById("seconds").innerText = pad(diff % 60);
 
-                // 更新后续
                 let html = '';
                 for(let i=1; i<=2; i++) {
                     const next = TASK_LIBRARY[idx + i];
@@ -168,7 +192,6 @@
                 document.getElementById('upcoming-container').innerHTML = '';
             }
 
-            // 刷新逻辑
             if (refreshToggle.checked) {
                 refreshCounter--;
                 document.getElementById('refresh-timer-display').innerText = refreshCounter + "s";
@@ -178,10 +201,9 @@
             }
         }
 
-        calibrateTime().then(() => {
-            setInterval(update, 1000);
-            update();
-        });
+        // 启动
+        calibrateTime();
+        setInterval(update, 1000);
     </script>
 </body>
 </html>
