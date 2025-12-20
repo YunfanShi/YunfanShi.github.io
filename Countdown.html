@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control Terminal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --panel-color: #111111;
+            --header-color: #1a1a1a;
+            --neon-red: #ff2a2a;
+            --neon-dim-red: rgba(255, 42, 42, 0.2);
+            --text-white: #ffffff;
+            --text-dim: #aaaaaa;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-white);
+            font-family: 'Chakra Petch', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-image: linear-gradient(rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.2) 50%);
+            background-size: 100% 4px;
+        }
+
+        .terminal-container {
+            background-color: var(--panel-color);
+            width: 90%;
+            max-width: 800px;
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* 顶部倒计时面板 */
+        .countdown-panel {
+            background-color: var(--panel-color);
+            border-bottom: 3px solid #333;
+        }
+
+        .countdown-header {
+            background-color: var(--header-color);
+            padding: 15px;
+            text-align: left;
+            text-transform: uppercase;
+            border-bottom: 2px solid #2a2a2a;
+        }
+
+        .header-sub { font-size: 1.1rem; font-weight: 600; letter-spacing: 1px; color: #ccc; }
+        .header-main { font-size: 2.5rem; font-weight: 700; letter-spacing: 2px; line-height: 1; color: var(--text-white); }
+
+        .timer-display-container { padding: 30px 20px; text-align: center; }
+
+        .timer-numbers {
+            font-size: 6rem;
+            font-weight: 700;
+            color: var(--neon-red);
+            text-shadow: 0 0 15px var(--neon-red), 0 0 30px var(--neon-dim-red);
+            letter-spacing: 5px;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer-colon { color: var(--neon-red); animation: blink 1s infinite; }
+        .timer-labels { display: flex; justify-content: center; gap: 40px; margin-top: 10px; text-transform: uppercase; color: var(--text-dim); font-size: 0.9rem; }
+
+        /* 任务面板 */
+        .task-panel { padding: 30px; }
+        .task-section { margin-bottom: 30px; }
+        .task-label { font-size: 0.9rem; color: var(--neon-red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; display: block; }
+
+        .current-task-box {
+            font-size: 2rem;
+            font-weight: 600;
+            background-color: var(--neon-dim-red);
+            padding: 20px;
+            border-left: 5px solid var(--neon-red);
+            min-height: 2.5rem;
+        }
+
+        /* 无数据状态样式 */
+        .no-data { color: var(--text-dim); font-style: italic; letter-spacing: 4px; }
+
+        .upcoming-tasks-container { display: flex; flex-direction: column; gap: 15px; border-top: 1px solid #333; padding-top: 25px; }
+        .upcoming-task-item { display: flex; align-items: center; background-color: rgba(255, 255, 255, 0.05); padding: 12px; }
+        .upcoming-marker { color: var(--text-dim); margin-right: 15px; font-weight: bold; }
+        .upcoming-name { font-size: 1.2rem; color: var(--text-dim); }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+    <div class="terminal-container">
+        <div class="countdown-panel">
+            <div class="countdown-header">
+                <div class="header-sub">SYSTEM MONITOR</div>
+                <div id="status-title" class="header-main">COUNTDOWN PROTOCOL</div>
+            </div>
+            <div class="timer-display-container">
+                <div class="timer-numbers" id="timer-box">
+                    <span id="hours">00</span><span class="timer-colon">:</span><span id="minutes">00</span><span class="timer-colon">:</span><span id="seconds">00</span>
+                </div>
+                <div class="timer-labels">
+                    <span style="width:120px">hour</span><span style="width:120px">minute</span><span style="width:120px">second</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="task-panel">
+            <div class="task-section">
+                <span class="task-label">// CURRENT DIRECTIVE</span>
+                <div id="display-current-task" class="current-task-box">SEARCHING FOR ACTIVE DATA...</div>
+            </div>
+
+            <div class="task-section">
+                <span class="task-label">// PENDING SEQUENCES</span>
+                <div class="upcoming-tasks-container" id="upcoming-container">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================================
+           TASK LIBRARY CONFIGURATION (最多10个任务)
+           格式说明: 
+           - start: "HH:MM:SS" (任务开始时间)
+           - end:   "HH:MM:SS" (任务结束时间)
+           - name:  "任务名称"
+           ============================================================ */
+        const TASK_LIBRARY = [
+            { start: "12:20:00", end: "13:00:00", name: "Physics" },
+            { start: "14:30:00", end: "15:00:00", name: "Computer Science" },
+            { start: "15:00:00", end: "16:00:00", name: "Biology" },
+            { start: "16:00:00", end: "17:00:00", name: "Chemistry" },
+            { start: "17:00:00", end: "17:30:00", name: "Histry" },
+            { start: "17:30:00", end: "19:00:00", name: "Math" },
+            { start: "19:00:00", end: "21:00:00", name: "IELTS Lessions" }
+        ];
+
+        const REFRESH_INTERVAL = 60; // 自动刷新频率 (秒)
+
+        /* ============================================================
+           CORE LOGIC (MOSS ENGINE)
+           ============================================================ */
+
+        function getTimeInSeconds(timeStr) {
+            const [h, m, s] = timeStr.split(':').map(Number);
+            return h * 3600 + m * 60 + s;
+        }
+
+        function updateTerminal() {
+            const now = new Date();
+            const nowInSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+            // 1. 寻找当前任务
+            let currentIndex = -1;
+            for (let i = 0; i < TASK_LIBRARY.length; i++) {
+                const start = getTimeInSeconds(TASK_LIBRARY[i].start);
+                const end = getTimeInSeconds(TASK_LIBRARY[i].end);
+                if (nowInSec >= start && nowInSec < end) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            // 2. 更新 UI
+            if (currentIndex !== -1) {
+                // 有任务在执行
+                const currentTask = TASK_LIBRARY[currentIndex];
+                document.getElementById('display-current-task').innerText = currentTask.name;
+                document.getElementById('display-current-task').classList.remove('no-data');
+                document.getElementById('status-title').innerText = "COUNTDOWN PROTOCOL";
+                document.getElementById('timer-box').style.opacity = "1";
+
+                // 计算倒计时 (距离结束时间)
+                const endInSec = getTimeInSeconds(currentTask.end);
+                let diff = endInSec - nowInSec;
+                
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
+                const s = diff % 60;
+
+                const pad = (n) => n < 10 ? '0' + n : n;
+                document.getElementById("hours").innerText = pad(h);
+                document.getElementById("minutes").innerText = pad(m);
+                document.getElementById("seconds").innerText = pad(s);
+
+                // 更新后续任务 (显示接下来的两个)
+                updateUpcoming(currentIndex);
+            } else {
+                // 无活动任务
+                document.getElementById('display-current-task').innerHTML = '<span class="no-data">[ NO ACTIVE DIRECTIVE ]</span>';
+                document.getElementById("hours").innerText = "00";
+                document.getElementById("minutes").innerText = "00";
+                document.getElementById("seconds").innerText = "00";
+                document.getElementById('status-title').innerText = "SYSTEM IDLE";
+                document.getElementById('timer-box').style.opacity = "0.3";
+                document.getElementById('upcoming-container').innerHTML = '<div class="upcoming-task-item"><span class="upcoming-name">WAITING FOR NEXT SCHEDULE...</span></div>';
+            }
+        }
+
+        function updateUpcoming(currentIndex) {
+            const container = document.getElementById('upcoming-container');
+            let html = '';
+            
+            // 获取接下来两个任务
+            for (let i = 1; i <= 2; i++) {
+                const task = TASK_LIBRARY[currentIndex + i];
+                if (task) {
+                    const marker = i === 1 ? "[NEXT] >>" : `[SEQ. 0${i+currentIndex+1}] >`;
+                    html += `
+                        <div class="upcoming-task-item">
+                            <span class="upcoming-marker">${marker}</span>
+                            <span class="upcoming-name">${task.name}</span>
+                        </div>
+                    `;
+                }
+            }
+            container.innerHTML = html || '<div class="upcoming-task-item"><span class="upcoming-name">NO FURTHER SEQUENCES</span></div>';
+        }
+
+        // 循环执行
+        setInterval(updateTerminal, 1000);
+        updateTerminal();
+
+        // 自动刷新
+        setTimeout(() => window.location.reload(), REFRESH_INTERVAL * 1000);
+
+    </script>
+</body>
+</html>
