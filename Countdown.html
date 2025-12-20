@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mission Control Terminal</title>
+    <title>UEG Mission Control Terminal</title>
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -35,6 +35,7 @@
             max-width: 800px;
             border: 2px solid #333;
             box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            position: relative;
         }
 
         /* 顶部倒计时面板 */
@@ -49,10 +50,55 @@
             text-align: left;
             text-transform: uppercase;
             border-bottom: 2px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .header-sub { font-size: 1.1rem; font-weight: 600; letter-spacing: 1px; color: #ccc; }
         .header-main { font-size: 2.5rem; font-weight: 700; letter-spacing: 2px; line-height: 1; color: var(--text-white); }
+
+        /* 新增：自动刷新切换开关样式 */
+        .refresh-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            border: 1px solid #333;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 18px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border: 1px solid var(--text-dim);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 10px; width: 10px;
+            left: 3px; bottom: 3px;
+            background-color: var(--text-dim);
+            transition: .4s;
+        }
+
+        input:checked + .slider { background-color: var(--neon-dim-red); border-color: var(--neon-red); }
+        input:checked + .slider:before { transform: translateX(16px); background-color: var(--neon-red); box-shadow: 0 0 5px var(--neon-red); }
 
         .timer-display-container { padding: 30px 20px; text-align: center; }
 
@@ -69,7 +115,6 @@
         .timer-colon { color: var(--neon-red); animation: blink 1s infinite; }
         .timer-labels { display: flex; justify-content: center; gap: 40px; margin-top: 10px; text-transform: uppercase; color: var(--text-dim); font-size: 0.9rem; }
 
-        /* 任务面板 */
         .task-panel { padding: 30px; }
         .task-section { margin-bottom: 30px; }
         .task-label { font-size: 0.9rem; color: var(--neon-red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; display: block; }
@@ -83,9 +128,7 @@
             min-height: 2.5rem;
         }
 
-        /* 无数据状态样式 */
         .no-data { color: var(--text-dim); font-style: italic; letter-spacing: 4px; }
-
         .upcoming-tasks-container { display: flex; flex-direction: column; gap: 15px; border-top: 1px solid #333; padding-top: 25px; }
         .upcoming-task-item { display: flex; align-items: center; background-color: rgba(255, 255, 255, 0.05); padding: 12px; }
         .upcoming-marker { color: var(--text-dim); margin-right: 15px; font-weight: bold; }
@@ -99,8 +142,18 @@
     <div class="terminal-container">
         <div class="countdown-panel">
             <div class="countdown-header">
-                <div class="header-sub">SYSTEM MONITOR</div>
-                <div id="status-title" class="header-main">COUNTDOWN PROTOCOL</div>
+                <div>
+                    <div class="header-sub">MOSS // SYSTEM MONITOR</div>
+                    <div id="status-title" class="header-main">COUNTDOWN PROTOCOL</div>
+                </div>
+                <div class="refresh-control">
+                    <span>AUTO REFRESH</span>
+                    <label class="switch">
+                        <input type="checkbox" id="auto-refresh-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span id="refresh-timer-display" style="width: 25px; text-align: right; color: var(--neon-red);">60s</span>
+                </div>
             </div>
             <div class="timer-display-container">
                 <div class="timer-numbers" id="timer-box">
@@ -120,35 +173,35 @@
 
             <div class="task-section">
                 <span class="task-label">// PENDING SEQUENCES</span>
-                <div class="upcoming-tasks-container" id="upcoming-container">
-                    </div>
+                <div class="upcoming-tasks-container" id="upcoming-container"></div>
             </div>
         </div>
     </div>
 
     <script>
-        /* ============================================================
-           TASK LIBRARY CONFIGURATION (最多10个任务)
-           格式说明: 
-           - start: "HH:MM:SS" (任务开始时间)
-           - end:   "HH:MM:SS" (任务结束时间)
-           - name:  "任务名称"
-           ============================================================ */
         const TASK_LIBRARY = [
             { start: "12:20:00", end: "13:00:00", name: "Physics" },
             { start: "14:30:00", end: "15:00:00", name: "Computer Science" },
             { start: "15:00:00", end: "16:00:00", name: "Biology" },
             { start: "16:00:00", end: "17:00:00", name: "Chemistry" },
-            { start: "17:00:00", end: "17:30:00", name: "Histry" },
+            { start: "17:00:00", end: "17:30:00", name: "History" },
             { start: "17:30:00", end: "19:00:00", name: "Math" },
-            { start: "19:00:00", end: "21:00:00", name: "IELTS Lessions" }
+            { start: "19:00:00", end: "21:00:00", name: "IELTS Lessons" }
         ];
 
-        const REFRESH_INTERVAL = 60; // 自动刷新频率 (秒)
+        const REFRESH_LIMIT = 60; 
+        let currentRefreshCounter = REFRESH_LIMIT;
 
-        /* ============================================================
-           CORE LOGIC (MOSS ENGINE)
-           ============================================================ */
+        // --- 逻辑：初始化自动刷新设置 ---
+        const refreshToggle = document.getElementById('auto-refresh-toggle');
+        // 从本地存储读取用户偏好，默认为开启 (true)
+        const isAutoRefreshEnabled = localStorage.getItem('autoRefresh') !== 'false';
+        refreshToggle.checked = isAutoRefreshEnabled;
+
+        refreshToggle.addEventListener('change', (e) => {
+            localStorage.setItem('autoRefresh', e.target.checked);
+            if(e.target.checked) currentRefreshCounter = REFRESH_LIMIT; // 开启时重置计数
+        });
 
         function getTimeInSeconds(timeStr) {
             const [h, m, s] = timeStr.split(':').map(Number);
@@ -172,14 +225,12 @@
 
             // 2. 更新 UI
             if (currentIndex !== -1) {
-                // 有任务在执行
                 const currentTask = TASK_LIBRARY[currentIndex];
                 document.getElementById('display-current-task').innerText = currentTask.name;
                 document.getElementById('display-current-task').classList.remove('no-data');
                 document.getElementById('status-title').innerText = "COUNTDOWN PROTOCOL";
                 document.getElementById('timer-box').style.opacity = "1";
 
-                // 计算倒计时 (距离结束时间)
                 const endInSec = getTimeInSeconds(currentTask.end);
                 let diff = endInSec - nowInSec;
                 
@@ -192,10 +243,8 @@
                 document.getElementById("minutes").innerText = pad(m);
                 document.getElementById("seconds").innerText = pad(s);
 
-                // 更新后续任务 (显示接下来的两个)
                 updateUpcoming(currentIndex);
             } else {
-                // 无活动任务
                 document.getElementById('display-current-task').innerHTML = '<span class="no-data">[ NO ACTIVE DIRECTIVE ]</span>';
                 document.getElementById("hours").innerText = "00";
                 document.getElementById("minutes").innerText = "00";
@@ -204,35 +253,37 @@
                 document.getElementById('timer-box').style.opacity = "0.3";
                 document.getElementById('upcoming-container').innerHTML = '<div class="upcoming-task-item"><span class="upcoming-name">WAITING FOR NEXT SCHEDULE...</span></div>';
             }
+
+            // --- 逻辑：处理自动刷新倒计时 ---
+            if (refreshToggle.checked) {
+                currentRefreshCounter--;
+                document.getElementById('refresh-timer-display').innerText = currentRefreshCounter + "s";
+                if (currentRefreshCounter <= 0) {
+                    window.location.reload();
+                }
+            } else {
+                document.getElementById('refresh-timer-display').innerText = "--";
+            }
         }
 
         function updateUpcoming(currentIndex) {
             const container = document.getElementById('upcoming-container');
             let html = '';
-            
-            // 获取接下来两个任务
             for (let i = 1; i <= 2; i++) {
                 const task = TASK_LIBRARY[currentIndex + i];
                 if (task) {
                     const marker = i === 1 ? "[NEXT] >>" : `[SEQ. 0${i+currentIndex+1}] >`;
-                    html += `
-                        <div class="upcoming-task-item">
-                            <span class="upcoming-marker">${marker}</span>
-                            <span class="upcoming-name">${task.name}</span>
-                        </div>
-                    `;
+                    html += `<div class="upcoming-task-item">
+                                <span class="upcoming-marker">${marker}</span>
+                                <span class="upcoming-name">${task.name}</span>
+                            </div>`;
                 }
             }
             container.innerHTML = html || '<div class="upcoming-task-item"><span class="upcoming-name">NO FURTHER SEQUENCES</span></div>';
         }
 
-        // 循环执行
         setInterval(updateTerminal, 1000);
         updateTerminal();
-
-        // 自动刷新
-        setTimeout(() => window.location.reload(), REFRESH_INTERVAL * 1000);
-
     </script>
 </body>
 </html>
