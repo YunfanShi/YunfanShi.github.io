@@ -1,209 +1,871 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UEG Terminal - Robust Sync</title>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Jack's Exam Countdown</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
     <style>
         :root {
-            --bg-color: #050505; --panel-color: #111111; --header-color: #1a1a1a;
-            --neon-red: #ff2a2a; --neon-dim-red: rgba(255, 42, 42, 0.2);
-            --text-white: #ffffff; --text-dim: #aaaaaa;
+            /* Google Brand Colors */
+            --g-blue: #1a73e8;
+            --g-red: #ea4335;
+            --g-yellow: #fbbc04;
+            --g-green: #34a853;
+            --g-gray: #f1f3f4;
+            
+            /* Dynamic Theme Variables */
+            --theme-color: #1a73e8; 
+            --bg-color: #ffffff;
+            --text-main: #202124;
+            --text-sub: #5f6368;
         }
+
         body {
-            background-color: var(--bg-color); color: var(--text-white); font-family: 'Chakra Petch', sans-serif;
-            display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0;
-            background-image: linear-gradient(rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.2) 50%); background-size: 100% 4px;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--g-gray);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            transition: background-color 0.5s ease;
+            user-select: none;
         }
-        .terminal-container { background-color: var(--panel-color); width: 90%; max-width: 800px; border: 2px solid #333; position: relative; }
-        .countdown-header {
-            background-color: var(--header-color); padding: 15px; border-bottom: 2px solid #2a2a2a;
-            display: flex; justify-content: space-between; align-items: center;
+
+        /* Top Color Bar */
+        .google-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                var(--g-blue) 0% 25%, 
+                var(--g-red) 25% 50%, 
+                var(--g-yellow) 50% 75%, 
+                var(--g-green) 75% 100%);
+            z-index: 100;
         }
-        .header-main { font-size: 2.5rem; font-weight: 700; letter-spacing: 2px; }
-        
-        .refresh-control { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-dim); border: 1px solid #333; padding: 5px 10px; }
-        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border: 1px solid var(--text-dim); }
-        .slider:before { position: absolute; content: ""; height: 10px; width: 10px; left: 3px; bottom: 3px; background-color: var(--text-dim); transition: .4s; }
-        input:checked + .slider { background-color: var(--neon-dim-red); border-color: var(--neon-red); }
-        input:checked + .slider:before { transform: translateX(16px); background-color: var(--neon-red); }
 
-        .timer-display-container { padding: 30px 20px; text-align: center; }
-        .timer-numbers { font-size: 6rem; font-weight: 700; color: var(--neon-red); text-shadow: 0 0 15px var(--neon-red); letter-spacing: 5px; font-variant-numeric: tabular-nums; }
-        .timer-colon { color: var(--neon-red); animation: blink 1s infinite; }
+        /* Navigation Container */
+        .nav-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 90%;
+            max-width: 1000px;
+        }
 
-        .task-panel { padding: 30px; }
-        .current-task-box { font-size: 2rem; font-weight: 600; background-color: var(--neon-dim-red); padding: 20px; border-left: 5px solid var(--neon-red); }
-        .upcoming-tasks-container { display: flex; flex-direction: column; gap: 15px; border-top: 1px solid #333; margin-top: 25px; padding-top: 20px; }
-        .upcoming-task-item { display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 10px; color: var(--text-dim); }
+        /* Scrollable Tabs */
+        .tabs-wrapper {
+            background: #e0e0e0;
+            padding: 5px;
+            border-radius: 50px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            max-width: 800px;
+            scrollbar-width: none;
+        }
+        .tabs-wrapper::-webkit-scrollbar { display: none; }
 
-        .sync-info { position: absolute; bottom: -25px; left: 0; font-size: 0.7rem; color: #444; width: 100%; display: flex; justify-content: space-between; }
+        .tabs {
+            display: flex;
+            gap: 5px;
+            white-space: nowrap;
+        }
 
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            color: #757575;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        /* Styles for Custom Sort Mode (Draggable) */
+        .tab-btn.draggable {
+            cursor: grab;
+        }
+        .tab-btn.draggable:active {
+            cursor: grabbing;
+        }
+
+        /* Styles for Auto Sort Mode (Locked) */
+        .tab-btn.locked {
+            cursor: pointer;
+        }
+
+        .tab-btn:hover {
+            background-color: rgba(255,255,255,0.5);
+            color: #444;
+        }
+
+        .tab-btn.active {
+            background-color: #fff;
+            color: var(--theme-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: default;
+        }
+
+        /* Drag & Drop Visuals */
+        .tab-btn.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+        .tab-btn.drag-over {
+            border: 2px dashed var(--theme-color);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Settings Button */
+        .settings-btn {
+            background: #fff;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            color: #5f6368;
+        }
+        .settings-btn:hover {
+            transform: rotate(90deg);
+            color: var(--g-blue);
+        }
+
+        /* Main Card */
+        .card {
+            background: #fff;
+            width: 90%;
+            max-width: 900px;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background-color: var(--theme-color);
+            transition: background-color 0.3s;
+        }
+
+        .label-text {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-bottom: 10px;
+        }
+
+        .title-text {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 28px;
+            font-weight: 900;
+            margin: 0 0 30px 0;
+            color: var(--text-main);
+            padding: 0 10px;
+        }
+
+        /* Countdown Grid */
+        .countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .countdown-row-2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            border-top: 2px solid #f1f1f1;
+            padding-top: 30px;
+        }
+
+        .unit-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .number {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 64px;
+            font-weight: 900;
+            line-height: 1;
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -2px;
+        }
+
+        .highlight-num {
+            color: var(--theme-color);
+        }
+
+        .unit-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-sub);
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        /* Info Bar */
+        .info-bar {
+            margin-top: 30px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px 20px;
+            text-align: left;
+            font-family: 'Roboto', monospace;
+            font-size: 13px;
+            color: var(--text-sub);
+            border-left: 5px solid var(--theme-color);
+            transition: border-color 0.3s;
+        }
+
+        .info-item {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .info-bold {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: #fff;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            color: #202124;
+        }
+
+        .close-btn {
+            background: none; border: none; font-size: 24px; cursor: pointer; color: #5f6368;
+        }
+
+        /* Sorting Options Area */
+        .sort-options {
+            background: #f1f3f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sort-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #5f6368;
+            text-transform: uppercase;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .event-list {
+            overflow-y: auto;
+            flex: 1;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #f1f3f4;
+            font-size: 14px;
+        }
+        .event-item:last-child { border-bottom: none; }
+
+        .delete-btn {
+            color: #ea4335;
+            background: rgba(234, 67, 53, 0.1);
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .add-form {
+            display: grid;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .form-input {
+            padding: 10px;
+            border: 1px solid #dadce0;
+            border-radius: 6px;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .add-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .add-btn:hover { background-color: #1557b0; }
+
+        .reset-btn {
+            background-color: transparent;
+            color: #5f6368;
+            border: 1px solid #dadce0;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .number { font-size: 36px; }
+            .card { padding: 25px; width: 92%; }
+            .countdown-grid, .countdown-row-2 { gap: 10px; }
+            .tabs-wrapper { max-width: 85vw; }
+            .title-text { font-size: 22px; }
+            .radio-group { flex-direction: column; gap: 10px; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="terminal-container">
-        <div class="countdown-panel">
-            <div class="countdown-header">
-                <div>
-                    <div id="sync-text" style="font-size: 0.8rem; color: #888;">MOSS // INITIALIZING SYSTEM...</div>
-                    <div id="status-title" class="header-main">COUNTDOWN</div>
+    <div class="google-bar"></div>
+
+    <div class="nav-container">
+        <div class="tabs-wrapper">
+            <div class="tabs" id="tabs-container">
                 </div>
-                <div class="refresh-control">
-                    <span>AUTO REFRESH</span>
-                    <label class="switch">
-                        <input type="checkbox" id="auto-refresh-toggle">
-                        <span class="slider"></span>
+        </div>
+        <button class="settings-btn" onclick="openModal()" title="Settings">⚙️</button>
+    </div>
+
+    <div class="card">
+        <div class="label-text" id="target-date-display">TARGET DATE</div>
+        <div class="title-text" id="main-title">EVENT TITLE</div>
+
+        <div class="countdown-grid">
+            <div class="unit-box">
+                <span class="number" id="val-mo">0</span>
+                <span class="unit-label">Months</span>
+            </div>
+            <div class="unit-box">
+                <span class="number" id="val-wk">0</span>
+                <span class="unit-label">Weeks</span>
+            </div>
+            <div class="unit-box">
+                <span class="number" id="val-day">0</span>
+                <span class="unit-label">Days</span>
+            </div>
+        </div>
+
+        <div class="countdown-row-2">
+            <div class="unit-box">
+                <span class="number" id="val-hr">00</span>
+                <span class="unit-label">Hours</span>
+            </div>
+            <div class="unit-box">
+                <span class="number" id="val-min">00</span>
+                <span class="unit-label">Minutes</span>
+            </div>
+            <div class="unit-box">
+                <span class="number highlight-num" id="val-sec">00</span>
+                <span class="unit-label">Seconds</span>
+            </div>
+        </div>
+
+        <div class="info-bar">
+            <div class="info-item">
+                <span>Today:</span>
+                <span class="info-bold" id="info-today">...</span>
+            </div>
+            <div class="info-item">
+                <span>Week:</span>
+                <span class="info-bold" id="info-week">...</span>
+            </div>
+            <div class="info-item">
+                <span>Subject:</span>
+                <span class="info-bold" id="info-subject">...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Countdown Settings</div>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+
+            <div class="sort-options">
+                <div class="sort-label">Sorting Mode</div>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio" name="sortMode" value="date" onchange="changeSortMode('date')">
+                        Auto (By Time)
                     </label>
-                    <span id="refresh-timer-display" style="color: var(--neon-red); width: 25px; text-align: right;">60s</span>
+                    <label class="radio-option">
+                        <input type="radio" name="sortMode" value="custom" onchange="changeSortMode('custom')">
+                        Custom (Drag & Drop)
+                    </label>
                 </div>
             </div>
-            <div class="timer-display-container">
-                <div class="timer-numbers">
-                    <span id="hours">00</span><span class="timer-colon">:</span><span id="minutes">00</span><span class="timer-colon">:</span><span id="seconds">00</span>
+            
+            <div class="event-list" id="event-list-container">
                 </div>
-            </div>
-        </div>
 
-        <div class="task-panel">
-            <div style="margin-bottom: 20px;">
-                <span style="color: var(--neon-red); font-size: 0.8rem;">// CURRENT DIRECTIVE</span>
-                <div id="display-current-task" class="current-task-box">---</div>
+            <div class="add-form">
+                <input type="text" id="new-title" class="form-input" placeholder="Event Name (e.g. My Birthday)">
+                <input type="datetime-local" id="new-date" class="form-input">
+                <select id="new-color" class="form-input">
+                    <option value="#1a73e8">Google Blue (Academic/Work)</option>
+                    <option value="#ea4335">Google Red (Important/Festival)</option>
+                    <option value="#fbbc04">Google Yellow (Alert/Exam)</option>
+                    <option value="#34a853">Google Green (Life/Nature)</option>
+                </select>
+                <button class="add-btn" onclick="addNewEvent()">Add Event</button>
             </div>
-            <div id="upcoming-container" class="upcoming-tasks-container"></div>
-        </div>
-
-        <div class="sync-info">
-            <span id="server-source">SOURCE: SEARCHING...</span>
-            <span id="offset-val">CALIBRATING...</span>
+            <button class="reset-btn" onclick="resetToDefaults()">Reset to Default IGCSE Exams</button>
         </div>
     </div>
 
     <script>
-        const TASK_LIBRARY = [
-            { start: "08:00:00", end: "13:30:00", name: "Physics" },
-            { start: "14:30:00", end: "15:00:00", name: "Computer Science" },
-            { start: "15:00:00", end: "16:00:00", name: "Biology" },
-            { start: "16:00:00", end: "17:00:00", name: "Chemistry" },
-            { start: "17:00:00", end: "17:30:00", name: "History" },
-            { start: "17:30:00", end: "19:00:00", name: "Math" },
-            { start: "19:00:00", end: "21:00:00", name: "IELTS Lessons" }
+        // --- Configuration & Data ---
+        
+        const DEFAULT_CONFIG = [
+            { id: 'cny', title: '春节 (CNY)', date: '2026-02-17T00:00:00', color: '#ea4335' },
+            { id: 'chem_p42', title: 'Chemistry (理论)', date: '2026-04-28T13:00:00', color: '#fbbc04' },
+            { id: 'math_p23', title: 'Math (Paper 23)', date: '2026-04-29T09:00:00', color: '#1a73e8' },
+            { id: 'bio_p42', title: 'Biology (理论)', date: '2026-04-30T13:00:00', color: '#34a853' },
+            { id: 'math_p43', title: 'Math (Paper 43)', date: '2026-05-06T09:00:00', color: '#1a73e8' },
+            { id: 'chem_p62', title: 'Chemistry (实验)', date: '2026-05-07T13:00:00', color: '#fbbc04' },
+            { id: 'phy_p42', title: 'Physics (理论)', date: '2026-05-08T13:00:00', color: '#ea4335' },
+            { id: 'bio_p62', title: 'Biology (实验)', date: '2026-05-12T13:00:00', color: '#34a853' },
+            { id: 'phy_p62', title: 'Physics (实验)', date: '2026-05-19T13:00:00', color: '#ea4335' }
         ];
 
-        let timeOffset = 0;
-        let refreshCounter = 60;
-        let isSynced = false;
+        let events = [];
+        let currentId = '';
+        let sortMode = 'date'; // 'date' or 'custom'
+        let dragSrcEl = null;
 
-        // --- 容错式校准逻辑 ---
-        async function calibrateTime() {
-            const syncText = document.getElementById('sync-text');
-            const offsetText = document.getElementById('offset-val');
-            const sourceText = document.getElementById('server-source');
-            
-            // 备选接口列表（都是国内快速接口）
-            const apis = [
-                { url: 'https://quan.suning.com/getSysTime.do', type: 'suning' },
-                { url: 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp', type: 'taobao' }
-            ];
-
-            for (let api of apis) {
-                try {
-                    const startTime = Date.now();
-                    // 设置 3 秒超时，防止卡死
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-                    const response = await fetch(api.url, { signal: controller.signal });
-                    const data = await response.json();
-                    clearTimeout(timeoutId);
-
-                    let serverTime;
-                    if (api.type === 'suning') {
-                        serverTime = new Date(data.sysTime2.replace(/-/g, '/')).getTime();
-                    } else if (api.type === 'taobao') {
-                        serverTime = parseInt(data.data.t);
-                    }
-
-                    const endTime = Date.now();
-                    const latency = (endTime - startTime) / 2;
-                    timeOffset = (serverTime + latency) - endTime;
-
-                    isSynced = true;
-                    syncText.innerText = "MOSS // DOMESTIC SERVER SYNCED";
-                    sourceText.innerText = `SOURCE: ${api.type.toUpperCase()}_NODE`;
-                    offsetText.innerText = `OFFSET: ${Math.round(timeOffset)}ms | LATENCY: ${Math.round(latency)}ms`;
-                    return; // 成功后跳出函数
-                } catch (e) {
-                    console.warn(`Sync failed with ${api.type}, trying next...`);
-                }
+        // --- Persistence (LocalStorage) ---
+        function loadEvents() {
+            // Load Events
+            const storedEvents = localStorage.getItem('jack_countdown_events');
+            if (storedEvents) {
+                events = JSON.parse(storedEvents);
+            } else {
+                events = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                // Default first run: sort by date
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+                saveEvents();
             }
 
-            // 如果运行到这里，说明所有 API 都失败了
-            isSynced = false;
-            syncText.innerText = "MOSS // SYNC FAILED - RETRYING IN 5S...";
-            sourceText.innerText = "SOURCE: OFFLINE_RETRY_MODE";
-            // 5秒后再次尝试，而不刷新界面
-            setTimeout(calibrateTime, 5000);
+            // Load Sort Mode
+            const storedMode = localStorage.getItem('jack_countdown_sort_mode');
+            if (storedMode) sortMode = storedMode;
+            
+            // If in auto mode, ensure it's sorted
+            if (sortMode === 'date') {
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
         }
 
-        const refreshToggle = document.getElementById('auto-refresh-toggle');
-        refreshToggle.checked = localStorage.getItem('autoRefresh') !== 'false';
-        refreshToggle.addEventListener('change', (e) => localStorage.setItem('autoRefresh', e.target.checked));
-
-        function getTimeInSeconds(timeStr) {
-            const [h, m, s] = timeStr.split(':').map(Number);
-            return h * 3600 + m * 60 + s;
+        function saveEvents() {
+            localStorage.setItem('jack_countdown_events', JSON.stringify(events));
+            localStorage.setItem('jack_countdown_sort_mode', sortMode);
+            renderTabs();
+            renderEventList();
         }
 
-        function update() {
-            // 即便没同步成功，也先用本地时间跑着，避免界面空白
-            const now = new Date(Date.now() + timeOffset);
-            const nowInSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+        function resetToDefaults() {
+            if(confirm("Restore default IGCSE exam schedule? This will delete custom events.")) {
+                events = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                changeSortMode('date'); // Reset to date sort
+                switchTheme(events[0].id);
+            }
+        }
 
-            let idx = TASK_LIBRARY.findIndex(t => {
-                const s = getTimeInSeconds(t.start);
-                const e = getTimeInSeconds(t.end);
-                return nowInSec >= s && nowInSec < e;
+        // --- Sorting Mode Logic ---
+        function changeSortMode(mode) {
+            sortMode = mode;
+            if (mode === 'date') {
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+            saveEvents();
+            updateRadioUI();
+        }
+
+        function updateRadioUI() {
+            const radios = document.getElementsByName('sortMode');
+            radios.forEach(r => {
+                if (r.value === sortMode) r.checked = true;
+            });
+        }
+
+        // --- UI Rendering ---
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = '';
+            
+            events.forEach((evt, index) => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${evt.id === currentId ? 'active' : ''}`;
+                btn.innerText = evt.title;
+                btn.onclick = () => switchTheme(evt.id);
+                
+                // Logic based on Sort Mode
+                if (sortMode === 'custom') {
+                    btn.classList.add('draggable');
+                    btn.setAttribute('draggable', true);
+                    btn.dataset.index = index; 
+                    
+                    // Drag Listeners
+                    btn.addEventListener('dragstart', handleDragStart);
+                    btn.addEventListener('dragover', handleDragOver);
+                    btn.addEventListener('dragenter', handleDragEnter);
+                    btn.addEventListener('dragleave', handleDragLeave);
+                    btn.addEventListener('drop', handleDrop);
+                    btn.addEventListener('dragend', handleDragEnd);
+                } else {
+                    btn.classList.add('locked');
+                    btn.setAttribute('draggable', false);
+                }
+
+                container.appendChild(btn);
             });
 
-            if (idx !== -1) {
-                const t = TASK_LIBRARY[idx];
-                document.getElementById('display-current-task').innerText = t.name;
-                let diff = getTimeInSeconds(t.end) - nowInSec;
-                
-                const pad = (n) => n < 10 ? '0' + n : n;
-                document.getElementById("hours").innerText = pad(Math.floor(diff / 3600));
-                document.getElementById("minutes").innerText = pad(Math.floor((diff % 3600) / 60));
-                document.getElementById("seconds").innerText = pad(diff % 60);
-
-                let html = '';
-                for(let i=1; i<=2; i++) {
-                    const next = TASK_LIBRARY[idx + i];
-                    if(next) html += `<div class="upcoming-task-item"><span>[NEXT ${i}] >> </span><span style="margin-left:10px">${next.name}</span></div>`;
-                }
-                document.getElementById('upcoming-container').innerHTML = html;
-            } else {
-                document.getElementById('display-current-task').innerHTML = '<span style="color:#444">[ NO ACTIVE DATA ]</span>';
-                document.getElementById('upcoming-container').innerHTML = '';
-            }
-
-            if (refreshToggle.checked) {
-                refreshCounter--;
-                document.getElementById('refresh-timer-display').innerText = refreshCounter + "s";
-                if (refreshCounter <= 0) window.location.reload();
-            } else {
-                document.getElementById('refresh-timer-display').innerText = "--";
+            if (!currentId && events.length > 0) {
+                switchTheme(events[0].id);
             }
         }
 
-        // 启动
-        calibrateTime();
-        setInterval(update, 1000);
+        // --- Drag & Drop Handlers (Only active in Custom Mode) ---
+        function handleDragStart(e) {
+            if (sortMode !== 'custom') return;
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            this.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            if (sortMode !== 'custom') return false;
+
+            if (dragSrcEl !== this) {
+                const srcIndex = parseInt(dragSrcEl.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+
+                const item = events.splice(srcIndex, 1)[0];
+                events.splice(targetIndex, 0, item);
+                saveEvents();
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('drag-over'));
+        }
+
+        function switchTheme(id) {
+            const evt = events.find(e => e.id === id);
+            if (!evt) return;
+
+            currentId = id;
+            
+            document.documentElement.style.setProperty('--theme-color', evt.color);
+            document.getElementById('main-title').innerText = evt.title;
+            const d = new Date(evt.date);
+            const dateStr = d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
+            const timeStr = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('target-date-display').innerText = `${dateStr} @ ${timeStr}`;
+            document.getElementById('info-subject').innerText = evt.title;
+
+            // Update Tab Active State
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => {
+                b.classList.remove('active');
+                if (b.innerText === evt.title) b.classList.add('active');
+            });
+            
+            updateTimer();
+        }
+
+        // --- Settings Modal Logic ---
+        function openModal() {
+            updateRadioUI();
+            renderEventList();
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function renderEventList() {
+            const list = document.getElementById('event-list-container');
+            list.innerHTML = '';
+            events.forEach((evt, index) => {
+                const item = document.createElement('div');
+                item.className = 'event-item';
+                
+                const info = document.createElement('span');
+                const d = new Date(evt.date);
+                info.innerText = `${evt.title} (${d.getMonth()+1}/${d.getDate()})`;
+                info.style.color = evt.color;
+                info.style.fontWeight = 'bold';
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.innerText = 'DEL';
+                delBtn.onclick = () => deleteEvent(index);
+
+                item.appendChild(info);
+                item.appendChild(delBtn);
+                list.appendChild(item);
+            });
+        }
+
+        function addNewEvent() {
+            const title = document.getElementById('new-title').value;
+            const dateVal = document.getElementById('new-date').value;
+            const color = document.getElementById('new-color').value;
+
+            if (!title || !dateVal) {
+                alert("Please enter both a title and a date.");
+                return;
+            }
+
+            const newEvent = {
+                id: 'custom_' + Date.now(),
+                title: title,
+                date: dateVal,
+                color: color
+            };
+
+            events.push(newEvent);
+            
+            // If in auto mode, re-sort immediately
+            if (sortMode === 'date') {
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+            
+            saveEvents();
+            
+            document.getElementById('new-title').value = '';
+            document.getElementById('new-date').value = '';
+            
+            switchTheme(newEvent.id);
+            // Don't close modal so user can see list updated
+            renderEventList();
+        }
+
+        function deleteEvent(index) {
+            if (events.length <= 1) {
+                alert("You must keep at least one event.");
+                return;
+            }
+            const deletedId = events[index].id;
+            events.splice(index, 1);
+            saveEvents();
+            
+            if (deletedId === currentId) {
+                switchTheme(events[0].id);
+            }
+            renderEventList();
+        }
+
+        // --- Timer Logic ---
+        function calculateDiff(targetDateStr) {
+            const now = new Date();
+            const target = new Date(targetDateStr);
+            let diff = target - now;
+
+            if (diff <= 0) return { mo:0, wk:0, d:0, h:0, m:0, s:0 };
+
+            let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+            if (target.getDate() < now.getDate()) months--;
+
+            let tempDate = new Date(now);
+            tempDate.setMonth(now.getMonth() + months);
+            
+            let remaining = target - tempDate;
+            const oneWeek = 1000 * 60 * 60 * 24 * 7;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const oneHour = 1000 * 60 * 60;
+            const oneMin = 1000 * 60;
+            const oneSec = 1000;
+
+            let weeks = Math.floor(remaining / oneWeek);
+            remaining -= weeks * oneWeek;
+
+            let days = Math.floor(remaining / oneDay);
+            remaining -= days * oneDay;
+
+            let hours = Math.floor(remaining / oneHour);
+            remaining -= hours * oneHour;
+
+            let minutes = Math.floor(remaining / oneMin);
+            remaining -= minutes * oneMin;
+
+            let seconds = Math.floor(remaining / oneSec);
+
+            return { mo: months, wk: weeks, d: days, h: hours, m: minutes, s: seconds };
+        }
+
+        function updateTimer() {
+            if (!currentId && events.length > 0) currentId = events[0].id;
+            const evt = events.find(e => e.id === currentId);
+            if (!evt) return;
+
+            const data = calculateDiff(evt.date);
+
+            document.getElementById('val-mo').innerText = data.mo;
+            document.getElementById('val-wk').innerText = data.wk;
+            document.getElementById('val-day').innerText = data.d;
+            
+            document.getElementById('val-hr').innerText = String(data.h).padStart(2, '0');
+            document.getElementById('val-min').innerText = String(data.m).padStart(2, '0');
+            document.getElementById('val-sec').innerText = String(data.s).padStart(2, '0');
+        }
+
+        function updateInfo() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('info-today').innerText = now.toLocaleDateString('zh-CN', options);
+
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            
+            document.getElementById('info-week').innerText = `Week ${weekNo}, Day ${dayOfYear}`;
+        }
+
+        // --- Initialization ---
+        loadEvents();
+        renderTabs(); 
+        updateInfo();
+        setInterval(() => {
+            updateTimer();
+            updateInfo();
+        }, 1000);
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('settings-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
     </script>
 </body>
 </html>
