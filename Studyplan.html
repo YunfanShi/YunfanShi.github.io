@@ -483,6 +483,28 @@
             font-family: var(--font-main);
         }
 
+        /* Checkbox list style */
+        .checkbox-group {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
     </style>
 </head>
 <body>
@@ -587,28 +609,28 @@
         <h4 style="color:var(--error); display:flex; align-items:center; gap:5px;">
             <span class="material-icons-round">warning</span> Emergency Mission (临时要求)
         </h4>
-        <p style="font-size:12px; color:#666;">Set a high-priority task that must be done immediately.</p>
+        <p style="font-size:12px; color:#666;">Set high-priority tasks (Select multiple subjects if needed).</p>
         
-        <label>Subject</label>
-        <select id="urgent-subject">
-            <option value="0580 Math">0580 Math</option>
-            <option value="0606 Add Math">0606 Add Math</option>
-            <option value="0625 Physics">0625 Physics</option>
-            <option value="0620 Chemistry">0620 Chemistry</option>
-            <option value="0610 Biology">0610 Biology</option>
-        </select>
+        <label>Subjects (Multi-select)</label>
+        <div class="checkbox-group" id="urgent-subjects-container">
+            <label><input type="checkbox" value="0580 Math"> 0580 Math</label>
+            <label><input type="checkbox" value="0606 Add Math"> 0606 Add Math</label>
+            <label><input type="checkbox" value="0625 Physics"> 0625 Physics</label>
+            <label><input type="checkbox" value="0620 Chemistry"> 0620 Chemistry</label>
+            <label><input type="checkbox" value="0610 Biology"> 0610 Biology</label>
+        </div>
         
-        <label>Task Type</label>
+        <label style="margin-top:10px;">Task Type</label>
         <select id="urgent-type">
             <option value="Revision">Revision (Notes/Topical)</option>
             <option value="Mock">Mock Exam (Past Paper)</option>
         </select>
         
-        <label>Details (e.g., "Complete Algebra Unit", "Finish 2023 Paper 4")</label>
-        <input type="text" id="urgent-details" placeholder="Describe the mission...">
+        <label>Details</label>
+        <input type="text" id="urgent-details" placeholder="e.g. Complete Algebra, Finish 2023 Paper">
         
-        <label>Deadline (Days)</label>
-        <input type="number" id="urgent-days" value="1" min="1">
+        <label>Deadline Date</label>
+        <input type="date" id="urgent-date">
     </div>
 
     <div style="text-align:right; display:flex; gap:10px; justify-content:flex-end;">
@@ -721,13 +743,13 @@
     };
 
     // --- 2. State & Persistence ---
-    let progressDB = JSON.parse(localStorage.getItem('caie_progress_v2')) || {};
-    let settings = JSON.parse(localStorage.getItem('caie_settings_v2')) || { 
+    let progressDB = JSON.parse(localStorage.getItem('caie_progress_v2_1')) || {};
+    let settings = JSON.parse(localStorage.getItem('caie_settings_v2_1')) || { 
         school: "2026-03-01", 
         exam: "2026-05-01",
-        urgent: null // { subject, type, detail, due }
+        urgent: null // { subjects: [], type, detail, date }
     };
-    let mockDB = JSON.parse(localStorage.getItem('caie_mock_v2')) || {}; // { "Subject": [ {code, score, tasks...} ] }
+    let mockDB = JSON.parse(localStorage.getItem('caie_mock_v2_1')) || {}; 
     let logs = JSON.parse(localStorage.getItem('caie_logs')) || [];
 
     const QUEST_STEPS = [
@@ -746,10 +768,19 @@
         // Settings form population
         document.getElementById('date-school').value = settings.school;
         document.getElementById('date-exam').value = settings.exam;
+        
+        // Populate Urgent Fields
         if(settings.urgent) {
-            document.getElementById('urgent-subject').value = settings.urgent.subject;
+            // Check checkboxes
+            const inputs = document.querySelectorAll('#urgent-subjects-container input');
+            inputs.forEach(input => {
+                if (settings.urgent.subjects.includes(input.value)) {
+                    input.checked = true;
+                }
+            });
             document.getElementById('urgent-type').value = settings.urgent.type;
             document.getElementById('urgent-details').value = settings.urgent.detail;
+            document.getElementById('urgent-date').value = settings.urgent.date;
         }
     }
 
@@ -757,15 +788,12 @@
         const time = new Date().toLocaleString();
         logs.push({time, action});
         localStorage.setItem('caie_logs', JSON.stringify(logs));
-        console.log("LOG:", time, action);
     }
 
     // --- 4. Logic: Check Subject Completion ---
     function isSubjectComplete(subject) {
         const data = syllabusDB[subject];
-        // For every unit, for every subunit, check if 'notion' (last step) is done
         for (const unit of data.units) {
-            // Also check unit final task
             if (!progressDB[`${subject}|${unit.title}|FINAL|unit_done`]) return false;
         }
         return true;
@@ -785,13 +813,11 @@
             unitDiv.style.marginBottom = '40px';
             unitDiv.innerHTML = `<h3 style="margin-bottom:15px; color:var(--primary); border-bottom:2px solid #eee; padding-bottom:10px;">${unit.title}</h3>`;
 
-            // Subunits
             unit.subs.forEach((sub) => {
                 const card = createQuestCard(subject, unit.title, sub, link);
                 unitDiv.appendChild(card);
             });
 
-            // Unit Boss
             const allSubsDone = unit.subs.every(sub => progressDB[`${subject}|${unit.title}|${sub}|notion`]);
             if (allSubsDone) {
                 const finalCard = createUnitFinalCard(subject, unit.title);
@@ -800,8 +826,6 @@
             area.appendChild(unitDiv);
         });
 
-        // --- MOCK EXAM ZONE ---
-        // Only show if Subject is complete
         if (isSubjectComplete(subject)) {
             renderMockZone(subject, area);
         }
@@ -895,7 +919,7 @@
     function completeStep(sub, unit, subName, stepId) {
         const key = `${sub}|${unit}|${subName}|${stepId}`;
         progressDB[key] = true;
-        localStorage.setItem('caie_progress_v2', JSON.stringify(progressDB));
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         addLog(`Completed Step: ${key}`);
         renderMainView(sub);
         loadDailyQuests();
@@ -922,7 +946,6 @@
             </div>
         `;
 
-        // Render existing mock records
         const mocks = mockDB[subject] || [];
         mocks.forEach((mock, idx) => {
             html += createMockRecordHTML(subject, idx, mock);
@@ -933,10 +956,7 @@
     }
 
     function createMockRecordHTML(subject, idx, mock) {
-        // mock object: { id, code, score, threshold, tasks: {qp, ms, er, gt, ci} }
         const tasks = mock.tasks;
-        
-        // Generate Checkboxes
         const createCheck = (key, label) => `
             <div class="check-item ${tasks[key] ? 'checked' : ''}" onclick="toggleMockTask('${subject}', ${idx}, '${key}')">
                 <span class="material-icons-round">${tasks[key] ? 'check_box' : 'check_box_outline_blank'}</span>
@@ -994,7 +1014,6 @@
         
         currentMockDuration = parseInt(dur) * 60; // seconds
         
-        // Create Mock Record immediately
         if(!mockDB[currentMockSubject]) mockDB[currentMockSubject] = [];
         mockDB[currentMockSubject].unshift({
             id: Date.now(),
@@ -1003,24 +1022,21 @@
             threshold: null,
             tasks: { qp: false, ms: false, er: false, gt: false, ci: false }
         });
-        localStorage.setItem('caie_mock_v2', JSON.stringify(mockDB));
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
         addLog(`Started Mock Exam: ${code}`);
 
         document.getElementById('mock-setup-modal').close();
         enterMockMode(code);
     }
 
-    // --- Full Screen Logic ---
     function enterMockMode(code) {
         const overlay = document.getElementById('mock-fs-overlay');
         document.getElementById('mock-fs-code').innerText = code;
         overlay.style.display = 'flex';
-        // Go Full Screen Browser
         if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
 
-        // Start Timer
         mockSeconds = currentMockDuration;
-        mockIsPaused = true; // Start paused
+        mockIsPaused = true; 
         updateMockTimerDisplay();
         document.getElementById('mock-btn-toggle').innerText = "START";
     }
@@ -1030,7 +1046,6 @@
             clearInterval(mockTimerInterval);
             document.getElementById('mock-fs-overlay').style.display = 'none';
             if (document.exitFullscreen) document.exitFullscreen();
-            // Refresh view
             renderMainView(currentMockSubject);
         }
     }
@@ -1063,25 +1078,23 @@
     }
 
     function finishMockExam() {
-        // Auto-check QP task
         const mocks = mockDB[currentMockSubject];
         if(mocks.length > 0) {
             mocks[0].tasks.qp = true;
-            localStorage.setItem('caie_mock_v2', JSON.stringify(mockDB));
+            localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
         }
         exitMockMode();
     }
 
-    // --- Mock Interaction ---
     function toggleMockTask(subject, idx, taskKey) {
         mockDB[subject][idx].tasks[taskKey] = !mockDB[subject][idx].tasks[taskKey];
-        localStorage.setItem('caie_mock_v2', JSON.stringify(mockDB));
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
         renderMainView(subject);
     }
 
     function updateMockScore(subject, idx, field, val) {
         mockDB[subject][idx][field] = val;
-        localStorage.setItem('caie_mock_v2', JSON.stringify(mockDB));
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
         renderMainView(subject);
     }
 
@@ -1096,20 +1109,26 @@
         settings.school = document.getElementById('date-school').value;
         settings.exam = document.getElementById('date-exam').value;
         
-        const uSubject = document.getElementById('urgent-subject').value;
-        const uDetail = document.getElementById('urgent-details').value;
+        // Multi-select logic
+        const checkboxes = document.querySelectorAll('#urgent-subjects-container input:checked');
+        const selectedSubjects = Array.from(checkboxes).map(cb => cb.value);
         
-        if (uDetail) {
+        const uDetail = document.getElementById('urgent-details').value;
+        const uDate = document.getElementById('urgent-date').value;
+        
+        if (uDetail && selectedSubjects.length > 0 && uDate) {
             settings.urgent = {
-                subject: uSubject,
+                subjects: selectedSubjects,
                 type: document.getElementById('urgent-type').value,
                 detail: uDetail,
-                due: document.getElementById('urgent-days').value
+                date: uDate
             };
-            addLog(`Set Urgent Mission: ${uSubject} - ${uDetail}`);
+            addLog(`Set Urgent Mission: ${selectedSubjects.join(', ')} - ${uDetail}`);
+        } else if (!uDetail && selectedSubjects.length === 0) {
+            // Clearing if empty, handled by clearUrgent normally but safe check
         }
 
-        localStorage.setItem('caie_settings_v2', JSON.stringify(settings));
+        localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
         document.getElementById('settings-modal').close();
         loadDailyQuests(); // Refresh home
     }
@@ -1117,7 +1136,11 @@
     function clearUrgent() {
         settings.urgent = null;
         document.getElementById('urgent-details').value = "";
-        localStorage.setItem('caie_settings_v2', JSON.stringify(settings));
+        document.getElementById('urgent-date').value = "";
+        const checkboxes = document.querySelectorAll('#urgent-subjects-container input');
+        checkboxes.forEach(cb => cb.checked = false);
+        
+        localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
         document.getElementById('settings-modal').close();
         loadDailyQuests();
     }
@@ -1127,7 +1150,7 @@
         const container = document.getElementById('daily-quest-area');
         container.innerHTML = '';
 
-        // 0. ALWAYS SHOW: Koolearn (New Oriental) - UPDATED
+        // 0. Koolearn (Always)
         const koolearnCard = document.createElement('div');
         koolearnCard.className = 'quest-card koolearn';
         koolearnCard.innerHTML = `
@@ -1146,40 +1169,47 @@
         `;
         container.appendChild(koolearnCard);
 
-        // 1. Render Urgent Mission if exists
+        // 1. Urgent Mission (Multi-Subject)
         if (settings.urgent) {
+            const today = new Date();
+            const due = new Date(settings.urgent.date);
+            const diffTime = due - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            
+            // Create buttons for each subject
+            let buttonsHtml = '';
+            settings.urgent.subjects.forEach(sub => {
+                buttonsHtml += `<button class="btn-primary" style="width:100%; background:#ba1a1a; margin-top:5px;" onclick="renderMainView('${sub}')">Execute: ${sub}</button>`;
+            });
+
             const uCard = document.createElement('div');
             uCard.className = 'quest-card urgent';
             uCard.innerHTML = `
                 <div class="quest-header">
                     <div>
-                        <div class="quest-breadcrumbs">EMERGENCY PROTOCOL // ${settings.urgent.due} DAYS LEFT</div>
-                        <div class="quest-title" style="color:#ba1a1a">${settings.urgent.type}: ${settings.urgent.subject}</div>
+                        <div class="quest-breadcrumbs">EMERGENCY PROTOCOL // ${diffDays} DAYS LEFT</div>
+                        <div class="quest-title" style="color:#ba1a1a">${settings.urgent.type} Mission</div>
                     </div>
                     <span class="material-icons-round" style="color:#ba1a1a; font-size:32px;">warning</span>
                 </div>
                 <div style="font-size:16px; font-weight:500; margin-bottom:15px;">Target: ${settings.urgent.detail}</div>
-                <button class="btn-primary" style="width:100%; background:#ba1a1a;" onclick="renderMainView('${settings.urgent.subject}')">Execute Mission</button>
+                <div style="font-size:12px; color:#666; margin-bottom:10px;">Affected Subjects: ${settings.urgent.subjects.join(', ')}</div>
+                ${buttonsHtml}
             `;
             container.appendChild(uCard);
         }
 
-        // 2. Standard Logic (First unfinished task)
+        // 2. Standard Logic
         let count = 0;
         for (const [subject, data] of Object.entries(syllabusDB)) {
-            if (count >= 2) break; // Max 2 standard suggestions
+            if (count >= 2) break; 
             
-            // If subject is complete, suggest Mock
-            if (isSubjectComplete(subject)) {
-                // Check if user has done a mock recently? skipping complex logic
-                continue;
-            }
+            if (isSubjectComplete(subject)) continue;
 
             for (const unit of data.units) {
                 let found = false;
                 for (const sub of unit.subs) {
                     if (!progressDB[`${subject}|${unit.title}|${sub}|notion`]) {
-                        // Found incomplete
                         const mini = document.createElement('div');
                         mini.className = 'quest-card';
                         mini.style.padding = '15px';
@@ -1235,7 +1265,6 @@
         }, 1000);
     }
 
-    // DEBUG FUNCTION
     function debugUnlockAll() {
         if(!confirm("Unlock ALL tasks for 0580 Math?")) return;
         const sub = "0580 Math";
@@ -1248,7 +1277,7 @@
             });
             progressDB[`${sub}|${u.title}|FINAL|unit_done`] = true;
         });
-        localStorage.setItem('caie_progress_v2', JSON.stringify(progressDB));
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         alert("0580 Unlocked. Check the Mock Zone.");
         location.reload();
     }
