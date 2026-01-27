@@ -667,7 +667,8 @@
         
         <label>Subjects (Multi-select)</label>
         <div class="checkbox-group" id="urgent-subjects-container">
-            <label><input type="checkbox" value="0580 Math"> 0580 Math</label>
+            <label><input type="checkbox" value="0580 Math (Core)"> 0580 Math (Core)</label>
+            <label><input type="checkbox" value="0580 Math (Extended)"> 0580 Math (Extended)</label>
             <label><input type="checkbox" value="0606 Add Math"> 0606 Add Math</label>
             <label><input type="checkbox" value="0625 Physics"> 0625 Physics</label>
             <label><input type="checkbox" value="0620 Chemistry"> 0620 Chemistry</label>
@@ -726,90 +727,102 @@
 </dialog>
 
 <script>
-    // --- 1. Syllabus Data ---
+    // --- 1. Syllabus Data (UPDATED based on SaveMyExams Big Units) ---
     const syllabusDB = {
-        "0580 Math": {
+        "0580 Math (Core)": {
+            link: "https://www.savemyexams.com/igcse/maths/cie/25/core/revision-notes/",
+            units: [
+                { title: "1. Number", subs: ["1. Number"] },
+                { title: "2. Algebra & Sequences", subs: ["2. Algebra & Sequences"] },
+                { title: "3. Coordinate Geometry & Graphs", subs: ["3. Coordinate Geometry & Graphs"] },
+                { title: "4. Geometry", subs: ["4. Geometry"] },
+                { title: "5. Lengths, Areas & Volumes", subs: ["5. Lengths, Areas & Volumes"] },
+                { title: "6. Pythagoras & Trigonometry", subs: ["6. Pythagoras & Trigonometry"] },
+                { title: "7. Transformations", subs: ["7. Transformations"] },
+                { title: "8. Probability", subs: ["8. Probability"] },
+                { title: "9. Statistics", subs: ["9. Statistics"] }
+            ]
+        },
+        "0580 Math (Extended)": {
             link: "https://www.savemyexams.com/igcse/maths/cie/25/extended/revision-notes/",
             units: [
-                { title: "1. Number (数)", subs: ["1.1 Types of Number", "1.2 Sets & Venn", "1.3 Powers & Roots", "1.4 Fractions/Decimals", "1.5 Ratio", "1.6 Standard Form", "1.7 Money/Time", "1.8 Interest", "1.9 Bounds"] },
-                { title: "2. Algebra (代数)", subs: ["2.1 Basic Algebra", "2.2 Fractions", "2.3 Brackets", "2.4 Quadratics", "2.5 Inequalities", "2.6 Sequences", "2.7 Functions", "2.8 Graphs"] },
-                { title: "3. Coord Geometry", subs: ["3.1 Straight Lines"] },
-                { title: "4. Geometry (几何)", subs: ["4.1 Vocab", "4.2 Similarity", "4.3 Symmetry", "4.4 Angles"] },
-                { title: "5. Mensuration (测量)", subs: ["5.1 Perimeter/Area/Volume"] },
-                { title: "6. Trigonometry (三角)", subs: ["6.1 Right-Angled", "6.2 Further Trig", "6.3 Vectors"] },
-                { title: "7. Probability (概率)", subs: ["7.1 Probability Theory"] },
-                { title: "8. Statistics (统计)", subs: ["8.1 Mean/Median/Mode", "8.2 Data Display"] }
+                { title: "1. Number", subs: ["1. Number"] },
+                { title: "2. Algebra & Sequences", subs: ["2. Algebra & Sequences"] },
+                { title: "3. Coordinate Geometry & Graphs", subs: ["3. Coordinate Geometry & Graphs"] },
+                { title: "4. Geometry", subs: ["4. Geometry"] },
+                { title: "5. Lengths, Areas & Volumes", subs: ["5. Lengths, Areas & Volumes"] },
+                { title: "6. Pythagoras & Trigonometry", subs: ["6. Pythagoras & Trigonometry"] },
+                { title: "7. Vectors & Transformations", subs: ["7. Vectors & Transformations"] },
+                { title: "8. Probability", subs: ["8. Probability"] },
+                { title: "9. Statistics", subs: ["9. Statistics"] }
             ]
         },
         "0606 Add Math": {
             link: "https://www.savemyexams.com/igcse/further-maths/cie/additional-maths/25/revision-notes/",
             units: [
-                { title: "1. Functions", subs: ["Notation", "Composite", "Inverse"] },
-                { title: "2. Quadratics", subs: ["Discriminants", "Max/Min"] },
-                { title: "3. Equations", subs: ["Simultaneous", "Polynomials"] },
-                { title: "4. Indices & Surds", subs: ["Indices", "Surds"] },
-                { title: "5. Polynomials", subs: ["Remainder/Factor Theorem"] },
-                { title: "6. Log/Exp", subs: ["Logarithms", "Exponentials"] },
-                { title: "7. Straight Line", subs: ["Linear Law"] },
-                { title: "8. Circular Measure", subs: ["Radians", "Sector Area"] },
-                { title: "9. Trigonometry", subs: ["Identities", "Equations", "Graphs"] },
-                { title: "10. Perms & Combs", subs: ["Permutations", "Combinations"] },
-                { title: "11. Series", subs: ["Arithmetic", "Geometric"] },
-                { title: "12. Vectors 2D", subs: ["Vectors"] },
-                { title: "13. Calculus", subs: ["Differentiation", "Integration", "Kinematics"] }
+                { title: "1. Functions", subs: ["1. Functions"] },
+                { title: "2. Quadratics", subs: ["2. Quadratics"] },
+                { title: "3. Equations", subs: ["3. Equations"] },
+                { title: "4. Indices & Surds", subs: ["4. Indices & Surds"] },
+                { title: "5. Polynomials", subs: ["5. Polynomials"] },
+                { title: "6. Log/Exp", subs: ["6. Log/Exp"] },
+                { title: "7. Straight Line", subs: ["7. Straight Line"] },
+                { title: "8. Circular Measure", subs: ["8. Circular Measure"] },
+                { title: "9. Trigonometry", subs: ["9. Trigonometry"] },
+                { title: "10. Perms & Combs", subs: ["10. Perms & Combs"] },
+                { title: "11. Series", subs: ["11. Series"] },
+                { title: "12. Vectors 2D", subs: ["12. Vectors 2D"] },
+                { title: "13. Calculus", subs: ["13. Calculus"] }
             ]
         },
         "0610 Biology": {
             link: "https://www.savemyexams.com/igcse/biology/cie/23/revision-notes/",
             units: [
-                { title: "1. Characteristics", subs: ["Classification"] },
-                { title: "2. Organisation", subs: ["Cell Structure", "Organisation"] },
-                { title: "3. Movement", subs: ["Diffusion", "Osmosis", "Active Transport"] },
-                { title: "4. Biological Molecules", subs: ["Carbs/Fats/Proteins", "DNA"] },
-                { title: "5. Enzymes", subs: ["Enzyme Action"] },
-                { title: "6. Plant Nutrition", subs: ["Photosynthesis", "Leaf Structure"] },
-                { title: "7. Human Nutrition", subs: ["Diet", "Digestion"] },
-                { title: "8. Transport Plants", subs: ["Xylem/Phloem"] },
-                { title: "9. Transport Animals", subs: ["Heart", "Blood"] },
-                { title: "10. Diseases", subs: ["Pathogens", "Immunity"] },
-                { title: "11. Gas Exchange", subs: ["Lungs"] },
-                { title: "12. Respiration", subs: ["Aerobic", "Anaerobic"] },
-                { title: "13. Excretion", subs: ["Kidneys"] },
-                { title: "14. Coordination", subs: ["Nervous System", "Hormones", "Homeostasis"] },
-                { title: "15. Drugs", subs: ["Antibiotics"] },
-                { title: "16. Reproduction", subs: ["Plants", "Humans"] },
-                { title: "17. Inheritance", subs: ["Chromosomes", "Genes"] },
-                { title: "18. Variation", subs: ["Selection"] },
-                { title: "19. Environment", subs: ["Energy Flow", "Cycles"] },
-                { title: "20. Biotechnology", subs: ["Bacteria", "Genetic Mod"] }
+                { title: "1. Characteristics & Classification of Living Organisms", subs: ["1. Characteristics & Classification"] },
+                { title: "2. Organisation of the Organism", subs: ["2. Organisation of the Organism"] },
+                { title: "3. Movement into & out of Cells", subs: ["3. Movement into & out of Cells"] },
+                { title: "4. Biological Molecules", subs: ["4. Biological Molecules"] },
+                { title: "5. Enzymes", subs: ["5. Enzymes"] },
+                { title: "6. Plant Nutrition", subs: ["6. Plant Nutrition"] },
+                { title: "7. Human Nutrition", subs: ["7. Human Nutrition"] },
+                { title: "8. Transport in Plants", subs: ["8. Transport in Plants"] },
+                { title: "9. Transport in Animals", subs: ["9. Transport in Animals"] },
+                { title: "10. Diseases & Immunity", subs: ["10. Diseases & Immunity"] },
+                { title: "11. Gas Exchange in Humans", subs: ["11. Gas Exchange in Humans"] },
+                { title: "12. Respiration", subs: ["12. Respiration"] },
+                { title: "13. Excretion in Humans", subs: ["13. Excretion in Humans"] },
+                { title: "14. Coordination & Response", subs: ["14. Coordination & Response"] },
+                { title: "15. Drugs", subs: ["15. Drugs"] },
+                { title: "16. Reproduction", subs: ["16. Reproduction"] },
+                { title: "17. Inheritance", subs: ["17. Inheritance"] }
             ]
         },
         "0620 Chemistry": {
             link: "https://www.savemyexams.com/igcse/chemistry/cie/23/revision-notes/",
             units: [
-                { title: "1. States of Matter", subs: ["Solids/Liquids/Gases"] },
-                { title: "2. Atoms", subs: ["Atomic Structure", "Isotopes", "Bonding"] },
-                { title: "3. Stoichiometry", subs: ["Formulae", "The Mole"] },
-                { title: "4. Electrochemistry", subs: ["Electrolysis"] },
-                { title: "5. Energetics", subs: ["Exo/Endothermic"] },
-                { title: "6. Reactions", subs: ["Rate", "Redox", "Reversible"] },
-                { title: "7. Acids/Bases", subs: ["Properties", "Oxides", "Salts"] },
-                { title: "8. Periodic Table", subs: ["Trends", "Groups"] },
-                { title: "9. Metals", subs: ["Properties", "Extraction"] },
-                { title: "10. Environment", subs: ["Water", "Air"] },
-                { title: "11. Organic", subs: ["Alkanes", "Alkenes", "Alcohols", "Polymers"] },
-                { title: "12. Experiments", subs: ["Analysis", "Tests"] }
+                { title: "1. States of Matter", subs: ["1. States of Matter"] },
+                { title: "2. Atoms, Elements & Compounds", subs: ["2. Atoms, Elements & Compounds"] },
+                { title: "3. Stoichiometry", subs: ["3. Stoichiometry"] },
+                { title: "4. Electrochemistry", subs: ["4. Electrochemistry"] },
+                { title: "5. Chemical Energetics", subs: ["5. Chemical Energetics"] },
+                { title: "6. Chemical Reactions", subs: ["6. Chemical Reactions"] },
+                { title: "7. Acids, Bases & Salts", subs: ["7. Acids, Bases & Salts"] },
+                { title: "8. The Periodic Table", subs: ["8. The Periodic Table"] },
+                { title: "9. Metals", subs: ["9. Metals"] },
+                { title: "10. Chemistry of the Environment", subs: ["10. Chemistry of the Environment"] },
+                { title: "11. Organic Chemistry", subs: ["11. Organic Chemistry"] },
+                { title: "12. Experimental Techniques & Chemical Analysis", subs: ["12. Experimental Techniques"] }
             ]
         },
         "0625 Physics": {
             link: "https://www.savemyexams.com/igcse/physics/cie/23/revision-notes/",
             units: [
-                { title: "1. Motion & Forces", subs: ["Motion", "Mass/Density", "Forces", "Momentum", "Energy", "Pressure"] },
-                { title: "2. Thermal", subs: ["Kinetic Model", "Properties", "Transfer"] },
-                { title: "3. Waves", subs: ["General", "Light", "Sound", "Spectrum"] },
-                { title: "4. Electricity", subs: ["Magnetism", "Quantities", "Circuits", "Safety", "Electromagnetism"] },
-                { title: "5. Nuclear", subs: ["Atom", "Radioactivity"] },
-                { title: "6. Space", subs: ["Earth/Solar System", "Stars"] }
+                { title: "1. Motion, Forces & Energy", subs: ["1. Motion, Forces & Energy"] },
+                { title: "2. Thermal Physics", subs: ["2. Thermal Physics"] },
+                { title: "3. Waves", subs: ["3. Waves"] },
+                { title: "4. Electricity & Magnetism", subs: ["4. Electricity & Magnetism"] },
+                { title: "5. Nuclear Physics", subs: ["5. Nuclear Physics"] },
+                { title: "6. Space Physics", subs: ["6. Space Physics"] }
             ]
         }
     };
@@ -872,6 +885,8 @@
     // --- 4. Logic: Check Subject Completion ---
     function isSubjectComplete(subject) {
         const data = syllabusDB[subject];
+        // Safety check if subject key changed but localstorage remains
+        if (!data) return false;
         for (const unit of data.units) {
             if (!progressDB[`${subject}|${unit.title}|FINAL|unit_done`]) return false;
         }
@@ -884,6 +899,7 @@
         area.innerHTML = '';
         
         const data = syllabusDB[subject];
+        if (!data) return; // Error handling
         const link = data.link;
 
         data.units.forEach((unit, unitIdx) => {
@@ -1348,8 +1364,8 @@
     }
 
     function debugUnlockAll() {
-        if(!confirm("Unlock ALL tasks for 0580 Math?")) return;
-        const sub = "0580 Math";
+        if(!confirm("Unlock ALL tasks for 0580 Math (Extended)?")) return;
+        const sub = "0580 Math (Extended)";
         const units = syllabusDB[sub].units;
         units.forEach(u => {
             u.subs.forEach(s => {
@@ -1360,7 +1376,7 @@
             progressDB[`${sub}|${u.title}|FINAL|unit_done`] = true;
         });
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
-        alert("0580 Unlocked. Check the Mock Zone.");
+        alert("0580 (Extended) Unlocked. Check the Mock Zone.");
         location.reload();
     }
 
