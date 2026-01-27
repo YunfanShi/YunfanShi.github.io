@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CAIE 考试局 | Jack's Dashboard</title>
     
-    <!-- Google Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
@@ -405,7 +404,7 @@
             background: black;
             color: white;
             z-index: 9999;
-            display: none;
+            display: none; /* Hidden by default */
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -467,6 +466,68 @@
         }
         .mock-ctrl-btn:hover { background: white; color: black; }
 
+        /* FAB Button for Schedule */
+        #fab-schedule {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            z-index: 100;
+        }
+        #fab-schedule:hover { transform: scale(1.1); }
+
+        /* Schedule Modal - FIXED */
+        #schedule-modal {
+            width: 600px;
+            max-width: 95vw;
+            height: 80vh;
+            display: none; /* Changed from flex to none */
+            flex-direction: column;
+        }
+        
+        #schedule-modal[open] {
+            display: flex; /* Only flex when open */
+        }
+
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 10px;
+            overflow-y: auto;
+            flex: 1;
+            margin-top: 20px;
+            padding-right: 10px;
+        }
+
+        .time-slot {
+            font-size: 12px;
+            color: #888;
+            text-align: right;
+            padding-top: 10px;
+        }
+
+        .task-block {
+            background: var(--primary-container);
+            color: #001d33;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            border-left: 4px solid var(--primary);
+            margin-bottom: 10px;
+        }
+        .task-block.break { background: #eee; border-left-color: #aaa; color: #666; }
+        .task-block.urgent { background: #ffebee; border-left-color: var(--error); color: var(--error); }
+
         /* Settings Modal */
         dialog {
             border: none;
@@ -509,30 +570,24 @@
 </head>
 <body>
 
-<!-- Sidebar -->
 <aside>
     <div class="brand">
         <span class="material-icons-round">account_balance</span>
         CAIE 考试局
     </div>
     
-    <!-- Dynamic Syllabus Tree -->
     <div class="nav-scroll" id="sidebar-content">
-        <!-- Injected via JS -->
-    </div>
+        </div>
 
-    <!-- Extra Links -->
     <div style="padding: 20px; border-top: 1px solid #ddd;">
         <div class="nav-subject-header" onclick="window.open('https://www.youtube.com/watch?v=nLRL_NcnK-4', '_blank')">
             <span>🐍 CS50P Python</span>
             <span class="material-icons-round" style="font-size:16px;">open_in_new</span>
         </div>
-        <!-- Secret debug for testing -->
         <button onclick="debugUnlockAll()" style="margin-top:10px; font-size:10px; color:#aaa; background:none; border:none;">DEBUG: Unlock All</button>
     </div>
 </aside>
 
-<!-- Main Content -->
 <main>
     <div class="top-bar">
         <div>
@@ -542,7 +597,7 @@
         
         <div class="time-warning" id="deadline-timer">
             <span class="material-icons-round">hourglass_empty</span>
-            <span id="time-left-text">Calculating...</span> until 11:00 PM
+            <span id="time-left-text">Calculating...</span> until 10:00 PM
         </div>
 
         <button onclick="document.getElementById('settings-modal').showModal()" style="background:none; border:none; cursor:pointer;">
@@ -552,7 +607,6 @@
 
     <div class="content-scroll" id="main-view">
         
-        <!-- Smart Recommendation -->
         <div class="quest-container">
             <div class="section-header">
                 <span class="material-icons-round">auto_awesome</span>
@@ -560,10 +614,8 @@
             </div>
             
             <div id="daily-quest-area">
-                <!-- Dynamically populated -->
-            </div>
+                </div>
 
-            <!-- Current Subject View -->
             <div class="section-header" style="margin-top: 40px;">
                 <span class="material-icons-round">map</span>
                 Active Syllabus Questline
@@ -579,7 +631,10 @@
     </div>
 </main>
 
-<!-- Full Screen Mock Exam Overlay -->
+<div id="fab-schedule" onclick="openScheduleGenerator()">
+    <span class="material-icons-round">calendar_month</span>
+</div>
+
 <div id="mock-fs-overlay">
     <div id="mock-fs-header">CAIE EXAM BOARD // SESSION ACTIVE</div>
     <div id="mock-fs-code">CODE: 0000/00/X/X/XX</div>
@@ -593,7 +648,6 @@
     </div>
 </div>
 
-<!-- Settings Modal -->
 <dialog id="settings-modal">
     <h3>⚙️ Settings & Emergency</h3>
     
@@ -639,7 +693,6 @@
     </div>
 </dialog>
 
-<!-- Start Mock Setup Modal -->
 <dialog id="mock-setup-modal">
     <h3>📝 Start Mock Exam</h3>
     <label>Paper Code (e.g. 0580/22/M/J/24)</label>
@@ -651,6 +704,25 @@
     <div style="text-align:right; margin-top:20px;">
         <button class="btn-primary" onclick="confirmStartMock()">Enter Exam Mode</button>
     </div>
+</dialog>
+
+<dialog id="schedule-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">📅 Time Blocking Generator</h3>
+        <button onclick="document.getElementById('schedule-modal').close()" style="background:none; border:none; cursor:pointer; font-size:20px;">&times;</button>
+    </div>
+    
+    <div style="margin-top:15px; background:#f8f9fa; padding:15px; border-radius:12px;">
+        <label style="font-weight:bold; font-size:12px; color:#555;">Select Focus Areas Today (Multi-select):</label>
+        <div class="checkbox-group" id="schedule-subjects" style="max-height:100px; margin-top:5px; background:white;">
+            </div>
+        <button class="btn-primary" style="width:100%; margin-top:10px; justify-content:center;" onclick="generateSchedule()">
+            Generate Schedule <span class="material-icons-round">autorenew</span>
+        </button>
+    </div>
+
+    <div class="schedule-grid" id="schedule-output">
+        </div>
 </dialog>
 
 <script>
@@ -742,6 +814,13 @@
         }
     };
 
+    // Extra Tasks for Scheduler
+    const EXTRA_TASKS = [
+        "CS50P Python",
+        "New Oriental IELTS",
+        "Piano Practice"
+    ];
+
     // --- 2. State & Persistence ---
     let progressDB = JSON.parse(localStorage.getItem('caie_progress_v2_1')) || {};
     let settings = JSON.parse(localStorage.getItem('caie_settings_v2_1')) || { 
@@ -829,6 +908,9 @@
         if (isSubjectComplete(subject)) {
             renderMockZone(subject, area);
         }
+        
+        // Auto scroll to top of view
+        document.querySelector('.content-scroll').scrollTop = document.querySelector('.quest-container').offsetTop;
     }
 
     function createQuestCard(subject, unit, sub, link) {
@@ -1252,7 +1334,7 @@
         setInterval(() => {
             const now = new Date();
             const deadline = new Date();
-            deadline.setHours(23, 0, 0, 0); 
+            deadline.setHours(22, 0, 0, 0); // 10:00 PM
             if (now > deadline) {
                 document.getElementById('time-left-text').innerText = "OVERTIME";
                 document.querySelector('.time-warning').style.background = "#000";
@@ -1280,6 +1362,106 @@
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         alert("0580 Unlocked. Check the Mock Zone.");
         location.reload();
+    }
+
+    // --- 10. Schedule Generator ---
+    function openScheduleGenerator() {
+        const container = document.getElementById('schedule-subjects');
+        container.innerHTML = '';
+        
+        // Add Subjects
+        Object.keys(syllabusDB).forEach(sub => {
+            container.innerHTML += `<label><input type="checkbox" value="${sub}"> ${sub}</label>`;
+        });
+        // Add Extra
+        EXTRA_TASKS.forEach(task => {
+            container.innerHTML += `<label><input type="checkbox" value="${task}"> ${task}</label>`;
+        });
+
+        document.getElementById('schedule-modal').showModal();
+    }
+
+    function generateSchedule() {
+        const selected = Array.from(document.querySelectorAll('#schedule-subjects input:checked')).map(cb => cb.value);
+        let tasksPool = selected.length > 0 ? selected : [...Object.keys(syllabusDB)]; // Default all subjects if none selected
+        
+        // Priority: Urgent
+        if(settings.urgent) {
+            settings.urgent.subjects.forEach(s => {
+                if(!tasksPool.includes(s)) tasksPool.unshift(s);
+            });
+        }
+
+        const now = new Date();
+        const output = document.getElementById('schedule-output');
+        output.innerHTML = '';
+
+        // Time blocks logic
+        // We start from current hour (rounded up)
+        // End at 22:00
+        // Skip 13:00-15:00 (Lunch/Rest)
+        // Skip 18:00-19:00 (Dinner)
+        
+        let cursor = new Date(now);
+        cursor.setMinutes(0,0,0);
+        if(now.getMinutes() > 0) cursor.setHours(cursor.getHours() + 1);
+
+        const endTime = new Date(now);
+        endTime.setHours(22, 0, 0, 0);
+
+        let taskIndex = 0;
+
+        while(cursor < endTime) {
+            const h = cursor.getHours();
+            
+            // Checks for break times
+            // 12AM-11AM Sleep (Assuming user wakes up at 11 based on request 12AM-11AM Sleep)
+            // Request said "12AM-11AM sleeping", so start schedule from 11AM if now < 11AM
+            
+            // Lunch: 13-15 (1pm-3pm)
+            // Dinner: 18-19 (6pm-7pm)
+            
+            let blockType = 'study';
+            let blockLabel = '';
+
+            if (h >= 0 && h < 11) {
+                // Sleep time, skip loop or mark sleep? 
+                // Since user might open this AT 9AM, we should say "Sleep/Morning"
+                // But loop condition starts 'now', so if now is 9AM, we show.
+                // Let's mark as Sleep/Free
+                blockType = 'break';
+                blockLabel = 'Sleep / Morning Routine';
+            } else if (h >= 13 && h < 15) {
+                blockType = 'break';
+                blockLabel = 'Lunch / Break (13:00-15:00)';
+            } else if (h >= 18 && h < 19) {
+                blockType = 'break';
+                blockLabel = 'Dinner (18:00-19:00)';
+            } else {
+                // Study Slot
+                const taskName = tasksPool[taskIndex % tasksPool.length];
+                blockLabel = taskName;
+                taskIndex++;
+            }
+
+            // Create HTML
+            const timeStr = `${h}:00 - ${h+1}:00`;
+            
+            let clickAction = '';
+            if(blockType === 'study' && syllabusDB[blockLabel]) {
+                clickAction = `onclick="document.getElementById('schedule-modal').close(); renderMainView('${blockLabel}')" style="cursor:pointer;"`;
+            }
+
+            output.innerHTML += `
+                <div class="time-slot">${timeStr}</div>
+                <div class="task-block ${blockType === 'break' ? 'break' : ''} ${settings.urgent && settings.urgent.subjects.includes(blockLabel) ? 'urgent' : ''}" ${clickAction}>
+                    <strong>${blockLabel}</strong>
+                    ${blockType === 'study' ? (syllabusDB[blockLabel] ? '<br><span style="font-size:10px; opacity:0.7;">Click to Open</span>' : '') : ''}
+                </div>
+            `;
+
+            cursor.setHours(h + 1);
+        }
     }
 
     // Start
