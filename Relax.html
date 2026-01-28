@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Sanctuary | 能量补给站</title>
+    
+    <!-- Google Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Google Material 3 风格配色 (柔和版) */
+            --primary: #5c84a8; /* 宁静蓝 */
+            --on-primary: #ffffff;
+            --surface: #f7f9fc;
+            --surface-variant: #eef2f6;
+            --secondary: #78909c;
+            --accent: #ffb74d; /* 活力橙 */
+            --text-main: #37474f;
+            --text-sub: #90a4ae;
+            
+            --card-radius: 24px;
+            
+            --font-main: 'Noto Sans SC', sans-serif;
+        }
+
+        * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+            background: #f0f4f8;
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- 侧边栏 --- */
+        .sidebar {
+            width: 80px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 0;
+            border-right: 1px solid rgba(0,0,0,0.05);
+            z-index: 10;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.02);
+        }
+
+        .icon-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--secondary);
+            cursor: pointer;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .icon-btn:hover { background: var(--surface-variant); color: var(--primary); transform: scale(1.1); }
+        .icon-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(92, 132, 168, 0.4); }
+
+        /* --- 主舞台 --- */
+        .main-stage {
+            flex: 1;
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr; /* 左宽右窄 */
+            gap: 30px;
+            overflow-y: auto;
+        }
+
+        h1 { font-weight: 700; color: var(--text-main); margin: 0 0 10px 0; font-size: 2.2rem; letter-spacing: -1px; }
+        h2 { font-weight: 400; color: var(--secondary); margin: 0 0 20px 0; font-size: 1.1rem; }
+
+        /* --- 左侧区域: 休息与工具 --- */
+        .chill-area {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* 呼吸球 */
+        .breathe-container {
+            height: 220px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            border-radius: var(--card-radius);
+            overflow: hidden;
+            color: white;
+            box-shadow: 0 10px 30px rgba(161, 196, 253, 0.3);
+        }
+        
+        .circle {
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.25);
+            border-radius: 50%;
+            position: absolute;
+            backdrop-filter: blur(8px);
+            animation: breathe 8s infinite ease-in-out;
+            box-shadow: 0 0 40px rgba(255,255,255,0.4);
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        
+        .breathe-text {
+            z-index: 2;
+            font-size: 20px;
+            font-weight: 500;
+            letter-spacing: 4px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            40% { transform: scale(2.2); } /* 吸气 4s */
+            50% { transform: scale(2.2); } /* 屏息 */
+            100% { transform: scale(1); } /* 呼气 4s */
+        }
+
+        /* 一言卡片 */
+        .quote-box {
+            background: #fff8e1; /* 暖黄色背景 */
+            color: #5d4037;
+            padding: 25px;
+            border-radius: var(--card-radius);
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(255, 183, 77, 0.15);
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        .quote-box:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(255, 183, 77, 0.25); }
+        .quote-box .icon { font-size: 28px; color: var(--accent); margin-bottom: 10px; }
+        .quote-content { font-size: 16px; line-height: 1.6; font-weight: 500; min-height: 50px; display: flex; align-items: center; justify-content: center; }
+        .quote-from { font-size: 12px; color: #8d6e63; margin-top: 10px; display: block; text-align: right; }
+
+        /* 软件坞 (Dock) */
+        .control-center {
+            background: white;
+            padding: 25px;
+            border-radius: var(--card-radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+        }
+        
+        .dock {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .app-icon {
+            height: 70px;
+            background: #fcfcfc;
+            border-radius: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            cursor: pointer;
+            border: 1px solid #edf2f7;
+            text-decoration: none;
+            color: var(--text-main);
+            position: relative;
+            overflow: hidden;
+        }
+        .app-icon:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); background: white; }
+        .app-icon img { width: 32px; height: 32px; margin-bottom: 5px; object-fit: contain; }
+        .app-icon span { font-size: 28px; margin-bottom: 2px; }
+        .app-icon p { margin: 0; font-size: 10px; font-weight: 500; color: var(--text-sub); }
+
+        /* 音乐播放器 (网易云) */
+        .music-player {
+            border-radius: var(--card-radius);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            background: white;
+        }
+
+        /* --- 右侧区域: AI 聊天 --- */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: white;
+            border-radius: var(--card-radius);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.02);
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid var(--surface-variant);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .model-select {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--surface-variant);
+            font-family: var(--font-main);
+            color: var(--secondary);
+            font-size: 12px;
+            outline: none;
+            background: #fcfcfc;
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafbfc;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .msg {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.6;
+            position: relative;
+            word-wrap: break-word;
+        }
+        
+        .msg.user { 
+            align-self: flex-end; 
+            background: var(--primary); 
+            color: white; 
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 10px rgba(92, 132, 168, 0.2);
+        }
+        
+        .msg.ai { 
+            align-self: flex-start; 
+            background: white; 
+            color: var(--text-main); 
+            border: 1px solid var(--surface-variant);
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid var(--surface-variant);
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid var(--surface-variant);
+            border-radius: 25px;
+            outline: none;
+            font-family: var(--font-main);
+            background: #f8f9fa;
+        }
+        .chat-input:focus { border-color: var(--primary); background: white; }
+
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(92, 132, 168, 0.3);
+        }
+        .send-btn:hover { background: #4a6d8c; }
+
+        /* Settings Modal */
+        dialog {
+            border: none;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+            width: 400px;
+        }
+        dialog::backdrop { background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); }
+
+        input[type="password"], input[type="text"] {
+            width: 100%; padding: 10px; margin: 10px 0;
+            border: 1px solid #ddd; border-radius: 8px;
+        }
+
+        /* 底部传送门 */
+        .bridge-bar {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 8px 10px 8px 25px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            z-index: 100;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .cta-btn {
+            background: var(--text-main);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .cta-btn:hover { background: black; transform: translateY(-2px); }
+
+    </style>
+</head>
+<body>
+
+<!-- 侧边栏 -->
+<div class="sidebar">
+    <div class="icon-btn active" title="休息区"><span class="material-icons-round">spa</span></div>
+    <div class="icon-btn" style="margin-top:auto;" onclick="document.getElementById('settings-modal').showModal()" title="设置 API"><span class="material-icons-round">settings</span></div>
+</div>
+
+<!-- 主舞台 -->
+<div class="main-stage">
+    
+    <!-- 左侧: 休息与工具 -->
+    <div class="chill-area">
+        <div>
+            <h1>Hey Jack, 累了吗？</h1>
+            <h2>这里没有 Deadline，只有你和此刻。允许自己暂停一下。</h2>
+        </div>
+
+        <!-- 呼吸球 -->
+        <div class="breathe-container">
+            <div class="circle"></div>
+            <div class="breathe-text" id="breathe-instruction">吸气</div>
+        </div>
+
+        <!-- 一言 (Hitokoto) -->
+        <div class="quote-box" onclick="fetchHitokoto()" title="点击切换一言">
+            <span class="material-icons-round icon">format_quote</span>
+            <div class="quote-content" id="hitokoto_text">正在从回声洞获取...</div>
+            <span class="quote-from" id="hitokoto_from"></span>
+        </div>
+
+        <!-- 软件坞 (Dock) -->
+        <div class="control-center">
+            <h3 style="color:var(--text-sub); font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0 0 15px 0;">快速启动 (Mac Dock)</h3>
+            <div class="dock">
+                <!-- Mac URL Schemes -->
+                <a href="notion://" class="app-icon" title="Notion">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" alt="Notion">
+                    <p>Notion</p>
+                </a>
+                <a href="orpheus://" class="app-icon" title="网易云音乐">
+                    <span class="material-icons-round" style="color:#d32f2f;">music_note</span>
+                    <p>网易云</p>
+                </a>
+                <a href="discord://" class="app-icon" title="Discord">
+                    <span class="material-icons-round" style="color:#5865F2;">discord</span>
+                    <p>Discord</p>
+                </a>
+                <a href="dingtalk://" class="app-icon" title="钉钉">
+                    <span class="material-icons-round" style="color:#0089FF;">work</span>
+                    <p>钉钉</p>
+                </a>
+                <a href="ticktick://" class="app-icon" title="滴答清单">
+                    <span class="material-icons-round" style="color:#6161ff;">check_circle</span>
+                    <p>滴答清单</p>
+                </a>
+                
+            </div>
+        </div>
+
+        <!-- 网易云音乐内嵌 (iframe) -->
+        <div class="music-player">
+            <!-- 使用网易云歌单外链，ID为精选纯音乐 -->
+            <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=86 src="//music.163.com/outchain/player?type=0&id=7445203923&auto=0&height=66"></iframe>
+        </div>
+
+    </div>
+
+    <!-- 右侧: AI 聊天 -->
+    <div class="chat-container">
+        <div class="chat-header">
+            <span style="font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                <span class="material-icons-round" style="color:var(--accent);">favorite</span>
+                灵魂伴侣 (AI)
+            </span>
+            <select class="model-select" id="model-select">
+                <option value="deepseek-chat">Deepseek V3</option>
+                <option value="deepseek-reasoner">Deepseek R1 (深度思考)</option>
+                <option value="qwen-plus">通义千问 Plus</option>
+                <option value="qwen-max">通义千问 Max</option>
+            </select>
+        </div>
+        
+        <div class="chat-messages" id="chat-box">
+            <div class="msg ai">
+                嗨 Jack，我是你的 AI 伙伴。<br>
+                看你好像有点累？没关系，拖延其实是大脑在求救。<br>
+                ZNotes 放在那又不会跑，先深呼吸，聊聊你现在的心情吧？(我可以帮你分析时间表哦)
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="user-input" placeholder="说点什么... (回车发送)">
+            <button class="send-btn" onclick="sendMessage()">
+                <span class="material-icons-round" style="font-size:20px;">send</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- 底部传送门 -->
+<div class="bridge-bar">
+    <span style="font-size:13px; color:#666;">电量充满了？</span>
+    <a href="https://yunfanshi.github.io/Studyplan.html" class="cta-btn">
+        <span class="material-icons-round" style="font-size:18px;">rocket_launch</span>
+        回到学习任务
+    </a>
+</div>
+
+<!-- 设置弹窗 -->
+<dialog id="settings-modal">
+    <h3>🔑 API 配置中心</h3>
+    <p style="font-size:12px; color:#666;">密钥仅保存在你的浏览器本地，绝对安全。</p>
+    
+    <label style="font-size:12px; font-weight:bold;">Deepseek API Key</label>
+    <input type="password" id="sk-deepseek" placeholder="sk-...">
+    
+    <label style="font-size:12px; font-weight:bold;">通义千问 (Dashscope) API Key</label>
+    <input type="password" id="sk-qwen" placeholder="sk-...">
+
+    <div style="text-align:right; margin-top:20px;">
+        <button onclick="saveKeys()" style="padding:10px 24px; background:var(--text-main); color:white; border:none; border-radius:8px; cursor:pointer;">保存配置</button>
+    </div>
+</dialog>
+
+<!-- 日程导入隐藏输入框 (用于 AI 上下文) -->
+<textarea id="schedule-input" style="display:none;"></textarea>
+
+<script>
+    // --- 1. 一言 (Hitokoto) 系统 ---
+    function fetchHitokoto() {
+        const textElem = document.getElementById('hitokoto_text');
+        const fromElem = document.getElementById('hitokoto_from');
+        
+        textElem.style.opacity = 0.5;
+        
+        fetch('https://v1.hitokoto.cn/?c=d&c=i&c=k') // d=文学, i=诗词, k=哲学
+            .then(response => response.json())
+            .then(data => {
+                textElem.innerText = data.hitokoto;
+                fromElem.innerText = `—— ${data.from_who ? data.from_who : ''} 「${data.from}」`;
+                textElem.style.opacity = 1;
+            })
+            .catch(err => {
+                textElem.innerText = "网络似乎去流浪了...";
+                textElem.style.opacity = 1;
+            });
+    }
+    
+    // 初始化一言
+    fetchHitokoto();
+
+    // --- 2. 呼吸球动画逻辑 ---
+    const breatheText = document.getElementById('breathe-instruction');
+    
+    setInterval(() => {
+        // 配合 CSS 动画: 8s 周期
+        // 0-4s 吸气 (0-50%)
+        // 4-8s 呼气 (50-100%)
+        setTimeout(() => breatheText.innerText = "屏息...", 3800);
+        setTimeout(() => breatheText.innerText = "呼气...", 4200);
+        setTimeout(() => breatheText.innerText = "吸气...", 8000);
+    }, 8000);
+
+    // --- 3. AI 聊天系统 ---
+    
+    // 读取 Key
+    const storedDeepseek = localStorage.getItem('jack_sk_deepseek');
+    const storedQwen = localStorage.getItem('jack_sk_qwen');
+    if(storedDeepseek) document.getElementById('sk-deepseek').value = storedDeepseek;
+    if(storedQwen) document.getElementById('sk-qwen').value = storedQwen;
+
+    function saveKeys() {
+        localStorage.setItem('jack_sk_deepseek', document.getElementById('sk-deepseek').value);
+        localStorage.setItem('jack_sk_qwen', document.getElementById('sk-qwen').value);
+        document.getElementById('settings-modal').close();
+        alert("密钥保存成功！");
+    }
+
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+
+    userInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // 1. 显示用户消息
+        addMessage(text, 'user');
+        userInput.value = '';
+
+        // 2. 系统提示词 (System Prompt)
+        const systemPrompt = `
+            你是一个温柔、幽默且富有同理心的 AI 伙伴，名字叫 "Jack的树洞"。
+            Jack 是一个有拖延症的学生，尤其是面对 ZNotes 这种复习资料时容易焦虑。
+            你的任务是：
+            1. 倾听他的焦虑，不要一上来就说教。
+            2. 用幽默或哲学的方式（参考一言风格）缓解他的压力。
+            3. 在他情绪好转时，轻轻引导他去完成哪怕 5 分钟的学习。
+            4. 可以调用 "Launch Control" 的概念，比如建议他点一下左边的滴答清单或 Notion。
+            请用中文回答，语气要像多年的老友。
+        `;
+
+        // 3. API 调用
+        const model = document.getElementById('model-select').value;
+        let apiKey = '';
+        let url = '';
+        
+        const loadingId = addMessage("思考中...", 'ai', true);
+
+        try {
+            if (model.includes('deepseek')) {
+                apiKey = localStorage.getItem('jack_sk_deepseek');
+                url = 'https://api.deepseek.com/chat/completions';
+            } else {
+                // Qwen
+                apiKey = localStorage.getItem('jack_sk_qwen');
+                // 使用阿里云兼容 OpenAI 的接口
+                url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+            }
+
+            if (!apiKey) {
+                throw new Error("请先点击左下角设置图标配置 API Key！");
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: text }
+                    ],
+                    stream: false
+                })
+            });
+
+            const data = await response.json();
+            
+            // 移除 Loading
+            document.getElementById(loadingId).remove();
+
+            if (data.error) {
+                addMessage("API 错误: " + data.error.message, 'ai');
+            } else {
+                const reply = data.choices[0].message.content;
+                addMessage(reply, 'ai');
+            }
+
+        } catch (err) {
+            document.getElementById(loadingId).remove();
+            addMessage("系统错误: " + err.message, 'ai');
+        }
+    }
+
+    function addMessage(text, sender, isLoading = false) {
+        const div = document.createElement('div');
+        div.className = `msg ${sender}`;
+        // 处理 Markdown 换行简单转换
+        div.innerHTML = text.replace(/\n/g, '<br>');
+        
+        if (isLoading) {
+            div.id = 'loading-' + Date.now();
+            div.style.opacity = '0.7';
+            div.style.fontStyle = 'italic';
+        }
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return div.id;
+    }
+
+</script>
+
+</body>
+</html>
