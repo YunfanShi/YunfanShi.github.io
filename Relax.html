@@ -3,498 +3,426 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sanctuary V1.0 | 战术指挥中心</title>
+    <title>Jack's Sanctuary</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
+            /* 默认 Google Blue 主题 */
             --primary: #1a73e8; 
             --on-primary: #ffffff;
             --surface: #ffffff;
             --surface-variant: #f1f3f4;
             --secondary: #5f6368;
             --accent: #ea4335; 
-            --success: #34a853;
-            --warning: #fbbc04;
             --text-main: #202124;
-            --text-sub: #5f6368;
+            
             --card-radius: 28px;
             --font-main: 'Noto Sans SC', sans-serif;
             --font-hero: 'ZCOOL KuaiLe', cursive;
+            
+            --dock-opacity: 1;
+            --font-scale: 1;
         }
 
-        * { box-sizing: border-box; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* 动态主题类 */
+        body.theme-dragon {
+            --primary: #b71c1c; /* 绘梨衣红/龙族红 */
+            --surface: #202124;
+            --surface-variant: #303134;
+            --text-main: #e8eaed;
+            --secondary: #9aa0a6;
+            --accent: #fbbc04; /* 黄金瞳 */
+        }
+        
+        body.theme-eri {
+            --primary: #ff80ab; /* 樱花粉 */
+            --surface: #fff0f5;
+            --surface-variant: #ffffff;
+            --text-main: #4a2c36;
+            --secondary: #8c7b75;
+            --accent: #ff4081;
+        }
+
+        body.filter-amber::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 166, 0, 0.2);
+            pointer-events: none;
+            z-index: 9999;
+            mix-blend-mode: multiply;
+        }
+
+        body.font-large { --font-scale: 1.2; }
+        body.font-small { --font-scale: 0.9; }
+
+        /* 全局发光模式 */
+        body.glow-mode .icon-btn, 
+        body.glow-mode .app-item, 
+        body.glow-mode button {
+            box-shadow: 0 0 15px var(--primary);
+            transition: box-shadow 0.3s;
+        }
+
+        * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
         body {
             margin: 0;
             padding: 0;
             font-family: var(--font-main);
-            background: #f8f9fa;
+            background: var(--surface-variant);
             color: var(--text-main);
             height: 100vh;
             display: flex;
             overflow: hidden;
+            font-size: calc(16px * var(--font-scale));
         }
 
-        /* --- 导航侧栏 --- */
+        /* Matrix Canvas */
+        #matrix-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            opacity: 0.15;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* --- 侧栏 --- */
         .sidebar {
             width: 88px;
-            background: white;
+            background: var(--surface);
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 30px 0;
-            border-right: 1px solid #e0e0e0;
+            border-right: 1px solid rgba(0,0,0,0.1);
             z-index: 100;
         }
+        /* 侧栏位置切换 */
+        body.sidebar-right { flex-direction: row-reverse; }
+        body.sidebar-right .sidebar { border-right: none; border-left: 1px solid rgba(0,0,0,0.1); }
 
         .icon-btn {
-            width: 56px;
-            height: 56px;
+            width: 56px; height: 56px;
             border-radius: 16px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: var(--secondary);
-            cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            color: var(--secondary); cursor: pointer;
             margin-bottom: 24px;
-            background: transparent;
+            position: relative;
         }
         .icon-btn:hover { background: var(--surface-variant); color: var(--primary); }
-        .icon-btn.active { background: #e8f0fe; color: var(--primary); }
+        .icon-btn.active { background: rgba(26, 115, 232, 0.1); color: var(--primary); }
+        
+        /* 心情指数小圆点 */
+        .mood-dot {
+            position: absolute; bottom: 5px; right: 5px;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #ccc;
+        }
 
-        /* --- 主内容区 --- */
+        /* --- 主区 --- */
         .main-container {
             flex: 1;
             display: grid;
             grid-template-columns: 1fr 420px;
             height: 100vh;
+            position: relative;
+            z-index: 1;
         }
+        /* 极简模式 */
+        body.ui-minimal .main-container { grid-template-columns: 0fr 1fr; }
+        body.ui-minimal .sidebar, body.ui-minimal .scroll-area { display: none; }
+        body.ui-minimal .ai-chat-side { border: none; width: 100%; max-width: 800px; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.1); }
 
-        .scroll-area {
-            padding: 40px;
-            overflow-y: auto;
-            scroll-behavior: smooth;
-        }
+        .scroll-area { padding: 40px; overflow-y: auto; scroll-behavior: smooth; }
 
-        /* --- 标题与组件 --- */
-        .hero-section { margin-bottom: 40px; }
         .hero-title {
             font-family: var(--font-hero);
             font-size: 3rem;
             color: var(--primary);
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 15px;
+            margin: 0 0 40px 0;
+            display: flex; align-items: center; gap: 15px;
         }
 
-        /* 呼吸/计时器二合一面板 */
+        /* 组件通用 */
         .widget-card {
-            background: linear-gradient(135deg, #1a73e8 0%, #8ab4f8 100%);
-            border-radius: var(--card-radius);
-            height: 240px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            box-shadow: 0 10px 40px rgba(26, 115, 232, 0.3);
-            margin-bottom: 30px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        /* 倒计时模式样式 */
-        .timer-mode { display: none; text-align: center; }
-        .timer-digits { font-size: 80px; font-weight: 700; font-family: monospace; letter-spacing: -2px; }
-        .timer-label { font-size: 16px; opacity: 0.9; text-transform: uppercase; letter-spacing: 2px; }
-
-        /* 呼吸动画 */
-        .breathe-circle {
-            width: 80px;
-            height: 80px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 50%;
-            animation: breathe-anim 8s infinite ease-in-out;
-            border: 2px solid white;
-        }
-        @keyframes breathe-anim {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            40%, 60% { transform: scale(2.5); opacity: 1; }
-        }
-
-        /* 一言卡片 */
-        .hitokoto-card {
-            background: white;
-            padding: 30px;
-            border-radius: var(--card-radius);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            border: 1px solid #e0e0e0;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 30px;
-        }
-        .hitokoto-card:hover { border-color: var(--primary); transform: translateY(-2px); }
-
-        /* 软件坞 */
-        .dock-section {
-            background: white;
+            background: var(--surface);
             padding: 25px;
             border-radius: var(--card-radius);
-            border: 1px solid #e0e0e0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
+
+        /* 呼吸球/倒计时 */
+        .breathe-widget {
+            background: linear-gradient(135deg, var(--primary) 0%, #8ab4f8 100%);
+            color: white;
+            height: 240px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            position: relative; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(26, 115, 232, 0.3);
+        }
+        .breathe-circle {
+            width: 80px; height: 80px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border: 2px solid white;
+            transition: all 4s ease-in-out; 
+            /* 动画由 JS 动态控制 */
+        }
+
+        /* 软件坞 */
         .dock-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 15px; opacity: var(--dock-opacity);
         }
         .app-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-decoration: none;
-            color: var(--text-main);
-            gap: 8px;
+            display: flex; flex-direction: column; align-items: center;
+            text-decoration: none; color: var(--text-main); gap: 6px;
         }
         .app-icon-img {
-            width: 56px;
-            height: 56px;
-            border-radius: 14px;
-            background: #f8f9fa;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            border: 1px solid #eee;
-        }
-        .app-item:hover .app-icon-img { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .app-item span { font-size: 11px; font-weight: 500; }
-
-        /* 音乐播放器 (嵌入歌单) */
-        .music-widget {
-            margin-top: 30px;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            background: white;
+            width: 50px; height: 50px; border-radius: 14px;
+            background: var(--surface-variant);
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
 
-        /* --- 右侧: AI 战友聊天室 --- */
+        /* --- 聊天区 --- */
         .ai-chat-side {
-            background: white;
-            border-left: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
+            background: var(--surface);
+            border-left: 1px solid rgba(0,0,0,0.1);
+            display: flex; flex-direction: column;
             height: 100vh;
         }
         .chat-header {
-            padding: 24px;
-            border-bottom: 1px solid #f1f3f4;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex; justify-content: space-between; align-items: center;
         }
         .chat-messages {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            background: #fafafa;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
+            flex: 1; padding: 20px; overflow-y: auto;
+            background: var(--surface-variant);
+            display: flex; flex-direction: column; gap: 16px;
         }
         .bubble {
-            max-width: 85%;
-            padding: 14px 18px;
-            border-radius: 20px;
-            font-size: 14px;
-            line-height: 1.6;
+            max-width: 85%; padding: 12px 16px; border-radius: 18px;
+            font-size: 14px; line-height: 1.6; word-wrap: break-word;
         }
-        .bubble.ai { background: white; border: 1px solid #e8eaed; align-self: flex-start; border-bottom-left-radius: 4px; }
-        .bubble.user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-
+        .bubble.ai { background: var(--surface); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.05); }
+        .bubble.user { background: var(--primary); color: var(--on-primary); align-self: flex-end; border-bottom-right-radius: 4px; }
+        
         .chat-input-area {
-            padding: 20px;
-            border-top: 1px solid #f1f3f4;
-            display: flex;
-            gap: 12px;
+            padding: 20px; border-top: 1px solid rgba(0,0,0,0.05);
+            display: flex; gap: 10px; background: var(--surface);
         }
         .main-input {
-            flex: 1;
-            padding: 14px 20px;
-            border: 1px solid #dadce0;
-            border-radius: 30px;
+            flex: 1; padding: 12px 20px;
+            border: 1px solid rgba(0,0,0,0.1); border-radius: 30px;
+            background: var(--surface-variant); color: var(--text-main);
             outline: none;
-            font-size: 14px;
         }
-        .main-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1); }
+        .main-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1); }
 
-        /* 模态框通用 */
+        /* --- 特殊层 --- */
+        /* 脊椎锁定层 */
+        #spine-lock-layer {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 10000;
+            color: white; flex-direction: column; justify-content: center; align-items: center;
+        }
+        /* 禅模式 */
+        #zen-layer {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 9000;
+            color: white; display: flex; justify-content: center; align-items: center;
+            font-family: 'ZCOOL KuaiLe'; font-size: 3rem;
+        }
+        
+        /* 任务悬浮窗 */
+        .mission-toast {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--warning); color: #000;
+            padding: 8px 16px; border-radius: 20px; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 50; display: none;
+        }
+
+        /* 模态框 */
         dialog {
-            border: none;
-            border-radius: 24px;
-            padding: 30px;
-            box-shadow: 0 24px 80px rgba(0,0,0,0.3);
-            width: 440px;
-            animation: fadeIn 0.3s ease;
+            background: var(--surface); color: var(--text-main);
+            border: none; border-radius: 24px; padding: 30px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.3); width: 440px;
         }
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .config-input { width: 100%; padding: 12px; margin: 10px 0 20px 0; border: 1px solid #ddd; border-radius: 8px; }
-
-        /* 导航确认框 */
-        #nav-modal h3 { color: var(--primary); }
-        .nav-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        .btn-cancel { background: #f1f3f4; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: var(--text-main); }
-        .btn-confirm { background: var(--primary); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: white; }
-
-        /* 传送门 */
-        .portal-bar {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background: rgba(32, 33, 36, 0.9);
-            padding: 8px 10px 8px 25px;
-            border-radius: 100px;
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            color: white;
-            backdrop-filter: blur(10px);
+        .config-input { 
+            width: 100%; padding: 12px; margin: 10px 0 20px 0; 
+            background: var(--surface-variant); border: 1px solid rgba(0,0,0,0.1); 
+            border-radius: 8px; color: var(--text-main);
         }
-        .portal-btn {
-            background: var(--primary);
-            color: white;
-            padding: 10px 24px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        button.btn-primary {
+            background: var(--primary); color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer;
         }
 
     </style>
 </head>
 <body>
 
+<canvas id="matrix-canvas"></canvas>
+
+<div id="spine-lock-layer" style="display:none;">
+    <span class="material-icons-round" style="font-size: 64px; margin-bottom: 20px;">accessibility_new</span>
+    <h1>⚠️ SPINE INTEGRITY CRITICAL</h1>
+    <p>站起来！去倒杯水！拉伸你的脖子！</p>
+    <h2 id="spine-timer">00:00</h2>
+    <p style="opacity: 0.5; margin-top: 20px;">系统已被 AI 强制接管</p>
+</div>
+
+<div id="zen-layer" style="display:none;" onclick="toggleZen(false)">
+    <span id="zen-text">心如止水</span>
+</div>
+
 <aside class="sidebar">
     <div class="icon-btn active" title="指挥中心"><span class="material-icons-round">bolt</span></div>
-    <div class="icon-btn" onclick="document.getElementById('config-modal').showModal()" title="系统设置"><span class="material-icons-round">settings</span></div>
+    <div class="icon-btn" onclick="toggleSettings()" title="设置"><span class="material-icons-round">settings</span></div>
+    <div class="icon-btn" onclick="clearChat()" title="清除记忆" style="margin-top:auto;"><span class="material-icons-round">delete_sweep</span></div>
+    <div class="mood-dot" id="mood-indicator" title="Mood Pulse"></div>
 </aside>
+
+<div class="mission-toast" id="mission-toast">
+    📅 距离 Physics 0625 考试还有: <span id="exam-countdown">--</span> 天
+</div>
 
 <div class="main-container">
     <section class="scroll-area">
-        <div class="hero-section">
-            <h1 class="hero-title">Jack，今天也要赢！ <span class="material-icons-round" style="font-size: 48px; color: #fbbc04;">workspace_premium</span></h1>
-            <h2 style="font-size: 1.2rem; opacity: 0.8;">IGCSE 的战场上，你从不是孤身一人。</h2>
+        <h1 class="hero-title">Jack，准备接管世界。 <span class="material-icons-round" style="font-size: 36px; color: var(--accent);">terminal</span></h1>
+
+        <div class="widget-card breathe-widget" id="main-widget">
+            <div class="breathe-circle" id="breathe-circle"></div>
+            <p id="widget-txt" style="margin-top: 30px; font-weight: 700; letter-spacing: 2px; z-index: 2;">SYSTEM ONLINE</p>
+            <div id="timer-display" style="font-size: 60px; font-weight: 700; font-family: monospace; display:none; z-index:2;">00:00</div>
         </div>
 
-        <div class="widget-card" id="main-widget">
-            <div id="breathe-view" style="display:flex; flex-direction:column; align-items:center; width:100%;">
-                <div class="breathe-circle"></div>
-                <p id="breathe-txt" style="margin-top: 30px; font-weight: 700; letter-spacing: 2px;">战术调整中...</p>
+        <div class="widget-card" style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <h3 style="margin:0;">💧 Hydration Level</h3>
+                <span style="font-size: 12px; opacity: 0.7;">目标: 8杯/天</span>
             </div>
-            <div id="timer-view" class="timer-mode">
-                <div class="timer-label">FOCUS SESSION</div>
-                <div class="timer-digits" id="timer-display">25:00</div>
-                <button onclick="stopTimer()" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 15px; border-radius: 20px; cursor: pointer; margin-top:10px;">中止行动</button>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="water-count" style="font-size: 24px; font-weight: bold; color: var(--primary);">0</span>
+                <button onclick="addWater()" class="icon-btn" style="margin:0; width:40px; height:40px; border-radius:50%; background: var(--surface-variant);">+</button>
             </div>
         </div>
 
-        <div class="hitokoto-card" onclick="updateHitokoto()">
-            <span class="material-icons-round" style="color: #fbbc04; margin-bottom: 10px;">format_quote</span>
-            <div id="h-text" style="font-size: 18px; line-height: 1.6; font-weight: 500;">加载回声洞的勇气...</div>
-            <div id="h-from" style="text-align: right; color: #9aa0a6; font-size: 13px; margin-top: 15px;"></div>
-        </div>
-
-        <div class="dock-section">
-            <h3 style="margin: 0; font-size: 1rem; color: var(--secondary); margin-bottom:15px;">作战装备</h3>
+        <div class="widget-card dock-section">
+            <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; color: var(--secondary); text-transform: uppercase; letter-spacing: 1px;">Dock</h3>
             <div class="dock-grid">
-                <a href="notion://" class="app-item">
-                    <div class="app-icon-img"><img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" width="30"></div>
-                    <span>Notion</span>
-                </a>
-                <a href="discord://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #5865F2;">discord</span></div>
-                    <span>Discord</span>
-                </a>
-                <a href="orpheus://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #d32f2f;">music_note</span></div>
-                    <span>网易云</span>
-                </a>
-                <a href="dingtalk://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #0089FF;">work</span></div>
-                    <span>钉钉</span>
-                </a>
-                <a href="ticktick://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #6161ff;">check_circle</span></div>
-                    <span>滴答清单</span>
-                </a>
+                <a href="notion://" class="app-item"><div class="app-icon-img"><img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" width="24"></div><span>Notion</span></a>
+                <a href="discord://" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #5865F2;">discord</span></div><span>Discord</span></a>
+                <a href="orpheus://" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #d32f2f;">music_note</span></div><span>Music</span></a>
+                <a href="https://github.com" target="_blank" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #24292e;">code</span></div><span>GitHub</span></a>
+                <a href="javascript:runTool('COLOR_GEN')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: var(--accent);">palette</span></div><span>Colors</span></a>
             </div>
         </div>
 
-        <div class="music-widget">
-            <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=110 src="//music.163.com/outchain/player?type=0&id=316192152&auto=0&height=90"></iframe>
+        <div class="widget-card" style="padding: 0; overflow: hidden; height: 100px;">
+             <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=100 src="//music.163.com/outchain/player?type=0&id=316192152&auto=0&height=90"></iframe>
         </div>
     </section>
 
     <section class="ai-chat-side">
         <div class="chat-header">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span class="material-icons-round" style="color: #ea4335;">smart_toy</span>
-                <span style="font-weight: 700;">热血战友 (V1.0 Pro)</span>
+                <span class="material-icons-round" style="color: var(--accent);">smart_toy</span>
+                <span style="font-weight: 700;">J.A.R.V.I.S (V1.1)</span>
             </div>
-            <select id="model-select" style="border: none; background: #f1f3f4; padding: 5px 10px; border-radius: 8px; font-size: 12px; outline: none;">
+            <select id="model-select" style="border: none; background: var(--surface-variant); padding: 5px; border-radius: 8px; font-size: 12px; color: var(--text-main);">
                 <option value="deepseek-chat">Deepseek V3</option>
-                <option value="qwen-plus">通义千问 Plus</option>
+                <option value="qwen-plus">Qwen Plus</option>
             </select>
         </div>
 
         <div class="chat-messages" id="chat-box">
-            <div class="bubble ai">
-                Jack，我是你的战术指挥 AI。<br><br>
-                我已经连接了本地系统。如果你想专注，直接告诉我“我要专注25分钟”，我会帮你启动倒计时。<br><br>
-                如果想去学习计划表，告诉我“我去学习了”，我会为你开启传送门。
             </div>
-        </div>
 
         <div class="chat-input-area">
-            <input type="text" id="user-msg" class="main-input" placeholder="输入你的计划...">
-            <button onclick="sendMsg()" style="background: var(--primary); border: none; width: 44px; height: 44px; border-radius: 50%; color: white; cursor: pointer;">
+            <input type="text" id="user-msg" class="main-input" placeholder="输入指令或开始对话... (try '开启黑客模式')">
+            <button onclick="sendMsg()" class="btn-primary" style="border-radius: 50%; width: 44px; height: 44px; padding: 0; display:flex; justify-content:center; align-items:center;">
                 <span class="material-icons-round">send</span>
             </button>
         </div>
     </section>
 </div>
 
-<div class="portal-bar">
-    <span style="font-size: 14px; opacity: 0.9;">System Status: Online.</span>
-    <a href="https://yunfanshi.github.io/Studyplan.html" class="portal-btn">
-        <span class="material-icons-round">rocket_launch</span>
-        主计划
-    </a>
-</div>
-
 <dialog id="config-modal">
-    <h3 style="margin-top: 0;">🔑 API 配置中心</h3>
-    <p style="font-size: 12px; color: #666;">密钥保存在本地 LocalStorage。</p>
-    <label style="font-size: 12px; font-weight: bold;">Deepseek API Key</label>
-    <input type="password" id="key-deepseek" class="config-input" placeholder="sk-...">
-    <label style="font-size: 12px; font-weight: bold;">通义千问 API Key</label>
-    <input type="password" id="key-qwen" class="config-input" placeholder="sk-...">
+    <h3>⚙️ 系统核心设置</h3>
+    <label style="font-size: 12px; font-weight: bold;">Deepseek Key</label>
+    <input type="password" id="key-deepseek" class="config-input">
+    <label style="font-size: 12px; font-weight: bold;">Qwen Key</label>
+    <input type="password" id="key-qwen" class="config-input">
     <div style="text-align: right;">
-        <button onclick="saveConfigs()" class="btn-confirm">保存配置</button>
-        <button onclick="document.getElementById('config-modal').close()" class="btn-cancel">关闭</button>
+        <button onclick="saveConfigs()" class="btn-primary">保存并重启</button>
+        <button onclick="document.getElementById('config-modal').close()" style="background:transparent; border:none; color:var(--text-main); cursor:pointer;">取消</button>
     </div>
 </dialog>
 
-<dialog id="nav-modal">
-    <h3><span class="material-icons-round" style="vertical-align: bottom;">rocket</span> 准备跃迁?</h3>
-    <p>检测到你想要进入战斗状态。系统将在 <span id="nav-countdown" style="font-weight:bold; color:var(--primary);">3</span> 秒后跳转到 StudyPlan。</p>
-    <div class="nav-actions">
-        <button onclick="cancelNav()" class="btn-cancel">取消跳转</button>
-        <button onclick="confirmNav()" class="btn-confirm">立即前往</button>
+<dialog id="tool-modal">
+    <h3 id="tool-title">TOOL OUTPUT</h3>
+    <div id="tool-content" style="margin: 20px 0; font-family: monospace; white-space: pre-wrap; background: var(--surface-variant); padding: 10px; border-radius: 8px; max-height: 300px; overflow: auto;"></div>
+    <div style="text-align: right;">
+        <button onclick="document.getElementById('tool-modal').close()" class="btn-primary">关闭</button>
     </div>
 </dialog>
 
 <script>
-    // --- 1. 基础功能 ---
-    async function updateHitokoto() {
-        try {
-            const res = await fetch('https://v1.hitokoto.cn/?c=d&c=i&c=k');
-            const data = await res.json();
-            document.getElementById('h-text').innerText = data.hitokoto;
-            document.getElementById('h-from').innerText = `—— ${data.from_who || ''} 「${data.from}」`;
-        } catch (e) {
-            document.getElementById('h-text').innerText = "既然选择了远方，便只顾风雨兼程。";
+    /* =========================================
+       1. 系统初始化与持久化 (System Init)
+       ========================================= */
+    
+    // 初始化状态
+    const state = {
+        water: parseInt(localStorage.getItem('jack_water') || 0),
+        chatHistory: JSON.parse(localStorage.getItem('jack_chat_history') || '[]'),
+        examDate: localStorage.getItem('jack_exam_date') || null,
+        theme: localStorage.getItem('jack_theme') || 'default'
+    };
+
+    // 启动加载
+    window.onload = () => {
+        // 恢复 API Keys
+        document.getElementById('key-deepseek').value = localStorage.getItem('jack_sk_ds') || '';
+        document.getElementById('key-qwen').value = localStorage.getItem('jack_sk_qw') || '';
+        
+        // 恢复界面状态
+        renderChat();
+        updateWaterUI();
+        if(state.theme !== 'default') changeTheme(state.theme);
+        if(state.examDate) updateExamCountdown();
+        
+        // 欢迎语
+        if(state.chatHistory.length === 0) {
+            addBubble("System Online. 战术终端 V1.1 已就绪。<br>试试输入：'切换龙族主题' 或 '我要专注25分钟'。", 'ai');
         }
-    }
-    updateHitokoto();
+    };
 
-    const bText = document.getElementById('breathe-txt');
-    setInterval(() => {
-        if(document.getElementById('breathe-view').style.display !== 'none'){
-            setTimeout(() => bText.innerText = "慢慢吸气... (4秒)", 0);
-            setTimeout(() => bText.innerText = "憋住呼吸... (7秒)", 4000);
-            setTimeout(() => bText.innerText = "用力呼气... (8秒)", 6000);
-        }
-    }, 8000);
-
-    // --- 2. 战术工具: 倒计时 ---
-    let timerInterval;
-    function startTimer(minutes) {
-        document.getElementById('breathe-view').style.display = 'none';
-        document.getElementById('timer-view').style.display = 'block';
-        
-        let seconds = minutes * 60;
-        
-        // 立即更新一次
-        updateTimerDisplay(seconds);
-
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            seconds--;
-            updateTimerDisplay(seconds);
-            if (seconds <= 0) {
-                stopTimer();
-                alert("任务完成！休息一下吧，战友！");
-            }
-        }, 1000);
+    function saveState() {
+        localStorage.setItem('jack_water', state.water);
+        localStorage.setItem('jack_chat_history', JSON.stringify(state.chatHistory));
+        localStorage.setItem('jack_theme', state.theme);
     }
 
-    function updateTimerDisplay(totalSeconds) {
-        const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const s = (totalSeconds % 60).toString().padStart(2, '0');
-        document.getElementById('timer-display').innerText = `${m}:${s}`;
-    }
-
-    function stopTimer() {
-        clearInterval(timerInterval);
-        document.getElementById('breathe-view').style.display = 'flex';
-        document.getElementById('timer-view').style.display = 'none';
-    }
-
-    // --- 3. 战术工具: 自动导航 ---
-    let navTimer;
-    function triggerNav() {
-        const modal = document.getElementById('nav-modal');
-        modal.showModal();
-        let count = 3;
-        document.getElementById('nav-countdown').innerText = count;
-        
-        navTimer = setInterval(() => {
-            count--;
-            document.getElementById('nav-countdown').innerText = count;
-            if(count <= 0) {
-                confirmNav();
-            }
-        }, 1000);
-    }
-
-    function confirmNav() {
-        clearInterval(navTimer);
-        window.location.href = "https://yunfanshi.github.io/Studyplan.html";
-    }
-
-    function cancelNav() {
-        clearInterval(navTimer);
-        document.getElementById('nav-modal').close();
-    }
-
-    // --- 4. 核心 AI 聊天逻辑 (带上下文和工具解析) ---
+    /* =========================================
+       2. 聊天与 API 逻辑 (Core Chat)
+       ========================================= */
     const chatBox = document.getElementById('chat-box');
     const userIn = document.getElementById('user-msg');
-    
-    // 上下文记忆 (保留最近 6 条消息)
-    let chatHistory = []; 
 
     userIn.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMsg(); });
 
@@ -502,128 +430,368 @@
         const val = userIn.value.trim();
         if(!val) return;
 
+        // 1. 显示用户消息
         addBubble(val, 'user');
         userIn.value = '';
-        
-        // 更新历史
-        chatHistory.push({role: "user", content: val});
+        state.chatHistory.push({role: "user", content: val});
+        saveState();
 
-        const loadingId = addBubble("正在解析指令...", 'ai', true);
-
-        // 系统提示词：定义工具
+        // 2. 准备 Prompt (包含工具说明)
         const systemPrompt = `
-            你叫 Gemini，是 Jack (15岁 IGCSE学生，极客，玩家) 的热血战友。
-            
-            【核心指令】：
-            1. 你拥有控制网页的能力。
-            2. 如果 Jack 想专注、倒计时、番茄钟，请在回复最后加上：[TIMER: 25] (数字代表分钟)。
-            3. 如果 Jack 决定去学习、看计划表、开始战斗，请在回复最后加上：[NAV: PLAN]。
-            4. 只有在确实需要时才输出上述代码。
-            5. 不要让 Jack 看到代码，我会帮你隐藏并执行。
-            
-            【性格】：
-            像《战地》里的指挥官，或者《龙族》里的路鸣泽。
-            鼓励他，不要说教。如果他拖延，用幽默的方式推他一把。
-            回复要简短有力，不要长篇大论。
-        `;
+你现在是 Jack (15岁极客学生) 的战术 AI 助手 (J.A.R.V.I.S / 路鸣泽混合人格)。
+你的目标是辅助学习、管理健康、提供情绪价值。
 
-        // 组装发送给 API 的消息列表 (System + History)
-        // 简单的滑动窗口：只保留最后 6 条历史，防止 token 爆炸
-        if(chatHistory.length > 6) {
-            chatHistory = chatHistory.slice(chatHistory.length - 6);
-        }
+【核心能力 - 你可以通过输出以下 TAG 来控制网页】：
+[THEME: DRAGON_RAJA_RED] - 切换龙族红主题
+[THEME: ERI_PINK] - 切换绘梨衣粉主题
+[THEME: DEFAULT] - 恢复默认蓝
+[UI_LEVEL: MINIMAL] - 极简模式 (隐藏侧栏)
+[UI_LEVEL: COMBAT] - 战斗模式 (全显示)
+[MED: SPINE_LOCK] - 强制锁屏休息 (颈椎保护)
+[MED: EYE_AMBER] - 开启护眼模式
+[MED: BREATH_SYNC] - 开启呼吸训练
+[MISSION: ADD_DEADLINE] - 设定考试倒计时
+[MISSION: IELTS_TIMER] - 启动雅思计时
+[EFFECT: MATRIX] - 开启黑客帝国代码雨
+[EFFECT: EXPLOSION] - 震动特效
+[TOOL: COLOR_GEN] - 生成配色
+[ZEN_SCREEN] - 禅模式 (全黑)
+
+注意：
+1. 请根据 Jack 的需求自然地使用这些 TAG。
+2. TAG 应该放在回复的末尾。
+3. 如果 Jack 说"累了"，尝试用 MED 指令。
+4. 如果 Jack 说"想改代码"，用 UI 指令或 TOOL 指令。
+5. 保持回复简短有力，像个战友。
+`;
         
-        const messagesToSend = [
+        // 截取最近 10 条历史以节省 Token
+        const context = [
             {role: "system", content: systemPrompt},
-            ...chatHistory
+            ...state.chatHistory.slice(-10)
         ];
 
-        const model = document.getElementById('model-select').value;
-        let apiKey = '';
-        let url = '';
+        const loadingId = addBubble("Command processing...", 'ai', true);
 
         try {
-            if(model.includes('deepseek')) {
-                apiKey = localStorage.getItem('jack_sk_ds');
-                url = 'https://api.deepseek.com/chat/completions';
-            } else {
-                apiKey = localStorage.getItem('jack_sk_qw');
-                url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-            }
+            const model = document.getElementById('model-select').value;
+            let apiKey = model.includes('deepseek') ? localStorage.getItem('jack_sk_ds') : localStorage.getItem('jack_sk_qw');
+            let url = model.includes('deepseek') ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 
-            if(!apiKey) throw new Error("请先点击设置图标配置 API Key！");
+            if(!apiKey) throw new Error("API Key Missing! Click settings icon.");
 
-            const response = await fetch(url, {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({
-                    model: model,
-                    messages: messagesToSend
-                })
+                body: JSON.stringify({ model: model, messages: context })
             });
 
-            const data = await response.json();
+            const data = await res.json();
             document.getElementById(loadingId).remove();
+
+            if(data.error) throw new Error(data.error.message);
+
+            const rawText = data.choices[0].message.content;
             
-            if(data.error) {
-                addBubble("通讯干扰: " + data.error.message, 'ai');
-            } else {
-                const rawContent = data.choices[0].message.content;
-                chatHistory.push({role: "assistant", content: rawContent}); // 存入历史
-                
-                // --- 工具解析逻辑 ---
-                let displayContent = rawContent;
-                
-                // 1. 检查 Timer
-                const timerMatch = rawContent.match(/\[TIMER:\s*(\d+)\]/);
-                if (timerMatch) {
-                    const minutes = parseInt(timerMatch[1]);
-                    displayContent = displayContent.replace(timerMatch[0], ''); // 隐藏指令
-                    startTimer(minutes); // 执行工具
-                }
+            // *** 3. 核心：解析并执行指令 ***
+            const { cleanText, commands } = parseCommands(rawText);
+            
+            // 显示净化后的文本
+            addBubble(cleanText, 'ai');
+            state.chatHistory.push({role: "assistant", content: rawText}); // 保存原始含指令文本以便上下文理解
+            saveState();
 
-                // 2. 检查 Navigation
-                const navMatch = rawContent.match(/\[NAV:\s*PLAN\]/);
-                if (navMatch) {
-                    displayContent = displayContent.replace(navMatch[0], ''); // 隐藏指令
-                    triggerNav(); // 执行工具
-                }
+            // 执行指令
+            commands.forEach(cmd => executeCommand(cmd.tag, cmd.val));
 
-                addBubble(displayContent, 'ai');
-            }
-        } catch (err) {
+        } catch (e) {
             if(document.getElementById(loadingId)) document.getElementById(loadingId).remove();
-            addBubble("系统离线: " + err.message, 'ai');
+            addBubble(`[ERROR]: ${e.message}`, 'ai');
         }
     }
 
     function addBubble(text, sender, isLoading=false) {
         const div = document.createElement('div');
         div.className = `bubble ${sender}`;
-        div.innerHTML = text.replace(/\n/g, '<br>'); // 保留换行
-        if(isLoading) {
-            div.id = 'load-' + Date.now();
-            div.style.opacity = '0.6';
-        }
+        div.innerHTML = text.replace(/\n/g, '<br>');
+        if(isLoading) div.id = 'loading-bubble';
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
         return div.id;
     }
 
-    // --- 5. 配置存储 ---
+    function renderChat() {
+        chatBox.innerHTML = '';
+        state.chatHistory.forEach(msg => {
+            // 渲染时隐藏历史指令，只显示文本
+            const { cleanText } = parseCommands(msg.content);
+            if(cleanText.trim()) addBubble(cleanText, msg.role === 'user' ? 'user' : 'ai');
+        });
+    }
+
+    function clearChat() {
+        if(confirm("确定要清除所有记忆吗？")) {
+            state.chatHistory = [];
+            saveState();
+            renderChat();
+        }
+    }
+
+    /* =========================================
+       3. 指令解析引擎 (Command Engine)
+       ========================================= */
+    function parseCommands(text) {
+        const regex = /\[([A-Z_]+)(?::\s*([^\]]+))?\]/g;
+        let commands = [];
+        let cleanText = text.replace(regex, (match, tag, val) => {
+            commands.push({ tag, val: val ? val.trim() : null });
+            return ''; // 移除指令标签
+        });
+        return { cleanText, commands };
+    }
+
+    const CMD_MAP = {
+        // 主题控制
+        'THEME': (val) => changeTheme(val),
+        'UI_LEVEL': (val) => setUILevel(val),
+        
+        // 医疗健康
+        'MED': (val) => handleMed(val),
+        
+        // 学习任务
+        'MISSION': (val) => handleMission(val),
+        
+        // 特效与工具
+        'EFFECT': (val) => handleEffect(val),
+        'TOOL': (val) => runTool(val),
+        'ZEN_SCREEN': () => toggleZen(true),
+        'FONT_SIZE': (val) => document.body.className = document.body.className.replace(/font-\w+/g, '') + ` font-${val}`
+    };
+
+    function executeCommand(tag, val) {
+        console.log(`Executing: ${tag} -> ${val}`);
+        if (CMD_MAP[tag]) {
+            CMD_MAP[tag](val);
+        } else if (CMD_MAP[tag.split('_')[0]]) {
+             // 容错处理：有时 AI 可能会输出 [THEME_RED] 而不是 [THEME: RED]
+             // 这里可以加更复杂的模糊匹配，暂时略过
+        }
+    }
+
+    /* =========================================
+       4. 功能实现库 (Implementation Lib)
+       ========================================= */
+    
+    // --- 主题 ---
+    function changeTheme(val) {
+        document.body.classList.remove('theme-dragon', 'theme-eri');
+        state.theme = 'default';
+        if (val === 'DRAGON_RAJA_RED') {
+            document.body.classList.add('theme-dragon');
+            state.theme = 'DRAGON_RAJA_RED';
+        } else if (val === 'ERI_PINK') {
+            document.body.classList.add('theme-eri');
+            state.theme = 'ERI_PINK';
+        }
+        saveState();
+    }
+
+    function setUILevel(val) {
+        document.body.classList.remove('ui-minimal');
+        if (val === 'MINIMAL') document.body.classList.add('ui-minimal');
+    }
+
+    // --- 健康 ---
+    function handleMed(val) {
+        if (val === 'SPINE_LOCK') {
+            const lockLayer = document.getElementById('spine-lock-layer');
+            lockLayer.style.display = 'flex';
+            let sec = 60; // 锁屏 60秒
+            const timer = setInterval(() => {
+                sec--;
+                document.getElementById('spine-timer').innerText = `00:${sec < 10 ? '0' + sec : sec}`;
+                if (sec <= 0) {
+                    clearInterval(timer);
+                    lockLayer.style.display = 'none';
+                    addBubble("系统解锁。Keep healthy, Jack.", 'ai');
+                }
+            }, 1000);
+        }
+        else if (val === 'EYE_AMBER') {
+            document.body.classList.toggle('filter-amber');
+        }
+        else if (val === 'BREATH_SYNC') {
+            document.getElementById('widget-txt').innerText = "BREATH IN...";
+            document.getElementById('breathe-circle').style.animation = "breathe-anim 4s infinite ease-in-out";
+            // 简单的 JS 动画模拟 CSS keyframes 变化
+            let step = 0;
+            const bTimer = setInterval(() => {
+                step++;
+                const txt = document.getElementById('widget-txt');
+                if(step % 3 === 0) txt.innerText = "HOLD (7s)";
+                else if(step % 3 === 1) txt.innerText = "EXHALE (8s)";
+                else txt.innerText = "INHALE (4s)";
+                if(step > 10) clearInterval(bTimer);
+            }, 4000);
+        }
+    }
+
+    function addWater() {
+        state.water++;
+        updateWaterUI();
+        saveState();
+    }
+    function updateWaterUI() {
+        document.getElementById('water-count').innerText = state.water;
+    }
+
+    // --- 任务 ---
+    function handleMission(val) {
+        if (val === 'ADD_DEADLINE') {
+            // 简单模拟，设定为 5 天后
+            const date = new Date();
+            date.setDate(date.getDate() + 5);
+            state.examDate = date;
+            saveState();
+            updateExamCountdown();
+            document.getElementById('mission-toast').style.display = 'block';
+        }
+        else if (val === 'IELTS_TIMER') {
+            startCountdown(20);
+        }
+    }
+
+    function updateExamCountdown() {
+        if(!state.examDate) return;
+        const now = new Date();
+        const exam = new Date(state.examDate);
+        const diff = Math.ceil((exam - now) / (1000 * 60 * 60 * 24));
+        document.getElementById('exam-countdown').innerText = diff;
+        document.getElementById('mission-toast').style.display = 'block';
+    }
+
+    function startCountdown(minutes) {
+        const display = document.getElementById('timer-display');
+        const circle = document.getElementById('breathe-circle');
+        const txt = document.getElementById('widget-txt');
+        
+        display.style.display = 'block';
+        circle.style.display = 'none';
+        txt.style.display = 'none';
+        
+        let seconds = minutes * 60;
+        const interval = setInterval(() => {
+            seconds--;
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            display.innerText = `${m}:${s}`;
+            
+            if (seconds <= 0) {
+                clearInterval(interval);
+                alert("Task Complete!");
+                display.style.display = 'none';
+                circle.style.display = 'block';
+                txt.style.display = 'block';
+            }
+        }, 1000);
+    }
+
+    // --- 特效 ---
+    function handleEffect(val) {
+        if (val === 'MATRIX') {
+            startMatrix();
+            setTimeout(() => stopMatrix(), 10000); // 10秒后自动关闭省电
+        } else if (val === 'EXPLOSION') {
+            document.body.style.animation = "shake 0.5s";
+            setTimeout(() => document.body.style.animation = "", 500);
+        }
+    }
+    
+    function toggleZen(enable) {
+        document.getElementById('zen-layer').style.display = enable ? 'flex' : 'none';
+    }
+
+    function runTool(val) {
+        const modal = document.getElementById('tool-modal');
+        const content = document.getElementById('tool-content');
+        const title = document.getElementById('tool-title');
+        
+        if (val === 'COLOR_GEN') {
+            const colors = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#ff00ff', '#00ffff'];
+            let html = '<div style="display:flex; gap:10px;">';
+            for(let i=0; i<5; i++) {
+                let c = colors[Math.floor(Math.random()*colors.length)];
+                html += `<div style="width:50px; height:50px; background:${c};"></div>`;
+            }
+            html += '</div>';
+            title.innerText = "Generated Palette";
+            content.innerHTML = html;
+            modal.showModal();
+        }
+    }
+
+    // --- Matrix Animation Code ---
+    let matrixInterval;
+    function startMatrix() {
+        const canvas = document.getElementById('matrix-canvas');
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789@#$%^&*()*&^%";
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function draw() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#0F0";
+            ctx.font = fontSize + "px arial";
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters[Math.floor(Math.random() * letters.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        matrixInterval = setInterval(draw, 33);
+    }
+    function stopMatrix() {
+        clearInterval(matrixInterval);
+        document.getElementById('matrix-canvas').style.display = 'none';
+    }
+
+    // --- Utils ---
+    function toggleSettings() {
+        document.getElementById('config-modal').showModal();
+    }
     function saveConfigs() {
         localStorage.setItem('jack_sk_ds', document.getElementById('key-deepseek').value);
         localStorage.setItem('jack_sk_qw', document.getElementById('key-qwen').value);
-        document.getElementById('config-modal').close();
-        alert("指挥链路已校准！");
+        location.reload();
     }
 
-    window.onload = () => {
-        document.getElementById('key-deepseek').value = localStorage.getItem('jack_sk_ds') || '';
-        document.getElementById('key-qwen').value = localStorage.getItem('jack_sk_qw') || '';
-    };
+    // 注入 Shake 动画
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = `
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    `;
+    document.head.appendChild(styleSheet);
 
 </script>
-
 </body>
 </html>
