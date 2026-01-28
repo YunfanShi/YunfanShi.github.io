@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sanctuary</title>
+    <title>Jack's Sanctuary V1.2 | Stable Command</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -28,113 +28,63 @@
         }
 
         /* 动态主题类 */
-        body.theme-dragon {
-            --primary: #b71c1c; /* 绘梨衣红/龙族红 */
-            --surface: #202124;
-            --surface-variant: #303134;
-            --text-main: #e8eaed;
-            --secondary: #9aa0a6;
-            --accent: #fbbc04; /* 黄金瞳 */
-        }
-        
-        body.theme-eri {
-            --primary: #ff80ab; /* 樱花粉 */
-            --surface: #fff0f5;
-            --surface-variant: #ffffff;
-            --text-main: #4a2c36;
-            --secondary: #8c7b75;
-            --accent: #ff4081;
-        }
+        body.theme-dragon { --primary: #b71c1c; --surface: #202124; --surface-variant: #303134; --text-main: #e8eaed; --secondary: #9aa0a6; --accent: #fbbc04; }
+        body.theme-eri { --primary: #ff80ab; --surface: #fff0f5; --surface-variant: #ffffff; --text-main: #4a2c36; --secondary: #8c7b75; --accent: #ff4081; }
 
         body.filter-amber::after {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 166, 0, 0.2);
-            pointer-events: none;
-            z-index: 9999;
-            mix-blend-mode: multiply;
+            content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 166, 0, 0.2); pointer-events: none; z-index: 9999; mix-blend-mode: multiply;
         }
 
         body.font-large { --font-scale: 1.2; }
         body.font-small { --font-scale: 0.9; }
 
         /* 全局发光模式 */
-        body.glow-mode .icon-btn, 
-        body.glow-mode .app-item, 
-        body.glow-mode button {
-            box-shadow: 0 0 15px var(--primary);
-            transition: box-shadow 0.3s;
+        body.glow-mode .icon-btn, body.glow-mode .app-item, body.glow-mode button {
+            box-shadow: 0 0 15px var(--primary); transition: box-shadow 0.3s;
         }
 
         * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
         body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-main);
-            background: var(--surface-variant);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
+            margin: 0; padding: 0; font-family: var(--font-main);
+            background: var(--surface-variant); color: var(--text-main);
+            height: 100vh; display: flex; overflow: hidden;
             font-size: calc(16px * var(--font-scale));
         }
 
         /* Matrix Canvas */
         #matrix-canvas {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 0;
-            opacity: 0.15;
-            pointer-events: none;
-            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; opacity: 0.15; pointer-events: none; display: none;
         }
 
         /* --- 侧栏 --- */
         .sidebar {
-            width: 88px;
-            background: var(--surface);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 30px 0;
-            border-right: 1px solid rgba(0,0,0,0.1);
-            z-index: 100;
+            width: 88px; background: var(--surface);
+            display: flex; flex-direction: column; align-items: center; padding: 30px 0;
+            border-right: 1px solid rgba(0,0,0,0.1); z-index: 100;
         }
-        /* 侧栏位置切换 */
         body.sidebar-right { flex-direction: row-reverse; }
         body.sidebar-right .sidebar { border-right: none; border-left: 1px solid rgba(0,0,0,0.1); }
 
         .icon-btn {
-            width: 56px; height: 56px;
-            border-radius: 16px;
+            width: 56px; height: 56px; border-radius: 16px;
             display: flex; justify-content: center; align-items: center;
-            color: var(--secondary); cursor: pointer;
-            margin-bottom: 24px;
-            position: relative;
+            color: var(--secondary); cursor: pointer; margin-bottom: 24px; position: relative;
         }
         .icon-btn:hover { background: var(--surface-variant); color: var(--primary); }
         .icon-btn.active { background: rgba(26, 115, 232, 0.1); color: var(--primary); }
         
-        /* 心情指数小圆点 */
         .mood-dot {
-            position: absolute; bottom: 5px; right: 5px;
-            width: 10px; height: 10px; border-radius: 50%;
-            background: #ccc;
+            position: absolute; bottom: 5px; right: 5px; width: 10px; height: 10px; border-radius: 50%; background: #ccc;
         }
 
         /* --- 主区 --- */
         .main-container {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 420px;
-            height: 100vh;
-            position: relative;
-            z-index: 1;
+            flex: 1; display: grid; grid-template-columns: 1fr 420px;
+            height: 100vh; position: relative; z-index: 1;
         }
-        /* 极简模式 */
         body.ui-minimal .main-container { grid-template-columns: 0fr 1fr; }
         body.ui-minimal .sidebar, body.ui-minimal .scroll-area { display: none; }
         body.ui-minimal .ai-chat-side { border: none; width: 100%; max-width: 800px; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.1); }
@@ -142,43 +92,27 @@
         .scroll-area { padding: 40px; overflow-y: auto; scroll-behavior: smooth; }
 
         .hero-title {
-            font-family: var(--font-hero);
-            font-size: 3rem;
-            color: var(--primary);
-            margin: 0 0 40px 0;
-            display: flex; align-items: center; gap: 15px;
+            font-family: var(--font-hero); font-size: 3rem; color: var(--primary);
+            margin: 0 0 40px 0; display: flex; align-items: center; gap: 15px;
         }
 
-        /* 组件通用 */
         .widget-card {
-            background: var(--surface);
-            padding: 25px;
-            border-radius: var(--card-radius);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
+            background: var(--surface); padding: 25px; border-radius: var(--card-radius);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 30px;
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* 呼吸球/倒计时 */
         .breathe-widget {
             background: linear-gradient(135deg, var(--primary) 0%, #8ab4f8 100%);
-            color: white;
-            height: 240px;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            position: relative; overflow: hidden;
+            color: white; height: 240px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; position: relative; overflow: hidden;
             box-shadow: 0 10px 30px rgba(26, 115, 232, 0.3);
         }
         .breathe-circle {
-            width: 80px; height: 80px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border: 2px solid white;
-            transition: all 4s ease-in-out; 
-            /* 动画由 JS 动态控制 */
+            width: 80px; height: 80px; background: rgba(255,255,255,0.3);
+            border-radius: 50%; border: 2px solid white; transition: all 4s ease-in-out;
         }
 
-        /* 软件坞 */
         .dock-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
             gap: 15px; opacity: var(--dock-opacity);
@@ -188,27 +122,22 @@
             text-decoration: none; color: var(--text-main); gap: 6px;
         }
         .app-icon-img {
-            width: 50px; height: 50px; border-radius: 14px;
-            background: var(--surface-variant);
+            width: 50px; height: 50px; border-radius: 14px; background: var(--surface-variant);
             display: flex; justify-content: center; align-items: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
 
         /* --- 聊天区 --- */
         .ai-chat-side {
-            background: var(--surface);
-            border-left: 1px solid rgba(0,0,0,0.1);
-            display: flex; flex-direction: column;
-            height: 100vh;
+            background: var(--surface); border-left: 1px solid rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; height: 100vh;
         }
         .chat-header {
-            padding: 20px;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding: 20px; border-bottom: 1px solid rgba(0,0,0,0.05);
             display: flex; justify-content: space-between; align-items: center;
         }
         .chat-messages {
-            flex: 1; padding: 20px; overflow-y: auto;
-            background: var(--surface-variant);
+            flex: 1; padding: 20px; overflow-y: auto; background: var(--surface-variant);
             display: flex; flex-direction: column; gap: 16px;
         }
         .bubble {
@@ -223,35 +152,28 @@
             display: flex; gap: 10px; background: var(--surface);
         }
         .main-input {
-            flex: 1; padding: 12px 20px;
-            border: 1px solid rgba(0,0,0,0.1); border-radius: 30px;
-            background: var(--surface-variant); color: var(--text-main);
-            outline: none;
+            flex: 1; padding: 12px 20px; border: 1px solid rgba(0,0,0,0.1); border-radius: 30px;
+            background: var(--surface-variant); color: var(--text-main); outline: none;
         }
         .main-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1); }
 
         /* --- 特殊层 --- */
-        /* 脊椎锁定层 */
         #spine-lock-layer {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 10000;
             color: white; flex-direction: column; justify-content: center; align-items: center;
         }
-        /* 禅模式 */
         #zen-layer {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: black; z-index: 9000;
             color: white; display: flex; justify-content: center; align-items: center;
             font-family: 'ZCOOL KuaiLe'; font-size: 3rem;
         }
-        
-        /* 任务悬浮窗 */
         .mission-toast {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: var(--warning); color: #000;
+            background: var(--accent); color: white;
             padding: 8px 16px; border-radius: 20px; font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 50; display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 50; display: none;
         }
 
         /* 模态框 */
@@ -270,6 +192,10 @@
             background: var(--primary); color: white; border: none;
             padding: 10px 20px; border-radius: 8px; cursor: pointer;
         }
+        
+        /* 导航弹窗特别样式 */
+        #nav-modal h3 { color: var(--primary); }
+        .nav-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
     </style>
 </head>
@@ -341,7 +267,7 @@
         <div class="chat-header">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span class="material-icons-round" style="color: var(--accent);">smart_toy</span>
-                <span style="font-weight: 700;">J.A.R.V.I.S (V1.1)</span>
+                <span style="font-weight: 700;">J.A.R.V.I.S (V1.2)</span>
             </div>
             <select id="model-select" style="border: none; background: var(--surface-variant); padding: 5px; border-radius: 8px; font-size: 12px; color: var(--text-main);">
                 <option value="deepseek-chat">Deepseek V3</option>
@@ -353,7 +279,7 @@
             </div>
 
         <div class="chat-input-area">
-            <input type="text" id="user-msg" class="main-input" placeholder="输入指令或开始对话... (try '开启黑客模式')">
+            <input type="text" id="user-msg" class="main-input" placeholder="输入指令或开始对话...">
             <button onclick="sendMsg()" class="btn-primary" style="border-radius: 50%; width: 44px; height: 44px; padding: 0; display:flex; justify-content:center; align-items:center;">
                 <span class="material-icons-round">send</span>
             </button>
@@ -367,9 +293,24 @@
     <input type="password" id="key-deepseek" class="config-input">
     <label style="font-size: 12px; font-weight: bold;">Qwen Key</label>
     <input type="password" id="key-qwen" class="config-input">
+    
+    <div style="margin: 20px 0; display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="debug-mode-switch" onchange="toggleDebugMode()">
+        <label for="debug-mode-switch" style="font-size: 14px;">显示指令 (Debug Mode) - 开启后可看到 LLM 的原始 Tag</label>
+    </div>
+
     <div style="text-align: right;">
         <button onclick="saveConfigs()" class="btn-primary">保存并重启</button>
         <button onclick="document.getElementById('config-modal').close()" style="background:transparent; border:none; color:var(--text-main); cursor:pointer;">取消</button>
+    </div>
+</dialog>
+
+<dialog id="nav-modal">
+    <h3><span class="material-icons-round" style="vertical-align: bottom;">rocket</span> 准备跃迁?</h3>
+    <p>检测到你想要进入战斗状态。系统将在 <span id="nav-countdown" style="font-weight:bold; color:var(--primary);">3</span> 秒后跳转到 StudyPlan。</p>
+    <div class="nav-actions">
+        <button onclick="cancelNav()" style="background: transparent; border: none; cursor: pointer; color: var(--text-main);">取消跳转</button>
+        <button onclick="confirmNav()" class="btn-primary">立即前往</button>
     </div>
 </dialog>
 
@@ -386,29 +327,26 @@
        1. 系统初始化与持久化 (System Init)
        ========================================= */
     
-    // 初始化状态
     const state = {
         water: parseInt(localStorage.getItem('jack_water') || 0),
         chatHistory: JSON.parse(localStorage.getItem('jack_chat_history') || '[]'),
         examDate: localStorage.getItem('jack_exam_date') || null,
-        theme: localStorage.getItem('jack_theme') || 'default'
+        theme: localStorage.getItem('jack_theme') || 'default',
+        debugMode: localStorage.getItem('jack_debug') === 'true' // 新增 Debug 状态
     };
 
-    // 启动加载
     window.onload = () => {
-        // 恢复 API Keys
         document.getElementById('key-deepseek').value = localStorage.getItem('jack_sk_ds') || '';
         document.getElementById('key-qwen').value = localStorage.getItem('jack_sk_qw') || '';
+        document.getElementById('debug-mode-switch').checked = state.debugMode;
         
-        // 恢复界面状态
         renderChat();
         updateWaterUI();
         if(state.theme !== 'default') changeTheme(state.theme);
         if(state.examDate) updateExamCountdown();
         
-        // 欢迎语
         if(state.chatHistory.length === 0) {
-            addBubble("System Online. 战术终端 V1.1 已就绪。<br>试试输入：'切换龙族主题' 或 '我要专注25分钟'。", 'ai');
+            addBubble("System Online. V1.2 (Stable) 已就绪。<br>Debug 开关在设置中。", 'ai');
         }
     };
 
@@ -416,6 +354,13 @@
         localStorage.setItem('jack_water', state.water);
         localStorage.setItem('jack_chat_history', JSON.stringify(state.chatHistory));
         localStorage.setItem('jack_theme', state.theme);
+        localStorage.setItem('jack_debug', state.debugMode);
+    }
+
+    function toggleDebugMode() {
+        state.debugMode = document.getElementById('debug-mode-switch').checked;
+        saveState();
+        renderChat(); // 刷新聊天记录显示状态
     }
 
     /* =========================================
@@ -430,13 +375,12 @@
         const val = userIn.value.trim();
         if(!val) return;
 
-        // 1. 显示用户消息
         addBubble(val, 'user');
         userIn.value = '';
         state.chatHistory.push({role: "user", content: val});
         saveState();
 
-        // 2. 准备 Prompt (包含工具说明)
+        // 优化 Prompt：增加“防乱用”指令
         const systemPrompt = `
 你现在是 Jack (15岁极客学生) 的战术 AI 助手 (J.A.R.V.I.S / 路鸣泽混合人格)。
 你的目标是辅助学习、管理健康、提供情绪价值。
@@ -447,38 +391,36 @@
 [THEME: DEFAULT] - 恢复默认蓝
 [UI_LEVEL: MINIMAL] - 极简模式 (隐藏侧栏)
 [UI_LEVEL: COMBAT] - 战斗模式 (全显示)
-[MED: SPINE_LOCK] - 强制锁屏休息 (颈椎保护)
+[MED: SPINE_LOCK] - 强制锁屏休息 (仅在用户说累/痛时使用)
 [MED: EYE_AMBER] - 开启护眼模式
 [MED: BREATH_SYNC] - 开启呼吸训练
 [MISSION: ADD_DEADLINE] - 设定考试倒计时
 [MISSION: IELTS_TIMER] - 启动雅思计时
+[MISSION: NAV_STUDY] - 跳转到学习计划页面 (用户说要去学习时使用)
 [EFFECT: MATRIX] - 开启黑客帝国代码雨
 [EFFECT: EXPLOSION] - 震动特效
 [TOOL: COLOR_GEN] - 生成配色
 [ZEN_SCREEN] - 禅模式 (全黑)
 
-注意：
-1. 请根据 Jack 的需求自然地使用这些 TAG。
-2. TAG 应该放在回复的末尾。
-3. 如果 Jack 说"累了"，尝试用 MED 指令。
-4. 如果 Jack 说"想改代码"，用 UI 指令或 TOOL 指令。
-5. 保持回复简短有力，像个战友。
+⚠️ 重要规则：
+1. 每次回复尽量只触发 1 个功能 Tag，避免冲突。
+2. 只有在用户意图非常明确时才使用 Tag。例如：用户说"我要学习了"，你才输出 [MISSION: NAV_STUDY]。
+3. 保持回复简短有力。
 `;
         
-        // 截取最近 10 条历史以节省 Token
         const context = [
             {role: "system", content: systemPrompt},
             ...state.chatHistory.slice(-10)
         ];
 
-        const loadingId = addBubble("Command processing...", 'ai', true);
+        const loadingId = addBubble("Processing...", 'ai', true);
 
         try {
             const model = document.getElementById('model-select').value;
             let apiKey = model.includes('deepseek') ? localStorage.getItem('jack_sk_ds') : localStorage.getItem('jack_sk_qw');
             let url = model.includes('deepseek') ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 
-            if(!apiKey) throw new Error("API Key Missing! Click settings icon.");
+            if(!apiKey) throw new Error("API Key Missing!");
 
             const res = await fetch(url, {
                 method: 'POST',
@@ -493,15 +435,19 @@
 
             const rawText = data.choices[0].message.content;
             
-            // *** 3. 核心：解析并执行指令 ***
+            // 解析指令
             const { cleanText, commands } = parseCommands(rawText);
             
-            // 显示净化后的文本
-            addBubble(cleanText, 'ai');
-            state.chatHistory.push({role: "assistant", content: rawText}); // 保存原始含指令文本以便上下文理解
+            // 根据 Debug 模式决定显示什么
+            if (state.debugMode) {
+                addBubble(rawText, 'ai'); // Debug模式：显示所有原始文本（包含Tag）
+            } else {
+                addBubble(cleanText, 'ai'); // 普通模式：显示净化后的文本
+            }
+
+            state.chatHistory.push({role: "assistant", content: rawText}); 
             saveState();
 
-            // 执行指令
             commands.forEach(cmd => executeCommand(cmd.tag, cmd.val));
 
         } catch (e) {
@@ -511,6 +457,7 @@
     }
 
     function addBubble(text, sender, isLoading=false) {
+        if (!text.trim() && !isLoading) return; // 不显示空泡泡
         const div = document.createElement('div');
         div.className = `bubble ${sender}`;
         div.innerHTML = text.replace(/\n/g, '<br>');
@@ -523,9 +470,17 @@
     function renderChat() {
         chatBox.innerHTML = '';
         state.chatHistory.forEach(msg => {
-            // 渲染时隐藏历史指令，只显示文本
-            const { cleanText } = parseCommands(msg.content);
-            if(cleanText.trim()) addBubble(cleanText, msg.role === 'user' ? 'user' : 'ai');
+            if (msg.role === 'user') {
+                addBubble(msg.content, 'user');
+            } else {
+                // 如果开启 Debug，显示原始内容；否则显示清洗后的内容
+                if (state.debugMode) {
+                    addBubble(msg.content, 'ai');
+                } else {
+                    const { cleanText } = parseCommands(msg.content);
+                    addBubble(cleanText, 'ai');
+                }
+            }
         });
     }
 
@@ -545,23 +500,16 @@
         let commands = [];
         let cleanText = text.replace(regex, (match, tag, val) => {
             commands.push({ tag, val: val ? val.trim() : null });
-            return ''; // 移除指令标签
+            return ''; 
         });
         return { cleanText, commands };
     }
 
     const CMD_MAP = {
-        // 主题控制
         'THEME': (val) => changeTheme(val),
         'UI_LEVEL': (val) => setUILevel(val),
-        
-        // 医疗健康
         'MED': (val) => handleMed(val),
-        
-        // 学习任务
         'MISSION': (val) => handleMission(val),
-        
-        // 特效与工具
         'EFFECT': (val) => handleEffect(val),
         'TOOL': (val) => runTool(val),
         'ZEN_SCREEN': () => toggleZen(true),
@@ -572,14 +520,11 @@
         console.log(`Executing: ${tag} -> ${val}`);
         if (CMD_MAP[tag]) {
             CMD_MAP[tag](val);
-        } else if (CMD_MAP[tag.split('_')[0]]) {
-             // 容错处理：有时 AI 可能会输出 [THEME_RED] 而不是 [THEME: RED]
-             // 这里可以加更复杂的模糊匹配，暂时略过
         }
     }
 
     /* =========================================
-       4. 功能实现库 (Implementation Lib)
+       4. 功能实现库
        ========================================= */
     
     // --- 主题 ---
@@ -606,10 +551,11 @@
         if (val === 'SPINE_LOCK') {
             const lockLayer = document.getElementById('spine-lock-layer');
             lockLayer.style.display = 'flex';
-            let sec = 60; // 锁屏 60秒
+            let sec = 60; 
             const timer = setInterval(() => {
                 sec--;
-                document.getElementById('spine-timer').innerText = `00:${sec < 10 ? '0' + sec : sec}`;
+                const timerEl = document.getElementById('spine-timer');
+                if(timerEl) timerEl.innerText = `00:${sec < 10 ? '0' + sec : sec}`;
                 if (sec <= 0) {
                     clearInterval(timer);
                     lockLayer.style.display = 'none';
@@ -621,17 +567,28 @@
             document.body.classList.toggle('filter-amber');
         }
         else if (val === 'BREATH_SYNC') {
-            document.getElementById('widget-txt').innerText = "BREATH IN...";
+            const txt = document.getElementById('widget-txt');
+            // 【关键修复】检查元素是否存在，防止报错
+            if(!txt) return; 
+
+            txt.innerText = "BREATH IN...";
             document.getElementById('breathe-circle').style.animation = "breathe-anim 4s infinite ease-in-out";
-            // 简单的 JS 动画模拟 CSS keyframes 变化
+            
             let step = 0;
             const bTimer = setInterval(() => {
                 step++;
-                const txt = document.getElementById('widget-txt');
-                if(step % 3 === 0) txt.innerText = "HOLD (7s)";
-                else if(step % 3 === 1) txt.innerText = "EXHALE (8s)";
-                else txt.innerText = "INHALE (4s)";
-                if(step > 10) clearInterval(bTimer);
+                // 再次检查元素，防止页面切换后报错
+                const t = document.getElementById('widget-txt');
+                if(!t) { clearInterval(bTimer); return; }
+
+                if(step % 3 === 0) t.innerText = "HOLD (7s)";
+                else if(step % 3 === 1) t.innerText = "EXHALE (8s)";
+                else t.innerText = "INHALE (4s)";
+                if(step > 10) {
+                    clearInterval(bTimer);
+                    t.innerText = "SYSTEM ONLINE";
+                    document.getElementById('breathe-circle').style.animation = "none";
+                }
             }, 4000);
         }
     }
@@ -645,20 +602,50 @@
         document.getElementById('water-count').innerText = state.water;
     }
 
-    // --- 任务 ---
+    // --- 任务 & 导航 ---
+    let navTimer;
     function handleMission(val) {
         if (val === 'ADD_DEADLINE') {
-            // 简单模拟，设定为 5 天后
             const date = new Date();
             date.setDate(date.getDate() + 5);
             state.examDate = date;
             saveState();
             updateExamCountdown();
-            document.getElementById('mission-toast').style.display = 'block';
         }
         else if (val === 'IELTS_TIMER') {
             startCountdown(20);
         }
+        else if (val === 'NAV_STUDY') {
+            triggerNav();
+        }
+    }
+
+    function triggerNav() {
+        const modal = document.getElementById('nav-modal');
+        modal.showModal();
+        let count = 3;
+        const countEl = document.getElementById('nav-countdown');
+        if(countEl) countEl.innerText = count;
+        
+        clearInterval(navTimer);
+        navTimer = setInterval(() => {
+            count--;
+            if(document.getElementById('nav-countdown')) {
+                document.getElementById('nav-countdown').innerText = count;
+            }
+            if(count <= 0) {
+                confirmNav();
+            }
+        }, 1000);
+    }
+
+    function confirmNav() {
+        clearInterval(navTimer);
+        window.location.href = "https://yunfanshi.github.io/Studyplan.html";
+    }
+    function cancelNav() {
+        clearInterval(navTimer);
+        document.getElementById('nav-modal').close();
     }
 
     function updateExamCountdown() {
@@ -666,7 +653,8 @@
         const now = new Date();
         const exam = new Date(state.examDate);
         const diff = Math.ceil((exam - now) / (1000 * 60 * 60 * 24));
-        document.getElementById('exam-countdown').innerText = diff;
+        const el = document.getElementById('exam-countdown');
+        if(el) el.innerText = diff;
         document.getElementById('mission-toast').style.display = 'block';
     }
 
@@ -684,7 +672,7 @@
             seconds--;
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = (seconds % 60).toString().padStart(2, '0');
-            display.innerText = `${m}:${s}`;
+            if(display) display.innerText = `${m}:${s}`;
             
             if (seconds <= 0) {
                 clearInterval(interval);
@@ -700,7 +688,7 @@
     function handleEffect(val) {
         if (val === 'MATRIX') {
             startMatrix();
-            setTimeout(() => stopMatrix(), 10000); // 10秒后自动关闭省电
+            setTimeout(() => stopMatrix(), 10000); 
         } else if (val === 'EXPLOSION') {
             document.body.style.animation = "shake 0.5s";
             setTimeout(() => document.body.style.animation = "", 500);
@@ -730,7 +718,7 @@
         }
     }
 
-    // --- Matrix Animation Code ---
+    // --- Matrix Animation ---
     let matrixInterval;
     function startMatrix() {
         const canvas = document.getElementById('matrix-canvas');
@@ -773,7 +761,7 @@
         location.reload();
     }
 
-    // 注入 Shake 动画
+    // Shake 动画
     const styleSheet = document.createElement("style");
     styleSheet.innerText = `
         @keyframes shake {
