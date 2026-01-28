@@ -3,26 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sanctuary | 战友补给站</title>
+    <title>Jack's Sanctuary V1.0 | 战术指挥中心</title>
     
-    <!-- Google Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            /* Google Material 3 风格配色 */
-            --primary: #1a73e8; /* 经典的 Google 蓝 */
+            --primary: #1a73e8; 
             --on-primary: #ffffff;
             --surface: #ffffff;
             --surface-variant: #f1f3f4;
             --secondary: #5f6368;
-            --accent: #ea4335; /* 警告红/热血红 */
+            --accent: #ea4335; 
             --success: #34a853;
             --warning: #fbbc04;
             --text-main: #202124;
             --text-sub: #5f6368;
-            
             --card-radius: 28px;
             --font-main: 'Noto Sans SC', sans-serif;
             --font-hero: 'ZCOOL KuaiLe', cursive;
@@ -82,10 +79,8 @@
             scroll-behavior: smooth;
         }
 
-        /* --- 标题与励志语 --- */
-        .hero-section {
-            margin-bottom: 40px;
-        }
+        /* --- 标题与组件 --- */
+        .hero-section { margin-bottom: 40px; }
         .hero-title {
             font-family: var(--font-hero);
             font-size: 3rem;
@@ -96,8 +91,8 @@
             gap: 15px;
         }
 
-        /* 呼吸球 */
-        .breathe-widget {
+        /* 呼吸/计时器二合一面板 */
+        .widget-card {
             background: linear-gradient(135deg, #1a73e8 0%, #8ab4f8 100%);
             border-radius: var(--card-radius);
             height: 240px;
@@ -111,6 +106,13 @@
             position: relative;
             overflow: hidden;
         }
+        
+        /* 倒计时模式样式 */
+        .timer-mode { display: none; text-align: center; }
+        .timer-digits { font-size: 80px; font-weight: 700; font-family: monospace; letter-spacing: -2px; }
+        .timer-label { font-size: 16px; opacity: 0.9; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* 呼吸动画 */
         .breathe-circle {
             width: 80px;
             height: 80px;
@@ -137,7 +139,7 @@
         }
         .hitokoto-card:hover { border-color: var(--primary); transform: translateY(-2px); }
 
-        /* 软件坞 (Dock) */
+        /* 软件坞 */
         .dock-section {
             background: white;
             padding: 25px;
@@ -172,12 +174,13 @@
         .app-item:hover .app-icon-img { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         .app-item span { font-size: 11px; font-weight: 500; }
 
-        /* 音乐播放器 */
+        /* 音乐播放器 (嵌入歌单) */
         .music-widget {
             margin-top: 30px;
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background: white;
         }
 
         /* --- 右侧: AI 战友聊天室 --- */
@@ -229,30 +232,26 @@
             font-size: 14px;
         }
         .main-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1); }
-        
-        /* 计划提醒悬浮 */
-        .plan-toast {
-            background: #fff4e5;
-            padding: 15px;
-            border-radius: 16px;
-            margin: 10px 20px;
-            font-size: 13px;
-            border: 1px solid #ffe2b9;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
 
-        /* Settings Modal */
+        /* 模态框通用 */
         dialog {
             border: none;
             border-radius: 24px;
             padding: 30px;
-            box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+            box-shadow: 0 24px 80px rgba(0,0,0,0.3);
             width: 440px;
+            animation: fadeIn 0.3s ease;
         }
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
         .config-input { width: 100%; padding: 12px; margin: 10px 0 20px 0; border: 1px solid #ddd; border-radius: 8px; }
+
+        /* 导航确认框 */
+        #nav-modal h3 { color: var(--primary); }
+        .nav-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn-cancel { background: #f1f3f4; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: var(--text-main); }
+        .btn-confirm { background: var(--primary); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; color: white; }
 
         /* 传送门 */
         .portal-bar {
@@ -288,8 +287,7 @@
 
 <aside class="sidebar">
     <div class="icon-btn active" title="指挥中心"><span class="material-icons-round">bolt</span></div>
-    <div class="icon-btn" onclick="window.open('https://gemini.google.com/', '_blank')" title="Gemini Web"><span class="material-icons-round">auto_awesome</span></div>
-    <div class="icon-btn" style="margin-top: auto;" onclick="document.getElementById('config-modal').showModal()"><span class="material-icons-round">settings</span></div>
+    <div class="icon-btn" onclick="document.getElementById('config-modal').showModal()" title="系统设置"><span class="material-icons-round">settings</span></div>
 </aside>
 
 <div class="main-container">
@@ -299,112 +297,77 @@
             <h2 style="font-size: 1.2rem; opacity: 0.8;">IGCSE 的战场上，你从不是孤身一人。</h2>
         </div>
 
-        <!-- 呼吸专注区 -->
-        <div class="breathe-widget">
-            <div class="breathe-circle"></div>
-            <p id="breathe-txt" style="margin-top: 30px; font-weight: 700; letter-spacing: 2px;">准备好了吗？开始深呼吸</p>
+        <div class="widget-card" id="main-widget">
+            <div id="breathe-view" style="display:flex; flex-direction:column; align-items:center; width:100%;">
+                <div class="breathe-circle"></div>
+                <p id="breathe-txt" style="margin-top: 30px; font-weight: 700; letter-spacing: 2px;">战术调整中...</p>
+            </div>
+            <div id="timer-view" class="timer-mode">
+                <div class="timer-label">FOCUS SESSION</div>
+                <div class="timer-digits" id="timer-display">25:00</div>
+                <button onclick="stopTimer()" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 15px; border-radius: 20px; cursor: pointer; margin-top:10px;">中止行动</button>
+            </div>
         </div>
 
-        <!-- 一言 -->
         <div class="hitokoto-card" onclick="updateHitokoto()">
             <span class="material-icons-round" style="color: #fbbc04; margin-bottom: 10px;">format_quote</span>
             <div id="h-text" style="font-size: 18px; line-height: 1.6; font-weight: 500;">加载回声洞的勇气...</div>
             <div id="h-from" style="text-align: right; color: #9aa0a6; font-size: 13px; margin-top: 15px;"></div>
         </div>
 
-        <!-- 软件坞 -->
         <div class="dock-section">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 1rem; color: var(--secondary);">我的作战装备 (Mac Launch)</h3>
-                <button onclick="syncPlan()" style="background: none; border: none; color: var(--primary); cursor: pointer; font-size: 12px; font-weight: 700;">读取学习计划</button>
-            </div>
+            <h3 style="margin: 0; font-size: 1rem; color: var(--secondary); margin-bottom:15px;">作战装备</h3>
             <div class="dock-grid">
-                <!-- Notion -->
                 <a href="notion://" class="app-item">
                     <div class="app-icon-img"><img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" width="30"></div>
                     <span>Notion</span>
                 </a>
-                <!-- Discord -->
                 <a href="discord://" class="app-item">
                     <div class="app-icon-img"><span class="material-icons-round" style="color: #5865F2;">discord</span></div>
                     <span>Discord</span>
                 </a>
-                <!-- 网易云音乐 -->
                 <a href="orpheus://" class="app-item">
                     <div class="app-icon-img"><span class="material-icons-round" style="color: #d32f2f;">music_note</span></div>
                     <span>网易云</span>
                 </a>
-                <!-- 酷狗音乐 (跳转网页或唤起) -->
-                <a href="kugou://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #00A9FF;">play_arrow</span></div>
-                    <span>酷狗音乐</span>
-                </a>
-                <!-- 钉钉 -->
                 <a href="dingtalk://" class="app-item">
                     <div class="app-icon-img"><span class="material-icons-round" style="color: #0089FF;">work</span></div>
                     <span>钉钉</span>
                 </a>
-                <!-- 有道翻译 -->
-                <a href="youdao://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #ba1a1a;">translate</span></div>
-                    <span>有道翻译</span>
-                </a>
-                <!-- 滴答清单 -->
                 <a href="ticktick://" class="app-item">
                     <div class="app-icon-img"><span class="material-icons-round" style="color: #6161ff;">check_circle</span></div>
                     <span>滴答清单</span>
                 </a>
-                <!-- Xournal++ (假设自定义URI) -->
-                <a href="xournalpp://" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #4caf50;">edit</span></div>
-                    <span>Xournal++</span>
-                </a>
-                <!-- GitMind -->
-                <a href="https://gitmind.cn/" target="_blank" class="app-item">
-                    <div class="app-icon-img"><span class="material-icons-round" style="color: #ff5722;">psychology</span></div>
-                    <span>GitMind</span>
-                </a>
             </div>
         </div>
 
-        <!-- 音乐播放器 -->
         <div class="music-widget">
-            <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=86 src="//music.163.com/outchain/player?type=0&id=7445203923&auto=0&height=66"></iframe>
+            <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=110 src="//music.163.com/outchain/player?type=0&id=316192152&auto=0&height=90"></iframe>
         </div>
     </section>
 
-    <!-- AI 侧边栏 -->
     <section class="ai-chat-side">
         <div class="chat-header">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span class="material-icons-round" style="color: #ea4335;">smart_toy</span>
-                <span style="font-weight: 700;">热血战友 (AI)</span>
+                <span style="font-weight: 700;">热血战友 (V1.0 Pro)</span>
             </div>
             <select id="model-select" style="border: none; background: #f1f3f4; padding: 5px 10px; border-radius: 8px; font-size: 12px; outline: none;">
                 <option value="deepseek-chat">Deepseek V3</option>
-                <option value="deepseek-reasoner">Deepseek R1 (深度思考)</option>
                 <option value="qwen-plus">通义千问 Plus</option>
-                <option value="qwen-max">通义千问 Max</option>
             </select>
-        </div>
-
-        <div id="plan-alert" style="display:none;">
-            <div class="plan-toast">
-                <span>📅 正在执行计划：<strong id="current-task-name">--</strong></span>
-                <span class="material-icons-round" style="font-size: 16px; color: var(--primary);">timer</span>
-            </div>
         </div>
 
         <div class="chat-messages" id="chat-box">
             <div class="bubble ai">
-                Jack，我知道你在看 ZNotes 面前犹豫了三天。<br><br>
-                听着，那不是你的错。是大脑在害怕那堆枯燥的符号。但如果你现在不点燃引擎，那种“还没开始”的内疚感会比学习本身更折磨你。<br><br>
-                跟我聊聊，今天哪个小节最让你头大？我们尝试只攻克它前三页，怎么样？
+                Jack，我是你的战术指挥 AI。<br><br>
+                我已经连接了本地系统。如果你想专注，直接告诉我“我要专注25分钟”，我会帮你启动倒计时。<br><br>
+                如果想去学习计划表，告诉我“我去学习了”，我会为你开启传送门。
             </div>
         </div>
 
         <div class="chat-input-area">
-            <input type="text" id="user-msg" class="main-input" placeholder="输入你的焦虑、孤独或斗志...">
+            <input type="text" id="user-msg" class="main-input" placeholder="输入你的计划...">
             <button onclick="sendMsg()" style="background: var(--primary); border: none; width: 44px; height: 44px; border-radius: 50%; color: white; cursor: pointer;">
                 <span class="material-icons-round">send</span>
             </button>
@@ -412,33 +375,38 @@
     </section>
 </div>
 
-<!-- 底部跳转 -->
 <div class="portal-bar">
-    <span style="font-size: 14px; opacity: 0.9;">电量已满？该去终结那些 ZNotes 了。</span>
+    <span style="font-size: 14px; opacity: 0.9;">System Status: Online.</span>
     <a href="https://yunfanshi.github.io/Studyplan.html" class="portal-btn">
         <span class="material-icons-round">rocket_launch</span>
-        回到主计划
+        主计划
     </a>
 </div>
 
-<!-- 配置弹窗 -->
 <dialog id="config-modal">
     <h3 style="margin-top: 0;">🔑 API 配置中心</h3>
-    <p style="font-size: 12px; color: #666;">密钥保存在本地。如果没有，请联系 Jack。</p>
-    
+    <p style="font-size: 12px; color: #666;">密钥保存在本地 LocalStorage。</p>
     <label style="font-size: 12px; font-weight: bold;">Deepseek API Key</label>
     <input type="password" id="key-deepseek" class="config-input" placeholder="sk-...">
-    
-    <label style="font-size: 12px; font-weight: bold;">通义千问 (Dashscope) API Key</label>
+    <label style="font-size: 12px; font-weight: bold;">通义千问 API Key</label>
     <input type="password" id="key-qwen" class="config-input" placeholder="sk-...">
-
     <div style="text-align: right;">
-        <button onclick="saveConfigs()" style="background: var(--text-main); color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer;">保存</button>
+        <button onclick="saveConfigs()" class="btn-confirm">保存配置</button>
+        <button onclick="document.getElementById('config-modal').close()" class="btn-cancel">关闭</button>
+    </div>
+</dialog>
+
+<dialog id="nav-modal">
+    <h3><span class="material-icons-round" style="vertical-align: bottom;">rocket</span> 准备跃迁?</h3>
+    <p>检测到你想要进入战斗状态。系统将在 <span id="nav-countdown" style="font-weight:bold; color:var(--primary);">3</span> 秒后跳转到 StudyPlan。</p>
+    <div class="nav-actions">
+        <button onclick="cancelNav()" class="btn-cancel">取消跳转</button>
+        <button onclick="confirmNav()" class="btn-confirm">立即前往</button>
     </div>
 </dialog>
 
 <script>
-    // --- 1. 一言接口 ---
+    // --- 1. 基础功能 ---
     async function updateHitokoto() {
         try {
             const res = await fetch('https://v1.hitokoto.cn/?c=d&c=i&c=k');
@@ -451,31 +419,82 @@
     }
     updateHitokoto();
 
-    // --- 2. 呼吸计时文本 ---
     const bText = document.getElementById('breathe-txt');
     setInterval(() => {
-        setTimeout(() => bText.innerText = "慢慢吸气... (4秒)", 0);
-        setTimeout(() => bText.innerText = "憋住呼吸... (7秒)", 4000);
-        setTimeout(() => bText.innerText = "用力呼气... (8秒)", 6000);
+        if(document.getElementById('breathe-view').style.display !== 'none'){
+            setTimeout(() => bText.innerText = "慢慢吸气... (4秒)", 0);
+            setTimeout(() => bText.innerText = "憋住呼吸... (7秒)", 4000);
+            setTimeout(() => bText.innerText = "用力呼气... (8秒)", 6000);
+        }
     }, 8000);
 
-    // --- 3. 计划同步 (读取 StudyPlanV1.0 的数据) ---
-    function syncPlan() {
-        // 尝试获取 Studyplan 网页在本地存储存入的键
-        const planRaw = localStorage.getItem('caie_progress_v2_1'); // 这是你 StudyPlan 中的键名
-        if (planRaw) {
-            const alertBox = document.getElementById('plan-alert');
-            alertBox.style.display = 'block';
-            document.getElementById('current-task-name').innerText = "计划已同步，向 AI 询问建议吧！";
-            addBubble("AI战友：Jack，我看到你已经生成了新的战斗计划。别怕，我会陪你一秒一秒地把它啃下来！", 'ai');
-        } else {
-            alert("在浏览器中没找到计划数据。请先去 Studyplan 页面生成时间表，或者确保两个网页在同一个域名下打开。");
-        }
+    // --- 2. 战术工具: 倒计时 ---
+    let timerInterval;
+    function startTimer(minutes) {
+        document.getElementById('breathe-view').style.display = 'none';
+        document.getElementById('timer-view').style.display = 'block';
+        
+        let seconds = minutes * 60;
+        
+        // 立即更新一次
+        updateTimerDisplay(seconds);
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            seconds--;
+            updateTimerDisplay(seconds);
+            if (seconds <= 0) {
+                stopTimer();
+                alert("任务完成！休息一下吧，战友！");
+            }
+        }, 1000);
     }
 
-    // --- 4. AI 聊天系统 (核心) ---
+    function updateTimerDisplay(totalSeconds) {
+        const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+        const s = (totalSeconds % 60).toString().padStart(2, '0');
+        document.getElementById('timer-display').innerText = `${m}:${s}`;
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+        document.getElementById('breathe-view').style.display = 'flex';
+        document.getElementById('timer-view').style.display = 'none';
+    }
+
+    // --- 3. 战术工具: 自动导航 ---
+    let navTimer;
+    function triggerNav() {
+        const modal = document.getElementById('nav-modal');
+        modal.showModal();
+        let count = 3;
+        document.getElementById('nav-countdown').innerText = count;
+        
+        navTimer = setInterval(() => {
+            count--;
+            document.getElementById('nav-countdown').innerText = count;
+            if(count <= 0) {
+                confirmNav();
+            }
+        }, 1000);
+    }
+
+    function confirmNav() {
+        clearInterval(navTimer);
+        window.location.href = "https://yunfanshi.github.io/Studyplan.html";
+    }
+
+    function cancelNav() {
+        clearInterval(navTimer);
+        document.getElementById('nav-modal').close();
+    }
+
+    // --- 4. 核心 AI 聊天逻辑 (带上下文和工具解析) ---
     const chatBox = document.getElementById('chat-box');
     const userIn = document.getElementById('user-msg');
+    
+    // 上下文记忆 (保留最近 6 条消息)
+    let chatHistory = []; 
 
     userIn.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMsg(); });
 
@@ -485,19 +504,39 @@
 
         addBubble(val, 'user');
         userIn.value = '';
+        
+        // 更新历史
+        chatHistory.push({role: "user", content: val});
 
-        const loadingId = addBubble("正在调动斗志...", 'ai', true);
+        const loadingId = addBubble("正在解析指令...", 'ai', true);
 
+        // 系统提示词：定义工具
         const systemPrompt = `
-            你不仅是 Jack 的 AI 助手，你更是他并肩作战的灵魂导师和战友。
-            Jack 现在的状态是：15岁，IGCSE 备考中，有拖延症，容易孤独。
-            你的职责：
-            1. 倾听。如果他很丧，先稳住他。
-            2. 破冰。如果他拖延 ZNotes，帮他分析是不是第一步定得太重了？建议他先看 1 分钟。
-            3. 热血。必要时用极具感染力的语言唤醒他的斗志。
-            4. 幽默。偶尔开个 Gen-Z 的玩笑。
-            5. 全中文回复，禁止 AI 腔，要像个真人。
+            你叫 Gemini，是 Jack (15岁 IGCSE学生，极客，玩家) 的热血战友。
+            
+            【核心指令】：
+            1. 你拥有控制网页的能力。
+            2. 如果 Jack 想专注、倒计时、番茄钟，请在回复最后加上：[TIMER: 25] (数字代表分钟)。
+            3. 如果 Jack 决定去学习、看计划表、开始战斗，请在回复最后加上：[NAV: PLAN]。
+            4. 只有在确实需要时才输出上述代码。
+            5. 不要让 Jack 看到代码，我会帮你隐藏并执行。
+            
+            【性格】：
+            像《战地》里的指挥官，或者《龙族》里的路鸣泽。
+            鼓励他，不要说教。如果他拖延，用幽默的方式推他一把。
+            回复要简短有力，不要长篇大论。
         `;
+
+        // 组装发送给 API 的消息列表 (System + History)
+        // 简单的滑动窗口：只保留最后 6 条历史，防止 token 爆炸
+        if(chatHistory.length > 6) {
+            chatHistory = chatHistory.slice(chatHistory.length - 6);
+        }
+        
+        const messagesToSend = [
+            {role: "system", content: systemPrompt},
+            ...chatHistory
+        ];
 
         const model = document.getElementById('model-select').value;
         let apiKey = '';
@@ -519,7 +558,7 @@
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
                 body: JSON.stringify({
                     model: model,
-                    messages: [ {role: "system", content: systemPrompt}, {role: "user", content: val} ]
+                    messages: messagesToSend
                 })
             });
 
@@ -527,20 +566,41 @@
             document.getElementById(loadingId).remove();
             
             if(data.error) {
-                addBubble("API 出错啦: " + data.error.message, 'ai');
+                addBubble("通讯干扰: " + data.error.message, 'ai');
             } else {
-                addBubble(data.choices[0].message.content, 'ai');
+                const rawContent = data.choices[0].message.content;
+                chatHistory.push({role: "assistant", content: rawContent}); // 存入历史
+                
+                // --- 工具解析逻辑 ---
+                let displayContent = rawContent;
+                
+                // 1. 检查 Timer
+                const timerMatch = rawContent.match(/\[TIMER:\s*(\d+)\]/);
+                if (timerMatch) {
+                    const minutes = parseInt(timerMatch[1]);
+                    displayContent = displayContent.replace(timerMatch[0], ''); // 隐藏指令
+                    startTimer(minutes); // 执行工具
+                }
+
+                // 2. 检查 Navigation
+                const navMatch = rawContent.match(/\[NAV:\s*PLAN\]/);
+                if (navMatch) {
+                    displayContent = displayContent.replace(navMatch[0], ''); // 隐藏指令
+                    triggerNav(); // 执行工具
+                }
+
+                addBubble(displayContent, 'ai');
             }
         } catch (err) {
             if(document.getElementById(loadingId)) document.getElementById(loadingId).remove();
-            addBubble("战斗系统异常: " + err.message, 'ai');
+            addBubble("系统离线: " + err.message, 'ai');
         }
     }
 
     function addBubble(text, sender, isLoading=false) {
         const div = document.createElement('div');
         div.className = `bubble ${sender}`;
-        div.innerHTML = text.replace(/\n/g, '<br>');
+        div.innerHTML = text.replace(/\n/g, '<br>'); // 保留换行
         if(isLoading) {
             div.id = 'load-' + Date.now();
             div.style.opacity = '0.6';
@@ -550,12 +610,12 @@
         return div.id;
     }
 
-    // --- 5. 设置 ---
+    // --- 5. 配置存储 ---
     function saveConfigs() {
         localStorage.setItem('jack_sk_ds', document.getElementById('key-deepseek').value);
         localStorage.setItem('jack_sk_qw', document.getElementById('key-qwen').value);
         document.getElementById('config-modal').close();
-        alert("战友配置成功！");
+        alert("指挥链路已校准！");
     }
 
     window.onload = () => {
