@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V1.0 Ultimate</title>
+    <title>Jack's Warden | V1.2 Armor Edition</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -26,10 +26,10 @@
         
         .chat-box { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; background: #fff; scroll-behavior: smooth; }
         
-        .bubble { max-width: 88%; padding: 14px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; position: relative; }
+        .bubble { max-width: 88%; padding: 14px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; position: relative; word-wrap: break-word; }
         .bubble.ai { background: #f0f4f9; color: #1f1f1f; align-self: flex-start; border-bottom-left-radius: 4px; }
         .bubble.user { background: var(--blue); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .bubble.system { background: #fff0f0; color: var(--red); align-self: center; font-size: 12px; border: 1px solid #ffdad6; font-weight: bold; }
+        .bubble.error { background: #fff0f0; color: var(--red); border: 1px solid #ffdad6; align-self: center; font-size: 13px; font-weight: bold; }
 
         .input-area { padding: 20px; border-top: 1px solid #e0e2e7; display: flex; gap: 12px; background: var(--surface); }
         .chat-input { flex: 1; padding: 14px 20px; border-radius: 30px; border: 1px solid #c4c7c5; outline: none; font-size: 15px; }
@@ -105,7 +105,7 @@
 
 <aside>
     <div class="chat-header">
-        <span class="chat-title"><span class="material-icons-round">security</span> AI WARDEN V1.0</span>
+        <span class="chat-title"><span class="material-icons-round">security</span> AI WARDEN V1.2</span>
         <button onclick="openSettings()" style="background:none; border:none; cursor:pointer; color:#444746;"><span class="material-icons-round">settings</span></button>
     </div>
     
@@ -224,7 +224,9 @@
     
     <label style="font-size:12px; font-weight:700; color:#5f6368;">TTS Voice (English)</label>
     <div style="display:flex; gap:10px; margin-top:8px;">
-        <select id="voice-select" class="chat-input"></select>
+        <select id="voice-select" class="chat-input">
+            <option value="">Loading voices...</option>
+        </select>
         <button onclick="testVoice()" style="padding:0 20px; border:1px solid #c4c7c5; border-radius:24px; background:white; cursor:pointer; font-weight:600;">Test</button>
     </div>
 
@@ -257,7 +259,8 @@
        ========================================= */
     window.onload = () => {
         if (!navigator.userAgent.includes("Edg")) document.getElementById('edge-check').style.display = 'flex';
-        loadVoices();
+        
+        loadVoices(); // Fixed voice loader
         
         setInterval(updateClock, 1000);
         setInterval(engineTick, 1000); // The Heartbeat
@@ -291,16 +294,11 @@
     }
 
     function getStudyPlanProgress(subject) {
-        // Read from StudyPlanV1.0.html LocalStorage
         const spData = localStorage.getItem('caie_progress_v2_1');
-        if(!spData) return false; // No data found
+        if(!spData) return false; 
         const db = JSON.parse(spData);
-        
-        // Check if ANY unit is done for this subject
-        // Key format: "Subject|Unit|FINAL|unit_done"
         const keys = Object.keys(db);
         const hasProgress = keys.some(k => k.startsWith(subject) && k.includes('FINAL|unit_done') && db[k] === true);
-        
         return hasProgress;
     }
 
@@ -313,9 +311,7 @@
         box.innerHTML = '';
         
         SUBJECTS.forEach((sub, i) => {
-            // Check Progress Lock
             const hasNotes = getStudyPlanProgress(sub);
-            
             box.innerHTML += `
                 <div class="matrix-row">
                     <div>${sub}</div>
@@ -337,14 +333,12 @@
     }
 
     async function confirmMatrix() {
-        let pool = [...STATE.backlog]; // Add debt first
+        let pool = [...STATE.backlog]; 
         
-        // Mandatory
         if(!pool.includes("IELTS Lessons")) pool.push("IELTS Lessons");
         if(!pool.includes("Vocab")) pool.push("Vocab (15min)");
         if(!pool.includes("Summer Homework")) pool.push("Summer Homework (1h)");
 
-        // Matrix Selection
         SUBJECTS.forEach((sub, i) => {
             if(document.getElementById(`xn-${i}`).checked) pool.push(`XNotes: ${sub}`);
             if(document.getElementById(`mt-${i}`).checked) pool.push(`Mock Test: ${sub}`);
@@ -368,6 +362,8 @@
         3. Backlog items (Debt) must be scheduled first.
         4. Mock Test (if present) must be split into two 45m sessions with break.
         5. Output JSON: [{"start":"HH:MM", "end":"HH:MM", "task":"Name", "type":"study|break|meal"}]
+        
+        IMPORTANT: RETURN ONLY JSON ARRAY. NO MARKDOWN. NO EXPLANATION.
         `;
 
         try {
@@ -375,7 +371,6 @@
             const sched = JSON.parse(json);
             STATE.schedule = sched.map(s => ({...s, done: false}));
             
-            // Clear backlog after scheduling
             STATE.backlog = []; 
             localStorage.setItem('jack_v1_backlog', JSON.stringify([]));
             localStorage.setItem('jack_v1_sched', JSON.stringify(STATE.schedule));
@@ -385,7 +380,7 @@
             speak("Schedule locked. Long tasks have been split. Proceed.", "时间表已锁定。长任务已拆分。执行。");
 
         } catch(e) {
-            addBubble("Error: " + e.message, 'system');
+            addBubble("Fatal Error: " + e.message, 'error');
         }
     }
 
@@ -406,10 +401,9 @@
             const start = t2m(s.start);
             const end = t2m(s.end);
 
-            // BUFFER ZONE LOGIC (10 mins before study)
+            // BUFFER ZONE LOGIC
             if(s.type === 'study' && !s.done && curM >= start - 10 && curM < start) {
-                // Trigger Once
-                if(STATE.activeTaskIdx !== -99) { // -99 indicates buffer state
+                if(STATE.activeTaskIdx !== -99) { 
                     STATE.activeTaskIdx = -99;
                     speak(`Warning. The next mission is ${s.task}. Ten minutes to drop your phone.`, "警告。下一个任务即将开始。放下手机。");
                 }
@@ -423,7 +417,6 @@
                 idx = i;
                 if(STATE.schedule[i+1]) next = STATE.schedule[i+1];
                 
-                // Trigger Start
                 if(STATE.activeTaskIdx !== i) {
                     STATE.activeTaskIdx = i;
                     speak(`Mission Start: ${s.task}. Focus mode engaged.`, "任务开始。专注模式启动。");
@@ -469,7 +462,7 @@
     }
 
     /* =========================================
-       5. CHAT & PROTOCOL
+       5. CHAT & PROTOCOL (ARMOR EDITION)
        ========================================= */
     async function sendMsg() {
         const txt = document.getElementById('user-msg').value.trim();
@@ -484,9 +477,11 @@
         PROTOCOL:
         1. Reply in Chinese.
         2. Tag [TTS: "English" | "Chinese"].
-        3. IF cancelling task: Output [BACKLOG: TaskName] and [REGENERATE].
+        3. IF cancelling task: Output [BACKLOG: TaskName] and [REGENERATE: JSON].
         4. IF swapping time: Output [REGENERATE: JSON].
         5. IF Denied: Output [DENY].
+        
+        CRITICAL: RETURN CLEAN JSON. ENSURE ALL ARRAYS ARE CLOSED.
         `;
 
         try {
@@ -509,33 +504,81 @@
                 clean = clean.replace(ttsM[0], '');
             }
 
-            // Regenerate
-            const regenM = res.match(/\[REGENERATE:\s*(\[.*?\])\]/s);
-            if(regenM) {
-                try {
-                    STATE.schedule = JSON.parse(regenM[1]);
-                    localStorage.setItem('jack_v1_sched', JSON.stringify(STATE.schedule));
-                    renderTable();
-                    clean = clean.replace(regenM[0], '');
-                } catch(e){}
+            // Regenerate - ROBUST PARSING
+            if(res.includes("[REGENERATE:")) {
+                const jsonStr = extractJSON(res);
+                if(jsonStr) {
+                    try {
+                        const newSched = JSON.parse(jsonStr);
+                        if(Array.isArray(newSched)) {
+                            STATE.schedule = newSched.map(s => ({...s, done: false}));
+                            localStorage.setItem('jack_v1_sched', JSON.stringify(STATE.schedule));
+                            renderTable();
+                            clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/, ''); 
+                        }
+                    } catch(e) {
+                        addBubble("Data parsing error. Trying auto-heal...", 'error');
+                        // Simple auto-heal: try adding ']'
+                        try {
+                            const healed = JSON.parse(jsonStr + "]");
+                            STATE.schedule = healed;
+                            localStorage.setItem('jack_v1_sched', JSON.stringify(STATE.schedule));
+                            renderTable();
+                        } catch(e2) {
+                            console.error(e2);
+                        }
+                    }
+                }
             }
 
             addBubble(clean, 'ai');
 
         } catch(e) {
-            addBubble("Error: " + e.message, 'system');
+            addBubble("Communication Error: " + e.message, 'error');
         }
     }
 
     /* =========================================
-       6. UTILS
+       6. UTILS (Double Insurance)
        ========================================= */
+    
+    // ** NEW: Robust JSON Extractor **
+    function extractJSON(text) {
+        const startMarker = "[REGENERATE:";
+        const startIdx = text.indexOf(startMarker);
+        if (startIdx === -1) return null;
+
+        // Find the first '[' after the marker
+        const jsonStart = text.indexOf("[", startIdx + startMarker.length);
+        if (jsonStart === -1) return null;
+
+        // Use bracket counting to find the matching closing ']'
+        let depth = 0;
+        let jsonEnd = -1;
+        
+        for (let i = jsonStart; i < text.length; i++) {
+            if (text[i] === '[') depth++;
+            else if (text[i] === ']') {
+                depth--;
+                if (depth === 0) {
+                    jsonEnd = i;
+                    break;
+                }
+            }
+        }
+
+        if (jsonEnd !== -1) {
+            return text.substring(jsonStart, jsonEnd + 1);
+        } else {
+            // Fallback: If not balanced, return until end and hope auto-heal fixes it
+            return text.substring(jsonStart); 
+        }
+    }
+
     function finishTaskEarly() {
-        // ... Logic to mark done ...
-        // In V1.0, we just mark current active as done
         if(STATE.activeTaskIdx >= 0 && STATE.schedule[STATE.activeTaskIdx]) {
             STATE.schedule[STATE.activeTaskIdx].done = true;
-            STATE.schedule[STATE.activeTaskIdx].type = 'break'; // Convert remainder to break
+            STATE.schedule[STATE.activeTaskIdx].type = 'break'; 
             STATE.schedule[STATE.activeTaskIdx].task += " (Done)";
             localStorage.setItem('jack_v1_sched', JSON.stringify(STATE.schedule));
             renderTable();
@@ -545,6 +588,7 @@
 
     async function callLLM(prompt, jsonMode) {
         const url = STATE.provider === 'deepseek' ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+        
         const res = await fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.apiKey}`},
@@ -556,7 +600,15 @@
         });
         const d = await res.json();
         let c = d.choices[0].message.content;
-        return jsonMode ? c.replace(/```json|```/g, '').trim() : c;
+        
+        if (jsonMode) {
+            // For initial generation, just extract the first array
+            const firstBracket = c.indexOf('[');
+            const lastBracket = c.lastIndexOf(']');
+            if(firstBracket > -1 && lastBracket > -1) return c.substring(firstBracket, lastBracket+1);
+            return c;
+        }
+        return c;
     }
 
     function speak(en, zh) {
@@ -574,6 +626,9 @@
         const voices = window.speechSynthesis.getVoices();
         const selVal = document.getElementById('voice-select').value;
         let v = voices.find(v => v.voiceURI === selVal) || voices.find(v => v.voiceURI === STATE.voiceUri);
+        
+        // Auto Fallback to Edge Natural
+        if(!v) v = voices.find(v => v.name.includes("Natural") && v.lang.startsWith("en"));
         if(v) u.voice = v;
 
         u.onend = () => setTimeout(() => box.style.display='none', 3000);
@@ -581,18 +636,33 @@
     }
 
     function loadVoices() {
-        window.speechSynthesis.onvoiceschanged = () => {
+        const populate = () => {
+            const voices = window.speechSynthesis.getVoices();
+            if(voices.length === 0) return;
+            
             const sel = document.getElementById('voice-select');
             sel.innerHTML = '';
-            const voices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
-            voices.forEach(v => {
+            
+            // Filter English & Prioritize Natural
+            const enVoices = voices.filter(v => v.lang.startsWith('en'));
+            enVoices.sort((a,b) => (b.name.includes("Natural") ? 1 : 0) - (a.name.includes("Natural") ? 1 : 0));
+
+            enVoices.forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v.voiceURI;
-                opt.innerText = v.name;
+                opt.innerText = (v.name.includes("Natural") ? "🌟 " : "") + v.name.replace("Microsoft ", "");
                 sel.appendChild(opt);
             });
             if(STATE.voiceUri) sel.value = STATE.voiceUri;
         };
+
+        populate();
+        if(window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = populate;
+        }
+        // Force poll for Edge
+        setTimeout(populate, 500);
+        setTimeout(populate, 2000);
     }
 
     function testVoice() {
