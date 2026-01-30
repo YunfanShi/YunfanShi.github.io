@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V1.2 Armor Edition</title>
+    <title>Jack's Warden | V1.4 Logic Overlord</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -20,24 +20,18 @@
 
         /* --- Sidebar --- */
         aside { width: 400px; background: var(--surface); border-right: 1px solid #e0e2e7; display: flex; flex-direction: column; z-index: 20; }
-        
         .chat-header { padding: 20px 24px; border-bottom: 1px solid #e0e2e7; display: flex; justify-content: space-between; align-items: center; background: #fff; }
         .chat-title { font-weight: 700; color: var(--blue); font-size: 16px; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
-        
         .chat-box { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; background: #fff; scroll-behavior: smooth; }
-        
         .bubble { max-width: 88%; padding: 14px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; position: relative; word-wrap: break-word; }
         .bubble.ai { background: #f0f4f9; color: #1f1f1f; align-self: flex-start; border-bottom-left-radius: 4px; }
         .bubble.user { background: var(--blue); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .bubble.error { background: #fff0f0; color: var(--red); border: 1px solid #ffdad6; align-self: center; font-size: 13px; font-weight: bold; }
-
         .input-area { padding: 20px; border-top: 1px solid #e0e2e7; display: flex; gap: 12px; background: var(--surface); }
         .chat-input { flex: 1; padding: 14px 20px; border-radius: 30px; border: 1px solid #c4c7c5; outline: none; font-size: 15px; }
         .chat-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.1); }
 
         /* --- Main Content --- */
         main { flex: 1; padding: 40px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; position: relative; }
-        
         header { display: flex; justify-content: space-between; align-items: center; }
         .clock-badge { background: #d3e3fd; color: #041e49; padding: 8px 16px; border-radius: 50px; font-weight: 700; font-family: 'Roboto Mono'; font-size: 16px; }
 
@@ -49,15 +43,19 @@
         /* Active View */
         #view-active { display: none; width: 100%; max-width: 1000px; margin: 0 auto; }
         
-        .timer-card { background: white; border-radius: var(--radius); padding: 50px; text-align: center; box-shadow: var(--shadow); margin-bottom: 30px; position: relative; overflow: hidden; border: 1px solid #eff1f4; }
+        .timer-card { background: white; border-radius: var(--radius); padding: 50px; text-align: center; box-shadow: var(--shadow); margin-bottom: 30px; position: relative; overflow: hidden; border: 1px solid #eff1f4; transition: all 0.5s ease; }
         .timer-digits { font-size: 120px; font-weight: 700; color: var(--text); font-family: 'Roboto Mono', monospace; line-height: 1; letter-spacing: -5px; margin: 20px 0; font-variant-numeric: tabular-nums; }
         .timer-task { font-size: 28px; color: #444746; font-weight: 500; }
-        
+        .next-task { font-size: 16px; color: #666; font-weight: 500; margin-top: 10px; }
+
         /* Buffer Mode Visuals */
-        .timer-card.buffer-mode { border: 4px solid var(--yellow); background: #fffdf6; }
+        .timer-card.buffer-mode { border: 6px solid var(--yellow); background: #fffdf0; animation: pulse-border 2s infinite; }
         .timer-card.buffer-mode .timer-digits { color: #8c6d0d; }
+        .timer-card.buffer-mode .timer-task { color: #8c6d0d; font-weight: 700; }
         
-        .progress-line { position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; background: #f0f4f9; }
+        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(234, 196, 53, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(234, 196, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(234, 196, 53, 0); } }
+
+        .progress-line { position: absolute; bottom: 0; left: 0; width: 100%; height: 10px; background: #f0f4f9; }
         .progress-fill { height: 100%; width: 0%; background: var(--blue); transition: width 1s linear; }
 
         .schedule-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid #eff1f4; }
@@ -87,6 +85,9 @@
         
         .edge-warning { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:999; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; }
 
+        .btn-reset { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 10px 24px; border-radius: 50px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .btn-reset:hover { background: #fff0f0; }
+
     </style>
 </head>
 <body>
@@ -105,12 +106,12 @@
 
 <aside>
     <div class="chat-header">
-        <span class="chat-title"><span class="material-icons-round">security</span> AI WARDEN V1.2</span>
+        <span class="chat-title"><span class="material-icons-round">security</span> AI WARDEN V1.4</span>
         <button onclick="openSettings()" style="background:none; border:none; cursor:pointer; color:#444746;"><span class="material-icons-round">settings</span></button>
     </div>
     
     <div class="chat-box" id="chat-history">
-        <div class="bubble ai">System Online. Warden is watching.</div>
+        <div class="bubble ai">System Online. Buffer Protocol: Frontend Hijack.</div>
     </div>
 
     <div class="input-area">
@@ -139,10 +140,9 @@
 
         <h1 style="margin:0 0 10px 0;">今日战术规划</h1>
         <p style="color:#444746; margin-bottom:50px; line-height:1.6; max-width:500px;">
-            <strong style="color:var(--blue)">强制规则：</strong><br>
-            长任务必须拆分休息。<br>
-            前置任务未完成，禁止模考。<br>
-            未完成任务将计入债务。
+            <strong style="color:var(--blue)">自动重置已启用。</strong><br>
+            缓冲逻辑由前端强制执行 (最后10分钟劫持)。<br>
+            长任务必须拆分。
         </p>
         <button class="hero-btn" onclick="openMatrixSelector()">
             <span class="material-icons-round">add_task</span> 建立任务矩阵
@@ -151,10 +151,10 @@
 
     <div id="view-active">
         <div class="timer-card" id="main-card">
-            <div id="buffer-badge" style="background:var(--yellow); display:none; padding:8px 20px; border-radius:30px; font-weight:800; margin-bottom:20px; font-size:16px; color:#4a3800; animation: pulse 2s infinite;">⚠️ BUFFER ZONE (10m)</div>
+            <div id="buffer-badge" style="background:var(--yellow); display:none; padding:8px 20px; border-radius:30px; font-weight:800; margin-bottom:20px; font-size:16px; color:#4a3800;">⚠️ BUFFER ZONE (10m)</div>
             <div class="timer-task" id="timer-label">Awaiting Protocol...</div>
             <div class="timer-digits" id="timer-display">--:--</div>
-            <div style="font-size:16px; color:#666; font-weight:500; margin-top:10px;" id="next-task-display">Next: --</div>
+            <div class="next-task" id="next-task-display">Next: --</div>
             
             <div style="margin-top:40px; display:flex; gap:20px; justify-content:center;">
                 <button onclick="finishTaskEarly()" style="background:var(--green); color:white; border:none; padding:15px 35px; border-radius:50px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:10px; font-size:16px; box-shadow:0 8px 20px rgba(20, 108, 46, 0.25);">
@@ -172,12 +172,18 @@
             <thead><tr><th width="140">Time</th><th>Task</th><th width="120">Type</th></tr></thead>
             <tbody id="schedule-body"></tbody>
         </table>
+
+        <div style="display:flex; justify-content:center; margin-top:30px;">
+            <button class="btn-reset" onclick="resetSchedule()">
+                <span class="material-icons-round">delete_forever</span> 强制重置 (Reset Table)
+            </button>
+        </div>
     </div>
 </main>
 
 <dialog id="matrix-modal">
     <h3 style="margin-top:0;">构建今日任务</h3>
-    <p style="font-size:13px; color:#666;">系统会自动检查 StudyPlan 进度锁。ZNotes 未完成时禁止选择 Mock。</p>
+    <p style="font-size:13px; color:#666;">StudyPlan 进度锁已启用。</p>
     
     <div class="matrix-grid">
         <div class="matrix-row" style="background:none; border-bottom:2px solid #e0e2e7; font-weight:700;">
@@ -247,25 +253,25 @@
         apiKey: localStorage.getItem('jack_v1_key') || '',
         provider: localStorage.getItem('jack_v1_provider') || 'deepseek',
         voiceUri: localStorage.getItem('jack_v1_voice') || '',
+        lastDate: localStorage.getItem('jack_v1_date') || '',
         
         // Runtime States
-        lastEventTime: 0,
-        bufferAlerted: false,
+        lastBufferTask: null, // Lock to prevent repeating TTS for same buffer
         activeTaskIdx: -1
     };
 
     /* =========================================
-       2. INIT & CROSS-CHECK
+       2. INIT & AUTO-WIPE
        ========================================= */
     window.onload = () => {
         if (!navigator.userAgent.includes("Edg")) document.getElementById('edge-check').style.display = 'flex';
         
-        loadVoices(); // Fixed voice loader
+        checkNewDay(); // Force wipe if new day
+        loadVoices(); 
         
         setInterval(updateClock, 1000);
-        setInterval(engineTick, 1000); // The Heartbeat
+        setInterval(engineTick, 1000); 
 
-        // Load Settings
         document.getElementById('api-key').value = STATE.apiKey;
         document.getElementById('model-select').value = STATE.provider;
 
@@ -282,6 +288,30 @@
 
     function updateClock() {
         document.getElementById('clock-display').innerText = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    }
+
+    function checkNewDay() {
+        const today = new Date().toDateString();
+        // If last date exists and is not today, wipe schedule
+        if (STATE.lastDate && STATE.lastDate !== today) {
+            console.log("New Day detected. Wiping schedule.");
+            STATE.schedule = [];
+            localStorage.setItem('jack_v1_sched', JSON.stringify([]));
+            STATE.lastDate = today;
+            localStorage.setItem('jack_v1_date', STATE.lastDate);
+        } else if (!STATE.lastDate) {
+            // First run, set date
+            STATE.lastDate = today;
+            localStorage.setItem('jack_v1_date', STATE.lastDate);
+        }
+    }
+
+    function resetSchedule() {
+        if(confirm("Confirm: Wipe schedule and restart? Backlog will be preserved.")) {
+            STATE.schedule = [];
+            localStorage.setItem('jack_v1_sched', JSON.stringify([]));
+            location.reload();
+        }
     }
 
     function checkBacklog() {
@@ -303,7 +333,7 @@
     }
 
     /* =========================================
-       3. GENERATION & LOGIC
+       3. GENERATION (CLEAN PROMPT)
        ========================================= */
     function openMatrixSelector() {
         if(!STATE.apiKey) return openSettings();
@@ -347,23 +377,21 @@
         if(document.getElementById('chk-piano').checked) pool.push("Piano Practice");
 
         document.getElementById('matrix-modal').close();
-        addBubble("Analyzing workload... Enforcing split rules...", 'ai');
+        addBubble("Analyzing workload... Enforcing strict split...", 'ai');
 
+        // --- SIMPLIFIED PROMPT (Let AI do normal schedule) ---
         const prompt = `
-        Role: AI Warden (Strict).
+        Role: Strict AI Warden.
         Time: 10:30 - 22:30. Fixed Meals: 12:00-13:00, 18:00-19:00.
         Tasks: ${JSON.stringify(pool)}.
         
-        RULES:
-        1. IGCSE Subjects > 3 Hours total.
-        2. SPLIT RULE: If a task > 45 mins (like Mock Exam or Long Study), DO NOT schedule a single block. 
-           - Schedule "Task Part 1 (45m)" -> "Deep Break (30m)" -> "Task Part 2 (45m)".
-           - This is mandatory to prevent burnout.
-        3. Backlog items (Debt) must be scheduled first.
-        4. Mock Test (if present) must be split into two 45m sessions with break.
-        5. Output JSON: [{"start":"HH:MM", "end":"HH:MM", "task":"Name", "type":"study|break|meal"}]
+        CRITICAL RULES:
+        1. **SEQUENCE**: Arrange tasks continuously (Study -> Break -> Study). DO NOT worry about "buffer gaps" (Frontend will handle it).
+        2. **SPLIT LONG TASKS**: Any task > 45 mins MUST be split (e.g. Math Part 1 -> Deep Break -> Math Part 2).
+        3. **IGCSE INTENSITY**: Ensure > 3 hours of Science/Math study.
+        4. **BACKLOG FIRST**: Prioritize debt tasks.
         
-        IMPORTANT: RETURN ONLY JSON ARRAY. NO MARKDOWN. NO EXPLANATION.
+        Output JSON Array ONLY: [{"start":"HH:MM", "end":"HH:MM", "task":"Name", "type":"study|break|meal"}]
         `;
 
         try {
@@ -377,7 +405,7 @@
             
             switchView('active');
             renderTable();
-            speak("Schedule locked. Long tasks have been split. Proceed.", "时间表已锁定。长任务已拆分。执行。");
+            speak("Schedule locked. Warden logic active. Proceed.", "时间表已锁定。管家逻辑已激活。");
 
         } catch(e) {
             addBubble("Fatal Error: " + e.message, 'error');
@@ -385,7 +413,7 @@
     }
 
     /* =========================================
-       4. THE HEARTBEAT (Engine)
+       4. THE ENGINE (Look-Ahead Hijack)
        ========================================= */
     function engineTick() {
         if(STATE.schedule.length === 0) return;
@@ -395,47 +423,72 @@
         let active = null;
         let next = null;
         let idx = -1;
+        let hijackBuffer = false; // Is hijack active?
 
+        // 1. Scan for active block normally
         for(let i=0; i<STATE.schedule.length; i++) {
             const s = STATE.schedule[i];
             const start = t2m(s.start);
             const end = t2m(s.end);
 
-            // BUFFER ZONE LOGIC
-            if(s.type === 'study' && !s.done && curM >= start - 10 && curM < start) {
-                if(STATE.activeTaskIdx !== -99) { 
-                    STATE.activeTaskIdx = -99;
-                    speak(`Warning. The next mission is ${s.task}. Ten minutes to drop your phone.`, "警告。下一个任务即将开始。放下手机。");
-                }
-                updateUI("PREPARE: " + s.task, start*60 - (curM*60 + now.getSeconds()), 600, true, s.type);
-                return;
-            }
-
-            // ACTIVE TASK
             if(curM >= start && curM < end) {
                 active = s;
                 idx = i;
                 if(STATE.schedule[i+1]) next = STATE.schedule[i+1];
-                
-                if(STATE.activeTaskIdx !== i) {
-                    STATE.activeTaskIdx = i;
-                    speak(`Mission Start: ${s.task}. Focus mode engaged.`, "任务开始。专注模式启动。");
-                }
                 break;
             }
         }
 
+        // 2. HIJACK LOGIC: Check if Next Task is Study and starting within 10 mins
+        // OR check if First Task of day is starting within 10 mins
+        
+        // Case A: First task of day (Pre-start Buffer)
+        if(!active) {
+            const first = STATE.schedule[0];
+            const start = t2m(first.start);
+            if(first.type === 'study' && curM >= start - 10 && curM < start) {
+                triggerBufferUI(first.task, start*60 - (curM*60 + now.getSeconds()), 600);
+                return; // Stop here, don't show "No Active Task"
+            }
+        }
+
+        // Case B: Mid-day Hijack
+        if(next && next.type === 'study') {
+            const nextStart = t2m(next.start);
+            // If current time is within 10 mins of next start
+            if(curM >= nextStart - 10 && curM < nextStart) {
+                // HIJACK! Override whatever "active" block is (e.g. Break)
+                triggerBufferUI(next.task, nextStart*60 - (curM*60 + now.getSeconds()), 600);
+                return; // Stop here, effectively hiding the current 'Break' task
+            }
+        }
+
+        // 3. Normal Display (If not hijacked)
         if(active) {
+            // If we just exited a buffer (started task), clear lock
+            if(STATE.lastBufferTask === active.task) STATE.lastBufferTask = null;
+
             const start = t2m(active.start);
             const end = t2m(active.end);
             updateUI(active.task, end*60 - (curM*60 + now.getSeconds()), (end-start)*60, false, active.type);
             highlightRow(idx);
             document.getElementById('next-task-display').innerText = next ? `Next: ${next.task} (${next.start})` : "Next: End of Day";
         } else {
+            // Free time (and not in pre-start buffer)
             document.getElementById('timer-display').innerText = "--:--";
             document.getElementById('timer-label').innerText = "NO ACTIVE TASK";
             document.getElementById('main-card').classList.remove('buffer-mode');
         }
+    }
+
+    function triggerBufferUI(taskName, secondsLeft, totalSeconds) {
+        // TTS Lock
+        if(STATE.lastBufferTask !== taskName) { 
+            STATE.lastBufferTask = taskName; 
+            speak(`Warning. 10 minutes to ${taskName}. Drop your phone immediately.`, "警告。10分钟后任务开始。立即放下手机。");
+        }
+        updateUI("PREPARE: " + taskName, secondsLeft, totalSeconds, true, 'study');
+        // Visual override for table row? Optional.
     }
 
     function updateUI(label, secs, total, isBuf, type) {
@@ -448,7 +501,10 @@
         const bar = document.getElementById('progress-bar');
         const badge = document.getElementById('buffer-badge');
         
-        bar.style.width = ((total-secs)/total)*100 + "%";
+        // Progress Bar Math
+        let pct = ((total-secs)/total)*100;
+        if(pct < 0) pct = 0; if(pct > 100) pct = 100;
+        bar.style.width = pct + "%";
         
         if(isBuf) {
             card.classList.add('buffer-mode');
@@ -462,7 +518,7 @@
     }
 
     /* =========================================
-       5. CHAT & PROTOCOL (ARMOR EDITION)
+       5. CHAT & PROTOCOL (Parsing)
        ========================================= */
     async function sendMsg() {
         const txt = document.getElementById('user-msg').value.trim();
@@ -473,38 +529,33 @@
         const prompt = `
         Context: Jack's Schedule (JSON): ${JSON.stringify(STATE.schedule)}.
         User Request: "${txt}"
-        
         PROTOCOL:
         1. Reply in Chinese.
         2. Tag [TTS: "English" | "Chinese"].
         3. IF cancelling task: Output [BACKLOG: TaskName] and [REGENERATE: JSON].
         4. IF swapping time: Output [REGENERATE: JSON].
         5. IF Denied: Output [DENY].
-        
-        CRITICAL: RETURN CLEAN JSON. ENSURE ALL ARRAYS ARE CLOSED.
+        CRITICAL: RETURN CLEAN JSON.
         `;
 
         try {
             const res = await callLLM(prompt, false);
             let clean = res;
 
-            // Backlog Logic
             const blM = res.match(/\[BACKLOG:\s*(.*?)\]/);
             if(blM) {
                 STATE.backlog.push(blM[1]);
                 localStorage.setItem('jack_v1_backlog', JSON.stringify(STATE.backlog));
                 clean = clean.replace(blM[0], '');
-                speak("Task moved to backlog. You cannot escape.", "任务已记入黑账。你逃不掉的。");
+                speak("Task backlog updated. It will return tomorrow.", "任务已记入黑账。明天见。");
             }
 
-            // TTS Parse
             const ttsM = res.match(/\[TTS:\s*"(.*?)"\s*\|\s*"(.*?)"\]/);
             if(ttsM) {
                 speak(ttsM[1], ttsM[2]);
                 clean = clean.replace(ttsM[0], '');
             }
 
-            // Regenerate - ROBUST PARSING
             if(res.includes("[REGENERATE:")) {
                 const jsonStr = extractJSON(res);
                 if(jsonStr) {
@@ -516,65 +567,37 @@
                             renderTable();
                             clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/, ''); 
                         }
-                    } catch(e) {
-                        addBubble("Data parsing error. Trying auto-heal...", 'error');
-                        // Simple auto-heal: try adding ']'
-                        try {
-                            const healed = JSON.parse(jsonStr + "]");
-                            STATE.schedule = healed;
-                            localStorage.setItem('jack_v1_sched', JSON.stringify(STATE.schedule));
-                            renderTable();
-                        } catch(e2) {
-                            console.error(e2);
-                        }
-                    }
+                    } catch(e){}
                 }
             }
 
             addBubble(clean, 'ai');
 
         } catch(e) {
-            addBubble("Communication Error: " + e.message, 'error');
+            addBubble("Error: " + e.message, 'system');
         }
     }
 
-    /* =========================================
-       6. UTILS (Double Insurance)
-       ========================================= */
-    
-    // ** NEW: Robust JSON Extractor **
     function extractJSON(text) {
         const startMarker = "[REGENERATE:";
         const startIdx = text.indexOf(startMarker);
         if (startIdx === -1) return null;
-
-        // Find the first '[' after the marker
         const jsonStart = text.indexOf("[", startIdx + startMarker.length);
         if (jsonStart === -1) return null;
-
-        // Use bracket counting to find the matching closing ']'
-        let depth = 0;
-        let jsonEnd = -1;
-        
+        let depth = 0; let jsonEnd = -1;
         for (let i = jsonStart; i < text.length; i++) {
             if (text[i] === '[') depth++;
             else if (text[i] === ']') {
                 depth--;
-                if (depth === 0) {
-                    jsonEnd = i;
-                    break;
-                }
+                if (depth === 0) { jsonEnd = i; break; }
             }
         }
-
-        if (jsonEnd !== -1) {
-            return text.substring(jsonStart, jsonEnd + 1);
-        } else {
-            // Fallback: If not balanced, return until end and hope auto-heal fixes it
-            return text.substring(jsonStart); 
-        }
+        return jsonEnd !== -1 ? text.substring(jsonStart, jsonEnd + 1) : null;
     }
 
+    /* =========================================
+       6. UTILS
+       ========================================= */
     function finishTaskEarly() {
         if(STATE.activeTaskIdx >= 0 && STATE.schedule[STATE.activeTaskIdx]) {
             STATE.schedule[STATE.activeTaskIdx].done = true;
@@ -602,7 +625,6 @@
         let c = d.choices[0].message.content;
         
         if (jsonMode) {
-            // For initial generation, just extract the first array
             const firstBracket = c.indexOf('[');
             const lastBracket = c.lastIndexOf(']');
             if(firstBracket > -1 && lastBracket > -1) return c.substring(firstBracket, lastBracket+1);
@@ -627,7 +649,6 @@
         const selVal = document.getElementById('voice-select').value;
         let v = voices.find(v => v.voiceURI === selVal) || voices.find(v => v.voiceURI === STATE.voiceUri);
         
-        // Auto Fallback to Edge Natural
         if(!v) v = voices.find(v => v.name.includes("Natural") && v.lang.startsWith("en"));
         if(v) u.voice = v;
 
@@ -639,14 +660,10 @@
         const populate = () => {
             const voices = window.speechSynthesis.getVoices();
             if(voices.length === 0) return;
-            
             const sel = document.getElementById('voice-select');
             sel.innerHTML = '';
-            
-            // Filter English & Prioritize Natural
             const enVoices = voices.filter(v => v.lang.startsWith('en'));
             enVoices.sort((a,b) => (b.name.includes("Natural") ? 1 : 0) - (a.name.includes("Natural") ? 1 : 0));
-
             enVoices.forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v.voiceURI;
@@ -655,14 +672,9 @@
             });
             if(STATE.voiceUri) sel.value = STATE.voiceUri;
         };
-
         populate();
-        if(window.speechSynthesis.onvoiceschanged !== undefined) {
-            window.speechSynthesis.onvoiceschanged = populate;
-        }
-        // Force poll for Edge
-        setTimeout(populate, 500);
-        setTimeout(populate, 2000);
+        if(window.speechSynthesis.onvoiceschanged !== undefined) window.speechSynthesis.onvoiceschanged = populate;
+        setTimeout(populate, 1000);
     }
 
     function testVoice() {
