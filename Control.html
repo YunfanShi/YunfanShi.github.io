@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V2.3 Stable</title>
+    <title>Jack's Warden | V2.5 Editor & Alert</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -17,7 +17,6 @@
             --md-error: #b3261e;
             --md-surface: #ffffff;
             --md-bg: #f0f2f5;
-            --md-outline: #747775;
             --radius-l: 24px;
             --shadow-2: 0 4px 12px rgba(0,0,0,0.1);
             
@@ -29,7 +28,7 @@
         * { box-sizing: border-box; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); }
         body { margin: 0; font-family: 'Roboto', sans-serif; background: var(--md-bg); color: #1f1f1f; height: 100vh; display: flex; overflow: hidden; transition: background 0.5s; }
 
-        /* Buffer State (Full Screen) */
+        /* Buffer State */
         body.buffer-active { background: var(--buffer-bg) !important; }
         body.buffer-active aside { background: rgba(255,255,255,0.8); }
 
@@ -40,7 +39,6 @@
         .bubble { max-width: 85%; padding: 12px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; word-wrap: break-word; }
         .bubble.ai { background: #f2f2f2; color: #1f1f1f; align-self: flex-start; border-bottom-left-radius: 4px; }
         .bubble.user { background: var(--md-primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .bubble.error { background: #fce8e6; color: var(--md-error); border: 1px solid #f9dedc; font-family: monospace; font-size: 12px; }
 
         .input-area { padding: 16px; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: center; background: #fff; }
         .chat-input { flex: 1; padding: 12px 20px; border-radius: 24px; border: 1px solid #ccc; outline: none; font-size: 15px; }
@@ -48,7 +46,6 @@
         .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; cursor: pointer; display: flex; justify-content: center; align-items: center; color: #444; }
         .icon-btn:hover { background: #f0f0f0; }
         
-        /* Recording Animation */
         .icon-btn.recording { color: white; background: var(--md-error); animation: pulse-red 1s infinite; }
         @keyframes pulse-red { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(179, 38, 30, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179, 38, 30, 0); } }
 
@@ -76,8 +73,6 @@
             font-variant-numeric: tabular-nums;
         }
         .timer-label { font-size: 28px; color: #5f6368; margin-bottom: 20px; font-weight: 700; letter-spacing: -0.5px; }
-        
-        /* Buffer Mode Visuals */
         .timer-card.buffer-mode { background: #fff9c4; border: 4px solid #fbc02d; }
         .timer-card.buffer-mode .timer-digits { color: #5f4c00; }
         .timer-card.buffer-mode .timer-label { color: #827717; }
@@ -89,28 +84,33 @@
         .task-row.done .task-name { text-decoration: line-through; color: #757575; }
         .task-time { font-family: 'Roboto Mono'; font-size: 13px; color: #5f6368; }
         
-        /* Drag Preview - Fixed Interaction */
-        .preview-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; }
-        .preview-item.dragging { opacity: 0.5; background: #e8f0fe; }
-        .drag-handle { cursor: grab; padding: 5px; color: #ccc; }
+        /* Drag Preview & Editor */
+        .preview-item { display: grid; grid-template-columns: 30px 60px 10px 60px 1fr 40px; align-items: center; gap: 8px; padding: 8px; background: #fff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; transition: transform 0.2s; }
+        .preview-item.dragging { opacity: 0.5; background: #e8f0fe; border: 1px dashed var(--md-primary); }
+        .drag-handle { cursor: grab; color: #ccc; display: flex; justify-content: center; }
         .drag-handle:hover { color: #666; }
-        .preview-item input { border: none; font-family: 'Roboto Mono'; font-size: 14px; background: transparent; padding: 5px; }
-        .preview-item input:focus { background: #f0f0f0; outline: none; border-radius: 4px; }
-
-        /* Calendar */
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-top: 10px; }
-        .cal-day { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 50%; cursor: pointer; font-size: 13px; }
-        .cal-day.has-data { background: #c2e7ff; color: #001d33; font-weight: bold; }
-        .cal-day:hover { background: #f0f0f0; }
+        
+        .p-input { 
+            border: 1px solid transparent; 
+            background: #f9f9f9; 
+            border-radius: 4px; 
+            padding: 4px 6px; 
+            font-family: 'Roboto Mono'; 
+            font-size: 14px; 
+            width: 100%;
+        }
+        .p-input:focus { background: white; border-color: var(--md-primary); outline: none; }
+        .p-input.task-name { font-family: 'Roboto'; font-weight: 500; }
 
         /* Subtitles */
         #subtitle-box { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 30px; border-radius: 24px; backdrop-filter: blur(4px); font-size: 16px; display: none; z-index: 100; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         #sub-zh { font-size: 13px; color: #ccc; display: block; margin-top: 4px; font-weight: 400; }
 
         /* Dialogs */
-        dialog { border: none; border-radius: 28px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 600px; max-width: 90vw; }
+        dialog { border: none; border-radius: 28px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 650px; max-width: 90vw; }
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
         
+        /* Edge Warning */
         .edge-warning { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; }
 
         /* Buffer Overlay */
@@ -126,11 +126,7 @@
 <body>
 
 <div id="buffer-screen-overlay"></div>
-
-<div id="subtitle-box">
-    <span id="sub-en"></span>
-    <span id="sub-zh"></span>
-</div>
+<div id="subtitle-box"><span id="sub-en"></span><span id="sub-zh"></span></div>
 
 <div id="edge-check" class="edge-warning" style="display:none;">
     <span class="material-icons-round" style="font-size:64px; margin-bottom:20px; color:var(--md-primary);">language</span>
@@ -150,7 +146,7 @@
         </div>
     </div>
     <div class="chat-box" id="chat-history">
-        <div class="bubble ai">System Online. V2.3 Protocol Active.<br>Waiting for orders.</div>
+        <div class="bubble ai">System Online. V2.5 Editor Active.<br>Notification Module Loaded.</div>
     </div>
     <div class="input-area">
         <button id="mic-btn" class="icon-btn" onmousedown="startDictation()" onmouseup="stopDictation()"><span class="material-icons-round">mic</span></button>
@@ -208,7 +204,7 @@
 </main>
 
 <dialog id="matrix-modal">
-    <h3 style="margin-top:0;">Select Tasks (Progress Locked)</h3>
+    <h3 style="margin-top:0;">Select Tasks</h3>
     <div id="matrix-rows" style="display:grid; gap:10px; margin:20px 0;"></div>
     <div style="border-top:1px solid #eee; padding-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
         <label><input type="checkbox" checked disabled> IELTS Lessons</label>
@@ -225,9 +221,11 @@
 <dialog id="preview-modal">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:10px;">
         <h3 style="margin:0;">Preview & Edit</h3>
-        <button onclick="addDraftTask()" style="background:none; border:1px solid #ddd; border-radius:50%; width:30px; height:30px; cursor:pointer;">+</button>
     </div>
     <div id="preview-list" style="max-height:400px; overflow-y:auto;"></div>
+    <div style="margin-top:10px; text-align:center;">
+         <button onclick="addDraftTask()" style="background:#f0f2f5; border:1px dashed #999; border-radius:8px; width:100%; padding:8px; cursor:pointer; color:#666;">+ Add Task</button>
+    </div>
     <div style="text-align:right; margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
         <button onclick="document.getElementById('preview-modal').close()" style="border:none; background:none; cursor:pointer;">Cancel</button>
         <button onclick="commitSchedule()" class="fab-extended" style="font-size:14px; background:#1e8e3e;">Start Day</button>
@@ -276,18 +274,22 @@
         lastDate: localStorage.getItem('j_date') || '',
         draft: [],
         currentCalDate: new Date(),
-        lastBufferTask: null
+        lastBufferTask: null,
+        lastSpokenTask: null 
     };
 
     window.onload = () => {
         if (!navigator.userAgent.includes("Edg")) document.getElementById('edge-check').style.display = 'flex';
+        
+        // Request Notification Permission
+        if (Notification.permission !== "granted") Notification.requestPermission();
+
         checkDayReset();
-        startVoicePolling(); // NEW: Aggressive Voice Loading
+        startVoicePolling(); 
         setInterval(tick, 1000);
         
         document.getElementById('api-key').value = STATE.apiKey;
         document.getElementById('model-select').value = STATE.provider;
-        
         document.getElementById('user-msg').addEventListener('keypress', (e) => { if(e.key==='Enter') sendMsg(); });
 
         if(STATE.schedule.length > 0) {
@@ -304,46 +306,57 @@
         if(STATE.schedule.length > 0) engineTick(now);
     }
 
-    // --- FIX: AGGRESSIVE VOICE LOADING ---
     function startVoicePolling() {
         let attempts = 0;
         const loader = setInterval(() => {
             const voices = window.speechSynthesis.getVoices();
             if(voices.length > 0) {
-                console.log("Voices loaded:", voices.length);
                 populateVoiceSelect();
                 clearInterval(loader);
             }
             attempts++;
-            if(attempts > 20) clearInterval(loader); // Stop after 10s
+            if(attempts > 20) clearInterval(loader); 
         }, 500);
-        
-        // Also listen for event
         window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
     }
 
     function populateVoiceSelect() {
         const sel = document.getElementById('voice-select');
-        // Only repopulate if empty or changed
         if(sel.options.length > 1) return;
-        
         sel.innerHTML = '';
         const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
-        
-        // Sort Natural first
         voices.sort((a,b) => (b.name.includes("Natural") ? 1 : 0) - (a.name.includes("Natural") ? 1 : 0));
-
         voices.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.voiceURI;
             opt.innerText = (v.name.includes("Natural") ? "🌟 " : "") + v.name.replace("Microsoft ", "");
             sel.appendChild(opt);
         });
-        
         if(STATE.voiceUri) sel.value = STATE.voiceUri;
     }
 
-    /* ======================== ENGINE: BUFFER HIJACK ======================== */
+    /* ======================== ALERT SYSTEM ======================== */
+    // Helper to grab attention using Notification + Title Flash
+    function grabAttention(title, body) {
+        // 1. Browser Notification
+        if (Notification.permission === "granted") {
+            new Notification(title, { body: body, icon: "https://fonts.gstatic.com/s/i/materialiconsround/alarm/v12/24px.svg" });
+        }
+
+        // 2. Title Flashing
+        let originalTitle = document.title;
+        let count = 0;
+        const interval = setInterval(() => {
+            document.title = (count % 2 === 0) ? `🔔 ${title}` : "⚠️ ATTENTION";
+            count++;
+            if(count > 10) { clearInterval(interval); document.title = originalTitle; }
+        }, 500);
+
+        // 3. Try Focus (Best Effort)
+        window.focus();
+    }
+
+    /* ======================== ENGINE: TTS & ALERTS ======================== */
     function engineTick(now) {
         const curM = now.getHours()*60 + now.getMinutes();
         let active = null, next = null, idx = -1;
@@ -353,16 +366,18 @@
             const start = t2m(s.start);
             const end = t2m(s.end);
             
-            // Buffer Logic (10 mins before study)
+            // 1. Buffer Logic (10 mins before study)
             if(s.type==='study' && !s.done && curM >= start-10 && curM < start) {
                 if(STATE.lastBufferTask !== s.task) {
                     STATE.lastBufferTask = s.task;
-                    speak(`Warning. 10 minutes to ${s.task}. Drop phone.`, "警告。10分钟后开始。放下手机。");
+                    speak(`Warning. 10 minutes to ${s.task}. Drop phone.`, "警告。10分钟后开始。");
+                    grabAttention("Prepare for Task", `10 min until ${s.task}`);
                 }
                 updateTimerUI("PREPARE: "+s.task, start*60 - (curM*60+now.getSeconds()), 600, true);
                 return; 
             }
 
+            // 2. Active Task Logic
             if(curM >= start && curM < end) {
                 active = s; idx = i;
                 if(STATE.schedule[i+1]) next = STATE.schedule[i+1];
@@ -374,6 +389,15 @@
             const end = t2m(active.end);
             const start = t2m(active.start);
             if(STATE.lastBufferTask === active.task) STATE.lastBufferTask = null; 
+            
+            // TTS: New Task Started logic
+            if(STATE.lastSpokenTask !== active.task) {
+                STATE.lastSpokenTask = active.task; 
+                const duration = end - start;
+                speak(`Starting ${active.task}. Duration ${duration} minutes.`);
+                grabAttention("Task Started", `${active.task} (${duration}m)`);
+            }
+
             updateTimerUI(active.task, end*60 - (curM*60+now.getSeconds()), (end-start)*60, false);
             document.getElementById('next-task-display').innerText = next ? `Next: ${next.task} (${next.start})` : "Next: End of Day";
             
@@ -382,10 +406,21 @@
             const rows = document.querySelectorAll('.task-row');
             if(rows[idx]) rows[idx].classList.add('active');
         } else {
+            // Check if we just finished the last task of the day
+            if (STATE.lastSpokenTask && STATE.schedule.length > 0 && curM >= t2m(STATE.schedule[STATE.schedule.length-1].end)) {
+                 if(STATE.lastSpokenTask !== "FINISHED_DAY") {
+                     STATE.lastSpokenTask = "FINISHED_DAY";
+                     speak("All tasks completed. Good night.", "所有任务结束。");
+                     grabAttention("Day Complete", "All tasks finished.");
+                 }
+            }
+            
+            if(STATE.lastSpokenTask !== "FINISHED_DAY") STATE.lastSpokenTask = null;
+
             document.getElementById('timer-display').innerText = "--:--";
             document.getElementById('timer-label').innerText = "NO ACTIVE TASK";
             document.getElementById('main-card').classList.remove('buffer-mode');
-            document.body.classList.remove('buffer-active'); // Clear full screen yellow
+            document.body.classList.remove('buffer-active');
         }
     }
 
@@ -400,7 +435,7 @@
         
         if(isBuf) {
             card.classList.add('buffer-mode');
-            document.body.classList.add('buffer-active'); // FULL SCREEN YELLOW
+            document.body.classList.add('buffer-active'); 
             document.getElementById('buffer-label').style.display='block';
             bar.style.background = "#ffeb3b";
         } else {
@@ -414,7 +449,7 @@
         bar.style.width = pct + "%";
     }
 
-    /* ======================== GENERATION & PREVIEW ======================== */
+    /* ======================== GENERATION & EDITOR ======================== */
     function getStudyPlanProgress(subject) {
         const spData = localStorage.getItem('caie_progress_v2_1');
         if(!spData) return false; 
@@ -424,9 +459,9 @@
 
     function openMatrixSelector() {
         if(!STATE.apiKey) return document.getElementById('settings-modal').showModal();
+        speak("Select your tasks.");
         const div = document.getElementById('matrix-rows');
         div.innerHTML = '';
-        
         SUBJECTS.forEach((sub, i) => {
             const unlocked = getStudyPlanProgress(sub);
             div.innerHTML += `
@@ -434,9 +469,7 @@
                     <span>${sub}</span>
                     <div style="display:flex; gap:10px;">
                         <label style="font-size:12px;"><input type="checkbox" id="xn-${i}"> Note</label>
-                        <label style="font-size:12px;">
-                            <input type="checkbox" id="mt-${i}" ${unlocked?'':'disabled'}> Mock ${unlocked?'':'🔒'}
-                        </label>
+                        <label style="font-size:12px;"><input type="checkbox" id="mt-${i}" ${unlocked?'':'disabled'}> Mock ${unlocked?'':'🔒'}</label>
                     </div>
                 </div>`;
         });
@@ -444,6 +477,7 @@
     }
 
     async function confirmMatrix() {
+        speak("Optimizing schedule, please wait.", "正在生成...");
         let pool = [...STATE.backlog, "IELTS Lessons", "Vocab", "Summer Homework"];
         SUBJECTS.forEach((sub, i) => {
             if(document.getElementById(`xn-${i}`).checked) pool.push(`XNotes: ${sub}`);
@@ -453,9 +487,7 @@
         if(document.getElementById('chk-piano').checked) pool.push("Piano");
 
         document.getElementById('matrix-modal').close();
-        addBubble("Calculating optimal schedule...", "ai");
-        speak("Analyzing task load.", "正在分析负载。");
-
+        
         const nowH = new Date().getHours();
         const startH = nowH < 10 ? 10 : nowH;
         
@@ -463,9 +495,8 @@
         Role: Scheduler. Time: ${nowH}:00. Tasks: ${JSON.stringify(pool)}.
         RULES:
         1. Schedule from ${startH}:00 to 22:30.
-        2. FILL TIME: If tasks run out, add "Review: Weak Points" or "Pre-read" until 22:30.
-        3. Split tasks > 45m.
-        4. Output JSON: [{"start":"HH:MM","end":"HH:MM","task":"Name","type":"study/break/meal"}]
+        2. FILL TIME: If tasks run out, add "Review" until 22:30.
+        3. Output JSON: [{"start":"HH:MM","end":"HH:MM","task":"Name","type":"study/break/meal"}]
         `;
 
         try {
@@ -475,39 +506,34 @@
                 STATE.draft = JSON.parse(json);
                 renderPreview();
                 document.getElementById('preview-modal').showModal();
+                speak("Draft ready. Please review.", "草稿就绪。");
             } else {
-                addBubble("Failed to parse schedule. Please try again.", "error");
                 speak("Schedule generation failed.", "生成失败。");
             }
-        } catch(e) { 
-            addBubble(e.message, 'error'); 
-            speak("Error occurred.", "发生错误。");
-        }
+        } catch(e) { speak("Error occurred.", "发生错误。"); }
     }
 
-    // --- PREVIEW DRAG & DROP (FIXED) ---
+    /* --- ENHANCED EDITOR --- */
     function renderPreview() {
         const list = document.getElementById('preview-list');
         list.innerHTML = '';
         STATE.draft.forEach((item, idx) => {
             const div = document.createElement('div');
             div.className = 'preview-item';
-            div.draggable = true; // Enable drag on row
+            div.draggable = true; 
             
+            // Editable fields for Start, End, Task Name
             div.innerHTML = `
-                <span class="material-icons-round drag-handle">drag_handle</span>
-                <input value="${item.start}" style="width:50px;" onchange="updateDraft(${idx}, 'start', this.value)" onmousedown="event.stopPropagation()">
-                - <input value="${item.end}" style="width:50px;" onchange="updateDraft(${idx}, 'end', this.value)" onmousedown="event.stopPropagation()">
-                <input class="p-task" value="${item.task}" onchange="updateDraft(${idx}, 'task', this.value)" onmousedown="event.stopPropagation()">
-                <span class="material-icons-round" style="color:var(--md-error); cursor:pointer;" onclick="removeDraft(${idx})">remove_circle_outline</span>
+                <div class="drag-handle"><span class="material-icons-round">drag_indicator</span></div>
+                <input class="p-input" value="${item.start}" onchange="updateDraft(${idx}, 'start', this.value)" onmousedown="event.stopPropagation()">
+                <span>-</span>
+                <input class="p-input" value="${item.end}" onchange="updateDraft(${idx}, 'end', this.value)" onmousedown="event.stopPropagation()">
+                <input class="p-input task-name" value="${item.task}" onchange="updateDraft(${idx}, 'task', this.value)" onmousedown="event.stopPropagation()">
+                <button class="icon-btn" style="width:30px; height:30px; color:var(--md-error);" onclick="removeDraft(${idx})"><span class="material-icons-round" style="font-size:18px">delete</span></button>
             `;
             
-            // Logic: Only drag if handle is clicked (Handled via CSS/Layout implies expectation, but explicit check is safer)
-            // Actually, HTML5 Drag API drags the whole element. 
-            // FIX: Stop propagation on inputs so selecting text doesn't trigger drag.
-            
+            // Drag Logic
             div.addEventListener('dragstart', (e) => {
-                // Check if target is handle or part of row, but not input
                 if(e.target.tagName === 'INPUT') { e.preventDefault(); return; }
                 e.dataTransfer.setData('text/plain', idx);
                 div.classList.add('dragging');
@@ -515,7 +541,6 @@
             div.addEventListener('dragend', () => div.classList.remove('dragging'));
             div.addEventListener('dragover', (e) => e.preventDefault());
             div.addEventListener('drop', (e) => handleDrop(e, idx));
-            
             list.appendChild(div);
         });
     }
@@ -530,8 +555,25 @@
         }
     }
 
-    function addDraftTask() { STATE.draft.push({start:"00:00", end:"00:00", task:"New Task", type:"study"}); renderPreview(); }
+    function addDraftTask() { 
+        // Auto-calculate start time based on last task
+        let start = "00:00";
+        if (STATE.draft.length > 0) {
+            start = STATE.draft[STATE.draft.length - 1].end;
+        }
+        
+        STATE.draft.push({start: start, end: start, task: "New Task", type: "study"}); 
+        renderPreview(); 
+        
+        // Scroll to bottom
+        setTimeout(() => {
+            const list = document.getElementById('preview-list');
+            list.scrollTop = list.scrollHeight;
+        }, 100);
+    }
+    
     function removeDraft(i) { STATE.draft.splice(i, 1); renderPreview(); }
+    
     function updateDraft(i, k, v) { STATE.draft[i][k] = v; }
 
     function commitSchedule() {
@@ -540,22 +582,19 @@
         document.getElementById('preview-modal').close();
         switchView('active');
         renderTable();
-        speak("Schedule active.");
+        speak("Schedule confirmed. Protocol initiated.", "日程已确认。");
     }
 
-    /* ======================== CHAT & VOICE ======================== */
+    /* ======================== CHAT & UTILS ======================== */
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'zh-CN';
-    recognition.onerror = (e) => alert("Voice Input Error: " + e.error); // Error feedback
+    recognition.onerror = (e) => alert("Voice Input Error: " + e.error); 
     recognition.onresult = (e) => {
         document.getElementById('user-msg').value = e.results[0][0].transcript;
         document.querySelector('#mic-btn').classList.remove('recording');
         sendMsg();
     };
-    function startDictation() { 
-        document.querySelector('#mic-btn').classList.add('recording');
-        recognition.start(); 
-    }
+    function startDictation() { document.querySelector('#mic-btn').classList.add('recording'); recognition.start(); }
     function stopDictation() { recognition.stop(); }
 
     async function sendMsg() {
@@ -564,42 +603,27 @@
         addBubble(txt, 'user');
         document.getElementById('user-msg').value = '';
 
-        const prompt = `
-        Current Sched: ${JSON.stringify(STATE.schedule)}. User: "${txt}".
-        RULES:
-        1. Reply in Chinese.
-        2. Append [TTS: "English Sentence"].
-        3. If editing, append [REGENERATE: JSON].
-        `;
+        const prompt = `Current Sched: ${JSON.stringify(STATE.schedule)}. User: "${txt}". Reply Chinese. Append [TTS:"English"]. If editing, append [REGENERATE:JSON].`;
         
         try {
             const res = await callLLM(prompt);
             let clean = res;
-            
-            // TTS Parse
             const tts = res.match(/\[TTS:\s*"(.*?)"\]/);
             if(tts) { speak(tts[1], "执行中..."); clean = clean.replace(tts[0],''); }
             
-            // FIX: Only parse JSON if REGENERATE tag exists
             if(res.includes("[REGENERATE:")) {
                 const json = extractJSON(res);
                 if(json) {
-                    try {
-                        const newSched = JSON.parse(json);
-                        if(Array.isArray(newSched)) {
-                            STATE.schedule = newSched;
-                            localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
-                            renderTable();
-                            clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/,'');
-                        }
-                    } catch(e) { console.error("JSON Parse Fail in Chat"); }
+                    STATE.schedule = JSON.parse(json);
+                    localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
+                    renderTable();
+                    clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/,'');
                 }
             }
             addBubble(clean, 'ai');
         } catch(e) { addBubble(e.message, 'error'); }
     }
 
-    /* ======================== UTILS ======================== */
     function finishTaskEarly() {
         const nowM = new Date().getHours()*60 + new Date().getMinutes();
         const taskIdx = STATE.schedule.findIndex(s => {
@@ -610,21 +634,15 @@
             STATE.schedule[taskIdx].done = true;
             localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
             renderTable();
-            speak("Task complete. Take a break.", "任务完成。休息一下。");
+            speak("Task completed. Great work.", "任务完成。");
         }
     }
 
     function checkDayReset() {
         const today = new Date().toDateString();
         if(STATE.lastDate && STATE.lastDate !== today) {
-            STATE.schedule.forEach(s => { if(!s.done && s.type === 'study') STATE.backlog.push(s.task); });
-            if(STATE.schedule.length > 0) {
-                STATE.archive[STATE.lastDate] = STATE.schedule;
-                localStorage.setItem('j_archive', JSON.stringify(STATE.archive));
-            }
             STATE.schedule = [];
             localStorage.setItem('j_sched', '[]');
-            localStorage.setItem('j_backlog', JSON.stringify(STATE.backlog));
         }
         STATE.lastDate = today;
         localStorage.setItem('j_date', today);
@@ -657,35 +675,8 @@
     }
 
     function extractJSON(str) {
-        // Try multiple extraction strategies
-        
-        // Strategy 1: Look for [REGENERATE: marker
-        const marker = "[REGENERATE:";
-        const markerStart = str.indexOf(marker);
-        if(markerStart !== -1) {
-            const jsonStart = str.indexOf("[", markerStart + marker.length);
-            if(jsonStart !== -1) {
-                let count = 0;
-                for(let i=jsonStart; i<str.length; i++) {
-                    if(str[i] === '[') count++;
-                    if(str[i] === ']') count--;
-                    if(count === 0) return str.substring(jsonStart, i+1);
-                }
-            }
-        }
-        
-        // Strategy 2: Look for first JSON array in response
-        const firstBracket = str.indexOf('[');
-        if(firstBracket !== -1) {
-            let count = 0;
-            for(let i=firstBracket; i<str.length; i++) {
-                if(str[i] === '[') count++;
-                if(str[i] === ']') count--;
-                if(count === 0) return str.substring(firstBracket, i+1);
-            }
-        }
-        
-        return null;
+        const match = str.match(/\[\s*\{.*\}\s*\]/s);
+        return match ? match[0] : null;
     }
 
     function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
@@ -718,24 +709,13 @@
         localStorage.setItem('j_prov', STATE.provider);
         localStorage.setItem('j_voice', STATE.voiceUri);
         document.getElementById('settings-modal').close();
+        speak("Configuration saved.", "设置已保存。");
     }
-    function openSettings() { 
-        populateVoiceSelect(); // Refresh voices
-        document.getElementById('settings-modal').showModal(); 
-    }
-    function resetSchedule() { 
-        if(confirm("Reset Day?")) { STATE.schedule=[]; localStorage.setItem('j_sched','[]'); location.reload(); }
-    }
+    function openSettings() { populateVoiceSelect(); document.getElementById('settings-modal').showModal(); }
+    function resetSchedule() { if(confirm("Reset Day?")) { speak("System reset.", "系统重置。"); STATE.schedule=[]; localStorage.setItem('j_sched','[]'); location.reload(); }}
     
-    // Calendar
-    function openArchive() {
-        renderCalendar(STATE.currentCalDate);
-        document.getElementById('archive-modal').showModal();
-    }
-    function changeMonth(d) {
-        STATE.currentCalDate.setMonth(STATE.currentCalDate.getMonth() + d);
-        renderCalendar(STATE.currentCalDate);
-    }
+    function openArchive() { renderCalendar(STATE.currentCalDate); document.getElementById('archive-modal').showModal(); }
+    function changeMonth(d) { STATE.currentCalDate.setMonth(STATE.currentCalDate.getMonth() + d); renderCalendar(STATE.currentCalDate); }
     function renderCalendar(date) {
         const y = date.getFullYear(), m = date.getMonth();
         document.getElementById('cal-month-year').innerText = `${y} / ${m+1}`;
