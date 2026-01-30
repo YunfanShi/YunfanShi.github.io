@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Google Warden | V2.2 Ultimate</title>
+    <title>Jack's Warden | V2.3 Stable</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
@@ -13,33 +13,44 @@
             --md-primary: #0b57d0;
             --md-on-primary: #ffffff;
             --md-primary-container: #d3e3fd;
-            --md-on-primary-container: #041e49;
             --md-secondary: #00639b;
             --md-error: #b3261e;
             --md-surface: #ffffff;
-            --md-bg: #f8f9fa;
+            --md-bg: #f0f2f5;
             --md-outline: #747775;
             --radius-l: 24px;
-            --shadow-2: 0 4px 8px 3px rgba(0,0,0,0.15);
+            --shadow-2: 0 4px 12px rgba(0,0,0,0.1);
+            
+            /* Buffer Colors */
+            --buffer-bg: #fff9c4;
+            --buffer-text: #5f4c00;
         }
 
         * { box-sizing: border-box; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); }
-        body { margin: 0; font-family: 'Google Sans', 'Roboto', sans-serif; background: var(--md-bg); color: #1f1f1f; height: 100vh; display: flex; overflow: hidden; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; background: var(--md-bg); color: #1f1f1f; height: 100vh; display: flex; overflow: hidden; transition: background 0.5s; }
+
+        /* Buffer State (Full Screen) */
+        body.buffer-active { background: var(--buffer-bg) !important; }
+        body.buffer-active aside { background: rgba(255,255,255,0.8); }
 
         /* Sidebar */
         aside { width: 380px; background: var(--md-surface); border-right: 1px solid #e0e2e7; display: flex; flex-direction: column; z-index: 20; }
         .chat-header { padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
         .chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #fff; scroll-behavior: smooth; }
-        .bubble { max-width: 85%; padding: 12px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; }
+        .bubble { max-width: 85%; padding: 12px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; word-wrap: break-word; }
         .bubble.ai { background: #f2f2f2; color: #1f1f1f; align-self: flex-start; border-bottom-left-radius: 4px; }
         .bubble.user { background: var(--md-primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        
+        .bubble.error { background: #fce8e6; color: var(--md-error); border: 1px solid #f9dedc; font-family: monospace; font-size: 12px; }
+
         .input-area { padding: 16px; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: center; background: #fff; }
         .chat-input { flex: 1; padding: 12px 20px; border-radius: 24px; border: 1px solid #ccc; outline: none; font-size: 15px; }
         .chat-input:focus { border-color: var(--md-primary); box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.2); }
         .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; cursor: pointer; display: flex; justify-content: center; align-items: center; color: #444; }
         .icon-btn:hover { background: #f0f0f0; }
-        .icon-btn.recording { color: var(--md-error); background: #fce8e6; animation: pulse 1s infinite; }
+        
+        /* Recording Animation */
+        .icon-btn.recording { color: white; background: var(--md-error); animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(179, 38, 30, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179, 38, 30, 0); } }
 
         /* Main */
         main { flex: 1; padding: 30px 40px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; position: relative; }
@@ -52,24 +63,39 @@
         .fab-extended:hover { transform: translateY(-1px); }
 
         #view-active { display: none; width: 100%; max-width: 900px; margin: 0 auto; }
-        .timer-card { background: white; border-radius: 28px; padding: 40px; text-align: center; box-shadow: var(--shadow-2); margin-bottom: 24px; position: relative; overflow: hidden; border: 1px solid #e0e0e0; }
-        .timer-digits { font-size: 96px; font-family: 'Google Sans'; line-height: 1; letter-spacing: -2px; }
-        .timer-label { font-size: 24px; color: #444; margin-bottom: 10px; }
         
-        .timer-card.buffer-mode { background: #fff8e1; border: 4px solid #ffeb3b; }
-        .timer-card.buffer-mode .timer-digits { color: #b06200; }
+        /* Time.is Style Timer */
+        .timer-card { background: white; border-radius: 28px; padding: 40px; text-align: center; box-shadow: var(--shadow-2); margin-bottom: 24px; position: relative; overflow: hidden; border: 1px solid #e0e0e0; }
+        .timer-digits { 
+            font-size: 140px; 
+            font-family: 'Inter', sans-serif; 
+            font-weight: 900; 
+            color: #202124; 
+            line-height: 0.9; 
+            letter-spacing: -6px;
+            font-variant-numeric: tabular-nums;
+        }
+        .timer-label { font-size: 28px; color: #5f6368; margin-bottom: 20px; font-weight: 700; letter-spacing: -0.5px; }
+        
+        /* Buffer Mode Visuals */
+        .timer-card.buffer-mode { background: #fff9c4; border: 4px solid #fbc02d; }
+        .timer-card.buffer-mode .timer-digits { color: #5f4c00; }
+        .timer-card.buffer-mode .timer-label { color: #827717; }
 
         .schedule-card { background: white; border-radius: 24px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; }
         .task-row { display: grid; grid-template-columns: 100px 1fr 100px; padding: 16px 24px; border-bottom: 1px solid #f0f0f0; align-items: center; }
-        .task-row.active { background: #e8f0fe; border-left: 5px solid var(--md-primary); }
+        .task-row.active { background: #e8f0fe; border-left: 6px solid var(--md-primary); }
         .task-row.done { background: #f8f9fa; opacity: 0.6; }
         .task-row.done .task-name { text-decoration: line-through; color: #757575; }
         .task-time { font-family: 'Roboto Mono'; font-size: 13px; color: #5f6368; }
         
-        /* Drag Preview */
-        .preview-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; cursor: grab; }
+        /* Drag Preview - Fixed Interaction */
+        .preview-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; }
         .preview-item.dragging { opacity: 0.5; background: #e8f0fe; }
-        .preview-item input { border: none; font-family: 'Roboto Mono'; font-size: 14px; background: transparent; }
+        .drag-handle { cursor: grab; padding: 5px; color: #ccc; }
+        .drag-handle:hover { color: #666; }
+        .preview-item input { border: none; font-family: 'Roboto Mono'; font-size: 14px; background: transparent; padding: 5px; }
+        .preview-item input:focus { background: #f0f0f0; outline: none; border-radius: 4px; }
 
         /* Calendar */
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-top: 10px; }
@@ -78,8 +104,8 @@
         .cal-day:hover { background: #f0f0f0; }
 
         /* Subtitles */
-        #subtitle-box { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 24px; backdrop-filter: blur(4px); font-size: 16px; display: none; z-index: 100; text-align: center; }
-        #sub-zh { font-size: 13px; color: #ddd; display: block; margin-top: 4px; font-weight: 400; }
+        #subtitle-box { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 30px; border-radius: 24px; backdrop-filter: blur(4px); font-size: 16px; display: none; z-index: 100; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        #sub-zh { font-size: 13px; color: #ccc; display: block; margin-top: 4px; font-weight: 400; }
 
         /* Dialogs */
         dialog { border: none; border-radius: 28px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 600px; max-width: 90vw; }
@@ -87,9 +113,19 @@
         
         .edge-warning { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; }
 
+        /* Buffer Overlay */
+        #buffer-screen-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff9c4; z-index: 10; pointer-events: none;
+            opacity: 0; transition: opacity 0.5s; display: none;
+        }
+        body.buffer-active #buffer-screen-overlay { display: block; opacity: 0.1; }
+
     </style>
 </head>
 <body>
+
+<div id="buffer-screen-overlay"></div>
 
 <div id="subtitle-box">
     <span id="sub-en"></span>
@@ -114,11 +150,11 @@
         </div>
     </div>
     <div class="chat-box" id="chat-history">
-        <div class="bubble ai">System Online. Warden V2.2 Ready.<br>Waiting for orders.</div>
+        <div class="bubble ai">System Online. V2.3 Protocol Active.<br>Waiting for orders.</div>
     </div>
     <div class="input-area">
         <button id="mic-btn" class="icon-btn" onmousedown="startDictation()" onmouseup="stopDictation()"><span class="material-icons-round">mic</span></button>
-        <input type="text" id="user-msg" class="chat-input" placeholder="Say 'Adjust schedule'...">
+        <input type="text" id="user-msg" class="chat-input" placeholder="输入指令...">
         <button onclick="sendMsg()" class="icon-btn" style="background:var(--md-primary); color:white;"><span class="material-icons-round">send</span></button>
     </div>
 </aside>
@@ -145,7 +181,7 @@
             <div id="buffer-label" style="display:none; color:#b06200; font-weight:bold; margin-bottom:10px;">⚠️ BUFFER ZONE (10m)</div>
             <div class="timer-label" id="timer-label">Loading...</div>
             <div class="timer-digits" id="timer-display">--:--</div>
-            <div style="margin-top:20px; color:#666; font-size:14px;" id="next-task-display">Next: --</div>
+            <div style="margin-top:20px; color:#666; font-size:16px; font-weight:500;" id="next-task-display">Next: --</div>
             
             <div style="margin-top:30px; display:flex; gap:15px; justify-content:center;">
                 <button class="fab-extended" style="background:#e6f4ea; color:#1e8e3e; box-shadow:none; border:1px solid #c6ebd1;" onclick="finishTaskEarly()">
@@ -155,6 +191,7 @@
                     <span class="material-icons-round">launch</span> StudyPlan
                 </button>
             </div>
+            
             <div style="position:absolute; bottom:0; left:0; width:100%; height:6px; background:#f0f0f0;">
                 <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
             </div>
@@ -245,13 +282,12 @@
     window.onload = () => {
         if (!navigator.userAgent.includes("Edg")) document.getElementById('edge-check').style.display = 'flex';
         checkDayReset();
-        loadVoices();
+        startVoicePolling(); // NEW: Aggressive Voice Loading
         setInterval(tick, 1000);
         
         document.getElementById('api-key').value = STATE.apiKey;
         document.getElementById('model-select').value = STATE.provider;
         
-        // Enter Key
         document.getElementById('user-msg').addEventListener('keypress', (e) => { if(e.key==='Enter') sendMsg(); });
 
         if(STATE.schedule.length > 0) {
@@ -268,25 +304,63 @@
         if(STATE.schedule.length > 0) engineTick(now);
     }
 
+    // --- FIX: AGGRESSIVE VOICE LOADING ---
+    function startVoicePolling() {
+        let attempts = 0;
+        const loader = setInterval(() => {
+            const voices = window.speechSynthesis.getVoices();
+            if(voices.length > 0) {
+                console.log("Voices loaded:", voices.length);
+                populateVoiceSelect();
+                clearInterval(loader);
+            }
+            attempts++;
+            if(attempts > 20) clearInterval(loader); // Stop after 10s
+        }, 500);
+        
+        // Also listen for event
+        window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
+    }
+
+    function populateVoiceSelect() {
+        const sel = document.getElementById('voice-select');
+        // Only repopulate if empty or changed
+        if(sel.options.length > 1) return;
+        
+        sel.innerHTML = '';
+        const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
+        
+        // Sort Natural first
+        voices.sort((a,b) => (b.name.includes("Natural") ? 1 : 0) - (a.name.includes("Natural") ? 1 : 0));
+
+        voices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.voiceURI;
+            opt.innerText = (v.name.includes("Natural") ? "🌟 " : "") + v.name.replace("Microsoft ", "");
+            sel.appendChild(opt);
+        });
+        
+        if(STATE.voiceUri) sel.value = STATE.voiceUri;
+    }
+
     /* ======================== ENGINE: BUFFER HIJACK ======================== */
     function engineTick(now) {
         const curM = now.getHours()*60 + now.getMinutes();
         let active = null, next = null, idx = -1;
 
-        // Find Active
         for(let i=0; i<STATE.schedule.length; i++) {
             const s = STATE.schedule[i];
             const start = t2m(s.start);
             const end = t2m(s.end);
             
-            // 1. Buffer Logic (10 mins before study)
+            // Buffer Logic (10 mins before study)
             if(s.type==='study' && !s.done && curM >= start-10 && curM < start) {
                 if(STATE.lastBufferTask !== s.task) {
                     STATE.lastBufferTask = s.task;
                     speak(`Warning. 10 minutes to ${s.task}. Drop phone.`, "警告。10分钟后开始。放下手机。");
                 }
                 updateTimerUI("PREPARE: "+s.task, start*60 - (curM*60+now.getSeconds()), 600, true);
-                return; // Hijack UI
+                return; 
             }
 
             if(curM >= start && curM < end) {
@@ -299,7 +373,7 @@
         if(active) {
             const end = t2m(active.end);
             const start = t2m(active.start);
-            if(STATE.lastBufferTask === active.task) STATE.lastBufferTask = null; // Clear lock
+            if(STATE.lastBufferTask === active.task) STATE.lastBufferTask = null; 
             updateTimerUI(active.task, end*60 - (curM*60+now.getSeconds()), (end-start)*60, false);
             document.getElementById('next-task-display').innerText = next ? `Next: ${next.task} (${next.start})` : "Next: End of Day";
             
@@ -308,10 +382,10 @@
             const rows = document.querySelectorAll('.task-row');
             if(rows[idx]) rows[idx].classList.add('active');
         } else {
-            // Free Time
             document.getElementById('timer-display').innerText = "--:--";
             document.getElementById('timer-label').innerText = "NO ACTIVE TASK";
             document.getElementById('main-card').classList.remove('buffer-mode');
+            document.body.classList.remove('buffer-active'); // Clear full screen yellow
         }
     }
 
@@ -326,10 +400,12 @@
         
         if(isBuf) {
             card.classList.add('buffer-mode');
+            document.body.classList.add('buffer-active'); // FULL SCREEN YELLOW
             document.getElementById('buffer-label').style.display='block';
             bar.style.background = "#ffeb3b";
         } else {
             card.classList.remove('buffer-mode');
+            document.body.classList.remove('buffer-active');
             document.getElementById('buffer-label').style.display='none';
             bar.style.background = "var(--md-primary)";
         }
@@ -388,7 +464,7 @@
         RULES:
         1. Schedule from ${startH}:00 to 22:30.
         2. FILL TIME: If tasks run out, add "Review: Weak Points" or "Pre-read" until 22:30.
-        3. Split tasks > 45m (Part 1, Break, Part 2).
+        3. Split tasks > 45m.
         4. Output JSON: [{"start":"HH:MM","end":"HH:MM","task":"Name","type":"study/break/meal"}]
         `;
 
@@ -399,30 +475,40 @@
                 STATE.draft = JSON.parse(json);
                 renderPreview();
                 document.getElementById('preview-modal').showModal();
+            } else {
+                addBubble("Failed to parse schedule. Please try again.", "error");
+                speak("Schedule generation failed.", "生成失败。");
             }
-        } catch(e) { addBubble(e.message, 'error'); }
+        } catch(e) { 
+            addBubble(e.message, 'error'); 
+            speak("Error occurred.", "发生错误。");
+        }
     }
 
-    // --- PREVIEW DRAG & DROP ---
+    // --- PREVIEW DRAG & DROP (FIXED) ---
     function renderPreview() {
         const list = document.getElementById('preview-list');
         list.innerHTML = '';
         STATE.draft.forEach((item, idx) => {
             const div = document.createElement('div');
             div.className = 'preview-item';
-            div.draggable = true;
-            div.dataset.index = idx;
+            div.draggable = true; // Enable drag on row
             
             div.innerHTML = `
-                <span class="material-icons-round" style="color:#ccc; cursor:grab;">drag_handle</span>
-                <input value="${item.start}" style="width:50px;" onchange="updateDraft(${idx}, 'start', this.value)">
-                - <input value="${item.end}" style="width:50px;" onchange="updateDraft(${idx}, 'end', this.value)">
-                <input class="p-task" value="${item.task}" onchange="updateDraft(${idx}, 'task', this.value)">
+                <span class="material-icons-round drag-handle">drag_handle</span>
+                <input value="${item.start}" style="width:50px;" onchange="updateDraft(${idx}, 'start', this.value)" onmousedown="event.stopPropagation()">
+                - <input value="${item.end}" style="width:50px;" onchange="updateDraft(${idx}, 'end', this.value)" onmousedown="event.stopPropagation()">
+                <input class="p-task" value="${item.task}" onchange="updateDraft(${idx}, 'task', this.value)" onmousedown="event.stopPropagation()">
                 <span class="material-icons-round" style="color:var(--md-error); cursor:pointer;" onclick="removeDraft(${idx})">remove_circle_outline</span>
             `;
             
-            // Native Drag Events
+            // Logic: Only drag if handle is clicked (Handled via CSS/Layout implies expectation, but explicit check is safer)
+            // Actually, HTML5 Drag API drags the whole element. 
+            // FIX: Stop propagation on inputs so selecting text doesn't trigger drag.
+            
             div.addEventListener('dragstart', (e) => {
+                // Check if target is handle or part of row, but not input
+                if(e.target.tagName === 'INPUT') { e.preventDefault(); return; }
                 e.dataTransfer.setData('text/plain', idx);
                 div.classList.add('dragging');
             });
@@ -437,7 +523,7 @@
     function handleDrop(e, targetIdx) {
         e.preventDefault();
         const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'));
-        if (sourceIdx !== targetIdx) {
+        if (sourceIdx !== targetIdx && !isNaN(sourceIdx)) {
             const item = STATE.draft.splice(sourceIdx, 1)[0];
             STATE.draft.splice(targetIdx, 0, item);
             renderPreview();
@@ -450,22 +536,20 @@
 
     function commitSchedule() {
         STATE.schedule = STATE.draft.map(s => ({...s, done: false}));
-        // Backlog cleared because we scheduled them
-        STATE.backlog = [];
-        localStorage.setItem('j_backlog', '[]');
         localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
         document.getElementById('preview-modal').close();
         switchView('active');
         renderTable();
-        speak("Schedule locked. Proceed.", "时间表已锁定。");
+        speak("Schedule active.");
     }
 
     /* ======================== CHAT & VOICE ======================== */
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'zh-CN';
+    recognition.onerror = (e) => alert("Voice Input Error: " + e.error); // Error feedback
     recognition.onresult = (e) => {
         document.getElementById('user-msg').value = e.results[0][0].transcript;
-        document.querySelector('.icon-btn.recording').classList.remove('recording');
+        document.querySelector('#mic-btn').classList.remove('recording');
         sendMsg();
     };
     function startDictation() { 
@@ -486,49 +570,46 @@
         1. Reply in Chinese.
         2. Append [TTS: "English Sentence"].
         3. If editing, append [REGENERATE: JSON].
-        4. If denied/postponed, append [BACKLOG: TaskName].
         `;
         
         try {
             const res = await callLLM(prompt);
             let clean = res;
             
+            // TTS Parse
             const tts = res.match(/\[TTS:\s*"(.*?)"\]/);
             if(tts) { speak(tts[1], "执行中..."); clean = clean.replace(tts[0],''); }
             
-            // Backlog
-            const bl = res.match(/\[BACKLOG:\s*(.*?)\]/);
-            if(bl) {
-                STATE.backlog.push(bl[1]);
-                localStorage.setItem('j_backlog', JSON.stringify(STATE.backlog));
-                clean = clean.replace(bl[0], '');
-            }
-
-            const json = extractJSON(res);
-            if(json) {
-                STATE.schedule = JSON.parse(json);
-                localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
-                renderTable();
-                clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/,'');
+            // FIX: Only parse JSON if REGENERATE tag exists
+            if(res.includes("[REGENERATE:")) {
+                const json = extractJSON(res);
+                if(json) {
+                    try {
+                        const newSched = JSON.parse(json);
+                        if(Array.isArray(newSched)) {
+                            STATE.schedule = newSched;
+                            localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
+                            renderTable();
+                            clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/,'');
+                        }
+                    } catch(e) { console.error("JSON Parse Fail in Chat"); }
+                }
             }
             addBubble(clean, 'ai');
         } catch(e) { addBubble(e.message, 'error'); }
     }
 
-    /* ======================== CALENDAR & UTILS ======================== */
+    /* ======================== UTILS ======================== */
     function finishTaskEarly() {
         const nowM = new Date().getHours()*60 + new Date().getMinutes();
         const taskIdx = STATE.schedule.findIndex(s => {
             const st=t2m(s.start), en=t2m(s.end);
             return nowM>=st && nowM<en;
         });
-        
         if(taskIdx > -1) {
             STATE.schedule[taskIdx].done = true;
             localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
-            
-            // Visual + Audio
-            renderTable(); // This adds .done class
+            renderTable();
             speak("Task complete. Take a break.", "任务完成。休息一下。");
         }
     }
@@ -536,11 +617,7 @@
     function checkDayReset() {
         const today = new Date().toDateString();
         if(STATE.lastDate && STATE.lastDate !== today) {
-            // Check uncompleted tasks -> Backlog
-            STATE.schedule.forEach(s => {
-                if(!s.done && s.type === 'study') STATE.backlog.push(s.task);
-            });
-            // Archive
+            STATE.schedule.forEach(s => { if(!s.done && s.type === 'study') STATE.backlog.push(s.task); });
             if(STATE.schedule.length > 0) {
                 STATE.archive[STATE.lastDate] = STATE.schedule;
                 localStorage.setItem('j_archive', JSON.stringify(STATE.archive));
@@ -568,7 +645,6 @@
         });
     }
 
-    // --- Helpers ---
     async function callLLM(prompt) {
         const url = STATE.provider.includes('deepseek') ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
         const res = await fetch(url, {
@@ -581,15 +657,34 @@
     }
 
     function extractJSON(str) {
-        // More robust bracket counting
-        const start = str.indexOf("[");
-        if(start === -1) return null;
-        let count = 0;
-        for(let i=start; i<str.length; i++) {
-            if(str[i] === '[') count++;
-            if(str[i] === ']') count--;
-            if(count === 0) return str.substring(start, i+1);
+        // Try multiple extraction strategies
+        
+        // Strategy 1: Look for [REGENERATE: marker
+        const marker = "[REGENERATE:";
+        const markerStart = str.indexOf(marker);
+        if(markerStart !== -1) {
+            const jsonStart = str.indexOf("[", markerStart + marker.length);
+            if(jsonStart !== -1) {
+                let count = 0;
+                for(let i=jsonStart; i<str.length; i++) {
+                    if(str[i] === '[') count++;
+                    if(str[i] === ']') count--;
+                    if(count === 0) return str.substring(jsonStart, i+1);
+                }
+            }
         }
+        
+        // Strategy 2: Look for first JSON array in response
+        const firstBracket = str.indexOf('[');
+        if(firstBracket !== -1) {
+            let count = 0;
+            for(let i=firstBracket; i<str.length; i++) {
+                if(str[i] === '[') count++;
+                if(str[i] === ']') count--;
+                if(count === 0) return str.substring(firstBracket, i+1);
+            }
+        }
+        
         return null;
     }
 
@@ -610,20 +705,6 @@
         setTimeout(()=>box.style.display='none', 4000);
     }
 
-    function loadVoices() { 
-        window.speechSynthesis.onvoiceschanged = () => {
-            const sel = document.getElementById('voice-select');
-            sel.innerHTML = '';
-            window.speechSynthesis.getVoices().filter(v=>v.lang.includes('en')).forEach(v=>{
-                const opt = document.createElement('option');
-                opt.value = v.voiceURI; opt.innerText = v.name;
-                sel.appendChild(opt);
-            });
-            sel.value = STATE.voiceUri;
-        };
-    }
-    
-    function testVoice() { speak("Voice system verified. Ready.", "语音系统正常。"); }
     function addBubble(t,c) { document.getElementById('chat-history').innerHTML += `<div class="bubble ${c}">${t}</div>`; }
     function switchView(v) {
         document.getElementById('view-generator').style.display = v==='generator'?'flex':'none';
@@ -638,12 +719,15 @@
         localStorage.setItem('j_voice', STATE.voiceUri);
         document.getElementById('settings-modal').close();
     }
-    function openSettings() { document.getElementById('settings-modal').showModal(); }
+    function openSettings() { 
+        populateVoiceSelect(); // Refresh voices
+        document.getElementById('settings-modal').showModal(); 
+    }
     function resetSchedule() { 
         if(confirm("Reset Day?")) { STATE.schedule=[]; localStorage.setItem('j_sched','[]'); location.reload(); }
     }
     
-    // Calendar Logic
+    // Calendar
     function openArchive() {
         renderCalendar(STATE.currentCalDate);
         document.getElementById('archive-modal').showModal();
@@ -672,6 +756,7 @@
         if(!data) { div.innerText = "No data."; return; }
         div.innerHTML = data.map(s => `<div>${s.start}-${s.end} ${s.task} ${s.done?'✅':'❌'}</div>`).join('');
     }
+    function testVoice() { speak("System voice check.", "语音测试。"); }
 
 </script>
 </body>
