@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sync Player | V3.7 Omni-Sync</title>
+    <title>Jack's Sync | V4.0 Precision Core</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            /* === V3.7 配色 (Tech Blue) === */
-            --primary: #3b82f6;       
-            --primary-hover: #2563eb;
-            --bg: #f8fafc;            
-            --surface: #ffffff;       
-            --text-main: #0f172a;     
-            --text-sec: #64748b;      
-            --border: #e2e8f0;        
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --primary: #2563eb;       
+            --primary-active: #1e40af;
+            --bg: #0f172a;            
+            --surface: #1e293b;       
+            --text-main: #f1f5f9;     
+            --text-sec: #94a3b8;      
+            --border: #334155;        
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warn: #f59e0b;
+            --danger: #ef4444;
         }
 
         body {
@@ -28,487 +30,556 @@
 
         /* === HEADER === */
         header {
-            background: var(--surface); padding: 0 25px; height: 64px; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); z-index: 10;
+            background: var(--surface); padding: 0 20px; height: 60px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border);
         }
         .brand { font-weight: 800; font-size: 18px; color: var(--text-main); display: flex; gap: 8px; align-items: center; }
-        
-        .header-actions { display: flex; align-items: center; gap: 10px; }
+        .version-tag { font-size: 10px; background: var(--primary); padding: 2px 6px; border-radius: 4px; color: white; }
 
-        .action-badge { 
-            font-family: 'Roboto Mono'; font-size: 12px; font-weight: 600;
-            padding: 6px 12px; border-radius: 20px; border: 1px solid transparent;
-            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
-        }
-        
-        .import-badge { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
-        .import-badge:hover { background: #d1fae5; }
-
-        .sync-badge { background: #eff6ff; color: var(--primary); border-color: #bfdbfe; }
-        .sync-badge:hover { background: #dbeafe; }
-        .sync-badge.loading { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
-        .sync-badge.error { color: #ef4444; background: #fef2f2; border-color: #fee2e2; }
-        .sync-badge.local { color: #64748b; background: #f1f5f9; border-color: #e2e8f0; } 
-
-        .btn-icon {
-            background: transparent; border: none; cursor: pointer; color: var(--text-sec); 
-            padding: 8px; border-radius: 50%; display: flex; transition: 0.2s;
-        }
-        .btn-icon:hover { background: #f1f5f9; color: var(--text-main); }
+        .header-stats { display: flex; gap: 15px; font-family: 'Roboto Mono'; font-size: 11px; color: var(--text-sec); }
+        .stat-item { display: flex; align-items: center; gap: 4px; }
+        .stat-val { color: var(--accent); font-weight: 700; }
 
         /* === LAYOUT === */
-        .container { flex: 1; display: grid; grid-template-columns: 320px 1fr; overflow: hidden; }
-        aside { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5;}
+        .container { flex: 1; display: grid; grid-template-columns: 300px 1fr; overflow: hidden; }
         
-        .input-area { padding: 20px; border-bottom: 1px solid var(--border); background: #f1f5f9; }
-        .g-input { 
-            width: 100%; padding: 10px 12px; background: white; border: 1px solid var(--border); color: var(--text-main); 
-            margin-bottom: 10px; border-radius: 6px; font-family: 'Inter'; font-size: 14px; box-sizing: border-box; transition: 0.2s;
+        /* SIDEBAR */
+        aside { background: #18212f; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; }
+        .playlist-header { padding: 15px; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .input-group { display: flex; gap: 8px; margin-bottom: 8px; }
+        .dark-input { 
+            background: #0f172a; border: 1px solid var(--border); color: white; padding: 8px; 
+            border-radius: 6px; flex: 1; font-family: 'Roboto Mono'; font-size: 12px; outline: none;
         }
-        .g-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-        .btn-add { 
-            width: 100%; padding: 10px; background: var(--primary); color: white; border: none; 
-            font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s;
-        }
-        .btn-add:hover { background: var(--primary-hover); }
+        .dark-input:focus { border-color: var(--primary); }
+        .btn-sm { padding: 8px 12px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-active); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-sec); }
+        .btn-outline:hover { border-color: var(--text-main); color: var(--text-main); }
 
         .song-list { flex: 1; overflow-y: auto; }
-        .song-item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: 0.1s; display: flex; justify-content: space-between; align-items: center;}
-        .song-item:hover { background: #f8fafc; }
-        .song-item.active { background: #eff6ff; border-left: 4px solid var(--primary); }
-        .song-name { font-weight: 600; font-size: 14px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-        .song-id { font-size: 11px; color: var(--text-sec); font-family: 'Roboto Mono'; margin-top: 2px; }
-        .btn-del { opacity: 0; color: #94a3b8; cursor: pointer; padding: 4px; }
-        .song-item:hover .btn-del { opacity: 1; }
-        .btn-del:hover { color: #ef4444; }
-
-        main { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; background: var(--bg); }
+        .song-item { 
+            padding: 12px 15px; border-bottom: 1px solid #1e293b; cursor: pointer; display: flex; 
+            justify-content: space-between; align-items: center; transition: 0.1s;
+        }
+        .song-item:hover { background: #1e293b; }
+        .song-item.active { background: rgba(37, 99, 235, 0.1); border-left: 3px solid var(--primary); }
+        .song-info h4 { margin: 0; font-size: 13px; font-weight: 500; color: var(--text-main); }
+        .song-info span { font-size: 10px; color: var(--text-sec); font-family: 'Roboto Mono'; }
         
+        /* MAIN AREA */
+        main { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+        
+        .sync-status { 
+            position: absolute; top: 20px; font-family: 'Roboto Mono'; font-size: 12px; 
+            padding: 6px 12px; border-radius: 20px; background: #1e293b; color: var(--text-sec); border: 1px solid var(--border);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
+        .dot.online { background: var(--success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+        .dot.syncing { background: var(--warn); animation: blink 0.5s infinite; }
+        .dot.error { background: var(--danger); }
+
         .timer-huge { 
-            font-size: 120px; font-weight: 900; font-family: 'Roboto Mono'; line-height: 1; margin-bottom: 10px; letter-spacing: -4px; 
-            font-variant-numeric: tabular-nums; color: var(--text-main);
+            font-size: 140px; font-weight: 900; font-family: 'Roboto Mono'; 
+            /* 关键：防止数字跳动 */
+            font-variant-numeric: tabular-nums; 
+            color: var(--text-main); line-height: 1; letter-spacing: -6px; margin-bottom: 20px;
+            text-shadow: 0 0 30px rgba(0,0,0,0.5);
         }
-        .status-badge-lg { 
-            font-size: 14px; color: var(--primary); background: #dbeafe; padding: 6px 16px; border-radius: 20px;
-            font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 40px;
-        }
-        .status-badge-lg.waiting { animation: pulse 1.5s infinite; background: #fff7ed; color: #ea580c; }
-        .status-badge-lg.playing { background: #dcfce7; color: #15803d; }
-
-        .offset-panel { 
-            background: var(--surface); padding: 25px; border-radius: 16px; 
-            display: flex; flex-direction: column; align-items: center; gap: 15px;
-            box-shadow: var(--shadow); border: 1px solid var(--border);
-            width: 300px;
-        }
-        .panel-header { font-size: 12px; color: var(--text-sec); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        .offset-display { font-family: 'Roboto Mono'; font-size: 24px; color: var(--text-main); font-weight: 700; }
-        .offset-display.neg { color: #e11d48; }
         
-        .btn-group { display: flex; gap: 8px; width: 100%; }
-        .btn-adj { 
-            flex: 1; background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); padding: 8px 0; 
-            border-radius: 6px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 12px; font-weight: 600; transition: 0.1s;
+        .control-panel { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .status-text { font-size: 16px; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; }
+        
+        .play-btn {
+            width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary); color: white;
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center;
         }
-        .btn-adj:hover { background: #e2e8f0; }
+        .play-btn:hover { transform: scale(1.05); background: var(--primary-active); }
+        .play-btn:disabled { background: #334155; cursor: not-allowed; opacity: 0.5; box-shadow: none; }
+
+        .latency-tools {
+            margin-top: 40px; background: var(--surface); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border);
+            display: flex; gap: 15px; align-items: center;
+        }
 
         /* MODAL */
         .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
             display: flex; justify-content: center; align-items: center; z-index: 100;
             opacity: 0; pointer-events: none; transition: 0.2s;
         }
         .modal-overlay.open { opacity: 1; pointer-events: auto; }
         .modal-card {
-            background: var(--surface); width: 340px; border-radius: 12px; padding: 20px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(0.95); transition: 0.2s;
+            background: var(--surface); border: 1px solid var(--border); width: 360px; padding: 25px; border-radius: 16px;
+            text-align: center;
         }
-        .modal-overlay.open .modal-card { transform: scale(1); }
-        
-        .radio-group { display: flex; background: #f1f5f9; padding: 4px; border-radius: 8px; }
-        .radio-opt { flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sec); }
-        .radio-opt.selected { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .json-input { width: 100%; height: 80px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Roboto Mono'; font-size: 11px; resize: none; outline: none; margin-bottom: 5px; }
+        .test-circle {
+            width: 120px; height: 120px; border-radius: 50%; border: 4px solid var(--border); margin: 20px auto;
+            display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 40px; color: var(--text-sec);
+            transition: 0.1s;
+        }
+        .test-circle.flash { background: var(--primary); border-color: var(--primary); color: white; transform: scale(1.1); }
 
-        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+        @keyframes blink { 50% { opacity: 0.4; } }
     </style>
 </head>
 <body>
 
-<div id="settings-modal" class="modal-overlay">
+<div id="latency-modal" class="modal-overlay">
     <div class="modal-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div style="font-weight:800; font-size:18px;">Settings</div>
-            <button class="btn-icon" onclick="toggleModal('settings-modal')"><span class="material-icons-round">close</span></button>
-        </div>
-        <div style="margin-bottom:20px;">
-            <label style="display:block;font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:8px;">TRIGGER INTERVAL</label>
-            <div class="radio-group" id="interval-options">
-                <div class="radio-opt" onclick="setIntervalVal(10000)">10s</div>
-                <div class="radio-opt" onclick="setIntervalVal(20000)">20s</div>
-                <div class="radio-opt" onclick="setIntervalVal(30000)">30s</div>
-                <div class="radio-opt" onclick="setIntervalVal(60000)">60s</div>
-            </div>
-        </div>
-        <button class="btn-add" onclick="toggleModal('settings-modal')">Done</button>
-    </div>
-</div>
-
-<div id="import-modal" class="modal-overlay">
-    <div class="modal-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div style="font-weight:800; font-size:18px;">Smart Import</div>
-            <button class="btn-icon" onclick="toggleModal('import-modal')"><span class="material-icons-round">close</span></button>
-        </div>
-        <div style="background:#f1f5f9; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid var(--border);">
-            <div style="font-size:12px; font-weight:700; color:var(--text-sec); margin-bottom:8px;">STEP 1: Copy & Open</div>
-            <button class="btn-adj" style="width:100%" onclick="copyScriptAndJump()">Copy Script</button>
-        </div>
-        <div style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid var(--border);">
-            <div style="font-size:12px; font-weight:700; color:var(--text-sec); margin-bottom:8px;">STEP 2: Paste JSON</div>
-            <textarea id="import-input" class="json-input" placeholder='[{"id":"...","name":"..."}]'></textarea>
-            <button class="btn-add" onclick="processImport()">Import</button>
-        </div>
+        <h3 style="margin-top:0">Hardware Latency Test</h3>
+        <p style="font-size:13px; color:var(--text-sec); line-height:1.5;">
+            1. Tap "Start". You will see a countdown.<br>
+            2. <b>Tap the Circle</b> EXACTLY when you hear the "BEEP".<br>
+            3. Do this 3 times to average.
+        </p>
+        <div id="test-visual" class="test-circle" onclick="recordLatencyClick()">--</div>
+        <div id="test-result" style="height:20px; font-weight:700; color:var(--primary); margin-bottom:15px;"></div>
+        <button class="btn-sm btn-primary" onclick="startLatencyTest()">Start Test Sequence</button>
+        <button class="btn-sm btn-outline" onclick="closeLatencyModal()" style="margin-top:10px;">Close</button>
     </div>
 </div>
 
 <header>
     <div class="brand">
-        <span class="material-icons-round" style="color:var(--primary)">dns</span>
-        <span>Jack's Sync <span style="font-size:10px; opacity:0.6;">V3.7</span></span>
+        <span class="material-icons-round" style="color:var(--primary)">equalizer</span>
+        <span>Jack's Sync <span class="version-tag">V4.0 Precision</span></span>
     </div>
-    <div class="header-actions">
-        <div class="action-badge import-badge" onclick="toggleModal('import-modal')">
-            <span class="material-icons-round" style="font-size:14px">playlist_add</span> Import
-        </div>
-        <div id="sync-btn" class="action-badge sync-badge" onclick="performOmniSync()">
-            <span class="material-icons-round" style="font-size:14px">sync</span>
-            <span id="sync-text">Sync</span>
-        </div>
-        <button class="btn-icon" onclick="toggleModal('settings-modal')"><span class="material-icons-round">settings</span></button>
+    <div class="header-stats">
+        <div class="stat-item">OFFSET: <span class="stat-val" id="disp-net-offset">0</span> ms</div>
+        <div class="stat-item">LATENCY: <span class="stat-val" id="disp-hw-latency">0</span> ms</div>
+        <div class="stat-item">SRC: <span class="stat-val" id="disp-source">LOC</span></div>
     </div>
 </header>
 
 <div class="container">
     <aside>
-        <div class="input-area">
-            <input type="text" id="inp-id" class="g-input" placeholder="Song ID (e.g. 186016)">
-            <input type="text" id="inp-name" class="g-input" placeholder="Name">
-            <button class="btn-add" onclick="addSong()">Add Track</button>
-            <div style="text-align:right; margin-top:5px; font-size:10px; color:#94a3b8; cursor:pointer;" onclick="clearLibrary()">CLEAR ALL</div>
+        <div class="playlist-header">
+            <div class="input-group">
+                <input type="text" id="inp-id" class="dark-input" placeholder="NetEase ID (e.g. 186016)">
+                <button class="btn-sm btn-primary" onclick="Playlist.add()">Add</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                <button class="btn-sm btn-outline" onclick="Playlist.importJson()">Import JSON</button>
+                <button class="btn-sm btn-outline" onclick="Playlist.clear()" style="color:var(--danger); border-color:rgba(239,68,68,0.3)">Clear</button>
+            </div>
         </div>
         <div id="song-list-el" class="song-list"></div>
     </aside>
 
     <main>
-        <div id="timer-display" class="timer-huge">--.---</div>
-        <div id="status-display" class="status-badge-lg">Idle</div>
+        <div class="sync-status">
+            <div id="sync-dot" class="dot"></div>
+            <span id="sync-msg">Initializing...</span>
+        </div>
 
-        <div class="offset-panel">
-            <div class="panel-header">Latency Correction</div>
-            <div id="manual-offset-val" class="offset-display">0 ms</div>
-            <div class="btn-group">
-                <button class="btn-adj" onclick="adjustOffset(-50)">-50</button>
-                <button class="btn-adj" onclick="adjustOffset(-10)">-10</button>
-                <button class="btn-adj" onclick="adjustOffset(10)">+10</button>
-                <button class="btn-adj" onclick="adjustOffset(50)">+50</button>
+        <div id="main-timer" class="timer-huge">--.---</div>
+        
+        <div class="control-panel">
+            <div id="play-status" class="status-text">READY</div>
+            <button id="main-play-btn" class="play-btn" onclick="Engine.startSequence()">
+                <span class="material-icons-round" style="font-size:36px;">play_arrow</span>
+            </button>
+        </div>
+
+        <div class="latency-tools">
+            <span class="material-icons-round" style="color:var(--text-sec)">tune</span>
+            <div style="font-size:12px;">
+                <div style="font-weight:700; color:var(--text-main);">Audio Calibration</div>
+                <div style="color:var(--text-sec);">Fix bluetooth/speaker delay</div>
             </div>
-            <div style="font-size:11px; color:#64748b; margin-top:10px; text-align:center;">
-                Audio Late? Click (-). Audio Early? Click (+).
-            </div>
+            <button class="btn-sm btn-outline" style="margin-left:auto" onclick="openLatencyModal()">Calibrate</button>
         </div>
     </main>
 </div>
 
-<audio id="audio-core"></audio>
-
 <script>
-    /* ================= STATE ================= */
-    const STATE = {
-        songs: JSON.parse(localStorage.getItem('ps_songs')) || [],
-        manualOffset: parseInt(localStorage.getItem('ps_offset')) || 0,
-        interval: parseInt(localStorage.getItem('ps_interval')) || 10000,
-        netOffset: 0, 
-        curIdx: 0,
-        status: 'IDLE', 
-        targetTime: 0,
-        audio: document.getElementById('audio-core'),
-        animFrame: null
-    };
-
-    /* ================= 1. V3.7 OMNI-SYNC ENGINE (Race Logic) ================= */
-    /* 利用用户提供的腾讯(Tencent)和淘宝(Taobao)接口。
-       这两个接口是“跨域之王”，几乎可以在任何环境（包括Github Pages）下穿透。
+    /* V4.0 ARCHITECTURE
+       1. TimeSync: Manages Taobao/Suning fetching and offset calculation.
+       2. AudioCore: Manages AudioContext (Web Audio API) for 0-latency scheduling.
+       3. Engine: Manages the Countdown -> Play state machine.
+       4. UI: Updates the DOM.
     */
 
-    // Helper: Script Injector with Timeout
-    function injectScript(url, cleanupCb, errorCb) {
-        const script = document.createElement('script');
-        script.src = url;
-        script.onerror = () => { if(script.parentNode) script.parentNode.removeChild(script); errorCb(); };
-        document.body.appendChild(script);
-        return script;
-    }
+    /* ================= 1. GLOBAL STATE ================= */
+    const STATE = {
+        songs: JSON.parse(localStorage.getItem('v4_songs')) || [],
+        curIdx: 0,
+        netOffset: 0,       // Server Time - Local Time
+        hwLatency: parseInt(localStorage.getItem('v4_latency')) || 0, // Hardware lag (ms)
+        lastSyncTime: 0,
+        audioCtx: null,
+        isPlaying: false
+    };
 
-    // 1. TENCENT: vv.video.qq.com (返回 QZOutputJson=...)
-    // 这不是标准的 JSONP，它直接赋值给全局变量，我们需要劫持这个变量
-    function fetchTencent() {
-        return new Promise((resolve, reject) => {
-            const t0 = Date.now();
-            let done = false;
-
-            // 劫持全局变量
-            Object.defineProperty(window, "QZOutputJson", {
-                configurable: true,
-                set: function(val) {
-                    if(done) return; done = true;
-                    // Tencent returns t: 173... (seconds)
-                    if(val && val.t) {
-                        const t3 = Date.now();
-                        const rtt = t3 - t0;
-                        const serverTime = val.t * 1000; // 转换为毫秒
-                        resolve({ offset: (serverTime + rtt/2) - t3, source: 'Tencent (Video)' });
-                    } else { reject("Invalid Tencent Data"); }
-                    cleanup();
-                }
-            });
-
-            const script = injectScript(`https://vv.video.qq.com/checktime?otype=json&_=${t0}`, cleanup, () => {
-                if(!done) { done = true; reject("Tencent Net Error"); }
-            });
-
-            function cleanup() {
-                if(script.parentNode) script.parentNode.removeChild(script);
-                // Remove hijack
-                delete window.QZOutputJson; 
+    /* ================= 2. TIME SYNC ENGINE ================= */
+    const TimeSync = {
+        async sync() {
+            UI.setSyncState('syncing', 'Syncing...');
+            
+            // 30s Cache Rule
+            if (Date.now() - STATE.lastSyncTime < 30000 && STATE.lastSyncTime !== 0) {
+                console.log("Sync cached. Skipping.");
+                UI.setSyncState('online', 'Synced (Cache)');
+                return true;
             }
 
-            setTimeout(() => { if(!done) { done = true; cleanup(); reject("Tencent Timeout"); } }, 2000);
-        });
-    }
-
-    // 2. TAOBAO: suggest.taobao.com (Standard JSONP)
-    // 这是一个搜索建议接口，但它非常稳定，我们可以利用它返回的时间
-    function fetchTaobao() {
-        return new Promise((resolve, reject) => {
-            const cbName = 'cb_tb_' + Math.random().toString(36).substr(2, 9);
-            const t0 = Date.now();
-            let done = false;
-
-            window[cbName] = (data) => {
-                if(done) return; done = true;
-                cleanup();
-                // 淘宝本身可能不返回精确时间戳，但我们可以利用请求成功的RTT来计算
-                // V3.7 改进：由于 suggest 接口本身不带时间戳，我们把它当作 "连通性检查" + "本机时间兜底"
-                // 除非我们能解析 headers，但 script 标签做不到。
-                // 修正：我们改用苏宁移动端接口，那个返回时间。
-                reject("Taobao Suggest doesn't allow standard time parsing in JSONP mode."); 
-            };
-
-            // 修正：使用用户提供的苏宁接口 (Suning Mobile)
-            // https://f.m.suning.com/api/ct.do (User Source #2)
-            const script = injectScript(`https://f.m.suning.com/api/ct.do?callback=${cbName}&_=${t0}`, cleanup, () => {
-                if(!done) { done = true; reject("Suning Net Error"); }
-            });
-
-            function cleanup() {
-                delete window[cbName];
-                if(script.parentNode) script.parentNode.removeChild(script);
-            }
-            
-            setTimeout(() => { if(!done) { done = true; cleanup(); reject("Suning Timeout"); } }, 2000);
-        });
-    }
-
-    // 3. Fallback: Same-Origin (PageHost)
-    async function fetchPageHost() {
-        const t0 = Date.now();
-        const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
-        const t3 = Date.now();
-        const date = res.headers.get('date');
-        if(!date) throw new Error("No Date");
-        const serverTime = new Date(date).getTime();
-        return { offset: (serverTime + (t3-t0)/2) - t3, source: 'PageHost (Github)' };
-    }
-
-    // === MAIN RACE LOGIC ===
-    async function performOmniSync() {
-        const btn = document.getElementById('sync-btn');
-        const txt = document.getElementById('sync-text');
-        btn.className = 'action-badge sync-badge loading';
-        txt.innerText = "Racing...";
-
-        // 启动竞速：腾讯 vs 苏宁 vs PageHost
-        // 腾讯通常最快且最准
-        const racers = [
-            fetchTencent(),
-            // 尝试把 Suning 的 Promise 包装一下，因为它是 JSONP
-            new Promise((resolve, reject) => {
-                const cb = 'cb_sn_' + Math.random().toString(36).substr(2,9);
-                const t0 = Date.now();
-                window[cb] = (d) => {
-                    const t3 = Date.now();
-                    const sTime = d.currentTime; // Suning returns currentTime
-                    resolve({ offset: (sTime + (t3-t0)/2) - t3, source: 'Suning' });
-                    delete window[cb];
-                };
-                const s = document.createElement('script');
-                s.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
-                s.onerror = () => reject("Suning Error");
-                document.body.appendChild(s);
-            }).catch(()=>null),
-            // PageHost
-            fetchPageHost().catch(()=>null)
-        ];
-
-        try {
-            // Promise.any is modern, let's use a simple loop for compatibility
-            // 只要有一个成功就行
-            let winner = null;
-            
-            // 优先尝试腾讯，因为它最准
             try {
-                winner = await fetchTencent();
-            } catch(e) {
-                console.warn("Tencent failed, trying others...");
-                // 如果腾讯挂了，试试苏宁或PageHost
-                const res = await Promise.all(racers); // 这里逻辑稍微简单点，直接全部跑完看谁有结果
-                winner = res.find(r => r !== null);
+                // RACE 1: Taobao API (Highest Precision)
+                // Use fetch. If CORS fails, it will throw, catching to fallback.
+                const offset = await this.fetchTaobao();
+                this.applyOffset(offset, 'Taobao');
+                return true;
+            } catch (e1) {
+                console.warn("Taobao failed:", e1);
+                try {
+                    // RACE 2: Suning (JSONP fallback)
+                    const offset = await this.fetchSuning();
+                    this.applyOffset(offset, 'Suning');
+                    return true;
+                } catch (e2) {
+                    console.error("All Sync Failed", e2);
+                    UI.setSyncState('error', 'Local Time');
+                    STATE.netOffset = 0; // Fallback to local
+                    return false; // Soft fail, we allow play but warn
+                }
+            }
+        },
+
+        fetchTaobao() {
+            return new Promise(async (resolve, reject) => {
+                const t0 = Date.now();
+                try {
+                    // Note: Taobao might block direct fetch depending on Origin. 
+                    // If this fails due to CORS, the catch block handles it.
+                    const res = await fetch(`https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp&_=${t0}`);
+                    const data = await res.json();
+                    if(!data.data || !data.data.t) throw new Error("Bad Data");
+                    
+                    const t3 = Date.now();
+                    const serverT = parseInt(data.data.t);
+                    const rtt = t3 - t0;
+                    // Formula: (Server + RTT/2) - LocalEnd
+                    const offset = (serverT + rtt/2) - t3;
+                    resolve(offset);
+                } catch(e) { reject(e); }
+            });
+        },
+
+        fetchSuning() {
+            return new Promise((resolve, reject) => {
+                const t0 = Date.now();
+                const cb = 'cb_' + Math.random().toString(36).substr(2,9);
+                let done = false;
+                
+                window[cb] = (d) => {
+                    done = true;
+                    const t3 = Date.now();
+                    const offset = (d.currentTime + (t3-t0)/2) - t3;
+                    delete window[cb];
+                    document.body.removeChild(script);
+                    resolve(offset);
+                };
+
+                const script = document.createElement('script');
+                script.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
+                script.onerror = () => { if(!done) reject("Suning Error"); };
+                document.body.appendChild(script);
+                
+                setTimeout(() => { if(!done) reject("Timeout"); }, 2000);
+            });
+        },
+
+        applyOffset(off, src) {
+            STATE.netOffset = off;
+            STATE.lastSyncTime = Date.now();
+            UI.updateStats();
+            UI.setSyncState('online', `Synced: ${src}`);
+        },
+
+        now() {
+            return Date.now() + STATE.netOffset;
+        }
+    };
+
+    /* ================= 3. AUDIO CORE (WEB AUDIO API) ================= */
+    const AudioCore = {
+        init() {
+            if (!STATE.audioCtx) {
+                STATE.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (STATE.audioCtx.state === 'suspended') {
+                STATE.audioCtx.resume();
+            }
+        },
+
+        async loadBuffer(url) {
+            this.init();
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            return await STATE.audioCtx.decodeAudioData(arrayBuffer);
+        },
+
+        // Play at exact system time (wall clock)
+        // targetTime = Wall Clock Timestamp (ms)
+        playAt(buffer, targetTimeMs) {
+            const ctx = STATE.audioCtx;
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+
+            // Calculate precise delay
+            // Current Wall Time = Date.now() + netOffset
+            // We need to map Wall Time to AudioContext Time
+            // AudioContext Time is monotonic from start of context.
+            
+            const wallNow = TimeSync.now();
+            const delayMs = targetTimeMs - wallNow;
+            
+            // Apply Hardware Latency Compensation (Negative Offset)
+            // If hwLatency is 100ms, we want to trigger 100ms EARLIER.
+            const hwComp = STATE.hwLatency; 
+            
+            // Final start time in AudioContext timeline
+            // ctx.currentTime + (delay - hwLatency)/1000
+            let startAt = ctx.currentTime + ((delayMs - hwComp) / 1000);
+
+            if (startAt < ctx.currentTime) {
+                console.warn("Target time passed, playing immediately");
+                startAt = ctx.currentTime;
             }
 
-            if(winner) {
-                STATE.netOffset = winner.offset;
-                btn.className = 'action-badge sync-badge';
-                txt.innerText = `Via: ${winner.source}`;
-                console.log(`Synced via ${winner.source}: ${STATE.netOffset}ms`);
-            } else {
-                throw new Error("All synced failed");
-            }
-        } catch(e) {
-            console.error(e);
-            STATE.netOffset = 0;
-            btn.className = 'action-badge sync-badge local';
-            txt.innerText = "Local Mode";
-            alert("External Sync Failed. Using Local Device Time.");
+            source.start(startAt);
+            
+            // Auto-advance logic
+            source.onended = () => {
+                STATE.isPlaying = false;
+                Playlist.next();
+            };
+            
+            return source;
+        },
+
+        playTone() {
+            // For latency test
+            this.init();
+            const osc = STATE.audioCtx.createOscillator();
+            const gain = STATE.audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(STATE.audioCtx.destination);
+            
+            osc.frequency.value = 1000;
+            osc.type = 'square';
+            
+            const now = STATE.audioCtx.currentTime;
+            osc.start(now);
+            osc.stop(now + 0.1); // 100ms beep
         }
-    }
+    };
 
-    function getPreciseTime() { return Date.now() + STATE.netOffset; }
-
-    /* ================= 2. SMART IMPORT ================= */
-    const SMART_SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
-
-    function copyScriptAndJump() {
-        navigator.clipboard.writeText(SMART_SCRIPT).then(() => {
-            if(confirm("Script Copied!\n\nOpen NetEase Music now?")) window.open("https://music.163.com", "_blank");
-        });
-    }
-
-    function processImport() {
-        const v = document.getElementById('import-input').value.trim();
-        if(!v) return;
-        try {
-            const d = JSON.parse(v);
-            if(!Array.isArray(d)) throw new Error();
-            d.forEach(s => { if(s.id && !STATE.songs.some(x=>x.id==s.id)) STATE.songs.push(s); });
-            saveSongs(); renderSongs(); toggleModal('import-modal');
-            document.getElementById('import-input').value = "";
-        } catch(e) { alert("Invalid JSON"); }
-    }
-
-    /* ================= 3. UI & HELPERS ================= */
-    function toggleModal(id) {
-        document.getElementById(id).classList.toggle('open');
-        if(id === 'settings-modal') renderIntervalUI();
-    }
-    
-    function setIntervalVal(ms) {
-        STATE.interval = ms; localStorage.setItem('ps_interval', ms); renderIntervalUI();
-    }
-    
-    function renderIntervalUI() {
-        document.querySelectorAll('.radio-opt').forEach(el => {
-            const val = parseInt(el.getAttribute('onclick').match(/\d+/)[0]);
-            el.className = val === STATE.interval ? 'radio-opt selected' : 'radio-opt';
-        });
-        if(STATE.status === 'IDLE') document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s)`;
-    }
-
-    function adjustOffset(d) {
-        STATE.manualOffset += d; localStorage.setItem('ps_offset', STATE.manualOffset);
-        const el = document.getElementById('manual-offset-val');
-        el.innerText = (STATE.manualOffset > 0 ? "+" : "") + STATE.manualOffset + " ms";
-        el.className = STATE.manualOffset === 0 ? 'offset-display' : (STATE.manualOffset < 0 ? 'offset-display neg' : 'offset-display');
-    }
-
-    /* ================= 4. PLAYER ENGINE ================= */
-    function armSystem() {
-        if(STATE.status !== 'IDLE') {
-            STATE.audio.pause(); STATE.audio.currentTime = 0; STATE.status = 'IDLE';
-            document.getElementById('status-display').className = 'status-badge-lg';
-            renderIntervalUI(); document.getElementById('timer-display').innerText = "--.---";
-            cancelAnimationFrame(STATE.animFrame); return;
-        }
-        if(!STATE.songs.length) return alert("Playlist empty");
-
-        const now = getPreciseTime();
-        let target = Math.ceil(now / STATE.interval) * STATE.interval;
-        if(target - now < 4000) target += STATE.interval;
-        STATE.targetTime = target;
-
-        const s = STATE.songs[STATE.curIdx];
-        STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
-        STATE.audio.load();
+    /* ================= 4. MAIN ENGINE ================= */
+    const Engine = {
+        timerId: null,
+        targetTime: 0,
         
-        STATE.status = 'ARMED';
-        const sec = new Date(target).getSeconds().toString().padStart(2,'0');
-        document.getElementById('status-display').innerText = `ARMED :${sec}`;
-        document.getElementById('status-display').className = 'status-badge-lg waiting';
-        loop();
+        async startSequence() {
+            if (STATE.songs.length === 0) return alert("Playlist empty!");
+            if (STATE.isPlaying) return; // Prevent double click
+
+            const btn = document.getElementById('main-play-btn');
+            btn.disabled = true;
+
+            // 1. Force Sync (or check cache)
+            await TimeSync.sync();
+
+            // 2. Load Audio (Preload)
+            UI.setStatus("BUFFERING...");
+            const song = STATE.songs[STATE.curIdx];
+            let buffer;
+            try {
+                // Using NetEase Proxy URL
+                const url = `https://music.163.com/song/media/outer/url?id=${song.id}.mp3`;
+                buffer = await AudioCore.loadBuffer(url);
+            } catch(e) {
+                alert("Audio Load Failed");
+                btn.disabled = false;
+                return;
+            }
+
+            // 3. Calculate Target Time
+            const now = TimeSync.now();
+            // Round up to nearest 10s
+            let target = Math.ceil(now / 10000) * 10000;
+            
+            // < 4s Rule: If too close, add 10s
+            if (target - now < 4000) {
+                target += 10000;
+            }
+
+            this.targetTime = target;
+            
+            // 4. Schedule Audio
+            AudioCore.playAt(buffer, target);
+            STATE.isPlaying = true;
+
+            // 5. Start Visual Countdown Loop
+            this.loop();
+        },
+
+        loop() {
+            const now = TimeSync.now();
+            const diff = this.targetTime - now;
+
+            if (diff <= 0) {
+                // Playing
+                document.getElementById('main-timer').innerText = "0.000";
+                UI.setStatus("PLAYING");
+                document.getElementById('main-play-btn').innerHTML = '<span class="material-icons-round">equalizer</span>';
+                // Stop loop, audio handles itself
+                return;
+            }
+
+            // Update UI
+            document.getElementById('main-timer').innerText = (diff / 1000).toFixed(3);
+            UI.setStatus(`T - ${(diff/1000).toFixed(0)}s`);
+            
+            requestAnimationFrame(() => this.loop());
+        }
+    };
+
+    /* ================= 5. UI & PLAYLIST ================= */
+    const UI = {
+        setStatus(msg) { document.getElementById('play-status').innerText = msg; },
+        setSyncState(cls, msg) {
+            const dot = document.getElementById('sync-dot');
+            const txt = document.getElementById('sync-msg');
+            dot.className = `dot ${cls}`;
+            txt.innerText = msg;
+        },
+        updateStats() {
+            document.getElementById('disp-net-offset').innerText = STATE.netOffset.toFixed(0);
+            document.getElementById('disp-hw-latency').innerText = STATE.hwLatency;
+            document.getElementById('disp-source').innerText = STATE.netOffset === 0 ? "LOC" : "NET";
+        }
+    };
+
+    const Playlist = {
+        add() {
+            const id = document.getElementById('inp-id').value;
+            if(!id) return;
+            STATE.songs.push({ id, name: `Track ${id}` }); // Simplified name for now
+            this.save(); this.render();
+            document.getElementById('inp-id').value = "";
+        },
+        importJson() {
+            const str = prompt("Paste JSON ([{id, name}...])");
+            try {
+                const data = JSON.parse(str);
+                STATE.songs = [...STATE.songs, ...data];
+                this.save(); this.render();
+            } catch(e) { alert("Invalid JSON"); }
+        },
+        clear() { STATE.songs = []; this.save(); this.render(); },
+        save() { localStorage.setItem('v4_songs', JSON.stringify(STATE.songs)); },
+        render() {
+            const el = document.getElementById('song-list-el');
+            el.innerHTML = STATE.songs.map((s,i) => `
+                <div class="song-item ${i===STATE.curIdx ? 'active' : ''}" onclick="Playlist.select(${i})">
+                    <div class="song-info">
+                        <h4>${s.name || s.id}</h4>
+                        <span>ID: ${s.id}</span>
+                    </div>
+                    ${i===STATE.curIdx ? '<span class="material-icons-round" style="font-size:16px; color:var(--primary)">play_circle</span>' : ''}
+                </div>
+            `).join('');
+        },
+        select(i) {
+            if (STATE.isPlaying) return;
+            STATE.curIdx = i;
+            this.render();
+        },
+        next() {
+            if(STATE.curIdx < STATE.songs.length - 1) {
+                STATE.curIdx++;
+                this.render();
+                // Auto play next logic
+                document.getElementById('main-play-btn').disabled = false;
+                document.getElementById('main-play-btn').innerHTML = '<span class="material-icons-round" style="font-size:36px;">play_arrow</span>';
+                setTimeout(() => Engine.startSequence(), 1000); // Small pause before sync/start
+            } else {
+                UI.setStatus("FINISHED");
+                document.getElementById('main-play-btn').disabled = false;
+                document.getElementById('main-play-btn').innerHTML = '<span class="material-icons-round" style="font-size:36px;">replay</span>';
+                STATE.curIdx = 0;
+            }
+        }
+    };
+
+    /* ================= 6. LATENCY TESTER ================= */
+    let testStage = 0;
+    let testTimes = [];
+    let testTimer = null;
+
+    function openLatencyModal() { document.getElementById('latency-modal').classList.add('open'); }
+    function closeLatencyModal() { document.getElementById('latency-modal').classList.remove('open'); }
+    
+    function startLatencyTest() {
+        testStage = 3;
+        testTimes = [];
+        runTestStep();
     }
 
-    function loop() {
-        if(STATE.status !== 'ARMED') return;
-        const diff = (STATE.targetTime + STATE.manualOffset) - getPreciseTime();
-        if(diff <= 0) {
-            STATE.audio.play(); STATE.status = 'PLAYING';
-            document.getElementById('status-display').innerText = "PLAYING";
-            document.getElementById('status-display').className = 'status-badge-lg playing';
-            document.getElementById('timer-display').innerText = "0.000"; return;
+    function runTestStep() {
+        const visual = document.getElementById('test-visual');
+        const res = document.getElementById('test-result');
+        
+        if (testStage <= 0) {
+            // Finish
+            const avg = Math.floor(testTimes.reduce((a,b)=>a+b,0) / testTimes.length);
+            STATE.hwLatency = avg;
+            localStorage.setItem('v4_latency', avg);
+            UI.updateStats();
+            res.innerText = `DONE! Latency set to ${avg}ms`;
+            visual.innerText = "OK";
+            return;
         }
-        document.getElementById('timer-display').innerText = (diff/1000).toFixed(3);
-        STATE.animFrame = requestAnimationFrame(loop);
+
+        res.innerText = `Remaining: ${testStage}`;
+        visual.innerText = "3...";
+        visual.className = "test-circle";
+
+        let count = 3;
+        const countdown = setInterval(() => {
+            count--;
+            if(count > 0) {
+                visual.innerText = count + "...";
+            } else {
+                clearInterval(countdown);
+                visual.innerText = "TAP!";
+                visual.className = "test-circle flash";
+                AudioCore.playTone();
+                testTimer = Date.now();
+            }
+        }, 1000);
+    }
+
+    function recordLatencyClick() {
+        if (!testTimer) return;
+        const diff = Date.now() - testTimer;
+        testTimes.push(diff);
+        testTimer = null;
+        document.getElementById('test-result').innerText = `Detected: ${diff}ms`;
+        testStage--;
+        setTimeout(runTestStep, 1000);
     }
 
     /* ================= INIT ================= */
-    function addSong() {
-        const id = document.getElementById('inp-id').value;
-        const name = document.getElementById('inp-name').value || id;
-        if(id) { STATE.songs.push({id,name}); saveSongs(); renderSongs(); document.getElementById('inp-id').value=""; }
-    }
-    function removeSong(i,e) { e.stopPropagation(); STATE.songs.splice(i,1); saveSongs(); renderSongs(); }
-    function clearLibrary() { if(confirm("Clear all?")) { STATE.songs=[]; saveSongs(); renderSongs(); }}
-    function selectSong(i) { if(STATE.status==='IDLE') { STATE.curIdx=i; renderSongs(); }}
-    function saveSongs() { localStorage.setItem('ps_songs', JSON.stringify(STATE.songs)); }
-    function renderSongs() {
-        const l = document.getElementById('song-list-el'); l.innerHTML = "";
-        STATE.songs.forEach((s,i) => {
-            const d = document.createElement('div');
-            d.className = `song-item ${i===STATE.curIdx?'active':''}`;
-            d.onclick = () => selectSong(i);
-            d.innerHTML = `<div><div class="song-name">${s.name}</div><div class="song-id">${s.id}</div></div><div class="material-icons-round btn-del" onclick="removeSong(${i},event)">delete</div>`;
-            l.appendChild(d);
-        });
-    }
-
-    window.addEventListener('keydown', e => {
-        if(e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-            e.preventDefault(); armSystem();
-        }
-    });
-
-    adjustOffset(0); renderSongs(); renderIntervalUI();
-    setTimeout(performOmniSync, 500);
+    Playlist.render();
+    UI.updateStats();
+    // Pre-warm Audio Context on first interaction
+    window.addEventListener('click', () => AudioCore.init(), {once:true});
 
 </script>
 </body>
