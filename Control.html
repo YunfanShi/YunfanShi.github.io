@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V9.1 Fixed</title>
+    <title>Jack's Warden | V9.3 CSV</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -104,8 +104,8 @@
 
 <div id="start-overlay">
     <span class="material-icons-round" style="font-size: 64px; margin-bottom: 20px;">security</span>
-    <h2>Warden V9.1 Fixed</h2>
-    <p>Bug Fixed: Schedule Parser & Storage</p>
+    <h2>Warden V9.3 CSV</h2>
+    <p>Schedule: CSV Imported</p>
     <button onclick="initSystem()" style="padding: 15px 40px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; margin-top: 20px;">
         Initialize System
     </button>
@@ -193,10 +193,159 @@
         {id: 2686665002, name: "夕拾谣 (南海乱墟·流珠)"}
     ];
 
-    /* ======================== 2. EXACT SCHEDULE DATA (1:1 Copy) ======================== */
-    const IGCSE_DATA = {"Name":"","TimeLayouts":{"cec14f3c-f842-497e-a752-7cc96b668d14":{"Name":"IGCSE","Layouts":[{"StartSecond":"","EndSecond":"","StartTime":"10:30:00","EndTime":"11:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"11:10:00","EndTime":"11:25:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"11:25:00","EndTime":"12:05:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"12:05:00","EndTime":"13:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"Lunch","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"13:30:00","EndTime":"14:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:10:00","EndTime":"14:25:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:25:00","EndTime":"15:05:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"15:05:00","EndTime":"15:35:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"15:35:00","EndTime":"16:15:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"16:15:00","EndTime":"16:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"16:30:00","EndTime":"17:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"17:10:00","EndTime":"18:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"Dinner","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"18:30:00","EndTime":"19:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"19:10:00","EndTime":"19:25:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"19:25:00","EndTime":"20:05:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"20:05:00","EndTime":"20:35:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"20:35:00","EndTime":"21:15:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"21:15:00","EndTime":"21:55:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"21:55:00","EndTime":"22:35:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false}],"AttachedObjects":{},"IsActive":false}},"ClassPlans":{"611eca43-50d9-4c63-94e3-a57e64806e03":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":0,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"b1062c64-c991-42cb-883a-250e15ec2cf9":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":1,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"9e8314a9-846a-4e74-978d-651c1a5ac636":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":2,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"8d9ffce1-a5a9-41e3-baf5-72c40cb96575":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":3,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"37fe4914-8c98-4a7d-9a76-df9e3df31a48":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":4,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"98b133ff-08f4-4453-92c6-aca39215c171":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":5,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"7c78beab-2772-4ffd-9814-3c18b7cc9d40":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":6,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false}},"Subjects":{"485aae96-6fc0-412d-882b-7976518c55da":{"Name":"Japanese","Initial":"JP","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"00045ddc-09a6-49f5-b04c-a6d9c55011e2":{"Name":"Piano Practise","Initial":"PP","TeacherName":"https://www.youtube.com/watch?v=Uwt1IuOWzTY","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"99435fb1-dc66-4ec5-875b-6008a38b75b3":{"Name":"Piano Composition Arrangement","Initial":"PCA","TeacherName":"https://www.youtube.com/playlist?list=PL_zeZPt_SJPHEuIQ35eLeRFap3ZKCwnaC","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"a9d325e5-ff0b-45a3-91fc-df0dec9ec10a":{"Name":"Piano Music Theory","Initial":"PMT","TeacherName":"https://www.youtube.com/playlist?list=PLIHXVyo2Z-DjO-i_XPi4NKosl5a5D1wOW","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"5ad0295e-cd17-48e8-8623-69c190eed847":{"Name":"Piano","Initial":"P","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"42deec21-92e2-4686-9469-4b373d80d501":{"Name":"CS50P","Initial":"CS50P","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"eac96c37-c954-4e9b-8cdf-7649df8d62f3":{"Name":"Summer HW ","Initial":" SHW","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"3dac0ab8-6e64-4e55-9569-5e55906e600c":{"Name":"Vocabulary","Initial":" Vocab","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"f3009ca4-f4a4-4f60-97b0-37b1963eb335":{"Name":"IELTS Lessons","Initial":" IELTS","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"d6c7e255-dd64-4129-8959-201153ac26fe":{"Name":"Physics Mock","Initial":"PM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"69cd9047-ee23-406f-90f6-bdc4f8d541c8":{"Name":"Physics Note","Initial":"PN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"b0fd5d9d-561d-442e-af65-d2d1f8dce758":{"Name":"Chemistry Mock","Initial":"CM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b":{"Name":"Chemistry Note","Initial":"CN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"723a4563-cc82-4434-bc09-bac7d2e291de":{"Name":"Biology Mock","Initial":"BM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e":{"Name":"Biology Note","Initial":"BN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"db572002-5fef-42fc-8f83-74312eb80a6a":{"Name":"Add Math Mock","Initial":"AMM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"029652d1-c9ff-4abb-89ef-e6e6a42330dc":{"Name":"Add Math Note","Initial":"AMN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"e8da6049-92b2-435f-a393-f10ee09f4228":{"Name":"Math Mock","Initial":"MM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1":{"Name":"Math Note","Initial":"MN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false}},"IsOverlayClassPlanEnabled":false,"OverlayClassPlanId":null,"TempClassPlanId":null,"TempClassPlanSetupTime":"2026-01-31T21:01:28.454689+08:00","ClassPlanGroups":{"acaf4ef0-e261-4262-b941-34ea93cb4369":{"Name":"\u9ED8\u8BA4","IsGlobal":false,"IsActive":false},"00000000-0000-0000-0000-000000000000":{"Name":"\u5168\u5C40\u8BFE\u8868\u7FA4","IsGlobal":true,"IsActive":false}},"SelectedClassPlanGroupId":"acaf4ef0-e261-4262-b941-34ea93cb4369","TempClassPlanGroupId":null,"TempClassPlanGroupExpireTime":"2026-01-31T21:01:28.454695+08:00","IsTempClassPlanGroupEnabled":false,"TempClassPlanGroupType":1,"Id":"30582a6d-405e-4091-81d9-b0df23a5a7ea","OrderedSchedules":{},"IsActive":false}
+    /* ======================== 2. SCHEDULE DATA (CSV Imported) ======================== */
+    // 0:Sun, 1:Mon, ..., 6:Sat
+    const SCHEDULE_DATA = {
+        "0": [
+            {"start": "10:30", "end": "11:10", "task": "Summer HW", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "Math Note", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "Vocab", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "Bio Note", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "Physics Note", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "CS50P", "type": "study", "done": false}
+        ],
+        "1": [
+            {"start": "10:30", "end": "11:10", "task": "Vocab", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "Bio Note", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "Physics Note", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "Piano", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "Math Note", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "Math Note", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "Summer HW", "type": "study", "done": false}
+        ],
+        "2": [
+            {"start": "10:30", "end": "11:10", "task": "Summer HW", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "Physics Note", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "Bio Note", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "Vocab", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "CS50P", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "Physics Note", "type": "study", "done": false}
+        ],
+        "3": [
+            {"start": "10:30", "end": "11:10", "task": "Summer HW", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "Vocab", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "Math Note", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "Physics Note", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "Bio Note", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "Piano", "type": "study", "done": false}
+        ],
+        "4": [
+            {"start": "10:30", "end": "11:10", "task": "Physics Note", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "Physics Note", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "Vocab", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "Summer HW", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "CS50P", "type": "study", "done": false}
+        ],
+        "5": [
+            {"start": "10:30", "end": "11:10", "task": "Vocab", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "Piano", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "Math Note", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "Bio Note", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "Summer HW", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "Bio Note", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "IELTS Lessons", "type": "study", "done": false}
+        ],
+        "6": [
+            {"start": "10:30", "end": "11:10", "task": "Summer HW", "type": "study", "done": false},
+            {"start": "11:10", "end": "11:25", "task": "Break", "type": "break", "done": false},
+            {"start": "11:25", "end": "12:05", "task": "Chem Note", "type": "study", "done": false},
+            {"start": "12:05", "end": "13:30", "task": "Lunch", "type": "break", "done": false},
+            {"start": "13:30", "end": "14:10", "task": "Piano", "type": "study", "done": false},
+            {"start": "14:10", "end": "14:25", "task": "Break", "type": "break", "done": false},
+            {"start": "14:25", "end": "15:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "15:05", "end": "15:35", "task": "Break", "type": "break", "done": false},
+            {"start": "15:35", "end": "16:15", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "16:15", "end": "16:30", "task": "Break", "type": "break", "done": false},
+            {"start": "16:30", "end": "17:10", "task": "Math Note", "type": "study", "done": false},
+            {"start": "17:10", "end": "18:30", "task": "Dinner", "type": "break", "done": false},
+            {"start": "18:30", "end": "19:10", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "19:10", "end": "19:25", "task": "Break", "type": "break", "done": false},
+            {"start": "19:25", "end": "20:05", "task": "IELTS Lessons", "type": "study", "done": false},
+            {"start": "20:05", "end": "20:35", "task": "Break", "type": "break", "done": false},
+            {"start": "20:35", "end": "21:15", "task": "Vocab", "type": "study", "done": false},
+            {"start": "21:15", "end": "21:55", "task": "Math Note", "type": "study", "done": false},
+            {"start": "21:55", "end": "22:35", "task": "Bio Note", "type": "study", "done": false}
+        ]
+    };
 
-    /* ======================== 2. STATE MANAGEMENT ======================== */
+    /* ======================== 3. STATE MANAGEMENT ======================== */
     let STATE = {
         schedule: JSON.parse(localStorage.getItem('w3_schedule')) || [],
         voiceUri: localStorage.getItem('w3_voice') || '',
@@ -207,18 +356,18 @@
         customPlaylists: JSON.parse(localStorage.getItem('w3_playlists')) || []
     };
 
-    /* ======================== 3. INITIALIZATION ======================== */
+    /* ======================== 4. INITIALIZATION ======================== */
     function initSystem() {
         document.getElementById('start-overlay').style.display = 'none';
         
         // Check date reset
         const today = new Date().toDateString();
         if(STATE.lastDate !== today) {
-            console.log("New day detected. Resetting to IGCSE default.");
-            loadIGCSE();
+            console.log("New day detected. Loading schedule.");
+            loadSchedule();
             localStorage.setItem('w3_date', today);
         } else if (STATE.schedule.length === 0) {
-            loadIGCSE();
+            loadSchedule();
         } else {
             renderTable();
         }
@@ -238,117 +387,38 @@
         STATE.bgmPlayer.onended = playRandomTrack;
 
         // Welcome
-        speak("Warden V9.1 initialized. All bugs fixed.");
+        speak("Warden V9.3 initialized. CSV schedule loaded.");
     }
 
-    /* ======================== 4. IGCSE PARSER (FIXED) ======================== */
-    function loadIGCSE() {
+    /* ======================== 5. SCHEDULE LOADER (Simplified) ======================== */
+    function loadSchedule() {
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const todayIdx = new Date().getDay();
         document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
 
-        // 1. Find Plan for Today
-        let plan = null;
-        for (const p of Object.values(IGCSE_DATA.ClassPlans)) {
-            if (p.TimeRule.WeekDay === todayIdx) { plan = p; break; }
-        }
+        const dailyPlan = SCHEDULE_DATA[todayIdx];
 
-        if (!plan) {
+        if (!dailyPlan || dailyPlan.length === 0) {
             STATE.schedule = [];
-            document.getElementById('schedule-list').innerHTML = "<div style='padding:20px; text-align:center;'>No IGCSE classes found for today.</div>";
+            document.getElementById('schedule-list').innerHTML = "<div style='padding:20px; text-align:center;'>No classes found for today in CSV data.</div>";
             saveSchedule();
             return;
         }
 
-        // 2. Parse Time Slots & Match Classes
-        const layout = IGCSE_DATA.TimeLayouts[plan.TimeLayoutId];
-        const flatSchedule = [];
-        let classIndex = 0;
-
-        // Sort layouts by start time to ensure proper order
-        const sortedLayouts = [...layout.Layouts].sort((a, b) => {
-            return timeToMinutes(a.StartTime) - timeToMinutes(b.StartTime);
-        });
-
-        // Track previous end time to detect gaps (lunch breaks)
-        let previousEndTime = null;
-
-        sortedLayouts.forEach((slot, idx) => {
-            const startTime = slot.StartTime.substring(0, 5);
-            const endTime = slot.EndTime.substring(0, 5);
-            
-            // Skip invalid slots (where start = end and it's not a marker)
-            if (startTime === endTime && slot.TimeType !== 2) {
-                return;
-            }
-
-            // Detect gaps (e.g., 12:10 -> 13:30 lunch break)
-            if (previousEndTime && slot.TimeType === 0) {
-                const gapMinutes = timeToMinutes(slot.StartTime) - timeToMinutes(previousEndTime);
-                if (gapMinutes > 5) { // More than 5 minutes = real break
-                    flatSchedule.push({
-                        start: previousEndTime,
-                        end: startTime,
-                        task: "Lunch Break",
-                        type: "break",
-                        done: false
-                    });
-                }
-            }
-
-            let name = "Break";
-            let type = "break";
-
-            // TimeType 0 is Class, TimeType 2 is end marker
-            if (slot.TimeType === 0) {
-                if (plan.Classes[classIndex]) {
-                    const subId = plan.Classes[classIndex].SubjectId;
-                    if (IGCSE_DATA.Subjects[subId]) {
-                        name = IGCSE_DATA.Subjects[subId].Name;
-                        type = "study";
-                    } else if (subId === "00000000-0000-0000-0000-000000000000") {
-                        name = "Free Study";
-                        type = "study";
-                    }
-                }
-                classIndex++;
-            } else if (slot.TimeType === 1) {
-                name = "Break";
-                type = "break";
-            } else if (slot.TimeType === 2) {
-                // End of morning session marker
-                return;
-            }
-
-            // Only add if times are valid
-            if (startTime !== endTime) {
-                flatSchedule.push({
-                    start: startTime,
-                    end: endTime,
-                    task: name,
-                    type: type,
-                    done: false
-                });
-                
-                if (slot.TimeType === 0) {
-                    previousEndTime = endTime;
-                }
-            }
-        });
-
-        STATE.schedule = flatSchedule;
+        // Deep copy to ensure fresh state
+        STATE.schedule = JSON.parse(JSON.stringify(dailyPlan));
         saveSchedule();
         renderTable();
     }
     
-    function resetToIGCSE() {
-        if(confirm("Discard changes and reload default IGCSE schedule?")) {
-            loadIGCSE();
-            speak("Schedule reset to default.");
+    function resetToDefault() {
+        if(confirm("Reload schedule from CSV data?")) {
+            loadSchedule();
+            speak("Schedule reloaded.");
         }
     }
 
-    /* ======================== 5. CORE ENGINE (TICK) ======================== */
+    /* ======================== 6. CORE ENGINE (TICK) ======================== */
     function tick() {
         const now = new Date();
         document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
@@ -399,8 +469,8 @@
                     speak(`Focus session started: ${active.task}`);
                 } else {
                     playRandomTrack();
-                    triggerAlert('coffee', "Break Time");
-                    speak("Break time initiated.");
+                    triggerAlert('coffee', active.task); // Use task name for break (Lunch/Dinner)
+                    speak(`${active.task} time.`);
                 }
                 highlightRow(active);
             }
@@ -442,7 +512,7 @@
         bar.style.width = pct + "%";
     }
 
-    /* ======================== 6. UI RENDERERS ======================== */
+    /* ======================== 7. UI RENDERERS ======================== */
     function renderTable() {
         const div = document.getElementById('schedule-list');
         div.innerHTML = '';
@@ -493,7 +563,7 @@
         }
     }
 
-    /* ======================== 7. AUDIO & TTS ======================== */
+    /* ======================== 8. AUDIO & TTS ======================== */
     function changePlaylist(id) {
         document.getElementById('music-iframe').src = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`;
     }
@@ -582,7 +652,7 @@
         speak("Voice updated successfully."); 
     }
 
-    /* ======================== 8. UTILS ======================== */
+    /* ======================== 9. UTILS ======================== */
     function timeToMinutes(t) { 
         const [h,m] = t.split(':').map(Number); 
         return h*60+m; 
