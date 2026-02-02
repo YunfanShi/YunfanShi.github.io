@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V8.0 Commander</title>
+    <title>Jack's Warden | V9.0 Final</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -31,13 +31,28 @@
         .player-header { padding: 20px; background: #242424; color: white; }
         .player-title { font-weight: bold; font-size: 16px; display:flex; align-items:center; gap:10px; margin-bottom: 10px;}
         
-        /* Playlist Selector */
+        /* Playlist Selector Area */
+        .playlist-control { display: flex; gap: 8px; align-items: center; }
         .playlist-select {
-            width: 100%; padding: 8px 12px; border-radius: 6px; border: none;
+            flex: 1; padding: 8px 12px; border-radius: 6px; border: none;
             background: #333; color: white; font-size: 13px; cursor: pointer;
             outline: none; font-weight: 500;
         }
         .playlist-select:hover { background: #444; }
+        .btn-add { 
+            width: 32px; height: 32px; border-radius: 6px; border: none; 
+            background: var(--md-primary); color: white; cursor: pointer; 
+            font-weight: bold; font-size: 18px; display: flex; justify-content: center; align-items: center;
+        }
+        .btn-add:hover { background: #d31e1e; }
+
+        /* Auto Playing Info */
+        .auto-play-info {
+            margin-top: 15px; padding: 10px; background: #333; border-radius: 6px;
+            font-size: 12px; color: #aaa; text-align: center; display: none;
+        }
+        .auto-play-info.active { display: block; animation: fadeIn 0.5s; }
+        .scrolling-text { color: var(--md-primary); font-weight: bold; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .iframe-container { flex: 1; background: #fff; display: flex; justify-content: center; padding-top: 10px; overflow: hidden; }
         
@@ -79,6 +94,8 @@
 
         /* Start Overlay */
         #start-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; }
+        
+        @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
     </style>
 </head>
 <body>
@@ -87,8 +104,8 @@
 
 <div id="start-overlay">
     <span class="material-icons-round" style="font-size: 64px; margin-bottom: 20px;">security</span>
-    <h2>Warden V8.0 Commander</h2>
-    <p>Music Systems & TTS Ready</p>
+    <h2>Warden V9.0</h2>
+    <p>Synced Schedule & Music Core</p>
     <button onclick="initSystem()" style="padding: 15px 40px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; margin-top: 20px;">
         Initialize System
     </button>
@@ -105,13 +122,21 @@
             <span class="material-icons-round" style="color:var(--md-primary)">library_music</span>
             SELECT PLAYLIST
         </div>
-        <select id="playlist-picker" class="playlist-select" onchange="changePlaylist(this.value)">
-            <option value="17723303753">Timetable Pack (Default)</option>
-            <option value="17704807303">逆水寒·战斗 (Combat)</option>
-            <option value="17672788372">逆水寒·前200 (Top 200)</option>
-            <option value="17666278720">逆水长琴 (Zither)</option>
-            <option value="17654903028">逆水寒·精选 (Best Of)</option>
-        </select>
+        <div class="playlist-control">
+            <select id="playlist-picker" class="playlist-select" onchange="changePlaylist(this.value)">
+                <option value="17723303753">Timetable Pack (Default)</option>
+                <option value="17704807303">逆水寒·战斗 (Combat)</option>
+                <option value="17672788372">逆水寒·前200 (Top 200)</option>
+                <option value="17666278720">逆水长琴 (Zither)</option>
+                <option value="17654903028">逆水寒·精选 (Best Of)</option>
+            </select>
+            <button class="btn-add" onclick="addCustomPlaylist()" title="Add Playlist ID">+</button>
+        </div>
+
+        <div id="auto-play-info" class="auto-play-info">
+            AUTO-BGM ACTIVE
+            <div id="scrolling-song-name" class="scrolling-text">--</div>
+        </div>
     </div>
 
     <div class="iframe-container">
@@ -152,25 +177,24 @@
 </main>
 
 <script>
-    /* ======================== 1. CONFIG & DATA ======================== */
-    // 内置“下课铃”专用 ID 库 (你提供的逆水寒精选)
-    const AUTO_BGM_IDS = [
-        2640844158, // 天阙万钧
-        3312207342, // 驭骨掌中
-        3312206530, // 红丝魇
-        3332977605, // 凭澜引
-        2119745415, // 揽月
-        2119743531, // 怒涛砥霜剑
-        2137411622, // 星罗棋布
-        2137412905, // 众生如棋
-        2137411613, // 天悬太一
-        2719266561, // 无日无更
-        864099181,  // 逆水寒
-        2686665002  // 夕拾谣
+    /* ======================== 1. MUSIC DATA (With Names) ======================== */
+    const AUTO_BGM_LIST = [
+        {id: 2640844158, name: "天阙万钧 (九光寒林·战斗)"},
+        {id: 3312207342, name: "驭骨掌中 (关山藏锋·米擒负)"},
+        {id: 3312206530, name: "红丝魇 (关山藏锋·练小窈)"},
+        {id: 3332977605, name: "凭澜引 (怒潮归流·曲河星)"},
+        {id: 2119745415, name: "揽月 (谪仙惊涛·李白)"},
+        {id: 2119743531, name: "怒涛砥霜剑 (谪仙惊涛·战斗)"},
+        {id: 2137411622, name: "星罗棋布 (永夜星都·天弈之墟)"},
+        {id: 2137412905, name: "众生如棋 (永夜星都·天弈之墟)"},
+        {id: 2137411613, name: "天悬太一 (永夜星都·天极中宫)"},
+        {id: 2719266561, name: "无日无更 (无更市)"},
+        {id: 864099181,  name: "逆水寒 (河山集)"},
+        {id: 2686665002, name: "夕拾谣 (南海乱墟·流珠)"}
     ];
 
-    // IGCSE DATA
-    const IGCSE_DATA = {"Name":"","TimeLayouts":{"cec14f3c-f842-497e-a752-7cc96b668d14":{"Name":"IGCSE","Layouts":[{"StartTime":"10:30:00","EndTime":"11:10:00","TimeType":0},{"StartTime":"11:10:00","EndTime":"11:30:00","TimeType":1},{"StartTime":"11:30:00","EndTime":"12:10:00","TimeType":0},{"StartTime":"12:10:00","EndTime":"12:10:00","TimeType":2},{"StartTime":"13:30:00","EndTime":"14:10:00","TimeType":0},{"StartTime":"14:00:00","EndTime":"13:55:00","TimeType":1},{"StartTime":"14:10:00","EndTime":"14:30:00","TimeType":0},{"StartTime":"14:30:00","EndTime":"15:10:00","TimeType":0},{"StartTime":"15:10:00","EndTime":"15:40:00","TimeType":1},{"StartTime":"15:40:00","EndTime":"16:20:00","TimeType":0},{"StartTime":"16:20:00","EndTime":"16:40:00","TimeType":1},{"StartTime":"16:40:00","EndTime":"17:20:00","TimeType":0},{"StartTime":"17:20:00","EndTime":"17:30:00","TimeType":1},{"StartTime":"17:30:00","EndTime":"18:00:00","TimeType":0},{"StartTime":"19:00:00","EndTime":"19:40:00","TimeType":0},{"StartTime":"19:40:00","EndTime":"20:00:00","TimeType":1},{"StartTime":"20:00:00","EndTime":"20:40:00","TimeType":0},{"StartTime":"20:40:00","EndTime":"21:10:00","TimeType":1},{"StartTime":"21:10:00","EndTime":"21:50:00","TimeType":0},{"StartTime":"21:50:00","EndTime":"22:00:00","TimeType":1},{"StartTime":"22:00:00","EndTime":"22:30:00","TimeType":0}]}},"ClassPlans":{"611eca43-50d9-4c63-94e3-a57e64806e03":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":0},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"}]},"b1062c64-c991-42cb-883a-250e15ec2cf9":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":1},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"}]},"9e8314a9-846a-4e74-978d-651c1a5ac636":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":2},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"}]},"8d9ffce1-a5a9-41e3-baf5-72c40cb96575":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":3},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"}]},"37fe4914-8c98-4a7d-9a76-df9e3df31a48":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":4},"Classes":[{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"}]},"98b133ff-08f4-4453-92c6-aca39215c171":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":5},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"}]},"7c78beab-2772-4ffd-9814-3c18b7cc9d40":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":6},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"}]}},"Subjects":{"485aae96-6fc0-412d-882b-7976518c55da":{"Name":"Japanese","Initial":"JP"},"00045ddc-09a6-49f5-b04c-a6d9c55011e2":{"Name":"Piano Practise","Initial":"PP"},"99435fb1-dc66-4ec5-875b-6008a38b75b3":{"Name":"Piano Composition","Initial":"PCA"},"a9d325e5-ff0b-45a3-91fc-df0dec9ec10a":{"Name":"Piano Theory","Initial":"PMT"},"5ad0295e-cd17-48e8-8623-69c190eed847":{"Name":"Piano","Initial":"P"},"42deec21-92e2-4686-9469-4b373d80d501":{"Name":"CS50P","Initial":"CS50P"},"eac96c37-c954-4e9b-8cdf-7649df8d62f3":{"Name":"Summer HW","Initial":"SHW"},"3dac0ab8-6e64-4e55-9569-5e55906e600c":{"Name":"Vocabulary","Initial":"Vocab"},"f3009ca4-f4a4-4f60-97b0-37b1963eb335":{"Name":"IELTS Lessons","Initial":"IELTS"},"d6c7e255-dd64-4129-8959-201153ac26fe":{"Name":"Physics Mock","Initial":"PM"},"69cd9047-ee23-406f-90f6-bdc4f8d541c8":{"Name":"Physics Note","Initial":"PN"},"b0fd5d9d-561d-442e-af65-d2d1f8dce758":{"Name":"Chemistry Mock","Initial":"CM"},"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b":{"Name":"Chemistry Note","Initial":"CN"},"723a4563-cc82-4434-bc09-bac7d2e291de":{"Name":"Biology Mock","Initial":"BM"},"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e":{"Name":"Biology Note","Initial":"BN"},"db572002-5fef-42fc-8f83-74312eb80a6a":{"Name":"Add Math Mock","Initial":"AMM"},"029652d1-c9ff-4abb-89ef-e6e6a42330dc":{"Name":"Add Math Note","Initial":"AMN"},"e8da6049-92b2-435f-a393-f10ee09f4228":{"Name":"Math Mock","Initial":"MM"},"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1":{"Name":"Math Note","Initial":"MN"}}};
+    /* ======================== 2. EXACT SCHEDULE DATA (1:1 Copy) ======================== */
+    const IGCSE_DATA = {"Name":"","TimeLayouts":{"cec14f3c-f842-497e-a752-7cc96b668d14":{"Name":"IGCSE","Layouts":[{"StartSecond":"","EndSecond":"","StartTime":"10:30:00","EndTime":"11:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"11:10:00","EndTime":"11:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"11:30:00","EndTime":"12:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"12:10:00","EndTime":"12:10:00","TimeType":2,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"13:30:00","EndTime":"14:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:00:00","EndTime":"13:55:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:10:00","EndTime":"14:30:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:30:00","EndTime":"15:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"15:10:00","EndTime":"15:40:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"15:40:00","EndTime":"16:20:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"16:20:00","EndTime":"16:40:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"16:40:00","EndTime":"17:20:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"17:20:00","EndTime":"17:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"17:30:00","EndTime":"18:00:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"19:00:00","EndTime":"19:40:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"19:40:00","EndTime":"20:00:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"20:00:00","EndTime":"20:40:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"20:40:00","EndTime":"21:10:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"21:10:00","EndTime":"21:50:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"21:50:00","EndTime":"22:00:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"22:00:00","EndTime":"22:30:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false}],"AttachedObjects":{},"IsActive":false}},"ClassPlans":{"611eca43-50d9-4c63-94e3-a57e64806e03":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":0,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"b1062c64-c991-42cb-883a-250e15ec2cf9":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":1,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"9e8314a9-846a-4e74-978d-651c1a5ac636":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":2,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"8d9ffce1-a5a9-41e3-baf5-72c40cb96575":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":3,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"37fe4914-8c98-4a7d-9a76-df9e3df31a48":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":4,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"98b133ff-08f4-4453-92c6-aca39215c171":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":5,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"7c78beab-2772-4ffd-9814-3c18b7cc9d40":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":6,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false}},"Subjects":{"485aae96-6fc0-412d-882b-7976518c55da":{"Name":"Japanese","Initial":"JP","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"00045ddc-09a6-49f5-b04c-a6d9c55011e2":{"Name":"Piano Practise","Initial":"PP","TeacherName":"https://www.youtube.com/watch?v=Uwt1IuOWzTY","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"99435fb1-dc66-4ec5-875b-6008a38b75b3":{"Name":"Piano Composition Arrangement","Initial":"PCA","TeacherName":"https://www.youtube.com/playlist?list=PL_zeZPt_SJPHEuIQ35eLeRFap3ZKCwnaC","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"a9d325e5-ff0b-45a3-91fc-df0dec9ec10a":{"Name":"Piano Music Theory","Initial":"PMT","TeacherName":"https://www.youtube.com/playlist?list=PLIHXVyo2Z-DjO-i_XPi4NKosl5a5D1wOW","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"5ad0295e-cd17-48e8-8623-69c190eed847":{"Name":"Piano","Initial":"P","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"42deec21-92e2-4686-9469-4b373d80d501":{"Name":"CS50P","Initial":"CS50P","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"eac96c37-c954-4e9b-8cdf-7649df8d62f3":{"Name":"Summer HW ","Initial":" SHW","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"3dac0ab8-6e64-4e55-9569-5e55906e600c":{"Name":"Vocabulary","Initial":" Vocab","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"f3009ca4-f4a4-4f60-97b0-37b1963eb335":{"Name":"IELTS Lessons","Initial":" IELTS","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"d6c7e255-dd64-4129-8959-201153ac26fe":{"Name":"Physics Mock","Initial":"PM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"69cd9047-ee23-406f-90f6-bdc4f8d541c8":{"Name":"Physics Note","Initial":"PN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"b0fd5d9d-561d-442e-af65-d2d1f8dce758":{"Name":"Chemistry Mock","Initial":"CM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b":{"Name":"Chemistry Note","Initial":"CN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"723a4563-cc82-4434-bc09-bac7d2e291de":{"Name":"Biology Mock","Initial":"BM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e":{"Name":"Biology Note","Initial":"BN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"db572002-5fef-42fc-8f83-74312eb80a6a":{"Name":"Add Math Mock","Initial":"AMM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"029652d1-c9ff-4abb-89ef-e6e6a42330dc":{"Name":"Add Math Note","Initial":"AMN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"e8da6049-92b2-435f-a393-f10ee09f4228":{"Name":"Math Mock","Initial":"MM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1":{"Name":"Math Note","Initial":"MN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false}},"IsOverlayClassPlanEnabled":false,"OverlayClassPlanId":null,"TempClassPlanId":null,"TempClassPlanSetupTime":"2026-01-31T21:01:28.454689+08:00","ClassPlanGroups":{"acaf4ef0-e261-4262-b941-34ea93cb4369":{"Name":"\u9ED8\u8BA4","IsGlobal":false,"IsActive":false},"00000000-0000-0000-0000-000000000000":{"Name":"\u5168\u5C40\u8BFE\u8868\u7FA4","IsGlobal":true,"IsActive":false}},"SelectedClassPlanGroupId":"acaf4ef0-e261-4262-b941-34ea93cb4369","TempClassPlanGroupId":null,"TempClassPlanGroupExpireTime":"2026-01-31T21:01:28.454695+08:00","IsTempClassPlanGroupEnabled":false,"TempClassPlanGroupType":1,"Id":"30582a6d-405e-4091-81d9-b0df23a5a7ea","OrderedSchedules":{},"IsActive":false};
 
     let STATE = {
         schedule: [],
@@ -183,6 +207,7 @@
     // Auto-Stop Logic (Play 1 song then stop)
     STATE.bgmPlayer.onended = () => {
         STATE.bgmPlayer.pause();
+        updateAutoPlayInfo("Idle");
     };
     STATE.bgmPlayer.onerror = () => {
         console.log("Play failed, trying another...");
@@ -199,21 +224,39 @@
         // Set Default Iframe
         changePlaylist("17723303753");
 
-        // Load data
+        // Load data (Prioritize local, fallback to embedded)
         const localData = localStorage.getItem('warden_config');
         const data = localData ? JSON.parse(localData) : IGCSE_DATA;
         
         parseSchedule(data);
         setInterval(tick, 1000);
-        speak("System online. Playlist loaded.");
+        speak("System online. Schedule loaded.");
     }
 
+    /* ======================== PLAYLIST LOGIC ======================== */
     function changePlaylist(id) {
-        // HTTPS Forced Link
+        if(!id) return;
         const url = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`;
         document.getElementById('music-iframe').src = url;
     }
 
+    function addCustomPlaylist() {
+        const id = prompt("Enter NetEase Playlist ID (e.g., 17723303753):");
+        if(id && !isNaN(id)) {
+            const name = prompt("Enter Playlist Name:", "My Playlist");
+            const select = document.getElementById('playlist-picker');
+            const option = document.createElement('option');
+            option.value = id;
+            option.innerText = name || "Custom";
+            select.appendChild(option);
+            select.value = id;
+            changePlaylist(id);
+        } else if (id) {
+            alert("Invalid ID. Please enter numbers only.");
+        }
+    }
+
+    /* ======================== SCHEDULE LOGIC (Complex JSON Parser) ======================== */
     function parseSchedule(data) {
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const todayIdx = new Date().getDay();
@@ -224,7 +267,11 @@
             if (p.TimeRule.WeekDay === todayIdx) { plan = p; break; }
         }
 
-        if (!plan) { STATE.schedule = []; return; }
+        if (!plan) { 
+            STATE.schedule = []; 
+            document.getElementById('schedule-list').innerHTML = "<div style='padding:20px; text-align:center; color:#999'>No classes scheduled for today.</div>";
+            return; 
+        }
 
         const timeLayout = data.TimeLayouts[plan.TimeLayoutId];
         const subjects = data.Subjects;
@@ -235,6 +282,7 @@
             let taskName = "Break";
             let type = "break";
 
+            // Logic: If TimeType is 0 (Class) or 2 (Special?), we look for a subject
             if (timeSlot.TimeType === 0 || timeSlot.TimeType === 2) {
                 if (plan.Classes[classIndex]) {
                     const subId = plan.Classes[classIndex].SubjectId;
@@ -242,7 +290,8 @@
                         taskName = subjects[subId].Name;
                         type = "study";
                     } else if(subId === "00000000-0000-0000-0000-000000000000") {
-                        taskName = "Free Study";
+                        taskName = "Free Study"; // Empty slot in class list
+                        type = "study";
                     }
                 }
                 classIndex++;
@@ -285,6 +334,7 @@
         renderTable();
     }
 
+    /* ======================== ENGINE ======================== */
     function tick() {
         const now = new Date();
         document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
@@ -324,26 +374,31 @@
         }
 
         if(active) {
-            // Task Change
+            // State Change Logic
             if(STATE.lastTaskName !== active.task) {
                 STATE.lastTaskName = active.task;
                 
                 if(active.type === 'study') {
                     // STOP MUSIC
                     STATE.bgmPlayer.pause();
+                    updateAutoPlayInfo("");
                     triggerAlert('school', active.task, 'study');
                     speak(`Class started: ${active.task}`);
                 } else {
                     // START MUSIC (Break)
                     playRandomTrack();
                     triggerAlert('notifications', "Break Time", 'break');
-                    speak("Break time. Play music from sidebar.");
+                    speak("Break time.");
                 }
             }
 
-            // Highlight
+            // Highlight Active Row
             document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
-            if(document.getElementById(`row-${idx}`)) document.getElementById(`row-${idx}`).classList.add('active');
+            if(document.getElementById(`row-${idx}`)) {
+                document.getElementById(`row-${idx}`).classList.add('active');
+                // Optional: Scroll to view
+                // document.getElementById(`row-${idx}`).scrollIntoView({behavior: "smooth", block: "center"});
+            }
 
             // Finish Early Btn
             if(active.type === 'study' && !active.done) document.getElementById('btn-early').classList.add('visible');
@@ -358,15 +413,28 @@
         }
     }
 
-    /* ======================== CORE: NETEASE LOGIC ======================== */
+    /* ======================== BGM & UTILS ======================== */
     function playRandomTrack() {
-        const randomId = AUTO_BGM_IDS[Math.floor(Math.random() * AUTO_BGM_IDS.length)];
-        const url = `https://music.163.com/song/media/outer/url?id=${randomId}.mp3`;
+        const track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
+        const url = `https://music.163.com/song/media/outer/url?id=${track.id}.mp3`;
+        
+        updateAutoPlayInfo(track.name);
         
         STATE.bgmPlayer.src = url;
         STATE.bgmPlayer.play().catch(e => {
             console.error("Auto-play blocked by browser. User interaction needed.");
         });
+    }
+
+    function updateAutoPlayInfo(text) {
+        const el = document.getElementById('auto-play-info');
+        const txt = document.getElementById('scrolling-song-name');
+        if(text) {
+            el.classList.add('active');
+            txt.innerText = "♫ " + text;
+        } else {
+            el.classList.remove('active');
+        }
     }
 
     function finishTaskEarly() {
