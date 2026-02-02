@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V9.0 Final</title>
+    <title>Jack's Warden | V9.1 Fixed</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -73,7 +73,7 @@
         .early-finish-btn { position: absolute; right: 20px; top: 20px; background: #e6f4ea; color: #137333; border: 1px solid #c6ebd1; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.3s; display: flex; align-items: center; gap: 5px; }
         .early-finish-btn.visible { opacity: 1; pointer-events: auto; }
 
-        .schedule-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; }
+        .schedule-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; max-height: 500px; overflow-y: auto; }
         .task-row { display: grid; grid-template-columns: 50px 80px 1fr 80px; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; align-items: center; }
         .task-row.active { background: #fff0f0; border-left: 6px solid var(--md-primary); }
         .task-row.done { background: #f8f9fa; opacity: 0.5; }
@@ -104,8 +104,8 @@
 
 <div id="start-overlay">
     <span class="material-icons-round" style="font-size: 64px; margin-bottom: 20px;">security</span>
-    <h2>Warden V9.0</h2>
-    <p>Synced Schedule & Music Core</p>
+    <h2>Warden V9.1 Fixed</h2>
+    <p>Bug Fixed: Schedule Parser & Storage</p>
     <button onclick="initSystem()" style="padding: 15px 40px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; margin-top: 20px;">
         Initialize System
     </button>
@@ -196,120 +196,253 @@
     /* ======================== 2. EXACT SCHEDULE DATA (1:1 Copy) ======================== */
     const IGCSE_DATA = {"Name":"","TimeLayouts":{"cec14f3c-f842-497e-a752-7cc96b668d14":{"Name":"IGCSE","Layouts":[{"StartSecond":"","EndSecond":"","StartTime":"10:30:00","EndTime":"11:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"11:10:00","EndTime":"11:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"11:30:00","EndTime":"12:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"12:10:00","EndTime":"12:10:00","TimeType":2,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"13:30:00","EndTime":"14:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:00:00","EndTime":"13:55:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:10:00","EndTime":"14:30:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"14:30:00","EndTime":"15:10:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"15:10:00","EndTime":"15:40:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"15:40:00","EndTime":"16:20:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"16:20:00","EndTime":"16:40:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"16:40:00","EndTime":"17:20:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"17:20:00","EndTime":"17:30:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"17:30:00","EndTime":"18:00:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"19:00:00","EndTime":"19:40:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"19:40:00","EndTime":"20:00:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"20:00:00","EndTime":"20:40:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"20:40:00","EndTime":"21:10:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"21:10:00","EndTime":"21:50:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"21:50:00","EndTime":"22:00:00","TimeType":1,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},{"StartSecond":"","EndSecond":"","StartTime":"22:00:00","EndTime":"22:30:00","TimeType":0,"IsHideDefault":false,"DefaultClassId":"00000000-0000-0000-0000-000000000000","BreakName":"","ActionSet":null,"AttachedObjects":{"7625de96-38aa-4b71-b478-3f156dd9458d":{"AlertShowMode":2,"ForecastShowMode":2,"IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false}],"AttachedObjects":{},"IsActive":false}},"ClassPlans":{"611eca43-50d9-4c63-94e3-a57e64806e03":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":0,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"b1062c64-c991-42cb-883a-250e15ec2cf9":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":1,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"9e8314a9-846a-4e74-978d-651c1a5ac636":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":2,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"8d9ffce1-a5a9-41e3-baf5-72c40cb96575":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":3,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"37fe4914-8c98-4a7d-9a76-df9e3df31a48":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":4,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"98b133ff-08f4-4453-92c6-aca39215c171":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":5,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false},"7c78beab-2772-4ffd-9814-3c18b7cc9d40":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":6,"WeekCountDiv":0,"WeekCountDivTotal":2,"IsActive":false},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335","IsChangedClass":false,"IsEnabled":true,"AttachedObjects":{},"IsActive":false}],"Name":"IGCSE","IsOverlay":false,"OverlaySourceId":null,"OverlaySetupTime":"2026-01-31T21:15:34.353461+08:00","IsEnabled":true,"AssociatedGroup":"acaf4ef0-e261-4262-b941-34ea93cb4369","AttachedObjects":{"08f0d9c3-c770-4093-a3d0-02f3d90c24bc":{"IsClassOnNotificationEnabled":true,"IsClassOnPreparingNotificationEnabled":true,"IsClassOffNotificationEnabled":true,"ClassPreparingDeltaTime":60,"ClassOnPreparingText":"\u51C6\u5907\u4E0B\u4E00\u9879\u4EFB\u52A1","OutdoorClassOnPreparingText":"\u4E0B\u8282\u8BFE\u7A0B\u4E3A\u6237\u5916\u8BFE\u7A0B\uFF0C\u8BF7\u5408\u7406\u89C4\u5212\u65F6\u95F4\uFF0C\u505A\u597D\u4E0A\u8BFE\u51C6\u5907\u3002","ClassOnPreparingMaskText":"\u5373\u5C06\u5F00\u59CB\u4EFB\u52A1","OutdoorClassOnPreparingMaskText":"\u5373\u5C06\u4E0A\u8BFE","ClassOnMaskText":"\u4EFB\u52A1","ClassOffMaskText":"\u8BFE\u95F4\u4F11\u606F","ClassOffOverlayText":"\u4EFB\u52A1\u7ED3\u675F","IsAttachSettingsEnabled":true,"IsActive":false},"58e5b69a-764a-472b-bcf7-003b6a8c7fdf":{"IsAttachSettingsEnabled":true,"ShowExtraInfoOnTimePoint":true,"ExtraInfoType":0,"IsCountdownEnabled":true,"CountdownSeconds":60,"ExtraInfo4ShowSecondsSeconds":0,"ScheduleSpacing":1,"ShowCurrentLessonOnlyOnClass":false,"IsNonExactCountdownEnabled":false,"IsActive":false},"8fbc3a26-6d20-44dd-b895-b9411e3ddc51":{"IsEnabled":true,"NotificationMsg":"\u4ECA\u5929\u7684\u8BFE\u7A0B\u5DF2\u7ED3\u675F\uFF0C\u8BF7\u540C\u5B66\u4EEC\u6709\u5E8F\u79BB\u5F00\u3002","IsAttachSettingsEnabled":true,"IsActive":false}},"IsActive":false}},"Subjects":{"485aae96-6fc0-412d-882b-7976518c55da":{"Name":"Japanese","Initial":"JP","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"00045ddc-09a6-49f5-b04c-a6d9c55011e2":{"Name":"Piano Practise","Initial":"PP","TeacherName":"https://www.youtube.com/watch?v=Uwt1IuOWzTY","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"99435fb1-dc66-4ec5-875b-6008a38b75b3":{"Name":"Piano Composition Arrangement","Initial":"PCA","TeacherName":"https://www.youtube.com/playlist?list=PL_zeZPt_SJPHEuIQ35eLeRFap3ZKCwnaC","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"a9d325e5-ff0b-45a3-91fc-df0dec9ec10a":{"Name":"Piano Music Theory","Initial":"PMT","TeacherName":"https://www.youtube.com/playlist?list=PLIHXVyo2Z-DjO-i_XPi4NKosl5a5D1wOW","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"5ad0295e-cd17-48e8-8623-69c190eed847":{"Name":"Piano","Initial":"P","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"42deec21-92e2-4686-9469-4b373d80d501":{"Name":"CS50P","Initial":"CS50P","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"eac96c37-c954-4e9b-8cdf-7649df8d62f3":{"Name":"Summer HW ","Initial":" SHW","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"3dac0ab8-6e64-4e55-9569-5e55906e600c":{"Name":"Vocabulary","Initial":" Vocab","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"f3009ca4-f4a4-4f60-97b0-37b1963eb335":{"Name":"IELTS Lessons","Initial":" IELTS","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"d6c7e255-dd64-4129-8959-201153ac26fe":{"Name":"Physics Mock","Initial":"PM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"69cd9047-ee23-406f-90f6-bdc4f8d541c8":{"Name":"Physics Note","Initial":"PN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"b0fd5d9d-561d-442e-af65-d2d1f8dce758":{"Name":"Chemistry Mock","Initial":"CM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b":{"Name":"Chemistry Note","Initial":"CN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"723a4563-cc82-4434-bc09-bac7d2e291de":{"Name":"Biology Mock","Initial":"BM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e":{"Name":"Biology Note","Initial":"BN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"db572002-5fef-42fc-8f83-74312eb80a6a":{"Name":"Add Math Mock","Initial":"AMM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"029652d1-c9ff-4abb-89ef-e6e6a42330dc":{"Name":"Add Math Note","Initial":"AMN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"e8da6049-92b2-435f-a393-f10ee09f4228":{"Name":"Math Mock","Initial":"MM","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false},"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1":{"Name":"Math Note","Initial":"MN","TeacherName":"","IsOutDoor":false,"AttachedObjects":{},"IsActive":false}},"IsOverlayClassPlanEnabled":false,"OverlayClassPlanId":null,"TempClassPlanId":null,"TempClassPlanSetupTime":"2026-01-31T21:01:28.454689+08:00","ClassPlanGroups":{"acaf4ef0-e261-4262-b941-34ea93cb4369":{"Name":"\u9ED8\u8BA4","IsGlobal":false,"IsActive":false},"00000000-0000-0000-0000-000000000000":{"Name":"\u5168\u5C40\u8BFE\u8868\u7FA4","IsGlobal":true,"IsActive":false}},"SelectedClassPlanGroupId":"acaf4ef0-e261-4262-b941-34ea93cb4369","TempClassPlanGroupId":null,"TempClassPlanGroupExpireTime":"2026-01-31T21:01:28.454695+08:00","IsTempClassPlanGroupEnabled":false,"TempClassPlanGroupType":1,"Id":"30582a6d-405e-4091-81d9-b0df23a5a7ea","OrderedSchedules":{},"IsActive":false};
 
+    /* ======================== 2. STATE MANAGEMENT ======================== */
     let STATE = {
-        schedule: [],
+        schedule: JSON.parse(localStorage.getItem('w3_schedule')) || [],
+        voiceUri: localStorage.getItem('w3_voice') || '',
+        lastDate: localStorage.getItem('w3_date') || '',
         lastTaskName: null,
         bufferActive: false,
         bgmPlayer: document.getElementById('bgm-player'),
-        userVoiceURI: localStorage.getItem('warden_voice') || ''
+        customPlaylists: JSON.parse(localStorage.getItem('w3_playlists')) || []
     };
 
-    // Auto-Stop Logic (Play 1 song then stop)
-    STATE.bgmPlayer.onended = () => {
-        STATE.bgmPlayer.pause();
-        updateAutoPlayInfo("Idle");
-    };
-    STATE.bgmPlayer.onerror = () => {
-        console.log("Play failed, trying another...");
-        playRandomTrack(); 
-    };
-
+    /* ======================== 3. INITIALIZATION ======================== */
     function initSystem() {
         document.getElementById('start-overlay').style.display = 'none';
+        
+        // Check date reset
+        const today = new Date().toDateString();
+        if(STATE.lastDate !== today) {
+            console.log("New day detected. Resetting to IGCSE default.");
+            loadIGCSE();
+            localStorage.setItem('w3_date', today);
+        } else if (STATE.schedule.length === 0) {
+            loadIGCSE();
+        } else {
+            renderTable();
+        }
+
+        // Initialize Audio Context
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         new AudioContext().resume();
         
-        // Populate Voices
-        populateVoiceSelect();
-        // Set Default Iframe
-        changePlaylist("17723303753");
-
-        // Load data (Prioritize local, fallback to embedded)
-        const localData = localStorage.getItem('warden_config');
-        const data = localData ? JSON.parse(localData) : IGCSE_DATA;
-        
-        parseSchedule(data);
+        // Start Loops
         setInterval(tick, 1000);
-        speak("System online. Schedule loaded.");
+        populateVoiceSelect();
+        window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
+        
+        // Init BGM & Restore Custom Playlists
+        loadCustomPlaylists();
+        changePlaylist("17723303753");
+        STATE.bgmPlayer.onended = playRandomTrack;
+
+        // Welcome
+        speak("Warden V9.1 initialized. All bugs fixed.");
     }
 
-    /* ======================== PLAYLIST LOGIC ======================== */
-    function changePlaylist(id) {
-        if(!id) return;
-        const url = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`;
-        document.getElementById('music-iframe').src = url;
-    }
-
-    function addCustomPlaylist() {
-        const id = prompt("Enter NetEase Playlist ID (e.g., 17723303753):");
-        if(id && !isNaN(id)) {
-            const name = prompt("Enter Playlist Name:", "My Playlist");
-            const select = document.getElementById('playlist-picker');
-            const option = document.createElement('option');
-            option.value = id;
-            option.innerText = name || "Custom";
-            select.appendChild(option);
-            select.value = id;
-            changePlaylist(id);
-        } else if (id) {
-            alert("Invalid ID. Please enter numbers only.");
-        }
-    }
-
-    /* ======================== SCHEDULE LOGIC (Complex JSON Parser) ======================== */
-    function parseSchedule(data) {
+    /* ======================== 4. IGCSE PARSER (FIXED) ======================== */
+    function loadIGCSE() {
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const todayIdx = new Date().getDay();
         document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
 
+        // 1. Find Plan for Today
         let plan = null;
-        for (const [id, p] of Object.entries(data.ClassPlans)) {
+        for (const p of Object.values(IGCSE_DATA.ClassPlans)) {
             if (p.TimeRule.WeekDay === todayIdx) { plan = p; break; }
         }
 
-        if (!plan) { 
-            STATE.schedule = []; 
-            document.getElementById('schedule-list').innerHTML = "<div style='padding:20px; text-align:center; color:#999'>No classes scheduled for today.</div>";
-            return; 
+        if (!plan) {
+            STATE.schedule = [];
+            document.getElementById('schedule-list').innerHTML = "<div style='padding:20px; text-align:center;'>No IGCSE classes found for today.</div>";
+            saveSchedule();
+            return;
         }
 
-        const timeLayout = data.TimeLayouts[plan.TimeLayoutId];
-        const subjects = data.Subjects;
+        // 2. Parse Time Slots & Match Classes
+        const layout = IGCSE_DATA.TimeLayouts[plan.TimeLayoutId];
         const flatSchedule = [];
         let classIndex = 0;
 
-        timeLayout.Layouts.forEach((timeSlot) => {
-            let taskName = "Break";
+        // Sort layouts by start time to ensure proper order
+        const sortedLayouts = [...layout.Layouts].sort((a, b) => {
+            return timeToMinutes(a.StartTime) - timeToMinutes(b.StartTime);
+        });
+
+        // Track previous end time to detect gaps (lunch breaks)
+        let previousEndTime = null;
+
+        sortedLayouts.forEach((slot, idx) => {
+            const startTime = slot.StartTime.substring(0, 5);
+            const endTime = slot.EndTime.substring(0, 5);
+            
+            // Skip invalid slots (where start = end and it's not a marker)
+            if (startTime === endTime && slot.TimeType !== 2) {
+                return;
+            }
+
+            // Detect gaps (e.g., 12:10 -> 13:30 lunch break)
+            if (previousEndTime && slot.TimeType === 0) {
+                const gapMinutes = timeToMinutes(slot.StartTime) - timeToMinutes(previousEndTime);
+                if (gapMinutes > 5) { // More than 5 minutes = real break
+                    flatSchedule.push({
+                        start: previousEndTime,
+                        end: startTime,
+                        task: "Lunch Break",
+                        type: "break",
+                        done: false
+                    });
+                }
+            }
+
+            let name = "Break";
             let type = "break";
 
-            // Logic: If TimeType is 0 (Class) or 2 (Special?), we look for a subject
-            if (timeSlot.TimeType === 0 || timeSlot.TimeType === 2) {
+            // TimeType 0 is Class, TimeType 2 is end marker
+            if (slot.TimeType === 0) {
                 if (plan.Classes[classIndex]) {
                     const subId = plan.Classes[classIndex].SubjectId;
-                    if (subjects[subId]) {
-                        taskName = subjects[subId].Name;
+                    if (IGCSE_DATA.Subjects[subId]) {
+                        name = IGCSE_DATA.Subjects[subId].Name;
                         type = "study";
-                    } else if(subId === "00000000-0000-0000-0000-000000000000") {
-                        taskName = "Free Study"; // Empty slot in class list
+                    } else if (subId === "00000000-0000-0000-0000-000000000000") {
+                        name = "Free Study";
                         type = "study";
                     }
                 }
                 classIndex++;
+            } else if (slot.TimeType === 1) {
+                name = "Break";
+                type = "break";
+            } else if (slot.TimeType === 2) {
+                // End of morning session marker
+                return;
             }
 
-            flatSchedule.push({
-                start: timeSlot.StartTime.substring(0, 5),
-                end: timeSlot.EndTime.substring(0, 5),
-                task: taskName,
-                type: type,
-                done: false
-            });
+            // Only add if times are valid
+            if (startTime !== endTime) {
+                flatSchedule.push({
+                    start: startTime,
+                    end: endTime,
+                    task: name,
+                    type: type,
+                    done: false
+                });
+                
+                if (slot.TimeType === 0) {
+                    previousEndTime = endTime;
+                }
+            }
         });
 
         STATE.schedule = flatSchedule;
+        saveSchedule();
         renderTable();
     }
+    
+    function resetToIGCSE() {
+        if(confirm("Discard changes and reload default IGCSE schedule?")) {
+            loadIGCSE();
+            speak("Schedule reset to default.");
+        }
+    }
 
+    /* ======================== 5. CORE ENGINE (TICK) ======================== */
+    function tick() {
+        const now = new Date();
+        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        
+        if(STATE.schedule.length === 0) return;
+
+        const curM = now.getHours()*60 + now.getMinutes();
+        let active = null;
+
+        // 1. Check Buffer (10 mins before Study)
+        const nextStudy = STATE.schedule.find(s => s.type === 'study' && !s.done && timeToMinutes(s.start) > curM);
+        if (nextStudy && timeToMinutes(nextStudy.start) - curM <= 10 && timeToMinutes(nextStudy.start) > curM) {
+            if (!STATE.bufferActive) {
+                STATE.bufferActive = true;
+                document.body.classList.add('buffer-active');
+                speak(`Preparation warning. ${nextStudy.task} begins in 10 minutes.`);
+                triggerAlert('warning', `Prepare: ${nextStudy.task}`);
+            }
+            const secsToStart = timeToMinutes(nextStudy.start)*60 - (curM*60 + now.getSeconds());
+            updateTimer(nextStudy.task + " (PREP)", secsToStart, 600, true);
+            document.getElementById('btn-early').classList.remove('visible');
+            return;
+        } else {
+            if (STATE.bufferActive) {
+                STATE.bufferActive = false;
+                document.body.classList.remove('buffer-active');
+            }
+        }
+
+        // 2. Check Active Task
+        active = STATE.schedule.find(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+
+        if (active) {
+            const start = timeToMinutes(active.start);
+            const end = timeToMinutes(active.end);
+            const totalSecs = (end-start)*60;
+            const elapsed = (curM*60 + now.getSeconds()) - start*60;
+            const remaining = totalSecs - elapsed;
+
+            // State Transition
+            if (STATE.lastTaskName !== active.task) {
+                STATE.lastTaskName = active.task;
+                
+                if (active.type === 'study') {
+                    STATE.bgmPlayer.pause();
+                    updateAutoPlayInfo("");
+                    triggerAlert('school', active.task);
+                    speak(`Focus session started: ${active.task}`);
+                } else {
+                    playRandomTrack();
+                    triggerAlert('coffee', "Break Time");
+                    speak("Break time initiated.");
+                }
+                highlightRow(active);
+            }
+            
+            updateTimer(active.task, remaining, totalSecs, false);
+            
+            // Show early finish button for study tasks
+            if (active.type === 'study') {
+                document.getElementById('btn-early').classList.add('visible');
+            } else {
+                document.getElementById('btn-early').classList.remove('visible');
+            }
+        } else {
+            updateTimer("FREE TIME", 0, 100, false);
+            STATE.lastTaskName = null;
+            document.getElementById('btn-early').classList.remove('visible');
+        }
+    }
+
+    function updateTimer(label, secs, total, isBuffer) {
+        if(secs < 0) secs = 0;
+        const m = Math.floor(secs/60).toString().padStart(2,'0');
+        const s = (secs%60).toString().padStart(2,'0');
+        document.getElementById('timer-display').innerText = `${m}:${s}`;
+        document.getElementById('timer-label').innerText = label;
+        
+        const card = document.getElementById('main-card');
+        const bar = document.getElementById('progress-bar');
+        
+        if (isBuffer) {
+            card.classList.add('buffer-mode');
+            bar.style.background = "#d69e00";
+        } else {
+            card.classList.remove('buffer-mode');
+            bar.style.background = "var(--md-primary)";
+        }
+        
+        const pct = ((total-secs)/total)*100;
+        bar.style.width = pct + "%";
+    }
+
+    /* ======================== 6. UI RENDERERS ======================== */
     function renderTable() {
         const div = document.getElementById('schedule-list');
         div.innerHTML = '';
@@ -319,7 +452,7 @@
             row.id = `row-${idx}`;
             row.innerHTML = `
                 <div class="checkbox-custom" onclick="toggleTask(${idx})">
-                    ${s.done ? '<span class="material-icons-round" style="font-size:16px;">check</span>' : ''}
+                    ${s.done ? '<span class="material-icons-round" style="font-size:16px;">check_circle</span>' : '<span class="material-icons-round" style="font-size:16px; color:#ddd;">radio_button_unchecked</span>'}
                 </div>
                 <div class="task-time">${s.start} - ${s.end}</div>
                 <div class="task-name">${s.task}</div>
@@ -331,193 +464,142 @@
 
     function toggleTask(idx) {
         STATE.schedule[idx].done = !STATE.schedule[idx].done;
+        saveSchedule();
         renderTable();
     }
 
-    /* ======================== ENGINE ======================== */
-    function tick() {
-        const now = new Date();
-        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-        
-        if(STATE.schedule.length === 0) return;
-
-        const curM = now.getHours()*60 + now.getMinutes();
-        let active = null, idx = -1;
-
-        for(let i=0; i<STATE.schedule.length; i++) {
-            const s = STATE.schedule[i];
-            const start = t2m(s.start);
-            const end = t2m(s.end);
-
-            // Buffer Warning (5 mins before study)
-            if(s.type === 'study' && !s.done && curM >= start - 5 && curM < start) {
-                if(!STATE.bufferActive) {
-                    STATE.bufferActive = true;
-                    document.body.classList.add('buffer-active');
-                    speak(`Prepare for ${s.task}.`);
-                    triggerAlert('alert', `Upcoming: ${s.task}`, 'warn');
-                }
-                updateTimer(s.task + " (Prep)", start*60 - (curM*60+now.getSeconds()), 300);
-                return;
+    function highlightRow(activeTask) {
+        document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
+        const idx = STATE.schedule.indexOf(activeTask);
+        if(idx > -1) {
+            const el = document.getElementById(`row-${idx}`);
+            if(el) {
+                el.classList.add('active');
+                el.scrollIntoView({behavior: "smooth", block: "center"});
             }
-
-            if(curM >= start && curM < end) {
-                active = s; idx = i;
-                break;
-            }
-        }
-
-        // Cleanup buffer
-        if(STATE.bufferActive && (!active || active.type !== 'study')) {
-            STATE.bufferActive = false;
-            document.body.classList.remove('buffer-active');
-        }
-
-        if(active) {
-            // State Change Logic
-            if(STATE.lastTaskName !== active.task) {
-                STATE.lastTaskName = active.task;
-                
-                if(active.type === 'study') {
-                    // STOP MUSIC
-                    STATE.bgmPlayer.pause();
-                    updateAutoPlayInfo("");
-                    triggerAlert('school', active.task, 'study');
-                    speak(`Class started: ${active.task}`);
-                } else {
-                    // START MUSIC (Break)
-                    playRandomTrack();
-                    triggerAlert('notifications', "Break Time", 'break');
-                    speak("Break time.");
-                }
-            }
-
-            // Highlight Active Row
-            document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
-            if(document.getElementById(`row-${idx}`)) {
-                document.getElementById(`row-${idx}`).classList.add('active');
-                // Optional: Scroll to view
-                // document.getElementById(`row-${idx}`).scrollIntoView({behavior: "smooth", block: "center"});
-            }
-
-            // Finish Early Btn
-            if(active.type === 'study' && !active.done) document.getElementById('btn-early').classList.add('visible');
-            else document.getElementById('btn-early').classList.remove('visible');
-
-            const start = t2m(active.start);
-            const end = t2m(active.end);
-            updateTimer(active.task, end*60 - (curM*60+now.getSeconds()), (end-start)*60);
-        } else {
-            updateTimer("FREE TIME", 0, 100);
-            document.getElementById('progress-bar').style.width = '0%';
-        }
-    }
-
-    /* ======================== BGM & UTILS ======================== */
-    function playRandomTrack() {
-        const track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
-        const url = `https://music.163.com/song/media/outer/url?id=${track.id}.mp3`;
-        
-        updateAutoPlayInfo(track.name);
-        
-        STATE.bgmPlayer.src = url;
-        STATE.bgmPlayer.play().catch(e => {
-            console.error("Auto-play blocked by browser. User interaction needed.");
-        });
-    }
-
-    function updateAutoPlayInfo(text) {
-        const el = document.getElementById('auto-play-info');
-        const txt = document.getElementById('scrolling-song-name');
-        if(text) {
-            el.classList.add('active');
-            txt.innerText = "♫ " + text;
-        } else {
-            el.classList.remove('active');
         }
     }
 
     function finishTaskEarly() {
         const now = new Date();
         const curM = now.getHours()*60 + now.getMinutes();
-        const idx = STATE.schedule.findIndex(s => {
-            const st=t2m(s.start), en=t2m(s.end);
-            return curM >= st && curM < en;
-        });
-
-        if(idx !== -1) {
+        const idx = STATE.schedule.findIndex(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+        
+        if (idx > -1) {
             STATE.schedule[idx].done = true;
-            STATE.schedule[idx].type = 'break';
+            saveSchedule();
             renderTable();
-            document.getElementById('btn-early').classList.remove('visible');
-            playRandomTrack(); // Reward music
-            triggerAlert('thumb_up', "Finished Early", 'break');
-            speak("Good job.");
+            speak("Task marked complete.");
         }
     }
 
-    /* ======================== TTS & UTILS ======================== */
+    /* ======================== 7. AUDIO & TTS ======================== */
+    function changePlaylist(id) {
+        document.getElementById('music-iframe').src = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`;
+    }
+
+    function addCustomPlaylist() {
+        const id = prompt("Enter NetEase Playlist ID (e.g., 12345678):");
+        if(id && !isNaN(id)) {
+            const name = prompt("Enter Playlist Name:", "My Custom List");
+            
+            // Save to storage
+            const playlist = {id: id, name: name || "Custom Playlist"};
+            STATE.customPlaylists.push(playlist);
+            localStorage.setItem('w3_playlists', JSON.stringify(STATE.customPlaylists));
+            
+            // Add to dropdown
+            const select = document.getElementById('playlist-picker');
+            const option = document.createElement('option');
+            option.value = id;
+            option.innerText = playlist.name;
+            select.appendChild(option);
+            select.value = id;
+            changePlaylist(id);
+            
+            speak("Custom playlist added and saved.");
+        } else if (id) {
+            alert("Invalid ID. Please enter numbers only.");
+        }
+    }
+
+    function loadCustomPlaylists() {
+        const select = document.getElementById('playlist-picker');
+        STATE.customPlaylists.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.innerText = p.name;
+            select.appendChild(option);
+        });
+    }
+
+    function playRandomTrack() {
+        const track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
+        updateAutoPlayInfo(track.name);
+        STATE.bgmPlayer.src = `https://music.163.com/song/media/outer/url?id=${track.id}.mp3`;
+        STATE.bgmPlayer.play().catch(e => {
+            updateAutoPlayInfo("Auto-play Blocked (Click Page)");
+        });
+    }
+
+    function updateAutoPlayInfo(text) {
+        const infoBox = document.getElementById('auto-play-info');
+        const textEl = document.getElementById('scrolling-song-name');
+        
+        if (text) {
+            infoBox.classList.add('active');
+            textEl.innerText = "♫ " + text;
+        } else {
+            infoBox.classList.remove('active');
+        }
+    }
+
     function populateVoiceSelect() {
         const sel = document.getElementById('voice-select');
         sel.innerHTML = '';
         const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
-        
-        // Sort: Google/Microsoft first
-        voices.sort((a,b) => {
-            const aScore = a.name.includes("Google") || a.name.includes("Microsoft") ? 1 : 0;
-            const bScore = b.name.includes("Google") || b.name.includes("Microsoft") ? 1 : 0;
-            return bScore - aScore;
-        });
-
         voices.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.voiceURI;
             opt.innerText = v.name;
             sel.appendChild(opt);
         });
-        
-        if(STATE.userVoiceURI) sel.value = STATE.userVoiceURI;
-        
-        sel.onchange = () => {
-            STATE.userVoiceURI = sel.value;
-            localStorage.setItem('warden_voice', sel.value);
-            speak("Voice updated.");
-        };
+        if(STATE.voiceUri) sel.value = STATE.voiceUri;
     }
 
     function speak(text) {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'en-US';
-        const voices = window.speechSynthesis.getVoices();
-        const v = voices.find(v => v.voiceURI === STATE.userVoiceURI);
+        const v = window.speechSynthesis.getVoices().find(v => v.voiceURI === STATE.voiceUri);
         if(v) u.voice = v;
         window.speechSynthesis.speak(u);
     }
-    
-    function testVoice() { speak("Voice system operational."); }
 
-    function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
-    function updateTimer(label, secs, total) {
-        if(secs < 0) secs = 0;
-        const m = Math.floor(secs/60).toString().padStart(2,'0');
-        const s = (secs%60).toString().padStart(2,'0');
-        document.getElementById('timer-display').innerText = `${m}:${s}`;
-        document.getElementById('timer-label').innerText = label;
-        let pct = ((total-secs)/total)*100;
-        document.getElementById('progress-bar').style.width = pct + "%";
+    function testVoice() { 
+        STATE.voiceUri = document.getElementById('voice-select').value;
+        localStorage.setItem('w3_voice', STATE.voiceUri);
+        speak("Voice updated successfully."); 
+    }
+
+    /* ======================== 8. UTILS ======================== */
+    function timeToMinutes(t) { 
+        const [h,m] = t.split(':').map(Number); 
+        return h*60+m; 
     }
     
-    function triggerAlert(icon, title, modeClass) {
+    function saveSchedule() { 
+        localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule)); 
+    }
+    
+    function triggerAlert(icon, text) {
         const el = document.getElementById('fullscreen-alert');
-        el.className = `active mode-${modeClass}`;
-        document.getElementById('alert-text').innerText = title;
+        el.classList.add('active');
+        document.getElementById('alert-text').innerText = text;
         document.getElementById('alert-icon').innerText = icon;
-        setTimeout(() => el.className = '', 4000);
+        setTimeout(() => el.classList.remove('active'), 4000);
     }
-    
-    // Ensure voices load
-    window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
+
 </script>
 </body>
 </html>
