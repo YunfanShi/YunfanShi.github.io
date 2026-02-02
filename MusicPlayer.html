@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sync Player | V3.0 Standard</title>
+    <title>Jack's Sync Player | V3.5 Ultimate</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            /* === V3.0 正常配色方案 (Light Mode) === */
+            /* === V3.1 正常配色方案 (Light Mode) === */
             --primary: #2563eb;       /* 标准蓝 */
             --primary-hover: #1d4ed8;
             --bg: #f1f5f9;            /* 浅灰背景 */
@@ -33,15 +33,24 @@
         }
         .brand { font-weight: 800; font-size: 18px; color: var(--text-main); display: flex; gap: 8px; align-items: center; }
         
-        .header-actions { display: flex; align-items: center; gap: 15px; }
+        .header-actions { display: flex; align-items: center; gap: 10px; }
 
-        .sync-badge { 
-            font-family: 'Roboto Mono'; font-size: 12px; color: var(--primary); font-weight: 600;
-            background: #eff6ff; padding: 6px 12px; border-radius: 20px; border: 1px solid #dbeafe;
+        /* 通用徽章按钮样式 */
+        .action-badge { 
+            font-family: 'Roboto Mono'; font-size: 12px; font-weight: 600;
+            padding: 6px 12px; border-radius: 20px; border: 1px solid transparent;
             cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
         }
+        
+        /* 导入按钮 */
+        .import-badge { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+        .import-badge:hover { background: #dcfce7; }
+
+        /* 同步按钮 */
+        .sync-badge { background: #eff6ff; color: var(--primary); border-color: #dbeafe; }
         .sync-badge:hover { background: #dbeafe; }
         .sync-badge.loading { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
+        .sync-badge.error { color: #ef4444; background: #fef2f2; border-color: #fee2e2; }
 
         .btn-icon {
             background: transparent; border: none; cursor: pointer; color: var(--text-sec); 
@@ -71,7 +80,7 @@
         .song-item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: 0.1s; display: flex; justify-content: space-between; align-items: center;}
         .song-item:hover { background: #f8fafc; }
         .song-item.active { background: #eff6ff; border-left: 4px solid var(--primary); }
-        .song-name { font-weight: 600; font-size: 14px; color: var(--text-main); }
+        .song-name { font-weight: 600; font-size: 14px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
         .song-id { font-size: 11px; color: var(--text-sec); font-family: 'Roboto Mono'; margin-top: 2px; }
         .btn-del { opacity: 0; color: #94a3b8; cursor: pointer; padding: 4px; }
         .song-item:hover .btn-del { opacity: 1; }
@@ -110,7 +119,7 @@
         .btn-adj:hover { background: #e2e8f0; }
         .btn-adj:active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* SETTINGS MODAL */
+        /* === MODALS (Shared Styles) === */
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px);
             display: flex; justify-content: center; align-items: center; z-index: 100;
@@ -118,24 +127,35 @@
         }
         .modal-overlay.open { opacity: 1; pointer-events: auto; }
         .modal-card {
-            background: var(--surface); width: 300px; border-radius: 12px; padding: 20px;
+            background: var(--surface); width: 340px; border-radius: 12px; padding: 20px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(0.95); transition: 0.2s;
+            max-height: 90vh; overflow-y: auto;
         }
         .modal-overlay.open .modal-card { transform: scale(1); }
-        .modal-title { font-weight: 800; font-size: 18px; margin-bottom: 15px; }
+        .modal-title { font-weight: 800; font-size: 18px; margin-bottom: 15px; color: var(--text-main); }
+        
+        /* Settings Styles */
         .setting-row { margin-bottom: 20px; }
         .setting-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 8px; }
-        
         .radio-group { display: flex; background: #f1f5f9; padding: 4px; border-radius: 8px; }
         .radio-opt { 
             flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sec);
         }
         .radio-opt.selected { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
+        /* Import Styles (New) */
+        .step-card { background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
+        .step-head { font-size: 12px; font-weight: 700; color: var(--text-sec); margin-bottom: 8px; display: flex; align-items: center; }
+        .step-num { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 8px; }
+        .json-input {
+            width: 100%; height: 80px; box-sizing: border-box; padding: 8px; 
+            background: white; border: 1px solid var(--border); color: var(--text-main);
+            border-radius: 6px; font-family: 'Roboto Mono', monospace; font-size: 11px;
+            resize: none; outline: none; margin-bottom: 5px;
+        }
+        .json-input:focus { border-color: var(--primary); }
+
         @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
-        
-        /* Utility */
-        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -144,7 +164,7 @@
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <div class="modal-title" style="margin:0">Settings</div>
-            <button class="btn-icon" onclick="toggleSettings()"><span class="material-icons-round">close</span></button>
+            <button class="btn-icon" onclick="toggleModal('settings-modal')"><span class="material-icons-round">close</span></button>
         </div>
         
         <div class="setting-row">
@@ -156,25 +176,58 @@
                 <div class="radio-opt" onclick="setIntervalVal(60000)">60s</div>
             </div>
             <div style="font-size:11px; color:#94a3b8; margin-top:8px; line-height:1.4;">
-                System will lock to the nearest chosen interval (e.g., :10, :20). 
+                System locks to nearest interval (e.g., :10, :20). 
             </div>
         </div>
 
-        <button class="btn-add" onclick="toggleSettings()">Done</button>
+        <button class="btn-add" onclick="toggleModal('settings-modal')">Done</button>
+    </div>
+</div>
+
+<div id="import-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <div class="modal-title" style="margin:0">Smart Import</div>
+            <button class="btn-icon" onclick="toggleModal('import-modal')"><span class="material-icons-round">close</span></button>
+        </div>
+
+        <div class="step-card">
+            <div class="step-head"><span class="step-num">STEP 1</span> Copy Script & Open NetEase</div>
+            <div style="font-size:11px; color:#64748b; margin-bottom:10px; line-height:1.4;">
+                1. Click button below to copy script.<br>
+                2. In NetEase Playlist page, press <b>F12</b>.<br>
+                3. Paste in Console and Enter.
+            </div>
+            <button class="btn-adj" style="width:100%" onclick="copyScriptAndJump()">
+                <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:4px;">content_copy</span> Copy & Open
+            </button>
+        </div>
+
+        <div class="step-card">
+            <div class="step-head"><span class="step-num">STEP 2</span> Paste Result</div>
+            <textarea id="import-input" class="json-input" placeholder='Paste JSON here: [{"id":"...","name":"..."}]'></textarea>
+            <button class="btn-add" onclick="processImport()">Import Songs</button>
+        </div>
     </div>
 </div>
 
 <header>
     <div class="brand">
         <span class="material-icons-round" style="color:var(--primary)">dns</span>
-        <span>Jack's Sync</span>
+        <span>Jack's Sync <span style="font-size:10px; opacity:0.6; vertical-align:middle;">ULTIMATE</span></span>
     </div>
     <div class="header-actions">
-        <div id="sync-btn" class="sync-badge" onclick="performRobustSync()">
+        <div class="action-badge import-badge" onclick="toggleModal('import-modal')">
+            <span class="material-icons-round" style="font-size:14px">playlist_add</span>
+            <span>Import</span>
+        </div>
+        
+        <div id="sync-btn" class="action-badge sync-badge" onclick="performRobustSync()">
             <span class="material-icons-round" style="font-size:14px">sync</span>
             <span id="sync-text">Sync Time</span>
         </div>
-        <button class="btn-icon" onclick="toggleSettings()" title="Settings">
+        
+        <button class="btn-icon" onclick="toggleModal('settings-modal')" title="Settings">
             <span class="material-icons-round">settings</span>
         </button>
     </div>
@@ -186,6 +239,9 @@
             <input type="text" id="inp-id" class="g-input" placeholder="NetEase ID (e.g. 186016)">
             <input type="text" id="inp-name" class="g-input" placeholder="Song Name">
             <button class="btn-add" onclick="addSong()">Add Track</button>
+            <div style="text-align:right; margin-top:5px;">
+                <span style="font-size:10px; color:#94a3b8; cursor:pointer;" onclick="clearLibrary()">CLEAR ALL</span>
+            </div>
         </div>
         <div id="song-list-el" class="song-list"></div>
     </aside>
@@ -217,7 +273,7 @@
     const STATE = {
         songs: JSON.parse(localStorage.getItem('ps_songs')) || [],
         manualOffset: parseInt(localStorage.getItem('ps_offset')) || 0,
-        interval: parseInt(localStorage.getItem('ps_interval')) || 10000, // Default 10s
+        interval: parseInt(localStorage.getItem('ps_interval')) || 10000,
         netOffset: 0, 
         curIdx: 0,
         status: 'IDLE', 
@@ -226,51 +282,163 @@
         animFrame: null
     };
 
-    /* ================= 1. NETWORK SYNC ================= */
+    /* ================= 1. JSONP SYNC ENGINE (Universal / No-CORS) ================= */
+    // 采用 JSONP 动态脚本注入，完美解决 V3.1 中 file:// 本地运行时的跨域报错问题。
+    // 直接连接淘宝/苏宁服务器，秒级响应。
+
+    function fetchJsonpTime(config) {
+        return new Promise((resolve, reject) => {
+            const callbackName = 'cb_' + Math.random().toString(36).substr(2, 9);
+            const t0 = Date.now();
+            let isResolved = false;
+
+            // 1. 全局回调
+            window[callbackName] = (data) => {
+                if(isResolved) return;
+                isResolved = true;
+                const t3 = Date.now();
+                cleanup();
+                
+                try {
+                    const serverTime = config.parser(data);
+                    if(!serverTime || isNaN(serverTime)) throw new Error("Parse Error");
+                    // NTP 偏移计算
+                    const rtt = t3 - t0;
+                    const offset = (serverTime + (rtt / 2)) - t3;
+                    resolve({ offset, rtt, source: config.name });
+                } catch(e) { reject(e); }
+            };
+
+            // 2. 清理
+            function cleanup() {
+                delete window[callbackName];
+                if(script.parentNode) script.parentNode.removeChild(script);
+            }
+
+            // 3. 注入
+            const script = document.createElement('script');
+            const sep = config.url.includes('?') ? '&' : '?';
+            script.src = `${config.url}${sep}${config.callbackParam}=${callbackName}&_=${t0}`;
+            
+            script.onerror = () => {
+                if(isResolved) return; isResolved = true; cleanup();
+                reject(new Error("Net Error"));
+            };
+
+            document.body.appendChild(script);
+            setTimeout(() => { if(!isResolved) { isResolved = true; cleanup(); reject(new Error("Timeout")); }}, 3000);
+        });
+    }
+
     async function performRobustSync() {
         const btn = document.getElementById('sync-btn');
         const txt = document.getElementById('sync-text');
-        btn.className = 'sync-badge loading';
-        txt.innerText = "Syncing...";
+        
+        btn.className = 'action-badge sync-badge loading';
+        txt.innerText = "Connecting CN...";
 
-        const samples = [];
-        const ATTEMPTS = 5; 
+        const PROVIDERS = [
+            { 
+                name: 'Taobao', 
+                url: 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp', 
+                callbackParam: 'callback',
+                parser: (res) => parseInt(res.data.t) 
+            },
+            {
+                name: 'Suning',
+                url: 'https://quan.suning.com/getSysTime.do',
+                callbackParam: 'callback',
+                parser: (res) => new Date(res.sysTime2).getTime()
+            }
+        ];
 
-        for(let i=0; i<ATTEMPTS; i++) {
-            try {
-                const t0 = Date.now();
-                const res = await fetch(`https://worldtimeapi.org/api/timezone/Etc/UTC?t=${t0}`, {cache: "no-store"});
-                const data = await res.json();
-                const t3 = Date.now();
-                const serverTime = new Date(data.datetime).getTime();
-                const rtt = t3 - t0;
-                const offset = (serverTime + (rtt/2)) - t3;
-                samples.push({ offset, rtt });
-                await new Promise(r => setTimeout(r, 150)); 
-            } catch(e) {}
-        }
+        try {
+            // 采用 3 次采样取平均值，提高精度
+            let totalOffset = 0;
+            let successCount = 0;
+            let lastSource = "";
 
-        if(samples.length < 2) {
-            btn.className = 'sync-badge';
+            for(let i=0; i<3; i++) {
+                // Race: 同时请求淘宝和苏宁，谁快用谁
+                const winner = await Promise.race(PROVIDERS.map(p => fetchJsonpTime(p)));
+                totalOffset += winner.offset;
+                successCount++;
+                lastSource = winner.source;
+                txt.innerText = `Sample ${i+1}/3...`;
+                await new Promise(r => setTimeout(r, 150)); // 防抖
+            }
+
+            STATE.netOffset = totalOffset / successCount;
+            
+            btn.className = 'action-badge sync-badge';
+            txt.innerText = `Synced: ${lastSource} (${Math.round(STATE.netOffset)}ms)`;
+            console.log("Sync Success:", STATE.netOffset);
+
+        } catch(e) {
+            console.error(e);
+            btn.className = 'action-badge sync-badge error';
             txt.innerText = "Sync Failed";
-            return;
+            alert("同步失败，请检查网络连接。\n即使在 file:// 模式下，本版本也应该可以正常连接淘宝服务器。");
         }
-
-        samples.sort((a, b) => a.rtt - b.rtt);
-        const bestSamples = samples.slice(0, 3);
-        const avgOffset = bestSamples.reduce((sum, s) => sum + s.offset, 0) / bestSamples.length;
-
-        STATE.netOffset = avgOffset;
-        btn.className = 'sync-badge';
-        txt.innerText = `Synced (${Math.round(STATE.netOffset)}ms)`;
     }
 
     function getPreciseTime() { return Date.now() + STATE.netOffset; }
 
-    /* ================= 2. SETTINGS LOGIC ================= */
-    function toggleSettings() {
-        document.getElementById('settings-modal').classList.toggle('open');
-        renderIntervalUI();
+    /* ================= 2. SMART IMPORT LOGIC (From V2) ================= */
+    const SMART_SCRIPT = `
+(function(){
+    var doc = document;
+    var iframe = document.getElementById('g_iframe');
+    if(iframe && iframe.contentWindow) { console.log("Switched to iframe"); doc = iframe.contentWindow.document; }
+    
+    var rows = doc.querySelectorAll('.m-table tbody tr');
+    if(rows.length === 0) { alert("No songs found! Are you on a Playlist page?"); return; }
+
+    var list = [];
+    rows.forEach(function(row){
+        var id = row.querySelector('.ply') ? row.querySelector('.ply').getAttribute('data-res-id') : null;
+        var name = row.querySelector('.ttc .txt b') ? row.querySelector('.ttc .txt b').getAttribute('title') : 'Unknown';
+        if(id) list.push({id: id, name: name});
+    });
+    
+    var json = JSON.stringify(list);
+    console.clear();
+    console.log("%c COPY BELOW:", "color:red;font-size:20px;font-weight:bold;");
+    console.log(json);
+    alert("Extracted " + list.length + " songs! Check Console (F12) to copy.");
+})();
+    `;
+
+    function copyScriptAndJump() {
+        navigator.clipboard.writeText(SMART_SCRIPT).then(() => {
+            alert("Script Copied!\n\n1. Opening NetEase...\n2. Press F12 (Console)\n3. Paste (Ctrl+V) and Enter.");
+            window.open("https://music.163.com", "_blank");
+        }).catch(() => alert("Copy failed."));
+    }
+
+    function processImport() {
+        const input = document.getElementById('import-input').value.trim();
+        if(!input) return;
+        try {
+            const data = JSON.parse(input);
+            if(!Array.isArray(data)) throw new Error("Not array");
+            let count = 0;
+            data.forEach(s => {
+                if(s.id && !STATE.songs.some(ex => ex.id == s.id)) {
+                    STATE.songs.push(s); count++;
+                }
+            });
+            saveSongs(); renderSongs();
+            toggleModal('import-modal');
+            alert(`Success! Imported ${count} songs.`);
+            document.getElementById('import-input').value = "";
+        } catch(e) { alert("Invalid JSON format."); }
+    }
+
+    /* ================= 3. UI & SETTINGS ================= */
+    function toggleModal(id) {
+        document.getElementById(id).classList.toggle('open');
+        if(id === 'settings-modal') renderIntervalUI();
     }
 
     function setIntervalVal(ms) {
@@ -288,14 +456,9 @@
                 opt.classList.remove('selected');
             }
         });
-        
-        // If idle, update status text
-        if(STATE.status === 'IDLE') {
-            document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
-        }
+        if(STATE.status === 'IDLE') document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
     }
 
-    /* ================= 3. ENGINE ================= */
     function adjustOffset(delta) {
         STATE.manualOffset += delta;
         localStorage.setItem('ps_offset', STATE.manualOffset);
@@ -309,9 +472,9 @@
         el.className = val === 0 ? 'offset-display' : (val < 0 ? 'offset-display neg' : 'offset-display');
     }
 
+    /* ================= 4. MAIN ENGINE ================= */
     function armSystem() {
         if(STATE.status !== 'IDLE') {
-            // Reset
             STATE.audio.pause(); STATE.audio.currentTime = 0;
             STATE.status = 'IDLE';
             document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
@@ -321,14 +484,13 @@
             return;
         }
 
-        if(STATE.songs.length === 0) return alert("Please add a song first.");
+        if(STATE.songs.length === 0) return alert("Please add or import songs first.");
 
         const now = getPreciseTime();
-        const INTERVAL = STATE.interval; // Use dynamic interval
+        const INTERVAL = STATE.interval; 
         
-        // Calculate next Interval
         let target = Math.ceil(now / INTERVAL) * INTERVAL;
-        if (target - now < 4000) target += INTERVAL; // Minimum 4s buffer
+        if (target - now < 4000) target += INTERVAL; 
 
         STATE.targetTime = target; 
         const s = STATE.songs[STATE.curIdx];
@@ -339,7 +501,6 @@
         
         const dateObj = new Date(target);
         const secs = dateObj.getSeconds().toString().padStart(2,'0');
-        const mins = dateObj.getMinutes().toString().padStart(2,'0');
         document.getElementById('status-display').innerText = `Armed - Firing at :${secs}`;
         document.getElementById('status-display').classList.add('waiting');
 
@@ -365,7 +526,7 @@
         STATE.animFrame = requestAnimationFrame(loop);
     }
 
-    /* ================= 4. LIST MGMT ================= */
+    /* ================= 5. LIST MGMT ================= */
     function addSong() {
         const id = document.getElementById('inp-id').value;
         const name = document.getElementById('inp-name').value || id;
@@ -377,6 +538,10 @@
     
     function removeSong(i, e) {
         e.stopPropagation(); STATE.songs.splice(i, 1); saveSongs(); renderSongs();
+    }
+    
+    function clearLibrary() {
+        if(confirm("Delete all songs?")) { STATE.songs = []; saveSongs(); renderSongs(); }
     }
 
     function selectSong(i) {
@@ -393,7 +558,7 @@
             div.onclick = () => selectSong(i);
             div.innerHTML = `
                 <div>
-                    <div class="song-name">${s.name}</div>
+                    <div class="song-name" title="${s.name}">${s.name}</div>
                     <div class="song-id">ID: ${s.id}</div>
                 </div>
                 <div class="material-icons-round btn-del" onclick="removeSong(${i}, event)">delete</div>
@@ -406,16 +571,17 @@
 
     /* ================= INIT ================= */
     window.addEventListener('keydown', e => {
-        if(e.code === 'Space' && e.target.tagName !== 'INPUT') {
+        if(e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault(); armSystem();
         }
     });
 
-    // Init Logic
     updateOffsetUI();
     renderSongs();
-    performRobustSync();
-    renderIntervalUI(); // Load saved interval
+    renderIntervalUI();
+    
+    // Auto Sync on Load
+    setTimeout(performRobustSync, 500);
 
 </script>
 </body>
