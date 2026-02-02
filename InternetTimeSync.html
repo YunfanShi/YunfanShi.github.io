@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's API Latency Diagnostic Tool</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --error: #ef4444;
+            --text: #f8fafc;
+            --border: #334155;
+        }
+        body {
+            font-family: 'Courier New', monospace; /* 极客风格字体 */
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
+        th { color: #94a3b8; font-size: 12px; text-transform: uppercase; }
+        
+        .status-badge {
+            padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;
+            background: #334155; color: #94a3b8;
+        }
+        .status-badge.success { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .status-badge.fail { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+        .status-badge.running { background: rgba(59, 130, 246, 0.2); color: var(--primary); animation: pulse 1s infinite; }
+
+        button {
+            background: var(--primary); color: white; border: none; padding: 8px 16px;
+            border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover { filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-small { padding: 4px 8px; font-size: 12px; background: var(--surface); border: 1px solid var(--border); }
+        .btn-small:hover { border-color: var(--text); }
+
+        #console-log {
+            background: #000; color: #0f0; padding: 15px; border-radius: 6px;
+            height: 200px; overflow-y: auto; font-size: 12px; white-space: pre-wrap;
+            border: 1px solid #333;
+        }
+
+        @keyframes pulse { 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+    <h2>⚡ API Connectivity Test</h2>
+    
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <p>点击下方按钮测试各个接口的连通性、延迟(RTT)和时间偏差。</p>
+            <button onclick="testAll()">全部测试 (Test All)</button>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th width="20%">API Name</th>
+                    <th width="15%">Method</th>
+                    <th width="15%">Status</th>
+                    <th width="15%">RTT (延迟)</th>
+                    <th width="20%">Offset (偏差)</th>
+                    <th width="15%">Action</th>
+                </tr>
+            </thead>
+            <tbody id="api-table">
+                </tbody>
+        </table>
+    </div>
+
+    <h3>Debug Console</h3>
+    <div id="console-log">Ready...</div>
+
+    <script>
+        // === 核心配置：这里列出了最好的几个 API ===
+        const APIS = [
+            {
+                id: 'taobao',
+                name: '淘宝 (Taobao)',
+                url: 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp',
+                method: 'JSONP', // 必须用 JSONP 否则跨域
+                desc: '阿里 CDN，公认最快最稳'
+            },
+            {
+                id: 'suning',
+                name: '苏宁 (Suning)',
+                url: 'https://f.m.suning.com/api/ct.do',
+                method: 'JSONP',
+                desc: '备选方案，精度略低但稳定'
+            },
+            {
+                id: 'worldtime',
+                name: 'WorldTimeAPI',
+                url: 'http://worldtimeapi.org/api/timezone/Asia/Shanghai',
+                method: 'FETCH',
+                desc: '国外标准接口，国内可能慢/被墙'
+            }
+        ];
+
+        // === 1. JSONP 封装 (解决跨域的核心) ===
+        function jsonpRequest(url) {
+            return new Promise((resolve, reject) => {
+                const t0 = performance.now();
+                const callbackName = 'cb_' + Math.random().toString(36).substr(2, 9);
+                
+                // 设置超时
+                const timeoutId = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Timeout (3000ms)'));
+                }, 3000);
+
+                // 清理函数
+                function cleanup() {
+                    delete window[callbackName];
+                    document.getElementById(callbackName)?.remove();
+                    clearTimeout(timeoutId);
+                }
+
+                // 定义回调
+                window[callbackName] = (data) => {
+                    const tEnd = performance.now(); // 更高精度的计时
+                    cleanup();
+                    
+                    // 解析不同厂商的数据格式
+                    let serverTime = 0;
+                    if (url.includes('taobao')) {
+                        serverTime = parseInt(data.data.t);
+                    } else if (url.includes('suning')) {
+                        serverTime = data.currentTime;
+                    }
+                    
+                    resolve({ serverTime, rtt: tEnd - t0 });
+                };
+
+                // 插入 Script
+                const script = document.createElement('script');
+                script.id = callbackName;
+                // 拼接 callback 参数
+                const joinChar = url.includes('?') ? '&' : '?';
+                script.src = `${url}${joinChar}callback=${callbackName}&_=${Date.now()}`;
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error('Script Load Error (Network blocked?)'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // === 2. Fetch 封装 ===
+        async function fetchRequest(url) {
+            const t0 = performance.now();
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const tEnd = performance.now();
+                
+                // WorldTimeAPI 专用解析
+                const serverTime = new Date(data.datetime).getTime();
+                return { serverTime, rtt: tEnd - t0 };
+            } catch (e) {
+                throw e;
+            }
+        }
+
+        // === 3. 测试主逻辑 ===
+        async function runTest(apiId) {
+            const api = APIS.find(a => a.id === apiId);
+            updateRow(apiId, 'running', 'Testing...', '-', '-');
+            log(`Starting test for ${api.name}...`);
+
+            try {
+                let result;
+                if (api.method === 'JSONP') {
+                    result = await jsonpRequest(api.url);
+                } else {
+                    result = await fetchRequest(api.url);
+                }
+
+                const { serverTime, rtt } = result;
+                // 计算偏差：(服务器时间 + RTT/2) - 当前时间
+                // 这里为了演示偏差，我们重新取一次 Date.now() 作为对比基准
+                const now = Date.now();
+                const correctedServerTime = serverTime + (rtt / 2); // 理论上的“现在”绝对时间
+                const offset = correctedServerTime - now;
+
+                updateRow(apiId, 'success', 'OK', `${rtt.toFixed(1)}ms`, `${offset.toFixed(1)}ms`);
+                log(`[SUCCESS] ${api.name}: RTT=${rtt.toFixed(2)}ms, Offset=${offset.toFixed(2)}ms`);
+
+            } catch (e) {
+                updateRow(apiId, 'fail', 'FAILED', '-', '-');
+                log(`[ERROR] ${api.name}: ${e.message}`);
+                
+                if(e.message.includes('Script Load Error') && api.id === 'taobao') {
+                    log(`>>> 提示：如果在本地测试，检查是否有去广告插件拦截了淘宝API，或者尝试更换网络。`);
+                }
+            }
+        }
+
+        async function testAll() {
+            log("--- Starting Batch Test ---");
+            for (const api of APIS) {
+                await runTest(api.id);
+            }
+            log("--- Batch Test Finished ---");
+        }
+
+        // === UI 辅助函数 ===
+        function log(msg) {
+            const box = document.getElementById('console-log');
+            const time = new Date().toLocaleTimeString();
+            box.innerText += `[${time}] ${msg}\n`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function updateRow(id, statusClass, statusText, rtt, offset) {
+            const row = document.getElementById(`row-${id}`);
+            if (!row) return;
+            
+            row.querySelector('.status-cell').innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
+            row.querySelector('.rtt-cell').innerText = rtt;
+            row.querySelector('.offset-cell').innerText = offset;
+            
+            // 高亮 Offset，如果是负数显红，正数显绿
+            const offCell = row.querySelector('.offset-cell');
+            if (offset !== '-') {
+                const val = parseFloat(offset);
+                offCell.style.color = Math.abs(val) > 1000 ? 'var(--error)' : 'var(--success)';
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('api-table');
+            tbody.innerHTML = APIS.map(api => `
+                <tr id="row-${api.id}">
+                    <td>
+                        <div style="font-weight:bold">${api.name}</div>
+                        <div style="font-size:10px; color:#64748b">${api.desc}</div>
+                    </td>
+                    <td><span style="font-size:10px; border:1px solid #475569; padding:2px 4px; border-radius:4px">${api.method}</span></td>
+                    <td class="status-cell"><span class="status-badge">WAITING</span></td>
+                    <td class="rtt-cell">-</td>
+                    <td class="offset-cell">-</td>
+                    <td><button class="btn-small" onclick="runTest('${api.id}')">Test</button></td>
+                </tr>
+            `).join('');
+        }
+
+        // 初始化
+        renderTable();
+        log("System Ready. Please enable JavaScript.");
+    </script>
+
+</body>
+</html>
