@@ -3,134 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Pro Sync | V2.1 Fast-Trigger</title>
+    <title>Jack's Sync Player | V3.0 Standard</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            --primary: #6200ea; /* Deep Purple for V2.1 */
-            --accent: #00e5ff;
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --text-main: #f8fafc;
-            --text-sec: #94a3b8;
+            /* === V3.0 正常配色方案 (Light Mode) === */
+            --primary: #2563eb;       /* 标准蓝 */
+            --primary-hover: #1d4ed8;
+            --bg: #f1f5f9;            /* 浅灰背景 */
+            --surface: #ffffff;       /* 白色卡片 */
+            --text-main: #1e293b;     /* 深色文字 */
+            --text-sec: #64748b;      /* 次级文字 */
+            --border: #e2e8f0;        /* 边框颜色 */
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
         body {
-            margin: 0; font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text-main);
+            margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text-main);
             height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none;
         }
 
         /* === HEADER === */
         header {
-            background: var(--surface); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #334155;
+            background: var(--surface); padding: 0 25px; height: 64px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); z-index: 10;
         }
-        .brand { font-weight: 900; font-size: 18px; letter-spacing: 1px; color: var(--primary); display: flex; gap: 10px; align-items: center; text-shadow: 0 0 15px rgba(98, 0, 234, 0.5); }
+        .brand { font-weight: 800; font-size: 18px; color: var(--text-main); display: flex; gap: 8px; align-items: center; }
         
-        .sync-box { display: flex; flex-direction: column; align-items: flex-end; }
+        .header-actions { display: flex; align-items: center; gap: 15px; }
+
         .sync-badge { 
-            font-family: 'Roboto Mono'; font-size: 12px; color: var(--accent); 
-            background: rgba(0, 229, 255, 0.1); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(0, 229, 255, 0.3);
-            cursor: pointer; display: flex; align-items: center; gap: 5px; transition: 0.3s;
+            font-family: 'Roboto Mono'; font-size: 12px; color: var(--primary); font-weight: 600;
+            background: #eff6ff; padding: 6px 12px; border-radius: 20px; border: 1px solid #dbeafe;
+            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
         }
-        .sync-badge:hover { background: rgba(0, 229, 255, 0.2); box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); }
-        .sync-badge.loading { color: #ffd600; border-color: #ffd600; background: rgba(255, 214, 0, 0.1); }
-        .rtt-info { font-size: 10px; color: #64748b; margin-top: 3px; }
+        .sync-badge:hover { background: #dbeafe; }
+        .sync-badge.loading { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
+
+        .btn-icon {
+            background: transparent; border: none; cursor: pointer; color: var(--text-sec); 
+            padding: 8px; border-radius: 50%; display: flex; transition: 0.2s;
+        }
+        .btn-icon:hover { background: #f1f5f9; color: var(--text-main); }
 
         /* === LAYOUT === */
-        .container { flex: 1; display: grid; grid-template-columns: 320px 1fr; }
-        aside { background: #0f172a; border-right: 1px solid #334155; display: flex; flex-direction: column; }
+        .container { flex: 1; display: grid; grid-template-columns: 320px 1fr; overflow: hidden; }
         
-        .input-area { padding: 20px; border-bottom: 1px solid #334155; }
+        /* SIDEBAR */
+        aside { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5;}
+        
+        .input-area { padding: 20px; border-bottom: 1px solid var(--border); background: #f8fafc; }
         .g-input { 
-            width: 100%; padding: 12px; background: #1e293b; border: 1px solid #334155; color: white; 
-            margin-bottom: 10px; border-radius: 4px; font-family: 'Roboto Mono'; box-sizing: border-box; transition: 0.2s;
+            width: 100%; padding: 10px 12px; background: white; border: 1px solid var(--border); color: var(--text-main); 
+            margin-bottom: 10px; border-radius: 6px; font-family: 'Inter'; font-size: 14px; box-sizing: border-box; transition: 0.2s;
         }
-        .g-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(98, 0, 234, 0.3); }
-        .btn-main { 
-            width: 100%; padding: 12px; background: var(--primary); color: white; border: none; 
-            font-weight: bold; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
-            transition: 0.2s;
+        .g-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .btn-add { 
+            width: 100%; padding: 10px; background: var(--primary); color: white; border: none; 
+            font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s;
         }
-        .btn-main:hover { background: #7c4dff; }
-        .btn-main:active { transform: translateY(1px); }
+        .btn-add:hover { background: var(--primary-hover); }
 
         .song-list { flex: 1; overflow-y: auto; }
-        .song-item { padding: 15px 20px; border-bottom: 1px solid #1e293b; cursor: pointer; transition: 0.2s; }
-        .song-item:hover { background: #1e293b; }
-        .song-item.active { background: rgba(98, 0, 234, 0.15); border-left: 3px solid var(--primary); }
-        .song-name { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #f1f5f9; }
-        .song-id { font-size: 11px; color: #64748b; font-family: 'Roboto Mono'; }
-        
-        /* === MAIN PLAYER === */
-        main { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; background: #0b1120; }
+        .song-item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: 0.1s; display: flex; justify-content: space-between; align-items: center;}
+        .song-item:hover { background: #f8fafc; }
+        .song-item.active { background: #eff6ff; border-left: 4px solid var(--primary); }
+        .song-name { font-weight: 600; font-size: 14px; color: var(--text-main); }
+        .song-id { font-size: 11px; color: var(--text-sec); font-family: 'Roboto Mono'; margin-top: 2px; }
+        .btn-del { opacity: 0; color: #94a3b8; cursor: pointer; padding: 4px; }
+        .song-item:hover .btn-del { opacity: 1; }
+        .btn-del:hover { color: #ef4444; }
+
+        /* MAIN */
+        main { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; background: var(--bg); }
         
         .timer-huge { 
-            font-size: 140px; font-weight: 900; font-family: 'Roboto Mono'; line-height: 1; margin-bottom: 20px; letter-spacing: -5px; 
-            font-variant-numeric: tabular-nums;
-            background: linear-gradient(to bottom, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-size: 120px; font-weight: 900; font-family: 'Roboto Mono'; line-height: 1; margin-bottom: 10px; letter-spacing: -4px; 
+            font-variant-numeric: tabular-nums; color: var(--text-main);
         }
-        .status-text { font-size: 16px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 50px; font-weight: 500;}
-        
-        /* === OFFSET CONTROLS === */
+        .status-badge-lg { 
+            font-size: 14px; color: var(--primary); background: #dbeafe; padding: 6px 16px; border-radius: 20px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 40px;
+        }
+        .status-badge-lg.waiting { animation: pulse 1.5s infinite; background: #fff7ed; color: #ea580c; }
+        .status-badge-lg.playing { background: #dcfce7; color: #15803d; }
+
+        /* OFFSET PANEL */
         .offset-panel { 
-            background: #1e293b; padding: 25px; border-radius: 16px; 
+            background: var(--surface); padding: 25px; border-radius: 16px; 
             display: flex; flex-direction: column; align-items: center; gap: 15px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            border: 1px solid #334155;
-            min-width: 300px;
+            box-shadow: var(--shadow); border: 1px solid var(--border);
+            width: 300px;
         }
-        .panel-label { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-        .offset-display { font-family: 'Roboto Mono'; font-size: 28px; color: var(--accent); font-weight: bold; text-shadow: 0 0 20px rgba(0, 229, 255, 0.3); }
-        .offset-display.neg { color: #ff4081; text-shadow: 0 0 20px rgba(255, 64, 129, 0.3); }
+        .panel-header { font-size: 12px; color: var(--text-sec); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .offset-display { font-family: 'Roboto Mono'; font-size: 24px; color: var(--text-main); font-weight: 700; }
+        .offset-display.neg { color: #e11d48; }
         
-        .btn-group { display: flex; gap: 8px; }
+        .btn-group { display: flex; gap: 8px; width: 100%; }
         .btn-adj { 
-            background: #334155; color: white; border: 1px solid #475569; padding: 10px 16px; 
-            border-radius: 8px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 12px; transition: 0.2s;
-            font-weight: 500;
+            flex: 1; background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); padding: 8px 0; 
+            border-radius: 6px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 12px; font-weight: 600; transition: 0.1s;
         }
-        .btn-adj:hover { background: #475569; border-color: #64748b; }
-        .btn-adj:active { background: var(--primary); border-color: var(--primary); }
+        .btn-adj:hover { background: #e2e8f0; }
+        .btn-adj:active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        .helper-text { position: absolute; bottom: 20px; font-size: 12px; color: #475569; max-width: 400px; text-align: center; line-height: 1.5; }
+        /* SETTINGS MODAL */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px);
+            display: flex; justify-content: center; align-items: center; z-index: 100;
+            opacity: 0; pointer-events: none; transition: 0.2s;
+        }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal-card {
+            background: var(--surface); width: 300px; border-radius: 12px; padding: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(0.95); transition: 0.2s;
+        }
+        .modal-overlay.open .modal-card { transform: scale(1); }
+        .modal-title { font-weight: 800; font-size: 18px; margin-bottom: 15px; }
+        .setting-row { margin-bottom: 20px; }
+        .setting-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 8px; }
+        
+        .radio-group { display: flex; background: #f1f5f9; padding: 4px; border-radius: 8px; }
+        .radio-opt { 
+            flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sec);
+        }
+        .radio-opt.selected { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-        .waiting { animation: pulse 1s infinite; color: var(--primary); text-shadow: 0 0 10px rgba(98, 0, 234, 0.4); }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+        
+        /* Utility */
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
+<div id="settings-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <div class="modal-title" style="margin:0">Settings</div>
+            <button class="btn-icon" onclick="toggleSettings()"><span class="material-icons-round">close</span></button>
+        </div>
+        
+        <div class="setting-row">
+            <label class="setting-label">TRIGGER INTERVAL</label>
+            <div class="radio-group" id="interval-options">
+                <div class="radio-opt" onclick="setIntervalVal(10000)">10s</div>
+                <div class="radio-opt" onclick="setIntervalVal(20000)">20s</div>
+                <div class="radio-opt" onclick="setIntervalVal(30000)">30s</div>
+                <div class="radio-opt" onclick="setIntervalVal(60000)">60s</div>
+            </div>
+            <div style="font-size:11px; color:#94a3b8; margin-top:8px; line-height:1.4;">
+                System will lock to the nearest chosen interval (e.g., :10, :20). 
+            </div>
+        </div>
+
+        <button class="btn-add" onclick="toggleSettings()">Done</button>
+    </div>
+</div>
+
 <header>
-    <div class="brand"><span class="material-icons-round">bolt</span> FAST SYNC V2.1</div>
-    <div class="sync-box">
+    <div class="brand">
+        <span class="material-icons-round" style="color:var(--primary)">dns</span>
+        <span>Jack's Sync</span>
+    </div>
+    <div class="header-actions">
         <div id="sync-btn" class="sync-badge" onclick="performRobustSync()">
             <span class="material-icons-round" style="font-size:14px">sync</span>
-            <span id="sync-status">Click to Sync</span>
+            <span id="sync-text">Sync Time</span>
         </div>
-        <div id="rtt-display" class="rtt-info">RTT: --</div>
+        <button class="btn-icon" onclick="toggleSettings()" title="Settings">
+            <span class="material-icons-round">settings</span>
+        </button>
     </div>
 </header>
 
 <div class="container">
     <aside>
         <div class="input-area">
-            <input type="text" id="inp-id" class="g-input" placeholder="NetEase Song ID (e.g. 186016)">
+            <input type="text" id="inp-id" class="g-input" placeholder="NetEase ID (e.g. 186016)">
             <input type="text" id="inp-name" class="g-input" placeholder="Song Name">
-            <button class="btn-main" onclick="addSong()">Add Track</button>
+            <button class="btn-add" onclick="addSong()">Add Track</button>
         </div>
         <div id="song-list-el" class="song-list"></div>
     </aside>
 
     <main>
         <div id="timer-display" class="timer-huge">--.---</div>
-        <div id="status-display" class="status-text">IDLE (10s Mode)</div>
+        <div id="status-display" class="status-badge-lg">Idle</div>
 
         <div class="offset-panel">
-            <div class="panel-label">Phase Alignment (Hardware Fix)</div>
+            <div class="panel-header">Phase Correction (Latency)</div>
             <div id="manual-offset-val" class="offset-display">0 ms</div>
             <div class="btn-group">
                 <button class="btn-adj" onclick="adjustOffset(-50)">-50</button>
@@ -138,13 +203,9 @@
                 <button class="btn-adj" onclick="adjustOffset(10)">+10</button>
                 <button class="btn-adj" onclick="adjustOffset(50)">+50</button>
             </div>
-            <div style="font-size:11px; color:#64748b; margin-top:8px;">Windows lagging? Try negative (-) values.</div>
-        </div>
-
-        <div class="helper-text">
-            <b>FAST MODE (10s):</b><br>
-            Triggers at :00, :10, :20, :30, :40, :50.<br>
-            Use SPACE to arm. Adjust +/- to fix the 60ms delay.
+            <div style="font-size:11px; color:#64748b; margin-top:10px; text-align:center;">
+                If audio is <b>LATE</b>, click negative (-).<br>If audio is <b>EARLY</b>, click positive (+).
+            </div>
         </div>
     </main>
 </div>
@@ -156,24 +217,24 @@
     const STATE = {
         songs: JSON.parse(localStorage.getItem('ps_songs')) || [],
         manualOffset: parseInt(localStorage.getItem('ps_offset')) || 0,
+        interval: parseInt(localStorage.getItem('ps_interval')) || 10000, // Default 10s
         netOffset: 0, 
         curIdx: 0,
         status: 'IDLE', 
         targetTime: 0,
         audio: document.getElementById('audio-core'),
-        rtt: 0,
         animFrame: null
     };
 
-    /* ================= 1. ROBUST NTP SYNC ================= */
+    /* ================= 1. NETWORK SYNC ================= */
     async function performRobustSync() {
         const btn = document.getElementById('sync-btn');
-        const rttDisp = document.getElementById('rtt-display');
+        const txt = document.getElementById('sync-text');
         btn.className = 'sync-badge loading';
-        document.getElementById('sync-status').innerText = "Sampling...";
+        txt.innerText = "Syncing...";
 
         const samples = [];
-        const ATTEMPTS = 6; 
+        const ATTEMPTS = 5; 
 
         for(let i=0; i<ATTEMPTS; i++) {
             try {
@@ -181,41 +242,60 @@
                 const res = await fetch(`https://worldtimeapi.org/api/timezone/Etc/UTC?t=${t0}`, {cache: "no-store"});
                 const data = await res.json();
                 const t3 = Date.now();
-                
                 const serverTime = new Date(data.datetime).getTime();
                 const rtt = t3 - t0;
                 const offset = (serverTime + (rtt/2)) - t3;
-                
                 samples.push({ offset, rtt });
-                rttDisp.innerText = `Sample ${i+1}/${ATTEMPTS} (RTT: ${rtt}ms)`;
-                await new Promise(r => setTimeout(r, 200)); 
-            } catch(e) { console.warn("Sync fail"); }
+                await new Promise(r => setTimeout(r, 150)); 
+            } catch(e) {}
         }
 
-        if(samples.length < 3) {
+        if(samples.length < 2) {
             btn.className = 'sync-badge';
-            document.getElementById('sync-status').innerText = "Sync Failed";
+            txt.innerText = "Sync Failed";
             return;
         }
 
         samples.sort((a, b) => a.rtt - b.rtt);
         const bestSamples = samples.slice(0, 3);
         const avgOffset = bestSamples.reduce((sum, s) => sum + s.offset, 0) / bestSamples.length;
-        const avgRtt = bestSamples.reduce((sum, s) => sum + s.rtt, 0) / bestSamples.length;
 
         STATE.netOffset = avgOffset;
-        STATE.rtt = Math.round(avgRtt);
-
         btn.className = 'sync-badge';
-        document.getElementById('sync-status').innerText = "Synced";
-        rttDisp.innerText = `Offset: ${Math.round(STATE.netOffset)}ms | RTT: ${STATE.rtt}ms`;
+        txt.innerText = `Synced (${Math.round(STATE.netOffset)}ms)`;
     }
 
-    function getPreciseTime() {
-        return Date.now() + STATE.netOffset;
+    function getPreciseTime() { return Date.now() + STATE.netOffset; }
+
+    /* ================= 2. SETTINGS LOGIC ================= */
+    function toggleSettings() {
+        document.getElementById('settings-modal').classList.toggle('open');
+        renderIntervalUI();
     }
 
-    /* ================= 2. ENGINE (UPDATED FOR 10s INTERVAL) ================= */
+    function setIntervalVal(ms) {
+        STATE.interval = ms;
+        localStorage.setItem('ps_interval', ms);
+        renderIntervalUI();
+    }
+
+    function renderIntervalUI() {
+        const opts = document.querySelectorAll('.radio-opt');
+        opts.forEach(opt => {
+            if(parseInt(opt.getAttribute('onclick').match(/\d+/)[0]) === STATE.interval) {
+                opt.classList.add('selected');
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+        
+        // If idle, update status text
+        if(STATE.status === 'IDLE') {
+            document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
+        }
+    }
+
+    /* ================= 3. ENGINE ================= */
     function adjustOffset(delta) {
         STATE.manualOffset += delta;
         localStorage.setItem('ps_offset', STATE.manualOffset);
@@ -230,42 +310,37 @@
     }
 
     function armSystem() {
-        if(STATE.status === 'PLAYING' || STATE.status === 'ARMED') {
-            STATE.audio.pause();
-            STATE.audio.currentTime = 0;
+        if(STATE.status !== 'IDLE') {
+            // Reset
+            STATE.audio.pause(); STATE.audio.currentTime = 0;
             STATE.status = 'IDLE';
-            document.getElementById('status-display').innerText = "IDLE (10s Mode)";
-            document.getElementById('status-display').classList.remove('waiting');
+            document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
+            document.getElementById('status-display').className = 'status-badge-lg';
             document.getElementById('timer-display').innerText = "--.---";
             cancelAnimationFrame(STATE.animFrame);
             return;
         }
 
-        if(STATE.songs.length === 0) return alert("Add a song first.");
+        if(STATE.songs.length === 0) return alert("Please add a song first.");
 
         const now = getPreciseTime();
+        const INTERVAL = STATE.interval; // Use dynamic interval
         
-        // === CHANGED LOGIC START: 10 SECOND INTERVAL ===
-        // Align to next 10,000ms (10 seconds)
-        const INTERVAL = 10000;
+        // Calculate next Interval
         let target = Math.ceil(now / INTERVAL) * INTERVAL;
-        
-        // Buffer Check: If target is less than 4 seconds away, skip to the NEXT interval
-        // This gives time for the 'audio.load()' to actually fetch headers
-        if (target - now < 4000) target += INTERVAL;
-        // === CHANGED LOGIC END ===
+        if (target - now < 4000) target += INTERVAL; // Minimum 4s buffer
 
         STATE.targetTime = target; 
-        
         const s = STATE.songs[STATE.curIdx];
         STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
         STATE.audio.load();
 
         STATE.status = 'ARMED';
-        // Show seconds only for cleaner look
+        
         const dateObj = new Date(target);
-        const timeStr = dateObj.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
-        document.getElementById('status-display').innerText = `ARMED - FIRING AT ${timeStr}.${dateObj.getMilliseconds().toString().padStart(3,'0')}`;
+        const secs = dateObj.getSeconds().toString().padStart(2,'0');
+        const mins = dateObj.getMinutes().toString().padStart(2,'0');
+        document.getElementById('status-display').innerText = `Armed - Firing at :${secs}`;
         document.getElementById('status-display').classList.add('waiting');
 
         loop();
@@ -273,10 +348,7 @@
 
     function loop() {
         if(STATE.status !== 'ARMED') return;
-
         const now = getPreciseTime();
-        
-        // Target Logic: World Time Target + Manual Compensation
         const effectiveTarget = STATE.targetTime + STATE.manualOffset;
         const diff = effectiveTarget - now;
 
@@ -284,40 +356,32 @@
             STATE.audio.play();
             STATE.status = 'PLAYING';
             document.getElementById('status-display').innerText = "PLAYING";
-            document.getElementById('status-display').classList.remove('waiting');
+            document.getElementById('status-display').className = 'status-badge-lg playing';
             document.getElementById('timer-display').innerText = "0.000";
             return;
         }
 
-        const secs = (diff / 1000).toFixed(3);
-        document.getElementById('timer-display').innerText = secs;
-
+        document.getElementById('timer-display').innerText = (diff / 1000).toFixed(3);
         STATE.animFrame = requestAnimationFrame(loop);
     }
 
-
-    /* ================= 3. UI HELPERS ================= */
+    /* ================= 4. LIST MGMT ================= */
     function addSong() {
         const id = document.getElementById('inp-id').value;
         const name = document.getElementById('inp-name').value || id;
         if(!id) return;
         STATE.songs.push({id, name});
-        saveSongs();
-        renderSongs();
+        saveSongs(); renderSongs();
         document.getElementById('inp-id').value = "";
     }
     
     function removeSong(i, e) {
-        e.stopPropagation();
-        STATE.songs.splice(i, 1);
-        saveSongs();
-        renderSongs();
+        e.stopPropagation(); STATE.songs.splice(i, 1); saveSongs(); renderSongs();
     }
 
     function selectSong(i) {
         if(STATE.status !== 'IDLE') return;
-        STATE.curIdx = i;
-        renderSongs();
+        STATE.curIdx = i; renderSongs();
     }
 
     function renderSongs() {
@@ -328,28 +392,30 @@
             div.className = `song-item ${i === STATE.curIdx ? 'active' : ''}`;
             div.onclick = () => selectSong(i);
             div.innerHTML = `
-                <div class="song-name">${s.name}</div>
-                <div class="song-id">ID: ${s.id}</div>
-                <div style="position:absolute; right:10px; top:15px; color:#64748b;" onclick="removeSong(${i}, event)">✕</div>
+                <div>
+                    <div class="song-name">${s.name}</div>
+                    <div class="song-id">ID: ${s.id}</div>
+                </div>
+                <div class="material-icons-round btn-del" onclick="removeSong(${i}, event)">delete</div>
             `;
-            div.style.position = 'relative';
             list.appendChild(div);
         });
     }
 
     function saveSongs() { localStorage.setItem('ps_songs', JSON.stringify(STATE.songs)); }
 
+    /* ================= INIT ================= */
     window.addEventListener('keydown', e => {
         if(e.code === 'Space' && e.target.tagName !== 'INPUT') {
-            e.preventDefault();
-            armSystem();
+            e.preventDefault(); armSystem();
         }
     });
-    
+
+    // Init Logic
     updateOffsetUI();
     renderSongs();
-    performRobustSync(); 
-    setInterval(() => performRobustSync(), 60000); 
+    performRobustSync();
+    renderIntervalUI(); // Load saved interval
 
 </script>
 </body>
