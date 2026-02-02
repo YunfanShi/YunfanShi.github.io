@@ -64,6 +64,7 @@
         .logo span:nth-child(5) { color: var(--green); }
         .logo span:nth-child(6) { color: var(--red); }
 
+        /* Modified to be a form */
         .search-bar-fake {
             background: var(--surface);
             border-radius: 30px;
@@ -77,8 +78,25 @@
             color: var(--text-sub);
             border: 1px solid transparent;
         }
-        .search-bar-fake:hover {
+        .search-bar-fake:hover, .search-bar-fake:focus-within {
             box-shadow: 0 2px 8px rgba(32,33,36,0.35);
+        }
+
+        /* New styles for the real input */
+        .search-input {
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 1rem;
+            color: var(--text-main);
+            flex-grow: 1;
+            font-family: 'Roboto', sans-serif;
+            height: 100%;
+        }
+        
+        .search-input::placeholder {
+            color: var(--text-sub);
+            opacity: 0.8;
         }
 
         /* --- Grid Container --- */
@@ -176,10 +194,10 @@
         <div class="logo">
             <span>J</span><span>a</span><span>c</span><span>k</span><span>O</span><span>S</span>
         </div>
-        <div class="search-bar-fake">
+        <form class="search-bar-fake" action="https://www.google.com/search" method="get">
             <span class="material-icons-round">search</span>
-            <span>Where do you want to go today?</span>
-        </div>
+            <input type="text" name="q" class="search-input" placeholder="Where do you want to go today?" autocomplete="off" required>
+        </form>
     </div>
 
     <div class="grid-container">
