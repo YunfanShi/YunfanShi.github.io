@@ -3,510 +3,376 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sync Player | NetEase Precision</title>
+    <title>Jack's Pro Sync | Phase Align</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            --primary: #d32f2f; /* Google Red */
-            --bg: #f8f9fa;
-            --surface: #ffffff;
-            --text-main: #202124;
-            --text-sec: #5f6368;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --ease: cubic-bezier(0.4, 0.0, 0.2, 1);
+            --primary: #c2185b; /* Dark Pink */
+            --accent: #00e676;
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --text-main: #ffffff;
+            --text-sec: #b0b0b0;
         }
 
         body {
-            margin: 0;
-            font-family: 'Roboto', sans-serif;
-            background: var(--bg);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            user-select: none; /* 防止连点选中文字 */
+            margin: 0; font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text-main);
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none;
         }
 
         /* === HEADER === */
         header {
-            background: var(--surface);
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            z-index: 10;
+            background: var(--surface); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #333;
         }
+        .brand { font-weight: 900; font-size: 18px; letter-spacing: 1px; color: var(--primary); display: flex; gap: 10px; align-items: center; }
         
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 700;
-            font-size: 18px;
-            color: var(--text-main);
+        .sync-box { display: flex; flex-direction: column; align-items: flex-end; }
+        .sync-badge { 
+            font-family: 'Roboto Mono'; font-size: 12px; color: var(--accent); 
+            background: rgba(0, 230, 118, 0.1); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(0, 230, 118, 0.3);
+            cursor: pointer; display: flex; align-items: center; gap: 5px;
         }
+        .sync-badge:hover { background: rgba(0, 230, 118, 0.2); }
+        .sync-badge.loading { color: #ffd600; border-color: #ffd600; background: rgba(255, 214, 0, 0.1); }
+        .rtt-info { font-size: 10px; color: #666; margin-top: 3px; }
 
-        .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #f1f3f4;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-family: 'Roboto Mono', monospace;
-        }
+        /* === LAYOUT === */
+        .container { flex: 1; display: grid; grid-template-columns: 320px 1fr; }
+        aside { background: #181818; border-right: 1px solid #333; display: flex; flex-direction: column; }
         
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
-        .dot.ok { background: #34a853; box-shadow: 0 0 4px #34a853; }
-        .dot.err { background: #ea4335; }
-
-        /* === MAIN CONTENT === */
-        .container {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            height: calc(100vh - 70px);
+        .input-area { padding: 20px; border-bottom: 1px solid #333; }
+        .g-input { 
+            width: 100%; padding: 12px; background: #2c2c2c; border: 1px solid #444; color: white; 
+            margin-bottom: 10px; border-radius: 4px; font-family: 'Roboto Mono'; box-sizing: border-box;
         }
-
-        /* SIDEBAR (HISTORY) */
-        aside {
-            background: var(--surface);
-            border-right: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+        .g-input:focus { border-color: var(--primary); outline: none; }
+        .btn-main { 
+            width: 100%; padding: 12px; background: var(--primary); color: white; border: none; 
+            font-weight: bold; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
         }
+        .btn-main:active { opacity: 0.8; }
 
-        .input-area {
-            padding: 20px;
-            border-bottom: 1px solid #eee;
-            background: #fff;
-        }
-
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 12px; color: var(--text-sec); margin-bottom: 5px; font-weight: 500; }
-        .g-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #dadce0;
-            border-radius: 4px;
-            font-family: 'Roboto Mono', monospace;
-            font-size: 14px;
-            outline: none;
-            transition: 0.2s;
-        }
-        .g-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.1); }
-
-        .btn-add {
-            width: 100%;
-            padding: 10px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            transition: 0.2s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 5px;
-        }
-        .btn-add:active { transform: translateY(1px); box-shadow: none; }
-
-        .song-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px 0;
-        }
-
-        .song-item {
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            border-left: 4px solid transparent;
-            transition: background 0.2s;
-        }
-        .song-item:hover { background: #f5f5f5; }
-        .song-item.active { background: #e8f0fe; border-left-color: var(--primary); color: var(--primary); }
-        .song-item.active .song-name { font-weight: 700; }
+        .song-list { flex: 1; overflow-y: auto; }
+        .song-item { padding: 15px 20px; border-bottom: 1px solid #222; cursor: pointer; transition: 0.2s; }
+        .song-item:hover { background: #252525; }
+        .song-item.active { background: rgba(194, 24, 91, 0.15); border-left: 3px solid var(--primary); }
+        .song-name { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+        .song-id { font-size: 11px; color: #777; font-family: 'Roboto Mono'; }
         
-        .song-info { display: flex; flex-direction: column; overflow: hidden; }
-        .song-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .song-id { font-size: 11px; color: #888; font-family: 'Roboto Mono'; }
+        /* === MAIN PLAYER === */
+        main { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
         
-        .btn-del {
-            opacity: 0;
-            background: none; border: none; color: #999; cursor: pointer;
-            padding: 5px; border-radius: 50%;
+        .timer-huge { font-size: 140px; font-weight: 900; font-family: 'Roboto Mono'; line-height: 1; margin-bottom: 20px; letter-spacing: -5px; }
+        .status-text { font-size: 16px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 50px; }
+        
+        /* === OFFSET CONTROLS === */
+        .offset-panel { 
+            background: #252525; padding: 20px; border-radius: 12px; 
+            display: flex; flex-direction: column; align-items: center; gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid #333;
         }
-        .song-item:hover .btn-del { opacity: 1; }
-        .btn-del:hover { background: #fee; color: #d32f2f; }
+        .panel-label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: bold; }
+        .offset-display { font-family: 'Roboto Mono'; font-size: 24px; color: var(--accent); font-weight: bold; }
+        .offset-display.neg { color: #ff5252; }
+        
+        .btn-group { display: flex; gap: 10px; }
+        .btn-adj { 
+            background: #333; color: white; border: 1px solid #444; padding: 8px 16px; 
+            border-radius: 6px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 12px; transition: 0.2s;
+        }
+        .btn-adj:hover { background: #444; border-color: #666; }
+        .btn-adj:active { background: var(--primary); border-color: var(--primary); }
 
-        /* PLAYER AREA */
-        main {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            background: #fafafa;
-        }
+        .helper-text { position: absolute; bottom: 20px; font-size: 12px; color: #555; max-width: 400px; text-align: center; line-height: 1.5; }
 
-        .cd-wrapper {
-            width: 200px; height: 200px;
-            border-radius: 50%;
-            background: #222;
-            border: 8px solid #333;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 40px;
-            animation: rotate 20s linear infinite;
-            animation-play-state: paused;
-            position: relative;
-        }
-        .cd-wrapper::after {
-            content: ''; width: 30px; height: 30px; background: #fafafa; border-radius: 50%; z-index: 2;
-        }
-        .cd-wrapper.playing { animation-play-state: running; }
-
-        .status-display {
-            font-size: 120px;
-            font-weight: 900;
-            color: var(--text-main);
-            font-family: 'Roboto Mono', monospace;
-            letter-spacing: -5px;
-            margin: 0;
-            line-height: 1;
-        }
-
-        .target-time-label {
-            font-size: 16px;
-            color: var(--text-sec);
-            margin-top: 10px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .controls-hint {
-            position: absolute;
-            bottom: 30px;
-            display: flex;
-            gap: 20px;
-            color: #888;
-            font-size: 13px;
-        }
-        .key-badge {
-            background: #fff; border: 1px solid #ccc; padding: 2px 8px; border-radius: 4px; font-weight: bold; color: #555; box-shadow: 0 1px 0 #ccc;
-        }
-
-        /* Overlay for "Wait for sync" */
-        .sync-overlay {
-            position: absolute; inset: 0;
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(5px);
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            z-index: 20;
-            opacity: 0; pointer-events: none; transition: 0.3s;
-        }
-        .sync-overlay.visible { opacity: 1; pointer-events: auto; }
-
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .waiting { animation: pulse 1s infinite; color: var(--primary); }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="brand">
-        <span class="material-icons-round" style="color:var(--primary)">sync</span>
-        <span>Jack's Sync Player</span>
-    </div>
-    <div class="status-badge">
-        <div id="net-dot" class="dot"></div>
-        <span id="offset-display">Syncing...</span>
+    <div class="brand"><span class="material-icons-round">equalizer</span> PRO SYNC V2.0</div>
+    <div class="sync-box">
+        <div id="sync-btn" class="sync-badge" onclick="performRobustSync()">
+            <span class="material-icons-round" style="font-size:14px">sync</span>
+            <span id="sync-status">Click to Sync</span>
+        </div>
+        <div id="rtt-display" class="rtt-info">RTT: --</div>
     </div>
 </header>
 
 <div class="container">
     <aside>
         <div class="input-area">
-            <div class="input-group">
-                <label>NETEASE SONG ID</label>
-                <input type="text" id="inp-id" class="g-input" placeholder="e.g. 186016" autocomplete="off">
-            </div>
-            <div class="input-group">
-                <label>SONG NAME</label>
-                <input type="text" id="inp-name" class="g-input" placeholder="e.g. Big Big World" autocomplete="off">
-            </div>
-            <button class="btn-add" onclick="addSong()">
-                <span class="material-icons-round">add</span> ADD TO LIBRARY
-            </button>
+            <input type="text" id="inp-id" class="g-input" placeholder="NetEase Song ID (e.g. 186016)">
+            <input type="text" id="inp-name" class="g-input" placeholder="Song Name">
+            <button class="btn-main" onclick="addSong()">Add Track</button>
         </div>
-        <div class="song-list" id="song-list-el">
-            </div>
+        <div id="song-list-el" class="song-list"></div>
     </aside>
 
     <main>
-        <div id="cd-disc" class="cd-wrapper">
-            <span class="material-icons-round" style="color:#444; font-size: 60px;">music_note</span>
+        <div id="timer-display" class="timer-huge">--.---</div>
+        <div id="status-display" class="status-text">IDLE</div>
+
+        <div class="offset-panel">
+            <div class="panel-label">Hardware Latency Compensation</div>
+            <div id="manual-offset-val" class="offset-display">0 ms</div>
+            <div class="btn-group">
+                <button class="btn-adj" onclick="adjustOffset(-50)">- 50ms (Earlier)</button>
+                <button class="btn-adj" onclick="adjustOffset(-10)">- 10ms</button>
+                <button class="btn-adj" onclick="adjustOffset(10)">+ 10ms</button>
+                <button class="btn-adj" onclick="adjustOffset(50)">+ 50ms (Later)</button>
+            </div>
+            <div style="font-size:11px; color:#666; margin-top:5px;">If this device is SLOW, click "Earlier"</div>
         </div>
 
-        <div id="timer-display" class="status-display">--:--</div>
-        <div id="status-label" class="target-time-label">IDLE - PRESS SPACE TO ARM</div>
-
-        <div class="controls-hint">
-            <span><span class="key-badge">←</span> <span class="key-badge">→</span> Select Song</span>
-            <span><span class="key-badge">SPACE</span> Toggle Ready</span>
+        <div class="helper-text">
+            <b>INSTRUCTIONS:</b><br>
+            1. Click "Sync" on both devices until RTT is low (<100ms).<br>
+            2. Select song. Press SPACE on both.<br>
+            3. Listen. If this device is lagging, adjust compensation negative (-).
         </div>
     </main>
 </div>
 
-<audio id="main-audio"></audio>
+<audio id="audio-core"></audio>
 
 <script>
-    /* ================= SYSTEM CONFIG ================= */
+    /* ================= CORE STATE ================= */
     const STATE = {
-        songs: JSON.parse(localStorage.getItem('jack_sync_songs')) || [],
-        currentIndex: 0,
-        offset: 0,       // Server Time - Local Time (ms)
-        isSynced: false,
-        status: 'IDLE',  // IDLE, WAITING, PLAYING
-        targetTime: 0,   // Timestamp to play
-        audio: document.getElementById('main-audio'),
-        animationId: null
+        songs: JSON.parse(localStorage.getItem('ps_songs')) || [],
+        manualOffset: parseInt(localStorage.getItem('ps_offset')) || 0, // Hardware calibration
+        netOffset: 0, // NTP result
+        curIdx: 0,
+        status: 'IDLE', // IDLE, ARMED, PLAYING
+        targetTime: 0,
+        audio: document.getElementById('audio-core'),
+        rtt: 0
     };
 
-    /* ================= 1. NETWORK TIME SYNC (NTP) ================= */
-    async function syncTime() {
-        const dot = document.getElementById('net-dot');
-        const lbl = document.getElementById('offset-display');
-        
-        try {
-            // Pre-request timestamp
-            const t0 = Date.now();
-            const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', {cache: "no-store"});
-            const data = await res.json();
-            const t3 = Date.now();
-            
-            // Server time is t1 + (t2-t1) processing. We approximate server time at moment of arrival as:
-            // server_datetime + (RTT / 2)
-            // RTT = t3 - t0
-            
-            const serverTimeStr = data.datetime; 
-            const serverTime = new Date(serverTimeStr).getTime();
-            const rtt = t3 - t0;
-            
-            // Calculate Offset
-            // Local Time + Offset = Server Time
-            // Offset = Server Time - Local Time
-            // Adjusted Server Time = serverTime + (rtt/2)
-            
-            STATE.offset = (serverTime + (rtt / 2)) - t3;
-            
-            STATE.isSynced = true;
-            dot.className = 'dot ok';
-            lbl.innerText = `NTP Offset: ${Math.round(STATE.offset)}ms`;
-            console.log(`[Time] Synced. Offset: ${STATE.offset}ms (RTT: ${rtt}ms)`);
-            
-        } catch (e) {
-            console.error(e);
-            STATE.isSynced = false;
-            dot.className = 'dot err';
-            lbl.innerText = "Sync Failed (Using Local)";
-            STATE.offset = 0;
+    /* ================= 1. ROBUST NTP SYNC (MULTI-SAMPLE) ================= */
+    async function performRobustSync() {
+        const btn = document.getElementById('sync-btn');
+        const rttDisp = document.getElementById('rtt-display');
+        btn.className = 'sync-badge loading';
+        document.getElementById('sync-status').innerText = "Sampling...";
+
+        const samples = [];
+        const ATTEMPTS = 6; // Try 6 times
+
+        for(let i=0; i<ATTEMPTS; i++) {
+            try {
+                const t0 = Date.now();
+                // Anti-caching param
+                const res = await fetch(`https://worldtimeapi.org/api/timezone/Etc/UTC?t=${t0}`, {cache: "no-store"});
+                const data = await res.json();
+                const t3 = Date.now();
+                
+                const serverTime = new Date(data.datetime).getTime();
+                const rtt = t3 - t0;
+                
+                // Offset = Server - Local + (RTT/2)
+                const offset = (serverTime + (rtt/2)) - t3;
+                
+                samples.push({ offset, rtt });
+                rttDisp.innerText = `Sample ${i+1}/${ATTEMPTS} (RTT: ${rtt}ms)`;
+                
+                // Small random delay to avoid network congestion patterns
+                await new Promise(r => setTimeout(r, 200)); 
+            } catch(e) { console.warn("Sync packet failed"); }
         }
-    }
 
-    // Get Precise Network Time
-    function getNetTime() {
-        return Date.now() + STATE.offset;
-    }
-
-    /* ================= 2. AUDIO & SCHEDULING ================= */
-    
-    function armPlayer() {
-        if (STATE.songs.length === 0) {
-            alert("Please add a song ID first!");
+        if(samples.length < 3) {
+            btn.className = 'sync-badge';
+            document.getElementById('sync-status').innerText = "Sync Failed";
             return;
         }
+
+        // Sort by RTT (Reliability)
+        samples.sort((a, b) => a.rtt - b.rtt);
         
-        if (STATE.status === 'WAITING' || STATE.status === 'PLAYING') {
-            // Cancel / Reset
-            cancelAnimationFrame(STATE.animationId);
+        // Take the best 3 samples (Lowest RTT) and average their offsets
+        const bestSamples = samples.slice(0, 3);
+        const avgOffset = bestSamples.reduce((sum, s) => sum + s.offset, 0) / bestSamples.length;
+        const avgRtt = bestSamples.reduce((sum, s) => sum + s.rtt, 0) / bestSamples.length;
+
+        STATE.netOffset = avgOffset;
+        STATE.rtt = Math.round(avgRtt);
+
+        // Update UI
+        btn.className = 'sync-badge';
+        document.getElementById('sync-status').innerText = "Synced (Stable)";
+        rttDisp.innerText = `Avg Offset: ${Math.round(STATE.netOffset)}ms | Quality: ${STATE.rtt}ms`;
+        
+        console.log(`[NTP] Final Offset: ${STATE.netOffset}, Based on best RTTs:`, bestSamples);
+    }
+
+    function getPreciseTime() {
+        // Local System Time + Network Offset + Manual Calibration
+        // Manual Offset: If I need to play earlier (negative value), my "Time" needs to appear "slower" so I think I have more time? 
+        // No, let's apply manual offset at Target Calculation.
+        // Here we just return "True World Time"
+        return Date.now() + STATE.netOffset;
+    }
+
+    /* ================= 2. ENGINE & LOGIC ================= */
+    function adjustOffset(delta) {
+        STATE.manualOffset += delta;
+        localStorage.setItem('ps_offset', STATE.manualOffset);
+        updateOffsetUI();
+    }
+
+    function updateOffsetUI() {
+        const el = document.getElementById('manual-offset-val');
+        const val = STATE.manualOffset;
+        el.innerText = (val > 0 ? "+" : "") + val + " ms";
+        el.className = val === 0 ? 'offset-display' : (val < 0 ? 'offset-display neg' : 'offset-display');
+        
+        // Visual feedback if armed
+        if(STATE.status === 'ARMED') {
+             // Re-calculate target implies re-arming, for simplicity just let next cycle handle it? 
+             // Ideally we shouldn't change offset while counting down, but for fine tuning it's okay.
+        }
+    }
+
+    function armSystem() {
+        if(STATE.status === 'PLAYING' || STATE.status === 'ARMED') {
+            // Reset
             STATE.audio.pause();
             STATE.audio.currentTime = 0;
             STATE.status = 'IDLE';
-            document.getElementById('status-label').innerText = "IDLE - PRESS SPACE TO ARM";
-            document.getElementById('cd-disc').classList.remove('playing');
-            document.getElementById('timer-display').innerText = "--:--";
+            document.getElementById('status-display').innerText = "IDLE";
+            document.getElementById('status-display').classList.remove('waiting');
+            document.getElementById('timer-display').innerText = "--.---";
+            cancelAnimationFrame(STATE.animFrame);
             return;
         }
 
-        // 1. Calculate next Minute Mark
-        const now = getNetTime();
-        const date = new Date(now);
-        
-        // If we are at 55s or later, skip the immediate next minute to allow buffering (go to minute+2)
-        // Otherwise just next minute
-        let secondsToAdd = 60 - date.getSeconds();
-        if (secondsToAdd < 5) secondsToAdd += 60; 
+        if(STATE.songs.length === 0) return alert("Add a song first.");
 
-        // Calculate Target Timestamp (00 milliseconds)
-        // We floor current time to minute, then add necessary seconds
-        const nextMin = new Date(now + secondsToAdd * 1000);
-        nextMin.setMilliseconds(0);
-        STATE.targetTime = nextMin.getTime();
-
-        console.log(`[Arm] Target Time: ${new Date(STATE.targetTime).toLocaleTimeString()} (${STATE.targetTime})`);
-
-        // 2. Load Audio Source
-        const song = STATE.songs[STATE.currentIndex];
-        // NetEase Outer Link
-        STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${song.id}.mp3`;
-        STATE.audio.load(); // Force buffer
+        // === CALCULATION LOGIC ===
+        const now = getPreciseTime();
         
-        // 3. Update UI
-        STATE.status = 'WAITING';
-        document.getElementById('status-label').innerText = `ARMED - PLAYING AT ${new Date(STATE.targetTime).toLocaleTimeString()}`;
+        // Find next aligned minute boundary (with at least 5s buffer)
+        let target = Math.ceil(now / 60000) * 60000;
+        if (target - now < 5000) target += 60000;
+
+        // Apply MANUAL COMPENSATION here
+        // If "Earlier" (-50ms), we want to physically trigger at Target - 50ms.
+        // So internal logic target = WorldTarget + ManualOffset?
+        // Wait, if I want to compensate for Hardware Latency (Delay), I need to trigger EARLIER.
+        // Trigger Time = World Target - Hardware Latency.
+        // So Manual Offset should be subtracted from Target?
+        // Let's treat ManualOffset as "Trigger Adjustment".
+        // Trigger Timestamp = WorldTarget + ManualOffset.
+        // If Offset is -50, we trigger 50ms before world target.
         
-        // 4. Start Countdown Loop
-        tick();
+        STATE.targetTime = target; 
+        
+        // Prepare Audio
+        const s = STATE.songs[STATE.curIdx];
+        STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
+        STATE.audio.load();
+
+        STATE.status = 'ARMED';
+        document.getElementById('status-display').innerText = `ARMED - WAITING FOR ${new Date(target).toLocaleTimeString()}`;
+        document.getElementById('status-display').classList.add('waiting');
+
+        loop();
     }
 
-    function tick() {
-        if (STATE.status !== 'WAITING') return;
+    function loop() {
+        if(STATE.status !== 'ARMED') return;
 
-        const now = getNetTime();
-        const diff = STATE.targetTime - now;
+        const now = getPreciseTime();
+        
+        // The effective target for THIS device
+        // if ManualOffset is -50 (Eariler), effectiveTarget is smaller (earlier in time)
+        const effectiveTarget = STATE.targetTime + STATE.manualOffset;
+        const diff = effectiveTarget - now;
 
         if (diff <= 0) {
-            // === FIRE TIME ===
-            STATE.audio.play()
-                .then(() => {
-                    STATE.status = 'PLAYING';
-                    document.getElementById('cd-disc').classList.add('playing');
-                    document.getElementById('status-label').innerText = "NOW PLAYING";
-                    document.getElementById('timer-display').innerText = "PLAY";
-                })
-                .catch(e => {
-                    document.getElementById('status-label').innerText = "AUTOPLAY ERROR: " + e.message;
-                });
-            return; 
+            // FIRE!
+            STATE.audio.play();
+            STATE.status = 'PLAYING';
+            document.getElementById('status-display').innerText = "PLAYING";
+            document.getElementById('status-display').classList.remove('waiting');
+            document.getElementById('timer-display').innerText = "0.000";
+            return;
         }
 
-        // Countdown Logic
-        const secs = Math.ceil(diff / 1000);
-        
-        // Format milliseconds for "Matrix" feel or just seconds
-        // Just seconds is cleaner for the prompt "how long until 4:55"
-        document.getElementById('timer-display').innerText = secs.toString() + "s";
-        
-        // Precision Loop
-        STATE.animationId = requestAnimationFrame(tick);
+        // UI Updates
+        const secs = (diff / 1000).toFixed(3);
+        document.getElementById('timer-display').innerText = secs;
+
+        STATE.animFrame = requestAnimationFrame(loop);
     }
 
-    /* ================= 3. LIBRARY MANAGEMENT ================= */
+
+    /* ================= 3. UI HELPERS ================= */
+    function addSong() {
+        const id = document.getElementById('inp-id').value;
+        const name = document.getElementById('inp-name').value || id;
+        if(!id) return;
+        STATE.songs.push({id, name});
+        saveSongs();
+        renderSongs();
+        document.getElementById('inp-id').value = "";
+    }
     
-    function renderList() {
-        const el = document.getElementById('song-list-el');
-        el.innerHTML = '';
+    function removeSong(i, e) {
+        e.stopPropagation();
+        STATE.songs.splice(i, 1);
+        saveSongs();
+        renderSongs();
+    }
+
+    function selectSong(i) {
+        if(STATE.status !== 'IDLE') return;
+        STATE.curIdx = i;
+        renderSongs();
+    }
+
+    function renderSongs() {
+        const list = document.getElementById('song-list-el');
+        list.innerHTML = "";
         STATE.songs.forEach((s, i) => {
             const div = document.createElement('div');
-            div.className = `song-item ${i === STATE.currentIndex ? 'active' : ''}`;
+            div.className = `song-item ${i === STATE.curIdx ? 'active' : ''}`;
             div.onclick = () => selectSong(i);
             div.innerHTML = `
-                <div class="song-info">
-                    <span class="song-name">${s.name}</span>
-                    <span class="song-id">ID: ${s.id}</span>
-                </div>
-                <button class="btn-del" onclick="removeSong(event, ${i})">
-                    <span class="material-icons-round" style="font-size:16px">delete</span>
-                </button>
+                <div class="song-name">${s.name}</div>
+                <div class="song-id">ID: ${s.id}</div>
+                <div style="position:absolute; right:10px; top:15px; color:#555;" onclick="removeSong(${i}, event)">✕</div>
             `;
-            el.appendChild(div);
+            div.style.position = 'relative';
+            list.appendChild(div);
         });
     }
 
-    function addSong() {
-        const id = document.getElementById('inp-id').value.trim();
-        const name = document.getElementById('inp-name').value.trim() || `Song ${id}`;
-        
-        if(!id) return alert("ID is required");
-        
-        STATE.songs.push({id, name});
-        save();
-        renderList();
-        
-        // Clear inputs
-        document.getElementById('inp-id').value = '';
-        document.getElementById('inp-name').value = '';
-    }
+    function saveSongs() { localStorage.setItem('ps_songs', JSON.stringify(STATE.songs)); }
 
-    function removeSong(e, idx) {
-        e.stopPropagation(); // Stop firing click on row
-        STATE.songs.splice(idx, 1);
-        if (STATE.currentIndex >= STATE.songs.length) STATE.currentIndex = Math.max(0, STATE.songs.length - 1);
-        save();
-        renderList();
-    }
-
-    function selectSong(idx) {
-        if(STATE.status !== 'IDLE') return; // Lock change if armed
-        STATE.currentIndex = idx;
-        renderList();
-    }
-
-    function save() {
-        localStorage.setItem('jack_sync_songs', JSON.stringify(STATE.songs));
-    }
-
-    /* ================= 4. INPUT CONTROLS ================= */
-    
-    document.addEventListener('keydown', (e) => {
-        // Ignore if typing in input
-        if (e.target.tagName === 'INPUT') return;
-
-        if (e.code === 'Space') {
+    // Init
+    window.addEventListener('keydown', e => {
+        if(e.code === 'Space' && e.target.tagName !== 'INPUT') {
             e.preventDefault();
-            armPlayer();
-        }
-        else if (e.code === 'ArrowLeft') {
-            if (STATE.songs.length === 0) return;
-            let newIdx = STATE.currentIndex - 1;
-            if (newIdx < 0) newIdx = STATE.songs.length - 1;
-            selectSong(newIdx);
-        }
-        else if (e.code === 'ArrowRight') {
-            if (STATE.songs.length === 0) return;
-            let newIdx = STATE.currentIndex + 1;
-            if (newIdx >= STATE.songs.length) newIdx = 0;
-            selectSong(newIdx);
+            armSystem();
         }
     });
-
-    /* ================= INIT ================= */
-    // On Load
-    syncTime();
-    renderList();
     
-    // Auto-Focus Check (Browsers throttle timers in background tabs, 
-    // but RAF usually stops. AudioContext keeps running. 
-    // Critical: Keep window active/visible for best sync results)
-    window.onfocus = () => { if(!STATE.isSynced) syncTime(); };
+    updateOffsetUI();
+    renderSongs();
+    performRobustSync(); // Initial sync
+    
+    // Re-sync every minute gently
+    setInterval(() => performRobustSync(), 60000); 
 
 </script>
 </body>
