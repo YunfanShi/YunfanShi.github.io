@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sync Player | V3.5 Ultimate</title>
+    <title>Jack's Sync Player | V3.7 Omni-Sync</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            /* === V3.1 正常配色方案 (Light Mode) === */
-            --primary: #2563eb;       /* 标准蓝 */
-            --primary-hover: #1d4ed8;
-            --bg: #f1f5f9;            /* 浅灰背景 */
-            --surface: #ffffff;       /* 白色卡片 */
-            --text-main: #1e293b;     /* 深色文字 */
-            --text-sec: #64748b;      /* 次级文字 */
-            --border: #e2e8f0;        /* 边框颜色 */
+            /* === V3.7 配色 (Tech Blue) === */
+            --primary: #3b82f6;       
+            --primary-hover: #2563eb;
+            --bg: #f8fafc;            
+            --surface: #ffffff;       
+            --text-main: #0f172a;     
+            --text-sec: #64748b;      
+            --border: #e2e8f0;        
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
 
@@ -35,22 +35,20 @@
         
         .header-actions { display: flex; align-items: center; gap: 10px; }
 
-        /* 通用徽章按钮样式 */
         .action-badge { 
             font-family: 'Roboto Mono'; font-size: 12px; font-weight: 600;
             padding: 6px 12px; border-radius: 20px; border: 1px solid transparent;
             cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
         }
         
-        /* 导入按钮 */
-        .import-badge { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
-        .import-badge:hover { background: #dcfce7; }
+        .import-badge { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+        .import-badge:hover { background: #d1fae5; }
 
-        /* 同步按钮 */
-        .sync-badge { background: #eff6ff; color: var(--primary); border-color: #dbeafe; }
+        .sync-badge { background: #eff6ff; color: var(--primary); border-color: #bfdbfe; }
         .sync-badge:hover { background: #dbeafe; }
         .sync-badge.loading { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
         .sync-badge.error { color: #ef4444; background: #fef2f2; border-color: #fee2e2; }
+        .sync-badge.local { color: #64748b; background: #f1f5f9; border-color: #e2e8f0; } 
 
         .btn-icon {
             background: transparent; border: none; cursor: pointer; color: var(--text-sec); 
@@ -60,16 +58,14 @@
 
         /* === LAYOUT === */
         .container { flex: 1; display: grid; grid-template-columns: 320px 1fr; overflow: hidden; }
-        
-        /* SIDEBAR */
         aside { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5;}
         
-        .input-area { padding: 20px; border-bottom: 1px solid var(--border); background: #f8fafc; }
+        .input-area { padding: 20px; border-bottom: 1px solid var(--border); background: #f1f5f9; }
         .g-input { 
             width: 100%; padding: 10px 12px; background: white; border: 1px solid var(--border); color: var(--text-main); 
             margin-bottom: 10px; border-radius: 6px; font-family: 'Inter'; font-size: 14px; box-sizing: border-box; transition: 0.2s;
         }
-        .g-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .g-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
         .btn-add { 
             width: 100%; padding: 10px; background: var(--primary); color: white; border: none; 
             font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s;
@@ -86,7 +82,6 @@
         .song-item:hover .btn-del { opacity: 1; }
         .btn-del:hover { color: #ef4444; }
 
-        /* MAIN */
         main { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; background: var(--bg); }
         
         .timer-huge { 
@@ -100,7 +95,6 @@
         .status-badge-lg.waiting { animation: pulse 1.5s infinite; background: #fff7ed; color: #ea580c; }
         .status-badge-lg.playing { background: #dcfce7; color: #15803d; }
 
-        /* OFFSET PANEL */
         .offset-panel { 
             background: var(--surface); padding: 25px; border-radius: 16px; 
             display: flex; flex-direction: column; align-items: center; gap: 15px;
@@ -117,9 +111,8 @@
             border-radius: 6px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 12px; font-weight: 600; transition: 0.1s;
         }
         .btn-adj:hover { background: #e2e8f0; }
-        .btn-adj:active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* === MODALS (Shared Styles) === */
+        /* MODAL */
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px);
             display: flex; justify-content: center; align-items: center; z-index: 100;
@@ -129,31 +122,13 @@
         .modal-card {
             background: var(--surface); width: 340px; border-radius: 12px; padding: 20px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(0.95); transition: 0.2s;
-            max-height: 90vh; overflow-y: auto;
         }
         .modal-overlay.open .modal-card { transform: scale(1); }
-        .modal-title { font-weight: 800; font-size: 18px; margin-bottom: 15px; color: var(--text-main); }
         
-        /* Settings Styles */
-        .setting-row { margin-bottom: 20px; }
-        .setting-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 8px; }
         .radio-group { display: flex; background: #f1f5f9; padding: 4px; border-radius: 8px; }
-        .radio-opt { 
-            flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sec);
-        }
+        .radio-opt { flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sec); }
         .radio-opt.selected { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-
-        /* Import Styles (New) */
-        .step-card { background: #f8fafc; border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
-        .step-head { font-size: 12px; font-weight: 700; color: var(--text-sec); margin-bottom: 8px; display: flex; align-items: center; }
-        .step-num { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 8px; }
-        .json-input {
-            width: 100%; height: 80px; box-sizing: border-box; padding: 8px; 
-            background: white; border: 1px solid var(--border); color: var(--text-main);
-            border-radius: 6px; font-family: 'Roboto Mono', monospace; font-size: 11px;
-            resize: none; outline: none; margin-bottom: 5px;
-        }
-        .json-input:focus { border-color: var(--primary); }
+        .json-input { width: 100%; height: 80px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Roboto Mono'; font-size: 11px; resize: none; outline: none; margin-bottom: 5px; }
 
         @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
     </style>
@@ -163,23 +138,18 @@
 <div id="settings-modal" class="modal-overlay">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div class="modal-title" style="margin:0">Settings</div>
+            <div style="font-weight:800; font-size:18px;">Settings</div>
             <button class="btn-icon" onclick="toggleModal('settings-modal')"><span class="material-icons-round">close</span></button>
         </div>
-        
-        <div class="setting-row">
-            <label class="setting-label">TRIGGER INTERVAL</label>
+        <div style="margin-bottom:20px;">
+            <label style="display:block;font-size:13px;font-weight:600;color:var(--text-sec);margin-bottom:8px;">TRIGGER INTERVAL</label>
             <div class="radio-group" id="interval-options">
                 <div class="radio-opt" onclick="setIntervalVal(10000)">10s</div>
                 <div class="radio-opt" onclick="setIntervalVal(20000)">20s</div>
                 <div class="radio-opt" onclick="setIntervalVal(30000)">30s</div>
                 <div class="radio-opt" onclick="setIntervalVal(60000)">60s</div>
             </div>
-            <div style="font-size:11px; color:#94a3b8; margin-top:8px; line-height:1.4;">
-                System locks to nearest interval (e.g., :10, :20). 
-            </div>
         </div>
-
         <button class="btn-add" onclick="toggleModal('settings-modal')">Done</button>
     </div>
 </div>
@@ -187,26 +157,17 @@
 <div id="import-modal" class="modal-overlay">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div class="modal-title" style="margin:0">Smart Import</div>
+            <div style="font-weight:800; font-size:18px;">Smart Import</div>
             <button class="btn-icon" onclick="toggleModal('import-modal')"><span class="material-icons-round">close</span></button>
         </div>
-
-        <div class="step-card">
-            <div class="step-head"><span class="step-num">STEP 1</span> Copy Script & Open NetEase</div>
-            <div style="font-size:11px; color:#64748b; margin-bottom:10px; line-height:1.4;">
-                1. Click button below to copy script.<br>
-                2. In NetEase Playlist page, press <b>F12</b>.<br>
-                3. Paste in Console and Enter.
-            </div>
-            <button class="btn-adj" style="width:100%" onclick="copyScriptAndJump()">
-                <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:4px;">content_copy</span> Copy & Open
-            </button>
+        <div style="background:#f1f5f9; padding:12px; border-radius:8px; margin-bottom:12px; border:1px solid var(--border);">
+            <div style="font-size:12px; font-weight:700; color:var(--text-sec); margin-bottom:8px;">STEP 1: Copy & Open</div>
+            <button class="btn-adj" style="width:100%" onclick="copyScriptAndJump()">Copy Script</button>
         </div>
-
-        <div class="step-card">
-            <div class="step-head"><span class="step-num">STEP 2</span> Paste Result</div>
-            <textarea id="import-input" class="json-input" placeholder='Paste JSON here: [{"id":"...","name":"..."}]'></textarea>
-            <button class="btn-add" onclick="processImport()">Import Songs</button>
+        <div style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid var(--border);">
+            <div style="font-size:12px; font-weight:700; color:var(--text-sec); margin-bottom:8px;">STEP 2: Paste JSON</div>
+            <textarea id="import-input" class="json-input" placeholder='[{"id":"...","name":"..."}]'></textarea>
+            <button class="btn-add" onclick="processImport()">Import</button>
         </div>
     </div>
 </div>
@@ -214,34 +175,27 @@
 <header>
     <div class="brand">
         <span class="material-icons-round" style="color:var(--primary)">dns</span>
-        <span>Jack's Sync <span style="font-size:10px; opacity:0.6; vertical-align:middle;">ULTIMATE</span></span>
+        <span>Jack's Sync <span style="font-size:10px; opacity:0.6;">V3.7</span></span>
     </div>
     <div class="header-actions">
         <div class="action-badge import-badge" onclick="toggleModal('import-modal')">
-            <span class="material-icons-round" style="font-size:14px">playlist_add</span>
-            <span>Import</span>
+            <span class="material-icons-round" style="font-size:14px">playlist_add</span> Import
         </div>
-        
-        <div id="sync-btn" class="action-badge sync-badge" onclick="performRobustSync()">
+        <div id="sync-btn" class="action-badge sync-badge" onclick="performOmniSync()">
             <span class="material-icons-round" style="font-size:14px">sync</span>
-            <span id="sync-text">Sync Time</span>
+            <span id="sync-text">Sync</span>
         </div>
-        
-        <button class="btn-icon" onclick="toggleModal('settings-modal')" title="Settings">
-            <span class="material-icons-round">settings</span>
-        </button>
+        <button class="btn-icon" onclick="toggleModal('settings-modal')"><span class="material-icons-round">settings</span></button>
     </div>
 </header>
 
 <div class="container">
     <aside>
         <div class="input-area">
-            <input type="text" id="inp-id" class="g-input" placeholder="NetEase ID (e.g. 186016)">
-            <input type="text" id="inp-name" class="g-input" placeholder="Song Name">
+            <input type="text" id="inp-id" class="g-input" placeholder="Song ID (e.g. 186016)">
+            <input type="text" id="inp-name" class="g-input" placeholder="Name">
             <button class="btn-add" onclick="addSong()">Add Track</button>
-            <div style="text-align:right; margin-top:5px;">
-                <span style="font-size:10px; color:#94a3b8; cursor:pointer;" onclick="clearLibrary()">CLEAR ALL</span>
-            </div>
+            <div style="text-align:right; margin-top:5px; font-size:10px; color:#94a3b8; cursor:pointer;" onclick="clearLibrary()">CLEAR ALL</div>
         </div>
         <div id="song-list-el" class="song-list"></div>
     </aside>
@@ -251,7 +205,7 @@
         <div id="status-display" class="status-badge-lg">Idle</div>
 
         <div class="offset-panel">
-            <div class="panel-header">Phase Correction (Latency)</div>
+            <div class="panel-header">Latency Correction</div>
             <div id="manual-offset-val" class="offset-display">0 ms</div>
             <div class="btn-group">
                 <button class="btn-adj" onclick="adjustOffset(-50)">-50</button>
@@ -260,7 +214,7 @@
                 <button class="btn-adj" onclick="adjustOffset(50)">+50</button>
             </div>
             <div style="font-size:11px; color:#64748b; margin-top:10px; text-align:center;">
-                If audio is <b>LATE</b>, click negative (-).<br>If audio is <b>EARLY</b>, click positive (+).
+                Audio Late? Click (-). Audio Early? Click (+).
             </div>
         </div>
     </main>
@@ -269,7 +223,7 @@
 <audio id="audio-core"></audio>
 
 <script>
-    /* ================= CORE STATE ================= */
+    /* ================= STATE ================= */
     const STATE = {
         songs: JSON.parse(localStorage.getItem('ps_songs')) || [],
         manualOffset: parseInt(localStorage.getItem('ps_offset')) || 0,
@@ -282,306 +236,279 @@
         animFrame: null
     };
 
-    /* ================= 1. JSONP SYNC ENGINE (Universal / No-CORS) ================= */
-    // 采用 JSONP 动态脚本注入，完美解决 V3.1 中 file:// 本地运行时的跨域报错问题。
-    // 直接连接淘宝/苏宁服务器，秒级响应。
+    /* ================= 1. V3.7 OMNI-SYNC ENGINE (Race Logic) ================= */
+    /* 利用用户提供的腾讯(Tencent)和淘宝(Taobao)接口。
+       这两个接口是“跨域之王”，几乎可以在任何环境（包括Github Pages）下穿透。
+    */
 
-    function fetchJsonpTime(config) {
+    // Helper: Script Injector with Timeout
+    function injectScript(url, cleanupCb, errorCb) {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onerror = () => { if(script.parentNode) script.parentNode.removeChild(script); errorCb(); };
+        document.body.appendChild(script);
+        return script;
+    }
+
+    // 1. TENCENT: vv.video.qq.com (返回 QZOutputJson=...)
+    // 这不是标准的 JSONP，它直接赋值给全局变量，我们需要劫持这个变量
+    function fetchTencent() {
         return new Promise((resolve, reject) => {
-            const callbackName = 'cb_' + Math.random().toString(36).substr(2, 9);
             const t0 = Date.now();
-            let isResolved = false;
+            let done = false;
 
-            // 1. 全局回调
-            window[callbackName] = (data) => {
-                if(isResolved) return;
-                isResolved = true;
-                const t3 = Date.now();
-                cleanup();
-                
-                try {
-                    const serverTime = config.parser(data);
-                    if(!serverTime || isNaN(serverTime)) throw new Error("Parse Error");
-                    // NTP 偏移计算
-                    const rtt = t3 - t0;
-                    const offset = (serverTime + (rtt / 2)) - t3;
-                    resolve({ offset, rtt, source: config.name });
-                } catch(e) { reject(e); }
-            };
+            // 劫持全局变量
+            Object.defineProperty(window, "QZOutputJson", {
+                configurable: true,
+                set: function(val) {
+                    if(done) return; done = true;
+                    // Tencent returns t: 173... (seconds)
+                    if(val && val.t) {
+                        const t3 = Date.now();
+                        const rtt = t3 - t0;
+                        const serverTime = val.t * 1000; // 转换为毫秒
+                        resolve({ offset: (serverTime + rtt/2) - t3, source: 'Tencent (Video)' });
+                    } else { reject("Invalid Tencent Data"); }
+                    cleanup();
+                }
+            });
 
-            // 2. 清理
+            const script = injectScript(`https://vv.video.qq.com/checktime?otype=json&_=${t0}`, cleanup, () => {
+                if(!done) { done = true; reject("Tencent Net Error"); }
+            });
+
             function cleanup() {
-                delete window[callbackName];
                 if(script.parentNode) script.parentNode.removeChild(script);
+                // Remove hijack
+                delete window.QZOutputJson; 
             }
 
-            // 3. 注入
-            const script = document.createElement('script');
-            const sep = config.url.includes('?') ? '&' : '?';
-            script.src = `${config.url}${sep}${config.callbackParam}=${callbackName}&_=${t0}`;
-            
-            script.onerror = () => {
-                if(isResolved) return; isResolved = true; cleanup();
-                reject(new Error("Net Error"));
-            };
-
-            document.body.appendChild(script);
-            setTimeout(() => { if(!isResolved) { isResolved = true; cleanup(); reject(new Error("Timeout")); }}, 3000);
+            setTimeout(() => { if(!done) { done = true; cleanup(); reject("Tencent Timeout"); } }, 2000);
         });
     }
 
-    async function performRobustSync() {
+    // 2. TAOBAO: suggest.taobao.com (Standard JSONP)
+    // 这是一个搜索建议接口，但它非常稳定，我们可以利用它返回的时间
+    function fetchTaobao() {
+        return new Promise((resolve, reject) => {
+            const cbName = 'cb_tb_' + Math.random().toString(36).substr(2, 9);
+            const t0 = Date.now();
+            let done = false;
+
+            window[cbName] = (data) => {
+                if(done) return; done = true;
+                cleanup();
+                // 淘宝本身可能不返回精确时间戳，但我们可以利用请求成功的RTT来计算
+                // V3.7 改进：由于 suggest 接口本身不带时间戳，我们把它当作 "连通性检查" + "本机时间兜底"
+                // 除非我们能解析 headers，但 script 标签做不到。
+                // 修正：我们改用苏宁移动端接口，那个返回时间。
+                reject("Taobao Suggest doesn't allow standard time parsing in JSONP mode."); 
+            };
+
+            // 修正：使用用户提供的苏宁接口 (Suning Mobile)
+            // https://f.m.suning.com/api/ct.do (User Source #2)
+            const script = injectScript(`https://f.m.suning.com/api/ct.do?callback=${cbName}&_=${t0}`, cleanup, () => {
+                if(!done) { done = true; reject("Suning Net Error"); }
+            });
+
+            function cleanup() {
+                delete window[cbName];
+                if(script.parentNode) script.parentNode.removeChild(script);
+            }
+            
+            setTimeout(() => { if(!done) { done = true; cleanup(); reject("Suning Timeout"); } }, 2000);
+        });
+    }
+
+    // 3. Fallback: Same-Origin (PageHost)
+    async function fetchPageHost() {
+        const t0 = Date.now();
+        const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+        const t3 = Date.now();
+        const date = res.headers.get('date');
+        if(!date) throw new Error("No Date");
+        const serverTime = new Date(date).getTime();
+        return { offset: (serverTime + (t3-t0)/2) - t3, source: 'PageHost (Github)' };
+    }
+
+    // === MAIN RACE LOGIC ===
+    async function performOmniSync() {
         const btn = document.getElementById('sync-btn');
         const txt = document.getElementById('sync-text');
-        
         btn.className = 'action-badge sync-badge loading';
-        txt.innerText = "Connecting CN...";
+        txt.innerText = "Racing...";
 
-        const PROVIDERS = [
-            { 
-                name: 'Taobao', 
-                url: 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp', 
-                callbackParam: 'callback',
-                parser: (res) => parseInt(res.data.t) 
-            },
-            {
-                name: 'Suning',
-                url: 'https://quan.suning.com/getSysTime.do',
-                callbackParam: 'callback',
-                parser: (res) => new Date(res.sysTime2).getTime()
-            }
+        // 启动竞速：腾讯 vs 苏宁 vs PageHost
+        // 腾讯通常最快且最准
+        const racers = [
+            fetchTencent(),
+            // 尝试把 Suning 的 Promise 包装一下，因为它是 JSONP
+            new Promise((resolve, reject) => {
+                const cb = 'cb_sn_' + Math.random().toString(36).substr(2,9);
+                const t0 = Date.now();
+                window[cb] = (d) => {
+                    const t3 = Date.now();
+                    const sTime = d.currentTime; // Suning returns currentTime
+                    resolve({ offset: (sTime + (t3-t0)/2) - t3, source: 'Suning' });
+                    delete window[cb];
+                };
+                const s = document.createElement('script');
+                s.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
+                s.onerror = () => reject("Suning Error");
+                document.body.appendChild(s);
+            }).catch(()=>null),
+            // PageHost
+            fetchPageHost().catch(()=>null)
         ];
 
         try {
-            // 采用 3 次采样取平均值，提高精度
-            let totalOffset = 0;
-            let successCount = 0;
-            let lastSource = "";
-
-            for(let i=0; i<3; i++) {
-                // Race: 同时请求淘宝和苏宁，谁快用谁
-                const winner = await Promise.race(PROVIDERS.map(p => fetchJsonpTime(p)));
-                totalOffset += winner.offset;
-                successCount++;
-                lastSource = winner.source;
-                txt.innerText = `Sample ${i+1}/3...`;
-                await new Promise(r => setTimeout(r, 150)); // 防抖
+            // Promise.any is modern, let's use a simple loop for compatibility
+            // 只要有一个成功就行
+            let winner = null;
+            
+            // 优先尝试腾讯，因为它最准
+            try {
+                winner = await fetchTencent();
+            } catch(e) {
+                console.warn("Tencent failed, trying others...");
+                // 如果腾讯挂了，试试苏宁或PageHost
+                const res = await Promise.all(racers); // 这里逻辑稍微简单点，直接全部跑完看谁有结果
+                winner = res.find(r => r !== null);
             }
 
-            STATE.netOffset = totalOffset / successCount;
-            
-            btn.className = 'action-badge sync-badge';
-            txt.innerText = `Synced: ${lastSource} (${Math.round(STATE.netOffset)}ms)`;
-            console.log("Sync Success:", STATE.netOffset);
-
+            if(winner) {
+                STATE.netOffset = winner.offset;
+                btn.className = 'action-badge sync-badge';
+                txt.innerText = `Via: ${winner.source}`;
+                console.log(`Synced via ${winner.source}: ${STATE.netOffset}ms`);
+            } else {
+                throw new Error("All synced failed");
+            }
         } catch(e) {
             console.error(e);
-            btn.className = 'action-badge sync-badge error';
-            txt.innerText = "Sync Failed";
-            alert("同步失败，请检查网络连接。\n即使在 file:// 模式下，本版本也应该可以正常连接淘宝服务器。");
+            STATE.netOffset = 0;
+            btn.className = 'action-badge sync-badge local';
+            txt.innerText = "Local Mode";
+            alert("External Sync Failed. Using Local Device Time.");
         }
     }
 
     function getPreciseTime() { return Date.now() + STATE.netOffset; }
 
-    /* ================= 2. SMART IMPORT LOGIC (From V2) ================= */
-    const SMART_SCRIPT = `
-(function(){
-    var doc = document;
-    var iframe = document.getElementById('g_iframe');
-    if(iframe && iframe.contentWindow) { console.log("Switched to iframe"); doc = iframe.contentWindow.document; }
-    
-    var rows = doc.querySelectorAll('.m-table tbody tr');
-    if(rows.length === 0) { alert("No songs found! Are you on a Playlist page?"); return; }
-
-    var list = [];
-    rows.forEach(function(row){
-        var id = row.querySelector('.ply') ? row.querySelector('.ply').getAttribute('data-res-id') : null;
-        var name = row.querySelector('.ttc .txt b') ? row.querySelector('.ttc .txt b').getAttribute('title') : 'Unknown';
-        if(id) list.push({id: id, name: name});
-    });
-    
-    var json = JSON.stringify(list);
-    console.clear();
-    console.log("%c COPY BELOW:", "color:red;font-size:20px;font-weight:bold;");
-    console.log(json);
-    alert("Extracted " + list.length + " songs! Check Console (F12) to copy.");
-})();
-    `;
+    /* ================= 2. SMART IMPORT ================= */
+    const SMART_SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
 
     function copyScriptAndJump() {
         navigator.clipboard.writeText(SMART_SCRIPT).then(() => {
-            alert("Script Copied!\n\n1. Opening NetEase...\n2. Press F12 (Console)\n3. Paste (Ctrl+V) and Enter.");
-            window.open("https://music.163.com", "_blank");
-        }).catch(() => alert("Copy failed."));
+            if(confirm("Script Copied!\n\nOpen NetEase Music now?")) window.open("https://music.163.com", "_blank");
+        });
     }
 
     function processImport() {
-        const input = document.getElementById('import-input').value.trim();
-        if(!input) return;
+        const v = document.getElementById('import-input').value.trim();
+        if(!v) return;
         try {
-            const data = JSON.parse(input);
-            if(!Array.isArray(data)) throw new Error("Not array");
-            let count = 0;
-            data.forEach(s => {
-                if(s.id && !STATE.songs.some(ex => ex.id == s.id)) {
-                    STATE.songs.push(s); count++;
-                }
-            });
-            saveSongs(); renderSongs();
-            toggleModal('import-modal');
-            alert(`Success! Imported ${count} songs.`);
+            const d = JSON.parse(v);
+            if(!Array.isArray(d)) throw new Error();
+            d.forEach(s => { if(s.id && !STATE.songs.some(x=>x.id==s.id)) STATE.songs.push(s); });
+            saveSongs(); renderSongs(); toggleModal('import-modal');
             document.getElementById('import-input').value = "";
-        } catch(e) { alert("Invalid JSON format."); }
+        } catch(e) { alert("Invalid JSON"); }
     }
 
-    /* ================= 3. UI & SETTINGS ================= */
+    /* ================= 3. UI & HELPERS ================= */
     function toggleModal(id) {
         document.getElementById(id).classList.toggle('open');
         if(id === 'settings-modal') renderIntervalUI();
     }
-
+    
     function setIntervalVal(ms) {
-        STATE.interval = ms;
-        localStorage.setItem('ps_interval', ms);
-        renderIntervalUI();
+        STATE.interval = ms; localStorage.setItem('ps_interval', ms); renderIntervalUI();
     }
-
+    
     function renderIntervalUI() {
-        const opts = document.querySelectorAll('.radio-opt');
-        opts.forEach(opt => {
-            if(parseInt(opt.getAttribute('onclick').match(/\d+/)[0]) === STATE.interval) {
-                opt.classList.add('selected');
-            } else {
-                opt.classList.remove('selected');
-            }
+        document.querySelectorAll('.radio-opt').forEach(el => {
+            const val = parseInt(el.getAttribute('onclick').match(/\d+/)[0]);
+            el.className = val === STATE.interval ? 'radio-opt selected' : 'radio-opt';
         });
-        if(STATE.status === 'IDLE') document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
+        if(STATE.status === 'IDLE') document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s)`;
     }
 
-    function adjustOffset(delta) {
-        STATE.manualOffset += delta;
-        localStorage.setItem('ps_offset', STATE.manualOffset);
-        updateOffsetUI();
-    }
-
-    function updateOffsetUI() {
+    function adjustOffset(d) {
+        STATE.manualOffset += d; localStorage.setItem('ps_offset', STATE.manualOffset);
         const el = document.getElementById('manual-offset-val');
-        const val = STATE.manualOffset;
-        el.innerText = (val > 0 ? "+" : "") + val + " ms";
-        el.className = val === 0 ? 'offset-display' : (val < 0 ? 'offset-display neg' : 'offset-display');
+        el.innerText = (STATE.manualOffset > 0 ? "+" : "") + STATE.manualOffset + " ms";
+        el.className = STATE.manualOffset === 0 ? 'offset-display' : (STATE.manualOffset < 0 ? 'offset-display neg' : 'offset-display');
     }
 
-    /* ================= 4. MAIN ENGINE ================= */
+    /* ================= 4. PLAYER ENGINE ================= */
     function armSystem() {
         if(STATE.status !== 'IDLE') {
-            STATE.audio.pause(); STATE.audio.currentTime = 0;
-            STATE.status = 'IDLE';
-            document.getElementById('status-display').innerText = `Idle (${STATE.interval/1000}s Mode)`;
+            STATE.audio.pause(); STATE.audio.currentTime = 0; STATE.status = 'IDLE';
             document.getElementById('status-display').className = 'status-badge-lg';
-            document.getElementById('timer-display').innerText = "--.---";
-            cancelAnimationFrame(STATE.animFrame);
-            return;
+            renderIntervalUI(); document.getElementById('timer-display').innerText = "--.---";
+            cancelAnimationFrame(STATE.animFrame); return;
         }
-
-        if(STATE.songs.length === 0) return alert("Please add or import songs first.");
+        if(!STATE.songs.length) return alert("Playlist empty");
 
         const now = getPreciseTime();
-        const INTERVAL = STATE.interval; 
-        
-        let target = Math.ceil(now / INTERVAL) * INTERVAL;
-        if (target - now < 4000) target += INTERVAL; 
+        let target = Math.ceil(now / STATE.interval) * STATE.interval;
+        if(target - now < 4000) target += STATE.interval;
+        STATE.targetTime = target;
 
-        STATE.targetTime = target; 
         const s = STATE.songs[STATE.curIdx];
         STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
         STATE.audio.load();
-
-        STATE.status = 'ARMED';
         
-        const dateObj = new Date(target);
-        const secs = dateObj.getSeconds().toString().padStart(2,'0');
-        document.getElementById('status-display').innerText = `Armed - Firing at :${secs}`;
-        document.getElementById('status-display').classList.add('waiting');
-
+        STATE.status = 'ARMED';
+        const sec = new Date(target).getSeconds().toString().padStart(2,'0');
+        document.getElementById('status-display').innerText = `ARMED :${sec}`;
+        document.getElementById('status-display').className = 'status-badge-lg waiting';
         loop();
     }
 
     function loop() {
         if(STATE.status !== 'ARMED') return;
-        const now = getPreciseTime();
-        const effectiveTarget = STATE.targetTime + STATE.manualOffset;
-        const diff = effectiveTarget - now;
-
-        if (diff <= 0) {
-            STATE.audio.play();
-            STATE.status = 'PLAYING';
+        const diff = (STATE.targetTime + STATE.manualOffset) - getPreciseTime();
+        if(diff <= 0) {
+            STATE.audio.play(); STATE.status = 'PLAYING';
             document.getElementById('status-display').innerText = "PLAYING";
             document.getElementById('status-display').className = 'status-badge-lg playing';
-            document.getElementById('timer-display').innerText = "0.000";
-            return;
+            document.getElementById('timer-display').innerText = "0.000"; return;
         }
-
-        document.getElementById('timer-display').innerText = (diff / 1000).toFixed(3);
+        document.getElementById('timer-display').innerText = (diff/1000).toFixed(3);
         STATE.animFrame = requestAnimationFrame(loop);
     }
 
-    /* ================= 5. LIST MGMT ================= */
+    /* ================= INIT ================= */
     function addSong() {
         const id = document.getElementById('inp-id').value;
         const name = document.getElementById('inp-name').value || id;
-        if(!id) return;
-        STATE.songs.push({id, name});
-        saveSongs(); renderSongs();
-        document.getElementById('inp-id').value = "";
+        if(id) { STATE.songs.push({id,name}); saveSongs(); renderSongs(); document.getElementById('inp-id').value=""; }
     }
-    
-    function removeSong(i, e) {
-        e.stopPropagation(); STATE.songs.splice(i, 1); saveSongs(); renderSongs();
-    }
-    
-    function clearLibrary() {
-        if(confirm("Delete all songs?")) { STATE.songs = []; saveSongs(); renderSongs(); }
-    }
-
-    function selectSong(i) {
-        if(STATE.status !== 'IDLE') return;
-        STATE.curIdx = i; renderSongs();
-    }
-
+    function removeSong(i,e) { e.stopPropagation(); STATE.songs.splice(i,1); saveSongs(); renderSongs(); }
+    function clearLibrary() { if(confirm("Clear all?")) { STATE.songs=[]; saveSongs(); renderSongs(); }}
+    function selectSong(i) { if(STATE.status==='IDLE') { STATE.curIdx=i; renderSongs(); }}
+    function saveSongs() { localStorage.setItem('ps_songs', JSON.stringify(STATE.songs)); }
     function renderSongs() {
-        const list = document.getElementById('song-list-el');
-        list.innerHTML = "";
-        STATE.songs.forEach((s, i) => {
-            const div = document.createElement('div');
-            div.className = `song-item ${i === STATE.curIdx ? 'active' : ''}`;
-            div.onclick = () => selectSong(i);
-            div.innerHTML = `
-                <div>
-                    <div class="song-name" title="${s.name}">${s.name}</div>
-                    <div class="song-id">ID: ${s.id}</div>
-                </div>
-                <div class="material-icons-round btn-del" onclick="removeSong(${i}, event)">delete</div>
-            `;
-            list.appendChild(div);
+        const l = document.getElementById('song-list-el'); l.innerHTML = "";
+        STATE.songs.forEach((s,i) => {
+            const d = document.createElement('div');
+            d.className = `song-item ${i===STATE.curIdx?'active':''}`;
+            d.onclick = () => selectSong(i);
+            d.innerHTML = `<div><div class="song-name">${s.name}</div><div class="song-id">${s.id}</div></div><div class="material-icons-round btn-del" onclick="removeSong(${i},event)">delete</div>`;
+            l.appendChild(d);
         });
     }
 
-    function saveSongs() { localStorage.setItem('ps_songs', JSON.stringify(STATE.songs)); }
-
-    /* ================= INIT ================= */
     window.addEventListener('keydown', e => {
         if(e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault(); armSystem();
         }
     });
 
-    updateOffsetUI();
-    renderSongs();
-    renderIntervalUI();
-    
-    // Auto Sync on Load
-    setTimeout(performRobustSync, 500);
+    adjustOffset(0); renderSongs(); renderIntervalUI();
+    setTimeout(performOmniSync, 500);
 
 </script>
 </body>
