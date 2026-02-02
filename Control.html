@@ -3,741 +3,453 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V2.5 Editor & Alert</title>
+    <title>Jack's Warden | V8.0 Commander</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            --md-primary: #0b57d0;
-            --md-on-primary: #ffffff;
-            --md-primary-container: #d3e3fd;
-            --md-secondary: #00639b;
-            --md-error: #b3261e;
-            --md-surface: #ffffff;
-            --md-bg: #f0f2f5;
-            --radius-l: 24px;
-            --shadow-2: 0 4px 12px rgba(0,0,0,0.1);
-            
-            /* Buffer Colors */
-            --buffer-bg: #fff9c4;
-            --buffer-text: #5f4c00;
+            --md-primary: #c20c0c;
+            --md-bg: #f5f5f5;
+            --color-study: #333333;
+            --color-break: #c20c0c;
+            --buffer-bg: #fffbf0;
+            --buffer-accent: #ffc107;
+            --shadow-2: 0 4px 12px rgba(0,0,0,0.08);
         }
 
-        * { box-sizing: border-box; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); }
-        body { margin: 0; font-family: 'Roboto', sans-serif; background: var(--md-bg); color: #1f1f1f; height: 100vh; display: flex; overflow: hidden; transition: background 0.5s; }
+        * { box-sizing: border-box; transition: background-color 0.4s ease, color 0.2s ease; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; background: var(--md-bg); color: #1f1f1f; height: 100vh; display: flex; overflow: hidden; }
 
-        /* Buffer State */
-        body.buffer-active { background: var(--buffer-bg) !important; }
-        body.buffer-active aside { background: rgba(255,255,255,0.8); }
+        body.buffer-active { background-color: var(--buffer-bg) !important; }
+        body.buffer-active aside { border-right: 4px solid var(--buffer-accent); }
 
         /* Sidebar */
-        aside { width: 380px; background: var(--md-surface); border-right: 1px solid #e0e2e7; display: flex; flex-direction: column; z-index: 20; }
-        .chat-header { padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
-        .chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: #fff; scroll-behavior: smooth; }
-        .bubble { max-width: 85%; padding: 12px 18px; border-radius: 20px; font-size: 14px; line-height: 1.6; word-wrap: break-word; }
-        .bubble.ai { background: #f2f2f2; color: #1f1f1f; align-self: flex-start; border-bottom-left-radius: 4px; }
-        .bubble.user { background: var(--md-primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-
-        .input-area { padding: 16px; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: center; background: #fff; }
-        .chat-input { flex: 1; padding: 12px 20px; border-radius: 24px; border: 1px solid #ccc; outline: none; font-size: 15px; }
-        .chat-input:focus { border-color: var(--md-primary); box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.2); }
-        .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; cursor: pointer; display: flex; justify-content: center; align-items: center; color: #444; }
-        .icon-btn:hover { background: #f0f0f0; }
+        aside { width: 360px; background: #fff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; z-index: 20; box-shadow: 4px 0 24px rgba(0,0,0,0.02); }
         
-        .icon-btn.recording { color: white; background: var(--md-error); animation: pulse-red 1s infinite; }
-        @keyframes pulse-red { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(179, 38, 30, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(179, 38, 30, 0); } }
+        .player-header { padding: 20px; background: #242424; color: white; }
+        .player-title { font-weight: bold; font-size: 16px; display:flex; align-items:center; gap:10px; margin-bottom: 10px;}
+        
+        /* Playlist Selector */
+        .playlist-select {
+            width: 100%; padding: 8px 12px; border-radius: 6px; border: none;
+            background: #333; color: white; font-size: 13px; cursor: pointer;
+            outline: none; font-weight: 500;
+        }
+        .playlist-select:hover { background: #444; }
+
+        .iframe-container { flex: 1; background: #fff; display: flex; justify-content: center; padding-top: 10px; overflow: hidden; }
+        
+        /* TTS Settings Area */
+        .tts-settings { padding: 15px; background: #f9f9f9; border-top: 1px solid #eee; font-size: 13px; }
+        .tts-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; color:#555; font-weight:bold; }
+        .tts-select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; background: white; }
 
         /* Main */
         main { flex: 1; padding: 30px 40px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; position: relative; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .date-badge { background: var(--md-primary-container); color: var(--md-on-primary-container); padding: 8px 16px; border-radius: 12px; font-weight: 500; font-size: 14px; }
+        header { display: flex; justify-content: space-between; align-items: center; }
+        .date-badge { background: #333; color: #fff; padding: 8px 16px; border-radius: 4px; font-family: 'Roboto Mono'; }
 
-        /* Views */
-        #view-generator { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-        .fab-extended { background: var(--md-primary); color: white; padding: 16px 32px; border-radius: 16px; border: none; font-size: 16px; font-weight: 500; cursor: pointer; box-shadow: var(--shadow-2); display: flex; align-items: center; gap: 10px; }
-        .fab-extended:hover { transform: translateY(-1px); }
-
-        #view-active { display: none; width: 100%; max-width: 900px; margin: 0 auto; }
+        .timer-card { background: white; border-radius: 20px; padding: 40px; text-align: center; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; position: relative; }
+        .timer-digits { font-size: 120px; font-family: 'Inter', sans-serif; font-weight: 900; color: #333; line-height: 0.9; letter-spacing: -4px; font-variant-numeric: tabular-nums; }
+        .timer-label { font-size: 24px; color: #666; margin-bottom: 20px; font-weight: 700; text-transform: uppercase; }
         
-        /* Time.is Style Timer */
-        .timer-card { background: white; border-radius: 28px; padding: 40px; text-align: center; box-shadow: var(--shadow-2); margin-bottom: 24px; position: relative; overflow: hidden; border: 1px solid #e0e0e0; }
-        .timer-digits { 
-            font-size: 140px; 
-            font-family: 'Inter', sans-serif; 
-            font-weight: 900; 
-            color: #202124; 
-            line-height: 0.9; 
-            letter-spacing: -6px;
-            font-variant-numeric: tabular-nums;
-        }
-        .timer-label { font-size: 28px; color: #5f6368; margin-bottom: 20px; font-weight: 700; letter-spacing: -0.5px; }
-        .timer-card.buffer-mode { background: #fff9c4; border: 4px solid #fbc02d; }
-        .timer-card.buffer-mode .timer-digits { color: #5f4c00; }
-        .timer-card.buffer-mode .timer-label { color: #827717; }
+        .early-finish-btn { position: absolute; right: 20px; top: 20px; background: #e6f4ea; color: #137333; border: 1px solid #c6ebd1; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.3s; display: flex; align-items: center; gap: 5px; }
+        .early-finish-btn.visible { opacity: 1; pointer-events: auto; }
 
-        .schedule-card { background: white; border-radius: 24px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; }
-        .task-row { display: grid; grid-template-columns: 100px 1fr 100px; padding: 16px 24px; border-bottom: 1px solid #f0f0f0; align-items: center; }
-        .task-row.active { background: #e8f0fe; border-left: 6px solid var(--md-primary); }
-        .task-row.done { background: #f8f9fa; opacity: 0.6; }
-        .task-row.done .task-name { text-decoration: line-through; color: #757575; }
-        .task-time { font-family: 'Roboto Mono'; font-size: 13px; color: #5f6368; }
-        
-        /* Drag Preview & Editor */
-        .preview-item { display: grid; grid-template-columns: 30px 60px 10px 60px 1fr 40px; align-items: center; gap: 8px; padding: 8px; background: #fff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; transition: transform 0.2s; }
-        .preview-item.dragging { opacity: 0.5; background: #e8f0fe; border: 1px dashed var(--md-primary); }
-        .drag-handle { cursor: grab; color: #ccc; display: flex; justify-content: center; }
-        .drag-handle:hover { color: #666; }
-        
-        .p-input { 
-            border: 1px solid transparent; 
-            background: #f9f9f9; 
-            border-radius: 4px; 
-            padding: 4px 6px; 
-            font-family: 'Roboto Mono'; 
-            font-size: 14px; 
-            width: 100%;
-        }
-        .p-input:focus { background: white; border-color: var(--md-primary); outline: none; }
-        .p-input.task-name { font-family: 'Roboto'; font-weight: 500; }
+        .schedule-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; }
+        .task-row { display: grid; grid-template-columns: 50px 80px 1fr 80px; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; align-items: center; }
+        .task-row.active { background: #fff0f0; border-left: 6px solid var(--md-primary); }
+        .task-row.done { background: #f8f9fa; opacity: 0.5; }
+        .task-row.done .task-name { text-decoration: line-through; }
+        .checkbox-custom { width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 4px; cursor: pointer; display: grid; place-items: center; color: white; }
+        .task-row.done .checkbox-custom { background: var(--color-break); border-color: var(--color-break); }
+        .task-time { font-family: 'Roboto Mono'; font-size: 13px; color: #666; }
+        .task-type { font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: right; }
+        .task-type.study { color: var(--color-study); }
+        .task-type.break { color: var(--color-break); }
 
-        /* Subtitles */
-        #subtitle-box { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 30px; border-radius: 24px; backdrop-filter: blur(4px); font-size: 16px; display: none; z-index: 100; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        #sub-zh { font-size: 13px; color: #ccc; display: block; margin-top: 4px; font-weight: 400; }
+        /* Alerts */
+        #fullscreen-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+        #fullscreen-alert.active { opacity: 1; pointer-events: auto; }
+        .alert-icon { font-size: 100px; margin-bottom: 16px; }
+        .alert-title { font-size: 50px; font-weight: 900; margin: 0; color: #333; }
+        .mode-break .alert-title { color: var(--md-primary); }
 
-        /* Dialogs */
-        dialog { border: none; border-radius: 28px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 650px; max-width: 90vw; }
-        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-        
-        /* Edge Warning */
-        .edge-warning { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999; color:white; display:flex; flex-direction:column; justify-content:center; align-items:center; }
-
-        /* Buffer Overlay */
-        #buffer-screen-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #fff9c4; z-index: 10; pointer-events: none;
-            opacity: 0; transition: opacity 0.5s; display: none;
-        }
-        body.buffer-active #buffer-screen-overlay { display: block; opacity: 0.1; }
-
+        /* Start Overlay */
+        #start-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white; }
     </style>
 </head>
 <body>
 
-<div id="buffer-screen-overlay"></div>
-<div id="subtitle-box"><span id="sub-en"></span><span id="sub-zh"></span></div>
+<audio id="bgm-player"></audio>
 
-<div id="edge-check" class="edge-warning" style="display:none;">
-    <span class="material-icons-round" style="font-size:64px; margin-bottom:20px; color:var(--md-primary);">language</span>
-    <h2>Required: Microsoft Edge</h2>
-    <p>为了获得最佳 AI 语音体验，请切换至 Edge 浏览器。</p>
-    <button onclick="document.getElementById('edge-check').style.display='none'" style="margin-top:20px; padding:10px 24px; border-radius:20px; border:none; background:white; cursor:pointer;">忽略</button>
+<div id="start-overlay">
+    <span class="material-icons-round" style="font-size: 64px; margin-bottom: 20px;">security</span>
+    <h2>Warden V8.0 Commander</h2>
+    <p>Music Systems & TTS Ready</p>
+    <button onclick="initSystem()" style="padding: 15px 40px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; margin-top: 20px;">
+        Initialize System
+    </button>
+</div>
+
+<div id="fullscreen-alert">
+    <span class="material-icons-round alert-icon" id="alert-icon">notifications</span>
+    <h1 class="alert-title" id="alert-text">Alert</h1>
 </div>
 
 <aside>
-    <div class="chat-header">
-        <div style="display:flex; align-items:center; gap:8px; color:var(--md-primary); font-weight:700;">
-            <span class="material-icons-round">security</span> Jack's Warden
+    <div class="player-header">
+        <div class="player-title">
+            <span class="material-icons-round" style="color:var(--md-primary)">library_music</span>
+            SELECT PLAYLIST
         </div>
-        <div style="display:flex;">
-            <button class="icon-btn" onclick="openArchive()" title="History"><span class="material-icons-round">calendar_month</span></button>
-            <button class="icon-btn" onclick="openSettings()" title="Settings"><span class="material-icons-round">settings</span></button>
+        <select id="playlist-picker" class="playlist-select" onchange="changePlaylist(this.value)">
+            <option value="17723303753">Timetable Pack (Default)</option>
+            <option value="17704807303">逆水寒·战斗 (Combat)</option>
+            <option value="17672788372">逆水寒·前200 (Top 200)</option>
+            <option value="17666278720">逆水长琴 (Zither)</option>
+            <option value="17654903028">逆水寒·精选 (Best Of)</option>
+        </select>
+    </div>
+
+    <div class="iframe-container">
+        <iframe id="music-iframe" frameborder="no" border="0" marginwidth="0" marginheight="0" width=340 height=450 src=""></iframe>
+    </div>
+
+    <div class="tts-settings">
+        <div class="tts-header">
+            <span><span class="material-icons-round" style="font-size:14px; vertical-align:middle;">record_voice_over</span> AI Voice</span>
+            <button onclick="populateVoiceSelect()" style="border:none; background:transparent; color:var(--md-primary); cursor:pointer; font-size:16px;" title="Refresh Voices">↻</button>
         </div>
-    </div>
-    <div class="chat-box" id="chat-history">
-        <div class="bubble ai">System Online. V2.5 Editor Active.<br>Notification Module Loaded.</div>
-    </div>
-    <div class="input-area">
-        <button id="mic-btn" class="icon-btn" onmousedown="startDictation()" onmouseup="stopDictation()"><span class="material-icons-round">mic</span></button>
-        <input type="text" id="user-msg" class="chat-input" placeholder="输入指令...">
-        <button onclick="sendMsg()" class="icon-btn" style="background:var(--md-primary); color:white;"><span class="material-icons-round">send</span></button>
+        <select id="voice-select" class="tts-select" onchange="testVoice()"></select>
     </div>
 </aside>
 
 <main>
     <header>
-        <h2 style="margin:0; font-size:22px;">Dashboard</h2>
+        <div>
+            <h2 style="margin:0; font-size:20px;">Daily Schedule</h2>
+            <div id="day-label" style="font-size:14px; color:#666;">Loading...</div>
+        </div>
         <div class="date-badge" id="clock-display">00:00</div>
     </header>
 
-    <div id="view-generator">
-        <div style="margin-bottom:40px;">
-            <span class="material-icons-round" style="font-size:80px; color:#e0e0e0;">assignment</span>
-        </div>
-        <h1 style="font-weight:400; margin-bottom:10px;">No Active Plan</h1>
-        <p style="color:#666; margin-bottom:40px;">Select tasks to generate a time-blocked schedule.<br>Unfinished tasks will be auto-imported.</p>
-        <button class="fab-extended" onclick="openMatrixSelector()">
-            <span class="material-icons-round">add</span> Create Daily Plan
+    <div class="timer-card" id="main-card">
+        <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()">
+            <span class="material-icons-round">done_all</span> Finish Early
         </button>
-    </div>
-
-    <div id="view-active">
-        <div class="timer-card" id="main-card">
-            <div id="buffer-label" style="display:none; color:#b06200; font-weight:bold; margin-bottom:10px;">⚠️ BUFFER ZONE (10m)</div>
-            <div class="timer-label" id="timer-label">Loading...</div>
-            <div class="timer-digits" id="timer-display">--:--</div>
-            <div style="margin-top:20px; color:#666; font-size:16px; font-weight:500;" id="next-task-display">Next: --</div>
-            
-            <div style="margin-top:30px; display:flex; gap:15px; justify-content:center;">
-                <button class="fab-extended" style="background:#e6f4ea; color:#1e8e3e; box-shadow:none; border:1px solid #c6ebd1;" onclick="finishTaskEarly()">
-                    <span class="material-icons-round">check</span> Complete
-                </button>
-                <button class="fab-extended" style="background:white; color:#444; box-shadow:none; border:1px solid #ddd;" onclick="window.open('https://yunfanshi.github.io/Studyplan.html','_blank')">
-                    <span class="material-icons-round">launch</span> StudyPlan
-                </button>
-            </div>
-            
-            <div style="position:absolute; bottom:0; left:0; width:100%; height:6px; background:#f0f0f0;">
-                <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
-            </div>
-        </div>
-
-        <div class="schedule-card" id="schedule-list"></div>
-
-        <div style="text-align:center; margin-top:30px;">
-            <button onclick="resetSchedule()" style="border:none; background:none; color:var(--md-error); cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
-                <span class="material-icons-round">restart_alt</span> Reset Day
-            </button>
+        <div class="timer-label" id="timer-label">STANDBY</div>
+        <div class="timer-digits" id="timer-display">--:--</div>
+        
+        <div style="position:absolute; bottom:0; left:0; width:100%; height:6px; background:#f0f0f0;">
+            <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
         </div>
     </div>
+
+    <div class="schedule-card" id="schedule-list"></div>
 </main>
 
-<dialog id="matrix-modal">
-    <h3 style="margin-top:0;">Select Tasks</h3>
-    <div id="matrix-rows" style="display:grid; gap:10px; margin:20px 0;"></div>
-    <div style="border-top:1px solid #eee; padding-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <label><input type="checkbox" checked disabled> IELTS Lessons</label>
-        <label><input type="checkbox" checked disabled> Vocab</label>
-        <label><input type="checkbox" checked disabled> Summer HW (1h)</label>
-        <label><input type="checkbox" id="chk-python"> CS50P</label>
-        <label><input type="checkbox" id="chk-piano"> Piano</label>
-    </div>
-    <div style="text-align:right; margin-top:20px;">
-        <button onclick="confirmMatrix()" class="fab-extended" style="font-size:14px;">Generate Draft</button>
-    </div>
-</dialog>
-
-<dialog id="preview-modal">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:10px;">
-        <h3 style="margin:0;">Preview & Edit</h3>
-    </div>
-    <div id="preview-list" style="max-height:400px; overflow-y:auto;"></div>
-    <div style="margin-top:10px; text-align:center;">
-         <button onclick="addDraftTask()" style="background:#f0f2f5; border:1px dashed #999; border-radius:8px; width:100%; padding:8px; cursor:pointer; color:#666;">+ Add Task</button>
-    </div>
-    <div style="text-align:right; margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
-        <button onclick="document.getElementById('preview-modal').close()" style="border:none; background:none; cursor:pointer;">Cancel</button>
-        <button onclick="commitSchedule()" class="fab-extended" style="font-size:14px; background:#1e8e3e;">Start Day</button>
-    </div>
-</dialog>
-
-<dialog id="archive-modal">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <button onclick="changeMonth(-1)" style="border:none; background:none; cursor:pointer;">&lt;</button>
-        <strong id="cal-month-year"></strong>
-        <button onclick="changeMonth(1)" style="border:none; background:none; cursor:pointer;">&gt;</button>
-    </div>
-    <div class="cal-grid" style="font-weight:bold; color:#888;"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
-    <div class="cal-grid" id="cal-days"></div>
-    <div id="archive-detail" style="margin-top:20px; border-top:1px solid #eee; padding-top:10px; max-height:200px; overflow-y:auto; font-size:13px;"></div>
-    <div style="text-align:right; margin-top:10px;"><button onclick="document.getElementById('archive-modal').close()" style="border:none; background:none; cursor:pointer;">Close</button></div>
-</dialog>
-
-<dialog id="settings-modal">
-    <h3>Settings</h3>
-    <label style="font-size:12px;">API Key</label>
-    <input type="password" id="api-key" class="chat-input" style="width:100%; margin-bottom:15px;">
-    <label style="font-size:12px;">Model</label>
-    <select id="model-select" class="chat-input" style="width:100%; margin-bottom:15px;">
-        <option value="deepseek">Deepseek V3</option>
-        <option value="qwen">Qwen Plus</option>
-    </select>
-    <label style="font-size:12px;">TTS Voice</label>
-    <div style="display:flex; gap:10px;">
-        <select id="voice-select" class="chat-input" style="width:100%;"></select>
-        <button onclick="testVoice()" style="border:1px solid #ddd; background:white; border-radius:20px; padding:0 20px; cursor:pointer;">Test</button>
-    </div>
-    <div style="text-align:right; margin-top:20px;"><button onclick="saveSettings()" class="fab-extended" style="font-size:14px;">Save</button></div>
-</dialog>
-
 <script>
-    /* ======================== STATE & INIT ======================== */
-    const SUBJECTS = ["Math (0580)", "Add Math (0606)", "Biology (0610)", "Chemistry (0620)", "Physics (0625)"];
+    /* ======================== 1. CONFIG & DATA ======================== */
+    // 内置“下课铃”专用 ID 库 (你提供的逆水寒精选)
+    const AUTO_BGM_IDS = [
+        2640844158, // 天阙万钧
+        3312207342, // 驭骨掌中
+        3312206530, // 红丝魇
+        3332977605, // 凭澜引
+        2119745415, // 揽月
+        2119743531, // 怒涛砥霜剑
+        2137411622, // 星罗棋布
+        2137412905, // 众生如棋
+        2137411613, // 天悬太一
+        2719266561, // 无日无更
+        864099181,  // 逆水寒
+        2686665002  // 夕拾谣
+    ];
+
+    // IGCSE DATA
+    const IGCSE_DATA = {"Name":"","TimeLayouts":{"cec14f3c-f842-497e-a752-7cc96b668d14":{"Name":"IGCSE","Layouts":[{"StartTime":"10:30:00","EndTime":"11:10:00","TimeType":0},{"StartTime":"11:10:00","EndTime":"11:30:00","TimeType":1},{"StartTime":"11:30:00","EndTime":"12:10:00","TimeType":0},{"StartTime":"12:10:00","EndTime":"12:10:00","TimeType":2},{"StartTime":"13:30:00","EndTime":"14:10:00","TimeType":0},{"StartTime":"14:00:00","EndTime":"13:55:00","TimeType":1},{"StartTime":"14:10:00","EndTime":"14:30:00","TimeType":0},{"StartTime":"14:30:00","EndTime":"15:10:00","TimeType":0},{"StartTime":"15:10:00","EndTime":"15:40:00","TimeType":1},{"StartTime":"15:40:00","EndTime":"16:20:00","TimeType":0},{"StartTime":"16:20:00","EndTime":"16:40:00","TimeType":1},{"StartTime":"16:40:00","EndTime":"17:20:00","TimeType":0},{"StartTime":"17:20:00","EndTime":"17:30:00","TimeType":1},{"StartTime":"17:30:00","EndTime":"18:00:00","TimeType":0},{"StartTime":"19:00:00","EndTime":"19:40:00","TimeType":0},{"StartTime":"19:40:00","EndTime":"20:00:00","TimeType":1},{"StartTime":"20:00:00","EndTime":"20:40:00","TimeType":0},{"StartTime":"20:40:00","EndTime":"21:10:00","TimeType":1},{"StartTime":"21:10:00","EndTime":"21:50:00","TimeType":0},{"StartTime":"21:50:00","EndTime":"22:00:00","TimeType":1},{"StartTime":"22:00:00","EndTime":"22:30:00","TimeType":0}]}},"ClassPlans":{"611eca43-50d9-4c63-94e3-a57e64806e03":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":0},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"}]},"b1062c64-c991-42cb-883a-250e15ec2cf9":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":1},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"}]},"9e8314a9-846a-4e74-978d-651c1a5ac636":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":2},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"}]},"8d9ffce1-a5a9-41e3-baf5-72c40cb96575":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":3},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"}]},"37fe4914-8c98-4a7d-9a76-df9e3df31a48":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":4},"Classes":[{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"69cd9047-ee23-406f-90f6-bdc4f8d541c8"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"42deec21-92e2-4686-9469-4b373d80d501"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"}]},"98b133ff-08f4-4453-92c6-aca39215c171":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":5},"Classes":[{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"}]},"7c78beab-2772-4ffd-9814-3c18b7cc9d40":{"TimeLayoutId":"cec14f3c-f842-497e-a752-7cc96b668d14","TimeRule":{"WeekDay":6},"Classes":[{"SubjectId":"eac96c37-c954-4e9b-8cdf-7649df8d62f3"},{"SubjectId":"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b"},{"SubjectId":"5ad0295e-cd17-48e8-8623-69c190eed847"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"},{"SubjectId":"3dac0ab8-6e64-4e55-9569-5e55906e600c"},{"SubjectId":"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1"},{"SubjectId":"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e"},{"SubjectId":"f3009ca4-f4a4-4f60-97b0-37b1963eb335"}]}},"Subjects":{"485aae96-6fc0-412d-882b-7976518c55da":{"Name":"Japanese","Initial":"JP"},"00045ddc-09a6-49f5-b04c-a6d9c55011e2":{"Name":"Piano Practise","Initial":"PP"},"99435fb1-dc66-4ec5-875b-6008a38b75b3":{"Name":"Piano Composition","Initial":"PCA"},"a9d325e5-ff0b-45a3-91fc-df0dec9ec10a":{"Name":"Piano Theory","Initial":"PMT"},"5ad0295e-cd17-48e8-8623-69c190eed847":{"Name":"Piano","Initial":"P"},"42deec21-92e2-4686-9469-4b373d80d501":{"Name":"CS50P","Initial":"CS50P"},"eac96c37-c954-4e9b-8cdf-7649df8d62f3":{"Name":"Summer HW","Initial":"SHW"},"3dac0ab8-6e64-4e55-9569-5e55906e600c":{"Name":"Vocabulary","Initial":"Vocab"},"f3009ca4-f4a4-4f60-97b0-37b1963eb335":{"Name":"IELTS Lessons","Initial":"IELTS"},"d6c7e255-dd64-4129-8959-201153ac26fe":{"Name":"Physics Mock","Initial":"PM"},"69cd9047-ee23-406f-90f6-bdc4f8d541c8":{"Name":"Physics Note","Initial":"PN"},"b0fd5d9d-561d-442e-af65-d2d1f8dce758":{"Name":"Chemistry Mock","Initial":"CM"},"8ab5e4a1-020c-44a6-b1cb-0ac21da34e0b":{"Name":"Chemistry Note","Initial":"CN"},"723a4563-cc82-4434-bc09-bac7d2e291de":{"Name":"Biology Mock","Initial":"BM"},"02dc6e4d-cbe4-4365-aaa7-76ee51e4918e":{"Name":"Biology Note","Initial":"BN"},"db572002-5fef-42fc-8f83-74312eb80a6a":{"Name":"Add Math Mock","Initial":"AMM"},"029652d1-c9ff-4abb-89ef-e6e6a42330dc":{"Name":"Add Math Note","Initial":"AMN"},"e8da6049-92b2-435f-a393-f10ee09f4228":{"Name":"Math Mock","Initial":"MM"},"5ab0d3a3-cdfb-421e-bd11-91e87e71eed1":{"Name":"Math Note","Initial":"MN"}}};
+
     let STATE = {
-        schedule: JSON.parse(localStorage.getItem('j_sched')) || [],
-        backlog: JSON.parse(localStorage.getItem('j_backlog')) || [],
-        archive: JSON.parse(localStorage.getItem('j_archive')) || {},
-        apiKey: localStorage.getItem('j_key') || '',
-        provider: localStorage.getItem('j_prov') || 'deepseek',
-        voiceUri: localStorage.getItem('j_voice') || '',
-        lastDate: localStorage.getItem('j_date') || '',
-        draft: [],
-        currentCalDate: new Date(),
-        lastBufferTask: null,
-        lastSpokenTask: null 
+        schedule: [],
+        lastTaskName: null,
+        bufferActive: false,
+        bgmPlayer: document.getElementById('bgm-player'),
+        userVoiceURI: localStorage.getItem('warden_voice') || ''
     };
 
-    window.onload = () => {
-        if (!navigator.userAgent.includes("Edg")) document.getElementById('edge-check').style.display = 'flex';
-        
-        // Request Notification Permission
-        if (Notification.permission !== "granted") Notification.requestPermission();
+    // Auto-Stop Logic (Play 1 song then stop)
+    STATE.bgmPlayer.onended = () => {
+        STATE.bgmPlayer.pause();
+    };
+    STATE.bgmPlayer.onerror = () => {
+        console.log("Play failed, trying another...");
+        playRandomTrack(); 
+    };
 
-        checkDayReset();
-        startVoicePolling(); 
+    function initSystem() {
+        document.getElementById('start-overlay').style.display = 'none';
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        new AudioContext().resume();
+        
+        // Populate Voices
+        populateVoiceSelect();
+        // Set Default Iframe
+        changePlaylist("17723303753");
+
+        // Load data
+        const localData = localStorage.getItem('warden_config');
+        const data = localData ? JSON.parse(localData) : IGCSE_DATA;
+        
+        parseSchedule(data);
         setInterval(tick, 1000);
-        
-        document.getElementById('api-key').value = STATE.apiKey;
-        document.getElementById('model-select').value = STATE.provider;
-        document.getElementById('user-msg').addEventListener('keypress', (e) => { if(e.key==='Enter') sendMsg(); });
-
-        if(STATE.schedule.length > 0) {
-            switchView('active');
-            renderTable();
-        } else {
-            if(STATE.backlog.length > 0) addBubble(`Debt from yesterday: ${STATE.backlog.length} tasks.`, 'ai');
-        }
-    };
-
-    function tick() {
-        const now = new Date();
-        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-        if(STATE.schedule.length > 0) engineTick(now);
+        speak("System online. Playlist loaded.");
     }
 
-    function startVoicePolling() {
-        let attempts = 0;
-        const loader = setInterval(() => {
-            const voices = window.speechSynthesis.getVoices();
-            if(voices.length > 0) {
-                populateVoiceSelect();
-                clearInterval(loader);
-            }
-            attempts++;
-            if(attempts > 20) clearInterval(loader); 
-        }, 500);
-        window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
+    function changePlaylist(id) {
+        // HTTPS Forced Link
+        const url = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`;
+        document.getElementById('music-iframe').src = url;
     }
 
-    function populateVoiceSelect() {
-        const sel = document.getElementById('voice-select');
-        if(sel.options.length > 1) return;
-        sel.innerHTML = '';
-        const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
-        voices.sort((a,b) => (b.name.includes("Natural") ? 1 : 0) - (a.name.includes("Natural") ? 1 : 0));
-        voices.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.voiceURI;
-            opt.innerText = (v.name.includes("Natural") ? "🌟 " : "") + v.name.replace("Microsoft ", "");
-            sel.appendChild(opt);
-        });
-        if(STATE.voiceUri) sel.value = STATE.voiceUri;
-    }
+    function parseSchedule(data) {
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const todayIdx = new Date().getDay();
+        document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
 
-    /* ======================== ALERT SYSTEM ======================== */
-    // Helper to grab attention using Notification + Title Flash
-    function grabAttention(title, body) {
-        // 1. Browser Notification
-        if (Notification.permission === "granted") {
-            new Notification(title, { body: body, icon: "https://fonts.gstatic.com/s/i/materialiconsround/alarm/v12/24px.svg" });
+        let plan = null;
+        for (const [id, p] of Object.entries(data.ClassPlans)) {
+            if (p.TimeRule.WeekDay === todayIdx) { plan = p; break; }
         }
 
-        // 2. Title Flashing
-        let originalTitle = document.title;
-        let count = 0;
-        const interval = setInterval(() => {
-            document.title = (count % 2 === 0) ? `🔔 ${title}` : "⚠️ ATTENTION";
-            count++;
-            if(count > 10) { clearInterval(interval); document.title = originalTitle; }
-        }, 500);
+        if (!plan) { STATE.schedule = []; return; }
 
-        // 3. Try Focus (Best Effort)
-        window.focus();
-    }
+        const timeLayout = data.TimeLayouts[plan.TimeLayoutId];
+        const subjects = data.Subjects;
+        const flatSchedule = [];
+        let classIndex = 0;
 
-    /* ======================== ENGINE: TTS & ALERTS ======================== */
-    function engineTick(now) {
-        const curM = now.getHours()*60 + now.getMinutes();
-        let active = null, next = null, idx = -1;
+        timeLayout.Layouts.forEach((timeSlot) => {
+            let taskName = "Break";
+            let type = "break";
 
-        for(let i=0; i<STATE.schedule.length; i++) {
-            const s = STATE.schedule[i];
-            const start = t2m(s.start);
-            const end = t2m(s.end);
-            
-            // 1. Buffer Logic (10 mins before study)
-            if(s.type==='study' && !s.done && curM >= start-10 && curM < start) {
-                if(STATE.lastBufferTask !== s.task) {
-                    STATE.lastBufferTask = s.task;
-                    speak(`Warning. 10 minutes to ${s.task}. Drop phone.`, "警告。10分钟后开始。");
-                    grabAttention("Prepare for Task", `10 min until ${s.task}`);
+            if (timeSlot.TimeType === 0 || timeSlot.TimeType === 2) {
+                if (plan.Classes[classIndex]) {
+                    const subId = plan.Classes[classIndex].SubjectId;
+                    if (subjects[subId]) {
+                        taskName = subjects[subId].Name;
+                        type = "study";
+                    } else if(subId === "00000000-0000-0000-0000-000000000000") {
+                        taskName = "Free Study";
+                    }
                 }
-                updateTimerUI("PREPARE: "+s.task, start*60 - (curM*60+now.getSeconds()), 600, true);
-                return; 
+                classIndex++;
             }
 
-            // 2. Active Task Logic
-            if(curM >= start && curM < end) {
-                active = s; idx = i;
-                if(STATE.schedule[i+1]) next = STATE.schedule[i+1];
-                break;
-            }
-        }
-
-        if(active) {
-            const end = t2m(active.end);
-            const start = t2m(active.start);
-            if(STATE.lastBufferTask === active.task) STATE.lastBufferTask = null; 
-            
-            // TTS: New Task Started logic
-            if(STATE.lastSpokenTask !== active.task) {
-                STATE.lastSpokenTask = active.task; 
-                const duration = end - start;
-                speak(`Starting ${active.task}. Duration ${duration} minutes.`);
-                grabAttention("Task Started", `${active.task} (${duration}m)`);
-            }
-
-            updateTimerUI(active.task, end*60 - (curM*60+now.getSeconds()), (end-start)*60, false);
-            document.getElementById('next-task-display').innerText = next ? `Next: ${next.task} (${next.start})` : "Next: End of Day";
-            
-            // Highlight Table
-            document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
-            const rows = document.querySelectorAll('.task-row');
-            if(rows[idx]) rows[idx].classList.add('active');
-        } else {
-            // Check if we just finished the last task of the day
-            if (STATE.lastSpokenTask && STATE.schedule.length > 0 && curM >= t2m(STATE.schedule[STATE.schedule.length-1].end)) {
-                 if(STATE.lastSpokenTask !== "FINISHED_DAY") {
-                     STATE.lastSpokenTask = "FINISHED_DAY";
-                     speak("All tasks completed. Good night.", "所有任务结束。");
-                     grabAttention("Day Complete", "All tasks finished.");
-                 }
-            }
-            
-            if(STATE.lastSpokenTask !== "FINISHED_DAY") STATE.lastSpokenTask = null;
-
-            document.getElementById('timer-display').innerText = "--:--";
-            document.getElementById('timer-label').innerText = "NO ACTIVE TASK";
-            document.getElementById('main-card').classList.remove('buffer-mode');
-            document.body.classList.remove('buffer-active');
-        }
-    }
-
-    function updateTimerUI(label, secs, total, isBuf) {
-        const m = Math.floor(secs/60).toString().padStart(2,'0');
-        const s = (secs%60).toString().padStart(2,'0');
-        document.getElementById('timer-display').innerText = `${m}:${s}`;
-        document.getElementById('timer-label').innerText = label;
-        
-        const card = document.getElementById('main-card');
-        const bar = document.getElementById('progress-bar');
-        
-        if(isBuf) {
-            card.classList.add('buffer-mode');
-            document.body.classList.add('buffer-active'); 
-            document.getElementById('buffer-label').style.display='block';
-            bar.style.background = "#ffeb3b";
-        } else {
-            card.classList.remove('buffer-mode');
-            document.body.classList.remove('buffer-active');
-            document.getElementById('buffer-label').style.display='none';
-            bar.style.background = "var(--md-primary)";
-        }
-        let pct = ((total-secs)/total)*100;
-        if(pct<0) pct=0; if(pct>100) pct=100;
-        bar.style.width = pct + "%";
-    }
-
-    /* ======================== GENERATION & EDITOR ======================== */
-    function getStudyPlanProgress(subject) {
-        const spData = localStorage.getItem('caie_progress_v2_1');
-        if(!spData) return false; 
-        const db = JSON.parse(spData);
-        return Object.keys(db).some(k => k.startsWith(subject) && k.includes('FINAL|unit_done') && db[k] === true);
-    }
-
-    function openMatrixSelector() {
-        if(!STATE.apiKey) return document.getElementById('settings-modal').showModal();
-        speak("Select your tasks.");
-        const div = document.getElementById('matrix-rows');
-        div.innerHTML = '';
-        SUBJECTS.forEach((sub, i) => {
-            const unlocked = getStudyPlanProgress(sub);
-            div.innerHTML += `
-                <div style="background:#f8f9fa; padding:10px; border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
-                    <span>${sub}</span>
-                    <div style="display:flex; gap:10px;">
-                        <label style="font-size:12px;"><input type="checkbox" id="xn-${i}"> Note</label>
-                        <label style="font-size:12px;"><input type="checkbox" id="mt-${i}" ${unlocked?'':'disabled'}> Mock ${unlocked?'':'🔒'}</label>
-                    </div>
-                </div>`;
-        });
-        document.getElementById('matrix-modal').showModal();
-    }
-
-    async function confirmMatrix() {
-        speak("Optimizing schedule, please wait.", "正在生成...");
-        let pool = [...STATE.backlog, "IELTS Lessons", "Vocab", "Summer Homework"];
-        SUBJECTS.forEach((sub, i) => {
-            if(document.getElementById(`xn-${i}`).checked) pool.push(`XNotes: ${sub}`);
-            if(document.getElementById(`mt-${i}`).checked) pool.push(`Mock: ${sub}`);
-        });
-        if(document.getElementById('chk-python').checked) pool.push("CS50P");
-        if(document.getElementById('chk-piano').checked) pool.push("Piano");
-
-        document.getElementById('matrix-modal').close();
-        
-        const nowH = new Date().getHours();
-        const startH = nowH < 10 ? 10 : nowH;
-        
-        const prompt = `
-        Role: Scheduler. Time: ${nowH}:00. Tasks: ${JSON.stringify(pool)}.
-        RULES:
-        1. Schedule from ${startH}:00 to 22:30.
-        2. FILL TIME: If tasks run out, add "Review" until 22:30.
-        3. Output JSON: [{"start":"HH:MM","end":"HH:MM","task":"Name","type":"study/break/meal"}]
-        `;
-
-        try {
-            const res = await callLLM(prompt);
-            const json = extractJSON(res);
-            if(json) {
-                STATE.draft = JSON.parse(json);
-                renderPreview();
-                document.getElementById('preview-modal').showModal();
-                speak("Draft ready. Please review.", "草稿就绪。");
-            } else {
-                speak("Schedule generation failed.", "生成失败。");
-            }
-        } catch(e) { speak("Error occurred.", "发生错误。"); }
-    }
-
-    /* --- ENHANCED EDITOR --- */
-    function renderPreview() {
-        const list = document.getElementById('preview-list');
-        list.innerHTML = '';
-        STATE.draft.forEach((item, idx) => {
-            const div = document.createElement('div');
-            div.className = 'preview-item';
-            div.draggable = true; 
-            
-            // Editable fields for Start, End, Task Name
-            div.innerHTML = `
-                <div class="drag-handle"><span class="material-icons-round">drag_indicator</span></div>
-                <input class="p-input" value="${item.start}" onchange="updateDraft(${idx}, 'start', this.value)" onmousedown="event.stopPropagation()">
-                <span>-</span>
-                <input class="p-input" value="${item.end}" onchange="updateDraft(${idx}, 'end', this.value)" onmousedown="event.stopPropagation()">
-                <input class="p-input task-name" value="${item.task}" onchange="updateDraft(${idx}, 'task', this.value)" onmousedown="event.stopPropagation()">
-                <button class="icon-btn" style="width:30px; height:30px; color:var(--md-error);" onclick="removeDraft(${idx})"><span class="material-icons-round" style="font-size:18px">delete</span></button>
-            `;
-            
-            // Drag Logic
-            div.addEventListener('dragstart', (e) => {
-                if(e.target.tagName === 'INPUT') { e.preventDefault(); return; }
-                e.dataTransfer.setData('text/plain', idx);
-                div.classList.add('dragging');
+            flatSchedule.push({
+                start: timeSlot.StartTime.substring(0, 5),
+                end: timeSlot.EndTime.substring(0, 5),
+                task: taskName,
+                type: type,
+                done: false
             });
-            div.addEventListener('dragend', () => div.classList.remove('dragging'));
-            div.addEventListener('dragover', (e) => e.preventDefault());
-            div.addEventListener('drop', (e) => handleDrop(e, idx));
-            list.appendChild(div);
         });
-    }
 
-    function handleDrop(e, targetIdx) {
-        e.preventDefault();
-        const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'));
-        if (sourceIdx !== targetIdx && !isNaN(sourceIdx)) {
-            const item = STATE.draft.splice(sourceIdx, 1)[0];
-            STATE.draft.splice(targetIdx, 0, item);
-            renderPreview();
-        }
-    }
-
-    function addDraftTask() { 
-        // Auto-calculate start time based on last task
-        let start = "00:00";
-        if (STATE.draft.length > 0) {
-            start = STATE.draft[STATE.draft.length - 1].end;
-        }
-        
-        STATE.draft.push({start: start, end: start, task: "New Task", type: "study"}); 
-        renderPreview(); 
-        
-        // Scroll to bottom
-        setTimeout(() => {
-            const list = document.getElementById('preview-list');
-            list.scrollTop = list.scrollHeight;
-        }, 100);
-    }
-    
-    function removeDraft(i) { STATE.draft.splice(i, 1); renderPreview(); }
-    
-    function updateDraft(i, k, v) { STATE.draft[i][k] = v; }
-
-    function commitSchedule() {
-        STATE.schedule = STATE.draft.map(s => ({...s, done: false}));
-        localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
-        document.getElementById('preview-modal').close();
-        switchView('active');
+        STATE.schedule = flatSchedule;
         renderTable();
-        speak("Schedule confirmed. Protocol initiated.", "日程已确认。");
-    }
-
-    /* ======================== CHAT & UTILS ======================== */
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'zh-CN';
-    recognition.onerror = (e) => alert("Voice Input Error: " + e.error); 
-    recognition.onresult = (e) => {
-        document.getElementById('user-msg').value = e.results[0][0].transcript;
-        document.querySelector('#mic-btn').classList.remove('recording');
-        sendMsg();
-    };
-    function startDictation() { document.querySelector('#mic-btn').classList.add('recording'); recognition.start(); }
-    function stopDictation() { recognition.stop(); }
-
-    async function sendMsg() {
-        const txt = document.getElementById('user-msg').value.trim();
-        if(!txt) return;
-        addBubble(txt, 'user');
-        document.getElementById('user-msg').value = '';
-
-        const prompt = `Current Sched: ${JSON.stringify(STATE.schedule)}. User: "${txt}". Reply Chinese. Append [TTS:"English"]. If editing, append [REGENERATE:JSON].`;
-        
-        try {
-            const res = await callLLM(prompt);
-            let clean = res;
-            const tts = res.match(/\[TTS:\s*"(.*?)"\]/);
-            if(tts) { speak(tts[1], "执行中..."); clean = clean.replace(tts[0],''); }
-            
-            if(res.includes("[REGENERATE:")) {
-                const json = extractJSON(res);
-                if(json) {
-                    STATE.schedule = JSON.parse(json);
-                    localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
-                    renderTable();
-                    clean = clean.replace(/\[REGENERATE:[\s\S]*?\]/,'');
-                }
-            }
-            addBubble(clean, 'ai');
-        } catch(e) { addBubble(e.message, 'error'); }
-    }
-
-    function finishTaskEarly() {
-        const nowM = new Date().getHours()*60 + new Date().getMinutes();
-        const taskIdx = STATE.schedule.findIndex(s => {
-            const st=t2m(s.start), en=t2m(s.end);
-            return nowM>=st && nowM<en;
-        });
-        if(taskIdx > -1) {
-            STATE.schedule[taskIdx].done = true;
-            localStorage.setItem('j_sched', JSON.stringify(STATE.schedule));
-            renderTable();
-            speak("Task completed. Great work.", "任务完成。");
-        }
-    }
-
-    function checkDayReset() {
-        const today = new Date().toDateString();
-        if(STATE.lastDate && STATE.lastDate !== today) {
-            STATE.schedule = [];
-            localStorage.setItem('j_sched', '[]');
-        }
-        STATE.lastDate = today;
-        localStorage.setItem('j_date', today);
     }
 
     function renderTable() {
         const div = document.getElementById('schedule-list');
         div.innerHTML = '';
-        STATE.schedule.forEach(s => {
+        STATE.schedule.forEach((s, idx) => {
             const row = document.createElement('div');
-            row.className = `task-row ${s.type==='study'?'row-study':s.type==='meal'?'row-meal':'row-break'} ${s.done?'done':''}`;
+            row.className = `task-row ${s.done ? 'done' : ''}`;
+            row.id = `row-${idx}`;
             row.innerHTML = `
+                <div class="checkbox-custom" onclick="toggleTask(${idx})">
+                    ${s.done ? '<span class="material-icons-round" style="font-size:16px;">check</span>' : ''}
+                </div>
                 <div class="task-time">${s.start} - ${s.end}</div>
                 <div class="task-name">${s.task}</div>
-                <div class="task-type" style="font-size:12px; color:#999; text-transform:uppercase;">${s.type}</div>
+                <div class="task-type ${s.type}">${s.type}</div>
             `;
             div.appendChild(row);
         });
     }
 
-    async function callLLM(prompt) {
-        const url = STATE.provider.includes('deepseek') ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-        const res = await fetch(url, {
-            method:'POST',
-            headers:{'Content-Type':'application/json','Authorization':`Bearer ${STATE.apiKey}`},
-            body:JSON.stringify({model: STATE.provider.includes('deepseek')?'deepseek-chat':'qwen-plus', messages:[{role:'system',content:prompt}]})
-        });
-        const d = await res.json();
-        return d.choices[0].message.content;
+    function toggleTask(idx) {
+        STATE.schedule[idx].done = !STATE.schedule[idx].done;
+        renderTable();
     }
 
-    function extractJSON(str) {
-        const match = str.match(/\[\s*\{.*\}\s*\]/s);
-        return match ? match[0] : null;
-    }
-
-    function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
-    
-    function speak(en, zh) {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(en);
-        u.lang = 'en-US';
-        const v = window.speechSynthesis.getVoices().find(v=>v.voiceURI === STATE.voiceUri);
-        if(v) u.voice = v;
-        window.speechSynthesis.speak(u);
+    function tick() {
+        const now = new Date();
+        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
         
-        const box = document.getElementById('subtitle-box');
-        document.getElementById('sub-en').innerText = en;
-        document.getElementById('sub-zh').innerText = zh || "";
-        box.style.display = 'block';
-        setTimeout(()=>box.style.display='none', 4000);
-    }
+        if(STATE.schedule.length === 0) return;
 
-    function addBubble(t,c) { document.getElementById('chat-history').innerHTML += `<div class="bubble ${c}">${t}</div>`; }
-    function switchView(v) {
-        document.getElementById('view-generator').style.display = v==='generator'?'flex':'none';
-        document.getElementById('view-active').style.display = v==='active'?'block':'none';
-    }
-    function saveSettings() {
-        STATE.apiKey = document.getElementById('api-key').value;
-        STATE.provider = document.getElementById('model-select').value;
-        STATE.voiceUri = document.getElementById('voice-select').value;
-        localStorage.setItem('j_key', STATE.apiKey);
-        localStorage.setItem('j_prov', STATE.provider);
-        localStorage.setItem('j_voice', STATE.voiceUri);
-        document.getElementById('settings-modal').close();
-        speak("Configuration saved.", "设置已保存。");
-    }
-    function openSettings() { populateVoiceSelect(); document.getElementById('settings-modal').showModal(); }
-    function resetSchedule() { if(confirm("Reset Day?")) { speak("System reset.", "系统重置。"); STATE.schedule=[]; localStorage.setItem('j_sched','[]'); location.reload(); }}
-    
-    function openArchive() { renderCalendar(STATE.currentCalDate); document.getElementById('archive-modal').showModal(); }
-    function changeMonth(d) { STATE.currentCalDate.setMonth(STATE.currentCalDate.getMonth() + d); renderCalendar(STATE.currentCalDate); }
-    function renderCalendar(date) {
-        const y = date.getFullYear(), m = date.getMonth();
-        document.getElementById('cal-month-year').innerText = `${y} / ${m+1}`;
-        const first = new Date(y, m, 1).getDay();
-        const days = new Date(y, m+1, 0).getDate();
-        const grid = document.getElementById('cal-days');
-        grid.innerHTML = '';
-        for(let i=0; i<first; i++) grid.innerHTML += `<div></div>`;
-        for(let d=1; d<=days; d++) {
-            const ds = new Date(y, m, d).toDateString();
-            const hasData = STATE.archive[ds];
-            grid.innerHTML += `<div class="cal-day ${hasData?'has-data':''}" onclick="showHistory('${ds}')">${d}</div>`;
+        const curM = now.getHours()*60 + now.getMinutes();
+        let active = null, idx = -1;
+
+        for(let i=0; i<STATE.schedule.length; i++) {
+            const s = STATE.schedule[i];
+            const start = t2m(s.start);
+            const end = t2m(s.end);
+
+            // Buffer Warning (5 mins before study)
+            if(s.type === 'study' && !s.done && curM >= start - 5 && curM < start) {
+                if(!STATE.bufferActive) {
+                    STATE.bufferActive = true;
+                    document.body.classList.add('buffer-active');
+                    speak(`Prepare for ${s.task}.`);
+                    triggerAlert('alert', `Upcoming: ${s.task}`, 'warn');
+                }
+                updateTimer(s.task + " (Prep)", start*60 - (curM*60+now.getSeconds()), 300);
+                return;
+            }
+
+            if(curM >= start && curM < end) {
+                active = s; idx = i;
+                break;
+            }
+        }
+
+        // Cleanup buffer
+        if(STATE.bufferActive && (!active || active.type !== 'study')) {
+            STATE.bufferActive = false;
+            document.body.classList.remove('buffer-active');
+        }
+
+        if(active) {
+            // Task Change
+            if(STATE.lastTaskName !== active.task) {
+                STATE.lastTaskName = active.task;
+                
+                if(active.type === 'study') {
+                    // STOP MUSIC
+                    STATE.bgmPlayer.pause();
+                    triggerAlert('school', active.task, 'study');
+                    speak(`Class started: ${active.task}`);
+                } else {
+                    // START MUSIC (Break)
+                    playRandomTrack();
+                    triggerAlert('notifications', "Break Time", 'break');
+                    speak("Break time. Play music from sidebar.");
+                }
+            }
+
+            // Highlight
+            document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
+            if(document.getElementById(`row-${idx}`)) document.getElementById(`row-${idx}`).classList.add('active');
+
+            // Finish Early Btn
+            if(active.type === 'study' && !active.done) document.getElementById('btn-early').classList.add('visible');
+            else document.getElementById('btn-early').classList.remove('visible');
+
+            const start = t2m(active.start);
+            const end = t2m(active.end);
+            updateTimer(active.task, end*60 - (curM*60+now.getSeconds()), (end-start)*60);
+        } else {
+            updateTimer("FREE TIME", 0, 100);
+            document.getElementById('progress-bar').style.width = '0%';
         }
     }
-    function showHistory(ds) {
-        const data = STATE.archive[ds];
-        const div = document.getElementById('archive-detail');
-        if(!data) { div.innerText = "No data."; return; }
-        div.innerHTML = data.map(s => `<div>${s.start}-${s.end} ${s.task} ${s.done?'✅':'❌'}</div>`).join('');
-    }
-    function testVoice() { speak("System voice check.", "语音测试。"); }
 
+    /* ======================== CORE: NETEASE LOGIC ======================== */
+    function playRandomTrack() {
+        const randomId = AUTO_BGM_IDS[Math.floor(Math.random() * AUTO_BGM_IDS.length)];
+        const url = `https://music.163.com/song/media/outer/url?id=${randomId}.mp3`;
+        
+        STATE.bgmPlayer.src = url;
+        STATE.bgmPlayer.play().catch(e => {
+            console.error("Auto-play blocked by browser. User interaction needed.");
+        });
+    }
+
+    function finishTaskEarly() {
+        const now = new Date();
+        const curM = now.getHours()*60 + now.getMinutes();
+        const idx = STATE.schedule.findIndex(s => {
+            const st=t2m(s.start), en=t2m(s.end);
+            return curM >= st && curM < en;
+        });
+
+        if(idx !== -1) {
+            STATE.schedule[idx].done = true;
+            STATE.schedule[idx].type = 'break';
+            renderTable();
+            document.getElementById('btn-early').classList.remove('visible');
+            playRandomTrack(); // Reward music
+            triggerAlert('thumb_up', "Finished Early", 'break');
+            speak("Good job.");
+        }
+    }
+
+    /* ======================== TTS & UTILS ======================== */
+    function populateVoiceSelect() {
+        const sel = document.getElementById('voice-select');
+        sel.innerHTML = '';
+        const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
+        
+        // Sort: Google/Microsoft first
+        voices.sort((a,b) => {
+            const aScore = a.name.includes("Google") || a.name.includes("Microsoft") ? 1 : 0;
+            const bScore = b.name.includes("Google") || b.name.includes("Microsoft") ? 1 : 0;
+            return bScore - aScore;
+        });
+
+        voices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.voiceURI;
+            opt.innerText = v.name;
+            sel.appendChild(opt);
+        });
+        
+        if(STATE.userVoiceURI) sel.value = STATE.userVoiceURI;
+        
+        sel.onchange = () => {
+            STATE.userVoiceURI = sel.value;
+            localStorage.setItem('warden_voice', sel.value);
+            speak("Voice updated.");
+        };
+    }
+
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US';
+        const voices = window.speechSynthesis.getVoices();
+        const v = voices.find(v => v.voiceURI === STATE.userVoiceURI);
+        if(v) u.voice = v;
+        window.speechSynthesis.speak(u);
+    }
+    
+    function testVoice() { speak("Voice system operational."); }
+
+    function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+    function updateTimer(label, secs, total) {
+        if(secs < 0) secs = 0;
+        const m = Math.floor(secs/60).toString().padStart(2,'0');
+        const s = (secs%60).toString().padStart(2,'0');
+        document.getElementById('timer-display').innerText = `${m}:${s}`;
+        document.getElementById('timer-label').innerText = label;
+        let pct = ((total-secs)/total)*100;
+        document.getElementById('progress-bar').style.width = pct + "%";
+    }
+    
+    function triggerAlert(icon, title, modeClass) {
+        const el = document.getElementById('fullscreen-alert');
+        el.className = `active mode-${modeClass}`;
+        document.getElementById('alert-text').innerText = title;
+        document.getElementById('alert-icon').innerText = icon;
+        setTimeout(() => el.className = '', 4000);
+    }
+    
+    // Ensure voices load
+    window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
 </script>
 </body>
 </html>
