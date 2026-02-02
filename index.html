@@ -1,350 +1,365 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>我的个人导航站</title>
-  <link rel="manifest" href="manifest.json">
-  <style>
-    :root {
-      --primary-gradient: linear-gradient(135deg, #4285F4, #34A853); /* Google Blue to Green */
-      --glass-bg: rgba(20, 20, 20, 0.75);
-      --card-bg: rgba(255, 255, 255, 0.1);
-      --text-color: #ffffff;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Ecosystem</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            /* Google 品牌色 */
+            --g-blue: #4285F4;
+            --g-red: #EA4335;
+            --g-yellow: #FBBC05;
+            --g-green: #34A853;
+            
+            /* 界面颜色 (浅色模式) */
+            --bg-color: #ffffff;
+            --header-bg: #ffffff;
+            --text-main: #202124;
+            --text-sub: #5f6368;
+            --card-bg: #ffffff;
+            --card-border: #dadce0;
+            --card-hover-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            --btn-bg: #1a73e8;
+            --btn-text: #ffffff;
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      outline: none;
-    }
+        /* 深色模式适配 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #202124;
+                --header-bg: #202124;
+                --text-main: #e8eaed;
+                --text-sub: #9aa0a6;
+                --card-bg: #303134;
+                --card-border: #5f6368;
+                --card-hover-shadow: 0 4px 8px 3px rgba(0,0,0,0.3);
+            }
+        }
 
-    body {
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      /* 换了一个高质量的抽象背景，更符合工具箱的感觉 */
-      background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
-      color: var(--text-color);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start; /* 改为从顶部开始布局，防止内容过多遮挡 */
-      padding-top: 5vh;
-      padding-bottom: 5vh;
-    }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
 
-    .container {
-      background: var(--glass-bg);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-radius: 24px;
-      padding: 3rem;
-      max-width: 1000px;
-      width: 95%;
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      transition: all 0.3s ease;
-    }
+        /* 顶部导航 */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 30px;
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
 
-    /* Google 风格搜索标题 */
-    header {
-      text-align: center;
-      margin-bottom: 2.5rem;
-    }
+        .logo {
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-sub);
+        }
 
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(to right, #4285F4, #EA4335, #FBBC05, #34A853);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      letter-spacing: -1px;
-    }
+        .logo span.brand { color: var(--text-main); font-weight: bold; }
+        
+        /* 简单的四色 Logo 模拟 */
+        .g-text span:nth-child(1) { color: var(--g-blue); }
+        .g-text span:nth-child(2) { color: var(--g-red); }
+        .g-text span:nth-child(3) { color: var(--g-yellow); }
+        .g-text span:nth-child(4) { color: var(--g-blue); }
+        .g-text span:nth-child(5) { color: var(--g-green); }
+        .g-text span:nth-child(6) { color: var(--g-red); }
 
-    /* Google 搜索框样式 */
-    .search-box {
-      margin: 0 auto 2rem auto;
-      max-width: 600px;
-      position: relative;
-    }
+        /* 主要内容区域 */
+        .main-content {
+            flex: 1;
+            padding: 60px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
 
-    .search-box input {
-      width: 100%;
-      padding: 14px 24px;
-      border-radius: 30px;
-      border: 1px solid rgba(255,255,255,0.2);
-      background: rgba(255,255,255,0.1);
-      color: white;
-      font-size: 1.1rem;
-      transition: all 0.3s;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
+        .hero-text {
+            text-align: center;
+            margin-bottom: 60px;
+        }
 
-    .search-box input:focus {
-      background: rgba(255,255,255,0.2);
-      box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
-      border-color: #4285F4;
-    }
+        .hero-text h1 {
+            font-size: 48px;
+            font-weight: 400;
+            margin: 0 0 15px 0;
+        }
 
-    /* 添加新网站的控制台 */
-    .admin-panel {
-      background: rgba(0, 0, 0, 0.3);
-      padding: 1.5rem;
-      border-radius: 16px;
-      margin-bottom: 2rem;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
-      border: 1px dashed rgba(255,255,255,0.2);
-    }
+        .hero-text p {
+            font-size: 18px;
+            color: var(--text-sub);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
 
-    .input-group input {
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: 1px solid #444;
-      background: #222;
-      color: #fff;
-      font-size: 0.95rem;
-      min-width: 200px;
-    }
+        /* 网格布局 */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+        }
 
-    .btn-add {
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: none;
-      background: #4285F4;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
+        /* 产品卡片 */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            height: 220px;
+        }
 
-    .btn-add:hover {
-      background: #3367D6;
-    }
+        /* 悬停时的顶部彩条 */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                var(--g-blue) 0%, var(--g-blue) 25%, 
+                var(--g-red) 25%, var(--g-red) 50%, 
+                var(--g-yellow) 50%, var(--g-yellow) 75%, 
+                var(--g-green) 75%, var(--g-green) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
 
-    /* 网站卡片区域 */
-    .platforms {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 1.5rem;
-      margin-top: 1rem;
-    }
+        .card:hover {
+            border-color: transparent;
+            box-shadow: var(--card-hover-shadow);
+            transform: translateY(-4px);
+        }
 
-    .card {
-      background: var(--card-bg);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 1.5rem;
-      text-align: center;
-      transition: transform 0.3s, box-shadow 0.3s, background 0.3s;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: 140px;
-    }
+        .card:hover::before { opacity: 1; }
 
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.3);
-    }
+        /* 图标区域 */
+        .icon-box {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            background-color: rgba(66, 133, 244, 0.1); /* 淡淡的蓝色背景 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: var(--g-blue);
+        }
 
-    .card h3 {
-      font-size: 1.1rem;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-      color: #eee;
-      word-break: break-all;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
+        .material-icons-round { font-size: 32px; }
 
-    .card a {
-      display: block;
-      padding: 0.5rem;
-      margin-top: auto;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      text-decoration: none;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      transition: background 0.3s;
-    }
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            font-weight: 500;
+        }
 
-    .card a:hover {
-      background: var(--primary-gradient);
-    }
+        .card p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--text-sub);
+            line-height: 1.5;
+            flex: 1; /* 让描述占据剩余空间 */
+        }
 
-    /* 删除按钮 */
-    .delete-btn {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      width: 24px;
-      height: 24px;
-      background: rgba(255, 0, 0, 0.6);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0; /* 默认隐藏 */
-      transition: opacity 0.2s;
-    }
+        .launch-link {
+            margin-top: 20px;
+            font-weight: 500;
+            color: var(--btn-bg);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
 
-    .card:hover .delete-btn {
-      opacity: 1; /* 悬停显示 */
-    }
+        .launch-link span { opacity: 0; transform: translateX(-5px); transition: all 0.2s; }
+        .card:hover .launch-link span { opacity: 1; transform: translateX(5px); }
 
-    .delete-btn:hover {
-      background: red;
-    }
+        /* 搜索框 (放在 Hero 区域下面) */
+        .mini-search {
+            max-width: 600px;
+            margin: 0 auto 50px;
+            position: relative;
+        }
+        .mini-search input {
+            width: 100%;
+            padding: 14px 20px 14px 50px;
+            border-radius: 30px;
+            border: 1px solid var(--card-border);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-size: 16px;
+            outline: none;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+        .mini-search span {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-sub);
+        }
 
-    footer {
-      margin-top: 3rem;
-      text-align: center;
-      color: #888;
-      font-size: 0.8rem;
-    }
-
-    /* 响应式 */
-    @media (max-width: 768px) {
-      .container { padding: 1.5rem; }
-      .admin-panel { flex-direction: column; align-items: stretch; }
-      .input-group input { width: 100%; }
-      .platforms { grid-template-columns: repeat(2, 1fr); }
-    }
-  </style>
+        /* 脚注 */
+        footer {
+            text-align: center;
+            padding: 30px;
+            border-top: 1px solid var(--card-border);
+            color: var(--text-sub);
+            font-size: 13px;
+            background: var(--card-bg);
+        }
+    </style>
 </head>
 <body>
 
-  <div class="container">
     <header>
-      <h1>My Workspace</h1>
-      <p style="color: #aaa;">快捷启动 & 工具箱</p>
+        <div class="logo">
+            <span class="g-text">
+                <span>J</span><span>a</span><span>c</span><span>k</span>
+            </span>
+            <span class="brand">Products</span>
+        </div>
+        <div style="font-size: 14px; color: var(--text-sub);">
+            V 2.0
+        </div>
     </header>
 
-    <div class="search-box">
-      <form action="https://www.google.com/search" method="get" target="_blank">
-        <input type="text" name="q" placeholder="在 Google 上搜索..." autocomplete="off">
-      </form>
-    </div>
+    <div class="main-content">
+        <div class="hero-text">
+            <h1>打造实用的工具</h1>
+            <p>探索 Jack 的个人开发生态系统。从学习辅助到娱乐放松，这里汇集了所有高效能工具。</p>
+        </div>
 
-    <div class="admin-panel">
-      <div class="input-group">
-        <input type="text" id="siteName" placeholder="网站名称 (例如: B站)">
-      </div>
-      <div class="input-group">
-        <input type="text" id="siteUrl" placeholder="网址 (例如: bilibili.com)">
-      </div>
-      <button class="btn-add" onclick="addSite()">+ 添加到工具箱</button>
-    </div>
+        <form class="mini-search" action="https://www.google.com/search" method="GET" target="_blank">
+            <span class="material-icons-round">search</span>
+            <input type="text" name="q" placeholder="搜索 Google 或输入网址...">
+        </form>
 
-    <div class="platforms" id="linkContainer">
-      </div>
+        <div class="product-grid" id="grid">
+            </div>
+    </div>
 
     <footer>
-      <p>© 2025 个人专属导航站 | 数据存储在本地浏览器中</p>
+        <p>&copy; 2026 Jack's Ecosystem. Built for efficiency.</p>
     </footer>
-  </div>
 
-  <script>
-    // 1. 初始化：从 LocalStorage 读取数据
-    // 如果没有数据，就放几个默认的
-  const defaultLinks = [
-    { name: "IGCSE", url: "https://jackyun.top/Jump.html" },
-    { name: "Music Sync", url: "https://jackyun.top/JumpMusic.html" },
-    { name: "Poem", url: "https://jackyun.top/Poem.html" }, 
-    { name: "Vocab", url: "https://jackyun.top/VocabJ.html" },
-    { name: "Auxiliary Data Network", url: "https://jackyun.top/ADN.html" },
-    { name: "LexiconLab", url: "https://jackyun.top/LexiconLab.html" },
-    { name: "Update Hub", url: "https://jackyun.top/UpdateHub.html" },
-    { name: "Countdown Protocol", url: "https://jackyun.top/Countdown.html" },
-    { name: "BF6", url: "https://jackyun.top/bf6.html" },
-];
+    <script>
+        // 定义你的所有产品 (文件名必须和你的实际文件名一致)
+        const myProducts = [
+            {
+                name: "Warden Core",
+                file: "Control.html",
+                desc: "网络核心控制台。管理学习任务、番茄钟与系统状态。",
+                icon: "admin_panel_settings", // 盾牌/管理图标
+                color: "#c20c0c"
+            },
+            {
+                name: "Auxiliary Data",
+                file: "ADN.html",
+                desc: "辅助数据网络 (ADN)。快速处理文本、剪贴板与数据传输。",
+                icon: "hub", // 网络连接图标
+                color: "#1a73e8"
+            },
+            {
+                name: "Lexicon Lab",
+                file: "LexiconLab.html",
+                desc: "智能词汇分拣实验室。英语单词分析与归类工具。",
+                icon: "school", // 学习/学校图标
+                color: "#34a853"
+            },
+            {
+                name: "Exam Countdown",
+                file: "Countdown.html",
+                desc: "重要考试倒计时。精确到秒的时间追踪。",
+                icon: "timer", // 计时器图标
+                color: "#fbbc04"
+            },
+            {
+                name: "Jack's Sync",
+                file: "MusicPlayer.html",
+                desc: "个人音乐播放器与同步终端。沉浸式音频体验。",
+                icon: "headphones", // 耳机图标
+                color: "#6366f1"
+            },
+            {
+                name: "Immersion Recite",
+                file: "Poem.html",
+                desc: "沉浸背诵工具。专注于诗词记忆与文本复习。",
+                icon: "menu_book", // 书本图标
+                color: "#8e24aa"
+            },
+            {
+                name: "Sanctuary",
+                file: "Relax.html",
+                desc: "数字避难所。色彩生成、白噪音与放松工具。",
+                icon: "spa", // 莲花/放松图标
+                color: "#009688"
+            },
+            {
+                name: "Battlefield 6",
+                file: "bf6.html",
+                desc: "游戏发布页概念设计。战地风云 6 模拟官网。",
+                icon: "sports_esports", // 手柄图标
+                color: "#ff5722"
+            }
+        ];
 
-    let links = JSON.parse(localStorage.getItem('myTools')) || defaultLinks;
+        const grid = document.getElementById('grid');
 
-    const container = document.getElementById('linkContainer');
-    const nameInput = document.getElementById('siteName');
-    const urlInput = document.getElementById('siteUrl');
+        // 渲染函数
+        function render() {
+            grid.innerHTML = '';
+            
+            myProducts.forEach(product => {
+                const card = document.createElement('a');
+                card.href = product.file;
+                card.className = 'card';
+                card.target = "_blank"; // 在新标签页打开
 
-    // 2. 渲染函数：把数据变成 HTML 卡片
-    function renderLinks() {
-      container.innerHTML = ''; // 清空当前列表
-      links.forEach((link, index) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <button class="delete-btn" onclick="deleteLink(${index})" title="删除">×</button>
-          <h3>${link.name}</h3>
-          <a href="${link.url}" target="_blank">立即访问</a>
-        `;
-        container.appendChild(card);
-      });
-    }
+                // 动态设置图标颜色，让每个产品更有辨识度
+                const iconStyle = `color: ${product.color}; background: ${product.color}15;`; // 15 是透明度
 
-    // 3. 添加网站函数
-    function addSite() {
-      const name = nameInput.value.trim();
-      let url = urlInput.value.trim();
+                card.innerHTML = `
+                    <div class="icon-box" style="${iconStyle}">
+                        <span class="material-icons-round">${product.icon}</span>
+                    </div>
+                    <h3>${product.name}</h3>
+                    <p>${product.desc}</p>
+                    <div class="launch-link">
+                        启动应用 <span class="material-icons-round" style="font-size:16px;">arrow_forward</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
 
-      if (!name || !url) {
-        alert("请输入网站名称和网址！");
-        return;
-      }
-
-      // 自动补全 http:// 防止跳转错误
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
-      }
-
-      links.push({ name, url });
-      saveAndRender();
-      
-      // 清空输入框
-      nameInput.value = '';
-      urlInput.value = '';
-    }
-
-    // 4. 删除网站函数
-    function deleteLink(index) {
-      if(confirm('确定要删除这个书签吗？')) {
-        links.splice(index, 1); // 从数组中删除
-        saveAndRender();
-      }
-    }
-
-    // 5. 保存并重新渲染
-    function saveAndRender() {
-      localStorage.setItem('myTools', JSON.stringify(links)); // 保存到浏览器
-      renderLinks();
-    }
-
-    // 页面加载时执行一次渲染
-    renderLinks();
-
-    // 支持按回车键添加
-    urlInput.addEventListener("keypress", function(event) {
-      if (event.key === "Enter") {
-        addSite();
-      }
-    });
-  </script>
+        // 初始化
+        render();
+    </script>
 </body>
 </html>
