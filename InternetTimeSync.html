@@ -2,275 +2,224 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's API Latency Diagnostic Tool</title>
+    <title>30+ Time Source Diagnostic Tool</title>
     <style>
-        :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --primary: #3b82f6;
-            --success: #10b981;
-            --error: #ef4444;
-            --text: #f8fafc;
-            --border: #334155;
-        }
-        body {
-            font-family: 'Courier New', monospace; /* 极客风格字体 */
-            background: var(--bg);
-            color: var(--text);
-            padding: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        :root { --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #f8fafc; --success: #10b981; --error: #ef4444; --warn: #f59e0b; }
+        body { background: var(--bg); color: var(--text); font-family: 'Consolas', monospace; padding: 20px; font-size: 13px; }
+        h2 { color: var(--success); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
         
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
-        th { color: #94a3b8; font-size: 12px; text-transform: uppercase; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; }
         
-        .status-badge {
-            padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;
-            background: #334155; color: #94a3b8;
-        }
-        .status-badge.success { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-        .status-badge.fail { background: rgba(239, 68, 68, 0.2); color: var(--error); }
-        .status-badge.running { background: rgba(59, 130, 246, 0.2); color: var(--primary); animation: pulse 1s infinite; }
-
-        button {
-            background: var(--primary); color: white; border: none; padding: 8px 16px;
-            border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: bold;
-            transition: 0.2s;
-        }
-        button:hover { filter: brightness(1.1); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-small { padding: 4px 8px; font-size: 12px; background: var(--surface); border: 1px solid var(--border); }
-        .btn-small:hover { border-color: var(--text); }
-
-        #console-log {
-            background: #000; color: #0f0; padding: 15px; border-radius: 6px;
-            height: 200px; overflow-y: auto; font-size: 12px; white-space: pre-wrap;
-            border: 1px solid #333;
-        }
-
-        @keyframes pulse { 50% { opacity: 0.5; } }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 15px; position: relative; overflow: hidden; }
+        .card h3 { margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1; display: flex; justify-content: space-between; }
+        .card .type-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #334155; }
+        
+        .stat-row { display: flex; justify-content: space-between; margin-top: 8px; color: #94a3b8; font-size: 12px; }
+        .stat-val { font-weight: bold; color: var(--text); }
+        
+        .status-bar { height: 4px; background: #334155; margin-top: 10px; border-radius: 2px; overflow: hidden; }
+        .status-fill { height: 100%; width: 0%; transition: 0.3s; }
+        
+        .card.success { border-color: var(--success); }
+        .card.success .status-fill { background: var(--success); width: 100%; }
+        
+        .card.fail { border-color: var(--error); opacity: 0.7; }
+        .card.fail .status-fill { background: var(--error); width: 100%; }
+        
+        .card.ntp { border-color: var(--warn); border-style: dashed; opacity: 0.5; }
+        
+        .btn { cursor: pointer; background: var(--success); color: #000; border: none; padding: 5px 10px; border-radius: 4px; font-weight: bold; }
+        .btn:disabled { background: #555; cursor: not-allowed; }
+        
+        .err-msg { color: var(--error); font-size: 10px; margin-top: 5px; height: 15px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
 
-    <h2>⚡ API Connectivity Test</h2>
-    
-    <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <p>点击下方按钮测试各个接口的连通性、延迟(RTT)和时间偏差。</p>
-            <button onclick="testAll()">全部测试 (Test All)</button>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h2>全网时间接口连通性测试 (30 Sources)</h2>
+            <p style="color:#94a3b8; font-size:12px;">
+                注意：红色报错通常是因为浏览器的 <b>CORS 同源策略</b> 拦截，并非接口挂了。<br>
+                要在项目里用，<b>请只选择绿色的接口</b>。
+            </p>
         </div>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th width="20%">API Name</th>
-                    <th width="15%">Method</th>
-                    <th width="15%">Status</th>
-                    <th width="15%">RTT (延迟)</th>
-                    <th width="20%">Offset (偏差)</th>
-                    <th width="15%">Action</th>
-                </tr>
-            </thead>
-            <tbody id="api-table">
-                </tbody>
-        </table>
+        <button onclick="testAll()" class="btn" style="height:40px; padding:0 20px;">🚀 全部测试</button>
     </div>
 
-    <h3>Debug Console</h3>
-    <div id="console-log">Ready...</div>
+    <div id="container" class="grid"></div>
 
-    <script>
-        // === 核心配置：这里列出了最好的几个 API ===
-        const APIS = [
-            {
-                id: 'taobao',
-                name: '淘宝 (Taobao)',
-                url: 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp',
-                method: 'JSONP', // 必须用 JSONP 否则跨域
-                desc: '阿里 CDN，公认最快最稳'
-            },
-            {
-                id: 'suning',
-                name: '苏宁 (Suning)',
-                url: 'https://f.m.suning.com/api/ct.do',
-                method: 'JSONP',
-                desc: '备选方案，精度略低但稳定'
-            },
-            {
-                id: 'worldtime',
-                name: 'WorldTimeAPI',
-                url: 'http://worldtimeapi.org/api/timezone/Asia/Shanghai',
-                method: 'FETCH',
-                desc: '国外标准接口，国内可能慢/被墙'
-            }
-        ];
+<script>
+    // === 核心数据源 ===
+    const SOURCES = [
+        // --- 1. JSONP (最强推荐) ---
+        { name: "Taobao (淘宝)", url: "https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp", type: "JSONP", parser: "taobao" },
+        { name: "Suning (苏宁)", url: "https://f.m.suning.com/api/ct.do", type: "JSONP", parser: "suning" },
 
-        // === 1. JSONP 封装 (解决跨域的核心) ===
-        function jsonpRequest(url) {
-            return new Promise((resolve, reject) => {
-                const t0 = performance.now();
-                const callbackName = 'cb_' + Math.random().toString(36).substr(2, 9);
-                
-                // 设置超时
-                const timeoutId = setTimeout(() => {
-                    cleanup();
-                    reject(new Error('Timeout (3000ms)'));
-                }, 3000);
+        // --- 2. 这里的标准 API (浏览器可能能通) ---
+        { name: "WorldTimeAPI", url: "http://worldtimeapi.org/api/timezone/Asia/Shanghai", type: "FETCH_JSON", field: "datetime" },
+        { name: "TimeAPI.io", url: "https://timeapi.io/api/Time/current/zone?timeZone=Asia/Shanghai", type: "FETCH_JSON", field: "dateTime" },
+        { name: "Bilibili API", url: "https://api.bilibili.com/x/report/click/now", type: "FETCH_JSON", field: "data.now", note: "May block CORS" },
+        
+        // --- 3. 这里的 HEAD 请求 (利用 HTTP Date 头) ---
+        // 注意：这些通常会被 CORS 拦截，除非目标服务器允许 Access-Control-Allow-Origin: *
+        { name: "Baidu (HEAD)", url: "https://www.baidu.com", type: "HEAD" },
+        { name: "Tencent (HEAD)", url: "https://www.qq.com", type: "HEAD" },
+        { name: "Aliyun (HEAD)", url: "https://www.aliyun.com", type: "HEAD" },
+        { name: "Huawei Cloud", url: "https://www.huaweicloud.com", type: "HEAD" },
+        { name: "JD.com (HEAD)", url: "https://www.jd.com", type: "HEAD" },
+        { name: "Zhihu (HEAD)", url: "https://www.zhihu.com", type: "HEAD" },
+        { name: "Github (HEAD)", url: "https://github.com", type: "HEAD" },
+        { name: "Apple (CN)", url: "https://www.apple.com.cn", type: "HEAD" },
+        { name: "Microsoft", url: "https://www.microsoft.com", type: "HEAD" },
+        { name: "Google", url: "https://www.google.com", type: "HEAD" },
+        { name: "Cloudflare", url: "https://www.cloudflare.com", type: "HEAD" },
+        { name: "Bilibili (Main)", url: "https://www.bilibili.com", type: "HEAD" },
+        { name: "163 (NetEase)", url: "https://www.163.com", type: "HEAD" },
+        { name: "Sina (New)", url: "https://www.sina.com.cn", type: "HEAD" },
+        { name: "Douyin", url: "https://www.douyin.com", type: "HEAD" },
+        { name: "Weibo", url: "https://weibo.com", type: "HEAD" },
+        { name: "CCTV", url: "https://www.cctv.com", type: "HEAD" },
+        { name: "CSDN", url: "https://www.csdn.net", type: "HEAD" },
+        
+        // --- 4. NTP (浏览器不可用，仅展示) ---
+        { name: "Aliyun NTP", url: "ntp.aliyun.com", type: "NTP" },
+        { name: "Tencent NTP", url: "ntp.tencent.com", type: "NTP" },
+        { name: "NTSC (国家授时)", url: "ntp.ntsc.ac.cn", type: "NTP" },
+        { name: "Edu NTP", url: "time.edu.cn", type: "NTP" },
+        { name: "Google NTP", url: "time.google.com", type: "NTP" },
+        { name: "Apple NTP", url: "time.apple.com", type: "NTP" },
+        { name: "Windows NTP", url: "time.windows.com", type: "NTP" },
+    ];
 
-                // 清理函数
-                function cleanup() {
-                    delete window[callbackName];
-                    document.getElementById(callbackName)?.remove();
-                    clearTimeout(timeoutId);
-                }
+    // === 渲染界面 ===
+    const container = document.getElementById('container');
+    SOURCES.forEach((src, index) => {
+        const div = document.createElement('div');
+        div.className = `card ${src.type === 'NTP' ? 'ntp' : ''}`;
+        div.id = `card-${index}`;
+        div.innerHTML = `
+            <h3>
+                ${src.name}
+                <span class="type-tag">${src.type}</span>
+            </h3>
+            <div class="stat-row">
+                <span>RTT:</span>
+                <span class="stat-val" id="rtt-${index}">--</span>
+            </div>
+            <div class="stat-row">
+                <span>Offset:</span>
+                <span class="stat-val" id="off-${index}">--</span>
+            </div>
+            <div class="err-msg" id="err-${index}"></div>
+            <div class="status-bar"><div class="status-fill" id="fill-${index}"></div></div>
+            ${src.type !== 'NTP' ? `<button onclick="runTest(${index})" class="btn" style="margin-top:10px; width:100%; font-size:11px;">Test</button>` : '<div style="margin-top:10px; font-size:10px; text-align:center; color:#666">Browser Incompatible</div>'}
+        `;
+        container.appendChild(div);
+    });
 
-                // 定义回调
-                window[callbackName] = (data) => {
-                    const tEnd = performance.now(); // 更高精度的计时
-                    cleanup();
-                    
-                    // 解析不同厂商的数据格式
-                    let serverTime = 0;
-                    if (url.includes('taobao')) {
-                        serverTime = parseInt(data.data.t);
-                    } else if (url.includes('suning')) {
-                        serverTime = data.currentTime;
-                    }
-                    
-                    resolve({ serverTime, rtt: tEnd - t0 });
-                };
+    // === 测试逻辑 ===
+    async function runTest(idx) {
+        const src = SOURCES[idx];
+        const card = document.getElementById(`card-${idx}`);
+        const rttEl = document.getElementById(`rtt-${idx}`);
+        const offEl = document.getElementById(`off-${idx}`);
+        const errEl = document.getElementById(`err-${idx}`);
+        
+        // Reset UI
+        card.className = "card";
+        errEl.innerText = "Testing...";
+        rttEl.innerText = "...";
+        
+        const t0 = performance.now();
+        const nowLocal = Date.now();
 
-                // 插入 Script
-                const script = document.createElement('script');
-                script.id = callbackName;
-                // 拼接 callback 参数
-                const joinChar = url.includes('?') ? '&' : '?';
-                script.src = `${url}${joinChar}callback=${callbackName}&_=${Date.now()}`;
-                script.onerror = () => {
-                    cleanup();
-                    reject(new Error('Script Load Error (Network blocked?)'));
-                };
-                document.head.appendChild(script);
-            });
-        }
+        try {
+            let serverTime = 0;
 
-        // === 2. Fetch 封装 ===
-        async function fetchRequest(url) {
-            const t0 = performance.now();
-            try {
-                const res = await fetch(url);
+            // 1. JSONP 逻辑 (针对淘宝/苏宁)
+            if (src.type === 'JSONP') {
+                serverTime = await jsonpFetch(src);
+            } 
+            // 2. Fetch JSON 逻辑
+            else if (src.type === 'FETCH_JSON') {
+                const res = await fetch(src.url);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
-                const tEnd = performance.now();
                 
-                // WorldTimeAPI 专用解析
-                const serverTime = new Date(data.datetime).getTime();
-                return { serverTime, rtt: tEnd - t0 };
-            } catch (e) {
-                throw e;
+                if (src.name.includes("WorldTime")) serverTime = new Date(data.datetime).getTime();
+                else if (src.name.includes("TimeAPI")) serverTime = new Date(data.dateTime).getTime();
+                else if (src.name.includes("Bilibili")) serverTime = data.data.now * 1000;
             }
-        }
-
-        // === 3. 测试主逻辑 ===
-        async function runTest(apiId) {
-            const api = APIS.find(a => a.id === apiId);
-            updateRow(apiId, 'running', 'Testing...', '-', '-');
-            log(`Starting test for ${api.name}...`);
-
-            try {
-                let result;
-                if (api.method === 'JSONP') {
-                    result = await jsonpRequest(api.url);
-                } else {
-                    result = await fetchRequest(api.url);
-                }
-
-                const { serverTime, rtt } = result;
-                // 计算偏差：(服务器时间 + RTT/2) - 当前时间
-                // 这里为了演示偏差，我们重新取一次 Date.now() 作为对比基准
-                const now = Date.now();
-                const correctedServerTime = serverTime + (rtt / 2); // 理论上的“现在”绝对时间
-                const offset = correctedServerTime - now;
-
-                updateRow(apiId, 'success', 'OK', `${rtt.toFixed(1)}ms`, `${offset.toFixed(1)}ms`);
-                log(`[SUCCESS] ${api.name}: RTT=${rtt.toFixed(2)}ms, Offset=${offset.toFixed(2)}ms`);
-
-            } catch (e) {
-                updateRow(apiId, 'fail', 'FAILED', '-', '-');
-                log(`[ERROR] ${api.name}: ${e.message}`);
-                
-                if(e.message.includes('Script Load Error') && api.id === 'taobao') {
-                    log(`>>> 提示：如果在本地测试，检查是否有去广告插件拦截了淘宝API，或者尝试更换网络。`);
-                }
+            // 3. HEAD 逻辑 (抓取 Date 头)
+            else if (src.type === 'HEAD') {
+                // 注意：这里大多数会因为 CORS 失败，这是预期内的
+                const res = await fetch(src.url, { method: 'HEAD', cache: 'no-store' });
+                const dateHeader = res.headers.get('date');
+                if (!dateHeader) throw new Error("No Date Header (CORS Blocked?)");
+                serverTime = new Date(dateHeader).getTime();
             }
-        }
 
-        async function testAll() {
-            log("--- Starting Batch Test ---");
-            for (const api of APIS) {
-                await runTest(api.id);
-            }
-            log("--- Batch Test Finished ---");
-        }
+            // 计算结果
+            const tEnd = performance.now();
+            const rtt = tEnd - t0;
+            const correctedServer = serverTime + (rtt / 2);
+            const offset = correctedServer - (nowLocal + rtt); // 简单估算
 
-        // === UI 辅助函数 ===
-        function log(msg) {
-            const box = document.getElementById('console-log');
-            const time = new Date().toLocaleTimeString();
-            box.innerText += `[${time}] ${msg}\n`;
-            box.scrollTop = box.scrollHeight;
-        }
+            // 更新 UI - 成功
+            card.classList.add('success');
+            rttEl.innerText = rtt.toFixed(0) + " ms";
+            offEl.innerText = offset.toFixed(0) + " ms";
+            errEl.innerText = "";
 
-        function updateRow(id, statusClass, statusText, rtt, offset) {
-            const row = document.getElementById(`row-${id}`);
-            if (!row) return;
+        } catch (e) {
+            // 更新 UI - 失败
+            card.classList.add('fail');
+            rttEl.innerText = "Err";
+            offEl.innerText = "Err";
             
-            row.querySelector('.status-cell').innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
-            row.querySelector('.rtt-cell').innerText = rtt;
-            row.querySelector('.offset-cell').innerText = offset;
-            
-            // 高亮 Offset，如果是负数显红，正数显绿
-            const offCell = row.querySelector('.offset-cell');
-            if (offset !== '-') {
-                const val = parseFloat(offset);
-                offCell.style.color = Math.abs(val) > 1000 ? 'var(--error)' : 'var(--success)';
+            if (e.message.includes('Failed to fetch')) {
+                errEl.innerText = "CORS blocked (Security)";
+            } else {
+                errEl.innerText = e.message;
             }
         }
+    }
 
-        function renderTable() {
-            const tbody = document.getElementById('api-table');
-            tbody.innerHTML = APIS.map(api => `
-                <tr id="row-${api.id}">
-                    <td>
-                        <div style="font-weight:bold">${api.name}</div>
-                        <div style="font-size:10px; color:#64748b">${api.desc}</div>
-                    </td>
-                    <td><span style="font-size:10px; border:1px solid #475569; padding:2px 4px; border-radius:4px">${api.method}</span></td>
-                    <td class="status-cell"><span class="status-badge">WAITING</span></td>
-                    <td class="rtt-cell">-</td>
-                    <td class="offset-cell">-</td>
-                    <td><button class="btn-small" onclick="runTest('${api.id}')">Test</button></td>
-                </tr>
-            `).join('');
+    function jsonpFetch(src) {
+        return new Promise((resolve, reject) => {
+            const cbName = 'cb_' + Math.random().toString(36).substr(2,9);
+            const script = document.createElement('script');
+            
+            window[cbName] = (data) => {
+                let time = 0;
+                if (src.parser === 'taobao') time = parseInt(data.data.t);
+                if (src.parser === 'suning') time = data.currentTime;
+                cleanup();
+                resolve(time);
+            };
+
+            function cleanup() {
+                delete window[cbName];
+                script.remove();
+            }
+
+            script.src = `${src.url}${src.url.includes('?') ? '&' : '?'}callback=${cbName}`;
+            script.onerror = () => { cleanup(); reject(new Error("JSONP Load Failed")); };
+            document.head.appendChild(script);
+        });
+    }
+
+    async function testAll() {
+        for (let i = 0; i < SOURCES.length; i++) {
+            if (SOURCES[i].type !== 'NTP') {
+                runTest(i);
+                // 稍微间隔一下，防止并发请求把网络堵死导致 RTT 虚高
+                await new Promise(r => setTimeout(r, 200)); 
+            }
         }
-
-        // 初始化
-        renderTable();
-        log("System Ready. Please enable JavaScript.");
-    </script>
+    }
+</script>
 
 </body>
 </html>
