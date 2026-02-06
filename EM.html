@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V13 Inheritance</title>
+    <title>Jack's Warden | V16 The Wake Up Call</title>
     
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
     <style>
         :root {
-            --bg-color: #050505;
+            --bg-color: #000000;
             --card-bg: #121212;
             --text-main: #e0e0e0;
             --text-dim: #757575;
             --accent-red: #ff3333;
             --accent-green: #00ff88;
             --accent-blue: #2979ff;
+            --accent-purple: #d946ef;
             --accent-yellow: #ffcc00;
             --border: #222;
         }
@@ -32,7 +33,59 @@
             padding-bottom: 50px;
         }
 
-        /* === HUD HEADER === */
+        /* === TOP ALERT BAR (NEW) === */
+        .death-bar {
+            background: #1a0505;
+            border-bottom: 1px solid var(--accent-red);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .death-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .death-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .death-val {
+            font-family: 'JetBrains Mono';
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .death-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+            color: #888;
+        }
+
+        .quote-box {
+            margin-top: 15px;
+            font-style: italic;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.4;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        /* HEADER */
         header {
             position: sticky;
             top: 0;
@@ -52,7 +105,6 @@
             color: var(--text-main);
             display: flex;
             flex-direction: column;
-            line-height: 1.1;
         }
         .brand span { font-size: 0.7rem; color: var(--text-dim); }
 
@@ -63,14 +115,12 @@
             font-family: 'JetBrains Mono';
             font-size: 0.9rem;
             border: 1px solid #333;
-            display: flex;
-            gap: 10px;
-            align-items: center;
+            display: flex; gap: 10px; align-items: center;
         }
         .nav-btn { cursor: pointer; color: #666; transition:0.2s; }
-        .nav-btn:hover { color: white; transform:scale(1.2); }
+        .nav-btn:hover { color: white; transform: scale(1.1); }
 
-        /* === REALITY CHECK DASHBOARD === */
+        /* DASHBOARD */
         .dashboard {
             margin: 20px;
             background: #1a1a1a;
@@ -92,63 +142,17 @@
         }
         .finish-time.safe { color: var(--accent-green); }
         .finish-time.danger { color: var(--accent-red); animation: pulse 2s infinite; }
-
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
         .metric { font-size: 0.85rem; color: #888; display: flex; align-items: center; gap: 6px; }
         .metric strong { color: white; font-family: 'JetBrains Mono'; }
 
-        /* === TEMP TASKS === */
+        /* TASK LIST */
         .section-header {
-            padding: 0 25px;
-            margin-top: 20px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 0 25px; margin-top: 20px;
+            font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase;
         }
 
-        .temp-task-container {
-            margin: 10px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .add-task-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr auto;
-            gap: 10px;
-        }
-        
-        input, button {
-            background: #111;
-            border: 1px solid #333;
-            color: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: 'Inter';
-        }
-        input:focus { outline: 2px solid var(--accent-blue); border-color: transparent; }
-        button { cursor: pointer; font-weight: 600; transition: 0.2s; }
-        .btn-add { background: #222; }
-        .btn-add:hover { background: #333; }
-        .btn-del { color: var(--accent-red); background: rgba(255, 51, 51, 0.1); border: none; }
-
-        .temp-item {
-            background: #161616;
-            padding: 10px 15px;
-            border-radius: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-left: 3px solid var(--accent-yellow);
-        }
-
-        /* === MAIN TASKS === */
         .task-grid {
             margin: 10px 20px;
             display: flex;
@@ -165,8 +169,7 @@
             grid-template-columns: 2fr 1.5fr 1fr;
             align-items: center;
             gap: 15px;
-            position: relative;
-            overflow: hidden;
+            position: relative; overflow: hidden;
         }
 
         .task-card::before {
@@ -181,49 +184,84 @@
         .task-meta p { margin: 5px 0 0; font-size: 0.8rem; color: var(--text-dim); }
 
         .task-input-area {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
         }
+        .input-row { display: flex; align-items: center; gap: 8px; }
         .num-input {
             width: 70px; text-align: center;
             font-family: 'JetBrains Mono'; font-size: 1.2rem;
-            background: #000;
+            background: #000; border: 1px solid #333; color: white; padding: 8px; border-radius: 6px;
         }
+        .num-input:focus { outline: 2px solid var(--accent-blue); }
 
         .task-status { text-align: right; }
         .gap-val { font-family: 'JetBrains Mono'; font-size: 1.4rem; font-weight: 800; color: var(--accent-red); }
         .gap-val.ok { color: var(--accent-green); }
-        .est-label { font-size: 0.75rem; color: #666; margin-top: 4px; }
+        
+        .math-breakdown {
+            font-size: 0.7rem; color: #555; margin-top: 4px; font-family: 'JetBrains Mono';
+            background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; display: inline-block;
+        }
 
-        /* IELTS SPECIAL */
+        /* IELTS */
         .ielts-card {
-            background: linear-gradient(145deg, #1a1a1a, #251e1e);
-            border-color: #442a2a;
-            grid-template-columns: 1fr;
-            text-align: center;
+            background: linear-gradient(145deg, #1a1a1a, #201a1a);
+            border-color: #332222;
+            grid-template-columns: 1fr; text-align: center;
         }
         .timer-big {
             font-size: 2.5rem; font-family: 'JetBrains Mono'; font-weight: 700; margin: 10px 0;
-            font-variant-numeric: tabular-nums;
         }
-        .ielts-controls { display: flex; justify-content: center; gap: 15px; }
-        .btn-start { background: var(--accent-blue); border: none; }
-        .btn-pause { background: #333; border: none; }
+        .ielts-controls {
+            display: flex; justify-content: center; gap: 15px; margin-top: 15px;
+        }
+        .ielts-controls button {
+            border: 1px solid #444; color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-family: 'Inter';
+            display: flex; align-items: center; gap: 6px; transition: 0.2s;
+        }
+        .ielts-controls button.primary { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .ielts-controls button.primary:hover { opacity: 0.9; }
+        
+        .ielts-controls button.finish { 
+            background: rgba(0, 255, 136, 0.1); border-color: var(--accent-green); color: var(--accent-green); 
+        }
+        .ielts-controls button.finish:hover { background: var(--accent-green); color: black; }
+
+        /* TEMP TASKS */
+        .add-row { display: flex; gap: 10px; margin: 0 20px; }
+        .add-row input { background: #111; border: 1px solid #333; color: white; padding: 10px; border-radius: 6px; flex: 1; }
+        .add-row button { background: #222; border: 1px solid #333; color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+        .temp-list { margin: 10px 20px; display: flex; flex-direction: column; gap: 8px; }
+        .temp-item { background: #161616; padding: 10px 15px; border-radius: 8px; display: flex; justify-content: space-between; border-left: 3px solid var(--accent-purple); }
 
     </style>
 </head>
 <body>
 
+    <div class="death-bar">
+        <div class="death-grid">
+            <div class="death-stat">
+                <div class="death-val" id="days-wasted" style="color: var(--accent-red)">0</div>
+                <div class="death-label">Days Wasted (Since Jan 23)</div>
+            </div>
+            <div class="death-stat">
+                <div class="death-val" id="days-left" style="color: var(--accent-yellow)">0</div>
+                <div class="death-label">Days Remaining (To Feb 28)</div>
+            </div>
+        </div>
+        <div class="quote-box" id="quote-display">
+            "Loading motivation..."
+        </div>
+    </div>
+
     <header>
         <div class="brand">
             JACK'S WARDEN
-            <span>INHERITANCE MODE / 继承模式 V13.0</span>
+            <span>V16.0 THE WAKE UP CALL</span>
         </div>
         <div class="date-badge">
             <span class="material-icons-round nav-btn" onclick="shiftDate(-1)">chevron_left</span>
-            <span id="date-display">2026-02-06</span>
+            <span id="date-display">--</span>
             <span class="material-icons-round nav-btn" onclick="shiftDate(1)">chevron_right</span>
         </div>
     </header>
@@ -231,398 +269,336 @@
     <div class="dashboard">
         <div class="prediction-box">
             <div style="font-size: 0.8rem; color:var(--text-dim); text-transform:uppercase;">Estimated Finish / 预计完工</div>
-            <div id="finish-time-display" class="finish-time">Loading...</div>
+            <div id="finish-time-display" class="finish-time">--:--</div>
             <div class="metric">
                 <span class="material-icons-round" style="font-size:16px">timer</span>
-                Work Left / 剩余工时: <strong id="total-hours-left">0h 0m</strong>
+                Work Left: <strong id="total-hours-left">0h 0m</strong>
             </div>
             <div style="font-size:0.7rem; color:#555; margin-top:10px;">
-                * Deadline: 10:30 PM (22:30).
+                * Deadline: 22:30 (10:30 PM)
             </div>
         </div>
-        <div class="status-icon" style="text-align:center">
+        <div style="text-align:center">
             <span class="material-icons-round" id="status-icon-display" style="font-size: 60px; color: #333;">query_builder</span>
         </div>
     </div>
 
-    <div class="section-header">
-        <span>Ad-hoc Tasks / 临时任务</span>
-    </div>
-    <div class="temp-task-container">
-        <div class="add-task-row">
-            <input type="text" id="new-task-name" placeholder="Task Name">
-            <input type="number" id="new-task-time" placeholder="Mins">
-            <button class="btn-add" onclick="addTempTask()">+ ADD</button>
-        </div>
-        <div id="temp-task-list"></div>
-    </div>
-
-    <div class="section-header">
-        <span>Planned Missions / 计划任务</span>
-    </div>
+    <div class="section-header">Planned Missions</div>
     <div class="task-grid" id="main-task-list"></div>
 
+    <div class="section-header">Temp Tasks</div>
+    <div class="add-row">
+        <input type="text" id="new-task-name" placeholder="Name">
+        <input type="number" id="new-task-time" placeholder="Mins">
+        <button onclick="addTempTask()">Add</button>
+    </div>
+    <div class="temp-list" id="temp-task-list"></div>
+
     <script>
-        /* ================= CONFIGURATION ================= */
-        const DEADLINE_HOUR = 22; // 22:30
-        const DEADLINE_MIN = 30;
-        const START_HOUR = 10;    // 10:30
-        const START_MIN = 30;
-
-        const RULES = {
-            'Physics': 40, 'Chemistry': 20, 'Biology': 20, 'Math': 30, 'Vocabulary': 0.5, 'DEFAULT': 30
-        };
-
+        const RULES = { 'Physics': 40, 'Chemistry': 20, 'Biology': 20, 'Math': 30, 'Vocabulary': 0.5, 'DEFAULT': 30 };
         const PLAN = {
-            "2026-02-06": [{"s": "IELTS LESSONS(Writing Lessons)", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 60, "type": "num"}, {"s": "Biology", "t": 7, "type": "num"}, {"s": "Math", "t": 3, "type": "num"}, {"s": "Physics", "t": 2, "type": "num"}, {"s": "Chemistry", "t": 4, "type": "num"}], 
+            "2026-02-06": [{"s": "IELTS DRILL (160m)", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 60, "type": "num"}, {"s": "Biology", "t": 7, "type": "num"}, {"s": "Math", "t": 3, "type": "num"}, {"s": "Physics", "t": 2, "type": "num"}, {"s": "Chemistry", "t": 4, "type": "num"}], 
             "2026-02-07": [{"s": "Biology", "t": 10, "type": "num"}, {"s": "Math", "t": 5, "type": "num"}, {"s": "Physics", "t": 3, "type": "num"}, {"s": "Chemistry", "t": 6, "type": "num"}], 
             "2026-02-08": [{"s": "Biology", "t": 13, "type": "num"}, {"s": "Math", "t": 7, "type": "num"}, {"s": "Physics", "t": 4, "type": "num"}, {"s": "Chemistry", "t": 8, "type": "num"}], 
             "2026-02-09": [{"s": "Biology", "t": 16, "type": "num"}, {"s": "Math", "t": 9, "type": "num"}, {"s": "Physics", "t": 5, "type": "num"}, {"s": "Chemistry", "t": 12, "type": "num"}], 
             "2026-02-10": [{"s": "Biology", "t": 21, "type": "num"}, {"s": "Physics", "t": 6, "type": "num"}], 
-            "2026-02-11": [{"s": "IGCSE MOCK EXAMINATION", "t": 0, "type": "text"}], 
-            "2026-02-13": [{"s": "HANDAN", "t": 0, "type": "text"}], 
-            "2026-02-14": [{"s": "LUAN", "t": 0, "type": "text"}], 
-            "2026-02-15": [{"s": "The Rest Parts Of IELTS", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK EXAMINATION", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
-            "2026-02-17": [{"s": "CHINESE NEWYEAR", "t": 0, "type": "text"}], 
-            "2026-02-20": [{"s": "The Rest Parts Of IELTS", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK EXAMINATION", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
-            "2026-02-27": [{"s": "The Rest Parts Of IELTS", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK EXAMINATION", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}]
+            "2026-02-15": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
+            "2026-02-20": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
+            "2026-02-27": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 0, "type": "text"}]
         };
 
-        // Helper to find dates in order
+        const QUOTES = [
+            "You have wasted enough time. The clock doesn't care about your feelings.",
+            "Jan 23 was ages ago. What have you actually achieved?",
+            "IGCSE results are permanent. Your excuses are temporary.",
+            "February 28 is coming like a freight train. Move or get crushed.",
+            "Stop pretending you're studying. Actually study.",
+            "The gap between you and your goal is closing, but not in a good way.",
+            "Pain of discipline or pain of regret. Pick one.",
+            "Every minute you procrastinate is a point lost on the exam.",
+            "Your competitors are studying right now. You are reading this.",
+            "Don't let your future self hate you.",
+            "Is this the best you can do? Prove it.",
+            "Time is running out. Panic is the appropriate reaction.",
+            "Sleep is for people who have finished their tasks.",
+            "Do it now. Sometimes 'later' becomes 'never'."
+        ];
+
         const DATE_KEYS = Object.keys(PLAN).sort();
+        let STATE = { date: new Date(), dateStr: "", tempTasks: [], ieltsInterval: null };
 
-        let STATE = {
-            date: new Date(),
-            dateStr: "",
-            tempTasks: [],
-            ieltsInterval: null
-        };
+        /* ================= LIFE COUNTDOWN ================= */
+        function updateLifeStats() {
+            const now = new Date();
+            const start = new Date("2026-01-23");
+            const end = new Date("2026-02-28");
 
-        /* ================= INHERITANCE LOGIC ================= */
+            const wasted = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+            const left = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
 
-        // This is the Magic Function
-        function getEffectiveProgress(subject, dateStr) {
-            // 1. Try to get value for current date
-            const currentVal = localStorage.getItem(`prog_${dateStr}_${subject}`);
-            if (currentVal !== null) return parseInt(currentVal);
+            document.getElementById('days-wasted').innerText = wasted;
+            document.getElementById('days-left').innerText = left;
 
-            // 2. If null, look BACKWARDS for the most recent entry
-            // Find index of current date
-            const currentIndex = DATE_KEYS.indexOf(dateStr);
-            if (currentIndex <= 0) return 0; // First day or not found
-
-            // Loop backwards from yesterday
-            for (let i = currentIndex - 1; i >= 0; i--) {
-                const prevDate = DATE_KEYS[i];
-                const prevVal = localStorage.getItem(`prog_${prevDate}_${subject}`);
-                if (prevVal !== null) {
-                    return parseInt(prevVal); // Found inherited value!
-                }
-            }
-
-            return 0; // Default if nothing found
+            // Random Quote
+            const r = Math.floor(Math.random() * QUOTES.length);
+            document.getElementById('quote-display').innerText = `"${QUOTES[r]}"`;
         }
 
-        /* ================= APP LOGIC ================= */
+        /* ================= HELPERS ================= */
+        function getEffectiveProgress(subject, dateStr) {
+            const cur = localStorage.getItem(`prog_${dateStr}_${subject}`);
+            if(cur !== null) return parseInt(cur);
+            const idx = DATE_KEYS.indexOf(dateStr);
+            if(idx <= 0) return 0;
+            for(let i = idx-1; i>=0; i--) {
+                const prev = localStorage.getItem(`prog_${DATE_KEYS[i]}_${subject}`);
+                if(prev !== null) return parseInt(prev);
+            }
+            return 0;
+        }
 
+        /* ================= CORE ================= */
         function init() {
-            // STATE.date = new Date("2026-02-06"); // Uncomment for debugging
+            updateLifeStats();
             updateDateStr();
             loadTempTasks();
-            renderAll();
-            setInterval(updateTimePrediction, 30000); 
-            updateTimePrediction();
-            checkIeltsTimer();
+            render();
+            setInterval(calcTime, 30000);
+            calcTime();
         }
 
         function updateDateStr() {
             const y = STATE.date.getFullYear();
-            const m = String(STATE.date.getMonth() + 1).padStart(2, '0');
-            const d = String(STATE.date.getDate()).padStart(2, '0');
+            const m = String(STATE.date.getMonth()+1).padStart(2,'0');
+            const d = String(STATE.date.getDate()).padStart(2,'0');
             STATE.dateStr = `${y}-${m}-${d}`;
             document.getElementById('date-display').innerText = STATE.dateStr;
         }
 
-        function shiftDate(delta) {
-            STATE.date.setDate(STATE.date.getDate() + delta);
+        function shiftDate(d) {
+            STATE.date.setDate(STATE.date.getDate()+d);
             updateDateStr();
             loadTempTasks();
-            renderAll();
-            updateTimePrediction();
+            render();
+            calcTime();
         }
 
-        /* ================= RENDERING ================= */
+        function render() {
+            const list = document.getElementById('main-task-list');
+            list.innerHTML = '';
+            const tasks = PLAN[STATE.dateStr] || [];
 
-        function renderAll() {
-            renderMainTasks();
-            renderTempTasks();
-        }
+            if(tasks.length === 0) list.innerHTML = `<div style="text-align:center; padding:20px; color:#555">No Plan</div>`;
 
-        function renderMainTasks() {
-            const container = document.getElementById('main-task-list');
-            container.innerHTML = '';
-            const tasks = PLAN[STATE.dateStr];
-
-            if (!tasks) {
-                container.innerHTML = `<div style="text-align:center; padding:30px; color:#555;">No Plan for ${STATE.dateStr}</div>`;
-                return;
-            }
-
-            tasks.forEach(task => {
-                // Determine Type Override
-                if (task.s.includes('IELTS')) task.type = 'ielts';
-                
+            tasks.forEach(t => {
                 const card = document.createElement('div');
                 card.className = 'task-card';
 
-                // --- IELTS ---
-                if (task.type === 'ielts') {
+                if(t.type === 'ielts' || t.s.includes('IELTS')) {
                     card.classList.add('ielts-card');
                     const saved = localStorage.getItem(`ielts_${STATE.dateStr}`);
-                    const remaining = saved ? parseInt(saved) : 160 * 60;
-                    const isDone = remaining <= 0;
+                    const rem = saved ? parseInt(saved) : 160 * 60;
+                    const isDone = rem <= 0;
                     if(isDone) card.classList.add('done');
-
+                    
                     card.innerHTML = `
                         <div>
-                            <div class="task-meta">
-                                <h3 style="color:var(--accent-blue)">IELTS DRILL</h3>
-                            </div>
-                            <div class="timer-big" id="ielts-display">${formatTime(remaining)}</div>
+                            <div style="color:var(--accent-blue); font-weight:700">IELTS DRILL</div>
+                            <div class="timer-big" id="ielts-display">${formatTime(rem)}</div>
                             <div class="ielts-controls">
-                                <button class="btn-start" onclick="startIelts()" ${isDone ? 'disabled' : ''}>START</button>
-                                <button class="btn-pause" onclick="pauseIelts()">PAUSE</button>
+                                <button class="primary" onclick="toggleIelts('${STATE.dateStr}')">
+                                    <span class="material-icons-round">play_arrow</span> START / PAUSE
+                                </button>
+                                <button class="finish" onclick="finishIelts('${STATE.dateStr}')">
+                                    <span class="material-icons-round">check_circle</span> MARK DONE
+                                </button>
                             </div>
                         </div>
                     `;
-                }
-                // --- NUMERIC (With Inheritance) ---
-                else if (task.type === 'num') {
-                    // USE THE NEW FUNCTION HERE
-                    const current = getEffectiveProgress(task.s, STATE.dateStr);
-                    
-                    const gap = task.t - current;
+                } 
+                else if (t.type === 'num') {
+                    const current = getEffectiveProgress(t.s, STATE.dateStr);
+                    const gap = t.t - current;
                     const isDone = gap <= 0;
-
+                    
                     if(isDone) card.classList.add('done');
                     else card.classList.add('behind');
 
                     let rate = RULES['DEFAULT'];
-                    if(task.s.includes('Bio')) rate = RULES['Biology'];
-                    if(task.s.includes('Chem')) rate = RULES['Chemistry'];
-                    if(task.s.includes('Phy')) rate = RULES['Physics'];
-                    if(task.s.includes('Math')) rate = RULES['Math'];
-                    if(task.s.includes('Vocab')) rate = RULES['Vocabulary'];
+                    if(t.s.includes('Bio')) rate = RULES['Biology'];
+                    if(t.s.includes('Chem')) rate = RULES['Chemistry'];
+                    if(t.s.includes('Phy')) rate = RULES['Physics'];
+                    if(t.s.includes('Math')) rate = RULES['Math'];
+                    if(t.s.includes('Vocab')) rate = RULES['Vocabulary'];
 
-                    const estMins = gap > 0 ? Math.ceil(gap * rate) : 0;
-                    const step = task.s.includes('Vocab') ? 10 : 1;
+                    const time = gap > 0 ? Math.ceil(gap * rate) : 0;
+                    const step = t.s.includes('Vocab') ? 10 : 1;
 
                     card.innerHTML = `
                         <div class="task-meta">
-                            <h3>${task.s}</h3>
-                            <p>Target: <strong>${task.t}</strong> (Inherited)</p>
+                            <h3>${t.s}</h3>
+                            <p>Target: <strong>${t.t}</strong></p>
                         </div>
                         <div class="task-input-area">
-                            <span style="font-size:0.8rem; color:#666;">Current:</span>
-                            <input type="number" class="num-input" value="${current}" step="${step}" 
-                                onchange="updateProgress('${task.s}', this.value)">
+                            <span style="font-size:0.7rem; color:#666">Finished:</span>
+                            <div class="input-row">
+                                <input type="number" class="num-input" value="${current}" step="${step}" onchange="upd('${t.s}', this.value)">
+                            </div>
                         </div>
                         <div class="task-status">
-                            <div class="gap-val ${isDone ? 'ok' : ''}">${isDone ? 'DONE' : '-' + gap}</div>
-                            <div class="est-label">+${estMins} mins</div>
+                            <div class="gap-val ${isDone?'ok':''}">${isDone ? 'DONE' : '-'+gap}</div>
+                            <div class="math-breakdown">Gap ${gap} × ${rate}m = <strong>${time}m</strong></div>
                         </div>
                     `;
-                }
-                // --- CHECKBOX ---
+                } 
                 else {
-                    const saved = localStorage.getItem(`check_${STATE.dateStr}_${task.s}`) === 'true';
-                    if(saved) card.classList.add('done');
+                    const done = localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) === 'true';
+                    if(done) card.classList.add('done');
                     card.innerHTML = `
                         <div class="task-meta" style="grid-column:span 2">
-                            <h3>${task.s}</h3>
-                            <p>Event / Task</p>
+                            <h3>${t.s}</h3>
+                            <p>Task</p>
                         </div>
                         <div class="task-status">
-                            <input type="checkbox" style="width:20px; height:20px;" ${saved ? 'checked' : ''} 
-                                onchange="updateCheck('${task.s}', this.checked)">
+                            <input type="checkbox" ${done?'checked':''} onchange="chk('${t.s}', this.checked)" style="width:20px; height:20px;">
                         </div>
                     `;
                 }
-
-                container.appendChild(card);
+                list.appendChild(card);
             });
+            renderTemp();
         }
 
-        /* ================= TEMP TASKS ================= */
-        function loadTempTasks() {
-            const raw = localStorage.getItem(`temp_${STATE.dateStr}`);
-            STATE.tempTasks = raw ? JSON.parse(raw) : [];
+        function upd(sub, val) {
+            localStorage.setItem(`prog_${STATE.dateStr}_${sub}`, val);
+            render(); calcTime();
+        }
+        function chk(sub, val) {
+            localStorage.setItem(`check_${STATE.dateStr}_${sub}`, val);
+            render(); calcTime();
         }
 
-        function saveTempTasks() {
-            localStorage.setItem(`temp_${STATE.dateStr}`, JSON.stringify(STATE.tempTasks));
-            renderTempTasks();
-            updateTimePrediction();
-        }
-
-        function addTempTask() {
-            const name = document.getElementById('new-task-name').value;
-            const time = parseInt(document.getElementById('new-task-time').value);
-            if(name && time) {
-                STATE.tempTasks.push({ n: name, m: time });
-                document.getElementById('new-task-name').value = '';
-                document.getElementById('new-task-time').value = '';
-                saveTempTasks();
-            }
-        }
-
-        function removeTempTask(idx) {
-            STATE.tempTasks.splice(idx, 1);
-            saveTempTasks();
-        }
-
-        function renderTempTasks() {
-            const list = document.getElementById('temp-task-list');
-            list.innerHTML = '';
-            STATE.tempTasks.forEach((t, i) => {
-                const row = document.createElement('div');
-                row.className = 'temp-item';
-                row.innerHTML = `
-                    <span>${t.n}</span>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="color:var(--accent-yellow)">+${t.m}m</span>
-                        <button class="btn-del" onclick="removeTempTask(${i})">X</button>
-                    </div>
-                `;
-                list.appendChild(row);
-            });
-        }
-
-        /* ================= PREDICTION LOGIC ================= */
-
-        function updateTimePrediction() {
-            let totalMinsNeeded = 0;
-
+        function calcTime() {
+            let mins = 0;
             const tasks = PLAN[STATE.dateStr] || [];
+            
             tasks.forEach(t => {
-                if(t.type === 'ielts') {
-                    const saved = localStorage.getItem(`ielts_${STATE.dateStr}`);
-                    const rem = saved ? parseInt(saved) : 160 * 60;
-                    totalMinsNeeded += Math.ceil(rem / 60);
-                } else if (t.type === 'num') {
-                    // Use Inherited Value here too!
-                    const current = getEffectiveProgress(t.s, STATE.dateStr);
-                    const gap = t.t - current;
-                    
+                if(t.type === 'ielts' || t.s.includes('IELTS')) {
+                    const s = localStorage.getItem(`ielts_${STATE.dateStr}`);
+                    mins += Math.ceil((s ? parseInt(s) : 160*60)/60);
+                } else if(t.type === 'num') {
+                    const cur = getEffectiveProgress(t.s, STATE.dateStr);
+                    const gap = t.t - cur;
                     if(gap > 0) {
-                        let rate = RULES['DEFAULT'];
-                        if(t.s.includes('Bio')) rate = RULES['Biology'];
-                        if(t.s.includes('Chem')) rate = RULES['Chemistry'];
-                        if(t.s.includes('Phy')) rate = RULES['Physics'];
-                        if(t.s.includes('Math')) rate = RULES['Math'];
-                        if(t.s.includes('Vocab')) rate = RULES['Vocabulary'];
-                        totalMinsNeeded += (gap * rate);
+                        let rate = 30;
+                        if(t.s.includes('Bio')) rate = 20;
+                        if(t.s.includes('Chem')) rate = 20;
+                        if(t.s.includes('Phy')) rate = 40;
+                        if(t.s.includes('Math')) rate = 30;
+                        if(t.s.includes('Vocab')) rate = 0.5;
+                        mins += (gap * rate);
                     }
                 } else {
-                    const done = localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) === 'true';
-                    if(!done) totalMinsNeeded += 30;
+                    if(localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) !== 'true') mins += 30;
                 }
             });
 
-            // Temp Tasks
-            STATE.tempTasks.forEach(t => totalMinsNeeded += t.m);
+            STATE.tempTasks.forEach(t => mins += t.m);
 
-            // Calculation
-            const now = new Date();
-            let startTime = new Date();
-            
-            // Start Constraint (10:30 AM)
-            const workStart = new Date();
-            workStart.setHours(START_HOUR, START_MIN, 0, 0);
-
-            if (now < workStart) {
-                startTime = workStart; 
-            } else {
-                startTime = now; 
-            }
-
-            const finishTime = new Date(startTime.getTime() + totalMinsNeeded * 60000);
-
-            // Deadline Constraint (22:30)
-            const deadline = new Date();
-            deadline.setHours(DEADLINE_HOUR, DEADLINE_MIN, 0, 0);
-
-            // UI
-            const h = Math.floor(totalMinsNeeded / 60);
-            const m = Math.ceil(totalMinsNeeded % 60);
+            const h = Math.floor(mins/60);
+            const m = Math.ceil(mins%60);
             document.getElementById('total-hours-left').innerText = `${h}h ${m}m`;
+
+            const now = new Date();
+            let start = new Date();
+            const workStart = new Date(); workStart.setHours(10,30,0,0);
+            if(now < workStart) start = workStart; else start = now;
+
+            const finish = new Date(start.getTime() + mins*60000);
+            const dead = new Date(); dead.setHours(22,30,0,0);
 
             const disp = document.getElementById('finish-time-display');
             const icon = document.getElementById('status-icon-display');
 
-            if (finishTime > deadline || finishTime.getDate() > now.getDate()) {
+            if(finish > dead || finish.getDate() > now.getDate()) {
                 disp.innerText = "IMPOSSIBLE";
                 disp.className = "finish-time danger";
                 icon.innerText = "warning";
                 icon.style.color = "var(--accent-red)";
             } else {
-                const fh = String(finishTime.getHours()).padStart(2, '0');
-                const fm = String(finishTime.getMinutes()).padStart(2, '0');
-                disp.innerText = `${fh}:${fm}`;
+                disp.innerText = `${String(finish.getHours()).padStart(2,'0')}:${String(finish.getMinutes()).padStart(2,'0')}`;
                 disp.className = "finish-time safe";
                 icon.innerText = "check_circle";
                 icon.style.color = "var(--accent-green)";
             }
         }
 
-        /* ================= ACTIONS ================= */
-
-        function updateProgress(subject, val) {
-            localStorage.setItem(`prog_${STATE.dateStr}_${subject}`, val);
-            renderMainTasks(); 
-            updateTimePrediction();
+        function loadTempTasks() { 
+            const r = localStorage.getItem(`temp_${STATE.dateStr}`);
+            STATE.tempTasks = r ? JSON.parse(r) : [];
+        }
+        function addTempTask() {
+            const n = document.getElementById('new-task-name').value;
+            const t = parseInt(document.getElementById('new-task-time').value);
+            if(n && t) {
+                STATE.tempTasks.push({n, m:t});
+                localStorage.setItem(`temp_${STATE.dateStr}`, JSON.stringify(STATE.tempTasks));
+                document.getElementById('new-task-name').value='';
+                document.getElementById('new-task-time').value='';
+                renderTemp(); calcTime();
+            }
+        }
+        function renderTemp() {
+            const l = document.getElementById('temp-task-list');
+            l.innerHTML = '';
+            STATE.tempTasks.forEach((t,i) => {
+                const el = document.createElement('div');
+                el.className = 'temp-item';
+                el.innerHTML = `<span>${t.n}</span><div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent-purple)">+${t.m}m</span><span style="color:red;cursor:pointer" onclick="delTemp(${i})">X</span></div>`;
+                l.appendChild(el);
+            });
+        }
+        function delTemp(i) {
+            STATE.tempTasks.splice(i,1);
+            localStorage.setItem(`temp_${STATE.dateStr}`, JSON.stringify(STATE.tempTasks));
+            renderTemp(); calcTime();
         }
 
-        function updateCheck(subject, checked) {
-            localStorage.setItem(`check_${STATE.dateStr}_${subject}`, checked);
-            renderMainTasks();
-            updateTimePrediction();
+        function formatTime(s) {
+            const h = Math.floor(s/3600);
+            const m = Math.floor((s%3600)/60);
+            const sc = s%60;
+            return `${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}`;
         }
-
-        function formatTime(sec) {
-            const h = Math.floor(sec/3600);
-            const m = Math.floor((sec%3600)/60);
-            const s = sec%60;
-            return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        function toggleIelts(dateStr) {
+            if(STATE.ieltsInterval) {
+                clearInterval(STATE.ieltsInterval);
+                STATE.ieltsInterval = null;
+            } else {
+                const k = `ielts_${dateStr}`;
+                STATE.ieltsInterval = setInterval(() => {
+                    let c = parseInt(localStorage.getItem(k));
+                    if(isNaN(c)) c = 160*60;
+                    if(c > 0) {
+                        c--; localStorage.setItem(k, c);
+                        const el = document.getElementById('ielts-display');
+                        if(el) el.innerText = formatTime(c);
+                        if(c%60===0) calcTime();
+                    } else {
+                        finishIelts(dateStr);
+                    }
+                }, 1000);
+            }
         }
-
-        /* ================= TIMER ================= */
-        function startIelts() {
-            if(STATE.ieltsInterval) return;
-            const key = `ielts_${STATE.dateStr}`;
-            
-            STATE.ieltsInterval = setInterval(() => {
-                let current = parseInt(localStorage.getItem(key));
-                if(isNaN(current)) current = 160 * 60;
-
-                if(current > 0) {
-                    current--;
-                    localStorage.setItem(key, current);
-                    document.getElementById('ielts-display').innerText = formatTime(current);
-                    if(current % 60 === 0) updateTimePrediction();
-                } else {
-                    clearInterval(STATE.ieltsInterval);
-                    renderMainTasks();
-                }
-            }, 1000);
+        function finishIelts(dateStr) {
+            if(STATE.ieltsInterval) {
+                clearInterval(STATE.ieltsInterval);
+                STATE.ieltsInterval = null;
+            }
+            localStorage.setItem(`ielts_${dateStr}`, 0);
+            render();
+            calcTime();
         }
-
-        function pauseIelts() {
-            clearInterval(STATE.ieltsInterval);
-            STATE.ieltsInterval = null;
-        }
-
-        function checkIeltsTimer() {}
 
         init();
     </script>
