@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V22.1 IELTS DAILY</title>
+    <title>Jack's Warden | V23 CONTEXT AWARE</title>
     
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -187,11 +187,13 @@
         <div class="chat-container">
             <div class="chat-header">
                 <div class="ai-avatar">AI</div>
-                <div style="font-weight:700; color:var(--accent-red)">ENFORCEMENT ACTIVE</div>
+                <div style="font-weight:700; color:var(--accent-red)">BUDDY CHAT</div>
+                <div style="flex:1"></div>
+                <button class="btn-mini" onclick="clearChat()">Clear History</button>
             </div>
             <div class="chat-history" id="chat-history"></div>
             <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Explain yourself..." onkeypress="handleEnter(event)">
+                <input type="text" id="chat-input" placeholder="Chat with buddy..." onkeypress="handleEnter(event)">
                 <button class="btn-mini" onclick="sendUserMsg()">SEND</button>
             </div>
             <button class="start-btn-large" onclick="closeChatAndStart()">I AM STARTING NOW</button>
@@ -213,10 +215,10 @@
     </div>
 
     <header>
-        <div class="brand">JACK'S WARDEN <span>V22.1 IELTS DAILY</span></div>
+        <div class="brand">JACK'S WARDEN <span>V23 CONTEXT AWARE</span></div>
         <div style="display:flex; gap:15px; align-items:center">
             <span class="material-icons-round icon-btn" onclick="openSettings()" title="AI Settings">settings</span>
-            <span class="material-icons-round icon-btn" onclick="triggerEnforcer(true)" title="Test Enforcer" style="color:var(--accent-red)">warning</span>
+            <span class="material-icons-round icon-btn" onclick="triggerEnforcer(true)" title="Chat Buddy" style="color:var(--accent-green)">chat</span>
             <div class="date-badge">
                 <span class="material-icons-round icon-btn" onclick="shiftDate(-1)">chevron_left</span>
                 <span id="date-display">--</span>
@@ -234,7 +236,7 @@
                 </div>
                 <div style="text-align:right">
                     <div class="time-label">Total Work</div>
-                    <div style="font-family:'JetBrains Mono'; font-weight:700; color:#aaa" id="work-mins">0m</div>
+                    <div style="font-family:'JetBrains Mono'; font-weight:700; color:#aaa" id="work-mins">0h 0m</div>
                 </div>
             </div>
             <div class="time-row">
@@ -298,22 +300,15 @@
             "22:30 is a deadline, not a suggestion."
         ];
 
-        /* ==================== PLAN (CORRECTED) ==================== */
+        /* ==================== PLAN ==================== */
         const PLAN = {
             "2026-02-06": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 60, "type": "num"}, {"s": "Biology", "t": 7, "type": "num"}, {"s": "Math", "t": 3, "type": "num"}, {"s": "Physics", "t": 2, "type": "num"}, {"s": "Chemistry", "t": 4, "type": "num"}], 
-            
             "2026-02-07": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 10, "type": "num"}, {"s": "Math", "t": 5, "type": "num"}, {"s": "Physics", "t": 3, "type": "num"}, {"s": "Chemistry", "t": 6, "type": "num"}], 
-            
             "2026-02-08": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 13, "type": "num"}, {"s": "Math", "t": 7, "type": "num"}, {"s": "Physics", "t": 4, "type": "num"}, {"s": "Chemistry", "t": 8, "type": "num"}], 
-            
             "2026-02-09": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 16, "type": "num"}, {"s": "Math", "t": 9, "type": "num"}, {"s": "Physics", "t": 5, "type": "num"}, {"s": "Chemistry", "t": 12, "type": "num"}], 
-            
             "2026-02-10": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 21, "type": "num"}, {"s": "Physics", "t": 6, "type": "num"}], 
-            
             "2026-02-11": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}],
-            
             "2026-02-12": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}],
-
             "2026-02-13": [{"s": "HANDAN", "t": 0, "type": "text"}],
             "2026-02-14": [{"s": "LUAN", "t": 0, "type": "text"}],
             "2026-02-15": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
@@ -325,18 +320,134 @@
 
         let STATE = {
             date: new Date(), dateStr: "", tempTasks: [], blocks: [],
-            activeTask: null, latestStartMins: 0, ieltsInterval: null, chatHistory: [],
-            graceUntil: 0, restUntil: 0
+            activeTask: null, latestStartMins: 0, ieltsInterval: null, 
+            chatHistory: [], // Stores conversation
+            graceUntil: 0, restUntil: 0,
+            metrics: { estText: "--:--", isImpossible: false, workMins: 0 }
         };
 
+        /* ==================== CORE INITIALIZATION ==================== */
         function init() {
             updateLifeStats(); updateDate(); applyPreset();
+            loadChatHistory(); // NEW: Load Chat
+            
             setInterval(checkWatchdog, 1000); 
             setInterval(updateLogic, 30000);
             updateLogic();
             setInterval(() => { if(STATE.ieltsInterval) updateLogic(); }, 1000);
         }
 
+        /* ==================== CHAT PERSISTENCE & CONTEXT ==================== */
+        function loadChatHistory() {
+            const saved = localStorage.getItem('warden_chat_v23');
+            if (saved) {
+                STATE.chatHistory = JSON.parse(saved);
+                const h = document.getElementById('chat-history');
+                h.innerHTML = '';
+                STATE.chatHistory.forEach(msg => {
+                    if (msg.role !== 'system') { // Don't show system prompts
+                        const d = document.createElement('div');
+                        d.className = `msg ${msg.role === 'assistant' ? 'ai' : 'user'}`;
+                        d.innerText = msg.content;
+                        h.appendChild(d);
+                    }
+                });
+                h.scrollTop = h.scrollHeight;
+            }
+        }
+
+        function saveChatHistory() {
+            // Only save user and assistant messages, not the huge system prompt
+            const cleanHistory = STATE.chatHistory.filter(m => m.role !== 'system');
+            localStorage.setItem('warden_chat_v23', JSON.stringify(cleanHistory));
+        }
+
+        function clearChat() {
+            STATE.chatHistory = [];
+            document.getElementById('chat-history').innerHTML = '';
+            localStorage.removeItem('warden_chat_v23');
+        }
+
+        function getSystemContext() {
+            // Dynamic Context Builder
+            const tasks = PLAN[STATE.dateStr] || [];
+            let taskSummary = tasks.map(t => {
+                if(t.type === 'num') {
+                    const cur = getEffectiveProgress(t.s, STATE.dateStr);
+                    return `${t.s}: ${cur}/${t.t}`;
+                }
+                return t.s;
+            }).join(', ');
+
+            const temp = STATE.tempTasks.map(t => `${t.n}(${t.m}m)`).join(', ');
+            const blocks = STATE.blocks.map(b => `${b.s}-${b.e}`).join(', ');
+            const h = Math.floor(STATE.metrics.workMins / 60);
+            const m = STATE.metrics.workMins % 60;
+
+            return `
+[SYSTEM DATA - DO NOT IGNORE]
+User: Jack (9th Grade, IGCSE Student).
+Current Date: ${STATE.dateStr}.
+Current Time: ${new Date().toLocaleTimeString()}.
+Status: ${STATE.metrics.isImpossible ? "CRITICAL (IMPOSSIBLE TO FINISH BY 22:30)" : "Safe"}.
+Est. Finish Time: ${STATE.metrics.estText} (Deadline is 22:30).
+Total Work Left: ${h}h ${m}m.
+Tasks: ${taskSummary}.
+Ad-hoc: ${temp || 'None'}.
+Blocked: ${blocks || 'None'}.
+Current Action: ${STATE.activeTask ? "Working on " + STATE.activeTask : "Not Started / Resting"}.
+INSTRUCTION: You are a WeChat Study Buddy. Keep replies SHORT (1-2 sentences), casual, and supportive. If status is IMPOSSIBLE, be serious but helpful.
+`;
+        }
+
+        async function callLLM(msg) {
+            const key = localStorage.getItem('llm_key');
+            if(!key) { appendMsg("System", "Please set API Key in Settings."); return; }
+            
+            const url = localStorage.getItem('llm_url');
+            const model = localStorage.getItem('llm_model');
+            
+            // Build fresh conversation with latest context
+            let messages = [{ role: "system", content: getSystemContext() }];
+            
+            // Add history (excluding old system prompts)
+            STATE.chatHistory.forEach(m => {
+                if(m.role !== 'system') messages.push(m);
+            });
+            
+            messages.push({ role: "user", content: msg });
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({ model: model, messages: messages, stream: false })
+                });
+                const data = await res.json();
+                if(data.choices) {
+                    const reply = data.choices[0].message.content;
+                    appendMsg("AI", reply);
+                    
+                    // Update State History
+                    STATE.chatHistory.push({ role: "user", content: msg });
+                    STATE.chatHistory.push({ role: "assistant", content: reply });
+                    saveChatHistory();
+                }
+            } catch(e) {
+                appendMsg("System", "Error: " + e.message);
+            }
+        }
+
+        function appendMsg(role, text) {
+            const h = document.getElementById('chat-history');
+            const d = document.createElement('div');
+            d.className = `msg ${role.toLowerCase()}`;
+            d.innerText = text;
+            h.appendChild(d);
+            h.scrollTop = h.scrollHeight;
+        }
+
+        /* ==================== STANDARD LOGIC (UPDATED) ==================== */
         function updateDate() {
             const y = STATE.date.getFullYear();
             const m = String(STATE.date.getMonth()+1).padStart(2,'0');
@@ -379,7 +490,12 @@
             });
             
             STATE.tempTasks.forEach(t => minsNeeded += t.m);
-            document.getElementById('work-mins').innerText = `${Math.ceil(minsNeeded)}m`;
+            STATE.metrics.workMins = Math.ceil(minsNeeded);
+
+            // Display Hours and Minutes
+            const hNeeded = Math.floor(minsNeeded / 60);
+            const mNeeded = Math.ceil(minsNeeded % 60);
+            document.getElementById('work-mins').innerText = `${hNeeded}h ${mNeeded}m`;
 
             let blocked = [...FIXED_BREAKS];
             STATE.blocks.forEach(b => {
@@ -430,13 +546,19 @@
             
             let efH = Math.floor(forwardCursor/60); const efM = forwardCursor%60;
             if(efH >= 24) efH -= 24;
-            document.getElementById('est-finish').innerText = `${efH}:${String(efM).padStart(2,'0')}`;
+            const efStr = `${efH}:${String(efM).padStart(2,'0')}`;
+            document.getElementById('est-finish').innerText = efStr;
+            
+            STATE.metrics.estText = efStr;
 
             const icon = document.getElementById('status-icon');
             if(forwardCursor > deadlineMins) {
+                STATE.metrics.isImpossible = true;
                 document.getElementById('est-finish').className = "time-val alert";
+                document.getElementById('est-finish').innerText = "IMPOSSIBLE";
                 icon.innerText = "dangerous"; icon.style.color = "var(--accent-red)";
             } else {
+                STATE.metrics.isImpossible = false;
                 document.getElementById('est-finish').className = "time-val ok";
                 icon.innerText = "check_circle"; icon.style.color = "var(--accent-green)";
             }
@@ -603,25 +725,13 @@
 
         function triggerEnforcer(force) {
             const modal = document.getElementById('chat-modal'); if(modal.style.display === 'flex') return;
-            modal.style.display = 'flex'; document.getElementById('chat-history').innerHTML = ''; STATE.chatHistory = [];
+            modal.style.display = 'flex'; 
+            // We do NOT clear chat history here anymore, we append
             callLLM(force ? "Test trigger." : "I am late. Scold me.");
         }
 
         function closeChatAndStart() { document.getElementById('chat-modal').style.display = 'none'; STATE.graceUntil = Date.now() + 2 * 60 * 1000; checkWatchdog(); }
 
-        async function callLLM(msg) {
-            const key = localStorage.getItem('llm_key'); if(!key) { appendMsg("System", "No API Key."); return; }
-            const url = localStorage.getItem('llm_url'); const model = localStorage.getItem('llm_model');
-            let messages = [{ role: "system", content: "你现在是 Jack 的专属心理疏导导师和学习教练。【背景设定】Jack 是一名正在准备 IGCSE 考试的 9 年级学生，学业非常繁重（包括生物、化学、物理、数学、附加数学和雅思）。由于任务多、压力大，他偶尔会出现拖延或无法按时开始的情况。【核心任务】1. **拒绝无意义的责骂**：不要扮演冷酷的典狱长。即便 Jack 迟到了，也要明白那是由于压力导致的“心理防御”，而不是因为他懒。2. **情绪优先**：先认可他的压力，用温暖、有共情力的话语疏导他的焦虑。3. **微小起步**：鼓励他从“只做 5 分钟”或者“只看一页书”开始，帮他克服开始时的恐惧感。4. **语言风格**：亲切、像朋友一样、充满鼓励，偶尔可以用一点幽默感。【当前情境】Jack 现在没能按计划开始学习，系统触发了提醒。请你用一段长一些的话来安慰他，告诉他没关系，然后温柔地牵着他的手回到书桌前。`" }];
-            STATE.chatHistory.forEach(m => messages.push(m)); messages.push({ role: "user", content: msg });
-            try {
-                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }, body: JSON.stringify({ model: model, messages: messages, stream: false }) });
-                const data = await res.json();
-                if(data.choices) { const reply = data.choices[0].message.content; appendMsg("AI", reply); STATE.chatHistory.push({ role: "user", content: msg }); STATE.chatHistory.push({ role: "assistant", content: reply }); }
-            } catch(e) { appendMsg("System", "Error: " + e.message); }
-        }
-        
-        function appendMsg(role, text) { const h = document.getElementById('chat-history'); const d = document.createElement('div'); d.className = `msg ${role.toLowerCase()}`; d.innerText = text; h.appendChild(d); h.scrollTop = h.scrollHeight; }
         function handleEnter(e) { if(e.key==='Enter') sendUserMsg(); }
         function sendUserMsg() { const i = document.getElementById('chat-input'); const val = i.value.trim(); if(!val) return; appendMsg("User", val); i.value = ''; callLLM(val); }
 
