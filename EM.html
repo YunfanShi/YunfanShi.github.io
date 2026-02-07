@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V21 OMNISCIENT</title>
+    <title>Jack's Warden | V22.1 IELTS DAILY</title>
     
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -28,7 +28,7 @@
             min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 50px;
         }
 
-        /* === 1. STATUS BAR (V20) === */
+        /* === 1. STATUS BAR === */
         .status-bar {
             background: #111; padding: 8px; text-align: center;
             font-family: 'JetBrains Mono'; font-size: 0.8rem; border-bottom: 1px solid #333;
@@ -41,7 +41,7 @@
         .status-danger { background: rgba(255, 51, 51, 0.2); color: var(--accent-red); animation: pulse-red 2s infinite; }
         @keyframes pulse-red { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
 
-        /* === 2. DEATH BAR (V16) === */
+        /* === 2. DEATH BAR === */
         .death-bar { background: #1a0505; border-bottom: 1px solid var(--accent-red); padding: 20px; text-align: center; }
         .death-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 600px; margin: 0 auto; }
         .death-val { font-family: 'JetBrains Mono'; font-size: 2.5rem; font-weight: 800; line-height: 1; }
@@ -62,7 +62,7 @@
         .icon-btn { cursor: pointer; color: #888; transition: 0.2s; }
         .icon-btn:hover { color: white; transform: scale(1.1); }
 
-        /* === 3. STRATEGIC DASHBOARD (V17) === */
+        /* === 3. DASHBOARD === */
         .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin: 20px; }
         .time-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; flex-direction: column; justify-content: center; }
         .time-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 15px; }
@@ -76,7 +76,7 @@
         .radar-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 10px; display: flex; align-items: center; justify-content: center; position: relative; }
         .radar-title { position: absolute; top: 10px; left: 15px; font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
 
-        /* === 4. TIME BLOCKS & AD-HOC (V17) === */
+        /* === 4. BLOCKS === */
         .block-section { margin: 0 20px; padding: 15px; background: #151515; border-radius: 12px; border: 1px solid #222; }
         .section-title { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; }
         .block-input-row { display: flex; gap: 10px; align-items: center; }
@@ -86,7 +86,7 @@
         .block-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .block-tag { background: rgba(255, 145, 0, 0.1); border: 1px solid rgba(255, 145, 0, 0.3); color: var(--accent-orange); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
 
-        /* === 5. TASK LIST (V13 + V20) === */
+        /* === 5. TASKS === */
         .task-container { margin: 20px; display: flex; flex-direction: column; gap: 15px; }
         .task-card {
             background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 15px 20px;
@@ -113,7 +113,7 @@
         .gap-display.neg { color: var(--accent-red); }
         .inherited-tag { font-size:0.6rem; color:var(--accent-purple); border:1px solid var(--accent-purple); padding:2px 4px; border-radius:4px; margin-left:5px; vertical-align:middle; }
 
-        /* === 6. HEATMAP (V17) === */
+        /* === 6. HEATMAP === */
         .heatmap-section { margin: 20px; padding: 20px; background: #151515; border-radius: 16px; border: 1px solid #222; overflow-x: auto; }
         .heatmap-grid { display: flex; gap: 4px; min-width: max-content; }
         .heatmap-col { display: flex; flex-direction: column; gap: 4px; }
@@ -123,7 +123,7 @@
         .day-sq[data-level="3"] { background: #26a641; }
         .day-sq[data-level="4"] { background: #39d353; }
 
-        /* === 7. AI OVERLAYS (V20) === */
+        /* === 7. MODALS === */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 9000; align-items: center; justify-content: center; backdrop-filter: blur(10px);
@@ -213,7 +213,7 @@
     </div>
 
     <header>
-        <div class="brand">JACK'S WARDEN <span>V21 OMNISCIENT</span></div>
+        <div class="brand">JACK'S WARDEN <span>V22.1 IELTS DAILY</span></div>
         <div style="display:flex; gap:15px; align-items:center">
             <span class="material-icons-round icon-btn" onclick="openSettings()" title="AI Settings">settings</span>
             <span class="material-icons-round icon-btn" onclick="triggerEnforcer(true)" title="Test Enforcer" style="color:var(--accent-red)">warning</span>
@@ -254,7 +254,7 @@
     </div>
 
     <div class="block-section">
-        <div class="section-title">Blocked Time / 忙碌时段 (自动跳过计算)</div>
+        <div class="section-title">Blocked Time / 忙碌时段</div>
         <div class="block-input-row">
             <input type="time" id="block-start"> <span>-</span> <input type="time" id="block-end">
             <button class="btn-mini" onclick="addBlock()">Block</button>
@@ -282,24 +282,38 @@
     <script>
         /* ==================== CONFIGURATION ==================== */
         const DEADLINE = { h: 22, m: 30 };
-        // Fixed Breaks: Lunch (12:00-13:30), Dinner (18:00-19:00)
         const FIXED_BREAKS = [{ s: 720, e: 810 }, { s: 1080, e: 1140 }]; 
         
         const RULES = { 'Physics': 40, 'Chemistry': 20, 'Biology': 20, 'Math': 30, 'Vocabulary': 0.5, 'DEFAULT': 30 };
         
         const QUOTES = [
-            "You are not tired, you are uninspired.", "Jan 23 is gone.", "February 28 is the judge.",
-            "Don't negotiate with your inner weakness.", "Results > Excuses.", "Pain of discipline is temporary.",
-            "Your competitors are studying right now."
+            "IGCSE results are permanent. Your excuses are temporary.",
+            "You are not tired, you are uninspired.", 
+            "Jan 23 is gone. You can't get it back.",
+            "February 28 is the judge.",
+            "Don't negotiate with your inner weakness.", 
+            "Results > Excuses.", 
+            "Pain of discipline is temporary. Pain of regret is forever.",
+            "Your competitors are studying right now.",
+            "22:30 is a deadline, not a suggestion."
         ];
 
+        /* ==================== PLAN (CORRECTED) ==================== */
         const PLAN = {
             "2026-02-06": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 60, "type": "num"}, {"s": "Biology", "t": 7, "type": "num"}, {"s": "Math", "t": 3, "type": "num"}, {"s": "Physics", "t": 2, "type": "num"}, {"s": "Chemistry", "t": 4, "type": "num"}], 
-            "2026-02-07": [{"s": "Biology", "t": 10, "type": "num"}, {"s": "Math", "t": 5, "type": "num"}, {"s": "Physics", "t": 3, "type": "num"}, {"s": "Chemistry", "t": 6, "type": "num"}], 
-            "2026-02-08": [{"s": "Biology", "t": 13, "type": "num"}, {"s": "Math", "t": 7, "type": "num"}, {"s": "Physics", "t": 4, "type": "num"}, {"s": "Chemistry", "t": 8, "type": "num"}], 
-            "2026-02-09": [{"s": "Biology", "t": 16, "type": "num"}, {"s": "Math", "t": 9, "type": "num"}, {"s": "Physics", "t": 5, "type": "num"}, {"s": "Chemistry", "t": 12, "type": "num"}], 
-            "2026-02-10": [{"s": "Biology", "t": 21, "type": "num"}, {"s": "Physics", "t": 6, "type": "num"}], 
-            "2026-02-11": [{"s": "IGCSE MOCK", "t": 0, "type": "text"}],
+            
+            "2026-02-07": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 10, "type": "num"}, {"s": "Math", "t": 5, "type": "num"}, {"s": "Physics", "t": 3, "type": "num"}, {"s": "Chemistry", "t": 6, "type": "num"}], 
+            
+            "2026-02-08": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 13, "type": "num"}, {"s": "Math", "t": 7, "type": "num"}, {"s": "Physics", "t": 4, "type": "num"}, {"s": "Chemistry", "t": 8, "type": "num"}], 
+            
+            "2026-02-09": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 16, "type": "num"}, {"s": "Math", "t": 9, "type": "num"}, {"s": "Physics", "t": 5, "type": "num"}, {"s": "Chemistry", "t": 12, "type": "num"}], 
+            
+            "2026-02-10": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 21, "type": "num"}, {"s": "Physics", "t": 6, "type": "num"}], 
+            
+            "2026-02-11": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}],
+            
+            "2026-02-12": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}],
+
             "2026-02-13": [{"s": "HANDAN", "t": 0, "type": "text"}],
             "2026-02-14": [{"s": "LUAN", "t": 0, "type": "text"}],
             "2026-02-15": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
@@ -315,83 +329,58 @@
             graceUntil: 0, restUntil: 0
         };
 
-        /* ==================== CORE INITIALIZATION ==================== */
         function init() {
-            updateLifeStats();
-            updateDate();
-            applyPreset(); // Set default LLM settings if empty
-            
-            // Loops
-            setInterval(checkWatchdog, 1000); // Enforcer (V20)
-            setInterval(updateLogic, 30000);  // Calculation (V17)
-            
+            updateLifeStats(); updateDate(); applyPreset();
+            setInterval(checkWatchdog, 1000); 
+            setInterval(updateLogic, 30000);
             updateLogic();
-            startIeltsTicker(); // Visual only (V13)
+            setInterval(() => { if(STATE.ieltsInterval) updateLogic(); }, 1000);
         }
 
-        /* ==================== DATE & DATA LOADING (V13) ==================== */
         function updateDate() {
             const y = STATE.date.getFullYear();
             const m = String(STATE.date.getMonth()+1).padStart(2,'0');
             const d = String(STATE.date.getDate()).padStart(2,'0');
             STATE.dateStr = `${y}-${m}-${d}`;
             document.getElementById('date-display').innerText = STATE.dateStr;
-            
-            // Load Daily Data
             const rT = localStorage.getItem(`temp_${STATE.dateStr}`); STATE.tempTasks = rT ? JSON.parse(rT) : [];
             const rB = localStorage.getItem(`blocks_${STATE.dateStr}`); STATE.blocks = rB ? JSON.parse(rB) : [];
         }
 
-        function shiftDate(delta) {
-            STATE.date.setDate(STATE.date.getDate() + delta);
-            updateDate();
-            updateLogic();
-        }
+        function shiftDate(delta) { STATE.date.setDate(STATE.date.getDate() + delta); updateDate(); updateLogic(); }
 
-        /* ==================== CALCULATION ENGINE (V17 STRATEGIC) ==================== */
         function updateLogic() {
-            renderTasks();
-            renderBlocks();
-            renderTemp();
-            calcTimeMetrics();
-            drawRadar();
-            renderHeatmap();
+            renderTasks(); renderBlocks(); renderTemp(); calcTimeMetrics(); drawRadar(); renderHeatmap();
         }
 
         function calcTimeMetrics() {
-            // 1. Calculate Total Minutes Needed (Work Load)
             let minsNeeded = 0;
             const tasks = PLAN[STATE.dateStr] || [];
             
             tasks.forEach(t => {
                 if(t.type === 'ielts') {
                     const saved = localStorage.getItem(`ielts_${STATE.dateStr}`);
-                    // Default 160 mins if not started, 0 if done
                     const rem = saved ? parseInt(saved) : 160*60; 
                     minsNeeded += Math.ceil(rem / 60);
                 } else if(t.type === 'num') {
-                    // V13 Inheritance Logic
                     const current = getEffectiveProgress(t.s, STATE.dateStr);
                     const gap = t.t - current;
                     if(gap > 0) {
                         let rate = RULES['DEFAULT'];
-                        if(t.s.includes('Bio') || t.s.includes('Chem')) rate = RULES['Chemistry']; // 20
-                        if(t.s.includes('Phy')) rate = RULES['Physics']; // 40
-                        if(t.s.includes('Vocab')) rate = RULES['Vocabulary']; // 0.5
+                        if(t.s.includes('Bio') || t.s.includes('Chem')) rate = RULES['Chemistry'];
+                        if(t.s.includes('Phy')) rate = RULES['Physics'];
+                        if(t.s.includes('Vocab')) rate = RULES['Vocabulary'];
                         minsNeeded += (gap * rate);
                     }
                 } else {
-                    // Checkbox tasks default to 30 mins
                     const done = localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) === 'true';
                     if(!done) minsNeeded += 30;
                 }
             });
             
-            // Add Temp Tasks
             STATE.tempTasks.forEach(t => minsNeeded += t.m);
             document.getElementById('work-mins').innerText = `${Math.ceil(minsNeeded)}m`;
 
-            // 2. Build Blocked Intervals (Fixed + User)
             let blocked = [...FIXED_BREAKS];
             STATE.blocks.forEach(b => {
                 const [h1,m1] = b.s.split(':').map(Number);
@@ -400,7 +389,6 @@
             });
             blocked.sort((a,b) => a.s - b.s);
 
-            // 3. Calc LATEST START (Backwards from Deadline)
             const deadlineMins = DEADLINE.h*60 + DEADLINE.m;
             let backCursor = deadlineMins;
             let workToFit = minsNeeded;
@@ -409,28 +397,20 @@
             while(workToFit > 0 && safety < 5000) {
                 safety++;
                 let inBlock = false;
-                // Check if backCursor is inside a block (checking from top down)
                 for(let b of blocked) {
                     if(backCursor > b.s && backCursor <= b.e) {
-                        backCursor = b.s; // Jump to start of block
-                        inBlock = true;
-                        break;
+                        backCursor = b.s; inBlock = true; break;
                     }
                 }
-                if(!inBlock) {
-                    backCursor--;
-                    workToFit--;
-                }
+                if(!inBlock) { backCursor--; workToFit--; }
             }
             STATE.latestStartMins = backCursor;
 
-            // 4. Calc EST FINISH (Forward from Now)
             const now = new Date();
             const nowMins = now.getHours()*60 + now.getMinutes();
             const isToday = (STATE.date.getDate() === now.getDate() && STATE.date.getMonth() === now.getMonth());
             
-            // Start at MAX(Now, 10:30AM) if today, else 10:30AM
-            let forwardCursor = (isToday && nowMins > 630) ? nowMins : 630; // 630 = 10:30
+            let forwardCursor = (isToday && nowMins > 630) ? nowMins : 630;
             let remainingWork = minsNeeded;
             safety = 0;
 
@@ -439,18 +419,12 @@
                 let inBlock = false;
                 for(let b of blocked) {
                     if(forwardCursor >= b.s && forwardCursor < b.e) {
-                        forwardCursor = b.e; // Jump to end of block
-                        inBlock = true;
-                        break;
+                        forwardCursor = b.e; inBlock = true; break;
                     }
                 }
-                if(!inBlock) {
-                    forwardCursor++;
-                    remainingWork--;
-                }
+                if(!inBlock) { forwardCursor++; remainingWork--; }
             }
 
-            // 5. Update UI
             const lsH = Math.floor(backCursor/60); const lsM = backCursor%60;
             document.getElementById('latest-start').innerText = `${lsH}:${String(lsM).padStart(2,'0')}`;
             
@@ -461,16 +435,13 @@
             const icon = document.getElementById('status-icon');
             if(forwardCursor > deadlineMins) {
                 document.getElementById('est-finish').className = "time-val alert";
-                icon.innerText = "dangerous";
-                icon.style.color = "var(--accent-red)";
+                icon.innerText = "dangerous"; icon.style.color = "var(--accent-red)";
             } else {
                 document.getElementById('est-finish').className = "time-val ok";
-                icon.innerText = "check_circle";
-                icon.style.color = "var(--accent-green)";
+                icon.innerText = "check_circle"; icon.style.color = "var(--accent-green)";
             }
         }
 
-        /* ==================== TASK RENDERING (V20 + V15) ==================== */
         function renderTasks() {
             const list = document.getElementById('task-list');
             list.innerHTML = '';
@@ -483,44 +454,32 @@
                 card.className = 'task-card';
                 if(STATE.activeTask === t.s) card.classList.add('active');
 
-                // V20 Focus Button Logic
-                const btnHtml = `
-                    <button class="btn-focus ${STATE.activeTask===t.s?'active':''}" onclick="toggleFocus('${t.s}')">
-                        <span class="material-icons-round" style="font-size:16px">${STATE.activeTask===t.s?'pause':'play_arrow'}</span>
-                        ${STATE.activeTask===t.s?'FOCUSING':'START'}
-                    </button>
-                `;
+                const btnHtml = `<button class="btn-focus ${STATE.activeTask===t.s?'active':''}" onclick="toggleFocus('${t.s}')"><span class="material-icons-round" style="font-size:16px">${STATE.activeTask===t.s?'pause':'play_arrow'}</span> ${STATE.activeTask===t.s?'FOCUSING':'START'}</button>`;
 
                 if(t.type === 'ielts') {
                     const rem = parseInt(localStorage.getItem(`ielts_${STATE.dateStr}`) || 160*60);
                     const isDone = rem <= 0;
                     if(isDone) card.classList.add('done');
-                    const h = Math.floor(rem/3600); const m = Math.floor((rem%3600)/60);
-                    
+                    const h = Math.floor(rem/3600); const m = Math.floor((rem%3600)/60); const s = rem%60;
+                    const isRunning = STATE.ieltsInterval !== null;
+
                     card.innerHTML = `
                         <div>
                             <div style="font-weight:700; color:var(--accent-blue)">IELTS DRILL</div>
                             <div style="font-family:'JetBrains Mono'; font-size:1.5rem; font-weight:700; margin-top:5px">
-                                ${h}:${String(m).padStart(2,'0')}
+                                ${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}
                             </div>
                         </div>
                         <div style="text-align:right; grid-column:span 2; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
                             ${isDone ? '' : btnHtml}
-                            <button class="btn-mini" onclick="toggleIelts('${STATE.dateStr}')">TIMER</button>
-                            <button class="btn-mini" style="color:var(--accent-green); border-color:var(--accent-green)" onclick="finishIelts('${STATE.dateStr}')">
-                                MARK DONE (V15)
-                            </button>
+                            <button class="btn-mini" onclick="toggleIelts('${STATE.dateStr}')">${isRunning ? 'PAUSE' : 'TIMER'}</button>
+                            <button class="btn-mini" style="color:var(--accent-green); border-color:var(--accent-green)" onclick="finishIelts('${STATE.dateStr}')">MARK DONE</button>
                         </div>
                     `;
-                } 
-                else if(t.type === 'num') {
-                    // V13 Inheritance Logic
+                } else if(t.type === 'num') {
                     const cur = getEffectiveProgress(t.s, STATE.dateStr);
                     const gap = t.t - cur;
-                    
-                    if(gap <= 0) card.classList.add('done');
-                    else card.classList.add('behind');
-
+                    if(gap <= 0) card.classList.add('done'); else card.classList.add('behind');
                     const isInherited = localStorage.getItem(`prog_${STATE.dateStr}_${t.s}`) === null && cur > 0;
                     const step = t.s.includes('Vocab') ? 10 : 1;
 
@@ -529,43 +488,29 @@
                             <h3>${t.s} ${isInherited ? '<span class="inherited-tag">INHERITED</span>' : ''}</h3>
                             <p>Target: <strong>${t.t}</strong></p>
                         </div>
-                        <div style="text-align:center">
-                            <input type="number" class="num-input" value="${cur}" step="${step}" onchange="upd('${t.s}', this.value)">
-                        </div>
+                        <div style="text-align:center"><input type="number" class="num-input" value="${cur}" step="${step}" onchange="upd('${t.s}', this.value)"></div>
                         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px">
-                            <div class="gap-display ${gap<=0?'pos':'neg'}">
-                                ${gap<=0 ? 'DONE' : '-'+gap}
-                            </div>
+                            <div class="gap-display ${gap<=0?'pos':'neg'}">${gap<=0 ? 'DONE' : '-'+gap}</div>
                             ${gap > 0 ? btnHtml : ''}
                         </div>
                     `;
-                }
-                else {
-                    // Checkbox Tasks
+                } else {
                     const done = localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) === 'true';
                     if(done) card.classList.add('done');
                     card.innerHTML = `
-                        <div class="task-meta" style="grid-column:span 2">
-                            <h3>${t.s}</h3>
-                            <p>Binary Task</p>
-                        </div>
-                        <div style="text-align:right">
-                            <input type="checkbox" ${done?'checked':''} onchange="chk('${t.s}', this.checked)" style="width:20px; height:20px;">
-                        </div>
+                        <div class="task-meta" style="grid-column:span 2"><h3>${t.s}</h3><p>Binary Task</p></div>
+                        <div style="text-align:right"><input type="checkbox" ${done?'checked':''} onchange="chk('${t.s}', this.checked)" style="width:20px; height:20px;"></div>
                     `;
                 }
                 list.appendChild(card);
             });
         }
 
-        // V13 Logic: Find last non-null value
         function getEffectiveProgress(sub, dateStr) {
             let val = localStorage.getItem(`prog_${dateStr}_${sub}`);
             if(val !== null) return parseInt(val);
-            
             const idx = DATE_KEYS.indexOf(dateStr);
             if(idx <= 0) return 0;
-            
             for(let i = idx-1; i >= 0; i--) {
                 let prev = localStorage.getItem(`prog_${DATE_KEYS[i]}_${sub}`);
                 if(prev !== null) return parseInt(prev);
@@ -573,31 +518,15 @@
             return 0;
         }
 
-        /* ==================== ACTIONS & HELPERS ==================== */
         function upd(s,v) { localStorage.setItem(`prog_${STATE.dateStr}_${s}`, v); updateLogic(); }
         function chk(s,v) { localStorage.setItem(`check_${STATE.dateStr}_${s}`, v); updateLogic(); }
-        
-        function addBlock() {
-            const s=document.getElementById('block-start').value; const e=document.getElementById('block-end').value;
-            if(s&&e) { STATE.blocks.push({s,e}); localStorage.setItem(`blocks_${STATE.dateStr}`,JSON.stringify(STATE.blocks)); updateLogic(); }
-        }
-        function renderBlocks() {
-            const c=document.getElementById('block-container'); c.innerHTML='';
-            STATE.blocks.forEach((b,i)=>{ c.innerHTML+=`<div class="block-tag"><span>${b.s}-${b.e}</span><span style="cursor:pointer;margin-left:5px" onclick="removeBlock(${i})">×</span></div>`; });
-        }
+        function addBlock() { const s=document.getElementById('block-start').value; const e=document.getElementById('block-end').value; if(s&&e) { STATE.blocks.push({s,e}); localStorage.setItem(`blocks_${STATE.dateStr}`,JSON.stringify(STATE.blocks)); updateLogic(); }}
+        function renderBlocks() { const c=document.getElementById('block-container'); c.innerHTML=''; STATE.blocks.forEach((b,i)=>{ c.innerHTML+=`<div class="block-tag"><span>${b.s}-${b.e}</span><span style="cursor:pointer;margin-left:5px" onclick="removeBlock(${i})">×</span></div>`; });}
         function removeBlock(i){ STATE.blocks.splice(i,1); localStorage.setItem(`blocks_${STATE.dateStr}`,JSON.stringify(STATE.blocks)); updateLogic(); }
-
-        function addTemp() {
-            const n=document.getElementById('temp-name').value; const m=parseInt(document.getElementById('temp-time').value);
-            if(n&&m) { STATE.tempTasks.push({n,m}); localStorage.setItem(`temp_${STATE.dateStr}`,JSON.stringify(STATE.tempTasks)); updateLogic(); }
-        }
-        function renderTemp() {
-            const c=document.getElementById('temp-container'); c.innerHTML='';
-            STATE.tempTasks.forEach((t,i)=>{ c.innerHTML+=`<div class="block-tag" style="border-color:var(--accent-purple);color:var(--accent-purple)"><span>${t.n} (+${t.m}m)</span><span style="cursor:pointer;margin-left:5px" onclick="removeTemp(${i})">×</span></div>`; });
-        }
+        function addTemp() { const n=document.getElementById('temp-name').value; const m=parseInt(document.getElementById('temp-time').value); if(n&&m) { STATE.tempTasks.push({n,m}); localStorage.setItem(`temp_${STATE.dateStr}`,JSON.stringify(STATE.tempTasks)); updateLogic(); }}
+        function renderTemp() { const c=document.getElementById('temp-container'); c.innerHTML=''; STATE.tempTasks.forEach((t,i)=>{ c.innerHTML+=`<div class="block-tag" style="border-color:var(--accent-purple);color:var(--accent-purple)"><span>${t.n} (+${t.m}m)</span><span style="cursor:pointer;margin-left:5px" onclick="removeTemp(${i})">×</span></div>`; });}
         function removeTemp(i){ STATE.tempTasks.splice(i,1); localStorage.setItem(`temp_${STATE.dateStr}`,JSON.stringify(STATE.tempTasks)); updateLogic(); }
 
-        /* ==================== VISUALS (V17) ==================== */
         function updateLifeStats() {
             const n = new Date(); const s = new Date("2026-01-23"); const e = new Date("2026-02-28");
             document.getElementById('days-wasted').innerText = Math.floor((n-s)/86400000);
@@ -612,229 +541,96 @@
                 DATE_KEYS.forEach(d => {
                     const task = PLAN[d]?.find(x => x.s.includes(sub));
                     if(task) {
-                        tT = Math.max(tT, task.t); // Max Target Scope
-                        const p = localStorage.getItem(`prog_${d}_${task.s}`);
+                        tT = Math.max(tT, task.t); const p = localStorage.getItem(`prog_${d}_${task.s}`);
                         if(p) tC = Math.max(tC, parseInt(p));
                     }
                 });
                 return tT === 0 ? 1 : tC/tT;
             });
-            
             const cx=50, cy=50, r=40;
-            const pts = stats.map((v,i) => {
-                const a = (Math.PI*2*i)/5 - Math.PI/2;
-                return `${cx+Math.cos(a)*(r*v)},${cy+Math.sin(a)*(r*v)}`;
-            }).join(' ');
-
-            let web = '';
-            for(let j=1; j<=3; j++) {
-                web += `<polygon points="${Array.from({length:5},(_,i)=>{
-                    const a=(Math.PI*2*i)/5-Math.PI/2;
-                    return `${cx+Math.cos(a)*(r*j/3)},${cy+Math.sin(a)*(r*j/3)}`
-                }).join(' ')}" fill="none" stroke="#333" stroke-width="0.5"/>`;
-            }
-            
-            document.getElementById('radar-svg').innerHTML = `
-                ${web} <polygon points="${pts}" fill="rgba(41,121,255,0.5)" stroke="#2979ff" stroke-width="2"/>
-                ${stats.map((_,i)=>{
-                    const a=(Math.PI*2*i)/5-Math.PI/2;
-                    const x=cx+Math.cos(a)*48; const y=cy+Math.sin(a)*48;
-                    return `<text x="${x}" y="${y}" fill="#888" font-size="6" text-anchor="middle" alignment-baseline="middle">${subs[i].substr(0,3)}</text>`
-                }).join('')}
-            `;
+            const pts = stats.map((v,i) => { const a = (Math.PI*2*i)/5 - Math.PI/2; return `${cx+Math.cos(a)*(r*v)},${cy+Math.sin(a)*(r*v)}`; }).join(' ');
+            let web = ''; for(let j=1; j<=3; j++) { web += `<polygon points="${Array.from({length:5},(_,i)=>{ const a=(Math.PI*2*i)/5-Math.PI/2; return `${cx+Math.cos(a)*(r*j/3)},${cy+Math.sin(a)*(r*j/3)}` }).join(' ')}" fill="none" stroke="#333" stroke-width="0.5"/>`; }
+            document.getElementById('radar-svg').innerHTML = `${web} <polygon points="${pts}" fill="rgba(41,121,255,0.5)" stroke="#2979ff" stroke-width="2"/>${stats.map((_,i)=>{ const a=(Math.PI*2*i)/5-Math.PI/2; const x=cx+Math.cos(a)*48; const y=cy+Math.sin(a)*48; return `<text x="${x}" y="${y}" fill="#888" font-size="6" text-anchor="middle" alignment-baseline="middle">${subs[i].substr(0,3)}</text>`}).join('')}`;
         }
 
         function renderHeatmap() {
-            const el = document.getElementById('heatmap-viz');
-            let c = new Date("2026-01-23"); const e = new Date("2026-02-28");
-            let html = '';
-            
+            const el = document.getElementById('heatmap-viz'); let c = new Date("2026-01-23"); const e = new Date("2026-02-28"); let html = '';
             while(c <= e) {
-                const ds = c.toISOString().split('T')[0];
-                let lvl = 0;
-                const tasks = PLAN[ds];
+                const ds = c.toISOString().split('T')[0]; let lvl = 0; const tasks = PLAN[ds];
                 if(tasks) {
                     let ok = 0;
                     tasks.forEach(x => {
-                        if(x.type==='ielts') {
-                            if(parseInt(localStorage.getItem(`ielts_${ds}`)||1) <= 0) ok++;
-                        } else if(x.type==='num') {
-                            if(parseInt(localStorage.getItem(`prog_${ds}_${x.s}`)||0) >= x.t) ok++;
-                        } else {
-                            if(localStorage.getItem(`check_${ds}_${x.s}`)==='true') ok++;
-                        }
+                        if(x.type==='ielts') { if(parseInt(localStorage.getItem(`ielts_${ds}`)||1) <= 0) ok++; }
+                        else if(x.type==='num') { if(parseInt(localStorage.getItem(`prog_${ds}_${x.s}`)||0) >= x.t) ok++; }
+                        else { if(localStorage.getItem(`check_${ds}_${x.s}`)==='true') ok++; }
                     });
                     if(ok>0) lvl=1; if(ok/tasks.length>0.5) lvl=2; if(ok===tasks.length) lvl=4;
                 }
-                html += `<div class="heatmap-col"><div class="day-sq" data-level="${lvl}" title="${ds}"></div></div>`;
-                c.setDate(c.getDate()+1);
+                html += `<div class="heatmap-col"><div class="day-sq" data-level="${lvl}" title="${ds}"></div></div>`; c.setDate(c.getDate()+1);
             }
             el.innerHTML = html;
         }
 
-        /* ==================== AI & ENFORCER (V20) ==================== */
         function openSettings() { document.getElementById('settings-modal').style.display='flex'; }
         function closeSettings() { document.getElementById('settings-modal').style.display='none'; }
-        
         function applyPreset() {
             const p = document.getElementById('llm-preset').value;
-            if(p==='deepseek'){
-                document.getElementById('llm-url').value="https://api.deepseek.com/chat/completions";
-                document.getElementById('llm-model').value="deepseek-chat";
-            } else if(p==='qwen'){
-                document.getElementById('llm-url').value="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-                document.getElementById('llm-model').value="qwen-plus";
-            }
-            // Load saved
-            const k = localStorage.getItem('llm_key');
-            if(k) {
-                document.getElementById('llm-key').value=k;
-                document.getElementById('llm-url').value=localStorage.getItem('llm_url');
-                document.getElementById('llm-model').value=localStorage.getItem('llm_model');
-            }
+            if(p==='deepseek'){ document.getElementById('llm-url').value="https://api.deepseek.com/chat/completions"; document.getElementById('llm-model').value="deepseek-chat"; }
+            else if(p==='qwen'){ document.getElementById('llm-url').value="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"; document.getElementById('llm-model').value="qwen-plus"; }
+            const k = localStorage.getItem('llm_key'); if(k) { document.getElementById('llm-key').value=k; document.getElementById('llm-url').value=localStorage.getItem('llm_url'); document.getElementById('llm-model').value=localStorage.getItem('llm_model'); }
         }
         function saveSettings() {
-            localStorage.setItem('llm_key', document.getElementById('llm-key').value);
-            localStorage.setItem('llm_url', document.getElementById('llm-url').value);
-            localStorage.setItem('llm_model', document.getElementById('llm-model').value);
+            localStorage.setItem('llm_key', document.getElementById('llm-key').value); localStorage.setItem('llm_url', document.getElementById('llm-url').value); localStorage.setItem('llm_model', document.getElementById('llm-model').value);
             alert("Configuration Saved."); closeSettings();
         }
 
         function toggleFocus(subject) {
-            if(STATE.activeTask === subject) {
-                // Stop -> Rest
-                STATE.activeTask = null;
-                STATE.restUntil = Date.now() + 10 * 60 * 1000; // 10 min break
-            } else {
-                // Start -> Focus
-                STATE.activeTask = subject;
-                STATE.graceUntil = 0; STATE.restUntil = 0;
-            }
+            if(STATE.activeTask === subject) { STATE.activeTask = null; STATE.restUntil = Date.now() + 10 * 60 * 1000; }
+            else { STATE.activeTask = subject; STATE.graceUntil = 0; STATE.restUntil = 0; }
             updateLogic(); checkWatchdog();
         }
 
         function checkWatchdog() {
-            const bar = document.getElementById('status-bar');
-            const now = Date.now();
-            
-            // 1. Update Status Bar
-            if(STATE.activeTask) {
-                bar.innerHTML = `<span class="status-pill status-working">WORKING: ${STATE.activeTask}</span>`;
-            } else if(now < STATE.graceUntil) {
-                const left = Math.ceil((STATE.graceUntil - now)/1000);
-                bar.innerHTML = `<span class="status-pill status-grace">PREPARING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`;
-            } else if(now < STATE.restUntil) {
-                const left = Math.ceil((STATE.restUntil - now)/1000);
-                bar.innerHTML = `<span class="status-pill status-rest">RESTING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`;
-            } else {
-                bar.innerHTML = `<span class="status-pill status-danger">VULNERABLE (AI WATCHING)</span>`;
-            }
-
-            // 2. Check Enforcer Trigger
-            // Skip if no key, if grace/rest, if working
-            if(!localStorage.getItem('llm_key')) return;
-            if(now < STATE.graceUntil || now < STATE.restUntil || STATE.activeTask) return;
-            
-            const d = new Date();
-            const isToday = (STATE.date.getDate() === d.getDate() && STATE.date.getMonth() === d.getMonth());
-            if(!isToday) return;
-
-            const curMins = d.getHours()*60 + d.getMinutes();
-            // Critical Check: Are we past the latest start time?
-            if(curMins > STATE.latestStartMins) {
-                triggerEnforcer(false);
-            }
+            const bar = document.getElementById('status-bar'); const now = Date.now();
+            if(STATE.activeTask) bar.innerHTML = `<span class="status-pill status-working">WORKING: ${STATE.activeTask}</span>`;
+            else if(now < STATE.graceUntil) { const left = Math.ceil((STATE.graceUntil - now)/1000); bar.innerHTML = `<span class="status-pill status-grace">PREPARING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`; }
+            else if(now < STATE.restUntil) { const left = Math.ceil((STATE.restUntil - now)/1000); bar.innerHTML = `<span class="status-pill status-rest">RESTING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`; }
+            else bar.innerHTML = `<span class="status-pill status-danger">VULNERABLE (AI WATCHING)</span>`;
+            if(!localStorage.getItem('llm_key')) return; if(now < STATE.graceUntil || now < STATE.restUntil || STATE.activeTask) return;
+            const d = new Date(); const isToday = (STATE.date.getDate() === d.getDate() && STATE.date.getMonth() === d.getMonth()); if(!isToday) return;
+            const curMins = d.getHours()*60 + d.getMinutes(); if(curMins > STATE.latestStartMins) triggerEnforcer(false);
         }
 
         function triggerEnforcer(force) {
-            const modal = document.getElementById('chat-modal');
-            if(modal.style.display === 'flex') return; // Already open
-            
-            modal.style.display = 'flex';
-            document.getElementById('chat-history').innerHTML = ''; STATE.chatHistory = [];
-            callLLM(force ? "This is a test trigger." : "I am late and I am not working. Scold me.");
+            const modal = document.getElementById('chat-modal'); if(modal.style.display === 'flex') return;
+            modal.style.display = 'flex'; document.getElementById('chat-history').innerHTML = ''; STATE.chatHistory = [];
+            callLLM(force ? "Test trigger." : "I am late. Scold me.");
         }
 
-        function closeChatAndStart() {
-            document.getElementById('chat-modal').style.display = 'none';
-            STATE.graceUntil = Date.now() + 2 * 60 * 1000; // 2 min grace
-            checkWatchdog();
-        }
+        function closeChatAndStart() { document.getElementById('chat-modal').style.display = 'none'; STATE.graceUntil = Date.now() + 2 * 60 * 1000; checkWatchdog(); }
 
         async function callLLM(msg) {
-            const key = localStorage.getItem('llm_key');
-            if(!key) { appendMsg("System", "No API Key."); return; }
-            
-            const url = localStorage.getItem('llm_url');
-            const model = localStorage.getItem('llm_model');
-            
-            // Build Context
-            let context = `System: You are a strict warden. The user is failing their study plan. Current Time: ${new Date().toLocaleTimeString()}. Task Deadline: 22:30. Be brief and harsh.`;
-            
-            let messages = [{ role: "system", content: context }];
-            STATE.chatHistory.forEach(m => messages.push(m));
-            messages.push({ role: "user", content: msg });
-
+            const key = localStorage.getItem('llm_key'); if(!key) { appendMsg("System", "No API Key."); return; }
+            const url = localStorage.getItem('llm_url'); const model = localStorage.getItem('llm_model');
+            let messages = [{ role: "system", content: "You are a strict warden. Brief and harsh." }];
+            STATE.chatHistory.forEach(m => messages.push(m)); messages.push({ role: "user", content: msg });
             try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                    body: JSON.stringify({ model: model, messages: messages, stream: false })
-                });
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }, body: JSON.stringify({ model: model, messages: messages, stream: false }) });
                 const data = await res.json();
-                if(data.choices) {
-                    const reply = data.choices[0].message.content;
-                    appendMsg("AI", reply);
-                    STATE.chatHistory.push({ role: "user", content: msg });
-                    STATE.chatHistory.push({ role: "assistant", content: reply });
-                }
-            } catch(e) {
-                appendMsg("System", "Error: " + e.message);
-            }
+                if(data.choices) { const reply = data.choices[0].message.content; appendMsg("AI", reply); STATE.chatHistory.push({ role: "user", content: msg }); STATE.chatHistory.push({ role: "assistant", content: reply }); }
+            } catch(e) { appendMsg("System", "Error: " + e.message); }
         }
         
-        function appendMsg(role, text) {
-            const h = document.getElementById('chat-history');
-            const d = document.createElement('div');
-            d.className = `msg ${role.toLowerCase()}`;
-            d.innerText = text;
-            h.appendChild(d);
-            h.scrollTop = h.scrollHeight;
-        }
+        function appendMsg(role, text) { const h = document.getElementById('chat-history'); const d = document.createElement('div'); d.className = `msg ${role.toLowerCase()}`; d.innerText = text; h.appendChild(d); h.scrollTop = h.scrollHeight; }
         function handleEnter(e) { if(e.key==='Enter') sendUserMsg(); }
-        function sendUserMsg() {
-            const i = document.getElementById('chat-input');
-            const val = i.value.trim();
-            if(!val) return;
-            appendMsg("User", val);
-            i.value = '';
-            callLLM(val);
-        }
+        function sendUserMsg() { const i = document.getElementById('chat-input'); const val = i.value.trim(); if(!val) return; appendMsg("User", val); i.value = ''; callLLM(val); }
 
-        /* ==================== IELTS LOGIC ==================== */
         function toggleIelts(d) {
             if(STATE.ieltsInterval) { clearInterval(STATE.ieltsInterval); STATE.ieltsInterval = null; }
-            else {
-                STATE.ieltsInterval = setInterval(() => {
-                    let v = parseInt(localStorage.getItem(`ielts_${d}`)||160*60);
-                    if(v>0) {
-                        v--; localStorage.setItem(`ielts_${d}`, v);
-                        if(v%30===0) updateLogic(); // Update UI occasionally
-                    } else clearInterval(STATE.ieltsInterval);
-                }, 1000);
-            }
-        }
-        // V15 Feature
-        function finishIelts(d) {
-            clearInterval(STATE.ieltsInterval);
-            localStorage.setItem(`ielts_${d}`, 0);
+            else { STATE.ieltsInterval = setInterval(() => { let v = parseInt(localStorage.getItem(`ielts_${d}`)||160*60); if(v>0) { v--; localStorage.setItem(`ielts_${d}`, v); } else clearInterval(STATE.ieltsInterval); }, 1000); }
             updateLogic();
         }
-        function startIeltsTicker() {
-            setInterval(() => {
-                if(STATE.ieltsInterval) updateLogic();
-            }, 1000);
-        }
+        function finishIelts(d) { clearInterval(STATE.ieltsInterval); localStorage.setItem(`ielts_${d}`, 0); STATE.restUntil = Date.now() + 10 * 60 * 1000; updateLogic(); checkWatchdog(); }
 
         init();
     </script>
