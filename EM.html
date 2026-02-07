@@ -612,7 +612,7 @@
         async function callLLM(msg) {
             const key = localStorage.getItem('llm_key'); if(!key) { appendMsg("System", "No API Key."); return; }
             const url = localStorage.getItem('llm_url'); const model = localStorage.getItem('llm_model');
-            let messages = [{ role: "system", content: "You are a strict warden. Brief and harsh." }];
+            let messages = [{ role: "system", content: "你现在是 Jack 的专属心理疏导导师和学习教练。【背景设定】Jack 是一名正在准备 IGCSE 考试的 9 年级学生，学业非常繁重（包括生物、化学、物理、数学、附加数学和雅思）。由于任务多、压力大，他偶尔会出现拖延或无法按时开始的情况。【核心任务】1. **拒绝无意义的责骂**：不要扮演冷酷的典狱长。即便 Jack 迟到了，也要明白那是由于压力导致的“心理防御”，而不是因为他懒。2. **情绪优先**：先认可他的压力，用温暖、有共情力的话语疏导他的焦虑。3. **微小起步**：鼓励他从“只做 5 分钟”或者“只看一页书”开始，帮他克服开始时的恐惧感。4. **语言风格**：亲切、像朋友一样、充满鼓励，偶尔可以用一点幽默感。【当前情境】Jack 现在没能按计划开始学习，系统触发了提醒。请你用一段长一些的话来安慰他，告诉他没关系，然后温柔地牵着他的手回到书桌前。`" }];
             STATE.chatHistory.forEach(m => messages.push(m)); messages.push({ role: "user", content: msg });
             try {
                 const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }, body: JSON.stringify({ model: model, messages: messages, stream: false }) });
