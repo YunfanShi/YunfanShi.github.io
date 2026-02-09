@@ -24,6 +24,8 @@
             --card-hover-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
             --btn-bg: #1a73e8;
             --btn-text: #ffffff;
+            --modal-bg: rgba(255, 255, 255, 0.95);
+            --modal-overlay: rgba(255, 255, 255, 0.8);
         }
 
         /* 深色模式适配 */
@@ -36,6 +38,8 @@
                 --card-bg: #303134;
                 --card-border: #5f6368;
                 --card-hover-shadow: 0 4px 8px 3px rgba(0,0,0,0.3);
+                --modal-bg: rgba(32, 33, 36, 0.95);
+                --modal-overlay: rgba(0, 0, 0, 0.8);
             }
         }
 
@@ -47,6 +51,8 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            /* 防止弹窗存在时页面滚动 */
+            overflow-x: hidden; 
         }
 
         /* 顶部导航 */
@@ -162,7 +168,7 @@
             width: 56px;
             height: 56px;
             border-radius: 12px;
-            background-color: rgba(66, 133, 244, 0.1); /* 淡淡的蓝色背景 */
+            background-color: rgba(66, 133, 244, 0.1);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -183,7 +189,7 @@
             font-size: 14px;
             color: var(--text-sub);
             line-height: 1.5;
-            flex: 1; /* 让描述占据剩余空间 */
+            flex: 1;
         }
 
         .launch-link {
@@ -198,7 +204,7 @@
         .launch-link span { opacity: 0; transform: translateX(-5px); transition: all 0.2s; }
         .card:hover .launch-link span { opacity: 1; transform: translateX(5px); }
 
-        /* 搜索框 (放在 Hero 区域下面) */
+        /* 搜索框 */
         .mini-search {
             max-width: 600px;
             margin: 0 auto 50px;
@@ -233,9 +239,220 @@
             font-size: 13px;
             background: var(--card-bg);
         }
+
+        /* =========================================
+           全屏弹窗样式 (新增)
+           ========================================= */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--modal-overlay);
+            backdrop-filter: blur(10px); /* 毛玻璃效果 */
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .modal-container {
+            background-color: var(--modal-bg);
+            width: 90%;
+            max-width: 800px;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            border: 1px solid var(--card-border);
+            text-align: center;
+            position: relative;
+            animation: floatUp 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        @keyframes floatUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 32px;
+            margin: 0;
+            color: var(--g-red); /* 警示红 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .modal-desc {
+            font-size: 16px;
+            color: var(--text-main);
+            line-height: 1.6;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+
+        .modal-desc strong {
+            color: var(--g-blue);
+        }
+
+        /* Bing 结果展示区 */
+        .bing-results {
+            text-align: left;
+            background: rgba(128, 128, 128, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid var(--card-border);
+        }
+
+        .bing-title {
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--card-border);
+            transition: background 0.2s;
+        }
+
+        .result-item:last-child { border-bottom: none; }
+        .result-item:hover { background: rgba(128, 128, 128, 0.1); }
+
+        .result-info h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            color: var(--text-main);
+        }
+
+        .result-info p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-sub);
+            max-width: 450px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result-btn {
+            background: transparent;
+            border: 1px solid var(--card-border);
+            color: var(--g-blue);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .result-btn:hover {
+            background: var(--g-blue);
+            color: white;
+            border-color: var(--g-blue);
+        }
+
+        /* 底部提示 */
+        .modal-footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: var(--text-sub);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .key-hint {
+            background: var(--text-main);
+            color: var(--bg-color);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 16px;
+            box-shadow: 0 2px 0 var(--text-sub);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
     </style>
 </head>
 <body>
+
+    <div class="modal-overlay" id="disclaimer-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2><span class="material-icons-round">warning</span> 私人网站声明</h2>
+            </div>
+            
+            <div class="modal-desc">
+                <strong>致访客：</strong><br>
+                近期我们注意到 <strong>Jackyun.top</strong> 的访问量超出了个人测试预期。为了避免品牌混淆，特此郑重声明：<br><br>
+                 1. 本站是一个<strong>私人网站</strong>，仅用于个人工具开发与实验。<br>
+                 商业软件 <strong>吉客云 (Jackyun.com)</strong>、电商 ERP/OMS/WMS 系统以及任何物流合作项目<strong>无任何关联</strong>。<br><br>
+                 若您正在寻找吉客云企业服务，请通过下方列表跳转至正确位置：
+            </div>
+
+            <div class="bing-results">
+                <div class="bing-title">商业与公共服务</div>
+                
+                <div class="result-item">
+                    <div class="result-info">
+                        <h4>吉客云官网 (Jackyun.com)</h4>
+                        <p>领先的 SaaS ERP 软件服务商，提供电商 ERP、云仓 WMS 及生产管理解决方案。</p>
+                    </div>
+                    <a href="https://www.jackyun.com" target="_blank" class="result-btn">访问官网</a>
+                </div>
+
+                <div class="result-item">
+                    <div class="result-info">
+                        <h4>吉客云 Web 版登录</h4>
+                        <p>web.jackyun.com - 吉客云用户登录入口，处理销售单数据与系统业务。</p>
+                    </div>
+                    <a href="https://web.jackyun.com" target="_blank" class="result-btn">前往登录</a>
+                </div>
+
+                <div class="result-item">
+                    <div class="result-info">
+                        <h4>FedEx 兼容解决方案</h4>
+                        <p>Jackyun | FedEx China - 吉客云与联邦快递集成的数字化物流解决方案。</p>
+                    </div>
+                    <a href="https://www.fedex.com" target="_blank" class="result-btn">查看合作</a>
+                </div>
+
+                <div class="result-item">
+                    <div class="result-info">
+                        <h4>App Store 下载</h4>
+                        <p>吉客云 ERP 进销存 - iOS 移动端应用下载。</p>
+                    </div>
+                    <a href="https://apps.apple.com" target="_blank" class="result-btn">查看应用</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <header>
         <div class="logo">
@@ -275,56 +492,56 @@
                 name: "Warden Core",
                 file: "Control.html",
                 desc: "网络核心控制台。管理学习任务、番茄钟与系统状态。",
-                icon: "admin_panel_settings", // 盾牌/管理图标
+                icon: "admin_panel_settings", 
                 color: "#c20c0c"
             },
             {
                 name: "Auxiliary Data",
                 file: "ADN.html",
                 desc: "辅助数据网络 (ADN)。快速处理文本、剪贴板与数据传输。",
-                icon: "hub", // 网络连接图标
+                icon: "hub", 
                 color: "#1a73e8"
             },
             {
                 name: "Lexicon Lab",
                 file: "LexiconLab.html",
                 desc: "智能词汇分拣实验室。英语单词分析与归类工具。",
-                icon: "school", // 学习/学校图标
+                icon: "school", 
                 color: "#34a853"
             },
             {
                 name: "Exam Countdown",
                 file: "Countdown.html",
                 desc: "重要考试倒计时。精确到秒的时间追踪。",
-                icon: "timer", // 计时器图标
+                icon: "timer", 
                 color: "#fbbc04"
             },
             {
                 name: "Jack's Sync",
                 file: "MusicPlayer.html",
                 desc: "个人音乐播放器与同步终端。沉浸式音频体验。",
-                icon: "headphones", // 耳机图标
+                icon: "headphones", 
                 color: "#6366f1"
             },
             {
                 name: "Immersion Recite",
                 file: "Poem.html",
                 desc: "沉浸背诵工具。专注于诗词记忆与文本复习。",
-                icon: "menu_book", // 书本图标
+                icon: "menu_book", 
                 color: "#8e24aa"
             },
             {
                 name: "Sanctuary",
                 file: "Relax.html",
                 desc: "数字避难所。色彩生成、白噪音与放松工具。",
-                icon: "spa", // 莲花/放松图标
+                icon: "spa", 
                 color: "#009688"
             },
             {
                 name: "Battlefield 6",
                 file: "bf6.html",
                 desc: "游戏发布页概念设计。战地风云 6 模拟官网。",
-                icon: "sports_esports", // 手柄图标
+                icon: "sports_esports", 
                 color: "#ff5722"
             }
         ];
@@ -339,10 +556,10 @@
                 const card = document.createElement('a');
                 card.href = product.file;
                 card.className = 'card';
-                card.target = "_blank"; // 在新标签页打开
+                card.target = "_blank"; 
 
                 // 动态设置图标颜色，让每个产品更有辨识度
-                const iconStyle = `color: ${product.color}; background: ${product.color}15;`; // 15 是透明度
+                const iconStyle = `color: ${product.color}; background: ${product.color}15;`; 
 
                 card.innerHTML = `
                     <div class="icon-box" style="${iconStyle}">
@@ -360,6 +577,31 @@
 
         // 初始化
         render();
+
+        // =========================================
+        // 弹窗控制逻辑 (严格的 Space 键关闭)
+        // =========================================
+        const modal = document.getElementById('disclaimer-modal');
+        
+        // 禁止页面初始滚动 (可选，增强强制性)
+        document.body.style.overflow = 'hidden';
+
+        document.addEventListener('keydown', function(event) {
+            // 检测是否按下空格键 (Code: Space 或 Key: " ")
+            if (event.code === 'Space' || event.key === ' ') {
+                // 防止空格键触发页面向下滚动
+                event.preventDefault(); 
+                
+                // 隐藏弹窗
+                modal.style.opacity = '0';
+                
+                // 动画结束后移除元素并恢复滚动
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto'; // 恢复滚动
+                }, 500);
+            }
+        });
     </script>
 </body>
 </html>
