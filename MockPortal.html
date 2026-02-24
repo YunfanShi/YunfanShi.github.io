@@ -1310,10 +1310,10 @@ function startExam() {
   // 关闭清单面板
   if (cartPanelOpen) toggleCartPanel();
 
-  // 进入全屏，失败时提示用户（严格模式尤其重要）
+  // 进入全屏，失败时提示用户
   document.documentElement.requestFullscreen?.().catch(err => {
     console.warn('全屏请求失败:', err);
-    if (state.settings.mode === 'strict') showToast('⚠️ 全屏失败，严格模式建议手动按 F11');
+    showToast('⚠️ 全屏失败，建议手动按 F11');
   });
 
   showExamOverlay();
@@ -1554,7 +1554,7 @@ function closeExam() {
   clearInterval(examState.timer);
   document.removeEventListener('fullscreenchange', onFSChange);
   document.getElementById('examOv').style.display = 'none';
-  document.exitFullscreen?.().catch(() => {});
+  document.exitFullscreen?.().catch(err => { console.warn('退出全屏失败:', err); });
   // 清空清单
   state.cart = [];
   saveState();
