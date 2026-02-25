@@ -1,9 +1,12 @@
 export interface Profile {
   id: string;
   github_username: string | null;
+  username: string | null;
+  email: string | null;
   display_name: string | null;
   avatar_url: string | null;
   role: string;
+  linked_providers: string[];
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +106,23 @@ export interface SystemInfo {
   nextVersion: string;
   nodeVersion: string;
   buildTime: string;
+}
+
+export interface WhitelistEmail {
+  id: string;
+  email: string;
+  note: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface WhitelistUsername {
+  id: string;
+  username: string;
+  platform: string;
+  note: string | null;
+  created_by: string;
+  created_at: string;
 }
 
 export interface WhitelistInfo {
