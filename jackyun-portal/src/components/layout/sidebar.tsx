@@ -12,7 +12,9 @@ const NAV_ITEMS = [
   { label: '诗词天地', icon: 'auto_stories', href: '/poem' },
   { label: '倒计时', icon: 'timer', href: '/countdown' },
   { label: '放松一下', icon: 'sports_esports', href: '/relax' },
+  { label: '控制中心', icon: 'tune', href: '/control' },
   { label: '工具箱', icon: 'build', href: '/tools' },
+  { label: '设置', icon: 'settings', href: '/settings' },
   { label: '管理员', icon: 'admin_panel_settings', href: '/admin' },
 ];
 

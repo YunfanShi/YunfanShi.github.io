@@ -59,6 +59,14 @@ const MODULES = [
     href: '/tools',
   },
   {
+    id: 'control',
+    title: '控制中心',
+    description: '系统控制与快捷设置',
+    icon: 'tune',
+    color: '#34A853',
+    href: '/control',
+  },
+  {
     id: 'admin',
     title: '管理员',
     description: '系统管理与配置',

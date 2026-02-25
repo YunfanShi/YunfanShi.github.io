@@ -1,8 +1,5 @@
-import { getSongs, getMusicSettings } from '@/actions/music';
-import MusicPlayerApp from '@/components/modules/music/music-player-app';
+import LegacyFrame from '@/components/modules/legacy-frame';
 
-export default async function MusicPage() {
-  const [songs, settings] = await Promise.all([getSongs(), getMusicSettings()]);
-
-  return <MusicPlayerApp initialSongs={songs} initialSettings={settings} />;
+export default function MusicPage() {
+  return <LegacyFrame src="/legacy/MusicPlayer.html" title="音乐播放器" />;
 }

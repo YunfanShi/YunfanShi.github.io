@@ -158,6 +158,10 @@ export default function EmailLoginForm() {
             >
               注册
             </button>
+            {' '}·{' '}
+            <a href="/reset-password" className="text-[#4285F4] hover:underline">
+              忘记密码
+            </a>
           </>
         ) : (
           <>
