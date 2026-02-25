@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="/legacy/supabase-adapter.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Sanctuary V1.8 | Resurrection</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+KuaiLe&family=Inter:wght@400;600&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #1a73e8; 
+            --surface: #ffffff;
+            --surface-variant: #f1f3f4;
+            --secondary: #5f6368;
+            --accent: #ea4335; 
+            --text-main: #202124;
+            --card-radius: 28px;
+            --font-main: 'Noto Sans SC', 'Inter', sans-serif;
+            --font-hero: 'ZCOOL KuaiLe', cursive;
+        }
+
+        /* Themes */
+        body.theme-dragon { --primary: #b71c1c; --surface: #202124; --surface-variant: #303134; --text-main: #e8eaed; --secondary: #9aa0a6; --accent: #fbbc04; }
+        body.theme-eri { --primary: #ff80ab; --surface: #fff0f5; --surface-variant: #ffffff; --text-main: #4a2c36; --secondary: #8c7b75; --accent: #ff4081; }
+        
+        body.filter-amber::after {
+            content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 166, 0, 0.2); pointer-events: none; z-index: 9999; mix-blend-mode: multiply;
+        }
+
+        * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        body {
+            margin: 0; padding: 0; font-family: var(--font-main);
+            background: var(--surface-variant); color: var(--text-main);
+            height: 100vh; display: flex; overflow: hidden;
+        }
+
+        /* Matrix Canvas */
+        #matrix-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; opacity: 0.15; pointer-events: none; display: none;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-mode { animation: shake 0.5s; }
+
+        /* 修复丢失的呼吸动画 */
+        @keyframes breathe-anim {
+            0% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0.4); }
+            100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 88px; background: var(--surface);
+            display: flex; flex-direction: column; align-items: center; padding: 30px 0;
+            border-right: 1px solid rgba(0,0,0,0.1); z-index: 100;
+        }
+        .icon-btn {
+            width: 56px; height: 56px; border-radius: 16px;
+            display: flex; justify-content: center; align-items: center;
+            color: var(--secondary); cursor: pointer; margin-bottom: 24px; position: relative;
+        }
+        .icon-btn:hover { background: var(--surface-variant); color: var(--primary); }
+        .icon-btn.active { background: rgba(26, 115, 232, 0.1); color: var(--primary); }
+        .mood-dot { position: absolute; bottom: 5px; right: 5px; width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
+
+        /* Main */
+        .main-container {
+            flex: 1; display: grid; grid-template-columns: 1fr 420px;
+            height: 100vh; position: relative; z-index: 1;
+        }
+        body.ui-minimal .main-container { grid-template-columns: 0fr 1fr; }
+        body.ui-minimal .sidebar, body.ui-minimal .scroll-area { display: none; }
+        body.ui-minimal .ai-chat-side { border: none; width: 100%; max-width: 800px; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.1); }
+
+        .scroll-area { padding: 40px; overflow-y: auto; scroll-behavior: smooth; }
+        .hero-title { font-family: var(--font-hero); font-size: 3rem; color: var(--primary); margin: 0 0 40px 0; display: flex; align-items: center; gap: 15px; }
+
+        .widget-card {
+            background: var(--surface); padding: 25px; border-radius: var(--card-radius);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .breathe-widget {
+            background: linear-gradient(135deg, var(--primary) 0%, #8ab4f8 100%);
+            color: white; height: 240px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; position: relative; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(26, 115, 232, 0.3);
+        }
+        .breathe-circle {
+            width: 80px; height: 80px; background: rgba(255,255,255,0.3);
+            border-radius: 50%; border: 2px solid white; transition: all 4s ease-in-out;
+        }
+
+        .dock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 15px; }
+        .app-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--text-main); gap: 6px; cursor: pointer; }
+        .app-icon-img { width: 50px; height: 50px; border-radius: 14px; background: var(--surface-variant); display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* Chat */
+        .ai-chat-side {
+            background: var(--surface); border-left: 1px solid rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; height: 100vh;
+        }
+        .chat-header {
+            padding: 20px; border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .chat-messages {
+            flex: 1; padding: 20px; overflow-y: auto; background: var(--surface-variant);
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .bubble {
+            max-width: 85%; padding: 12px 16px; border-radius: 18px;
+            font-size: 14px; line-height: 1.6; word-wrap: break-word;
+        }
+        .bubble.ai { background: var(--surface); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.05); }
+        .bubble.user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        
+        .chat-input-area {
+            padding: 20px; border-top: 1px solid rgba(0,0,0,0.05);
+            display: flex; gap: 10px; background: var(--surface); align-items: center;
+        }
+        .main-input {
+            flex: 1; padding: 12px 20px; border: 1px solid rgba(0,0,0,0.1); border-radius: 30px;
+            background: var(--surface-variant); color: var(--text-main); outline: none;
+        }
+        .main-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1); }
+        .btn-mic {
+            background: var(--surface-variant); color: var(--text-main); border: 1px solid rgba(0,0,0,0.1);
+            width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .btn-mic.recording { color: white; background: var(--accent); animation: pulse-red 1.5s infinite; border-color: var(--accent); }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(234, 67, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(234, 67, 53, 0); } }
+
+        /* HUD Subtitles */
+        #subtitle-box {
+            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+            opacity: 0;
+            background: rgba(15, 15, 15, 0.85); 
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            color: rgba(255,255,255,0.95);
+            padding: 14px 32px; border-radius: 24px;
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            z-index: 9999; text-align: center; max-width: 85%; pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        #subtitle-box.active { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #sub-big { font-size: 18px; font-weight: 600; letter-spacing: 0.3px; line-height: 1.4; }
+        #sub-small { font-size: 13px; color: rgba(255,255,255,0.65); font-weight: 400; margin-top: 2px; }
+
+        /* Layers */
+        #spine-lock-layer {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 10000; color: white;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        #zen-layer {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 9000; color: white; display: flex; justify-content: center; align-items: center;
+            font-family: 'ZCOOL KuaiLe'; font-size: 3rem;
+        }
+        .mission-toast {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--accent); color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 50; display: none;
+        }
+
+        /* Config Modal */
+        dialog {
+            background: var(--surface); color: var(--text-main);
+            border: none; border-radius: 24px; padding: 30px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.3); width: 440px;
+        }
+        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        .config-input { 
+            width: 100%; padding: 12px; margin: 5px 0 15px 0; 
+            background: var(--surface-variant); border: 1px solid rgba(0,0,0,0.1); 
+            border-radius: 8px; color: var(--text-main); font-size: 14px;
+        }
+        .config-label { font-size: 12px; font-weight: 700; color: var(--secondary); margin-top: 10px; display: block; }
+        button.btn-primary {
+            background: var(--primary); color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer;
+        }
+        .warning-box {
+            background: rgba(251, 188, 4, 0.15); color: #e37400;
+            padding: 10px; border-radius: 8px; font-size: 12px; margin: 10px 0;
+            border-left: 3px solid #fbbc04; display: none; line-height: 1.5;
+        }
+
+    </style>
+</head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+
+    <div id="subtitle-box">
+        <span id="sub-big">Waiting for audio...</span>
+        <span id="sub-small">等待音频指令...</span>
+    </div>
+
+    <div id="spine-lock-layer">
+        <span class="material-icons-round" style="font-size: 64px; margin-bottom: 20px;">accessibility_new</span>
+        <h1>⚠️ SPINE INTEGRITY CRITICAL</h1>
+        <h2 id="spine-timer">00:00</h2>
+    </div>
+
+    <div id="zen-layer" onclick="toggleZen(false)"><span id="zen-text">心如止水</span></div>
+
+    <aside class="sidebar">
+        <div class="icon-btn active" title="指挥中心"><span class="material-icons-round">bolt</span></div>
+        <div class="icon-btn" onclick="toggleSettings()" title="设置"><span class="material-icons-round">settings</span></div>
+        <div class="icon-btn" onclick="clearChat()" title="清除记忆" style="margin-top:auto;"><span class="material-icons-round">delete_sweep</span></div>
+        <div class="mood-dot" id="mood-indicator"></div>
+    </aside>
+
+    <div class="mission-toast" id="mission-toast">
+        📅 距离 Physics 0625 考试还有: <span id="exam-countdown">--</span> 天
+    </div>
+
+    <div class="main-container">
+        <section class="scroll-area">
+            <h1 class="hero-title">Jack，Resurrection. <span class="material-icons-round" style="font-size: 36px; color: var(--accent);">auto_fix_high</span></h1>
+
+            <div class="widget-card breathe-widget" id="main-widget">
+                <div class="breathe-circle" id="breathe-circle"></div>
+                <p id="widget-txt" style="margin-top: 30px; font-weight: 700; letter-spacing: 2px; z-index: 2;">SYSTEM ONLINE</p>
+                <div id="timer-display" style="font-size: 60px; font-weight: 700; font-family: monospace; display:none; z-index:2;">00:00</div>
+            </div>
+
+            <div class="widget-card" style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <h3 style="margin:0;">💧 Hydration Level</h3>
+                    <span style="font-size: 12px; opacity: 0.7;">目标: 8杯/天</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="water-count" style="font-size: 24px; font-weight: bold; color: var(--primary);">0</span>
+                    <button onclick="addWater()" class="icon-btn" style="margin:0; width:40px; height:40px; border-radius:50%; background: var(--surface-variant);">+</button>
+                </div>
+            </div>
+
+            <div class="widget-card dock-section">
+                <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; color: var(--secondary); text-transform: uppercase; letter-spacing: 1px;">Dock</h3>
+                <div class="dock-grid">
+                    <a href="notion://" class="app-item"><div class="app-icon-img"><img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" width="24"></div><span>Notion</span></a>
+                    <a href="discord://" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #5865F2;">discord</span></div><span>Discord</span></a>
+                    <a href="javascript:handleMission('TIMER_25')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #fbbc04;">timer</span></div><span>Timer</span></a>
+                    <a href="javascript:handleMed('BREATH_SYNC')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #34a853;">self_improvement</span></div><span>Breath</span></a>
+                    <a href="javascript:runTool('COLOR_GEN')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: var(--accent);">palette</span></div><span>Colors</span></a>
+                </div>
+            </div>
+            
+             <div class="widget-card" style="padding: 0; overflow: hidden; height: 100px;">
+                 <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=100 src="//music.163.com/outchain/player?type=0&id=316192152&auto=0&height=90"></iframe>
+            </div>
+        </section>
+
+        <section class="ai-chat-side">
+            <div class="chat-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="material-icons-round" style="color: var(--accent);">smart_toy</span>
+                    <span style="font-weight: 700;">J.A.R.V.I.S (V1.8)</span>
+                </div>
+                <select id="model-select" style="border: none; background: var(--surface-variant); padding: 5px; border-radius: 8px; font-size: 12px; color: var(--text-main);">
+                    <option value="deepseek-chat">Deepseek V3</option>
+                    <option value="qwen-plus">Qwen Plus</option>
+                </select>
+            </div>
+
+            <div class="chat-messages" id="chat-box"></div>
+
+            <div class="chat-input-area">
+                <button id="mic-btn" class="btn-mic" onmousedown="startDictation()" onmouseup="stopDictation()" title="按住说话">
+                    <span class="material-icons-round">mic</span>
+                </button>
+                <input type="text" id="user-msg" class="main-input" placeholder="输入指令或开始对话...">
+                <button onclick="sendMsg()" class="btn-primary" style="border-radius: 50%; width: 44px; height: 44px; padding: 0; display:flex; justify-content:center; align-items:center;">
+                    <span class="material-icons-round">send</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <dialog id="config-modal">
+        <h3>⚙️ Central Settings</h3>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+            <div>
+                <label class="config-label">💬 Chat Text Language</label>
+                <select id="cfg-lang-chat" class="config-input">
+                    <option value="Chinese">🇨🇳 中文 (Chinese)</option>
+                    <option value="English">🇺🇸 英文 (English)</option>
+                    <option value="Japanese">🇯🇵 日文 (Japanese)</option>
+                    <option value="French">🇫🇷 法文 (French)</option>
+                </select>
+            </div>
+            <div>
+                <label class="config-label">🔊 TTS Audio Language</label>
+                <select id="cfg-lang-tts" class="config-input" onchange="checkVoiceMismatch()">
+                    <option value="Chinese">🇨🇳 中文</option>
+                    <option value="English">🇺🇸 英文</option>
+                    <option value="Japanese">🇯🇵 日文</option>
+                    <option value="French">🇫🇷 法文</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="voice-warning" class="warning-box">
+            ⚠️ <strong>重要提醒 / ATTENTION:</strong><br>
+            您修改了音频语言。请务必在下方的 "TTS Voice" 中选择对应语言的语音包 (例如：选了日文音频，Voice 必须选 Google 日本 或 Microsoft Haruka)，否则声音会非常奇怪。
+        </div>
+
+        <label class="config-label">🎙️ TTS Voice (Select to match Audio Language)</label>
+        <div style="display:flex; gap:10px; margin-bottom: 20px;">
+            <select id="voice-select" class="config-input" style="margin:0;"></select>
+            <button onclick="testVoice()" class="btn-primary" style="width: auto;">Test</button>
+        </div>
+
+        <hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin: 20px 0;">
+
+        <label class="config-label">API Keys</label>
+        <input type="password" id="key-deepseek" class="config-input" placeholder="Deepseek Key">
+        <input type="password" id="key-qwen" class="config-input" placeholder="Qwen Key">
+
+        <div style="margin: 10px 0; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="debug-mode-switch">
+            <label for="debug-mode-switch" style="font-size: 14px;">Debug Mode (Show Raw Tags)</label>
+        </div>
+
+        <div style="text-align: right; margin-top:20px;">
+            <button onclick="saveConfigs()" class="btn-primary">保存并应用</button>
+            <button onclick="document.getElementById('config-modal').close()" style="background:transparent; border:none; color:var(--text-main); cursor:pointer;">取消</button>
+        </div>
+    </dialog>
+
+    <dialog id="nav-modal">
+        <h3><span class="material-icons-round">rocket</span> 准备跃迁?</h3>
+        <p>系统将在 <span id="nav-countdown" style="font-weight:bold; color:var(--primary);">3</span> 秒后跳转。</p>
+        <div class="nav-actions" style="display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="cancelNav()" style="background: transparent; border: none; cursor: pointer;">取消</button>
+            <button onclick="confirmNav()" class="btn-primary">立即前往</button>
+        </div>
+    </dialog>
+
+    <dialog id="tool-modal">
+        <h3 id="tool-title">TOOL OUTPUT</h3>
+        <div id="tool-content" style="margin: 20px 0; font-family: monospace; white-space: pre-wrap; background: var(--surface-variant); padding: 10px; border-radius: 8px; max-height: 300px; overflow: auto;"></div>
+        <button onclick="document.getElementById('tool-modal').close()" class="btn-primary" style="float:right;">关闭</button>
+    </dialog>
+
+    <script>
+    /* =========================================
+       1. System Core
+       ========================================= */
+    const state = {
+        water: parseInt(localStorage.getItem('jack_water') || 0),
+        chatHistory: JSON.parse(localStorage.getItem('jack_chat_history') || '[]'),
+        examDate: localStorage.getItem('jack_exam_date') || null,
+        theme: localStorage.getItem('jack_theme') || 'default',
+        debugMode: localStorage.getItem('jack_debug') === 'true',
+        voiceUri: localStorage.getItem('jack_voice_uri') || '',
+        langChat: localStorage.getItem('jack_lang_chat') || 'Chinese',
+        langTTS: localStorage.getItem('jack_lang_tts') || 'English' 
+    };
+
+    window.onload = () => {
+        document.getElementById('key-deepseek').value = localStorage.getItem('jack_sk_ds') || '';
+        document.getElementById('key-qwen').value = localStorage.getItem('jack_sk_qw') || '';
+        document.getElementById('debug-mode-switch').checked = state.debugMode;
+        document.getElementById('cfg-lang-chat').value = state.langChat;
+        document.getElementById('cfg-lang-tts').value = state.langTTS;
+
+        loadVoices();
+        renderChat();
+        updateWaterUI();
+        if(state.theme !== 'default') changeTheme(state.theme);
+        if(state.examDate) updateExamCountdown();
+        
+        if(state.chatHistory.length === 0) {
+            addBubble(`System Online. Chat: ${state.langChat} | Audio: ${state.langTTS}`, 'ai');
+        }
+    };
+
+    function saveState() {
+        localStorage.setItem('jack_water', state.water);
+        localStorage.setItem('jack_chat_history', JSON.stringify(state.chatHistory));
+        localStorage.setItem('jack_theme', state.theme);
+        localStorage.setItem('jack_debug', state.debugMode);
+        localStorage.setItem('jack_voice_uri', state.voiceUri);
+        localStorage.setItem('jack_lang_chat', state.langChat);
+        localStorage.setItem('jack_lang_tts', state.langTTS);
+    }
+
+    function toggleSettings() {
+        document.getElementById('config-modal').showModal();
+        checkVoiceMismatch();
+    }
+    
+    function saveConfigs() {
+        localStorage.setItem('jack_sk_ds', document.getElementById('key-deepseek').value);
+        localStorage.setItem('jack_sk_qw', document.getElementById('key-qwen').value);
+        state.voiceUri = document.getElementById('voice-select').value;
+        state.debugMode = document.getElementById('debug-mode-switch').checked;
+        state.langChat = document.getElementById('cfg-lang-chat').value;
+        state.langTTS = document.getElementById('cfg-lang-tts').value;
+        saveState();
+        location.reload();
+    }
+
+    function checkVoiceMismatch() {
+        document.getElementById('voice-warning').style.display = 'block';
+    }
+
+    /* =========================================
+       2. TTS & Subtitles (Robust Fallback Fixed)
+       ========================================= */
+    function loadVoices() {
+        const populate = () => {
+            const voices = window.speechSynthesis.getVoices();
+            const sel = document.getElementById('voice-select');
+            sel.innerHTML = '';
+            voices.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.voiceURI;
+                opt.innerText = `${v.name} (${v.lang})`;
+                sel.appendChild(opt);
+            });
+            if (state.voiceUri) sel.value = state.voiceUri;
+        };
+        window.speechSynthesis.onvoiceschanged = populate;
+        populate();
+    }
+
+    function speak(ttsText, subCnText) {
+        window.speechSynthesis.cancel();
+        
+        const box = document.getElementById('subtitle-box');
+        const big = document.getElementById('sub-big');
+        const small = document.getElementById('sub-small');
+        
+        if(box && big && small) {
+            big.innerText = ttsText;
+            if (state.langTTS === 'Chinese') {
+                small.style.display = 'none'; 
+            } else {
+                small.style.display = 'block';
+                small.innerText = subCnText || ""; 
+            }
+            box.classList.add('active');
+        }
+
+        const u = new SpeechSynthesisUtterance(ttsText);
+        
+        // 修复：增加兜底机制，防止 voiceUri 错误导致不朗读
+        let v = window.speechSynthesis.getVoices().find(v => v.voiceURI === state.voiceUri);
+        // 如果找不到指定语音，尝试找一个匹配当前 TTS 语言的语音
+        if (!v) {
+            const langCode = state.langTTS === 'Chinese' ? 'zh' : (state.langTTS === 'Japanese' ? 'ja' : 'en');
+            v = window.speechSynthesis.getVoices().find(v => v.lang.includes(langCode));
+        }
+        if(v) u.voice = v;
+        
+        u.onend = () => {
+            setTimeout(() => { if(box) box.classList.remove('active'); }, 2000);
+        };
+        
+        // 简单错误处理
+        u.onerror = (e) => {
+            console.warn("TTS Error:", e);
+        };
+        
+        window.speechSynthesis.speak(u);
+    }
+
+    function testVoice() {
+        const sel = document.getElementById('voice-select');
+        state.voiceUri = sel.value;
+        
+        const samples = {
+            'Chinese': "系统语音连接正常。准备就绪。",
+            'English': "System voice check operational. Ready.",
+            'Japanese': "システム音声チェック、正常です。準備完了。",
+            'French': "Vérification du système vocal opérationnelle."
+        };
+        
+        const text = samples[state.langTTS] || samples['English'];
+        speak(text, "系统语音检查正常。");
+    }
+
+    /* =========================================
+       3. Chat Engine (Strict Regex Logic + Fixed Loading)
+       ========================================= */
+    const chatBox = document.getElementById('chat-box');
+    const userIn = document.getElementById('user-msg');
+
+    userIn.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMsg(); });
+
+    async function sendMsg() {
+        const val = userIn.value.trim();
+        if(!val) return;
+
+        addBubble(val, 'user');
+        userIn.value = '';
+        state.chatHistory.push({role: "user", content: val});
+        saveState();
+
+        const systemPrompt = `
+You are J.A.R.V.I.S, Jack's AI assistant.
+Current Config:
+- Chat Language: ${state.langChat}
+- TTS Language: ${state.langTTS}
+
+MANDATORY RULES:
+1. Reply naturally in [${state.langChat}].
+2. Append [TTS: "..."] containing the reply translated into [${state.langTTS}].
+3. If [${state.langTTS}] != Chinese, append [CN: "..."] with Chinese translation.
+4. DO NOT use tools (MATRIX, EXPLOSION) unless explicitly requested.
+
+Example (Chat=Chinese, TTS=Japanese):
+你好，杰克。
+[TTS: "こんにちは、ジャック。"]
+[CN: "你好，杰克。"]
+`;
+        
+        const context = [
+            {role: "system", content: systemPrompt},
+            ...state.chatHistory.slice(-10)
+        ];
+
+        // 修复：确保 loadingId 接收到 addBubble 返回的 ID
+        const loadingId = addBubble("Processing...", 'ai', true);
+
+        try {
+            const model = document.getElementById('model-select').value;
+            let apiKey = model.includes('deepseek') ? localStorage.getItem('jack_sk_ds') : localStorage.getItem('jack_sk_qw');
+            let url = model.includes('deepseek') ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+
+            if(!apiKey) throw new Error("API Key Missing!");
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ model: model, messages: context })
+            });
+
+            const data = await res.json();
+            
+            // 修复：安全移除 loading 气泡
+            if(document.getElementById(loadingId)) {
+                document.getElementById(loadingId).remove();
+            }
+
+            if(data.error) throw new Error(data.error.message);
+
+            const rawText = data.choices[0].message.content;
+            
+            const ttsMatch = rawText.match(/\[TTS:\s*(?:")?(.*?)(?:")?\]/);
+            const cnMatch = rawText.match(/\[CN:\s*(?:")?(.*?)(?:")?\]/);
+            
+            // 修复：使用 Regex 替换，而不是 includes，防止误触
+            let cleanChatText = rawText
+                .replace(/\[TTS:[\s\S]*?\]/g, "")
+                .replace(/\[CN:[\s\S]*?\]/g, "")
+                .trim();
+
+            addBubble(state.debugMode ? rawText : cleanChatText, 'ai');
+
+            let spokenText = ttsMatch ? ttsMatch[1] : cleanChatText;
+            let subCnText = cnMatch ? cnMatch[1] : (state.langChat === 'Chinese' ? cleanChatText : "Translation unavailable");
+
+            speak(spokenText, subCnText);
+
+            state.chatHistory.push({role: "assistant", content: rawText}); 
+            saveState();
+
+            // 修复：使用 parseCommands 处理指令，而不是 rawText.includes
+            const { commands } = parseCommands(rawText);
+            commands.forEach(cmd => executeCommand(cmd.tag, cmd.val));
+
+        } catch (e) {
+            if(document.getElementById(loadingId)) document.getElementById(loadingId).remove();
+            addBubble(`[ERROR]: ${e.message}`, 'ai');
+        }
+    }
+
+    // 修复：确保返回 ID
+    function addBubble(text, sender, isLoading=false) {
+        if (!text && !isLoading) return; 
+        const div = document.createElement('div');
+        div.className = `bubble ${sender}`;
+        div.innerHTML = text.replace(/\n/g, '<br>');
+        
+        if(isLoading) {
+            div.id = 'loading-' + Date.now(); // 赋予唯一 ID
+        }
+        
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return div.id; // 返回 ID
+    }
+
+    function renderChat() {
+        chatBox.innerHTML = '';
+        state.chatHistory.forEach(msg => {
+            if (msg.role === 'user') {
+                addBubble(msg.content, 'user');
+            } else {
+                const clean = msg.content.replace(/\[TTS:[\s\S]*?\]/g, "").replace(/\[CN:[\s\S]*?\]/g, "").trim();
+                addBubble(state.debugMode ? msg.content : clean, 'ai');
+            }
+        });
+    }
+
+    function clearChat() {
+        if(confirm("确定要清除所有记忆吗？")) {
+            state.chatHistory = [];
+            saveState();
+            renderChat();
+        }
+    }
+
+    /* =========================================
+       4. Tools & Effects (Correct Parsing)
+       ========================================= */
+    // 修复：恢复 Regex 解析
+    function parseCommands(text) {
+        const regex = /\[([A-Z_]+)(?::\s*([^\]]+))?\]/g;
+        let commands = [];
+        text.replace(regex, (match, tag, val) => {
+            if(tag !== 'TTS' && tag !== 'CN') {
+                commands.push({ tag, val: val ? val.trim() : null });
+            }
+        });
+        return { commands };
+    }
+
+    const CMD_MAP = {
+        'THEME': (val) => changeTheme(val),
+        'UI_LEVEL': (val) => document.body.classList.toggle('ui-minimal', val === 'MINIMAL'),
+        'MED': (val) => handleMed(val),
+        'MISSION': (val) => handleMission(val),
+        'EFFECT': (val) => handleEffect(val),
+        'TOOL': (val) => runTool(val),
+        'ZEN_SCREEN': () => toggleZen(true)
+    };
+    function executeCommand(tag, val) { if (CMD_MAP[tag]) CMD_MAP[tag](val); }
+
+    function changeTheme(val) {
+        document.body.classList.remove('theme-dragon', 'theme-eri');
+        state.theme = 'default';
+        if (val === 'DRAGON_RAJA_RED') { document.body.classList.add('theme-dragon'); state.theme = 'DRAGON_RAJA_RED'; }
+        if (val === 'ERI_PINK') { document.body.classList.add('theme-eri'); state.theme = 'ERI_PINK'; }
+        saveState();
+    }
+
+    // --- Effects ---
+    function handleEffect(val) {
+        if (val === 'MATRIX') {
+            startMatrix();
+            setTimeout(() => stopMatrix(), 10000); 
+        } else if (val === 'EXPLOSION') {
+            document.body.classList.add('shake-mode');
+            setTimeout(() => document.body.classList.remove('shake-mode'), 500);
+        }
+    }
+
+    // --- Matrix Logic ---
+    let matrixInterval;
+    function startMatrix() {
+        const canvas = document.getElementById('matrix-canvas');
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789@#$%^&*()*&^%";
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+
+        function draw() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#0F0";
+            ctx.font = fontSize + "px arial";
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters[Math.floor(Math.random() * letters.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        matrixInterval = setInterval(draw, 33);
+    }
+    function stopMatrix() {
+        clearInterval(matrixInterval);
+        document.getElementById('matrix-canvas').style.display = 'none';
+    }
+
+    // --- Breath & Timer Logic ---
+    function handleMed(val) {
+        if (val === 'SPINE_LOCK') {
+            document.getElementById('spine-lock-layer').style.display = 'flex';
+            let sec = 60;
+            const t = setInterval(() => {
+                sec--;
+                document.getElementById('spine-timer').innerText = `00:${sec<10?'0'+sec:sec}`;
+                if(sec<=0) { clearInterval(t); document.getElementById('spine-lock-layer').style.display = 'none'; }
+            }, 1000);
+        }
+        else if (val === 'EYE_AMBER') document.body.classList.toggle('filter-amber');
+        else if (val === 'BREATH_SYNC') {
+            const txt = document.getElementById('widget-txt');
+            txt.innerText = "BREATH IN...";
+            // 修复：CSS 动画现在存在了
+            document.getElementById('breathe-circle').style.animation = "breathe-anim 4s infinite ease-in-out";
+            
+            let step = 0;
+            const bTimer = setInterval(() => {
+                step++;
+                if(step % 3 === 0) txt.innerText = "HOLD (7s)";
+                else if(step % 3 === 1) txt.innerText = "EXHALE (8s)";
+                else txt.innerText = "INHALE (4s)";
+                
+                if(step > 10) {
+                    clearInterval(bTimer);
+                    txt.innerText = "SYSTEM ONLINE";
+                    document.getElementById('breathe-circle').style.animation = "none";
+                }
+            }, 4000);
+        }
+    }
+
+    function handleMission(val) {
+        if (val === 'ADD_DEADLINE') {
+            const d = new Date(); d.setDate(d.getDate()+5);
+            state.examDate = d; saveState(); updateExamCountdown();
+        }
+        if (val === 'TIMER_25') startCountdown(25);
+        if (val === 'NAV_STUDY') triggerNav();
+    }
+
+    function startCountdown(minutes) {
+        const display = document.getElementById('timer-display');
+        const circle = document.getElementById('breathe-circle');
+        const txt = document.getElementById('widget-txt');
+        
+        display.style.display = 'block';
+        circle.style.display = 'none';
+        txt.style.display = 'none';
+        
+        let seconds = minutes * 60;
+        const interval = setInterval(() => {
+            seconds--;
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            display.innerText = `${m}:${s}`;
+            
+            if (seconds <= 0) {
+                clearInterval(interval);
+                alert("Task Complete!");
+                display.style.display = 'none';
+                circle.style.display = 'block';
+                txt.style.display = 'block';
+            }
+        }, 1000);
+    }
+
+    function addWater() { state.water++; updateWaterUI(); saveState(); }
+    function updateWaterUI() { document.getElementById('water-count').innerText = state.water; }
+
+    let navTimer;
+    function triggerNav() {
+        document.getElementById('nav-modal').showModal();
+        let c = 3;
+        navTimer = setInterval(() => { c--; document.getElementById('nav-countdown').innerText = c; if(c<=0) confirmNav(); }, 1000);
+    }
+    function confirmNav() { clearInterval(navTimer); window.location.href = "https://jackyun.top/Studyplan.html"; }
+    function cancelNav() { clearInterval(navTimer); document.getElementById('nav-modal').close(); }
+
+    function updateExamCountdown() {
+        if(!state.examDate) return;
+        const diff = Math.ceil((new Date(state.examDate) - new Date()) / 86400000);
+        document.getElementById('exam-countdown').innerText = diff;
+        document.getElementById('mission-toast').style.display = 'block';
+    }
+
+    function runTool(val) {
+        if (val === 'COLOR_GEN') {
+            const colors = ['#1a73e8', '#ea4335', '#fbbc04', '#34a853'];
+            let html = '<div style="display:flex;gap:10px;">';
+            for(let i=0;i<5;i++) html+=`<div style="width:50px;height:50px;background:${colors[Math.floor(Math.random()*4)]}"></div>`;
+            html+='</div>';
+            document.getElementById('tool-content').innerHTML = html;
+            document.getElementById('tool-modal').showModal();
+        }
+    }
+    
+    function toggleZen(enable) { document.getElementById('zen-layer').style.display = enable ? 'flex' : 'none'; }
+
+    // STT
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = SpeechRecognition ? new SpeechRecognition() : null;
+    if(recognition) {
+        recognition.lang = 'zh-CN'; recognition.continuous = false;
+        recognition.onresult = e => { document.getElementById('user-msg').value = e.results[0][0].transcript; document.getElementById('mic-btn').classList.remove('recording'); };
+        recognition.onend = () => document.getElementById('mic-btn').classList.remove('recording');
+    }
+    function startDictation() { if(recognition) { document.getElementById('mic-btn').classList.add('recording'); recognition.start(); } else alert("Browser not supported"); }
+    function stopDictation() { if(recognition) recognition.stop(); }
+
+    </script>
+</body>
+</html>

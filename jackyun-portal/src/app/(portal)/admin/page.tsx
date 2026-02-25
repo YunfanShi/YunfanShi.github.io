@@ -9,6 +9,7 @@ import {
   getWhitelistUsernames,
 } from '@/actions/admin';
 import AccountLinkingPanel from '@/components/admin/account-linking-panel';
+import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import {
   WhitelistEmailsPanel,
   WhitelistUsernamesPanel,
@@ -123,6 +124,7 @@ export default async function AdminPage({
             <span className="material-icons-round text-base text-[#EA4335]">timer</span>
             专注模式
           </Link>
+          <ChangePasswordPanel />
         </div>
       </section>
 

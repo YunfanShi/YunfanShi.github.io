@@ -106,6 +106,60 @@ export async function getLinkedProviders(userId: string): Promise<string[]> {
   return data?.linked_providers ?? [];
 }
 
+export async function requestPasswordReset(
+  email: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000';
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/update-password`,
+  });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+export async function updatePasswordWithToken(
+  newPassword: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !user.email) return { error: 'Unauthorized' };
+
+  // Re-authenticate with current password first
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+  if (signInError) return { error: '当前密码不正确' };
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+export async function setInitialPassword(
+  newPassword: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 export async function unlinkProvider(
   userId: string,
   provider: string,

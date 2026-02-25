@@ -1,18 +1,5 @@
-import { getSyllabus, getStudyConfig, getMockRecords } from '@/actions/study';
-import StudyApp from '@/components/modules/study/study-app';
+import LegacyFrame from '@/components/modules/legacy-frame';
 
-export default async function StudyPage() {
-  const [subjects, config, mockRecords] = await Promise.all([
-    getSyllabus(),
-    getStudyConfig(),
-    getMockRecords(),
-  ]);
-
-  return (
-    <StudyApp
-      initialSubjects={subjects}
-      initialConfig={config}
-      initialMockRecords={mockRecords}
-    />
-  );
+export default function StudyPage() {
+  return <LegacyFrame src="/legacy/Studyplan.html" title="学习计划" />;
 }
