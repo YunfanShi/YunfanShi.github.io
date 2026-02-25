@@ -25,18 +25,36 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Check whitelist
-  const authorizedUsers = (
+  // Dual whitelist: GitHub username + authorized emails
+  const authorizedGithubUsers = (
     process.env.AUTHORIZED_GITHUB_USERS ?? 'YunfanShi'
   )
     .split(',')
     .map((u) => u.trim().toLowerCase());
 
-  const githubUsername = (
-    user.user_metadata?.user_name as string | undefined
-  )?.toLowerCase();
+  const authorizedEmails = (process.env.AUTHORIZED_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
 
-  if (!githubUsername || !authorizedUsers.includes(githubUsername)) {
+  const provider = user.app_metadata?.provider as string | undefined;
+
+  if (provider === 'github') {
+    const githubUsername = (
+      user.user_metadata?.user_name as string | undefined
+    )?.toLowerCase();
+    if (!githubUsername || !authorizedGithubUsers.includes(githubUsername)) {
+      const unauthorizedUrl = new URL('/unauthorized', request.url);
+      return NextResponse.redirect(unauthorizedUrl);
+    }
+  } else if (provider === 'email') {
+    const email = user.email?.toLowerCase();
+    if (!email || !authorizedEmails.includes(email)) {
+      const unauthorizedUrl = new URL('/unauthorized', request.url);
+      return NextResponse.redirect(unauthorizedUrl);
+    }
+  } else {
+    // Unknown provider → unauthorized
     const unauthorizedUrl = new URL('/unauthorized', request.url);
     return NextResponse.redirect(unauthorizedUrl);
   }

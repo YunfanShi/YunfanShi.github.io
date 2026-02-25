@@ -85,3 +85,27 @@ export interface Countdown {
   created_at: string;
   updated_at: string;
 }
+
+export interface StudyPlanWithTasks extends StudyPlan {
+  tasks: StudyTask[];
+}
+
+export interface PlaylistWithTracks extends Playlist {
+  tracks: Track[];
+}
+
+export interface TableStat {
+  tableName: string;
+  count: number;
+}
+
+export interface SystemInfo {
+  nextVersion: string;
+  nodeVersion: string;
+  buildTime: string;
+}
+
+export interface WhitelistInfo {
+  githubUsers: string[];
+  emails: string[];
+}
