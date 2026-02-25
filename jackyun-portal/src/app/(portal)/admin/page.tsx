@@ -58,7 +58,19 @@ function InfoRow({ label, value, mono = false }: { label: string; value: React.R
   );
 }
 
-export default async function AdminPage() {
+const PROVIDER_NAMES: Record<string, string> = {
+  google: 'Google',
+  github: 'GitHub',
+  email: '邮箱',
+};
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ linked?: string }>;
+}) {
+  const params = await searchParams;
+  const linkedProvider = params.linked;
   const supabase = await createClient();
   const {
     data: { user },
@@ -260,6 +272,12 @@ export default async function AdminPage() {
         {/* Account linking */}
         <div className="mb-5">
           <SectionHeader icon="link" title="关联第三方账号" />
+          {linkedProvider && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-[#34A853]/10 text-sm text-[#34A853]">
+              <span className="material-icons-round text-base">check_circle</span>
+              已成功关联 {PROVIDER_NAMES[linkedProvider] ?? linkedProvider} 账号
+            </div>
+          )}
           <AccountLinkingPanel
             currentProviders={linkedProviders}
             userId={userId}
