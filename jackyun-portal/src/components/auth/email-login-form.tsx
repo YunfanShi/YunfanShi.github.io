@@ -7,6 +7,7 @@ import { resolveUsernameToEmail } from '@/actions/auth';
 
 export default function EmailLoginForm() {
   const router = useRouter();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,38 +35,46 @@ export default function EmailLoginForm() {
       emailToUse = email;
     }
 
-    // Try sign in first
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: emailToUse,
-      password,
-    });
+    if (mode === 'login') {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password,
+      });
 
-    if (!signInError) {
-      router.push('/dashboard');
-      router.refresh();
-      return;
-    }
+      if (!signInError) {
+        router.push('/dashboard');
+        router.refresh();
+        return;
+      }
 
-    // If user not found, try sign up
-    if (
-      signInError.message.toLowerCase().includes('invalid login credentials') ||
-      signInError.message.toLowerCase().includes('user not found') ||
-      signInError.status === 400
-    ) {
+      if (
+        signInError.message.toLowerCase().includes('invalid login credentials') ||
+        signInError.message.toLowerCase().includes('user not found')
+      ) {
+        setError('邮箱或密码错误');
+      } else {
+        setError(signInError.message);
+      }
+    } else {
       const { error: signUpError } = await supabase.auth.signUp({
         email: emailToUse,
         password,
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        if (
+          signUpError.message.toLowerCase().includes('user already registered') ||
+          signUpError.message.toLowerCase().includes('already registered')
+        ) {
+          setError('该邮箱已被注册，请直接登录');
+        } else {
+          setError(signUpError.message);
+        }
       } else {
         setMessage('注册成功！请检查邮箱确认，或直接登录。');
         router.push('/dashboard');
         router.refresh();
       }
-    } else {
-      setError(signInError.message);
     }
 
     setLoading(false);
@@ -131,10 +140,38 @@ export default function EmailLoginForm() {
             </span>
             处理中...
           </>
+        ) : mode === 'login' ? (
+          '登录'
         ) : (
-          '登录 / 注册'
+          '注册'
         )}
       </button>
+
+      <p className="text-sm text-center text-[var(--muted-foreground)]">
+        {mode === 'login' ? (
+          <>
+            没有账号？{' '}
+            <button
+              type="button"
+              onClick={() => { setMode('register'); setError(null); setMessage(null); }}
+              className="text-[#4285F4] hover:underline"
+            >
+              注册
+            </button>
+          </>
+        ) : (
+          <>
+            已有账号？{' '}
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setError(null); setMessage(null); }}
+              className="text-[#4285F4] hover:underline"
+            >
+              登录
+            </button>
+          </>
+        )}
+      </p>
     </form>
   );
 }
