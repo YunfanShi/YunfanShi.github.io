@@ -1,4 +1,5 @@
 import LoginButton from '@/components/auth/login-button';
+import EmailLoginForm from '@/components/auth/email-login-form';
 
 export default function LoginPage() {
   return (
@@ -25,8 +26,19 @@ export default function LoginPage() {
 
         {/* Card */}
         <div
-          className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-sm"
+          className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-sm space-y-6"
         >
+          {/* Email / Password login */}
+          <EmailLoginForm />
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[var(--card-border)]" />
+            <span className="text-xs text-[var(--muted-foreground)]">或</span>
+            <div className="flex-1 h-px bg-[var(--card-border)]" />
+          </div>
+
+          {/* GitHub OAuth */}
           <LoginButton />
         </div>
 
