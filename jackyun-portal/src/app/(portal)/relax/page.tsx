@@ -2,6 +2,8 @@ import NoiseGenerator    from '@/components/modules/relax/noise-generator';
 import ColorPicker       from '@/components/modules/relax/color-picker';
 import BreathingExercise from '@/components/modules/relax/breathing-exercise';
 import PomodoroTimer     from '@/components/modules/relax/pomodoro-timer';
+import RelaxLayout       from '@/components/modules/relax/relax-layout';
+import { getRelaxState } from '@/actions/relax';
 
 interface CardProps {
   icon: string;
@@ -21,14 +23,17 @@ function ToolCard({ icon, title, children }: CardProps) {
   );
 }
 
-export default function RelaxPage() {
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">放松一下</h1>
-        <p className="text-sm text-[var(--muted-foreground)] mt-1">专注、呼吸、放松 · Focus, Breathe, Relax</p>
-      </div>
+export default async function RelaxPage() {
+  const relaxState = await getRelaxState();
+  const hasApiKey = !!process.env.GEMINI_API_KEY;
 
+  return (
+    <RelaxLayout
+      initialTheme={relaxState.theme}
+      hasApiKey={hasApiKey}
+      initialWaterCount={relaxState.water_count}
+      initialWaterDate={relaxState.water_date}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <ToolCard icon="water_drop" title="环境噪音">
           <NoiseGenerator />
@@ -46,6 +51,6 @@ export default function RelaxPage() {
           <PomodoroTimer />
         </ToolCard>
       </div>
-    </div>
+    </RelaxLayout>
   );
 }

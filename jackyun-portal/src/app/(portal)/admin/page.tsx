@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { signOut, getLinkedProviders } from '@/actions/auth';
 import {
@@ -103,6 +104,27 @@ export default async function AdminPage({
         <h1 className="text-2xl font-bold text-[var(--foreground)]">管理员</h1>
         <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">系统信息与账户配置</p>
       </div>
+
+      {/* Admin Tools */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="apps" title="管理工具" />
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/update-hub"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#4285F4]/5 hover:border-[#4285F4]/30 transition-colors"
+          >
+            <span className="material-icons-round text-base text-[#4285F4]">history</span>
+            版本历史
+          </Link>
+          <Link
+            href="/admin/enforcer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#EA4335]/5 hover:border-[#EA4335]/30 transition-colors"
+          >
+            <span className="material-icons-round text-base text-[#EA4335]">timer</span>
+            专注模式
+          </Link>
+        </div>
+      </section>
 
       {/* 用户信息 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">

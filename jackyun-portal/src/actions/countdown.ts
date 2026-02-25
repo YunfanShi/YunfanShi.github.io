@@ -48,3 +48,45 @@ export async function deleteCountdown(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath('/countdown');
 }
+
+export async function updateCountdown(
+  id: string,
+  data: { title?: string; target_date?: string; color?: string; description?: string }
+): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+
+  const { error } = await supabase
+    .from('countdowns')
+    .update(data)
+    .eq('id', id)
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/countdown');
+}
+
+export async function reorderCountdowns(items: { id: string; sort_order: number }[]): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+
+  for (const item of items) {
+    const { error } = await supabase
+      .from('countdowns')
+      .update({ sort_order: item.sort_order })
+      .eq('id', item.id)
+      .eq('user_id', user.id);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath('/countdown');
+}
+
+export async function addCountdownBatch(
+  events: { title: string; target_date: string; color: string; description: string | null; sort_order: number }[]
+): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+
+  const rows = events.map((e) => ({ ...e, user_id: user.id }));
+  const { error } = await supabase.from('countdowns').insert(rows);
+  if (error) throw new Error(error.message);
+  revalidatePath('/countdown');
+}
