@@ -1,4 +1,5 @@
 import LoginButton from '@/components/auth/login-button';
+import GoogleLoginButton from '@/components/auth/google-login-button';
 import EmailLoginForm from '@/components/auth/email-login-form';
 
 export default function LoginPage() {
@@ -38,8 +39,11 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-[var(--card-border)]" />
           </div>
 
-          {/* GitHub OAuth */}
-          <LoginButton />
+          {/* Google & GitHub OAuth */}
+          <div className="space-y-3">
+            <GoogleLoginButton />
+            <LoginButton />
+          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-[var(--muted-foreground)]">

@@ -1,6 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
-import { signOut } from '@/actions/auth';
-import { getSystemInfo, getTableStats, getWhitelistInfo } from '@/actions/admin';
+import { signOut, getLinkedProviders } from '@/actions/auth';
+import {
+  getSystemInfo,
+  getTableStats,
+  getWhitelistInfo,
+  getWhitelistEmails,
+  getWhitelistUsernames,
+} from '@/actions/admin';
+import AccountLinkingPanel from '@/components/admin/account-linking-panel';
+import {
+  WhitelistEmailsPanel,
+  WhitelistUsernamesPanel,
+  ForceMergePanel,
+} from '@/components/admin/whitelist-panels';
 
 const TABLE_ICONS: Record<string, string> = {
   vocab_words: 'menu_book',
@@ -52,11 +64,15 @@ export default async function AdminPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [systemInfo, tableStats, whitelistInfo] = await Promise.all([
+  const [systemInfo, tableStats, whitelistInfo, whitelistEmails, whitelistUsernames] = await Promise.all([
     getSystemInfo(),
     getTableStats(),
     getWhitelistInfo(),
+    getWhitelistEmails().catch(() => []),
+    getWhitelistUsernames().catch(() => []),
   ]);
+
+  const linkedProviders = user ? await getLinkedProviders(user.id).catch(() => []) : [];
 
   const provider = user?.app_metadata?.provider as string | undefined;
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
@@ -130,52 +146,74 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      {/* 白名单配置 */}
+      {/* 白名单配置 — 数据库管理 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
         <SectionHeader icon="verified_user" title="白名单配置" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-medium text-[var(--muted-foreground)] mb-2 flex items-center gap-1">
-              <span className="material-icons-round text-sm">code</span>
-              GitHub 用户 ({whitelistInfo.githubUsers.length})
+
+        {/* Env-var legacy display */}
+        {(whitelistInfo.githubUsers.length > 0 || whitelistInfo.emails.length > 0) && (
+          <div className="mb-5">
+            <p className="text-xs text-[var(--muted-foreground)] mb-2 font-medium">
+              环境变量（只读）
             </p>
-            <div className="space-y-1">
-              {whitelistInfo.githubUsers.length > 0 ? (
-                whitelistInfo.githubUsers.map((u) => (
-                  <div
-                    key={u}
-                    className="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg bg-[#4285F4]/5 text-[var(--foreground)]"
-                  >
-                    <span className="material-icons-round text-sm text-[#4285F4]">person</span>
-                    {u}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-[var(--muted-foreground)] italic">未配置</p>
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-medium text-[var(--muted-foreground)] mb-1 flex items-center gap-1">
+                  <span className="material-icons-round text-sm">code</span>
+                  GitHub 用户 ({whitelistInfo.githubUsers.length})
+                </p>
+                <div className="space-y-1">
+                  {whitelistInfo.githubUsers.map((u) => (
+                    <div
+                      key={u}
+                      className="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg bg-[#4285F4]/5 text-[var(--foreground)]"
+                    >
+                      <span className="material-icons-round text-sm text-[#4285F4]">person</span>
+                      {u}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-[var(--muted-foreground)] mb-1 flex items-center gap-1">
+                  <span className="material-icons-round text-sm">email</span>
+                  授权邮箱 ({whitelistInfo.emails.length})
+                </p>
+                <div className="space-y-1">
+                  {whitelistInfo.emails.map((e, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg bg-[#34A853]/5 text-[var(--foreground)]"
+                    >
+                      <span className="material-icons-round text-sm text-[#34A853]">mail</span>
+                      {e}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
+            <div className="my-4 h-px bg-[var(--card-border)]" />
           </div>
-          <div>
-            <p className="text-xs font-medium text-[var(--muted-foreground)] mb-2 flex items-center gap-1">
-              <span className="material-icons-round text-sm">email</span>
-              授权邮箱 ({whitelistInfo.emails.length})
-            </p>
-            <div className="space-y-1">
-              {whitelistInfo.emails.length > 0 ? (
-                whitelistInfo.emails.map((e, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg bg-[#34A853]/5 text-[var(--foreground)]"
-                  >
-                    <span className="material-icons-round text-sm text-[#34A853]">mail</span>
-                    {e}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-[var(--muted-foreground)] italic">未配置</p>
-              )}
-            </div>
-          </div>
+        )}
+
+        {/* Database whitelist emails */}
+        <div className="mb-5">
+          <p className="text-xs font-medium text-[var(--muted-foreground)] mb-3 flex items-center gap-1">
+            <span className="material-icons-round text-sm">mail</span>
+            数据库白名单邮箱
+          </p>
+          <WhitelistEmailsPanel items={whitelistEmails} />
+        </div>
+
+        <div className="h-px bg-[var(--card-border)] mb-5" />
+
+        {/* Database whitelist usernames */}
+        <div>
+          <p className="text-xs font-medium text-[var(--muted-foreground)] mb-3 flex items-center gap-1">
+            <span className="material-icons-round text-sm">person</span>
+            数据库白名单用户名
+          </p>
+          <WhitelistUsernamesPanel items={whitelistUsernames} />
         </div>
       </section>
 
@@ -218,6 +256,25 @@ export default async function AdminPage() {
       {/* 快速操作 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
         <SectionHeader icon="bolt" title="快速操作" />
+
+        {/* Account linking */}
+        <div className="mb-5">
+          <SectionHeader icon="link" title="关联第三方账号" />
+          <AccountLinkingPanel
+            currentProviders={linkedProviders}
+            userId={userId}
+          />
+        </div>
+
+        <div className="h-px bg-[var(--card-border)] mb-5" />
+
+        {/* Force merge */}
+        <div className="mb-5">
+          <ForceMergePanel />
+        </div>
+
+        <div className="h-px bg-[var(--card-border)] mb-5" />
+
         <form action={signOut}>
           <button
             type="submit"
