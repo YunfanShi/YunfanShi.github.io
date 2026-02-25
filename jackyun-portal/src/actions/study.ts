@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import type { SyllabusSubject, SyllabusUnit, StudyConfig, MockRecord } from '@/types/study';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -120,4 +121,142 @@ export async function deleteTask(taskId: string) {
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+}
+
+// ── Syllabus ──────────────────────────────────────────────────────────────────
+
+export async function getSyllabus(): Promise<SyllabusSubject[]> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data, error } = await supabase
+    .from('study_syllabus')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SyllabusSubject[];
+}
+
+export async function upsertSubject(
+  subjectName: string,
+  color: string,
+  units: SyllabusUnit[],
+): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { error } = await supabase.from('study_syllabus').upsert(
+    {
+      user_id: user.id,
+      subject_name: subjectName,
+      color,
+      units,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,subject_name' },
+  );
+  if (error) throw new Error(error.message);
+  revalidatePath('/study');
+}
+
+export async function updateStepDone(
+  subjectName: string,
+  unitIndex: number,
+  stepIndex: number,
+  done: boolean,
+): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data, error: fetchError } = await supabase
+    .from('study_syllabus')
+    .select('units')
+    .eq('user_id', user.id)
+    .eq('subject_name', subjectName)
+    .single();
+  if (fetchError || !data) throw new Error('Subject not found');
+
+  const units = data.units as SyllabusUnit[];
+  if (!units[unitIndex]?.steps[stepIndex]) throw new Error('Step not found');
+  units[unitIndex].steps[stepIndex].done = done;
+
+  const { error } = await supabase
+    .from('study_syllabus')
+    .update({ units, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .eq('subject_name', subjectName);
+  if (error) throw new Error(error.message);
+  revalidatePath('/study');
+}
+
+export async function deleteSubject(subjectName: string): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { error } = await supabase
+    .from('study_syllabus')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('subject_name', subjectName);
+  if (error) throw new Error(error.message);
+  revalidatePath('/study');
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+export async function getStudyConfig(): Promise<StudyConfig> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data } = await supabase
+    .from('study_config')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+  if (!data) {
+    return {
+      school_date: null,
+      exam_date: null,
+      emergency_subjects: [],
+      emergency_deadline: null,
+      emergency_note: null,
+    };
+  }
+  return {
+    school_date: data.school_date ?? null,
+    exam_date: data.exam_date ?? null,
+    emergency_subjects: data.emergency_subjects ?? [],
+    emergency_deadline: data.emergency_deadline ?? null,
+    emergency_note: data.emergency_note ?? null,
+  };
+}
+
+export async function updateStudyConfig(config: Partial<StudyConfig>): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { error } = await supabase.from('study_config').upsert(
+    {
+      user_id: user.id,
+      ...config,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' },
+  );
+  if (error) throw new Error(error.message);
+  revalidatePath('/study');
+}
+
+// ── Mock Records ──────────────────────────────────────────────────────────────
+
+export async function addMockRecord(
+  record: Omit<MockRecord, 'id' | 'created_at'>,
+): Promise<void> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { error } = await supabase.from('study_mock_records').insert({
+    user_id: user.id,
+    ...record,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath('/study');
+}
+
+export async function getMockRecords(): Promise<MockRecord[]> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data, error } = await supabase
+    .from('study_mock_records')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MockRecord[];
 }
