@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/server';
 import { getAiConfig } from '@/actions/settings';
 import AiConfigPanel from '@/components/settings/ai-config-panel';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
@@ -14,6 +15,12 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 }
 
 export default async function SettingsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const provider = user?.app_metadata?.provider as string | undefined;
+  const hasPassword = provider === 'email';
   const aiConfig = await getAiConfig().catch(() => ({ baseUrl: '', apiKey: '' }));
 
   return (
@@ -26,7 +33,7 @@ export default async function SettingsPage() {
       {/* 账户安全 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
         <SectionHeader icon="lock" title="账户安全" />
-        <ChangePasswordPanel />
+        <ChangePasswordPanel hasPassword={hasPassword} />
       </section>
 
       {/* AI 配置 */}

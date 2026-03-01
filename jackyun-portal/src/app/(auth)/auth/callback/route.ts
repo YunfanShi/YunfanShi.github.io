@@ -5,6 +5,7 @@ import { syncProfile, linkProviderToUser } from '@/actions/auth';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const type = searchParams.get('type');
   const isLinking = searchParams.get('linking') === 'true';
   const linkingUserId = searchParams.get('linking_user_id');
 
@@ -13,6 +14,11 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
+      // Recovery flow: redirect to update-password page
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/update-password`);
+      }
+
       const user = data.user;
       const provider = user.app_metadata?.provider as string | undefined;
 

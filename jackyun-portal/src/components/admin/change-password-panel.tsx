@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { changePassword } from '@/actions/auth';
+import { changePassword, setInitialPassword } from '@/actions/auth';
 
-export default function ChangePasswordPanel() {
+interface ChangePasswordPanelProps {
+  hasPassword?: boolean;
+}
+
+export default function ChangePasswordPanel({ hasPassword = true }: ChangePasswordPanelProps) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -22,11 +26,14 @@ export default function ChangePasswordPanel() {
     setError(null);
     setMessage(null);
 
-    const result = await changePassword(currentPassword, newPassword);
+    const result = hasPassword
+      ? await changePassword(currentPassword, newPassword)
+      : await setInitialPassword(newPassword);
+
     if (result.error) {
       setError(result.error);
     } else {
-      setMessage('密码已成功更新');
+      setMessage(hasPassword ? '密码已成功更新' : '密码已成功设置');
       setCurrentPassword('');
       setNewPassword('');
       setConfirm('');
@@ -42,7 +49,7 @@ export default function ChangePasswordPanel() {
         className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#4285F4]/5 hover:border-[#4285F4]/30 transition-colors"
       >
         <span className="material-icons-round text-base text-[#4285F4]">lock</span>
-        修改密码
+        {hasPassword ? '修改密码' : '设置密码'}
       </button>
     );
   }
@@ -50,7 +57,7 @@ export default function ChangePasswordPanel() {
   return (
     <div className="rounded-xl border border-[var(--card-border)] p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-[var(--foreground)]">修改密码</p>
+        <p className="text-sm font-medium text-[var(--foreground)]">{hasPassword ? '修改密码' : '设置密码'}</p>
         <button
           onClick={() => { setOpen(false); setError(null); setMessage(null); }}
           className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -59,14 +66,16 @@ export default function ChangePasswordPanel() {
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          type="password"
-          required
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          placeholder="当前密码"
-          className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors"
-        />
+        {hasPassword && (
+          <input
+            type="password"
+            required
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="当前密码"
+            className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors"
+          />
+        )}
         <input
           type="password"
           required
@@ -102,7 +111,7 @@ export default function ChangePasswordPanel() {
               更新中...
             </>
           ) : (
-            '更新密码'
+            hasPassword ? '更新密码' : '设置密码'
           )}
         </button>
       </form>
