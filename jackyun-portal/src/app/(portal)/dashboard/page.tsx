@@ -59,6 +59,14 @@ const MODULES = [
     href: '/tools',
   },
   {
+    id: 'mock-portal',
+    title: 'Mock 刷题',
+    description: '真题刷题与考试模拟',
+    icon: 'quiz',
+    color: '#FBBC05',
+    href: '/mock-portal',
+  },
+  {
     id: 'control',
     title: '控制中心',
     description: '系统控制与快捷设置',

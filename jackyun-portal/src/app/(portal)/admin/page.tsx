@@ -124,7 +124,7 @@ export default async function AdminPage({
             <span className="material-icons-round text-base text-[#EA4335]">timer</span>
             专注模式
           </Link>
-          <ChangePasswordPanel />
+          <ChangePasswordPanel hasPassword={provider === 'email'} />
         </div>
       </section>
 

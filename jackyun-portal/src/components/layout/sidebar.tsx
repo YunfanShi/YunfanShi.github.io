@@ -13,7 +13,9 @@ const NAV_ITEMS = [
   { label: '倒计时', icon: 'timer', href: '/countdown' },
   { label: '放松一下', icon: 'sports_esports', href: '/relax' },
   { label: '控制中心', icon: 'tune', href: '/control' },
+  { label: 'Mock 刷题', icon: 'quiz', href: '/mock-portal' },
   { label: '工具箱', icon: 'build', href: '/tools' },
+  { label: '离线版', icon: 'cloud_off', href: '/offline' },
   { label: '设置', icon: 'settings', href: '/settings' },
   { label: '管理员', icon: 'admin_panel_settings', href: '/admin' },
 ];
