@@ -45,7 +45,6 @@
     .mi { font-family: 'Material Icons Round'; font-style: normal; font-size: 20px;
       line-height: 1; vertical-align: middle; display: inline-block; }
 
-    /* Filter chips */
     .fchip {
       display: inline-flex; align-items: center; gap: 3px;
       padding: 3px 10px; border-radius: 20px; font-size: 12px;
@@ -56,7 +55,6 @@
     .fchip:hover { border-color: var(--primary); color: var(--primary); }
     .fchip.on { border-color: var(--primary); background: #E8F0FE; color: var(--primary); font-weight: 600; }
 
-    /* Paper card */
     .pcard {
       background: white; border-radius: 16px;
       border: 2px solid transparent;
@@ -68,7 +66,6 @@
     .pcard.done { border-left: 4px solid var(--success) !important; opacity: 0.88; }
     .pcard.inprog { border-left: 4px solid var(--warning) !important; }
 
-    /* Buttons */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 4px;
       padding: 7px 18px; border-radius: 24px; font-size: 13px; font-weight: 500;
@@ -85,29 +82,29 @@
     .btn-g { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
-    /* Cart bar */
-    #cartBar {
-      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-      background: rgba(255,255,255,0.93);
-      border-top: 1px solid rgba(0,0,0,0.07);
-      box-shadow: 0 -2px 14px rgba(0,0,0,0.09);
-    }
-    /* Cart panel */
-    #cartPanel {
-      position: fixed; bottom: 64px; left: 0; right: 0;
-      max-height: 440px; background: white;
-      border-radius: 20px 20px 0 0;
-      box-shadow: 0 -4px 28px rgba(0,0,0,0.15);
-      transform: translateY(100%);
-      transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
-      z-index: 45; overflow: hidden;
-    }
-    #cartPanel.open { transform: translateY(0); }
+    @keyframes fabPop { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
+    .fab-pop { animation: fabPop .3s ease; }
 
-    /* Modal */
+    .cart-item {
+      background: white; border-radius: 16px; border: 1.5px solid var(--border);
+      margin-bottom: 10px; overflow: hidden; transition: all .2s ease;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .cart-item:hover { border-color: #DADCE0; box-shadow: 0 2px 12px rgba(0,0,0,.1); }
+    .cart-item.dragging { opacity: .45; transform: scale(.97); }
+    .cart-item.dragover-top { border-top: 3px solid var(--primary); }
+
+    .drag-handle { cursor: grab; color: #DADCE0; transition: color .15s; }
+    .drag-handle:hover { color: #9AA0A6; }
+    .drag-handle:active { cursor: grabbing; }
+
+    .subj-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+
     .mbg { background: rgba(0,0,0,0.52); backdrop-filter: blur(5px); }
 
-    /* Settings drawer */
     #settingsDr {
       box-shadow: -6px 0 28px rgba(0,0,0,0.16);
       transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
@@ -115,10 +112,8 @@
     }
     #settingsDr.open { transform: translateX(0); }
 
-    /* Exam overlay */
     #examOv { background: #0A0A1E; }
 
-    /* Timer */
     .timer-num {
       font-family: 'Roboto Mono', monospace;
       font-size: clamp(80px, 15vw, 160px);
@@ -138,19 +133,11 @@
       pointer-events: none; color: white;
     }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #DADCE0; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #BDC1C6; }
 
-    /* Drag items */
-    .cart-row { transition: all 0.15s ease; cursor: grab; }
-    .cart-row:active { cursor: grabbing; }
-    .cart-row.dragging { opacity: .4; transform: scale(.97); }
-    .cart-row.dragover { border-top: 2px solid var(--primary); }
-
-    /* Toast */
     #toast {
       position: fixed; bottom: 88px; left: 50%;
       transform: translateX(-50%) translateY(24px);
@@ -162,27 +149,17 @@
     }
     #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-    /* Filter section */
     #filterPanel { border-right: 1px solid var(--border); }
     .fsec-hdr { cursor: pointer; user-select: none; transition: background .15s; }
     .fsec-hdr:hover { background: #F8F9FA; }
     .fsec-body { overflow: hidden; transition: max-height 0.3s ease; }
 
-    /* AppBar */
     #appbar { transition: box-shadow 0.3s ease; }
     #appbar.scrolled { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
 
-    /* Lock box */
-    .lock-box { background: white; border: 2px dashed var(--border); border-radius: 16px; padding: 32px; text-align: center; }
-
-    /* Gacha */
     #gachaScroller { height: 68px; overflow: hidden; position: relative; border-radius: 12px; }
     #gachaTrack { position: absolute; width: 100%; transition: transform 2s cubic-bezier(0.25,0.1,0.25,1); }
 
-    /* Summary bar */
-    .sum-bar { height: 28px; border-radius: 6px; transition: width .7s ease; min-width: 4px; }
-
-    /* Toggle switch */
     .tgl { width: 44px; height: 24px; border-radius: 12px; background: #DADCE0;
       position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
     .tgl.on { background: var(--primary); }
@@ -190,19 +167,16 @@
       border-radius:50%; background:white; box-shadow:0 1px 3px rgba(0,0,0,.2); transition:transform .2s; }
     .tgl.on::after { transform: translateX(20px); }
 
-    /* Mobile */
     @media(max-width:767px) {
       #filterPanel { display: none; }
       #mainContent { margin-left: 0 !important; }
       #mobileFilterBtn { display: flex !important; }
     }
 
-    /* Chip count badge */
     .cbadge { background:#E8EAED; color:var(--text-sub); font-size:10px;
       padding:0 5px; border-radius:10px; font-weight:600; }
     .fchip.on .cbadge { background:rgba(26,115,232,.18); color:var(--primary); }
 
-    /* Gacha count btn */
     .gcnt { width:40px;height:40px;border-radius:12px;border:2px solid var(--border);
       font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;
       font-size:15px;color:var(--text-sub);background:white;font-family:inherit;
@@ -211,7 +185,6 @@
     .gcnt:hover { border-color:var(--primary);color:var(--primary); }
     .gcnt.on:hover { color:white; }
 
-    /* Warning banner */
     #warnBanner {
       position:fixed;top:0;left:0;right:0;z-index:200;
       background:#EA4335;color:white;text-align:center;
@@ -220,20 +193,103 @@
     }
     #warnBanner.show { transform:translateY(0); }
 
-    /* Status bar */
     .sbar { height:4px;border-radius:2px;background:#E8EAED;overflow:hidden; }
     .sbar-fill { height:100%;border-radius:2px;transition:width .3s ease; }
+
+    .syllabus-note {
+      background: #FEF7E0; border-left: 4px solid #FBBC04; padding: 12px;
+      border-radius: 8px; margin: 16px 0; font-size: 12px; color: #5F6368;
+    }
+    .variant-badge {
+      display: inline-block; font-size: 10px; padding: 2px 8px;
+      border-radius: 12px; margin-left: 4px; font-weight: 600;
+    }
+    .new-badge {
+      display: inline-block; font-size: 10px; padding: 2px 8px;
+      border-radius: 12px; background: #E8F5E9; color: #2E7D32; font-weight: 700;
+    }
+
+    /* ── Countdown Banner ── */
+    #countdownBanner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+      height: 38px;
+      background: linear-gradient(90deg, #0D1B2A 0%, #1A1A2E 40%, #0D1B2A 100%);
+      display: flex; align-items: center; justify-content: center; gap: 0;
+      overflow: hidden;
+    }
+    #countdownBanner::before {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(90deg, transparent, transparent 120px, rgba(255,255,255,.018) 120px, rgba(255,255,255,.018) 121px);
+      pointer-events: none;
+    }
+    .cd-block {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 14px; position: relative;
+    }
+    .cd-block + .cd-block::before {
+      content: ':';
+      position: absolute; left: -2px; top: 50%; transform: translateY(-56%);
+      font-size: 16px; font-weight: 700; color: rgba(255,255,255,.25);
+      font-family: 'Roboto Mono', monospace;
+    }
+    .cd-num {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 18px; font-weight: 700; line-height: 1;
+      color: white; letter-spacing: .04em;
+      transition: color .4s ease;
+    }
+    .cd-label {
+      font-size: 8px; font-weight: 600; letter-spacing: .1em;
+      color: rgba(255,255,255,.35); text-transform: uppercase; line-height: 1; margin-top: 1px;
+    }
+    .cd-num.urgent { color: #F87171; animation: cdpulse 1s ease-in-out infinite; }
+    @keyframes cdpulse { 0%,100%{opacity:1}50%{opacity:.6} }
+
+    .cd-divider {
+      width: 1px; height: 22px; background: rgba(255,255,255,.1); margin: 0 4px;
+    }
+
+    #hitokobar {
+      flex: 1; max-width: 340px; overflow: hidden;
+      margin: 0 16px;
+    }
+    #hitokotext {
+      font-size: 11px; color: rgba(255,255,255,.45);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-style: italic; transition: opacity .5s ease;
+    }
+
+    #examDateTag {
+      font-size: 10px; color: rgba(255,255,255,.3);
+      letter-spacing: .05em; white-space: nowrap; padding-right: 16px;
+      cursor: pointer;
+    }
+    #examDateTag:hover { color: rgba(255,255,255,.6); }
+
+    /* ── Shift everything down by banner height ── */
+    #appbar { top: 38px !important; }
+    #filterPanel { top: 52px !important; }
+    #mainContent { padding-top: calc(3.5rem + 38px) !important; }
   </style>
 </head>
 <body>
 
-<!-- ══════════════════════ APP BAR ══════════════════════ -->
+<!-- ══════════════════════ COUNTDOWN BANNER ══════════════════════ -->
+<div id="countdownBanner">
+  <!-- Countdown blocks inserted by JS -->
+  <div id="cdBlocks" class="flex items-center"></div>
+  <div class="cd-divider hidden sm:block"></div>
+  <div id="hitokobar" class="hidden sm:block">
+    <div id="hitokotext">loading...</div>
+  </div>
+  <span id="examDateTag" onclick="openSettings()" title="点击设置考试日期">📅 设置考试日期</span>
+</div>
+
 <header id="appbar" class="fixed top-0 left-0 right-0 z-50 bg-white h-14 flex items-center px-4 gap-3 select-none" style="box-shadow:0 1px 3px rgba(0,0,0,0.12)">
   <span class="mi" style="color:var(--primary);font-size:24px">bolt</span>
   <span class="font-bold text-base" style="color:#202124;letter-spacing:-.3px">Warden Mock</span>
   <div style="flex:1"></div>
   <span id="dateDisp" class="text-xs hidden sm:block" style="color:var(--text-sub)"></span>
-  <!-- Circular progress -->
   <div class="relative cursor-pointer" style="width:34px;height:34px" id="progWrap" title="完成进度">
     <svg viewBox="0 0 36 36" style="width:34px;height:34px;transform:rotate(-90deg)">
       <circle cx="18" cy="18" r="15.9" fill="none" stroke="#E8EAED" stroke-width="3"/>
@@ -249,7 +305,6 @@
   </button>
 </header>
 
-<!-- ══════════════════════ FILTER PANEL ══════════════════════ -->
 <aside id="filterPanel" class="fixed left-0 top-14 bottom-0 bg-white z-40 overflow-y-auto" style="width:260px">
   <div class="sticky top-0 bg-white z-10 p-3" style="border-bottom:1px solid var(--border)">
     <button onclick="clearFilters()" class="btn btn-o w-full text-xs" style="padding:7px 10px">
@@ -259,10 +314,20 @@
   <div id="filterSections"></div>
 </aside>
 
-<!-- ══════════════════════ MAIN CONTENT ══════════════════════ -->
 <main id="mainContent" class="pt-14" style="margin-left:260px;padding-bottom:100px">
   <div class="p-4">
-    <!-- Action bar -->
+    <div class="syllabus-note">
+      <span class="mi" style="font-size:14px;vertical-align:middle">info</span>
+      <strong>📋 考纲 & 题库说明（2020–2025）：</strong>
+      <ul style="margin-top:6px;margin-left:20px">
+        <li>📐 <strong>0580 数学</strong>：P1/P2各1 hour 30 minutes(70分)，P3共2 hours(104分)，P4共2 hours 30 minutes(130分)</li>
+        <li>🔬 <strong>理科(0610/0620/0625)</strong>：P1/P2各45 minutes(40分)，P3/P4各1 hour 15 minutes(80分)，P5共1 hour 15 minutes(40分)，P6共1 hour(40分)</li>
+        <li>⚠️ <strong>2025新考纲(0580)</strong>：P2改为2 hours(100分)非计算器；P4改为2 hours(100分)计算器；P1/P3不变</li>
+        <li>📅 <strong>考季规律</strong>：March仅时区2；May/June和Oct/Nov各有时区1、2、3</li>
+        <li>🟢 <strong>2025年卷子</strong>：按规律推算（March已考，MJ/ON预测）</li>
+      </ul>
+    </div>
+
     <div class="flex items-center flex-wrap gap-2 mb-4 px-4 py-3 bg-white rounded-2xl" style="box-shadow:0 1px 3px rgba(0,0,0,0.12)">
       <span id="filterCount" class="text-sm font-medium" style="color:#202124">筛选到 0 张卷子</span>
       <div style="flex:1"></div>
@@ -278,88 +343,172 @@
       <button onclick="openGacha()" class="btn btn-g text-xs" style="padding:6px 16px">
         <span class="mi" style="font-size:16px">casino</span> 随机抽取
       </button>
+      <button onclick="openSearch()" class="btn text-xs" style="padding:6px 16px;background:linear-gradient(135deg,#0F9D58,#34A853);color:white">
+        <span class="mi" style="font-size:16px">search</span> 输入代码
+      </button>
     </div>
-    <!-- Card grid -->
     <div id="cardGrid" class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))"></div>
-    <!-- Empty state -->
     <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center" style="display:none">
       <span class="mi" style="font-size:64px;color:#DADCE0">search_off</span>
       <p class="text-lg mt-4" style="color:#9AA0A6">没有找到符合条件的卷子</p>
       <button onclick="clearFilters()" class="btn btn-o mt-4">清除筛选条件</button>
     </div>
-    <!-- Lock prompt -->
-    <div id="lockPrompt" class="hidden mt-6 lock-box">
-      <span class="mi" style="font-size:48px;color:#DADCE0">lock</span>
-      <p class="font-semibold mt-3" style="color:#5F6368">🔒 完成 2023-2025 的全部卷子后解锁更早年份</p>
-      <p class="text-sm mt-1" style="color:#9AA0A6">每完成一个科目的所有近年卷子，即可解锁该科目的历年真题</p>
-    </div>
   </div>
 </main>
 
-<!-- ══════════════════════ CART PANEL (slide-up) ══════════════════════ -->
-<div id="cartPanel">
-  <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border)">
-    <h3 class="font-semibold text-sm" style="color:#202124">今日清单</h3>
-    <div class="flex gap-2">
-      <button onclick="clearCart()" class="btn" style="font-size:12px;padding:5px 12px;border:1.5px solid var(--danger);color:var(--danger);border-radius:24px;background:transparent">清空</button>
-      <button onclick="startExam()" class="btn btn-p" style="font-size:12px;padding:5px 12px">
-        <span class="mi" style="font-size:15px">play_arrow</span> 开始模考
+<div id="cartOverlay" class="fixed inset-0 z-[60] hidden" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(3px)" onclick="closeCartDrawer()"></div>
+
+<div id="cartDrawer" class="fixed top-0 right-0 bottom-0 z-[70] flex flex-col bg-white" style="width:420px;max-width:100vw;transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);box-shadow:-8px 0 40px rgba(0,0,0,0.18)">
+  <div class="flex items-center justify-between px-5 py-4 flex-shrink-0" style="border-bottom:2px solid var(--border);background:white">
+    <div class="flex items-center gap-3">
+      <div style="width:36px;height:36px;border-radius:10px;background:#E8F0FE;display:flex;align-items:center;justify-content:center">
+        <span class="mi" style="color:var(--primary);font-size:20px">shopping_cart</span>
+      </div>
+      <div>
+        <h2 class="font-bold text-base" style="color:#202124;letter-spacing:-.3px">今日清单</h2>
+        <p id="cartDrawerSubtitle" class="text-xs" style="color:var(--text-sub)">暂无卷子</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="clearCart()" id="cartClearBtn" class="btn btn-o" style="font-size:12px;padding:5px 12px;color:var(--danger);border-color:var(--danger)" disabled>
+        <span class="mi" style="font-size:15px">delete_sweep</span> 清空
+      </button>
+      <button onclick="closeCartDrawer()" style="background:none;border:none;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s" onmouseover="this.style.background='#F1F3F4'" onmouseout="this.style.background='none'">
+        <span class="mi" style="color:#5F6368">close</span>
       </button>
     </div>
   </div>
-  <div id="cartList" class="overflow-y-auto" style="max-height:360px;padding:8px"></div>
+
+  <div id="cartSubjectSummary" class="flex-shrink-0 px-5 py-3" style="border-bottom:1px solid var(--border);background:#FAFAFA;display:none">
+    <div id="cartSubjectTags" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <!-- Smart warnings panel -->
+  <div id="cartWarnings" class="flex-shrink-0" style="display:none"></div>
+
+  <div id="cartList" class="flex-1 overflow-y-auto" style="padding:16px 16px 0"></div>
+
+  <div class="flex-shrink-0" style="border-top:2px solid var(--border);background:white">
+    <div class="px-5 py-3" style="background:#F8F9FA;border-bottom:1px solid var(--border)">
+      <div class="grid grid-cols-3 gap-3">
+        <div class="text-center p-2 bg-white rounded-xl" style="box-shadow:0 1px 3px rgba(0,0,0,.07)">
+          <div id="cartStatCount" class="font-bold text-lg" style="color:var(--primary)">0</div>
+          <div class="text-xs" style="color:var(--text-sub)">张卷子</div>
+        </div>
+        <div class="text-center p-2 bg-white rounded-xl" style="box-shadow:0 1px 3px rgba(0,0,0,.07)">
+          <div id="cartStatTime" class="font-bold text-lg" style="color:#9334E8">--</div>
+          <div class="text-xs" style="color:var(--text-sub)">总时长</div>
+        </div>
+        <div class="text-center p-2 bg-white rounded-xl" style="box-shadow:0 1px 3px rgba(0,0,0,.07)">
+          <div id="cartStatMarks" class="font-bold text-lg" style="color:var(--success)">0</div>
+          <div class="text-xs" style="color:var(--text-sub)">总分值</div>
+        </div>
+      </div>
+    </div>
+    <div class="px-5 py-4">
+      <button onclick="startExam()" id="startExamBtn" class="btn btn-p w-full" disabled style="font-size:15px;padding:14px;justify-content:center;border-radius:14px;letter-spacing:.3px">
+        <span class="mi" style="font-size:20px">play_circle</span>&nbsp;开始模考
+      </button>
+      <p class="text-center text-xs mt-2" style="color:#9AA0A6">试卷将按清单顺序依次进行，可拖拽调整顺序</p>
+    </div>
+  </div>
 </div>
 
-<!-- ══════════════════════ CART BAR ══════════════════════ -->
-<div id="cartBar" class="fixed bottom-0 left-0 right-0 z-50 flex items-center px-4 gap-3" style="height:64px">
-  <button onclick="toggleCartPanel()" class="flex items-center gap-2 transition-colors hover:opacity-80" style="background:none;border:none;cursor:pointer;color:#202124">
-    <span class="mi" style="color:var(--primary)">playlist_add_check</span>
-    <span class="font-medium text-sm">今日清单</span>
-    <span id="cartCount" class="font-bold text-xs text-white rounded-full px-2 py-0.5" style="background:var(--primary);min-width:20px;text-align:center">0</span>
-  </button>
-  <div id="cartDots" class="flex gap-1.5 items-center" style="flex:1"></div>
-  <span id="cartTime" class="text-xs" style="color:var(--text-sub);white-space:nowrap">预计总时长: --</span>
-  <button onclick="toggleCartPanel()" id="cartExpBtn" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;transition:background .15s" onmouseover="this.style.background='#F1F3F4'" onmouseout="this.style.background='none'">
-    <span class="mi" id="cartExpIco" style="color:#5F6368">expand_less</span>
-  </button>
-  <button onclick="startExam()" id="startExamBtn" class="btn btn-p" disabled style="font-size:13px;padding:8px 20px">
-    <span class="mi" style="font-size:16px">play_arrow</span> 开始模考
-  </button>
-</div>
+<button onclick="openCartDrawer()" id="cartFab" class="fixed z-50 flex items-center gap-2 shadow-lg" style="bottom:28px;right:28px;background:var(--primary);color:white;border:none;cursor:pointer;border-radius:28px;padding:14px 20px;font-family:inherit;font-size:14px;font-weight:600;transition:all .2s ease;box-shadow:0 4px 20px rgba(26,115,232,.45)" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 28px rgba(26,115,232,.5)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(26,115,232,.45)'">
+  <span class="mi" style="font-size:22px">shopping_cart</span>
+  <span>今日清单</span>
+  <span id="cartCount" style="background:white;color:var(--primary);border-radius:20px;padding:2px 9px;font-size:12px;font-weight:700;min-width:24px;text-align:center">0</span>
+</button>
 
-<!-- ══════════════════════ GACHA MODAL ══════════════════════ -->
 <div id="gachaModal" class="fixed inset-0 z-50 hidden items-center justify-center mbg" style="display:none">
   <div id="gachaBox" class="bg-white rounded-2xl p-6 mx-4 relative" style="width:440px;max-width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)"></div>
 </div>
 
-<!-- ══════════════════════ SETTINGS OVERLAY + DRAWER ══════════════════════ -->
 <div id="settingsOv" class="fixed inset-0 z-50 hidden mbg" onclick="closeSettings()"></div>
-<div id="settingsDr" class="fixed top-0 right-0 bottom-0 z-50 bg-white overflow-y-auto" style="width:320px">
-  <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid var(--border)">
+<div id="settingsDr" class="fixed top-0 right-0 bottom-0 z-50 bg-white overflow-y-auto" style="width:360px">
+  <div class="flex items-center justify-between px-5 py-4 flex-shrink-0" style="border-bottom:1px solid var(--border);position:sticky;top:0;background:white;z-index:1">
     <h2 class="font-bold text-base" style="color:#202124">设置</h2>
     <button onclick="closeSettings()" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:50%">
       <span class="mi" style="color:#5F6368">close</span>
     </button>
   </div>
-  <div class="p-5 space-y-6">
-    <!-- Mode -->
+  <div class="p-5 space-y-5">
+
+    <!-- ① 报考信息 (most important, top) -->
+    <div style="background:linear-gradient(135deg,#1A1A2E,#16213E);border-radius:16px;padding:18px">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="mi" style="color:#818cf8;font-size:18px">badge</span>
+        <p class="font-bold text-sm" style="color:white">我的报考信息</p>
+      </div>
+      <p class="text-xs mb-4" style="color:rgba(255,255,255,.4)">填写后将自动推荐卷子并检测清单中的问题</p>
+
+      <!-- Subjects -->
+      <div class="mb-4">
+        <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">📚 报考科目（可多选）</label>
+        <div class="flex flex-wrap gap-2" id="profileSubjects">
+          <div class="fchip" data-v="0580" onclick="toggleProfileSubject('0580')" style="background:rgba(26,115,232,.15);border-color:rgba(26,115,232,.3);color:#93c5fd">0580 数学</div>
+          <div class="fchip" data-v="0610" onclick="toggleProfileSubject('0610')" style="background:rgba(52,168,83,.15);border-color:rgba(52,168,83,.3);color:#86efac">0610 生物</div>
+          <div class="fchip" data-v="0620" onclick="toggleProfileSubject('0620')" style="background:rgba(255,109,0,.15);border-color:rgba(255,109,0,.3);color:#fdba74">0620 化学</div>
+          <div class="fchip" data-v="0625" onclick="toggleProfileSubject('0625')" style="background:rgba(147,52,232,.15);border-color:rgba(147,52,232,.3);color:#c4b5fd">0625 物理</div>
+        </div>
+      </div>
+
+      <!-- Session -->
+      <div class="mb-4">
+        <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">🗓 参加考季</label>
+        <div class="flex flex-wrap gap-2" id="profileSession">
+          <div class="fchip" data-v="May/June" onclick="selectProfileSession('May/June')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">May/June</div>
+          <div class="fchip" data-v="Oct/Nov" onclick="selectProfileSession('Oct/Nov')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">Oct/Nov</div>
+          <div class="fchip" data-v="March" onclick="selectProfileSession('March')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">March</div>
+        </div>
+      </div>
+
+      <!-- Year -->
+      <div class="mb-4">
+        <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">📅 考试年份</label>
+        <div class="flex flex-wrap gap-2" id="profileYear">
+          <div class="fchip" data-v="2026" onclick="selectProfileYear('2026')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">2026 🟢</div>
+          <div class="fchip" data-v="2027" onclick="selectProfileYear('2027')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">2027</div>
+        </div>
+      </div>
+
+      <!-- Region / Variant -->
+      <div class="mb-4">
+        <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">🌍 考试地区（变体）</label>
+        <div class="flex flex-wrap gap-2" id="profileVariant">
+          <div class="fchip" data-v="2" onclick="selectProfileVariant('2')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">🇨🇳 V2 中国大陆/东亚</div>
+          <div class="fchip" data-v="1" onclick="selectProfileVariant('1')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">🇬🇧 V1 英国/欧洲</div>
+          <div class="fchip" data-v="3" onclick="selectProfileVariant('3')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">🇦🇺 V3 澳洲/东南亚</div>
+        </div>
+      </div>
+
+      <!-- Paper tiers per subject -->
+      <div class="mb-4" id="profileTierSection">
+        <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">📄 参加的卷型（Core/Extended）</label>
+        <div id="profileTiers" class="flex flex-wrap gap-2">
+          <!-- Rendered by JS -->
+        </div>
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,.25)">Extended = P2/P4；Core = P1/P3；理科 P6 = Alt. to Practical</p>
+      </div>
+
+      <!-- Smart filter button -->
+      <button onclick="applyProfileFilter()" class="btn w-full" style="background:linear-gradient(90deg,#4f46e5,#7c3aed);color:white;justify-content:center;padding:10px;font-size:13px;border-radius:10px">
+        <span class="mi" style="font-size:16px">filter_alt</span>&nbsp;只显示我需要的卷子
+      </button>
+      <p class="text-xs text-center mt-2" style="color:rgba(255,255,255,.25)">将自动筛选：你的科目 + 正确考季 + 正确变体 + 新考纲</p>
+    </div>
+
+    <!-- ② Exam Mode -->
     <div>
       <p class="font-semibold text-sm mb-1" style="color:#202124">考试模式</p>
-      <p class="text-xs mb-3" style="color:var(--text-sub)">严格模式下不允许暂停，退出全屏将显示警告</p>
+      <p class="text-xs mb-3" style="color:var(--text-sub)">严格模式下不允许暂停，退出全屏自动恢复；练习模式可随时暂停</p>
       <div class="flex rounded-xl overflow-hidden" style="border:1.5px solid var(--border)">
         <button id="modeStrict" onclick="setMode('strict')" class="flex-1 py-2 text-sm font-medium transition-colors" style="background:var(--primary);color:white;border:none;cursor:pointer">⚡ 严格模式</button>
         <button id="modePrac" onclick="setMode('practice')" class="flex-1 py-2 text-sm font-medium transition-colors" style="background:white;color:var(--text-sub);border:none;cursor:pointer">🎓 练习模式</button>
       </div>
     </div>
-    <!-- Theme -->
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-sm" style="color:#202124">深色主题</p>
-        <p class="text-xs" style="color:var(--text-sub)">（开发中）</p>
-      </div>
-      <div class="tgl" id="themeTgl" onclick="toggleTheme()" style="opacity:.45;pointer-events:none"></div>
-    </div>
-    <!-- Stats -->
+
+    <!-- ③ Stats -->
     <div style="background:#F8F9FA;border-radius:12px;padding:16px">
       <p class="font-semibold text-sm mb-3" style="color:#202124">学习统计</p>
       <div class="grid grid-cols-2 gap-3">
@@ -377,27 +526,94 @@
         </div>
       </div>
     </div>
-    <!-- Reset -->
+
+    <!-- ④ Danger zone -->
     <div>
       <p class="font-semibold text-sm mb-2" style="color:#202124">危险操作</p>
       <button onclick="confirmReset()" class="btn btn-d w-full" style="justify-content:center">
         <span class="mi" style="font-size:16px">delete_forever</span> 重置所有进度
       </button>
     </div>
+
+    <!-- ⑤ Countdown settings -->
+    <div style="background:#0D1B2A;border-radius:12px;padding:16px">
+      <p class="font-semibold text-sm mb-1" style="color:white">⏳ 考试倒计时设置</p>
+      <p class="text-xs mb-3" style="color:rgba(255,255,255,.4)">显示在顶部横幅，时刻保持紧迫感</p>
+      <div class="mb-3">
+        <label class="text-xs font-semibold mb-1 block" style="color:rgba(255,255,255,.6)">考试日期</label>
+        <input id="examDateInput" type="date"
+          class="rounded-lg text-sm focus:outline-none w-full"
+          style="border:1.5px solid rgba(255,255,255,.15);padding:7px 10px;font-family:inherit;color:white;background:rgba(255,255,255,.08);transition:border .15s"
+          onfocus="this.style.borderColor='var(--primary)'"
+          onblur="this.style.borderColor='rgba(255,255,255,.15)'"
+          onchange="saveExamDate(this.value)" />
+        <p class="text-xs mt-1" style="color:rgba(255,255,255,.3)">参考时间表：May/June 2026 从 4月28日 开始</p>
+      </div>
+      <div>
+        <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">显示单位</label>
+        <div class="flex flex-wrap gap-2" id="cdUnitBtns">
+          <button onclick="setCdUnit('wdh')" id="cdu-wdh" class="gcnt" style="font-size:11px;width:auto;padding:0 10px;height:32px">周/天/时</button>
+          <button onclick="setCdUnit('dh')"  id="cdu-dh"  class="gcnt" style="font-size:11px;width:auto;padding:0 10px;height:32px">天/时</button>
+          <button onclick="setCdUnit('d')"   id="cdu-d"   class="gcnt" style="font-size:11px;width:auto;padding:0 10px;height:32px">天</button>
+          <button onclick="setCdUnit('h')"   id="cdu-h"   class="gcnt" style="font-size:11px;width:auto;padding:0 10px;height:32px">小时</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
-<!-- ══════════════════════ EXAM OVERLAY ══════════════════════ -->
 <div id="examOv" class="fixed inset-0 z-[100] hidden" style="display:none">
-  <div id="warnBanner">⚠️ 警告！退出全屏视为作弊行为！请立刻返回全屏！</div>
+  <div id="warnBanner" style="position:fixed;top:0;left:0;right:0;z-index:200;background:#EA4335;color:white;text-align:center;padding:10px;font-weight:600;font-size:14px;transform:translateY(-100%);transition:transform .3s ease">⚠️ 警告！已退出全屏。正在自动恢复…</div>
   <div id="examContent" class="flex flex-col items-center justify-center h-full px-8 text-center relative" style="z-index:1"></div>
   <div class="wm" id="examWm"></div>
 </div>
 
-<!-- ══════════════════════ TOAST ══════════════════════ -->
+<!-- ══════════════════════ SEARCH / CUSTOM PAPER MODAL ══════════════════════ -->
+<div id="searchModal" class="fixed inset-0 z-50 hidden items-center justify-center mbg" style="display:none" onclick="handleSearchModalBg(event)">
+  <div id="searchBox" class="bg-white rounded-2xl mx-4 relative flex flex-col" style="width:480px;max-width:100%;max-height:90vh;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <!-- Header -->
+    <div class="flex items-center gap-3 px-5 py-4 flex-shrink-0" style="border-bottom:1.5px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:10px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <span class="mi" style="color:#34A853;font-size:20px">search</span>
+      </div>
+      <div>
+        <h2 class="font-bold text-base" style="color:#202124">输入卷子代码</h2>
+        <p class="text-xs" style="color:var(--text-sub)">如 0580/41、0625/62、0610/32</p>
+      </div>
+      <div style="flex:1"></div>
+      <button onclick="closeSearch()" style="background:none;border:none;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s" onmouseover="this.style.background='#F1F3F4'" onmouseout="this.style.background='none'">
+        <span class="mi" style="color:#5F6368">close</span>
+      </button>
+    </div>
+
+    <!-- Search input -->
+    <div class="px-5 pt-4 pb-3 flex-shrink-0">
+      <div class="flex gap-2">
+        <div class="relative flex-1">
+          <span class="mi" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9AA0A6;font-size:18px;pointer-events:none">tag</span>
+          <input id="searchInput" type="text" placeholder="例：0580/41 或 0625/62"
+            class="w-full rounded-xl text-sm focus:outline-none"
+            style="border:2px solid var(--border);padding:10px 12px 10px 38px;font-family:inherit;color:#202124;transition:border .15s"
+            oninput="onSearchInput(this.value)"
+            onkeydown="if(event.key==='Enter')doSearch()"
+            onfocus="this.style.borderColor='var(--primary)'"
+            onblur="this.style.borderColor='var(--border)'" />
+        </div>
+        <button onclick="doSearch()" class="btn btn-p" style="padding:10px 18px;flex-shrink:0">
+          <span class="mi" style="font-size:18px">search</span>
+        </button>
+      </div>
+      <p class="text-xs mt-2" style="color:#9AA0A6">格式：科目代码/卷号变体，如 <code style="background:#F1F3F4;padding:1px 5px;border-radius:4px">0580/41</code> = 数学 Paper 4 Variant 1</p>
+    </div>
+
+    <!-- Results / Add form area -->
+    <div id="searchResults" class="flex-1 overflow-y-auto px-5 pb-5"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
-<!-- ══════════════════════ MOBILE FILTER BOTTOM SHEET ══════════════════════ -->
 <div id="mobileFilterOv" class="fixed inset-0 z-50 hidden mbg" onclick="closeMobileFilter()"></div>
 <div id="mobileFilterSheet" class="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl overflow-y-auto transition-transform" style="max-height:80vh;transform:translateY(100%);box-shadow:0 -4px 24px rgba(0,0,0,.15)">
   <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--border)">
@@ -411,100 +627,177 @@
 
 <script>
 // ╔══════════════════════════════════════════════════════════╗
-// ║                   PAPER DATABASE                        ║
+// ║              PAPER DATABASE — COMPLETE VERSION          ║
+// ║  规律：每年 March(V2) + MJ(V1/2/3) + ON(V1/2/3)       ║
+// ║  科目：0580数学 + 0610生物 + 0620化学 + 0625物理        ║
+// ║  年份：2020-2025（2025按规律推算）                       ║
 // ╚══════════════════════════════════════════════════════════╝
 
-/** 生成所有试卷的数据库 */
 function generatePaperDB() {
   const db = [];
 
-  // 科目配置
-  const SUBJECTS = [
-    {
-      subject: '0580', subjectName: 'Mathematics',
-      subjectIcon: 'calculate', subjectColor: '#1A73E8',
-      papers: [
-        { code: 'P1', full: 'Paper 1', duration: 45,  marks: 40, tier: 'Core' },
-        { code: 'P2', full: 'Paper 2', duration: 90,  marks: 70, tier: 'Extended' },
-        { code: 'P3', full: 'Paper 3', duration: 120, marks: 80, tier: 'Core' },
-        { code: 'P4', full: 'Paper 4', duration: 120, marks: 80, tier: 'Extended' },
-      ]
-    },
-    {
-      subject: '0610', subjectName: 'Biology',
-      subjectIcon: 'biotech', subjectColor: '#34A853',
-      papers: [
-        { code: 'P1', full: 'Paper 1', duration: 45,  marks: 40, tier: 'Core/Extended' },
-        { code: 'P2', full: 'Paper 2', duration: 90,  marks: 70, tier: 'Extended' },
-        { code: 'P4', full: 'Paper 4', duration: 120, marks: 80, tier: 'Extended' },
-        { code: 'P6', full: 'Paper 6', duration: 60,  marks: 40, tier: 'Practical' },
-      ]
-    },
-    {
-      subject: '0620', subjectName: 'Chemistry',
-      subjectIcon: 'science', subjectColor: '#FF6D00',
-      papers: [
-        { code: 'P1', full: 'Paper 1', duration: 45,  marks: 40, tier: 'Core/Extended' },
-        { code: 'P2', full: 'Paper 2', duration: 90,  marks: 70, tier: 'Extended' },
-        { code: 'P4', full: 'Paper 4', duration: 120, marks: 80, tier: 'Extended' },
-        { code: 'P6', full: 'Paper 6', duration: 60,  marks: 40, tier: 'Practical' },
-      ]
-    },
-    {
-      subject: '0625', subjectName: 'Physics',
-      subjectIcon: 'bolt', subjectColor: '#9334E8',
-      papers: [
-        { code: 'P1', full: 'Paper 1', duration: 45,  marks: 40, tier: 'Core/Extended' },
-        { code: 'P2', full: 'Paper 2', duration: 90,  marks: 70, tier: 'Extended' },
-        { code: 'P4', full: 'Paper 4', duration: 120, marks: 80, tier: 'Extended' },
-        { code: 'P6', full: 'Paper 6', duration: 60,  marks: 40, tier: 'Practical' },
-      ]
-    },
-  ];
+  const YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
 
-  for (const subj of SUBJECTS) {
-    // 近年卷子 (2023-2025): 两个考季，两个变体
-    for (const year of [2025, 2024, 2023]) {
-      for (const [session, sc] of [['May/June', 'MJ'], ['Oct/Nov', 'ON']]) {
-        for (const pt of subj.papers) {
-          for (const v of [1, 2]) {
-            db.push({
-              id: `${subj.subject}-${year}-${sc}-${pt.code}${v}`,
-              subject: subj.subject,
-              subjectName: subj.subjectName,
-              subjectIcon: subj.subjectIcon,
-              subjectColor: subj.subjectColor,
-              year, paper: `${pt.code}${v}`,
-              paperFull: `${pt.full} (Variant ${v})`,
-              session, duration: pt.duration,
-              totalMarks: pt.marks, tier: pt.tier,
-              locked: false,
-            });
-          }
-        }
+  const VARIANT_REGIONS = {
+    1: { name: 'Variant 1', region: '🇬🇧 时区1 英/欧/非/美' },
+    2: { name: 'Variant 2', region: '🇨🇳 时区2 中/东亚/巴' },
+    3: { name: 'Variant 3', region: '🇦🇺 时区3 澳/新/东南亚' },
+  };
+
+  // ══════════════════════════════════════════
+  // 0580 Mathematics
+  // 2020-2024: P1 1h30m/70分, P2 1h30m/70分, P3 2h/104分, P4 2h30m/130分
+  // 2025新考纲: P1 1h30m/70分(不变), P2 2h/100分(非计算器), P3 2h/104分(不变), P4 2h/100分(计算器)
+  // ══════════════════════════════════════════
+  function getMathPapers(year) {
+    if (year >= 2025) {
+      return [
+        { code: 'P1', full: 'Paper 1', duration: 90,  marks: 70,  tier: 'Core',     note: '非计算器' },
+        { code: 'P2', full: 'Paper 2', duration: 120, marks: 100, tier: 'Extended', note: '非计算器 [新考纲]' },
+        { code: 'P3', full: 'Paper 3', duration: 120, marks: 104, tier: 'Core',     note: '计算器' },
+        { code: 'P4', full: 'Paper 4', duration: 120, marks: 100, tier: 'Extended', note: '计算器 [新考纲]' },
+      ];
+    }
+    return [
+      { code: 'P1', full: 'Paper 1', duration: 90,  marks: 70,  tier: 'Core',     note: '' },
+      { code: 'P2', full: 'Paper 2', duration: 90,  marks: 70,  tier: 'Extended', note: '' },
+      { code: 'P3', full: 'Paper 3', duration: 120, marks: 104, tier: 'Core',     note: '' },
+      { code: 'P4', full: 'Paper 4', duration: 150, marks: 130, tier: 'Extended', note: '' },
+    ];
+  }
+
+  for (const year of YEARS) {
+    const mathPapers = getMathPapers(year);
+    const isNew = year >= 2025;
+    const isPredict = year >= 2025;
+
+    // March — 仅 Variant 2
+    for (const pt of mathPapers) {
+      db.push({
+        id: `0580-${year}-MA-${pt.code}2`,
+        subject: '0580', subjectName: 'Mathematics',
+        subjectIcon: 'calculate', subjectColor: '#1A73E8',
+        year, paper: `${pt.code}2`,
+        paperFull: `${pt.full} (${VARIANT_REGIONS[2].name})`,
+        variantRegion: VARIANT_REGIONS[2].region,
+        session: 'March', duration: pt.duration,
+        totalMarks: pt.marks, tier: pt.tier,
+        locked: false,
+        syllabusInfo: isNew ? pt.note : '',
+        isPredicted: isPredict,
+      });
+    }
+
+    // May/June — Variant 1, 2, 3
+    for (const pt of mathPapers) {
+      for (const v of [1, 2, 3]) {
+        db.push({
+          id: `0580-${year}-MJ-${pt.code}${v}`,
+          subject: '0580', subjectName: 'Mathematics',
+          subjectIcon: 'calculate', subjectColor: '#1A73E8',
+          year, paper: `${pt.code}${v}`,
+          paperFull: `${pt.full} (${VARIANT_REGIONS[v].name})`,
+          variantRegion: VARIANT_REGIONS[v].region,
+          session: 'May/June', duration: pt.duration,
+          totalMarks: pt.marks, tier: pt.tier,
+          locked: false,
+          syllabusInfo: isNew ? pt.note : '',
+          isPredicted: isPredict,
+        });
       }
     }
-    // 历年卷子 (2020-2022): 仅 May/June，仅 P2/P4，两个变体（默认锁定）
-    for (const year of [2022, 2021, 2020]) {
-      for (const pt of subj.papers.filter(p => ['P2', 'P4'].includes(p.code))) {
-        for (const v of [1, 2]) {
+
+    // Oct/Nov — Variant 1, 2, 3
+    for (const pt of mathPapers) {
+      for (const v of [1, 2, 3]) {
+        db.push({
+          id: `0580-${year}-ON-${pt.code}${v}`,
+          subject: '0580', subjectName: 'Mathematics',
+          subjectIcon: 'calculate', subjectColor: '#1A73E8',
+          year, paper: `${pt.code}${v}`,
+          paperFull: `${pt.full} (${VARIANT_REGIONS[v].name})`,
+          variantRegion: VARIANT_REGIONS[v].region,
+          session: 'Oct/Nov', duration: pt.duration,
+          totalMarks: pt.marks, tier: pt.tier,
+          locked: false,
+          syllabusInfo: isNew ? pt.note : '',
+          isPredicted: isPredict,
+        });
+      }
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // 理科 0610 Biology / 0620 Chemistry / 0625 Physics
+  // 完全相同的结构：
+  //   P1: 45min / 40分 (Core MCQ)
+  //   P2: 45min / 40分 (Extended MCQ)
+  //   P3: 75min / 80分 (Core Theory)
+  //   P4: 75min / 80分 (Extended Theory)
+  //   P5: 75min / 40分 (Practical)
+  //   P6: 60min / 40分 (Alt. to Practical)
+  // ══════════════════════════════════════════
+  const SCI_PAPERS = [
+    { code: 'P1', full: 'Paper 1', duration: 45, marks: 40, tier: 'Core MCQ' },
+    { code: 'P2', full: 'Paper 2', duration: 45, marks: 40, tier: 'Extended MCQ' },
+    { code: 'P3', full: 'Paper 3', duration: 75, marks: 80, tier: 'Core Theory' },
+    { code: 'P4', full: 'Paper 4', duration: 75, marks: 80, tier: 'Extended Theory' },
+    { code: 'P5', full: 'Paper 5', duration: 75, marks: 40, tier: 'Practical' },
+    { code: 'P6', full: 'Paper 6', duration: 60, marks: 40, tier: 'Alt. to Practical' },
+  ];
+
+  const SCI_SUBJECTS = [
+    { subject: '0610', subjectName: 'Biology',   subjectIcon: 'biotech',   subjectColor: '#34A853' },
+    { subject: '0620', subjectName: 'Chemistry', subjectIcon: 'science',   subjectColor: '#FF6D00' },
+    { subject: '0625', subjectName: 'Physics',   subjectIcon: 'bolt',      subjectColor: '#9334E8' },
+  ];
+
+  for (const subj of SCI_SUBJECTS) {
+    for (const year of YEARS) {
+      const isPredict = year >= 2025;
+
+      // March — Variant 2 only
+      for (const pt of SCI_PAPERS) {
+        db.push({
+          id: `${subj.subject}-${year}-MA-${pt.code}2`,
+          ...subj, year, paper: `${pt.code}2`,
+          paperFull: `${pt.full} (${VARIANT_REGIONS[2].name})`,
+          variantRegion: VARIANT_REGIONS[2].region,
+          session: 'March', duration: pt.duration, totalMarks: pt.marks, tier: pt.tier,
+          locked: false, syllabusInfo: '', isPredicted: isPredict,
+        });
+      }
+
+      // May/June — Variant 1, 2, 3
+      for (const pt of SCI_PAPERS) {
+        for (const v of [1, 2, 3]) {
           db.push({
             id: `${subj.subject}-${year}-MJ-${pt.code}${v}`,
-            subject: subj.subject,
-            subjectName: subj.subjectName,
-            subjectIcon: subj.subjectIcon,
-            subjectColor: subj.subjectColor,
-            year, paper: `${pt.code}${v}`,
-            paperFull: `${pt.full} (Variant ${v})`,
-            session: 'May/June',
-            duration: pt.duration,
-            totalMarks: pt.marks, tier: pt.tier,
-            locked: true,
+            ...subj, year, paper: `${pt.code}${v}`,
+            paperFull: `${pt.full} (${VARIANT_REGIONS[v].name})`,
+            variantRegion: VARIANT_REGIONS[v].region,
+            session: 'May/June', duration: pt.duration, totalMarks: pt.marks, tier: pt.tier,
+            locked: false, syllabusInfo: '', isPredicted: isPredict,
+          });
+        }
+      }
+
+      // Oct/Nov — Variant 1, 2, 3
+      for (const pt of SCI_PAPERS) {
+        for (const v of [1, 2, 3]) {
+          db.push({
+            id: `${subj.subject}-${year}-ON-${pt.code}${v}`,
+            ...subj, year, paper: `${pt.code}${v}`,
+            paperFull: `${pt.full} (${VARIANT_REGIONS[v].name})`,
+            variantRegion: VARIANT_REGIONS[v].region,
+            session: 'Oct/Nov', duration: pt.duration, totalMarks: pt.marks, tier: pt.tier,
+            locked: false, syllabusInfo: '', isPredicted: isPredict,
           });
         }
       }
     }
   }
+
   return db;
 }
 
@@ -512,21 +805,20 @@ function generatePaperDB() {
 // ║                    STATE & STORAGE                      ║
 // ╚══════════════════════════════════════════════════════════╝
 
-const STORAGE_KEY = 'warden_mock_portal_v2';
+const STORAGE_KEY = 'warden_mock_portal_v4';
 
 let paperDB = [];
 let filteredPapers = [];
-let selectedSet = new Set(); // 卡片选中状态（用于批量操作）
+let selectedSet = new Set();
 
 let state = {
-  filters: { subjects: [], years: [], papers: [], durations: [], statuses: [], sessions: [] },
-  cart: [],           // 今日清单（paper id 数组）
-  paperStatus: {},    // id -> 'done' | 'inprog'
-  paperTimes: {},     // id -> seconds
+  filters: { subjects: [], years: [], papers: [], durations: [], statuses: [], sessions: [], variants: [] },
+  cart: [],
+  paperStatus: {},
+  paperTimes: {},
   settings: { mode: 'strict', theme: 'light' },
 };
 
-/** 从 LocalStorage 加载状态 */
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -540,7 +832,6 @@ function loadState() {
   } catch (e) { console.warn('加载状态失败', e); }
 }
 
-/** 保存状态到 LocalStorage */
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -569,30 +860,50 @@ const FILTER_DEFS = [
   {
     key: 'years', label: '📅 年份',
     options: [
-      { value: 2025, label: '2025' },
+      { value: 2025, label: '2025 🟢' },
       { value: 2024, label: '2024' },
       { value: 2023, label: '2023' },
-      { value: 2022, label: '2022 🔒', locked: true },
-      { value: 2021, label: '2021 🔒', locked: true },
-      { value: 2020, label: '2020 🔒', locked: true },
+      { value: 2022, label: '2022' },
+      { value: 2021, label: '2021' },
+      { value: 2020, label: '2020' },
     ]
   },
   {
     key: 'papers', label: '📄 卷型',
     options: [
-      { value: 'P1', label: 'P1 (MCQ)' },
-      { value: 'P2', label: 'P2 (结构)' },
-      { value: 'P3', label: 'P3 (Core)' },
-      { value: 'P4', label: 'P4 (Extended)' },
-      { value: 'P6', label: 'P6 (实验)' },
+      { value: 'P1', label: 'P1 (Core)' },
+      { value: 'P2', label: 'P2 (Extended)' },
+      { value: 'P3', label: 'P3 (Core Theory)' },
+      { value: 'P4', label: 'P4 (Ext. Theory)' },
+      { value: 'P5', label: 'P5 (Practical)' },
+      { value: 'P6', label: 'P6 (Alt. Prac.)' },
+    ]
+  },
+  {
+    key: 'sessions', label: '🗓 考季',
+    options: [
+      { value: 'March',    label: 'March (仅V2)' },
+      { value: 'May/June', label: 'May/June (V1-3)' },
+      { value: 'Oct/Nov',  label: 'Oct/Nov (V1-3)' },
+    ]
+  },
+  {
+    key: 'variants', label: '🌍 变体/时区',
+    options: [
+      { value: 1, label: '🇬🇧 V1 (英/欧/非/美)' },
+      { value: 2, label: '🇨🇳 V2 (中/东亚/巴)' },
+      { value: 3, label: '🇦🇺 V3 (澳/新/东南亚)' },
     ]
   },
   {
     key: 'durations', label: '⏱ 时长',
     options: [
-      { value: '45',  label: '≤ 45 min' },
-      { value: '90',  label: '46–90 min' },
-      { value: '120', label: '91–120 min' },
+      { value: '45',  label: '45 minutes' },
+      { value: '60',  label: '1 hour' },
+      { value: '75',  label: '1 hour 15 minutes' },
+      { value: '90',  label: '1 hour 30 minutes' },
+      { value: '120', label: '2 hours' },
+      { value: '150', label: '2 hours 30 minutes' },
     ]
   },
   {
@@ -603,17 +914,8 @@ const FILTER_DEFS = [
       { value: 'done',   label: '已完成' },
     ]
   },
-  {
-    key: 'sessions', label: '🗓 考季',
-    options: [
-      { value: 'May/June', label: 'May/June' },
-      { value: 'Oct/Nov',  label: 'Oct/Nov'  },
-      { value: 'Feb/Mar',  label: 'Feb/Mar'  },
-    ]
-  },
 ];
 
-/** 渲染左侧筛选面板 */
 function renderFilterPanel() {
   const container = document.getElementById('filterSections');
   container.innerHTML = '';
@@ -641,12 +943,10 @@ function renderFilterPanel() {
     container.appendChild(sec);
   });
   updateFilterCounts();
-  // 同步渲染移动端筛选
   const mob = document.getElementById('mobileFilterSections');
   if (mob) mob.innerHTML = container.innerHTML;
 }
 
-/** 展开/折叠筛选分区 */
 function toggleFilterSec(i) {
   const body  = document.getElementById(`fsec-body-${i}`);
   const arrow = document.getElementById(`fsec-arrow-${i}`);
@@ -655,13 +955,11 @@ function toggleFilterSec(i) {
   arrow.style.transform = open ? 'rotate(-90deg)' : '';
 }
 
-/** 切换单个筛选项 */
 function toggleFilter(key, value) {
   const arr = state.filters[key];
   const idx = arr.indexOf(value);
   if (idx === -1) arr.push(value);
   else arr.splice(idx, 1);
-  // 同步所有相关 chip 样式
   document.querySelectorAll(`[id^="fc-${key}-"]`).forEach(el => {
     const v = el.id.replace(`fc-${key}-`, '');
     const parsed = isNaN(v) ? v : Number(v);
@@ -670,7 +968,6 @@ function toggleFilter(key, value) {
   applyFilters();
 }
 
-/** 清除所有筛选条件 */
 function clearFilters() {
   FILTER_DEFS.forEach(d => { state.filters[d.key] = []; });
   renderFilterPanel();
@@ -678,24 +975,19 @@ function clearFilters() {
   showToast('筛选已清除');
 }
 
-/** 更新每个筛选项的计数角标 */
 function updateFilterCounts() {
   FILTER_DEFS.forEach(def => {
     def.options.forEach(opt => {
       const el = document.getElementById(`fcb-${def.key}-${opt.value}`);
       if (!el) return;
       const count = paperDB.filter(p => {
-        if (p.locked && !isSubjectUnlocked(p.subject)) return false;
         if (def.key === 'subjects')  return p.subject === opt.value;
         if (def.key === 'years')     return p.year === opt.value;
         if (def.key === 'papers')    return p.paper.startsWith(opt.value);
-        if (def.key === 'durations') {
-          if (opt.value === '45')  return p.duration <= 45;
-          if (opt.value === '90')  return p.duration > 45 && p.duration <= 90;
-          if (opt.value === '120') return p.duration > 90;
-        }
-        if (def.key === 'statuses') return (state.paperStatus[p.id] || 'todo') === opt.value;
-        if (def.key === 'sessions') return p.session === opt.value;
+        if (def.key === 'durations') return p.duration === Number(opt.value);
+        if (def.key === 'variants')  return String(p.paper).endsWith(String(opt.value));
+        if (def.key === 'statuses')  return (state.paperStatus[p.id] || 'todo') === opt.value;
+        if (def.key === 'sessions')  return p.session === opt.value;
         return false;
       }).length;
       el.textContent = count;
@@ -707,38 +999,21 @@ function updateFilterCounts() {
 // ║                  FILTER & SORT LOGIC                    ║
 // ╚══════════════════════════════════════════════════════════╝
 
-/** 判断一个科目的历年卷是否已解锁 */
-function isSubjectUnlocked(subject) {
-  const recent = paperDB.filter(p => !p.locked && p.subject === subject);
-  return recent.length > 0 && recent.every(p => state.paperStatus[p.id] === 'done');
-}
-
-/** 应用筛选+排序，并重新渲染卡片 */
 function applyFilters() {
-  const { subjects, years, papers, durations, statuses, sessions } = state.filters;
+  const { subjects, years, papers, durations, statuses, sessions, variants } = state.filters;
   const sort = document.getElementById('sortSel')?.value || 'year-desc';
 
-  // 筛选
   let result = paperDB.filter(p => {
-    if (p.locked && !isSubjectUnlocked(p.subject)) return false;
-    if (subjects.length  && !subjects.includes(p.subject))                         return false;
-    if (years.length     && !years.includes(p.year))                               return false;
-    if (papers.length    && !papers.some(pt => p.paper.startsWith(pt)))            return false;
-    if (durations.length) {
-      const inRange = durations.some(d => {
-        if (d === '45')  return p.duration <= 45;
-        if (d === '90')  return p.duration > 45 && p.duration <= 90;
-        if (d === '120') return p.duration > 90;
-        return false;
-      });
-      if (!inRange) return false;
-    }
-    if (statuses.length && !(statuses.includes(state.paperStatus[p.id] || 'todo'))) return false;
-    if (sessions.length && !sessions.includes(p.session))                           return false;
+    if (subjects.length  && !subjects.includes(p.subject))                           return false;
+    if (years.length     && !years.includes(p.year))                                 return false;
+    if (papers.length    && !papers.some(pt => p.paper.startsWith(pt)))              return false;
+    if (durations.length && !durations.some(d => p.duration === Number(d)))          return false;
+    if (variants.length  && !variants.some(v => String(p.paper).endsWith(String(v)))) return false;
+    if (statuses.length  && !(statuses.includes(state.paperStatus[p.id] || 'todo'))) return false;
+    if (sessions.length  && !sessions.includes(p.session))                           return false;
     return true;
   });
 
-  // 排序
   result.sort((a, b) => {
     switch (sort) {
       case 'year-asc':  return a.year - b.year  || a.subject.localeCompare(b.subject);
@@ -766,36 +1041,28 @@ const STATUS_MAP = {
   done:   { color: '#34A853', label: '已完成', bg: '#E6F4EA' },
 };
 
-/** 渲染全部卡片 */
 function renderCards() {
-  const grid      = document.getElementById('cardGrid');
-  const empty     = document.getElementById('emptyState');
-  const lockEl    = document.getElementById('lockPrompt');
-  const countEl   = document.getElementById('filterCount');
+  const grid    = document.getElementById('cardGrid');
+  const empty   = document.getElementById('emptyState');
+  const countEl = document.getElementById('filterCount');
 
   grid.innerHTML = '';
   countEl.textContent = `筛选到 ${filteredPapers.length} 张卷子`;
 
   if (filteredPapers.length === 0) {
-    empty.style.display    = 'flex';
-    lockEl.classList.add('hidden');
+    empty.style.display = 'flex';
   } else {
     empty.style.display = 'none';
     filteredPapers.forEach(p => grid.appendChild(makeCard(p)));
   }
-
-  // 显示锁定提示（有未解锁科目的历年卷时）
-  const hasLocked = paperDB.some(p => p.locked && !isSubjectUnlocked(p.subject));
-  lockEl.classList.toggle('hidden', !hasLocked);
 }
 
-/** 创建单张卡片 DOM */
 function makeCard(p) {
   const status = state.paperStatus[p.id] || 'todo';
   const sc     = STATUS_MAP[status];
   const inCart = state.cart.includes(p.id);
   const isSel  = selectedSet.has(p.id);
-  const sCode  = p.session === 'May/June' ? 'M/J' : p.session === 'Oct/Nov' ? 'O/N' : 'F/M';
+  const sCode  = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
   const tSec   = state.paperTimes[p.id];
   const tStr   = tSec ? fmtTime(tSec) : null;
   const barPct = status === 'done' ? 100 : status === 'inprog' ? 50 : 0;
@@ -805,14 +1072,15 @@ function makeCard(p) {
   div.dataset.id = p.id;
 
   div.innerHTML = `
-    <!-- 复选框 -->
     <div style="position:absolute;top:12px;left:12px;z-index:1" onclick="event.stopPropagation()">
       <div onclick="toggleSel('${p.id}')" style="width:20px;height:20px;border-radius:5px;border:2px solid ${isSel ? 'var(--primary)' : '#DADCE0'};background:${isSel ? 'var(--primary)' : 'white'};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s">
         ${isSel ? '<span class="mi" style="font-size:13px;color:white">check</span>' : ''}
       </div>
     </div>
 
-    <!-- 顶部信息 -->
+    ${p.isPredicted ? `<div style="position:absolute;top:10px;right:10px;font-size:9px;padding:2px 6px;border-radius:8px;background:#E8F5E9;color:#2E7D32;font-weight:700">🟢 25预测</div>` : ''}
+    ${p.isCustom ? `<div style="position:absolute;top:10px;right:10px;font-size:9px;padding:2px 6px;border-radius:8px;background:#E8F0FE;color:var(--primary);font-weight:700">✏️ 自添加</div>` : ''}
+
     <div class="flex items-start justify-between pt-5 mb-2">
       <div class="flex items-center gap-2">
         <div style="width:34px;height:34px;border-radius:10px;background:${p.subjectColor}1A;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -829,17 +1097,17 @@ function makeCard(p) {
       </div>
     </div>
 
-    <!-- 卷号 + 全称 -->
     <div class="mb-2">
       <div class="font-bold" style="font-size:22px;color:#202124;letter-spacing:-.5px">${p.paper}</div>
       <div style="font-size:11px;color:var(--text-sub)">${p.paperFull}</div>
+      <div style="font-size:10px;color:#9AA0A6;margin-top:4px">${p.variantRegion}</div>
       <span style="display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;margin-top:4px;background:${p.subjectColor}15;color:${p.subjectColor}">${p.tier}</span>
+      ${p.syllabusInfo ? `<span class="variant-badge" style="background:#FEF7E0;color:#D97706">⚠️ ${p.syllabusInfo}</span>` : ''}
     </div>
 
-    <!-- 时长 / 分数 -->
     <div class="flex gap-3 mb-2" style="font-size:11px;color:var(--text-sub)">
       <div class="flex items-center gap-1">
-        <span class="mi" style="font-size:14px;color:#9AA0A6">timer</span>${p.duration} min
+        <span class="mi" style="font-size:14px;color:#9AA0A6">timer</span>${fmtDurationMin(p.duration)}
       </div>
       <div class="flex items-center gap-1">
         <span class="mi" style="font-size:14px;color:#9AA0A6">grading</span>${p.totalMarks} 分
@@ -847,17 +1115,14 @@ function makeCard(p) {
       ${tStr ? `<div class="flex items-center gap-1 ml-auto"><span class="mi" style="font-size:14px;color:#9AA0A6">history</span>${tStr}</div>` : ''}
     </div>
 
-    <!-- 进度条 -->
     <div class="sbar mb-2">
       <div class="sbar-fill" style="width:${barPct}%;background:${sc.color}"></div>
     </div>
 
-    <!-- 状态标签 -->
     <div class="mb-3">
       <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:${sc.bg};color:${sc.color}">${sc.label}</span>
     </div>
 
-    <!-- 操作按钮 -->
     <div class="flex gap-2">
       <button onclick="event.stopPropagation();toggleCart('${p.id}')"
         class="btn ${inCart ? 'btn-p' : 'btn-o'} flex-1" style="font-size:11px;padding:6px 10px">
@@ -872,7 +1137,6 @@ function makeCard(p) {
     </div>
   `;
 
-  // 点击卡片（非按钮区域）切换选中
   div.addEventListener('click', e => {
     if (!e.target.closest('button') && !e.target.closest('[onclick]')) {
       toggleSel(p.id);
@@ -886,29 +1150,22 @@ function makeCard(p) {
 // ║                   SELECTION LOGIC                       ║
 // ╚══════════════════════════════════════════════════════════╝
 
-/** 切换卡片选中状态 */
 function toggleSel(id) {
   if (selectedSet.has(id)) selectedSet.delete(id);
   else selectedSet.add(id);
-  // 只刷新该卡片
   const el = document.querySelector(`[data-id="${id}"]`);
   if (el) {
     const p = paperDB.find(x => x.id === id);
-    if (p) {
-      const newCard = makeCard(p);
-      el.replaceWith(newCard);
-    }
+    if (p) el.replaceWith(makeCard(p));
   }
 }
 
-/** 全选当前筛选到的卡片 */
 function selectAll() {
   filteredPapers.forEach(p => selectedSet.add(p.id));
   renderCards();
   showToast(`已选中 ${selectedSet.size} 张卷子`);
 }
 
-/** 反选当前筛选到的卡片 */
 function invertSel() {
   filteredPapers.forEach(p => {
     if (selectedSet.has(p.id)) selectedSet.delete(p.id);
@@ -921,33 +1178,54 @@ function invertSel() {
 // ║                     CART LOGIC                          ║
 // ╚══════════════════════════════════════════════════════════╝
 
-let cartPanelOpen = false;
+let cartDrawerOpen = false;
 
-/** 切换今日清单中的某张卷子 */
+function openCartDrawer() {
+  cartDrawerOpen = true;
+  document.getElementById('cartDrawer').style.transform = 'translateX(0)';
+  document.getElementById('cartOverlay').classList.remove('hidden');
+  renderCartList();
+  renderCartWarnings();
+}
+
+function closeCartDrawer() {
+  cartDrawerOpen = false;
+  document.getElementById('cartDrawer').style.transform = 'translateX(100%)';
+  document.getElementById('cartOverlay').classList.add('hidden');
+}
+
 function toggleCart(id) {
   const idx = state.cart.indexOf(id);
-  if (idx === -1) { state.cart.push(id); showToast('已加入今日清单'); }
-  else { state.cart.splice(idx, 1); showToast('已从清单移除'); }
+  if (idx === -1) {
+    state.cart.push(id);
+    showToast('✅ 已加入今日清单');
+    const fab = document.getElementById('cartFab');
+    fab.classList.remove('fab-pop');
+    void fab.offsetWidth;
+    fab.classList.add('fab-pop');
+  } else {
+    state.cart.splice(idx, 1);
+    showToast('移出清单');
+  }
   saveState();
   updateCartBar();
-  // 刷新该卡片按钮
+  if (cartDrawerOpen) renderCartList();
   const el = document.querySelector(`[data-id="${id}"]`);
   if (el) { const p = paperDB.find(x => x.id === id); if (p) el.replaceWith(makeCard(p)); }
 }
 
-/** 从清单中删除 */
 function removeFromCart(id) {
   state.cart = state.cart.filter(x => x !== id);
   saveState();
   updateCartBar();
   renderCartList();
-  // 刷新卡片按钮
   const el = document.querySelector(`[data-id="${id}"]`);
   if (el) { const p = paperDB.find(x => x.id === id); if (p) el.replaceWith(makeCard(p)); }
 }
 
-/** 清空清单 */
 function clearCart() {
+  if (state.cart.length === 0) return;
+  if (!confirm(`确定清空清单中的 ${state.cart.length} 张卷子吗？`)) return;
   const ids = [...state.cart];
   state.cart = [];
   saveState();
@@ -957,91 +1235,159 @@ function clearCart() {
     const el = document.querySelector(`[data-id="${id}"]`);
     if (el) { const p = paperDB.find(x => x.id === id); if (p) el.replaceWith(makeCard(p)); }
   });
-  showToast('清单已清空');
+  showToast('🗑️ 清单已清空');
 }
 
-/** 更新底部 cart bar */
 function updateCartBar() {
   const n = state.cart.length;
   document.getElementById('cartCount').textContent = n;
 
-  // 预计时长
   const total = state.cart.reduce((s, id) => {
     const p = paperDB.find(x => x.id === id);
     return s + (p ? p.duration : 0);
   }, 0);
-  document.getElementById('cartTime').textContent =
-    n ? `预计总时长: ${fmtDuration(total * 60)}` : '预计总时长: --';
-
-  // 科目色点
-  const dotsEl = document.getElementById('cartDots');
-  const subjColors = [...new Set(state.cart.map(id => {
+  const totalMarks = state.cart.reduce((s, id) => {
     const p = paperDB.find(x => x.id === id);
-    return p ? p.subjectColor : null;
-  }).filter(Boolean))];
-  const max = 8;
-  dotsEl.innerHTML = subjColors.slice(0, max).map(c =>
-    `<div style="width:10px;height:10px;border-radius:50%;background:${c};flex-shrink:0"></div>`
-  ).join('') + (subjColors.length > max ?
-    `<span style="font-size:10px;color:var(--text-sub)">+${subjColors.length - max}</span>` : '');
+    return s + (p ? p.totalMarks : 0);
+  }, 0);
 
-  // 开始模考按钮
+  document.getElementById('cartStatCount').textContent = n;
+  document.getElementById('cartStatTime').textContent = n ? fmtDurationMin(total) : '--';
+  document.getElementById('cartStatMarks').textContent = n ? totalMarks : '0';
+  document.getElementById('cartDrawerSubtitle').textContent = n
+    ? `${n} 张卷子 · 共 ${fmtDurationMin(total)}`
+    : '暂无卷子，从卡片加入';
+
+  const clearBtn = document.getElementById('cartClearBtn');
+  if (clearBtn) clearBtn.disabled = n === 0;
+
+  const summaryDiv = document.getElementById('cartSubjectSummary');
+  const tagsDiv = document.getElementById('cartSubjectTags');
+  if (n > 0) {
+    summaryDiv.style.display = '';
+    const subjMap = {};
+    state.cart.forEach(id => {
+      const p = paperDB.find(x => x.id === id);
+      if (!p) return;
+      if (!subjMap[p.subject]) subjMap[p.subject] = { count: 0, color: p.subjectColor, name: p.subjectName, icon: p.subjectIcon };
+      subjMap[p.subject].count++;
+    });
+    tagsDiv.innerHTML = Object.entries(subjMap).map(([subj, info]) => `
+      <span class="subj-chip" style="background:${info.color}18;color:${info.color}">
+        <span class="mi" style="font-size:13px">${info.icon}</span>
+        ${subj} ${info.name} <strong>×${info.count}</strong>
+      </span>
+    `).join('');
+  } else {
+    summaryDiv.style.display = 'none';
+  }
+
   const btn = document.getElementById('startExamBtn');
-  btn.disabled = n === 0;
+  if (btn) btn.disabled = n === 0;
+  if (cartDrawerOpen) renderCartWarnings();
 }
 
-/** 展开/收起清单面板 */
-function toggleCartPanel() {
-  cartPanelOpen = !cartPanelOpen;
-  document.getElementById('cartPanel').classList.toggle('open', cartPanelOpen);
-  document.getElementById('cartExpIco').textContent = cartPanelOpen ? 'expand_more' : 'expand_less';
-  if (cartPanelOpen) renderCartList();
-}
-
-/** 渲染清单列表（支持拖拽排序） */
 function renderCartList() {
   const list = document.getElementById('cartList');
   list.innerHTML = '';
+
   if (state.cart.length === 0) {
-    list.innerHTML = '<p class="text-center py-8 text-sm" style="color:#9AA0A6">清单为空，请从上方卡片加入卷子</p>';
+    list.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center">
+        <span class="mi" style="font-size:64px;color:#E8EAED">shopping_cart</span>
+        <p style="font-size:15px;color:#9AA0A6;margin-top:12px;font-weight:500">清单还是空的</p>
+        <p style="font-size:12px;color:#BDC1C6;margin-top:4px">点击卷子卡片上的「加入清单」按钮</p>
+      </div>
+    `;
     return;
   }
+
   state.cart.forEach((id, i) => {
     const p = paperDB.find(x => x.id === id);
     if (!p) return;
-    const row = document.createElement('div');
-    row.className = 'cart-row flex items-center gap-3 p-3 rounded-xl mb-1';
-    row.draggable = true;
-    row.dataset.id = id;
-    row.style.background = '#F8F9FA';
-    row.style.border = '1.5px solid var(--border)';
-    row.innerHTML = `
-      <span class="mi" style="color:#9AA0A6;font-size:18px;cursor:grab">drag_indicator</span>
-      <div style="width:30px;height:30px;border-radius:8px;background:${p.subjectColor}1A;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <span class="mi" style="color:${p.subjectColor};font-size:16px">${p.subjectIcon}</span>
+    const status = state.paperStatus[p.id] || 'todo';
+    const sc = STATUS_MAP[status];
+    // IGCSE canonical code: 0580/41
+    const variantNum = p.paper.slice(-1); // last char is variant
+    const paperNum = p.paper.slice(1, -1); // middle is paper number
+    const igcseCode = `${p.subject}/${paperNum}${variantNum}`;
+    // IGCSE session format: May/June 2021
+    const sessionFull = p.session === 'Oct/Nov' ? `October/November ${p.year}` : `${p.session} ${p.year}`;
+    const tierColor = p.tier.includes('Extended') ? '#9334E8' : p.tier.includes('Practical') || p.tier.includes('Alt') ? '#EA4335' : '#34A853';
+
+    const item = document.createElement('div');
+    item.className = 'cart-item';
+    item.draggable = true;
+    item.dataset.id = id;
+
+    item.innerHTML = `
+      <div style="display:flex">
+        <div style="width:5px;background:${p.subjectColor};border-radius:16px 0 0 16px;flex-shrink:0"></div>
+        <div style="flex:1;padding:12px 14px 12px 12px">
+
+          <!-- Row 1: drag + number + code + delete -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+              <span class="mi drag-handle" style="font-size:18px">drag_indicator</span>
+              <span style="font-size:11px;font-weight:700;color:#BDC1C6;min-width:14px;text-align:center">${i+1}</span>
+            </div>
+            <!-- Subject icon -->
+            <div style="width:32px;height:32px;border-radius:9px;background:${p.subjectColor}18;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span class="mi" style="color:${p.subjectColor};font-size:16px">${p.subjectIcon}</span>
+            </div>
+            <!-- Main code -->
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:16px;color:#202124;letter-spacing:-.3px;font-family:'Roboto Mono',monospace">${igcseCode}</div>
+              <div style="font-size:11px;color:var(--text-sub);margin-top:1px">${p.subjectName}</div>
+            </div>
+            <!-- Status + delete -->
+            <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+              <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${sc.bg};color:${sc.color};font-weight:600">${sc.label}</span>
+              <button onclick="removeFromCart('${id}')" title="移出清单"
+                style="background:none;border:none;cursor:pointer;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .15s;color:#DADCE0"
+                onmouseover="this.style.background='#FEE2E2';this.style.color='var(--danger)'"
+                onmouseout="this.style.background='none';this.style.color='#DADCE0'">
+                <span class="mi" style="font-size:16px">close</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 2: IGCSE info chips -->
+          <div style="display:flex;flex-wrap:wrap;gap:5px;padding-left:55px">
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:3px 9px;border-radius:6px;background:#F1F3F4;color:#5F6368;font-weight:600">
+              📅 ${sessionFull}
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:3px 9px;border-radius:6px;background:#F1F3F4;color:#5F6368;font-weight:500">
+              ⏱ ${fmtDurationMin(p.duration)}
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:3px 9px;border-radius:6px;background:${tierColor}12;color:${tierColor};font-weight:600">
+              ${p.tier}
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:3px 9px;border-radius:6px;background:#F1F3F4;color:#5F6368;font-weight:500">
+              ${p.totalMarks} marks
+            </span>
+            ${p.isPredicted ? '<span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#E8F5E9;color:#2E7D32;font-weight:600">🟢 预测</span>' : ''}
+            ${p.isCustom ? '<span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#E8F0FE;color:var(--primary);font-weight:600">✏️ 自添加</span>' : ''}
+            ${(()=>{const ws=getPaperWarnings(p);const errs=ws.filter(w=>w.level==='error');const warns=ws.filter(w=>w.level==='warn'&&w.icon!=='🟢'&&w.msg!=='预测卷');if(errs.length)return`<span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FEE2E2;color:#DC2626;font-weight:700">🚨 ${errs.length}个问题</span>`;if(warns.length)return`<span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FEF9C3;color:#92400E;font-weight:600">⚠️ ${warns.length}个提醒</span>`;return'';})()}
+          </div>
+          ${p.syllabusInfo ? `<div style="margin-top:5px;padding-left:55px"><span style="font-size:10px;padding:2px 8px;border-radius:6px;background:#FEF7E0;color:#D97706;font-weight:600">⚠️ ${p.syllabusInfo}</span></div>` : ''}
+        </div>
       </div>
-      <div style="flex:1;min-width:0">
-        <div class="font-semibold text-sm" style="color:#202124">${p.subject} ${p.paper}</div>
-        <div style="font-size:11px;color:var(--text-sub)">${p.year} ${p.session === 'May/June' ? 'M/J' : 'O/N'} · ${p.duration}min · ${p.totalMarks}分</div>
-      </div>
-      <button onclick="removeFromCart('${id}')" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:50%" title="移除">
-        <span class="mi" style="font-size:18px;color:#9AA0A6">close</span>
-      </button>
     `;
-    // 拖拽事件
-    row.addEventListener('dragstart', e => {
+
+    item.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', id);
-      row.classList.add('dragging');
+      setTimeout(() => item.classList.add('dragging'), 0);
     });
-    row.addEventListener('dragend',  () => row.classList.remove('dragging'));
-    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('dragover'); });
-    row.addEventListener('dragleave',() => row.classList.remove('dragover'));
-    row.addEventListener('drop', e => {
+    item.addEventListener('dragend', () => item.classList.remove('dragging'));
+    item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('dragover-top'); });
+    item.addEventListener('dragleave', () => item.classList.remove('dragover-top'));
+    item.addEventListener('drop', e => {
       e.preventDefault();
-      row.classList.remove('dragover');
+      item.classList.remove('dragover-top');
       const fromId = e.dataTransfer.getData('text/plain');
       const fromIdx = state.cart.indexOf(fromId);
-      const toIdx   = state.cart.indexOf(id);
+      const toIdx = state.cart.indexOf(id);
       if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
         state.cart.splice(fromIdx, 1);
         state.cart.splice(toIdx, 0, fromId);
@@ -1050,16 +1396,16 @@ function renderCartList() {
         updateCartBar();
       }
     });
-    list.appendChild(row);
+
+    list.appendChild(item);
   });
+  renderCartWarnings();
 }
 
-/** 标记一张卷子为完成 */
 function markDone(id) {
   const cur = state.paperStatus[id] || 'todo';
   state.paperStatus[id] = cur === 'done' ? 'todo' : 'done';
   saveState();
-  // 刷新卡片
   const el = document.querySelector(`[data-id="${id}"]`);
   if (el) { const p = paperDB.find(x => x.id === id); if (p) el.replaceWith(makeCard(p)); }
   updateProgress();
@@ -1071,9 +1417,8 @@ function markDone(id) {
 // ║                   PROGRESS CIRCLE                       ║
 // ╚══════════════════════════════════════════════════════════╝
 
-/** 更新顶部圆形进度条 */
 function updateProgress() {
-  const total = paperDB.filter(p => !p.locked || isSubjectUnlocked(p.subject)).length;
+  const total = paperDB.length;
   const done  = Object.values(state.paperStatus).filter(v => v === 'done').length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
   document.getElementById('progArc').setAttribute('stroke-dasharray', `${pct} 100`);
@@ -1087,19 +1432,16 @@ function updateProgress() {
 let gachaCount = 3;
 let lastGachaResults = [];
 
-/** 打开随机抽取弹窗 */
 function openGacha() {
   const modal = document.getElementById('gachaModal');
   modal.style.display = 'flex';
   renderGachaConfig();
 }
 
-/** 关闭随机抽取弹窗 */
 function closeGacha() {
   document.getElementById('gachaModal').style.display = 'none';
 }
 
-/** 渲染抽取配置界面 */
 function renderGachaConfig() {
   const box = document.getElementById('gachaBox');
   box.innerHTML = `
@@ -1110,7 +1452,6 @@ function renderGachaConfig() {
       </button>
     </div>
 
-    <!-- 科目 -->
     <div class="mb-4">
       <p class="text-sm font-semibold mb-2" style="color:#202124">科目</p>
       <div class="flex flex-wrap gap-2" id="gSubj">
@@ -1120,7 +1461,6 @@ function renderGachaConfig() {
       </div>
     </div>
 
-    <!-- 数量 -->
     <div class="mb-4">
       <p class="text-sm font-semibold mb-2" style="color:#202124">抽取数量</p>
       <div class="flex gap-2">
@@ -1130,27 +1470,24 @@ function renderGachaConfig() {
       </div>
     </div>
 
-    <!-- 年份 -->
     <div class="mb-4">
-      <p class="text-sm font-semibold mb-2" style="color:#202124">年份范围</p>
+      <p class="text-sm font-semibold mb-2" style="color:#202124">年份</p>
       <div class="flex flex-wrap gap-2" id="gYear">
-        ${[2025,2024,2023].map(y =>
-          `<div class="fchip on" data-v="${y}" onclick="this.classList.toggle('on')">${y}</div>`
+        ${[2025,2024,2023,2022,2021,2020].map(y =>
+          `<div class="fchip${y===2025?' on':' on'}" data-v="${y}" onclick="this.classList.toggle('on')">${y}${y===2025?' 🟢':''}</div>`
         ).join('')}
       </div>
     </div>
 
-    <!-- 卷型 -->
     <div class="mb-4">
       <p class="text-sm font-semibold mb-2" style="color:#202124">卷型</p>
       <div class="flex flex-wrap gap-2" id="gPaper">
-        ${['P1','P2','P3','P4','P6'].map(p =>
+        ${['P1','P2','P3','P4','P5','P6'].map(p =>
           `<div class="fchip on" data-v="${p}" onclick="this.classList.toggle('on')">${p}</div>`
         ).join('')}
       </div>
     </div>
 
-    <!-- 只抽未做 -->
     <div class="flex items-center gap-3 mb-6">
       <div class="tgl on" id="gOnlyTodo" onclick="this.classList.toggle('on')"></div>
       <span class="text-sm" style="color:#202124">只从 <b>未做</b> 的卷子中抽取</span>
@@ -1162,7 +1499,6 @@ function renderGachaConfig() {
   `;
 }
 
-/** 设置抽取数量 */
 function setGachaCount(n) {
   gachaCount = n;
   for (let i = 1; i <= 5; i++) {
@@ -1171,21 +1507,16 @@ function setGachaCount(n) {
   }
 }
 
-/** 执行抽取（先动画，再显示结果）*/
 function runGacha() {
   const box = document.getElementById('gachaBox');
-
-  // 读取配置
   const subjects  = [...document.querySelectorAll('#gSubj .fchip.on')].map(e => e.dataset.v);
   const years     = [...document.querySelectorAll('#gYear .fchip.on')].map(e => Number(e.dataset.v));
   const papers    = [...document.querySelectorAll('#gPaper .fchip.on')].map(e => e.dataset.v);
   const onlyTodo  = document.getElementById('gOnlyTodo')?.classList.contains('on');
 
-  // 构建候选池
   let pool = paperDB.filter(p => {
-    if (p.locked && !isSubjectUnlocked(p.subject)) return false;
-    if (!subjects.includes(p.subject))             return false;
-    if (!years.includes(p.year))                   return false;
+    if (!subjects.includes(p.subject))              return false;
+    if (!years.includes(p.year))                    return false;
     if (!papers.some(pt => p.paper.startsWith(pt))) return false;
     if (onlyTodo && state.paperStatus[p.id] === 'done') return false;
     return true;
@@ -1193,11 +1524,9 @@ function runGacha() {
 
   if (pool.length === 0) { showToast('😢 没有符合条件的卷子！'); return; }
 
-  // 随机打乱
   pool = pool.sort(() => Math.random() - 0.5);
   lastGachaResults = pool.slice(0, Math.min(gachaCount, pool.length));
 
-  // 显示滚动动画
   const allShuffled = [...paperDB].sort(() => Math.random() - 0.5);
   const scrollItems = [...allShuffled.slice(0, 24), ...lastGachaResults];
   const itemH = 68;
@@ -1215,7 +1544,7 @@ function runGacha() {
             </div>
             <div>
               <div class="font-bold text-sm" style="color:#202124">${p.subject} · ${p.paper}</div>
-              <div style="font-size:11px;color:var(--text-sub)">${p.year} ${p.session==='May/June'?'M/J':'O/N'} · ${p.duration}min</div>
+              <div style="font-size:11px;color:var(--text-sub)">${p.year} ${p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N'} · ${fmtDurationShort(p.duration)}</div>
             </div>
           </div>
         `).join('')}
@@ -1224,7 +1553,6 @@ function runGacha() {
     <p class="text-center text-sm mt-4" style="color:var(--text-sub)">正在为你随机抽取…</p>
   `;
 
-  // 动画：快速滚动到接近末尾
   const track = document.getElementById('gachaTrack');
   const endY   = -(scrollItems.length - lastGachaResults.length) * itemH;
 
@@ -1236,7 +1564,6 @@ function runGacha() {
   setTimeout(() => showGachaResults(), 2300);
 }
 
-/** 显示抽取结果 */
 function showGachaResults() {
   const box = document.getElementById('gachaBox');
   box.innerHTML = `
@@ -1257,8 +1584,8 @@ function showGachaResults() {
             <span class="mi" style="color:${p.subjectColor}">${p.subjectIcon}</span>
           </div>
           <div style="flex:1">
-            <div class="font-bold text-sm" style="color:#202124">${p.subject} · ${p.paper}</div>
-            <div style="font-size:11px;color:var(--text-sub)">${p.paperFull} · ${p.year} ${p.session==='May/June'?'M/J':'O/N'} · ${p.duration}min</div>
+            <div class="font-bold text-sm" style="color:#202124">${p.subject} · ${p.paper} ${p.isPredicted ? '<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#E8F5E9;color:#2E7D32">预测</span>' : ''}</div>
+            <div style="font-size:11px;color:var(--text-sub)">${p.paperFull} · ${p.year} ${p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N'} · ${fmtDurationShort(p.duration)}</div>
           </div>
         </div>
       `).join('')}
@@ -1272,11 +1599,9 @@ function showGachaResults() {
       </button>
     </div>
   `;
-  // 用 id 精确绑定重新抽取按钮，避免歧义选择器
   document.getElementById('gachaRedrawBtn').addEventListener('click', renderGachaConfig);
 }
 
-/** 将抽取结果加入清单 */
 function addGachaToCart() {
   let added = 0;
   lastGachaResults.forEach(p => {
@@ -1299,7 +1624,6 @@ let examState = {
   paused: false, results: [],
 };
 
-/** 开始模考（从清单启动） */
 function startExam() {
   if (state.cart.length === 0) { showToast('清单为空！'); return; }
   examState.queue      = [...state.cart];
@@ -1307,10 +1631,8 @@ function startExam() {
   examState.results    = [];
   examState.paused     = false;
 
-  // 关闭清单面板
-  if (cartPanelOpen) toggleCartPanel();
+  if (cartDrawerOpen) closeCartDrawer();
 
-  // 进入全屏，失败时提示用户
   document.documentElement.requestFullscreen?.().catch(err => {
     console.warn('全屏请求失败:', err);
     showToast('⚠️ 全屏失败，建议手动按 F11');
@@ -1320,19 +1642,15 @@ function startExam() {
   loadExamPaper();
 }
 
-/** 显示考试遮罩 */
 function showExamOverlay() {
   const ov = document.getElementById('examOv');
   ov.style.display = 'flex';
   ov.style.flexDirection = 'column';
   ov.style.alignItems = 'center';
   ov.style.justifyContent = 'center';
-
-  // 全屏退出监听
   document.addEventListener('fullscreenchange', onFSChange);
 }
 
-/** 加载当前试卷 */
 function loadExamPaper() {
   const id = examState.queue[examState.currentIdx];
   const p  = paperDB.find(x => x.id === id);
@@ -1342,28 +1660,22 @@ function loadExamPaper() {
   examState.totalTime = p.duration * 60;
   examState.paused    = false;
 
-  // 标记为进行中
   state.paperStatus[id] = 'inprog';
   saveState();
 
-  // 水印
   document.getElementById('examWm').textContent = id;
-
   renderExamUI(p);
 
-  // 启动计时器
   clearInterval(examState.timer);
   examState.timer = setInterval(examTick, 1000);
 }
 
-/** 渲染考试界面 */
 function renderExamUI(p) {
   const isStrict = state.settings.mode === 'strict';
   const content  = document.getElementById('examContent');
-  const sCode    = p.session === 'May/June' ? 'May/June' : p.session === 'Oct/Nov' ? 'Oct/Nov' : p.session;
+  const sCode    = p.session === 'May/June' ? 'May/June' : p.session === 'March' ? 'March' : 'Oct/Nov';
 
   content.innerHTML = `
-    <!-- 科目信息 -->
     <div class="flex items-center gap-3 mb-4">
       <div style="width:48px;height:48px;border-radius:14px;background:${p.subjectColor}22;display:flex;align-items:center;justify-content:center">
         <span class="mi" style="color:${p.subjectColor};font-size:26px">${p.subjectIcon}</span>
@@ -1373,26 +1685,17 @@ function renderExamUI(p) {
         <div style="font-size:13px;color:rgba(255,255,255,.55)">${p.subjectName} · ${sCode} ${p.year}</div>
       </div>
     </div>
-
-    <!-- 试卷详情 -->
     <div style="font-size:14px;color:rgba(255,255,255,.45);margin-bottom:24px">
       ${p.paperFull} &nbsp;·&nbsp; ${p.totalMarks} 分
+      ${p.isPredicted ? '<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:#1B5E2033;color:#4ade80;margin-left:8px">🟢 预测卷</span>' : ''}
     </div>
-
-    <!-- 大计时器 -->
     <div class="timer-num" id="timerDisp">--:--</div>
-
-    <!-- 进度条 -->
     <div class="exam-prog mt-6 mb-4" style="width:min(480px,80vw)">
       <div class="exam-prog-fill" id="examProgFill" style="width:100%"></div>
     </div>
-
-    <!-- 剩余张数 -->
     <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:28px">
-      第 ${examState.currentIdx + 1} / ${examState.queue.length} 张 &nbsp;·&nbsp; ${p.duration} min
+      第 ${examState.currentIdx + 1} / ${examState.queue.length} 张 &nbsp;·&nbsp; ${fmtDurationMin(p.duration)}
     </div>
-
-    <!-- 操作按钮（严格模式隐藏暂停）-->
     <div class="flex gap-3">
       ${!isStrict ? `
         <button id="pauseBtn" onclick="togglePause()" class="btn" style="background:rgba(255,255,255,.12);color:white;padding:10px 24px">
@@ -1402,46 +1705,33 @@ function renderExamUI(p) {
           <span class="mi" style="font-size:18px">replay</span>&nbsp;重置
         </button>
       ` : ''}
-      <button onclick="skipPaper()" class="btn" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);padding:10px 20px;font-size:12px">
-        跳过
-      </button>
-      <button onclick="confirmExitExam()" class="btn" style="background:rgba(234,67,53,.25);color:#F87171;padding:10px 20px;font-size:12px">
-        结束模考
-      </button>
+      <button onclick="skipPaper()" class="btn" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);padding:10px 20px;font-size:12px">跳过</button>
+      <button onclick="confirmExitExam()" class="btn" style="background:rgba(234,67,53,.25);color:#F87171;padding:10px 20px;font-size:12px">结束模考</button>
     </div>
   `;
   updateTimerDisplay();
 }
 
-/** 计时器 tick（每秒执行）*/
 function examTick() {
   if (examState.paused) return;
   examState.timeLeft--;
   updateTimerDisplay();
-
-  if (examState.timeLeft <= 0) {
-    clearInterval(examState.timer);
-    onTimeUp();
-  }
+  if (examState.timeLeft <= 0) { clearInterval(examState.timer); onTimeUp(); }
 }
 
-/** 更新计时器显示 */
 function updateTimerDisplay() {
   const el = document.getElementById('timerDisp');
   const pb = document.getElementById('examProgFill');
   if (!el) return;
-
   el.textContent = fmtTime(examState.timeLeft);
-  if (examState.timeLeft <= 60)  el.classList.add('timer-warn');
-  else                            el.classList.remove('timer-warn');
-
+  if (examState.timeLeft <= 60) el.classList.add('timer-warn');
+  else el.classList.remove('timer-warn');
   if (pb) {
     const pct = examState.totalTime > 0 ? (examState.timeLeft / examState.totalTime) * 100 : 0;
     pb.style.width = pct + '%';
   }
 }
 
-/** 暂停/恢复（练习模式） */
 function togglePause() {
   examState.paused = !examState.paused;
   const btn = document.getElementById('pauseBtn');
@@ -1450,7 +1740,6 @@ function togglePause() {
     : '<span class="mi" style="font-size:18px">pause</span>&nbsp;暂停';
 }
 
-/** 重置当前试卷计时器 */
 function resetTimer() {
   const id = examState.queue[examState.currentIdx];
   const p  = paperDB.find(x => x.id === id);
@@ -1460,26 +1749,21 @@ function resetTimer() {
   updateTimerDisplay();
 }
 
-/** 时间到 */
 function onTimeUp() {
   playBeep();
   const id = examState.queue[examState.currentIdx];
   const p  = paperDB.find(x => x.id === id);
   const spent = p ? p.duration * 60 : 0;
   recordResult(id, spent);
-
-  // 显示绿色庆祝
   const content = document.getElementById('examContent');
   content.innerHTML = `
-    <div style="font-size:72px;animation:twarn 0s">✅</div>
+    <div style="font-size:72px">✅</div>
     <h2 class="font-bold mt-4" style="font-size:32px;color:#4ade80">Time's Up!</h2>
     <p style="color:rgba(255,255,255,.55);margin-top:8px">${p?.subject} ${p?.paper} 完成！</p>
   `;
-
   setTimeout(() => nextPaper(), 2200);
 }
 
-/** 记录结果 */
 function recordResult(id, timeSpent) {
   state.paperStatus[id] = 'done';
   state.paperTimes[id]  = timeSpent;
@@ -1487,7 +1771,6 @@ function recordResult(id, timeSpent) {
   saveState();
 }
 
-/** 跳过当前试卷 */
 function skipPaper() {
   const id = examState.queue[examState.currentIdx];
   const spent = examState.totalTime - examState.timeLeft;
@@ -1496,37 +1779,27 @@ function skipPaper() {
   nextPaper();
 }
 
-/** 下一张试卷 */
 function nextPaper() {
   examState.currentIdx++;
-  if (examState.currentIdx >= examState.queue.length) {
-    endAllExams();
-  } else {
-    loadExamPaper();
-  }
+  if (examState.currentIdx >= examState.queue.length) endAllExams();
+  else loadExamPaper();
 }
 
-/** 全部完成，显示汇总 */
 function endAllExams() {
   clearInterval(examState.timer);
   document.removeEventListener('fullscreenchange', onFSChange);
   showSummary();
 }
 
-/** 显示汇总页 */
 function showSummary() {
-  const ov = document.getElementById('examOv');
   const content = document.getElementById('examContent');
   const totalSec = examState.results.reduce((s, r) => s + r.timeSpent, 0);
-
   content.innerHTML = `
     <div style="font-size:56px;margin-bottom:16px">🏆</div>
     <h1 class="font-bold mb-1" style="font-size:28px;color:white">模考完成！</h1>
     <p style="color:rgba(255,255,255,.5);margin-bottom:32px;font-size:14px">
       共完成 ${examState.results.length} 张卷子 &nbsp;·&nbsp; 累计 ${fmtDuration(totalSec)}
     </p>
-
-    <!-- 条形图 -->
     <div style="width:min(520px,90vw);margin-bottom:32px">
       ${examState.results.map(r => {
         const p   = paperDB.find(x => x.id === r.id);
@@ -1542,20 +1815,17 @@ function showSummary() {
         `;
       }).join('')}
     </div>
-
     <button onclick="closeExam()" class="btn btn-p" style="padding:12px 36px;font-size:15px">
       <span class="mi" style="font-size:18px">home</span>&nbsp;返回主页
     </button>
   `;
 }
 
-/** 结束模考，退出全屏 */
 function closeExam() {
   clearInterval(examState.timer);
   document.removeEventListener('fullscreenchange', onFSChange);
   document.getElementById('examOv').style.display = 'none';
-  document.exitFullscreen?.().catch(err => { console.warn('退出全屏失败:', err); });
-  // 清空清单
+  document.exitFullscreen?.().catch(() => {});
   state.cart = [];
   saveState();
   updateCartBar();
@@ -1563,30 +1833,28 @@ function closeExam() {
   updateProgress();
 }
 
-/** 确认退出 */
 function confirmExitExam() {
   if (confirm('确定要提前结束模考吗？当前进度将被保存。')) {
     clearInterval(examState.timer);
-    // 保存当前未完成的
     const id = examState.queue[examState.currentIdx];
-    if (id) {
-      const spent = examState.totalTime - examState.timeLeft;
-      recordResult(id, spent);
-    }
+    if (id) { const spent = examState.totalTime - examState.timeLeft; recordResult(id, spent); }
     endAllExams();
   }
 }
 
-/** 监听全屏变化（严格模式警告） */
 function onFSChange() {
-  if (!document.fullscreenElement && state.settings.mode === 'strict') {
+  if (!document.fullscreenElement) {
     const banner = document.getElementById('warnBanner');
-    banner.classList.add('show');
-    setTimeout(() => banner.classList.remove('show'), 5000);
+    banner.style.transform = 'translateY(0)';
+    setTimeout(() => {
+      banner.style.transform = 'translateY(-100%)';
+      if (state.settings.mode === 'strict') {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    }, 2000);
   }
 }
 
-/** Web Audio API 生成提示音 */
 function playBeep() {
   try {
     const ctx  = new (window.AudioContext || window.webkitAudioContext)();
@@ -1598,52 +1866,468 @@ function playBeep() {
     osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.8);
     gain.gain.setValueAtTime(0.5, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 1.2);
-  } catch (e) { console.warn('Web Audio 提示音失败:', e); }
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.2);
+  } catch (e) {}
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              EXAM PROFILE SYSTEM                        ║
+// ╚══════════════════════════════════════════════════════════╝
+
+function getProfile() {
+  return state.settings.profile || {};
+}
+
+function saveProfile(patch) {
+  state.settings.profile = { ...getProfile(), ...patch };
+  saveState();
+  renderProfileUI();
+  renderCartWarnings();
+}
+
+function toggleProfileSubject(subj) {
+  const p = getProfile();
+  const subs = p.subjects || [];
+  const idx = subs.indexOf(subj);
+  if (idx === -1) subs.push(subj);
+  else subs.splice(idx, 1);
+  saveProfile({ subjects: subs });
+}
+
+function selectProfileSession(s) {
+  saveProfile({ session: s });
+}
+
+function selectProfileYear(y) {
+  saveProfile({ year: y });
+}
+
+function selectProfileVariant(v) {
+  saveProfile({ variant: Number(v) });
+}
+
+function toggleProfileTier(subj, tier) {
+  const p = getProfile();
+  const key = `tier_${subj}`;
+  const cur = p[key] || [];
+  const idx = cur.indexOf(tier);
+  if (idx === -1) cur.push(tier);
+  else cur.splice(idx, 1);
+  const patch = {}; patch[key] = cur;
+  saveProfile(patch);
+}
+
+function renderProfileUI() {
+  const p = getProfile();
+  const subs = p.subjects || [];
+
+  // Subjects
+  document.querySelectorAll('#profileSubjects .fchip').forEach(el => {
+    const v = el.dataset.v;
+    const on = subs.includes(v);
+    el.style.opacity = on ? '1' : '0.5';
+    el.style.borderWidth = on ? '2px' : '1.5px';
+    if (on) el.style.filter = 'brightness(1.3)';
+    else el.style.filter = '';
+  });
+
+  // Session
+  document.querySelectorAll('#profileSession .fchip').forEach(el => {
+    const on = el.dataset.v === p.session;
+    el.style.background = on ? 'rgba(99,102,241,.35)' : 'rgba(255,255,255,.06)';
+    el.style.borderColor = on ? '#818cf8' : 'rgba(255,255,255,.15)';
+    el.style.fontWeight = on ? '600' : '400';
+  });
+
+  // Year
+  document.querySelectorAll('#profileYear .fchip').forEach(el => {
+    const on = el.dataset.v === p.year;
+    el.style.background = on ? 'rgba(99,102,241,.35)' : 'rgba(255,255,255,.06)';
+    el.style.borderColor = on ? '#818cf8' : 'rgba(255,255,255,.15)';
+    el.style.fontWeight = on ? '600' : '400';
+  });
+
+  // Variant
+  document.querySelectorAll('#profileVariant .fchip').forEach(el => {
+    const on = String(el.dataset.v) === String(p.variant);
+    el.style.background = on ? 'rgba(99,102,241,.35)' : 'rgba(255,255,255,.06)';
+    el.style.borderColor = on ? '#818cf8' : 'rgba(255,255,255,.15)';
+    el.style.fontWeight = on ? '600' : '400';
+  });
+
+  // Tiers per subject
+  const tiersDiv = document.getElementById('profileTiers');
+  if (!tiersDiv) return;
+  if (subs.length === 0) {
+    tiersDiv.innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.3)">请先选择报考科目</span>';
+    return;
+  }
+  // For each subject, show tier options
+  const mathTierOpts = [
+    { v: 'core',     l: 'Core (P1/P3)' },
+    { v: 'extended', l: 'Extended (P2/P4)' },
+  ];
+  const sciTierOpts = [
+    { v: 'core',     l: 'Core (P1/P3)' },
+    { v: 'extended', l: 'Extended (P2/P4)' },
+    { v: 'p6',       l: 'P6 Alt. Practical' },
+  ];
+
+  tiersDiv.innerHTML = subs.map(subj => {
+    const opts = subj === '0580' ? mathTierOpts : sciTierOpts;
+    const cur = p[`tier_${subj}`] || [];
+    const meta = { '0580':'数学','0610':'生物','0620':'化学','0625':'物理' };
+    return `
+      <div style="width:100%;margin-bottom:4px">
+        <span style="font-size:10px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">${subj} ${meta[subj]}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${opts.map(o => `
+            <div class="fchip" onclick="toggleProfileTier('${subj}','${o.v}')"
+              style="background:${cur.includes(o.v)?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'};border-color:${cur.includes(o.v)?'#818cf8':'rgba(255,255,255,.15)'};color:${cur.includes(o.v)?'white':'rgba(255,255,255,.6)'};font-weight:${cur.includes(o.v)?'600':'400'};font-size:11px">
+              ${o.l}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function applyProfileFilter() {
+  const p = getProfile();
+  const subs = p.subjects || [];
+  if (subs.length === 0) { showToast('⚠️ 请先设置报考科目'); return; }
+
+  // Build filter state
+  state.filters.subjects = [...subs];
+  if (p.session) state.filters.sessions = [p.session];
+  if (p.variant) state.filters.variants = [p.variant];
+
+  // Paper filter based on tiers
+  const papers = [];
+  subs.forEach(subj => {
+    const tiers = p[`tier_${subj}`] || ['extended']; // default extended
+    if (tiers.includes('core')) { papers.push('P1'); papers.push('P3'); }
+    if (tiers.includes('extended')) { papers.push('P2'); papers.push('P4'); }
+    if (tiers.includes('p6')) papers.push('P6');
+  });
+  // Year/syllabus: if exam year ≥ 2026, only show 2025+ papers (new syllabus)
+  const examYear = Number(p.year) || 2026;
+  if (examYear >= 2026) {
+    state.filters.years = [2025, 2024, 2023, 2022, 2021, 2020]; // keep all for practice, but warn
+  }
+  const uniquePapers = [...new Set(papers)];
+  if (uniquePapers.length > 0) state.filters.papers = uniquePapers;
+
+  renderFilterPanel();
+  applyFilters();
+  closeSettings();
+  showToast(`✅ 已筛选：${subs.join('/')} · ${p.session || '全考季'} · V${p.variant || '?'}`);
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║              CART SMART WARNING SYSTEM                  ║
+// ╚══════════════════════════════════════════════════════════╝
+
+/**
+ * Generate warnings for a paper based on user profile.
+ * Returns array of { level: 'error'|'warn'|'info', msg, detail }
+ */
+function getPaperWarnings(p) {
+  const prof = getProfile();
+  const warnings = [];
+  const paperNum = p.paper.slice(1, -1); // e.g. '4' from 'P41'
+  const variantNum = Number(p.paper.slice(-1)); // e.g. 1
+  const examYear = Number(prof.year) || 2026;
+
+  // ── 1. WRONG VARIANT ──
+  if (prof.variant && variantNum !== prof.variant) {
+    warnings.push({
+      level: 'warn',
+      icon: '🌍',
+      msg: `变体不匹配`,
+      detail: `你的考试是 Variant ${prof.variant}，这张是 Variant ${variantNum}（${['','英/欧','中/东亚','澳/新'][variantNum]}）。练习时仍有参考价值，但题型/分布略有差异。`,
+    });
+  }
+
+  // ── 2. WRONG SESSION ──
+  if (prof.session && p.session !== prof.session) {
+    warnings.push({
+      level: 'info',
+      icon: '🗓',
+      msg: `考季不同`,
+      detail: `你参加 ${prof.session}，这是 ${p.session} 的卷子。内容相同，可正常练习。`,
+    });
+  }
+
+  // ── 3. SUBJECT NOT IN PROFILE ──
+  if (prof.subjects && prof.subjects.length > 0 && !prof.subjects.includes(p.subject)) {
+    warnings.push({
+      level: 'info',
+      icon: '📚',
+      msg: `非报考科目`,
+      detail: `你未报考 ${p.subject} ${p.subjectName}，这张卷子不在你的备考范围内。`,
+    });
+  }
+
+  // ── 4. MATH SYLLABUS CHANGE (0580) ──
+  if (p.subject === '0580') {
+    const isNewSyllabus = p.year >= 2025;
+    const isOldSyllabus = p.year <= 2024;
+    const pNum = Number(paperNum);
+
+    if (examYear >= 2026 && isOldSyllabus && (pNum === 2 || pNum === 4)) {
+      // OLD P2/P4: calculator allowed, old format — CRITICAL mismatch
+      warnings.push({
+        level: 'error',
+        icon: '⚠️',
+        msg: `旧考纲卷子！格式已改变`,
+        detail: `2025年起 0580 P${pNum} 考纲已改版：\n• P2：改为 2 hours / 100 marks / 不允许使用计算器\n• P4：改为 2 hours / 100 marks / 允许使用计算器\n这张 ${p.year} 年的旧卷 P${pNum} 格式不同（${pNum===2?'1h30m/70分':'2h30m/130分'}），不能作为真题模拟，仅供题型练习参考。`,
+      });
+    }
+
+    if (!isNewSyllabus && (pNum === 2 || pNum === 4)) {
+      // Warn about calculator rules for old papers
+      const canCalc = pNum === 4; // old P4 = calculator allowed; old P2 = no calc but short
+      warnings.push({
+        level: 'info',
+        icon: '🧮',
+        msg: `计算器规则（旧考纲）`,
+        detail: `旧考纲 P${pNum}：${pNum === 2 ? '❌ 不允许使用计算器（1h30m，70分）' : '✅ 允许使用计算器（2h30m，130分）'}`,
+      });
+    }
+
+    if (isNewSyllabus) {
+      if (pNum === 2) {
+        warnings.push({
+          level: 'info',
+          icon: '🧮',
+          msg: `新考纲 P2 — 无计算器`,
+          detail: `2025新考纲 P2：❌ 不允许使用计算器，时长 2 hours，满分 100 marks`,
+        });
+      }
+      if (pNum === 4) {
+        warnings.push({
+          level: 'info',
+          icon: '🧮',
+          msg: `新考纲 P4 — 有计算器`,
+          detail: `2025新考纲 P4：✅ 允许使用计算器，时长 2 hours，满分 100 marks`,
+        });
+      }
+      if (pNum === 1 || pNum === 3) {
+        warnings.push({
+          level: 'info',
+          icon: '🧮',
+          msg: pNum===1 ? 'P1 — 无计算器' : 'P3 — 有计算器',
+          detail: pNum===1
+            ? 'P1 Core：❌ 不允许使用计算器，时长 1 hour 30 minutes，满分 70 marks'
+            : 'P3 Core：✅ 允许使用计算器，时长 2 hours，满分 104 marks',
+        });
+      }
+    }
+  }
+
+  // ── 5. SCIENCE PAPER TYPES ──
+  if (['0610','0620','0625'].includes(p.subject)) {
+    const pNum = Number(paperNum);
+    const typeInfo = {
+      1: { name: 'Paper 1 — Core MCQ',              desc: '40道选择题，45 minutes，40 marks。Core 级别（较易）。' },
+      2: { name: 'Paper 2 — Extended MCQ',           desc: '40道选择题，45 minutes，40 marks。Extended 级别（标准）。' },
+      3: { name: 'Paper 3 — Core Theory',            desc: '结构题/简答题，1 hour 15 minutes，80 marks。Core 级别。' },
+      4: { name: 'Paper 4 — Extended Theory',        desc: '结构题/简答题，1 hour 15 minutes，80 marks。Extended 级别（标准）。' },
+      5: { name: 'Paper 5 — Practical Exam',         desc: '实验操作考试，1 hour 15 minutes，40 marks。需要实验室。' },
+      6: { name: 'Paper 6 — Alt. to Practical',      desc: '实验分析题（替代实验考试），1 hour，40 marks。国内考生通常考这个。' },
+    };
+    if (typeInfo[pNum]) {
+      warnings.push({
+        level: 'info',
+        icon: '🔬',
+        msg: typeInfo[pNum].name,
+        detail: typeInfo[pNum].desc,
+      });
+    }
+
+    // Check if user should be doing P5 vs P6
+    const tiers = prof[`tier_${p.subject}`] || [];
+    if (pNum === 5 && !tiers.includes('p5')) {
+      warnings.push({
+        level: 'warn',
+        icon: '🧪',
+        msg: `P5 需要实验室`,
+        detail: `Paper 5 是实际操作考试，在中国大陆通常用 Paper 6（Alt. to Practical）替代。如果你参加 P6，这张 P5 不在考试范围内。`,
+      });
+    }
+    if (pNum === 6) {
+      warnings.push({
+        level: 'info',
+        icon: '✅',
+        msg: `P6 — 国内标准替代实验卷`,
+        detail: `Paper 6 替代实验考试，中国大陆考生通常参加此卷，无需实验室。1 hour，40 marks。`,
+      });
+    }
+
+    // Tier check
+    const profTiers = prof[`tier_${p.subject}`] || [];
+    if (profTiers.length > 0) {
+      const isExtended = pNum === 2 || pNum === 4;
+      const isCore = pNum === 1 || pNum === 3;
+      if (isExtended && !profTiers.includes('extended') && profTiers.includes('core')) {
+        warnings.push({
+          level: 'warn', icon: '📊',
+          msg: `你报考 Core 级别`,
+          detail: `你设置的是 Core（P1/P3），但这张是 Extended 级别（P${pNum}）。Extended 难度更高，请确认你是否需要练习此卷。`,
+        });
+      }
+      if (isCore && !profTiers.includes('core') && profTiers.includes('extended')) {
+        warnings.push({
+          level: 'info', icon: '📊',
+          msg: `你报考 Extended 级别`,
+          detail: `你设置的是 Extended（P2/P4），这张是 Core 级别（P${pNum}）。Extended 考生也可做 Core 卷热身，但注意内容范围不同。`,
+        });
+      }
+    }
+  }
+
+  // ── 6. PREDICTED PAPER ──
+  if (p.isPredicted) {
+    warnings.push({
+      level: 'info',
+      icon: '🟢',
+      msg: `2025年预测卷`,
+      detail: `这是按考纲规律推算的 2025 年卷子，尚未正式公布。格式参数按规律填写，实际真题可能有差异。`,
+    });
+  }
+
+  return warnings;
+}
+
+function renderCartWarnings() {
+  const panel = document.getElementById('cartWarnings');
+  if (!panel) return;
+  if (state.cart.length === 0) { panel.style.display = 'none'; return; }
+
+  const prof = getProfile();
+  const hasProfile = (prof.subjects && prof.subjects.length > 0) || prof.variant || prof.session;
+
+  // Collect all warnings across all cart items
+  const allWarnings = [];
+  state.cart.forEach(id => {
+    const p = paperDB.find(x => x.id === id);
+    if (!p) return;
+    const ws = getPaperWarnings(p);
+    ws.forEach(w => {
+      if (w.level === 'error' || w.level === 'warn') {
+        allWarnings.push({ paper: p, ...w });
+      }
+    });
+  });
+
+  const errorCount = allWarnings.filter(w => w.level === 'error').length;
+  const warnCount  = allWarnings.filter(w => w.level === 'warn').length;
+
+  if (allWarnings.length === 0 && hasProfile) {
+    panel.style.display = '';
+    panel.innerHTML = `
+      <div style="margin:10px 16px;padding:10px 14px;border-radius:12px;background:#E6F4EA;border:1.5px solid #34A853;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">✅</span>
+        <p style="font-size:12px;color:#1E8E3E;font-weight:600">清单检查通过！所有卷子与你的报考信息匹配。</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (allWarnings.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div style="margin:10px 16px;border-radius:12px;overflow:hidden;border:1.5px solid ${errorCount>0?'#EA4335':'#FBBC04'}">
+      <div style="background:${errorCount>0?'#EA4335':'#FBBC04'};padding:8px 14px;display:flex;align-items:center;gap:6px;cursor:pointer" onclick="toggleWarningDetail()">
+        <span style="font-size:16px">${errorCount>0?'🚨':'⚠️'}</span>
+        <span style="font-size:12px;font-weight:700;color:white;flex:1">
+          清单提醒：${errorCount>0?`${errorCount} 个严重问题`:''}${errorCount>0&&warnCount>0?' · ':''}${warnCount>0?`${warnCount} 个警告`:''}
+        </span>
+        <span class="mi" id="warnToggleIcon" style="color:white;font-size:16px">expand_more</span>
+      </div>
+      <div id="warnDetail" style="background:white;max-height:none">
+        ${allWarnings.map((w,i) => `
+          <div style="padding:10px 14px;${i<allWarnings.length-1?'border-bottom:1px solid #F1F3F4':''}">
+            <div style="display:flex;align-items:flex-start;gap:8px">
+              <span style="font-size:14px;flex-shrink:0;margin-top:1px">${w.icon}</span>
+              <div style="flex:1">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+                  <span style="font-size:10px;font-family:'Roboto Mono',monospace;font-weight:700;color:${w.paper.subjectColor}">${w.paper.subject}/${w.paper.paper.slice(1,-1)}${w.paper.paper.slice(-1)}</span>
+                  <span style="font-size:11px;font-weight:700;color:${w.level==='error'?'#DC2626':'#D97706'}">${w.msg}</span>
+                </div>
+                <p style="font-size:11px;color:#5F6368;white-space:pre-line;line-height:1.5">${w.detail}</p>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+        ${!hasProfile ? `
+          <div style="padding:10px 14px;background:#FEF7E0;border-top:1px solid #FDE68A">
+            <p style="font-size:11px;color:#92400E">💡 在<strong>设置</strong>里填写你的报考信息，可获得更精准的检查和推荐。</p>
+            <button onclick="openSettings()" class="btn" style="font-size:11px;padding:4px 10px;margin-top:6px;background:#F59E0B;color:white;border-radius:8px">去设置</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function toggleWarningDetail() {
+  const detail = document.getElementById('warnDetail');
+  const icon = document.getElementById('warnToggleIcon');
+  if (!detail) return;
+  const collapsed = detail.style.maxHeight === '0px';
+  detail.style.maxHeight = collapsed ? 'none' : '0px';
+  detail.style.overflow = collapsed ? 'visible' : 'hidden';
+  if (icon) icon.textContent = collapsed ? 'expand_less' : 'expand_more';
 }
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║                     SETTINGS                            ║
 // ╚══════════════════════════════════════════════════════════╝
 
-/** 打开设置抽屉 */
 function openSettings() {
   document.getElementById('settingsDr').classList.add('open');
   document.getElementById('settingsOv').classList.remove('hidden');
   updateSettingsUI();
 }
 
-/** 关闭设置抽屉 */
 function closeSettings() {
   document.getElementById('settingsDr').classList.remove('open');
   document.getElementById('settingsOv').classList.add('hidden');
 }
 
-/** 同步设置界面状态 */
 function updateSettingsUI() {
   const mode = state.settings.mode;
-  const ms   = document.getElementById('modeStrict');
-  const mp   = document.getElementById('modePrac');
+  const ms = document.getElementById('modeStrict');
+  const mp = document.getElementById('modePrac');
   if (ms && mp) {
-    ms.style.background = mode === 'strict'   ? 'var(--primary)' : 'white';
-    ms.style.color      = mode === 'strict'   ? 'white'          : 'var(--text-sub)';
+    ms.style.background = mode === 'strict' ? 'var(--primary)' : 'white';
+    ms.style.color = mode === 'strict' ? 'white' : 'var(--text-sub)';
     mp.style.background = mode === 'practice' ? 'var(--primary)' : 'white';
-    mp.style.color      = mode === 'practice' ? 'white'          : 'var(--text-sub)';
+    mp.style.color = mode === 'practice' ? 'white' : 'var(--text-sub)';
   }
-  // 统计数字
   const done = Object.values(state.paperStatus).filter(v => v === 'done').length;
-  const ttl  = paperDB.length;
   const secs = Object.values(state.paperTimes).reduce((a, b) => a + b, 0);
-  const el1  = document.getElementById('statDone');
-  const el2  = document.getElementById('statTotal');
-  const el3  = document.getElementById('statTime');
+  const el1 = document.getElementById('statDone');
+  const el2 = document.getElementById('statTotal');
+  const el3 = document.getElementById('statTime');
   if (el1) el1.textContent = done;
-  if (el2) el2.textContent = ttl;
+  if (el2) el2.textContent = paperDB.length;
   if (el3) el3.textContent = fmtDuration(secs);
+
+  // Restore countdown settings UI
+  const dateInput = document.getElementById('examDateInput');
+  if (dateInput) dateInput.value = state.settings.examDate || DEFAULT_EXAM_DATE;
+  updateCdUnitUI();
+  renderProfileUI();
 }
 
-/** 切换考试模式 */
 function setMode(m) {
   state.settings.mode = m;
   saveState();
@@ -1651,21 +2335,12 @@ function setMode(m) {
   showToast(m === 'strict' ? '⚡ 严格模式已启用' : '🎓 练习模式已启用');
 }
 
-/** 切换主题（占位） */
 function toggleTheme() {}
 
-/** 确认重置进度 */
 function confirmReset() {
   if (confirm('⚠️ 确定要重置所有进度吗？此操作不可撤销！')) {
-    state.paperStatus = {};
-    state.paperTimes  = {};
-    state.cart        = [];
-    saveState();
-    updateCartBar();
-    renderCards();
-    updateProgress();
-    updateSettingsUI();
-    closeSettings();
+    state.paperStatus = {}; state.paperTimes = {}; state.cart = [];
+    saveState(); updateCartBar(); renderCards(); updateProgress(); updateSettingsUI(); closeSettings();
     showToast('✅ 所有进度已重置');
   }
 }
@@ -1678,10 +2353,8 @@ function openMobileFilter() {
   document.getElementById('mobileFilterOv').classList.remove('hidden');
   const sheet = document.getElementById('mobileFilterSheet');
   sheet.style.transform = 'translateY(0)';
-  // 渲染筛选选项到移动端面板
   const mob = document.getElementById('mobileFilterSections');
   mob.innerHTML = document.getElementById('filterSections').innerHTML;
-  // 重新绑定事件（通过 onclick 属性已内联，无需额外绑定）
 }
 
 function closeMobileFilter() {
@@ -1693,7 +2366,25 @@ function closeMobileFilter() {
 // ║                    UTILITIES                            ║
 // ╚══════════════════════════════════════════════════════════╝
 
-/** 格式化秒数为 MM:SS */
+/** IGCSE格式: 45 minutes / 1 hour 30 minutes / 2 hours 30 minutes */
+function fmtDurationMin(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m} minute${m !== 1 ? 's' : ''}`;
+  const hStr = `${h} hour${h !== 1 ? 's' : ''}`;
+  if (m === 0) return hStr;
+  return `${hStr} ${m} minute${m !== 1 ? 's' : ''}`;
+}
+
+/** Short IGCSE format for tight spaces: 45m / 1h 30m / 2h 30m */
+function fmtDurationShort(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 function fmtTime(sec) {
   if (sec < 0) sec = 0;
   const m = Math.floor(sec / 60);
@@ -1701,21 +2392,20 @@ function fmtTime(sec) {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
-/** 格式化秒数为 Xh Ymin */
 function fmtDuration(sec) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  if (h === 0) return `${m} minutes`;
+  if (m === 0) return `${h} hour${h !== 1 ? 's' : ''}`;
+  return `${h}h ${m}min`;
 }
 
-/** 动态获取并显示当前日期 */
 function updateDate() {
   const now = new Date();
   const opts = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
   document.getElementById('dateDisp').textContent = now.toLocaleDateString('zh-CN', opts);
 }
 
-/** Toast 提示 */
 let toastTimer = null;
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -1725,7 +2415,6 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
 }
 
-/** AppBar 滚动阴影 */
 function initScrollShadow() {
   window.addEventListener('scroll', () => {
     document.getElementById('appbar').classList.toggle('scrolled', window.scrollY > 4);
@@ -1736,28 +2425,559 @@ function initScrollShadow() {
 // ║                   INITIALIZATION                        ║
 // ╚══════════════════════════════════════════════════════════╝
 
-function init() {
-  paperDB = generatePaperDB();    // 生成试卷数据库
-  loadState();                    // 从 LocalStorage 加载状态
-  updateDate();                   // 更新日期
-  renderFilterPanel();            // 渲染筛选面板
-  applyFilters();                 // 首次渲染卡片
-  updateCartBar();                // 初始化 cart bar
-  updateProgress();               // 更新进度圆环
-  initScrollShadow();             // 绑定滚动事件
+// ╔══════════════════════════════════════════════════════════╗
+// ║              SEARCH / CUSTOM PAPER SYSTEM               ║
+// ╚══════════════════════════════════════════════════════════╝
 
-  // 恢复清单（若页面刷新后 cart 非空）
+// Parse a code like "0580/41" or "0625/62" → { subject, paperCode, variant }
+function parseCode(raw) {
+  const s = raw.trim().toUpperCase().replace(/\s/g, '');
+  // Match patterns: 0580/41, 0580/4/1, 058041 etc.
+  const m = s.match(/^(0580|0610|0620|0625)\/?([1-6])([1-3])$/);
+  if (!m) return null;
+  return {
+    subject: m[1],
+    paperNum: m[2],   // 1-6
+    variant: Number(m[3]),  // 1-3
+    paperCode: `P${m[2]}${m[3]}`,  // e.g. P41
+    displayCode: `${m[1]}/${m[2]}${m[3]}`,
+  };
+}
+
+const SUBJECT_META = {
+  '0580': { name: 'Mathematics',   icon: 'calculate', color: '#1A73E8' },
+  '0610': { name: 'Biology',       icon: 'biotech',   color: '#34A853' },
+  '0620': { name: 'Chemistry',     icon: 'science',   color: '#FF6D00' },
+  '0625': { name: 'Physics',       icon: 'bolt',      color: '#9334E8' },
+};
+
+const VARIANT_REGIONS = {
+  1: { name: 'Variant 1', region: '🇬🇧 时区1 英/欧/非/美' },
+  2: { name: 'Variant 2', region: '🇨🇳 时区2 中/东亚/巴' },
+  3: { name: 'Variant 3', region: '🇦🇺 时区3 澳/新/东南亚' },
+};
+
+let searchState = {
+  parsed: null,
+  addMode: false,
+  addYear: null,
+  addSession: null,
+  addDuration: null,
+};
+
+function openSearch() {
+  document.getElementById('searchModal').style.display = 'flex';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').innerHTML = `
+    <div style="text-align:center;padding:32px 0;color:#BDC1C6">
+      <span class="mi" style="font-size:48px">search</span>
+      <p class="text-sm mt-2">输入卷子代码开始搜索</p>
+    </div>
+  `;
+  setTimeout(() => document.getElementById('searchInput').focus(), 100);
+}
+
+function closeSearch() {
+  document.getElementById('searchModal').style.display = 'none';
+}
+
+function handleSearchModalBg(e) {
+  if (e.target === document.getElementById('searchModal')) closeSearch();
+}
+
+function onSearchInput(val) {
+  if (val.length >= 6) doSearch();
+}
+
+function doSearch() {
+  const raw = document.getElementById('searchInput').value;
+  const parsed = parseCode(raw);
+  const results = document.getElementById('searchResults');
+
+  if (!parsed) {
+    results.innerHTML = `
+      <div style="background:#FEF3F2;border:1.5px solid #FEE2E2;border-radius:12px;padding:16px;text-align:center;margin-top:8px">
+        <span class="mi" style="color:#EA4335;font-size:24px">error_outline</span>
+        <p class="text-sm font-semibold mt-2" style="color:#DC2626">格式不正确</p>
+        <p class="text-xs mt-1" style="color:#9AA0A6">请输入如 <code style="background:#F1F3F4;padding:1px 5px;border-radius:4px">0580/41</code> 格式的代码</p>
+        <div class="flex flex-wrap gap-2 justify-center mt-3">
+          ${['0580/41','0580/22','0625/61','0610/32','0620/42'].map(ex =>
+            `<span class="fchip" onclick="document.getElementById('searchInput').value='${ex}';doSearch()" style="cursor:pointer">${ex}</span>`
+          ).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  searchState.parsed = parsed;
+  const { subject, paperNum, variant, paperCode, displayCode } = parsed;
+  const meta = SUBJECT_META[subject];
+
+  // Find matching papers in DB (same subject + paper code)
+  const matches = paperDB.filter(p =>
+    p.subject === subject && p.paper === paperCode
+  );
+
+  if (matches.length > 0) {
+    // Show found papers
+    const status = matches.map(p => state.paperStatus[p.id] || 'todo');
+    results.innerHTML = `
+      <div style="margin-bottom:12px">
+        <div class="flex items-center gap-2 mb-3">
+          <div style="width:32px;height:32px;border-radius:9px;background:${meta.color}18;display:flex;align-items:center;justify-content:center">
+            <span class="mi" style="color:${meta.color};font-size:16px">${meta.icon}</span>
+          </div>
+          <div>
+            <span class="font-bold text-sm" style="color:${meta.color}">${displayCode}</span>
+            <span class="text-xs ml-2" style="color:var(--text-sub)">${meta.name} · Paper ${paperNum} · ${VARIANT_REGIONS[variant].name}</span>
+          </div>
+          <span class="text-xs ml-auto font-semibold" style="color:var(--success)">找到 ${matches.length} 张</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${matches.map(p => {
+            const sc = STATUS_MAP[state.paperStatus[p.id] || 'todo'];
+            const inCart = state.cart.includes(p.id);
+            const sCode = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
+            return `
+              <div class="flex items-center gap-3 p-3 rounded-xl" style="border:1.5px solid var(--border);background:white;transition:all .15s" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div style="flex:1;min-width:0">
+                  <div class="font-semibold text-sm" style="color:#202124">${p.year} ${p.session}</div>
+                  <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#F1F3F4;color:#5F6368">${fmtDurationMin(p.duration)}</span>
+                    <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#F1F3F4;color:#5F6368">${p.totalMarks} 分</span>
+                    <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${sc.bg};color:${sc.color};font-weight:600">${sc.label}</span>
+                    ${p.isPredicted ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#E8F5E9;color:#2E7D32;font-weight:600">🟢 预测</span>' : ''}
+                  </div>
+                </div>
+                <button onclick="searchAddToCart('${p.id}')"
+                  class="btn ${inCart ? 'btn-p' : 'btn-o'}" id="scart-${p.id}"
+                  style="font-size:11px;padding:6px 12px;flex-shrink:0">
+                  <span class="mi" style="font-size:14px">${inCart ? 'playlist_add_check' : 'playlist_add'}</span>
+                  ${inCart ? '已在清单' : '加入清单'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  } else {
+    // Not found — show add form
+    results.innerHTML = `
+      <div style="background:#FEF7E0;border:1.5px solid #FBBC04;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+        <span class="mi" style="color:#F59E0B;font-size:22px;flex-shrink:0">info</span>
+        <div>
+          <p class="font-semibold text-sm" style="color:#92400E">题库中没有 <code style="background:#FDE68A;padding:1px 6px;border-radius:4px">${displayCode}</code></p>
+          <p class="text-xs mt-1" style="color:#B45309">可以手动添加此卷子，填写考试信息后直接加入清单开始模考</p>
+        </div>
+      </div>
+
+      <div style="background:white;border:1.5px solid var(--border);border-radius:16px;padding:16px">
+        <!-- Paper info header -->
+        <div class="flex items-center gap-2 mb-4">
+          <div style="width:36px;height:36px;border-radius:10px;background:${meta.color}18;display:flex;align-items:center;justify-content:center">
+            <span class="mi" style="color:${meta.color}">${meta.icon}</span>
+          </div>
+          <div>
+            <p class="font-bold text-sm" style="color:${meta.color}">${subject} · Paper ${paperNum} · ${VARIANT_REGIONS[variant].name}</p>
+            <p class="text-xs" style="color:var(--text-sub)">${meta.name} · ${VARIANT_REGIONS[variant].region}</p>
+          </div>
+        </div>
+
+        <!-- Year -->
+        <div class="mb-4">
+          <p class="text-sm font-semibold mb-2" style="color:#202124">📅 考试年份</p>
+          <div class="flex flex-wrap gap-2" id="addYear">
+            ${[2025,2024,2023,2022,2021,2020].map(y =>
+              `<div class="fchip" data-v="${y}" onclick="selectAddYear(${y})">${y}${y===2025?' 🟢':''}</div>`
+            ).join('')}
+          </div>
+        </div>
+
+        <!-- Session -->
+        <div class="mb-4">
+          <p class="text-sm font-semibold mb-2" style="color:#202124">🗓 考季</p>
+          <div class="flex flex-wrap gap-2" id="addSession">
+            ${['March','May/June','Oct/Nov'].map(s =>
+              `<div class="fchip" data-v="${s}" onclick="selectAddSession('${s}')">${s}</div>`
+            ).join('')}
+          </div>
+          <p class="text-xs mt-1" style="color:#9AA0A6">March 仅 Variant 2；May/June 和 Oct/Nov 有 Variant 1/2/3</p>
+        </div>
+
+        <!-- Duration -->
+        <div class="mb-5">
+          <p class="text-sm font-semibold mb-2" style="color:#202124">⏱ 考试时长</p>
+          <div class="flex flex-wrap gap-2" id="addDuration">
+            ${[
+              {v:45,  l:'45 minutes'},
+              {v:60,  l:'1 hour'},
+              {v:75,  l:'1 hour 15 minutes'},
+              {v:90,  l:'1 hour 30 minutes'},
+              {v:120, l:'2 hours'},
+              {v:150, l:'2 hours 30 minutes'},
+            ].map(d =>
+              `<div class="fchip" data-v="${d.v}" onclick="selectAddDuration(${d.v})">${d.l}</div>`
+            ).join('')}
+          </div>
+        </div>
+
+        <!-- Marks (optional) -->
+        <div class="mb-5">
+          <p class="text-sm font-semibold mb-1" style="color:#202124">📊 总分 <span style="font-weight:400;color:#9AA0A6">(可选)</span></p>
+          <input id="addMarks" type="number" min="1" max="200" placeholder="如 130"
+            class="rounded-xl text-sm focus:outline-none"
+            style="border:2px solid var(--border);padding:8px 12px;font-family:inherit;color:#202124;transition:border .15s;width:120px"
+            onfocus="this.style.borderColor='var(--primary)'"
+            onblur="this.style.borderColor='var(--border)'" />
+        </div>
+
+        <button onclick="addCustomPaper()" id="addCustomBtn" class="btn btn-s w-full" style="justify-content:center;padding:12px;font-size:14px" disabled>
+          <span class="mi" style="font-size:18px">add_circle</span>&nbsp;添加并加入清单 → 立即开始
+        </button>
+        <p class="text-xs text-center mt-2" style="color:#9AA0A6">添加后会自动加入今日清单，可立即开始模考</p>
+      </div>
+    `;
+
+    // Reset add state
+    searchState.addYear = null;
+    searchState.addSession = null;
+    searchState.addDuration = null;
+  }
+}
+
+function searchAddToCart(id) {
+  const inCart = state.cart.includes(id);
+  if (!inCart) {
+    state.cart.push(id);
+    saveState();
+    updateCartBar();
+    const el = document.getElementById(`scart-${id}`);
+    if (el) {
+      el.className = 'btn btn-p';
+      el.style.cssText += 'font-size:11px;padding:6px 12px;flex-shrink:0';
+      el.innerHTML = '<span class="mi" style="font-size:14px">playlist_add_check</span> 已在清单';
+    }
+    const card = document.querySelector(`[data-id="${id}"]`);
+    if (card) { const p = paperDB.find(x => x.id === id); if (p) card.replaceWith(makeCard(p)); }
+    showToast('✅ 已加入清单');
+  } else {
+    showToast('已在清单中');
+  }
+}
+
+function selectAddYear(y) {
+  searchState.addYear = y;
+  document.querySelectorAll('#addYear .fchip').forEach(el => {
+    el.classList.toggle('on', Number(el.dataset.v) === y);
+  });
+  checkAddReady();
+}
+
+function selectAddSession(s) {
+  searchState.addSession = s;
+  document.querySelectorAll('#addSession .fchip').forEach(el => {
+    el.classList.toggle('on', el.dataset.v === s);
+  });
+  checkAddReady();
+}
+
+function selectAddDuration(d) {
+  searchState.addDuration = d;
+  document.querySelectorAll('#addDuration .fchip').forEach(el => {
+    el.classList.toggle('on', Number(el.dataset.v) === d);
+  });
+  checkAddReady();
+}
+
+function checkAddReady() {
+  const btn = document.getElementById('addCustomBtn');
+  if (btn) btn.disabled = !(searchState.addYear && searchState.addSession && searchState.addDuration);
+}
+
+function addCustomPaper() {
+  const parsed = searchState.parsed;
+  if (!parsed || !searchState.addYear || !searchState.addSession || !searchState.addDuration) return;
+
+  const { subject, paperNum, variant, paperCode, displayCode } = parsed;
+  const meta = SUBJECT_META[subject];
+  const sc = { MA: 'MA', 'May/June': 'MJ', 'Oct/Nov': 'ON', March: 'MA' };
+  const scCode = sc[searchState.addSession] || 'MJ';
+  const marksInput = document.getElementById('addMarks');
+  const marks = marksInput && marksInput.value ? Number(marksInput.value) : null;
+
+  // Guess tier
+  const tierMap = {
+    '1': 'Core', '2': 'Extended', '3': 'Core Theory', '4': 'Extended Theory',
+    '5': 'Practical', '6': 'Alt. to Practical',
+  };
+  const tier = tierMap[paperNum] || 'Unknown';
+
+  const id = `${subject}-${searchState.addYear}-${scCode}-${paperCode}-custom`;
+
+  // Check if already exists
+  if (paperDB.find(p => p.id === id)) {
+    showToast('⚠️ 这张卷子已存在！');
+    searchAddToCart(id);
+    closeSearch();
+    return;
+  }
+
+  const newPaper = {
+    id,
+    subject, subjectName: meta.name, subjectIcon: meta.icon, subjectColor: meta.color,
+    year: searchState.addYear,
+    paper: paperCode,
+    paperFull: `Paper ${paperNum} (${VARIANT_REGIONS[variant].name})`,
+    variantRegion: VARIANT_REGIONS[variant].region,
+    session: searchState.addSession,
+    duration: searchState.addDuration,
+    totalMarks: marks || defaultMarks(subject, paperNum),
+    tier,
+    locked: false,
+    syllabusInfo: searchState.addYear >= 2025 ? '新考纲' : '',
+    isPredicted: false,
+    isCustom: true,
+  };
+
+  // Add to DB
+  paperDB.push(newPaper);
+
+  // Add to cart
+  state.cart.push(id);
+  saveState();
+  updateCartBar();
+
+  // Refresh if visible
+  applyFilters();
+  updateProgress();
+
+  closeSearch();
+  showToast(`✅ 已添加 ${displayCode} 并加入清单！`);
+
+  // Auto open cart
+  setTimeout(() => openCartDrawer(), 400);
+}
+
+function defaultMarks(subject, paperNum) {
+  if (subject === '0580') {
+    return { '1': 70, '2': 70, '3': 104, '4': 130 }[paperNum] || 70;
+  }
+  return { '1': 40, '2': 40, '3': 80, '4': 80, '5': 40, '6': 40 }[paperNum] || 40;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║           COUNTDOWN + HITOKOTO SYSTEM                   ║
+// ╚══════════════════════════════════════════════════════════╝
+
+let cdInterval = null;
+
+// Default: May/June 2026 starts Apr 28
+const DEFAULT_EXAM_DATE = '2026-04-28';
+
+function getExamDate() {
+  return state.settings.examDate || DEFAULT_EXAM_DATE;
+}
+
+function getCdUnit() {
+  return state.settings.cdUnit || 'dh';
+}
+
+function saveExamDate(val) {
+  state.settings.examDate = val;
+  saveState();
+  renderCountdown();
+  showToast('✅ 考试日期已保存');
+}
+
+function setCdUnit(unit) {
+  state.settings.cdUnit = unit;
+  saveState();
+  renderCountdown();
+  updateCdUnitUI();
+}
+
+function updateCdUnitUI() {
+  const unit = getCdUnit();
+  ['wdh','dh','d','h'].forEach(u => {
+    const el = document.getElementById(`cdu-${u}`);
+    if (el) el.classList.toggle('on', u === unit);
+  });
+}
+
+function renderCountdown() {
+  const examDate = getExamDate();
+  const unit = getCdUnit();
+  const now = new Date();
+  const target = new Date(examDate + 'T09:00:00');
+  const diffMs = target - now;
+
+  const cdBlocks = document.getElementById('cdBlocks');
+  const examTag = document.getElementById('examDateTag');
+
+  if (!cdBlocks) return;
+
+  if (diffMs <= 0) {
+    cdBlocks.innerHTML = `
+      <div class="cd-block">
+        <span class="cd-num" style="color:#4ade80;font-size:14px">EXAM DAY</span>
+        <span class="cd-label">加油！</span>
+      </div>
+    `;
+    if (examTag) examTag.textContent = '📅 今天考试！';
+    return;
+  }
+
+  const totalSecs = Math.floor(diffMs / 1000);
+  const totalMins = Math.floor(totalSecs / 60);
+  const totalHours = Math.floor(totalMins / 60);
+  const totalDays = Math.floor(totalHours / 24);
+  const weeks = Math.floor(totalDays / 7);
+
+  const remDays = totalDays % 7;
+  const remHours = totalHours % 24;
+  const remMins = totalMins % 60;
+
+  const urgent = totalDays < 14;
+  const cls = urgent ? 'cd-num urgent' : 'cd-num';
+
+  let blocksHtml = '';
+
+  if (unit === 'wdh') {
+    blocksHtml = `
+      <div class="cd-block">
+        <span class="${cls}">${String(weeks).padStart(2,'0')}</span>
+        <span class="cd-label">WEEKS</span>
+      </div>
+      <div class="cd-block">
+        <span class="${cls}">${String(remDays).padStart(2,'0')}</span>
+        <span class="cd-label">DAYS</span>
+      </div>
+      <div class="cd-block">
+        <span class="${cls}">${String(remHours).padStart(2,'0')}</span>
+        <span class="cd-label">HRS</span>
+      </div>
+    `;
+  } else if (unit === 'dh') {
+    blocksHtml = `
+      <div class="cd-block">
+        <span class="${cls}">${String(totalDays).padStart(3,'0')}</span>
+        <span class="cd-label">DAYS</span>
+      </div>
+      <div class="cd-block">
+        <span class="${cls}">${String(remHours).padStart(2,'0')}</span>
+        <span class="cd-label">HRS</span>
+      </div>
+    `;
+  } else if (unit === 'd') {
+    blocksHtml = `
+      <div class="cd-block">
+        <span class="${cls}" style="font-size:22px">${totalDays}</span>
+        <span class="cd-label">DAYS REMAINING</span>
+      </div>
+    `;
+  } else { // h
+    blocksHtml = `
+      <div class="cd-block">
+        <span class="${cls}" style="font-size:20px">${totalHours}</span>
+        <span class="cd-label">HOURS REMAINING</span>
+      </div>
+    `;
+  }
+
+  cdBlocks.innerHTML = blocksHtml;
+
+  // Update exam date tag
+  if (examTag) {
+    const d = target.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    examTag.textContent = `📅 ${d}`;
+  }
+}
+
+function startCountdown() {
+  renderCountdown();
+  clearInterval(cdInterval);
+  cdInterval = setInterval(renderCountdown, 1000);
+}
+
+// ── Hitokoto ──
+let hitokoTimer = null;
+
+async function fetchHitokoto() {
+  const el = document.getElementById('hitokotext');
+  if (!el) return;
+  try {
+    // Fetch philosophical / literary quotes — types k (哲学), d (文学), e (原创), f (网络), i (诗词)
+    const types = ['k','d','e','f','i'];
+    const t = types[Math.floor(Math.random() * types.length)];
+    const res = await fetch(`https://v1.hitokoto.cn?c=${t}&encode=json&max_length=50`);
+    if (!res.ok) throw new Error('fetch fail');
+    const data = await res.json();
+    const text = data.hitokoto;
+    const from = data.from ? ` ——《${data.from}》` : '';
+
+    // Fade out
+    el.style.opacity = '0';
+    await new Promise(r => setTimeout(r, 500));
+    el.textContent = text + from;
+    el.style.opacity = '1';
+  } catch (e) {
+    // Fallback quotes
+    const fallbacks = [
+      '不经一番寒彻骨，怎得梅花扑鼻香。',
+      'The secret of getting ahead is getting started.',
+      '千里之行，始于足下。',
+      'Pressure is a privilege.',
+      '合抱之木，生于毫末。',
+      'Do it now. Sometimes "later" becomes "never".',
+    ];
+    const el2 = document.getElementById('hitokotext');
+    if (el2) {
+      el2.style.opacity = '0';
+      await new Promise(r => setTimeout(r, 400));
+      el2.textContent = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+      el2.style.opacity = '1';
+    }
+  }
+}
+
+function startHitokoto() {
+  fetchHitokoto();
+  clearInterval(hitokoTimer);
+  hitokoTimer = setInterval(fetchHitokoto, 18000); // rotate every 18s
+}
+
+function init() {
+  paperDB = generatePaperDB();
+
+  // Debug: log total count
+  console.log(`📚 题库总数: ${paperDB.length} 张卷子`);
+
+  loadState();
+  updateDate();
+  renderFilterPanel();
+  applyFilters();
+  updateCartBar();
+  updateProgress();
+  initScrollShadow();
+  startCountdown();
+  startHitokoto();
+
+  // Restore exam date input
+  const dateInput = document.getElementById('examDateInput');
+  if (dateInput) dateInput.value = state.settings.examDate || DEFAULT_EXAM_DATE;
+  updateCdUnitUI();
+
   if (state.cart.length > 0) {
     showToast(`📋 清单中还有 ${state.cart.length} 张卷子`);
   }
 
-  // Gacha 关闭点击外部
   document.getElementById('gachaModal').addEventListener('click', e => {
     if (e.target === document.getElementById('gachaModal')) closeGacha();
   });
 }
 
-// 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
