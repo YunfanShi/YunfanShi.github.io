@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IGCSE Answer Sheet Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&family=Roboto+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #1a73e8;
+    --blue-light: #e8f0fe;
+    --green: #34a853;
+    --red: #ea4335;
+    --yellow: #fbbc04;
+    --text: #202124;
+    --text-secondary: #5f6368;
+    --border: #dadce0;
+    --bg: #f8f9fa;
+    --white: #fff;
+    --shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.24);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,.15);
+  }
+
+  body {
+    font-family: 'Google Sans', 'Roboto', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* Header */
+  header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    width: 22px;
+  }
+
+  .logo-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+  }
+
+  .logo-dot:nth-child(1) { background: var(--blue); }
+  .logo-dot:nth-child(2) { background: var(--red); }
+  .logo-dot:nth-child(3) { background: var(--yellow); }
+  .logo-dot:nth-child(4) { background: var(--green); }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .logo-text span { color: var(--text); }
+
+  header .spacer { flex: 1; }
+
+  .print-btn {
+    background: var(--blue);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-family: 'Google Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .2s, box-shadow .2s;
+  }
+
+  .print-btn:hover { background: #1557b0; box-shadow: var(--shadow); }
+
+  /* Main layout */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Card */
+  .card {
+    background: var(--white);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .card-header {
+    background: var(--blue);
+    color: white;
+    padding: 16px 20px;
+    font-size: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-body { padding: 20px; }
+
+  /* Form */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin-bottom: 6px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--white);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(26,115,232,.2);
+  }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .answer-input-area {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 15px;
+    min-height: 80px;
+    resize: vertical;
+    letter-spacing: 2px;
+  }
+
+  .hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .generate-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Google Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background .2s, box-shadow .2s;
+  }
+
+  .generate-btn:hover { background: #1557b0; box-shadow: var(--shadow); }
+
+  /* Answer Sheet */
+  .sheet-wrapper {
+    background: var(--white);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .sheet-header {
+    border-bottom: 3px solid var(--blue);
+    padding: 20px 24px 16px;
+  }
+
+  .sheet-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .sheet-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .sheet-meta {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .badge-blue { background: var(--blue-light); color: var(--blue); }
+  .badge-green { background: #e6f4ea; color: var(--green); }
+  .badge-yellow { background: #fef7e0; color: #e37400; }
+
+  /* Bubbles grid */
+  .sheet-body {
+    padding: 20px 24px;
+  }
+
+  .questions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 4px 16px;
+  }
+
+  .question-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #f1f3f4;
+  }
+
+  .q-num {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .bubbles {
+    display: flex;
+    gap: 4px;
+  }
+
+  .bubble {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all .15s;
+    flex-shrink: 0;
+  }
+
+  .bubble.filled {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: white;
+  }
+
+  .bubble.skipped {
+    background: #f1f3f4;
+    border-color: #dadce0;
+    color: #bdc1c6;
+  }
+
+  .answer-text {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--blue);
+    min-width: 16px;
+  }
+
+  .answer-text.skipped { color: #bdc1c6; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-secondary);
+  }
+
+  .empty-icon {
+    width: 80px; height: 80px;
+    margin: 0 auto 16px;
+    opacity: .3;
+  }
+
+  .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+  .empty-state p { font-size: 14px; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    padding: 12px 24px;
+    background: #f8f9fa;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .stat { display: flex; align-items: center; gap: 6px; }
+  .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* LLM Text Output */
+  .llm-section {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .llm-header {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .llm-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .llm-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .llm-body {
+    background: #181825;
+    padding: 16px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12.5px;
+    color: #cdd6f4;
+    max-height: 280px;
+    overflow-y: auto;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .llm-body .ans-answered { color: #89dceb; }
+  .llm-body .ans-skipped { color: #f38ba8; }
+  .llm-body .ans-blank { color: #585b70; }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid #45475a;
+    color: #cdd6f4;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Google Sans', sans-serif;
+    transition: background .15s, border-color .15s;
+  }
+
+  .copy-btn:hover { background: #313244; border-color: #89b4fa; color: #89b4fa; }
+  .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+
+  @media print {
+    header, .config-col { display: none !important; }
+    main { display: block; padding: 0; max-width: 100%; }
+    .sheet-wrapper { box-shadow: none; border: none; }
+    body { background: white; }
+    .stats-bar { display: none; }
+    .llm-section { display: none !important; }
+  }
+
+  @media (max-width: 768px) {
+    main { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dots">
+      <div class="logo-dot"></div>
+      <div class="logo-dot"></div>
+      <div class="logo-dot"></div>
+      <div class="logo-dot"></div>
+    </div>
+    <div class="logo-text"><span>IGCSE</span> Answer Sheet</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="print-btn" onclick="window.print()">🖨️ 打印 / Print</button>
+</header>
+
+<main>
+  <!-- Config Panel -->
+  <div class="config-col">
+    <div class="card">
+      <div class="card-header">
+        📝 试卷设置
+      </div>
+      <div class="card-body">
+
+        <div class="form-group">
+          <label>科目代码 Subject Code</label>
+          <input id="subjectCode" type="text" placeholder="e.g. 0610" maxlength="10" value="0610">
+        </div>
+
+        <div class="row">
+          <div class="form-group">
+            <label>Paper</label>
+            <input id="paperNum" type="text" placeholder="e.g. 12" value="12">
+          </div>
+          <div class="form-group">
+            <label>Year 年份</label>
+            <select id="year">
+              <option>2025</option><option>2024</option><option>2023</option>
+              <option>2022</option><option>2021</option><option>2020</option>
+              <option>2019</option><option>2018</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>考季 Session</label>
+          <select id="session">
+            <option value="May/June">May / June (夏季)</option>
+            <option value="Oct/Nov">October / November (秋季)</option>
+            <option value="Feb/Mar">February / March (春季)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>考试时长 Duration</label>
+          <select id="duration">
+            <option value="40 minutes">40 minutes</option>
+            <option value="45 minutes">45 minutes</option>
+            <option value="1 hour">1 hour</option>
+            <option value="1 hour 15 minutes">1 hour 15 minutes</option>
+            <option value="1 hour 30 minutes">1 hour 30 minutes</option>
+            <option value="1 hour 45 minutes">1 hour 45 minutes</option>
+            <option value="2 hours">2 hours</option>
+            <option value="2 hours 30 minutes">2 hours 30 minutes</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="form-group">
+            <label>题目数量 Questions</label>
+            <input id="numQ" type="number" min="1" max="80" value="40">
+          </div>
+          <div class="form-group">
+            <label>选项 Options</label>
+            <select id="options">
+              <option value="ABCD">A B C D</option>
+              <option value="ABCDE">A B C D E</option>
+              <option value="TF">T / F</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>输入答案 Answers</label>
+          <textarea class="answer-input-area" id="answers" placeholder="e.g. ABCDABCCD/BA..." rows="4"></textarea>
+          <div class="hint">
+            📌 直接输入答案字母，<strong>/</strong> 表示跳过该题（不会）<br>
+            长度不足会自动留空，不区分大小写
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>科目名称（可选）</label>
+          <input id="subjectName" type="text" placeholder="e.g. Biology / 生物">
+        </div>
+
+        <button class="generate-btn" onclick="generate()">✨ 生成答题卡</button>
+      </div>
+    </div>
+
+    <!-- LLM Text Output -->
+    <div class="llm-section" id="llmSection" style="display:none;">
+      <div class="llm-header">
+        <div class="llm-header-left">
+          <div class="llm-dot" style="background:#f38ba8"></div>
+          <div class="llm-dot" style="background:#f9e2af"></div>
+          <div class="llm-dot" style="background:#a6e3a1"></div>
+          <span style="margin-left:4px;">🤖 LLM 友好格式 — 直接复制给AI</span>
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyLLM()">📋 复制全部</button>
+      </div>
+      <div class="llm-body" id="llmBody"></div>
+    </div>
+
+    </div>
+  </div>
+
+  <!-- Sheet Output -->
+  <div class="sheet-wrapper" id="sheetWrapper">
+    <div class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="4" y="3" width="16" height="18" rx="2"/>
+        <line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/>
+        <line x1="8" y1="16" x2="12" y2="16"/>
+      </svg>
+      <h3>答题卡预览</h3>
+      <p>填写左侧设置后点击"生成答题卡"</p>
+    </div>
+  </div>
+</main>
+
+<script>
+function generate() {
+  const code = document.getElementById('subjectCode').value.trim() || '????';
+  const paper = document.getElementById('paperNum').value.trim() || '??';
+  const year = document.getElementById('year').value;
+  const session = document.getElementById('session').value;
+  const duration = document.getElementById('duration').value;
+  const numQ = parseInt(document.getElementById('numQ').value) || 40;
+  const optMode = document.getElementById('options').value;
+  const rawAnswers = document.getElementById('answers').value.toUpperCase().replace(/\s/g, '');
+  const subjectName = document.getElementById('subjectName').value.trim();
+
+  let opts;
+  if (optMode === 'ABCD') opts = ['A','B','C','D'];
+  else if (optMode === 'ABCDE') opts = ['A','B','C','D','E'];
+  else opts = ['T','F'];
+
+  // Parse answers — only accept valid option letters or '/'
+  const validChars = new Set([...opts, '/']);
+  const answers = [];
+  let idx = 0;
+  for (let i = 0; i < numQ; i++) {
+    while (idx < rawAnswers.length && !validChars.has(rawAnswers[idx])) idx++;
+    if (idx < rawAnswers.length) {
+      answers.push(rawAnswers[idx]);
+      idx++;
+    } else {
+      answers.push(null);
+    }
+  }
+
+  // Stats
+  const answered = answers.filter(a => a !== null && a !== '/').length;
+  const skipped = answers.filter(a => a === '/').length;
+  const blank = answers.filter(a => a === null).length;
+
+  // Paper code
+  const paperCode = `${code}/${paper}`;
+
+  // Build HTML
+  let questionsHTML = '';
+  for (let i = 0; i < numQ; i++) {
+    const ans = answers[i];
+    const isSkipped = ans === '/';
+    const isBlank = ans === null;
+
+    let bubblesHTML = opts.map(o => {
+      const isSelected = ans === o;
+      return `<div class="bubble${isSelected ? ' filled' : (isSkipped || isBlank ? ' skipped' : '')}">${o}</div>`;
+    }).join('');
+
+    const ansClass = isSkipped || isBlank ? 'skipped' : '';
+    const ansDisplay = isBlank ? '–' : (isSkipped ? '/' : ans);
+
+    questionsHTML += `
+      <div class="question-row">
+        <span class="q-num">${i + 1}</span>
+        <div class="bubbles">${bubblesHTML}</div>
+        <span class="answer-text ${ansClass}">${ansDisplay}</span>
+      </div>`;
+  }
+
+  document.getElementById('sheetWrapper').innerHTML = `
+    <div class="sheet-header">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="sheet-title">${paperCode} &nbsp; ${subjectName || ''}</div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span class="badge badge-blue">📅 ${session} ${year}</span>
+            <span class="badge badge-green">⏱ ${duration}</span>
+            <span class="badge badge-yellow">📋 ${numQ} Questions</span>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#5f6368;text-align:right;line-height:1.8;">
+          <div>Date: ___________</div>
+          <div>Name: ___________</div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="questions-grid">${questionsHTML}</div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-dot" style="background:#1a73e8"></div> Answered: <strong>${answered}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#bdc1c6"></div> Skipped (/): <strong>${skipped}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#f1f3f4;border:1px solid #dadce0"></div> Blank: <strong>${blank}</strong></div>
+      <div class="stat" style="margin-left:auto;color:#5f6368;font-size:12px;">Generated ${new Date().toLocaleDateString()}</div>
+    </div>
+  `;
+
+  // Build LLM-friendly text
+  const subjectDisplay = subjectName ? ` (${subjectName})` : '';
+  let llmText = `以下是我的答题情况，请根据这些答案批改：\n`;
+  llmText += `试卷：IGCSE ${paperCode}${subjectDisplay} ${session} ${year}\n`;
+  llmText += `时长：${duration}，共 ${numQ} 题\n`;
+  llmText += `─────────────────────────\n`;
+
+  for (let i = 0; i < numQ; i++) {
+    const ans = answers[i];
+    const qLabel = `第 ${i+1} 题`;
+    if (ans === null) {
+      llmText += `${qLabel}：（未填写）\n`;
+    } else if (ans === '/') {
+      llmText += `${qLabel}：（空白，未作答）\n`;
+    } else {
+      llmText += `${qLabel}：${ans}\n`;
+    }
+  }
+
+  llmText += `─────────────────────────\n`;
+  llmText += `已答：${answered} 题 ／ 空白：${skipped + blank} 题`;
+
+  // Store for copy
+  window._llmText = llmText;
+
+  // Render with colors
+  const llmBody = document.getElementById('llmBody');
+  const lines = llmText.split('\n');
+  llmBody.innerHTML = lines.map(line => {
+    if (line.match(/第 \d+ 题：[A-E]$/)) {
+      return `<span class="ans-answered">${line}</span>`;
+    } else if (line.includes('空白') || line.includes('未作答')) {
+      return `<span class="ans-skipped">${line}</span>`;
+    } else if (line.includes('未填写')) {
+      return `<span class="ans-blank">${line}</span>`;
+    }
+    return `<span>${line}</span>`;
+  }).join('\n');
+
+  document.getElementById('llmSection').style.display = 'block';
+}
+
+function copyLLM() {
+  if (!window._llmText) return;
+  navigator.clipboard.writeText(window._llmText).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✅ 已复制！';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '📋 复制全部';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>
