@@ -341,12 +341,74 @@
   .stat { display: flex; align-items: center; gap: 6px; }
   .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
 
+  /* LLM Text Output */
+  .llm-section {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .llm-header {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .llm-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .llm-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .llm-body {
+    background: #181825;
+    padding: 16px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12.5px;
+    color: #cdd6f4;
+    max-height: 280px;
+    overflow-y: auto;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .llm-body .ans-answered { color: #89dceb; }
+  .llm-body .ans-skipped { color: #f38ba8; }
+  .llm-body .ans-blank { color: #585b70; }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid #45475a;
+    color: #cdd6f4;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Google Sans', sans-serif;
+    transition: background .15s, border-color .15s;
+  }
+
+  .copy-btn:hover { background: #313244; border-color: #89b4fa; color: #89b4fa; }
+  .copy-btn.copied { color: #a6e3a1; border-color: #a6e3a1; }
+
   @media print {
     header, .config-col { display: none !important; }
     main { display: block; padding: 0; max-width: 100%; }
     .sheet-wrapper { box-shadow: none; border: none; }
     body { background: white; }
     .stats-bar { display: none; }
+    .llm-section { display: none !important; }
   }
 
   @media (max-width: 768px) {
@@ -454,6 +516,22 @@
         <button class="generate-btn" onclick="generate()">✨ 生成答题卡</button>
       </div>
     </div>
+
+    <!-- LLM Text Output -->
+    <div class="llm-section" id="llmSection" style="display:none;">
+      <div class="llm-header">
+        <div class="llm-header-left">
+          <div class="llm-dot" style="background:#f38ba8"></div>
+          <div class="llm-dot" style="background:#f9e2af"></div>
+          <div class="llm-dot" style="background:#a6e3a1"></div>
+          <span style="margin-left:4px;">🤖 LLM 友好格式 — 直接复制给AI</span>
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyLLM()">📋 复制全部</button>
+      </div>
+      <div class="llm-body" id="llmBody"></div>
+    </div>
+
+    </div>
   </div>
 
   <!-- Sheet Output -->
@@ -559,6 +637,60 @@ function generate() {
       <div class="stat" style="margin-left:auto;color:#5f6368;font-size:12px;">Generated ${new Date().toLocaleDateString()}</div>
     </div>
   `;
+
+  // Build LLM-friendly text
+  const subjectDisplay = subjectName ? ` (${subjectName})` : '';
+  let llmText = `以下是我的答题情况，请根据这些答案批改：\n`;
+  llmText += `试卷：IGCSE ${paperCode}${subjectDisplay} ${session} ${year}\n`;
+  llmText += `时长：${duration}，共 ${numQ} 题\n`;
+  llmText += `─────────────────────────\n`;
+
+  for (let i = 0; i < numQ; i++) {
+    const ans = answers[i];
+    const qLabel = `第 ${i+1} 题`;
+    if (ans === null) {
+      llmText += `${qLabel}：（未填写）\n`;
+    } else if (ans === '/') {
+      llmText += `${qLabel}：（空白，未作答）\n`;
+    } else {
+      llmText += `${qLabel}：${ans}\n`;
+    }
+  }
+
+  llmText += `─────────────────────────\n`;
+  llmText += `已答：${answered} 题 ／ 空白：${skipped + blank} 题`;
+
+  // Store for copy
+  window._llmText = llmText;
+
+  // Render with colors
+  const llmBody = document.getElementById('llmBody');
+  const lines = llmText.split('\n');
+  llmBody.innerHTML = lines.map(line => {
+    if (line.match(/第 \d+ 题：[A-E]$/)) {
+      return `<span class="ans-answered">${line}</span>`;
+    } else if (line.includes('空白') || line.includes('未作答')) {
+      return `<span class="ans-skipped">${line}</span>`;
+    } else if (line.includes('未填写')) {
+      return `<span class="ans-blank">${line}</span>`;
+    }
+    return `<span>${line}</span>`;
+  }).join('\n');
+
+  document.getElementById('llmSection').style.display = 'block';
+}
+
+function copyLLM() {
+  if (!window._llmText) return;
+  navigator.clipboard.writeText(window._llmText).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✅ 已复制！';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '📋 复制全部';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
 }
 </script>
 </body>
