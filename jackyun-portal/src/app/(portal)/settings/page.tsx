@@ -1,7 +1,9 @@
-import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
+import { checkHasPassword } from '@/actions/auth';
 import { getAiConfig } from '@/actions/settings';
 import AiConfigPanel from '@/components/settings/ai-config-panel';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
+import ExportDataPanel from '@/components/settings/export-data-panel';
 
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
@@ -15,13 +17,8 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 }
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const provider = user?.app_metadata?.provider as string | undefined;
-  const hasPassword = provider === 'email';
-  const aiConfig = await getAiConfig().catch(() => ({ baseUrl: '', apiKey: '' }));
+  const hasPassword = await checkHasPassword();
+  const aiConfig = await getAiConfig().catch(() => ({ baseUrl: '', apiKey: '', model: '' }));
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-8">
@@ -34,6 +31,15 @@ export default async function SettingsPage() {
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
         <SectionHeader icon="lock" title="账户安全" />
         <ChangePasswordPanel hasPassword={hasPassword} />
+        <div className="mt-3">
+          <Link
+            href="/reset-password"
+            className="flex items-center gap-2 text-sm text-[#4285F4] hover:underline"
+          >
+            <span className="material-icons-round text-base">email</span>
+            通过邮件重置密码
+          </Link>
+        </div>
       </section>
 
       {/* AI 配置 */}
@@ -42,7 +48,16 @@ export default async function SettingsPage() {
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
           配置自定义 AI 接口，用于应用内 AI 功能。
         </p>
-        <AiConfigPanel initialBaseUrl={aiConfig.baseUrl} initialApiKey={aiConfig.apiKey} />
+        <AiConfigPanel initialBaseUrl={aiConfig.baseUrl} initialApiKey={aiConfig.apiKey} initialModel={aiConfig.model} />
+      </section>
+
+      {/* 数据管理 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="download" title="数据管理" />
+        <p className="text-sm text-[var(--muted-foreground)] mb-4">
+          导出你的所有数据，包括词汇、学习计划、诗词等。
+        </p>
+        <ExportDataPanel />
       </section>
     </div>
   );
