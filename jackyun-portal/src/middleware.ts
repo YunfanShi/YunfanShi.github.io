@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/middleware';
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-password', '/update-password'];
 
+// OAuth providers that are automatically trusted (no whitelist needed)
+// Users logging in via these providers are auto-registered as regular users
+const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google'];
+
 export async function middleware(request: NextRequest) {
   const { supabase, response } = await createClient(request);
 
@@ -25,38 +29,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // ── Whitelist check ──────────────────────────────────────────────────
+  // ── Whitelist / Auto-register check ─────────────────────────────────
   const provider = user.app_metadata?.provider as string | undefined;
-
-  // Env var fallbacks
-  const envGithubUsers = (process.env.AUTHORIZED_GITHUB_USERS ?? 'YunfanShi')
-    .split(',')
-    .map((u) => u.trim().toLowerCase());
-  const envEmails = (process.env.AUTHORIZED_EMAILS ?? '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
 
   let isAuthorized = false;
 
-  if (provider === 'github') {
-    const githubUsername = (
-      user.user_metadata?.user_name as string | undefined
-    )?.toLowerCase();
-    if (githubUsername) {
-      // Check database first
-      const { data: dbMatch } = await supabase
-        .from('whitelist_usernames')
-        .select('id')
-        .eq('username', githubUsername)
-        .eq('platform', 'github')
-        .maybeSingle();
-      isAuthorized = !!dbMatch || envGithubUsers.includes(githubUsername);
-    }
-  } else if (provider === 'google' || provider === 'email') {
+  if (provider && AUTO_REGISTER_OAUTH_PROVIDERS.includes(provider)) {
+    // Google & GitHub OAuth users are automatically authorized as regular users
+    // No whitelist check needed — they self-register on first login
+    isAuthorized = true;
+  } else if (provider === 'email') {
+    // Email/password users still require whitelist approval
     const email = user.email?.toLowerCase();
     if (email) {
-      // Check database first
+      const envEmails = (process.env.AUTHORIZED_EMAILS ?? '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      // Check database whitelist first
       const { data: dbMatch } = await supabase
         .from('whitelist_emails')
         .select('id')
