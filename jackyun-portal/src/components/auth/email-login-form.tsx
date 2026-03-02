@@ -52,6 +52,8 @@ export default function EmailLoginForm() {
         signInError.message.toLowerCase().includes('user not found')
       ) {
         setError('邮箱或密码错误');
+      } else if (signInError.message.toLowerCase().includes('email not confirmed')) {
+        setError('邮箱尚未验证，请检查邮箱并点击验证链接后再登录。');
       } else {
         setError(signInError.message);
       }
@@ -71,9 +73,8 @@ export default function EmailLoginForm() {
           setError(signUpError.message);
         }
       } else {
-        setMessage('注册成功！请检查邮箱确认，或直接登录。');
-        router.push('/dashboard');
-        router.refresh();
+        setMessage(`📧 注册成功！验证邮件已发送至 ${emailToUse}，请查收并点击验证链接，验证后即可登录。`);
+        setMode('login');
       }
     }
 
