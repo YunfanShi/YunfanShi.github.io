@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Ecosystem — 离线版</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --g-blue: #4285F4;
+            --g-red: #EA4335;
+            --g-yellow: #FBBC05;
+            --g-green: #34A853;
+            --bg-color: #ffffff;
+            --header-bg: #ffffff;
+            --text-main: #202124;
+            --text-sub: #5f6368;
+            --card-bg: #ffffff;
+            --card-border: #dadce0;
+            --card-hover-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            --btn-bg: #1a73e8;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #202124;
+                --header-bg: #202124;
+                --text-main: #e8eaed;
+                --text-sub: #9aa0a6;
+                --card-bg: #303134;
+                --card-border: #5f6368;
+                --card-hover-shadow: 0 4px 8px 3px rgba(0,0,0,0.3);
+            }
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 30px;
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-sub);
+        }
+
+        .logo span.brand { color: var(--text-main); font-weight: bold; }
+        .g-text span:nth-child(1) { color: var(--g-blue); }
+        .g-text span:nth-child(2) { color: var(--g-red); }
+        .g-text span:nth-child(3) { color: var(--g-yellow); }
+        .g-text span:nth-child(4) { color: var(--g-blue); }
+
+        .main-content {
+            flex: 1;
+            padding: 40px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .hero-text {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero-text h1 {
+            font-size: 36px;
+            font-weight: 400;
+            margin: 0 0 10px 0;
+        }
+
+        .hero-text p {
+            font-size: 16px;
+            color: var(--text-sub);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            height: 200px;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:hover {
+            border-color: transparent;
+            box-shadow: var(--card-hover-shadow);
+            transform: translateY(-3px);
+        }
+
+        .card:hover::before { opacity: 1; }
+
+        .icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .material-icons-round { font-size: 28px; }
+
+        .card h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .card p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-sub);
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .launch-link {
+            margin-top: 16px;
+            font-weight: 500;
+            color: var(--btn-bg);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+
+        .launch-link span { opacity: 0; transform: translateX(-5px); transition: all 0.2s; }
+        .card:hover .launch-link span { opacity: 1; transform: translateX(5px); }
+
+        footer {
+            text-align: center;
+            padding: 24px;
+            border-top: 1px solid var(--card-border);
+            color: var(--text-sub);
+            font-size: 13px;
+            background: var(--card-bg);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <span class="g-text">
+                <span>J</span><span>a</span><span>c</span><span>k</span>
+            </span>
+            <span class="brand">离线版</span>
+        </div>
+        <div style="font-size: 14px; color: var(--text-sub);">V 2.0</div>
+    </header>
+
+    <div class="main-content">
+        <div class="hero-text">
+            <h1>打造实用的工具</h1>
+            <p>Jack 的个人工具生态，离线版入口。</p>
+        </div>
+
+        <div class="product-grid" id="grid"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Jack's Ecosystem. Built for efficiency.</p>
+    </footer>
+
+    <script>
+        const myProducts = [
+            {
+                name: "学习计划",
+                file: "Studyplan.html",
+                desc: "CAIE 课程追踪与每日学习任务。",
+                icon: "school",
+                color: "#4285F4"
+            },
+            {
+                name: "词汇宝库",
+                file: "Vocab.html",
+                desc: "英语词汇积累与记忆复习。",
+                icon: "menu_book",
+                color: "#EA4335"
+            },
+            {
+                name: "词汇移动版",
+                file: "/VocabM.html",
+                desc: "适配移动端的词汇学习。",
+                icon: "phone_android",
+                color: "#EA4335"
+            },
+            {
+                name: "诗词天地",
+                file: "Poem.html",
+                desc: "经典古诗词收录与沉浸背诵。",
+                icon: "auto_stories",
+                color: "#8e24aa"
+            },
+            {
+                name: "Mock 刷题",
+                file: "MockPortal.html",
+                desc: "真题刷题与考试模拟训练。",
+                icon: "quiz",
+                color: "#FBBC05"
+            },
+            {
+                name: "音乐播放器",
+                file: "MusicPlayer.html",
+                desc: "管理你的音乐播放列表。",
+                icon: "music_note",
+                color: "#FBBC05"
+            },
+            {
+                name: "放松一下",
+                file: "Relax.html",
+                desc: "数字避难所。色彩生成、白噪音与放松工具。",
+                icon: "sports_esports",
+                color: "#009688"
+            },
+            {
+                name: "EM 看门人",
+                file: "EM.html",
+                desc: "紧急模式，全力冲刺备考。",
+                icon: "bolt",
+                color: "#ff5722"
+            },
+            {
+                name: "倒计时",
+                file: "Countdown.html",
+                desc: "重要考试倒计时，精确到秒。",
+                icon: "timer",
+                color: "#FBBC05"
+            },
+            {
+                name: "更新日志",
+                file: "UpdateHub.html",
+                desc: "版本历史与功能更新记录。",
+                icon: "history",
+                color: "#4285F4"
+            },
+            {
+                name: "词汇跳转",
+                file: "/VocabJ.html",
+                desc: "快速访问词汇相关页面。",
+                icon: "translate",
+                color: "#EA4335"
+            },
+            {
+                name: "音乐跳转",
+                file: "JumpMusic.html",
+                desc: "快速访问音乐播放页面。",
+                icon: "music_note",
+                color: "#6366f1"
+            },
+            {
+                name: "控制中心",
+                file: "Control.html",
+                desc: "专注计时器与日程执行。",
+                icon: "tune",
+                color: "#34A853"
+            }
+        ];
+
+        const grid = document.getElementById('grid');
+
+        function render() {
+            grid.innerHTML = '';
+            myProducts.forEach(product => {
+                const card = document.createElement('a');
+                card.href = product.file;
+                card.className = 'card';
+                card.target = '_blank';
+
+                const iconStyle = `color: ${product.color}; background: ${product.color}15;`;
+
+                card.innerHTML = `
+                    <div class="icon-box" style="${iconStyle}">
+                        <span class="material-icons-round">${product.icon}</span>
+                    </div>
+                    <h3>${product.name}</h3>
+                    <p>${product.desc}</p>
+                    <div class="launch-link">
+                        启动应用 <span class="material-icons-round" style="font-size:14px;">arrow_forward</span>
+                    </div>
+                `;
+
+                card.addEventListener('mouseenter', () => {
+                    card.style.borderColor = product.color + '40';
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.borderColor = '';
+                });
+
+                grid.appendChild(card);
+            });
+        }
+
+        render();
+    </script>
+</body>
+</html>

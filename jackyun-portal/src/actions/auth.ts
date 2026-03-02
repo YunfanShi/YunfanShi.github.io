@@ -110,14 +110,24 @@ export async function requestPasswordReset(
   email: string,
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000';
+    : 'http://localhost:3000');
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/update-password`,
+    redirectTo: `${siteUrl}/auth/callback?type=recovery`,
   });
   if (error) return { error: error.message };
   return { error: null };
+}
+
+export async function checkHasPassword(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const hasEmailIdentity = user.identities?.some((id) => id.provider === 'email') ?? false;
+  return hasEmailIdentity;
 }
 
 export async function updatePasswordWithToken(
