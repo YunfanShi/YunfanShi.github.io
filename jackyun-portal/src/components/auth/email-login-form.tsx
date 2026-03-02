@@ -61,6 +61,9 @@ export default function EmailLoginForm() {
       const { error: signUpError } = await supabase.auth.signUp({
         email: emailToUse,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
       if (signUpError) {
@@ -73,7 +76,7 @@ export default function EmailLoginForm() {
           setError(signUpError.message);
         }
       } else {
-        setMessage(`📧 注册成功！验证邮件已发送至 ${emailToUse}，请查收并点击验证链接，验证后即可登录。`);
+        setMessage(`📧 注册成功！验证邮件已发送至 ${emailToUse}，请查收邮件并点击验证链接，验证后即可直接登录。`);
         setMode('login');
       }
     }
