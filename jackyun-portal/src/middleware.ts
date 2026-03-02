@@ -6,7 +6,7 @@ const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-pass
 
 // OAuth providers that are automatically trusted (no whitelist needed)
 // Users logging in via these providers are auto-registered as regular users
-const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google'];
+const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google', 'email'];
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = await createClient(request);
