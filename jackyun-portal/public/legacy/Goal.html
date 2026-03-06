@@ -47,6 +47,57 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .brand-name{font-size:15px;font-weight:600;letter-spacing:-0.3px;}
 .topbar-r{display:flex;gap:8px;align-items:center;}
 
+/* COUNTDOWN BANNER */
+.cd-banner{
+  background:rgba(12,12,12,0.95);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:0 32px;
+  overflow:hidden;
+  max-height:0;
+  transition:max-height .35s cubic-bezier(.4,0,.2,1), padding .3s;
+}
+.cd-banner.visible{max-height:120px;padding:12px 32px;}
+.cd-strip{
+  display:flex;
+  align-items:center;
+  gap:0;
+  overflow-x:auto;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.cd-strip::-webkit-scrollbar{display:none;}
+.cd-item{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:9px 20px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  flex-shrink:0;
+  margin-right:10px;
+  cursor:default;
+  transition:border-color .15s,background .15s;
+  position:relative;
+}
+.cd-item:hover{border-color:var(--border2);background:#141414;}
+.cd-item-left{display:flex;flex-direction:column;gap:2px;}
+.cd-label{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0.2px;white-space:nowrap;}
+.cd-emoji{font-size:14px;line-height:1;}
+.cd-numbers{display:flex;align-items:baseline;gap:6px;}
+.cd-unit-group{display:flex;align-items:baseline;gap:2px;}
+.cd-num{font-size:22px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
+.cd-unit{font-size:10px;font-weight:500;color:var(--text2);letter-spacing:0.3px;text-transform:uppercase;margin-left:1px;}
+.cd-sep{font-size:14px;color:var(--text3);font-family:var(--mono);align-self:center;}
+.cd-past{opacity:.45;}
+.cd-urgent .cd-num{color:#ff5c5c!important;}
+.cd-warn .cd-num{color:#f5a623!important;}
+.cd-ok .cd-num{color:#4d9ef7;}
+.cd-actions-ico{display:flex;gap:2px;opacity:0;transition:opacity .15s;position:absolute;right:8px;top:50%;transform:translateY(-50%);}
+.cd-item:hover .cd-actions-ico{opacity:1;}
+
 /* LAYOUT */
 .main{max-width:880px;margin:0 auto;padding:38px 28px;}
 
@@ -221,9 +272,15 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
     <span class="brand-name">Goal Tracker</span>
   </div>
   <div class="topbar-r">
+    <button class="btn btn-ghost" onclick="openCdSettings()" title="倒计时设置">⏱ 倒计时</button>
     <button class="btn btn-ghost" onclick="exportData()">↑ 导出</button>
     <button class="btn btn-pri" onclick="openAdd()">＋ 新建目标</button>
   </div>
+</div>
+
+<!-- COUNTDOWN BANNER -->
+<div class="cd-banner" id="cdBanner">
+  <div class="cd-strip" id="cdStrip"></div>
 </div>
 
 <div class="main">
@@ -297,12 +354,14 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
           <input class="fi" id="iUnit" placeholder="章 / 次 / 页…" maxlength="10">
         </div>
       </div>
-      <div class="fg">
-        <label class="flbl">初始进度</label>
-        <div class="slrow">
-          <input type="range" id="iProgress" min="0" max="100" value="0"
-            oninput="document.getElementById('iProgVal').textContent=this.value+'%'">
-          <span class="slval" id="iProgVal">0%</span>
+      <div class="frow">
+        <div class="fg">
+          <label class="flbl">已完成数量</label>
+          <input class="fi" id="iDone" type="number" min="0" value="0" placeholder="例如 6">
+        </div>
+        <div class="fg">
+          <label class="flbl">总数量 *</label>
+          <input class="fi" id="iTotal" type="number" min="1" value="10" placeholder="例如 10">
         </div>
       </div>
       <div class="fg">
@@ -319,32 +378,41 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
 
 <!-- PROGRESS MODAL -->
 <div class="overlay" id="progModal">
-  <div class="modal" style="max-width:440px;">
+  <div class="modal" style="max-width:420px;">
     <div class="mhd" id="progMTitle">更新进度</div>
     <div class="mbody">
-      <div id="progPreview" style="margin-bottom:2px;"></div>
-      <div class="slrow">
-        <input type="range" id="qSlider" min="0" max="100" value="0"
-          oninput="onQSlider(this.value)">
-        <span class="slval" id="qVal">0%</span>
+      <div id="progPreview" style="margin-bottom:6px;"></div>
+      <!-- fraction display -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px;">
+        <input class="fi" id="qDone" type="number" min="0" value="0"
+          style="width:88px;font-size:28px;font-weight:600;text-align:center;padding:10px 8px;font-family:var(--mono);"
+          oninput="onQDone()">
+        <span style="font-size:24px;color:var(--text3);font-weight:300;">/</span>
+        <input class="fi" id="qTotal" type="number" min="1" value="10"
+          style="width:88px;font-size:28px;font-weight:600;text-align:center;padding:10px 8px;font-family:var(--mono);color:var(--text2);"
+          oninput="onQDone()">
+        <span id="qUnitLabel" style="font-size:14px;color:var(--text2);min-width:32px;"></span>
       </div>
-      <div class="qbtns">
-        <span class="qb" onclick="setQ(0)">0%</span>
-        <span class="qb" onclick="setQ(10)">10%</span>
-        <span class="qb" onclick="setQ(25)">25%</span>
-        <span class="qb" onclick="setQ(50)">50%</span>
-        <span class="qb" onclick="setQ(75)">75%</span>
-        <span class="qb" onclick="setQ(90)">90%</span>
-        <span class="qb" onclick="setQ(100)">100% 🎉</span>
+      <div style="text-align:center;margin-bottom:14px;">
+        <span id="qPctDisplay" style="font-size:18px;font-weight:600;font-family:var(--mono);color:var(--blue);">0%</span>
+        <span style="font-size:12px;color:var(--text3);margin-left:6px;">完成率</span>
       </div>
-      <div class="fg">
+      <!-- quick +1 / +5 buttons -->
+      <div class="qbtns" style="justify-content:center;">
+        <span class="qb" onclick="stepDone(-5)">－5</span>
+        <span class="qb" onclick="stepDone(-1)">－1</span>
+        <span class="qb" onclick="stepDone(1)">＋1</span>
+        <span class="qb" onclick="stepDone(5)">＋5</span>
+        <span class="qb" onclick="setDoneMax()">全部完成 🎉</span>
+      </div>
+      <div class="fg" style="margin-top:14px;">
         <label class="flbl">备注（可选）</label>
         <input class="fi" id="qNote" placeholder="这次更新的说明…" maxlength="80">
       </div>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('progModal')">取消</button>
-      <button class="btn btn-pri" onclick="saveQ()">更新进度</button>
+      <button class="btn btn-pri" onclick="saveQ()">确认更新</button>
     </div>
   </div>
 </div>
@@ -357,6 +425,21 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('detailModal')">关闭</button>
       <button class="btn btn-pri" id="dEditBtn">编辑目标</button>
+    </div>
+  </div>
+</div>
+
+<!-- COUNTDOWN SETTINGS MODAL -->
+<div class="overlay" id="cdModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="mhd">⏱ 倒计时管理</div>
+    <div class="mbody" style="max-height:65vh;overflow-y:auto;">
+      <div id="cdList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px;"></div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:4px;" onclick="addCdItem()">＋ 添加倒计时</button>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('cdModal')">关闭</button>
+      <button class="btn btn-pri" onclick="saveCd()">保存</button>
     </div>
   </div>
 </div>
@@ -378,16 +461,17 @@ const COLORS=[
 const PRI_C={high:'#ff5c5c',mid:'#f5a623',low:'#34c76a'};
 const CAT_E={'学习':'📚','健康':'💪','工作':'💼','生活':'🏠','财务':'💰','其他':'✦'};
 
-let goals=JSON.parse(localStorage.getItem('gt_v4')||'null')||[
-  {id:1,name:'Math0580',desc:'高等数学课程学习',cat:'学习',priority:'high',progress:65,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-02-20',v:20},{date:'2026-03-01',v:40},{date:'2026-03-04',v:55},{date:'2026-03-06',v:65}],created:Date.now()-864e5*5},
-  {id:2,name:'English CET-6',desc:'英语六级备考',cat:'学习',priority:'mid',progress:40,color:'teal',deadline:'2026-12-15',unit:'套题',history:[{date:'2026-03-02',v:30},{date:'2026-03-06',v:40}],created:Date.now()-864e5*3},
-  {id:3,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',progress:80,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',v:60},{date:'2026-03-03',v:70},{date:'2026-03-05',v:80}],created:Date.now()-864e5*10},
-  {id:4,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',progress:22,color:'purple',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',v:8},{date:'2026-03-01',v:15},{date:'2026-03-06',v:22}],created:Date.now()-864e5*20},
+let goals=JSON.parse(localStorage.getItem('gt_v5')||'null')||[
+  {id:1,name:'Math0580',desc:'高等数学课程学习',cat:'学习',priority:'high',done:13,total:20,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-02-20',done:4,total:20},{date:'2026-03-01',done:8,total:20},{date:'2026-03-06',done:13,total:20}],created:Date.now()-864e5*5},
+  {id:2,name:'English CET-6',desc:'英语六级备考',cat:'学习',priority:'mid',done:6,total:15,color:'teal',deadline:'2026-12-15',unit:'套题',history:[{date:'2026-03-02',done:4,total:15},{date:'2026-03-06',done:6,total:15}],created:Date.now()-864e5*3},
+  {id:3,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',done:24,total:30,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',done:18,total:30},{date:'2026-03-05',done:24,total:30}],created:Date.now()-864e5*10},
+  {id:4,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',done:22,total:100,color:'purple',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',done:8,total:100},{date:'2026-03-06',done:22,total:100}],created:Date.now()-864e5*20},
 ];
 
 let filter='all',sort='created',editId=null,quickId=null,selColor='blue';
 
-function save(){localStorage.setItem('gt_v4',JSON.stringify(goals));}
+function save(){localStorage.setItem('gt_v5',JSON.stringify(goals));}
+function getPct(g){return g.total>0?Math.min(100,Math.round((g.done||0)/g.total*100)):0;}
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -410,10 +494,10 @@ function segBar(pct,segs,h){
 
 /* STATS */
 function renderStats(){
-  const tot=goals.length,done=goals.filter(g=>g.progress===100).length;
-  const avg=tot?Math.round(goals.reduce((s,g)=>s+g.progress,0)/tot):0;
+  const tot=goals.length,done=goals.filter(g=>getPct(g)===100).length;
+  const avg=tot?Math.round(goals.reduce((s,g)=>s+getPct(g),0)/tot):0;
   const today=new Date().toISOString().slice(0,10);
-  const ov=goals.filter(g=>g.deadline&&g.deadline<today&&g.progress<100).length;
+  const ov=goals.filter(g=>g.deadline&&g.deadline<today&&getPct(g)<100).length;
   let h=`
     <div class="stat"><div class="stat-dot" style="background:#4d9ef7;"></div><span class="stat-v" style="color:#4d9ef7;">${tot}</span><span class="stat-lbl">目标总数</span></div>
     <div class="stat"><div class="stat-dot" style="background:#34c76a;"></div><span class="stat-v" style="color:#34c76a;">${done}</span><span class="stat-lbl">已完成</span></div>
@@ -434,11 +518,11 @@ function setSort(v){sort=v;render();}
 function filtered(){
   const today=new Date().toISOString().slice(0,10);
   let l=[...goals];
-  if(filter==='active') l=l.filter(g=>g.progress>0&&g.progress<100);
-  else if(filter==='done') l=l.filter(g=>g.progress===100);
-  else if(filter==='overdue') l=l.filter(g=>g.deadline&&g.deadline<today&&g.progress<100);
-  if(sort==='progress-asc') l.sort((a,b)=>a.progress-b.progress);
-  else if(sort==='progress-desc') l.sort((a,b)=>b.progress-a.progress);
+  if(filter==='active') l=l.filter(g=>getPct(g)>0&&getPct(g)<100);
+  else if(filter==='done') l=l.filter(g=>getPct(g)===100);
+  else if(filter==='overdue') l=l.filter(g=>g.deadline&&g.deadline<today&&getPct(g)<100);
+  if(sort==='progress-asc') l.sort((a,b)=>getPct(a)-getPct(b));
+  else if(sort==='progress-desc') l.sort((a,b)=>getPct(b)-getPct(a));
   else if(sort==='deadline') l.sort((a,b)=>(a.deadline||'9999')>(b.deadline||'9999')?1:-1);
   else if(sort==='name') l.sort((a,b)=>a.name.localeCompare(b.name,'zh'));
   else l.sort((a,b)=>b.created-a.created);
@@ -457,12 +541,12 @@ function render(){
   const today=new Date().toISOString().slice(0,10);
   el.innerHTML=list.map(g=>{
     const c=gc(g.color);
-    const p=g.progress,done=p===100;
-    const ov=g.deadline&&g.deadline<today&&!done;
+    const p=getPct(g),isDone=p===100;
+    const ov=g.deadline&&g.deadline<today&&!isDone;
     const dl=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
-    const badge=done?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!==null&&dl<=7?`${dl}d left`:'In progress';
-    const bc=done?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.05)':'rgba(77,158,247,.12)';
-    const bcolor=done?'#34c76a':ov?'#ff5c5c':p===0?'#444':'#4d9ef7';
+    const badge=isDone?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!==null&&dl<=7?`${dl}d left`:'In progress';
+    const bc=isDone?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.05)':'rgba(77,158,247,.12)';
+    const bcolor=isDone?'#34c76a':ov?'#ff5c5c':p===0?'#444':'#4d9ef7';
     const hist=(g.history||[]).slice(-7);
     const dots=Array(7).fill(0).map((_,i)=>`<div class="adot ${i<hist.length?'on':''}"></div>`).join('');
     return `<div class="gcard" style="--accent:${c.hex};" id="gc${g.id}">
@@ -477,7 +561,8 @@ function render(){
         </div>
         <div class="gright">
           <div>
-            <div class="gpct" style="color:${done?'#34c76a':c.hex};">${p}%</div>
+            <div class="gpct" style="color:${isDone?'#34c76a':c.hex};">${(g.done||0)}<span style="font-size:13px;font-weight:400;color:var(--text2);">/${g.total}</span></div>
+            <div style="font-size:11px;font-family:var(--mono);color:${isDone?'#34c76a':c.hex};text-align:right;margin-top:2px;">${p}%</div>
             <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
           </div>
           <div class="gactions">
@@ -490,6 +575,7 @@ function render(){
       <div class="segwrap" onclick="openProg(${g.id})" title="点击更新进度">
         <span class="seg-tip" id="stt${g.id}">${p}%</span>
         ${segBar(p,60,13)}
+        <div style='text-align:center;margin-top:-2px;font-size:10px;color:var(--text3);font-family:var(--mono);'>${g.done||0} / ${g.total} ${g.unit?esc(g.unit):''}</div>
         <div class="seg-labels"><span class="seg-lbl">0%</span><span class="seg-lbl">25%</span><span class="seg-lbl">50%</span><span class="seg-lbl">75%</span><span class="seg-lbl">100%</span></div>
       </div>
       <div class="gfoot">
@@ -540,8 +626,8 @@ function openAdd(){
   document.getElementById('iPri').value='mid';
   document.getElementById('iDeadline').value='';
   document.getElementById('iUnit').value='';
-  document.getElementById('iProgress').value=0;
-  document.getElementById('iProgVal').textContent='0%';
+  document.getElementById('iDone').value=0;
+  document.getElementById('iTotal').value=10;
   document.getElementById('colorRow').innerHTML=buildCR('blue');
   openM('goalModal');
   setTimeout(()=>document.getElementById('iName').focus(),250);
@@ -556,15 +642,17 @@ function openEdit(id){
   document.getElementById('iPri').value=g.priority||'mid';
   document.getElementById('iDeadline').value=g.deadline||'';
   document.getElementById('iUnit').value=g.unit||'';
-  document.getElementById('iProgress').value=g.progress;
-  document.getElementById('iProgVal').textContent=g.progress+'%';
+  document.getElementById('iDone').value=g.done||0;
+  document.getElementById('iTotal').value=g.total||10;
   document.getElementById('colorRow').innerHTML=buildCR(g.color);
   openM('goalModal');
 }
 function saveGoal(){
   const name=document.getElementById('iName').value.trim();
   if(!name){document.getElementById('iName').focus();toast('请输入目标名称');return;}
-  const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,unit:document.getElementById('iUnit').value.trim(),progress:parseInt(document.getElementById('iProgress').value),color:selColor};
+  const doneVal=Math.max(0,parseInt(document.getElementById('iDone').value)||0);
+  const totalVal=Math.max(1,parseInt(document.getElementById('iTotal').value)||1);
+  const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,unit:document.getElementById('iUnit').value.trim(),done:Math.min(doneVal,totalVal),total:totalVal,color:selColor};
   if(editId){const g=goals.find(x=>x.id===editId);if(g)Object.assign(g,obj);}
   else goals.push({...obj,id:Date.now(),history:[],created:Date.now()});
   save();render();closeM('goalModal');
@@ -576,25 +664,50 @@ function openProg(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   quickId=id;
   document.getElementById('progMTitle').textContent='更新进度 — '+g.name;
-  document.getElementById('qSlider').value=g.progress;
-  document.getElementById('qVal').textContent=g.progress+'%';
+  document.getElementById('qDone').value=g.done||0;
+  document.getElementById('qTotal').value=g.total||10;
+  document.getElementById('qTotal').readOnly=false;
+  document.getElementById('qUnitLabel').textContent=g.unit||'';
   document.getElementById('qNote').value='';
-  document.getElementById('progPreview').innerHTML=segBar(g.progress,40,10);
+  const pct=getPct(g);
+  document.getElementById('qPctDisplay').textContent=pct+'%';
+  document.getElementById('progPreview').innerHTML=segBar(pct,40,10);
   openM('progModal');
 }
-function onQSlider(v){
-  document.getElementById('qVal').textContent=v+'%';
-  document.getElementById('progPreview').innerHTML=segBar(parseInt(v),40,10);
+function onQDone(){
+  const d=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
+  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  const pct=Math.min(100,Math.round(d/t*100));
+  document.getElementById('qPctDisplay').textContent=pct+'%';
+  document.getElementById('progPreview').innerHTML=segBar(pct,40,10);
 }
-function setQ(v){document.getElementById('qSlider').value=v;onQSlider(v);}
+function stepDone(delta){
+  const inp=document.getElementById('qDone');
+  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  const cur=parseInt(inp.value)||0;
+  inp.value=Math.max(0,Math.min(t,cur+delta));
+  onQDone();
+}
+function setDoneMax(){
+  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  document.getElementById('qDone').value=t;
+  onQDone();
+}
 function saveQ(){
   if(quickId===null)return;
-  const v=parseInt(document.getElementById('qSlider').value);
+  const doneVal=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
+  const totalVal=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
   const note=document.getElementById('qNote').value.trim();
   const g=goals.find(x=>x.id===quickId);
-  if(g){g.progress=v;if(!g.history)g.history=[];g.history.push({date:new Date().toISOString().slice(0,10),v,note});}
+  if(g){
+    g.done=Math.min(doneVal,totalVal);
+    g.total=totalVal;
+    if(!g.history)g.history=[];
+    g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note});
+  }
   save();render();closeM('progModal');
-  toast(v===100?'🎉 目标完成！干得漂亮！':`进度已更新 → ${v}%`);
+  const pct=getPct(g);
+  toast(pct===100?'🎉 目标完成！干得漂亮！':'进度已更新 → '+g.done+'/'+g.total+' ('+pct+'%)');
 }
 
 /* DETAIL */
@@ -606,16 +719,19 @@ function openDetail(id){
   document.getElementById('dTitle').textContent=g.name;
   document.getElementById('dEditBtn').onclick=()=>{closeM('detailModal');openEdit(id);};
   const hist=(g.history||[]).slice().reverse().slice(0,10);
-  const histH=hist.length?hist.map(h=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+  const histH=hist.length?hist.map(h=>{
+    const hPct=h.total>0?Math.min(100,Math.round((h.done||h.v||0)/h.total*100)):(h.v||0);
+    const hLabel=h.total?(h.done||h.v||0)+'/'+h.total:(h.v||0)+'%';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:76px;">${h.date}</span>
-      <div style="flex:1;">${segBar(h.v,30,8)}</div>
-      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:34px;text-align:right;">${h.v}%</span>
-      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
-    </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0;">暂无更新记录</div>';
-  const kv=[['当前进度',g.progress+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],['截止日期',g.deadline||(dl!==null?`${dl}天后`:'未设置')],['单位',g.unit||'未设置'],['更新次数',(g.history||[]).length+'次']];
+      <div style="flex:1;">${segBar(hPct,30,8)}</div>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:50px;text-align:right;">${hLabel}</span>
+      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
+    </div>`;}).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0;">暂无更新记录</div>';
+  const pct=getPct(g);
+  const kv=[['完成情况',(g.done||0)+' / '+g.total+(g.unit?' '+g.unit:'')],['完成率',pct+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],['截止日期',g.deadline||(dl!==null?`${dl}天后`:'未设置')],['更新次数',(g.history||[]).length+'次']];
   document.getElementById('dBody').innerHTML=`
-    <div style="margin-bottom:14px;">${segBar(g.progress,60,14)}</div>
+    <div style="margin-bottom:14px;">${segBar(getPct(g),60,14)}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
       ${kv.map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:11px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${k}</div><div style="font-size:14px;font-weight:500;">${v}</div></div>`).join('')}
     </div>
@@ -648,9 +764,137 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelect
 let tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2600);}
 
+/* COUNTDOWN */
+const CD_FORMATS=[
+  {id:'d',label:'天',desc:'只显示天数'},
+  {id:'h',label:'时',desc:'只显示小时'},
+  {id:'m',label:'分',desc:'只显示分钟'},
+  {id:'dh',label:'天时',desc:'天 + 小时'},
+  {id:'dhm',label:'天时分',desc:'天 + 小时 + 分钟'},
+  {id:'dhms',label:'天时分秒',desc:'实时秒级'},
+  {id:'Wd',label:'周天',desc:'周 + 天'},
+  {id:'Mwd',label:'月周天',desc:'月 + 周 + 天'},
+  {id:'Md',label:'月天',desc:'月 + 天'},
+];
+let countdowns=JSON.parse(localStorage.getItem('cd_v2')||'null')||[
+  {id:1,label:'期末考试',emoji:'📝',target:'2026-06-20',format:'dhm',color:'#4d9ef7'},
+  {id:2,label:'元旦',emoji:'🎆',target:'2027-01-01',format:'Md',color:'#34c76a'},
+];
+let cdDraft=[],cdTimer=null;
+function saveCdData(){localStorage.setItem('cd_v2',JSON.stringify(countdowns));}
+
+function calcCountdown(targetDate,fmt){
+  const now=new Date(),target=new Date(targetDate+'T00:00:00');
+  const diff=target-now,past=diff<0,abs=Math.abs(diff);
+  const totalSec=Math.floor(abs/1000),totalMin=Math.floor(totalSec/60);
+  const totalH=Math.floor(totalMin/60),totalD=Math.floor(totalH/24);
+  const totalW=Math.floor(totalD/7),totalM=Math.floor(totalD/30.436875);
+  const s=totalSec%60,m=totalMin%60,h=totalH%24;
+  const wd=totalD-(totalW*7),dInM=totalD-Math.floor(totalM*30.436875);
+  let parts=[];
+  if(fmt==='d') parts=[{v:totalD,u:'天'}];
+  else if(fmt==='h') parts=[{v:totalH,u:'时'}];
+  else if(fmt==='m') parts=[{v:totalMin,u:'分'}];
+  else if(fmt==='dh') parts=[{v:totalD,u:'天'},{v:h,u:'时'}];
+  else if(fmt==='dhm') parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'}];
+  else if(fmt==='dhms') parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'},{v:s,u:'秒'}];
+  else if(fmt==='Wd') parts=[{v:totalW,u:'周'},{v:wd,u:'天'}];
+  else if(fmt==='Mwd') parts=[{v:totalM,u:'月'},{v:Math.floor(dInM/7),u:'周'},{v:dInM%7,u:'天'}];
+  else if(fmt==='Md') parts=[{v:totalM,u:'月'},{v:dInM,u:'天'}];
+  return {parts,past,totalD};
+}
+
+function renderCdBanner(){
+  const strip=document.getElementById('cdStrip');
+  const banner=document.getElementById('cdBanner');
+  if(!countdowns.length){banner.classList.remove('visible');return;}
+  banner.classList.add('visible');
+  strip.innerHTML=countdowns.map(function(cd){
+    const res=calcCountdown(cd.target,cd.format);
+    const parts=res.parts,past=res.past,totalD=res.totalD;
+    const numColor=cd.color||(totalD<=3?'#ff5c5c':totalD<=14?'#f5a623':'#4d9ef7');
+    const urgClass=past?'cd-past':totalD<=3?'cd-urgent':totalD<=14?'cd-warn':'cd-ok';
+    let numsHtml='';
+    for(let i=0;i<parts.length;i++){
+      numsHtml+='<div class="cd-unit-group"><span class="cd-num" style="color:'+numColor+';">'+String(parts[i].v).padStart(2,'0')+'</span><span class="cd-unit">'+parts[i].u+'</span></div>';
+      if(i<parts.length-1) numsHtml+='<span class="cd-sep">·</span>';
+    }
+    const pastLabel=past?'<span style="font-size:10px;color:var(--text3);margin-left:4px;">已过</span>':'';
+    return '<div class="cd-item '+urgClass+'" id="cdi'+cd.id+'"><div class="cd-item-left"><span class="cd-emoji">'+(cd.emoji||'⏱')+'</span><span class="cd-label">'+esc(cd.label)+pastLabel+'</span></div><div class="cd-numbers">'+numsHtml+'</div><div class="cd-actions-ico"><button class="btn btn-ico" onclick="openCdSettings()" title="管理倒计时">✎</button><button class="btn btn-ico del" onclick="deleteCd('+cd.id+')" title="删除">✕</button></div></div>';
+  }).join('');
+}
+
+function startCdTimer(){
+  if(cdTimer) clearInterval(cdTimer);
+  renderCdBanner();
+  const hasSeconds=countdowns.some(function(c){return c.format==='dhms';});
+  cdTimer=setInterval(renderCdBanner,hasSeconds?1000:30000);
+}
+
+function deleteCd(id){
+  countdowns=countdowns.filter(function(c){return c.id!==id;});
+  saveCdData();startCdTimer();toast('倒计时已删除');
+}
+
+function openCdSettings(){
+  cdDraft=JSON.parse(JSON.stringify(countdowns));
+  renderCdList();
+  openM('cdModal');
+}
+
+function renderCdList(){
+  const el=document.getElementById('cdList');
+  if(!cdDraft.length){
+    el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px;">还没有倒计时，点击下方按钮添加 👇</div>';
+    return;
+  }
+  const colorOpts=['#4d9ef7','#34c76a','#f5a623','#ff5c5c','#b57bee','#2dd4bf','#f472b6','#fb923c'];
+  let html='';
+  for(let i=0;i<cdDraft.length;i++){
+    const cd=cdDraft[i];
+    let fmtOptions='';
+    for(let fi=0;fi<CD_FORMATS.length;fi++){
+      const f=CD_FORMATS[fi];
+      fmtOptions+='<option value="'+f.id+'"'+(cd.format===f.id?' selected':'')+'>'+(f.label)+' — '+f.desc+'</option>';
+    }
+    let colorDots='';
+    for(let ci=0;ci<colorOpts.length;ci++){
+      const hex=colorOpts[ci];
+      colorDots+='<div data-i="'+i+'" data-c="'+hex+'" onclick="cdDraft['+i+'].color=\''+hex+'\';renderCdList()" style="width:22px;height:22px;border-radius:50%;background:'+hex+';cursor:pointer;border:2.5px solid '+(cd.color===hex?'#fff':'transparent')+';transition:border-color .1s;flex-shrink:0;"></div>';
+    }
+    html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">'
+      +'<div style="display:grid;grid-template-columns:50px 1fr 1fr;gap:10px;align-items:end;margin-bottom:10px;">'
+      +'<div class="fg"><label class="flbl">图标</label><input class="fi" value="'+esc(cd.emoji||'⏱')+'" maxlength="2" style="text-align:center;font-size:18px;padding:6px;" oninput="cdDraft['+i+'].emoji=this.value"></div>'
+      +'<div class="fg"><label class="flbl">名称 *</label><input class="fi" value="'+esc(cd.label)+'" maxlength="20" placeholder="倒计时名称…" oninput="cdDraft['+i+'].label=this.value"></div>'
+      +'<div class="fg"><label class="flbl">目标日期 *</label><input class="fi" type="date" value="'+cd.target+'" onchange="cdDraft['+i+'].target=this.value"></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 36px;gap:10px;align-items:end;">'
+      +'<div class="fg"><label class="flbl">显示格式</label><select class="fi" onchange="cdDraft['+i+'].format=this.value">'+fmtOptions+'</select></div>'
+      +'<div class="fg"><label class="flbl">数字颜色</label><div style="display:flex;gap:7px;flex-wrap:wrap;padding-top:8px;">'+colorDots+'</div></div>'
+      +'<div class="fg" style="align-self:end;"><button class="btn btn-ico del" style="width:36px;height:36px;" onclick="cdDraft.splice('+i+',1);renderCdList()" title="删除此倒计时">✕</button></div>'
+      +'</div></div>';
+  }
+  el.innerHTML=html;
+}
+
+function addCdItem(){
+  const d=new Date(Date.now()+864e5*30).toISOString().slice(0,10);
+  cdDraft.push({id:Date.now(),label:'新倒计时',emoji:'⏱',target:d,format:'dhm',color:'#4d9ef7'});
+  renderCdList();
+  setTimeout(function(){document.getElementById('cdList').lastElementChild.scrollIntoView({behavior:'smooth'});},80);
+}
+
+function saveCd(){
+  countdowns=JSON.parse(JSON.stringify(cdDraft));
+  saveCdData();startCdTimer();closeM('cdModal');
+  toast('倒计时已保存 ✓');
+}
+
+
 /* INIT */
 initGreeting();
 render();
+startCdTimer();
 </script>
 </body>
 </html>
