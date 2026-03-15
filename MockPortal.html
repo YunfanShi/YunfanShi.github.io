@@ -290,13 +290,13 @@
   <span class="font-bold text-base" style="color:#202124;letter-spacing:-.3px">Warden Mock</span>
   <div style="flex:1"></div>
   <span id="dateDisp" class="text-xs hidden sm:block" style="color:var(--text-sub)"></span>
-  <div class="relative cursor-pointer" style="width:34px;height:34px" id="progWrap" title="完成进度">
-    <svg viewBox="0 0 36 36" style="width:34px;height:34px;transform:rotate(-90deg)">
-      <circle cx="18" cy="18" r="15.9" fill="none" stroke="#E8EAED" stroke-width="3"/>
-      <circle id="progArc" cx="18" cy="18" r="15.9" fill="none" stroke="var(--primary)" stroke-width="3" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .5s ease"/>
+  <button onclick="cycleProgress()" id="progWrap" title="点击切换显示方式" style="background:#E8F0FE;border:none;cursor:pointer;border-radius:20px;padding:4px 10px;display:flex;align-items:center;gap:6px;transition:all .2s ease;min-width:80px;justify-content:center" onmouseover="this.style.background='#D2E3FC'" onmouseout="this.style.background='#E8F0FE'">
+    <svg viewBox="0 0 36 36" style="width:22px;height:22px;transform:rotate(-90deg);flex-shrink:0">
+      <circle cx="18" cy="18" r="15.9" fill="none" stroke="#C5D9FB" stroke-width="4"/>
+      <circle id="progArc" cx="18" cy="18" r="15.9" fill="none" stroke="var(--primary)" stroke-width="4" stroke-dasharray="0 100" stroke-linecap="round" style="transition:stroke-dasharray .5s ease"/>
     </svg>
-    <span id="progPct" class="absolute inset-0 flex items-center justify-center font-bold" style="font-size:8px;color:var(--primary)">0%</span>
-  </div>
+    <span id="progPct" class="font-bold" style="font-size:12px;color:var(--primary);white-space:nowrap">0%</span>
+  </button>
   <button onclick="openSettings()" class="p-2 rounded-full transition-colors hover:bg-gray-100" title="设置" style="border:none;background:transparent;cursor:pointer">
     <span class="mi" style="color:#5F6368">settings</span>
   </button>
@@ -440,7 +440,7 @@
         <span class="mi" style="color:#818cf8;font-size:18px">badge</span>
         <p class="font-bold text-sm" style="color:white">我的报考信息</p>
       </div>
-      <p class="text-xs mb-4" style="color:rgba(255,255,255,.4)">填写后将自动推荐卷子并检测清单中的问题</p>
+      <p class="text-xs mb-4" style="color:rgba(255,255,255,.4)">为每个科目单独设置练习范围，筛选后只显示相关卷子</p>
 
       <!-- Subjects -->
       <div class="mb-4">
@@ -453,7 +453,7 @@
         </div>
       </div>
 
-      <!-- Session -->
+      <!-- Session (global default) -->
       <div class="mb-4">
         <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">🗓 参加考季</label>
         <div class="flex flex-wrap gap-2" id="profileSession">
@@ -463,7 +463,7 @@
         </div>
       </div>
 
-      <!-- Year -->
+      <!-- Year (global default) -->
       <div class="mb-4">
         <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">📅 考试年份</label>
         <div class="flex flex-wrap gap-2" id="profileYear">
@@ -485,17 +485,22 @@
       <!-- Paper tiers per subject -->
       <div class="mb-4" id="profileTierSection">
         <label class="text-xs font-semibold mb-2 block" style="color:rgba(255,255,255,.6)">📄 参加的卷型（Core/Extended）</label>
-        <div id="profileTiers" class="flex flex-wrap gap-2">
-          <!-- Rendered by JS -->
-        </div>
+        <div id="profileTiers" class="flex flex-wrap gap-2"></div>
         <p class="text-xs mt-1" style="color:rgba(255,255,255,.25)">Extended = P2/P4；Core = P1/P3；理科 P6 = Alt. to Practical</p>
       </div>
 
+      <!-- ══ PER-SUBJECT DETAILED FILTERS ══ -->
+      <div id="subjectDetailFilters" style="display:none">
+        <div style="height:1px;background:rgba(255,255,255,.1);margin:12px 0"></div>
+        <p class="text-xs font-bold mb-3" style="color:rgba(255,255,255,.7);letter-spacing:.06em;text-transform:uppercase">📐 各科目精细筛选</p>
+        <div id="subjectFilterCards"></div>
+      </div>
+
       <!-- Smart filter button -->
-      <button onclick="applyProfileFilter()" class="btn w-full" style="background:linear-gradient(90deg,#4f46e5,#7c3aed);color:white;justify-content:center;padding:10px;font-size:13px;border-radius:10px">
-        <span class="mi" style="font-size:16px">filter_alt</span>&nbsp;只显示我需要的卷子
+      <button onclick="applyProfileFilter()" class="btn w-full mt-3" style="background:linear-gradient(90deg,#4f46e5,#7c3aed);color:white;justify-content:center;padding:10px;font-size:13px;border-radius:10px">
+        <span class="mi" style="font-size:16px">filter_alt</span>&nbsp;应用报考信息筛选
       </button>
-      <p class="text-xs text-center mt-2" style="color:rgba(255,255,255,.25)">将自动筛选：你的科目 + 正确考季 + 正确变体 + 新考纲</p>
+      <p class="text-xs text-center mt-2" style="color:rgba(255,255,255,.25)">将自动筛选：你的科目 + 考季 + 变体 + 各科卷子范围</p>
     </div>
 
     <!-- ② Exam Mode -->
@@ -971,6 +976,8 @@ function toggleFilter(key, value) {
 function clearFilters() {
   FILTER_DEFS.forEach(d => { state.filters[d.key] = []; });
   renderFilterPanel();
+  // Restore all hidden chips
+  document.querySelectorAll('[id^="fc-"]').forEach(el => el.style.display = '');
   applyFilters();
   showToast('筛选已清除');
 }
@@ -999,37 +1006,7 @@ function updateFilterCounts() {
 // ║                  FILTER & SORT LOGIC                    ║
 // ╚══════════════════════════════════════════════════════════╝
 
-function applyFilters() {
-  const { subjects, years, papers, durations, statuses, sessions, variants } = state.filters;
-  const sort = document.getElementById('sortSel')?.value || 'year-desc';
-
-  let result = paperDB.filter(p => {
-    if (subjects.length  && !subjects.includes(p.subject))                           return false;
-    if (years.length     && !years.includes(p.year))                                 return false;
-    if (papers.length    && !papers.some(pt => p.paper.startsWith(pt)))              return false;
-    if (durations.length && !durations.some(d => p.duration === Number(d)))          return false;
-    if (variants.length  && !variants.some(v => String(p.paper).endsWith(String(v)))) return false;
-    if (statuses.length  && !(statuses.includes(state.paperStatus[p.id] || 'todo'))) return false;
-    if (sessions.length  && !sessions.includes(p.session))                           return false;
-    return true;
-  });
-
-  result.sort((a, b) => {
-    switch (sort) {
-      case 'year-asc':  return a.year - b.year  || a.subject.localeCompare(b.subject);
-      case 'year-desc': return b.year - a.year  || a.subject.localeCompare(b.subject);
-      case 'dur-asc':   return a.duration - b.duration;
-      case 'dur-desc':  return b.duration - a.duration;
-      case 'subj':      return a.subject.localeCompare(b.subject) || b.year - a.year;
-      default:          return 0;
-    }
-  });
-
-  filteredPapers = result;
-  renderCards();
-  updateFilterCounts();
-  updateProgress();
-}
+// (applyFilters is defined later in the profile section with per-subject support)
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║                    CARD RENDERING                       ║
@@ -1417,12 +1394,35 @@ function markDone(id) {
 // ║                   PROGRESS CIRCLE                       ║
 // ╚══════════════════════════════════════════════════════════╝
 
+// ╔══════════════════════════════════════════════════════════╗
+// ║                   PROGRESS CIRCLE (FILTER-AWARE)        ║
+// ╚══════════════════════════════════════════════════════════╝
+
+let progMode = 0; // 0=pct, 1=count ratio
+
+function cycleProgress() {
+  progMode = (progMode + 1) % 2;
+  updateProgress();
+  const btn = document.getElementById('progWrap');
+  btn.style.transform = 'scale(0.92)';
+  setTimeout(() => { btn.style.transform = ''; }, 150);
+}
+
 function updateProgress() {
-  const total = paperDB.length;
-  const done  = Object.values(state.paperStatus).filter(v => v === 'done').length;
+  // Use filteredPapers if available, else all papers
+  const scope = filteredPapers.length > 0 ? filteredPapers : paperDB;
+  const total = scope.length;
+  const done  = scope.filter(p => (state.paperStatus[p.id] || 'todo') === 'done').length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
+
   document.getElementById('progArc').setAttribute('stroke-dasharray', `${pct} 100`);
-  document.getElementById('progPct').textContent = pct + '%';
+
+  const el = document.getElementById('progPct');
+  if (progMode === 0) {
+    el.textContent = pct + '%';
+  } else {
+    el.textContent = `${done}/${total}`;
+  }
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -1960,37 +1960,228 @@ function renderProfileUI() {
   if (!tiersDiv) return;
   if (subs.length === 0) {
     tiersDiv.innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.3)">请先选择报考科目</span>';
+  } else {
+    const mathTierOpts = [
+      { v: 'core',     l: 'Core (P1/P3)' },
+      { v: 'extended', l: 'Extended (P2/P4)' },
+    ];
+    const sciTierOpts = [
+      { v: 'core',     l: 'Core (P1/P3)' },
+      { v: 'extended', l: 'Extended (P2/P4)' },
+      { v: 'p6',       l: 'P6 Alt. Practical' },
+    ];
+    tiersDiv.innerHTML = subs.map(subj => {
+      const opts = subj === '0580' ? mathTierOpts : sciTierOpts;
+      const cur = p[`tier_${subj}`] || [];
+      const meta = { '0580':'数学','0610':'生物','0620':'化学','0625':'物理' };
+      return `
+        <div style="width:100%;margin-bottom:4px">
+          <span style="font-size:10px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">${subj} ${meta[subj]}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${opts.map(o => `
+              <div class="fchip" onclick="toggleProfileTier('${subj}','${o.v}')"
+                style="background:${cur.includes(o.v)?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'};border-color:${cur.includes(o.v)?'#818cf8':'rgba(255,255,255,.15)'};color:${cur.includes(o.v)?'white':'rgba(255,255,255,.6)'};font-weight:${cur.includes(o.v)?'600':'400'};font-size:11px">
+                ${o.l}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Per-subject detail filter cards ──
+  renderSubjectDetailFilters();
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║          PER-SUBJECT GRANULAR FILTER SYSTEM             ║
+// ╚══════════════════════════════════════════════════════════╝
+
+const SUBJ_META_FULL = {
+  '0580': { name: 'Mathematics', icon: 'calculate', color: '#1A73E8', label: '数学' },
+  '0610': { name: 'Biology',     icon: 'biotech',   color: '#34A853', label: '生物' },
+  '0620': { name: 'Chemistry',   icon: 'science',   color: '#FF6D00', label: '化学' },
+  '0625': { name: 'Physics',     icon: 'bolt',      color: '#9334E8', label: '物理' },
+};
+
+const ALL_YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
+const ALL_SESSIONS = ['March', 'May/June', 'Oct/Nov'];
+const ALL_VARIANTS = [1, 2, 3];
+const MATH_PAPERS = ['P1', 'P2', 'P3', 'P4'];
+const SCI_PAPERS_LIST = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
+
+function getSubjectProfile(subj) {
+  const p = getProfile();
+  return p[`detail_${subj}`] || {};
+}
+
+function saveSubjectProfile(subj, patch) {
+  const p = getProfile();
+  const cur = p[`detail_${subj}`] || {};
+  const updated = { ...cur, ...patch };
+  const key = `detail_${subj}`;
+  const full = { ...p, [key]: updated };
+  state.settings.profile = full;
+  saveState();
+  renderSubjectDetailFilters();
+  // Re-render dynamic filter panel visibility
+  updateFilterPanelVisibility();
+}
+
+function toggleSubjDetailOption(subj, field, val) {
+  const cur = getSubjectProfile(subj);
+  const arr = cur[field] ? [...cur[field]] : [];
+  const idx = arr.indexOf(val);
+  if (idx === -1) arr.push(val);
+  else arr.splice(idx, 1);
+  saveSubjectProfile(subj, { [field]: arr });
+}
+
+function renderSubjectDetailFilters() {
+  const p = getProfile();
+  const subs = p.subjects || [];
+  const detailDiv = document.getElementById('subjectDetailFilters');
+  const cardsDiv = document.getElementById('subjectFilterCards');
+  if (!detailDiv || !cardsDiv) return;
+
+  if (subs.length === 0) {
+    detailDiv.style.display = 'none';
     return;
   }
-  // For each subject, show tier options
-  const mathTierOpts = [
-    { v: 'core',     l: 'Core (P1/P3)' },
-    { v: 'extended', l: 'Extended (P2/P4)' },
-  ];
-  const sciTierOpts = [
-    { v: 'core',     l: 'Core (P1/P3)' },
-    { v: 'extended', l: 'Extended (P2/P4)' },
-    { v: 'p6',       l: 'P6 Alt. Practical' },
-  ];
+  detailDiv.style.display = 'block';
 
-  tiersDiv.innerHTML = subs.map(subj => {
-    const opts = subj === '0580' ? mathTierOpts : sciTierOpts;
-    const cur = p[`tier_${subj}`] || [];
-    const meta = { '0580':'数学','0610':'生物','0620':'化学','0625':'物理' };
+  cardsDiv.innerHTML = subs.map(subj => {
+    const meta = SUBJ_META_FULL[subj];
+    const dp = getSubjectProfile(subj);
+    const papers = subj === '0580' ? MATH_PAPERS : SCI_PAPERS_LIST;
+
+    const selYears    = dp.years    || [];
+    const selPapers   = dp.papers   || [];
+    const selSessions = dp.sessions || [];
+    const selVariants = dp.variants || [];
+
+    const chipStyle = (on, color) => `
+      display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:14px;
+      font-size:11px;cursor:pointer;border:1.5px solid ${on ? color : 'rgba(255,255,255,.18)'};
+      background:${on ? color + '33' : 'rgba(255,255,255,.06)'};
+      color:${on ? 'white' : 'rgba(255,255,255,.6)'};
+      font-weight:${on ? '600' : '400'};user-select:none;margin:2px;transition:all .15s;
+    `;
+
     return `
-      <div style="width:100%;margin-bottom:4px">
-        <span style="font-size:10px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">${subj} ${meta[subj]}</span>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          ${opts.map(o => `
-            <div class="fchip" onclick="toggleProfileTier('${subj}','${o.v}')"
-              style="background:${cur.includes(o.v)?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'};border-color:${cur.includes(o.v)?'#818cf8':'rgba(255,255,255,.15)'};color:${cur.includes(o.v)?'white':'rgba(255,255,255,.6)'};font-weight:${cur.includes(o.v)?'600':'400'};font-size:11px">
-              ${o.l}
-            </div>
-          `).join('')}
+      <div style="border:1.5px solid ${meta.color}44;border-radius:12px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.04)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span class="mi" style="color:${meta.color};font-size:16px">${meta.icon}</span>
+          <span style="font-size:12px;font-weight:700;color:${meta.color}">${subj} ${meta.label}</span>
+          <button onclick="clearSubjectDetail('${subj}')"
+            style="margin-left:auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4);border-radius:8px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit">
+            清除
+          </button>
+        </div>
+
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">📅 年份（多选）</div>
+          <div style="display:flex;flex-wrap:wrap">
+            ${ALL_YEARS.map(y => `
+              <span onclick="toggleSubjDetailOption('${subj}','years',${y})"
+                style="${chipStyle(selYears.includes(y), meta.color)}">${y}${y===2025?'🟢':''}</span>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">📄 卷型（多选）</div>
+          <div style="display:flex;flex-wrap:wrap">
+            ${papers.map(pt => `
+              <span onclick="toggleSubjDetailOption('${subj}','papers','${pt}')"
+                style="${chipStyle(selPapers.includes(pt), meta.color)}">${pt}</span>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">🗓 考季（多选）</div>
+          <div style="display:flex;flex-wrap:wrap">
+            ${ALL_SESSIONS.map(s => `
+              <span onclick="toggleSubjDetailOption('${subj}','sessions','${s}')"
+                style="${chipStyle(selSessions.includes(s), meta.color)}">${s}</span>
+            `).join('')}
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">🌍 变体（多选）</div>
+          <div style="display:flex;flex-wrap:wrap">
+            ${ALL_VARIANTS.map(v => {
+              const vLabel = v===1?'🇬🇧 V1':v===2?'🇨🇳 V2':'🇦🇺 V3';
+              return `<span onclick="toggleSubjDetailOption('${subj}','variants',${v})"
+                style="${chipStyle(selVariants.includes(v), meta.color)}">${vLabel}</span>`;
+            }).join('')}
+          </div>
         </div>
       </div>
     `;
   }).join('');
+}
+
+function clearSubjectDetail(subj) {
+  saveSubjectProfile(subj, { years:[], papers:[], sessions:[], variants:[] });
+}
+
+// ── Dynamic Filter Panel Hiding ──
+// Hide filter options not present in the user's profile selection
+function updateFilterPanelVisibility() {
+  const p = getProfile();
+  const subs = p.subjects || [];
+  if (subs.length === 0) return; // No profile → show everything
+
+  // Collect what papers actually exist for selected subjects
+  const profilePapers = paperDB.filter(paper => subs.includes(paper.subject));
+
+  // For each subject, also apply per-subject detail filters
+  const allowedIds = new Set();
+  subs.forEach(subj => {
+    const dp = getSubjectProfile(subj);
+    paperDB.filter(paper => paper.subject === subj).forEach(paper => {
+      // Check years
+      if (dp.years && dp.years.length > 0 && !dp.years.includes(paper.year)) return;
+      // Check paper types
+      const ptCode = paper.paper.slice(0, -1); // e.g. "P4" from "P41"
+      if (dp.papers && dp.papers.length > 0 && !dp.papers.includes(ptCode)) return;
+      // Check sessions
+      if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(paper.session)) return;
+      // Check variants
+      const v = Number(paper.paper.slice(-1));
+      if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(v)) return;
+      allowedIds.add(paper.id);
+    });
+  });
+
+  // Now hide filter chips that have zero matching papers in allowed set
+  FILTER_DEFS.forEach((def, i) => {
+    def.options.forEach(opt => {
+      const chipEl = document.getElementById(`fc-${def.key}-${opt.value}`);
+      if (!chipEl) return;
+
+      const hasMatch = [...allowedIds].some(id => {
+        const paper = paperDB.find(p => p.id === id);
+        if (!paper) return false;
+        if (def.key === 'subjects')  return paper.subject === opt.value;
+        if (def.key === 'years')     return paper.year === opt.value;
+        if (def.key === 'papers')    return paper.paper.startsWith(opt.value);
+        if (def.key === 'durations') return paper.duration === Number(opt.value);
+        if (def.key === 'variants')  return String(paper.paper).endsWith(String(opt.value));
+        if (def.key === 'sessions')  return paper.session === opt.value;
+        if (def.key === 'statuses')  return true; // always show status
+        return false;
+      });
+
+      // For statuses, always show
+      const alwaysShow = def.key === 'statuses';
+      chipEl.style.display = (hasMatch || alwaysShow) ? '' : 'none';
+    });
+  });
 }
 
 function applyProfileFilter() {
@@ -1998,31 +2189,88 @@ function applyProfileFilter() {
   const subs = p.subjects || [];
   if (subs.length === 0) { showToast('⚠️ 请先设置报考科目'); return; }
 
-  // Build filter state
+  // Reset all filters
+  FILTER_DEFS.forEach(d => { state.filters[d.key] = []; });
   state.filters.subjects = [...subs];
+
+  // Apply global session/variant if no per-subject overrides
   if (p.session) state.filters.sessions = [p.session];
   if (p.variant) state.filters.variants = [p.variant];
 
-  // Paper filter based on tiers
+  // Build paper filter from tiers
   const papers = [];
   subs.forEach(subj => {
-    const tiers = p[`tier_${subj}`] || ['extended']; // default extended
+    const tiers = p[`tier_${subj}`] || ['extended'];
     if (tiers.includes('core')) { papers.push('P1'); papers.push('P3'); }
     if (tiers.includes('extended')) { papers.push('P2'); papers.push('P4'); }
     if (tiers.includes('p6')) papers.push('P6');
   });
-  // Year/syllabus: if exam year ≥ 2026, only show 2025+ papers (new syllabus)
-  const examYear = Number(p.year) || 2026;
-  if (examYear >= 2026) {
-    state.filters.years = [2025, 2024, 2023, 2022, 2021, 2020]; // keep all for practice, but warn
-  }
   const uniquePapers = [...new Set(papers)];
   if (uniquePapers.length > 0) state.filters.papers = uniquePapers;
 
+  // Check if any subject has per-subject detail overrides
+  const hasDetailFilters = subs.some(subj => {
+    const dp = getSubjectProfile(subj);
+    return (dp.years && dp.years.length > 0) ||
+           (dp.papers && dp.papers.length > 0) ||
+           (dp.sessions && dp.sessions.length > 0) ||
+           (dp.variants && dp.variants.length > 0);
+  });
+
   renderFilterPanel();
   applyFilters();
+  // After applying, also update dynamic visibility
+  updateFilterPanelVisibility();
   closeSettings();
-  showToast(`✅ 已筛选：${subs.join('/')} · ${p.session || '全考季'} · V${p.variant || '?'}`);
+
+  const detailNote = hasDetailFilters ? '（含各科细分筛选）' : '';
+  showToast(`✅ 已筛选：${subs.join('/')} · ${p.session || '全考季'} · V${p.variant || '?'} ${detailNote}`);
+}
+
+function applyFilters() {
+  const { subjects, years, papers, durations, statuses, sessions, variants } = state.filters;
+  const sort = document.getElementById('sortSel')?.value || 'year-desc';
+  const p = getProfile();
+  const subs = p.subjects || [];
+
+  let result = paperDB.filter(paper => {
+    // Global filters first
+    if (subjects.length  && !subjects.includes(paper.subject))                             return false;
+    if (years.length     && !years.includes(paper.year))                                   return false;
+    if (papers.length    && !papers.some(pt => paper.paper.startsWith(pt)))                return false;
+    if (durations.length && !durations.some(d => paper.duration === Number(d)))            return false;
+    if (variants.length  && !variants.some(v => String(paper.paper).endsWith(String(v)))) return false;
+    if (statuses.length  && !(statuses.includes(state.paperStatus[paper.id] || 'todo')))   return false;
+    if (sessions.length  && !sessions.includes(paper.session))                             return false;
+
+    // Per-subject detail filters (only applied if profile is active with subject selected)
+    if (subs.length > 0 && subs.includes(paper.subject)) {
+      const dp = getSubjectProfile(paper.subject);
+      const ptCode = paper.paper.slice(0, -1); // "P4" from "P41"
+      const v = Number(paper.paper.slice(-1));
+      if (dp.years    && dp.years.length > 0    && !dp.years.includes(paper.year))     return false;
+      if (dp.papers   && dp.papers.length > 0   && !dp.papers.includes(ptCode))         return false;
+      if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(paper.session)) return false;
+      if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(v))            return false;
+    }
+    return true;
+  });
+
+  result.sort((a, b) => {
+    switch (sort) {
+      case 'year-asc':  return a.year - b.year  || a.subject.localeCompare(b.subject);
+      case 'year-desc': return b.year - a.year  || a.subject.localeCompare(b.subject);
+      case 'dur-asc':   return a.duration - b.duration;
+      case 'dur-desc':  return b.duration - a.duration;
+      case 'subj':      return a.subject.localeCompare(b.subject) || b.year - a.year;
+      default:          return 0;
+    }
+  });
+
+  filteredPapers = result;
+  renderCards();
+  updateFilterCounts();
+  updateProgress();
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -2958,6 +3206,7 @@ function init() {
   updateDate();
   renderFilterPanel();
   applyFilters();
+  updateFilterPanelVisibility();
   updateCartBar();
   updateProgress();
   initScrollShadow();
