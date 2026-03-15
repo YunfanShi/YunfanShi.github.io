@@ -983,20 +983,61 @@ function clearFilters() {
 }
 
 function updateFilterCounts() {
+  // Build base pool: apply profile + per-subject detail filters (but NOT current sidebar filters)
+  // so each chip shows "how many papers match this option within the profile scope"
+  const prof = getProfile();
+  const profSubs = prof.subjects || [];
+
+  const basePool = paperDB.filter(paper => {
+    // If profile has subjects set, restrict to those
+    if (profSubs.length > 0 && !profSubs.includes(paper.subject)) return false;
+
+    // Apply per-subject detail filters
+    if (profSubs.length > 0 && profSubs.includes(paper.subject)) {
+      const dp = getSubjectProfile(paper.subject);
+      const ptCode = paper.paper.slice(0, -1);
+      const v = Number(paper.paper.slice(-1));
+      if (dp.years    && dp.years.length > 0    && !dp.years.includes(paper.year))        return false;
+      if (dp.papers   && dp.papers.length > 0   && !dp.papers.includes(ptCode))            return false;
+      if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(paper.session))   return false;
+      if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(v))               return false;
+    }
+    return true;
+  });
+
+  // Also factor in the current active sidebar filters (excluding the filter key being counted)
+  // so the count reflects "if you toggle this chip, how many results would it affect"
   FILTER_DEFS.forEach(def => {
     def.options.forEach(opt => {
       const el = document.getElementById(`fcb-${def.key}-${opt.value}`);
       if (!el) return;
-      const count = paperDB.filter(p => {
-        if (def.key === 'subjects')  return p.subject === opt.value;
-        if (def.key === 'years')     return p.year === opt.value;
-        if (def.key === 'papers')    return p.paper.startsWith(opt.value);
-        if (def.key === 'durations') return p.duration === Number(opt.value);
-        if (def.key === 'variants')  return String(p.paper).endsWith(String(opt.value));
-        if (def.key === 'statuses')  return (state.paperStatus[p.id] || 'todo') === opt.value;
-        if (def.key === 'sessions')  return p.session === opt.value;
+
+      // Build a filter that applies ALL other active sidebar filters except the current def.key
+      const count = basePool.filter(paper => {
+        // Apply all sidebar filters except the one we're counting
+        for (const d of FILTER_DEFS) {
+          if (d.key === def.key) continue; // skip self
+          const active = state.filters[d.key];
+          if (!active || active.length === 0) continue;
+          if (d.key === 'subjects')  { if (!active.includes(paper.subject)) return false; }
+          if (d.key === 'years')     { if (!active.includes(paper.year)) return false; }
+          if (d.key === 'papers')    { if (!active.some(pt => paper.paper.startsWith(pt))) return false; }
+          if (d.key === 'durations') { if (!active.some(dv => paper.duration === Number(dv))) return false; }
+          if (d.key === 'variants')  { if (!active.some(v => String(paper.paper).endsWith(String(v)))) return false; }
+          if (d.key === 'statuses')  { if (!(active.includes(state.paperStatus[paper.id] || 'todo'))) return false; }
+          if (d.key === 'sessions')  { if (!active.includes(paper.session)) return false; }
+        }
+        // Now check if this paper matches the option being counted
+        if (def.key === 'subjects')  return paper.subject === opt.value;
+        if (def.key === 'years')     return paper.year === opt.value;
+        if (def.key === 'papers')    return paper.paper.startsWith(opt.value);
+        if (def.key === 'durations') return paper.duration === Number(opt.value);
+        if (def.key === 'variants')  return String(paper.paper).endsWith(String(opt.value));
+        if (def.key === 'statuses')  return (state.paperStatus[paper.id] || 'todo') === opt.value;
+        if (def.key === 'sessions')  return paper.session === opt.value;
         return false;
       }).length;
+
       el.textContent = count;
     });
   });
