@@ -787,14 +787,38 @@ function buildGoalContext(g, includeSiblings=true){
     const sibs=goals.filter(c=>c.parentId===g.parentId&&c.id!==g.id);
     const parent=goals.find(p=>p.id===g.parentId);
     if(sibs.length){
+      ctx+=`\n\n【重要】这些子任务是并行推进的，每天可以同时做多个，请基于整体并行情况预测。`;
       ctx+=`\n\n【同父任务下的其他子任务进度】`;
       sibs.forEach(s=>{
-        ctx+=`\n - ${s.name}: ${s.done||0}/${s.total} (${getPct(s)}%)，截止${s.deadline||'未设置'}`;
-        // attach sibling's cached AI analysis if available
+        const sdl=deadlineDays(s.deadline);
+        ctx+=`\n - ${s.name}: ${s.done||0}/${s.total} (${getPct(s)}%)，截止${s.deadline||'未设置'}${sdl!=null?` (距今${sdl}天)`:''}`;
         const sc=aiPreds[s.id];
-        if(sc&&sc.text) ctx+=`\n   └ 该子任务最新AI分析摘要：${sc.text.slice(0,80).replace(/\n/g,' ')}…`;
+        if(sc&&sc.text){
+          const sum=sc.text.replace(/\[DAYS:-?\d+\]/g,'').trim().slice(0,80).replace(/\n/g,' ');
+          ctx+=`\n   └ 已有分析：${sum}…`;
+        }
       });
       if(parent) ctx+=`\n父任务 [${parent.name}] 整体进度: ${getPct(parent)}%，截止${parent.deadline||'未设置'}`;
+
+      // Merged parallel activity log
+      const allChildren=[g,...sibs];
+      const dailyMap={};
+      allChildren.forEach(c=>{
+        (c.history||[]).forEach((h,i)=>{
+          const d=h.date;
+          if(!dailyMap[d]) dailyMap[d]=[];
+          const prev=c.history[i-1];
+          const prevDone=prev?(prev.done!=null?prev.done:(prev.v||0)):0;
+          const curDone=h.done!=null?h.done:(h.v||0);
+          const delta=curDone-prevDone;
+          if(delta!==0) dailyMap[d].push(`${c.name} ${delta>0?'+'+delta:delta}${c.unit||''}`);
+        });
+      });
+      const sortedDates=Object.keys(dailyMap).sort().slice(-10);
+      if(sortedDates.length>0){
+        ctx+=`\n\n【近期并行更新记录（证明每天可同时推进多个子任务）】`;
+        sortedDates.forEach(d=>{ ctx+=`\n${d}：${dailyMap[d].join('，')}`; });
+      }
     }
   }
   if(includeSiblings && g.parentId===null){
@@ -814,25 +838,70 @@ function buildGoalContext(g, includeSiblings=true){
 function buildParentContext(g){
   const children=goals.filter(c=>c.parentId===g.id);
   const pct=getPct(g);
+  const t=today();
+
+  // ── 1. Per-child current status ────────────────────────────────
   let ctx=`大任务：${g.name}
+今天：${t}
 整体进度：${pct}%
 截止：${g.deadline||'未设置'}
 
-子任务详情：`;
+【重要说明】以下子任务是并行推进的，每天可以同时完成多个子任务的工作，不是串行的。
+
+子任务当前状态：`;
   children.forEach(c=>{
     const cp=getPct(c);
     const hist=c.history||[];
-    let vel='暂无历史';
+    const dlDays=deadlineDays(c.deadline);
+    let vel='暂无历史数据';
     if(hist.length>=2){
       const f=hist[0],l=hist[hist.length-1];
-      const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
+      const calDays=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
       const fd=f.done!=null?f.done:0,ld=l.done!=null?l.done:0;
-      vel=`${((ld-fd)/days).toFixed(2)}${c.unit||'单位'}/天`;
+      vel=`平均每天推进约 ${((ld-fd)/calDays).toFixed(2)} ${c.unit||'单位'}`;
     }
-    ctx+=`\n- ${c.name}：${c.done||0}/${c.total} ${c.unit||''} (${cp}%)，截止${c.deadline||'未设置'}，速率${vel}`;
+    ctx+=`
+- ${c.name}：${c.done||0}/${c.total} ${c.unit||''} (${cp}%)
+  截止：${c.deadline||'未设置'}${dlDays!=null?` (距今${dlDays}天)`:''}
+  速率：${vel}`;
     const cc=aiPreds[c.id];
-    if(cc&&cc.text) ctx+=`\n  └ 该子任务最新AI分析：${cc.text.slice(0,100).replace(/\n/g,' ')}…`;
+    if(cc&&cc.text){
+      // strip the [DAYS:N] tag from sibling summary
+      const summary=cc.text.replace(/\[DAYS:-?\d+\]/g,'').trim().slice(0,120).replace(/\n/g,' ');
+      ctx+=`
+  已有分析：${summary}…`;
+    }
   });
+
+  // ── 2. Merged daily activity log across ALL children ───────────
+  // Collect all history entries with child name, build a date-keyed map
+  const dailyMap={};
+  children.forEach(c=>{
+    (c.history||[]).forEach(h=>{
+      const d=h.date;
+      if(!dailyMap[d]) dailyMap[d]=[];
+      const prev=c.history[c.history.indexOf(h)-1];
+      const prevDone=prev?(prev.done!=null?prev.done:(prev.v||0)):0;
+      const curDone=h.done!=null?h.done:(h.v||0);
+      const delta=curDone-prevDone;
+      if(delta!==0){
+        dailyMap[d].push(`${c.name} ${delta>0?'+'+delta:delta}${c.unit||''}`);
+      }
+    });
+  });
+
+  const sortedDates=Object.keys(dailyMap).sort();
+  if(sortedDates.length>0){
+    ctx+=`
+
+【实际更新记录（显示每天并行推进情况）】`;
+    // Show last 14 days of activity
+    sortedDates.slice(-14).forEach(d=>{
+      ctx+=`
+${d}：${dailyMap[d].join('，')}`;
+    });
+  }
+
   return ctx;
 }
 
