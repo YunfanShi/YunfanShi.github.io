@@ -235,6 +235,20 @@ option{background:#1a1a1a;}
 .md-content li{font-size:13px;line-height:1.65;margin-bottom:3px;color:var(--text);}
 .md-content strong{color:var(--ai);font-weight:600;}
 
+/* APPROVAL MODAL */
+.action-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;transition:border-color .15s;}
+.action-item:hover{border-color:var(--border2);}
+.action-item.action-danger{border-color:rgba(255,92,92,.2);background:rgba(255,92,92,.04);}
+.action-item.action-ok{border-color:rgba(52,199,106,.2);background:rgba(52,199,106,.04);}
+.action-check{width:17px;height:17px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;margin-top:2px;}
+.action-icon{font-size:16px;flex-shrink:0;}
+.action-body{flex:1;min-width:0;}
+.action-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.action-detail{font-size:12px;color:var(--text2);line-height:1.5;}
+.action-diff{font-size:11px;font-family:var(--mono);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;}
+.action-diff .old-val{color:#ff5c5c;background:rgba(255,92,92,.08);padding:1px 6px;border-radius:3px;text-decoration:line-through;}
+.action-diff .new-val{color:#34c76a;background:rgba(52,199,106,.08);padding:1px 6px;border-radius:3px;}
+
 /* DUAL COUNTDOWN ROW */
 .dual-cd{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;}
 .cd-box{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
@@ -523,14 +537,42 @@ option{background:#1a1a1a;}
         </button>
       </div>
       <div class="fg">
-        <label class="flbl">自定义问题</label>
-        <textarea class="fi" id="aiCustomQ" placeholder="问 AI 任何关于你目标的问题…" rows="2" style="resize:vertical;line-height:1.5;"></textarea>
+        <label class="flbl">
+          指令 / 问题
+          <span style="font-size:10px;color:var(--ai);margin-left:6px;font-weight:400;text-transform:none;letter-spacing:0;">支持自然语言修改数据，如"把ZNotes下所有子任务截止日期改成明天"</span>
+        </label>
+        <textarea class="fi" id="aiCustomQ" placeholder="问问题或下达指令，AI可以读取并修改你的所有目标数据…" rows="3" style="resize:vertical;line-height:1.5;"></textarea>
       </div>
-      <div id="aiHubResponse" class="ai-response" style="display:none;"></div>
+      <div id="aiHubResponse" class="ai-response" style="display:none;max-height:300px;overflow-y:auto;"></div>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('aiHubModal')">关闭</button>
       <button class="btn btn-ai" onclick="askCustom()">✦ 发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI ACTION APPROVAL MODAL -->
+<div class="overlay" id="approvalModal">
+  <div class="modal wide" style="max-width:680px;">
+    <div class="mhd">
+      <span style="font-size:18px;">🔐</span>
+      <span>AI 操作审批</span>
+      <span id="approvalBadge" style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(245,166,35,0.15);color:#f5a623;border:1px solid rgba(245,166,35,0.3);margin-left:6px;"></span>
+    </div>
+    <div class="mbody">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;" id="approvalDesc"></div>
+      <!-- AI reply shown read-only -->
+      <div id="approvalAiText" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;line-height:1.65;color:var(--text);max-height:160px;overflow-y:auto;margin-bottom:14px;display:none;"></div>
+      <!-- Action list -->
+      <div id="approvalList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
+    </div>
+    <div class="mfoot" style="justify-content:space-between;">
+      <button class="btn btn-ghost" onclick="rejectAll()">✕ 全部拒绝</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="closeM('approvalModal')">取消</button>
+        <button class="btn btn-pri" id="approvalConfirmBtn" onclick="applyApproved()">✓ 执行已勾选</button>
+      </div>
     </div>
   </div>
 </div>
@@ -906,13 +948,44 @@ ${d}：${dailyMap[d].join('，')}`;
 }
 
 function buildAllContext(){
+  const t=today();
   const roots=goals.filter(g=>g.parentId===null);
-  return roots.map(r=>{
-    let txt=buildGoalContext(r,false);
-    const ch=goals.filter(c=>c.parentId===r.id);
-    if(ch.length) txt+='\n  子任务: '+ch.map(c=>`${c.name}(${getPct(c)}%)`).join(', ');
-    return txt;
-  }).join('\n\n---\n\n');
+
+  let out=`今天：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
+
+  out+=roots.map(r=>{
+    const children=goals.filter(c=>c.parentId===r.id);
+    if(children.length){
+      // Use full parent context (includes parallel daily log)
+      return buildParentContext(r);
+    } else {
+      // Use full goal context with all history
+      const pct=getPct(r);
+      const hist=r.history||[];
+      const dlDays=deadlineDays(r.deadline);
+      let vel='暂无历史数据';
+      if(hist.length>=2){
+        const f=hist[0],l=hist[hist.length-1];
+        const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
+        const fd=f.done!=null?f.done:(f.v||0),ld=l.done!=null?l.done:(l.v||0);
+        vel=`平均每天约 ${((ld-fd)/days).toFixed(2)} ${r.unit||'单位'}`;
+      }
+      let txt=`【${r.name}】
+完成：${r.done||0}/${r.total} ${r.unit||''} (${pct}%)
+截止：${r.deadline||'未设置'}${dlDays!=null?` (距今${dlDays}天)`:''}
+速率：${vel}
+全部历史记录(${hist.length}次)：
+${hist.map(h=>`  ${h.date}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}${h.note?' ('+h.note+')':''}`).join('\n')||'  无'}`;
+      const cached=aiPreds[r.id];
+      if(cached&&cached.text){
+        const sum=cached.text.replace(/\[DAYS:-?\d+\]/g,'').trim().slice(0,150).replace(/\n/g,' ');
+        txt+=`\n最新AI分析：${sum}…`;
+      }
+      return txt;
+    }
+  }).join('\n\n════════════════════\n\n');
+
+  return out;
 }
 
 /* ===================== CALL AI ===================== */
@@ -978,8 +1051,8 @@ async function autoPredictIfNeeded(id){
     let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是目标管理AI。今天是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
-      :`你是目标管理AI。今天是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
+      ?`你是目标管理AI。今天是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。重要：子任务是并行推进的；当某些子任务接近完成时，用户会把更多精力集中到剩余任务上，速度会加快，请考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是目标管理AI。今天是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。重要：当其他兄弟任务接近完成或已完成时，用户会把更多精力集中到本任务上，请考虑这一加速效应而不是只用历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间：\n\n${ctx}`}
@@ -999,21 +1072,22 @@ async function batchPredictParent(parentId){
   const total=children.length+1;
   let done=0;
 
-  toast(`开始批量预测 (0/${total})…`);
+  toast(`⏳ 批量预测中 (0/${total})…`, true); // persist
 
   // predict children first (so parent can reference their analyses)
   for(const ch of children){
     await autoPredictIfNeeded(ch.id);
     done++;
-    toast(`批量预测中 (${done}/${total})…`);
+    toast(`⏳ 批量预测中 (${done}/${total})…`, true);
   }
   // then predict parent (with fresh child analyses in context)
   if(getPct(parent)>0&&getPct(parent)<100){
+    toast(`⏳ 批量预测中 — 分析父任务…`, true);
     await autoPredictIfNeeded(parentId);
   }
   done++;
-  toast(`批量预测完成 ✓ (${total}个任务)`);
   render();
+  toast(`✓ 批量预测完成 (${total}个任务)`); // auto-hide after 2.6s
 }
 
 /* ===================== MANUAL PREDICT ===================== */
@@ -1033,8 +1107,8 @@ async function runPred(id){
     const t0=Date.now();let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是专业目标管理AI。今天是${t}。中文，自由发挥。综合所有子任务进度和已有分析，预测整体完成时间，给出有洞察力的建议，不要有字数限制。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
-      :`你是专业目标管理AI。今天是${t}。中文，自由发挥。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾，不要有字数限制。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
+      ?`你是专业目标管理AI。今天是${t}。中文，自由发挥，不要有字数限制。综合所有子任务进度和已有分析，预测整体完成时间。重要：子任务并行推进；当部分子任务接近完成时，剩余子任务会获得更多精力投入，速度会显著加快，请在预测中充分考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是专业目标管理AI。今天是${t}。中文，自由发挥，不要有字数限制。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾。重要：当其他兄弟任务已完成或接近完成时，用户会把全部精力集中到本任务上，速度会显著提升，预测时请考虑这一集中精力加速效应，而不是简单外推历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间并给建议：\n\n${ctx}`}
@@ -1288,35 +1362,461 @@ function render(){
 }
 
 /* ===================== AI HUB ===================== */
-function openAIHub(){document.getElementById('aiHubResponse').style.display='none';document.getElementById('aiCustomQ').value='';openM('aiHubModal');}
+function openAIHub(){
+  document.getElementById('aiHubResponse').style.display='none';
+  document.getElementById('aiCustomQ').value='';
+  openM('aiHubModal');
+}
+
 async function aiFeature(type){
   if(!getKey()){toast('请先配置 API Key');openSettings();return;}
   const allCtx=buildAllContext();
   const t=today();
   const prompts={
-    overview:`今天是${t}。\n\n${allCtx}\n\n分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标。200字以内。`,
-    priority:`今天是${t}。\n\n${allCtx}\n\n今天应该重点关注哪个目标？给出排序和理由。150字以内。`,
-    plan:`今天是${t}。\n\n${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务关系，给出每天建议量。`,
-    risk:`今天是${t}。\n\n${allCtx}\n\n识别有截止日期风险的目标（特别注意子任务），分析原因，给出补救建议。`
+    overview:`今天是${t}。\n\n${allCtx}\n\n自由分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标、风险点。`,
+    priority:`今天是${t}。\n\n${allCtx}\n\n今天应该重点关注哪个目标？综合考虑截止日期、当前进度和并行情况，给出详细排序和理由。`,
+    plan:`今天是${t}。\n\n${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务并行关系，给出每天建议量和优先级。`,
+    risk:`今天是${t}。\n\n${allCtx}\n\n深入识别所有有截止日期风险的目标（特别注意子任务），分析根本原因，给出具体补救措施。`
   };
   const resp=document.getElementById('aiHubResponse');
   resp.style.display='block';resp.className='ai-response loading-state';
   resp.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>';
   try{
-    await callAI([{role:'system',content:'你是专业目标管理教练，中文回答，简洁有洞察力，适当使用emoji。注意父任务和子任务的关系。'},{role:'user',content:prompts[type]}],
-      p=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
+    await callAI([
+      {role:'system',content:'你是专业目标管理教练，中文回答，有洞察力，适当使用emoji，自由发挥不要有字数限制。注意父子任务并行关系和集中精力加速效应。'},
+      {role:'user',content:prompts[type]}
+    ], p=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
   }catch(err){resp.className='ai-response error-state';resp.innerHTML='❌ '+esc(err.message);toast('AI 请求失败');}
 }
+
+/* ===================== AI TOOLS DEFINITION ===================== */
+// All operations AI can request
+const AI_TOOLS={
+  set_deadline:{
+    label:'修改截止日期',
+    icon:'📅',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在: '+op.id};
+      const old=g.deadline||'未设置';
+      g.deadline=op.value;
+      return {ok:true,msg:`${g.name}：截止日期 ${old} → ${op.value}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'截止日期',old:g?.deadline||'未设置',new:op.value};
+    }
+  },
+  set_priority:{
+    label:'修改优先级',
+    icon:'🎯',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=g.priority;
+      g.priority=op.value;
+      return {ok:true,msg:`${g.name}：优先级 ${old} → ${op.value}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      const labels={high:'高🔴',mid:'中🟡',low:'低🟢'};
+      return {field:'优先级',old:labels[g?.priority]||g?.priority,new:labels[op.value]||op.value};
+    }
+  },
+  set_progress:{
+    label:'修改进度',
+    icon:'📊',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=`${g.done||0}/${g.total}`;
+      if(op.done!=null) g.done=Math.min(op.done,g.total);
+      if(op.total!=null) g.total=op.total;
+      if(!g.history) g.history=[];
+      g.history.push({date:today(),done:g.done,total:g.total,note:'AI修改'});
+      return {ok:true,msg:`${g.name}：进度 ${old} → ${g.done}/${g.total}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'进度',old:`${g?.done||0}/${g?.total}`,new:`${op.done!=null?op.done:g?.done}/${op.total!=null?op.total:g?.total}`};
+    }
+  },
+  set_name:{
+    label:'修改名称',
+    icon:'✏️',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=g.name;
+      g.name=op.value;
+      return {ok:true,msg:`名称 "${old}" → "${op.value}"`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'名称',old:g?.name,new:op.value};
+    }
+  },
+  set_desc:{
+    label:'修改描述',
+    icon:'📝',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=g.desc||'无';
+      g.desc=op.value;
+      return {ok:true,msg:`${g.name}：描述已更新`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'描述',old:g?.desc||'无',new:op.value};
+    }
+  },
+  set_total:{
+    label:'修改总数量',
+    icon:'🔢',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=g.total;
+      g.total=op.value;
+      return {ok:true,msg:`${g.name}：总量 ${old} → ${op.value}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'总数量',old:String(g?.total),new:String(op.value)};
+    }
+  },
+  set_unit:{
+    label:'修改单位',
+    icon:'📏',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=g.unit||'无';
+      g.unit=op.value;
+      return {ok:true,msg:`${g.name}：单位 ${old} → ${op.value}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'单位',old:g?.unit||'无',new:op.value};
+    }
+  },
+  set_color:{
+    label:'修改颜色',
+    icon:'🎨',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const old=g.color;
+      g.color=op.value;
+      return {ok:true,msg:`${g.name}：颜色 ${old} → ${op.value}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'颜色',old:g?.color,new:op.value};
+    }
+  },
+  set_parent:{
+    label:'修改父任务',
+    icon:'🔀',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const oldP=g.parentId?goals.find(x=>x.id===g.parentId)?.name:'独立';
+      const newP=op.value?goals.find(x=>x.id===op.value)?.name:'独立';
+      g.parentId=op.value;
+      return {ok:true,msg:`${g.name}：父任务 ${oldP} → ${newP||'独立'}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      const oldP=g?.parentId?goals.find(x=>x.id===g.parentId)?.name:'独立';
+      const newP=op.value?goals.find(x=>x.id===op.value)?.name:'独立';
+      return {field:'父任务',old:oldP,new:newP};
+    }
+  },
+  add_history:{
+    label:'添加进度记录',
+    icon:'📌',
+    danger:false,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      if(!g.history) g.history=[];
+      g.history.push({date:op.date||today(),done:op.done,total:op.total||g.total,note:op.note||'AI添加'});
+      return {ok:true,msg:`${g.name}：已添加历史记录 ${op.done}/${op.total||g.total}`};
+    },
+    diff(op){
+      return {field:'历史记录',old:'—',new:`${op.date||today()} ${op.done}/${op.total||'—'}`};
+    }
+  },
+  delete_goal:{
+    label:'删除目标',
+    icon:'🗑️',
+    danger:true,
+    apply(op){
+      const g=goals.find(x=>x.id===op.id);
+      if(!g) return {ok:false,msg:'目标不存在'};
+      const name=g.name;
+      const childIds=goals.filter(c=>c.parentId===op.id).map(c=>c.id);
+      goals=goals.filter(x=>x.id!==op.id&&!childIds.includes(x.id));
+      [op.id,...childIds].forEach(i=>{delete aiPreds[i];});
+      savePreds();
+      return {ok:true,msg:`已删除 "${name}"${childIds.length?` 及其 ${childIds.length} 个子任务`:''}`};
+    },
+    diff(op){
+      const g=goals.find(x=>x.id===op.id);
+      return {field:'删除',old:g?.name||String(op.id),new:'已删除'};
+    }
+  },
+  create_goal:{
+    label:'创建新目标',
+    icon:'➕',
+    danger:false,
+    apply(op){
+      const newG={
+        id:Date.now()+Math.floor(Math.random()*1000),
+        name:op.name,
+        desc:op.desc||'',
+        cat:op.cat||'其他',
+        priority:op.priority||'mid',
+        parentId:op.parentId||null,
+        done:op.done||0,
+        total:op.total||10,
+        color:op.color||'blue',
+        deadline:op.deadline||'',
+        unit:op.unit||'',
+        history:[],
+        created:Date.now()
+      };
+      goals.push(newG);
+      return {ok:true,msg:`已创建 "${op.name}"`};
+    },
+    diff(op){
+      return {field:'新建目标',old:'—',new:op.name};
+    }
+  },
+};
+
+/* ===================== AI AGENT — PARSE & APPROVE ===================== */
+let pendingOps=[];
+
+function buildGoalIndex(){
+  // Give AI a compact index: id → name, parentId, progress
+  return goals.map(g=>`id:${g.id} | ${g.name}${g.parentId?' [子任务of:'+g.parentId+']':''} | ${getPct(g)}% | 截止:${g.deadline||'无'}`).join('\n');
+}
+
+const AGENT_SYSTEM=()=>`你是一个目标管理AI助手，今天是${today()}。你可以读取用户的所有目标数据，也可以执行数据修改操作。
+
+## 目标数据（完整）
+${buildAllContext()}
+
+## 目标ID索引（修改时必须使用精确ID）
+${buildGoalIndex()}
+
+## 可用操作
+你可以在回复中执行以下操作，每个操作用 \`\`\`ACTION\`\`\` 块包裹，支持一次输出多个ACTION块：
+
+\`\`\`ACTION
+{"op":"set_deadline","id":目标ID,"value":"YYYY-MM-DD"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_priority","id":目标ID,"value":"high|mid|low"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_progress","id":目标ID,"done":数字,"total":数字}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_name","id":目标ID,"value":"新名称"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_desc","id":目标ID,"value":"新描述"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_total","id":目标ID,"value":数字}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_unit","id":目标ID,"value":"单位"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_color","id":目标ID,"value":"blue|green|yellow|red|purple|teal|pink|orange"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"set_parent","id":目标ID,"value":父任务ID或null}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"add_history","id":目标ID,"done":数字,"total":数字,"date":"YYYY-MM-DD","note":"备注"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"create_goal","name":"名称","desc":"描述","cat":"分类","priority":"mid","parentId":null或ID,"done":0,"total":10,"color":"blue","deadline":"YYYY-MM-DD","unit":"单位"}
+\`\`\`
+
+\`\`\`ACTION
+{"op":"delete_goal","id":目标ID}
+\`\`\`
+
+## 规则
+- 如果用户只是问问题，正常回答，不要输出ACTION块
+- 如果用户要修改数据，先用中文说明你要做什么，再输出对应的ACTION块
+- 可以一次输出多个ACTION块完成批量操作
+- 使用目标ID索引中的精确ID，不要猜测
+- 明天 = ${(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})()}
+- 下周 = ${(()=>{const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);})()}`;
+
 async function askCustom(){
-  const q=document.getElementById('aiCustomQ').value.trim();if(!q){toast('请输入问题');return;}
+  const q=document.getElementById('aiCustomQ').value.trim();
+  if(!q){toast('请输入指令或问题');return;}
   if(!getKey()){toast('请先配置 API Key');openSettings();return;}
+
   const resp=document.getElementById('aiHubResponse');
   resp.style.display='block';resp.className='ai-response loading-state';
-  resp.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>';
+  resp.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 处理中…</span>';
+
+  let fullText='';
   try{
-    await callAI([{role:'system',content:'你是目标管理助手，基于用户数据用中文回答问题，注意父子任务关系。'},{role:'user',content:`今天是${today()}。\n\n我的目标数据：\n\n${buildAllContext()}\n\n我的问题：${q}`}],
-      p=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
-  }catch(err){resp.className='ai-response error-state';resp.innerHTML='❌ '+esc(err.message);}
+    await callAI([
+      {role:'system',content:AGENT_SYSTEM()},
+      {role:'user',content:q}
+    ],(partial)=>{
+      fullText=partial;
+      // Show reply text (without ACTION blocks) while streaming
+      const display=partial.replace(/```ACTION[\s\S]*?```/g,'').trim();
+      resp.className='ai-response md-content';
+      resp.innerHTML=renderMD(display||partial);
+    });
+  }catch(err){
+    resp.className='ai-response error-state';
+    resp.innerHTML='❌ '+esc(err.message);
+    return;
+  }
+
+  // Parse ACTION blocks
+  const actionBlocks=[...fullText.matchAll(/```ACTION\s*([\s\S]*?)```/g)];
+  if(!actionBlocks.length){
+    // Pure Q&A, no actions needed
+    const display=fullText.replace(/```ACTION[\s\S]*?```/g,'').trim();
+    resp.innerHTML=renderMD(display||fullText);
+    return;
+  }
+
+  // Parse each action
+  const ops=[];
+  for(const block of actionBlocks){
+    try{
+      const parsed=JSON.parse(block[1].trim());
+      ops.push(parsed);
+    }catch(e){
+      console.warn('Failed to parse ACTION block:', block[1], e);
+    }
+  }
+
+  if(!ops.length){
+    toast('AI 返回了操作指令但解析失败');
+    return;
+  }
+
+  // Show final text without ACTION blocks
+  const displayText=fullText.replace(/```ACTION[\s\S]*?```/g,'').trim();
+  resp.innerHTML=renderMD(displayText||'AI 已生成以下操作，请在弹窗中审批：');
+
+  // Open approval modal
+  pendingOps=ops;
+  showApproval(displayText, ops);
+}
+
+/* ===================== APPROVAL MODAL ===================== */
+function showApproval(aiText, ops){
+  document.getElementById('approvalBadge').textContent=`${ops.length} 项操作待审批`;
+  document.getElementById('approvalDesc').textContent='AI 请求执行以下操作，请勾选你同意的项目后点击「执行已勾选」。';
+
+  // Show AI's explanation
+  const aiEl=document.getElementById('approvalAiText');
+  if(aiText){
+    aiEl.style.display='block';
+    aiEl.innerHTML=renderMD(aiText);
+  } else {
+    aiEl.style.display='none';
+  }
+
+  // Build action list
+  const listEl=document.getElementById('approvalList');
+  listEl.innerHTML=ops.map((op,i)=>{
+    const tool=AI_TOOLS[op.op];
+    if(!tool) return `<div class="action-item action-danger"><span class="action-icon">❓</span><div class="action-body"><div class="action-title">未知操作: ${esc(op.op)}</div></div></div>`;
+
+    const diff=tool.diff(op);
+    const targetName=goals.find(g=>g.id===op.id)?.name||op.name||'—';
+    const dangerClass=tool.danger?'action-danger':'';
+
+    return `<div class="action-item ${dangerClass}">
+      <input type="checkbox" class="action-check" id="apv${i}" checked>
+      <div class="action-icon">${tool.icon}</div>
+      <div class="action-body">
+        <div class="action-title">${tool.label}：${esc(targetName)}</div>
+        <div class="action-detail">${diff.field} 将被修改</div>
+        <div class="action-diff">
+          <span class="old-val">${esc(String(diff.old))}</span>
+          <span style="color:var(--text3);">→</span>
+          <span class="new-val">${esc(String(diff.new))}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  openM('approvalModal');
+}
+
+function rejectAll(){
+  document.querySelectorAll('.action-check').forEach(c=>c.checked=false);
+}
+
+function applyApproved(){
+  const results=[];
+  pendingOps.forEach((op,i)=>{
+    const cb=document.getElementById('apv'+i);
+    if(!cb||!cb.checked) return;
+    const tool=AI_TOOLS[op.op];
+    if(!tool){results.push({ok:false,msg:'未知操作: '+op.op});return;}
+    const r=tool.apply(op);
+    results.push(r);
+  });
+
+  const applied=results.filter(r=>r.ok);
+  const failed=results.filter(r=>!r.ok);
+
+  if(applied.length){
+    save();savePreds();render();
+  }
+
+  closeM('approvalModal');
+
+  if(applied.length&&!failed.length){
+    toast(`✓ 已执行 ${applied.length} 项操作`);
+  } else if(applied.length&&failed.length){
+    toast(`✓ ${applied.length} 项成功，${failed.length} 项失败`);
+  } else if(failed.length){
+    toast(`✗ ${failed.length} 项操作失败`);
+  }
+
+  pendingOps=[];
 }
 
 /* ===================== SETTINGS ===================== */
@@ -1661,7 +2161,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelect
 
 /* ===================== TOAST ===================== */
 let tt;
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2600);}
+function toast(msg,persist=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(tt);
+  if(!persist) tt=setTimeout(()=>el.classList.remove('show'),2600);
+}
+function toastHide(){const el=document.getElementById('toast');clearTimeout(tt);el.classList.remove('show');}
 
 /* ===================== COUNTDOWN ===================== */
 const CD_FORMATS=[
