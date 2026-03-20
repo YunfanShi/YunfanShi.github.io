@@ -235,6 +235,21 @@ option{background:#1a1a1a;}
 .md-content li{font-size:13px;line-height:1.65;margin-bottom:3px;color:var(--text);}
 .md-content strong{color:var(--ai);font-weight:600;}
 
+/* DUAL COUNTDOWN ROW */
+.dual-cd{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;}
+.cd-box{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+.cd-box.ai-box{border-color:var(--ai-border);background:var(--ai-dim);}
+.cd-box.dl-box{border-color:rgba(77,158,247,0.2);background:rgba(77,158,247,0.06);}
+.cd-box.overdue-box{border-color:rgba(255,92,92,0.25);background:rgba(255,92,92,0.06);}
+.cd-box-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px;}
+.cd-box-label.ai-lbl{color:var(--ai);}
+.cd-box-label.dl-lbl{color:#4d9ef7;}
+.cd-box-label.overdue-lbl{color:#ff5c5c;}
+.cd-box-time{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--text);letter-spacing:-.2px;white-space:nowrap;}
+.cd-box-time.ai-time{color:var(--ai);}
+.cd-box-time.dl-time{color:#4d9ef7;}
+.cd-box-time.overdue-time{color:#ff5c5c;}
+
 /* MOVE OPTION */
 .move-opt{display:flex;align-items:center;gap:12px;padding:10px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s;}
 .move-opt:hover{border-color:var(--blue);background:var(--blue-dim);}
@@ -865,13 +880,20 @@ function renderMD(text){
 
 /* ===================== EXTRACT CHIP SUMMARY ===================== */
 function extractSummary(text){
-  const m1=text.match(/(\d+)\s*天/);
-  const m2=text.match(/(\d+)\s*周/);
-  const m3=text.match(/(\d+)\s*个?月/);
-  if(m1) return `预计 ${m1[1]} 天完成`;
-  if(m2) return `预计 ${parseInt(m2[1])*7} 天完成`;
-  if(m3) return `预计 ${parseInt(m3[1])*30} 天完成`;
+  // AI must embed [DAYS:N] tag — read that directly
+  const tag=text.match(/\[DAYS:(-?\d+)\]/);
+  if(tag){
+    const n=parseInt(tag[1]);
+    if(n<=0) return '今天完成';
+    if(n===1) return '预计明天完成';
+    return `预计 ${n} 天完成`;
+  }
   return '已分析';
+}
+
+function extractDays(text){
+  const tag=text.match(/\[DAYS:(-?\d+)\]/);
+  return tag?parseInt(tag[1]):null;
 }
 
 /* ===================== AUTO PREDICT (background) ===================== */
@@ -887,8 +909,8 @@ async function autoPredictIfNeeded(id){
     let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是目标管理AI。今天是${t}。中文，简洁。分析这个包含多个子任务的大任务，参考各子任务已有分析，给出整体完成时间预测和2-3句建议。100字以内。`
-      :`你是目标管理AI。今天是${t}。中文，简洁。根据历史数据预测完成时间，结合兄弟任务情况给出一致的2-3句分析。100字以内。`;
+      ?`你是目标管理AI。今天是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是目标管理AI。今天是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间：\n\n${ctx}`}
@@ -942,8 +964,8 @@ async function runPred(id){
     const t0=Date.now();let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是专业目标管理AI。今天是${t}。中文，简洁有洞察力。综合所有子任务进度和已有分析，预测整体完成时间，给出一致的建议。200字以内。`
-      :`你是专业目标管理AI。今天是${t}。中文，简洁有洞察力。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一的建议，避免互相矛盾。200字以内。`;
+      ?`你是专业目标管理AI。今天是${t}。中文，自由发挥。综合所有子任务进度和已有分析，预测整体完成时间，给出有洞察力的建议，不要有字数限制。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是专业目标管理AI。今天是${t}。中文，自由发挥。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾，不要有字数限制。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间并给建议：\n\n${ctx}`}
@@ -974,6 +996,58 @@ function showCachedPred(id){
 }
 function rerunPred(){
   if(currentPredId!=null){delete aiPreds[currentPredId];savePreds();closeM('aiPredModal');runPred(currentPredId);}
+}
+
+/* ===================== DUAL COUNTDOWN HELPER ===================== */
+function fmtCountdown(totalMs){
+  if(totalMs<=0) return '已到期';
+  const totalS=Math.floor(totalMs/1000);
+  const d=Math.floor(totalS/86400);
+  const h=Math.floor((totalS%86400)/3600);
+  const m=Math.floor((totalS%3600)/60);
+  const s=totalS%60;
+  if(d>0) return `${d}天${String(h).padStart(2,'0')}时${String(m).padStart(2,'0')}分${String(s).padStart(2,'0')}秒`;
+  if(h>0) return `${String(h).padStart(2,'0')}时${String(m).padStart(2,'0')}分${String(s).padStart(2,'0')}秒`;
+  return `${String(m).padStart(2,'0')}分${String(s).padStart(2,'0')}秒`;
+}
+
+function dualCdHTML(g){
+  const cached=aiPreds[g.id];
+  const days=cached?extractDays(cached.text):null;
+  const hasDeadline=!!g.deadline;
+  if(days===null&&!hasDeadline) return '';
+
+  let aiBox='', dlBox='';
+
+  if(days!==null){
+    // AI predicted end = today + days days (end of that day)
+    const aiTarget=new Date();
+    aiTarget.setDate(aiTarget.getDate()+Math.max(0,days));
+    aiTarget.setHours(23,59,59,0);
+    const msLeft=aiTarget-new Date();
+    const isOver=days<=0;
+    aiBox=`<div class="cd-box ai-box">
+      <div class="cd-box-label ai-lbl">✦ AI 预测</div>
+      <div class="cd-box-time ai-time" id="aicd${g.id}">${isOver?'今天完成':fmtCountdown(msLeft)}</div>
+    </div>`;
+  }
+
+  if(hasDeadline){
+    // deadline end of that day
+    const dlTarget=new Date(g.deadline+'T00:00:00');
+    dlTarget.setDate(dlTarget.getDate()+1);
+    const msLeft=dlTarget-new Date();
+    const isOver=msLeft<=0;
+    const cls=isOver?'overdue-box':'dl-box';
+    const lbl=isOver?'overdue-lbl':'dl-lbl';
+    const timeCls=isOver?'overdue-time':'dl-time';
+    dlBox=`<div class="cd-box ${cls}">
+      <div class="cd-box-label ${lbl}">📅 截止日期</div>
+      <div class="cd-box-time ${timeCls}" id="dlcd${g.id}">${fmtCountdown(msLeft)}</div>
+    </div>`;
+  }
+
+  return `<div class="dual-cd">${aiBox}${dlBox}</div>`;
 }
 
 /* ===================== RENDER CARD ===================== */
@@ -1032,6 +1106,7 @@ function renderGoalCard(g, isChild=false){
         <div class="act-dots">${dots}</div>
       </div>
     </div>
+    ${dualCdHTML(g)}
   </div>`;
 }
 
@@ -1087,6 +1162,7 @@ function render(){
             ${segBar(p,55,9)}
             <div style="text-align:center;margin-top:-1px;font-size:10px;color:var(--text3);font-family:var(--mono);">${dd} / ${dt} 合计</div>
           </div>
+          ${dualCdHTML(r)}
         </div>
         <div class="children-list">
           ${children.map(ch=>renderGoalCard(ch,true)).join('')}
@@ -1112,6 +1188,34 @@ function render(){
       tip.style.left=(e.clientX-wrap.getBoundingClientRect().left)+'px';
     });
   });
+
+  // Live countdown ticker — update every second
+  if(window._cdTicker) clearInterval(window._cdTicker);
+  window._cdTicker=setInterval(()=>{
+    goals.forEach(g=>{
+      // AI countdown
+      const cached=aiPreds[g.id];
+      const days=cached?extractDays(cached.text):null;
+      if(days!==null){
+        const el=document.getElementById('aicd'+g.id);
+        if(el){
+          if(days<=0){el.textContent='今天完成';}
+          else{
+            const t=new Date();t.setDate(t.getDate()+days);t.setHours(23,59,59,0);
+            el.textContent=fmtCountdown(t-new Date());
+          }
+        }
+      }
+      // Deadline countdown
+      if(g.deadline){
+        const el=document.getElementById('dlcd'+g.id);
+        if(el){
+          const t=new Date(g.deadline+'T00:00:00');t.setDate(t.getDate()+1);
+          el.textContent=fmtCountdown(t-new Date());
+        }
+      }
+    });
+  },1000);
 }
 
 /* ===================== AI HUB ===================== */
