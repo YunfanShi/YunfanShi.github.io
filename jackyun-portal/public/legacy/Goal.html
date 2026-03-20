@@ -747,6 +747,8 @@ function predChipHTML(g){
 }
 
 /* ===================== BUILD AI CONTEXT ===================== */
+function today(){ return new Date().toISOString().slice(0,10); }
+
 function buildGoalContext(g, includeSiblings=true){
   const pct=getPct(g);
   const hist=(g.history||[]);
@@ -766,33 +768,62 @@ function buildGoalContext(g, includeSiblings=true){
 历史(${hist.length}次): ${hist.slice(-5).map(h=>`${h.date}:${h.done!=null?h.done:(h.v||0)}/${h.total||g.total}`).join(', ')||'无'}
 当前速率: ${velocity}`;
 
-  // siblings context
-  if(includeSiblings&&g.parentId!==null){
-    const siblings=goals.filter(c=>c.parentId===g.id&&c.id!==g.id);
-    // actually siblings = same parentId, different id
+  if(includeSiblings && g.parentId!==null){
     const sibs=goals.filter(c=>c.parentId===g.parentId&&c.id!==g.id);
+    const parent=goals.find(p=>p.id===g.parentId);
     if(sibs.length){
-      ctx+=`\n\n【同父任务下的其他子任务】`;
-      sibs.forEach(s=>{ctx+=`\n - ${s.name}: ${s.done||0}/${s.total} (${getPct(s)}%)，截止${s.deadline||'未设置'}`;});
-      const parent=goals.find(p=>p.id===g.parentId);
-      if(parent) ctx+=`\n父任务 [${parent.name}] 整体进度: ${getPct(parent)}%`;
+      ctx+=`\n\n【同父任务下的其他子任务进度】`;
+      sibs.forEach(s=>{
+        ctx+=`\n - ${s.name}: ${s.done||0}/${s.total} (${getPct(s)}%)，截止${s.deadline||'未设置'}`;
+        // attach sibling's cached AI analysis if available
+        const sc=aiPreds[s.id];
+        if(sc&&sc.text) ctx+=`\n   └ 该子任务最新AI分析摘要：${sc.text.slice(0,80).replace(/\n/g,' ')}…`;
+      });
+      if(parent) ctx+=`\n父任务 [${parent.name}] 整体进度: ${getPct(parent)}%，截止${parent.deadline||'未设置'}`;
     }
   }
-  if(includeSiblings&&g.parentId===null){
-    // if parent, include children
+  if(includeSiblings && g.parentId===null){
     const children=goals.filter(c=>c.parentId===g.id);
     if(children.length){
       ctx+=`\n\n【子任务列表】`;
-      children.forEach(c=>{ctx+=`\n - ${c.name}: ${c.done||0}/${c.total} (${getPct(c)}%)，截止${c.deadline||'未设置'}`;});
+      children.forEach(c=>{
+        ctx+=`\n - ${c.name}: ${c.done||0}/${c.total} (${getPct(c)}%)，截止${c.deadline||'未设置'}`;
+        const cc=aiPreds[c.id];
+        if(cc&&cc.text) ctx+=`\n   └ 该子任务最新AI分析摘要：${cc.text.slice(0,80).replace(/\n/g,' ')}…`;
+      });
     }
   }
   return ctx;
 }
 
+function buildParentContext(g){
+  const children=goals.filter(c=>c.parentId===g.id);
+  const pct=getPct(g);
+  let ctx=`大任务：${g.name}
+整体进度：${pct}%
+截止：${g.deadline||'未设置'}
+
+子任务详情：`;
+  children.forEach(c=>{
+    const cp=getPct(c);
+    const hist=c.history||[];
+    let vel='暂无历史';
+    if(hist.length>=2){
+      const f=hist[0],l=hist[hist.length-1];
+      const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
+      const fd=f.done!=null?f.done:0,ld=l.done!=null?l.done:0;
+      vel=`${((ld-fd)/days).toFixed(2)}${c.unit||'单位'}/天`;
+    }
+    ctx+=`\n- ${c.name}：${c.done||0}/${c.total} ${c.unit||''} (${cp}%)，截止${c.deadline||'未设置'}，速率${vel}`;
+    const cc=aiPreds[c.id];
+    if(cc&&cc.text) ctx+=`\n  └ 该子任务最新AI分析：${cc.text.slice(0,100).replace(/\n/g,' ')}…`;
+  });
+  return ctx;
+}
+
 function buildAllContext(){
-  const today=new Date().toISOString().slice(0,10);
   const roots=goals.filter(g=>g.parentId===null);
-  return `今日: ${today}\n\n`+roots.map(r=>{
+  return roots.map(r=>{
     let txt=buildGoalContext(r,false);
     const ch=goals.filter(c=>c.parentId===r.id);
     if(ch.length) txt+='\n  子任务: '+ch.map(c=>`${c.name}(${getPct(c)}%)`).join(', ');
@@ -834,10 +865,9 @@ function renderMD(text){
 
 /* ===================== EXTRACT CHIP SUMMARY ===================== */
 function extractSummary(text){
-  // Parse days from AI response - look for numbers near time words
-  const m1 = text.match(/(\d+)\s*天/);
-  const m2 = text.match(/(\d+)\s*周/);
-  const m3 = text.match(/(\d+)\s*个?月/);
+  const m1=text.match(/(\d+)\s*天/);
+  const m2=text.match(/(\d+)\s*周/);
+  const m3=text.match(/(\d+)\s*个?月/);
   if(m1) return `预计 ${m1[1]} 天完成`;
   if(m2) return `预计 ${parseInt(m2[1])*7} 天完成`;
   if(m3) return `预计 ${parseInt(m3[1])*30} 天完成`;
@@ -852,17 +882,16 @@ async function autoPredictIfNeeded(id){
   const p=getPct(g);
   if(p===0||p===100) return;
   const isParentTask=!isLeaf(g);
+  const t=today();
   try{
     let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?'你是目标管理AI。中文，简洁。分析这个包含多个子任务的大任务，预测整体完成时间，给出2-3句分析。100字以内。'
-      :'你是目标管理AI。中文，简洁。根据历史数据预测完成时间，给出2-3句分析。100字以内。';
+      ?`你是目标管理AI。今天是${t}。中文，简洁。分析这个包含多个子任务的大任务，参考各子任务已有分析，给出整体完成时间预测和2-3句建议。100字以内。`
+      :`你是目标管理AI。今天是${t}。中文，简洁。根据历史数据预测完成时间，结合兄弟任务情况给出一致的2-3句分析。100字以内。`;
     await callAI([
       {role:'system',content:sysMsg},
-      {role:'user',content:`请预测完成时间：
-
-${ctx}`}
+      {role:'user',content:`请预测完成时间：\n\n${ctx}`}
     ],(partial)=>{full=partial;});
     const summary=extractSummary(full);
     aiPreds[id]={text:full,summary,ts:Date.now(),auto:true};
@@ -871,30 +900,29 @@ ${ctx}`}
   }catch(e){/* silent fail */}
 }
 
-/* ===================== BUILD PARENT CONTEXT ===================== */
-function buildParentContext(g){
-  const today=new Date().toISOString().slice(0,10);
-  const children=goals.filter(c=>c.parentId===g.id);
-  const pct=getPct(g);
-  let ctx=`大任务：${g.name}
-整体进度：${pct}%
-截止：${g.deadline||'未设置'}
+/* ===================== BATCH PREDICT (parent + all children) ===================== */
+async function batchPredictParent(parentId){
+  const parent=goals.find(g=>g.id===parentId);
+  if(!parent) return;
+  const children=goals.filter(g=>g.parentId===parentId&&getPct(g)>0&&getPct(g)<100);
+  const total=children.length+1;
+  let done=0;
 
-子任务详情：`;
-  children.forEach(c=>{
-    const cp=getPct(c);
-    const hist=c.history||[];
-    let vel='暂无历史';
-    if(hist.length>=2){
-      const f=hist[0],l=hist[hist.length-1];
-      const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
-      const fd=f.done!=null?f.done:0,ld=l.done!=null?l.done:0;
-      vel=`${((ld-fd)/days).toFixed(2)}${c.unit||'单位'}/天`;
-    }
-    ctx+=`
-- ${c.name}：${c.done||0}/${c.total} ${c.unit||''} (${cp}%)，截止${c.deadline||'未设置'}，速率${vel}`;
-  });
-  return ctx;
+  toast(`开始批量预测 (0/${total})…`);
+
+  // predict children first (so parent can reference their analyses)
+  for(const ch of children){
+    await autoPredictIfNeeded(ch.id);
+    done++;
+    toast(`批量预测中 (${done}/${total})…`);
+  }
+  // then predict parent (with fresh child analyses in context)
+  if(getPct(parent)>0&&getPct(parent)<100){
+    await autoPredictIfNeeded(parentId);
+  }
+  done++;
+  toast(`批量预测完成 ✓ (${total}个任务)`);
+  render();
 }
 
 /* ===================== MANUAL PREDICT ===================== */
@@ -909,17 +937,16 @@ async function runPred(id){
   const chip=document.getElementById('pred-'+id);
   if(chip){chip.classList.add('loading');chip.innerHTML='<span class="ai-ico">↻</span> 分析中…';}
   const isParentTask=!isLeaf(g);
+  const t=today();
   try{
     const t0=Date.now();let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?'你是专业目标管理AI。中文，简洁有洞察力。分析这个大任务下所有子任务的进度，预测整体完成时间，给出建议。200字以内。'
-      :'你是专业目标管理AI。中文，简洁有洞察力。根据历史数据预测完成时间，给出分析和建议（包括兄弟任务影响）。200字以内。';
+      ?`你是专业目标管理AI。今天是${t}。中文，简洁有洞察力。综合所有子任务进度和已有分析，预测整体完成时间，给出一致的建议。200字以内。`
+      :`你是专业目标管理AI。今天是${t}。中文，简洁有洞察力。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一的建议，避免互相矛盾。200字以内。`;
     await callAI([
       {role:'system',content:sysMsg},
-      {role:'user',content:`请预测完成时间并给建议：
-
-${ctx}`}
+      {role:'user',content:`请预测完成时间并给建议：\n\n${ctx}`}
     ],(partial)=>{
       full=partial;
       document.getElementById('aiPredContent').className='ai-response md-content';
@@ -1049,6 +1076,7 @@ function render(){
               <div class="pcard-actions">
                 <button class="btn btn-ico" onclick="openDetail(${r.id})" title="详情">◎</button>
                 <button class="btn btn-ico" onclick="openEdit(${r.id})" title="编辑">✎</button>
+                <button class="btn btn-ico" onclick="batchPredictParent(${r.id})" title="一键预测所有子任务" style="color:var(--ai);">✦</button>
                 <button class="btn btn-ico" onclick="openMove(${r.id})" title="移动" style="font-size:11px;">⇄</button>
                 <button class="btn btn-ico" onclick="openAddChild(${r.id})" title="添加子任务">⊕</button>
                 <button class="btn btn-ico del" onclick="delGoal(${r.id})" title="删除">✕</button>
@@ -1091,11 +1119,12 @@ function openAIHub(){document.getElementById('aiHubResponse').style.display='non
 async function aiFeature(type){
   if(!getKey()){toast('请先配置 API Key');openSettings();return;}
   const allCtx=buildAllContext();
+  const t=today();
   const prompts={
-    overview:`${allCtx}\n\n分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标。200字以内。`,
-    priority:`${allCtx}\n\n今天应该重点关注哪个目标？给出排序和理由。150字以内。`,
-    plan:`${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务关系，给出每天建议量。`,
-    risk:`${allCtx}\n\n识别有截止日期风险的目标（特别注意子任务），分析原因，给出补救建议。`
+    overview:`今天是${t}。\n\n${allCtx}\n\n分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标。200字以内。`,
+    priority:`今天是${t}。\n\n${allCtx}\n\n今天应该重点关注哪个目标？给出排序和理由。150字以内。`,
+    plan:`今天是${t}。\n\n${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务关系，给出每天建议量。`,
+    risk:`今天是${t}。\n\n${allCtx}\n\n识别有截止日期风险的目标（特别注意子任务），分析原因，给出补救建议。`
   };
   const resp=document.getElementById('aiHubResponse');
   resp.style.display='block';resp.className='ai-response loading-state';
@@ -1112,7 +1141,7 @@ async function askCustom(){
   resp.style.display='block';resp.className='ai-response loading-state';
   resp.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>';
   try{
-    await callAI([{role:'system',content:'你是目标管理助手，基于用户数据用中文回答问题，注意父子任务关系。'},{role:'user',content:`我的目标数据：\n\n${buildAllContext()}\n\n我的问题：${q}`}],
+    await callAI([{role:'system',content:'你是目标管理助手，基于用户数据用中文回答问题，注意父子任务关系。'},{role:'user',content:`今天是${today()}。\n\n我的目标数据：\n\n${buildAllContext()}\n\n我的问题：${q}`}],
       p=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
   }catch(err){resp.className='ai-response error-state';resp.innerHTML='❌ '+esc(err.message);}
 }
