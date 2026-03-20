@@ -7,210 +7,181 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface2: #181818;
-  --surface3: #222222;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.14);
-  --text: #efefef;
-  --text2: #777;
-  --text3: #444;
-  --blue: #4d9ef7;
-  --blue-dim: rgba(77,158,247,0.15);
-  --green: #34c76a;
-  --green-dim: rgba(52,199,106,0.15);
-  --yellow: #f5a623;
-  --red: #ff5c5c;
-  --ai: #a78bfa;
-  --ai-dim: rgba(167,139,250,0.12);
-  --ai-border: rgba(167,139,250,0.25);
-  --seg-done: #34c76a;
-  --seg-todo: #1a3d8f;
-  --radius: 14px;
-  --font: 'DM Sans', system-ui, sans-serif;
-  --mono: 'DM Mono', monospace;
+  --bg: #0a0a0a; --surface: #111; --surface2: #181818; --surface3: #222;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.14);
+  --text: #efefef; --text2: #999; --text3: #555;
+  --blue: #4d9ef7; --blue-dim: rgba(77,158,247,0.15);
+  --green: #34c76a; --green-dim: rgba(52,199,106,0.15);
+  --red: #ff5c5c; --yellow: #f5a623;
+  --ai: #c4b5fd; --ai-dim: rgba(196,181,253,0.12); --ai-border: rgba(196,181,253,0.3);
+  --seg-done: #34c76a; --seg-todo: #1a3d8f;
+  --radius: 14px; --font: 'DM Sans',system-ui,sans-serif; --mono: 'DM Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
 
 /* TOPBAR */
-.topbar{
-  background:rgba(10,10,10,0.9);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  height:58px;display:flex;align-items:center;
-  justify-content:space-between;padding:0 32px;
-  position:sticky;top:0;z-index:100;
-}
+.topbar{background:rgba(10,10,10,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:100;}
 .brand{display:flex;align-items:center;gap:10px;}
 .brand-dots{display:flex;gap:5px;}
 .brand-dots span{width:9px;height:9px;border-radius:50%;display:block;}
-.brand-name{font-size:15px;font-weight:600;letter-spacing:-0.3px;}
-.ai-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--ai-dim);color:var(--ai);border:1px solid var(--ai-border);letter-spacing:0.5px;}
-.topbar-r{display:flex;gap:8px;align-items:center;}
+.brand-name{font-size:15px;font-weight:600;letter-spacing:-.3px;}
+.ai-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--ai-dim);color:var(--ai);border:1px solid var(--ai-border);letter-spacing:.5px;}
+.topbar-r{display:flex;gap:6px;align-items:center;}
 
-/* COUNTDOWN BANNER */
-.cd-banner{
-  background:rgba(12,12,12,0.95);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  padding:0 32px;overflow:hidden;
-  max-height:0;transition:max-height .35s cubic-bezier(.4,0,.2,1),padding .3s;
-}
-.cd-banner.visible{max-height:120px;padding:12px 32px;}
-.cd-strip{display:flex;align-items:center;gap:0;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+/* CD BANNER */
+.cd-banner{background:rgba(12,12,12,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);overflow:hidden;max-height:0;transition:max-height .35s cubic-bezier(.4,0,.2,1),padding .3s;}
+.cd-banner.visible{max-height:120px;padding:10px 28px;}
+.cd-strip{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;gap:10px;}
 .cd-strip::-webkit-scrollbar{display:none;}
-.cd-item{
-  display:flex;align-items:center;gap:14px;padding:9px 20px;
-  border-radius:10px;border:1px solid var(--border);background:var(--surface);
-  flex-shrink:0;margin-right:10px;cursor:default;
-  transition:border-color .15s,background .15s;position:relative;
-}
-.cd-item:hover{border-color:var(--border2);background:#141414;}
+.cd-item{display:flex;align-items:center;gap:12px;padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);flex-shrink:0;position:relative;transition:border-color .15s;}
+.cd-item:hover{border-color:var(--border2);}
 .cd-item-left{display:flex;flex-direction:column;gap:2px;}
-.cd-label{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0.2px;white-space:nowrap;}
-.cd-emoji{font-size:14px;line-height:1;}
-.cd-numbers{display:flex;align-items:baseline;gap:6px;}
+.cd-label{font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap;}
+.cd-emoji{font-size:13px;}
+.cd-numbers{display:flex;align-items:baseline;gap:5px;}
 .cd-unit-group{display:flex;align-items:baseline;gap:2px;}
-.cd-num{font-size:22px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
-.cd-unit{font-size:10px;font-weight:500;color:var(--text2);letter-spacing:0.3px;text-transform:uppercase;margin-left:1px;}
-.cd-sep{font-size:14px;color:var(--text3);font-family:var(--mono);align-self:center;}
-.cd-past{opacity:.45;}
+.cd-num{font-size:20px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;}
+.cd-unit{font-size:10px;color:var(--text2);text-transform:uppercase;}
+.cd-sep{font-size:13px;color:var(--text3);font-family:var(--mono);}
+.cd-past{opacity:.4;}
 .cd-urgent .cd-num{color:#ff5c5c!important;}
 .cd-warn .cd-num{color:#f5a623!important;}
 .cd-ok .cd-num{color:#4d9ef7;}
-.cd-actions-ico{display:flex;gap:2px;opacity:0;transition:opacity .15s;position:absolute;right:8px;top:50%;transform:translateY(-50%);}
+.cd-actions-ico{display:flex;gap:2px;opacity:0;transition:opacity .15s;position:absolute;right:6px;top:50%;transform:translateY(-50%);}
 .cd-item:hover .cd-actions-ico{opacity:1;}
 
 /* AI STATUS BAR */
-.ai-bar{
-  background:var(--ai-dim);border:1px solid var(--ai-border);
-  border-radius:10px;padding:10px 16px;margin-bottom:24px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;
-}
-.ai-bar.no-key{background:rgba(255,92,92,0.06);border-color:rgba(255,92,92,0.2);}
+.ai-bar{background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:10px;padding:9px 14px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;}
+.ai-bar.no-key{background:rgba(255,92,92,.06);border-color:rgba(255,92,92,.2);}
 .ai-bar-l{display:flex;align-items:center;gap:8px;color:var(--text2);}
-.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--ai);flex-shrink:0;}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--ai);}
 .ai-dot.off{background:var(--red);}
 
-/* LAYOUT */
-.main{max-width:920px;margin:0 auto;padding:38px 28px;}
-
-/* PAGE HEADER */
-.page-hd{margin-bottom:36px;}
-.page-title{font-size:30px;font-weight:600;letter-spacing:-0.7px;line-height:1.15;}
-.page-sub{font-size:13px;color:var(--text2);margin-top:5px;}
+/* MAIN */
+.main{max-width:1000px;margin:0 auto;padding:32px 28px;}
+.page-hd{margin-bottom:28px;}
+.page-title{font-size:28px;font-weight:600;letter-spacing:-.6px;}
+.page-sub{font-size:13px;color:var(--text2);margin-top:4px;}
 
 /* STATS */
-.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:32px;}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:9px 18px;display:flex;align-items:center;gap:9px;transition:border-color .15s;}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:8px 16px;display:flex;align-items:center;gap:8px;transition:border-color .15s;cursor:default;}
 .stat:hover{border-color:var(--border2);}
-.stat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.stat-v{font-size:15px;font-weight:600;font-family:var(--mono);letter-spacing:-0.4px;}
+.stat-dot{width:6px;height:6px;border-radius:50%;}
+.stat-v{font-size:14px;font-weight:600;font-family:var(--mono);}
 .stat-lbl{font-size:12px;color:var(--text2);}
 
-/* FILTER */
-.filter-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+/* FILTER ROW */
+.filter-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
 .tabs{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px;}
-.tab{padding:5px 14px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);transition:all .15s;}
+.tab{padding:5px 13px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);transition:all .15s;}
 .tab.on{background:var(--surface3);color:var(--text);}
 .tab:hover:not(.on){color:var(--text);}
-.sort-sel{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:var(--font);font-size:13px;padding:6px 12px;outline:none;cursor:pointer;}
-.sort-sel:focus{border-color:var(--border2);}
+.sort-sel{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:var(--font);font-size:13px;padding:6px 11px;outline:none;cursor:pointer;}
 option{background:#1a1a1a;}
 
-/* GOAL CARD */
-.goal-list{display:flex;flex-direction:column;gap:10px;}
-.gcard{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:20px 22px 18px;
-  transition:border-color .2s,background .2s;position:relative;overflow:hidden;
-}
-.gcard:hover{border-color:var(--border2);background:#121212;}
-.gcard::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;border-radius:0 3px 3px 0;background:var(--accent);opacity:0.7;}
+/* GOAL CARDS */
+.goal-list{display:flex;flex-direction:column;gap:8px;}
 
-/* TOP ROW */
-.gtop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:10px;}
+/* PARENT TASK */
+.parent-block{display:flex;flex-direction:column;gap:4px;}
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px 14px;transition:border-color .2s,background .2s;position:relative;overflow:hidden;}
+.pcard:hover{border-color:var(--border2);background:#121212;}
+.pcard::before{content:'';position:absolute;left:0;top:8%;bottom:8%;width:3px;border-radius:0 3px 3px 0;background:var(--accent);opacity:.8;}
+.pcard-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.pcard-left{flex:1;min-width:0;}
+.pcard-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--text2);border:1px solid var(--border);letter-spacing:.4px;display:inline-block;margin-bottom:5px;}
+.pcard-name{font-size:18px;font-weight:600;letter-spacing:-.4px;line-height:1.25;}
+.pcard-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;}
+.pcard-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.pcard-pct{font-size:24px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;}
+.pcard-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s;}
+.pcard:hover .pcard-actions{opacity:1;}
+
+/* CHILD TASKS */
+.children-list{padding-left:20px;display:flex;flex-direction:column;gap:4px;}
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px 13px;transition:border-color .2s,background .2s;position:relative;overflow:hidden;}
+.gcard.child{background:#0e0e0e;border-radius:10px;}
+.gcard:hover,.gcard.child:hover{border-color:var(--border2);background:#131313;}
+.gcard::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;border-radius:0 3px 3px 0;background:var(--accent);opacity:.7;}
+
+.gtop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:10px;}
 .gleft{flex:1;min-width:0;}
-.gname{font-size:17px;font-weight:600;letter-spacing:-0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
-.gmeta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;}
+.gname{font-size:16px;font-weight:600;letter-spacing:-.35px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gname.child-name{font-size:15px;}
+.gmeta{display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap;}
 .gdesc{font-size:12px;color:var(--text3);}
-.gcat{font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.2px;}
+.gcat{font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px;}
 .gdeadline{font-size:11px;color:var(--text3);font-family:var(--mono);}
-.gright{display:flex;align-items:center;gap:12px;flex-shrink:0;}
-.gpct{font-size:23px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
-.gbadge{font-size:11px;font-weight:500;padding:3px 9px;border-radius:5px;white-space:nowrap;margin-top:4px;text-align:center;}
+.gright{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.gpct{font-size:21px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
+.gbadge{font-size:11px;font-weight:500;padding:3px 8px;border-radius:5px;white-space:nowrap;margin-top:3px;text-align:center;}
 .gactions{display:flex;gap:2px;opacity:0;transition:opacity .15s;}
-.gcard:hover .gactions{opacity:1;}
+.gcard:hover .gactions,.pcard:hover .pcard-actions{opacity:1;}
 
-/* AI PREDICTION CHIP */
-.ai-pred{
-  display:inline-flex;align-items:center;gap:5px;
-  background:var(--ai-dim);border:1px solid var(--ai-border);
-  border-radius:6px;padding:3px 9px;cursor:pointer;
-  transition:all .15s;margin-top:6px;
-  font-size:11px;font-weight:500;color:var(--ai);white-space:nowrap;
-}
-.ai-pred:hover{background:rgba(167,139,250,0.2);border-color:rgba(167,139,250,0.4);}
-.ai-pred.loading{opacity:0.6;pointer-events:none;}
+/* AI PRED CHIP */
+.ai-pred{display:inline-flex;align-items:center;gap:5px;background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:all .15s;margin-top:5px;font-size:11px;font-weight:500;color:var(--ai);white-space:nowrap;}
+.ai-pred:hover{background:rgba(196,181,253,.2);border-color:rgba(196,181,253,.5);}
+.ai-pred.loading{opacity:.6;pointer-events:none;}
 .ai-pred .ai-ico{font-size:10px;}
 .ai-pred.loading .ai-ico{animation:spin .8s linear infinite;}
-.ai-pred.error{background:rgba(255,92,92,0.08);border-color:rgba(255,92,92,0.2);color:var(--red);}
-.ai-pred.no-key{background:rgba(255,255,255,0.04);border-color:var(--border);color:var(--text3);}
+.ai-pred.no-key{background:rgba(255,255,255,.03);border-color:var(--border);color:var(--text3);}
 @keyframes spin{to{transform:rotate(360deg);}}
+@keyframes bounce{0%,80%,100%{transform:scale(.7);opacity:.5;}40%{transform:scale(1);opacity:1;}}
 
 /* SEGMENTED BAR */
-.segwrap{position:relative;cursor:pointer;margin-bottom:10px;padding:4px 0;}
-.segbar{display:flex;gap:2.5px;height:13px;}
-.seg{flex:1;border-radius:2.5px;transition:opacity .12s,transform .12s;}
+.segwrap{position:relative;cursor:pointer;margin-bottom:8px;padding:3px 0;}
+.segbar{display:flex;gap:2px;height:11px;}
+.seg{flex:1;border-radius:2px;transition:opacity .12s,transform .12s;}
 .seg.done{background:var(--seg-done);}
 .seg.todo{background:var(--seg-todo);}
-.segwrap:hover .seg{opacity:0.6;}
-.segwrap:hover .seg:hover{opacity:1;transform:scaleY(1.18);}
-.seg-labels{display:flex;justify-content:space-between;margin-top:4px;}
-.seg-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);}
-.seg-tip{position:absolute;bottom:calc(100% + 2px);background:#1e1e1e;border:1px solid var(--border2);color:var(--text);font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .1s;z-index:10;transform:translateX(-50%);}
+.segwrap:hover .seg{opacity:.6;}
+.segwrap:hover .seg:hover{opacity:1;transform:scaleY(1.2);}
+.seg-tip{position:absolute;bottom:calc(100% + 2px);background:#1e1e1e;border:1px solid var(--border2);color:var(--text);font-size:11px;font-family:var(--mono);padding:3px 7px;border-radius:5px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .1s;z-index:10;transform:translateX(-50%);}
 .segwrap:hover .seg-tip{opacity:1;}
+.seg-labels{display:flex;justify-content:space-between;margin-top:3px;}
+.seg-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);}
 
-/* FOOTER */
+/* FOOT */
 .gfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.gfoot-l{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);font-family:var(--mono);}
-.pri-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.gfoot-r{display:flex;align-items:center;gap:5px;}
+.gfoot-l{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text3);font-family:var(--mono);}
+.pri-dot{width:5px;height:5px;border-radius:50%;}
 .act-dots{display:flex;gap:3px;align-items:center;}
 .adot{width:5px;height:5px;border-radius:50%;background:var(--surface3);}
 .adot.on{background:var(--green);}
 
 /* BUTTONS */
-.btn{border:none;outline:none;cursor:pointer;font-family:var(--font);font-weight:500;border-radius:8px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;user-select:none;}
-.btn:active{transform:scale(0.97);}
-.btn-pri{background:var(--blue);color:#000;padding:9px 18px;font-size:13px;border-radius:8px;}
+.btn{border:none;outline:none;cursor:pointer;font-family:var(--font);font-weight:500;border-radius:8px;transition:all .15s;display:inline-flex;align-items:center;gap:5px;user-select:none;}
+.btn:active{transform:scale(.97);}
+.btn-pri{background:var(--blue);color:#000;padding:8px 16px;font-size:13px;}
 .btn-pri:hover{background:#6db3ff;}
-.btn-ghost{background:transparent;color:var(--text2);padding:8px 14px;font-size:13px;border:1px solid var(--border);}
+.btn-ghost{background:transparent;color:var(--text2);padding:7px 13px;font-size:13px;border:1px solid var(--border);}
 .btn-ghost:hover{border-color:var(--border2);color:var(--text);background:var(--surface2);}
-.btn-ai{background:var(--ai-dim);color:var(--ai);padding:8px 14px;font-size:13px;border:1px solid var(--ai-border);border-radius:8px;}
-.btn-ai:hover{background:rgba(167,139,250,0.2);border-color:rgba(167,139,250,0.4);}
-.btn-ico{background:transparent;color:var(--text3);width:28px;height:28px;padding:0;border-radius:6px;font-size:13px;justify-content:center;}
+.btn-ai{background:var(--ai-dim);color:var(--ai);padding:7px 13px;font-size:13px;border:1px solid var(--ai-border);}
+.btn-ai:hover{background:rgba(196,181,253,.22);border-color:rgba(196,181,253,.5);}
+.btn-ico{background:transparent;color:var(--text3);width:26px;height:26px;padding:0;border-radius:6px;font-size:12px;justify-content:center;}
 .btn-ico:hover{background:var(--surface3);color:var(--text2);}
 .btn-ico.del:hover{background:rgba(255,92,92,.15);color:var(--red);}
 
 /* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;}
 .overlay.open{opacity:1;visibility:visible;}
-.modal{background:#141414;border:1px solid var(--border2);border-radius:18px;width:100%;max-width:500px;box-shadow:0 32px 80px rgba(0,0,0,.7);transform:scale(0.95) translateY(14px);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+.modal{background:#141414;border:1px solid var(--border2);border-radius:18px;width:100%;max-width:520px;box-shadow:0 32px 80px rgba(0,0,0,.8);transform:scale(.95) translateY(14px);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+.modal.wide{max-width:760px;}
 .overlay.open .modal{transform:scale(1) translateY(0);}
-.mhd{padding:22px 24px 0;font-size:17px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px;}
-.mbody{padding:18px 24px;display:flex;flex-direction:column;gap:15px;}
-.mfoot{padding:8px 24px 20px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border);}
+.mhd{padding:20px 22px 0;font-size:17px;font-weight:600;letter-spacing:-.3px;display:flex;align-items:center;gap:9px;}
+.mbody{padding:16px 22px;display:flex;flex-direction:column;gap:13px;}
+.mfoot{padding:6px 22px 18px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border);}
 
 /* FORM */
-.fg{display:flex;flex-direction:column;gap:6px;}
-.flbl{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:0.6px;}
-.fi{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;transition:border-color .15s;width:100%;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.flbl{font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;}
+.fi{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;font-family:var(--font);color:var(--text);outline:none;transition:border-color .15s;width:100%;}
 .fi:focus{border-color:var(--blue);}
 .fi::placeholder{color:var(--text3);}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 
 /* QUICK BTNS */
 .qbtns{display:flex;gap:6px;flex-wrap:wrap;}
@@ -218,69 +189,73 @@ option{background:#1a1a1a;}
 .qb:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-dim);}
 
 /* COLOR */
-.crow{display:flex;gap:9px;flex-wrap:wrap;}
-.cdot{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .12px;}
+.crow{display:flex;gap:8px;flex-wrap:wrap;}
+.cdot{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .12s;}
 .cdot.sel{border-color:var(--text);transform:scale(1.15);}
 
 /* EMPTY */
-.empty{text-align:center;padding:72px 24px;color:var(--text2);}
-.empty-ico{font-size:44px;margin-bottom:14px;}
-.empty-title{font-size:17px;font-weight:500;color:var(--text);margin-bottom:6px;}
+.empty{text-align:center;padding:60px 24px;color:var(--text2);}
+.empty-ico{font-size:40px;margin-bottom:12px;}
+.empty-title{font-size:17px;font-weight:500;color:var(--text);margin-bottom:5px;}
 .empty-desc{font-size:13px;}
 
 /* TOAST */
-.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(70px);background:#1c1c1c;border:1px solid var(--border2);color:var(--text);font-size:13px;padding:10px 20px;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);z-index:999;transition:transform .28s cubic-bezier(.4,0,.2,1);white-space:nowrap;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(70px);background:#1c1c1c;border:1px solid var(--border2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);z-index:999;transition:transform .28s cubic-bezier(.4,0,.2,1);white-space:nowrap;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 
-/* AI MODAL */
-.ai-modal-ico{font-size:22px;}
-.ai-response{background:var(--surface2);border:1px solid var(--ai-border);border-radius:10px;padding:16px;font-size:13px;line-height:1.7;color:var(--text);min-height:80px;position:relative;max-height:380px;overflow-y:auto;}
+/* AI RESPONSE */
+.ai-response{background:var(--surface2);border:1px solid var(--ai-border);border-radius:10px;padding:14px;font-size:13px;line-height:1.7;color:var(--text);min-height:70px;max-height:340px;overflow-y:auto;}
 .ai-response.loading-state{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text2);}
-.ai-response.error-state{border-color:rgba(255,92,92,0.3);color:var(--red);}
-.ai-response p{margin-bottom:10px;}
-.ai-response p:last-child{margin-bottom:0;}
-.ai-response strong{color:var(--ai);font-weight:600;}
-.ai-response ul{padding-left:18px;margin-bottom:10px;}
-.ai-response li{margin-bottom:5px;}
+.ai-response.error-state{border-color:rgba(255,92,92,.3);color:var(--red);}
 .typing-dots{display:inline-flex;gap:4px;align-items:center;}
 .typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--ai);animation:bounce .9s infinite;}
 .typing-dots span:nth-child(2){animation-delay:.15s;}
 .typing-dots span:nth-child(3){animation-delay:.3s;}
-@keyframes bounce{0%,80%,100%{transform:scale(0.7);opacity:0.5;}40%{transform:scale(1);opacity:1;}}
 
-/* AI FEATURES GRID */
-.ai-features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
-.ai-feat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;text-align:left;}
+/* AI HUB — horizontal layout */
+.ai-features{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.ai-feat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;}
 .ai-feat:hover{border-color:var(--ai-border);background:var(--ai-dim);}
-.ai-feat-ico{font-size:20px;margin-bottom:6px;}
-.ai-feat-name{font-size:13px;font-weight:600;margin-bottom:3px;}
-.ai-feat-desc{font-size:11px;color:var(--text2);}
+.ai-feat-ico{font-size:20px;margin-bottom:5px;}
+.ai-feat-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.ai-feat-desc{font-size:10px;color:var(--text2);line-height:1.4;}
 
 /* SETTINGS */
-.settings-section{margin-bottom:20px;}
-.settings-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:10px;}
+.settings-section{margin-bottom:18px;}
+.settings-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:9px;}
 .api-key-row{display:flex;gap:8px;}
 .api-key-row .fi{flex:1;font-family:var(--mono);font-size:12px;}
-.key-status{font-size:11px;padding:4px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;}
+.key-status{font-size:11px;padding:3px 9px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;}
 .key-status.ok{background:var(--green-dim);color:var(--green);}
-.key-status.no{background:rgba(255,92,92,0.1);color:var(--red);}
+.key-status.no{background:rgba(255,92,92,.1);color:var(--red);}
 
-/* MARKDOWN */
-.md-content p{margin-bottom:8px;font-size:13px;line-height:1.65;}
-.md-content ul{padding-left:16px;margin-bottom:8px;}
-.md-content li{font-size:13px;line-height:1.65;margin-bottom:4px;}
+/* MD CONTENT */
+.md-content p{margin-bottom:7px;font-size:13px;line-height:1.65;color:var(--text);}
+.md-content ul{padding-left:15px;margin-bottom:7px;}
+.md-content li{font-size:13px;line-height:1.65;margin-bottom:3px;color:var(--text);}
+.md-content strong{color:var(--ai);font-weight:600;}
 
-/* SCROLLBAR */
-::-webkit-scrollbar{width:5px;}
+/* MOVE OPTION */
+.move-opt{display:flex;align-items:center;gap:12px;padding:10px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s;}
+.move-opt:hover{border-color:var(--blue);background:var(--blue-dim);}
+.move-opt.current{border-color:var(--border2);opacity:.45;cursor:default;}
+.move-opt.detach{border-color:var(--border);color:var(--text2);}
+.move-opt.detach:hover{border-color:var(--red);background:rgba(255,92,92,.08);color:var(--red);}
+.move-opt-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.move-opt-name{font-size:14px;font-weight:500;}
+.move-opt-sub{font-size:11px;color:var(--text2);margin-top:1px;}
+.move-opt-check{margin-left:auto;color:var(--green);font-size:15px;}
+
+::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:99px;}
 
-@media(max-width:600px){
-  .main{padding:22px 16px;}
-  .topbar{padding:0 18px;}
-  .frow{grid-template-columns:1fr;}
-  .page-title{font-size:22px;}
-  .ai-features{grid-template-columns:1fr;}
+@media(max-width:700px){
+  .main{padding:20px 14px;}
+  .topbar{padding:0 16px;}
+  .frow,.frow3{grid-template-columns:1fr;}
+  .ai-features{grid-template-columns:1fr 1fr;}
+  .modal.wide{max-width:100%;}
 }
 </style>
 </head>
@@ -289,27 +264,22 @@ option{background:#1a1a1a;}
 <div class="topbar">
   <div class="brand">
     <div class="brand-dots">
-      <span style="background:#4285f4"></span>
-      <span style="background:#ea4335"></span>
-      <span style="background:#fbbc04"></span>
-      <span style="background:#34a853"></span>
+      <span style="background:#4285f4"></span><span style="background:#ea4335"></span>
+      <span style="background:#fbbc04"></span><span style="background:#34a853"></span>
     </div>
     <span class="brand-name">Goal Tracker</span>
     <span class="ai-badge">× AI</span>
   </div>
   <div class="topbar-r">
     <button class="btn btn-ai" onclick="openAIHub()">✦ AI 助手</button>
-    <button class="btn btn-ghost" onclick="openCdSettings()" title="倒计时设置">⏱ 倒计时</button>
+    <button class="btn btn-ghost" onclick="openCdSettings()">⏱ 倒计时</button>
     <button class="btn btn-ghost" onclick="openSettings()">⚙ 设置</button>
     <button class="btn btn-ghost" onclick="exportData()">↑ 导出</button>
     <button class="btn btn-pri" onclick="openAdd()">＋ 新建目标</button>
   </div>
 </div>
 
-<!-- COUNTDOWN BANNER -->
-<div class="cd-banner" id="cdBanner">
-  <div class="cd-strip" id="cdStrip"></div>
-</div>
+<div class="cd-banner" id="cdBanner"><div class="cd-strip" id="cdStrip"></div></div>
 
 <div class="main">
   <div class="page-hd">
@@ -318,13 +288,8 @@ option{background:#1a1a1a;}
   </div>
 
   <div class="ai-bar" id="aiStatusBar">
-    <div class="ai-bar-l">
-      <div class="ai-dot" id="aiDot"></div>
-      <span id="aiStatusText">检查 AI 配置中…</span>
-    </div>
-    <div>
-      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="openSettings()">配置 API Key</button>
-    </div>
+    <div class="ai-bar-l"><div class="ai-dot" id="aiDot"></div><span id="aiStatusText">检查 AI 配置…</span></div>
+    <button class="btn btn-ghost" style="padding:4px 11px;font-size:12px;" onclick="openSettings()">配置 API Key</button>
   </div>
 
   <div class="stats" id="statsEl"></div>
@@ -336,7 +301,7 @@ option{background:#1a1a1a;}
       <button class="tab" onclick="setFilter('done',this)">已完成</button>
       <button class="tab" onclick="setFilter('overdue',this)">逾期</button>
     </div>
-    <select class="sort-sel" onchange="setSort(this.value)">
+    <select class="sort-sel" id="sortSel" onchange="setSort(this.value)">
       <option value="created">按创建时间</option>
       <option value="progress-asc">进度 ↑</option>
       <option value="progress-desc">进度 ↓</option>
@@ -348,29 +313,32 @@ option{background:#1a1a1a;}
   <div class="goal-list" id="goalList"></div>
 </div>
 
-<!-- ADD/EDIT MODAL -->
+<!-- ADD/EDIT GOAL MODAL -->
 <div class="overlay" id="goalModal">
   <div class="modal">
     <div class="mhd" id="mTitle">新建目标</div>
     <div class="mbody">
       <div class="fg">
         <label class="flbl">目标名称 *</label>
-        <input class="fi" id="iName" placeholder="例如：Math0580、健身计划…" maxlength="50">
+        <input class="fi" id="iName" placeholder="例如：ZNotes、Math0580…" maxlength="50">
       </div>
       <div class="fg">
         <label class="flbl">描述</label>
         <input class="fi" id="iDesc" placeholder="简短说明" maxlength="100">
       </div>
+      <div class="fg">
+        <label class="flbl">父任务（可选，选择后成为子任务）</label>
+        <select class="fi" id="iParent">
+          <option value="">— 独立任务 —</option>
+        </select>
+      </div>
       <div class="frow">
         <div class="fg">
           <label class="flbl">分类</label>
           <select class="fi" id="iCat">
-            <option value="学习">📚 学习</option>
-            <option value="健康">💪 健康</option>
-            <option value="工作">💼 工作</option>
-            <option value="生活">🏠 生活</option>
-            <option value="财务">💰 财务</option>
-            <option value="其他">✦ 其他</option>
+            <option value="学习">📚 学习</option><option value="健康">💪 健康</option>
+            <option value="工作">💼 工作</option><option value="生活">🏠 生活</option>
+            <option value="财务">💰 财务</option><option value="其他">✦ 其他</option>
           </select>
         </div>
         <div class="fg">
@@ -392,17 +360,17 @@ option{background:#1a1a1a;}
           <input class="fi" id="iUnit" placeholder="章 / 次 / 页…" maxlength="10">
         </div>
       </div>
-      <div class="frow">
+      <div class="frow" id="quantityRow">
         <div class="fg">
           <label class="flbl">已完成数量</label>
-          <input class="fi" id="iDone" type="number" min="0" value="0" placeholder="例如 6">
+          <input class="fi" id="iDone" type="number" min="0" value="0">
         </div>
         <div class="fg">
           <label class="flbl">总数量 *</label>
-          <input class="fi" id="iTotal" type="number" min="1" value="10" placeholder="例如 10">
+          <input class="fi" id="iTotal" type="number" min="1" value="10">
         </div>
       </div>
-      <div class="fg">
+      <div class="fg" id="colorRowWrap">
         <label class="flbl">颜色</label>
         <div class="crow" id="colorRow"></div>
       </div>
@@ -416,23 +384,23 @@ option{background:#1a1a1a;}
 
 <!-- PROGRESS MODAL -->
 <div class="overlay" id="progModal">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal" style="max-width:400px;">
     <div class="mhd" id="progMTitle">更新进度</div>
     <div class="mbody">
-      <div id="progPreview" style="margin-bottom:6px;"></div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px;">
+      <div id="progPreview" style="margin-bottom:4px;"></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
         <input class="fi" id="qDone" type="number" min="0" value="0"
-          style="width:88px;font-size:28px;font-weight:600;text-align:center;padding:10px 8px;font-family:var(--mono);"
+          style="width:84px;font-size:26px;font-weight:600;text-align:center;padding:9px 6px;font-family:var(--mono);"
           oninput="onQDone()">
-        <span style="font-size:24px;color:var(--text3);font-weight:300;">/</span>
+        <span style="font-size:22px;color:var(--text3);font-weight:300;">/</span>
         <input class="fi" id="qTotal" type="number" min="1" value="10"
-          style="width:88px;font-size:28px;font-weight:600;text-align:center;padding:10px 8px;font-family:var(--mono);color:var(--text2);"
+          style="width:84px;font-size:26px;font-weight:600;text-align:center;padding:9px 6px;font-family:var(--mono);color:var(--text2);"
           oninput="onQDone()">
-        <span id="qUnitLabel" style="font-size:14px;color:var(--text2);min-width:32px;"></span>
+        <span id="qUnitLabel" style="font-size:13px;color:var(--text2);min-width:28px;"></span>
       </div>
-      <div style="text-align:center;margin-bottom:14px;">
-        <span id="qPctDisplay" style="font-size:18px;font-weight:600;font-family:var(--mono);color:var(--blue);">0%</span>
-        <span style="font-size:12px;color:var(--text3);margin-left:6px;">完成率</span>
+      <div style="text-align:center;margin-bottom:12px;">
+        <span id="qPctDisplay" style="font-size:17px;font-weight:600;font-family:var(--mono);color:var(--blue);">0%</span>
+        <span style="font-size:12px;color:var(--text3);margin-left:5px;">完成率</span>
       </div>
       <div class="qbtns" style="justify-content:center;">
         <span class="qb" onclick="stepDone(-5)">－5</span>
@@ -441,7 +409,7 @@ option{background:#1a1a1a;}
         <span class="qb" onclick="stepDone(5)">＋5</span>
         <span class="qb" onclick="setDoneMax()">全部完成 🎉</span>
       </div>
-      <div class="fg" style="margin-top:14px;">
+      <div class="fg" style="margin-top:12px;">
         <label class="flbl">备注（可选）</label>
         <input class="fi" id="qNote" placeholder="这次更新的说明…" maxlength="80">
       </div>
@@ -455,9 +423,9 @@ option{background:#1a1a1a;}
 
 <!-- DETAIL MODAL -->
 <div class="overlay" id="detailModal">
-  <div class="modal" style="max-width:540px;">
+  <div class="modal" style="max-width:560px;">
     <div class="mhd" id="dTitle"></div>
-    <div class="mbody" id="dBody"></div>
+    <div class="mbody" id="dBody" style="max-height:70vh;overflow-y:auto;"></div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('detailModal')">关闭</button>
       <button class="btn btn-pri" id="dEditBtn">编辑目标</button>
@@ -465,127 +433,21 @@ option{background:#1a1a1a;}
   </div>
 </div>
 
-<!-- AI PREDICTION MODAL -->
-<div class="overlay" id="aiPredModal">
-  <div class="modal" style="max-width:560px;">
-    <div class="mhd"><span class="ai-modal-ico">✦</span><span id="aiPredTitle">AI 预测分析</span></div>
+<!-- MOVE TO PARENT MODAL -->
+<div class="overlay" id="moveModal">
+  <div class="modal" style="max-width:440px;">
+    <div class="mhd">🔀 设置归属大任务</div>
     <div class="mbody">
-      <div id="aiPredContent" class="ai-response loading-state">
-        <div class="typing-dots"><span></span><span></span><span></span></div>
-        <span style="margin-left:8px;font-size:13px;">AI 分析中…</span>
-      </div>
-      <div style="font-size:11px;color:var(--text3);text-align:right;margin-top:6px;" id="aiPredMeta"></div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:2px;">将 <strong id="moveTargetName" style="color:var(--text);"></strong> 移动到：</div>
+      <div id="moveList" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;"></div>
     </div>
     <div class="mfoot">
-      <button class="btn btn-ghost" onclick="closeM('aiPredModal')">关闭</button>
-      <button class="btn btn-ai" onclick="rerunPred()">↺ 重新分析</button>
+      <button class="btn btn-ghost" onclick="closeM('moveModal')">取消</button>
     </div>
   </div>
 </div>
 
-<!-- AI HUB MODAL -->
-<div class="overlay" id="aiHubModal">
-  <div class="modal" style="max-width:520px;">
-    <div class="mhd"><span class="ai-modal-ico">✦</span> AI 助手</div>
-    <div class="mbody">
-      <div class="ai-features">
-        <button class="ai-feat" onclick="aiFeature('overview')">
-          <div class="ai-feat-ico">📊</div>
-          <div class="ai-feat-name">总体分析</div>
-          <div class="ai-feat-desc">分析所有目标的完成情况与趋势</div>
-        </button>
-        <button class="ai-feat" onclick="aiFeature('priority')">
-          <div class="ai-feat-ico">🎯</div>
-          <div class="ai-feat-name">优先级建议</div>
-          <div class="ai-feat-desc">AI 推荐今日应重点关注的目标</div>
-        </button>
-        <button class="ai-feat" onclick="aiFeature('plan')">
-          <div class="ai-feat-ico">📅</div>
-          <div class="ai-feat-name">制定计划</div>
-          <div class="ai-feat-desc">为所有目标生成本周行动计划</div>
-        </button>
-        <button class="ai-feat" onclick="aiFeature('risk')">
-          <div class="ai-feat-ico">⚠️</div>
-          <div class="ai-feat-name">风险预警</div>
-          <div class="ai-feat-desc">找出可能无法按时完成的目标</div>
-        </button>
-      </div>
-      <div class="fg">
-        <label class="flbl">自定义问题</label>
-        <textarea class="fi" id="aiCustomQ" placeholder="问 AI 任何关于你目标的问题…" rows="3" style="resize:vertical;line-height:1.5;"></textarea>
-      </div>
-      <div id="aiHubResponse" class="ai-response" style="display:none;"></div>
-    </div>
-    <div class="mfoot">
-      <button class="btn btn-ghost" onclick="closeM('aiHubModal')">关闭</button>
-      <button class="btn btn-ai" onclick="askCustom()">✦ 发送</button>
-    </div>
-  </div>
-</div>
-
-<!-- SETTINGS MODAL -->
-<div class="overlay" id="settingsModal">
-  <div class="modal" style="max-width:480px;">
-    <div class="mhd">⚙ 设置</div>
-    <div class="mbody">
-      <div class="settings-section">
-        <div class="settings-title">AI API 配置</div>
-        <div class="fg">
-          <label class="flbl">API Key</label>
-          <div class="api-key-row">
-            <input class="fi" id="apiKeyInput" type="password" placeholder="sk-…" autocomplete="off">
-            <button class="btn btn-ai" onclick="saveApiKey()">保存</button>
-          </div>
-          <div style="margin-top:8px;" id="keyStatusEl"></div>
-        </div>
-        <div class="fg" style="margin-top:12px;">
-          <label class="flbl">API 服务商</label>
-          <select class="fi" id="apiProviderSel" onchange="saveProvider()">
-            <option value="deepseek">DeepSeek (api.deepseek.com)</option>
-            <option value="openai">OpenAI (api.openai.com)</option>
-            <option value="custom">自定义端点</option>
-          </select>
-        </div>
-        <div class="fg" id="customEndpointRow" style="display:none;margin-top:8px;">
-          <label class="flbl">自定义端点 URL</label>
-          <input class="fi" id="customEndpointInput" placeholder="https://your-api.example.com/v1/chat/completions">
-        </div>
-        <div class="fg" style="margin-top:8px;">
-          <label class="flbl">模型名称</label>
-          <input class="fi" id="modelInput" placeholder="deepseek-chat / gpt-4o…">
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:8px;">Key 仅保存在本地浏览器中，不会上传至任何服务器。</div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-title">AI 功能</div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;">
-            <span>显示 AI 预测标签</span>
-            <input type="checkbox" id="toggleShowPred" checked onchange="savePref()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--ai);">
-          </label>
-          <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;">
-            <span>更新进度后自动清除 AI 缓存</span>
-            <input type="checkbox" id="toggleAutoInvalidate" checked onchange="savePref()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--ai);">
-          </label>
-        </div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-title">数据</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-ghost" onclick="exportData()" style="font-size:12px;">↑ 导出 JSON</button>
-          <button class="btn btn-ghost" onclick="importData()" style="font-size:12px;">↓ 导入 JSON</button>
-          <button class="btn btn-ghost" onclick="clearAllPreds()" style="font-size:12px;color:var(--text3);">清除 AI 缓存</button>
-        </div>
-        <input type="file" id="importFile" accept=".json" style="display:none" onchange="doImport(event)">
-      </div>
-    </div>
-    <div class="mfoot">
-      <button class="btn btn-pri" onclick="closeM('settingsModal')">完成</button>
-    </div>
-  </div>
-</div>
-
-<!-- COUNTDOWN SETTINGS MODAL -->
+<!-- COUNTDOWN SETTINGS -->
 <div class="overlay" id="cdModal">
   <div class="modal" style="max-width:560px;">
     <div class="mhd">⏱ 倒计时管理</div>
@@ -600,10 +462,130 @@ option{background:#1a1a1a;}
   </div>
 </div>
 
+<!-- AI PREDICTION MODAL -->
+<div class="overlay" id="aiPredModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="mhd"><span style="font-size:18px;">✦</span><span id="aiPredTitle">AI 预测分析</span></div>
+    <div class="mbody">
+      <div id="aiPredContent" class="ai-response loading-state">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span style="margin-left:8px;font-size:13px;">AI 分析中…</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);text-align:right;margin-top:5px;" id="aiPredMeta"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('aiPredModal')">关闭</button>
+      <button class="btn btn-ai" onclick="rerunPred()">↺ 重新分析</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI HUB MODAL — wide, horizontal -->
+<div class="overlay" id="aiHubModal">
+  <div class="modal wide">
+    <div class="mhd"><span style="font-size:18px;">✦</span> AI 助手</div>
+    <div class="mbody">
+      <div class="ai-features">
+        <button class="ai-feat" onclick="aiFeature('overview')">
+          <div class="ai-feat-ico">📊</div>
+          <div class="ai-feat-name">总体分析</div>
+          <div class="ai-feat-desc">所有目标完成情况与趋势</div>
+        </button>
+        <button class="ai-feat" onclick="aiFeature('priority')">
+          <div class="ai-feat-ico">🎯</div>
+          <div class="ai-feat-name">优先级建议</div>
+          <div class="ai-feat-desc">今日应重点关注的目标</div>
+        </button>
+        <button class="ai-feat" onclick="aiFeature('plan')">
+          <div class="ai-feat-ico">📅</div>
+          <div class="ai-feat-name">制定计划</div>
+          <div class="ai-feat-desc">本周行动计划与时间分配</div>
+        </button>
+        <button class="ai-feat" onclick="aiFeature('risk')">
+          <div class="ai-feat-ico">⚠️</div>
+          <div class="ai-feat-name">风险预警</div>
+          <div class="ai-feat-desc">可能无法按时完成的目标</div>
+        </button>
+      </div>
+      <div class="fg">
+        <label class="flbl">自定义问题</label>
+        <textarea class="fi" id="aiCustomQ" placeholder="问 AI 任何关于你目标的问题…" rows="2" style="resize:vertical;line-height:1.5;"></textarea>
+      </div>
+      <div id="aiHubResponse" class="ai-response" style="display:none;"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('aiHubModal')">关闭</button>
+      <button class="btn btn-ai" onclick="askCustom()">✦ 发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settingsModal">
+  <div class="modal" style="max-width:500px;">
+    <div class="mhd">⚙ 设置</div>
+    <div class="mbody">
+      <div class="settings-section">
+        <div class="settings-title">AI API 配置</div>
+        <div class="fg">
+          <label class="flbl">API Key</label>
+          <div class="api-key-row">
+            <input class="fi" id="apiKeyInput" type="password" placeholder="sk-…" autocomplete="off">
+            <button class="btn btn-ai" onclick="saveApiKey()">保存</button>
+          </div>
+          <div style="margin-top:7px;" id="keyStatusEl"></div>
+        </div>
+        <div class="frow" style="margin-top:11px;">
+          <div class="fg">
+            <label class="flbl">服务商</label>
+            <select class="fi" id="apiProviderSel" onchange="saveProvider()">
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="flbl">模型名称</label>
+            <input class="fi" id="modelInput" placeholder="deepseek-chat / gpt-4o …">
+          </div>
+        </div>
+        <div class="fg" id="customEndpointRow" style="display:none;margin-top:8px;">
+          <label class="flbl">自定义端点 URL</label>
+          <input class="fi" id="customEndpointInput" placeholder="https://…/v1/chat/completions">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:7px;">Key 仅保存在本地，不上传至任何服务器。</div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">AI 功能</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;">
+            <span style="color:var(--text);">更新进度后自动预测（后台运行）</span>
+            <input type="checkbox" id="toggleAutoPred" checked onchange="savePref()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--ai);">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;">
+            <span style="color:var(--text);">显示 AI 预测标签</span>
+            <input type="checkbox" id="toggleShowPred" checked onchange="savePref()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--ai);">
+          </label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">数据</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="exportData()" style="font-size:12px;">↑ 导出 JSON</button>
+          <button class="btn btn-ghost" onclick="importData()" style="font-size:12px;">↓ 导入 JSON</button>
+          <button class="btn btn-ghost" onclick="clearAllPreds()" style="font-size:12px;color:var(--text3);">清除 AI 缓存</button>
+        </div>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="doImport(event)">
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn btn-pri" onclick="closeM('settingsModal')">完成</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-/* ======= DATA ======= */
+/* ===================== CONSTANTS ===================== */
 const COLORS=[
   {id:'blue',hex:'#4d9ef7',dim:'rgba(77,158,247,0.12)'},
   {id:'green',hex:'#34c76a',dim:'rgba(52,199,106,0.12)'},
@@ -616,382 +598,482 @@ const COLORS=[
 ];
 const PRI_C={high:'#ff5c5c',mid:'#f5a623',low:'#34c76a'};
 const CAT_E={'学习':'📚','健康':'💪','工作':'💼','生活':'🏠','财务':'💰','其他':'✦'};
-const PROVIDER_ENDPOINTS={
-  deepseek:'https://api.deepseek.com/chat/completions',
-  openai:'https://api.openai.com/v1/chat/completions',
-};
+const PROVIDER_ENDPOINTS={deepseek:'https://api.deepseek.com/chat/completions',openai:'https://api.openai.com/v1/chat/completions'};
 const PROVIDER_MODELS={deepseek:'deepseek-chat',openai:'gpt-4o',custom:''};
 
-let goals=JSON.parse(localStorage.getItem('gt_v5')||'null')||[
-  {id:1,name:'Math0580',desc:'高等数学课程学习',cat:'学习',priority:'high',done:13,total:20,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-02-20',done:4,total:20},{date:'2026-03-01',done:8,total:20},{date:'2026-03-06',done:13,total:20}],created:Date.now()-864e5*5},
-  {id:2,name:'English CET-6',desc:'英语六级备考',cat:'学习',priority:'mid',done:6,total:15,color:'teal',deadline:'2026-12-15',unit:'套题',history:[{date:'2026-03-02',done:4,total:15},{date:'2026-03-06',done:6,total:15}],created:Date.now()-864e5*3},
-  {id:3,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',done:24,total:30,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',done:18,total:30},{date:'2026-03-05',done:24,total:30}],created:Date.now()-864e5*10},
-  {id:4,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',done:22,total:100,color:'purple',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',done:8,total:100},{date:'2026-03-06',done:22,total:100}],created:Date.now()-864e5*20},
+/* ===================== STATE ===================== */
+let goals = JSON.parse(localStorage.getItem('gt_v6')||'null') || [
+  {id:1,name:'ZNotes',desc:'笔记整理计划',cat:'学习',priority:'high',parentId:null,done:0,total:0,color:'blue',deadline:'2026-08-31',unit:'',history:[],created:Date.now()-864e5*10},
+  {id:2,name:'Physics',desc:'Physics笔记',cat:'学习',priority:'high',parentId:1,done:3,total:12,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-03-10',done:3,total:12}],created:Date.now()-864e5*8},
+  {id:3,name:'Chemistry',desc:'Chemistry笔记',cat:'学习',priority:'mid',parentId:1,done:5,total:15,color:'teal',deadline:'2026-07-15',unit:'章',history:[{date:'2026-03-08',done:4,total:15},{date:'2026-03-12',done:5,total:15}],created:Date.now()-864e5*7},
+  {id:4,name:'Mathematics',desc:'Mathematics笔记',cat:'学习',priority:'high',parentId:1,done:8,total:20,color:'purple',deadline:'2026-06-15',unit:'章',history:[{date:'2026-03-05',done:5,total:20},{date:'2026-03-14',done:8,total:20}],created:Date.now()-864e5*6},
+  {id:5,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',parentId:null,done:24,total:30,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',done:18,total:30},{date:'2026-03-15',done:24,total:30}],created:Date.now()-864e5*15},
+  {id:6,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',parentId:null,done:22,total:100,color:'orange',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',done:8,total:100},{date:'2026-03-10',done:22,total:100}],created:Date.now()-864e5*30},
 ];
 
-let filter='all',sort='created',editId=null,quickId=null,selColor='blue';
-let aiPreds=JSON.parse(localStorage.getItem('ai_preds')||'{}');
-let prefs=JSON.parse(localStorage.getItem('ai_prefs')||'{"showPred":true,"autoInvalidate":true}');
-let currentPredId=null;
+let filter = localStorage.getItem('gt_filter')||'all';
+let sort   = localStorage.getItem('gt_sort')||'created';
+let editId=null, quickId=null, selColor='blue';
+let aiPreds = JSON.parse(localStorage.getItem('ai_preds')||'{}');
+let prefs   = JSON.parse(localStorage.getItem('ai_prefs')||'{"autoPred":true,"showPred":true}');
+let currentPredId = null;
 
-function save(){localStorage.setItem('gt_v5',JSON.stringify(goals));}
+/* ===================== PERSISTENCE ===================== */
+function save(){localStorage.setItem('gt_v6',JSON.stringify(goals));}
 function savePreds(){localStorage.setItem('ai_preds',JSON.stringify(aiPreds));}
 function savePref(){
-  prefs.showPred=document.getElementById('toggleShowPred').checked;
-  prefs.autoInvalidate=document.getElementById('toggleAutoInvalidate').checked;
+  prefs.autoPred = document.getElementById('toggleAutoPred').checked;
+  prefs.showPred = document.getElementById('toggleShowPred').checked;
   localStorage.setItem('ai_prefs',JSON.stringify(prefs));
   render();
 }
-function getPct(g){return g.total>0?Math.min(100,Math.round((g.done||0)/g.total*100)):0;}
-function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ===================== HELPERS ===================== */
+function getPct(g){
+  if(g.parentId===null){
+    // parent: aggregate children
+    const ch=goals.filter(c=>c.parentId===g.id);
+    if(!ch.length) return g.total>0?Math.min(100,Math.round((g.done||0)/g.total*100)):0;
+    const td=ch.reduce((s,c)=>s+(c.done||0),0), tt=ch.reduce((s,c)=>s+(c.total||0),0);
+    return tt>0?Math.min(100,Math.round(td/tt*100)):0;
+  }
+  return g.total>0?Math.min(100,Math.round((g.done||0)/g.total*100)):0;
+}
+function getDoneTotal(g){
+  const ch=goals.filter(c=>c.parentId===g.id);
+  if(ch.length){
+    return {done:ch.reduce((s,c)=>s+(c.done||0),0), total:ch.reduce((s,c)=>s+(c.total||0),0)};
+  }
+  return {done:g.done||0, total:g.total||0};
+}
 function getKey(){return localStorage.getItem('ds_key')||'';}
 function getProvider(){return localStorage.getItem('ai_provider')||'deepseek';}
-function getModel(){const s=localStorage.getItem('ai_model');return s||PROVIDER_MODELS[getProvider()]||'deepseek-chat';}
-function getEndpoint(){const p=getProvider();if(p==='custom')return localStorage.getItem('ai_custom_endpoint')||'';return PROVIDER_ENDPOINTS[p]||PROVIDER_ENDPOINTS.deepseek;}
+function getModel(){const s=localStorage.getItem('ai_model');return s||(PROVIDER_MODELS[getProvider()]||'deepseek-chat');}
+function getEndpoint(){const p=getProvider();return p==='custom'?(localStorage.getItem('ai_custom_endpoint')||''):(PROVIDER_ENDPOINTS[p]||PROVIDER_ENDPOINTS.deepseek);}
+function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function isParent(g){return g.parentId===null&&goals.some(c=>c.parentId===g.id);}
+function isLeaf(g){return !goals.some(c=>c.parentId===g.id);}
 
-/* ======= AI STATUS ======= */
-function updateAIStatus(){
-  const key=getKey();
-  const bar=document.getElementById('aiStatusBar');
-  const dot=document.getElementById('aiDot');
-  const txt=document.getElementById('aiStatusText');
-  if(key){
-    bar.classList.remove('no-key');dot.classList.remove('off');
-    txt.textContent='AI 已连接 — 点击目标上的预测标签查看分析';
-  } else {
-    bar.classList.add('no-key');dot.classList.add('off');
-    txt.textContent='未配置 API Key — AI 功能不可用';
-  }
+/* Deadline: treat as end-of-day — add 1 day so "June 12" = June 12 23:59:59 */
+function deadlineDays(dateStr){
+  if(!dateStr) return null;
+  const target=new Date(dateStr+'T00:00:00');
+  target.setDate(target.getDate()+1); // end of that day
+  return Math.ceil((target-new Date())/864e5);
+}
+function isOverdue(g){
+  if(!g.deadline||getPct(g)>=100) return false;
+  return deadlineDays(g.deadline)<=0;
 }
 
-/* ======= GREETING ======= */
+/* ===================== AI STATUS ===================== */
+function updateAIStatus(){
+  const key=getKey(),bar=document.getElementById('aiStatusBar'),dot=document.getElementById('aiDot'),txt=document.getElementById('aiStatusText');
+  const pn=getProvider()==='deepseek'?'DeepSeek':getProvider()==='openai'?'OpenAI':'自定义';
+  if(key){bar.classList.remove('no-key');dot.classList.remove('off');txt.textContent=pn+' AI 已连接 — 自动预测已'+(prefs.autoPred?'开启':'关闭');}
+  else{bar.classList.add('no-key');dot.classList.add('off');txt.textContent='未配置 API Key — AI 功能不可用';}
+}
+
+/* ===================== GREETING ===================== */
 function initGreeting(){
   const h=new Date().getHours();
   const g=h<6?'深夜好 🌙':h<12?'早上好 ☀️':h<14?'中午好 🌤':h<18?'下午好 🌤':h<22?'傍晚好 🌆':'晚上好 🌙';
   document.getElementById('greeting').textContent=g+' — 我的目标';
-  const d=new Date();
-  document.getElementById('dateStr').textContent=d.toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  document.getElementById('dateStr').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 }
 
-/* ======= SEGMENTED BAR ======= */
+/* ===================== SEG BAR ===================== */
 function segBar(pct,segs,h){
-  const done=Math.round(pct/100*segs);
+  const d=Math.round(pct/100*segs);
   let s=`<div class="segbar" style="height:${h}px;">`;
-  for(let i=0;i<segs;i++) s+=`<div class="seg ${i<done?'done':'todo'}"></div>`;
+  for(let i=0;i<segs;i++) s+=`<div class="seg ${i<d?'done':'todo'}"></div>`;
   return s+'</div>';
 }
 
-/* ======= STATS ======= */
+/* ===================== STATS ===================== */
 function renderStats(){
-  const tot=goals.length,done=goals.filter(g=>getPct(g)===100).length;
-  const avg=tot?Math.round(goals.reduce((s,g)=>s+getPct(g),0)/tot):0;
-  const today=new Date().toISOString().slice(0,10);
-  const ov=goals.filter(g=>g.deadline&&g.deadline<today&&getPct(g)<100).length;
-  let h=`
-    <div class="stat"><div class="stat-dot" style="background:#4d9ef7;"></div><span class="stat-v" style="color:#4d9ef7;">${tot}</span><span class="stat-lbl">目标总数</span></div>
+  const roots=goals.filter(g=>g.parentId===null);
+  const tot=roots.length, done=roots.filter(g=>getPct(g)===100).length;
+  const avg=tot?Math.round(roots.reduce((s,g)=>s+getPct(g),0)/tot):0;
+  const ov=roots.filter(g=>isOverdue(g)).length;
+  let h=`<div class="stat"><div class="stat-dot" style="background:#4d9ef7;"></div><span class="stat-v" style="color:#4d9ef7;">${tot}</span><span class="stat-lbl">目标</span></div>
     <div class="stat"><div class="stat-dot" style="background:#34c76a;"></div><span class="stat-v" style="color:#34c76a;">${done}</span><span class="stat-lbl">已完成</span></div>
     <div class="stat"><div class="stat-dot" style="background:#f5a623;"></div><span class="stat-v" style="color:#f5a623;">${avg}%</span><span class="stat-lbl">平均进度</span></div>`;
   if(ov) h+=`<div class="stat"><div class="stat-dot" style="background:#ff5c5c;"></div><span class="stat-v" style="color:#ff5c5c;">${ov}</span><span class="stat-lbl">逾期</span></div>`;
   document.getElementById('statsEl').innerHTML=h;
 }
 
-/* ======= FILTER/SORT ======= */
-function setFilter(f,el){filter=f;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');render();}
-function setSort(v){sort=v;render();}
-function filtered(){
+/* ===================== FILTER / SORT ===================== */
+function setFilter(f,el){
+  filter=f;
+  localStorage.setItem('gt_filter',f);
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+function setSort(v){
+  sort=v;
+  localStorage.setItem('gt_sort',v);
+  render();
+}
+function filteredRoots(){
   const today=new Date().toISOString().slice(0,10);
-  let l=[...goals];
-  if(filter==='active') l=l.filter(g=>getPct(g)>0&&getPct(g)<100);
-  else if(filter==='done') l=l.filter(g=>getPct(g)===100);
-  else if(filter==='overdue') l=l.filter(g=>g.deadline&&g.deadline<today&&getPct(g)<100);
-  if(sort==='progress-asc') l.sort((a,b)=>getPct(a)-getPct(b));
-  else if(sort==='progress-desc') l.sort((a,b)=>getPct(b)-getPct(a));
-  else if(sort==='deadline') l.sort((a,b)=>(a.deadline||'9999')>(b.deadline||'9999')?1:-1);
-  else if(sort==='name') l.sort((a,b)=>a.name.localeCompare(b.name,'zh'));
-  else l.sort((a,b)=>b.created-a.created);
-  return l;
+  let roots=goals.filter(g=>g.parentId===null);
+  if(filter==='active') roots=roots.filter(g=>{const p=getPct(g);return p>0&&p<100;});
+  else if(filter==='done') roots=roots.filter(g=>getPct(g)===100);
+  else if(filter==='overdue') roots=roots.filter(g=>isOverdue(g));
+  if(sort==='progress-asc') roots.sort((a,b)=>getPct(a)-getPct(b));
+  else if(sort==='progress-desc') roots.sort((a,b)=>getPct(b)-getPct(a));
+  else if(sort==='deadline') roots.sort((a,b)=>(a.deadline||'9999')>(b.deadline||'9999')?1:-1);
+  else if(sort==='name') roots.sort((a,b)=>a.name.localeCompare(b.name,'zh'));
+  else roots.sort((a,b)=>b.created-a.created);
+  return roots;
 }
 
-/* ======= AI PREDICTION CHIP ======= */
+/* ===================== AI PRED CHIP ===================== */
 function predChipHTML(g){
-  if(!prefs.showPred) return '';
-  const key=getKey();
-  const cached=aiPreds[g.id];
-  if(!key) return `<div class="ai-pred no-key" onclick="openSettings()" title="配置 API Key 以启用 AI 预测">✦ AI预测 (未配置)</div>`;
-  if(cached&&cached.summary) return `<div class="ai-pred" onclick="showCachedPred(${g.id})" title="查看 AI 详细分析">✦ ${esc(cached.summary)}</div>`;
-  return `<div class="ai-pred" id="pred-${g.id}" onclick="runPred(${g.id})" title="点击获取 AI 预测">✦ AI 预测完成时间</div>`;
+  if(!prefs.showPred||getPct(g)===0||getPct(g)===100) return '';
+  const key=getKey(), cached=aiPreds[g.id];
+  if(!key) return `<div class="ai-pred no-key" onclick="openSettings()">✦ AI预测 (未配置)</div>`;
+  if(cached&&cached.summary) return `<div class="ai-pred" onclick="showCachedPred(${g.id})">✦ ${esc(cached.summary)}</div>`;
+  return `<div class="ai-pred" id="pred-${g.id}" onclick="runPred(${g.id})">✦ AI 预测完成时间</div>`;
 }
 
-/* ======= BUILD GOAL CONTEXT ======= */
-function buildGoalContext(g){
-  const today=new Date().toISOString().slice(0,10);
-  const hist=g.history||[];
-  const dlDays=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
+/* ===================== BUILD AI CONTEXT ===================== */
+function buildGoalContext(g, includeSiblings=true){
   const pct=getPct(g);
+  const hist=(g.history||[]);
+  const dlDays=deadlineDays(g.deadline);
   let velocity='暂无历史数据';
   if(hist.length>=2){
-    const first=hist[0],last=hist[hist.length-1];
-    const daysDiff=Math.max(1,Math.ceil((new Date(last.date)-new Date(first.date))/864e5));
-    const firstPct=first.total>0?Math.round((first.done||first.v||0)/first.total*100):(first.v||0);
-    const lastPct=last.total>0?Math.round((last.done||last.v||0)/last.total*100):(last.v||0);
-    const pctPerDay=((lastPct-firstPct)/daysDiff).toFixed(2);
-    velocity=`每天约 ${pctPerDay}% 进度`;
+    const f=hist[0],l=hist[hist.length-1];
+    const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
+    const fd=f.done!=null?f.done:(f.v||0),ld=l.done!=null?l.done:(l.v||0);
+    velocity=`每天约 ${((ld-fd)/days).toFixed(2)} ${g.unit||'单位'}`;
   }
-  return `目标名称: ${g.name}
+  let ctx=`【${g.name}】
 描述: ${g.desc||'无'}
-分类: ${g.cat}
-当前进度: ${g.done||0} / ${g.total} ${g.unit||''} (${pct}%)
-优先级: ${g.priority==='high'?'高':g.priority==='mid'?'中':'低'}
-截止日期: ${g.deadline||'未设置'}${dlDays!==null?`（距今${dlDays}天）`:''}
-历史记录 (共${hist.length}次):
-${hist.map(h=>{const hd=h.done!==undefined?h.done:(h.v||0);const ht=h.total||g.total;return `  ${h.date}: ${hd}/${ht}${h.note?' ('+h.note+')':''}`;}).join('\n')||'  无'}
-当前速率估算: ${velocity}
-今日日期: ${today}`;
+分类: ${g.cat}  优先级: ${g.priority==='high'?'高':g.priority==='mid'?'中':'低'}
+完成: ${g.done||0} / ${g.total} ${g.unit||'单位'} (${pct}%)
+截止: ${g.deadline||'未设置'}${dlDays!=null?`（距今${dlDays}天）`:''}
+历史(${hist.length}次): ${hist.slice(-5).map(h=>`${h.date}:${h.done!=null?h.done:(h.v||0)}/${h.total||g.total}`).join(', ')||'无'}
+当前速率: ${velocity}`;
+
+  // siblings context
+  if(includeSiblings&&g.parentId!==null){
+    const siblings=goals.filter(c=>c.parentId===g.id&&c.id!==g.id);
+    // actually siblings = same parentId, different id
+    const sibs=goals.filter(c=>c.parentId===g.parentId&&c.id!==g.id);
+    if(sibs.length){
+      ctx+=`\n\n【同父任务下的其他子任务】`;
+      sibs.forEach(s=>{ctx+=`\n - ${s.name}: ${s.done||0}/${s.total} (${getPct(s)}%)，截止${s.deadline||'未设置'}`;});
+      const parent=goals.find(p=>p.id===g.parentId);
+      if(parent) ctx+=`\n父任务 [${parent.name}] 整体进度: ${getPct(parent)}%`;
+    }
+  }
+  if(includeSiblings&&g.parentId===null){
+    // if parent, include children
+    const children=goals.filter(c=>c.parentId===g.id);
+    if(children.length){
+      ctx+=`\n\n【子任务列表】`;
+      children.forEach(c=>{ctx+=`\n - ${c.name}: ${c.done||0}/${c.total} (${getPct(c)}%)，截止${c.deadline||'未设置'}`;});
+    }
+  }
+  return ctx;
 }
 
-/* ======= CALL AI API ======= */
+function buildAllContext(){
+  const today=new Date().toISOString().slice(0,10);
+  const roots=goals.filter(g=>g.parentId===null);
+  return `今日: ${today}\n\n`+roots.map(r=>{
+    let txt=buildGoalContext(r,false);
+    const ch=goals.filter(c=>c.parentId===r.id);
+    if(ch.length) txt+='\n  子任务: '+ch.map(c=>`${c.name}(${getPct(c)}%)`).join(', ');
+    return txt;
+  }).join('\n\n---\n\n');
+}
+
+/* ===================== CALL AI ===================== */
 async function callAI(messages,onChunk){
-  const key=getKey();
-  if(!key) throw new Error('未配置 API Key');
-  const endpoint=getEndpoint();
-  const model=getModel();
-  if(!endpoint) throw new Error('未配置 API 端点');
-  const res=await fetch(endpoint,{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-    body:JSON.stringify({model,messages,stream:true,max_tokens:800,temperature:0.7})
-  });
-  if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error?.message||`API 错误 ${res.status}`);}
-  const reader=res.body.getReader();
-  const decoder=new TextDecoder();
-  let full='';
+  const key=getKey();if(!key)throw new Error('未配置 API Key');
+  const endpoint=getEndpoint();if(!endpoint)throw new Error('未配置 API 端点');
+  const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model:getModel(),messages,stream:true,max_tokens:900,temperature:0.7})});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`API 错误 ${res.status}`);}
+  const reader=res.body.getReader(),dec=new TextDecoder();let full='';
   while(true){
-    const {done,value}=await reader.read();
-    if(done) break;
-    for(const line of decoder.decode(value).split('\n')){
-      if(!line.startsWith('data:')) continue;
-      const d=line.slice(5).trim();
-      if(d==='[DONE]') break;
+    const{done,value}=await reader.read();if(done)break;
+    for(const line of dec.decode(value).split('\n')){
+      if(!line.startsWith('data:'))continue;
+      const d=line.slice(5).trim();if(d==='[DONE]')break;
       try{const t=JSON.parse(d).choices?.[0]?.delta?.content||'';if(t){full+=t;if(onChunk)onChunk(full);}}catch(e){}
     }
   }
   return full;
 }
 
-/* ======= RUN PREDICTION ======= */
+/* ===================== AUTO PREDICT (background) ===================== */
+async function autoPredictIfNeeded(id){
+  if(!prefs.autoPred||!getKey()) return;
+  const g=goals.find(x=>x.id===id);
+  if(!g||!isLeaf(g)) return; // only predict leaf tasks
+  const p=getPct(g);
+  if(p===0||p===100) return;
+  // run silently
+  try{
+    let full='';
+    await callAI([
+      {role:'system',content:'你是目标管理AI。中文，简洁。第一行用[预测]前缀给出10字以内的核心预测（如"预计45天完成"），然后换行给2-3句分析。100字以内。'},
+      {role:'user',content:`请预测完成时间：\n\n${buildGoalContext(g,true)}`}
+    ],(partial)=>{full=partial;});
+    const m=full.match(/\[预测\]\s*(.+)/);
+    const summary=m?m[1].trim().slice(0,18):(full.match(/(\d+)\s*(天|周|月)/)?`约${RegExp.$1}${RegExp.$2}完成`:'已分析');
+    aiPreds[id]={text:full,summary,ts:Date.now(),auto:true};
+    savePreds();
+    render(); // refresh chips silently
+  }catch(e){/* silent fail */}
+}
+
+/* ===================== MANUAL PREDICT ===================== */
 async function runPred(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   currentPredId=id;
   document.getElementById('aiPredTitle').textContent=`AI 分析 — ${g.name}`;
   document.getElementById('aiPredContent').className='ai-response loading-state';
-  document.getElementById('aiPredContent').innerHTML=`<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;font-size:13px;">AI 分析中…</span>`;
+  document.getElementById('aiPredContent').innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;font-size:13px;">AI 分析中…</span>';
   document.getElementById('aiPredMeta').textContent='';
   openM('aiPredModal');
   const chip=document.getElementById('pred-'+id);
   if(chip){chip.classList.add('loading');chip.innerHTML='<span class="ai-ico">↻</span> 分析中…';}
   try{
-    const t0=Date.now();
-    let fullText='';
+    const t0=Date.now();let full='';
     await callAI([
-      {role:'system',content:`你是专业目标管理 AI 助手，用中文回答，简洁有洞察力。
-格式：第一行输出简短预测前缀 [预测]（如"预计约 45 天完成"），然后换行详细分析：完成时间预测、速度分析、建议。总长度200字以内。`},
-      {role:'user',content:`请根据以下目标数据，预测完成时间并给出建议：\n\n${buildGoalContext(g)}`}
-    ],(partial)=>{
-      fullText=partial;
-      document.getElementById('aiPredContent').className='ai-response md-content';
-      document.getElementById('aiPredContent').innerHTML=renderMD(partial);
-    });
-    const m=fullText.match(/\[预测\]\s*(.+)/);
-    const summary=m?m[1].trim().slice(0,20):extractShortPred(fullText);
-    aiPreds[id]={text:fullText,summary,ts:Date.now()};
-    savePreds();
+      {role:'system',content:'你是专业目标管理AI。中文，简洁有洞察力。第一行[预测]前缀给出简短预测，然后换行详细分析（速度/时间/建议/兄弟任务影响）。200字以内。'},
+      {role:'user',content:`请预测完成时间并给建议：\n\n${buildGoalContext(g,true)}`}
+    ],(p)=>{full=p;document.getElementById('aiPredContent').className='ai-response md-content';document.getElementById('aiPredContent').innerHTML=renderMD(p);});
+    const m=full.match(/\[预测\]\s*(.+)/);
+    const summary=m?m[1].trim().slice(0,18):(full.match(/(\d+)\s*(天|周|月)/)?`约${RegExp.$1}${RegExp.$2}完成`:'已分析');
+    aiPreds[id]={text:full,summary,ts:Date.now()};savePreds();
     document.getElementById('aiPredMeta').textContent=`${getProvider()} · ${((Date.now()-t0)/1000).toFixed(1)}s · ${new Date().toLocaleTimeString('zh-CN')}`;
     render();
   }catch(err){
     document.getElementById('aiPredContent').className='ai-response error-state';
-    document.getElementById('aiPredContent').innerHTML=`❌ ${esc(err.message)}`;
-    if(chip){chip.classList.remove('loading');chip.classList.add('error');chip.innerHTML='✦ 分析失败，重试';}
+    document.getElementById('aiPredContent').innerHTML='❌ '+esc(err.message);
+    if(chip){chip.classList.remove('loading');chip.innerHTML='✦ 分析失败，重试';}
     toast('AI 请求失败: '+err.message);
   }
 }
-
-function extractShortPred(text){
-  const m=text.match(/(\d+)\s*(天|周|月|小时)/);
-  return m?`约${m[1]}${m[2]}完成`:'已分析';
-}
 function showCachedPred(id){
-  const g=goals.find(x=>x.id===id),cached=aiPreds[id];
-  if(!g||!cached)return;
+  const g=goals.find(x=>x.id===id),c=aiPreds[id];if(!g||!c)return;
   currentPredId=id;
   document.getElementById('aiPredTitle').textContent=`AI 分析 — ${g.name}`;
   document.getElementById('aiPredContent').className='ai-response md-content';
-  document.getElementById('aiPredContent').innerHTML=renderMD(cached.text);
-  document.getElementById('aiPredMeta').textContent=`缓存 · ${new Date(cached.ts).toLocaleString('zh-CN')}`;
+  document.getElementById('aiPredContent').innerHTML=renderMD(c.text);
+  document.getElementById('aiPredMeta').textContent=`${c.auto?'自动分析':'手动分析'} · ${new Date(c.ts).toLocaleString('zh-CN')}`;
   openM('aiPredModal');
 }
-function rerunPred(){if(currentPredId!==null){delete aiPreds[currentPredId];savePreds();closeM('aiPredModal');runPred(currentPredId);}}
+function rerunPred(){
+  if(currentPredId!=null){delete aiPreds[currentPredId];savePreds();closeM('aiPredModal');runPred(currentPredId);}
+}
 
-/* ======= RENDER MARKDOWN ======= */
+/* ===================== RENDER MD ===================== */
 function renderMD(text){
   if(!text)return '';
   let h=text
-    .replace(/\[预测\]\s*/g,'<strong style="color:var(--ai)">📊 预测：</strong>')
+    .replace(/\[预测\]\s*/g,'<strong>📊 预测：</strong>')
     .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/^#{2,3}\s(.+)$/gm,'<strong style="color:var(--ai);display:block;margin:10px 0 4px;">$1</strong>')
+    .replace(/^#{1,3}\s(.+)$/gm,'<strong style="display:block;margin:9px 0 3px;">$1</strong>')
     .replace(/^-\s(.+)$/gm,'<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>')
     .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
   return `<div class="md-content"><p>${h}</p></div>`;
 }
 
-/* ======= RENDER ======= */
+/* ===================== RENDER CARD ===================== */
+function renderGoalCard(g, isChild=false){
+  const c=gc(g.color), p=getPct(g), isDone=p===100, ov=isOverdue(g);
+  const dl=deadlineDays(g.deadline);
+  const badge=isDone?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!=null&&dl<=7?`${dl}d left`:'In progress';
+  const bc=isDone?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.04)':'rgba(77,158,247,.1)';
+  const bcolor=isDone?'#34c76a':ov?'#ff5c5c':p===0?'#555':'#4d9ef7';
+  const hist=(g.history||[]).slice(-7);
+  const dots=Array(7).fill(0).map((_,i)=>`<div class="adot ${i<hist.length?'on':''}"></div>`).join('');
+  const {done:disp,total:tdisp}=getDoneTotal(g);
+  const cls=isChild?'gcard child':'gcard';
+  return `<div class="${cls}" style="--accent:${c.hex};" id="gc${g.id}">
+    <div class="gtop">
+      <div class="gleft">
+        <div class="gname${isChild?' child-name':''}">${esc(g.name)}</div>
+        <div class="gmeta">
+          ${g.desc?`<span class="gdesc">${esc(g.desc)}</span>`:''}
+          <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[g.cat]||'✦'} ${g.cat}</span>
+          ${g.deadline?`<span class="gdeadline">${g.deadline.slice(5).replace('-','/')}</span>`:''}
+        </div>
+        ${isLeaf(g)?predChipHTML(g):''}
+      </div>
+      <div class="gright">
+        <div>
+          <div class="gpct" style="color:${isDone?'#34c76a':c.hex};">${disp}<span style="font-size:12px;font-weight:400;color:var(--text2);">/${tdisp}</span></div>
+          <div style="font-size:11px;font-family:var(--mono);color:${isDone?'#34c76a':c.hex};text-align:right;margin-top:1px;">${p}%</div>
+          <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
+        </div>
+        <div class="gactions">
+          <button class="btn btn-ico" onclick="openDetail(${g.id})" title="详情">◎</button>
+          <button class="btn btn-ico" onclick="openEdit(${g.id})" title="编辑">✎</button>
+          ${isLeaf(g)?`<button class="btn btn-ico" onclick="openProg(${g.id})" title="更新进度">↑</button>`:''}
+          <button class="btn btn-ico" onclick="openMove(${g.id})" title="移动到大任务" style="font-size:11px;">⇄</button>
+          <button class="btn btn-ico" onclick="openAddChild(${g.id})" title="添加子任务">⊕</button>
+          <button class="btn btn-ico del" onclick="delGoal(${g.id})" title="删除">✕</button>
+        </div>
+      </div>
+    </div>
+    <div class="segwrap"${isLeaf(g)?` onclick="openProg(${g.id})" title="点击更新进度"`:''}>
+      <span class="seg-tip" id="stt${g.id}">${p}%</span>
+      ${segBar(p,isChild?40:55,isChild?9:11)}
+      <div style="text-align:center;margin-top:-1px;font-size:10px;color:var(--text3);font-family:var(--mono);">${disp} / ${tdisp} ${g.unit?esc(g.unit):''}</div>
+      <div class="seg-labels"><span class="seg-lbl">0%</span><span class="seg-lbl">25%</span><span class="seg-lbl">50%</span><span class="seg-lbl">75%</span><span class="seg-lbl">100%</span></div>
+    </div>
+    <div class="gfoot">
+      <div class="gfoot-l">
+        <div class="pri-dot" style="background:${PRI_C[g.priority]};"></div>
+        <span>${g.priority==='high'?'高优先级':g.priority==='mid'?'中优先级':'低优先级'}</span>
+        ${(g.history&&g.history.length)?`<span style="color:var(--text3)">·</span><span>${g.history.length}次更新</span>`:''}
+        ${g.unit?`<span style="color:var(--text3)">·</span><span>${esc(g.unit)}</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-size:10px;color:var(--text3);margin-right:2px;">近期</span>
+        <div class="act-dots">${dots}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ===================== MAIN RENDER ===================== */
 function render(){
-  renderStats();updateAIStatus();
-  const list=filtered();
+  renderStats(); updateAIStatus();
+  const roots=filteredRoots();
   const el=document.getElementById('goalList');
-  if(!list.length){
-    el.innerHTML=`<div class="empty"><div class="empty-ico">🌑</div><div class="empty-title">暂无目标</div><div class="empty-desc">点击「新建目标」开始追踪</div></div>`;
+  if(!roots.length){
+    el.innerHTML='<div class="empty"><div class="empty-ico">🌑</div><div class="empty-title">暂无目标</div><div class="empty-desc">点击「新建目标」开始追踪</div></div>';
     return;
   }
-  const today=new Date().toISOString().slice(0,10);
-  el.innerHTML=list.map(g=>{
-    const c=gc(g.color);
-    const p=getPct(g),isDone=p===100;
-    const ov=g.deadline&&g.deadline<today&&!isDone;
-    const dl=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
-    const badge=isDone?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!==null&&dl<=7?`${dl}d left`:'In progress';
-    const bc=isDone?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.05)':'rgba(77,158,247,.12)';
-    const bcolor=isDone?'#34c76a':ov?'#ff5c5c':p===0?'#444':'#4d9ef7';
-    const hist=(g.history||[]).slice(-7);
-    const dots=Array(7).fill(0).map((_,i)=>`<div class="adot ${i<hist.length?'on':''}"></div>`).join('');
-    return `<div class="gcard" style="--accent:${c.hex};" id="gc${g.id}">
-      <div class="gtop">
-        <div class="gleft">
-          <div class="gname">${esc(g.name)}</div>
-          <div class="gmeta">
-            ${g.desc?`<span class="gdesc">${esc(g.desc)}</span>`:''}
-            <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[g.cat]||'✦'} ${g.cat}</span>
-            ${g.deadline?`<span class="gdeadline">${g.deadline.slice(5).replace('-','/')}</span>`:''}
+  el.innerHTML=roots.map(r=>{
+    const children=goals.filter(c=>c.parentId===r.id);
+    if(children.length){
+      // parent block
+      const c=gc(r.color),p=getPct(r),isDone=p===100,ov=isOverdue(r);
+      const dl=deadlineDays(r.deadline);
+      const badge=isDone?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!=null&&dl<=7?`${dl}d left`:'In progress';
+      const bc=isDone?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.04)':'rgba(77,158,247,.1)';
+      const bcolor=isDone?'#34c76a':ov?'#ff5c5c':p===0?'#555':'#4d9ef7';
+      const {done:dd,total:dt}=getDoneTotal(r);
+      let html=`<div class="parent-block">
+        <div class="pcard" style="--accent:${c.hex};" id="gc${r.id}">
+          <div class="pcard-header">
+            <div class="pcard-left">
+              <span class="pcard-badge">父任务 · ${children.length}个子任务</span>
+              <div class="pcard-name">${esc(r.name)}</div>
+              <div class="pcard-meta">
+                ${r.desc?`<span class="gdesc">${esc(r.desc)}</span>`:''}
+                <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[r.cat]||'✦'} ${r.cat}</span>
+                ${r.deadline?`<span class="gdeadline">${r.deadline.slice(5).replace('-','/')}</span>`:''}
+              </div>
+            </div>
+            <div class="pcard-right">
+              <div>
+                <div class="pcard-pct" style="color:${isDone?'#34c76a':c.hex};">${dd}<span style="font-size:13px;font-weight:400;color:var(--text2);">/${dt}</span></div>
+                <div style="font-size:11px;font-family:var(--mono);color:${isDone?'#34c76a':c.hex};text-align:right;margin-top:1px;">${p}%</div>
+                <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
+              </div>
+              <div class="pcard-actions">
+                <button class="btn btn-ico" onclick="openDetail(${r.id})" title="详情">◎</button>
+                <button class="btn btn-ico" onclick="openEdit(${r.id})" title="编辑">✎</button>
+                <button class="btn btn-ico" onclick="openMove(${r.id})" title="移动" style="font-size:11px;">⇄</button>
+                <button class="btn btn-ico" onclick="openAddChild(${r.id})" title="添加子任务">⊕</button>
+                <button class="btn btn-ico del" onclick="delGoal(${r.id})" title="删除">✕</button>
+              </div>
+            </div>
           </div>
-          ${isDone?'':predChipHTML(g)}
-        </div>
-        <div class="gright">
-          <div>
-            <div class="gpct" style="color:${isDone?'#34c76a':c.hex};">${g.done||0}<span style="font-size:13px;font-weight:400;color:var(--text2);">/${g.total}</span></div>
-            <div style="font-size:11px;font-family:var(--mono);color:${isDone?'#34c76a':c.hex};text-align:right;margin-top:2px;">${p}%</div>
-            <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
-          </div>
-          <div class="gactions">
-            <button class="btn btn-ico" onclick="openDetail(${g.id})" title="详情">◎</button>
-            <button class="btn btn-ico" onclick="openEdit(${g.id})" title="编辑">✎</button>
-            <button class="btn btn-ico del" onclick="delGoal(${g.id})" title="删除">✕</button>
+          <div class="segwrap" style="cursor:default;">
+            ${segBar(p,55,9)}
+            <div style="text-align:center;margin-top:-1px;font-size:10px;color:var(--text3);font-family:var(--mono);">${dd} / ${dt} 合计</div>
           </div>
         </div>
-      </div>
-      <div class="segwrap" onclick="openProg(${g.id})" title="点击更新进度">
-        <span class="seg-tip" id="stt${g.id}">${p}%</span>
-        ${segBar(p,60,13)}
-        <div style="text-align:center;margin-top:-2px;font-size:10px;color:var(--text3);font-family:var(--mono);">${g.done||0} / ${g.total} ${g.unit?esc(g.unit):''}</div>
-        <div class="seg-labels"><span class="seg-lbl">0%</span><span class="seg-lbl">25%</span><span class="seg-lbl">50%</span><span class="seg-lbl">75%</span><span class="seg-lbl">100%</span></div>
-      </div>
-      <div class="gfoot">
-        <div class="gfoot-l">
-          <div class="pri-dot" style="background:${PRI_C[g.priority]};"></div>
-          <span>${g.priority==='high'?'高优先级':g.priority==='mid'?'中优先级':'低优先级'}</span>
-          ${g.history&&g.history.length?`<span style="color:#333">·</span><span>${g.history.length}次更新</span>`:''}
-          ${g.unit?`<span style="color:#333">·</span><span>单位:${esc(g.unit)}</span>`:''}
+        <div class="children-list">
+          ${children.map(ch=>renderGoalCard(ch,true)).join('')}
         </div>
-        <div class="gfoot-r">
-          <span style="font-size:10px;color:#333;margin-right:3px;">近期</span>
-          <div class="act-dots">${dots}</div>
-        </div>
-      </div>
-    </div>`;
+      </div>`;
+      return html;
+    } else {
+      return renderGoalCard(r,false);
+    }
   }).join('');
 
-  list.forEach(g=>{
+  // tooltip mousemove
+  goals.forEach(g=>{
     const card=document.getElementById('gc'+g.id);
-    const wrap=card&&card.querySelector('.segwrap');
+    if(!card)return;
+    const wrap=card.querySelector('.segwrap');
     const tip=document.getElementById('stt'+g.id);
     const bar=wrap&&wrap.querySelector('.segbar');
     if(!wrap||!tip||!bar)return;
     wrap.addEventListener('mousemove',e=>{
-      const r=bar.getBoundingClientRect();
-      const x=Math.max(0,Math.min(e.clientX-r.left,r.width));
+      const r=bar.getBoundingClientRect(),x=Math.max(0,Math.min(e.clientX-r.left,r.width));
       tip.textContent=Math.round(x/r.width*100)+'%';
       tip.style.left=(e.clientX-wrap.getBoundingClientRect().left)+'px';
     });
   });
 }
 
-/* ======= AI HUB ======= */
-function openAIHub(){
-  document.getElementById('aiHubResponse').style.display='none';
-  document.getElementById('aiCustomQ').value='';
-  openM('aiHubModal');
-}
+/* ===================== AI HUB ===================== */
+function openAIHub(){document.getElementById('aiHubResponse').style.display='none';document.getElementById('aiCustomQ').value='';openM('aiHubModal');}
 async function aiFeature(type){
   if(!getKey()){toast('请先配置 API Key');openSettings();return;}
-  const allCtx=goals.map(g=>buildGoalContext(g)).join('\n\n---\n\n');
-  const today=new Date().toISOString().slice(0,10);
+  const allCtx=buildAllContext();
   const prompts={
-    overview:`今日日期: ${today}\n\n所有目标数据：\n\n${allCtx}\n\n请给出整体完成情况分析，包括总体趋势、最接近完成的目标、需要加速的目标。200字以内。`,
-    priority:`今日日期: ${today}\n\n${allCtx}\n\n请告诉我今天应重点关注哪个目标？给出排序和理由。150字以内。`,
-    plan:`今日日期: ${today}\n\n${allCtx}\n\n请为本周（7天）每个目标制定具体行动计划，包括每天建议投入时间和具体任务。`,
-    risk:`今日日期: ${today}\n\n${allCtx}\n\n请识别有截止日期风险的目标，分析原因，给出补救建议。`
+    overview:`${allCtx}\n\n分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标。200字以内。`,
+    priority:`${allCtx}\n\n今天应该重点关注哪个目标？给出排序和理由。150字以内。`,
+    plan:`${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务关系，给出每天建议量。`,
+    risk:`${allCtx}\n\n识别有截止日期风险的目标（特别注意子任务），分析原因，给出补救建议。`
   };
   const resp=document.getElementById('aiHubResponse');
-  resp.style.display='block';
-  resp.className='ai-response loading-state';
-  resp.innerHTML=`<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>`;
+  resp.style.display='block';resp.className='ai-response loading-state';
+  resp.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>';
   try{
-    await callAI([
-      {role:'system',content:'你是专业的目标管理教练，用中文回答，简洁有洞察力，适当使用 emoji。'},
-      {role:'user',content:prompts[type]}
-    ],(p)=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
+    await callAI([{role:'system',content:'你是专业目标管理教练，中文回答，简洁有洞察力，适当使用emoji。注意父任务和子任务的关系。'},{role:'user',content:prompts[type]}],
+      p=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
   }catch(err){resp.className='ai-response error-state';resp.innerHTML='❌ '+esc(err.message);toast('AI 请求失败');}
 }
 async function askCustom(){
-  const q=document.getElementById('aiCustomQ').value.trim();
-  if(!q){toast('请输入问题');return;}
+  const q=document.getElementById('aiCustomQ').value.trim();if(!q){toast('请输入问题');return;}
   if(!getKey()){toast('请先配置 API Key');openSettings();return;}
-  const allCtx=goals.map(g=>buildGoalContext(g)).join('\n\n---\n\n');
   const resp=document.getElementById('aiHubResponse');
-  resp.style.display='block';
-  resp.className='ai-response loading-state';
-  resp.innerHTML=`<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>`;
+  resp.style.display='block';resp.className='ai-response loading-state';
+  resp.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">AI 思考中…</span>';
   try{
-    await callAI([
-      {role:'system',content:'你是目标管理助手，基于用户目标数据用中文回答问题。'},
-      {role:'user',content:`我的目标数据：\n\n${allCtx}\n\n我的问题：${q}`}
-    ],(p)=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
+    await callAI([{role:'system',content:'你是目标管理助手，基于用户数据用中文回答问题，注意父子任务关系。'},{role:'user',content:`我的目标数据：\n\n${buildAllContext()}\n\n我的问题：${q}`}],
+      p=>{resp.className='ai-response md-content';resp.innerHTML=renderMD(p);});
   }catch(err){resp.className='ai-response error-state';resp.innerHTML='❌ '+esc(err.message);}
 }
 
-/* ======= SETTINGS ======= */
+/* ===================== SETTINGS ===================== */
 function openSettings(){
-  const key=getKey(),provider=getProvider();
-  document.getElementById('apiKeyInput').value=key;
-  document.getElementById('apiProviderSel').value=provider;
+  document.getElementById('apiKeyInput').value=getKey();
+  document.getElementById('apiProviderSel').value=getProvider();
   document.getElementById('modelInput').value=getModel();
   document.getElementById('customEndpointInput').value=localStorage.getItem('ai_custom_endpoint')||'';
-  document.getElementById('customEndpointRow').style.display=provider==='custom'?'flex':'none';
+  document.getElementById('customEndpointRow').style.display=getProvider()==='custom'?'flex':'none';
+  document.getElementById('toggleAutoPred').checked=prefs.autoPred;
   document.getElementById('toggleShowPred').checked=prefs.showPred;
-  document.getElementById('toggleAutoInvalidate').checked=prefs.autoInvalidate!==false;
-  updateKeyStatus(!!key);
-  openM('settingsModal');
+  updateKeyStatus(!!getKey());openM('settingsModal');
 }
 function saveApiKey(){
-  const k=document.getElementById('apiKeyInput').value.trim();
-  localStorage.setItem('ds_key',k);
-  const provider=document.getElementById('apiProviderSel').value;
-  localStorage.setItem('ai_provider',provider);
-  const model=document.getElementById('modelInput').value.trim();
-  if(model)localStorage.setItem('ai_model',model);else localStorage.removeItem('ai_model');
-  if(provider==='custom')localStorage.setItem('ai_custom_endpoint',document.getElementById('customEndpointInput').value.trim());
-  updateKeyStatus(!!k);updateAIStatus();render();
-  toast(k?'设置已保存 ✓':'API Key 已清除');
+  const k=document.getElementById('apiKeyInput').value.trim(),p=document.getElementById('apiProviderSel').value,m=document.getElementById('modelInput').value.trim();
+  localStorage.setItem('ds_key',k);localStorage.setItem('ai_provider',p);
+  if(m)localStorage.setItem('ai_model',m);else localStorage.removeItem('ai_model');
+  if(p==='custom')localStorage.setItem('ai_custom_endpoint',document.getElementById('customEndpointInput').value.trim());
+  updateKeyStatus(!!k);updateAIStatus();render();toast(k?'设置已保存 ✓':'API Key 已清除');
 }
 function saveProvider(){
   const p=document.getElementById('apiProviderSel').value;
@@ -999,150 +1081,214 @@ function saveProvider(){
   const cur=document.getElementById('modelInput').value;
   if(!cur||Object.values(PROVIDER_MODELS).includes(cur))document.getElementById('modelInput').value=PROVIDER_MODELS[p]||'';
 }
-function updateKeyStatus(ok){
-  document.getElementById('keyStatusEl').innerHTML=`<span class="key-status ${ok?'ok':'no'}">${ok?'✓ Key 已配置':'✗ 未配置 Key'}</span>`;
-}
+function updateKeyStatus(ok){document.getElementById('keyStatusEl').innerHTML=`<span class="key-status ${ok?'ok':'no'}">${ok?'✓ Key 已配置':'✗ 未配置 Key'}</span>`;}
 function clearAllPreds(){aiPreds={};savePreds();render();toast('AI 缓存已清除');}
 
-/* ======= COLOR ROW ======= */
+/* ===================== COLOR ROW ===================== */
 function buildCR(sel){return COLORS.map(c=>`<div class="cdot ${c.id===sel?'sel':''}" style="background:${c.hex};" onclick="pickC('${c.id}')"></div>`).join('');}
 function pickC(id){selColor=id;document.getElementById('colorRow').innerHTML=buildCR(id);}
 
-/* ======= ADD/EDIT ======= */
+/* ===================== MOVE TO PARENT ===================== */
+let moveId=null;
+function openMove(id){
+  const g=goals.find(x=>x.id===id);if(!g)return;
+  moveId=id;
+  document.getElementById('moveTargetName').textContent=g.name;
+
+  // candidates: all tasks that are NOT g itself, NOT a descendant of g, and NOT already a child of something else
+  // A valid parent must have parentId===null and id!==g.id
+  // Also g must not already be a parent of candidates (no circular)
+  const descendants=new Set();
+  function collectDesc(pid){goals.filter(c=>c.parentId===pid).forEach(c=>{descendants.add(c.id);collectDesc(c.id);});}
+  collectDesc(id);
+
+  const candidates=goals.filter(c=>
+    c.id!==id &&
+    c.parentId===null &&      // only top-level can be parents
+    !descendants.has(c.id)    // can't move into own descendant
+  );
+
+  const list=document.getElementById('moveList');
+  let html='';
+
+  // Option: detach (make independent)
+  if(g.parentId!==null){
+    html+=`<div class="move-opt detach" onclick="doMove(null)">
+      <div class="move-opt-dot" style="background:var(--border2);"></div>
+      <div><div class="move-opt-name">— 设为独立任务</div><div class="move-opt-sub">从当前大任务中移出</div></div>
+    </div>`;
+  }
+
+  if(!candidates.length&&g.parentId===null){
+    html+='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">暂无可用的大任务<br><span style="font-size:12px;">先创建一个大任务，或让其他任务保持独立</span></div>';
+  }
+
+  candidates.forEach(c=>{
+    const isCurrent=g.parentId===c.id;
+    const col=gc(c.color);
+    const children=goals.filter(x=>x.parentId===c.id);
+    html+=`<div class="move-opt${isCurrent?' current':''}" ${isCurrent?'':'onclick="doMove('+c.id+')"'}>
+      <div class="move-opt-dot" style="background:${col.hex};"></div>
+      <div style="flex:1;">
+        <div class="move-opt-name">${esc(c.name)}</div>
+        <div class="move-opt-sub">${children.length}个子任务 · ${getPct(c)}% 完成</div>
+      </div>
+      ${isCurrent?'<span class="move-opt-check">✓ 当前</span>':''}
+    </div>`;
+  });
+
+  list.innerHTML=html;
+  openM('moveModal');
+}
+function doMove(parentId){
+  const g=goals.find(x=>x.id===moveId);if(!g)return;
+  g.parentId=parentId;
+  save();render();closeM('moveModal');
+  toast(parentId?'已移入大任务 ✓':'已设为独立任务 ✓');
+}
+
+/* ===================== ADD / EDIT ===================== */
+function populateParentSelect(excludeId=null){
+  const sel=document.getElementById('iParent');
+  sel.innerHTML='<option value="">— 独立任务 —</option>';
+  goals.filter(g=>g.parentId===null&&g.id!==excludeId).forEach(g=>{
+    const opt=document.createElement('option');
+    opt.value=g.id;opt.textContent=g.name;
+    sel.appendChild(opt);
+  });
+}
 function openAdd(){
   editId=null;selColor='blue';
   document.getElementById('mTitle').textContent='新建目标';
   ['iName','iDesc','iDeadline','iUnit'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('iCat').value='学习';
-  document.getElementById('iPri').value='mid';
-  document.getElementById('iDone').value=0;
-  document.getElementById('iTotal').value=10;
+  document.getElementById('iCat').value='学习';document.getElementById('iPri').value='mid';
+  document.getElementById('iDone').value=0;document.getElementById('iTotal').value=10;
   document.getElementById('colorRow').innerHTML=buildCR('blue');
-  openM('goalModal');
-  setTimeout(()=>document.getElementById('iName').focus(),250);
+  populateParentSelect();
+  document.getElementById('iParent').value='';
+  openM('goalModal');setTimeout(()=>document.getElementById('iName').focus(),250);
+}
+function openAddChild(parentId){
+  openAdd();
+  document.getElementById('iParent').value=parentId;
+  const p=goals.find(g=>g.id===parentId);
+  if(p){selColor=p.color;document.getElementById('colorRow').innerHTML=buildCR(p.color);}
 }
 function openEdit(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   editId=id;selColor=g.color;
   document.getElementById('mTitle').textContent='编辑目标';
-  document.getElementById('iName').value=g.name;
-  document.getElementById('iDesc').value=g.desc||'';
-  document.getElementById('iCat').value=g.cat||'学习';
-  document.getElementById('iPri').value=g.priority||'mid';
-  document.getElementById('iDeadline').value=g.deadline||'';
-  document.getElementById('iUnit').value=g.unit||'';
-  document.getElementById('iDone').value=g.done||0;
-  document.getElementById('iTotal').value=g.total||10;
+  document.getElementById('iName').value=g.name;document.getElementById('iDesc').value=g.desc||'';
+  document.getElementById('iCat').value=g.cat||'学习';document.getElementById('iPri').value=g.priority||'mid';
+  document.getElementById('iDeadline').value=g.deadline||'';document.getElementById('iUnit').value=g.unit||'';
+  document.getElementById('iDone').value=g.done||0;document.getElementById('iTotal').value=g.total||10;
   document.getElementById('colorRow').innerHTML=buildCR(g.color);
+  populateParentSelect(id);
+  document.getElementById('iParent').value=g.parentId||'';
   openM('goalModal');
 }
 function saveGoal(){
   const name=document.getElementById('iName').value.trim();
   if(!name){document.getElementById('iName').focus();toast('请输入目标名称');return;}
-  const doneVal=Math.max(0,parseInt(document.getElementById('iDone').value)||0);
-  const totalVal=Math.max(1,parseInt(document.getElementById('iTotal').value)||1);
-  const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,unit:document.getElementById('iUnit').value.trim(),done:Math.min(doneVal,totalVal),total:totalVal,color:selColor};
+  const dv=Math.max(0,parseInt(document.getElementById('iDone').value)||0);
+  const tv=Math.max(1,parseInt(document.getElementById('iTotal').value)||1);
+  const parentIdRaw=document.getElementById('iParent').value;
+  const parentId=parentIdRaw?parseInt(parentIdRaw):null;
+  const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,
+    priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,
+    unit:document.getElementById('iUnit').value.trim(),done:Math.min(dv,tv),total:tv,color:selColor,parentId};
   if(editId){const g=goals.find(x=>x.id===editId);if(g)Object.assign(g,obj);}
   else goals.push({...obj,id:Date.now(),history:[],created:Date.now()});
-  save();render();closeM('goalModal');
-  toast(editId?'目标已更新 ✓':'目标已创建 🎯');
+  save();render();closeM('goalModal');toast(editId?'目标已更新 ✓':'目标已创建 🎯');
 }
 
-/* ======= PROGRESS MODAL ======= */
+/* ===================== PROGRESS MODAL ===================== */
 function openProg(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   quickId=id;
   document.getElementById('progMTitle').textContent='更新进度 — '+g.name;
-  document.getElementById('qDone').value=g.done||0;
-  document.getElementById('qTotal').value=g.total||10;
-  document.getElementById('qUnitLabel').textContent=g.unit||'';
-  document.getElementById('qNote').value='';
-  const pct=getPct(g);
-  document.getElementById('qPctDisplay').textContent=pct+'%';
-  document.getElementById('progPreview').innerHTML=segBar(pct,40,10);
-  openM('progModal');
+  document.getElementById('qDone').value=g.done||0;document.getElementById('qTotal').value=g.total||10;
+  document.getElementById('qUnitLabel').textContent=g.unit||'';document.getElementById('qNote').value='';
+  const p=getPct(g);document.getElementById('qPctDisplay').textContent=p+'%';
+  document.getElementById('progPreview').innerHTML=segBar(p,38,9);openM('progModal');
 }
 function onQDone(){
-  const d=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
-  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  const pct=Math.min(100,Math.round(d/t*100));
-  document.getElementById('qPctDisplay').textContent=pct+'%';
-  document.getElementById('progPreview').innerHTML=segBar(pct,40,10);
+  const d=Math.max(0,parseInt(document.getElementById('qDone').value)||0),t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  const p=Math.min(100,Math.round(d/t*100));
+  document.getElementById('qPctDisplay').textContent=p+'%';document.getElementById('progPreview').innerHTML=segBar(p,38,9);
 }
 function stepDone(delta){
-  const inp=document.getElementById('qDone');
-  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  inp.value=Math.max(0,Math.min(t,(parseInt(inp.value)||0)+delta));
-  onQDone();
+  const inp=document.getElementById('qDone'),t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  inp.value=Math.max(0,Math.min(t,(parseInt(inp.value)||0)+delta));onQDone();
 }
-function setDoneMax(){
-  document.getElementById('qDone').value=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  onQDone();
-}
+function setDoneMax(){document.getElementById('qDone').value=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);onQDone();}
 function saveQ(){
   if(quickId===null)return;
-  const doneVal=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
-  const totalVal=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  const dv=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
+  const tv=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
   const note=document.getElementById('qNote').value.trim();
   const g=goals.find(x=>x.id===quickId);
   if(g){
-    g.done=Math.min(doneVal,totalVal);g.total=totalVal;
+    g.done=Math.min(dv,tv);g.total=tv;
     if(!g.history)g.history=[];
     g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note});
-    if(prefs.autoInvalidate!==false){delete aiPreds[quickId];savePreds();}
+    // invalidate old pred
+    delete aiPreds[quickId];savePreds();
   }
   save();render();closeM('progModal');
-  const pct=getPct(g);
-  toast(pct===100?'🎉 目标完成！干得漂亮！':'进度已更新 → '+g.done+'/'+g.total+' ('+pct+'%)');
+  const p=getPct(g);
+  toast(p===100?'🎉 目标完成！干得漂亮！':'进度已更新 → '+g.done+'/'+g.total+' ('+p+'%)');
+  // auto predict in background
+  if(g&&isLeaf(g)) setTimeout(()=>autoPredictIfNeeded(quickId),300);
 }
 
-/* ======= DETAIL ======= */
+/* ===================== DETAIL ===================== */
 function openDetail(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
-  const c=gc(g.color);
-  const dl=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
+  const c=gc(g.color),dl=deadlineDays(g.deadline);
   document.getElementById('dTitle').textContent=g.name;
   document.getElementById('dEditBtn').onclick=()=>{closeM('detailModal');openEdit(id);};
   const hist=(g.history||[]).slice().reverse().slice(0,10);
   const histH=hist.length?hist.map(h=>{
-    const hd=h.done!==undefined?h.done:(h.v||0);
-    const ht=h.total||g.total;
-    const hPct=ht>0?Math.min(100,Math.round(hd/ht*100)):(h.v||0);
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
-      <span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:76px;">${h.date}</span>
-      <div style="flex:1;">${segBar(hPct,30,8)}</div>
-      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:50px;text-align:right;">${hd}/${ht}</span>
-      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
-    </div>`;
-  }).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0;">暂无更新记录</div>';
-  const pct=getPct(g);
-  const kv=[['完成情况',(g.done||0)+' / '+g.total+(g.unit?' '+g.unit:'')],['完成率',pct+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],['截止日期',g.deadline||(dl!==null?`${dl}天后`:'未设置')],['更新次数',(g.history||[]).length+'次']];
+    const hd=h.done!=null?h.done:(h.v||0),ht=h.total||g.total;
+    const hp=ht>0?Math.min(100,Math.round(hd/ht*100)):0;
+    return `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:74px;">${h.date}</span>
+      <div style="flex:1;">${segBar(hp,28,7)}</div>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:46px;text-align:right;">${hd}/${ht}</span>
+      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
+    </div>`;}).join(''):'<div style="color:var(--text3);font-size:13px;padding:9px 0;">暂无更新记录</div>';
+  const p=getPct(g),{done:dd,total:dt}=getDoneTotal(g);
+  const kv=[['完成情况',dd+' / '+dt+(g.unit?' '+g.unit:'')],['完成率',p+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],
+    ['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],
+    ['截止日期',g.deadline||(dl!=null?`${dl}天后`:'未设置')],['更新次数',(g.history||[]).length+'次']];
   const cached=aiPreds[id];
-  const aiSection=cached?`<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:8px;">AI 分析</div><div style="background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:8px;padding:12px;font-size:12px;line-height:1.6;">${renderMD(cached.text)}</div><div style="text-align:right;font-size:10px;color:var(--text3);margin-top:4px;">${new Date(cached.ts).toLocaleString('zh-CN')}</div></div>`:'';
+  const aiSec=cached?`<div style="margin-bottom:16px;"><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">AI 分析 ${cached.auto?'(自动)':''}</div><div style="background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:8px;padding:11px;font-size:12px;line-height:1.6;">${renderMD(cached.text)}</div><div style="text-align:right;font-size:10px;color:var(--text3);margin-top:3px;">${new Date(cached.ts).toLocaleString('zh-CN')}</div></div>`:'';
+  // children summary
+  const children=goals.filter(c=>c.parentId===id);
+  const chSec=children.length?`<div style="margin-bottom:16px;"><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">子任务 (${children.length})</div>${children.map(ch=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><span style="flex:1;font-size:13px;">${esc(ch.name)}</span><div style="width:100px;">${segBar(getPct(ch),20,6)}</div><span style="font-family:var(--mono);font-size:12px;color:${gc(ch.color).hex};min-width:40px;text-align:right;">${getPct(ch)}%</span></div>`).join('')}</div>`:'';
   document.getElementById('dBody').innerHTML=`
-    <div style="margin-bottom:14px;">${segBar(pct,60,14)}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
-      ${kv.map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:11px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${k}</div><div style="font-size:14px;font-weight:500;">${v}</div></div>`).join('')}
-    </div>
-    ${aiSection}
-    <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:8px;">更新历史</div>
-    ${histH}`;
+    <div style="margin-bottom:12px;">${segBar(p,55,12)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px;">
+      ${kv.map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">${k}</div><div style="font-size:13px;font-weight:500;color:var(--text);">${v}</div></div>`).join('')}
+    </div>${chSec}${aiSec}
+    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">更新历史</div>${histH}`;
   openM('detailModal');
 }
 
-/* ======= DELETE ======= */
+/* ===================== DELETE ===================== */
 function delGoal(id){
-  if(!confirm('确定删除此目标？'))return;
-  goals=goals.filter(x=>x.id!==id);
-  delete aiPreds[id];savePreds();
-  save();render();toast('目标已删除');
+  if(!confirm('确定删除此目标？（子任务也会一并删除）'))return;
+  const idsToDelete=[id,...goals.filter(g=>g.parentId===id).map(g=>g.id)];
+  goals=goals.filter(g=>!idsToDelete.includes(g.id));
+  idsToDelete.forEach(i=>{delete aiPreds[i];});
+  savePreds();save();render();toast('目标已删除');
 }
 
-/* ======= EXPORT / IMPORT ======= */
+/* ===================== EXPORT / IMPORT ===================== */
 function exportData(){
   const blob=new Blob([JSON.stringify({goals,aiPreds},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goals-export.json';a.click();
-  toast('已导出 JSON ↓');
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goals-export.json';a.click();toast('已导出 JSON ↓');
 }
 function importData(){document.getElementById('importFile').click();}
 function doImport(e){
@@ -1156,31 +1302,25 @@ function doImport(e){
       else throw new Error('格式不正确');
       save();savePreds();render();toast('导入成功 ✓');
     }catch(err){toast('导入失败: '+err.message);}
-  };
-  r.readAsText(file);e.target.value='';
+  };r.readAsText(file);e.target.value='';
 }
 
-/* ======= MODAL UTILS ======= */
+/* ===================== MODAL UTILS ===================== */
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));});
 
-/* ======= TOAST ======= */
+/* ===================== TOAST ===================== */
 let tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2600);}
 
-/* ======= COUNTDOWN ======= */
+/* ===================== COUNTDOWN ===================== */
 const CD_FORMATS=[
-  {id:'d',label:'天',desc:'只显示天数'},
-  {id:'h',label:'时',desc:'只显示小时'},
-  {id:'m',label:'分',desc:'只显示分钟'},
-  {id:'dh',label:'天时',desc:'天 + 小时'},
-  {id:'dhm',label:'天时分',desc:'天 + 小时 + 分钟'},
-  {id:'dhms',label:'天时分秒',desc:'实时秒级'},
-  {id:'Wd',label:'周天',desc:'周 + 天'},
-  {id:'Mwd',label:'月周天',desc:'月 + 周 + 天'},
-  {id:'Md',label:'月天',desc:'月 + 天'},
+  {id:'d',label:'天',desc:'只显示天数'},{id:'h',label:'时',desc:'只显示小时'},{id:'m',label:'分',desc:'分钟'},
+  {id:'dh',label:'天时',desc:'天+小时'},{id:'dhm',label:'天时分',desc:'天+小时+分'},
+  {id:'dhms',label:'天时分秒',desc:'实时秒级'},{id:'Wd',label:'周天',desc:'周+天'},
+  {id:'Mwd',label:'月周天',desc:'月+周+天'},{id:'Md',label:'月天',desc:'月+天'},
 ];
 let countdowns=JSON.parse(localStorage.getItem('cd_v2')||'null')||[
   {id:1,label:'期末考试',emoji:'📝',target:'2026-06-20',format:'dhm',color:'#4d9ef7'},
@@ -1188,120 +1328,91 @@ let countdowns=JSON.parse(localStorage.getItem('cd_v2')||'null')||[
 ];
 let cdDraft=[],cdTimer=null;
 function saveCdData(){localStorage.setItem('cd_v2',JSON.stringify(countdowns));}
-
 function calcCountdown(targetDate,fmt){
   const now=new Date(),target=new Date(targetDate+'T00:00:00');
+  target.setDate(target.getDate()+1); // end of that day
   const diff=target-now,past=diff<0,abs=Math.abs(diff);
-  const totalSec=Math.floor(abs/1000),totalMin=Math.floor(totalSec/60);
-  const totalH=Math.floor(totalMin/60),totalD=Math.floor(totalH/24);
+  const totalSec=Math.floor(abs/1000),totalMin=Math.floor(totalSec/60),totalH=Math.floor(totalMin/60),totalD=Math.floor(totalH/24);
   const totalW=Math.floor(totalD/7),totalM=Math.floor(totalD/30.436875);
-  const s=totalSec%60,m=totalMin%60,h=totalH%24;
-  const wd=totalD-(totalW*7),dInM=totalD-Math.floor(totalM*30.436875);
+  const s=totalSec%60,m=totalMin%60,h=totalH%24,wd=totalD-(totalW*7),dInM=totalD-Math.floor(totalM*30.436875);
   let parts=[];
-  if(fmt==='d') parts=[{v:totalD,u:'天'}];
-  else if(fmt==='h') parts=[{v:totalH,u:'时'}];
-  else if(fmt==='m') parts=[{v:totalMin,u:'分'}];
-  else if(fmt==='dh') parts=[{v:totalD,u:'天'},{v:h,u:'时'}];
-  else if(fmt==='dhm') parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'}];
-  else if(fmt==='dhms') parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'},{v:s,u:'秒'}];
-  else if(fmt==='Wd') parts=[{v:totalW,u:'周'},{v:wd,u:'天'}];
-  else if(fmt==='Mwd') parts=[{v:totalM,u:'月'},{v:Math.floor(dInM/7),u:'周'},{v:dInM%7,u:'天'}];
-  else if(fmt==='Md') parts=[{v:totalM,u:'月'},{v:dInM,u:'天'}];
-  return {parts,past,totalD};
+  if(fmt==='d')parts=[{v:totalD,u:'天'}];else if(fmt==='h')parts=[{v:totalH,u:'时'}];else if(fmt==='m')parts=[{v:totalMin,u:'分'}];
+  else if(fmt==='dh')parts=[{v:totalD,u:'天'},{v:h,u:'时'}];else if(fmt==='dhm')parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'}];
+  else if(fmt==='dhms')parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'},{v:s,u:'秒'}];
+  else if(fmt==='Wd')parts=[{v:totalW,u:'周'},{v:wd,u:'天'}];
+  else if(fmt==='Mwd')parts=[{v:totalM,u:'月'},{v:Math.floor(dInM/7),u:'周'},{v:dInM%7,u:'天'}];
+  else if(fmt==='Md')parts=[{v:totalM,u:'月'},{v:dInM,u:'天'}];
+  return{parts,past,totalD};
 }
-
 function renderCdBanner(){
-  const strip=document.getElementById('cdStrip');
-  const banner=document.getElementById('cdBanner');
+  const strip=document.getElementById('cdStrip'),banner=document.getElementById('cdBanner');
   if(!countdowns.length){banner.classList.remove('visible');return;}
   banner.classList.add('visible');
-  strip.innerHTML=countdowns.map(function(cd){
-    const res=calcCountdown(cd.target,cd.format);
-    const parts=res.parts,past=res.past,totalD=res.totalD;
+  strip.innerHTML=countdowns.map(cd=>{
+    const res=calcCountdown(cd.target,cd.format),parts=res.parts,past=res.past,totalD=res.totalD;
     const numColor=cd.color||(totalD<=3?'#ff5c5c':totalD<=14?'#f5a623':'#4d9ef7');
     const urgClass=past?'cd-past':totalD<=3?'cd-urgent':totalD<=14?'cd-warn':'cd-ok';
     let numsHtml='';
-    for(let i=0;i<parts.length;i++){
-      numsHtml+='<div class="cd-unit-group"><span class="cd-num" style="color:'+numColor+';">'+String(parts[i].v).padStart(2,'0')+'</span><span class="cd-unit">'+parts[i].u+'</span></div>';
-      if(i<parts.length-1) numsHtml+='<span class="cd-sep">·</span>';
-    }
-    const pastLabel=past?'<span style="font-size:10px;color:var(--text3);margin-left:4px;">已过</span>':'';
-    return '<div class="cd-item '+urgClass+'" id="cdi'+cd.id+'"><div class="cd-item-left"><span class="cd-emoji">'+(cd.emoji||'⏱')+'</span><span class="cd-label">'+esc(cd.label)+pastLabel+'</span></div><div class="cd-numbers">'+numsHtml+'</div><div class="cd-actions-ico"><button class="btn btn-ico" onclick="openCdSettings()" title="管理">✎</button><button class="btn btn-ico del" onclick="deleteCd('+cd.id+')" title="删除">✕</button></div></div>';
+    parts.forEach((p,i)=>{
+      numsHtml+=`<div class="cd-unit-group"><span class="cd-num" style="color:${numColor};">${String(p.v).padStart(2,'0')}</span><span class="cd-unit">${p.u}</span></div>`;
+      if(i<parts.length-1)numsHtml+='<span class="cd-sep">·</span>';
+    });
+    const pastLabel=past?'<span style="font-size:10px;color:var(--text3);margin-left:3px;">已过</span>':'';
+    return `<div class="cd-item ${urgClass}"><div class="cd-item-left"><span class="cd-emoji">${cd.emoji||'⏱'}</span><span class="cd-label">${esc(cd.label)}${pastLabel}</span></div><div class="cd-numbers">${numsHtml}</div><div class="cd-actions-ico"><button class="btn btn-ico" onclick="openCdSettings()">✎</button><button class="btn btn-ico del" onclick="deleteCd(${cd.id})">✕</button></div></div>`;
   }).join('');
 }
-
 function startCdTimer(){
-  if(cdTimer)clearInterval(cdTimer);
-  renderCdBanner();
-  const hasSeconds=countdowns.some(function(c){return c.format==='dhms';});
-  cdTimer=setInterval(renderCdBanner,hasSeconds?1000:30000);
+  if(cdTimer)clearInterval(cdTimer);renderCdBanner();
+  cdTimer=setInterval(renderCdBanner,countdowns.some(c=>c.format==='dhms')?1000:30000);
 }
-
-function deleteCd(id){
-  countdowns=countdowns.filter(function(c){return c.id!==id;});
-  saveCdData();startCdTimer();toast('倒计时已删除');
-}
-
-function openCdSettings(){
-  cdDraft=JSON.parse(JSON.stringify(countdowns));
-  renderCdList();openM('cdModal');
-}
-
+function deleteCd(id){countdowns=countdowns.filter(c=>c.id!==id);saveCdData();startCdTimer();toast('倒计时已删除');}
+function openCdSettings(){cdDraft=JSON.parse(JSON.stringify(countdowns));renderCdList();openM('cdModal');}
 function renderCdList(){
   const el=document.getElementById('cdList');
-  if(!cdDraft.length){
-    el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px;">还没有倒计时，点击下方按钮添加 👇</div>';
-    return;
-  }
+  if(!cdDraft.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px;">还没有倒计时，点击下方按钮添加 👇</div>';return;}
   const colorOpts=['#4d9ef7','#34c76a','#f5a623','#ff5c5c','#b57bee','#2dd4bf','#f472b6','#fb923c'];
-  let html='';
-  for(let i=0;i<cdDraft.length;i++){
-    const cd=cdDraft[i];
-    let fmtOptions='';
-    for(let fi=0;fi<CD_FORMATS.length;fi++){
-      const f=CD_FORMATS[fi];
-      fmtOptions+='<option value="'+f.id+'"'+(cd.format===f.id?' selected':'')+'>'+(f.label)+' — '+f.desc+'</option>';
-    }
-    let colorDots='';
-    for(let ci=0;ci<colorOpts.length;ci++){
-      const hex=colorOpts[ci];
-      colorDots+='<div data-i="'+i+'" onclick="cdDraft['+i+'].color=\''+hex+'\';renderCdList()" style="width:22px;height:22px;border-radius:50%;background:'+hex+';cursor:pointer;border:2.5px solid '+(cd.color===hex?'#fff':'transparent')+';transition:border-color .1s;flex-shrink:0;"></div>';
-    }
-    html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">'
-      +'<div style="display:grid;grid-template-columns:50px 1fr 1fr;gap:10px;align-items:end;margin-bottom:10px;">'
-      +'<div class="fg"><label class="flbl">图标</label><input class="fi" value="'+esc(cd.emoji||'⏱')+'" maxlength="2" style="text-align:center;font-size:18px;padding:6px;" oninput="cdDraft['+i+'].emoji=this.value"></div>'
-      +'<div class="fg"><label class="flbl">名称 *</label><input class="fi" value="'+esc(cd.label)+'" maxlength="20" placeholder="倒计时名称…" oninput="cdDraft['+i+'].label=this.value"></div>'
-      +'<div class="fg"><label class="flbl">目标日期 *</label><input class="fi" type="date" value="'+cd.target+'" onchange="cdDraft['+i+'].target=this.value"></div>'
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 36px;gap:10px;align-items:end;">'
-      +'<div class="fg"><label class="flbl">显示格式</label><select class="fi" onchange="cdDraft['+i+'].format=this.value">'+fmtOptions+'</select></div>'
-      +'<div class="fg"><label class="flbl">数字颜色</label><div style="display:flex;gap:7px;flex-wrap:wrap;padding-top:8px;">'+colorDots+'</div></div>'
-      +'<div class="fg" style="align-self:end;"><button class="btn btn-ico del" style="width:36px;height:36px;" onclick="cdDraft.splice('+i+',1);renderCdList()" title="删除">✕</button></div>'
-      +'</div></div>';
-  }
-  el.innerHTML=html;
+  el.innerHTML=cdDraft.map((cd,i)=>{
+    const fmtOpts=CD_FORMATS.map(f=>`<option value="${f.id}"${cd.format===f.id?' selected':''}>${f.label} — ${f.desc}</option>`).join('');
+    const colorDots=colorOpts.map(hex=>`<div onclick="cdDraft[${i}].color='${hex}';renderCdList()" style="width:20px;height:20px;border-radius:50%;background:${hex};cursor:pointer;border:2.5px solid ${cd.color===hex?'#fff':'transparent'};flex-shrink:0;"></div>`).join('');
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:13px 15px;">
+      <div style="display:grid;grid-template-columns:48px 1fr 1fr;gap:9px;align-items:end;margin-bottom:9px;">
+        <div class="fg"><label class="flbl">图标</label><input class="fi" value="${esc(cd.emoji||'⏱')}" maxlength="2" style="text-align:center;font-size:17px;padding:5px;" oninput="cdDraft[${i}].emoji=this.value"></div>
+        <div class="fg"><label class="flbl">名称</label><input class="fi" value="${esc(cd.label)}" maxlength="20" oninput="cdDraft[${i}].label=this.value"></div>
+        <div class="fg"><label class="flbl">目标日期</label><input class="fi" type="date" value="${cd.target}" onchange="cdDraft[${i}].target=this.value"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 34px;gap:9px;align-items:end;">
+        <div class="fg"><label class="flbl">格式</label><select class="fi" onchange="cdDraft[${i}].format=this.value">${fmtOpts}</select></div>
+        <div class="fg"><label class="flbl">颜色</label><div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:7px;">${colorDots}</div></div>
+        <div class="fg" style="align-self:end;"><button class="btn btn-ico del" style="width:34px;height:34px;" onclick="cdDraft.splice(${i},1);renderCdList()">✕</button></div>
+      </div>
+    </div>`;
+  }).join('');
 }
-
 function addCdItem(){
-  const d=new Date(Date.now()+864e5*30).toISOString().slice(0,10);
-  cdDraft.push({id:Date.now(),label:'新倒计时',emoji:'⏱',target:d,format:'dhm',color:'#4d9ef7'});
-  renderCdList();
-  setTimeout(function(){document.getElementById('cdList').lastElementChild.scrollIntoView({behavior:'smooth'});},80);
+  cdDraft.push({id:Date.now(),label:'新倒计时',emoji:'⏱',target:new Date(Date.now()+864e5*30).toISOString().slice(0,10),format:'dhm',color:'#4d9ef7'});
+  renderCdList();setTimeout(()=>document.getElementById('cdList').lastElementChild?.scrollIntoView({behavior:'smooth'}),80);
 }
+function saveCd(){countdowns=JSON.parse(JSON.stringify(cdDraft));saveCdData();startCdTimer();closeM('cdModal');toast('倒计时已保存 ✓');}
 
-function saveCd(){
-  countdowns=JSON.parse(JSON.stringify(cdDraft));
-  saveCdData();startCdTimer();closeM('cdModal');
-  toast('倒计时已保存 ✓');
-}
-
-/* ======= INIT ======= */
+/* ===================== INIT ===================== */
 initGreeting();
+
+// restore filter/sort UI
+document.querySelectorAll('.tab').forEach(t=>{
+  const f=t.getAttribute('onclick')||'';
+  if(f.includes(`'${filter}'`)){t.classList.add('on');}else{t.classList.remove('on');}
+});
+document.getElementById('sortSel').value=sort;
+document.getElementById('toggleAutoPred').checked=prefs.autoPred;
 document.getElementById('toggleShowPred').checked=prefs.showPred;
-document.getElementById('toggleAutoInvalidate').checked=prefs.autoInvalidate!==false;
-updateAIStatus();
-render();
-startCdTimer();
+
+updateAIStatus();render();startCdTimer();
+
+// on load: auto predict all leaf tasks that have no pred and are in progress
+if(prefs.autoPred&&getKey()){
+  const toPredict=goals.filter(g=>isLeaf(g)&&!aiPreds[g.id]&&getPct(g)>0&&getPct(g)<100);
+  (async()=>{for(const g of toPredict){await autoPredictIfNeeded(g.id);}})();
+}
 </script>
 </body>
 </html>
