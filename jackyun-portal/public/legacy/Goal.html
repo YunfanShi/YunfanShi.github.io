@@ -804,7 +804,35 @@ function predChipHTML(g){
 }
 
 /* ===================== BUILD AI CONTEXT ===================== */
-function today(){ return new Date().toISOString().slice(0,10); }
+function today(){
+  // Returns YYYY-MM-DD — used for data storage
+  return new Date().toISOString().slice(0,10);
+}
+
+function recordDeadlineChange(g, oldDl, newDl, source){
+  // source: 'manual' | 'ai' | 'init'
+  if(oldDl===newDl) return; // no change, skip
+  if(!g.deadlineHistory) g.deadlineHistory=[];
+  g.deadlineHistory.push({
+    date: today(),
+    time: new Date().toTimeString().slice(0,5),
+    from: oldDl||'未设置',
+    to:   newDl||'未设置',
+    source: source||'manual'
+  });
+}
+
+// Full datetime for AI — so it knows how much of today is left
+function nowStr(){
+  const d=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const weekdays=['周日','周一','周二','周三','周四','周五','周六'];
+  const h=d.getHours();
+  const timeOfDay=h<6?'深夜':h<12?'上午':h<14?'中午':h<18?'下午':h<22?'傍晚':'晚上';
+  const remainHours=23-h;
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${weekdays[d.getDay()]} ${timeOfDay} ${pad(h)}:${pad(d.getMinutes())}（本地时间，今天剩余约${remainHours}小时）`;
+}
+
 
 function buildGoalContext(g, includeSiblings=true){
   const pct=getPct(g);
@@ -817,11 +845,16 @@ function buildGoalContext(g, includeSiblings=true){
     const fd=f.done!=null?f.done:(f.v||0),ld=l.done!=null?l.done:(l.v||0);
     velocity=`每天约 ${((ld-fd)/days).toFixed(2)} ${g.unit||'单位'}`;
   }
+  const dlHist=g.deadlineHistory||[];
+  const dlHistStr=dlHist.length
+    ?dlHist.map(h=>`${h.date} ${h.time||''} ${h.from}→${h.to}(${h.source==='ai'?'AI改':'手动改'})`).join(', ')
+    :'无';
   let ctx=`【${g.name}】
 描述: ${g.desc||'无'}
 分类: ${g.cat}  优先级: ${g.priority==='high'?'高':g.priority==='mid'?'中':'低'}
 完成: ${g.done||0} / ${g.total} ${g.unit||'单位'} (${pct}%)
 截止: ${g.deadline||'未设置'}${dlDays!=null?`（距今${dlDays}天）`:''}
+截止日期变更历史(${dlHist.length}次): ${dlHistStr}
 历史(${hist.length}次): ${hist.slice(-5).map(h=>`${h.date}:${h.done!=null?h.done:(h.v||0)}/${h.total||g.total}`).join(', ')||'无'}
 当前速率: ${velocity}`;
 
@@ -880,11 +913,11 @@ function buildGoalContext(g, includeSiblings=true){
 function buildParentContext(g){
   const children=goals.filter(c=>c.parentId===g.id);
   const pct=getPct(g);
-  const t=today();
+  const t=nowStr();
 
   // ── 1. Per-child current status ────────────────────────────────
   let ctx=`大任务：${g.name}
-今天：${t}
+现在：${t}
 整体进度：${pct}%
 截止：${g.deadline||'未设置'}
 
@@ -902,9 +935,13 @@ function buildParentContext(g){
       const fd=f.done!=null?f.done:0,ld=l.done!=null?l.done:0;
       vel=`平均每天推进约 ${((ld-fd)/calDays).toFixed(2)} ${c.unit||'单位'}`;
     }
+    const cDlHist=c.deadlineHistory||[];
+    const cDlHistStr=cDlHist.length
+      ?` [截止改过${cDlHist.length}次: ${cDlHist.slice(-3).map(h=>`${h.from}→${h.to}`).join(', ')}]`
+      :'';
     ctx+=`
 - ${c.name}：${c.done||0}/${c.total} ${c.unit||''} (${cp}%)
-  截止：${c.deadline||'未设置'}${dlDays!=null?` (距今${dlDays}天)`:''}
+  截止：${c.deadline||'未设置'}${dlDays!=null?` (距今${dlDays}天)`:''}${cDlHistStr}
   速率：${vel}`;
     const cc=aiPreds[c.id];
     if(cc&&cc.text){
@@ -948,10 +985,10 @@ ${d}：${dailyMap[d].join('，')}`;
 }
 
 function buildAllContext(){
-  const t=today();
+  const t=nowStr();
   const roots=goals.filter(g=>g.parentId===null);
 
-  let out=`今天：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
+  let out=`现在：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
 
   out+=roots.map(r=>{
     const children=goals.filter(c=>c.parentId===r.id);
@@ -1046,13 +1083,13 @@ async function autoPredictIfNeeded(id){
   const p=getPct(g);
   if(p===0||p===100) return;
   const isParentTask=!isLeaf(g);
-  const t=today();
+  const t=nowStr();
   try{
     let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是目标管理AI。今天是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。重要：子任务是并行推进的；当某些子任务接近完成时，用户会把更多精力集中到剩余任务上，速度会加快，请考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
-      :`你是目标管理AI。今天是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。重要：当其他兄弟任务接近完成或已完成时，用户会把更多精力集中到本任务上，请考虑这一加速效应而不是只用历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
+      ?`你是目标管理AI。现在是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。重要：子任务是并行推进的；当某些子任务接近完成时，用户会把更多精力集中到剩余任务上，速度会加快，请考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是目标管理AI。现在是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。重要：当其他兄弟任务接近完成或已完成时，用户会把更多精力集中到本任务上，请考虑这一加速效应而不是只用历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间：\n\n${ctx}`}
@@ -1102,13 +1139,13 @@ async function runPred(id){
   const chip=document.getElementById('pred-'+id);
   if(chip){chip.classList.add('loading');chip.innerHTML='<span class="ai-ico">↻</span> 分析中…';}
   const isParentTask=!isLeaf(g);
-  const t=today();
+  const t=nowStr();
   try{
     const t0=Date.now();let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是专业目标管理AI。今天是${t}。中文，自由发挥，不要有字数限制。综合所有子任务进度和已有分析，预测整体完成时间。重要：子任务并行推进；当部分子任务接近完成时，剩余子任务会获得更多精力投入，速度会显著加快，请在预测中充分考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
-      :`你是专业目标管理AI。今天是${t}。中文，自由发挥，不要有字数限制。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾。重要：当其他兄弟任务已完成或接近完成时，用户会把全部精力集中到本任务上，速度会显著提升，预测时请考虑这一集中精力加速效应，而不是简单外推历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
+      ?`你是专业目标管理AI。现在是${t}。中文，自由发挥，不要有字数限制。综合所有子任务进度和已有分析，预测整体完成时间。重要：子任务并行推进；当部分子任务接近完成时，剩余子任务会获得更多精力投入，速度会显著加快，请在预测中充分考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是专业目标管理AI。现在是${t}。中文，自由发挥，不要有字数限制。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾。重要：当其他兄弟任务已完成或接近完成时，用户会把全部精力集中到本任务上，速度会显著提升，预测时请考虑这一集中精力加速效应，而不是简单外推历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间并给建议：\n\n${ctx}`}
@@ -1212,6 +1249,7 @@ function renderGoalCard(g, isChild=false){
           ${g.desc?`<span class="gdesc">${esc(g.desc)}</span>`:''}
           <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[g.cat]||'✦'} ${g.cat}</span>
           ${g.deadline?`<span class="gdeadline">${g.deadline.slice(5).replace('-','/')}</span>`:''}
+          ${(g.deadlineHistory&&g.deadlineHistory.length>0)?`<span title="截止日期已修改${g.deadlineHistory.length}次" style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(245,166,35,0.12);color:#f5a623;border:1px solid rgba(245,166,35,0.2);cursor:default;">📅×${g.deadlineHistory.length}</span>`:''}
         </div>
         ${isLeaf(g)?predChipHTML(g):''}
       </div>
@@ -1282,6 +1320,7 @@ function render(){
                 ${r.desc?`<span class="gdesc">${esc(r.desc)}</span>`:''}
                 <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[r.cat]||'✦'} ${r.cat}</span>
                 ${r.deadline?`<span class="gdeadline">${r.deadline.slice(5).replace('-','/')}</span>`:''}
+                ${(r.deadlineHistory&&r.deadlineHistory.length>0)?`<span title="截止日期已修改${r.deadlineHistory.length}次" style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(245,166,35,0.12);color:#f5a623;border:1px solid rgba(245,166,35,0.2);cursor:default;">📅×${r.deadlineHistory.length}</span>`:''}
               </div>
               ${isDone?'':predChipHTML(r)}
             </div>
@@ -1371,12 +1410,12 @@ function openAIHub(){
 async function aiFeature(type){
   if(!getKey()){toast('请先配置 API Key');openSettings();return;}
   const allCtx=buildAllContext();
-  const t=today();
+  const t=nowStr();
   const prompts={
-    overview:`今天是${t}。\n\n${allCtx}\n\n自由分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标、风险点。`,
-    priority:`今天是${t}。\n\n${allCtx}\n\n今天应该重点关注哪个目标？综合考虑截止日期、当前进度和并行情况，给出详细排序和理由。`,
-    plan:`今天是${t}。\n\n${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务并行关系，给出每天建议量和优先级。`,
-    risk:`今天是${t}。\n\n${allCtx}\n\n深入识别所有有截止日期风险的目标（特别注意子任务），分析根本原因，给出具体补救措施。`
+    overview:`现在是${t}。\n\n${allCtx}\n\n自由分析整体完成情况：总体趋势、最接近完成的目标、需要加速的目标、风险点。`,
+    priority:`现在是${t}。\n\n${allCtx}\n\n今天应该重点关注哪个目标？综合考虑截止日期、当前进度和并行情况，给出详细排序和理由。`,
+    plan:`现在是${t}。\n\n${allCtx}\n\n为本周（7天）制定每个目标的具体行动计划，注意父子任务并行关系，给出每天建议量和优先级。`,
+    risk:`现在是${t}。\n\n${allCtx}\n\n深入识别所有有截止日期风险的目标（特别注意子任务），分析根本原因，给出具体补救措施。`
   };
   const resp=document.getElementById('aiHubResponse');
   resp.style.display='block';resp.className='ai-response loading-state';
@@ -1400,6 +1439,7 @@ const AI_TOOLS={
       const g=goals.find(x=>x.id===op.id);
       if(!g) return {ok:false,msg:'目标不存在: '+op.id};
       const old=g.deadline||'未设置';
+      recordDeadlineChange(g, g.deadline, op.value, 'ai');
       g.deadline=op.value;
       return {ok:true,msg:`${g.name}：截止日期 ${old} → ${op.value}`};
     },
@@ -1595,6 +1635,7 @@ const AI_TOOLS={
         deadline:op.deadline||'',
         unit:op.unit||'',
         history:[],
+        deadlineHistory: op.deadline?[{date:today(),time:new Date().toTimeString().slice(0,5),from:'未设置',to:op.deadline,source:'ai'}]:[],
         created:Date.now()
       };
       goals.push(newG);
@@ -1614,7 +1655,7 @@ function buildGoalIndex(){
   return goals.map(g=>`id:${g.id} | ${g.name}${g.parentId?' [子任务of:'+g.parentId+']':''} | ${getPct(g)}% | 截止:${g.deadline||'无'}`).join('\n');
 }
 
-const AGENT_SYSTEM=()=>`你是一个目标管理AI助手，今天是${today()}。你可以读取用户的所有目标数据，也可以执行数据修改操作。
+const AGENT_SYSTEM=()=>`你是一个目标管理AI助手，现在是${nowStr()}。你可以读取用户的所有目标数据，也可以执行数据修改操作。
 
 ## 目标数据（完整）
 ${buildAllContext()}
@@ -1803,7 +1844,7 @@ function applyApproved(){
   const failed=results.filter(r=>!r.ok);
 
   if(applied.length){
-    save();savePreds();render();
+    fullRefresh();
   }
 
   closeM('approvalModal');
@@ -1817,6 +1858,16 @@ function applyApproved(){
   }
 
   pendingOps=[];
+}
+
+// Full refresh: saves everything, re-renders all UI, restarts all timers
+function fullRefresh(){
+  save();
+  savePreds();
+  render();           // rebuilds goal cards + restarts _cdTicker
+  startCdTimer();     // restarts the top countdown banner
+  renderStats();      // refreshes stats pills
+  updateAIStatus();   // refreshes AI status bar
 }
 
 /* ===================== SETTINGS ===================== */
@@ -2040,9 +2091,19 @@ function saveGoal(){
   const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,
     priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,
     unit:document.getElementById('iUnit').value.trim(),done:Math.min(dv,tv),total:tv,color:selColor,parentId};
-  if(editId){const g=goals.find(x=>x.id===editId);if(g)Object.assign(g,obj);}
-  else goals.push({...obj,id:Date.now(),history:[],created:Date.now()});
-  save();render();closeM('goalModal');toast(editId?'目标已更新 ✓':'目标已创建 🎯');
+  if(editId){
+    const g=goals.find(x=>x.id===editId);
+    if(g){
+      recordDeadlineChange(g, g.deadline, obj.deadline, 'manual');
+      Object.assign(g,obj);
+    }
+  } else {
+    const newG={...obj,id:Date.now(),history:[],deadlineHistory:[],created:Date.now()};
+    // record initial deadline if set
+    if(obj.deadline) newG.deadlineHistory=[{date:today(),time:new Date().toTimeString().slice(0,5),from:'未设置',to:obj.deadline,source:'init'}];
+    goals.push(newG);
+  }
+  fullRefresh();closeM('goalModal');toast(editId?'目标已更新 ✓':'目标已创建 🎯');
 }
 
 /* ===================== PROGRESS MODAL ===================== */
@@ -2078,7 +2139,7 @@ function saveQ(){
     // invalidate old pred
     delete aiPreds[quickId];savePreds();
   }
-  save();render();closeM('progModal');
+  fullRefresh();closeM('progModal');
   const p=getPct(g);
   toast(p===100?'🎉 目标完成！干得漂亮！':'进度已更新 → '+g.done+'/'+g.total+' ('+p+'%)');
   // auto predict this task + parent if exists
@@ -2097,6 +2158,25 @@ function openDetail(id){
   document.getElementById('dTitle').textContent=g.name;
   document.getElementById('dEditBtn').onclick=()=>{closeM('detailModal');openEdit(id);};
   const hist=(g.history||[]).slice().reverse().slice(0,10);
+
+  // Deadline history
+  const dlHist=(g.deadlineHistory||[]).slice().reverse();
+  const sourceLabel={manual:'手动修改',ai:'AI修改',init:'初始设置'};
+  const sourceColor={manual:'#f5a623',ai:'var(--ai)',init:'var(--text3)'};
+  const dlHistH=dlHist.length?`
+    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-top:14px;margin-bottom:7px;">
+      📅 截止日期变更记录
+      <span style="font-size:9px;font-weight:400;color:var(--text3);margin-left:4px;">(共${dlHist.length}次)</span>
+    </div>
+    ${dlHist.map(h=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:74px;">${h.date} ${h.time||''}</span>
+      <span style="font-size:11px;color:#ff5c5c;font-family:var(--mono);text-decoration:line-through;">${h.from}</span>
+      <span style="font-size:11px;color:var(--text3);">→</span>
+      <span style="font-size:11px;color:#34c76a;font-family:var(--mono);font-weight:600;">${h.to}</span>
+      <span style="margin-left:auto;font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(255,255,255,0.05);color:${sourceColor[h.source]||'var(--text3)'};">${sourceLabel[h.source]||h.source}</span>
+    </div>`).join('')}
+  `:'';
+
   const histH=hist.length?hist.map(h=>{
     const hd=h.done!=null?h.done:(h.v||0),ht=h.total||g.total;
     const hp=ht>0?Math.min(100,Math.round(hd/ht*100)):0;
@@ -2120,7 +2200,8 @@ function openDetail(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px;">
       ${kv.map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">${k}</div><div style="font-size:13px;font-weight:500;color:var(--text);">${v}</div></div>`).join('')}
     </div>${chSec}${aiSec}
-    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">更新历史</div>${histH}`;
+    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">更新历史</div>${histH}
+    ${dlHistH}`;
   openM('detailModal');
 }
 
@@ -2130,7 +2211,7 @@ function delGoal(id){
   const idsToDelete=[id,...goals.filter(g=>g.parentId===id).map(g=>g.id)];
   goals=goals.filter(g=>!idsToDelete.includes(g.id));
   idsToDelete.forEach(i=>{delete aiPreds[i];});
-  savePreds();save();render();toast('目标已删除');
+  savePreds();fullRefresh();toast('目标已删除');
 }
 
 /* ===================== EXPORT / IMPORT ===================== */
@@ -2148,7 +2229,7 @@ function doImport(e){
       if(d.goals&&Array.isArray(d.goals)){goals=d.goals;if(d.aiPreds)aiPreds=d.aiPreds;}
       else if(Array.isArray(d)){goals=d;}
       else throw new Error('格式不正确');
-      save();savePreds();render();toast('导入成功 ✓');
+      save();savePreds();fullRefresh();toast('导入成功 ✓');
     }catch(err){toast('导入失败: '+err.message);}
   };r.readAsText(file);e.target.value='';
 }
