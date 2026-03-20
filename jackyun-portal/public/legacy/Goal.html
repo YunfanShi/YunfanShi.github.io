@@ -570,12 +570,18 @@ option{background:#1a1a1a;}
       </div>
       <div class="settings-section">
         <div class="settings-title">数据</div>
-        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;">
           <button class="btn btn-ghost" onclick="exportData()" style="font-size:12px;">↑ 导出 JSON</button>
-          <button class="btn btn-ghost" onclick="importData()" style="font-size:12px;">↓ 导入 JSON</button>
+          <button class="btn btn-ghost" onclick="importData()" style="font-size:12px;">↓ 导入 JSON 文件</button>
           <button class="btn btn-ghost" onclick="clearAllPreds()" style="font-size:12px;color:var(--text3);">清除 AI 缓存</button>
         </div>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="doImport(event)">
+        <!-- Legacy recovery -->
+        <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:8px;">从旧版本恢复数据</div>
+          <div id="legacyStatus" style="font-size:12px;color:var(--text2);margin-bottom:8px;"></div>
+          <div id="legacyBtns" style="display:flex;gap:7px;flex-wrap:wrap;"></div>
+        </div>
       </div>
     </div>
     <div class="mfoot"><button class="btn btn-pri" onclick="closeM('settingsModal')">完成</button></div>
@@ -1066,7 +1072,88 @@ function openSettings(){
   document.getElementById('customEndpointRow').style.display=getProvider()==='custom'?'flex':'none';
   document.getElementById('toggleAutoPred').checked=prefs.autoPred;
   document.getElementById('toggleShowPred').checked=prefs.showPred;
-  updateKeyStatus(!!getKey());openM('settingsModal');
+  updateKeyStatus(!!getKey());
+
+  // scan for legacy data
+  const LEGACY_KEYS=['gt_v5','gt_v4','gt_v3','goals'];
+  const found=[];
+  LEGACY_KEYS.forEach(key=>{
+    const raw=localStorage.getItem(key);
+    if(!raw)return;
+    try{
+      let data=JSON.parse(raw);
+      if(!Array.isArray(data))return;
+      if(!data.length)return;
+      found.push({key,count:data.length,data});
+    }catch(e){}
+  });
+
+  const statusEl=document.getElementById('legacyStatus');
+  const btnsEl=document.getElementById('legacyBtns');
+
+  if(!found.length){
+    statusEl.textContent='未找到旧版本数据（localStorage 中没有 gt_v5 / gt_v4 等 key）';
+    btnsEl.innerHTML='';
+  } else {
+    statusEl.innerHTML=found.map(f=>`<span style="margin-right:10px;">📦 <strong style="color:var(--text);">${f.key}</strong>：${f.count} 条目标</span>`).join('');
+    btnsEl.innerHTML=found.map(f=>`
+      <button class="btn btn-ghost" style="font-size:12px;" onclick="migrateFrom('${f.key}','merge')">
+        ⬆ 合并 ${f.key}
+      </button>
+      <button class="btn btn-ghost" style="font-size:12px;color:var(--text3);" onclick="migrateFrom('${f.key}','replace')">
+        ↺ 替换为 ${f.key}
+      </button>
+    `).join('<div style="width:100%;height:0;margin:2px 0;"></div>');
+  }
+
+  openM('settingsModal');
+}
+
+function migrateFrom(key, mode){
+  const raw=localStorage.getItem(key);
+  if(!raw){toast('找不到 '+key+' 的数据');return;}
+  let data;
+  try{data=JSON.parse(raw);}catch(e){toast('数据解析失败');return;}
+  if(!Array.isArray(data)||!data.length){toast('该版本没有数据');return;}
+
+  // Normalize: old versions used progress:0-100 (percentage), new uses done/total
+  // gt_v4 format: {id, name, progress(0-100), history:[{v}], ...}
+  // gt_v5 format: {id, name, done, total, history:[{done,total}], ...}
+  const normalized=data.map(g=>{
+    const isOldFormat=g.progress!=null&&g.done==null;
+    if(isOldFormat){
+      // convert percentage to done/total (assume total=100 if no unit context)
+      return {
+        ...g,
+        parentId:g.parentId||null,
+        done:g.progress||0,
+        total:100,
+        history:(g.history||[]).map(h=>({...h,done:h.v||0,total:100})),
+      };
+    }
+    return {...g, parentId:g.parentId||null};
+  });
+
+  const verb=mode==='merge'?'合并':'替换';
+  if(!confirm(`确定要${verb}数据吗？\n来源：${key}（${normalized.length} 条）\n${mode==='replace'?'当前 '+goals.length+' 条数据将被清空！':'将与当前 '+goals.length+' 条数据合并'}`)){return;}
+
+  if(mode==='replace'){
+    goals=normalized;
+  } else {
+    // merge: skip duplicates by id
+    const existingIds=new Set(goals.map(g=>g.id));
+    const toAdd=normalized.filter(g=>!existingIds.has(g.id));
+    goals=[...goals,...toAdd];
+    toast(`已合并 ${toAdd.length} 条新数据（跳过 ${normalized.length-toAdd.length} 条重复）`);
+    save();render();
+    // refresh legacy panel
+    openSettings();
+    return;
+  }
+
+  save();render();
+  toast(`已从 ${key} 恢复 ${normalized.length} 条数据 ✓`);
+  openSettings(); // refresh panel
 }
 function saveApiKey(){
   const k=document.getElementById('apiKeyInput').value.trim(),p=document.getElementById('apiProviderSel').value,m=document.getElementById('modelInput').value.trim();
