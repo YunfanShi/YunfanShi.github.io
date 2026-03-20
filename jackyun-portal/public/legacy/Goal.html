@@ -819,26 +819,182 @@ async function callAI(messages,onChunk){
   return full;
 }
 
+/* ===================== PREDICTION SYSTEM PROMPT ===================== */
+// Unified format enforced via system prompt.
+// AI must output exactly this structure:
+//
+// [完成日期] YYYY-MM-DD
+// [剩余天数] N
+// [速率] X单位/天
+// [分析] 2-3句话
+// [建议] 1-2条建议
+//
+// This lets us parse reliably and render a structured card.
+
+const PRED_SYSTEM = `你是专业目标管理AI，请严格按照以下格式输出，不得添加任何额外内容或改变格式：
+
+[完成日期] YYYY-MM-DD
+[剩余天数] 纯数字（如果已超期写负数）
+[速率] X单位/天（根据历史数据计算，如无历史写"暂无数据"）
+[分析] 1-2句话说明预测依据（不超过60字）
+[建议] 1条具体可执行的建议（不超过40字）
+
+规则：
+- 完成日期 = 今天 + 剩余天数，基于当前速率和剩余数量计算
+- 如果没有历史速率，基于截止日期估算
+- 如果进度为0%或截止日期未设置，基于截止日期给出建议
+- 所有输出必须是中文
+- 绝对不能出现"可按时完成"这类模糊表述，必须给出具体日期`;
+
+const PRED_SYSTEM_PARENT = `你是专业目标管理AI，为包含多个子任务的大任务做整体预测，严格按以下格式输出：
+
+[完成日期] YYYY-MM-DD
+[剩余天数] 纯数字
+[最慢子任务] 子任务名称
+[分析] 1-2句话说明整体进度（不超过60字）
+[建议] 1条针对整体的具体建议（不超过40字）
+
+规则：
+- 完成日期取所有子任务中预计最晚完成的日期
+- 基于各子任务当前速率和剩余量估算
+- 如子任务缺少历史数据，参考截止日期`;
+
+/* ===================== PARSE PRED RESPONSE ===================== */
+function parsePredResponse(text){
+  const get=(key)=>{
+    const m=text.match(new RegExp('\\['+key+'\\]\\s*(.+)'));
+    return m?m[1].trim():'';
+  };
+  return {
+    date:     get('完成日期'),
+    days:     get('剩余天数'),
+    rate:     get('速率')||get('最慢子任务'), // reuse field for parent
+    analysis: get('分析'),
+    advice:   get('建议'),
+    slowest:  get('最慢子任务'),
+    raw:      text,
+  };
+}
+
+function extractSummary(parsed){
+  // Chip always shows: 预计X天完成
+  let days = null;
+  if(parsed.days){
+    const n=parseInt(parsed.days);
+    if(!isNaN(n)) days=n;
+  }
+  if(days===null&&parsed.date&&parsed.date.match(/^\d{4}-\d{2}-\d{2}$/)){
+    days=Math.round((new Date(parsed.date+'T00:00:00')-new Date())/864e5);
+  }
+  if(days===null) return '已分析';
+  if(days<=0) return '已超期';
+  return `预计 ${days} 天完成`;
+}
+
+/* ===================== RENDER PRED CARD ===================== */
+function renderPredCard(parsed, isAuto=false){
+  if(!parsed.date&&!parsed.days) return renderMDFallback(parsed.raw);
+
+  const dateStr=parsed.date||'';
+  let dateDisplay='—', daysDisplay='—', urgColor='var(--ai)';
+  if(dateStr.match(/^\d{4}-\d{2}-\d{2}$/)){
+    const d=new Date(dateStr+'T00:00:00');
+    const days=Math.round((d-new Date())/864e5);
+    dateDisplay=dateStr.replace(/-/g,'/');
+    daysDisplay=days<=0?'已超期':days+'天';
+    urgColor=days<=0?'#ff5c5c':days<=14?'#f5a623':'var(--ai)';
+  } else if(parsed.days){
+    const n=parseInt(parsed.days);
+    daysDisplay=isNaN(n)?parsed.days:(n<=0?'已超期':n+'天');
+    urgColor=(!isNaN(n)&&n<=0)?'#ff5c5c':(!isNaN(n)&&n<=14)?'#f5a623':'var(--ai)';
+  }
+
+  const rateLabel=parsed.slowest?'最慢子任务':'速率';
+  const rateVal=parsed.rate||parsed.slowest||'—';
+
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+    <div style="background:rgba(196,181,253,0.08);border:1px solid var(--ai-border);border-radius:8px;padding:11px;text-align:center;">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">预计完成</div>
+      <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${urgColor};letter-spacing:-.5px;">${dateDisplay}</div>
+    </div>
+    <div style="background:rgba(196,181,253,0.08);border:1px solid var(--ai-border);border-radius:8px;padding:11px;text-align:center;">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">剩余时间</div>
+      <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${urgColor};">${daysDisplay}</div>
+    </div>
+  </div>
+  ${rateVal&&rateVal!=='暂无数据'?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 11px;background:var(--surface2);border-radius:7px;border:1px solid var(--border);">
+    <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">${rateLabel}</span>
+    <span style="font-size:13px;font-weight:500;color:var(--text);font-family:var(--mono);">${esc(rateVal)}</span>
+  </div>`:''}
+  ${parsed.analysis?`<div style="margin-bottom:9px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">分析</div><div style="font-size:13px;line-height:1.6;color:var(--text);">${esc(parsed.analysis)}</div></div>`:''}
+  ${parsed.advice?`<div style="background:rgba(77,158,247,0.08);border:1px solid rgba(77,158,247,0.2);border-radius:7px;padding:9px 11px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">建议</div><div style="font-size:13px;line-height:1.6;color:var(--text);">${esc(parsed.advice)}</div></div>`:''}`;
+}
+
+function renderMDFallback(text){
+  if(!text)return '';
+  let h=text
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^#{1,3}\s(.+)$/gm,'<strong style="display:block;margin:9px 0 3px;">$1</strong>')
+    .replace(/^-\s(.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>')
+    .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
+  return `<div class="md-content"><p>${h}</p></div>`;
+}
+
+function renderMD(text){
+  const parsed=parsePredResponse(text);
+  if(parsed.date||parsed.days) return renderPredCard(parsed);
+  return renderMDFallback(text);
+}
+
 /* ===================== AUTO PREDICT (background) ===================== */
 async function autoPredictIfNeeded(id){
   if(!prefs.autoPred||!getKey()) return;
   const g=goals.find(x=>x.id===id);
-  if(!g||!isLeaf(g)) return; // only predict leaf tasks
+  if(!g) return;
   const p=getPct(g);
   if(p===0||p===100) return;
-  // run silently
+  const isP=!isLeaf(g);
   try{
     let full='';
+    const sysPrompt=isP?PRED_SYSTEM_PARENT:PRED_SYSTEM;
+    const ctx=isP?buildParentContext(g):buildGoalContext(g,true);
     await callAI([
-      {role:'system',content:'你是目标管理AI。中文，简洁。第一行用[预测]前缀给出10字以内的核心预测（如"预计45天完成"），然后换行给2-3句分析。100字以内。'},
-      {role:'user',content:`请预测完成时间：\n\n${buildGoalContext(g,true)}`}
+      {role:'system',content:sysPrompt},
+      {role:'user',content:`今日：${new Date().toISOString().slice(0,10)}\n\n${ctx}`}
     ],(partial)=>{full=partial;});
-    const m=full.match(/\[预测\]\s*(.+)/);
-    const summary=m?m[1].trim().slice(0,18):(full.match(/(\d+)\s*(天|周|月)/)?`约${RegExp.$1}${RegExp.$2}完成`:'已分析');
+    const parsed=parsePredResponse(full);
+    const summary=extractSummary(parsed);
     aiPreds[id]={text:full,summary,ts:Date.now(),auto:true};
     savePreds();
-    render(); // refresh chips silently
+    render();
   }catch(e){/* silent fail */}
+}
+
+/* ===================== BUILD PARENT CONTEXT ===================== */
+function buildParentContext(g){
+  const today=new Date().toISOString().slice(0,10);
+  const children=goals.filter(c=>c.parentId===g.id);
+  const pct=getPct(g);
+  let ctx=`大任务：${g.name}
+整体进度：${pct}%
+截止：${g.deadline||'未设置'}
+
+子任务详情：`;
+  children.forEach(c=>{
+    const cp=getPct(c);
+    const hist=c.history||[];
+    let vel='暂无历史';
+    if(hist.length>=2){
+      const f=hist[0],l=hist[hist.length-1];
+      const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
+      const fd=f.done!=null?f.done:0,ld=l.done!=null?l.done:0;
+      vel=`${((ld-fd)/days).toFixed(2)}${c.unit||'单位'}/天`;
+    }
+    ctx+=`
+- ${c.name}：${c.done||0}/${c.total} ${c.unit||''} (${cp}%)，截止${c.deadline||'未设置'}，速率${vel}`;
+  });
+  return ctx;
 }
 
 /* ===================== MANUAL PREDICT ===================== */
@@ -852,14 +1008,22 @@ async function runPred(id){
   openM('aiPredModal');
   const chip=document.getElementById('pred-'+id);
   if(chip){chip.classList.add('loading');chip.innerHTML='<span class="ai-ico">↻</span> 分析中…';}
+  const isP=!isLeaf(g);
   try{
     const t0=Date.now();let full='';
+    const sysPrompt=isP?PRED_SYSTEM_PARENT:PRED_SYSTEM;
+    const ctx=isP?buildParentContext(g):buildGoalContext(g,true);
     await callAI([
-      {role:'system',content:'你是专业目标管理AI。中文，简洁有洞察力。第一行[预测]前缀给出简短预测，然后换行详细分析（速度/时间/建议/兄弟任务影响）。200字以内。'},
-      {role:'user',content:`请预测完成时间并给建议：\n\n${buildGoalContext(g,true)}`}
-    ],(p)=>{full=p;document.getElementById('aiPredContent').className='ai-response md-content';document.getElementById('aiPredContent').innerHTML=renderMD(p);});
-    const m=full.match(/\[预测\]\s*(.+)/);
-    const summary=m?m[1].trim().slice(0,18):(full.match(/(\d+)\s*(天|周|月)/)?`约${RegExp.$1}${RegExp.$2}完成`:'已分析');
+      {role:'system',content:sysPrompt},
+      {role:'user',content:`今日：${new Date().toISOString().slice(0,10)}\n\n${ctx}`}
+    ],(partial)=>{
+      full=partial;
+      const parsed=parsePredResponse(partial);
+      document.getElementById('aiPredContent').className='ai-response';
+      document.getElementById('aiPredContent').innerHTML=renderPredCard(parsed)||renderMDFallback(partial);
+    });
+    const parsed=parsePredResponse(full);
+    const summary=extractSummary(parsed);
     aiPreds[id]={text:full,summary,ts:Date.now()};savePreds();
     document.getElementById('aiPredMeta').textContent=`${getProvider()} · ${((Date.now()-t0)/1000).toFixed(1)}s · ${new Date().toLocaleTimeString('zh-CN')}`;
     render();
@@ -874,26 +1038,13 @@ function showCachedPred(id){
   const g=goals.find(x=>x.id===id),c=aiPreds[id];if(!g||!c)return;
   currentPredId=id;
   document.getElementById('aiPredTitle').textContent=`AI 分析 — ${g.name}`;
-  document.getElementById('aiPredContent').className='ai-response md-content';
+  document.getElementById('aiPredContent').className='ai-response';
   document.getElementById('aiPredContent').innerHTML=renderMD(c.text);
   document.getElementById('aiPredMeta').textContent=`${c.auto?'自动分析':'手动分析'} · ${new Date(c.ts).toLocaleString('zh-CN')}`;
   openM('aiPredModal');
 }
 function rerunPred(){
   if(currentPredId!=null){delete aiPreds[currentPredId];savePreds();closeM('aiPredModal');runPred(currentPredId);}
-}
-
-/* ===================== RENDER MD ===================== */
-function renderMD(text){
-  if(!text)return '';
-  let h=text
-    .replace(/\[预测\]\s*/g,'<strong>📊 预测：</strong>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/^#{1,3}\s(.+)$/gm,'<strong style="display:block;margin:9px 0 3px;">$1</strong>')
-    .replace(/^-\s(.+)$/gm,'<li>$1</li>')
-    .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>')
-    .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
-  return `<div class="md-content"><p>${h}</p></div>`;
 }
 
 /* ===================== RENDER CARD ===================== */
@@ -985,6 +1136,7 @@ function render(){
                 <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[r.cat]||'✦'} ${r.cat}</span>
                 ${r.deadline?`<span class="gdeadline">${r.deadline.slice(5).replace('-','/')}</span>`:''}
               </div>
+              ${isDone?'':predChipHTML(r)}
             </div>
             <div class="pcard-right">
               <div>
@@ -1325,8 +1477,13 @@ function saveQ(){
   save();render();closeM('progModal');
   const p=getPct(g);
   toast(p===100?'🎉 目标完成！干得漂亮！':'进度已更新 → '+g.done+'/'+g.total+' ('+p+'%)');
-  // auto predict in background
-  if(g&&isLeaf(g)) setTimeout(()=>autoPredictIfNeeded(quickId),300);
+  // auto predict this task + parent if exists
+  if(g){
+    setTimeout(()=>{
+      autoPredictIfNeeded(quickId);
+      if(g.parentId!=null) autoPredictIfNeeded(g.parentId);
+    },300);
+  }
 }
 
 /* ===================== DETAIL ===================== */
@@ -1495,9 +1652,9 @@ document.getElementById('toggleShowPred').checked=prefs.showPred;
 
 updateAIStatus();render();startCdTimer();
 
-// on load: auto predict all leaf tasks that have no pred and are in progress
+// on load: auto predict all tasks that have no pred and are in progress
 if(prefs.autoPred&&getKey()){
-  const toPredict=goals.filter(g=>isLeaf(g)&&!aiPreds[g.id]&&getPct(g)>0&&getPct(g)<100);
+  const toPredict=goals.filter(g=>!aiPreds[g.id]&&getPct(g)>0&&getPct(g)<100);
   (async()=>{for(const g of toPredict){await autoPredictIfNeeded(g.id);}})();
 }
 </script>
