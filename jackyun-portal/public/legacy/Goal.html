@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Goal Tracker</title>
+<title>Goal Tracker × AI</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -22,6 +22,9 @@
   --green-dim: rgba(52,199,106,0.15);
   --yellow: #f5a623;
   --red: #ff5c5c;
+  --ai: #a78bfa;
+  --ai-dim: rgba(167,139,250,0.12);
+  --ai-border: rgba(167,139,250,0.25);
   --seg-done: #34c76a;
   --seg-todo: #1a3d8f;
   --radius: 14px;
@@ -34,8 +37,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* TOPBAR */
 .topbar{
   background:rgba(10,10,10,0.9);
-  backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border);
   height:58px;display:flex;align-items:center;
   justify-content:space-between;padding:0 32px;
@@ -45,75 +47,33 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .brand-dots{display:flex;gap:5px;}
 .brand-dots span{width:9px;height:9px;border-radius:50%;display:block;}
 .brand-name{font-size:15px;font-weight:600;letter-spacing:-0.3px;}
+.ai-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--ai-dim);color:var(--ai);border:1px solid var(--ai-border);letter-spacing:0.5px;}
 .topbar-r{display:flex;gap:8px;align-items:center;}
 
-/* COUNTDOWN BANNER */
-.cd-banner{
-  background:rgba(12,12,12,0.95);
-  backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  padding:0 32px;
-  overflow:hidden;
-  max-height:0;
-  transition:max-height .35s cubic-bezier(.4,0,.2,1), padding .3s;
-}
-.cd-banner.visible{max-height:120px;padding:12px 32px;}
-.cd-strip{
-  display:flex;
-  align-items:center;
-  gap:0;
-  overflow-x:auto;
-  scrollbar-width:none;
-  -ms-overflow-style:none;
-}
-.cd-strip::-webkit-scrollbar{display:none;}
-.cd-item{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  padding:9px 20px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:var(--surface);
-  flex-shrink:0;
-  margin-right:10px;
-  cursor:default;
-  transition:border-color .15s,background .15s;
-  position:relative;
-}
-.cd-item:hover{border-color:var(--border2);background:#141414;}
-.cd-item-left{display:flex;flex-direction:column;gap:2px;}
-.cd-label{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:0.2px;white-space:nowrap;}
-.cd-emoji{font-size:14px;line-height:1;}
-.cd-numbers{display:flex;align-items:baseline;gap:6px;}
-.cd-unit-group{display:flex;align-items:baseline;gap:2px;}
-.cd-num{font-size:22px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
-.cd-unit{font-size:10px;font-weight:500;color:var(--text2);letter-spacing:0.3px;text-transform:uppercase;margin-left:1px;}
-.cd-sep{font-size:14px;color:var(--text3);font-family:var(--mono);align-self:center;}
-.cd-past{opacity:.45;}
-.cd-urgent .cd-num{color:#ff5c5c!important;}
-.cd-warn .cd-num{color:#f5a623!important;}
-.cd-ok .cd-num{color:#4d9ef7;}
-.cd-actions-ico{display:flex;gap:2px;opacity:0;transition:opacity .15s;position:absolute;right:8px;top:50%;transform:translateY(-50%);}
-.cd-item:hover .cd-actions-ico{opacity:1;}
-
 /* LAYOUT */
-.main{max-width:880px;margin:0 auto;padding:38px 28px;}
+.main{max-width:920px;margin:0 auto;padding:38px 28px;}
 
 /* PAGE HEADER */
 .page-hd{margin-bottom:36px;}
 .page-title{font-size:30px;font-weight:600;letter-spacing:-0.7px;line-height:1.15;}
 .page-sub{font-size:13px;color:var(--text2);margin-top:5px;}
 
+/* AI STATUS BAR */
+.ai-bar{
+  background:var(--ai-dim);border:1px solid var(--ai-border);
+  border-radius:10px;padding:10px 16px;margin-bottom:24px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:12px;
+}
+.ai-bar.no-key{background:rgba(255,92,92,0.06);border-color:rgba(255,92,92,0.2);}
+.ai-bar-l{display:flex;align-items:center;gap:8px;color:var(--text2);}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--ai);flex-shrink:0;}
+.ai-dot.off{background:var(--red);}
+.ai-bar-r{display:flex;gap:6px;}
+
 /* STATS */
 .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:32px;}
-.stat{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:99px;padding:9px 18px;
-  display:flex;align-items:center;gap:9px;
-  transition:border-color .15s;
-}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:9px 18px;display:flex;align-items:center;gap:9px;transition:border-color .15s;}
 .stat:hover{border-color:var(--border2);}
 .stat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .stat-v{font-size:15px;font-weight:600;font-family:var(--mono);letter-spacing:-0.4px;}
@@ -126,29 +86,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .tab.on{background:var(--surface3);color:var(--text);}
 .tab:hover:not(.on){color:var(--text);}
 .sort-sel{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:var(--font);font-size:13px;padding:6px 12px;outline:none;cursor:pointer;}
-.sort-sel:focus{border-color:var(--border2);}
 option{background:#1a1a1a;}
 
 /* GOAL CARD */
 .goal-list{display:flex;flex-direction:column;gap:10px;}
 .gcard{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:20px 22px 18px;
-  transition:border-color .2s,background .2s;
-  position:relative;
-  overflow:hidden;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px 22px 18px;
+  transition:border-color .2s,background .2s;position:relative;overflow:hidden;
 }
 .gcard:hover{border-color:var(--border2);background:#121212;}
-
-/* left accent line */
-.gcard::before{
-  content:'';position:absolute;left:0;top:10%;bottom:10%;
-  width:3px;border-radius:0 3px 3px 0;
-  background:var(--accent);
-  opacity:0.7;
-}
+.gcard::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;border-radius:0 3px 3px 0;background:var(--accent);opacity:0.7;}
 
 /* TOP ROW */
 .gtop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:10px;}
@@ -165,6 +113,23 @@ option{background:#1a1a1a;}
 .gactions{display:flex;gap:2px;opacity:0;transition:opacity .15s;}
 .gcard:hover .gactions{opacity:1;}
 
+/* AI PREDICTION CHIP */
+.ai-pred{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--ai-dim);border:1px solid var(--ai-border);
+  border-radius:6px;padding:3px 9px;cursor:pointer;
+  transition:all .15s;margin-top:6px;
+  font-size:11px;font-weight:500;color:var(--ai);
+  white-space:nowrap;
+}
+.ai-pred:hover{background:rgba(167,139,250,0.2);border-color:rgba(167,139,250,0.4);}
+.ai-pred.loading{opacity:0.6;pointer-events:none;}
+.ai-pred .ai-ico{font-size:10px;animation:none;}
+.ai-pred.loading .ai-ico{animation:spin .8s linear infinite;}
+.ai-pred.error{background:rgba(255,92,92,0.08);border-color:rgba(255,92,92,0.2);color:var(--red);}
+.ai-pred.no-key{background:rgba(255,255,255,0.04);border-color:var(--border);color:var(--text3);}
+@keyframes spin{to{transform:rotate(360deg);}}
+
 /* SEGMENTED BAR */
 .segwrap{position:relative;cursor:pointer;margin-bottom:10px;padding:4px 0;}
 .segbar{display:flex;gap:2.5px;height:13px;}
@@ -175,16 +140,7 @@ option{background:#1a1a1a;}
 .segwrap:hover .seg:hover{opacity:1;transform:scaleY(1.18);}
 .seg-labels{display:flex;justify-content:space-between;margin-top:4px;}
 .seg-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);}
-
-/* tooltip */
-.seg-tip{
-  position:absolute;bottom:calc(100% + 2px);
-  background:#1e1e1e;border:1px solid var(--border2);
-  color:var(--text);font-size:11px;font-family:var(--mono);
-  padding:3px 8px;border-radius:5px;pointer-events:none;
-  white-space:nowrap;opacity:0;transition:opacity .1s;z-index:10;
-  transform:translateX(-50%);
-}
+.seg-tip{position:absolute;bottom:calc(100% + 2px);background:#1e1e1e;border:1px solid var(--border2);color:var(--text);font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .1s;z-index:10;transform:translateX(-50%);}
 .segwrap:hover .seg-tip{opacity:1;}
 
 /* FOOTER */
@@ -203,6 +159,8 @@ option{background:#1a1a1a;}
 .btn-pri:hover{background:#6db3ff;}
 .btn-ghost{background:transparent;color:var(--text2);padding:8px 14px;font-size:13px;border:1px solid var(--border);}
 .btn-ghost:hover{border-color:var(--border2);color:var(--text);background:var(--surface2);}
+.btn-ai{background:var(--ai-dim);color:var(--ai);padding:8px 14px;font-size:13px;border:1px solid var(--ai-border);border-radius:8px;}
+.btn-ai:hover{background:rgba(167,139,250,0.2);border-color:rgba(167,139,250,0.4);}
 .btn-ico{background:transparent;color:var(--text3);width:28px;height:28px;padding:0;border-radius:6px;font-size:13px;justify-content:center;}
 .btn-ico:hover{background:var(--surface3);color:var(--text2);}
 .btn-ico.del:hover{background:rgba(255,92,92,.15);color:var(--red);}
@@ -212,7 +170,7 @@ option{background:#1a1a1a;}
 .overlay.open{opacity:1;visibility:visible;}
 .modal{background:#141414;border:1px solid var(--border2);border-radius:18px;width:100%;max-width:500px;box-shadow:0 32px 80px rgba(0,0,0,.7);transform:scale(0.95) translateY(14px);transition:transform .25s cubic-bezier(.4,0,.2,1);}
 .overlay.open .modal{transform:scale(1) translateY(0);}
-.mhd{padding:22px 24px 0;font-size:17px;font-weight:600;letter-spacing:-0.3px;}
+.mhd{padding:22px 24px 0;font-size:17px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;gap:10px;}
 .mbody{padding:18px 24px;display:flex;flex-direction:column;gap:15px;}
 .mfoot{padding:8px 24px 20px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border);}
 
@@ -251,11 +209,66 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(70px);background:#1c1c1c;border:1px solid var(--border2);color:var(--text);font-size:13px;padding:10px 20px;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);z-index:999;transition:transform .28s cubic-bezier(.4,0,.2,1);white-space:nowrap;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 
+/* AI MODAL */
+.ai-modal-ico{font-size:22px;}
+.ai-response{
+  background:var(--surface2);border:1px solid var(--ai-border);
+  border-radius:10px;padding:16px;font-size:13px;line-height:1.7;
+  color:var(--text);min-height:80px;position:relative;
+  max-height:380px;overflow-y:auto;
+}
+.ai-response.loading-state{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text2);}
+.ai-response.error-state{border-color:rgba(255,92,92,0.3);color:var(--red);}
+.ai-response p{margin-bottom:10px;}
+.ai-response p:last-child{margin-bottom:0;}
+.ai-response strong{color:var(--ai);font-weight:600;}
+.ai-response ul{padding-left:18px;margin-bottom:10px;}
+.ai-response li{margin-bottom:5px;}
+.typing-dots{display:inline-flex;gap:4px;align-items:center;}
+.typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--ai);animation:bounce .9s infinite;}
+.typing-dots span:nth-child(2){animation-delay:.15s;}
+.typing-dots span:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,80%,100%{transform:scale(0.7);opacity:0.5;}40%{transform:scale(1);opacity:1;}}
+
+/* AI FEATURES GRID */
+.ai-features{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.ai-feat{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:14px;cursor:pointer;
+  transition:all .15s;text-align:left;
+}
+.ai-feat:hover{border-color:var(--ai-border);background:var(--ai-dim);}
+.ai-feat-ico{font-size:20px;margin-bottom:6px;}
+.ai-feat-name{font-size:13px;font-weight:600;margin-bottom:3px;}
+.ai-feat-desc{font-size:11px;color:var(--text2);}
+
+/* SETTINGS */
+.settings-section{margin-bottom:20px;}
+.settings-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:10px;}
+.api-key-row{display:flex;gap:8px;}
+.api-key-row .fi{flex:1;font-family:var(--mono);font-size:12px;}
+.key-status{font-size:11px;padding:4px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;}
+.key-status.ok{background:var(--green-dim);color:var(--green);}
+.key-status.no{background:rgba(255,92,92,0.1);color:var(--red);}
+
+/* MARKDOWN-LIKE RENDERING */
+.md-content h3{font-size:14px;font-weight:600;color:var(--ai);margin:12px 0 6px;}
+.md-content p{margin-bottom:8px;font-size:13px;line-height:1.65;}
+.md-content ul{padding-left:16px;margin-bottom:8px;}
+.md-content li{font-size:13px;line-height:1.65;margin-bottom:4px;}
+.md-content .highlight{background:rgba(167,139,250,0.12);padding:8px 12px;border-radius:6px;border-left:2px solid var(--ai);margin:10px 0;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:99px;}
+
 @media(max-width:600px){
   .main{padding:22px 16px;}
   .topbar{padding:0 18px;}
   .frow{grid-template-columns:1fr;}
   .page-title{font-size:22px;}
+  .ai-features{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -270,23 +283,30 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
       <span style="background:#34a853"></span>
     </div>
     <span class="brand-name">Goal Tracker</span>
+    <span class="ai-badge">× AI</span>
   </div>
   <div class="topbar-r">
-    <button class="btn btn-ghost" onclick="openCdSettings()" title="倒计时设置">⏱ 倒计时</button>
+    <button class="btn btn-ai" onclick="openAIHub()">✦ AI 助手</button>
+    <button class="btn btn-ghost" onclick="openSettings()">⚙ 设置</button>
     <button class="btn btn-ghost" onclick="exportData()">↑ 导出</button>
     <button class="btn btn-pri" onclick="openAdd()">＋ 新建目标</button>
   </div>
-</div>
-
-<!-- COUNTDOWN BANNER -->
-<div class="cd-banner" id="cdBanner">
-  <div class="cd-strip" id="cdStrip"></div>
 </div>
 
 <div class="main">
   <div class="page-hd">
     <div class="page-title" id="greeting">我的目标</div>
     <div class="page-sub" id="dateStr"></div>
+  </div>
+
+  <div class="ai-bar" id="aiStatusBar">
+    <div class="ai-bar-l">
+      <div class="ai-dot" id="aiDot"></div>
+      <span id="aiStatusText">检查 AI 配置中…</span>
+    </div>
+    <div class="ai-bar-r">
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="openSettings()">配置 API Key</button>
+    </div>
   </div>
 
   <div class="stats" id="statsEl"></div>
@@ -354,14 +374,12 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
           <input class="fi" id="iUnit" placeholder="章 / 次 / 页…" maxlength="10">
         </div>
       </div>
-      <div class="frow">
-        <div class="fg">
-          <label class="flbl">已完成数量</label>
-          <input class="fi" id="iDone" type="number" min="0" value="0" placeholder="例如 6">
-        </div>
-        <div class="fg">
-          <label class="flbl">总数量 *</label>
-          <input class="fi" id="iTotal" type="number" min="1" value="10" placeholder="例如 10">
+      <div class="fg">
+        <label class="flbl">初始进度</label>
+        <div class="slrow">
+          <input type="range" id="iProgress" min="0" max="100" value="0"
+            oninput="document.getElementById('iProgVal').textContent=this.value+'%'">
+          <span class="slval" id="iProgVal">0%</span>
         </div>
       </div>
       <div class="fg">
@@ -378,41 +396,31 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
 
 <!-- PROGRESS MODAL -->
 <div class="overlay" id="progModal">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal" style="max-width:440px;">
     <div class="mhd" id="progMTitle">更新进度</div>
     <div class="mbody">
-      <div id="progPreview" style="margin-bottom:6px;"></div>
-      <!-- fraction display -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px;">
-        <input class="fi" id="qDone" type="number" min="0" value="0"
-          style="width:88px;font-size:28px;font-weight:600;text-align:center;padding:10px 8px;font-family:var(--mono);"
-          oninput="onQDone()">
-        <span style="font-size:24px;color:var(--text3);font-weight:300;">/</span>
-        <input class="fi" id="qTotal" type="number" min="1" value="10"
-          style="width:88px;font-size:28px;font-weight:600;text-align:center;padding:10px 8px;font-family:var(--mono);color:var(--text2);"
-          oninput="onQDone()">
-        <span id="qUnitLabel" style="font-size:14px;color:var(--text2);min-width:32px;"></span>
+      <div id="progPreview" style="margin-bottom:2px;"></div>
+      <div class="slrow">
+        <input type="range" id="qSlider" min="0" max="100" value="0" oninput="onQSlider(this.value)">
+        <span class="slval" id="qVal">0%</span>
       </div>
-      <div style="text-align:center;margin-bottom:14px;">
-        <span id="qPctDisplay" style="font-size:18px;font-weight:600;font-family:var(--mono);color:var(--blue);">0%</span>
-        <span style="font-size:12px;color:var(--text3);margin-left:6px;">完成率</span>
+      <div class="qbtns">
+        <span class="qb" onclick="setQ(0)">0%</span>
+        <span class="qb" onclick="setQ(10)">10%</span>
+        <span class="qb" onclick="setQ(25)">25%</span>
+        <span class="qb" onclick="setQ(50)">50%</span>
+        <span class="qb" onclick="setQ(75)">75%</span>
+        <span class="qb" onclick="setQ(90)">90%</span>
+        <span class="qb" onclick="setQ(100)">100% 🎉</span>
       </div>
-      <!-- quick +1 / +5 buttons -->
-      <div class="qbtns" style="justify-content:center;">
-        <span class="qb" onclick="stepDone(-5)">－5</span>
-        <span class="qb" onclick="stepDone(-1)">－1</span>
-        <span class="qb" onclick="stepDone(1)">＋1</span>
-        <span class="qb" onclick="stepDone(5)">＋5</span>
-        <span class="qb" onclick="setDoneMax()">全部完成 🎉</span>
-      </div>
-      <div class="fg" style="margin-top:14px;">
+      <div class="fg">
         <label class="flbl">备注（可选）</label>
         <input class="fi" id="qNote" placeholder="这次更新的说明…" maxlength="80">
       </div>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('progModal')">取消</button>
-      <button class="btn btn-pri" onclick="saveQ()">确认更新</button>
+      <button class="btn btn-pri" onclick="saveQ()">更新进度</button>
     </div>
   </div>
 </div>
@@ -429,17 +437,109 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
   </div>
 </div>
 
-<!-- COUNTDOWN SETTINGS MODAL -->
-<div class="overlay" id="cdModal">
+<!-- AI PREDICTION MODAL -->
+<div class="overlay" id="aiPredModal">
   <div class="modal" style="max-width:560px;">
-    <div class="mhd">⏱ 倒计时管理</div>
-    <div class="mbody" style="max-height:65vh;overflow-y:auto;">
-      <div id="cdList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px;"></div>
-      <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:4px;" onclick="addCdItem()">＋ 添加倒计时</button>
+    <div class="mhd">
+      <span class="ai-modal-ico">✦</span>
+      <span id="aiPredTitle">AI 预测分析</span>
+    </div>
+    <div class="mbody">
+      <div id="aiPredContent" class="ai-response loading-state">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span style="margin-left:8px;font-size:13px;">DeepSeek 分析中…</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);text-align:right;margin-top:6px;" id="aiPredMeta"></div>
     </div>
     <div class="mfoot">
-      <button class="btn btn-ghost" onclick="closeM('cdModal')">关闭</button>
-      <button class="btn btn-pri" onclick="saveCd()">保存</button>
+      <button class="btn btn-ghost" onclick="closeM('aiPredModal')">关闭</button>
+      <button class="btn btn-ai" onclick="rerunPred()" id="rerunBtn">↺ 重新分析</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI HUB MODAL -->
+<div class="overlay" id="aiHubModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="mhd"><span class="ai-modal-ico">✦</span> AI 助手</div>
+    <div class="mbody">
+      <div class="ai-features">
+        <button class="ai-feat" onclick="aiFeature('overview')">
+          <div class="ai-feat-ico">📊</div>
+          <div class="ai-feat-name">总体分析</div>
+          <div class="ai-feat-desc">分析所有目标的完成情况与趋势</div>
+        </button>
+        <button class="ai-feat" onclick="aiFeature('priority')">
+          <div class="ai-feat-ico">🎯</div>
+          <div class="ai-feat-name">优先级建议</div>
+          <div class="ai-feat-desc">AI 推荐今日应重点关注的目标</div>
+        </button>
+        <button class="ai-feat" onclick="aiFeature('plan')">
+          <div class="ai-feat-ico">📅</div>
+          <div class="ai-feat-name">制定计划</div>
+          <div class="ai-feat-desc">为所有目标生成本周行动计划</div>
+        </button>
+        <button class="ai-feat" onclick="aiFeature('risk')">
+          <div class="ai-feat-ico">⚠️</div>
+          <div class="ai-feat-name">风险预警</div>
+          <div class="ai-feat-desc">找出可能无法按时完成的目标</div>
+        </button>
+      </div>
+      <div class="fg">
+        <label class="flbl">自定义问题</label>
+        <textarea class="fi" id="aiCustomQ" placeholder="问 AI 任何关于你目标的问题…" rows="3" style="resize:vertical;line-height:1.5;"></textarea>
+      </div>
+      <div id="aiHubResponse" class="ai-response" style="display:none;"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('aiHubModal')">关闭</button>
+      <button class="btn btn-ai" onclick="askCustom()">✦ 发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settingsModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="mhd">⚙ 设置</div>
+    <div class="mbody">
+      <div class="settings-section">
+        <div class="settings-title">DeepSeek API</div>
+        <div class="fg">
+          <label class="flbl">API Key</label>
+          <div class="api-key-row">
+            <input class="fi" id="apiKeyInput" type="password" placeholder="sk-…" autocomplete="off">
+            <button class="btn btn-ai" onclick="saveApiKey()">保存</button>
+          </div>
+          <div style="margin-top:8px;" id="keyStatusEl"></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px;">
+            前往 <a href="https://platform.deepseek.com" target="_blank" style="color:var(--ai);text-decoration:none;">platform.deepseek.com</a> 获取 API Key。Key 仅保存在本地浏览器中。
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">AI 功能</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;">
+            <span>自动预测完成时间</span>
+            <input type="checkbox" id="toggleAutoPred" onchange="savePref()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--ai);">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;">
+            <span>显示 AI 预测标签</span>
+            <input type="checkbox" id="toggleShowPred" checked onchange="savePref()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--ai);">
+          </label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">数据</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="exportData()" style="font-size:12px;">↑ 导出 JSON</button>
+          <button class="btn btn-ghost" onclick="clearAllPreds()" style="font-size:12px;color:var(--text3);">清除 AI 缓存</button>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-pri" onclick="closeM('settingsModal')">完成</button>
     </div>
   </div>
 </div>
@@ -447,7 +547,7 @@ input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 0 0 5px rgba(77,158,2
 <div class="toast" id="toast"></div>
 
 <script>
-/* DATA */
+/* ======= DATA ======= */
 const COLORS=[
   {id:'blue',hex:'#4d9ef7',dim:'rgba(77,158,247,0.12)'},
   {id:'green',hex:'#34c76a',dim:'rgba(52,199,106,0.12)'},
@@ -461,21 +561,48 @@ const COLORS=[
 const PRI_C={high:'#ff5c5c',mid:'#f5a623',low:'#34c76a'};
 const CAT_E={'学习':'📚','健康':'💪','工作':'💼','生活':'🏠','财务':'💰','其他':'✦'};
 
-let goals=JSON.parse(localStorage.getItem('gt_v5')||'null')||[
-  {id:1,name:'Math0580',desc:'高等数学课程学习',cat:'学习',priority:'high',done:13,total:20,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-02-20',done:4,total:20},{date:'2026-03-01',done:8,total:20},{date:'2026-03-06',done:13,total:20}],created:Date.now()-864e5*5},
-  {id:2,name:'English CET-6',desc:'英语六级备考',cat:'学习',priority:'mid',done:6,total:15,color:'teal',deadline:'2026-12-15',unit:'套题',history:[{date:'2026-03-02',done:4,total:15},{date:'2026-03-06',done:6,total:15}],created:Date.now()-864e5*3},
-  {id:3,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',done:24,total:30,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',done:18,total:30},{date:'2026-03-05',done:24,total:30}],created:Date.now()-864e5*10},
-  {id:4,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',done:22,total:100,color:'purple',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',done:8,total:100},{date:'2026-03-06',done:22,total:100}],created:Date.now()-864e5*20},
+let goals=JSON.parse(localStorage.getItem('gt_v4')||'null')||[
+  {id:1,name:'Math0580',desc:'高等数学课程学习',cat:'学习',priority:'high',progress:65,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-02-20',v:20},{date:'2026-03-01',v:40},{date:'2026-03-04',v:55},{date:'2026-03-06',v:65}],created:Date.now()-864e5*5},
+  {id:2,name:'English CET-6',desc:'英语六级备考',cat:'学习',priority:'mid',progress:40,color:'teal',deadline:'2026-12-15',unit:'套题',history:[{date:'2026-03-02',v:30},{date:'2026-03-06',v:40}],created:Date.now()-864e5*3},
+  {id:3,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',progress:80,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',v:60},{date:'2026-03-03',v:70},{date:'2026-03-05',v:80}],created:Date.now()-864e5*10},
+  {id:4,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',progress:22,color:'purple',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',v:8},{date:'2026-03-01',v:15},{date:'2026-03-06',v:22}],created:Date.now()-864e5*20},
 ];
 
 let filter='all',sort='created',editId=null,quickId=null,selColor='blue';
+let aiPreds=JSON.parse(localStorage.getItem('ai_preds')||'{}'); // cache: {id: {text, ts, summary}}
+let prefs=JSON.parse(localStorage.getItem('ai_prefs')||'{"autoPred":false,"showPred":true}');
+let currentPredId=null;
 
-function save(){localStorage.setItem('gt_v5',JSON.stringify(goals));}
-function getPct(g){return g.total>0?Math.min(100,Math.round((g.done||0)/g.total*100)):0;}
+function save(){localStorage.setItem('gt_v4',JSON.stringify(goals));}
+function savePreds(){localStorage.setItem('ai_preds',JSON.stringify(aiPreds));}
+function savePref(){
+  prefs.autoPred=document.getElementById('toggleAutoPred').checked;
+  prefs.showPred=document.getElementById('toggleShowPred').checked;
+  localStorage.setItem('ai_prefs',JSON.stringify(prefs));
+  render();
+}
+function getKey(){return localStorage.getItem('ds_key')||'';}
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-/* GREETING */
+/* ======= AI STATUS ======= */
+function updateAIStatus(){
+  const key=getKey();
+  const bar=document.getElementById('aiStatusBar');
+  const dot=document.getElementById('aiDot');
+  const txt=document.getElementById('aiStatusText');
+  if(key){
+    bar.classList.remove('no-key');
+    dot.classList.remove('off');
+    txt.textContent='DeepSeek AI 已连接 — 点击目标预测标签查看分析';
+  } else {
+    bar.classList.add('no-key');
+    dot.classList.add('off');
+    txt.textContent='未配置 API Key — AI 功能不可用';
+  }
+}
+
+/* ======= GREETING ======= */
 function initGreeting(){
   const h=new Date().getHours();
   const g=h<6?'深夜好 🌙':h<12?'早上好 ☀️':h<14?'中午好 🌤':h<18?'下午好 🌤':h<22?'傍晚好 🌆':'晚上好 🌙';
@@ -484,7 +611,7 @@ function initGreeting(){
   document.getElementById('dateStr').textContent=d.toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 }
 
-/* SEGMENTED BAR */
+/* ======= SEGMENTED BAR ======= */
 function segBar(pct,segs,h){
   const done=Math.round(pct/100*segs);
   let s=`<div class="segbar" style="height:${h}px;">`;
@@ -492,12 +619,12 @@ function segBar(pct,segs,h){
   return s+'</div>';
 }
 
-/* STATS */
+/* ======= STATS ======= */
 function renderStats(){
-  const tot=goals.length,done=goals.filter(g=>getPct(g)===100).length;
-  const avg=tot?Math.round(goals.reduce((s,g)=>s+getPct(g),0)/tot):0;
+  const tot=goals.length,done=goals.filter(g=>g.progress===100).length;
+  const avg=tot?Math.round(goals.reduce((s,g)=>s+g.progress,0)/tot):0;
   const today=new Date().toISOString().slice(0,10);
-  const ov=goals.filter(g=>g.deadline&&g.deadline<today&&getPct(g)<100).length;
+  const ov=goals.filter(g=>g.deadline&&g.deadline<today&&g.progress<100).length;
   let h=`
     <div class="stat"><div class="stat-dot" style="background:#4d9ef7;"></div><span class="stat-v" style="color:#4d9ef7;">${tot}</span><span class="stat-lbl">目标总数</span></div>
     <div class="stat"><div class="stat-dot" style="background:#34c76a;"></div><span class="stat-v" style="color:#34c76a;">${done}</span><span class="stat-lbl">已完成</span></div>
@@ -506,32 +633,214 @@ function renderStats(){
   document.getElementById('statsEl').innerHTML=h;
 }
 
-/* FILTER/SORT */
-function setFilter(f,el){
-  filter=f;
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on');
-  render();
-}
+/* ======= FILTER/SORT ======= */
+function setFilter(f,el){filter=f;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');render();}
 function setSort(v){sort=v;render();}
-
 function filtered(){
   const today=new Date().toISOString().slice(0,10);
   let l=[...goals];
-  if(filter==='active') l=l.filter(g=>getPct(g)>0&&getPct(g)<100);
-  else if(filter==='done') l=l.filter(g=>getPct(g)===100);
-  else if(filter==='overdue') l=l.filter(g=>g.deadline&&g.deadline<today&&getPct(g)<100);
-  if(sort==='progress-asc') l.sort((a,b)=>getPct(a)-getPct(b));
-  else if(sort==='progress-desc') l.sort((a,b)=>getPct(b)-getPct(a));
+  if(filter==='active') l=l.filter(g=>g.progress>0&&g.progress<100);
+  else if(filter==='done') l=l.filter(g=>g.progress===100);
+  else if(filter==='overdue') l=l.filter(g=>g.deadline&&g.deadline<today&&g.progress<100);
+  if(sort==='progress-asc') l.sort((a,b)=>a.progress-b.progress);
+  else if(sort==='progress-desc') l.sort((a,b)=>b.progress-a.progress);
   else if(sort==='deadline') l.sort((a,b)=>(a.deadline||'9999')>(b.deadline||'9999')?1:-1);
   else if(sort==='name') l.sort((a,b)=>a.name.localeCompare(b.name,'zh'));
   else l.sort((a,b)=>b.created-a.created);
   return l;
 }
 
-/* RENDER */
+/* ======= AI PREDICTION CHIP ======= */
+function predChipHTML(g){
+  if(!prefs.showPred) return '';
+  const key=getKey();
+  const cached=aiPreds[g.id];
+  if(!key){
+    return `<div class="ai-pred no-key" onclick="openSettings()" title="配置 API Key 以启用 AI 预测">✦ AI预测 (未配置)</div>`;
+  }
+  if(cached && cached.summary){
+    return `<div class="ai-pred" onclick="showCachedPred(${g.id})" title="查看 AI 详细分析">✦ ${esc(cached.summary)}</div>`;
+  }
+  return `<div class="ai-pred" id="pred-${g.id}" onclick="runPred(${g.id})" title="点击获取 AI 预测">✦ AI 预测完成时间</div>`;
+}
+
+/* ======= BUILD GOAL CONTEXT STRING ======= */
+function buildGoalContext(g){
+  const today=new Date().toISOString().slice(0,10);
+  const hist=(g.history||[]);
+  const dlDays=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
+
+  // calculate average daily velocity from history
+  let velocity='暂无历史数据';
+  if(hist.length>=2){
+    const first=hist[0],last=hist[hist.length-1];
+    const daysDiff=Math.max(1,Math.ceil((new Date(last.date)-new Date(first.date))/864e5));
+    const pctPerDay=((last.v-first.v)/daysDiff).toFixed(2);
+    velocity=`每天约 ${pctPerDay}% 进度`;
+  }
+
+  return `目标名称: ${g.name}
+描述: ${g.desc||'无'}
+分类: ${g.cat}
+当前进度: ${g.progress}%
+优先级: ${g.priority==='high'?'高':g.priority==='mid'?'中':'低'}
+截止日期: ${g.deadline||'未设置'}${dlDays!==null?`（距今${dlDays}天）`:''}
+进度单位: ${g.unit||'未设置'}
+历史更新记录 (共${hist.length}次):
+${hist.map(h=>`  ${h.date}: ${h.v}%${h.note?' ('+h.note+')':''}`).join('\n')||'  无'}
+当前速率估算: ${velocity}
+今日日期: ${today}`;
+}
+
+/* ======= CALL DEEPSEEK API ======= */
+async function callDeepSeek(messages, onChunk){
+  const key=getKey();
+  if(!key) throw new Error('未配置 API Key');
+
+  const res=await fetch('https://api.deepseek.com/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({
+      model:'deepseek-chat',
+      messages,
+      stream:true,
+      max_tokens:800,
+      temperature:0.7,
+    })
+  });
+
+  if(!res.ok){
+    const err=await res.json().catch(()=>({}));
+    throw new Error(err.error?.message||`API 错误 ${res.status}`);
+  }
+
+  const reader=res.body.getReader();
+  const decoder=new TextDecoder();
+  let full='';
+
+  while(true){
+    const {done,value}=await reader.read();
+    if(done) break;
+    const chunk=decoder.decode(value);
+    const lines=chunk.split('\n');
+    for(const line of lines){
+      if(!line.startsWith('data:')) continue;
+      const d=line.slice(5).trim();
+      if(d==='[DONE]') break;
+      try{
+        const j=JSON.parse(d);
+        const t=j.choices?.[0]?.delta?.content||'';
+        if(t){full+=t;if(onChunk) onChunk(full);}
+      }catch(e){}
+    }
+  }
+  return full;
+}
+
+/* ======= RUN PREDICTION FOR A GOAL ======= */
+async function runPred(id){
+  const g=goals.find(x=>x.id===id);
+  if(!g) return;
+
+  // open modal immediately
+  currentPredId=id;
+  document.getElementById('aiPredTitle').textContent=`AI 分析 — ${g.name}`;
+  document.getElementById('aiPredContent').className='ai-response loading-state';
+  document.getElementById('aiPredContent').innerHTML=`<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;font-size:13px;">DeepSeek 分析中…</span>`;
+  document.getElementById('aiPredMeta').textContent='';
+  openM('aiPredModal');
+
+  // mark chip as loading
+  const chip=document.getElementById('pred-'+id);
+  if(chip){chip.classList.add('loading');chip.innerHTML='<span class="ai-ico">↻</span> 分析中…';}
+
+  const ctx=buildGoalContext(g);
+  const messages=[
+    {role:'system',content:`你是一个专业的目标管理 AI 助手。请用中文回答，回答要简洁有洞察力。
+格式要求：
+1. 第一行输出一行简短预测（如"预计约 45 天完成"或"有风险，建议提速"），前缀用 [预测]
+2. 然后换行详细分析，包含：完成时间预测、速度分析、建议
+3. 回答总长度控制在200字以内`},
+    {role:'user',content:`请根据以下目标数据，预测完成时间并给出建议：\n\n${ctx}`}
+  ];
+
+  try{
+    const t0=Date.now();
+    let fullText='';
+
+    await callDeepSeek(messages,(partial)=>{
+      fullText=partial;
+      document.getElementById('aiPredContent').className='ai-response md-content';
+      document.getElementById('aiPredContent').innerHTML=renderMD(partial);
+    });
+
+    // extract summary (first line after [预测])
+    const summaryMatch=fullText.match(/\[预测\]\s*(.+)/);
+    const summary=summaryMatch?summaryMatch[1].trim().slice(0,20):extractShortPred(fullText);
+
+    aiPreds[id]={text:fullText,summary,ts:Date.now()};
+    savePreds();
+
+    const elapsed=((Date.now()-t0)/1000).toFixed(1);
+    document.getElementById('aiPredMeta').textContent=`DeepSeek · ${elapsed}s · ${new Date().toLocaleTimeString('zh-CN')}`;
+
+    // update chip
+    render();
+  }catch(err){
+    document.getElementById('aiPredContent').className='ai-response error-state';
+    document.getElementById('aiPredContent').innerHTML=`❌ ${esc(err.message)}`;
+    if(chip){chip.classList.remove('loading');chip.classList.add('error');chip.innerHTML='✦ 分析失败，重试';}
+    toast('AI 请求失败: '+err.message);
+  }
+}
+
+function extractShortPred(text){
+  // try to find a time estimate
+  const m=text.match(/(\d+)\s*(天|周|月|小时|days?|weeks?)/);
+  if(m) return `约${m[1]}${m[2]}完成`;
+  return '已分析';
+}
+
+function showCachedPred(id){
+  const g=goals.find(x=>x.id===id);
+  const cached=aiPreds[id];
+  if(!g||!cached) return;
+  currentPredId=id;
+  document.getElementById('aiPredTitle').textContent=`AI 分析 — ${g.name}`;
+  document.getElementById('aiPredContent').className='ai-response md-content';
+  document.getElementById('aiPredContent').innerHTML=renderMD(cached.text);
+  document.getElementById('aiPredMeta').textContent=`缓存 · ${new Date(cached.ts).toLocaleString('zh-CN')}`;
+  openM('aiPredModal');
+}
+
+function rerunPred(){
+  if(currentPredId!==null){
+    delete aiPreds[currentPredId];
+    savePreds();
+    closeM('aiPredModal');
+    runPred(currentPredId);
+  }
+}
+
+/* ======= RENDER MARKDOWN-LIKE ======= */
+function renderMD(text){
+  if(!text) return '';
+  let h=text
+    .replace(/\[预测\]\s*/g,'<strong style="color:var(--ai)">📊 预测：</strong>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^###\s(.+)$/gm,'<strong style="color:var(--ai);display:block;margin:10px 0 4px;">$1</strong>')
+    .replace(/^##\s(.+)$/gm,'<strong style="color:var(--ai);display:block;margin:10px 0 4px;">$1</strong>')
+    .replace(/^-\s(.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>');
+  return `<div class="md-content"><p>${h}</p></div>`;
+}
+
+/* ======= RENDER ======= */
 function render(){
   renderStats();
+  updateAIStatus();
   const list=filtered();
   const el=document.getElementById('goalList');
   if(!list.length){
@@ -541,12 +850,12 @@ function render(){
   const today=new Date().toISOString().slice(0,10);
   el.innerHTML=list.map(g=>{
     const c=gc(g.color);
-    const p=getPct(g),isDone=p===100;
-    const ov=g.deadline&&g.deadline<today&&!isDone;
+    const p=g.progress,done=p===100;
+    const ov=g.deadline&&g.deadline<today&&!done;
     const dl=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
-    const badge=isDone?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!==null&&dl<=7?`${dl}d left`:'In progress';
-    const bc=isDone?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.05)':'rgba(77,158,247,.12)';
-    const bcolor=isDone?'#34c76a':ov?'#ff5c5c':p===0?'#444':'#4d9ef7';
+    const badge=done?'Completed ✓':ov?'Overdue':p===0?'Not started':dl!==null&&dl<=7?`${dl}d left`:'In progress';
+    const bc=done?'rgba(52,199,106,.15)':ov?'rgba(255,92,92,.15)':p===0?'rgba(255,255,255,.05)':'rgba(77,158,247,.12)';
+    const bcolor=done?'#34c76a':ov?'#ff5c5c':p===0?'#444':'#4d9ef7';
     const hist=(g.history||[]).slice(-7);
     const dots=Array(7).fill(0).map((_,i)=>`<div class="adot ${i<hist.length?'on':''}"></div>`).join('');
     return `<div class="gcard" style="--accent:${c.hex};" id="gc${g.id}">
@@ -558,11 +867,11 @@ function render(){
             <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[g.cat]||'✦'} ${g.cat}</span>
             ${g.deadline?`<span class="gdeadline">${g.deadline.slice(5).replace('-','/')}</span>`:''}
           </div>
+          ${done?'':predChipHTML(g)}
         </div>
         <div class="gright">
           <div>
-            <div class="gpct" style="color:${isDone?'#34c76a':c.hex};">${(g.done||0)}<span style="font-size:13px;font-weight:400;color:var(--text2);">/${g.total}</span></div>
-            <div style="font-size:11px;font-family:var(--mono);color:${isDone?'#34c76a':c.hex};text-align:right;margin-top:2px;">${p}%</div>
+            <div class="gpct" style="color:${done?'#34c76a':c.hex};">${p}%</div>
             <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
           </div>
           <div class="gactions">
@@ -575,7 +884,6 @@ function render(){
       <div class="segwrap" onclick="openProg(${g.id})" title="点击更新进度">
         <span class="seg-tip" id="stt${g.id}">${p}%</span>
         ${segBar(p,60,13)}
-        <div style='text-align:center;margin-top:-2px;font-size:10px;color:var(--text3);font-family:var(--mono);'>${g.done||0} / ${g.total} ${g.unit?esc(g.unit):''}</div>
         <div class="seg-labels"><span class="seg-lbl">0%</span><span class="seg-lbl">25%</span><span class="seg-lbl">50%</span><span class="seg-lbl">75%</span><span class="seg-lbl">100%</span></div>
       </div>
       <div class="gfoot">
@@ -610,24 +918,107 @@ function render(){
   });
 }
 
-/* COLOR ROW */
-function buildCR(sel){
-  return COLORS.map(c=>`<div class="cdot ${c.id===sel?'sel':''}" style="background:${c.hex};" onclick="pickC('${c.id}')"></div>`).join('');
+/* ======= AI HUB ======= */
+function openAIHub(){
+  document.getElementById('aiHubResponse').style.display='none';
+  document.getElementById('aiCustomQ').value='';
+  openM('aiHubModal');
 }
+
+async function aiFeature(type){
+  if(!getKey()){toast('请先配置 API Key');openSettings();return;}
+  const allCtx=goals.map(g=>buildGoalContext(g)).join('\n\n---\n\n');
+  const today=new Date().toISOString().slice(0,10);
+
+  const prompts={
+    overview:`今日日期: ${today}\n\n以下是我的所有目标数据：\n\n${allCtx}\n\n请给出整体完成情况分析，包括：总体趋势、最接近完成的目标、需要加速的目标，以及综合预测。200字以内。`,
+    priority:`今日日期: ${today}\n\n${allCtx}\n\n作为今日规划助手，请告诉我今天应该重点关注哪个目标？给出排序和理由。150字以内。`,
+    plan:`今日日期: ${today}\n\n${allCtx}\n\n请为本周（7天）制定每个目标的具体行动计划，包括每天建议投入时间和具体任务。尽量具体可操作。`,
+    risk:`今日日期: ${today}\n\n${allCtx}\n\n请识别有截止日期风险的目标，分析原因，并给出补救建议。`
+  };
+
+  const resp=document.getElementById('aiHubResponse');
+  resp.style.display='block';
+  resp.className='ai-response loading-state';
+  resp.innerHTML=`<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">DeepSeek 思考中…</span>`;
+
+  try{
+    await callDeepSeek([
+      {role:'system',content:'你是专业的目标管理教练，用中文回答，简洁有洞察力，适当使用 emoji。'},
+      {role:'user',content:prompts[type]}
+    ],(partial)=>{
+      resp.className='ai-response md-content';
+      resp.innerHTML=renderMD(partial);
+    });
+  }catch(err){
+    resp.className='ai-response error-state';
+    resp.innerHTML='❌ '+esc(err.message);
+    toast('AI 请求失败');
+  }
+}
+
+async function askCustom(){
+  const q=document.getElementById('aiCustomQ').value.trim();
+  if(!q){toast('请输入问题');return;}
+  if(!getKey()){toast('请先配置 API Key');openSettings();return;}
+  const allCtx=goals.map(g=>buildGoalContext(g)).join('\n\n---\n\n');
+
+  const resp=document.getElementById('aiHubResponse');
+  resp.style.display='block';
+  resp.className='ai-response loading-state';
+  resp.innerHTML=`<div class="typing-dots"><span></span><span></span><span></span></div><span style="margin-left:8px;">DeepSeek 思考中…</span>`;
+
+  try{
+    await callDeepSeek([
+      {role:'system',content:'你是目标管理助手。用户提供了他们的目标数据，请基于这些数据用中文回答问题。'},
+      {role:'user',content:`我的目标数据：\n\n${allCtx}\n\n我的问题：${q}`}
+    ],(partial)=>{
+      resp.className='ai-response md-content';
+      resp.innerHTML=renderMD(partial);
+    });
+  }catch(err){
+    resp.className='ai-response error-state';
+    resp.innerHTML='❌ '+esc(err.message);
+  }
+}
+
+/* ======= SETTINGS ======= */
+function openSettings(){
+  const key=getKey();
+  document.getElementById('apiKeyInput').value=key;
+  document.getElementById('toggleAutoPred').checked=prefs.autoPred;
+  document.getElementById('toggleShowPred').checked=prefs.showPred;
+  updateKeyStatus(!!key);
+  openM('settingsModal');
+}
+function saveApiKey(){
+  const k=document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('ds_key',k);
+  updateKeyStatus(!!k);
+  updateAIStatus();
+  render();
+  toast(k?'API Key 已保存 ✓':'API Key 已清除');
+}
+function updateKeyStatus(ok){
+  document.getElementById('keyStatusEl').innerHTML=`<span class="key-status ${ok?'ok':'no'}">${ok?'✓ Key 已配置':'✗ 未配置 Key'}</span>`;
+}
+function clearAllPreds(){
+  aiPreds={};savePreds();render();toast('AI 缓存已清除');
+}
+
+/* ======= COLOR ROW ======= */
+function buildCR(sel){return COLORS.map(c=>`<div class="cdot ${c.id===sel?'sel':''}" style="background:${c.hex};" onclick="pickC('${c.id}')"></div>`).join('');}
 function pickC(id){selColor=id;document.getElementById('colorRow').innerHTML=buildCR(id);}
 
-/* ADD / EDIT */
+/* ======= ADD/EDIT ======= */
 function openAdd(){
   editId=null;selColor='blue';
   document.getElementById('mTitle').textContent='新建目标';
-  document.getElementById('iName').value='';
-  document.getElementById('iDesc').value='';
+  ['iName','iDesc','iDeadline','iUnit'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('iCat').value='学习';
   document.getElementById('iPri').value='mid';
-  document.getElementById('iDeadline').value='';
-  document.getElementById('iUnit').value='';
-  document.getElementById('iDone').value=0;
-  document.getElementById('iTotal').value=10;
+  document.getElementById('iProgress').value=0;
+  document.getElementById('iProgVal').textContent='0%';
   document.getElementById('colorRow').innerHTML=buildCR('blue');
   openM('goalModal');
   setTimeout(()=>document.getElementById('iName').focus(),250);
@@ -642,259 +1033,109 @@ function openEdit(id){
   document.getElementById('iPri').value=g.priority||'mid';
   document.getElementById('iDeadline').value=g.deadline||'';
   document.getElementById('iUnit').value=g.unit||'';
-  document.getElementById('iDone').value=g.done||0;
-  document.getElementById('iTotal').value=g.total||10;
+  document.getElementById('iProgress').value=g.progress;
+  document.getElementById('iProgVal').textContent=g.progress+'%';
   document.getElementById('colorRow').innerHTML=buildCR(g.color);
   openM('goalModal');
 }
 function saveGoal(){
   const name=document.getElementById('iName').value.trim();
   if(!name){document.getElementById('iName').focus();toast('请输入目标名称');return;}
-  const doneVal=Math.max(0,parseInt(document.getElementById('iDone').value)||0);
-  const totalVal=Math.max(1,parseInt(document.getElementById('iTotal').value)||1);
-  const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,unit:document.getElementById('iUnit').value.trim(),done:Math.min(doneVal,totalVal),total:totalVal,color:selColor};
+  const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,unit:document.getElementById('iUnit').value.trim(),progress:parseInt(document.getElementById('iProgress').value),color:selColor};
   if(editId){const g=goals.find(x=>x.id===editId);if(g)Object.assign(g,obj);}
   else goals.push({...obj,id:Date.now(),history:[],created:Date.now()});
   save();render();closeM('goalModal');
   toast(editId?'目标已更新 ✓':'目标已创建 🎯');
 }
 
-/* PROGRESS MODAL */
+/* ======= PROGRESS MODAL ======= */
 function openProg(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   quickId=id;
   document.getElementById('progMTitle').textContent='更新进度 — '+g.name;
-  document.getElementById('qDone').value=g.done||0;
-  document.getElementById('qTotal').value=g.total||10;
-  document.getElementById('qTotal').readOnly=false;
-  document.getElementById('qUnitLabel').textContent=g.unit||'';
+  document.getElementById('qSlider').value=g.progress;
+  document.getElementById('qVal').textContent=g.progress+'%';
   document.getElementById('qNote').value='';
-  const pct=getPct(g);
-  document.getElementById('qPctDisplay').textContent=pct+'%';
-  document.getElementById('progPreview').innerHTML=segBar(pct,40,10);
+  document.getElementById('progPreview').innerHTML=segBar(g.progress,40,10);
   openM('progModal');
 }
-function onQDone(){
-  const d=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
-  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  const pct=Math.min(100,Math.round(d/t*100));
-  document.getElementById('qPctDisplay').textContent=pct+'%';
-  document.getElementById('progPreview').innerHTML=segBar(pct,40,10);
+function onQSlider(v){
+  document.getElementById('qVal').textContent=v+'%';
+  document.getElementById('progPreview').innerHTML=segBar(parseInt(v),40,10);
 }
-function stepDone(delta){
-  const inp=document.getElementById('qDone');
-  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  const cur=parseInt(inp.value)||0;
-  inp.value=Math.max(0,Math.min(t,cur+delta));
-  onQDone();
-}
-function setDoneMax(){
-  const t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  document.getElementById('qDone').value=t;
-  onQDone();
-}
+function setQ(v){document.getElementById('qSlider').value=v;onQSlider(v);}
 function saveQ(){
   if(quickId===null)return;
-  const doneVal=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
-  const totalVal=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  const v=parseInt(document.getElementById('qSlider').value);
   const note=document.getElementById('qNote').value.trim();
   const g=goals.find(x=>x.id===quickId);
-  if(g){
-    g.done=Math.min(doneVal,totalVal);
-    g.total=totalVal;
-    if(!g.history)g.history=[];
-    g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note});
+  if(g){g.progress=v;if(!g.history)g.history=[];g.history.push({date:new Date().toISOString().slice(0,10),v,note});
+    // invalidate AI cache since data changed
+    delete aiPreds[quickId];savePreds();
   }
   save();render();closeM('progModal');
-  const pct=getPct(g);
-  toast(pct===100?'🎉 目标完成！干得漂亮！':'进度已更新 → '+g.done+'/'+g.total+' ('+pct+'%)');
+  toast(v===100?'🎉 目标完成！干得漂亮！':`进度已更新 → ${v}%`);
 }
 
-/* DETAIL */
+/* ======= DETAIL ======= */
 function openDetail(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   const c=gc(g.color);
-  const today=new Date().toISOString().slice(0,10);
-  const dl=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/864e5):null;
   document.getElementById('dTitle').textContent=g.name;
   document.getElementById('dEditBtn').onclick=()=>{closeM('detailModal');openEdit(id);};
   const hist=(g.history||[]).slice().reverse().slice(0,10);
-  const histH=hist.length?hist.map(h=>{
-    const hPct=h.total>0?Math.min(100,Math.round((h.done||h.v||0)/h.total*100)):(h.v||0);
-    const hLabel=h.total?(h.done||h.v||0)+'/'+h.total:(h.v||0)+'%';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+  const histH=hist.length?hist.map(h=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:76px;">${h.date}</span>
-      <div style="flex:1;">${segBar(hPct,30,8)}</div>
-      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:50px;text-align:right;">${hLabel}</span>
-      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
-    </div>`;}).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0;">暂无更新记录</div>';
-  const pct=getPct(g);
-  const kv=[['完成情况',(g.done||0)+' / '+g.total+(g.unit?' '+g.unit:'')],['完成率',pct+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],['截止日期',g.deadline||(dl!==null?`${dl}天后`:'未设置')],['更新次数',(g.history||[]).length+'次']];
+      <div style="flex:1;">${segBar(h.v,30,8)}</div>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:34px;text-align:right;">${h.v}%</span>
+      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
+    </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px 0;">暂无更新记录</div>';
+  const kv=[['当前进度',g.progress+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],['截止日期',g.deadline||'未设置'],['单位',g.unit||'未设置'],['更新次数',(g.history||[]).length+'次']];
+  const cached=aiPreds[id];
+  const aiSection=cached?`<div style="margin-bottom:18px;"><div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:8px;">AI 分析</div><div style="background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:8px;padding:12px;font-size:12px;line-height:1.6;">${renderMD(cached.text)}</div><div style="text-align:right;font-size:10px;color:var(--text3);margin-top:4px;">${new Date(cached.ts).toLocaleString('zh-CN')}</div></div>`:'';
   document.getElementById('dBody').innerHTML=`
-    <div style="margin-bottom:14px;">${segBar(getPct(g),60,14)}</div>
+    <div style="margin-bottom:14px;">${segBar(g.progress,60,14)}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
       ${kv.map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:11px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${k}</div><div style="font-size:14px;font-weight:500;">${v}</div></div>`).join('')}
     </div>
+    ${aiSection}
     <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:8px;">更新历史</div>
     ${histH}`;
   openM('detailModal');
 }
 
-/* DELETE */
+/* ======= DELETE ======= */
 function delGoal(id){
   if(!confirm('确定删除此目标？'))return;
   goals=goals.filter(x=>x.id!==id);
+  delete aiPreds[id];savePreds();
   save();render();toast('目标已删除');
 }
 
-/* EXPORT */
+/* ======= EXPORT ======= */
 function exportData(){
-  const blob=new Blob([JSON.stringify(goals,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goals.json';a.click();
+  const blob=new Blob([JSON.stringify({goals,aiPreds},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goals-export.json';a.click();
   toast('已导出 JSON ↓');
 }
 
-/* MODAL UTILS */
+/* ======= MODAL UTILS ======= */
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'));});
 
-/* TOAST */
+/* ======= TOAST ======= */
 let tt;
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2600);}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2800);}
 
-/* COUNTDOWN */
-const CD_FORMATS=[
-  {id:'d',label:'天',desc:'只显示天数'},
-  {id:'h',label:'时',desc:'只显示小时'},
-  {id:'m',label:'分',desc:'只显示分钟'},
-  {id:'dh',label:'天时',desc:'天 + 小时'},
-  {id:'dhm',label:'天时分',desc:'天 + 小时 + 分钟'},
-  {id:'dhms',label:'天时分秒',desc:'实时秒级'},
-  {id:'Wd',label:'周天',desc:'周 + 天'},
-  {id:'Mwd',label:'月周天',desc:'月 + 周 + 天'},
-  {id:'Md',label:'月天',desc:'月 + 天'},
-];
-let countdowns=JSON.parse(localStorage.getItem('cd_v2')||'null')||[
-  {id:1,label:'期末考试',emoji:'📝',target:'2026-06-20',format:'dhm',color:'#4d9ef7'},
-  {id:2,label:'元旦',emoji:'🎆',target:'2027-01-01',format:'Md',color:'#34c76a'},
-];
-let cdDraft=[],cdTimer=null;
-function saveCdData(){localStorage.setItem('cd_v2',JSON.stringify(countdowns));}
-
-function calcCountdown(targetDate,fmt){
-  const now=new Date(),target=new Date(targetDate+'T00:00:00');
-  const diff=target-now,past=diff<0,abs=Math.abs(diff);
-  const totalSec=Math.floor(abs/1000),totalMin=Math.floor(totalSec/60);
-  const totalH=Math.floor(totalMin/60),totalD=Math.floor(totalH/24);
-  const totalW=Math.floor(totalD/7),totalM=Math.floor(totalD/30.436875);
-  const s=totalSec%60,m=totalMin%60,h=totalH%24;
-  const wd=totalD-(totalW*7),dInM=totalD-Math.floor(totalM*30.436875);
-  let parts=[];
-  if(fmt==='d') parts=[{v:totalD,u:'天'}];
-  else if(fmt==='h') parts=[{v:totalH,u:'时'}];
-  else if(fmt==='m') parts=[{v:totalMin,u:'分'}];
-  else if(fmt==='dh') parts=[{v:totalD,u:'天'},{v:h,u:'时'}];
-  else if(fmt==='dhm') parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'}];
-  else if(fmt==='dhms') parts=[{v:totalD,u:'天'},{v:h,u:'时'},{v:m,u:'分'},{v:s,u:'秒'}];
-  else if(fmt==='Wd') parts=[{v:totalW,u:'周'},{v:wd,u:'天'}];
-  else if(fmt==='Mwd') parts=[{v:totalM,u:'月'},{v:Math.floor(dInM/7),u:'周'},{v:dInM%7,u:'天'}];
-  else if(fmt==='Md') parts=[{v:totalM,u:'月'},{v:dInM,u:'天'}];
-  return {parts,past,totalD};
-}
-
-function renderCdBanner(){
-  const strip=document.getElementById('cdStrip');
-  const banner=document.getElementById('cdBanner');
-  if(!countdowns.length){banner.classList.remove('visible');return;}
-  banner.classList.add('visible');
-  strip.innerHTML=countdowns.map(function(cd){
-    const res=calcCountdown(cd.target,cd.format);
-    const parts=res.parts,past=res.past,totalD=res.totalD;
-    const numColor=cd.color||(totalD<=3?'#ff5c5c':totalD<=14?'#f5a623':'#4d9ef7');
-    const urgClass=past?'cd-past':totalD<=3?'cd-urgent':totalD<=14?'cd-warn':'cd-ok';
-    let numsHtml='';
-    for(let i=0;i<parts.length;i++){
-      numsHtml+='<div class="cd-unit-group"><span class="cd-num" style="color:'+numColor+';">'+String(parts[i].v).padStart(2,'0')+'</span><span class="cd-unit">'+parts[i].u+'</span></div>';
-      if(i<parts.length-1) numsHtml+='<span class="cd-sep">·</span>';
-    }
-    const pastLabel=past?'<span style="font-size:10px;color:var(--text3);margin-left:4px;">已过</span>':'';
-    return '<div class="cd-item '+urgClass+'" id="cdi'+cd.id+'"><div class="cd-item-left"><span class="cd-emoji">'+(cd.emoji||'⏱')+'</span><span class="cd-label">'+esc(cd.label)+pastLabel+'</span></div><div class="cd-numbers">'+numsHtml+'</div><div class="cd-actions-ico"><button class="btn btn-ico" onclick="openCdSettings()" title="管理倒计时">✎</button><button class="btn btn-ico del" onclick="deleteCd('+cd.id+')" title="删除">✕</button></div></div>';
-  }).join('');
-}
-
-function startCdTimer(){
-  if(cdTimer) clearInterval(cdTimer);
-  renderCdBanner();
-  const hasSeconds=countdowns.some(function(c){return c.format==='dhms';});
-  cdTimer=setInterval(renderCdBanner,hasSeconds?1000:30000);
-}
-
-function deleteCd(id){
-  countdowns=countdowns.filter(function(c){return c.id!==id;});
-  saveCdData();startCdTimer();toast('倒计时已删除');
-}
-
-function openCdSettings(){
-  cdDraft=JSON.parse(JSON.stringify(countdowns));
-  renderCdList();
-  openM('cdModal');
-}
-
-function renderCdList(){
-  const el=document.getElementById('cdList');
-  if(!cdDraft.length){
-    el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px;">还没有倒计时，点击下方按钮添加 👇</div>';
-    return;
-  }
-  const colorOpts=['#4d9ef7','#34c76a','#f5a623','#ff5c5c','#b57bee','#2dd4bf','#f472b6','#fb923c'];
-  let html='';
-  for(let i=0;i<cdDraft.length;i++){
-    const cd=cdDraft[i];
-    let fmtOptions='';
-    for(let fi=0;fi<CD_FORMATS.length;fi++){
-      const f=CD_FORMATS[fi];
-      fmtOptions+='<option value="'+f.id+'"'+(cd.format===f.id?' selected':'')+'>'+(f.label)+' — '+f.desc+'</option>';
-    }
-    let colorDots='';
-    for(let ci=0;ci<colorOpts.length;ci++){
-      const hex=colorOpts[ci];
-      colorDots+='<div data-i="'+i+'" data-c="'+hex+'" onclick="cdDraft['+i+'].color=\''+hex+'\';renderCdList()" style="width:22px;height:22px;border-radius:50%;background:'+hex+';cursor:pointer;border:2.5px solid '+(cd.color===hex?'#fff':'transparent')+';transition:border-color .1s;flex-shrink:0;"></div>';
-    }
-    html+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">'
-      +'<div style="display:grid;grid-template-columns:50px 1fr 1fr;gap:10px;align-items:end;margin-bottom:10px;">'
-      +'<div class="fg"><label class="flbl">图标</label><input class="fi" value="'+esc(cd.emoji||'⏱')+'" maxlength="2" style="text-align:center;font-size:18px;padding:6px;" oninput="cdDraft['+i+'].emoji=this.value"></div>'
-      +'<div class="fg"><label class="flbl">名称 *</label><input class="fi" value="'+esc(cd.label)+'" maxlength="20" placeholder="倒计时名称…" oninput="cdDraft['+i+'].label=this.value"></div>'
-      +'<div class="fg"><label class="flbl">目标日期 *</label><input class="fi" type="date" value="'+cd.target+'" onchange="cdDraft['+i+'].target=this.value"></div>'
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 36px;gap:10px;align-items:end;">'
-      +'<div class="fg"><label class="flbl">显示格式</label><select class="fi" onchange="cdDraft['+i+'].format=this.value">'+fmtOptions+'</select></div>'
-      +'<div class="fg"><label class="flbl">数字颜色</label><div style="display:flex;gap:7px;flex-wrap:wrap;padding-top:8px;">'+colorDots+'</div></div>'
-      +'<div class="fg" style="align-self:end;"><button class="btn btn-ico del" style="width:36px;height:36px;" onclick="cdDraft.splice('+i+',1);renderCdList()" title="删除此倒计时">✕</button></div>'
-      +'</div></div>';
-  }
-  el.innerHTML=html;
-}
-
-function addCdItem(){
-  const d=new Date(Date.now()+864e5*30).toISOString().slice(0,10);
-  cdDraft.push({id:Date.now(),label:'新倒计时',emoji:'⏱',target:d,format:'dhm',color:'#4d9ef7'});
-  renderCdList();
-  setTimeout(function(){document.getElementById('cdList').lastElementChild.scrollIntoView({behavior:'smooth'});},80);
-}
-
-function saveCd(){
-  countdowns=JSON.parse(JSON.stringify(cdDraft));
-  saveCdData();startCdTimer();closeM('cdModal');
-  toast('倒计时已保存 ✓');
-}
-
-
-/* INIT */
+/* ======= INIT ======= */
 initGreeting();
+updateAIStatus();
+document.getElementById('toggleAutoPred').checked=prefs.autoPred;
+document.getElementById('toggleShowPred').checked=prefs.showPred;
 render();
-startCdTimer();
 </script>
 </body>
 </html>
