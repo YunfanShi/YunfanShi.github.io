@@ -564,6 +564,11 @@ option{background:#1a1a1a;}
       <div style="font-size:13px;color:var(--text2);margin-bottom:12px;" id="approvalDesc"></div>
       <!-- AI reply shown read-only -->
       <div id="approvalAiText" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;line-height:1.65;color:var(--text);max-height:160px;overflow-y:auto;margin-bottom:14px;display:none;"></div>
+      <!-- Raw response debug (hidden by default) -->
+      <div id="approvalRawWrap" style="display:none;margin-bottom:10px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px;">AI 原始回复（调试）</div>
+        <pre id="approvalRaw" style="background:#0d0d0d;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;font-family:var(--mono);color:var(--text2);max-height:140px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></pre>
+      </div>
       <!-- Action list -->
       <div id="approvalList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
     </div>
@@ -1026,11 +1031,11 @@ ${hist.map(h=>`  ${h.date}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}
 }
 
 /* ===================== CALL AI ===================== */
-async function callAI(messages,onChunk){
+async function callAI(messages,onChunk,maxTokens=900){
   const key=getKey();if(!key)throw new Error('未配置 API Key');
   const endpoint=getEndpoint();if(!endpoint)throw new Error('未配置 API 端点');
   const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-    body:JSON.stringify({model:getModel(),messages,stream:true,max_tokens:900,temperature:0.7})});
+    body:JSON.stringify({model:getModel(),messages,stream:true,max_tokens:maxTokens,temperature:0.7})});
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`API 错误 ${res.status}`);}
   const reader=res.body.getReader(),dec=new TextDecoder();let full='';
   while(true){
@@ -1429,221 +1434,288 @@ async function aiFeature(type){
 }
 
 /* ===================== AI TOOLS DEFINITION ===================== */
-// All operations AI can request
+
+// Centralized error logger
+function aiLog(level, fn, msg, data){
+  const prefix = `[AI-Agent][${fn}]`;
+  if(level==='error') console.error(prefix, msg, data||'');
+  else if(level==='warn') console.warn(prefix, msg, data||'');
+  else console.log(prefix, msg, data||'');
+}
+
+// Normalize ID: AI sometimes returns string "123" instead of number 123
+function normalizeId(id){
+  if(id===null||id===undefined) return null;
+  const n=Number(id);
+  return isNaN(n)?id:n;
+}
+
+function findGoal(id){
+  const nid=normalizeId(id);
+  const g=goals.find(x=>x.id===nid||String(x.id)===String(id));
+  if(!g) aiLog('error','findGoal',`Goal not found. op.id=${JSON.stringify(id)} (normalized=${nid}). Available IDs: ${goals.map(x=>x.id).join(', ')}`);
+  return g||null;
+}
+
 const AI_TOOLS={
   set_deadline:{
-    label:'修改截止日期',
-    icon:'📅',
-    danger:false,
+    label:'修改截止日期', icon:'📅', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在: '+op.id};
-      const old=g.deadline||'未设置';
-      recordDeadlineChange(g, g.deadline, op.value, 'ai');
-      g.deadline=op.value;
-      return {ok:true,msg:`${g.name}：截止日期 ${old} → ${op.value}`};
+      try{
+        aiLog('log','set_deadline','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        if(!op.value||!/^\d{4}-\d{2}-\d{2}$/.test(op.value)){
+          aiLog('error','set_deadline',`Invalid date value: ${JSON.stringify(op.value)}`);
+          return {ok:false,msg:`日期格式错误: ${op.value}，需要YYYY-MM-DD`};
+        }
+        const old=g.deadline||'未设置';
+        recordDeadlineChange(g, g.deadline, op.value, 'ai');
+        g.deadline=op.value;
+        aiLog('log','set_deadline',`OK: ${g.name} ${old} → ${op.value}`);
+        return {ok:true,msg:`${g.name}：截止日期 ${old} → ${op.value}`};
+      }catch(e){aiLog('error','set_deadline','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'截止日期',old:g?.deadline||'未设置',new:op.value};
+      try{const g=findGoal(op.id);return {field:'截止日期',old:g?.deadline||'未设置',new:op.value||'—'};}
+      catch(e){return {field:'截止日期',old:'?',new:op.value||'—'};}
     }
   },
   set_priority:{
-    label:'修改优先级',
-    icon:'🎯',
-    danger:false,
+    label:'修改优先级', icon:'🎯', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=g.priority;
-      g.priority=op.value;
-      return {ok:true,msg:`${g.name}：优先级 ${old} → ${op.value}`};
+      try{
+        aiLog('log','set_priority','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        if(!['high','mid','low'].includes(op.value)){
+          aiLog('error','set_priority',`Invalid priority: ${op.value}`);
+          return {ok:false,msg:`优先级值错误: ${op.value}，需为 high/mid/low`};
+        }
+        const old=g.priority;
+        g.priority=op.value;
+        aiLog('log','set_priority',`OK: ${g.name} ${old} → ${op.value}`);
+        return {ok:true,msg:`${g.name}：优先级 ${old} → ${op.value}`};
+      }catch(e){aiLog('error','set_priority','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      const labels={high:'高🔴',mid:'中🟡',low:'低🟢'};
-      return {field:'优先级',old:labels[g?.priority]||g?.priority,new:labels[op.value]||op.value};
+      try{
+        const g=findGoal(op.id);
+        const labels={high:'高🔴',mid:'中🟡',low:'低🟢'};
+        return {field:'优先级',old:labels[g?.priority]||g?.priority||'?',new:labels[op.value]||op.value};
+      }catch(e){return {field:'优先级',old:'?',new:op.value};}
     }
   },
   set_progress:{
-    label:'修改进度',
-    icon:'📊',
-    danger:false,
+    label:'修改进度', icon:'📊', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=`${g.done||0}/${g.total}`;
-      if(op.done!=null) g.done=Math.min(op.done,g.total);
-      if(op.total!=null) g.total=op.total;
-      if(!g.history) g.history=[];
-      g.history.push({date:today(),done:g.done,total:g.total,note:'AI修改'});
-      return {ok:true,msg:`${g.name}：进度 ${old} → ${g.done}/${g.total}`};
+      try{
+        aiLog('log','set_progress','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        const old=`${g.done||0}/${g.total}`;
+        if(op.done!=null) g.done=Math.min(Number(op.done),g.total);
+        if(op.total!=null) g.total=Number(op.total);
+        if(!g.history) g.history=[];
+        g.history.push({date:today(),done:g.done,total:g.total,note:'AI修改'});
+        aiLog('log','set_progress',`OK: ${g.name} ${old} → ${g.done}/${g.total}`);
+        return {ok:true,msg:`${g.name}：进度 ${old} → ${g.done}/${g.total}`};
+      }catch(e){aiLog('error','set_progress','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'进度',old:`${g?.done||0}/${g?.total}`,new:`${op.done!=null?op.done:g?.done}/${op.total!=null?op.total:g?.total}`};
+      try{const g=findGoal(op.id);return {field:'进度',old:`${g?.done||0}/${g?.total||'?'}`,new:`${op.done!=null?op.done:g?.done}/${op.total!=null?op.total:g?.total}`};}
+      catch(e){return {field:'进度',old:'?',new:`${op.done}/${op.total}`};}
     }
   },
   set_name:{
-    label:'修改名称',
-    icon:'✏️',
-    danger:false,
+    label:'修改名称', icon:'✏️', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=g.name;
-      g.name=op.value;
-      return {ok:true,msg:`名称 "${old}" → "${op.value}"`};
+      try{
+        aiLog('log','set_name','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        if(!op.value){return {ok:false,msg:'名称不能为空'};}
+        const old=g.name;
+        g.name=op.value;
+        aiLog('log','set_name',`OK: "${old}" → "${op.value}"`);
+        return {ok:true,msg:`名称 "${old}" → "${op.value}"`};
+      }catch(e){aiLog('error','set_name','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'名称',old:g?.name,new:op.value};
+      try{const g=findGoal(op.id);return {field:'名称',old:g?.name||'?',new:op.value||'—'};}
+      catch(e){return {field:'名称',old:'?',new:op.value};}
     }
   },
   set_desc:{
-    label:'修改描述',
-    icon:'📝',
-    danger:false,
+    label:'修改描述', icon:'📝', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=g.desc||'无';
-      g.desc=op.value;
-      return {ok:true,msg:`${g.name}：描述已更新`};
+      try{
+        aiLog('log','set_desc','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        g.desc=op.value||'';
+        aiLog('log','set_desc',`OK: ${g.name}`);
+        return {ok:true,msg:`${g.name}：描述已更新`};
+      }catch(e){aiLog('error','set_desc','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'描述',old:g?.desc||'无',new:op.value};
+      try{const g=findGoal(op.id);return {field:'描述',old:g?.desc||'无',new:op.value||'—'};}
+      catch(e){return {field:'描述',old:'?',new:op.value};}
     }
   },
   set_total:{
-    label:'修改总数量',
-    icon:'🔢',
-    danger:false,
+    label:'修改总数量', icon:'🔢', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=g.total;
-      g.total=op.value;
-      return {ok:true,msg:`${g.name}：总量 ${old} → ${op.value}`};
+      try{
+        aiLog('log','set_total','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        const n=Number(op.value);
+        if(isNaN(n)||n<1){return {ok:false,msg:`总量必须为正整数，收到: ${op.value}`};}
+        const old=g.total;
+        g.total=n;
+        aiLog('log','set_total',`OK: ${g.name} ${old} → ${n}`);
+        return {ok:true,msg:`${g.name}：总量 ${old} → ${n}`};
+      }catch(e){aiLog('error','set_total','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'总数量',old:String(g?.total),new:String(op.value)};
+      try{const g=findGoal(op.id);return {field:'总数量',old:String(g?.total||'?'),new:String(op.value)};}
+      catch(e){return {field:'总数量',old:'?',new:String(op.value)};}
     }
   },
   set_unit:{
-    label:'修改单位',
-    icon:'📏',
-    danger:false,
+    label:'修改单位', icon:'📏', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=g.unit||'无';
-      g.unit=op.value;
-      return {ok:true,msg:`${g.name}：单位 ${old} → ${op.value}`};
+      try{
+        aiLog('log','set_unit','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        const old=g.unit||'无';
+        g.unit=op.value||'';
+        aiLog('log','set_unit',`OK: ${g.name} ${old} → ${op.value}`);
+        return {ok:true,msg:`${g.name}：单位 ${old} → ${op.value}`};
+      }catch(e){aiLog('error','set_unit','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'单位',old:g?.unit||'无',new:op.value};
+      try{const g=findGoal(op.id);return {field:'单位',old:g?.unit||'无',new:op.value||'—'};}
+      catch(e){return {field:'单位',old:'?',new:op.value};}
     }
   },
   set_color:{
-    label:'修改颜色',
-    icon:'🎨',
-    danger:false,
+    label:'修改颜色', icon:'🎨', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const old=g.color;
-      g.color=op.value;
-      return {ok:true,msg:`${g.name}：颜色 ${old} → ${op.value}`};
+      try{
+        aiLog('log','set_color','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        const validColors=['blue','green','yellow','red','purple','teal','pink','orange'];
+        if(!validColors.includes(op.value)){return {ok:false,msg:`颜色值错误: ${op.value}`};}
+        const old=g.color;
+        g.color=op.value;
+        aiLog('log','set_color',`OK: ${g.name} ${old} → ${op.value}`);
+        return {ok:true,msg:`${g.name}：颜色 ${old} → ${op.value}`};
+      }catch(e){aiLog('error','set_color','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'颜色',old:g?.color,new:op.value};
+      try{const g=findGoal(op.id);return {field:'颜色',old:g?.color||'?',new:op.value};}
+      catch(e){return {field:'颜色',old:'?',new:op.value};}
     }
   },
   set_parent:{
-    label:'修改父任务',
-    icon:'🔀',
-    danger:false,
+    label:'修改父任务', icon:'🔀', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const oldP=g.parentId?goals.find(x=>x.id===g.parentId)?.name:'独立';
-      const newP=op.value?goals.find(x=>x.id===op.value)?.name:'独立';
-      g.parentId=op.value;
-      return {ok:true,msg:`${g.name}：父任务 ${oldP} → ${newP||'独立'}`};
+      try{
+        aiLog('log','set_parent','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        const newParentId=op.value!=null?normalizeId(op.value):null;
+        if(newParentId!==null){
+          const parent=goals.find(x=>x.id===newParentId||String(x.id)===String(op.value));
+          if(!parent) return {ok:false,msg:`父任务不存在 (id=${op.value})`};
+        }
+        const oldPName=g.parentId?goals.find(x=>x.id===g.parentId)?.name:'独立';
+        const newPName=newParentId?goals.find(x=>x.id===newParentId)?.name:'独立';
+        g.parentId=newParentId;
+        aiLog('log','set_parent',`OK: ${g.name} parent ${oldPName} → ${newPName}`);
+        return {ok:true,msg:`${g.name}：父任务 ${oldPName} → ${newPName||'独立'}`};
+      }catch(e){aiLog('error','set_parent','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      const oldP=g?.parentId?goals.find(x=>x.id===g.parentId)?.name:'独立';
-      const newP=op.value?goals.find(x=>x.id===op.value)?.name:'独立';
-      return {field:'父任务',old:oldP,new:newP};
+      try{
+        const g=findGoal(op.id);
+        const nid=op.value!=null?normalizeId(op.value):null;
+        const oldP=g?.parentId?goals.find(x=>x.id===g.parentId)?.name:'独立';
+        const newP=nid?goals.find(x=>x.id===nid)?.name:'独立';
+        return {field:'父任务',old:oldP||'?',new:newP||'独立'};
+      }catch(e){return {field:'父任务',old:'?',new:String(op.value)};}
     }
   },
   add_history:{
-    label:'添加进度记录',
-    icon:'📌',
-    danger:false,
+    label:'添加进度记录', icon:'📌', danger:false,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      if(!g.history) g.history=[];
-      g.history.push({date:op.date||today(),done:op.done,total:op.total||g.total,note:op.note||'AI添加'});
-      return {ok:true,msg:`${g.name}：已添加历史记录 ${op.done}/${op.total||g.total}`};
+      try{
+        aiLog('log','add_history','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        if(!g.history) g.history=[];
+        const entry={date:op.date||today(),done:Number(op.done)||0,total:Number(op.total)||g.total,note:op.note||'AI添加'};
+        g.history.push(entry);
+        aiLog('log','add_history',`OK: ${g.name}`,entry);
+        return {ok:true,msg:`${g.name}：已添加历史记录 ${entry.done}/${entry.total}`};
+      }catch(e){aiLog('error','add_history','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
-    diff(op){
-      return {field:'历史记录',old:'—',new:`${op.date||today()} ${op.done}/${op.total||'—'}`};
-    }
+    diff(op){return {field:'历史记录',old:'—',new:`${op.date||today()} ${op.done}/${op.total||'?'}`};}
   },
   delete_goal:{
-    label:'删除目标',
-    icon:'🗑️',
-    danger:true,
+    label:'删除目标', icon:'🗑️', danger:true,
     apply(op){
-      const g=goals.find(x=>x.id===op.id);
-      if(!g) return {ok:false,msg:'目标不存在'};
-      const name=g.name;
-      const childIds=goals.filter(c=>c.parentId===op.id).map(c=>c.id);
-      goals=goals.filter(x=>x.id!==op.id&&!childIds.includes(x.id));
-      [op.id,...childIds].forEach(i=>{delete aiPreds[i];});
-      savePreds();
-      return {ok:true,msg:`已删除 "${name}"${childIds.length?` 及其 ${childIds.length} 个子任务`:''}`};
+      try{
+        aiLog('log','delete_goal','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        const name=g.name;
+        const nid=normalizeId(op.id);
+        const childIds=goals.filter(c=>c.parentId===nid).map(c=>c.id);
+        goals=goals.filter(x=>x.id!==nid&&!childIds.includes(x.id));
+        [nid,...childIds].forEach(i=>{delete aiPreds[i];});
+        savePreds();
+        aiLog('log','delete_goal',`OK: deleted "${name}" + ${childIds.length} children`);
+        return {ok:true,msg:`已删除 "${name}"${childIds.length?` 及其 ${childIds.length} 个子任务`:''}`};
+      }catch(e){aiLog('error','delete_goal','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      const g=goals.find(x=>x.id===op.id);
-      return {field:'删除',old:g?.name||String(op.id),new:'已删除'};
+      try{const g=findGoal(op.id);return {field:'删除',old:g?.name||String(op.id),new:'⚠️ 将被删除'};}
+      catch(e){return {field:'删除',old:String(op.id),new:'将被删除'};}
     }
   },
   create_goal:{
-    label:'创建新目标',
-    icon:'➕',
-    danger:false,
+    label:'创建新目标', icon:'➕', danger:false,
     apply(op){
-      const newG={
-        id:Date.now()+Math.floor(Math.random()*1000),
-        name:op.name,
-        desc:op.desc||'',
-        cat:op.cat||'其他',
-        priority:op.priority||'mid',
-        parentId:op.parentId||null,
-        done:op.done||0,
-        total:op.total||10,
-        color:op.color||'blue',
-        deadline:op.deadline||'',
-        unit:op.unit||'',
-        history:[],
-        deadlineHistory: op.deadline?[{date:today(),time:new Date().toTimeString().slice(0,5),from:'未设置',to:op.deadline,source:'ai'}]:[],
-        created:Date.now()
-      };
-      goals.push(newG);
-      return {ok:true,msg:`已创建 "${op.name}"`};
+      try{
+        aiLog('log','create_goal','Applying',op);
+        if(!op.name){return {ok:false,msg:'目标名称不能为空'};}
+        const newG={
+          id:Date.now()+Math.floor(Math.random()*1000),
+          name:op.name,
+          desc:op.desc||'',
+          cat:op.cat||'其他',
+          priority:op.priority||'mid',
+          parentId:op.parentId!=null?normalizeId(op.parentId):null,
+          done:Number(op.done)||0,
+          total:Number(op.total)||10,
+          color:op.color||'blue',
+          deadline:op.deadline||'',
+          unit:op.unit||'',
+          history:[],
+          deadlineHistory:op.deadline?[{date:today(),time:new Date().toTimeString().slice(0,5),from:'未设置',to:op.deadline,source:'ai'}]:[],
+          created:Date.now()
+        };
+        goals.push(newG);
+        aiLog('log','create_goal',`OK: created "${op.name}" id=${newG.id}`);
+        return {ok:true,msg:`已创建 "${op.name}"`};
+      }catch(e){aiLog('error','create_goal','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
-    diff(op){
-      return {field:'新建目标',old:'—',new:op.name};
-    }
+    diff(op){return {field:'新建目标',old:'—',new:op.name||'(未命名)'};}
   },
 };
 
@@ -1655,72 +1727,40 @@ function buildGoalIndex(){
   return goals.map(g=>`id:${g.id} | ${g.name}${g.parentId?' [子任务of:'+g.parentId+']':''} | ${getPct(g)}% | 截止:${g.deadline||'无'}`).join('\n');
 }
 
-const AGENT_SYSTEM=()=>`你是一个目标管理AI助手，现在是${nowStr()}。你可以读取用户的所有目标数据，也可以执行数据修改操作。
+function AGENT_SYSTEM(){
+  const BT='`';  // real backtick — avoids template literal escaping issues
+  const BBB=BT+BT+BT;
+  const tomorrow=(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+  const nextWeek=(()=>{const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);})();
 
-## 目标数据（完整）
-${buildAllContext()}
-
-## 目标ID索引（修改时必须使用精确ID）
-${buildGoalIndex()}
-
-## 可用操作
-你可以在回复中执行以下操作，每个操作用 \`\`\`ACTION\`\`\` 块包裹，支持一次输出多个ACTION块：
-
-\`\`\`ACTION
-{"op":"set_deadline","id":目标ID,"value":"YYYY-MM-DD"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_priority","id":目标ID,"value":"high|mid|low"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_progress","id":目标ID,"done":数字,"total":数字}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_name","id":目标ID,"value":"新名称"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_desc","id":目标ID,"value":"新描述"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_total","id":目标ID,"value":数字}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_unit","id":目标ID,"value":"单位"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_color","id":目标ID,"value":"blue|green|yellow|red|purple|teal|pink|orange"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"set_parent","id":目标ID,"value":父任务ID或null}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"add_history","id":目标ID,"done":数字,"total":数字,"date":"YYYY-MM-DD","note":"备注"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"create_goal","name":"名称","desc":"描述","cat":"分类","priority":"mid","parentId":null或ID,"done":0,"total":10,"color":"blue","deadline":"YYYY-MM-DD","unit":"单位"}
-\`\`\`
-
-\`\`\`ACTION
-{"op":"delete_goal","id":目标ID}
-\`\`\`
-
-## 规则
-- 如果用户只是问问题，正常回答，不要输出ACTION块
-- 如果用户要修改数据，先用中文说明你要做什么，再输出对应的ACTION块
-- 可以一次输出多个ACTION块完成批量操作
-- 使用目标ID索引中的精确ID，不要猜测
-- 明天 = ${(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})()}
-- 下周 = ${(()=>{const d=new Date();d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);})()}`;
+  return '你是一个目标管理AI助手，现在是'+nowStr()+'。你可以读取用户的所有目标数据，也可以执行数据修改操作。\n\n'
+    +'## 目标数据（完整）\n'
+    +buildAllContext()+'\n\n'
+    +'## 目标ID索引（修改时必须使用精确ID）\n'
+    +buildGoalIndex()+'\n\n'
+    +'## 可用操作\n'
+    +'你可以在回复中执行以下操作，每个操作用 '+BBB+'ACTION'+BBB+' 块包裹，支持一次输出多个ACTION块：\n\n'
+    +BBB+'ACTION\n{"op":"set_deadline","id":目标ID数字,"value":"YYYY-MM-DD"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_priority","id":目标ID数字,"value":"high或mid或low"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_progress","id":目标ID数字,"done":数字,"total":数字}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_name","id":目标ID数字,"value":"新名称"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_desc","id":目标ID数字,"value":"新描述"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_total","id":目标ID数字,"value":数字}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_unit","id":目标ID数字,"value":"单位"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_color","id":目标ID数字,"value":"blue或green或yellow或red或purple或teal或pink或orange"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"set_parent","id":目标ID数字,"value":父任务ID数字或null}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"add_history","id":目标ID数字,"done":数字,"total":数字,"date":"YYYY-MM-DD","note":"备注"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"create_goal","name":"名称","desc":"描述","cat":"分类","priority":"mid","parentId":null,"done":0,"total":10,"color":"blue","deadline":"YYYY-MM-DD","unit":"单位"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"delete_goal","id":目标ID数字}\n'+BBB+'\n\n'
+    +'## 严格规则\n'
+    +'- id字段必须是数字，直接从上面的ID索引里复制，例如 "id":1735000000000\n'
+    +'- 如果用户只是问问题，正常回答，不要输出ACTION块\n'
+    +'- 如果用户要修改数据，先用中文说明你要做什么，再输出对应的ACTION块\n'
+    +'- 可以一次输出多个ACTION块完成批量操作\n'
+    +'- 每个ACTION块只包含一个JSON对象，不要有注释\n'
+    +'- 明天 = '+tomorrow+'\n'
+    +'- 下周 = '+nextWeek;
+};
 
 async function askCustom(){
   const q=document.getElementById('aiCustomQ').value.trim();
@@ -1742,7 +1782,7 @@ async function askCustom(){
       const display=partial.replace(/```ACTION[\s\S]*?```/g,'').trim();
       resp.className='ai-response md-content';
       resp.innerHTML=renderMD(display||partial);
-    });
+    }, 2000);
   }catch(err){
     resp.className='ai-response error-state';
     resp.innerHTML='❌ '+esc(err.message);
@@ -1750,29 +1790,50 @@ async function askCustom(){
   }
 
   // Parse ACTION blocks
-  const actionBlocks=[...fullText.matchAll(/```ACTION\s*([\s\S]*?)```/g)];
+  aiLog('log','askCustom',`Full AI response length: ${fullText.length} chars`);
+  aiLog('log','askCustom','Raw response:', fullText);
+
+  // Match ```ACTION ... ``` blocks (AI sometimes uses ```json or ``` ACTION etc)
+  const allCodeBlocks=[...fullText.matchAll(/```(?:ACTION|action|json)?\s*([\s\S]*?)```/g)];
+  aiLog('log','askCustom',`Total code blocks found: ${allCodeBlocks.length}`);
+
+  // Filter to only blocks that contain an "op" field
+  const actionBlocks=allCodeBlocks.filter(m=>{
+    const txt=m[1].trim();
+    return txt.includes('"op"') || txt.includes("'op'");
+  });
+  aiLog('log','askCustom',`ACTION blocks (with "op" field): ${actionBlocks.length}`);
+
   if(!actionBlocks.length){
-    // Pure Q&A, no actions needed
-    const display=fullText.replace(/```ACTION[\s\S]*?```/g,'').trim();
+    const display=fullText.replace(/```[\s\S]*?```/g,'').trim();
     resp.innerHTML=renderMD(display||fullText);
+    aiLog('log','askCustom','No ACTION blocks — treated as Q&A');
     return;
   }
 
   // Parse each action
   const ops=[];
-  for(const block of actionBlocks){
+  for(let bi=0;bi<actionBlocks.length;bi++){
+    const raw=actionBlocks[bi][1].trim();
+    aiLog('log','askCustom',`Parsing ACTION block ${bi+1}:`, raw);
     try{
-      const parsed=JSON.parse(block[1].trim());
+      const parsed=JSON.parse(raw);
+      if(parsed.id!=null) parsed.id=normalizeId(parsed.id);
+      if(parsed.parentId!=null) parsed.parentId=normalizeId(parsed.parentId);
+      aiLog('log','askCustom',`  → OK: op=${parsed.op} id=${parsed.id}`, parsed);
       ops.push(parsed);
     }catch(e){
-      console.warn('Failed to parse ACTION block:', block[1], e);
+      aiLog('error','askCustom',`  → JSON parse FAILED for block ${bi+1}`, {raw, error:e.message});
     }
   }
 
   if(!ops.length){
-    toast('AI 返回了操作指令但解析失败');
+    const errMsg='AI 返回了操作指令但全部解析失败，详情见 Console';
+    aiLog('error','askCustom',errMsg,'Check the raw ACTION blocks above');
+    toast(errMsg);
     return;
   }
+  aiLog('log','askCustom',`Successfully parsed ${ops.length} operation(s)`,ops);
 
   // Show final text without ACTION blocks
   const displayText=fullText.replace(/```ACTION[\s\S]*?```/g,'').trim();
@@ -1780,11 +1841,11 @@ async function askCustom(){
 
   // Open approval modal
   pendingOps=ops;
-  showApproval(displayText, ops);
+  showApproval(displayText, ops, fullText);
 }
 
 /* ===================== APPROVAL MODAL ===================== */
-function showApproval(aiText, ops){
+function showApproval(aiText, ops, rawText){
   document.getElementById('approvalBadge').textContent=`${ops.length} 项操作待审批`;
   document.getElementById('approvalDesc').textContent='AI 请求执行以下操作，请勾选你同意的项目后点击「执行已勾选」。';
 
@@ -1795,6 +1856,12 @@ function showApproval(aiText, ops){
     aiEl.innerHTML=renderMD(aiText);
   } else {
     aiEl.style.display='none';
+  }
+
+  // Raw response for debugging
+  if(rawText){
+    document.getElementById('approvalRaw').textContent=rawText;
+    document.getElementById('approvalRawWrap').style.display='block';
   }
 
   // Build action list
@@ -1830,18 +1897,35 @@ function rejectAll(){
 }
 
 function applyApproved(){
+  aiLog('log','applyApproved',`Applying approved ops from ${pendingOps.length} pending`);
   const results=[];
   pendingOps.forEach((op,i)=>{
     const cb=document.getElementById('apv'+i);
-    if(!cb||!cb.checked) return;
+    if(!cb||!cb.checked){
+      aiLog('log','applyApproved',`Op ${i} (${op.op}) — skipped (unchecked)`);
+      return;
+    }
     const tool=AI_TOOLS[op.op];
-    if(!tool){results.push({ok:false,msg:'未知操作: '+op.op});return;}
-    const r=tool.apply(op);
-    results.push(r);
+    if(!tool){
+      aiLog('error','applyApproved',`Unknown op type: "${op.op}"`, op);
+      results.push({ok:false,msg:'未知操作: '+op.op});
+      return;
+    }
+    aiLog('log','applyApproved',`Executing op ${i}: ${op.op}`, op);
+    try{
+      const r=tool.apply(op);
+      aiLog(r.ok?'log':'error','applyApproved',`Result for op ${i} (${op.op}): ${r.msg}`);
+      results.push(r);
+    }catch(e){
+      aiLog('error','applyApproved',`Exception in op ${i} (${op.op})`, e);
+      results.push({ok:false,msg:'执行异常: '+e.message});
+    }
   });
 
   const applied=results.filter(r=>r.ok);
   const failed=results.filter(r=>!r.ok);
+  aiLog('log','applyApproved',`Done: ${applied.length} ok, ${failed.length} failed`);
+  if(failed.length) aiLog('error','applyApproved','Failed ops:',failed.map(r=>r.msg).join('; '));
 
   if(applied.length){
     fullRefresh();
@@ -1852,9 +1936,13 @@ function applyApproved(){
   if(applied.length&&!failed.length){
     toast(`✓ 已执行 ${applied.length} 项操作`);
   } else if(applied.length&&failed.length){
+    const failMsgs=failed.map(r=>r.msg).join('；');
     toast(`✓ ${applied.length} 项成功，${failed.length} 项失败`);
+    console.error('[AI-Agent] 失败详情:', failMsgs);
   } else if(failed.length){
-    toast(`✗ ${failed.length} 项操作失败`);
+    const failMsgs=failed.map(r=>r.msg).join('；');
+    toast(`✗ 操作失败: ${failMsgs.slice(0,60)}`);
+    console.error('[AI-Agent] 全部失败:', failMsgs);
   }
 
   pendingOps=[];
