@@ -631,6 +631,41 @@ option{background:#1a1a1a;}
         </div>
       </div>
       <div class="settings-section">
+        <div class="settings-title">📅 学习时间安排 <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;">（AI 预测时考虑你的可用时间）</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div class="fg">
+            <label class="flbl">工作日可用小时/天</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" id="weekdayHours" min="0.5" max="12" step="0.5" value="2"
+                oninput="document.getElementById('weekdayHoursVal').textContent=this.value+'h';savePref()"
+                style="flex:1;">
+              <span id="weekdayHoursVal" style="font-size:13px;font-weight:600;font-family:var(--mono);color:var(--blue);min-width:32px;">2h</span>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">周一到周五，上课后的时间</div>
+          </div>
+          <div class="fg">
+            <label class="flbl">周末/假期可用小时/天</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="range" id="weekendHours" min="1" max="16" step="0.5" value="6"
+                oninput="document.getElementById('weekendHoursVal').textContent=this.value+'h';savePref()"
+                style="flex:1;">
+              <span id="weekendHoursVal" style="font-size:13px;font-weight:600;font-family:var(--mono);color:var(--blue);min-width:32px;">6h</span>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">周六、周日和节假日</div>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="flbl">
+            即将到来的假期 / 特殊安排
+            <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0;">（让 AI 知道你有整块空闲时间）</span>
+          </label>
+          <textarea class="fi" id="holidayInput" rows="2" style="resize:vertical;line-height:1.5;font-size:13px;"
+            placeholder="例如：2026-04-04到2026-04-06清明假期，2026-05-01到2026-05-05劳动节…"
+            oninput="savePref()"></textarea>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;">自由描述即可，AI 会理解</div>
+        </div>
+      </div>
+      <div class="settings-section">
         <div class="settings-title">数据</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;">
           <button class="btn btn-ghost" onclick="exportData()" style="font-size:12px;">↑ 导出 JSON</button>
@@ -683,7 +718,7 @@ let filter = localStorage.getItem('gt_filter')||'all';
 let sort   = localStorage.getItem('gt_sort')||'created';
 let editId=null, quickId=null, selColor='blue';
 let aiPreds = JSON.parse(localStorage.getItem('ai_preds')||'{}');
-let prefs   = JSON.parse(localStorage.getItem('ai_prefs')||'{"autoPred":true,"showPred":true}');
+let prefs   = JSON.parse(localStorage.getItem('ai_prefs')||'{"autoPred":true,"showPred":true,"weekdayHours":2,"weekendHours":6,"holidays":[]}');
 let currentPredId = null;
 
 /* ===================== PERSISTENCE ===================== */
@@ -692,6 +727,12 @@ function savePreds(){localStorage.setItem('ai_preds',JSON.stringify(aiPreds));}
 function savePref(){
   prefs.autoPred = document.getElementById('toggleAutoPred').checked;
   prefs.showPred = document.getElementById('toggleShowPred').checked;
+  const wdEl=document.getElementById('weekdayHours');
+  const weEl=document.getElementById('weekendHours');
+  const hdEl=document.getElementById('holidayInput');
+  if(wdEl) prefs.weekdayHours=parseFloat(wdEl.value)||2;
+  if(weEl) prefs.weekendHours=parseFloat(weEl.value)||6;
+  if(hdEl) prefs.holidayText=hdEl.value.trim();
   localStorage.setItem('ai_prefs',JSON.stringify(prefs));
   render();
 }
@@ -839,6 +880,57 @@ function nowStr(){
 }
 
 
+/* ===================== SCHEDULE CONTEXT ===================== */
+function buildScheduleContext(){
+  const d=new Date();
+  const dow=d.getDay(); // 0=Sun,6=Sat
+  const isWeekend=(dow===0||dow===6);
+  const wdH=prefs.weekdayHours||2;
+  const weH=prefs.weekendHours||6;
+  const todayH=isWeekend?weH:wdH;
+
+  // Count available hours in next 30 days
+  let next30Hours=0;
+  for(let i=0;i<30;i++){
+    const dd=new Date();dd.setDate(dd.getDate()+i);
+    const dw=dd.getDay();
+    next30Hours+=(dw===0||dw===6)?weH:wdH;
+  }
+
+  // Upcoming weekends in next 30 days
+  const weekends=[];
+  for(let i=0;i<30;i++){
+    const dd=new Date();dd.setDate(dd.getDate()+i);
+    const dw=dd.getDay();
+    if(dw===6){// Saturday — start of weekend
+      const sun=new Date(dd);sun.setDate(sun.getDate()+1);
+      weekends.push(`${dd.toISOString().slice(5,10)}~${sun.toISOString().slice(5,10)}(每天${weH}h)`);
+    }
+  }
+
+  let ctx=`【用户时间安排（学生）】
+今天：${nowStr()}，${isWeekend?'今天是周末/假期':'今天是工作日'}
+工作日可用时间：每天约 ${wdH} 小时（上课后的课余时间）
+周末/假期可用时间：每天约 ${weH} 小时
+未来30天总可用时间：约 ${next30Hours} 小时
+即将到来的周末（可集中学习）：${weekends.slice(0,4).join('、')}`;
+
+  if(prefs.holidayText){
+    ctx+=`
+即将到来的假期/特殊安排：${prefs.holidayText}`;
+  }
+
+  ctx+=`
+
+重要预测规则：
+- 工作日每天只有 ${wdH}h，不能按满负荷算
+- 周末每天有 ${weH}h，是集中推进的好时机
+- 如果其他任务快完成，剩余任务可获得更多时间投入
+- 请基于实际可用时间（而非日历天数）计算预测天数`;
+
+  return ctx;
+}
+
 function buildGoalContext(g, includeSiblings=true){
   const pct=getPct(g);
   const hist=(g.history||[]);
@@ -926,6 +1018,8 @@ function buildParentContext(g){
 整体进度：${pct}%
 截止：${g.deadline||'未设置'}
 
+${buildScheduleContext()}
+
 【重要说明】以下子任务是并行推进的，每天可以同时完成多个子任务的工作，不是串行的。
 
 子任务当前状态：`;
@@ -994,6 +1088,7 @@ function buildAllContext(){
   const roots=goals.filter(g=>g.parentId===null);
 
   let out=`现在：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
+  out+=buildScheduleContext()+'\n\n════════════════════\n\n';
 
   out+=roots.map(r=>{
     const children=goals.filter(c=>c.parentId===r.id);
@@ -1967,6 +2062,13 @@ function openSettings(){
   document.getElementById('customEndpointRow').style.display=getProvider()==='custom'?'flex':'none';
   document.getElementById('toggleAutoPred').checked=prefs.autoPred;
   document.getElementById('toggleShowPred').checked=prefs.showPred;
+  // Restore schedule sliders
+  const wdEl=document.getElementById('weekdayHours');
+  const weEl=document.getElementById('weekendHours');
+  const hdEl=document.getElementById('holidayInput');
+  if(wdEl){wdEl.value=prefs.weekdayHours||2;document.getElementById('weekdayHoursVal').textContent=(prefs.weekdayHours||2)+'h';}
+  if(weEl){weEl.value=prefs.weekendHours||6;document.getElementById('weekendHoursVal').textContent=(prefs.weekendHours||6)+'h';}
+  if(hdEl) hdEl.value=prefs.holidayText||'';
   updateKeyStatus(!!getKey());
 
   // scan for legacy data
