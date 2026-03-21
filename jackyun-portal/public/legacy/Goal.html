@@ -1126,7 +1126,7 @@ ${hist.map(h=>`  ${h.date}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}
 }
 
 /* ===================== CALL AI ===================== */
-async function callAI(messages,onChunk,maxTokens=900){
+async function callAI(messages,onChunk,maxTokens=3000){
   const key=getKey();if(!key)throw new Error('未配置 API Key');
   const endpoint=getEndpoint();if(!endpoint)throw new Error('未配置 API 端点');
   const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
@@ -1877,7 +1877,7 @@ async function askCustom(){
       const display=partial.replace(/```ACTION[\s\S]*?```/g,'').trim();
       resp.className='ai-response md-content';
       resp.innerHTML=renderMD(display||partial);
-    }, 2000);
+    }, 5000);
   }catch(err){
     resp.className='ai-response error-state';
     resp.innerHTML='❌ '+esc(err.message);
