@@ -4441,16 +4441,37 @@ function init() {
 function pushSyncToGoalTracker() {
   try {
     const subjMap = {};
+    // 按报考信息过滤，和主界面筛选逻辑一致
+    const prof = state?.settings?.profile || {};
+    const profSubs = prof.subjects || [];
+
+    function isInProfile(p) {
+      if (profSubs.length > 0 && !profSubs.includes(p.subject)) return false;
+      if (profSubs.length > 0 && profSubs.includes(p.subject)) {
+        const dp = (prof[`detail_${p.subject}`]) || {};
+        const ptCode = p.paper.slice(0, -1);
+        const v = Number(p.paper.slice(-1));
+        if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
+        if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
+        if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;
+        if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(v))         return false;
+      }
+      return true;
+    }
+
+    const profilePool = paperDB.filter(isInProfile);
+
     Object.entries(state.paperStatus).forEach(([id, status]) => {
       if (status !== 'done') return;
       const p = paperDB.find(x => x.id === id);
       if (!p) return;
+      if (!isInProfile(p)) return; // 不在报考范围内的跳过
       if (!subjMap[p.subject]) {
         subjMap[p.subject] = {
           subject: p.subject,
           subjectName: p.subjectName,
           done: 0,
-          total: paperDB.filter(x => x.subject === p.subject).length,
+          total: profilePool.filter(x => x.subject === p.subject).length, // total也只算报考范围内的
           completedAt: new Date().toISOString().slice(0, 10),
         };
       }
