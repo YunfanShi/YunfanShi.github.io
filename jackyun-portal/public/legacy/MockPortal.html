@@ -1145,6 +1145,24 @@
       </div>
 
       <!-- Actions -->
+       <!-- Error tags -->
+      <div id="scoreTagsRow" style="display:none;margin-bottom:16px">
+        <p style="font-size:11px;color:var(--text-sub);margin-bottom:8px;text-align:center">归因标签（可多选，选填）</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
+          <div class="score-tag-chip" data-tag="CalculationError" onclick="toggleScoreTag(this)"
+            style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid #DADCE0;background:white;color:#9AA0A6;transition:all .15s;user-select:none">
+            🔢 #CalculationError
+          </div>
+          <div class="score-tag-chip" data-tag="ConceptGap" onclick="toggleScoreTag(this)"
+            style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid #DADCE0;background:white;color:#9AA0A6;transition:all .15s;user-select:none">
+            📚 #ConceptGap
+          </div>
+          <div class="score-tag-chip" data-tag="TimePressure" onclick="toggleScoreTag(this)"
+            style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid #DADCE0;background:white;color:#9AA0A6;transition:all .15s;user-select:none">
+            ⏱ #TimePressure
+          </div>
+        </div>
+      </div>
       <div style="display:flex;gap:10px">
         <button onclick="closeScoreModal()" class="btn btn-o flex-1" style="padding:10px;justify-content:center">取消</button>
         <button onclick="clearScore()" id="scoreClearBtn" class="btn btn-o" style="padding:10px 14px;color:var(--danger);border-color:var(--danger)" title="清除已记录的成绩">
@@ -1554,7 +1572,7 @@ let state = {
   cart: [],
   paperStatus: {},
   paperTimes: {},
-  paperScores: {}, // NEW: { [paperId]: { score: number, maxMarks: number } }
+  paperScores: {}, // { [paperId]: { score: number, maxMarks: number, tags?: string[] } }
   settings: { mode:'strict', theme:'light' },
 };
 
@@ -1640,7 +1658,17 @@ function openScoreModal(paperId) {
   updateMaxDisplay();
 
   document.getElementById('scoreClearBtn').style.display = existing ? '' : 'none';
-  document.getElementById('scoreMaxPicker').style.display = 'none'; // collapsed by default
+  document.getElementById('scoreMaxPicker').style.display = 'none';
+
+  // Restore tags
+  const existingTags = existing?.tags || [];
+  document.querySelectorAll('.score-tag-chip').forEach(el => {
+    const on = existingTags.includes(el.dataset.tag);
+    el.style.borderColor = on ? 'var(--primary)' : '#DADCE0';
+    el.style.background  = on ? '#E8F0FE' : 'white';
+    el.style.color       = on ? 'var(--primary)' : '#9AA0A6';
+    el.dataset.on = on ? '1' : '0';
+  });
 
   onScoreInput(); // refresh preview
 
@@ -1698,6 +1726,20 @@ function toggleMaxMarksPicker() {
   picker.style.display = isHidden ? 'block' : 'none';
 }
 
+function toggleScoreTag(el) {
+  const on = el.dataset.on === '1';
+  el.dataset.on = on ? '0' : '1';
+  el.style.borderColor = on ? '#DADCE0' : 'var(--primary)';
+  el.style.background  = on ? 'white'   : '#E8F0FE';
+  el.style.color       = on ? '#9AA0A6' : 'var(--primary)';
+}
+
+function getSelectedScoreTags() {
+  return [...document.querySelectorAll('.score-tag-chip')]
+    .filter(el => el.dataset.on === '1')
+    .map(el => el.dataset.tag);
+}
+
 function closeScoreModal() {
   document.getElementById('scoreModal').classList.remove('open');
   document.getElementById('scoreMaxPicker').style.display = 'none';
@@ -1735,6 +1777,7 @@ function onScoreInput() {
 
   hint.textContent = '';
   confirmBtn.disabled = false;
+  document.getElementById('scoreTagsRow').style.display = 'block';
 
   const pct = Math.round((val / max) * 100);
   const { color, grade } = getAccGrade(pct);
@@ -1756,7 +1799,8 @@ function confirmScore() {
   if (!p) return;
 
   const maxToSave = scoreModalCustomMax ?? p.totalMarks;
-  state.paperScores[scoreModalTarget] = { score: val, maxMarks: maxToSave };
+  const tagsToSave = getSelectedScoreTags();
+  state.paperScores[scoreModalTarget] = { score: val, maxMarks: maxToSave, tags: tagsToSave };
   saveState();
   closeScoreModal();
 
@@ -1889,6 +1933,19 @@ function openPostExamScoreCollection(paperIds) {
           <div id="pesc-pct-${id}" style="font-family:'Roboto Mono',monospace;font-size:20px;font-weight:700;color:rgba(255,255,255,.2)">--%</div>
         </div>
       </div>
+      <!-- Error tags -->
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px">
+        ${['CalculationError','ConceptGap','TimePressure'].map(tag => {
+          const icons = {'CalculationError':'🔢','ConceptGap':'📚','TimePressure':'⏱'};
+          return `<div class="pesc-tag" data-id="${id}" data-tag="${tag}" data-on="0"
+            onclick="togglePescTag(this)"
+            style="padding:4px 10px;border-radius:16px;font-size:10px;font-weight:600;cursor:pointer;
+                   border:1.5px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);
+                   color:rgba(255,255,255,.45);transition:all .15s;user-select:none">
+            ${icons[tag]} #${tag}
+          </div>`;
+        }).join('')}
+      </div>
 
       <!-- Accuracy bar -->
       <div style="margin-top:10px;height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden">
@@ -1950,6 +2007,13 @@ function focusNextPescInput(currentIndex) {
   }
 }
 
+function togglePescTag(el) {
+  const on = el.dataset.on === '1';
+  el.dataset.on = on ? '0' : '1';
+  el.style.borderColor = on ? 'rgba(255,255,255,.18)' : '#818cf8';
+  el.style.background  = on ? 'rgba(255,255,255,.06)' : 'rgba(99,102,241,.25)';
+  el.style.color       = on ? 'rgba(255,255,255,.45)' : '#c4b5fd';
+}
 function submitScores() {
   let saved = 0;
   pescQueue.forEach(id => {
@@ -1961,7 +2025,9 @@ function submitScores() {
     const val = parseFloat(inp.value);
     const maxMarks = maxSel ? Number(maxSel.value) : p.totalMarks;
     if (!isNaN(val) && val >= 0 && val <= maxMarks) {
-      state.paperScores[id] = { score: val, maxMarks };
+      const tagEls = document.querySelectorAll(`.pesc-tag[data-id="${id}"][data-on="1"]`);
+      const tags = [...tagEls].map(e => e.dataset.tag);
+      state.paperScores[id] = { score: val, maxMarks, tags };
       saved++;
     }
   });
@@ -1970,11 +2036,13 @@ function submitScores() {
   renderCards();
   updateSettingsUI();
   showToast(`✅ 已保存 ${saved} 张卷子的成绩`);
+  pushSyncToGoalTracker();
 }
 
 function skipScoreCollection() {
   document.getElementById('postExamScoreOv').style.display = 'none';
   showToast('已跳过，可在卡片上随时填写成绩');
+  pushSyncToGoalTracker();
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -3188,13 +3256,20 @@ function aiBuildCtx(){
     const recentScores=ss.slice(-4).map(([id,r])=>{
       const p=(typeof paperDB!=='undefined'?paperDB:[]).find(x=>x.id===id);
       const pct=Math.round(r.score/r.maxMarks*100);
-      return `${p?p.paper:id.slice(-8)}=${pct}%`;
+      const tagStr = r.tags&&r.tags.length>0 ? `[${r.tags.map(t=>'#'+t).join(',')}]` : '';
+      return `${p?p.paper:id.slice(-8)}=${pct}%${tagStr}`;
     });
  
+    // Tag stats for this subject
+    const tagCounts = {};
+    ss.forEach(([,r]) => { (r.tags||[]).forEach(t => { tagCounts[t]=(tagCounts[t]||0)+1; }); });
+    const tagSummary = Object.entries(tagCounts).map(([t,n])=>`#${t}×${n}`).join(' ');
+
     subjLines.push(
       `[${subj} ${names[subj]}] 已做:${sd}/${sp.length}(${Math.round(sd/sp.length*100)}%) 均分:${sa}`+
       (ptBreak.length?` 各卷:${ptBreak.join(' ')}`:'') +
-      (recentScores.length?` 近期成绩:${recentScores.join(' ')}`:'')
+      (recentScores.length?` 近期成绩:${recentScores.join(' ')}`:'') +
+      (tagSummary?` 归因:${tagSummary}`:'')
     );
   });
  
@@ -4363,7 +4438,40 @@ function init() {
   if(state.cart.length>0) showToast(`📋 清单中还有 ${state.cart.length} 张卷子`);
   document.getElementById('gachaModal').addEventListener('click',e=>{ if(e.target===document.getElementById('gachaModal'))closeGacha(); });
 }
-
+function pushSyncToGoalTracker() {
+  try {
+    const subjMap = {};
+    Object.entries(state.paperStatus).forEach(([id, status]) => {
+      if (status !== 'done') return;
+      const p = paperDB.find(x => x.id === id);
+      if (!p) return;
+      if (!subjMap[p.subject]) {
+        subjMap[p.subject] = {
+          subject: p.subject,
+          subjectName: p.subjectName,
+          done: 0,
+          total: paperDB.filter(x => x.subject === p.subject).length,
+          completedAt: new Date().toISOString().slice(0, 10),
+        };
+      }
+      subjMap[p.subject].done++;
+    });
+    const payload = {
+      source: 'warden_mock_portal',
+      syncedAt: Date.now(),
+      subjects: Object.values(subjMap),
+    };
+    localStorage.setItem('warden_gt_sync', JSON.stringify(payload));
+    try {
+      const bc = new BroadcastChannel('warden_sync');
+      bc.postMessage(payload);
+      bc.close();
+    } catch(e) {}
+    console.log('[Warden Sync] Pushed:', payload);
+  } catch(e) {
+    console.warn('[Warden Sync] Failed:', e);
+  }
+}
 document.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
