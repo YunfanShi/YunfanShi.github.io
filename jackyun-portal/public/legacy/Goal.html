@@ -286,6 +286,26 @@ option{background:#1a1a1a;}
   .ai-features{grid-template-columns:1fr 1fr;}
   .modal.wide{max-width:100%;}
 }
+#wardenSyncBanner {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  background: #141414; border: 1px solid rgba(196,181,253,0.4);
+  border-radius: 16px; padding: 16px 18px; width: 320px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  transform: translateY(90px); opacity: 0;
+  transition: all 0.32s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+}
+#wardenSyncBanner.show { transform: translateY(0); opacity: 1; pointer-events: all; }
+.wsb-head { font-size: 13px; font-weight: 700; color: #c4b5fd;
+  display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.wsb-sub { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+.wsb-rows { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.wsb-row { display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border-radius: 8px; padding: 6px 10px; }
+.wsb-rname { font-size: 12px; font-weight: 600; color: var(--text); }
+.wsb-rstat { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+.wsb-rdiff { font-size: 11px; font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -684,7 +704,22 @@ option{background:#1a1a1a;}
     <div class="mfoot"><button class="btn btn-pri" onclick="closeM('settingsModal')">完成</button></div>
   </div>
 </div>
-
+<div id="wardenSyncBanner">
+  <div class="wsb-head">⚡ Mock Portal 进度更新</div>
+  <div class="wsb-sub" id="wsbSub"></div>
+  <div class="wsb-rows" id="wsbRows"></div>
+  <div style="display:flex;gap:7px;">
+    <button class="btn btn-ghost"
+      style="flex:none;padding:7px 10px;font-size:11px;color:var(--text3)"
+      onclick="rematchWardenSync()" title="重新让AI匹配">↺</button>
+    <button class="btn btn-ghost"
+      style="flex:1;justify-content:center;font-size:12px"
+      onclick="dismissWardenSync()">忽略</button>
+    <button class="btn"
+      style="flex:2;justify-content:center;font-size:12px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white"
+      onclick="applyWardenSync()">✓ 同步到目标</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2538,6 +2573,157 @@ if(prefs.autoPred&&getKey()){
   const toPredict=goals.filter(g=>!aiPreds[g.id]&&getPct(g)>0&&getPct(g)<100);
   (async()=>{for(const g of toPredict){await autoPredictIfNeeded(g.id);}})();
 }
+let _wsPending = null;
+
+function _wsGetMatchCache() {
+  try { return JSON.parse(localStorage.getItem('warden_gt_match_cache') || '{}'); }
+  catch(e) { return {}; }
+}
+function _wsSetMatchCache(c) {
+  localStorage.setItem('warden_gt_match_cache', JSON.stringify(c));
+}
+
+async function _wsAiMatchAll(subjects) {
+  const goalIndex = goals.map(g => ({
+    id: g.id, name: g.name, desc: g.desc || '',
+    parent: g.parentId != null ? (goals.find(x => x.id === g.parentId)?.name || '') : null,
+  }));
+  const prompt = `你是目标匹配助手。以下是用户的目标列表：
+${JSON.stringify(goalIndex, null, 2)}
+
+以下是来自 IGCSE Mock Portal 的科目：
+${subjects.map(s => `- 科目代码 ${s.subject}，英文名 ${s.subjectName}`).join('\n')}
+
+请为每个科目找到最匹配的目标 ID。匹配规则：
+- 0580 = Mathematics / Math / Math0580 / CIE Math0580
+- 0610 = Biology / Bio / Biology0610 / CIE Biology0610
+- 0620 = Chemistry / Chem / Chemistry0620 / CIE Chemistry0620
+- 0625 = Physics / Phy / Physics0625 / CIE Physics0625
+- 优先匹配子任务（parent 不为 null 的）
+- 没有匹配则填 null
+
+只返回 JSON，格式：{"0580":goalId或null,"0610":goalId或null,"0620":goalId或null,"0625":goalId或null}
+不要输出任何其他内容。`;
+  try {
+    const res = await fetch(getEndpoint(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getKey() },
+      body: JSON.stringify({
+        model: getModel(),
+        messages: [{ role: 'user', content: prompt }],
+        stream: false, max_tokens: 120, temperature: 0,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = (data.choices?.[0]?.message?.content || '').trim()
+      .replace(/^```[a-z]*\n?/, '').replace(/```$/, '').trim();
+    return JSON.parse(text);
+  } catch(e) { console.warn('[WS AI Match]', e); return null; }
+}
+
+function renderWsbBanner(payload, matchMap) {
+  const banner = document.getElementById('wardenSyncBanner');
+  if (!banner) return;
+  document.getElementById('wsbSub').textContent = `同步自 Mock Portal · ${new Date(payload.syncedAt).toLocaleString('zh-CN', {
+    month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'
+  })}`;
+  document.getElementById('wsbRows').innerHTML = payload.subjects.map(s => {
+    const gid = matchMap?.[s.subject];
+    const g = gid != null ? goals.find(x => x.id === gid) : null;
+    const diff = g ? Math.max(0, s.done - (g.done || 0)) : 0;
+    return `<div class="wsb-row">
+      <span class="wsb-rname">${g ? g.name : s.subjectName + ' ⚠️未匹配'}</span>
+      <span class="wsb-rstat">${s.done}/${s.total}</span>
+      <span class="wsb-rdiff" style="color:${diff > 0 ? '#34c76a' : 'var(--text3)'}">
+        ${diff > 0 ? '+' + diff + ' 张' : '已最新'}
+      </span>
+    </div>`;
+  }).join('');
+  banner.classList.add('show');
+}
+
+async function _wsOpenBanner(payload) {
+  const cache = _wsGetMatchCache();
+  const needsAI = payload.subjects.some(s => !(s.subject in cache));
+  if (needsAI && getKey()) {
+    document.getElementById('wsbRows').innerHTML =
+      `<div style="font-size:12px;color:var(--text2);padding:8px 4px;display:flex;align-items:center;gap:8px">
+        <span style="display:inline-block;animation:spin .8s linear infinite">✦</span> AI 正在匹配目标…
+      </div>`;
+    document.getElementById('wardenSyncBanner').classList.add('show');
+    const matchMap = await _wsAiMatchAll(payload.subjects);
+    if (matchMap) {
+      _wsSetMatchCache({ ...cache, ...matchMap });
+      renderWsbBanner(payload, matchMap);
+    } else {
+      renderWsbBanner(payload, cache);
+    }
+  } else {
+    renderWsbBanner(payload, cache);
+  }
+}
+
+function applyWardenSync() {
+  if (!_wsPending) return;
+  const cache = _wsGetMatchCache();
+  let updated = 0;
+  _wsPending.subjects.forEach(s => {
+    const g = cache[s.subject] != null ? goals.find(x => x.id === cache[s.subject]) : null;
+    if (!g) return;
+    const newDone = Math.min(s.done, g.total);
+    if (newDone <= (g.done || 0)) return;
+    const oldDone = g.done || 0;
+    g.done = newDone;
+    if (!g.history) g.history = [];
+    g.history.push({
+      date: s.completedAt || new Date().toISOString().slice(0, 10),
+      done: g.done, total: g.total,
+      note: `Warden 同步 · 完成 ${g.done} 张（+${g.done - oldDone}）`,
+    });
+    updated++;
+  });
+  localStorage.setItem('warden_gt_sync_ack', String(_wsPending.syncedAt));
+  document.getElementById('wardenSyncBanner').classList.remove('show');
+  _wsPending = null;
+  if (updated > 0) { fullRefresh(); toast(`✅ 已同步 ${updated} 个科目`); }
+  else toast('没有需要更新的目标');
+}
+
+function dismissWardenSync() {
+  if (_wsPending) localStorage.setItem('warden_gt_sync_ack', String(_wsPending.syncedAt));
+  document.getElementById('wardenSyncBanner').classList.remove('show');
+  _wsPending = null;
+}
+
+function rematchWardenSync() {
+  localStorage.removeItem('warden_gt_match_cache');
+  if (_wsPending) _wsOpenBanner(_wsPending);
+}
+
+function checkWardenSync() {
+  try {
+    const raw = localStorage.getItem('warden_gt_sync');
+    if (!raw) return;
+    const payload = JSON.parse(raw);
+    if (!payload?.subjects?.length) return;
+    if (localStorage.getItem('warden_gt_sync_ack') === String(payload.syncedAt)) return;
+    _wsPending = payload;
+    _wsOpenBanner(payload);
+  } catch(e) {}
+}
+
+try {
+  const _wsBc = new BroadcastChannel('warden_sync');
+  _wsBc.onmessage = e => {
+    localStorage.setItem('warden_gt_sync', JSON.stringify(e.data));
+    _wsPending = e.data;
+    _wsOpenBanner(e.data);
+  };
+} catch(e) {}
+
+checkWardenSync();
+window.addEventListener('focus', checkWardenSync);
 </script>
 </body>
 </html>
