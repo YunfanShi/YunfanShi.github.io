@@ -374,6 +374,402 @@
     .acc-bg-b { background: rgba(96,165,250,.15); border-color: rgba(96,165,250,.4) !important; }
     .acc-bg-c { background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.4) !important; }
     .acc-bg-d { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.4) !important; }
+  /* ─────────────────────────────────────────────────────────────────── */
+/*  AI ASSISTANT  —  全部样式                                          */
+/* ─────────────────────────────────────────────────────────────────── */
+ 
+/* FAB */
+#aiFab {
+  position:fixed; bottom:28px; left:28px; z-index:50;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+  color:white; border:none; cursor:pointer; border-radius:28px;
+  padding:13px 20px; font-family:inherit; font-size:13px; font-weight:700;
+  display:flex; align-items:center; gap:8px;
+  box-shadow:0 4px 24px rgba(99,102,241,.55);
+  transition:all .2s ease;
+}
+#aiFab:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(99,102,241,.65); }
+.aip { width:7px;height:7px;border-radius:50%;background:#4ade80;
+  box-shadow:0 0 6px #4ade80; animation:aipulse 2s ease-in-out infinite; flex-shrink:0; }
+.aip.off { background:#f87171;box-shadow:0 0 5px #f87171;animation:none; }
+@keyframes aipulse{ 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(1.35)} }
+ 
+/* Overlay */
+#aiOv {
+  position:fixed;inset:0;z-index:90;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(10px);
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+#aiOv.open { display:flex; }
+ 
+/* Main drawer */
+#aiDrawer {
+  background:#0b0b18;
+  border:1px solid rgba(99,102,241,.28);
+  border-radius:22px; width:100%; max-width:720px; max-height:90vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 40px 100px rgba(0,0,0,.7),0 0 0 1px rgba(99,102,241,.12);
+  animation:aiIn .22s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes aiIn{ from{transform:scale(.88) translateY(18px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+ 
+/* Drawer header */
+.ai-dh {
+  padding:18px 22px 0; flex-shrink:0;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.ai-dh-top { display:flex;align-items:center;gap:10px;margin-bottom:14px; }
+.ai-dh-top h2 { font-size:17px;font-weight:800;color:white;letter-spacing:-.4px;flex:1; }
+.ai-close-btn {
+  background:rgba(255,255,255,.08);border:none;cursor:pointer;
+  width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;color:rgba(255,255,255,.5);transition:all .15s;
+}
+.ai-close-btn:hover{ background:rgba(255,255,255,.18);color:white; }
+ 
+/* Tab nav */
+.ai-tabs {
+  display:flex;gap:2px;margin-bottom:-1px;
+}
+.ai-tab {
+  padding:8px 18px;border-radius:10px 10px 0 0;font-size:12px;font-weight:700;
+  cursor:pointer;border:none;background:transparent;
+  color:rgba(255,255,255,.35);font-family:inherit;
+  transition:all .15s;border:1px solid transparent;border-bottom:none;
+}
+.ai-tab:hover{ color:rgba(255,255,255,.65); }
+.ai-tab.on{
+  background:rgba(99,102,241,.18);color:#a5b4fc;
+  border-color:rgba(99,102,241,.28);
+}
+ 
+/* Status pill */
+.ai-status {
+  display:flex;align-items:center;gap:7px;
+  padding:7px 12px;background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.07);border-radius:9px;
+  margin-bottom:12px;font-size:11px;color:rgba(255,255,255,.45);
+}
+.aisdot { width:6px;height:6px;border-radius:50%;background:#4ade80;
+  flex-shrink:0;box-shadow:0 0 4px #4ade80; }
+.aisdot.off{ background:#f87171;box-shadow:0 0 4px #f87171; }
+ 
+/* Body */
+.ai-body { flex:1;overflow-y:auto;padding:16px 22px 12px; }
+.ai-body::-webkit-scrollbar{ width:3px; }
+.ai-body::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12);border-radius:2px; }
+ 
+/* Tab panels */
+.ai-panel { display:none; }
+.ai-panel.on { display:block; }
+ 
+/* Feature buttons */
+.ai-feat-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px; }
+.ai-feat {
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);
+  border-radius:11px;padding:11px 6px;cursor:pointer;transition:all .18s;
+  text-align:center;font-family:inherit;color:white;
+}
+.ai-feat:hover{ background:rgba(99,102,241,.18);border-color:rgba(99,102,241,.45);transform:translateY(-1px); }
+.ai-feat:active{ transform:translateY(0); }
+.afi{ font-size:20px;margin-bottom:4px; }
+.afn{ font-size:11px;font-weight:700;color:white;margin-bottom:2px; }
+.afd{ font-size:9px;color:rgba(255,255,255,.38);line-height:1.3; }
+ 
+/* Response box */
+.ai-resp {
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);
+  border-radius:13px;padding:15px;font-size:13px;line-height:1.78;
+  color:rgba(255,255,255,.82);min-height:72px;max-height:320px;
+  overflow-y:auto;margin-bottom:12px;transition:border-color .2s;
+}
+.ai-resp.loading{
+  display:flex;align-items:center;justify-content:center;
+  gap:10px;color:rgba(255,255,255,.35);min-height:90px;
+}
+.ai-resp p{ margin-bottom:7px; }
+.ai-resp strong{ color:#a5b4fc; }
+.ai-resp ul{ padding-left:15px;margin-bottom:6px; }
+.ai-resp li{ margin-bottom:3px; }
+.ai-resp .ai-tag{ display:inline-block;font-size:10px;padding:1px 7px;border-radius:5px;
+  background:rgba(99,102,241,.2);color:#c4b5fd;font-weight:600;margin:1px; }
+.ai-resp .ai-ok{ color:#4ade80; }
+.ai-resp .ai-warn{ color:#fbbf24; }
+.ai-resp .ai-err{ color:#f87171; }
+ 
+/* Typing dots */
+.td{ width:7px;height:7px;border-radius:50%;background:#818cf8;animation:tda .9s infinite; }
+.td:nth-child(2){ animation-delay:.15s; }
+.td:nth-child(3){ animation-delay:.3s; }
+@keyframes tda{ 0%,80%,100%{transform:scale(.55);opacity:.35} 40%{transform:scale(1);opacity:1} }
+ 
+/* Input row */
+.ai-in-row{ display:flex;gap:8px;margin-bottom:10px; }
+.ai-ta{
+  flex:1;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.13);
+  border-radius:11px;padding:9px 13px;font-size:13px;font-family:inherit;
+  color:white;resize:none;outline:none;transition:border-color .15s;line-height:1.5;
+}
+.ai-ta::placeholder{ color:rgba(255,255,255,.28); }
+.ai-ta:focus{ border-color:rgba(99,102,241,.55); }
+.ai-send{
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);border:none;cursor:pointer;
+  color:white;border-radius:11px;padding:0 17px;font-size:12px;font-weight:700;
+  font-family:inherit;display:flex;align-items:center;gap:5px;
+  transition:all .18s;flex-shrink:0;
+}
+.ai-send:hover{ filter:brightness(1.12); }
+.ai-send:disabled{ opacity:.4;cursor:not-allowed; }
+ 
+/* Agent quick commands */
+.ai-cmd-chips{ display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px; }
+.ai-cmd{
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:5px 11px;font-size:11px;font-weight:600;
+  color:rgba(255,255,255,.65);cursor:pointer;font-family:inherit;
+  transition:all .15s;
+}
+.ai-cmd:hover{ background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.4);color:#c4b5fd; }
+ 
+/* Approval modal */
+#aiApprOv{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,.75);backdrop-filter:blur(12px);
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+#aiApprOv.open{ display:flex; }
+#aiApprBox{
+  background:#101020;border:1px solid rgba(99,102,241,.35);border-radius:20px;
+  width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;
+  box-shadow:0 32px 80px rgba(0,0,0,.7);animation:aiIn .2s ease;
+}
+.appr-h{ padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0; }
+.appr-title{ font-size:16px;font-weight:800;color:white;margin-bottom:3px; }
+.appr-sub{ font-size:11px;color:rgba(255,255,255,.38); }
+.appr-body{ flex:1;overflow-y:auto;padding:14px 20px; }
+.appr-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 12px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.09);border-radius:10px;margin-bottom:7px;
+  transition:border-color .15s;
+}
+.appr-item:hover{ border-color:rgba(255,255,255,.16); }
+.appr-item.danger{ border-color:rgba(248,113,113,.25);background:rgba(248,113,113,.04); }
+.appr-item.safe{ border-color:rgba(74,222,128,.2);background:rgba(74,222,128,.03); }
+.appr-ck{ width:16px;height:16px;accent-color:#818cf8;cursor:pointer;flex-shrink:0;margin-top:2px; }
+.appr-ico{ font-size:16px;flex-shrink:0; }
+.appr-info{ flex:1;min-width:0; }
+.appr-name{ font-size:12px;font-weight:700;color:white;margin-bottom:2px; }
+.appr-detail{ font-size:11px;color:rgba(255,255,255,.45);line-height:1.5; }
+.appr-diff{
+  display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:10px;font-family:'Roboto Mono',monospace;
+}
+.diff-old{ background:rgba(248,113,113,.12);color:#f87171;padding:1px 6px;border-radius:3px;text-decoration:line-through; }
+.diff-new{ background:rgba(74,222,128,.12);color:#4ade80;padding:1px 6px;border-radius:3px; }
+.appr-f{
+  padding:12px 20px 16px;border-top:1px solid rgba(255,255,255,.07);
+  display:flex;justify-content:space-between;align-items:center;gap:8px;flex-shrink:0;
+}
+ 
+/* Settings form */
+.ai-srow{ display:flex;gap:8px;margin-bottom:9px; }
+.ai-si{
+  flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);
+  border-radius:8px;padding:7px 11px;font-size:12px;
+  font-family:'Roboto Mono',monospace;color:white;outline:none;transition:border-color .15s;
+}
+.ai-si:focus{ border-color:rgba(99,102,241,.6); }
+.ai-sbtn{
+  background:rgba(99,102,241,.3);border:1px solid rgba(99,102,241,.5);
+  border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;
+  font-family:inherit;color:#a5b4fc;cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.ai-sbtn:hover{ background:rgba(99,102,241,.5); }
+.ai-slbl{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:rgba(255,255,255,.32);margin-bottom:6px;
+}
+.ai-ssec{
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);
+  border-radius:11px;padding:13px 15px;margin-bottom:10px;
+}
+ 
+/* Context preview */
+.ai-ctx-preview{
+  background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.07);
+  border-radius:9px;padding:10px 12px;font-size:10px;font-family:'Roboto Mono',monospace;
+  color:rgba(255,255,255,.38);max-height:140px;overflow-y:auto;
+  line-height:1.6;white-space:pre-wrap;margin-bottom:10px;
+}
+ 
+/* Countdown mini strip in Hub */
+.ai-cd-strip{
+  display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;
+}
+.ai-cd-box{
+  flex:1;min-width:80px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 10px;text-align:center;
+}
+.ai-cd-num{ font-size:22px;font-weight:800;font-family:'Roboto Mono',monospace;color:white;line-height:1; }
+.ai-cd-lbl{ font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.06em;margin-top:2px; }
+.ai-cd-box.urgent .ai-cd-num{ color:#f87171; }
+.ai-cd-box.warn .ai-cd-num{ color:#fbbf24; }
+.ai-cd-box.ok .ai-cd-num{ color:#4ade80; }
+ 
+/* Drawer footer */
+.ai-df{
+  padding:10px 22px 16px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.ai-df-hint{ font-size:10px;color:rgba(255,255,255,.18);flex:1; }
+ 
+/* Generic small buttons */
+.ai-btn-sm{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:6px 13px;font-size:12px;font-weight:600;
+  font-family:inherit;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;
+}
+.ai-btn-sm:hover{ background:rgba(255,255,255,.13);color:white; }
+.ai-btn-pri{
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);border:none;
+  border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;
+  font-family:inherit;color:white;cursor:pointer;transition:filter .15s;
+}
+.ai-btn-pri:hover{ filter:brightness(1.1); }
+.ai-btn-danger{
+  background:transparent;border:1px solid rgba(248,113,113,.35);
+  border-radius:8px;padding:6px 13px;font-size:12px;font-weight:600;
+  font-family:inherit;color:#f87171;cursor:pointer;transition:all .15s;
+}
+.ai-btn-danger:hover{ background:rgba(248,113,113,.1); }
+ 
+@media(max-width:600px){
+  .ai-feat-grid{ grid-template-columns:repeat(2,1fr); }
+  #aiDrawer{ border-radius:20px 20px 0 0;max-height:95vh; }
+  #aiOv{ align-items:flex-end;padding:0; }
+  #aiFab{ bottom:92px;left:14px;padding:11px 16px;font-size:12px; }
+}
+/* ─────────────────── SCHEDULE PLANNER STYLES ──────────────────── */
+ 
+/* Week selector tabs */
+.sch-week-tabs {
+  display:flex; gap:4px; flex-wrap:wrap; margin-bottom:14px;
+}
+.sch-day-tab {
+  padding:5px 13px; border-radius:8px; font-size:11px; font-weight:700;
+  cursor:pointer; border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.05); color:rgba(255,255,255,.45);
+  font-family:inherit; transition:all .15s;
+}
+.sch-day-tab:hover { color:rgba(255,255,255,.75); border-color:rgba(255,255,255,.2); }
+.sch-day-tab.on {
+  background:rgba(99,102,241,.25); color:#c4b5fd;
+  border-color:rgba(99,102,241,.5);
+}
+ 
+/* Day schedule grid */
+.sch-grid {
+  display:flex; flex-direction:column; gap:4px; margin-bottom:12px;
+}
+.sch-row {
+  display:grid; grid-template-columns:56px 90px 1fr 60px;
+  gap:6px; align-items:center;
+  padding:6px 10px; border-radius:8px;
+  background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06);
+  transition:background .12s;
+}
+.sch-row.avail {
+  background:rgba(99,102,241,.08); border-color:rgba(99,102,241,.2);
+}
+.sch-row.avail.assigned {
+  background:rgba(74,222,128,.07); border-color:rgba(74,222,128,.2);
+}
+.sch-row.break-row {
+  opacity:.45; background:transparent; border-color:rgba(255,255,255,.04);
+}
+.sch-period { font-size:10px; font-weight:700; color:rgba(255,255,255,.35); font-family:'Roboto Mono',monospace; }
+.sch-time   { font-size:10px; color:rgba(255,255,255,.3); font-family:'Roboto Mono',monospace; }
+.sch-subj   { font-size:11px; font-weight:600; color:rgba(255,255,255,.7); }
+.sch-eff    { font-size:10px; font-weight:700; text-align:right; }
+.sch-assign {
+  grid-column: 1 / -1; padding: 4px 2px 2px;
+  font-size:11px; color:rgba(255,255,255,.55);
+  border-top:1px dashed rgba(255,255,255,.07);
+  margin-top:3px; display:flex; align-items:flex-start; gap:6px; flex-wrap:wrap;
+}
+.sch-paper-chip {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:6px;
+  font-size:10px; font-weight:700;
+  background:rgba(99,102,241,.2); color:#a5b4fc;
+  border:1px solid rgba(99,102,241,.3);
+}
+.sch-paper-chip.partial {
+  background:rgba(251,191,36,.12); color:#fbbf24;
+  border-color:rgba(251,191,36,.3);
+}
+ 
+/* Day summary bar */
+.sch-day-summary {
+  display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;
+  padding:10px 12px; background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08); border-radius:10px;
+}
+.sch-stat { text-align:center; flex:1; min-width:56px; }
+.sch-stat-n { font-size:18px; font-weight:800; font-family:'Roboto Mono',monospace; color:white; line-height:1; }
+.sch-stat-l { font-size:9px; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+ 
+/* AI plan result */
+.sch-plan-box {
+  background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.09);
+  border-radius:13px; padding:14px; font-size:12px; line-height:1.75;
+  color:rgba(255,255,255,.82); max-height:340px; overflow-y:auto;
+  margin-bottom:12px;
+}
+.sch-plan-box.loading {
+  display:flex; align-items:center; justify-content:center; min-height:80px; gap:8px;
+  color:rgba(255,255,255,.35);
+}
+.sch-plan-box p { margin-bottom:7px; }
+.sch-plan-box strong { color:#a5b4fc; }
+.sch-plan-box ul { padding-left:14px; margin:4px 0; }
+.sch-plan-box li { margin-bottom:3px; }
+.sch-slot-block {
+  background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.22);
+  border-radius:9px; padding:9px 12px; margin-bottom:8px;
+}
+.sch-slot-title {
+  font-size:11px; font-weight:800; color:#c4b5fd; margin-bottom:5px;
+  display:flex; align-items:center; gap:6px;
+}
+.sch-slot-papers { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:4px; }
+.sch-slot-note { font-size:10px; color:rgba(255,255,255,.35); }
+ 
+/* Action row */
+.sch-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+ 
+/* Week view toggle */
+.sch-view-toggle {
+  display:flex; gap:2px; background:rgba(255,255,255,.06);
+  border-radius:8px; padding:3px; margin-bottom:12px; width:fit-content;
+}
+.sch-vbtn {
+  padding:5px 12px; border-radius:6px; font-size:11px; font-weight:700;
+  cursor:pointer; border:none; background:transparent;
+  color:rgba(255,255,255,.4); font-family:inherit; transition:all .15s;
+}
+.sch-vbtn.on { background:rgba(99,102,241,.25); color:#c4b5fd; }
+ 
+/* Efficiency badge colors */
+.eff-high { color:#4ade80; }
+.eff-mid  { color:#fbbf24; }
+.eff-low  { color:#f87171; }
+ 
+/* Time capacity bar */
+.cap-bar-wrap { margin-bottom:10px; }
+.cap-bar-label { display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,.35); margin-bottom:3px; }
+.cap-bar { height:5px; border-radius:3px; background:rgba(255,255,255,.08); overflow:hidden; }
+.cap-bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,#4f46e5,#7c3aed); transition:width .4s ease; }
   </style>
 </head>
 <body>
@@ -812,7 +1208,254 @@
   </div>
   <div id="mobileFilterSections" class="p-4"></div>
 </div>
-
+<!-- AI FAB -->
+<button id="aiFab" onclick="aiOpen()" title="AI 备考助手 (全功能)">
+  <div class="aip" id="aiFabDot"></div>
+  <span>✦ AI 助手</span>
+</button>
+ 
+<!-- AI Main Overlay -->
+<div id="aiOv">
+  <div id="aiDrawer">
+ 
+    <!-- Drawer header -->
+    <div class="ai-dh">
+      <div class="ai-dh-top">
+        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">✦</div>
+        <h2>AI 备考助手</h2>
+        <button class="ai-close-btn" onclick="aiClose()">
+          <span class="mi" style="font-size:17px">close</span>
+        </button>
+      </div>
+      <!-- Tab nav -->
+      <div class="ai-tabs">
+        <button class="ai-tab on" id="ai-tab-hub"     onclick="aiTab('hub')">📊 分析 Hub</button>
+        <button class="ai-tab"   id="ai-tab-agent"   onclick="aiTab('agent')">🤖 Agent 指令</button>
+        <button class="ai-tab" id="ai-tab-schedule" onclick="aiTab('schedule')">📆 课表规划</button>
+        <button class="ai-tab"   id="ai-tab-settings" onclick="aiTab('settings')">⚙ 设置</button>
+      </div>
+    </div>
+ 
+    <!-- Drawer body -->
+    <div class="ai-body">
+ 
+      <!-- ── HUB TAB ────────────────────────────────────────── -->
+      <div class="ai-panel on" id="ai-panel-hub">
+        <!-- Status -->
+        <div class="ai-status" style="margin-top:14px">
+          <div class="aisdot off" id="aiSdot"></div>
+          <span id="aiStxt">检查配置…</span>
+        </div>
+ 
+        <!-- Countdown mini strip -->
+        <div class="ai-cd-strip" id="aiCdStrip"></div>
+ 
+        <!-- Quick features -->
+        <div class="ai-feat-grid">
+          <button class="ai-feat" onclick="aiFeature('overview')">
+            <div class="afi">📊</div>
+            <div class="afn">总体分析</div>
+            <div class="afd">完成率·得分·趋势</div>
+          </button>
+          <button class="ai-feat" onclick="aiFeature('plan')">
+            <div class="afi">📅</div>
+            <div class="afn">备考计划</div>
+            <div class="afd">本周每天怎么刷</div>
+          </button>
+          <button class="ai-feat" onclick="aiFeature('risk')">
+            <div class="afi">⚠️</div>
+            <div class="afn">风险预警</div>
+            <div class="afd">来不来得及</div>
+          </button>
+          <button class="ai-feat" onclick="aiFeature('weak')">
+            <div class="afi">🎯</div>
+            <div class="afn">弱点突破</div>
+            <div class="afd">分析薄弱科目</div>
+          </button>
+        </div>
+ 
+        <!-- Response -->
+        <div class="ai-resp" id="aiResp">
+          <span style="color:rgba(255,255,255,.2);font-size:12px">✦ 点击上方按钮，或在下方自由提问。AI 能看到你的全部模考数据和考试倒计时。</span>
+        </div>
+ 
+        <!-- Custom Q -->
+        <div class="ai-in-row">
+          <textarea id="aiHubQ" class="ai-ta" rows="2"
+            placeholder="自由提问：「我哪科最弱？」「还剩多少时间够做完吗？」…（Ctrl+Enter 发送）"
+            onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))aiHubSend()"></textarea>
+          <button class="ai-send" id="aiHubSendBtn" onclick="aiHubSend()">
+            <span class="mi" style="font-size:15px">send</span>发送
+          </button>
+        </div>
+      </div>
+ 
+      <!-- ── AGENT TAB ──────────────────────────────────────── -->
+      <div class="ai-panel" id="ai-panel-agent">
+        <div style="margin-top:14px;margin-bottom:8px">
+          <div class="ai-slbl">快捷指令</div>
+          <div class="ai-cmd-chips">
+            <button class="ai-cmd" onclick="aiAgentCmd('帮我推荐今天应该做哪3-4张卷子，并加入清单')">🎯 推荐今日清单</button>
+            <button class="ai-cmd" onclick="aiAgentCmd('分析我的成绩，告诉我最薄弱的科目和卷型')">📊 薄弱点分析</button>
+            <button class="ai-cmd" onclick="aiAgentCmd('把今日清单里进行中的卷子全部标记为已完成')">✅ 标记清单完成</button>
+            <button class="ai-cmd" onclick="aiAgentCmd('清空今日清单，重新规划：优先未做的高频考点卷子')">🔄 重新规划清单</button>
+            <button class="ai-cmd" onclick="aiAgentCmd('评估考前还剩多少时间，我能完成哪些科目的备考？')">⏳ 时间评估</button>
+            <button class="ai-cmd" onclick="aiAgentCmd('帮我找出所有做过但得分率低于60%的卷子，分析原因')">📉 低分卷分析</button>
+          </div>
+        </div>
+ 
+        <!-- Agent response -->
+        <div class="ai-resp" id="aiAgentResp">
+          <span style="color:rgba(255,255,255,.2);font-size:12px">
+            🤖 Agent 可以读取并操作你的数据：加入/清空清单、标记完成、推荐卷子…<br>
+            <span style="color:rgba(99,102,241,.6)">操作会在审批弹窗中显示，确认后才生效。</span>
+          </span>
+        </div>
+ 
+        <!-- Agent custom input -->
+        <div class="ai-in-row">
+          <textarea id="aiAgentQ" class="ai-ta" rows="2"
+            placeholder="用自然语言下指令：「帮我把化学2024年的Extended卷加入清单」「标记数学P4全部完成」…"
+            onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))aiAgentSend()"></textarea>
+          <button class="ai-send" id="aiAgentSendBtn" onclick="aiAgentSend()">
+            <span class="mi" style="font-size:15px">send</span>执行
+          </button>
+        </div>
+ 
+        <div style="font-size:10px;color:rgba(255,255,255,.2);text-align:center">
+          ⚡ Ctrl+Enter 发送 · 所有操作执行前会弹出审批确认
+        </div>
+      </div>
+ 
+      <!-- ── SETTINGS TAB ─────────────────────────────────── -->
+      <div class="ai-panel" id="ai-panel-settings">
+        <div style="margin-top:14px"></div>
+ 
+        <!-- API Key -->
+        <div class="ai-ssec">
+          <div class="ai-slbl">API 配置</div>
+          <div class="ai-srow">
+            <select id="aiProvSel" class="ai-si" style="flex:none;width:115px;cursor:pointer" onchange="aiProviderChange()">
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+              <option value="custom">自定义</option>
+            </select>
+            <input id="aiKeyInp" type="password" class="ai-si" placeholder="sk-… API Key" autocomplete="off"
+              onkeydown="if(event.key==='Enter')aiSaveSettings()"/>
+            <button class="ai-sbtn" onclick="aiSaveSettings()">保存</button>
+          </div>
+          <div id="aiCustomEndpointRow" style="display:none;margin-top:6px">
+            <div class="ai-srow">
+              <input id="aiCustomEndp" class="ai-si" placeholder="https://…/v1/chat/completions"/>
+              <input id="aiCustomModel" class="ai-si" style="flex:none;width:140px" placeholder="模型名，如 gpt-4o"/>
+            </div>
+          </div>
+          <div style="font-size:10px;color:rgba(255,255,255,.2);margin-top:5px">Key 仅存本地，不上传任何服务器。DeepSeek 约 ¥0.001/次，非常便宜。</div>
+        </div>
+ 
+        <!-- Exam date (redundant with main but convenient here) -->
+        <div class="ai-ssec">
+          <div class="ai-slbl">考试日期 &amp; 容量配置</div>
+          <div class="ai-srow">
+            <div style="flex:1">
+              <div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:4px">考试日期</div>
+              <input id="aiExamDate" type="date" class="ai-si" style="width:100%"
+                onchange="aiSaveExamDate(this.value)"/>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:10px;color:rgba(255,255,255,.35);margin-bottom:4px">每日目标张数</div>
+              <input id="aiDailyTarget" type="number" min="1" max="10" class="ai-si" style="width:100%" value="3"
+                oninput="aiSaveDailyTarget(this.value)" placeholder="张/天"/>
+            </div>
+          </div>
+          <div style="font-size:10px;color:rgba(255,255,255,.2);margin-top:4px">AI 规划时会参考每日目标张数来制定计划</div>
+        </div>
+ 
+        <!-- Context preview -->
+        <div class="ai-ssec">
+          <div class="ai-slbl" style="display:flex;align-items:center;justify-content:space-between">
+            <span>AI 能看到的数据预览</span>
+            <button class="ai-btn-sm" style="padding:3px 9px;font-size:10px" onclick="aiRefreshCtx()">刷新</button>
+          </div>
+          <div class="ai-ctx-preview" id="aiCtxPreview">（点击刷新加载）</div>
+        </div>
+ 
+        <!-- Danger zone -->
+        <div class="ai-ssec">
+          <div class="ai-slbl">危险操作</div>
+          <button class="ai-btn-danger" onclick="aiClearHistory()">清除 AI 历史记录</button>
+        </div>
+      </div>
+      <template id="schPanelTemplate">
+<div class="ai-panel" id="ai-panel-schedule">
+  <div style="margin-top:14px"></div>
+ 
+  <!-- View toggle -->
+  <div class="sch-view-toggle">
+    <button class="sch-vbtn on" id="schVDay" onclick="schSetView('day')">单日规划</button>
+    <button class="sch-vbtn"    id="schVWeek" onclick="schSetView('week')">全周一览</button>
+  </div>
+ 
+  <!-- Day tabs -->
+  <div class="sch-week-tabs" id="schDayTabs"></div>
+ 
+  <!-- Day summary -->
+  <div class="sch-day-summary" id="schDaySummary"></div>
+ 
+  <!-- Schedule grid -->
+  <div class="sch-grid" id="schGrid"></div>
+ 
+  <!-- AI Plan result -->
+  <div class="sch-plan-box" id="schPlanBox" style="display:none"></div>
+ 
+  <!-- Action buttons -->
+  <div class="sch-actions">
+    <button class="ai-btn-pri" onclick="schAiPlan()">
+      <span class="mi" style="font-size:15px;vertical-align:middle">auto_awesome</span>
+      AI 生成今日计划
+    </button>
+    <button class="ai-feat" style="padding:6px 14px;border-radius:9px;flex:none" onclick="schAiWeekPlan()">
+      📅 生成全周计划
+    </button>
+    <button class="ai-feat" style="padding:6px 14px;border-radius:9px;flex:none" onclick="schAddRecommendedToCart()">
+      🛒 把推荐加入清单
+    </button>
+  </div>
+  <div style="font-size:10px;color:rgba(255,255,255,.2);margin-top:4px">
+    上课时段效率约 65%，自习/夜自习约 85%，午饭/晚饭时间可自由安排
+  </div>
+</div>
+</template>
+    </div><!-- /ai-body -->
+ 
+    <!-- Footer -->
+    <div class="ai-df">
+      <span class="ai-df-hint" id="aiFooterHint">AI 读取：题库 · 进度 · 成绩 · 报考 · 倒计时</span>
+      <button class="ai-btn-sm" onclick="aiClose()">关闭</button>
+    </div>
+ 
+  </div><!-- /aiDrawer -->
+</div><!-- /aiOv -->
+ 
+<!-- Approval modal -->
+<div id="aiApprOv">
+  <div id="aiApprBox">
+    <div class="appr-h">
+      <div class="appr-title">🔐 操作审批</div>
+      <div class="appr-sub" id="aiApprSub">AI 请求执行以下操作，勾选确认后生效</div>
+    </div>
+    <div class="appr-body" id="aiApprList"></div>
+    <div class="appr-f">
+      <button class="ai-btn-danger" onclick="aiApprRejectAll()">全部拒绝</button>
+      <div style="display:flex;gap:7px">
+        <button class="ai-btn-sm" onclick="aiApprClose()">取消</button>
+        <button class="ai-btn-pri" onclick="aiApprApply()">✓ 执行已勾选</button>
+      </div>
+    </div>
+  </div>
+</div>
+ 
+ 
 <script>
 // ╔══════════════════════════════════════════════════════════╗
 // ║              PAPER DATABASE — COMPLETE VERSION          ║
@@ -2378,7 +3021,1335 @@ async function fetchHitokoto() {
   }
 }
 function startHitokoto() { fetchHitokoto(); clearInterval(hitokoTimer); hitokoTimer=setInterval(fetchHitokoto,18000); }
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║    WARDEN × AI MODULE  v2.0  — Hub · Agent · Settings          ║
+// ╚══════════════════════════════════════════════════════════════════╝
+ 
+/* ── Storage ───────────────────────────────────────────────────── */
+const AIK  = 'warden_ai_key';
+const AIP  = 'warden_ai_provider';
+const AIEP = 'warden_ai_custom_endpoint';
+const AIM  = 'warden_ai_custom_model';
+const AIDT = 'warden_ai_daily_target';   // daily paper target
+ 
+const AI_PROVS = {
+  deepseek:{ ep:'https://api.deepseek.com/chat/completions', model:'deepseek-chat',  label:'DeepSeek' },
+  openai:  { ep:'https://api.openai.com/v1/chat/completions', model:'gpt-4o',        label:'OpenAI'   },
+  custom:  { ep:'', model:'', label:'自定义' },
+};
+ 
+const aiKey   = ()=> localStorage.getItem(AIK)||'';
+const aiProv  = ()=> localStorage.getItem(AIP)||'deepseek';
+const aiModel = ()=> {
+  if(aiProv()==='custom') return localStorage.getItem(AIM)||'';
+  return AI_PROVS[aiProv()]?.model||'deepseek-chat';
+};
+const aiEndp  = ()=> {
+  if(aiProv()==='custom') return localStorage.getItem(AIEP)||'';
+  return AI_PROVS[aiProv()]?.ep||AI_PROVS.deepseek.ep;
+};
+const aiDailyTarget = ()=> parseInt(localStorage.getItem(AIDT)||'3');
+ 
+/* ── Tab switching ──────────────────────────────────────────────── */
+let _curTab = 'hub';
+function aiTab(t){
+  _curTab = t;
+  ['hub','agent','settings'].forEach(id=>{
+    document.getElementById('ai-tab-'+id)?.classList.toggle('on',id===t);
+    document.getElementById('ai-panel-'+id)?.classList.toggle('on',id===t);
+  });
+  if(t==='settings') aiInitSettings();
+  if(t==='hub')      aiRenderCd();
+}
+ 
+/* ── Open / Close ──────────────────────────────────────────────── */
+function aiOpen(){
+  document.getElementById('aiOv').classList.add('open');
+  aiUpdateStatus();
+  aiRenderCd();
+}
+function aiClose(){ document.getElementById('aiOv').classList.remove('open'); }
+ 
+/* ── Status bar ────────────────────────────────────────────────── */
+function aiUpdateStatus(){
+  const k = aiKey();
+  const dot  = document.getElementById('aiSdot');
+  const txt  = document.getElementById('aiStxt');
+  const fdot = document.getElementById('aiFabDot');
+  const cls  = k?'aisdot':'aisdot off';
+  const fcls = k?'aip':'aip off';
+  if(dot) dot.className = cls;
+  if(fdot) fdot.className = fcls;
+  const lbl = AI_PROVS[aiProv()]?.label||aiProv();
+  if(txt) txt.textContent = k
+    ? `${lbl} · ${aiModel()} · 就绪`
+    : '未配置 API Key — 前往「设置」标签配置';
+}
+ 
+/* ── Countdown mini strip ──────────────────────────────────────── */
+function aiRenderCd(){
+  const strip = document.getElementById('aiCdStrip');
+  if(!strip) return;
+  const examDate = state?.settings?.examDate || '2026-04-28';
+  const target   = new Date(examDate+'T09:00:00');
+  const now      = new Date();
+  const diffMs   = target - now;
+  const totalD   = Math.ceil(diffMs/86400000);
+  const totalH   = Math.max(0,Math.ceil(diffMs/3600000));
+  const weeks    = Math.floor(Math.max(0,totalD)/7);
+  const remD     = Math.max(0,totalD)%7;
+  const urgent   = totalD <= 14;
+  const warn     = totalD <= 30 && totalD > 14;
+  const ccls     = totalD<=0?'urgent':urgent?'urgent':warn?'warn':'ok';
+ 
+  strip.innerHTML = `
+    <div class="ai-cd-box ${ccls}">
+      <div class="ai-cd-num">${Math.max(0,totalD)}</div>
+      <div class="ai-cd-lbl">天</div>
+    </div>
+    <div class="ai-cd-box">
+      <div class="ai-cd-num">${weeks}</div>
+      <div class="ai-cd-lbl">周</div>
+    </div>
+    <div class="ai-cd-box">
+      <div class="ai-cd-num">${remD}</div>
+      <div class="ai-cd-lbl">余天</div>
+    </div>
+    <div class="ai-cd-box" style="flex:2;min-width:120px">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.55);line-height:1.4">
+        ${totalD<=0?'⚠️ 考试已过或今天考试！':
+          `距 ${examDate} 考试<br><span style="color:${totalD<=14?'#f87171':totalD<=30?'#fbbf24':'#4ade80'}">${totalD} 天</span>，约 ${Math.round(totalD*aiDailyTarget())} 张可做`}
+      </div>
+    </div>`;
+}
+ 
+/* ── Build full context ─────────────────────────────────────────── */
+function aiBuildCtx(){
+  const now = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  const dows=['周日','周一','周二','周三','周四','周五','周六'];
+  const nowStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${dows[now.getDay()]} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+ 
+  const examDate  = state?.settings?.examDate || '2026-04-28';
+  const target    = new Date(examDate+'T09:00:00');
+  const daysLeft  = Math.ceil((target-now)/86400000);
+  const hoursLeft = Math.max(0,Math.ceil((target-now)/3600000));
+  const dailyTgt  = aiDailyTarget();
+  const canDo     = Math.max(0,daysLeft) * dailyTgt;
+ 
+  const prof    = state?.settings?.profile || {};
+  const profSubs= prof.subjects||[];
+  const names   = {'0580':'数学','0610':'生物','0620':'化学','0625':'物理'};
+ 
+  const pool = (typeof paperDB!=='undefined' ? paperDB : []).filter(p=>{
+    if(profSubs.length>0&&!profSubs.includes(p.subject)) return false;
+    if(profSubs.length>0&&profSubs.includes(p.subject)){
+      const dp=getSubjectProfile(p.subject);
+      const ptCode=p.paper.slice(0,-1); const v=Number(p.paper.slice(-1));
+      if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year)) return false;
+      if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
+      if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session)) return false;
+      if(dp.variants&&dp.variants.length>0&&!dp.variants.includes(v)) return false;
+    }
+    return true;
+  });
+ 
+  const done   = pool.filter(p=>(state?.paperStatus?.[p.id]||'todo')==='done');
+  const inprog = pool.filter(p=>(state?.paperStatus?.[p.id]||'todo')==='inprog');
+  const todo   = pool.filter(p=>(state?.paperStatus?.[p.id]||'todo')==='todo');
+  const scored = Object.entries(state?.paperScores||{});
+ 
+  let avgAcc='--';
+  if(scored.length>0){
+    const t=scored.reduce((s,[,r])=>s+(r.score/r.maxMarks)*100,0);
+    avgAcc=Math.round(t/scored.length)+'%';
+  }
+ 
+  // Per-subject
+  const subjLines=[];
+  ['0580','0610','0620','0625'].forEach(subj=>{
+    const sp=pool.filter(p=>p.subject===subj);
+    if(!sp.length) return;
+    const sd=sp.filter(p=>(state?.paperStatus?.[p.id]||'todo')==='done').length;
+    const ss=scored.filter(([id])=>id.startsWith(subj));
+    let sa='--';
+    if(ss.length>0){
+      const t=ss.reduce((s,[,r])=>s+(r.score/r.maxMarks)*100,0);
+      sa=Math.round(t/ss.length)+'%';
+    }
+    // Breakdown by paper type
+    const ptypes=['P1','P2','P3','P4','P5','P6'];
+    const ptBreak=ptypes.map(pt=>{
+      const ptDone=sp.filter(p=>p.paper.startsWith(pt)&&(state?.paperStatus?.[p.id]||'todo')==='done').length;
+      const ptTotal=sp.filter(p=>p.paper.startsWith(pt)).length;
+      return ptTotal>0?`${pt}:${ptDone}/${ptTotal}`:'';
+    }).filter(Boolean);
+ 
+    const recentScores=ss.slice(-4).map(([id,r])=>{
+      const p=(typeof paperDB!=='undefined'?paperDB:[]).find(x=>x.id===id);
+      const pct=Math.round(r.score/r.maxMarks*100);
+      return `${p?p.paper:id.slice(-8)}=${pct}%`;
+    });
+ 
+    subjLines.push(
+      `[${subj} ${names[subj]}] 已做:${sd}/${sp.length}(${Math.round(sd/sp.length*100)}%) 均分:${sa}`+
+      (ptBreak.length?` 各卷:${ptBreak.join(' ')}`:'') +
+      (recentScores.length?` 近期成绩:${recentScores.join(' ')}`:'')
+    );
+  });
+ 
+  // Cart
+  let cartStr='（空）';
+  if(state?.cart?.length>0){
+    const items=state.cart.map(id=>{
+      const p=(typeof paperDB!=='undefined'?paperDB:[]).find(x=>x.id===id);
+      return p?`${p.subject}/${p.paper}(${p.year}${p.session==='May/June'?'MJ':p.session==='March'?'Mar':'ON'},${p.duration}min)`:`?${id}`;
+    });
+    cartStr=items.join(' ');
+  }
+ 
+  // Recent done (last 5)
+  const recentDone=done.slice(-5).map(p=>`${p.subject}/${p.paper}(${p.year})`).join(' ');
+ 
+  // Pace analysis
+  const paceNote = daysLeft>0
+    ? `按每天${dailyTgt}张，还可做约${canDo}张；剩余未做${todo.length}张，${todo.length<=canDo?'✅节奏安全':'⚠️需加速或聚焦重点'}`
+    : '考试已过';
+ 
+  return `=== IGCSE 模考数据快照 ===
+时间: ${nowStr}
+考试日期: ${examDate} (距今${daysLeft}天/${hoursLeft}小时)
+报考: 科目[${profSubs.length?profSubs.join('/'):' 未设置'}] 考季[${prof.session||'未设'} V${prof.variant||'?'}]
+每日目标: ${dailyTgt}张/天
+ 
+=== 整体进度 ===
+题库总数:${pool.length} 已完成:${done.length}(${pool.length?Math.round(done.length/pool.length*100):0}%) 进行中:${inprog.length} 未做:${todo.length}
+平均得分率:${avgAcc} (${scored.length}张有记录)
+节奏评估:${paceNote}
+ 
+=== 各科详情 ===
+${subjLines.join('\n')||'（无报考科目数据）'}
+ 
+=== 今日清单(${state?.cart?.length||0}张) ===
+${cartStr}
+ 
+=== 最近完成 ===
+${recentDone||'（无）'}
 
+=== 课表规划（已保存的每日计划）===
+${['mon','tue','wed','thu','fri','sat','sun'].map(day => {
+  const saved = localStorage.getItem(`warden_sch_plan_${day}`);
+  if (!saved) return null;
+  try {
+    const parsed = JSON.parse(saved);
+    if (Date.now() - parsed.savedAt > 7 * 24 * 3600 * 1000) return null;
+    const dayLabel = {'mon':'周一','tue':'周二','wed':'周三','thu':'周四','fri':'周五','sat':'周六','sun':'周日'}[day];
+    const cleanText = parsed.planText
+      .replace(/<RECOMMENDED_IDS>[\s\S]*?<\/RECOMMENDED_IDS>/gi,'')
+      .replace(/<SLOT_ASSIGN>[\s\S]*?<\/SLOT_ASSIGN>/gi,'')
+      .trim().slice(0, 300);
+    const ids = (parsed.recommendedIds||[]).join(', ');
+    return `[${dayLabel}] 推荐卷子: ${ids}\n摘要: ${cleanText}`;
+  } catch(e) { return null; }
+}).filter(Boolean).join('\n\n') || '（暂无已保存的课表规划）'}`;
+
+
+}
+ 
+/* ── Call AI (streaming) ──────────────────────────────────────── */
+async function aiCall(messages, onChunk, maxTok=2500){
+  const k=aiKey();
+  if(!k) throw new Error('未配置 API Key，请点击「设置」标签配置');
+  const ep=aiEndp();
+  if(!ep) throw new Error('API 端点未配置');
+ 
+  const res=await fetch(ep,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+k},
+    body:JSON.stringify({model:aiModel(),messages,stream:true,max_tokens:maxTok,temperature:0.72}),
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`API 错误 ${res.status}`);}
+ 
+  const reader=res.body.getReader(),dec=new TextDecoder();let full='';
+  while(true){
+    const{done,value}=await reader.read();if(done)break;
+    for(const line of dec.decode(value).split('\n')){
+      if(!line.startsWith('data:'))continue;
+      const d=line.slice(5).trim();if(d==='[DONE]')break;
+      try{const t=JSON.parse(d).choices?.[0]?.delta?.content||'';if(t){full+=t;if(onChunk)onChunk(full);}}catch(e){}
+    }
+  }
+  return full;
+}
+ 
+/* ── Markdown renderer ────────────────────────────────────────── */
+function aiMd(text){
+  if(!text)return'';
+  return text
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^#{1,3}\s(.+)$/gm,'<strong style="display:block;margin:10px 0 4px;font-size:14px;color:#c4b5fd">$1</strong>')
+    .replace(/🟢(.+)/g,'<span class="ai-ok">🟢$1</span>')
+    .replace(/🟡(.+)/g,'<span class="ai-warn">🟡$1</span>')
+    .replace(/🔴(.+)/g,'<span class="ai-err">🔴$1</span>')
+    .replace(/^[-•]\s(.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul style="padding-left:15px;margin:4px 0">$1</ul>')
+    .replace(/\n\n/g,'</p><p style="margin-bottom:8px">')
+    .replace(/\n/g,'<br>');
+}
+ 
+/* ── Response box helpers ─────────────────────────────────────── */
+function aiLoading(boxId){
+  const b=document.getElementById(boxId);
+  b.className='ai-resp loading';
+  b.innerHTML=`<div style="display:flex;gap:5px;align-items:center">
+    <div class="td"></div><div class="td"></div><div class="td"></div>
+    <span style="margin-left:8px;font-size:12px">AI 思考中…</span>
+  </div>`;
+}
+function aiSetText(boxId,text){
+  const b=document.getElementById(boxId);
+  b.className='ai-resp';
+  b.innerHTML=`<p>${aiMd(text)}</p>`;
+  b.scrollTop=b.scrollHeight;
+}
+function aiSetError(boxId,msg){
+  const b=document.getElementById(boxId);
+  b.className='ai-resp';
+  b.innerHTML=`<span class="ai-err">❌ ${msg}</span>
+    <div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,.25)">
+      DeepSeek Key: platform.deepseek.com &nbsp;|&nbsp; OpenAI: platform.openai.com
+    </div>`;
+}
+ 
+/* ── HUB features ─────────────────────────────────────────────── */
+const AI_SYS = '你是专业的IGCSE模考备考顾问，语言中文，有洞察力，适当使用emoji，自由发挥不限字数，格式清晰易读。';
+ 
+async function aiFeature(type){
+  if(!aiKey()){showToast('请先在「设置」标签配置 API Key');aiTab('settings');return;}
+  const ctx=aiBuildCtx();
+  const ps={
+    overview:`分析这位学生的IGCSE备考整体状况：
+1. 各科完成率和得分率对比（表格或列表）
+2. 成绩趋势（是否在进步）
+3. 节奏是否健康（能否考前做完重点卷子）
+4. 最值得关注的3个信号点
+数据：\n${ctx}`,
+ 
+    plan:`制定接下来7天的具体备考计划：
+- 按日历格式，每天2-${aiDailyTarget()}张卷子
+- 优先安排得分率低的科目/卷型
+- 考虑清单里已有的卷子
+- 每天给出具体的科目+卷型推荐（如「0580 P4 2023 MJ V2」）
+数据：\n${ctx}`,
+ 
+    risk:`评估备考风险：
+1. 🟢绿灯/🟡黄灯/🔴红灯 判定，明确说理由
+2. 按每天${aiDailyTarget()}张速度，考前还能做几张，够不够
+3. 最危险的1-2个科目，具体分析原因
+4. 3条最紧急的行动，优先级排序
+数据：\n${ctx}`,
+ 
+    weak:`深度分析薄弱点：
+1. 得分率最低的科目和卷型
+2. 哪些题型/年份的题做得少
+3. 成绩记录里有没有连续低分的模式
+4. 给出针对每个薄弱点的具体改进策略（不要笼统建议）
+数据：\n${ctx}`,
+  };
+  aiLoading('aiResp');
+  try{
+    await aiCall(
+      [{role:'system',content:AI_SYS},{role:'user',content:ps[type]}],
+      t=>aiSetText('aiResp',t)
+    );
+  }catch(e){ aiSetError('aiResp',e.message); }
+}
+ 
+async function aiHubSend(){
+  const q=document.getElementById('aiHubQ')?.value?.trim();
+  if(!q){showToast('请输入问题');return;}
+  if(!aiKey()){showToast('请先配置 API Key');aiTab('settings');return;}
+  aiLoading('aiResp');
+  const btn=document.getElementById('aiHubSendBtn');
+  btn.disabled=true;
+  try{
+    const ctx=aiBuildCtx();
+    await aiCall(
+      [{role:'system',content:`${AI_SYS}\n\n以下是当前模考数据：\n${ctx}`},
+       {role:'user',content:q}],
+      t=>aiSetText('aiResp',t)
+    );
+  }catch(e){ aiSetError('aiResp',e.message); }
+  finally{ btn.disabled=false; }
+}
+ 
+/* ── AGENT ──────────────────────────────────────────────────────── */
+ 
+// Tool definitions — what Agent can do
+const AI_TOOLS = {
+  add_to_cart:{
+    label:'加入清单', icon:'📋', safe:true,
+    apply(op){
+      const ids=op.ids||[];
+      let added=0;
+      ids.forEach(id=>{
+        if(typeof paperDB==='undefined')return;
+        const p=paperDB.find(x=>x.id===id);
+        if(p&&!state.cart.includes(id)){state.cart.push(id);added++;}
+      });
+      if(typeof saveState==='function')saveState();
+      if(typeof updateCartBar==='function')updateCartBar();
+      if(typeof renderCards==='function')renderCards();
+      return{ok:true,msg:`已加入 ${added} 张卷子到清单`};
+    },
+    diff(op){ return{field:'清单',old:`(原${state?.cart?.length||0}张)`,new:`+${(op.ids||[]).length}张`}; }
+  },
+  clear_cart:{
+    label:'清空清单', icon:'🗑️', safe:false,
+    apply(){
+      const n=state?.cart?.length||0;
+      if(state)state.cart=[];
+      if(typeof saveState==='function')saveState();
+      if(typeof updateCartBar==='function')updateCartBar();
+      if(typeof renderCards==='function')renderCards();
+      return{ok:true,msg:`已清空清单（原 ${n} 张）`};
+    },
+    diff(){ return{field:'清单',old:`${state?.cart?.length||0}张`,new:'空'}; }
+  },
+  mark_done:{
+    label:'标记完成', icon:'✅', safe:true,
+    apply(op){
+      const ids=op.ids||[];let cnt=0;
+      ids.forEach(id=>{
+        if(!state?.paperStatus)return;
+        state.paperStatus[id]='done';cnt++;
+        const el=document.querySelector(`[data-id="${id}"]`);
+        if(el&&typeof paperDB!=='undefined'&&typeof makeCard==='function'){
+          const p=paperDB.find(x=>x.id===id);if(p)el.replaceWith(makeCard(p));
+        }
+      });
+      if(typeof saveState==='function')saveState();
+      if(typeof updateProgress==='function')updateProgress();
+      if(typeof updateFilterCounts==='function')updateFilterCounts();
+      return{ok:true,msg:`已标记 ${cnt} 张为完成`};
+    },
+    diff(op){ return{field:'状态',old:'未做/进行中',new:`${(op.ids||[]).length}张→已完成`}; }
+  },
+  mark_todo:{
+    label:'重置为未做', icon:'↩', safe:true,
+    apply(op){
+      const ids=op.ids||[];let cnt=0;
+      ids.forEach(id=>{
+        if(!state?.paperStatus)return;
+        state.paperStatus[id]='todo';cnt++;
+        const el=document.querySelector(`[data-id="${id}"]`);
+        if(el&&typeof paperDB!=='undefined'&&typeof makeCard==='function'){
+          const p=paperDB.find(x=>x.id===id);if(p)el.replaceWith(makeCard(p));
+        }
+      });
+      if(typeof saveState==='function')saveState();
+      if(typeof updateProgress==='function')updateProgress();
+      return{ok:true,msg:`已重置 ${cnt} 张为未做`};
+    },
+    diff(op){ return{field:'状态',old:'已完成/进行中',new:`${(op.ids||[]).length}张→未做`}; }
+  },
+  recommend_and_add:{
+    label:'推荐并加入清单', icon:'🎯', safe:true,
+    apply(op){
+      const ids=op.ids||[];let added=0;
+      ids.forEach(id=>{
+        if(typeof paperDB==='undefined')return;
+        const p=paperDB.find(x=>x.id===id);
+        if(p&&!state.cart.includes(id)){state.cart.push(id);added++;}
+      });
+      if(typeof saveState==='function')saveState();
+      if(typeof updateCartBar==='function')updateCartBar();
+      if(typeof renderCards==='function')renderCards();
+      return{ok:true,msg:`AI 推荐并加入 ${added} 张卷子到今日清单`};
+    },
+    diff(op){ return{field:'清单',old:'(原有)',new:`+${(op.ids||[]).length}张推荐`}; }
+  },
+};
+ 
+// Build full paper index for Agent system prompt
+function aiBuildPaperIndex(){
+  if(typeof paperDB==='undefined') return '（题库未加载）';
+  const profSubs=(state?.settings?.profile?.subjects)||[];
+  const pool=(typeof paperDB!=='undefined'?paperDB:[]).filter(p=>{
+    if(profSubs.length>0&&!profSubs.includes(p.subject)) return false;
+    if(profSubs.length>0&&profSubs.includes(p.subject)){
+      const dp=getSubjectProfile(p.subject);
+      const ptCode=p.paper.slice(0,-1); const v=Number(p.paper.slice(-1));
+      if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year)) return false;
+      if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
+      if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session)) return false;
+      if(dp.variants&&dp.variants.length>0&&!dp.variants.includes(v)) return false;
+    }
+    return true;
+  });
+  // Group by subject
+  const lines=[];
+  ['0580','0610','0620','0625'].forEach(subj=>{
+    const sp=pool.filter(p=>p.subject===subj);
+    if(!sp.length) return;
+    // By session × year × paper
+    const done=sp.filter(p=>(state?.paperStatus?.[p.id]||'todo')==='done');
+    const todo=sp.filter(p=>(state?.paperStatus?.[p.id]||'todo')==='todo');
+    lines.push(`\n[${subj}] 已做:${done.length} 未做:${todo.length} 总:${sp.length}`);
+    // List todo papers (first 30 to avoid huge prompts)
+    const sample=todo.slice(0,30).map(p=>`  id:${p.id} paper:${p.paper} year:${p.year} session:${p.session==='May/June'?'MJ':p.session==='March'?'Mar':'ON'} dur:${p.duration}min marks:${p.totalMarks} status:${state?.paperStatus?.[p.id]||'todo'}`);
+    lines.push(sample.join('\n'));
+    if(todo.length>30) lines.push(`  … 还有 ${todo.length-30} 张未做`);
+  });
+  return lines.join('\n');
+}
+ 
+function aiAgentSystemPrompt(){
+  const ctx=aiBuildCtx();
+  const idx=aiBuildPaperIndex();
+  const BT='`';
+  const B3=BT+BT+BT;
+ 
+  return `你是 Warden 模考助手的 AI Agent。你能读取并修改学生的模考数据。
+ 
+=== 当前数据概况 ===
+${ctx}
+ 
+=== 题库索引（含 id，操作时必须用精确 id）===
+${idx}
+ 
+=== 可用操作（输出 ACTION 块，我会解析并执行）===
+${B3}ACTION
+{"op":"add_to_cart","ids":["paper_id_1","paper_id_2"]}
+${B3}
+ 
+${B3}ACTION
+{"op":"clear_cart"}
+${B3}
+ 
+${B3}ACTION
+{"op":"mark_done","ids":["paper_id_1"]}
+${B3}
+ 
+${B3}ACTION
+{"op":"mark_todo","ids":["paper_id_1"]}
+${B3}
+ 
+${B3}ACTION
+{"op":"recommend_and_add","ids":["paper_id_1","paper_id_2","paper_id_3"]}
+${B3}
+ 
+=== 规则 ===
+- 如果只是问问题，直接回答，不输出 ACTION 块
+- 如果需要操作，先用中文说明要做什么，再输出对应 ACTION 块
+- ids 必须从上面题库索引里精确复制，不能编造
+- 推荐卷子：优先选未做的、得分率低的科目、近期没做的年份
+- 一次最多操作10张，不要一次加太多
+- 操作前先告诉学生选了哪些卷子以及理由`;
+}
+ 
+let _pendingOps=[];
+ 
+async function aiAgentSend(){
+  const q=document.getElementById('aiAgentQ')?.value?.trim();
+  if(!q){showToast('请输入指令');return;}
+  if(!aiKey()){showToast('请先配置 API Key');aiTab('settings');return;}
+  aiLoading('aiAgentResp');
+  const btn=document.getElementById('aiAgentSendBtn');
+  btn.disabled=true;
+  let fullText='';
+  try{
+    await aiCall(
+      [{role:'system',content:aiAgentSystemPrompt()},
+       {role:'user',content:q}],
+      t=>{fullText=t;
+        // Show text without ACTION blocks while streaming
+        const disp=t.replace(/```ACTION[\s\S]*?```/g,'[操作待审批…]').trim();
+        aiSetText('aiAgentResp',disp);
+      },
+      3500
+    );
+  }catch(e){ aiSetError('aiAgentResp',e.message); btn.disabled=false; return; }
+  btn.disabled=false;
+ 
+  // Parse ACTION blocks
+  const blocks=[...fullText.matchAll(/```ACTION\s*([\s\S]*?)```/gi)];
+  const ops=[];
+  for(const b of blocks){
+    try{ const o=JSON.parse(b[1].trim()); ops.push(o); }catch(e){}
+  }
+  // Show clean text
+  const cleanText=fullText.replace(/```ACTION[\s\S]*?```/gi,'').trim();
+  aiSetText('aiAgentResp', cleanText || fullText);
+ 
+  if(ops.length>0){
+    _pendingOps=ops;
+    aiApprShow(cleanText,ops);
+  }
+}
+ 
+function aiAgentCmd(cmd){
+  const ta=document.getElementById('aiAgentQ');
+  if(ta){ ta.value=cmd; aiAgentSend(); }
+}
+ 
+/* ── Approval ──────────────────────────────────────────────────── */
+function aiApprShow(aiText, ops){
+  document.getElementById('aiApprSub').textContent=`AI 请求 ${ops.length} 项操作，勾选确认后生效`;
+  const list=document.getElementById('aiApprList');
+  list.innerHTML=ops.map((op,i)=>{
+    const tool=AI_TOOLS[op.op];
+    if(!tool) return `<div class="appr-item danger"><div class="appr-ico">❓</div><div class="appr-info"><div class="appr-name">未知操作：${op.op}</div></div></div>`;
+    const diff=tool.diff(op);
+    const ids=op.ids||[];
+    const paperNames=ids.slice(0,5).map(id=>{
+      const p=(typeof paperDB!=='undefined'?paperDB:[]).find(x=>x.id===id);
+      return p?`${p.subject}/${p.paper}(${p.year})`:`?${id.slice(-8)}`;
+    }).join(' ');
+    return `<div class="appr-item ${tool.safe?'safe':'danger'}">
+      <input type="checkbox" class="appr-ck" id="appr${i}" checked>
+      <div class="appr-ico">${tool.icon}</div>
+      <div class="appr-info">
+        <div class="appr-name">${tool.label}${ids.length?` (${ids.length}张)`:''}</div>
+        <div class="appr-detail">${paperNames}${ids.length>5?` …等${ids.length}张`:''}</div>
+        <div class="appr-diff">
+          <span class="diff-old">${diff.old}</span>
+          <span style="color:rgba(255,255,255,.3)">→</span>
+          <span class="diff-new">${diff.new}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('aiApprOv').classList.add('open');
+}
+ 
+function aiApprClose(){ document.getElementById('aiApprOv').classList.remove('open'); }
+function aiApprRejectAll(){ document.querySelectorAll('.appr-ck').forEach(c=>c.checked=false); }
+ 
+function aiApprApply(){
+  let ok=0,fail=0;
+  _pendingOps.forEach((op,i)=>{
+    const cb=document.getElementById('appr'+i);
+    if(!cb?.checked)return;
+    const tool=AI_TOOLS[op.op];
+    if(!tool){fail++;return;}
+    try{ const r=tool.apply(op); if(r.ok)ok++; else fail++; }
+    catch(e){ fail++; console.error('[AI Agent]',e); }
+  });
+  aiApprClose();
+  _pendingOps=[];
+  if(ok>0) showToast(`✅ 已执行 ${ok} 项操作${fail?`，${fail} 项失败`:''}`);
+  else     showToast(`⚠️ ${fail} 项操作失败，详见控制台`);
+  // Refresh counters
+  if(typeof updateCartBar==='function') updateCartBar();
+  if(typeof renderCards==='function')   renderCards();
+  if(typeof updateProgress==='function')updateProgress();
+}
+ 
+/* ── Settings tab ─────────────────────────────────────────────── */
+function aiInitSettings(){
+  const ki=document.getElementById('aiKeyInp');
+  const ps=document.getElementById('aiProvSel');
+  const dt=document.getElementById('aiDailyTarget');
+  const ed=document.getElementById('aiExamDate');
+  const ep=document.getElementById('aiCustomEndp');
+  const em=document.getElementById('aiCustomModel');
+  if(ki) ki.value=aiKey();
+  if(ps){ ps.value=aiProv(); aiProviderChange(); }
+  if(dt) dt.value=aiDailyTarget();
+  if(ed) ed.value=state?.settings?.examDate||'2026-04-28';
+  if(ep) ep.value=localStorage.getItem(AIEP)||'';
+  if(em) em.value=localStorage.getItem(AIM)||'';
+  aiUpdateStatus();
+}
+ 
+function aiProviderChange(){
+  const p=document.getElementById('aiProvSel')?.value;
+  const row=document.getElementById('aiCustomEndpointRow');
+  if(row) row.style.display=p==='custom'?'block':'none';
+}
+ 
+function aiSaveSettings(){
+  const k=document.getElementById('aiKeyInp')?.value?.trim();
+  const p=document.getElementById('aiProvSel')?.value||'deepseek';
+  if(k) localStorage.setItem(AIK,k);
+  localStorage.setItem(AIP,p);
+  if(p==='custom'){
+    const ep=document.getElementById('aiCustomEndp')?.value?.trim();
+    const em=document.getElementById('aiCustomModel')?.value?.trim();
+    if(ep) localStorage.setItem(AIEP,ep);
+    if(em) localStorage.setItem(AIM,em);
+  }
+  // Sync exam date
+  const ed=document.getElementById('aiExamDate')?.value;
+  if(ed) aiSaveExamDate(ed);
+  aiUpdateStatus();
+  showToast(k?'✅ AI 设置已保存':'⚠️ Key 为空，AI 功能不可用');
+}
+ 
+function aiSaveExamDate(val){
+  if(!val)return;
+  if(state?.settings){ state.settings.examDate=val; }
+  if(typeof saveState==='function') saveState();
+  // Also update the main examDateInput if it exists
+  const main=document.getElementById('examDateInput');
+  if(main&&!main.value) main.value=val;
+  if(typeof renderCountdown==='function') renderCountdown();
+  aiRenderCd();
+  showToast('✅ 考试日期已更新');
+}
+ 
+function aiSaveDailyTarget(val){
+  const n=parseInt(val)||3;
+  localStorage.setItem(AIDT,String(n));
+  aiRenderCd();
+}
+ 
+function aiRefreshCtx(){
+  const el=document.getElementById('aiCtxPreview');
+  if(el) el.textContent=aiBuildCtx();
+}
+ 
+function aiClearHistory(){
+  if(confirm('确定清除 AI 会话历史？（不影响模考进度数据）')){
+    showToast('✅ AI 历史已清除');
+  }
+}
+ 
+/* ── Init ──────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    aiUpdateStatus();
+    aiRenderCd();
+    // Close overlay on bg click
+    document.getElementById('aiOv')?.addEventListener('click',e=>{
+      if(e.target===document.getElementById('aiOv')) aiClose();
+    });
+    document.getElementById('aiApprOv')?.addEventListener('click',e=>{
+      if(e.target===document.getElementById('aiApprOv')) aiApprClose();
+    });
+  },300);
+});
+ // ╔══════════════════════════════════════════════════════════════════╗
+// ║   SCHEDULE PLANNER MODULE  v3  — 课表驱动的卷子规划             ║
+// ╚══════════════════════════════════════════════════════════════════╝
+ 
+/* ── Timetable data ─────────────────────────────────────────────── */
+// 可用时段类型：
+//   'igcse'  - IGCSE考试科目课（数/理/化/生），65% 效率，可刷相关卷子
+//   'free'   - 自习/集中自习/晚自习/夜自习，85% 效率，最佳刷题时间
+//   'meal'   - 午饭/晚饭，55% 效率，可轻松刷一点
+//   'other'  - 语文/英语/道法/计算机/体育等，不刷IGCSE题
+//   'skip'   - 不计入
+ 
+const SCH_DAYS = [
+  // 每天日期标签（可按实际修改）
+  { key:'mon', label:'周一(16)', short:'周一' },
+  { key:'tue', label:'周二(17)', short:'周二' },
+  { key:'wed', label:'周三(18)', short:'周三' },
+  { key:'thu', label:'周四(19)', short:'周四' },
+  { key:'fri', label:'周五(20)', short:'周五' },
+  { key:'sun', label:'周日(22)', short:'周日' },
+];
+ 
+// 效率系数
+const EFF = { igcse: 1.0, free: 1.0, meal: 1.0, other: 0, skip: 0 };
+const EFF_LABEL = { igcse:'可刷题', free:'可刷题', meal:'可刷题', other:'—', skip:'—' };
+const EFF_CLS = { igcse:'eff-high', free:'eff-high', meal:'eff-high', other:'', skip:'' };
+ 
+// ── 完整课表数据 ──────────────────────────────────────────────────
+const TIMETABLE = {
+  sun: [
+    { period:'下午自由', time:'14:00-18:00', durMin:240, label:'周日下午自由', type:'free', subj:null },
+    { period:'晚饭',     time:'18:00-19:00', durMin:60,  label:'晚饭',         type:'meal', subj:null },
+    { period:'夜自习',   time:'21:00-22:45', durMin:105, label:'夜自习',       type:'meal', subj:null },
+  ],
+  sat: [
+    { period:'上午自习', time:'09:00-12:00', durMin:180, label:'周六上午自习', type:'free', subj:null },
+    { period:'午饭',     time:'12:00-13:30', durMin:90,  label:'午饭',         type:'meal', subj:null },
+    { period:'下午自习', time:'13:30-18:00', durMin:270, label:'周六下午自习', type:'free', subj:null },
+    { period:'晚饭',     time:'18:00-19:00', durMin:60,  label:'晚饭',         type:'meal', subj:null },
+    { period:'夜自习',   time:'21:00-22:45', durMin:105, label:'夜自习',       type:'meal', subj:null },
+  ],
+  mon: [
+    { period:'P1',    time:'08:00-08:40', durMin:40,  label:'化学',        type:'other', subj:null },
+    { period:'P2',    time:'08:55-09:35', durMin:40,  label:'语文',        type:'free',  subj:null },
+    { period:'P3',    time:'10:00-10:40', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'P4',    time:'10:55-11:35', durMin:40,  label:'生物',        type:'other', subj:null },
+    { period:'午饭',  time:'11:35-13:15', durMin:100, label:'午饭',        type:'meal',  subj:null },
+    { period:'P5',    time:'13:15-13:55', durMin:40,  label:'计算机/经济', type:'free',  subj:null },
+    { period:'P6',    time:'14:10-14:50', durMin:40,  label:'计算机/经济', type:'free',  subj:null },
+    { period:'P7',    time:'15:15-15:55', durMin:40,  label:'物理',        type:'other', subj:null },
+    { period:'P8',    time:'16:10-16:50', durMin:40,  label:'物理',        type:'other', subj:null },
+    { period:'晚饭',  time:'16:50-18:00', durMin:70,  label:'晚饭',        type:'meal',  subj:null },
+    { period:'P9',    time:'18:00-18:40', durMin:40,  label:'英语',        type:'free',  subj:null },
+    { period:'P10',   time:'18:55-19:35', durMin:40,  label:'英语',        type:'free',  subj:null },
+    { period:'P11',   time:'19:50-20:30', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'夜自习', time:'21:00-22:45', durMin:105, label:'夜自习',     type:'meal',  subj:null },
+  ],
+  tue: [
+    { period:'P1',    time:'08:00-08:40', durMin:40,  label:'计算机/经济', type:'free',  subj:null },
+    { period:'P2',    time:'08:55-09:35', durMin:40,  label:'体育',        type:'other', subj:null },
+    { period:'P3',    time:'10:00-10:40', durMin:40,  label:'道法',        type:'free',  subj:null },
+    { period:'P4',    time:'10:55-11:35', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'午饭',  time:'11:35-13:15', durMin:100, label:'午饭',        type:'meal',  subj:null },
+    { period:'P5',    time:'13:15-13:55', durMin:40,  label:'英语',        type:'free',  subj:null },
+    { period:'P6',    time:'14:10-14:50', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'P7',    time:'15:15-15:55', durMin:40,  label:'语文',        type:'free',  subj:null },
+    { period:'P8',    time:'16:10-16:50', durMin:40,  label:'选修(自习)',  type:'free',  subj:null },
+    { period:'晚饭',  time:'16:50-18:00', durMin:70,  label:'晚饭',        type:'meal',  subj:null },
+    { period:'P9',    time:'18:00-18:40', durMin:40,  label:'美术',        type:'other', subj:null },
+    { period:'P10',   time:'18:55-19:35', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'P11',   time:'19:50-20:30', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'夜自习', time:'21:00-22:45', durMin:105, label:'夜自习',     type:'meal',  subj:null },
+  ],
+  wed: [
+    { period:'P1',    time:'08:00-08:40', durMin:40,  label:'生物',        type:'other', subj:null },
+    { period:'P2',    time:'08:55-09:35', durMin:40,  label:'计算机/经济', type:'free',  subj:null },
+    { period:'P3',    time:'10:00-10:40', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'P4',    time:'10:55-11:35', durMin:40,  label:'英语',        type:'free',  subj:null },
+    { period:'午饭',  time:'11:35-13:15', durMin:100, label:'午饭',        type:'meal',  subj:null },
+    { period:'P5',    time:'13:15-13:55', durMin:40,  label:'研究方法',    type:'other', subj:null },
+    { period:'P6',    time:'14:10-14:50', durMin:40,  label:'语文',        type:'free',  subj:null },
+    { period:'P7',    time:'15:15-15:55', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'P8',    time:'16:10-16:50', durMin:40,  label:'选修(自习)',  type:'free',  subj:null },
+    { period:'晚饭',  time:'16:50-18:00', durMin:70,  label:'晚饭',        type:'meal',  subj:null },
+    { period:'P9',    time:'18:00-18:40', durMin:40,  label:'物理',        type:'other', subj:null },
+    { period:'P10',   time:'18:55-19:35', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'P11',   time:'19:50-20:30', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'夜自习', time:'21:00-22:45', durMin:105, label:'夜自习',     type:'meal',  subj:null },
+  ],
+  thu: [
+    { period:'P1',    time:'08:00-08:40', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'P2',    time:'08:55-09:35', durMin:40,  label:'研究方法',    type:'other', subj:null },
+    { period:'P3',    time:'10:00-10:40', durMin:40,  label:'化学',        type:'other', subj:null },
+    { period:'P4',    time:'10:55-11:35', durMin:40,  label:'综合科学',    type:'other', subj:null },
+    { period:'午饭',  time:'11:35-13:15', durMin:100, label:'午饭',        type:'meal',  subj:null },
+    { period:'P5',    time:'13:15-13:55', durMin:40,  label:'英语',        type:'free',  subj:null },
+    { period:'P6',    time:'14:10-14:50', durMin:40,  label:'体育',        type:'other', subj:null },
+    { period:'P7',    time:'15:15-15:55', durMin:40,  label:'语文',        type:'free',  subj:null },
+    { period:'P8',    time:'16:10-16:50', durMin:40,  label:'班会',        type:'other', subj:null },
+    { period:'晚饭',  time:'16:50-18:00', durMin:70,  label:'晚饭',        type:'meal',  subj:null },
+    { period:'P9',    time:'18:00-18:40', durMin:40,  label:'化学',        type:'other', subj:null },
+    { period:'P10',   time:'18:55-19:35', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'P11',   time:'19:50-20:30', durMin:40,  label:'晚自习',      type:'free',  subj:null },
+    { period:'夜自习', time:'21:00-22:45', durMin:105, label:'夜自习',     type:'meal',  subj:null },
+  ],
+  fri: [
+    { period:'P1',    time:'08:00-08:40', durMin:40,  label:'语文',        type:'free',  subj:null },
+    { period:'P2',    time:'08:55-09:35', durMin:40,  label:'计算机/经济', type:'free',  subj:null },
+    { period:'P3',    time:'10:00-10:40', durMin:40,  label:'物理',        type:'other', subj:null },
+    { period:'P4',    time:'10:55-11:35', durMin:40,  label:'英语',        type:'free',  subj:null },
+    { period:'午饭',  time:'11:35-12:30', durMin:55,  label:'午饭(短)',    type:'meal',  subj:null },
+    { period:'P5',    time:'12:30-13:10', durMin:40,  label:'数学',        type:'other', subj:null },
+    { period:'P6',    time:'13:25-14:05', durMin:40,  label:'生物',        type:'other', subj:null },
+    { period:'下午自由', time:'14:05-18:00', durMin:235, label:'周五下午自由', type:'free', subj:null },
+    { period:'晚饭',  time:'18:00-19:00', durMin:60,  label:'晚饭',        type:'meal',  subj:null },
+    { period:'夜自习', time:'21:00-22:45', durMin:105, label:'夜自习',     type:'meal',  subj:null },
+  ],
+};
+ 
+/* ── State ──────────────────────────────────────────────────────── */
+let schCurDay = 'mon';
+let schView   = 'day';
+let schLastPlan = null; // AI 最近一次规划结果（用于「加入清单」）
+ 
+/* ── Init ───────────────────────────────────────────────────────── */
+function schInit() {
+  // Inject panel from template into ai-body (before the footer)
+  const tmpl = document.getElementById('schPanelTemplate');
+  if (tmpl && !document.getElementById('ai-panel-schedule')) {
+    // Insert before the ai-df footer div, not appended to end
+    const footer = document.querySelector('.ai-df');
+    const body = document.querySelector('.ai-body');
+    if (body) {
+      body.appendChild(tmpl.content.cloneNode(true));
+    }
+  }
+  // Tab button already in HTML, skip creation
+  // Build day tabs and render
+  schRenderDayTabs();
+  schRenderDay('mon');
+}
+ 
+/* ── Day tabs ───────────────────────────────────────────────────── */
+function schRenderDayTabs() {
+  const el = document.getElementById('schDayTabs');
+  if (!el) return;
+  el.innerHTML = SCH_DAYS.map(d =>
+    `<button class="sch-day-tab${d.key===schCurDay?' on':''}" onclick="schSelectDay('${d.key}')">${d.short}</button>`
+  ).join('');
+}
+ 
+function schSelectDay(key) {
+  schCurDay = key;
+  document.querySelectorAll('.sch-day-tab').forEach(b =>
+    b.classList.toggle('on', b.textContent.includes(SCH_DAYS.find(d=>d.key===key)?.short||''))
+  );
+  schRenderDay(key);
+}
+ 
+/* ── Compute available effective minutes for a day ─────────────── */
+function schDayStats(key) {
+  const slots = TIMETABLE[key] || [];
+  let freeMin = 0, igcseMin = 0, mealMin = 0, totalEff = 0;
+  slots.forEach(s => {
+    const eff = EFF[s.type] || 0;
+    const effMin = Math.floor(s.durMin * eff);
+    if (s.type === 'free')  { freeMin  += s.durMin; totalEff += effMin; }
+    if (s.type === 'igcse') { igcseMin += s.durMin; totalEff += effMin; }
+    if (s.type === 'meal')  { mealMin  += s.durMin; totalEff += effMin; }
+  });
+  return { freeMin, igcseMin, mealMin, totalEff };
+}
+ 
+/* ── Render day schedule grid ───────────────────────────────────── */
+function schRenderDay(key) {
+  const slots = TIMETABLE[key] || [];
+  const stats = schDayStats(key);
+  const dayInfo = SCH_DAYS.find(d => d.key === key) || {};
+ 
+  // Summary bar
+  const sumEl = document.getElementById('schDaySummary');
+  if (sumEl) {
+    sumEl.innerHTML = `
+      <div class="sch-stat">
+        <div class="sch-stat-n eff-high">${Math.floor(stats.freeMin/60)}h${stats.freeMin%60>0?stats.freeMin%60+'m':''}</div>
+        <div class="sch-stat-l">自习时间</div>
+      </div>
+      <div class="sch-stat">
+        <div class="sch-stat-n eff-mid">${stats.igcseMin}m</div>
+        <div class="sch-stat-l">IGCSE课</div>
+      </div>
+      <div class="sch-stat">
+        <div class="sch-stat-n" style="color:#818cf8">${stats.totalEff}m</div>
+        <div class="sch-stat-l">有效分钟</div>
+      </div>
+      <div class="sch-stat">
+        <div class="sch-stat-n" style="color:#fbbf24">${Math.round(stats.totalEff/75*10)/10}</div>
+        <div class="sch-stat-l">≈可做张数</div>
+      </div>`;
+  }
+ 
+  // Grid
+  const gridEl = document.getElementById('schGrid');
+  if (!gridEl) return;
+ 
+  gridEl.innerHTML = slots.map(s => {
+    const eff = EFF[s.type] || 0;
+    const effMin = Math.floor(s.durMin * eff);
+    const isAvail = eff > 0;
+    const rowCls = isAvail ? 'sch-row avail' : 'sch-row break-row';
+    const effCls = EFF_CLS[s.type] || '';
+    const effTxt = EFF_LABEL[s.type] || '';
+ 
+    let subjBadge = '';
+    if (s.type === 'igcse' && s.subj) {
+      const sn = {'0580':'数','0610':'生','0620':'化','0625':'物'}[s.subj]||s.subj;
+      subjBadge = `<span class="sch-paper-chip" style="font-size:9px;padding:1px 6px;margin-left:4px">${sn}</span>`;
+    }
+ 
+    return `<div class="${rowCls}">
+      <div class="sch-period">${s.period}</div>
+      <div class="sch-time">${s.time}</div>
+      <div class="sch-subj">${s.label}${subjBadge}</div>
+      <div class="sch-eff ${effCls}">${eff>0?effTxt:s.type==='other'?'—':''}</div>
+      ${isAvail ? `<div class="sch-assign" id="schAssign_${key}_${s.period}">
+        <span style="color:rgba(255,255,255,.2);font-size:10px">（生成计划后显示分配）</span>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+  // Restore saved plan if exists
+  const schSaveKey = `warden_sch_plan_${key}`;
+  const saved = localStorage.getItem(schSaveKey);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
+        schLastPlan = parsed.recommendedIds || [];
+        const planBox = document.getElementById('schPlanBox');
+        if (planBox && parsed.planText) {
+          planBox.style.display = 'block';
+          planBox.className = 'sch-plan-box';
+          const cleanText = parsed.planText
+            .replace(/<RECOMMENDED_IDS>[\s\S]*?<\/RECOMMENDED_IDS>/gi, '')
+            .replace(/<SLOT_ASSIGN>[\s\S]*?<\/SLOT_ASSIGN>/gi, '')
+            .trim();
+          planBox.innerHTML = `<p>${aiMd(cleanText)}</p>`;
+        }
+        if (parsed.slotAssign) {
+          const slotsR = TIMETABLE[key] || [];
+          slotsR.forEach(s => {
+            const el = document.getElementById(`schAssign_${key}_${s.period}`);
+            if (!el) return;
+            const assigned = parsed.slotAssign[s.period];
+            if (assigned && assigned.length > 0) {
+              const chips = assigned.map(id => {
+                const p = (typeof paperDB !== 'undefined' ? paperDB : []).find(x => x.id === id);
+                if (!p) return `<span class="sch-paper-chip">${id.slice(-8)}</span>`;
+                const sCode = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
+                return `<span class="sch-paper-chip" title="${p.paperFull}">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)} · ${p.year} ${sCode} · ${p.duration}m</span>`;
+              }).join('');
+              el.innerHTML = chips;
+              el.closest('.sch-row')?.classList.add('assigned');
+            }
+          });
+        }
+      }
+    } catch(e) {}
+  }
+}
+ 
+/* ── Build schedule context for AI ─────────────────────────────── */
+function schBuildCtx(dayKey) {
+  const slots = TIMETABLE[dayKey] || [];
+  const dayInfo = SCH_DAYS.find(d => d.key === dayKey) || {};
+  const stats = schDayStats(dayKey);
+ 
+  // Available papers (未做的，按报考科目过滤)
+  const profSubs = (state?.settings?.profile?.subjects) || [];
+  const pool = (typeof paperDB !== 'undefined' ? paperDB : [])
+    .filter(p => {
+      if(profSubs.length>0&&!profSubs.includes(p.subject)) return false;
+      if(profSubs.length>0&&profSubs.includes(p.subject)){
+        const dp=getSubjectProfile(p.subject);
+        const ptCode=p.paper.slice(0,-1); const v=Number(p.paper.slice(-1));
+        if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year)) return false;
+        if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
+        if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session)) return false;
+        if(dp.variants&&dp.variants.length>0&&!dp.variants.includes(v)) return false;
+      }
+      return true;
+    })
+    .filter(p => (state?.paperStatus?.[p.id] || 'todo') === 'todo');
+  // Group by subject
+  const subjPapers = {};
+  pool.forEach(p => {
+    if (!subjPapers[p.subject]) subjPapers[p.subject] = [];
+    subjPapers[p.subject].push(p);
+  });
+ 
+  const names = {'0580':'数学','0610':'生物','0620':'化学','0625':'物理'};
+ 
+  // Score context
+  const scored = Object.entries(state?.paperScores || {});
+  const weakSubj = ['0580','0610','0620','0625']
+    .map(s => {
+      const ss = scored.filter(([id]) => id.startsWith(s));
+      if (!ss.length) return null;
+      const avg = ss.reduce((a,[,r]) => a + r.score/r.maxMarks*100, 0) / ss.length;
+      return { subj: s, avg: Math.round(avg) };
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.avg - b.avg);
+ 
+  // Build slot descriptions
+  const slotLines = slots.map(s => {
+    const eff = EFF[s.type] || 0;
+    const effMin = Math.floor(s.durMin * eff);
+    if (eff === 0) return `  ${s.period} ${s.time} [${s.label}] → 不可用`;
+    const note = s.type === 'igcse' ? `(${s.label}课，建议做${names[s.subj]||'相关'}卷，效率65%)` :
+                 s.type === 'free'  ? '(自习，效率85%，优先做)' :
+                 s.type === 'meal'  ? '(休息时间，效率55%，轻松刷)' : '';
+    return `  ${s.period} ${s.time} [${s.label}] → 有效时间 ${effMin}min ${note}`;
+  }).join('\n');
+ 
+  // Available papers summary
+  const paperLines = Object.entries(subjPapers).map(([subj, papers]) => {
+    const sample = papers.slice(0, 8).map(p =>
+      `    id:${p.id} ${p.subject}/${p.paper} ${p.year}${p.session==='May/June'?'MJ':p.session==='March'?'Mar':'ON'} ${p.duration}min ${p.totalMarks}分`
+    ).join('\n');
+    return `  ${subj} ${names[subj]} (${papers.length}张未做):\n${sample}${papers.length>8?`\n    …还有${papers.length-8}张`:''}`; 
+  }).join('\n');
+ 
+  const weakNote = weakSubj.length > 0
+    ? `薄弱科目(得分率低): ${weakSubj.map(w=>`${w.subj}${names[w.subj]} ${w.avg}%`).join(' > ')}`
+    : '暂无成绩记录';
+ 
+  return `=== ${dayInfo.label} 课表规划请求 ===
+日期: ${dayInfo.label}
+总有效时间: ${stats.totalEff}分钟 (自习${stats.freeMin}min×85% + IGCSE课${stats.igcseMin}min×65% + 饭${stats.mealMin}min×55%)
+ 
+=== 各时段详情 ===
+${slotLines}
+ 
+=== 当前${weakNote} ===
+ 
+=== 可用未做卷子（按科目）===
+${paperLines || '（无可用卷子）'}
+ 
+=== 规划规则 ===
+- 每张卷子的考试时长固定（如 0580/P4=150min），但在上课时段需要拆开跨节做
+- 上课时段(igcse)：该节课科目优先匹配同科卷子，效率65%，40min课≈26min有效
+- 自习时段(free)：任意科目，效率85%，40min≈34min有效；夜自习105min≈89min有效  
+- 饭点(meal)：建议只做轻量练习或不强制，效率55%
+- 一张卷子可以跨多个时段完成，用"→接续"标记
+- 优先安排得分率低的科目
+- 每节课最好只安排一件事，不要切换太多`;
+}
+ 
+/* ── AI generate plan for one day ──────────────────────────────── */
+async function schAiPlan() {
+  if (!aiKey()) { showToast('请先配置 API Key'); aiTab('settings'); return; }
+  const planBox = document.getElementById('schPlanBox');
+  if (!planBox) return;
+  planBox.style.display = 'block';
+  planBox.className = 'sch-plan-box loading';
+  planBox.innerHTML = `<div style="display:flex;gap:5px;align-items:center">
+    <div class="td"></div><div class="td"></div><div class="td"></div>
+    <span style="margin-left:8px;font-size:12px">AI 正在为 ${SCH_DAYS.find(d=>d.key===schCurDay)?.label||schCurDay} 生成课表计划…</span>
+  </div>`;
+ 
+  const ctx = schBuildCtx(schCurDay);
+  schLastPlan = null;
+ 
+  try {
+    let full = '';
+    await aiCall(
+      [{
+        role: 'system',
+        content: `你是IGCSE备考课表规划助手。根据学生的实际课表，把可用时间分配给具体的卷子。
+
+输出格式要求：
+1. 先给出当天总结（几分钟有效时间，能做几张）
+2. 然后逐个时段说明安排：时段名 + 做什么卷子
+3. 如果一张卷子跨多个时段，明确标出"继续上午的XX卷"
+4. 末尾输出两个JSON块，格式严格如下：
+
+<RECOMMENDED_IDS>
+["id1","id2","id3"]
+</RECOMMENDED_IDS>
+
+<SLOT_ASSIGN>
+{"P1":["id1"],"午饭":["id1"],"夜自习":["id2","id3"]}
+</SLOT_ASSIGN>
+
+语言：中文，简洁实用，不废话，用时段标题分段。`
+      },
+      { role: 'user', content: `请为以下课表生成今日刷题计划：\n\n${ctx}` }],
+      t => {
+        full = t;
+        planBox.className = 'sch-plan-box';
+        planBox.innerHTML = `<p>${aiMd(t)}</p>`;
+        planBox.scrollTop = planBox.scrollHeight;
+      },
+      3000
+    );
+ 
+    // Extract recommended IDs
+    const m = full.match(/<RECOMMENDED_IDS>\s*([\s\S]*?)\s*<\/RECOMMENDED_IDS>/);
+    if (m) { try { schLastPlan = JSON.parse(m[1]); } catch(e) {} }
+
+    // Extract slot assignments
+    const sm2 = full.match(/<SLOT_ASSIGN>\s*([\s\S]*?)\s*<\/SLOT_ASSIGN>/);
+    let slotAssign = {};
+    if (sm2) { try { slotAssign = JSON.parse(sm2[1]); } catch(e) {} }
+
+    // Persist to localStorage
+    const schSaveKey = `warden_sch_plan_${schCurDay}`;
+    localStorage.setItem(schSaveKey, JSON.stringify({
+      planText: full,
+      slotAssign,
+      recommendedIds: schLastPlan || [],
+      savedAt: Date.now()
+    }));
+
+    // Update slot assignments in grid
+    schAnnotateGrid(full);
+ 
+  } catch(e) {
+    planBox.className = 'sch-plan-box';
+    planBox.innerHTML = `<span style="color:#f87171">❌ ${e.message}</span>`;
+  }
+}
+ 
+/* ── Generate weekly plan ───────────────────────────────────────── */
+async function schAiWeekPlan() {
+  if (!aiKey()) { showToast('请先配置 API Key'); aiTab('settings'); return; }
+  const planBox = document.getElementById('schPlanBox');
+  if (!planBox) return;
+  planBox.style.display = 'block';
+  planBox.className = 'sch-plan-box loading';
+  planBox.innerHTML = `<div style="display:flex;gap:5px;align-items:center">
+    <div class="td"></div><div class="td"></div><div class="td"></div>
+    <span style="margin-left:8px;font-size:12px">AI 生成全周计划中，稍等…</span>
+  </div>`;
+ 
+  // Build condensed week summary
+  const weekCtx = SCH_DAYS.map(d => {
+    const stats = schDayStats(d.key);
+    return `${d.label}: 有效时间 ${stats.totalEff}min (≈${Math.round(stats.totalEff/75*10)/10}张)`;
+  }).join('\n');
+ 
+  const profSubs = (state?.settings?.profile?.subjects) || [];
+  const names = {'0580':'数学','0610':'生物','0620':'化学','0625':'物理'};
+  const examDate = state?.settings?.examDate || '2026-04-28';
+  const daysLeft = Math.ceil((new Date(examDate+'T09:00:00') - new Date()) / 86400000);
+ 
+  const pool = (typeof paperDB !== 'undefined' ? paperDB : [])
+    .filter(p => profSubs.length === 0 || profSubs.includes(p.subject))
+    .filter(p => (state?.paperStatus?.[p.id] || 'todo') === 'todo');
+ 
+  const subjSummary = ['0580','0610','0620','0625'].map(s => {
+    const cnt = pool.filter(p=>p.subject===s).length;
+    return cnt > 0 ? `${s}${names[s]}剩余${cnt}张未做` : '';
+  }).filter(Boolean).join('，');
+ 
+  const scored = Object.entries(state?.paperScores || {});
+  const weakSubj = ['0580','0610','0620','0625']
+    .map(s => {
+      const ss = scored.filter(([id]) => id.startsWith(s));
+      if (!ss.length) return null;
+      const avg = ss.reduce((a,[,r]) => a + r.score/r.maxMarks*100, 0) / ss.length;
+      return `${names[s]}${Math.round(avg)}%`;
+    })
+    .filter(Boolean).join('，');
+ 
+  try {
+    await aiCall(
+      [{
+        role: 'system',
+        content: '你是IGCSE备考规划专家，帮学生做一周的刷题时间表，结合课表安排，优先薄弱科目，合理分配每天的任务量。中文，格式清晰，每天一段。'
+      },
+      { role: 'user', content: `请生成本周刷题计划：
+ 
+距考试还有 ${daysLeft} 天
+各科未做情况：${subjSummary}
+薄弱科目得分率：${weakSubj || '暂无记录'}
+报考科目：${profSubs.map(s=>names[s]||s).join('/')}
+ 
+各天有效时间：
+${weekCtx}
+ 
+说明：
+- 上课(IGCSE科目)效率65%，自习/夜自习效率85%，饭点55%
+- 周一-周四有夜自习(21-22:45，105min，效率85%，最强时段)
+- 周五下午放学，没有晚上时间
+- 请按每天分配具体科目和大概几张，优先安排薄弱科目，不要太激进` }],
+      t => {
+        planBox.className = 'sch-plan-box';
+        planBox.innerHTML = `<p>${aiMd(t)}</p>`;
+        planBox.scrollTop = planBox.scrollHeight;
+      },
+      3500
+    );
+  } catch(e) {
+    planBox.className = 'sch-plan-box';
+    planBox.innerHTML = `<span style="color:#f87171">❌ ${e.message}</span>`;
+  }
+}
+ 
+/* ── Add recommended papers to cart ─────────────────────────────── */
+function schAddRecommendedToCart() {
+  if (!schLastPlan || !schLastPlan.length) {
+    showToast('请先生成今日计划，再加入清单');
+    return;
+  }
+  let added = 0;
+  schLastPlan.forEach(id => {
+    if (typeof paperDB === 'undefined') return;
+    const p = paperDB.find(x => x.id === id);
+    if (p && !state.cart.includes(id)) { state.cart.push(id); added++; }
+  });
+  if (typeof saveState === 'function') saveState();
+  if (typeof updateCartBar === 'function') updateCartBar();
+  if (typeof renderCards === 'function') renderCards();
+  showToast(added > 0 ? `✅ 已将 ${added} 张推荐卷子加入今日清单` : '卷子已在清单中');
+}
+ 
+/* ── Annotate grid slots with plan text ─────────────────────────── */
+function schAnnotateGrid(planText) {
+  const slots = TIMETABLE[schCurDay] || [];
+  let slotMap = {};
+  const sm = planText.match(/<SLOT_ASSIGN>([\s\S]*?)<\/SLOT_ASSIGN>/);
+  if (sm) {
+    try { slotMap = JSON.parse(sm[1]); } catch(e) {}
+  }
+  slots.forEach(s => {
+    const el = document.getElementById(`schAssign_${schCurDay}_${s.period}`);
+    if (!el) return;
+    const assigned = slotMap[s.period];
+    if (assigned && assigned.length > 0) {
+      const chips = assigned.map(id => {
+        const p = (typeof paperDB !== 'undefined' ? paperDB : []).find(x => x.id === id);
+        if (!p) return `<span class="sch-paper-chip">${id.slice(-8)}</span>`;
+        const sCode = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
+        return `<span class="sch-paper-chip" title="${p.paperFull}">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)} · ${p.year} ${sCode} · ${p.duration}m</span>`;
+      }).join('');
+      el.innerHTML = chips;
+      el.closest('.sch-row')?.classList.add('assigned');
+    } else {
+      const re = new RegExp(`(${s.period}|${s.time.split('-')[0]})[^\\n]*([^\\n]{0,100})`, 'i');
+      const m = planText.match(re);
+      if (m) {
+        const txt = m[0].replace(/\*+/g,'').trim().slice(0,120);
+        el.innerHTML = `<span style="font-size:10px;color:rgba(255,255,255,.5)">✦ ${txt}</span>`;
+        el.closest('.sch-row')?.classList.add('assigned');
+      }
+    }
+  });
+}
+ 
+/* ── View toggle ────────────────────────────────────────────────── */
+function schSetView(v) {
+  schView = v;
+  ['day','week'].forEach(id => {
+    document.getElementById('schV'+id.charAt(0).toUpperCase()+id.slice(1))?.classList.toggle('on', id===v);
+  });
+  if (v === 'week') schRenderWeekView();
+  else schRenderDay(schCurDay);
+}
+ 
+function schRenderWeekView() {
+  const grid = document.getElementById('schGrid');
+  if (!grid) return;
+  const names = {'0580':'数','0610':'生','0620':'化','0625':'物'};
+  grid.innerHTML = SCH_DAYS.map(d => {
+    const stats = schDayStats(d.key);
+    const slots = TIMETABLE[d.key] || [];
+    const igcseSubjs = [...new Set(slots.filter(s=>s.type==='igcse'&&s.subj).map(s=>s.subj))];
+    const pct = Math.min(100, Math.round(stats.totalEff / 200 * 100));
+    return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+        <span style="font-weight:800;font-size:13px;color:white">${d.label}</span>
+        <span style="font-size:10px;color:#818cf8;margin-left:auto">${stats.totalEff}min 有效 ≈ ${Math.round(stats.totalEff/75*10)/10}张</span>
+      </div>
+      <div class="cap-bar-wrap">
+        <div class="cap-bar"><div class="cap-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
+        <span style="font-size:10px;color:#4ade80;font-weight:600">自习 ${stats.freeMin}min</span>
+        ${igcseSubjs.map(s=>`<span style="font-size:10px;color:#fbbf24;font-weight:600">${names[s]||s}课 ${slots.filter(x=>x.subj===s).reduce((a,x)=>a+x.durMin,0)}min</span>`).join('')}
+        <span style="font-size:10px;color:rgba(255,255,255,.3)">饭 ${stats.mealMin}min</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+ 
+/* ── Hook into existing aiTab ────────────────────────────────────── */
+// Extend the existing aiTab function to handle 'schedule'
+const _origAiTab = typeof aiTab === 'function' ? aiTab : null;
+function aiTab(t) {
+  ['hub','agent','settings','schedule'].forEach(id => {
+    document.getElementById('ai-tab-'+id)?.classList.toggle('on', id===t);
+    document.getElementById('ai-panel-'+id)?.classList.toggle('on', id===t);
+  });
+  if (t === 'settings' && typeof aiInitSettings === 'function') aiInitSettings();
+  if (t === 'hub'      && typeof aiRenderCd    === 'function') aiRenderCd();
+  if (t === 'schedule') schRenderDay(schCurDay);
+}
+ 
+/* ── Init on DOM ready ──────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    schInit();
+    // Re-run aiUpdateStatus in case it ran before schInit
+    if (typeof aiUpdateStatus === 'function') aiUpdateStatus();
+  }, 400);
+});
+ 
+// END SCHEDULE MODULE v3
+// END AI MODULE v2
 // ╔══════════════════════════════════════════════════════════╗
 // ║                   INITIALIZATION                        ║
 // ╚══════════════════════════════════════════════════════════╝
