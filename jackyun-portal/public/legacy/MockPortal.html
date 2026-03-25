@@ -4108,7 +4108,7 @@ ${['mon','tue','wed','thu','fri','sat','sun'].map(day => {
 }
  
 /* ── Call AI (streaming) ──────────────────────────────────────── */
-async function aiCall(messages, onChunk, maxTok=2500){
+async function aiCall(messages, onChunk, maxTok=4000){
   const k=aiKey();
   if(!k) throw new Error('未配置 API Key，请点击「设置」标签配置');
   const ep=aiEndp();
@@ -4967,6 +4967,7 @@ async function schAiPlan() {
 - 不要把每个时段都填满，要留白休息，人不是机器
 - 夜自习(21-22:45，105min)是最优质时段，可以做一张长卷子或做错题分析
 - 优先安排得分率低的科目
+- 当天总结少一些，主要是JSON，如果在分析的时候Tokens断掉了就不好了
 
 【输出格式要求】
 1. 先给出当天总结（今日适合做几张、花多少时间）
