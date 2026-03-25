@@ -268,7 +268,7 @@
 
     /* ── Shift everything down by banner height ── */
     #appbar { top: 38px !important; }
-    #filterPanel { top: 52px !important; }
+    #filterPanel { top: 90px !important; }
     #mainContent { padding-top: calc(3.5rem + 38px) !important; }
 
     /* ══════════════════════════════════════════
@@ -2329,9 +2329,67 @@ function renderCards() {
   const empty   = document.getElementById('emptyState');
   const countEl = document.getElementById('filterCount');
   grid.innerHTML = '';
-  countEl.textContent = `筛选到 ${filteredPapers.length} 张卷子`;
-  if (filteredPapers.length===0) { empty.style.display='flex'; }
-  else { empty.style.display='none'; filteredPapers.forEach(p=>grid.appendChild(makeCard(p))); }
+
+  // 判断是否在「只看已完成」模式
+  const statuses = state.filters.statuses || [];
+  const onlyDone = statuses.length===1 && statuses.includes('done');
+
+  if (!onlyDone || filteredPapers.length === 0) {
+    // 普通模式：直接渲染
+    countEl.textContent = `筛选到 ${filteredPapers.length} 张卷子`;
+    if (filteredPapers.length===0) { empty.style.display='flex'; }
+    else { empty.style.display='none'; filteredPapers.forEach(p=>grid.appendChild(makeCard(p))); }
+    return;
+  }
+
+  // 已完成模式：分组显示
+  const prof = getProfile();
+  const profSubs = prof.subjects || [];
+
+  function isInProfileCheck(p) {
+    if (profSubs.length === 0) return true;
+    if (!profSubs.includes(p.subject)) return false;
+    const dp = getSubjectProfile(p.subject);
+    const ptCode = p.paper.slice(0,-1);
+    const v = Number(p.paper.slice(-1));
+    if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
+    if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
+    if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;
+    if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(v))         return false;
+    return true;
+  }
+
+  const inRange  = filteredPapers.filter(p => isInProfileCheck(p));
+  const outRange = filteredPapers.filter(p => !isInProfileCheck(p));
+
+  countEl.textContent = `已完成 ${filteredPapers.length} 张（报考范围内 ${inRange.length} 张 · 范围外 ${outRange.length} 张）`;
+  empty.style.display = 'none';
+
+  // 报考范围内
+  if (inRange.length > 0) {
+    const hdr1 = document.createElement('div');
+    hdr1.style.cssText = 'grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 4px 4px;';
+    hdr1.innerHTML = `
+      <div style="width:4px;height:20px;border-radius:2px;background:var(--success)"></div>
+      <span style="font-size:13px;font-weight:700;color:var(--success)">✅ 报考范围内 · ${inRange.length} 张</span>
+      <div style="flex:1;height:1px;background:var(--success);opacity:.2"></div>
+    `;
+    grid.appendChild(hdr1);
+    inRange.forEach(p => grid.appendChild(makeCard(p)));
+  }
+
+  // 报考范围外
+  if (outRange.length > 0) {
+    const hdr2 = document.createElement('div');
+    hdr2.style.cssText = 'grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:16px 4px 4px;';
+    hdr2.innerHTML = `
+      <div style="width:4px;height:20px;border-radius:2px;background:#9AA0A6"></div>
+      <span style="font-size:13px;font-weight:700;color:#9AA0A6">📦 报考范围外 · ${outRange.length} 张</span>
+      <div style="flex:1;height:1px;background:#9AA0A6;opacity:.2"></div>
+    `;
+    grid.appendChild(hdr2);
+    outRange.forEach(p => grid.appendChild(makeCard(p)));
+  }
 }
 
 function makeCard(p) {
@@ -2567,12 +2625,27 @@ function renderCartList() {
 
 function markDone(id) {
   const cur = state.paperStatus[id]||'todo';
-  state.paperStatus[id] = cur==='done'?'todo':'done';
-  saveState();
-  const el = document.querySelector(`[data-id="${id}"]`);
-  if (el) { const p=paperDB.find(x=>x.id===id); if(p) el.replaceWith(makeCard(p)); }
-  updateProgress(); updateFilterCounts();
-  showToast(state.paperStatus[id]==='done'?'✅ 已标记为完成':'↩ 已取消完成标记');
+  if (cur === 'done') {
+    // 取消完成
+    state.paperStatus[id] = 'todo';
+    saveState();
+    const el = document.querySelector(`[data-id="${id}"]`);
+    if (el) { const p=paperDB.find(x=>x.id===id); if(p) el.replaceWith(makeCard(p)); }
+    updateProgress(); updateFilterCounts();
+    showToast('↩ 已取消完成标记');
+  } else {
+    // 标记完成 → 弹出成绩填写
+    state.paperStatus[id] = 'done';
+    const tSec = state.paperTimes[id];
+    if (!tSec) state.paperTimes[id] = 0;
+    saveState();
+    const el = document.querySelector(`[data-id="${id}"]`);
+    if (el) { const p=paperDB.find(x=>x.id===id); if(p) el.replaceWith(makeCard(p)); }
+    updateProgress(); updateFilterCounts();
+    showToast('✅ 已标记为完成');
+    // 弹出成绩填写
+    setTimeout(() => openPostExamScoreCollection([id]), 200);
+  }
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -2603,84 +2676,318 @@ function updateProgress() {
 let gachaCount = 3;
 let lastGachaResults = [];
 
-function openGacha() { document.getElementById('gachaModal').style.display='flex'; renderGachaConfig(); }
+function openGacha() {
+  document.getElementById('gachaModal').style.display='flex';
+  renderGachaConfig();
+}
 function closeGacha() { document.getElementById('gachaModal').style.display='none'; }
+
+function saveGachaConfig() {
+  const cfg = {
+    subjects: [...document.querySelectorAll('#gSubj .fchip.on')].map(e=>e.dataset.v),
+    years:    [...document.querySelectorAll('#gYear .fchip.on')].map(e=>Number(e.dataset.v)),
+    papers:   [...document.querySelectorAll('#gPaper .fchip.on')].map(e=>e.dataset.v),
+    variants: [...document.querySelectorAll('#gVariant .fchip.on')].map(e=>Number(e.dataset.v)),
+    count:    gachaCount,
+    onlyTodo: document.getElementById('gOnlyTodo')?.classList.contains('on'),
+    respectProfile: document.getElementById('gRespectProfile')?.classList.contains('on'),
+  };
+  localStorage.setItem('warden_gacha_cfg', JSON.stringify(cfg));
+}
+function loadGachaConfig() {
+  try { return JSON.parse(localStorage.getItem('warden_gacha_cfg') || 'null'); }
+  catch(e) { return null; }
+}
 
 function renderGachaConfig() {
   const box = document.getElementById('gachaBox');
-  box.innerHTML=`
-    <div class="flex items-center justify-between mb-5">
-      <h2 class="font-bold text-lg" style="color:#202124">🎲 随机抽取</h2>
-      <button onclick="closeGacha()" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:50%"><span class="mi" style="color:#5F6368">close</span></button>
+  const cfg = loadGachaConfig();
+  const prof = getProfile();
+  const profSubs = prof.subjects || [];
+
+  const defSubjs    = cfg?.subjects  || (profSubs.length>0?profSubs:['0580','0610','0620','0625']);
+  const defYears    = cfg?.years     || [2025,2024,2023,2022,2021,2020];
+  const defPapers   = cfg?.papers    || ['P1','P2','P3','P4','P5','P6'];
+  const defVariants = cfg?.variants  || [1,2,3];
+  const defCount    = cfg?.count     || gachaCount;
+  const defTodo     = cfg != null ? cfg.onlyTodo : true;
+  const defResp     = cfg != null ? cfg.respectProfile : (profSubs.length>0);
+  gachaCount = defCount;
+
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:#202124">🎲 随机抽取</h2>
+        <p style="font-size:11px;color:var(--text-sub);margin-top:2px">配置保存，下次自动记住</p>
+      </div>
+      <button onclick="closeGacha()" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:50%">
+        <span class="mi" style="color:#5F6368">close</span>
+      </button>
     </div>
-    <div class="mb-4"><p class="text-sm font-semibold mb-2" style="color:#202124">科目</p><div class="flex flex-wrap gap-2" id="gSubj">${[['0580','数学'],['0610','生物'],['0620','化学'],['0625','物理']].map(([v,l])=>`<div class="fchip on" data-v="${v}" onclick="this.classList.toggle('on')">${v} ${l}</div>`).join('')}</div></div>
-    <div class="mb-4"><p class="text-sm font-semibold mb-2" style="color:#202124">抽取数量</p><div class="flex gap-2">${[1,2,3,4,5].map(n=>`<button class="gcnt${n===gachaCount?' on':''}" onclick="setGachaCount(${n})" id="gcnt${n}">${n}</button>`).join('')}</div></div>
-    <div class="mb-4"><p class="text-sm font-semibold mb-2" style="color:#202124">年份</p><div class="flex flex-wrap gap-2" id="gYear">${[2025,2024,2023,2022,2021,2020].map(y=>`<div class="fchip on" data-v="${y}" onclick="this.classList.toggle('on')">${y}${y===2025?' 🟢':''}</div>`).join('')}</div></div>
-    <div class="mb-4"><p class="text-sm font-semibold mb-2" style="color:#202124">卷型</p><div class="flex flex-wrap gap-2" id="gPaper">${['P1','P2','P3','P4','P5','P6'].map(p=>`<div class="fchip on" data-v="${p}" onclick="this.classList.toggle('on')">${p}</div>`).join('')}</div></div>
-    <div class="flex items-center gap-3 mb-6"><div class="tgl on" id="gOnlyTodo" onclick="this.classList.toggle('on')"></div><span class="text-sm" style="color:#202124">只从 <b>未做</b> 的卷子中抽取</span></div>
-    <button onclick="runGacha()" class="btn btn-p w-full" style="padding:12px;font-size:15px;justify-content:center"><span class="mi" style="font-size:18px">casino</span>&nbsp;开始抽取！</button>
+
+    <!-- 尊重精细筛选开关 -->
+    <div style="background:#E8F0FE;border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <div class="tgl ${defResp?'on':''}" id="gRespectProfile" onclick="this.classList.toggle('on')"></div>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:var(--primary)">🎯 仅从「报考范围」内抽取</p>
+        <p style="font-size:11px;color:var(--text-sub)">开启后只从各科目精细筛选范围内的卷子中抽取</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;color:#202124;margin-bottom:8px">📚 科目</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="gSubj">
+        ${[['0580','数学','#1A73E8'],['0610','生物','#34A853'],['0620','化学','#FF6D00'],['0625','物理','#9334E8']].map(([v,l,c])=>
+          `<div class="fchip ${defSubjs.includes(v)?'on':''}" data-v="${v}" onclick="this.classList.toggle('on')"
+            style="${defSubjs.includes(v)?`border-color:${c};background:${c}18;color:${c};font-weight:700`:''}">${v} ${l}</div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;color:#202124;margin-bottom:8px">🎯 抽取数量</p>
+      <div style="display:flex;gap:8px">
+        ${[1,2,3,4,5].map(n=>`<button class="gcnt${n===defCount?' on':''}" onclick="setGachaCount(${n})" id="gcnt${n}">${n}</button>`).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;color:#202124;margin-bottom:8px">📅 年份</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="gYear">
+        ${[2025,2024,2023,2022,2021,2020].map(y=>
+          `<div class="fchip ${defYears.includes(y)?'on':''}" data-v="${y}" onclick="this.classList.toggle('on')">${y}${y===2025?' 🟢':''}</div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;color:#202124;margin-bottom:8px">📄 卷型</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="gPaper">
+        ${['P1','P2','P3','P4','P5','P6'].map(p=>
+          `<div class="fchip ${defPapers.includes(p)?'on':''}" data-v="${p}" onclick="this.classList.toggle('on')">${p}</div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;color:#202124;margin-bottom:8px">🌍 变体</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="gVariant">
+        ${[[1,'🇬🇧 V1'],[2,'🇨🇳 V2'],[3,'🇦🇺 V3']].map(([v,l])=>
+          `<div class="fchip ${defVariants.includes(v)?'on':''}" data-v="${v}" onclick="this.classList.toggle('on')">${l}</div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <div class="tgl ${defTodo?'on':''}" id="gOnlyTodo" onclick="this.classList.toggle('on')"></div>
+      <span style="font-size:13px;color:#202124">只从 <b>未做</b> 的卷子中抽取</span>
+    </div>
+
+    <button onclick="runGacha()" class="btn btn-p w-full" style="padding:13px;font-size:15px;justify-content:center;border-radius:14px">
+      <span class="mi" style="font-size:20px">casino</span>&nbsp;开始抽取！
+    </button>
   `;
 }
 
 function setGachaCount(n) {
-  gachaCount=n;
+  gachaCount = n;
   for(let i=1;i<=5;i++){ const el=document.getElementById(`gcnt${i}`); if(el) el.classList.toggle('on',i===n); }
 }
 
 function runGacha() {
-  const box=document.getElementById('gachaBox');
-  const subjects=[...document.querySelectorAll('#gSubj .fchip.on')].map(e=>e.dataset.v);
-  const years=[...document.querySelectorAll('#gYear .fchip.on')].map(e=>Number(e.dataset.v));
-  const papers=[...document.querySelectorAll('#gPaper .fchip.on')].map(e=>e.dataset.v);
-  const onlyTodo=document.getElementById('gOnlyTodo')?.classList.contains('on');
-  let pool=paperDB.filter(p=>{
-    if(!subjects.includes(p.subject)) return false;
-    if(!years.includes(p.year)) return false;
-    if(!papers.some(pt=>p.paper.startsWith(pt))) return false;
-    if(onlyTodo&&state.paperStatus[p.id]==='done') return false;
+  saveGachaConfig();
+  const box = document.getElementById('gachaBox');
+  const subjects  = [...document.querySelectorAll('#gSubj .fchip.on')].map(e=>e.dataset.v);
+  const years     = [...document.querySelectorAll('#gYear .fchip.on')].map(e=>Number(e.dataset.v));
+  const papers    = [...document.querySelectorAll('#gPaper .fchip.on')].map(e=>e.dataset.v);
+  const variants  = [...document.querySelectorAll('#gVariant .fchip.on')].map(e=>Number(e.dataset.v));
+  const onlyTodo  = document.getElementById('gOnlyTodo')?.classList.contains('on');
+  const respectProfile = document.getElementById('gRespectProfile')?.classList.contains('on');
+
+  let pool = paperDB.filter(p => {
+    if (!subjects.includes(p.subject)) return false;
+    if (!years.includes(p.year)) return false;
+    if (!papers.some(pt => p.paper.startsWith(pt))) return false;
+    const v = Number(p.paper.slice(-1));
+    if (!variants.includes(v)) return false;
+    if (onlyTodo && (state.paperStatus[p.id]||'todo') === 'done') return false;
+    // 尊重精细筛选
+    if (respectProfile) {
+      const prof = getProfile();
+      const profSubs = prof.subjects || [];
+      if (profSubs.length > 0) {
+        if (!profSubs.includes(p.subject)) return false;
+        const dp = getSubjectProfile(p.subject);
+        const ptCode = p.paper.slice(0,-1);
+        if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
+        if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
+        if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;
+        if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(v))         return false;
+      }
+    }
     return true;
   });
-  if(pool.length===0){showToast('😢 没有符合条件的卷子！');return;}
-  pool=pool.sort(()=>Math.random()-.5);
-  lastGachaResults=pool.slice(0,Math.min(gachaCount,pool.length));
-  const allShuffled=[...paperDB].sort(()=>Math.random()-.5);
-  const scrollItems=[...allShuffled.slice(0,24),...lastGachaResults];
-  const itemH=68;
-  box.innerHTML=`
-    <div class="flex items-center justify-between mb-5"><h2 class="font-bold text-lg" style="color:#202124">🎰 抽取中…</h2></div>
-    <div id="gachaScroller" style="height:${itemH}px;overflow:hidden;border-radius:12px;border:2px solid var(--border);background:#F8F9FA">
-      <div id="gachaTrack" style="transition:transform 0s">
-        ${scrollItems.map(p=>`<div class="flex items-center gap-3 px-4" style="height:${itemH}px;border-bottom:1px solid var(--border)"><div style="width:36px;height:36px;border-radius:10px;background:${p.subjectColor}1A;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span class="mi" style="color:${p.subjectColor};font-size:18px">${p.subjectIcon}</span></div><div><div class="font-bold text-sm" style="color:#202124">${p.subject} · ${p.paper}</div><div style="font-size:11px;color:var(--text-sub)">${p.year} ${p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N'} · ${fmtDurationShort(p.duration)}</div></div></div>`).join('')}
+
+  if (pool.length === 0) { showToast('😢 没有符合条件的卷子！'); return; }
+
+  pool = pool.sort(() => Math.random() - 0.5);
+  lastGachaResults = pool.slice(0, Math.min(gachaCount, pool.length));
+
+  // ── 原神风格抽卡动画 ──
+  const itemH = 72;
+  const totalFrames = 30; // 滚动帧数
+  const allShuffled = [...paperDB].sort(() => Math.random() - 0.5);
+  const scrollItems = [...allShuffled.slice(0, totalFrames), ...lastGachaResults];
+
+  const RARITY_COLORS = {
+    '0580': '#1A73E8', '0610': '#34A853', '0620': '#FF6D00', '0625': '#9334E8'
+  };
+
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <h2 style="font-size:16px;font-weight:800;color:#202124">🎰 抽取中…</h2>
+        <p style="font-size:11px;color:var(--text-sub)">正在为你随机抽取卷子</p>
       </div>
     </div>
-    <p class="text-center text-sm mt-4" style="color:var(--text-sub)">正在为你随机抽取…</p>
+    <div style="position:relative;height:${itemH}px;overflow:hidden;border-radius:14px;border:2px solid var(--border);background:linear-gradient(135deg,#0D1117,#1A1A2E);box-shadow:inset 0 0 20px rgba(0,0,0,.3)">
+      <!-- 边缘渐变遮罩 -->
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(13,17,23,.8) 0%,transparent 30%,transparent 70%,rgba(13,17,23,.8) 100%);z-index:2;pointer-events:none"></div>
+      <!-- 中间高亮线 -->
+      <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#818cf8,#c4b5fd,#818cf8,transparent);transform:translateY(-50%);z-index:3"></div>
+      <div id="gachaTrack" style="position:absolute;width:100%">
+        ${scrollItems.map(p=>`
+          <div style="height:${itemH}px;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.05)">
+            <div style="width:40px;height:40px;border-radius:12px;background:${RARITY_COLORS[p.subject]}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid ${RARITY_COLORS[p.subject]}44">
+              <span class="mi" style="color:${RARITY_COLORS[p.subject]};font-size:20px">${p.subjectIcon}</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:14px;color:white;font-family:'Roboto Mono',monospace">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px">${p.year} ${p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N'} · ${fmtDurationShort(p.duration)} · ${p.tier}</div>
+            </div>
+            <div style="font-size:10px;padding:2px 8px;border-radius:8px;background:${RARITY_COLORS[p.subject]}22;color:${RARITY_COLORS[p.subject]};font-weight:700;border:1px solid ${RARITY_COLORS[p.subject]}44">${p.subject}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div id="gachaProgress" style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+      ${lastGachaResults.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:#E8EAED;transition:all .3s" id="gprog-${i}"></div>`).join('')}
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text-sub);margin-top:8px" id="gachaStatusTxt">正在抽取第 1 / ${lastGachaResults.length} 张…</p>
   `;
-  const track=document.getElementById('gachaTrack');
-  const endY=-(scrollItems.length-lastGachaResults.length)*itemH;
-  requestAnimationFrame(()=>{ track.style.transition='transform 2s cubic-bezier(0.25,0.1,0.25,1)'; track.style.transform=`translateY(${endY}px)`; });
-  setTimeout(()=>showGachaResults(),2300);
+
+  // 动画逻辑：每张卡依次揭示，模拟抽卡感
+  const track = document.getElementById('gachaTrack');
+  let currentReveal = 0;
+
+  function revealNext() {
+    if (currentReveal >= lastGachaResults.length) {
+      setTimeout(showGachaResults, 600);
+      return;
+    }
+    const targetIdx = totalFrames + currentReveal;
+    const endY = -(targetIdx * itemH) + (itemH / 2) - (itemH / 2);
+
+    // 快速滚动然后减速停在目标
+    track.style.transition = 'none';
+    track.style.transform = `translateY(${-(Math.max(0, targetIdx - 8) * itemH)}px)`;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        track.style.transition = `transform ${0.8 + currentReveal * 0.1}s cubic-bezier(0.17,0.67,0.12,0.99)`;
+        track.style.transform = `translateY(${endY}px)`;
+      });
+    });
+
+    // 高亮进度点
+    setTimeout(() => {
+      const dot = document.getElementById(`gprog-${currentReveal}`);
+      if (dot) {
+        const p = lastGachaResults[currentReveal];
+        dot.style.background = RARITY_COLORS[p.subject] || '#818cf8';
+        dot.style.transform = 'scale(1.5)';
+        dot.style.boxShadow = `0 0 6px ${RARITY_COLORS[p.subject]}`;
+      }
+      const txt = document.getElementById('gachaStatusTxt');
+      if (txt) {
+        if (currentReveal < lastGachaResults.length - 1) {
+          txt.textContent = `正在抽取第 ${currentReveal + 2} / ${lastGachaResults.length} 张…`;
+        } else {
+          txt.textContent = '🎉 抽取完成！';
+        }
+      }
+      // 闪光效果
+      const flashEl = document.querySelector('#gachaBox [style*="inset:0"]');
+      if (flashEl) {
+        flashEl.style.background = `linear-gradient(to bottom,rgba(13,17,23,.8) 0%,transparent 30%,transparent 70%,rgba(13,17,23,.8) 100%)`;
+        setTimeout(() => {
+          if (flashEl) flashEl.style.background = `linear-gradient(to bottom,rgba(13,17,23,.8) 0%,transparent 30%,transparent 70%,rgba(13,17,23,.8) 100%)`;
+        }, 150);
+      }
+      currentReveal++;
+      if (currentReveal < lastGachaResults.length) {
+        setTimeout(revealNext, 900 + Math.random() * 200);
+      } else {
+        setTimeout(showGachaResults, 800);
+      }
+    }, 800 + currentReveal * 100);
+  }
+
+  setTimeout(revealNext, 300);
 }
 
 function showGachaResults() {
-  const box=document.getElementById('gachaBox');
-  box.innerHTML=`
-    <div class="flex items-center justify-between mb-4">
-      <div><p style="font-size:36px;line-height:1">🎉</p><h2 class="font-bold text-lg mt-1" style="color:#202124">抽取结果</h2><p style="font-size:12px;color:var(--text-sub)">共抽取 ${lastGachaResults.length} 张卷子</p></div>
-      <button onclick="closeGacha()" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:50%"><span class="mi" style="color:#5F6368">close</span></button>
+  const box = document.getElementById('gachaBox');
+  const RARITY_COLORS = {'0580':'#1A73E8','0610':'#34A853','0620':'#FF6D00','0625':'#9334E8'};
+
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <p style="font-size:32px;line-height:1;margin-bottom:4px">🎉</p>
+        <h2 style="font-size:18px;font-weight:800;color:#202124">抽取结果</h2>
+        <p style="font-size:12px;color:var(--text-sub)">共 ${lastGachaResults.length} 张卷子</p>
+      </div>
+      <button onclick="closeGacha()" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:50%">
+        <span class="mi" style="color:#5F6368">close</span>
+      </button>
     </div>
-    <div class="space-y-2 mb-5">${lastGachaResults.map(p=>`<div class="flex items-center gap-3 p-3 rounded-xl" style="background:#F8F9FA;border:1.5px solid var(--border)"><div style="width:38px;height:38px;border-radius:10px;background:${p.subjectColor}1A;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span class="mi" style="color:${p.subjectColor}">${p.subjectIcon}</span></div><div style="flex:1"><div class="font-bold text-sm" style="color:#202124">${p.subject} · ${p.paper} ${p.isPredicted?'<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#E8F5E9;color:#2E7D32">预测</span>':''}</div><div style="font-size:11px;color:var(--text-sub)">${p.paperFull} · ${p.year} ${p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N'} · ${fmtDurationShort(p.duration)}</div></div></div>`).join('')}</div>
-    <div class="flex gap-2">
-      <button onclick="addGachaToCart()" class="btn btn-p flex-1" style="justify-content:center;padding:10px"><span class="mi" style="font-size:16px">playlist_add</span>&nbsp;加入清单</button>
-      <button id="gachaRedrawBtn" class="btn btn-o flex-1" style="justify-content:center;padding:10px"><span class="mi" style="font-size:16px">refresh</span>&nbsp;重新抽取</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${lastGachaResults.map((p,i) => {
+        const color = RARITY_COLORS[p.subject] || '#1A73E8';
+        const sc = p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N';
+        const status = state.paperStatus[p.id]||'todo';
+        const statusMap = {todo:{c:'#9AA0A6',l:'未做'},inprog:{c:'#FBBC04',l:'进行中'},done:{c:'#34A853',l:'已完成'}};
+        return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,${color}08,${color}15);border:1.5px solid ${color}33;animation:scoreModalIn .3s ease ${i*0.08}s both">
+          <div style="width:44px;height:44px;border-radius:12px;background:${color}20;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1.5px solid ${color}44">
+            <span class="mi" style="color:${color};font-size:22px">${p.subjectIcon}</span>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:16px;color:#202124;font-family:'Roboto Mono',monospace">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
+            <div style="font-size:11px;color:var(--text-sub);margin-top:2px">${p.year} ${sc} · ${fmtDurationShort(p.duration)} · ${p.tier}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              ${p.isPredicted?'<span style="font-size:10px;padding:1px 6px;border-radius:6px;background:#E8F5E9;color:#2E7D32;font-weight:600">🟢 预测</span>':''}
+              <span style="font-size:10px;padding:1px 6px;border-radius:6px;background:${statusMap[status]?.c}18;color:${statusMap[status]?.c};font-weight:600">${statusMap[status]?.l}</span>
+            </div>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:${color};opacity:.7">#${i+1}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="addGachaToCart()" class="btn btn-p flex-1" style="justify-content:center;padding:11px;font-size:13px">
+        <span class="mi" style="font-size:16px">playlist_add</span>&nbsp;加入清单
+      </button>
+      <button onclick="renderGachaConfig()" class="btn btn-o" style="padding:11px 16px;font-size:13px">
+        <span class="mi" style="font-size:16px">refresh</span>&nbsp;重抽
+      </button>
     </div>
   `;
-  document.getElementById('gachaRedrawBtn').addEventListener('click',renderGachaConfig);
 }
 
 function addGachaToCart() {
-  let added=0;
-  lastGachaResults.forEach(p=>{ if(!state.cart.includes(p.id)){state.cart.push(p.id);added++;} });
-  saveState(); updateCartBar(); renderCards(); closeGacha(); showToast(`✅ 已加入 ${added} 张卷子到清单`);
+  let added = 0;
+  lastGachaResults.forEach(p => { if (!state.cart.includes(p.id)) { state.cart.push(p.id); added++; } });
+  saveState(); updateCartBar(); renderCards(); closeGacha();
+  showToast(`✅ 已加入 ${added} 张卷子到清单`);
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -3144,6 +3451,41 @@ function fmtDuration(sec) { const h=Math.floor(sec/3600); const m=Math.floor((se
 function updateDate() { const now=new Date(); const opts={year:'numeric',month:'long',day:'numeric',weekday:'short'}; document.getElementById('dateDisp').textContent=now.toLocaleDateString('zh-CN',opts); }
 let toastTimer=null;
 function showToast(msg) { const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2400); }
+function showSyncBadge(summary) {
+  let badge = document.getElementById('syncBadge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'syncBadge';
+    badge.style.cssText = `
+      position:fixed;top:54px;right:16px;z-index:500;
+      background:white;border:1.5px solid var(--border);
+      border-radius:14px;padding:10px 14px;
+      box-shadow:0 4px 20px rgba(0,0,0,.15);
+      font-size:12px;color:#202124;
+      display:flex;align-items:flex-start;gap:10px;
+      max-width:280px;
+      transform:translateX(320px);
+      transition:transform .35s cubic-bezier(0.34,1.56,0.64,1);
+    `;
+    document.body.appendChild(badge);
+  }
+  badge.innerHTML = `
+    <div style="width:32px;height:32px;border-radius:9px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <span class="mi" style="color:#34A853;font-size:17px">sync</span>
+    </div>
+    <div>
+      <p style="font-weight:700;color:#202124;margin-bottom:2px">进度已同步</p>
+      <p style="color:var(--text-sub);font-size:11px;line-height:1.5">${summary}</p>
+    </div>
+  `;
+  requestAnimationFrame(() => {
+    badge.style.transform = 'translateX(0)';
+  });
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => {
+    badge.style.transform = 'translateX(320px)';
+  }, 3500);
+}
 function initScrollShadow() { window.addEventListener('scroll',()=>{document.getElementById('appbar').classList.toggle('scrolled',window.scrollY>4);},{passive:true}); }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -4617,23 +4959,29 @@ async function schAiPlan() {
     await aiCall(
       [{
         role: 'system',
-        content: `你是IGCSE备考课表规划助手。根据学生的实际课表，把可用时间分配给具体的卷子。
+        content: `你是IGCSE备考课表规划助手。根据学生的实际课表，把可用时间科学地分配给卷子和错题分析。
 
-输出格式要求：
-1. 先给出当天总结（几分钟有效时间，能做几张）
-2. 然后逐个时段说明安排：时段名 + 做什么卷子
-3. 如果一张卷子跨多个时段，明确标出"继续上午的XX卷"
-4. 末尾输出两个JSON块，格式严格如下：
+【核心原则】
+- 每天安排 1-3 张完整卷子，绝对不超过 4 张（一张卷子往往需要40分钟-2小时）
+- 每做完一张卷子后必须留出等量时间做错题分析和复盘，这比做更多卷子重要得多
+- 不要把每个时段都填满，要留白休息，人不是机器
+- 夜自习(21-22:45，105min)是最优质时段，可以做一张长卷子或做错题分析
+- 优先安排得分率低的科目
+
+【输出格式要求】
+1. 先给出当天总结（今日适合做几张、花多少时间）
+2. 然后逐个时段说明安排，包括错题分析时间
+3. 末尾输出两个JSON块：
 
 <RECOMMENDED_IDS>
-["id1","id2","id3"]
+["id1","id2"]
 </RECOMMENDED_IDS>
 
 <SLOT_ASSIGN>
-{"P1":["id1"],"午饭":["id1"],"夜自习":["id2","id3"]}
+{"夜自习":["id1"]}
 </SLOT_ASSIGN>
 
-语言：中文，简洁实用，不废话，用时段标题分段。`
+语言：中文，实事求是，不要给学生排不可能完成的计划。`
       },
       { role: 'user', content: `请为以下课表生成今日刷题计划：\n\n${ctx}` }],
       t => {
@@ -4734,7 +5082,8 @@ ${weekCtx}
 - 上课(IGCSE科目)效率65%，自习/夜自习效率85%，饭点55%
 - 周一-周四有夜自习(21-22:45，105min，效率85%，最强时段)
 - 周五下午放学，没有晚上时间
-- 请按每天分配具体科目和大概几张，优先安排薄弱科目，不要太激进` }],
+- 每天最多4张卷子，每张卷子配时间做错题分析
+- 优先安排薄弱科目，不要太激进` }],
       t => {
         planBox.className = 'sch-plan-box';
         planBox.innerHTML = `<p>${aiMd(t)}</p>`;
@@ -4923,6 +5272,10 @@ function pushSyncToGoalTracker() {
       bc.close();
     } catch(e) {}
     console.log('[Warden Sync] Pushed:', payload);
+    // 显示同步提示
+    const subjNames = {'0580':'数学','0610':'生物','0620':'化学','0625':'物理'};
+    const syncSummary = payload.subjects.map(s=>`${subjNames[s.subject]||s.subject} ${s.done}/${s.total}`).join(' · ');
+    showSyncBadge(syncSummary || '无已完成卷子');
   } catch(e) {
     console.warn('[Warden Sync] Failed:', e);
   }
