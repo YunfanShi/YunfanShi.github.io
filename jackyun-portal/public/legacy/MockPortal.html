@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -2812,381 +2811,6 @@ function runGacha() {
     const v = Number(p.paper.slice(-1));
     if (!variants.includes(v)) return false;
     if (onlyTodo && (state.paperStatus[p.id]||'todo') === 'done') return false;
-    if (respectProfile) {
-      const prof = getProfile(); const profSubs = prof.subjects || [];
-      if (profSubs.length > 0) {
-        if (!profSubs.includes(p.subject)) return false;
-        const dp = getSubjectProfile(p.subject);
-        const ptCode = p.paper.slice(0,-1); const vv = Number(p.paper.slice(-1));
-        if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
-        if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
-        if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;
-        if (dp.variants && dp.variants.length > 0 && !dp.variants.includes(vv))        return false;
-      }
-    }
-    return true;
-  });
-
-  if (pool.length === 0) { showToast('😢 没有符合条件的卷子！'); return; }
-  pool = pool.sort(() => Math.random() - 0.5);
-  lastGachaResults = pool.slice(0, Math.min(gachaCount, pool.length));
-
-  // ══════════════════════════════════════════════════
-  //  原神风格 · 全屏抽卡动画
-  // ══════════════════════════════════════════════════
-  const RARITY = {
-    '0580': { color: '#60a5fa', glow: '#3b82f6', star: 5, name: '数学' },
-    '0625': { color: '#c084fc', glow: '#a855f7', star: 5, name: '物理' },
-    '0620': { color: '#fb923c', glow: '#f97316', star: 4, name: '化学' },
-    '0610': { color: '#4ade80', glow: '#22c55e', star: 4, name: '生物' },
-  };
-
-  // 创建全屏覆盖层
-  let overlay = document.getElementById('gachaFullOverlay');
-  if (overlay) overlay.remove();
-  overlay = document.createElement('div');
-  overlay.id = 'gachaFullOverlay';
-  overlay.style.cssText = `
-    position:fixed;inset:0;z-index:9999;
-    background:#000;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    overflow:hidden;cursor:pointer;
-  `;
-  document.body.appendChild(overlay);
-
-  // 星粒子画布
-  const canvas = document.createElement('canvas');
-  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
-  overlay.appendChild(canvas);
-
-  const ctx2d = canvas.getContext('2d');
-  let animFrame = null;
-  let particles = [];
-  let bgStars = [];
-
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-
-  // 背景星星
-  for (let i = 0; i < 120; i++) {
-    bgStars.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: Math.random() * 1.5 + 0.3,
-      a: Math.random(),
-      da: (Math.random() - 0.5) * 0.02,
-    });
-  }
-
-  function spawnParticles(x, y, color, count = 30) {
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-      const speed = Math.random() * 6 + 2;
-      particles.push({
-        x, y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - Math.random() * 3,
-        r: Math.random() * 4 + 2,
-        color,
-        life: 1,
-        decay: Math.random() * 0.025 + 0.015,
-      });
-    }
-  }
-
-  function spawnStarBurst(x, y, color) {
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8;
-      const len = Math.random() * 60 + 40;
-      particles.push({
-        x, y,
-        vx: Math.cos(angle) * (len / 20),
-        vy: Math.sin(angle) * (len / 20),
-        r: Math.random() * 2 + 1,
-        color,
-        life: 1,
-        decay: 0.04,
-        isStar: true,
-        len,
-        angle,
-      });
-    }
-  }
-
-  let bgHue = 220;
-  function drawFrame() {
-    const W = canvas.width, H = canvas.height;
-    ctx2d.clearRect(0, 0, W, H);
-
-    // 动态背景渐变
-    bgHue = (bgHue + 0.3) % 360;
-    const grad = ctx2d.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
-    grad.addColorStop(0, `hsla(${bgHue},60%,12%,1)`);
-    grad.addColorStop(1, `hsla(${(bgHue+40)%360},50%,4%,1)`);
-    ctx2d.fillStyle = grad;
-    ctx2d.fillRect(0, 0, W, H);
-
-    // 背景星星
-    bgStars.forEach(s => {
-      s.a += s.da;
-      if (s.a <= 0 || s.a >= 1) s.da *= -1;
-      ctx2d.beginPath();
-      ctx2d.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx2d.fillStyle = `rgba(255,255,255,${s.a * 0.7})`;
-      ctx2d.fill();
-    });
-
-    // 粒子
-    particles = particles.filter(p => p.life > 0);
-    particles.forEach(p => {
-      p.x += p.vx; p.y += p.vy;
-      p.vy += 0.12; // 重力
-      p.life -= p.decay;
-      ctx2d.globalAlpha = Math.max(0, p.life);
-      if (p.isStar) {
-        ctx2d.beginPath();
-        ctx2d.moveTo(p.x, p.y);
-        ctx2d.lineTo(p.x - p.vx * 4, p.y - p.vy * 4);
-        ctx2d.strokeStyle = p.color;
-        ctx2d.lineWidth = p.r;
-        ctx2d.stroke();
-      } else {
-        ctx2d.beginPath();
-        ctx2d.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-        ctx2d.fillStyle = p.color;
-        ctx2d.fill();
-      }
-      ctx2d.globalAlpha = 1;
-    });
-
-    animFrame = requestAnimationFrame(drawFrame);
-  }
-  drawFrame();
-
-  // ── 卡片展示逻辑 ──────────────────────────────────────────────
-  let currentCardIdx = 0;
-  let waitingForClick = false;
-  let autoTimer = null;
-
-  const cardContainer = document.createElement('div');
-  cardContainer.style.cssText = 'position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;';
-  overlay.appendChild(cardContainer);
-
-  // 跳过提示
-  const skipHint = document.createElement('div');
-  skipHint.style.cssText = `
-    position:absolute;bottom:32px;left:50%;transform:translateX(-50%);
-    font-size:13px;color:rgba(255,255,255,.35);letter-spacing:.1em;
-    z-index:3;pointer-events:none;
-  `;
-  skipHint.textContent = '点击继续';
-  overlay.appendChild(skipHint);
-
-  // 进度点
-  const dotsEl = document.createElement('div');
-  dotsEl.style.cssText = 'position:absolute;bottom:72px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:3;';
-  overlay.appendChild(dotsEl);
-
-  function updateDots() {
-    dotsEl.innerHTML = lastGachaResults.map((p, i) => {
-      const r = RARITY[p.subject] || { color: '#818cf8' };
-      const done = i < currentCardIdx;
-      const cur  = i === currentCardIdx;
-      return `<div style="
-        width:${cur?'24px':'8px'};height:8px;border-radius:4px;
-        background:${done||cur ? r.color : 'rgba(255,255,255,.2)'};
-        transition:all .3s ease;
-        box-shadow:${cur ? `0 0 8px ${r.color}` : 'none'};
-      "></div>`;
-    }).join('');
-  }
-
-  function showCard(idx) {
-    if (idx >= lastGachaResults.length) {
-      finishGacha();
-      return;
-    }
-    waitingForClick = true;
-    const p = lastGachaResults[idx];
-    const r = RARITY[p.subject] || { color: '#818cf8', glow: '#6366f1', star: 3, name: '' };
-    const sCode = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
-    const W = canvas.width, H = canvas.height;
-
-    // 爆炸粒子
-    spawnParticles(W/2, H/2, r.color, 50);
-    spawnParticles(W/2, H/2, '#ffffff', 20);
-    spawnStarBurst(W/2, H/2, r.color);
-
-    // 光束扫过动画（用额外canvas层）
-    let sweepPct = 0;
-    let beamAnimId = null;
-    const beamCanvas = document.createElement('canvas');
-    beamCanvas.width = W; beamCanvas.height = H;
-    beamCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;';
-    overlay.appendChild(beamCanvas);
-    const bctx = beamCanvas.getContext('2d');
-
-    function drawBeam() {
-      bctx.clearRect(0, 0, W, H);
-      sweepPct += 0.04;
-      if (sweepPct > 1) { beamCanvas.remove(); return; }
-      const x = W * sweepPct;
-      const beamGrad = bctx.createLinearGradient(x - 120, 0, x + 120, 0);
-      beamGrad.addColorStop(0,   'rgba(255,255,255,0)');
-      beamGrad.addColorStop(0.5, `rgba(255,255,255,0.12)`);
-      beamGrad.addColorStop(1,   'rgba(255,255,255,0)');
-      bctx.fillStyle = beamGrad;
-      bctx.fillRect(0, 0, W, H);
-      beamAnimId = requestAnimationFrame(drawBeam);
-    }
-    drawBeam();
-
-    // 卡片元素
-    cardContainer.innerHTML = '';
-    const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
-
-    const cardEl = document.createElement('div');
-    cardEl.style.cssText = `
-      background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      border: 1.5px solid ${r.color}66;
-      border-radius: 24px;
-      padding: 40px 48px;
-      width: min(400px, 88vw);
-      text-align: center;
-      box-shadow: 0 0 60px ${r.glow}55, 0 0 120px ${r.glow}22, inset 0 0 30px rgba(255,255,255,.03);
-      animation: gachaCardIn .45s cubic-bezier(0.34,1.56,0.64,1) both;
-      position: relative;
-      overflow: hidden;
-    `;
-
-    // 卡片内光晕
-    cardEl.innerHTML = `
-      <div style="
-        position:absolute;inset:0;border-radius:24px;
-        background:radial-gradient(ellipse at 50% 0%, ${r.color}22 0%, transparent 65%);
-        pointer-events:none;
-      "></div>
-
-      <!-- 科目图标 -->
-      <div style="
-        width:80px;height:80px;border-radius:50%;margin:0 auto 20px;
-        background:radial-gradient(circle, ${r.color}44, ${r.color}11);
-        border:2px solid ${r.color}88;
-        display:flex;align-items:center;justify-content:center;
-        box-shadow:0 0 30px ${r.glow}77;
-        animation:gachaPulse 2s ease-in-out infinite;
-      ">
-        <span class="mi" style="font-size:36px;color:${r.color}">${p.subjectIcon}</span>
-      </div>
-
-      <!-- 科目代码 -->
-      <div style="
-        font-family:'Roboto Mono',monospace;
-        font-size:clamp(28px,6vw,42px);font-weight:900;
-        color:white;letter-spacing:.04em;margin-bottom:6px;
-        text-shadow:0 0 20px ${r.color};
-      ">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
-
-      <!-- 星级 -->
-      <div style="font-size:20px;color:${r.color};margin-bottom:14px;letter-spacing:.1em;
-        text-shadow:0 0 10px ${r.glow};
-      ">${stars}</div>
-
-      <!-- 卡片信息 -->
-      <div style="font-size:14px;color:rgba(255,255,255,.65);margin-bottom:6px">
-        ${p.subjectName} · ${p.year} ${sCode}
-      </div>
-      <div style="
-        display:inline-block;padding:4px 14px;border-radius:20px;
-        font-size:11px;font-weight:700;
-        background:${r.color}22;color:${r.color};
-        border:1px solid ${r.color}44;margin-bottom:8px;
-      ">${p.tier}</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.4)">
-        ${fmtDurationShort(p.duration)} · ${p.totalMarks} marks · ${p.variantRegion}
-      </div>
-
-      <!-- 进度 -->
-      <div style="margin-top:18px;font-size:11px;color:rgba(255,255,255,.3)">
-        ${idx + 1} / ${lastGachaResults.length}
-      </div>
-    `;
-    cardContainer.appendChild(cardEl);
-    updateDots();
-
-    // 注入关键帧（只注入一次）
-    if (!document.getElementById('gachaKeyframes')) {
-      const style = document.createElement('style');
-      style.id = 'gachaKeyframes';
-      style.textContent = `
-        @keyframes gachaCardIn {
-          from { transform: scale(.6) translateY(60px) rotateY(25deg); opacity:0; }
-          to   { transform: scale(1) translateY(0) rotateY(0deg);    opacity:1; }
-        }
-        @keyframes gachaPulse {
-          0%,100% { box-shadow: 0 0 30px ${r.glow}77; transform:scale(1); }
-          50%      { box-shadow: 0 0 50px ${r.glow}aa; transform:scale(1.06); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    skipHint.textContent = idx < lastGachaResults.length - 1
-      ? `点击查看下一张 (${idx+1}/${lastGachaResults.length})`
-      : '点击查看全部结果';
-
-    // 自动推进（3秒后）
-    clearTimeout(autoTimer);
-    autoTimer = setTimeout(() => {
-      if (waitingForClick) {
-        waitingForClick = false;
-        currentCardIdx++;
-        showCard(currentCardIdx);
-      }
-    }, 3000);
-  }
-
-  // 点击事件
-  overlay.addEventListener('click', () => {
-    if (!waitingForClick) return;
-    waitingForClick = false;
-    clearTimeout(autoTimer);
-    currentCardIdx++;
-    showCard(currentCardIdx);
-  });
-
-  function finishGacha() {
-    cancelAnimationFrame(animFrame);
-    window.removeEventListener('resize', resizeCanvas);
-    clearTimeout(autoTimer);
-    overlay.remove();
-    showGachaResults();
-  }
-
-  // 开始第一张
-  setTimeout(() => showCard(0), 300);
-}
-
-  saveGachaConfig();
-  const box = document.getElementById('gachaBox');
-  const subjects  = [...document.querySelectorAll('#gSubj .fchip.on')].map(e=>e.dataset.v);
-  const years     = [...document.querySelectorAll('#gYear .fchip.on')].map(e=>Number(e.dataset.v));
-  const papers    = [...document.querySelectorAll('#gPaper .fchip.on')].map(e=>e.dataset.v);
-  const variants  = [...document.querySelectorAll('#gVariant .fchip.on')].map(e=>Number(e.dataset.v));
-  const onlyTodo  = document.getElementById('gOnlyTodo')?.classList.contains('on');
-  const respectProfile = document.getElementById('gRespectProfile')?.classList.contains('on');
-
-  let pool = paperDB.filter(p => {
-    if (!subjects.includes(p.subject)) return false;
-    if (!years.includes(p.year)) return false;
-    if (!papers.some(pt => p.paper.startsWith(pt))) return false;
-    const v = Number(p.paper.slice(-1));
-    if (!variants.includes(v)) return false;
-    if (onlyTodo && (state.paperStatus[p.id]||'todo') === 'done') return false;
     // 尊重精细筛选
     if (respectProfile) {
       const prof = getProfile();
@@ -4607,7 +4231,7 @@ async function aiHubSend(){
       t=>aiSetText('aiResp',t)
     );
   }catch(e){ aiSetError('aiResp',e.message); }
-  finally{ btn.disabled=false; }
+  finally{ btn.disabled=false; schAiPlan._running = false;}
 }
  
 /* ── AGENT ──────────────────────────────────────────────────────── */
@@ -5095,8 +4719,24 @@ function schInit() {
   }
   // Tab button already in HTML, skip creation
   // Build day tabs and render
+  // 自动选择今天对应的天
+  const todayMap = {0:'sun',1:'mon',2:'tue',3:'wed',4:'thu',5:'fri',6:'sat'};
+  const todayKey = todayMap[new Date().getDay()];
+  // 检查今天是否在课表里，否则回退到最近一个有课的日
+  const hasTodayTimetable = !!TIMETABLE[todayKey];
+  const schDayKeys = SCH_DAYS.map(d=>d.key);
+  if (hasTodayTimetable && schDayKeys.includes(todayKey)) {
+    schCurDay = todayKey;
+  } else {
+    // 找最近一个有课表的天
+    for (let i=1;i<=7;i++){
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const k = todayMap[d.getDay()];
+      if (schDayKeys.includes(k)) { schCurDay=k; break; }
+    }
+  }
   schRenderDayTabs();
-  schRenderDay('mon');
+  schRenderDay(schCurDay);
 }
  
 /* ── Day tabs ───────────────────────────────────────────────────── */
@@ -5326,7 +4966,13 @@ async function schAiPlan() {
     <div class="td"></div><div class="td"></div><div class="td"></div>
     <span style="margin-left:8px;font-size:12px">AI 正在为 ${SCH_DAYS.find(d=>d.key===schCurDay)?.label||schCurDay} 生成课表计划…</span>
   </div>`;
- 
+ if (schAiPlan._running) {
+    // 中止上一个请求（通过标志位让旧的onChunk失效）
+    schAiPlan._abort = true;
+  }
+  schAiPlan._running = true;
+  schAiPlan._abort = false;
+  const _thisAbort = () => schAiPlan._abort;
   const ctx = schBuildCtx(schCurDay);
   schLastPlan = null;
  
@@ -5362,6 +5008,7 @@ async function schAiPlan() {
       },
       { role: 'user', content: `请为以下课表生成今日刷题计划：\n\n${ctx}` }],
       t => {
+        if (_thisAbort()) return; // 被新请求中止
         full = t;
         planBox.className = 'sch-plan-box';
         planBox.innerHTML = `<p>${aiMd(t)}</p>`;
@@ -5371,18 +5018,12 @@ async function schAiPlan() {
     );
  
     // Extract recommended IDs
-    const m = full.match(/<RECOMMENDED_IDS>\s*([\s\S]*?)\s*<\/RECOMMENDED_IDS>/);
-    if (m) { try { schLastPlan = JSON.parse(m[1]); } catch(e) {} }
+    schLastPlan = schParseRecommendedIds(full);
 
     // Extract slot assignments
-    const sm2 = full.match(/<SLOT_ASSIGN>\s*([\s\S]*?)\s*<\/SLOT_ASSIGN>/);
-    let slotAssign = {};
-    if (sm2) { try { slotAssign = JSON.parse(sm2[1]); } catch(e) {} }
-
-    // Parse & persist
-    schLastPlan = schParseRecommendedIds(full);
     const slotAssign = schParseSlotAssign(full);
 
+    // Persist to localStorage
     const schSaveKey = `warden_sch_plan_${schCurDay}`;
     localStorage.setItem(schSaveKey, JSON.stringify({
       planText: full,
@@ -5499,9 +5140,34 @@ function schAddRecommendedToCart() {
 function schAnnotateGrid(planText) {
   const slots = TIMETABLE[schCurDay] || [];
   let slotMap = {};
-  const sm = planText.match(/<SLOT_ASSIGN>([\s\S]*?)<\/SLOT_ASSIGN>/);
+  function schParseSlotAssign(planText) {
+  // 尝试多种匹配模式
+  const patterns = [
+    /<SLOT_ASSIGN>\s*([\s\S]*?)\s*<\/SLOT_ASSIGN>/i,
+    /SLOT_ASSIGN[:\s]*(\{[\s\S]*?\})/i,
+  ];
+  for (const pat of patterns) {
+    const m = planText.match(pat);
+    if (!m) continue;
+    let raw = m[1].trim();
+    // 修正常见JSON错误：单引号→双引号，中文冒号→英文
+    raw = raw.replace(/'/g, '"').replace(/：/g, ':').replace(/，/g, ',');
+    // 去掉尾随逗号
+    raw = raw.replace(/,(\s*[}\]])/g, '$1');
+    try { return JSON.parse(raw); } catch(e) {
+      // 尝试提取id数组
+      const idMatches = [...raw.matchAll(/"([^"]+)"/g)].map(x=>x[1]);
+      if (idMatches.length > 0) {
+        // 如果解析失败，把所有ID堆到第一个slot
+        const firstKey = raw.match(/"([^"]+)"\s*:/)?.[1];
+        if (firstKey) return {[firstKey]: idMatches.filter(id=>paperDB?.find?.(p=>p.id===id))};
+      }
+    }
+  }
+  return {};
+}
   if (sm) {
-    try { slotMap = JSON.parse(sm[1]); } catch(e) {}
+    try { slotMap = slotAssign = schParseSlotAssign(full); } catch(e) {}
   }
   slots.forEach(s => {
     const el = document.getElementById(`schAssign_${schCurDay}_${s.period}`);
