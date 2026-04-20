@@ -319,6 +319,17 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color var(--dur-med) var(--ease-standard);
 }
+.editable-title {
+  border: 1px solid transparent !important;
+  border-radius: var(--r-xs);
+}
+.editable-title:hover {
+  border-color: var(--md-outline-variant) !important;
+}
+.editable-title:focus {
+  border-color: var(--md-primary) !important;
+  box-shadow: 0 0 0 2px rgba(26,115,232,.15);
+}
 .subj-paper { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 1px; }
 .card-header-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
@@ -1084,7 +1095,7 @@ body {
 .onboarding-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
 body.tab-away-warning {
-  background: #fff4e5;
+  background: var(--warning-bg, #fff4e5);
 }
 
 body.night-mode {
@@ -1097,6 +1108,7 @@ body.night-mode {
   --md-on-surface-variant: #bdc1c6;
   --md-outline: #5f6368;
   --md-outline-variant: #3c4043;
+  --warning-bg: #3a2f1d;
 }
 
 /* ============================================================
@@ -1574,9 +1586,9 @@ body.night-mode {
 // ============================================================
 const IGCSE_PAPERS = [
   { id:'0580P1', subj:'0580', name:'数学 P1', paper:'Paper 1', dur:90,  marks:70,  tier:'Core',          color:'#1a73e8' },
-  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:120, marks:100, tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:120, marks:70, tier:'Extended',       color:'#1a73e8' },
   { id:'0580P3', subj:'0580', name:'数学 P3', paper:'Paper 3', dur:120, marks:104, tier:'Core',          color:'#1a73e8' },
-  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:120, marks:100, tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:120, marks:130, tier:'Extended',       color:'#1a73e8' },
   { id:'0610P2', subj:'0610', name:'生物 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#34a853' },
   { id:'0610P4', subj:'0610', name:'生物 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#34a853' },
   { id:'0610P6', subj:'0610', name:'生物 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#34a853' },
@@ -2318,7 +2330,7 @@ function cardHTML(t) {
       <div class="card-header-left">
         <div class="subj-icon" style="background:${color}18;font-size:20px;">${icon}</div>
           <div class="subj-info">
-            <input class="subj-name" style="color:${color};border:none;background:transparent;width:100%;" value="${escHtml(t.name)}" onblur="updateTimerName('${t.id}', this.value)" maxlength="50" />
+            <input class="subj-name editable-title" aria-label="编辑计时器标题" style="color:${color};background:transparent;width:100%;" value="${escHtml(t.name)}" onblur="updateTimerName('${t.id}', this.value)" maxlength="50" />
             <div class="subj-paper">${paperLine}</div>
           </div>
       </div>
@@ -2369,7 +2381,8 @@ function cardHTML(t) {
       </div>
 
       <div class="controls-row" style="gap:6px;">
-        <input class="form-input" style="max-width:120px;padding:8px 10px;" type="number" min="1" max="600" value="${Math.round(t.total/60)}" onblur="updateTimerDuration('${t.id}', this.value)" />
+        <span style="font-size:11px;color:var(--md-on-surface-variant);white-space:nowrap;">时长(分钟)</span>
+        <input class="form-input" aria-label="编辑计时器时长（分钟）" title="时长（分钟）" style="max-width:120px;padding:8px 10px;" type="number" min="1" max="600" value="${Math.round(t.total/60)}" onblur="updateTimerDuration('${t.id}', this.value)" />
         ${DUR_PRESETS.map(d => `
           <button class="ctrl-text${t.total===d.v*60?' active':''}" id="dur-chip-${t.id}-${d.v}"
             onclick="setTimerDur('${t.id}',${d.v})">${d.label}</button>
@@ -2379,7 +2392,7 @@ function cardHTML(t) {
 
     <div class="card-notes">
       <div class="presets-label">断点记录</div>
-      <textarea class="notes-input" id="notes-${t.id}" placeholder="输入当前做的题目（例如：P2 Q12）" oninput="debouncedSaveNote('${t.id}', this.value)">${escHtml(t.note || '')}</textarea>
+      <textarea class="notes-input" id="notes-${t.id}" aria-label="断点笔记" placeholder="输入当前做的题目（例如：P2 Q12）" oninput="debouncedSaveNote('${t.id}', this.value)">${escHtml(t.note || '')}</textarea>
     </div>
 
     <div class="presets-section" style="padding-top:0;">
@@ -2743,6 +2756,10 @@ function saveDeepSeekKey(val) {
   localStorage.setItem('igcse_deepseek_key', (val || '').trim());
 }
 
+function cleanForAi(v) {
+  return String(v ?? '').replace(/[<>]/g, '').replace(/[\u0000-\u001F]/g, ' ').slice(0, 200);
+}
+
 async function generateFocusReport() {
   const output = document.getElementById('focusReportOutput');
   const key = (localStorage.getItem('igcse_deepseek_key') || '').trim();
@@ -2752,8 +2769,12 @@ async function generateFocusReport() {
   }
   const focusPayload = {
     activeTimers: timers.map(t => ({
-      name: t.name,
-      interruptions: t.interruptions || [],
+      name: cleanForAi(t.name),
+      interruptions: (t.interruptions || []).map(x => ({
+        reason: cleanForAi(x.reason),
+        at: x.at,
+        pauseMs: x.pauseMs || 0
+      })),
       tabAwayMs: t.tabAwayMs || 0,
       pauseCount: t._pauseCount || 0
     })),
@@ -2784,7 +2805,11 @@ async function generateFocusReport() {
       })
     });
     const data = await resp.json();
-    const text = data?.choices?.[0]?.message?.content || '分析失败，请检查 API Key。';
+    if (!resp.ok) {
+      output.value = `请求失败（${resp.status}）：${data?.error?.message || '请检查 API Key 或网络。'}`;
+      return;
+    }
+    const text = data?.choices?.[0]?.message?.content || data?.error?.message || '分析失败，请稍后重试。';
     output.value = text;
   } catch (e) {
     output.value = '请求失败，请检查网络或 API Key。';
@@ -2940,7 +2965,10 @@ document.addEventListener('visibilitychange', () => {
     timers.filter(t => t.running).forEach(t => { t.tabAwayMs = (t.tabAwayMs || 0) + awayMs; });
     awayStartAt = null;
     document.body.classList.remove('tab-away-warning');
-    showSnackbar(`你离开了 ${Math.max(1, Math.round(awayMs / 60000))} 分钟，请保持专注`);
+    const awayText = awayMs < 60000
+      ? `${Math.max(1, Math.round(awayMs / 1000))} 秒`
+      : `${Math.round(awayMs / 60000)} 分钟`;
+    showSnackbar(`你离开了 ${awayText}，请保持专注`);
     persist();
   }
 });
