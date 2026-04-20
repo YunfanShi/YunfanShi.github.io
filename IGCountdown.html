@@ -1631,7 +1631,7 @@ body {
           <div class="settings-row-label" id="interruptLogLabel">中断原因登记</div>
           <div class="settings-row-sub" id="interruptLogSub">暂停时弹出中断原因登记窗口</div>
         </div>
-        <button class="toggle on" id="toggleInterruptLog" onclick="toggleSetting('interruptLog')"></button>
+        <button class="toggle" id="toggleInterruptLog" onclick="toggleSetting('interruptLog')"></button>
       </div>
       <div class="divider"></div>
       <div class="settings-row">
@@ -1743,7 +1743,7 @@ body {
         <label class="form-label" id="neteaseSongIdLabel">网易云歌曲 ID（可选）</label>
         <input class="form-input" id="neteaseSongId" type="text" inputmode="numeric" placeholder="如：188204">
         <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:6px;" id="neteaseHintLine1">
-          设置后，倒计时结束会在结束动画中自动加载并播放网易云外链播放器。
+          设置后，倒计时结束会在后台静默加载并自动播放。
         </div>
         <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:4px;" id="neteaseHintLine2">
           注意：该功能会在结束时加载第三方网站（music.163.com）内容。
@@ -2036,6 +2036,7 @@ const I18N = {
     fsExit: '退出全屏',
     bellPlaying: '铃声播放中',
     stopBell: '关闭铃声',
+    pipOpen: '打开',
   },
   en: {
     appSub: "Jack's Ecosystem · Exam Timer",
@@ -2071,6 +2072,7 @@ const I18N = {
     fsExit: 'Exit fullscreen',
     bellPlaying: 'Bell is playing',
     stopBell: 'Stop',
+    pipOpen: 'Open',
   }
 };
 
@@ -2081,6 +2083,11 @@ function getLanguage() {
 function t(key) {
   const lang = getLanguage();
   return I18N[lang]?.[key] || I18N.zh[key] || key;
+}
+
+function normalizeBooleanSetting(value, defaultValue) {
+  if (typeof value === 'boolean') return value;
+  return defaultValue;
 }
 
 function applyI18n() {
@@ -2251,9 +2258,9 @@ function loadPersisted() {
     if (s.settings) settings = { ...settings, ...s.settings };
     settings.language = settings.language === 'en' ? 'en' : 'zh';
     settings.bellSource = settings.bellSource === 'netease' ? 'netease' : 'local';
-    settings.autoFS = settings.autoFS !== false;
-    settings.fullscreenFx = !!settings.fullscreenFx;
-    settings.interruptLog = settings.interruptLog !== false;
+    settings.autoFS = normalizeBooleanSetting(settings.autoFS, DEFAULT_SETTINGS.autoFS);
+    settings.fullscreenFx = normalizeBooleanSetting(settings.fullscreenFx, DEFAULT_SETTINGS.fullscreenFx);
+    settings.interruptLog = normalizeBooleanSetting(settings.interruptLog, DEFAULT_SETTINGS.interruptLog);
     if (s.timers) {
       timers = s.timers.map(t => ({
         ...t,
@@ -3657,7 +3664,7 @@ async function ensureMiniPipWindow() {
           <div class="pip-title" id="pipTitle">Timer</div>
           <div class="pip-time" id="pipTime">--:--</div>
         </div>
-        <button class="pip-btn" id="pipBackBtn">${getLanguage() === 'en' ? 'Open' : '打开'}</button>
+        <button class="pip-btn" id="pipBackBtn">${t('pipOpen')}</button>
       </div>`;
     doc.getElementById('pipBackBtn').addEventListener('click', () => {
       const active = timers.find(x => x.running) || timers[0];
@@ -3842,12 +3849,12 @@ function openFinishScene(t, shouldPlayNetease = false) {
   finishSceneOwnerId = t?.id || null;
   const zhText = info.zhHans || fallback.zhHans || '倒计时结束';
   const enText = settings.apiKey ? (info.en || '').trim() : '';
-  const englishOnTop = getLanguage() === 'en' && !!enText;
+  const textOrder = getFinishSceneTextOrder(zhText, enText, getLanguage());
 
-  if (main) main.textContent = englishOnTop ? enText : zhText;
+  if (main) main.textContent = textOrder.primary;
   if (sub) {
-    sub.textContent = englishOnTop ? zhText : enText;
-    sub.style.display = enText ? '' : 'none';
+    sub.textContent = textOrder.secondary;
+    sub.style.display = textOrder.showSecondary ? '' : 'none';
   }
 
   if (meta) {
@@ -3861,7 +3868,7 @@ function openFinishScene(t, shouldPlayNetease = false) {
 
   if (shouldPlayNetease && settings.neteaseSongId && musicWrap && frame) {
     const id = sanitizeNumericInput(settings.neteaseSongId);
-    frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66&autoplay=1`;
+    frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66`;
     musicWrap.style.display = 'none';
     activeBellMode = 'netease';
   } else if (musicWrap && frame) {
@@ -3870,6 +3877,16 @@ function openFinishScene(t, shouldPlayNetease = false) {
   }
   scene.classList.add('open');
   updateBodyScrollLock();
+}
+
+function getFinishSceneTextOrder(zhText, enText, lang) {
+  const hasEnglish = !!String(enText || '').trim();
+  const englishOnTop = lang === 'en' && hasEnglish;
+  return {
+    primary: englishOnTop ? enText : zhText,
+    secondary: englishOnTop ? zhText : enText,
+    showSecondary: hasEnglish
+  };
 }
 
 function dismissFinishScene(e) {
@@ -3892,11 +3909,15 @@ function saveApiKey() {
 async function handleAudioUpload(e) {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
-  settings.customBellType = f.type || 'audio/mpeg';
-  settings.bellSource = 'local';
+  const newBellType = f.type || 'audio/mpeg';
   try {
     await saveCustomAudioToIndexedDb(f);
+    settings.customBellType = newBellType;
+    settings.bellSource = 'local';
     settings.customBellData = '';
+    if (customBellPlaybackSrc && String(customBellPlaybackSrc).startsWith('blob:')) {
+      try { URL.revokeObjectURL(customBellPlaybackSrc); } catch (_) {}
+    }
     customBellPlaybackSrc = URL.createObjectURL(f);
     setCustomAudioPreviewSrc(customBellPlaybackSrc);
     persist();
@@ -3904,10 +3925,12 @@ async function handleAudioUpload(e) {
     showSnackbar(getLanguage() === 'en' ? 'Custom bell saved' : '自定义铃声已保存');
     return;
   } catch (dbErr) {
-    console.warn('IndexedDB save failed, fallback to localStorage base64', dbErr);
+    console.warn('IndexedDB save failed, fallback to base64 data URL in localStorage', dbErr);
   }
   const rd = new FileReader();
   rd.onload = () => {
+    settings.customBellType = newBellType;
+    settings.bellSource = 'local';
     settings.customBellData = rd.result;
     customBellPlaybackSrc = settings.customBellData;
     persist();
