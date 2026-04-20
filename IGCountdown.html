@@ -1418,8 +1418,8 @@ body {
     </div>
     <div class="modal-footer">
       <button class="btn-text" onclick="closeModal('createModal')">取消</button>
-      <button class="btn-filled" onclick="confirmCreate()">
-        <span class="material-icons-round">play_arrow</span>启动计时
+      <button class="btn-filled" id="createModalConfirmBtn" onclick="confirmCreate()">
+        <span class="material-icons-round">play_arrow</span> 启动计时
       </button>
     </div>
   </div>
@@ -1692,6 +1692,7 @@ let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutM
 let selColor = COLORS[0];
 let selDur   = null;
 let selIgcse = null;
+let editingTimerId = null;
 let fsTimerId = null;
 let miniPillActive = false;
 let snackbarTimer  = null;
@@ -1889,13 +1890,16 @@ function quickLaunch(paperId) {
 // CREATE MODAL
 // ============================================================
 function openCreateModal() {
+  editingTimerId = null;
   selColor = COLORS[0];
   selDur   = null;
   selIgcse = null;
   document.getElementById('f-name').value = '';
   document.getElementById('f-dur').value  = '';
   document.getElementById('f-note').value = '';
+  document.getElementById('f-saveInterval').value = '5';
   document.getElementById('createModalTitle').textContent = '新建计时器';
+  setCreateModalAction('play_arrow', '启动计时');
 
   // Render IGCSE chips
   const ic = document.getElementById('igcseChips');
@@ -1913,10 +1917,62 @@ function openCreateModal() {
   ).join('');
 
   // Render color dots
-  const cd = document.getElementById('colorDots');
-  cd.innerHTML = COLORS.map(c =>
-    `<div class="color-dot${c===selColor?' sel':''}" style="background:${c};" onclick="pickColor('${c}')"></div>`
+  renderColorDots();
+
+  openModal('createModal');
+  setTimeout(() => document.getElementById('f-name').focus(), 300);
+}
+
+function setCreateModalAction(icon, text) {
+  const btn = document.getElementById('createModalConfirmBtn');
+  if (!btn) return;
+  btn.innerHTML = `<span class="material-icons-round">${icon}</span> ${text}`;
+}
+
+function getTimerDurationMinutes(t) {
+  if (Number.isFinite(t?.dur) && t.dur > 0) return t.dur;
+  if (Number.isFinite(t?.total)) return Math.max(1, Math.round(t.total / 60));
+  return 1;
+}
+
+function openEditModal(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  editingTimerId = id;
+  selColor = t.color || COLORS[0];
+  selDur = getTimerDurationMinutes(t);
+  selIgcse = t.paperId ? IGCSE_PAPERS.find(p => p.id === t.paperId) : null;
+
+  document.getElementById('f-name').value = t.name || '';
+  document.getElementById('f-dur').value = selDur;
+  document.getElementById('f-note').value = t.note || '';
+  document.getElementById('f-saveInterval').value = String(t.saveInterval || 5);
+  document.getElementById('createModalTitle').textContent = '编辑计时器';
+  setCreateModalAction('save', '保存修改');
+
+  // Render IGCSE chips
+  const ic = document.getElementById('igcseChips');
+  ic.innerHTML = IGCSE_PAPERS.map(p =>
+    `<button class="form-chip" data-igcse="${p.id}" onclick="pickIgcse('${p.id}')"
+      title="${p.tier} · ${fmtDur(p.dur)} · ${p.marks} marks">
+      ${p.name}
+    </button>`
   ).join('');
+  document.querySelectorAll('#igcseChips .form-chip').forEach(b => {
+    b.classList.toggle('sel', selIgcse && b.dataset.igcse === selIgcse.id);
+  });
+
+  // Render duration chips
+  const dc = document.getElementById('durChips');
+  dc.innerHTML = DUR_PRESETS.map(d =>
+    `<button class="form-chip" data-dur="${d.v}" onclick="pickDur(${d.v})">${d.label}</button>`
+  ).join('');
+  document.querySelectorAll('#durChips .form-chip').forEach(b => {
+    b.classList.toggle('sel', Number(b.dataset.dur) === selDur);
+  });
+
+  // Render color dots
+  renderColorDots();
 
   openModal('createModal');
   setTimeout(() => document.getElementById('f-name').focus(), 300);
@@ -1948,6 +2004,13 @@ function pickColor(c) {
   });
 }
 
+function renderColorDots() {
+  const cd = document.getElementById('colorDots');
+  cd.innerHTML = COLORS.map(c =>
+    `<div class="color-dot${c===selColor?' sel':''}" style="background:${c};" onclick="pickColor('${c}')"></div>`
+  ).join('');
+}
+
 function confirmCreate() {
   const name = document.getElementById('f-name').value.trim() || 'Custom Timer';
   const dur  = parseInt(document.getElementById('f-dur').value) || selDur;
@@ -1955,6 +2018,31 @@ function confirmCreate() {
   const si   = parseInt(document.getElementById('f-saveInterval').value) || 5;
   if (!dur || dur < 1) { showSnackbar('请选择或输入时长'); return; }
   closeModal('createModal');
+  if (editingTimerId) {
+    const t = timers.find(x => x.id === editingTimerId);
+    if (!t) { editingTimerId = null; return; }
+    t.name = name;
+    t.color = selColor;
+    t.subj = selIgcse ? selIgcse.subj : 'custom';
+    t.paperId = selIgcse ? selIgcse.id : null;
+    t.paper = selIgcse ? selIgcse.paper : null;
+    t.marks = selIgcse ? selIgcse.marks : null;
+    t.note = note;
+    t.saveInterval = si;
+    t._saveCountdown = si;
+    const nextDur = Math.max(1, dur);
+    // Duration changes should go through setTimerDur so timer reset/restart behavior stays consistent.
+    if (t.dur !== nextDur) setTimerDur(editingTimerId, nextDur);
+    else {
+      persist();
+      renderTimerCard(editingTimerId);
+      refreshFsDisplay();
+      updateMiniPill();
+    }
+    editingTimerId = null;
+    showSnackbar('计时器信息已更新');
+    return;
+  }
   createTimer({
     name, color: selColor,
     subj: selIgcse ? selIgcse.subj : 'custom',
@@ -2352,6 +2440,9 @@ function cardHTML(t) {
         </div>
       </div>
       <div class="card-header-actions">
+        <button class="icon-btn" onclick="openEditModal('${t.id}')" title="编辑">
+          <span class="material-icons-round" style="font-size:20px;">edit</span>
+        </button>
         <button class="icon-btn" onclick="openFullscreen('${t.id}')" title="全屏">
           <span class="material-icons-round" style="font-size:20px;">open_in_full</span>
         </button>
