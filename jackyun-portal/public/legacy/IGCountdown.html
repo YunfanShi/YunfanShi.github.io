@@ -988,9 +988,34 @@ body {
   animation: fullscreenIn var(--dur-extra) var(--ease-decel) both;
 }
 #fullscreen-overlay.open { display: flex; }
+#fullscreen-overlay.fx-on .fs-fx-layer { opacity: 1; }
 @keyframes fullscreenIn {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+.fs-fx-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-med) var(--ease-standard);
+}
+.fs-fx-line {
+  position: absolute;
+  height: 1px;
+  width: 140%;
+  left: -20%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.35) 50%, transparent 100%);
+  animation: fsLineMove linear infinite;
+}
+.fs-fx-line:nth-child(1) { top: 20%; animation-duration: 8s; }
+.fs-fx-line:nth-child(2) { top: 42%; animation-duration: 11s; animation-delay: -3s; }
+.fs-fx-line:nth-child(3) { top: 66%; animation-duration: 9s; animation-delay: -5s; }
+@keyframes fsLineMove {
+  from { transform: translate3d(-10%, 0, 0); opacity: .2; }
+  50% { opacity: .5; }
+  to { transform: translate3d(10%, 0, 0); opacity: .2; }
 }
 
 .fs-exit-btn {
@@ -1129,17 +1154,13 @@ body {
   opacity: .76;
 }
 .finish-music {
-  margin: 22px auto 0;
-  width: 330px;
-  max-width: 100%;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 14px;
-  padding: 10px;
-  backdrop-filter: blur(8px);
+  display: none !important;
 }
 .finish-music iframe {
-  width: 100%;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
   border: 0;
 }
 @keyframes finishPulse {
@@ -1244,6 +1265,33 @@ body {
   font-family: inherit;
   padding: 0;
 }
+#bell-stop-toast {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 1800;
+  background: rgba(17,24,39,.95);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  box-shadow: var(--elev-3);
+  padding: 8px 10px;
+  font-size: 12px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+}
+#bell-stop-toast.show { display: inline-flex; }
+#bell-stop-toast button {
+  border: none;
+  background: rgba(255,255,255,.14);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
 
 /* ============================================================
    RESPONSIVE TWEAKS
@@ -1343,7 +1391,7 @@ body {
       <button class="icon-btn" onclick="toggleMinipill()" id="minipillBtn" title="迷你悬浮">
         <span class="material-icons-round">picture_in_picture</span>
       </button>
-      <button class="icon-btn" onclick="openSettings()" title="设置">
+      <button class="icon-btn" onclick="openSettings()" id="settingsBtn" title="设置">
         <span class="material-icons-round">settings</span>
       </button>
     </div>
@@ -1367,14 +1415,14 @@ body {
           <div class="empty-icon-wrap">
             <span class="material-icons-round">timer</span>
           </div>
-          <div class="empty-title">开始你的备考计时</div>
-          <div class="empty-desc">点击上方快捷启动卡片，或者点击右下角的按钮来创建自定义计时器。支持多开、全屏、历史记录恢复。</div>
+          <div class="empty-title" id="emptyTitle">开始你的备考计时</div>
+          <div class="empty-desc" id="emptyDesc">点击上方快捷启动卡片，或者点击右下角的按钮来创建自定义计时器。支持多开、全屏、历史记录恢复。</div>
           <div class="empty-actions">
-            <button class="btn-filled" onclick="openCreateModal()">
-              <span class="material-icons-round">add</span>新建计时器
+            <button class="btn-filled" onclick="openCreateModal()" id="emptyCreateBtn">
+              <span class="material-icons-round">add</span><span id="emptyCreateBtnText">新建计时器</span>
             </button>
-            <button class="btn-tonal" onclick="openHistoryModal()">
-              <span class="material-icons-round">history</span>历史记录
+            <button class="btn-tonal" onclick="openHistoryModal()" id="emptyHistoryBtn">
+              <span class="material-icons-round">history</span><span id="emptyHistoryBtnText">历史记录</span>
             </button>
           </div>
         </div>
@@ -1446,12 +1494,17 @@ body {
      FULLSCREEN OVERLAY
      ============================================================ -->
 <div id="fullscreen-overlay">
+  <div class="fs-fx-layer" id="fsFxLayer">
+    <div class="fs-fx-line"></div>
+    <div class="fs-fx-line"></div>
+    <div class="fs-fx-line"></div>
+  </div>
   <div class="fs-google-bar"></div>
   <div class="fs-progress-bar" id="fsProgressBar"></div>
 
   <button class="fs-exit-btn" onclick="exitFullscreen()">
     <span class="material-icons-round">close_fullscreen</span>
-    退出全屏
+    <span id="fsExitText">退出全屏</span>
   </button>
 
   <div class="fs-minimal-wrap">
@@ -1543,7 +1596,7 @@ body {
 <div class="modal-backdrop" id="settingsModal" onclick="closeModalOnBackdrop(event,'settingsModal')">
   <div class="modal-surface">
     <div class="modal-header">
-      <div class="modal-title">设置</div>
+      <div class="modal-title" id="settingsTitle">设置</div>
       <button class="icon-btn" onclick="closeModal('settingsModal')">
         <span class="material-icons-round">close</span>
       </button>
@@ -1559,10 +1612,26 @@ body {
       <div class="divider"></div>
       <div class="settings-row">
         <div>
-          <div class="settings-row-label">禅意模式自动全屏</div>
-          <div class="settings-row-sub">启动计时时自动进入全屏</div>
+          <div class="settings-row-label" id="autoFsLabel">禅意模式自动全屏</div>
+          <div class="settings-row-sub" id="autoFsSub">启动计时时自动进入全屏</div>
         </div>
         <button class="toggle" id="toggleAutoFS" onclick="toggleSetting('autoFS')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label" id="fullscreenFxLabel">全屏背景动画</div>
+          <div class="settings-row-sub" id="fullscreenFxSub">全屏模式显示漂浮线条动画</div>
+        </div>
+        <button class="toggle" id="toggleFullscreenFx" onclick="toggleSetting('fullscreenFx')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label" id="interruptLogLabel">中断原因登记</div>
+          <div class="settings-row-sub" id="interruptLogSub">暂停时弹出中断原因登记窗口</div>
+        </div>
+        <button class="toggle on" id="toggleInterruptLog" onclick="toggleSetting('interruptLog')"></button>
       </div>
       <div class="divider"></div>
       <div class="settings-row">
@@ -1594,12 +1663,20 @@ body {
         </select>
       </div>
       <div class="divider"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn-tonal" onclick="openModal('apiModal')">DeepSeek API Key</button>
-        <button class="btn-tonal" onclick="openModal('audioModal')">上传结束铃声</button>
-        <button class="btn-tonal" onclick="openModal('aiModal')">生成学习分析</button>
+      <div class="form-field">
+        <label class="form-label" id="siteLanguageLabel">网站语言</label>
+        <select class="form-select" id="sLanguage" onchange="setLanguage(this.value)">
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select>
       </div>
-      <div id="settingsVersion" style="font-size:12px;color:var(--md-on-surface-variant);margin-top:8px;">Version: 202604201145</div>
+      <div class="divider"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-tonal" id="openApiBtn" onclick="openModal('apiModal')">DeepSeek API Key</button>
+        <button class="btn-tonal" id="openAudioBtn" onclick="openModal('audioModal')">上传结束铃声</button>
+        <button class="btn-tonal" id="openAiBtn" onclick="openModal('aiModal')">生成学习分析</button>
+      </div>
+      <div id="settingsVersion" style="font-size:12px;color:var(--md-on-surface-variant);margin-top:8px;">Version: 202604202200</div>
       <div id="examCountdownDisplay" style="font-family:'Google Sans',sans-serif;font-size:14px;color:var(--md-primary);text-align:center;display:none;"></div>
       <div class="divider"></div>
       <div>
@@ -1609,8 +1686,8 @@ body {
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-filled" onclick="closeModal('settingsModal')">完成</button>
-    </div>
+        <button class="btn-filled" id="settingsDoneBtn" onclick="closeModal('settingsModal')">完成</button>
+      </div>
   </div>
 </div>
 
@@ -1641,29 +1718,42 @@ body {
 <div class="modal-backdrop" id="audioModal" onclick="closeModalOnBackdrop(event,'audioModal')">
   <div class="modal-surface" style="max-width:560px;">
     <div class="modal-header">
-      <div class="modal-title">自定义结束铃声</div>
+      <div class="modal-title" id="audioModalTitle">自定义结束铃声</div>
       <button class="icon-btn" onclick="closeModal('audioModal')"><span class="material-icons-round">close</span></button>
     </div>
     <div class="modal-body">
       <div class="form-field">
-        <label class="form-label">上传音频文件（mp3/wav/m4a）</label>
+        <label class="form-label" id="audioUploadLabel">上传音频文件（mp3/wav/m4a）</label>
         <input class="form-input" id="customAudioFile" type="file" accept="audio/*" onchange="handleAudioUpload(event)">
       </div>
       <div class="form-field">
-        <label class="form-label">网易云歌曲 ID（可选）</label>
+        <label class="form-label" id="bellSourceLabel">默认结束铃声来源（互斥）</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="bellSource" value="local" onchange="setBellSource(this.value)">
+            <span id="bellSourceLocalLabel">本地音乐</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="bellSource" value="netease" onchange="setBellSource(this.value)">
+            <span id="bellSourceNeteaseLabel">网易云音乐</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label" id="neteaseSongIdLabel">网易云歌曲 ID（可选）</label>
         <input class="form-input" id="neteaseSongId" type="text" inputmode="numeric" placeholder="如：188204">
-        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:6px;">
+        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:6px;" id="neteaseHintLine1">
           设置后，倒计时结束会在结束动画中自动加载并播放网易云外链播放器。
         </div>
-        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:4px;">
+        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:4px;" id="neteaseHintLine2">
           注意：该功能会在结束时加载第三方网站（music.163.com）内容。
         </div>
       </div>
       <audio id="customAudioPreview" controls style="width:100%;display:none;"></audio>
     </div>
     <div class="modal-footer">
-      <button class="btn-tonal" onclick="saveNeteaseSongId()">保存歌曲 ID</button>
-      <button class="btn-text" onclick="closeModal('audioModal')">关闭</button>
+      <button class="btn-tonal" id="saveNeteaseBtn" onclick="saveNeteaseSongId()">保存歌曲 ID</button>
+      <button class="btn-text" id="audioCloseBtn" onclick="closeModal('audioModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -1754,10 +1844,12 @@ body {
       <iframe id="finishNeteaseFrame" width="330" height="86" src=""></iframe>
     </div>
     <div style="margin-top:20px;">
-      <button class="btn-tonal" onclick="dismissFinishScene(event)">我知道了</button>
+      <button class="btn-tonal" id="finishDismissBtn" onclick="dismissFinishScene(event)">我知道了</button>
     </div>
   </div>
 </div>
+
+<iframe id="neteaseBgFrame" title="netease-bg-player" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;border:0;pointer-events:none;" tabindex="-1" aria-hidden="true"></iframe>
 
 <!-- DEBUG MODAL -->
 <div class="modal-backdrop" id="debugModal" onclick="closeModalOnBackdrop(event,'debugModal')">
@@ -1807,6 +1899,10 @@ body {
   <span id="snackbar-msg">操作成功</span>
   <button id="snackbar-action" onclick="snackbarAction()">撤销</button>
 </div>
+<div id="bell-stop-toast">
+  <span id="bellStopToastText">铃声播放中</span>
+  <button id="bellStopToastBtn" onclick="stopDoneSound()">关闭铃声</button>
+</div>
 
 <script>
 // ============================================================
@@ -1852,8 +1948,22 @@ const SUBJ_ICONS = {
 // STATE
 // ============================================================
 let timers = [];       // active timer objects
-const DEFAULT_SETTINGS = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutMode:'carousel', apiKey:'', customBellData:'', customBellType:'', neteaseSongId:'' };
-const APP_VERSION = '202604201145';
+const DEFAULT_SETTINGS = {
+  sound: true,
+  autoFS: true,
+  fullscreenFx: false,
+  interruptLog: true,
+  mockLink: true,
+  goalLink: true,
+  layoutMode: 'carousel',
+  language: 'zh',
+  apiKey: '',
+  bellSource: 'local',
+  customBellData: '',
+  customBellType: '',
+  neteaseSongId: ''
+};
+const APP_VERSION = '202604202200';
 let settings = { ...DEFAULT_SETTINGS };
 let selColor = COLORS[0];
 let selDur   = null;
@@ -1883,11 +1993,238 @@ const PRE_END_ALERT_THRESHOLD = 20;
 const CUSTOM_BELL_AUTO_STOP_MS = 15000;
 const TONE_BELL_AUTO_STOP_MS = 2500;
 const HITOKOTO_API_URL = 'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json&min_length=8&max_length=60';
+const AUDIO_DB_NAME = 'igcountdown_audio_v1';
+const AUDIO_DB_STORE = 'audioFiles';
+const AUDIO_DB_KEY = 'customBell';
+let pipMiniWindow = null;
+let pipMiniTimer = null;
+let customBellObjectUrl = '';
+let customBellPlaybackSrc = '';
+
+const I18N = {
+  zh: {
+    appSub: "Jack's Ecosystem · 考试计时器",
+    quickStart: 'IGCSE 快捷启动',
+    timersLabel: '运行中 / 已暂停',
+    emptyTitle: '开始你的备考计时',
+    emptyDesc: '点击上方快捷启动卡片，或者点击右下角的按钮来创建自定义计时器。支持多开、全屏、历史记录恢复。',
+    createTimer: '新建计时器',
+    history: '历史记录',
+    settings: '设置',
+    autoFsLabel: '禅意模式自动全屏',
+    autoFsSub: '启动计时时自动进入全屏',
+    fullscreenFxLabel: '全屏背景动画',
+    fullscreenFxSub: '全屏模式显示漂浮线条动画',
+    interruptLogLabel: '中断原因登记',
+    interruptLogSub: '暂停时弹出中断原因登记窗口',
+    siteLanguage: '网站语言',
+    uploadAudio: '上传结束铃声',
+    aiSummary: '生成学习分析',
+    done: '完成',
+    audioModalTitle: '自定义结束铃声',
+    audioUploadLabel: '上传音频文件（mp3/wav/m4a）',
+    bellSourceLabel: '默认结束铃声来源（互斥）',
+    localMusic: '本地音乐',
+    neteaseMusic: '网易云音乐',
+    neteaseIdLabel: '网易云歌曲 ID（可选）',
+    neteaseHint1: '设置后，倒计时结束会在后台静默加载并自动播放。',
+    neteaseHint2: '注意：该功能会在结束时加载第三方网站（music.163.com）内容。',
+    saveSongId: '保存歌曲 ID',
+    close: '关闭',
+    iKnow: '我知道了',
+    tapToContinue: '点击屏幕继续',
+    fsExit: '退出全屏',
+    bellPlaying: '铃声播放中',
+    stopBell: '关闭铃声',
+  },
+  en: {
+    appSub: "Jack's Ecosystem · Exam Timer",
+    quickStart: 'IGCSE Quick Start',
+    timersLabel: 'Running / Paused',
+    emptyTitle: 'Start your study timer',
+    emptyDesc: 'Use quick-start cards above, or create a custom timer with the lower-right button. Supports multi-timer, fullscreen and history restore.',
+    createTimer: 'New Timer',
+    history: 'History',
+    settings: 'Settings',
+    autoFsLabel: 'Auto fullscreen in Zen mode',
+    autoFsSub: 'Automatically enter fullscreen when timer starts',
+    fullscreenFxLabel: 'Fullscreen background animation',
+    fullscreenFxSub: 'Show floating line effects in fullscreen',
+    interruptLogLabel: 'Interruption logging',
+    interruptLogSub: 'Show interruption reason dialog on pause',
+    siteLanguage: 'Site language',
+    uploadAudio: 'Upload finish bell',
+    aiSummary: 'Generate study summary',
+    done: 'Done',
+    audioModalTitle: 'Custom finish bell',
+    audioUploadLabel: 'Upload audio file (mp3/wav/m4a)',
+    bellSourceLabel: 'Default finish bell source (exclusive)',
+    localMusic: 'Local audio',
+    neteaseMusic: 'NetEase music',
+    neteaseIdLabel: 'NetEase song ID (optional)',
+    neteaseHint1: 'When set, the song will load and autoplay silently in background at countdown end.',
+    neteaseHint2: 'Note: this loads third-party content from music.163.com at finish.',
+    saveSongId: 'Save song ID',
+    close: 'Close',
+    iKnow: 'Got it',
+    tapToContinue: 'Tap screen to continue',
+    fsExit: 'Exit fullscreen',
+    bellPlaying: 'Bell is playing',
+    stopBell: 'Stop',
+  }
+};
+
+function getLanguage() {
+  return settings.language === 'en' ? 'en' : 'zh';
+}
+
+function t(key) {
+  const lang = getLanguage();
+  return I18N[lang]?.[key] || I18N.zh[key] || key;
+}
+
+function applyI18n() {
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el && text !== undefined) el.textContent = text;
+  };
+  setText('appBarSub', t('appSub'));
+  setText('quickStartLabel', t('quickStart'));
+  setText('timersLabel', t('timersLabel'));
+  setText('emptyTitle', t('emptyTitle'));
+  setText('emptyDesc', t('emptyDesc'));
+  setText('emptyCreateBtnText', t('createTimer'));
+  setText('emptyHistoryBtnText', t('history'));
+  setText('settingsTitle', t('settings'));
+  setText('autoFsLabel', t('autoFsLabel'));
+  setText('autoFsSub', t('autoFsSub'));
+  setText('fullscreenFxLabel', t('fullscreenFxLabel'));
+  setText('fullscreenFxSub', t('fullscreenFxSub'));
+  setText('interruptLogLabel', t('interruptLogLabel'));
+  setText('interruptLogSub', t('interruptLogSub'));
+  setText('siteLanguageLabel', t('siteLanguage'));
+  setText('openAudioBtn', t('uploadAudio'));
+  setText('openAiBtn', t('aiSummary'));
+  setText('settingsDoneBtn', t('done'));
+  setText('audioModalTitle', t('audioModalTitle'));
+  setText('audioUploadLabel', t('audioUploadLabel'));
+  setText('bellSourceLabel', t('bellSourceLabel'));
+  setText('bellSourceLocalLabel', t('localMusic'));
+  setText('bellSourceNeteaseLabel', t('neteaseMusic'));
+  setText('neteaseSongIdLabel', t('neteaseIdLabel'));
+  setText('neteaseHintLine1', t('neteaseHint1'));
+  setText('neteaseHintLine2', t('neteaseHint2'));
+  setText('saveNeteaseBtn', t('saveSongId'));
+  setText('audioCloseBtn', t('close'));
+  setText('finishDismissBtn', t('iKnow'));
+  setText('fsExitText', t('fsExit'));
+  setText('bellStopToastText', t('bellPlaying'));
+  setText('bellStopToastBtn', t('stopBell'));
+  const minipillBtn = document.getElementById('minipillBtn');
+  if (minipillBtn) minipillBtn.title = getLanguage() === 'en' ? 'Mini floating window' : '迷你悬浮';
+  const settingsBtn = document.getElementById('settingsBtn');
+  if (settingsBtn) settingsBtn.title = t('settings');
+  renderSettingsUI();
+}
 
 // ============================================================
 // PERSISTENCE
 // ============================================================
 const SK = 'igcse_timer_v6';
+
+function openAudioDb() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error('IndexedDB unavailable'));
+      return;
+    }
+    const req = indexedDB.open(AUDIO_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(AUDIO_DB_STORE)) {
+        db.createObjectStore(AUDIO_DB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('Failed to open IndexedDB'));
+  });
+}
+
+async function saveCustomAudioToIndexedDb(file) {
+  const db = await openAudioDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(AUDIO_DB_STORE, 'readwrite');
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(tx.error || new Error('IndexedDB write failed')); };
+    tx.objectStore(AUDIO_DB_STORE).put({ blob: file, type: file.type || 'audio/mpeg', name: file.name || '' }, AUDIO_DB_KEY);
+  });
+}
+
+async function readCustomAudioFromIndexedDb() {
+  const db = await openAudioDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(AUDIO_DB_STORE, 'readonly');
+    const req = tx.objectStore(AUDIO_DB_STORE).get(AUDIO_DB_KEY);
+    req.onsuccess = () => {
+      db.close();
+      const value = req.result;
+      if (value && value.blob instanceof Blob) resolve(value);
+      else resolve(null);
+    };
+    req.onerror = () => {
+      db.close();
+      reject(req.error || new Error('IndexedDB read failed'));
+    };
+  });
+}
+
+async function clearCustomAudioFromIndexedDb() {
+  try {
+    const db = await openAudioDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_DB_STORE, 'readwrite');
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); reject(tx.error || new Error('IndexedDB delete failed')); };
+      tx.objectStore(AUDIO_DB_STORE).delete(AUDIO_DB_KEY);
+    });
+  } catch (e) {
+    console.warn('clearCustomAudioFromIndexedDb failed', e);
+  }
+}
+
+function setCustomAudioPreviewSrc(src) {
+  const p = document.getElementById('customAudioPreview');
+  if (!p) return;
+  if (customBellObjectUrl && customBellObjectUrl !== src) {
+    URL.revokeObjectURL(customBellObjectUrl);
+  }
+  customBellObjectUrl = src && String(src).startsWith('blob:') ? src : '';
+  p.src = src || '';
+  p.style.display = src ? 'block' : 'none';
+}
+
+async function restoreCustomAudioFromStorage() {
+  try {
+    const stored = await readCustomAudioFromIndexedDb();
+    if (stored?.blob) {
+      const src = URL.createObjectURL(stored.blob);
+      customBellPlaybackSrc = src;
+      settings.customBellType = stored.type || settings.customBellType || 'audio/mpeg';
+      setCustomAudioPreviewSrc(src);
+      return true;
+    }
+  } catch (e) {
+    console.warn('IndexedDB audio restore failed', e);
+  }
+  if (settings.customBellData) {
+    customBellPlaybackSrc = settings.customBellData;
+    setCustomAudioPreviewSrc(settings.customBellData);
+    return true;
+  }
+  customBellPlaybackSrc = '';
+  setCustomAudioPreviewSrc('');
+  return false;
+}
 
 function persist() {
   const snapshot = {
@@ -1912,6 +2249,11 @@ function loadPersisted() {
     if (!raw) return;
     const s = JSON.parse(raw);
     if (s.settings) settings = { ...settings, ...s.settings };
+    settings.language = settings.language === 'en' ? 'en' : 'zh';
+    settings.bellSource = settings.bellSource === 'netease' ? 'netease' : 'local';
+    settings.autoFS = settings.autoFS !== false;
+    settings.fullscreenFx = !!settings.fullscreenFx;
+    settings.interruptLog = settings.interruptLog !== false;
     if (s.timers) {
       timers = s.timers.map(t => ({
         ...t,
@@ -2015,6 +2357,18 @@ function sanitizeNumericInput(value) {
   return String(value || '').replace(/[^\d]/g, '');
 }
 
+function statusText(t) {
+  if (getLanguage() === 'en') {
+    return t.done ? 'Done' : t.running ? 'Running' : t.paused ? 'Paused' : 'Ready';
+  }
+  return t.done ? '完成' : t.running ? '计时中' : t.paused ? '已暂停' : '准备';
+}
+
+function remainingText(percent) {
+  const value = Math.round(percent * 100);
+  return getLanguage() === 'en' ? `${value}% left` : `剩余 ${value}%`;
+}
+
 function fallbackFinishLines(name = '计时器') {
   const safeName = String(name || '计时器').slice(0, 36);
   return {
@@ -2053,7 +2407,7 @@ function looksLikeEnglish(text) {
 }
 
 async function translateWithDeepSeekIfAvailable(text, targetLang) {
-  const localFallback = targetLang === 'en' ? `Countdown finished · ${text}` : text;
+  const localFallback = '';
   if (!settings.apiKey) {
     return localFallback;
   }
@@ -2079,7 +2433,7 @@ async function translateWithDeepSeekIfAvailable(text, targetLang) {
     if (targetLang === 'en' && !looksLikeEnglish(parsed)) throw new Error('invalid english translation');
     return parsed || localFallback;
   } catch (err) {
-    console.warn('DeepSeek translation failed, fallback applied', err);
+    console.warn('DeepSeek translation failed', err);
     return localFallback;
   }
 }
@@ -2100,14 +2454,14 @@ async function prefetchFinishSceneData(timerId) {
     const en = await translateWithDeepSeekIfAvailable(zh, 'en');
     t.finishSceneData = {
       zhHans: zh,
-      en: en || fallback.en,
+      en: en || '',
       source: rawFrom,
       sourceWho: rawFromWho,
       loadedAt: Date.now(),
     };
   } catch (e) {
     console.warn('Finish scene prefetch failed', e);
-    t.finishSceneData = { ...fallback, loadedAt: Date.now() };
+    t.finishSceneData = { ...fallback, en: '', loadedAt: Date.now() };
   } finally {
     t._finishScenePrefetching = false;
     persist();
@@ -2414,8 +2768,10 @@ function pauseTimer(id, logPause = true) {
   if (logPause) {
     t._pauseCount++;
     addToStats('pauses');
-    pendingInterruptTimerId = id;
-    openModal('interruptModal');
+    if (settings.interruptLog) {
+      pendingInterruptTimerId = id;
+      openModal('interruptModal');
+    }
   }
   persist();
   refreshCardControls(id);
@@ -2561,7 +2917,7 @@ async function onTimerDone(id) {
   const didPlayBell = shouldPlayRing ? await playDoneSound() : false;
   t._muteNextRing = false;
   t._preEndAlerted = false;
-  openFinishScene(t, shouldPlayRing && !!settings.neteaseSongId);
+  openFinishScene(t, shouldPlayRing && settings.bellSource === 'netease' && !!sanitizeNumericInput(settings.neteaseSongId));
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
 
@@ -2627,17 +2983,21 @@ function notifyGoalTracker(entry) {
 async function playDoneSound() {
   try {
     stopDoneSound();
-    if (sanitizeNumericInput(settings.neteaseSongId)) {
+    const source = settings.bellSource === 'netease' ? 'netease' : 'local';
+    if (source === 'netease' && sanitizeNumericInput(settings.neteaseSongId)) {
       activeBellMode = 'netease';
+      showBellStopToast();
       return true;
     }
-    if (settings.customBellData) {
-      const bell = new Audio(settings.customBellData);
+    const customSrc = customBellPlaybackSrc || settings.customBellData;
+    if (source === 'local' && customSrc) {
+      const bell = new Audio(customSrc);
       bell.loop = false;
       bell.onended = () => stopDoneSound(false);
       activeBellAudio = bell;
       await bell.play();
       activeBellMode = 'custom';
+      showBellStopToast();
       clearTimeout(activeBellStopTimer);
       activeBellStopTimer = setTimeout(stopDoneSound, CUSTOM_BELL_AUTO_STOP_MS);
       return true;
@@ -2659,6 +3019,7 @@ async function playDoneSound() {
     tone(659, 0.2,  0.3, 0.3);
     tone(784, 0.4,  0.5, 0.3);
     activeBellMode = 'tone';
+    showBellStopToast();
     clearTimeout(activeBellStopTimer);
     activeBellStopTimer = setTimeout(stopDoneSound, TONE_BELL_AUTO_STOP_MS);
     return true;
@@ -2671,6 +3032,7 @@ async function playDoneSound() {
 function stopDoneSound(hideSnackbar = true) {
   clearTimeout(activeBellStopTimer);
   activeBellStopTimer = null;
+  hideBellStopToast();
   if (activeBellAudio) {
     try {
       activeBellAudio.pause();
@@ -2683,7 +3045,7 @@ function stopDoneSound(hideSnackbar = true) {
     try { activeBellContext.close(); } catch(e) {}
     activeBellContext = null;
   }
-  const frame = document.getElementById('finishNeteaseFrame');
+  const frame = document.getElementById('neteaseBgFrame');
   const wrap = document.getElementById('finishMusicWrap');
   if (frame) frame.src = '';
   if (wrap) wrap.style.display = 'none';
@@ -2795,7 +3157,7 @@ function cardHTML(t) {
   const dashOffset = RING_CIRC * (1 - p);
   const color = t.color;
   const icon  = SUBJ_ICONS[t.subj] || '⏱️';
-  const statusLabel = t.done ? '完成' : t.running ? '计时中' : t.paused ? '已暂停' : '准备';
+  const statusLabel = statusText(t);
   const statusBg    = t.done ? '#e6f4ea' : t.running ? '#e8f0fe' : t.paused ? '#fce8b2' : '#f1f3f4';
   const statusColor = t.done ? '#34a853' : t.running ? '#1a73e8' : t.paused ? '#f29900' : '#5f6368';
   const dotColor    = t.done ? '#34a853' : t.running ? '#1a73e8' : t.paused ? '#fbbc04' : '#dadce0';
@@ -2821,22 +3183,22 @@ function cardHTML(t) {
         </div>
       </div>
       <div class="card-header-actions">
-        <button class="icon-btn" onclick="openEditModal('${t.id}')" title="编辑">
+         <button class="icon-btn" onclick="openEditModal('${t.id}')" title="${getLanguage() === 'en' ? 'Edit' : '编辑'}">
           <span class="material-icons-round" style="font-size:20px;">edit</span>
         </button>
-        <button class="icon-btn" onclick="openFullscreen('${t.id}')" title="全屏">
+         <button class="icon-btn" onclick="openFullscreen('${t.id}')" title="${getLanguage() === 'en' ? 'Fullscreen' : '全屏'}">
           <span class="material-icons-round" style="font-size:20px;">open_in_full</span>
         </button>
-        <button class="icon-btn" onclick="removeTimer('${t.id}')" title="关闭" style="color:var(--md-error);">
+         <button class="icon-btn" onclick="removeTimer('${t.id}')" title="${getLanguage() === 'en' ? 'Close' : '关闭'}" style="color:var(--md-error);">
           <span class="material-icons-round" style="font-size:20px;">close</span>
         </button>
       </div>
     </div>
     <div class="save-indicator" id="save-${t.id}">
-      <span class="material-icons-round">cloud_done</span>已保存
+      <span class="material-icons-round">cloud_done</span>${getLanguage() === 'en' ? 'Saved' : '已保存'}
     </div>
     <div class="card-body">
-      <div class="ring-container" onclick="toggleTimer('${t.id}')" title="点击 暂停/继续">
+      <div class="ring-container" onclick="toggleTimer('${t.id}')" title="${getLanguage() === 'en' ? 'Tap to pause/resume' : '点击 暂停/继续'}">
         <svg class="ring-svg" viewBox="0 0 200 200">
           <circle cx="100" cy="100" r="${RING_R}" class="ring-track" stroke-width="10"/>
           <circle cx="100" cy="100" r="${RING_R}" class="ring-progress" id="ring-${t.id}"
@@ -2849,7 +3211,7 @@ function cardHTML(t) {
         </svg>
           <div class="ring-inner">
             <div class="time-display" id="time-${t.id}" style="color:${timeColor};">${fmtTime(t.left)}</div>
-            <div class="time-pct" id="pct-${t.id}">剩余 ${Math.round(p*100)}%</div>
+            <div class="time-pct" id="pct-${t.id}">${remainingText(p)}</div>
           <div class="time-status-badge" id="badge-${t.id}" style="background:${statusBg};color:${statusColor};">
             <div class="status-dot" id="dot-${t.id}" style="background:${dotColor};"></div>
             ${statusLabel}
@@ -2858,13 +3220,13 @@ function cardHTML(t) {
       </div>
 
       <div class="controls-row">
-        <button class="ctrl-btn ctrl-sm" onclick="resetTimer('${t.id}')" title="重置">
+        <button class="ctrl-btn ctrl-sm" onclick="resetTimer('${t.id}')" title="${getLanguage() === 'en' ? 'Reset' : '重置'}">
           <span class="material-icons-round">replay</span>
         </button>
         <button class="ctrl-btn ctrl-play ${playClass}" id="play-${t.id}" onclick="toggleTimer('${t.id}')">
           <span class="material-icons-round" id="play-icon-${t.id}">${playIcon}</span>
         </button>
-        <button class="ctrl-btn ctrl-sm" onclick="addTime('${t.id}', 5)" title="+5 分钟">
+        <button class="ctrl-btn ctrl-sm" onclick="addTime('${t.id}', 5)" title="${getLanguage() === 'en' ? '+5 minutes' : '+5 分钟'}">
           <span class="material-icons-round">add</span>
         </button>
       </div>
@@ -2878,13 +3240,13 @@ function cardHTML(t) {
     </div>
 
     <div class="card-notes">
-      <div class="presets-label">断点记录（自动保存）</div>
+      <div class="presets-label">${getLanguage() === 'en' ? 'Checkpoint note (auto-save)' : '断点记录（自动保存）'}</div>
       <textarea class="notes-input" oninput="saveTimerNoteDebounced('${t.id}', this.value)"
-        maxlength="200" placeholder="输入当前做的题目（例如：P2 Q12）">${safeNote}</textarea>
+        maxlength="200" placeholder="${getLanguage() === 'en' ? 'Input current question (e.g. P2 Q12)' : '输入当前做的题目（例如：P2 Q12）'}">${safeNote}</textarea>
     </div>
 
     <div class="presets-section" style="padding-top:0;">
-      <div class="presets-label">${t.subj !== 'custom' ? t.subj + ' 卷型' : '常用时长'}</div>
+      <div class="presets-label">${t.subj !== 'custom' ? (getLanguage() === 'en' ? `${t.subj} papers` : t.subj + ' 卷型') : (getLanguage() === 'en' ? 'Common durations' : '常用时长')}</div>
       <div class="presets-chips" id="paper-chips-${t.id}">
         ${IGCSE_PAPERS.filter(p => p.subj === t.subj).map(p => `
           <button class="preset-chip${t.paperId===p.id?' active':''}"
@@ -3029,7 +3391,7 @@ function refreshTimerDisplay(id) {
       setTimeout(() => timeEl.classList.remove('tick'), 100);
     }
   }
-  if (pctEl) pctEl.textContent = '剩余 ' + Math.round(p * 100) + '%';
+  if (pctEl) pctEl.textContent = remainingText(p);
   if (warnEl) {
     if (t.running && t.left < 60 && !t.done) warnEl.classList.add('active');
     else warnEl.classList.remove('active');
@@ -3049,7 +3411,7 @@ function refreshCardControls(id) {
   }
   if (playIcon) playIcon.textContent = t.running ? 'pause' : 'play_arrow';
   if (badge) {
-    const statusLabel = t.done ? '完成' : t.running ? '计时中' : t.paused ? '已暂停' : '准备';
+    const statusLabel = statusText(t);
     const statusBg    = t.done ? '#e6f4ea' : t.running ? '#e8f0fe' : t.paused ? '#fce8b2' : '#f1f3f4';
     const statusColor = t.done ? '#34a853' : t.running ? '#1a73e8' : t.paused ? '#f29900' : '#5f6368';
     badge.style.background = statusBg;
@@ -3080,8 +3442,8 @@ function renderStats() {
     focusMins >= 60
       ? `${Math.floor(focusMins/60)}<span class="stat-unit">hr</span> ${focusMins%60}<span class="stat-unit">m</span>`
       : `${focusMins}<span class="stat-unit">min</span>`;
-  document.getElementById('statCompleted').innerHTML = `${today.completed || 0}<span class="stat-unit">次</span>`;
-  document.getElementById('statPauses').innerHTML    = `${today.pauses || 0}<span class="stat-unit">次</span>`;
+  document.getElementById('statCompleted').innerHTML = `${today.completed || 0}<span class="stat-unit">${getLanguage() === 'en' ? 'x' : '次'}</span>`;
+  document.getElementById('statPauses').innerHTML    = `${today.pauses || 0}<span class="stat-unit">${getLanguage() === 'en' ? 'x' : '次'}</span>`;
 }
 
 // ============================================================
@@ -3267,14 +3629,87 @@ function handleGlobalKeydown(e) {
 function toggleMinipill() {
   miniPillActive = !miniPillActive;
   document.getElementById('minipillBtn').classList.toggle('active', miniPillActive);
+  if (!miniPillActive) closeMiniPipWindow();
   updateMiniPill();
+}
+
+async function ensureMiniPipWindow() {
+  if (!miniPillActive) return null;
+  if (pipMiniWindow && !pipMiniWindow.closed) return pipMiniWindow;
+  if (!window.documentPictureInPicture?.requestWindow) return null;
+  try {
+    pipMiniWindow = await window.documentPictureInPicture.requestWindow({
+      width: 320,
+      height: 110
+    });
+    const doc = pipMiniWindow.document;
+    doc.body.style.margin = '0';
+    doc.body.style.background = '#111827';
+    doc.body.innerHTML = `
+      <style>
+        .pip-wrap {height:100vh;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;color:#fff;font-family:Roboto,sans-serif;gap:10px;}
+        .pip-title {font-size:13px;opacity:.9;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .pip-time {font-family:'Roboto Mono',monospace;font-size:20px;font-weight:600;}
+        .pip-btn {border:none;border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;font-size:12px;}
+      </style>
+      <div class="pip-wrap">
+        <div>
+          <div class="pip-title" id="pipTitle">Timer</div>
+          <div class="pip-time" id="pipTime">--:--</div>
+        </div>
+        <button class="pip-btn" id="pipBackBtn">${getLanguage() === 'en' ? 'Open' : '打开'}</button>
+      </div>`;
+    doc.getElementById('pipBackBtn').addEventListener('click', () => {
+      const active = timers.find(x => x.running) || timers[0];
+      if (active) openFullscreen(active.id);
+    });
+    pipMiniWindow.addEventListener('pagehide', () => {
+      closeMiniPipWindow(false);
+      miniPillActive = false;
+      const btn = document.getElementById('minipillBtn');
+      if (btn) btn.classList.remove('active');
+      updateMiniPill();
+    });
+    return pipMiniWindow;
+  } catch (e) {
+    console.warn('Document PiP unavailable', e);
+    return null;
+  }
+}
+
+function closeMiniPipWindow(closeWindow = true) {
+  if (pipMiniTimer) {
+    clearInterval(pipMiniTimer);
+    pipMiniTimer = null;
+  }
+  if (closeWindow && pipMiniWindow && !pipMiniWindow.closed) {
+    try { pipMiniWindow.close(); } catch (_) {}
+  }
+  pipMiniWindow = null;
 }
 
 function updateMiniPill() {
   const pill = document.getElementById('mini-pill');
   if (!miniPillActive) { pill.style.display = 'none'; return; }
   const active = timers.find(x => x.running) || timers[0];
-  if (!active) { pill.style.display = 'none'; return; }
+  if (!active) {
+    pill.style.display = 'none';
+    closeMiniPipWindow();
+    return;
+  }
+  ensureMiniPipWindow().then(win => {
+    if (!miniPillActive) return;
+    if (win && !win.closed) {
+      const tEl = win.document.getElementById('pipTime');
+      const nEl = win.document.getElementById('pipTitle');
+      if (tEl) tEl.textContent = fmtTime(active.left);
+      if (nEl) nEl.textContent = active.name;
+      pill.style.display = 'none';
+    } else {
+      pill.style.display = 'flex';
+    }
+  });
+  if (pipMiniWindow && !pipMiniWindow.closed) return;
   pill.style.display = 'flex';
   document.getElementById('pillSubject').textContent = active.name;
   document.getElementById('mini-pill-time').textContent = fmtTime(active.left);
@@ -3285,6 +3720,11 @@ function updateMiniPill() {
 function expandFromPill() {
   const active = timers.find(x => x.running) || timers[0];
   if (active) openFullscreen(active.id);
+  miniPillActive = false;
+  closeMiniPipWindow();
+  const btn = document.getElementById('minipillBtn');
+  if (btn) btn.classList.remove('active');
+  updateMiniPill();
 }
 
 // ============================================================
@@ -3297,17 +3737,26 @@ function openSettings() {
   document.getElementById('sApiKey').value = settings.apiKey || '';
   const neteaseInput = document.getElementById('neteaseSongId');
   if (neteaseInput) neteaseInput.value = settings.neteaseSongId || '';
+  const langInput = document.getElementById('sLanguage');
+  if (langInput) langInput.value = getLanguage();
   updateExamCountdown(examDate);
   openModal('settingsModal');
 }
 
 function renderSettingsUI() {
-  ['sound','autoFS','mockLink','goalLink'].forEach(key => {
+  ['sound','autoFS','fullscreenFx','interruptLog','mockLink','goalLink'].forEach(key => {
     const el = document.getElementById('toggle' + key[0].toUpperCase() + key.slice(1));
     if (el) el.classList.toggle('on', !!settings[key]);
   });
   const lm = document.getElementById('sLayoutMode');
   if (lm) lm.value = settings.layoutMode || 'carousel';
+  const lang = document.getElementById('sLanguage');
+  if (lang) lang.value = getLanguage();
+  document.querySelectorAll('input[name="bellSource"]').forEach(radio => {
+    radio.checked = radio.value === (settings.bellSource === 'netease' ? 'netease' : 'local');
+  });
+  const fs = document.getElementById('fullscreen-overlay');
+  if (fs) fs.classList.toggle('fx-on', !!settings.fullscreenFx);
 }
 
 function toggleSetting(key) {
@@ -3336,9 +3785,13 @@ function updateExamCountdown(dateStr) {
   const target = new Date(dateStr + 'T09:00:00');
   const now = new Date();
   const diffMs = target - now;
-  if (diffMs <= 0) { el.textContent = '考试日期已到 🎓'; el.style.display = 'block'; return; }
+  if (diffMs <= 0) {
+    el.textContent = getLanguage() === 'en' ? 'Exam day has arrived 🎓' : '考试日期已到 🎓';
+    el.style.display = 'block';
+    return;
+  }
   const days = Math.ceil(diffMs / 86400000);
-  el.textContent = `距考试还有 ${days} 天`;
+  el.textContent = getLanguage() === 'en' ? `${days} day(s) to exam` : `距考试还有 ${days} 天`;
   el.style.display = 'block';
 }
 
@@ -3359,6 +3812,9 @@ async function clearAllData() {
   dismissFinishScene();
   timers = [];
   settings = { ...DEFAULT_SETTINGS };
+  await clearCustomAudioFromIndexedDb();
+  customBellPlaybackSrc = '';
+  setCustomAudioPreviewSrc('');
   currentPage = 0;
   pendingInterruptTimerId = null;
   const keys = [SK, 'igcse_hist', 'igcse_stats', 'igcse_heat', 'igcse_exam_date', 'igcse_ai_privacy_ok', 'is_first_run'];
@@ -3367,9 +3823,10 @@ async function clearAllData() {
   if (examInput) examInput.value = '';
   const examCountdown = document.getElementById('examCountdownDisplay');
   if (examCountdown) examCountdown.style.display = 'none';
+  applyI18n();
   renderAll();
   renderStats(); renderHistory(); renderHeatmap();
-  showSnackbar('数据已清除');
+  showSnackbar(getLanguage() === 'en' ? 'All data cleared' : '数据已清除');
 }
 
 function openFinishScene(t, shouldPlayNetease = false) {
@@ -3381,25 +3838,31 @@ function openFinishScene(t, shouldPlayNetease = false) {
   const sub = document.getElementById('finishSubText');
   const meta = document.getElementById('finishMetaText');
   const musicWrap = document.getElementById('finishMusicWrap');
-  const frame = document.getElementById('finishNeteaseFrame');
+  const frame = document.getElementById('neteaseBgFrame');
   finishSceneOwnerId = t?.id || null;
+  const zhText = info.zhHans || fallback.zhHans || '倒计时结束';
+  const enText = settings.apiKey ? (info.en || '').trim() : '';
+  const englishOnTop = getLanguage() === 'en' && !!enText;
 
-  if (main) main.textContent = info.zhHans || fallback.zhHans || '倒计时结束';
-  if (sub) sub.textContent = info.en || fallback.en || 'Countdown finished';
+  if (main) main.textContent = englishOnTop ? enText : zhText;
+  if (sub) {
+    sub.textContent = englishOnTop ? zhText : enText;
+    sub.style.display = enText ? '' : 'none';
+  }
 
   if (meta) {
     const sourceLine = info.source
       ? `来自「${info.source}」${info.sourceWho ? ` · ${info.sourceWho}` : ''}`
       : '';
     meta.textContent = sourceLine
-      ? `${sourceLine} · 点击屏幕继续`
-      : '点击屏幕继续';
+      ? `${sourceLine} · ${t('tapToContinue')}`
+      : t('tapToContinue');
   }
 
   if (shouldPlayNetease && settings.neteaseSongId && musicWrap && frame) {
     const id = sanitizeNumericInput(settings.neteaseSongId);
-    frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66`;
-    musicWrap.style.display = 'block';
+    frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66&autoplay=1`;
+    musicWrap.style.display = 'none';
     activeBellMode = 'netease';
   } else if (musicWrap && frame) {
     frame.src = '';
@@ -3426,21 +3889,33 @@ function saveApiKey() {
   showSnackbar('API Key 已保存');
 }
 
-function handleAudioUpload(e) {
+async function handleAudioUpload(e) {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
+  settings.customBellType = f.type || 'audio/mpeg';
+  settings.bellSource = 'local';
+  try {
+    await saveCustomAudioToIndexedDb(f);
+    settings.customBellData = '';
+    customBellPlaybackSrc = URL.createObjectURL(f);
+    setCustomAudioPreviewSrc(customBellPlaybackSrc);
+    persist();
+    renderSettingsUI();
+    showSnackbar(getLanguage() === 'en' ? 'Custom bell saved' : '自定义铃声已保存');
+    return;
+  } catch (dbErr) {
+    console.warn('IndexedDB save failed, fallback to localStorage base64', dbErr);
+  }
   const rd = new FileReader();
   rd.onload = () => {
     settings.customBellData = rd.result;
-    settings.customBellType = f.type || 'audio/mpeg';
+    customBellPlaybackSrc = settings.customBellData;
     persist();
-    const p = document.getElementById('customAudioPreview');
-    if (p) {
-      p.src = settings.customBellData;
-      p.style.display = 'block';
-    }
-    showSnackbar('自定义铃声已保存');
+    setCustomAudioPreviewSrc(settings.customBellData);
+    renderSettingsUI();
+    showSnackbar(getLanguage() === 'en' ? 'Custom bell saved' : '自定义铃声已保存');
   };
+  rd.onerror = () => showSnackbar(getLanguage() === 'en' ? 'Save failed' : '铃声保存失败');
   rd.readAsDataURL(f);
 }
 
@@ -3449,9 +3924,28 @@ function saveNeteaseSongId() {
   if (!input) return;
   const cleaned = sanitizeNumericInput(input.value);
   settings.neteaseSongId = cleaned;
+  if (cleaned) settings.bellSource = 'netease';
   input.value = cleaned;
   persist();
-  showSnackbar(cleaned ? '网易云歌曲 ID 已保存' : '已清除网易云歌曲 ID');
+  renderSettingsUI();
+  showSnackbar(cleaned
+    ? (getLanguage() === 'en' ? 'NetEase song ID saved' : '网易云歌曲 ID 已保存')
+    : (getLanguage() === 'en' ? 'NetEase song ID cleared' : '已清除网易云歌曲 ID'));
+}
+
+function setBellSource(source) {
+  settings.bellSource = source === 'netease' ? 'netease' : 'local';
+  persist();
+  renderSettingsUI();
+}
+
+function setLanguage(lang) {
+  settings.language = lang === 'en' ? 'en' : 'zh';
+  persist();
+  applyI18n();
+  renderAll();
+  renderStats();
+  renderHistory();
 }
 
 async function generateAiSummary() {
@@ -3719,6 +4213,16 @@ function snackbarAction() {
   document.getElementById('snackbar').classList.remove('show');
 }
 
+function showBellStopToast() {
+  const el = document.getElementById('bell-stop-toast');
+  if (el) el.classList.add('show');
+}
+
+function hideBellStopToast() {
+  const el = document.getElementById('bell-stop-toast');
+  if (el) el.classList.remove('show');
+}
+
 function bindGlobalListeners() {
   if (listenersBound) return;
   listenersBound = true;
@@ -3806,7 +4310,7 @@ async function debugForceSceneWithPrefetch() {
   if (!t) return setDebugOutput('没有可用计时器。');
   await runInDebugMode(async () => {
     await prefetchFinishSceneData(t.id);
-    openFinishScene(t, !!settings.neteaseSongId);
+    openFinishScene(t, settings.bellSource === 'netease' && !!sanitizeNumericInput(settings.neteaseSongId));
   });
   setDebugOutput(`已使用预加载数据展示结束动画：${t.name}`);
 }
@@ -3824,7 +4328,7 @@ async function debugTestHitokotoAndTranslation() {
     const en = await translateWithDeepSeekIfAvailable(zh, 'en');
     t.finishSceneData = {
       zhHans: zh,
-      en: en || fallback.en,
+      en: en || '',
       source: String(hitData?.from || ''),
       sourceWho: String(hitData?.from_who || ''),
       loadedAt: Date.now(),
@@ -3842,6 +4346,7 @@ function debugTestNeteasePlayback() {
   if (!sanitizeNumericInput(settings.neteaseSongId)) {
     return setDebugOutput('请先在设置中保存网易云歌曲 ID。');
   }
+  settings.bellSource = 'netease';
   if (!t.finishSceneData) {
     t.finishSceneData = { ...fallbackFinishLines(t.name), loadedAt: Date.now() };
   }
@@ -3870,11 +4375,12 @@ function debugInjectFakeSceneData() {
 // ============================================================
 // INIT
 // ============================================================
-function init() {
+async function init() {
   if (isInitialized) return;
   isInitialized = true;
   bindGlobalListeners();
   loadPersisted();
+  applyI18n();
   renderSettingsUI();
   renderQuickStart();
   renderAll();
@@ -3895,15 +4401,11 @@ function init() {
   renderStats();
   renderHistory();
   renderHeatmap();
-  if (settings.customBellData) {
-    const p = document.getElementById('customAudioPreview');
-    if (p) {
-      p.src = settings.customBellData;
-      p.style.display = 'block';
-    }
-  }
+  await restoreCustomAudioFromStorage();
   const neteaseInput = document.getElementById('neteaseSongId');
   if (neteaseInput) neteaseInput.value = settings.neteaseSongId || '';
+  const langInput = document.getElementById('sLanguage');
+  if (langInput) langInput.value = getLanguage();
   const versionEl = document.getElementById('settingsVersion');
   if (versionEl) versionEl.textContent = `Version: ${APP_VERSION}`;
   const interruptSelect = document.getElementById('interruptReason');
