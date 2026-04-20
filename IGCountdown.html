@@ -1765,10 +1765,13 @@ body {
         <select class="form-select" id="debugTimerSelect"></select>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn-tonal" onclick="debugForceFinishSelected()">直接触发结束</button>
+        <button class="btn-tonal" onclick="debugForceFinishSelected()">完整触发计时结束流程</button>
+        <button class="btn-tonal" onclick="debugForceSceneWithPrefetch()">强制触发结束动画（带预加载）</button>
+        <button class="btn-tonal" onclick="debugTestHitokotoAndTranslation()">手动测试一言/翻译 API</button>
+        <button class="btn-tonal" onclick="debugTestNeteasePlayback()">测试网易云播放</button>
         <button class="btn-tonal" onclick="debugPlayBellSelected()">播放铃声</button>
         <button class="btn-tonal" onclick="debugStopBellSelected()">停止铃声</button>
-        <button class="btn-tonal" onclick="debugPrefetchSelected()">预加载结束动画</button>
+        <button class="btn-tonal" onclick="debugPrefetchSelected()">仅预加载结束动画数据</button>
       </div>
       <div class="divider"></div>
       <div class="form-field">
@@ -1868,9 +1871,11 @@ let confirmModalHasInput = false;
 let listenersBound = false;
 let isInitialized = false;
 let suppressStandardAlerts = false;
+let modalStack = [];
 const PRE_END_ALERT_THRESHOLD = 20;
 const CUSTOM_BELL_AUTO_STOP_MS = 15000;
 const TONE_BELL_AUTO_STOP_MS = 2500;
+const HITOKOTO_API_URL = 'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json&min_length=8&max_length=60';
 
 // ============================================================
 // PERSISTENCE
@@ -2003,48 +2008,73 @@ function sanitizeNumericInput(value) {
   return String(value || '').replace(/[^\d]/g, '');
 }
 
-function toTraditionalFallback(text) {
-  const dict = {
-    '计':'計','时':'時','结':'結','束':'束','学':'學','习':'習','专':'專','注':'注','为':'為','总':'總','这':'這',
-    '会':'會','后':'後','钟':'鐘','间':'間','开':'開','关':'關','实':'實','体':'體','录':'錄','显':'顯','经':'經',
-    '历':'歷','点':'點','听':'聽','声':'聲','级':'級','换':'換','页':'頁','组':'組','连':'連','网':'網','语':'語'
-  };
-  return String(text || '').replace(/[计时结束学习专注为总这会后钟间开关实体录显经历点听声级换页组连网语]/g, ch => dict[ch] || ch);
-}
-
 function fallbackFinishLines(name = '计时器') {
   const safeName = String(name || '计时器').slice(0, 36);
   return {
     zhHans: `${safeName} 倒计时结束`,
     en: `${safeName} countdown finished`,
-    zhHant: `${toTraditionalFallback(safeName)} 倒數計時結束`,
     source: ''
   };
 }
 
-async function translateWithDeepSeekIfAvailable(text, targetLang) {
-  if (!settings.apiKey) {
-    if (targetLang === 'en') return `Countdown finished · ${text}`;
-    if (targetLang === 'zh-Hant') return toTraditionalFallback(text);
-    return text;
+function parseAiTextPayload(payload) {
+  if (typeof payload === 'string') return payload;
+  if (Array.isArray(payload)) {
+    return payload.map(part => {
+      if (typeof part === 'string') return part;
+      if (part && typeof part.text === 'string') return part.text;
+      return '';
+    }).join(' ').trim();
   }
-  const langMap = { en: '英文', 'zh-Hant': '繁體中文（台灣）' };
+  if (payload && typeof payload.text === 'string') return payload.text;
+  return '';
+}
+
+function cleanupTranslationText(text) {
+  return String(text || '')
+    .replace(/^```[\w-]*\s*/i, '')
+    .replace(/```$/i, '')
+    .replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '')
+    .trim();
+}
+
+function looksLikeEnglish(text) {
+  const value = String(text || '');
+  const latin = (value.match(/[A-Za-z]/g) || []).length;
+  const cjk = (value.match(/[\u3400-\u9FFF]/g) || []).length;
+  return latin >= 3 && latin >= cjk;
+}
+
+async function translateWithDeepSeekIfAvailable(text, targetLang) {
+  const localFallback = targetLang === 'en' ? `Countdown finished · ${text}` : text;
+  if (!settings.apiKey) {
+    return localFallback;
+  }
+  const langMap = { en: '英文' };
   const target = langMap[targetLang] || targetLang;
   const prompt = `请将下面内容翻译成${target}，只返回翻译结果，不要解释：\n${text}`;
-  const resp = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${settings.apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2
-    })
-  });
-  const data = await resp.json();
-  return (data?.choices?.[0]?.message?.content || '').trim();
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2
+      })
+    });
+    if (!resp.ok) throw new Error(`deepseek request failed: ${resp.status}`);
+    const data = await resp.json();
+    const parsed = cleanupTranslationText(parseAiTextPayload(data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text));
+    if (targetLang === 'en' && !looksLikeEnglish(parsed)) throw new Error('invalid english translation');
+    return parsed || localFallback;
+  } catch (err) {
+    console.warn('DeepSeek translation failed, fallback applied', err);
+    return localFallback;
+  }
 }
 
 async function prefetchFinishSceneData(timerId) {
@@ -2053,26 +2083,23 @@ async function prefetchFinishSceneData(timerId) {
   t._finishScenePrefetching = true;
   const fallback = fallbackFinishLines(t.name);
   try {
-    const hitResp = await fetch('https://v1.hitokoto.cn/?c=f&encode=json');
-    if (!hitResp.ok) throw new Error(`hitokoto request failed: ${hitResp.status}`);
+    const hitResp = await fetch(HITOKOTO_API_URL);
+    if (!hitResp.ok) throw new Error(`hitokoto prefetch failed (status ${hitResp.status})`);
     const hitData = await hitResp.json();
     const rawHitokoto = String(hitData?.hitokoto || '').trim();
     const rawFrom = String(hitData?.from || '').trim();
     const rawFromWho = String(hitData?.from_who || '').trim();
     const zh = (rawHitokoto || fallback.zhHans).slice(0, 72) || fallback.zhHans;
-    const [en, zhHant] = await Promise.all([
-      translateWithDeepSeekIfAvailable(zh, 'en').catch(() => ''),
-      translateWithDeepSeekIfAvailable(zh, 'zh-Hant').catch(() => ''),
-    ]);
+    const en = await translateWithDeepSeekIfAvailable(zh, 'en');
     t.finishSceneData = {
       zhHans: zh,
       en: en || fallback.en,
-      zhHant: zhHant || fallback.zhHant,
       source: rawFrom,
       sourceWho: rawFromWho,
       loadedAt: Date.now(),
     };
   } catch (e) {
+    console.warn('Finish scene prefetch failed', e);
     t.finishSceneData = { ...fallback, loadedAt: Date.now() };
   } finally {
     t._finishScenePrefetching = false;
@@ -2536,6 +2563,7 @@ async function onTimerDone(id) {
   refreshFsDisplay();
   renderStats();
   renderHistory();
+  renderHeatmap();
   updateMiniPill();
 }
 
@@ -2744,8 +2772,6 @@ function renderAll() {
     }
   });
   renderStats();
-  renderHistory();
-  renderHeatmap();
   renderSettingsUI();
 }
 
@@ -3212,7 +3238,12 @@ function handleGlobalKeydown(e) {
       return;
     }
   }
-  if (e.key === 'Escape') exitFullscreen();
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (closeTopmostOverlay()) return;
+    exitFullscreen();
+    return;
+  }
   if (e.key === ' ' && fsTimerId !== null) {
     e.preventDefault();
     fsToggle();
@@ -3337,8 +3368,9 @@ async function clearAllData() {
 function openFinishScene(t, shouldPlayNetease = false) {
   const scene = document.getElementById('finishScene');
   if (!scene) return;
-  const info = t?.finishSceneData || fallbackFinishLines(t?.name);
-  const lines = [info.zhHans, info.en, info.zhHant];
+  const fallback = fallbackFinishLines(t?.name);
+  const info = t?.finishSceneData || fallback;
+  const lines = [info.zhHans || fallback.zhHans, info.en || fallback.en];
   const main = document.getElementById('finishMainText');
   const sub = document.getElementById('finishSubText');
   const meta = document.getElementById('finishMetaText');
@@ -3375,6 +3407,7 @@ function openFinishScene(t, shouldPlayNetease = false) {
     musicWrap.style.display = 'none';
   }
   scene.classList.add('open');
+  updateBodyScrollLock();
 }
 
 function dismissFinishScene(e) {
@@ -3386,6 +3419,7 @@ function dismissFinishScene(e) {
   finishSceneCycleTimer = null;
   finishSceneOwnerId = null;
   stopDoneSound(false);
+  updateBodyScrollLock();
 }
 
 function saveApiKey() {
@@ -3549,13 +3583,27 @@ function skipOnboarding() {
 // ============================================================
 // MODAL UTILITIES
 // ============================================================
+function updateBodyScrollLock() {
+  const hasOpenModal = !!document.querySelector('.modal-backdrop.open');
+  const hasOpenScene = !!document.getElementById('finishScene')?.classList.contains('open');
+  document.body.style.overflow = (hasOpenModal || hasOpenScene) ? 'hidden' : '';
+}
+
 function openModal(id) {
-  document.getElementById(id).classList.add('open');
-  document.body.style.overflow = 'hidden';
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  const idx = modalStack.indexOf(id);
+  if (idx >= 0) modalStack.splice(idx, 1);
+  modalStack.push(id);
+  modal.classList.add('open');
+  updateBodyScrollLock();
 }
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-  document.body.style.overflow = '';
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modalStack = modalStack.filter(mid => mid !== id);
+  modal.classList.remove('open');
+  updateBodyScrollLock();
 }
 function closeModalOnBackdrop(e, id) {
   if (e.target.id !== id) return;
@@ -3564,6 +3612,36 @@ function closeModalOnBackdrop(e, id) {
     return;
   }
   closeModal(id);
+}
+
+function closeTopmostOverlay() {
+  const overlays = [];
+  const openModalId = modalStack[modalStack.length - 1];
+  if (openModalId) {
+    const modalEl = document.getElementById(openModalId);
+    if (modalEl && modalEl.classList.contains('open')) overlays.push({ type: 'modal', id: openModalId, el: modalEl });
+  }
+  const finishScene = document.getElementById('finishScene');
+  if (finishScene && finishScene.classList.contains('open')) overlays.push({ type: 'finish', el: finishScene });
+  const onboarding = document.getElementById('oblay');
+  if (onboarding && onboarding.classList.contains('show')) overlays.push({ type: 'onboarding', el: onboarding });
+  if (!overlays.length) return false;
+  const top = overlays[overlays.length - 1];
+  if (top.type === 'modal') {
+    const id = top.id || top.el.id;
+    if (id === 'confirmModal') resolveConfirmModal(false);
+    else closeModal(id);
+    return true;
+  }
+  if (top.type === 'finish') {
+    dismissFinishScene();
+    return true;
+  }
+  if (top.type === 'onboarding') {
+    skipOnboarding();
+    return true;
+  }
+  return false;
 }
 
 function showConfirmDialog(opts = {}) {
@@ -3726,6 +3804,54 @@ async function debugPrefetchSelected() {
   setDebugOutput(`已执行预加载：${t.name}`);
 }
 
+async function debugForceSceneWithPrefetch() {
+  const t = getDebugTargetTimer();
+  if (!t) return setDebugOutput('没有可用计时器。');
+  await runInDebugMode(async () => {
+    await prefetchFinishSceneData(t.id);
+    openFinishScene(t, !!settings.neteaseSongId);
+  });
+  setDebugOutput(`已使用预加载数据展示结束动画：${t.name}`);
+}
+
+async function debugTestHitokotoAndTranslation() {
+  const t = getDebugTargetTimer();
+  if (!t) return setDebugOutput('没有可用计时器。');
+  setDebugOutput('正在请求一言并测试英文翻译...');
+  const fallback = fallbackFinishLines(t.name);
+  try {
+    const hitResp = await fetch(HITOKOTO_API_URL);
+    if (!hitResp.ok) throw new Error(`hitokoto request failed: ${hitResp.status}`);
+    const hitData = await hitResp.json();
+    const zh = String(hitData?.hitokoto || fallback.zhHans).trim().slice(0, 72) || fallback.zhHans;
+    const en = await translateWithDeepSeekIfAvailable(zh, 'en');
+    t.finishSceneData = {
+      zhHans: zh,
+      en: en || fallback.en,
+      source: String(hitData?.from || ''),
+      sourceWho: String(hitData?.from_who || ''),
+      loadedAt: Date.now(),
+    };
+    persist();
+    setDebugOutput(`一言与翻译测试成功：\n简体：${t.finishSceneData.zhHans}\nEnglish：${t.finishSceneData.en}`);
+  } catch (err) {
+    setDebugOutput(`测试失败：${err?.message || '未知错误'}`);
+  }
+}
+
+function debugTestNeteasePlayback() {
+  const t = getDebugTargetTimer();
+  if (!t) return setDebugOutput('没有可用计时器。');
+  if (!sanitizeNumericInput(settings.neteaseSongId)) {
+    return setDebugOutput('请先在设置中保存网易云歌曲 ID。');
+  }
+  if (!t.finishSceneData) {
+    t.finishSceneData = { ...fallbackFinishLines(t.name), loadedAt: Date.now() };
+  }
+  openFinishScene(t, true);
+  setDebugOutput(`已触发网易云播放测试：${settings.neteaseSongId}`);
+}
+
 function debugInjectFakeSceneData() {
   const t = getDebugTargetTimer();
   if (!t) return setDebugOutput('没有可用计时器。');
@@ -3735,7 +3861,6 @@ function debugInjectFakeSceneData() {
   t.finishSceneData = {
     zhHans: hitokoto,
     en: `Debug: ${hitokoto}`,
-    zhHant: toTraditionalFallback(hitokoto),
     source,
     sourceWho,
     loadedAt: Date.now(),
