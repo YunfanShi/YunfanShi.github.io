@@ -1100,20 +1100,26 @@ body {
   opacity: .7;
   margin-bottom: 12px;
 }
+.finish-copy {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  animation: fadeIn var(--dur-extra) var(--ease-decel) both;
+}
 .finish-main {
   font-family: 'Google Sans Display','Google Sans',sans-serif;
-  font-size: clamp(36px, 9vw, 88px);
+  font-size: clamp(34px, 8vw, 76px);
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 1.12;
   letter-spacing: -.01em;
   text-shadow: 0 18px 60px rgba(15,23,42,.6);
-  animation: finishPulse 1.9s cubic-bezier(.22,1,.36,1) infinite;
-  will-change: transform, opacity;
+  min-height: 1.2em;
 }
 .finish-sub {
-  margin-top: 14px;
-  font-size: clamp(18px, 3vw, 30px);
-  opacity: .88;
+  font-size: clamp(16px, 2.8vw, 26px);
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(241,245,249,.86);
   min-height: 1.5em;
 }
 .finish-meta {
@@ -1739,8 +1745,10 @@ body {
   <div class="finish-aurora"></div>
   <div class="finish-content" onclick="event.stopPropagation()">
     <div class="finish-kicker">IGCSE TIMER</div>
-    <div class="finish-main" id="finishMainText">倒计时结束</div>
-    <div class="finish-sub" id="finishSubText">Countdown Finished</div>
+    <div class="finish-copy">
+      <div class="finish-main" id="finishMainText">倒计时结束</div>
+      <div class="finish-sub" id="finishSubText">Countdown Finished</div>
+    </div>
     <div class="finish-meta" id="finishMetaText">点击屏幕继续</div>
     <div class="finish-music" id="finishMusicWrap" style="display:none;">
       <iframe id="finishNeteaseFrame" width="330" height="86" src=""></iframe>
@@ -1863,7 +1871,6 @@ let activeBellAudio = null;
 let activeBellContext = null;
 let activeBellStopTimer = null;
 let activeBellMode = null;
-let finishSceneCycleTimer = null;
 let finishSceneOwnerId = null;
 let statsRenderClock = 0;
 let confirmModalResolver = null;
@@ -3370,7 +3377,6 @@ function openFinishScene(t, shouldPlayNetease = false) {
   if (!scene) return;
   const fallback = fallbackFinishLines(t?.name);
   const info = t?.finishSceneData || fallback;
-  const lines = [info.zhHans || fallback.zhHans, info.en || fallback.en];
   const main = document.getElementById('finishMainText');
   const sub = document.getElementById('finishSubText');
   const meta = document.getElementById('finishMetaText');
@@ -3378,15 +3384,8 @@ function openFinishScene(t, shouldPlayNetease = false) {
   const frame = document.getElementById('finishNeteaseFrame');
   finishSceneOwnerId = t?.id || null;
 
-  clearInterval(finishSceneCycleTimer);
-  let idx = 0;
-  const draw = () => {
-    main.textContent = lines[idx % lines.length] || '倒计时结束';
-    sub.textContent = lines[(idx + 1) % lines.length] || 'Countdown finished';
-    idx++;
-  };
-  draw();
-  finishSceneCycleTimer = setInterval(draw, 1700);
+  if (main) main.textContent = info.zhHans || fallback.zhHans || '倒计时结束';
+  if (sub) sub.textContent = info.en || fallback.en || 'Countdown finished';
 
   if (meta) {
     const sourceLine = info.source
@@ -3415,8 +3414,6 @@ function dismissFinishScene(e) {
   const scene = document.getElementById('finishScene');
   if (!scene || !scene.classList.contains('open')) return;
   scene.classList.remove('open');
-  clearInterval(finishSceneCycleTimer);
-  finishSceneCycleTimer = null;
   finishSceneOwnerId = null;
   stopDoneSound(false);
   updateBodyScrollLock();
