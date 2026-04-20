@@ -1,794 +1,2637 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IGCSE Timer · Jack's Ecosystem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Display:wght@400;700&family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --bg:#0a0a0f;--surf:#12121a;--surf2:#1a1a26;--surf3:#22223a;
-  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);
-  --text:#f0f0ff;--text2:rgba(240,240,255,0.55);--text3:rgba(240,240,255,0.25);
-  --blue:#4a9eff;--blue-dim:rgba(74,158,255,0.15);
-  --green:#30d158;--green-dim:rgba(48,209,88,0.15);
-  --orange:#ff9f0a;--orange-dim:rgba(255,159,10,0.15);
-  --red:#ff453a;--red-dim:rgba(255,69,58,0.15);
-  --purple:#bf5af2;--purple-dim:rgba(191,90,242,0.15);
-  --teal:#5ac8fa;--teal-dim:rgba(90,200,250,0.15);
-  --r:20px;--r-sm:12px;--r-xs:8px;
+/* ============================================================
+   DESIGN TOKENS — Material Design 3 Light Theme
+   ============================================================ */
+:root {
+  --md-primary: #1a73e8;
+  --md-primary-container: #d3e3fd;
+  --md-on-primary: #ffffff;
+  --md-on-primary-container: #041e49;
+  --md-secondary: #4285f4;
+  --md-surface: #ffffff;
+  --md-surface-variant: #f0f4ff;
+  --md-surface-dim: #f8f9fa;
+  --md-surface-container: #f1f3f4;
+  --md-surface-container-high: #e8eaed;
+  --md-on-surface: #202124;
+  --md-on-surface-variant: #5f6368;
+  --md-outline: #dadce0;
+  --md-outline-variant: #e8eaed;
+  --md-error: #b3261e;
+  --md-error-container: #f9dedc;
+
+  /* Google Brand */
+  --g-blue: #1a73e8;
+  --g-red: #ea4335;
+  --g-yellow: #fbbc04;
+  --g-green: #34a853;
+
+  /* Subject colours */
+  --math-color: #1a73e8;
+  --math-bg: #e8f0fe;
+  --bio-color: #34a853;
+  --bio-bg: #e6f4ea;
+  --chem-color: #fa7b17;
+  --chem-bg: #fce8b2;
+  --phys-color: #9c27b0;
+  --phys-bg: #f3e5f5;
+  --eng-color: #ea4335;
+  --eng-bg: #fce8e6;
+  --custom-color: #5f6368;
+  --custom-bg: #f1f3f4;
+
+  /* Elevation */
+  --elev-1: 0 1px 2px rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+  --elev-2: 0 1px 2px rgba(60,64,67,.3), 0 2px 6px 2px rgba(60,64,67,.15);
+  --elev-3: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
+  --elev-4: 0 2px 3px rgba(60,64,67,.3), 0 6px 10px 4px rgba(60,64,67,.15);
+  --elev-5: 0 4px 4px rgba(60,64,67,.3), 0 8px 12px 6px rgba(60,64,67,.15);
+
+  /* Radius */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-full: 9999px;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decel: cubic-bezier(0, 0, 0, 1);
+  --ease-accel: cubic-bezier(0.3, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-short: 100ms;
+  --dur-med: 200ms;
+  --dur-long: 300ms;
+  --dur-extra: 500ms;
 }
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:600px;overflow:hidden;user-select:none;}
 
-.root{display:flex;flex-direction:column;height:600px;}
+/* ============================================================
+   BASE RESET
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; scroll-behavior: smooth; }
 
-/* TOPBAR */
-.topbar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(10,10,15,0.95);backdrop-filter:blur(24px);border-bottom:0.5px solid var(--border);flex-shrink:0;}
-.brand{font-size:15px;font-weight:600;letter-spacing:-0.3px;color:var(--text);}
-.brand span{color:var(--blue);}
-.topbar-actions{display:flex;gap:8px;align-items:center;}
-.tb-btn{background:var(--surf2);border:0.5px solid var(--border);border-radius:var(--r-xs);padding:6px 12px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);}
-.tb-btn:hover{background:var(--surf3);color:var(--text);border-color:var(--border2);}
-.tb-btn.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(74,158,255,0.4);}
-.tb-btn:active{transform:scale(0.96);}
+body {
+  font-family: 'Roboto', sans-serif;
+  background: var(--md-surface-dim);
+  color: var(--md-on-surface);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
 
-/* LAYOUT SWITCHER */
-.layout-switcher{display:flex;gap:4px;background:var(--surf);border:0.5px solid var(--border);border-radius:var(--r-xs);padding:3px;}
-.layout-btn{width:28px;height:22px;border:none;background:transparent;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.18s ease;}
-.layout-btn:hover{background:var(--surf2);}
-.layout-btn.on{background:var(--surf3);}
-.layout-icon{display:flex;gap:2px;}
-.layout-icon .b{background:var(--text3);border-radius:1px;transition:background 0.15s;}
-.layout-btn.on .b{background:var(--text2);}
+/* Google top bar */
+.google-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 4px; z-index: 1000;
+  background: linear-gradient(90deg,
+    var(--g-blue) 0 25%, var(--g-red) 25% 50%,
+    var(--g-yellow) 50% 75%, var(--g-green) 75% 100%);
+}
 
-/* TIMER ARENA */
-.arena{flex:1;display:flex;overflow:hidden;position:relative;}
-.timer-slot{flex:1;display:flex;flex-direction:column;position:relative;transition:flex 0.4s cubic-bezier(0.4,0,0.2,1),opacity 0.3s ease;}
-.timer-slot.split-right{border-left:0.5px solid var(--border);}
-.timer-slot.collapsed{flex:0;overflow:hidden;opacity:0;pointer-events:none;}
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-top: 4px; /* google bar */
+}
 
-/* RING */
-.ring-wrap{position:relative;display:flex;align-items:center;justify-content:center;}
-.ring-svg{transform:rotate(-90deg);}
-.ring-bg{fill:none;stroke:rgba(255,255,255,0.07);stroke-linecap:round;}
-.ring-fill{fill:none;stroke-linecap:round;transition:stroke-dasharray 0.8s cubic-bezier(0.4,0,0.2,1),stroke 0.4s ease;}
-.ring-pulse{fill:none;stroke-linecap:round;opacity:0;}
+/* ============================================================
+   TOP APP BAR — Material 3
+   ============================================================ */
+.top-app-bar {
+  position: sticky; top: 4px; z-index: 100;
+  height: 64px;
+  background: var(--md-surface);
+  box-shadow: var(--elev-1);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  transition: box-shadow var(--dur-med) var(--ease-standard);
+}
+.top-app-bar.elevated { box-shadow: var(--elev-2); }
 
-/* INNER DISPLAY */
-.timer-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
-.t-time{font-size:clamp(28px,7vw,64px);font-weight:300;letter-spacing:-3px;font-variant-numeric:tabular-nums;line-height:1;transition:color 0.4s ease;}
-.t-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-top:4px;}
-.t-prog-text{font-size:12px;color:var(--text3);font-variant-numeric:tabular-nums;}
+.tab-back-btn {
+  width: 40px; height: 40px;
+  border-radius: var(--r-full);
+  border: none; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+  transition: background var(--dur-short) var(--ease-standard);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.tab-back-btn:hover { background: rgba(60,64,67,.08); }
+.tab-back-btn:active { background: rgba(60,64,67,.12); }
 
-/* TIMER CARD LAYOUT */
-.timer-card{display:flex;flex-direction:column;align-items:center;padding:20px 16px;height:100%;gap:12px;overflow-y:auto;}
-.timer-header{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 4px;}
-.timer-subj{display:flex;align-items:center;gap:8px;}
-.subj-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.subj-name{font-size:13px;font-weight:600;letter-spacing:-0.2px;}
-.subj-paper{font-size:11px;color:var(--text3);}
-.timer-actions-top{display:flex;gap:6px;}
-.icon-btn{width:30px;height:30px;border-radius:var(--r-xs);border:0.5px solid var(--border);background:var(--surf2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all 0.18s ease;}
-.icon-btn:hover{background:var(--surf3);color:var(--text);border-color:var(--border2);}
-.icon-btn:active{transform:scale(0.92);}
-.icon-btn.danger:hover{background:var(--red-dim);color:var(--red);border-color:rgba(255,69,58,0.4);}
-.icon-btn.active-state{background:var(--orange-dim);color:var(--orange);border-color:rgba(255,159,10,0.4);}
+.app-bar-title {
+  display: flex; align-items: center; gap: 12px; flex: 1;
+}
+.app-bar-logo {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 20px; font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.app-bar-logo .blue { color: var(--g-blue); }
+.app-bar-logo .red  { color: var(--g-red); }
+.app-bar-logo .yel  { color: var(--g-yellow); }
+.app-bar-logo .grn  { color: var(--g-green); }
 
-/* CONTROLS */
-.controls{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;}
-.ctrl-btn{border:0.5px solid var(--border2);background:var(--surf2);color:var(--text);border-radius:50px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;justify-content:center;}
-.ctrl-btn:hover{background:var(--surf3);border-color:var(--border2);}
-.ctrl-btn:active{transform:scale(0.92);}
-.ctrl-play{width:52px;height:52px;font-size:18px;background:var(--blue);border-color:transparent;color:#fff;}
-.ctrl-play:hover{background:#5baeff;border-color:transparent;}
-.ctrl-play.is-running{background:var(--orange);color:#fff;}
-.ctrl-play.is-running:hover{background:#ffb030;}
-.ctrl-sm{width:36px;height:36px;font-size:14px;}
+.app-bar-subtitle {
+  font-size: 13px; color: var(--md-on-surface-variant);
+  font-weight: 400;
+}
 
-/* QUICK PRESETS */
-.presets-section{width:100%;}
-.presets-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;padding:0 2px;}
-.presets-grid{display:flex;flex-wrap:wrap;gap:6px;}
-.preset-chip{padding:6px 12px;border-radius:50px;border:0.5px solid var(--border);background:var(--surf2);color:var(--text2);font-size:11px;font-weight:500;cursor:pointer;transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);}
-.preset-chip:hover{border-color:var(--border2);color:var(--text);background:var(--surf3);}
-.preset-chip:active{transform:scale(0.94);}
-.preset-chip.active-p{color:var(--blue);border-color:rgba(74,158,255,0.5);background:var(--blue-dim);}
+.app-bar-actions {
+  display: flex; align-items: center; gap: 4px;
+}
 
-/* STATUS BAR */
-.status-row{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text3);width:100%;}
-.status-dot{width:5px;height:5px;border-radius:50%;background:var(--text3);}
-.status-dot.running{background:var(--green);animation:pulse-dot 1.4s ease infinite;}
-.status-dot.paused{background:var(--orange);}
-.status-dot.done{background:var(--green);}
-@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.icon-btn {
+  width: 40px; height: 40px;
+  border-radius: var(--r-full);
+  border: none; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-short) var(--ease-standard),
+              color var(--dur-short) var(--ease-standard);
+  font-family: inherit;
+}
+.icon-btn:hover { background: rgba(60,64,67,.08); }
+.icon-btn:active { background: rgba(60,64,67,.12); }
+.icon-btn .material-icons-round { font-size: 24px; }
+.icon-btn-label {
+  font-size: 10px; font-weight: 500;
+  position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%);
+  white-space: nowrap; color: var(--md-on-surface-variant); letter-spacing: .3px;
+  opacity: 0; transition: opacity var(--dur-short) var(--ease-standard);
+}
+.icon-btn:hover .icon-btn-label { opacity: 1; }
 
-/* ADD TIMER PANEL */
-.add-panel{padding:20px;height:100%;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
-.panel-title{font-size:16px;font-weight:600;letter-spacing:-0.3px;color:var(--text);}
-.form-group{display:flex;flex-direction:column;gap:6px;}
-.form-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:0.6px;text-transform:uppercase;}
-.form-input{background:var(--surf2);border:0.5px solid var(--border);border-radius:var(--r-xs);padding:9px 12px;font-size:13px;color:var(--text);outline:none;transition:border-color 0.18s ease;}
-.form-input:focus{border-color:rgba(74,158,255,0.5);}
-.form-select{background:var(--surf2);border:0.5px solid var(--border);border-radius:var(--r-xs);padding:9px 12px;font-size:13px;color:var(--text);outline:none;transition:border-color 0.18s ease;appearance:none;cursor:pointer;}
-.form-select:focus{border-color:rgba(74,158,255,0.5);}
-.color-row{display:flex;gap:8px;flex-wrap:wrap;}
-.color-dot{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all 0.18s cubic-bezier(0.34,1.56,0.64,1);}
-.color-dot.sel{border-color:#fff;transform:scale(1.2);}
-.btn-primary{background:var(--blue);color:#fff;border:none;border-radius:50px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-.btn-primary:hover{background:#5baeff;}
-.btn-primary:active{transform:scale(0.96);}
-.btn-secondary{background:var(--surf2);color:var(--text2);border:0.5px solid var(--border);border-radius:50px;padding:10px 20px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s ease;}
-.btn-secondary:hover{background:var(--surf3);color:var(--text);}
+/* ============================================================
+   CONTENT AREA
+   ============================================================ */
+.content {
+  flex: 1;
+  padding: 20px 16px 100px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
 
-/* HISTORY */
-.hist-list{display:flex;flex-direction:column;gap:6px;}
-.hist-item{background:var(--surf2);border:0.5px solid var(--border);border-radius:var(--r-xs);padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all 0.18s ease;}
-.hist-item:hover{background:var(--surf3);border-color:var(--border2);}
-.hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.hist-info{flex:1;min-width:0;}
-.hist-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hist-meta{font-size:10px;color:var(--text3);margin-top:2px;}
-.hist-time{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text2);}
-.hist-resume-btn{font-size:10px;padding:4px 8px;border-radius:20px;background:var(--blue-dim);color:var(--blue);border:0.5px solid rgba(74,158,255,0.4);cursor:pointer;transition:all 0.15s ease;white-space:nowrap;}
-.hist-resume-btn:hover{background:rgba(74,158,255,0.25);}
+/* ============================================================
+   FLOATING ACTION BUTTON
+   ============================================================ */
+.fab-container {
+  position: fixed; bottom: 28px; right: 28px; z-index: 200;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+}
+.fab {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 20px 0 16px;
+  height: 56px;
+  border-radius: var(--r-xl);
+  border: none;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--elev-3);
+  transition: box-shadow var(--dur-med) var(--ease-standard),
+              transform var(--dur-long) var(--ease-spring),
+              background var(--dur-med) var(--ease-standard);
+  white-space: nowrap;
+}
+.fab:hover {
+  box-shadow: var(--elev-4);
+  background: #1557b0;
+}
+.fab:active { transform: scale(0.96); box-shadow: var(--elev-1); }
+.fab .material-icons-round { font-size: 24px; }
 
-/* EMPTY STATE */
-.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text3);text-align:center;padding:32px;}
-.empty-ico{width:56px;height:56px;border-radius:50%;background:var(--surf2);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;}
-.empty-title{font-size:15px;font-weight:500;color:var(--text2);}
-.empty-desc{font-size:12px;line-height:1.6;}
+.mini-fab {
+  width: 40px; height: 40px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface);
+  color: var(--md-on-surface-variant);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--elev-1);
+  transition: box-shadow var(--dur-med) var(--ease-standard),
+              transform var(--dur-long) var(--ease-spring);
+  font-size: 12px; font-weight: 500;
+  font-family: 'Google Sans', sans-serif;
+}
+.mini-fab:hover { box-shadow: var(--elev-2); background: var(--md-surface-variant); }
+.mini-fab:active { transform: scale(0.93); }
+.mini-fab .material-icons-round { font-size: 18px; }
 
-/* SIDE DRAWER */
-.drawer{position:absolute;right:0;top:0;bottom:0;width:280px;background:var(--surf);border-left:0.5px solid var(--border);transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);z-index:50;display:flex;flex-direction:column;overflow:hidden;}
-.drawer.open{transform:translateX(0);}
-.drawer-hd{padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--border);}
-.drawer-title{font-size:14px;font-weight:600;}
-.drawer-body{flex:1;overflow-y:auto;padding:12px;}
+/* ============================================================
+   TIMER GRID — responsive, animated
+   ============================================================ */
+#timer-arena {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  transition: grid-template-columns var(--dur-long) var(--ease-standard);
+}
+#timer-arena.split-2 { grid-template-columns: 1fr 1fr; }
+#timer-arena.split-3 { grid-template-columns: 1fr 1fr 1fr; }
 
-/* TOAST */
-.toast{position:absolute;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:rgba(30,30,46,0.95);border:0.5px solid var(--border2);color:var(--text);font-size:12px;font-weight:500;padding:9px 18px;border-radius:50px;backdrop-filter:blur(20px);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:100;white-space:nowrap;}
-.toast.show{transform:translateX(-50%) translateY(0);}
+/* ============================================================
+   TIMER CARD — Material 3 elevated card
+   ============================================================ */
+.timer-card {
+  background: var(--md-surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--elev-1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: box-shadow var(--dur-med) var(--ease-standard),
+              transform var(--dur-long) var(--ease-spring);
+  animation: cardEnter var(--dur-extra) var(--ease-spring) both;
+}
+.timer-card:hover { box-shadow: var(--elev-2); }
+.timer-card.active-focus { box-shadow: var(--elev-3); }
 
-/* FULLSCREEN OVERLAY */
-.fs-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;}
-.fs-overlay.open{display:flex;}
-.fs-close{position:absolute;top:20px;right:20px;background:var(--surf2);border:0.5px solid var(--border);color:var(--text2);border-radius:50px;padding:8px 16px;font-size:12px;cursor:pointer;transition:all 0.18s ease;}
-.fs-close:hover{background:var(--surf3);color:var(--text);}
-.fs-time{font-size:clamp(72px,20vw,160px);font-weight:200;letter-spacing:-8px;font-variant-numeric:tabular-nums;line-height:1;transition:color 0.4s ease;}
-.fs-label{font-size:16px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:16px;}
-.fs-subj{font-size:20px;font-weight:600;margin-top:8px;}
-.fs-controls{display:flex;gap:16px;margin-top:40px;}
-.fs-btn{border:0.5px solid var(--border2);background:rgba(255,255,255,0.06);color:var(--text);border-radius:50px;cursor:pointer;font-size:16px;width:60px;height:60px;display:flex;align-items:center;justify-content:center;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-.fs-btn:hover{background:rgba(255,255,255,0.12);}
-.fs-btn:active{transform:scale(0.92);}
-.fs-play{width:72px;height:72px;font-size:22px;background:var(--blue);border-color:transparent;color:#fff;}
-.fs-play:hover{background:#5baeff;}
-.fs-play.is-running{background:var(--orange);}
-.fs-ring{margin-bottom:8px;}
+@keyframes cardEnter {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes cardExit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.88) translateY(10px); }
+}
+.timer-card.exiting { animation: cardExit var(--dur-long) var(--ease-accel) forwards; }
 
-/* ANIMATIONS */
-@keyframes fadeIn{from{opacity:0;transform:scale(0.96);}to{opacity:1;transform:scale(1);}}
-@keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
-@keyframes flash{0%,100%{opacity:1;}50%{opacity:0.3;}}
+/* Subject colour strip */
+.card-strip {
+  height: 6px;
+  background: linear-gradient(90deg,
+    var(--g-blue) 0 25%, var(--g-red) 25% 50%,
+    var(--g-yellow) 50% 75%, var(--g-green) 75%);
+  transition: background var(--dur-extra) var(--ease-standard);
+}
 
-.timer-slot{animation:fadeIn 0.3s ease;}
-.new-timer{animation:slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);}
+/* Card header */
+.card-header {
+  padding: 16px 20px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-header-left {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+}
+.subj-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+  transition: background var(--dur-med) var(--ease-standard);
+}
+.subj-info { min-width: 0; }
+.subj-name {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 16px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: color var(--dur-med) var(--ease-standard);
+}
+.subj-paper { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 1px; }
+.card-header-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
-/* SAVE INTERVAL BADGE */
-.save-badge{position:absolute;top:8px;left:8px;font-size:9px;color:var(--text3);background:var(--surf2);border:0.5px solid var(--border);border-radius:20px;padding:2px 7px;opacity:0;transition:opacity 0.3s ease;}
-.save-badge.flash{opacity:1;animation:fadeIn 0.2s ease;}
+/* Ring + time display */
+.card-body {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
 
-/* IGCSE QUICK-SET */
-.igcse-quick{width:100%;display:flex;flex-direction:column;gap:8px;}
-.igcse-section{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:4px;}
-.igcse-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.igcse-chip{background:var(--surf2);border:0.5px solid var(--border);border-radius:var(--r-xs);padding:8px 10px;cursor:pointer;transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);}
-.igcse-chip:hover{background:var(--surf3);border-color:var(--border2);}
-.igcse-chip:active{transform:scale(0.95);}
-.igcse-chip-name{font-size:11px;font-weight:600;color:var(--text);}
-.igcse-chip-dur{font-size:10px;color:var(--text3);margin-top:2px;}
-.igcse-chip-marks{font-size:10px;color:var(--text2);margin-top:1px;}
-.igcse-chip.active-p .igcse-chip-name{color:var(--blue);}
-.igcse-chip.active-p{border-color:rgba(74,158,255,0.4);background:var(--blue-dim);}
+.ring-container {
+  position: relative;
+  width: 200px; height: 200px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.ring-container:active { transform: scale(0.97); }
 
-/* SPLIT RESIZE HANDLE */
-.resize-handle{width:4px;background:transparent;cursor:col-resize;position:absolute;top:0;bottom:0;z-index:10;transition:background 0.15s;}
-.resize-handle:hover{background:rgba(255,255,255,0.1);}
+.ring-svg {
+  position: absolute; inset: 0;
+  transform: rotate(-90deg);
+  width: 100%; height: 100%;
+}
 
-/* NAV TABS */
-.nav-tabs{display:flex;border-bottom:0.5px solid var(--border);flex-shrink:0;}
-.nav-tab{flex:1;padding:8px 4px;font-size:11px;font-weight:500;color:var(--text3);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.18s ease;}
-.nav-tab.on{color:var(--blue);border-bottom-color:var(--blue);}
-.nav-tab:hover:not(.on){color:var(--text2);}
+.ring-track {
+  fill: none;
+  stroke: var(--md-surface-container);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.ring-progress {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 534.07; /* 2π×85 */
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s linear,
+              stroke var(--dur-long) var(--ease-standard);
+}
+.ring-warn {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 534.07;
+  stroke-dashoffset: 534.07;
+  opacity: 0;
+  transition: opacity var(--dur-med) var(--ease-standard);
+}
+.ring-warn.active {
+  opacity: 0.25;
+  animation: ringPulse 1.2s ease-in-out infinite;
+}
+@keyframes ringPulse { 0%,100%{opacity:0.15} 50%{opacity:0.4} }
+
+.ring-inner {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.time-display {
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 400;
+  letter-spacing: -2px;
+  line-height: 1;
+  transition: color var(--dur-med) var(--ease-standard),
+              transform var(--dur-short) var(--ease-spring);
+}
+.time-display.tick { animation: timeTick var(--dur-short) var(--ease-spring); }
+@keyframes timeTick {
+  0%  { transform: scale(1.04); }
+  100%{ transform: scale(1); }
+}
+.time-pct {
+  font-size: 12px; font-weight: 500;
+  color: var(--md-on-surface-variant);
+  letter-spacing: .3px;
+  font-family: 'Google Sans', sans-serif;
+}
+.time-status-badge {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  font-size: 11px; font-weight: 500;
+  letter-spacing: .4px;
+  font-family: 'Google Sans', sans-serif;
+  margin-top: 2px;
+  transition: background var(--dur-med) var(--ease-standard),
+              color var(--dur-med) var(--ease-standard);
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: var(--r-full);
+  transition: background var(--dur-med) var(--ease-standard);
+}
+
+/* Controls row */
+.controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.ctrl-btn {
+  border-radius: var(--r-full);
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Google Sans', sans-serif;
+  font-weight: 500;
+  transition: transform var(--dur-long) var(--ease-spring),
+              box-shadow var(--dur-med) var(--ease-standard),
+              background var(--dur-med) var(--ease-standard);
+}
+.ctrl-btn:active { transform: scale(0.93) !important; }
+
+.ctrl-play {
+  width: 64px; height: 64px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  box-shadow: var(--elev-3);
+  font-size: 28px;
+}
+.ctrl-play:hover { box-shadow: var(--elev-4); background: #1557b0; }
+.ctrl-play.running { background: var(--g-yellow); color: #202124; }
+.ctrl-play.running:hover { background: #f29900; }
+.ctrl-play.done { background: var(--g-green); color: #fff; }
+.ctrl-play .material-icons-round { font-size: 28px; transition: transform var(--dur-long) var(--ease-spring); }
+
+.ctrl-sm {
+  width: 48px; height: 48px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface-variant);
+  font-size: 20px;
+}
+.ctrl-sm:hover { background: var(--md-surface-container-high); }
+.ctrl-sm .material-icons-round { font-size: 20px; }
+
+.ctrl-text {
+  padding: 0 16px;
+  height: 40px;
+  background: var(--md-surface-container);
+  color: var(--md-on-surface-variant);
+  font-size: 12px; font-weight: 500;
+  border-radius: var(--r-full);
+  border: none;
+  cursor: pointer;
+  transition: background var(--dur-med) var(--ease-standard);
+  font-family: 'Google Sans', sans-serif;
+}
+.ctrl-text:hover { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+
+/* Quick presets */
+.presets-section {
+  width: 100%;
+  padding: 0 20px 20px;
+}
+.presets-label {
+  font-size: 11px; font-weight: 500;
+  color: var(--md-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  margin-bottom: 8px;
+  font-family: 'Google Sans', sans-serif;
+}
+.presets-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.preset-chip {
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface);
+  color: var(--md-on-surface-variant);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  font-family: 'Google Sans', sans-serif;
+  transition: background var(--dur-med) var(--ease-spring),
+              color var(--dur-med) var(--ease-spring),
+              border-color var(--dur-med) var(--ease-spring),
+              transform var(--dur-long) var(--ease-spring);
+  white-space: nowrap;
+}
+.preset-chip:hover {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+.preset-chip:active { transform: scale(0.94); }
+.preset-chip.active {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  border-color: transparent;
+}
+
+/* Notes area */
+.card-notes {
+  padding: 0 20px 16px;
+  width: 100%;
+}
+.notes-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--md-outline-variant);
+  background: var(--md-surface-variant);
+  color: var(--md-on-surface);
+  font-size: 13px;
+  font-family: 'Roboto', sans-serif;
+  resize: none;
+  outline: none;
+  transition: border-color var(--dur-med) var(--ease-standard);
+  line-height: 1.5;
+}
+.notes-input:focus { border-color: var(--md-primary); }
+.notes-input::placeholder { color: var(--md-on-surface-variant); }
+
+/* Save indicator */
+.save-indicator {
+  position: absolute;
+  top: 14px; right: 68px;
+  font-size: 10px; font-weight: 500;
+  color: var(--g-green);
+  display: flex; align-items: center; gap: 3px;
+  opacity: 0;
+  transition: opacity var(--dur-med) var(--ease-standard);
+  font-family: 'Google Sans', sans-serif;
+  pointer-events: none;
+}
+.save-indicator.show { opacity: 1; }
+.save-indicator .material-icons-round { font-size: 12px; }
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 32px;
+  text-align: center;
+  gap: 16px;
+  animation: fadeIn var(--dur-extra) var(--ease-decel) both;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+.empty-icon-wrap {
+  width: 88px; height: 88px;
+  border-radius: var(--r-full);
+  background: var(--md-primary-container);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+}
+.empty-icon-wrap .material-icons-round { font-size: 40px; color: var(--md-primary); }
+.empty-title {
+  font-family: 'Google Sans Display', sans-serif;
+  font-size: 24px; font-weight: 400;
+  color: var(--md-on-surface);
+}
+.empty-desc {
+  font-size: 14px; color: var(--md-on-surface-variant);
+  max-width: 360px; line-height: 1.6;
+}
+.empty-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+/* ============================================================
+   IGCSE QUICK-START CHIPS (top of page)
+   ============================================================ */
+.igcse-quickstart {
+  display: flex; flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 20px;
+  animation: fadeIn var(--dur-extra) var(--ease-decel) both;
+  animation-delay: 50ms;
+}
+.igcse-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--r-lg);
+  border: 1.5px solid var(--md-outline-variant);
+  background: var(--md-surface);
+  cursor: pointer;
+  transition: all var(--dur-med) var(--ease-spring);
+  text-decoration: none;
+  color: inherit;
+}
+.igcse-chip:hover {
+  box-shadow: var(--elev-2);
+  transform: translateY(-2px);
+  border-color: transparent;
+}
+.igcse-chip:active { transform: scale(0.96); }
+.igcse-chip-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.igcse-chip-info {}
+.igcse-chip-name {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+}
+.igcse-chip-meta {
+  font-size: 11px;
+  color: var(--md-on-surface-variant);
+  margin-top: 1px;
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* ============================================================
+   SECTION LABEL
+   ============================================================ */
+.section-label {
+  font-size: 12px; font-weight: 500;
+  color: var(--md-on-surface-variant);
+  text-transform: uppercase; letter-spacing: .8px;
+  font-family: 'Google Sans', sans-serif;
+  padding: 4px 0 12px;
+}
+
+/* ============================================================
+   STATS STRIP
+   ============================================================ */
+.stats-strip {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  padding: 0 0 24px;
+  animation: fadeIn var(--dur-extra) var(--ease-decel) both;
+  animation-delay: 100ms;
+}
+.stat-card {
+  background: var(--md-surface);
+  border-radius: var(--r-lg);
+  padding: 14px 20px;
+  display: flex; flex-direction: column;
+  gap: 4px;
+  flex: 1; min-width: 120px;
+  box-shadow: var(--elev-1);
+  transition: box-shadow var(--dur-med) var(--ease-standard);
+}
+.stat-card:hover { box-shadow: var(--elev-2); }
+.stat-label {
+  font-size: 11px; font-weight: 500;
+  color: var(--md-on-surface-variant);
+  font-family: 'Google Sans', sans-serif;
+  letter-spacing: .3px;
+}
+.stat-value {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 22px; font-weight: 700;
+  color: var(--md-primary);
+}
+.stat-unit { font-size: 13px; font-weight: 400; color: var(--md-on-surface-variant); }
+
+/* ============================================================
+   HISTORY PANEL
+   ============================================================ */
+.history-section {
+  padding: 8px 0 0;
+  animation: fadeIn var(--dur-extra) var(--ease-decel) both;
+  animation-delay: 150ms;
+}
+.history-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.history-list::-webkit-scrollbar { width: 4px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
+.history-list::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: var(--r-full); }
+
+.hist-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: var(--md-surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--md-outline-variant);
+  cursor: pointer;
+  transition: all var(--dur-med) var(--ease-spring);
+}
+.hist-item:hover {
+  background: var(--md-surface-variant);
+  border-color: var(--md-outline);
+  transform: translateX(4px);
+}
+.hist-color-bar {
+  width: 4px; height: 36px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+.hist-info { flex: 1; min-width: 0; }
+.hist-name {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-meta { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px; }
+.hist-time {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 13px; font-weight: 500;
+  color: var(--md-on-surface-variant);
+}
+.hist-resume-btn {
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--md-outline);
+  background: transparent;
+  color: var(--md-primary);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-med) var(--ease-spring);
+  white-space: nowrap;
+}
+.hist-resume-btn:hover { background: var(--md-primary-container); border-color: transparent; }
+
+/* ============================================================
+   HEAT MAP
+   ============================================================ */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.heat-cell {
+  height: 14px;
+  border-radius: var(--r-xs);
+  background: var(--md-surface-container);
+  transition: background var(--dur-med) var(--ease-standard);
+  cursor: default;
+  position: relative;
+}
+.heat-cell[data-mins]:hover::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%; transform: translateX(-50%);
+  background: var(--md-on-surface);
+  color: var(--md-surface);
+  font-size: 10px; padding: 3px 6px;
+  border-radius: var(--r-xs);
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+.heatmap-days { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.heatmap-day { font-size: 10px; color: var(--md-on-surface-variant); }
+
+/* ============================================================
+   DIALOG / MODAL
+   ============================================================ */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(32,33,36,.5);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--dur-long) var(--ease-standard),
+              visibility var(--dur-long) var(--ease-standard);
+}
+.modal-backdrop.open { opacity: 1; visibility: visible; }
+.modal-backdrop.open .modal-surface {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.modal-surface {
+  background: var(--md-surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--elev-5);
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: scale(0.92) translateY(24px);
+  opacity: 0;
+  transition: transform var(--dur-extra) var(--ease-spring),
+              opacity var(--dur-long) var(--ease-decel);
+}
+.modal-surface::-webkit-scrollbar { width: 4px; }
+.modal-surface::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: var(--r-full); }
+
+.modal-header {
+  padding: 24px 24px 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 20px; font-weight: 500;
+}
+.modal-body { padding: 16px 24px; display: flex; flex-direction: column; gap: 16px; }
+.modal-footer {
+  padding: 8px 16px 16px;
+  display: flex; justify-content: flex-end; gap: 8px;
+  border-top: 1px solid var(--md-outline-variant);
+}
+
+/* Form elements */
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+  font-size: 12px; font-weight: 500;
+  color: var(--md-on-surface-variant);
+  letter-spacing: .3px;
+  font-family: 'Google Sans', sans-serif;
+}
+.form-input {
+  padding: 12px 16px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface);
+  color: var(--md-on-surface);
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  outline: none;
+  transition: border-color var(--dur-med) var(--ease-standard),
+              box-shadow var(--dur-med) var(--ease-standard);
+  width: 100%;
+}
+.form-input:focus {
+  border-color: var(--md-primary);
+  box-shadow: 0 0 0 3px rgba(26,115,232,.15);
+}
+.form-select {
+  padding: 12px 16px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface);
+  color: var(--md-on-surface);
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%235f6368' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  transition: border-color var(--dur-med) var(--ease-standard);
+}
+.form-select:focus { border-color: var(--md-primary); outline: none; }
+
+.form-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.form-chip {
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  border: 1.5px solid var(--md-outline);
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  font-family: 'Google Sans', sans-serif;
+  transition: all var(--dur-med) var(--ease-spring);
+}
+.form-chip:hover { background: var(--md-surface-container); }
+.form-chip.sel {
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border-color: var(--md-primary);
+}
+
+.color-dots { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-dot {
+  width: 28px; height: 28px;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  border: 2.5px solid transparent;
+  transition: transform var(--dur-long) var(--ease-spring),
+              border-color var(--dur-med) var(--ease-standard);
+}
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.sel { border-color: var(--md-on-surface); transform: scale(1.2); }
+
+/* Buttons */
+.btn-filled {
+  padding: 10px 24px;
+  border-radius: var(--r-full);
+  border: none;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-med) var(--ease-spring);
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-filled:hover { background: #1557b0; box-shadow: var(--elev-2); }
+.btn-filled:active { transform: scale(0.96); }
+.btn-filled .material-icons-round { font-size: 18px; }
+
+.btn-tonal {
+  padding: 10px 24px;
+  border-radius: var(--r-full);
+  border: none;
+  background: var(--md-surface-container-high);
+  color: var(--md-on-surface);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-med) var(--ease-spring);
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-tonal:hover { background: var(--md-surface-container); }
+.btn-tonal:active { transform: scale(0.96); }
+
+.btn-text {
+  padding: 10px 24px;
+  border-radius: var(--r-full);
+  border: none;
+  background: transparent;
+  color: var(--md-primary);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-med) var(--ease-standard);
+}
+.btn-text:hover { background: var(--md-surface-variant); }
+.btn-text.danger { color: var(--md-error); }
+.btn-text.danger:hover { background: var(--md-error-container); }
+
+/* ============================================================
+   FULLSCREEN OVERLAY
+   ============================================================ */
+#fullscreen-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: #ffffff;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  animation: fullscreenIn var(--dur-extra) var(--ease-decel) both;
+}
+#fullscreen-overlay.open { display: flex; }
+@keyframes fullscreenIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.fs-exit-btn {
+  position: absolute;
+  top: 20px; right: 20px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface-container);
+  color: var(--md-on-surface-variant);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-med) var(--ease-standard);
+}
+.fs-exit-btn:hover { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+.fs-exit-btn .material-icons-round { font-size: 18px; }
+
+.fs-subject-name {
+  font-family: 'Google Sans Display', sans-serif;
+  font-size: 20px; font-weight: 400;
+  color: var(--md-on-surface-variant);
+  margin-bottom: 8px;
+}
+#fs-time-display {
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(80px, 18vw, 160px);
+  font-weight: 300;
+  letter-spacing: -8px;
+  line-height: 1;
+  transition: color var(--dur-med) var(--ease-standard);
+  margin: 8px 0 4px;
+}
+.fs-ring-wrap {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.fs-ring-wrap svg { width: min(80vw,500px); height: min(80vw,500px); }
+.fs-status {
+  font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--md-on-surface-variant);
+  font-family: 'Google Sans', sans-serif;
+  margin-bottom: 32px;
+}
+.fs-controls { display: flex; gap: 16px; align-items: center; }
+.fs-btn {
+  width: 56px; height: 56px;
+  border-radius: var(--r-full);
+  border: 1.5px solid var(--md-outline);
+  background: var(--md-surface-container);
+  color: var(--md-on-surface);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 22px;
+  transition: all var(--dur-long) var(--ease-spring);
+}
+.fs-btn:hover { background: var(--md-surface-container-high); }
+.fs-btn:active { transform: scale(0.9); }
+.fs-btn .material-icons-round { font-size: 22px; }
+.fs-play-btn {
+  width: 80px; height: 80px;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  border-color: transparent;
+  font-size: 32px;
+  box-shadow: var(--elev-3);
+}
+.fs-play-btn.running { background: var(--g-yellow); color: #202124; }
+.fs-play-btn:hover { box-shadow: var(--elev-4); }
+.fs-play-btn .material-icons-round { font-size: 32px; }
+
+/* Google bar on fullscreen */
+.fs-google-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+    var(--g-blue) 0 25%, var(--g-red) 25% 50%,
+    var(--g-yellow) 50% 75%, var(--g-green) 75%);
+  border-radius: var(--r-full) var(--r-full) 0 0;
+}
+.fs-progress-bar {
+  position: absolute;
+  bottom: 0; left: 0; height: 4px;
+  border-radius: var(--r-full) var(--r-full) 0 0;
+  transition: width 1s linear, background var(--dur-long) var(--ease-standard);
+}
+
+/* ============================================================
+   DYNAMIC ISLAND / MINI PILL
+   ============================================================ */
+#mini-pill {
+  position: fixed;
+  top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 1100;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  background: var(--md-on-surface);
+  color: var(--md-surface);
+  border-radius: var(--r-full);
+  box-shadow: var(--elev-4);
+  cursor: pointer;
+  font-family: 'Google Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  white-space: nowrap;
+  transition: transform var(--dur-long) var(--ease-spring),
+              padding var(--dur-long) var(--ease-spring);
+  animation: pillEnter var(--dur-extra) var(--ease-spring);
+}
+@keyframes pillEnter {
+  from { transform: translateX(-50%) translateY(-60px) scale(0.8); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+}
+#mini-pill:hover { transform: translateX(-50%) scale(1.04); }
+#mini-pill .material-icons-round { font-size: 16px; }
+#mini-pill-time {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 500;
+}
+
+/* ============================================================
+   SNACKBAR / TOAST
+   ============================================================ */
+#snackbar {
+  position: fixed;
+  bottom: 100px; left: 50%; transform: translateX(-50%) translateY(60px);
+  z-index: 400;
+  background: #323232;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  box-shadow: var(--elev-3);
+  display: flex; align-items: center; gap: 16px;
+  opacity: 0;
+  transition: transform var(--dur-long) var(--ease-spring),
+              opacity var(--dur-med) var(--ease-standard);
+  white-space: nowrap;
+}
+#snackbar.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+#snackbar-action {
+  color: var(--g-yellow);
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 0;
+}
+
+/* ============================================================
+   RESPONSIVE TWEAKS
+   ============================================================ */
+@media (max-width: 768px) {
+  #timer-arena.split-2 { grid-template-columns: 1fr; }
+  #timer-arena.split-3 { grid-template-columns: 1fr; }
+  .stats-strip { gap: 8px; }
+  .stat-card { min-width: 100px; }
+  .igcse-chip { padding: 8px 12px; }
+  .content { padding: 16px 12px 100px; }
+}
+@media (max-width: 480px) {
+  .app-bar-subtitle { display: none; }
+  .top-app-bar { padding: 0 8px; }
+}
+
+/* ============================================================
+   SETTINGS PANEL
+   ============================================================ */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.settings-row-label { font-size: 14px; color: var(--md-on-surface); }
+.settings-row-sub { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px; }
+
+.toggle {
+  width: 52px; height: 32px;
+  border-radius: var(--r-full);
+  background: var(--md-outline);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--dur-med) var(--ease-standard);
+  flex-shrink: 0;
+  border: none;
+  padding: 0;
+}
+.toggle.on { background: var(--md-primary); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 4px; left: 4px;
+  width: 24px; height: 24px;
+  border-radius: var(--r-full);
+  background: white;
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur-med) var(--ease-spring);
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* Divider */
+.divider { height: 1px; background: var(--md-outline-variant); margin: 4px 0; }
+
+/* Right side panel (history + stats) */
+.sidebar-panel {
+  background: var(--md-surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--elev-1);
+  padding: 20px;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .main-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
-<div class="root" id="root">
 
-  <div class="topbar">
-    <div class="brand">IGCSE <span>Timer</span></div>
-    <div class="topbar-actions">
-      <div class="layout-switcher" id="layoutSwitcher">
-        <button class="layout-btn on" id="l1" onclick="setLayout(1)" title="Single">
-          <div class="layout-icon"><div class="b" style="width:14px;height:16px;"></div></div>
-        </button>
-        <button class="layout-btn" id="l2" onclick="setLayout(2)" title="Split">
-          <div class="layout-icon"><div class="b" style="width:6px;height:16px;"></div><div class="b" style="width:6px;height:16px;"></div></div>
-        </button>
+<div class="google-bar"></div>
+
+<div class="app-shell">
+  <!-- TOP APP BAR -->
+  <header class="top-app-bar" id="topAppBar">
+    <a href="index.html" class="tab-back-btn" title="返回主页">
+      <span class="material-icons-round">home</span>
+    </a>
+    <div class="app-bar-title">
+      <div class="app-bar-logo">
+        <span class="blue">I</span><span class="red">G</span><span class="yel">C</span><span class="grn">S</span><span class="blue">E</span>
+        &nbsp;Timer
       </div>
-      <button class="tb-btn" onclick="openHistory()">History</button>
-      <button class="tb-btn" onclick="openAddTimer()">+ New Timer</button>
+      <span class="app-bar-subtitle" id="appBarSub">Jack's Ecosystem · 考试计时器</span>
     </div>
-  </div>
-
-  <div class="arena" id="arena">
-    <div class="timer-slot" id="slot0"></div>
-    <div class="timer-slot split-right collapsed" id="slot1"></div>
-  </div>
-
-  <div class="drawer" id="histDrawer">
-    <div class="drawer-hd">
-      <span class="drawer-title">Session History</span>
-      <button class="icon-btn" onclick="closeDrawer('histDrawer')">✕</button>
+    <div class="app-bar-actions">
+      <button class="icon-btn" onclick="toggleMinipill()" id="minipillBtn" title="迷你悬浮">
+        <span class="material-icons-round">picture_in_picture</span>
+      </button>
+      <button class="icon-btn" onclick="openSettings()" title="设置">
+        <span class="material-icons-round">settings</span>
+      </button>
     </div>
-    <div class="drawer-body" id="histBody"></div>
-  </div>
+  </header>
 
-  <div class="drawer" id="addDrawer">
-    <div class="drawer-hd">
-      <span class="drawer-title">New Timer</span>
-      <button class="icon-btn" onclick="closeDrawer('addDrawer')">✕</button>
-    </div>
-    <div class="drawer-body">
-      <div class="add-panel" style="padding:0;height:auto;">
-        <div class="form-group">
-          <label class="form-label">Subject</label>
-          <select class="form-select" id="f-subj" onchange="subjectChanged()">
-            <option value="custom">Custom</option>
-            <option value="0580">0580 Mathematics</option>
-            <option value="0610">0610 Biology</option>
-            <option value="0620">0620 Chemistry</option>
-            <option value="0625">0625 Physics</option>
-          </select>
-        </div>
-        <div class="igcse-quick" id="igcseQuick" style="display:none;">
-          <div class="igcse-section">IGCSE Papers</div>
-          <div class="igcse-grid" id="igcseGrid"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Name / Paper</label>
-          <input class="form-input" id="f-name" placeholder="e.g. Paper 4 / Mock Run">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Duration</label>
-          <div class="presets-grid" id="durPresets" style="margin-bottom:6px;"></div>
-          <input class="form-input" id="f-dur" type="number" placeholder="Minutes" min="1" max="300">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Color</label>
-          <div class="color-row" id="colorRow"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Auto-save interval</label>
-          <select class="form-select" id="f-save">
-            <option value="1">Every 1 second</option>
-            <option value="5" selected>Every 5 seconds</option>
-            <option value="10">Every 10 seconds</option>
-            <option value="30">Every 30 seconds</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px;">
-          <button class="btn-primary" style="flex:1;" onclick="createTimer()">Start Timer</button>
-          <button class="btn-secondary" onclick="closeDrawer('addDrawer')">Cancel</button>
+  <div class="content">
+    <div class="main-grid">
+      <!-- LEFT: timers + quick-start -->
+      <div>
+        <!-- IGCSE Quick-start -->
+        <div class="section-label">IGCSE 快捷启动</div>
+        <div class="igcse-quickstart" id="igcseQuickstart"></div>
+
+        <!-- Timer arena -->
+        <div class="section-label" id="timersLabel" style="display:none;">运行中 / 已暂停</div>
+        <div id="timer-arena"></div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon-wrap">
+            <span class="material-icons-round">timer</span>
+          </div>
+          <div class="empty-title">开始你的备考计时</div>
+          <div class="empty-desc">点击上方快捷启动卡片，或者点击右下角的按钮来创建自定义计时器。支持多开、全屏、历史记录恢复。</div>
+          <div class="empty-actions">
+            <button class="btn-filled" onclick="openCreateModal()">
+              <span class="material-icons-round">add</span>新建计时器
+            </button>
+            <button class="btn-tonal" onclick="openHistoryModal()">
+              <span class="material-icons-round">history</span>历史记录
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- RIGHT: stats + history -->
+      <div>
+        <!-- Stats strip -->
+        <div class="sidebar-panel" style="margin-bottom:16px;">
+          <div class="section-label" style="padding-bottom:16px;">今日统计</div>
+          <div class="stats-strip" id="statsStrip">
+            <div class="stat-card">
+              <div class="stat-label">专注时长</div>
+              <div class="stat-value" id="statFocusTime">0<span class="stat-unit">min</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">已完成</div>
+              <div class="stat-value" id="statCompleted">0<span class="stat-unit">次</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">暂停次数</div>
+              <div class="stat-value" id="statPauses">0<span class="stat-unit">次</span></div>
+            </div>
+          </div>
+
+          <!-- 7-day heatmap -->
+          <div style="margin-top:8px;">
+            <div class="section-label" style="padding:0 0 10px;">近7天活跃度</div>
+            <div class="heatmap-days" id="heatmapDays"></div>
+            <div class="heatmap-grid" id="heatmapGrid"></div>
+          </div>
+        </div>
+
+        <!-- Recent history -->
+        <div class="sidebar-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="section-label" style="padding:0;">最近记录</div>
+            <button class="btn-text" style="padding:4px 10px;font-size:12px;" onclick="openHistoryModal()">查看全部</button>
+          </div>
+          <div class="history-list" id="recentHistory"></div>
+          <div id="histEmptyMsg" style="text-align:center;padding:24px;color:var(--md-on-surface-variant);font-size:13px;display:none;">
+            暂无历史记录，完成一次计时后即可显示。
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-
-</div>
-
-<!-- FULLSCREEN -->
-<div class="fs-overlay" id="fsOverlay">
-  <button class="fs-close" onclick="exitFullscreen()">✕ Exit Fullscreen</button>
-  <svg class="fs-ring" id="fsRing" width="300" height="300" viewBox="0 0 300 300">
-    <circle cx="150" cy="150" r="130" class="ring-bg" stroke-width="6"/>
-    <circle cx="150" cy="150" r="130" id="fsRingFill" class="ring-fill" stroke-width="6" stroke-dasharray="0 817"/>
-  </svg>
-  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;" id="fsMid">
-    <div class="fs-time" id="fsTime">00:00</div>
-    <div class="fs-subj" id="fsSubj">Timer</div>
-    <div class="fs-label" id="fsLabel">REMAINING</div>
-  </div>
-  <div class="fs-controls">
-    <button class="fs-btn" onclick="fsReset()">↺</button>
-    <button class="fs-btn fs-play" id="fsPlay" onclick="fsToggle()">▶</button>
-    <button class="fs-btn" onclick="fsStop()">■</button>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- FAB -->
+<div class="fab-container">
+  <button class="fab" onclick="openCreateModal()" id="mainFab">
+    <span class="material-icons-round">add</span>
+    新建计时器
+  </button>
+</div>
+
+<!-- ============================================================
+     MINI PILL (Dynamic Island style)
+     ============================================================ -->
+<div id="mini-pill" onclick="expandFromPill()">
+  <span class="material-icons-round" id="pillIcon">timer</span>
+  <span id="pillSubject">Timer</span>
+  <span id="mini-pill-time">--:--</span>
+  <span class="material-icons-round" style="font-size:14px;opacity:0.6;">open_in_full</span>
+</div>
+
+<!-- ============================================================
+     FULLSCREEN OVERLAY
+     ============================================================ -->
+<div id="fullscreen-overlay">
+  <div class="fs-google-bar"></div>
+  <div class="fs-progress-bar" id="fsProgressBar"></div>
+
+  <div class="fs-ring-wrap">
+    <svg viewBox="0 0 500 500" style="transform:rotate(-90deg)">
+      <circle cx="250" cy="250" r="220" fill="none" stroke="#f1f3f4" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="250" cy="250" r="220" fill="none" id="fsRingArc"
+        stroke="#1a73e8" stroke-width="8" stroke-linecap="round"
+        stroke-dasharray="1382.3" stroke-dashoffset="0"
+        style="transition:stroke-dashoffset 1s linear,stroke 0.3s ease"/>
+    </svg>
+  </div>
+
+  <button class="fs-exit-btn" onclick="exitFullscreen()">
+    <span class="material-icons-round">close_fullscreen</span>
+    退出全屏
+  </button>
+
+  <div style="text-align:center;position:relative;z-index:1;">
+    <div class="fs-subject-name" id="fsSubjectName">IGCSE Timer</div>
+    <div id="fs-time-display" style="color:#1a73e8;">00:00</div>
+    <div class="fs-status" id="fsStatus">准备开始</div>
+    <div class="fs-controls">
+      <button class="fs-btn" onclick="fsReset()" title="重置">
+        <span class="material-icons-round">replay</span>
+      </button>
+      <button class="fs-btn fs-play-btn" id="fsPlayBtn" onclick="fsToggle()">
+        <span class="material-icons-round" id="fsPlayIcon">play_arrow</span>
+      </button>
+      <button class="fs-btn" onclick="fsAddTime(5)" title="+5分钟">
+        <span class="material-icons-round">add</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     CREATE TIMER MODAL
+     ============================================================ -->
+<div class="modal-backdrop" id="createModal" onclick="closeModalOnBackdrop(event,'createModal')">
+  <div class="modal-surface">
+    <div class="modal-header">
+      <div class="modal-title" id="createModalTitle">新建计时器</div>
+      <button class="icon-btn" onclick="closeModal('createModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label class="form-label">科目 / 名称</label>
+        <input class="form-input" id="f-name" placeholder="如：Physics Paper 4 Mock" maxlength="50">
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">IGCSE 卷型快捷选择</label>
+        <div class="form-chips" id="igcseChips"></div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">时长（分钟）</label>
+        <div class="form-chips" id="durChips" style="margin-bottom:8px;"></div>
+        <input class="form-input" id="f-dur" type="number" placeholder="自定义分钟数" min="1" max="300" style="margin-top:4px;">
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">颜色标签</label>
+        <div class="color-dots" id="colorDots"></div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">自动保存间隔</label>
+        <select class="form-select" id="f-saveInterval">
+          <option value="1">每 1 秒保存一次</option>
+          <option value="5" selected>每 5 秒保存一次</option>
+          <option value="10">每 10 秒保存一次</option>
+          <option value="30">每 30 秒保存一次</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">备注（可选，如：P2 第12题）</label>
+        <input class="form-input" id="f-note" placeholder="记录当前做到的题目或进度…" maxlength="80">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-text" onclick="closeModal('createModal')">取消</button>
+      <button class="btn-filled" onclick="confirmCreate()">
+        <span class="material-icons-round">play_arrow</span>启动计时
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     HISTORY MODAL
+     ============================================================ -->
+<div class="modal-backdrop" id="historyModal" onclick="closeModalOnBackdrop(event,'historyModal')">
+  <div class="modal-surface" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title">全部历史记录</div>
+      <div style="display:flex;gap:4px;">
+        <button class="btn-text danger" onclick="clearAllHistory()" style="padding:8px 14px;font-size:13px;">清空</button>
+        <button class="icon-btn" onclick="closeModal('historyModal')">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body" id="fullHistoryList" style="max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-footer">
+      <button class="btn-tonal" onclick="closeModal('historyModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SETTINGS MODAL
+     ============================================================ -->
+<div class="modal-backdrop" id="settingsModal" onclick="closeModalOnBackdrop(event,'settingsModal')">
+  <div class="modal-surface">
+    <div class="modal-header">
+      <div class="modal-title">设置</div>
+      <button class="icon-btn" onclick="closeModal('settingsModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">声音提醒</div>
+          <div class="settings-row-sub">计时结束时播放提示音</div>
+        </div>
+        <button class="toggle on" id="toggleSound" onclick="toggleSetting('sound')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">禅意模式自动全屏</div>
+          <div class="settings-row-sub">启动计时时自动进入全屏</div>
+        </div>
+        <button class="toggle" id="toggleAutoFS" onclick="toggleSetting('autoFS')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">MockPortal 联动</div>
+          <div class="settings-row-sub">计时完成后自动触发 MockPortal 标记</div>
+        </div>
+        <button class="toggle on" id="toggleMockLink" onclick="toggleSetting('mockLink')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">Goal Tracker 联动</div>
+          <div class="settings-row-sub">完成后在 Goal 系统中自动打卡</div>
+        </div>
+        <button class="toggle on" id="toggleGoalLink" onclick="toggleSetting('goalLink')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">考试日期（用于顶栏倒计时）</label>
+        <input class="form-input" id="sExamDate" type="date" onchange="saveExamDate(this.value)">
+      </div>
+      <div id="examCountdownDisplay" style="font-family:'Google Sans',sans-serif;font-size:14px;color:var(--md-primary);text-align:center;display:none;"></div>
+      <div class="divider"></div>
+      <div>
+        <div class="settings-row-label" style="margin-bottom:8px;">清除数据</div>
+        <button class="btn-text danger" onclick="clearAllData()" style="padding:8px 0;">清除所有计时历史</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-filled" onclick="closeModal('settingsModal')">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- SNACKBAR -->
+<div id="snackbar">
+  <span id="snackbar-msg">操作成功</span>
+  <button id="snackbar-action" onclick="snackbarAction()">撤销</button>
+</div>
 
 <script>
+// ============================================================
+// DATA — IGCSE Paper Definitions
+// ============================================================
+const IGCSE_PAPERS = [
+  { id:'0580P1', subj:'0580', name:'数学 P1', paper:'Paper 1', dur:90,  marks:70,  tier:'Core',          color:'#1a73e8' },
+  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:90,  marks:70,  tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P3', subj:'0580', name:'数学 P3', paper:'Paper 3', dur:120, marks:104, tier:'Core',          color:'#1a73e8' },
+  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:150, marks:130, tier:'Extended',       color:'#1a73e8' },
+  { id:'0610P2', subj:'0610', name:'生物 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#34a853' },
+  { id:'0610P4', subj:'0610', name:'生物 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#34a853' },
+  { id:'0610P6', subj:'0610', name:'生物 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#34a853' },
+  { id:'0620P2', subj:'0620', name:'化学 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#fa7b17' },
+  { id:'0620P4', subj:'0620', name:'化学 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#fa7b17' },
+  { id:'0620P6', subj:'0620', name:'化学 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#fa7b17' },
+  { id:'0625P2', subj:'0625', name:'物理 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#9c27b0' },
+  { id:'0625P4', subj:'0625', name:'物理 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#9c27b0' },
+  { id:'0625P6', subj:'0625', name:'物理 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#9c27b0' },
+  { id:'0500P1', subj:'0500', name:'英语 P1', paper:'Paper 1', dur:120, marks:40,  tier:'Reading',       color:'#ea4335' },
+  { id:'0500P2', subj:'0500', name:'英语 P2', paper:'Paper 2', dur:90,  marks:40,  tier:'Writing',       color:'#ea4335' },
+];
+
+const DUR_PRESETS = [
+  { label:'45 min',    v: 45 },
+  { label:'1 hr',      v: 60 },
+  { label:'1h 15m',    v: 75 },
+  { label:'1h 30m',    v: 90 },
+  { label:'2 hrs',     v: 120 },
+  { label:'2h 30m',    v: 150 },
+];
+
 const COLORS = [
-  {id:'blue',hex:'#4a9eff'},{id:'green',hex:'#30d158'},{id:'orange',hex:'#ff9f0a'},
-  {id:'red',hex:'#ff453a'},{id:'purple',hex:'#bf5af2'},{id:'teal',hex:'#5ac8fa'},
-  {id:'pink',hex:'#ff6b9d'},{id:'yellow',hex:'#ffd60a'}
+  '#1a73e8','#34a853','#ea4335','#fbbc04','#9c27b0','#fa7b17','#00acc1','#5c6bc0',
 ];
-const IGCSE_PAPERS = {
-  '0580':[
-    {name:'Paper 1',paper:'P1',dur:90,marks:70,tier:'Core'},
-    {name:'Paper 2',paper:'P2',dur:90,marks:70,tier:'Extended'},
-    {name:'Paper 3',paper:'P3',dur:120,marks:104,tier:'Core'},
-    {name:'Paper 4',paper:'P4',dur:150,marks:130,tier:'Extended'},
-  ],
-  '0610':[
-    {name:'Paper 1',paper:'P1',dur:45,marks:40,tier:'Core MCQ'},
-    {name:'Paper 2',paper:'P2',dur:45,marks:40,tier:'Ext MCQ'},
-    {name:'Paper 3',paper:'P3',dur:75,marks:80,tier:'Core Theory'},
-    {name:'Paper 4',paper:'P4',dur:75,marks:80,tier:'Ext Theory'},
-    {name:'Paper 5',paper:'P5',dur:75,marks:40,tier:'Practical'},
-    {name:'Paper 6',paper:'P6',dur:60,marks:40,tier:'Alt Prac'},
-  ],
-  '0620':[
-    {name:'Paper 1',paper:'P1',dur:45,marks:40,tier:'Core MCQ'},
-    {name:'Paper 2',paper:'P2',dur:45,marks:40,tier:'Ext MCQ'},
-    {name:'Paper 3',paper:'P3',dur:75,marks:80,tier:'Core Theory'},
-    {name:'Paper 4',paper:'P4',dur:75,marks:80,tier:'Ext Theory'},
-    {name:'Paper 5',paper:'P5',dur:75,marks:40,tier:'Practical'},
-    {name:'Paper 6',paper:'P6',dur:60,marks:40,tier:'Alt Prac'},
-  ],
-  '0625':[
-    {name:'Paper 1',paper:'P1',dur:45,marks:40,tier:'Core MCQ'},
-    {name:'Paper 2',paper:'P2',dur:45,marks:40,tier:'Ext MCQ'},
-    {name:'Paper 3',paper:'P3',dur:75,marks:80,tier:'Core Theory'},
-    {name:'Paper 4',paper:'P4',dur:75,marks:80,tier:'Ext Theory'},
-    {name:'Paper 5',paper:'P5',dur:75,marks:40,tier:'Practical'},
-    {name:'Paper 6',paper:'P6',dur:60,marks:40,tier:'Alt Prac'},
-  ],
+
+const SUBJ_ICONS = {
+  '0580': '📐', '0610': '🔬', '0620': '⚗️', '0625': '⚡',
+  '0500': '📚', 'custom': '⏱️',
 };
-const QUICK_DURS = [
-  {l:'45 min',v:45},{l:'1 hr',v:60},{l:'1h 15m',v:75},{l:'1h 30m',v:90},{l:'2 hrs',v:120},{l:'2h 30m',v:150}
-];
 
-let timers = [];
-let history = [];
-let layout = 1;
-let selColor = 'blue';
-let selDur = null;
+// ============================================================
+// STATE
+// ============================================================
+let timers = [];       // active timer objects
+let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true };
+let selColor = COLORS[0];
+let selDur   = null;
 let selIgcse = null;
-let fsTimerIdx = null;
-let saveTick = {};
-let toastT;
+let fsTimerId = null;
+let miniPillActive = false;
+let snackbarTimer  = null;
+let snackbarUndoFn = null;
 
-function loadState(){
-  try{
-    const s=JSON.parse(localStorage.getItem('igcse_timer_v3')||'null');
-    if(s){timers=s.timers||[];history=s.history||[];layout=s.layout||1;}
-  }catch(e){}
-}
-function saveState(){
-  localStorage.setItem('igcse_timer_v3',JSON.stringify({timers,history,layout}));
-}
+// ============================================================
+// PERSISTENCE
+// ============================================================
+const SK = 'igcse_timer_v6';
 
-function durFmt(sec){
-  if(sec<0)sec=0;
-  const m=Math.floor(sec/60),s=sec%60;
-  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-}
-function durLabel(min){
-  if(min<60)return min+' min';
-  const h=Math.floor(min/60),m=min%60;
-  return m?`${h}h ${m}m`:`${h} hr${h>1?'s':''}`;
-}
-function colHex(id){return (COLORS.find(c=>c.id===id)||COLORS[0]).hex;}
-function pct(t){return t.total>0?Math.max(0,Math.min(1,(t.total-t.left)/t.total)):0;}
-function ringDash(r,p){const circ=2*Math.PI*r;return `${circ*p} ${circ*(1-p)}`;}
-
-function toast(msg,dur=2200){
-  const el=document.getElementById('toast');
-  el.textContent=msg;el.classList.add('show');
-  clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),dur);
+function persist() {
+  const snapshot = {
+    timers: timers.map(t => ({
+      id: t.id, name: t.name, color: t.color, subj: t.subj,
+      paperId: t.paperId, paper: t.paper, marks: t.marks,
+      total: t.total, left: t.left, running: false, paused: t.paused || !t.running,
+      done: t.done, note: t.note || '', saveInterval: t.saveInterval,
+      createdAt: t.createdAt, startedAt: t.startedAt,
+    })),
+    history: getHistory(),
+    stats: getStats(),
+    settings,
+    heatmap: getHeatmap(),
+  };
+  localStorage.setItem(SK, JSON.stringify(snapshot));
 }
 
-function buildColorRow(){
-  const row=document.getElementById('colorRow');
-  if(!row)return;
-  row.innerHTML=COLORS.map(c=>`<div class="color-dot${c.id===selColor?' sel':''}" style="background:${c.hex};" onclick="pickColor('${c.id}')"></div>`).join('');
+function loadPersisted() {
+  try {
+    const raw = localStorage.getItem(SK);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s.settings) settings = { ...settings, ...s.settings };
+    if (s.timers) {
+      timers = s.timers.map(t => ({
+        ...t,
+        running: false,
+        paused: true,
+        _interval: null,
+        _saveCountdown: t.saveInterval || 5,
+      }));
+    }
+  } catch(e) { console.warn('Load failed', e); }
 }
-function pickColor(id){selColor=id;buildColorRow();}
 
-function buildDurPresets(){
-  const el=document.getElementById('durPresets');
-  if(!el)return;
-  el.innerHTML=QUICK_DURS.map(d=>`<div class="preset-chip${selDur===d.v?' active-p':''}" onclick="pickDur(${d.v})">${d.l}</div>`).join('');
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('igcse_hist') || '[]'); }
+  catch(e) { return []; }
 }
-function pickDur(v){
-  selDur=v;
-  document.getElementById('f-dur').value=v;
-  buildDurPresets();
+function saveHistory(h) { localStorage.setItem('igcse_hist', JSON.stringify(h)); }
+function addHistory(entry) {
+  const h = getHistory();
+  h.unshift(entry);
+  if (h.length > 200) h.splice(200);
+  saveHistory(h);
+}
+function clearAllHistory() {
+  if (!confirm('确定清除全部历史记录？')) return;
+  saveHistory([]);
+  renderHistory();
+  closeModal('historyModal');
+  showSnackbar('历史记录已清除');
 }
 
-function subjectChanged(){
-  const s=document.getElementById('f-subj').value;
-  const q=document.getElementById('igcseQuick');
-  if(s==='custom'){q.style.display='none';selIgcse=null;return;}
-  q.style.display='block';
-  const papers=IGCSE_PAPERS[s]||[];
-  document.getElementById('igcseGrid').innerHTML=papers.map((p,i)=>`
-    <div class="igcse-chip${selIgcse&&selIgcse.paper===p.paper?' active-p':''}" onclick="pickIgcse(${i},'${s}')">
-      <div class="igcse-chip-name">${p.paper} · ${p.tier}</div>
-      <div class="igcse-chip-dur">${durLabel(p.dur)}</div>
-      <div class="igcse-chip-marks">${p.marks} marks</div>
-    </div>
-  `).join('');
+function getStats() {
+  try { return JSON.parse(localStorage.getItem('igcse_stats') || '{}'); }
+  catch(e) { return {}; }
 }
-function pickIgcse(i,subj){
-  const p=IGCSE_PAPERS[subj][i];
-  selIgcse=p;
-  document.getElementById('f-name').value=`${subj} ${p.paper} · ${p.tier}`;
-  pickDur(p.dur);
-  document.getElementById('igcseGrid').querySelectorAll('.igcse-chip').forEach((el,j)=>{
-    el.classList.toggle('active-p',j===i);
+function saveStats(s) { localStorage.setItem('igcse_stats', JSON.stringify(s)); }
+
+function getHeatmap() {
+  try { return JSON.parse(localStorage.getItem('igcse_heat') || '{}'); }
+  catch(e) { return {}; }
+}
+function saveHeatmap(h) { localStorage.setItem('igcse_heat', JSON.stringify(h)); }
+function addToHeatmap(mins) {
+  const h = getHeatmap();
+  const today = new Date().toISOString().slice(0,10);
+  h[today] = (h[today] || 0) + mins;
+  saveHeatmap(h);
+}
+
+function addToStats(field, val = 1) {
+  const s = getStats();
+  const today = new Date().toISOString().slice(0,10);
+  if (!s[today]) s[today] = { focusMins:0, completed:0, pauses:0 };
+  s[today][field] = (s[today][field] || 0) + val;
+  saveStats(s);
+}
+function getTodayStats() {
+  const s = getStats();
+  const today = new Date().toISOString().slice(0,10);
+  return s[today] || { focusMins:0, completed:0, pauses:0 };
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function fmtTime(sec) {
+  if (sec < 0) sec = 0;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function fmtDur(min) {
+  if (min < 60) return min + ' min';
+  const h = Math.floor(min/60), m = min%60;
+  return m ? `${h}h ${m}m` : `${h} hr${h>1?'s':''}`;
+}
+function uid() { return Date.now() + Math.random().toString(36).slice(2,7); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+
+function colorForSubj(subj) {
+  const m = { '0580':'#1a73e8','0610':'#34a853','0620':'#fa7b17','0625':'#9c27b0','0500':'#ea4335' };
+  return m[subj] || '#5f6368';
+}
+
+function stripForColor(c) {
+  return `linear-gradient(90deg, ${c} 0 25%, #ea4335 25% 50%, #fbbc04 50% 75%, #34a853 75%)`;
+}
+
+function ringCircumference(r) { return 2 * Math.PI * r; }
+const RING_R = 85;
+const RING_CIRC = 2 * Math.PI * RING_R;
+const FS_RING_R = 220;
+const FS_RING_CIRC = 2 * Math.PI * FS_RING_R;
+
+function pct(t) {
+  if (!t.total) return 0;
+  return Math.max(0, Math.min(1, (t.total - t.left) / t.total));
+}
+
+// ============================================================
+// QUICK START CHIPS RENDER
+// ============================================================
+function renderQuickStart() {
+  const wrap = document.getElementById('igcseQuickstart');
+  const shown = [
+    { id:'0580P4', icon:'📐', color:'#1a73e8', bg:'#e8f0fe' },
+    { id:'0580P2', icon:'📐', color:'#1a73e8', bg:'#e8f0fe' },
+    { id:'0625P4', icon:'⚡', color:'#9c27b0', bg:'#f3e5f5' },
+    { id:'0625P2', icon:'⚡', color:'#9c27b0', bg:'#f3e5f5' },
+    { id:'0620P4', icon:'⚗️', color:'#fa7b17', bg:'#fce8b2' },
+    { id:'0620P6', icon:'⚗️', color:'#fa7b17', bg:'#fce8b2' },
+    { id:'0610P4', icon:'🔬', color:'#34a853', bg:'#e6f4ea' },
+    { id:'0610P6', icon:'🔬', color:'#34a853', bg:'#e6f4ea' },
+    { id:'0500P1', icon:'📚', color:'#ea4335', bg:'#fce8e6' },
+  ];
+  wrap.innerHTML = shown.map(s => {
+    const p = IGCSE_PAPERS.find(x => x.id === s.id);
+    if (!p) return '';
+    return `<button class="igcse-chip" onclick="quickLaunch('${p.id}')" title="${p.name} · ${fmtDur(p.dur)}">
+      <div class="igcse-chip-icon" style="background:${s.bg};color:${s.color};">${s.icon}</div>
+      <div class="igcse-chip-info">
+        <div class="igcse-chip-name" style="color:${s.color};">${p.subj}/${p.paper.replace('Paper ','P')}</div>
+        <div class="igcse-chip-meta">${fmtDur(p.dur)} · ${p.marks}m</div>
+      </div>
+    </button>`;
+  }).join('');
+}
+
+function quickLaunch(paperId) {
+  const p = IGCSE_PAPERS.find(x => x.id === paperId);
+  if (!p) return;
+  createTimer({
+    name: `${p.subj} ${p.paper}`,
+    color: p.color,
+    subj: p.subj,
+    paperId: p.id,
+    paper: p.paper,
+    marks: p.marks,
+    dur: p.dur,
+    saveInterval: 5,
+    note: '',
+  });
+  showSnackbar(`启动：${p.name} (${fmtDur(p.dur)})`);
+}
+
+// ============================================================
+// CREATE MODAL
+// ============================================================
+function openCreateModal() {
+  selColor = COLORS[0];
+  selDur   = null;
+  selIgcse = null;
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-dur').value  = '';
+  document.getElementById('f-note').value = '';
+  document.getElementById('createModalTitle').textContent = '新建计时器';
+
+  // Render IGCSE chips
+  const ic = document.getElementById('igcseChips');
+  ic.innerHTML = IGCSE_PAPERS.map(p =>
+    `<button class="form-chip" data-igcse="${p.id}" onclick="pickIgcse('${p.id}')"
+      title="${p.tier} · ${fmtDur(p.dur)} · ${p.marks} marks">
+      ${p.name}
+    </button>`
+  ).join('');
+
+  // Render duration chips
+  const dc = document.getElementById('durChips');
+  dc.innerHTML = DUR_PRESETS.map(d =>
+    `<button class="form-chip" data-dur="${d.v}" onclick="pickDur(${d.v})">${d.label}</button>`
+  ).join('');
+
+  // Render color dots
+  const cd = document.getElementById('colorDots');
+  cd.innerHTML = COLORS.map(c =>
+    `<div class="color-dot${c===selColor?' sel':''}" style="background:${c};" onclick="pickColor('${c}')"></div>`
+  ).join('');
+
+  openModal('createModal');
+  setTimeout(() => document.getElementById('f-name').focus(), 300);
+}
+
+function pickIgcse(id) {
+  selIgcse = IGCSE_PAPERS.find(p => p.id === id);
+  if (!selIgcse) return;
+  document.getElementById('f-name').value = `${selIgcse.subj} ${selIgcse.paper}`;
+  pickDur(selIgcse.dur);
+  pickColor(selIgcse.color);
+  document.querySelectorAll('#igcseChips .form-chip').forEach(b => {
+    b.classList.toggle('sel', b.dataset.igcse === id);
   });
 }
 
-function openAddTimer(){
-  selColor='blue';selDur=null;selIgcse=null;
-  buildColorRow();buildDurPresets();subjectChanged();
-  document.getElementById('f-name').value='';
-  document.getElementById('f-dur').value='';
-  document.getElementById('f-subj').value='custom';
-  openDrawer('addDrawer');
+function pickDur(v) {
+  selDur = v;
+  document.getElementById('f-dur').value = v;
+  document.querySelectorAll('#durChips .form-chip').forEach(b => {
+    b.classList.toggle('sel', Number(b.dataset.dur) === v);
+  });
 }
 
-function createTimer(){
-  const name=(document.getElementById('f-name').value.trim())||'Timer';
-  const dur=parseInt(document.getElementById('f-dur').value)||selDur||90;
-  const saveInterval=parseInt(document.getElementById('f-save').value)||5;
-  const color=selColor;
-  const subj=document.getElementById('f-subj').value;
-  if(!dur||dur<1){toast('Enter a duration');return;}
+function pickColor(c) {
+  selColor = c;
+  document.querySelectorAll('#colorDots .color-dot').forEach(d => {
+    d.classList.toggle('sel', d.style.background === c);
+  });
+}
 
-  const t={
-    id:Date.now(),name,dur,left:dur*60,total:dur*60,color,subj,
-    running:false,paused:false,done:false,
-    started:null,saveInterval,lastSaved:Date.now(),
-    paper:selIgcse?selIgcse.paper:null,
-    marks:selIgcse?selIgcse.marks:null,
+function confirmCreate() {
+  const name = document.getElementById('f-name').value.trim() || 'Custom Timer';
+  const dur  = parseInt(document.getElementById('f-dur').value) || selDur;
+  const note = document.getElementById('f-note').value.trim();
+  const si   = parseInt(document.getElementById('f-saveInterval').value) || 5;
+  if (!dur || dur < 1) { showSnackbar('请选择或输入时长'); return; }
+  closeModal('createModal');
+  createTimer({
+    name, color: selColor,
+    subj: selIgcse ? selIgcse.subj : 'custom',
+    paperId: selIgcse ? selIgcse.id : null,
+    paper: selIgcse ? selIgcse.paper : null,
+    marks: selIgcse ? selIgcse.marks : null,
+    dur, saveInterval: si, note,
+  });
+}
+
+// ============================================================
+// TIMER LIFECYCLE
+// ============================================================
+function createTimer(cfg) {
+  if (timers.length >= 3) {
+    showSnackbar('最多同时开启 3 个计时器，请先关闭一个');
+    return;
+  }
+  const t = {
+    id: uid(),
+    name: cfg.name,
+    color: cfg.color || COLORS[0],
+    subj: cfg.subj || 'custom',
+    paperId: cfg.paperId || null,
+    paper: cfg.paper || null,
+    marks: cfg.marks || null,
+    total: cfg.dur * 60,
+    left: cfg.left !== undefined ? cfg.left : cfg.dur * 60,
+    dur: cfg.dur,
+    running: false,
+    paused: false,
+    done: false,
+    note: cfg.note || '',
+    saveInterval: cfg.saveInterval || 5,
+    _interval: null,
+    _saveCountdown: cfg.saveInterval || 5,
+    _pauseCount: cfg.pauseCount || 0,
+    createdAt: cfg.createdAt || Date.now(),
+    startedAt: null,
   };
-
-  const freeSlot=layout===2?timers.findIndex(x=>x.slot!==undefined&&x===null):-1;
-  if(layout===2&&timers.length>=2){toast('Max 2 timers in split view. Remove one first.');return;}
-  if(layout===1&&timers.length>=1){
-    if(!confirm('Replace current timer?'))return;
-    timers.forEach(x=>{x.running=false;clearInterval(x._interval);});
-    timers=[];
-  }
-
   timers.push(t);
-  saveState();
-  closeDrawer('addDrawer');
+  updateArenaLayout();
   renderAll();
-  toast(`Timer started: ${name}`);
   startTimer(t.id);
+  if (settings.autoFS) openFullscreen(t.id);
+  persist();
 }
 
-function startTimer(id){
-  const t=timers.find(x=>x.id===id);
-  if(!t||t.done)return;
-  if(layout===2){
-    timers.forEach(x=>{if(x.id!==id&&x.running){pauseTimer(x.id);}});
+function startTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t || t.done) return;
+  // Pause all others if in split layout with this as active
+  if (timers.length > 1) {
+    timers.filter(x => x.id !== id && x.running).forEach(x => pauseTimer(x.id, false));
   }
-  t.running=true;t.paused=false;
-  if(!t.started)t.started=Date.now();
+  t.running = true;
+  t.paused  = false;
+  if (!t.startedAt) t.startedAt = Date.now();
   clearInterval(t._interval);
-  t._interval=setInterval(()=>tickTimer(id),1000);
-  renderAll();
+  t._interval = setInterval(() => tickTimer(id), 1000);
+  refreshCardControls(id);
+  updateMiniPill();
 }
-function pauseTimer(id){
-  const t=timers.find(x=>x.id===id);
-  if(!t)return;
-  t.running=false;t.paused=true;
+
+function pauseTimer(id, logPause = true) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  t.running = false;
+  t.paused  = true;
   clearInterval(t._interval);
-  saveState();
-  renderAll();
+  if (logPause) {
+    t._pauseCount++;
+    addToStats('pauses');
+  }
+  persist();
+  refreshCardControls(id);
+  updateMiniPill();
 }
-function toggleTimer(id){
-  const t=timers.find(x=>x.id===id);
-  if(!t)return;
-  if(t.running)pauseTimer(id);
+
+function toggleTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t || t.done) return;
+  if (t.running) pauseTimer(id);
   else startTimer(id);
 }
-function resetTimer(id){
-  const t=timers.find(x=>x.id===id);
-  if(!t)return;
+
+function resetTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
   clearInterval(t._interval);
-  t.left=t.total;t.running=false;t.paused=false;t.done=false;t.started=null;
-  saveState();renderAll();
-}
-function removeTimer(id){
-  const t=timers.find(x=>x.id===id);
-  if(t)clearInterval(t._interval);
-  timers=timers.filter(x=>x.id!==id);
-  saveState();renderAll();
-}
-
-function tickTimer(id){
-  const t=timers.find(x=>x.id===id);
-  if(!t||!t.running)return;
-  t.left=Math.max(0,t.left-1);
-  if(Date.now()-t.lastSaved>=t.saveInterval*1000){
-    t.lastSaved=Date.now();saveState();flashSaveBadge(id);
-  }
-  if(t.left<=0){
-    t.done=true;t.running=false;
-    clearInterval(t._interval);
-    history.unshift({id:t.id,name:t.name,color:t.color,subj:t.subj,paper:t.paper,dur:t.dur,completedAt:Date.now(),type:'completed'});
-    saveState();toast(`✓ ${t.name} — Time's up!`,3500);
-    renderAll();return;
-  }
-  renderTimerDisplay(id);
-  if(fsTimerIdx!==null&&timers.indexOf(t)===fsTimerIdx)updateFsDisplay();
+  t.left = t.total;
+  t.running = false;
+  t.paused  = false;
+  t.done    = false;
+  t.startedAt = null;
+  t._pauseCount = 0;
+  persist();
+  renderTimerCard(id);
+  updateMiniPill();
 }
 
-function flashSaveBadge(id){
-  const el=document.getElementById(`save-badge-${id}`);
-  if(!el)return;
-  el.classList.remove('flash');
-  void el.offsetWidth;
-  el.classList.add('flash');
-  setTimeout(()=>el.classList.remove('flash'),800);
+function addTime(id, mins) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  t.left  += mins * 60;
+  t.total += mins * 60;
+  if (t.done) { t.done = false; t.left = mins * 60; t.total = mins * 60; }
+  persist();
+  renderTimerCard(id);
+  showSnackbar(`+${mins} 分钟已添加`);
 }
 
-function setLayout(n){
-  layout=n;
-  document.querySelectorAll('.layout-btn').forEach((b,i)=>b.classList.toggle('on',i+1===n));
-  const slot1=document.getElementById('slot1');
-  if(n===1){
-    slot1.classList.add('collapsed');
-    if(timers.length>1){
-      clearInterval(timers[1]._interval);
-      history.unshift({id:timers[1].id,name:timers[1].name,color:timers[1].color,subj:timers[1].subj,paper:timers[1].paper,dur:timers[1].dur,left:timers[1].left,completedAt:Date.now(),type:'saved'});
-      timers=timers.slice(0,1);
-    }
+function removeTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  clearInterval(t._interval);
+  const wasRunning = t.running;
+  const el = document.getElementById('card-' + id);
+  if (el) {
+    el.classList.add('exiting');
+    setTimeout(() => {
+      timers = timers.filter(x => x.id !== id);
+      renderAll();
+      updateArenaLayout();
+      persist();
+    }, 250);
   } else {
-    slot1.classList.remove('collapsed');
+    timers = timers.filter(x => x.id !== id);
+    renderAll();
+    updateArenaLayout();
+    persist();
   }
-  saveState();renderAll();
+  if (fsTimerId === id) exitFullscreen();
+  updateMiniPill();
 }
 
-function openFullscreen(idx){
-  fsTimerIdx=idx;
-  const overlay=document.getElementById('fsOverlay');
+function tickTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t || !t.running) return;
+  t.left = Math.max(0, t.left - 1);
+
+  // Auto-save
+  t._saveCountdown--;
+  if (t._saveCountdown <= 0) {
+    t._saveCountdown = t.saveInterval;
+    persist();
+    flashSaveIndicator(id);
+    addToStats('focusMins', 1/60);
+  }
+
+  refreshTimerDisplay(id);
+  if (fsTimerId === id) refreshFsDisplay();
+  updateMiniPill();
+
+  if (t.left <= 0) onTimerDone(id);
+}
+
+function onTimerDone(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  clearInterval(t._interval);
+  t.running = false;
+  t.done    = true;
+
+  const spentMins = Math.round((t.total - t.left) / 60);
+  addToStats('completed');
+  addToStats('focusMins', spentMins);
+  addToHeatmap(spentMins);
+
+  const entry = {
+    id: t.id, name: t.name, color: t.color, subj: t.subj,
+    paper: t.paper, marks: t.marks,
+    dur: t.dur, spentMins, pauseCount: t._pauseCount,
+    note: t.note, completedAt: Date.now(), type: 'completed',
+  };
+  addHistory(entry);
+  persist();
+
+  if (settings.sound) playDoneSound();
+  if (settings.mockLink) notifyMockPortal(entry);
+  if (settings.goalLink) notifyGoalTracker(entry);
+
+  showSnackbar(`✓ ${t.name} — 时间到！`, false);
+  renderTimerCard(id);
+  refreshFsDisplay();
+  renderStats();
+  renderHistory();
+  updateMiniPill();
+}
+
+// ============================================================
+// INTER-APP HOOKS (MockPortal / Goal Tracker)
+// ============================================================
+function notifyMockPortal(entry) {
+  try {
+    const key = 'warden_mock_portal_v4';
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    // Append a timer completion note to mock portal state
+    if (!s._timerLog) s._timerLog = [];
+    s._timerLog.unshift({
+      from: 'igcse-timer',
+      name: entry.name,
+      paper: entry.paper,
+      subj: entry.subj,
+      spentMins: entry.spentMins,
+      completedAt: entry.completedAt,
+    });
+    localStorage.setItem(key, JSON.stringify(s));
+  } catch(e) {}
+}
+
+function notifyGoalTracker(entry) {
+  try {
+    const key = 'gt_v6';
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const goals = JSON.parse(raw);
+    // Find a matching goal by subj name and auto-increment done
+    const match = goals.find(g => g.name && (
+      g.name.toLowerCase().includes(entry.subj) ||
+      g.name.toLowerCase().includes(entry.name.toLowerCase().split(' ')[0])
+    ) && g.total > 0 && g.done < g.total);
+    if (match) {
+      match.done = Math.min(match.total, (match.done || 0) + 1);
+      if (!match.history) match.history = [];
+      match.history.push({
+        date: new Date().toISOString().slice(0,10),
+        done: match.done, total: match.total,
+        note: `Auto from IGCSE Timer: ${entry.name} (${entry.spentMins}min)`
+      });
+      localStorage.setItem(key, JSON.stringify(goals));
+    }
+  } catch(e) {}
+}
+
+// ============================================================
+// SOUND
+// ============================================================
+function playDoneSound() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    function tone(freq, start, dur, vol) {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, ac.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + start + dur);
+      o.start(ac.currentTime + start);
+      o.stop(ac.currentTime + start + dur);
+    }
+    tone(523, 0,    0.3, 0.3);
+    tone(659, 0.2,  0.3, 0.3);
+    tone(784, 0.4,  0.5, 0.3);
+  } catch(e) {}
+}
+
+// ============================================================
+// CARD RENDERING
+// ============================================================
+function updateArenaLayout() {
+  const arena = document.getElementById('timer-arena');
+  arena.className = '';
+  if (timers.length === 2) arena.classList.add('split-2');
+  if (timers.length >= 3) arena.classList.add('split-3');
+  const label = document.getElementById('timersLabel');
+  const empty  = document.getElementById('emptyState');
+  if (timers.length > 0) {
+    label.style.display = 'block';
+    empty.style.display  = 'none';
+  } else {
+    label.style.display = 'none';
+    empty.style.display  = 'flex';
+  }
+}
+
+function renderAll() {
+  updateArenaLayout();
+  const arena = document.getElementById('timer-arena');
+  // Sync DOM with state
+  const existingIds = [...arena.querySelectorAll('.timer-card')].map(e => e.id.replace('card-',''));
+  const stateIds = timers.map(t => t.id);
+  // Remove cards not in state
+  existingIds.forEach(id => {
+    if (!stateIds.includes(id)) {
+      const el = document.getElementById('card-' + id);
+      if (el) el.remove();
+    }
+  });
+  // Add/update cards
+  timers.forEach(t => {
+    const existing = document.getElementById('card-' + t.id);
+    if (!existing) {
+      const el = buildCard(t);
+      arena.appendChild(el);
+    } else {
+      refreshTimerDisplay(t.id);
+      refreshCardControls(t.id);
+    }
+  });
+  renderStats();
+  renderHistory();
+  renderHeatmap();
+  renderSettingsUI();
+}
+
+function buildCard(t) {
+  const el = document.createElement('div');
+  el.className = 'timer-card';
+  el.id = 'card-' + t.id;
+  el.innerHTML = cardHTML(t);
+  return el;
+}
+
+function cardHTML(t) {
+  const p = pct(t);
+  const dashOffset = RING_CIRC * (1 - p);
+  const color = t.color;
+  const icon  = SUBJ_ICONS[t.subj] || '⏱️';
+  const statusLabel = t.done ? '完成' : t.running ? '计时中' : t.paused ? '已暂停' : '准备';
+  const statusBg    = t.done ? '#e6f4ea' : t.running ? '#e8f0fe' : t.paused ? '#fce8b2' : '#f1f3f4';
+  const statusColor = t.done ? '#34a853' : t.running ? '#1a73e8' : t.paused ? '#f29900' : '#5f6368';
+  const dotColor    = t.done ? '#34a853' : t.running ? '#1a73e8' : t.paused ? '#fbbc04' : '#dadce0';
+  const timeColor   = t.done ? '#34a853' : (t.left < 60 && t.left > 0) ? '#ea4335' : '#202124';
+  const playIcon    = t.running ? 'pause' : 'play_arrow';
+  const playClass   = t.running ? 'running' : t.done ? 'done' : '';
+  const marks       = t.marks ? ` · ${t.marks} marks` : '';
+  const paperLine   = t.paper ? `${t.paper}${marks}` : (t.dur ? fmtDur(t.dur) : '');
+
+  return `
+    <div class="card-strip" style="background:${stripForColor(color)};"></div>
+    <div class="card-header">
+      <div class="card-header-left">
+        <div class="subj-icon" style="background:${color}18;font-size:20px;">${icon}</div>
+        <div class="subj-info">
+          <div class="subj-name" style="color:${color};">${t.name}</div>
+          <div class="subj-paper">${paperLine}</div>
+        </div>
+      </div>
+      <div class="card-header-actions">
+        <button class="icon-btn" onclick="openFullscreen('${t.id}')" title="全屏">
+          <span class="material-icons-round" style="font-size:20px;">open_in_full</span>
+        </button>
+        <button class="icon-btn" onclick="removeTimer('${t.id}')" title="关闭" style="color:var(--md-error);">
+          <span class="material-icons-round" style="font-size:20px;">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="save-indicator" id="save-${t.id}">
+      <span class="material-icons-round">cloud_done</span>已保存
+    </div>
+    <div class="card-body">
+      <div class="ring-container" onclick="toggleTimer('${t.id}')" title="点击 暂停/继续">
+        <svg class="ring-svg" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="${RING_R}" class="ring-track" stroke-width="10"/>
+          <circle cx="100" cy="100" r="${RING_R}" class="ring-progress" id="ring-${t.id}"
+            stroke="${color}" stroke-width="10"
+            stroke-dasharray="${RING_CIRC}"
+            stroke-dashoffset="${dashOffset}"/>
+          <circle cx="100" cy="100" r="${RING_R}" class="ring-warn${(t.running&&t.left<60&&!t.done)?' active':''}" id="ring-warn-${t.id}"
+            stroke="${color}" stroke-width="10"
+            stroke-dasharray="${RING_CIRC}" stroke-dashoffset="0"/>
+        </svg>
+        <div class="ring-inner">
+          <div class="time-display" id="time-${t.id}" style="color:${timeColor};">${fmtTime(t.left)}</div>
+          <div class="time-pct" id="pct-${t.id}">${Math.round(p*100)}%</div>
+          <div class="time-status-badge" id="badge-${t.id}" style="background:${statusBg};color:${statusColor};">
+            <div class="status-dot" id="dot-${t.id}" style="background:${dotColor};"></div>
+            ${statusLabel}
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button class="ctrl-btn ctrl-sm" onclick="resetTimer('${t.id}')" title="重置">
+          <span class="material-icons-round">replay</span>
+        </button>
+        <button class="ctrl-btn ctrl-play ${playClass}" id="play-${t.id}" onclick="toggleTimer('${t.id}')">
+          <span class="material-icons-round" id="play-icon-${t.id}">${playIcon}</span>
+        </button>
+        <button class="ctrl-btn ctrl-sm" onclick="addTime('${t.id}', 5)" title="+5 分钟">
+          <span class="material-icons-round">add</span>
+        </button>
+      </div>
+
+      <div class="controls-row" style="gap:6px;">
+        ${DUR_PRESETS.map(d => `
+          <button class="ctrl-text${t.total===d.v*60?' active':''}" id="dur-chip-${t.id}-${d.v}"
+            onclick="setTimerDur('${t.id}',${d.v})">${d.label}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    ${t.note ? `<div class="card-notes">
+      <div class="presets-label">断点记录</div>
+      <div style="font-size:13px;color:var(--md-on-surface-variant);padding:8px 12px;background:var(--md-surface-variant);border-radius:var(--r-sm);">
+        <span class="material-icons-round" style="font-size:14px;vertical-align:middle;margin-right:4px;">bookmark</span>${t.note}
+      </div>
+    </div>` : ''}
+
+    <div class="presets-section" style="padding-top:0;">
+      <div class="presets-label">${t.subj !== 'custom' ? t.subj + ' 卷型' : '常用时长'}</div>
+      <div class="presets-chips" id="paper-chips-${t.id}">
+        ${IGCSE_PAPERS.filter(p => p.subj === t.subj).map(p => `
+          <button class="preset-chip${t.paperId===p.id?' active':''}"
+            onclick="switchPaper('${t.id}','${p.id}')"
+            title="${p.tier} · ${fmtDur(p.dur)}">${p.paper.replace('Paper ','P')}</button>
+        `).join('') || DUR_PRESETS.map(d => `
+          <button class="preset-chip${t.total===d.v*60?' active':''}"
+            onclick="setTimerDur('${t.id}',${d.v})">${d.label}</button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function setTimerDur(id, mins) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const wasRunning = t.running;
+  if (wasRunning) pauseTimer(id, false);
+  t.total = mins * 60;
+  t.left  = mins * 60;
+  t.dur   = mins;
+  t.done  = false;
+  t.startedAt = null;
+  persist();
+  renderTimerCard(id);
+  if (wasRunning) startTimer(id);
+}
+
+function switchPaper(timerId, paperId) {
+  const t = timers.find(x => x.id === timerId);
+  const p = IGCSE_PAPERS.find(x => x.id === paperId);
+  if (!t || !p) return;
+  const wasRunning = t.running;
+  if (wasRunning) pauseTimer(timerId, false);
+  t.paperId = p.id;
+  t.paper   = p.paper;
+  t.marks   = p.marks;
+  t.color   = p.color;
+  t.total   = p.dur * 60;
+  t.left    = p.dur * 60;
+  t.dur     = p.dur;
+  t.done    = false;
+  t.startedAt = null;
+  persist();
+  renderTimerCard(timerId);
+  if (wasRunning) startTimer(timerId);
+}
+
+function renderTimerCard(id) {
+  const el = document.getElementById('card-' + id);
+  const t  = timers.find(x => x.id === id);
+  if (!el || !t) return;
+  const newEl = buildCard(t);
+  el.replaceWith(newEl);
+}
+
+// Fast DOM update (no full re-render)
+function refreshTimerDisplay(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const p = pct(t);
+  const dashOffset = RING_CIRC * (1 - p);
+  const timeColor = t.done ? '#34a853' : (t.left < 60 && t.left > 0) ? '#ea4335' : '#202124';
+
+  const ringEl  = document.getElementById('ring-' + id);
+  const timeEl  = document.getElementById('time-' + id);
+  const pctEl   = document.getElementById('pct-'  + id);
+  const warnEl  = document.getElementById('ring-warn-' + id);
+
+  if (ringEl) {
+    ringEl.style.strokeDashoffset = dashOffset;
+    if (t.left < 60 && !t.done) { ringEl.style.stroke = '#ea4335'; }
+  }
+  if (timeEl) {
+    timeEl.textContent = fmtTime(t.left);
+    timeEl.style.color = timeColor;
+    if (!timeEl.classList.contains('tick')) {
+      timeEl.classList.add('tick');
+      setTimeout(() => timeEl.classList.remove('tick'), 100);
+    }
+  }
+  if (pctEl) pctEl.textContent = Math.round(p * 100) + '%';
+  if (warnEl) {
+    if (t.running && t.left < 60 && !t.done) warnEl.classList.add('active');
+    else warnEl.classList.remove('active');
+  }
+}
+
+function refreshCardControls(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const playBtn  = document.getElementById('play-' + id);
+  const playIcon = document.getElementById('play-icon-' + id);
+  const badge    = document.getElementById('badge-' + id);
+  const dot      = document.getElementById('dot-' + id);
+
+  if (playBtn) {
+    playBtn.className = 'ctrl-btn ctrl-play' + (t.running ? ' running' : t.done ? ' done' : '');
+  }
+  if (playIcon) playIcon.textContent = t.running ? 'pause' : 'play_arrow';
+  if (badge) {
+    const statusLabel = t.done ? '完成' : t.running ? '计时中' : t.paused ? '已暂停' : '准备';
+    const statusBg    = t.done ? '#e6f4ea' : t.running ? '#e8f0fe' : t.paused ? '#fce8b2' : '#f1f3f4';
+    const statusColor = t.done ? '#34a853' : t.running ? '#1a73e8' : t.paused ? '#f29900' : '#5f6368';
+    badge.style.background = statusBg;
+    badge.style.color = statusColor;
+    badge.innerHTML = `<div class="status-dot" style="background:${t.running?'#1a73e8':t.done?'#34a853':t.paused?'#fbbc04':'#dadce0'}"></div>${statusLabel}`;
+  }
+}
+
+function flashSaveIndicator(id) {
+  const el = document.getElementById('save-' + id);
+  if (!el) return;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function renderStats() {
+  const today = getTodayStats();
+  const focusMins = Math.round(today.focusMins || 0);
+  document.getElementById('statFocusTime').innerHTML =
+    focusMins >= 60
+      ? `${Math.floor(focusMins/60)}<span class="stat-unit">hr</span> ${focusMins%60}<span class="stat-unit">m</span>`
+      : `${focusMins}<span class="stat-unit">min</span>`;
+  document.getElementById('statCompleted').innerHTML = `${today.completed || 0}<span class="stat-unit">次</span>`;
+  document.getElementById('statPauses').innerHTML    = `${today.pauses || 0}<span class="stat-unit">次</span>`;
+}
+
+// ============================================================
+// HEATMAP
+// ============================================================
+function renderHeatmap() {
+  const heatmap = getHeatmap();
+  const days7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days7.push(d.toISOString().slice(0,10));
+  }
+  const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const daysEl = document.getElementById('heatmapDays');
+  const gridEl = document.getElementById('heatmapGrid');
+  if (!daysEl || !gridEl) return;
+  daysEl.innerHTML = days7.map(d => {
+    const dayIdx = new Date(d).getDay();
+    return `<span class="heatmap-day">${dayLabels[dayIdx]}</span>`;
+  }).join('');
+  const maxMins = Math.max(...days7.map(d => heatmap[d] || 0), 1);
+  gridEl.innerHTML = days7.map(d => {
+    const mins = heatmap[d] || 0;
+    const intensity = Math.min(1, mins / maxMins);
+    const alpha = 0.1 + intensity * 0.9;
+    const h = `rgba(26,115,232,${alpha.toFixed(2)})`;
+    const hours = Math.round(mins);
+    return `<div class="heat-cell" style="background:${mins > 0 ? h : 'var(--md-surface-container)'}"
+      data-mins="${mins}" data-label="${hours} min"></div>`;
+  }).join('');
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory() {
+  const h = getHistory();
+  renderHistoryList(document.getElementById('recentHistory'), h.slice(0,5));
+  const emptyMsg = document.getElementById('histEmptyMsg');
+  if (emptyMsg) emptyMsg.style.display = h.length === 0 ? 'block' : 'none';
+}
+
+function renderHistoryList(container, items) {
+  if (!container) return;
+  if (!items.length) { container.innerHTML = ''; return; }
+  container.innerHTML = items.map(entry => {
+    const t = new Date(entry.completedAt);
+    const timeStr = t.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+    const dateStr = t.toLocaleDateString('zh-CN', { month:'short', day:'numeric' });
+    const spentStr = fmtDur(entry.spentMins || 0);
+    return `<div class="hist-item">
+      <div class="hist-color-bar" style="background:${entry.color};"></div>
+      <div class="hist-info">
+        <div class="hist-name">${entry.name}</div>
+        <div class="hist-meta">${dateStr} ${timeStr} · ${entry.type==='completed'?'完成':'保存'} · ${entry.pauseCount || 0}次暂停</div>
+        ${entry.note ? `<div class="hist-meta" style="margin-top:2px;">📌 ${entry.note}</div>` : ''}
+      </div>
+      <div class="hist-time">${spentStr}</div>
+      <button class="hist-resume-btn" onclick="resumeSession(${JSON.stringify(entry).split('"').join('&quot;')})">恢复</button>
+    </div>`;
+  }).join('');
+}
+
+function openHistoryModal() {
+  const h = getHistory();
+  const container = document.getElementById('fullHistoryList');
+  renderHistoryList(container, h);
+  if (!h.length) container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--md-on-surface-variant);font-size:14px;">暂无历史记录</div>';
+  openModal('historyModal');
+}
+
+function resumeSession(entry) {
+  closeModal('historyModal');
+  const remaining = (entry.spentMins < entry.dur) ? (entry.dur - entry.spentMins) * 60 : entry.dur * 60;
+  createTimer({
+    name: entry.name, color: entry.color, subj: entry.subj,
+    paper: entry.paper, marks: entry.marks, paperId: entry.paperId,
+    dur: entry.dur, left: remaining,
+    saveInterval: 5, note: entry.note || '',
+  });
+  showSnackbar(`已恢复：${entry.name}（剩余 ${fmtDur(Math.round(remaining/60))}）`);
+}
+
+// ============================================================
+// FULLSCREEN
+// ============================================================
+function openFullscreen(id) {
+  fsTimerId = id;
+  const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.add('open');
-  updateFsDisplay();
-}
-function exitFullscreen(){
-  document.getElementById('fsOverlay').classList.remove('open');
-  fsTimerIdx=null;
-}
-function fsToggle(){if(fsTimerIdx===null)return;toggleTimer(timers[fsTimerIdx]?.id);}
-function fsReset(){if(fsTimerIdx===null)return;resetTimer(timers[fsTimerIdx]?.id);}
-function fsStop(){if(fsTimerIdx===null)return;pauseTimer(timers[fsTimerIdx]?.id);exitFullscreen();}
-function updateFsDisplay(){
-  const t=fsTimerIdx!==null?timers[fsTimerIdx]:null;
-  if(!t){exitFullscreen();return;}
-  const p=pct(t);const c=colHex(t.color);
-  document.getElementById('fsTime').textContent=durFmt(t.left);
-  document.getElementById('fsTime').style.color=t.done?'#30d158':(t.left<60?'#ff453a':c);
-  document.getElementById('fsSubj').textContent=t.name;
-  document.getElementById('fsLabel').textContent=t.done?'COMPLETE':(t.running?'REMAINING':'PAUSED');
-  const fill=document.getElementById('fsRingFill');
-  fill.style.stroke=t.done?'#30d158':(t.left<60?'#ff453a':c);
-  fill.style.strokeDasharray=ringDash(130,p);
-  const fb=document.getElementById('fsPlay');
-  fb.textContent=t.running?'⏸':'▶';
-  fb.className='fs-btn fs-play'+(t.running?' is-running':'');
+  refreshFsDisplay();
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
 }
 
-function renderAll(){
-  const slots=[document.getElementById('slot0'),document.getElementById('slot1')];
-  slots.forEach((slot,i)=>{
-    const t=timers[i];
-    if(t){slot.innerHTML=buildTimerCard(t,i);}
-    else{slot.innerHTML=buildEmptySlot(i);}
+function exitFullscreen() {
+  document.getElementById('fullscreen-overlay').classList.remove('open');
+  fsTimerId = null;
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+function refreshFsDisplay() {
+  if (fsTimerId === null) return;
+  const t = timers.find(x => x.id === fsTimerId);
+  if (!t) { exitFullscreen(); return; }
+  const p = pct(t);
+  const dashOffset = FS_RING_CIRC * (1 - p);
+  const color = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : t.color;
+  const timeColor = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : '#202124';
+
+  document.getElementById('fsSubjectName').textContent = t.name;
+  const fst = document.getElementById('fs-time-display');
+  if (fst) { fst.textContent = fmtTime(t.left); fst.style.color = timeColor; }
+
+  const fsStatus = document.getElementById('fsStatus');
+  if (fsStatus) fsStatus.textContent = t.done ? '完成！🎉' : t.running ? '计时中…' : t.paused ? '已暂停' : '准备开始';
+
+  const arc = document.getElementById('fsRingArc');
+  if (arc) { arc.style.strokeDashoffset = dashOffset; arc.style.stroke = color; }
+
+  const pb = document.getElementById('fsProgressBar');
+  if (pb) { pb.style.width = (p*100) + '%'; pb.style.background = color; }
+
+  const fsPlay = document.getElementById('fsPlayBtn');
+  const fsIcon = document.getElementById('fsPlayIcon');
+  if (fsPlay && fsIcon) {
+    fsPlay.className = 'fs-btn fs-play-btn' + (t.running ? ' running' : '');
+    fsIcon.textContent = t.running ? 'pause' : 'play_arrow';
+  }
+}
+
+function fsToggle() {
+  if (fsTimerId !== null) toggleTimer(fsTimerId);
+}
+function fsReset()  { if (fsTimerId !== null) resetTimer(fsTimerId); }
+function fsAddTime(m) { if (fsTimerId !== null) addTime(fsTimerId, m); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') exitFullscreen();
+  if (e.key === ' ' && fsTimerId !== null) {
+    e.preventDefault();
+    fsToggle();
+  }
+  if (e.key === 'f' || e.key === 'F') {
+    const running = timers.find(x => x.running);
+    if (running) openFullscreen(running.id);
+  }
+});
+
+// ============================================================
+// MINI PILL
+// ============================================================
+function toggleMinipill() {
+  miniPillActive = !miniPillActive;
+  document.getElementById('minipillBtn').classList.toggle('active', miniPillActive);
+  updateMiniPill();
+}
+
+function updateMiniPill() {
+  const pill = document.getElementById('mini-pill');
+  if (!miniPillActive) { pill.style.display = 'none'; return; }
+  const active = timers.find(x => x.running) || timers[0];
+  if (!active) { pill.style.display = 'none'; return; }
+  pill.style.display = 'flex';
+  document.getElementById('pillSubject').textContent = active.name;
+  document.getElementById('mini-pill-time').textContent = fmtTime(active.left);
+  const icon = document.getElementById('pillIcon');
+  if (icon) icon.textContent = active.running ? 'timer' : 'pause';
+}
+
+function expandFromPill() {
+  const active = timers.find(x => x.running) || timers[0];
+  if (active) openFullscreen(active.id);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function openSettings() {
+  renderSettingsUI();
+  const examDate = localStorage.getItem('igcse_exam_date') || '';
+  document.getElementById('sExamDate').value = examDate;
+  updateExamCountdown(examDate);
+  openModal('settingsModal');
+}
+
+function renderSettingsUI() {
+  ['sound','autoFS','mockLink','goalLink'].forEach(key => {
+    const el = document.getElementById('toggle' + key[0].toUpperCase() + key.slice(1));
+    if (el) el.classList.toggle('on', !!settings[key]);
   });
 }
 
-function buildTimerCard(t,idx){
-  const p=pct(t);const c=colHex(t.color);
-  const r=90,circ=2*Math.PI*r,dashArr=ringDash(r,p);
-  const ringColor=t.done?'#30d158':(t.left<60&&t.left>0?'#ff453a':c);
-  const timeColor=t.done?'#30d158':(t.left<60&&t.left>0?'#ff453a':'var(--text)');
-  const statusLabel=t.done?'Complete':t.running?'Running':t.paused?'Paused':'Ready';
-  const statusCls=t.done?'done':t.running?'running':t.paused?'paused':'';
-  const ringAnim=t.running&&t.left<60?'animation:flash 1s ease infinite;':'';
-  return `
-  <div class="timer-card new-timer">
-    <div class="save-badge" id="save-badge-${t.id}">saved</div>
-    <div class="timer-header">
-      <div class="timer-subj">
-        <div class="subj-dot" style="background:${c};"></div>
-        <div>
-          <div class="subj-name">${t.name}</div>
-          ${t.paper?`<div class="subj-paper">${t.subj} · ${durLabel(t.dur)}</div>`:`<div class="subj-paper">${durLabel(t.dur)}</div>`}
-        </div>
-      </div>
-      <div class="timer-actions-top">
-        <button class="icon-btn" onclick="openFullscreen(${idx})" title="Fullscreen">⛶</button>
-        <button class="icon-btn danger" onclick="removeTimer(${t.id})" title="Remove">✕</button>
-      </div>
-    </div>
-
-    <div class="ring-wrap" style="width:200px;height:200px;">
-      <svg class="ring-svg" width="200" height="200" viewBox="0 0 200 200">
-        <circle cx="100" cy="100" r="${r}" class="ring-bg" stroke-width="8"/>
-        <circle cx="100" cy="100" r="${r}" class="ring-fill" stroke-width="8"
-          stroke="${ringColor}" style="${ringAnim}"
-          stroke-dasharray="${dashArr}" id="ring-${t.id}"/>
-      </svg>
-      <div class="timer-inner">
-        <div class="t-time" style="color:${timeColor};">${durFmt(t.left)}</div>
-        <div class="t-label">${t.done?'Done!':t.running?'Remaining':'Paused'}</div>
-        <div class="t-prog-text">${Math.round(p*100)}%</div>
-      </div>
-    </div>
-
-    <div class="controls">
-      <button class="ctrl-btn ctrl-sm" onclick="resetTimer(${t.id})">↺</button>
-      <button class="ctrl-btn ctrl-play${t.running?' is-running':''}" onclick="toggleTimer(${t.id})"
-        id="play-${t.id}">${t.running?'⏸':'▶'}</button>
-      <button class="ctrl-btn ctrl-sm icon-btn active-state" onclick="addTime(${t.id},5)" title="+5 min">+5</button>
-    </div>
-
-    <div class="status-row">
-      <div class="status-dot ${statusCls}"></div>
-      <span>${statusLabel}</span>
-      ${t.marks?`<span>·</span><span>${t.marks} marks</span>`:''}
-    </div>
-
-    <div class="presets-section">
-      <div class="presets-label">Quick set</div>
-      <div class="presets-grid">
-        ${QUICK_DURS.map(d=>`<div class="preset-chip${t.total===d.v*60?' active-p':''}" onclick="setTimerDur(${t.id},${d.v})">${d.l}</div>`).join('')}
-      </div>
-    </div>
-
-    ${t.subj&&t.subj!=='custom'?buildIgcseQuickForCard(t):''}
-  </div>`;
+function toggleSetting(key) {
+  settings[key] = !settings[key];
+  renderSettingsUI();
+  persist();
 }
 
-function buildIgcseQuickForCard(t){
-  const papers=IGCSE_PAPERS[t.subj]||[];
-  if(!papers.length)return '';
-  return `<div class="presets-section">
-    <div class="presets-label">${t.subj} Papers</div>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;">
-      ${papers.map(p=>`<div class="preset-chip${t.paper===p.paper?' active-p':''}" onclick="setTimerPaper(${t.id},'${t.subj}','${p.paper}')">${p.paper} · ${durLabel(p.dur)}</div>`).join('')}
-    </div>
-  </div>`;
+function saveExamDate(val) {
+  localStorage.setItem('igcse_exam_date', val);
+  updateExamCountdown(val);
 }
 
-function buildEmptySlot(idx){
-  if(layout===1&&idx===1)return '';
-  return `<div class="empty-state">
-    <div class="empty-ico">⏱</div>
-    <div class="empty-title">${idx===0?'No Timer':'Second Timer'}</div>
-    <div class="empty-desc">${idx===0?'Create a timer to start your mock exam.':layout===2?'Add a second timer for another subject.':''}</div>
-    <button class="btn-primary" style="margin-top:8px;" onclick="openAddTimer()">+ New Timer</button>
-  </div>`;
+function updateExamCountdown(dateStr) {
+  const el = document.getElementById('examCountdownDisplay');
+  if (!el) return;
+  if (!dateStr) { el.style.display = 'none'; return; }
+  const target = new Date(dateStr + 'T09:00:00');
+  const now = new Date();
+  const diffMs = target - now;
+  if (diffMs <= 0) { el.textContent = '考试日期已到 🎓'; el.style.display = 'block'; return; }
+  const days = Math.ceil(diffMs / 86400000);
+  el.textContent = `距考试还有 ${days} 天`;
+  el.style.display = 'block';
 }
 
-function renderTimerDisplay(id){
-  const t=timers.find(x=>x.id===id);if(!t)return;
-  const p=pct(t);const c=colHex(t.color);
-  const r=90,dashArr=ringDash(r,p);
-  const ringColor=t.done?'#30d158':(t.left<60&&t.left>0?'#ff453a':c);
-  const timeColor=t.done?'#30d158':(t.left<60&&t.left>0?'#ff453a':'var(--text)');
-
-  const ring=document.getElementById(`ring-${id}`);
-  const timeEl=t.left<60?document.querySelector(`#slot${timers.indexOf(t)} .t-time`):null;
-  const dispEl=document.querySelector(`#slot${timers.indexOf(t)} .t-time`);
-  const progEl=document.querySelector(`#slot${timers.indexOf(t)} .t-prog-text`);
-  const playEl=document.getElementById(`play-${id}`);
-  const statusEl=document.querySelector(`#slot${timers.indexOf(t)} .status-dot`);
-  const statusTxt=document.querySelector(`#slot${timers.indexOf(t)} .status-row span`);
-
-  if(ring){ring.style.strokeDasharray=dashArr;ring.style.stroke=ringColor;}
-  if(dispEl){dispEl.textContent=durFmt(t.left);dispEl.style.color=timeColor;}
-  if(progEl)progEl.textContent=Math.round(p*100)+'%';
-  if(playEl){playEl.textContent=t.running?'⏸':'▶';playEl.className='ctrl-btn ctrl-play'+(t.running?' is-running':'');}
-  if(statusEl){statusEl.className='status-dot '+(t.running?'running':t.paused?'paused':t.done?'done':'');}
-  if(statusTxt)statusTxt.textContent=t.done?'Complete':t.running?'Running':t.paused?'Paused':'Ready';
+function clearAllData() {
+  if (!confirm('确定清除所有历史记录和统计数据？')) return;
+  localStorage.removeItem('igcse_hist');
+  localStorage.removeItem('igcse_stats');
+  localStorage.removeItem('igcse_heat');
+  renderStats(); renderHistory(); renderHeatmap();
+  showSnackbar('数据已清除');
 }
 
-function setTimerDur(id,min){
-  const t=timers.find(x=>x.id===id);if(!t)return;
-  const wasRunning=t.running;
-  if(wasRunning)pauseTimer(id);
-  t.total=min*60;t.left=min*60;t.done=false;t.started=null;
-  saveState();renderAll();
-  if(wasRunning)startTimer(id);
-}
-
-function setTimerPaper(id,subj,paper){
-  const t=timers.find(x=>x.id===id);if(!t)return;
-  const papers=IGCSE_PAPERS[subj]||[];
-  const p=papers.find(x=>x.paper===paper);
-  if(!p)return;
-  const wasRunning=t.running;
-  if(wasRunning)pauseTimer(id);
-  t.paper=p.paper;t.marks=p.marks;t.dur=p.dur;t.total=p.dur*60;t.left=p.dur*60;t.done=false;t.started=null;
-  saveState();renderAll();
-  if(wasRunning)startTimer(id);
-}
-
-function addTime(id,min){
-  const t=timers.find(x=>x.id===id);if(!t)return;
-  t.left+=min*60;t.total+=min*60;
-  if(t.done){t.done=false;}
-  saveState();renderTimerDisplay(id);toast(`+${min} min added`);
-}
-
-function openHistory(){
-  const el=document.getElementById('histBody');
-  if(!history.length){el.innerHTML='<div class="empty-state" style="height:200px;"><div class="empty-ico">📋</div><div class="empty-title">No history yet</div></div>';
-  } else {
-    el.innerHTML=history.slice(0,30).map(h=>`
-      <div class="hist-item" onclick="resumeFromHistory('${h.id}')">
-        <div class="hist-dot" style="background:${colHex(h.color)};"></div>
-        <div class="hist-info">
-          <div class="hist-name">${h.name}</div>
-          <div class="hist-meta">${h.type==='completed'?'✓ Completed':h.type==='saved'?'Saved':''} · ${new Date(h.completedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</div>
-        </div>
-        <div class="hist-time">${durLabel(h.dur)}</div>
-        <button class="hist-resume-btn" onclick="event.stopPropagation();resumeFromHistory(${JSON.stringify(JSON.stringify(h))})">Resume</button>
-      </div>
-    `).join('')}
-  `;}
-  openDrawer('histDrawer');
-}
-
-function resumeFromHistory(raw){
-  let h;
-  try{h=typeof raw==='string'?JSON.parse(raw):raw;}catch(e){return;}
-  if(!h)return;
-  const left=h.left||h.dur*60;
-  const t={
-    id:Date.now(),name:h.name,dur:h.dur,left:left,total:h.dur*60,color:h.color,
-    subj:h.subj||'custom',running:false,paused:true,done:false,started:null,
-    saveInterval:5,lastSaved:Date.now(),paper:h.paper||null,marks:h.marks||null
-  };
-  if(layout===1){
-    timers.forEach(x=>{x.running=false;clearInterval(x._interval);});timers=[t];
-  } else if(timers.length<2){
-    timers.push(t);
-  } else {
-    toast('Remove a timer first');return;
-  }
-  saveState();closeDrawer('histDrawer');renderAll();toast(`Resumed: ${t.name}`);
-}
-
-function openDrawer(id){
+// ============================================================
+// MODAL UTILITIES
+// ============================================================
+function openModal(id) {
   document.getElementById(id).classList.add('open');
-  if(id==='addDrawer'){buildColorRow();buildDurPresets();}
+  document.body.style.overflow = 'hidden';
 }
-function closeDrawer(id){document.getElementById(id).classList.remove('open');}
-
-loadState();
-
-timers.forEach(t=>{
-  t.running=false;t.paused=true;
-  if(t.left===undefined)t.left=t.total;
-});
-
-if(layout===2)setLayout(2);
-else setLayout(1);
-
-renderAll();
-
-if(timers.length===0){
-  setTimeout(()=>openAddTimer(),400);
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeModalOnBackdrop(e, id) {
+  if (e.target.id === id) closeModal(id);
 }
 
-window.addEventListener('beforeunload',()=>saveState());
+// ============================================================
+// SNACKBAR
+// ============================================================
+function showSnackbar(msg, showUndo = false, undoFn = null) {
+  document.getElementById('snackbar-msg').textContent = msg;
+  const actionBtn = document.getElementById('snackbar-action');
+  actionBtn.style.display = showUndo ? 'inline' : 'none';
+  snackbarUndoFn = undoFn;
+  const el = document.getElementById('snackbar');
+  el.classList.add('show');
+  clearTimeout(snackbarTimer);
+  snackbarTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+function snackbarAction() {
+  if (snackbarUndoFn) { snackbarUndoFn(); snackbarUndoFn = null; }
+  document.getElementById('snackbar').classList.remove('show');
+}
+
+// ============================================================
+// SCROLL — elevate top app bar
+// ============================================================
+window.addEventListener('scroll', () => {
+  document.getElementById('topAppBar').classList.toggle('elevated', window.scrollY > 8);
+}, { passive: true });
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  loadPersisted();
+  renderSettingsUI();
+  renderQuickStart();
+  renderAll();
+
+  // Restore exam date in settings
+  const ed = localStorage.getItem('igcse_exam_date') || '';
+  const si = document.getElementById('sExamDate');
+  if (si) si.value = ed;
+
+  // Restore layout switches (timers are paused on load)
+  timers.forEach(t => {
+    t.paused = true;
+    t.running = false;
+  });
+  updateArenaLayout();
+
+  // Render stats immediately
+  renderStats();
+  renderHistory();
+  renderHeatmap();
+
+  console.log(`🎓 IGCSE Timer loaded. Timers restored: ${timers.length}`);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('beforeunload', persist);
 </script>
 </body>
 </html>
