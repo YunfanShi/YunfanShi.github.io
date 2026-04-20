@@ -76,6 +76,7 @@
   --dur-med: 260ms;
   --dur-long: 420ms;
   --dur-extra: 620ms;
+  --fs-solemn-bg: #0b1326;
 }
 
 /* ============================================================
@@ -980,19 +981,73 @@ body {
    ============================================================ */
 #fullscreen-overlay {
   position: fixed; inset: 0; z-index: 900;
-  background: radial-gradient(circle at 50% 30%, #1d2432 0%, #0c1018 68%);
+  background: var(--fs-solemn-bg);
   display: none;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint style;
   animation: fullscreenIn var(--dur-extra) var(--ease-decel) both;
 }
 #fullscreen-overlay.open { display: flex; }
+#fullscreen-overlay.fx-on {
+  background:
+    radial-gradient(120% 100% at 12% 8%, rgba(59,130,246,.16) 0%, rgba(59,130,246,0) 58%),
+    radial-gradient(90% 100% at 88% 15%, rgba(167,139,250,.13) 0%, rgba(167,139,250,0) 56%),
+    linear-gradient(155deg, #071020 0%, #0b1326 45%, #0a1220 100%);
+}
 #fullscreen-overlay.fx-on .fs-fx-layer { opacity: 1; }
+#fullscreen-overlay.fx-on .fs-bg-ambient { opacity: .95; }
 @keyframes fullscreenIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; transform: scale(1.02); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.fs-bg-ambient {
+  position: absolute;
+  inset: -14%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-long) var(--ease-standard);
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+.fs-blob {
+  position: absolute;
+  width: min(58vw, 720px);
+  height: min(58vw, 720px);
+  border-radius: 50%;
+  filter: blur(34px) saturate(1.08);
+  mix-blend-mode: screen;
+  opacity: .52;
+  animation: fsBlobDrift 18s var(--ease-standard) infinite alternate;
+  will-change: transform;
+}
+.fs-blob.a {
+  left: -12%;
+  top: -18%;
+  background: radial-gradient(circle, rgba(56,189,248,.55), rgba(56,189,248,0) 64%);
+}
+.fs-blob.b {
+  right: -10%;
+  bottom: -18%;
+  background: radial-gradient(circle, rgba(99,102,241,.56), rgba(99,102,241,0) 66%);
+  animation-delay: -7s;
+}
+.fs-blob.c {
+  left: 36%;
+  top: 20%;
+  width: min(36vw, 520px);
+  height: min(36vw, 520px);
+  background: radial-gradient(circle, rgba(14,165,233,.4), rgba(14,165,233,0) 70%);
+  animation-delay: -13s;
+}
+@keyframes fsBlobDrift {
+  0% { transform: translate3d(-4%, -2%, 0) scale(0.94); }
+  50% { transform: translate3d(3%, 4%, 0) scale(1.04); }
+  100% { transform: translate3d(8%, -3%, 0) scale(0.98); }
 }
 .fs-fx-layer {
   position: absolute;
@@ -1004,19 +1059,21 @@ body {
 }
 .fs-fx-line {
   position: absolute;
-  height: 1px;
+  height: 2px;
   width: 140%;
   left: -20%;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.35) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.32) 45%, rgba(255,255,255,.58) 50%, rgba(255,255,255,.32) 55%, transparent 100%);
+  will-change: transform, opacity;
+  transform: translateZ(0);
   animation: fsLineMove linear infinite;
 }
-.fs-fx-line:nth-child(1) { top: 20%; animation-duration: 8s; }
-.fs-fx-line:nth-child(2) { top: 42%; animation-duration: 11s; animation-delay: -3s; }
-.fs-fx-line:nth-child(3) { top: 66%; animation-duration: 9s; animation-delay: -5s; }
+.fs-fx-line:nth-child(1) { top: 18%; animation-duration: 7.5s; }
+.fs-fx-line:nth-child(2) { top: 37%; animation-duration: 10s; animation-delay: -2.4s; }
+.fs-fx-line:nth-child(3) { top: 58%; animation-duration: 8.6s; animation-delay: -4.1s; }
 @keyframes fsLineMove {
-  from { transform: translate3d(-10%, 0, 0); opacity: .2; }
-  50% { opacity: .5; }
-  to { transform: translate3d(10%, 0, 0); opacity: .2; }
+  from { transform: translate3d(-16%, 0, 0); opacity: .14; }
+  50% { opacity: .42; }
+  to { transform: translate3d(16%, 0, 0); opacity: .14; }
 }
 
 .fs-exit-btn {
@@ -1044,9 +1101,24 @@ body {
   line-height: 1;
   color: #f7f9ff;
   text-shadow: 0 12px 36px rgba(0,0,0,0.55);
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+#fs-quote-display {
+  margin-top: 22px;
+  max-width: min(88vw, 820px);
+  text-align: center;
+  font-family: 'Google Sans', sans-serif;
+  color: rgba(236,242,255,.84);
+  font-size: clamp(14px, 2vw, 20px);
+  line-height: 1.55;
+  letter-spacing: .01em;
+  opacity: .9;
+  text-wrap: balance;
 }
 .fs-minimal-wrap {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -1065,8 +1137,61 @@ body {
 .fs-progress-bar {
   position: absolute;
   bottom: 0; left: 0; height: 4px;
+  width: 100%;
   border-radius: var(--r-full) var(--r-full) 0 0;
-  transition: width 1s linear, background var(--dur-long) var(--ease-standard);
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform, background;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), background var(--dur-long) var(--ease-standard);
+}
+
+.quote-panel {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--md-outline-variant);
+  background: linear-gradient(160deg, #0f172a, #111827 65%, #1f2937);
+  box-shadow: var(--elev-1);
+  padding: 16px 18px;
+  color: #e5e7eb;
+}
+.quote-panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.quote-panel-tag {
+  font-size: 11px;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  opacity: .72;
+}
+.quote-panel button {
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.06);
+  color: #f8fafc;
+  border-radius: var(--r-full);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.quote-panel button:hover { background: rgba(255,255,255,.12); }
+#motivationQuoteText {
+  font-size: 14px;
+  line-height: 1.65;
+}
+#motivationQuoteMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: .72;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-blob, .fs-fx-line, .finish-aurora::before, .finish-aurora::after {
+    animation: none !important;
+  }
+  .fs-progress-bar, .igcse-chip, .stat-card, .hist-item {
+    transition-duration: 0ms !important;
+  }
 }
 
 .finish-scene {
@@ -1447,6 +1572,14 @@ body {
               <div class="stat-label">暂停次数</div>
               <div class="stat-value" id="statPauses">0<span class="stat-unit">次</span></div>
             </div>
+            <div class="stat-card">
+              <div class="stat-label">连续天数</div>
+              <div class="stat-value" id="statStreak">0<span class="stat-unit">天</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">番茄次数</div>
+              <div class="stat-value" id="statPomodoro">0<span class="stat-unit">轮</span></div>
+            </div>
           </div>
 
           <!-- 7-day heatmap -->
@@ -1467,6 +1600,14 @@ body {
           <div id="histEmptyMsg" style="text-align:center;padding:24px;color:var(--md-on-surface-variant);font-size:13px;display:none;">
             暂无历史记录，完成一次计时后即可显示。
           </div>
+        </div>
+        <div class="quote-panel" style="margin-top:16px;">
+          <div class="quote-panel-top">
+            <div class="quote-panel-tag">Focus Quote</div>
+            <button onclick="refreshMotivationQuote(true)">换一句</button>
+          </div>
+          <div id="motivationQuoteText">专注不是拼命，而是把每一分钟都放在最值得的地方。</div>
+          <div id="motivationQuoteMeta">— IGCSE Focus Companion</div>
         </div>
       </div>
     </div>
@@ -1495,6 +1636,11 @@ body {
      FULLSCREEN OVERLAY
      ============================================================ -->
 <div id="fullscreen-overlay">
+  <div class="fs-bg-ambient" aria-hidden="true">
+    <div class="fs-blob a"></div>
+    <div class="fs-blob b"></div>
+    <div class="fs-blob c"></div>
+  </div>
   <div class="fs-fx-layer" id="fsFxLayer">
     <div class="fs-fx-line"></div>
     <div class="fs-fx-line"></div>
@@ -1510,6 +1656,7 @@ body {
 
   <div class="fs-minimal-wrap">
     <div id="fs-time-display">00:00:00</div>
+    <div id="fs-quote-display">Focus builds freedom.</div>
   </div>
 </div>
 
@@ -1662,6 +1809,27 @@ body {
           <option value="carousel">滑动显示所有（每页 3 个）</option>
           <option value="grouped">自动分组（1-3、4-6…）</option>
         </select>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-label">番茄钟自动切换休息</div>
+          <div class="settings-row-sub">专注结束后自动开启休息计时</div>
+        </div>
+        <button class="toggle on" id="togglePomodoroAutoCycle" onclick="toggleSetting('pomodoroAutoCycle')"></button>
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">番茄钟：专注 / 休息（分钟）</label>
+        <div style="display:flex;gap:10px;">
+          <input class="form-input" id="sPomodoroFocusMin" type="number" min="10" max="90" step="1" onchange="savePomodoroDurations()" placeholder="25">
+          <input class="form-input" id="sPomodoroBreakMin" type="number" min="3" max="30" step="1" onchange="savePomodoroDurations()" placeholder="5">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">结束铃声音量</label>
+        <input id="sBellVolume" type="range" min="0.1" max="1" step="0.05" value="0.8" oninput="saveBellVolume(this.value)">
       </div>
       <div class="divider"></div>
       <div class="form-field">
@@ -1971,6 +2139,10 @@ const DEFAULT_SETTINGS = {
   interruptLog: true,
   mockLink: true,
   goalLink: true,
+  pomodoroAutoCycle: true,
+  pomodoroFocusMin: 25,
+  pomodoroBreakMin: 5,
+  bellVolume: 0.8,
   layoutMode: 'carousel',
   language: 'zh',
   apiKey: '',
@@ -1981,7 +2153,7 @@ const DEFAULT_SETTINGS = {
   bellUnattendedAction: 'manual',
   bellUnattendedDelaySec: 60
 };
-const APP_VERSION = '202604202200';
+const APP_VERSION = '202604202345';
 let settings = { ...DEFAULT_SETTINGS };
 let selColor = COLORS[0];
 let selDur   = null;
@@ -2023,6 +2195,16 @@ let pipMiniTimer = null;
 let customBellObjectUrl = '';
 let customBellPlaybackSrc = '';
 let mediaPermissionPrimed = false;
+let pomodoroSessionSerial = 0;
+let quoteCursor = 0;
+let fsQuoteClock = 0;
+const FOCUS_QUOTES = [
+  { zh: '专注不是拼命，而是把每一分钟都放在最值得的地方。', en: 'Focus is not force—it is placing each minute where it matters most.' },
+  { zh: '你今天写下的每一步，都会在考场上变成底气。', en: 'Every step you write today becomes confidence on exam day.' },
+  { zh: '慢一点也没关系，持续前进就是胜利。', en: 'Slow is fine—steady progress is victory.' },
+  { zh: '把注意力拉回当下，时间会站在你这边。', en: 'Bring attention back to now, and time will work for you.' },
+  { zh: '完成一个番茄钟，就离目标更近一步。', en: 'Finish one Pomodoro, move one step closer to your goal.' }
+];
 
 const I18N = {
   zh: {
@@ -2170,6 +2352,7 @@ function applyI18n() {
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) settingsBtn.title = t('settings');
   renderSettingsUI();
+  refreshMotivationQuote(false);
 }
 
 // ============================================================
@@ -2279,6 +2462,8 @@ function persist() {
       total: t.total, left: t.left, running: false, paused: t.paused || !t.running,
       done: t.done, note: t.note || '', saveInterval: t.saveInterval,
       createdAt: t.createdAt, startedAt: t.startedAt, finishSceneData: t.finishSceneData || null,
+      pomodoroPhase: t.pomodoroPhase || null,
+      pomodoroCycle: Number(t.pomodoroCycle) || 0,
     })),
     history: getHistory(),
     stats: getStats(),
@@ -2306,6 +2491,10 @@ function loadPersisted() {
     settings.autoFS = settings.autoFS !== false;
     settings.fullscreenFx = !!settings.fullscreenFx;
     settings.interruptLog = settings.interruptLog !== false;
+    settings.pomodoroAutoCycle = settings.pomodoroAutoCycle !== false;
+    settings.pomodoroFocusMin = Math.min(90, Math.max(10, Number(settings.pomodoroFocusMin) || 25));
+    settings.pomodoroBreakMin = Math.min(30, Math.max(3, Number(settings.pomodoroBreakMin) || 5));
+    settings.bellVolume = Math.min(1, Math.max(0.1, Number(settings.bellVolume) || 0.8));
     if (s.timers) {
       timers = s.timers.map(t => ({
         ...t,
@@ -2316,6 +2505,8 @@ function loadPersisted() {
         _preEndAlerted: false,
         _muteNextRing: false,
         _finishScenePrefetching: false,
+        pomodoroPhase: t.pomodoroPhase || null,
+        pomodoroCycle: Number(t.pomodoroCycle) || 0,
       }));
     }
   } catch(e) { console.warn('Load failed', e); }
@@ -2375,6 +2566,52 @@ function getTodayStats() {
   const s = getStats();
   const today = new Date().toISOString().slice(0,10);
   return s[today] || { focusMins:0, completed:0, pauses:0 };
+}
+
+function getStatNumber(dayStats, key) {
+  return Number(dayStats?.[key] || 0) || 0;
+}
+
+function getCurrentStreakDays() {
+  const stats = getStats();
+  let streak = 0;
+  const cursor = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = cursor.toISOString().slice(0, 10);
+    const day = stats[d];
+    if (getStatNumber(day, 'focusMins') > 0 || getStatNumber(day, 'completed') > 0) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+      continue;
+    }
+    break;
+  }
+  return streak;
+}
+
+function getTodayPomodoroCount() {
+  const stats = getStats();
+  const today = new Date().toISOString().slice(0,10);
+  const day = stats[today] || {};
+  return getStatNumber(day, 'pomodoroFocus');
+}
+
+function getQuoteForNow(advance = false) {
+  if (!FOCUS_QUOTES.length) return { zh: 'Focus', en: 'Focus' };
+  if (advance) quoteCursor = (quoteCursor + 1) % FOCUS_QUOTES.length;
+  return FOCUS_QUOTES[quoteCursor % FOCUS_QUOTES.length];
+}
+
+function refreshMotivationQuote(advance = false) {
+  const q = getQuoteForNow(advance);
+  const lang = getLanguage();
+  const textEl = document.getElementById('motivationQuoteText');
+  const metaEl = document.getElementById('motivationQuoteMeta');
+  if (textEl) textEl.textContent = lang === 'en' ? q.en : q.zh;
+  if (metaEl) metaEl.textContent = '— IGCSE Focus Companion';
+  const fsEl = document.getElementById('fs-quote-display');
+  if (fsEl) fsEl.textContent = lang === 'en' ? q.en : q.zh;
+  fsQuoteClock = performance.now();
 }
 
 // ============================================================
@@ -2545,6 +2782,8 @@ function pct(t) {
 // ============================================================
 function renderQuickStart() {
   const wrap = document.getElementById('igcseQuickstart');
+  const pomodoroFocusMin = Math.min(90, Math.max(10, Number(settings.pomodoroFocusMin) || 25));
+  const pomodoroBreakMin = Math.min(30, Math.max(3, Number(settings.pomodoroBreakMin) || 5));
   const shown = [
     { id:'0580P4', icon:'📐', color:'#1a73e8', bg:'#e8f0fe' },
     { id:'0580P2', icon:'📐', color:'#1a73e8', bg:'#e8f0fe' },
@@ -2556,7 +2795,7 @@ function renderQuickStart() {
     { id:'0610P6', icon:'🔬', color:'#34a853', bg:'#e6f4ea' },
     { id:'0500P1', icon:'📚', color:'#ea4335', bg:'#fce8e6' },
   ];
-  wrap.innerHTML = shown.map(s => {
+  const paperHtml = shown.map(s => {
     const p = IGCSE_PAPERS.find(x => x.id === s.id);
     if (!p) return '';
     return `<button class="igcse-chip" onclick="quickLaunch('${p.id}')" title="${p.name} · ${fmtDur(p.dur)}">
@@ -2567,6 +2806,14 @@ function renderQuickStart() {
       </div>
     </button>`;
   }).join('');
+  const pomodoroHtml = `<button class="igcse-chip" onclick="startPomodoroFocus()" title="Pomodoro ${pomodoroFocusMin}/${pomodoroBreakMin}">
+    <div class="igcse-chip-icon" style="background:#fee2e2;color:#ef4444;">🍅</div>
+    <div class="igcse-chip-info">
+      <div class="igcse-chip-name" style="color:#ef4444;">Pomodoro</div>
+      <div class="igcse-chip-meta">${pomodoroFocusMin}m focus · ${pomodoroBreakMin}m break</div>
+    </div>
+  </button>`;
+  wrap.innerHTML = pomodoroHtml + paperHtml;
 }
 
 function quickLaunch(paperId) {
@@ -2584,6 +2831,25 @@ function quickLaunch(paperId) {
     note: '',
   });
   showSnackbar(`启动：${p.name} (${fmtDur(p.dur)})`);
+}
+
+function startPomodoroFocus() {
+  pomodoroSessionSerial += 1;
+  const focusMin = Math.min(90, Math.max(10, Number(settings.pomodoroFocusMin) || 25));
+  const cycle = pomodoroSessionSerial;
+  createTimer({
+    name: `🍅 Pomodoro Focus #${cycle}`,
+    color: '#ef4444',
+    subj: 'custom',
+    dur: focusMin,
+    saveInterval: 5,
+    note: '',
+    pomodoroPhase: 'focus',
+    pomodoroCycle: cycle,
+  });
+  showSnackbar(getLanguage() === 'en'
+    ? `Pomodoro focus started (${focusMin} min)`
+    : `已开始番茄专注（${focusMin} 分钟）`);
 }
 
 // ============================================================
@@ -2780,6 +3046,8 @@ function createTimer(cfg) {
     _muteNextRing: false,
     _finishScenePrefetching: false,
     finishSceneData: cfg.finishSceneData || null,
+    pomodoroPhase: cfg.pomodoroPhase || null,
+    pomodoroCycle: Number(cfg.pomodoroCycle) || 0,
     createdAt: cfg.createdAt || Date.now(),
     startedAt: null,
   };
@@ -2955,6 +3223,8 @@ async function onTimerDone(id) {
   const spentMins = Math.round((t.total - t.left) / 60);
   addToStats('completed');
   addToStats('focusMins', spentMins);
+  if (t.pomodoroPhase === 'focus') addToStats('pomodoroFocus');
+  if (t.pomodoroPhase === 'break') addToStats('pomodoroBreak');
   addToHeatmap(spentMins);
 
   const entry = {
@@ -2974,7 +3244,31 @@ async function onTimerDone(id) {
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
 
-  showSnackbar(`✓ ${t.name} — 时间到！`, didPlayBell, didPlayBell ? stopDoneSound : null, '停止播放', didPlayBell ? null : 3200);
+  let pomodoroNotice = '';
+  if (t.pomodoroPhase === 'focus') {
+    const breakMin = Math.min(30, Math.max(3, Number(settings.pomodoroBreakMin) || 5));
+    if (settings.pomodoroAutoCycle) {
+      createTimer({
+        name: `☕ Pomodoro Break #${t.pomodoroCycle || 1}`,
+        color: '#0ea5e9',
+        subj: 'custom',
+        dur: breakMin,
+        saveInterval: 5,
+        note: '',
+        pomodoroPhase: 'break',
+        pomodoroCycle: t.pomodoroCycle || 1,
+      });
+      pomodoroNotice = getLanguage() === 'en'
+        ? ` · Break auto-started (${breakMin}m)`
+        : ` · 已自动开启${breakMin}分钟休息`;
+    } else {
+      pomodoroNotice = getLanguage() === 'en'
+        ? ' · Start a break from Pomodoro quick-start'
+        : ' · 可从快捷启动开始休息计时';
+    }
+  }
+
+  showSnackbar(`✓ ${t.name} — 时间到！${pomodoroNotice}`, didPlayBell, didPlayBell ? stopDoneSound : null, '停止播放', didPlayBell ? null : 3200);
   renderTimerCard(id);
   refreshFsDisplay();
   renderStats();
@@ -3074,6 +3368,7 @@ async function playDoneSound() {
   try {
     stopDoneSound();
     await primeMediaPlaybackPermission();
+    const bellVolume = Math.min(1, Math.max(0.1, Number(settings.bellVolume) || 0.8));
     const source = settings.bellSource === 'netease' ? 'netease' : 'local';
     if (source === 'netease' && sanitizeNumericInput(settings.neteaseSongId)) {
       activeBellMode = 'netease';
@@ -3086,6 +3381,7 @@ async function playDoneSound() {
       const bell = new Audio(customSrc);
       bell.loop = true;
       bell.preload = 'auto';
+      bell.volume = bellVolume;
       activeBellAudio = bell;
       try {
         await bell.play();
@@ -3114,9 +3410,10 @@ async function playDoneSound() {
     }
     const playTonePattern = () => {
       const base = ac.currentTime;
-      tone(523, 0,    0.3, 0.3, base);
-      tone(659, 0.2,  0.3, 0.3, base);
-      tone(784, 0.4,  0.5, 0.3, base);
+      const vol = 0.32 * bellVolume;
+      tone(523, 0,    0.3, vol, base);
+      tone(659, 0.2,  0.3, vol, base);
+      tone(784, 0.4,  0.5, vol, base);
     };
     playTonePattern();
     clearTimeout(activeToneLoopTimer);
@@ -3554,6 +3851,16 @@ function renderStats() {
       : `${focusMins}<span class="stat-unit">min</span>`;
   document.getElementById('statCompleted').innerHTML = `${today.completed || 0}<span class="stat-unit">${getLanguage() === 'en' ? 'x' : '次'}</span>`;
   document.getElementById('statPauses').innerHTML    = `${today.pauses || 0}<span class="stat-unit">${getLanguage() === 'en' ? 'x' : '次'}</span>`;
+  const streakEl = document.getElementById('statStreak');
+  if (streakEl) {
+    const streak = getCurrentStreakDays();
+    streakEl.innerHTML = `${streak}<span class="stat-unit">${getLanguage() === 'en' ? 'd' : '天'}</span>`;
+  }
+  const pomodoroEl = document.getElementById('statPomodoro');
+  if (pomodoroEl) {
+    const rounds = getTodayPomodoroCount();
+    pomodoroEl.innerHTML = `${rounds}<span class="stat-unit">${getLanguage() === 'en' ? 'rounds' : '轮'}</span>`;
+  }
 }
 
 // ============================================================
@@ -3647,6 +3954,7 @@ function openFullscreen(id) {
   const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.add('open');
   refreshFsDisplay();
+  refreshMotivationQuote(false);
   requestBrowserFullscreen(document.documentElement);
 }
 
@@ -3666,7 +3974,12 @@ function refreshFsDisplay() {
   if (fst) { fst.textContent = fmtHMS(t.left); fst.style.color = '#f7f9ff'; }
 
   const pb = document.getElementById('fsProgressBar');
-  if (pb) { pb.style.width = (p*100) + '%'; pb.style.background = color; }
+  if (pb) {
+    pb.style.transform = `scaleX(${p})`;
+    pb.style.background = color;
+  }
+  const now = performance.now();
+  if (now - fsQuoteClock > 18000) refreshMotivationQuote(true);
 }
 
 function fsToggle() {
@@ -3700,11 +4013,12 @@ function exitBrowserFullscreen() {
 function onFullscreenChange() {
   const doc = document;
   const isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
+  const overlay = document.getElementById('fullscreen-overlay');
   if (!isFs) {
-    document.getElementById('fullscreen-overlay').classList.remove('open');
+    if (overlay) overlay.classList.remove('open', 'is-native-fs');
     fsTimerId = null;
   } else if (fsTimerId !== null) {
-    document.getElementById('fullscreen-overlay').classList.add('open');
+    if (overlay) overlay.classList.add('open', 'is-native-fs');
   }
 }
 
@@ -3851,6 +4165,12 @@ function openSettings() {
   if (unattendedAction) unattendedAction.value = settings.bellUnattendedAction || 'manual';
   const unattendedDelay = document.getElementById('bellUnattendedDelay');
   if (unattendedDelay) unattendedDelay.value = String(getBellUnattendedDelaySec());
+  const pomodoroFocusInput = document.getElementById('sPomodoroFocusMin');
+  if (pomodoroFocusInput) pomodoroFocusInput.value = String(Math.min(90, Math.max(10, Number(settings.pomodoroFocusMin) || 25)));
+  const pomodoroBreakInput = document.getElementById('sPomodoroBreakMin');
+  if (pomodoroBreakInput) pomodoroBreakInput.value = String(Math.min(30, Math.max(3, Number(settings.pomodoroBreakMin) || 5)));
+  const bellVolumeInput = document.getElementById('sBellVolume');
+  if (bellVolumeInput) bellVolumeInput.value = String(Math.min(1, Math.max(0.1, Number(settings.bellVolume) || 0.8)));
   const langInput = document.getElementById('sLanguage');
   if (langInput) langInput.value = getLanguage();
   updateExamCountdown(examDate);
@@ -3858,7 +4178,7 @@ function openSettings() {
 }
 
 function renderSettingsUI() {
-  ['sound','autoFS','fullscreenFx','interruptLog','mockLink','goalLink'].forEach(key => {
+  ['sound','autoFS','fullscreenFx','interruptLog','mockLink','goalLink','pomodoroAutoCycle'].forEach(key => {
     const el = document.getElementById('toggle' + key[0].toUpperCase() + key.slice(1));
     if (el) el.classList.toggle('on', !!settings[key]);
   });
@@ -3875,12 +4195,34 @@ function renderSettingsUI() {
   if (unattendedDelay) unattendedDelay.value = String(getBellUnattendedDelaySec());
   const fs = document.getElementById('fullscreen-overlay');
   if (fs) fs.classList.toggle('fx-on', !!settings.fullscreenFx);
+  const bellVolumeInput = document.getElementById('sBellVolume');
+  if (bellVolumeInput) bellVolumeInput.value = String(Math.min(1, Math.max(0.1, Number(settings.bellVolume) || 0.8)));
+  const pomodoroFocusInput = document.getElementById('sPomodoroFocusMin');
+  if (pomodoroFocusInput) pomodoroFocusInput.value = String(Math.min(90, Math.max(10, Number(settings.pomodoroFocusMin) || 25)));
+  const pomodoroBreakInput = document.getElementById('sPomodoroBreakMin');
+  if (pomodoroBreakInput) pomodoroBreakInput.value = String(Math.min(30, Math.max(3, Number(settings.pomodoroBreakMin) || 5)));
 }
 
 function toggleSetting(key) {
   settings[key] = !settings[key];
   if (key === 'sound' && !settings[key]) stopDoneSound();
   renderSettingsUI();
+  persist();
+}
+
+function savePomodoroDurations() {
+  const focusRaw = Number(document.getElementById('sPomodoroFocusMin')?.value);
+  const breakRaw = Number(document.getElementById('sPomodoroBreakMin')?.value);
+  settings.pomodoroFocusMin = Math.min(90, Math.max(10, Number.isFinite(focusRaw) ? Math.round(focusRaw) : 25));
+  settings.pomodoroBreakMin = Math.min(30, Math.max(3, Number.isFinite(breakRaw) ? Math.round(breakRaw) : 5));
+  persist();
+  renderQuickStart();
+}
+
+function saveBellVolume(value) {
+  const n = Number(value);
+  settings.bellVolume = Math.min(1, Math.max(0.1, Number.isFinite(n) ? n : 0.8));
+  if (activeBellAudio) activeBellAudio.volume = settings.bellVolume;
   persist();
 }
 
@@ -4082,6 +4424,7 @@ function setLanguage(lang) {
   settings.language = lang === 'en' ? 'en' : 'zh';
   persist();
   applyI18n();
+  renderQuickStart();
   renderAll();
   renderStats();
   renderHistory();
