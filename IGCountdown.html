@@ -1593,11 +1593,13 @@ body {
         <button class="btn-tonal" onclick="openModal('audioModal')">上传结束铃声</button>
         <button class="btn-tonal" onclick="openModal('aiModal')">生成学习分析</button>
       </div>
+      <div id="settingsVersion" style="font-size:12px;color:var(--md-on-surface-variant);margin-top:8px;">Version: 202604201145</div>
       <div id="examCountdownDisplay" style="font-family:'Google Sans',sans-serif;font-size:14px;color:var(--md-primary);text-align:center;display:none;"></div>
       <div class="divider"></div>
       <div>
         <div class="settings-row-label" style="margin-bottom:8px;">清除数据</div>
-        <button class="btn-text danger" onclick="clearAllData()" style="padding:8px 0;">清除所有计时历史</button>
+        <button class="btn-text danger" onclick="clearAllHistory()" style="padding:8px 0;display:block;">清除所有计时历史</button>
+        <button class="btn-text danger" onclick="clearAllData()" style="padding:8px 0;display:block;">清除所有数据</button>
       </div>
     </div>
     <div class="modal-footer">
@@ -1691,6 +1693,9 @@ body {
         <option>外部打断</option>
         <option>其他</option>
       </select>
+      <div class="form-field" id="interruptCustomWrap" style="display:none;margin-top:10px;">
+        <input class="form-input" id="interruptCustomReason" maxlength="40" placeholder="请输入自定义中断时间/原因">
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-filled" onclick="saveInterruptReason()">记录</button>
@@ -1746,6 +1751,46 @@ body {
   </div>
 </div>
 
+<!-- DEBUG MODAL -->
+<div class="modal-backdrop" id="debugModal" onclick="closeModalOnBackdrop(event,'debugModal')">
+  <div class="modal-surface" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-title">调试模式（Debug）</div>
+      <button class="icon-btn" onclick="closeModal('debugModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--md-on-surface-variant);margin-bottom:10px;">按 <b>~</b> 快捷打开。调试动作会绕过常规提示信息。</div>
+      <div class="form-field">
+        <label class="form-label">目标计时器</label>
+        <select class="form-select" id="debugTimerSelect"></select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-tonal" onclick="debugForceFinishSelected()">直接触发结束</button>
+        <button class="btn-tonal" onclick="debugPlayBellSelected()">播放铃声</button>
+        <button class="btn-tonal" onclick="debugStopBellSelected()">停止铃声</button>
+        <button class="btn-tonal" onclick="debugPrefetchSelected()">预加载结束动画</button>
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">假数据：一言正文</label>
+        <input class="form-input" id="debugFakeHitokoto" placeholder="例如：测试文本">
+      </div>
+      <div class="form-field">
+        <label class="form-label">假数据：出处</label>
+        <input class="form-input" id="debugFakeFrom" placeholder="例如：测试出处">
+      </div>
+      <div class="form-field">
+        <label class="form-label">假数据：作者</label>
+        <input class="form-input" id="debugFakeWho" placeholder="例如：测试作者">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-filled" onclick="debugInjectFakeSceneData()">注入假数据并显示结束动画</button>
+      </div>
+      <div id="debugOutput" style="margin-top:10px;font-size:12px;color:var(--md-on-surface-variant);"></div>
+    </div>
+  </div>
+</div>
+
 <!-- SNACKBAR -->
 <div id="snackbar">
   <span id="snackbar-msg">操作成功</span>
@@ -1796,7 +1841,9 @@ const SUBJ_ICONS = {
 // STATE
 // ============================================================
 let timers = [];       // active timer objects
-let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutMode:'carousel', apiKey:'', customBellData:'', customBellType:'', neteaseSongId:'' };
+const DEFAULT_SETTINGS = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutMode:'carousel', apiKey:'', customBellData:'', customBellType:'', neteaseSongId:'' };
+const APP_VERSION = '202604201145';
+let settings = { ...DEFAULT_SETTINGS };
 let selColor = COLORS[0];
 let selDur   = null;
 let selIgcse = null;
@@ -1818,6 +1865,9 @@ let finishSceneOwnerId = null;
 let statsRenderClock = 0;
 let confirmModalResolver = null;
 let confirmModalHasInput = false;
+let listenersBound = false;
+let isInitialized = false;
+let suppressStandardAlerts = false;
 const PRE_END_ALERT_THRESHOLD = 20;
 const CUSTOM_BELL_AUTO_STOP_MS = 15000;
 const TONE_BELL_AUTO_STOP_MS = 2500;
@@ -2003,9 +2053,12 @@ async function prefetchFinishSceneData(timerId) {
   t._finishScenePrefetching = true;
   const fallback = fallbackFinishLines(t.name);
   try {
-    const hitResp = await fetch('https://v1.hitokoto.cn/?encode=json');
+    const hitResp = await fetch('https://v1.hitokoto.cn/?c=f&encode=json');
+    if (!hitResp.ok) throw new Error(`hitokoto request failed: ${hitResp.status}`);
     const hitData = await hitResp.json();
     const rawHitokoto = String(hitData?.hitokoto || '').trim();
+    const rawFrom = String(hitData?.from || '').trim();
+    const rawFromWho = String(hitData?.from_who || '').trim();
     const zh = (rawHitokoto || fallback.zhHans).slice(0, 72) || fallback.zhHans;
     const [en, zhHant] = await Promise.all([
       translateWithDeepSeekIfAvailable(zh, 'en').catch(() => ''),
@@ -2015,7 +2068,8 @@ async function prefetchFinishSceneData(timerId) {
       zhHans: zh,
       en: en || fallback.en,
       zhHant: zhHant || fallback.zhHant,
-      source: hitData?.from || '',
+      source: rawFrom,
+      sourceWho: rawFromWho,
       loadedAt: Date.now(),
     };
   } catch (e) {
@@ -3149,7 +3203,15 @@ function onFullscreenChange() {
   }
 }
 
-document.addEventListener('keydown', e => {
+function handleGlobalKeydown(e) {
+  if ((e.key === '~' || e.key === '`') && !e.repeat) {
+    const tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
+    if (!['input', 'textarea', 'select'].includes(tag)) {
+      e.preventDefault();
+      openDebugModal();
+      return;
+    }
+  }
   if (e.key === 'Escape') exitFullscreen();
   if (e.key === ' ' && fsTimerId !== null) {
     e.preventDefault();
@@ -3159,11 +3221,7 @@ document.addEventListener('keydown', e => {
     const running = timers.find(x => x.running);
     if (running) openFullscreen(running.id);
   }
-});
-document.addEventListener('fullscreenchange', onFullscreenChange);
-document.addEventListener('webkitfullscreenchange', onFullscreenChange);
-document.addEventListener('mozfullscreenchange', onFullscreenChange);
-document.addEventListener('MSFullscreenChange', onFullscreenChange);
+}
 
 // ============================================================
 // MINI PILL
@@ -3249,14 +3307,29 @@ function updateExamCountdown(dateStr) {
 async function clearAllData() {
   const { ok } = await showConfirmDialog({
     title: '清除数据',
-    body: '确定清除所有历史记录和统计数据？',
+    body: '确定清除本应用所有本地数据并重置吗？',
     okText: '确认清除',
     cancelText: '取消'
   });
   if (!ok) return;
-  localStorage.removeItem('igcse_hist');
-  localStorage.removeItem('igcse_stats');
-  localStorage.removeItem('igcse_heat');
+  timers.forEach(t => clearInterval(t._interval));
+  Object.keys(noteDebounceTimers).forEach(id => {
+    clearTimeout(noteDebounceTimers[id]);
+    delete noteDebounceTimers[id];
+  });
+  stopDoneSound(false);
+  dismissFinishScene();
+  timers = [];
+  settings = { ...DEFAULT_SETTINGS };
+  currentPage = 0;
+  pendingInterruptTimerId = null;
+  const keys = [SK, 'igcse_hist', 'igcse_stats', 'igcse_heat', 'igcse_exam_date', 'igcse_ai_privacy_ok', 'is_first_run'];
+  keys.forEach(k => localStorage.removeItem(k));
+  const examInput = document.getElementById('sExamDate');
+  if (examInput) examInput.value = '';
+  const examCountdown = document.getElementById('examCountdownDisplay');
+  if (examCountdown) examCountdown.style.display = 'none';
+  renderAll();
   renderStats(); renderHistory(); renderHeatmap();
   showSnackbar('数据已清除');
 }
@@ -3284,8 +3357,11 @@ function openFinishScene(t, shouldPlayNetease = false) {
   finishSceneCycleTimer = setInterval(draw, 1700);
 
   if (meta) {
-    meta.textContent = info.source
-      ? `来自「${info.source}」 · 点击屏幕继续`
+    const sourceLine = info.source
+      ? `来自「${info.source}」${info.sourceWho ? ` · ${info.sourceWho}` : ''}`
+      : '';
+    meta.textContent = sourceLine
+      ? `${sourceLine} · 点击屏幕继续`
       : '点击屏幕继续';
   }
 
@@ -3395,7 +3471,11 @@ async function generateAiSummary() {
 }
 
 function saveInterruptReason() {
-  const reason = document.getElementById('interruptReason').value;
+  const selector = document.getElementById('interruptReason');
+  const customInput = document.getElementById('interruptCustomReason');
+  const baseReason = selector ? selector.value : '';
+  const customReason = customInput ? customInput.value.trim() : '';
+  const reason = (baseReason === '其他' && customReason) ? customReason.slice(0, 40) : baseReason;
   if (pendingInterruptTimerId) {
     const t = timers.find(x => x.id === pendingInterruptTimerId);
     if (t) {
@@ -3405,7 +3485,18 @@ function saveInterruptReason() {
     }
   }
   pendingInterruptTimerId = null;
+  if (customInput) customInput.value = '';
+  updateInterruptCustomInputVisibility();
   closeModal('interruptModal');
+}
+
+function updateInterruptCustomInputVisibility() {
+  const selector = document.getElementById('interruptReason');
+  const wrap = document.getElementById('interruptCustomWrap');
+  const input = document.getElementById('interruptCustomReason');
+  const isOther = selector && selector.value === '其他';
+  if (wrap) wrap.style.display = isOther ? 'block' : 'none';
+  if (!isOther && input) input.value = '';
 }
 
 const ONBOARD_STEPS = [
@@ -3476,6 +3567,10 @@ function closeModalOnBackdrop(e, id) {
 }
 
 function showConfirmDialog(opts = {}) {
+  if (suppressStandardAlerts) {
+    const value = opts.input ? String(opts.input.value || '').trim() : '';
+    return Promise.resolve({ ok: true, value });
+  }
   const title = document.getElementById('confirmTitle');
   const body = document.getElementById('confirmBody');
   const okBtn = document.getElementById('confirmOkBtn');
@@ -3532,6 +3627,7 @@ function resolveConfirmModal(ok) {
 // SNACKBAR
 // ============================================================
 function showSnackbar(msg, showUndo = false, undoFn = null, actionLabel = '撤销', durationMs = 3000) {
+  if (suppressStandardAlerts) return;
   document.getElementById('snackbar-msg').textContent = msg;
   const actionBtn = document.getElementById('snackbar-action');
   actionBtn.textContent = actionLabel;
@@ -3548,17 +3644,114 @@ function snackbarAction() {
   document.getElementById('snackbar').classList.remove('show');
 }
 
-// ============================================================
-// SCROLL — elevate top app bar
-// ============================================================
-window.addEventListener('scroll', () => {
-  document.getElementById('topAppBar').classList.toggle('elevated', window.scrollY > 8);
-}, { passive: true });
+function bindGlobalListeners() {
+  if (listenersBound) return;
+  listenersBound = true;
+  document.addEventListener('keydown', handleGlobalKeydown);
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+  document.addEventListener('mozfullscreenchange', onFullscreenChange);
+  document.addEventListener('MSFullscreenChange', onFullscreenChange);
+  window.addEventListener('scroll', () => {
+    document.getElementById('topAppBar').classList.toggle('elevated', window.scrollY > 8);
+  }, { passive: true });
+}
+
+function setDebugOutput(text) {
+  const out = document.getElementById('debugOutput');
+  if (out) out.textContent = text || '';
+}
+
+function getDebugTargetTimer() {
+  const sel = document.getElementById('debugTimerSelect');
+  const id = sel ? sel.value : '';
+  return timers.find(x => x.id === id) || timers[0] || null;
+}
+
+function refreshDebugTimerSelect() {
+  const sel = document.getElementById('debugTimerSelect');
+  if (!sel) return;
+  const selected = sel.value;
+  sel.innerHTML = timers.length
+    ? timers.map(t => `<option value="${esc(t.id)}">${esc(t.name)} (${fmtTime(t.left)})</option>`).join('')
+    : '<option value="">暂无计时器</option>';
+  if (selected && timers.some(t => t.id === selected)) sel.value = selected;
+}
+
+function openDebugModal() {
+  refreshDebugTimerSelect();
+  setDebugOutput('调试模式已开启。');
+  openModal('debugModal');
+}
+
+async function runInDebugMode(fn) {
+  suppressStandardAlerts = true;
+  try {
+    await fn();
+  } finally {
+    suppressStandardAlerts = false;
+  }
+}
+
+async function debugForceFinishSelected() {
+  const t = getDebugTargetTimer();
+  if (!t) return setDebugOutput('没有可用计时器。');
+  await runInDebugMode(async () => {
+    if (t._interval) clearInterval(t._interval);
+    t.running = true;
+    t.left = 0;
+    await onTimerDone(t.id);
+  });
+  setDebugOutput(`已触发结束：${t.name}`);
+}
+
+async function debugPlayBellSelected() {
+  await runInDebugMode(async () => {
+    await playDoneSound();
+  });
+  setDebugOutput('已触发铃声播放测试。');
+}
+
+function debugStopBellSelected() {
+  stopDoneSound(false);
+  setDebugOutput('已停止铃声。');
+}
+
+async function debugPrefetchSelected() {
+  const t = getDebugTargetTimer();
+  if (!t) return setDebugOutput('没有可用计时器。');
+  await runInDebugMode(async () => {
+    await prefetchFinishSceneData(t.id);
+  });
+  setDebugOutput(`已执行预加载：${t.name}`);
+}
+
+function debugInjectFakeSceneData() {
+  const t = getDebugTargetTimer();
+  if (!t) return setDebugOutput('没有可用计时器。');
+  const hitokoto = (document.getElementById('debugFakeHitokoto')?.value || '').trim() || `${t.name} 调试文本`;
+  const source = (document.getElementById('debugFakeFrom')?.value || '').trim() || 'Debug Source';
+  const sourceWho = (document.getElementById('debugFakeWho')?.value || '').trim() || 'Debug User';
+  t.finishSceneData = {
+    zhHans: hitokoto,
+    en: `Debug: ${hitokoto}`,
+    zhHant: toTraditionalFallback(hitokoto),
+    source,
+    sourceWho,
+    loadedAt: Date.now(),
+  };
+  openFinishScene(t, false);
+  persist();
+  setDebugOutput(`已注入并展示假数据：${t.name}`);
+}
 
 // ============================================================
 // INIT
 // ============================================================
 function init() {
+  if (isInitialized) return;
+  isInitialized = true;
+  bindGlobalListeners();
   loadPersisted();
   renderSettingsUI();
   renderQuickStart();
@@ -3589,6 +3782,12 @@ function init() {
   }
   const neteaseInput = document.getElementById('neteaseSongId');
   if (neteaseInput) neteaseInput.value = settings.neteaseSongId || '';
+  const versionEl = document.getElementById('settingsVersion');
+  if (versionEl) versionEl.textContent = `Version: ${APP_VERSION}`;
+  const interruptSelect = document.getElementById('interruptReason');
+  if (interruptSelect) interruptSelect.onchange = updateInterruptCustomInputVisibility;
+  updateInterruptCustomInputVisibility();
+  refreshDebugTimerSelect();
   if (!localStorage.getItem('is_first_run')) {
     setTimeout(startOnboarding, 450);
   }
