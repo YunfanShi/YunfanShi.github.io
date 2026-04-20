@@ -70,11 +70,11 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decel: cubic-bezier(0, 0, 0, 1);
   --ease-accel: cubic-bezier(0.3, 0, 1, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-short: 100ms;
-  --dur-med: 200ms;
-  --dur-long: 300ms;
-  --dur-extra: 500ms;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-short: 140ms;
+  --dur-med: 260ms;
+  --dur-long: 420ms;
+  --dur-extra: 620ms;
 }
 
 /* ============================================================
@@ -281,10 +281,11 @@ body {
   flex-direction: column;
   position: relative;
   transition: box-shadow var(--dur-med) var(--ease-standard),
-              transform var(--dur-long) var(--ease-spring);
+              transform var(--dur-long) var(--ease-spring),
+              filter var(--dur-med) var(--ease-standard);
   animation: cardEnter var(--dur-extra) var(--ease-spring) both;
 }
-.timer-card:hover { box-shadow: var(--elev-2); }
+.timer-card:hover { box-shadow: var(--elev-2); transform: translateY(-2px); }
 .timer-card.active-focus { box-shadow: var(--elev-3); }
 
 @keyframes cardEnter {
@@ -356,8 +357,10 @@ body {
   width: 200px; height: 200px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
+  transition: transform var(--dur-long) var(--ease-spring);
 }
-.ring-container:active { transform: scale(0.97); }
+.ring-container:hover { transform: scale(1.01); }
+.ring-container:active { transform: scale(0.98); }
 
 .ring-svg {
   position: absolute; inset: 0;
@@ -377,7 +380,7 @@ body {
   stroke-linecap: round;
   stroke-dasharray: 534.07; /* 2π×85 */
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 1s linear,
+  transition: stroke-dashoffset 920ms linear,
               stroke var(--dur-long) var(--ease-standard);
 }
 .ring-warn {
@@ -404,16 +407,16 @@ body {
 }
 .time-display {
   font-family: 'Roboto Mono', monospace;
-  font-size: clamp(32px, 5vw, 48px);
+  font-size: clamp(24px, 3.6vw, 40px);
   font-weight: 400;
-  letter-spacing: -2px;
+  letter-spacing: -1px;
   line-height: 1;
   transition: color var(--dur-med) var(--ease-standard),
               transform var(--dur-short) var(--ease-spring);
 }
 .time-display.tick { animation: timeTick var(--dur-short) var(--ease-spring); }
 @keyframes timeTick {
-  0%  { transform: scale(1.04); }
+  0%  { transform: scale(1.025); }
   100%{ transform: scale(1); }
 }
 .time-pct {
@@ -685,9 +688,10 @@ body {
   gap: 4px;
   flex: 1; min-width: 120px;
   box-shadow: var(--elev-1);
-  transition: box-shadow var(--dur-med) var(--ease-standard);
+  transition: box-shadow var(--dur-med) var(--ease-standard),
+              transform var(--dur-med) var(--ease-spring);
 }
-.stat-card:hover { box-shadow: var(--elev-2); }
+.stat-card:hover { box-shadow: var(--elev-2); transform: translateY(-1px); }
 .stat-label {
   font-size: 11px; font-weight: 500;
   color: var(--md-on-surface-variant);
@@ -801,8 +805,8 @@ body {
    ============================================================ */
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 500;
-  background: rgba(32,33,36,.5);
-  backdrop-filter: blur(4px);
+  background: rgba(17,20,26,.42);
+  backdrop-filter: blur(12px) saturate(1.1);
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
   opacity: 0; visibility: hidden;
@@ -816,9 +820,10 @@ body {
 }
 
 .modal-surface {
-  background: var(--md-surface);
+  background: rgba(255,255,255,.94);
   border-radius: var(--r-xl);
   box-shadow: var(--elev-5);
+  border: 1px solid rgba(255,255,255,.5);
   max-width: 480px;
   width: 100%;
   max-height: 90vh;
@@ -1170,6 +1175,11 @@ body {
   .igcse-chip { padding: 8px 12px; }
   .content { padding: 16px 12px 100px; }
 }
+
+#timer-arena.split-2 .ring-container { width: 184px; height: 184px; }
+#timer-arena.split-3 .ring-container { width: 164px; height: 164px; }
+#timer-arena.split-2 .time-display { font-size: clamp(22px, 2.8vw, 34px); }
+#timer-arena.split-3 .time-display { font-size: clamp(20px, 2.2vw, 30px); }
 @media (max-width: 480px) {
   .app-bar-subtitle { display: none; }
   .top-app-bar { padding: 0 8px; }
@@ -1460,8 +1470,8 @@ body {
     <div class="modal-body">
       <div class="settings-row">
         <div>
-          <div class="settings-row-label">声音提醒</div>
-          <div class="settings-row-sub">计时结束时播放提示音</div>
+          <div class="settings-row-label">结束铃声</div>
+          <div class="settings-row-sub">可关闭；剩余 20 秒会弹窗提醒本次是否播放</div>
         </div>
         <button class="toggle on" id="toggleSound" onclick="toggleSetting('sound')"></button>
       </div>
@@ -1701,6 +1711,9 @@ let currentPage = 0;
 let onboardingIdx = 0;
 let pendingInterruptTimerId = null;
 const noteDebounceTimers = {};
+let activeBellAudio = null;
+let activeBellContext = null;
+let activeBellStopTimer = null;
 
 // ============================================================
 // PERSISTENCE
@@ -1737,6 +1750,8 @@ function loadPersisted() {
         paused: true,
         _interval: null,
         _saveCountdown: t.saveInterval || 5,
+        _preEndAlerted: false,
+        _muteNextRing: false,
       }));
     }
   } catch(e) { console.warn('Load failed', e); }
@@ -2076,6 +2091,8 @@ function createTimer(cfg) {
     _interval: null,
     _saveCountdown: cfg.saveInterval || 5,
     _pauseCount: cfg.pauseCount || 0,
+    _preEndAlerted: false,
+    _muteNextRing: false,
     createdAt: cfg.createdAt || Date.now(),
     startedAt: null,
   };
@@ -2093,6 +2110,7 @@ function createTimer(cfg) {
 function startTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t || t.done) return;
+  stopDoneSound();
   // Pause all others if in split layout with this as active
   if (timers.length > 1) {
     timers.filter(x => x.id !== id && x.running).forEach(x => pauseTimer(x.id, false));
@@ -2133,11 +2151,14 @@ function toggleTimer(id) {
 function resetTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
+  stopDoneSound();
   clearInterval(t._interval);
   t.left = t.total;
   t.running = false;
   t.paused  = false;
   t.done    = false;
+  t._preEndAlerted = false;
+  t._muteNextRing = false;
   t.startedAt = null;
   t._pauseCount = 0;
   persist();
@@ -2148,9 +2169,12 @@ function resetTimer(id) {
 function addTime(id, mins) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
+  stopDoneSound();
   t.left  += mins * 60;
   t.total += mins * 60;
   if (t.done) { t.done = false; t.left = mins * 60; t.total = mins * 60; }
+  if (t.left > 20) t._preEndAlerted = false;
+  t._muteNextRing = false;
   persist();
   renderTimerCard(id);
   showSnackbar(`+${mins} 分钟已添加`);
@@ -2159,6 +2183,7 @@ function addTime(id, mins) {
 function removeTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
+  stopDoneSound();
   clearInterval(t._interval);
   const wasRunning = t.running;
   const el = document.getElementById('card-' + id);
@@ -2185,20 +2210,36 @@ function tickTimer(id) {
   if (!t || !t.running) return;
   t.left = Math.max(0, t.left - 1);
 
+  if (t.left === 20 && !t.done && !t._preEndAlerted) {
+    t._preEndAlerted = true;
+    showPreEndBellPopup(t);
+  }
+
   // Auto-save
   t._saveCountdown--;
   if (t._saveCountdown <= 0) {
     t._saveCountdown = t.saveInterval;
     persist();
     flashSaveIndicator(id);
-    addToStats('focusMins', 1/60);
   }
 
   refreshTimerDisplay(id);
   if (fsTimerId === id) refreshFsDisplay();
   updateMiniPill();
+  renderStats();
 
   if (t.left <= 0) onTimerDone(id);
+}
+
+function showPreEndBellPopup(t) {
+  if (!t) return;
+  if (!settings.sound) {
+    showSnackbar(`⏳ ${t.name} 剩余 20 秒`);
+    return;
+  }
+  const shouldPlay = confirm(`⏳ ${t.name} 剩余 20 秒。\n结束时播放铃声吗？`);
+  t._muteNextRing = !shouldPlay;
+  showSnackbar(shouldPlay ? '已保留结束铃声' : '本次结束将静音');
 }
 
 function onTimerDone(id) {
@@ -2222,12 +2263,15 @@ function onTimerDone(id) {
   addHistory(entry);
   persist();
 
-  if (settings.sound) playDoneSound();
+  const shouldPlayRing = settings.sound && !t._muteNextRing;
+  const playedBell = shouldPlayRing ? playDoneSound() : false;
+  t._muteNextRing = false;
+  t._preEndAlerted = false;
   triggerBbcTransition();
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
 
-  showSnackbar(`✓ ${t.name} — 时间到！`, false);
+  showSnackbar(`✓ ${t.name} — 时间到！`, playedBell, playedBell ? stopDoneSound : null, '停止铃声');
   renderTimerCard(id);
   refreshFsDisplay();
   renderStats();
@@ -2287,12 +2331,18 @@ function notifyGoalTracker(entry) {
 // ============================================================
 function playDoneSound() {
   try {
+    stopDoneSound();
     if (settings.customBellData) {
       const bell = new Audio(settings.customBellData);
+      bell.loop = false;
+      activeBellAudio = bell;
       bell.play().catch(() => {});
-      return;
+      clearTimeout(activeBellStopTimer);
+      activeBellStopTimer = setTimeout(stopDoneSound, 15000);
+      return true;
     }
     const ac = new (window.AudioContext || window.webkitAudioContext)();
+    activeBellContext = ac;
     function tone(freq, start, dur, vol) {
       const o = ac.createOscillator();
       const g = ac.createGain();
@@ -2307,7 +2357,27 @@ function playDoneSound() {
     tone(523, 0,    0.3, 0.3);
     tone(659, 0.2,  0.3, 0.3);
     tone(784, 0.4,  0.5, 0.3);
-  } catch(e) {}
+    clearTimeout(activeBellStopTimer);
+    activeBellStopTimer = setTimeout(stopDoneSound, 2500);
+    return true;
+  } catch(e) { return false; }
+}
+
+function stopDoneSound() {
+  clearTimeout(activeBellStopTimer);
+  activeBellStopTimer = null;
+  if (activeBellAudio) {
+    try {
+      activeBellAudio.pause();
+      activeBellAudio.currentTime = 0;
+      activeBellAudio.src = '';
+    } catch(e) {}
+    activeBellAudio = null;
+  }
+  if (activeBellContext) {
+    try { activeBellContext.close(); } catch(e) {}
+    activeBellContext = null;
+  }
 }
 
 // ============================================================
@@ -2521,12 +2591,15 @@ function cardHTML(t) {
 function setTimerDur(id, mins) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
+  stopDoneSound();
   const wasRunning = t.running;
   if (wasRunning) pauseTimer(id, false);
   t.total = mins * 60;
   t.left  = mins * 60;
   t.dur   = mins;
   t.done  = false;
+  t._preEndAlerted = false;
+  t._muteNextRing = false;
   t.startedAt = null;
   persist();
   renderTimerCard(id);
@@ -2537,6 +2610,7 @@ function switchPaper(timerId, paperId) {
   const t = timers.find(x => x.id === timerId);
   const p = IGCSE_PAPERS.find(x => x.id === paperId);
   if (!t || !p) return;
+  stopDoneSound();
   const wasRunning = t.running;
   if (wasRunning) pauseTimer(timerId, false);
   t.paperId = p.id;
@@ -2547,6 +2621,8 @@ function switchPaper(timerId, paperId) {
   t.left    = p.dur * 60;
   t.dur     = p.dur;
   t.done    = false;
+  t._preEndAlerted = false;
+  t._muteNextRing = false;
   t.startedAt = null;
   persist();
   renderTimerCard(timerId);
@@ -2672,7 +2748,11 @@ function flashSaveIndicator(id) {
 // ============================================================
 function renderStats() {
   const today = getTodayStats();
-  const focusMins = Math.round(today.focusMins || 0);
+  const liveFocusMins = timers.reduce((sum, t) => {
+    if (t.done || t.total <= 0) return sum;
+    return sum + Math.max(0, (t.total - t.left) / 60);
+  }, 0);
+  const focusMins = Math.round((today.focusMins || 0) + liveFocusMins);
   document.getElementById('statFocusTime').innerHTML =
     focusMins >= 60
       ? `${Math.floor(focusMins/60)}<span class="stat-unit">hr</span> ${focusMins%60}<span class="stat-unit">m</span>`
@@ -2898,6 +2978,7 @@ function renderSettingsUI() {
 
 function toggleSetting(key) {
   settings[key] = !settings[key];
+  if (key === 'sound' && !settings[key]) stopDoneSound();
   renderSettingsUI();
   persist();
 }
@@ -3090,9 +3171,10 @@ function closeModalOnBackdrop(e, id) {
 // ============================================================
 // SNACKBAR
 // ============================================================
-function showSnackbar(msg, showUndo = false, undoFn = null) {
+function showSnackbar(msg, showUndo = false, undoFn = null, actionLabel = '撤销') {
   document.getElementById('snackbar-msg').textContent = msg;
   const actionBtn = document.getElementById('snackbar-action');
+  actionBtn.textContent = actionLabel;
   actionBtn.style.display = showUndo ? 'inline' : 'none';
   snackbarUndoFn = undoFn;
   const el = document.getElementById('snackbar');
