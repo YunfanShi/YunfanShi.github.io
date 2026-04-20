@@ -1845,6 +1845,10 @@ function pct(t) {
   return Math.max(0, Math.min(1, t.left / t.total));
 }
 
+function formatRemainingPct(p) {
+  return `剩余 ${Math.round(p * 100)}%`;
+}
+
 // ============================================================
 // QUICK START CHIPS RENDER
 // ============================================================
@@ -2438,7 +2442,7 @@ function cardHTML(t) {
         </svg>
         <div class="ring-inner">
           <div class="time-display" id="time-${t.id}" style="color:${timeColor};" onclick="editTimerTime(event,'${t.id}')">${fmtTime(t.left)}</div>
-          <div class="time-pct" id="pct-${t.id}">剩余 ${Math.round(p*100)}%</div>
+          <div class="time-pct" id="pct-${t.id}">${formatRemainingPct(p)}</div>
           <div class="time-status-badge" id="badge-${t.id}" style="background:${statusBg};color:${statusColor};">
             <div class="status-dot" id="dot-${t.id}" style="background:${dotColor};"></div>
             ${statusLabel}
@@ -2553,15 +2557,15 @@ function parseTimeToSec(raw) {
   const text = String(raw).trim();
   if (!text) return null;
   if (/^\d+$/.test(text)) return parseInt(text, 10) * 60;
-  const parts = text.split(':').map(x => x.trim()).filter(Boolean);
+  const parts = text.split(':').map(part => part.trim()).filter(Boolean);
   if (parts.length === 2) {
     const [m, s] = parts.map(Number);
-    if (Number.isNaN(m) || Number.isNaN(s) || s > 59) return null;
+    if (Number.isNaN(m) || Number.isNaN(s) || m < 0 || s < 0 || s > 59) return null;
     return m * 60 + s;
   }
   if (parts.length === 3) {
     const [h, m, s] = parts.map(Number);
-    if ([h,m,s].some(Number.isNaN) || m > 59 || s > 59) return null;
+    if ([h,m,s].some(Number.isNaN) || h < 0 || m < 0 || s < 0 || m > 59 || s > 59) return null;
     return h * 3600 + m * 60 + s;
   }
   return null;
@@ -2624,7 +2628,7 @@ function refreshTimerDisplay(id) {
       setTimeout(() => timeEl.classList.remove('tick'), 100);
     }
   }
-  if (pctEl) pctEl.textContent = '剩余 ' + Math.round(p * 100) + '%';
+  if (pctEl) pctEl.textContent = formatRemainingPct(p);
   if (warnEl) {
     if (t.running && t.left < 60 && !t.done) warnEl.classList.add('active');
     else warnEl.classList.remove('active');
