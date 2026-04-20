@@ -1418,8 +1418,8 @@ body {
     </div>
     <div class="modal-footer">
       <button class="btn-text" onclick="closeModal('createModal')">取消</button>
-      <button class="btn-filled" onclick="confirmCreate()">
-        <span class="material-icons-round" id="createModalConfirmIcon">play_arrow</span> <span id="createModalConfirmText">启动计时</span>
+      <button class="btn-filled" id="createModalConfirmBtn" onclick="confirmCreate()">
+        <span class="material-icons-round">play_arrow</span> 启动计时
       </button>
     </div>
   </div>
@@ -1899,8 +1899,7 @@ function openCreateModal() {
   document.getElementById('f-note').value = '';
   document.getElementById('f-saveInterval').value = '5';
   document.getElementById('createModalTitle').textContent = '新建计时器';
-  document.getElementById('createModalConfirmIcon').textContent = 'play_arrow';
-  document.getElementById('createModalConfirmText').textContent = '启动计时';
+  setCreateModalAction('play_arrow', '启动计时');
 
   // Render IGCSE chips
   const ic = document.getElementById('igcseChips');
@@ -1918,13 +1917,22 @@ function openCreateModal() {
   ).join('');
 
   // Render color dots
-  const cd = document.getElementById('colorDots');
-  cd.innerHTML = COLORS.map(c =>
-    `<div class="color-dot${c===selColor?' sel':''}" style="background:${c};" onclick="pickColor('${c}')"></div>`
-  ).join('');
+  renderColorDots();
 
   openModal('createModal');
   setTimeout(() => document.getElementById('f-name').focus(), 300);
+}
+
+function setCreateModalAction(icon, text) {
+  const btn = document.getElementById('createModalConfirmBtn');
+  if (!btn) return;
+  btn.innerHTML = `<span class="material-icons-round">${icon}</span> ${text}`;
+}
+
+function getTimerDurationMinutes(t) {
+  if (Number.isFinite(t?.dur) && t.dur > 0) return t.dur;
+  if (Number.isFinite(t?.total)) return Math.max(1, Math.round(t.total / 60));
+  return 1;
 }
 
 function openEditModal(id) {
@@ -1932,7 +1940,7 @@ function openEditModal(id) {
   if (!t) return;
   editingTimerId = id;
   selColor = t.color || COLORS[0];
-  selDur = t.dur || Math.max(1, Math.round((t.total || 60) / 60));
+  selDur = getTimerDurationMinutes(t);
   selIgcse = t.paperId ? IGCSE_PAPERS.find(p => p.id === t.paperId) : null;
 
   document.getElementById('f-name').value = t.name || '';
@@ -1940,8 +1948,7 @@ function openEditModal(id) {
   document.getElementById('f-note').value = t.note || '';
   document.getElementById('f-saveInterval').value = String(t.saveInterval || 5);
   document.getElementById('createModalTitle').textContent = '编辑计时器';
-  document.getElementById('createModalConfirmIcon').textContent = 'save';
-  document.getElementById('createModalConfirmText').textContent = '保存修改';
+  setCreateModalAction('save', '保存修改');
 
   // Render IGCSE chips
   const ic = document.getElementById('igcseChips');
@@ -1965,10 +1972,7 @@ function openEditModal(id) {
   });
 
   // Render color dots
-  const cd = document.getElementById('colorDots');
-  cd.innerHTML = COLORS.map(c =>
-    `<div class="color-dot${c===selColor?' sel':''}" style="background:${c};" onclick="pickColor('${c}')"></div>`
-  ).join('');
+  renderColorDots();
 
   openModal('createModal');
   setTimeout(() => document.getElementById('f-name').focus(), 300);
@@ -2000,6 +2004,13 @@ function pickColor(c) {
   });
 }
 
+function renderColorDots() {
+  const cd = document.getElementById('colorDots');
+  cd.innerHTML = COLORS.map(c =>
+    `<div class="color-dot${c===selColor?' sel':''}" style="background:${c};" onclick="pickColor('${c}')"></div>`
+  ).join('');
+}
+
 function confirmCreate() {
   const name = document.getElementById('f-name').value.trim() || 'Custom Timer';
   const dur  = parseInt(document.getElementById('f-dur').value) || selDur;
@@ -2008,8 +2019,7 @@ function confirmCreate() {
   if (!dur || dur < 1) { showSnackbar('请选择或输入时长'); return; }
   closeModal('createModal');
   if (editingTimerId) {
-    const editingId = editingTimerId;
-    const t = timers.find(x => x.id === editingId);
+    const t = timers.find(x => x.id === editingTimerId);
     if (!t) { editingTimerId = null; return; }
     t.name = name;
     t.color = selColor;
@@ -2021,10 +2031,11 @@ function confirmCreate() {
     t.saveInterval = si;
     t._saveCountdown = si;
     const nextDur = Math.max(1, dur);
-    if (t.dur !== nextDur) setTimerDur(editingId, nextDur);
+    // Duration changes should go through setTimerDur so timer reset/restart behavior stays consistent.
+    if (t.dur !== nextDur) setTimerDur(editingTimerId, nextDur);
     else {
       persist();
-      renderTimerCard(editingId);
+      renderTimerCard(editingTimerId);
       refreshFsDisplay();
       updateMiniPill();
     }
