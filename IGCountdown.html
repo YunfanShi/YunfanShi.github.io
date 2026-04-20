@@ -1419,7 +1419,7 @@ body {
     <div class="modal-footer">
       <button class="btn-text" onclick="closeModal('createModal')">取消</button>
       <button class="btn-filled" onclick="confirmCreate()">
-        <span class="material-icons-round" id="createModalConfirmIcon">play_arrow</span><span id="createModalConfirmText">启动计时</span>
+        <span class="material-icons-round" id="createModalConfirmIcon">play_arrow</span> <span id="createModalConfirmText">启动计时</span>
       </button>
     </div>
   </div>
@@ -2008,10 +2008,9 @@ function confirmCreate() {
   if (!dur || dur < 1) { showSnackbar('请选择或输入时长'); return; }
   closeModal('createModal');
   if (editingTimerId) {
-    const t = timers.find(x => x.id === editingTimerId);
     const editingId = editingTimerId;
-    editingTimerId = null;
-    if (!t) return;
+    const t = timers.find(x => x.id === editingId);
+    if (!t) { editingTimerId = null; return; }
     t.name = name;
     t.color = selColor;
     t.subj = selIgcse ? selIgcse.subj : 'custom';
@@ -2029,6 +2028,7 @@ function confirmCreate() {
       refreshFsDisplay();
       updateMiniPill();
     }
+    editingTimerId = null;
     showSnackbar('计时器信息已更新');
     return;
   }
