@@ -985,75 +985,118 @@ body {
 .fs-exit-btn:hover { background: var(--md-surface-container-high); color: var(--md-on-surface); }
 .fs-exit-btn .material-icons-round { font-size: 18px; }
 
-.fs-subject-name {
-  font-family: 'Google Sans Display', sans-serif;
-  font-size: 20px; font-weight: 400;
-  color: var(--md-on-surface-variant);
-  margin-bottom: 8px;
-}
 #fs-time-display {
   font-family: 'Roboto Mono', monospace;
   font-size: clamp(80px, 18vw, 160px);
-  font-weight: 300;
-  letter-spacing: -8px;
+  font-weight: 500;
+  letter-spacing: -4px;
   line-height: 1;
   transition: color var(--dur-med) var(--ease-standard);
   margin: 8px 0 4px;
 }
-.fs-ring-wrap {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  pointer-events: none;
-}
-.fs-ring-wrap svg { width: min(80vw,500px); height: min(80vw,500px); }
-.fs-status {
-  font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
-  color: var(--md-on-surface-variant);
-  font-family: 'Google Sans', sans-serif;
-  margin-bottom: 32px;
-}
 .fs-controls { display: flex; gap: 16px; align-items: center; }
-.fs-btn {
-  width: 56px; height: 56px;
-  border-radius: var(--r-full);
-  border: 1.5px solid var(--md-outline);
+.fs-touch-btn {
+  width: 150px; height: 60px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--md-outline);
   background: var(--md-surface-container);
   color: var(--md-on-surface);
-  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  font-size: 22px;
+  font-size: 18px;
+  font-family: 'Google Sans', sans-serif;
   transition: all var(--dur-long) var(--ease-spring);
 }
-.fs-btn:hover { background: var(--md-surface-container-high); }
-.fs-btn:active { transform: scale(0.9); }
-.fs-btn .material-icons-round { font-size: 22px; }
-.fs-play-btn {
-  width: 80px; height: 80px;
+.fs-touch-btn:hover { background: var(--md-surface-container-high); }
+.fs-touch-btn:active { transform: scale(0.96); }
+
+#timer-pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.page-btn {
+  border: 1px solid var(--md-outline);
+  background: var(--md-surface);
+  color: var(--md-on-surface-variant);
+  border-radius: var(--r-full);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: 'Google Sans', sans-serif;
+}
+.page-btn.active {
   background: var(--md-primary);
   color: var(--md-on-primary);
   border-color: transparent;
-  font-size: 32px;
-  box-shadow: var(--elev-3);
 }
-.fs-play-btn.running { background: var(--g-yellow); color: #202124; }
-.fs-play-btn:hover { box-shadow: var(--elev-4); }
-.fs-play-btn .material-icons-round { font-size: 32px; }
 
-/* Google bar on fullscreen */
-.fs-google-bar {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 4px;
-  background: linear-gradient(90deg,
-    var(--g-blue) 0 25%, var(--g-red) 25% 50%,
-    var(--g-yellow) 50% 75%, var(--g-green) 75%);
-  border-radius: var(--r-full) var(--r-full) 0 0;
+#finish-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+  display: none;
 }
-.fs-progress-bar {
+#finish-transition.active { display: block; }
+.finish-bar {
   position: absolute;
-  bottom: 0; left: 0; height: 4px;
-  border-radius: var(--r-full) var(--r-full) 0 0;
-  transition: width 1s linear, background var(--dur-long) var(--ease-standard);
+  left: 0;
+  width: 100%;
+  height: 25%;
+  transform: translateY(-120%);
+  animation: bbcSlide 700ms var(--ease-decel) forwards;
+}
+.finish-bar.blue { top: 0; background: var(--g-blue); animation-delay: 0ms; }
+.finish-bar.red { top: 25%; background: var(--g-red); animation-delay: 100ms; }
+.finish-bar.yellow { top: 50%; background: var(--g-yellow); animation-delay: 200ms; }
+.finish-bar.green { top: 75%; background: var(--g-green); animation-delay: 300ms; }
+@keyframes bbcSlide {
+  from { transform: translateY(-120%); }
+  to { transform: translateY(0); }
+}
+
+#onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.onboarding-card {
+  background: var(--md-surface);
+  border-radius: var(--r-xl);
+  max-width: 520px;
+  width: 100%;
+  padding: 20px;
+  box-shadow: var(--elev-4);
+}
+.onboarding-title {
+  font-family: 'Google Sans', sans-serif;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+.onboarding-text { font-size: 14px; line-height: 1.6; color: var(--md-on-surface-variant); }
+.onboarding-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+body.tab-away-warning {
+  background: #fff4e5;
+}
+
+body.night-mode {
+  --md-surface: #202124;
+  --md-surface-dim: #171717;
+  --md-surface-variant: #2a2a2a;
+  --md-surface-container: #303134;
+  --md-surface-container-high: #3c4043;
+  --md-on-surface: #e8eaed;
+  --md-on-surface-variant: #bdc1c6;
+  --md-outline: #5f6368;
+  --md-outline-variant: #3c4043;
 }
 
 /* ============================================================
@@ -1235,6 +1278,7 @@ body {
         <!-- Timer arena -->
         <div class="section-label" id="timersLabel" style="display:none;">运行中 / 已暂停</div>
         <div id="timer-arena"></div>
+        <div id="timer-pagination" style="display:none;"></div>
 
         <!-- Empty state -->
         <div class="empty-state" id="emptyState">
@@ -1320,38 +1364,34 @@ body {
      FULLSCREEN OVERLAY
      ============================================================ -->
 <div id="fullscreen-overlay">
-  <div class="fs-google-bar"></div>
-  <div class="fs-progress-bar" id="fsProgressBar"></div>
-
-  <div class="fs-ring-wrap">
-    <svg viewBox="0 0 500 500" style="transform:rotate(-90deg)">
-      <circle cx="250" cy="250" r="220" fill="none" stroke="#f1f3f4" stroke-width="8" stroke-linecap="round"/>
-      <circle cx="250" cy="250" r="220" fill="none" id="fsRingArc"
-        stroke="#1a73e8" stroke-width="8" stroke-linecap="round"
-        stroke-dasharray="1382.3" stroke-dashoffset="0"
-        style="transition:stroke-dashoffset 1s linear,stroke 0.3s ease"/>
-    </svg>
-  </div>
-
   <button class="fs-exit-btn" onclick="exitFullscreen()">
     <span class="material-icons-round">close_fullscreen</span>
     退出全屏
   </button>
 
-  <div style="text-align:center;position:relative;z-index:1;">
-    <div class="fs-subject-name" id="fsSubjectName">IGCSE Timer</div>
-    <div id="fs-time-display" style="color:#1a73e8;">00:00</div>
-    <div class="fs-status" id="fsStatus">准备开始</div>
+  <div style="text-align:center;position:relative;z-index:1;width:100%;">
+    <div id="fs-time-display" style="color:#1a73e8;">00:00:00</div>
     <div class="fs-controls">
-      <button class="fs-btn" onclick="fsReset()" title="重置">
-        <span class="material-icons-round">replay</span>
-      </button>
-      <button class="fs-btn fs-play-btn" id="fsPlayBtn" onclick="fsToggle()">
-        <span class="material-icons-round" id="fsPlayIcon">play_arrow</span>
-      </button>
-      <button class="fs-btn" onclick="fsAddTime(5)" title="+5分钟">
-        <span class="material-icons-round">add</span>
-      </button>
+      <button class="fs-touch-btn" id="fsPauseBtn" onclick="pauseFsTimer()">暂停</button>
+      <button class="fs-touch-btn" id="fsResumeBtn" onclick="resumeFsTimer()">继续</button>
+    </div>
+  </div>
+</div>
+
+<div id="finish-transition" aria-hidden="true">
+  <div class="finish-bar blue"></div>
+  <div class="finish-bar red"></div>
+  <div class="finish-bar yellow"></div>
+  <div class="finish-bar green"></div>
+</div>
+
+<div id="onboarding-overlay" style="display:none;">
+  <div class="onboarding-card">
+    <div class="onboarding-title" id="onboardingTitle">欢迎使用 IGCSE Timer</div>
+    <div class="onboarding-text" id="onboardingText"></div>
+    <div class="onboarding-actions">
+      <button class="btn-tonal" id="onboardingSkipBtn" onclick="skipOnboarding()">跳过</button>
+      <button class="btn-filled" id="onboardingNextBtn" onclick="nextOnboardingStep()">下一步</button>
     </div>
   </div>
 </div>
@@ -1479,6 +1519,18 @@ body {
       </div>
       <div class="divider"></div>
       <div class="form-field">
+        <label class="form-label">DeepSeek API Key（用于专注分析）</label>
+        <input class="form-input" id="deepseekApiKey" type="password" placeholder="sk-..." onchange="saveDeepSeekKey(this.value)">
+      </div>
+      <button class="btn-tonal" onclick="generateFocusReport()">生成今日专注分析（200字）</button>
+      <textarea class="form-input" id="focusReportOutput" rows="5" readonly placeholder="分析报告会显示在这里"></textarea>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">结束铃声（可上传自定义音频）</label>
+        <input class="form-input" id="customAudioFile" type="file" accept="audio/*" onchange="handleCustomAudioUpload(event)">
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
         <label class="form-label">考试日期（用于顶栏倒计时）</label>
         <input class="form-input" id="sExamDate" type="date" onchange="saveExamDate(this.value)">
       </div>
@@ -1501,15 +1553,30 @@ body {
   <button id="snackbar-action" onclick="snackbarAction()">撤销</button>
 </div>
 
+<div class="modal-backdrop" id="last20SoundPopup">
+  <div class="modal-surface" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">最后 20 秒提醒</div>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:14px;color:var(--md-on-surface-variant);">即将结束，是否保留结束铃声？</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-text" onclick="setSoundFromLast20(false)">静音本次</button>
+      <button class="btn-filled" onclick="setSoundFromLast20(true)">保留铃声</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // DATA — IGCSE Paper Definitions
 // ============================================================
 const IGCSE_PAPERS = [
   { id:'0580P1', subj:'0580', name:'数学 P1', paper:'Paper 1', dur:90,  marks:70,  tier:'Core',          color:'#1a73e8' },
-  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:90,  marks:70,  tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:120, marks:100, tier:'Extended',       color:'#1a73e8' },
   { id:'0580P3', subj:'0580', name:'数学 P3', paper:'Paper 3', dur:120, marks:104, tier:'Core',          color:'#1a73e8' },
-  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:150, marks:130, tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:120, marks:100, tier:'Extended',       color:'#1a73e8' },
   { id:'0610P2', subj:'0610', name:'生物 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#34a853' },
   { id:'0610P4', subj:'0610', name:'生物 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#34a853' },
   { id:'0610P6', subj:'0610', name:'生物 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#34a853' },
@@ -1553,6 +1620,12 @@ let fsTimerId = null;
 let miniPillActive = false;
 let snackbarTimer  = null;
 let snackbarUndoFn = null;
+let currentTimerPage = 0;
+let awayStartAt = null;
+let last20PromptTimerId = null;
+const ONBOARD_KEY = 'is_first_run';
+const NOTES_DEBOUNCE = 1000;
+let onboardingStep = 0;
 
 // ============================================================
 // PERSISTENCE
@@ -1567,6 +1640,8 @@ function persist() {
       total: t.total, left: t.left, running: false, paused: t.paused || !t.running,
       done: t.done, note: t.note || '', saveInterval: t.saveInterval,
       createdAt: t.createdAt, startedAt: t.startedAt,
+      interruptions: t.interruptions || [],
+      tabAwayMs: t.tabAwayMs || 0,
     })),
     history: getHistory(),
     stats: getStats(),
@@ -1589,6 +1664,8 @@ function loadPersisted() {
         paused: true,
         _interval: null,
         _saveCountdown: t.saveInterval || 5,
+        interruptions: t.interruptions || [],
+        tabAwayMs: t.tabAwayMs || 0,
       }));
     }
   } catch(e) { console.warn('Load failed', e); }
@@ -1652,6 +1729,13 @@ function fmtTime(sec) {
   const m = Math.floor(sec / 60), s = sec % 60;
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
+function fmtHMS(sec) {
+  if (sec < 0) sec = 0;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
 function fmtDur(min) {
   if (min < 60) return min + ' min';
   const h = Math.floor(min/60), m = min%60;
@@ -1659,6 +1743,14 @@ function fmtDur(min) {
 }
 function uid() { return Date.now() + Math.random().toString(36).slice(2,7); }
 function lerp(a,b,t){ return a+(b-a)*t; }
+function escHtml(v) {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function colorForSubj(subj) {
   const m = { '0580':'#1a73e8','0610':'#34a853','0620':'#fa7b17','0625':'#9c27b0','0500':'#ea4335' };
@@ -1810,10 +1902,6 @@ function confirmCreate() {
 // TIMER LIFECYCLE
 // ============================================================
 function createTimer(cfg) {
-  if (timers.length >= 3) {
-    showSnackbar('最多同时开启 3 个计时器，请先关闭一个');
-    return;
-  }
   const t = {
     id: uid(),
     name: cfg.name,
@@ -1833,6 +1921,10 @@ function createTimer(cfg) {
     _interval: null,
     _saveCountdown: cfg.saveInterval || 5,
     _pauseCount: cfg.pauseCount || 0,
+    interruptions: cfg.interruptions || [],
+    tabAwayMs: cfg.tabAwayMs || 0,
+    _pausedAt: null,
+    _last20Prompted: false,
     createdAt: cfg.createdAt || Date.now(),
     startedAt: null,
   };
@@ -1853,6 +1945,14 @@ function startTimer(id) {
   }
   t.running = true;
   t.paused  = false;
+  if (t._pausedAt) {
+    const pauseDurMs = Date.now() - t._pausedAt;
+    const lastInterruption = t.interruptions[t.interruptions.length - 1];
+    if (lastInterruption && !lastInterruption.pauseMs) {
+      lastInterruption.pauseMs = pauseDurMs;
+    }
+    t._pausedAt = null;
+  }
   if (!t.startedAt) t.startedAt = Date.now();
   clearInterval(t._interval);
   t._interval = setInterval(() => tickTimer(id), 1000);
@@ -1865,10 +1965,13 @@ function pauseTimer(id, logPause = true) {
   if (!t) return;
   t.running = false;
   t.paused  = true;
+  t._pausedAt = Date.now();
   clearInterval(t._interval);
   if (logPause) {
     t._pauseCount++;
     addToStats('pauses');
+    const reason = prompt('暂停原因？（如：bathroom / distracted）') || 'unspecified';
+    t.interruptions.push({ reason: reason.slice(0, 120), at: Date.now(), pauseMs: 0 });
   }
   persist();
   refreshCardControls(id);
@@ -1949,6 +2052,11 @@ function tickTimer(id) {
   refreshTimerDisplay(id);
   if (fsTimerId === id) refreshFsDisplay();
   updateMiniPill();
+  if (t.left === 20 && settings.sound && !t._last20Prompted) {
+    t._last20Prompted = true;
+    last20PromptTimerId = id;
+    openModal('last20SoundPopup');
+  }
 
   if (t.left <= 0) onTimerDone(id);
 }
@@ -1974,6 +2082,7 @@ function onTimerDone(id) {
   addHistory(entry);
   persist();
 
+  triggerFinishTransition();
   if (settings.sound) playDoneSound();
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
@@ -2037,6 +2146,12 @@ function notifyGoalTracker(entry) {
 // SOUND
 // ============================================================
 function playDoneSound() {
+  const custom = localStorage.getItem('igcse_custom_done_audio');
+  if (custom) {
+    const a = new Audio(custom);
+    a.play().catch(() => {});
+    return;
+  }
   try {
     const ac = new (window.AudioContext || window.webkitAudioContext)();
     function tone(freq, start, dur, vol) {
@@ -2056,16 +2171,50 @@ function playDoneSound() {
   } catch(e) {}
 }
 
+function handleCustomAudioUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    localStorage.setItem('igcse_custom_done_audio', String(reader.result || ''));
+    showSnackbar('已设置自定义结束铃声');
+  };
+  reader.readAsDataURL(file);
+}
+
+function setSoundFromLast20(enabled) {
+  closeModal('last20SoundPopup');
+  if (last20PromptTimerId) {
+    const t = timers.find(x => x.id === last20PromptTimerId);
+    if (t) t._last20Prompted = true;
+  }
+  if (!enabled) settings.sound = false;
+  renderSettingsUI();
+  persist();
+  showSnackbar(enabled ? '将播放结束铃声' : '已关闭结束铃声');
+}
+
+function triggerFinishTransition() {
+  const el = document.getElementById('finish-transition');
+  if (!el) return;
+  el.classList.remove('active');
+  void el.offsetWidth;
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 1300);
+}
+
 // ============================================================
 // CARD RENDERING
 // ============================================================
 function updateArenaLayout() {
   const arena = document.getElementById('timer-arena');
   arena.className = '';
-  if (timers.length === 2) arena.classList.add('split-2');
-  if (timers.length >= 3) arena.classList.add('split-3');
+  const visibleCount = getVisibleTimers().length;
+  if (visibleCount === 2) arena.classList.add('split-2');
+  if (visibleCount >= 3) arena.classList.add('split-3');
   const label = document.getElementById('timersLabel');
   const empty  = document.getElementById('emptyState');
+  const pager = document.getElementById('timer-pagination');
   if (timers.length > 0) {
     label.style.display = 'block';
     empty.style.display  = 'none';
@@ -2073,14 +2222,48 @@ function updateArenaLayout() {
     label.style.display = 'none';
     empty.style.display  = 'flex';
   }
+  pager.style.display = timers.length >= 4 ? 'flex' : 'none';
+}
+
+function getVisibleTimers() {
+  if (timers.length < 4) return timers;
+  const pageSize = 3;
+  const maxPage = Math.max(0, Math.ceil(timers.length / pageSize) - 1);
+  if (currentTimerPage > maxPage) currentTimerPage = maxPage;
+  const start = currentTimerPage * pageSize;
+  return timers.slice(start, start + pageSize);
+}
+
+function renderPagination() {
+  const pager = document.getElementById('timer-pagination');
+  if (!pager) return;
+  if (timers.length < 4) {
+    pager.innerHTML = '';
+    return;
+  }
+  const pageSize = 3;
+  const pages = Math.ceil(timers.length / pageSize);
+  pager.innerHTML = `
+    <button class="page-btn" onclick="switchTimerPage(${Math.max(0, currentTimerPage - 1)})">上一组</button>
+    ${Array.from({ length: pages }).map((_, i) =>
+      `<button class="page-btn ${i === currentTimerPage ? 'active' : ''}" onclick="switchTimerPage(${i})">第 ${i+1} 组</button>`
+    ).join('')}
+    <button class="page-btn" onclick="switchTimerPage(${Math.min(pages - 1, currentTimerPage + 1)})">下一组</button>
+  `;
+}
+
+function switchTimerPage(page) {
+  currentTimerPage = page;
+  renderAll();
 }
 
 function renderAll() {
   updateArenaLayout();
   const arena = document.getElementById('timer-arena');
+  const visibleTimers = getVisibleTimers();
   // Sync DOM with state
   const existingIds = [...arena.querySelectorAll('.timer-card')].map(e => e.id.replace('card-',''));
-  const stateIds = timers.map(t => t.id);
+  const stateIds = visibleTimers.map(t => t.id);
   // Remove cards not in state
   existingIds.forEach(id => {
     if (!stateIds.includes(id)) {
@@ -2089,7 +2272,7 @@ function renderAll() {
     }
   });
   // Add/update cards
-  timers.forEach(t => {
+  visibleTimers.forEach(t => {
     const existing = document.getElementById('card-' + t.id);
     if (!existing) {
       const el = buildCard(t);
@@ -2103,6 +2286,7 @@ function renderAll() {
   renderHistory();
   renderHeatmap();
   renderSettingsUI();
+  renderPagination();
 }
 
 function buildCard(t) {
@@ -2133,10 +2317,10 @@ function cardHTML(t) {
     <div class="card-header">
       <div class="card-header-left">
         <div class="subj-icon" style="background:${color}18;font-size:20px;">${icon}</div>
-        <div class="subj-info">
-          <div class="subj-name" style="color:${color};">${t.name}</div>
-          <div class="subj-paper">${paperLine}</div>
-        </div>
+          <div class="subj-info">
+            <input class="subj-name" style="color:${color};border:none;background:transparent;width:100%;" value="${escHtml(t.name)}" onblur="updateTimerName('${t.id}', this.value)" maxlength="50" />
+            <div class="subj-paper">${paperLine}</div>
+          </div>
       </div>
       <div class="card-header-actions">
         <button class="icon-btn" onclick="openFullscreen('${t.id}')" title="全屏">
@@ -2185,6 +2369,7 @@ function cardHTML(t) {
       </div>
 
       <div class="controls-row" style="gap:6px;">
+        <input class="form-input" style="max-width:120px;padding:8px 10px;" type="number" min="1" max="600" value="${Math.round(t.total/60)}" onblur="updateTimerDuration('${t.id}', this.value)" />
         ${DUR_PRESETS.map(d => `
           <button class="ctrl-text${t.total===d.v*60?' active':''}" id="dur-chip-${t.id}-${d.v}"
             onclick="setTimerDur('${t.id}',${d.v})">${d.label}</button>
@@ -2192,12 +2377,10 @@ function cardHTML(t) {
       </div>
     </div>
 
-    ${t.note ? `<div class="card-notes">
+    <div class="card-notes">
       <div class="presets-label">断点记录</div>
-      <div style="font-size:13px;color:var(--md-on-surface-variant);padding:8px 12px;background:var(--md-surface-variant);border-radius:var(--r-sm);">
-        <span class="material-icons-round" style="font-size:14px;vertical-align:middle;margin-right:4px;">bookmark</span>${t.note}
-      </div>
-    </div>` : ''}
+      <textarea class="notes-input" id="notes-${t.id}" placeholder="输入当前做的题目（例如：P2 Q12）" oninput="debouncedSaveNote('${t.id}', this.value)">${escHtml(t.note || '')}</textarea>
+    </div>
 
     <div class="presets-section" style="padding-top:0;">
       <div class="presets-label">${t.subj !== 'custom' ? t.subj + ' 卷型' : '常用时长'}</div>
@@ -2224,6 +2407,7 @@ function setTimerDur(id, mins) {
   t.left  = mins * 60;
   t.dur   = mins;
   t.done  = false;
+  t._last20Prompted = false;
   t.startedAt = null;
   persist();
   renderTimerCard(id);
@@ -2244,6 +2428,7 @@ function switchPaper(timerId, paperId) {
   t.left    = p.dur * 60;
   t.dur     = p.dur;
   t.done    = false;
+  t._last20Prompted = false;
   t.startedAt = null;
   persist();
   renderTimerCard(timerId);
@@ -2256,6 +2441,31 @@ function renderTimerCard(id) {
   if (!el || !t) return;
   const newEl = buildCard(t);
   el.replaceWith(newEl);
+}
+
+function updateTimerName(id, value) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  t.name = (value || '').trim() || t.name;
+  persist();
+  if (fsTimerId === id) refreshFsDisplay();
+}
+
+function updateTimerDuration(id, minutesValue) {
+  const mins = parseInt(minutesValue, 10);
+  if (!mins || mins < 1) return;
+  setTimerDur(id, mins);
+}
+
+function debouncedSaveNote(id, value) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  clearTimeout(t._noteDebounceTimer);
+  t._noteDebounceTimer = setTimeout(() => {
+    t.note = (value || '').slice(0, 300);
+    persist();
+    flashSaveIndicator(id);
+  }, NOTES_DEBOUNCE);
 }
 
 // Fast DOM update (no full re-render)
@@ -2423,64 +2633,53 @@ function openFullscreen(id) {
   const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.add('open');
   refreshFsDisplay();
-  if (document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(() => {});
+  if (overlay.requestFullscreen) {
+    overlay.requestFullscreen().catch(() => {});
   }
 }
 
 function exitFullscreen() {
-  document.getElementById('fullscreen-overlay').classList.remove('open');
-  fsTimerId = null;
-  if (document.fullscreenElement) {
+  const overlay = document.getElementById('fullscreen-overlay');
+  overlay.classList.remove('open');
+  if (document.fullscreenElement === overlay && document.exitFullscreen) {
     document.exitFullscreen().catch(() => {});
   }
+  fsTimerId = null;
 }
 
 function refreshFsDisplay() {
   if (fsTimerId === null) return;
   const t = timers.find(x => x.id === fsTimerId);
   if (!t) { exitFullscreen(); return; }
-  const p = pct(t);
-  const dashOffset = FS_RING_CIRC * (1 - p);
-  const color = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : t.color;
-  const timeColor = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : '#202124';
-
-  document.getElementById('fsSubjectName').textContent = t.name;
+  const timeColor = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : t.color;
   const fst = document.getElementById('fs-time-display');
-  if (fst) { fst.textContent = fmtTime(t.left); fst.style.color = timeColor; }
-
-  const fsStatus = document.getElementById('fsStatus');
-  if (fsStatus) fsStatus.textContent = t.done ? '完成！🎉' : t.running ? '计时中…' : t.paused ? '已暂停' : '准备开始';
-
-  const arc = document.getElementById('fsRingArc');
-  if (arc) { arc.style.strokeDashoffset = dashOffset; arc.style.stroke = color; }
-
-  const pb = document.getElementById('fsProgressBar');
-  if (pb) { pb.style.width = (p*100) + '%'; pb.style.background = color; }
-
-  const fsPlay = document.getElementById('fsPlayBtn');
-  const fsIcon = document.getElementById('fsPlayIcon');
-  if (fsPlay && fsIcon) {
-    fsPlay.className = 'fs-btn fs-play-btn' + (t.running ? ' running' : '');
-    fsIcon.textContent = t.running ? 'pause' : 'play_arrow';
-  }
+  if (fst) { fst.textContent = fmtHMS(t.left); fst.style.color = timeColor; }
+  const pauseBtn = document.getElementById('fsPauseBtn');
+  const resumeBtn = document.getElementById('fsResumeBtn');
+  if (pauseBtn) pauseBtn.disabled = !t.running || t.done;
+  if (resumeBtn) resumeBtn.disabled = t.running || t.done;
 }
 
-function fsToggle() {
-  if (fsTimerId !== null) toggleTimer(fsTimerId);
-}
-function fsReset()  { if (fsTimerId !== null) resetTimer(fsTimerId); }
-function fsAddTime(m) { if (fsTimerId !== null) addTime(fsTimerId, m); }
+function pauseFsTimer() { if (fsTimerId !== null) pauseTimer(fsTimerId); refreshFsDisplay(); }
+function resumeFsTimer() { if (fsTimerId !== null) startTimer(fsTimerId); refreshFsDisplay(); }
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') exitFullscreen();
   if (e.key === ' ' && fsTimerId !== null) {
     e.preventDefault();
-    fsToggle();
+    toggleTimer(fsTimerId);
   }
   if (e.key === 'f' || e.key === 'F') {
     const running = timers.find(x => x.running);
     if (running) openFullscreen(running.id);
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  const overlay = document.getElementById('fullscreen-overlay');
+  if (document.fullscreenElement !== overlay) {
+    overlay.classList.remove('open');
+    fsTimerId = null;
   }
 });
 
@@ -2517,6 +2716,7 @@ function openSettings() {
   renderSettingsUI();
   const examDate = localStorage.getItem('igcse_exam_date') || '';
   document.getElementById('sExamDate').value = examDate;
+  document.getElementById('deepseekApiKey').value = localStorage.getItem('igcse_deepseek_key') || '';
   updateExamCountdown(examDate);
   openModal('settingsModal');
 }
@@ -2537,6 +2737,58 @@ function toggleSetting(key) {
 function saveExamDate(val) {
   localStorage.setItem('igcse_exam_date', val);
   updateExamCountdown(val);
+}
+
+function saveDeepSeekKey(val) {
+  localStorage.setItem('igcse_deepseek_key', (val || '').trim());
+}
+
+async function generateFocusReport() {
+  const output = document.getElementById('focusReportOutput');
+  const key = (localStorage.getItem('igcse_deepseek_key') || '').trim();
+  if (!key) {
+    output.value = '请先在设置中填写 DeepSeek API Key。';
+    return;
+  }
+  const focusPayload = {
+    activeTimers: timers.map(t => ({
+      name: t.name,
+      interruptions: t.interruptions || [],
+      tabAwayMs: t.tabAwayMs || 0,
+      pauseCount: t._pauseCount || 0
+    })),
+    todayStats: getTodayStats(),
+    history: getHistory().slice(0, 10)
+  };
+  output.value = '正在生成分析...';
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'system',
+            content: '你是IGCSE学习教练，请用约200字中文分析专注行为并给出可执行建议。'
+          },
+          {
+            role: 'user',
+            content: `请分析以下专注数据并输出约200字建议：${JSON.stringify(focusPayload)}`
+          }
+        ],
+        temperature: 0.6
+      })
+    });
+    const data = await resp.json();
+    const text = data?.choices?.[0]?.message?.content || '分析失败，请检查 API Key。';
+    output.value = text;
+  } catch (e) {
+    output.value = '请求失败，请检查网络或 API Key。';
+  }
 }
 
 function updateExamCountdown(dateStr) {
@@ -2601,14 +2853,109 @@ window.addEventListener('scroll', () => {
   document.getElementById('topAppBar').classList.toggle('elevated', window.scrollY > 8);
 }, { passive: true });
 
+function applyDynamicTheme() {
+  const hour = new Date().getHours();
+  const night = hour >= 19 || hour < 6;
+  document.body.classList.toggle('night-mode', night);
+}
+
+function startOnboardingIfNeeded() {
+  if (localStorage.getItem(ONBOARD_KEY)) return;
+  onboardingStep = 0;
+  document.getElementById('onboarding-overlay').style.display = 'flex';
+  renderOnboardingStep();
+}
+
+function renderOnboardingStep() {
+  const steps = [
+    {
+      title: '欢迎！快捷区',
+      text: '这里是快捷启动区，可以一键添加常见试卷计时器。',
+      focusId: 'igcseQuickstart'
+    },
+    {
+      title: '全屏按钮',
+      text: '每个计时器右上角都有全屏按钮，进入纯净倒计时模式。',
+      focusId: 'timer-arena'
+    },
+    {
+      title: '多计时器分页',
+      text: '1-3个计时器自动网格，4个以上自动分页分组。',
+      focusId: 'timer-pagination'
+    },
+    {
+      title: '断点笔记',
+      text: '计时器下方可记录断点笔记，系统会自动保存。',
+      focusId: 'timer-arena'
+    },
+    {
+      title: '参与式设置',
+      text: '请先设置考试日期，完成后才能结束引导。',
+      focusId: 'sExamDate',
+      requireExamDate: true
+    }
+  ];
+  const step = steps[onboardingStep];
+  if (!step) {
+    finishOnboarding();
+    return;
+  }
+  document.getElementById('onboardingTitle').textContent = step.title;
+  document.getElementById('onboardingText').textContent = step.text;
+  const focus = document.getElementById(step.focusId);
+  if (focus) focus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (step.requireExamDate) openSettings();
+  document.getElementById('onboardingSkipBtn').style.display = step.requireExamDate ? 'none' : 'inline-flex';
+  document.getElementById('onboardingNextBtn').textContent = onboardingStep === steps.length - 1 ? '完成' : '下一步';
+}
+
+function nextOnboardingStep() {
+  const needDate = onboardingStep === 4;
+  const examDate = localStorage.getItem('igcse_exam_date');
+  if (needDate && !examDate) {
+    showSnackbar('请先设置考试日期再继续');
+    return;
+  }
+  onboardingStep++;
+  renderOnboardingStep();
+}
+
+function skipOnboarding() {
+  finishOnboarding();
+}
+
+function finishOnboarding() {
+  localStorage.setItem(ONBOARD_KEY, '1');
+  document.getElementById('onboarding-overlay').style.display = 'none';
+}
+
+document.addEventListener('visibilitychange', () => {
+  const running = timers.some(t => t.running);
+  if (!running) return;
+  if (document.visibilityState === 'hidden') {
+    awayStartAt = Date.now();
+    document.body.classList.add('tab-away-warning');
+  } else if (awayStartAt) {
+    const awayMs = Date.now() - awayStartAt;
+    timers.filter(t => t.running).forEach(t => { t.tabAwayMs = (t.tabAwayMs || 0) + awayMs; });
+    awayStartAt = null;
+    document.body.classList.remove('tab-away-warning');
+    showSnackbar(`你离开了 ${Math.max(1, Math.round(awayMs / 60000))} 分钟，请保持专注`);
+    persist();
+  }
+});
+
 // ============================================================
 // INIT
 // ============================================================
 function init() {
   loadPersisted();
+  applyDynamicTheme();
+  setInterval(applyDynamicTheme, 60000);
   renderSettingsUI();
   renderQuickStart();
   renderAll();
+  startOnboardingIfNeeded();
 
   // Restore exam date in settings
   const ed = localStorage.getItem('igcse_exam_date') || '';
