@@ -1749,6 +1749,21 @@ body {
           注意：该功能会在结束时加载第三方网站（music.163.com）内容。
         </div>
       </div>
+      <div class="form-field">
+        <label class="form-label" id="bellUnattendedActionLabel">无人值守自动处理</label>
+        <select class="form-select" id="bellUnattendedAction" onchange="saveBellUnattendedAction(this.value)">
+          <option value="manual" id="bellUnattendedManualOption">不自动处理（手动关闭）</option>
+          <option value="mute" id="bellUnattendedMuteOption">到时自动静音</option>
+          <option value="close" id="bellUnattendedCloseOption">到时自动静音并关闭结束界面</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" id="bellUnattendedDelayLabel">自动处理倒计时（秒）</label>
+        <input class="form-input" id="bellUnattendedDelay" type="number" min="5" max="600" step="1" onchange="saveBellUnattendedDelay(this.value)">
+        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:6px;" id="bellUnattendedHint">
+          铃声开始后若无人操作，将在此时间后触发上方策略。
+        </div>
+      </div>
       <audio id="customAudioPreview" controls style="width:100%;display:none;"></audio>
     </div>
     <div class="modal-footer">
@@ -1841,7 +1856,7 @@ body {
     </div>
     <div class="finish-meta" id="finishMetaText">点击屏幕继续</div>
     <div class="finish-music" id="finishMusicWrap" style="display:none;">
-      <iframe id="finishNeteaseFrame" width="330" height="86" src=""></iframe>
+      <iframe id="finishNeteaseFrame" width="330" height="86" src="" allow="autoplay" sandbox="allow-scripts allow-forms allow-popups"></iframe>
     </div>
     <div style="margin-top:20px;">
       <button class="btn-tonal" id="finishDismissBtn" onclick="dismissFinishScene(event)">我知道了</button>
@@ -1849,7 +1864,7 @@ body {
   </div>
 </div>
 
-<iframe id="neteaseBgFrame" title="netease-bg-player" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;border:0;pointer-events:none;" tabindex="-1" aria-hidden="true"></iframe>
+<iframe id="neteaseBgFrame" title="netease-bg-player" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;border:0;pointer-events:none;" tabindex="-1" aria-hidden="true" allow="autoplay" sandbox="allow-scripts allow-forms allow-popups"></iframe>
 
 <!-- DEBUG MODAL -->
 <div class="modal-backdrop" id="debugModal" onclick="closeModalOnBackdrop(event,'debugModal')">
@@ -1961,7 +1976,9 @@ const DEFAULT_SETTINGS = {
   bellSource: 'local',
   customBellData: '',
   customBellType: '',
-  neteaseSongId: ''
+  neteaseSongId: '',
+  bellUnattendedAction: 'manual',
+  bellUnattendedDelaySec: 60
 };
 const APP_VERSION = '202604202200';
 let settings = { ...DEFAULT_SETTINGS };
@@ -1981,6 +1998,8 @@ let activeBellAudio = null;
 let activeBellContext = null;
 let activeBellStopTimer = null;
 let activeBellMode = null;
+let activeToneLoopTimer = null;
+let unattendedBellTimer = null;
 let finishSceneOwnerId = null;
 let statsRenderClock = 0;
 let confirmModalResolver = null;
@@ -1990,8 +2009,10 @@ let isInitialized = false;
 let suppressStandardAlerts = false;
 let modalStack = [];
 const PRE_END_ALERT_THRESHOLD = 20;
-const CUSTOM_BELL_AUTO_STOP_MS = 15000;
-const TONE_BELL_AUTO_STOP_MS = 2500;
+const DEFAULT_BELL_UNATTENDED_DELAY_SEC = 60;
+const MIN_BELL_UNATTENDED_DELAY_SEC = 5;
+const MAX_BELL_UNATTENDED_DELAY_SEC = 600;
+const TONE_LOOP_INTERVAL_MS = 1200;
 const HITOKOTO_API_URL = 'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json&min_length=8&max_length=60';
 const AUDIO_DB_NAME = 'igcountdown_audio_v1';
 const AUDIO_DB_STORE = 'audioFiles';
@@ -2000,6 +2021,7 @@ let pipMiniWindow = null;
 let pipMiniTimer = null;
 let customBellObjectUrl = '';
 let customBellPlaybackSrc = '';
+let mediaPermissionPrimed = false;
 
 const I18N = {
   zh: {
@@ -2036,6 +2058,14 @@ const I18N = {
     fsExit: '退出全屏',
     bellPlaying: '铃声播放中',
     stopBell: '关闭铃声',
+    bellUnattendedActionLabel: '无人值守自动处理',
+    bellUnattendedManualOption: '不自动处理（手动关闭）',
+    bellUnattendedMuteOption: '到时自动静音',
+    bellUnattendedCloseOption: '到时自动静音并关闭结束界面',
+    bellUnattendedDelayLabel: '自动处理倒计时（秒）',
+    bellUnattendedHint: '铃声开始后若无人操作，将在此时间后触发上方策略。',
+    bellAutoMuted: '无人值守：已自动静音',
+    bellAutoClosed: '无人值守：已自动静音并关闭结束界面',
   },
   en: {
     appSub: "Jack's Ecosystem · Exam Timer",
@@ -2071,6 +2101,14 @@ const I18N = {
     fsExit: 'Exit fullscreen',
     bellPlaying: 'Bell is playing',
     stopBell: 'Stop',
+    bellUnattendedActionLabel: 'Unattended auto action',
+    bellUnattendedManualOption: 'No auto action (manual only)',
+    bellUnattendedMuteOption: 'Auto mute when timeout',
+    bellUnattendedCloseOption: 'Auto mute and close finish scene',
+    bellUnattendedDelayLabel: 'Auto action delay (seconds)',
+    bellUnattendedHint: 'After bell starts, run the selected action if nobody interacts in time.',
+    bellAutoMuted: 'Unattended: bell muted automatically',
+    bellAutoClosed: 'Unattended: bell muted and finish scene closed',
   }
 };
 
@@ -2114,6 +2152,12 @@ function applyI18n() {
   setText('neteaseSongIdLabel', t('neteaseIdLabel'));
   setText('neteaseHintLine1', t('neteaseHint1'));
   setText('neteaseHintLine2', t('neteaseHint2'));
+  setText('bellUnattendedActionLabel', t('bellUnattendedActionLabel'));
+  setText('bellUnattendedManualOption', t('bellUnattendedManualOption'));
+  setText('bellUnattendedMuteOption', t('bellUnattendedMuteOption'));
+  setText('bellUnattendedCloseOption', t('bellUnattendedCloseOption'));
+  setText('bellUnattendedDelayLabel', t('bellUnattendedDelayLabel'));
+  setText('bellUnattendedHint', t('bellUnattendedHint'));
   setText('saveNeteaseBtn', t('saveSongId'));
   setText('audioCloseBtn', t('close'));
   setText('finishDismissBtn', t('iKnow'));
@@ -2251,6 +2295,13 @@ function loadPersisted() {
     if (s.settings) settings = { ...settings, ...s.settings };
     settings.language = settings.language === 'en' ? 'en' : 'zh';
     settings.bellSource = settings.bellSource === 'netease' ? 'netease' : 'local';
+    settings.bellUnattendedAction = ['manual', 'mute', 'close'].includes(settings.bellUnattendedAction)
+      ? settings.bellUnattendedAction
+      : 'manual';
+    const unattendedDelay = Number(settings.bellUnattendedDelaySec);
+    settings.bellUnattendedDelaySec = Number.isFinite(unattendedDelay)
+      ? Math.min(MAX_BELL_UNATTENDED_DELAY_SEC, Math.max(MIN_BELL_UNATTENDED_DELAY_SEC, Math.round(unattendedDelay)))
+      : DEFAULT_BELL_UNATTENDED_DELAY_SEC;
     settings.autoFS = settings.autoFS !== false;
     settings.fullscreenFx = !!settings.fullscreenFx;
     settings.interruptLog = settings.interruptLog !== false;
@@ -2745,6 +2796,7 @@ function createTimer(cfg) {
 function startTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t || t.done) return;
+  primeMediaPlaybackPermission().catch(() => {});
   stopDoneSound();
   // Pause all others if in split layout with this as active
   if (timers.length > 1) {
@@ -2980,48 +3032,101 @@ function notifyGoalTracker(entry) {
 // ============================================================
 // SOUND
 // ============================================================
+function getBellUnattendedDelaySec() {
+  const n = Number(settings.bellUnattendedDelaySec);
+  if (!Number.isFinite(n)) return DEFAULT_BELL_UNATTENDED_DELAY_SEC;
+  return Math.min(MAX_BELL_UNATTENDED_DELAY_SEC, Math.max(MIN_BELL_UNATTENDED_DELAY_SEC, Math.round(n)));
+}
+
+function scheduleBellUnattendedAction() {
+  clearTimeout(unattendedBellTimer);
+  unattendedBellTimer = null;
+  const action = settings.bellUnattendedAction;
+  if (action !== 'mute' && action !== 'close') return;
+  const delaySec = getBellUnattendedDelaySec();
+  unattendedBellTimer = setTimeout(() => {
+    if (action === 'close') {
+      stopDoneSound(false);
+      dismissFinishScene();
+      showSnackbar(t('bellAutoClosed'));
+      return;
+    }
+    stopDoneSound(false);
+    showSnackbar(t('bellAutoMuted'));
+  }, delaySec * 1000);
+}
+
+async function primeMediaPlaybackPermission() {
+  if (mediaPermissionPrimed) return;
+  mediaPermissionPrimed = true;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) {
+      const ac = new Ctx();
+      if (ac.state === 'suspended') await ac.resume();
+      try { await ac.close(); } catch (closeErr) { console.warn('AudioContext close failed', closeErr); }
+    }
+  } catch (err) {}
+}
+
 async function playDoneSound() {
   try {
     stopDoneSound();
+    await primeMediaPlaybackPermission();
     const source = settings.bellSource === 'netease' ? 'netease' : 'local';
     if (source === 'netease' && sanitizeNumericInput(settings.neteaseSongId)) {
       activeBellMode = 'netease';
       showBellStopToast();
+      scheduleBellUnattendedAction();
       return true;
     }
     const customSrc = customBellPlaybackSrc || settings.customBellData;
     if (source === 'local' && customSrc) {
       const bell = new Audio(customSrc);
-      bell.loop = false;
-      bell.onended = () => stopDoneSound(false);
+      bell.loop = true;
+      bell.preload = 'auto';
       activeBellAudio = bell;
-      await bell.play();
-      activeBellMode = 'custom';
-      showBellStopToast();
-      clearTimeout(activeBellStopTimer);
-      activeBellStopTimer = setTimeout(stopDoneSound, CUSTOM_BELL_AUTO_STOP_MS);
-      return true;
+      try {
+        await bell.play();
+        activeBellMode = 'custom';
+        showBellStopToast();
+        scheduleBellUnattendedAction();
+        return true;
+      } catch (playErr) {
+        console.warn('Custom bell play failed, fallback to tone', playErr);
+        activeBellAudio = null;
+      }
     }
     const ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') await ac.resume();
     activeBellContext = ac;
-    function tone(freq, start, dur, vol) {
+    function tone(freq, start, dur, vol, offset = ac.currentTime) {
       const o = ac.createOscillator();
       const g = ac.createGain();
       o.connect(g); g.connect(ac.destination);
       o.type = 'sine';
       o.frequency.value = freq;
-      g.gain.setValueAtTime(vol, ac.currentTime + start);
-      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + start + dur);
-      o.start(ac.currentTime + start);
-      o.stop(ac.currentTime + start + dur);
+      g.gain.setValueAtTime(vol, offset + start);
+      g.gain.exponentialRampToValueAtTime(0.001, offset + start + dur);
+      o.start(offset + start);
+      o.stop(offset + start + dur);
     }
-    tone(523, 0,    0.3, 0.3);
-    tone(659, 0.2,  0.3, 0.3);
-    tone(784, 0.4,  0.5, 0.3);
+    const playTonePattern = () => {
+      const base = ac.currentTime;
+      tone(523, 0,    0.3, 0.3, base);
+      tone(659, 0.2,  0.3, 0.3, base);
+      tone(784, 0.4,  0.5, 0.3, base);
+    };
+    playTonePattern();
+    clearTimeout(activeToneLoopTimer);
+    const loopTonePattern = () => {
+      playTonePattern();
+      activeToneLoopTimer = setTimeout(loopTonePattern, TONE_LOOP_INTERVAL_MS);
+    };
+    activeToneLoopTimer = setTimeout(loopTonePattern, TONE_LOOP_INTERVAL_MS);
     activeBellMode = 'tone';
     showBellStopToast();
-    clearTimeout(activeBellStopTimer);
-    activeBellStopTimer = setTimeout(stopDoneSound, TONE_BELL_AUTO_STOP_MS);
+    scheduleBellUnattendedAction();
     return true;
   } catch(e) {
     stopDoneSound(false);
@@ -3030,8 +3135,12 @@ async function playDoneSound() {
 }
 
 function stopDoneSound(hideSnackbar = true) {
+  clearTimeout(unattendedBellTimer);
+  unattendedBellTimer = null;
   clearTimeout(activeBellStopTimer);
   activeBellStopTimer = null;
+  clearTimeout(activeToneLoopTimer);
+  activeToneLoopTimer = null;
   hideBellStopToast();
   if (activeBellAudio) {
     try {
@@ -3737,6 +3846,10 @@ function openSettings() {
   document.getElementById('sApiKey').value = settings.apiKey || '';
   const neteaseInput = document.getElementById('neteaseSongId');
   if (neteaseInput) neteaseInput.value = settings.neteaseSongId || '';
+  const unattendedAction = document.getElementById('bellUnattendedAction');
+  if (unattendedAction) unattendedAction.value = settings.bellUnattendedAction || 'manual';
+  const unattendedDelay = document.getElementById('bellUnattendedDelay');
+  if (unattendedDelay) unattendedDelay.value = String(getBellUnattendedDelaySec());
   const langInput = document.getElementById('sLanguage');
   if (langInput) langInput.value = getLanguage();
   updateExamCountdown(examDate);
@@ -3755,6 +3868,10 @@ function renderSettingsUI() {
   document.querySelectorAll('input[name="bellSource"]').forEach(radio => {
     radio.checked = radio.value === (settings.bellSource === 'netease' ? 'netease' : 'local');
   });
+  const unattendedAction = document.getElementById('bellUnattendedAction');
+  if (unattendedAction) unattendedAction.value = settings.bellUnattendedAction || 'manual';
+  const unattendedDelay = document.getElementById('bellUnattendedDelay');
+  if (unattendedDelay) unattendedDelay.value = String(getBellUnattendedDelaySec());
   const fs = document.getElementById('fullscreen-overlay');
   if (fs) fs.classList.toggle('fx-on', !!settings.fullscreenFx);
 }
@@ -3829,17 +3946,17 @@ async function clearAllData() {
   showSnackbar(getLanguage() === 'en' ? 'All data cleared' : '数据已清除');
 }
 
-function openFinishScene(t, shouldPlayNetease = false) {
+function openFinishScene(timerObj, shouldPlayNetease = false) {
   const scene = document.getElementById('finishScene');
   if (!scene) return;
-  const fallback = fallbackFinishLines(t?.name);
-  const info = t?.finishSceneData || fallback;
+  const fallback = fallbackFinishLines(timerObj?.name);
+  const info = timerObj?.finishSceneData || fallback;
   const main = document.getElementById('finishMainText');
   const sub = document.getElementById('finishSubText');
   const meta = document.getElementById('finishMetaText');
   const musicWrap = document.getElementById('finishMusicWrap');
   const frame = document.getElementById('neteaseBgFrame');
-  finishSceneOwnerId = t?.id || null;
+  finishSceneOwnerId = timerObj?.id || null;
   const zhText = info.zhHans || fallback.zhHans || '倒计时结束';
   const enText = settings.apiKey ? (info.en || '').trim() : '';
   const englishOnTop = getLanguage() === 'en' && !!enText;
@@ -3861,7 +3978,13 @@ function openFinishScene(t, shouldPlayNetease = false) {
 
   if (shouldPlayNetease && settings.neteaseSongId && musicWrap && frame) {
     const id = sanitizeNumericInput(settings.neteaseSongId);
-    frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66&autoplay=1`;
+    frame.setAttribute('allow', 'autoplay');
+    frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups');
+    try {
+      frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66&autoplay=1`;
+    } catch (err) {
+      console.warn('NetEase iframe set failed', err);
+    }
     musicWrap.style.display = 'none';
     activeBellMode = 'netease';
   } else if (musicWrap && frame) {
@@ -3931,6 +4054,21 @@ function saveNeteaseSongId() {
   showSnackbar(cleaned
     ? (getLanguage() === 'en' ? 'NetEase song ID saved' : '网易云歌曲 ID 已保存')
     : (getLanguage() === 'en' ? 'NetEase song ID cleared' : '已清除网易云歌曲 ID'));
+}
+
+function saveBellUnattendedAction(action) {
+  settings.bellUnattendedAction = ['manual', 'mute', 'close'].includes(action) ? action : 'manual';
+  persist();
+  renderSettingsUI();
+}
+
+function saveBellUnattendedDelay(value) {
+  const n = Number(value);
+  settings.bellUnattendedDelaySec = Number.isFinite(n)
+    ? Math.min(MAX_BELL_UNATTENDED_DELAY_SEC, Math.max(MIN_BELL_UNATTENDED_DELAY_SEC, Math.round(n)))
+    : DEFAULT_BELL_UNATTENDED_DELAY_SEC;
+  persist();
+  renderSettingsUI();
 }
 
 function setBellSource(source) {
@@ -4231,6 +4369,11 @@ function bindGlobalListeners() {
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);
   document.addEventListener('mozfullscreenchange', onFullscreenChange);
   document.addEventListener('MSFullscreenChange', onFullscreenChange);
+  const primeOnce = () => {
+    primeMediaPlaybackPermission().catch(() => {});
+  };
+  document.addEventListener('pointerdown', primeOnce, { once: true, passive: true });
+  document.addEventListener('keydown', primeOnce, { once: true });
   window.addEventListener('scroll', () => {
     document.getElementById('topAppBar').classList.toggle('elevated', window.scrollY > 8);
   }, { passive: true });
@@ -4372,6 +4515,24 @@ function debugInjectFakeSceneData() {
   setDebugOutput(`已注入并展示假数据：${t.name}`);
 }
 
+function bindNeteaseSafetyHandlers() {
+  const isNeteaseCrossOriginError = (msg) => {
+    const text = String(msg || '');
+    return text.includes('Blocked a frame with origin') && text.includes('music.163.com');
+  };
+  window.addEventListener('error', (event) => {
+    if (isNeteaseCrossOriginError(event?.message)) {
+      event.preventDefault();
+    }
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    if (isNeteaseCrossOriginError(reason?.message || reason)) {
+      event.preventDefault();
+    }
+  });
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -4379,6 +4540,7 @@ async function init() {
   if (isInitialized) return;
   isInitialized = true;
   bindGlobalListeners();
+  bindNeteaseSafetyHandlers();
   loadPersisted();
   applyI18n();
   renderSettingsUI();
