@@ -1647,6 +1647,9 @@ body {
         <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:6px;">
           设置后，倒计时结束会在结束动画中自动加载并播放网易云外链播放器。
         </div>
+        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:4px;">
+          注意：该功能会在结束时加载第三方网站（music.163.com）内容。
+        </div>
       </div>
       <audio id="customAudioPreview" controls style="width:100%;display:none;"></audio>
     </div>
@@ -1735,7 +1738,7 @@ body {
     <div class="finish-sub" id="finishSubText">Countdown Finished</div>
     <div class="finish-meta" id="finishMetaText">点击屏幕继续</div>
     <div class="finish-music" id="finishMusicWrap" style="display:none;">
-      <iframe id="finishNeteaseFrame" frameborder="no" border="0" marginwidth="0" marginheight="0" width="330" height="86" src=""></iframe>
+      <iframe id="finishNeteaseFrame" width="330" height="86" src=""></iframe>
     </div>
     <div style="margin-top:20px;">
       <button class="btn-tonal" onclick="dismissFinishScene(event)">我知道了</button>
@@ -1946,6 +1949,10 @@ function esc(v) {
   }[ch]));
 }
 
+function sanitizeNumericInput(value) {
+  return String(value || '').replace(/[^\d]/g, '');
+}
+
 function toTraditionalFallback(text) {
   const dict = {
     '计':'計','时':'時','结':'結','束':'束','学':'學','习':'習','专':'專','注':'注','为':'為','总':'總','这':'這',
@@ -1998,7 +2005,8 @@ async function prefetchFinishSceneData(timerId) {
   try {
     const hitResp = await fetch('https://v1.hitokoto.cn/?encode=json');
     const hitData = await hitResp.json();
-    const zh = (hitData?.hitokoto || fallback.zhHans).trim().slice(0, 72) || fallback.zhHans;
+    const rawHitokoto = String(hitData?.hitokoto || '').trim();
+    const zh = (rawHitokoto || fallback.zhHans).slice(0, 72) || fallback.zhHans;
     const [en, zhHant] = await Promise.all([
       translateWithDeepSeekIfAvailable(zh, 'en').catch(() => ''),
       translateWithDeepSeekIfAvailable(zh, 'zh-Hant').catch(() => ''),
@@ -2395,7 +2403,7 @@ function tickTimer(id) {
   if (!t || !t.running) return;
   t.left = Math.max(0, t.left - 1);
 
-  if (t.left <= PRE_END_ALERT_THRESHOLD) {
+  if (t.left <= PRE_END_ALERT_THRESHOLD && !t._finishScenePrefetching && !t.finishSceneData) {
     prefetchFinishSceneData(t.id);
   }
 
@@ -2462,14 +2470,14 @@ async function onTimerDone(id) {
   persist();
 
   const shouldPlayRing = settings.sound && !t._muteNextRing;
-  const playedBell = shouldPlayRing ? await playDoneSound() : false;
+  const didPlayBell = shouldPlayRing ? await playDoneSound() : false;
   t._muteNextRing = false;
   t._preEndAlerted = false;
   openFinishScene(t, shouldPlayRing && !!settings.neteaseSongId);
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
 
-  showSnackbar(`✓ ${t.name} — 时间到！`, playedBell, playedBell ? stopDoneSound : null, '停止播放', playedBell ? null : 3200);
+  showSnackbar(`✓ ${t.name} — 时间到！`, didPlayBell, didPlayBell ? stopDoneSound : null, '停止播放', didPlayBell ? null : 3200);
   renderTimerCard(id);
   refreshFsDisplay();
   renderStats();
@@ -2530,7 +2538,7 @@ function notifyGoalTracker(entry) {
 async function playDoneSound() {
   try {
     stopDoneSound();
-    if (settings.neteaseSongId) {
+    if (sanitizeNumericInput(settings.neteaseSongId)) {
       activeBellMode = 'netease';
       return true;
     }
@@ -3282,8 +3290,8 @@ function openFinishScene(t, shouldPlayNetease = false) {
   }
 
   if (shouldPlayNetease && settings.neteaseSongId && musicWrap && frame) {
-    const id = String(settings.neteaseSongId).trim();
-    frame.src = `//music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66`;
+    const id = sanitizeNumericInput(settings.neteaseSongId);
+    frame.src = `https://music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66`;
     musicWrap.style.display = 'block';
     activeBellMode = 'netease';
   } else if (musicWrap && frame) {
@@ -3332,7 +3340,7 @@ function handleAudioUpload(e) {
 function saveNeteaseSongId() {
   const input = document.getElementById('neteaseSongId');
   if (!input) return;
-  const cleaned = (input.value || '').trim().replace(/[^\d]/g, '');
+  const cleaned = sanitizeNumericInput(input.value);
   settings.neteaseSongId = cleaned;
   input.value = cleaned;
   persist();
@@ -3474,6 +3482,7 @@ function showConfirmDialog(opts = {}) {
   const cancelBtn = document.getElementById('confirmCancelBtn');
   const input = document.getElementById('confirmInput');
   if (!title || !body || !okBtn || !cancelBtn || !input) {
+    console.error('Confirm modal elements missing');
     return Promise.resolve({ ok: false, value: '' });
   }
   title.textContent = opts.title || '确认操作';
@@ -3491,7 +3500,10 @@ function showConfirmDialog(opts = {}) {
     input.max = inputCfg.max || '';
     input.style.display = 'block';
     input.onkeydown = (ev) => {
-      if (ev.key === 'Enter') resolveConfirmModal(true);
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        resolveConfirmModal(true);
+      }
     };
   } else {
     input.style.display = 'none';
