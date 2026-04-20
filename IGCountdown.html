@@ -1043,31 +1043,106 @@ body {
   transition: width 1s linear, background var(--dur-long) var(--ease-standard);
 }
 
-.bbc-transition {
+.finish-scene {
   position: fixed;
   inset: 0;
   z-index: 1300;
-  pointer-events: none;
   display: none;
+  place-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  background: radial-gradient(circle at 20% 20%, rgba(96,165,250,.22), transparent 44%),
+              radial-gradient(circle at 80% 0%, rgba(244,114,182,.18), transparent 40%),
+              linear-gradient(140deg, #070b18 0%, #0f172a 45%, #111827 100%);
 }
-.bbc-transition.active { display: block; }
-.bbc-strip {
+.finish-scene.open { display: grid; }
+.finish-aurora {
   position: absolute;
-  left: 0; right: 0;
-  height: 30vh;
-  transform: translateY(-120%);
+  inset: -25%;
+  pointer-events: none;
+  filter: blur(38px) saturate(1.06);
+  opacity: .55;
+  will-change: transform;
 }
-.bbc-transition.active .bbc-strip {
-  animation: bbcSlide 820ms cubic-bezier(.22,.61,.36,1) forwards;
+.finish-aurora::before,
+.finish-aurora::after {
+  content: '';
+  position: absolute;
+  width: 52vw;
+  height: 52vw;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  animation: finishDrift 9s ease-in-out infinite alternate;
 }
-.bbc-strip:nth-child(1) { top: 0; background: var(--g-blue); animation-delay: 0ms; }
-.bbc-strip:nth-child(2) { top: 25vh; background: var(--g-red); animation-delay: 100ms; }
-.bbc-strip:nth-child(3) { top: 50vh; background: var(--g-yellow); animation-delay: 200ms; }
-.bbc-strip:nth-child(4) { top: 75vh; background: var(--g-green); animation-delay: 300ms; }
-@keyframes bbcSlide {
-  0% { transform: translateY(-120%); }
-  50% { transform: translateY(0); }
-  100% { transform: translateY(130%); }
+.finish-aurora::before {
+  left: 4%;
+  top: 10%;
+  background: radial-gradient(circle, rgba(26,115,232,.82), rgba(26,115,232,0) 68%);
+}
+.finish-aurora::after {
+  right: 2%;
+  bottom: 2%;
+  background: radial-gradient(circle, rgba(52,168,83,.72), rgba(52,168,83,0) 68%);
+  animation-delay: 1.6s;
+}
+.finish-content {
+  position: relative;
+  z-index: 2;
+  width: min(94vw, 920px);
+  padding: 38px 20px;
+  text-align: center;
+  color: #f8fafc;
+}
+.finish-kicker {
+  font-size: 14px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  opacity: .7;
+  margin-bottom: 12px;
+}
+.finish-main {
+  font-family: 'Google Sans Display','Google Sans',sans-serif;
+  font-size: clamp(36px, 9vw, 88px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -.01em;
+  text-shadow: 0 18px 60px rgba(15,23,42,.6);
+  animation: finishPulse 1.9s cubic-bezier(.22,1,.36,1) infinite;
+  will-change: transform, opacity;
+}
+.finish-sub {
+  margin-top: 14px;
+  font-size: clamp(18px, 3vw, 30px);
+  opacity: .88;
+  min-height: 1.5em;
+}
+.finish-meta {
+  margin-top: 12px;
+  font-size: 13px;
+  letter-spacing: .04em;
+  opacity: .76;
+}
+.finish-music {
+  margin: 22px auto 0;
+  width: 330px;
+  max-width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 14px;
+  padding: 10px;
+  backdrop-filter: blur(8px);
+}
+.finish-music iframe {
+  width: 100%;
+  border: 0;
+}
+@keyframes finishPulse {
+  0%,100% { transform: translateZ(0) scale(0.985); opacity: .9; }
+  50% { transform: translateZ(0) scale(1.02); opacity: 1; }
+}
+@keyframes finishDrift {
+  0% { transform: translate3d(-2%, -3%, 0) scale(0.92); }
+  100% { transform: translate3d(6%, 8%, 0) scale(1.1); }
 }
 
 #oblay {
@@ -1566,9 +1641,17 @@ body {
         <label class="form-label">上传音频文件（mp3/wav/m4a）</label>
         <input class="form-input" id="customAudioFile" type="file" accept="audio/*" onchange="handleAudioUpload(event)">
       </div>
+      <div class="form-field">
+        <label class="form-label">网易云歌曲 ID（可选）</label>
+        <input class="form-input" id="neteaseSongId" type="text" inputmode="numeric" placeholder="如：188204">
+        <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:6px;">
+          设置后，倒计时结束会在结束动画中自动加载并播放网易云外链播放器。
+        </div>
+      </div>
       <audio id="customAudioPreview" controls style="width:100%;display:none;"></audio>
     </div>
     <div class="modal-footer">
+      <button class="btn-tonal" onclick="saveNeteaseSongId()">保存歌曲 ID</button>
       <button class="btn-text" onclick="closeModal('audioModal')">关闭</button>
     </div>
   </div>
@@ -1617,12 +1700,15 @@ body {
   <div class="modal-surface" style="max-width:480px;">
     <div class="modal-header">
       <div class="modal-title" id="confirmTitle">确认操作</div>
-      <button class="icon-btn" onclick="closeModal('confirmModal')"><span class="material-icons-round">close</span></button>
+      <button class="icon-btn" onclick="resolveConfirmModal(false)"><span class="material-icons-round">close</span></button>
     </div>
-    <div class="modal-body" id="confirmBody">确定继续吗？</div>
+    <div class="modal-body">
+      <div id="confirmBody">确定继续吗？</div>
+      <input class="form-input" id="confirmInput" style="display:none;margin-top:12px;">
+    </div>
     <div class="modal-footer">
-      <button class="btn-text" id="confirmCancelBtn" onclick="closeModal('confirmModal')">取消</button>
-      <button class="btn-filled" id="confirmOkBtn">确定</button>
+      <button class="btn-text" id="confirmCancelBtn" onclick="resolveConfirmModal(false)">取消</button>
+      <button class="btn-filled" id="confirmOkBtn" onclick="resolveConfirmModal(true)">确定</button>
     </div>
   </div>
 </div>
@@ -1640,12 +1726,21 @@ body {
   </div>
 </div>
 
-<!-- BBC FINISH TRANSITION -->
-<div class="bbc-transition" id="bbcTransition">
-  <div class="bbc-strip"></div>
-  <div class="bbc-strip"></div>
-  <div class="bbc-strip"></div>
-  <div class="bbc-strip"></div>
+<!-- FINISH SCENE -->
+<div class="finish-scene" id="finishScene" onclick="dismissFinishScene(event)">
+  <div class="finish-aurora"></div>
+  <div class="finish-content" onclick="event.stopPropagation()">
+    <div class="finish-kicker">IGCSE TIMER</div>
+    <div class="finish-main" id="finishMainText">倒计时结束</div>
+    <div class="finish-sub" id="finishSubText">Countdown Finished</div>
+    <div class="finish-meta" id="finishMetaText">点击屏幕继续</div>
+    <div class="finish-music" id="finishMusicWrap" style="display:none;">
+      <iframe id="finishNeteaseFrame" frameborder="no" border="0" marginwidth="0" marginheight="0" width="330" height="86" src=""></iframe>
+    </div>
+    <div style="margin-top:20px;">
+      <button class="btn-tonal" onclick="dismissFinishScene(event)">我知道了</button>
+    </div>
+  </div>
 </div>
 
 <!-- SNACKBAR -->
@@ -1698,7 +1793,7 @@ const SUBJ_ICONS = {
 // STATE
 // ============================================================
 let timers = [];       // active timer objects
-let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutMode:'carousel', apiKey:'', customBellData:'', customBellType:'' };
+let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutMode:'carousel', apiKey:'', customBellData:'', customBellType:'', neteaseSongId:'' };
 let selColor = COLORS[0];
 let selDur   = null;
 let selIgcse = null;
@@ -1714,6 +1809,12 @@ const noteDebounceTimers = {};
 let activeBellAudio = null;
 let activeBellContext = null;
 let activeBellStopTimer = null;
+let activeBellMode = null;
+let finishSceneCycleTimer = null;
+let finishSceneOwnerId = null;
+let statsRenderClock = 0;
+let confirmModalResolver = null;
+let confirmModalHasInput = false;
 const PRE_END_ALERT_THRESHOLD = 20;
 const CUSTOM_BELL_AUTO_STOP_MS = 15000;
 const TONE_BELL_AUTO_STOP_MS = 2500;
@@ -1730,7 +1831,7 @@ function persist() {
       paperId: t.paperId, paper: t.paper, marks: t.marks,
       total: t.total, left: t.left, running: false, paused: t.paused || !t.running,
       done: t.done, note: t.note || '', saveInterval: t.saveInterval,
-      createdAt: t.createdAt, startedAt: t.startedAt,
+      createdAt: t.createdAt, startedAt: t.startedAt, finishSceneData: t.finishSceneData || null,
     })),
     history: getHistory(),
     stats: getStats(),
@@ -1755,6 +1856,7 @@ function loadPersisted() {
         _saveCountdown: t.saveInterval || 5,
         _preEndAlerted: false,
         _muteNextRing: false,
+        _finishScenePrefetching: false,
       }));
     }
   } catch(e) { console.warn('Load failed', e); }
@@ -1771,8 +1873,14 @@ function addHistory(entry) {
   if (h.length > 200) h.splice(200);
   saveHistory(h);
 }
-function clearAllHistory() {
-  if (!confirm('确定清除全部历史记录？')) return;
+async function clearAllHistory() {
+  const { ok } = await showConfirmDialog({
+    title: '清空历史记录',
+    body: '确定清除全部历史记录？',
+    okText: '清空',
+    cancelText: '取消'
+  });
+  if (!ok) return;
   saveHistory([]);
   renderHistory();
   closeModal('historyModal');
@@ -1836,6 +1944,78 @@ function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, ch => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[ch]));
+}
+
+function toTraditionalFallback(text) {
+  const dict = {
+    '计':'計','时':'時','结':'結','束':'束','学':'學','习':'習','专':'專','注':'注','为':'為','总':'總','这':'這',
+    '会':'會','后':'後','钟':'鐘','间':'間','开':'開','关':'關','实':'實','体':'體','录':'錄','显':'顯','经':'經',
+    '历':'歷','点':'點','听':'聽','声':'聲','级':'級','换':'換','页':'頁','组':'組','连':'連','网':'網','语':'語'
+  };
+  return String(text || '').replace(/[计时结束学习专注为总这会后钟间开关实体录显经历点听声级换页组连网语]/g, ch => dict[ch] || ch);
+}
+
+function fallbackFinishLines(name = '计时器') {
+  const safeName = String(name || '计时器').slice(0, 36);
+  return {
+    zhHans: `${safeName} 倒计时结束`,
+    en: `${safeName} countdown finished`,
+    zhHant: `${toTraditionalFallback(safeName)} 倒數計時結束`,
+    source: ''
+  };
+}
+
+async function translateWithDeepSeekIfAvailable(text, targetLang) {
+  if (!settings.apiKey) {
+    if (targetLang === 'en') return `Countdown finished · ${text}`;
+    if (targetLang === 'zh-Hant') return toTraditionalFallback(text);
+    return text;
+  }
+  const langMap = { en: '英文', 'zh-Hant': '繁體中文（台灣）' };
+  const target = langMap[targetLang] || targetLang;
+  const prompt = `请将下面内容翻译成${target}，只返回翻译结果，不要解释：\n${text}`;
+  const resp = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2
+    })
+  });
+  const data = await resp.json();
+  return (data?.choices?.[0]?.message?.content || '').trim();
+}
+
+async function prefetchFinishSceneData(timerId) {
+  const t = timers.find(x => x.id === timerId);
+  if (!t || t.finishSceneData || t._finishScenePrefetching) return;
+  t._finishScenePrefetching = true;
+  const fallback = fallbackFinishLines(t.name);
+  try {
+    const hitResp = await fetch('https://v1.hitokoto.cn/?encode=json');
+    const hitData = await hitResp.json();
+    const zh = (hitData?.hitokoto || fallback.zhHans).trim().slice(0, 72) || fallback.zhHans;
+    const [en, zhHant] = await Promise.all([
+      translateWithDeepSeekIfAvailable(zh, 'en').catch(() => ''),
+      translateWithDeepSeekIfAvailable(zh, 'zh-Hant').catch(() => ''),
+    ]);
+    t.finishSceneData = {
+      zhHans: zh,
+      en: en || fallback.en,
+      zhHant: zhHant || fallback.zhHant,
+      source: hitData?.from || '',
+      loadedAt: Date.now(),
+    };
+  } catch (e) {
+    t.finishSceneData = { ...fallback, loadedAt: Date.now() };
+  } finally {
+    t._finishScenePrefetching = false;
+    persist();
+  }
 }
 
 function colorForSubj(subj) {
@@ -2096,6 +2276,8 @@ function createTimer(cfg) {
     _pauseCount: cfg.pauseCount || 0,
     _preEndAlerted: false,
     _muteNextRing: false,
+    _finishScenePrefetching: false,
+    finishSceneData: cfg.finishSceneData || null,
     createdAt: cfg.createdAt || Date.now(),
     startedAt: null,
   };
@@ -2213,6 +2395,10 @@ function tickTimer(id) {
   if (!t || !t.running) return;
   t.left = Math.max(0, t.left - 1);
 
+  if (t.left <= PRE_END_ALERT_THRESHOLD) {
+    prefetchFinishSceneData(t.id);
+  }
+
   if (t.left === PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
     t._preEndAlerted = true;
     showPreEndBellPopup(t);
@@ -2229,45 +2415,32 @@ function tickTimer(id) {
   refreshTimerDisplay(id);
   if (fsTimerId === id) refreshFsDisplay();
   updateMiniPill();
-  renderStats();
+  const now = performance.now();
+  if (now - statsRenderClock > 900) {
+    statsRenderClock = now;
+    renderStats();
+  }
 
   if (t.left <= 0) onTimerDone(id);
 }
 
-function showPreEndBellPopup(t) {
+async function showPreEndBellPopup(t) {
   if (!t) return;
   if (!settings.sound) {
     showSnackbar(`⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒`);
     return;
   }
-  const titleEl = document.getElementById('confirmTitle');
-  const bodyEl = document.getElementById('confirmBody');
-  const okBtn = document.getElementById('confirmOkBtn');
-  const cancelBtn = document.getElementById('confirmCancelBtn');
-  if (!titleEl || !bodyEl || !okBtn || !cancelBtn) {
-    const shouldPlay = confirm(`⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒。\n结束时播放铃声吗？`);
-    t._muteNextRing = !shouldPlay;
-    showSnackbar(shouldPlay ? '已保留结束铃声' : '本次结束将静音');
-    return;
-  }
-  titleEl.textContent = '结束铃声提醒';
-  bodyEl.textContent = `⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒，结束时要播放铃声吗？`;
-  cancelBtn.textContent = '静音结束';
-  okBtn.textContent = '播放铃声';
-  cancelBtn.onclick = () => {
-    t._muteNextRing = true;
-    closeModal('confirmModal');
-    showSnackbar('本次结束将静音');
-  };
-  okBtn.onclick = () => {
-    t._muteNextRing = false;
-    closeModal('confirmModal');
-    showSnackbar('已保留结束铃声');
-  };
-  openModal('confirmModal');
+  const { ok } = await showConfirmDialog({
+    title: '结束铃声提醒',
+    body: `⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒，结束时要播放铃声吗？`,
+    okText: '播放铃声',
+    cancelText: '静音结束'
+  });
+  t._muteNextRing = !ok;
+  showSnackbar(ok ? '已保留结束铃声' : '本次结束将静音');
 }
 
-function onTimerDone(id) {
+async function onTimerDone(id) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
   clearInterval(t._interval);
@@ -2289,14 +2462,14 @@ function onTimerDone(id) {
   persist();
 
   const shouldPlayRing = settings.sound && !t._muteNextRing;
-  const playedBell = shouldPlayRing ? playDoneSound() : false;
+  const playedBell = shouldPlayRing ? await playDoneSound() : false;
   t._muteNextRing = false;
   t._preEndAlerted = false;
-  triggerBbcTransition();
+  openFinishScene(t, shouldPlayRing && !!settings.neteaseSongId);
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
 
-  showSnackbar(`✓ ${t.name} — 时间到！`, playedBell, playedBell ? stopDoneSound : null, '停止铃声');
+  showSnackbar(`✓ ${t.name} — 时间到！`, playedBell, playedBell ? stopDoneSound : null, '停止播放', playedBell ? null : 3200);
   renderTimerCard(id);
   refreshFsDisplay();
   renderStats();
@@ -2354,14 +2527,20 @@ function notifyGoalTracker(entry) {
 // ============================================================
 // SOUND
 // ============================================================
-function playDoneSound() {
+async function playDoneSound() {
   try {
     stopDoneSound();
+    if (settings.neteaseSongId) {
+      activeBellMode = 'netease';
+      return true;
+    }
     if (settings.customBellData) {
       const bell = new Audio(settings.customBellData);
       bell.loop = false;
+      bell.onended = () => stopDoneSound(false);
       activeBellAudio = bell;
-      bell.play().catch(() => {});
+      await bell.play();
+      activeBellMode = 'custom';
       clearTimeout(activeBellStopTimer);
       activeBellStopTimer = setTimeout(stopDoneSound, CUSTOM_BELL_AUTO_STOP_MS);
       return true;
@@ -2382,13 +2561,17 @@ function playDoneSound() {
     tone(523, 0,    0.3, 0.3);
     tone(659, 0.2,  0.3, 0.3);
     tone(784, 0.4,  0.5, 0.3);
+    activeBellMode = 'tone';
     clearTimeout(activeBellStopTimer);
     activeBellStopTimer = setTimeout(stopDoneSound, TONE_BELL_AUTO_STOP_MS);
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    stopDoneSound(false);
+    return false;
+  }
 }
 
-function stopDoneSound() {
+function stopDoneSound(hideSnackbar = true) {
   clearTimeout(activeBellStopTimer);
   activeBellStopTimer = null;
   if (activeBellAudio) {
@@ -2402,6 +2585,14 @@ function stopDoneSound() {
   if (activeBellContext) {
     try { activeBellContext.close(); } catch(e) {}
     activeBellContext = null;
+  }
+  const frame = document.getElementById('finishNeteaseFrame');
+  const wrap = document.getElementById('finishMusicWrap');
+  if (frame) frame.src = '';
+  if (wrap) wrap.style.display = 'none';
+  activeBellMode = null;
+  if (hideSnackbar) {
+    document.getElementById('snackbar').classList.remove('show');
   }
 }
 
@@ -2671,12 +2862,24 @@ function saveTimerName(id, text) {
   updateMiniPill();
 }
 
-function editTimerDuration(id) {
+async function editTimerDuration(id) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
-  const next = prompt('请输入新的时长（分钟）', String(Math.round(t.total / 60)));
-  if (next === null) return;
-  const mins = parseInt(next, 10);
+  const { ok, value } = await showConfirmDialog({
+    title: '修改时长',
+    body: '请输入新的时长（分钟）',
+    okText: '保存',
+    cancelText: '取消',
+    input: {
+      type: 'number',
+      value: String(Math.round(t.total / 60)),
+      min: '1',
+      max: '600',
+      placeholder: '1 - 600'
+    }
+  });
+  if (!ok) return;
+  const mins = parseInt(value, 10);
   if (Number.isNaN(mins) || mins < 1 || mins > 600) {
     showSnackbar('时长范围应为 1-600 分钟');
     renderTimerCard(id);
@@ -2988,6 +3191,8 @@ function openSettings() {
   const examDate = localStorage.getItem('igcse_exam_date') || '';
   document.getElementById('sExamDate').value = examDate;
   document.getElementById('sApiKey').value = settings.apiKey || '';
+  const neteaseInput = document.getElementById('neteaseSongId');
+  if (neteaseInput) neteaseInput.value = settings.neteaseSongId || '';
   updateExamCountdown(examDate);
   openModal('settingsModal');
 }
@@ -3033,8 +3238,14 @@ function updateExamCountdown(dateStr) {
   el.style.display = 'block';
 }
 
-function clearAllData() {
-  if (!confirm('确定清除所有历史记录和统计数据？')) return;
+async function clearAllData() {
+  const { ok } = await showConfirmDialog({
+    title: '清除数据',
+    body: '确定清除所有历史记录和统计数据？',
+    okText: '确认清除',
+    cancelText: '取消'
+  });
+  if (!ok) return;
   localStorage.removeItem('igcse_hist');
   localStorage.removeItem('igcse_stats');
   localStorage.removeItem('igcse_heat');
@@ -3042,13 +3253,55 @@ function clearAllData() {
   showSnackbar('数据已清除');
 }
 
-function triggerBbcTransition() {
-  const el = document.getElementById('bbcTransition');
-  if (!el) return;
-  el.classList.remove('active');
-  void el.offsetWidth;
-  el.classList.add('active');
-  setTimeout(() => el.classList.remove('active'), 1400);
+function openFinishScene(t, shouldPlayNetease = false) {
+  const scene = document.getElementById('finishScene');
+  if (!scene) return;
+  const info = t?.finishSceneData || fallbackFinishLines(t?.name);
+  const lines = [info.zhHans, info.en, info.zhHant];
+  const main = document.getElementById('finishMainText');
+  const sub = document.getElementById('finishSubText');
+  const meta = document.getElementById('finishMetaText');
+  const musicWrap = document.getElementById('finishMusicWrap');
+  const frame = document.getElementById('finishNeteaseFrame');
+  finishSceneOwnerId = t?.id || null;
+
+  clearInterval(finishSceneCycleTimer);
+  let idx = 0;
+  const draw = () => {
+    main.textContent = lines[idx % lines.length] || '倒计时结束';
+    sub.textContent = lines[(idx + 1) % lines.length] || 'Countdown finished';
+    idx++;
+  };
+  draw();
+  finishSceneCycleTimer = setInterval(draw, 1700);
+
+  if (meta) {
+    meta.textContent = info.source
+      ? `来自「${info.source}」 · 点击屏幕继续`
+      : '点击屏幕继续';
+  }
+
+  if (shouldPlayNetease && settings.neteaseSongId && musicWrap && frame) {
+    const id = String(settings.neteaseSongId).trim();
+    frame.src = `//music.163.com/outchain/player?type=2&id=${encodeURIComponent(id)}&auto=1&height=66`;
+    musicWrap.style.display = 'block';
+    activeBellMode = 'netease';
+  } else if (musicWrap && frame) {
+    frame.src = '';
+    musicWrap.style.display = 'none';
+  }
+  scene.classList.add('open');
+}
+
+function dismissFinishScene(e) {
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+  const scene = document.getElementById('finishScene');
+  if (!scene || !scene.classList.contains('open')) return;
+  scene.classList.remove('open');
+  clearInterval(finishSceneCycleTimer);
+  finishSceneCycleTimer = null;
+  finishSceneOwnerId = null;
+  stopDoneSound(false);
 }
 
 function saveApiKey() {
@@ -3076,6 +3329,16 @@ function handleAudioUpload(e) {
   rd.readAsDataURL(f);
 }
 
+function saveNeteaseSongId() {
+  const input = document.getElementById('neteaseSongId');
+  if (!input) return;
+  const cleaned = (input.value || '').trim().replace(/[^\d]/g, '');
+  settings.neteaseSongId = cleaned;
+  input.value = cleaned;
+  persist();
+  showSnackbar(cleaned ? '网易云歌曲 ID 已保存' : '已清除网易云歌曲 ID');
+}
+
 async function generateAiSummary() {
   const out = document.getElementById('aiOutput');
   if (!out) return;
@@ -3087,7 +3350,13 @@ async function generateAiSummary() {
   }
   const consentKey = 'igcse_ai_privacy_ok';
   if (!localStorage.getItem(consentKey)) {
-    const ok = confirm('将把学习统计与最近记录发送到 DeepSeek 以生成分析。是否继续？');
+    const res = await showConfirmDialog({
+      title: '隐私确认',
+      body: '将把学习统计与最近记录发送到 DeepSeek 以生成分析。是否继续？',
+      okText: '继续',
+      cancelText: '取消'
+    });
+    const ok = res.ok;
     if (!ok) {
       out.textContent = '已取消发送。';
       return;
@@ -3190,13 +3459,67 @@ function closeModal(id) {
   document.body.style.overflow = '';
 }
 function closeModalOnBackdrop(e, id) {
-  if (e.target.id === id) closeModal(id);
+  if (e.target.id !== id) return;
+  if (id === 'confirmModal') {
+    resolveConfirmModal(false);
+    return;
+  }
+  closeModal(id);
+}
+
+function showConfirmDialog(opts = {}) {
+  const title = document.getElementById('confirmTitle');
+  const body = document.getElementById('confirmBody');
+  const okBtn = document.getElementById('confirmOkBtn');
+  const cancelBtn = document.getElementById('confirmCancelBtn');
+  const input = document.getElementById('confirmInput');
+  if (!title || !body || !okBtn || !cancelBtn || !input) {
+    return Promise.resolve({ ok: false, value: '' });
+  }
+  title.textContent = opts.title || '确认操作';
+  body.textContent = opts.body || '确定继续吗？';
+  okBtn.textContent = opts.okText || '确定';
+  cancelBtn.textContent = opts.cancelText || '取消';
+
+  const inputCfg = opts.input || null;
+  confirmModalHasInput = !!inputCfg;
+  if (inputCfg) {
+    input.type = inputCfg.type || 'text';
+    input.placeholder = inputCfg.placeholder || '';
+    input.value = inputCfg.value || '';
+    input.min = inputCfg.min || '';
+    input.max = inputCfg.max || '';
+    input.style.display = 'block';
+    input.onkeydown = (ev) => {
+      if (ev.key === 'Enter') resolveConfirmModal(true);
+    };
+  } else {
+    input.style.display = 'none';
+    input.value = '';
+    input.onkeydown = null;
+  }
+
+  openModal('confirmModal');
+  if (inputCfg) setTimeout(() => input.focus(), 80);
+  return new Promise(resolve => {
+    confirmModalResolver = resolve;
+  });
+}
+
+function resolveConfirmModal(ok) {
+  const resolve = confirmModalResolver;
+  const input = document.getElementById('confirmInput');
+  const value = confirmModalHasInput && input ? (input.value || '').trim() : '';
+  confirmModalResolver = null;
+  confirmModalHasInput = false;
+  closeModal('confirmModal');
+  if (resolve) resolve({ ok, value });
 }
 
 // ============================================================
 // SNACKBAR
 // ============================================================
-function showSnackbar(msg, showUndo = false, undoFn = null, actionLabel = '撤销') {
+function showSnackbar(msg, showUndo = false, undoFn = null, actionLabel = '撤销', durationMs = 3000) {
   document.getElementById('snackbar-msg').textContent = msg;
   const actionBtn = document.getElementById('snackbar-action');
   actionBtn.textContent = actionLabel;
@@ -3205,7 +3528,8 @@ function showSnackbar(msg, showUndo = false, undoFn = null, actionLabel = '撤�
   const el = document.getElementById('snackbar');
   el.classList.add('show');
   clearTimeout(snackbarTimer);
-  snackbarTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  if (durationMs === null) return;
+  snackbarTimer = setTimeout(() => el.classList.remove('show'), durationMs);
 }
 function snackbarAction() {
   if (snackbarUndoFn) { snackbarUndoFn(); snackbarUndoFn = null; }
@@ -3251,6 +3575,8 @@ function init() {
       p.style.display = 'block';
     }
   }
+  const neteaseInput = document.getElementById('neteaseSongId');
+  if (neteaseInput) neteaseInput.value = settings.neteaseSongId || '';
   if (!localStorage.getItem('is_first_run')) {
     setTimeout(startOnboarding, 450);
   }
