@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -255,6 +256,18 @@ body {
 }
 #timer-arena.split-2 { grid-template-columns: 1fr 1fr; }
 #timer-arena.split-3 { grid-template-columns: 1fr 1fr 1fr; }
+.timer-page-controls {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.timer-page-controls .mini-fab.active {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  border-color: transparent;
+}
 
 /* ============================================================
    TIMER CARD — Material 3 elevated card
@@ -319,7 +332,14 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color var(--dur-med) var(--ease-standard);
 }
+.subj-name[contenteditable="true"] {
+  outline: none;
+  border-bottom: 1px dashed transparent;
+}
+.subj-name[contenteditable="true"]:focus { border-bottom-color: currentColor; }
 .subj-paper { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 1px; }
+.editable-dur { cursor: pointer; border-bottom: 1px dashed transparent; }
+.editable-dur:hover { border-bottom-color: var(--md-outline); }
 .card-header-actions { display: flex; gap: 2px; flex-shrink: 0; }
 
 /* Ring + time display */
@@ -954,12 +974,12 @@ body {
    ============================================================ */
 #fullscreen-overlay {
   position: fixed; inset: 0; z-index: 900;
-  background: #ffffff;
+  background: radial-gradient(circle at 50% 30%, #1d2432 0%, #0c1018 68%);
   display: none;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 24px;
   animation: fullscreenIn var(--dur-extra) var(--ease-decel) both;
 }
 #fullscreen-overlay.open { display: flex; }
@@ -970,74 +990,36 @@ body {
 
 .fs-exit-btn {
   position: absolute;
-  top: 20px; right: 20px;
+  top: 18px; right: 18px;
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 18px;
+  padding: 8px 14px;
   border-radius: var(--r-full);
-  border: 1px solid var(--md-outline);
-  background: var(--md-surface-container);
-  color: var(--md-on-surface-variant);
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
   font-family: 'Google Sans', sans-serif;
   font-size: 13px; font-weight: 500;
   cursor: pointer;
   transition: all var(--dur-med) var(--ease-standard);
 }
-.fs-exit-btn:hover { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+.fs-exit-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
 .fs-exit-btn .material-icons-round { font-size: 18px; }
 
-.fs-subject-name {
-  font-family: 'Google Sans Display', sans-serif;
-  font-size: 20px; font-weight: 400;
-  color: var(--md-on-surface-variant);
-  margin-bottom: 8px;
-}
 #fs-time-display {
   font-family: 'Roboto Mono', monospace;
-  font-size: clamp(80px, 18vw, 160px);
-  font-weight: 300;
-  letter-spacing: -8px;
+  font-size: clamp(82px, 18vw, 220px);
+  font-weight: 500;
+  letter-spacing: 0.04em;
   line-height: 1;
-  transition: color var(--dur-med) var(--ease-standard);
-  margin: 8px 0 4px;
+  color: #f7f9ff;
+  text-shadow: 0 12px 36px rgba(0,0,0,0.55);
 }
-.fs-ring-wrap {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  pointer-events: none;
+.fs-minimal-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
-.fs-ring-wrap svg { width: min(80vw,500px); height: min(80vw,500px); }
-.fs-status {
-  font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
-  color: var(--md-on-surface-variant);
-  font-family: 'Google Sans', sans-serif;
-  margin-bottom: 32px;
-}
-.fs-controls { display: flex; gap: 16px; align-items: center; }
-.fs-btn {
-  width: 56px; height: 56px;
-  border-radius: var(--r-full);
-  border: 1.5px solid var(--md-outline);
-  background: var(--md-surface-container);
-  color: var(--md-on-surface);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  font-size: 22px;
-  transition: all var(--dur-long) var(--ease-spring);
-}
-.fs-btn:hover { background: var(--md-surface-container-high); }
-.fs-btn:active { transform: scale(0.9); }
-.fs-btn .material-icons-round { font-size: 22px; }
-.fs-play-btn {
-  width: 80px; height: 80px;
-  background: var(--md-primary);
-  color: var(--md-on-primary);
-  border-color: transparent;
-  font-size: 32px;
-  box-shadow: var(--elev-3);
-}
-.fs-play-btn.running { background: var(--g-yellow); color: #202124; }
-.fs-play-btn:hover { box-shadow: var(--elev-4); }
-.fs-play-btn .material-icons-round { font-size: 32px; }
 
 /* Google bar on fullscreen */
 .fs-google-bar {
@@ -1055,6 +1037,58 @@ body {
   border-radius: var(--r-full) var(--r-full) 0 0;
   transition: width 1s linear, background var(--dur-long) var(--ease-standard);
 }
+
+.bbc-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  pointer-events: none;
+  display: none;
+}
+.bbc-transition.active { display: block; }
+.bbc-strip {
+  position: absolute;
+  left: 0; right: 0;
+  height: 30vh;
+  transform: translateY(-120%);
+}
+.bbc-transition.active .bbc-strip {
+  animation: bbcSlide 820ms cubic-bezier(.22,.61,.36,1) forwards;
+}
+.bbc-strip:nth-child(1) { top: 0; background: var(--g-blue); animation-delay: 0ms; }
+.bbc-strip:nth-child(2) { top: 25vh; background: var(--g-red); animation-delay: 100ms; }
+.bbc-strip:nth-child(3) { top: 50vh; background: var(--g-yellow); animation-delay: 200ms; }
+.bbc-strip:nth-child(4) { top: 75vh; background: var(--g-green); animation-delay: 300ms; }
+@keyframes bbcSlide {
+  0% { transform: translateY(-120%); }
+  50% { transform: translateY(0); }
+  100% { transform: translateY(130%); }
+}
+
+#oblay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(15,23,42,0.72);
+  display: none;
+}
+#oblay.show { display: block; }
+.ob-focus {
+  position: absolute;
+  border: 2px solid #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(15,23,42,0.72);
+  pointer-events: none;
+}
+.ob-bub {
+  position: absolute;
+  width: min(420px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--elev-4);
+}
+.ob-title { font-family: 'Google Sans', sans-serif; font-size: 18px; margin-bottom: 6px; }
+.ob-desc { font-size: 14px; color: var(--md-on-surface-variant); line-height: 1.55; }
+.ob-actions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ============================================================
    DYNAMIC ISLAND / MINI PILL
@@ -1229,12 +1263,13 @@ body {
       <!-- LEFT: timers + quick-start -->
       <div>
         <!-- IGCSE Quick-start -->
-        <div class="section-label">IGCSE 快捷启动</div>
+        <div class="section-label" id="quickStartLabel">IGCSE 快捷启动</div>
         <div class="igcse-quickstart" id="igcseQuickstart"></div>
 
         <!-- Timer arena -->
         <div class="section-label" id="timersLabel" style="display:none;">运行中 / 已暂停</div>
         <div id="timer-arena"></div>
+        <div class="timer-page-controls" id="timerPageControls" style="display:none;"></div>
 
         <!-- Empty state -->
         <div class="empty-state" id="emptyState">
@@ -1323,36 +1358,13 @@ body {
   <div class="fs-google-bar"></div>
   <div class="fs-progress-bar" id="fsProgressBar"></div>
 
-  <div class="fs-ring-wrap">
-    <svg viewBox="0 0 500 500" style="transform:rotate(-90deg)">
-      <circle cx="250" cy="250" r="220" fill="none" stroke="#f1f3f4" stroke-width="8" stroke-linecap="round"/>
-      <circle cx="250" cy="250" r="220" fill="none" id="fsRingArc"
-        stroke="#1a73e8" stroke-width="8" stroke-linecap="round"
-        stroke-dasharray="1382.3" stroke-dashoffset="0"
-        style="transition:stroke-dashoffset 1s linear,stroke 0.3s ease"/>
-    </svg>
-  </div>
-
   <button class="fs-exit-btn" onclick="exitFullscreen()">
     <span class="material-icons-round">close_fullscreen</span>
     退出全屏
   </button>
 
-  <div style="text-align:center;position:relative;z-index:1;">
-    <div class="fs-subject-name" id="fsSubjectName">IGCSE Timer</div>
-    <div id="fs-time-display" style="color:#1a73e8;">00:00</div>
-    <div class="fs-status" id="fsStatus">准备开始</div>
-    <div class="fs-controls">
-      <button class="fs-btn" onclick="fsReset()" title="重置">
-        <span class="material-icons-round">replay</span>
-      </button>
-      <button class="fs-btn fs-play-btn" id="fsPlayBtn" onclick="fsToggle()">
-        <span class="material-icons-round" id="fsPlayIcon">play_arrow</span>
-      </button>
-      <button class="fs-btn" onclick="fsAddTime(5)" title="+5分钟">
-        <span class="material-icons-round">add</span>
-      </button>
-    </div>
+  <div class="fs-minimal-wrap">
+    <div id="fs-time-display">00:00:00</div>
   </div>
 </div>
 
@@ -1482,6 +1494,20 @@ body {
         <label class="form-label">考试日期（用于顶栏倒计时）</label>
         <input class="form-input" id="sExamDate" type="date" onchange="saveExamDate(this.value)">
       </div>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">多计时器显示模式</label>
+        <select class="form-select" id="sLayoutMode" onchange="setLayoutMode(this.value)">
+          <option value="carousel">滑动显示所有（每页 3 个）</option>
+          <option value="grouped">自动分组（1-3、4-6…）</option>
+        </select>
+      </div>
+      <div class="divider"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-tonal" onclick="openModal('apiModal')">DeepSeek API Key</button>
+        <button class="btn-tonal" onclick="openModal('audioModal')">上传结束铃声</button>
+        <button class="btn-tonal" onclick="openModal('aiModal')">生成学习分析</button>
+      </div>
       <div id="examCountdownDisplay" style="font-family:'Google Sans',sans-serif;font-size:14px;color:var(--md-primary);text-align:center;display:none;"></div>
       <div class="divider"></div>
       <div>
@@ -1493,6 +1519,123 @@ body {
       <button class="btn-filled" onclick="closeModal('settingsModal')">完成</button>
     </div>
   </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-backdrop" id="apiModal" onclick="closeModalOnBackdrop(event,'apiModal')">
+  <div class="modal-surface" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">DeepSeek API 配置</div>
+      <button class="icon-btn" onclick="closeModal('apiModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label class="form-label">API Key</label>
+        <input class="form-input" id="sApiKey" type="password" placeholder="sk-..." autocomplete="off">
+      </div>
+      <div style="font-size:12px;color:var(--md-on-surface-variant);line-height:1.5;">
+        提示：调用 AI 分析时会将你的 API Key 与学习统计发送到 DeepSeek 服务端。
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-text" onclick="closeModal('apiModal')">取消</button>
+      <button class="btn-filled" onclick="saveApiKey()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUDIO MODAL -->
+<div class="modal-backdrop" id="audioModal" onclick="closeModalOnBackdrop(event,'audioModal')">
+  <div class="modal-surface" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">自定义结束铃声</div>
+      <button class="icon-btn" onclick="closeModal('audioModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label class="form-label">上传音频文件（mp3/wav/m4a）</label>
+        <input class="form-input" id="customAudioFile" type="file" accept="audio/*" onchange="handleAudioUpload(event)">
+      </div>
+      <audio id="customAudioPreview" controls style="width:100%;display:none;"></audio>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-text" onclick="closeModal('audioModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI MODAL -->
+<div class="modal-backdrop" id="aiModal" onclick="closeModalOnBackdrop(event,'aiModal')">
+  <div class="modal-surface" style="max-width:680px;">
+    <div class="modal-header">
+      <div class="modal-title">AI 专注分析</div>
+      <button class="icon-btn" onclick="closeModal('aiModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <button class="btn-filled" onclick="generateAiSummary()">生成今日学习分析</button>
+      </div>
+      <div id="aiOutput" style="white-space:pre-wrap;line-height:1.6;font-size:14px;color:var(--md-on-surface-variant);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- INTERRUPT MODAL -->
+<div class="modal-backdrop" id="interruptModal" onclick="closeModalOnBackdrop(event,'interruptModal')">
+  <div class="modal-surface" style="max-width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">中断原因登记</div>
+      <button class="icon-btn" onclick="closeModal('interruptModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <select class="form-select" id="interruptReason">
+        <option>查字典</option>
+        <option>喝水/短休息</option>
+        <option>走神</option>
+        <option>外部打断</option>
+        <option>其他</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-filled" onclick="saveInterruptReason()">记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-backdrop" id="confirmModal" onclick="closeModalOnBackdrop(event,'confirmModal')">
+  <div class="modal-surface" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title" id="confirmTitle">确认操作</div>
+      <button class="icon-btn" onclick="closeModal('confirmModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body" id="confirmBody">确定继续吗？</div>
+    <div class="modal-footer">
+      <button class="btn-text" onclick="closeModal('confirmModal')">取消</button>
+      <button class="btn-filled" id="confirmOkBtn">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="oblay">
+  <div class="ob-focus" id="obfocus"></div>
+  <div class="ob-bub" id="obbub">
+    <div class="ob-title" id="obtitle">欢迎</div>
+    <div class="ob-desc" id="obdesc"></div>
+    <div class="ob-actions">
+      <button class="btn-text" onclick="skipOnboarding()">跳过</button>
+      <button class="btn-filled" onclick="nextOnboarding()" id="obnext">下一步</button>
+    </div>
+  </div>
+</div>
+
+<!-- BBC FINISH TRANSITION -->
+<div class="bbc-transition" id="bbcTransition">
+  <div class="bbc-strip"></div>
+  <div class="bbc-strip"></div>
+  <div class="bbc-strip"></div>
+  <div class="bbc-strip"></div>
 </div>
 
 <!-- SNACKBAR -->
@@ -1507,9 +1650,9 @@ body {
 // ============================================================
 const IGCSE_PAPERS = [
   { id:'0580P1', subj:'0580', name:'数学 P1', paper:'Paper 1', dur:90,  marks:70,  tier:'Core',          color:'#1a73e8' },
-  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:90,  marks:70,  tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:120, marks:100, tier:'Extended',       color:'#1a73e8' },
   { id:'0580P3', subj:'0580', name:'数学 P3', paper:'Paper 3', dur:120, marks:104, tier:'Core',          color:'#1a73e8' },
-  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:150, marks:130, tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:120, marks:100, tier:'Extended',       color:'#1a73e8' },
   { id:'0610P2', subj:'0610', name:'生物 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#34a853' },
   { id:'0610P4', subj:'0610', name:'生物 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#34a853' },
   { id:'0610P6', subj:'0610', name:'生物 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#34a853' },
@@ -1545,7 +1688,7 @@ const SUBJ_ICONS = {
 // STATE
 // ============================================================
 let timers = [];       // active timer objects
-let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true };
+let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true, layoutMode:'carousel', apiKey:'', customBellData:'', customBellType:'' };
 let selColor = COLORS[0];
 let selDur   = null;
 let selIgcse = null;
@@ -1553,6 +1696,10 @@ let fsTimerId = null;
 let miniPillActive = false;
 let snackbarTimer  = null;
 let snackbarUndoFn = null;
+let currentPage = 0;
+let onboardingIdx = 0;
+let pendingInterruptTimerId = null;
+const noteDebounceTimers = {};
 
 // ============================================================
 // PERSISTENCE
@@ -1652,6 +1799,13 @@ function fmtTime(sec) {
   const m = Math.floor(sec / 60), s = sec % 60;
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
+function fmtHMS(sec) {
+  if (sec < 0) sec = 0;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
 function fmtDur(min) {
   if (min < 60) return min + ' min';
   const h = Math.floor(min/60), m = min%60;
@@ -1659,6 +1813,11 @@ function fmtDur(min) {
 }
 function uid() { return Date.now() + Math.random().toString(36).slice(2,7); }
 function lerp(a,b,t){ return a+(b-a)*t; }
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[ch]));
+}
 
 function colorForSubj(subj) {
   const m = { '0580':'#1a73e8','0610':'#34a853','0620':'#fa7b17','0625':'#9c27b0','0500':'#ea4335' };
@@ -1677,7 +1836,7 @@ const FS_RING_CIRC = 2 * Math.PI * FS_RING_R;
 
 function pct(t) {
   if (!t.total) return 0;
-  return Math.max(0, Math.min(1, (t.total - t.left) / t.total));
+  return Math.max(0, Math.min(1, t.left / t.total));
 }
 
 // ============================================================
@@ -1810,10 +1969,6 @@ function confirmCreate() {
 // TIMER LIFECYCLE
 // ============================================================
 function createTimer(cfg) {
-  if (timers.length >= 3) {
-    showSnackbar('最多同时开启 3 个计时器，请先关闭一个');
-    return;
-  }
   const t = {
     id: uid(),
     name: cfg.name,
@@ -1837,6 +1992,9 @@ function createTimer(cfg) {
     startedAt: null,
   };
   timers.push(t);
+  currentPage = settings.layoutMode === 'carousel'
+    ? Math.max(0, timers.length - 1)
+    : Math.floor((timers.length - 1) / 3);
   updateArenaLayout();
   renderAll();
   startTimer(t.id);
@@ -1869,6 +2027,8 @@ function pauseTimer(id, logPause = true) {
   if (logPause) {
     t._pauseCount++;
     addToStats('pauses');
+    pendingInterruptTimerId = id;
+    openModal('interruptModal');
   }
   persist();
   refreshCardControls(id);
@@ -1975,6 +2135,7 @@ function onTimerDone(id) {
   persist();
 
   if (settings.sound) playDoneSound();
+  triggerBbcTransition();
   if (settings.mockLink) notifyMockPortal(entry);
   if (settings.goalLink) notifyGoalTracker(entry);
 
@@ -2038,6 +2199,11 @@ function notifyGoalTracker(entry) {
 // ============================================================
 function playDoneSound() {
   try {
+    if (settings.customBellData) {
+      const bell = new Audio(settings.customBellData);
+      bell.play().catch(() => {});
+      return;
+    }
     const ac = new (window.AudioContext || window.webkitAudioContext)();
     function tone(freq, start, dur, vol) {
       const o = ac.createOscillator();
@@ -2062,8 +2228,9 @@ function playDoneSound() {
 function updateArenaLayout() {
   const arena = document.getElementById('timer-arena');
   arena.className = '';
-  if (timers.length === 2) arena.classList.add('split-2');
-  if (timers.length >= 3) arena.classList.add('split-3');
+  const visibleCount = getVisibleTimers().length;
+  if (visibleCount === 2) arena.classList.add('split-2');
+  if (visibleCount >= 3) arena.classList.add('split-3');
   const label = document.getElementById('timersLabel');
   const empty  = document.getElementById('emptyState');
   if (timers.length > 0) {
@@ -2073,14 +2240,55 @@ function updateArenaLayout() {
     label.style.display = 'none';
     empty.style.display  = 'flex';
   }
+  renderPageControls();
+}
+
+function totalPages() {
+  if (timers.length <= 3) return 1;
+  return settings.layoutMode === 'carousel'
+    ? timers.length
+    : Math.ceil(timers.length / 3);
+}
+
+function getVisibleTimers() {
+  if (timers.length <= 3) return timers;
+  const pages = totalPages();
+  currentPage = Math.max(0, Math.min(currentPage, pages - 1));
+  if (settings.layoutMode === 'grouped') {
+    const start = currentPage * 3;
+    return timers.slice(start, start + 3);
+  }
+  const start = currentPage;
+  return timers.slice(start, start + 3);
+}
+
+function setPage(page) {
+  currentPage = Math.max(0, Math.min(page, totalPages() - 1));
+  renderAll();
+}
+
+function renderPageControls() {
+  const wrap = document.getElementById('timerPageControls');
+  if (!wrap) return;
+  const pages = totalPages();
+  if (timers.length <= 3 || pages <= 1) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = Array.from({ length: pages }, (_, i) =>
+    `<button class="mini-fab${i===currentPage?' active':''}" onclick="setPage(${i})">${i+1}</button>`
+  ).join('');
 }
 
 function renderAll() {
   updateArenaLayout();
   const arena = document.getElementById('timer-arena');
+  const visibleTimers = getVisibleTimers();
   // Sync DOM with state
   const existingIds = [...arena.querySelectorAll('.timer-card')].map(e => e.id.replace('card-',''));
-  const stateIds = timers.map(t => t.id);
+  const stateIds = visibleTimers.map(t => t.id);
   // Remove cards not in state
   existingIds.forEach(id => {
     if (!stateIds.includes(id)) {
@@ -2089,7 +2297,7 @@ function renderAll() {
     }
   });
   // Add/update cards
-  timers.forEach(t => {
+  visibleTimers.forEach(t => {
     const existing = document.getElementById('card-' + t.id);
     if (!existing) {
       const el = buildCard(t);
@@ -2127,6 +2335,9 @@ function cardHTML(t) {
   const playClass   = t.running ? 'running' : t.done ? 'done' : '';
   const marks       = t.marks ? ` · ${t.marks} marks` : '';
   const paperLine   = t.paper ? `${t.paper}${marks}` : (t.dur ? fmtDur(t.dur) : '');
+  const safeName = esc(t.name);
+  const safePaper = esc(paperLine);
+  const safeNote = esc(t.note || '');
 
   return `
     <div class="card-strip" style="background:${stripForColor(color)};"></div>
@@ -2134,8 +2345,10 @@ function cardHTML(t) {
       <div class="card-header-left">
         <div class="subj-icon" style="background:${color}18;font-size:20px;">${icon}</div>
         <div class="subj-info">
-          <div class="subj-name" style="color:${color};">${t.name}</div>
-          <div class="subj-paper">${paperLine}</div>
+          <div class="subj-name" contenteditable="true" style="color:${color};"
+            onblur="saveTimerName('${t.id}', this.textContent)"
+            onkeydown="editableKeydown(event,this)">${safeName}</div>
+          <div class="subj-paper"><span class="editable-dur" onclick="editTimerDuration('${t.id}')" title="点击编辑时长">${safePaper}</span></div>
         </div>
       </div>
       <div class="card-header-actions">
@@ -2162,9 +2375,9 @@ function cardHTML(t) {
             stroke="${color}" stroke-width="10"
             stroke-dasharray="${RING_CIRC}" stroke-dashoffset="0"/>
         </svg>
-        <div class="ring-inner">
-          <div class="time-display" id="time-${t.id}" style="color:${timeColor};">${fmtTime(t.left)}</div>
-          <div class="time-pct" id="pct-${t.id}">${Math.round(p*100)}%</div>
+          <div class="ring-inner">
+            <div class="time-display" id="time-${t.id}" style="color:${timeColor};">${fmtTime(t.left)}</div>
+            <div class="time-pct" id="pct-${t.id}">剩余 ${Math.round(p*100)}%</div>
           <div class="time-status-badge" id="badge-${t.id}" style="background:${statusBg};color:${statusColor};">
             <div class="status-dot" id="dot-${t.id}" style="background:${dotColor};"></div>
             ${statusLabel}
@@ -2192,12 +2405,11 @@ function cardHTML(t) {
       </div>
     </div>
 
-    ${t.note ? `<div class="card-notes">
-      <div class="presets-label">断点记录</div>
-      <div style="font-size:13px;color:var(--md-on-surface-variant);padding:8px 12px;background:var(--md-surface-variant);border-radius:var(--r-sm);">
-        <span class="material-icons-round" style="font-size:14px;vertical-align:middle;margin-right:4px;">bookmark</span>${t.note}
-      </div>
-    </div>` : ''}
+    <div class="card-notes">
+      <div class="presets-label">断点记录（自动保存）</div>
+      <textarea class="notes-input" oninput="saveTimerNoteDebounced('${t.id}', this.value)"
+        maxlength="200" placeholder="输入当前做的题目（例如：P2 Q12）">${safeNote}</textarea>
+    </div>
 
     <div class="presets-section" style="padding-top:0;">
       <div class="presets-label">${t.subj !== 'custom' ? t.subj + ' 卷型' : '常用时长'}</div>
@@ -2250,6 +2462,50 @@ function switchPaper(timerId, paperId) {
   if (wasRunning) startTimer(timerId);
 }
 
+function editableKeydown(e, el) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    el.blur();
+  }
+}
+
+function saveTimerName(id, text) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const v = (text || '').trim();
+  t.name = v || 'Custom Timer';
+  persist();
+  refreshFsDisplay();
+  updateMiniPill();
+}
+
+function editTimerDuration(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const next = prompt('请输入新的时长（分钟）', String(Math.round(t.total / 60)));
+  if (next === null) return;
+  const mins = parseInt(next, 10);
+  if (Number.isNaN(mins) || mins < 1 || mins > 600) {
+    showSnackbar('时长范围应为 1-600 分钟');
+    renderTimerCard(id);
+    return;
+  }
+  setTimerDur(id, mins);
+}
+
+function saveTimerNoteDebounced(id, val) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const raw = val || '';
+  if (raw.length >= 200 && raw !== t.note) showSnackbar('断点记录最多 200 字');
+  t.note = raw.slice(0, 200);
+  clearTimeout(noteDebounceTimers[id]);
+  noteDebounceTimers[id] = setTimeout(() => {
+    persist();
+    flashSaveIndicator(id);
+  }, 1000);
+}
+
 function renderTimerCard(id) {
   const el = document.getElementById('card-' + id);
   const t  = timers.find(x => x.id === id);
@@ -2273,7 +2529,7 @@ function refreshTimerDisplay(id) {
 
   if (ringEl) {
     ringEl.style.strokeDashoffset = dashOffset;
-    if (t.left < 60 && !t.done) { ringEl.style.stroke = '#ea4335'; }
+    ringEl.style.stroke = (t.left < 60 && !t.done) ? '#ea4335' : t.color;
   }
   if (timeEl) {
     timeEl.textContent = fmtTime(t.left);
@@ -2283,7 +2539,7 @@ function refreshTimerDisplay(id) {
       setTimeout(() => timeEl.classList.remove('tick'), 100);
     }
   }
-  if (pctEl) pctEl.textContent = Math.round(p * 100) + '%';
+  if (pctEl) pctEl.textContent = '剩余 ' + Math.round(p * 100) + '%';
   if (warnEl) {
     if (t.running && t.left < 60 && !t.done) warnEl.classList.add('active');
     else warnEl.classList.remove('active');
@@ -2378,6 +2634,8 @@ function renderHistoryList(container, items) {
   if (!container) return;
   if (!items.length) { container.innerHTML = ''; return; }
   container.innerHTML = items.map(entry => {
+    const safeName = esc(entry.name || '');
+    const safeNote = esc(entry.note || '');
     const t = new Date(entry.completedAt);
     const timeStr = t.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
     const dateStr = t.toLocaleDateString('zh-CN', { month:'short', day:'numeric' });
@@ -2385,9 +2643,9 @@ function renderHistoryList(container, items) {
     return `<div class="hist-item">
       <div class="hist-color-bar" style="background:${entry.color};"></div>
       <div class="hist-info">
-        <div class="hist-name">${entry.name}</div>
+        <div class="hist-name">${safeName}</div>
         <div class="hist-meta">${dateStr} ${timeStr} · ${entry.type==='completed'?'完成':'保存'} · ${entry.pauseCount || 0}次暂停</div>
-        ${entry.note ? `<div class="hist-meta" style="margin-top:2px;">📌 ${entry.note}</div>` : ''}
+        ${safeNote ? `<div class="hist-meta" style="margin-top:2px;">📌 ${safeNote}</div>` : ''}
       </div>
       <div class="hist-time">${spentStr}</div>
       <button class="hist-resume-btn" onclick="resumeSession(${JSON.stringify(entry).split('"').join('&quot;')})">恢复</button>
@@ -2423,17 +2681,13 @@ function openFullscreen(id) {
   const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.add('open');
   refreshFsDisplay();
-  if (document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
+  requestBrowserFullscreen(document.documentElement);
 }
 
 function exitFullscreen() {
   document.getElementById('fullscreen-overlay').classList.remove('open');
   fsTimerId = null;
-  if (document.fullscreenElement) {
-    document.exitFullscreen().catch(() => {});
-  }
+  exitBrowserFullscreen();
 }
 
 function refreshFsDisplay() {
@@ -2441,29 +2695,12 @@ function refreshFsDisplay() {
   const t = timers.find(x => x.id === fsTimerId);
   if (!t) { exitFullscreen(); return; }
   const p = pct(t);
-  const dashOffset = FS_RING_CIRC * (1 - p);
   const color = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : t.color;
-  const timeColor = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : '#202124';
-
-  document.getElementById('fsSubjectName').textContent = t.name;
   const fst = document.getElementById('fs-time-display');
-  if (fst) { fst.textContent = fmtTime(t.left); fst.style.color = timeColor; }
-
-  const fsStatus = document.getElementById('fsStatus');
-  if (fsStatus) fsStatus.textContent = t.done ? '完成！🎉' : t.running ? '计时中…' : t.paused ? '已暂停' : '准备开始';
-
-  const arc = document.getElementById('fsRingArc');
-  if (arc) { arc.style.strokeDashoffset = dashOffset; arc.style.stroke = color; }
+  if (fst) { fst.textContent = fmtHMS(t.left); fst.style.color = '#f7f9ff'; }
 
   const pb = document.getElementById('fsProgressBar');
   if (pb) { pb.style.width = (p*100) + '%'; pb.style.background = color; }
-
-  const fsPlay = document.getElementById('fsPlayBtn');
-  const fsIcon = document.getElementById('fsPlayIcon');
-  if (fsPlay && fsIcon) {
-    fsPlay.className = 'fs-btn fs-play-btn' + (t.running ? ' running' : '');
-    fsIcon.textContent = t.running ? 'pause' : 'play_arrow';
-  }
 }
 
 function fsToggle() {
@@ -2471,6 +2708,39 @@ function fsToggle() {
 }
 function fsReset()  { if (fsTimerId !== null) resetTimer(fsTimerId); }
 function fsAddTime(m) { if (fsTimerId !== null) addTime(fsTimerId, m); }
+
+function requestBrowserFullscreen(element) {
+  const req = element.requestFullscreen || element.webkitRequestFullscreen || element.mozRequestFullScreen || element.msRequestFullscreen;
+  if (req) {
+    try {
+      const p = req.call(element);
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch(_) {}
+  }
+}
+
+function exitBrowserFullscreen() {
+  const doc = document;
+  const ex = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+  const isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
+  if (isFs && ex) {
+    try {
+      const p = ex.call(doc);
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch(_) {}
+  }
+}
+
+function onFullscreenChange() {
+  const doc = document;
+  const isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
+  if (!isFs) {
+    document.getElementById('fullscreen-overlay').classList.remove('open');
+    fsTimerId = null;
+  } else if (fsTimerId !== null) {
+    document.getElementById('fullscreen-overlay').classList.add('open');
+  }
+}
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') exitFullscreen();
@@ -2483,6 +2753,10 @@ document.addEventListener('keydown', e => {
     if (running) openFullscreen(running.id);
   }
 });
+document.addEventListener('fullscreenchange', onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+document.addEventListener('mozfullscreenchange', onFullscreenChange);
+document.addEventListener('MSFullscreenChange', onFullscreenChange);
 
 // ============================================================
 // MINI PILL
@@ -2517,6 +2791,7 @@ function openSettings() {
   renderSettingsUI();
   const examDate = localStorage.getItem('igcse_exam_date') || '';
   document.getElementById('sExamDate').value = examDate;
+  document.getElementById('sApiKey').value = settings.apiKey || '';
   updateExamCountdown(examDate);
   openModal('settingsModal');
 }
@@ -2526,12 +2801,21 @@ function renderSettingsUI() {
     const el = document.getElementById('toggle' + key[0].toUpperCase() + key.slice(1));
     if (el) el.classList.toggle('on', !!settings[key]);
   });
+  const lm = document.getElementById('sLayoutMode');
+  if (lm) lm.value = settings.layoutMode || 'carousel';
 }
 
 function toggleSetting(key) {
   settings[key] = !settings[key];
   renderSettingsUI();
   persist();
+}
+
+function setLayoutMode(mode) {
+  settings.layoutMode = mode === 'grouped' ? 'grouped' : 'carousel';
+  currentPage = 0;
+  persist();
+  renderAll();
 }
 
 function saveExamDate(val) {
@@ -2559,6 +2843,142 @@ function clearAllData() {
   localStorage.removeItem('igcse_heat');
   renderStats(); renderHistory(); renderHeatmap();
   showSnackbar('数据已清除');
+}
+
+function triggerBbcTransition() {
+  const el = document.getElementById('bbcTransition');
+  if (!el) return;
+  el.classList.remove('active');
+  void el.offsetWidth;
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 1400);
+}
+
+function saveApiKey() {
+  settings.apiKey = (document.getElementById('sApiKey').value || '').trim();
+  persist();
+  closeModal('apiModal');
+  showSnackbar('API Key 已保存');
+}
+
+function handleAudioUpload(e) {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    settings.customBellData = rd.result;
+    settings.customBellType = f.type || 'audio/mpeg';
+    persist();
+    const p = document.getElementById('customAudioPreview');
+    if (p) {
+      p.src = settings.customBellData;
+      p.style.display = 'block';
+    }
+    showSnackbar('自定义铃声已保存');
+  };
+  rd.readAsDataURL(f);
+}
+
+async function generateAiSummary() {
+  const out = document.getElementById('aiOutput');
+  if (!out) return;
+  const s = getTodayStats();
+  const h = getHistory().slice(0, 10);
+  if (!settings.apiKey) {
+    out.textContent = '请先在设置中填写 DeepSeek API Key。';
+    return;
+  }
+  const consentKey = 'igcse_ai_privacy_ok';
+  if (!localStorage.getItem(consentKey)) {
+    const ok = confirm('将把学习统计与最近记录发送到 DeepSeek 以生成分析。是否继续？');
+    if (!ok) {
+      out.textContent = '已取消发送。';
+      return;
+    }
+    localStorage.setItem(consentKey, '1');
+  }
+  out.textContent = '生成中...';
+  const prompt = `你是一名经验丰富的 IGCSE 考官，请根据以下数据给出不超过200字的分析建议。\n今日数据: ${JSON.stringify(s)}\n最近记录: ${JSON.stringify(h)}`;
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6
+      })
+    });
+    const data = await resp.json();
+    const text = data?.choices?.[0]?.message?.content || '生成失败，请稍后重试。';
+    out.textContent = text;
+  } catch (e) {
+    out.textContent = '网络或接口错误，请检查 API Key。';
+  }
+}
+
+function saveInterruptReason() {
+  const reason = document.getElementById('interruptReason').value;
+  if (pendingInterruptTimerId) {
+    const t = timers.find(x => x.id === pendingInterruptTimerId);
+    if (t) {
+      if (!t.interruptions) t.interruptions = [];
+      t.interruptions.push({ reason, ts: Date.now() });
+      persist();
+    }
+  }
+  pendingInterruptTimerId = null;
+  closeModal('interruptModal');
+}
+
+const ONBOARD_STEPS = [
+  { target: '#quickStartLabel', title: '快捷启动', desc: '这里可以一键启动常用 IGCSE 卷型。' },
+  { target: '#timersLabel', title: '多计时器区', desc: '超过3个计时器会自动分页。可在设置中切换展示模式。' },
+  { target: '#minipillBtn', title: '悬浮迷你窗', desc: '点击可开启迷你悬浮，再次点击可快速回到全屏计时。' },
+  { target: '#timerPageControls', title: '分页按钮', desc: '点击页码切换分组或滑动窗口。' }
+];
+
+function startOnboarding() {
+  onboardingIdx = 0;
+  document.getElementById('oblay').classList.add('show');
+  showOnboardingStep();
+}
+
+function showOnboardingStep() {
+  const step = ONBOARD_STEPS[onboardingIdx];
+  if (!step) { skipOnboarding(); return; }
+  const el = document.querySelector(step.target);
+  if (!el) { nextOnboarding(); return; }
+  const r = el.getBoundingClientRect();
+  const focus = document.getElementById('obfocus');
+  const bub = document.getElementById('obbub');
+  focus.style.left = `${Math.max(8, r.left - 6)}px`;
+  focus.style.top = `${Math.max(8, r.top - 6)}px`;
+  focus.style.width = `${Math.max(40, r.width + 12)}px`;
+  focus.style.height = `${Math.max(30, r.height + 12)}px`;
+  const bubWidth = (bub.getBoundingClientRect().width || 420) + 20;
+  bub.style.left = `${Math.max(16, Math.min(window.innerWidth - bubWidth, r.left))}px`;
+  bub.style.top = `${Math.min(window.innerHeight - 220, r.bottom + 12)}px`;
+  document.getElementById('obtitle').textContent = step.title;
+  document.getElementById('obdesc').textContent = step.desc;
+  document.getElementById('obnext').textContent = onboardingIdx === ONBOARD_STEPS.length - 1 ? '完成' : '下一步';
+}
+
+function nextOnboarding() {
+  onboardingIdx++;
+  if (onboardingIdx >= ONBOARD_STEPS.length) {
+    skipOnboarding();
+    return;
+  }
+  showOnboardingStep();
+}
+
+function skipOnboarding() {
+  document.getElementById('oblay').classList.remove('show');
+  localStorage.setItem('is_first_run', 'done');
 }
 
 // ============================================================
@@ -2626,6 +3046,16 @@ function init() {
   renderStats();
   renderHistory();
   renderHeatmap();
+  if (settings.customBellData) {
+    const p = document.getElementById('customAudioPreview');
+    if (p) {
+      p.src = settings.customBellData;
+      p.style.display = 'block';
+    }
+  }
+  if (!localStorage.getItem('is_first_run')) {
+    setTimeout(startOnboarding, 450);
+  }
 
   console.log(`🎓 IGCSE Timer loaded. Timers restored: ${timers.length}`);
 }
