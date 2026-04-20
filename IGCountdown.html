@@ -1532,6 +1532,9 @@ body {
         <label class="form-label">API Key</label>
         <input class="form-input" id="sApiKey" type="password" placeholder="sk-..." autocomplete="off">
       </div>
+      <div style="font-size:12px;color:var(--md-on-surface-variant);line-height:1.5;">
+        提示：调用 AI 分析时会将你的 API Key 与学习统计发送到 DeepSeek 服务端。
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-text" onclick="closeModal('apiModal')">取消</button>
@@ -2404,7 +2407,7 @@ function cardHTML(t) {
     <div class="card-notes">
       <div class="presets-label">断点记录（自动保存）</div>
       <textarea class="notes-input" oninput="saveTimerNoteDebounced('${t.id}', this.value)"
-        placeholder="输入当前做的题目（例如：P2 Q12）">${safeNote}</textarea>
+        maxlength="200" placeholder="输入当前做的题目（例如：P2 Q12）">${safeNote}</textarea>
     </div>
 
     <div class="presets-section" style="padding-top:0;">
@@ -2481,7 +2484,7 @@ function editTimerDuration(id) {
   const next = prompt('请输入新的时长（分钟）', String(Math.round(t.total / 60)));
   if (next === null) return;
   const mins = parseInt(next, 10);
-  if (!mins || mins < 1 || mins > 600) {
+  if (Number.isNaN(mins) || mins < 1 || mins > 600) {
     showSnackbar('时长范围应为 1-600 分钟');
     renderTimerCard(id);
     return;
@@ -2492,7 +2495,9 @@ function editTimerDuration(id) {
 function saveTimerNoteDebounced(id, val) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
-  t.note = (val || '').slice(0, 200);
+  const raw = val || '';
+  if (raw.length >= 200 && raw !== t.note) showSnackbar('断点记录最多 200 字');
+  t.note = raw.slice(0, 200);
   clearTimeout(noteDebounceTimers[id]);
   noteDebounceTimers[id] = setTimeout(() => {
     persist();
@@ -2628,6 +2633,8 @@ function renderHistoryList(container, items) {
   if (!container) return;
   if (!items.length) { container.innerHTML = ''; return; }
   container.innerHTML = items.map(entry => {
+    const safeName = esc(entry.name || '');
+    const safeNote = esc(entry.note || '');
     const t = new Date(entry.completedAt);
     const timeStr = t.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
     const dateStr = t.toLocaleDateString('zh-CN', { month:'short', day:'numeric' });
@@ -2635,9 +2642,9 @@ function renderHistoryList(container, items) {
     return `<div class="hist-item">
       <div class="hist-color-bar" style="background:${entry.color};"></div>
       <div class="hist-info">
-        <div class="hist-name">${entry.name}</div>
+        <div class="hist-name">${safeName}</div>
         <div class="hist-meta">${dateStr} ${timeStr} · ${entry.type==='completed'?'完成':'保存'} · ${entry.pauseCount || 0}次暂停</div>
-        ${entry.note ? `<div class="hist-meta" style="margin-top:2px;">📌 ${entry.note}</div>` : ''}
+        ${safeNote ? `<div class="hist-meta" style="margin-top:2px;">📌 ${safeNote}</div>` : ''}
       </div>
       <div class="hist-time">${spentStr}</div>
       <button class="hist-resume-btn" onclick="resumeSession(${JSON.stringify(entry).split('"').join('&quot;')})">恢复</button>
@@ -2701,11 +2708,11 @@ function fsToggle() {
 function fsReset()  { if (fsTimerId !== null) resetTimer(fsTimerId); }
 function fsAddTime(m) { if (fsTimerId !== null) addTime(fsTimerId, m); }
 
-function requestBrowserFullscreen(el) {
-  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+function requestBrowserFullscreen(element) {
+  const req = element.requestFullscreen || element.webkitRequestFullscreen || element.mozRequestFullScreen || element.msRequestFullscreen;
   if (req) {
     try {
-      const p = req.call(el);
+      const p = req.call(element);
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch(_) {}
   }
@@ -2880,6 +2887,15 @@ async function generateAiSummary() {
     out.textContent = '请先在设置中填写 DeepSeek API Key。';
     return;
   }
+  const consentKey = 'igcse_ai_privacy_ok';
+  if (!localStorage.getItem(consentKey)) {
+    const ok = confirm('将把学习统计与最近记录发送到 DeepSeek 以生成分析。是否继续？');
+    if (!ok) {
+      out.textContent = '已取消发送。';
+      return;
+    }
+    localStorage.setItem(consentKey, '1');
+  }
   out.textContent = '生成中...';
   const prompt = `你是一名经验丰富的 IGCSE 考官，请根据以下数据给出不超过200字的分析建议。\n今日数据: ${JSON.stringify(s)}\n最近记录: ${JSON.stringify(h)}`;
   try {
@@ -2942,7 +2958,8 @@ function showOnboardingStep() {
   focus.style.top = `${Math.max(8, r.top - 6)}px`;
   focus.style.width = `${Math.max(40, r.width + 12)}px`;
   focus.style.height = `${Math.max(30, r.height + 12)}px`;
-  bub.style.left = `${Math.max(16, Math.min(window.innerWidth - 440, r.left))}px`;
+  const bubWidth = (bub.getBoundingClientRect().width || 420) + 20;
+  bub.style.left = `${Math.max(16, Math.min(window.innerWidth - bubWidth, r.left))}px`;
   bub.style.top = `${Math.min(window.innerHeight - 220, r.bottom + 12)}px`;
   document.getElementById('obtitle').textContent = step.title;
   document.getElementById('obdesc').textContent = step.desc;
