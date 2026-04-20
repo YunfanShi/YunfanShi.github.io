@@ -1471,7 +1471,7 @@ body {
       <div class="settings-row">
         <div>
           <div class="settings-row-label">结束铃声</div>
-          <div class="settings-row-sub">可关闭；剩余 20 秒会弹窗提醒本次是否播放</div>
+          <div class="settings-row-sub">可关闭，剩余 20 秒会弹窗提醒本次是否播放</div>
         </div>
         <button class="toggle on" id="toggleSound" onclick="toggleSetting('sound')"></button>
       </div>
@@ -1621,7 +1621,7 @@ body {
     </div>
     <div class="modal-body" id="confirmBody">确定继续吗？</div>
     <div class="modal-footer">
-      <button class="btn-text" onclick="closeModal('confirmModal')">取消</button>
+      <button class="btn-text" id="confirmCancelBtn" onclick="closeModal('confirmModal')">取消</button>
       <button class="btn-filled" id="confirmOkBtn">确定</button>
     </div>
   </div>
@@ -1714,6 +1714,9 @@ const noteDebounceTimers = {};
 let activeBellAudio = null;
 let activeBellContext = null;
 let activeBellStopTimer = null;
+const PRE_END_ALERT_THRESHOLD = 20;
+const CUSTOM_BELL_AUTO_STOP_MS = 15000;
+const TONE_BELL_AUTO_STOP_MS = 2500;
 
 // ============================================================
 // PERSISTENCE
@@ -2173,7 +2176,7 @@ function addTime(id, mins) {
   t.left  += mins * 60;
   t.total += mins * 60;
   if (t.done) { t.done = false; t.left = mins * 60; t.total = mins * 60; }
-  if (t.left > 20) t._preEndAlerted = false;
+  if (t.left > PRE_END_ALERT_THRESHOLD) t._preEndAlerted = false;
   t._muteNextRing = false;
   persist();
   renderTimerCard(id);
@@ -2210,7 +2213,7 @@ function tickTimer(id) {
   if (!t || !t.running) return;
   t.left = Math.max(0, t.left - 1);
 
-  if (t.left === 20 && !t.done && !t._preEndAlerted) {
+  if (t.left === PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
     t._preEndAlerted = true;
     showPreEndBellPopup(t);
   }
@@ -2234,12 +2237,34 @@ function tickTimer(id) {
 function showPreEndBellPopup(t) {
   if (!t) return;
   if (!settings.sound) {
-    showSnackbar(`⏳ ${t.name} 剩余 20 秒`);
+    showSnackbar(`⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒`);
     return;
   }
-  const shouldPlay = confirm(`⏳ ${t.name} 剩余 20 秒。\n结束时播放铃声吗？`);
-  t._muteNextRing = !shouldPlay;
-  showSnackbar(shouldPlay ? '已保留结束铃声' : '本次结束将静音');
+  const titleEl = document.getElementById('confirmTitle');
+  const bodyEl = document.getElementById('confirmBody');
+  const okBtn = document.getElementById('confirmOkBtn');
+  const cancelBtn = document.getElementById('confirmCancelBtn');
+  if (!titleEl || !bodyEl || !okBtn || !cancelBtn) {
+    const shouldPlay = confirm(`⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒。\n结束时播放铃声吗？`);
+    t._muteNextRing = !shouldPlay;
+    showSnackbar(shouldPlay ? '已保留结束铃声' : '本次结束将静音');
+    return;
+  }
+  titleEl.textContent = '结束铃声提醒';
+  bodyEl.textContent = `⏳ ${t.name} 剩余 ${PRE_END_ALERT_THRESHOLD} 秒，结束时要播放铃声吗？`;
+  cancelBtn.textContent = '静音结束';
+  okBtn.textContent = '播放铃声';
+  cancelBtn.onclick = () => {
+    t._muteNextRing = true;
+    closeModal('confirmModal');
+    showSnackbar('本次结束将静音');
+  };
+  okBtn.onclick = () => {
+    t._muteNextRing = false;
+    closeModal('confirmModal');
+    showSnackbar('已保留结束铃声');
+  };
+  openModal('confirmModal');
 }
 
 function onTimerDone(id) {
@@ -2338,7 +2363,7 @@ function playDoneSound() {
       activeBellAudio = bell;
       bell.play().catch(() => {});
       clearTimeout(activeBellStopTimer);
-      activeBellStopTimer = setTimeout(stopDoneSound, 15000);
+      activeBellStopTimer = setTimeout(stopDoneSound, CUSTOM_BELL_AUTO_STOP_MS);
       return true;
     }
     const ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -2358,7 +2383,7 @@ function playDoneSound() {
     tone(659, 0.2,  0.3, 0.3);
     tone(784, 0.4,  0.5, 0.3);
     clearTimeout(activeBellStopTimer);
-    activeBellStopTimer = setTimeout(stopDoneSound, 2500);
+    activeBellStopTimer = setTimeout(stopDoneSound, TONE_BELL_AUTO_STOP_MS);
     return true;
   } catch(e) { return false; }
 }
@@ -2749,7 +2774,7 @@ function flashSaveIndicator(id) {
 function renderStats() {
   const today = getTodayStats();
   const liveFocusMins = timers.reduce((sum, t) => {
-    if (t.done || t.total <= 0) return sum;
+    if (t.done || !t.running || t.total <= 0) return sum;
     return sum + Math.max(0, (t.total - t.left) / 60);
   }, 0);
   const focusMins = Math.round((today.focusMins || 0) + liveFocusMins);
