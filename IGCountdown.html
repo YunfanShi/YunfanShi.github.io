@@ -255,6 +255,25 @@ body {
 }
 #timer-arena.split-2 { grid-template-columns: 1fr 1fr; }
 #timer-arena.split-3 { grid-template-columns: 1fr 1fr 1fr; }
+#timer-arena.scroll-mode {
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+}
+#timer-arena.scroll-mode .timer-card {
+  min-width: min(360px, 86vw);
+  flex: 0 0 min(360px, 86vw);
+  scroll-snap-align: start;
+}
+#timer-arena.scroll-mode::-webkit-scrollbar {
+  height: 8px;
+}
+#timer-arena.scroll-mode::-webkit-scrollbar-thumb {
+  background: var(--md-outline-variant);
+  border-radius: 999px;
+}
 
 /* ============================================================
    TIMER CARD — Material 3 elevated card
@@ -965,7 +984,7 @@ body {
    ============================================================ */
 #fullscreen-overlay {
   position: fixed; inset: 0; z-index: 900;
-  background: #ffffff;
+  background: radial-gradient(circle at center, #11182f 0%, #090d18 65%, #060910 100%);
   display: none;
   flex-direction: column;
   align-items: center;
@@ -983,42 +1002,48 @@ body {
   position: absolute;
   top: 20px; right: 20px;
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 18px;
+  padding: 8px 14px;
   border-radius: var(--r-full);
-  border: 1px solid var(--md-outline);
-  background: var(--md-surface-container);
-  color: var(--md-on-surface-variant);
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: #f8f9fa;
   font-family: 'Google Sans', sans-serif;
   font-size: 13px; font-weight: 500;
   cursor: pointer;
   transition: all var(--dur-med) var(--ease-standard);
 }
-.fs-exit-btn:hover { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+.fs-exit-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
 .fs-exit-btn .material-icons-round { font-size: 18px; }
 
 #fs-time-display {
   font-family: 'Roboto Mono', monospace;
   font-size: clamp(80px, 18vw, 160px);
   font-weight: 500;
-  letter-spacing: -4px;
+  letter-spacing: -2px;
   line-height: 1;
   transition: color var(--dur-med) var(--ease-standard);
   margin: 8px 0 4px;
+  color: #f8f9fa;
+  text-shadow: 0 10px 28px rgba(0,0,0,0.42);
 }
 .fs-controls { display: flex; gap: 16px; align-items: center; }
 .fs-touch-btn {
-  width: 150px; height: 60px;
+  width: 120px; height: 52px;
   border-radius: var(--r-lg);
-  border: 1px solid var(--md-outline);
-  background: var(--md-surface-container);
-  color: var(--md-on-surface);
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(255,255,255,0.06);
+  color: #f8f9fa;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   font-family: 'Google Sans', sans-serif;
   transition: all var(--dur-long) var(--ease-spring);
 }
-.fs-touch-btn:hover { background: var(--md-surface-container-high); }
+.fs-touch-btn:hover { background: rgba(255,255,255,0.15); }
 .fs-touch-btn:active { transform: scale(0.96); }
+.fs-touch-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 #timer-pagination {
   margin-top: 12px;
@@ -1093,6 +1118,13 @@ body {
 }
 .onboarding-text { font-size: 14px; line-height: 1.6; color: var(--md-on-surface-variant); }
 .onboarding-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.onboarding-focus-target {
+  position: relative;
+  z-index: 1301;
+  border-radius: 18px;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.95), 0 0 0 7px rgba(26,115,232,0.68);
+  transition: box-shadow var(--dur-med) var(--ease-standard);
+}
 
 body.tab-away-warning {
   background: var(--warning-bg, #fff4e5);
@@ -1531,6 +1563,14 @@ body.night-mode {
       </div>
       <div class="divider"></div>
       <div class="form-field">
+        <label class="form-label">多计时器视图（4个以上）</label>
+        <select class="form-input" id="timerViewMode" onchange="setTimerViewMode(this.value)">
+          <option value="grouped">自动分组（每组3个）</option>
+          <option value="scroll">滑动查看全部</option>
+        </select>
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
         <label class="form-label">DeepSeek API Key（用于专注分析）</label>
         <input class="form-input" id="deepseekApiKey" type="password" placeholder="sk-..." onchange="saveDeepSeekKey(this.value)">
       </div>
@@ -1580,15 +1620,34 @@ body.night-mode {
   </div>
 </div>
 
+<div class="modal-backdrop" id="interruptionModal" onclick="closeModalOnBackdrop(event,'interruptionModal')">
+  <div class="modal-surface" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">Interruption Reason</div>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:14px;color:var(--md-on-surface-variant);margin-bottom:8px;">暂停原因记录（用于专注分析）</div>
+      <div class="presets-chips">
+        <button class="preset-chip" onclick="setInterruptionReason('bathroom')">bathroom</button>
+        <button class="preset-chip" onclick="setInterruptionReason('phone')">phone</button>
+        <button class="preset-chip" onclick="setInterruptionReason('distracted')">distracted</button>
+        <button class="preset-chip" onclick="setInterruptionReason('external')">external</button>
+        <button class="preset-chip" onclick="setInterruptionReason('water')">water</button>
+        <button class="preset-chip" onclick="setInterruptionReason('unspecified')">unspecified</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // DATA — IGCSE Paper Definitions
 // ============================================================
 const IGCSE_PAPERS = [
   { id:'0580P1', subj:'0580', name:'数学 P1', paper:'Paper 1', dur:90,  marks:70,  tier:'Core',          color:'#1a73e8' },
-  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:120, marks:70, tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P2', subj:'0580', name:'数学 P2', paper:'Paper 2', dur:120, marks:100, tier:'Extended',      color:'#1a73e8' },
   { id:'0580P3', subj:'0580', name:'数学 P3', paper:'Paper 3', dur:120, marks:104, tier:'Core',          color:'#1a73e8' },
-  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:120, marks:130, tier:'Extended',       color:'#1a73e8' },
+  { id:'0580P4', subj:'0580', name:'数学 P4', paper:'Paper 4', dur:120, marks:100, tier:'Extended',      color:'#1a73e8' },
   { id:'0610P2', subj:'0610', name:'生物 P2', paper:'Paper 2', dur:45,  marks:40,  tier:'Extended MCQ',  color:'#34a853' },
   { id:'0610P4', subj:'0610', name:'生物 P4', paper:'Paper 4', dur:75,  marks:80,  tier:'Extended Theory',color:'#34a853' },
   { id:'0610P6', subj:'0610', name:'生物 P6', paper:'Paper 6', dur:60,  marks:40,  tier:'Alt. Practical', color:'#34a853' },
@@ -1624,7 +1683,7 @@ const SUBJ_ICONS = {
 // STATE
 // ============================================================
 let timers = [];       // active timer objects
-let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true };
+let settings = { sound:true, autoFS:false, mockLink:true, goalLink:true, timerView:'grouped' };
 let selColor = COLORS[0];
 let selDur   = null;
 let selIgcse = null;
@@ -1635,6 +1694,8 @@ let snackbarUndoFn = null;
 let currentTimerPage = 0;
 let awayStartAt = null;
 let last20PromptTimerId = null;
+let interruptionPendingTimerId = null;
+let onboardingFocusEl = null;
 const ONBOARD_KEY = 'is_first_run';
 const NOTES_DEBOUNCE = 1000;
 let onboardingStep = 0;
@@ -1781,7 +1842,7 @@ const FS_RING_CIRC = 2 * Math.PI * FS_RING_R;
 
 function pct(t) {
   if (!t.total) return 0;
-  return Math.max(0, Math.min(1, (t.total - t.left) / t.total));
+  return Math.max(0, Math.min(1, t.left / t.total));
 }
 
 // ============================================================
@@ -1941,8 +2002,14 @@ function createTimer(cfg) {
     startedAt: null,
   };
   timers.push(t);
+  if (settings.timerView === 'grouped' && timers.length >= 4) {
+    currentTimerPage = Math.max(0, timers.length - 3);
+  }
   updateArenaLayout();
   renderAll();
+  if (settings.timerView === 'scroll' && timers.length >= 4) {
+    setTimeout(scrollToLatestTimer, 120);
+  }
   startTimer(t.id);
   if (settings.autoFS) openFullscreen(t.id);
   persist();
@@ -1982,8 +2049,8 @@ function pauseTimer(id, logPause = true) {
   if (logPause) {
     t._pauseCount++;
     addToStats('pauses');
-    const reason = prompt('暂停原因？（如：bathroom / distracted）') || 'unspecified';
-    t.interruptions.push({ reason: reason.slice(0, 120), at: Date.now(), pauseMs: 0 });
+    interruptionPendingTimerId = id;
+    openModal('interruptionModal');
   }
   persist();
   refreshCardControls(id);
@@ -2064,7 +2131,7 @@ function tickTimer(id) {
   refreshTimerDisplay(id);
   if (fsTimerId === id) refreshFsDisplay();
   updateMiniPill();
-  if (t.left === 20 && settings.sound && !t._last20Prompted) {
+  if (t.left === 20 && !t._last20Prompted) {
     t._last20Prompted = true;
     last20PromptTimerId = id;
     openModal('last20SoundPopup');
@@ -2200,7 +2267,7 @@ function setSoundFromLast20(enabled) {
     const t = timers.find(x => x.id === last20PromptTimerId);
     if (t) t._last20Prompted = true;
   }
-  if (!enabled) settings.sound = false;
+  settings.sound = !!enabled;
   renderSettingsUI();
   persist();
   showSnackbar(enabled ? '将播放结束铃声' : '已关闭结束铃声');
@@ -2221,9 +2288,14 @@ function triggerFinishTransition() {
 function updateArenaLayout() {
   const arena = document.getElementById('timer-arena');
   arena.className = '';
+  if (settings.timerView === 'scroll' && timers.length >= 4) {
+    arena.classList.add('scroll-mode');
+  }
   const visibleCount = getVisibleTimers().length;
-  if (visibleCount === 2) arena.classList.add('split-2');
-  if (visibleCount >= 3) arena.classList.add('split-3');
+  if (settings.timerView !== 'scroll') {
+    if (visibleCount === 2) arena.classList.add('split-2');
+    if (visibleCount >= 3) arena.classList.add('split-3');
+  }
   const label = document.getElementById('timersLabel');
   const empty  = document.getElementById('emptyState');
   const pager = document.getElementById('timer-pagination');
@@ -2234,27 +2306,26 @@ function updateArenaLayout() {
     label.style.display = 'none';
     empty.style.display  = 'flex';
   }
-  pager.style.display = timers.length >= 4 ? 'flex' : 'none';
+  pager.style.display = (timers.length >= 4 && settings.timerView === 'grouped') ? 'flex' : 'none';
 }
 
 function getVisibleTimers() {
-  if (timers.length < 4) return timers;
+  if (timers.length < 4 || settings.timerView === 'scroll') return timers;
   const pageSize = 3;
-  const maxPage = Math.max(0, Math.ceil(timers.length / pageSize) - 1);
-  if (currentTimerPage > maxPage) currentTimerPage = maxPage;
-  const start = currentTimerPage * pageSize;
+  const pages = Math.max(1, timers.length - pageSize + 1);
+  currentTimerPage = Math.max(0, Math.min(currentTimerPage, pages - 1));
+  const start = currentTimerPage;
   return timers.slice(start, start + pageSize);
 }
 
 function renderPagination() {
   const pager = document.getElementById('timer-pagination');
   if (!pager) return;
-  if (timers.length < 4) {
+  if (timers.length < 4 || settings.timerView !== 'grouped') {
     pager.innerHTML = '';
     return;
   }
-  const pageSize = 3;
-  const pages = Math.ceil(timers.length / pageSize);
+  const pages = timers.length - 2;
   pager.innerHTML = `
     <button class="page-btn" onclick="switchTimerPage(${Math.max(0, currentTimerPage - 1)})">上一组</button>
     ${Array.from({ length: pages }).map((_, i) =>
@@ -2265,8 +2336,15 @@ function renderPagination() {
 }
 
 function switchTimerPage(page) {
-  currentTimerPage = page;
+  const maxPage = Math.max(0, (timers.length - 3));
+  currentTimerPage = Math.max(0, Math.min(page, maxPage));
   renderAll();
+}
+
+function scrollToLatestTimer() {
+  const arena = document.getElementById('timer-arena');
+  if (!arena || !arena.classList.contains('scroll-mode')) return;
+  arena.scrollTo({ left: arena.scrollWidth, behavior: 'smooth' });
 }
 
 function renderAll() {
@@ -2347,8 +2425,8 @@ function cardHTML(t) {
       <span class="material-icons-round">cloud_done</span>已保存
     </div>
     <div class="card-body">
-      <div class="ring-container" onclick="toggleTimer('${t.id}')" title="点击 暂停/继续">
-        <svg class="ring-svg" viewBox="0 0 200 200">
+      <div class="ring-container" title="点击圆环 暂停/继续">
+        <svg class="ring-svg" viewBox="0 0 200 200" onclick="toggleTimer('${t.id}')">
           <circle cx="100" cy="100" r="${RING_R}" class="ring-track" stroke-width="10"/>
           <circle cx="100" cy="100" r="${RING_R}" class="ring-progress" id="ring-${t.id}"
             stroke="${color}" stroke-width="10"
@@ -2359,8 +2437,8 @@ function cardHTML(t) {
             stroke-dasharray="${RING_CIRC}" stroke-dashoffset="0"/>
         </svg>
         <div class="ring-inner">
-          <div class="time-display" id="time-${t.id}" style="color:${timeColor};">${fmtTime(t.left)}</div>
-          <div class="time-pct" id="pct-${t.id}">${Math.round(p*100)}%</div>
+          <div class="time-display" id="time-${t.id}" style="color:${timeColor};" onclick="editTimerTime(event,'${t.id}')">${fmtTime(t.left)}</div>
+          <div class="time-pct" id="pct-${t.id}">剩余 ${Math.round(p*100)}%</div>
           <div class="time-status-badge" id="badge-${t.id}" style="background:${statusBg};color:${statusColor};">
             <div class="status-dot" id="dot-${t.id}" style="background:${dotColor};"></div>
             ${statusLabel}
@@ -2470,6 +2548,46 @@ function updateTimerDuration(id, minutesValue) {
   setTimerDur(id, mins);
 }
 
+function parseTimeToSec(raw) {
+  if (!raw) return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return parseInt(text, 10) * 60;
+  const parts = text.split(':').map(x => x.trim()).filter(Boolean);
+  if (parts.length === 2) {
+    const [m, s] = parts.map(Number);
+    if (Number.isNaN(m) || Number.isNaN(s) || s > 59) return null;
+    return m * 60 + s;
+  }
+  if (parts.length === 3) {
+    const [h, m, s] = parts.map(Number);
+    if ([h,m,s].some(Number.isNaN) || m > 59 || s > 59) return null;
+    return h * 3600 + m * 60 + s;
+  }
+  return null;
+}
+
+function editTimerTime(event, id) {
+  event.stopPropagation();
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  const input = prompt('编辑剩余时间（支持 分钟 或 MM:SS 或 HH:MM:SS）', fmtHMS(t.left));
+  if (input === null) return;
+  const sec = parseTimeToSec(input);
+  if (sec === null || sec < 0) {
+    showSnackbar('时间格式无效');
+    return;
+  }
+  t.left = sec;
+  if (sec > t.total) t.total = sec;
+  t.dur = Math.max(1, Math.ceil(t.total / 60));
+  t.done = sec === 0;
+  t._last20Prompted = sec <= 20;
+  persist();
+  renderTimerCard(id);
+  if (fsTimerId === id) refreshFsDisplay();
+}
+
 function debouncedSaveNote(id, value) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
@@ -2506,7 +2624,7 @@ function refreshTimerDisplay(id) {
       setTimeout(() => timeEl.classList.remove('tick'), 100);
     }
   }
-  if (pctEl) pctEl.textContent = Math.round(p * 100) + '%';
+  if (pctEl) pctEl.textContent = '剩余 ' + Math.round(p * 100) + '%';
   if (warnEl) {
     if (t.running && t.left < 60 && !t.done) warnEl.classList.add('active');
     else warnEl.classList.remove('active');
@@ -2641,21 +2759,24 @@ function resumeSession(entry) {
 // ============================================================
 // FULLSCREEN
 // ============================================================
-function openFullscreen(id) {
+async function openFullscreen(id) {
   fsTimerId = id;
   const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.add('open');
   refreshFsDisplay();
-  if (overlay.requestFullscreen) {
-    overlay.requestFullscreen().catch(() => {});
+  if (document.fullscreenElement && document.fullscreenElement !== overlay && document.exitFullscreen) {
+    await document.exitFullscreen().catch(() => {});
+  }
+  if (document.fullscreenElement !== overlay && overlay.requestFullscreen) {
+    await overlay.requestFullscreen().catch(() => {});
   }
 }
 
-function exitFullscreen() {
+async function exitFullscreen() {
   const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.remove('open');
-  if (document.fullscreenElement === overlay && document.exitFullscreen) {
-    document.exitFullscreen().catch(() => {});
+  if (document.fullscreenElement && document.exitFullscreen) {
+    await document.exitFullscreen().catch(() => {});
   }
   fsTimerId = null;
 }
@@ -2739,6 +2860,8 @@ function renderSettingsUI() {
     const el = document.getElementById('toggle' + key[0].toUpperCase() + key.slice(1));
     if (el) el.classList.toggle('on', !!settings[key]);
   });
+  const view = document.getElementById('timerViewMode');
+  if (view) view.value = settings.timerView || 'grouped';
 }
 
 function toggleSetting(key) {
@@ -2754,6 +2877,16 @@ function saveExamDate(val) {
 
 function saveDeepSeekKey(val) {
   localStorage.setItem('igcse_deepseek_key', (val || '').trim());
+}
+
+function setTimerViewMode(mode) {
+  settings.timerView = mode === 'scroll' ? 'scroll' : 'grouped';
+  if (settings.timerView === 'grouped' && timers.length >= 4) {
+    currentTimerPage = Math.max(0, timers.length - 3);
+  }
+  persist();
+  renderAll();
+  if (settings.timerView === 'scroll') setTimeout(scrollToLatestTimer, 80);
 }
 
 function cleanForAi(v) {
@@ -2850,7 +2983,22 @@ function closeModal(id) {
   document.body.style.overflow = '';
 }
 function closeModalOnBackdrop(e, id) {
-  if (e.target.id === id) closeModal(id);
+  if (e.target.id !== id) return;
+  if (id === 'interruptionModal') {
+    setInterruptionReason('unspecified');
+    return;
+  }
+  closeModal(id);
+}
+
+function setInterruptionReason(reason) {
+  const t = timers.find(x => x.id === interruptionPendingTimerId);
+  if (t) {
+    t.interruptions.push({ reason: String(reason || 'unspecified').slice(0, 120), at: Date.now(), pauseMs: 0 });
+    persist();
+  }
+  interruptionPendingTimerId = null;
+  closeModal('interruptionModal');
 }
 
 // ============================================================
@@ -2892,6 +3040,7 @@ function startOnboardingIfNeeded() {
 }
 
 function renderOnboardingStep() {
+  if (onboardingFocusEl) onboardingFocusEl.classList.remove('onboarding-focus-target');
   const steps = [
     {
       title: '欢迎！快捷区',
@@ -2928,7 +3077,11 @@ function renderOnboardingStep() {
   document.getElementById('onboardingTitle').textContent = step.title;
   document.getElementById('onboardingText').textContent = step.text;
   const focus = document.getElementById(step.focusId);
-  if (focus) focus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (focus) {
+    focus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    focus.classList.add('onboarding-focus-target');
+    onboardingFocusEl = focus;
+  }
   if (step.requireExamDate) openSettings();
   document.getElementById('onboardingSkipBtn').style.display = step.requireExamDate ? 'none' : 'inline-flex';
   document.getElementById('onboardingNextBtn').textContent = onboardingStep === steps.length - 1 ? '完成' : '下一步';
@@ -2951,6 +3104,8 @@ function skipOnboarding() {
 
 function finishOnboarding() {
   localStorage.setItem(ONBOARD_KEY, '1');
+  if (onboardingFocusEl) onboardingFocusEl.classList.remove('onboarding-focus-target');
+  onboardingFocusEl = null;
   document.getElementById('onboarding-overlay').style.display = 'none';
 }
 
@@ -2968,7 +3123,7 @@ document.addEventListener('visibilitychange', () => {
     const awayText = awayMs < 60000
       ? `${Math.max(1, Math.round(awayMs / 1000))} 秒`
       : `${Math.round(awayMs / 60000)} 分钟`;
-    showSnackbar(`你离开了 ${awayText}，请保持专注`);
+    showSnackbar(`你离开了 ${awayText}，这在真实考场是不允许的。`);
     persist();
   }
 });
