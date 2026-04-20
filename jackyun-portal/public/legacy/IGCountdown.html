@@ -1875,6 +1875,7 @@ let modalStack = [];
 const PRE_END_ALERT_THRESHOLD = 20;
 const CUSTOM_BELL_AUTO_STOP_MS = 15000;
 const TONE_BELL_AUTO_STOP_MS = 2500;
+const HITOKOTO_API_URL = 'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json&min_length=8&max_length=60';
 
 // ============================================================
 // PERSISTENCE
@@ -2070,7 +2071,8 @@ async function translateWithDeepSeekIfAvailable(text, targetLang) {
     const parsed = cleanupTranslationText(parseAiTextPayload(data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text));
     if (targetLang === 'en' && !looksLikeEnglish(parsed)) throw new Error('invalid english translation');
     return parsed || localFallback;
-  } catch (_) {
+  } catch (err) {
+    console.warn('DeepSeek translation failed, fallback applied', err);
     return localFallback;
   }
 }
@@ -2081,14 +2083,14 @@ async function prefetchFinishSceneData(timerId) {
   t._finishScenePrefetching = true;
   const fallback = fallbackFinishLines(t.name);
   try {
-    const hitResp = await fetch('https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json&min_length=8&max_length=60');
-    if (!hitResp.ok) throw new Error(`hitokoto request failed: ${hitResp.status}`);
+    const hitResp = await fetch(HITOKOTO_API_URL);
+    if (!hitResp.ok) throw new Error(`hitokoto prefetch failed (status ${hitResp.status})`);
     const hitData = await hitResp.json();
     const rawHitokoto = String(hitData?.hitokoto || '').trim();
     const rawFrom = String(hitData?.from || '').trim();
     const rawFromWho = String(hitData?.from_who || '').trim();
     const zh = (rawHitokoto || fallback.zhHans).slice(0, 72) || fallback.zhHans;
-    const en = await translateWithDeepSeekIfAvailable(zh, 'en').catch(() => '');
+    const en = await translateWithDeepSeekIfAvailable(zh, 'en');
     t.finishSceneData = {
       zhHans: zh,
       en: en || fallback.en,
@@ -2097,6 +2099,7 @@ async function prefetchFinishSceneData(timerId) {
       loadedAt: Date.now(),
     };
   } catch (e) {
+    console.warn('Finish scene prefetch failed', e);
     t.finishSceneData = { ...fallback, loadedAt: Date.now() };
   } finally {
     t._finishScenePrefetching = false;
@@ -2560,6 +2563,7 @@ async function onTimerDone(id) {
   refreshFsDisplay();
   renderStats();
   renderHistory();
+  renderHeatmap();
   updateMiniPill();
 }
 
@@ -3364,8 +3368,9 @@ async function clearAllData() {
 function openFinishScene(t, shouldPlayNetease = false) {
   const scene = document.getElementById('finishScene');
   if (!scene) return;
-  const info = t?.finishSceneData || fallbackFinishLines(t?.name);
-  const lines = [info.zhHans, info.en || fallbackFinishLines(t?.name).en];
+  const fallback = fallbackFinishLines(t?.name);
+  const info = t?.finishSceneData || fallback;
+  const lines = [info.zhHans || fallback.zhHans, info.en || fallback.en];
   const main = document.getElementById('finishMainText');
   const sub = document.getElementById('finishSubText');
   const meta = document.getElementById('finishMetaText');
@@ -3587,7 +3592,8 @@ function updateBodyScrollLock() {
 function openModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
-  modalStack = modalStack.filter(mid => mid !== id);
+  const idx = modalStack.indexOf(id);
+  if (idx >= 0) modalStack.splice(idx, 1);
   modalStack.push(id);
   modal.classList.add('open');
   updateBodyScrollLock();
@@ -3814,7 +3820,7 @@ async function debugTestHitokotoAndTranslation() {
   setDebugOutput('正在请求一言并测试英文翻译...');
   const fallback = fallbackFinishLines(t.name);
   try {
-    const hitResp = await fetch('https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json&min_length=8&max_length=60');
+    const hitResp = await fetch(HITOKOTO_API_URL);
     if (!hitResp.ok) throw new Error(`hitokoto request failed: ${hitResp.status}`);
     const hitData = await hitResp.json();
     const zh = String(hitData?.hitokoto || fallback.zhHans).trim().slice(0, 72) || fallback.zhHans;
