@@ -1,38 +1,730 @@
-<!-- Updated finish scene animation, keyboard shortcuts, export CSV, but not touching the countdown fullscreen -->
-
-<div id="finish-scene">
-    <h1>Time's up!</h1>
-    <button id="exit-fullscreen">Exit Fullscreen</button>
-    <button id="export-csv">Export to CSV</button>
-    <div id="animation-toggle">
-        <label for="toggle-animation">Toggle Animation:</label>
-        <input type="checkbox" id="toggle-animation">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IGCSE Timer</title>
+  <style>
+    :root {
+      --bg: #0f1424;
+      --panel: #171f36;
+      --panel-soft: #1f2b4a;
+      --text: #e8ecff;
+      --muted: #a5b1d6;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --danger: #fb7185;
+      --space-black: #0A0E1A;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 20% 10%, #1c2c53 0%, var(--bg) 40%, #080c16 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .app {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+    .toolbar, .panel {
+      background: linear-gradient(160deg, rgba(31, 43, 74, 0.95), rgba(23, 31, 54, 0.95));
+      border: 1px solid rgba(173, 193, 255, 0.2);
+      border-radius: 14px;
+      padding: 14px;
+      backdrop-filter: blur(8px);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .toolbar input[type="text"], .toolbar input[type="number"] {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(173, 193, 255, 0.35);
+      background: #111933;
+      color: var(--text);
+    }
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 8px 12px;
+      color: white;
+      background: #3252b8;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    button.secondary { background: #253253; color: #d6ddff; }
+    button.danger { background: #8f2947; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .settings {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .settings label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #d8def7;
+    }
+    #timers {
+      display: grid;
+      gap: 10px;
+    }
+    .timer {
+      border: 1px solid rgba(173, 193, 255, 0.2);
+      border-radius: 12px;
+      background: rgba(13, 22, 43, 0.7);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .timer.dragging { opacity: 0.55; }
+    .timer.selected { border-color: #7ea3ff; box-shadow: 0 0 0 2px rgba(126, 163, 255, 0.25); }
+    .timer-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .timer-title { font-weight: 700; }
+    .timer-time { font-size: 28px; font-weight: 800; letter-spacing: 1px; }
+    .timer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    #fullscreen-view {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+      background: #060a13;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #fullscreen-view .time {
+      font-size: clamp(72px, 18vw, 180px);
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+    #fullscreen-view .title { color: var(--muted); font-size: 18px; }
+    #finish-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 1300;
+      display: none;
+      overflow: hidden;
+      background: var(--space-black);
+      color: #fff;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+    }
+    #finish-scene.show { display: flex; }
+    #finish-scene.animation-on .aurora-layer { display: block; }
+    #finish-scene.animation-off .aurora-layer,
+    #finish-scene.animation-off #particle-canvas { display: none; }
+    .aurora-layer {
+      position: absolute;
+      inset: -15%;
+      filter: blur(38px) saturate(1.12);
+      opacity: 0.65;
+      mix-blend-mode: screen;
+      display: none;
+      will-change: transform, opacity;
+    }
+    .aurora-a {
+      background: radial-gradient(circle at 20% 40%, rgba(110, 133, 255, 0.48), transparent 45%),
+        radial-gradient(circle at 80% 60%, rgba(138, 221, 255, 0.34), transparent 42%);
+      animation: driftA 13s ease-in-out infinite alternate;
+    }
+    .aurora-b {
+      background: radial-gradient(circle at 70% 35%, rgba(175, 120, 255, 0.44), transparent 50%),
+        radial-gradient(circle at 30% 70%, rgba(71, 190, 228, 0.32), transparent 45%);
+      animation: driftB 16s ease-in-out infinite alternate;
+    }
+    .aurora-c {
+      background: radial-gradient(circle at 40% 30%, rgba(106, 245, 210, 0.28), transparent 40%),
+        radial-gradient(circle at 75% 75%, rgba(101, 125, 255, 0.28), transparent 45%);
+      animation: driftC 20s ease-in-out infinite alternate;
+    }
+    @keyframes driftA {
+      from { transform: translate3d(-2%, -1%, 0) scale(1.02); }
+      to { transform: translate3d(3%, 2%, 0) scale(1.12); }
+    }
+    @keyframes driftB {
+      from { transform: translate3d(1%, 3%, 0) scale(1.05); }
+      to { transform: translate3d(-3%, -2%, 0) scale(1.14); }
+    }
+    @keyframes driftC {
+      from { transform: translate3d(2%, -2%, 0) scale(1.02); opacity: 0.45; }
+      to { transform: translate3d(-2%, 2%, 0) scale(1.08); opacity: 0.75; }
+    }
+    #particle-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    #finish-content {
+      z-index: 2;
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+      max-width: 580px;
+    }
+    #finish-title { font-size: clamp(38px, 8vw, 72px); margin: 0; letter-spacing: 1px; }
+    #finish-subtitle { color: #d8deff; margin: 0; }
+    #audio-wave {
+      width: min(460px, 78vw);
+      height: 90px;
+      border-radius: 10px;
+      background: rgba(8, 14, 30, 0.4);
+      border: 1px solid rgba(180, 197, 255, 0.24);
+      will-change: transform, opacity;
+    }
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .history-table th, .history-table td {
+      border-bottom: 1px solid rgba(173, 193, 255, 0.18);
+      text-align: left;
+      padding: 8px 6px;
+      color: #dde5ff;
+    }
+    .shortcuts-panel {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: min(360px, calc(100vw - 32px));
+      background: rgba(10, 16, 32, 0.96);
+      border: 1px solid rgba(173, 193, 255, 0.28);
+      border-radius: 12px;
+      padding: 12px;
+      z-index: 1400;
+      display: none;
+    }
+    .shortcuts-panel.show { display: block; }
+    .shortcuts-panel table { width: 100%; font-size: 13px; border-collapse: collapse; }
+    .shortcuts-panel td { padding: 6px 2px; border-bottom: 1px solid rgba(173, 193, 255, 0.14); }
+    .shortcuts-panel kbd {
+      background: #223055;
+      border: 1px solid #4f6bb4;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="toolbar">
+      <input id="timer-name" type="text" placeholder="Timer name" value="IGCSE Practice" />
+      <input id="timer-minutes" type="number" min="1" max="600" value="25" />
+      <button id="add-timer">Add Timer</button>
+      <button id="show-shortcuts" class="secondary">Shortcuts</button>
+      <button id="export-csv" class="secondary">Export CSV</button>
+      <span class="muted">Drag timers to reorder.</span>
     </div>
-</div>
 
-<script>
-    document.getElementById('toggle-animation').addEventListener('change', function() {
-        const animation = document.getElementById('finish-scene');
-        if (this.checked) {
-            animation.classList.add('animate'); // replace with actual animation class
+    <div class="panel">
+      <div class="settings">
+        <label><input type="checkbox" id="toggle-animation" checked /> Finish fullscreen animation</label>
+        <label><input type="checkbox" id="focus-mode-toggle" /> Focus mode (Pomodoro)</label>
+      </div>
+      <div class="muted">Focus mode auto-starts 25m focus and 5m break sessions when a focus timer ends.</div>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin-top:0;">Timers</h3>
+      <div id="timers"></div>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin-top:0;">History</h3>
+      <table class="history-table">
+        <thead>
+          <tr><th>Timer</th><th>Duration</th><th>Completed</th></tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="fullscreen-view">
+    <div class="title" id="fs-title">Timer</div>
+    <div class="time" id="fs-time">00:00</div>
+    <button id="exit-fullscreen-main" class="secondary">Exit fullscreen</button>
+  </div>
+
+  <div id="finish-scene" class="animation-on" role="dialog" aria-modal="true">
+    <div class="aurora-layer aurora-a"></div>
+    <div class="aurora-layer aurora-b"></div>
+    <div class="aurora-layer aurora-c"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div id="finish-content">
+      <h1 id="finish-title">Time's up!</h1>
+      <p id="finish-subtitle">Great work. Take a breath and continue.</p>
+      <canvas id="audio-wave" width="460" height="90"></canvas>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <button id="dismiss-finish">Dismiss</button>
+        <button id="exit-fullscreen" class="secondary">Exit fullscreen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="shortcuts-panel" id="shortcuts-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <strong>Keyboard shortcuts</strong>
+      <button id="close-shortcuts" class="secondary">Close</button>
+    </div>
+    <table>
+      <tr><td><kbd>N</kbd></td><td>Add timer with current fields</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Start/pause selected timer</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Open fullscreen for selected timer</td></tr>
+      <tr><td><kbd>X</kbd></td><td>Exit browser fullscreen</td></tr>
+      <tr><td><kbd>?</kbd></td><td>Toggle this shortcuts panel</td></tr>
+    </table>
+  </div>
+
+  <script>
+    const timers = [];
+    const historyItems = [];
+    let selectedTimerId = null;
+    let rafId = null;
+    let particleRafId = null;
+    let waveRafId = null;
+    let audioCtx = null;
+    let analyser = null;
+    let finishOsc = null;
+    let finishGain = null;
+    const particleState = [];
+    const fsState = { timerId: null };
+
+    const timersEl = document.getElementById('timers');
+    const historyBodyEl = document.getElementById('history-body');
+    const finishSceneEl = document.getElementById('finish-scene');
+    const animationToggleEl = document.getElementById('toggle-animation');
+    const focusToggleEl = document.getElementById('focus-mode-toggle');
+    const particleCanvas = document.getElementById('particle-canvas');
+    const waveCanvas = document.getElementById('audio-wave');
+    const fsView = document.getElementById('fullscreen-view');
+    const fsTitle = document.getElementById('fs-title');
+    const fsTime = document.getElementById('fs-time');
+
+    function formatTime(totalMs) {
+      const s = Math.max(0, Math.ceil(totalMs / 1000));
+      const mm = String(Math.floor(s / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+
+    function csvEscape(value) {
+      const str = String(value ?? '');
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    }
+
+    function selectTimer(id) {
+      selectedTimerId = id;
+      renderTimers();
+    }
+
+    function addTimer(data = {}) {
+      const name = data.name || document.getElementById('timer-name').value.trim() || 'Timer';
+      const minutes = Number(data.minutes ?? document.getElementById('timer-minutes').value);
+      if (!Number.isFinite(minutes) || minutes <= 0) return;
+      const now = performance.now();
+      const timer = {
+        id: crypto.randomUUID(),
+        name,
+        durationMs: Math.round(minutes * 60 * 1000),
+        remainingMs: Math.round(minutes * 60 * 1000),
+        running: false,
+        endAt: 0,
+        displaySec: null,
+        mode: data.mode || null,
+        startedAt: now
+      };
+      timers.push(timer);
+      selectTimer(timer.id);
+      renderTimers();
+      requestTick();
+    }
+
+    function toggleTimer(id) {
+      const t = timers.find(x => x.id === id);
+      if (!t) return;
+      const now = performance.now();
+      if (t.running) {
+        t.remainingMs = Math.max(0, t.endAt - now);
+        t.running = false;
+      } else {
+        t.endAt = now + t.remainingMs;
+        t.running = true;
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      }
+      renderTimers();
+      requestTick();
+    }
+
+    function resetTimer(id) {
+      const t = timers.find(x => x.id === id);
+      if (!t) return;
+      t.running = false;
+      t.remainingMs = t.durationMs;
+      t.displaySec = null;
+      renderTimers();
+    }
+
+    function removeTimer(id) {
+      const idx = timers.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      timers.splice(idx, 1);
+      if (selectedTimerId === id) selectedTimerId = timers[0]?.id || null;
+      if (fsState.timerId === id) closeFullscreenView();
+      renderTimers();
+    }
+
+    function enterTimerFullscreen(id) {
+      const timer = timers.find(x => x.id === id);
+      if (!timer) return;
+      fsState.timerId = id;
+      fsTitle.textContent = timer.name;
+      fsTime.textContent = formatTime(timer.remainingMs);
+      fsView.style.display = 'flex';
+      const root = document.documentElement;
+      const request = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+      if (request) request.call(root).catch(() => {});
+    }
+
+    function exitAnyFullscreen() {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+        if (exit) exit.call(document).catch(() => {});
+      }
+      closeFullscreenView();
+      hideFinishScene();
+    }
+
+    function closeFullscreenView() {
+      fsState.timerId = null;
+      fsView.style.display = 'none';
+    }
+
+    function renderTimers() {
+      timersEl.innerHTML = '';
+      timers.forEach((t) => {
+        const row = document.createElement('div');
+        row.className = `timer${t.id === selectedTimerId ? ' selected' : ''}`;
+        row.draggable = true;
+        row.dataset.id = t.id;
+        row.innerHTML = `
+          <div class="timer-head">
+            <div class="timer-title">${t.name}${t.mode ? ` · ${t.mode}` : ''}</div>
+            <div class="muted">${t.running ? 'Running' : 'Paused'}</div>
+          </div>
+          <div class="timer-time">${formatTime(t.remainingMs)}</div>
+          <div class="timer-actions">
+            <button data-action="toggle">${t.running ? 'Pause' : 'Start'}</button>
+            <button class="secondary" data-action="reset">Reset</button>
+            <button class="secondary" data-action="fullscreen">Fullscreen</button>
+            <button class="danger" data-action="remove">Delete</button>
+          </div>
+        `;
+        row.addEventListener('click', () => selectTimer(t.id));
+        row.addEventListener('dragstart', () => row.classList.add('dragging'));
+        row.addEventListener('dragend', () => row.classList.remove('dragging'));
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          const draggedId = timersEl.querySelector('.timer.dragging')?.dataset.id;
+          if (!draggedId || draggedId === t.id) return;
+          const from = timers.findIndex(x => x.id === draggedId);
+          const to = timers.findIndex(x => x.id === t.id);
+          if (from < 0 || to < 0 || from === to) return;
+          const [moved] = timers.splice(from, 1);
+          timers.splice(to, 0, moved);
+          renderTimers();
+        });
+        row.querySelector('[data-action="toggle"]').addEventListener('click', (e) => { e.stopPropagation(); toggleTimer(t.id); });
+        row.querySelector('[data-action="reset"]').addEventListener('click', (e) => { e.stopPropagation(); resetTimer(t.id); });
+        row.querySelector('[data-action="fullscreen"]').addEventListener('click', (e) => { e.stopPropagation(); enterTimerFullscreen(t.id); });
+        row.querySelector('[data-action="remove"]').addEventListener('click', (e) => { e.stopPropagation(); removeTimer(t.id); });
+        timersEl.appendChild(row);
+      });
+    }
+
+    function renderHistory() {
+      historyBodyEl.innerHTML = historyItems.slice(-20).reverse().map((item) => `
+        <tr>
+          <td>${item.name}</td>
+          <td>${formatTime(item.durationMs)}</td>
+          <td>${new Date(item.finishedAt).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    function exportHistoryCsv() {
+      const rows = [['Timer', 'Duration (mm:ss)', 'Completed']];
+      historyItems.forEach(item => rows.push([item.name, formatTime(item.durationMs), new Date(item.finishedAt).toISOString()]));
+      const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `timer-history-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.86;
+        analyser.connect(audioCtx.destination);
+      }
+    }
+
+    function stopFinishAudio() {
+      if (finishOsc) {
+        try { finishOsc.stop(); } catch (_) {}
+        try { finishOsc.disconnect(); } catch (_) {}
+        finishOsc = null;
+      }
+      if (finishGain) {
+        try { finishGain.disconnect(); } catch (_) {}
+        finishGain = null;
+      }
+      if (waveRafId) {
+        cancelAnimationFrame(waveRafId);
+        waveRafId = null;
+      }
+      const ctx = waveCanvas.getContext('2d');
+      ctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+    }
+
+    function drawWave() {
+      if (!analyser) return;
+      const ctx = waveCanvas.getContext('2d');
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const w = waveCanvas.width;
+      const h = waveCanvas.height;
+      function frame() {
+        analyser.getByteFrequencyData(data);
+        ctx.clearRect(0, 0, w, h);
+        const bw = w / data.length;
+        for (let i = 0; i < data.length; i += 2) {
+          const v = data[i] / 255;
+          const bh = Math.max(3, v * h * 0.9);
+          const hue = 210 + i * 0.45;
+          ctx.fillStyle = `hsla(${hue}, 88%, 64%, 0.85)`;
+          ctx.fillRect(i * bw, h - bh, Math.max(2, bw - 1), bh);
+        }
+        waveRafId = requestAnimationFrame(frame);
+      }
+      frame();
+    }
+
+    function ringFinishBell() {
+      ensureAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      stopFinishAudio();
+      finishOsc = audioCtx.createOscillator();
+      finishGain = audioCtx.createGain();
+      finishOsc.type = 'sine';
+      finishOsc.frequency.setValueAtTime(660, audioCtx.currentTime);
+      finishOsc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.55);
+      finishGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      finishGain.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + 0.05);
+      finishGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.8);
+      finishOsc.connect(finishGain);
+      finishGain.connect(analyser);
+      finishOsc.start();
+      finishOsc.stop(audioCtx.currentTime + 1.9);
+      drawWave();
+    }
+
+    function resizeParticleCanvas() {
+      const rect = finishSceneEl.getBoundingClientRect();
+      particleCanvas.width = Math.max(1, Math.floor(rect.width));
+      particleCanvas.height = Math.max(1, Math.floor(rect.height));
+    }
+
+    function ensureParticles() {
+      if (particleState.length) return;
+      for (let i = 0; i < 72; i++) {
+        particleState.push({
+          x: Math.random() * particleCanvas.width,
+          y: Math.random() * particleCanvas.height,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          r: Math.random() * 2.2 + 0.6,
+          a: Math.random() * 0.45 + 0.2
+        });
+      }
+    }
+
+    function drawParticles() {
+      const ctx = particleCanvas.getContext('2d');
+      const w = particleCanvas.width;
+      const h = particleCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particleState) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
+        grad.addColorStop(0, `rgba(180,205,255,${p.a})`);
+        grad.addColorStop(1, 'rgba(180,205,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      particleRafId = requestAnimationFrame(drawParticles);
+    }
+
+    function applyFinishAnimationSetting() {
+      const enabled = animationToggleEl.checked;
+      finishSceneEl.classList.toggle('animation-on', enabled);
+      finishSceneEl.classList.toggle('animation-off', !enabled);
+      finishSceneEl.style.background = enabled ? 'var(--space-black)' : '#0A0E1A';
+      if (!enabled && particleRafId) {
+        cancelAnimationFrame(particleRafId);
+        particleRafId = null;
+      }
+      if (enabled && finishSceneEl.classList.contains('show') && !particleRafId) {
+        resizeParticleCanvas();
+        ensureParticles();
+        drawParticles();
+      }
+    }
+
+    function showFinishScene(timer) {
+      finishSceneEl.classList.add('show');
+      document.getElementById('finish-title').textContent = `${timer.name} done`;
+      ringFinishBell();
+      applyFinishAnimationSetting();
+      if (animationToggleEl.checked && !particleRafId) {
+        resizeParticleCanvas();
+        ensureParticles();
+        drawParticles();
+      }
+    }
+
+    function hideFinishScene() {
+      finishSceneEl.classList.remove('show');
+      stopFinishAudio();
+      if (particleRafId) {
+        cancelAnimationFrame(particleRafId);
+        particleRafId = null;
+      }
+    }
+
+    function requestTick() {
+      if (!rafId) rafId = requestAnimationFrame(tick);
+    }
+
+    function tick(now) {
+      let anyRunning = false;
+      for (const t of timers) {
+        if (!t.running) continue;
+        anyRunning = true;
+        t.remainingMs = Math.max(0, t.endAt - now);
+        const sec = Math.ceil(t.remainingMs / 1000);
+        if (t.displaySec !== sec) {
+          t.displaySec = sec;
+        }
+        if (t.remainingMs <= 0) {
+          t.running = false;
+          historyItems.push({ name: t.name, durationMs: t.durationMs, finishedAt: Date.now() });
+          renderHistory();
+          showFinishScene(t);
+          if (focusToggleEl.checked && (t.mode === 'focus' || t.mode === null)) {
+            addTimer({ name: 'Break', minutes: 5, mode: 'break' });
+            const latest = timers[timers.length - 1];
+            toggleTimer(latest.id);
+          } else if (focusToggleEl.checked && t.mode === 'break') {
+            addTimer({ name: 'Focus', minutes: 25, mode: 'focus' });
+            const latest = timers[timers.length - 1];
+            toggleTimer(latest.id);
+          }
+        }
+      }
+      renderTimers();
+      if (fsState.timerId) {
+        const t = timers.find(x => x.id === fsState.timerId);
+        if (t) {
+          fsTitle.textContent = t.name;
+          fsTime.textContent = formatTime(t.remainingMs);
         } else {
-            animation.classList.remove('animate');
+          closeFullscreenView();
         }
+      }
+      rafId = null;
+      if (anyRunning || timers.some(t => t.running)) requestTick();
+    }
+
+    document.getElementById('add-timer').addEventListener('click', () => addTimer());
+    document.getElementById('export-csv').addEventListener('click', exportHistoryCsv);
+    document.getElementById('dismiss-finish').addEventListener('click', hideFinishScene);
+    document.getElementById('exit-fullscreen').addEventListener('click', exitAnyFullscreen);
+    document.getElementById('exit-fullscreen-main').addEventListener('click', exitAnyFullscreen);
+    animationToggleEl.addEventListener('change', applyFinishAnimationSetting);
+    window.addEventListener('resize', () => {
+      if (finishSceneEl.classList.contains('show') && animationToggleEl.checked) resizeParticleCanvas();
     });
-    
-    document.getElementById('exit-fullscreen').addEventListener('click', function() {
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
-        }
+    document.getElementById('show-shortcuts').addEventListener('click', () => document.getElementById('shortcuts-panel').classList.toggle('show'));
+    document.getElementById('close-shortcuts').addEventListener('click', () => document.getElementById('shortcuts-panel').classList.remove('show'));
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === '?') {
+        e.preventDefault();
+        document.getElementById('shortcuts-panel').classList.toggle('show');
+        return;
+      }
+      if (key === 'n') {
+        e.preventDefault();
+        addTimer();
+        return;
+      }
+      if (key === 'x') {
+        e.preventDefault();
+        exitAnyFullscreen();
+        return;
+      }
+      const selected = timers.find(t => t.id === selectedTimerId);
+      if (!selected) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer(selected.id);
+      } else if (key === 'f') {
+        e.preventDefault();
+        enterTimerFullscreen(selected.id);
+      }
     });
-    
-    document.getElementById('export-csv').addEventListener('click', function() {
-        const data = 'data:text/csv;charset=utf-8,Your CSV Data'; // Add logic to generate CSV data
-        const link = document.createElement('a');
-        link.setAttribute('href', encodeURI(data));
-        link.setAttribute('download', 'export.csv');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    });
-</script>
+
+    addTimer({ name: 'IGCSE Practice', minutes: 25, mode: 'focus' });
+    applyFinishAnimationSetting();
+    renderHistory();
+  </script>
+</body>
+</html>
