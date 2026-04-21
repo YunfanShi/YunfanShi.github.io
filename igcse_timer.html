@@ -243,8 +243,8 @@
 
     <div class="panel">
       <div class="settings">
-        <label><input type="checkbox" id="toggle-animation" checked /> Finish fullscreen animation</label>
-        <label><input type="checkbox" id="focus-mode-toggle" /> Focus mode (Pomodoro)</label>
+        <label for="toggle-animation"><input type="checkbox" id="toggle-animation" checked /> Finish fullscreen animation</label>
+        <label for="focus-mode-toggle"><input type="checkbox" id="focus-mode-toggle" /> Focus mode (Pomodoro)</label>
       </div>
       <div class="muted">Focus mode auto-starts 25m focus and 5m break sessions when a focus timer ends.</div>
     </div>
@@ -356,7 +356,7 @@
         running: false,
         endAt: 0,
         displaySec: null,
-        mode: data.mode || null,
+        mode: data.mode || 'focus',
         startedAt: now
       };
       timers.push(timer);
@@ -485,7 +485,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `timer-history-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+      a.download = `timer-history-${new Date().toISOString().slice(0, 16).replace(/:/g, '-')}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -530,7 +530,7 @@
         analyser.getByteFrequencyData(data);
         ctx.clearRect(0, 0, w, h);
         const bw = w / data.length;
-        for (let i = 0; i < data.length; i += 2) {
+        for (let i = 0; i < data.length; i += 2) { // Skip alternate bins for smoother, lighter rendering.
           const v = data[i] / 255;
           const bh = Math.max(3, v * h * 0.9);
           const hue = 210 + i * 0.45;
@@ -606,7 +606,6 @@
       const enabled = animationToggleEl.checked;
       finishSceneEl.classList.toggle('animation-on', enabled);
       finishSceneEl.classList.toggle('animation-off', !enabled);
-      finishSceneEl.style.background = enabled ? 'var(--space-black)' : '#0A0E1A';
       if (!enabled && particleRafId) {
         cancelAnimationFrame(particleRafId);
         particleRafId = null;
@@ -658,7 +657,7 @@
           historyItems.push({ name: t.name, durationMs: t.durationMs, finishedAt: Date.now() });
           renderHistory();
           showFinishScene(t);
-          if (focusToggleEl.checked && (t.mode === 'focus' || t.mode === null)) {
+          if (focusToggleEl.checked && t.mode === 'focus') {
             addTimer({ name: 'Break', minutes: 5, mode: 'break' });
             const latest = timers[timers.length - 1];
             toggleTimer(latest.id);
@@ -680,7 +679,7 @@
         }
       }
       rafId = null;
-      if (anyRunning || timers.some(t => t.running)) requestTick();
+      if (anyRunning) requestTick();
     }
 
     document.getElementById('add-timer').addEventListener('click', () => addTimer());
