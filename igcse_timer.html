@@ -1,0 +1,38 @@
+<!-- Updated finish scene animation, keyboard shortcuts, export CSV, but not touching the countdown fullscreen -->
+
+<div id="finish-scene">
+    <h1>Time's up!</h1>
+    <button id="exit-fullscreen">Exit Fullscreen</button>
+    <button id="export-csv">Export to CSV</button>
+    <div id="animation-toggle">
+        <label for="toggle-animation">Toggle Animation:</label>
+        <input type="checkbox" id="toggle-animation">
+    </div>
+</div>
+
+<script>
+    document.getElementById('toggle-animation').addEventListener('change', function() {
+        const animation = document.getElementById('finish-scene');
+        if (this.checked) {
+            animation.classList.add('animate'); // replace with actual animation class
+        } else {
+            animation.classList.remove('animate');
+        }
+    });
+    
+    document.getElementById('exit-fullscreen').addEventListener('click', function() {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        }
+    });
+    
+    document.getElementById('export-csv').addEventListener('click', function() {
+        const data = 'data:text/csv;charset=utf-8,Your CSV Data'; // Add logic to generate CSV data
+        const link = document.createElement('a');
+        link.setAttribute('href', encodeURI(data));
+        link.setAttribute('download', 'export.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+</script>
