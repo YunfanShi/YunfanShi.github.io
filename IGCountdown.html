@@ -1047,9 +1047,17 @@ body {
 }
 .fs-minimal-wrap {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100%;
+  gap: 8px;
+}
+#fs-current-time {
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(14px, 1.8vw, 20px);
+  color: rgba(247, 249, 255, 0.85);
+  letter-spacing: 0.4px;
 }
 
 /* Google bar on fullscreen */
@@ -1392,6 +1400,10 @@ body {
       <button class="icon-btn" onclick="toggleMinipill()" id="minipillBtn" title="迷你悬浮">
         <span class="material-icons-round">picture_in_picture</span>
       </button>
+      <button class="icon-btn" onclick="switchCountdownVersion()" id="versionSwitchBtn">
+        <span class="material-icons-round">swap_horiz</span>
+        <span class="icon-btn-label" id="versionSwitchLabel">旧版</span>
+      </button>
       <button class="icon-btn" onclick="openSettings()" id="settingsBtn" title="设置">
         <span class="material-icons-round">settings</span>
       </button>
@@ -1484,7 +1496,7 @@ body {
 <!-- ============================================================
      MINI PILL (Dynamic Island style)
      ============================================================ -->
-<div id="mini-pill" onclick="expandFromPill()">
+<div id="mini-pill" role="button" tabindex="0" onclick="toggleFromPill()" onkeydown="handleMiniPillKeydown(event)">
   <span class="material-icons-round" id="pillIcon">timer</span>
   <span id="pillSubject">Timer</span>
   <span id="mini-pill-time">--:--</span>
@@ -1510,6 +1522,7 @@ body {
 
   <div class="fs-minimal-wrap">
     <div id="fs-time-display">00:00:00</div>
+    <div id="fs-current-time">--:--:--</div>
   </div>
 </div>
 
@@ -2023,6 +2036,8 @@ let pipMiniTimer = null;
 let customBellObjectUrl = '';
 let customBellPlaybackSrc = '';
 let mediaPermissionPrimed = false;
+let fsClockTimer = null;
+let notificationPermissionRequested = false;
 
 const I18N = {
   zh: {
@@ -2067,6 +2082,14 @@ const I18N = {
     bellUnattendedHint: '铃声开始后若无人操作，将在此时间后触发上方策略。',
     bellAutoMuted: '无人值守：已自动静音',
     bellAutoClosed: '无人值守：已自动静音并关闭结束界面',
+    versionSwitch: '旧版',
+    versionSwitchTitle: '切换到旧版',
+    currentTimeLabel: '当前时间',
+    pipToggleHint: '点击开始 / 暂停',
+    pipDone: '已完成',
+    pipPause: '点击暂停',
+    pipStart: '点击开始',
+    remainingLabel: '剩余',
   },
   en: {
     appSub: "Jack's Ecosystem · Exam Timer",
@@ -2110,6 +2133,14 @@ const I18N = {
     bellUnattendedHint: 'After bell starts, run the selected action if nobody interacts in time.',
     bellAutoMuted: 'Unattended: bell muted automatically',
     bellAutoClosed: 'Unattended: bell muted and finish scene closed',
+    versionSwitch: 'Old',
+    versionSwitchTitle: 'Switch to old version',
+    currentTimeLabel: 'Current Time',
+    pipToggleHint: 'Click to start / pause',
+    pipDone: 'Done',
+    pipPause: 'Click to pause',
+    pipStart: 'Click to start',
+    remainingLabel: 'Remaining',
   }
 };
 
@@ -2163,12 +2194,16 @@ function applyI18n() {
   setText('audioCloseBtn', t('close'));
   setText('finishDismissBtn', t('iKnow'));
   setText('fsExitText', t('fsExit'));
+  setText('versionSwitchLabel', t('versionSwitch'));
   setText('bellStopToastText', t('bellPlaying'));
   setText('bellStopToastBtn', t('stopBell'));
   const minipillBtn = document.getElementById('minipillBtn');
   if (minipillBtn) minipillBtn.title = getLanguage() === 'en' ? 'Mini floating window' : '迷你悬浮';
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) settingsBtn.title = t('settings');
+  const versionBtn = document.getElementById('versionSwitchBtn');
+  if (versionBtn) versionBtn.title = t('versionSwitchTitle');
+  refreshCurrentClock();
   renderSettingsUI();
 }
 
@@ -2782,6 +2817,8 @@ function createTimer(cfg) {
     finishSceneData: cfg.finishSceneData || null,
     createdAt: cfg.createdAt || Date.now(),
     startedAt: null,
+    runStartTimestamp: null,
+    runStartLeft: null,
   };
   timers.push(t);
   currentPage = settings.layoutMode === 'carousel'
@@ -2798,6 +2835,7 @@ function startTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t || t.done) return;
   primeMediaPlaybackPermission().catch(() => {});
+  primeNotificationPermission();
   stopDoneSound();
   // Pause all others if in split layout with this as active
   if (timers.length > 1) {
@@ -2806,17 +2844,33 @@ function startTimer(id) {
   t.running = true;
   t.paused  = false;
   if (!t.startedAt) t.startedAt = Date.now();
+  t.runStartTimestamp = Date.now();
+  t.runStartLeft = t.left;
   clearInterval(t._interval);
   t._interval = setInterval(() => tickTimer(id), 1000);
+  tickTimer(id);
   refreshCardControls(id);
   updateMiniPill();
+}
+
+// Synchronize a running timer using absolute wall-clock time and return elapsed whole seconds.
+function syncTimerRemaining(t) {
+  if (!t || !t.running || !Number.isFinite(t.runStartTimestamp) || !Number.isFinite(t.runStartLeft)) return 0;
+  const elapsedSec = Math.max(0, Math.floor((Date.now() - t.runStartTimestamp) / 1000));
+  const nextLeft = Math.max(0, t.runStartLeft - elapsedSec);
+  const consumed = Math.max(0, t.left - nextLeft);
+  t.left = nextLeft;
+  return consumed;
 }
 
 function pauseTimer(id, logPause = true) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
+  syncTimerRemaining(t);
   t.running = false;
   t.paused  = true;
+  t.runStartTimestamp = null;
+  t.runStartLeft = null;
   clearInterval(t._interval);
   if (logPause) {
     t._pauseCount++;
@@ -2842,6 +2896,7 @@ function resetTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
   stopDoneSound();
+  syncTimerRemaining(t);
   clearInterval(t._interval);
   t.left = t.total;
   t.running = false;
@@ -2850,6 +2905,8 @@ function resetTimer(id) {
   t._preEndAlerted = false;
   t._muteNextRing = false;
   t.startedAt = null;
+  t.runStartTimestamp = null;
+  t.runStartLeft = null;
   t._pauseCount = 0;
   persist();
   renderTimerCard(id);
@@ -2860,9 +2917,14 @@ function addTime(id, mins) {
   const t = timers.find(x => x.id === id);
   if (!t) return;
   stopDoneSound();
+  syncTimerRemaining(t);
   t.left  += mins * 60;
   t.total += mins * 60;
   if (t.done) { t.done = false; t.left = mins * 60; t.total = mins * 60; }
+  if (t.running) {
+    t.runStartTimestamp = Date.now();
+    t.runStartLeft = t.left;
+  }
   if (t.left > PRE_END_ALERT_THRESHOLD) t._preEndAlerted = false;
   t._muteNextRing = false;
   persist();
@@ -2898,21 +2960,26 @@ function removeTimer(id) {
 function tickTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t || !t.running) return;
-  t.left = Math.max(0, t.left - 1);
+  const elapsed = syncTimerRemaining(t);
+  // Keep updates second-aligned and avoid redundant rerenders when no whole second elapsed.
+  if (elapsed <= 0 && t.left > 0) return;
 
   if (t.left <= PRE_END_ALERT_THRESHOLD && !t._finishScenePrefetching && !t.finishSceneData) {
     prefetchFinishSceneData(t.id);
   }
 
-  if (t.left === PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
+  if (t.left > 0 && t.left <= PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
     t._preEndAlerted = true;
     showPreEndBellPopup(t);
+    const remainingLabel = I18N[getLanguage()]?.remainingLabel || I18N.zh.remainingLabel;
+    pushDesktopNotification(`${t.name}`, `⏳ ${remainingLabel} ${t.left}s`);
   }
 
   // Auto-save
-  t._saveCountdown--;
+  t._saveCountdown -= elapsed;
   if (t._saveCountdown <= 0) {
-    t._saveCountdown = t.saveInterval;
+    // Re-align periodic autosave cadence when several seconds are consumed in a single catch-up tick.
+    t._saveCountdown = t.saveInterval - (Math.abs(t._saveCountdown) % t.saveInterval);
     persist();
     flashSaveIndicator(id);
   }
@@ -2951,6 +3018,8 @@ async function onTimerDone(id) {
   clearInterval(t._interval);
   t.running = false;
   t.done    = true;
+  t.runStartTimestamp = null;
+  t.runStartLeft = null;
 
   const spentMins = Math.round((t.total - t.left) / 60);
   addToStats('completed');
@@ -2975,6 +3044,7 @@ async function onTimerDone(id) {
   if (settings.goalLink) notifyGoalTracker(entry);
 
   showSnackbar(`✓ ${t.name} — 时间到！`, didPlayBell, didPlayBell ? stopDoneSound : null, '停止播放', didPlayBell ? null : 3200);
+  pushDesktopNotification(`${t.name}`, getLanguage() === 'en' ? 'Time is up!' : '时间到！');
   renderTimerCard(id);
   refreshFsDisplay();
   renderStats();
@@ -3647,12 +3717,14 @@ function openFullscreen(id) {
   const overlay = document.getElementById('fullscreen-overlay');
   overlay.classList.add('open');
   refreshFsDisplay();
+  startFullscreenClock();
   requestBrowserFullscreen(document.documentElement);
 }
 
 function exitFullscreen() {
   document.getElementById('fullscreen-overlay').classList.remove('open');
   fsTimerId = null;
+  stopFullscreenClock();
   exitBrowserFullscreen();
 }
 
@@ -3664,9 +3736,29 @@ function refreshFsDisplay() {
   const color = t.done ? '#34a853' : (t.left < 60) ? '#ea4335' : t.color;
   const fst = document.getElementById('fs-time-display');
   if (fst) { fst.textContent = fmtHMS(t.left); fst.style.color = '#f7f9ff'; }
+  refreshCurrentClock();
 
   const pb = document.getElementById('fsProgressBar');
   if (pb) { pb.style.width = (p*100) + '%'; pb.style.background = color; }
+}
+
+function refreshCurrentClock() {
+  const el = document.getElementById('fs-current-time');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = `${t('currentTimeLabel')} ${now.toLocaleTimeString(getLanguage() === 'en' ? 'en-GB' : 'zh-CN', { hour12: false })}`;
+}
+
+function startFullscreenClock() {
+  stopFullscreenClock();
+  refreshCurrentClock();
+  fsClockTimer = setInterval(refreshCurrentClock, 1000);
+}
+
+function stopFullscreenClock() {
+  if (!fsClockTimer) return;
+  clearInterval(fsClockTimer);
+  fsClockTimer = null;
 }
 
 function fsToggle() {
@@ -3703,8 +3795,10 @@ function onFullscreenChange() {
   if (!isFs) {
     document.getElementById('fullscreen-overlay').classList.remove('open');
     fsTimerId = null;
+    stopFullscreenClock();
   } else if (fsTimerId !== null) {
     document.getElementById('fullscreen-overlay').classList.add('open');
+    startFullscreenClock();
   }
 }
 
@@ -3757,21 +3851,35 @@ async function ensureMiniPipWindow() {
     doc.body.style.background = '#111827';
     doc.body.innerHTML = `
       <style>
-        .pip-wrap {height:100vh;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;color:#fff;font-family:Roboto,sans-serif;gap:10px;}
-        .pip-title {font-size:13px;opacity:.9;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .pip-time {font-family:'Roboto Mono',monospace;font-size:20px;font-weight:600;}
-        .pip-btn {border:none;border-radius:999px;padding:6px 10px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;font-size:12px;}
+        .pip-wrap {height:100vh;display:flex;align-items:center;justify-content:center;padding:10px 12px;color:#fff;font-family:Roboto,sans-serif;gap:8px;cursor:pointer;user-select:none;background:linear-gradient(135deg,#111827,#1f2937);transition:transform .2s ease, box-shadow .3s ease;position:relative;overflow:hidden;}
+        .pip-wrap:active { transform: scale(0.98); }
+        .pip-meta {display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;}
+        .pip-title {font-size:13px;opacity:.92;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .pip-time {font-family:'Roboto Mono',monospace;font-size:26px;font-weight:700;letter-spacing:.4px;}
+        .pip-state {font-size:11px;opacity:.8;}
+        .pip-wrap.pip-running .pip-time {color:#dbeafe;}
+        .pip-wrap.pip-paused .pip-time {color:#fde68a;}
+        .pip-wrap.pip-done {animation:pipDonePulse 1.35s ease-in-out infinite;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);}
+        .pip-wrap.pip-done::after {content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(52,168,83,.38),transparent 58%);pointer-events:none;animation:pipDoneGlow 2s ease-in-out infinite;}
+        @keyframes pipDonePulse {0%,100%{filter:saturate(1)}50%{filter:saturate(1.35)}}
+        @keyframes pipDoneGlow {0%,100%{opacity:.45}50%{opacity:.9}}
       </style>
-      <div class="pip-wrap">
-        <div>
+      <div class="pip-wrap pip-paused" id="pipWrap" role="button" tabindex="0">
+        <div class="pip-meta">
           <div class="pip-title" id="pipTitle">Timer</div>
           <div class="pip-time" id="pipTime">--:--</div>
+          <div class="pip-state" id="pipState">${t('pipToggleHint')}</div>
         </div>
-        <button class="pip-btn" id="pipBackBtn">${getLanguage() === 'en' ? 'Open' : '打开'}</button>
       </div>`;
-    doc.getElementById('pipBackBtn').addEventListener('click', () => {
+    doc.getElementById('pipWrap').addEventListener('click', () => {
       const active = timers.find(x => x.running) || timers[0];
-      if (active) openFullscreen(active.id);
+      if (active) toggleTimer(active.id);
+    });
+    doc.getElementById('pipWrap').addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      const active = timers.find(x => x.running) || timers[0];
+      if (active) toggleTimer(active.id);
     });
     pipMiniWindow.addEventListener('pagehide', () => {
       closeMiniPipWindow(false);
@@ -3812,8 +3920,22 @@ function updateMiniPill() {
     if (win && !win.closed) {
       const tEl = win.document.getElementById('pipTime');
       const nEl = win.document.getElementById('pipTitle');
+      const sEl = win.document.getElementById('pipState');
+      const wEl = win.document.getElementById('pipWrap');
       if (tEl) tEl.textContent = fmtTime(active.left);
       if (nEl) nEl.textContent = active.name;
+      if (sEl) {
+        sEl.textContent = active.done
+          ? t('pipDone')
+          : active.running
+            ? t('pipPause')
+            : t('pipStart');
+      }
+      if (wEl) {
+        wEl.classList.toggle('pip-running', !!active.running && !active.done);
+        wEl.classList.toggle('pip-paused', !active.running && !active.done);
+        wEl.classList.toggle('pip-done', !!active.done);
+      }
       pill.style.display = 'none';
     } else {
       pill.style.display = 'flex';
@@ -3827,6 +3949,17 @@ function updateMiniPill() {
   if (icon) icon.textContent = active.running ? 'timer' : 'pause';
 }
 
+function toggleFromPill() {
+  const active = timers.find(x => x.running) || timers[0];
+  if (active) toggleTimer(active.id);
+}
+
+function handleMiniPillKeydown(event) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  toggleFromPill();
+}
+
 function expandFromPill() {
   const active = timers.find(x => x.running) || timers[0];
   if (active) openFullscreen(active.id);
@@ -3835,6 +3968,31 @@ function expandFromPill() {
   const btn = document.getElementById('minipillBtn');
   if (btn) btn.classList.remove('active');
   updateMiniPill();
+}
+
+function switchCountdownVersion() {
+  window.location.href = 'igcse_timer.html';
+}
+
+function primeNotificationPermission() {
+  if (notificationPermissionRequested || !('Notification' in window)) return;
+  notificationPermissionRequested = true;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function pushDesktopNotification(title, body) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, { body, icon: 'Github.png' });
+  } catch (_) {}
+}
+
+function syncAllRunningTimers() {
+  // Re-sync active timers after returning to foreground to catch up throttled background ticks.
+  timers.filter(t => t.running).forEach(t => tickTimer(t.id));
 }
 
 // ============================================================
@@ -4375,6 +4533,10 @@ function bindGlobalListeners() {
   };
   document.addEventListener('pointerdown', primeOnce, { once: true, passive: true });
   document.addEventListener('keydown', primeOnce, { once: true });
+  document.addEventListener('pointerdown', primeNotificationPermission, { once: true, passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) syncAllRunningTimers();
+  });
   window.addEventListener('scroll', () => {
     document.getElementById('topAppBar').classList.toggle('elevated', window.scrollY > 8);
   }, { passive: true });

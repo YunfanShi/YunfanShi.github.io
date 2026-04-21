@@ -62,6 +62,28 @@
     button:hover { filter: brightness(1.08); }
     button.secondary { background: #253253; color: #d6ddff; }
     button.danger { background: #8f2947; }
+    .icon-btn {
+      width: 40px; height: 40px;
+      border-radius: 9999px;
+      border: none; background: transparent;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #d6ddff;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s ease, color 0.2s ease;
+      font-family: inherit;
+      padding: 0;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .icon-btn-label {
+      font-size: 10px; font-weight: 600;
+      position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%);
+      white-space: nowrap; color: #c9d7ff;
+      opacity: 0; transition: opacity 0.2s ease;
+      letter-spacing: 0.3px;
+      pointer-events: none;
+    }
+    .icon-btn:hover .icon-btn-label { opacity: 1; }
     .muted { color: var(--muted); font-size: 13px; }
     .settings {
       display: flex;
@@ -238,6 +260,10 @@
       <button id="add-timer">Add Timer</button>
       <button id="show-shortcuts" class="secondary">Shortcuts</button>
       <button id="export-csv" class="secondary">Export CSV</button>
+      <button class="icon-btn" id="version-switch-btn" onclick="switchCountdownVersion()" title="Switch to new version">
+        ⤴
+        <span class="icon-btn-label">New</span>
+      </button>
       <span class="muted">Drag timers to reorder.</span>
     </div>
 
@@ -325,6 +351,10 @@
     const fsView = document.getElementById('fullscreen-view');
     const fsTitle = document.getElementById('fs-title');
     const fsTime = document.getElementById('fs-time');
+
+    function switchCountdownVersion() {
+      window.location.href = 'IGCountdown.html';
+    }
 
     function formatTime(totalMs) {
       const s = Math.max(0, Math.ceil(totalMs / 1000));
