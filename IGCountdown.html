@@ -1496,7 +1496,7 @@ body {
 <!-- ============================================================
      MINI PILL (Dynamic Island style)
      ============================================================ -->
-<div id="mini-pill" onclick="expandFromPill()">
+<div id="mini-pill" onclick="toggleFromPill()">
   <span class="material-icons-round" id="pillIcon">timer</span>
   <span id="pillSubject">Timer</span>
   <span id="mini-pill-time">--:--</span>
@@ -2956,7 +2956,7 @@ function tickTimer(id) {
     prefetchFinishSceneData(t.id);
   }
 
-  if (t.left <= PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
+  if (t.left > 0 && t.left <= PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
     t._preEndAlerted = true;
     showPreEndBellPopup(t);
     pushDesktopNotification(`${t.name}`, `⏳ ${getLanguage() === 'en' ? 'Remaining' : '剩余'} ${t.left}s`);
@@ -3927,6 +3927,11 @@ function updateMiniPill() {
   document.getElementById('mini-pill-time').textContent = fmtTime(active.left);
   const icon = document.getElementById('pillIcon');
   if (icon) icon.textContent = active.running ? 'timer' : 'pause';
+}
+
+function toggleFromPill() {
+  const active = timers.find(x => x.running) || timers[0];
+  if (active) toggleTimer(active.id);
 }
 
 function expandFromPill() {
