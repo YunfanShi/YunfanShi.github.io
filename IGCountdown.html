@@ -1400,7 +1400,7 @@ body {
       <button class="icon-btn" onclick="toggleMinipill()" id="minipillBtn" title="迷你悬浮">
         <span class="material-icons-round">picture_in_picture</span>
       </button>
-      <button class="icon-btn" onclick="switchCountdownVersion()" id="versionSwitchBtn" title="切换到旧版">
+      <button class="icon-btn" onclick="switchCountdownVersion()" id="versionSwitchBtn">
         <span class="material-icons-round">swap_horiz</span>
         <span class="icon-btn-label" id="versionSwitchLabel">旧版</span>
       </button>
@@ -1496,7 +1496,7 @@ body {
 <!-- ============================================================
      MINI PILL (Dynamic Island style)
      ============================================================ -->
-<div id="mini-pill" onclick="toggleFromPill()">
+<div id="mini-pill" role="button" tabindex="0" onclick="toggleFromPill()" onkeydown="handleMiniPillKeydown(event)">
   <span class="material-icons-round" id="pillIcon">timer</span>
   <span id="pillSubject">Timer</span>
   <span id="mini-pill-time">--:--</span>
@@ -1522,7 +1522,7 @@ body {
 
   <div class="fs-minimal-wrap">
     <div id="fs-time-display">00:00:00</div>
-    <div id="fs-current-time">当前时间 --:--:--</div>
+    <div id="fs-current-time">--:--:--</div>
   </div>
 </div>
 
@@ -2085,6 +2085,11 @@ const I18N = {
     versionSwitch: '旧版',
     versionSwitchTitle: '切换到旧版',
     currentTimeLabel: '当前时间',
+    pipToggleHint: '点击开始 / 暂停',
+    pipDone: '已完成',
+    pipPause: '点击暂停',
+    pipStart: '点击开始',
+    remainingLabel: '剩余',
   },
   en: {
     appSub: "Jack's Ecosystem · Exam Timer",
@@ -2131,6 +2136,11 @@ const I18N = {
     versionSwitch: 'Old',
     versionSwitchTitle: 'Switch to old version',
     currentTimeLabel: 'Current Time',
+    pipToggleHint: 'Click to start / pause',
+    pipDone: 'Done',
+    pipPause: 'Click to pause',
+    pipStart: 'Click to start',
+    remainingLabel: 'Remaining',
   }
 };
 
@@ -2843,6 +2853,7 @@ function startTimer(id) {
   updateMiniPill();
 }
 
+// Synchronize a running timer using absolute wall-clock time and return elapsed whole seconds.
 function syncTimerRemaining(t) {
   if (!t || !t.running || !Number.isFinite(t.runStartTimestamp) || !Number.isFinite(t.runStartLeft)) return 0;
   const elapsedSec = Math.max(0, Math.floor((Date.now() - t.runStartTimestamp) / 1000));
@@ -2950,6 +2961,7 @@ function tickTimer(id) {
   const t = timers.find(x => x.id === id);
   if (!t || !t.running) return;
   const elapsed = syncTimerRemaining(t);
+  // Keep updates second-aligned and avoid redundant rerenders when no whole second elapsed.
   if (elapsed <= 0 && t.left > 0) return;
 
   if (t.left <= PRE_END_ALERT_THRESHOLD && !t._finishScenePrefetching && !t.finishSceneData) {
@@ -2959,13 +2971,15 @@ function tickTimer(id) {
   if (t.left > 0 && t.left <= PRE_END_ALERT_THRESHOLD && !t.done && !t._preEndAlerted) {
     t._preEndAlerted = true;
     showPreEndBellPopup(t);
-    pushDesktopNotification(`${t.name}`, `⏳ ${getLanguage() === 'en' ? 'Remaining' : '剩余'} ${t.left}s`);
+    const remainingLabel = I18N[getLanguage()]?.remainingLabel || I18N.zh.remainingLabel;
+    pushDesktopNotification(`${t.name}`, `⏳ ${remainingLabel} ${t.left}s`);
   }
 
   // Auto-save
   t._saveCountdown -= elapsed;
   if (t._saveCountdown <= 0) {
-    while (t._saveCountdown <= 0) t._saveCountdown += t.saveInterval;
+    // Re-align periodic autosave cadence when several seconds are consumed in a single catch-up tick.
+    t._saveCountdown = t.saveInterval - (Math.abs(t._saveCountdown) % t.saveInterval);
     persist();
     flashSaveIndicator(id);
   }
@@ -3850,14 +3864,20 @@ async function ensureMiniPipWindow() {
         @keyframes pipDonePulse {0%,100%{filter:saturate(1)}50%{filter:saturate(1.35)}}
         @keyframes pipDoneGlow {0%,100%{opacity:.45}50%{opacity:.9}}
       </style>
-      <div class="pip-wrap pip-paused" id="pipWrap">
+      <div class="pip-wrap pip-paused" id="pipWrap" role="button" tabindex="0">
         <div class="pip-meta">
           <div class="pip-title" id="pipTitle">Timer</div>
           <div class="pip-time" id="pipTime">--:--</div>
-          <div class="pip-state" id="pipState">${getLanguage() === 'en' ? 'Click to start / pause' : '点击开始 / 暂停'}</div>
+          <div class="pip-state" id="pipState">${t('pipToggleHint')}</div>
         </div>
       </div>`;
     doc.getElementById('pipWrap').addEventListener('click', () => {
+      const active = timers.find(x => x.running) || timers[0];
+      if (active) toggleTimer(active.id);
+    });
+    doc.getElementById('pipWrap').addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
       const active = timers.find(x => x.running) || timers[0];
       if (active) toggleTimer(active.id);
     });
@@ -3906,10 +3926,10 @@ function updateMiniPill() {
       if (nEl) nEl.textContent = active.name;
       if (sEl) {
         sEl.textContent = active.done
-          ? (getLanguage() === 'en' ? 'Done' : '已完成')
+          ? t('pipDone')
           : active.running
-            ? (getLanguage() === 'en' ? 'Click to pause' : '点击暂停')
-            : (getLanguage() === 'en' ? 'Click to start' : '点击开始');
+            ? t('pipPause')
+            : t('pipStart');
       }
       if (wEl) {
         wEl.classList.toggle('pip-running', !!active.running && !active.done);
@@ -3932,6 +3952,12 @@ function updateMiniPill() {
 function toggleFromPill() {
   const active = timers.find(x => x.running) || timers[0];
   if (active) toggleTimer(active.id);
+}
+
+function handleMiniPillKeydown(event) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  toggleFromPill();
 }
 
 function expandFromPill() {
@@ -3965,6 +3991,7 @@ function pushDesktopNotification(title, body) {
 }
 
 function syncAllRunningTimers() {
+  // Re-sync active timers after returning to foreground to catch up throttled background ticks.
   timers.filter(t => t.running).forEach(t => tickTimer(t.id));
 }
 
