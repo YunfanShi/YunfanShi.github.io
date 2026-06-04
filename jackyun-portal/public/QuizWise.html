@@ -1032,6 +1032,15 @@ ${text}` },
             return '';
         },
 
+        renderAIFeedbackButton(q, i, answer) {
+            return `<div style="margin-top:8px;">
+                <button class="btn btn-tonal btn-sm" onclick="event.stopPropagation(); App.askAI(${i})" style="background:var(--primary-container);color:var(--primary-container-on);">
+                    <span class="material-icons-round" style="font-size:14px;">auto_awesome</span> 对这道题有疑问？问 AI
+                </button>
+                <div id="ai-feedback-${i}" style="display:none;margin-top:8px;"></div>
+            </div>`;
+        },
+
         async answerQuestion(i, answer) {
             if (this.userAnswers[i]?.answer) return;
             const q = this.questions[i];
@@ -1138,6 +1147,61 @@ ${text}` },
             const text = input.value.trim();
             if (!text) return this.toast('请输入答案');
             this.answerQuestion(i, text);
+        },
+
+        async askAI(i) {
+            const q = this.questions[i];
+            const a = this.userAnswers[i];
+            const container = document.getElementById('ai-feedback-' + i);
+            if (!container) return;
+
+            container.style.display = 'block';
+            container.innerHTML = '<div class="skeleton" style="height:60px;margin-top:8px;"></div><p style="font-size:12px;color:var(--on-surface-variant);text-align:center;margin-top:4px;">AI 正在思考...</p>';
+
+            try {
+                const res = await fetch('/api/llm-proxy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: 'system', content: '你是一位乐于助人的辅导老师。请用中文回答。' },
+                            { role: 'user', content: `学生做了这道题，请详细解释：
+
+题目：${q.questionText}
+正确答案：${q.correctAnswer}
+学生答案：${a?.answer || '（未作答）'}
+判断结果：${a?.isCorrect === true ? '正确' : a?.isCorrect === false ? '错误' : '未评分'}
+
+请：
+1. 清楚地解释正确答案为什么是对的
+2. 指出这个知识点的常见误区
+3. 提供一个记忆技巧或解题思路
+4. 如果涉及计算，展示解题步骤
+
+用中文回复，控制在300字以内，语言简单易懂。` },
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 1200,
+                        stream: false,
+                    }),
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const content = data.choices?.[0]?.message?.content || '暂时无法获取 AI 反馈。';
+                    container.innerHTML = `<div class="ai-feedback-card">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <span class="material-icons-round" style="color:var(--primary);">auto_awesome</span>
+                            <span style="font-weight:500;font-size:13px;">AI 解析</span>
+                        </div>
+                        <div style="font-size:13px;line-height:1.7;color:var(--on-surface);white-space:pre-wrap;">${App.escapeHtml(content)}</div>
+                    </div>`;
+                } else {
+                    container.innerHTML = '<p style="font-size:12px;color:var(--error);margin-top:8px;">AI 反馈请求失败，请稍后重试。</p>';
+                }
+            } catch(e) {
+                container.innerHTML = '<p style="font-size:12px;color:var(--error);margin-top:8px;">AI 反馈出错：' + App.escapeHtml(e.message || '未知错误') + '</p>';
+            }
         },
 
         focusQuestion(i) {
