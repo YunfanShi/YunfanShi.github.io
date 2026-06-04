@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAIE 考试局 | Jack's Dashboard</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Google Material 3 Colors */
+            --primary: #00639b;
+            --on-primary: #ffffff;
+            --primary-container: #cce5ff;
+            --secondary: #535f70;
+            --surface: #f8f9ff;
+            --surface-variant: #e1e2ec;
+            --outline: #74777f;
+            --error: #ba1a1a;
+            --tertiary: #efb8c8;
+            
+            --bg-color: #fdfcff;
+            --card-bg: #ffffff;
+            
+            --radius-l: 24px;
+            --radius-m: 16px;
+            --radius-s: 8px;
+            
+            --font-main: 'Roboto', 'Noto Sans SC', sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+        }
+
+        * { box-sizing: border-box; transition: all 0.2s ease-in-out; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: #1a1c1e;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar Navigation --- */
+        aside {
+            width: 320px;
+            background: #f0f4f8;
+            height: 100%;
+            border-right: 1px solid var(--surface-variant);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .brand {
+            padding: 24px;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .nav-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        /* Subject Item */
+        .nav-subject {
+            margin-bottom: 5px;
+        }
+
+        .nav-subject-header {
+            padding: 12px 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-subject-header:hover { background: rgba(0,0,0,0.05); }
+        .nav-subject-header.active { background: var(--primary-container); color: #001d33; }
+
+        /* --- Main Content Area --- */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Top Bar: Time & Global Stats */
+        .top-bar {
+            padding: 12px 32px;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            gap: 20px;
+        }
+
+        .stats-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .stat-chip {
+            background: #fff;
+            border: 1px solid #e0e2ec;
+            padding: 6px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .stat-chip strong { color: var(--primary); }
+
+        .time-warning {
+            background: #fff0f0;
+            color: var(--error);
+            padding: 6px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #ffdad6;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(186, 26, 26, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
+        }
+
+        /* Dashboard Content */
+        .content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+            scroll-behavior: smooth;
+        }
+
+        /* Cards */
+        .section-header {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--secondary);
+        }
+
+        .quest-container {
+            display: grid;
+            gap: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* RPG Task Card */
+        .quest-card {
+            background: white;
+            border-radius: var(--radius-l);
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            border: 1px solid #edf2f7;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quest-card.schedule-item {
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-left: 5px solid var(--primary);
+        }
+        .quest-card.schedule-item.done {
+            background: #e8f5e9;
+            border-color: #c8e6c9;
+            border-left-color: #2e7d32;
+        }
+        .quest-card.schedule-item:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+
+        .quest-card.locked {
+            filter: grayscale(1);
+            opacity: 0.6;
+            pointer-events: none;
+            background: #f5f5f5;
+        }
+        
+        /* Urgent Mission Card */
+        .quest-card.urgent {
+            border: 2px solid var(--error);
+            background: #fff8f8;
+        }
+        .quest-card.urgent .quest-breadcrumbs { color: var(--error); font-weight: bold; }
+
+        /* Koolearn Card */
+        .quest-card.koolearn {
+            background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+            border: 2px solid #2196f3;
+        }
+        .quest-card.koolearn .quest-breadcrumbs { color: #1976d2; font-weight: bold; }
+
+        .quest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 20px;
+        }
+
+        .quest-breadcrumbs {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--secondary);
+            margin-bottom: 5px;
+        }
+
+        .quest-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1c1e;
+        }
+
+        /* The Chain Steps */
+        .chain-steps {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+        
+        /* Connecting line */
+        .chain-steps::before {
+            content: '';
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: #e0e2ec;
+            z-index: 0;
+        }
+
+        .step-node {
+            position: relative;
+            z-index: 1;
+            background: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .step-node.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1.05);
+        }
+        .step-node.done {
+            opacity: 1;
+            color: #2e7d32;
+        }
+
+        .step-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #f0f4f8;
+            border: 2px solid #e0e2ec;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--secondary);
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+
+        .step-node.active .step-icon {
+            background: var(--primary-container);
+            border-color: var(--primary);
+            color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 99, 155, 0.3);
+        }
+
+        .step-node.done .step-icon {
+            background: #e8f5e9;
+            border-color: #2e7d32;
+            color: #2e7d32;
+        }
+
+        .step-label {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Action Area */
+        .quest-action {
+            margin-top: 24px;
+            background: #f8f9ff;
+            border-radius: var(--radius-m);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px dashed var(--outline);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 50px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary:hover { background: #004a77; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-icon {
+            background: none; border: none; cursor: pointer; color: var(--secondary);
+            padding: 5px; border-radius: 50%;
+        }
+        .btn-icon:hover { background: #eee; }
+
+        /* --- Mock Exam Styles --- */
+        #mock-zone-container {
+            margin-top: 60px;
+            border-top: 2px dashed #ddd;
+            padding-top: 40px;
+        }
+        
+        .mock-record {
+            background: #fcfcfc;
+            border: 1px solid #eee;
+            border-radius: var(--radius-m);
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .mock-meta {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .mock-checklist {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .check-item.checked {
+            background: #e6f4ea;
+            color: #1e8e3e;
+            font-weight: bold;
+        }
+
+        .mock-score-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        /* Full Screen Overlay */
+        #mock-fs-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            color: white;
+            z-index: 9999;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #mock-fs-header {
+            position: absolute;
+            top: 30px; left: 40px;
+            font-size: 14px;
+            opacity: 0.5;
+            letter-spacing: 2px;
+        }
+        
+        #mock-fs-code {
+            position: absolute;
+            top: 30px; width: 100%;
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 24px;
+            letter-spacing: 2px;
+            color: #aaa;
+        }
+
+        #mock-fs-exit {
+            position: absolute;
+            top: 30px; right: 40px;
+            background: none;
+            border: 1px solid #555;
+            color: #555;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #mock-timer-display {
+            font-size: 15vw;
+            font-family: var(--font-mono);
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        #mock-controls {
+            margin-top: 50px;
+            display: flex;
+            gap: 40px;
+        }
+        
+        .mock-ctrl-btn {
+            background: transparent;
+            border: 1px solid white;
+            color: white;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .mock-ctrl-btn:hover { background: white; color: black; }
+
+        /* FAB Button for Schedule */
+        #fab-schedule {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            z-index: 100;
+        }
+        #fab-schedule:hover { transform: scale(1.1); }
+
+        /* Schedule Modal - FIXED */
+        #schedule-modal {
+            width: 600px;
+            max-width: 95vw;
+            height: 80vh;
+            display: none; /* Changed from flex to none */
+            flex-direction: column;
+        }
+        
+        #schedule-modal[open] {
+            display: flex; /* Only flex when open */
+        }
+
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 10px;
+            overflow-y: auto;
+            flex: 1;
+            margin-top: 20px;
+            padding-right: 10px;
+        }
+
+        .time-slot {
+            font-size: 12px;
+            color: #888;
+            text-align: right;
+            padding-top: 10px;
+        }
+
+        .task-block {
+            background: var(--primary-container);
+            color: #001d33;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            border-left: 4px solid var(--primary);
+            margin-bottom: 10px;
+        }
+        .task-block.break { background: #eee; border-left-color: #aaa; color: #666; }
+        .task-block.urgent { background: #ffebee; border-left-color: var(--error); color: var(--error); }
+
+        /* Settings Modal */
+        dialog {
+            border: none;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 600px;
+            max-width: 90vw;
+        }
+        dialog::backdrop { background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+        
+        input, select, textarea {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; margin-top: 5px;
+            font-family: var(--font-main);
+        }
+
+        /* Checkbox list style */
+        .checkbox-group {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        /* Syllabus Editor */
+        .unit-editor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f5f5f5;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+        }
+        .unit-editor-controls button {
+            background: none; border: none; cursor: pointer; color: #777; font-size: 12px;
+        }
+        .unit-editor-controls button:hover { color: var(--primary); }
+
+        /* Tabs in Settings */
+        .settings-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .tab-btn { background: none; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; color: #666; font-weight: 500; }
+        .tab-btn.active { background: var(--primary-container); color: var(--primary); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+    </style>
+</head>
+<body>
+
+<aside>
+    <div class="brand">
+        <span class="material-icons-round">account_balance</span>
+        CAIE 考试局
+    </div>
+    
+    <div class="nav-scroll" id="sidebar-content">
+        </div>
+
+    <div style="padding: 20px; border-top: 1px solid #ddd;">
+        <div class="nav-subject-header" onclick="window.open('https://www.youtube.com/watch?v=nLRL_NcnK-4', '_blank')">
+            <span>🐍 CS50P Python</span>
+            <span class="material-icons-round" style="font-size:16px;">open_in_new</span>
+        </div>
+    </div>
+</aside>
+
+<main>
+    <div class="top-bar">
+        <div>
+            <h2 style="margin:0; font-size:18px;">Welcome back, Jack.</h2>
+            <div style="font-size:12px; color:var(--secondary);">Process is everything.</div>
+        </div>
+        
+        <div class="stats-group">
+            <div class="stat-chip">
+                <span class="material-icons-round" style="font-size:16px;">school</span>
+                School Start: <strong id="timer-school">--d</strong>
+            </div>
+            <div class="stat-chip">
+                <span class="material-icons-round" style="font-size:16px;">event_note</span>
+                IGCSE Exam: <strong id="timer-exam">--d</strong>
+            </div>
+            
+            <div class="time-warning" id="emergency-timer-container" style="display:none;">
+                <span class="material-icons-round">warning</span>
+                <span id="timer-urgent">00:00:00:00</span>
+            </div>
+
+            <button onclick="openSettings()" style="background:none; border:none; cursor:pointer;">
+                <span class="material-icons-round" style="color:var(--secondary);">settings</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="content-scroll" id="main-view">
+        
+        <div class="quest-container">
+            <div class="section-header">
+                <span class="material-icons-round">auto_awesome</span>
+                Priority Tasks (必做)
+            </div>
+            
+            <div id="daily-quest-area">
+                </div>
+
+            <div class="section-header" style="margin-top: 40px;">
+                <span class="material-icons-round">map</span>
+                Active Syllabus Questline
+            </div>
+            <div id="active-subject-area">
+                <div style="text-align:center; color:#888; padding:40px;">
+                    Select a subject and unit from the sidebar to view tasks.<br>
+                    请在左侧选择科目和单元以加载任务链。
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<div id="fab-schedule" onclick="openScheduleGenerator()">
+    <span class="material-icons-round">calendar_month</span>
+</div>
+
+<div id="mock-fs-overlay">
+    <div id="mock-fs-header">CAIE EXAM BOARD // SESSION ACTIVE</div>
+    <div id="mock-fs-code">CODE: 0000/00/X/X/XX</div>
+    <button id="mock-fs-exit" onclick="exitMockMode()">EXIT</button>
+    
+    <div id="mock-timer-display">00:00:00</div>
+    
+    <div id="mock-controls">
+        <button class="mock-ctrl-btn" id="mock-btn-toggle" onclick="toggleMockTimer()">Start</button>
+        <button class="mock-ctrl-btn" style="border-color:#ba1a1a; color:#ba1a1a;" onclick="finishMockExam()">Submit Paper</button>
+    </div>
+</div>
+
+<dialog id="settings-modal">
+    <div class="settings-tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-general')">General & Emergency</button>
+        <button class="tab-btn" onclick="switchTab('tab-syllabus')">Syllabus Manager</button>
+    </div>
+
+    <div id="tab-general" class="tab-content active">
+        <div style="margin-bottom:20px;">
+            <h4>Basic Info</h4>
+            <label>School Start (开学)</label>
+            <input type="date" id="date-school">
+            <label>IGCSE Exam (大考)</label>
+            <input type="date" id="date-exam">
+        </div>
+
+        <div style="border-top:1px solid #eee; padding-top:10px; margin-bottom:20px;">
+            <h4 style="color:var(--error); display:flex; align-items:center; gap:5px;">
+                <span class="material-icons-round">warning</span> Emergency Mission (临时要求)
+            </h4>
+            <p style="font-size:12px; color:#666;">Set high-priority tasks (Select multiple subjects if needed).</p>
+            
+            <label>Subjects (Multi-select)</label>
+            <div class="checkbox-group" id="urgent-subjects-container">
+            </div>
+            
+            <label style="margin-top:10px;">Task Type</label>
+            <select id="urgent-type">
+                <option value="Revision">Revision (Notes/Topical)</option>
+                <option value="Mock">Mock Exam (Past Paper)</option>
+            </select>
+            
+            <label>Details</label>
+            <input type="text" id="urgent-details" placeholder="e.g. Complete Algebra, Finish 2023 Paper">
+            
+            <label>Deadline Date</label>
+            <input type="date" id="urgent-date">
+        </div>
+    </div>
+
+    <div id="tab-syllabus" class="tab-content">
+        <h4>📚 Manage Subject Units</h4>
+        <p style="font-size:12px; color:#666;">Add, Remove or Reorder units for any subject.</p>
+        
+        <label>Select Subject</label>
+        <select id="editor-subject-select" onchange="renderUnitEditorList()">
+            <option value="" disabled selected>-- Choose Subject --</option>
+        </select>
+        
+        <div id="unit-editor-container" style="margin-top:15px; border:1px solid #ddd; padding:10px; max-height:250px; overflow-y:auto; border-radius:8px;">
+            <div style="text-align:center; color:#aaa; font-size:12px;">Select a subject to edit units</div>
+        </div>
+        
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <input type="text" id="new-unit-name" placeholder="New Unit Name">
+            <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">Add</button>
+        </div>
+    </div>
+
+    <div style="text-align:right; display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button class="btn-outline" onclick="clearUrgent()">Clear Urgent</button>
+        <button class="btn-primary" onclick="saveSettings()">Save & Activate</button>
+    </div>
+</dialog>
+
+<dialog id="mock-setup-modal">
+    <h3>📝 Start Mock Exam</h3>
+    <label>Paper Code (e.g. 0580/22/M/J/24)</label>
+    <input type="text" id="mock-code-input" placeholder="0000/00/S/W/YY">
+    
+    <label>Duration (Minutes)</label>
+    <input type="number" id="mock-duration-input" value="90">
+    
+    <div style="text-align:right; margin-top:20px;">
+        <button class="btn-primary" onclick="confirmStartMock()">Enter Exam Mode</button>
+    </div>
+</dialog>
+
+<dialog id="schedule-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">📅 Time Blocking Generator</h3>
+        <button onclick="document.getElementById('schedule-modal').close()" style="background:none; border:none; cursor:pointer; font-size:20px;">&times;</button>
+    </div>
+    
+    <div style="margin-top:15px; background:#f8f9fa; padding:15px; border-radius:12px;">
+        <label style="font-weight:bold; font-size:12px; color:#555;">Select Focus Areas Today:</label>
+        <div class="checkbox-group" id="schedule-subjects" style="max-height:100px; margin-top:5px; background:white;">
+        </div>
+        
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <input type="text" id="custom-task-input" placeholder="Add custom task..." style="font-size:12px;">
+            <button class="btn-outline" onclick="addCustomTask()" style="padding:5px 10px;">+</button>
+        </div>
+
+        <button class="btn-primary" style="width:100%; margin-top:10px; justify-content:center;" onclick="generateSchedule()">
+            Generate Schedule <span class="material-icons-round">autorenew</span>
+        </button>
+    </div>
+
+    <div class="schedule-grid" id="schedule-output">
+    </div>
+</dialog>
+
+<script>
+    // --- 1. DEFAULT DATA (Replaced with new Syllabus) ---
+    // If LocalStorage is empty, these will be used.
+    const DEFAULT_SYLLABUS = {
+        "Mathematics (0580)": {
+            link: "https://znotes.org/caie/igcse/maths-0580/",
+            units: [
+                "Number", "Algebra & Graphs", "Geometry", "Mensuration", "Coordinate Geometry", 
+                "Trigonometry", "Vectors & Transformations", "Probability", "Statistics"
+            ]
+        },
+        "Additional Mathematics (0606)": {
+            link: "https://znotes.org/caie/igcse/additional-maths-0606/",
+            units: [
+                "Functions", "Quadratic functions", "Factors of polynomials", "Equations, inequalities and graphs",
+                "Simultaneous equations", "Logarithmic and exponential functions", "Straight-line graphs",
+                "Coordinate geometry of the circle", "Circular measure", "Trigonometry", "Permutations and combinations",
+                "Series", "Vectors in two dimensions", "Calculus"
+            ]
+        },
+        "Biology (0610)": {
+            link: "https://znotes.org/caie/igcse/biology-0610/",
+            units: [
+                "Characteristics and Classification of Living Organisms", "Organisation of the Organism", "Movement Into and Out of Cells",
+                "Biological Molecules", "Enzymes", "Plant Nutrition", "Human Nutrition", "Transport in Plants", "Transport in Animals",
+                "Diseases and Immunity", "Gas Exchange in Humans", "Respiration", "Excretion in Humans", "Coordination and Response",
+                "Drugs", "Reproduction", "Inheritance", "Variation and Selection", "Organisms and their Environment",
+                "Human Influences on Ecosystems", "Biotechnology and Genetic Modification"
+            ]
+        },
+        "Chemistry (0620)": {
+            link: "https://znotes.org/caie/igcse/chemistry-0620/",
+            units: [
+                "States of Matter", "Atoms, Elements and Compounds", "Stoichiometry", "Electrochemistry", "Chemical Energetics",
+                "Chemical Reactions", "Acids, Bases and Salts", "The Periodic Table", "Metals", "Chemistry of the Environment",
+                "Organic Chemistry", "Experimental Techniques and Chemical Analysis"
+            ]
+        },
+        "Physics (0625)": {
+            link: "https://znotes.org/caie/igcse/physics-0625/",
+            units: [
+                "Motion, Forces and Energy", "Thermal Physics", "Waves", "Electricity and Magnetism", "Nuclear Physics", "Space Physics"
+            ]
+        }
+    };
+
+    // --- 2. State & Persistence ---
+    // Load Syllabus from LS or Default
+    let syllabusDB = JSON.parse(localStorage.getItem('caie_syllabus_v3')) || DEFAULT_SYLLABUS;
+
+    let progressDB = JSON.parse(localStorage.getItem('caie_progress_v2_1')) || {};
+    let settings = JSON.parse(localStorage.getItem('caie_settings_v2_1')) || { 
+        school: "", 
+        exam: "",
+        urgent: null 
+    };
+    let mockDB = JSON.parse(localStorage.getItem('caie_mock_v2_1')) || {}; 
+    let currentSchedule = JSON.parse(localStorage.getItem('caie_schedule_current')) || []; // [{time, task, done}]
+    let customTasks = JSON.parse(localStorage.getItem('caie_custom_tasks')) || ["CS50P Python", "不背单词"];
+
+    // Update Quest Steps Labels
+    const QUEST_STEPS = [
+        { id: "note", label: "Notes", icon: "menu_book", btn: "Read ZNotes" },
+        { id: "quiz", label: "Quiz", icon: "quiz", btn: "Do Quiz" },
+        { id: "model", label: "Answers", icon: "done_all", btn: "Check" },
+        { id: "notion", label: "Log", icon: "edit_note", btn: "Notion" }
+    ];
+
+    // --- 3. Initialization ---
+    function init() {
+        renderSidebar();
+        startGlobalCountdowns();
+        loadDailyQuests();
+        populateSettings();
+    }
+
+    function saveSyllabus() {
+        localStorage.setItem('caie_syllabus_v3', JSON.stringify(syllabusDB));
+    }
+
+    // --- 4. Logic: Check Subject Completion ---
+    function isSubjectComplete(subject) {
+        const data = syllabusDB[subject];
+        if (!data) return false;
+        // In this version, units are strings, not objects with subs
+        // We consider a unit done if FINAL|unit_done is true
+        for (const unit of data.units) {
+            if (!progressDB[`${subject}|${unit}|FINAL|unit_done`]) return false;
+        }
+        return true;
+    }
+
+    // --- 5. Main View Rendering ---
+    function renderMainView(subject) {
+        const area = document.getElementById('active-subject-area');
+        area.innerHTML = '';
+        
+        const data = syllabusDB[subject];
+        if (!data) return; 
+        const link = data.link;
+
+        data.units.forEach((unit, unitIdx) => {
+            const unitDiv = document.createElement('div');
+            unitDiv.id = `unit-${unitIdx}`;
+            unitDiv.style.marginBottom = '40px';
+            
+            // In the new data structure, Units are flat. 
+            // We treat each Unit as a "Quest Card" directly.
+            const card = createQuestCard(subject, unit, link);
+            unitDiv.appendChild(card);
+
+            area.appendChild(unitDiv);
+        });
+
+        if (isSubjectComplete(subject)) {
+            renderMockZone(subject, area);
+        }
+        
+        // REMOVED AUTO SCROLL
+    }
+
+    function createQuestCard(subject, unit, link) {
+        const card = document.createElement('div');
+        card.className = 'quest-card';
+        
+        // Progress Logic
+        let currentStepIndex = 0;
+        for (let i = 0; i < QUEST_STEPS.length; i++) {
+            const key = `${subject}|${unit}|${QUEST_STEPS[i].id}`;
+            if (progressDB[key]) currentStepIndex = i + 1;
+            else break;
+        }
+
+        const isUnitDone = progressDB[`${subject}|${unit}|FINAL|unit_done`];
+        if (isUnitDone) currentStepIndex = QUEST_STEPS.length; // Max out
+
+        let stepsHtml = `<div class="chain-steps">`;
+        let actionBtnHtml = '';
+
+        QUEST_STEPS.forEach((step, idx) => {
+            let status = ''; 
+            if (idx < currentStepIndex) status = 'done';
+            else if (idx === currentStepIndex && !isUnitDone) status = 'active';
+            
+            stepsHtml += `
+                <div class="step-node ${status}">
+                    <div class="step-icon"><span class="material-icons-round" style="font-size:18px;">${step.icon}</span></div>
+                    <div class="step-label">${step.label}</div>
+                </div>
+            `;
+
+            if (status === 'active') {
+                let clickAction = '';
+                if (step.id === 'note') clickAction = `window.open('${link}', '_blank'); completeStep('${subject}','${unit}','${step.id}')`;
+                else if (step.id === 'quiz') clickAction = `alert('Do Topical Questions!'); completeStep('${subject}','${unit}','${step.id}')`; 
+                else if (step.id === 'model') clickAction = `alert('Check Answers!'); completeStep('${subject}','${unit}','${step.id}')`;
+                else if (step.id === 'notion') clickAction = `window.open('notion://'); completeStep('${subject}','${unit}','${step.id}')`;
+
+                actionBtnHtml = `
+                    <div class="quest-action">
+                        <span style="font-size:14px; color:#666;">Next: ${step.label}</span>
+                        <button class="btn-primary" onclick="${clickAction}">
+                            ${step.btn} <span class="material-icons-round">arrow_forward</span>
+                        </button>
+                    </div>
+                `;
+            }
+        });
+        stepsHtml += `</div>`;
+
+        // Completion Handling
+        if (currentStepIndex >= QUEST_STEPS.length && !isUnitDone) {
+             actionBtnHtml = `
+                <div class="quest-action" style="border-color:#ffd700; background:#fffbe6;">
+                    <span style="font-weight:bold; color:#b8860b">All steps done. Finish Unit?</span>
+                    <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unit}')">Conquer Unit</button>
+                </div>`;
+        } else if (isUnitDone) {
+             actionBtnHtml = `<div style="margin-top:20px; color:#2e7d32; font-weight:bold; text-align:right;">Unit Complete <span class="material-icons-round" style="vertical-align:middle;">check_circle</span></div>`;
+             card.style.background = "#f6fff6";
+        }
+
+        card.innerHTML = `
+            <div class="quest-header">
+                <div>
+                    <div class="quest-breadcrumbs">${subject}</div>
+                    <div class="quest-title">${unit}</div>
+                </div>
+            </div>
+            ${stepsHtml}
+            ${actionBtnHtml}
+        `;
+        return card;
+    }
+
+    function completeStep(subject, unit, stepId) {
+        const key = `${subject}|${unit}|${stepId}`;
+        progressDB[key] = true;
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
+        renderMainView(subject);
+    }
+
+    function finishUnit(subject, unit) {
+        progressDB[`${subject}|${unit}|FINAL|unit_done`] = true;
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
+        renderSidebar(); // Update checkmark
+        renderMainView(subject);
+    }
+
+    // --- 6. MOCK EXAM SYSTEM ---
+    let currentMockSubject = '';
+    let currentMockDuration = 0;
+    let mockTimerInterval;
+    let mockSeconds = 0;
+    let mockIsPaused = false;
+
+    function renderMockZone(subject, container) {
+        const zone = document.createElement('div');
+        zone.id = 'mock-zone-container';
+        
+        let html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; color:#ba1a1a;">🛑 MOCK EXAM ZONE</h2>
+                <button class="btn-primary" style="background:#ba1a1a;" onclick="openMockSetup('${subject}')">
+                    + Start New Mock
+                </button>
+            </div>
+        `;
+
+        const mocks = mockDB[subject] || [];
+        mocks.forEach((mock, idx) => {
+            html += createMockRecordHTML(subject, idx, mock);
+        });
+
+        zone.innerHTML = html;
+        container.appendChild(zone);
+    }
+
+    function createMockRecordHTML(subject, idx, mock) {
+        const tasks = mock.tasks;
+        const createCheck = (key, label) => `
+            <div class="check-item ${tasks[key] ? 'checked' : ''}" onclick="toggleMockTask('${subject}', ${idx}, '${key}')">
+                <span class="material-icons-round">${tasks[key] ? 'check_box' : 'check_box_outline_blank'}</span>
+                ${label}
+            </div>
+        `;
+
+        return `
+            <div class="mock-record">
+                <div class="mock-meta">
+                    <span>${mock.code}</span>
+                    <span>${new Date(mock.id).toLocaleDateString()}</span>
+                </div>
+                
+                <div class="mock-checklist">
+                    ${createCheck('qp', '1. Question Paper')}
+                    ${createCheck('ms', '2. Mark Scheme')}
+                    ${createCheck('er', '3. Examiner Report')}
+                    ${createCheck('gt', '4. Grade Thresholds')}
+                </div>
+
+                <div class="mock-score-area">
+                    <input type="number" placeholder="Your Score" style="width:100px; margin:0;" 
+                        value="${mock.score || ''}" onchange="updateMockScore('${subject}', ${idx}, 'score', this.value)">
+                    <span style="color:#aaa;">/</span>
+                    <input type="number" placeholder="Target" style="width:100px; margin:0;"
+                        value="${mock.threshold || ''}" onchange="updateMockScore('${subject}', ${idx}, 'threshold', this.value)">
+                    
+                    <button class="btn-outline" onclick="window.open('notion://')">Notion</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function openMockSetup(subject) {
+        currentMockSubject = subject;
+        document.getElementById('mock-setup-modal').showModal();
+    }
+
+    function confirmStartMock() {
+        const code = document.getElementById('mock-code-input').value;
+        const dur = document.getElementById('mock-duration-input').value;
+        if(!code) return alert("Code required!");
+        currentMockDuration = parseInt(dur) * 60; 
+        
+        if(!mockDB[currentMockSubject]) mockDB[currentMockSubject] = [];
+        mockDB[currentMockSubject].unshift({
+            id: Date.now(),
+            code: code,
+            score: null,
+            threshold: null,
+            tasks: { qp: false, ms: false, er: false, gt: false }
+        });
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
+        document.getElementById('mock-setup-modal').close();
+        enterMockMode(code);
+    }
+
+    function enterMockMode(code) {
+        const overlay = document.getElementById('mock-fs-overlay');
+        document.getElementById('mock-fs-code').innerText = code;
+        overlay.style.display = 'flex';
+        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+        mockSeconds = currentMockDuration;
+        mockIsPaused = true; 
+        updateMockTimerDisplay();
+        document.getElementById('mock-btn-toggle').innerText = "START";
+    }
+
+    function exitMockMode() {
+        if(confirm("Exit exam mode? Timer will stop.")) {
+            clearInterval(mockTimerInterval);
+            document.getElementById('mock-fs-overlay').style.display = 'none';
+            if (document.exitFullscreen) document.exitFullscreen();
+            renderMainView(currentMockSubject);
+        }
+    }
+
+    function toggleMockTimer() {
+        mockIsPaused = !mockIsPaused;
+        const btn = document.getElementById('mock-btn-toggle');
+        btn.innerText = mockIsPaused ? "RESUME" : "PAUSE";
+        if(!mockIsPaused) {
+            mockTimerInterval = setInterval(() => {
+                if(mockSeconds > 0) {
+                    mockSeconds--;
+                    updateMockTimerDisplay();
+                } else {
+                    clearInterval(mockTimerInterval);
+                    alert("TIME IS UP! PENS DOWN.");
+                }
+            }, 1000);
+        } else {
+            clearInterval(mockTimerInterval);
+        }
+    }
+
+    function updateMockTimerDisplay() {
+        const h = Math.floor(mockSeconds / 3600).toString().padStart(2,'0');
+        const m = Math.floor((mockSeconds % 3600) / 60).toString().padStart(2,'0');
+        const s = (mockSeconds % 60).toString().padStart(2,'0');
+        document.getElementById('mock-timer-display').innerText = `${h}:${m}:${s}`;
+    }
+
+    function finishMockExam() {
+        if(mockDB[currentMockSubject].length > 0) {
+            mockDB[currentMockSubject][0].tasks.qp = true;
+            localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
+        }
+        exitMockMode();
+    }
+    
+    function toggleMockTask(subject, idx, taskKey) {
+        mockDB[subject][idx].tasks[taskKey] = !mockDB[subject][idx].tasks[taskKey];
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
+        renderMainView(subject);
+    }
+
+    function updateMockScore(subject, idx, field, val) {
+        mockDB[subject][idx][field] = val;
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
+    }
+
+    // --- 7. Settings & Urgent Mission ---
+    function openSettings() {
+        populateSettings();
+        renderUnitEditorList();
+        document.getElementById('settings-modal').showModal();
+    }
+
+    function populateSettings() {
+        document.getElementById('date-school').value = settings.school;
+        document.getElementById('date-exam').value = settings.exam;
+        
+        // Urgent Fields
+        const container = document.getElementById('urgent-subjects-container');
+        container.innerHTML = '';
+        Object.keys(syllabusDB).forEach(sub => {
+            const isChecked = settings.urgent && settings.urgent.subjects.includes(sub) ? 'checked' : '';
+            container.innerHTML += `<label><input type="checkbox" value="${sub}" ${isChecked}> ${sub}</label>`;
+        });
+
+        if(settings.urgent) {
+            document.getElementById('urgent-type').value = settings.urgent.type;
+            document.getElementById('urgent-details').value = settings.urgent.detail;
+            document.getElementById('urgent-date').value = settings.urgent.date;
+        }
+
+        // Editor Select
+        const select = document.getElementById('editor-subject-select');
+        select.innerHTML = '<option value="" disabled selected>-- Choose Subject --</option>';
+        Object.keys(syllabusDB).forEach(sub => {
+            select.innerHTML += `<option value="${sub}">${sub}</option>`;
+        });
+    }
+
+    function saveSettings() {
+        settings.school = document.getElementById('date-school').value;
+        settings.exam = document.getElementById('date-exam').value;
+        
+        const checkboxes = document.querySelectorAll('#urgent-subjects-container input:checked');
+        const selectedSubjects = Array.from(checkboxes).map(cb => cb.value);
+        const uDetail = document.getElementById('urgent-details').value;
+        const uDate = document.getElementById('urgent-date').value;
+        
+        if (uDetail && selectedSubjects.length > 0 && uDate) {
+            settings.urgent = {
+                subjects: selectedSubjects,
+                type: document.getElementById('urgent-type').value,
+                detail: uDetail,
+                date: uDate
+            };
+        }
+
+        localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
+        document.getElementById('settings-modal').close();
+        loadDailyQuests(); 
+        updateCountdowns(); // refresh immediately
+    }
+
+    function clearUrgent() {
+        settings.urgent = null;
+        document.getElementById('urgent-details').value = "";
+        document.getElementById('urgent-date').value = "";
+        localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
+        populateSettings();
+        document.getElementById('settings-modal').close();
+        loadDailyQuests();
+    }
+
+    // --- 8. Daily Quests & Schedule Display ---
+    function loadDailyQuests() {
+        const container = document.getElementById('daily-quest-area');
+        container.innerHTML = '';
+
+        // 1. Koolearn (Fixed)
+        const koolearnCard = document.createElement('div');
+        koolearnCard.className = 'quest-card koolearn';
+        koolearnCard.innerHTML = `
+            <div class="quest-header">
+                <div>
+                    <div class="quest-breadcrumbs">🔥 DAILY ROUTINE</div>
+                    <div class="quest-title" style="color:#1976d2">新东方 (Koolearn)</div>
+                </div>
+                <span class="material-icons-round" style="color:#1976d2; font-size:32px;">school</span>
+            </div>
+            <button class="btn-primary" style="width:100%; background:#1976d2;" 
+                onclick="window.open('https://study.koolearn.com/', '_blank')">
+                Start Class <span class="material-icons-round">open_in_new</span>
+            </button>
+        `;
+        container.appendChild(koolearnCard);
+
+        // 2. Urgent Mission
+        if (settings.urgent) {
+            const uCard = document.createElement('div');
+            uCard.className = 'quest-card urgent';
+            let buttonsHtml = '';
+            settings.urgent.subjects.forEach(sub => {
+                buttonsHtml += `<button class="btn-primary" style="width:100%; background:#ba1a1a; margin-top:5px;" onclick="renderMainView('${sub}')">Execute: ${sub}</button>`;
+            });
+
+            uCard.innerHTML = `
+                <div class="quest-header">
+                    <div>
+                        <div class="quest-breadcrumbs">EMERGENCY PROTOCOL</div>
+                        <div class="quest-title" style="color:#ba1a1a">${settings.urgent.type}</div>
+                    </div>
+                    <span class="material-icons-round" style="color:#ba1a1a; font-size:32px;">warning</span>
+                </div>
+                <div style="font-weight:500; margin-bottom:10px;">${settings.urgent.detail}</div>
+                ${buttonsHtml}
+            `;
+            container.appendChild(uCard);
+        }
+
+        // 3. Today's Schedule (Generated)
+        if (currentSchedule.length > 0) {
+            const schedHeader = document.createElement('h4');
+            schedHeader.innerText = "📅 Today's Schedule";
+            schedHeader.style.color = "#555";
+            schedHeader.style.marginTop = "20px";
+            container.appendChild(schedHeader);
+
+            currentSchedule.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `quest-card schedule-item ${item.done ? 'done' : ''}`;
+                
+                let clickAction = "";
+                if(syllabusDB[item.task]) {
+                    clickAction = `onclick="renderMainView('${item.task}')"`;
+                }
+
+                itemDiv.innerHTML = `
+                    <div style="flex:1" ${clickAction}>
+                        <div style="font-size:12px; color:#888; margin-bottom:4px;">${item.time}</div>
+                        <div style="font-weight:700;">${item.task}</div>
+                    </div>
+                    <button class="btn-icon" onclick="toggleScheduleItem(${index})">
+                        <span class="material-icons-round">${item.done ? 'check_circle' : 'radio_button_unchecked'}</span>
+                    </button>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+    }
+
+    function toggleScheduleItem(index) {
+        currentSchedule[index].done = !currentSchedule[index].done;
+        localStorage.setItem('caie_schedule_current', JSON.stringify(currentSchedule));
+        loadDailyQuests();
+    }
+
+    // --- 9. Countdowns ---
+    function startGlobalCountdowns() {
+        setInterval(updateCountdowns, 1000);
+        updateCountdowns(); // initial
+    }
+
+    function updateCountdowns() {
+        const now = new Date();
+        
+        // School & Exam (Days)
+        updateDayTimer('timer-school', settings.school, now);
+        updateDayTimer('timer-exam', settings.exam, now);
+
+        // Urgent (DD:HH:MM:SS) to 23:59:59 of that date
+        const urgentContainer = document.getElementById('emergency-timer-container');
+        if (settings.urgent && settings.urgent.date) {
+            urgentContainer.style.display = 'flex';
+            const target = new Date(settings.urgent.date);
+            target.setHours(23, 59, 59, 999);
+            
+            const diff = target - now;
+            if (diff > 0) {
+                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((diff % (1000 * 60)) / 1000);
+                document.getElementById('timer-urgent').innerText = 
+                    `${d}d ${h.toString().padStart(2,'0')}h ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`;
+            } else {
+                document.getElementById('timer-urgent').innerText = "EXPIRED";
+            }
+        } else {
+            urgentContainer.style.display = 'none';
+        }
+    }
+
+    function updateDayTimer(elementId, dateStr, now) {
+        if (!dateStr) {
+            document.getElementById(elementId).innerText = "--";
+            return;
+        }
+        const target = new Date(dateStr);
+        const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+        document.getElementById(elementId).innerText = diff > 0 ? `${diff}d` : "Now";
+    }
+
+    // --- 10. Sidebar ---
+    function renderSidebar() {
+        const container = document.getElementById('sidebar-content');
+        container.innerHTML = '';
+        for (const [subject, data] of Object.entries(syllabusDB)) {
+            const div = document.createElement('div');
+            div.className = 'nav-subject-header';
+            div.innerHTML = `<span>${subject}</span>`;
+            if (isSubjectComplete(subject)) div.innerHTML += ` <span class="material-icons-round" style="color:#2e7d32">check_circle</span>`;
+            
+            div.onclick = () => {
+                document.querySelectorAll('.nav-subject-header').forEach(el => el.classList.remove('active'));
+                div.classList.add('active');
+                renderMainView(subject);
+            };
+            container.appendChild(div);
+        }
+    }
+
+    // --- 11. Schedule Generator Logic ---
+    function openScheduleGenerator() {
+        const container = document.getElementById('schedule-subjects');
+        container.innerHTML = '';
+        
+        // Subjects
+        Object.keys(syllabusDB).forEach(sub => {
+            container.innerHTML += `<label><input type="checkbox" value="${sub}"> ${sub}</label>`;
+        });
+        // Custom
+        customTasks.forEach(task => {
+            container.innerHTML += `<label><input type="checkbox" value="${task}"> ${task}</label>`;
+        });
+
+        document.getElementById('schedule-modal').showModal();
+    }
+
+    function addCustomTask() {
+        const input = document.getElementById('custom-task-input');
+        const val = input.value.trim();
+        if(val && !customTasks.includes(val)) {
+            customTasks.push(val);
+            localStorage.setItem('caie_custom_tasks', JSON.stringify(customTasks));
+            openScheduleGenerator(); // Refresh list
+        }
+        input.value = '';
+    }
+
+    function generateSchedule() {
+        const selected = Array.from(document.querySelectorAll('#schedule-subjects input:checked')).map(cb => cb.value);
+        let tasksPool = selected.length > 0 ? selected : [...Object.keys(syllabusDB)];
+        
+        // Priority insert
+        if(settings.urgent) {
+            settings.urgent.subjects.forEach(s => {
+                if(!tasksPool.includes(s)) tasksPool.unshift(s);
+            });
+        }
+
+        const now = new Date();
+        const output = document.getElementById('schedule-output');
+        output.innerHTML = '';
+        
+        let cursor = new Date(now);
+        cursor.setMinutes(0,0,0);
+        if(now.getMinutes() > 0) cursor.setHours(cursor.getHours() + 1);
+
+        const endTime = new Date(now);
+        endTime.setHours(22, 0, 0, 0);
+
+        let taskIndex = 0;
+        let generatedItems = [];
+
+        while(cursor < endTime) {
+            const h = cursor.getHours();
+            let blockType = 'study';
+            let blockLabel = '';
+
+            // Rules:
+            // 0-11: Sleep/Morning
+            // 13-15: Lunch
+            // 18-19: Dinner
+            
+            if (h >= 0 && h < 11) {
+                blockType = 'break';
+                blockLabel = 'Sleep / Morning';
+            } else if (h >= 13 && h < 15) {
+                blockType = 'break';
+                blockLabel = 'Lunch / Break';
+            } else if (h >= 18 && h < 19) {
+                blockType = 'break';
+                blockLabel = 'Dinner';
+            } else {
+                blockLabel = tasksPool[taskIndex % tasksPool.length];
+                taskIndex++;
+            }
+
+            const timeStr = `${h}:00 - ${h+1}:00`;
+            output.innerHTML += `
+                <div class="time-slot">${timeStr}</div>
+                <div class="task-block ${blockType === 'break' ? 'break' : ''}">
+                    <strong>${blockLabel}</strong>
+                </div>
+            `;
+
+            if(blockType === 'study') {
+                generatedItems.push({ time: timeStr, task: blockLabel, done: false });
+            }
+
+            cursor.setHours(h + 1);
+        }
+        
+        // Save to Schedule
+        currentSchedule = generatedItems;
+        localStorage.setItem('caie_schedule_current', JSON.stringify(currentSchedule));
+        loadDailyQuests(); // Update Dashboard
+    }
+
+    // --- 12. Syllabus Manager (Editor) ---
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function renderUnitEditorList() {
+        const sub = document.getElementById('editor-subject-select').value;
+        const container = document.getElementById('unit-editor-container');
+        container.innerHTML = '';
+
+        if (!sub) return;
+
+        const units = syllabusDB[sub].units;
+        units.forEach((unit, idx) => {
+            const div = document.createElement('div');
+            div.className = 'unit-editor-item';
+            div.innerHTML = `
+                <span>${unit}</span>
+                <div class="unit-editor-controls">
+                    <button onclick="moveUnit('${sub}', ${idx}, -1)">▲</button>
+                    <button onclick="moveUnit('${sub}', ${idx}, 1)">▼</button>
+                    <button onclick="deleteUnit('${sub}', ${idx})" style="color:#ba1a1a;">&times;</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function moveUnit(sub, idx, dir) {
+        const units = syllabusDB[sub].units;
+        if (dir === -1 && idx > 0) {
+            [units[idx], units[idx-1]] = [units[idx-1], units[idx]];
+        } else if (dir === 1 && idx < units.length - 1) {
+            [units[idx], units[idx+1]] = [units[idx+1], units[idx]];
+        }
+        saveSyllabus();
+        renderUnitEditorList();
+        renderMainView(sub); // Refresh view if open
+    }
+
+    function deleteUnit(sub, idx) {
+        if(confirm("Delete this unit? Progress might be hidden.")) {
+            syllabusDB[sub].units.splice(idx, 1);
+            saveSyllabus();
+            renderUnitEditorList();
+            renderMainView(sub);
+        }
+    }
+
+    function addUnitFromEditor() {
+        const sub = document.getElementById('editor-subject-select').value;
+        const name = document.getElementById('new-unit-name').value;
+        if (sub && name) {
+            syllabusDB[sub].units.push(name);
+            document.getElementById('new-unit-name').value = '';
+            saveSyllabus();
+            renderUnitEditorList();
+            renderMainView(sub);
+        }
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Nexus | Google Hub</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --surface: #ffffff;
+            --background: #f0f2f5;
+            --text-main: #202124;
+            --text-sub: #5f6368;
+            --card-radius: 24px;
+            
+            /* Google Brand Colors */
+            --blue: #4285f4;
+            --red: #ea4335;
+            --yellow: #fbbc04;
+            --green: #34a853;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Header --- */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+        
+        .logo {
+            font-family: 'Google Sans', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 500;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+        
+        .logo span:nth-child(1) { color: var(--blue); }
+        .logo span:nth-child(2) { color: var(--red); }
+        .logo span:nth-child(3) { color: var(--yellow); }
+        .logo span:nth-child(4) { color: var(--blue); }
+        .logo span:nth-child(5) { color: var(--green); }
+        .logo span:nth-child(6) { color: var(--red); }
+
+        /* Modified to be a form */
+        .search-bar-fake {
+            background: var(--surface);
+            border-radius: 30px;
+            padding: 12px 24px;
+            box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+            width: 500px;
+            max-width: 90vw;
+            color: var(--text-sub);
+            border: 1px solid transparent;
+        }
+        .search-bar-fake:hover, .search-bar-fake:focus-within {
+            box-shadow: 0 2px 8px rgba(32,33,36,0.35);
+        }
+
+        /* New styles for the real input */
+        .search-input {
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 1rem;
+            color: var(--text-main);
+            flex-grow: 1;
+            font-family: 'Roboto', sans-serif;
+            height: 100%;
+        }
+        
+        .search-input::placeholder {
+            color: var(--text-sub);
+            opacity: 0.8;
+        }
+
+        /* --- Grid Container --- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            width: 100%;
+            max-width: 1000px;
+            padding: 20px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--surface);
+            border-radius: var(--card-radius);
+            padding: 30px;
+            text-decoration: none;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+            border-color: transparent;
+        }
+
+        .icon-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+        }
+        .material-icons-round { font-size: 36px; }
+
+        .card-title {
+            font-family: 'Google Sans', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin: 0 0 8px 0;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Card Specific Colors */
+        .card.study:hover .icon-circle { background: #e8f0fe; color: var(--blue); }
+        .card.relax:hover .icon-circle { background: #fce8e6; color: var(--red); }
+        .card.control:hover .icon-circle { background: #e6f4ea; color: var(--green); }
+
+        /* --- Footer --- */
+        footer {
+            margin-top: 50px;
+            color: var(--text-sub);
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Mobile Adjust */
+        @media (max-width: 600px) {
+            .grid-container { grid-template-columns: 1fr; }
+            .search-bar-fake { width: 90%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">
+            <span>J</span><span>a</span><span>c</span><span>k</span><span>O</span><span>S</span>
+        </div>
+        <form class="search-bar-fake" action="https://www.google.com/search" method="get">
+            <span class="material-icons-round">search</span>
+            <input type="text" name="q" class="search-input" placeholder="Where do you want to go today?" autocomplete="off" required>
+        </form>
+    </div>
+
+    <div class="grid-container">
+        
+        <a href="https://jackyun.top/Studyplan.html" class="card study">
+            <div class="icon-circle">
+                <span class="material-icons-round">school</span>
+            </div>
+            <h3 class="card-title">Study Plan</h3>
+            <p class="card-desc">
+                Access CAIE syllabus, daily quests, and subject tracking.
+            </p>
+        </a>
+
+        <a href="https://jackyun.top/Control.html" class="card control">
+            <div class="icon-circle">
+                <span class="material-icons-round">admin_panel_settings</span>
+            </div>
+            <h3 class="card-title">Control Center</h3>
+            <p class="card-desc">
+                Winter Protocol schedule execution and focus timers.
+            </p>
+        </a>
+
+        <a href="https://jackyun.top/Relax.html" class="card relax">
+            <div class="icon-circle">
+                <span class="material-icons-round">self_improvement</span>
+            </div>
+            <h3 class="card-title">Sanctuary</h3>
+            <p class="card-desc">
+                J.A.R.V.I.S chat, music player, and stress relief tools.
+            </p>
+        </a>
+
+    </div>
+
+    <footer>
+        &copy; 2026 Jack Systems. Google Style Interface.
+    </footer>
+
+</body>
+</html>

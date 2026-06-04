@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IGCSE Answer Sheet Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&family=Roboto+Mono&family=Cinzel:wght@400;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue:#1a73e8;--blue-light:#e8f0fe;--green:#34a853;--green-light:#e6f4ea;
+  --red:#ea4335;--red-light:#fce8e6;--yellow:#fbbc04;
+  --text:#202124;--text-secondary:#5f6368;--border:#dadce0;
+  --bg:#f8f9fa;--white:#fff;
+  --shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.24);
+}
+body{font-family:'Google Sans','Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--white);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-dots{display:grid;grid-template-columns:1fr 1fr;gap:3px;width:22px;}
+.logo-dot{width:9px;height:9px;border-radius:50%;}
+.logo-dot:nth-child(1){background:var(--blue)}.logo-dot:nth-child(2){background:var(--red)}
+.logo-dot:nth-child(3){background:var(--yellow)}.logo-dot:nth-child(4){background:var(--green)}
+.logo-text{font-size:20px;font-weight:500;color:var(--text-secondary);}
+.logo-text span{color:var(--text);}
+header .spacer{flex:1;}
+.print-btn{background:var(--blue);color:white;border:none;padding:8px 20px;border-radius:4px;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s;}
+.print-btn:hover{background:#1557b0;}
+main{max-width:1100px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start;}
+.card{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.card-header{background:var(--blue);color:white;padding:16px 20px;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px;}
+.card-body{padding:20px;}
+.form-group{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;font-family:'Roboto',sans-serif;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color .2s,box-shadow .2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(26,115,232,.2);}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.answer-input-area{font-family:'Roboto Mono',monospace;font-size:15px;min-height:80px;resize:vertical;letter-spacing:2px;}
+.hint{font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;}
+.generate-btn{width:100%;padding:12px;background:var(--blue);color:white;border:none;border-radius:4px;font-family:'Google Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;margin-top:8px;transition:background .2s,box-shadow .2s;}
+.generate-btn:hover{background:#1557b0;box-shadow:var(--shadow);}
+.section-divider{border:none;border-top:1px solid var(--border);margin:20px 0 16px;}
+.section-label{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.toggle-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.toggle-switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:background .2s;}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:transform .2s;}
+.toggle-switch input:checked+.toggle-slider{background:var(--blue);}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(18px);}
+.toggle-label{font-size:13px;color:var(--text);}
+.collapsible-section{display:none;}
+.collapsible-section.visible{display:block;}
+.verify-alert{padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.6;margin-top:10px;display:none;}
+.verify-alert.match{background:var(--green-light);color:#1e7e34;border:1px solid #b7dfbc;display:block;}
+.verify-alert.mismatch{background:var(--red-light);color:#c5221f;border:1px solid #f5c6c4;display:block;}
+.verify-diff{margin-top:6px;}
+.verify-diff-item{font-family:'Roboto Mono',monospace;font-size:12px;background:rgba(255,255,255,.6);padding:2px 8px;border-radius:3px;display:inline-block;margin:2px;}
+.sheet-wrapper{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.sheet-header{border-bottom:3px solid var(--blue);padding:20px 24px 16px;}
+.sheet-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;border-radius:6px;padding:2px 6px 2px 0;transition:background .15s;position:relative;}
+.sheet-title:hover{background:rgba(26,115,232,.07);}
+.sheet-title .title-copy-icon{font-size:15px;opacity:0;transition:opacity .15s;color:var(--blue);flex-shrink:0;}
+.sheet-title:hover .title-copy-icon{opacity:1;}
+.sheet-title .title-wrong-nums{color:var(--red);font-weight:700;}
+.copy-toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a73e8;color:white;padding:10px 22px;border-radius:24px;font-size:14px;font-family:'Google Sans',sans-serif;box-shadow:0 4px 16px rgba(26,115,232,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9998;}
+.copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:500;}
+.badge-blue{background:var(--blue-light);color:var(--blue);}
+.badge-green{background:#e6f4ea;color:var(--green);}
+.badge-yellow{background:#fef7e0;color:#e37400;}
+.sheet-body{padding:20px 24px;}
+.questions-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px;}
+.question-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f3f4;}
+.q-num{font-size:12px;font-weight:500;color:var(--text-secondary);width:22px;text-align:right;flex-shrink:0;}
+.bubbles{display:flex;gap:4px;}
+.bubble{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-secondary);flex-shrink:0;}
+.bubble.filled{background:var(--blue);border-color:var(--blue);color:white;}
+.bubble.skipped{background:#f1f3f4;border-color:#dadce0;color:#bdc1c6;}
+.bubble.filled.wrong{background:var(--red);border-color:var(--red);}
+.bubble.correct-key{background:var(--green);border-color:var(--green);color:white;}
+.answer-text{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--blue);min-width:16px;}
+.answer-text.skipped{color:#bdc1c6;}.answer-text.wrong{color:var(--red);}.answer-text.correct{color:var(--green);}
+.wrong-indicator{font-size:10px;color:var(--red);font-weight:700;margin-left:2px;}
+.correct-key-label{font-size:10px;color:var(--green);font-family:'Roboto Mono',monospace;font-weight:700;margin-left:2px;}
+.score-banner{background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%);color:white;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.score-main{font-size:28px;font-weight:700;}.score-label{font-size:13px;opacity:.85;}
+.score-pct{font-size:18px;font-weight:600;background:rgba(255,255,255,.2);padding:4px 14px;border-radius:20px;}
+.score-details{display:flex;gap:16px;margin-left:auto;flex-wrap:wrap;}.score-item{text-align:center;}
+.score-item-num{font-size:18px;font-weight:600;}.score-item-lbl{font-size:11px;opacity:.75;}
+.empty-state{text-align:center;padding:60px 24px;color:var(--text-secondary);}
+.empty-icon{width:80px;height:80px;margin:0 auto 16px;opacity:.3;}
+.empty-state h3{font-size:18px;color:var(--text);margin-bottom:8px;}
+.stats-bar{display:flex;gap:20px;padding:12px 24px;background:#f8f9fa;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;}
+.stat{display:flex;align-items:center;gap:6px;}.stat-dot{width:10px;height:10px;border-radius:50%;}
+.llm-section{margin-top:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);}
+.llm-header{background:#1e1e2e;color:#cdd6f4;padding:12px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.llm-header-left{display:flex;align-items:center;gap:8px;}.llm-dot{width:10px;height:10px;border-radius:50%;}
+.llm-body{background:#181825;padding:16px;font-family:'Roboto Mono',monospace;font-size:12.5px;color:#cdd6f4;max-height:280px;overflow-y:auto;line-height:1.9;white-space:pre-wrap;word-break:break-word;}
+.llm-body .ans-answered{color:#89dceb}.llm-body .ans-wrong{color:#f38ba8}.llm-body .ans-skipped{color:#f38ba8}.llm-body .ans-blank{color:#585b70}.llm-body .ans-header{color:#cba6f7}
+.copy-btn{background:transparent;border:1px solid #45475a;color:#cdd6f4;padding:4px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-family:'Google Sans',sans-serif;transition:background .15s,border-color .15s;}
+.copy-btn:hover{background:#313244;border-color:#89b4fa;color:#89b4fa;}.copy-btn.copied{color:#a6e3a1;border-color:#a6e3a1;}
+.llm-tabs{display:flex;background:#1e1e2e;border-bottom:1px solid #313244;}
+.llm-tab{padding:8px 16px;font-size:12px;color:#6c7086;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;font-family:'Google Sans',sans-serif;}
+.llm-tab.active{color:#cdd6f4;border-bottom-color:#89b4fa;}
+
+/* Music rows */
+.music-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#fafafa;}
+.music-tier-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+.music-tier-label{font-size:12px;font-weight:600;flex:1;}
+.music-file-name{font-size:11px;color:var(--text-secondary);flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.music-upload-btn{background:var(--blue);color:white;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap;font-family:'Google Sans',sans-serif;}
+.music-upload-btn:hover{background:#1557b0;}
+.music-clear-btn{background:transparent;border:1px solid var(--border);color:var(--text-secondary);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;}
+.music-clear-btn:hover{border-color:var(--red);color:var(--red);}
+
+@media print{
+  header,.config-col{display:none!important}
+  main{display:block;padding:0;max-width:100%}
+  .sheet-wrapper{box-shadow:none;border:none}
+  body{background:white}.stats-bar{display:none}
+  .llm-section{display:none!important}
+  #gachaOverlay{display:none!important}
+  .score-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet-title .title-copy-icon{display:none;}
+}
+@media(max-width:768px){main{grid-template-columns:1fr}}
+
+/* ══════ GACHA OVERLAY ══════ */
+#gachaOverlay{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  overflow:hidden;cursor:pointer;background:#000;
+}
+#gachaOverlay.active{display:flex;}
+#gachaCanvas{position:absolute;inset:0;width:100%;height:100%;}
+
+/* Result stage — hidden until particle phase done */
+#gachaStage{
+  position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:0;
+  pointer-events:none;opacity:0;
+}
+.gacha-ring{width:260px;height:260px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;transform:scale(0.3);}
+.gacha-ring.gold{box-shadow:0 0 90px rgba(251,191,36,.8),0 0 180px rgba(251,191,36,.4);background:radial-gradient(circle,rgba(251,191,36,.25) 0%,transparent 70%);}
+.gacha-ring.blue{box-shadow:0 0 90px rgba(96,165,250,.8),0 0 180px rgba(96,165,250,.4);background:radial-gradient(circle,rgba(96,165,250,.25) 0%,transparent 70%);}
+.gacha-ring.red {box-shadow:0 0 90px rgba(248,113,113,.8),0 0 180px rgba(248,113,113,.4);background:radial-gradient(circle,rgba(248,113,113,.25) 0%,transparent 70%);}
+.gacha-icon{font-size:90px;line-height:1;filter:drop-shadow(0 0 24px currentColor);animation:floatIcon 2s ease-in-out infinite;}
+.gacha-ring.gold .gacha-icon{color:#fbbf24;}
+.gacha-ring.blue .gacha-icon{color:#60a5fa;}
+.gacha-ring.red  .gacha-icon{color:#f87171;}
+@keyframes floatIcon{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.06)}}
+.gacha-rarity{font-family:'Orbitron',monospace;font-size:clamp(14px,3vw,18px);letter-spacing:6px;text-transform:uppercase;margin-top:24px;opacity:0;transform:translateY(20px);}
+.gacha-rarity.gold{color:#fbbf24;text-shadow:0 0 24px rgba(251,191,36,.9);}
+.gacha-rarity.blue{color:#93c5fd;text-shadow:0 0 24px rgba(96,165,250,.9);}
+.gacha-rarity.red {color:#f87171;text-shadow:0 0 24px rgba(248,113,113,.9);}
+.gacha-score{font-family:'Orbitron',monospace;font-size:clamp(60px,12vw,110px);font-weight:900;line-height:1;letter-spacing:-2px;margin-top:8px;opacity:0;transform:scale(1.4);}
+.gacha-score.gold{color:#fff;text-shadow:0 0 40px rgba(251,191,36,1),0 0 80px rgba(251,191,36,.5);}
+.gacha-score.blue{color:#fff;text-shadow:0 0 40px rgba(96,165,250,1),0 0 80px rgba(96,165,250,.5);}
+.gacha-score.red {color:#fff;text-shadow:0 0 40px rgba(248,113,113,1),0 0 80px rgba(248,113,113,.5);}
+.gacha-score-sub{font-family:'Orbitron',monospace;font-size:clamp(13px,2.5vw,17px);letter-spacing:4px;color:rgba(255,255,255,.55);margin-top:4px;opacity:0;text-align:center;}
+.gacha-grade-text{font-family:'Cinzel',serif;font-size:clamp(22px,5vw,38px);font-weight:700;letter-spacing:3px;margin-top:16px;opacity:0;transform:translateY(10px);}
+.gacha-grade-text.gold{color:#fef3c7;text-shadow:0 2px 16px rgba(251,191,36,.6);}
+.gacha-grade-text.blue{color:#dbeafe;text-shadow:0 2px 16px rgba(96,165,250,.5);}
+.gacha-grade-text.red {color:#fee2e2;text-shadow:0 2px 16px rgba(248,113,113,.5);}
+.gacha-dismiss{position:absolute;bottom:32px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.4);text-transform:uppercase;animation:blink 2s ease-in-out infinite;opacity:0;}
+@keyframes blink{0%,100%{opacity:.35}50%{opacity:.85}}
+
+/* Music indicator */
+#musicIndicator{position:fixed;bottom:80px;right:24px;z-index:9997;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);color:white;padding:8px 14px;border-radius:24px;font-size:12px;font-family:'Google Sans',sans-serif;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .3s;pointer-events:none;}
+#musicIndicator.show{opacity:1;pointer-events:auto;}
+.music-eq{display:flex;align-items:flex-end;gap:2px;height:14px;}
+.music-eq span{width:3px;background:#fbbf24;border-radius:2px;animation:eq .8s ease-in-out infinite alternate;}
+.music-eq span:nth-child(1){height:6px;animation-delay:0s}.music-eq span:nth-child(2){height:12px;animation-delay:.15s}
+.music-eq span:nth-child(3){height:8px;animation-delay:.3s}.music-eq span:nth-child(4){height:14px;animation-delay:.45s}
+@keyframes eq{to{height:3px}}
+.music-stop-btn{background:transparent;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.8);padding:2px 8px;border-radius:10px;font-size:11px;cursor:pointer;pointer-events:auto;}
+</style>
+</head>
+<body>
+
+<div class="copy-toast" id="copyToast">✓ 已复制到剪贴板</div>
+<div id="musicIndicator">
+  <div class="music-eq"><span></span><span></span><span></span><span></span></div>
+  <span id="musicIndicatorText">Playing...</span>
+  <button class="music-stop-btn" onclick="stopMusic()">■ 停止</button>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-dots">
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+    </div>
+    <div class="logo-text"><span>IGCSE</span> Answer Sheet</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="print-btn" onclick="window.print()">🖨️ 打印 / Print</button>
+</header>
+
+<main>
+<div class="config-col">
+  <div class="card">
+    <div class="card-header">📝 试卷设置</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label>科目代码 Subject Code</label>
+        <input id="subjectCode" type="text" placeholder="e.g. 0625" maxlength="10" value="0625">
+      </div>
+      <div class="form-group">
+        <label>科目名称 Subject Name</label>
+        <input id="subjectName" type="text" placeholder="e.g. Physics" value="Physics">
+      </div>
+      <div class="row">
+        <div class="form-group"><label>Paper</label><input id="paperNum" type="text" placeholder="e.g. 22" value="22"></div>
+        <div class="form-group"><label>Year 年份</label><select id="year"><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option><option>2019</option></select></div>
+      </div>
+      <div class="form-group">
+        <label>考季 Session</label>
+        <select id="session"><option value="Oct/Nov">October / November (秋季)</option><option value="May/June">May / June (夏季)</option><option value="Feb/Mar">February / March (春季)</option></select>
+      </div>
+      <div class="form-group">
+        <label>考试时长 Duration</label>
+        <select id="duration"><option value="45 minutes">45 minutes</option><option value="40 minutes">40 minutes</option><option value="1 hour">1 hour</option><option value="1 hour 15 minutes">1 hour 15 minutes</option><option value="1 hour 30 minutes">1 hour 30 minutes</option></select>
+      </div>
+      <div class="row">
+        <div class="form-group"><label>题目数量 Questions</label><input id="numQ" type="number" min="1" max="80" value="40"></div>
+        <div class="form-group"><label>选项 Options</label><select id="options"><option value="ABCD">A B C D</option><option value="ABCDE">A B C D E</option><option value="TF">T / F</option></select></div>
+      </div>
+      <div class="form-group">
+        <label>我的答案 My Answers</label>
+        <textarea class="answer-input-area" id="answers" placeholder="e.g. 12341233/21..." rows="3"></textarea>
+        <div class="hint">📌 直接输入答案，<strong>/</strong> 表示跳过该题。<br>💡 <strong style="color:var(--blue)">盲打优化：</strong>可以直接敲数字 <strong>1=A, 2=B, 3=C, 4=D</strong>，无需看键盘找字母。</div>
+      </div>
+      <hr class="section-divider">
+      <div class="section-label">🔁 重复输入验证（防止手误）</div>
+      <div class="toggle-row">
+        <label class="toggle-switch"><input type="checkbox" id="enableVerify" onchange="toggleVerify()"><span class="toggle-slider"></span></label>
+        <span class="toggle-label">启用重复输入确认</span>
+      </div>
+      <div class="collapsible-section" id="verifySection">
+        <div class="form-group">
+          <label>再次输入答案 Repeat Answers</label>
+          <textarea class="answer-input-area" id="answersRepeat" placeholder="再次输入同一组答案..." rows="3"></textarea>
+          <div class="hint">两组答案均输入完成后，点击下方按钮执行比对。</div>
+        </div>
+        <button type="button" class="generate-btn" style="background:#5f6368;margin-top:0;margin-bottom:12px;padding:8px;font-size:13px;" onclick="checkConsistency()">⚖️ 比对两次输入是否一致</button>
+        <div class="verify-alert" id="verifyAlert"></div>
+      </div>
+      <hr class="section-divider">
+      <div class="section-label">✅ 对答案功能</div>
+      <div class="toggle-row">
+        <label class="toggle-switch"><input type="checkbox" id="enableKey" onchange="toggleKey()"><span class="toggle-slider"></span></label>
+        <span class="toggle-label">启用对答案模式</span>
+      </div>
+      <div class="collapsible-section" id="keySection">
+        <div class="form-group">
+          <label style="color:var(--blue);font-weight:700;">📋 粘贴官方 Mark Scheme 原始文本（智能识别）</label>
+          <textarea class="answer-input-area" id="rawMS" placeholder="直接复制 PDF 里的全套答案贴在这里，比如：&#10;1 C 1&#10;2 C 1..." rows="4" oninput="extractMS()"></textarea>
+          <div class="hint" style="color:var(--blue);">💡 贴入官方原始文本后，系统会自动清洗并智能提取出下面的标准字符串。</div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>标准答案字符串 Answer Key</label>
+          <input class="answer-input-area" style="font-size:14px;min-height:auto;padding:8px 12px;" id="answerKey" placeholder="提取结果会实时显示在这里..." readonly>
+        </div>
+      </div>
+      <hr class="section-divider" style="margin-top:20px;">
+
+      <!-- ══ MUSIC SETTINGS ══ -->
+      <div class="section-label">🎵 音乐设置（本地文件）</div>
+      <div class="toggle-row">
+        <label class="toggle-switch"><input type="checkbox" id="enableMusic" onchange="saveMusicSettings()"><span class="toggle-slider"></span></label>
+        <span class="toggle-label">自动播放音乐</span>
+      </div>
+      <div class="hint" style="margin-bottom:12px;">选择本地音频文件，仅本地播放不上传，设置持久保存。</div>
+
+      <!-- Intro phase music -->
+      <div class="music-row">
+        <div class="music-tier-dot" style="background:linear-gradient(135deg,#a855f7,#6366f1);"></div>
+        <span class="music-tier-label" style="color:#7c3aed;">🎲 开场粒子动画</span>
+        <span class="music-file-name" id="musicNameIntro">未选择</span>
+        <button class="music-upload-btn" onclick="chooseMusicFile('intro')">选择文件</button>
+        <button class="music-clear-btn" onclick="clearMusicFile('intro')">✕</button>
+      </div>
+      <!-- Gold tier: 35+ -->
+      <div class="music-row">
+        <div class="music-tier-dot" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);"></div>
+        <span class="music-tier-label" style="color:#b45309;">🏆 35+ 分（金色）</span>
+        <span class="music-file-name" id="musicNameGold">未选择</span>
+        <button class="music-upload-btn" onclick="chooseMusicFile('gold')">选择文件</button>
+        <button class="music-clear-btn" onclick="clearMusicFile('gold')">✕</button>
+      </div>
+      <!-- Blue tier: 30-35 -->
+      <div class="music-row">
+        <div class="music-tier-dot" style="background:linear-gradient(135deg,#60a5fa,#1a73e8);"></div>
+        <span class="music-tier-label" style="color:#1557b0;">⭐ 30–35 分（蓝色）</span>
+        <span class="music-file-name" id="musicNameBlue">未选择</span>
+        <button class="music-upload-btn" onclick="chooseMusicFile('blue')">选择文件</button>
+        <button class="music-clear-btn" onclick="clearMusicFile('blue')">✕</button>
+      </div>
+      <!-- Red tier: <30 -->
+      <div class="music-row">
+        <div class="music-tier-dot" style="background:linear-gradient(135deg,#f87171,#ea4335);"></div>
+        <span class="music-tier-label" style="color:#c5221f;">💪 &lt;30 分（红色）</span>
+        <span class="music-file-name" id="musicNameRed">未选择</span>
+        <button class="music-upload-btn" onclick="chooseMusicFile('red')">选择文件</button>
+        <button class="music-clear-btn" onclick="clearMusicFile('red')">✕</button>
+      </div>
+      <input type="file" id="fileInputIntro" accept="audio/*" style="display:none" onchange="handleMusicFile('intro',this)">
+      <input type="file" id="fileInputGold"  accept="audio/*" style="display:none" onchange="handleMusicFile('gold',this)">
+      <input type="file" id="fileInputBlue"  accept="audio/*" style="display:none" onchange="handleMusicFile('blue',this)">
+      <input type="file" id="fileInputRed"   accept="audio/*" style="display:none" onchange="handleMusicFile('red',this)">
+
+      <hr class="section-divider" style="margin-top:20px;">
+      <button class="generate-btn" onclick="generate()">✨ 生成答题卡</button>
+    </div>
+  </div>
+
+  <div class="llm-section" id="llmSection" style="display:none;">
+    <div class="llm-header">
+      <div class="llm-header-left">
+        <div class="llm-dot" style="background:#f38ba8"></div><div class="llm-dot" style="background:#f9e2af"></div><div class="llm-dot" style="background:#a6e3a1"></div>
+        <span style="margin-left:4px;">🤖 LLM 友好格式</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="copy-btn" id="copyBtnUser" onclick="copyLLM('user')">📋 复制我的答案</button>
+        <button class="copy-btn" id="copyBtnGrade" onclick="copyLLM('grade')" style="display:none">📋 复制批改结果</button>
+      </div>
+    </div>
+    <div class="llm-tabs" id="llmTabs">
+      <div class="llm-tab active" data-tab="user" onclick="switchTab('user')">我的答案</div>
+      <div class="llm-tab" data-tab="grade" id="gradeTab" style="display:none" onclick="switchTab('grade')">批改结果</div>
+    </div>
+    <div class="llm-body" id="llmBody"></div>
+  </div>
+</div>
+
+<div class="sheet-wrapper" id="sheetWrapper">
+  <div class="empty-state">
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="4" y="3" width="16" height="18" rx="2"/>
+      <line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/>
+    </svg>
+    <h3>答题卡预览</h3>
+    <p>填写左侧设置后点击"生成答题卡"</p>
+  </div>
+</div>
+</main>
+
+<!-- ══ GACHA OVERLAY ══ -->
+<div id="gachaOverlay" onclick="dismissGacha()">
+  <canvas id="gachaCanvas"></canvas>
+  <div id="gachaStage">
+    <div class="gacha-ring" id="gachaRing"><div class="gacha-icon" id="gachaIcon">✦</div></div>
+    <div class="gacha-rarity" id="gachaRarity">LEGENDARY</div>
+    <div class="gacha-score" id="gachaScore">0</div>
+    <div class="gacha-score-sub" id="gachaScoreSub">/ 40 CORRECT</div>
+    <div class="gacha-grade-text" id="gachaGrade">OUTSTANDING</div>
+  </div>
+  <div class="gacha-dismiss" id="gachaDismiss">TAP ANYWHERE TO CONTINUE</div>
+</div>
+
+<script>
+/* ════════ IndexedDB music storage ════════ */
+const DB_NAME='igcse_music_db',DB_VER=2,STORE='tracks';
+let _db=null;
+function openDB(){return new Promise((res,rej)=>{if(_db){res(_db);return;}const req=indexedDB.open(DB_NAME,DB_VER);req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE);};req.onsuccess=e=>{_db=e.target.result;res(_db);};req.onerror=e=>rej(e);});}
+async function dbSet(k,v){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>res();tx.onerror=e=>rej(e);});}
+async function dbGet(k){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).get(k);req.onsuccess=()=>res(req.result);req.onerror=e=>rej(e);});}
+async function dbDel(k){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(k);tx.oncomplete=()=>res();tx.onerror=e=>rej(e);});}
+
+const ALL_TIERS=['intro','gold','blue','red'];
+let _musicURLs={intro:null,gold:null,blue:null,red:null};
+let _musicNames={intro:'未选择',gold:'未选择',blue:'未选择',red:'未选择'};
+let _audioEl=null;
+
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+async function initMusicSettings(){
+  const enabled=localStorage.getItem('igcse_music_enabled');
+  document.getElementById('enableMusic').checked=enabled!=='false';
+  for(const tier of ALL_TIERS){
+    try{const s=await dbGet('music_'+tier);if(s&&s.blob){_musicURLs[tier]=URL.createObjectURL(s.blob);_musicNames[tier]=s.name;document.getElementById('musicName'+cap(tier)).textContent=s.name;}}catch(e){}
+  }
+}
+function saveMusicSettings(){localStorage.setItem('igcse_music_enabled',document.getElementById('enableMusic').checked?'true':'false');}
+function chooseMusicFile(tier){document.getElementById('fileInput'+cap(tier)).click();}
+async function handleMusicFile(tier,input){
+  const file=input.files[0];if(!file)return;
+  if(_musicURLs[tier])URL.revokeObjectURL(_musicURLs[tier]);
+  _musicURLs[tier]=URL.createObjectURL(file);_musicNames[tier]=file.name;
+  document.getElementById('musicName'+cap(tier)).textContent=file.name;
+  await dbSet('music_'+tier,{blob:file,name:file.name});input.value='';
+}
+async function clearMusicFile(tier){
+  if(_musicURLs[tier]){URL.revokeObjectURL(_musicURLs[tier]);_musicURLs[tier]=null;}
+  _musicNames[tier]='未选择';document.getElementById('musicName'+cap(tier)).textContent='未选择';
+  await dbDel('music_'+tier);
+}
+function playTierMusic(tier){
+  if(!document.getElementById('enableMusic').checked)return;
+  const url=_musicURLs[tier];if(!url)return;
+  stopMusic();
+  _audioEl=new Audio(url);_audioEl.play().catch(()=>{});
+  const ind=document.getElementById('musicIndicator');
+  document.getElementById('musicIndicatorText').textContent=_musicNames[tier]||'Playing…';
+  ind.classList.add('show');
+  _audioEl.onended=()=>{ind.classList.remove('show');_audioEl=null;};
+}
+function stopMusic(){
+  if(_audioEl){_audioEl.pause();_audioEl.currentTime=0;_audioEl=null;}
+  document.getElementById('musicIndicator').classList.remove('show');
+}
+
+/* ════════ Toast ════════ */
+let _toastTimer=null;
+function showCopyToast(msg){const t=document.getElementById('copyToast');t.textContent=msg||'✓ 已复制到剪贴板';t.classList.add('show');if(_toastTimer)clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>t.classList.remove('show'),2000);}
+function copySheetTitle(){const el=document.getElementById('sheetTitleText');if(!el)return;const text=el.dataset.copytext||el.textContent.replace(/\s*📋\s*$/,'').trim();navigator.clipboard.writeText(text).then(()=>showCopyToast('✓ 错题本标题已复制'));}
+
+/* ════════════════════════════════════════════════════
+   GACHA ENGINE v3 — Full-screen particle convergence
+   Phase 1 (0–2.5s):  Multicolour chaos (all 3 tier
+     colours) flies inward from screen edges, spinning
+     with vortex motion, background pure black.
+   Phase 2 (2.5–4.2s): Particles converge to centre,
+     colour-morph toward target tier colour, vortex
+     tightens. Background stays black.
+   Phase 3 (4.2–5s):  Particles snap into a tight
+     cluster, flash, then dissolve into a glowing mist
+     that reveals the result UI.
+   Phase 4 (5s+):     Score ring, rarity, number, grade
+     animate in. Music plays at Phase 3 flash.
+   ════════════════════════════════════════════════════ */
+
+const TIER_INFO={
+  gold:{icon:'✦',rarity:'LEGENDARY',  grade:'Outstanding ★★★',col:[251,191,36], dark:'#0a0700'},
+  blue:{icon:'◈',rarity:'PROFICIENT', grade:'Well Done ★★',    col:[96,165,250], dark:'#00060f'},
+  red: {icon:'◇',rarity:'DEVELOPING', grade:'Keep Going ★',    col:[248,113,113],dark:'#0f0000'},
+};
+/* All three tier colours for the chaos phase */
+const CHAOS_COLS=[[251,191,36],[96,165,250],[248,113,113],[255,255,255]];
+
+function getTier(score,total){
+  if(score>=35||(total!==40&&total>0&&score/total>=0.875))return'gold';
+  if(score>=30||(total!==40&&total>0&&score/total>=0.75))return'blue';
+  return'red';
+}
+
+let gachaActive=false;
+let _animId=null;
+let _dismissCallbacks=[];
+
+function dismissGacha(){
+  if(!gachaActive)return;
+  gachaActive=false;
+  stopMusic();
+  if(_animId){cancelAnimationFrame(_animId);_animId=null;}
+  _dismissCallbacks.forEach(fn=>fn());_dismissCallbacks=[];
+  const ov=document.getElementById('gachaOverlay');
+  ov.style.transition='opacity 0.5s ease-out';ov.style.opacity='0';
+  setTimeout(()=>{ov.classList.remove('active');ov.style.opacity='';ov.style.transition='';
+    const stage=document.getElementById('gachaStage');stage.style.opacity='0';
+    const ctx=document.getElementById('gachaCanvas').getContext('2d');
+    ctx.clearRect(0,0,9999,9999);
+  },500);
+}
+document.addEventListener('keydown',e=>{if((e.key==='Escape'||e.key===' '||e.key==='Enter')&&gachaActive)dismissGacha();});
+
+function triggerGacha(score,total){
+  if(gachaActive)return;
+  gachaActive=true;
+  const tier=getTier(score,total);
+  const info=TIER_INFO[tier];
+  const [tr,tg,tb]=info.col;
+
+  /* Setup stage */
+  const ov=document.getElementById('gachaOverlay');
+  ov.classList.add('active');ov.style.opacity='1';ov.style.background='#000';
+
+  const stage=document.getElementById('gachaStage');
+  stage.style.opacity='0';stage.style.display='flex';
+
+  const ring=document.getElementById('gachaRing');
+  const icon=document.getElementById('gachaIcon');
+  const rarity=document.getElementById('gachaRarity');
+  const scoreEl=document.getElementById('gachaScore');
+  const scoreSub=document.getElementById('gachaScoreSub');
+  const grade=document.getElementById('gachaGrade');
+  const dismiss=document.getElementById('gachaDismiss');
+
+  [ring,rarity,scoreEl,scoreSub,grade,dismiss].forEach(el=>{
+    el.className=el.className.replace(/\b(gold|blue|red)\b/g,'');
+    el.style.cssText='';
+  });
+  ring.classList.add(tier);rarity.classList.add(tier);
+  scoreEl.classList.add(tier);grade.classList.add(tier);
+  icon.textContent=info.icon;rarity.textContent=info.rarity;
+  scoreEl.textContent=score;scoreSub.textContent=`/ ${total} CORRECT`;
+  grade.textContent=info.grade;
+
+  /* Canvas setup */
+  const canvas=document.getElementById('gachaCanvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  const W=canvas.width,H=canvas.height,cx=W/2,cy=H/2;
+
+  /* ── PARTICLE SYSTEM ── */
+  const N=320; // number of particles
+  const particles=[];
+
+  function randEdge(){
+    /* spawn from all four edges */
+    const side=Math.floor(Math.random()*4);
+    let x,y;
+    if(side===0){x=Math.random()*W;y=-20;}
+    else if(side===1){x=W+20;y=Math.random()*H;}
+    else if(side===2){x=Math.random()*W;y=H+20;}
+    else{x=-20;y=Math.random()*H;}
+    return{x,y};
+  }
+
+  for(let i=0;i<N;i++){
+    const pos=randEdge();
+    const colIdx=Math.floor(Math.random()*CHAOS_COLS.length);
+    const [r,g,b]=CHAOS_COLS[colIdx];
+    const size=2+Math.random()*5;
+    /* angle toward centre with offset for vortex */
+    const angleToCenter=Math.atan2(cy-pos.y,cx-pos.x);
+    const vortexOffset=(Math.random()-.5)*1.8;
+    const speed=2.5+Math.random()*3;
+    particles.push({
+      x:pos.x,y:pos.y,
+      vx:Math.cos(angleToCenter+vortexOffset)*speed,
+      vy:Math.sin(angleToCenter+vortexOffset)*speed,
+      r,g,b,tr,tg,tb,
+      size,basSize:size,
+      alpha:0.85+Math.random()*0.15,
+      colorBlend:0, /* 0=chaos colour, 1=target colour */
+      phase:'chaos', /* chaos -> converge -> burst */
+      age:0,
+      /* vortex spin state */
+      angle:Math.atan2(pos.y-cy,pos.x-cx),
+      dist:Math.hypot(pos.x-cx,pos.y-cy),
+      orbitSpeed:0,
+      shape:Math.random()<0.35?'square':'circle',
+      rot:Math.random()*Math.PI*2,
+      rotV:(Math.random()-.5)*0.12,
+      trail:[],
+    });
+  }
+
+  /* Timing (seconds) */
+  const T_CONVERGE=2.2;   // chaos -> converge starts
+  const T_TIGHTEN =3.6;   // converge -> orbit tightens
+  const T_BURST   =4.6;   // burst flash
+  const T_REVEAL  =5.0;   // show result UI
+
+  let startTime=null;
+  let musicPlayed=false;
+  let revealTriggered=false;
+
+  /* Play intro music at start */
+  playTierMusic('intro');
+
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function easeOut(t){return 1-Math.pow(1-t,3);}
+  function easeInOut(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+  function drawParticle(p,t_global){
+    const cr=Math.round(lerp(p.r,p.tr,p.colorBlend));
+    const cg=Math.round(lerp(p.g,p.tg,p.colorBlend));
+    const cb=Math.round(lerp(p.b,p.tb,p.colorBlend));
+    ctx.save();
+    ctx.globalAlpha=p.alpha;
+    ctx.fillStyle=`rgb(${cr},${cg},${cb})`;
+    ctx.shadowColor=`rgba(${cr},${cg},${cb},0.8)`;
+    ctx.shadowBlur=p.size*2.5;
+    if(p.shape==='square'){
+      ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+    }else{
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function tick(ts){
+    if(!gachaActive)return;
+    if(!startTime)startTime=ts;
+    const t=(ts-startTime)/1000;
+
+    ctx.fillStyle='rgba(0,0,0,0.18)'; // motion blur trail
+    ctx.fillRect(0,0,W,H);
+
+    for(let i=0;i<particles.length;i++){
+      const p=particles[i];
+      p.rot+=p.rotV;
+
+      if(t<T_CONVERGE){
+        /* Phase 1: chaos — fly inward with vortex drift */
+        const vortex=0.04+t*0.015;
+        p.x+=p.vx;p.y+=p.vy;
+        /* add slight vortex spin */
+        const ang=Math.atan2(p.y-cy,p.x-cx);
+        const d=Math.hypot(p.x-cx,p.y-cy);
+        p.vx+=Math.cos(ang+Math.PI/2)*vortex;
+        p.vy+=Math.sin(ang+Math.PI/2)*vortex;
+        /* dampen away from centre */
+        const towardX=(cx-p.x),towardY=(cy-p.y);
+        p.vx+=towardX*0.002;p.vy+=towardY*0.002;
+        p.colorBlend=Math.min(1,t/T_CONVERGE*0.3);
+
+      }else if(t<T_TIGHTEN){
+        /* Phase 2: converge — strong pull to centre, colour morphs */
+        const progress=(t-T_CONVERGE)/(T_TIGHTEN-T_CONVERGE);
+        const pull=easeOut(progress);
+        const towardX=cx-p.x,towardY=cy-p.y;
+        const d=Math.hypot(towardX,towardY)+0.1;
+        /* orbit + inward */
+        const ang=Math.atan2(p.y-cy,p.x-cx);
+        const orbitStr=2.0*(1-pull*0.7);
+        p.vx+=Math.cos(ang+Math.PI/2)*orbitStr*0.08;
+        p.vy+=Math.sin(ang+Math.PI/2)*orbitStr*0.08;
+        p.vx+=towardX/d*(pull*4+0.5);
+        p.vy+=towardY/d*(pull*4+0.5);
+        p.vx*=0.88;p.vy*=0.88;
+        p.x+=p.vx;p.y+=p.vy;
+        p.colorBlend=Math.min(1,0.3+progress*0.7);
+        p.size=p.basSize*(1+pull*0.5);
+
+      }else if(t<T_BURST){
+        /* Phase 3: tighten orbit — circular orbit around centre, shrink inward */
+        const progress=(t-T_TIGHTEN)/(T_BURST-T_TIGHTEN);
+        const pull=easeInOut(progress);
+        const towardX=cx-p.x,towardY=cy-p.y;
+        const d=Math.hypot(towardX,towardY)+0.1;
+        const ang=Math.atan2(p.y-cy,p.x-cx);
+        p.vx+=Math.cos(ang+Math.PI/2)*0.25;
+        p.vy+=Math.sin(ang+Math.PI/2)*0.25;
+        p.vx+=towardX/d*(pull*8);
+        p.vy+=towardY/d*(pull*8);
+        p.vx*=0.82;p.vy*=0.82;
+        p.x+=p.vx;p.y+=p.vy;
+        p.colorBlend=1;
+        p.size=p.basSize*(1+pull*1.5);
+        p.alpha=1;
+
+      }else{
+        /* Phase 4: burst outward + fade */
+        if(p.phase!=='burst'){
+          p.phase='burst';
+          const angle=Math.atan2(p.y-cy,p.x-cx)||Math.random()*Math.PI*2;
+          const spd=4+Math.random()*12;
+          p.vx=Math.cos(angle)*spd;
+          p.vy=Math.sin(angle)*spd;
+        }
+        p.x+=p.vx;p.y+=p.vy;
+        p.vx*=0.93;p.vy*=0.93;
+        p.alpha=Math.max(0,p.alpha-0.025);
+        p.size*=0.97;
+      }
+
+      if(p.alpha>0.02)drawParticle(p,t);
+    }
+
+    /* Burst flash at T_BURST */
+    if(t>=T_BURST&&!musicPlayed){
+      musicPlayed=true;
+      stopMusic(); // stop intro
+      playTierMusic(tier);
+      /* White flash */
+      const fl=document.createElement('div');
+      fl.style.cssText=`position:fixed;inset:0;background:#fff;opacity:0.7;pointer-events:none;z-index:10001;transition:opacity 0.5s ease-out`;
+      document.body.appendChild(fl);
+      requestAnimationFrame(()=>fl.style.opacity='0');
+      setTimeout(()=>fl.remove(),600);
+    }
+
+    /* Reveal result UI */
+    if(t>=T_REVEAL&&!revealTriggered){
+      revealTriggered=true;
+      revealResult(score,total,tier);
+    }
+
+    _animId=requestAnimationFrame(tick);
+  }
+  _animId=requestAnimationFrame(tick);
+}
+
+function revealResult(score,total,tier){
+  const stage=document.getElementById('gachaStage');
+  const ring=document.getElementById('gachaRing');
+  const rarity=document.getElementById('gachaRarity');
+  const scoreEl=document.getElementById('gachaScore');
+  const scoreSub=document.getElementById('gachaScoreSub');
+  const grade=document.getElementById('gachaGrade');
+  const dismiss=document.getElementById('gachaDismiss');
+
+  /* Fade in stage */
+  stage.style.transition='opacity 0.4s ease-out';
+  stage.style.opacity='1';
+
+  /* Ring pop in */
+  setTimeout(()=>{
+    ring.style.transition='transform 0.6s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s';
+    ring.style.opacity='1';ring.style.transform='scale(1)';
+  },50);
+
+  setTimeout(()=>{
+    rarity.style.transition='opacity 0.4s ease-out,transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+    rarity.style.opacity='1';rarity.style.transform='translateY(0)';
+  },400);
+
+  setTimeout(()=>{
+    scoreEl.style.transition='none';scoreEl.style.opacity='0';scoreEl.style.transform='scale(2)';
+    scoreEl.textContent=score;
+    requestAnimationFrame(()=>{
+      scoreEl.style.transition='opacity 0.25s ease-out,transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
+      scoreEl.style.opacity='1';scoreEl.style.transform='scale(1)';
+    });
+  },700);
+
+  setTimeout(()=>{
+    scoreSub.style.transition='opacity 0.5s ease-out';scoreSub.style.opacity='1';
+  },1000);
+
+  setTimeout(()=>{
+    grade.style.transition='opacity 0.5s ease-out,transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+    grade.style.opacity='1';grade.style.transform='translateY(0)';
+  },1200);
+
+  setTimeout(()=>{
+    dismiss.style.transition='opacity 0.5s';dismiss.style.opacity='1';
+  },1800);
+}
+
+/* ════════ Form helpers ════════ */
+let _llmTexts={user:'',grade:''};
+function toggleVerify(){const on=document.getElementById('enableVerify').checked;document.getElementById('verifySection').classList.toggle('visible',on);if(!on)document.getElementById('verifyAlert').style.display='none';}
+function toggleKey(){const on=document.getElementById('enableKey').checked;document.getElementById('keySection').classList.toggle('visible',on);}
+function parseAnswers(raw,numQ,opts){
+  let clean=raw.toUpperCase().replace(/\s/g,'');let mapped='';
+  for(let i=0;i<clean.length;i++){const c=clean[i];if(c==='1')mapped+=opts[0];else if(c==='2')mapped+=opts[1];else if(c==='3'&&opts[2])mapped+=opts[2];else if(c==='4'&&opts[3])mapped+=opts[3];else if(c==='5'&&opts[4])mapped+=opts[4];else mapped+=c;}
+  const validChars=new Set([...opts,'/']);const result=[];let idx=0;
+  for(let i=0;i<numQ;i++){while(idx<mapped.length&&!validChars.has(mapped[idx]))idx++;if(idx<mapped.length){result.push(mapped[idx]);idx++;}else result.push(null);}
+  return result;
+}
+function extractMS(){
+  const rawText=document.getElementById('rawMS').value;const numQ=parseInt(document.getElementById('numQ').value)||40;
+  const optMode=document.getElementById('options').value;let opts;
+  if(optMode==='ABCD')opts=['A','B','C','D'];else if(optMode==='ABCDE')opts=['A','B','C','D','E'];else opts=['T','F'];
+  const regex=/\b(\d+)\s+([A-E]|[TF])\s+\d+\b/gi;let match;const map={};
+  while((match=regex.exec(rawText))!==null){const qNum=parseInt(match[1],10),ans=match[2].toUpperCase();map[qNum]=ans;}
+  let keyStr='';for(let i=1;i<=numQ;i++)keyStr+=map[i]||'/';
+  document.getElementById('answerKey').value=Object.keys(map).length>0?keyStr:'';
+}
+function checkConsistency(){
+  const numQ=parseInt(document.getElementById('numQ').value)||40;const optMode=document.getElementById('options').value;let opts;
+  if(optMode==='ABCD')opts=['A','B','C','D'];else if(optMode==='ABCDE')opts=['A','B','C','D','E'];else opts=['T','F'];
+  const a1=parseAnswers(document.getElementById('answers').value,numQ,opts);
+  const a2=parseAnswers(document.getElementById('answersRepeat').value,numQ,opts);
+  const alert=document.getElementById('verifyAlert');const diffs=[];
+  for(let i=0;i<numQ;i++)if(a1[i]!==a2[i])diffs.push(i+1);
+  if(diffs.length===0){alert.className='verify-alert match';alert.innerHTML='✅ 两次输入完全一致！可以放心生成答题卡。';}
+  else{alert.className='verify-alert mismatch';let html=`⚠️ 发现 <strong>${diffs.length}</strong> 处不一致：<div class="verify-diff">`;diffs.forEach(n=>{const v1=a1[n-1]||'空',v2=a2[n-1]||'空';html+=`<span class="verify-diff-item">第${n}题: <b>${v1}</b> vs <b>${v2}</b></span>`;});html+='</div>';alert.innerHTML=html;}
+}
+function switchTab(tab){document.querySelectorAll('.llm-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));renderLLMBody(tab);}
+function renderLLMBody(tab){
+  const llmBody=document.getElementById('llmBody');const text=_llmTexts[tab]||'';const lines=text.split('\n');
+  llmBody.innerHTML=lines.map(line=>{
+    if(/第 \d+ 题：[A-ET]$/.test(line))return`<span class="ans-answered">${line}</span>`;
+    if(line.includes('❌'))return`<span class="ans-wrong">${line}</span>`;
+    if(line.includes('空白')||line.includes('未作答'))return`<span class="ans-skipped">${line}</span>`;
+    if(line.includes('未填写'))return`<span class="ans-blank">${line}</span>`;
+    if(line.startsWith('──')||line.startsWith('试卷')||line.startsWith('以下')||line.startsWith('得分'))return`<span class="ans-header">${line}</span>`;
+    return`<span>${line}</span>`;
+  }).join('\n');
+}
+function copyLLM(tab){
+  const text=_llmTexts[tab];if(!text)return;
+  const btnId=tab==='user'?'copyBtnUser':'copyBtnGrade';
+  navigator.clipboard.writeText(text).then(()=>{const btn=document.getElementById(btnId);const orig=btn.textContent;btn.textContent='✅ 已复制！';btn.classList.add('copied');setTimeout(()=>{btn.textContent=orig;btn.classList.remove('copied');},2000);});
+}
+
+function generate(){
+  const code=document.getElementById('subjectCode').value.trim()||'????';
+  const paper=document.getElementById('paperNum').value.trim()||'??';
+  const year=document.getElementById('year').value;
+  const session=document.getElementById('session').value;
+  const duration=document.getElementById('duration').value;
+  const numQ=parseInt(document.getElementById('numQ').value)||40;
+  const optMode=document.getElementById('options').value;
+  const subjectName=document.getElementById('subjectName').value.trim();
+  let opts;
+  if(optMode==='ABCD')opts=['A','B','C','D'];else if(optMode==='ABCDE')opts=['A','B','C','D','E'];else opts=['T','F'];
+  const answers=parseAnswers(document.getElementById('answers').value,numQ,opts);
+  const useKey=document.getElementById('enableKey').checked;
+  const keyRaw=document.getElementById('answerKey').value;
+  const keyAnswers=useKey?parseAnswers(keyRaw,numQ,opts):null;
+  const answered=answers.filter(a=>a!==null&&a!=='/').length;
+  const skipped=answers.filter(a=>a==='/').length;
+  const blank=answers.filter(a=>a===null).length;
+  let correct=0,wrong=0;const wrongNums=[];
+  if(keyAnswers){for(let i=0;i<numQ;i++){const a=answers[i],k=keyAnswers[i];if(a&&a!=='/'&&k&&k!=='/'){if(a===k)correct++;else{wrong++;wrongNums.push(i+1);}}}}
+  let sessionShort='O/N';
+  if(session==='May/June')sessionShort='M/J';else if(session==='Feb/Mar')sessionShort='F/M';
+  const yearShort=year.toString().slice(-2);
+  const fullPaperCode=`${code}/${paper}/${sessionShort}/${yearShort}`;
+  const wrongStr=wrongNums.length>0?`(${wrongNums.join(',')})` : '';
+  const errorBookTitle=`${fullPaperCode}${wrongStr}`;
+  let questionsHTML='';
+  for(let i=0;i<numQ;i++){
+    const ans=answers[i],key=keyAnswers?keyAnswers[i]:null;
+    const isSkipped=ans==='/';const isBlank=ans===null;
+    const isWrong=key&&ans&&ans!=='/'&&ans!==key;
+    const isCorrect=key&&ans&&ans!=='/'&&ans===key;
+    let bubblesHTML=opts.map(o=>{const isSelected=ans===o,isKeyOption=key===o;let cls='bubble';if(isSelected){cls+=isWrong?' filled wrong':' filled';if(isCorrect)cls+=' correct-key';}else if(isSkipped||isBlank){cls+=' skipped';if(isKeyOption&&key)cls+=' correct-key';}else{if(isWrong&&isKeyOption)cls+=' correct-key';}return`<div class="${cls}">${o}</div>`;}).join('');
+    const ansClass=isBlank||isSkipped?'skipped':(isWrong?'wrong':(isCorrect?'correct':''));
+    const ansDisplay=isBlank?'–':(isSkipped?'/':ans);
+    let extraHTML='';
+    if(isWrong&&key)extraHTML=`<span class="wrong-indicator">✗</span><span class="correct-key-label">${key}</span>`;
+    else if(isCorrect)extraHTML=`<span style="font-size:10px;color:var(--green);margin-left:2px;">✓</span>`;
+    questionsHTML+=`<div class="question-row"><span class="q-num">${i+1}</span><div class="bubbles">${bubblesHTML}</div><span class="answer-text ${ansClass}">${ansDisplay}</span>${extraHTML}</div>`;
+  }
+  let scoreBannerHTML='';
+  if(keyAnswers){
+    const keyAnswered=keyAnswers.filter(a=>a&&a!=='/').length;
+    const pct=keyAnswered>0?Math.round(correct/keyAnswered*100):0;
+    scoreBannerHTML=`<div class="score-banner"><div><div class="score-main">${correct} / ${keyAnswered}</div><div class="score-label">得分 Score</div></div><div class="score-pct">${pct}%</div><div class="score-details"><div class="score-item"><div class="score-item-num" style="color:#a8d5b5">${correct}</div><div class="score-item-lbl">正确 ✓</div></div><div class="score-item"><div class="score-item-num" style="color:#f4a7a3">${wrong}</div><div class="score-item-lbl">错误 ✗</div></div><div class="score-item"><div class="score-item-num" style="color:rgba(255,255,255,.5)">${skipped+blank}</div><div class="score-item-lbl">空白</div></div></div></div>`;
+  }
+  let titleInnerHTML;
+  if(keyAnswers&&wrongNums.length>0){titleInnerHTML=`<span>${fullPaperCode}</span><span class="title-wrong-nums">(${wrongNums.join(',')})</span>`;}
+  else{titleInnerHTML=`<span>${fullPaperCode}${subjectName?' &nbsp; '+subjectName:''}</span>`;}
+  document.getElementById('sheetWrapper').innerHTML=`
+    ${scoreBannerHTML}
+    <div class="sheet-header">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="sheet-title" id="sheetTitleText" onclick="copySheetTitle()" data-copytext="${errorBookTitle}" title="点击复制错题本标题">${titleInnerHTML}<span class="title-copy-icon" aria-hidden="true">📋</span></div>
+          ${subjectName&&keyAnswers&&wrongNums.length>0?`<div style="font-size:13px;color:var(--text-secondary);margin-top:2px;padding-left:4px;">${subjectName}</div>`:''}
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span class="badge badge-blue">📅 ${session} ${year}</span>
+            <span class="badge badge-green">⏱ ${duration}</span>
+            <span class="badge badge-yellow">📋 ${numQ} Questions</span>
+            ${keyAnswers&&wrongNums.length>0?`<span class="badge" style="background:#fce8e6;color:#c5221f;">✗ ${wrongNums.length} Errors</span>`:''}
+          </div>
+        </div>
+        <div style="font-size:12px;color:#5f6368;text-align:right;line-height:1.8;"><div>Date: ___________</div><div>Name: ___________</div></div>
+      </div>
+    </div>
+    <div class="sheet-body"><div class="questions-grid">${questionsHTML}</div></div>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-dot" style="background:#1a73e8"></div> Answered: <strong>${answered}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#bdc1c6"></div> Skipped (/): <strong>${skipped}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#f1f3f4;border:1px solid #dadce0"></div> Blank: <strong>${blank}</strong></div>
+      ${keyAnswers?`<div class="stat"><div class="stat-dot" style="background:#34a853"></div> Correct: <strong>${correct}</strong></div><div class="stat"><div class="stat-dot" style="background:#ea4335"></div> Wrong: <strong>${wrong}</strong></div>`:''}
+      ${keyAnswers&&wrongNums.length>0?`<div class="stat" style="cursor:pointer;color:var(--blue);" onclick="copySheetTitle()" title="复制错题本标题">📋 复制错题本标题</div>`:''}
+      <div class="stat" style="margin-left:auto;color:#5f6368;font-size:12px;">Generated ${new Date().toLocaleDateString()}</div>
+    </div>`;
+
+  let userText=`以下是我的答题情况，请根据这些答案批改：\n试卷：IGCSE ${fullPaperCode}${subjectName?' ('+subjectName+')':''}\n时长：${duration}，共 ${numQ} 题\n─────────────────────────\n`;
+  for(let i=0;i<numQ;i++){const ans=answers[i],qLabel=`第 ${i+1} 题`;if(ans===null)userText+=`${qLabel}：（未填写）\n`;else if(ans==='/')userText+=`${qLabel}：（空白，未作答）\n`;else userText+=`${qLabel}：${ans}\n`;}
+  userText+=`─────────────────────────\n已答：${answered} 题 ／ 空白：${skipped+blank} 题`;
+  _llmTexts.user=userText;
+
+  let gradeText='';
+  if(keyAnswers){
+    const keyAnswered=keyAnswers.filter(a=>a&&a!=='/').length;
+    const pct=keyAnswered>0?Math.round(correct/keyAnswered*100):0;
+    gradeText=`批改结果 — IGCSE ${fullPaperCode}${subjectName?' ('+subjectName+')':''}\n得分：${correct} / ${keyAnswered}（${pct}%）\n─────────────────────────\n`;
+    for(let i=0;i<numQ;i++){const ans=answers[i],key=keyAnswers[i],qLabel=`第 ${i+1} 题`;if(!ans||ans==='/')gradeText+=`${qLabel}：（空白）  正确答案：${key||'?'}\n`;else if(!key||key==='/')gradeText+=`${qLabel}：${ans}  （无标准答案）\n`;else if(ans===key)gradeText+=`${qLabel}：${ans} ✓\n`;else gradeText+=`${qLabel}：${ans} ❌  正确：${key}\n`;}
+    gradeText+=`─────────────────────────\n得分：${correct} 正确 / ${wrong} 错误 / ${skipped+blank} 空白\n正确率：${pct}%`;
+    if(wrongNums.length>0)gradeText+=`\n错题本标题：${errorBookTitle}`;
+    _llmTexts.grade=gradeText;
+  }
+
+  document.getElementById('llmSection').style.display='block';
+  const gradeTab=document.getElementById('gradeTab');const copyGrade=document.getElementById('copyBtnGrade');
+  if(keyAnswers){gradeTab.style.display='';copyGrade.style.display='';}
+  else{gradeTab.style.display='none';copyGrade.style.display='none';}
+  switchTab('user');
+
+  if(keyAnswers){
+    const keyAnswered=keyAnswers.filter(a=>a&&a!=='/').length;
+    setTimeout(()=>triggerGacha(correct,keyAnswered),300);
+  }
+}
+
+initMusicSettings();
+</script>
+</body>
+</html>

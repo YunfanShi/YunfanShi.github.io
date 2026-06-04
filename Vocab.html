@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexiFlow Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --md-sys-color-primary: #006493;
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-primary-container: #cae6ff;
+            --md-sys-color-on-primary-container: #001e30;
+            --md-sys-color-surface: #f8f9ff;
+            --md-sys-color-surface-container: #f0f4f9;
+            --md-sys-color-on-surface: #191c1e;
+            --md-sys-color-outline: #72777f;
+            --md-sys-color-error: #ba1a1a;
+            --md-sys-color-success: #14a34b;
+        }
+
+        .dark {
+            --md-sys-color-primary: #8dcdff;
+            --md-sys-color-on-primary: #00344f;
+            --md-sys-color-primary-container: #004b70;
+            --md-sys-color-on-primary-container: #cae6ff;
+            --md-sys-color-surface: #101416;
+            --md-sys-color-surface-container: #1d2024;
+            --md-sys-color-on-surface: #c5c7ce;
+        }
+
+        body {
+            font-family: 'Roboto', 'Noto Sans SC', sans-serif;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none; /* 防止双击选中文本影响体验 */
+        }
+
+        /* Material 3 Components */
+        .card {
+            background-color: var(--md-sys-color-surface-container);
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+        
+        .btn-filled {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            border-radius: 24px;
+            padding: 0 24px;
+            height: 48px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: box-shadow 0.2s, transform 0.1s;
+            cursor: pointer;
+        }
+        .btn-filled:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .btn-filled:active { transform: scale(0.98); }
+        
+        .btn-tonal {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            border-radius: 24px;
+            padding: 0 24px;
+            height: 48px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .btn-danger-tonal {
+            background-color: #ffdad6;
+            color: #410002;
+            border-radius: 24px;
+            padding: 0 24px;
+            height: 48px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .dark .btn-danger-tonal { background-color: #93000a; color: #ffb4ab; }
+
+        .nav-rail-item {
+            height: 56px;
+            width: 80px;
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            color: var(--md-sys-color-on-surface);
+            transition: all 0.2s;
+            gap: 4px;
+            padding: 12px 0;
+            cursor: pointer;
+        }
+        .nav-rail-item.active {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        .nav-rail-item .icon { font-size: 24px; }
+        .nav-rail-item .label { font-size: 11px; font-weight: 500; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--md-sys-color-outline); border-radius: 4px; opacity: 0.3; }
+
+        /* Animations */
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+        .shake-anim { animation: shake 0.4s ease-in-out; }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .slide-up-anim { animation: slideUp 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="flex">
+
+    <nav class="w-24 h-full bg-[var(--md-sys-color-surface)] border-r border-black/5 dark:border-white/5 flex flex-col items-center py-6 z-20">
+        <div class="mb-8 p-2 bg-[var(--md-sys-color-primary)] text-white rounded-xl">
+            <span class="material-icons-round text-2xl">school</span>
+        </div>
+
+        <button onclick="app.nav('dashboard')" id="nav-dashboard" class="nav-rail-item active">
+            <span class="material-icons-round icon">dashboard</span>
+            <span class="label">概览</span>
+        </button>
+        <button onclick="app.nav('review')" id="nav-review" class="nav-rail-item">
+            <span class="material-icons-round icon">event_repeat</span>
+            <span class="label">复习</span>
+        </button>
+        <button onclick="app.nav('library')" id="nav-library" class="nav-rail-item">
+            <span class="material-icons-round icon">book</span>
+            <span class="label">词库</span>
+        </button>
+        <button onclick="app.nav('settings')" id="nav-settings" class="nav-rail-item mt-auto">
+            <span class="material-icons-round icon">settings</span>
+            <span class="label">设置</span>
+        </button>
+    </nav>
+
+    <main class="flex-1 h-full relative overflow-hidden">
+        
+        <div id="toast-container" class="absolute bottom-8 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+        <div id="view-dashboard" class="view-page w-full h-full overflow-y-auto p-8">
+            <header class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold">学习概览</h1>
+                    <p class="text-sm opacity-60">坚持学习，对抗遗忘。</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="app.toggleTheme()" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                        <span class="material-icons-round" id="theme-icon">dark_mode</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="card p-5">
+                    <div class="text-xs font-bold opacity-60 uppercase">今日时长</div>
+                    <div class="text-3xl font-bold mt-1" id="stat-time">0m</div>
+                </div>
+                <div class="card p-5">
+                    <div class="text-xs font-bold opacity-60 uppercase">已掌握单词</div>
+                    <div class="text-3xl font-bold mt-1 text-green-600 dark:text-green-400" id="stat-mastered">0</div>
+                </div>
+                <div class="card p-5">
+                    <div class="text-xs font-bold opacity-60 uppercase">待复习</div>
+                    <div class="text-3xl font-bold mt-1 text-orange-600 dark:text-orange-400" id="stat-due">0</div>
+                </div>
+                <div class="card p-5">
+                    <div class="text-xs font-bold opacity-60 uppercase">今日新学</div>
+                    <div class="text-3xl font-bold mt-1"><span id="stat-learned">0</span></div>
+                </div>
+            </div>
+
+            <div class="card p-4 mb-6 flex items-center gap-4">
+                <div class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-2 rounded-lg flex items-center gap-2 px-3">
+                    <span class="material-icons-round text-sm">emoji_events</span>
+                    <span class="text-xs font-bold">今日新斩获</span>
+                </div>
+                <div id="mastered-ticker" class="flex-1 overflow-hidden whitespace-nowrap text-sm opacity-70">
+                    暂无新掌握单词，快去学习吧！
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-6 h-64">
+                <div onclick="app.startSession('learn')" class="card col-span-2 p-8 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all group bg-gradient-to-br from-[var(--md-sys-color-primary)] to-blue-800 text-white">
+                    <div class="relative z-10 h-full flex flex-col justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold mb-2">开始学习</h2>
+                            <p class="opacity-80">智能推送：新词 (多轮) + 错词 + 到期复习</p>
+                        </div>
+                        <div class="flex gap-2">
+                             <span class="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur">词义选择</span>
+                             <span class="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur">回想</span>
+                             <span class="bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur">拼写</span>
+                        </div>
+                    </div>
+                    <span class="material-icons-round absolute -bottom-4 -right-4 text-[180px] opacity-10 group-hover:scale-110 transition-transform">school</span>
+                </div>
+
+                <div class="grid grid-rows-2 gap-4">
+                     <div onclick="app.startSession('immersive')" class="card p-6 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 flex flex-col justify-center relative overflow-hidden transition-colors">
+                        <h3 class="font-bold text-lg mb-1">沉浸刷词</h3>
+                        <p class="text-xs opacity-60">快速回顾 (只看/听)</p>
+                        <span class="material-icons-round absolute bottom-2 right-2 text-4xl opacity-10">bolt</span>
+                    </div>
+                    <div onclick="app.startSession('spell')" class="card p-6 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 flex flex-col justify-center relative overflow-hidden transition-colors">
+                        <h3 class="font-bold text-lg mb-1">随手拼</h3>
+                        <p class="text-xs opacity-60">专注拼写练习</p>
+                        <span class="material-icons-round absolute bottom-2 right-2 text-4xl opacity-10">keyboard</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-review" class="view-page hidden w-full h-full overflow-y-auto p-8">
+            <header class="flex items-center gap-4 mb-8">
+                <button onclick="app.nav('dashboard')" class="p-2 rounded-full hover:bg-black/5"><span class="material-icons-round">arrow_back</span></button>
+                <h1 class="text-2xl font-bold">复习计划</h1>
+            </header>
+
+            <div class="card p-6 mb-6 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-3xl font-bold text-orange-600 dark:text-orange-400" id="total-due-count">0</div>
+                        <div class="text-sm opacity-70">当前到期总数</div>
+                    </div>
+                    <button onclick="app.startSession('review_all')" class="btn-filled bg-orange-600 hover:bg-orange-700">
+                        <span class="material-icons-round">play_arrow</span> 一键智能复习
+                    </button>
+                </div>
+            </div>
+
+            <div id="review-timeline" class="space-y-4 pb-20"></div>
+        </div>
+
+        <div id="view-library" class="view-page hidden w-full h-full overflow-y-auto p-8">
+            <header class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">我的内容</h1>
+                <div class="flex gap-2">
+                    <button onclick="app.openImportModal()" class="btn-tonal text-sm h-10">
+                        <span class="material-icons-round text-sm">upload</span> 导入 TXT/粘贴
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex gap-2 mb-6 border-b border-black/10 dark:border-white/10 pb-4">
+                <button onclick="app.renderLibrary('all')" class="px-4 py-1 rounded-full text-sm font-medium bg-[var(--md-sys-color-primary)] text-white lib-filter-btn">全部</button>
+                <button onclick="app.renderLibrary('learning')" class="px-4 py-1 rounded-full text-sm font-medium border border-gray-500 lib-filter-btn">学习中</button>
+                <button onclick="app.renderLibrary('mastered')" class="px-4 py-1 rounded-full text-sm font-medium border border-gray-500 lib-filter-btn">已掌握</button>
+                <button onclick="app.renderLibrary('wrong')" class="px-4 py-1 rounded-full text-sm font-medium border border-gray-500 lib-filter-btn">错词本</button>
+            </div>
+
+            <div id="library-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"></div>
+        </div>
+
+        <div id="view-settings" class="view-page hidden w-full h-full overflow-y-auto p-8 max-w-2xl mx-auto">
+            <h1 class="text-2xl font-bold mb-6">设置</h1>
+            <div class="card divide-y divide-black/5 dark:divide-white/5">
+                <div class="p-4 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold">自动发音 (TTS)</div>
+                        <div class="text-xs opacity-60">显示单词时自动朗读</div>
+                    </div>
+                    <input type="checkbox" id="set-tts" class="w-5 h-5 accent-[var(--md-sys-color-primary)]" onchange="app.saveSettings()">
+                </div>
+                <div class="p-4">
+                    <div class="flex justify-between mb-2">
+                        <span class="font-bold">语速调节</span>
+                        <span id="set-rate-val" class="text-sm opacity-60">1.0x</span>
+                    </div>
+                    <input type="range" id="set-rate" min="0.5" max="1.5" step="0.1" class="w-full accent-[var(--md-sys-color-primary)]" oninput="app.saveSettings()">
+                </div>
+                <div class="p-4">
+                    <div class="font-bold mb-4">快捷键设置 (点击录制)</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="app.recordKey('know')" id="key-know" class="p-3 border rounded-lg text-left text-sm hover:bg-black/5 transition-colors">认识/下一个: <b class="float-right">Space</b></button>
+                        <button onclick="app.recordKey('unknown')" id="key-unknown" class="p-3 border rounded-lg text-left text-sm hover:bg-black/5 transition-colors">不认识: <b class="float-right">K</b></button>
+                        <button onclick="app.recordKey('speak')" id="key-speak" class="p-3 border rounded-lg text-left text-sm hover:bg-black/5 transition-colors">发音: <b class="float-right">P</b></button>
+                        <button onclick="app.recordKey('master')" id="key-master" class="p-3 border rounded-lg text-left text-sm hover:bg-black/5 transition-colors">斩词: <b class="float-right">M</b></button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <button onclick="app.resetData()" class="w-full py-3 text-red-500 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 font-bold transition-colors">清空所有数据</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-session" class="absolute inset-0 bg-[var(--md-sys-color-surface)] z-50 hidden flex flex-col">
+            <div class="h-16 px-6 flex items-center justify-between border-b border-black/5 dark:border-white/5 bg-[var(--md-sys-color-surface)]">
+                <button onclick="app.exitSession()" class="p-2 -ml-2 rounded-full hover:bg-black/5 text-[var(--md-sys-color-outline)] transition-colors">
+                    <span class="material-icons-round">close</span>
+                </button>
+                <div class="flex flex-col items-center">
+                    <span class="text-xs font-bold tracking-widest opacity-50" id="session-mode-label">LEARNING</span>
+                    <div id="session-progress-dots" class="flex gap-1 mt-1"></div>
+                </div>
+                <div class="w-10"></div> </div>
+
+            <div class="flex-1 flex flex-col items-center justify-center p-8 relative">
+                <div id="undo-toast" class="absolute top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full text-sm shadow-xl flex items-center gap-4 opacity-0 translate-y-[-20px] transition-all z-[70] pointer-events-auto">
+                    <span>已标记为认识</span>
+                    <button onclick="Session.undo()" class="text-yellow-400 font-bold hover:underline">撤销 (我错了)</button>
+                </div>
+
+                <div id="study-card" class="w-full max-w-2xl text-center">
+                    </div>
+            </div>
+
+            <div id="session-controls" class="h-28 border-t border-black/5 dark:border-white/5 flex items-center justify-between px-10 bg-[var(--md-sys-color-surface-container)]">
+                </div>
+        </div>
+
+    </main>
+
+    <div id="modal-import" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center p-4">
+        <div class="card w-full max-w-lg p-6 shadow-2xl slide-up-anim bg-[var(--md-sys-color-surface)]">
+            <h2 class="text-xl font-bold mb-4">导入单词</h2>
+            <textarea id="import-area" class="w-full h-40 p-3 border rounded-xl bg-transparent font-mono text-sm mb-4 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-[var(--md-sys-color-primary)] outline-none" placeholder="单词|释义|例句|翻译 (每行一个)"></textarea>
+            <div class="flex justify-end gap-3">
+                <button onclick="document.getElementById('modal-import').classList.add('hidden')" class="btn-tonal bg-transparent border border-gray-300 dark:border-gray-600 h-10">取消</button>
+                <button onclick="app.doImport()" class="btn-filled h-10">开始导入</button>
+            </div>
+            <div class="mt-4 pt-4 border-t border-black/10 text-center">
+                <label class="btn-tonal w-full cursor-pointer h-10 opacity-70 hover:opacity-100">
+                    <span class="material-icons-round text-sm">upload_file</span> 上传 TXT 文件
+                    <input type="file" accept=".txt" class="hidden" onchange="app.handleFile(this)">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA STORE ---
+        const DB = {
+            key: 'LexiFlowPro_Merged_V2',
+            data: {
+                words: [], // { id, word, meaning, ex, cn, status(new/learning/review/mastered), stage(0-4), nextReview, interval, learnedDate }
+                stats: { todayTime: 0, todayLearned: 0, todayReviewed: 0, date: new Date().toDateString() },
+                settings: { tts: true, rate: 1.0, theme: 'light', keys: { know: ' ', unknown: 'k', speak: 'p', master: 'm' } }
+            },
+            init() {
+                const raw = localStorage.getItem(this.key);
+                if (raw) {
+                    try {
+                        this.data = JSON.parse(raw);
+                    } catch (e) { console.error("Data parse error", e); this.seed(); }
+                } else {
+                    this.seed();
+                }
+                
+                // Day reset
+                if (this.data.stats.date !== new Date().toDateString()) {
+                    this.data.stats = { 
+                        todayTime: 0, 
+                        todayLearned: 0, 
+                        todayReviewed: 0, 
+                        date: new Date().toDateString() 
+                    };
+                    this.save();
+                }
+                this.save(); // ensure consistent struct
+            },
+            save() { localStorage.setItem(this.key, JSON.stringify(this.data)); },
+            seed() {
+                const demo = [
+                    { w: "ephemeral", m: "短暂的", e: "Fashion is ephemeral.", c: "时尚是短暂的。" },
+                    { w: "serendipity", m: "意外发现珍宝的运气", e: "It was pure serendipity.", c: "这纯属机缘巧合。" },
+                    { w: "resilient", m: "有弹性的；能复原的", e: "She is resilient.", c: "她很有韧性。" },
+                    { w: "ubiquitous", m: "无所不在的", e: "Smartphones are ubiquitous.", c: "智能手机无处不在。" },
+                    { w: "meticulous", m: "一丝不苟的", e: "He is meticulous about details.", c: "他对细节一丝不苟。" }
+                ];
+                demo.forEach(d => this.addWord(d.w, d.m, d.e, d.c));
+            },
+            addWord(w, m, e='', c='') {
+                // Prevent duplicates based on word text
+                if (this.data.words.some(existing => existing.word.toLowerCase() === w.toLowerCase())) return;
+
+                this.data.words.push({
+                    id: crypto.randomUUID(), 
+                    word: w, 
+                    meaning: m, 
+                    ex: e, 
+                    cn: c,
+                    status: 'new', 
+                    stage: 0, 
+                    nextReview: 0, 
+                    interval: 0, 
+                    learnedDate: null
+                });
+                this.save();
+            },
+            deleteWord(id) {
+                this.data.words = this.data.words.filter(w => w.id !== id);
+                this.save();
+            }
+        };
+
+        // --- SRS ENGINE (Ebbinghaus) ---
+        const SRS = {
+            // Intervals in minutes: 1min, 10min, 1h, 12h, 1d, 2d, 4d, 7d
+            intervals: [1, 10, 60, 720, 1440, 2880, 5760, 10080], 
+            getDue() {
+                const now = Date.now();
+                return DB.data.words.filter(w => 
+                    w.status !== 'new' && 
+                    w.status !== 'mastered' && 
+                    w.nextReview <= now
+                );
+            },
+            process(word, isCorrect) {
+                const now = Date.now();
+                if (!isCorrect) {
+                    word.interval = 0;
+                    word.nextReview = now; // Due immediately
+                    // Status logic is handled in Session, here we just reset math
+                    return;
+                }
+                
+                // Increase interval
+                let idx = this.intervals.findIndex(i => i > word.interval);
+                if (idx === -1) idx = this.intervals.length - 1; // Cap at max
+                else if (idx > 0 && word.interval === this.intervals[idx-1]) idx++; // Simple promotion
+                
+                // If it was 0 (wrong), go to first step (1 min) or keep specific logic
+                if (word.interval === 0) idx = 0;
+
+                word.interval = this.intervals[idx];
+                word.nextReview = now + (word.interval * 60000);
+            }
+        };
+
+        // --- SESSION LOGIC ---
+        const Session = {
+            active: false,
+            queue: [], 
+            currentWord: null,
+            phase: 'recall', // recall, select, spell, feedback
+            undoTimer: null,
+            lastPassed: null,
+            mode: 'learn', // learn, review, immersive, spell
+
+            start(mode, filterDate = null) {
+                let list = [];
+                const now = Date.now();
+
+                // BUG FIX: Ensure imported words (status 'new') are picked up
+                if (mode === 'learn') {
+                    // Priority: Wrong/Learning (Due now) > New
+                    const learning = DB.data.words.filter(w => (w.status === 'learning') && w.nextReview <= now);
+                    // Pick new words. Sort random to mix imported block? No, keep order usually better.
+                    const newWords = DB.data.words.filter(w => w.status === 'new').slice(0, 10);
+                    
+                    // Also include Review Due words in "Learn" session? Usually separate, but let's mix a few if wanted.
+                    // Strict separation for clarity:
+                    list = [...learning, ...newWords].slice(0, 20); // Limit batch size
+                } else if (mode === 'review') {
+                    if (filterDate) {
+                        list = DB.data.words.filter(w => w.learnedDate === filterDate);
+                    } else {
+                        list = SRS.getDue();
+                    }
+                } else if (mode === 'review_all') {
+                    list = SRS.getDue();
+                } else if (mode === 'immersive' || mode === 'spell') {
+                    list = DB.data.words.filter(w => w.status !== 'new').sort(() => 0.5 - Math.random()).slice(0, 20);
+                }
+
+                if (list.length === 0) return app.toast("当前没有符合该模式的学习内容！");
+
+                // Initialize session-specific state on words
+                this.queue = list.map(w => ({ 
+                    ...w, 
+                    // If it's new/learning, start at 0. If review, effectively stage 4 (just recall)
+                    sessionStage: (w.status === 'new' || w.status === 'learning') ? 0 : 4 
+                }));
+                
+                this.mode = mode;
+                this.active = true;
+                this.lastPassed = null;
+                app.toggleView('session');
+                this.next();
+            },
+
+            next() {
+                if (this.queue.length === 0) {
+                    this.end();
+                    return;
+                }
+                
+                this.currentWord = this.queue[0];
+                
+                // Determine Phase
+                // Logic: New words go through 0->1(Recall)->2(Select)->3(Spell)->4(Done)
+                // Review words go through Recall -> Done
+                
+                const stage = this.currentWord.sessionStage;
+                
+                if (this.mode === 'spell') {
+                    this.phase = 'spell';
+                } else if (this.mode === 'immersive') {
+                    this.phase = 'immersive';
+                } else if (this.currentWord.status === 'review') {
+                    this.phase = 'recall';
+                } else {
+                    // Learning / New
+                    if (stage === 0) this.phase = 'recall';
+                    else if (stage === 1) this.phase = 'select';
+                    else if (stage === 2) this.phase = 'spell';
+                    else this.phase = 'recall'; // Fallback
+                }
+                
+                app.renderCard(this.currentWord, this.phase);
+            },
+
+            handleResult(success) {
+                const w = this.currentWord;
+                
+                // Clear Undo UI
+                clearTimeout(this.undoTimer);
+                document.getElementById('undo-toast').classList.add('translate-y-[-20px]', 'opacity-0');
+                document.getElementById('undo-toast').classList.remove('pointer-events-auto');
+
+                const dbWord = DB.data.words.find(x => x.id === w.id);
+
+                if (!success) {
+                    // --- FAILED / UNKNOWN ---
+                    // Logic: Reset session stage -> 0, Move to End of Queue
+                    w.sessionStage = 0; 
+                    
+                    // DB Update: Mark as learning (wrong)
+                    if (dbWord) {
+                        dbWord.status = 'learning';
+                        SRS.process(dbWord, false); // Interval = 0
+                        DB.save();
+                    }
+
+                    // Move to end of queue
+                    this.queue.shift();
+                    this.queue.push(w);
+
+                    // Show Feedback Screen (Stop here)
+                    this.phase = 'feedback';
+                    app.renderFeedback(w);
+
+                } else {
+                    // --- SUCCESS / KNOWN ---
+                    
+                    // Logic for advancing stages
+                    if (this.mode === 'learn' || this.currentWord.status === 'learning' || this.currentWord.status === 'new') {
+                        w.sessionStage++;
+                        
+                        if (w.sessionStage > 2) { 
+                            // Finished 3 stages (0,1,2 -> done)
+                            // Mark as Mastered/Review
+                            if (dbWord) {
+                                dbWord.status = 'review';
+                                dbWord.learnedDate = new Date().toDateString();
+                                // First interval setup (e.g. 1 day)
+                                dbWord.interval = 1440; 
+                                dbWord.nextReview = Date.now() + (1440 * 60000);
+                                DB.data.stats.todayLearned++;
+                                app.toast(`已初步掌握: ${w.word}`);
+                            }
+                            this.queue.shift(); // Remove from queue
+                        } else {
+                            // Still learning stages
+                            // Push back into queue, but not immediately (spacing in session)
+                            this.queue.shift();
+                            // Insert at index 3 or end
+                            const insertPos = Math.min(this.queue.length, 3);
+                            this.queue.splice(insertPos, 0, w);
+                        }
+
+                    } else {
+                        // Review Mode (One pass)
+                        if (dbWord) {
+                            SRS.process(dbWord, true);
+                            DB.data.stats.todayReviewed++;
+                        }
+                        this.queue.shift();
+                    }
+
+                    DB.save();
+                    
+                    // Undo Logic (Only for Phase 'recall')
+                    if (this.phase === 'recall' && this.mode !== 'immersive') {
+                        this.lastPassed = w;
+                        this.showUndo();
+                    }
+
+                    this.next();
+                }
+            },
+
+            showUndo() {
+                const t = document.getElementById('undo-toast');
+                t.classList.remove('translate-y-[-20px]', 'opacity-0');
+                t.classList.add('pointer-events-auto');
+                this.undoTimer = setTimeout(() => {
+                    t.classList.add('translate-y-[-20px]', 'opacity-0');
+                    t.classList.remove('pointer-events-auto');
+                }, 3000);
+            },
+
+            undo() {
+                if (!this.lastPassed) return;
+                const w = this.lastPassed;
+                
+                // Find in DB
+                const dbWord = DB.data.words.find(x => x.id === w.id);
+                if (dbWord) {
+                    dbWord.status = 'learning';
+                    SRS.process(dbWord, false);
+                    DB.save();
+                }
+                
+                // Put back in front of queue
+                // We must find where we put it (it might be gone from queue if finished)
+                // Simply unshift it back
+                w.sessionStage = 0;
+                this.queue.unshift(w);
+                
+                // Hide toast
+                document.getElementById('undo-toast').classList.add('translate-y-[-20px]', 'opacity-0');
+                
+                this.next();
+            },
+
+            end() {
+                this.active = false;
+                app.nav('dashboard');
+                app.toast("本次学习完成！🎉");
+            }
+        };
+
+        // --- APP UI ---
+        const app = {
+            init() {
+                DB.init();
+                this.setupTheme();
+                this.setupKeybindings();
+                this.nav('dashboard');
+                
+                // Timer
+                setInterval(() => {
+                    if (Session.active && !document.hidden) {
+                        DB.data.stats.todayTime += (1/60);
+                        // Optional: update UI periodically if visible
+                        // if(document.getElementById('view-dashboard').classList.contains('hidden') === false) this.renderDashboard();
+                    }
+                }, 1000);
+            },
+
+            setupTheme() {
+                const t = DB.data.settings.theme;
+                if(t==='dark') document.documentElement.classList.add('dark');
+            },
+
+            nav(view) {
+                document.querySelectorAll('.view-page').forEach(el => el.classList.add('hidden'));
+                document.getElementById('view-' + view).classList.remove('hidden');
+                document.getElementById('view-session').classList.add('hidden');
+                
+                document.querySelectorAll('.nav-rail-item').forEach(el => el.classList.remove('active'));
+                const btn = document.getElementById('nav-' + view);
+                if(btn) btn.classList.add('active');
+
+                if(view === 'dashboard') this.renderDashboard();
+                if(view === 'review') this.renderReviewPage();
+                if(view === 'library') this.renderLibrary('all');
+                if(view === 'settings') this.renderSettings();
+            },
+
+            toggleView(id) {
+                if (id === 'session') document.getElementById('view-session').classList.remove('hidden');
+                else document.getElementById('view-session').classList.add('hidden');
+            },
+
+            // --- RENDERERS ---
+
+            renderDashboard() {
+                const s = DB.data.stats;
+                document.getElementById('stat-time').innerText = Math.floor(s.todayTime) + 'm';
+                document.getElementById('stat-mastered').innerText = DB.data.words.filter(w=>w.status==='mastered' || w.status==='review').length;
+                document.getElementById('stat-due').innerText = SRS.getDue().length;
+                document.getElementById('stat-learned').innerText = s.todayLearned;
+                
+                // Ticker
+                const masteredToday = DB.data.words.filter(w => w.status === 'review' && w.learnedDate === new Date().toDateString());
+                const ticker = document.getElementById('mastered-ticker');
+                if (masteredToday.length > 0) {
+                    ticker.innerHTML = masteredToday.map(w => `<span class="inline-block bg-white dark:bg-white/10 px-2 rounded mr-2">${w.word}</span>`).join('');
+                } else {
+                    ticker.innerText = "暂无新掌握单词，快去学习吧！";
+                }
+            },
+
+            renderReviewPage() {
+                const list = document.getElementById('review-timeline');
+                const due = SRS.getDue();
+                document.getElementById('total-due-count').innerText = due.length;
+                
+                // Group by Learned Date
+                const groups = {};
+                DB.data.words.forEach(w => {
+                    if (w.learnedDate) {
+                        if (!groups[w.learnedDate]) groups[w.learnedDate] = [];
+                        groups[w.learnedDate].push(w);
+                    }
+                });
+                
+                const sortedDates = Object.keys(groups).sort((a,b) => new Date(b) - new Date(a));
+                
+                list.innerHTML = sortedDates.map(date => {
+                    const words = groups[date];
+                    const weekday = new Date(date).toLocaleDateString('zh-CN', {weekday: 'long'});
+                    const samples = words.slice(0, 5).map(w => w.word).join(', ');
+                    const dueCount = words.filter(w => w.nextReview <= Date.now() && w.status !== 'mastered').length;
+                    
+                    return `
+                        <div class="card p-4 hover:border-[var(--md-sys-color-primary)] border border-transparent transition-all flex justify-between items-center bg-white dark:bg-gray-800">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1">
+                                    <span class="font-bold text-lg">${date}</span>
+                                    <span class="text-xs opacity-60 ml-2">${weekday}</span>
+                                </div>
+                                <div class="text-sm opacity-60 truncate max-w-md">${samples}...</div>
+                            </div>
+                            ${dueCount > 0 
+                                ? `<button onclick="app.startSession('review', '${date}')" class="btn-tonal h-10 text-xs shrink-0 ml-4">复习此组 (${dueCount})</button>` 
+                                : '<span class="text-green-500 text-sm font-bold ml-4">✓ 已完成</span>'
+                            }
+                        </div>
+                    `;
+                }).join('') || '<div class="text-center opacity-50 py-10">暂无历史记录</div>';
+            },
+
+            renderLibrary(filter) {
+                const list = document.getElementById('library-list');
+                let words = DB.data.words;
+                if (filter === 'learning') words = words.filter(w => w.status === 'learning' || w.status === 'new');
+                if (filter === 'mastered') words = words.filter(w => w.status === 'mastered' || w.status === 'review');
+                if (filter === 'wrong') words = words.filter(w => w.interval === 0 && w.status === 'learning');
+                
+                // Update buttons
+                document.querySelectorAll('.lib-filter-btn').forEach(btn => {
+                    btn.classList.remove('bg-[var(--md-sys-color-primary)]', 'text-white');
+                    btn.classList.add('border', 'border-gray-500');
+                });
+                // Find clicked button style update logic (simplified here)
+
+                list.innerHTML = words.map(w => `
+                    <div class="card p-4 flex justify-between items-center group hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                        <div>
+                            <div class="font-bold text-lg">${w.word}</div>
+                            <div class="text-xs opacity-60 truncate max-w-[150px]">${w.meaning}</div>
+                        </div>
+                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="app.speak('${w.word}')" class="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full"><span class="material-icons-round text-sm">volume_up</span></button>
+                            <button onclick="app.deleteWord('${w.id}')" class="p-2 hover:bg-red-100 text-red-500 rounded-full"><span class="material-icons-round text-sm">delete</span></button>
+                        </div>
+                    </div>
+                `).join('') || '<div class="col-span-full text-center opacity-50 py-10">空空如也</div>';
+            },
+
+            renderSettings() {
+                const s = DB.data.settings;
+                document.getElementById('set-tts').checked = s.tts;
+                document.getElementById('set-rate').value = s.rate;
+                document.getElementById('set-rate-val').innerText = s.rate + 'x';
+                // Keys
+                const fmtKey = (k) => k === ' ' ? 'Space' : k.toUpperCase();
+                document.getElementById('key-know').innerHTML = `认识/下一个: <b class="float-right">${fmtKey(s.keys.know)}</b>`;
+                document.getElementById('key-unknown').innerHTML = `不认识: <b class="float-right">${fmtKey(s.keys.unknown)}</b>`;
+                document.getElementById('key-speak').innerHTML = `发音: <b class="float-right">${fmtKey(s.keys.speak)}</b>`;
+                document.getElementById('key-master').innerHTML = `斩词: <b class="float-right">${fmtKey(s.keys.master)}</b>`;
+            },
+
+            // --- CARD RENDERING ---
+            renderCard(word, phase) {
+                const container = document.getElementById('study-card');
+                const controls = document.getElementById('session-controls');
+                const label = document.getElementById('session-mode-label');
+                const dots = document.getElementById('session-progress-dots');
+
+                // Label
+                label.innerText = phase === 'immersive' ? 'IMMERSIVE' : (phase === 'recall' ? 'RECALL' : phase.toUpperCase());
+                
+                // Dots (Progress in session)
+                let dotHtml = '';
+                // 3 stages visualized (0, 1, 2)
+                for(let i=0; i<3; i++) {
+                    let active = (word.sessionStage || 0) > i;
+                    dotHtml += `<div class="w-2 h-2 rounded-full ${active ? 'bg-[var(--md-sys-color-primary)]' : 'bg-gray-300 dark:bg-gray-600'}"></div>`;
+                }
+                dots.innerHTML = Session.mode === 'learn' ? dotHtml : '';
+
+                // TTS
+                if (DB.data.settings.tts && phase !== 'select') this.speak(word.word);
+
+                if (phase === 'recall' || phase === 'immersive') {
+                    // Phase 1: Show Word
+                    container.innerHTML = `
+                        <div class="text-6xl font-bold mb-6 text-[var(--md-sys-color-primary)] slide-up-anim">${word.word}</div>
+                        <div class="text-sm opacity-60 mb-8 cursor-pointer hover:text-[var(--md-sys-color-primary)]" onclick="app.speak('${word.word}')">🔊 点击发音</div>
+                        ${phase === 'immersive' ? `<div class="text-2xl font-medium slide-up-anim">${word.meaning}</div>` : ''}
+                    `;
+                    
+                    // Controls: Google Style - Left: Next/Know, Right: Unknown
+                    if (phase === 'immersive') {
+                         controls.innerHTML = `<button onclick="Session.handleResult(true)" class="btn-filled w-full">下一个</button>`;
+                    } else {
+                        controls.innerHTML = `
+                            <div class="flex items-center gap-4 w-full justify-between max-w-xl mx-auto">
+                                <button onclick="Session.handleResult(true)" class="btn-filled flex-1 bg-[var(--md-sys-color-primary)] h-14 text-lg">
+                                    <span class="material-icons-round">check</span> 认识 / 下一个
+                                </button>
+                                
+                                <div class="flex gap-2">
+                                    <button onclick="app.killWord()" class="btn-danger-tonal px-4" title="斩词 (永久掌握)"><span class="material-icons-round">delete_forever</span></button>
+                                    <button onclick="Session.handleResult(false)" class="btn-danger-tonal h-14 w-32 flex-col gap-0 text-xs">
+                                        <span class="material-icons-round text-xl">close</span> 不认识
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="absolute bottom-2 left-0 w-full text-center text-[10px] opacity-30 pointer-events-none">Space: 认识 | K: 不认识</div>
+                        `;
+                    }
+                } else if (phase === 'select') {
+                    // Phase 2: Multiple Choice
+                    const pool = DB.data.words.filter(w => w.id !== word.id);
+                    // Handle small DB
+                    let distractors = [];
+                    if (pool.length < 3) distractors = ["Distractor 1", "Distractor 2", "Distractor 3"];
+                    else distractors = pool.sort(()=>0.5-Math.random()).slice(0, 3).map(w=>w.meaning);
+                    
+                    const options = [word.meaning, ...distractors].sort(()=>0.5-Math.random());
+
+                    container.innerHTML = `
+                        <div class="text-4xl font-bold mb-8">${word.word}</div>
+                        <div class="grid grid-cols-1 gap-3 w-full max-w-md mx-auto">
+                            ${options.map((opt, i) => `
+                                <button onclick="Session.handleResult('${opt}' === '${word.meaning}')" class="p-4 rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-[var(--md-sys-color-primary-container)] text-left transition-colors relative choice-btn">
+                                    <span class="absolute left-4 opacity-40 font-mono text-xs border border-current rounded px-1">${i+1}</span>
+                                    <span class="pl-8">${opt}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                    controls.innerHTML = `<div class="text-xs opacity-50 w-full text-center">请选择正确释义 (数字键 1-4)</div>`;
+                } else if (phase === 'spell') {
+                    // Phase 3: Spell
+                    container.innerHTML = `
+                        <div class="text-sm opacity-60 mb-2">请拼写单词</div>
+                        <div class="text-2xl font-bold mb-6">${word.meaning}</div>
+                        <input type="text" id="spell-input" class="w-full text-center text-4xl bg-transparent border-b-2 border-[var(--md-sys-color-primary)] outline-none py-2 font-mono" autocomplete="off">
+                    `;
+                    controls.innerHTML = `
+                        <button onclick="app.checkSpelling('${word.word}')" class="btn-filled w-full">提交 (Enter)</button>
+                        <button onclick="app.hintSpelling('${word.word}')" class="absolute bottom-4 right-10 text-xs opacity-50 hover:opacity-100">提示</button>
+                    `;
+                    setTimeout(() => document.getElementById('spell-input').focus(), 100);
+                }
+            },
+
+            renderFeedback(word) {
+                const container = document.getElementById('study-card');
+                const controls = document.getElementById('session-controls');
+
+                container.innerHTML = `
+                    <div class="text-6xl mb-4 shake-anim">❌</div>
+                    <div class="text-4xl font-bold text-red-500 mb-2">${word.word}</div>
+                    <div class="text-2xl font-medium mb-4">${word.meaning}</div>
+                    <div class="bg-black/5 dark:bg-white/5 p-4 rounded-xl text-left text-sm w-full max-w-md mx-auto">
+                        <div class="italic mb-1 text-[var(--md-sys-color-primary)]">${word.ex}</div>
+                        <div class="opacity-70">${word.cn}</div>
+                    </div>
+                `;
+
+                // Single "Next" button logic
+                controls.innerHTML = `
+                    <button id="btn-feedback-next" onclick="Session.next()" class="btn-tonal w-full font-bold h-14 text-lg">
+                        知道了，下一个 (Space)
+                    </button>
+                `;
+            },
+
+            checkSpelling(target) {
+                const input = document.getElementById('spell-input');
+                const val = input.value.trim().toLowerCase();
+                if (val === target.toLowerCase()) {
+                    Session.handleResult(true);
+                } else {
+                    input.classList.add('shake-anim');
+                    setTimeout(()=>input.classList.remove('shake-anim'), 400);
+                    // Logic: Wrong spelling -> Fail immediately? Or clear and retry?
+                    // User request: "Wrong -> Direct Fail". 
+                    Session.handleResult(false);
+                }
+            },
+
+            hintSpelling(word) {
+                const input = document.getElementById('spell-input');
+                input.value = word.substring(0, 1) + '...';
+                input.focus();
+            },
+
+            // --- UTILS ---
+            startSession(mode, date) { Session.start(mode, date); },
+            exitSession() { Session.end(); },
+            killWord() {
+                if(confirm("确定斩词？（永久掌握，不再复习）")) {
+                    const w = Session.currentWord;
+                    const dbWord = DB.data.words.find(x=>x.id===w.id);
+                    if(dbWord) {
+                        dbWord.status = 'mastered';
+                        dbWord.learnedDate = new Date().toDateString();
+                        DB.save();
+                    }
+                    Session.queue.shift(); // Remove current
+                    Session.next();
+                }
+            },
+            deleteWord(id) {
+                if(confirm("删除此单词？")) {
+                    DB.deleteWord(id);
+                    this.renderLibrary('all');
+                }
+            },
+
+            speak(text) {
+                const u = new SpeechSynthesisUtterance(text);
+                u.rate = DB.data.settings.rate;
+                u.lang = 'en-US'; 
+                // Stop previous to prevent queue buildup
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(u);
+            },
+            toast(msg) {
+                const t = document.createElement('div');
+                t.className = "bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl slide-up-anim";
+                t.textContent = msg;
+                document.getElementById('toast-container').appendChild(t);
+                setTimeout(() => t.remove(), 2500);
+            },
+            
+            // --- IMPORT ---
+            openImportModal() { document.getElementById('modal-import').classList.remove('hidden'); },
+            doImport() {
+                const txt = document.getElementById('import-area').value;
+                if(!txt) return;
+                let c = 0;
+                txt.split('\n').forEach(l => {
+                    // Support pipe | or just space/tab? Pipe is safer.
+                    const parts = l.split(/[|｜]/); // Support CN/EN pipe
+                    const w = parts[0]?.trim();
+                    const m = parts[1]?.trim();
+                    const e = parts[2]?.trim() || '';
+                    const cn = parts[3]?.trim() || '';
+                    
+                    if(w && m) { DB.addWord(w,m,e,cn); c++; }
+                });
+                this.toast(`成功导入 ${c} 个单词`);
+                document.getElementById('modal-import').classList.add('hidden');
+                document.getElementById('import-area').value = '';
+                this.renderLibrary('all');
+            },
+            handleFile(input) {
+                const f = input.files[0];
+                const r = new FileReader();
+                r.onload = (e) => {
+                    document.getElementById('import-area').value = e.target.result;
+                };
+                r.readAsText(f);
+            },
+            resetData() {
+                if(confirm("⚠️ 确定清空所有数据？此操作不可撤销。")) {
+                    localStorage.removeItem(DB.key);
+                    location.reload();
+                }
+            },
+
+            // --- SETTINGS ---
+            saveSettings() {
+                DB.data.settings.tts = document.getElementById('set-tts').checked;
+                DB.data.settings.rate = document.getElementById('set-rate').value;
+                document.getElementById('set-rate-val').innerText = DB.data.settings.rate + 'x';
+                DB.save();
+            },
+            toggleTheme() {
+                const isDark = document.documentElement.classList.toggle('dark');
+                DB.data.settings.theme = isDark ? 'dark' : 'light';
+                DB.save();
+                document.getElementById('theme-icon').innerText = isDark ? 'light_mode' : 'dark_mode';
+            },
+            recordKey(action) {
+                const btn = document.getElementById('key-'+action);
+                const oldText = btn.innerHTML;
+                btn.innerHTML = "按任意键...";
+                btn.classList.add('bg-yellow-100', 'dark:bg-yellow-900');
+                
+                const handler = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    DB.data.settings.keys[action] = e.key;
+                    DB.save();
+                    this.renderSettings(); 
+                    btn.classList.remove('bg-yellow-100', 'dark:bg-yellow-900');
+                    document.removeEventListener('keydown', handler);
+                };
+                document.addEventListener('keydown', handler, {once:true, capture:true});
+            },
+            
+            // --- KEYBOARD HANDLING ---
+            setupKeybindings() {
+                document.addEventListener('keydown', (e) => {
+                    // Ignore if not in session or if modal open
+                    if (!Session.active) return;
+                    if (!document.getElementById('modal-import').classList.contains('hidden')) return;
+
+                    // Ignore if typing in spelling input
+                    if (Session.phase === 'spell') {
+                        if (e.key === 'Enter') app.checkSpelling(Session.currentWord.word);
+                        return; // Let browser handle typing
+                    }
+
+                    const k = DB.data.settings.keys;
+                    
+                    // Priority: Feedback Phase -> Space = Next
+                    if (Session.phase === 'feedback') {
+                        if (e.code === 'Space' || e.key === ' ') {
+                            e.preventDefault();
+                            Session.next();
+                        }
+                        return;
+                    }
+
+                    // Standard Controls
+                    if (e.key === k.know || e.key === ' ') {
+                        // Prevent scroll
+                        e.preventDefault(); 
+                        if (Session.phase === 'recall' || Session.phase === 'immersive') {
+                             Session.handleResult(true);
+                        }
+                    }
+                    
+                    if (e.key === k.unknown) {
+                        if (Session.phase === 'recall') Session.handleResult(false);
+                    }
+                    
+                    if (e.key === k.speak) app.speak(Session.currentWord.word);
+                    if (e.key === k.master) app.killWord();
+                    
+                    // Number keys for choice
+                    if (Session.phase === 'select' && ['1','2','3','4'].includes(e.key)) {
+                        const choices = document.querySelectorAll('.choice-btn');
+                        const idx = parseInt(e.key) - 1;
+                        if(choices[idx]) choices[idx].click();
+                    }
+                });
+            }
+        };
+
+        // Initialize
+        app.init();
+    </script>
+</body>
+</html>

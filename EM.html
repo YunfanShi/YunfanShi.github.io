@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Warden | V23 CONTEXT AWARE</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: #101010;
+            --text-main: #e0e0e0;
+            --text-dim: #757575;
+            --accent-red: #ff3333;
+            --accent-green: #00ff88;
+            --accent-blue: #2979ff;
+            --accent-purple: #d946ef;
+            --accent-yellow: #ffcc00;
+            --accent-orange: #ff9100;
+            --border: #222;
+        }
+
+        body {
+            margin: 0; font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-main);
+            min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 50px;
+        }
+
+        /* === 1. STATUS BAR === */
+        .status-bar {
+            background: #111; padding: 8px; text-align: center;
+            font-family: 'JetBrains Mono'; font-size: 0.8rem; border-bottom: 1px solid #333;
+            position: sticky; top: 0; z-index: 200;
+        }
+        .status-pill { display: inline-block; padding: 4px 12px; border-radius: 4px; font-weight: 700; }
+        .status-working { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
+        .status-rest { background: rgba(255, 204, 0, 0.2); color: var(--accent-yellow); }
+        .status-grace { background: rgba(41, 121, 255, 0.2); color: var(--accent-blue); }
+        .status-danger { background: rgba(255, 51, 51, 0.2); color: var(--accent-red); animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
+
+        /* === 2. DEATH BAR === */
+        .death-bar { background: #1a0505; border-bottom: 1px solid var(--accent-red); padding: 20px; text-align: center; }
+        .death-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 600px; margin: 0 auto; }
+        .death-val { font-family: 'JetBrains Mono'; font-size: 2.5rem; font-weight: 800; line-height: 1; }
+        .death-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; color: #888; }
+        .quote-box { margin-top: 15px; font-style: italic; color: #aaa; font-size: 0.9rem; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; max-width: 600px; margin: 15px auto 0 auto; }
+
+        /* === HEADER === */
+        header {
+            position: sticky; top: 38px; z-index: 50; background: rgba(16, 16, 16, 0.95); backdrop-filter: blur(15px);
+            border-bottom: 1px solid var(--border); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .brand { font-family: 'JetBrains Mono'; font-weight: 800; display: flex; flex-direction: column; }
+        .brand span { font-size: 0.7rem; color: var(--text-dim); }
+        .date-badge {
+            background: #222; padding: 5px 12px; border-radius: 6px; font-family: 'JetBrains Mono'; font-size: 0.9rem; border: 1px solid #333;
+            display: flex; gap: 10px; align-items: center; user-select: none;
+        }
+        .icon-btn { cursor: pointer; color: #888; transition: 0.2s; }
+        .icon-btn:hover { color: white; transform: scale(1.1); }
+
+        /* === 3. DASHBOARD === */
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin: 20px; }
+        .time-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 25px; display: flex; flex-direction: column; justify-content: center; }
+        .time-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 15px; }
+        .time-row:last-child { border: none; margin: 0; padding: 0; }
+        .time-label { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 5px; }
+        .time-val { font-family: 'JetBrains Mono'; font-size: 2.2rem; font-weight: 800; color: white; }
+        .time-val.alert { color: var(--accent-red); }
+        .time-val.warn { color: var(--accent-orange); }
+        .time-val.ok { color: var(--accent-green); }
+
+        .radar-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 10px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .radar-title { position: absolute; top: 10px; left: 15px; font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
+
+        /* === 4. BLOCKS === */
+        .block-section { margin: 0 20px; padding: 15px; background: #151515; border-radius: 12px; border: 1px solid #222; }
+        .section-title { font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; }
+        .block-input-row { display: flex; gap: 10px; align-items: center; }
+        input[type="time"], input[type="text"], input[type="number"], select { background: #000; border: 1px solid #333; color: white; padding: 8px; border-radius: 6px; font-family: 'JetBrains Mono'; color-scheme: dark; }
+        .btn-mini { background: #222; border: 1px solid #333; color: #aaa; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .btn-mini:hover { background: #333; color: white; }
+        .block-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .block-tag { background: rgba(255, 145, 0, 0.1); border: 1px solid rgba(255, 145, 0, 0.3); color: var(--accent-orange); padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
+
+        /* === 5. TASKS === */
+        .task-container { margin: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .task-card {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 15px 20px;
+            display: grid; grid-template-columns: 2fr 1fr 1fr; align-items: center; gap: 15px;
+            position: relative; overflow: hidden; transition: 0.3s;
+        }
+        .task-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #333; transition: 0.3s; }
+        .task-card.active { border-color: var(--accent-green); background: rgba(0, 255, 136, 0.05); }
+        .task-card.active::before { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
+        .task-card.behind::before { background: var(--accent-red); }
+        .task-card.done { opacity: 0.6; }
+        .task-card.done::before { background: var(--accent-green); }
+
+        .btn-focus {
+            background: #222; border: 1px solid #444; color: #aaa; padding: 6px 12px; border-radius: 6px;
+            font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px;
+        }
+        .btn-focus:hover { color: white; background: #333; }
+        .btn-focus.active { background: var(--accent-green); color: black; border-color: var(--accent-green); }
+        
+        .num-input { width: 60px; text-align: center; font-size: 1.1rem; }
+        .gap-display { font-family: 'JetBrains Mono'; font-weight: 800; font-size: 1.2rem; text-align: right; }
+        .gap-display.pos { color: var(--accent-green); }
+        .gap-display.neg { color: var(--accent-red); }
+        .inherited-tag { font-size:0.6rem; color:var(--accent-purple); border:1px solid var(--accent-purple); padding:2px 4px; border-radius:4px; margin-left:5px; vertical-align:middle; }
+
+        /* === 6. HEATMAP === */
+        .heatmap-section { margin: 20px; padding: 20px; background: #151515; border-radius: 16px; border: 1px solid #222; overflow-x: auto; }
+        .heatmap-grid { display: flex; gap: 4px; min-width: max-content; }
+        .heatmap-col { display: flex; flex-direction: column; gap: 4px; }
+        .day-sq { width: 12px; height: 12px; background: #222; border-radius: 2px; }
+        .day-sq[data-level="1"] { background: #0e4429; }
+        .day-sq[data-level="2"] { background: #006d32; }
+        .day-sq[data-level="3"] { background: #26a641; }
+        .day-sq[data-level="4"] { background: #39d353; }
+
+        /* === 7. MODALS === */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 9000; align-items: center; justify-content: center; backdrop-filter: blur(10px);
+        }
+        #settings-modal { z-index: 9999; }
+        .settings-box { width: 90%; max-width: 400px; background: #151515; border: 1px solid #333; border-radius: 12px; padding: 25px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; box-sizing: border-box; }
+
+        .chat-container {
+            width: 90%; max-width: 600px; height: 80vh; background: #111; border: 1px solid var(--accent-red);
+            border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 0 50px rgba(255, 51, 51, 0.2);
+        }
+        .chat-header { padding: 15px; background: #1a0505; border-bottom: 1px solid var(--accent-red); display: flex; align-items: center; gap: 10px; }
+        .ai-avatar { width: 32px; height: 32px; background: var(--accent-red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: black; }
+        .chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 8px; font-size: 0.95rem; line-height: 1.5; }
+        .msg.ai { align-self: flex-start; background: #1a1a1a; border: 1px solid #333; color: #ddd; }
+        .msg.user { align-self: flex-end; background: var(--accent-blue); color: white; }
+        .chat-input-area { padding: 15px; border-top: 1px solid #333; display: flex; gap: 10px; }
+        #chat-input { flex: 1; }
+        .start-btn-large { width: 100%; padding: 15px; background: var(--accent-green); color: black; font-weight: 800; text-align: center; cursor: pointer; border: none; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <div class="status-bar" id="status-bar">
+        <span class="status-pill status-danger">SYSTEM INITIALIZING</span>
+    </div>
+
+    <div class="modal-overlay" id="settings-modal">
+        <div class="settings-box">
+            <h2 style="margin-top:0">Warden AI Settings</h2>
+            <div class="form-group">
+                <label>Provider</label>
+                <select id="llm-preset" onchange="applyPreset()">
+                    <option value="deepseek">DeepSeek (Recommended)</option>
+                    <option value="qwen">Qwen / DashScope</option>
+                    <option value="custom">Custom (OpenAI Compatible)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>API Key</label>
+                <input type="password" id="llm-key" placeholder="sk-...">
+            </div>
+            <div class="form-group">
+                <label>Endpoint URL</label>
+                <input type="text" id="llm-url">
+            </div>
+            <div class="form-group">
+                <label>Model Name</label>
+                <input type="text" id="llm-model">
+            </div>
+            <button class="btn-mini" style="width:100%; padding:10px; background:var(--accent-blue); color:white; border:none" onclick="saveSettings()">SAVE CONFIG</button>
+            <button class="btn-mini" style="width:100%; padding:10px; margin-top:10px; background:#333; border:none" onclick="closeSettings()">CLOSE</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="chat-modal">
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="ai-avatar">AI</div>
+                <div style="font-weight:700; color:var(--accent-red)">BUDDY CHAT</div>
+                <div style="flex:1"></div>
+                <button class="btn-mini" onclick="clearChat()">Clear History</button>
+            </div>
+            <div class="chat-history" id="chat-history"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Chat with buddy..." onkeypress="handleEnter(event)">
+                <button class="btn-mini" onclick="sendUserMsg()">SEND</button>
+            </div>
+            <button class="start-btn-large" onclick="closeChatAndStart()">I AM STARTING NOW</button>
+        </div>
+    </div>
+
+    <div class="death-bar">
+        <div class="death-grid">
+            <div>
+                <div class="death-val" id="days-wasted" style="color: var(--accent-red)">0</div>
+                <div class="death-label">Wasted Days (Since Jan 23)</div>
+            </div>
+            <div>
+                <div class="death-val" id="days-left" style="color: var(--accent-yellow)">0</div>
+                <div class="death-label">Days Left (To Feb 28)</div>
+            </div>
+        </div>
+        <div class="quote-box" id="daily-quote">"Loading motivation..."</div>
+    </div>
+
+    <header>
+        <div class="brand">JACK'S WARDEN <span>V23 CONTEXT AWARE</span></div>
+        <div style="display:flex; gap:15px; align-items:center">
+            <span class="material-icons-round icon-btn" onclick="openSettings()" title="AI Settings">settings</span>
+            <span class="material-icons-round icon-btn" onclick="triggerEnforcer(true)" title="Chat Buddy" style="color:var(--accent-green)">chat</span>
+            <div class="date-badge">
+                <span class="material-icons-round icon-btn" onclick="shiftDate(-1)">chevron_left</span>
+                <span id="date-display">--</span>
+                <span class="material-icons-round icon-btn" onclick="shiftDate(1)">chevron_right</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <div class="time-card">
+            <div class="time-row">
+                <div>
+                    <div class="time-label">Est. Finish / 预计完工</div>
+                    <div class="time-val" id="est-finish">--:--</div>
+                </div>
+                <div style="text-align:right">
+                    <div class="time-label">Total Work</div>
+                    <div style="font-family:'JetBrains Mono'; font-weight:700; color:#aaa" id="work-mins">0h 0m</div>
+                </div>
+            </div>
+            <div class="time-row">
+                <div>
+                    <div class="time-label" style="color:var(--accent-orange)">Latest Start (For 22:30)</div>
+                    <div class="time-val warn" id="latest-start">--:--</div>
+                </div>
+                <div style="text-align:right">
+                    <span class="material-icons-round" id="status-icon" style="font-size:48px; color:#333">schedule</span>
+                </div>
+            </div>
+        </div>
+        <div class="radar-card">
+            <div class="radar-title">Subject Weakness</div>
+            <svg id="radar-svg" width="160" height="160" viewBox="0 0 100 100"></svg>
+        </div>
+    </div>
+
+    <div class="block-section">
+        <div class="section-title">Blocked Time / 忙碌时段</div>
+        <div class="block-input-row">
+            <input type="time" id="block-start"> <span>-</span> <input type="time" id="block-end">
+            <button class="btn-mini" onclick="addBlock()">Block</button>
+        </div>
+        <div class="block-list" id="block-container"></div>
+    </div>
+
+    <div class="block-section" style="margin-top:20px; background:#101010">
+        <div class="section-title">Ad-hoc Tasks / 临时任务</div>
+        <div class="block-input-row">
+            <input type="text" id="temp-name" placeholder="Name" style="flex:1">
+            <input type="number" id="temp-time" placeholder="Mins" style="width:60px">
+            <button class="btn-mini" onclick="addTemp()">Add</button>
+        </div>
+        <div class="block-list" id="temp-container"></div>
+    </div>
+
+    <div class="task-container" id="task-list"></div>
+
+    <div class="heatmap-section">
+        <div class="section-title">Consistency (Jan 23 - Feb 28)</div>
+        <div class="heatmap-grid" id="heatmap-viz"></div>
+    </div>
+
+    <script>
+        /* ==================== CONFIGURATION ==================== */
+        const DEADLINE = { h: 22, m: 30 };
+        const FIXED_BREAKS = [{ s: 720, e: 810 }, { s: 1080, e: 1140 }]; 
+        
+        const RULES = { 'Physics': 40, 'Chemistry': 20, 'Biology': 20, 'Math': 30, 'Vocabulary': 0.5, 'DEFAULT': 30 };
+        
+        const QUOTES = [
+            "IGCSE results are permanent. Your excuses are temporary.",
+            "You are not tired, you are uninspired.", 
+            "Jan 23 is gone. You can't get it back.",
+            "February 28 is the judge.",
+            "Don't negotiate with your inner weakness.", 
+            "Results > Excuses.", 
+            "Pain of discipline is temporary. Pain of regret is forever.",
+            "Your competitors are studying right now.",
+            "22:30 is a deadline, not a suggestion."
+        ];
+
+        /* ==================== PLAN ==================== */
+        const PLAN = {
+            "2026-02-06": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Vocabulary", "t": 60, "type": "num"}, {"s": "Biology", "t": 7, "type": "num"}, {"s": "Math", "t": 3, "type": "num"}, {"s": "Physics", "t": 2, "type": "num"}, {"s": "Chemistry", "t": 4, "type": "num"}], 
+            "2026-02-07": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 10, "type": "num"}, {"s": "Math", "t": 5, "type": "num"}, {"s": "Physics", "t": 3, "type": "num"}, {"s": "Chemistry", "t": 6, "type": "num"}], 
+            "2026-02-08": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 13, "type": "num"}, {"s": "Math", "t": 7, "type": "num"}, {"s": "Physics", "t": 4, "type": "num"}, {"s": "Chemistry", "t": 8, "type": "num"}], 
+            "2026-02-09": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 16, "type": "num"}, {"s": "Math", "t": 9, "type": "num"}, {"s": "Physics", "t": 5, "type": "num"}, {"s": "Chemistry", "t": 12, "type": "num"}], 
+            "2026-02-10": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "Biology", "t": 21, "type": "num"}, {"s": "Physics", "t": 6, "type": "num"}], 
+            "2026-02-11": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}],
+            "2026-02-12": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}],
+            "2026-02-13": [{"s": "HANDAN", "t": 0, "type": "text"}],
+            "2026-02-14": [{"s": "LUAN", "t": 0, "type": "text"}],
+            "2026-02-15": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
+            "2026-02-17": [{"s": "CHINESE NEWYEAR", "t": 0, "type": "text"}],
+            "2026-02-20": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}], 
+            "2026-02-27": [{"s": "IELTS DRILL", "t": 0, "type": "ielts"}, {"s": "IGCSE MOCK", "t": 0, "type": "text"}, {"s": "Vocabulary", "t": 0, "type": "text"}]
+        };
+        const DATE_KEYS = Object.keys(PLAN).sort();
+
+        let STATE = {
+            date: new Date(), dateStr: "", tempTasks: [], blocks: [],
+            activeTask: null, latestStartMins: 0, ieltsInterval: null, 
+            chatHistory: [], // Stores conversation
+            graceUntil: 0, restUntil: 0,
+            metrics: { estText: "--:--", isImpossible: false, workMins: 0 }
+        };
+
+        /* ==================== CORE INITIALIZATION ==================== */
+        function init() {
+            updateLifeStats(); updateDate(); applyPreset();
+            loadChatHistory(); // NEW: Load Chat
+            
+            setInterval(checkWatchdog, 1000); 
+            setInterval(updateLogic, 30000);
+            updateLogic();
+            setInterval(() => { if(STATE.ieltsInterval) updateLogic(); }, 1000);
+        }
+
+        /* ==================== CHAT PERSISTENCE & CONTEXT ==================== */
+        function loadChatHistory() {
+            const saved = localStorage.getItem('warden_chat_v23');
+            if (saved) {
+                STATE.chatHistory = JSON.parse(saved);
+                const h = document.getElementById('chat-history');
+                h.innerHTML = '';
+                STATE.chatHistory.forEach(msg => {
+                    if (msg.role !== 'system') { // Don't show system prompts
+                        const d = document.createElement('div');
+                        d.className = `msg ${msg.role === 'assistant' ? 'ai' : 'user'}`;
+                        d.innerText = msg.content;
+                        h.appendChild(d);
+                    }
+                });
+                h.scrollTop = h.scrollHeight;
+            }
+        }
+
+        function saveChatHistory() {
+            // Only save user and assistant messages, not the huge system prompt
+            const cleanHistory = STATE.chatHistory.filter(m => m.role !== 'system');
+            localStorage.setItem('warden_chat_v23', JSON.stringify(cleanHistory));
+        }
+
+        function clearChat() {
+            STATE.chatHistory = [];
+            document.getElementById('chat-history').innerHTML = '';
+            localStorage.removeItem('warden_chat_v23');
+        }
+
+        function getSystemContext() {
+            // Dynamic Context Builder
+            const tasks = PLAN[STATE.dateStr] || [];
+            let taskSummary = tasks.map(t => {
+                if(t.type === 'num') {
+                    const cur = getEffectiveProgress(t.s, STATE.dateStr);
+                    return `${t.s}: ${cur}/${t.t}`;
+                }
+                return t.s;
+            }).join(', ');
+
+            const temp = STATE.tempTasks.map(t => `${t.n}(${t.m}m)`).join(', ');
+            const blocks = STATE.blocks.map(b => `${b.s}-${b.e}`).join(', ');
+            const h = Math.floor(STATE.metrics.workMins / 60);
+            const m = STATE.metrics.workMins % 60;
+
+            return `
+[SYSTEM DATA - DO NOT IGNORE]
+User: Jack (9th Grade, IGCSE Student).
+Current Date: ${STATE.dateStr}.
+Current Time: ${new Date().toLocaleTimeString()}.
+Status: ${STATE.metrics.isImpossible ? "CRITICAL (IMPOSSIBLE TO FINISH BY 22:30)" : "Safe"}.
+Est. Finish Time: ${STATE.metrics.estText} (Deadline is 22:30).
+Total Work Left: ${h}h ${m}m.
+Tasks: ${taskSummary}.
+Ad-hoc: ${temp || 'None'}.
+Blocked: ${blocks || 'None'}.
+Current Action: ${STATE.activeTask ? "Working on " + STATE.activeTask : "Not Started / Resting"}.
+INSTRUCTION: You are a WeChat Study Buddy. Keep replies SHORT (1-2 sentences), casual, and supportive. If status is IMPOSSIBLE, be serious but helpful.
+`;
+        }
+
+        async function callLLM(msg) {
+            const key = localStorage.getItem('llm_key');
+            if(!key) { appendMsg("System", "Please set API Key in Settings."); return; }
+            
+            const url = localStorage.getItem('llm_url');
+            const model = localStorage.getItem('llm_model');
+            
+            // Build fresh conversation with latest context
+            let messages = [{ role: "system", content: getSystemContext() }];
+            
+            // Add history (excluding old system prompts)
+            STATE.chatHistory.forEach(m => {
+                if(m.role !== 'system') messages.push(m);
+            });
+            
+            messages.push({ role: "user", content: msg });
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({ model: model, messages: messages, stream: false })
+                });
+                const data = await res.json();
+                if(data.choices) {
+                    const reply = data.choices[0].message.content;
+                    appendMsg("AI", reply);
+                    
+                    // Update State History
+                    STATE.chatHistory.push({ role: "user", content: msg });
+                    STATE.chatHistory.push({ role: "assistant", content: reply });
+                    saveChatHistory();
+                }
+            } catch(e) {
+                appendMsg("System", "Error: " + e.message);
+            }
+        }
+
+        function appendMsg(role, text) {
+            const h = document.getElementById('chat-history');
+            const d = document.createElement('div');
+            d.className = `msg ${role.toLowerCase()}`;
+            d.innerText = text;
+            h.appendChild(d);
+            h.scrollTop = h.scrollHeight;
+        }
+
+        /* ==================== STANDARD LOGIC (UPDATED) ==================== */
+        function updateDate() {
+            const y = STATE.date.getFullYear();
+            const m = String(STATE.date.getMonth()+1).padStart(2,'0');
+            const d = String(STATE.date.getDate()).padStart(2,'0');
+            STATE.dateStr = `${y}-${m}-${d}`;
+            document.getElementById('date-display').innerText = STATE.dateStr;
+            const rT = localStorage.getItem(`temp_${STATE.dateStr}`); STATE.tempTasks = rT ? JSON.parse(rT) : [];
+            const rB = localStorage.getItem(`blocks_${STATE.dateStr}`); STATE.blocks = rB ? JSON.parse(rB) : [];
+        }
+
+        function shiftDate(delta) { STATE.date.setDate(STATE.date.getDate() + delta); updateDate(); updateLogic(); }
+
+        function updateLogic() {
+            renderTasks(); renderBlocks(); renderTemp(); calcTimeMetrics(); drawRadar(); renderHeatmap();
+        }
+
+        function calcTimeMetrics() {
+            let minsNeeded = 0;
+            const tasks = PLAN[STATE.dateStr] || [];
+            
+            tasks.forEach(t => {
+                if(t.type === 'ielts') {
+                    const saved = localStorage.getItem(`ielts_${STATE.dateStr}`);
+                    const rem = saved ? parseInt(saved) : 160*60; 
+                    minsNeeded += Math.ceil(rem / 60);
+                } else if(t.type === 'num') {
+                    const current = getEffectiveProgress(t.s, STATE.dateStr);
+                    const gap = t.t - current;
+                    if(gap > 0) {
+                        let rate = RULES['DEFAULT'];
+                        if(t.s.includes('Bio') || t.s.includes('Chem')) rate = RULES['Chemistry'];
+                        if(t.s.includes('Phy')) rate = RULES['Physics'];
+                        if(t.s.includes('Vocab')) rate = RULES['Vocabulary'];
+                        minsNeeded += (gap * rate);
+                    }
+                } else {
+                    const done = localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) === 'true';
+                    if(!done) minsNeeded += 30;
+                }
+            });
+            
+            STATE.tempTasks.forEach(t => minsNeeded += t.m);
+            STATE.metrics.workMins = Math.ceil(minsNeeded);
+
+            // Display Hours and Minutes
+            const hNeeded = Math.floor(minsNeeded / 60);
+            const mNeeded = Math.ceil(minsNeeded % 60);
+            document.getElementById('work-mins').innerText = `${hNeeded}h ${mNeeded}m`;
+
+            let blocked = [...FIXED_BREAKS];
+            STATE.blocks.forEach(b => {
+                const [h1,m1] = b.s.split(':').map(Number);
+                const [h2,m2] = b.e.split(':').map(Number);
+                blocked.push({ s: h1*60+m1, e: h2*60+m2 });
+            });
+            blocked.sort((a,b) => a.s - b.s);
+
+            const deadlineMins = DEADLINE.h*60 + DEADLINE.m;
+            let backCursor = deadlineMins;
+            let workToFit = minsNeeded;
+            let safety = 0;
+
+            while(workToFit > 0 && safety < 5000) {
+                safety++;
+                let inBlock = false;
+                for(let b of blocked) {
+                    if(backCursor > b.s && backCursor <= b.e) {
+                        backCursor = b.s; inBlock = true; break;
+                    }
+                }
+                if(!inBlock) { backCursor--; workToFit--; }
+            }
+            STATE.latestStartMins = backCursor;
+
+            const now = new Date();
+            const nowMins = now.getHours()*60 + now.getMinutes();
+            const isToday = (STATE.date.getDate() === now.getDate() && STATE.date.getMonth() === now.getMonth());
+            
+            let forwardCursor = (isToday && nowMins > 630) ? nowMins : 630;
+            let remainingWork = minsNeeded;
+            safety = 0;
+
+            while(remainingWork > 0 && safety < 5000) {
+                safety++;
+                let inBlock = false;
+                for(let b of blocked) {
+                    if(forwardCursor >= b.s && forwardCursor < b.e) {
+                        forwardCursor = b.e; inBlock = true; break;
+                    }
+                }
+                if(!inBlock) { forwardCursor++; remainingWork--; }
+            }
+
+            const lsH = Math.floor(backCursor/60); const lsM = backCursor%60;
+            document.getElementById('latest-start').innerText = `${lsH}:${String(lsM).padStart(2,'0')}`;
+            
+            let efH = Math.floor(forwardCursor/60); const efM = forwardCursor%60;
+            if(efH >= 24) efH -= 24;
+            const efStr = `${efH}:${String(efM).padStart(2,'0')}`;
+            document.getElementById('est-finish').innerText = efStr;
+            
+            STATE.metrics.estText = efStr;
+
+            const icon = document.getElementById('status-icon');
+            if(forwardCursor > deadlineMins) {
+                STATE.metrics.isImpossible = true;
+                document.getElementById('est-finish').className = "time-val alert";
+                document.getElementById('est-finish').innerText = "IMPOSSIBLE";
+                icon.innerText = "dangerous"; icon.style.color = "var(--accent-red)";
+            } else {
+                STATE.metrics.isImpossible = false;
+                document.getElementById('est-finish').className = "time-val ok";
+                icon.innerText = "check_circle"; icon.style.color = "var(--accent-green)";
+            }
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('task-list');
+            list.innerHTML = '';
+            const tasks = PLAN[STATE.dateStr] || [];
+
+            if(tasks.length === 0) list.innerHTML = `<div style="text-align:center; color:#555">No Plan</div>`;
+
+            tasks.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                if(STATE.activeTask === t.s) card.classList.add('active');
+
+                const btnHtml = `<button class="btn-focus ${STATE.activeTask===t.s?'active':''}" onclick="toggleFocus('${t.s}')"><span class="material-icons-round" style="font-size:16px">${STATE.activeTask===t.s?'pause':'play_arrow'}</span> ${STATE.activeTask===t.s?'FOCUSING':'START'}</button>`;
+
+                if(t.type === 'ielts') {
+                    const rem = parseInt(localStorage.getItem(`ielts_${STATE.dateStr}`) || 160*60);
+                    const isDone = rem <= 0;
+                    if(isDone) card.classList.add('done');
+                    const h = Math.floor(rem/3600); const m = Math.floor((rem%3600)/60); const s = rem%60;
+                    const isRunning = STATE.ieltsInterval !== null;
+
+                    card.innerHTML = `
+                        <div>
+                            <div style="font-weight:700; color:var(--accent-blue)">IELTS DRILL</div>
+                            <div style="font-family:'JetBrains Mono'; font-size:1.5rem; font-weight:700; margin-top:5px">
+                                ${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}
+                            </div>
+                        </div>
+                        <div style="text-align:right; grid-column:span 2; display:flex; gap:10px; justify-content:flex-end; align-items:center;">
+                            ${isDone ? '' : btnHtml}
+                            <button class="btn-mini" onclick="toggleIelts('${STATE.dateStr}')">${isRunning ? 'PAUSE' : 'TIMER'}</button>
+                            <button class="btn-mini" style="color:var(--accent-green); border-color:var(--accent-green)" onclick="finishIelts('${STATE.dateStr}')">MARK DONE</button>
+                        </div>
+                    `;
+                } else if(t.type === 'num') {
+                    const cur = getEffectiveProgress(t.s, STATE.dateStr);
+                    const gap = t.t - cur;
+                    if(gap <= 0) card.classList.add('done'); else card.classList.add('behind');
+                    const isInherited = localStorage.getItem(`prog_${STATE.dateStr}_${t.s}`) === null && cur > 0;
+                    const step = t.s.includes('Vocab') ? 10 : 1;
+
+                    card.innerHTML = `
+                        <div class="task-meta">
+                            <h3>${t.s} ${isInherited ? '<span class="inherited-tag">INHERITED</span>' : ''}</h3>
+                            <p>Target: <strong>${t.t}</strong></p>
+                        </div>
+                        <div style="text-align:center"><input type="number" class="num-input" value="${cur}" step="${step}" onchange="upd('${t.s}', this.value)"></div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px">
+                            <div class="gap-display ${gap<=0?'pos':'neg'}">${gap<=0 ? 'DONE' : '-'+gap}</div>
+                            ${gap > 0 ? btnHtml : ''}
+                        </div>
+                    `;
+                } else {
+                    const done = localStorage.getItem(`check_${STATE.dateStr}_${t.s}`) === 'true';
+                    if(done) card.classList.add('done');
+                    card.innerHTML = `
+                        <div class="task-meta" style="grid-column:span 2"><h3>${t.s}</h3><p>Binary Task</p></div>
+                        <div style="text-align:right"><input type="checkbox" ${done?'checked':''} onchange="chk('${t.s}', this.checked)" style="width:20px; height:20px;"></div>
+                    `;
+                }
+                list.appendChild(card);
+            });
+        }
+
+        function getEffectiveProgress(sub, dateStr) {
+            let val = localStorage.getItem(`prog_${dateStr}_${sub}`);
+            if(val !== null) return parseInt(val);
+            const idx = DATE_KEYS.indexOf(dateStr);
+            if(idx <= 0) return 0;
+            for(let i = idx-1; i >= 0; i--) {
+                let prev = localStorage.getItem(`prog_${DATE_KEYS[i]}_${sub}`);
+                if(prev !== null) return parseInt(prev);
+            }
+            return 0;
+        }
+
+        function upd(s,v) { localStorage.setItem(`prog_${STATE.dateStr}_${s}`, v); updateLogic(); }
+        function chk(s,v) { localStorage.setItem(`check_${STATE.dateStr}_${s}`, v); updateLogic(); }
+        function addBlock() { const s=document.getElementById('block-start').value; const e=document.getElementById('block-end').value; if(s&&e) { STATE.blocks.push({s,e}); localStorage.setItem(`blocks_${STATE.dateStr}`,JSON.stringify(STATE.blocks)); updateLogic(); }}
+        function renderBlocks() { const c=document.getElementById('block-container'); c.innerHTML=''; STATE.blocks.forEach((b,i)=>{ c.innerHTML+=`<div class="block-tag"><span>${b.s}-${b.e}</span><span style="cursor:pointer;margin-left:5px" onclick="removeBlock(${i})">×</span></div>`; });}
+        function removeBlock(i){ STATE.blocks.splice(i,1); localStorage.setItem(`blocks_${STATE.dateStr}`,JSON.stringify(STATE.blocks)); updateLogic(); }
+        function addTemp() { const n=document.getElementById('temp-name').value; const m=parseInt(document.getElementById('temp-time').value); if(n&&m) { STATE.tempTasks.push({n,m}); localStorage.setItem(`temp_${STATE.dateStr}`,JSON.stringify(STATE.tempTasks)); updateLogic(); }}
+        function renderTemp() { const c=document.getElementById('temp-container'); c.innerHTML=''; STATE.tempTasks.forEach((t,i)=>{ c.innerHTML+=`<div class="block-tag" style="border-color:var(--accent-purple);color:var(--accent-purple)"><span>${t.n} (+${t.m}m)</span><span style="cursor:pointer;margin-left:5px" onclick="removeTemp(${i})">×</span></div>`; });}
+        function removeTemp(i){ STATE.tempTasks.splice(i,1); localStorage.setItem(`temp_${STATE.dateStr}`,JSON.stringify(STATE.tempTasks)); updateLogic(); }
+
+        function updateLifeStats() {
+            const n = new Date(); const s = new Date("2026-01-23"); const e = new Date("2026-02-28");
+            document.getElementById('days-wasted').innerText = Math.floor((n-s)/86400000);
+            document.getElementById('days-left').innerText = Math.ceil((e-n)/86400000);
+            document.getElementById('daily-quote').innerText = QUOTES[Math.floor(Math.random()*QUOTES.length)];
+        }
+
+        function drawRadar() {
+            const subs = ['Physics','Chemistry','Biology','Math','Vocabulary'];
+            const stats = subs.map(sub => {
+                let tT=0, tC=0;
+                DATE_KEYS.forEach(d => {
+                    const task = PLAN[d]?.find(x => x.s.includes(sub));
+                    if(task) {
+                        tT = Math.max(tT, task.t); const p = localStorage.getItem(`prog_${d}_${task.s}`);
+                        if(p) tC = Math.max(tC, parseInt(p));
+                    }
+                });
+                return tT === 0 ? 1 : tC/tT;
+            });
+            const cx=50, cy=50, r=40;
+            const pts = stats.map((v,i) => { const a = (Math.PI*2*i)/5 - Math.PI/2; return `${cx+Math.cos(a)*(r*v)},${cy+Math.sin(a)*(r*v)}`; }).join(' ');
+            let web = ''; for(let j=1; j<=3; j++) { web += `<polygon points="${Array.from({length:5},(_,i)=>{ const a=(Math.PI*2*i)/5-Math.PI/2; return `${cx+Math.cos(a)*(r*j/3)},${cy+Math.sin(a)*(r*j/3)}` }).join(' ')}" fill="none" stroke="#333" stroke-width="0.5"/>`; }
+            document.getElementById('radar-svg').innerHTML = `${web} <polygon points="${pts}" fill="rgba(41,121,255,0.5)" stroke="#2979ff" stroke-width="2"/>${stats.map((_,i)=>{ const a=(Math.PI*2*i)/5-Math.PI/2; const x=cx+Math.cos(a)*48; const y=cy+Math.sin(a)*48; return `<text x="${x}" y="${y}" fill="#888" font-size="6" text-anchor="middle" alignment-baseline="middle">${subs[i].substr(0,3)}</text>`}).join('')}`;
+        }
+
+        function renderHeatmap() {
+            const el = document.getElementById('heatmap-viz'); let c = new Date("2026-01-23"); const e = new Date("2026-02-28"); let html = '';
+            while(c <= e) {
+                const ds = c.toISOString().split('T')[0]; let lvl = 0; const tasks = PLAN[ds];
+                if(tasks) {
+                    let ok = 0;
+                    tasks.forEach(x => {
+                        if(x.type==='ielts') { if(parseInt(localStorage.getItem(`ielts_${ds}`)||1) <= 0) ok++; }
+                        else if(x.type==='num') { if(parseInt(localStorage.getItem(`prog_${ds}_${x.s}`)||0) >= x.t) ok++; }
+                        else { if(localStorage.getItem(`check_${ds}_${x.s}`)==='true') ok++; }
+                    });
+                    if(ok>0) lvl=1; if(ok/tasks.length>0.5) lvl=2; if(ok===tasks.length) lvl=4;
+                }
+                html += `<div class="heatmap-col"><div class="day-sq" data-level="${lvl}" title="${ds}"></div></div>`; c.setDate(c.getDate()+1);
+            }
+            el.innerHTML = html;
+        }
+
+        function openSettings() { document.getElementById('settings-modal').style.display='flex'; }
+        function closeSettings() { document.getElementById('settings-modal').style.display='none'; }
+        function applyPreset() {
+            const p = document.getElementById('llm-preset').value;
+            if(p==='deepseek'){ document.getElementById('llm-url').value="https://api.deepseek.com/chat/completions"; document.getElementById('llm-model').value="deepseek-chat"; }
+            else if(p==='qwen'){ document.getElementById('llm-url').value="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"; document.getElementById('llm-model').value="qwen-plus"; }
+            const k = localStorage.getItem('llm_key'); if(k) { document.getElementById('llm-key').value=k; document.getElementById('llm-url').value=localStorage.getItem('llm_url'); document.getElementById('llm-model').value=localStorage.getItem('llm_model'); }
+        }
+        function saveSettings() {
+            localStorage.setItem('llm_key', document.getElementById('llm-key').value); localStorage.setItem('llm_url', document.getElementById('llm-url').value); localStorage.setItem('llm_model', document.getElementById('llm-model').value);
+            alert("Configuration Saved."); closeSettings();
+        }
+
+        function toggleFocus(subject) {
+            if(STATE.activeTask === subject) { STATE.activeTask = null; STATE.restUntil = Date.now() + 10 * 60 * 1000; }
+            else { STATE.activeTask = subject; STATE.graceUntil = 0; STATE.restUntil = 0; }
+            updateLogic(); checkWatchdog();
+        }
+
+        function checkWatchdog() {
+            const bar = document.getElementById('status-bar'); const now = Date.now();
+            if(STATE.activeTask) bar.innerHTML = `<span class="status-pill status-working">WORKING: ${STATE.activeTask}</span>`;
+            else if(now < STATE.graceUntil) { const left = Math.ceil((STATE.graceUntil - now)/1000); bar.innerHTML = `<span class="status-pill status-grace">PREPARING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`; }
+            else if(now < STATE.restUntil) { const left = Math.ceil((STATE.restUntil - now)/1000); bar.innerHTML = `<span class="status-pill status-rest">RESTING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`; }
+            else bar.innerHTML = `<span class="status-pill status-danger">VULNERABLE (AI WATCHING)</span>`;
+            if(!localStorage.getItem('llm_key')) return; if(now < STATE.graceUntil || now < STATE.restUntil || STATE.activeTask) return;
+            const d = new Date(); const isToday = (STATE.date.getDate() === d.getDate() && STATE.date.getMonth() === d.getMonth()); if(!isToday) return;
+            const curMins = d.getHours()*60 + d.getMinutes(); if(curMins > STATE.latestStartMins) triggerEnforcer(false);
+        }
+
+        function triggerEnforcer(force) {
+            const modal = document.getElementById('chat-modal'); if(modal.style.display === 'flex') return;
+            modal.style.display = 'flex'; 
+            // We do NOT clear chat history here anymore, we append
+            callLLM(force ? "Test trigger." : "I am late. Scold me.");
+        }
+
+        function closeChatAndStart() { document.getElementById('chat-modal').style.display = 'none'; STATE.graceUntil = Date.now() + 2 * 60 * 1000; checkWatchdog(); }
+
+        function handleEnter(e) { if(e.key==='Enter') sendUserMsg(); }
+        function sendUserMsg() { const i = document.getElementById('chat-input'); const val = i.value.trim(); if(!val) return; appendMsg("User", val); i.value = ''; callLLM(val); }
+
+        function toggleIelts(d) {
+            if(STATE.ieltsInterval) { clearInterval(STATE.ieltsInterval); STATE.ieltsInterval = null; }
+            else { STATE.ieltsInterval = setInterval(() => { let v = parseInt(localStorage.getItem(`ielts_${d}`)||160*60); if(v>0) { v--; localStorage.setItem(`ielts_${d}`, v); } else clearInterval(STATE.ieltsInterval); }, 1000); }
+            updateLogic();
+        }
+        function finishIelts(d) { clearInterval(STATE.ieltsInterval); localStorage.setItem(`ielts_${d}`, 0); STATE.restUntil = Date.now() + 10 * 60 * 1000; updateLogic(); checkWatchdog(); }
+
+        init();
+    </script>
+</body>
+</html>

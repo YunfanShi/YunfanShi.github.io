@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting</title>
+    <style>
+        /* --- Google Material Design Variables --- */
+        :root {
+            --md-sys-color-primary: #1a73e8;
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-surface: #ffffff;
+            --md-sys-color-surface-variant: #f1f3f4;
+            --md-sys-color-background: #f8f9fa;
+            --md-sys-color-on-surface: #202124;
+            --md-sys-color-on-surface-variant: #5f6368;
+            --md-sys-shape-corner-extra-large: 28px;
+            --md-sys-shape-corner-full: 999px;
+            --md-sys-elevation-level1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+
+        body {
+            font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background-color: var(--md-sys-color-background);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--md-sys-color-on-surface);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Card Container --- */
+        .card {
+            background: var(--md-sys-color-surface);
+            padding: 48px 40px;
+            border-radius: var(--md-sys-shape-corner-extra-large);
+            box-shadow: var(--md-sys-elevation-level1);
+            max-width: 400px;
+            width: 85%;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.08);
+        }
+
+        /* --- Header & Logo --- */
+        .logo-container {
+            margin-bottom: 24px;
+        }
+
+        .google-logo-icon {
+            width: 48px;
+            height: 48px;
+            fill: var(--md-sys-color-primary);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 400;
+            margin: 0 0 8px 0;
+            color: var(--md-sys-color-on-surface);
+            letter-spacing: -0.5px;
+        }
+
+        p.subtitle {
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin: 0 0 32px 0;
+            line-height: 1.5;
+        }
+
+        /* --- Status Section --- */
+        .status-card {
+            background-color: var(--md-sys-color-surface-variant);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            fill: var(--md-sys-color-primary);
+        }
+
+        .status-info-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-sys-color-primary);
+        }
+
+        /* --- Progress Bar --- */
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: var(--md-sys-color-primary);
+            width: 0%;
+            border-radius: 2px;
+        }
+
+        .status-text {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+            min-height: 18px;
+        }
+
+        /* --- Footer Link --- */
+        .manual-link-container {
+            margin-top: 32px;
+        }
+
+        .text-button {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--md-sys-color-primary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: var(--md-sys-shape-corner-full);
+            transition: background-color 0.2s;
+        }
+
+        .text-button:hover {
+            background-color: rgba(26, 115, 232, 0.08);
+        }
+
+        /* --- Animations --- */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-entry {
+            animation: fadeUp 0.6s cubic-bezier(0.2, 0.0, 0.2, 1) forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card animate-entry">
+        <div class="logo-container">
+            <svg class="google-logo-icon" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+        </div>
+
+        <h1>Redirecting</h1>
+        <p class="subtitle">Preparing for Exam Countdown</p>
+
+        <div class="status-card">
+            <svg class="status-icon" viewBox="0 0 24 24">
+                <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm1-8h4v2h-6V7h2v5z"/>
+            </svg>
+            <span class="status-info-text">Connecting to server...</span>
+        </div>
+
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div class="status-text">
+            Redirecting to target page
+        </div>
+
+        <div class="manual-link-container">
+            <a href="https://jackyun.top/legacy/IGCountdown.html" class="text-button">Go Now</a>
+        </div>
+    </div>
+
+    <script>
+        const TARGET_URL = "https://jackyun.top/legacy/IGCountdown.html";
+        const REDIRECT_SECONDS = 2;
+
+        function initRedirect() {
+            const progressBar = document.getElementById('progress-bar');
+            let currentTime = 0;
+            const totalTime = REDIRECT_SECONDS * 1000;
+            const intervalStep = 30;
+
+            const timer = setInterval(() => {
+                currentTime += intervalStep;
+                const progress = Math.min((currentTime / totalTime) * 100, 100);
+                
+                progressBar.style.width = `${progress}%`;
+
+                if (currentTime >= totalTime) {
+                    clearInterval(timer);
+                    window.location.href = TARGET_URL;
+                }
+            }, intervalStep);
+        }
+
+        document.addEventListener('DOMContentLoaded', initRedirect);
+    </script>
+</body>
+</html>

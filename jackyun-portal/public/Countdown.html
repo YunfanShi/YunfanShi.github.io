@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Exam Countdown</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Google Brand Colors */
+            --g-blue: #1a73e8;
+            --g-red: #ea4335;
+            --g-yellow: #fbbc04;
+            --g-green: #34a853;
+            --g-gray: #f1f3f4;
+            
+            /* Dynamic Theme Variables */
+            --theme-color: #1a73e8; 
+            --bg-color: #ffffff;
+            --text-main: #202124;
+            --text-sub: #5f6368;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--g-gray);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            transition: background-color 0.5s ease;
+            user-select: none;
+        }
+
+        /* Top Color Bar */
+        .google-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                var(--g-blue) 0% 25%, 
+                var(--g-red) 25% 50%, 
+                var(--g-yellow) 50% 75%, 
+                var(--g-green) 75% 100%);
+            z-index: 100;
+        }
+
+        /* Navigation Container */
+        .nav-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 90%;
+            max-width: 1000px;
+        }
+
+        /* Scrollable Tabs */
+        .tabs-wrapper {
+            background: #e0e0e0;
+            padding: 5px;
+            border-radius: 50px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            max-width: 800px;
+            scrollbar-width: none;
+        }
+        .tabs-wrapper::-webkit-scrollbar { display: none; }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            color: #757575;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        /* Styles for Custom Sort Mode (Draggable) */
+        .tab-btn.draggable {
+            cursor: grab;
+        }
+        .tab-btn.draggable:active {
+            cursor: grabbing;
+        }
+
+        /* Styles for Auto Sort Mode (Locked) */
+        .tab-btn.locked {
+            cursor: pointer;
+        }
+
+        .tab-btn:hover {
+            background-color: rgba(255,255,255,0.5);
+            color: #444;
+        }
+
+        .tab-btn.active {
+            background-color: #fff;
+            color: var(--theme-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: default;
+        }
+
+        /* Drag & Drop Visuals */
+        .tab-btn.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+        .tab-btn.drag-over {
+            border: 2px dashed var(--theme-color);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Settings Button */
+        .settings-btn {
+            background: #fff;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            color: #5f6368;
+        }
+        .settings-btn:hover {
+            transform: rotate(90deg);
+            color: var(--g-blue);
+        }
+
+        /* Main Card */
+        .card {
+            background: #fff;
+            width: 90%;
+            max-width: 900px;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background-color: var(--theme-color);
+            transition: background-color 0.3s;
+        }
+
+        .label-text {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text-sub);
+            margin-bottom: 10px;
+        }
+
+        .title-text {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 28px;
+            font-weight: 900;
+            margin: 0 0 30px 0;
+            color: var(--text-main);
+            padding: 0 10px;
+        }
+
+        /* Countdown Grid */
+        .countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .countdown-row-2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            border-top: 2px solid #f1f1f1;
+            padding-top: 30px;
+        }
+
+        .unit-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .number {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 64px;
+            font-weight: 900;
+            line-height: 1;
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -2px;
+        }
+
+        .highlight-num {
+            color: var(--theme-color);
+        }
+
+        .unit-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-sub);
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        /* Info Bar */
+        .info-bar {
+            margin-top: 30px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px 20px;
+            text-align: left;
+            font-family: 'Roboto', monospace;
+            font-size: 13px;
+            color: var(--text-sub);
+            border-left: 5px solid var(--theme-color);
+            transition: border-color 0.3s;
+        }
+
+        .info-item {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .info-bold {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: #fff;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            color: #202124;
+        }
+
+        .close-btn {
+            background: none; border: none; font-size: 24px; cursor: pointer; color: #5f6368;
+        }
+
+        /* Sorting Options Area */
+        .sort-options {
+            background: #f1f3f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sort-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #5f6368;
+            text-transform: uppercase;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .event-list {
+            overflow-y: auto;
+            flex: 1;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #f1f3f4;
+            font-size: 14px;
+        }
+        .event-item:last-child { border-bottom: none; }
+
+        .delete-btn {
+            color: #ea4335;
+            background: rgba(234, 67, 53, 0.1);
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .add-form {
+            display: grid;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .form-input {
+            padding: 10px;
+            border: 1px solid #dadce0;
+            border-radius: 6px;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .add-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .add-btn:hover { background-color: #1557b0; }
+
+        .reset-btn {
+            background-color: transparent;
+            color: #5f6368;
+            border: 1px solid #dadce0;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .number { font-size: 36px; }
+            .card { padding: 25px; width: 92%; }
+            .countdown-grid, .countdown-row-2 { gap: 10px; }
+            .tabs-wrapper { max-width: 85vw; }
+            .title-text { font-size: 22px; }
+            .radio-group { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="google-bar"></div>
+
+    <div class="nav-container">
+        <div class="tabs-wrapper">
+            <div class="tabs" id="tabs-container">
+                </div>
+        </div>
+        <button class="settings-btn" onclick="openModal()" title="Settings">⚙️</button>
+    </div>
+
+    <div class="card">
+        <div class="label-text" id="target-date-display">TARGET DATE</div>
+        <div class="title-text" id="main-title">EVENT TITLE</div>
+
+        <div class="countdown-grid">
+            <div class="unit-box">
+                <span class="number" id="val-mo">0</span>
+                <span class="unit-label">Months</span>
+            </div>
+            <div class="unit-box">
+                <span class="number" id="val-wk">0</span>
+                <span class="unit-label">Weeks</span>
+            </div>
+            <div class="unit-box">
+                <span class="number" id="val-day">0</span>
+                <span class="unit-label">Days</span>
+            </div>
+        </div>
+
+        <div class="countdown-row-2">
+            <div class="unit-box">
+                <span class="number" id="val-hr">00</span>
+                <span class="unit-label">Hours</span>
+            </div>
+            <div class="unit-box">
+                <span class="number" id="val-min">00</span>
+                <span class="unit-label">Minutes</span>
+            </div>
+            <div class="unit-box">
+                <span class="number highlight-num" id="val-sec">00</span>
+                <span class="unit-label">Seconds</span>
+            </div>
+        </div>
+
+        <div class="info-bar">
+            <div class="info-item">
+                <span>Today:</span>
+                <span class="info-bold" id="info-today">...</span>
+            </div>
+            <div class="info-item">
+                <span>Week:</span>
+                <span class="info-bold" id="info-week">...</span>
+            </div>
+            <div class="info-item">
+                <span>Subject:</span>
+                <span class="info-bold" id="info-subject">...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Countdown Settings</div>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+
+            <div class="sort-options">
+                <div class="sort-label">Sorting Mode</div>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio" name="sortMode" value="date" onchange="changeSortMode('date')">
+                        Auto (By Time)
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="sortMode" value="custom" onchange="changeSortMode('custom')">
+                        Custom (Drag & Drop)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="event-list" id="event-list-container">
+                </div>
+
+            <div class="add-form">
+                <input type="text" id="new-title" class="form-input" placeholder="Event Name (e.g. My Birthday)">
+                <input type="datetime-local" id="new-date" class="form-input">
+                <select id="new-color" class="form-input">
+                    <option value="#1a73e8">Google Blue (Academic/Work)</option>
+                    <option value="#ea4335">Google Red (Important/Festival)</option>
+                    <option value="#fbbc04">Google Yellow (Alert/Exam)</option>
+                    <option value="#34a853">Google Green (Life/Nature)</option>
+                </select>
+                <button class="add-btn" onclick="addNewEvent()">Add Event</button>
+            </div>
+            <button class="reset-btn" onclick="resetToDefaults()">Reset to Default IGCSE Exams</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & Data ---
+        
+        const DEFAULT_CONFIG = [
+            { id: 'cny', title: '春节 (CNY)', date: '2026-02-17T00:00:00', color: '#ea4335' },
+            { id: 'chem_p42', title: 'Chemistry (理论)', date: '2026-04-28T13:00:00', color: '#fbbc04' },
+            { id: 'math_p23', title: 'Math (Paper 23)', date: '2026-04-29T09:00:00', color: '#1a73e8' },
+            { id: 'bio_p42', title: 'Biology (理论)', date: '2026-04-30T13:00:00', color: '#34a853' },
+            { id: 'math_p43', title: 'Math (Paper 43)', date: '2026-05-06T09:00:00', color: '#1a73e8' },
+            { id: 'chem_p62', title: 'Chemistry (实验)', date: '2026-05-07T13:00:00', color: '#fbbc04' },
+            { id: 'phy_p42', title: 'Physics (理论)', date: '2026-05-08T13:00:00', color: '#ea4335' },
+            { id: 'bio_p62', title: 'Biology (实验)', date: '2026-05-12T13:00:00', color: '#34a853' },
+            { id: 'phy_p62', title: 'Physics (实验)', date: '2026-05-19T13:00:00', color: '#ea4335' }
+        ];
+
+        let events = [];
+        let currentId = '';
+        let sortMode = 'date'; // 'date' or 'custom'
+        let dragSrcEl = null;
+
+        // --- Persistence (LocalStorage) ---
+        function loadEvents() {
+            // Load Events
+            const storedEvents = localStorage.getItem('jack_countdown_events');
+            if (storedEvents) {
+                events = JSON.parse(storedEvents);
+            } else {
+                events = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                // Default first run: sort by date
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+                saveEvents();
+            }
+
+            // Load Sort Mode
+            const storedMode = localStorage.getItem('jack_countdown_sort_mode');
+            if (storedMode) sortMode = storedMode;
+            
+            // If in auto mode, ensure it's sorted
+            if (sortMode === 'date') {
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+        }
+
+        function saveEvents() {
+            localStorage.setItem('jack_countdown_events', JSON.stringify(events));
+            localStorage.setItem('jack_countdown_sort_mode', sortMode);
+            renderTabs();
+            renderEventList();
+        }
+
+        function resetToDefaults() {
+            if(confirm("Restore default IGCSE exam schedule? This will delete custom events.")) {
+                events = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                changeSortMode('date'); // Reset to date sort
+                switchTheme(events[0].id);
+            }
+        }
+
+        // --- Sorting Mode Logic ---
+        function changeSortMode(mode) {
+            sortMode = mode;
+            if (mode === 'date') {
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+            saveEvents();
+            updateRadioUI();
+        }
+
+        function updateRadioUI() {
+            const radios = document.getElementsByName('sortMode');
+            radios.forEach(r => {
+                if (r.value === sortMode) r.checked = true;
+            });
+        }
+
+        // --- UI Rendering ---
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = '';
+            
+            events.forEach((evt, index) => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${evt.id === currentId ? 'active' : ''}`;
+                btn.innerText = evt.title;
+                btn.onclick = () => switchTheme(evt.id);
+                
+                // Logic based on Sort Mode
+                if (sortMode === 'custom') {
+                    btn.classList.add('draggable');
+                    btn.setAttribute('draggable', true);
+                    btn.dataset.index = index; 
+                    
+                    // Drag Listeners
+                    btn.addEventListener('dragstart', handleDragStart);
+                    btn.addEventListener('dragover', handleDragOver);
+                    btn.addEventListener('dragenter', handleDragEnter);
+                    btn.addEventListener('dragleave', handleDragLeave);
+                    btn.addEventListener('drop', handleDrop);
+                    btn.addEventListener('dragend', handleDragEnd);
+                } else {
+                    btn.classList.add('locked');
+                    btn.setAttribute('draggable', false);
+                }
+
+                container.appendChild(btn);
+            });
+
+            if (!currentId && events.length > 0) {
+                switchTheme(events[0].id);
+            }
+        }
+
+        // --- Drag & Drop Handlers (Only active in Custom Mode) ---
+        function handleDragStart(e) {
+            if (sortMode !== 'custom') return;
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            this.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            if (sortMode !== 'custom') return false;
+
+            if (dragSrcEl !== this) {
+                const srcIndex = parseInt(dragSrcEl.dataset.index);
+                const targetIndex = parseInt(this.dataset.index);
+
+                const item = events.splice(srcIndex, 1)[0];
+                events.splice(targetIndex, 0, item);
+                saveEvents();
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('drag-over'));
+        }
+
+        function switchTheme(id) {
+            const evt = events.find(e => e.id === id);
+            if (!evt) return;
+
+            currentId = id;
+            
+            document.documentElement.style.setProperty('--theme-color', evt.color);
+            document.getElementById('main-title').innerText = evt.title;
+            const d = new Date(evt.date);
+            const dateStr = d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
+            const timeStr = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('target-date-display').innerText = `${dateStr} @ ${timeStr}`;
+            document.getElementById('info-subject').innerText = evt.title;
+
+            // Update Tab Active State
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => {
+                b.classList.remove('active');
+                if (b.innerText === evt.title) b.classList.add('active');
+            });
+            
+            updateTimer();
+        }
+
+        // --- Settings Modal Logic ---
+        function openModal() {
+            updateRadioUI();
+            renderEventList();
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function renderEventList() {
+            const list = document.getElementById('event-list-container');
+            list.innerHTML = '';
+            events.forEach((evt, index) => {
+                const item = document.createElement('div');
+                item.className = 'event-item';
+                
+                const info = document.createElement('span');
+                const d = new Date(evt.date);
+                info.innerText = `${evt.title} (${d.getMonth()+1}/${d.getDate()})`;
+                info.style.color = evt.color;
+                info.style.fontWeight = 'bold';
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.innerText = 'DEL';
+                delBtn.onclick = () => deleteEvent(index);
+
+                item.appendChild(info);
+                item.appendChild(delBtn);
+                list.appendChild(item);
+            });
+        }
+
+        function addNewEvent() {
+            const title = document.getElementById('new-title').value;
+            const dateVal = document.getElementById('new-date').value;
+            const color = document.getElementById('new-color').value;
+
+            if (!title || !dateVal) {
+                alert("Please enter both a title and a date.");
+                return;
+            }
+
+            const newEvent = {
+                id: 'custom_' + Date.now(),
+                title: title,
+                date: dateVal,
+                color: color
+            };
+
+            events.push(newEvent);
+            
+            // If in auto mode, re-sort immediately
+            if (sortMode === 'date') {
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+            
+            saveEvents();
+            
+            document.getElementById('new-title').value = '';
+            document.getElementById('new-date').value = '';
+            
+            switchTheme(newEvent.id);
+            // Don't close modal so user can see list updated
+            renderEventList();
+        }
+
+        function deleteEvent(index) {
+            if (events.length <= 1) {
+                alert("You must keep at least one event.");
+                return;
+            }
+            const deletedId = events[index].id;
+            events.splice(index, 1);
+            saveEvents();
+            
+            if (deletedId === currentId) {
+                switchTheme(events[0].id);
+            }
+            renderEventList();
+        }
+
+        // --- Timer Logic ---
+        function calculateDiff(targetDateStr) {
+            const now = new Date();
+            const target = new Date(targetDateStr);
+            let diff = target - now;
+
+            if (diff <= 0) return { mo:0, wk:0, d:0, h:0, m:0, s:0 };
+
+            let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+            if (target.getDate() < now.getDate()) months--;
+
+            let tempDate = new Date(now);
+            tempDate.setMonth(now.getMonth() + months);
+            
+            let remaining = target - tempDate;
+            const oneWeek = 1000 * 60 * 60 * 24 * 7;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const oneHour = 1000 * 60 * 60;
+            const oneMin = 1000 * 60;
+            const oneSec = 1000;
+
+            let weeks = Math.floor(remaining / oneWeek);
+            remaining -= weeks * oneWeek;
+
+            let days = Math.floor(remaining / oneDay);
+            remaining -= days * oneDay;
+
+            let hours = Math.floor(remaining / oneHour);
+            remaining -= hours * oneHour;
+
+            let minutes = Math.floor(remaining / oneMin);
+            remaining -= minutes * oneMin;
+
+            let seconds = Math.floor(remaining / oneSec);
+
+            return { mo: months, wk: weeks, d: days, h: hours, m: minutes, s: seconds };
+        }
+
+        function updateTimer() {
+            if (!currentId && events.length > 0) currentId = events[0].id;
+            const evt = events.find(e => e.id === currentId);
+            if (!evt) return;
+
+            const data = calculateDiff(evt.date);
+
+            document.getElementById('val-mo').innerText = data.mo;
+            document.getElementById('val-wk').innerText = data.wk;
+            document.getElementById('val-day').innerText = data.d;
+            
+            document.getElementById('val-hr').innerText = String(data.h).padStart(2, '0');
+            document.getElementById('val-min').innerText = String(data.m).padStart(2, '0');
+            document.getElementById('val-sec').innerText = String(data.s).padStart(2, '0');
+        }
+
+        function updateInfo() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('info-today').innerText = now.toLocaleDateString('zh-CN', options);
+
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            
+            document.getElementById('info-week').innerText = `Week ${weekNo}, Day ${dayOfYear}`;
+        }
+
+        // --- Initialization ---
+        loadEvents();
+        renderTabs(); 
+        updateInfo();
+        setInterval(() => {
+            updateTimer();
+            updateInfo();
+        }, 1000);
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('settings-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

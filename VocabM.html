@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vocab Flow - 沉浸式记忆</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
+    
+    <style>
+        /* --- 1. 基础变量与重置 (极简风格) --- */
+        :root {
+            /* 浅色模式 - 仿纸张/不背单词风格 */
+            --bg-color: #fbfbfd;
+            --text-main: #1d1d1f;
+            --text-sub: #86868b;
+            --accent-color: #007aff; /* iOS Blue */
+            --accent-soft: #e5f1ff;
+            --danger-color: #ff3b30;
+            --success-color: #34c759;
+            --warning-color: #ff9500;
+            --surface-color: #ffffff;
+            --divider: rgba(0,0,0,0.05);
+            
+            --font-en: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-cn: 'Noto Serif SC', serif; /* 释义用宋体更易读 */
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #000000;
+            --text-main: #f5f5f7;
+            --text-sub: #86868b;
+            --accent-color: #0a84ff;
+            --accent-soft: #1c1c1e;
+            --surface-color: #1c1c1e;
+            --divider: rgba(255,255,255,0.1);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0;
+            font-family: var(--font-en);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden; /* 禁止整体滚动，内容区单独滚动 */
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- 2. 布局系统 --- */
+        .app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+        }
+
+        /* 顶部导航 (极简) */
+        .top-bar {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        .progress-indicator {
+            font-size: 14px;
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        /* 图标按钮 */
+        .icon-btn {
+            background: none; border: none; padding: 8px;
+            color: var(--text-main); cursor: pointer;
+            border-radius: 50%; display: flex; align-items: center;
+        }
+        .icon-btn:active { background-color: var(--divider); }
+
+        /* --- 3. 学习视图 (核心) --- */
+        #study-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 单词展示区 (垂直居中) */
+        .word-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* 垂直居中 */
+            align-items: center;
+            padding: 0 24px;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        
+        /* 交互态：单词上移 */
+        .word-stage.slide-up {
+            justify-content: flex-start;
+            padding-top: 60px; /* 留出顶部空间 */
+            flex: 0 0 auto; /* 不再占据剩余空间 */
+        }
+
+        .main-word {
+            font-size: 3.5rem; /* 大字体 */
+            font-weight: 800;
+            text-align: center;
+            line-height: 1.1;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .phonetic-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-sub);
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 4px 12px;
+            border-radius: 16px;
+            background-color: var(--divider);
+        }
+
+        /* 详情展示区 (释义 & 例句) */
+        .detail-container {
+            flex: 1;
+            padding: 20px 32px;
+            overflow-y: auto;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s, transform 0.4s;
+            pointer-events: none; /* 未显示时不可点 */
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .detail-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .meaning-text {
+            font-family: var(--font-cn);
+            font-size: 1.25rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            border-left: 4px solid var(--accent-color);
+            padding-left: 16px;
+        }
+
+        .example-box {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+        }
+        .example-en {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        .example-cn {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+        }
+
+        /* --- 4. 底部操作区 (单手优化) --- */
+        .bottom-action-area {
+            padding: 20px 24px 40px 24px; /* 底部留白适配 iPhone Home Bar */
+            width: 100%;
+            background: linear-gradient(to top, var(--bg-color) 80%, transparent);
+            z-index: 20;
+        }
+
+        /* 按钮组 */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            height: 56px; /* 触控友好高度 */
+        }
+
+        .btn {
+            border: none;
+            border-radius: 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+        }
+        .btn:active { transform: scale(0.96); }
+
+        .btn-primary { background-color: var(--accent-color); color: white; box-shadow: 0 4px 12px rgba(0,122,255,0.3); }
+        .btn-outline { background-color: var(--surface-color); color: var(--text-main); border: 1px solid var(--divider); }
+        
+        .btn-know { background-color: var(--surface-color); color: var(--success-color); border: 1px solid var(--divider); }
+        .btn-fuzzy { background-color: var(--surface-color); color: var(--warning-color); border: 1px solid var(--divider); }
+        .btn-forgot { background-color: var(--surface-color); color: var(--danger-color); border: 1px solid var(--divider); }
+
+        /* 隐藏类 */
+        .hidden { display: none !important; }
+        
+        /* 仪表盘 */
+        #dashboard-view {
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 30px;
+        }
+        .stat-ring {
+            width: 160px; height: 160px; border-radius: 50%;
+            border: 6px solid var(--divider);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .stat-big { font-size: 3rem; font-weight: 800; color: var(--accent-color); }
+        
+        /* 导入弹窗 */
+        dialog {
+            background: var(--bg-color); color: var(--text-main);
+            border: 1px solid var(--divider); border-radius: 24px;
+            width: 90%; max-width: 400px; padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        textarea {
+            width: 100%; background: var(--surface-color); border: 1px solid var(--divider);
+            color: var(--text-main); padding: 12px; border-radius: 12px; margin-bottom: 16px;
+        }
+
+        /* 浮动提示 */
+        #toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 10px 20px;
+            border-radius: 20px; font-size: 0.9rem; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 100;
+        }
+        #toast.show { opacity: 1; top: 40px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <header class="top-bar">
+            <button class="icon-btn" id="home-btn" onclick="goHome()">
+                <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+            <div id="learning-progress" class="progress-indicator hidden">0 / 0</div>
+            <div style="display: flex; gap: 8px;">
+                <button class="icon-btn" onclick="toggleTheme()"><span class="material-symbols-rounded">dark_mode</span></button>
+                <button class="icon-btn" onclick="document.getElementById('import-dialog').showModal()"><span class="material-symbols-rounded">add</span></button>
+            </div>
+        </header>
+
+        <section id="dashboard-view">
+            <div>
+                <h1 style="margin:0; font-weight:800; letter-spacing:-1px;">Vocab Flow</h1>
+                <p style="color:var(--text-sub); margin-top:8px;">极简 · 沉浸 · 记忆</p>
+            </div>
+
+            <div class="stat-ring">
+                <div class="stat-big" id="dash-due">0</div>
+                <div style="font-size: 0.8rem; color: var(--text-sub);">待复习</div>
+            </div>
+
+            <div style="width: 100%; padding: 0 40px;">
+                <button class="btn btn-primary" id="start-btn" style="width: 100%; height: 56px; font-size: 1.1rem;">
+                    开始学习
+                </button>
+                <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 0.9rem; color: var(--text-sub);">
+                    <span id="dash-total">总词汇: 0</span>
+                    <span id="dash-mastered">已掌握: 0</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="study-view" class="hidden">
+            <div id="word-area" class="word-stage" onclick="revealAnswer()">
+                <div class="main-word" id="card-word">Word</div>
+                <div class="phonetic-area" onclick="event.stopPropagation(); playAudio()">
+                    <span class="material-symbols-rounded" style="font-size: 20px;">volume_up</span>
+                    <span id="card-phonetic">发音</span>
+                </div>
+            </div>
+
+            <div id="detail-area" class="detail-container">
+                <div class="meaning-text" id="card-meaning">
+                    释义内容...
+                </div>
+                <div class="example-box">
+                    <div class="example-en" id="card-ex-en">Example sentence.</div>
+                    <div class="example-cn" id="card-ex-cn">例句翻译。</div>
+                </div>
+                <div style="flex:1;"></div> </div>
+
+            <div class="bottom-action-area">
+                <div id="action-reveal" class="btn-group">
+                    <button class="btn btn-primary" onclick="revealAnswer()">
+                        查看释义
+                    </button>
+                </div>
+
+                <div id="action-judge" class="btn-group hidden">
+                    <button class="btn btn-forgot" onclick="handleVerdict(0)">
+                        <span class="material-symbols-rounded">close</span> &nbsp;不认识
+                    </button>
+                    <button class="btn btn-fuzzy" onclick="handleVerdict(1)">
+                        <span class="material-symbols-rounded">remove</span> &nbsp;模糊
+                    </button>
+                    <button class="btn btn-know" onclick="handleVerdict(2)">
+                        <span class="material-symbols-rounded">check</span> &nbsp;认识
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <dialog id="import-dialog">
+        <h3 style="margin-top:0;">批量导入</h3>
+        <textarea id="import-text" placeholder="单词 | 释义 | 例句En | 例句Cn&#10;一行一个" rows="8"></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn btn-outline" style="flex:unset; padding:0 20px;" onclick="this.closest('dialog').close()">取消</button>
+            <button class="btn btn-primary" style="flex:unset; padding:0 20px;" onclick="doImport()">导入</button>
+        </div>
+    </dialog>
+
+    <div id="toast"></div>
+
+    <script>
+        // --- 核心数据结构 ---
+        const STORAGE_KEY = 'vocab_flow_v3';
+        let db = []; // 完整词库
+        let sessionQueue = []; // 当前学习队列
+        let currentWord = null;
+        let isAnswerRevealed = false;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            refreshDashboard();
+            
+            // 恢复主题
+            if(localStorage.getItem('theme') === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+            }
+        });
+
+        // --- 逻辑控制 ---
+        
+        function loadData() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) db = JSON.parse(raw);
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+            refreshDashboard();
+        }
+
+        function refreshDashboard() {
+            const now = Date.now();
+            const dueCount = db.filter(w => !w.mastered && w.nextReview <= now).length;
+            const masteredCount = db.filter(w => w.mastered).length;
+            
+            document.getElementById('dash-due').textContent = dueCount;
+            document.getElementById('dash-total').textContent = `总词汇: ${db.length}`;
+            document.getElementById('dash-mastered').textContent = `已掌握: ${masteredCount}`;
+            
+            const startBtn = document.getElementById('start-btn');
+            if (dueCount === 0 && db.length > 0) {
+                startBtn.textContent = "复习完成 (自由浏览)";
+                startBtn.classList.remove('btn-primary');
+                startBtn.classList.add('btn-outline');
+            } else if (db.length === 0) {
+                startBtn.textContent = "请先导入单词";
+                startBtn.disabled = true;
+            } else {
+                startBtn.textContent = `开始复习 (${dueCount})`;
+                startBtn.disabled = false;
+                startBtn.classList.add('btn-primary');
+            }
+        }
+
+        // --- 学习流程 ---
+
+        document.getElementById('start-btn').onclick = () => {
+            const now = Date.now();
+            // 策略：先复习到期的，如果没有，则学习新词(interval=0且未掌握)
+            let dueWords = db.filter(w => !w.mastered && w.nextReview <= now);
+            
+            if (dueWords.length === 0) {
+                // 如果没有到期，取一些未学习过的词（这里简化逻辑，取所有非掌握词）
+                dueWords = db.filter(w => !w.mastered);
+                if (dueWords.length === 0) return showToast("所有单词已掌握！");
+                // 随机取 20 个自由复习
+                dueWords = dueWords.sort(() => 0.5 - Math.random()).slice(0, 20);
+            } else {
+                // 优先级排序
+                dueWords.sort((a,b) => a.nextReview - b.nextReview);
+            }
+
+            sessionQueue = dueWords;
+            if (sessionQueue.length === 0) return;
+
+            document.getElementById('dashboard-view').classList.add('hidden');
+            document.getElementById('study-view').classList.remove('hidden');
+            document.getElementById('learning-progress').classList.remove('hidden');
+            document.getElementById('home-btn').style.visibility = 'visible'; // 确保返回按钮可见
+            
+            loadNextCard();
+        };
+
+        function loadNextCard() {
+            if (sessionQueue.length === 0) {
+                showToast("本轮学习结束");
+                goHome();
+                return;
+            }
+
+            currentWord = sessionQueue[0];
+            isAnswerRevealed = false;
+            
+            // 更新进度UI
+            document.getElementById('learning-progress').textContent = `剩余: ${sessionQueue.length}`;
+            
+            // 重置UI状态
+            const wordArea = document.getElementById('word-area');
+            const detailArea = document.getElementById('detail-area');
+            const actReveal = document.getElementById('action-reveal');
+            const actJudge = document.getElementById('action-judge');
+            
+            wordArea.classList.remove('slide-up');
+            detailArea.classList.remove('visible');
+            actReveal.classList.remove('hidden');
+            actJudge.classList.add('hidden');
+
+            // 填充内容
+            document.getElementById('card-word').textContent = currentWord.word;
+            document.getElementById('card-meaning').textContent = currentWord.meaning;
+            document.getElementById('card-ex-en').textContent = currentWord.example_en || "暂无例句";
+            document.getElementById('card-ex-cn').textContent = currentWord.example_zh || "";
+            
+            // 自动发音
+            playAudio();
+        }
+
+        function revealAnswer() {
+            if (isAnswerRevealed) return; // 防止重复触发
+            isAnswerRevealed = true;
+
+            // 动画切换
+            document.getElementById('word-area').classList.add('slide-up');
+            document.getElementById('detail-area').classList.add('visible');
+            document.getElementById('action-reveal').classList.add('hidden');
+            document.getElementById('action-judge').classList.remove('hidden');
+        }
+
+        // 核心算法：处理用户反馈
+        // quality: 0 (不认识), 1 (模糊), 2 (认识)
+        function handleVerdict(quality) {
+            const now = Date.now();
+            const ONE_DAY = 24 * 60 * 60 * 1000;
+
+            if (quality === 0) {
+                // 不认识：重置间隔，推迟到当前队列末尾（强制本次学会）
+                currentWord.interval = 0;
+                currentWord.nextReview = now; // 立即过期
+                
+                // 将该词移到队列末尾
+                sessionQueue.shift(); // 移出头部
+                sessionQueue.push(currentWord); // 加到尾部
+                
+            } else if (quality === 1) {
+                // 模糊：间隔设为 1 天
+                currentWord.interval = 1;
+                currentWord.nextReview = now + ONE_DAY;
+                sessionQueue.shift(); // 移出队列，今天完成了
+                
+            } else {
+                // 认识：间隔翻倍 (简单版 SRS)
+                if (currentWord.interval === 0) currentWord.interval = 1;
+                else currentWord.interval = Math.ceil(currentWord.interval * 2.2); // 2.2 倍增
+                
+                currentWord.nextReview = now + (currentWord.interval * ONE_DAY);
+                sessionQueue.shift();
+            }
+
+            saveData();
+            loadNextCard();
+        }
+
+        // --- 辅助功能 ---
+
+        function playAudio() {
+            if (!currentWord) return;
+            const u = new SpeechSynthesisUtterance(currentWord.word);
+            u.lang = 'en-US';
+            u.rate = 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(u);
+        }
+
+        function goHome() {
+            document.getElementById('study-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            document.getElementById('learning-progress').classList.add('hidden');
+            refreshDashboard();
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const current = body.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        // 导入逻辑
+        function doImport() {
+            const text = document.getElementById('import-text').value.trim();
+            if (!text) return;
+            
+            const lines = text.split('\n');
+            let count = 0;
+            lines.forEach(line => {
+                const p = line.split('|').map(s => s.trim());
+                // 格式：单词 | 释义 | 例句En | 例句Cn
+                if (p.length >= 2 && p[0]) {
+                    // 查重
+                    const exists = db.find(w => w.word.toLowerCase() === p[0].toLowerCase());
+                    if (!exists) {
+                        db.push({
+                            id: Date.now() + Math.random(),
+                            word: p[0],
+                            meaning: p[1],
+                            example_en: p[2] || '',
+                            example_zh: p[3] || '',
+                            interval: 0,     // 0 表示新词
+                            nextReview: 0,   // 0 表示随时可学
+                            mastered: false
+                        });
+                        count++;
+                    }
+                }
+            });
+
+            saveData();
+            document.getElementById('import-text').value = '';
+            document.getElementById('import-dialog').close();
+            showToast(`成功导入 ${count} 个新单词`);
+        }
+
+        // 全局点击处理 (点击空白处显示答案)
+        document.getElementById('word-area').addEventListener('click', (e) => {
+            // 如果点击的是发音按钮，不触发
+            if (e.target.closest('.phonetic-area')) return;
+            revealAnswer();
+        });
+    </script>
+</body>
+</html>

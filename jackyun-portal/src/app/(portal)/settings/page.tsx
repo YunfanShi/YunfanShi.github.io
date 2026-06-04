@@ -1,0 +1,64 @@
+import Link from 'next/link';
+import { checkHasPassword } from '@/actions/auth';
+import { getAiConfig } from '@/actions/settings';
+import AiConfigPanel from '@/components/settings/ai-config-panel';
+import ChangePasswordPanel from '@/components/admin/change-password-panel';
+import ExportDataPanel from '@/components/settings/export-data-panel';
+
+function SectionHeader({ icon, title }: { icon: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <span className="material-icons-round text-[var(--muted-foreground)] text-lg">{icon}</span>
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+        {title}
+      </h2>
+    </div>
+  );
+}
+
+export default async function SettingsPage() {
+  const hasPassword = await checkHasPassword();
+  const aiConfig = await getAiConfig().catch(() => ({ baseUrl: '', apiKey: '', model: '' }));
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6 pb-8">
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">设置</h1>
+        <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">账户与应用配置</p>
+      </div>
+
+      {/* 账户安全 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="lock" title="账户安全" />
+        <ChangePasswordPanel hasPassword={hasPassword} />
+        <div className="mt-3">
+          <Link
+            href="/reset-password"
+            className="flex items-center gap-2 text-sm text-[#4285F4] hover:underline"
+          >
+            <span className="material-icons-round text-base">email</span>
+            通过邮件重置密码
+          </Link>
+        </div>
+      </section>
+
+      {/* AI 配置 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="smart_toy" title="AI 配置" />
+        <p className="text-sm text-[var(--muted-foreground)] mb-4">
+          配置一次即可在全站使用 AI 功能。支持 OpenAI、DeepSeek、Gemini 等兼容接口。
+        </p>
+        <AiConfigPanel initialBaseUrl={aiConfig.baseUrl} initialApiKey={aiConfig.apiKey} initialModel={aiConfig.model} />
+      </section>
+
+      {/* 数据管理 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="download" title="数据管理" />
+        <p className="text-sm text-[var(--muted-foreground)] mb-4">
+          导出你的所有数据，包括词汇、学习计划、诗词等。
+        </p>
+        <ExportDataPanel />
+      </section>
+    </div>
+  );
+}

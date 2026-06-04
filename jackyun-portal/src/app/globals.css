@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --muted-foreground: #6b7280;
+  --card: #ffffff;
+  --card-border: #e5e7eb;
+  --sidebar-bg: #f8f9fa;
+  --sidebar-border: #e5e7eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --muted-foreground: #9ca3af;
+    --card: #1a1a1a;
+    --card-border: #2d2d2d;
+    --sidebar-bg: #111111;
+    --sidebar-border: #2d2d2d;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}

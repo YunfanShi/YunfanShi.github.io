@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Warden | V10.2 Network Core</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            --md-primary: #c20c0c;
+            --md-bg: #f5f5f5;
+            --color-study: #2d3436;
+            --color-break: #c20c0c;
+            --color-prep: #f1c40f;
+            --color-done: #137333;
+            --shadow-2: 0 4px 12px rgba(0,0,0,0.08);
+            --ease-out: cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { box-sizing: border-box; transition: background-color 0.3s ease, color 0.2s ease; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; background: var(--md-bg); color: #1f1f1f; height: 100vh; display: flex; overflow: hidden; }
+
+        /* === SIDEBAR FIXED LAYOUT === */
+        aside { 
+            width: 350px; background: #fff; border-right: 1px solid #e0e0e0; 
+            display: flex; flex-direction: column; z-index: 20; 
+            box-shadow: 4px 0 24px rgba(0,0,0,0.02); flex-shrink: 0; 
+            height: 100vh; /* Critical: Full Height */
+        }
+        
+        .player-header { padding: 20px; background: #242424; color: white; flex-shrink: 0; }
+        .player-title { font-weight: bold; font-size: 16px; display:flex; align-items:center; gap:10px; margin-bottom: 10px;}
+        
+        .playlist-control { display: flex; gap: 8px; align-items: center; }
+        .playlist-select {
+            flex: 1; padding: 8px 12px; border-radius: 6px; border: none;
+            background: #333; color: white; font-size: 13px; cursor: pointer;
+            outline: none; font-weight: 500;
+        }
+        .btn-add { 
+            width: 32px; height: 32px; border-radius: 6px; border: none; 
+            background: var(--md-primary); color: white; cursor: pointer; 
+            font-weight: bold; font-size: 18px; display: flex; justify-content: center; align-items: center;
+        }
+
+        .auto-play-info {
+            margin-top: 15px; padding: 10px; background: #333; border-radius: 6px;
+            font-size: 12px; color: #aaa; text-align: center; display: none;
+        }
+        .auto-play-info.active { display: block; animation: fadeIn 0.5s; }
+        .scrolling-text { color: var(--md-primary); font-weight: bold; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Flexible Iframe Container */
+        .iframe-container { 
+            flex: 1; /* Takes all available space */
+            background: #000; display: flex; justify-content: center; 
+            overflow: hidden; position: relative; min-height: 0; /* Important for flex overflow */
+        }
+        
+        /* Settings Area Pinned to Bottom */
+        .settings-area { 
+            padding: 15px; background: #f9f9f9; border-top: 1px solid #eee; 
+            font-size: 13px; display: flex; flex-direction: column; gap: 10px; 
+            flex-shrink: 0; /* NEVER SHRINK */
+        }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; color: #555; font-weight: bold; }
+        .setting-btn { border: none; background: #eee; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 4px;}
+        .setting-btn:hover { background: #ddd; }
+        .setting-btn.active { background: #d1e7dd; color: #0f5132; }
+        
+        .tts-select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; background: white; margin-top: 5px;}
+
+        /* === MAIN CONTENT === */
+        main { flex: 1; padding: 30px 40px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; position: relative; }
+        header { display: flex; justify-content: space-between; align-items: center; }
+        .date-badge { background: #333; color: #fff; padding: 8px 16px; border-radius: 4px; font-family: 'Roboto Mono'; display: flex; align-items: center; gap: 10px;}
+        
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff9800; transition: background 0.3s; }
+        .sync-dot.synced { background: #00e676; box-shadow: 0 0 5px #00e676; }
+        .sync-dot.error { background: #ff1744; }
+
+        /* === TIMER CARD FIXED === */
+        .timer-card { 
+            background: white; border-radius: 20px; padding: 40px; text-align: center; 
+            box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; position: relative; 
+            display: flex; flex-direction: column; justify-content: center;
+            min-height: 300px; /* Ensure height */
+        }
+        .timer-card.finished-mode { border-color: var(--color-done); background: #f0fdf4; }
+        
+        .timer-digits { 
+            /* Fix: Clamp font size to prevent explosion */
+            font-size: clamp(60px, 15vw, 120px); 
+            font-family: 'Inter', sans-serif; font-weight: 900; color: #333; 
+            line-height: 1.1; letter-spacing: -4px; font-variant-numeric: tabular-nums; 
+            margin: 10px 0;
+        }
+        .timer-label { font-size: 24px; color: #666; margin-bottom: 20px; font-weight: 700; text-transform: uppercase; }
+        
+        .early-finish-btn { 
+            position: absolute; right: 20px; top: 20px; 
+            background: #e6f4ea; color: #137333; border: 1px solid #c6ebd1; 
+            padding: 8px 16px; border-radius: 20px; cursor: pointer; 
+            font-weight: 600; font-size: 13px; opacity: 0; pointer-events: none; 
+            transition: opacity 0.3s; display: flex; align-items: center; gap: 5px; z-index: 10;
+        }
+        .early-finish-btn.visible { opacity: 1; pointer-events: auto; }
+
+        .schedule-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; flex: 1; overflow-y: auto; }
+        .task-row { display: grid; grid-template-columns: 50px 80px 1fr 80px; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; align-items: center; }
+        .task-row.active { background: #fff0f0; border-left: 6px solid var(--md-primary); }
+        .task-row.done { background: #f8f9fa; opacity: 0.5; }
+        .task-row.done .task-name { text-decoration: line-through; }
+        .checkbox-custom { width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 4px; cursor: pointer; display: grid; place-items: center; color: white; }
+        .task-row.done .checkbox-custom { background: var(--color-done); border-color: var(--color-done); }
+        .task-time { font-family: 'Roboto Mono'; font-size: 13px; color: #666; }
+        .task-type { font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: right; }
+        .task-type.study { color: var(--color-study); }
+        .task-type.break { color: var(--color-break); }
+
+        /* === ANIMATION OVERLAYS === */
+        #immersive-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0,0,0,0.9); backdrop-filter: blur(20px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.6s var(--ease-out);
+            color: white; text-align: center;
+        }
+        #immersive-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .mode-study { background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%); }
+        .mode-break { background: linear-gradient(135deg, #300000 0%, #c0392b 100%); }
+        .mode-prep { background: linear-gradient(135deg, #332b00 0%, #f1c40f 100%); }
+        .mode-done { background: linear-gradient(135deg, #064e3b 0%, #10b981 100%); }
+
+        .overlay-content { transform: translateY(30px); transition: transform 0.8s var(--ease-out); }
+        #immersive-overlay.active .overlay-content { transform: translateY(0); }
+        .big-icon { font-size: 120px; margin-bottom: 20px; animation: float 6s ease-in-out infinite; }
+        .overlay-title { font-size: 60px; font-weight: 900; margin: 0; letter-spacing: -2px; text-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .overlay-quote { font-size: 24px; font-weight: 300; margin-top: 30px; max-width: 800px; font-family: 'Songti SC', serif; line-height: 1.5; opacity: 0.9; }
+        .overlay-author { font-size: 16px; margin-top: 10px; opacity: 0.6; font-style: italic; }
+
+        /* BGM Prompt */
+        #bgm-prompt {
+            position: fixed; bottom: 40px; right: 40px; width: 400px;
+            background: white; border-radius: 16px; padding: 25px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            z-index: 1001; transform: translateX(120%); transition: transform 0.5s var(--ease-out);
+            border: 2px solid var(--color-break);
+        }
+        #bgm-prompt.active { transform: translateX(0); }
+        .prompt-header { font-weight: 900; font-size: 20px; color: var(--color-break); display:flex; align-items:center; gap:10px; margin-bottom: 10px;}
+        .prompt-body { font-size: 14px; color: #555; margin-bottom: 20px; }
+        .prompt-timer-bar { height: 4px; background: #eee; width: 100%; border-radius: 2px; overflow: hidden; margin-bottom: 20px; }
+        .prompt-timer-fill { height: 100%; background: var(--color-break); width: 100%; transition: width 1s linear; }
+        .prompt-actions { display: flex; gap: 10px; }
+        .prompt-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn-confirm { background: var(--color-break); color: white; }
+        .btn-confirm:hover { background: #a00000; }
+        .btn-cancel { background: #eee; color: #333; }
+        
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+    </style>
+</head>
+<body>
+
+<audio id="bgm-player"></audio>
+
+<div id="immersive-overlay" style="opacity: 1; pointer-events: auto; background: #111;">
+    <div class="overlay-content">
+        <span class="material-icons-round big-icon" style="color:var(--md-primary)">security</span>
+        <h1 class="overlay-title">Warden V10.2</h1>
+        <p class="overlay-quote" style="font-family:sans-serif;">Network Time Enforced • Auto-Finish Logic</p>
+        <button onclick="initSystem()" style="margin-top:40px; padding: 15px 50px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; box-shadow: 0 10px 30px rgba(194, 12, 12, 0.4);">
+            Initialize System
+        </button>
+    </div>
+</div>
+
+<div id="immersive-transition"></div>
+
+<div id="bgm-prompt">
+    <div class="prompt-header"><span class="material-icons-round">queue_music</span> Break Approaching</div>
+    <div class="prompt-body">Relaxation time in 20 seconds.<br>Start Auto-BGM playlist?</div>
+    <div class="prompt-timer-bar"><div class="prompt-timer-fill" id="prompt-fill"></div></div>
+    <div class="prompt-actions">
+        <button class="prompt-btn btn-cancel" onclick="handleBgmChoice(false)">Cancel</button>
+        <button class="prompt-btn btn-confirm" onclick="handleBgmChoice(true)">Play Music</button>
+    </div>
+</div>
+
+<aside>
+    <div class="player-header">
+        <div class="player-title"><span class="material-icons-round" style="color:var(--md-primary)">library_music</span> MEDIA CONTROL</div>
+        <div class="playlist-control">
+            <select id="playlist-picker" class="playlist-select" onchange="changePlaylist(this.value)">
+                <option value="17723303753">Timetable Pack (Default)</option>
+                <option value="17704807303">逆水寒·战斗 (Combat)</option>
+                <option value="17672788372">逆水寒·前200 (Top 200)</option>
+                <option value="17666278720">逆水长琴 (Zither)</option>
+            </select>
+            <button class="btn-add" onclick="addCustomPlaylist()">+</button>
+        </div>
+        <div id="auto-play-info" class="auto-play-info">AUTO-BGM ACTIVE<div id="scrolling-song-name" class="scrolling-text">--</div></div>
+        <div style="margin-top:10px; font-size:11px; color:#888; display:flex; justify-content:space-between;">
+            <span>[SPACE] Pause</span><span>[← →] Skip</span>
+        </div>
+    </div>
+
+    <div class="iframe-container">
+        <iframe id="music-iframe" frameborder="no" border="0" marginwidth="0" marginheight="0" width=340 height=100% src=""></iframe>
+    </div>
+
+    <div class="settings-area">
+        <div class="setting-row">
+            <span><span class="material-icons-round" style="font-size:14px;">record_voice_over</span> AI Voice</span>
+            <button class="setting-btn" onclick="populateVoiceSelect()">↻</button>
+        </div>
+        <select id="voice-select" class="tts-select" onchange="testVoice()"></select>
+        
+        <div class="setting-row" style="margin-top:10px;">
+            <span>Auto-Confirm BGM</span>
+            <button id="btn-auto-bgm" class="setting-btn active" onclick="toggleSetting('autoBgm')">ON</button>
+        </div>
+        
+        <div class="setting-row">
+            <span>Network Time</span>
+            <button class="setting-btn" onclick="syncServerTime()"><span class="material-icons-round" style="font-size:12px;">sync</span> Sync</button>
+        </div>
+    </div>
+</aside>
+
+<main>
+    <header>
+        <div>
+            <h2 style="margin:0; font-size:20px;">Daily Schedule</h2>
+            <div id="day-label" style="font-size:14px; color:#666;">Loading...</div>
+        </div>
+        <div class="date-badge">
+            <div id="sync-status" class="sync-dot" title="Network Time Status"></div>
+            <span id="clock-display" style="margin-left:8px;">00:00:00</span>
+        </div>
+    </header>
+
+    <div class="timer-card" id="main-card">
+        <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()">
+            <span class="material-icons-round">done_all</span> Finish Early
+        </button>
+        <div class="timer-label" id="timer-label">STANDBY</div>
+        <div class="timer-digits" id="timer-display">--:--</div>
+        <div style="position:absolute; bottom:0; left:0; width:100%; height:6px; background:#f0f0f0;">
+            <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
+        </div>
+    </div>
+
+    <div class="schedule-card" id="schedule-list"></div>
+</main>
+
+<script>
+    /* ======================== 1. CONFIG & DATA ======================== */
+    const AUTO_BGM_LIST = [
+        {id: 2640844158, name: "天阙万钧 (九光寒林·战斗)"},
+        {id: 3312207342, name: "驭骨掌中 (关山藏锋·米擒负)"},
+        {id: 3312206530, name: "红丝魇 (关山藏锋·练小窈)"},
+        {id: 3332977605, name: "凭澜引 (怒潮归流·曲河星)"},
+        {id: 2119745415, name: "揽月 (谪仙惊涛·李白)"},
+        {id: 2119743531, name: "怒涛砥霜剑 (谪仙惊涛·战斗)"},
+        {id: 2137411622, name: "星罗棋布 (永夜星都·天弈之墟)"},
+        {id: 2137412905, name: "众生如棋 (永夜星都·天弈之墟)"},
+        {id: 2137411613, name: "天悬太一 (永夜星都·天极中宫)"},
+        {id: 2719266561, name: "无日无更 (无更市)"},
+        {id: 864099181,  name: "逆水寒 (河山集)"},
+        {id: 2686665002, name: "夕拾谣 (南海乱墟·流珠)"}
+    ];
+
+    const SCHEDULE_DATA = {
+        "0": [{"start":"10:30","end":"11:10","task":"Summer HW","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"Math Note","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"Vocab","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"Bio Note","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"IELTS Lessons","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"IELTS Lessons","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"Chem Note","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"Physics Note","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"IELTS Lessons","type":"study"},{"start":"21:15","end":"21:55","task":"IELTS Lessons","type":"study"},{"start":"21:55","end":"22:35","task":"CS50P","type":"study"}],
+        "1": [{"start":"10:30","end":"11:10","task":"Vocab","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"Bio Note","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"IELTS Lessons","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"IELTS Lessons","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"Physics Note","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"Piano","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"Math Note","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"Math Note","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"IELTS Lessons","type":"study"},{"start":"21:15","end":"21:55","task":"IELTS Lessons","type":"study"},{"start":"21:55","end":"22:35","task":"Summer HW","type":"study"}],
+        "2": [{"start":"10:30","end":"11:10","task":"Summer HW","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"IELTS Lessons","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"IELTS Lessons","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"Physics Note","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"Bio Note","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"IELTS Lessons","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"IELTS Lessons","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"Chem Note","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"Vocab","type":"study"},{"start":"21:15","end":"21:55","task":"CS50P","type":"study"},{"start":"21:55","end":"22:35","task":"Physics Note","type":"study"}],
+        "3": [{"start":"10:30","end":"11:10","task":"Summer HW","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"IELTS Lessons","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"IELTS Lessons","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"Vocab","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"Math Note","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"Chem Note","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"Physics Note","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"IELTS Lessons","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"IELTS Lessons","type":"study"},{"start":"21:15","end":"21:55","task":"Bio Note","type":"study"},{"start":"21:55","end":"22:35","task":"Piano","type":"study"}],
+        "4": [{"start":"10:30","end":"11:10","task":"Physics Note","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"Chem Note","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"Physics Note","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"IELTS Lessons","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"IELTS Lessons","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"Vocab","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"IELTS Lessons","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"IELTS Lessons","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"Chem Note","type":"study"},{"start":"21:15","end":"21:55","task":"Summer HW","type":"study"},{"start":"21:55","end":"22:35","task":"CS50P","type":"study"}],
+        "5": [{"start":"10:30","end":"11:10","task":"Vocab","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"Chem Note","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"Piano","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"Math Note","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"IELTS Lessons","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"IELTS Lessons","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"Bio Note","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"Summer HW","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"Bio Note","type":"study"},{"start":"21:15","end":"21:55","task":"IELTS Lessons","type":"study"},{"start":"21:55","end":"22:35","task":"IELTS Lessons","type":"study"}],
+        "6": [{"start":"10:30","end":"11:10","task":"Summer HW","type":"study"},{"start":"11:10","end":"11:25","task":"Break","type":"break"},{"start":"11:25","end":"12:05","task":"Chem Note","type":"study"},{"start":"12:05","end":"13:30","task":"Lunch","type":"break"},{"start":"13:30","end":"14:10","task":"Piano","type":"study"},{"start":"14:10","end":"14:25","task":"Break","type":"break"},{"start":"14:25","end":"15:05","task":"IELTS Lessons","type":"study"},{"start":"15:05","end":"15:35","task":"Break","type":"break"},{"start":"15:35","end":"16:15","task":"IELTS Lessons","type":"study"},{"start":"16:15","end":"16:30","task":"Break","type":"break"},{"start":"16:30","end":"17:10","task":"Math Note","type":"study"},{"start":"17:10","end":"18:30","task":"Dinner","type":"break"},{"start":"18:30","end":"19:10","task":"IELTS Lessons","type":"study"},{"start":"19:10","end":"19:25","task":"Break","type":"break"},{"start":"19:25","end":"20:05","task":"IELTS Lessons","type":"study"},{"start":"20:05","end":"20:35","task":"Break","type":"break"},{"start":"20:35","end":"21:15","task":"Vocab","type":"study"},{"start":"21:15","end":"21:55","task":"Math Note","type":"study"},{"start":"21:55","end":"22:35","task":"Bio Note","type":"study"}]
+    };
+
+    let STATE = {
+        schedule: JSON.parse(localStorage.getItem('w3_schedule')) || [],
+        voiceUri: localStorage.getItem('w3_voice') || '',
+        lastDate: localStorage.getItem('w3_date') || '',
+        lastTaskName: null,
+        bufferActive: false,
+        bgmPlayer: document.getElementById('bgm-player'),
+        customPlaylists: JSON.parse(localStorage.getItem('w3_playlists')) || [],
+        autoBgmConfirm: localStorage.getItem('w10_autobgm') !== 'false', 
+        bgmPromptActive: false,
+        bgmPromptTimeout: null,
+        mode: 'standard', // 'standard', 'finished'
+        timeOffset: 0 // Server Time - Local Time
+    };
+
+    /* ======================== 2. NETWORK TIME SYNC (REQUIRED) ======================== */
+    async function syncServerTime() {
+        const dot = document.getElementById('sync-status');
+        dot.className = 'sync-dot';
+        
+        try {
+            const start = Date.now();
+            const res = await fetch('http://worldtimeapi.org/api/timezone/Asia/Shanghai');
+            const data = await res.json();
+            const serverTime = new Date(data.datetime).getTime();
+            const end = Date.now();
+            
+            // Calculate offset (server time - local time)
+            // Adjusting for latency (approx half RTT)
+            STATE.timeOffset = serverTime - end + (end - start) / 2;
+            
+            dot.className = 'sync-dot synced';
+            console.log(`[TimeSync] Offset: ${STATE.timeOffset}ms`);
+        } catch (e) {
+            console.warn("[TimeSync] Failed, using local.", e);
+            dot.className = 'sync-dot error';
+            STATE.timeOffset = 0; // Fallback to 0 if failed
+        }
+    }
+
+    // Critical: Get Acccurate Time
+    function getNow() {
+        return new Date(Date.now() + STATE.timeOffset);
+    }
+
+    /* ======================== 3. INITIALIZATION ======================== */
+    function initSystem() {
+        const overlay = document.getElementById('immersive-overlay');
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.style.display = 'none', 600);
+
+        // Network Time Check
+        syncServerTime();
+
+        const today = getNow().toDateString();
+        if(STATE.lastDate !== today) {
+            loadSchedule();
+            localStorage.setItem('w3_date', today);
+        } else if (STATE.schedule.length === 0) {
+            loadSchedule();
+        } else {
+            renderTable();
+        }
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        new AudioContext().resume();
+        
+        setInterval(tick, 1000);
+        
+        populateVoiceSelect();
+        window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
+        
+        loadCustomPlaylists();
+        changePlaylist("17723303753");
+        STATE.bgmPlayer.onended = playRandomTrack;
+        
+        setupMediaKeys();
+        updateSettingsUI();
+    }
+
+    /* ======================== 4. CORE LOOP ======================== */
+    function tick() {
+        const now = getNow();
+        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        
+        if(STATE.schedule.length === 0) return;
+
+        const curM = now.getHours()*60 + now.getMinutes();
+        const curS = now.getSeconds();
+        const curTotalS = curM * 60 + curS;
+
+        // 1. Buffer Logic
+        const nextStudy = STATE.schedule.find(s => s.type === 'study' && !s.done && timeToMinutes(s.start) > curM);
+        if (nextStudy) {
+            const startM = timeToMinutes(nextStudy.start);
+            const diffM = startM - curM;
+            if (diffM <= 10 && diffM > 0) {
+                if (!STATE.bufferActive) {
+                    STATE.bufferActive = true;
+                    triggerImmersiveAlert('prep', nextStudy.task);
+                    speak(`Preparation mode. ${nextStudy.task} in 10 minutes.`);
+                }
+                updateTimer(nextStudy.task + " (PREP)", (startM*60 - curTotalS), 600, true);
+                return;
+            } else {
+                STATE.bufferActive = false;
+            }
+        }
+
+        // 2. BGM Prompt
+        const nextBreak = STATE.schedule.find(s => s.type === 'break' && !s.done && timeToMinutes(s.start) > curM);
+        if (nextBreak) {
+            const startS = timeToMinutes(nextBreak.start) * 60;
+            const diffS = startS - curTotalS;
+            if (diffS <= 20 && diffS > 0 && !STATE.bgmPromptActive) {
+                triggerBgmPrompt();
+            }
+        }
+
+        // 3. Current Task
+        const currentSlot = STATE.schedule.find(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+
+        if (currentSlot) {
+            // FINISH EARLY LOGIC CHECK
+            if (currentSlot.done) {
+                // If marked done, we enter 'finished' mode immediately
+                if (STATE.mode !== 'finished') {
+                    enterFinishedMode(currentSlot);
+                }
+                updateTimer("COMPLETED - REST", 0, 100, false);
+                return; // Stop processing to avoid overwriting UI
+            } 
+            
+            // Normal Active Logic
+            STATE.mode = 'standard';
+            document.getElementById('main-card').classList.remove('finished-mode');
+            document.getElementById('btn-early').classList.add('visible');
+            
+            if (STATE.lastTaskName !== currentSlot.task) {
+                STATE.lastTaskName = currentSlot.task;
+                if (currentSlot.type === 'study') {
+                    STATE.bgmPlayer.pause();
+                    updateAutoPlayInfo("");
+                    triggerImmersiveAlert('study', currentSlot.task);
+                    speak(`Focus session: ${currentSlot.task}`);
+                } else {
+                    triggerImmersiveAlert('break', currentSlot.task);
+                    speak("Break time.");
+                    document.getElementById('btn-early').classList.remove('visible'); // No finish early for breaks
+                    if (STATE.autoBgmConfirm && STATE.bgmPlayer.paused) playRandomTrack();
+                }
+                highlightRow(currentSlot);
+            }
+            
+            const start = timeToMinutes(currentSlot.start);
+            const end = timeToMinutes(currentSlot.end);
+            const remaining = (end*60) - curTotalS;
+            updateTimer(currentSlot.task, remaining, (end-start)*60, false);
+            
+        } else {
+            updateTimer("FREE TIME", 0, 100, false);
+            STATE.lastTaskName = null;
+            document.getElementById('btn-early').classList.remove('visible');
+        }
+    }
+
+    /* ======================== 5. FINISH EARLY LOGIC (NEW) ======================== */
+    function finishTaskEarly() {
+        const now = getNow();
+        const curM = now.getHours()*60 + now.getMinutes();
+        const idx = STATE.schedule.findIndex(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+        
+        if (idx > -1) {
+            const task = STATE.schedule[idx];
+            task.done = true; // Mark done
+            saveSchedule();
+            renderTable();
+            enterFinishedMode(task); // Trigger mode switch immediately
+            speak("Task completed early. Entering rest mode.");
+        }
+    }
+
+    function enterFinishedMode(task) {
+        STATE.mode = 'finished';
+        document.getElementById('main-card').classList.add('finished-mode');
+        document.getElementById('btn-early').classList.remove('visible');
+        triggerImmersiveAlert('done', "Task Completed");
+        highlightRow(task);
+        
+        // Auto Play Music if it was a Study task
+        if (task.type === 'study' && STATE.bgmPlayer.paused) {
+            playRandomTrack();
+        }
+    }
+
+    /* ======================== 6. UI & UTILS ======================== */
+    function updateTimer(label, secs, total, isBuffer) {
+        if(secs < 0) secs = 0;
+        const m = Math.floor(secs/60).toString().padStart(2,'0');
+        const s = (secs%60).toString().padStart(2,'0');
+        document.getElementById('timer-display').innerText = `${m}:${s}`;
+        document.getElementById('timer-label').innerText = label;
+        
+        const card = document.getElementById('main-card');
+        const bar = document.getElementById('progress-bar');
+        
+        if (isBuffer) {
+            card.style.borderColor = "#ffc107";
+            bar.style.background = "#ffc107";
+        } else if (STATE.mode === 'finished') {
+            card.style.borderColor = "var(--color-done)";
+            bar.style.background = "var(--color-done)";
+        } else {
+            card.style.borderColor = "#e0e0e0";
+            bar.style.background = "var(--md-primary)";
+        }
+        
+        const pct = total > 0 ? ((total-secs)/total)*100 : 0;
+        bar.style.width = pct + "%";
+    }
+
+    async function triggerImmersiveAlert(type, taskName) {
+        const container = document.getElementById('immersive-transition');
+        let quote = "Loading wisdom...";
+        let author = "";
+        try {
+            const cat = type === 'study' ? 'i' : (type === 'break' ? 'a' : 'd'); 
+            const res = await fetch(`https://v1.hitokoto.cn/?c=${cat}&encode=json`);
+            const data = await res.json();
+            quote = data.hitokoto;
+            author = data.from;
+        } catch(e) { quote = "Time is the wisest counselor of all."; }
+
+        const icons = { 'study': 'auto_stories', 'break': 'spa', 'prep': 'history_edu', 'done': 'check_circle' };
+        
+        container.innerHTML = `
+            <div id="temp-overlay" class="mode-${type}" 
+                 style="position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; background:rgba(0,0,0,0.95); animation: fadeIn 0.5s;">
+                <span class="material-icons-round big-icon">${icons[type]}</span>
+                <h1 class="overlay-title">${taskName}</h1>
+                <div class="overlay-quote">“${quote}”</div>
+                <div class="overlay-author">—— ${author}</div>
+            </div>
+        `;
+        setTimeout(() => {
+            const el = document.getElementById('temp-overlay');
+            if(el) { el.style.opacity = 0; setTimeout(() => el.remove(), 500); }
+        }, 4000);
+    }
+
+    /* ======================== 7. SCHEDULE & PLAYLIST ======================== */
+    function loadSchedule() {
+        const todayIdx = getNow().getDay();
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
+        const plan = SCHEDULE_DATA[todayIdx] || [];
+        STATE.schedule = JSON.parse(JSON.stringify(plan));
+        saveSchedule();
+        renderTable();
+    }
+
+    function renderTable() {
+        const div = document.getElementById('schedule-list');
+        div.innerHTML = '';
+        STATE.schedule.forEach((s, idx) => {
+            const row = document.createElement('div');
+            row.className = `task-row ${s.done ? 'done' : ''}`;
+            row.id = `row-${idx}`;
+            row.innerHTML = `
+                <div class="checkbox-custom" onclick="toggleTask(${idx})">
+                    ${s.done ? '<span class="material-icons-round" style="font-size:16px;">check_circle</span>' : '<span class="material-icons-round" style="font-size:16px; color:#ddd;">radio_button_unchecked</span>'}
+                </div>
+                <div class="task-time">${s.start} - ${s.end}</div>
+                <div class="task-name">${s.task}</div>
+                <div class="task-type ${s.type}">${s.type}</div>
+            `;
+            div.appendChild(row);
+        });
+    }
+
+    function toggleTask(idx) {
+        STATE.schedule[idx].done = !STATE.schedule[idx].done;
+        saveSchedule();
+        renderTable();
+    }
+
+    function highlightRow(activeTask) {
+        document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
+        const idx = STATE.schedule.indexOf(activeTask);
+        if(idx > -1) {
+            const el = document.getElementById(`row-${idx}`);
+            if(el) {
+                el.classList.add('active');
+                el.scrollIntoView({behavior: "smooth", block: "center"});
+            }
+        }
+    }
+
+    function playRandomTrack() {
+        const track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
+        updateAutoPlayInfo(track.name);
+        STATE.bgmPlayer.src = `https://music.163.com/song/media/outer/url?id=${track.id}.mp3`;
+        STATE.bgmPlayer.play().catch(console.error);
+    }
+
+    function updateAutoPlayInfo(text) {
+        const infoBox = document.getElementById('auto-play-info');
+        const textEl = document.getElementById('scrolling-song-name');
+        if (text) {
+            infoBox.classList.add('active');
+            textEl.innerText = "♫ " + text;
+        } else {
+            infoBox.classList.remove('active');
+        }
+    }
+
+    /* ======================== 8. PROMPT & SETTINGS ======================== */
+    function triggerBgmPrompt() {
+        STATE.bgmPromptActive = true;
+        const modal = document.getElementById('bgm-prompt');
+        const bar = document.getElementById('prompt-fill');
+        modal.classList.add('active');
+        bar.style.width = '100%';
+        setTimeout(() => bar.style.width = '0%', 100);
+        STATE.bgmPromptTimeout = setTimeout(() => { handleBgmChoice(STATE.autoBgmConfirm); }, 20000);
+    }
+
+    function handleBgmChoice(play) {
+        clearTimeout(STATE.bgmPromptTimeout);
+        document.getElementById('bgm-prompt').classList.remove('active');
+        STATE.bgmPromptActive = false;
+        if (play) { playRandomTrack(); triggerImmersiveAlert('break', "Music Started"); } 
+        else { speak("Music cancelled."); }
+    }
+
+    function toggleSetting(key) {
+        if (key === 'autoBgm') {
+            STATE.autoBgmConfirm = !STATE.autoBgmConfirm;
+            localStorage.setItem('w10_autobgm', STATE.autoBgmConfirm);
+            updateSettingsUI();
+        }
+    }
+
+    function updateSettingsUI() {
+        const btn = document.getElementById('btn-auto-bgm');
+        btn.innerText = STATE.autoBgmConfirm ? "ON" : "OFF";
+        btn.className = `setting-btn ${STATE.autoBgmConfirm ? 'active' : ''}`;
+    }
+
+    function setupMediaKeys() {
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); STATE.bgmPlayer.paused ? STATE.bgmPlayer.play() : STATE.bgmPlayer.pause(); }
+            if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') playRandomTrack();
+        });
+    }
+
+    function populateVoiceSelect() {
+        const sel = document.getElementById('voice-select');
+        sel.innerHTML = '';
+        const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
+        voices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.voiceURI;
+            opt.innerText = v.name;
+            sel.appendChild(opt);
+        });
+        if(STATE.voiceUri) sel.value = STATE.voiceUri;
+    }
+
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US';
+        const v = window.speechSynthesis.getVoices().find(v => v.voiceURI === STATE.voiceUri);
+        if(v) u.voice = v;
+        window.speechSynthesis.speak(u);
+    }
+    
+    function testVoice() { STATE.voiceUri = document.getElementById('voice-select').value; localStorage.setItem('w3_voice', STATE.voiceUri); speak("Voice updated."); }
+    function changePlaylist(id) { document.getElementById('music-iframe').src = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`; }
+    function addCustomPlaylist() {
+        const id = prompt("Enter NetEase Playlist ID:");
+        if(id && !isNaN(id)) {
+            const name = prompt("Enter Name:", "Custom List");
+            STATE.customPlaylists.push({id, name: name || "Custom"});
+            localStorage.setItem('w3_playlists', JSON.stringify(STATE.customPlaylists));
+            loadCustomPlaylists();
+        }
+    }
+    function loadCustomPlaylists() {
+        const select = document.getElementById('playlist-picker');
+        while(select.options.length > 4) select.remove(4);
+        STATE.customPlaylists.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.innerText = p.name;
+            select.appendChild(option);
+        });
+    }
+    function timeToMinutes(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+    function saveSchedule() { localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule)); }
+
+</script>
+</body>
+</html>

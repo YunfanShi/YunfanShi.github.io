@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-bg: #e8f0fe;
+            --surface: #ffffff;
+            --background: #f8f9fa;
+            --text-main: #202124;
+            --text-sub: #5f6368;
+            --border: #dadce0;
+            --shadow-card: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            --shadow-hover: 0 4px 8px 3px rgba(60,64,67,0.15);
+            --anim-curve: cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e6f4ea;
+            color: #137333;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #1e8e3e;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        h1 {
+            font-size: 40px;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-sub);
+            font-size: 18px;
+        }
+
+        /* --- Sticky Navigation --- */
+        .nav-container {
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            margin-top: -25px;
+            margin-bottom: 40px;
+            pointer-events: none;
+        }
+
+        .toggle-switch {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 6px;
+            border-radius: 100px;
+            display: flex;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .toggle-btn {
+            padding: 12px 32px;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-sub);
+            cursor: pointer;
+            z-index: 2;
+            transition: color 0.3s;
+            position: relative;
+            font-family: 'Google Sans', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-btn.active { color: var(--primary); }
+
+        .slider {
+            position: absolute;
+            height: calc(100% - 12px);
+            top: 6px;
+            left: 6px;
+            background: var(--primary-bg);
+            border-radius: 90px;
+            z-index: 1;
+            transition: transform 0.4s var(--anim-curve), width 0.4s var(--anim-curve);
+        }
+
+        /* --- Content Layout --- */
+        .content-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px 80px;
+            opacity: 1;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .content-container.fading {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .section-title {
+            font-size: 22px;
+            color: var(--text-main);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* --- Update Log (Timeline) --- */
+        .global-log {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: var(--shadow-card);
+            margin-bottom: 40px;
+            border: 1px solid var(--border);
+        }
+
+        .log-section-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .log-section-label.major { color: #1a73e8; }
+        .log-section-label.regular { color: var(--text-sub); margin-top: 24px; }
+
+        .log-item {
+            padding-bottom: 20px;
+            border-left: 2px solid var(--border);
+            padding-left: 20px;
+            position: relative;
+        }
+        .log-item:last-child { border-left: 2px solid transparent; padding-bottom: 0; }
+
+        .log-item.major::before {
+            background: #1a73e8;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.3);
+        }
+
+        .log-item::before {
+            content: '';
+            position: absolute;
+            left: -7px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 4px solid var(--surface);
+        }
+
+        .log-date { font-size: 12px; color: var(--text-sub); font-weight: 500; margin-bottom: 4px; }
+        .log-content { font-size: 15px; line-height: 1.6; }
+
+        /* --- Modules Grid --- */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+            transition: all 0.3s var(--anim-curve);
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            cursor: default;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--primary-bg);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+
+        .card-badge {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .card-badge.online { background: #e6f4ea; color: #137333; }
+        .card-badge.beta { background: #fef7e0; color: #e37400; }
+        .card-badge.offline { background: #fce8e6; color: #c5221f; }
+
+        .module-name { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+        .module-desc { font-size: 14px; color: var(--text-sub); line-height: 1.5; flex: 1; margin-bottom: 16px; }
+
+        .update-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+        }
+
+        .update-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 4px 0;
+            color: var(--text-sub);
+        }
+
+        .update-row span:last-child { font-weight: 500; color: var(--text-main); }
+
+        .action-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            text-decoration: none;
+            font-family: 'Google Sans', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .action-btn:hover { background: #1557b0; }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER ========== -->
+    <header>
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            所有系统运行中
+        </div>
+        <h1>JackYun 平台中心</h1>
+        <p class="subtitle">更新日志 · 功能模块状态 · 一站掌握</p>
+    </header>
+
+    <!-- ========== STICKY NAV ========== -->
+    <div class="nav-container">
+        <div class="toggle-switch">
+            <div class="slider" id="slider"></div>
+            <button class="toggle-btn active" onclick="switchView('desktop', this)">
+                <span class="material-symbols-rounded">desktop_windows</span> 桌面端
+            </button>
+            <button class="toggle-btn" onclick="switchView('mobile', this)">
+                <span class="material-symbols-rounded">phone_iphone</span> 移动端
+            </button>
+        </div>
+    </div>
+
+    <!-- ========== DYNAMIC CONTENT ========== -->
+    <div class="content-container" id="main-content"></div>
+
+    <script>
+        // ==========================================
+        // 1. 数据配置中心
+        // ==========================================
+
+        const database = {
+            desktop: {
+                urlPrefix: "",
+                logsMajor: [
+                    { date: "2026-06-04", content: "AI 配置统一管理：Dashboard 设置一次，全站 Legacy 页面自动生效" },
+                    { date: "2026-06-04", content: "LLM 三重拦截上线：localStorage 伪装 + fetch/XHR 改道 + CSS/DOM 隐藏" },
+                    { date: "2026-06-04", content: "JackYun Portal v2 重构完成，Next.js App Router 架构，整合全部 Legacy 模块" },
+                    { date: "2025-12-17", content: "将电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
+                ],
+                logsRegular: [
+                    { date: "2026-06-04", content: "隐藏 Legacy 页面 AI 配置 UI：Relax 模型选择器、Goal API 配置、MockPortal 设置面板" },
+                    { date: "2026-06-04", content: "删除离线版应用，统一由 Portal 在线版本管理" },
+                    { date: "2026-06-04", content: "更新全部功能模块版本，同步至 Portal 最新状态" },
+                    { date: "2026-06-04", content: "更新日志页面重构：拆分重要更新/常规更新，移除计划更新倒计时" },
+                    { date: "2026-06-04", content: "答题卡 (Answer Sheet) 模块接入 Portal 系统" },
+                    { date: "2026-05-30", content: "更新答题卡页面功能" },
+                ],
+                modules: [
+                    {
+                        id: "dashboard",
+                        name: "Dashboard 主页",
+                        icon: "dashboard",
+                        date: "2026-06-04",
+                        status: "online",
+                        desc: "Portal 主页仪表盘，提供快速导航和全局 AI API Key 统一配置入口。",
+                        link: "/dashboard"
+                    },
+                    {
+                        id: "study",
+                        name: "学习计划",
+                        icon: "school",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "学习计划管理系统，支持创建、跟踪和调整个人学习目标与计划。",
+                        link: "/study"
+                    },
+                    {
+                        id: "vocab",
+                        name: "词汇宝库",
+                        icon: "menu_book",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "智能词汇管理应用，集成 SRS 间隔复习算法、TTS 发音及多种测试模式。",
+                        link: "/vocab"
+                    },
+                    {
+                        id: "music",
+                        name: "音乐播放器",
+                        icon: "music_note",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "在线音乐播放器，支持歌单管理和后台播放。",
+                        link: "/music"
+                    },
+                    {
+                        id: "poem",
+                        name: "诗词天地",
+                        icon: "auto_stories",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "古诗词学习和背诵应用，沉浸式设计帮助高效完成背诵任务。",
+                        link: "/poem"
+                    },
+                    {
+                        id: "countdown",
+                        name: "倒计时",
+                        icon: "timer",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "多事件倒计时管理，支持自定义事件和提醒。",
+                        link: "/countdown"
+                    },
+                    {
+                        id: "relax",
+                        name: "放松一下 (J.A.R.V.I.S)",
+                        icon: "sports_esports",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "J.A.R.V.I.S V1.8 AI 语音助手，支持多模型聊天和 TTS 语音合成。",
+                        link: "/relax"
+                    },
+                    {
+                        id: "control",
+                        name: "控制中心",
+                        icon: "tune",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "集中控制面板，管理各模块的开关和快捷操作。",
+                        link: "/control"
+                    },
+                    {
+                        id: "answer-sheet",
+                        name: "答题卡",
+                        icon: "content_paste",
+                        date: "2026-05-30",
+                        status: "online",
+                        desc: "在线答题卡工具，支持快速填涂和答案管理。",
+                        link: "/answer-sheet"
+                    },
+                    {
+                        id: "goal",
+                        name: "计划显示器",
+                        icon: "flag",
+                        date: "2026-03",
+                        status: "online",
+                        desc: "AI 驱动的学习目标规划与进度跟踪工具，支持智能预测分析。",
+                        link: "/goal"
+                    },
+                    {
+                        id: "igcountdown",
+                        name: "考试倒计时",
+                        icon: "hourglass_empty",
+                        date: "2026-04",
+                        status: "online",
+                        desc: "IGCSE 考试倒计时，支持新旧 UI 切换和多个考试日期管理。",
+                        link: "/igcountdown"
+                    },
+                    {
+                        id: "update-hub",
+                        name: "更新日志",
+                        icon: "history",
+                        date: "2026-06-04",
+                        status: "online",
+                        desc: "平台更新记录与功能模块状态一览，实时追踪版本变化。",
+                        link: "/update-hub"
+                    },
+                    {
+                        id: "mock-portal",
+                        name: "Mock 刷题",
+                        icon: "quiz",
+                        date: "2026-03",
+                        status: "online",
+                        desc: "AI 驱动的模拟考试刷题平台，集成 AI 备考助手和学科分类管理。",
+                        link: "/mock-portal"
+                    },
+                    {
+                        id: "tools",
+                        name: "工具箱",
+                        icon: "build",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "实用工具集合，包含多种学习和办公辅助小工具。",
+                        link: "/tools"
+                    },
+                    {
+                        id: "settings",
+                        name: "设置",
+                        icon: "settings",
+                        date: "2026-06-04",
+                        status: "online",
+                        desc: "用户设置中心，统一管理 AI API Key、个人偏好和账号安全。",
+                        link: "/settings"
+                    },
+                    {
+                        id: "admin",
+                        name: "管理员",
+                        icon: "admin_panel_settings",
+                        date: "2026-02",
+                        status: "online",
+                        desc: "后台管理面板，包含白名单管理、账号关联、密码修改等功能。",
+                        link: "/admin"
+                    },
+                ]
+            },
+            mobile: {
+                urlPrefix: "https://jack2025a.github.io/",
+                logsMajor: [
+                    { date: "2025-12-17", content: "移动端全新上线，全功能无损适配" }
+                ],
+                logsRegular: [],
+                modules: [
+                    {
+                        id: "vocab_m",
+                        name: "Vocab Flow (Mobile)",
+                        icon: "touch_app",
+                        date: "2025-12-17",
+                        status: "online",
+                        desc: "专为手机设计的单词卡片，适配低配置手机，极致省电。",
+                        link: "https://jack2025a.github.io/VocabM.html"
+                    },
+                    {
+                        id: "poem_m",
+                        name: "Poem 沉浸背诵 (Mobile)",
+                        icon: "menu_book",
+                        date: "2025-12-17",
+                        status: "online",
+                        desc: "古诗词学习和背诵移动版，沉浸式设计适配手机屏幕。",
+                        link: "https://jack2025a.github.io/Poem.html"
+                    },
+                ]
+            }
+        };
+
+        // ==========================================
+        // 2. 核心逻辑
+        // ==========================================
+
+        let currentView = 'desktop';
+
+        function init() {
+            renderContent('desktop');
+            updateSlider(document.querySelector('.toggle-btn.active'));
+        }
+
+        function switchView(view, btn) {
+            if (view === currentView) return;
+
+            updateSlider(btn);
+
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const container = document.getElementById('main-content');
+            container.classList.add('fading');
+
+            setTimeout(() => {
+                renderContent(view);
+                currentView = view;
+                container.classList.remove('fading');
+            }, 300);
+        }
+
+        function updateSlider(btn) {
+            const slider = document.getElementById('slider');
+            slider.style.width = btn.offsetWidth + 'px';
+            slider.style.transform = `translateX(${btn.offsetLeft}px)`;
+        }
+
+        function renderContent(type) {
+            const data = database[type];
+            const container = document.getElementById('main-content');
+
+            const statusLabel = { online: '在线', beta: '测试中', offline: '已下线' };
+
+            const logsHTML = `
+                <section>
+                    <div class="section-title">
+                        <span class="material-symbols-rounded">history</span>
+                        平台更新记录 (${type === 'desktop' ? '桌面端' : '移动端'})
+                    </div>
+                    <div class="global-log">
+                        ${data.logsMajor.length > 0 ? `
+                        <div class="log-section-label major">
+                            <span class="material-symbols-rounded" style="font-size:18px">star</span> 重要更新
+                        </div>
+                        ${data.logsMajor.map(log => `
+                            <div class="log-item major">
+                                <div class="log-date">${log.date}</div>
+                                <div class="log-content">${log.content}</div>
+                            </div>
+                        `).join('')}
+                        ` : ''}
+                        ${data.logsRegular.length > 0 ? `
+                        <div class="log-section-label regular">
+                            <span class="material-symbols-rounded" style="font-size:18px">sync</span> 常规更新
+                        </div>
+                        ${data.logsRegular.map(log => `
+                            <div class="log-item">
+                                <div class="log-date">${log.date}</div>
+                                <div class="log-content">${log.content}</div>
+                            </div>
+                        `).join('')}
+                        ` : ''}
+                    </div>
+                </section>
+            `;
+
+            const modulesHTML = `
+                <section>
+                    <div class="section-title">
+                        <span class="material-symbols-rounded">grid_view</span>
+                        功能模块状态
+                    </div>
+                    <div class="grid">
+                        ${data.modules.map(mod => `
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-icon">
+                                        <span class="material-symbols-rounded">${mod.icon}</span>
+                                    </div>
+                                    <span class="card-badge ${mod.status}">${statusLabel[mod.status] || mod.status}</span>
+                                </div>
+                                <div class="module-name">${mod.name}</div>
+                                <div class="module-desc">${mod.desc}</div>
+                                <div class="update-info">
+                                    <div class="update-row">
+                                        <span>最近更新</span>
+                                        <span>${mod.date}</span>
+                                    </div>
+                                    <div class="update-row">
+                                        <span>状态</span>
+                                        <span style="color:${mod.status === 'online' ? '#1e8e3e' : mod.status === 'beta' ? '#e37400' : '#c5221f'}">${statusLabel[mod.status] || mod.status}</span>
+                                    </div>
+                                </div>
+                                <a href="${mod.link}" target="${mod.link.startsWith('http') ? '_blank' : '_top'}" class="action-btn">
+                                    打开 ${mod.name}
+                                </a>
+                            </div>
+                        `).join('')}
+                    </div>
+                </section>
+            `;
+
+            container.innerHTML = logsHTML + modulesHTML;
+        }
+
+        window.addEventListener('resize', () => {
+            updateSlider(document.querySelector('.toggle-btn.active'));
+        });
+
+        init();
+    </script>
+</body>
+</html>

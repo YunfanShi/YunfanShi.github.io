@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack's Sync | V4.5 Ultimate Fix</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #6366f1; --primary-hover: #4f46e5;
+            --bg: #0b0e14; --surface: #151921;
+            --text-main: #f8fafc; --text-sec: #94a3b8; --border: #2d3748;
+            --accent: #22d3ee; --success: #10b981; --warn: #f59e0b;
+        }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text-main); height: 100vh; overflow: hidden; user-select: none; }
+        
+        /* HEADER */
+        header { height: 64px; background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); }
+        .brand { font-weight: 900; font-size: 18px; letter-spacing: -0.5px; display: flex; gap: 10px; align-items: center; color: white; }
+        .tag { font-size: 10px; background: var(--primary); padding: 3px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+
+        /* SYNC BUTTON (Main Screen) */
+        .sync-trigger {
+            background: #1e293b; color: var(--accent); border: 1px solid #334155;
+            padding: 8px 16px; border-radius: 20px; font-family: 'Roboto Mono'; font-size: 12px; font-weight: 700;
+            cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .sync-trigger:hover { background: #334155; border-color: var(--accent); color: white; }
+        .sync-trigger:active { transform: scale(0.95); }
+        .sync-trigger.syncing { color: var(--warn); border-color: var(--warn); animation: pulse 1s infinite; }
+
+        .btn-icon { background: transparent; border: none; color: var(--text-sec); cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; }
+        .btn-icon:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        /* MAIN LAYOUT */
+        .container { display: flex; height: calc(100vh - 65px); }
+        aside { width: 340px; background: #11141a; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        
+        .panel { padding: 20px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+        
+        /* INPUT GROUP FIXED */
+        .input-row { display: flex; gap: 10px; }
+        input { 
+            background: var(--bg); border: 1px solid var(--border); color: white; padding: 10px; 
+            border-radius: 6px; outline: none; font-family: 'Inter'; font-size: 12px; transition: 0.2s;
+        }
+        input:focus { border-color: var(--primary); }
+        #inp-id { flex: 1; font-family: 'Roboto Mono'; }
+        #inp-name { flex: 1.5; }
+
+        .btn-pri { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; width: 100%; }
+        .btn-pri:hover { background: var(--primary-hover); }
+        
+        .btn-sec { background: transparent; border: 1px solid var(--border); color: var(--text-sec); padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 11px; flex: 1; }
+        .btn-sec:hover { border-color: var(--text-main); color: var(--text-main); }
+        
+        .list { flex: 1; overflow-y: auto; }
+        .item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.1s; }
+        .item:hover { background: #1e2430; }
+        .item.active { background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--primary); }
+        .item-info { display: flex; flex-direction: column; overflow: hidden; }
+        .item-title { font-size: 13px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-id { font-size: 10px; color: var(--text-sec); font-family: 'Roboto Mono'; margin-top: 2px; }
+        .btn-del { color: #ef4444; cursor: pointer; padding: 4px; opacity: 0; transition: 0.2s; }
+        .item:hover .btn-del { opacity: 1; }
+
+        /* MAIN STAGE */
+        main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        
+        .timer-huge { 
+            font-size: 160px; font-family: 'Roboto Mono'; font-weight: 700; 
+            font-variant-numeric: tabular-nums; line-height: 1.2; height: 190px;
+            margin-bottom: 20px; color: var(--text-main); letter-spacing: -8px;
+            text-shadow: 0 0 50px rgba(99, 102, 241, 0.2);
+            display: flex; align-items: center;
+        }
+        
+        .status-pill { 
+            background: #1e2430; border: 1px solid var(--border); padding: 8px 20px; 
+            border-radius: 30px; font-size: 12px; color: var(--accent); font-weight: 600;
+            letter-spacing: 1px; display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-sec); }
+        .dot.syncing { background: var(--warn); animation: blink 0.5s infinite; }
+        .dot.online { background: var(--success); box-shadow: 0 0 10px rgba(16,185,129,0.4); }
+
+        /* PLAYER CONTROLS */
+        .player-bar {
+            display: flex; gap: 15px; align-items: center; background: var(--surface);
+            padding: 15px 30px; border-radius: 16px; border: 1px solid var(--border);
+            margin-top: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .ctrl-btn {
+            background: #2d3748; color: white; width: 48px; height: 48px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+        }
+        .ctrl-btn:hover { background: #4a5568; transform: scale(1.05); }
+        .ctrl-btn.huge { width: 64px; height: 64px; background: var(--primary); box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+        .ctrl-btn.huge:hover { background: var(--primary-hover); }
+        .ctrl-btn.huge.active { background: #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+
+        /* MODALS */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
+        .modal.open { display: flex; }
+        .card { background: var(--surface); width: 500px; padding: 25px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .card h3 { margin-top: 0; font-size: 16px; margin-bottom: 15px; color: white; display: flex; justify-content: space-between; align-items: center; }
+
+        /* IMPORT SPECIFIC */
+        .paste-area {
+            width: 100%; height: 120px; background: #0b0e14; border: 2px dashed var(--border);
+            color: var(--accent); font-family: 'Roboto Mono'; font-size: 11px; padding: 15px;
+            box-sizing: border-box; border-radius: 8px; resize: none; outline: none; margin-bottom: 15px;
+        }
+        .paste-area:focus { border-color: var(--primary); }
+
+        /* SETTINGS & UTILS */
+        .setting-row { margin-bottom: 20px; }
+        .radio-group { display: flex; background: #0b0e14; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+        .radio-opt { flex: 1; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sec); transition: 0.2s; }
+        .radio-opt:hover { color: white; }
+        .radio-opt.selected { background: var(--primary); color: white; }
+        
+        .offset-ctrl { display: flex; gap: 5px; margin-top: 5px; }
+        .btn-adj { flex: 1; background: #1e2430; border: 1px solid var(--border); color: white; padding: 8px; border-radius: 6px; font-family: 'Roboto Mono'; font-size: 11px; cursor: pointer; }
+        .btn-adj:active { background: var(--primary); }
+
+        .metro-box { display: flex; align-items: center; justify-content: center; height: 80px; background: #0b0e14; border-radius: 8px; border: 2px solid var(--border); margin-bottom: 15px; }
+        .metro-box.flash { background: #22d3ee; border-color: #22d3ee; }
+
+        @keyframes pulse { 50% { opacity: 0.5; } }
+        @keyframes rotate { 100% { transform: rotate(360deg); } }
+        .spin { animation: rotate 1s linear infinite; }
+    </style>
+</head>
+<body>
+
+<div id="import-modal" class="modal">
+    <div class="card">
+        <h3>批量导入 (Batch Import) <span onclick="toggleModal('import-modal')" style="cursor:pointer">&times;</span></h3>
+        
+        <div style="background:#1e2430; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid var(--border);">
+            <div style="font-size:11px; color:#94a3b8; font-weight:700; margin-bottom:5px;">STEP 1: 复制脚本</div>
+            <button class="btn-sec" style="width:100%; color:white;" onclick="copyScript()">Click to Copy Script & Open NetEase</button>
+        </div>
+
+        <div style="font-size:11px; color:#94a3b8; font-weight:700; margin-bottom:5px;">STEP 2: 把复制到的 JSON 粘贴到下面 👇</div>
+        <textarea id="import-area" class="paste-area" placeholder='Paste the JSON here... e.g. [{"id":"...","name":"..."}]'></textarea>
+
+        <button class="btn-pri" onclick="runImport()">确认导入 (Import)</button>
+    </div>
+</div>
+
+<div id="cali-modal" class="modal">
+    <div class="card">
+        <h3>Latency Check <span onclick="toggleModal('cali-modal'); Cali.stop();" style="cursor:pointer">&times;</span></h3>
+        <p style="font-size:12px; color:var(--text-sec);">Adjust Offset until the sound matches the visual flash.</p>
+        
+        <div id="metro-visual" class="metro-box">
+            <span style="font-weight:900; font-size:24px;">TICK</span>
+        </div>
+
+        <div class="offset-ctrl" style="margin-bottom:15px;">
+            <button class="btn-adj" onclick="Engine.adjustManual(-50)">-50</button>
+            <button class="btn-adj" onclick="Engine.adjustManual(-10)">-10</button>
+            <button class="btn-adj" onclick="Engine.adjustManual(10)">+10</button>
+            <button class="btn-adj" onclick="Engine.adjustManual(50)">+50</button>
+        </div>
+        
+        <div style="text-align:center; font-family:'Roboto Mono'; color:var(--accent); margin-bottom:15px;">
+            Current Offset: <span id="cali-offset-disp">0</span> ms
+        </div>
+
+        <button class="btn-pri" onclick="Cali.toggle()">Start/Stop Metronome</button>
+    </div>
+</div>
+
+<div id="settings-modal" class="modal">
+    <div class="card">
+        <h3>Settings <span onclick="toggleModal('settings-modal')" style="cursor:pointer">&times;</span></h3>
+        <div class="setting-row">
+            <div style="font-size:10px;font-weight:700;color:var(--text-sec);margin-bottom:5px;">TRIGGER INTERVAL</div>
+            <div class="radio-group">
+                <div class="radio-opt" onclick="Engine.setInterval(10000)">10s</div>
+                <div class="radio-opt" onclick="Engine.setInterval(20000)">20s</div>
+                <div class="radio-opt" onclick="Engine.setInterval(30000)">30s</div>
+                <div class="radio-opt" onclick="Engine.setInterval(60000)">60s</div>
+            </div>
+        </div>
+        <div class="setting-row">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span style="font-size:10px;font-weight:700;color:var(--text-sec);">MANUAL OFFSET</span>
+                <span id="manual-offset-disp" style="color:var(--accent); font-family:'Roboto Mono'; font-size:12px;">0 ms</span>
+            </div>
+            <div class="offset-ctrl">
+                <button class="btn-adj" onclick="Engine.adjustManual(-50)">-50</button>
+                <button class="btn-adj" onclick="Engine.adjustManual(-10)">-10</button>
+                <button class="btn-adj" onclick="Engine.adjustManual(10)">+10</button>
+                <button class="btn-adj" onclick="Engine.adjustManual(50)">+50</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<header>
+    <div class="brand">
+        <span class="material-icons-round" style="color:var(--primary)">dns</span>
+        JACK'S SYNC <span class="tag">V4.5 FINAL</span>
+    </div>
+    
+    <div class="header-right">
+        <button class="sync-trigger" onclick="SuningSync.forceSync()" id="sync-main-btn">
+            <span class="material-icons-round" style="font-size:16px;">speed</span>
+            <span id="sync-main-txt">TEST SPEED</span>
+        </button>
+
+        <div class="stats" style="margin-left:15px;">
+            <div class="stat-item">NET: <b id="st-offset">0</b></div>
+            <div class="stat-item">MAN: <b id="st-manual">0</b></div>
+        </div>
+        <button class="btn-icon" onclick="toggleModal('settings-modal')" title="Settings">
+            <span class="material-icons-round">settings</span>
+        </button>
+    </div>
+</header>
+
+<div class="container">
+    <aside>
+        <div class="panel">
+            <div class="input-row">
+                <input id="inp-id" placeholder="ID (e.g. 186016)">
+                <input id="inp-name" placeholder="Song Name">
+            </div>
+            <button class="btn-pri" onclick="Library.add()">添加单曲 (Add Song)</button>
+            
+            <div style="display:flex; gap:10px;">
+                <button class="btn-sec" onclick="toggleModal('import-modal')">批量导入 (Import)</button>
+                <button class="btn-sec btn-del" onclick="Library.clear()">清空 (Clear)</button>
+            </div>
+        </div>
+        <div id="list-el" class="list"></div>
+    </aside>
+
+    <main>
+        <div class="status-pill">
+            <div id="sync-dot" class="dot"></div>
+            <span id="sync-msg">INITIALIZING...</span>
+        </div>
+
+        <div id="timer" class="timer-huge">--.---</div>
+        
+        <div class="player-bar">
+            <div class="ctrl-btn" onclick="Library.toggleMode()" id="btn-mode" title="Play Mode">
+                <span class="material-icons-round">repeat</span>
+            </div>
+            
+            <div class="ctrl-btn" onclick="Library.prev()">
+                <span class="material-icons-round">skip_previous</span>
+            </div>
+
+            <div class="ctrl-btn huge" id="btn-play" onclick="Engine.toggleSystem()">
+                <span class="material-icons-round" style="font-size:32px">play_arrow</span>
+            </div>
+
+            <div class="ctrl-btn" onclick="Library.next()">
+                <span class="material-icons-round">skip_next</span>
+            </div>
+
+            <div class="ctrl-btn" onclick="toggleModal('cali-modal')" title="Check Latency">
+                <span class="material-icons-round">speed</span>
+            </div>
+        </div>
+    </main>
+</div>
+
+<audio id="main-audio" preload="auto"></audio>
+
+<script>
+/* ================= GLOBAL STATE ================= */
+const STATE = {
+    songs: JSON.parse(localStorage.getItem('v45_songs')) || [],
+    netOffset: 0, 
+    manualOffset: parseInt(localStorage.getItem('v45_manual')) || 0,
+    interval: parseInt(localStorage.getItem('v45_interval')) || 10000,
+    playMode: localStorage.getItem('v45_mode') || 'sequence', 
+    curIdx: 0,
+    status: 'IDLE', 
+    targetTime: 0,
+    audio: document.getElementById('main-audio')
+};
+
+const UI = {
+    setSync: (status, msg) => {
+        const d = document.getElementById('sync-dot');
+        const t = document.getElementById('sync-msg');
+        d.className = `dot ${status}`;
+        t.innerText = msg;
+    },
+    updateStats: () => {
+        document.getElementById('st-offset').innerText = STATE.netOffset.toFixed(0);
+        document.getElementById('st-manual').innerText = STATE.manualOffset;
+        document.getElementById('manual-offset-disp').innerText = (STATE.manualOffset > 0 ? "+" : "") + STATE.manualOffset + " ms";
+        document.getElementById('cali-offset-disp').innerText = STATE.manualOffset;
+        
+        // Update Interval Buttons
+        document.querySelectorAll('.radio-opt').forEach(el => {
+            const val = parseInt(el.getAttribute('onclick').match(/\d+/)[0]);
+            el.className = val === STATE.interval ? 'radio-opt selected' : 'radio-opt';
+        });
+
+        // Update Mode Icon
+        const modeIcon = document.querySelector('#btn-mode span');
+        if(STATE.playMode === 'sequence') modeIcon.innerText = 'repeat';
+        if(STATE.playMode === 'loop_one') modeIcon.innerText = 'repeat_one';
+        if(STATE.playMode === 'random') modeIcon.innerText = 'shuffle';
+    },
+    updatePlayBtn: (state) => {
+        const btn = document.getElementById('btn-play');
+        const icon = btn.querySelector('span');
+        if (state === 'PLAYING' || state === 'ARMED') {
+            btn.className = "ctrl-btn huge active";
+            icon.innerText = "stop"; 
+        } else {
+            btn.className = "ctrl-btn huge";
+            icon.innerText = "play_arrow"; 
+        }
+    }
+};
+
+/* ================= 1. SUNING EXCLUSIVE SYNC ================= */
+const SuningSync = {
+    async forceSync() {
+        const btn = document.getElementById('sync-main-btn');
+        const txt = document.getElementById('sync-main-txt');
+        const icon = btn.querySelector('.material-icons-round');
+        
+        btn.classList.add('syncing');
+        txt.innerText = "TESTING...";
+        icon.classList.add('spin');
+        
+        UI.setSync('syncing', 'SYNCING SUNING...');
+        
+        try {
+            const offset = await this.fetch();
+            STATE.netOffset = offset;
+            UI.updateStats();
+            UI.setSync('online', 'SUNING CONNECTED');
+            
+            // Visual Success Feedback
+            btn.classList.remove('syncing');
+            icon.classList.remove('spin');
+            txt.innerText = `${offset.toFixed(0)} MS`;
+            btn.style.borderColor = 'var(--success)';
+            setTimeout(() => { 
+                btn.style.borderColor = ''; 
+                txt.innerText = "TEST SPEED";
+            }, 3000);
+
+        } catch (e) {
+            console.error(e);
+            UI.setSync('error', 'NET ERROR');
+            btn.classList.remove('syncing');
+            icon.classList.remove('spin');
+            txt.innerText = "FAILED";
+            btn.style.borderColor = '#ef4444';
+        }
+    },
+
+    fetch() {
+        return new Promise((resolve, reject) => {
+            const t0 = performance.now();
+            const cb = 'cb_sn_' + Date.now();
+            const script = document.createElement('script');
+            let done = false;
+
+            window[cb] = (data) => {
+                if(done) return; done = true;
+                const tEnd = performance.now();
+                const rtt = tEnd - t0;
+                const serverTime = data.currentTime; 
+                cleanup();
+                resolve((serverTime + rtt/2) - Date.now());
+            };
+
+            const cleanup = () => { delete window[cb]; script.remove(); };
+            
+            script.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
+            script.onerror = () => { if(!done) { done=true; cleanup(); reject("Network Err"); }};
+            document.head.appendChild(script);
+            setTimeout(() => { if(!done) { done=true; cleanup(); reject("Timeout"); } }, 3000);
+        });
+    },
+    
+    getPreciseTime() { return Date.now() + STATE.netOffset; }
+};
+
+/* ================= 2. ENGINE ================= */
+const Engine = {
+    animFrame: null,
+
+    toggleSystem() {
+        if (STATE.status === 'IDLE') {
+            this.start();
+        } else {
+            this.reset();
+        }
+    },
+
+    async start() {
+        if(STATE.songs.length === 0) return alert("Playlist Empty! Add ID and Name first.");
+        
+        if(STATE.netOffset === 0) await SuningSync.forceSync();
+
+        STATE.status = 'ARMED';
+        UI.updatePlayBtn('ARMED');
+
+        const s = STATE.songs[STATE.curIdx];
+        STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
+        STATE.audio.load();
+
+        const now = SuningSync.getPreciseTime();
+        let target = Math.ceil(now / STATE.interval) * STATE.interval;
+        if(target - now < 4000) target += STATE.interval; 
+        
+        STATE.targetTime = target;
+        
+        const sec = new Date(target).getSeconds();
+        UI.setSync('syncing', `ARMED: :${sec.toString().padStart(2,'0')}`);
+        
+        this.loop();
+    },
+
+    reset() {
+        STATE.status = 'IDLE';
+        STATE.audio.pause();
+        STATE.audio.currentTime = 0;
+        cancelAnimationFrame(this.animFrame);
+        document.getElementById('timer').innerText = "--.---";
+        UI.setSync('online', 'READY');
+        UI.updatePlayBtn('IDLE');
+    },
+
+    loop() {
+        if(STATE.status !== 'ARMED') return;
+
+        const now = SuningSync.getPreciseTime();
+        const remaining = (STATE.targetTime + STATE.manualOffset) - now;
+
+        if(remaining <= 0) {
+            STATE.audio.play()
+                .then(() => {
+                    document.getElementById('timer').innerText = "0.000";
+                    UI.setSync('online', 'PLAYING');
+                    STATE.status = 'PLAYING';
+                })
+                .catch(() => { this.reset(); alert("Auto-play blocked"); });
+            
+            STATE.audio.onended = () => { 
+                this.reset(); 
+                Library.next(); 
+                setTimeout(() => this.start(), 500); 
+            };
+            return;
+        }
+
+        document.getElementById('timer').innerText = (remaining / 1000).toFixed(3);
+        this.animFrame = requestAnimationFrame(() => this.loop());
+    },
+
+    setInterval(ms) {
+        STATE.interval = ms;
+        localStorage.setItem('v45_interval', ms);
+        UI.updateStats();
+    },
+
+    adjustManual(ms) {
+        STATE.manualOffset += ms;
+        localStorage.setItem('v45_manual', STATE.manualOffset);
+        UI.updateStats();
+    }
+};
+
+/* ================= 3. LIBRARY ================= */
+const Library = {
+    add() {
+        const idVal = document.getElementById('inp-id').value.trim();
+        const nameVal = document.getElementById('inp-name').value.trim();
+        
+        if(!idVal) return alert("请输入 ID");
+        // 如果不填名字，自动叫 Track + ID
+        const finalName = nameVal || `Track ${idVal}`;
+        
+        STATE.songs.push({id: idVal, name: finalName});
+        this.save(); this.render();
+        
+        // Clear inputs
+        document.getElementById('inp-id').value = "";
+        document.getElementById('inp-name').value = "";
+    },
+    clear() { STATE.songs=[]; this.save(); this.render(); },
+    save() { localStorage.setItem('v45_songs', JSON.stringify(STATE.songs)); },
+    render() {
+        const el = document.getElementById('list-el');
+        el.innerHTML = STATE.songs.map((s,i) => `
+            <div class="item ${i===STATE.curIdx?'active':''}" onclick="Library.sel(${i})">
+                <div class="item-info">
+                    <div class="item-title">${s.name}</div>
+                    <div class="item-id">${s.id}</div>
+                </div>
+                <div class="material-icons-round btn-del" onclick="Library.remove(${i}, event)">delete</div>
+            </div>
+        `).join('');
+    },
+    sel(i) { 
+        if(STATE.status === 'IDLE') { STATE.curIdx = i; this.render(); }
+    },
+    remove(i, e) {
+        e.stopPropagation();
+        STATE.songs.splice(i, 1);
+        this.save(); this.render();
+    },
+    toggleMode() {
+        const modes = ['sequence', 'loop_one', 'random'];
+        const curr = modes.indexOf(STATE.playMode);
+        STATE.playMode = modes[(curr + 1) % 3];
+        localStorage.setItem('v45_mode', STATE.playMode);
+        UI.updateStats();
+    },
+    next() {
+        if (STATE.playMode === 'random') {
+            STATE.curIdx = Math.floor(Math.random() * STATE.songs.length);
+        } else if (STATE.playMode !== 'loop_one') {
+            STATE.curIdx = (STATE.curIdx + 1) % STATE.songs.length;
+        }
+        this.render();
+        if (STATE.status === 'IDLE') return; 
+    },
+    prev() {
+        if (STATE.songs.length === 0) return;
+        STATE.curIdx = (STATE.curIdx - 1 + STATE.songs.length) % STATE.songs.length;
+        this.render();
+        if (STATE.status !== 'IDLE') Engine.reset(); 
+    }
+};
+
+/* ================= 4. UTILS ================= */
+const Cali = {
+    ctx: null, isRunning: false, timer: null,
+    init() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+    beep() {
+        this.init();
+        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.frequency.value = 800; osc.type = 'square';
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.05);
+    },
+    toggle() { if(this.isRunning) this.stop(); else this.start(); },
+    start() { this.isRunning = true; this.loop(); },
+    stop() { this.isRunning = false; clearTimeout(this.timer); document.getElementById('metro-visual').classList.remove('flash'); },
+    loop() {
+        if(!this.isRunning) return;
+        const now = SuningSync.getPreciseTime();
+        const nextSec = Math.ceil(now / 1000) * 1000;
+        const delay = (nextSec + STATE.manualOffset) - now;
+        this.timer = setTimeout(() => {
+            this.beep();
+            const box = document.getElementById('metro-visual');
+            box.classList.add('flash');
+            setTimeout(() => box.classList.remove('flash'), 100);
+            this.loop();
+        }, delay);
+    }
+};
+
+function copyScript() {
+    const SMART_SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
+    navigator.clipboard.writeText(SMART_SCRIPT).then(() => {
+        if(confirm("Script Copied! Open NetEase Music?")) window.open("https://music.163.com", "_blank");
+    });
+}
+function runImport() {
+    try {
+        const val = document.getElementById('import-area').value;
+        const d = JSON.parse(val);
+        if(Array.isArray(d)) { STATE.songs = [...STATE.songs, ...d]; Library.save(); Library.render(); toggleModal('import-modal'); }
+    } catch(e) { alert("Invalid JSON or empty!"); }
+}
+function toggleModal(id) { document.getElementById(id).classList.toggle('open'); }
+
+window.addEventListener('keydown', (e) => {
+    if(e.code === 'Space') {
+        if(!document.getElementById('import-modal').classList.contains('open') && 
+           document.activeElement.tagName !== 'INPUT' && 
+           document.activeElement.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            Engine.toggleSystem();
+        }
+    }
+});
+
+// Init
+Library.render();
+UI.updateStats();
+SuningSync.forceSync();
+</script>
+</body>
+</html>
