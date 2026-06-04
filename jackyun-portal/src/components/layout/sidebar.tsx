@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { label: '考试倒计时', icon: 'hourglass_empty', href: '/igcountdown' },
   { label: '更新日志', icon: 'history', href: '/update-hub' },
   { label: 'Mock 刷题', icon: 'quiz', href: '/mock-portal' },
+  { label: 'QuizWise 刷题', icon: 'psychology', href: '/quiz' },
   { label: '工具箱', icon: 'build', href: '/tools' },
   { label: '设置', icon: 'settings', href: '/settings' },
   { label: '管理员', icon: 'admin_panel_settings', href: '/admin' },
