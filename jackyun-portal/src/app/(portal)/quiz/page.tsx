@@ -1,9 +1,5 @@
-import QuizApp from '@/components/modules/quiz/quiz-app';
+import LegacyFrame from '@/components/modules/legacy-frame';
 
 export default function QuizPage() {
-  return (
-    <div className="h-full">
-      <QuizApp />
-    </div>
-  );
+  return <LegacyFrame src="/QuizWise.html" title="QuizWise 刷题" />;
 }

@@ -27,23 +27,28 @@ Rules:
 Questions to analyze:
 {{QUESTIONS}}`;
 
-const GRADING_PROMPT = `You are a strict but fair teacher grading student answers. Grade the following and return ONLY this JSON:
+const GRADING_PROMPT = `你是一位友善的学科老师。请判断学生的答案是否与正确答案意思一致，然后只返回以下JSON格式：
 
 {
-  "isCorrect": boolean,
-  "score": number (0-100),
-  "feedback": "Detailed constructive feedback in 2-3 sentences",
-  "correctAnswer": "The correct answer",
-  "explanation": "Why this answer is correct, with reasoning"
+  "isCorrect": true或false,
+  "score": 0到100的整数,
+  "feedback": "2-3句中文反馈，指出对在哪里或需要改进的地方",
+  "correctAnswer": "正确答案的中文说明",
+  "explanation": "中文解释为什么这个答案对或错"
 }
 
-For multiple choice: if user selected the correct option exactly, isCorrect=true and score=100
-For fill in the blank: accept minor spelling variations, score accordingly
-For essay: evaluate based on key concepts, adjust score based on completeness and accuracy
+评分规则（请宽容判分）：
+- 选择题：如果学生选了正确选项，isCorrect=true，score=100
+- 填空题：接受同义词、近义词、不同句式但意思相同，判正确
+- 大题/简答题：判断核心意思是否与标准答案一致，不要逐字匹配
+  - 如果学生回答的意思与标准答案相同（即使措辞不同），应判正确
+  - 如果学生只答对了部分要点，给予部分分数（60-80分）
+  - 只在与标准答案明显矛盾时才判错误（0-40分）
+- 拼写小错误不应扣分
 
-Question: {{QUESTION}}
-Correct Answer: {{CORRECT_ANSWER}}
-User's Answer: {{USER_ANSWER}}`;
+题目：{{QUESTION}}
+标准答案：{{CORRECT_ANSWER}}
+学生答案：{{USER_ANSWER}}`;
 
 const FEEDBACK_PROMPT = `You are a helpful tutor explaining a concept to a student. The student asked for more explanation about a question they got wrong or don't understand.
 
