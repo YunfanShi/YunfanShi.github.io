@@ -591,22 +591,6 @@ function handleKeys(e) {
   if (e.key === 'ArrowLeft') prevQ();
 }
 
-function confirmAnswer() {
-  const q = STATE.questions[STATE.currentIdx];
-  const ans = STATE.answers[STATE.currentIdx];
-  if (SETTINGS.showAnswerImmediately) {
-    render();
-    if (q.type === 'mcq') {
-      if (ans === q.correct) showSnack('✓ Correct!');
-      else showSnack('✗ Incorrect');
-    } else if (q.type === 'tf') {
-      const correctIdx = q.correct === 'true' ? 0 : 1;
-      if (ans === correctIdx) showSnack('✓ Correct!');
-      else showSnack('✗ Incorrect');
-    }
-  }
-}
-
 function buildFeedback(q, ans, showResult) {
   if (!showResult) return '';
   if (q.type === 'mcq') {
