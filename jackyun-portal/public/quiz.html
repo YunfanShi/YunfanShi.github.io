@@ -367,6 +367,25 @@ function saveHistory(session) {
   STATE.history.unshift(session);
   if (STATE.history.length > 50) STATE.history = STATE.history.slice(0, 50);
   localStorage.setItem('qw_history', JSON.stringify(STATE.history));
+  // Sync to Supabase via legacy-bridge
+  syncToCloud();
+}
+
+function syncToCloud() {
+  try {
+    window.parent.postMessage({
+      source: 'supabase-adapter',
+      type: 'storage-set',
+      payload: { key: 'qw_history', value: JSON.stringify(STATE.history) }
+    }, '*');
+    window.parent.postMessage({
+      source: 'supabase-adapter',
+      type: 'storage-set',
+      payload: { key: 'qw_settings', value: JSON.stringify(SETTINGS) }
+    }, '*');
+  } catch(e) {
+    // Silently fail if not in iframe (standalone mode)
+  }
 }
 
 function showSnack(msg, dur=2500) {
@@ -450,19 +469,20 @@ function renderQuizView() {
   const ans = STATE.answers[STATE.currentIdx];
   const submitted = ans !== undefined;
 
+  const showResult = submitted && SETTINGS.showAnswerImmediately;
   let questionHTML = '';
   if (q.type === 'mcq') {
     questionHTML = `<div class="options">` + q.options.map((opt, i) => {
       let cls = '';
-      if (submitted) {
+      if (showResult) {
         if (i === q.correct) cls = 'correct';
         else if (i === ans) cls = 'wrong';
         else cls = 'dimmed';
         cls += ' disabled';
       } else if (ans === i) cls = 'selected';
       const icons = {correct:'✓', wrong:'✗'};
-      const showIcon = submitted && (i === q.correct || i === ans);
-      return `<button class="option ${cls}" onclick="${!submitted ? `selectOption(${i})` : ''}">
+      const showIcon = showResult && (i === q.correct || i === ans);
+      return `<button class="option ${cls}" onclick="${!showResult ? `selectOption(${i})` : ''}">
         <span class="option-key">${String.fromCharCode(65+i)}</span>
         <span class="option-text">${opt}</span>
         ${showIcon ? `<span class="option-icon">${icons[i===q.correct?'correct':'wrong']}</span>` : ''}
@@ -471,20 +491,20 @@ function renderQuizView() {
   } else if (q.type === 'tf') {
     questionHTML = `<div class="options">` + ['True','False'].map((opt, i) => {
       let cls = '';
-      if (submitted) {
+      if (showResult) {
         const correctIdx = q.correct === 'true' ? 0 : 1;
         if (i === correctIdx) cls = 'correct';
         else if (i === ans) cls = 'wrong';
         else cls = 'dimmed';
         cls += ' disabled';
       } else if (ans === i) cls = 'selected';
-      return `<button class="option ${cls}" onclick="${!submitted ? `selectTF(${i})` : ''}">
+      return `<button class="option ${cls}" onclick="${!showResult ? `selectTF(${i})` : ''}">
         <span class="option-key">${i===0?'T':'F'}</span>
         <span class="option-text">${opt}</span>
       </button>`;
     }).join('') + `</div>`;
   } else if (q.type === 'fill') {
-    const cls = submitted ? (ans?.toLowerCase().trim() === q.correct.toLowerCase().trim() ? 'correct' : 'wrong') : '';
+    const cls = showResult ? (ans?.toLowerCase().trim() === q.correct.toLowerCase().trim() ? 'correct' : 'wrong') : '';
     questionHTML = `
       <input type="text" class="fill-input ${cls}" id="fillAns" placeholder="Type your answer..." value="${ans||''}" ${submitted?'disabled':''}>
       ${!submitted ? `<div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="btn btn-primary btn-sm" onclick="submitFill()">Submit</button></div>` : ''}
@@ -498,7 +518,7 @@ function renderQuizView() {
     `;
   }
 
-  const feedback = buildFeedback(q, ans, submitted);
+  const feedback = buildFeedback(q, ans, showResult);
   const aiFb = STATE.aiFeedbacks[STATE.currentIdx];
 
   main.innerHTML = `
@@ -511,7 +531,7 @@ function renderQuizView() {
         </div>
         ${questionHTML}
         ${feedback}
-        ${submitted ? `
+        ${submitted && SETTINGS.showAnswerImmediately ? `
           <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <button class="ai-btn" onclick="askAI(${STATE.currentIdx})">
               ✨ Ask AI for explanation
@@ -524,6 +544,7 @@ function renderQuizView() {
           <div class="action-spacer"></div>
           ${!submitted && (q.type==='mcq'||q.type==='tf') ? `<span class="shortcut-hint">Click to select · <kbd>Enter</kbd> to confirm</span>` : ''}
           ${q.type==='fill'&&!submitted ? `<span class="shortcut-hint"><kbd>Enter</kbd> to submit</span>` : ''}
+          ${submitted && !SETTINGS.showAnswerImmediately ? `<span class="shortcut-hint">Answer saved · Results at end</span>` : ''}
           <button class="btn btn-primary btn-sm" onclick="nextQ()">${STATE.currentIdx===STATE.questions.length-1 ? '🏁 Finish' : 'Next →'}</button>
         </div>
       </div>
@@ -556,8 +577,8 @@ function handleKeys(e) {
   if (e.key === 'ArrowLeft') prevQ();
 }
 
-function buildFeedback(q, ans, submitted) {
-  if (!submitted) return '';
+function buildFeedback(q, ans, showResult) {
+  if (!showResult) return '';
   if (q.type === 'mcq') {
     const correct = ans === q.correct;
     return `<div class="feedback ${correct?'correct':'wrong'}">
