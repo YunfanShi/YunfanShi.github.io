@@ -841,7 +841,7 @@ Return ONLY a valid JSON array with no extra text or markdown.`;
     credentials: 'include',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'deepseek-v4-flash',
       temperature: 0.1,
       max_tokens: 2000,
       messages: [
@@ -1007,7 +1007,7 @@ Student Answer: ${answer}`;
       credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'deepseek-v4-flash',
         temperature: 0.3,
         max_tokens: 400,
         messages: [
@@ -1048,7 +1048,7 @@ Give a clear, educational explanation.`;
       credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'deepseek-v4-flash',
         temperature: 0.3,
         max_tokens: 300,
         messages: [

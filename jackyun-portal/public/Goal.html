@@ -737,7 +737,7 @@ const COLORS=[
 const PRI_C={high:'#ff5c5c',mid:'#f5a623',low:'#34c76a'};
 const CAT_E={'学习':'📚','健康':'💪','工作':'💼','生活':'🏠','财务':'💰','其他':'✦'};
 const PROVIDER_ENDPOINTS={deepseek:'https://api.deepseek.com/chat/completions',openai:'https://api.openai.com/v1/chat/completions'};
-const PROVIDER_MODELS={deepseek:'deepseek-chat',openai:'gpt-4o',custom:''};
+const PROVIDER_MODELS={deepseek:'deepseek-v4-flash',openai:'gpt-4o',custom:''};
 
 /* ===================== STATE ===================== */
 let goals = JSON.parse(localStorage.getItem('gt_v6')||'null') || [
@@ -792,7 +792,7 @@ function getDoneTotal(g){
 }
 function getKey(){return localStorage.getItem('ds_key')||'';}
 function getProvider(){return localStorage.getItem('ai_provider')||'deepseek';}
-function getModel(){const s=localStorage.getItem('ai_model');return s||(PROVIDER_MODELS[getProvider()]||'deepseek-chat');}
+function getModel(){const s=localStorage.getItem('ai_model');return s||(PROVIDER_MODELS[getProvider()]||'deepseek-v4-flash');}
 function getEndpoint(){const p=getProvider();return p==='custom'?(localStorage.getItem('ai_custom_endpoint')||''):(PROVIDER_ENDPOINTS[p]||PROVIDER_ENDPOINTS.deepseek);}
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

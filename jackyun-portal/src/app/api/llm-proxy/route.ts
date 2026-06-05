@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = (aiConfig?.baseUrl?.trim() || '').replace(/\/+$/, '');
   const apiKey = aiConfig?.apiKey?.trim() || '';
-  const model = aiConfig?.model?.trim() || 'gpt-3.5-turbo';
+  const model = aiConfig?.model?.trim() || 'deepseek-v4-flash';
 
   if (!baseUrl || !apiKey) {
     return NextResponse.json(
