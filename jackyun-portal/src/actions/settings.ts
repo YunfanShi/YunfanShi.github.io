@@ -41,3 +41,57 @@ export async function saveAiConfig(
   if (error) return { error: error.message };
   return { error: null };
 }
+
+export async function updateProfile(
+  displayName: string,
+  avatarUrl: string,
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+
+    // 1. Update auth user metadata
+    await supabase.auth.updateUser({
+      data: {
+        full_name: displayName,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+      },
+    });
+
+    // 2. Upsert into profiles table (primary)
+    const { error: profileError } = await supabase.from('profiles').upsert(
+      {
+        id: user.id,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+    if (profileError) {
+      console.error('[updateProfile] profiles upsert failed:', profileError);
+      return { success: false, error: `profiles table error: ${profileError.message}` };
+    }
+
+    // 3. Also save to user_settings for backward compatibility
+    const { error: settingsError } = await supabase.from('user_settings').upsert(
+      {
+        user_id: user.id,
+        key: 'profile',
+        value: { display_name: displayName, avatar_url: avatarUrl },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,key' },
+    );
+    if (settingsError) {
+      console.warn('[updateProfile] user_settings upsert warning:', settingsError);
+      // non-fatal, profiles already updated
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[updateProfile] exception:', err);
+    return { success: false, error: message };
+  }
+}

@@ -7,6 +7,7 @@ import ProfileEditor from '@/components/settings/profile-editor';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import ExportDataPanel from '@/components/settings/export-data-panel';
 import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
+import LoggerViewerWrapper from '@/components/settings/logger-viewer-wrapper';
 
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
@@ -103,6 +104,9 @@ export default async function SettingsPage() {
         </p>
         <ExportDataPanel />
       </section>
+
+      {/* 客户端日志 */}
+      <LoggerViewerWrapper />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { updateProfile } from '@/actions/settings';
 import logger from '@/lib/logger';
 
 const TAG = 'ProfileEditor';
@@ -17,24 +18,25 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
     setSaving(true);
     setMessage('');
     setErrorDetail('');
-    logger.info(TAG, 'Saving profile', { userId, displayName });
+    logger.info(TAG, 'Saving profile via server action', { userId, displayName });
 
     try {
-      const res = await fetch('/api/legacy-sync', {
+      const result = await updateProfile(displayName, avatarUrl);
+      logger.info(TAG, 'Server action result', result);
+
+      if (!result.success) {
+        logger.error(TAG, 'Profile save failed', result);
+        throw new Error(result.error || '保存失败');
+      }
+
+      // Also sync to legacy-sync for backward compatibility
+      fetch('/api/legacy-sync', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'profile', value: { display_name: displayName, avatar_url: avatarUrl } }),
+      }).catch(() => {
+        logger.warn(TAG, 'Legacy sync fallback failed (non-critical)');
       });
-
-      const data = await res.json().catch(() => null);
-      logger.info(TAG, 'Save response', { status: res.status, data });
-
-      if (!res.ok) {
-        const errMsg = data?.error || `HTTP ${res.status}: ${res.statusText}`;
-        const detail = data?.detail ? JSON.stringify(data.detail) : '';
-        logger.error(TAG, 'Save failed', { status: res.status, data });
-        throw new Error(errMsg + (detail ? ` (详情: ${detail})` : ''));
-      }
 
       setMessage('✅ 资料已保存');
       setEditing(false);

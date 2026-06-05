@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
-import logger, { LogEntry } from '@/lib/logger';
+import LoggerViewer from '@/components/settings/logger-viewer';
+import logger from '@/lib/logger';
 
 /* ────────── Utility ────────── */
 function SectionHeader({ icon, title, badge }: { icon: string; title: string; badge?: string }) {
@@ -260,15 +261,10 @@ export default function AdminTestPage() {
   const [sysStartTime, setSysStartTime] = useState(0);
 
   // ── Logger State ──
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showLogs, setShowLogs] = useState(false);
 
   // ── Run All ──
   const [allRunning, setAllRunning] = useState(false);
-
-  const refreshLogs = () => {
-    setLogs(logger.getLogs());
-  };
 
   // ── AI Test ──
   async function runAiTest() {
@@ -317,7 +313,6 @@ export default function AdminTestPage() {
       setAiResult({ mode: testMode === 'direct' ? 'Direct API Call' : 'Proxy (/api/llm-proxy)', success: false, duration: `${duration}s`, statusCode: 0, statusText: 'Network Error', responseBody: '', aiContent: '', error: err instanceof Error ? err.message : String(err) });
     }
     setAiLoading(false);
-    refreshLogs();
   }
 
   // ── System Tests ──
@@ -352,7 +347,6 @@ export default function AdminTestPage() {
       totalDuration: `${((Date.now() - sysStartTime) / 1000).toFixed(2)}s`,
     });
     setSysRunning(false);
-    refreshLogs();
   }
 
   // ── Run All Tests ──
@@ -430,7 +424,6 @@ export default function AdminTestPage() {
     await Promise.all([aiTestPromise, sysTestPromise]);
     logger.info('TestPage', 'All tests completed');
     setAllRunning(false);
-    refreshLogs();
   }, [baseUrl, apiKey, model, systemPrompt, userPrompt, testMode]);
 
   // Overall status
@@ -454,11 +447,11 @@ export default function AdminTestPage() {
         </div>
         <div className="flex gap-2 shrink-0">
           <button
-            onClick={() => { setShowLogs(!showLogs); refreshLogs(); }}
+            onClick={() => setShowLogs(!showLogs)}
             className="flex items-center gap-1 px-3 py-2.5 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[var(--background)] transition-colors"
           >
             <span className="material-icons-round text-base">terminal</span>
-            日志 ({logs.length})
+            日志
           </button>
           <button
             onClick={runAllTests}
@@ -475,46 +468,7 @@ export default function AdminTestPage() {
       </div>
 
       {/* ── Logger Panel ── */}
-      {showLogs && (
-        <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <SectionHeader icon="terminal" title="客户端日志" badge={`${logs.length} entries`} />
-            <button
-              onClick={() => { logger.clearLogs(); refreshLogs(); }}
-              className="text-xs text-[#EA4335] hover:underline"
-            >
-              清空日志
-            </button>
-          </div>
-          {logs.length === 0 ? (
-            <p className="text-sm text-[var(--muted-foreground)] text-center py-4">暂无日志，运行测试后会自动记录。</p>
-          ) : (
-            <div className="max-h-[400px] overflow-y-auto space-y-1">
-              {logs.map((entry, i) => (
-                <div
-                  key={i}
-                  className={`text-xs font-mono p-2 rounded border ${
-                    entry.level === 'error' ? 'bg-[#EA4335]/5 border-[#EA4335]/20 text-[#EA4335]' :
-                    entry.level === 'warn' ? 'bg-[#FBBC05]/5 border-[#FBBC05]/20 text-[#FBBC05]' :
-                    'bg-[var(--background)] border-[var(--card-border)] text-[var(--foreground)]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="opacity-50 text-[10px]">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-                    <span className="font-semibold">[{entry.tag}]</span>
-                    <span>{entry.message}</span>
-                  </div>
-                  {entry.data !== undefined && (
-                    <div className="mt-1 opacity-70 whitespace-pre-wrap break-all">
-                      {typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data, null, 2)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      {showLogs && <LoggerViewer />}
 
       {/* ── AI API Test ── */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-4">
