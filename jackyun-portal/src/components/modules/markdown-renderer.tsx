@@ -56,9 +56,9 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         remarkPlugins={[remarkGfm, remarkMath, remarkEmoji]}
         rehypePlugins={[
           rehypeRaw,
-          [rehypeSanitize, customSchema],
           rehypeKatex,
           rehypeHighlight,
+          [rehypeSanitize, customSchema],
         ]}
       >
         {content}
