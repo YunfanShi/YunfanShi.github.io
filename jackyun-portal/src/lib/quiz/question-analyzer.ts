@@ -2,6 +2,22 @@
 
 import { AnalyzedQuestion, QuestionType } from '@/types/quiz';
 
+/** Get LLM config from localStorage (shared with quiz.html) */
+function getLLMConfig(): { baseUrl: string; apiKey: string; model: string } {
+  if (typeof window === 'undefined') {
+    return { baseUrl: '', apiKey: '', model: 'deepseek-v4-flash' };
+  }
+  const provider = localStorage.getItem('ai_provider') || 'deepseek';
+  const PROVIDER_ENDPOINTS: Record<string, string> = {
+    openai: 'https://api.openai.com/v1',
+    deepseek: 'https://api.deepseek.com/v1',
+  };
+  const baseUrl = localStorage.getItem('ai_custom_endpoint') || PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.deepseek;
+  const apiKey = localStorage.getItem('ds_key') || '';
+  const model = localStorage.getItem('ai_model') || 'deepseek-v4-flash';
+  return { baseUrl, apiKey, model };
+}
+
 const ANALYSIS_PROMPT = `You are an expert teacher analyzing exam questions. Given one or more questions, analyze each and return a JSON object with this exact structure:
 
 {
@@ -77,6 +93,44 @@ export interface GradeResult {
   explanation: string;
 }
 
+export interface FeedbackResult {
+  data: string | null;
+  error: string | null;
+}
+
+/**
+ * Call LLM proxy with client config
+ */
+async function callLLM(messages: Array<{ role: string; content: string }>, options: {
+  temperature?: number;
+  max_tokens?: number;
+  stream?: boolean;
+} = {}): Promise<string> {
+  const cfg = getLLMConfig();
+
+  const res = await fetch('/api/llm-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
+      temperature: options.temperature ?? 0.1,
+      max_tokens: options.max_tokens ?? 2000,
+      stream: options.stream ?? false,
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? '';
+}
+
 /**
  * Analyze questions by sending them to the LLM proxy
  */
@@ -86,27 +140,10 @@ export async function analyzeQuestions(
   try {
     const prompt = ANALYSIS_PROMPT.replace('{{QUESTIONS}}', rawText);
 
-    const res = await fetch('/api/llm-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: 'You are a precise question analyzer. Always return valid JSON only, no markdown.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 4000,
-        stream: false,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error((err as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content ?? '';
+    const content = await callLLM([
+      { role: 'system', content: 'You are a precise question analyzer. Always return valid JSON only, no markdown.' },
+      { role: 'user', content: prompt },
+    ], { temperature: 0.1, max_tokens: 4000 });
 
     // Try to extract JSON from the response
     let jsonStr = content.trim();
@@ -143,24 +180,11 @@ export async function gradeAnswer(
       .replace('{{CORRECT_ANSWER}}', question.correctAnswer)
       .replace('{{USER_ANSWER}}', userAnswer);
 
-    const res = await fetch('/api/llm-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: 'You are a precise grading assistant. Always return valid JSON only.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 1000,
-        stream: false,
-      }),
-    });
+    const content = await callLLM([
+      { role: 'system', content: 'You are a precise grading assistant. Always return valid JSON only.' },
+      { role: 'user', content: prompt },
+    ], { temperature: 0.1, max_tokens: 1000 });
 
-    if (!res.ok) throw new Error('LLM grading failed');
-
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content ?? '';
     let jsonStr = content.trim();
     if (jsonStr.startsWith('```')) jsonStr = jsonStr.replace(/```(?:json)?\n?/g, '').trim();
 
@@ -172,37 +196,29 @@ export async function gradeAnswer(
 
 /**
  * Get detailed AI feedback/explanation for a question
+ * Returns structured object instead of plain string
  */
 export async function getAIFeedback(
   question: { questionText: string; correctAnswer: string },
   userAnswer: string,
-): Promise<string> {
+): Promise<FeedbackResult> {
   try {
     const prompt = FEEDBACK_PROMPT
       .replace('{{QUESTION}}', question.questionText)
       .replace('{{CORRECT_ANSWER}}', question.correctAnswer)
       .replace('{{USER_ANSWER}}', userAnswer);
 
-    const res = await fetch('/api/llm-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: 'You are a helpful, encouraging tutor.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-        stream: false,
-      }),
-    });
+    const content = await callLLM([
+      { role: 'system', content: 'You are a helpful, encouraging tutor.' },
+      { role: 'user', content: prompt },
+    ], { temperature: 0.7, max_tokens: 1500 });
 
-    if (!res.ok) throw new Error('AI feedback request failed');
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content ?? 'No feedback available.';
+    return { data: content, error: null };
   } catch (err) {
-    return `Error getting feedback: ${err instanceof Error ? err.message : 'Unknown error'}`;
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : 'AI feedback request failed',
+    };
   }
 }
 

@@ -36,8 +36,14 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<string | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+
+  // Detailed test result state
+  const [testSuccess, setTestSuccess] = useState<boolean | null>(null);
+  const [testDuration, setTestDuration] = useState<string>('');
+  const [testRequest, setTestRequest] = useState<string>('');
+  const [testResponseContent, setTestResponseContent] = useState<string>('');
+  const [testResponseRaw, setTestResponseRaw] = useState<string>('');
 
   const isCustom = provider.label === '自定义';
 
@@ -65,7 +71,24 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
 
   async function handleTest() {
     setTestLoading(true);
-    setTestResult(null);
+    setTestSuccess(null);
+    setTestDuration('');
+    setTestResponseContent('');
+    setTestResponseRaw('');
+
+    const startTime = Date.now();
+    const reqBody = {
+      model: model.trim(),
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'Say "Hello! API connection successful." and introduce yourself briefly in one sentence.' },
+      ],
+      max_tokens: 200,
+      stream: false,
+    };
+
+    setTestRequest(JSON.stringify(reqBody, null, 2));
+
     try {
       const res = await fetch(`${baseUrl.trim()}/chat/completions`, {
         method: 'POST',
@@ -73,24 +96,35 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey.trim()}`,
         },
-        body: JSON.stringify({
-          model: model.trim(),
-          messages: [{ role: 'user', content: 'hi' }],
-          max_tokens: 1,
-          stream: false,
-        }),
+        body: JSON.stringify(reqBody),
       });
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      setTestDuration(`${duration}s`);
+
+      const raw = await res.text();
+      setTestResponseRaw(raw);
+
       if (res.ok) {
-        setTestResult('✅ 连接成功，模型响应正常');
-      } else if (res.status === 401 || res.status === 403) {
-        setTestResult('❌ API Key 无效或无权限');
-      } else if (res.status === 404) {
-        setTestResult('❌ Base URL 或模型名称有误');
+        try {
+          const data = JSON.parse(raw);
+          const content = data.choices?.[0]?.message?.content || '(empty response)';
+          setTestResponseContent(content);
+          setTestSuccess(true);
+        } catch {
+          setTestResponseContent(raw);
+          setTestSuccess(true);
+        }
       } else {
-        setTestResult(`❌ 连接失败：HTTP ${res.status}`);
+        setTestResponseContent(`HTTP ${res.status} — ${raw.slice(0, 500)}`);
+        setTestSuccess(false);
       }
     } catch (err) {
-      setTestResult(`❌ 连接失败：${err instanceof Error ? err.message : String(err)}`);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      setTestDuration(`${duration}s`);
+      setTestResponseContent(`Network error: ${err instanceof Error ? err.message : String(err)}`);
+      setTestResponseRaw('');
+      setTestSuccess(false);
     }
     setTestLoading(false);
   }
@@ -184,10 +218,55 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
       {message && (
         <p className="text-sm text-[#34A853] bg-[#34A853]/10 rounded-lg px-3 py-2">{message}</p>
       )}
-      {testResult && (
-        <p className={`text-sm rounded-lg px-3 py-2 ${testResult.startsWith('✅') ? 'text-[#34A853] bg-[#34A853]/10' : 'text-[#EA4335] bg-[#EA4335]/10'}`}>
-          {testResult}
-        </p>
+
+      {/* Test result — full output */}
+      {testSuccess !== null && (
+        <div className={`rounded-lg border p-4 space-y-3 ${
+          testSuccess
+            ? 'border-[#34A853]/30 bg-[#34A853]/5'
+            : 'border-[#EA4335]/30 bg-[#EA4335]/5'
+        }`}>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span>{testSuccess ? '✅' : '❌'}</span>
+            <span>{testSuccess ? '连接成功' : '连接失败'}</span>
+            {testDuration && (
+              <span className="text-xs text-[var(--muted-foreground)]">⏱ {testDuration}</span>
+            )}
+          </div>
+
+          {testRequest && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                📤 请求内容
+              </summary>
+              <pre className="mt-2 p-3 rounded-lg bg-black/10 text-[var(--foreground)] overflow-x-auto whitespace-pre-wrap break-all text-xs font-mono leading-relaxed">
+                {testRequest}
+              </pre>
+            </details>
+          )}
+
+          {testResponseContent && (
+            <div>
+              <p className="text-xs font-medium text-[var(--muted-foreground)] mb-1">
+                📥 AI 回复：
+              </p>
+              <pre className="p-3 rounded-lg bg-black/10 text-[var(--foreground)] overflow-x-auto whitespace-pre-wrap break-all text-xs font-mono leading-relaxed">
+                {testResponseContent}
+              </pre>
+            </div>
+          )}
+
+          {testResponseRaw && (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                🔍 原始 JSON 响应
+              </summary>
+              <pre className="mt-2 p-3 rounded-lg bg-black/10 text-[var(--foreground)] overflow-x-auto whitespace-pre-wrap break-all text-xs font-mono leading-relaxed max-h-[400px] overflow-y-auto">
+                {testResponseRaw.length > 5000 ? testResponseRaw.slice(0, 5000) + '\n\n... (truncated)' : testResponseRaw}
+              </pre>
+            </details>
+          )}
+        </div>
       )}
 
       <div className="flex gap-2 flex-wrap">

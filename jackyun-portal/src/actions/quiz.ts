@@ -17,7 +17,7 @@ async function getAuthenticatedUser() {
 export async function createSession(
   subjectName: string,
   questions: AnalyzedQuestion[],
-): Promise<{ sessionId: string } | { error: string }> {
+): Promise<{ sessionId: string; questionIds: string[] } | { error: string }> {
   try {
     const { supabase, user } = await getAuthenticatedUser();
 
@@ -51,7 +51,7 @@ export async function createSession(
 
     if (sessionError || !session) throw new Error(sessionError?.message ?? 'Failed to create session');
 
-    // Insert questions
+    // Insert questions and return their real IDs
     const questionsToInsert = questions.map((q, idx) => ({
       session_id: session.id,
       question_text: q.questionText,
@@ -62,10 +62,20 @@ export async function createSession(
       order_index: idx,
     }));
 
-    const { error: qError } = await supabase.from('quiz_questions').insert(questionsToInsert);
-    if (qError) throw new Error(qError.message);
+    const { data: insertedQuestions, error: qError } = await supabase
+      .from('quiz_questions')
+      .insert(questionsToInsert)
+      .select('id, order_index');
 
-    return { sessionId: session.id };
+    if (qError) throw new Error(qError.message);
+    if (!insertedQuestions) throw new Error('No questions returned after insert');
+
+    // Map back order_index → id
+    const questionIds = insertedQuestions
+      .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
+      .map((q: { id: string }) => q.id);
+
+    return { sessionId: session.id, questionIds };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Failed to create session' };
   }

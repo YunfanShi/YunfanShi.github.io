@@ -850,9 +850,9 @@ ${text}
 Return ONLY a valid JSON array with no extra text or markdown.`;
 
   const cfg = getLLMConfig();
+  if (!cfg.apiKey) throw new Error('Please set up your AI API Key in Settings (⚙️) → AI Config.');
   const response = await fetch('/api/llm-proxy', {
     method: 'POST',
-    credentials: 'include',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
       baseUrl: cfg.baseUrl,
@@ -877,7 +877,12 @@ Return ONLY a valid JSON array with no extra text or markdown.`;
   }
   const data = await response.json();
   const txt = data.choices?.[0]?.message?.content || '';
-  return JSON.parse(txt.replace(/```json\s*|```/g, '').trim());
+  let parsedText = txt.replace(/```json\s*|```/g, '').trim();
+  try {
+    return JSON.parse(parsedText);
+  } catch (e) {
+    throw new Error('Invalid JSON from LLM: ' + parsedText.substring(0, 50) + '...');
+  }
 }
 
 function basicParser(text) {
@@ -1019,9 +1024,13 @@ Student Answer: ${answer}`;
 
   try {
     const cfg = getLLMConfig();
+    if (!cfg.apiKey) {
+      STATE.aiFeedbacks[idx] = 'Please set up your AI API Key in Settings (⚙️) → AI Config to enable essay grading.';
+      if (STATE.currentIdx === idx) render();
+      return;
+    }
     const response = await fetch('/api/llm-proxy', {
       method: 'POST',
-      credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         baseUrl: cfg.baseUrl,
@@ -1063,9 +1072,13 @@ Give a clear, educational explanation.`;
 
   try {
     const cfg = getLLMConfig();
+    if (!cfg.apiKey) {
+      STATE.aiFeedbacks[idx] = 'Please set up your AI API Key in Settings (⚙️) → AI Config to enable AI explanations.';
+      if (STATE.currentIdx === idx) render();
+      return;
+    }
     const response = await fetch('/api/llm-proxy', {
       method: 'POST',
-      credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         baseUrl: cfg.baseUrl,

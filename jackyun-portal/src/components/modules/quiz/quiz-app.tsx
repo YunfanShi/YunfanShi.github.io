@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AnalyzedQuestion, QuizQuestion, QuestionOption } from '@/types/quiz';
+import { AnalyzedQuestion, QuizQuestion, QuestionOption, QuestionType } from '@/types/quiz';
 import { analyzeQuestions, gradeAnswer, checkMultipleChoice } from '@/lib/quiz/question-analyzer';
 import {
   saveCurrentQuestionsSync,
@@ -40,6 +40,24 @@ export interface UserAnswer {
   isCorrect: boolean | null;
 }
 
+/** Map AI-returned type strings to valid QuestionType */
+function normalizeQuestionType(raw: string): QuestionType {
+  const map: Record<string, QuestionType> = {
+    multiple_choice: 'multiple_choice',
+    mcq: 'multiple_choice',
+    fill_blank: 'fill_blank',
+    fill: 'fill_blank',
+    essay: 'essay',
+    long_answer: 'essay',
+    short_answer: 'essay',
+    true_false: 'true_false',
+    tf: 'true_false',
+    matching: 'matching',
+  };
+  const key = (raw || '').toLowerCase().replace(/[\s-]/g, '_');
+  return map[key] || 'essay';
+}
+
 export default function QuizApp() {
   const [view, setView] = useState<View>('input');
   const [questions, setQuestions] = useState<AnalyzedQuestion[]>([]);
@@ -57,7 +75,12 @@ export default function QuizApp() {
   useEffect(() => {
     const saved = getCurrentQuestionsSync();
     if (saved.length > 0) {
-      setQuestions(saved);
+      // Normalize types on restore
+      const normalized = saved.map(q => ({
+        ...q,
+        type: normalizeQuestionType(q.type),
+      }));
+      setQuestions(normalized);
       setView('subject');
     }
   }, []);
@@ -79,8 +102,14 @@ export default function QuizApp() {
       return;
     }
 
-    setQuestions(result.questions);
-    saveCurrentQuestionsSync(result.questions);
+    // Normalize question types
+    const normalized = result.questions.map(q => ({
+      ...q,
+      type: normalizeQuestionType(q.type),
+    }));
+
+    setQuestions(normalized);
+    saveCurrentQuestionsSync(normalized);
     setView('subject');
   }, []);
 
@@ -91,15 +120,16 @@ export default function QuizApp() {
     setCurrentIndex(0);
     setView('quiz');
 
-    // Create session in DB
+    // Create session in DB — now returns real question IDs
     const result = await createSession(subject, questions);
     if ('sessionId' in result) {
       setSessionId(result.sessionId);
       saveCurrentSession({ id: result.sessionId, startedAt: new Date().toISOString() });
 
-      // Update dbQuestions from the created session
+      // Use REAL question IDs from DB
+      const questionIds = result.questionIds;
       setDbQuestions(questions.map((q, i) => ({
-        id: '',
+        id: questionIds[i] || '',      // REAL UUID from DB
         session_id: result.sessionId,
         question_text: q.questionText,
         question_type: q.type,
@@ -118,17 +148,21 @@ export default function QuizApp() {
   const handleAnswer = useCallback(async (
     questionIndex: number,
     answer: string,
-    questionData: { questionText: string; correctAnswer: string; type: string; options?: QuestionOption[] | null },
+    questionData: { questionText: string; correctAnswer: string; type: QuestionType; options?: QuestionOption[] | null },
   ) => {
     let isCorrect: boolean | null = null;
 
-    // For multiple choice, check locally first
+    // For multiple choice, check locally first (no AI needed)
     if (questionData.type === 'multiple_choice' && questionData.options) {
       isCorrect = checkMultipleChoice(answer, questionData.correctAnswer);
     } else {
       // AI grading for other types
       const grade = await gradeAnswer(
-        { questionText: questionData.questionText, correctAnswer: questionData.correctAnswer, type: questionData.type as any },
+        {
+          questionText: questionData.questionText,
+          correctAnswer: questionData.correctAnswer,
+          type: questionData.type,
+        },
         answer,
       );
       if ('isCorrect' in grade) {
@@ -143,9 +177,10 @@ export default function QuizApp() {
       return updated;
     });
 
-    // Save to DB
-    if (sessionId && dbQuestions[questionIndex]?.id) {
-      saveAnswer(sessionId, dbQuestions[questionIndex].id, answer, isCorrect ?? false);
+    // Save to DB — now uses real question ID
+    const qId = dbQuestions[questionIndex]?.id;
+    if (sessionId && qId) {
+      saveAnswer(sessionId, qId, answer, isCorrect ?? false);
     }
   }, [sessionId, dbQuestions]);
 
@@ -290,7 +325,7 @@ export default function QuizApp() {
                     onAnswer={(answer) => handleAnswer(i, answer, {
                       questionText: q.questionText,
                       correctAnswer: q.correctAnswer,
-                      type: q.type,
+                      type: q.type as QuestionType,
                       options: q.options,
                     })}
                     showResult={settings.show_answer_immediately && userAnswers[i]?.answer !== ''}

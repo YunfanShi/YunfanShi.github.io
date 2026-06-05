@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { getAIFeedback } from '@/lib/quiz/question-analyzer';
 
 interface AiFeedbackButtonProps {
@@ -13,22 +13,37 @@ export default function AiFeedbackButton({ question, userAnswer }: AiFeedbackBut
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleGetFeedback = async () => {
+    // Prevent concurrent requests (debounce)
+    if (loading) return;
+
+    // Already have feedback → toggle display
     if (feedback) {
       setOpen(!open);
       return;
     }
+
+    // Cancel any in-flight request
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    abortRef.current = new AbortController();
 
     setLoading(true);
     setError(null);
     setOpen(true);
 
     const result = await getAIFeedback(question, userAnswer);
-    if (result.startsWith('Error')) {
-      setError(result);
-    } else {
-      setFeedback(result);
+
+    // Check if request was aborted
+    if (abortRef.current?.signal.aborted) return;
+
+    if (result.error) {
+      setError(result.error);
+    } else if (result.data) {
+      setFeedback(result.data);
     }
     setLoading(false);
   };

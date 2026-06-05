@@ -1,5 +1,5 @@
-import LegacyFrame from '@/components/modules/legacy-frame';
+import QuizApp from '@/components/modules/quiz/quiz-app';
 
 export default function QuizPage() {
-  return <LegacyFrame src="/quiz.html" title="QuizWise 刷题" />;
+  return <QuizApp />;
 }
