@@ -3,6 +3,7 @@ import { checkHasPassword } from '@/actions/auth';
 import { getAiConfig } from '@/actions/settings';
 import { createClient } from '@/lib/supabase/server';
 import AiConfigPanel from '@/components/settings/ai-config-panel';
+import ProfileEditor from '@/components/settings/profile-editor';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import ExportDataPanel from '@/components/settings/export-data-panel';
 
@@ -95,23 +96,7 @@ function ProfileSection({ initialName, initialAvatar, userId }: { initialName: s
   return (
     <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
       <SectionHeader icon="person" title="个人资料" />
-      <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          {initialAvatar ? (
-            <img src={initialAvatar} alt="头像" className="w-16 h-16 rounded-full border border-[var(--card-border)] object-cover" />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-[#4285F4]/10 flex items-center justify-center">
-              <span className="material-icons-round text-3xl text-[#4285F4]">person</span>
-            </div>
-          )}
-          <div>
-            <p className="font-medium text-[var(--foreground)]">{initialName || '未设置'}</p>
-            <p className="text-xs text-[var(--muted-foreground)] mt-1">
-              通过 OAuth 提供商（Google/GitHub）登录的用户，头像和名称会自动同步。可前往管理员页面关联第三方账号。
-            </p>
-          </div>
-        </div>
-      </div>
+      <ProfileEditor initialName={initialName} initialAvatar={initialAvatar} userId={userId} />
     </section>
   );
 }
