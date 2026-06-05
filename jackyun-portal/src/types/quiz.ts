@@ -14,6 +14,8 @@ export interface AnalyzedQuestion {
   correctAnswer: string;
   explanation: string;
   id?: string; // assigned after saving
+  /** Whether this question needs on-demand AI grading (essay/fill-blank) */
+  needsGrading?: boolean;
 }
 
 export interface QuizSession {

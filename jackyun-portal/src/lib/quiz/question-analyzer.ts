@@ -342,13 +342,33 @@ export async function analyzeQuestions(
       throw new Error('Invalid response format from AI');
     }
 
-    return { questions: parsed.questions };
+    // Mark each question: MC/TF are pre-analyzed (explanation ready), essay/fill-blank need grading on submit
+    const questions = parsed.questions.map(q => ({
+      ...q,
+      needsGrading: q.type === 'essay' || q.type === 'fill_blank',
+    }));
+
+    return { questions };
   } catch (err) {
     return {
       questions: [],
       error: err instanceof Error ? err.message : 'Failed to analyze questions',
     };
   }
+}
+
+/**
+ * Check if a question type is objective (can be locally checked)
+ */
+export function isObjectiveQuestion(type: QuestionType): boolean {
+  return type === 'multiple_choice' || type === 'true_false' || type === 'matching';
+}
+
+/**
+ * Check if a question needs AI grading
+ */
+export function needsAIGrading(type: QuestionType): boolean {
+  return type === 'essay' || type === 'fill_blank';
 }
 
 /**

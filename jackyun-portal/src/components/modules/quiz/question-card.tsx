@@ -35,6 +35,10 @@ export default function QuestionCard({
   const [showExplanation, setShowExplanation] = useState(false);
   const answered = userAnswer?.answer && userAnswer.answer !== '';
   const isCorrect = userAnswer?.isCorrect === true;
+  const isGrading = userAnswer?.isGrading === true;
+  // For essay/fill-blank, don't show result until grading is complete
+  const isObjective = question.type === 'multiple_choice' || question.type === 'true_false' || question.type === 'matching';
+  const effectiveShowResult = showResult && answered && (isObjective || !isGrading);
 
   const typeLabel = {
     multiple_choice: 'Multiple Choice',
@@ -70,11 +74,13 @@ export default function QuestionCard({
         <div className="flex items-center gap-2">
           <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
             isActive ? 'bg-[#4285F4] text-white' :
-            showResult && answered ? (isCorrect ? 'bg-[#34A853] text-white' : 'bg-[#EA4335] text-white') :
+            effectiveShowResult ? (isCorrect ? 'bg-[#34A853] text-white' : 'bg-[#EA4335] text-white') :
             'bg-[var(--background)] text-[var(--muted-foreground)]'
           }`}>
-            {showResult && answered ? (
+            {effectiveShowResult ? (
               isCorrect ? '✓' : '✗'
+            ) : isGrading ? (
+              <span className="material-icons-round text-sm animate-spin">sync</span>
             ) : (
               index + 1
             )}
@@ -86,7 +92,7 @@ export default function QuestionCard({
             </span>
           </div>
         </div>
-        {showResult && answered && (
+        {showResult && answered && !isGrading && (
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
             isCorrect ? 'bg-[#34A853]/10 text-[#34A853]' : 'bg-[#EA4335]/10 text-[#EA4335]'
           }`}>
@@ -150,7 +156,7 @@ export default function QuestionCard({
         )}
 
         {/* Explanation section */}
-        {showResult && answered && (
+        {effectiveShowResult && (
           <div className="mt-3 space-y-2">
             {question.explanation && (
               <button

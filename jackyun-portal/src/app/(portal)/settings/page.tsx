@@ -19,14 +19,28 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 }
 
 export default async function SettingsPage() {
-  const hasPassword = await checkHasPassword();
-  const aiConfig = await getAiConfig().catch(() => ({ baseUrl: '', apiKey: '', model: '' }));
+  // Wrap ALL async calls in try/catch to prevent page crash
+  let hasPassword = false;
+  let aiConfig = { baseUrl: '', apiKey: '', model: '' };
+  let displayName = '';
+  let avatarUrl = '';
+  let userId = '';
 
-  // Get current user profile
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const displayName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '';
-  const avatarUrl = user?.user_metadata?.avatar_url ?? '';
+  try {
+    hasPassword = await checkHasPassword();
+  } catch { /* fallback: no password set */ }
+
+  try {
+    aiConfig = await getAiConfig();
+  } catch { /* fallback: empty config */ }
+
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    displayName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '';
+    avatarUrl = user?.user_metadata?.avatar_url ?? '';
+    userId = user?.id ?? '';
+  } catch { /* fallback: not authenticated, show empty profile */ }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-8">
@@ -36,7 +50,7 @@ export default async function SettingsPage() {
       </div>
 
       {/* Profile */}
-      <ProfileSection initialName={displayName as string} initialAvatar={avatarUrl as string} userId={user?.id ?? ''} />
+      <ProfileSection initialName={displayName} initialAvatar={avatarUrl} userId={userId} />
 
       {/* 账户安全 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">

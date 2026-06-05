@@ -38,6 +38,8 @@ export interface UserAnswer {
   questionIndex: number;
   answer: string;
   isCorrect: boolean | null;
+  /** Whether this answer is still being graded by AI (essay/fill-blank only) */
+  isGrading?: boolean;
 }
 
 /** Map AI-returned type strings to valid QuestionType */
@@ -152,11 +154,28 @@ export default function QuizApp() {
   ) => {
     let isCorrect: boolean | null = null;
 
-    // For multiple choice, check locally first (no AI needed)
-    if (questionData.type === 'multiple_choice' && questionData.options) {
+    // Objective questions (MC/TF): instant local check, no AI delay
+    if (
+      questionData.type === 'multiple_choice' ||
+      questionData.type === 'true_false'
+    ) {
       isCorrect = checkMultipleChoice(answer, questionData.correctAnswer);
+      
+      // Update immediately
+      setUserAnswers(prev => {
+        const updated = [...prev];
+        updated[questionIndex] = { questionIndex, answer, isCorrect };
+        return updated;
+      });
     } else {
-      // AI grading for other types
+      // Subjective questions (Essay/Fill-blank): AI grading on demand
+      // Mark as grading in progress, then update with result
+      setUserAnswers(prev => {
+        const updated = [...prev];
+        updated[questionIndex] = { questionIndex, answer, isCorrect: null, isGrading: true };
+        return updated;
+      });
+
       const grade = await gradeAnswer(
         {
           questionText: questionData.questionText,
@@ -168,14 +187,14 @@ export default function QuizApp() {
       if ('isCorrect' in grade) {
         isCorrect = grade.isCorrect;
       }
-    }
 
-    // Update answers
-    setUserAnswers(prev => {
-      const updated = [...prev];
-      updated[questionIndex] = { questionIndex, answer, isCorrect };
-      return updated;
-    });
+      // Update with grading result
+      setUserAnswers(prev => {
+        const updated = [...prev];
+        updated[questionIndex] = { questionIndex, answer, isCorrect, isGrading: false };
+        return updated;
+      });
+    }
 
     // Save to DB — now uses real question ID
     const qId = dbQuestions[questionIndex]?.id;

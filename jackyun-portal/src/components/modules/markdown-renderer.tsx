@@ -1,171 +1,68 @@
 'use client';
 
-import LatexRenderer from './latex-renderer';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import remarkEmoji from 'remark-emoji';
+import rehypeKatex from 'rehype-katex';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import 'katex/dist/katex.min.css';
 
 interface MarkdownRendererProps {
   content: string;
 }
 
+/** Extended sanitize schema that allows math-related attributes */
+const customSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code || []), ['className']],
+    span: [...(defaultSchema.attributes?.span || []), ['className', 'style']],
+    div: [...(defaultSchema.attributes?.div || []), ['className', 'style']],
+  },
+};
+
 /**
- * Renders basic Markdown + LaTeX in a single component.
- * Supported Markdown:
- * - **bold**
- * - *italic*
- * - `inline code`
- * - ```code block```
- * - - unordered list
- * - > blockquote
- * LaTeX is handled by LatexRenderer first.
+ * Full-featured Markdown renderer using react-markdown with:
+ * - GitHub Flavored Markdown (tables, strikethrough, task lists, autolinks)
+ * - LaTeX math formulas (via KaTeX)
+ * - Emoji shortcodes (:smile:)
+ * - Code syntax highlighting (via highlight.js)
+ * - Raw HTML support (sanitized)
  */
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
   if (!content) return null;
 
-  // Split into lines, process each line for block-level Markdown,
-  // then process inline Markdown + LaTeX
-  const lines = content.split('\n');
-  const result: React.ReactNode[] = [];
-
-  let inCodeBlock = false;
-  let codeBlockContent = '';
-  let inList = false;
-  let blockQuoteContent: string[] = [];
-
-  const flushList = () => {
-    inList = false;
-  };
-
-  const flushBlockQuote = () => {
-    if (blockQuoteContent.length > 0) {
-      const joined = blockQuoteContent.join('\n');
-      result.push(
-        <blockquote key={`bq-${result.length}`} className="border-l-3 border-[#4285F4]/30 pl-3 my-1 italic opacity-90">
-          {<LatexRenderer content={processInlineMarkdown(joined)} />}
-        </blockquote>
-      );
-      blockQuoteContent = [];
-    }
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Code block toggle
-    if (line.trimStart().startsWith('```')) {
-      if (inCodeBlock) {
-        // End code block
-        result.push(
-          <pre key={`code-${result.length}`} className="bg-black/10 dark:bg-white/5 rounded-lg p-3 my-1 overflow-x-auto text-xs font-mono">
-            <code>{codeBlockContent}</code>
-          </pre>
-        );
-        codeBlockContent = '';
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-        flushBlockQuote();
-        flushList();
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeBlockContent += (codeBlockContent ? '\n' : '') + line;
-      continue;
-    }
-
-    // Blockquote
-    if (line.trimStart().startsWith('> ')) {
-      flushList();
-      blockQuoteContent.push(line.trimStart().replace(/^>\s?/, ''));
-      // If next line isn't blockquote, flush
-      const nextLine = i + 1 < lines.length ? lines[i + 1] : null;
-      if (!nextLine || !nextLine.trimStart().startsWith('> ')) {
-        flushBlockQuote();
-      }
-      continue;
-    }
-
-    // Flush pending blockquote
-    flushBlockQuote();
-
-    // Unordered list
-    const ulMatch = line.trimStart().match(/^-\s+(.+)/);
-    if (ulMatch) {
-      if (!inList) {
-        inList = true;
-      }
-      result.push(
-        <li key={`li-${result.length}`} className="ml-4 list-disc my-0.5 text-sm">
-          <LatexRenderer content={processInlineMarkdown(ulMatch[1])} />
-        </li>
-      );
-      continue;
-    } else {
-      flushList();
-    }
-
-    // Ordered list
-    const olMatch = line.trimStart().match(/^\d+\.\s+(.+)/);
-    if (olMatch) {
-      result.push(
-        <li key={`li-${result.length}`} className="ml-4 list-decimal my-0.5 text-sm">
-          <LatexRenderer content={processInlineMarkdown(olMatch[1])} />
-        </li>
-      );
-      continue;
-    } else {
-      flushList();
-    }
-
-    // Empty line
-    if (line.trim() === '') {
-      result.push(<br key={`br-${result.length}`} />);
-      continue;
-    }
-
-    // Regular paragraph line
-    result.push(
-      <span key={`p-${result.length}`}>
-        <LatexRenderer content={processInlineMarkdown(line)} />
-        <br />
-      </span>
-    );
-  }
-
-  // Flush any remaining block
-  flushBlockQuote();
-  flushList();
-
-  return <div className="markdown-body">{result}</div>;
-}
-
-/**
- * Process inline Markdown within a line:
- * **bold**, *italic*, `code`
- * Returns HTML string for the LatexRenderer to handle.
- */
-function processInlineMarkdown(text: string): string {
-  let result = text;
-
-  // Inline code (protect from other processing)
-  const codePlaceholders: string[] = [];
-  result = result.replace(/`([^`]+)`/g, (_, code) => {
-    codePlaceholders.push(`<code class="bg-black/10 dark:bg-white/10 px-1 py-0.5 rounded text-xs font-mono">${code}</code>`);
-    return `%%CODE${codePlaceholders.length - 1}%%`;
-  });
-
-  // Bold: **text** — must be processed before italic to avoid conflict
-  result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-  // Italic: *text* (single asterisk, but not ** which is bold)
-  // Use negative look-behind/ahead to ensure we don't match **
-  // Also match _italic_ format
-  result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-  result = result.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '<em>$1</em>');
-
-  // Restore code placeholders
-  result = result.replace(/%%CODE(\d+)%%/g, (_, idx) => codePlaceholders[parseInt(idx)]);
-
-  return result;
+  return (
+    <div className="markdown-body prose prose-sm max-w-none dark:prose-invert
+      prose-headings:font-semibold prose-headings:text-[var(--foreground)]
+      prose-p:text-[var(--foreground)] prose-p:leading-relaxed
+      prose-a:text-[#4285F4] prose-a:no-underline hover:prose-a:underline
+      prose-strong:text-[var(--foreground)] prose-strong:font-semibold
+      prose-code:bg-black/10 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-mono
+      prose-pre:bg-black/5 dark:prose-pre:bg-white/5 prose-pre:border prose-pre:border-[var(--card-border)] prose-pre:rounded-xl
+      prose-blockquote:border-l-3 prose-blockquote:border-[#4285F4]/30 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:opacity-90
+      prose-li:text-[var(--foreground)]
+      prose-table:border prose-table:border-[var(--card-border)] prose-table:rounded-lg
+      prose-th:bg-[var(--background)] prose-th:px-3 prose-th:py-2 prose-th:text-xs prose-th:font-semibold
+      prose-td:px-3 prose-td:py-2 prose-td:text-sm
+      prose-img:rounded-xl
+      [&_.katex]:text-base [&_.katex-display]:my-2 [&_.katex-display]:overflow-x-auto"
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath, remarkEmoji]}
+        rehypePlugins={[
+          rehypeRaw,
+          [rehypeSanitize, customSchema],
+          rehypeKatex,
+          rehypeHighlight,
+        ]}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }
