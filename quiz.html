@@ -479,10 +479,10 @@ function renderQuizView() {
         else if (i === ans) cls = 'wrong';
         else cls = 'dimmed';
         cls += ' disabled';
-      } else if (ans === i) cls = 'selected';
+      } else if (PENDING_MCQ === i) cls = 'selected';
       const icons = {correct:'✓', wrong:'✗'};
       const showIcon = showResult && (i === q.correct || i === ans);
-      return `<button class="option ${cls}" onclick="${!showResult ? `selectOption(${i})` : ''}">
+      return `<button class="option ${cls}" onclick="${!submitted ? `selectOption(${i})` : ''}">
         <span class="option-key">${String.fromCharCode(65+i)}</span>
         <span class="option-text">${opt}</span>
         ${showIcon ? `<span class="option-icon">${icons[i===q.correct?'correct':'wrong']}</span>` : ''}
@@ -497,8 +497,8 @@ function renderQuizView() {
         else if (i === ans) cls = 'wrong';
         else cls = 'dimmed';
         cls += ' disabled';
-      } else if (ans === i) cls = 'selected';
-      return `<button class="option ${cls}" onclick="${!showResult ? `selectTF(${i})` : ''}">
+      } else if (PENDING_MCQ === i) cls = 'selected';
+      return `<button class="option ${cls}" onclick="${!submitted ? `selectTF(${i})` : ''}">
         <span class="option-key">${i===0?'T':'F'}</span>
         <span class="option-text">${opt}</span>
       </button>`;
@@ -563,18 +563,48 @@ function handleKeys(e) {
   if (STATE.view !== 'quiz') return;
   const q = STATE.questions[STATE.currentIdx];
   const submitted = STATE.answers[STATE.currentIdx] !== undefined;
-  if (e.key === 'Enter' && submitted) { nextQ(); return; }
+  
+  // Enter key: confirm pending selection OR go next
+  if (e.key === 'Enter') {
+    if (submitted) { nextQ(); return; }
+    if ((q.type === 'mcq' || q.type === 'tf')) {
+      e.preventDefault();
+      confirmAnswer();
+      return;
+    }
+    if (q.type === 'fill') { submitFill(); return; }
+    return;
+  }
+  
+  // 1-4 or A-D select options
   if (!submitted && q.type === 'mcq') {
     const map = {'a':0,'b':1,'c':2,'d':3,'1':0,'2':1,'3':2,'4':3};
     const i = map[e.key.toLowerCase()];
     if (i !== undefined && i < q.options.length) selectOption(i);
   }
+  // T/F or 1/2 for True/False
   if (!submitted && q.type === 'tf') {
-    if (e.key.toLowerCase() === 't') selectTF(0);
-    if (e.key.toLowerCase() === 'f') selectTF(1);
+    if (e.key.toLowerCase() === 't' || e.key === '1') selectTF(0);
+    if (e.key.toLowerCase() === 'f' || e.key === '2') selectTF(1);
   }
-  if (e.key === 'ArrowRight') nextQ();
+  if (e.key === 'ArrowRight' && submitted) nextQ();
   if (e.key === 'ArrowLeft') prevQ();
+}
+
+function confirmAnswer() {
+  const q = STATE.questions[STATE.currentIdx];
+  const ans = STATE.answers[STATE.currentIdx];
+  if (SETTINGS.showAnswerImmediately) {
+    render();
+    if (q.type === 'mcq') {
+      if (ans === q.correct) showSnack('✓ Correct!');
+      else showSnack('✗ Incorrect');
+    } else if (q.type === 'tf') {
+      const correctIdx = q.correct === 'true' ? 0 : 1;
+      if (ans === correctIdx) showSnack('✓ Correct!');
+      else showSnack('✗ Incorrect');
+    }
+  }
 }
 
 function buildFeedback(q, ans, showResult) {
@@ -903,21 +933,49 @@ function startQuiz() {
   render();
 }
 
+// Track selected option BEFORE confirming with Enter
+let PENDING_MCQ = null;
+
 function selectOption(i) {
   if (STATE.answers[STATE.currentIdx] !== undefined) return;
+  PENDING_MCQ = i;
+  // Re-render to highlight the selected option (without submitting)
+  renderQuizView();
+}
+
+function confirmAnswer() {
+  if (STATE.answers[STATE.currentIdx] !== undefined) return;
   const q = STATE.questions[STATE.currentIdx];
-  STATE.answers[STATE.currentIdx] = i;
-  if (SETTINGS.showAnswerImmediately) {
+  
+  if (q.type === 'mcq') {
+    if (PENDING_MCQ === null) { showSnack('Select an option first (1-4 or A-D)'); return; }
+    STATE.answers[STATE.currentIdx] = PENDING_MCQ;
+    PENDING_MCQ = null;
+    if (SETTINGS.showAnswerImmediately) {
+      render();
+      const ans = STATE.answers[STATE.currentIdx];
+      if (ans === q.correct) showSnack('✓ Correct!');
+      else showSnack('✗ Incorrect');
+    }
     render();
-    if (i === q.correct) showSnack('✓ Correct!');
-    else showSnack('✗ Incorrect');
+  } else if (q.type === 'tf') {
+    if (PENDING_MCQ === null) { showSnack('Select True (T/1) or False (F/2) first'); return; }
+    STATE.answers[STATE.currentIdx] = PENDING_MCQ;
+    PENDING_MCQ = null;
+    if (SETTINGS.showAnswerImmediately) {
+      render();
+      const correctIdx = q.correct === 'true' ? 0 : 1;
+      if (STATE.answers[STATE.currentIdx] === correctIdx) showSnack('✓ Correct!');
+      else showSnack('✗ Incorrect');
+    }
+    render();
   }
 }
 
 function selectTF(i) {
   if (STATE.answers[STATE.currentIdx] !== undefined) return;
-  STATE.answers[STATE.currentIdx] = i;
-  if (SETTINGS.showAnswerImmediately) render();
+  PENDING_MCQ = i;
+  renderQuizView();
 }
 
 function submitFill() {
