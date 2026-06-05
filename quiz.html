@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Display:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1a73e8;--blue-light:#e8f0fe;--blue-dark:#1557b0;
+  --green:#1e8e3e;--green-light:#e6f4ea;
+  --red:#d93025;--red-light:#fce8e6;
+  --orange:#e37400;--orange-light:#fef7e0;
+  --text:#202124;--text-secondary:#5f6368;--text-hint:#80868b;
+  --surface:#fff;--surface2:#f8f9fa;--surface3:#f1f3f4;
+  --border:#dadce0;--border-focus:#1a73e8;
+  --shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.1);
+  --shadow-md:0 4px 8px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.08);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  --radius:8px;--radius-lg:12px;--radius-xl:24px;
+  --font:'Google Sans',sans-serif;
+  --transition:cubic-bezier(.4,0,.2,1);
+}
+body{font-family:var(--font);color:var(--text);background:#fff;min-height:100vh;overflow-x:hidden}
+
+#app{min-height:100vh;display:flex;flex-direction:column}
+
+/* TOP NAV */
+.top-nav{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:100}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:500;color:var(--text);text-decoration:none}
+.nav-logo .g{color:#4285f4}.nav-logo .o1{color:#ea4335}.nav-logo .o2{color:#fbbc04}.nav-logo .g2{color:#34a853}.nav-logo .l{color:#ea4335}.nav-logo .e{color:#4285f4}
+.nav-spacer{flex:1}
+.nav-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-xl);border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-family:var(--font);font-size:13px;cursor:pointer;transition:all .2s var(--transition)}
+.nav-btn:hover{background:var(--surface3);color:var(--text)}
+.nav-btn.active{background:var(--blue-light);color:var(--blue);border-color:var(--blue-light)}
+.nav-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4285f4,#34a853);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:500;cursor:pointer}
+
+/* MAIN CONTENT AREA */
+.content{flex:1;display:flex;justify-content:center;position:relative;overflow:hidden}
+.main-area{flex:1;max-width:720px;padding:24px 20px;margin:0 auto;overflow-y:auto;transition:all .3s var(--transition)}
+.main-area.expanded{max-width:100%}
+.right-panel{width:340px;min-width:340px;border-left:1px solid var(--border);padding:20px;overflow-y:auto;transition:all .3s var(--transition);position:relative}
+.right-panel.collapsed{width:0;min-width:0;padding:0;overflow:hidden;border:none}
+.right-panel.fullscreen{position:fixed;top:0;right:0;bottom:0;width:100%;min-width:100%;z-index:200;background:var(--surface);padding:24px;border-left:none}
+.right-panel.fullscreen .panel-fullscreen-content{max-width:720px;margin:0 auto}
+
+/* PANEL TOGGLE BUTTON */
+.panel-toggle-wrap{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:150;transition:right .3s var(--transition)}
+.panel-toggle-wrap.shifted{right:340px}
+.panel-toggle-wrap.fullscreen-shift{right:100%}
+.panel-toggle-btn{display:flex;align-items:center;justify-content:center;width:32px;height:48px;border-radius:8px 0 0 8px;background:var(--surface);border:1px solid var(--border);border-right:none;cursor:pointer;color:var(--text-secondary);font-size:14px;transition:background .15s}
+.panel-toggle-btn:hover{background:var(--surface3);color:var(--text)}
+.panel-header{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-shrink:0}
+.panel-header .section-title{flex:1;margin-bottom:0}
+.panel-header-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--text-secondary);font-size:14px;transition:all .15s}
+.panel-header-btn:hover{background:var(--surface3);color:var(--text)}
+
+/* SECTION TITLE */
+.section-title{font-size:11px;font-weight:500;color:var(--text-hint);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+
+
+/* SUBJECT CHIPS */
+.subject-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chip{padding:5px 12px;border-radius:var(--radius-xl);border:1px solid var(--border);font-size:12px;cursor:pointer;transition:all .15s;color:var(--text-secondary);background:transparent;white-space:nowrap}
+.chip:hover{border-color:var(--blue);color:var(--blue)}
+.chip.selected{background:var(--blue-light);border-color:var(--blue);color:var(--blue);font-weight:500}
+
+/* INPUT AREA */
+.input-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius-lg);transition:border-color .2s;overflow:hidden}
+.input-card:focus-within{border-color:var(--blue)}
+.input-card textarea{width:100%;min-height:160px;padding:16px;border:none;outline:none;font-family:var(--font);font-size:14px;color:var(--text);resize:none;background:transparent;line-height:1.6}
+.input-card textarea::placeholder{color:var(--text-hint)}
+.input-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface2)}
+.input-label{font-size:12px;color:var(--text-hint);flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--radius-xl);border:1px solid transparent;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s var(--transition)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:var(--blue-dark)}
+.btn-secondary{background:transparent;color:var(--blue);border-color:var(--border)}
+.btn-secondary:hover{background:var(--blue-light)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-icon{padding:8px;border-radius:50%}
+
+/* ANALYZING STATE */
+.analyzing-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--blue-light);border-radius:var(--radius);margin-bottom:16px}
+.spinner{width:16px;height:16px;border:2px solid var(--blue-light);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.analyzing-text{font-size:13px;color:var(--blue);font-weight:500}
+
+/* QUESTION CARD */
+.question-wrap{animation:fadeUp .3s var(--transition)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:16px;box-shadow:var(--shadow)}
+.q-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
+.q-num{min-width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.q-type-badge{font-size:11px;padding:3px 8px;border-radius:var(--radius);background:var(--surface3);color:var(--text-hint);font-weight:500}
+.q-text{font-size:15px;font-weight:500;color:var(--text);line-height:1.6;flex:1}
+
+/* OPTIONS */
+.options{display:flex;flex-direction:column;gap:8px}
+.option{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .18s var(--transition);background:transparent;text-align:left;font-family:var(--font);font-size:14px;color:var(--text);width:100%}
+.option:hover:not(.disabled){border-color:var(--blue);background:var(--blue-light);color:var(--blue)}
+.option.selected:not(.correct):not(.wrong){border-color:var(--blue);background:var(--blue-light);color:var(--blue)}
+.option.correct{border-color:var(--green);background:var(--green-light);color:var(--green)}
+.option.wrong{border-color:var(--red);background:var(--red-light);color:var(--red)}
+.option.dimmed{opacity:.5}
+.option-key{width:24px;height:24px;border-radius:50%;background:var(--surface3);color:var(--text-secondary);font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:inherit}
+.option.selected .option-key{background:var(--blue);color:#fff}
+.option.correct .option-key{background:var(--green);color:#fff}
+.option.wrong .option-key{background:var(--red);color:#fff}
+.option-text{flex:1}
+.option-icon{margin-left:auto;font-size:16px}
+.option.disabled{cursor:default}
+
+/* FILL BLANK */
+.fill-input{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s;color:var(--text)}
+.fill-input:focus{border-color:var(--blue)}
+.fill-input.correct{border-color:var(--green);background:var(--green-light)}
+.fill-input.wrong{border-color:var(--red);background:var(--red-light)}
+
+/* ESSAY */
+.essay-textarea{width:100%;min-height:100px;padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:14px;outline:none;resize:vertical;transition:border-color .2s;color:var(--text);line-height:1.6}
+.essay-textarea:focus{border-color:var(--blue)}
+
+/* FEEDBACK PANEL */
+.feedback{margin-top:12px;padding:12px 16px;border-radius:var(--radius);border-left:4px solid;font-size:13px;line-height:1.6;animation:fadeIn .3s}
+.feedback.correct{background:var(--green-light);border-color:var(--green);color:#1e8e3e}
+.feedback.wrong{background:var(--red-light);border-color:var(--red);color:#d93025}
+.feedback.info{background:var(--blue-light);border-color:var(--blue);color:var(--blue)}
+.feedback-title{font-weight:500;margin-bottom:4px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* AI FEEDBACK */
+.ai-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-xl);border:none;background:transparent;color:var(--blue);font-family:var(--font);font-size:12px;cursor:pointer;transition:background .15s}
+.ai-btn:hover{background:var(--blue-light)}
+.ai-response{margin-top:8px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;line-height:1.6;color:var(--text-secondary);border:1px solid var(--border)}
+
+/* PROGRESS */
+.progress-wrap{margin-bottom:24px}
+.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.progress-label{font-size:13px;color:var(--text-secondary)}
+.progress-score{font-size:13px;font-weight:500;color:var(--text)}
+.progress-bar{height:4px;background:var(--surface3);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .4s var(--transition)}
+.step-dots{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--surface3);transition:all .2s;cursor:pointer}
+.dot.current{background:var(--blue);transform:scale(1.3)}
+.dot.correct{background:var(--green)}
+.dot.wrong{background:var(--red)}
+.dot.skipped{background:var(--text-hint)}
+
+/* ACTION ROW */
+.action-row{display:flex;align-items:center;gap:8px;padding-top:16px;border-top:1px solid var(--border);margin-top:16px}
+.action-spacer{flex:1}
+.shortcut-hint{font-size:11px;color:var(--text-hint)}
+
+/* RESULTS PANEL */
+.result-header{text-align:center;padding:24px 0 16px}
+.score-circle{width:96px;height:96px;border-radius:50%;border:6px solid var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;margin:0 auto 16px;position:relative;transition:all .6s}
+.score-circle.high{border-color:var(--green)}
+.score-circle.mid{border-color:var(--orange)}
+.score-circle.low{border-color:var(--red)}
+.score-pct{font-size:24px;font-weight:500}
+.score-pct.high{color:var(--green)}
+.score-pct.mid{color:var(--orange)}
+.score-pct.low{color:var(--red)}
+.score-label{font-size:11px;color:var(--text-hint)}
+.result-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.stat-card{padding:10px 12px;background:var(--surface2);border-radius:var(--radius);text-align:center}
+.stat-value{font-size:18px;font-weight:500}
+.stat-label{font-size:11px;color:var(--text-hint)}
+.result-list{display:flex;flex-direction:column;gap:6px}
+.result-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);cursor:pointer;transition:background .15s;font-size:13px}
+.result-item:hover{background:var(--surface2)}
+.result-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.result-dot.correct{background:var(--green)}
+.result-dot.wrong{background:var(--red)}
+.result-dot.skip{background:var(--text-hint)}
+.result-q{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)}
+.result-ans{font-size:12px;color:var(--text-hint)}
+
+/* HISTORY */
+.history-item{padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;cursor:pointer;transition:all .15s}
+.history-item:hover{border-color:var(--blue);box-shadow:var(--shadow)}
+.history-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.history-date{font-size:12px;color:var(--text-hint);flex:1}
+.acc-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.acc-high{background:var(--green-light);color:var(--green)}
+.acc-mid{background:var(--orange-light);color:var(--orange)}
+.acc-low{background:var(--red-light);color:var(--red)}
+.history-title{font-size:14px;font-weight:500;color:var(--text)}
+.history-meta{font-size:12px;color:var(--text-hint)}
+
+/* SETTINGS */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:14px;color:var(--text)}
+.setting-sub{font-size:12px;color:var(--text-hint)}
+.toggle{width:36px;height:20px;border-radius:10px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
+.toggle.on{background:var(--blue)}
+.toggle::after{content:'';width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.toggle.on::after{left:19px}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:48px 24px;color:var(--text-hint)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-title{font-size:16px;font-weight:500;color:var(--text-secondary);margin-bottom:6px}
+.empty-sub{font-size:13px}
+
+/* SNACKBAR */
+.snack{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#323232;color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:13px;transition:transform .3s var(--transition);z-index:999;pointer-events:none}
+.snack.show{transform:translateX(-50%) translateY(0)}
+
+/* LOADING SHIMMER */
+.shimmer{background:linear-gradient(90deg,var(--surface3) 25%,var(--surface2) 50%,var(--surface3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.shimmer-card{height:120px;border-radius:var(--radius-lg);margin-bottom:16px}
+.shimmer-line{height:14px;border-radius:4px;margin-bottom:8px}
+
+/* SUBJECT GROUPS (kept for settings) */
+.subject-group{margin-bottom:16px}
+.subject-group-title{font-size:11px;font-weight:500;color:var(--text-hint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--radius-xl);font-size:11px;font-weight:500}
+.tag-mcq{background:#e8f0fe;color:#1a73e8}
+.tag-fill{background:#e6f4ea;color:#1e8e3e}
+.tag-essay{background:#fef7e0;color:#e37400}
+.tag-tf{background:#fce8e6;color:#d93025}
+
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* HINT TEXT */
+kbd{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TOP NAV -->
+<div class="top-nav">
+  <div class="nav-logo">
+    <span class="g">Q</span><span class="o1">u</span><span class="o2">i</span><span class="g2">z</span><span class="l">W</span><span class="e">ise</span>
+  </div>
+  <div class="nav-spacer"></div>
+  <button class="nav-btn active" onclick="showView('input')">📝 New Quiz</button>
+  <button class="nav-btn" onclick="showView('history')">📊 History</button>
+  <button class="nav-btn" onclick="showView('settings')">⚙️ Settings</button>
+  <div class="nav-avatar">Q</div>
+</div>
+
+<!-- PANEL TOGGLE BUTTON -->
+<div class="panel-toggle-wrap" id="panelToggleWrap">
+  <button class="panel-toggle-btn" onclick="togglePanel()" title="Toggle Statistics Panel" id="panelToggleBtn">◀</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="content">
+
+  <!-- MAIN AREA -->
+  <div class="main-area" id="mainArea">
+    <!-- Dynamically filled -->
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="rightPanel">
+    <!-- Progress or Results -->
+  </div>
+
+</div>
+</div>
+
+<!-- SNACKBAR -->
+<div class="snack" id="snack"></div>
+
+<script>
+const SUBJECTS = {
+  igcse: ['Chemistry','Physics','Biology','Mathematics','English','Economics','Geography','History','Computer Science','Business Studies'],
+  alevel: ['Chemistry A2','Physics A2','Mathematics A2','Further Maths','Biology A2','Economics A2','Psychology'],
+  ap: ['AP Calculus','AP Chemistry','AP Physics','AP Biology','AP US History','AP English','AP Statistics'],
+  custom: []
+};
+
+const SETTINGS = {
+  showAnswerImmediately: true,
+  enterToSubmit: true,
+  selectedSubjects: [],
+  showExplanation: true
+};
+
+let STATE = {
+  view: 'input',
+  questions: [],
+  currentIdx: 0,
+  answers: {},
+  results: null,
+  analyzing: false,
+  sessionStart: null,
+  history: [],
+  activeSubject: null,
+  aiFeedbacks: {}
+};
+
+// Panel state
+let PANEL = { open: true, fullscreen: false };
+
+function loadState() {
+  try {
+    const h = localStorage.getItem('qw_history');
+    if (h) STATE.history = JSON.parse(h);
+    const s = localStorage.getItem('qw_settings');
+    if (s) Object.assign(SETTINGS, JSON.parse(s));
+    const p = localStorage.getItem('qw_panel');
+    if (p) Object.assign(PANEL, JSON.parse(p));
+  } catch(e) {}
+  applyPanelState();
+}
+
+function savePanelState() {
+  localStorage.setItem('qw_panel', JSON.stringify(PANEL));
+}
+
+function applyPanelState() {
+  const rp = document.getElementById('rightPanel');
+  const main = document.getElementById('mainArea');
+  const toggleWrap = document.getElementById('panelToggleWrap');
+  const toggleBtn = document.getElementById('panelToggleBtn');
+  if (PANEL.fullscreen) {
+    rp.classList.add('fullscreen');
+    rp.classList.remove('collapsed');
+    main.classList.add('expanded');
+    toggleWrap.classList.add('fullscreen-shift');
+    toggleWrap.classList.remove('shifted');
+    toggleBtn.textContent = '◀';
+  } else if (!PANEL.open) {
+    rp.classList.add('collapsed');
+    rp.classList.remove('fullscreen');
+    main.classList.add('expanded');
+    toggleWrap.classList.remove('shifted', 'fullscreen-shift');
+    toggleBtn.textContent = '▶';
+  } else {
+    rp.classList.remove('collapsed', 'fullscreen');
+    main.classList.remove('expanded');
+    toggleWrap.classList.add('shifted');
+    toggleWrap.classList.remove('fullscreen-shift');
+    toggleBtn.textContent = '◀';
+  }
+}
+
+function togglePanel() {
+  PANEL.open = !PANEL.open;
+  PANEL.fullscreen = false;
+  applyPanelState();
+  savePanelState();
+}
+
+function togglePanelFullscreen() {
+  PANEL.fullscreen = !PANEL.fullscreen;
+  if (PANEL.fullscreen) PANEL.open = true;
+  applyPanelState();
+  savePanelState();
+}
+
+function saveHistory(session) {
+  STATE.history.unshift(session);
+  if (STATE.history.length > 50) STATE.history = STATE.history.slice(0, 50);
+  localStorage.setItem('qw_history', JSON.stringify(STATE.history));
+}
+
+function showSnack(msg, dur=2500) {
+  const s = document.getElementById('snack');
+  s.textContent = msg;
+  s.classList.add('show');
+  setTimeout(() => s.classList.remove('show'), dur);
+}
+
+function showView(v) {
+  STATE.view = v;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const idx = ['input','history','settings'].indexOf(v);
+  document.querySelectorAll('.nav-btn')[idx]?.classList.add('active');
+  render();
+}
+
+function render() {
+  if (STATE.view === 'input') renderInputView();
+  else if (STATE.view === 'quiz') renderQuizView();
+  else if (STATE.view === 'history') renderHistoryView();
+  else if (STATE.view === 'settings') renderSettingsView();
+  renderRightPanel();
+}
+
+function renderInputView() {
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `
+    <h1 style="font-size:22px;font-weight:400;color:var(--text);margin-bottom:6px">New Practice Session</h1>
+    <p style="font-size:14px;color:var(--text-secondary);margin-bottom:20px">Paste your questions below. Supports MCQ, fill-in-the-blank, essay, and true/false.</p>
+    
+    ${STATE.analyzing ? `<div class="analyzing-bar"><div class="spinner"></div><div class="analyzing-text">Analyzing questions with AI...</div></div>` : ''}
+    
+    <div class="input-card">
+      <textarea id="qInput" placeholder="Paste your questions here. Examples:&#10;&#10;1. Which statement about a pure substance is correct? (  )&#10;A) It has a range of melting points&#10;B) It has a fixed boiling point&#10;C) Its boiling point depends on the container&#10;D) It cannot freeze&#10;&#10;2. The capital of France is _____.&#10;&#10;3. Explain Newton's second law in your own words.">${STATE.inputText || ''}</textarea>
+      <div class="input-bar">
+        <span class="input-label">Supports: MCQ · Fill-in-blank · Essay · True/False · <kbd>Ctrl+Enter</kbd> to analyze</span>
+        <button class="btn btn-secondary btn-sm" onclick="loadSample()">Sample</button>
+        <button class="btn btn-primary btn-sm" onclick="analyzeQuestions()" ${STATE.analyzing ? 'disabled' : ''}>
+          ${STATE.analyzing ? '⏳ Analyzing...' : '✨ Analyze & Start'}
+        </button>
+      </div>
+    </div>
+    
+    ${STATE.parsedPreview ? renderParsedPreview() : ''}
+  `;
+
+  const ta = document.getElementById('qInput');
+  if (ta) {
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) analyzeQuestions();
+    });
+    ta.addEventListener('input', e => { STATE.inputText = e.target.value; });
+  }
+}
+
+function renderParsedPreview() {
+  return `
+    <div style="margin-top:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="font-size:14px;font-weight:500;color:var(--text)">Detected ${STATE.questions.length} question${STATE.questions.length!==1?'s':''}</span>
+        <span style="font-size:12px;color:var(--text-hint)">&mdash; Review and start</span>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" onclick="startQuiz()">▶ Start Quiz</button>
+      </div>
+      ${STATE.questions.map((q,i) => `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--radius);background:var(--surface2);margin-bottom:6px;font-size:13px">
+          <span style="min-width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">${i+1}</span>
+          <span style="flex:1;color:var(--text)">${q.text.substring(0,80)}${q.text.length>80?'...':''}</span>
+          <span class="tag tag-${q.type}">${q.typeLabel}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderQuizView() {
+  const q = STATE.questions[STATE.currentIdx];
+  if (!q) return;
+  const main = document.getElementById('mainArea');
+  const ans = STATE.answers[STATE.currentIdx];
+  const submitted = ans !== undefined;
+
+  let questionHTML = '';
+  if (q.type === 'mcq') {
+    questionHTML = `<div class="options">` + q.options.map((opt, i) => {
+      let cls = '';
+      if (submitted) {
+        if (i === q.correct) cls = 'correct';
+        else if (i === ans) cls = 'wrong';
+        else cls = 'dimmed';
+        cls += ' disabled';
+      } else if (ans === i) cls = 'selected';
+      const icons = {correct:'✓', wrong:'✗'};
+      const showIcon = submitted && (i === q.correct || i === ans);
+      return `<button class="option ${cls}" onclick="${!submitted ? `selectOption(${i})` : ''}">
+        <span class="option-key">${String.fromCharCode(65+i)}</span>
+        <span class="option-text">${opt}</span>
+        ${showIcon ? `<span class="option-icon">${icons[i===q.correct?'correct':'wrong']}</span>` : ''}
+      </button>`;
+    }).join('') + `</div>`;
+  } else if (q.type === 'tf') {
+    questionHTML = `<div class="options">` + ['True','False'].map((opt, i) => {
+      let cls = '';
+      if (submitted) {
+        const correctIdx = q.correct === 'true' ? 0 : 1;
+        if (i === correctIdx) cls = 'correct';
+        else if (i === ans) cls = 'wrong';
+        else cls = 'dimmed';
+        cls += ' disabled';
+      } else if (ans === i) cls = 'selected';
+      return `<button class="option ${cls}" onclick="${!submitted ? `selectTF(${i})` : ''}">
+        <span class="option-key">${i===0?'T':'F'}</span>
+        <span class="option-text">${opt}</span>
+      </button>`;
+    }).join('') + `</div>`;
+  } else if (q.type === 'fill') {
+    const cls = submitted ? (ans?.toLowerCase().trim() === q.correct.toLowerCase().trim() ? 'correct' : 'wrong') : '';
+    questionHTML = `
+      <input type="text" class="fill-input ${cls}" id="fillAns" placeholder="Type your answer..." value="${ans||''}" ${submitted?'disabled':''}>
+      ${!submitted ? `<div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="btn btn-primary btn-sm" onclick="submitFill()">Submit</button></div>` : ''}
+    `;
+    if (!submitted) setTimeout(() => document.getElementById('fillAns')?.focus(), 50);
+  } else if (q.type === 'essay') {
+    questionHTML = `
+      <textarea class="essay-textarea" id="essayAns" placeholder="Write your answer here..." ${submitted?'disabled':''}>${ans||''}</textarea>
+      ${!submitted ? `<div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="btn btn-primary btn-sm" onclick="submitEssay()">Submit for Grading</button></div>` : ''}
+      ${submitted && !STATE.aiFeedbacks[STATE.currentIdx] ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><div class="spinner" style="width:14px;height:14px;border-width:1.5px"></div><span style="font-size:12px;color:var(--text-hint)">AI is grading your answer...</span></div>` : ''}
+    `;
+  }
+
+  const feedback = buildFeedback(q, ans, submitted);
+  const aiFb = STATE.aiFeedbacks[STATE.currentIdx];
+
+  main.innerHTML = `
+    <div class="question-wrap">
+      <div class="q-card">
+        <div class="q-header">
+          <div class="q-num">${STATE.currentIdx+1}</div>
+          <div class="q-text">${q.text}</div>
+          <span class="q-type-badge">${q.typeLabel}</span>
+        </div>
+        ${questionHTML}
+        ${feedback}
+        ${submitted ? `
+          <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="ai-btn" onclick="askAI(${STATE.currentIdx})">
+              ✨ Ask AI for explanation
+            </button>
+            ${aiFb ? `<div class="ai-response">${aiFb}</div>` : ''}
+          </div>
+        ` : ''}
+        <div class="action-row">
+          <button class="btn btn-secondary btn-sm" onclick="prevQ()" ${STATE.currentIdx===0?'disabled':''}>← Prev</button>
+          <div class="action-spacer"></div>
+          ${!submitted && (q.type==='mcq'||q.type==='tf') ? `<span class="shortcut-hint">Click to select · <kbd>Enter</kbd> to confirm</span>` : ''}
+          ${q.type==='fill'&&!submitted ? `<span class="shortcut-hint"><kbd>Enter</kbd> to submit</span>` : ''}
+          <button class="btn btn-primary btn-sm" onclick="nextQ()">${STATE.currentIdx===STATE.questions.length-1 ? '🏁 Finish' : 'Next →'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (q.type === 'fill' && !submitted) {
+    const inp = document.getElementById('fillAns');
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitFill(); });
+  }
+
+  document.addEventListener('keydown', handleKeys, {once: true});
+}
+
+function handleKeys(e) {
+  if (STATE.view !== 'quiz') return;
+  const q = STATE.questions[STATE.currentIdx];
+  const submitted = STATE.answers[STATE.currentIdx] !== undefined;
+  if (e.key === 'Enter' && submitted) { nextQ(); return; }
+  if (!submitted && q.type === 'mcq') {
+    const map = {'a':0,'b':1,'c':2,'d':3,'1':0,'2':1,'3':2,'4':3};
+    const i = map[e.key.toLowerCase()];
+    if (i !== undefined && i < q.options.length) selectOption(i);
+  }
+  if (!submitted && q.type === 'tf') {
+    if (e.key.toLowerCase() === 't') selectTF(0);
+    if (e.key.toLowerCase() === 'f') selectTF(1);
+  }
+  if (e.key === 'ArrowRight') nextQ();
+  if (e.key === 'ArrowLeft') prevQ();
+}
+
+function buildFeedback(q, ans, submitted) {
+  if (!submitted) return '';
+  if (q.type === 'mcq') {
+    const correct = ans === q.correct;
+    return `<div class="feedback ${correct?'correct':'wrong'}">
+      <div class="feedback-title">${correct ? '✓ Correct!' : '✗ Incorrect'}</div>
+      ${!correct ? `<div>Correct answer: <strong>${String.fromCharCode(65+q.correct)}) ${q.options[q.correct]}</strong></div>` : ''}
+      ${q.explanation && SETTINGS.showExplanation ? `<div style="margin-top:4px;opacity:.85">${q.explanation}</div>` : ''}
+    </div>`;
+  }
+  if (q.type === 'tf') {
+    const correctIdx = q.correct === 'true' ? 0 : 1;
+    const correct = ans === correctIdx;
+    return `<div class="feedback ${correct?'correct':'wrong'}">
+      <div class="feedback-title">${correct ? '✓ Correct!' : '✗ Incorrect — Answer is ' + q.correct.charAt(0).toUpperCase() + q.correct.slice(1)}</div>
+    </div>`;
+  }
+  if (q.type === 'fill') {
+    const correct = ans?.toLowerCase().trim() === q.correct.toLowerCase().trim();
+    return `<div class="feedback ${correct?'correct':'wrong'}">
+      <div class="feedback-title">${correct ? '✓ Correct!' : `✗ Correct answer: ${q.correct}`}</div>
+    </div>`;
+  }
+  if (q.type === 'essay') {
+    return STATE.aiFeedbacks[STATE.currentIdx] ? '' : '';
+  }
+  return '';
+}
+
+function renderHistoryView() {
+  const main = document.getElementById('mainArea');
+  if (STATE.history.length === 0) {
+    main.innerHTML = `<div class="empty">
+      <div class="empty-icon">📊</div>
+      <div class="empty-title">No quiz history yet</div>
+      <div class="empty-sub">Complete a quiz to see your history here</div>
+    </div>`;
+    return;
+  }
+  main.innerHTML = `
+    <h1 style="font-size:22px;font-weight:400;color:var(--text);margin-bottom:20px">Quiz History</h1>
+    ${STATE.history.map((h,i) => {
+      const cls = h.accuracy >= 80 ? 'acc-high' : h.accuracy >= 50 ? 'acc-mid' : 'acc-low';
+      return `<div class="history-item" onclick="loadHistorySession(${i})">
+        <div class="history-top">
+          <span class="history-date">${h.date} · ${h.duration}</span>
+          <span class="acc-badge ${cls}">${h.accuracy}%</span>
+        </div>
+        <div class="history-title">${h.subject || 'General Quiz'}</div>
+        <div class="history-meta">${h.total} questions · ${h.correct} correct · ${h.wrong} wrong</div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function renderSettingsView() {
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `
+    <h1 style="font-size:22px;font-weight:400;color:var(--text);margin-bottom:20px">Settings</h1>
+    
+    <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:12px">Quiz Behavior</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0 16px">
+      <div class="setting-row">
+        <div><div class="setting-label">Show answer immediately</div><div class="setting-sub">Show correct/wrong after each question</div></div>
+        <button class="toggle ${SETTINGS.showAnswerImmediately?'on':''}" onclick="toggleSetting('showAnswerImmediately')"></button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Show explanation</div><div class="setting-sub">Display AI explanation after answering</div></div>
+        <button class="toggle ${SETTINGS.showExplanation?'on':''}" onclick="toggleSetting('showExplanation')"></button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Enter to submit</div><div class="setting-sub">Press Enter to confirm answers</div></div>
+        <button class="toggle ${SETTINGS.enterToSubmit?'on':''}" onclick="toggleSetting('enterToSubmit')"></button>
+      </div>
+    </div>
+
+    <div style="font-size:14px;font-weight:500;color:var(--text);margin:20px 0 12px">Subjects</div>
+    ${Object.entries(SUBJECTS).filter(([k]) => k !== 'custom').map(([cat, subs]) => `
+      <div class="subject-group">
+        <div class="subject-group-title">${cat.toUpperCase()}</div>
+        <div class="subject-chips">
+          ${subs.map(s => `<div class="chip ${SETTINGS.selectedSubjects.includes(s)?'selected':''}" onclick="toggleSubject('${s}')">${s}</div>`).join('')}
+        </div>
+      </div>
+    `).join('')}
+    
+    <div style="font-size:14px;font-weight:500;color:var(--text);margin:20px 0 12px">Custom Subjects</div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="customSub" placeholder="Add custom subject..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:13px;outline:none">
+      <button class="btn btn-primary btn-sm" onclick="addCustomSubject()">Add</button>
+    </div>
+    ${SUBJECTS.custom.length > 0 ? `<div class="subject-chips" style="margin-top:8px">${SUBJECTS.custom.map(s => `<div class="chip selected" onclick="removeCustom('${s}')">${s} ×</div>`).join('')}</div>` : ''}
+    
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary btn-sm" onclick="clearHistory()">🗑 Clear History</button>
+    </div>
+  `;
+}
+
+function renderRightPanel() {
+  const p = document.getElementById('rightPanel');
+  if (!p) return;
+
+  // Build panel header
+  const panelHeader = `
+    <div class="panel-header">
+      <span class="section-title">${STATE.view === 'quiz' && STATE.questions.length > 0 ? 'Progress' : STATE.view === 'input' ? 'Guide' : 'Statistics'}</span>
+      <button class="panel-header-btn" onclick="togglePanelFullscreen()" title="Full Screen">⛶</button>
+      <button class="panel-header-btn" onclick="togglePanel()" title="Close Panel">✕</button>
+    </div>
+  `;
+
+  if (STATE.view === 'quiz' && STATE.questions.length > 0) {
+    const total = STATE.questions.length;
+    const answered = Object.keys(STATE.answers).length;
+    const correct = Object.entries(STATE.answers).filter(([i,a]) => {
+      const q = STATE.questions[+i];
+      if (q.type === 'mcq') return a === q.correct;
+      if (q.type === 'tf') return (q.correct==='true'?0:1) === a;
+      if (q.type === 'fill') return a?.toLowerCase().trim() === q.correct.toLowerCase().trim();
+      return false;
+    }).length;
+    const pct = total > 0 ? Math.round(answered/total*100) : 0;
+
+    p.innerHTML = `
+      ${panelHeader}
+      <div class="panel-fullscreen-content">
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">${answered}/${total} answered</span>
+          <span class="progress-score">${pct}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="step-dots" style="margin-top:10px">
+          ${STATE.questions.map((_,i) => {
+            const a = STATE.answers[i];
+            let cls = i === STATE.currentIdx ? 'current' : '';
+            if (a !== undefined && i !== STATE.currentIdx) {
+              const q = STATE.questions[i];
+              let isCorrect = false;
+              if (q.type==='mcq') isCorrect = a === q.correct;
+              else if (q.type==='tf') isCorrect = (q.correct==='true'?0:1) === a;
+              else if (q.type==='fill') isCorrect = a?.toLowerCase().trim() === q.correct.toLowerCase().trim();
+              else isCorrect = true;
+              cls = isCorrect ? 'correct' : 'wrong';
+            }
+            return `<div class="dot ${cls}" onclick="jumpTo(${i})" title="Q${i+1}"></div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="result-stats">
+        <div class="stat-card"><div class="stat-value" style="color:var(--green)">${correct}</div><div class="stat-label">Correct</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--red)">${answered-correct}</div><div class="stat-label">Wrong</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title" style="margin-bottom:8px">Questions</div>
+      <div class="result-list">
+        ${STATE.questions.map((q,i) => {
+          const a = STATE.answers[i];
+          let dotCls = a===undefined ? 'skip' : 'correct';
+          if (a !== undefined) {
+            if (q.type==='mcq' && a !== q.correct) dotCls='wrong';
+            else if (q.type==='tf' && (q.correct==='true'?0:1)!==a) dotCls='wrong';
+            else if (q.type==='fill' && a?.toLowerCase().trim()!==q.correct.toLowerCase().trim()) dotCls='wrong';
+          }
+          return `<div class="result-item ${i===STATE.currentIdx?'current-q':''}" onclick="jumpTo(${i})" style="${i===STATE.currentIdx?'background:var(--blue-light);':''}">
+            <div class="result-dot ${dotCls}"></div>
+            <div class="result-q">${q.text.substring(0,40)}${q.text.length>40?'...':''}</div>
+            <span class="tag tag-${q.type}" style="flex-shrink:0;font-size:10px">${q.typeLabel}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      </div>
+    `;
+  } else if (STATE.view === 'input') {
+    p.innerHTML = `
+      ${panelHeader}
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.8">
+        <div style="margin-bottom:10px">📋 <strong>MCQ format:</strong><br>1. Question text<br>A) Option A<br>B) Option B</div>
+        <div style="margin-bottom:10px">📝 <strong>Fill-in-blank:</strong><br>The speed of light is _____ m/s.</div>
+        <div style="margin-bottom:10px">📖 <strong>Essay:</strong><br>Explain how photosynthesis works.</div>
+        <div>✅ <strong>True/False:</strong><br>Water boils at 100°C. (True/False)</div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title">Keyboard Shortcuts</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:2">
+        <div><kbd>A</kbd>–<kbd>D</kbd> Select MCQ option</div>
+        <div><kbd>T</kbd>/<kbd>F</kbd> True/False</div>
+        <div><kbd>Enter</kbd> Submit / Next</div>
+        <div><kbd>→</kbd>/<kbd>←</kbd> Navigate</div>
+        <div><kbd>Ctrl+Enter</kbd> Analyze questions</div>
+      </div>
+    `;
+  } else {
+    p.innerHTML = `
+      ${panelHeader}
+      <div class="empty">
+        <div class="empty-icon">📊</div>
+        <div class="empty-title">Statistics Panel</div>
+        <div class="empty-sub">Start a quiz to see progress here</div>
+      </div>
+    `;
+  }
+}
+
+// === QUIZ LOGIC ===
+
+function analyzeQuestions() {
+  const input = document.getElementById('qInput')?.value.trim();
+  if (!input) { showSnack('Please paste some questions first'); return; }
+  STATE.inputText = input;
+  STATE.analyzing = true;
+  STATE.parsedPreview = false;
+  render();
+
+  // Call LLM Proxy to analyze questions
+  callLLMProxy(input).then(questions => {
+    STATE.questions = questions;
+    STATE.analyzing = false;
+    STATE.parsedPreview = true;
+    render();
+  }).catch(err => {
+    console.error('LLM analysis failed:', err);
+    STATE.analyzing = false;
+    showSnack('AI analysis failed. Using basic parser instead.');
+    STATE.questions = basicParser(input);
+    STATE.parsedPreview = true;
+    render();
+  });
+}
+
+async function callLLMProxy(text) {
+  const prompt = `Analyze these questions and return a JSON array. Each object must have:
+- "text": the question text (string)
+- "type": "mcq" | "fill" | "essay" | "tf"
+- "typeLabel": "MCQ" | "Fill-in-blank" | "Essay" | "True/False"
+- "options": array of option strings for MCQ (e.g. ["It has a range of melting points", "It has a fixed boiling point"]) or null
+- "correct": for MCQ = index number (0-based), for tf = "true"/"false", for fill = the answer string, for essay = "see explanation"
+- "explanation": brief explanation of the correct answer
+
+Questions:
+${text}
+
+Return ONLY a valid JSON array with no extra text or markdown.`;
+
+  const response = await fetch('/api/llm-proxy', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0.1,
+      max_tokens: 2000,
+      messages: [
+        {role: 'system', content: 'You are a quiz question analyzer. Parse questions and return structured JSON. Always include the correct answer for each question.'},
+        {role: 'user', content: prompt}
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `LLM proxy error (${response.status})`);
+  }
+  const data = await response.json();
+  const txt = data.choices?.[0]?.message?.content || '';
+  return JSON.parse(txt.replace(/```json\s*|```/g, '').trim());
+}
+
+function basicParser(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const questions = [];
+  let current = null;
+  
+  for (const line of lines) {
+    const qMatch = line.match(/^(\d+)[.\)]\s+(.+)/);
+    if (qMatch) {
+      if (current) questions.push(finalizeQ(current));
+      const qText = qMatch[2];
+      const tfMatch = qText.match(/\(true\/false\)/i) || qText.match(/true or false/i);
+      const fillMatch = qText.includes('_____') || qText.includes('___');
+      const type = tfMatch ? 'tf' : fillMatch ? 'fill' : 'mcq';
+      current = {text: qText.replace(/\(true\/false\)/i,'').replace(/\s*\(_*\)\s*/,'').trim(), type, options: [], correct: 0};
+      continue;
+    }
+    const optMatch = line.match(/^([A-D])[.\)]\s+(.+)/);
+    if (optMatch && current?.type === 'mcq') {
+      current.options.push(optMatch[2]);
+      continue;
+    }
+  }
+  if (current) questions.push(finalizeQ(current));
+  
+  if (questions.length === 0) {
+    const paras = text.split(/\n{2,}/);
+    paras.forEach((p,i) => {
+      if (p.trim()) questions.push({
+        text: p.trim().substring(0,200), type:'essay', typeLabel:'Essay',
+        options:null, correct:'see explanation', explanation:'', id:i
+      });
+    });
+  }
+  return questions;
+}
+
+function finalizeQ(q) {
+  const typeLabels = {mcq:'MCQ',fill:'Fill-in-blank',essay:'Essay',tf:'True/False'};
+  return {
+    ...q,
+    typeLabel: typeLabels[q.type],
+    options: q.options.length ? q.options : null,
+    explanation: q.type === 'mcq' && q.options.length > 0 ? `The correct answer is option ${String.fromCharCode(65+q.correct)}.` : '',
+    id: Math.random()
+  };
+}
+
+function startQuiz() {
+  STATE.view = 'quiz';
+  STATE.currentIdx = 0;
+  STATE.answers = {};
+  STATE.aiFeedbacks = {};
+  STATE.sessionStart = Date.now();
+  STATE.parsedPreview = false;
+  render();
+}
+
+function selectOption(i) {
+  if (STATE.answers[STATE.currentIdx] !== undefined) return;
+  const q = STATE.questions[STATE.currentIdx];
+  STATE.answers[STATE.currentIdx] = i;
+  if (SETTINGS.showAnswerImmediately) {
+    render();
+    if (i === q.correct) showSnack('✓ Correct!');
+    else showSnack('✗ Incorrect');
+  }
+}
+
+function selectTF(i) {
+  if (STATE.answers[STATE.currentIdx] !== undefined) return;
+  STATE.answers[STATE.currentIdx] = i;
+  if (SETTINGS.showAnswerImmediately) render();
+}
+
+function submitFill() {
+  const inp = document.getElementById('fillAns');
+  if (!inp) return;
+  STATE.answers[STATE.currentIdx] = inp.value;
+  render();
+}
+
+function submitEssay() {
+  const ta = document.getElementById('essayAns');
+  if (!ta) return;
+  STATE.answers[STATE.currentIdx] = ta.value;
+  render();
+  // Grade with AI
+  const q = STATE.questions[STATE.currentIdx];
+  gradeEssay(STATE.currentIdx, q.text, ta.value);
+}
+
+async function gradeEssay(idx, question, answer) {
+  const prompt = `Grade this essay answer. Return in this format:
+[SCORE: X/10]
+[FEEDBACK: brief constructive feedback]
+[CORRECT: summary of what an ideal answer should cover]
+
+Question: ${question}
+Student Answer: ${answer}`;
+
+  try {
+    const response = await fetch('/api/llm-proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.3,
+        max_tokens: 400,
+        messages: [
+          {role: 'system', content: 'You are an essay grader. Grade the student answer against the question. Be fair but constructive.'},
+          {role: 'user', content: prompt}
+        ]
+      })
+    });
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || 'Unable to grade.';
+    STATE.aiFeedbacks[idx] = text;
+    if (STATE.currentIdx === idx) render();
+  } catch(e) {
+    console.error('Essay grading failed:', e);
+    STATE.aiFeedbacks[idx] = 'Essay grading unavailable. Please review your answer manually.';
+    if (STATE.currentIdx === idx) render();
+  }
+}
+
+async function askAI(idx) {
+  if (STATE.aiFeedbacks[idx] && STATE.aiFeedbacks[idx] !== 'loading') return;
+  STATE.aiFeedbacks[idx] = 'loading';
+  const q = STATE.questions[idx];
+  const ans = STATE.answers[idx];
+  render();
+
+  const prompt = `Explain this question concisely:
+Question: ${q.text}
+${q.options ? 'Options: ' + q.options.map((o,i) => String.fromCharCode(65+i)+'. '+o).join(', ') : ''}
+Correct answer: ${q.type==='mcq' ? q.options?.[q.correct] || q.correct : q.correct}
+${ans !== undefined ? q.type==='mcq' ? `Student selected: ${q.options?.[ans]}` : `Student answered: ${ans}` : ''}
+
+Give a clear, educational explanation.`;
+
+  try {
+    const response = await fetch('/api/llm-proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.3,
+        max_tokens: 300,
+        messages: [
+          {role: 'system', content: 'You are a helpful tutor. Explain the question and answer clearly.'},
+          {role: 'user', content: prompt}
+        ]
+      })
+    });
+    const data = await response.json();
+    STATE.aiFeedbacks[idx] = data.choices?.[0]?.message?.content || 'No explanation available.';
+  } catch(e) {
+    console.error('AI explanation failed:', e);
+    STATE.aiFeedbacks[idx] = 'AI explanation unavailable. ' + (q.explanation || '');
+  }
+  if (STATE.currentIdx === idx) render();
+}
+
+function nextQ() {
+  if (STATE.currentIdx < STATE.questions.length - 1) {
+    STATE.currentIdx++;
+    render();
+  } else {
+    finishQuiz();
+  }
+}
+
+function prevQ() {
+  if (STATE.currentIdx > 0) { STATE.currentIdx--; render(); }
+}
+
+function jumpTo(i) {
+  STATE.currentIdx = i;
+  STATE.view = 'quiz';
+  render();
+}
+
+function finishQuiz() {
+  const total = STATE.questions.length;
+  const answered = Object.keys(STATE.answers).length;
+  const unanswered = total - answered;
+  
+  if (unanswered > 0 && !confirm(`You have ${unanswered} unanswered question${unanswered>1?'s':''}. Finish anyway?`)) return;
+
+  let correct = 0;
+  STATE.questions.forEach((q, i) => {
+    const a = STATE.answers[i];
+    if (a === undefined) return;
+    if (q.type === 'mcq' && a === q.correct) correct++;
+    else if (q.type === 'tf' && (q.correct==='true'?0:1) === a) correct++;
+    else if (q.type === 'fill' && a?.toLowerCase().trim() === q.correct.toLowerCase().trim()) correct++;
+    else if (q.type === 'essay') correct += 0.5;
+  });
+
+  const accuracy = total > 0 ? Math.round(correct/total*100) : 0;
+  const duration = STATE.sessionStart ? Math.round((Date.now()-STATE.sessionStart)/1000) : 0;
+  const mins = Math.floor(duration/60), secs = duration%60;
+
+  const session = {
+    date: new Date().toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'}),
+    duration: mins > 0 ? `${mins}m ${secs}s` : `${secs}s`,
+    subject: STATE.activeSubject || 'General Quiz',
+    total, correct: Math.floor(correct), wrong: answered - Math.floor(correct),
+    accuracy, questions: STATE.questions, answers: STATE.answers
+  };
+
+  saveHistory(session);
+  showResultsView(session);
+}
+
+function showResultsView(session) {
+  STATE.view = 'quiz';
+  const main = document.getElementById('mainArea');
+  const cls = session.accuracy >= 80 ? 'high' : session.accuracy >= 50 ? 'mid' : 'low';
+  const emoji = session.accuracy >= 80 ? '🎉' : session.accuracy >= 50 ? '👍' : '💪';
+
+  main.innerHTML = `
+    <div class="question-wrap">
+      <div class="result-header">
+        <div class="score-circle ${cls}">
+          <div class="score-pct ${cls}">${session.accuracy}%</div>
+          <div class="score-label">accuracy</div>
+        </div>
+        <h2 style="font-size:20px;font-weight:500;margin-bottom:4px">${emoji} ${session.accuracy >= 80 ? 'Excellent work!' : session.accuracy >= 50 ? 'Good effort!' : 'Keep practicing!'}</h2>
+        <p style="font-size:13px;color:var(--text-secondary)">${session.total} questions · ${session.duration}</p>
+      </div>
+
+      <div class="result-stats">
+        <div class="stat-card"><div class="stat-value" style="color:var(--green)">${session.correct}</div><div class="stat-label">Correct</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--red)">${session.wrong}</div><div class="stat-label">Wrong</div></div>
+        <div class="stat-card"><div class="stat-value">${session.total - session.correct - session.wrong}</div><div class="stat-label">Skipped</div></div>
+        <div class="stat-card"><div class="stat-value">${session.duration}</div><div class="stat-label">Time</div></div>
+      </div>
+
+      <div style="margin-bottom:12px;font-size:13px;font-weight:500;color:var(--text)">Review answers</div>
+      ${STATE.questions.map((q,i) => {
+        const a = session.answers[i];
+        let isCorrect = false;
+        if (q.type==='mcq') isCorrect = a === q.correct;
+        else if (q.type==='tf') isCorrect = (q.correct==='true'?0:1) === a;
+        else if (q.type==='fill') isCorrect = a?.toLowerCase().trim() === q.correct.toLowerCase().trim();
+        else if (q.type==='essay') isCorrect = a !== undefined;
+        
+        return `<div class="result-item" onclick="jumpTo(${i})">
+          <div class="result-dot ${a===undefined?'skip':isCorrect?'correct':'wrong'}"></div>
+          <div class="result-q">${i+1}. ${q.text.substring(0,60)}${q.text.length>60?'...':''}</div>
+          <span class="tag tag-${q.type}" style="font-size:10px;flex-shrink:0">${q.typeLabel}</span>
+        </div>`;
+      }).join('')}
+
+      <div style="margin-top:20px;display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-secondary" onclick="retryWrong()">🔁 Retry Wrong</button>
+        <button class="btn btn-primary" onclick="showView('input')">✨ New Quiz</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('rightPanel').innerHTML = '';
+}
+
+function retryWrong() {
+  const wrong = STATE.questions.filter((q,i) => {
+    const a = STATE.answers[i];
+    if (a === undefined) return true;
+    if (q.type==='mcq') return a !== q.correct;
+    if (q.type==='tf') return (q.correct==='true'?0:1) !== a;
+    if (q.type==='fill') return a?.toLowerCase().trim() !== q.correct.toLowerCase().trim();
+    return false;
+  });
+  if (wrong.length === 0) { showSnack('🎉 No wrong answers to retry!'); return; }
+  STATE.questions = wrong;
+  STATE.answers = {};
+  STATE.aiFeedbacks = {};
+  STATE.currentIdx = 0;
+  STATE.sessionStart = Date.now();
+  render();
+}
+
+// === SUBJECT / SETTINGS ===
+
+function toggleSetting(key) {
+  SETTINGS[key] = !SETTINGS[key];
+  localStorage.setItem('qw_settings', JSON.stringify(SETTINGS));
+  render();
+}
+
+function toggleSubject(s) {
+  const idx = SETTINGS.selectedSubjects.indexOf(s);
+  if (idx >= 0) SETTINGS.selectedSubjects.splice(idx, 1);
+  else SETTINGS.selectedSubjects.push(s);
+  localStorage.setItem('qw_settings', JSON.stringify(SETTINGS));
+  render();
+}
+
+function addCustomSubject() {
+  const inp = document.getElementById('customSub');
+  if (!inp?.value.trim()) return;
+  SUBJECTS.custom.push(inp.value.trim());
+  inp.value = '';
+  render();
+}
+
+function removeCustom(s) {
+  const idx = SUBJECTS.custom.indexOf(s);
+  if (idx >= 0) SUBJECTS.custom.splice(idx, 1);
+  render();
+}
+
+function clearHistory() {
+  if (confirm('Clear all quiz history?')) {
+    STATE.history = [];
+    localStorage.removeItem('qw_history');
+    render();
+    showSnack('History cleared');
+  }
+}
+
+function loadHistorySession(i) {
+  const h = STATE.history[i];
+  if (!h) return;
+  STATE.questions = h.questions || [];
+  STATE.answers = h.answers || {};
+  STATE.aiFeedbacks = {};
+  STATE.currentIdx = 0;
+  STATE.view = 'quiz';
+  showResultsView(h);
+}
+
+function loadSample() {
+  const sample = `1. Which statement about a pure substance is correct? ( )
+A) It has a range of melting points
+B) It has a fixed boiling point
+C) Its boiling point depends on the container
+D) It cannot freeze
+
+2. The chemical formula for water is _____.
+
+3. Newton's second law states that F = _____.
+
+4. All metals are good conductors of electricity. (True/False)
+
+5. Explain in your own words what happens during photosynthesis and why it is important for life on Earth.`;
+
+  const ta = document.getElementById('qInput');
+  if (ta) {
+    ta.value = sample;
+    STATE.inputText = sample;
+  }
+  showSnack('Sample questions loaded!');
+}
+
+// INIT
+loadState();
+
+// Default populate some subjects
+if (SETTINGS.selectedSubjects.length === 0) {
+  SETTINGS.selectedSubjects = ['Chemistry', 'Physics', 'Mathematics'];
+}
+
+Object.keys(SUBJECTS).forEach(cat => {
+  if (cat !== 'custom') {
+    SUBJECTS[cat].forEach(s => {
+      if (!SUBJECTS[cat].includes(s)) {}
+    });
+  }
+});
+
+render();
+</script>
+</body>
+</html>
