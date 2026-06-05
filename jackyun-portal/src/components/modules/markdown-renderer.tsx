@@ -155,11 +155,14 @@ function processInlineMarkdown(text: string): string {
     return `%%CODE${codePlaceholders.length - 1}%%`;
   });
 
-  // Bold
+  // Bold: **text** — must be processed before italic to avoid conflict
   result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
-  // Italic (but not inside already-processed bold)
-  result = result.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+  // Italic: *text* (single asterisk, but not ** which is bold)
+  // Use negative look-behind/ahead to ensure we don't match **
+  // Also match _italic_ format
+  result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  result = result.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '<em>$1</em>');
 
   // Restore code placeholders
   result = result.replace(/%%CODE(\d+)%%/g, (_, idx) => codePlaceholders[parseInt(idx)]);

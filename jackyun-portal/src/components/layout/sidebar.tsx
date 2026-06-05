@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'dashboard', href: '/dashboard' },
@@ -16,17 +16,31 @@ const NAV_ITEMS = [
   { label: '答题卡', icon: 'content_paste', href: '/answer-sheet' },
   { label: '计划显示器', icon: 'flag', href: '/goal' },
   { label: '考试倒计时', icon: 'hourglass_empty', href: '/igcountdown' },
-  { label: '更新日志', icon: 'history', href: '/update-hub' },
   { label: 'Mock 刷题', icon: 'quiz', href: '/mock-portal' },
   { label: 'QuizWise 刷题', icon: 'psychology', href: '/quiz' },
   { label: '工具箱', icon: 'build', href: '/tools' },
   { label: '设置', icon: 'settings', href: '/settings' },
-  { label: '管理员', icon: 'admin_panel_settings', href: '/admin' },
 ];
+
+const ADMIN_ITEM = { label: '管理员', icon: 'admin_panel_settings', href: '/admin' };
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check admin status via API
+    fetch('/api/llm-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _get_config_only: true, _check_admin: true }),
+    })
+      .then(res => res.json().then(data => setIsAdmin(!!data.isAdmin)).catch(() => setIsAdmin(false)))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  const displayItems = isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   return (
     <aside
@@ -54,7 +68,7 @@ export default function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 overflow-hidden py-4 space-y-1 px-2">
-        {NAV_ITEMS.map((item) => {
+        {displayItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link

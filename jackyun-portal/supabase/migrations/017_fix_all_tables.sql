@@ -145,6 +145,7 @@ CREATE INDEX IF NOT EXISTS idx_legacy_sync_user_key ON public.legacy_sync_data(u
 
 -- ============================================================
 -- 9. Function to seed default AI config for new users
+-- Note: apiKey is empty by default — users must configure their own or rely on CLOUD_LLM_* env vars (server-side)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.seed_default_ai_config()
 RETURNS TRIGGER
@@ -157,10 +158,10 @@ BEGIN
     NEW.id,
     'ai_config',
     '{
-      "baseUrl": "https://api.deepseek.com/v1",
-      "apiKey": "sk-16cbf0a96e6d49879eb9b1d80fb95b8a",
-      "model": "deepseek-v4-flash",
-      "provider": "deepseek"
+      "baseUrl": "",
+      "apiKey": "",
+      "model": "",
+      "provider": "custom"
     }'::jsonb
   )
   ON CONFLICT (user_id, key) DO NOTHING;
@@ -175,17 +176,17 @@ CREATE TRIGGER on_auth_user_created_seed_ai
   FOR EACH ROW EXECUTE FUNCTION public.seed_default_ai_config();
 
 -- ============================================================
--- 10. Seed default AI config for existing users (if any)
+-- 10. Update existing users to have default empty AI config (only if they don't have one already)
 -- ============================================================
 INSERT INTO public.user_settings (user_id, key, value)
 SELECT
   id,
   'ai_config',
   '{
-    "baseUrl": "https://api.deepseek.com/v1",
-    "apiKey": "sk-16cbf0a96e6d49879eb9b1d80fb95b8a",
-    "model": "deepseek-v4-flash",
-    "provider": "deepseek"
+    "baseUrl": "",
+    "apiKey": "",
+    "model": "",
+    "provider": "custom"
   }'::jsonb
 FROM auth.users
 ON CONFLICT (user_id, key) DO NOTHING;

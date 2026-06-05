@@ -14,7 +14,9 @@ export default function AiChatFab() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState<string>('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -26,7 +28,7 @@ export default function AiChatFab() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, streaming]);
 
   // Auto-resize textarea
   const autoResize = () => {
@@ -48,7 +50,9 @@ export default function AiChatFab() {
     setMessages(newMessages);
     setInput('');
     setLoading(true);
+    setStreaming(true);
     setError(null);
+    setStatusText('AI 正在思考...');
 
     // Reset textarea height
     if (textareaRef.current) {
@@ -59,20 +63,25 @@ export default function AiChatFab() {
       const res = await fetch('/api/llm-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages,
+          stream: true,
+        }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+        throw new Error((data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}: 请前往设置页面配置 AI API Key`);
       }
 
       const reader = res.body?.getReader();
-      if (!reader) throw new Error('No response body');
+      if (!reader) throw new Error('无法读取 AI 响应流');
 
       const decoder = new TextDecoder();
       let assistantContent = '';
       let messageAdded = false;
+
+      setStatusText('AI 正在回复...');
 
       while (true) {
         const { done, value } = await reader.read();
@@ -91,6 +100,7 @@ export default function AiChatFab() {
               if (!messageAdded) {
                 messageAdded = true;
                 setMessages((prev) => [...prev, { role: 'assistant', content: assistantContent }]);
+                setStatusText('AI 正在回复...');
               } else {
                 setMessages((prev) => {
                   const updated = [...prev];
@@ -99,21 +109,25 @@ export default function AiChatFab() {
                 });
               }
             } catch {
-              // ignore parse errors
+              // ignore parse errors on streaming chunks
             }
           }
         }
       }
       if (!messageAdded && assistantContent === '') {
-        setMessages((prev) => [...prev, { role: 'assistant', content: '（无响应）' }]);
+        setMessages((prev) => [...prev, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }]);
       }
+      setStatusText('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '请求失败');
+      const errMsg = err instanceof Error ? err.message : '请求失败，请检查网络连接和 API 配置';
+      setError(errMsg);
     } finally {
       setLoading(false);
+      setStreaming(false);
     }
   }
 
+  // 统一 ENTER = 发送，Shift+Enter = 换行
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -134,6 +148,9 @@ export default function AiChatFab() {
             <div className="flex items-center gap-2">
               <span className="material-icons-round text-[#4285F4] text-lg">smart_toy</span>
               <span className="text-sm font-semibold text-[var(--foreground)]">AI 助手</span>
+              {statusText && (
+                <span className="text-xs text-[var(--muted-foreground)] animate-pulse">{statusText}</span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -156,7 +173,8 @@ export default function AiChatFab() {
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && (
               <p className="text-center text-sm text-[var(--muted-foreground)] mt-8">
-                有什么可以帮助你的？
+                👋 有什么可以帮助你的？<br />
+                <span className="text-xs opacity-70">Enter 发送，Shift+Enter 换行</span>
               </p>
             )}
             {messages.map((msg, i) => (
@@ -174,8 +192,14 @@ export default function AiChatFab() {
                   {msg.role === 'assistant' ? (
                     msg.content ? (
                       <MarkdownRenderer content={msg.content} />
-                    ) : loading ? (
-                      '...'
+                    ) : streaming ? (
+                      <span className="flex items-center gap-2">
+                        <span className="inline-flex gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </span>
+                      </span>
                     ) : null
                   ) : (
                     <span className="whitespace-pre-wrap">{msg.content}</span>
@@ -183,15 +207,20 @@ export default function AiChatFab() {
                 </div>
               </div>
             ))}
-            {loading && messages[messages.length - 1]?.role !== 'assistant' && (
+            {/* Loading indicator - shows dots when waiting for first response */}
+            {loading && !streaming && messages[messages.length - 1]?.role !== 'assistant' && (
               <div className="flex justify-start">
-                <div className="bg-[var(--background)] border border-[var(--card-border)] rounded-2xl rounded-bl-sm px-3 py-2 text-sm text-[var(--muted-foreground)]">
-                  ...
+                <div className="bg-[var(--background)] border border-[var(--card-border)] rounded-2xl rounded-bl-sm px-4 py-2">
+                  <span className="inline-flex gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted-foreground)] animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted-foreground)] animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted-foreground)] animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
                 </div>
               </div>
             )}
             {error && (
-              <p className="text-xs text-[#EA4335] bg-[#EA4335]/10 rounded-lg px-2 py-1">{error}</p>
+              <p className="text-xs text-[#EA4335] bg-[#EA4335]/10 rounded-lg px-3 py-2">{error}</p>
             )}
             <div ref={bottomRef} />
           </div>

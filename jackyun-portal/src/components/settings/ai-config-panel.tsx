@@ -32,7 +32,8 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
   const [provider, setProvider] = useState(() => detectProvider(initialBaseUrl));
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
   const [apiKey, setApiKey] = useState(initialApiKey);
-  const [model, setModel] = useState(initialModel);
+  const [model, setModel] = useState(initialModel || '');
+  const [showApiKey, setShowApiKey] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -179,13 +180,30 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
         <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
           API Key
         </label>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder="sk-..."
-          className={inputClass}
-        />
+        <div className="relative">
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk-..."
+            className={`${inputClass} pr-10`}
+          />
+          {apiKey && (
+            <button
+              type="button"
+              onClick={() => setShowApiKey(!showApiKey)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)] transition-colors"
+              title={showApiKey ? '隐藏密钥' : '显示密钥'}
+            >
+              <span className="material-icons-round text-sm">
+                {showApiKey ? 'visibility_off' : 'visibility'}
+              </span>
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] mt-1">
+          你的 API Key 仅保存在你的账户中，不会与其他用户共享
+        </p>
       </div>
       <div>
         <label className="block text-sm font-medium text-[var(--foreground)] mb-1">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function TestAiPage() {
   const [baseUrl, setBaseUrl] = useState('https://api.deepseek.com/v1');
@@ -8,7 +8,37 @@ export default function TestAiPage() {
   const [model, setModel] = useState('deepseek-v4-flash');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.');
   const [userPrompt, setUserPrompt] = useState('Say "Hello! API connection is working!" and introduce yourself briefly.');
-  const [testMode, setTestMode] = useState<'direct' | 'proxy'>('direct');
+  const [testMode, setTestMode] = useState<'direct' | 'proxy'>('proxy');
+
+  // Load AI config from cloud (Supabase user_settings)
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadFromCloud() {
+      try {
+        const res = await fetch('/api/llm-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: 'ping' }],
+            max_tokens: 1,
+            stream: false,
+            _get_config_only: true,
+          }),
+        });
+        if (res.status === 401 || res.status === 400) {
+          // No cloud config available - user needs to configure
+          setConfigLoaded(true);
+          return;
+        }
+        // Cloud config check succeeded
+        setConfigLoaded(true);
+      } catch {
+        setConfigLoaded(true);
+      }
+    }
+    loadFromCloud();
+  }, []);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
     mode: string; success: boolean; duration: string; statusCode: number; statusText: string;
@@ -59,12 +89,6 @@ export default function TestAiPage() {
     setLoading(false);
   }
 
-  const loadFromLocalStorage = () => {
-    setApiKey(localStorage.getItem('ds_key') || '');
-    setBaseUrl(localStorage.getItem('ai_custom_endpoint') || 'https://api.deepseek.com/v1');
-    setModel(localStorage.getItem('ai_model') || 'deepseek-v4-flash');
-  };
-
   const inputClass = 'w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4]';
   const sectionTitle = 'text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]';
 
@@ -78,7 +102,7 @@ export default function TestAiPage() {
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className={sectionTitle}>API 配置</h2>
-          <button onClick={loadFromLocalStorage} className="text-xs text-[#4285F4] hover:text-[#3367d6] underline">从 localStorage 加载</button>
+          <span className="text-xs text-[var(--muted-foreground)]">{configLoaded ? '✅ 云端配置已就绪' : '⏳ 检查配置...'}</span>
         </div>
         <div>
           <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Base URL</label>

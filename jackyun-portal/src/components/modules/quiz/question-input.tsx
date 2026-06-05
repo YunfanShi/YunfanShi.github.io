@@ -63,13 +63,13 @@ export default function QuestionInput({
       {/* Info banner */}
       <div className="flex items-start gap-3 p-4 rounded-xl bg-[#4285F4]/5 border border-[#4285F4]/10">
         <span className="material-icons-round text-[#4285F4] text-xl mt-0.5">auto_awesome</span>
-        <div className="text-sm text-[var(--muted-foreground)]">
-          <p className="font-medium text-[var(--foreground)] mb-1">Paste your questions</p>
-          <p>Paste one or more questions. AI will automatically detect the type, extract answer choices, and identify the correct answer.</p>
-          <p className="mt-1">
-            <strong>Supported:</strong> Multiple Choice, Fill-in-the-Blank, True/False, Essay Questions
-          </p>
-        </div>
+          <div className="text-sm text-[var(--muted-foreground)]">
+            <p className="font-medium text-[var(--foreground)] mb-1">粘贴题目</p>
+            <p>粘贴一道或多道题目，AI 会自动识别题型、提取选项并给出正确答案。</p>
+            <p className="mt-1">
+              <strong>支持题型：</strong>单选题、填空题、判断题、简答题
+            </p>
+          </div>
       </div>
 
       {/* Textarea */}
