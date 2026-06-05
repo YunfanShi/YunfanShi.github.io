@@ -556,6 +556,44 @@
     <div class="toast-container" id="toast-container"></div>
 
     <script>
+    // ============ JSON REPAIR ============
+    function repairJSON(raw) {
+      let text = raw.trim();
+      if (text.startsWith('```')) {
+        text = text.replace(/```(?:json)?\n?/g, '').trim();
+      }
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        text = text.slice(firstBrace, lastBrace + 1);
+      }
+      let inString = false, escaped = false, fixed = '';
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (escaped) { fixed += ch; escaped = false; continue; }
+        if (ch === '\\') { escaped = true; fixed += ch; continue; }
+        if (ch === '"') {
+          if (!inString) { inString = true; }
+          else {
+            const remaining = text.slice(i + 1).trimStart();
+            if (remaining.length === 0 || /^[,:}\\]\s]/.test(remaining)) { inString = false; }
+            else if (remaining.startsWith('"') || remaining.startsWith('{') || remaining.startsWith('[') || /^\d/.test(remaining) || remaining.startsWith('true') || remaining.startsWith('false') || remaining.startsWith('null')) {
+              fixed += '"'; inString = false; fixed += ','; continue;
+            }
+            else if (i === text.length - 1 || text.slice(i + 1).trim().length === 0) { fixed += '"'; inString = false; }
+          }
+        }
+        fixed += ch;
+      }
+      if (inString) fixed += '"';
+      fixed = fixed.replace(/,\s*([}\]])/g, '$1');
+      let ob = 0, cb = 0, obr = 0, cbr = 0;
+      for (const ch of fixed) { if (ch === '{') ob++; if (ch === '}') cb++; if (ch === '[') obr++; if (ch === ']') cbr++; }
+      for (let i = 0; i < ob - cb; i++) fixed += '}';
+      for (let i = 0; i < obr - cbr; i++) fixed += ']';
+      return fixed;
+    }
+
     // ============ APP STATE ============
     const App = {
         view: 'input',
@@ -729,7 +767,7 @@
 ${text}` },
                         ],
                         temperature: 0.1,
-                        max_tokens: 4000,
+                        max_tokens: 10000,
                         stream: false,
                     }),
                 });
@@ -741,8 +779,22 @@ ${text}` },
 
                 const data = await res.json();
                 const content = data.choices?.[0]?.message?.content || '';
-                let jsonStr = content.trim().replace(/```(?:json)?\n?/g, '').trim();
-                const parsed = JSON.parse(jsonStr);
+                const jsonStr = repairJSON(content);
+                let parsed;
+                try {
+                    parsed = JSON.parse(jsonStr);
+                } catch (parseErr) {
+                    const match = jsonStr.match(/"questions"\s*:\s*(\[[\s\S]*\])/);
+                    if (match) {
+                        try {
+                            parsed = JSON.parse('{ "questions": ' + match[1] + ' }');
+                        } catch {
+                            throw parseErr;
+                        }
+                    } else {
+                        throw parseErr;
+                    }
+                }
 
                 if (!parsed.questions || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
                     throw new Error('AI 返回格式无效');

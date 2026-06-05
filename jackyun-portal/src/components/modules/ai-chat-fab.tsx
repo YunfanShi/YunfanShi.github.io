@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import LatexRenderer from './latex-renderer';
+import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
 interface Message {
@@ -173,7 +173,7 @@ export default function AiChatFab() {
                 >
                   {msg.role === 'assistant' ? (
                     msg.content ? (
-                      <LatexRenderer content={msg.content} />
+                      <MarkdownRenderer content={msg.content} />
                     ) : loading ? (
                       '...'
                     ) : null

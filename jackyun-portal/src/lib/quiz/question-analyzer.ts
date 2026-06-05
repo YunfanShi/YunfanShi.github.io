@@ -2,20 +2,92 @@
 
 import { AnalyzedQuestion, QuestionType } from '@/types/quiz';
 
-/** Get LLM config from localStorage (shared with quiz.html) */
-function getLLMConfig(): { baseUrl: string; apiKey: string; model: string } {
-  if (typeof window === 'undefined') {
-    return { baseUrl: '', apiKey: '', model: 'deepseek-v4-flash' };
+/**
+ * Attempt to repair broken JSON from AI responses.
+ * Handles: unterminated strings, trailing commas, missing closing brackets.
+ */
+function repairJSON(raw: string): string {
+  let text = raw.trim();
+
+  // Remove markdown code fences
+  if (text.startsWith('```')) {
+    text = text.replace(/```(?:json)?\n?/g, '').trim();
   }
-  const provider = localStorage.getItem('ai_provider') || 'deepseek';
-  const PROVIDER_ENDPOINTS: Record<string, string> = {
-    openai: 'https://api.openai.com/v1',
-    deepseek: 'https://api.deepseek.com/v1',
-  };
-  const baseUrl = localStorage.getItem('ai_custom_endpoint') || PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.deepseek;
-  const apiKey = localStorage.getItem('ds_key') || '';
-  const model = localStorage.getItem('ai_model') || 'deepseek-v4-flash';
-  return { baseUrl, apiKey, model };
+
+  // Try to find the outermost { ... }
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    text = text.slice(firstBrace, lastBrace + 1);
+  }
+
+  // Repair: unclosed strings (AI got truncated mid-string)
+  // Count quotes - if odd number, we have an unterminated string
+  let inString = false;
+  let escaped = false;
+  let fixed = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      fixed += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      fixed += ch;
+      continue;
+    }
+    if (ch === '"') {
+      if (!inString) {
+        inString = true;
+      } else {
+        // Check if next non-whitespace is a structural character
+        const remaining = text.slice(i + 1).trimStart();
+        if (remaining.length === 0 || /^[,:}\]\s]/.test(remaining)) {
+          inString = false;
+        }
+        // If remaining starts with a new key or value start, close the string
+        else if (remaining.startsWith('"') || remaining.startsWith('{') || remaining.startsWith('[') || /^\d/.test(remaining) || remaining.startsWith('true') || remaining.startsWith('false') || remaining.startsWith('null')) {
+          // Unterminated string - close it
+          fixed += '"';
+          inString = false;
+          // Add comma if needed
+          fixed += ',';
+          // Skip ahead to the next quote
+          continue;
+        }
+        // If we hit end of text with an open string, close it
+        else if (i === text.length - 1 || text.slice(i + 1).trim().length === 0) {
+          fixed += '"';
+          inString = false;
+        }
+      }
+    }
+    fixed += ch;
+  }
+
+  // If still in string at end, close it
+  if (inString) {
+    fixed += '"';
+  }
+
+  // Repair: trailing commas before ] or }
+  fixed = fixed.replace(/,\s*([}\]])/g, '$1');
+
+  // Repair: missing closing brackets
+  let openBraces = 0, closeBraces = 0;
+  let openBrackets = 0, closeBrackets = 0;
+  for (const ch of fixed) {
+    if (ch === '{') openBraces++;
+    if (ch === '}') closeBraces++;
+    if (ch === '[') openBrackets++;
+    if (ch === ']') closeBrackets++;
+  }
+  for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
+  for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
+
+  return fixed;
 }
 
 const ANALYSIS_PROMPT = `You are an expert teacher analyzing exam questions. Given one or more questions, analyze each and return a JSON object with this exact structure:
@@ -99,22 +171,17 @@ export interface FeedbackResult {
 }
 
 /**
- * Call LLM proxy with client config
+ * Call LLM proxy - proxy reads AI config from Supabase user_settings
  */
 async function callLLM(messages: Array<{ role: string; content: string }>, options: {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
 } = {}): Promise<string> {
-  const cfg = getLLMConfig();
-
   const res = await fetch('/api/llm-proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      baseUrl: cfg.baseUrl,
-      apiKey: cfg.apiKey,
-      model: cfg.model,
       temperature: options.temperature ?? 0.1,
       max_tokens: options.max_tokens ?? 2000,
       stream: options.stream ?? false,
@@ -141,18 +208,28 @@ export async function analyzeQuestions(
     const prompt = ANALYSIS_PROMPT.replace('{{QUESTIONS}}', rawText);
 
     const content = await callLLM([
-      { role: 'system', content: 'You are a precise question analyzer. Always return valid JSON only, no markdown.' },
+      { role: 'system', content: 'You are a precise question analyzer. Always return valid JSON only, no markdown. Ensure all special characters in question text are properly escaped for JSON.' },
       { role: 'user', content: prompt },
-    ], { temperature: 0.1, max_tokens: 4000 });
+    ], { temperature: 0.1, max_tokens: 10000 });
 
-    // Try to extract JSON from the response
-    let jsonStr = content.trim();
-    // Remove markdown code fences if present
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/```(?:json)?\n?/g, '').trim();
+    // Try to extract and repair JSON from the response
+    const jsonStr = repairJSON(content);
+    let parsed: { questions?: AnalyzedQuestion[] };
+    try {
+      parsed = JSON.parse(jsonStr) as { questions?: AnalyzedQuestion[] };
+    } catch (parseErr) {
+      // Retry with simple regex extraction
+      const match = jsonStr.match(/"questions"\s*:\s*(\[[\s\S]*\])/);
+      if (match) {
+        try {
+          parsed = JSON.parse(`{ "questions": ${match[1]} }`) as { questions?: AnalyzedQuestion[] };
+        } catch {
+          throw parseErr;
+        }
+      } else {
+        throw parseErr;
+      }
     }
-
-    const parsed = JSON.parse(jsonStr) as { questions?: AnalyzedQuestion[] };
 
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
       throw new Error('Invalid response format from AI');

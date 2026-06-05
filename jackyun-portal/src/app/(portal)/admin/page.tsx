@@ -124,6 +124,13 @@ export default async function AdminPage({
             <span className="material-icons-round text-base text-[#EA4335]">timer</span>
             专注模式
           </Link>
+          <Link
+            href="/admin/test-ai"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#34A853]/5 hover:border-[#34A853]/30 transition-colors"
+          >
+            <span className="material-icons-round text-base text-[#34A853]">smart_toy</span>
+            AI 测试
+          </Link>
           <ChangePasswordPanel hasPassword={provider === 'email'} />
         </div>
       </section>

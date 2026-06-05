@@ -53,7 +53,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">
+      <nav className="flex-1 overflow-hidden py-4 space-y-1 px-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (

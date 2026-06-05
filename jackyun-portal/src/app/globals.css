@@ -108,6 +108,22 @@ body {
   transform: translateX(2px);
 }
 
+/* Global scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 /* Smooth scrollbar for the quiz */
 .quiz-scroll::-webkit-scrollbar {
   width: 6px;
@@ -118,4 +134,10 @@ body {
 .quiz-scroll::-webkit-scrollbar-thumb {
   background: var(--card-border);
   border-radius: 3px;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--card-border) transparent;
 }

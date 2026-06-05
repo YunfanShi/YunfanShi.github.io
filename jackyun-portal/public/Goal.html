@@ -1160,12 +1160,10 @@ ${hist.map(h=>`  ${h.date}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}
   return out;
 }
 
-/* ===================== CALL AI ===================== */
+/* ===================== CALL AI (via proxy) ===================== */
 async function callAI(messages,onChunk,maxTokens=3000){
-  const key=getKey();if(!key)throw new Error('未配置 API Key');
-  const endpoint=getEndpoint();if(!endpoint)throw new Error('未配置 API 端点');
-  const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-    body:JSON.stringify({model:getModel(),messages,stream:true,max_tokens:maxTokens,temperature:0.7})});
+  const res=await fetch('/api/llm-proxy',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages,stream:true,max_tokens:maxTokens,temperature:0.7})});
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`API 错误 ${res.status}`);}
   const reader=res.body.getReader(),dec=new TextDecoder();let full='';
   while(true){
@@ -2605,11 +2603,10 @@ ${subjects.map(s => `- 科目代码 ${s.subject}，英文名 ${s.subjectName}`).
 只返回 JSON，格式：{"0580":goalId或null,"0610":goalId或null,"0620":goalId或null,"0625":goalId或null}
 不要输出任何其他内容。`;
   try {
-    const res = await fetch(getEndpoint(), {
+    const res = await fetch('/api/llm-proxy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getKey() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: getModel(),
         messages: [{ role: 'user', content: prompt }],
         stream: false, max_tokens: 120, temperature: 0,
       }),
