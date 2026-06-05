@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import logger from '@/lib/logger';
+
+const TAG = 'ProfileEditor';
 
 export default function ProfileEditor({ initialName, initialAvatar, userId }: { initialName: string; initialAvatar: string; userId: string }) {
   const [avatarUrl, setAvatarUrl] = useState(initialAvatar);
@@ -8,21 +11,41 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [errorDetail, setErrorDetail] = useState('');
 
   const handleSave = async () => {
-    setSaving(true); setMessage('');
+    setSaving(true);
+    setMessage('');
+    setErrorDetail('');
+    logger.info(TAG, 'Saving profile', { userId, displayName });
+
     try {
       const res = await fetch('/api/legacy-sync', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storage_key: 'profile', storage_value: { display_name: displayName, avatar_url: avatarUrl } }),
+        body: JSON.stringify({ key: 'profile', value: { display_name: displayName, avatar_url: avatarUrl } }),
       });
-      if (!res.ok) throw new Error('保存失败');
+
+      const data = await res.json().catch(() => null);
+      logger.info(TAG, 'Save response', { status: res.status, data });
+
+      if (!res.ok) {
+        const errMsg = data?.error || `HTTP ${res.status}: ${res.statusText}`;
+        const detail = data?.detail ? JSON.stringify(data.detail) : '';
+        logger.error(TAG, 'Save failed', { status: res.status, data });
+        throw new Error(errMsg + (detail ? ` (详情: ${detail})` : ''));
+      }
+
       setMessage('✅ 资料已保存');
       setEditing(false);
     } catch (err) {
-      setMessage('❌ ' + (err instanceof Error ? err.message : '保存失败'));
-    } finally { setSaving(false); }
+      const errMsg = err instanceof Error ? err.message : '保存失败';
+      logger.error(TAG, 'Save exception', { error: errMsg });
+      setMessage('❌ 保存失败');
+      setErrorDetail(errMsg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -75,7 +98,21 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
           </button>
         )}
       </div>
-      {message && <p className={`text-xs ${message.startsWith('✅') ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>{message}</p>}
+      {message && (
+        <div>
+          <p className={`text-xs ${message.startsWith('✅') ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>{message}</p>
+          {errorDetail && (
+            <details className="mt-1">
+              <summary className="text-xs text-[var(--muted-foreground)] cursor-pointer hover:text-[var(--foreground)]">
+                查看详情
+              </summary>
+              <pre className="mt-1 p-2 rounded bg-[var(--background)] border border-[var(--card-border)] text-xs text-[#EA4335] whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto">
+                {errorDetail}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 }

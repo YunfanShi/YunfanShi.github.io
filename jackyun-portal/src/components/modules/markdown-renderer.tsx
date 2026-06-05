@@ -14,14 +14,26 @@ interface MarkdownRendererProps {
   content: string;
 }
 
-/** Extended sanitize schema that allows math-related attributes */
+/** Extended sanitize schema that allows KaTeX MathML + highlight.js classes */
 const customSchema = {
   ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    // KaTeX MathML tags
+    'math', 'semantics', 'annotation', 'mrow', 'mi', 'mn', 'mo', 'mfrac', 'msqrt',
+    'msup', 'msub', 'msubsup', 'mover', 'munder', 'munderover', 'mtable', 'mtr', 'mtd',
+    'mpadded', 'mtext', 'mspace', 'mstyle', 'merror', 'mphantom', 'mroot', 'menclose',
+  ],
   attributes: {
     ...defaultSchema.attributes,
+    '*': [...(defaultSchema.attributes?.['*'] || []), ['className', 'style', 'encoding']],
     code: [...(defaultSchema.attributes?.code || []), ['className']],
     span: [...(defaultSchema.attributes?.span || []), ['className', 'style']],
     div: [...(defaultSchema.attributes?.div || []), ['className', 'style']],
+    math: [...(defaultSchema.attributes?.math || []), ['xmlns', 'display']],
+    annotation: [...(defaultSchema.attributes?.annotation || []), ['encoding']],
+    // Allow data-* attributes globally for highlight.js
+    pre: [...(defaultSchema.attributes?.pre || []), ['className']],
   },
 };
 
