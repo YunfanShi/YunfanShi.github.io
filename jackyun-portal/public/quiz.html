@@ -877,19 +877,28 @@ Return ONLY a valid JSON array with no extra text or markdown.`;
 }
 
 function basicParser(text) {
+  // Try to extract answer keys from the text first
+  const answerBlock = text.match(/answers?[:\s]*\n?([A-D,\s]+)/i);
+  const answerKeys = answerBlock 
+    ? answerBlock[1].split(/[,\s]+/).map(s => s.trim().toUpperCase().charCodeAt(0) - 65).filter(n => n >= 0 && n < 4)
+    : [];
+  
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const questions = [];
   let current = null;
+  let keyIdx = 0;
   
   for (const line of lines) {
     const qMatch = line.match(/^(\d+)[.\)]\s+(.+)/);
     if (qMatch) {
-      if (current) questions.push(finalizeQ(current));
+      if (current) { questions.push(finalizeQ(current)); keyIdx++; }
       const qText = qMatch[2];
       const tfMatch = qText.match(/\(true\/false\)/i) || qText.match(/true or false/i);
       const fillMatch = qText.includes('_____') || qText.includes('___');
       const type = tfMatch ? 'tf' : fillMatch ? 'fill' : 'mcq';
-      current = {text: qText.replace(/\(true\/false\)/i,'').replace(/\s*\(_*\)\s*/,'').trim(), type, options: [], correct: 0};
+      // Use extracted answer key if available, otherwise mark as unknown (-1)
+      const correct = type === 'mcq' ? (answerKeys[keyIdx] !== undefined ? answerKeys[keyIdx] : -1) : 0;
+      current = {text: qText.replace(/\(true\/false\)/i,'').replace(/\s*\(_*\)\s*/,'').trim(), type, options: [], correct};
       continue;
     }
     const optMatch = line.match(/^([A-D])[.\)]\s+(.+)/);
@@ -898,7 +907,7 @@ function basicParser(text) {
       continue;
     }
   }
-  if (current) questions.push(finalizeQ(current));
+  if (current) { questions.push(finalizeQ(current)); }
   
   if (questions.length === 0) {
     const paras = text.split(/\n{2,}/);
@@ -914,11 +923,17 @@ function basicParser(text) {
 
 function finalizeQ(q) {
   const typeLabels = {mcq:'MCQ',fill:'Fill-in-blank',essay:'Essay',tf:'True/False'};
+  const hasUnknown = q.type === 'mcq' && q.correct === -1;
   return {
     ...q,
     typeLabel: typeLabels[q.type],
-    options: q.options.length ? q.options : null,
-    explanation: q.type === 'mcq' && q.options.length > 0 ? `The correct answer is option ${String.fromCharCode(65+q.correct)}.` : '',
+    options: q.options && q.options.length ? q.options : null,
+    correct: hasUnknown ? 0 : q.correct,
+    explanation: hasUnknown 
+      ? '⚠️ Answer unknown — basic parser could not determine the correct answer. Please use "✨ Analyze & Start" to get AI-powered answers.'
+      : q.type === 'mcq' && q.options && q.options.length > 0 
+        ? `The correct answer is option ${String.fromCharCode(65+q.correct)}.` 
+        : '',
     id: Math.random()
   };
 }
@@ -949,26 +964,27 @@ function confirmAnswer() {
   
   if (q.type === 'mcq') {
     if (PENDING_MCQ === null) { showSnack('Select an option first (1-4 or A-D)'); return; }
-    STATE.answers[STATE.currentIdx] = PENDING_MCQ;
+    // Save answer FIRST
+    const chosenIdx = PENDING_MCQ;
+    STATE.answers[STATE.currentIdx] = chosenIdx;
     PENDING_MCQ = null;
+    // Now render with feedback
+    render();
     if (SETTINGS.showAnswerImmediately) {
-      render();
-      const ans = STATE.answers[STATE.currentIdx];
-      if (ans === q.correct) showSnack('✓ Correct!');
+      if (chosenIdx === q.correct) showSnack('✓ Correct!');
       else showSnack('✗ Incorrect');
     }
-    render();
   } else if (q.type === 'tf') {
     if (PENDING_MCQ === null) { showSnack('Select True (T/1) or False (F/2) first'); return; }
-    STATE.answers[STATE.currentIdx] = PENDING_MCQ;
+    const chosenIdx = PENDING_MCQ;
+    STATE.answers[STATE.currentIdx] = chosenIdx;
     PENDING_MCQ = null;
+    render();
     if (SETTINGS.showAnswerImmediately) {
-      render();
       const correctIdx = q.correct === 'true' ? 0 : 1;
-      if (STATE.answers[STATE.currentIdx] === correctIdx) showSnack('✓ Correct!');
+      if (chosenIdx === correctIdx) showSnack('✓ Correct!');
       else showSnack('✗ Incorrect');
     }
-    render();
   }
 }
 
