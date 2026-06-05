@@ -11,41 +11,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { message: '未登录，请先登录' } }, { status: 401 });
   }
 
-  // 从 user_settings 读取 AI 配置
-  const { data: settingRow } = await supabase
-    .from('user_settings')
-    .select('value')
-    .eq('user_id', user.id)
-    .eq('key', 'ai_config')
-    .maybeSingle();
+  // 解析请求体
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: { message: 'Invalid request body' } }, { status: 400 });
+  }
 
-  const aiConfig = settingRow?.value as
-    | { baseUrl?: string; apiKey?: string; model?: string }
-    | null;
+  // 提取客户端上传的 API 配置（不再强制存云端）
+  const clientBaseUrl = (body.baseUrl as string)?.trim() || '';
+  const clientApiKey = (body.apiKey as string)?.trim() || '';
+  const clientModel = (body.model as string)?.trim() || '';
 
-  const baseUrl = (aiConfig?.baseUrl?.trim() || '').replace(/\/+$/, '');
-  const apiKey = aiConfig?.apiKey?.trim() || '';
-  const model = aiConfig?.model?.trim() || 'deepseek-v4-flash';
+  let baseUrl: string;
+  let apiKey: string;
+  let model: string;
+
+  if (clientBaseUrl && clientApiKey) {
+    // 客户端直接传了 API 配置 → 优先使用
+    baseUrl = clientBaseUrl.replace(/\/+$/, '');
+    apiKey = clientApiKey;
+    model = clientModel || 'deepseek-v4-flash';
+  } else {
+    // 从 Supabase user_settings 读取 AI 配置
+    const { data: settingRow } = await supabase
+      .from('user_settings')
+      .select('value')
+      .eq('user_id', user.id)
+      .eq('key', 'ai_config')
+      .maybeSingle();
+
+    const aiConfig = settingRow?.value as
+      | { baseUrl?: string; apiKey?: string; model?: string }
+      | null;
+
+    baseUrl = (aiConfig?.baseUrl?.trim() || '').replace(/\/+$/, '');
+    apiKey = aiConfig?.apiKey?.trim() || '';
+    model = aiConfig?.model?.trim() || clientModel || 'deepseek-v4-flash';
+  }
 
   if (!baseUrl || !apiKey) {
     return NextResponse.json(
-      { error: { message: '请前往主页 Dashboard 配置 API Key，一次配置全局生效。' } },
+      { error: { message: '请前往主页 Dashboard 配置 API Key，或直接在请求中传入 baseUrl/apiKey。' } },
       { status: 400 }
     );
   }
 
-  // 解析请求体
-  let upstreamBody: Record<string, unknown>;
-  try {
-    const body = (await req.json()) as Record<string, unknown>;
-    // 允许客户端不传 model，使用默认值
-    upstreamBody = {
-      ...body,
-      model: (body.model as string) || model,
-    };
-  } catch {
-    return NextResponse.json({ error: { message: 'Invalid request body' } }, { status: 400 });
-  }
+  // 构建上游请求体（剔除客户端专用字段 baseUrl/apiKey）
+  const { baseUrl: _, apiKey: __, ...upstreamFields } = body;
+  const upstreamBody: Record<string, unknown> = {
+    ...upstreamFields,
+    model: (upstreamFields.model as string) || model,
+  };
 
   // 转发到上游 LLM API
   const upstream = await fetch(`${baseUrl}/chat/completions`, {

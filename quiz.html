@@ -306,6 +306,19 @@ let STATE = {
 // Panel state
 let PANEL = { open: true, fullscreen: false };
 
+const PROVIDER_ENDPOINTS = {
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com/v1',
+};
+
+function getLLMConfig() {
+  const provider = localStorage.getItem('ai_provider') || 'deepseek';
+  const apiKey = localStorage.getItem('ds_key') || '';
+  const baseUrl = PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.deepseek;
+  const model = localStorage.getItem('ai_model') || 'deepseek-v4-flash';
+  return { baseUrl, apiKey, model };
+}
+
 function loadState() {
   try {
     const h = localStorage.getItem('qw_history');
@@ -479,10 +492,10 @@ function renderQuizView() {
         else if (i === ans) cls = 'wrong';
         else cls = 'dimmed';
         cls += ' disabled';
-      } else if (PENDING_MCQ === i) cls = 'selected';
+      }
       const icons = {correct:'✓', wrong:'✗'};
       const showIcon = showResult && (i === q.correct || i === ans);
-      return `<button class="option ${cls}" onclick="${!submitted ? `selectOption(${i})` : ''}">
+      return `<button class="option ${cls}" onclick="${!submitted ? `submitMCQ(${i})` : ''}">
         <span class="option-key">${String.fromCharCode(65+i)}</span>
         <span class="option-text">${opt}</span>
         ${showIcon ? `<span class="option-icon">${icons[i===q.correct?'correct':'wrong']}</span>` : ''}
@@ -497,8 +510,8 @@ function renderQuizView() {
         else if (i === ans) cls = 'wrong';
         else cls = 'dimmed';
         cls += ' disabled';
-      } else if (PENDING_MCQ === i) cls = 'selected';
-      return `<button class="option ${cls}" onclick="${!submitted ? `selectTF(${i})` : ''}">
+      }
+      return `<button class="option ${cls}" onclick="${!submitted ? `submitTF(${i})` : ''}">
         <span class="option-key">${i===0?'T':'F'}</span>
         <span class="option-text">${opt}</span>
       </button>`;
@@ -520,6 +533,7 @@ function renderQuizView() {
 
   const feedback = buildFeedback(q, ans, showResult);
   const aiFb = STATE.aiFeedbacks[STATE.currentIdx];
+  const aiLoading = aiFb === 'loading';
 
   main.innerHTML = `
     <div class="question-wrap">
@@ -533,17 +547,17 @@ function renderQuizView() {
         ${feedback}
         ${submitted && SETTINGS.showAnswerImmediately ? `
           <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button class="ai-btn" onclick="askAI(${STATE.currentIdx})">
-              ✨ Ask AI for explanation
+            <button class="ai-btn" onclick="askAI(${STATE.currentIdx})" ${aiLoading ? 'disabled' : ''}>
+              ${aiLoading ? '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;display:inline-block;vertical-align:middle;margin-right:4px"></span> AI is thinking...' : '✨ Ask AI for explanation'}
             </button>
-            ${aiFb ? `<div class="ai-response">${aiFb}</div>` : ''}
+            ${aiFb && aiFb !== 'loading' ? `<div class="ai-response">${aiFb}</div>` : ''}
           </div>
         ` : ''}
         <div class="action-row">
           <button class="btn btn-secondary btn-sm" onclick="prevQ()" ${STATE.currentIdx===0?'disabled':''}>← Prev</button>
           <div class="action-spacer"></div>
-          ${!submitted && (q.type==='mcq'||q.type==='tf') ? `<span class="shortcut-hint">Click to select · <kbd>Enter</kbd> to confirm</span>` : ''}
-          ${q.type==='fill'&&!submitted ? `<span class="shortcut-hint"><kbd>Enter</kbd> to submit</span>` : ''}
+          ${!submitted && (q.type==='mcq'||q.type==='tf') ? `<span class="shortcut-hint">Click or press <kbd>A</kbd>-<kbd>D</kbd>/<kbd>T</kbd>/<kbd>F</kbd> to answer</span>` : ''}
+          ${q.type==='fill'&&!submitted ? `<span class="shortcut-hint">Type answer and press <kbd>Enter</kbd> to submit</span>` : ''}
           ${submitted && !SETTINGS.showAnswerImmediately ? `<span class="shortcut-hint">Answer saved · Results at end</span>` : ''}
           <button class="btn btn-primary btn-sm" onclick="nextQ()">${STATE.currentIdx===STATE.questions.length-1 ? '🏁 Finish' : 'Next →'}</button>
         </div>
@@ -552,43 +566,41 @@ function renderQuizView() {
   `;
 
   if (q.type === 'fill' && !submitted) {
-    const inp = document.getElementById('fillAns');
-    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitFill(); });
+    setTimeout(() => {
+      const inp = document.getElementById('fillAns');
+      if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submitFill(); } });
+    }, 50);
   }
-
-  document.addEventListener('keydown', handleKeys, {once: true});
 }
 
+// Global keyboard handler - bound once at init
 function handleKeys(e) {
   if (STATE.view !== 'quiz') return;
   const q = STATE.questions[STATE.currentIdx];
+  if (!q) return;
   const submitted = STATE.answers[STATE.currentIdx] !== undefined;
   
-  // Enter key: confirm pending selection OR go next
+  // Enter key: go next if submitted, submit fill if not
   if (e.key === 'Enter') {
+    if (q.type === 'fill' && !submitted) { e.preventDefault(); submitFill(); return; }
     if (submitted) { nextQ(); return; }
-    if ((q.type === 'mcq' || q.type === 'tf')) {
-      e.preventDefault();
-      confirmAnswer();
-      return;
-    }
-    if (q.type === 'fill') { submitFill(); return; }
     return;
   }
   
-  // 1-4 or A-D select options
+  // Keyboard shortcuts: A-D/1-4 for MCQ (direct submit)
   if (!submitted && q.type === 'mcq') {
     const map = {'a':0,'b':1,'c':2,'d':3,'1':0,'2':1,'3':2,'4':3};
     const i = map[e.key.toLowerCase()];
-    if (i !== undefined && i < q.options.length) selectOption(i);
+    if (i !== undefined && i < q.options.length) submitMCQ(i);
   }
-  // T/F or 1/2 for True/False
+  // T/F or 1/2 for True/False (direct submit)
   if (!submitted && q.type === 'tf') {
-    if (e.key.toLowerCase() === 't' || e.key === '1') selectTF(0);
-    if (e.key.toLowerCase() === 'f' || e.key === '2') selectTF(1);
+    if (e.key.toLowerCase() === 't' || e.key === '1') submitTF(0);
+    if (e.key.toLowerCase() === 'f' || e.key === '2') submitTF(1);
   }
-  if (e.key === 'ArrowRight' && submitted) nextQ();
+  // Arrow keys navigation
   if (e.key === 'ArrowLeft') prevQ();
+  if (e.key === 'ArrowRight' && submitted) nextQ();
 }
 
 function buildFeedback(q, ans, showResult) {
@@ -837,11 +849,15 @@ ${text}
 
 Return ONLY a valid JSON array with no extra text or markdown.`;
 
+  const cfg = getLLMConfig();
   const response = await fetch('/api/llm-proxy', {
     method: 'POST',
+    credentials: 'include',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
       temperature: 0.1,
       max_tokens: 2000,
       messages: [
@@ -852,8 +868,12 @@ Return ONLY a valid JSON array with no extra text or markdown.`;
   });
 
   if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error?.message || `LLM proxy error (${response.status})`);
+    let errMsg = `LLM proxy error (${response.status})`;
+    try {
+      const errData = await response.json();
+      if (errData.error?.message) errMsg = errData.error.message;
+    } catch(e) {}
+    throw new Error(errMsg);
   }
   const data = await response.json();
   const txt = data.choices?.[0]?.message?.content || '';
@@ -880,8 +900,11 @@ function basicParser(text) {
       const tfMatch = qText.match(/\(true\/false\)/i) || qText.match(/true or false/i);
       const fillMatch = qText.includes('_____') || qText.includes('___');
       const type = tfMatch ? 'tf' : fillMatch ? 'fill' : 'mcq';
-      // Use extracted answer key if available, otherwise mark as unknown (-1)
-      const correct = type === 'mcq' ? (answerKeys[keyIdx] !== undefined ? answerKeys[keyIdx] : -1) : 0;
+      // Determine correct answer based on type
+      let correct;
+      if (type === 'mcq') correct = answerKeys[keyIdx] !== undefined ? answerKeys[keyIdx] : -1;
+      else if (type === 'tf') correct = 'true';
+      else correct = '';
       current = {text: qText.replace(/\(true\/false\)/i,'').replace(/\s*\(_*\)\s*/,'').trim(), type, options: [], correct};
       continue;
     }
@@ -932,50 +955,40 @@ function startQuiz() {
   render();
 }
 
-// Track selected option BEFORE confirming with Enter
-let PENDING_MCQ = null;
-
-function selectOption(i) {
-  if (STATE.answers[STATE.currentIdx] !== undefined) return;
-  PENDING_MCQ = i;
-  // Re-render to highlight the selected option (without submitting)
-  renderQuizView();
-}
-
-function confirmAnswer() {
+// Direct submit for MCQ (one-click = submit)
+function submitMCQ(i) {
   if (STATE.answers[STATE.currentIdx] !== undefined) return;
   const q = STATE.questions[STATE.currentIdx];
-  
-  if (q.type === 'mcq') {
-    if (PENDING_MCQ === null) { showSnack('Select an option first (1-4 or A-D)'); return; }
-    // Save answer FIRST
-    const chosenIdx = PENDING_MCQ;
-    STATE.answers[STATE.currentIdx] = chosenIdx;
-    PENDING_MCQ = null;
-    // Now render with feedback
-    render();
-    if (SETTINGS.showAnswerImmediately) {
-      if (chosenIdx === q.correct) showSnack('✓ Correct!');
-      else showSnack('✗ Incorrect');
-    }
-  } else if (q.type === 'tf') {
-    if (PENDING_MCQ === null) { showSnack('Select True (T/1) or False (F/2) first'); return; }
-    const chosenIdx = PENDING_MCQ;
-    STATE.answers[STATE.currentIdx] = chosenIdx;
-    PENDING_MCQ = null;
-    render();
-    if (SETTINGS.showAnswerImmediately) {
-      const correctIdx = q.correct === 'true' ? 0 : 1;
-      if (chosenIdx === correctIdx) showSnack('✓ Correct!');
-      else showSnack('✗ Incorrect');
-    }
+  STATE.answers[STATE.currentIdx] = i;
+  render();
+  if (SETTINGS.showAnswerImmediately) {
+    if (i === q.correct) showSnack('✓ Correct!');
+    else showSnack('✗ Incorrect');
   }
+}
+
+// Direct submit for True/False (one-click = submit)
+function submitTF(i) {
+  if (STATE.answers[STATE.currentIdx] !== undefined) return;
+  const q = STATE.questions[STATE.currentIdx];
+  STATE.answers[STATE.currentIdx] = i;
+  render();
+  if (SETTINGS.showAnswerImmediately) {
+    const correctIdx = q.correct === 'true' ? 0 : 1;
+    if (i === correctIdx) showSnack('✓ Correct!');
+    else showSnack('✗ Incorrect');
+  }
+}
+
+// Keyboard shortcut: A-D for MCQ, T/F for TF
+function selectOption(i) {
+  if (STATE.answers[STATE.currentIdx] !== undefined) return;
+  submitMCQ(i);
 }
 
 function selectTF(i) {
   if (STATE.answers[STATE.currentIdx] !== undefined) return;
-  PENDING_MCQ = i;
-  renderQuizView();
+  submitTF(i);
 }
 
 function submitFill() {
@@ -1005,11 +1018,15 @@ Question: ${question}
 Student Answer: ${answer}`;
 
   try {
+    const cfg = getLLMConfig();
     const response = await fetch('/api/llm-proxy', {
       method: 'POST',
+      credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        model: cfg.model,
         temperature: 0.3,
         max_tokens: 400,
         messages: [
@@ -1045,11 +1062,15 @@ ${ans !== undefined ? q.type==='mcq' ? `Student selected: ${q.options?.[ans]}` :
 Give a clear, educational explanation.`;
 
   try {
+    const cfg = getLLMConfig();
     const response = await fetch('/api/llm-proxy', {
       method: 'POST',
+      credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        model: cfg.model,
         temperature: 0.3,
         max_tokens: 300,
         messages: [
@@ -1166,7 +1187,7 @@ function showResultsView(session) {
     </div>
   `;
 
-  document.getElementById('rightPanel').innerHTML = '';
+  renderRightPanelResults(session);
 }
 
 function retryWrong() {
@@ -1260,8 +1281,49 @@ D) It cannot freeze
   showSnack('Sample questions loaded!');
 }
 
+function renderRightPanelResults(session) {
+  const p = document.getElementById('rightPanel');
+  if (!p) return;
+  const panelHeader = `
+    <div class="panel-header">
+      <span class="section-title">Quiz Complete</span>
+      <button class="panel-header-btn" onclick="togglePanelFullscreen()" title="Full Screen">⛶</button>
+      <button class="panel-header-btn" onclick="togglePanel()" title="Close Panel">✕</button>
+    </div>
+  `;
+  p.innerHTML = `
+    ${panelHeader}
+    <div class="panel-fullscreen-content">
+      <div style="text-align:center;padding:16px 0">
+        <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px">${session.accuracy >= 80 ? '🎉' : '👍'} ${Math.round(session.accuracy)}% Accuracy</div>
+        <div style="font-size:12px;color:var(--text-hint)">${session.correct} correct · ${session.wrong} wrong · ${session.total - session.correct - session.wrong} skipped</div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title" style="margin-bottom:8px">All Questions</div>
+      <div class="result-list">
+        ${STATE.questions.map((q,i) => {
+          const a = session.answers[i];
+          let dotCls = a===undefined ? 'skip' : 'correct';
+          if (a !== undefined) {
+            if (q.type==='mcq' && a !== q.correct) dotCls='wrong';
+            else if (q.type==='tf' && (q.correct==='true'?0:1)!==a) dotCls='wrong';
+            else if (q.type==='fill' && a?.toLowerCase().trim()!==q.correct.toLowerCase().trim()) dotCls='wrong';
+          }
+          return `<div class="result-item" onclick="jumpTo(${i})">
+            <div class="result-dot ${dotCls}"></div>
+            <div class="result-q">Q${i+1}: ${q.text.substring(0,30)}${q.text.length>30?'...':''}</div>
+            <span class="tag tag-${q.type}" style="flex-shrink:0;font-size:10px">${q.typeLabel}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 // INIT
 loadState();
+// Bind global keyboard handler once
+document.addEventListener('keydown', handleKeys);
 
 // Default populate some subjects
 if (SETTINGS.selectedSubjects.length === 0) {

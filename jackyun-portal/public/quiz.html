@@ -306,6 +306,19 @@ let STATE = {
 // Panel state
 let PANEL = { open: true, fullscreen: false };
 
+const PROVIDER_ENDPOINTS = {
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com/v1',
+};
+
+function getLLMConfig() {
+  const provider = localStorage.getItem('ai_provider') || 'deepseek';
+  const apiKey = localStorage.getItem('ds_key') || '';
+  const baseUrl = PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.deepseek;
+  const model = localStorage.getItem('ai_model') || 'deepseek-v4-flash';
+  return { baseUrl, apiKey, model };
+}
+
 function loadState() {
   try {
     const h = localStorage.getItem('qw_history');
@@ -836,12 +849,15 @@ ${text}
 
 Return ONLY a valid JSON array with no extra text or markdown.`;
 
+  const cfg = getLLMConfig();
   const response = await fetch('/api/llm-proxy', {
     method: 'POST',
     credentials: 'include',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
-      model: 'deepseek-v4-flash',
+      baseUrl: cfg.baseUrl,
+      apiKey: cfg.apiKey,
+      model: cfg.model,
       temperature: 0.1,
       max_tokens: 2000,
       messages: [
@@ -1002,12 +1018,15 @@ Question: ${question}
 Student Answer: ${answer}`;
 
   try {
+    const cfg = getLLMConfig();
     const response = await fetch('/api/llm-proxy', {
       method: 'POST',
       credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        model: cfg.model,
         temperature: 0.3,
         max_tokens: 400,
         messages: [
@@ -1043,12 +1062,15 @@ ${ans !== undefined ? q.type==='mcq' ? `Student selected: ${q.options?.[ans]}` :
 Give a clear, educational explanation.`;
 
   try {
+    const cfg = getLLMConfig();
     const response = await fetch('/api/llm-proxy', {
       method: 'POST',
       credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
+        baseUrl: cfg.baseUrl,
+        apiKey: cfg.apiKey,
+        model: cfg.model,
         temperature: 0.3,
         max_tokens: 300,
         messages: [
