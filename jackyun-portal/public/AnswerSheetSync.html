@@ -1044,6 +1044,17 @@ function dismissGacha() {
   if (DEVICE_CONFIG.isInput) stopMusic();
   if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
   _dismissCallbacks.forEach(fn => fn()); _dismissCallbacks = [];
+  
+  // Clean up dynamically added elements (wrong display, pct display)
+  const existingWrong = document.getElementById('gachaWrongDisplay');
+  if (existingWrong) existingWrong.remove();
+  const existingPct = document.getElementById('gachaPctDisplay');
+  if (existingPct) existingPct.remove();
+  // Remove labels added after wrong/pct display
+  const stage2 = document.getElementById('gachaStage');
+  const extras = stage2.querySelectorAll('[data-gacha-extra]');
+  extras.forEach(el => el.remove());
+  
   const ov = document.getElementById('gachaOverlay');
   ov.style.transition = 'opacity 0.5s ease-out';
   ov.style.opacity = '0';
@@ -1053,6 +1064,12 @@ function dismissGacha() {
     ov.style.transition = '';
     const stage = document.getElementById('gachaStage');
     stage.style.opacity = '0';
+    // Reset display for all gacha elements for next run
+    document.getElementById('gachaRing').style.display = '';
+    document.getElementById('gachaRarity').style.display = '';
+    document.getElementById('gachaScore').style.display = '';
+    document.getElementById('gachaScoreSub').style.display = '';
+    document.getElementById('gachaGrade').style.display = '';
     const ctx = document.getElementById('gachaCanvas').getContext('2d');
     ctx.clearRect(0, 0, 9999, 9999);
   }, 500);
