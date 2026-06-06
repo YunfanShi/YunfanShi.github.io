@@ -1985,19 +1985,19 @@ function triggerGacha(score, total, position, musicTier) {
     
     let vx, vy;
     if (position === 'left') {
-      // Stream from left to right
-      const targetX = Math.random() * W * 0.8 + W * 0.1;
+      // Stream from left to right, TOWARD THE MIDDLE SCREEN
+      const targetX = W * 1.5 + Math.random() * W;
       const targetY = Math.random() * H;
       const angle = Math.atan2(targetY - pos.y, targetX - pos.x);
-      vx = Math.cos(angle) * (1.5 + Math.random() * 2);
-      vy = Math.sin(angle) * (0.5 + Math.random() * 1);
+      vx = Math.cos(angle) * (1.2 + Math.random() * 1.5);
+      vy = Math.sin(angle) * (0.3 + Math.random() * 0.6);
     } else if (position === 'right') {
-      // Stream from right to left
-      const targetX = Math.random() * W * 0.8;
+      // Stream from right to left, TOWARD THE MIDDLE SCREEN
+      const targetX = -(W * 0.5 + Math.random() * W);
       const targetY = Math.random() * H;
       const angle = Math.atan2(targetY - pos.y, targetX - pos.x);
-      vx = Math.cos(angle) * (1.5 + Math.random() * 2);
-      vy = Math.sin(angle) * (0.5 + Math.random() * 1);
+      vx = Math.cos(angle) * (1.2 + Math.random() * 1.5);
+      vy = Math.sin(angle) * (0.3 + Math.random() * 0.6);
     } else {
       const angleToCenter = Math.atan2(cy - pos.y, cx - pos.x);
       const vortexOffset = (Math.random() - 0.5) * 1.8;
