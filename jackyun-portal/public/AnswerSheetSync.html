@@ -335,6 +335,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
           <div class="hint">📌 直接输入答案，<strong>/</strong> 表示跳过。<br>💡 <strong style="color:var(--blue)">盲打：</strong>1=A, 2=B, 3=C, 4=D</div>
         </div>
         <hr class="section-divider">
+        <div class="section-label">🔁 重复输入验证（防止手误）</div>
+        <div class="toggle-row">
+          <label class="toggle-switch"><input type="checkbox" id="enableVerify" onchange="toggleVerify()"><span class="toggle-slider"></span></label>
+          <span class="toggle-label">启用重复输入确认</span>
+        </div>
+        <div class="collapsible-section" id="verifySection">
+          <div class="form-group">
+            <label>再次输入答案 Repeat Answers</label>
+            <textarea class="answer-input-area" id="answersRepeat" placeholder="再次输入同一组答案..." rows="3"></textarea>
+            <div class="hint">两组答案均输入完成后，点击下方按钮执行比对。</div>
+          </div>
+          <button type="button" class="generate-btn" style="background:#5f6368;margin-top:0;margin-bottom:12px;padding:8px;font-size:13px;" onclick="checkConsistency()">⚖️ 比对两次输入是否一致</button>
+          <div class="verify-alert" id="verifyAlert"></div>
+        </div>
+        <hr class="section-divider">
         <div class="section-label">✅ 对答案功能</div>
         <div class="toggle-row">
           <label class="toggle-switch"><input type="checkbox" id="enableKey" onchange="toggleKey()"><span class="toggle-slider"></span></label>
@@ -1288,19 +1303,8 @@ function revealResult(score, total, tier) {
 
 function renderResult(payload) {
   const container = document.getElementById('resultContainer');
-  const position = DEVICE_CONFIG.position || 'center';
-
-  // All devices strictly follow position-based display
-  if (position === 'left') {
-    // Left screen: show wrong question numbers
-    renderLeftResult(container, payload);
-  } else if (position === 'center') {
-    // Center screen: show score
-    renderCenterResult(container, payload);
-  } else if (position === 'right') {
-    // Right screen: show accuracy
-    renderRightResult(container, payload);
-  }
+  // All devices show the full answer sheet - animation only differs by position
+  renderFullSheet(container, payload);
 }
 
 function renderLeftResult(container, p) {
@@ -1627,6 +1631,28 @@ function stopMusic() {
 // ═══════════════════════════════════════════════
 // 11. ANSWER SHEET GENERATION
 // ═══════════════════════════════════════════════
+
+function toggleVerify() {
+  const on = document.getElementById('enableVerify').checked;
+  document.getElementById('verifySection').classList.toggle('visible', on);
+  if (!on) document.getElementById('verifyAlert').style.display = 'none';
+}
+
+function checkConsistency() {
+  const numQ = parseInt(document.getElementById('numQ').value) || 40;
+  const optMode = document.getElementById('options').value;
+  let opts;
+  if (optMode === 'ABCD') opts = ['A', 'B', 'C', 'D'];
+  else if (optMode === 'ABCDE') opts = ['A', 'B', 'C', 'D', 'E'];
+  else opts = ['T', 'F'];
+  const a1 = parseAnswers(document.getElementById('answers').value, numQ, opts);
+  const a2 = parseAnswers(document.getElementById('answersRepeat').value, numQ, opts);
+  const alert = document.getElementById('verifyAlert');
+  const diffs = [];
+  for (let i = 0; i < numQ; i++) if (a1[i] !== a2[i]) diffs.push(i + 1);
+  if (diffs.length === 0) { alert.className = 'verify-alert match'; alert.innerHTML = '✅ 两次输入完全一致！可以放心生成答题卡。'; }
+  else { alert.className = 'verify-alert mismatch'; let html = `⚠️ 发现 <strong>${diffs.length}</strong> 处不一致：<div class="verify-diff">`; diffs.forEach(n => { const v1 = a1[n-1]||'空', v2 = a2[n-1]||'空'; html += `<span class="verify-diff-item">第${n}题: <b>${v1}</b> vs <b>${v2}</b></span>`; }); html += '</div>'; alert.innerHTML = html; }
+}
 
 function toggleKey() {
   const on = document.getElementById('enableKey').checked;
