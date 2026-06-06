@@ -1155,23 +1155,28 @@ function dismissGacha(remote) {
   extras.forEach(el => el.remove());
   
   const ov = document.getElementById('gachaOverlay');
-  ov.style.transition = 'opacity 0.5s ease-out';
-  ov.style.opacity = '0';
+  if (ov) {
+    ov.style.transition = 'opacity 0.5s ease-out';
+    ov.style.opacity = '0';
+  }
   setTimeout(() => {
-    ov.classList.remove('active');
-    ov.style.opacity = '';
-    ov.style.transition = '';
+    if (ov) {
+      ov.classList.remove('active');
+      ov.style.opacity = '';
+      ov.style.transition = '';
+    }
     const stage = document.getElementById('gachaStage');
-    stage.style.opacity = '0';
-    // Reset display for all gacha elements for next run
-    document.getElementById('gachaRing').style.display = '';
-    document.getElementById('gachaRarity').style.display = '';
-    document.getElementById('gachaScore').style.display = '';
-    document.getElementById('gachaScoreSub').style.display = '';
-    document.getElementById('gachaGrade').style.display = '';
-    document.getElementById('gachaDismiss').style.display = '';
-    const ctx = document.getElementById('gachaCanvas').getContext('2d');
-    ctx.clearRect(0, 0, 9999, 9999);
+    if (stage) stage.style.opacity = '0';
+    // Reset display for all gacha elements for next run (null-safe)
+    ['gachaRing','gachaRarity','gachaScore','gachaScoreSub','gachaGrade','gachaDismiss'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+    const canvas = document.getElementById('gachaCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, 9999, 9999);
+    }
   }, 500);
   
   // Schedule post-gacha animation after 10 seconds (only for the device that initiated the dismiss)
@@ -1995,18 +2000,20 @@ function triggerGacha(score, total, position, musicTier) {
   const dismiss = document.getElementById('gachaDismiss');
 
   [ring, rarity, scoreEl, scoreSub, grade, dismiss].forEach(el => {
-    el.className = el.className.replace(/\b(gold|blue|red)\b/g, '');
-    el.style.cssText = '';
+    if (el) {
+      el.className = el.className.replace(/\b(gold|blue|red)\b/g, '');
+      el.style.cssText = '';
+    }
   });
-  ring.classList.add(tier);
-  rarity.classList.add(tier);
-  scoreEl.classList.add(tier);
-  grade.classList.add(tier);
-  icon.textContent = info.icon;
-  rarity.textContent = info.rarity;
-  scoreEl.textContent = score;
-  scoreSub.textContent = `/ ${total} CORRECT`;
-  grade.textContent = info.grade;
+  if (ring) ring.classList.add(tier);
+  if (rarity) rarity.classList.add(tier);
+  if (scoreEl) scoreEl.classList.add(tier);
+  if (grade) grade.classList.add(tier);
+  if (icon) icon.textContent = info.icon;
+  if (rarity) rarity.textContent = info.rarity;
+  if (scoreEl) scoreEl.textContent = score;
+  if (scoreSub) scoreSub.textContent = `/ ${total} CORRECT`;
+  if (grade) grade.textContent = info.grade;
 
   const canvas = document.getElementById('gachaCanvas');
   const ctx = canvas.getContext('2d');
