@@ -704,57 +704,83 @@ function startPolling(sessionId) {
   updateSyncStatus('connecting', '轮询中...');
   debugLog(`📡 开始轮询 session=${sessionId}`);
 
-  _pollTimer = setInterval(async () => {
-    // If we're processing broadcasts, skip this poll cycle to avoid overload
-    if (_processingBroadcasts) return;
+  // Poll on aligned 2-second boundaries: :02, :04, :06, :08, etc.
+  // All devices poll at the SAME clock ticks for minimal latency
+  const POLL_INTERVAL = 2000;
+  let _pollCycleCount = 0;
 
-    try {
-      const since = Date.now() - 5000; // look back only 5s
-      const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
-      const data = await res.json();
-      if (data.broadcasts && data.broadcasts.length > 0) {
-        // Reset backoff on successful broadcast receipt
-        _pollBackoffLevel = 0;
-        _processingBroadcasts = true;
+  function scheduleNext() {
+    const now = Date.now();
+    const nextBoundary = Math.ceil(now / POLL_INTERVAL) * POLL_INTERVAL;
+    const delay = Math.max(50, nextBoundary - now);
+    
+    _pollTimer = setTimeout(async () => {
+      _pollCycleCount++;
 
-        let newBroadcasts = 0;
-        for (const b of data.broadcasts) {
-          if (b.senderDeviceId !== DEVICE_CONFIG.deviceId) {
-            // Dedup by broadcastId if available, else fallback to targetTime
-            if (b.broadcastId) {
-              if (_processedBroadcastIds.has(b.broadcastId)) continue;
-              _processedBroadcastIds.add(b.broadcastId);
+      // Periodic time re-sync every 30s (15 cycles of 2s)
+      if (_pollCycleCount % 15 === 0) {
+        debugLog('⏱️ 定期重新同步 Suning 时间...');
+        await SuningSync.forceSync();
+      }
+
+      // If we're processing broadcasts, skip this poll cycle to avoid overload
+      if (_processingBroadcasts) {
+        scheduleNext();
+        return;
+      }
+
+      try {
+        const since = Date.now() - 8000; // look back 8s to catch clock-skewed devices
+        const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
+        const data = await res.json();
+        if (data.broadcasts && data.broadcasts.length > 0) {
+          // Reset backoff on successful broadcast receipt
+          _pollBackoffLevel = 0;
+          _processingBroadcasts = true;
+
+          let newBroadcasts = 0;
+          for (const b of data.broadcasts) {
+            if (b.senderDeviceId !== DEVICE_CONFIG.deviceId) {
+              // Dedup by broadcastId if available, else fallback to targetTime
+              if (b.broadcastId) {
+                if (_processedBroadcastIds.has(b.broadcastId)) continue;
+                _processedBroadcastIds.add(b.broadcastId);
+              }
+              handleIncomingBroadcast({
+                targetTime: b.targetTime,
+                payload: b.payload,
+                senderDeviceId: b.senderDeviceId,
+                sessionId: b.sessionId,
+                rowId: b.rowId,
+              });
+              newBroadcasts++;
             }
-            handleIncomingBroadcast({
-              targetTime: b.targetTime,
-              payload: b.payload,
-              senderDeviceId: b.senderDeviceId,
-              sessionId: b.sessionId,
-              rowId: b.rowId,
-            });
-            newBroadcasts++;
           }
-        }
-        
-        if (newBroadcasts > 0) {
-          SYNC_CONNECTED = true;
-          updateSyncStatus('online', `${newBroadcasts}条新广播`);
+          
+          if (newBroadcasts > 0) {
+            SYNC_CONNECTED = true;
+            updateSyncStatus('online', `${newBroadcasts}条新广播`);
+          } else {
+            updateSyncStatus('connecting', '等待广播...');
+          }
+          _processingBroadcasts = false;
         } else {
           updateSyncStatus('connecting', '等待广播...');
         }
-        _processingBroadcasts = false;
-      } else {
-        updateSyncStatus('connecting', '等待广播...');
+      } catch (e) {
+        // On error, back off exponentially to reduce load
+        _pollBackoffLevel = Math.min(_pollBackoffLevel + 1, 6);
+        const backoffMs = Math.min(1500 * Math.pow(1.5, _pollBackoffLevel), 10000);
+        if (_pollBackoffLevel > 2) {
+          debugLog(`⚠️ Poll error, backing off ${backoffMs}ms (level ${_pollBackoffLevel})`);
+        }
       }
-    } catch (e) {
-      // On error, back off exponentially to reduce load
-      _pollBackoffLevel = Math.min(_pollBackoffLevel + 1, 6);
-      const backoffMs = Math.min(1500 * Math.pow(1.5, _pollBackoffLevel), 10000);
-      if (_pollBackoffLevel > 2) {
-        debugLog(`⚠️ Poll error, backing off ${backoffMs}ms (level ${_pollBackoffLevel})`);
-      }
-    }
-  }, 1500); // Poll every 1.5s
+
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
 }
 
 function stopPolling() {
