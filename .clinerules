@@ -31,3 +31,4 @@
 2. **Review Docs**: Check and update `README.md` if the change affects project usage.
 3. **Log Update**: Write the details of the change into `jackyun-portal/public/UpdateHub.html`.
 4. **Deploy**: Run `git add`, `git commit -m "your message"`, and `git push` via SSH automatically.
+5.If that is any change with supabase that need to updates, you need to talk to me to make sure these changes are updated.

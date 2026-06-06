@@ -1355,17 +1355,8 @@ function revealResult(score, total, tier) {
 
 function renderResult(payload) {
   const container = document.getElementById('resultContainer');
-  const position = DEVICE_CONFIG.position || 'center';
-
-  // Position-based display:
-  // Left: 错题回顾 | Center: 考试成绩 | Right: 正确率分析
-  if (position === 'left') {
-    renderLeftResult(container, payload);
-  } else if (position === 'right') {
-    renderRightResult(container, payload);
-  } else {
-    renderCenterResult(container, payload);
-  }
+  // All devices show the full answer sheet
+  renderFullSheet(container, payload);
 }
 
 function renderLeftResult(container, p) {
