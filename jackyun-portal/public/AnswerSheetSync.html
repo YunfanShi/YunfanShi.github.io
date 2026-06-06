@@ -1122,24 +1122,20 @@ let _dismissCallbacks = [];
 function dismissGacha(remote) {
   if (!gachaActive && !_postGachaAnimActive) return;
   
-  // If this is a remote dismiss broadcast, force close everything
-  if (remote) {
-    // Force stop all animations
-    _postGachaAnimRunning = false;
-    _postGachaAnimActive = false;
-    _postGachaAnimId = null;
-    if (_postGachaTimer) clearTimeout(_postGachaTimer);
-    _postGachaTimer = null;
-    if (_postGachaCountdown) clearInterval(_postGachaCountdown);
-    _postGachaCountdown = null;
-    if (_postGachaCanvas) cancelAnimationFrame(_postGachaCanvas);
-    _postGachaCanvas = null;
-    if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
-  }
+  // Force stop all animations (both remote and local dismiss)
+  _postGachaAnimRunning = false;
+  _postGachaAnimActive = false;
+  _postGachaAnimId = null;
+  if (_postGachaTimer) clearTimeout(_postGachaTimer);
+  _postGachaTimer = null;
+  if (_postGachaCountdown) clearInterval(_postGachaCountdown);
+  _postGachaCountdown = null;
+  if (_postGachaCanvas) cancelAnimationFrame(_postGachaCanvas);
+  _postGachaCanvas = null;
+  if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
   
   gachaActive = false;
   if (DEVICE_CONFIG.isInput) stopMusic();
-  if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
   _dismissCallbacks.forEach(fn => fn()); _dismissCallbacks = [];
   
   // Clean up dynamically added elements (wrong display, pct display)
@@ -1209,6 +1205,13 @@ function schedulePostGachaAnimation(tier) {
   if (_postGachaTimer) clearTimeout(_postGachaTimer);
   if (_postGachaAnimActive) return;
   
+  // Only schedule if gacha overlay is still visible (not already dismissed)
+  const overlay = document.getElementById('gachaOverlay');
+  if (!overlay || !overlay.classList.contains('active')) {
+    finishPostGachaAnim();
+    return;
+  }
+  
   // Wait 2.5 seconds after dismiss, then trigger
   _postGachaTimer = setTimeout(() => {
     triggerPostGachaAnimation(tier);
@@ -1248,6 +1251,14 @@ function startPostGachaCountdown(targetTime, animId, tier) {
   const overlay = document.getElementById('gachaOverlay');
   const stage = document.getElementById('gachaStage');
   
+  // Null guard: if overlay or stage is missing, abort
+  if (!overlay || !stage) {
+    _postGachaAnimActive = false;
+    _postGachaAnimRunning = false;
+    gachaActive = false;
+    return;
+  }
+  
   // Reset gacha overlay for post animation
   overlay.classList.add('active');
   overlay.style.opacity = '1';
@@ -1255,13 +1266,14 @@ function startPostGachaCountdown(targetTime, animId, tier) {
   stage.style.display = 'flex';
   stage.style.opacity = '0';
   
-  // Hide all standard gacha elements
-  document.getElementById('gachaRing').style.display = 'none';
-  document.getElementById('gachaRarity').style.display = 'none';
-  document.getElementById('gachaScore').style.display = 'none';
-  document.getElementById('gachaScoreSub').style.display = 'none';
-  document.getElementById('gachaGrade').style.display = 'none';
-  document.getElementById('gachaDismiss').style.display = 'none';
+  // Null guard for gacha sub-elements
+  const subIds = ['gachaRing','gachaRarity','gachaScore','gachaScoreSub','gachaGrade','gachaDismiss'];
+  subIds.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  
+  // Hide all standard gacha elements (already handled above via loop, keep for safety)
   
   gachaActive = true; // Block dismiss interaction
   _postGachaAnimRunning = true;
@@ -2646,7 +2658,7 @@ function renderSideResult(container, p) {
 }
 
 function renderFullSheet(container, p) {
-  const { answers, keyAnswers, numQ, opts, fullPaperCode, subjectName, duration, session, year, correct, wrong, skipped, blank, wrongNums } = p;
+  const { answers, keyAnswers, numQ, opts, fullPaperCode, subjectName, duration, session, year, correct, wrong = 0, skipped = 0, blank = 0, wrongNums = [] } = p;
   const keyAnswered = keyAnswers ? keyAnswers.filter(a => a && a !== '/').length : 0;
   const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
   const errorBookTitle = `${fullPaperCode}(${(wrongNums || []).join(',')})`;
