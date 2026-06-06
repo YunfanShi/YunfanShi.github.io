@@ -284,6 +284,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       </div>
 
       <div class="device-id-disp" id="deviceIdDisp">设备ID: 生成中...</div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="music-upload-btn" style="flex:1;background:var(--green);" onclick="testConnection()">🔌 连接测试</button>
+        <button class="music-upload-btn" style="flex:1;background:#7c3aed;" onclick="toggleDebugPanel()">📋 调试面板</button>
+      </div>
+      <div id="testResult" style="margin-top:8px;font-size:11px;display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ══ DEBUG PANEL ══ -->
+  <div id="debugPanel" style="display:none;margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header" style="background:#374151;">🐛 同步调试日志</div>
+      <div class="card-body" style="padding:12px;max-height:200px;overflow-y:auto;font-family:'Roboto Mono',monospace;font-size:11px;line-height:1.8;background:#0f172a;color:#e2e8f0;" id="debugLogs"></div>
     </div>
   </div>
 
@@ -558,6 +571,100 @@ window.addEventListener('storage', (e) => {
   }
 });
 
+// ─── Debug helpers ───
+let _debugOpen = false;
+function toggleDebugPanel() {
+  _debugOpen = !_debugOpen;
+  document.getElementById('debugPanel').style.display = _debugOpen ? 'block' : 'none';
+}
+function debugLog(msg) {
+  const el = document.getElementById('debugLogs');
+  if (!el) return;
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML += `<div>[${time}] ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── Connection Test ───
+async function testConnection() {
+  const btnEl = document.querySelector('button[onclick*="testConnection"]');
+  const origText = btnEl.textContent;
+  btnEl.textContent = '⏳ 测试中...';
+  btnEl.disabled = true;
+
+  const resultEl = document.getElementById('testResult');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '';
+
+  const steps = [];
+
+  // Step 1: Time sync test
+  try {
+    const offset = await SuningSync.fetch();
+    steps.push(`✅ Suning时间同步: offset=${offset.toFixed(1)}ms`);
+  } catch (e) {
+    steps.push(`❌ Suning时间同步失败: ${e}`);
+  }
+
+  // Step 2: API write test
+  try {
+    const testPayload = { _test: true, ts: Date.now() };
+    const res = await fetch('/api/answer-sheet-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetTime: Date.now() + 10000, payload: testPayload, senderDeviceId: DEVICE_CONFIG.deviceId }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      steps.push(`✅ API写入成功: session=${data.sessionId}, target=${data.targetTime}`);
+    } else {
+      steps.push(`❌ API写入失败: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    steps.push(`❌ API写入异常: ${e.message}`);
+  }
+
+  // Step 3: API read test
+  try {
+    const since = Date.now() - 30000;
+    const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
+    const data = await res.json();
+    if (data.broadcasts) {
+      steps.push(`✅ API读取成功: ${data.broadcasts.length}条广播`);
+      if (data.broadcasts.length > 0) {
+        steps.push(`  最新: targetTime=${data.broadcasts[0].targetTime} 来自=${data.broadcasts[0].senderDeviceId}`);
+      }
+    } else {
+      steps.push(`❌ API读取异常: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    steps.push(`❌ API读取异常: ${e.message}`);
+  }
+
+  // Step 4: BroadcastChannel test (same browser tabs)
+  try {
+    if (_bc) {
+      _bc.postMessage({ _test: true, ts: Date.now() });
+      steps.push(`✅ BroadcastChannel可用`);
+    } else {
+      steps.push(`⚠️ BroadcastChannel不可用 (单标签页)`);
+    }
+  } catch (e) {
+    steps.push(`❌ BroadcastChannel异常: ${e.message}`);
+  }
+
+  resultEl.innerHTML = steps.join('<br>');
+  const success = steps.filter(s => s.includes('✅')).length;
+  resultEl.style.color = success >= 2 ? '#137333' : '#c5221f';
+
+  btnEl.textContent = origText;
+  btnEl.disabled = false;
+
+  // Also log to debug panel
+  debugLog('🔌 连接测试结果:');
+  steps.forEach(s => debugLog('  ' + s));
+}
+
 // ─── HTTP Polling (works across devices on different browsers) ───
 let _pollTimer = null;
 
@@ -565,11 +672,12 @@ function startPolling(sessionId) {
   stopPolling();
   if (!sessionId) return;
   updateSyncStatus('connecting', '轮询中...');
+  debugLog(`📡 开始轮询 session=${sessionId}`);
 
   _pollTimer = setInterval(async () => {
     try {
       const since = Date.now() - 30000; // look back 30s
-      const res = await fetch(`/api/answer-sheet-sync?sessionId=${sessionId}&since=${since}`);
+      const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
       const data = await res.json();
       if (data.broadcasts && data.broadcasts.length > 0) {
         for (const b of data.broadcasts) {
