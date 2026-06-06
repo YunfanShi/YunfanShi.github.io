@@ -1330,28 +1330,33 @@ function finishPostGachaAnim() {
   _postGachaAnimActive = false;
   gachaActive = false;
   
-  // Clean up overlay
+  // Clean up overlay (null-safe)
   const overlay = document.getElementById('gachaOverlay');
   const stage = document.getElementById('gachaStage');
-  stage.innerHTML = '';
+  if (stage) stage.innerHTML = '';
   
-  // Reset gacha elements
-  document.getElementById('gachaRing').style.display = '';
-  document.getElementById('gachaRarity').style.display = '';
-  document.getElementById('gachaScore').style.display = '';
-  document.getElementById('gachaScoreSub').style.display = '';
-  document.getElementById('gachaGrade').style.display = '';
-  document.getElementById('gachaDismiss').style.display = '';
+  // Reset gacha elements (null-safe)
+  ['gachaRing','gachaRarity','gachaScore','gachaScoreSub','gachaGrade','gachaDismiss'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
   
-  overlay.style.transition = 'opacity 0.5s ease-out';
-  overlay.style.opacity = '0';
+  if (overlay) {
+    overlay.style.transition = 'opacity 0.5s ease-out';
+    overlay.style.opacity = '0';
+  }
   setTimeout(() => {
-    overlay.classList.remove('active');
-    overlay.style.opacity = '';
-    overlay.style.transition = '';
-    stage.style.opacity = '0';
-    const ctx = document.getElementById('gachaCanvas').getContext('2d');
-    ctx.clearRect(0, 0, 9999, 9999);
+    if (overlay) {
+      overlay.classList.remove('active');
+      overlay.style.opacity = '';
+      overlay.style.transition = '';
+    }
+    if (stage) stage.style.opacity = '0';
+    const canvas = document.getElementById('gachaCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, 9999, 9999);
+    }
   }, 500);
 }
 
@@ -1983,11 +1988,13 @@ function triggerGacha(score, total, position, musicTier) {
   const [tr, tg, tb] = info.col;
 
   const ov = document.getElementById('gachaOverlay');
+  if (!ov) { gachaActive = false; return; }
   ov.classList.add('active');
   ov.style.opacity = '1';
   ov.style.background = '#000';
 
   const stage = document.getElementById('gachaStage');
+  if (!stage) { gachaActive = false; return; }
   stage.style.opacity = '0';
   stage.style.display = 'flex';
 
