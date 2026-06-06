@@ -2658,7 +2658,7 @@ function renderSideResult(container, p) {
 }
 
 function renderFullSheet(container, p) {
-  const { answers, keyAnswers, numQ, opts, fullPaperCode, subjectName, duration, session, year, correct, wrong = 0, skipped = 0, blank = 0, wrongNums = [] } = p;
+  const { answers = [], keyAnswers = [], numQ = 0, opts = ['A','B','C','D'], fullPaperCode = '', subjectName = '', duration = '', session = '', year = '', correct = 0, wrong = 0, skipped = 0, blank = 0, wrongNums = [] } = p;
   const keyAnswered = keyAnswers ? keyAnswers.filter(a => a && a !== '/').length : 0;
   const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
   const errorBookTitle = `${fullPaperCode}(${(wrongNums || []).join(',')})`;
