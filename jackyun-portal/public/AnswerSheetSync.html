@@ -522,98 +522,18 @@ const SuningSync = {
 };
 
 // ═══════════════════════════════════════════════
-// 3. SUPABASE REALTIME SYNC
+// 3. SYNCHRONISATION ENGINE (API-based, no Supabase)
 // ═══════════════════════════════════════════════
 
-let _supabaseClient = null;
-let _supabaseChannel = null;
-let _syncListeners = [];
-
-async function getSupabaseClient() {
-  if (_supabaseClient) return _supabaseClient;
-  // Try to load supabase from CDN
-  if (typeof supabase === 'undefined') {
-    await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
-  }
-  if (typeof supabase === 'undefined') return null;
-  try {
-    // Try to fetch supabase config from our API
-    const res = await fetch('/api/health');
-    if (!res.ok) return null;
-    const supabaseUrl = window.__SUPABASE_URL__ || (
-      document.querySelector('meta[name="supabase-url"]')?.content
-    );
-    const supabaseKey = window.__SUPABASE_ANON_KEY__ || (
-      document.querySelector('meta[name="supabase-anon-key"]')?.content
-    );
-    if (!supabaseUrl || !supabaseKey) return null;
-    _supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-    return _supabaseClient;
-  } catch (e) {
-    console.warn('[Sync] Supabase init failed:', e);
-    return null;
-  }
+// All devices share a session based on time window.
+// Every 10 seconds, the session rotates.
+function getTimeBasedSession() {
+  const now = SuningSync.getPreciseTime();
+  // Round to nearest 10 second window
+  return 'sync_' + Math.floor(now / 10000).toString(36);
 }
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src; s.onload = resolve; s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-async function initSupabaseSync() {
-  const client = await getSupabaseClient();
-  if (!client) {
-    console.warn('[Sync] Supabase unavailable, using fallback');
-    return false;
-  }
-
-  try {
-    // Listen for broadcasts
-    _supabaseChannel = client
-      .channel('answer-sheet-sync')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'answer_sheet_broadcasts',
-      }, (payload) => {
-        const row = payload.new;
-        if (!row || !row.payload) return;
-        // Ignore our own broadcasts
-        if (row.sender_device_id === DEVICE_CONFIG.deviceId) return;
-        handleIncomingBroadcast({
-          targetTime: row.target_time,
-          payload: row.payload,
-          senderDeviceId: row.sender_device_id,
-        });
-      })
-      .subscribe((status) => {
-        console.log('[Sync] Channel status:', status);
-        if (status === 'SUBSCRIBED') {
-          SYNC_CONNECTED = true;
-          updateSyncStatus('online', '已连接');
-          _syncListeners.forEach(fn => fn(true));
-        } else if (status === 'CHANNEL_ERROR') {
-          SYNC_CONNECTED = false;
-          updateSyncStatus('off', '连接断开');
-          _syncListeners.forEach(fn => fn(false));
-        }
-      });
-
-    return true;
-  } catch (e) {
-    console.warn('[Sync] Channel error:', e);
-    return false;
-  }
-}
-
-// ═══════════════════════════════════════════════
-// 4. LOCALSTORAGE & BROADCASTCHANNEL FALLBACK
-// ═══════════════════════════════════════════════
-
+// BroadcastChannel (same browser, different tabs)
 const _bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('answer-sheet-sync') : null;
 
 if (_bc) {
@@ -625,48 +545,116 @@ if (_bc) {
   };
 }
 
-// localStorage storage event
+// localStorage event (same browser, different tabs)
 window.addEventListener('storage', (e) => {
   if (e.key === 'sync_broadcast') {
     try {
       const data = JSON.parse(e.newValue);
       if (!data || !data.targetTime || !data.payload) return;
       if (data.senderDeviceId === DEVICE_CONFIG.deviceId) return;
-      // Ignore if too old
       if (Date.now() - data.timestamp > 10000) return;
       handleIncomingBroadcast(data);
     } catch (e) {}
   }
 });
 
-// Polling fallback
+// ─── HTTP Polling (works across devices on different browsers) ───
 let _pollTimer = null;
+
 function startPolling(sessionId) {
   stopPolling();
+  if (!sessionId) return;
+  updateSyncStatus('connecting', '轮询中...');
+
   _pollTimer = setInterval(async () => {
     try {
-      const res = await fetch(`/api/answer-sheet-sync?sessionId=${sessionId}&since=${Date.now() - 5000}`);
+      const since = Date.now() - 30000; // look back 30s
+      const res = await fetch(`/api/answer-sheet-sync?sessionId=${sessionId}&since=${since}`);
       const data = await res.json();
       if (data.broadcasts && data.broadcasts.length > 0) {
-        const latest = data.broadcasts[0];
-        if (latest.senderDeviceId !== DEVICE_CONFIG.deviceId) {
-          handleIncomingBroadcast({
-            targetTime: latest.targetTime,
-            payload: latest.payload,
-            senderDeviceId: latest.senderDeviceId,
-          });
+        for (const b of data.broadcasts) {
+          if (b.senderDeviceId !== DEVICE_CONFIG.deviceId) {
+            handleIncomingBroadcast({
+              targetTime: b.targetTime,
+              payload: b.payload,
+              senderDeviceId: b.senderDeviceId,
+              sessionId: b.sessionId,
+            });
+            // Once we get a valid broadcast, we can slow down or stop
+            // But keep polling for now in case of multiple broadcasts
+          }
         }
+        SYNC_CONNECTED = true;
+        updateSyncStatus('online', `${data.broadcasts.length}条广播`);
+      } else {
+        updateSyncStatus('connecting', '等待广播...');
       }
-    } catch (e) {}
-  }, 2000);
+    } catch (e) {
+      // Silently retry on network errors
+    }
+  }, 1500); // Poll every 1.5s
 }
 
 function stopPolling() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
 
+// ─── Broadcast: POST to API + local fallbacks ───
+async function broadcastEvent(targetTime, payload) {
+  // Generate a deterministic session ID if not set
+  if (!SESSION_ID) {
+    SESSION_ID = getTimeBasedSession();
+  }
+
+  const broadcastData = {
+    targetTime,
+    payload,
+    senderDeviceId: DEVICE_CONFIG.deviceId,
+    sessionId: SESSION_ID,
+    timestamp: Date.now(),
+  };
+
+  // Method 1 (Primary): POST to our API (stored in memory on server)
+  try {
+    const res = await fetch('/api/answer-sheet-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: SESSION_ID,
+        senderDeviceId: DEVICE_CONFIG.deviceId,
+        targetTime,
+        payload,
+      }),
+    });
+    const result = await res.json();
+    if (result.ok) {
+      console.log('[Sync] Broadcast via API:', result);
+    } else {
+      throw new Error(result.error || 'API error');
+    }
+  } catch (e) {
+    console.warn('[Sync] API broadcast failed:', e);
+  }
+
+  // Method 2: BroadcastChannel (same browser)
+  if (_bc) {
+    try { _bc.postMessage(broadcastData); } catch (e) {}
+  }
+
+  // Method 3: localStorage event (same browser)
+  try {
+    localStorage.setItem('sync_broadcast', JSON.stringify(broadcastData));
+    setTimeout(() => {
+      try { localStorage.removeItem('sync_broadcast'); } catch (e) {}
+    }, 1000);
+  } catch (e) {}
+
+  // Method 4: Start polling so all devices can get the latest broadcast
+  startPolling(SESSION_ID);
+}
+
 // ═══════════════════════════════════════════════
-// 5. BROADCAST HANDLER
+// 4. BROADCAST HANDLER
 // ═══════════════════════════════════════════════
 
 async function handleIncomingBroadcast(data) {
@@ -680,58 +668,8 @@ async function handleIncomingBroadcast(data) {
   startCountdown(data.targetTime, data.payload);
 }
 
-async function broadcastEvent(targetTime, payload) {
-  const sessionId = SESSION_ID || crypto.randomUUID();
-  if (!SESSION_ID) SESSION_ID = sessionId;
-
-  const broadcastData = {
-    targetTime,
-    payload,
-    senderDeviceId: DEVICE_CONFIG.deviceId,
-    timestamp: Date.now(),
-  };
-
-  // Method 1: Supabase Realtime
-  try {
-    const res = await fetch('/api/answer-sheet-sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId,
-        senderDeviceId: DEVICE_CONFIG.deviceId,
-        targetTime,
-        payload,
-      }),
-    });
-    const result = await res.json();
-    if (!result.ok) throw new Error('API error');
-    console.log('[Sync] Broadcast via API:', result);
-  } catch (e) {
-    console.warn('[Sync] API broadcast failed:', e);
-  }
-
-  // Method 2: BroadcastChannel (same browser, different tabs)
-  if (_bc) {
-    try {
-      _bc.postMessage(broadcastData);
-    } catch (e) {}
-  }
-
-  // Method 3: localStorage event (same browser, different tabs)
-  try {
-    localStorage.setItem('sync_broadcast', JSON.stringify(broadcastData));
-    // Clean up
-    setTimeout(() => {
-      try { localStorage.removeItem('sync_broadcast'); } catch (e) {}
-    }, 1000);
-  } catch (e) {}
-
-  // Method 4: Start polling for others
-  startPolling(sessionId);
-}
-
 // ═══════════════════════════════════════════════
-// 6. UI HELPERS
+// 5. UI HELPERS
 // ═══════════════════════════════════════════════
 
 function updateSyncStatus(state, text) {
@@ -807,18 +745,10 @@ async function initFullSync() {
   // Start Suning sync
   await SuningSync.forceSync();
 
-  // Generate session ID if needed
-  if (!SESSION_ID) {
-    SESSION_ID = crypto.randomUUID();
-  }
+  // Generate time-based session ID so all devices share the same session
+  SESSION_ID = getTimeBasedSession();
 
-  // Try Supabase
-  const supOk = await initSupabaseSync();
-  if (supOk) {
-    console.log('[Sync] Supabase connected');
-  } else {
-    console.log('[Sync] Using fallback sync methods');
-  }
+  // Start polling - this is the primary sync mechanism
   startPolling(SESSION_ID);
 }
 
@@ -1665,8 +1595,12 @@ async function init() {
   // Sync time
   await SuningSync.forceSync();
 
-  // Connect to sync channel
-  initSupabaseSync();
+  // Auto-start polling with time-based session for non-input devices too
+  // (they need to be able to receive broadcasts)
+  if (DEVICE_CONFIG.position && !DEVICE_CONFIG.isInput) {
+    SESSION_ID = getTimeBasedSession();
+    startPolling(SESSION_ID);
+  }
 }
 
 init();
