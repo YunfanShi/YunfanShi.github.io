@@ -2261,6 +2261,9 @@ function revealResult(score, total, tier) {
   const grade = document.getElementById('gachaGrade');
   const dismiss = document.getElementById('gachaDismiss');
   
+  // Null guard: if stage doesn't exist, abort to prevent cascade of null errors
+  if (!stage) return;
+  
   const position = DEVICE_CONFIG.position || 'center';
   const pct = Math.round(score / total * 100);
   
@@ -2273,11 +2276,11 @@ function revealResult(score, total, tier) {
   // POSITION-BASED GACHA OVERLAY
   if (position === 'left') {
     // LEFT SCREEN: Show wrong number blocks instead of ring/score
-    ring.style.display = 'none';
-    rarity.style.display = 'none';
-    scoreEl.style.display = 'none';
-    scoreSub.style.display = 'none';
-    grade.style.display = 'none';
+    if (ring) ring.style.display = 'none';
+    if (rarity) rarity.style.display = 'none';
+    if (scoreEl) scoreEl.style.display = 'none';
+    if (scoreSub) scoreSub.style.display = 'none';
+    if (grade) grade.style.display = 'none';
     
     // Create wrong number display
     const wrongContainer = document.createElement('div');
@@ -2324,15 +2327,15 @@ function revealResult(score, total, tier) {
     `;
     wrongLabel.textContent = `${wrongNums.length} ERRORS`;
     stage.appendChild(wrongLabel);
-    setTimeout(() => { wrongLabel.style.opacity = '1'; }, 600);
+    setTimeout(() => { if (wrongLabel) wrongLabel.style.opacity = '1'; }, 600);
 
   } else if (position === 'right') {
     // RIGHT SCREEN: Show giant percentage instead of ring/score
-    ring.style.display = 'none';
-    rarity.style.display = 'none';
-    scoreEl.style.display = 'none';
-    scoreSub.style.display = 'none';
-    grade.style.display = 'none';
+    if (ring) ring.style.display = 'none';
+    if (rarity) rarity.style.display = 'none';
+    if (scoreEl) scoreEl.style.display = 'none';
+    if (scoreSub) scoreSub.style.display = 'none';
+    if (grade) grade.style.display = 'none';
     
     // Create percentage display
     const pctDisplay = document.createElement('div');
@@ -2347,8 +2350,10 @@ function revealResult(score, total, tier) {
     pctDisplay.textContent = `${pct}%`;
     stage.appendChild(pctDisplay);
     setTimeout(() => {
-      pctDisplay.style.opacity = '1';
-      pctDisplay.style.transform = 'scale(1)';
+      if (pctDisplay) {
+        pctDisplay.style.opacity = '1';
+        pctDisplay.style.transform = 'scale(1)';
+      }
     }, 300);
     
     // Add subtitle
@@ -2360,48 +2365,62 @@ function revealResult(score, total, tier) {
     `;
     pctSub.textContent = `${score}/${total} CORRECT`;
     stage.appendChild(pctSub);
-    setTimeout(() => { pctSub.style.opacity = '1'; }, 700);
+    setTimeout(() => { if (pctSub) pctSub.style.opacity = '1'; }, 700);
     
   } else {
     // CENTER SCREEN: Original ring + score + grade (keep as-is)
     setTimeout(() => {
-      ring.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s';
-      ring.style.opacity = '1';
-      ring.style.transform = 'scale(1)';
+      if (ring) {
+        ring.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s';
+        ring.style.opacity = '1';
+        ring.style.transform = 'scale(1)';
+      }
     }, 50);
 
     setTimeout(() => {
-      rarity.style.transition = 'opacity 0.4s ease-out,transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-      rarity.style.opacity = '1';
-      rarity.style.transform = 'translateY(0)';
+      if (rarity) {
+        rarity.style.transition = 'opacity 0.4s ease-out,transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+        rarity.style.opacity = '1';
+        rarity.style.transform = 'translateY(0)';
+      }
     }, 400);
 
     setTimeout(() => {
-      scoreEl.style.transition = 'none';
-      scoreEl.style.opacity = '0';
-      scoreEl.style.transform = 'scale(2)';
-      setTimeout(() => {
-        scoreEl.style.transition = 'opacity 0.25s ease-out,transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
-        scoreEl.style.opacity = '1';
-        scoreEl.style.transform = 'scale(1)';
-      }, 50);
+      if (scoreEl) {
+        scoreEl.style.transition = 'none';
+        scoreEl.style.opacity = '0';
+        scoreEl.style.transform = 'scale(2)';
+        setTimeout(() => {
+          if (scoreEl) {
+            scoreEl.style.transition = 'opacity 0.25s ease-out,transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
+            scoreEl.style.opacity = '1';
+            scoreEl.style.transform = 'scale(1)';
+          }
+        }, 50);
+      }
     }, 700);
 
     setTimeout(() => {
-      scoreSub.style.transition = 'opacity 0.5s ease-out';
-      scoreSub.style.opacity = '1';
+      if (scoreSub) {
+        scoreSub.style.transition = 'opacity 0.5s ease-out';
+        scoreSub.style.opacity = '1';
+      }
     }, 1000);
 
     setTimeout(() => {
-      grade.style.transition = 'opacity 0.5s ease-out,transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
-      grade.style.opacity = '1';
-      grade.style.transform = 'translateY(0)';
+      if (grade) {
+        grade.style.transition = 'opacity 0.5s ease-out,transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+        grade.style.opacity = '1';
+        grade.style.transform = 'translateY(0)';
+      }
     }, 1200);
   }
 
   setTimeout(() => {
-    dismiss.style.transition = 'opacity 0.5s';
-    dismiss.style.opacity = '1';
+    if (dismiss) {
+      dismiss.style.transition = 'opacity 0.5s';
+      dismiss.style.opacity = '1';
+    }
   }, 1800);
 }
 
