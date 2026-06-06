@@ -362,31 +362,50 @@ window.addEventListener('storage', (e) => {
     }
 });
 
-// HTTP Polling - lowered to 800ms for lower latency
+// HTTP Polling - aligned to 2-second clock boundaries, same as AnswerSheetSync
 function startPolling() {
     if (_pollStarted) return;
     _pollStarted = true;
-    const sessionId = getTimeBasedSession();
     
-    _pollTimer = setInterval(async () => {
-        try {
-            const since = Date.now() - 60000;
-            const res = await fetch(`/api/answer-sheet-sync?since=${since}`);
-            const data = await res.json();
-            if (data.broadcasts && data.broadcasts.length > 0) {
-                for (const b of data.broadcasts) {
-                    if (b.senderDeviceId === DEVICE_ID) continue;
-                    if (b.payload && b.payload._type === 'music') {
-                        handleIncomingBroadcast({
-                            targetTime: b.targetTime,
-                            payload: b.payload,
-                            senderDeviceId: b.senderDeviceId
-                        });
+    let _pollCycleCount = 0;
+    const POLL_INTERVAL = 2000;
+    
+    function scheduleNext() {
+        const now = Date.now();
+        const nextBoundary = Math.ceil(now / POLL_INTERVAL) * POLL_INTERVAL;
+        const delay = Math.max(50, nextBoundary - now);
+        
+        _pollTimer = setTimeout(async () => {
+            _pollCycleCount++;
+            
+            // Periodic time re-sync every 30s
+            if (_pollCycleCount % 15 === 0) {
+                await SuningSync.forceSync();
+            }
+            
+            try {
+                const since = Date.now() - 8000;
+                const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_ID}&since=${since}`);
+                const data = await res.json();
+                if (data.broadcasts && data.broadcasts.length > 0) {
+                    for (const b of data.broadcasts) {
+                        if (b.senderDeviceId === DEVICE_ID) continue;
+                        if (b.payload && b.payload._type === 'music') {
+                            handleIncomingBroadcast({
+                                targetTime: b.targetTime,
+                                payload: b.payload,
+                                senderDeviceId: b.senderDeviceId
+                            });
+                        }
                     }
                 }
-            }
-        } catch(e) {}
-    }, 800);
+            } catch(e) {}
+            
+            scheduleNext();
+        }, delay);
+    }
+    
+    scheduleNext();
 }
 
 function stopPolling() {
