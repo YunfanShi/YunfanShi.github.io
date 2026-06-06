@@ -1337,43 +1337,144 @@ function revealResult(score, total, tier) {
   const scoreSub = document.getElementById('gachaScoreSub');
   const grade = document.getElementById('gachaGrade');
   const dismiss = document.getElementById('gachaDismiss');
+  
+  const position = DEVICE_CONFIG.position || 'center';
+  const pct = Math.round(score / total * 100);
+  
+  // Get wrong numbers from the payload stored in _pendingPayload
+  const wrongNums = window._pendingPayload && window._pendingPayload.wrongNums ? window._pendingPayload.wrongNums : [];
 
   stage.style.transition = 'opacity 0.4s ease-out';
   stage.style.opacity = '1';
+  
+  // POSITION-BASED GACHA OVERLAY
+  if (position === 'left') {
+    // LEFT SCREEN: Show wrong number blocks instead of ring/score
+    ring.style.display = 'none';
+    rarity.style.display = 'none';
+    scoreEl.style.display = 'none';
+    scoreSub.style.display = 'none';
+    grade.style.display = 'none';
+    
+    // Create wrong number display
+    const wrongContainer = document.createElement('div');
+    wrongContainer.id = 'gachaWrongDisplay';
+    wrongContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;padding:20px;';
+    
+    if (wrongNums.length > 0) {
+      wrongNums.forEach(n => {
+        const block = document.createElement('div');
+        block.style.cssText = `
+          display:flex;align-items:center;justify-content:center;
+          width:70px;height:70px;background:rgba(239,68,68,0.2);
+          border:3px solid #ef4444;border-radius:16px;
+          font-size:32px;font-weight:900;font-family:'Orbitron',monospace;
+          color:#ef4444;text-shadow:0 0 20px rgba(239,68,68,0.6);
+          opacity:0;transform:scale(0.5);
+          transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        `;
+        block.textContent = n;
+        wrongContainer.appendChild(block);
+        // Staggered animation
+        setTimeout(() => {
+          block.style.opacity = '1';
+          block.style.transform = 'scale(1)';
+        }, 200 + n * 50);
+      });
+    } else {
+      // All correct celebration
+      const allCorrect = document.createElement('div');
+      allCorrect.style.cssText = 'font-size:60px;opacity:0;transition:opacity 0.5s;';
+      allCorrect.textContent = '🎉';
+      wrongContainer.appendChild(allCorrect);
+      setTimeout(() => { allCorrect.style.opacity = '1'; }, 400);
+    }
+    
+    stage.appendChild(wrongContainer);
+    
+    // Add wrong count label
+    const wrongLabel = document.createElement('div');
+    wrongLabel.style.cssText = `
+      font-family:'Orbitron',monospace;font-size:18px;
+      color:rgba(255,255,255,0.5);letter-spacing:3px;
+      margin-top:10px;opacity:0;transition:opacity 0.5s;
+    `;
+    wrongLabel.textContent = `${wrongNums.length} ERRORS`;
+    stage.appendChild(wrongLabel);
+    setTimeout(() => { wrongLabel.style.opacity = '1'; }, 600);
 
-  setTimeout(() => {
-    ring.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s';
-    ring.style.opacity = '1';
-    ring.style.transform = 'scale(1)';
-  }, 50);
-
-  setTimeout(() => {
-    rarity.style.transition = 'opacity 0.4s ease-out,transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
-    rarity.style.opacity = '1';
-    rarity.style.transform = 'translateY(0)';
-  }, 400);
-
-  setTimeout(() => {
-    scoreEl.style.transition = 'none';
-    scoreEl.style.opacity = '0';
-    scoreEl.style.transform = 'scale(2)';
+  } else if (position === 'right') {
+    // RIGHT SCREEN: Show giant percentage instead of ring/score
+    ring.style.display = 'none';
+    rarity.style.display = 'none';
+    scoreEl.style.display = 'none';
+    scoreSub.style.display = 'none';
+    grade.style.display = 'none';
+    
+    // Create percentage display
+    const pctDisplay = document.createElement('div');
+    pctDisplay.id = 'gachaPctDisplay';
+    pctDisplay.style.cssText = `
+      font-family:'Orbitron',monospace;font-weight:900;
+      font-size:120px;line-height:1;letter-spacing:-4px;
+      color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'};
+      text-shadow:0 0 60px ${tier === 'gold' ? 'rgba(251,191,36,0.5)' : tier === 'blue' ? 'rgba(96,165,250,0.5)' : 'rgba(248,113,113,0.5)'};
+      opacity:0;transform:scale(1.4);transition:all 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    `;
+    pctDisplay.textContent = `${pct}%`;
+    stage.appendChild(pctDisplay);
     setTimeout(() => {
-      scoreEl.style.transition = 'opacity 0.25s ease-out,transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
-      scoreEl.style.opacity = '1';
-      scoreEl.style.transform = 'scale(1)';
+      pctDisplay.style.opacity = '1';
+      pctDisplay.style.transform = 'scale(1)';
+    }, 300);
+    
+    // Add subtitle
+    const pctSub = document.createElement('div');
+    pctSub.style.cssText = `
+      font-family:'Orbitron',monospace;font-size:16px;
+      color:rgba(255,255,255,0.6);letter-spacing:6px;text-transform:uppercase;
+      margin-top:12px;opacity:0;transition:opacity 0.5s;
+    `;
+    pctSub.textContent = `${score}/${total} CORRECT`;
+    stage.appendChild(pctSub);
+    setTimeout(() => { pctSub.style.opacity = '1'; }, 700);
+    
+  } else {
+    // CENTER SCREEN: Original ring + score + grade (keep as-is)
+    setTimeout(() => {
+      ring.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s';
+      ring.style.opacity = '1';
+      ring.style.transform = 'scale(1)';
     }, 50);
-  }, 700);
 
-  setTimeout(() => {
-    scoreSub.style.transition = 'opacity 0.5s ease-out';
-    scoreSub.style.opacity = '1';
-  }, 1000);
+    setTimeout(() => {
+      rarity.style.transition = 'opacity 0.4s ease-out,transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+      rarity.style.opacity = '1';
+      rarity.style.transform = 'translateY(0)';
+    }, 400);
 
-  setTimeout(() => {
-    grade.style.transition = 'opacity 0.5s ease-out,transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
-    grade.style.opacity = '1';
-    grade.style.transform = 'translateY(0)';
-  }, 1200);
+    setTimeout(() => {
+      scoreEl.style.transition = 'none';
+      scoreEl.style.opacity = '0';
+      scoreEl.style.transform = 'scale(2)';
+      setTimeout(() => {
+        scoreEl.style.transition = 'opacity 0.25s ease-out,transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
+        scoreEl.style.opacity = '1';
+        scoreEl.style.transform = 'scale(1)';
+      }, 50);
+    }, 700);
+
+    setTimeout(() => {
+      scoreSub.style.transition = 'opacity 0.5s ease-out';
+      scoreSub.style.opacity = '1';
+    }, 1000);
+
+    setTimeout(() => {
+      grade.style.transition = 'opacity 0.5s ease-out,transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+      grade.style.opacity = '1';
+      grade.style.transform = 'translateY(0)';
+    }, 1200);
+  }
 
   setTimeout(() => {
     dismiss.style.transition = 'opacity 0.5s';
