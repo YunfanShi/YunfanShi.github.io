@@ -345,6 +345,7 @@
                     { date: "2025-12-17", content: "将电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
                 ],
                 logsRegular: [
+                    { date: "2026-06-06", content: "MusicPlayerSync 同步修复：Engine.reset() 添加 stop 广播，副设备收到立即停止播放不再诈尸；followerLoop 添加过期丢弃逻辑（>2s 过期自动放弃）；setRole 切换时清理旧 poll timer 和状态；轮询间隔降至 800ms 降低延迟；handleIncomingBroadcast 添加 stale broadcast 丢弃（>5s）；AnswerSheetSync _type 过滤确认无串频风险" },
                     { date: "2026-06-06", content: "日志查看器增强：新增复制日志按钮、自动滚动默认关闭、日志同步输出到浏览器控制台" },
                     { date: "2026-06-04", content: "隐藏 Legacy 页面 AI 配置 UI：Relax 模型选择器、Goal API 配置、MockPortal 设置面板" },
                     { date: "2026-06-04", content: "删除离线版应用，统一由 Portal 在线版本管理" },

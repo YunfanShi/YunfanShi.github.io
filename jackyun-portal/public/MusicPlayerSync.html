@@ -360,7 +360,7 @@ window.addEventListener('storage', (e) => {
     }
 });
 
-// HTTP Polling
+// HTTP Polling - lowered to 800ms for lower latency
 function startPolling() {
     if (_pollStarted) return;
     _pollStarted = true;
@@ -384,7 +384,7 @@ function startPolling() {
                 }
             }
         } catch(e) {}
-    }, 2000);
+    }, 800);
 }
 
 function stopPolling() {
@@ -415,11 +415,20 @@ async function broadcastEvent(targetTime, payload) {
 }
 
 async function handleIncomingBroadcast(data) {
+    // Time-windowed dedup: if we already processed a broadcast within the last 5s with same targetTime, skip
     if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
-    RECEIVED_BROADCAST = data;
 
     const p = data.payload;
     if (!p || p._type !== 'music') return;
+
+    // Discard stale broadcasts (>10s old)
+    const now = SuningSync.getPreciseTime();
+    if (data.targetTime && data.targetTime < now - 5000) {
+        console.log('[Sync] Discarding stale broadcast (targetTime too old):', data.targetTime, 'vs now', now);
+        return;
+    }
+
+    RECEIVED_BROADCAST = data;
 
     console.log('[Sync] Music broadcast:', p.action, 'target:', data.targetTime);
 
@@ -484,6 +493,10 @@ const UI = {
 function setRole(role) {
     localStorage.setItem('mps_role', role);
     const isMaster = role === 'master';
+
+    // Cleanup old state when switching roles
+    stopPolling();
+    Engine.reset();
 
     document.getElementById('masterPanel').style.display = isMaster ? '' : 'none';
     document.getElementById('followerPanel').style.display = isMaster ? 'none' : '';
@@ -596,7 +609,13 @@ const Engine = {
         const now = SuningSync.getPreciseTime();
         const remaining = (STATE.targetTime + STATE.manualOffset) - now;
 
+        // If targetTime is >2s in the past, the signal was too late — discard instead of playing immediately
         if (remaining <= 0) {
+            if (remaining < -2000) {
+                console.log('[Follower] targetTime expired by >2s, discarding');
+                this.reset();
+                return;
+            }
             STATE.audio.play()
                 .then(() => {
                     document.getElementById('timer').innerText = "0.000";
@@ -621,6 +640,12 @@ const Engine = {
         document.getElementById('timer').innerText = "--.---";
         UI.setSync('online', 'READY');
         UI.updatePlayBtn('IDLE');
+
+        // Broadcast stop to all followers
+        broadcastEvent(Date.now() + 1000, {
+            _type: 'music',
+            action: 'stop',
+        });
     },
 
     setInterval(ms) {
