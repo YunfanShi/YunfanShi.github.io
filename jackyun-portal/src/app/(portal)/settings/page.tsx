@@ -8,6 +8,7 @@ import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import ExportDataPanel from '@/components/settings/export-data-panel';
 import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
 import LoggerViewerWrapper from '@/components/settings/logger-viewer-wrapper';
+import FullscreenToggle from '@/components/settings/fullscreen-toggle';
 
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
@@ -80,6 +81,12 @@ export default async function SettingsPage() {
 
       {/* QuizWise Language Settings */}
       <QuizLanguageSectionWrapper />
+
+      {/* 界面设置 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="display_settings" title="界面设置" />
+        <FullscreenToggle />
+      </section>
 
       {/* 更新日志 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">

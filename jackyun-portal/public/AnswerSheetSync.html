@@ -1288,16 +1288,107 @@ function renderResult(payload) {
   const position = DEVICE_CONFIG.position || 'center';
   const isInput = DEVICE_CONFIG.isInput;
 
-  if (position === 'center') {
-    // Center screen: show score banner + detailed results
-    renderCenterResult(container, payload);
-  } else if (isInput) {
-    // Input device shows full answer sheet
+  // If this device is the input device AND not the center, show full answer sheet
+  // regardless of position
+  if (isInput && position !== 'center') {
     renderFullSheet(container, payload);
-  } else {
-    // Non-input side screens: show decorative stats
-    renderSideResult(container, payload);
+    return;
   }
+
+  // Role-specific displays
+  if (position === 'left') {
+    // Left screen: show wrong question numbers
+    renderLeftResult(container, payload);
+  } else if (position === 'center') {
+    // Center screen: show score
+    renderCenterResult(container, payload);
+  } else if (position === 'right') {
+    // Right screen: show accuracy
+    renderRightResult(container, payload);
+  }
+}
+
+function renderLeftResult(container, p) {
+  const { correct, wrong, total, wrongNums, tier, numQ, fullPaperCode, subjectName } = p;
+  const keyAnswered = total || 0;
+  const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
+
+  container.innerHTML = `
+    <div class="result-panel">
+      <div class="result-panel-header" style="background:linear-gradient(135deg,#ef4444,#dc2626);">
+        <h2>✗ 错题回顾</h2>
+        <p>错误分布分析</p>
+      </div>
+      <div class="result-panel-body">
+        <div style="text-align:center;padding:12px;margin-bottom:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+          <div style="font-size:13px;color:#991b1b;font-weight:600;">本次共错 <span style="font-size:28px;font-family:'Orbitron',monospace;">${wrong}</span> 题</div>
+        </div>
+        ${wrongNums && wrongNums.length > 0 ? `
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:8px;">📋 错题编号</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${wrongNums.map(n => `
+              <span style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:#fef2f2;border:2px solid #fca5a5;border-radius:8px;font-size:14px;font-weight:700;font-family:'Orbitron',monospace;color:#dc2626;">${n}</span>
+            `).join('')}
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+        <div style="font-size:12px;color:var(--text-secondary);text-align:center;">
+          <div>正确 <strong style="color:var(--green);font-size:18px;">${correct}</strong> / ${keyAnswered} · 正确率 <strong style="color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'};font-size:18px;">${pct}%</strong></div>
+        </div>` : `
+        <div style="text-align:center;padding:20px;">
+          <div style="font-size:48px;">🎉</div>
+          <div style="font-size:16px;font-weight:600;color:var(--green);margin-top:8px;">全部正确！</div>
+        </div>`}
+      </div>
+    </div>
+  `;
+}
+
+function renderRightResult(container, p) {
+  const { correct, wrong, total, tier, numQ, wrongNums } = p;
+  const keyAnswered = total || 0;
+  const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
+  const skipped = numQ - keyAnswered;
+
+  container.innerHTML = `
+    <div class="result-panel">
+      <div class="result-panel-header" style="background:linear-gradient(135deg,#059669,#047857);">
+        <h2>🎯 正确率分析</h2>
+        <p>精准数据统计</p>
+      </div>
+      <div class="result-panel-body">
+        <div style="text-align:center;padding:20px 16px;margin-bottom:16px;border-radius:12px;background:${tier === 'gold' ? '#fefce8' : tier === 'blue' ? '#eff6ff' : '#fef2f2'};border:2px solid ${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'};">
+          <div style="font-size:64px;font-family:'Orbitron',monospace;font-weight:900;line-height:1;color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'};text-shadow:0 0 30px ${tier === 'gold' ? 'rgba(251,191,36,0.3)' : tier === 'blue' ? 'rgba(96,165,250,0.3)' : 'rgba(248,113,113,0.3)'};">${pct}%</div>
+          <div style="font-size:14px;color:var(--text-secondary);margin-top:4px;">正确率</div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card correct">
+            <div class="num">${correct}</div>
+            <div class="lbl">✅ 正确</div>
+          </div>
+          <div class="stat-card wrong">
+            <div class="num">${wrong}</div>
+            <div class="lbl">❌ 错误</div>
+          </div>
+          <div class="stat-card">
+            <div class="num" style="color:var(--text);">${skipped}</div>
+            <div class="lbl">📄 跳过</div>
+          </div>
+          <div class="stat-card" style="border-color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'}">
+            <div class="num" style="font-size:18px;color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'}">${wrongNums ? wrongNums.length : 0}</div>
+            <div class="lbl">✗ 错题数</div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:16px;padding:12px;background:#f8f9fa;border-radius:8px;">
+          <div style="font-size:14px;color:var(--text-secondary);">
+            ${tier === 'gold' ? '🌟 正确率碾压！' : tier === 'blue' ? '✨ 良好水平！' : '💪 继续加油！'}
+            ${wrongNums && wrongNums.length > 0 ? `错题共 ${wrongNums.length} 题` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderCenterResult(container, p) {

@@ -31,7 +31,22 @@ export default function Sidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Listen for fullscreen collapse from topbar
+    const handleCollapse = (e: CustomEvent) => {
+      if (e.detail?.collapsed === true) {
+        setCollapsed(true);
+      }
+    };
+    window.addEventListener('toggle-sidebar-collapse', handleCollapse as EventListener);
+
     // Check admin status via API
+    return () => {
+      window.removeEventListener('toggle-sidebar-collapse', handleCollapse as EventListener);
+    };
+  }, []);
+
+  // Separate effect for admin check
+  useEffect(() => {
     fetch('/api/llm-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
