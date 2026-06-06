@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
 async function getAuthenticatedUser() {
@@ -91,6 +92,8 @@ export async function updateProfile(
       // non-fatal, profiles already updated
     }
 
+    revalidatePath('/settings');
+    revalidatePath('/dashboard');
     return { success: true, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
