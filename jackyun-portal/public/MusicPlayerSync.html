@@ -504,11 +504,6 @@ function setRole(role) {
     }
 }
 
-// Init role
-(function initRole() {
-    const role = localStorage.getItem('mps_role') || 'master';
-    setRole(role);
-})();
 
 // ═══════════════════════════════════════════════
 // 6. ENGINE
@@ -798,10 +793,15 @@ function copyScript() {
 
 function runImport() {
     try {
-        const val = document.getElementById('import-area').value;
+        let val = document.getElementById('import-area').value.trim();
+        // Be tolerant: if missing outer brackets, try fixing common wrap patterns
+        if (!val.startsWith('[')) {
+            // Try wrapping in array brackets
+            val = '[' + val + ']';
+        }
         const d = JSON.parse(val);
         if(Array.isArray(d)) { STATE.songs = [...STATE.songs, ...d]; Library.save(); Library.render(); toggleModal('import-modal'); }
-    } catch(e) { alert("Invalid JSON or empty!"); }
+    } catch(e) { alert("JSON 格式错误！请确保格式为: [{\"id\":\"...\",\"name\":\"...\"}]"); }
 }
 
 function toggleModal(id) { document.getElementById(id).classList.toggle('open'); }
@@ -824,6 +824,12 @@ window.addEventListener('keydown', (e) => {
 Library.render();
 UI.updateStats();
 SuningSync.forceSync();
+
+// Init role - MUST be after Library definition
+(function initRole() {
+    const role = localStorage.getItem('mps_role') || 'master';
+    setRole(role);
+})();
 
 // If follower, start polling immediately
 if (localStorage.getItem('mps_role') === 'follower') {
