@@ -1100,6 +1100,795 @@ function dismissGacha() {
     ctx.clearRect(0, 0, 9999, 9999);
   }, 500);
 }
+
+// ═══════════════════════════════════════════════
+// 8.5 POST-GACHA LINKED ANIMATIONS
+// ============================================
+// After the main Gacha animation ends + dismiss,
+// wait ~2 seconds, then randomly pick one of several
+// linked animations that play synchronously across all 3 devices.
+// ============================================
+
+const POST_GACHA_ANIMS = [
+  { id: 'congratulations', minTier: null },  // Golden CONGRATULATIONS kinetic typography
+  { id: 'nebula', minTier: null },           // Stellar nebula restoration
+  { id: 'aurora', minTier: null },           // Aurora borealis ribbons
+  // Gold tier bonuses
+  { id: 'level_clear', minTier: 'gold' },    // Arcade level clear pixel style
+  { id: 'wings', minTier: 'gold' },          // Seraphim wings expansion
+];
+
+let _postGachaAnimActive = false;
+let _postGachaAnimId = null;
+let _postGachaTimer = null;
+
+// Called when the main gacha is dismissed
+function schedulePostGachaAnimation(tier) {
+  if (_postGachaTimer) clearTimeout(_postGachaTimer);
+  if (_postGachaAnimActive) return;
+  
+  // Wait 2.5 seconds after dismiss, then trigger
+  _postGachaTimer = setTimeout(() => {
+    triggerPostGachaAnimation(tier);
+  }, 2500);
+}
+
+function triggerPostGachaAnimation(tier) {
+  if (_postGachaAnimActive) return;
+  
+  // Filter available animations by tier
+  const available = POST_GACHA_ANIMS.filter(a => !a.minTier || tier === a.minTier);
+  const chosen = available[Math.floor(Math.random() * available.length)];
+  
+  _postGachaAnimId = chosen.id;
+  _postGachaAnimActive = true;
+  
+  // Broadcast to all devices with a target time (3s from now for countdown)
+  const targetTime = Date.now() + 3000;
+  broadcastEvent(targetTime, {
+    _type: 'answer-sheet',
+    action: 'post_gacha',
+    animId: chosen.id,
+    tier: tier,
+    timestamp: Date.now(),
+  });
+  
+  // Start local animation
+  startPostGachaCountdown(targetTime, chosen.id, tier);
+}
+
+let _postGachaCountdown = null;
+let _postGachaCanvas = null;
+let _postGachaAnimRunning = false;
+
+function startPostGachaCountdown(targetTime, animId, tier) {
+  // Show a quick 2-second countdown
+  const overlay = document.getElementById('gachaOverlay');
+  const stage = document.getElementById('gachaStage');
+  
+  // Reset gacha overlay for post animation
+  overlay.classList.add('active');
+  overlay.style.opacity = '1';
+  overlay.style.background = '#000';
+  stage.style.display = 'flex';
+  stage.style.opacity = '0';
+  
+  // Hide all standard gacha elements
+  document.getElementById('gachaRing').style.display = 'none';
+  document.getElementById('gachaRarity').style.display = 'none';
+  document.getElementById('gachaScore').style.display = 'none';
+  document.getElementById('gachaScoreSub').style.display = 'none';
+  document.getElementById('gachaGrade').style.display = 'none';
+  document.getElementById('gachaDismiss').style.display = 'none';
+  
+  gachaActive = true; // Block dismiss interaction
+  _postGachaAnimRunning = true;
+  
+  const now = Date.now();
+  const remaining = targetTime - now;
+  
+  if (remaining <= 0) {
+    // Start animation immediately
+    runPostGachaAnim(animId, tier);
+    return;
+  }
+  
+  // Simple centered text countdown
+  stage.innerHTML = '';
+  const countEl = document.createElement('div');
+  countEl.id = 'postCountdown';
+  countEl.style.cssText = `
+    font-family:'Orbitron',monospace;font-size:80px;font-weight:900;
+    color:rgba(255,255,255,0.6);text-shadow:0 0 30px rgba(99,102,241,0.4);
+    opacity:1;transition:all 0.3s;
+  `;
+  countEl.textContent = '3';
+  stage.appendChild(countEl);
+  stage.style.opacity = '1';
+  
+  _postGachaCountdown = setInterval(() => {
+    const t = Date.now();
+    const r = targetTime - t;
+    if (r <= 0) {
+      clearInterval(_postGachaCountdown);
+      stage.innerHTML = '';
+      runPostGachaAnim(animId, tier);
+      return;
+    }
+    const secs = Math.ceil(r / 1000);
+    countEl.textContent = secs > 0 ? secs : 'GO!';
+    countEl.style.transform = 'scale(1.2)';
+    countEl.style.opacity = '0.5';
+    setTimeout(() => {
+      countEl.style.transform = 'scale(1)';
+      countEl.style.opacity = '1';
+    }, 100);
+  }, 200);
+}
+
+function runPostGachaAnim(animId, tier) {
+  if (!_postGachaAnimRunning) return;
+  
+  const overlay = document.getElementById('gachaOverlay');
+  const stage = document.getElementById('gachaStage');
+  
+  if (animId === 'congratulations') runCongratulationAnim(overlay, stage, tier);
+  else if (animId === 'nebula') runNebulaAnim(overlay, stage, tier);
+  else if (animId === 'aurora') runAuroraAnim(overlay, stage, tier);
+  else if (animId === 'level_clear') runLevelClearAnim(overlay, stage, tier);
+  else if (animId === 'wings') runWingsAnim(overlay, stage, tier);
+  else {
+    // Fallback: just dismiss
+    finishPostGachaAnim();
+  }
+}
+
+function finishPostGachaAnim() {
+  _postGachaAnimRunning = false;
+  _postGachaAnimActive = false;
+  gachaActive = false;
+  
+  // Clean up overlay
+  const overlay = document.getElementById('gachaOverlay');
+  const stage = document.getElementById('gachaStage');
+  stage.innerHTML = '';
+  
+  // Reset gacha elements
+  document.getElementById('gachaRing').style.display = '';
+  document.getElementById('gachaRarity').style.display = '';
+  document.getElementById('gachaScore').style.display = '';
+  document.getElementById('gachaScoreSub').style.display = '';
+  document.getElementById('gachaGrade').style.display = '';
+  document.getElementById('gachaDismiss').style.display = '';
+  
+  overlay.style.transition = 'opacity 0.5s ease-out';
+  overlay.style.opacity = '0';
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    overlay.style.opacity = '';
+    overlay.style.transition = '';
+    stage.style.opacity = '0';
+    const ctx = document.getElementById('gachaCanvas').getContext('2d');
+    ctx.clearRect(0, 0, 9999, 9999);
+  }, 500);
+}
+
+// ─── ANIMATION 1: GOLDEN CONGRATULATIONS ───
+function runCongratulationAnim(overlay, stage, tier) {
+  const canvas = document.getElementById('gachaCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const W = canvas.width, H = canvas.height;
+  
+  const isGold = tier === 'gold';
+  const mainColor = isGold ? [251, 191, 36] : tier === 'blue' ? [96, 165, 250] : [248, 113, 113];
+  
+  // Text particle system
+  const words = ['CONGRATULATIONS!', 'PERFECT!', 'EXCELLENT!', 'WELL DONE!'];
+  const text = words[Math.floor(Math.random() * (isGold ? 3 : 2))];
+  const fontSize = Math.min(80, W / 8);
+  
+  ctx.font = `900 ${fontSize}px 'Orbitron', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const textWidth = ctx.measureText(text).width;
+  
+  // Generate tiny particles from left & right edges
+  const N = 300;
+  let particles = [];
+  for (let i = 0; i < N; i++) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const x = side === -1 ? -20 : W + 20;
+    const y = Math.random() * H;
+    particles.push({
+      x, y,
+      targetX: W / 2 + (Math.random() - 0.5) * textWidth,
+      targetY: H / 2 + (Math.random() - 0.5) * fontSize,
+      vx: side * (2 + Math.random() * 3),
+      vy: (Math.random() - 0.5) * 1.5,
+      r: mainColor[0] + (Math.random() - 0.5) * 60,
+      g: mainColor[1] + (Math.random() - 0.5) * 40,
+      b: mainColor[2] + (Math.random() - 0.5) * 40,
+      size: 2 + Math.random() * 4,
+      alpha: 0.8 + Math.random() * 0.2,
+    });
+  }
+  
+  // Stage text
+  stage.innerHTML = '';
+  stage.style.display = 'flex';
+  stage.style.alignItems = 'center';
+  stage.style.justifyContent = 'center';
+  
+  let startTime = null;
+  let textRevealed = false;
+  let sparkles = [];
+  
+  function tick(ts) {
+    if (!_postGachaAnimRunning) return;
+    if (!startTime) startTime = ts;
+    const t = (ts - startTime) / 1000;
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Move particles toward center
+    let allDone = true;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const dx = p.targetX - p.x;
+      const dy = p.targetY - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 5) {
+        allDone = false;
+        const speed = Math.min(4, dist / 20 + 0.5);
+        p.x += (dx / dist) * speed;
+        p.y += (dy / dist) * speed;
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+      }
+      
+      if (dist < 100) p.alpha *= 0.97;
+      
+      if (p.alpha > 0.05) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${Math.round(p.r)},${Math.round(p.g)},${Math.round(p.b)},${p.alpha})`;
+        ctx.shadowColor = `rgba(${Math.round(p.r)},${Math.round(p.g)},${Math.round(p.b)},0.6)`;
+        ctx.shadowBlur = p.size * 3;
+        ctx.fill();
+      }
+    }
+    
+    // After convergence, show text
+    if (allDone && !textRevealed && t > 1.5) {
+      textRevealed = true;
+      
+      const textEl = document.createElement('div');
+      textEl.style.cssText = `
+        font-family:'Orbitron',monospace;font-weight:900;
+        font-size:${fontSize}px;
+        color:${isGold ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'};
+        text-shadow:0 0 40px ${isGold ? 'rgba(251,191,36,0.8)' : 'rgba(96,165,250,0.8)'};
+        opacity:0;transform:scale(1.5);
+        transition:all 0.8s cubic-bezier(0.34,1.56,0.64,1);
+        text-align:center;
+        padding:20px;
+      `;
+      textEl.textContent = text;
+      stage.appendChild(textEl);
+      
+      requestAnimationFrame(() => {
+        textEl.style.opacity = '1';
+        textEl.style.transform = 'scale(1)';
+      });
+      
+      // Add sparkles
+      for (let i = 0; i < 50; i++) {
+        const s = {
+          x: W / 2 + (Math.random() - 0.5) * textWidth,
+          y: H / 2 + (Math.random() - 0.5) * fontSize,
+          vx: (Math.random() - 0.5) * 2,
+          vy: -Math.random() * 3 - 1,
+          size: 1 + Math.random() * 3,
+          life: 1,
+        };
+        sparkles.push(s);
+      }
+    }
+    
+    // Sparkle particles
+    for (let i = sparkles.length - 1; i >= 0; i--) {
+      const s = sparkles[i];
+      s.x += s.vx;
+      s.y += s.vy;
+      s.life -= 0.01;
+      s.vy += 0.02;
+      
+      if (s.life > 0) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,215,0,${s.life * 0.8})`;
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      } else {
+        sparkles.splice(i, 1);
+      }
+    }
+    
+    // Auto-dismiss after 5 seconds total
+    if (t > 5) {
+      finishPostGachaAnim();
+      return;
+    }
+    
+    requestAnimationFrame(tick);
+  }
+  _postGachaCanvas = requestAnimationFrame(tick);
+}
+
+// ─── ANIMATION 2: STELLAR NEBULA ───
+function runNebulaAnim(overlay, stage, tier) {
+  const canvas = document.getElementById('gachaCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+  
+  const isGold = tier === 'gold';
+  const nebulaColor = isGold ? [180, 120, 50] : [80, 60, 150];
+  
+  // Stars and nebula particles
+  const stars = [];
+  for (let i = 0; i < 200; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: 0.5 + Math.random() * 2,
+      alpha: 0.3 + Math.random() * 0.7,
+      twinkleSpeed: 0.01 + Math.random() * 0.03,
+    });
+  }
+  
+  const particles = [];
+  for (let i = 0; i < 150; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 50 + Math.random() * Math.max(W, H) * 0.6;
+    particles.push({
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      startDist: dist,
+      angle: angle,
+      speed: 0.3 + Math.random() * 0.8,
+      size: 1 + Math.random() * 3,
+      r: nebulaColor[0] + (Math.random() - 0.5) * 80,
+      g: nebulaColor[1] + (Math.random() - 0.5) * 40,
+      b: nebulaColor[2] + (Math.random() - 0.5) * 80,
+      alpha: 0.3 + Math.random() * 0.5,
+    });
+  }
+  
+  let startTime = null;
+  let ringFormed = false;
+  
+  function tick(ts) {
+    if (!_postGachaAnimRunning) return;
+    if (!startTime) startTime = ts;
+    const t = (ts - startTime) / 1000;
+    
+    ctx.fillStyle = 'rgba(0,0,10,0.1)';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Draw stars
+    stars.forEach(s => {
+      s.alpha += Math.sin(ts * s.twinkleSpeed) * 0.01;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,200,255,${Math.max(0.1, s.alpha)})`;
+      ctx.fill();
+    });
+    
+    // Draw nebula particles spiraling inward
+    particles.forEach(p => {
+      const progress = Math.min(1, t / 4);
+      const newDist = p.startDist * (1 - progress * 0.8);
+      const newAngle = p.angle + p.speed * progress * 3;
+      
+      p.x = cx + Math.cos(newAngle) * newDist;
+      p.y = cy + Math.sin(newAngle) * newDist;
+      
+      if (newDist > 5 && p.alpha > 0.05) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (1 - progress * 0.3), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${Math.round(p.r)},${Math.round(p.g)},${Math.round(p.b)},${p.alpha * (1 - progress * 0.5)})`;
+        ctx.shadowBlur = p.size * 4;
+        ctx.fill();
+      }
+    });
+    
+    // After 4s, show a recovery message
+    if (t > 4 && !ringFormed) {
+      ringFormed = true;
+      
+      stage.innerHTML = '';
+      stage.style.display = 'flex';
+      stage.style.alignItems = 'center';
+      stage.style.justifyContent = 'center';
+      
+      // Glowing core
+      const core = document.createElement('div');
+      core.style.cssText = `
+        width:${Math.min(200, W * 0.3)}px;height:${Math.min(200, W * 0.3)}px;
+        border-radius:50%;
+        background:radial-gradient(circle, ${isGold ? 'rgba(251,191,36,0.3)' : 'rgba(147,51,234,0.3)'}, transparent 70%);
+        box-shadow:0 0 80px ${isGold ? 'rgba(251,191,36,0.4)' : 'rgba(147,51,234,0.4)'};
+        opacity:0;transform:scale(0.3);
+        transition:all 1s cubic-bezier(0.34,1.56,0.64,1);
+      `;
+      stage.appendChild(core);
+      requestAnimationFrame(() => {
+        core.style.opacity = '1';
+        core.style.transform = 'scale(1)';
+      });
+      
+      // Restorative text
+      setTimeout(() => {
+        const msg = document.createElement('div');
+        msg.style.cssText = `
+          font-family:'Cinzel',serif;font-size:28px;font-weight:700;
+          color:${isGold ? '#fbbf24' : '#a78bfa'};
+          text-shadow:0 0 30px ${isGold ? 'rgba(251,191,36,0.5)' : 'rgba(167,139,250,0.5)'};
+          opacity:0;transition:opacity 0.8s;
+          position:fixed;bottom:30%;
+        `;
+        msg.textContent = 'RESTORED';
+        document.body.appendChild(msg);
+        requestAnimationFrame(() => { msg.style.opacity = '1'; });
+        setTimeout(() => msg.remove(), 2000);
+      }, 1500);
+    }
+    
+    if (t > 6.5) {
+      finishPostGachaAnim();
+      return;
+    }
+    
+    requestAnimationFrame(tick);
+  }
+  _postGachaCanvas = requestAnimationFrame(tick);
+}
+
+// ─── ANIMATION 3: AURORA BOREALIS ───
+function runAuroraAnim(overlay, stage, tier) {
+  const canvas = document.getElementById('gachaCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const W = canvas.width, H = canvas.height;
+  
+  const position = DEVICE_CONFIG.position || 'center';
+  
+  // Aurora ribbons - 3 flowing bands
+  const colors = [
+    tier === 'gold' ? [251, 191, 36] : [100, 180, 255],
+    tier === 'gold' ? [255, 215, 100] : [180, 100, 255],
+    tier === 'gold' ? [255, 200, 80] : [80, 255, 200],
+  ];
+  
+  const ribbons = [];
+  for (let r = 0; r < 3; r++) {
+    const points = [];
+    const count = 30;
+    const offsetY = H * (0.2 + r * 0.25);
+    for (let i = 0; i < count; i++) {
+      points.push({
+        x: (i / count) * W,
+        y: offsetY + Math.sin(i * 0.5) * 50,
+        baseY: offsetY,
+      });
+    }
+    ribbons.push({ points, color: colors[r], phase: Math.random() * Math.PI * 2 });
+  }
+  
+  let startTime = null;
+  let auroraRevealed = false;
+  
+  function tick(ts) {
+    if (!_postGachaAnimRunning) return;
+    if (!startTime) startTime = ts;
+    const t = (ts - startTime) / 1000;
+    
+    ctx.fillStyle = 'rgba(0,0,5,0.05)';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Draw aurora ribbons
+    ribbons.forEach((ribbon, ri) => {
+      ctx.beginPath();
+      ribbon.points.forEach((p, i) => {
+        p.y = p.baseY + Math.sin(t * 0.5 + i * 0.3 + ri) * 40;
+        p.x += Math.sin(t * 0.3 + ri * 2) * 1.5;
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      
+      const [r, g, b] = ribbon.color;
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.4)`;
+      ctx.lineWidth = 3 + Math.sin(t + ri) * 2;
+      ctx.shadowColor = `rgba(${r},${g},${b},0.3)`;
+      ctx.shadowBlur = 30;
+      ctx.stroke();
+      
+      // Flow glow below
+      ctx.beginPath();
+      ribbon.points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y + 20);
+        else ctx.lineTo(p.x, p.y + 20);
+      });
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.1)`;
+      ctx.lineWidth = 20;
+      ctx.stroke();
+    });
+    
+    // Stars
+    for (let i = 0; i < 100; i++) {
+      const sx = (i * 137.5) % W;
+      const sy = (i * 97.3) % H;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 0.5 + Math.sin(t + i) * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.2 + Math.sin(t + i * 0.5) * 0.2})`;
+      ctx.fill();
+    }
+    
+    // After 3s fade to reveal
+    if (t > 3 && !auroraRevealed) {
+      auroraRevealed = true;
+      
+      stage.innerHTML = '';
+      stage.style.display = 'flex';
+      stage.style.alignItems = 'center';
+      stage.style.justifyContent = 'center';
+      
+      const msg = document.createElement('div');
+      msg.style.cssText = `
+        font-family:'Orbitron',monospace;font-weight:900;
+        font-size:36px;letter-spacing:8px;
+        color:rgba(255,255,255,0.8);
+        text-shadow:0 0 40px rgba(100,180,255,0.5);
+        opacity:0;transition:opacity 1.5s;
+      `;
+      msg.textContent = '✦ AURORA ✦';
+      stage.appendChild(msg);
+      requestAnimationFrame(() => { msg.style.opacity = '1'; });
+    }
+    
+    if (t > 5.5) {
+      finishPostGachaAnim();
+      return;
+    }
+    
+    requestAnimationFrame(tick);
+  }
+  _postGachaCanvas = requestAnimationFrame(tick);
+}
+
+// ─── ANIMATION 4: LEVEL CLEAR (Arcade Style) ───
+function runLevelClearAnim(overlay, stage, tier) {
+  const canvas = document.getElementById('gachaCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const W = canvas.width, H = canvas.height;
+  
+  // Pixel-style ghost monsters (left side) and stars (right side)
+  const ghosts = [];
+  for (let i = 0; i < 20; i++) {
+    ghosts.push({
+      x: -20 - Math.random() * 100,
+      y: Math.random() * H,
+      vx: 0.5 + Math.random() * 1.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      size: 8 + Math.random() * 12,
+      color: [255, (Math.random() * 100), (Math.random() * 100)],
+    });
+  }
+  
+  const stars_p = []; // renamed to avoid conflict with stars array above
+  for (let i = 0; i < 30; i++) {
+    stars_p.push({
+      x: W + 20 + Math.random() * 100,
+      y: Math.random() * H,
+      vx: -(0.8 + Math.random() * 1.5),
+      vy: (Math.random() - 0.5) * 0.3,
+      size: 5 + Math.random() * 8,
+      color: [255, 215, 0],
+    });
+  }
+  
+  let startTime = null;
+  let levelClearShown = false;
+  
+  function tick(ts) {
+    if (!_postGachaAnimRunning) return;
+    if (!startTime) startTime = ts;
+    const t = (ts - startTime) / 1000;
+    
+    ctx.fillStyle = 'rgba(0,0,20,0.1)';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Move ghosts rightward, stars leftward
+    ctx.shadowBlur = 0;
+    
+    ghosts.forEach(g => {
+      g.x += g.vx;
+      g.y += g.vy;
+      // Draw pixel blob (simplified as circle)
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, g.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${g.color[0]},${g.color[1]},${g.color[2]})`;
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(g.x - g.size * 0.3, g.y - g.size * 0.2, g.size * 0.2, 0, Math.PI * 2);
+      ctx.arc(g.x + g.size * 0.3, g.y - g.size * 0.2, g.size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    stars_p.forEach(s => {
+      s.x += s.vx;
+      s.y += s.vy;
+      ctx.beginPath();
+      // Draw star (simplified)
+      const r = s.size;
+      ctx.moveTo(s.x, s.y - r);
+      for (let i = 0; i < 5; i++) {
+        const angle = -Math.PI / 2 + (i * 2 * Math.PI / 5);
+        ctx.lineTo(s.x + r * 0.5 * Math.cos(angle), s.y + r * 0.5 * Math.sin(angle));
+        const angle2 = -Math.PI / 2 + ((i * 2 + 1) * Math.PI / 5);
+        ctx.lineTo(s.x + r * 0.2 * Math.cos(angle2), s.y + r * 0.2 * Math.sin(angle2));
+      }
+      ctx.closePath();
+      ctx.fillStyle = `rgb(${s.color[0]},${s.color[1]},${s.color[2]})`;
+      ctx.fill();
+    });
+    
+    // After 2.5s show LEVEL CLEAR
+    if (t > 2.5 && !levelClearShown) {
+      levelClearShown = true;
+      
+      stage.innerHTML = '';
+      stage.style.display = 'flex';
+      stage.style.alignItems = 'center';
+      stage.style.justifyContent = 'center';
+      
+      const text = document.createElement('div');
+      text.style.cssText = `
+        font-family:monospace;font-weight:900;
+        font-size:${Math.min(60, W / 10)}px;
+        color:#00ff41;text-shadow:0 0 20px rgba(0,255,65,0.5);
+        opacity:0;transform:scale(2);
+        transition:all 0.5s cubic-bezier(0.34,1.56,0.64,1);
+        text-align:center;
+      `;
+      text.textContent = 'LEVEL CLEAR!';
+      stage.appendChild(text);
+      requestAnimationFrame(() => {
+        text.style.opacity = '1';
+        text.style.transform = 'scale(1)';
+      });
+    }
+    
+    if (t > 4.5) {
+      finishPostGachaAnim();
+      return;
+    }
+    
+    requestAnimationFrame(tick);
+  }
+  _postGachaCanvas = requestAnimationFrame(tick);
+}
+
+// ─── ANIMATION 5: SERAPHIM WINGS ───
+function runWingsAnim(overlay, stage, tier) {
+  const canvas = document.getElementById('gachaCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+  
+  const featherCount = 80;
+  const feathers = [];
+  
+  for (let i = 0; i < featherCount; i++) {
+    const side = i < featherCount / 2 ? -1 : 1;
+    const progress = (i % (featherCount / 2)) / (featherCount / 2);
+    const angleStart = side * (Math.PI / 4 + progress * Math.PI * 0.3);
+    const dist = 50 + progress * 300;
+    
+    feathers.push({
+      side,
+      x: cx + Math.cos(angleStart) * dist,
+      y: cy + Math.sin(Math.abs(angleStart)) * dist * 0.3,
+      targetX: cx + Math.cos(angleStart) * dist * 0.5,
+      targetY: cy + Math.sin(Math.abs(angleStart)) * dist * 0.3,
+      size: 5 + progress * 15,
+      rotation: angleStart,
+      alpha: 0.2 + progress * 0.6,
+      color: tier === 'gold' ? [255, 215, 100] : tier === 'blue' ? [150, 200, 255] : [255, 180, 180],
+    });
+  }
+  
+  let startTime = null;
+  let wingsSpread = false;
+  
+  function tick(ts) {
+    if (!_postGachaAnimRunning) return;
+    if (!startTime) startTime = ts;
+    const t = (ts - startTime) / 1000;
+    
+    ctx.fillStyle = 'rgba(0,0,10,0.08)';
+    ctx.fillRect(0, 0, W, H);
+    
+    // Spread wings outward
+    const spreadAmount = Math.min(1, t / 2);
+    
+    feathers.forEach(f => {
+      const fDist = 50 + (f.side === -1 ? 1 : 1) * 300;
+      const spread = 1 + spreadAmount * 2;
+      
+      f.x += (f.targetX * spread - f.x) * 0.05;
+      f.y += (f.targetY * spread * 0.5 - f.y) * 0.05;
+      
+      // Draw feather as elongated ellipse
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.rotation * (1 - spreadAmount * 0.5));
+      ctx.scale(1, 0.3);
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, f.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${f.color[0]},${f.color[1]},${f.color[2]},${f.alpha * (0.3 + spreadAmount * 0.7)})`;
+      ctx.shadowColor = `rgba(${f.color[0]},${f.color[1]},${f.color[2]},0.5)`;
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      
+      ctx.restore();
+    });
+    
+    // After 3.5s
+    if (t > 3.5 && !wingsSpread) {
+      wingsSpread = true;
+      
+      stage.innerHTML = '';
+      stage.style.display = 'flex';
+      stage.style.alignItems = 'center';
+      stage.style.justifyContent = 'center';
+      
+      const msg = document.createElement('div');
+      msg.style.cssText = `
+        font-family:'Cinzel',serif;font-weight:700;
+        font-size:42px;letter-spacing:4px;
+        color:rgba(255,215,100,0.9);
+        text-shadow:0 0 60px rgba(255,215,100,0.6);
+        opacity:0;transition:opacity 1.5s;
+      `;
+      msg.textContent = '✦ VIKTOR ✦';
+      stage.appendChild(msg);
+      requestAnimationFrame(() => { msg.style.opacity = '1'; });
+    }
+    
+    if (t > 5.5) {
+      finishPostGachaAnim();
+      return;
+    }
+    
+    requestAnimationFrame(tick);
+  }
+  _postGachaCanvas = requestAnimationFrame(tick);
+}
+
 document.addEventListener('keydown', e => {
   if ((e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') && gachaActive) dismissGacha();
 });
