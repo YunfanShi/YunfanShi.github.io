@@ -345,6 +345,7 @@
                     { date: "2025-12-17", content: "将电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
                 ],
                 logsRegular: [
+                    { date: "2026-06-06", content: '🎯 Broadcast Amplification 致命修复：API 移除不可靠的 memory broadcastStore（Vercel Serverless 实例隔离），改为纯 Supabase DB 单数据源；添加 PATCH /consumed_by 端点 + DB migration 020 新增 consumed_by 列，广播消费后立即标记防止重复处理；添加 broadcast_id 全局去重；MusicPlayerSync reset() 广播 stop 信号防止诈尸；followerLoop 添加 >2s 过期丢弃；setRole 切换时清理旧状态；handleIncomingBroadcast 添加 stale 丢弃（>5s）；AnswerSheetSync 添加 broadcastId Set 去重 + exponential poll backoff（错误后最多退避到10s）+ _processingBroadcasts 锁防止并行轮询；轮询回看窗口从30s降至5s减少数据量' },
                     { date: "2026-06-06", content: "MusicPlayerSync 同步修复：Engine.reset() 添加 stop 广播，副设备收到立即停止播放不再诈尸；followerLoop 添加过期丢弃逻辑（>2s 过期自动放弃）；setRole 切换时清理旧 poll timer 和状态；轮询间隔降至 800ms 降低延迟；handleIncomingBroadcast 添加 stale broadcast 丢弃（>5s）；AnswerSheetSync _type 过滤确认无串频风险" },
                     { date: "2026-06-06", content: "日志查看器增强：新增复制日志按钮、自动滚动默认关闭、日志同步输出到浏览器控制台" },
                     { date: "2026-06-04", content: "隐藏 Legacy 页面 AI 配置 UI：Relax 模型选择器、Goal API 配置、MockPortal 设置面板" },
