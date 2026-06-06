@@ -2076,19 +2076,19 @@ function triggerGacha(score, total, position, musicTier) {
     
     let vx, vy;
     if (position === 'left') {
-      // Stream from left to right, TOWARD THE MIDDLE SCREEN
+      // Stream from left to right, TOWARD THE MIDDLE SCREEN - slower
       const targetX = W * 1.5 + Math.random() * W;
       const targetY = Math.random() * H;
       const angle = Math.atan2(targetY - pos.y, targetX - pos.x);
-      vx = Math.cos(angle) * (1.2 + Math.random() * 1.5);
-      vy = Math.sin(angle) * (0.3 + Math.random() * 0.6);
+      vx = Math.cos(angle) * (0.6 + Math.random() * 0.8);
+      vy = Math.sin(angle) * (0.2 + Math.random() * 0.3);
     } else if (position === 'right') {
-      // Stream from right to left, TOWARD THE MIDDLE SCREEN
+      // Stream from right to left, TOWARD THE MIDDLE SCREEN - slower
       const targetX = -(W * 0.5 + Math.random() * W);
       const targetY = Math.random() * H;
       const angle = Math.atan2(targetY - pos.y, targetX - pos.x);
-      vx = Math.cos(angle) * (1.2 + Math.random() * 1.5);
-      vy = Math.sin(angle) * (0.3 + Math.random() * 0.6);
+      vx = Math.cos(angle) * (0.6 + Math.random() * 0.8);
+      vy = Math.sin(angle) * (0.2 + Math.random() * 0.3);
     } else {
       const angleToCenter = Math.atan2(cy - pos.y, cx - pos.x);
       const vortexOffset = (Math.random() - 0.5) * 1.8;
@@ -2422,6 +2422,40 @@ function revealResult(score, total, tier) {
       dismiss.style.opacity = '1';
     }
   }, 1800);
+  
+  // ═══ AUTO SCHEDULE POST-GACHA ANIMATION ═══
+  // Show a timer countdown in the top-right corner, then auto-trigger after 10 seconds
+  const tierColor = tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171';
+  const countdownEl = document.createElement('div');
+  countdownEl.id = 'gachaAutoCountdown';
+  countdownEl.style.cssText = `
+    position:fixed;top:20px;right:28px;z-index:10002;
+    font-family:'Orbitron',monospace;font-size:22px;font-weight:700;
+    color:${tierColor};text-shadow:0 0 20px ${tierColor === '#fbbf24' ? 'rgba(251,191,36,0.5)' : tierColor === '#60a5fa' ? 'rgba(96,165,250,0.5)' : 'rgba(248,113,113,0.5)'};
+    opacity:0;transition:opacity 0.5s;
+    text-align:right;line-height:1.4;
+  `;
+  countdownEl.innerHTML = `<div style="font-size:12px;opacity:0.5;">NEXT</div>10s`;
+  document.body.appendChild(countdownEl);
+  requestAnimationFrame(() => { countdownEl.style.opacity = '1'; });
+  
+  let countdown = 10;
+  const countdownInterval = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(countdownInterval);
+      if (countdownEl && countdownEl.parentNode) countdownEl.remove();
+      schedulePostGachaAnimation(tier);
+      return;
+    }
+    if (countdownEl) countdownEl.innerHTML = `<div style="font-size:12px;opacity:0.5;">NEXT</div>${countdown}s`;
+  }, 1000);
+  
+  // Store cleanup in dismiss callback
+  _dismissCallbacks.push(() => {
+    clearInterval(countdownInterval);
+    if (countdownEl && countdownEl.parentNode) countdownEl.remove();
+  });
 }
 
 // ═══════════════════════════════════════════════
