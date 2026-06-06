@@ -1,0 +1,27 @@
+# ==========================================
+# CLINE PROJECT-SPECIFIC SYSTEM RULES
+# ==========================================
+
+# 1. REPOSITORY & REMOTE CONFIGURATION
+# --------------------------------------------------
+* [Repository URL]: https://github.com/YunfanShi/YunfanShi.github.io
+* [SSH Status]: SSH authentication is fully configured and authorized on this local machine.
+* [Git Workflow]: 
+    * You are authorized to manage the deployment workflow.
+    * After implementing any features or fixes, you must automatically stage the files, commit them with a clean message, and push the updates to the remote repository using the configured SSH channel.
+
+# 2. DOCUMENTATION & SYNCHRONIZATION PROTOCOL
+# --------------------------------------------------
+* [README Maintenance]: 
+    * After ANY file modification or feature update, you must review the root `README.md` file.
+    * Assess whether the documentation, requirements, or setup steps need to be adjusted based on your changes. Update it immediately if necessary.
+* [Change Logs]: 
+    * Every single update must be meticulously documented.
+    * Write the detailed change notes into the update log file located at: `update-hub`. Include the timestamp and a summary of what has been altered.
+
+# 3. EXECUTION PIPELINE
+# --------------------------------------------------
+1. **Develop/Modify**: Implement requested tasks in the codebase.
+2. **Review Docs**: Check and update `README.md` if the change affects project usage.
+3. **Log Update**: Write the details of the change into `update-hub`.
+4. **Deploy**: Run `git add`, `git commit -m "your message"`, and `git push` via SSH automatically.

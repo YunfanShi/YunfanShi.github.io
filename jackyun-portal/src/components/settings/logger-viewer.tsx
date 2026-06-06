@@ -31,7 +31,7 @@ export default function LoggerViewer() {
   const [tagFilter, setTagFilter] = useState('');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [paused, setPaused] = useState(false);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +95,17 @@ export default function LoggerViewer() {
     URL.revokeObjectURL(url);
   };
 
+  const handleCopyAll = () => {
+    const text = logs.map(entry => {
+      let line = `[${entry.timestamp}] [${entry.tag}] [${entry.level.toUpperCase()}] ${entry.message}`;
+      if (entry.url) line += ` | ${entry.method} ${entry.url}`;
+      if (entry.status != null) line += ` | status=${entry.status}`;
+      if (entry.duration != null) line += ` | ${entry.duration}ms`;
+      return line;
+    }).join('\n');
+    navigator.clipboard.writeText(text).catch(() => {});
+  };
+
   const handleCopy = (entry: LogEntry) => {
     const text = `[${entry.timestamp}] [${entry.tag}] [${entry.level.toUpperCase()}] ${entry.message}` +
       (entry.data ? `\nData: ${JSON.stringify(entry.data, null, 2)}` : '') +
@@ -137,6 +148,13 @@ export default function LoggerViewer() {
             title="导出日志"
           >
             <span className="material-icons-round text-sm">download</span>
+          </button>
+          <button
+            onClick={handleCopyAll}
+            className="p-1.5 rounded text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            title="复制日志"
+          >
+            <span className="material-icons-round text-sm">content_copy</span>
           </button>
           <button
             onClick={handleClear}

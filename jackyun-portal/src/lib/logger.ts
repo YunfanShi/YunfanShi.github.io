@@ -106,20 +106,23 @@ const logger = {
   info: (tag: string, message: string, data?: unknown) => {
     const entry = makeEntry('info', tag, message, data);
     pushEntry(entry);
-    // 不再打印到控制台——console 已被拦截，打印会死循环
-    // 只存储，查看时通过 logger-viewer 展示
+    // 同步输出到控制台（使用原始引用，避免死循环）
+    _origConsole?.log(`[${tag}] ${message}`, data ?? '');
   },
   warn: (tag: string, message: string, data?: unknown) => {
     const entry = makeEntry('warn', tag, message, data);
     pushEntry(entry);
+    _origConsole?.warn(`[${tag}] ${message}`, data ?? '');
   },
   error: (tag: string, message: string, data?: unknown) => {
     const entry = makeEntry('error', tag, message, data);
     pushEntry(entry);
+    _origConsole?.error(`[${tag}] ${message}`, data ?? '');
   },
   debug: (tag: string, message: string, data?: unknown) => {
     const entry = makeEntry('debug', tag, message, data);
     pushEntry(entry);
+    _origConsole?.log(`[${tag}] ${message}`, data ?? '');
   },
 
   /** 获取所有日志 */
@@ -167,11 +170,20 @@ pushEntry = (entry: LogEntry) => {
 //  初始化拦截器 (仅在浏览器端执行一次)
 // ──────────────────────────────────────────────
 
+// 保存原始 console 引用（在拦截前，供 logger 方法使用，避免死循环）
+let _origConsole: {
+  log: (...args: unknown[]) => void;
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  debug: (...args: unknown[]) => void;
+} | null = null;
+
 if (typeof window !== 'undefined' && !(window as unknown as Record<string, unknown>)['__jackyun_logger_booted__']) {
   (window as unknown as Record<string, unknown>)['__jackyun_logger_booted__'] = true;
 
   // ── 1. 拦截 console ──
-  const _origConsole = {
+  _origConsole = {
     log: console.log.bind(console),
     info: console.info.bind(console),
     warn: console.warn.bind(console),
