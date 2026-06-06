@@ -964,7 +964,7 @@ let _countdownTimer = null;
 
 // Force cleanup any lingering animation/overlay state
 function cleanupAllOverlays() {
-  // Cancel all animations
+  // Cancel all animations (safe, no DOM)
   if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
   if (_postGachaCanvas) cancelAnimationFrame(_postGachaCanvas);
   _postGachaCanvas = null;
@@ -981,29 +981,37 @@ function cleanupAllOverlays() {
   COUNTDOWN_ACTIVE = false;
   gachaActive = false;
   
-  // Hide countdown overlay
-  document.getElementById('countdownOverlay').classList.remove('active');
+  // Hide countdown overlay (null-safe)
+  const cd = document.getElementById('countdownOverlay');
+  if (cd) cd.classList.remove('active');
   
-  // Hide gacha overlay
+  // Hide gacha overlay (null-safe)
   const ov = document.getElementById('gachaOverlay');
-  ov.classList.remove('active');
-  ov.style.opacity = '';
-  ov.style.transition = '';
+  if (ov) {
+    ov.classList.remove('active');
+    ov.style.opacity = '';
+    ov.style.transition = '';
+  }
   
-  // Reset stage
+  // Reset stage (null-safe)
   const stage = document.getElementById('gachaStage');
-  stage.innerHTML = '';
-  stage.style.opacity = '0';
-  document.getElementById('gachaRing').style.display = '';
-  document.getElementById('gachaRarity').style.display = '';
-  document.getElementById('gachaScore').style.display = '';
-  document.getElementById('gachaScoreSub').style.display = '';
-  document.getElementById('gachaGrade').style.display = '';
-  document.getElementById('gachaDismiss').style.display = '';
+  if (stage) {
+    stage.innerHTML = '';
+    stage.style.opacity = '0';
+  }
   
-  // Clear canvas
-  const ctx = document.getElementById('gachaCanvas').getContext('2d');
-  ctx.clearRect(0, 0, 9999, 9999);
+  // Reset gacha elements (each null-safe)
+  ['gachaRing','gachaRarity','gachaScore','gachaScoreSub','gachaGrade','gachaDismiss'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+  
+  // Clear canvas (null-safe)
+  const canvas = document.getElementById('gachaCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, 9999, 9999);
+  }
 }
 
 function startCountdown(targetTime, payload) {
