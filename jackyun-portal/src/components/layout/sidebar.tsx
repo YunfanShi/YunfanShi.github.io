@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: '放松一下', icon: 'sports_esports', href: '/relax' },
   { label: '控制中心', icon: 'tune', href: '/control' },
   { label: '答题卡', icon: 'content_paste', href: '/answer-sheet' },
+  { label: '同步答题卡', icon: 'sync', href: '/answer-sheet-sync' },
   { label: '计划显示器', icon: 'flag', href: '/goal' },
   { label: '考试倒计时', icon: 'hourglass_empty', href: '/igcountdown' },
   { label: 'Mock 刷题', icon: 'quiz', href: '/mock-portal' },

@@ -337,6 +337,7 @@
             desktop: {
                 urlPrefix: "",
                 logsMajor: [
+                    { date: "2026-06-06", content: "新增多设备同步答题卡系统：3台设备可同步播放Gacha粒子动画，左/中/右宽体拼接视觉，输入设备判断对错并放音乐，中屏显示成绩，基于Supabase Realtime+BroadcastChannel+localStorage多重冗余同步" },
                     { date: "2026-06-06", content: "修复设置页面头像和显示名无法保存的 RLS 权限问题，Profile 更新失败改为非致命警告" },
                     { date: "2026-06-04", content: "AI 配置统一管理：Dashboard 设置一次，全站 Legacy 页面自动生效" },
                     { date: "2026-06-04", content: "LLM 三重拦截上线：localStorage 伪装 + fetch/XHR 改道 + CSS/DOM 隐藏" },
@@ -433,6 +434,15 @@
                         status: "online",
                         desc: "在线答题卡工具，支持快速填涂和答案管理。",
                         link: "/answer-sheet"
+                    },
+                    {
+                        id: "answer-sheet-sync",
+                        name: "同步答题卡",
+                        icon: "sync",
+                        date: "2026-06-06",
+                        status: "online",
+                        desc: "多设备同步答题卡系统：3台设备同步Gacha粒子动画，宽体拼接，输入设备判断对错放音乐，中屏显示成绩。",
+                        link: "/answer-sheet-sync"
                     },
                     {
                         id: "goal",

@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IGCSE Answer Sheet Sync</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&family=Roboto+Mono&family=Cinzel:wght@400;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue:#1a73e8;--blue-light:#e8f0fe;--green:#34a853;--green-light:#e6f4ea;
+  --red:#ea4335;--red-light:#fce8e6;--yellow:#fbbc04;
+  --text:#202124;--text-secondary:#5f6368;--border:#dadce0;
+  --bg:#f8f9fa;--white:#fff;
+  --shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.24);
+  --sync-green:#10b981;--sync-yellow:#f59e0b;--sync-red:#ef4444;
+}
+body{font-family:'Google Sans','Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--white);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-dots{display:grid;grid-template-columns:1fr 1fr;gap:3px;width:22px;}
+.logo-dot{width:9px;height:9px;border-radius:50%;}
+.logo-dot:nth-child(1){background:var(--blue)}.logo-dot:nth-child(2){background:var(--red)}
+.logo-dot:nth-child(3){background:var(--yellow)}.logo-dot:nth-child(4){background:var(--green)}
+.logo-text{font-size:20px;font-weight:500;color:var(--text-secondary);}
+.logo-text span{color:var(--text);}
+header .spacer{flex:1;}
+.print-btn{background:var(--blue);color:white;border:none;padding:8px 20px;border-radius:4px;font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s;}
+.print-btn:hover{background:#1557b0;}
+main{max-width:1100px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start;}
+.card{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.card-header{background:var(--blue);color:white;padding:16px 20px;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px;}
+.card-body{padding:20px;}
+.form-group{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;font-family:'Roboto',sans-serif;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color .2s,box-shadow .2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(26,115,232,.2);}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.answer-input-area{font-family:'Roboto Mono',monospace;font-size:15px;min-height:80px;resize:vertical;letter-spacing:2px;}
+.hint{font-size:11px;color:var(--text-secondary);margin-top:4px;line-height:1.5;}
+.generate-btn{width:100%;padding:12px;background:var(--blue);color:white;border:none;border-radius:4px;font-family:'Google Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;margin-top:8px;transition:background .2s,box-shadow .2s;}
+.generate-btn:hover{background:#1557b0;box-shadow:var(--shadow);}
+.generate-btn:disabled{background:#9aa0a6;cursor:not-allowed;box-shadow:none;}
+.section-divider{border:none;border-top:1px solid var(--border);margin:20px 0 16px;}
+.section-label{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.toggle-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.toggle-switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:background .2s;}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:transform .2s;}
+.toggle-switch input:checked+.toggle-slider{background:var(--blue);}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(18px);}
+.toggle-label{font-size:13px;color:var(--text);}
+.collapsible-section{display:none;}
+.collapsible-section.visible{display:block;}
+.verify-alert{padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.6;margin-top:10px;display:none;}
+.verify-alert.match{background:var(--green-light);color:#1e7e34;border:1px solid #b7dfbc;display:block;}
+.verify-alert.mismatch{background:var(--red-light);color:#c5221f;border:1px solid #f5c6c4;display:block;}
+.sheet-wrapper{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.sheet-header{border-bottom:3px solid var(--blue);padding:20px 24px 16px;}
+.sheet-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;border-radius:6px;padding:2px 6px 2px 0;transition:background .15s;position:relative;}
+.sheet-title:hover{background:rgba(26,115,232,.07);}
+.sheet-title .title-copy-icon{font-size:15px;opacity:0;transition:opacity .15s;color:var(--blue);flex-shrink:0;}
+.sheet-title:hover .title-copy-icon{opacity:1;}
+.sheet-title .title-wrong-nums{color:var(--red);font-weight:700;}
+.copy-toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a73e8;color:white;padding:10px 22px;border-radius:24px;font-size:14px;font-family:'Google Sans',sans-serif;box-shadow:0 4px 16px rgba(26,115,232,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9998;}
+.copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:500;}
+.badge-blue{background:var(--blue-light);color:var(--blue);}
+.badge-green{background:#e6f4ea;color:var(--green);}
+.badge-yellow{background:#fef7e0;color:#e37400;}
+.sheet-body{padding:20px 24px;}
+.questions-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px;}
+.question-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f3f4;}
+.q-num{font-size:12px;font-weight:500;color:var(--text-secondary);width:22px;text-align:right;flex-shrink:0;}
+.bubbles{display:flex;gap:4px;}
+.bubble{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-secondary);flex-shrink:0;}
+.bubble.filled{background:var(--blue);border-color:var(--blue);color:white;}
+.bubble.skipped{background:#f1f3f4;border-color:#dadce0;color:#bdc1c6;}
+.bubble.filled.wrong{background:var(--red);border-color:var(--red);}
+.bubble.correct-key{background:var(--green);border-color:var(--green);color:white;}
+.answer-text{font-family:'Roboto Mono',monospace;font-size:13px;font-weight:600;color:var(--blue);min-width:16px;}
+.answer-text.skipped{color:#bdc1c6;}.answer-text.wrong{color:var(--red);}.answer-text.correct{color:var(--green);}
+.wrong-indicator{font-size:10px;color:var(--red);font-weight:700;margin-left:2px;}
+.correct-key-label{font-size:10px;color:var(--green);font-family:'Roboto Mono',monospace;font-weight:700;margin-left:2px;}
+.score-banner{background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%);color:white;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.score-main{font-size:28px;font-weight:700;}.score-label{font-size:13px;opacity:.85;}
+.score-pct{font-size:18px;font-weight:600;background:rgba(255,255,255,.2);padding:4px 14px;border-radius:20px;}
+.score-details{display:flex;gap:16px;margin-left:auto;flex-wrap:wrap;}.score-item{text-align:center;}
+.score-item-num{font-size:18px;font-weight:600;}.score-item-lbl{font-size:11px;opacity:.75;}
+.empty-state{text-align:center;padding:60px 24px;color:var(--text-secondary);}
+.empty-icon{width:80px;height:80px;margin:0 auto 16px;opacity:.3;}
+.empty-state h3{font-size:18px;color:var(--text);margin-bottom:8px;}
+.stats-bar{display:flex;gap:20px;padding:12px 24px;background:#f8f9fa;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;}
+.stat{display:flex;align-items:center;gap:6px;}.stat-dot{width:10px;height:10px;border-radius:50%;}
+
+/* ══════ SYNC UI ══════ */
+.sync-bar{background:#1e293b;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.sync-dot.off{background:var(--sync-red);}
+.sync-dot.connecting{background:var(--sync-yellow);animation:pulse 1s infinite;}
+.sync-dot.online{background:var(--sync-green);}
+.sync-label{font-size:12px;color:#94a3b8;font-weight:500;}
+.sync-status{font-size:11px;color:#64748b;font-family:'Roboto Mono',monospace;}
+.sync-role-badge{background:#334155;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'Roboto Mono',monospace;}
+.sync-role-badge.input{background:#7c3aed;color:white;}
+.sync-role-badge.wait{background:#f59e0b;color:#1e293b;}
+
+/* ══════ SYNC SETTINGS ══════ */
+.sync-config-section{border:2px solid #7c3aed;border-radius:8px;margin-bottom:16px;overflow:hidden;}
+.sync-config-header{background:linear-gradient(135deg,#7c3aed,#6366f1);color:white;padding:12px 16px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.sync-config-body{padding:16px;background:#faf5ff;}
+.role-selector{display:flex;gap:8px;margin-bottom:12px;}
+.role-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--white);cursor:pointer;text-align:center;font-size:13px;font-weight:600;transition:all .2s;font-family:'Google Sans',sans-serif;}
+.role-btn:hover{border-color:#7c3aed;}
+.role-btn.active{border-color:#7c3aed;background:#f3e8ff;color:#7c3aed;}
+.role-btn:disabled{opacity:.5;cursor:not-allowed;}
+.role-icon{font-size:20px;display:block;margin-bottom:4px;}
+.input-toggle-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border-radius:6px;border:1px solid var(--border);margin-bottom:12px;}
+.input-toggle-label{font-size:13px;font-weight:500;flex:1;}
+.input-toggle-desc{font-size:11px;color:var(--text-secondary);}
+.device-id-disp{font-family:'Roboto Mono',monospace;font-size:11px;color:#64748b;background:#f1f5f9;padding:4px 8px;border-radius:4px;word-break:break-all;}
+
+/* ══════ COUNTDOWN OVERLAY ══════ */
+#countdownOverlay{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+  flex-direction:column;gap:24px;
+}
+#countdownOverlay.active{display:flex;}
+#countdownNum{
+  font-family:'Orbitron',monospace;
+  font-size:clamp(120px,25vw,240px);
+  font-weight:900;
+  color:white;
+  text-shadow:0 0 60px rgba(99,102,241,.6),0 0 120px rgba(99,102,241,.3);
+  line-height:1;
+  opacity:1;
+  transition:opacity .15s ease-out,transform .15s ease-out;
+}
+#countdownLabel{font-family:'Google Sans',sans-serif;font-size:clamp(16px,3vw,24px);color:rgba(255,255,255,.5);letter-spacing:4px;text-transform:uppercase;}
+#countdownHint{font-family:'Roboto Mono',monospace;font-size:12px;color:rgba(255,255,255,.3);letter-spacing:2px;}
+
+/* ══════ GACHA OVERLAY ══════ */
+#gachaOverlay{
+  position:fixed;inset:0;z-index:9998;
+  display:none;align-items:center;justify-content:center;
+  overflow:hidden;cursor:pointer;background:#000;
+}
+#gachaOverlay.active{display:flex;}
+#gachaCanvas{position:absolute;inset:0;width:100%;height:100%;}
+#gachaStage{
+  position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:0;
+  pointer-events:none;opacity:0;
+}
+.gacha-ring{width:260px;height:260px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;transform:scale(0.3);}
+.gacha-ring.gold{box-shadow:0 0 90px rgba(251,191,36,.8),0 0 180px rgba(251,191,36,.4);background:radial-gradient(circle,rgba(251,191,36,.25) 0%,transparent 70%);}
+.gacha-ring.blue{box-shadow:0 0 90px rgba(96,165,250,.8),0 0 180px rgba(96,165,250,.4);background:radial-gradient(circle,rgba(96,165,250,.25) 0%,transparent 70%);}
+.gacha-ring.red{box-shadow:0 0 90px rgba(248,113,113,.8),0 0 180px rgba(248,113,113,.4);background:radial-gradient(circle,rgba(248,113,113,.25) 0%,transparent 70%);}
+.gacha-icon{font-size:90px;line-height:1;filter:drop-shadow(0 0 24px currentColor);animation:floatIcon 2s ease-in-out infinite;}
+.gacha-ring.gold .gacha-icon{color:#fbbf24;}
+.gacha-ring.blue .gacha-icon{color:#60a5fa;}
+.gacha-ring.red .gacha-icon{color:#f87171;}
+@keyframes floatIcon{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.06)}}
+.gacha-rarity{font-family:'Orbitron',monospace;font-size:clamp(14px,3vw,18px);letter-spacing:6px;text-transform:uppercase;margin-top:24px;opacity:0;transform:translateY(20px);}
+.gacha-rarity.gold{color:#fbbf24;text-shadow:0 0 24px rgba(251,191,36,.9);}
+.gacha-rarity.blue{color:#93c5fd;text-shadow:0 0 24px rgba(96,165,250,.9);}
+.gacha-rarity.red{color:#f87171;text-shadow:0 0 24px rgba(248,113,113,.9);}
+.gacha-score{font-family:'Orbitron',monospace;font-size:clamp(60px,12vw,110px);font-weight:900;line-height:1;letter-spacing:-2px;margin-top:8px;opacity:0;transform:scale(1.4);}
+.gacha-score.gold{color:#fff;text-shadow:0 0 40px rgba(251,191,36,1),0 0 80px rgba(251,191,36,.5);}
+.gacha-score.blue{color:#fff;text-shadow:0 0 40px rgba(96,165,250,1),0 0 80px rgba(96,165,250,.5);}
+.gacha-score.red{color:#fff;text-shadow:0 0 40px rgba(248,113,113,1),0 0 80px rgba(248,113,113,.5);}
+.gacha-score-sub{font-family:'Orbitron',monospace;font-size:clamp(13px,2.5vw,17px);letter-spacing:4px;color:rgba(255,255,255,.55);margin-top:4px;opacity:0;text-align:center;}
+.gacha-grade-text{font-family:'Cinzel',serif;font-size:clamp(22px,5vw,38px);font-weight:700;letter-spacing:3px;margin-top:16px;opacity:0;transform:translateY(10px);}
+.gacha-grade-text.gold{color:#fef3c7;text-shadow:0 2px 16px rgba(251,191,36,.6);}
+.gacha-grade-text.blue{color:#dbeafe;text-shadow:0 2px 16px rgba(96,165,250,.5);}
+.gacha-grade-text.red{color:#fee2e2;text-shadow:0 2px 16px rgba(248,113,113,.5);}
+.gacha-dismiss{position:absolute;bottom:32px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.4);text-transform:uppercase;animation:blink 2s ease-in-out infinite;opacity:0;}
+@keyframes blink{0%,100%{opacity:.35}50%{opacity:.85}}
+@keyframes pulse{50%{opacity:.5}}
+
+/* ══════ Music section ══════ */
+.music-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#fafafa;}
+.music-tier-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+.music-tier-label{font-size:12px;font-weight:600;flex:1;}
+.music-file-name{font-size:11px;color:var(--text-secondary);flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.music-upload-btn{background:var(--blue);color:white;border:none;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap;font-family:'Google Sans',sans-serif;}
+.music-upload-btn:hover{background:#1557b0;}
+.music-clear-btn{background:transparent;border:1px solid var(--border);color:var(--text-secondary);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;}
+.music-clear-btn:hover{border-color:var(--red);color:var(--red);}
+
+#musicIndicator{position:fixed;bottom:80px;right:24px;z-index:9997;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);color:white;padding:8px 14px;border-radius:24px;font-size:12px;font-family:'Google Sans',sans-serif;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .3s;pointer-events:none;}
+#musicIndicator.show{opacity:1;pointer-events:auto;}
+.music-eq{display:flex;align-items:flex-end;gap:2px;height:14px;}
+.music-eq span{width:3px;background:#fbbf24;border-radius:2px;animation:eq .8s ease-in-out infinite alternate;}
+.music-eq span:nth-child(1){height:6px;animation-delay:0s}.music-eq span:nth-child(2){height:12px;animation-delay:.15s}
+.music-eq span:nth-child(3){height:8px;animation-delay:.3s}.music-eq span:nth-child(4){height:14px;animation-delay:.45s}
+@keyframes eq{to{height:3px}}
+.music-stop-btn{background:transparent;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.8);padding:2px 8px;border-radius:10px;font-size:11px;cursor:pointer;pointer-events:auto;}
+
+@media print{
+  header,.config-col,.sync-bar,.sync-config-section{display:none!important}
+  main{display:block;padding:0;max-width:100%}
+  .sheet-wrapper{box-shadow:none;border:none}
+  body{background:white}.stats-bar{display:none}
+  .score-banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media(max-width:768px){main{grid-template-columns:1fr}}
+
+/* Result Panel for non-input devices */
+.result-panel{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.result-panel-header{background:linear-gradient(135deg,#1a73e8,#0d47a1);color:white;padding:20px 24px;text-align:center;}
+.result-panel-header h2{font-size:24px;font-weight:700;margin-bottom:4px;}
+.result-panel-header p{font-size:13px;opacity:.8;}
+.result-panel-body{padding:24px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.stat-card{text-align:center;padding:16px;border-radius:8px;border:1px solid var(--border);}
+.stat-card .num{font-size:32px;font-weight:700;font-family:'Orbitron',monospace;}
+.stat-card .lbl{font-size:12px;color:var(--text-secondary);margin-top:4px;}
+.stat-card.correct .num{color:var(--green);}
+.stat-card.wrong .num{color:var(--red);}
+.stat-card.skipped .num{color:var(--text-secondary);}
+.stat-card.accuracy .num{color:var(--blue);}
+</style>
+</head>
+<body>
+
+<div class="copy-toast" id="copyToast">✓ 已复制</div>
+<div id="musicIndicator">
+  <div class="music-eq"><span></span><span></span><span></span><span></span></div>
+  <span id="musicIndicatorText">Playing...</span>
+  <button class="music-stop-btn" onclick="stopMusic()">■ 停止</button>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-dots">
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+    </div>
+    <div class="logo-text"><span>IGCSE</span> Answer Sheet <span style="font-size:12px;background:#7c3aed;color:white;padding:2px 8px;border-radius:4px;">SYNC</span></div>
+  </div>
+  <div class="spacer"></div>
+  <div id="headerSyncStatus" style="display:flex;align-items:center;gap:8px;margin-right:12px;">
+    <div class="sync-dot off"></div>
+    <span style="font-size:12px;color:#64748b;">初始化...</span>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ 打印</button>
+</header>
+
+<main>
+<div class="config-col">
+  <!-- ══ SYNC CONFIG (always visible) ══ -->
+  <div class="sync-config-section">
+    <div class="sync-config-header">📡 多设备同步设置</div>
+    <div class="sync-config-body">
+      <div class="sync-bar" id="syncBar">
+        <div class="sync-dot" id="syncDot"></div>
+        <span class="sync-label" id="syncLabel">同步状态</span>
+        <span class="sync-status" id="syncStatusText">等待链接...</span>
+        <span class="sync-role-badge" id="roleBadge">未设置</span>
+      </div>
+
+      <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">📌 设备物理位置</label>
+      <div class="role-selector">
+        <button class="role-btn" data-role="left" onclick="setPosition('left')">
+          <span class="role-icon">⬅️</span> 左屏
+        </button>
+        <button class="role-btn" data-role="center" onclick="setPosition('center')">
+          <span class="role-icon">⬆️</span> 中屏
+        </button>
+        <button class="role-btn" data-role="right" onclick="setPosition('right')">
+          <span class="role-icon">➡️</span> 右屏
+        </button>
+      </div>
+
+      <div class="input-toggle-row">
+        <div style="flex:1;">
+          <div class="input-toggle-label">🔊 本机为输入设备</div>
+          <div class="input-toggle-desc">负责输入答案/对答案/播放音乐（仅一台设备勾选）</div>
+        </div>
+        <label class="toggle-switch"><input type="checkbox" id="isInputDevice" onchange="onIsInputChange()"><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="device-id-disp" id="deviceIdDisp">设备ID: 生成中...</div>
+    </div>
+  </div>
+
+  <!-- ══ SETTINGS PANEL (only if input device) ══ -->
+  <div id="settingsPanel" style="display:none;">
+    <div class="card">
+      <div class="card-header">📝 试卷设置</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>科目代码 Subject Code</label>
+          <input id="subjectCode" type="text" placeholder="e.g. 0625" maxlength="10" value="0625">
+        </div>
+        <div class="form-group">
+          <label>科目名称 Subject Name</label>
+          <input id="subjectName" type="text" placeholder="e.g. Physics" value="Physics">
+        </div>
+        <div class="row">
+          <div class="form-group"><label>Paper</label><input id="paperNum" type="text" placeholder="e.g. 22" value="22"></div>
+          <div class="form-group"><label>Year 年份</label><select id="year"><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option><option>2019</option></select></div>
+        </div>
+        <div class="form-group">
+          <label>考季 Session</label>
+          <select id="session"><option value="Oct/Nov">October / November (秋季)</option><option value="May/June">May / June (夏季)</option><option value="Feb/Mar">February / March (春季)</option></select>
+        </div>
+        <div class="form-group">
+          <label>考试时长 Duration</label>
+          <select id="duration"><option value="45 minutes">45 minutes</option><option value="40 minutes">40 minutes</option><option value="1 hour">1 hour</option><option value="1 hour 15 minutes">1 hour 15 minutes</option><option value="1 hour 30 minutes">1 hour 30 minutes</option></select>
+        </div>
+        <div class="row">
+          <div class="form-group"><label>题目数量 Questions</label><input id="numQ" type="number" min="1" max="80" value="40"></div>
+          <div class="form-group"><label>选项 Options</label><select id="options"><option value="ABCD">A B C D</option><option value="ABCDE">A B C D E</option><option value="TF">T / F</option></select></div>
+        </div>
+        <div class="form-group">
+          <label>我的答案 My Answers</label>
+          <textarea class="answer-input-area" id="answers" placeholder="e.g. 12341233/21..." rows="3"></textarea>
+          <div class="hint">📌 直接输入答案，<strong>/</strong> 表示跳过。<br>💡 <strong style="color:var(--blue)">盲打：</strong>1=A, 2=B, 3=C, 4=D</div>
+        </div>
+        <hr class="section-divider">
+        <div class="section-label">✅ 对答案功能</div>
+        <div class="toggle-row">
+          <label class="toggle-switch"><input type="checkbox" id="enableKey" onchange="toggleKey()"><span class="toggle-slider"></span></label>
+          <span class="toggle-label">启用对答案模式</span>
+        </div>
+        <div class="collapsible-section" id="keySection">
+          <div class="form-group">
+            <label style="color:var(--blue);font-weight:700;">📋 粘贴官方 Mark Scheme 原始文本</label>
+            <textarea class="answer-input-area" id="rawMS" placeholder="直接复制答案贴在这里，比如：&#10;1 C 1&#10;2 C 1..." rows="4" oninput="extractMS()"></textarea>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>标准答案字符串 Answer Key</label>
+            <input class="answer-input-area" style="font-size:14px;min-height:auto;padding:8px 12px;" id="answerKey" placeholder="自动提取..." readonly>
+          </div>
+        </div>
+        <hr class="section-divider">
+        
+        <!-- ══ SYNC MODE ══ -->
+        <div class="section-label">🌐 同步模式</div>
+        <div class="toggle-row">
+          <label class="toggle-switch"><input type="checkbox" id="enableSyncMode" onchange="onSyncModeChange()"><span class="toggle-slider"></span></label>
+          <span class="toggle-label">启用多设备同步</span>
+        </div>
+        <div class="hint" style="margin-bottom:12px;">开启后，点击生成按钮将广播到所有设备同步播放动画。</div>
+
+        <!-- ══ MUSIC ══ -->
+        <div class="section-label">🎵 音乐设置（本地文件）</div>
+        <div class="toggle-row">
+          <label class="toggle-switch"><input type="checkbox" id="enableMusic" onchange="saveMusicSettings()"><span class="toggle-slider"></span></label>
+          <span class="toggle-label">自动播放音乐</span>
+        </div>
+        <div class="hint" style="margin-bottom:12px;">选择本地音频文件，仅本地播放不上传。</div>
+
+        <div class="music-row">
+          <div class="music-tier-dot" style="background:linear-gradient(135deg,#a855f7,#6366f1);"></div>
+          <span class="music-tier-label" style="color:#7c3aed;">🎲 开场</span>
+          <span class="music-file-name" id="musicNameIntro">未选择</span>
+          <button class="music-upload-btn" onclick="chooseMusicFile('intro')">选择</button>
+          <button class="music-clear-btn" onclick="clearMusicFile('intro')">✕</button>
+        </div>
+        <div class="music-row">
+          <div class="music-tier-dot" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);"></div>
+          <span class="music-tier-label" style="color:#b45309;">🏆 金色</span>
+          <span class="music-file-name" id="musicNameGold">未选择</span>
+          <button class="music-upload-btn" onclick="chooseMusicFile('gold')">选择</button>
+          <button class="music-clear-btn" onclick="clearMusicFile('gold')">✕</button>
+        </div>
+        <div class="music-row">
+          <div class="music-tier-dot" style="background:linear-gradient(135deg,#60a5fa,#1a73e8);"></div>
+          <span class="music-tier-label" style="color:#1557b0;">⭐ 蓝色</span>
+          <span class="music-file-name" id="musicNameBlue">未选择</span>
+          <button class="music-upload-btn" onclick="chooseMusicFile('blue')">选择</button>
+          <button class="music-clear-btn" onclick="clearMusicFile('blue')">✕</button>
+        </div>
+        <div class="music-row">
+          <div class="music-tier-dot" style="background:linear-gradient(135deg,#f87171,#ea4335);"></div>
+          <span class="music-tier-label" style="color:#c5221f;">💪 红色</span>
+          <span class="music-file-name" id="musicNameRed">未选择</span>
+          <button class="music-upload-btn" onclick="chooseMusicFile('red')">选择</button>
+          <button class="music-clear-btn" onclick="clearMusicFile('red')">✕</button>
+        </div>
+        <input type="file" id="fileInputIntro" accept="audio/*" style="display:none" onchange="handleMusicFile('intro',this)">
+        <input type="file" id="fileInputGold"  accept="audio/*" style="display:none" onchange="handleMusicFile('gold',this)">
+        <input type="file" id="fileInputBlue"  accept="audio/*" style="display:none" onchange="handleMusicFile('blue',this)">
+        <input type="file" id="fileInputRed"   accept="audio/*" style="display:none" onchange="handleMusicFile('red',this)">
+
+        <hr class="section-divider">
+        <button class="generate-btn" id="generateBtn" onclick="generate()">✨ 生成答题卡</button>
+        <div id="syncInfo" style="display:none;margin-top:8px;padding:8px 12px;background:#f3e8ff;border:1px solid #d8b4fe;border-radius:6px;font-size:12px;color:#6b21a8;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ WAITING PANEL (if not input device) ══ -->
+  <div id="waitingPanel" style="display:none;">
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(135deg,#f59e0b,#d97706);">⏳ 等待广播</div>
+      <div class="card-body" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:60px;margin-bottom:16px;animation:pulse 2s infinite;">📡</div>
+        <h3 style="font-size:18px;margin-bottom:8px;color:var(--text);">等待输入设备广播答题卡...</h3>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.8;">
+          作为 <strong id="waitRoleDisplay">左屏</strong>，等待输入设备发送同步信号。<br>
+          请确保所有设备已设置好位置，且输入设备已开启同步模式。
+        </p>
+        <div style="margin-top:20px;padding:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:12px;color:#92400e;">
+          <span id="waitStatusText">等待广播...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="resultContainer" class="sheet-wrapper">
+  <div class="empty-state">
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="4" y="3" width="16" height="18" rx="2"/>
+      <line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/>
+    </svg>
+    <h3>答题卡预览</h3>
+    <p>请设置角色后等待同步</p>
+  </div>
+</div>
+</main>
+
+<!-- ══ COUNTDOWN OVERLAY ══ -->
+<div id="countdownOverlay">
+  <div id="countdownLabel">同步即将开始</div>
+  <div id="countdownNum">5</div>
+  <div id="countdownHint">请确保所有设备已就位</div>
+</div>
+
+<!-- ══ GACHA OVERLAY ══ -->
+<div id="gachaOverlay" onclick="dismissGacha()">
+  <canvas id="gachaCanvas"></canvas>
+  <div id="gachaStage">
+    <div class="gacha-ring" id="gachaRing"><div class="gacha-icon" id="gachaIcon">✦</div></div>
+    <div class="gacha-rarity" id="gachaRarity">LEGENDARY</div>
+    <div class="gacha-score" id="gachaScore">0</div>
+    <div class="gacha-score-sub" id="gachaScoreSub">/ 40 CORRECT</div>
+    <div class="gacha-grade-text" id="gachaGrade">OUTSTANDING</div>
+  </div>
+  <div class="gacha-dismiss" id="gachaDismiss">TAP ANYWHERE TO CONTINUE</div>
+</div>
+
+<script>
+/* ============================================
+   MULTI-DEVICE SYNC ANSWER SHEET ENGINE
+   ============================================ */
+
+// ═══════════════════════════════════════════════
+// 1. DEVICE ID & CONFIG
+// ═══════════════════════════════════════════════
+
+let DEVICE_CONFIG = {
+  position: localStorage.getItem('sync_position') || null, // left|center|right
+  isInput: localStorage.getItem('sync_isInput') === 'true',
+  deviceId: localStorage.getItem('sync_deviceId') || generateDeviceId(),
+};
+
+function generateDeviceId() {
+  const id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  localStorage.setItem('sync_deviceId', id);
+  return id;
+}
+
+// Session ID - shared across devices
+let SESSION_ID = null;
+let NET_OFFSET = 0; // Suning time offset
+let SYNC_CONNECTED = false;
+let RECEIVED_BROADCAST = null; // {targetTime, payload}
+let GACHA_ACTIVE = false;
+let COUNTDOWN_ACTIVE = false;
+
+document.getElementById('deviceIdDisp').textContent = '设备ID: ' + DEVICE_CONFIG.deviceId;
+
+// ═══════════════════════════════════════════════
+// 2. SUNING TIME SYNC
+// ═══════════════════════════════════════════════
+
+const SuningSync = {
+  async forceSync() {
+    updateSyncStatus('connecting', '同步时间...');
+    try {
+      const offset = await this.fetch();
+      NET_OFFSET = offset;
+      updateSyncStatus('online', '时间已同步');
+      console.log('[TimeSync] Offset:', offset, 'ms');
+      return offset;
+    } catch (e) {
+      console.warn('[TimeSync] Failed:', e);
+      updateSyncStatus('off', '时间同步失败');
+      NET_OFFSET = 0;
+      return 0;
+    }
+  },
+  fetch() {
+    return new Promise((resolve, reject) => {
+      const t0 = performance.now();
+      const cb = 'cb_sn_' + Date.now();
+      const script = document.createElement('script');
+      let done = false;
+      window[cb] = (data) => {
+        if (done) return; done = true;
+        const tEnd = performance.now();
+        const rtt = tEnd - t0;
+        const serverTime = data.currentTime;
+        cleanup();
+        resolve((serverTime + rtt / 2) - Date.now());
+      };
+      const cleanup = () => { delete window[cb]; script.remove(); };
+      script.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
+      script.onerror = () => { if (!done) { done = true; cleanup(); reject('Network Err'); } };
+      document.head.appendChild(script);
+      setTimeout(() => { if (!done) { done = true; cleanup(); reject('Timeout'); } }, 3000);
+    });
+  },
+  getPreciseTime() { return Date.now() + NET_OFFSET; }
+};
+
+// ═══════════════════════════════════════════════
+// 3. SUPABASE REALTIME SYNC
+// ═══════════════════════════════════════════════
+
+let _supabaseClient = null;
+let _supabaseChannel = null;
+let _syncListeners = [];
+
+async function getSupabaseClient() {
+  if (_supabaseClient) return _supabaseClient;
+  // Try to load supabase from CDN
+  if (typeof supabase === 'undefined') {
+    await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+  }
+  if (typeof supabase === 'undefined') return null;
+  try {
+    // Try to fetch supabase config from our API
+    const res = await fetch('/api/health');
+    if (!res.ok) return null;
+    const supabaseUrl = window.__SUPABASE_URL__ || (
+      document.querySelector('meta[name="supabase-url"]')?.content
+    );
+    const supabaseKey = window.__SUPABASE_ANON_KEY__ || (
+      document.querySelector('meta[name="supabase-anon-key"]')?.content
+    );
+    if (!supabaseUrl || !supabaseKey) return null;
+    _supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+    return _supabaseClient;
+  } catch (e) {
+    console.warn('[Sync] Supabase init failed:', e);
+    return null;
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function initSupabaseSync() {
+  const client = await getSupabaseClient();
+  if (!client) {
+    console.warn('[Sync] Supabase unavailable, using fallback');
+    return false;
+  }
+
+  try {
+    // Listen for broadcasts
+    _supabaseChannel = client
+      .channel('answer-sheet-sync')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'answer_sheet_broadcasts',
+      }, (payload) => {
+        const row = payload.new;
+        if (!row || !row.payload) return;
+        // Ignore our own broadcasts
+        if (row.sender_device_id === DEVICE_CONFIG.deviceId) return;
+        handleIncomingBroadcast({
+          targetTime: row.target_time,
+          payload: row.payload,
+          senderDeviceId: row.sender_device_id,
+        });
+      })
+      .subscribe((status) => {
+        console.log('[Sync] Channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          SYNC_CONNECTED = true;
+          updateSyncStatus('online', '已连接');
+          _syncListeners.forEach(fn => fn(true));
+        } else if (status === 'CHANNEL_ERROR') {
+          SYNC_CONNECTED = false;
+          updateSyncStatus('off', '连接断开');
+          _syncListeners.forEach(fn => fn(false));
+        }
+      });
+
+    return true;
+  } catch (e) {
+    console.warn('[Sync] Channel error:', e);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 4. LOCALSTORAGE & BROADCASTCHANNEL FALLBACK
+// ═══════════════════════════════════════════════
+
+const _bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('answer-sheet-sync') : null;
+
+if (_bc) {
+  _bc.onmessage = (e) => {
+    const data = e.data;
+    if (!data || !data.targetTime || !data.payload) return;
+    if (data.senderDeviceId === DEVICE_CONFIG.deviceId) return;
+    handleIncomingBroadcast(data);
+  };
+}
+
+// localStorage storage event
+window.addEventListener('storage', (e) => {
+  if (e.key === 'sync_broadcast') {
+    try {
+      const data = JSON.parse(e.newValue);
+      if (!data || !data.targetTime || !data.payload) return;
+      if (data.senderDeviceId === DEVICE_CONFIG.deviceId) return;
+      // Ignore if too old
+      if (Date.now() - data.timestamp > 10000) return;
+      handleIncomingBroadcast(data);
+    } catch (e) {}
+  }
+});
+
+// Polling fallback
+let _pollTimer = null;
+function startPolling(sessionId) {
+  stopPolling();
+  _pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/answer-sheet-sync?sessionId=${sessionId}&since=${Date.now() - 5000}`);
+      const data = await res.json();
+      if (data.broadcasts && data.broadcasts.length > 0) {
+        const latest = data.broadcasts[0];
+        if (latest.senderDeviceId !== DEVICE_CONFIG.deviceId) {
+          handleIncomingBroadcast({
+            targetTime: latest.targetTime,
+            payload: latest.payload,
+            senderDeviceId: latest.senderDeviceId,
+          });
+        }
+      }
+    } catch (e) {}
+  }, 2000);
+}
+
+function stopPolling() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// ═══════════════════════════════════════════════
+// 5. BROADCAST HANDLER
+// ═══════════════════════════════════════════════
+
+async function handleIncomingBroadcast(data) {
+  // Deduplicate
+  if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
+  RECEIVED_BROADCAST = data;
+
+  console.log('[Sync] Received broadcast:', data);
+
+  // Show countdown
+  startCountdown(data.targetTime, data.payload);
+}
+
+async function broadcastEvent(targetTime, payload) {
+  const sessionId = SESSION_ID || crypto.randomUUID();
+  if (!SESSION_ID) SESSION_ID = sessionId;
+
+  const broadcastData = {
+    targetTime,
+    payload,
+    senderDeviceId: DEVICE_CONFIG.deviceId,
+    timestamp: Date.now(),
+  };
+
+  // Method 1: Supabase Realtime
+  try {
+    const res = await fetch('/api/answer-sheet-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        senderDeviceId: DEVICE_CONFIG.deviceId,
+        targetTime,
+        payload,
+      }),
+    });
+    const result = await res.json();
+    if (!result.ok) throw new Error('API error');
+    console.log('[Sync] Broadcast via API:', result);
+  } catch (e) {
+    console.warn('[Sync] API broadcast failed:', e);
+  }
+
+  // Method 2: BroadcastChannel (same browser, different tabs)
+  if (_bc) {
+    try {
+      _bc.postMessage(broadcastData);
+    } catch (e) {}
+  }
+
+  // Method 3: localStorage event (same browser, different tabs)
+  try {
+    localStorage.setItem('sync_broadcast', JSON.stringify(broadcastData));
+    // Clean up
+    setTimeout(() => {
+      try { localStorage.removeItem('sync_broadcast'); } catch (e) {}
+    }, 1000);
+  } catch (e) {}
+
+  // Method 4: Start polling for others
+  startPolling(sessionId);
+}
+
+// ═══════════════════════════════════════════════
+// 6. UI HELPERS
+// ═══════════════════════════════════════════════
+
+function updateSyncStatus(state, text) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  const statusText = document.getElementById('syncStatusText');
+  const headerStatus = document.getElementById('headerSyncStatus');
+
+  dot.className = 'sync-dot ' + state;
+  if (state === 'online') { label.textContent = '● 已同步'; statusText.textContent = text || '已连接'; }
+  else if (state === 'connecting') { label.textContent = '◌ 同步中'; statusText.textContent = text || '连接中...'; }
+  else { label.textContent = '○ 未连接'; statusText.textContent = text || '断开'; }
+
+  // Update header
+  const headerDot = headerStatus.querySelector('.sync-dot');
+  const headerText = headerStatus.querySelector('span');
+  if (headerDot) headerDot.className = 'sync-dot ' + state;
+  if (headerText) headerText.textContent = text || state;
+}
+
+function updateRoleBadge() {
+  const badge = document.getElementById('roleBadge');
+  if (!DEVICE_CONFIG.position) {
+    badge.textContent = '未设置';
+    badge.className = 'sync-role-badge';
+    return;
+  }
+  const posMap = { left: '⬅️左屏', center: '⬆️中屏', right: '➡️右屏' };
+  const inputFlag = DEVICE_CONFIG.isInput ? ' [输入]' : '';
+  badge.textContent = posMap[DEVICE_CONFIG.position] + inputFlag;
+  badge.className = 'sync-role-badge' + (DEVICE_CONFIG.isInput ? ' input' : ' wait');
+}
+
+function setPosition(pos) {
+  DEVICE_CONFIG.position = pos;
+  localStorage.setItem('sync_position', pos);
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === pos));
+  updateRoleBadge();
+  updatePanelVisibility();
+}
+
+function onIsInputChange() {
+  DEVICE_CONFIG.isInput = document.getElementById('isInputDevice').checked;
+  localStorage.setItem('sync_isInput', DEVICE_CONFIG.isInput);
+  updateRoleBadge();
+  updatePanelVisibility();
+}
+
+function updatePanelVisibility() {
+  const showInput = DEVICE_CONFIG.isInput;
+  document.getElementById('settingsPanel').style.display = showInput ? 'block' : 'none';
+  document.getElementById('waitingPanel').style.display = (!showInput && DEVICE_CONFIG.position) ? 'block' : 'none';
+
+  // Update wait role display
+  if (DEVICE_CONFIG.position) {
+    const posMap = { left: '左屏', center: '中屏', right: '右屏' };
+    document.getElementById('waitRoleDisplay').textContent = posMap[DEVICE_CONFIG.position];
+  }
+}
+
+function onSyncModeChange() {
+  const enabled = document.getElementById('enableSyncMode').checked;
+  if (enabled) {
+    document.getElementById('syncInfo').style.display = 'block';
+    document.getElementById('syncInfo').textContent = '🌐 同步模式已开启，点击生成后会广播到所有设备';
+    initFullSync();
+  } else {
+    document.getElementById('syncInfo').style.display = 'none';
+  }
+}
+
+async function initFullSync() {
+  // Start Suning sync
+  await SuningSync.forceSync();
+
+  // Generate session ID if needed
+  if (!SESSION_ID) {
+    SESSION_ID = crypto.randomUUID();
+  }
+
+  // Try Supabase
+  const supOk = await initSupabaseSync();
+  if (supOk) {
+    console.log('[Sync] Supabase connected');
+  } else {
+    console.log('[Sync] Using fallback sync methods');
+  }
+  startPolling(SESSION_ID);
+}
+
+// ═══════════════════════════════════════════════
+// 7. COUNTDOWN & GACHA
+// ═══════════════════════════════════════════════
+
+let _countdownTimer = null;
+
+function startCountdown(targetTime, payload) {
+  if (COUNTDOWN_ACTIVE) return;
+  COUNTDOWN_ACTIVE = true;
+
+  const overlay = document.getElementById('countdownOverlay');
+  const numEl = document.getElementById('countdownNum');
+  const label = document.getElementById('countdownLabel');
+  const hint = document.getElementById('countdownHint');
+
+  overlay.classList.add('active');
+  numEl.textContent = '5';
+  label.textContent = '同步即将开始';
+  hint.textContent = '请确保所有设备已就位';
+
+  // Store payload for after countdown
+  window._pendingPayload = payload;
+
+  function tick() {
+    const now = SuningSync.getPreciseTime();
+    const remaining = targetTime - now;
+
+    if (remaining <= 0) {
+      // Countdown done!
+      clearInterval(_countdownTimer);
+      _countdownTimer = null;
+
+      // Hide countdown overlay
+      overlay.classList.remove('active');
+
+      // Trigger gacha
+      COUNTDOWN_ACTIVE = false;
+      triggerGachaForPayload(payload);
+      return;
+    }
+
+    const secs = Math.ceil(remaining / 1000);
+    const displaySec = Math.max(1, Math.min(9, secs));
+    numEl.textContent = displaySec.toString();
+
+    // Flash effect
+    numEl.style.opacity = '0.5';
+    numEl.style.transform = 'scale(0.8)';
+    requestAnimationFrame(() => {
+      numEl.style.opacity = '1';
+      numEl.style.transform = 'scale(1)';
+    });
+
+    if (secs <= 1) {
+      label.textContent = '🎬 启动！';
+    } else {
+      label.textContent = `⏱ 倒计时 ${secs} 秒`;
+    }
+  }
+
+  tick();
+  _countdownTimer = setInterval(tick, 100);
+}
+
+function triggerGachaForPayload(payload) {
+  if (GACHA_ACTIVE) return;
+
+  if (!payload) {
+    console.warn('[Gacha] No payload');
+    return;
+  }
+
+  const { correct, total, tier, score, wrongNums, answers, keyAnswers, numQ, opts, fullPaperCode, subjectName, duration, session, year, paper, code } = payload;
+
+  // Set result in container
+  renderResult(payload);
+
+  // For input device or center: play music + gacha
+  const shouldPlayMusic = DEVICE_CONFIG.isInput;
+  const position = DEVICE_CONFIG.position || 'center';
+
+  // Trigger gacha animation
+  if (correct !== undefined && total !== undefined) {
+    triggerGacha(correct, total, position, shouldPlayMusic ? tier : null);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 8. GACHA ENGINE (Modified for position)
+// ═══════════════════════════════════════════════
+
+const TIER_INFO = {
+  gold: { icon: '✦', rarity: 'LEGENDARY', grade: 'Outstanding ★★★', col: [251, 191, 36], dark: '#0a0700' },
+  blue: { icon: '◈', rarity: 'PROFICIENT', grade: 'Well Done ★★', col: [96, 165, 250], dark: '#00060f' },
+  red: { icon: '◇', rarity: 'DEVELOPING', grade: 'Keep Going ★', col: [248, 113, 113], dark: '#0f0000' },
+};
+const CHAOS_COLS = [[251, 191, 36], [96, 165, 250], [248, 113, 113], [255, 255, 255]];
+
+function getTier(score, total) {
+  if (score >= 35 || (total !== 40 && total > 0 && score / total >= 0.875)) return 'gold';
+  if (score >= 30 || (total !== 40 && total > 0 && score / total >= 0.75)) return 'blue';
+  return 'red';
+}
+
+let gachaActive = false;
+let _animId = null;
+let _dismissCallbacks = [];
+
+function dismissGacha() {
+  if (!gachaActive) return;
+  gachaActive = false;
+  if (DEVICE_CONFIG.isInput) stopMusic();
+  if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
+  _dismissCallbacks.forEach(fn => fn()); _dismissCallbacks = [];
+  const ov = document.getElementById('gachaOverlay');
+  ov.style.transition = 'opacity 0.5s ease-out';
+  ov.style.opacity = '0';
+  setTimeout(() => {
+    ov.classList.remove('active');
+    ov.style.opacity = '';
+    ov.style.transition = '';
+    const stage = document.getElementById('gachaStage');
+    stage.style.opacity = '0';
+    const ctx = document.getElementById('gachaCanvas').getContext('2d');
+    ctx.clearRect(0, 0, 9999, 9999);
+  }, 500);
+}
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') && gachaActive) dismissGacha();
+});
+
+function triggerGacha(score, total, position, musicTier) {
+  if (gachaActive) return;
+  gachaActive = true;
+  const tier = musicTier || getTier(score, total);
+  const info = TIER_INFO[tier];
+  const [tr, tg, tb] = info.col;
+
+  const ov = document.getElementById('gachaOverlay');
+  ov.classList.add('active');
+  ov.style.opacity = '1';
+  ov.style.background = '#000';
+
+  const stage = document.getElementById('gachaStage');
+  stage.style.opacity = '0';
+  stage.style.display = 'flex';
+
+  const ring = document.getElementById('gachaRing');
+  const icon = document.getElementById('gachaIcon');
+  const rarity = document.getElementById('gachaRarity');
+  const scoreEl = document.getElementById('gachaScore');
+  const scoreSub = document.getElementById('gachaScoreSub');
+  const grade = document.getElementById('gachaGrade');
+  const dismiss = document.getElementById('gachaDismiss');
+
+  [ring, rarity, scoreEl, scoreSub, grade, dismiss].forEach(el => {
+    el.className = el.className.replace(/\b(gold|blue|red)\b/g, '');
+    el.style.cssText = '';
+  });
+  ring.classList.add(tier);
+  rarity.classList.add(tier);
+  scoreEl.classList.add(tier);
+  grade.classList.add(tier);
+  icon.textContent = info.icon;
+  rarity.textContent = info.rarity;
+  scoreEl.textContent = score;
+  scoreSub.textContent = `/ ${total} CORRECT`;
+  grade.textContent = info.grade;
+
+  const canvas = document.getElementById('gachaCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+
+  // Position-based particle generation zones
+  function getSpawnZone() {
+    const p = position || 'center';
+    if (p === 'left') {
+      // Left screen: particles from left edge + top/bottom left
+      return { xMin: -30, xMax: W * 0.5, yMin: -30, yMax: H + 30, bias: 'left' };
+    } else if (p === 'right') {
+      return { xMin: W * 0.5, xMax: W + 30, yMin: -30, yMax: H + 30, bias: 'right' };
+    } else {
+      return { xMin: -30, xMax: W + 30, yMin: -30, yMax: H + 30, bias: 'center' };
+    }
+  }
+
+  const zone = getSpawnZone();
+
+  function randEdge() {
+    const side = Math.floor(Math.random() * 4);
+    let x, y;
+    if (side === 0) { x = zone.xMin + Math.random() * (zone.xMax - zone.xMin); y = zone.yMin; }
+    else if (side === 1) { x = zone.xMax; y = zone.yMin + Math.random() * (zone.yMax - zone.yMin); }
+    else if (side === 2) { x = zone.xMin + Math.random() * (zone.xMax - zone.xMin); y = zone.yMax; }
+    else { x = zone.xMin; y = zone.yMin + Math.random() * (zone.yMax - zone.yMin); }
+    return { x, y };
+  }
+
+  const N = 320;
+  const particles = [];
+
+  for (let i = 0; i < N; i++) {
+    const pos = randEdge();
+    const colIdx = Math.floor(Math.random() * CHAOS_COLS.length);
+    const [r, g, b] = CHAOS_COLS[colIdx];
+    const size = 2 + Math.random() * 5;
+    const angleToCenter = Math.atan2(cy - pos.y, cx - pos.x);
+    const vortexOffset = (Math.random() - 0.5) * 1.8;
+    const speed = 2.5 + Math.random() * 3;
+    particles.push({
+      x: pos.x, y: pos.y,
+      vx: Math.cos(angleToCenter + vortexOffset) * speed,
+      vy: Math.sin(angleToCenter + vortexOffset) * speed,
+      r, g, b, tr, tg, tb,
+      size, basSize: size,
+      alpha: 0.85 + Math.random() * 0.15,
+      colorBlend: 0,
+      phase: 'chaos',
+      age: 0,
+      angle: Math.atan2(pos.y - cy, pos.x - cx),
+      dist: Math.hypot(pos.x - cx, pos.y - cy),
+      orbitSpeed: 0,
+      shape: Math.random() < 0.35 ? 'square' : 'circle',
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.12,
+      trail: [],
+    });
+  }
+
+  const T_CONVERGE = 2.2;
+  const T_TIGHTEN = 3.6;
+  const T_BURST = 4.6;
+  const T_REVEAL = 5.0;
+
+  let startTime = null;
+  let musicPlayed = false;
+  let revealTriggered = false;
+
+  // Play intro music only if input device
+  if (DEVICE_CONFIG.isInput) playTierMusic('intro');
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+  function drawParticle(p, t_global) {
+    const cr = Math.round(lerp(p.r, p.tr, p.colorBlend));
+    const cg = Math.round(lerp(p.g, p.tg, p.colorBlend));
+    const cb = Math.round(lerp(p.b, p.tb, p.colorBlend));
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+    ctx.shadowColor = `rgba(${cr},${cg},${cb},0.8)`;
+    ctx.shadowBlur = p.size * 2.5;
+    if (p.shape === 'square') {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function tick(ts) {
+    if (!gachaActive) return;
+    if (!startTime) startTime = ts;
+    const t = (ts - startTime) / 1000;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, 0, W, H);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.rot += p.rotV;
+
+      if (t < T_CONVERGE) {
+        const vortex = 0.04 + t * 0.015;
+        p.x += p.vx;
+        p.y += p.vy;
+        const ang = Math.atan2(p.y - cy, p.x - cx);
+        p.vx += Math.cos(ang + Math.PI / 2) * vortex;
+        p.vy += Math.sin(ang + Math.PI / 2) * vortex;
+        const towardX = (cx - p.x), towardY = (cy - p.y);
+        p.vx += towardX * 0.002;
+        p.vy += towardY * 0.002;
+        p.colorBlend = Math.min(1, t / T_CONVERGE * 0.3);
+      } else if (t < T_TIGHTEN) {
+        const progress = (t - T_CONVERGE) / (T_TIGHTEN - T_CONVERGE);
+        const pull = easeOut(progress);
+        const towardX = cx - p.x, towardY = cy - p.y;
+        const d = Math.hypot(towardX, towardY) + 0.1;
+        const ang = Math.atan2(p.y - cy, p.x - cx);
+        const orbitStr = 2.0 * (1 - pull * 0.7);
+        p.vx += Math.cos(ang + Math.PI / 2) * orbitStr * 0.08;
+        p.vy += Math.sin(ang + Math.PI / 2) * orbitStr * 0.08;
+        p.vx += towardX / d * (pull * 4 + 0.5);
+        p.vy += towardY / d * (pull * 4 + 0.5);
+        p.vx *= 0.88;
+        p.vy *= 0.88;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.colorBlend = Math.min(1, 0.3 + progress * 0.7);
+        p.size = p.basSize * (1 + pull * 0.5);
+      } else if (t < T_BURST) {
+        const progress = (t - T_TIGHTEN) / (T_BURST - T_TIGHTEN);
+        const pull = easeInOut(progress);
+        const towardX = cx - p.x, towardY = cy - p.y;
+        const d = Math.hypot(towardX, towardY) + 0.1;
+        const ang = Math.atan2(p.y - cy, p.x - cx);
+        p.vx += Math.cos(ang + Math.PI / 2) * 0.25;
+        p.vy += Math.sin(ang + Math.PI / 2) * 0.25;
+        p.vx += towardX / d * (pull * 8);
+        p.vy += towardY / d * (pull * 8);
+        p.vx *= 0.82;
+        p.vy *= 0.82;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.colorBlend = 1;
+        p.size = p.basSize * (1 + pull * 1.5);
+        p.alpha = 1;
+      } else {
+        if (p.phase !== 'burst') {
+          p.phase = 'burst';
+          const angle = Math.atan2(p.y - cy, p.x - cx) || Math.random() * Math.PI * 2;
+          const spd = 4 + Math.random() * 12;
+          p.vx = Math.cos(angle) * spd;
+          p.vy = Math.sin(angle) * spd;
+        }
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.93;
+        p.vy *= 0.93;
+        p.alpha = Math.max(0, p.alpha - 0.025);
+        p.size *= 0.97;
+      }
+
+      if (p.alpha > 0.02) drawParticle(p, t);
+    }
+
+    if (t >= T_BURST && !musicPlayed) {
+      musicPlayed = true;
+      if (DEVICE_CONFIG.isInput) {
+        stopMusic();
+        playTierMusic(tier);
+      }
+      const fl = document.createElement('div');
+      fl.style.cssText = `position:fixed;inset:0;background:#fff;opacity:0.7;pointer-events:none;z-index:10001;transition:opacity 0.5s ease-out`;
+      document.body.appendChild(fl);
+      requestAnimationFrame(() => fl.style.opacity = '0');
+      setTimeout(() => fl.remove(), 600);
+    }
+
+    if (t >= T_REVEAL && !revealTriggered) {
+      revealTriggered = true;
+      revealResult(score, total, tier);
+    }
+
+    _animId = requestAnimationFrame(tick);
+  }
+  _animId = requestAnimationFrame(tick);
+}
+
+function revealResult(score, total, tier) {
+  const stage = document.getElementById('gachaStage');
+  const ring = document.getElementById('gachaRing');
+  const rarity = document.getElementById('gachaRarity');
+  const scoreEl = document.getElementById('gachaScore');
+  const scoreSub = document.getElementById('gachaScoreSub');
+  const grade = document.getElementById('gachaGrade');
+  const dismiss = document.getElementById('gachaDismiss');
+
+  stage.style.transition = 'opacity 0.4s ease-out';
+  stage.style.opacity = '1';
+
+  setTimeout(() => {
+    ring.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s';
+    ring.style.opacity = '1';
+    ring.style.transform = 'scale(1)';
+  }, 50);
+
+  setTimeout(() => {
+    rarity.style.transition = 'opacity 0.4s ease-out,transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+    rarity.style.opacity = '1';
+    rarity.style.transform = 'translateY(0)';
+  }, 400);
+
+  setTimeout(() => {
+    scoreEl.style.transition = 'none';
+    scoreEl.style.opacity = '0';
+    scoreEl.style.transform = 'scale(2)';
+    setTimeout(() => {
+      scoreEl.style.transition = 'opacity 0.25s ease-out,transform 0.45s cubic-bezier(0.34,1.56,0.64,1)';
+      scoreEl.style.opacity = '1';
+      scoreEl.style.transform = 'scale(1)';
+    }, 50);
+  }, 700);
+
+  setTimeout(() => {
+    scoreSub.style.transition = 'opacity 0.5s ease-out';
+    scoreSub.style.opacity = '1';
+  }, 1000);
+
+  setTimeout(() => {
+    grade.style.transition = 'opacity 0.5s ease-out,transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+    grade.style.opacity = '1';
+    grade.style.transform = 'translateY(0)';
+  }, 1200);
+
+  setTimeout(() => {
+    dismiss.style.transition = 'opacity 0.5s';
+    dismiss.style.opacity = '1';
+  }, 1800);
+}
+
+// ═══════════════════════════════════════════════
+// 9. RENDER RESULTS
+// ═══════════════════════════════════════════════
+
+function renderResult(payload) {
+  const container = document.getElementById('resultContainer');
+  const position = DEVICE_CONFIG.position || 'center';
+  const isInput = DEVICE_CONFIG.isInput;
+
+  if (position === 'center') {
+    // Center screen: show score banner + detailed results
+    renderCenterResult(container, payload);
+  } else if (isInput) {
+    // Input device shows full answer sheet
+    renderFullSheet(container, payload);
+  } else {
+    // Non-input side screens: show decorative stats
+    renderSideResult(container, payload);
+  }
+}
+
+function renderCenterResult(container, p) {
+  const { correct, total, tier, wrongNums, numQ, fullPaperCode, subjectName } = p;
+  const keyAnswered = total || 0;
+  const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
+  const skipped = numQ - keyAnswered;
+
+  container.innerHTML = `
+    <div class="result-panel">
+      <div class="result-panel-header">
+        <h2>🏆 考试成绩</h2>
+        <p>${fullPaperCode || ''} ${subjectName || ''}</p>
+      </div>
+      <div class="result-panel-body">
+        <div class="stat-grid">
+          <div class="stat-card correct">
+            <div class="num">${correct}</div>
+            <div class="lbl">✅ 正确</div>
+          </div>
+          <div class="stat-card wrong">
+            <div class="num">${p.wrong || 0}</div>
+            <div class="lbl">❌ 错误</div>
+          </div>
+          <div class="stat-card accuracy">
+            <div class="num">${pct}%</div>
+            <div class="lbl">🎯 正确率</div>
+          </div>
+          <div class="stat-card skipped">
+            <div class="num">${skipped}</div>
+            <div class="lbl">📄 空白题</div>
+          </div>
+        </div>
+        ${wrongNums && wrongNums.length > 0 ? `
+        <div style="padding:12px;background:#fce8e6;border:1px solid #f5c6c4;border-radius:8px;margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:600;color:#c5221f;margin-bottom:6px;">✗ 错题号 (${wrongNums.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${wrongNums.map(n => `<span style="padding:2px 8px;background:white;border-radius:4px;font-size:12px;font-family:'Roboto Mono',monospace;">${n}</span>`).join('')}
+          </div>
+        </div>` : ''}
+        <div style="text-align:center;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+          <div class="gacha-grade-text ${tier}" style="opacity:1;transform:none;font-size:24px;">
+            ${TIER_INFO[tier]?.grade || ''}
+          </div>
+          <div style="font-size:13px;color:#166534;margin-top:4px;">
+            ${tier === 'gold' ? '🌟 卓越表现！' : tier === 'blue' ? '✨ 干得不错！' : '💪 继续加油！'}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSideResult(container, p) {
+  const { correct, total, tier, correctList, wrongNums } = p;
+  const keyAnswered = total || 0;
+  const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
+
+  container.innerHTML = `
+    <div class="result-panel">
+      <div class="result-panel-header" style="background:linear-gradient(135deg,#7c3aed,#6366f1);">
+        <h2>📊 数据面板</h2>
+        <p>同步答题统计</p>
+      </div>
+      <div class="result-panel-body">
+        <div class="stat-grid">
+          <div class="stat-card correct">
+            <div class="num">${correct}</div>
+            <div class="lbl">✅ 正确</div>
+          </div>
+          <div class="stat-card wrong">
+            <div class="num">${p.wrong || 0}</div>
+            <div class="lbl">❌ 错误</div>
+          </div>
+          <div class="stat-card accuracy">
+            <div class="num" style="color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'}">${pct}%</div>
+            <div class="lbl">🎯 正确率</div>
+          </div>
+          <div class="stat-card" style="border-color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'}">
+            <div class="num" style="font-size:20px;color:${tier === 'gold' ? '#fbbf24' : tier === 'blue' ? '#60a5fa' : '#f87171'}">${TIER_INFO[tier]?.rarity || ''}</div>
+            <div class="lbl">🏅 等级</div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:16px;padding:20px;background:#f8f9fa;border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:48px;line-height:1;">
+            ${tier === 'gold' ? '🏆' : tier === 'blue' ? '⭐' : '💪'}
+          </div>
+          <div style="font-size:14px;color:var(--text-secondary);margin-top:8px;">
+            ${tier === 'gold' ? '全体同步完成！' : tier === 'blue' ? '同步成功！' : '继续加油！'}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderFullSheet(container, p) {
+  const { answers, keyAnswers, numQ, opts, fullPaperCode, subjectName, duration, session, year, correct, wrong, skipped, blank, wrongNums } = p;
+  const keyAnswered = keyAnswers ? keyAnswers.filter(a => a && a !== '/').length : 0;
+  const pct = keyAnswered > 0 ? Math.round(correct / keyAnswered * 100) : 0;
+  const errorBookTitle = `${fullPaperCode}(${(wrongNums || []).join(',')})`;
+
+  let questionsHTML = '';
+  for (let i = 0; i < numQ; i++) {
+    const ans = answers ? answers[i] : null;
+    const key = keyAnswers ? keyAnswers[i] : null;
+    const isSkipped = ans === '/';
+    const isBlank = ans === null;
+    const isWrong = key && ans && ans !== '/' && ans !== key;
+    const isCorrect = key && ans && ans !== '/' && ans === key;
+    let bubblesHTML = (opts || ['A', 'B', 'C', 'D']).map(o => {
+      const isSelected = ans === o;
+      const isKeyOption = key === o;
+      let cls = 'bubble';
+      if (isSelected) { cls += isWrong ? ' filled wrong' : ' filled'; if (isCorrect) cls += ' correct-key'; }
+      else if (isSkipped || isBlank) { cls += ' skipped'; if (isKeyOption && key) cls += ' correct-key'; }
+      else { if (isWrong && isKeyOption) cls += ' correct-key'; }
+      return `<div class="${cls}">${o}</div>`;
+    }).join('');
+    const ansClass = isBlank || isSkipped ? 'skipped' : (isWrong ? 'wrong' : (isCorrect ? 'correct' : ''));
+    const ansDisplay = isBlank ? '–' : (isSkipped ? '/' : ans);
+    let extraHTML = '';
+    if (isWrong && key) extraHTML = `<span class="wrong-indicator">✗</span><span class="correct-key-label">${key}</span>`;
+    else if (isCorrect) extraHTML = `<span style="font-size:10px;color:var(--green);margin-left:2px;">✓</span>`;
+    questionsHTML += `<div class="question-row"><span class="q-num">${i + 1}</span><div class="bubbles">${bubblesHTML}</div><span class="answer-text ${ansClass}">${ansDisplay}</span>${extraHTML}</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="score-banner">
+      <div><div class="score-main">${correct} / ${keyAnswered}</div><div class="score-label">得分 Score</div></div>
+      <div class="score-pct">${pct}%</div>
+      <div class="score-details">
+        <div class="score-item"><div class="score-item-num" style="color:#a8d5b5">${correct}</div><div class="score-item-lbl">正确 ✓</div></div>
+        <div class="score-item"><div class="score-item-num" style="color:#f4a7a3">${wrong}</div><div class="score-item-lbl">错误 ✗</div></div>
+        <div class="score-item"><div class="score-item-num" style="color:rgba(255,255,255,.5)">${skipped + blank}</div><div class="score-item-lbl">空白</div></div>
+      </div>
+    </div>
+    <div class="sheet-header">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="sheet-title">${fullPaperCode}<span class="title-wrong-nums">${wrongNums && wrongNums.length > 0 ? '(' + wrongNums.join(',') + ')' : ''}</span></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span class="badge badge-blue">📅 ${session} ${year}</span>
+            <span class="badge badge-green">⏱ ${duration}</span>
+            <span class="badge badge-yellow">📋 ${numQ} Questions</span>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#5f6368;text-align:right;line-height:1.8;">
+          <div>Date: ___________</div>
+          <div>Name: ___________</div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-body"><div class="questions-grid">${questionsHTML}</div></div>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-dot" style="background:#1a73e8"></div> Answered: <strong>${p.answers ? p.answers.filter(a => a && a !== '/' && a !== null).length : 0}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#bdc1c6"></div> Skipped: <strong>${skipped}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#34a853"></div> Correct: <strong>${correct}</strong></div>
+      <div class="stat"><div class="stat-dot" style="background:#ea4335"></div> Wrong: <strong>${wrong}</strong></div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// 10. MUSIC (Only on input device)
+// ═══════════════════════════════════════════════
+
+const DB_NAME = 'igcse_music_db', DB_VER = 2, STORE = 'tracks';
+let _db = null;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    if (_db) { res(_db); return; }
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => { const db = e.target.result; if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
+    req.onsuccess = e => { _db = e.target.result; res(_db); };
+    req.onerror = e => rej(e);
+  });
+}
+async function dbSet(k, v) { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction(STORE, 'readwrite'); tx.objectStore(STORE).put(v, k); tx.oncomplete = () => res(); tx.onerror = e => rej(e); }); }
+async function dbGet(k) { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction(STORE, 'readonly'); const req = tx.objectStore(STORE).get(k); req.onsuccess = () => res(req.result); req.onerror = e => rej(e); }); }
+async function dbDel(k) { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction(STORE, 'readwrite'); tx.objectStore(STORE).delete(k); tx.oncomplete = () => res(); tx.onerror = e => rej(e); }); }
+
+const ALL_TIERS = ['intro', 'gold', 'blue', 'red'];
+let _musicURLs = { intro: null, gold: null, blue: null, red: null };
+let _musicNames = { intro: '未选择', gold: '未选择', blue: '未选择', red: '未选择' };
+let _audioEl = null;
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+async function initMusicSettings() {
+  const enabled = localStorage.getItem('igcse_music_enabled');
+  const cb = document.getElementById('enableMusic');
+  if (cb) cb.checked = enabled !== 'false';
+  for (const tier of ALL_TIERS) {
+    try {
+      const s = await dbGet('music_' + tier);
+      if (s && s.blob) { _musicURLs[tier] = URL.createObjectURL(s.blob); _musicNames[tier] = s.name; const el = document.getElementById('musicName' + cap(tier)); if (el) el.textContent = s.name; }
+    } catch (e) {}
+  }
+}
+function saveMusicSettings() { const cb = document.getElementById('enableMusic'); if (cb) localStorage.setItem('igcse_music_enabled', cb.checked ? 'true' : 'false'); }
+function chooseMusicFile(tier) { const el = document.getElementById('fileInput' + cap(tier)); if (el) el.click(); }
+async function handleMusicFile(tier, input) {
+  const file = input.files[0]; if (!file) return;
+  if (_musicURLs[tier]) URL.revokeObjectURL(_musicURLs[tier]);
+  _musicURLs[tier] = URL.createObjectURL(file);
+  _musicNames[tier] = file.name;
+  const el = document.getElementById('musicName' + cap(tier));
+  if (el) el.textContent = file.name;
+  await dbSet('music_' + tier, { blob: file, name: file.name });
+  input.value = '';
+}
+async function clearMusicFile(tier) {
+  if (_musicURLs[tier]) { URL.revokeObjectURL(_musicURLs[tier]); _musicURLs[tier] = null; }
+  _musicNames[tier] = '未选择';
+  const el = document.getElementById('musicName' + cap(tier));
+  if (el) el.textContent = '未选择';
+  await dbDel('music_' + tier);
+}
+function playTierMusic(tier) {
+  if (!DEVICE_CONFIG.isInput) return;
+  const cb = document.getElementById('enableMusic');
+  if (cb && !cb.checked) return;
+  const url = _musicURLs[tier];
+  if (!url) return;
+  stopMusic();
+  _audioEl = new Audio(url);
+  _audioEl.play().catch(() => {});
+  const ind = document.getElementById('musicIndicator');
+  if (ind) {
+    document.getElementById('musicIndicatorText').textContent = _musicNames[tier] || 'Playing…';
+    ind.classList.add('show');
+  }
+  if (_audioEl) _audioEl.onended = () => { const i = document.getElementById('musicIndicator'); if (i) i.classList.remove('show'); _audioEl = null; };
+}
+function stopMusic() {
+  if (_audioEl) { _audioEl.pause(); _audioEl.currentTime = 0; _audioEl = null; }
+  const ind = document.getElementById('musicIndicator');
+  if (ind) ind.classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════
+// 11. ANSWER SHEET GENERATION
+// ═══════════════════════════════════════════════
+
+function toggleKey() {
+  const on = document.getElementById('enableKey').checked;
+  document.getElementById('keySection').classList.toggle('visible', on);
+}
+
+function parseAnswers(raw, numQ, opts) {
+  let clean = raw.toUpperCase().replace(/\s/g, '');
+  let mapped = '';
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean[i];
+    if (c === '1') mapped += opts[0];
+    else if (c === '2') mapped += opts[1];
+    else if (c === '3' && opts[2]) mapped += opts[2];
+    else if (c === '4' && opts[3]) mapped += opts[3];
+    else if (c === '5' && opts[4]) mapped += opts[4];
+    else mapped += c;
+  }
+  const validChars = new Set([...opts, '/']);
+  const result = [];
+  let idx = 0;
+  for (let i = 0; i < numQ; i++) {
+    while (idx < mapped.length && !validChars.has(mapped[idx])) idx++;
+    if (idx < mapped.length) { result.push(mapped[idx]); idx++; }
+    else result.push(null);
+  }
+  return result;
+}
+
+function extractMS() {
+  const rawText = document.getElementById('rawMS').value;
+  const numQ = parseInt(document.getElementById('numQ').value) || 40;
+  const optMode = document.getElementById('options').value;
+  let opts;
+  if (optMode === 'ABCD') opts = ['A', 'B', 'C', 'D'];
+  else if (optMode === 'ABCDE') opts = ['A', 'B', 'C', 'D', 'E'];
+  else opts = ['T', 'F'];
+  const regex = /\b(\d+)\s+([A-E]|[TF])\s+\d+\b/gi;
+  let match;
+  const map = {};
+  while ((match = regex.exec(rawText)) !== null) { const qNum = parseInt(match[1], 10), ans = match[2].toUpperCase(); map[qNum] = ans; }
+  let keyStr = '';
+  for (let i = 1; i <= numQ; i++) keyStr += map[i] || '/';
+  const keyInput = document.getElementById('answerKey');
+  if (keyInput) keyInput.value = Object.keys(map).length > 0 ? keyStr : '';
+}
+
+async function generate() {
+  const code = document.getElementById('subjectCode').value.trim() || '????';
+  const paper = document.getElementById('paperNum').value.trim() || '??';
+  const year = document.getElementById('year').value;
+  const session = document.getElementById('session').value;
+  const duration = document.getElementById('duration').value;
+  const numQ = parseInt(document.getElementById('numQ').value) || 40;
+  const optMode = document.getElementById('options').value;
+  const subjectName = document.getElementById('subjectName').value.trim();
+  let opts;
+  if (optMode === 'ABCD') opts = ['A', 'B', 'C', 'D'];
+  else if (optMode === 'ABCDE') opts = ['A', 'B', 'C', 'D', 'E'];
+  else opts = ['T', 'F'];
+
+  const answers = parseAnswers(document.getElementById('answers').value, numQ, opts);
+  const useKey = document.getElementById('enableKey').checked;
+  const keyRaw = document.getElementById('answerKey').value;
+  const keyAnswers = useKey ? parseAnswers(keyRaw, numQ, opts) : null;
+
+  const answered = answers.filter(a => a !== null && a !== '/').length;
+  const skipped = answers.filter(a => a === '/').length;
+  const blank = answers.filter(a => a === null).length;
+  let correct = 0, wrong = 0;
+  const wrongNums = [];
+  if (keyAnswers) {
+    for (let i = 0; i < numQ; i++) {
+      const a = answers[i], k = keyAnswers[i];
+      if (a && a !== '/' && k && k !== '/') { if (a === k) correct++; else { wrong++; wrongNums.push(i + 1); } }
+    }
+  }
+  const keyAnswered = keyAnswers ? keyAnswers.filter(a => a && a !== '/').length : 0;
+  const sessionShort = session === 'May/June' ? 'M/J' : (session === 'Feb/Mar' ? 'F/M' : 'O/N');
+  const yearShort = year.toString().slice(-2);
+  const fullPaperCode = `${code}/${paper}/${sessionShort}/${yearShort}`;
+  const tier = getTier(correct, keyAnswered);
+
+  // Build payload
+  const payload = {
+    correct,
+    wrong,
+    skipped,
+    blank,
+    total: keyAnswered,
+    numQ,
+    wrongNums,
+    tier,
+    answers,
+    keyAnswers,
+    opts,
+    fullPaperCode,
+    subjectName,
+    duration,
+    session,
+    year,
+    paper,
+    code,
+    timestamp: Date.now(),
+  };
+
+  const syncMode = document.getElementById('enableSyncMode').checked;
+
+  if (syncMode) {
+    // Sync mode: broadcast to all devices
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 正在同步...';
+
+    // Calculate target time: 5 seconds from now
+    if (NET_OFFSET === 0) await SuningSync.forceSync();
+    const now = SuningSync.getPreciseTime();
+    const targetTime = now + 5000;
+
+    // Update sync info
+    const info = document.getElementById('syncInfo');
+    info.style.display = 'block';
+    const sec = new Date(targetTime).getSeconds();
+    info.textContent = `📡 已广播！目标时间 :${sec.toString().padStart(2, '0')}，所有设备将在 5 秒后同步播放动画`;
+
+    // Broadcast
+    await broadcastEvent(targetTime, payload);
+
+    // Start local countdown
+    startCountdown(targetTime, payload);
+
+    btn.disabled = false;
+    btn.textContent = '✨ 生成答题卡';
+  } else {
+    // Normal mode (no sync)
+    renderFullSheet(document.getElementById('resultContainer'), payload);
+    if (keyAnswers && keyAnswered > 0) {
+      setTimeout(() => triggerGacha(correct, keyAnswered, DEVICE_CONFIG.position || 'center', tier), 300);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 12. INIT
+// ═══════════════════════════════════════════════
+
+async function init() {
+  // Restore saved position
+  if (DEVICE_CONFIG.position) {
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === DEVICE_CONFIG.position));
+  }
+  const isInputCb = document.getElementById('isInputDevice');
+  if (isInputCb) isInputCb.checked = DEVICE_CONFIG.isInput;
+  updateRoleBadge();
+  updatePanelVisibility();
+
+  // Init music
+  await initMusicSettings();
+
+  // Sync time
+  await SuningSync.forceSync();
+
+  // Connect to sync channel
+  initSupabaseSync();
+}
+
+init();
+</script>
+</body>
+</html>
