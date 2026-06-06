@@ -1,24 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // ============================================
-// In-memory broadcast store (fallback)
-// Shared across requests in same Node.js process
+// Answer Sheet Sync API
+// Uses Supabase DB as single source of truth
+// Each broadcast has a broadcast_id for dedup
+// Devices mark broadcasts as consumed to prevent replay
 // ============================================
-const broadcastStore: Array<{
-  sessionId: string;
-  senderDeviceId: string;
-  targetTime: number;
-  payload: any;
-  createdAt: number;
-}> = [];
-
-// Cleanup old entries every 30 seconds
-setInterval(() => {
-  const cutoff = Date.now() - 60000;
-  while (broadcastStore.length > 0 && broadcastStore[0].createdAt < cutoff) {
-    broadcastStore.shift();
-  }
-}, 30000);
 
 // Lazy Supabase client
 let _supabaseClient: any = null;
@@ -37,9 +24,13 @@ async function tryGetSupabase() {
   }
 }
 
+function generateBroadcastId() {
+  return 'bc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
 /**
  * POST /api/answer-sheet-sync
- * Broadcast a sync event
+ * Broadcast a sync event - writes to Supabase DB
  */
 export async function POST(req: NextRequest) {
   try {
@@ -50,34 +41,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing targetTime or payload' }, { status: 400 });
     }
 
-    // Always store in memory
-    const record = {
-      sessionId: sessionId || 'unknown',
-      senderDeviceId: senderDeviceId || 'unknown',
-      targetTime,
-      payload,
-      createdAt: Date.now(),
-    };
-    broadcastStore.push(record);
-    if (broadcastStore.length > 1000) broadcastStore.splice(0, 100);
+    const broadcastId = generateBroadcastId();
 
-    // Also write to Supabase DB as durable storage
-    try {
-      const supabase = await tryGetSupabase();
-      if (supabase) {
-        await supabase.from('answer_sheet_broadcasts').insert({
-          session_id: record.sessionId,
-          sender_device_id: record.senderDeviceId,
-          target_time: record.targetTime,
-          payload: record.payload,
-          expires_at: new Date(Date.now() + 60000).toISOString(),
-        }).select('id').single();
+    // Write to Supabase DB as durable storage
+    const supabase = await tryGetSupabase();
+    if (supabase) {
+      const { error } = await supabase.from('answer_sheet_broadcasts').insert({
+        session_id: sessionId || 'unknown',
+        sender_device_id: senderDeviceId || 'unknown',
+        target_time: targetTime,
+        payload: payload,
+        broadcast_id: broadcastId,
+        expires_at: new Date(Date.now() + 15000).toISOString(),
+        consumed_by: [],
+      }).select('id').single();
+
+      if (error) {
+        console.error('[AnswerSheetSync] DB insert error:', error);
+        // Fallback: still return OK since the broadcast was received
+        return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime, warning: 'db_error' });
       }
-    } catch (e) {
-      // DB write is optional
-    }
 
-    return NextResponse.json({ ok: true, sessionId: record.sessionId, targetTime: record.targetTime });
+      return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime });
+    } else {
+      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
+    }
 
   } catch (err) {
     console.error('[AnswerSheetSync] POST error:', err);
@@ -86,83 +74,140 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET /api/answer-sheet-sync?self=sender_device_id
- * Returns ALL recent broadcasts (not filtered by sessionId!)
+ * GET /api/answer-sheet-sync
+ * Returns ONLY un-consumed broadcasts for the requesting device
  * Query params:
- *   self: exclude broadcasts from this device
+ *   self: device ID - broadcasts from this device are excluded
  *   since: only return broadcasts created after this ms timestamp
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const selfDeviceId = searchParams.get('self') || '';
   const sinceMs = parseInt(searchParams.get('since') || '0', 10);
-  const useDB = searchParams.get('db') === '1'; // optional: force DB query for test
+  const sinceDate = sinceMs > 0 ? new Date(sinceMs).toISOString() : new Date(Date.now() - 5000).toISOString();
 
-  const results: Array<{
-    sessionId: string;
-    senderDeviceId: string;
-    targetTime: number;
-    payload: any;
-    createdAt: number;
-  }> = [];
-
-  // Phase 1: In-memory store (non-DB mode or always)
-  if (!useDB) {
-    for (const r of broadcastStore) {
-      if (sinceMs > 0 && r.createdAt < sinceMs) continue;
-      if (selfDeviceId && r.senderDeviceId === selfDeviceId) continue;
-      results.push(r);
-    }
+  const supabase = await tryGetSupabase();
+  if (!supabase) {
+    return NextResponse.json({ broadcasts: [] });
   }
 
-  // Phase 2: Supabase DB
   try {
+    // Get broadcasts that:
+    // 1. Haven't expired
+    // 2. Weren't sent by self
+    // 3. Haven't been consumed by this device yet
+    // 4. Are newer than since Date
+    const { data, error } = await supabase
+      .from('answer_sheet_broadcasts')
+      .select('*')
+      .gte('expires_at', new Date().toISOString())
+      .gte('created_at', sinceDate)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('[AnswerSheetSync] GET error:', error);
+      return NextResponse.json({ broadcasts: [] });
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json({ broadcasts: [] });
+    }
+
+    // Filter out self-sent and already-consumed
+    const results = [];
+    for (const row of data) {
+      // Skip self-sent
+      if (selfDeviceId && row.sender_device_id === selfDeviceId) continue;
+
+      // Skip if already consumed by this device
+      const consumedBy = row.consumed_by || [];
+      if (selfDeviceId && consumedBy.includes(selfDeviceId)) continue;
+
+      results.push({
+        broadcastId: row.broadcast_id,
+        sessionId: row.session_id,
+        senderDeviceId: row.sender_device_id,
+        targetTime: row.target_time,
+        payload: row.payload,
+        createdAt: new Date(row.created_at).toISOString(),
+        // Include the DB row id so the client can mark as consumed
+        rowId: row.id,
+      });
+    }
+
+    return NextResponse.json({ broadcasts: results.slice(0, 5) });
+
+  } catch (e) {
+    console.error('[AnswerSheetSync] GET exception:', e);
+    return NextResponse.json({ broadcasts: [] });
+  }
+}
+
+/**
+ * PATCH /api/answer-sheet-sync
+ * Mark a broadcast as consumed by a device
+ * Body: { rowId: number, deviceId: string }
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { rowId, deviceId } = body;
+
+    if (!rowId || !deviceId) {
+      return NextResponse.json({ error: 'Missing rowId or deviceId' }, { status: 400 });
+    }
+
     const supabase = await tryGetSupabase();
-    if (supabase) {
-      let query = supabase
+    if (!supabase) {
+      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
+    }
+
+    // Use Supabase's jsonb append to add device to consumed_by
+    const { error } = await supabase.rpc('append_consumed_by', {
+      row_id: rowId,
+      device_id: deviceId,
+    });
+
+    if (error) {
+      // If function doesn't exist, do manual update
+      const { error: updateError } = await supabase
         .from('answer_sheet_broadcasts')
-        .select('*')
-        .gte('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .update({
+          consumed_by: supabase.rpc('jsonb_append', { 
+            target: 'consumed_by', 
+            value: deviceId 
+          })
+        })
+        .eq('id', rowId);
 
-      if (sinceMs > 0) {
-        query = query.gte('created_at', new Date(sinceMs).toISOString());
-      }
+      if (updateError) {
+        // Last resort: simple update
+        const { data: current } = await supabase
+          .from('answer_sheet_broadcasts')
+          .select('consumed_by')
+          .eq('id', rowId)
+          .single();
 
-      const { data, error } = await query;
-      if (!error && data) {
-        for (const row of data) {
-          if (selfDeviceId && row.sender_device_id === selfDeviceId) continue;
-          // Dedup by targetTime
-          if (!results.some(r => r.targetTime === row.target_time)) {
-            results.push({
-              sessionId: row.session_id,
-              senderDeviceId: row.sender_device_id,
-              targetTime: row.target_time,
-              payload: row.payload,
-              createdAt: new Date(row.created_at).getTime(),
-            });
+        if (current) {
+          const consumed = current.consumed_by || [];
+          if (!consumed.includes(deviceId)) {
+            consumed.push(deviceId);
+            await supabase
+              .from('answer_sheet_broadcasts')
+              .update({ consumed_by: consumed })
+              .eq('id', rowId);
           }
         }
       }
     }
-  } catch (e) {
-    // DB query failed
+
+    return NextResponse.json({ ok: true });
+
+  } catch (err) {
+    console.error('[AnswerSheetSync] PATCH error:', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
-
-  // Sort newest first
-  results.sort((a, b) => b.createdAt - a.createdAt);
-
-  return NextResponse.json({
-    broadcasts: results.slice(0, 10).map(r => ({
-      sessionId: r.sessionId,
-      senderDeviceId: r.senderDeviceId,
-      targetTime: r.targetTime,
-      payload: r.payload,
-      createdAt: new Date(r.createdAt).toISOString(),
-    })),
-  });
 }
 
 export const dynamic = 'force-dynamic';

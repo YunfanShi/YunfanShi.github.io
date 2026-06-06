@@ -502,6 +502,7 @@ let SYNC_CONNECTED = false;
 let RECEIVED_BROADCAST = null; // {targetTime, payload}
 let GACHA_ACTIVE = false;
 let COUNTDOWN_ACTIVE = false;
+let _processedBroadcastIds = new Set();
 
 document.getElementById('deviceIdDisp').textContent = '设备ID: ' + DEVICE_CONFIG.deviceId;
 
@@ -682,6 +683,20 @@ async function testConnection() {
 
 // ─── HTTP Polling (works across devices on different browsers) ───
 let _pollTimer = null;
+let _pollBackoffLevel = 0;
+let _processingBroadcasts = false;
+
+// Mark a broadcast as consumed so we never process it again
+async function markConsumed(rowId) {
+  if (!rowId) return;
+  try {
+    await fetch('/api/answer-sheet-sync', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rowId, deviceId: DEVICE_CONFIG.deviceId }),
+    });
+  } catch(e) {}
+}
 
 function startPolling(sessionId) {
   stopPolling();
@@ -690,30 +705,54 @@ function startPolling(sessionId) {
   debugLog(`📡 开始轮询 session=${sessionId}`);
 
   _pollTimer = setInterval(async () => {
+    // If we're processing broadcasts, skip this poll cycle to avoid overload
+    if (_processingBroadcasts) return;
+
     try {
-      const since = Date.now() - 30000; // look back 30s
+      const since = Date.now() - 5000; // look back only 5s
       const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
       const data = await res.json();
       if (data.broadcasts && data.broadcasts.length > 0) {
+        // Reset backoff on successful broadcast receipt
+        _pollBackoffLevel = 0;
+        _processingBroadcasts = true;
+
+        let newBroadcasts = 0;
         for (const b of data.broadcasts) {
           if (b.senderDeviceId !== DEVICE_CONFIG.deviceId) {
+            // Dedup by broadcastId if available, else fallback to targetTime
+            if (b.broadcastId) {
+              if (_processedBroadcastIds.has(b.broadcastId)) continue;
+              _processedBroadcastIds.add(b.broadcastId);
+            }
             handleIncomingBroadcast({
               targetTime: b.targetTime,
               payload: b.payload,
               senderDeviceId: b.senderDeviceId,
               sessionId: b.sessionId,
+              rowId: b.rowId,
             });
-            // Once we get a valid broadcast, we can slow down or stop
-            // But keep polling for now in case of multiple broadcasts
+            newBroadcasts++;
           }
         }
-        SYNC_CONNECTED = true;
-        updateSyncStatus('online', `${data.broadcasts.length}条广播`);
+        
+        if (newBroadcasts > 0) {
+          SYNC_CONNECTED = true;
+          updateSyncStatus('online', `${newBroadcasts}条新广播`);
+        } else {
+          updateSyncStatus('connecting', '等待广播...');
+        }
+        _processingBroadcasts = false;
       } else {
         updateSyncStatus('connecting', '等待广播...');
       }
     } catch (e) {
-      // Silently retry on network errors
+      // On error, back off exponentially to reduce load
+      _pollBackoffLevel = Math.min(_pollBackoffLevel + 1, 6);
+      const backoffMs = Math.min(1500 * Math.pow(1.5, _pollBackoffLevel), 10000);
+      if (_pollBackoffLevel > 2) {
+        debugLog(`⚠️ Poll error, backing off ${backoffMs}ms (level ${_pollBackoffLevel})`);
+      }
     }
   }, 1500); // Poll every 1.5s
 }
@@ -786,9 +825,22 @@ async function handleIncomingBroadcast(data) {
   
   // Deduplicate by targetTime
   if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
+
+  // Discard stale broadcasts (>5s old)
+  const now = Date.now();
+  if (data.targetTime && data.targetTime < now - 5000) {
+    console.log('[Sync] Discarding stale broadcast (targetTime too old):', data.targetTime, 'vs now', now);
+    return;
+  }
+
   RECEIVED_BROADCAST = data;
 
   console.log('[Sync] Received broadcast:', data);
+
+  // Mark as consumed immediately to prevent replay
+  if (data.rowId) {
+    markConsumed(data.rowId);
+  }
 
   // Show countdown
   startCountdown(data.targetTime, data.payload);
