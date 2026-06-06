@@ -825,16 +825,14 @@ Library.render();
 UI.updateStats();
 SuningSync.forceSync();
 
-// Init role - MUST be after Library definition
-(function initRole() {
-    const role = localStorage.getItem('mps_role') || 'master';
+// Defer role init to ensure all const declarations are finalized
+setTimeout(function() {
+    var role = localStorage.getItem('mps_role') || 'master';
     setRole(role);
-})();
-
-// If follower, start polling immediately
-if (localStorage.getItem('mps_role') === 'follower') {
-    startPolling();
-}
+    if (localStorage.getItem('mps_role') === 'follower') {
+        startPolling();
+    }
+}, 0);
 </script>
 </body>
 </html>
