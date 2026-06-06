@@ -35,7 +35,7 @@
         .btn-icon:hover { background: rgba(255,255,255,0.1); color: white; }
 
         .container { display: flex; height: calc(100vh - 65px); }
-        aside { width: 340px; background: #11141a; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        aside { width: 340px; background: #11141a; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 
         .panel { padding: 20px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
 
@@ -54,7 +54,8 @@
         .btn-sec { background: transparent; border: 1px solid var(--border); color: var(--text-sec); padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 11px; flex: 1; }
         .btn-sec:hover { border-color: var(--text-main); color: var(--text-main); }
         
-        .list { flex: 1; overflow-y: auto; }
+        #masterPanel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+        .list { flex: 1; overflow-y: auto; min-height: 0; }
         .item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.1s; }
         .item:hover { background: #1e2430; }
         .item.active { background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--primary); }
