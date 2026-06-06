@@ -962,7 +962,54 @@ async function initFullSync() {
 
 let _countdownTimer = null;
 
+// Force cleanup any lingering animation/overlay state
+function cleanupAllOverlays() {
+  // Cancel all animations
+  if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
+  if (_postGachaCanvas) cancelAnimationFrame(_postGachaCanvas);
+  _postGachaCanvas = null;
+  if (_postGachaTimer) clearTimeout(_postGachaTimer);
+  _postGachaTimer = null;
+  if (_postGachaCountdown) clearInterval(_postGachaCountdown);
+  _postGachaCountdown = null;
+  if (_countdownTimer) clearInterval(_countdownTimer);
+  _countdownTimer = null;
+  
+  _postGachaAnimRunning = false;
+  _postGachaAnimActive = false;
+  GACHA_ACTIVE = false;
+  COUNTDOWN_ACTIVE = false;
+  gachaActive = false;
+  
+  // Hide countdown overlay
+  document.getElementById('countdownOverlay').classList.remove('active');
+  
+  // Hide gacha overlay
+  const ov = document.getElementById('gachaOverlay');
+  ov.classList.remove('active');
+  ov.style.opacity = '';
+  ov.style.transition = '';
+  
+  // Reset stage
+  const stage = document.getElementById('gachaStage');
+  stage.innerHTML = '';
+  stage.style.opacity = '0';
+  document.getElementById('gachaRing').style.display = '';
+  document.getElementById('gachaRarity').style.display = '';
+  document.getElementById('gachaScore').style.display = '';
+  document.getElementById('gachaScoreSub').style.display = '';
+  document.getElementById('gachaGrade').style.display = '';
+  document.getElementById('gachaDismiss').style.display = '';
+  
+  // Clear canvas
+  const ctx = document.getElementById('gachaCanvas').getContext('2d');
+  ctx.clearRect(0, 0, 9999, 9999);
+}
+
 function startCountdown(targetTime, payload) {
+  // Clean up any previous animations first!
+  cleanupAllOverlays();
+  
   if (COUNTDOWN_ACTIVE) return;
   COUNTDOWN_ACTIVE = true;
 
@@ -1064,8 +1111,24 @@ let gachaActive = false;
 let _animId = null;
 let _dismissCallbacks = [];
 
-function dismissGacha() {
-  if (!gachaActive) return;
+function dismissGacha(remote) {
+  if (!gachaActive && !_postGachaAnimActive) return;
+  
+  // If this is a remote dismiss broadcast, force close everything
+  if (remote) {
+    // Force stop all animations
+    _postGachaAnimRunning = false;
+    _postGachaAnimActive = false;
+    _postGachaAnimId = null;
+    if (_postGachaTimer) clearTimeout(_postGachaTimer);
+    _postGachaTimer = null;
+    if (_postGachaCountdown) clearInterval(_postGachaCountdown);
+    _postGachaCountdown = null;
+    if (_postGachaCanvas) cancelAnimationFrame(_postGachaCanvas);
+    _postGachaCanvas = null;
+    if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
+  }
+  
   gachaActive = false;
   if (DEVICE_CONFIG.isInput) stopMusic();
   if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
@@ -1076,6 +1139,8 @@ function dismissGacha() {
   if (existingWrong) existingWrong.remove();
   const existingPct = document.getElementById('gachaPctDisplay');
   if (existingPct) existingPct.remove();
+  const postCountdown = document.getElementById('postCountdown');
+  if (postCountdown) postCountdown.remove();
   // Remove labels added after wrong/pct display
   const stage2 = document.getElementById('gachaStage');
   const extras = stage2.querySelectorAll('[data-gacha-extra]');
@@ -1096,9 +1161,13 @@ function dismissGacha() {
     document.getElementById('gachaScore').style.display = '';
     document.getElementById('gachaScoreSub').style.display = '';
     document.getElementById('gachaGrade').style.display = '';
+    document.getElementById('gachaDismiss').style.display = '';
     const ctx = document.getElementById('gachaCanvas').getContext('2d');
     ctx.clearRect(0, 0, 9999, 9999);
   }, 500);
+  
+  // Schedule post-gacha animation after 10 seconds (only for the device that initiated the dismiss)
+  // Actually: post-gacha is auto-scheduled from revealResult below
 }
 
 // ═══════════════════════════════════════════════
