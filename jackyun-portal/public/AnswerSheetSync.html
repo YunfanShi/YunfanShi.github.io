@@ -766,7 +766,10 @@ async function broadcastEvent(targetTime, payload) {
 // ═══════════════════════════════════════════════
 
 async function handleIncomingBroadcast(data) {
-  // Deduplicate
+  // Deduplicate: only process answer-sheet type broadcasts, ignore music etc.
+  if (data.payload && data.payload._type && data.payload._type !== 'answer-sheet') return;
+  
+  // Deduplicate by targetTime
   if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
   RECEIVED_BROADCAST = data;
 
@@ -1717,6 +1720,7 @@ async function generate() {
 
   // Build payload
   const payload = {
+    _type: 'answer-sheet',
     correct,
     wrong,
     skipped,
