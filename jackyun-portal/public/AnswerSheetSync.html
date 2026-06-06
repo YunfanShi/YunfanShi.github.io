@@ -1289,16 +1289,8 @@ function revealResult(score, total, tier) {
 function renderResult(payload) {
   const container = document.getElementById('resultContainer');
   const position = DEVICE_CONFIG.position || 'center';
-  const isInput = DEVICE_CONFIG.isInput;
 
-  // If this device is the input device AND not the center, show full answer sheet
-  // regardless of position
-  if (isInput && position !== 'center') {
-    renderFullSheet(container, payload);
-    return;
-  }
-
-  // Role-specific displays
+  // All devices strictly follow position-based display
   if (position === 'left') {
     // Left screen: show wrong question numbers
     renderLeftResult(container, payload);
