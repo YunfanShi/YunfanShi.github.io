@@ -52,8 +52,8 @@ export default async function SettingsPage() {
         <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">账户与应用配置</p>
       </div>
 
-      {/* Profile */}
-      <ProfileSection initialName={displayName} initialAvatar={avatarUrl} userId={userId} />
+      {/* 头像编辑暂时隐藏（Vercel 494 错误排查中） */}
+      {/* <ProfileSection initialName={displayName} initialAvatar={avatarUrl} userId={userId} /> */}
 
       {/* 账户安全 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
