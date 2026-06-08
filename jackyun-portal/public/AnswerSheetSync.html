@@ -94,6 +94,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .stats-bar{display:flex;gap:20px;padding:12px 24px;background:#f8f9fa;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;}
 .stat{display:flex;align-items:center;gap:6px;}.stat-dot{width:10px;height:10px;border-radius:50%;}
 
+/* ══════ LLM 友好格式 section (ported from AnswerSheet.html) ══════ */
+.llm-section{margin-top:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);}
+.llm-header{background:#1e1e2e;color:#cdd6f4;padding:12px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.llm-header-left{display:flex;align-items:center;gap:8px;}.llm-dot{width:10px;height:10px;border-radius:50%;}
+.llm-body{background:#181825;padding:16px;font-family:'Roboto Mono',monospace;font-size:12.5px;color:#cdd6f4;max-height:280px;overflow-y:auto;line-height:1.9;white-space:pre-wrap;word-break:break-word;}
+.llm-body .ans-answered{color:#89dceb}.llm-body .ans-wrong{color:#f38ba8}.llm-body .ans-skipped{color:#f38ba8}.llm-body .ans-blank{color:#585b70}.llm-body .ans-header{color:#cba6f7}
+.copy-btn{background:transparent;border:1px solid #45475a;color:#cdd6f4;padding:4px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-family:'Google Sans',sans-serif;transition:background .15s,border-color .15s;}
+.copy-btn:hover{background:#313244;border-color:#89b4fa;color:#89b4fa;}.copy-btn.copied{color:#a6e3a1;border-color:#a6e3a1;}
+.llm-tabs{display:flex;background:#1e1e2e;border-bottom:1px solid #313244;}
+.llm-tab{padding:8px 16px;font-size:12px;color:#6c7086;cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;font-family:'Google Sans',sans-serif;}
+.llm-tab.active{color:#cdd6f4;border-bottom-color:#89b4fa;}
+
 /* ══════ SYNC UI ══════ */
 .sync-bar{background:#1e293b;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
 .sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
@@ -419,6 +431,25 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
         <hr class="section-divider">
         <button class="generate-btn" id="generateBtn" onclick="generate()">✨ 生成答题卡</button>
         <div id="syncInfo" style="display:none;margin-top:8px;padding:8px 12px;background:#f3e8ff;border:1px solid #d8b4fe;border-radius:6px;font-size:12px;color:#6b21a8;"></div>
+
+        <!-- ══ LLM 友好格式 (ported from AnswerSheet.html) ══ -->
+        <div class="llm-section" id="llmSection" style="display:none;">
+          <div class="llm-header">
+            <div class="llm-header-left">
+              <div class="llm-dot" style="background:#f38ba8"></div><div class="llm-dot" style="background:#f9e2af"></div><div class="llm-dot" style="background:#a6e3a1"></div>
+              <span style="margin-left:4px;">🤖 LLM 友好格式</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="copy-btn" id="copyBtnUser" onclick="copyLLM('user')">📋 复制我的答案</button>
+              <button class="copy-btn" id="copyBtnGrade" onclick="copyLLM('grade')" style="display:none">📋 复制批改结果</button>
+            </div>
+          </div>
+          <div class="llm-tabs" id="llmTabs">
+            <div class="llm-tab active" data-tab="user" onclick="switchTab('user')">我的答案</div>
+            <div class="llm-tab" data-tab="grade" id="gradeTab" style="display:none" onclick="switchTab('grade')">批改结果</div>
+          </div>
+          <div class="llm-body" id="llmBody"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -846,7 +877,36 @@ async function broadcastEvent(targetTime, payload) {
 // ═══════════════════════════════════════════════
 
 async function handleIncomingBroadcast(data) {
-  // Deduplicate: only process answer-sheet type broadcasts, ignore music etc.
+  // Handle dismiss broadcasts (Bug #2 fix: close one = close all)
+  if (data.payload && data.payload._type === 'gacha-dismiss') {
+    console.log('[Sync] Received dismiss broadcast:', data.payload._dismissId);
+    // Force-dismiss gacha on this device
+    if (gachaActive || GACHA_ACTIVE) {
+      // Force-reset all flags and hide overlays
+      GACHA_ACTIVE = false;
+      COUNTDOWN_ACTIVE = false;
+      if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+      document.getElementById('countdownOverlay').classList.remove('active');
+      
+      // Force-dismiss gacha
+      if (gachaActive) {
+        gachaActive = false;
+        if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
+        const ov = document.getElementById('gachaOverlay');
+        ov.style.transition = 'opacity 0.5s ease-out';
+        ov.style.opacity = '0';
+        setTimeout(() => {
+          ov.classList.remove('active');
+          ov.style.opacity = '';
+          ov.style.transition = '';
+          document.getElementById('gachaStage').style.opacity = '0';
+        }, 500);
+      }
+    }
+    return;
+  }
+  
+  // Deduplicate: only process answer-sheet type broadcasts
   if (data.payload && data.payload._type && data.payload._type !== 'answer-sheet') return;
   
   // Deduplicate by targetTime
@@ -1066,6 +1126,13 @@ let _dismissCallbacks = [];
 
 function dismissGacha() {
   if (!gachaActive) return;
+  
+  // Broadcast dismiss to ALL devices (Bug #2 fix: close one = close all)
+  if (DEVICE_CONFIG.isInput) {
+    // Send a dismiss broadcast with immediate target time
+    broadcastEvent(SuningSync.getPreciseTime() + 300, { _type: 'gacha-dismiss', _dismissId: Date.now().toString(36) });
+  }
+  
   gachaActive = false;
   if (DEVICE_CONFIG.isInput) stopMusic();
   if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
@@ -1857,7 +1924,53 @@ function stopMusic() {
 }
 
 // ═══════════════════════════════════════════════
-// 11. ANSWER SHEET GENERATION
+// 11. LLM 友好格式 functions (ported from AnswerSheet.html)
+// ═══════════════════════════════════════════════
+
+let _llmTexts = { user: '', grade: '' };
+
+function switchTab(tab) {
+  document.querySelectorAll('.llm-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  renderLLMBody(tab);
+}
+
+function renderLLMBody(tab) {
+  const llmBody = document.getElementById('llmBody');
+  const text = _llmTexts[tab] || '';
+  const lines = text.split('\n');
+  llmBody.innerHTML = lines.map(line => {
+    if (/第 \d+ 题：[A-ET]$/.test(line)) return `<span class="ans-answered">${line}</span>`;
+    if (line.includes('❌')) return `<span class="ans-wrong">${line}</span>`;
+    if (line.includes('空白') || line.includes('未作答')) return `<span class="ans-skipped">${line}</span>`;
+    if (line.includes('未填写')) return `<span class="ans-blank">${line}</span>`;
+    if (line.startsWith('──') || line.startsWith('试卷') || line.startsWith('以下') || line.startsWith('得分')) return `<span class="ans-header">${line}</span>`;
+    return `<span>${line}</span>`;
+  }).join('\n');
+}
+
+function copyLLM(tab) {
+  const text = _llmTexts[tab];
+  if (!text) return;
+  const btnId = tab === 'user' ? 'copyBtnUser' : 'copyBtnGrade';
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已复制！';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function showCopyToast(msg) {
+  const t = document.getElementById('copyToast');
+  t.textContent = msg || '✓ 已复制';
+  t.classList.add('show');
+  if (window._toastTimer) clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ═══════════════════════════════════════════════
+// 12. ANSWER SHEET GENERATION
 // ═══════════════════════════════════════════════
 
 function toggleVerify() {
@@ -1929,6 +2042,30 @@ function extractMS() {
 }
 
 async function generate() {
+  // ═══ Bug #1 fix: Force-close any previous gacha before starting new one ═══
+  document.getElementById('countdownOverlay').classList.remove('active');
+  COUNTDOWN_ACTIVE = false;
+  GACHA_ACTIVE = false;
+  RECEIVED_BROADCAST = null;
+  if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+  // Force-dismiss gacha animation if active
+  if (gachaActive) {
+    gachaActive = false;
+    if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
+    const ov = document.getElementById('gachaOverlay');
+    ov.classList.remove('active');
+    ov.style.opacity = '';
+    ov.style.transition = '';
+    document.getElementById('gachaStage').style.opacity = '0';
+    const ctx = document.getElementById('gachaCanvas').getContext('2d');
+    ctx.clearRect(0, 0, 9999, 9999);
+    // Clean up dynamic elements
+    const ew = document.getElementById('gachaWrongDisplay');
+    if (ew) ew.remove();
+    const ep = document.getElementById('gachaPctDisplay');
+    if (ep) ep.remove();
+  }
+
   const code = document.getElementById('subjectCode').value.trim() || '????';
   const paper = document.getElementById('paperNum').value.trim() || '??';
   const year = document.getElementById('year').value;
@@ -1963,6 +2100,60 @@ async function generate() {
   const yearShort = year.toString().slice(-2);
   const fullPaperCode = `${code}/${paper}/${sessionShort}/${yearShort}`;
   const tier = getTier(correct, keyAnswered);
+  const errorBookTitle = `${fullPaperCode}(${(wrongNums || []).join(',')})`;
+
+  // ═══ Build LLM texts (Bug #3) ═══
+  let userText = `以下是我的答题情况，请根据这些答案批改：\n试卷：IGCSE ${fullPaperCode}${subjectName ? ' ('+subjectName+')' : ''}\n时长：${duration}，共 ${numQ} 题\n─────────────────────────\n`;
+  for (let i = 0; i < numQ; i++) {
+    const ans = answers[i];
+    const qLabel = `第 ${i + 1} 题`;
+    if (ans === null) userText += `${qLabel}：（未填写）\n`;
+    else if (ans === '/') userText += `${qLabel}：（空白，未作答）\n`;
+    else userText += `${qLabel}：${ans}\n`;
+  }
+  userText += `─────────────────────────\n已答：${answered} 题 ／ 空白：${skipped + blank} 题`;
+  _llmTexts.user = userText;
+
+  let gradeText = '';
+  if (keyAnswers) {
+    const keyAnswered2 = keyAnswers.filter(a => a && a !== '/').length;
+    const pct2 = keyAnswered2 > 0 ? Math.round(correct / keyAnswered2 * 100) : 0;
+    gradeText = `批改结果 — IGCSE ${fullPaperCode}${subjectName ? ' ('+subjectName+')' : ''}\n得分：${correct} / ${keyAnswered2}（${pct2}%）\n─────────────────────────\n`;
+    for (let i = 0; i < numQ; i++) {
+      const ans = answers[i], key = keyAnswers[i], qLabel = `第 ${i + 1} 题`;
+      if (!ans || ans === '/') gradeText += `${qLabel}：（空白）  正确答案：${key || '?'}\n`;
+      else if (!key || key === '/') gradeText += `${qLabel}：${ans}  （无标准答案）\n`;
+      else if (ans === key) gradeText += `${qLabel}：${ans} ✓\n`;
+      else gradeText += `${qLabel}：${ans} ❌  正确：${key}\n`;
+    }
+    gradeText += `─────────────────────────\n得分：${correct} 正确 / ${wrong} 错误 / ${skipped + blank} 空白\n正确率：${pct2}%`;
+    if (wrongNums.length > 0) gradeText += `\n错题本标题：${errorBookTitle}`;
+    _llmTexts.grade = gradeText;
+  }
+
+  // Show LLM section
+  document.getElementById('llmSection').style.display = 'block';
+  const gradeTab = document.getElementById('gradeTab');
+  const copyGrade = document.getElementById('copyBtnGrade');
+  if (keyAnswers) { gradeTab.style.display = ''; copyGrade.style.display = ''; }
+  else { gradeTab.style.display = 'none'; copyGrade.style.display = 'none'; }
+  switchTab('user');
+
+  // ═══ Bug #4: Auto-copy in 2 separate operations (input device only) ═══
+  if (DEVICE_CONFIG.isInput && keyAnswers && _llmTexts.grade) {
+    // First copy: grading result
+    setTimeout(() => {
+      navigator.clipboard.writeText(_llmTexts.grade).then(() => {
+        showCopyToast('✅ 批改结果已复制到剪贴板！');
+      }).catch(() => {});
+    }, 300);
+    // Second copy (800ms later): title only
+    setTimeout(() => {
+      navigator.clipboard.writeText(errorBookTitle).then(() => {
+        showCopyToast('✅ 错题本标题已复制！');
+      }).catch(() => {});
+    }, 1100);
+  }
 
   // Build payload
   const payload = {
