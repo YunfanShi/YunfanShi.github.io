@@ -345,7 +345,7 @@
                     { date: "2025-12-17", content: "将电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
                 ],
                 logsRegular: [
-                    { date: "2026-06-09", content: "🐛 修复 Vercel 494 REQUEST_HEADER_TOO_LARGE 错误：Supabase 中间件 cookie 处理反模式导致请求头膨胀超过 32KB 限制" },
+                    { date: "2026-06-09", content: "🐛 修复 Vercel 494 REQUEST_HEADER_TOO_LARGE 错误（完整版）：① middleware.ts setAll 反模式修复（删除重复 NextResponse.next 调用）② server.ts createClient 新增可选 NextResponse 参数，Route Handler 可在 Response 对象上直接设置 cookies ③ callback/route.ts 重构为“先创建 Response → 传入 createClient → exchangeCodeForSession”模式，确保 auth session cookies 正确写入 302 响应的 Set-Cookie 头" },
                     { date: "2026-06-08", content: "Sync AnswerSheet 大修复：① 开始播放时强制关闭上一次残留的倒计时/Gacha窗口防止冲突；② 一台设备点击关闭Gacha，广播给所有设备同步关闭；③ 移植 AnswerSheet 的 AI🤖 LLM 友好格式（我的答案/批改结果双面板）；④ 生成后自动分2次复制批改结果和错题本标题到剪贴板" },
                     { date: "2026-06-06", content: '🎯 Broadcast Amplification 致命修复：API 移除不可靠的 memory broadcastStore（Vercel Serverless 实例隔离），改为纯 Supabase DB 单数据源；添加 PATCH /consumed_by 端点 + DB migration 020 新增 consumed_by 列，广播消费后立即标记防止重复处理；添加 broadcast_id 全局去重；MusicPlayerSync reset() 广播 stop 信号防止诈尸；followerLoop 添加 >2s 过期丢弃；setRole 切换时清理旧状态；handleIncomingBroadcast 添加 stale 丢弃（>5s）；AnswerSheetSync 添加 broadcastId Set 去重 + exponential poll backoff（错误后最多退避到10s）+ _processingBroadcasts 锁防止并行轮询；轮询回看窗口从30s降至5s减少数据量' },
                     { date: "2026-06-06", content: "MusicPlayerSync 同步修复：Engine.reset() 添加 stop 广播，副设备收到立即停止播放不再诈尸；followerLoop 添加过期丢弃逻辑（>2s 过期自动放弃）；setRole 切换时清理旧 poll timer 和状态；轮询间隔降至 800ms 降低延迟；handleIncomingBroadcast 添加 stale broadcast 丢弃（>5s）；AnswerSheetSync _type 过滤确认无串频风险" },

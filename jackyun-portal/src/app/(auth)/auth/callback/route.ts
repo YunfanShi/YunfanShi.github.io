@@ -10,15 +10,25 @@ export async function GET(request: NextRequest) {
   const linkingUserId = searchParams.get('linking_user_id');
 
   if (code) {
-    const supabase = await createClient();
+    // Determine the final redirect URL upfront based on the auth flow type,
+    // then create the Response BEFORE the code exchange so Supabase can
+    // write auth session cookies directly onto the redirect Response.
+    // This prevents Vercel 494 REQUEST_HEADER_TOO_LARGE caused by cookies
+    // not being properly included in the 302 redirect.
+    let redirectUrl = `${origin}/dashboard`;  // default: normal login
+
+    if (type === 'recovery') {
+      redirectUrl = `${origin}/update-password`;
+    } else if (isLinking && linkingUserId) {
+      // We'll determine this after we know the provider name
+      // Keep default temporarily, override after user info is available
+    }
+
+    const response = NextResponse.redirect(redirectUrl);
+    const supabase = await createClient(response);
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
-      // Recovery flow: redirect to update-password page
-      if (type === 'recovery') {
-        return NextResponse.redirect(`${origin}/update-password`);
-      }
-
       const user = data.user;
       const provider = user.app_metadata?.provider as string | undefined;
 
@@ -33,12 +43,27 @@ export async function GET(request: NextRequest) {
           providerEmail,
           providerUserId: user.id,
         });
-        return NextResponse.redirect(
+
+        // Override the redirect — the cookies are already on response via createClient
+        const linkResponse = NextResponse.redirect(
           `${origin}/admin?linked=${provider ?? 'provider'}`,
         );
+        // Copy cookies from the original response to preserve auth session
+        const existingCookies = response.cookies.getAll();
+        for (const cookie of existingCookies) {
+          linkResponse.cookies.set(cookie.name, cookie.value, {
+            domain: cookie.domain,
+            path: cookie.path,
+            maxAge: cookie.maxAge,
+            secure: cookie.secure,
+            httpOnly: cookie.httpOnly,
+            sameSite: cookie.sameSite,
+          });
+        }
+        return linkResponse;
       }
 
-      // Normal login flow: sync profile
+      // Normal login flow: sync profile (including recovery — syncProfile is also called)
       const email =
         user.email ?? (user.user_metadata?.email as string | undefined);
       const displayName =
@@ -58,7 +83,8 @@ export async function GET(request: NextRequest) {
         githubUsername,
       });
 
-      return NextResponse.redirect(`${origin}/dashboard`);
+      // response already has auth cookies + correct redirect URL
+      return response;
     }
   }
 
