@@ -50,12 +50,15 @@ export async function updateProfile(
   try {
     const { supabase, user } = await getAuthenticatedUser();
 
-    // 1. Update auth user metadata
+    // 1. Update auth user metadata (user_name/display_name only)
+    // NOTE: Do NOT put avatar_url here. base64 images can be 2-3KB+ and
+    // Supabase embeds all user_metadata into the JWT. This caused Vercel 494
+    // REQUEST_HEADER_TOO_LARGE (JWT + base64 avatar = 36KB → 17 cookie chunks).
+    // Avatar is stored in profiles table only (see step 2).
     await supabase.auth.updateUser({
       data: {
         full_name: displayName,
         display_name: displayName,
-        avatar_url: avatarUrl,
       },
     });
 
