@@ -24,7 +24,14 @@
 * [Change Logs]: 
     * Every single update must be meticulously documented.
     * Write the detailed change notes into the update log file located at: `jackyun-portal/public/UpdateHub.html`. Add a new entry to the `logsMajor` or `logsRegular` array in the `database.desktop` section. Include the date (YYYY-MM-DD) and a summary of what has been altered.
-    Do not write the Updatelog like technical documents it is written for users to read(The customer is not a professional)
+    Do not write the Updatelog like technical documents it is written for users to read(The customer is not a professional), you need to write a version number in updatehub, big version (a new website created or other huge updates can be named as x.x, fix small bugs or other small updates can named as x.x.x, for examples, huge updates 3.2, small bug fixed or small function improved can name as 3.2.1 or 3.2.2)
+* [UpdateHub Writing Rules]:
+    * **合并原则**：同类 Bug 反复修复（如同一问题修了 3 次）、同一功能连续多天的改进，合并为一条记录，不要拆成多条不同功能模块的更新要分开写。
+    * **重大 Bug ⚠️**：影响登录、页面崩溃、数据丢失、无法正常使用等严重影响体验的 Bug，这条记录必须放到 logsMajor（重要更新），让用户一眼看到。
+    * **具体不笼统**：每条记录必须点明涉及的功能模块名称（如"同步答题卡""音乐同步""设置页面"），不要写"修复了一些问题"这种模糊描述。
+    * **去技术化**：不要出现代码文件名（middleware.ts、server.ts）、技术术语（RLS、Vercel 494、React.cache、payload 反序列化、migration 等），用普通用户能理解的描述。例如 ✅「修复登录状态异常导致页面加载失败的问题」❌「修复 Vercel 494 REQUEST_HEADER_TOO_LARGE，middleware.ts 反模式修复」
+    * **版本规则**：大版本（x.x）用于重大功能上线或平台重构；补丁版本（x.x.x）用于小修小补。
+    * **特殊事件**：内部开发清理（删无用文件、代码重构、数据库迁移等）用户无感的，不写到 UpdateHub。
 
 # 4. EXECUTION PIPELINE
 # --------------------------------------------------
@@ -33,3 +40,4 @@
 3. **Log Update**: Write the details of the change into `jackyun-portal/public/UpdateHub.html`.
 4. **Deploy**: Run `git add`, `git commit -m "your message"`, and `git push` via SSH automatically.
 5.If that is any change with supabase that need to updates, you need to talk to me to make sure these changes are updated.
+6.If you need to fix a complez bugs or add some new functions/ websites, you need to backup the all files for released version (do not put develop environment and files into the Folder) Put the backup folder in /Users/loong/Desktop/Yunfanshi/Backup and named it as the version number in the uopdate hub.
