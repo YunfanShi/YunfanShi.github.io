@@ -56,8 +56,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 .sync-label{font-size:12px;color:#94a3b8;font-weight:500;}
 .sync-status{font-size:11px;color:#64748b;font-family:'Roboto Mono',monospace;}
 .sync-role-badge{background:#334155;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'Roboto Mono',monospace;}
-.sync-role-badge.input{background:#fb7299;color:white;}
-.sync-role-badge.wait{background:#f59e0b;color:#1e293b;}
+.sync-role-badge.controller{background:#fb7299;color:white;}
+.sync-role-badge.viewer{background:#f59e0b;color:#1e293b;}
 .role-selector{display:flex;gap:8px;margin-bottom:12px;}
 .role-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--white);cursor:pointer;text-align:center;font-size:13px;font-weight:600;transition:all .2s;font-family:'Google Sans',sans-serif;}
 .role-btn:hover{border-color:var(--pink);}
@@ -184,19 +184,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
         <span class="sync-role-badge" id="roleBadge">未设置</span>
       </div>
 
-      <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">📌 设备物理位置</label>
-      <div class="role-selector">
-        <button class="role-btn" data-role="left" onclick="setPosition('left')">
-          <span class="role-icon">⬅️</span> 左屏
-        </button>
-        <button class="role-btn" data-role="center" onclick="setPosition('center')">
-          <span class="role-icon">⬆️</span> 中屏
-        </button>
-        <button class="role-btn" data-role="right" onclick="setPosition('right')">
-          <span class="role-icon">➡️</span> 右屏
-        </button>
-      </div>
-
       <div class="input-toggle-row">
         <div style="flex:1;">
           <div class="input-toggle-label">🎮 本机为控制设备</div>
@@ -260,7 +247,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
     </div>
   </div>
 
-  <!-- WAITING PANEL (non-input device) -->
+  <!-- WAITING PANEL (viewer device) -->
   <div id="waitingPanel" style="display:none;">
     <div class="card">
       <div class="card-header" style="background:linear-gradient(135deg,#f59e0b,#d97706);">⏳ 等待广播</div>
@@ -268,8 +255,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
         <div class="waiting-icon">📡</div>
         <h3>等待控制设备广播视频...</h3>
         <p>
-          作为 <strong id="waitRoleDisplay">中屏</strong>，等待控制设备发送同步信号。<br>
-          请确保所有设备已设置好位置，且控制设备已开启同步模式。
+          作为 <strong>观看设备</strong>，等待控制设备发送同步信号。<br>
+          请确保控制设备已开启同步模式。
         </p>
         <div class="waiting-status" id="waitStatusText">等待广播...</div>
       </div>
@@ -323,7 +310,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 
 <script>
 /* ============================================
-   BILIBILI VIDEO SYNC ENGINE
+   BILIBILI VIDEO SYNC ENGINE v2 - Fixed
    ============================================ */
 
 // ═══════════════════════════════════════════════
@@ -331,7 +318,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 // ═══════════════════════════════════════════════
 
 let DEVICE_CONFIG = {
-  position: localStorage.getItem('bili_sync_position') || null,
   isInput: localStorage.getItem('bili_sync_isInput') === 'true',
   deviceId: localStorage.getItem('bili_sync_deviceId') || generateDeviceId(),
 };
@@ -554,7 +540,8 @@ function startPolling(sessionId) {
       }
 
       try {
-        const since = Date.now() - 8000;
+        // Increased window from 8000 to 15000 to accommodate 3s+ delay
+        const since = Date.now() - 15000;
         const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
         const data = await res.json();
         if (data.broadcasts && data.broadcasts.length > 0) {
@@ -665,41 +652,30 @@ async function broadcastEvent(targetTime, payload) {
 // B站视频URL解析
 function parseBilibiliUrl(url) {
   if (!url) return null;
-
-  // Clean whitespace
   url = url.trim();
-
-  // b23.tv short links
   const b23Match = url.match(/b23\.tv\/([a-zA-Z0-9]+)/);
   if (b23Match) {
     return { type: 'b23', id: b23Match[1], raw: b23Match[0] };
   }
-
-  // BV number (direct)
   const bvMatch = url.match(/BV[a-zA-Z0-9]+/);
   if (bvMatch) {
     return { type: 'bv', id: bvMatch[0], raw: bvMatch[0] };
   }
-
-  // Full bilibili URL
   const fullMatch = url.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/);
   if (fullMatch) {
     return { type: 'full', id: fullMatch[1], raw: url };
   }
-
   return null;
 }
 
 function buildPlayerUrl(videoId) {
-  // Use B站 iframe player
-  return `//player.bilibili.com/player.html?bvid=${videoId}&autoplay=0&high_quality=1&danmaku=1`;
+  // Use autoplay=1 to allow auto-start on receiver devices
+  return `//player.bilibili.com/player.html?bvid=${videoId}&autoplay=1&high_quality=1&danmaku=1`;
 }
 
 let currentVideoId = null;
-let playerFrame = null;
 let playerReady = false;
 let _playInterval = null;
-let _syncInterval = null;
 let _lastBroadcastTime = 0;
 
 // Load video into iframe
@@ -717,7 +693,6 @@ function loadVideo() {
     return;
   }
 
-  // If b23.tv, try to resolve first
   if (parsed.type === 'b23') {
     resolveB23Url(parsed.id);
     return;
@@ -730,18 +705,14 @@ async function resolveB23Url(shortCode) {
   showToast('⏳ 正在解析短链接...');
   try {
     const res = await fetch(`https://api.bilibili.com/x/share/click?bvid=${shortCode}`, { mode: 'cors' });
-    // b23.tv can't be resolved directly via API due to CORS
-    // Fallback: try redirect
     const realUrl = `https://b23.tv/${shortCode}`;
     const parsed = parseBilibiliUrl(realUrl);
     if (!parsed || parsed.type === 'b23') {
-      // Can't resolve, use the shortlink directly - B站 API limitation
       showToast('⚠️ 请直接使用BV号或完整链接');
       return;
     }
     startVideo(parsed.id);
   } catch (e) {
-    // Cannot resolve b23 due to CORS, guide user
     showToast('⚠️ 请直接使用BV号（如BV1xx...）');
   }
 }
@@ -750,22 +721,17 @@ function startVideo(bvid) {
   currentVideoId = bvid;
   const playerUrl = buildPlayerUrl(bvid);
 
-  // Show video content
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('videoContent').style.display = 'block';
-
-  // Update info
   document.getElementById('videoTitleDisplay').textContent = `🎬 BV: ${bvid}`;
   document.getElementById('videoInfoDisplay').textContent = `Bilibili视频 · ${bvid}`;
 
-  // Set iframe src
   const iframe = document.getElementById('bilibiliPlayer');
   iframe.src = playerUrl;
 
-  // Show B站 open button
   document.getElementById('openBilibiliBtn').style.display = '';
 
-  // Enable controls after load (B站 iframe needs time)
+  // B站 iframe needs time to load, then enable controls
   setTimeout(() => {
     playerReady = true;
     document.getElementById('playBtn').disabled = false;
@@ -774,13 +740,11 @@ function startVideo(bvid) {
     showToast('✅ 视频已加载');
   }, 2000);
 
-  // Start polling player state (B站 iframe has restrictions, we simulate)
   startPlayerPolling();
 
-  // Save to recent
   saveRecentUrl(bvid);
 
-  // Broadcast if sync mode
+  // Broadcast if sync mode (with 4s countdown to give time for polling)
   if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
     broadcastVideoLoad(bvid);
   }
@@ -807,9 +771,9 @@ function openBilibili() {
   }
 }
 
-// ─── Player state polling (simulated for B站 iframe) ───
-// B站 iframe doesn't expose internal state via JS,
-// so we track play/pause state via our own timer
+// ─── Player state tracking ───
+// B站 iframe doesn't expose internal state via JS cross-origin,
+// so we track play/pause state via our own timer and simulate the UI
 
 let _isPlaying = false;
 let _currentTime = 0;
@@ -818,7 +782,7 @@ let _duration = 0;
 function startPlayerPolling() {
   stopPlayerPolling();
   _currentTime = 0;
-  _duration = 600; // assume 10 min default, will be overridden
+  _duration = 600; // assume 10 min default
 
   _playInterval = setInterval(() => {
     if (!playerReady) return;
@@ -845,18 +809,6 @@ function updateTimeDisplay() {
   document.getElementById('seekBar').value = Math.min(1000, Math.max(0, pct));
 }
 
-function sendBiliPostMessage(action, value) {
-  const iframe = document.getElementById('bilibiliPlayer');
-  if (!iframe || !iframe.contentWindow) return;
-  try {
-    iframe.contentWindow.postMessage(JSON.stringify({
-      type: 'player',
-      event: action,
-      value: value
-    }), '*');
-  } catch(e) {}
-}
-
 function togglePlay() {
   if (!playerReady || !currentVideoId) return;
 
@@ -867,10 +819,7 @@ function togglePlay() {
     ? `<span>▶ 播放中 · ${currentVideoId}</span>`
     : `<span>⏸ 已暂停 · ${currentVideoId}</span>`;
 
-  // Control actual B站 iframe
-  sendBiliPostMessage(_isPlaying ? 'play' : 'pause');
-
-  // Broadcast if sync mode
+  // Broadcast if sync mode (with 3s delay for network)
   if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
     broadcastPlayerAction({ type: _isPlaying ? 'play' : 'pause', time: _currentTime });
   }
@@ -883,10 +832,7 @@ function onSeekInput() {
 }
 
 function onSeekChange() {
-  // Seek actual B站 iframe
-  sendBiliPostMessage('seek', _currentTime);
-
-  // Broadcast seek
+  // Broadcast seek (with 3s delay for network)
   if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
     broadcastPlayerAction({ type: 'seek', time: _currentTime });
   }
@@ -944,7 +890,7 @@ function onUrlChange() {
 async function broadcastVideoLoad(bvid) {
   if (!DEVICE_CONFIG.isInput) return;
   const now = SuningSync.getPreciseTime();
-  const targetTime = now + 3000; // 3 second countdown
+  const targetTime = now + 5000; // 5 second countdown — more time for poll to pick up
 
   const payload = {
     _type: 'bilibili-sync',
@@ -960,10 +906,9 @@ async function broadcastVideoLoad(bvid) {
 async function broadcastPlayerAction(action) {
   if (!DEVICE_CONFIG.isInput) return;
 
-  // For play/pause/seek, we broadcast with immediate target time
-  // Non-input devices will execute immediately upon receiving
+  // Increase delay from 200ms to 3000ms to ensure poll cycle picks it up
   const now = SuningSync.getPreciseTime();
-  const targetTime = now + 200; // 200ms for network delay
+  const targetTime = now + 3000; // 3 seconds for network delay + poll
 
   const payload = {
     _type: 'bilibili-sync',
@@ -973,13 +918,16 @@ async function broadcastPlayerAction(action) {
   };
 
   await broadcastEvent(targetTime, payload);
+  // For controller, also schedule the local action after countdown
+  if (action.type === 'play' || action.type === 'pause') {
+    startCountdown(targetTime, payload);
+  }
 }
 
 // ═══════════════════════════════════════════════
 // 6. INCOMING BROADCAST HANDLER
 // ═══════════════════════════════════════════════
 
-// Helper: ensure payload is always an object (defend against string-encoded payload from DB)
 function normalizePayload(payload) {
   if (typeof payload === 'string') {
     try { return JSON.parse(payload); } catch (e) { return {}; }
@@ -988,7 +936,6 @@ function normalizePayload(payload) {
 }
 
 async function handleIncomingBroadcast(data) {
-  // Ensure payload is an object
   data.payload = normalizePayload(data.payload);
 
   if (!data.payload || data.payload._type !== 'bilibili-sync') return;
@@ -997,8 +944,9 @@ async function handleIncomingBroadcast(data) {
   if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime &&
       RECEIVED_BROADCAST.payload && RECEIVED_BROADCAST.payload.action === data.payload.action) return;
 
+  // Increased tolerance window from 5000 to 15000ms
   const now = Date.now();
-  if (data.targetTime && data.targetTime < now - 5000) return;
+  if (data.targetTime && data.targetTime < now - 15000) return;
 
   RECEIVED_BROADCAST = data;
   console.log('[Sync] Bili broadcast:', data.payload);
@@ -1011,22 +959,19 @@ async function handleIncomingBroadcast(data) {
   const action = payload.action;
 
   if (action === 'load') {
-    // Load video with countdown
     if (payload.targetTime) {
       startCountdown(payload.targetTime, payload);
     } else {
       executeVideoLoad(payload);
     }
   } else if (action === 'play' || action === 'pause' || action === 'seek') {
-    // Immediate action
-    executePlayerAction(payload);
+    startCountdown(payload.targetTime, payload);
   }
 }
 
 function executeVideoLoad(payload) {
   if (!payload.bvid) return;
 
-  // Hide waiting panel
   document.getElementById('waitingPanel').style.display = 'none';
 
   currentVideoId = payload.bvid;
@@ -1038,7 +983,7 @@ function executeVideoLoad(payload) {
   document.getElementById('videoInfoDisplay').textContent = `Bilibili视频 · ${payload.bvid}`;
 
   const iframe = document.getElementById('bilibiliPlayer');
-  iframe.src = playerUrl;
+  iframe.src = playerUrl;  // Uses autoplay=1
 
   document.getElementById('openBilibiliBtn').style.display = '';
 
@@ -1047,27 +992,11 @@ function executeVideoLoad(payload) {
     document.getElementById('playBtn').disabled = false;
     document.getElementById('seekBar').disabled = false;
     startPlayerPolling();
+    showToast(`📺 已加载视频 ${payload.bvid}`);
   }, 2000);
-
-  // Listen for B站 iframe player state updates via postMessage
-  window._biliListener = function(e) {
-    try {
-      const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-      if (d && d.type === 'player' && d.event) {
-        if (d.event === 'play') { _isPlaying = true; }
-        else if (d.event === 'pause') { _isPlaying = false; }
-        else if (d.event === 'time') { _currentTime = d.value || 0; }
-        updateTimeDisplay();
-      }
-    } catch(e) {}
-  };
-  window.addEventListener('message', window._biliListener);
-
-  showToast(`📺 已加载视频 ${payload.bvid}`);
 }
 
 function executePlayerAction(payload) {
-  // Ensure player is ready when receiving sync signals
   if (!playerReady) {
     playerReady = true;
     if (!_playInterval) startPlayerPolling();
@@ -1082,8 +1011,6 @@ function executePlayerAction(payload) {
     document.getElementById('playBtn').disabled = false;
     document.getElementById('seekBar').disabled = false;
     document.getElementById('playBtn').textContent = '⏸';
-    // Control actual B站 iframe
-    if (currentVideoId) sendBiliPostMessage('play', time);
     document.getElementById('videoStats').innerHTML = `<span>▶ 同步播放 · ${currentVideoId || ''}</span>`;
     showToast('▶ 同步播放');
   } else if (action === 'pause') {
@@ -1132,7 +1059,6 @@ function startCountdown(targetTime, payload) {
       overlay.classList.remove('active');
       COUNTDOWN_ACTIVE = false;
 
-      // Execute the action
       if (payload && payload.action === 'load') {
         executeVideoLoad(payload);
       } else if (payload && (payload.action === 'play' || payload.action === 'pause' || payload.action === 'seek')) {
@@ -1152,7 +1078,7 @@ function startCountdown(targetTime, payload) {
       numEl.style.transform = 'scale(1)';
     });
 
-    label.textContent = secs <= 1 ? '🎬 加载中！' : `⏱ 倒计时 ${secs} 秒`;
+    label.textContent = secs <= 1 ? '🎬 执行中！' : `⏱ 倒计时 ${secs} 秒`;
   }
 
   tick();
@@ -1182,23 +1108,13 @@ function updateSyncStatus(state, text) {
 
 function updateRoleBadge() {
   const badge = document.getElementById('roleBadge');
-  if (!DEVICE_CONFIG.position) {
-    badge.textContent = '未设置';
-    badge.className = 'sync-role-badge';
-    return;
+  if (!DEVICE_CONFIG.isInput) {
+    badge.textContent = '👀 观看设备';
+    badge.className = 'sync-role-badge viewer';
+  } else {
+    badge.textContent = '🎮 控制设备';
+    badge.className = 'sync-role-badge controller';
   }
-  const posMap = { left: '⬅️左屏', center: '⬆️中屏', right: '➡️右屏' };
-  const inputFlag = DEVICE_CONFIG.isInput ? ' [控制]' : '';
-  badge.textContent = posMap[DEVICE_CONFIG.position] + inputFlag;
-  badge.className = 'sync-role-badge' + (DEVICE_CONFIG.isInput ? ' input' : ' wait');
-}
-
-function setPosition(pos) {
-  DEVICE_CONFIG.position = pos;
-  localStorage.setItem('bili_sync_position', pos);
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === pos));
-  updateRoleBadge();
-  updatePanelVisibility();
 }
 
 function onIsInputChange() {
@@ -1211,12 +1127,7 @@ function onIsInputChange() {
 function updatePanelVisibility() {
   const showInput = DEVICE_CONFIG.isInput;
   document.getElementById('settingsPanel').style.display = showInput ? 'block' : 'none';
-  document.getElementById('waitingPanel').style.display = (!showInput && DEVICE_CONFIG.position) ? 'block' : 'none';
-
-  if (DEVICE_CONFIG.position) {
-    const posMap = { left: '左屏', center: '中屏', right: '右屏' };
-    document.getElementById('waitRoleDisplay').textContent = posMap[DEVICE_CONFIG.position];
-  }
+  document.getElementById('waitingPanel').style.display = showInput ? 'none' : 'block';
 }
 
 function onSyncModeChange() {
@@ -1224,7 +1135,7 @@ function onSyncModeChange() {
   const info = document.getElementById('syncInfo');
   if (enabled) {
     info.style.display = 'block';
-    info.textContent = '🌐 同步模式已开启，播放/暂停/跳转将广播到所有设备';
+    info.textContent = '🌐 同步模式已开启，播放/暂停/跳转将广播到所有设备（含3秒缓冲）';
     if (!SESSION_ID) {
       SESSION_ID = getTimeBasedSession();
       startPolling(SESSION_ID);
@@ -1247,9 +1158,6 @@ function showToast(msg) {
 // ═══════════════════════════════════════════════
 
 async function init() {
-  if (DEVICE_CONFIG.position) {
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === DEVICE_CONFIG.position));
-  }
   const isInputCb = document.getElementById('isInputDevice');
   if (isInputCb) isInputCb.checked = DEVICE_CONFIG.isInput;
   updateRoleBadge();
@@ -1258,8 +1166,8 @@ async function init() {
 
   await SuningSync.forceSync();
 
-  // Auto-start polling for non-input devices
-  if (DEVICE_CONFIG.position && !DEVICE_CONFIG.isInput) {
+  // Auto-start polling for viewer devices (non-input)
+  if (!DEVICE_CONFIG.isInput) {
     SESSION_ID = getTimeBasedSession();
     startPolling(SESSION_ID);
   }
