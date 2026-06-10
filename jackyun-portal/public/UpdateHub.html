@@ -345,6 +345,7 @@
                     { date: "2025-12-17", content: "将电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
                 ],
                 logsRegular: [
+                    { date: "2026-06-11", content: "🐛 多设备同步致命修复：API POST 失败时不再返回假 ok:true（错误正确传播）；API GET 添加 payload 类型规范化防止 string 编码问题；所有同步页面（AnswerSheetSync/BilibiliSync/MusicPlayerSync）添加防御性 payload 类型检查 normalizePayload() + 轮询中 payload 反序列化；SQL 清理 2500+ 过期广播记录" },
                     { date: "2026-06-10", content: "🧹 清理：移除 GitHub Copilot 自动生成在仓库根目录的 3 个无效文件（lib/supabase/server.ts、lib/cookie-utils.ts、app/api/auth/refresh/route.ts），这些文件位于 jackyun-portal/ 之外，实际不被项目使用（项目 Next.js App 在 jackyun-portal/ 内）。恢复后恢复只保留 jackyun-portal/src/lib/supabase/ 下的正常工作文件" },
                     { date: "2026-06-10", content: "🐛 Cookie 膨胀最终修复 v3（断根层）：① middleware.ts setAll() 同步写入 `request.cookies.set(name, value)`，下游 Server Components 看到新鲜 session 不再重复 refresh；② server.ts createClient 用 `React.cache()` 包裹，同一请求内所有 Server Actions / Route Handlers 共享一个 Supabase 实例，消除竞态条件；③ 配合前两版修复，彻底根除 Vercel 494 REQUEST_HEADER_TOO_LARGE" },
                     { date: "2026-06-10", content: "🎬 新增多设备B站视频同步播放：控制设备输入BV号，副屏设备自动加载同一视频，复用现有同步引擎（Suning时间同步 + API广播 + BroadcastChannel）；支持播放/暂停/跳转广播；侧边栏新增「B站同步」导航入口" },

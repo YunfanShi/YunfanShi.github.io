@@ -375,6 +375,10 @@ function startPolling() {
             const data = await res.json();
             if (data.broadcasts && data.broadcasts.length > 0) {
                 for (const b of data.broadcasts) {
+                    // Normalize payload from API response (defend against string-encoded payload)
+                    if (b.payload && typeof b.payload === 'string') {
+                        try { b.payload = JSON.parse(b.payload); } catch(e) { b.payload = {}; }
+                    }
                     if (b.senderDeviceId === DEVICE_ID) continue;
                     if (b.payload && b.payload._type === 'music') {
                         handleIncomingBroadcast({
@@ -416,7 +420,18 @@ async function broadcastEvent(targetTime, payload) {
     } catch(e) {}
 }
 
+// Helper: ensure payload is always an object (defend against string-encoded payload from DB)
+function normalizePayload(payload) {
+    if (typeof payload === 'string') {
+        try { return JSON.parse(payload); } catch (e) { return {}; }
+    }
+    return payload || {};
+}
+
 async function handleIncomingBroadcast(data) {
+    // Ensure payload is an object
+    data.payload = normalizePayload(data.payload);
+
     // Time-windowed dedup: if we already processed a broadcast within the last 5s with same targetTime, skip
     if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
 

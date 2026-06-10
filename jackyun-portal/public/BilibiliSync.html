@@ -561,6 +561,10 @@ function startPolling(sessionId) {
           _processingBroadcasts = true;
           let newBroadcasts = 0;
           for (const b of data.broadcasts) {
+            // Normalize payload from API response (defend against string-encoded payload)
+            if (b.payload && typeof b.payload === 'string') {
+              try { b.payload = JSON.parse(b.payload); } catch(e) { b.payload = {}; }
+            }
             if (b.senderDeviceId !== DEVICE_CONFIG.deviceId && b.payload && b.payload._type === 'bilibili-sync') {
               if (b.broadcastId) {
                 if (_processedBroadcastIds.has(b.broadcastId)) continue;
@@ -952,7 +956,18 @@ async function broadcastPlayerAction(action) {
 // 6. INCOMING BROADCAST HANDLER
 // ═══════════════════════════════════════════════
 
+// Helper: ensure payload is always an object (defend against string-encoded payload from DB)
+function normalizePayload(payload) {
+  if (typeof payload === 'string') {
+    try { return JSON.parse(payload); } catch (e) { return {}; }
+  }
+  return payload || {};
+}
+
 async function handleIncomingBroadcast(data) {
+  // Ensure payload is an object
+  data.payload = normalizePayload(data.payload);
+
   if (!data.payload || data.payload._type !== 'bilibili-sync') return;
 
   // Dedup

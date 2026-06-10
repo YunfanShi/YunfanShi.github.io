@@ -771,6 +771,10 @@ function startPolling(sessionId) {
 
           let newBroadcasts = 0;
           for (const b of data.broadcasts) {
+            // Normalize payload from API response (defend against string-encoded payload)
+            if (b.payload && typeof b.payload === 'string') {
+              try { b.payload = JSON.parse(b.payload); } catch(e) { b.payload = {}; }
+            }
             if (b.senderDeviceId !== DEVICE_CONFIG.deviceId) {
               // Dedup by broadcastId if available, else fallback to targetTime
               if (b.broadcastId) {
@@ -876,7 +880,18 @@ async function broadcastEvent(targetTime, payload) {
 // 4. BROADCAST HANDLER
 // ═══════════════════════════════════════════════
 
-async function handleIncomingBroadcast(data) {
+// Helper: ensure payload is always an object (defend against string-encoded payload from DB)
+function normalizePayload(payload) {
+  if (typeof payload === 'string') {
+    try { return JSON.parse(payload); } catch (e) { return {}; }
+  }
+  return payload || {};
+}
+
+function handleIncomingBroadcast(data) {
+  // Ensure payload is an object
+  data.payload = normalizePayload(data.payload);
+
   // Handle dismiss broadcasts (Bug #2 fix: close one = close all)
   if (data.payload && data.payload._type === 'gacha-dismiss') {
     console.log('[Sync] Received dismiss broadcast:', data.payload._dismissId);

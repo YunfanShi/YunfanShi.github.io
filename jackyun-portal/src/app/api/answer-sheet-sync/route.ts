@@ -41,31 +41,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing targetTime or payload' }, { status: 400 });
     }
 
+    // Ensure payload is a plain object (defend against double-encoding)
+    let normalizedPayload = payload;
+    if (typeof normalizedPayload === 'string') {
+      try {
+        normalizedPayload = JSON.parse(normalizedPayload);
+      } catch (e) {
+        return NextResponse.json({ error: 'payload is string but not valid JSON' }, { status: 400 });
+      }
+    }
+
     const broadcastId = generateBroadcastId();
 
     // Write to Supabase DB as durable storage
     const supabase = await tryGetSupabase();
-    if (supabase) {
-      const { error } = await supabase.from('answer_sheet_broadcasts').insert({
-        session_id: sessionId || 'unknown',
-        sender_device_id: senderDeviceId || 'unknown',
-        target_time: targetTime,
-        payload: payload,
-        broadcast_id: broadcastId,
-        expires_at: new Date(Date.now() + 15000).toISOString(),
-        consumed_by: [],
-      }).select('id').single();
-
-      if (error) {
-        console.error('[AnswerSheetSync] DB insert error:', error);
-        // Fallback: still return OK since the broadcast was received
-        return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime, warning: 'db_error' });
-      }
-
-      return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime });
-    } else {
+    if (!supabase) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
     }
+
+    const { error } = await supabase.from('answer_sheet_broadcasts').insert({
+      session_id: sessionId || 'unknown',
+      sender_device_id: senderDeviceId || 'unknown',
+      target_time: targetTime,
+      payload: normalizedPayload,
+      broadcast_id: broadcastId,
+      expires_at: new Date(Date.now() + 15000).toISOString(),
+      consumed_by: [],
+    }).select('id').single();
+
+    if (error) {
+      console.error('[AnswerSheetSync] DB insert error:', error);
+      // Return real error instead of fake ok:true
+      return NextResponse.json({ 
+        error: 'DB insert failed', 
+        details: error.message 
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime });
 
   } catch (err) {
     console.error('[AnswerSheetSync] POST error:', err);
@@ -88,7 +101,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = await tryGetSupabase();
   if (!supabase) {
-    return NextResponse.json({ broadcasts: [] });
+    return NextResponse.json({ broadcasts: [], error: 'Database not available' });
   }
 
   try {
@@ -107,7 +120,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('[AnswerSheetSync] GET error:', error);
-      return NextResponse.json({ broadcasts: [] });
+      return NextResponse.json({ broadcasts: [], error: error.message });
     }
 
     if (!data || data.length === 0) {
@@ -124,12 +137,22 @@ export async function GET(req: NextRequest) {
       const consumedBy = row.consumed_by || [];
       if (selfDeviceId && consumedBy.includes(selfDeviceId)) continue;
 
+      // Normalize payload: DB stores it as JSON, but Supabase may return as string
+      let payload = row.payload;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch (e) {
+          payload = { _raw: payload };
+        }
+      }
+
       results.push({
         broadcastId: row.broadcast_id,
         sessionId: row.session_id,
         senderDeviceId: row.sender_device_id,
         targetTime: row.target_time,
-        payload: row.payload,
+        payload: payload,
         createdAt: new Date(row.created_at).toISOString(),
         // Include the DB row id so the client can mark as consumed
         rowId: row.id,
@@ -140,7 +163,7 @@ export async function GET(req: NextRequest) {
 
   } catch (e) {
     console.error('[AnswerSheetSync] GET exception:', e);
-    return NextResponse.json({ broadcasts: [] });
+    return NextResponse.json({ broadcasts: [], error: e instanceof Error ? e.message : 'Unknown error' });
   }
 }
 
@@ -171,32 +194,23 @@ export async function PATCH(req: NextRequest) {
 
     if (error) {
       // If function doesn't exist, do manual update
-      const { error: updateError } = await supabase
+      const { data: current } = await supabase
         .from('answer_sheet_broadcasts')
-        .update({
-          consumed_by: supabase.rpc('jsonb_append', { 
-            target: 'consumed_by', 
-            value: deviceId 
-          })
-        })
-        .eq('id', rowId);
+        .select('consumed_by')
+        .eq('id', rowId)
+        .single();
 
-      if (updateError) {
-        // Last resort: simple update
-        const { data: current } = await supabase
-          .from('answer_sheet_broadcasts')
-          .select('consumed_by')
-          .eq('id', rowId)
-          .single();
-
-        if (current) {
-          const consumed = current.consumed_by || [];
-          if (!consumed.includes(deviceId)) {
-            consumed.push(deviceId);
-            await supabase
-              .from('answer_sheet_broadcasts')
-              .update({ consumed_by: consumed })
-              .eq('id', rowId);
+      if (current) {
+        const consumed = current.consumed_by || [];
+        if (!consumed.includes(deviceId)) {
+          consumed.push(deviceId);
+          const { error: updateError } = await supabase
+            .from('answer_sheet_broadcasts')
+            .update({ consumed_by: consumed })
+            .eq('id', rowId);
+          if (updateError) {
+            console.error('[AnswerSheetSync] PATCH update error:', updateError);
+            return NextResponse.json({ error: 'Update failed' }, { status: 500 });
           }
         }
       }
