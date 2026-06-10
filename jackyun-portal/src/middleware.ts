@@ -8,6 +8,16 @@ const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-pass
 // Users logging in via these providers are auto-registered as regular users
 const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google', 'email'];
 
+// Supabase auth cookies always contain one of these prefixes
+const SUPABASE_COOKIE_PREFIXES = ['sb-', 'supabase-auth-'];
+
+function hasSupabaseCookies(request: NextRequest): boolean {
+  const allCookies = request.cookies.getAll();
+  return allCookies.some((cookie) =>
+    SUPABASE_COOKIE_PREFIXES.some((prefix) => cookie.name.startsWith(prefix)),
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -16,6 +26,16 @@ export async function middleware(request: NextRequest) {
   // This prevents cookie header bloat that can lead to Vercel 494 REQUEST_HEADER_TOO_LARGE.
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
+  }
+
+  // ── No Supabase cookies? Skip auth check entirely ──
+  // If the request doesn't carry any Supabase auth cookies, the user is definitely
+  // not authenticated. There's no need to call getUser() which would trigger a
+  // session refresh and write new cookies (contributing to 494).
+  // Just redirect to login immediately.
+  if (!hasSupabaseCookies(request)) {
+    const loginUrl = new URL('/login', request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   const { supabase, response } = await createClient(request);
