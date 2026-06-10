@@ -9,19 +9,21 @@ const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-pass
 const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google', 'email'];
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Early return for public routes ──
+  // Avoid creating a Supabase client and writing cookies for unauthenticated/public traffic.
+  // This prevents cookie header bloat that can lead to Vercel 494 REQUEST_HEADER_TOO_LARGE.
+  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
+
   const { supabase, response } = await createClient(request);
 
   // Refresh session if expired - required for Server Components
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  // Allow public routes
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return response;
-  }
 
   // If not authenticated, redirect to login
   if (!user) {
@@ -98,8 +100,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - api/ routes (handle auth independently via createClient)
+     * - Static assets (svg, png, jpg, jpeg, gif, webp)
+     * - Common bot/crawler paths (wp-admin, wp-login, xmlrpc, .env, phpmyadmin)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|wp-admin|wp-login|xmlrpc|\\.env|phpmyadmin).*)',
   ],
 };
