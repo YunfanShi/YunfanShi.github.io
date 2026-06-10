@@ -24,6 +24,7 @@
 * [Change Logs]: 
     * Every single update must be meticulously documented.
     * Write the detailed change notes into the update log file located at: `jackyun-portal/public/UpdateHub.html`. Add a new entry to the `logsMajor` or `logsRegular` array in the `database.desktop` section. Include the date (YYYY-MM-DD) and a summary of what has been altered.
+    Do not write the Updatelog like technical documents it is written for users to read(The customer is not a professional)
 
 # 4. EXECUTION PIPELINE
 # --------------------------------------------------

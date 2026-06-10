@@ -462,14 +462,15 @@ async function testConnection() {
 
   try {
     const testPayload = { _test: true, ts: Date.now() };
+    const sess = getTimeBasedSession();
     const res = await fetch('/api/answer-sheet-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetTime: Date.now() + 10000, payload: testPayload, senderDeviceId: DEVICE_CONFIG.deviceId }),
+      body: JSON.stringify({ sessionId: sess, targetTime: Date.now() + 10000, payload: testPayload, senderDeviceId: DEVICE_CONFIG.deviceId }),
     });
     const data = await res.json();
     if (data.ok) {
-      steps.push(`✅ API写入成功: session=${data.sessionId}`);
+      steps.push(`✅ API写入成功: session=${data.sessionId || sess}`);
     } else {
       steps.push(`❌ API写入失败: ${JSON.stringify(data)}`);
     }
@@ -601,12 +602,16 @@ function startPolling(sessionId) {
 }
 
 function stopPolling() {
-  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
 }
 
 // ─── Broadcast ───
 async function broadcastEvent(targetTime, payload) {
   if (!SESSION_ID) {
+    // Ensure time is synced before generating session
+    if (NET_OFFSET === 0) {
+      try { await SuningSync.forceSync(); } catch(e) {}
+    }
     SESSION_ID = getTimeBasedSession();
   }
 
@@ -840,6 +845,18 @@ function updateTimeDisplay() {
   document.getElementById('seekBar').value = Math.min(1000, Math.max(0, pct));
 }
 
+function sendBiliPostMessage(action, value) {
+  const iframe = document.getElementById('bilibiliPlayer');
+  if (!iframe || !iframe.contentWindow) return;
+  try {
+    iframe.contentWindow.postMessage(JSON.stringify({
+      type: 'player',
+      event: action,
+      value: value
+    }), '*');
+  } catch(e) {}
+}
+
 function togglePlay() {
   if (!playerReady || !currentVideoId) return;
 
@@ -849,6 +866,9 @@ function togglePlay() {
   document.getElementById('videoStats').innerHTML = _isPlaying
     ? `<span>▶ 播放中 · ${currentVideoId}</span>`
     : `<span>⏸ 已暂停 · ${currentVideoId}</span>`;
+
+  // Control actual B站 iframe
+  sendBiliPostMessage(_isPlaying ? 'play' : 'pause');
 
   // Broadcast if sync mode
   if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
@@ -863,6 +883,9 @@ function onSeekInput() {
 }
 
 function onSeekChange() {
+  // Seek actual B站 iframe
+  sendBiliPostMessage('seek', _currentTime);
+
   // Broadcast seek
   if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
     broadcastPlayerAction({ type: 'seek', time: _currentTime });
@@ -1026,17 +1049,41 @@ function executeVideoLoad(payload) {
     startPlayerPolling();
   }, 2000);
 
+  // Listen for B站 iframe player state updates via postMessage
+  window._biliListener = function(e) {
+    try {
+      const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      if (d && d.type === 'player' && d.event) {
+        if (d.event === 'play') { _isPlaying = true; }
+        else if (d.event === 'pause') { _isPlaying = false; }
+        else if (d.event === 'time') { _currentTime = d.value || 0; }
+        updateTimeDisplay();
+      }
+    } catch(e) {}
+  };
+  window.addEventListener('message', window._biliListener);
+
   showToast(`📺 已加载视频 ${payload.bvid}`);
 }
 
 function executePlayerAction(payload) {
+  // Ensure player is ready when receiving sync signals
+  if (!playerReady) {
+    playerReady = true;
+    if (!_playInterval) startPlayerPolling();
+  }
+
   const action = payload.action;
   const time = payload.time || 0;
 
   if (action === 'play') {
     _isPlaying = true;
     _currentTime = time;
+    document.getElementById('playBtn').disabled = false;
+    document.getElementById('seekBar').disabled = false;
     document.getElementById('playBtn').textContent = '⏸';
+    // Control actual B站 iframe
+    if (currentVideoId) sendBiliPostMessage('play', time);
     document.getElementById('videoStats').innerHTML = `<span>▶ 同步播放 · ${currentVideoId || ''}</span>`;
     showToast('▶ 同步播放');
   } else if (action === 'pause') {
