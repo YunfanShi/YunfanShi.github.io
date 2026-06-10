@@ -4,6 +4,7 @@ import LegacyBridge from '@/components/modules/legacy-bridge';
 import KeyboardShortcuts from '@/components/layout/keyboard-shortcuts';
 import AiChatFab from '@/components/modules/ai-chat-fab';
 import { createClient } from '@/lib/supabase/server';
+import { getSidebarPreferences } from '@/actions/settings';
 
 export default async function PortalLayout({
   children,
@@ -15,9 +16,11 @@ export default async function PortalLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const sidebarPrefs = await getSidebarPreferences();
+
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--background)]">
-      <Sidebar />
+      <Sidebar initialPrefs={sidebarPrefs} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar user={user} />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>

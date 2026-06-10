@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { checkHasPassword } from '@/actions/auth';
-import { getAiConfig } from '@/actions/settings';
+import { getAiConfig, getSidebarPreferences } from '@/actions/settings';
 import { createClient } from '@/lib/supabase/server';
 import AiConfigPanel from '@/components/settings/ai-config-panel';
 import ProfileEditor from '@/components/settings/profile-editor';
@@ -9,6 +9,7 @@ import ExportDataPanel from '@/components/settings/export-data-panel';
 import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
 import LoggerViewerWrapper from '@/components/settings/logger-viewer-wrapper';
 import FullscreenToggle from '@/components/settings/fullscreen-toggle';
+import SidebarPrefsPanel from '@/components/settings/sidebar-prefs-panel';
 
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
@@ -28,6 +29,7 @@ export default async function SettingsPage() {
   let displayName = '';
   let avatarUrl = '';
   let userId = '';
+  let sidebarPrefs: { musicMode: 'player' | 'sync'; answerSheetMode: 'standard' | 'sync' } = { musicMode: 'player', answerSheetMode: 'standard' };
 
   try {
     hasPassword = await checkHasPassword();
@@ -36,6 +38,10 @@ export default async function SettingsPage() {
   try {
     aiConfig = await getAiConfig();
   } catch { /* fallback: empty config */ }
+
+  try {
+    sidebarPrefs = await getSidebarPreferences();
+  } catch { /* fallback: default */ }
 
   try {
     const supabase = await createClient();
@@ -87,6 +93,9 @@ export default async function SettingsPage() {
         <SectionHeader icon="display_settings" title="界面设置" />
         <FullscreenToggle />
       </section>
+
+      {/* 模块显示偏好 */}
+      <SidebarPrefsPanel initialPrefs={sidebarPrefs} />
 
       {/* 更新日志 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">

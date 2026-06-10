@@ -43,6 +43,55 @@ export async function saveAiConfig(
   return { error: null };
 }
 
+export type MusicSidebarMode = 'player' | 'sync';
+export type AnswerSheetSidebarMode = 'standard' | 'sync';
+export interface SidebarPreferences {
+  musicMode: MusicSidebarMode;
+  answerSheetMode: AnswerSheetSidebarMode;
+}
+
+const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = { musicMode: 'player', answerSheetMode: 'standard' };
+
+export async function getSidebarPreferences(): Promise<SidebarPreferences> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { data } = await supabase
+      .from('user_settings')
+      .select('value')
+      .eq('user_id', user.id)
+      .eq('key', 'sidebar_preferences')
+      .maybeSingle();
+    const val = data?.value as Partial<SidebarPreferences> | null;
+    if (val?.musicMode && val?.answerSheetMode) {
+      return { musicMode: val.musicMode as MusicSidebarMode, answerSheetMode: val.answerSheetMode as AnswerSheetSidebarMode };
+    }
+    return { ...DEFAULT_SIDEBAR_PREFS };
+  } catch {
+    return { ...DEFAULT_SIDEBAR_PREFS };
+  }
+}
+
+export async function saveSidebarPreferences(prefs: SidebarPreferences): Promise<{ error: string | null }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { error } = await supabase.from('user_settings').upsert(
+      {
+        user_id: user.id,
+        key: 'sidebar_preferences',
+        value: prefs,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,key' },
+    );
+    if (error) return { error: error.message };
+    revalidatePath('/');
+    revalidatePath('/settings');
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+}
+
 export async function updateProfile(
   displayName: string,
   avatarUrl: string,
