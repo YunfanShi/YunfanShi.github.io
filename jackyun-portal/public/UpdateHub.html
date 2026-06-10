@@ -345,6 +345,7 @@
                     { date: "2025-12-17", content: "将电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
                 ],
                 logsRegular: [
+                    { date: "2026-06-10", content: "🐛 Cookie 膨胀最终修复 v3（断根层）：① middleware.ts setAll() 同步写入 `request.cookies.set(name, value)`，下游 Server Components 看到新鲜 session 不再重复 refresh；② server.ts createClient 用 `React.cache()` 包裹，同一请求内所有 Server Actions / Route Handlers 共享一个 Supabase 实例，消除竞态条件；③ 配合前两版修复，彻底根除 Vercel 494 REQUEST_HEADER_TOO_LARGE" },
                     { date: "2026-06-10", content: "🎬 新增多设备B站视频同步播放：控制设备输入BV号，副屏设备自动加载同一视频，复用现有同步引擎（Suning时间同步 + API广播 + BroadcastChannel）；支持播放/暂停/跳转广播；侧边栏新增「B站同步」导航入口" },
                     { date: "2026-06-10", content: "🐛 Vercel 494 REQUEST_HEADER_TOO_LARGE 最终修复 v2：① middleware.ts 新增 `hasSupabaseCookies()` 检查，无 Supabase auth cookies 的请求直接 302 跳转 `/login`，彻底避免创建 Supabase client 写 Cookie；② 收紧 matcher 排除 `/api/` 和恶意机器人路径（wp-admin等）；③ 保留 callback 路由已有“先创建 Response → 传入 createClient”架构。从根本上防止 Cookie 累积膨胀" },
                     { date: "2026-06-09", content: "🐛 修复 Vercel 494 REQUEST_HEADER_TOO_LARGE 错误（完整版）：① middleware.ts setAll 反模式修复（删除重复 NextResponse.next 调用）② server.ts createClient 新增可选 NextResponse 参数，Route Handler 可在 Response 对象上直接设置 cookies ③ callback/route.ts 重构为“先创建 Response → 传入 createClient → exchangeCodeForSession”模式，确保 auth session cookies 正确写入 302 响应的 Set-Cookie 头" },
