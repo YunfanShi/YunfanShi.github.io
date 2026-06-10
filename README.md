@@ -125,6 +125,8 @@ theme: {
 | `/study` | `src/app/(portal)/study/page.tsx` | Legacy Frame | 学习计划（嵌入旧版 HTML） |
 | `/vocab` | `src/app/(portal)/vocab/page.tsx` | Legacy Frame | 词汇宝库（嵌入旧版 HTML） |
 | `/music` | `src/app/(portal)/music/page.tsx` | Legacy Frame | 音乐播放器（嵌入旧版 HTML） |
+| `/music-sync` | `src/app/(portal)/music-sync/page.tsx` | Legacy Frame | 同步音乐（嵌入旧版 HTML） |
+| `/bilibili-sync` | `src/app/(portal)/bilibili-sync/page.tsx` | Legacy Frame | B站同步（嵌入旧版 HTML） |
 | `/poem` | `src/app/(portal)/poem/page.tsx` | Legacy Frame | 诗词天地（嵌入旧版 HTML） |
 | `/countdown` | `src/app/(portal)/countdown/page.tsx` | Legacy Frame | 倒计时（嵌入旧版 HTML） |
 | `/relax` | `src/app/(portal)/relax/page.tsx` | Legacy Frame | 放松一下（嵌入旧版 HTML） |
@@ -678,18 +680,22 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 | 2 | 学习计划 | `school` | `/study` |
 | 3 | 词汇宝库 | `menu_book` | `/vocab` |
 | 4 | 音乐播放器 | `music_note` | `/music` |
-| 5 | 诗词天地 | `auto_stories` | `/poem` |
-| 6 | 倒计时 | `timer` | `/countdown` |
-| 7 | 放松一下 | `sports_esports` | `/relax` |
-| 8 | 控制中心 | `tune` | `/control` |
-| 9 | 答题卡 | `content_paste` | `/answer-sheet` |
-| 10 | 计划显示器 | `flag` | `/goal` |
-| 11 | 考试倒计时 | `hourglass_empty` | `/igcountdown` |
-| 12 | 更新日志 | `history` | `/update-hub` |
-| 13 | Mock 刷题 | `quiz` | `/mock-portal` |
-| 14 | 工具箱 | `build` | `/tools` |
-| 15 | 设置 | `settings` | `/settings` |
-| 16 | 管理员 | `admin_panel_settings` | `/admin` |
+| 5 | 同步音乐 | `sync_alt` | `/music-sync` |
+| 6 | B站同步 | `smart_display` | `/bilibili-sync` |
+| 7 | 诗词天地 | `auto_stories` | `/poem` |
+| 8 | 倒计时 | `timer` | `/countdown` |
+| 9 | 放松一下 | `sports_esports` | `/relax` |
+| 10 | 控制中心 | `tune` | `/control` |
+| 11 | 答题卡 | `content_paste` | `/answer-sheet` |
+| 12 | 同步答题卡 | `sync` | `/answer-sheet-sync` |
+| 13 | 计划显示器 | `flag` | `/goal` |
+| 14 | 考试倒计时 | `hourglass_empty` | `/igcountdown` |
+| 15 | 更新日志 | `history` | `/update-hub` |
+| 16 | Mock 刷题 | `quiz` | `/mock-portal` |
+| 17 | QuizWise 刷题 | `psychology` | `/quiz` |
+| 18 | 工具箱 | `build` | `/tools` |
+| 19 | 设置 | `settings` | `/settings` |
+| 20 | 管理员 | `admin_panel_settings` | `/admin` |
 
 ---
 

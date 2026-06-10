@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilibili Video Sync</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&family=Roboto+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue:#1a73e8;--blue-light:#e8f0fe;--green:#34a853;--green-light:#e6f4ea;
+  --red:#ea4335;--red-light:#fce8e6;--yellow:#fbbc04;
+  --text:#202124;--text-secondary:#5f6368;--border:#dadce0;
+  --bg:#f8f9fa;--white:#fff;
+  --shadow:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.24);
+  --sync-green:#10b981;--sync-yellow:#f59e0b;--sync-red:#ef4444;
+  --pink:#fb7299;
+}
+body{font-family:'Google Sans','Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+header{background:var(--white);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-dots{display:grid;grid-template-columns:1fr 1fr;gap:3px;width:22px;}
+.logo-dot{width:9px;height:9px;border-radius:50%;}
+.logo-dot:nth-child(1){background:var(--blue)}.logo-dot:nth-child(2){background:var(--red)}
+.logo-dot:nth-child(3){background:var(--yellow)}.logo-dot:nth-child(4){background:var(--green)}
+.logo-text{font-size:20px;font-weight:500;color:var(--text-secondary);}
+.logo-text span{color:var(--text);}
+.logo-text .bili{color:var(--pink);font-weight:700;}
+header .spacer{flex:1;}
+main{max-width:1200px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start;}
+.card{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.card-header{background:var(--pink);color:white;padding:16px 20px;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px;}
+.card-body{padding:20px;}
+.form-group{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;font-family:'Roboto',sans-serif;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color .2s,box-shadow .2s;}
+input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 0 2px rgba(251,114,153,.2);}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:4px;font-family:'Google Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:background .2s,box-shadow .2s;}
+.btn-primary{background:var(--pink);color:white;}
+.btn-primary:hover{background:#e35e8a;box-shadow:var(--shadow);}
+.btn-primary:disabled{background:#9aa0a6;cursor:not-allowed;box-shadow:none;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn-outline:hover{border-color:var(--pink);color:var(--pink);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.w-full{width:100%;}
+
+/* Sync config */
+.sync-config-section{border:2px solid var(--pink);border-radius:8px;margin-bottom:16px;overflow:hidden;}
+.sync-config-header{background:linear-gradient(135deg,#fb7299,#fc8bab);color:white;padding:12px 16px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.sync-config-body{padding:16px;background:#fef2f5;}
+.sync-bar{background:#1e293b;padding:8px 16px;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.sync-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.sync-dot.off{background:var(--sync-red);}
+.sync-dot.connecting{background:var(--sync-yellow);animation:pulse 1s infinite;}
+.sync-dot.online{background:var(--sync-green);}
+.sync-label{font-size:12px;color:#94a3b8;font-weight:500;}
+.sync-status{font-size:11px;color:#64748b;font-family:'Roboto Mono',monospace;}
+.sync-role-badge{background:#334155;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:'Roboto Mono',monospace;}
+.sync-role-badge.input{background:#fb7299;color:white;}
+.sync-role-badge.wait{background:#f59e0b;color:#1e293b;}
+.role-selector{display:flex;gap:8px;margin-bottom:12px;}
+.role-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--white);cursor:pointer;text-align:center;font-size:13px;font-weight:600;transition:all .2s;font-family:'Google Sans',sans-serif;}
+.role-btn:hover{border-color:var(--pink);}
+.role-btn.active{border-color:var(--pink);background:#fef2f5;color:var(--pink);}
+.role-btn:disabled{opacity:.5;cursor:not-allowed;}
+.role-icon{font-size:20px;display:block;margin-bottom:4px;}
+.input-toggle-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border-radius:6px;border:1px solid var(--border);margin-bottom:12px;}
+.input-toggle-label{font-size:13px;font-weight:500;flex:1;}
+.input-toggle-desc{font-size:11px;color:var(--text-secondary);}
+.toggle-switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:background .2s;}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:transform .2s;}
+.toggle-switch input:checked+.toggle-slider{background:var(--pink);}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(18px);}
+.device-id-disp{font-family:'Roboto Mono',monospace;font-size:11px;color:#64748b;background:#f1f5f9;padding:4px 8px;border-radius:4px;word-break:break-all;}
+
+/* Video player area */
+.video-wrapper{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.video-header{border-bottom:3px solid var(--pink);padding:16px 20px;}
+.video-title{font-size:18px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;}
+.video-info{font-size:12px;color:var(--text-secondary);margin-top:4px;}
+.video-container{position:relative;width:100%;padding-top:56.25%;background:#000;}
+.video-container iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
+.video-controls{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);background:#fafafa;}
+.ctrl-btn{width:36px;height:36px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--white);border:1px solid var(--border);font-size:16px;transition:all .15s;}
+.ctrl-btn:hover{background:var(--pink);color:white;border-color:var(--pink);}
+.ctrl-btn.active{background:var(--pink);color:white;border-color:var(--pink);}
+.ctrl-btn:disabled{opacity:.4;cursor:not-allowed;}
+.ctrl-btn:disabled:hover{background:var(--white);color:var(--text);border-color:var(--border);}
+.seek-bar{flex:1;min-width:120px;position:relative;}
+.seek-bar input[type="range"]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:2px;outline:none;padding:0;cursor:pointer;}
+.seek-bar input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--pink);cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.2);}
+.time-display{font-size:12px;font-family:'Roboto Mono',monospace;color:var(--text-secondary);white-space:nowrap;min-width:80px;text-align:center;}
+.vol-control{display:flex;align-items:center;gap:6px;}
+.vol-control input[type="range"]{width:60px;height:4px;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:2px;outline:none;padding:0;cursor:pointer;}
+.vol-control input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;background:var(--text-secondary);cursor:pointer;}
+.empty-state{text-align:center;padding:80px 24px;color:var(--text-secondary);}
+.empty-icon{width:80px;height:80px;margin:0 auto 16px;opacity:.2;}
+.empty-state h3{font-size:18px;color:var(--text);margin-bottom:8px;}
+.waiting-panel{display:none;text-align:center;padding:40px 20px;}
+.waiting-panel.show{display:block;}
+.waiting-icon{font-size:60px;margin-bottom:16px;animation:pulse 2s infinite;}
+.waiting-panel h3{font-size:18px;margin-bottom:8px;color:var(--text);}
+.waiting-panel p{font-size:13px;color:var(--text-secondary);line-height:1.8;}
+.waiting-status{background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px;font-size:12px;color:#92400e;margin-top:16px;}
+@keyframes pulse{50%{opacity:.5}}
+
+/* Countdown overlay */
+#countdownOverlay{
+  position:fixed;inset:0;z-index:9999;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+  flex-direction:column;gap:24px;
+}
+#countdownOverlay.active{display:flex;}
+#countdownNum{
+  font-family:'Orbitron',monospace;
+  font-size:clamp(120px,25vw,240px);
+  font-weight:900;
+  color:white;
+  text-shadow:0 0 60px rgba(251,114,153,.6),0 0 120px rgba(251,114,153,.3);
+  line-height:1;
+  transition:opacity .15s ease-out,transform .15s ease-out;
+}
+#countdownLabel{font-family:'Google Sans',sans-serif;font-size:clamp(16px,3vw,24px);color:rgba(255,255,255,.5);letter-spacing:4px;text-transform:uppercase;}
+#countdownHint{font-family:'Roboto Mono',monospace;font-size:12px;color:rgba(255,255,255,.3);letter-spacing:2px;}
+
+/* Debug panel */
+#debugPanel{display:none;margin-bottom:16px;}
+#debugLogs{max-height:200px;overflow-y:auto;font-family:'Roboto Mono',monospace;font-size:11px;line-height:1.8;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;}
+
+/* Toast */
+.copy-toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--pink);color:white;padding:10px 22px;border-radius:24px;font-size:14px;font-family:'Google Sans',sans-serif;box-shadow:0 4px 16px rgba(251,114,153,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9998;}
+.copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Video info bar */
+.video-stats{padding:8px 16px;background:#f8f9fa;border-top:1px solid var(--border);display:flex;gap:16px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap;}
+
+/* URL input with history */
+.url-history{font-size:11px;color:var(--text-secondary);margin-top:4px;}
+.url-history a{color:var(--pink);text-decoration:none;cursor:pointer;}
+.url-history a:hover{text-decoration:underline;}
+
+/* B站 button in header */
+.bili-btn{background:var(--pink);color:white;border:none;padding:8px 16px;border-radius:4px;font-family:'Google Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:background .2s;}
+.bili-btn:hover{background:#e35e8a;}
+.bili-btn.live{animation:livePulse 2s infinite;}
+@keyframes livePulse{50%{box-shadow:0 0 0 4px rgba(251,114,153,.3)}}
+
+@media(max-width:768px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="copy-toast" id="copyToast">✓ 已复制</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-dots">
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+      <div class="logo-dot"></div><div class="logo-dot"></div>
+    </div>
+    <div class="logo-text"><span>Bilibili</span> <span class="bili">Sync</span></div>
+  </div>
+  <div class="spacer"></div>
+  <div id="headerSyncStatus" style="display:flex;align-items:center;gap:8px;margin-right:12px;">
+    <div class="sync-dot off"></div>
+    <span style="font-size:12px;color:#64748b;">初始化...</span>
+  </div>
+  <button class="bili-btn" id="openBilibiliBtn" onclick="openBilibili()" style="display:none;">📺 打开B站</button>
+</header>
+
+<main>
+<div class="config-col">
+  <!-- SYNC CONFIG -->
+  <div class="sync-config-section">
+    <div class="sync-config-header">📡 多设备同步设置</div>
+    <div class="sync-config-body">
+      <div class="sync-bar" id="syncBar">
+        <div class="sync-dot" id="syncDot"></div>
+        <span class="sync-label" id="syncLabel">同步状态</span>
+        <span class="sync-status" id="syncStatusText">等待链接...</span>
+        <span class="sync-role-badge" id="roleBadge">未设置</span>
+      </div>
+
+      <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;display:block;">📌 设备物理位置</label>
+      <div class="role-selector">
+        <button class="role-btn" data-role="left" onclick="setPosition('left')">
+          <span class="role-icon">⬅️</span> 左屏
+        </button>
+        <button class="role-btn" data-role="center" onclick="setPosition('center')">
+          <span class="role-icon">⬆️</span> 中屏
+        </button>
+        <button class="role-btn" data-role="right" onclick="setPosition('right')">
+          <span class="role-icon">➡️</span> 右屏
+        </button>
+      </div>
+
+      <div class="input-toggle-row">
+        <div style="flex:1;">
+          <div class="input-toggle-label">🎮 本机为控制设备</div>
+          <div class="input-toggle-desc">负责输入视频链接/控制播放（仅一台设备勾选）</div>
+        </div>
+        <label class="toggle-switch"><input type="checkbox" id="isInputDevice" onchange="onIsInputChange()"><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="device-id-disp" id="deviceIdDisp">设备ID: 生成中...</div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" style="flex:1;background:var(--green);" onclick="testConnection()">🔌 连接测试</button>
+        <button class="btn btn-outline btn-sm" style="flex:1;" onclick="toggleDebugPanel()">📋 调试面板</button>
+      </div>
+      <div id="testResult" style="margin-top:8px;font-size:11px;display:none;"></div>
+    </div>
+  </div>
+
+  <!-- DEBUG PANEL -->
+  <div id="debugPanel">
+    <div class="card">
+      <div class="card-header" style="background:#374151;">🐛 同步调试日志</div>
+      <div id="debugLogs"></div>
+    </div>
+  </div>
+
+  <!-- CONTROL PANEL (input device only) -->
+  <div id="settingsPanel" style="display:none;">
+    <div class="card">
+      <div class="card-header">🎬 B站视频控制</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>B站视频链接</label>
+          <input id="videoUrl" type="text" placeholder="https://www.bilibili.com/video/BV1xx... 或 b23.tv/xxxx" oninput="onUrlChange()">
+          <div class="url-history" id="urlHint">支持 BV号 / b23.tv 短链</div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button class="btn btn-primary w-full" onclick="loadVideo()">📺 加载视频</button>
+          <button class="btn btn-outline" onclick="clearVideo()" style="font-size:18px;padding:8px 12px;">✕</button>
+        </div>
+
+        <!-- Recent URLs -->
+        <div id="recentUrls" style="display:none;margin-bottom:16px;">
+          <label style="font-size:11px;">最近播放</label>
+          <div id="recentList" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
+        </div>
+
+        <hr class="section-divider" style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+
+        <div class="form-group">
+          <label style="text-transform:none;font-size:13px;">🌐 同步模式</label>
+          <div class="toggle-row" style="display:flex;align-items:center;gap:10px;">
+            <label class="toggle-switch"><input type="checkbox" id="enableSyncMode" onchange="onSyncModeChange()"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" style="font-size:13px;">启用多设备同步</span>
+          </div>
+          <div class="hint" style="font-size:11px;color:var(--text-secondary);margin-top:4px;">开启后，播放/暂停/跳转操作将广播到所有设备</div>
+        </div>
+
+        <div id="syncInfo" style="display:none;padding:10px 14px;background:#fef2f5;border:1px solid #fbc4d0;border-radius:6px;font-size:12px;color:#9d174d;margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WAITING PANEL (non-input device) -->
+  <div id="waitingPanel" style="display:none;">
+    <div class="card">
+      <div class="card-header" style="background:linear-gradient(135deg,#f59e0b,#d97706);">⏳ 等待广播</div>
+      <div class="waiting-panel show">
+        <div class="waiting-icon">📡</div>
+        <h3>等待控制设备广播视频...</h3>
+        <p>
+          作为 <strong id="waitRoleDisplay">中屏</strong>，等待控制设备发送同步信号。<br>
+          请确保所有设备已设置好位置，且控制设备已开启同步模式。
+        </p>
+        <div class="waiting-status" id="waitStatusText">等待广播...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIDEO DISPLAY AREA -->
+<div class="video-wrapper" id="videoWrapper">
+  <div class="empty-state" id="emptyState">
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <polygon points="23 7 16 12 23 17 23 7"/>
+      <rect x="1" y="5" width="15" height="14" rx="2"/>
+    </svg>
+    <h3>等待加载视频</h3>
+    <p>请在左侧设置设备角色后加载B站视频</p>
+  </div>
+
+  <div id="videoContent" style="display:none;">
+    <div class="video-header">
+      <div class="video-title" id="videoTitleDisplay">🎬 Bilibili 视频</div>
+      <div class="video-info" id="videoInfoDisplay"></div>
+    </div>
+    <div class="video-container">
+      <iframe id="bilibiliPlayer" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+    </div>
+    <div class="video-controls" id="videoControls">
+      <button class="ctrl-btn" id="playBtn" onclick="togglePlay()" disabled>▶</button>
+      <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
+      <div class="seek-bar">
+        <input type="range" id="seekBar" min="0" max="1000" value="0" oninput="onSeekInput()" onchange="onSeekChange()" disabled>
+      </div>
+      <div class="vol-control">
+        <span style="font-size:14px;">🔊</span>
+        <input type="range" id="volBar" min="0" max="100" value="50" oninput="onVolumeChange()">
+      </div>
+    </div>
+    <div class="video-stats" id="videoStats">
+      <span>⏸ 未开始</span>
+    </div>
+  </div>
+</div>
+</main>
+
+<!-- COUNTDOWN OVERLAY -->
+<div id="countdownOverlay">
+  <div id="countdownLabel">同步即将开始</div>
+  <div id="countdownNum">5</div>
+  <div id="countdownHint">请确保所有设备已就位</div>
+</div>
+
+<script>
+/* ============================================
+   BILIBILI VIDEO SYNC ENGINE
+   ============================================ */
+
+// ═══════════════════════════════════════════════
+// 1. DEVICE ID & CONFIG
+// ═══════════════════════════════════════════════
+
+let DEVICE_CONFIG = {
+  position: localStorage.getItem('bili_sync_position') || null,
+  isInput: localStorage.getItem('bili_sync_isInput') === 'true',
+  deviceId: localStorage.getItem('bili_sync_deviceId') || generateDeviceId(),
+};
+
+function generateDeviceId() {
+  const id = 'bili_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  localStorage.setItem('bili_sync_deviceId', id);
+  return id;
+}
+
+let SESSION_ID = null;
+let NET_OFFSET = 0;
+let SYNC_CONNECTED = false;
+let RECEIVED_BROADCAST = null;
+let COUNTDOWN_ACTIVE = false;
+let _processedBroadcastIds = new Set();
+
+document.getElementById('deviceIdDisp').textContent = '设备ID: ' + DEVICE_CONFIG.deviceId;
+
+// ═══════════════════════════════════════════════
+// 2. SUNING TIME SYNC
+// ═══════════════════════════════════════════════
+
+const SuningSync = {
+  async forceSync() {
+    updateSyncStatus('connecting', '同步时间...');
+    try {
+      const offset = await this.fetch();
+      NET_OFFSET = offset;
+      updateSyncStatus('online', '时间已同步');
+      console.log('[TimeSync] Offset:', offset, 'ms');
+      return offset;
+    } catch (e) {
+      console.warn('[TimeSync] Failed:', e);
+      updateSyncStatus('off', '时间同步失败');
+      NET_OFFSET = 0;
+      return 0;
+    }
+  },
+  fetch() {
+    return new Promise((resolve, reject) => {
+      const t0 = performance.now();
+      const cb = 'cb_sn_' + Date.now();
+      const script = document.createElement('script');
+      let done = false;
+      window[cb] = (data) => {
+        if (done) return; done = true;
+        const tEnd = performance.now();
+        const rtt = tEnd - t0;
+        const serverTime = data.currentTime;
+        cleanup();
+        resolve((serverTime + rtt / 2) - Date.now());
+      };
+      const cleanup = () => { delete window[cb]; script.remove(); };
+      script.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
+      script.onerror = () => { if (!done) { done = true; cleanup(); reject('Network Err'); } };
+      document.head.appendChild(script);
+      setTimeout(() => { if (!done) { done = true; cleanup(); reject('Timeout'); } }, 3000);
+    });
+  },
+  getPreciseTime() { return Date.now() + NET_OFFSET; }
+};
+
+// ═══════════════════════════════════════════════
+// 3. SYNCHRONISATION ENGINE
+// ═══════════════════════════════════════════════
+
+function getTimeBasedSession() {
+  const now = SuningSync.getPreciseTime();
+  return 'bili_' + Math.floor(now / 10000).toString(36);
+}
+
+// BroadcastChannel
+const _bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('bilibili-sync') : null;
+if (_bc) {
+  _bc.onmessage = (e) => {
+    const data = e.data;
+    if (!data || !data.targetTime || !data.payload) return;
+    if (data.senderDeviceId === DEVICE_CONFIG.deviceId) return;
+    handleIncomingBroadcast(data);
+  };
+}
+
+// localStorage event
+window.addEventListener('storage', (e) => {
+  if (e.key === 'bili_sync_broadcast') {
+    try {
+      const data = JSON.parse(e.newValue);
+      if (!data || !data.targetTime || !data.payload) return;
+      if (data.senderDeviceId === DEVICE_CONFIG.deviceId) return;
+      if (Date.now() - data.timestamp > 10000) return;
+      handleIncomingBroadcast(data);
+    } catch (e) {}
+  }
+});
+
+function toggleDebugPanel() {
+  const el = document.getElementById('debugPanel');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function debugLog(msg) {
+  const el = document.getElementById('debugLogs');
+  if (!el) return;
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML += `<div>[${time}] ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── Connection Test ───
+async function testConnection() {
+  const btnEl = document.querySelector('button[onclick*="testConnection"]');
+  const origText = btnEl.textContent;
+  btnEl.textContent = '⏳ 测试中...';
+  btnEl.disabled = true;
+
+  const resultEl = document.getElementById('testResult');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '';
+
+  const steps = [];
+
+  try {
+    const offset = await SuningSync.fetch();
+    steps.push(`✅ Suning时间同步: offset=${offset.toFixed(1)}ms`);
+  } catch (e) {
+    steps.push(`❌ Suning时间同步失败: ${e}`);
+  }
+
+  try {
+    const testPayload = { _test: true, ts: Date.now() };
+    const res = await fetch('/api/answer-sheet-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetTime: Date.now() + 10000, payload: testPayload, senderDeviceId: DEVICE_CONFIG.deviceId }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      steps.push(`✅ API写入成功: session=${data.sessionId}`);
+    } else {
+      steps.push(`❌ API写入失败: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    steps.push(`❌ API写入异常: ${e.message}`);
+  }
+
+  try {
+    const since = Date.now() - 30000;
+    const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
+    const data = await res.json();
+    if (data.broadcasts) {
+      steps.push(`✅ API读取成功: ${data.broadcasts.length}条广播`);
+    } else {
+      steps.push(`❌ API读取异常: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    steps.push(`❌ API读取异常: ${e.message}`);
+  }
+
+  try {
+    if (_bc) {
+      _bc.postMessage({ _test: true, ts: Date.now() });
+      steps.push(`✅ BroadcastChannel可用`);
+    } else {
+      steps.push(`⚠️ BroadcastChannel不可用`);
+    }
+  } catch (e) {
+    steps.push(`❌ BroadcastChannel异常: ${e.message}`);
+  }
+
+  resultEl.innerHTML = steps.join('<br>');
+  const success = steps.filter(s => s.includes('✅')).length;
+  resultEl.style.color = success >= 2 ? '#137333' : '#c5221f';
+
+  btnEl.textContent = origText;
+  btnEl.disabled = false;
+  steps.forEach(s => debugLog('  ' + s));
+}
+
+// ─── HTTP Polling ───
+let _pollTimer = null;
+let _pollBackoffLevel = 0;
+let _processingBroadcasts = false;
+
+async function markConsumed(rowId) {
+  if (!rowId) return;
+  try {
+    await fetch('/api/answer-sheet-sync', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rowId, deviceId: DEVICE_CONFIG.deviceId }),
+    });
+  } catch(e) {}
+}
+
+function startPolling(sessionId) {
+  stopPolling();
+  if (!sessionId) return;
+  updateSyncStatus('connecting', '轮询中...');
+  debugLog(`📡 开始轮询 session=${sessionId}`);
+
+  const POLL_INTERVAL = 2000;
+  let _pollCycleCount = 0;
+
+  function scheduleNext() {
+    const now = Date.now();
+    const nextBoundary = Math.ceil(now / POLL_INTERVAL) * POLL_INTERVAL;
+    const delay = Math.max(50, nextBoundary - now);
+
+    _pollTimer = setTimeout(async () => {
+      _pollCycleCount++;
+
+      if (_pollCycleCount % 15 === 0) {
+        await SuningSync.forceSync();
+      }
+
+      if (_processingBroadcasts) {
+        scheduleNext();
+        return;
+      }
+
+      try {
+        const since = Date.now() - 8000;
+        const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
+        const data = await res.json();
+        if (data.broadcasts && data.broadcasts.length > 0) {
+          _pollBackoffLevel = 0;
+          _processingBroadcasts = true;
+          let newBroadcasts = 0;
+          for (const b of data.broadcasts) {
+            if (b.senderDeviceId !== DEVICE_CONFIG.deviceId && b.payload && b.payload._type === 'bilibili-sync') {
+              if (b.broadcastId) {
+                if (_processedBroadcastIds.has(b.broadcastId)) continue;
+                _processedBroadcastIds.add(b.broadcastId);
+              }
+              handleIncomingBroadcast({
+                targetTime: b.targetTime,
+                payload: b.payload,
+                senderDeviceId: b.senderDeviceId,
+                sessionId: b.sessionId,
+                rowId: b.rowId,
+              });
+              newBroadcasts++;
+            }
+          }
+          if (newBroadcasts > 0) {
+            SYNC_CONNECTED = true;
+            updateSyncStatus('online', `${newBroadcasts}条新广播`);
+          } else {
+            updateSyncStatus('connecting', '等待广播...');
+          }
+          _processingBroadcasts = false;
+        } else {
+          updateSyncStatus('connecting', '等待广播...');
+        }
+      } catch (e) {
+        _pollBackoffLevel = Math.min(_pollBackoffLevel + 1, 6);
+      }
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
+}
+
+function stopPolling() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// ─── Broadcast ───
+async function broadcastEvent(targetTime, payload) {
+  if (!SESSION_ID) {
+    SESSION_ID = getTimeBasedSession();
+  }
+
+  const broadcastData = {
+    targetTime,
+    payload,
+    senderDeviceId: DEVICE_CONFIG.deviceId,
+    sessionId: SESSION_ID,
+    timestamp: Date.now(),
+  };
+
+  try {
+    const res = await fetch('/api/answer-sheet-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: SESSION_ID,
+        senderDeviceId: DEVICE_CONFIG.deviceId,
+        targetTime,
+        payload,
+      }),
+    });
+    const result = await res.json();
+    if (result.ok) {
+      console.log('[Sync] Broadcast via API:', result);
+    } else {
+      throw new Error(result.error || 'API error');
+    }
+  } catch (e) {
+    console.warn('[Sync] API broadcast failed:', e);
+  }
+
+  if (_bc) {
+    try { _bc.postMessage(broadcastData); } catch (e) {}
+  }
+
+  try {
+    localStorage.setItem('bili_sync_broadcast', JSON.stringify(broadcastData));
+    setTimeout(() => {
+      try { localStorage.removeItem('bili_sync_broadcast'); } catch (e) {}
+    }, 1000);
+  } catch (e) {}
+
+  startPolling(SESSION_ID);
+}
+
+// ═══════════════════════════════════════════════
+// 4. BILIBILI VIDEO ENGINE
+// ═══════════════════════════════════════════════
+
+// B站视频URL解析
+function parseBilibiliUrl(url) {
+  if (!url) return null;
+
+  // Clean whitespace
+  url = url.trim();
+
+  // b23.tv short links
+  const b23Match = url.match(/b23\.tv\/([a-zA-Z0-9]+)/);
+  if (b23Match) {
+    return { type: 'b23', id: b23Match[1], raw: b23Match[0] };
+  }
+
+  // BV number (direct)
+  const bvMatch = url.match(/BV[a-zA-Z0-9]+/);
+  if (bvMatch) {
+    return { type: 'bv', id: bvMatch[0], raw: bvMatch[0] };
+  }
+
+  // Full bilibili URL
+  const fullMatch = url.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/);
+  if (fullMatch) {
+    return { type: 'full', id: fullMatch[1], raw: url };
+  }
+
+  return null;
+}
+
+function buildPlayerUrl(videoId) {
+  // Use B站 iframe player
+  return `//player.bilibili.com/player.html?bvid=${videoId}&autoplay=0&high_quality=1&danmaku=1`;
+}
+
+let currentVideoId = null;
+let playerFrame = null;
+let playerReady = false;
+let _playInterval = null;
+let _syncInterval = null;
+let _lastBroadcastTime = 0;
+
+// Load video into iframe
+function loadVideo() {
+  const urlInput = document.getElementById('videoUrl');
+  const url = urlInput.value.trim();
+  if (!url) {
+    showToast('⚠️ 请输入B站视频链接');
+    return;
+  }
+
+  const parsed = parseBilibiliUrl(url);
+  if (!parsed) {
+    showToast('⚠️ 无法解析B站视频链接');
+    return;
+  }
+
+  // If b23.tv, try to resolve first
+  if (parsed.type === 'b23') {
+    resolveB23Url(parsed.id);
+    return;
+  }
+
+  startVideo(parsed.id);
+}
+
+async function resolveB23Url(shortCode) {
+  showToast('⏳ 正在解析短链接...');
+  try {
+    const res = await fetch(`https://api.bilibili.com/x/share/click?bvid=${shortCode}`, { mode: 'cors' });
+    // b23.tv can't be resolved directly via API due to CORS
+    // Fallback: try redirect
+    const realUrl = `https://b23.tv/${shortCode}`;
+    const parsed = parseBilibiliUrl(realUrl);
+    if (!parsed || parsed.type === 'b23') {
+      // Can't resolve, use the shortlink directly - B站 API limitation
+      showToast('⚠️ 请直接使用BV号或完整链接');
+      return;
+    }
+    startVideo(parsed.id);
+  } catch (e) {
+    // Cannot resolve b23 due to CORS, guide user
+    showToast('⚠️ 请直接使用BV号（如BV1xx...）');
+  }
+}
+
+function startVideo(bvid) {
+  currentVideoId = bvid;
+  const playerUrl = buildPlayerUrl(bvid);
+
+  // Show video content
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('videoContent').style.display = 'block';
+
+  // Update info
+  document.getElementById('videoTitleDisplay').textContent = `🎬 BV: ${bvid}`;
+  document.getElementById('videoInfoDisplay').textContent = `Bilibili视频 · ${bvid}`;
+
+  // Set iframe src
+  const iframe = document.getElementById('bilibiliPlayer');
+  iframe.src = playerUrl;
+
+  // Show B站 open button
+  document.getElementById('openBilibiliBtn').style.display = '';
+
+  // Enable controls after load (B站 iframe needs time)
+  setTimeout(() => {
+    playerReady = true;
+    document.getElementById('playBtn').disabled = false;
+    document.getElementById('seekBar').disabled = false;
+    document.getElementById('videoStats').innerHTML = '<span>▶ 已加载，等待播放</span>';
+    showToast('✅ 视频已加载');
+  }, 2000);
+
+  // Start polling player state (B站 iframe has restrictions, we simulate)
+  startPlayerPolling();
+
+  // Save to recent
+  saveRecentUrl(bvid);
+
+  // Broadcast if sync mode
+  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+    broadcastVideoLoad(bvid);
+  }
+}
+
+function clearVideo() {
+  currentVideoId = null;
+  playerReady = false;
+  stopPlayerPolling();
+  document.getElementById('emptyState').style.display = '';
+  document.getElementById('videoContent').style.display = 'none';
+  document.getElementById('bilibiliPlayer').src = '';
+  document.getElementById('openBilibiliBtn').style.display = 'none';
+  document.getElementById('playBtn').disabled = true;
+  document.getElementById('seekBar').disabled = true;
+  document.getElementById('timeDisplay').textContent = '00:00 / 00:00';
+  document.getElementById('seekBar').value = 0;
+  document.getElementById('videoStats').innerHTML = '<span>⏸ 未开始</span>';
+}
+
+function openBilibili() {
+  if (currentVideoId) {
+    window.open(`https://www.bilibili.com/video/${currentVideoId}`, '_blank');
+  }
+}
+
+// ─── Player state polling (simulated for B站 iframe) ───
+// B站 iframe doesn't expose internal state via JS,
+// so we track play/pause state via our own timer
+
+let _isPlaying = false;
+let _currentTime = 0;
+let _duration = 0;
+
+function startPlayerPolling() {
+  stopPlayerPolling();
+  _currentTime = 0;
+  _duration = 600; // assume 10 min default, will be overridden
+
+  _playInterval = setInterval(() => {
+    if (!playerReady) return;
+    if (_isPlaying) {
+      _currentTime += 1;
+    }
+    updateTimeDisplay();
+  }, 1000);
+}
+
+function stopPlayerPolling() {
+  if (_playInterval) { clearInterval(_playInterval); _playInterval = null; }
+  _isPlaying = false;
+}
+
+function updateTimeDisplay() {
+  const fmt = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
+  document.getElementById('timeDisplay').textContent = `${fmt(_currentTime)} / ${fmt(_duration || 600)}`;
+  const pct = _duration > 0 ? (_currentTime / _duration) * 1000 : 0;
+  document.getElementById('seekBar').value = Math.min(1000, Math.max(0, pct));
+}
+
+function togglePlay() {
+  if (!playerReady || !currentVideoId) return;
+
+  _isPlaying = !_isPlaying;
+  const btn = document.getElementById('playBtn');
+  btn.textContent = _isPlaying ? '⏸' : '▶';
+  document.getElementById('videoStats').innerHTML = _isPlaying
+    ? `<span>▶ 播放中 · ${currentVideoId}</span>`
+    : `<span>⏸ 已暂停 · ${currentVideoId}</span>`;
+
+  // Broadcast if sync mode
+  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+    broadcastPlayerAction({ type: _isPlaying ? 'play' : 'pause', time: _currentTime });
+  }
+}
+
+function onSeekInput() {
+  const val = parseFloat(document.getElementById('seekBar').value);
+  _currentTime = (val / 1000) * (_duration || 600);
+  updateTimeDisplay();
+}
+
+function onSeekChange() {
+  // Broadcast seek
+  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+    broadcastPlayerAction({ type: 'seek', time: _currentTime });
+  }
+}
+
+function onVolumeChange() {
+  // Volume is local only
+}
+
+// ─── Save/load recent URLs ───
+const MAX_RECENT = 5;
+
+function saveRecentUrl(bvid) {
+  let recent = JSON.parse(localStorage.getItem('bili_recent') || '[]');
+  recent = recent.filter(id => id !== bvid);
+  recent.unshift(bvid);
+  if (recent.length > MAX_RECENT) recent = recent.slice(0, MAX_RECENT);
+  localStorage.setItem('bili_recent', JSON.stringify(recent));
+  renderRecentUrls();
+}
+
+function renderRecentUrls() {
+  const recent = JSON.parse(localStorage.getItem('bili_recent') || '[]');
+  const container = document.getElementById('recentList');
+  const section = document.getElementById('recentUrls');
+  if (recent.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  container.innerHTML = recent.map(id =>
+    `<button class="btn btn-outline btn-sm" onclick="quickLoad('${id}')">${id}</button>`
+  ).join('');
+}
+
+function quickLoad(bvid) {
+  document.getElementById('videoUrl').value = bvid;
+  loadVideo();
+}
+
+function onUrlChange() {
+  const url = document.getElementById('videoUrl').value.trim();
+  const parsed = parseBilibiliUrl(url);
+  if (parsed) {
+    document.getElementById('urlHint').innerHTML = `✅ 识别为: ${parsed.id}`;
+  } else {
+    document.getElementById('urlHint').innerHTML = '支持 BV号 / b23.tv 短链';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 5. SYNC BROADCAST (Bilibili specific)
+// ═══════════════════════════════════════════════
+
+async function broadcastVideoLoad(bvid) {
+  if (!DEVICE_CONFIG.isInput) return;
+  const now = SuningSync.getPreciseTime();
+  const targetTime = now + 3000; // 3 second countdown
+
+  const payload = {
+    _type: 'bilibili-sync',
+    action: 'load',
+    bvid: bvid,
+    targetTime: targetTime,
+  };
+
+  await broadcastEvent(targetTime, payload);
+  startCountdown(targetTime, payload);
+}
+
+async function broadcastPlayerAction(action) {
+  if (!DEVICE_CONFIG.isInput) return;
+
+  // For play/pause/seek, we broadcast with immediate target time
+  // Non-input devices will execute immediately upon receiving
+  const now = SuningSync.getPreciseTime();
+  const targetTime = now + 200; // 200ms for network delay
+
+  const payload = {
+    _type: 'bilibili-sync',
+    action: action.type,
+    time: action.time,
+    bvid: currentVideoId,
+  };
+
+  await broadcastEvent(targetTime, payload);
+}
+
+// ═══════════════════════════════════════════════
+// 6. INCOMING BROADCAST HANDLER
+// ═══════════════════════════════════════════════
+
+async function handleIncomingBroadcast(data) {
+  if (!data.payload || data.payload._type !== 'bilibili-sync') return;
+
+  // Dedup
+  if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime &&
+      RECEIVED_BROADCAST.payload && RECEIVED_BROADCAST.payload.action === data.payload.action) return;
+
+  const now = Date.now();
+  if (data.targetTime && data.targetTime < now - 5000) return;
+
+  RECEIVED_BROADCAST = data;
+  console.log('[Sync] Bili broadcast:', data.payload);
+
+  if (data.rowId) {
+    markConsumed(data.rowId);
+  }
+
+  const payload = data.payload;
+  const action = payload.action;
+
+  if (action === 'load') {
+    // Load video with countdown
+    if (payload.targetTime) {
+      startCountdown(payload.targetTime, payload);
+    } else {
+      executeVideoLoad(payload);
+    }
+  } else if (action === 'play' || action === 'pause' || action === 'seek') {
+    // Immediate action
+    executePlayerAction(payload);
+  }
+}
+
+function executeVideoLoad(payload) {
+  if (!payload.bvid) return;
+
+  // Hide waiting panel
+  document.getElementById('waitingPanel').style.display = 'none';
+
+  currentVideoId = payload.bvid;
+  const playerUrl = buildPlayerUrl(payload.bvid);
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('videoContent').style.display = 'block';
+  document.getElementById('videoTitleDisplay').textContent = `🎬 BV: ${payload.bvid}`;
+  document.getElementById('videoInfoDisplay').textContent = `Bilibili视频 · ${payload.bvid}`;
+
+  const iframe = document.getElementById('bilibiliPlayer');
+  iframe.src = playerUrl;
+
+  document.getElementById('openBilibiliBtn').style.display = '';
+
+  setTimeout(() => {
+    playerReady = true;
+    document.getElementById('playBtn').disabled = false;
+    document.getElementById('seekBar').disabled = false;
+    startPlayerPolling();
+  }, 2000);
+
+  showToast(`📺 已加载视频 ${payload.bvid}`);
+}
+
+function executePlayerAction(payload) {
+  const action = payload.action;
+  const time = payload.time || 0;
+
+  if (action === 'play') {
+    _isPlaying = true;
+    _currentTime = time;
+    document.getElementById('playBtn').textContent = '⏸';
+    document.getElementById('videoStats').innerHTML = `<span>▶ 同步播放 · ${currentVideoId || ''}</span>`;
+    showToast('▶ 同步播放');
+  } else if (action === 'pause') {
+    _isPlaying = false;
+    _currentTime = time;
+    document.getElementById('playBtn').textContent = '▶';
+    document.getElementById('videoStats').innerHTML = `<span>⏸ 同步暂停</span>`;
+    showToast('⏸ 同步暂停');
+  } else if (action === 'seek') {
+    _currentTime = time;
+    showToast(`⏩ 跳转到 ${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}`);
+  }
+
+  updateTimeDisplay();
+}
+
+// ═══════════════════════════════════════════════
+// 7. COUNTDOWN
+// ═══════════════════════════════════════════════
+
+let _countdownTimer = null;
+
+function startCountdown(targetTime, payload) {
+  if (COUNTDOWN_ACTIVE) return;
+  COUNTDOWN_ACTIVE = true;
+
+  const overlay = document.getElementById('countdownOverlay');
+  const numEl = document.getElementById('countdownNum');
+  const label = document.getElementById('countdownLabel');
+  const hint = document.getElementById('countdownHint');
+
+  overlay.classList.add('active');
+  numEl.textContent = '3';
+  label.textContent = '同步即将开始';
+  hint.textContent = '正在加载视频...';
+
+  window._pendingPayload = payload;
+
+  function tick() {
+    const now = SuningSync.getPreciseTime();
+    const remaining = targetTime - now;
+
+    if (remaining <= 0) {
+      clearInterval(_countdownTimer);
+      _countdownTimer = null;
+      overlay.classList.remove('active');
+      COUNTDOWN_ACTIVE = false;
+
+      // Execute the action
+      if (payload && payload.action === 'load') {
+        executeVideoLoad(payload);
+      } else if (payload && (payload.action === 'play' || payload.action === 'pause' || payload.action === 'seek')) {
+        executePlayerAction(payload);
+      }
+      return;
+    }
+
+    const secs = Math.ceil(remaining / 1000);
+    const displaySec = Math.max(1, Math.min(9, secs));
+    numEl.textContent = displaySec.toString();
+
+    numEl.style.opacity = '0.5';
+    numEl.style.transform = 'scale(0.8)';
+    requestAnimationFrame(() => {
+      numEl.style.opacity = '1';
+      numEl.style.transform = 'scale(1)';
+    });
+
+    label.textContent = secs <= 1 ? '🎬 加载中！' : `⏱ 倒计时 ${secs} 秒`;
+  }
+
+  tick();
+  _countdownTimer = setInterval(tick, 100);
+}
+
+// ═══════════════════════════════════════════════
+// 8. UI HELPERS
+// ═══════════════════════════════════════════════
+
+function updateSyncStatus(state, text) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  const statusText = document.getElementById('syncStatusText');
+  const headerStatus = document.getElementById('headerSyncStatus');
+
+  dot.className = 'sync-dot ' + state;
+  if (state === 'online') { label.textContent = '● 已同步'; statusText.textContent = text || '已连接'; }
+  else if (state === 'connecting') { label.textContent = '◌ 同步中'; statusText.textContent = text || '连接中...'; }
+  else { label.textContent = '○ 未连接'; statusText.textContent = text || '断开'; }
+
+  const headerDot = headerStatus.querySelector('.sync-dot');
+  const headerText = headerStatus.querySelector('span');
+  if (headerDot) headerDot.className = 'sync-dot ' + state;
+  if (headerText) headerText.textContent = text || state;
+}
+
+function updateRoleBadge() {
+  const badge = document.getElementById('roleBadge');
+  if (!DEVICE_CONFIG.position) {
+    badge.textContent = '未设置';
+    badge.className = 'sync-role-badge';
+    return;
+  }
+  const posMap = { left: '⬅️左屏', center: '⬆️中屏', right: '➡️右屏' };
+  const inputFlag = DEVICE_CONFIG.isInput ? ' [控制]' : '';
+  badge.textContent = posMap[DEVICE_CONFIG.position] + inputFlag;
+  badge.className = 'sync-role-badge' + (DEVICE_CONFIG.isInput ? ' input' : ' wait');
+}
+
+function setPosition(pos) {
+  DEVICE_CONFIG.position = pos;
+  localStorage.setItem('bili_sync_position', pos);
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === pos));
+  updateRoleBadge();
+  updatePanelVisibility();
+}
+
+function onIsInputChange() {
+  DEVICE_CONFIG.isInput = document.getElementById('isInputDevice').checked;
+  localStorage.setItem('bili_sync_isInput', DEVICE_CONFIG.isInput);
+  updateRoleBadge();
+  updatePanelVisibility();
+}
+
+function updatePanelVisibility() {
+  const showInput = DEVICE_CONFIG.isInput;
+  document.getElementById('settingsPanel').style.display = showInput ? 'block' : 'none';
+  document.getElementById('waitingPanel').style.display = (!showInput && DEVICE_CONFIG.position) ? 'block' : 'none';
+
+  if (DEVICE_CONFIG.position) {
+    const posMap = { left: '左屏', center: '中屏', right: '右屏' };
+    document.getElementById('waitRoleDisplay').textContent = posMap[DEVICE_CONFIG.position];
+  }
+}
+
+function onSyncModeChange() {
+  const enabled = document.getElementById('enableSyncMode').checked;
+  const info = document.getElementById('syncInfo');
+  if (enabled) {
+    info.style.display = 'block';
+    info.textContent = '🌐 同步模式已开启，播放/暂停/跳转将广播到所有设备';
+    if (!SESSION_ID) {
+      SESSION_ID = getTimeBasedSession();
+      startPolling(SESSION_ID);
+    }
+  } else {
+    info.style.display = 'none';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('copyToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (window._toastTimer) clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ═══════════════════════════════════════════════
+// 9. INIT
+// ═══════════════════════════════════════════════
+
+async function init() {
+  if (DEVICE_CONFIG.position) {
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === DEVICE_CONFIG.position));
+  }
+  const isInputCb = document.getElementById('isInputDevice');
+  if (isInputCb) isInputCb.checked = DEVICE_CONFIG.isInput;
+  updateRoleBadge();
+  updatePanelVisibility();
+  renderRecentUrls();
+
+  await SuningSync.forceSync();
+
+  // Auto-start polling for non-input devices
+  if (DEVICE_CONFIG.position && !DEVICE_CONFIG.isInput) {
+    SESSION_ID = getTimeBasedSession();
+    startPolling(SESSION_ID);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

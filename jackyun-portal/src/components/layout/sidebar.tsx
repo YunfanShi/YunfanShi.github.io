@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: '词汇宝库', icon: 'menu_book', href: '/vocab' },
   { label: '音乐播放器', icon: 'music_note', href: '/music' },
   { label: '同步音乐', icon: 'sync_alt', href: '/music-sync' },
+  { label: 'B站同步', icon: 'smart_display', href: '/bilibili-sync' },
   { label: '诗词天地', icon: 'auto_stories', href: '/poem' },
   { label: '倒计时', icon: 'timer', href: '/countdown' },
   { label: '放松一下', icon: 'sports_esports', href: '/relax' },
