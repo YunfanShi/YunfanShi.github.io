@@ -509,8 +509,19 @@ function gT(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth(
 // ===== PERSISTENCE =====
 function sv(){localStorage.setItem('ths',JSON.stringify(st));localStorage.setItem('thc',JSON.stringify(cfg));}
 function ld(){
-  try{const s=JSON.parse(localStorage.getItem('ths'));if(s)st={...st,...s};}catch(e){}
-  try{const s=JSON.parse(localStorage.getItem('thc'));if(s){cfg={...cfg,...s};if(!s.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};}}catch(e){}
+  // Migrate from old keys (v2.5 / v2.5.1 used 'th_state' / 'th_settings')
+  try{
+    const oldSt=JSON.parse(localStorage.getItem('th_state'));
+    const newSt=JSON.parse(localStorage.getItem('ths'));
+    if(oldSt&&!newSt){st={...st,...oldSt};localStorage.setItem('ths',JSON.stringify(st));}
+    else if(newSt) st={...st,...newSt};
+  }catch(e){}
+  try{
+    const oldCfg=JSON.parse(localStorage.getItem('th_settings'));
+    const newCfg=JSON.parse(localStorage.getItem('thc'));
+    if(oldCfg&&!newCfg){cfg={...cfg,...oldCfg};if(!oldCfg.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};localStorage.setItem('thc',JSON.stringify(cfg));}
+    else if(newCfg){cfg={...cfg,...newCfg};if(!newCfg.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};}
+  }catch(e){}
 }
 
 // ===== INDEXEDDB AUDIO STORE =====
