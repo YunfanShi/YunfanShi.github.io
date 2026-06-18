@@ -725,11 +725,12 @@ function doGenerate(startMin,ses,idleMin){
     let sch=[],cur=startMin;
     const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
     let bi=0;
-    // Insert idle entry first (always at workStart time)
-    if(idleMin>0){
+    // Insert idle entry: from workStart to startMin (covers past idle + any partial big break)
+    if(startMin>t2m(cfg.ws)){
       const wsT=t2m(cfg.ws);
-      sch.push({s:m2t(wsT),e:m2t(wsT+idleMin),t:'已过去（空闲）',ty:'b',d:true});
-      if(cur<wsT+idleMin)cur=wsT+idleMin;
+      const idleLabel=idleMin>0?'已过去（空闲）':'已过去';
+      sch.push({s:m2t(wsT),e:m2t(startMin),t:idleLabel,ty:'b',d:true});
+      if(cur<startMin)cur=startMin;
     }
     // Helper: insert any big breaks that cur has reached
     function pushBigBreaks(){
