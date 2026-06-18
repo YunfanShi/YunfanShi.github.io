@@ -513,15 +513,38 @@ function ld(){
   try{
     const oldSt=JSON.parse(localStorage.getItem('th_state'));
     const newSt=JSON.parse(localStorage.getItem('ths'));
-    if(oldSt&&!newSt){st={...st,...oldSt};localStorage.setItem('ths',JSON.stringify(st));}
-    else if(newSt) st={...st,...newSt};
-  }catch(e){}
+    if(oldSt&&!newSt){
+      // Transform old blueprint format {name,type,hoursPerDay,splits,dateStart,dateEnd...} to new {n,t,h,sp,ds,de...}
+      if(oldSt.blueprints) st.bps=oldSt.blueprints.map(b=>({
+        id:b.id||uid(), n:b.name||b.n, t:b.type||b.t, h:b.hoursPerDay||b.h, sp:b.splits||b.sp,
+        ds:b.dateStart||b.ds, de:b.dateEnd||b.de, c:b.category||b.c, gh:b.goalHours||b.gh,
+        ch:b.completedHours||b.ch, col:b.color||b.col||'#4d9ef7'
+      }));
+      if(oldSt.dailyToggles) st.toggles=oldSt.dailyToggles;
+      if(oldSt.tempTasks) st.tmps=oldSt.tempTasks.map(t=>({n:t.name||t.n,d:t.minutes||t.d}));
+      if(oldSt.schedule) st.sch=oldSt.schedule;
+      localStorage.setItem('ths',JSON.stringify(st));
+    } else if(newSt){st={...st,...newSt};}
+  }catch(e){console.warn('state migration',e);}
   try{
     const oldCfg=JSON.parse(localStorage.getItem('th_settings'));
     const newCfg=JSON.parse(localStorage.getItem('thc'));
-    if(oldCfg&&!newCfg){cfg={...cfg,...oldCfg};if(!oldCfg.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};localStorage.setItem('thc',JSON.stringify(cfg));}
-    else if(newCfg){cfg={...cfg,...newCfg};if(!newCfg.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};}
-  }catch(e){}
+    if(oldCfg&&!newCfg){
+      cfg={...cfg,ws:oldCfg.workStart||oldCfg.ws,we:oldCfg.workEnd||oldCfg.we,bd:oldCfg.breakDuration||oldCfg.bd};
+      if(oldCfg.bigBreaks||oldCfg.bigs) cfg.bigs=(oldCfg.bigBreaks||oldCfg.bigs).map(b=>({n:b.name||b.n,s:b.start||b.s,e:b.end||b.e}));
+      // Migrate bells
+      const ob=oldCfg.bells||oldCfg.bellFreq||{};
+      if(ob.start||ob.s){
+        const s=ob.start||ob.s; const e=ob.end||ob.e; const br=ob.break||ob.b;
+        cfg.bells={s:{src:'def',f:(s.freq||s.f||523),nid:'',upd:''},e:{src:'def',f:(e.freq||e.f||784),nid:'',upd:''},b:{src:'def',f:(br.freq||br.f||659),nid:'',upd:''}};
+      }
+      if(oldCfg.apiKey||oldCfg.key){cfg.key=oldCfg.apiKey||oldCfg.key;cfg.prov=oldCfg.provider||oldCfg.prov||'deepseek';cfg.mod=oldCfg.model||oldCfg.mod||'deepseek-chat';}
+      localStorage.setItem('thc',JSON.stringify(cfg));
+    } else if(newCfg){
+      cfg={...cfg,...newCfg};
+      if(!newCfg.bells) cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};
+    }
+  }catch(e){console.warn('cfg migration',e);}
 }
 
 // ===== INDEXEDDB AUDIO STORE =====
