@@ -8,6 +8,7 @@ import { saveSidebarPreferences } from '@/actions/settings';
 
 const ALL_NAV_ITEMS = [
   { label: 'Dashboard', icon: 'dashboard', href: '/dashboard' },
+  { label: '日程中心', icon: 'calendar_month', href: '/timetable-hub' },
   { label: '学习计划', icon: 'school', href: '/study' },
   { label: '词汇宝库', icon: 'menu_book', href: '/vocab' },
   // Music pair

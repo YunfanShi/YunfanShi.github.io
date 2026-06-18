@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日程中心 · Timetable Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Display:wght@400;700&family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+:root {
+  --md-primary: #1a73e8;
+  --md-primary-container: #d3e3fd;
+  --md-on-primary: #ffffff;
+  --md-on-primary-container: #041e49;
+  --md-secondary: #4285f4;
+  --md-surface: #ffffff;
+  --md-surface-variant: #f0f4ff;
+  --md-surface-dim: #f8f9fa;
+  --md-surface-container: #f1f3f4;
+  --md-surface-container-high: #e8eaed;
+  --md-on-surface: #202124;
+  --md-on-surface-variant: #5f6368;
+  --md-outline: #dadce0;
+  --md-outline-variant: #e8eaed;
+  --md-error: #b3261e;
+  --md-error-container: #f9dedc;
+  --g-blue: #1a73e8;
+  --g-red: #ea4335;
+  --g-yellow: #fbbc04;
+  --g-green: #34a853;
+  --elev-1: 0 1px 2px rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+  --elev-2: 0 1px 2px rgba(60,64,67,.3), 0 2px 6px 2px rgba(60,64,67,.15);
+  --elev-3: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
+  --elev-4: 0 2px 3px rgba(60,64,67,.3), 0 6px 10px 4px rgba(60,64,67,.15);
+  --elev-5: 0 4px 4px rgba(60,64,67,.3), 0 8px 12px 6px rgba(60,64,67,.15);
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-full: 9999px;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decel: cubic-bezier(0, 0, 0, 1);
+  --ease-accel: cubic-bezier(0.3, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-short: 140ms;
+  --dur-med: 260ms;
+  --dur-long: 420ms;
+  --dur-extra: 620ms;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{height:100%;scroll-behavior:smooth;}
+body{font-family:'Roboto',sans-serif;background:var(--md-surface-dim);color:var(--md-on-surface);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+.google-bar{position:fixed;top:0;left:0;right:0;height:4px;z-index:1000;background:linear-gradient(90deg,var(--g-blue) 0 25%,var(--g-red) 25% 50%,var(--g-yellow) 50% 75%,var(--g-green) 75%);}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--md-outline);border-radius:var(--r-full);}
+.icon-btn{width:40px;height:40px;border-radius:var(--r-full);border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--md-on-surface-variant);cursor:pointer;transition:background var(--dur-short) var(--ease-standard);}
+.icon-btn:hover{background:rgba(60,64,67,.08);}
+.icon-btn .material-icons-round{font-size:24px;}
+
+/* APP SHELL */
+.top-app-bar{position:fixed;top:4px;left:0;right:0;z-index:100;height:56px;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 16px;gap:8px;border-bottom:1px solid var(--md-outline-variant);}
+.app-bar-title{font-family:'Google Sans',sans-serif;font-size:18px;font-weight:600;flex:1;display:flex;align-items:center;gap:8px;}
+.app-bar-title .material-icons-round{color:var(--md-primary);}
+
+/* SPLIT LAYOUT */
+.hub-shell{display:flex;padding-top:60px;height:100vh;overflow:hidden;}
+.left-panel{width:380px;min-width:320px;border-right:1px solid var(--md-outline-variant);background:var(--md-surface);display:flex;flex-direction:column;overflow:hidden;}
+.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--md-surface-dim);}
+
+/* LEFT PANEL SECTIONS */
+.left-scroll{flex:1;overflow-y:auto;padding:16px;}
+.section-title{font-size:12px;font-weight:600;color:var(--md-on-surface-variant);text-transform:uppercase;letter-spacing:.6px;padding:12px 0 8px;display:flex;align-items:center;justify-content:space-between;}
+
+/* BLUEPRINT CARDS */
+.bp-card{border:1px solid var(--md-outline-variant);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:all var(--dur-med) var(--ease-spring);background:var(--md-surface);position:relative;}
+.bp-card:hover{border-color:var(--md-outline);box-shadow:var(--elev-1);}
+.bp-card.mandatory{border-left:4px solid var(--g-blue);}
+.bp-card.optional{border-left:4px solid var(--g-yellow);}
+.bp-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.bp-name{font-family:'Google Sans',sans-serif;font-size:14px;font-weight:500;}
+.bp-type-badge{font-size:10px;padding:2px 8px;border-radius:var(--r-full);font-weight:600;text-transform:uppercase;}
+.bp-type-badge.mandatory{background:#e8f0fe;color:var(--g-blue);}
+.bp-type-badge.optional{background:#fef7e0;color:#e37400;}
+.bp-meta{font-size:12px;color:var(--md-on-surface-variant);margin-top:4px;}
+.bp-actions{position:absolute;top:8px;right:8px;display:flex;gap:2px;opacity:0;transition:opacity var(--dur-med);}
+.bp-card:hover .bp-actions{opacity:1;}
+.bp-color-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+
+/* DAILY TOGGLE LIST */
+.toggle-list{display:flex;flex-direction:column;gap:4px;}
+.toggle-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-md);background:var(--md-surface-variant);transition:opacity var(--dur-med);}
+.toggle-row.disabled{opacity:.6;}
+.toggle-row .toggle-check{width:18px;height:18px;border-radius:4px;cursor:pointer;accent-color:var(--md-primary);}
+.toggle-row .toggle-check:disabled{opacity:.7;}
+.toggle-row .toggle-name{font-size:13px;font-weight:500;flex:1;}
+.toggle-row .toggle-dur{font-size:11px;color:var(--md-on-surface-variant);font-family:'Roboto Mono',monospace;}
+
+/* INPUTS */
+.input-field{padding:10px 14px;border:1px solid var(--md-outline);border-radius:var(--r-sm);font-size:13px;font-family:'Roboto',sans-serif;outline:none;width:100%;transition:border-color var(--dur-med);background:var(--md-surface);color:var(--md-on-surface);}
+.input-field:focus{border-color:var(--md-primary);box-shadow:0 0 0 3px rgba(26,115,232,.15);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--r-full);border:none;font-family:'Google Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all var(--dur-med) var(--ease-spring);}
+.btn:active{transform:scale(0.96);}
+.btn-primary{background:var(--md-primary);color:var(--md-on-primary);}
+.btn-primary:hover{background:#1557b0;box-shadow:var(--elev-2);}
+.btn-outline{background:transparent;color:var(--md-primary);border:1px solid var(--md-primary);}
+.btn-outline:hover{background:var(--md-primary-container);}
+.btn-tonal{background:var(--md-surface-container-high);color:var(--md-on-surface);}
+.btn-tonal:hover{background:var(--md-surface-container);}
+.btn-text{background:transparent;color:var(--md-primary);padding:8px 12px;}
+.btn-text:hover{background:var(--md-surface-variant);}
+.btn-text.danger{color:var(--md-error);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-full{width:100%;justify-content:center;}
+.btn-icon{border:none;background:transparent;cursor:pointer;color:var(--md-on-surface-variant);padding:4px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background var(--dur-short);}
+.btn-icon:hover{background:rgba(0,0,0,.06);}
+.btn-icon.danger:hover{color:var(--md-error);background:rgba(186,26,26,.08);}
+
+/* GACHA SECTION */
+.gacha-section{background:var(--md-surface);border:1px solid var(--md-outline-variant);border-radius:var(--r-xl);padding:16px;margin-bottom:16px;}
+.gacha-config-row{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+.gacha-time-input{width:90px;padding:6px 8px;border:1px solid var(--md-outline);border-radius:var(--r-sm);font-family:'Roboto Mono',monospace;font-size:12px;text-align:center;}
+
+/* SCHEDULE OUTPUT */
+.schedule-output{flex:1;overflow-y:auto;padding:16px 20px;}
+.schedule-row{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:2px;border-radius:var(--r-md);transition:all var(--dur-med);cursor:pointer;}
+.schedule-row.active{background:#fff0f0;border-left:4px solid var(--md-error);}
+.schedule-row.done{background:#f0fdf4;opacity:.65;}
+.schedule-row.done .sch-task{text-decoration:line-through;color:var(--md-on-surface-variant);}
+.schedule-row.break-row{background:var(--md-surface-variant);}
+.schedule-row.break-row .sch-task{color:var(--md-on-surface-variant);}
+.sch-time{font-family:'Roboto Mono',monospace;font-size:12px;color:var(--md-on-surface-variant);min-width:100px;}
+.sch-task{font-size:13px;font-weight:500;flex:1;}
+.sch-type-badge{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;}
+.sch-type-badge.study{background:#e8f0fe;color:var(--g-blue);}
+.sch-type-badge.break{background:#f1f3f4;color:var(--md-on-surface-variant);}
+.sch-done-btn{width:20px;height:20px;border-radius:4px;border:2px solid var(--md-outline);cursor:pointer;display:flex;align-items:center;justify-content:center;background:transparent;transition:all var(--dur-med);}
+.sch-done-btn.done{background:var(--g-green);border-color:var(--g-green);color:#fff;}
+
+/* TIMER BAR */
+.timer-bar{background:var(--md-surface);border-bottom:1px solid var(--md-outline-variant);padding:16px 20px;display:flex;align-items:center;gap:20px;}
+.timer-display{font-family:'Inter','Roboto Mono',monospace;font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;min-width:120px;}
+.timer-info{flex:1;}
+.timer-task-name{font-size:15px;font-weight:600;}
+.timer-progress{height:4px;background:var(--md-surface-container);border-radius:2px;margin-top:6px;overflow:hidden;}
+.timer-progress-fill{height:100%;background:var(--md-primary);border-radius:2px;transition:width 1s linear;}
+
+/* RIGHT PANEL EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:var(--md-on-surface-variant);padding:40px;text-align:center;}
+
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;z-index:500;background:rgba(17,20,26,.42);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;visibility:hidden;transition:opacity var(--dur-long) var(--ease-standard),visibility var(--dur-long) var(--ease-standard);}
+.modal-backdrop.open{opacity:1;visibility:visible;}
+.modal-backdrop.open .modal-surface{transform:scale(1) translateY(0);opacity:1;}
+.modal-surface{background:rgba(255,255,255,.96);border-radius:var(--r-xl);box-shadow:var(--elev-5);border:1px solid rgba(255,255,255,.5);max-width:520px;width:100%;max-height:90vh;overflow-y:auto;transform:scale(0.92) translateY(24px);opacity:0;transition:transform var(--dur-extra) var(--ease-spring),opacity var(--dur-long) var(--ease-decel);}
+.modal-surface.wide{max-width:680px;}
+.modal-header{padding:20px 22px 0;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Google Sans',sans-serif;font-size:18px;font-weight:600;}
+.modal-body{padding:16px 22px;display:flex;flex-direction:column;gap:12px;}
+.modal-footer{padding:8px 16px 16px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--md-outline-variant);}
+.form-field{display:flex;flex-direction:column;gap:4px;}
+.form-label{font-size:11px;font-weight:600;color:var(--md-on-surface-variant);text-transform:uppercase;letter-spacing:.5px;}
+.form-input{padding:10px 14px;border:1px solid var(--md-outline);border-radius:var(--r-sm);font-size:14px;font-family:'Roboto',sans-serif;outline:none;width:100%;transition:border-color var(--dur-med);}
+.form-input:focus{border-color:var(--md-primary);box-shadow:0 0 0 3px rgba(26,115,232,.15);}
+.form-select{padding:10px 14px;border:1px solid var(--md-outline);border-radius:var(--r-sm);font-size:14px;font-family:'Roboto',sans-serif;outline:none;cursor:pointer;width:100%;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%235f6368' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.color-dots{display:flex;gap:6px;flex-wrap:wrap;}
+.color-dot{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform var(--dur-long) var(--ease-spring);}
+.color-dot:hover{transform:scale(1.15);}
+.color-dot.sel{border-color:var(--md-on-surface);transform:scale(1.2);}
+
+/* STATS STRIP */
+.stats-strip{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 12px;}
+.stat-chip{background:var(--md-surface);border:1px solid var(--md-outline-variant);border-radius:var(--r-full);padding:5px 14px;font-size:12px;display:flex;align-items:center;gap:6px;}
+
+/* SETTINGS */
+.settings-section{margin-bottom:16px;}
+.settings-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--md-on-surface-variant);margin-bottom:8px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;}
+.setting-label{font-size:13px;}
+.setting-sub{font-size:11px;color:var(--md-on-surface-variant);}
+.toggle{width:48px;height:28px;border-radius:var(--r-full);background:var(--md-outline);position:relative;cursor:pointer;transition:background var(--dur-med);flex-shrink:0;border:none;padding:0;}
+.toggle.on{background:var(--md-primary);}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:white;box-shadow:var(--elev-1);transition:transform var(--dur-med) var(--ease-spring);}
+.toggle.on::after{transform:translateX(20px);}
+.divider{height:1px;background:var(--md-outline-variant);margin:8px 0;}
+.break-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--md-surface-variant);border-radius:var(--r-md);font-size:13px;}
+
+/* SNACKBAR */
+#snackbar{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(60px);z-index:400;background:#323232;color:#fff;padding:10px 18px;border-radius:var(--r-sm);font-size:13px;font-family:'Roboto',sans-serif;box-shadow:var(--elev-3);display:flex;align-items:center;gap:12px;opacity:0;transition:transform var(--dur-long) var(--ease-spring),opacity var(--dur-med) var(--ease-standard);white-space:nowrap;}
+#snackbar.show{transform:translateX(-50%) translateY(0);opacity:1;}
+#snackbar-action{color:var(--g-yellow);font-weight:500;cursor:pointer;background:none;border:none;font-size:13px;font-family:inherit;padding:0;}
+
+/* BELL TOAST */
+#bell-toast{position:fixed;top:14px;right:14px;z-index:1800;background:rgba(17,24,39,.95);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:12px;box-shadow:var(--elev-3);padding:7px 10px;font-size:12px;display:none;align-items:center;gap:8px;backdrop-filter:blur(10px);}
+#bell-toast.show{display:inline-flex;}
+#bell-toast button{border:none;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;font-size:12px;padding:4px 8px;cursor:pointer;}
+
+/* FULLSCREEN OVERLAY */
+#fs-overlay{position:fixed;inset:0;z-index:900;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:#0A0E1A;overflow:hidden;}
+#fs-overlay.open{display:flex;}
+.fs-time{font-family:'Roboto Mono',monospace;font-size:clamp(80px,18vw,210px);font-weight:300;letter-spacing:.04em;line-height:1;color:#f7f9ff;text-shadow:0 0 80px rgba(100,160,255,.2),0 8px 32px rgba(0,0,0,.5);}
+.fs-subject{position:absolute;top:20px;left:20px;z-index:10;display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:var(--r-full);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.9);font-size:13px;}
+.fs-exit{position:absolute;top:18px;right:18px;z-index:10;padding:8px 14px;border-radius:var(--r-full);border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);font-size:13px;cursor:pointer;backdrop-filter:blur(8px);}
+.fs-progress{position:absolute;bottom:0;left:0;height:4px;transition:width 1s linear;}
+
+/* FINISH SCENE */
+.finish-scene{position:fixed;inset:0;z-index:1300;display:none;place-items:center;overflow:hidden;cursor:pointer;background:#050810;}
+.finish-scene.open{display:grid;}
+.finish-content{color:#f8fafc;text-align:center;}
+.finish-main{font-size:clamp(34px,8vw,76px);font-weight:700;background:linear-gradient(135deg,#fff 0%,rgba(200,220,255,.9) 60%,rgba(100,200,160,.85) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+
+/* RESPONSIVE */
+@media(max-width:900px){.left-panel{width:100%;min-width:0;border-right:none;border-bottom:1px solid var(--md-outline-variant);max-height:50vh;}.hub-shell{flex-direction:column;}}
+</style>
+</head>
+<body>
+<div class="google-bar"></div>
+
+<!-- TOP BAR -->
+<header class="top-app-bar">
+  <div class="app-bar-title">
+    <span class="material-icons-round">calendar_month</span>
+    <span>日程中心 · Timetable Hub <span id="todayLabel" style="font-size:13px;font-weight:400;color:var(--md-on-surface-variant);"></span></span>
+  </div>
+  <div style="display:flex;gap:4px;align-items:center;">
+    <button class="icon-btn" onclick="openSettings()" title="设置"><span class="material-icons-round">settings</span></button>
+    <button class="icon-btn" onclick="openBlueprintModal()" title="新建任务"><span class="material-icons-round">playlist_add</span></button>
+    <button class="icon-btn" onclick="openFullscreenView()" title="全屏"><span class="material-icons-round">open_in_full</span></button>
+  </div>
+</header>
+
+<!-- HUB SHELL -->
+<div class="hub-shell">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="left-scroll">
+      <!-- Blueprints -->
+      <div class="section-title">
+        <span>📋 任务蓝图</span>
+        <button class="btn btn-text btn-sm" onclick="openBlueprintModal()">+ 新建</button>
+      </div>
+      <div id="blueprintList"></div>
+
+      <!-- Daily Toggles -->
+      <div class="section-title" style="margin-top:12px;">
+        <span>☑️ 今日勾选</span>
+        <span id="toggleDate" style="font-size:11px;font-weight:400;color:var(--md-on-surface-variant);"></span>
+      </div>
+      <div id="dailyToggleList"></div>
+
+      <!-- Gacha Generator -->
+      <div class="section-title" style="margin-top:16px;">🎲 抽卡引擎</div>
+      <div class="gacha-section">
+        <div class="gacha-config-row">
+          <span style="font-size:12px;">工作时间</span>
+          <input class="gacha-time-input" id="workStart" type="time" value="08:00">
+          <span style="font-size:12px;">~</span>
+          <input class="gacha-time-input" id="workEnd" type="time" value="22:00">
+        </div>
+        <div class="gacha-config-row">
+          <span style="font-size:12px;">小休息</span>
+          <input class="gacha-time-input" id="breakDuration" type="number" value="10" min="5" max="30" style="width:60px;"> <span style="font-size:12px;">分钟</span>
+          <button class="btn btn-text btn-sm" onclick="openBreaksConfig()" style="font-size:11px;">配置大休息</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary btn-full" onclick="generateSchedule()">🎲 生成时间表</button>
+          <button class="btn btn-outline btn-sm" onclick="rerollSchedule()" title="重新抽卡">🔄</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="section-title">📊 今日统计</div>
+      <div class="stats-strip" id="statsStrip"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <!-- Timer Bar -->
+    <div class="timer-bar" id="timerBar">
+      <div class="timer-display" id="timerDisplay">--:--</div>
+      <div class="timer-info">
+        <div class="timer-task-name" id="timerTaskName">等待生成时间表</div>
+        <div class="timer-progress"><div class="timer-progress-fill" id="timerProgressFill" style="width:0%;"></div></div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="timerActionBtn" onclick="toggleCurrentTask()" style="display:none;">
+        <span class="material-icons-round" style="font-size:18px;">play_arrow</span>
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="finishEarly()" style="display:none;" id="finishEarlyBtn">提前完成</button>
+    </div>
+
+    <!-- Schedule Output -->
+    <div class="schedule-output" id="scheduleOutput">
+      <div class="empty-state">
+        <span class="material-icons-round" style="font-size:48px;color:var(--md-outline);">calendar_view_week</span>
+        <div style="font-size:16px;font-weight:600;">今天还没有时间表</div>
+        <div style="font-size:13px;">在左侧配置任务并点击「生成时间表」</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FULLSCREEN OVERLAY -->
+<div id="fs-overlay">
+  <div class="fs-subject" id="fsSubject">⏱️ <span id="fsSubjectName">准备</span></div>
+  <button class="fs-exit" onclick="exitFullscreenView()"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;">close_fullscreen</span> 退出</button>
+  <div class="fs-progress" id="fsProgress" style="width:0%;background:var(--g-blue);"></div>
+  <div class="fs-time" id="fsTime">--:--</div>
+</div>
+
+<!-- FINISH SCENE -->
+<div class="finish-scene" id="finishScene" onclick="dismissFinishScene()">
+  <div class="finish-content" onclick="event.stopPropagation()">
+    <div class="finish-main" id="finishMain">✓ 任务完成</div>
+    <div style="margin-top:20px;font-size:14px;opacity:.7;" id="finishMeta"></div>
+    <div style="margin-top:24px;"><button class="btn btn-tonal" onclick="dismissFinishScene()">继续</button></div>
+  </div>
+</div>
+
+<!-- BLUEPRINT MODAL -->
+<div class="modal-backdrop" id="bpModal" onclick="closeModalOnBackdrop(event,'bpModal')">
+  <div class="modal-surface wide">
+    <div class="modal-header">
+      <div class="modal-title" id="bpModalTitle">新建任务蓝图</div>
+      <button class="icon-btn" onclick="closeModal('bpModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="frow">
+        <div class="form-field">
+          <label class="form-label">名称 *</label>
+          <input class="form-input" id="bpName" placeholder="IELTS Lessons" maxlength="40">
+        </div>
+        <div class="form-field">
+          <label class="form-label">类型</label>
+          <select class="form-select" id="bpType">
+            <option value="mandatory">必做 (Mandatory)</option>
+            <option value="optional">可选 (Optional)</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="form-field">
+          <label class="form-label">每日总时长（小时）</label>
+          <input class="form-input" id="bpHours" type="number" min="0.5" max="16" step="0.5" value="2">
+        </div>
+        <div class="form-field">
+          <label class="form-label">分割次数</label>
+          <input class="form-input" id="bpSplits" type="number" min="1" max="10" value="2">
+        </div>
+      </div>
+      <div class="frow">
+        <div class="form-field">
+          <label class="form-label">开始日期</label>
+          <input class="form-input" id="bpDateStart" type="date">
+        </div>
+        <div class="form-field">
+          <label class="form-label">结束日期</label>
+          <input class="form-input" id="bpDateEnd" type="date">
+        </div>
+      </div>
+      <div class="frow">
+        <div class="form-field">
+          <label class="form-label">分类</label>
+          <select class="form-select" id="bpCategory">
+            <option value="学习">📚 学习</option>
+            <option value="健康">💪 健康</option>
+            <option value="工作">💼 工作</option>
+            <option value="生活">🏠 生活</option>
+            <option value="其他">✦ 其他</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">总目标（小时）</label>
+          <input class="form-input" id="bpGoal" type="number" min="0" value="100">
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">标签颜色</label>
+        <div class="color-dots" id="bpColors"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-text" onclick="closeModal('bpModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveBlueprint()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- BREAKS CONFIG MODAL -->
+<div class="modal-backdrop" id="breaksModal" onclick="closeModalOnBackdrop(event,'breaksModal')">
+  <div class="modal-surface">
+    <div class="modal-header">
+      <div class="modal-title">⏳ 大休息配置</div>
+      <button class="icon-btn" onclick="closeModal('breaksModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body" id="breaksList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-text" onclick="addBreakItem()">+ 添加</button>
+      <button class="btn btn-primary" onclick="saveBreaksConfig()">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-backdrop" id="settingsModal" onclick="closeModalOnBackdrop(event,'settingsModal')">
+  <div class="modal-surface wide">
+    <div class="modal-header">
+      <div class="modal-title">⚙ 设置</div>
+      <button class="icon-btn" onclick="closeModal('settingsModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+      <div class="settings-section">
+        <div class="settings-title">工作时间</div>
+        <div class="setting-row">
+          <div><div class="setting-label">每天工作时段</div><div class="setting-sub">时间表仅在此范围内生成</div></div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="time" id="sWorkStart" class="gacha-time-input" value="08:00" onchange="saveTimeSettings()">
+            <span style="font-size:12px;">~</span>
+            <input type="time" id="sWorkEnd" class="gacha-time-input" value="22:00" onchange="saveTimeSettings()">
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-section">
+        <div class="settings-title">休息设置</div>
+        <div class="setting-row">
+          <div><div class="setting-label">小休息时长</div><div class="setting-sub">两个学习会话之间自动插入</div></div>
+          <input type="number" id="sBreakDuration" min="3" max="30" value="10" style="width:60px;padding:6px;border:1px solid var(--md-outline);border-radius:var(--r-sm);font-size:13px;" onchange="saveTimeSettings()"> <span style="font-size:12px;">分钟</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-section">
+        <div class="settings-title">铃声设置</div>
+        <div class="setting-row">
+          <div class="setting-label">上课铃</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn btn-text btn-sm" onclick="selectBellTone('start')">选择</button>
+            <span id="bellStartLabel" style="font-size:12px;color:var(--md-on-surface-variant);">默认</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">下课铃</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn btn-text btn-sm" onclick="selectBellTone('end')">选择</button>
+            <span id="bellEndLabel" style="font-size:12px;color:var(--md-on-surface-variant);">默认</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">休息结束铃</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn btn-text btn-sm" onclick="selectBellTone('break')">选择</button>
+            <span id="bellBreakLabel" style="font-size:12px;color:var(--md-on-surface-variant);">默认</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">音源</div>
+          <select class="form-select" style="width:auto;padding:6px 28px 6px 10px;font-size:12px;" id="sBellSource" onchange="saveBellSource()">
+            <option value="default">默认音调</option>
+            <option value="upload">本地上传</option>
+            <option value="netease">网易云音乐</option>
+          </select>
+        </div>
+        <div id="bellUploadRow" style="display:none;">
+          <input type="file" id="bellFileInput" accept="audio/*" style="font-size:12px;" onchange="handleBellUpload(event)">
+        </div>
+        <div id="bellNeteaseRow" style="display:none;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input class="form-input" id="sNeteaseId" placeholder="网易云歌曲ID" style="font-size:12px;padding:6px 10px;" onchange="saveNeteaseId()">
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-section">
+        <div class="settings-title">AI 配置</div>
+        <div class="form-field">
+          <label class="form-label">API Key（DeepSeek/OpenAI）</label>
+          <input class="form-input" id="sApiKey" type="password" placeholder="sk-..." autocomplete="off" onchange="saveApiKey()">
+        </div>
+        <div class="frow3" style="margin-top:8px;">
+          <div class="form-field">
+            <label class="form-label">服务商</label>
+            <select class="form-select" id="sProvider" onchange="saveProvider()">
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">模型</label>
+            <input class="form-input" id="sModel" placeholder="deepseek-chat" onchange="saveModel()">
+          </div>
+          <div class="form-field">
+            <label class="form-label">工作日/周末小时</label>
+            <div style="display:flex;gap:4px;">
+              <input class="form-input" id="sWeekdayHours" type="number" min="1" max="12" value="4" style="font-size:12px;padding:6px;" onchange="savePrefs()">
+              <input class="form-input" id="sWeekendHours" type="number" min="1" max="16" value="8" style="font-size:12px;padding:6px;" onchange="savePrefs()">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-section">
+        <div class="settings-title">数据</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-tonal btn-sm" onclick="exportData()">↑ 导出数据</button>
+          <button class="btn btn-tonal btn-sm" onclick="document.getElementById('importInput').click()">↓ 导入数据</button>
+          <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+          <button class="btn btn-text btn-sm danger" onclick="clearAllData()">🗑 清空数据</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('settingsModal')">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- BELL SELECT MODAL -->
+<div class="modal-backdrop" id="bellModal" onclick="closeModalOnBackdrop(event,'bellModal')">
+  <div class="modal-surface" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">选择铃声</div>
+      <button class="icon-btn" onclick="closeModal('bellModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="btn btn-tonal btn-full" onclick="testBellTone(523)">🔔 默认音调 (C5)</button>
+        <button class="btn btn-tonal btn-full" onclick="testBellTone(659)">🔔 默认音调 (E5)</button>
+        <button class="btn btn-tonal btn-full" onclick="testBellTone(784)">🔔 默认音调 (G5)</button>
+        <button class="btn btn-tonal btn-full" onclick="testBellTone(440)">🔔 标准A4 (440Hz)</button>
+      </div>
+      <div class="divider"></div>
+      <div class="form-field">
+        <label class="form-label">自定义频率（Hz）</label>
+        <input class="form-input" id="customFreq" type="number" min="100" max="2000" placeholder="100-2000" onkeydown="if(event.key==='Enter')testCustomFreq()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-text" onclick="closeModal('bellModal')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- PERMANENT TEMP TASK MODAL -->
+<div class="modal-backdrop" id="tempTaskModal" onclick="closeModalOnBackdrop(event,'tempTaskModal')">
+  <div class="modal-surface" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">➕ 临时任务</div>
+      <button class="icon-btn" onclick="closeModal('tempTaskModal')"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label class="form-label">任务名称</label>
+        <input class="form-input" id="tempName" placeholder="如：整理房间" maxlength="30">
+      </div>
+      <div class="form-field">
+        <label class="form-label">时长（分钟）</label>
+        <input class="form-input" id="tempDuration" type="number" min="15" max="480" value="60">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-text" onclick="closeModal('tempTaskModal')">取消</button>
+      <button class="btn btn-primary" onclick="addTempTask()">添加</button>
+    </div>
+  </div>
+</div>
+
+<div id="snackbar"><span id="snackbar-msg">完成</span><button id="snackbar-action" style="display:none;" onclick="snackbarAction()"></button></div>
+<div id="bell-toast"><span id="bellToastText">🔔 铃声播放中</span><button onclick="stopBell()">关闭</button></div>
+
+<script>
+// ============================================================
+// DATA & STATE
+// ============================================================
+const COLORS = ['#1a73e8','#34a853','#ea4335','#fbbc04','#9c27b0','#fa7b17','#00acc1','#5c6bc0','#e91e63','#ff5722'];
+
+// Default state with ZERO hardcoded tasks
+let state = {
+  blueprints: [],      // [{id,name,type,hoursPerDay,splits,dateStart,dateEnd,category,goalHours,completedHours,color}]
+  dailyToggles: {},    // { "2026-06-18": { "bpId": true/false } }
+  schedule: [],        // [{start,end,task,type,done}]
+  running: false,
+  currentTaskIdx: -1,
+  tempTasks: [],       // [{name,minutes}] only for today
+  history: {},         // { "2026-06-18": [{task,duration} ] }
+};
+
+let settings = {
+  workStart: '08:00',
+  workEnd: '22:00',
+  breakDuration: 10,
+  bigBreaks: [
+    { name: '午餐', start: '12:00', end: '13:00' },
+    { name: '晚餐', start: '18:00', end: '19:00' }
+  ],
+  bellSource: 'default',
+  bellFreq: { start: 523, end: 784, break: 659 },
+  bellNeteaseId: '',
+  bellUploadData: { start: '', end: '', break: '' },
+  apiKey: '',
+  provider: 'deepseek',
+  model: 'deepseek-chat',
+  weekdayHours: 4,
+  weekendHours: 8,
+  autoBell: true,
+};
+
+let editingBpId = null;
+let currentToneTarget = 'start';
+let bellCtx = null;
+let bellAudio = null;
+let tickInterval = null;
+let scheduleOutput = document.getElementById('scheduleOutput');
+let todayStr = '';
+
+function getToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+function save() {
+  localStorage.setItem('th_state', JSON.stringify(state));
+  localStorage.setItem('th_settings', JSON.stringify(settings));
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem('th_state'));
+    if (s) state = { ...state, ...s };
+  } catch(e) {}
+  try {
+    const s = JSON.parse(localStorage.getItem('th_settings'));
+    if (s) settings = { ...settings, ...s };
+  } catch(e) {}
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  load();
+  todayStr = getToday();
+  document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('zh-CN', { month:'long', day:'numeric', weekday:'long' });
+  document.getElementById('toggleDate').textContent = todayStr;
+  document.getElementById('workStart').value = settings.workStart;
+  document.getElementById('workEnd').value = settings.workEnd;
+  document.getElementById('breakDuration').value = settings.breakDuration;
+  
+  renderBlueprints();
+  renderDailyToggles();
+  renderStats();
+  
+  // Load today's schedule
+  loadTodaySchedule();
+  
+  // Start tick
+  tickInterval = setInterval(tick, 1000);
+  
+  // Load settings UI
+  document.getElementById('sWorkStart').value = settings.workStart;
+  document.getElementById('sWorkEnd').value = settings.workEnd;
+  document.getElementById('sBreakDuration').value = settings.breakDuration;
+  document.getElementById('sApiKey').value = settings.apiKey || '';
+  document.getElementById('sProvider').value = settings.provider || 'deepseek';
+  document.getElementById('sModel').value = settings.model || 'deepseek-chat';
+  document.getElementById('sWeekdayHours').value = settings.weekdayHours || 4;
+  document.getElementById('sWeekendHours').value = settings.weekendHours || 8;
+  document.getElementById('sBellSource').value = settings.bellSource || 'default';
+  updateBellSourceUI();
+}
+
+// ============================================================
+// BLUEPRINT RENDER
+// ============================================================
+function renderBlueprints() {
+  const el = document.getElementById('blueprintList');
+  if (state.blueprints.length === 0) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--md-on-surface-variant);font-size:13px;">暂无任务蓝图<br>点击「+ 新建」创建一个</div>`;
+    return;
+  }
+  el.innerHTML = state.blueprints.map(bp => {
+    const sessionMins = Math.round(bp.hoursPerDay * 60 / bp.splits);
+    return `<div class="bp-card ${bp.type}" onclick="editBlueprint('${bp.id}')">
+      <div class="bp-card-header">
+        <div><span class="bp-color-dot" style="background:${bp.color || '#1a73e8'};"></span><span class="bp-name">${esc(bp.name)}</span></div>
+        <span class="bp-type-badge ${bp.type}">${bp.type === 'mandatory' ? '必做' : '可选'}</span>
+      </div>
+      <div class="bp-meta">${bp.hoursPerDay}h/天 · ${bp.splits}次(${sessionMins}min/次) · ${bp.dateStart||'?'} ~ ${bp.dateEnd||'?'}</div>
+      <div class="bp-actions">
+        <button class="btn-icon" onclick="event.stopPropagation();deleteBlueprint('${bp.id}')"><span class="material-icons-round" style="font-size:16px;">close</span></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// DAILY TOGGLES
+// ============================================================
+function renderDailyToggles() {
+  const el = document.getElementById('dailyToggleList');
+  const activeBps = state.blueprints.filter(bp => isBpActiveToday(bp));
+  if (activeBps.length === 0) {
+    el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--md-on-surface-variant);font-size:12px;">今天没有激活的任务<br>请在蓝图中设置日期范围</div>`;
+    return;
+  }
+  if (!state.dailyToggles[todayStr]) state.dailyToggles[todayStr] = {};
+  // Auto-enable mandatory tasks
+  activeBps.forEach(bp => {
+    if (bp.type === 'mandatory') state.dailyToggles[todayStr][bp.id] = true;
+  });
+  
+  el.innerHTML = activeBps.map(bp => {
+    const toggled = state.dailyToggles[todayStr][bp.id] !== false;
+    const sessionMins = Math.round(bp.hoursPerDay * 60 / bp.splits);
+    const isMandatory = bp.type === 'mandatory';
+    return `<div class="toggle-row ${!toggled ? 'disabled' : ''}">
+      <input class="toggle-check" type="checkbox" ${toggled?'checked':''} ${isMandatory?'disabled':''} onchange="toggleDailyTask('${bp.id}',this.checked)">
+      <span class="toggle-name">${esc(bp.name)}</span>
+      <span class="toggle-dur">${bp.hoursPerDay}h (${bp.splits}×${sessionMins}min)</span>
+    </div>`;
+  }).join('');
+  
+  // Temp tasks
+  if (state.tempTasks.length > 0) {
+    el.innerHTML += `<div style="font-size:11px;color:var(--md-on-surface-variant);padding:4px 0 0;">-- 临时任务 --</div>`;
+    el.innerHTML += state.tempTasks.map((t, i) => `<div class="toggle-row">
+      <span class="material-icons-round" style="font-size:16px;color:var(--g-yellow);">add_circle</span>
+      <span class="toggle-name">${esc(t.name)}</span>
+      <span class="toggle-dur">${t.minutes}min</span>
+      <button class="btn-icon" onclick="removeTempTask(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button>
+    </div>`).join('');
+  }
+  
+  el.innerHTML += `<button class="btn btn-text btn-sm" style="width:100%;margin-top:4px;" onclick="openModal('tempTaskModal')">+ 添加临时任务</button>`;
+}
+
+function isBpActiveToday(bp) {
+  if (!bp.dateStart || !bp.dateEnd) return false;
+  return todayStr >= bp.dateStart && todayStr <= bp.dateEnd;
+}
+
+function toggleDailyTask(id, checked) {
+  if (!state.dailyToggles[todayStr]) state.dailyToggles[todayStr] = {};
+  state.dailyToggles[todayStr][id] = checked;
+  save();
+}
+
+function addTempTask() {
+  const name = document.getElementById('tempName').value.trim();
+  const dur = parseInt(document.getElementById('tempDuration').value) || 60;
+  if (!name) { showSnackbar('请输入任务名称'); return; }
+  state.tempTasks.push({ name, minutes: dur });
+  closeModal('tempTaskModal');
+  document.getElementById('tempName').value = '';
+  save();
+  renderDailyToggles();
+}
+
+function removeTempTask(idx) {
+  state.tempTasks.splice(idx, 1);
+  save();
+  renderDailyToggles();
+}
+
+// ============================================================
+// GACHA GENERATOR
+// ============================================================
+function generateSchedule() {
+  settings.workStart = document.getElementById('workStart').value;
+  settings.workEnd = document.getElementById('workEnd').value;
+  settings.breakDuration = parseInt(document.getElementById('breakDuration').value) || 10;
+  save();
+  
+  const workStartM = timeToMin(settings.workStart);
+  const workEndM = timeToMin(settings.workEnd);
+  let availableMins = workEndM - workStartM;
+  
+  // Subtract big breaks
+  settings.bigBreaks.forEach(b => {
+    const bs = timeToMin(b.start);
+    const be = timeToMin(b.end);
+    if (bs >= workStartM && be <= workEndM && be > bs) availableMins -= (be - bs);
+  });
+  
+  if (availableMins <= 0) { showSnackbar('工作时间不足，请检查配置'); return; }
+  
+  // Collect tasks for today
+  if (!state.dailyToggles[todayStr]) state.dailyToggles[todayStr] = {};
+  const activeBps = state.blueprints.filter(bp => isBpActiveToday(bp));
+  const selectedBps = activeBps.filter(bp => state.dailyToggles[todayStr][bp.id] !== false);
+  const tempTasks = state.tempTasks.map((t,i) => ({
+    id: 'temp_'+i,
+    name: t.name,
+    type: 'optional',
+    sessions: [{ minutes: t.minutes }]
+  }));
+  
+  // Build session list
+  let sessions = [];
+  selectedBps.forEach(bp => {
+    const sessionMins = Math.round(bp.hoursPerDay * 60 / bp.splits);
+    for (let i=0; i<bp.splits; i++) {
+      sessions.push({ name: bp.name, minutes: sessionMins, type: 'study', bpId: bp.id });
+    }
+  });
+  tempTasks.forEach(t => {
+    t.sessions.forEach(s => {
+      sessions.push({ name: t.name, minutes: s.minutes, type: 'study', bpId: null });
+    });
+  });
+  
+  if (sessions.length === 0) { showSnackbar('今天没有勾选的任务'); return; }
+  
+  // Check total time
+  const totalStudyMins = sessions.reduce((sum, s) => sum + s.minutes, 0);
+  const breakCount = sessions.length - 1;
+  const totalBreakMins = breakCount * settings.breakDuration;
+  const totalNeeded = totalStudyMins + totalBreakMins;
+  
+  if (totalNeeded > availableMins) {
+    showSnackbar(`时间不足！需要${totalNeeded}分钟，可用${availableMins}分钟`);
+    return;
+  }
+  
+  // SHUFFLE (THE GACHA!)
+  sessions = shuffleArray(sessions);
+  
+  // Build schedule
+  let schedule = [];
+  let cursor = workStartM;
+  let bigBreakIdx = 0;
+  
+  // Sort big breaks by start time
+  const sortedBreaks = [...settings.bigBreaks]
+    .filter(b => timeToMin(b.start) >= workStartM && timeToMin(b.end) <= workEndM)
+    .sort((a,b) => timeToMin(a.start) - timeToMin(b.start));
+  
+  let breakCursor = 0;
+  
+  sessions.forEach((s, idx) => {
+    // Insert big breaks if needed
+    while (breakCursor < sortedBreaks.length && cursor >= timeToMin(sortedBreaks[breakCursor].start)) {
+      const br = sortedBreaks[breakCursor];
+      schedule.push({ start: minToTime(timeToMin(br.start)), end: minToTime(timeToMin(br.end)), task: br.name, type: 'break', done: false });
+      cursor = timeToMin(br.end);
+      breakCursor++;
+    }
+    
+    const end = cursor + s.minutes;
+    schedule.push({ start: minToTime(cursor), end: minToTime(end), task: s.name, type: s.type, done: false, bpId: s.bpId });
+    cursor = end;
+    
+    // Insert small break (unless last)
+    if (idx < sessions.length - 1) {
+      let breakEnd = cursor + settings.breakDuration;
+      // Check if this break would overlap with a big break - skip if so
+      let overlapsBig = false;
+      for (let b of sortedBreaks) {
+        const bs = timeToMin(b.start);
+        const be = timeToMin(b.end);
+        if (cursor >= bs && cursor < be) { overlapsBig = true; break; }
+      }
+      if (!overlapsBig) {
+        schedule.push({ start: minToTime(cursor), end: minToTime(breakEnd), task: '小休息', type: 'break', done: false });
+        cursor = breakEnd;
+      }
+    }
+  });
+  
+  // Fill remaining big breaks at end
+  while (breakCursor < sortedBreaks.length) {
+    const br = sortedBreaks[breakCursor];
+    if (cursor < timeToMin(br.start)) cursor = timeToMin(br.start);
+    schedule.push({ start: minToTime(cursor), end: minToTime(timeToMin(br.end)), task: br.name, type: 'break', done: false });
+    cursor = timeToMin(br.end);
+    breakCursor++;
+  }
+  
+  state.schedule = schedule;
+  state.running = false;
+  state.currentTaskIdx = -1;
+  save();
+  renderSchedule();
+  showSnackbar(`✅ 时间表已生成！共${schedule.length}个时段`);
+}
+
+function rerollSchedule() {
+  if (state.schedule.length > 0) {
+    // Re-shuffle and regenerate
+    generateSchedule();
+  }
+}
+
+// ============================================================
+// SCHEDULE RENDER
+// ============================================================
+function renderSchedule() {
+  const el = scheduleOutput;
+  if (state.schedule.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <span class="material-icons-round" style="font-size:48px;color:var(--md-outline);">calendar_view_week</span>
+      <div style="font-size:16px;font-weight:600;">还没有时间表</div>
+      <div style="font-size:13px;">在左侧点击「生成时间表」</div>
+    </div>`;
+    return;
+  }
+  
+  el.innerHTML = state.schedule.map((row, idx) => {
+    const isActive = idx === state.currentTaskIdx && state.running;
+    const isDone = row.done;
+    const cls = isActive ? 'active' : isDone ? 'done' : row.type === 'break' ? 'break-row' : '';
+    return `<div class="schedule-row ${cls}" onclick="gotoTask(${idx})">
+      <button class="sch-done-btn ${isDone?'done':''}" onclick="event.stopPropagation();toggleTaskDone(${idx})">
+        ${isDone ? '<span class="material-icons-round" style="font-size:14px;">check</span>' : ''}
+      </button>
+      <span class="sch-time">${row.start} - ${row.end}</span>
+      <span class="sch-task">${esc(row.task)}</span>
+      <span class="sch-type-badge ${row.type}">${row.type === 'study' ? '学习' : '休息'}</span>
+    </div>`;
+  }).join('');
+  
+  updateTimerBar();
+}
+
+function toggleTaskDone(idx) {
+  if (idx >= 0 && idx < state.schedule.length) {
+    state.schedule[idx].done = !state.schedule[idx].done;
+    save();
+    renderSchedule();
+  }
+}
+
+function gotoTask(idx) {
+  if (idx >= 0 && idx < state.schedule.length) {
+    state.currentTaskIdx = idx;
+    state.running = true;
+    save();
+    renderSchedule();
+    updateTimerBar();
+  }
+}
+
+// ============================================================
+// TIMER BAR
+// ============================================================
+function updateTimerBar() {
+  const task = getCurrentTask();
+  const timerDisplay = document.getElementById('timerDisplay');
+  const taskName = document.getElementById('timerTaskName');
+  const progressFill = document.getElementById('timerProgressFill');
+  const actionBtn = document.getElementById('timerActionBtn');
+  const finishBtn = document.getElementById('finishEarlyBtn');
+  
+  if (!task || !state.running) {
+    if (state.schedule.length > 0 && !state.running) {
+      timerDisplay.textContent = '▶ 点击开始';
+      taskName.textContent = '点击下方任务开始执行';
+      progressFill.style.width = '0%';
+      actionBtn.style.display = 'none';
+      finishBtn.style.display = 'none';
+    } else if (state.schedule.length > 0) {
+      timerDisplay.textContent = '🎉 全部完成';
+      taskName.textContent = '今天辛苦了！';
+      progressFill.style.width = '100%';
+      progressFill.style.background = 'var(--g-green)';
+      actionBtn.style.display = 'none';
+      finishBtn.style.display = 'none';
+    }
+    return;
+  }
+  
+  const totalMins = timeToMin(task.end) - timeToMin(task.start);
+  const remainingSecs = getRemainingSeconds(task);
+  const totalSecs = totalMins * 60;
+  const elapsed = totalSecs - remainingSecs;
+  const pct = totalSecs > 0 ? (elapsed / totalSecs * 100) : 0;
+  
+  const mm = Math.floor(remainingSecs / 60);
+  const ss = remainingSecs % 60;
+  timerDisplay.textContent = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  taskName.textContent = `${esc(task.task)} (${task.start}~${task.end})`;
+  progressFill.style.width = `${Math.min(100, pct)}%`;
+  progressFill.style.background = task.type === 'study' ? 'var(--md-primary)' : 'var(--g-yellow)';
+  
+  actionBtn.style.display = 'inline-flex';
+  actionBtn.innerHTML = `<span class="material-icons-round" style="font-size:18px;">pause</span>`;
+  finishBtn.style.display = task.type === 'study' ? 'inline-flex' : 'none';
+}
+
+function getCurrentTask() {
+  if (state.currentTaskIdx < 0 || state.currentTaskIdx >= state.schedule.length) return null;
+  const task = state.schedule[state.currentTaskIdx];
+  if (task.done) return null;
+  return task;
+}
+
+function getRemainingSeconds(task) {
+  const now = new Date();
+  const total = timeToMin(task.end);
+  const current = now.getHours() * 60 + now.getMinutes();
+  const sec = now.getSeconds();
+  return Math.max(0, (total * 60) - (current * 60 + sec));
+}
+
+function toggleCurrentTask() {
+  if (state.running) {
+    state.running = false;
+    updateTimerBar();
+  }
+}
+
+function finishEarly() {
+  const task = getCurrentTask();
+  if (task) {
+    task.done = true;
+    state.running = false;
+    if (state.currentTaskIdx < state.schedule.length - 1) {
+      state.currentTaskIdx++;
+      state.running = true;
+    }
+    save();
+    renderSchedule();
+    updateTimerBar();
+    showSnackbar('✅ 提前完成！');
+  }
+}
+
+// ============================================================
+// TICK
+// ============================================================
+function tick() {
+  if (!state.running || state.currentTaskIdx < 0) return;
+  updateTimerBar();
+  
+  const task = getCurrentTask();
+  if (!task) {
+    state.running = false;
+    renderSchedule();
+    return;
+  }
+  
+  if (getRemainingSeconds(task) <= 0) {
+    // Task time's up
+    task.done = true;
+    if (state.currentTaskIdx < state.schedule.length - 1) {
+      state.currentTaskIdx++;
+      // Play bell for next task if it's study
+      const next = state.schedule[state.currentTaskIdx];
+      if (next && next.type === 'study' && settings.autoBell) {
+        playBell(settings.bellFreq.start);
+      }
+    } else {
+      state.running = false;
+      showFinishScene();
+    }
+    save();
+    renderSchedule();
+    updateTimerBar();
+  }
+}
+
+function loadTodaySchedule() {
+  renderSchedule();
+}
+
+// ============================================================
+// BELL / AUDIO
+// ============================================================
+async function playBell(freq) {
+  try {
+    stopBell();
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    bellCtx = ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(); osc.stop(ctx.currentTime + 0.8);
+    showBellToast();
+    setTimeout(hideBellToast, 2000);
+  } catch(e) {}
+}
+
+function stopBell() {
+  if (bellCtx) { try { bellCtx.close(); } catch(e) {} bellCtx = null; }
+  if (bellAudio) { try { bellAudio.pause(); bellAudio.src = ''; } catch(e) {} bellAudio = null; }
+  hideBellToast();
+}
+
+function testBellTone(freq) {
+  playBell(freq);
+  if (currentToneTarget) {
+    settings.bellFreq[currentToneTarget] = freq;
+    save();
+    updateBellLabels();
+    showSnackbar(`已设置铃声频率: ${freq}Hz`);
+  }
+}
+
+function testCustomFreq() {
+  const v = parseInt(document.getElementById('customFreq').value);
+  if (v && v > 0 && v <= 2000) testBellTone(v);
+}
+
+function selectBellTone(target) {
+  currentToneTarget = target;
+  openModal('bellModal');
+}
+
+function updateBellLabels() {
+  document.getElementById('bellStartLabel').textContent = settings.bellFreq.start + 'Hz';
+  document.getElementById('bellEndLabel').textContent = settings.bellFreq.end + 'Hz';
+  document.getElementById('bellBreakLabel').textContent = settings.bellFreq.break + 'Hz';
+}
+
+function handleBellUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const audio = new Audio(url);
+  audio.play().then(() => {
+    audio.pause();
+    audio.currentTime = 0;
+  }).catch(() => {});
+  showSnackbar('铃声已上传，保存后生效');
+}
+
+function saveBellSource() {
+  settings.bellSource = document.getElementById('sBellSource').value;
+  updateBellSourceUI();
+  save();
+}
+
+function updateBellSourceUI() {
+  document.getElementById('bellUploadRow').style.display = settings.bellSource === 'upload' ? 'block' : 'none';
+  document.getElementById('bellNeteaseRow').style.display = settings.bellSource === 'netease' ? 'block' : 'none';
+  document.getElementById('sNeteaseId').value = settings.bellNeteaseId || '';
+}
+
+function saveNeteaseId() {
+  settings.bellNeteaseId = document.getElementById('sNeteaseId').value;
+  save();
+}
+
+function showBellToast() {
+  document.getElementById('bell-toast').classList.add('show');
+}
+function hideBellToast() {
+  document.getElementById('bell-toast').classList.remove('show');
+}
+
+// ============================================================
+// HELEPRS
+// ============================================================
+function timeToMin(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+function minToTime(m) { const h = Math.floor(m/60); const min = m%60; return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`; }
+function shuffleArray(arr) { const a = [...arr]; for (let i=a.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function esc(s) { return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'})[ch]); }
+function uid() { return Date.now() + Math.random().toString(36).slice(2,7); }
+
+function showSnackbar(msg) {
+  document.getElementById('snackbar-msg').textContent = msg;
+  document.getElementById('snackbar').classList.add('show');
+  setTimeout(() => document.getElementById('snackbar').classList.remove('show'), 2500);
+}
+
+function snackbarAction() {}
+
+// ============================================================
+// BLUEPRINT CRUD
+// ============================================================
+function openBlueprintModal() {
+  editingBpId = null;
+  document.getElementById('bpModalTitle').textContent = '新建任务蓝图';
+  document.getElementById('bpName').value = '';
+  document.getElementById('bpType').value = 'mandatory';
+  document.getElementById('bpHours').value = '2';
+  document.getElementById('bpSplits').value = '2';
+  document.getElementById('bpDateStart').value = todayStr;
+  document.getElementById('bpDateEnd').value = '';
+  document.getElementById('bpCategory').value = '学习';
+  document.getElementById('bpGoal').value = '100';
+  renderColorDots('bpColors', '#1a73e8');
+  openModal('bpModal');
+}
+
+function editBlueprint(id) {
+  const bp = state.blueprints.find(b => b.id === id);
+  if (!bp) return;
+  editingBpId = id;
+  document.getElementById('bpModalTitle').textContent = '编辑任务蓝图';
+  document.getElementById('bpName').value = bp.name;
+  document.getElementById('bpType').value = bp.type;
+  document.getElementById('bpHours').value = bp.hoursPerDay;
+  document.getElementById('bpSplits').value = bp.splits;
+  document.getElementById('bpDateStart').value = bp.dateStart;
+  document.getElementById('bpDateEnd').value = bp.dateEnd;
+  document.getElementById('bpCategory').value = bp.category;
+  document.getElementById('bpGoal').value = bp.goalHours;
+  renderColorDots('bpColors', bp.color || '#1a73e8');
+  openModal('bpModal');
+}
+
+function saveBlueprint() {
+  const name = document.getElementById('bpName').value.trim();
+  if (!name) { showSnackbar('请输入名称'); return; }
+  const bp = {
+    id: editingBpId || uid(),
+    name,
+    type: document.getElementById('bpType').value,
+    hoursPerDay: parseFloat(document.getElementById('bpHours').value) || 2,
+    splits: parseInt(document.getElementById('bpSplits').value) || 2,
+    dateStart: document.getElementById('bpDateStart').value || '',
+    dateEnd: document.getElementById('bpDateEnd').value || '',
+    category: document.getElementById('bpCategory').value,
+    goalHours: parseFloat(document.getElementById('bpGoal').value) || 100,
+    completedHours: 0,
+    color: document.querySelector('#bpColors .sel')?.style?.background || '#1a73e8',
+  };
+  if (editingBpId) {
+    const idx = state.blueprints.findIndex(b => b.id === editingBpId);
+    if (idx >= 0) state.blueprints[idx] = { ...state.blueprints[idx], ...bp };
+  } else {
+    state.blueprints.push(bp);
+  }
+  closeModal('bpModal');
+  save();
+  renderBlueprints();
+  renderDailyToggles();
+  showSnackbar(editingBpId ? '蓝图已更新' : '蓝图已创建');
+}
+
+function deleteBlueprint(id) {
+  if (!confirm('确定删除此蓝图？')) return;
+  state.blueprints = state.blueprints.filter(b => b.id !== id);
+  save();
+  renderBlueprints();
+  renderDailyToggles();
+  showSnackbar('蓝图已删除');
+}
+
+function renderColorDots(containerId, selected) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = COLORS.map(c => `<div class="color-dot${c===selected?' sel':''}" style="background:${c};" onclick="pickColor(event,'${containerId}','${c}')"></div>`).join('');
+}
+
+function pickColor(e, containerId, color) {
+  document.querySelectorAll(`#${containerId} .color-dot`).forEach(d => d.classList.remove('sel'));
+  e.target.classList.add('sel');
+}
+
+// ============================================================
+// BREAKS CONFIG
+// ============================================================
+function openBreaksConfig() {
+  renderBreaksList();
+  openModal('breaksModal');
+}
+
+function renderBreaksList() {
+  const el = document.getElementById('breaksList');
+  el.innerHTML = settings.bigBreaks.map((b, i) => `<div class="break-item">
+    <input class="form-input" value="${esc(b.name)}" style="font-size:12px;padding:6px 8px;flex:1;" onchange="updateBreakName(${i},this.value)" placeholder="名称">
+    <input type="time" value="${b.start}" style="width:80px;padding:4px;border:1px solid var(--md-outline);border-radius:4px;font-size:12px;" onchange="updateBreakStart(${i},this.value)">
+    <span style="font-size:12px;">~</span>
+    <input type="time" value="${b.end}" style="width:80px;padding:4px;border:1px solid var(--md-outline);border-radius:4px;font-size:12px;" onchange="updateBreakEnd(${i},this.value)">
+    <button class="btn-icon" onclick="removeBreak(${i})"><span class="material-icons-round" style="font-size:16px;">close</span></button>
+  </div>`).join('');
+}
+
+function updateBreakName(i, v) { settings.bigBreaks[i].name = v; }
+function updateBreakStart(i, v) { settings.bigBreaks[i].start = v; }
+function updateBreakEnd(i, v) { settings.bigBreaks[i].end = v; }
+function addBreakItem() { settings.bigBreaks.push({ name: '新休息', start: '15:00', end: '15:30' }); renderBreaksList(); }
+function removeBreak(i) { settings.bigBreaks.splice(i, 1); renderBreaksList(); }
+function saveBreaksConfig() { closeModal('breaksModal'); save(); showSnackbar('休息配置已保存'); }
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function openSettings() { openModal('settingsModal'); }
+function saveTimeSettings() {
+  settings.workStart = document.getElementById('sWorkStart').value;
+  settings.workEnd = document.getElementById('sWorkEnd').value;
+  settings.breakDuration = parseInt(document.getElementById('sBreakDuration').value) || 10;
+  document.getElementById('workStart').value = settings.workStart;
+  document.getElementById('workEnd').value = settings.workEnd;
+  document.getElementById('breakDuration').value = settings.breakDuration;
+  save();
+}
+function saveApiKey() { settings.apiKey = document.getElementById('sApiKey').value.trim(); save(); }
+function saveProvider() { settings.provider = document.getElementById('sProvider').value; save(); }
+function saveModel() { settings.model = document.getElementById('sModel').value.trim(); save(); }
+function savePrefs() {
+  settings.weekdayHours = parseFloat(document.getElementById('sWeekdayHours').value) || 4;
+  settings.weekendHours = parseFloat(document.getElementById('sWeekendHours').value) || 8;
+  save();
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function renderStats() {
+  const el = document.getElementById('statsStrip');
+  const totalTasks = state.schedule.length;
+  const doneTasks = state.schedule.filter(s => s.done).length;
+  const studyCount = state.schedule.filter(s => s.type === 'study').length;
+  const studyDone = state.schedule.filter(s => s.type === 'study' && s.done).length;
+  el.innerHTML = `<div class="stat-chip"><span class="material-icons-round" style="font-size:14px;">schedule</span>总任务: ${totalTasks}</div>
+    <div class="stat-chip"><span class="material-icons-round" style="font-size:14px;">check_circle</span>已完成: ${doneTasks}/${totalTasks}</div>
+    <div class="stat-chip"><span class="material-icons-round" style="font-size:14px;">school</span>学习: ${studyDone}/${studyCount}</div>`;
+}
+
+// ============================================================
+// FULLSCREEN
+// ============================================================
+function openFullscreenView() {
+  const overlay = document.getElementById('fs-overlay');
+  overlay.classList.add('open');
+  updateFsDisplay();
+  requestAnimationFrame(() => {
+    const docEl = document.documentElement;
+    const req = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+    if (req) try { req.call(docEl); } catch(e) {}
+  });
+}
+
+function exitFullscreenView() {
+  document.getElementById('fs-overlay').classList.remove('open');
+  const doc = document;
+  const ex = doc.exitFullscreen || doc.webkitExitFullscreen;
+  if (ex) try { ex.call(doc); } catch(e) {}
+}
+
+function updateFsDisplay() {
+  const task = getCurrentTask();
+  const fsTime = document.getElementById('fsTime');
+  const fsSubject = document.getElementById('fsSubjectName');
+  const fsProgress = document.getElementById('fsProgress');
+  if (task && state.running) {
+    const rem = getRemainingSeconds(task);
+    const total = (timeToMin(task.end) - timeToMin(task.start)) * 60;
+    const mm = Math.floor(rem/60); const ss = rem%60;
+    fsTime.textContent = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+    fsSubject.textContent = task.task;
+    fsProgress.style.width = `${total > 0 ? ((total-rem)/total*100) : 0}%`;
+  } else {
+    fsTime.textContent = '--:--';
+    fsSubject.textContent = '等待中';
+    fsProgress.style.width = '0%';
+  }
+}
+
+// ============================================================
+// FINISH SCENE
+// ============================================================
+function showFinishScene() {
+  document.getElementById('finishScene').classList.add('open');
+  const allDone = state.schedule.every(s => s.done);
+  document.getElementById('finishMain').textContent = allDone ? '🎉 今天所有任务完成！' : '✅ 当前任务完成';
+  document.getElementById('finishMeta').textContent = allDone ? '休息一下吧，已经很棒了！' : '继续下一个任务';
+  if (settings.autoBell) playBell(settings.bellFreq.end);
+}
+
+function dismissFinishScene() {
+  document.getElementById('finishScene').classList.remove('open');
+  renderSchedule();
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalOnBackdrop(e, id) { if (e.target.id === id) { if (id === 'bellModal') closeModal(id); else closeModal(id); } }
+
+// ============================================================
+// DATA EXPORT/IMPORT
+// ============================================================
+function exportData() {
+  const data = { state, settings, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `timetable-hub-backup-${todayStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.state) state = data.state;
+      if (data.settings) settings = data.settings;
+      save();
+      renderBlueprints();
+      renderDailyToggles();
+      renderSchedule();
+      renderStats();
+      showSnackbar('数据已导入');
+    } catch(e) { showSnackbar('导入失败：数据格式错误'); }
+  };
+  reader.readAsText(file);
+}
+
+function clearAllData() {
+  if (!confirm('确定清除所有数据？此操作不可恢复！')) return;
+  state = { blueprints:[], dailyToggles:{}, schedule:[], running:false, currentTaskIdx:-1, tempTasks:[], history:{} };
+  settings = { workStart:'08:00', workEnd:'22:00', breakDuration:10, bigBreaks:[{name:'午餐',start:'12:00',end:'13:00'},{name:'晚餐',start:'18:00',end:'19:00'}], bellSource:'default', bellFreq:{start:523,end:784,break:659}, bellNeteaseId:'', bellUploadData:{start:'',end:'',break:''}, apiKey:'', provider:'deepseek', model:'deepseek-chat', weekdayHours:4, weekendHours:8, autoBell:true };
+  save();
+  renderBlueprints();
+  renderDailyToggles();
+  renderSchedule();
+  renderStats();
+  showSnackbar('数据已清除');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('beforeunload', save);
+</script>
+</body>
+</html>
