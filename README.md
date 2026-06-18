@@ -122,6 +122,7 @@ theme: {
 |------|------|------|------|
 | `/` | `src/app/page.tsx` | 重定向 | → `/dashboard` |
 | `/dashboard` | `src/app/(portal)/dashboard/page.tsx` | Server Component | 导航中心 + 学习统计 |
+| `/timetable-hub` | `src/app/(portal)/timetable-hub/page.tsx` | Legacy Frame | 日程中心 · Timetable Hub（合并学习计划/控制中心/目标管理，动态时间表平台） |
 | `/study` | `src/app/(portal)/study/page.tsx` | Legacy Frame | 学习计划（嵌入旧版 HTML） |
 | `/vocab` | `src/app/(portal)/vocab/page.tsx` | Legacy Frame | 词汇宝库（嵌入旧版 HTML） |
 | `/music` | `src/app/(portal)/music/page.tsx` | Legacy Frame | 音乐播放器（嵌入旧版 HTML） |
@@ -677,7 +678,8 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 | # | 标签 | 图标（Material Icons） | 路由 |
 |---|------|----------------------|------|
 | 1 | Dashboard | `dashboard` | `/dashboard` |
-| 2 | 学习计划 | `school` | `/study` |
+| 2 | 日程中心 | `calendar_month` | `/timetable-hub` |
+| 3 | 学习计划 | `school` | `/study` |
 | 3 | 词汇宝库 | `menu_book` | `/vocab` |
 | 4 | 音乐播放器 | `music_note` | `/music` |
 | 5 | 同步音乐 | `sync_alt` | `/music-sync` |
@@ -707,7 +709,15 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 - 产品卡片导航网格（响应式：`grid-cols-1 sm:2 lg:3 xl:4`）
 - 卡片悬停效果：上移 1px + 阴影 + 顶部品牌色条展开动画
 
-#### 12.2 学习计划 (`/study`)
+#### 12.2 日程中心 (`/timetable-hub`)
+- 嵌入旧版 `TimetableHub.html`（Legacy Frame）
+- Timetable Hub — 一站式动态时间表平台，融合学习计划/控制中心/目标管理
+- 任务蓝图系统：自定义名称、时长、分割次数、日期范围、必做/可选类型
+- Gacha 抽卡引擎：随机排序所有学习会话，自动插入小休息和大休息
+- 铃声系统：Web Audio API 默认音调、本地上传 MP3、网易云音乐 ID
+- 全屏沉浸式执行视图 + 实时倒计时 + 提前完成按钮
+
+#### 12.3 学习计划 (`/study`)
 - 嵌入旧版 `Studyplan.html`（Legacy Frame）
 - 课程大纲管理（`study_syllabus`）：按科目单元步进
 - 学习配置（`study_config`）：开学日期、考试日期、紧急科目/截止日期
