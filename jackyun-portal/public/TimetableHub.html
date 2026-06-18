@@ -473,21 +473,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     </div><div class="mf"><button class="btn btn-p" onclick="cM('settingsModal')">完成</button></div>
   </div></div>
 
-<!-- TIME ADJUST MODAL (replaces old late-start modal) -->
-<div class="mb" id="adjustModal" onclick="mbB(event,'adjustModal')">
-  <div class="ms w"><div class="mh"><div class="mt">⏰ 时间不够，调整任务时长</div><button class="icon-btn" onclick="cM('adjustModal')"><span class="material-icons-round">close</span></button></div>
-    <div class="mbdy">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">可用 <span id="adjAvail" style="color:var(--blue);font-weight:500">0</span> 分钟，已过 <span id="adjIdle" style="color:var(--yellow)">0</span> 分钟（从 <span id="adjWs" style="font-family:var(--mono)">10:00</span> 开始）</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">手动调整每个任务的时长，减少红字缺口</div>
-      <div id="adjRows"></div>
-      <div class="ls-remain" id="adjRemain">缺口：<span id="adjGap" style="color:var(--red);font-weight:500">0</span> 分钟</div>
-      <div class="ls-actions">
-        <button class="btn btn-o" onclick="cM('adjustModal');generate()">取消</button>
-        <button class="btn btn-p" onclick="confirmAdjust()">确认生成</button>
-      </div>
-    </div>
-  </div></div>
-
 <div id="snackbar"><span id="snackM">完成</span></div>
 <div id="bellToast"><span>🔔 铃声</span><button onclick="stopBell()">关闭</button></div>
 
@@ -502,66 +487,46 @@ let eBp=null,bCtx=null,tInt=null,today='',execInt=null,imActive=false;
 const DAYS=['日','一','二','三','四','五','六'];
 
 function gT(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-// ===== SUPABASE SYNC =====
+// ===== PERSISTENCE (localStorage sync + background cloud sync) =====
 let _svTimer=null;
 function sv(){
   const cfgClean=JSON.parse(JSON.stringify(cfg));
   Object.keys(cfgClean.bells||{}).forEach(k=>{if(cfgClean.bells[k]){cfgClean.bells[k].upd='';cfgClean.bells[k].name=cfg.bells[k]?.name||'';}});
   localStorage.setItem('ths',JSON.stringify(st));
   localStorage.setItem('thc',JSON.stringify(cfgClean));
-  // Debounced sync to server (2s after last change)
   if(_svTimer)clearTimeout(_svTimer);
-  _svTimer=setTimeout(syncToServer,2000);
-}
-async function syncToServer(){
-  try{
-    const stateClean=JSON.parse(JSON.stringify(st));
-    const cfgClean=JSON.parse(JSON.stringify(cfg));
-    Object.keys(cfgClean.bells||{}).forEach(k=>{if(cfgClean.bells[k]){cfgClean.bells[k].upd='';cfgClean.bells[k].name=cfg.bells[k]?.name||'';}});
-    await fetch('/api/timetable-sync',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({th_state:stateClean,th_config:cfgClean}),
-    });
-  }catch(e){/* silent fail — localStorage fallback always works */}
-}
-async function loadFromServer(){
-  try{
-    const res=await fetch('/api/timetable-sync');
-    if(!res.ok)return false;
-    const data=await res.json();
-    if(!data.ok)return false;
-    if(data.th_state){st={...st,...data.th_state};}
-    if(data.th_config){cfg={...cfg,...data.th_config};}
-    return true;
-  }catch(e){return false;}
-}
-async function ld(){
-  // Try server first, fall back to localStorage
-  const serverOk=await loadFromServer();
-  if(!serverOk){
-    // localStorage fallback (legacy data)
-    try{const o=JSON.parse(localStorage.getItem('th_state'));const n=JSON.parse(localStorage.getItem('ths'));
-      if(o&&!n){if(o.blueprints)st.bps=o.blueprints.map(b=>({id:b.id||uid(),n:b.name||b.n,t:b.type||b.t,h:b.hoursPerDay||b.h,sp:b.splits||b.sp,ds:b.dateStart||b.ds,de:b.dateEnd||b.de,c:b.category||b.c,gh:b.goalHours||b.gh,ch:b.completedHours||b.ch,col:b.color||b.col||'#4d9ef7'}));
-        if(o.dailyToggles)st.toggles=o.dailyToggles;if(o.tempTasks)st.tmps=o.tempTasks.map(t=>({n:t.name||t.n,d:t.minutes||t.d}));
-        if(o.schedule)st.sch=o.schedule;localStorage.setItem('ths',JSON.stringify(st));
-      }else if(n)st={...st,...n};
+  _svTimer=setTimeout(()=>{
+    try{
+      const stateClean=JSON.parse(JSON.stringify(st));
+      const cfgClean2=JSON.parse(JSON.stringify(cfg));
+      Object.keys(cfgClean2.bells||{}).forEach(k=>{if(cfgClean2.bells[k]){cfgClean2.bells[k].upd='';cfgClean2.bells[k].name=cfg.bells[k]?.name||'';}});
+      fetch('/api/timetable-sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({th_state:stateClean,th_config:cfgClean2})});
     }catch(e){}
-    try{const o=JSON.parse(localStorage.getItem('th_settings'));const n=JSON.parse(localStorage.getItem('thc'));
-      if(o&&!n){cfg={...cfg,ws:o.workStart||o.ws,we:o.workEnd||o.we,bd:o.breakDuration||o.bd,tts:o.tts!==false,voice:o.voice||''};
-        if(o.bigBreaks||o.bigs)cfg.bigs=(o.bigBreaks||o.bigs).map(b=>({n:b.name||b.n,s:b.start||b.s,e:b.end||b.e}));
-        const ob=o.bells||o.bellFreq||{};if(ob.start||ob.s){const s=ob.start||ob.s,e=ob.end||ob.e,br=ob.break||ob.b;cfg.bells={s:{src:'def',f:(s.freq||s.f||523),nid:'',upd:''},e:{src:'def',f:(e.freq||e.f||784),nid:'',upd:''},b:{src:'def',f:(br.freq||br.f||659),nid:'',upd:''}};}
-        if(o.apiKey||o.key){cfg.key=o.apiKey||o.key;cfg.prov=o.provider||o.prov||'deepseek';cfg.mod=o.model||o.mod||'deepseek-chat';}
-        localStorage.setItem('thc',JSON.stringify(cfg));
-      }else if(n){cfg={...cfg,...n};if(!n.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};}
-    }catch(e){}
-  }
-  // Auto-migrate: if localStorage has data but server is empty, push it up
-  if(serverOk===false){
-    const localSt=localStorage.getItem('ths');
-    const localCfg=localStorage.getItem('thc');
-    if(localSt||localCfg){syncToServer();}
-  }
+  },2000);
+}
+function ld(){
+  // Synchronous: always load from localStorage first (instant, no blocking)
+  try{const o=JSON.parse(localStorage.getItem('th_state'));const n=JSON.parse(localStorage.getItem('ths'));
+    if(o&&!n){if(o.blueprints)st.bps=o.blueprints.map(b=>({id:b.id||uid(),n:b.name||b.n,t:b.type||b.t,h:b.hoursPerDay||b.h,sp:b.splits||b.sp,ds:b.dateStart||b.ds,de:b.dateEnd||b.de,c:b.category||b.c,gh:b.goalHours||b.gh,ch:b.completedHours||b.ch,col:b.color||b.col||'#4d9ef7'}));
+      if(o.dailyToggles)st.toggles=o.dailyToggles;if(o.tempTasks)st.tmps=o.tempTasks.map(t=>({n:t.name||t.n,d:t.minutes||t.d}));
+      if(o.schedule)st.sch=o.schedule;localStorage.setItem('ths',JSON.stringify(st));
+    }else if(n)st={...st,...n};
+  }catch(e){}
+  try{const o=JSON.parse(localStorage.getItem('th_settings'));const n=JSON.parse(localStorage.getItem('thc'));
+    if(o&&!n){cfg={...cfg,ws:o.workStart||o.ws,we:o.workEnd||o.we,bd:o.breakDuration||o.bd,tts:o.tts!==false,voice:o.voice||''};
+      if(o.bigBreaks||o.bigs)cfg.bigs=(o.bigBreaks||o.bigs).map(b=>({n:b.name||b.n,s:b.start||b.s,e:b.end||b.e}));
+      const ob=o.bells||o.bellFreq||{};if(ob.start||ob.s){const s=ob.start||ob.s,e=ob.end||ob.e,br=ob.break||ob.b;cfg.bells={s:{src:'def',f:(s.freq||s.f||523),nid:'',upd:''},e:{src:'def',f:(e.freq||e.f||784),nid:'',upd:''},b:{src:'def',f:(br.freq||br.f||659),nid:'',upd:''}};}
+      if(o.apiKey||o.key){cfg.key=o.apiKey||o.key;cfg.prov=o.provider||o.prov||'deepseek';cfg.mod=o.model||o.mod||'deepseek-chat';}
+      localStorage.setItem('thc',JSON.stringify(cfg));
+    }else if(n){cfg={...cfg,...n};if(!n.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};}
+  }catch(e){}
+  // Background fetch from server — non-blocking merge into current state
+  fetch('/api/timetable-sync').then(r=>r.json()).then(data=>{
+    if(data.ok){
+      if(data.th_state){Object.assign(st,data.th_state);renderBP();renderTog();rendS();}
+      if(data.th_config){Object.assign(cfg,data.th_config);}
+    }
+  }).catch(()=>{});
 }
 // ===== INDEXEDDB AUDIO =====
 function oDb(){return new Promise((res,rej)=>{if(!indexedDB)return rej();const r=indexedDB.open('th_audio',1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('files'))d.createObjectStore('files');};r.onsuccess=()=>res(r.result);r.onerror=()=>rej();});}
@@ -680,9 +645,7 @@ function togT(id,v){if(!st.toggles[today])st.toggles[today]={};st.toggles[today]
 function addTmp(){const n=document.getElementById('tmpN').value.trim();const d=parseInt(document.getElementById('tmpD').value)||60;if(!n){msg('输入名称');return;}st.tmps.push({n,d});cM('tempModal');document.getElementById('tmpN').value='';sv();renderTog();}
 function rmTmp(i){st.tmps.splice(i,1);sv();renderTog();}
 
-// ===== TIME ADJUST MODAL (replaces old late-start) =====
-// Stored ses input for the adjust modal
-let adjSes=[],adjAvail=0,adjWs=0;
+// ===== GACHA GENERATOR =====
 // Helper: check if curMin is inside any big break, returns break end minute or 0
 function inBigBreakAt(curMin,breaks){
   for(let b of breaks||[]){
@@ -699,64 +662,9 @@ function calcStartAndIdle(ws){
   const idle=Math.max(0,curMin-ws);
   return {startMin,idle};
 }
-function openAdjustModal(ws,ses,fullAvail){
-  adjSes=JSON.parse(JSON.stringify(ses.map(s=>({n:s.n,d:s.d,od:s.d,id:s.id}))));
-  adjAvail=fullAvail;adjWs=ws;
-  const {startMin,idle}=calcStartAndIdle(ws);
-  document.getElementById('adjAvail').textContent=fullAvail;
-  document.getElementById('adjIdle').textContent=idle;
-  document.getElementById('adjWs').textContent=m2t(ws);
-  renderAdjRows();
-  oM('adjustModal');
-}
-function renderAdjRows(){
-  const cont=document.getElementById('adjRows');
-  cont.innerHTML=adjSes.map((s,i)=>`<div class="ls-row">
-    <span style="font-size:12px;font-weight:500;min-width:80px;">${esc(s.n)}</span>
-    <input class="ti-n" type="number" min="5" max="${s.od}" value="${s.d}" onchange="upAdjDur(${i},this.value)">
-    <span style="font-size:10px;color:var(--text3)">分（原 <span style="color:var(--text2)">${s.od}</span>）</span>
-  </div>`).join('');
-  calcAdjGap();
-}
-window.upAdjDur=function(i,v){adjSes[i].d=Math.max(5,Math.min(adjSes[i].od,parseInt(v)||adjSes[i].od));renderAdjRows();};
-function calcAdjGap(){
-  const totalS=adjSes.reduce((s,x)=>s+x.d,0);
-  const bc=adjSes.length-1,brm=bc*cfg.bd;
-  const gap=totalS+brm-adjAvail;
-  const el=document.getElementById('adjGap');
-  el.textContent=Math.max(0,gap);
-  el.style.color=gap>0?'var(--red)':'var(--green)';
-  document.getElementById('adjRemain').innerHTML=`${gap>0?'缺口':'多出'}：<span style="color:${gap>0?'var(--red)':'var(--green)'};font-weight:500">${Math.abs(gap)}</span> 分钟`;
-  return gap;
-}
-window.confirmAdjust=function(){
-  const gap=calcAdjGap();
-  if(gap>0){msg(`⛔ 还差 ${gap} 分钟，再减少一些任务时长`);return;}
-  const {startMin,idle}=calcStartAndIdle(adjWs);
-  cM('adjustModal');
-  const adjusted=adjSes.map(s=>({n:s.n,d:s.d,id:s.id}));
-  doGenerate(startMin,adjusted,idle);
-};
-
-// ===== GACHA GENERATOR =====
 function doGenerate(startMin,ses,idleMin){
   const we=t2m(cfg.we);
-  // Filter big breaks that are in the future relative to startMin
   const sB=[...cfg.bigs].filter(b=>t2m(b.e)>startMin&&t2m(b.s)<we);
-  // Calculate available time: we-startMin minus big break portions after startMin
-  let avail=we-startMin;
-  sB.forEach(b=>{
-    let bs=Math.max(startMin,t2m(b.s));
-    let be=Math.min(we,t2m(b.e));
-    if(be>bs)avail-=(be-bs);
-  });
-  if(avail<=0){msg('工作时间不足');return;}
-  const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
-  // If time is short, prompt user to adjust durations
-  if(totalS+brm>avail){
-    if(totalS+brm>avail+30){openAdjustModal(startMin,ses,avail);return;}
-    msg(`⚠️ 超出${totalS+brm-avail}分，尝试生成`);
-  }
   showGacha(ses.map(s=>s.n));
   setTimeout(()=>{
     let sch=[],cur=startMin;
@@ -856,11 +764,6 @@ function generate(){
   let ses=[];sel.forEach(b=>{const sm=Math.round(b.h*60/b.sp);for(let i=0;i<b.sp;i++)ses.push({n:b.n,d:sm,id:b.id});});
   tm.forEach(t=>t.ss.forEach(s=>ses.push({n:t.n,d:s.d,id:null})));
   if(!ses.length){msg('今天没有勾选的任务');return;}
-  const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
-  if(totalS+brm>avail){
-    openAdjustModal(ws,ses,avail);
-    return;
-  }
   ses=sh(ses);
   const {startMin,idle}=calcStartAndIdle(ws);
   doGenerate(startMin,ses,idle);
