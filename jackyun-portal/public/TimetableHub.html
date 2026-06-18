@@ -21,16 +21,13 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{font-family:var(--font);background:var(--bg);color:var(--text);
-  min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;}
-/* Scroll */
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:99px}
-/* ====== TOP BAR ====== */
+/* Top Bar */
 .topbar{position:fixed;top:0;left:0;right:0;z-index:100;height:56px;
-  background:rgba(10,10,10,.92);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
+  background:rgba(10,10,10,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 20px;gap:12px;}
 .topbar-l{display:flex;align-items:center;gap:10px;flex:1;}
 .topbar-l .material-icons-round{color:var(--blue);font-size:24px}
@@ -39,47 +36,42 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .topbar-r{display:flex;gap:2px;align-items:center}
 .icon-btn{width:36px;height:36px;border-radius:50%;border:none;background:transparent;
   display:flex;align-items:center;justify-content:center;color:var(--text2);
-  cursor:pointer;transition:background .15s,color .15s;}
+  cursor:pointer;transition:all .15s;font-family:inherit;font-size:12px}
 .icon-btn:hover{background:var(--surface2);color:var(--text)}
 .icon-btn .material-icons-round{font-size:20px}
 
-/* ====== SPLIT LAYOUT ====== */
-.hub{display:flex;padding-top:56px;height:100vh}
-
-/* ====== LEFT PANEL ====== */
-.left-panel{width:340px;min-width:0;background:var(--surface);
-  border-right:1px solid var(--border);display:flex;flex-direction:column;
-  overflow:hidden;transition:width .3s var(--ease);flex-shrink:0;}
-.left-panel.collapsed{width:0;min-width:0;border:none;overflow:hidden;padding:0}
-.left-collapse-btn{position:fixed;left:340px;top:68px;z-index:90;
-  width:24px;height:48px;border-radius:0 8px 8px 0;border:none;
-  background:var(--surface2);color:var(--text2);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:left .3s var(--ease),background .15s;}
-.left-collapse-btn:hover{background:var(--surface3);color:var(--text)}
-.left-collapse-btn.collapsed{left:0}
-.left-collapse-btn .material-icons-round{font-size:16px;transition:transform .3s var(--ease)}
-.left-collapse-btn.collapsed .material-icons-round{transform:rotate(180deg)}
-.left-scroll{flex:1;overflow-y:auto;padding:14px 12px 30px}
-
+/* ====== VIEW GENERATOR ====== */
+#viewGen{display:none;height:100vh;padding-top:56px;flex-direction:column}
+#viewGen.a{display:flex}
+.gen-hub{display:flex;flex:1;overflow:hidden}
+.gen-left{width:340px;min-width:0;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden}
+.gen-left.c{width:0;min-width:0;border:none;overflow:hidden}
+.gen-scroll{flex:1;overflow-y:auto;padding:14px 12px 30px}
+.gen-collapse{position:fixed;left:340px;top:68px;z-index:90;width:24px;height:48px;
+  border-radius:0 8px 8px 0;border:none;background:var(--surface2);color:var(--text2);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:left .3s var(--ease),background .15s}
+.gen-collapse:hover{background:var(--surface3);color:var(--text)}
+.gen-collapse.c{left:0}
+.gen-collapse .material-icons-round{font-size:16px;transition:transform .3s var(--ease)}
+.gen-collapse.c .material-icons-round{transform:rotate(180deg)}
+.gen-right{flex:1;display:flex;flex-direction:column;overflow:hidden}
 /* Section */
 .sec{display:flex;align-items:center;gap:8px;padding:14px 4px 10px}
 .sec:first-child{padding-top:6px}
-.sec-ico{width:28px;height:28px;border-radius:var(--radius-sm);
-  display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.sec-ico{width:28px;height:28px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
 .sec-ico.b{background:var(--blue-dim);color:var(--blue)}
 .sec-ico.y{background:var(--yellow-dim);color:var(--yellow)}
 .sec-ico.g{background:var(--green-dim);color:var(--green)}
 .sec-title{font-size:13px;font-weight:500;color:var(--text2);flex:1;letter-spacing:.2px}
 .sec-act{font-size:11px;color:var(--blue);cursor:pointer;transition:opacity .15s}
 .sec-act:hover{opacity:.7}
-
-/* Blueprint Card */
-.bp-card{border-radius:var(--radius);padding:12px 14px;margin-bottom:5px;
-  cursor:pointer;background:var(--surface2);position:relative;
-  border:1px solid var(--border);transition:all .2s var(--ease);overflow:hidden}
-.bp-card::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;
-  border-radius:0 3px 3px 0;transition:opacity .2s}
+/* BP Card */
+.bp-card{border-radius:var(--radius);padding:12px 14px;margin-bottom:5px;cursor:pointer;
+  background:var(--surface2);position:relative;border:1px solid var(--border);
+  transition:all .2s var(--ease);overflow:hidden}
+.bp-card::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;border-radius:0 3px 3px 0}
 .bp-card.mandatory::before{background:var(--blue);opacity:.7}
 .bp-card.optional::before{background:var(--yellow);opacity:.7}
 .bp-card:hover{border-color:var(--border2);background:#141414;transform:translateY(-1px)}
@@ -93,33 +85,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .bp-meta{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.3}
 .bp-del{position:absolute;top:6px;right:6px;opacity:0;transition:opacity .15s}
 .bp-card:hover .bp-del{opacity:1}
-
 /* Toggle */
-.trow{display:flex;align-items:center;gap:10px;padding:8px 12px;
-  border-radius:var(--radius-sm);background:var(--surface2);margin-bottom:3px;
-  border:1px solid var(--border);transition:opacity .2s,background .2s}
+.trow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius-sm);
+  background:var(--surface2);margin-bottom:3px;border:1px solid var(--border);transition:opacity .2s}
 .trow.off{opacity:.5}
 .trow-cb{width:16px;height:16px;border-radius:3px;cursor:pointer;accent-color:var(--blue);flex-shrink:0}
 .trow-cb:disabled{opacity:.4}
 .trow-n{font-size:12px;font-weight:500;flex:1}
 .trow-d{font-size:10px;color:var(--text3);font-family:var(--mono)}
-
-/* Gacha Card */
-.gc{border-radius:var(--radius);padding:14px;margin-bottom:10px;
-  background:var(--surface2);border:1px solid var(--border)}
+/* Gacha */
+.gc{border-radius:var(--radius);padding:14px;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border)}
 .gc-l{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px;letter-spacing:.2px}
 .gc-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .ti{width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);
-  font-family:var(--mono);font-size:11px;text-align:center;outline:none;
-  background:var(--surface);color:var(--text);transition:border-color .15s}
+  font-family:var(--mono);font-size:11px;text-align:center;outline:none;background:var(--surface);color:var(--text);transition:border-color .15s}
 .ti:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-dim)}
-.ti-n{width:50px;padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm);
-  font-size:12px;text-align:center;outline:none;background:var(--surface);color:var(--text)}
-
+.ti-n{width:50px;padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;text-align:center;outline:none;background:var(--surface);color:var(--text)}
 /* Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  padding:7px 16px;border-radius:99px;border:none;font-size:12px;font-weight:500;
-  cursor:pointer;transition:all .15s var(--ease);white-space:nowrap;font-family:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 16px;
+  border-radius:99px;border:none;font-size:12px;font-weight:500;cursor:pointer;
+  transition:all .15s var(--ease);white-space:nowrap;font-family:inherit}
 .btn:active{transform:scale(.96)}
 .btn-p{background:var(--blue);color:#000}
 .btn-p:hover{box-shadow:0 0 16px rgba(77,158,247,.3)}
@@ -132,98 +117,107 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .btn-xs{padding:3px 8px;font-size:10px}
 .btn-w{width:100%}
 .btn-ico{width:28px;height:28px;border-radius:50%;border:none;background:transparent;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  color:var(--text3);transition:background .15s,color .15s}
+  cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all .15s}
 .btn-ico:hover{background:var(--surface3);color:var(--text2)}
-
 /* Stats */
 .stats{display:flex;gap:5px;flex-wrap:wrap;padding:2px 0 6px}
-.st{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;
-  background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--text2)}
-
-/* ====== RIGHT PANEL ====== */
-.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
-
-/* Timer Bar */
-.tb{background:var(--surface);border-bottom:1px solid var(--border);
-  padding:14px 20px;display:flex;align-items:center;gap:16px}
-.tb-t{font-family:var(--mono);font-size:38px;font-weight:400;letter-spacing:-1px;
-  min-width:110px;color:var(--text)}
-.tb-i{flex:1;min-width:0}
-.tb-n{font-size:13px;font-weight:500;color:var(--text2)}
-.tb-p{height:4px;background:var(--surface3);border-radius:99px;margin-top:6px;overflow:hidden}
-.tb-f{height:100%;border-radius:99px;transition:width 1s linear,background .2s}
-
-/* Schedule */
-.so{flex:1;overflow-y:auto;padding:14px 16px}
-.sr{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:2px;
-  border-radius:var(--radius-sm);cursor:pointer;
-  transition:background .15s,opacity .15s;position:relative}
+.st{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--text2)}
+/* Gen Right Preview */
+.gen-preview{flex:1;overflow-y:auto;padding:14px 16px}
+.sr{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:2px;border-radius:var(--radius-sm);
+  cursor:pointer;transition:background .15s;position:relative}
 .sr:hover{background:var(--surface2)}
-.sr.a{background:var(--red-dim)}
-.sr.a::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;
-  border-radius:0 3px 3px 0;background:var(--red)}
-.sr.d{opacity:.45}
-.sr.d .sn{text-decoration:line-through;color:var(--text3)}
-.sr.b{background:var(--surface2)}
-.sr.b .sn{color:var(--text3)}
-.sc{width:18px;height:18px;border-radius:3px;border:1.5px solid var(--text3);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;transition:all .15s;font-size:10px;color:transparent}
-.sc.d{background:var(--green);border-color:var(--green);color:#000}
 .stime{font-family:var(--mono);font-size:10px;color:var(--text3);min-width:82px}
 .sn{font-size:12px;font-weight:500;flex:1}
 .sb{font-size:9px;padding:2px 6px;border-radius:99px;font-weight:600;letter-spacing:.2px}
 .sb.s{background:var(--blue-dim);color:var(--blue)}
 .sb.b{background:var(--surface3);color:var(--text3)}
-
-/* Empty */
-.emp{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  height:100%;gap:12px;color:var(--text3);padding:60px 40px;text-align:center}
+.emp{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text3);padding:60px 40px;text-align:center}
 .emp-ico{font-size:48px;opacity:.4}
 .emp-t{font-size:15px;font-weight:500;color:var(--text2)}
 .emp-d{font-size:12px;max-width:280px;line-height:1.5}
 
 /* ====== GACHA OVERLAY ====== */
-#gachaOverlay{position:fixed;inset:0;z-index:9999;display:none;
-  background:rgba(0,0,0,.92);backdrop-filter:blur(20px);
-  flex-direction:column;align-items:center;justify-content:center}
-#gachaOverlay.active{display:flex}
-.gacha-cards{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;
-  max-width:500px;perspective:800px;}
-.gacha-card-item{width:80px;height:100px;border-radius:12px;
-  background:var(--surface2);border:1px solid var(--border);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:6px;animation:cardFly .6s var(--ease2) both;font-size:10px;
-  color:var(--text2);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+#gachaOverlay{position:fixed;inset:0;z-index:9999;display:none;background:rgba(0,0,0,.92);
+  backdrop-filter:blur(20px);flex-direction:column;align-items:center;justify-content:center}
+#gachaOverlay.a{display:flex}
+.gacha-cards{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:500px;perspective:800px}
+.gacha-card-item{width:80px;height:100px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  animation:cardFly .6s var(--ease2) both;font-size:10px;color:var(--text2);box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .gacha-card-item .material-icons-round{font-size:28px}
 @keyframes cardFly{from{opacity:0;transform:translateY(60px) rotateX(40deg) scale(.7)}to{opacity:1;transform:translateY(0) rotateX(0) scale(1)}}
 .gacha-cio{font-size:11px;color:var(--text3);margin-top:20px;letter-spacing:2px;text-transform:uppercase;opacity:.5}
 .gacha-dismiss{position:absolute;bottom:32px;font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;opacity:.4;cursor:pointer}
 .gacha-dismiss:hover{opacity:.7}
 
-/* ====== FULLSCREEN ====== */
-#fsOverlay{position:fixed;inset:0;z-index:900;display:none;
-  flex-direction:column;align-items:center;justify-content:center;
-  background:radial-gradient(ellipse at 40% 30%,#0d1520,#050810);
-  overflow:hidden;padding:40px}
-#fsOverlay.open{display:flex;animation:fsFade .5s both}
-@keyframes fsFade{from{opacity:0}to{opacity:1}}
-.fs-sub{position:absolute;top:20px;left:20px;z-index:10;display:flex;align-items:center;gap:8px;
-  padding:6px 14px;border-radius:99px;background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:12px}
-.fs-exit{position:absolute;top:18px;right:18px;z-index:10;padding:6px 14px;
-  border-radius:99px;border:1px solid rgba(255,255,255,.1);
-  background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer}
-.fs-exit:hover{background:rgba(255,255,255,.1);color:#fff}
-.fs-bar{position:absolute;bottom:0;left:0;height:3px;transition:width 1s linear}
-.fs-time{font-family:var(--mono);font-size:clamp(70px,16vw,180px);font-weight:300;
-  letter-spacing:-4px;color:#f0f4ff;text-shadow:0 0 80px rgba(77,158,247,.15),0 8px 32px rgba(0,0,0,.5)}
+/* ====== VIEW EXECUTOR (ported from Control.html) ====== */
+#viewExec{display:none;height:100vh;padding-top:56px;flex-direction:column}
+#viewExec.a{display:flex}
+.exec-top{display:flex;align-items:center;gap:12px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.exec-title{font-size:13px;font-weight:500;flex:1;color:var(--text2)}
+.exec-date{font-size:11px;color:var(--text3);font-family:var(--mono)}
 
-/* ====== FINISH SCENE ====== */
+/* Timer Card */
+.timer-card{background:var(--surface);padding:24px 20px 16px;text-align:center;position:relative;
+  border-bottom:1px solid var(--border)}
+.timer-label{font-size:18px;font-weight:500;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:10px}
+.timer-digits{font-family:var(--mono);font-size:clamp(48px,12vw,96px);font-weight:400;letter-spacing:-3px;
+  line-height:1;color:var(--text);margin:4px 0}
+.timer-progress-bar{height:4px;background:var(--surface3);border-radius:99px;margin-top:12px;overflow:hidden}
+.timer-progress-fill{height:100%;border-radius:99px;transition:width 1s linear,background .2s}
+.early-btn{position:absolute;right:16px;top:16px;padding:5px 12px;border-radius:99px;border:1px solid var(--border);
+  background:rgba(52,199,106,.1);color:var(--green);font-size:11px;cursor:pointer;display:none;font-family:inherit}
+.early-btn.a{display:inline-flex;align-items:center;gap:4px}
+.early-btn:hover{background:rgba(52,199,106,.2)}
+
+/* Task List (from Control) */
+.exec-list{flex:1;overflow-y:auto;padding:8px 16px}
+.task-row{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:3px;
+  border-radius:var(--radius-sm);transition:background .15s,opacity .15s;position:relative}
+.task-row:hover{background:var(--surface2)}
+.task-row.a{background:var(--red-dim)}
+.task-row.a::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:3px;
+  border-radius:0 3px 3px 0;background:var(--red)}
+.task-row.d{opacity:.45}
+.task-row.d .task-name{text-decoration:line-through;color:var(--text3)}
+.task-row.b{background:var(--surface2)}
+.task-row.b .task-name{color:var(--text3)}
+.task-check{width:18px;height:18px;border-radius:3px;border:1.5px solid var(--text3);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:all .15s;font-size:10px;color:transparent}
+.task-check.d{background:var(--green);border-color:var(--green);color:#000}
+.task-time{font-family:var(--mono);font-size:10px;color:var(--text3);min-width:82px}
+.task-name{font-size:13px;font-weight:500;flex:1}
+.task-badge{font-size:9px;padding:2px 6px;border-radius:99px;font-weight:600;letter-spacing:.2px}
+.task-badge.s{background:var(--blue-dim);color:var(--blue)}
+.task-badge.b{background:var(--surface3);color:var(--text3)}
+
+/* ====== IMMERSIVE OVERLAY (from Control) ====== */
+#imOverlay{position:fixed;inset:0;z-index:900;display:none;flex-direction:column;
+  align-items:center;justify-content:center;padding:40px;overflow:hidden}
+#imOverlay.a{display:flex;animation:imFade .5s both}
+@keyframes imFade{from{opacity:0}to{opacity:1}}
+.im-mode-study{background:radial-gradient(ellipse at 40% 30%,#0d1520,#050810)}
+.im-mode-break{background:radial-gradient(ellipse at 40% 30%,#1a0a0a,#0d0505)}
+.im-mode-prep{background:radial-gradient(ellipse at 40% 30%,#1a1500,#0d0a00)}
+.im-mode-done{background:radial-gradient(ellipse at 40% 30%,#001a0d,#000a05)}
+.im-sub{position:absolute;top:20px;left:20px;z-index:10;display:flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.7);font-size:12px}
+.im-exit{position:absolute;top:18px;right:18px;z-index:10;padding:6px 14px;border-radius:99px;
+  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);
+  font-size:12px;cursor:pointer;font-family:inherit}
+.im-exit:hover{background:rgba(255,255,255,.1);color:#fff}
+.im-bar{position:absolute;bottom:0;left:0;height:3px;transition:width 1s linear}
+.im-time{font-family:var(--mono);font-size:clamp(70px,16vw,180px);font-weight:300;
+  letter-spacing:-4px;color:#f0f4ff;text-shadow:0 0 80px rgba(77,158,247,.15),0 8px 32px rgba(0,0,0,.5)}
+.im-quote{font-size:16px;color:rgba(255,255,255,.5);margin-top:24px;max-width:500px;text-align:center;line-height:1.5}
+
+/* Finish Scene */
 #finishScene{position:fixed;inset:0;z-index:1300;display:none;place-items:center;overflow:hidden;
   background:radial-gradient(ellipse at 50% 30%,#0f1920,#050810);cursor:pointer}
-#finishScene.open{display:grid;animation:fsFade .5s both}
+#finishScene.a{display:grid;animation:imFade .5s both}
 .fi-c{color:#f0f4fa;text-align:center;padding:40px}
 .fi-m{font-size:clamp(28px,6vw,56px);font-weight:400;line-height:1.2;
   background:linear-gradient(135deg,#fff 0%,rgba(77,158,247,.8) 60%,rgba(52,199,106,.7) 100%);
@@ -233,15 +227,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .fi-act .btn{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.15)}
 .fi-act .btn:hover{background:rgba(255,255,255,.18);color:#fff}
 
-/* ====== MODAL ====== */
+/* ====== MODALS ====== */
 .mb{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);backdrop-filter:blur(12px);
-  display:flex;align-items:center;justify-content:center;padding:20px;
-  opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+  display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
 .mb.o{opacity:1;visibility:visible}
 .mb.o .ms{transform:scale(1) translateY(0)}
-.ms{background:#141414;border:1px solid var(--border2);border-radius:18px;
-  max-width:520px;width:100%;max-height:90vh;overflow-y:auto;
-  transform:scale(.95) translateY(14px);transition:transform .25s var(--ease)}
+.ms{background:#141414;border:1px solid var(--border2);border-radius:18px;max-width:520px;width:100%;
+  max-height:90vh;overflow-y:auto;transform:scale(.95) translateY(14px);transition:transform .25s var(--ease)}
 .ms.w{max-width:620px}
 .mh{padding:20px 22px 0;display:flex;align-items:center;justify-content:space-between}
 .mt{font-size:16px;font-weight:500;letter-spacing:-.3px}
@@ -249,38 +241,32 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .mf{padding:6px 16px 14px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border)}
 .fg{display:flex;flex-direction:column;gap:3px}
 .fl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
-.fi{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
-  font-size:13px;font-family:inherit;outline:none;width:100%;
-  background:var(--surface2);color:var(--text);transition:border-color .15s}
+.fi{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;
+  outline:none;width:100%;background:var(--surface2);color:var(--text);transition:border-color .15s}
 .fi:focus{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue-dim)}
-.sel{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
-  font-size:13px;font-family:inherit;outline:none;cursor:pointer;width:100%;
-  background:var(--surface2);color:var(--text);appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23999' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+.sel{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;
+  font-family:inherit;outline:none;cursor:pointer;width:100%;background:var(--surface2);color:var(--text);
+  appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23999' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .cdots{display:flex;gap:6px;flex-wrap:wrap}
-.cdot{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;
-  transition:transform .2s var(--ease),border-color .15s}
+.cdot{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .2s var(--ease),border-color .15s}
 .cdot:hover{transform:scale(1.12)}
 .cdot.s{border-color:var(--text);transform:scale(1.15)}
-
 /* Settings */
 .sg{margin-bottom:14px}
-.sgt{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;
-  color:var(--text3);margin-bottom:6px}
+.sgt{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:6px}
 .sr2{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
 .sl{font-size:12px;color:var(--text)}
 .ss{font-size:10px;color:var(--text3)}
 .div{height:1px;background:var(--border);margin:6px 0}
-.tog{width:44px;height:26px;border-radius:99px;background:var(--surface3);
-  position:relative;cursor:pointer;transition:background .15s;flex-shrink:0;border:none;padding:0}
+.tog{width:44px;height:26px;border-radius:99px;background:var(--surface3);position:relative;cursor:pointer;
+  transition:background .15s;flex-shrink:0;border:none;padding:0}
 .tog.o{background:var(--blue)}
-.tog::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;
-  border-radius:50%;background:white;transition:transform .15s var(--ease)}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+  background:white;transition:transform .15s var(--ease)}
 .tog.o::after{transform:translateX(18px)}
-
-/* Bell rows */
+/* Bell */
 .brw{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px}
 .brh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .brt{font-size:12px;font-weight:500}
@@ -291,33 +277,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .brc.s{display:block}
 .bfg{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
 .bfg .btn{font-size:10px!important;padding:3px 8px!important}
-.bf{width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);
-  font-size:10px;font-family:var(--mono);background:var(--surface);color:var(--text);outline:none}
+.bf{width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:10px;font-family:var(--mono);background:var(--surface);color:var(--text);outline:none}
 .bfn{font-size:10px;color:var(--green);margin-left:4px}
-
-/* ====== TOASTS ====== */
-#snackbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);
-  z-index:400;background:#1c1c1c;color:var(--text);font-size:12px;
-  padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--border2);
-  box-shadow:0 10px 40px rgba(0,0,0,.5);transition:transform .28s var(--ease2);
-  white-space:nowrap;opacity:0;pointer-events:none}
-#snackbar.s{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:all}
-#bellToast{position:fixed;top:10px;right:10px;z-index:1800;
-  background:rgba(0,0,0,.9);color:#eee;border:1px solid var(--border2);
-  border-radius:var(--radius);padding:6px 12px;font-size:11px;
-  display:none;align-items:center;gap:8px;backdrop-filter:blur(10px)}
-#bellToast.s{display:inline-flex}
-#bellToast button{border:none;background:rgba(255,255,255,.1);color:#ccc;
-  border-radius:99px;font-size:10px;padding:3px 8px;cursor:pointer}
-
-/* Break editor */
-.bre{display:flex;align-items:center;gap:6px;padding:6px 10px;
-  background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:4px}
+/* Breaks */
+.bre{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:4px}
 .bre .fi{font-size:11px!important;padding:4px 6px!important}
 .bre input[type=time]{width:70px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);color:var(--text)}
-
-/* Responsive */
-@media(max-width:768px){.left-panel{width:100%;max-height:40vh;border-right:none;border-bottom:1px solid var(--border)}.hub{flex-direction:column}.left-collapse-btn{display:none}}
+/* Toasts */
+#snackbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);z-index:400;
+  background:#1c1c1c;color:var(--text);font-size:12px;padding:8px 16px;border-radius:var(--radius-sm);
+  border:1px solid var(--border2);box-shadow:0 10px 40px rgba(0,0,0,.5);transition:transform .28s var(--ease2);
+  white-space:nowrap;opacity:0;pointer-events:none}
+#snackbar.s{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:all}
+#bellToast{position:fixed;top:10px;right:10px;z-index:1800;background:rgba(0,0,0,.9);color:#eee;
+  border:1px solid var(--border2);border-radius:var(--radius);padding:6px 12px;font-size:11px;
+  display:none;align-items:center;gap:8px;backdrop-filter:blur(10px)}
+#bellToast.s{display:inline-flex}
+#bellToast button{border:none;background:rgba(255,255,255,.1);color:#ccc;border-radius:99px;font-size:10px;padding:3px 8px;cursor:pointer}
+@media(max-width:768px){.gen-left{width:100%;max-height:40vh;border-right:none;border-bottom:1px solid var(--border)}.gen-hub{flex-direction:column}.gen-collapse{display:none}}
 </style>
 </head>
 <body>
@@ -331,102 +308,96 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
   </div>
   <div class="topbar-r">
     <button class="icon-btn" onclick="openSettings()" title="设置"><span class="material-icons-round">settings</span></button>
-    <button class="icon-btn" onclick="openBP()" title="新建"><span class="material-icons-round">playlist_add</span></button>
-    <button class="icon-btn" onclick="openFS()" title="全屏"><span class="material-icons-round">open_in_full</span></button>
+    <button class="icon-btn" onclick="openBP()" title="新建蓝图"><span class="material-icons-round">playlist_add</span></button>
+    <button class="icon-btn" onclick="toggleImmersive()" title="沉浸模式" id="imBtn" style="display:none"><span class="material-icons-round">open_in_full</span></button>
   </div>
 </header>
 
-<div class="hub">
-  <!-- LEFT -->
-  <div class="left-panel" id="leftPanel">
-    <div class="left-scroll">
-      <div class="sec"><div class="sec-ico b"><span class="material-icons-round" style="font-size:16px;">view_list</span></div><span class="sec-title">任务蓝图</span><span class="sec-act" onclick="openBP()">+ 新建</span></div>
-      <div id="bpList"></div>
-
-      <div class="sec"><div class="sec-ico y"><span class="material-icons-round" style="font-size:16px;">checklist</span></div><span class="sec-title">今日勾选</span><span id="toggleDate" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
-      <div id="toggleList"></div>
-
-      <div class="sec"><div class="sec-ico g"><span class="material-icons-round" style="font-size:16px;">casino</span></div><span class="sec-title">抽卡引擎</span></div>
-      <div class="gc">
-        <div class="gc-r">
-          <div>
-            <div class="gc-l">工作时间</div>
-            <div style="display:flex;gap:4px;align-items:center;">
+<!-- ===== VIEW A: GENERATOR ===== -->
+<div id="viewGen">
+  <div class="gen-hub">
+    <div class="gen-left" id="genLeft">
+      <div class="gen-scroll">
+        <div class="sec"><div class="sec-ico b"><span class="material-icons-round" style="font-size:16px;">view_list</span></div><span class="sec-title">任务蓝图</span><span class="sec-act" onclick="openBP()">+ 新建</span></div>
+        <div id="bpList"></div>
+        <div class="sec"><div class="sec-ico y"><span class="material-icons-round" style="font-size:16px;">checklist</span></div><span class="sec-title">今日勾选</span><span id="toggleDate" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
+        <div id="toggleList"></div>
+        <div class="sec"><div class="sec-ico g"><span class="material-icons-round" style="font-size:16px;">casino</span></div><span class="sec-title">抽卡引擎</span></div>
+        <div class="gc">
+          <div class="gc-r">
+            <div><div class="gc-l">工作时间</div><div style="display:flex;gap:4px;align-items:center;">
               <input class="ti" id="ws" type="time" value="10:00">
               <span style="font-size:11px;color:var(--text3);">~</span>
-              <input class="ti" id="we" type="time" value="22:00">
-            </div>
+              <input class="ti" id="we" type="time" value="22:00"></div></div>
+            <div><div class="gc-l">小休息</div><div style="display:flex;gap:4px;align-items:center;">
+              <input class="ti-n" id="bd" type="number" value="15" min="5" max="30"> <span style="font-size:10px;color:var(--text3);">分</span></div></div>
+            <button class="btn btn-t btn-xs" onclick="openBreaks()" style="margin-top:10px;">配置大休息</button>
           </div>
-          <div>
-            <div class="gc-l">小休息</div>
-            <div style="display:flex;gap:4px;align-items:center;">
-              <input class="ti-n" id="bd" type="number" value="15" min="5" max="30"> <span style="font-size:10px;color:var(--text3);">分</span>
-            </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-p btn-w" onclick="generate()"><span class="material-icons-round" style="font-size:14px;">casino</span> 生成时间表</button>
+            <button class="btn btn-o btn-sm" onclick="reroll()" title="重新抽卡"><span class="material-icons-round" style="font-size:14px;">autorenew</span></button>
           </div>
-          <button class="btn btn-t btn-xs" onclick="openBreaks()" style="margin-top:10px;">配置大休息</button>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-p btn-w" onclick="generate()"><span class="material-icons-round" style="font-size:14px;">casino</span> 生成时间表</button>
-          <button class="btn btn-o btn-sm" onclick="reroll()" title="重新抽卡"><span class="material-icons-round" style="font-size:14px;">autorenew</span></button>
-        </div>
+        <div class="sec"><div class="sec-ico b"><span class="material-icons-round" style="font-size:16px;">bar_chart</span></div><span class="sec-title">统计</span></div>
+        <div class="stats" id="stats"></div>
       </div>
-
-      <div class="sec"><div class="sec-ico b"><span class="material-icons-round" style="font-size:16px;">bar_chart</span></div><span class="sec-title">统计</span></div>
-      <div class="stats" id="stats"></div>
     </div>
-  </div>
-  <button class="left-collapse-btn" id="collapseBtn" onclick="toggleCollapse()"><span class="material-icons-round">chevron_left</span></button>
-
-  <!-- RIGHT -->
-  <div class="right-panel">
-    <div class="tb">
-      <div class="tb-t" id="td">--:--</div>
-      <div class="tb-i">
-        <div class="tb-n" id="tn">等待生成时间表</div>
-        <div class="tb-p"><div class="tb-f" id="tf" style="width:0%;background:var(--blue);"></div></div>
-      </div>
-      <button class="btn btn-p btn-sm" id="taBtn" onclick="toggleTask()" style="display:none;"><span class="material-icons-round" style="font-size:14px;">play_arrow</span></button>
-      <button class="btn btn-o btn-sm" onclick="finishE()" style="display:none;" id="feBtn">⏱ 提前</button>
-    </div>
-    <div class="so" id="so">
-      <div class="emp">
-        <div class="emp-ico"><span class="material-icons-round" style="font-size:48px;">calendar_view_week</span></div>
+    <button class="gen-collapse" id="collapseBtn" onclick="toggleCollapse()"><span class="material-icons-round">chevron_left</span></button>
+    <div class="gen-right">
+      <div class="gen-preview" id="genPreview">
+        <div class="emp"><div class="emp-ico"><span class="material-icons-round" style="font-size:48px;">calendar_view_week</span></div>
         <div class="emp-t">还没有时间表</div>
-        <div class="emp-d">在左侧设定任务蓝图，调整时间范围，点击「抽卡」按钮自动生成每日排程</div>
+        <div class="emp-d">设定蓝图，调整时间，点击「抽卡」生成每日排程</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- GACHA ANIMATION OVERLAY -->
+<!-- ===== VIEW B: EXECUTOR (ported from Control.html) ===== -->
+<div id="viewExec">
+  <div class="exec-top">
+    <button class="btn btn-t btn-sm" onclick="switchToGen()"><span class="material-icons-round" style="font-size:14px;">arrow_back</span> 返回生成</button>
+    <span class="exec-title">今日执行</span>
+    <span class="exec-date" id="execDate"></span>
+    <button class="btn btn-o btn-xs" onclick="rerollFromExec()">重新生成</button>
+  </div>
+  <div class="timer-card">
+    <button class="early-btn" id="earlyBtn" onclick="finishE()"><span class="material-icons-round" style="font-size:14px;">done_all</span> 提前完成</button>
+    <div class="timer-label" id="timerLabel">准备</div>
+    <div class="timer-digits" id="timerDigits">--:--</div>
+    <div class="timer-progress-bar"><div class="timer-progress-fill" id="timerFill" style="width:0%;background:var(--blue)"></div></div>
+  </div>
+  <div class="exec-list" id="execList"></div>
+</div>
+
+<!-- GACHA OVERLAY -->
 <div id="gachaOverlay" onclick="closeGacha()">
   <div class="gacha-cards" id="gachaCards"></div>
   <div class="gacha-cio">✨ 抽卡完成 ✨</div>
-  <div class="gacha-dismiss">点击任意处继续</div>
+  <div class="gacha-dismiss">点击继续</div>
 </div>
 
-<!-- FULLSCREEN -->
-<div id="fsOverlay">
-  <div class="fs-sub"><span class="material-icons-round" style="font-size:14px;">timer</span> <span id="fsSubj">准备</span></div>
-  <button class="fs-exit" onclick="exitFS()">✕ 退出</button>
-  <div class="fs-bar" id="fsBar" style="width:0%;background:var(--blue);"></div>
-  <div class="fs-time" id="fsTime">--:--</div>
+<!-- IMMERSIVE OVERLAY (from Control) -->
+<div id="imOverlay">
+  <div class="im-sub"><span class="material-icons-round" style="font-size:14px;">timer</span> <span id="imSubj">准备</span></div>
+  <button class="im-exit" onclick="exitIm()">✕ 退出</button>
+  <div class="im-bar" id="imBar" style="width:0%"></div>
+  <div class="im-time" id="imTime">--:--</div>
+  <div class="im-quote" id="imQuote"></div>
 </div>
 
-<!-- FINISH -->
+<!-- FINISH SCENE -->
 <div id="finishScene" onclick="closeFinish()">
   <div class="fi-c" onclick="event.stopPropagation()">
     <div class="fi-m" id="finishM">✓ 完成</div>
     <div class="fi-s" id="finishS"></div>
     <div class="fi-act"><button class="btn" onclick="closeFinish()">继续</button></div>
-  </div>
-</div>
+  </div></div>
 
-<!-- BLUEPRINT MODAL -->
+<!-- MODALS -->
 <div class="mb" id="bpModal" onclick="mbB(event,'bpModal')">
   <div class="ms w"><div class="mh"><div class="mt" id="bpTitle">新建蓝图</div><button class="icon-btn" onclick="cM('bpModal')"><span class="material-icons-round">close</span></button></div>
-    <div class="mbdy">
-      <div class="fr"><div class="fg"><label class="fl">名称</label><input class="fi" id="bpN" placeholder="IELTS" maxlength="30"></div>
+    <div class="mbdy"><div class="fr"><div class="fg"><label class="fl">名称</label><input class="fi" id="bpN" placeholder="IELTS" maxlength="30"></div>
       <div class="fg"><label class="fl">类型</label><select class="sel" id="bpT"><option value="mandatory">必做</option><option value="optional">可选</option></select></div></div>
       <div class="fr"><div class="fg"><label class="fl">每日(h)</label><input class="fi" id="bpH" type="number" min="0.5" max="16" step="0.5" value="2"></div>
       <div class="fg"><label class="fl">分割</label><input class="fi" id="bpS" type="number" min="1" max="10" value="2"></div></div>
@@ -435,18 +406,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
       <div class="fr"><div class="fg"><label class="fl">分类</label><select class="sel" id="bpC"><option value="学习">📚 学习</option><option value="健康">💪 健康</option><option value="其他">✦ 其他</option></select></div>
       <div class="fg"><label class="fl">目标(h)</label><input class="fi" id="bpG" type="number" min="0" value="100"></div></div>
       <div class="fg"><label class="fl">颜色</label><div class="cdots" id="bpColors"></div></div>
-    </div>
-    <div class="mf"><button class="btn btn-t" onclick="cM('bpModal')">取消</button><button class="btn btn-p" onclick="saveBP()">保存</button></div>
+    </div><div class="mf"><button class="btn btn-t" onclick="cM('bpModal')">取消</button><button class="btn btn-p" onclick="saveBP()">保存</button></div>
   </div></div>
 
-<!-- BREAKS MODAL -->
 <div class="mb" id="breaksModal" onclick="mbB(event,'breaksModal')">
   <div class="ms"><div class="mh"><div class="mt">大休息</div><button class="icon-btn" onclick="cM('breaksModal')"><span class="material-icons-round">close</span></button></div>
     <div class="mbdy" id="breaksL"></div>
     <div class="mf"><button class="btn btn-t" onclick="addBrk()">+ 添加</button><button class="btn btn-p" onclick="saveBrk()">完成</button></div>
   </div></div>
 
-<!-- TEMP MODAL -->
 <div class="mb" id="tempModal" onclick="mbB(event,'tempModal')">
   <div class="ms" style="max-width:340px"><div class="mh"><div class="mt">临时任务</div><button class="icon-btn" onclick="cM('tempModal')"><span class="material-icons-round">close</span></button></div>
     <div class="mbdy"><div class="fg"><label class="fl">名称</label><input class="fi" id="tmpN" placeholder="整理房间" maxlength="30"></div>
@@ -454,26 +422,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
     <div class="mf"><button class="btn btn-t" onclick="cM('tempModal')">取消</button><button class="btn btn-p" onclick="addTmp()">添加</button></div>
   </div></div>
 
-<!-- SETTINGS MODAL -->
 <div class="mb" id="settingsModal" onclick="mbB(event,'settingsModal')">
   <div class="ms w"><div class="mh"><div class="mt">设置</div><button class="icon-btn" onclick="cM('settingsModal')"><span class="material-icons-round">close</span></button></div>
     <div class="mbdy" style="max-height:70vh;overflow-y:auto">
       <div class="sg"><div class="sgt">工作时间</div>
         <div class="sr2"><div><div class="sl">时段</div><div class="ss">时间表仅在此范围内</div></div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="time" id="sWs" class="ti" value="10:00" onchange="syncT()">
-            <span style="font-size:11px;color:var(--text3)">~</span>
-            <input type="time" id="sWe" class="ti" value="22:00" onchange="syncT()">
-          </div></div></div>
+          <div style="display:flex;gap:4px;align-items:center;"><input type="time" id="sWs" class="ti" value="10:00" onchange="syncT()">
+          <span style="font-size:11px;color:var(--text3)">~</span><input type="time" id="sWe" class="ti" value="22:00" onchange="syncT()"></div></div></div>
       <div class="div"></div>
       <div class="sg"><div class="sgt">休息</div>
-        <div class="sr2"><div><div class="sl">小休息时长</div></div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="number" id="sBd" min="3" max="30" value="15" style="width:50px;padding:4px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;background:var(--surface);color:var(--text)" onchange="syncT()"> <span style="font-size:11px;color:var(--text3)">分</span>
-          </div></div></div>
+        <div class="sr2"><div><div class="sl">小休息时长</div></div><div style="display:flex;gap:4px;align-items:center;">
+          <input type="number" id="sBd" min="3" max="30" value="15" style="width:50px;padding:4px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;background:var(--surface);color:var(--text)" onchange="syncT()"> <span style="font-size:11px;color:var(--text3)">分</span>
+        </div></div></div>
       <div class="div"></div>
-      <div class="sg"><div class="sgt">🔔 铃声设置</div>
-        <div id="bellRows"></div></div>
+      <div class="sg"><div class="sgt">🔔 铃声设置</div><div id="bellRows"></div></div>
+      <div class="div"></div>
+      <div class="sg"><div class="sgt">🎙️ TTS 语音</div>
+        <div class="sr2"><div><div class="sl">状态播报</div></div>
+          <button class="tog o" id="ttsTog" onclick="toggleTTS()"></button></div>
+        <div class="fg"><label class="fl">语音</label>
+          <select class="sel" id="ttsVoice" onchange="saveTTS()"><option value="">默认</option></select></div></div>
       <div class="div"></div>
       <div class="sg"><div class="sgt">AI</div>
         <div class="fg"><label class="fl">API Key</label><input class="fi" id="sKey" type="password" placeholder="sk-..." onchange="saveAI()"></div>
@@ -487,8 +455,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
           <input type="file" id="impF" accept=".json" style="display:none" onchange="impD(event)">
           <button class="btn btn-t btn-sm btn-d" onclick="clrAll()">🗑 清空</button>
         </div></div>
-    </div>
-    <div class="mf"><button class="btn btn-p" onclick="cM('settingsModal')">完成</button></div>
+    </div><div class="mf"><button class="btn btn-p" onclick="cM('settingsModal')">完成</button></div>
   </div></div>
 
 <div id="snackbar"><span id="snackM">完成</span></div>
@@ -500,139 +467,96 @@ const COLORS=['#4d9ef7','#34c76a','#ff5c5c','#f5a623','#b57bee','#2dd4bf','#f472
 let st={bps:[],toggles:{},sch:[],run:false,ci:-1,tmps:[],hist:{}};
 let cfg={ws:'10:00',we:'22:00',bd:15,bigs:[{n:'午餐',s:'12:00',e:'13:00'},{n:'晚餐',s:'18:00',e:'19:00'}],
   bells:{s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}},
-  key:'',prov:'deepseek',mod:'deepseek-chat',bell:true};
-let eBp=null,bCtx=null,tInt=null,today='';
+  key:'',prov:'deepseek',mod:'deepseek-chat',bell:true,tts:true,voice:''};
+let eBp=null,bCtx=null,tInt=null,today='',execInt=null,imActive=false;
 const DAYS=['日','一','二','三','四','五','六'];
+const IM_QUOTES=['Focus on the task at hand.','Step by step.','You can do this.','Stay present.','Progress over perfection.','Keep going.'];
 
 function gT(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-
 // ===== PERSISTENCE =====
 function sv(){localStorage.setItem('ths',JSON.stringify(st));localStorage.setItem('thc',JSON.stringify(cfg));}
 function ld(){
-  // Migrate from old keys (v2.5 / v2.5.1 used 'th_state' / 'th_settings')
-  try{
-    const oldSt=JSON.parse(localStorage.getItem('th_state'));
-    const newSt=JSON.parse(localStorage.getItem('ths'));
-    if(oldSt&&!newSt){
-      // Transform old blueprint format {name,type,hoursPerDay,splits,dateStart,dateEnd...} to new {n,t,h,sp,ds,de...}
-      if(oldSt.blueprints) st.bps=oldSt.blueprints.map(b=>({
-        id:b.id||uid(), n:b.name||b.n, t:b.type||b.t, h:b.hoursPerDay||b.h, sp:b.splits||b.sp,
-        ds:b.dateStart||b.ds, de:b.dateEnd||b.de, c:b.category||b.c, gh:b.goalHours||b.gh,
-        ch:b.completedHours||b.ch, col:b.color||b.col||'#4d9ef7'
-      }));
-      if(oldSt.dailyToggles) st.toggles=oldSt.dailyToggles;
-      if(oldSt.tempTasks) st.tmps=oldSt.tempTasks.map(t=>({n:t.name||t.n,d:t.minutes||t.d}));
-      if(oldSt.schedule) st.sch=oldSt.schedule;
-      localStorage.setItem('ths',JSON.stringify(st));
-    } else if(newSt){st={...st,...newSt};}
-  }catch(e){console.warn('state migration',e);}
-  try{
-    const oldCfg=JSON.parse(localStorage.getItem('th_settings'));
-    const newCfg=JSON.parse(localStorage.getItem('thc'));
-    if(oldCfg&&!newCfg){
-      cfg={...cfg,ws:oldCfg.workStart||oldCfg.ws,we:oldCfg.workEnd||oldCfg.we,bd:oldCfg.breakDuration||oldCfg.bd};
-      if(oldCfg.bigBreaks||oldCfg.bigs) cfg.bigs=(oldCfg.bigBreaks||oldCfg.bigs).map(b=>({n:b.name||b.n,s:b.start||b.s,e:b.end||b.e}));
-      // Migrate bells
-      const ob=oldCfg.bells||oldCfg.bellFreq||{};
-      if(ob.start||ob.s){
-        const s=ob.start||ob.s; const e=ob.end||ob.e; const br=ob.break||ob.b;
-        cfg.bells={s:{src:'def',f:(s.freq||s.f||523),nid:'',upd:''},e:{src:'def',f:(e.freq||e.f||784),nid:'',upd:''},b:{src:'def',f:(br.freq||br.f||659),nid:'',upd:''}};
-      }
-      if(oldCfg.apiKey||oldCfg.key){cfg.key=oldCfg.apiKey||oldCfg.key;cfg.prov=oldCfg.provider||oldCfg.prov||'deepseek';cfg.mod=oldCfg.model||oldCfg.mod||'deepseek-chat';}
+  try{const o=JSON.parse(localStorage.getItem('th_state'));const n=JSON.parse(localStorage.getItem('ths'));
+    if(o&&!n){if(o.blueprints)st.bps=o.blueprints.map(b=>({id:b.id||uid(),n:b.name||b.n,t:b.type||b.t,h:b.hoursPerDay||b.h,sp:b.splits||b.sp,ds:b.dateStart||b.ds,de:b.dateEnd||b.de,c:b.category||b.c,gh:b.goalHours||b.gh,ch:b.completedHours||b.ch,col:b.color||b.col||'#4d9ef7'}));
+      if(o.dailyToggles)st.toggles=o.dailyToggles;if(o.tempTasks)st.tmps=o.tempTasks.map(t=>({n:t.name||t.n,d:t.minutes||t.d}));
+      if(o.schedule)st.sch=o.schedule;localStorage.setItem('ths',JSON.stringify(st));
+    }else if(n)st={...st,...n};
+  }catch(e){}
+  try{const o=JSON.parse(localStorage.getItem('th_settings'));const n=JSON.parse(localStorage.getItem('thc'));
+    if(o&&!n){cfg={...cfg,ws:o.workStart||o.ws,we:o.workEnd||o.we,bd:o.breakDuration||o.bd,tts:o.tts!==false,voice:o.voice||''};
+      if(o.bigBreaks||o.bigs)cfg.bigs=(o.bigBreaks||o.bigs).map(b=>({n:b.name||b.n,s:b.start||b.s,e:b.end||b.e}));
+      const ob=o.bells||o.bellFreq||{};if(ob.start||ob.s){const s=ob.start||ob.s,e=ob.end||ob.e,br=ob.break||ob.b;cfg.bells={s:{src:'def',f:(s.freq||s.f||523),nid:'',upd:''},e:{src:'def',f:(e.freq||e.f||784),nid:'',upd:''},b:{src:'def',f:(br.freq||br.f||659),nid:'',upd:''}};}
+      if(o.apiKey||o.key){cfg.key=o.apiKey||o.key;cfg.prov=o.provider||o.prov||'deepseek';cfg.mod=o.model||o.mod||'deepseek-chat';}
       localStorage.setItem('thc',JSON.stringify(cfg));
-    } else if(newCfg){
-      cfg={...cfg,...newCfg};
-      if(!newCfg.bells) cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};
-    }
-  }catch(e){console.warn('cfg migration',e);}
+    }else if(n){cfg={...cfg,...n};if(!n.bells)cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};}
+  }catch(e){}
 }
-
-// ===== INDEXEDDB AUDIO STORE =====
+// ===== INDEXEDDB AUDIO =====
 function oDb(){return new Promise((res,rej)=>{if(!indexedDB)return rej();const r=indexedDB.open('th_audio',1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('files'))d.createObjectStore('files');};r.onsuccess=()=>res(r.result);r.onerror=()=>rej();});}
 async function svAudio(k,file){const db=await oDb();return new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');tx.oncomplete=()=>{db.close();res();};tx.onerror=()=>{db.close();rej();};tx.objectStore('files').put({blob:file,name:file.name,type:file.type},k);});}
 async function ldAudio(k){const db=await oDb();return new Promise((res)=>{const tx=db.transaction('files','readonly');const r=tx.objectStore('files').get(k);r.onsuccess=()=>{db.close();res(r.result||null);};r.onerror=()=>{db.close();res(null);};});}
-async function rmAudio(k){try{const db=await oDb();await new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');tx.oncomplete=()=>{db.close();res();};tx.onerror=()=>{db.close();rej();};tx.objectStore('files').delete(k);});}catch(e){}}
 
-// ===== AUDIO BELL FIX =====
+// ===== AUDIO =====
 async function playBell(type){
-  const b=cfg.bells[type]||{src:'def',f:523};
-  stopBell();
+  const b=cfg.bells[type]||{src:'def',f:523};stopBell();
   if(b.src==='def'){playTone(b.f);return;}
-  if(b.src==='upl'&&b.upd){
-    try{const a=new Audio(b.upd);a.volume=.3;await a.play();setTimeout(()=>{a.pause();a.currentTime=0;},1200);showToast('🔔');}catch(e){playTone(523);}
-    return;
-  }
-  if(b.src==='net'&&b.nid){showToast('🎵 网易云 '+b.nid);}
+  if(b.src==='upl'&&b.upd){try{const a=new Audio(b.upd);a.volume=.3;await a.play();setTimeout(()=>{a.pause();a.currentTime=0;},1200);}catch(e){playTone(523);}return;}
+  if(b.src==='net'&&b.nid){}
 }
 function playTone(f){
-  try{
-    stopBell();const C=window.AudioContext||window.webkitAudioContext;const ctx=new C();bCtx=ctx;
+  try{stopBell();const C=window.AudioContext||window.webkitAudioContext;const ctx=new C();bCtx=ctx;
     const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);
-    o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.7);
+    o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.7);
     o.start();o.stop(ctx.currentTime+.7);
-    showToast('🔔');
   }catch(e){}
 }
-function stopBell(){if(bCtx){try{bCtx.close()}catch(e){}bCtx=null;}
-  document.getElementById('bellToast').classList.remove('s');}
-function showToast(m){document.getElementById('bellToast').querySelector('span').textContent=m;document.getElementById('bellToast').classList.add('s');setTimeout(()=>document.getElementById('bellToast').classList.remove('s'),1500);}
+function stopBell(){if(bCtx){try{bCtx.close()}catch(e){}bCtx=null;}}
+
+// ===== TTS (from Control) =====
+function speak(text){
+  if(!cfg.tts)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);u.lang='en-US';
+  const v=window.speechSynthesis.getVoices().find(v=>v.voiceURI===cfg.voice);if(v)u.voice=v;
+  window.speechSynthesis.speak(u);
+}
+function populateVoiceSelect(){
+  const sel=document.getElementById('ttsVoice');if(!sel)return;
+  sel.innerHTML='<option value="">默认</option>';
+  const vs=window.speechSynthesis.getVoices().filter(v=>v.lang.includes('en'));
+  vs.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name;sel.appendChild(o);});
+  if(cfg.voice)sel.value=cfg.voice;
+}
+function saveTTS(){cfg.voice=document.getElementById('ttsVoice').value;sv();}
+function toggleTTS(){cfg.tts=!cfg.tts;document.getElementById('ttsTog').classList.toggle('o',cfg.tts);sv();}
 
 // ===== BELL ROWS =====
 function renderBells(){
-  const el=document.getElementById('bellRows');
-  const ks=['s','e','b'];const ls={'s':'上课铃','e':'下课铃','b':'休息结束铃'};
+  const el=document.getElementById('bellRows');const ks=['s','e','b'];const ls={'s':'上课铃','e':'下课铃','b':'休息结束铃'};
   el.innerHTML=ks.map(k=>{
     const b=cfg.bells[k]||{src:'def',f:523,nid:'',upd:''};
-    const vals={'def':b.f+'Hz','upl':b.upd?'✅ 已上传':'未上传','net':b.nid||'未设置'};
-    return `<div class="brw">
-      <div class="brh"><span class="brt">${ls[k]}</span><span class="brv">${vals[b.src]}</span></div>
-      <div class="brp">
-        <button class="btn ${b.src==='def'?'btn-p':'btn-o'} btn-xs" onclick="setBSrc('${k}','def')">默认</button>
-        <button class="btn ${b.src==='upl'?'btn-p':'btn-o'} btn-xs" onclick="setBSrc('${k}','upl')">上传</button>
-        <button class="btn ${b.src==='net'?'btn-p':'btn-o'} btn-xs" onclick="setBSrc('${k}','net')">网易云</button>
-      </div>
-      <div class="brc ${b.src==='def'?'s':''}" id="bc-${k}">
-        <div class="bfg">
-          <button class="btn btn-o btn-xs" onclick="setBF('${k}',523)">C5</button>
-          <button class="btn btn-o btn-xs" onclick="setBF('${k}',659)">E5</button>
-          <button class="btn btn-o btn-xs" onclick="setBF('${k}',784)">G5</button>
-          <button class="btn btn-o btn-xs" onclick="setBF('${k}',440)">A4</button>
-          <input class="bf" id="bf-${k}" value="${b.src==='def'?b.f:523}" onchange="setBFC('${k}',this.value)" placeholder="Hz">
-          <button class="btn btn-t btn-xs" onclick="testB('${k}')">试听</button>
-        </div>
-      </div>
-      <div class="brc ${b.src==='upl'?'s':''}" id="bu-${k}">
-        <input type="file" accept="audio/*" style="font-size:10px" onchange="updB('${k}',event)">
-        ${b.upd?'<span class="bfn">✅ 已上传</span>':''}
-      </div>
-      <div class="brc ${b.src==='net'?'s':''}" id="bn-${k}">
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input class="fi" placeholder="歌曲ID" value="${b.nid||''}" style="font-size:10px;padding:4px 6px;" onchange="setBN('${k}',this.value)">
-          <button class="btn btn-t btn-xs" onclick="testBN('${k}')">试听</button>
-        </div>
-      </div>
-    </div>`;
+    const vals={'def':b.f+'Hz','upl':b.upd?'✅':'未','net':b.nid||'未'};
+    return `<div class="brw"><div class="brh"><span class="brt">${ls[k]}</span><span class="brv">${vals[b.src]}</span></div>
+      <div class="brp"><button class="btn ${b.src==='def'?'btn-p':'btn-o'} btn-xs" onclick="setBS('${k}','def')">默认</button>
+        <button class="btn ${b.src==='upl'?'btn-p':'btn-o'} btn-xs" onclick="setBS('${k}','upl')">上传</button>
+        <button class="btn ${b.src==='net'?'btn-p':'btn-o'} btn-xs" onclick="setBS('${k}','net')">网易云</button></div>
+      <div class="brc ${b.src==='def'?'s':''}" id="bc-${k}"><div class="bfg">
+        <button class="btn btn-o btn-xs" onclick="setBF('${k}',523)">C5</button><button class="btn btn-o btn-xs" onclick="setBF('${k}',659)">E5</button>
+        <button class="btn btn-o btn-xs" onclick="setBF('${k}',784)">G5</button><button class="btn btn-o btn-xs" onclick="setBF('${k}',440)">A4</button>
+        <input class="bf" id="bf-${k}" value="${b.src==='def'?b.f:523}" onchange="setBFC('${k}',this.value)" placeholder="Hz">
+        <button class="btn btn-t btn-xs" onclick="playTone(${b.src==='def'?b.f:523})">试听</button></div></div>
+      <div class="brc ${b.src==='upl'?'s':''}"><input type="file" accept="audio/*" style="font-size:10px" onchange="updB('${k}',event)">${b.upd?'<span class="bfn">✅</span>':''}</div>
+      <div class="brc ${b.src==='net'?'s':''}"><div style="display:flex;gap:4px;align-items:center;">
+        <input class="fi" placeholder="ID" value="${b.nid||''}" style="font-size:10px;padding:4px 6px;" onchange="setBN('${k}',this.value)"></div></div></div>`;
   }).join('');
 }
-window.setBSrc=function(k,v){if(!cfg.bells[k])cfg.bells[k]={src:'def',f:523,nid:'',upd:''};cfg.bells[k].src=v;sv();renderBells();msg('已切换');};
-window.setBF=function(k,v){if(!cfg.bells[k])cfg.bells[k]={src:'def',f:523,nid:'',upd:''};cfg.bells[k].f=v;cfg.bells[k].src='def';sv();renderBells();playTone(v);msg(`${k==='s'?'上课':k==='e'?'下课':'休息'}铃 ${v}Hz`);};
+window.setBS=function(k,v){if(!cfg.bells[k])cfg.bells[k]={src:'def',f:523,nid:'',upd:''};cfg.bells[k].src=v;sv();renderBells();};
+window.setBF=function(k,v){if(!cfg.bells[k])cfg.bells[k]={src:'def',f:523,nid:'',upd:''};cfg.bells[k].f=v;cfg.bells[k].src='def';sv();renderBells();playTone(v);};
 window.setBFC=function(k,v){const n=parseInt(v);if(n&&n>0&&n<2001)setBF(k,n);};
-window.testB=function(k){const b=cfg.bells[k]||{f:523};playTone(b.f);};
-window.updB=async function(k,e){
-  const f=e.target.files[0];if(!f)return;
-  try{await svAudio('bell_'+k,f);const url=URL.createObjectURL(f);if(!cfg.bells[k])cfg.bells[k]={src:'upl',f:523,nid:'',upd:''};cfg.bells[k].upd=url;cfg.bells[k].src='upl';sv();renderBells();msg('✅ '+f.name);}catch(e){msg('上传失败');}
-};
+window.updB=async function(k,e){const f=e.target.files[0];if(!f)return;
+  try{await svAudio('bell_'+k,f);const url=URL.createObjectURL(f);if(!cfg.bells[k])cfg.bells[k]={src:'upl',f:523,nid:'',upd:''};cfg.bells[k].upd=url;cfg.bells[k].src='upl';sv();renderBells();msg('✅ '+f.name);}catch(e){msg('上传失败');}};
 window.setBN=function(k,v){if(!cfg.bells[k])cfg.bells[k]={src:'def',f:523,nid:'',upd:''};cfg.bells[k].nid=v.replace(/\D/g,'');cfg.bells[k].src='net';sv();renderBells();msg('已保存');};
-window.testBN=function(k){const b=cfg.bells[k];if(b?.nid)msg('🎵 ID: '+b.nid);else msg('先输入歌曲ID');};
-
-async function restoreAudio(){
-  for(const k of ['s','e','b']){
-    const d=await ldAudio('bell_'+k);
-    if(d&&d.blob){const url=URL.createObjectURL(d.blob);if(!cfg.bells[k])cfg.bells[k]={src:'upl',f:523,nid:'',upd:''};cfg.bells[k].upd=url;cfg.bells[k].name=d.name||'';}
-  }
-  renderBells();
-}
+async function restoreAudio(){for(const k of ['s','e','b']){const d=await ldAudio('bell_'+k);if(d&&d.blob){const url=URL.createObjectURL(d.blob);if(!cfg.bells[k])cfg.bells[k]={src:'upl',f:523,nid:'',upd:''};cfg.bells[k].upd=url;cfg.bells[k].name=d.name||'';}}renderBells();}
 
 // ===== HELPERS =====
 function t2m(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
@@ -644,58 +568,44 @@ function msg(m){const el=document.getElementById('snackbar');document.getElement
 function oM(id){document.getElementById(id).classList.add('o');}
 function cM(id){document.getElementById(id).classList.remove('o');}
 function mbB(e,id){if(e.target.id===id)cM(id);}
+function toggleCollapse(){document.getElementById('genLeft').classList.toggle('c');document.getElementById('collapseBtn').classList.toggle('c');}
 
-// ===== COLLAPSE =====
-function toggleCollapse(){
-  const p=document.getElementById('leftPanel'),b=document.getElementById('collapseBtn');
-  p.classList.toggle('collapsed');b.classList.toggle('collapsed');
+// ===== VIEW SWITCH =====
+function switchView(){
+  const gen=document.getElementById('viewGen'),exec=document.getElementById('viewExec');
+  const hasSchedule=st.sch&&st.sch.length>0&&st.sch[0].s; // check if generated today
+  if(hasSchedule){gen.classList.remove('a');exec.classList.add('a');initExec();}
+  else{exec.classList.remove('a');gen.classList.add('a');stopExec();}
 }
+function switchToGen(){document.getElementById('viewExec').classList.remove('a');document.getElementById('viewGen').classList.add('a');stopExec();}
+function rerollFromExec(){switchToGen();}
 
-// ===== RENDER BPS =====
+// ===== GENERATOR RENDERS =====
 function renderBP(){
   const el=document.getElementById('bpList');
-  if(!st.bps.length){el.innerHTML='<div style="text-align:center;padding:24px 12px;color:var(--text3);font-size:12px;">暂无蓝图<br><span style="font-size:11px;">点击「+ 新建」创建</span></div>';return;}
+  if(!st.bps.length){el.innerHTML='<div style="text-align:center;padding:24px 12px;color:var(--text3);font-size:12px;">暂无蓝图<br><span style="font-size:11px;">点击「+ 新建」</span></div>';return;}
   el.innerHTML=st.bps.map(b=>{
     const sm=Math.round(b.h*60/b.sp);
-    return`<div class="bp-card ${b.t}" onclick="edBP('${b.id}')">
-      <div class="bp-hdr"><div class="bp-l"><span class="bp-dot" style="background:${b.c||'#4d9ef7'}"></span><span class="bp-name">${esc(b.n)}</span></div><span class="bp-badge ${b.t==='mandatory'?'m':'o'}">${b.t==='mandatory'?'必做':'可选'}</span></div>
+    return`<div class="bp-card ${b.t}" onclick="edBP('${b.id}')"><div class="bp-hdr"><div class="bp-l"><span class="bp-dot" style="background:${b.col||'#4d9ef7'}"></span><span class="bp-name">${esc(b.n)}</span></div><span class="bp-badge ${b.t==='mandatory'?'m':'o'}">${b.t==='mandatory'?'必做':'可选'}</span></div>
       <div class="bp-meta">${b.h}h/天 · ${b.sp}次(${sm}min) · ${b.ds||'?'}~${b.de||'?'}</div>
-      <div class="bp-del"><button class="btn-ico" onclick="event.stopPropagation();delBP('${b.id}')"><span class="material-icons-round" style="font-size:14px;">close</span></button></div>
-    </div>`;
+      <div class="bp-del"><button class="btn-ico" onclick="event.stopPropagation();delBP('${b.id}')"><span class="material-icons-round" style="font-size:14px;">close</span></button></div></div>`;
   }).join('');
 }
-
 function isA(b){return b.ds&&b.de&&today>=b.ds&&today<=b.de;}
-
 function renderTog(){
-  const el=document.getElementById('toggleList');
-  const a=st.bps.filter(b=>isA(b));
+  const el=document.getElementById('toggleList');const a=st.bps.filter(b=>isA(b));
   if(!a.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text3);font-size:11px;">今天没有激活的任务</div>';return;}
   if(!st.toggles[today])st.toggles[today]={};
   a.forEach(b=>{if(b.t==='mandatory')st.toggles[today][b.id]=true;});
-  el.innerHTML=a.map(b=>{
-    const on=st.toggles[today][b.id]!==false;
-    const sm=Math.round(b.h*60/b.sp);
-    return`<div class="trow ${on?'':'off'}">
-      <input class="trow-cb" type="checkbox" ${on?'checked':''} ${b.t==='mandatory'?'disabled':''} onchange="togT('${b.id}',this.checked)">
-      <span class="trow-n">${esc(b.n)}</span>
-      <span class="trow-d">${b.h}h(${b.sp}×${sm}min)</span>
-    </div>`;
-  }).join('');
-  if(st.tmps.length){
-    el.innerHTML+=`<div style="font-size:10px;color:var(--text3);padding:6px 0 2px;">临时</div>`;
-    el.innerHTML+=st.tmps.map((t,i)=>`<div class="trow"><span class="material-icons-round" style="font-size:14px;color:var(--yellow)">add_circle</span><span class="trow-n">${esc(t.n)}</span><span class="trow-d">${t.d}min</span><button class="btn-ico" onclick="rmTmp(${i})"><span class="material-icons-round" style="font-size:12px;">close</span></button></div>`).join('');
-  }
+  el.innerHTML=a.map(b=>{const on=st.toggles[today][b.id]!==false;const sm=Math.round(b.h*60/b.sp);
+    return`<div class="trow ${on?'':'off'}"><input class="trow-cb" type="checkbox" ${on?'checked':''} ${b.t==='mandatory'?'disabled':''} onchange="togT('${b.id}',this.checked)">
+      <span class="trow-n">${esc(b.n)}</span><span class="trow-d">${b.h}h(${b.sp}×${sm}min)</span></div>`;}).join('');
+  if(st.tmps.length){el.innerHTML+=`<div style="font-size:10px;color:var(--text3);padding:6px 0 2px;">临时</div>`+
+    st.tmps.map((t,i)=>`<div class="trow"><span class="material-icons-round" style="font-size:14px;color:var(--yellow)">add_circle</span><span class="trow-n">${esc(t.n)}</span><span class="trow-d">${t.d}min</span><button class="btn-ico" onclick="rmTmp(${i})"><span class="material-icons-round" style="font-size:12px;">close</span></button></div>`).join('');}
   el.innerHTML+=`<button class="btn btn-t btn-sm btn-w" style="margin-top:4px;" onclick="oM('tempModal')">+ 临时任务</button>`;
 }
-
 function togT(id,v){if(!st.toggles[today])st.toggles[today]={};st.toggles[today][id]=v;sv();}
-
-function addTmp(){
-  const n=document.getElementById('tmpN').value.trim();const d=parseInt(document.getElementById('tmpD').value)||60;
-  if(!n){msg('输入名称');return;}
-  st.tmps.push({n,d});cM('tempModal');document.getElementById('tmpN').value='';sv();renderTog();
-}
+function addTmp(){const n=document.getElementById('tmpN').value.trim();const d=parseInt(document.getElementById('tmpD').value)||60;if(!n){msg('输入名称');return;}st.tmps.push({n,d});cM('tempModal');document.getElementById('tmpN').value='';sv();renderTog();}
 function rmTmp(i){st.tmps.splice(i,1);sv();renderTog();}
 
 // ===== GACHA GENERATOR =====
@@ -709,175 +619,183 @@ function generate(){
   if(!st.toggles[today])st.toggles[today]={};
   const sel=st.bps.filter(b=>isA(b)&&st.toggles[today][b.id]!==false);
   const tm=st.tmps.map((t,i)=>({ss:[{d:t.d}],n:t.n}));
-  let ses=[];
-  sel.forEach(b=>{const sm=Math.round(b.h*60/b.sp);for(let i=0;i<b.sp;i++)ses.push({n:b.n,d:sm,id:b.id});});
+  let ses=[];sel.forEach(b=>{const sm=Math.round(b.h*60/b.sp);for(let i=0;i<b.sp;i++)ses.push({n:b.n,d:sm,id:b.id});});
   tm.forEach(t=>t.ss.forEach(s=>ses.push({n:t.n,d:s.d,id:null})));
   if(!ses.length){msg('今天没有勾选的任务');return;}
-  const totalS=ses.reduce((s,x)=>s+x.d,0);
-  const bc=ses.length-1,brm=bc*cfg.bd;
+  const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
   if(totalS+brm>avail){msg(`时间不足！需要${totalS+brm}分，可用${avail}分`);return;}
-  // SHOW GACHA ANIMATION
   ses=sh(ses);
   showGacha(ses.map(s=>s.n));
-  // Build schedule
   setTimeout(()=>{
-    let sch=[],cur=ws,bi=0;
-    const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
+    let sch=[],cur=ws,bi=0;const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
     ses.forEach((s,i)=>{
-      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){const br=sorted[bi];sch.push({s:m2t(t2m(br.s)),e:m2t(t2m(br.e)),t:br.n,ty:'break',d:false});cur=t2m(br.e);bi++;}
-      const end=cur+s.d;
-      sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'study',d:false,id:s.id});cur=end;
-      if(i<ses.length-1){
-        let be=cur+cfg.bd;let ov=false;
-        for(let b of sorted){const bs=t2m(b.s),be2=t2m(b.e);if(cur>=bs&&cur<be2){ov=true;break;}}
-        if(!ov){sch.push({s:m2t(cur),e:m2t(be),t:'休息',ty:'break',d:false});cur=be;}
-      }
+      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){const br=sorted[bi];sch.push({s:m2t(t2m(br.s)),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
+      const end=cur+s.d;sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'s',d:false,id:s.id});cur=end;
+      if(i<ses.length-1){let be=cur+cfg.bd;let ov=false;for(let b of sorted){if(cur>=t2m(b.s)&&cur<t2m(b.e)){ov=true;break;}}if(!ov){sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});cur=be;}}
     });
-    while(bi<sorted.length){const br=sorted[bi];if(cur<t2m(br.s))cur=t2m(br.s);sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'break',d:false});cur=t2m(br.e);bi++;}
-    st.sch=sch;st.run=false;st.ci=-1;sv();rendSch();msg(`✅ ${sch.length}个时段`);
+    while(bi<sorted.length){const br=sorted[bi];if(cur<t2m(br.s))cur=t2m(br.s);
+      sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
+    st.sch=sch;st.run=false;st.ci=-1;sv();renderGenPreview();msg(`✅ ${sch.length}个时段`);closeGacha();
+    // Auto-switch to executor
+    document.getElementById('viewGen').classList.remove('a');
+    document.getElementById('viewExec').classList.add('a');
+    initExec();
   },1200);
 }
 function reroll(){if(st.sch.length)generate();}
-
-// ===== GACHA ANIMATION =====
-function showGacha(names){
-  const el=document.getElementById('gachaCards');
+function showGacha(names){const el=document.getElementById('gachaCards');
   const icons=['school','music_note','fitness_center','menu_book','language','code','brush','science'];
-  el.innerHTML=names.slice(0,9).map((n,i)=>`<div class="gacha-card-item" style="animation-delay:${i*60}ms">
-    <span class="material-icons-round">${icons[i%icons.length]}</span>
-    <span>${esc(n).slice(0,8)}</span>
-  </div>`).join('');
-  document.getElementById('gachaOverlay').classList.add('active');
-}
-function closeGacha(){document.getElementById('gachaOverlay').classList.remove('active');}
+  el.innerHTML=names.slice(0,9).map((n,i)=>`<div class="gacha-card-item" style="animation-delay:${i*60}ms"><span class="material-icons-round">${icons[i%icons.length]}</span><span>${esc(n).slice(0,8)}</span></div>`).join('');
+  document.getElementById('gachaOverlay').classList.add('a');}
+function closeGacha(){document.getElementById('gachaOverlay').classList.remove('a');}
 
-// ===== SCHEDULE =====
-function rendSch(){
-  const el=document.getElementById('so');
-  if(!st.sch.length){el.innerHTML=`<div class="emp"><div class="emp-ico"><span class="material-icons-round" style="font-size:48px;">calendar_view_week</span></div><div class="emp-t">还没有时间表</div><div class="emp-d">调整左侧任务，点击「生成时间表」</div></div>`;return;}
+function renderGenPreview(){
+  const el=document.getElementById('genPreview');
+  if(!st.sch.length){el.innerHTML=`<div class="emp"><div class="emp-ico"><span class="material-icons-round" style="font-size:48px;">calendar_view_week</span></div><div class="emp-t">还没有时间表</div></div>`;return;}
+  el.innerHTML=st.sch.map(r=>`<div class="sr"><span class="stime">${r.s}~${r.e}</span><span class="sn">${esc(r.t)}</span><span class="sb ${r.ty}">${r.ty==='s'?'学习':'休息'}</span></div>`).join('');
+}
+function rendS(){const el=document.getElementById('stats');const t=st.sch.length;el.innerHTML=`<div class="st"><span class="material-icons-round" style="font-size:14px;">schedule</span> ${t}项</div>`;}
+
+// ===== EXECUTOR (ported from Control) =====
+function initExec(){
+  stopExec();
+  document.getElementById('execDate').textContent=today;
+  renderExecList();upExecTimer();
+  execInt=setInterval(execTick,1000);
+  populateVoiceSelect();document.getElementById('ttsTog').classList.toggle('o',cfg.tts!==false);
+}
+function stopExec(){if(execInt){clearInterval(execInt);execInt=null;}}
+function renderExecList(){
+  const el=document.getElementById('execList');
+  if(!st.sch.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text3)">暂无时间表</div>';return;}
   el.innerHTML=st.sch.map((r,i)=>{
     const a=i===st.ci&&st.run,d=r.d;
-    const cls=a?'a':d?'d':r.ty==='break'?'b':'';
-    return`<div class="sr ${cls}" onclick="goTo(${i})">
-      <div class="sc ${d?'d':''}" onclick="event.stopPropagation();togDone(${i})">${d?'✓':''}</div>
-      <span class="stime">${r.s}~${r.e}</span>
-      <span class="sn">${esc(r.t)}</span>
-      <span class="sb ${r.ty}">${r.ty==='study'?'学习':'休息'}</span>
+    return`<div class="task-row ${a?'a':d?'d':r.ty==='b'?'b':''}" onclick="execGo(${i})">
+      <div class="task-check ${d?'d':''}" onclick="event.stopPropagation();execDone(${i})">${d?'✓':''}</div>
+      <span class="task-time">${r.s}~${r.e}</span>
+      <span class="task-name">${esc(r.t)}</span>
+      <span class="task-badge ${r.ty}">${r.ty==='s'?'学习':'休息'}</span>
     </div>`;
   }).join('');
-  upT();
+  upExecTimer();
 }
-function togDone(i){st.sch[i].d=!st.sch[i].d;sv();rendSch();}
-function goTo(i){st.ci=i;st.run=true;sv();rendSch();upT();}
+function execDone(i){st.sch[i].d=!st.sch[i].d;sv();renderExecList();}
+function execGo(i){st.ci=i;st.run=true;sv();renderExecList();upExecTimer();}
 
-function gCT(){
+function getCur(){
   if(st.ci<0||st.ci>=st.sch.length)return null;
   const t=st.sch[st.ci];return t.d?null:t;
 }
-function gR(t){const now=new Date();const end=t2m(t.e)*60;return Math.max(0,end-(now.getHours()*60+now.getMinutes())*60-now.getSeconds());}
+function getRem(t){const now=new Date();return Math.max(0,(t2m(t.e)*60)-(now.getHours()*60+now.getMinutes())*60-now.getSeconds());}
 
-function upT(){
-  const t=gCT();const td=document.getElementById('td'),tn=document.getElementById('tn');
-  const tf=document.getElementById('tf'),ab=document.getElementById('taBtn'),fb=document.getElementById('feBtn');
+function upExecTimer(){
+  const t=getCur();const td=document.getElementById('timerDigits'),tl=document.getElementById('timerLabel');
+  const tf=document.getElementById('timerFill'),eb=document.getElementById('earlyBtn');
   if(!t||!st.run){
-    if(st.sch.length&&!st.run){td.textContent='⏸ 暂停';tn.textContent='点击任务开始';tf.style.width='0%';ab.style.display='none';fb.style.display='none';}
-    else if(st.sch.length){td.textContent='🎉';tn.textContent='今天任务全部完成';tf.style.width='100%';tf.style.background='var(--green)';ab.style.display='none';fb.style.display='none';}
-    return;
+    if(st.sch.length&&!st.run){td.textContent='⏸';tl.textContent='点击任务开始';tf.style.width='0%';eb.classList.remove('a');}
+    else if(st.sch.length){td.textContent='🎉';tl.textContent='全部完成';tf.style.width='100%';tf.style.background='var(--green)';eb.classList.remove('a');}
+    else{td.textContent='--:--';tl.textContent='等待生成';tf.style.width='0%';eb.classList.remove('a');}
+    document.getElementById('imBtn').style.display='none';return;
   }
-  const total=(t2m(t.e)-t2m(t.s))*60;const rem=gR(t);const p=total>0?(total-rem)/total*100:0;
+  const total=(t2m(t.e)-t2m(t.s))*60;const rem=getRem(t);const p=total>0?(total-rem)/total*100:0;
   td.textContent=`${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
-  tn.textContent=`${esc(t.t)} (${t.s}~${t.e})`;
-  tf.style.width=`${Math.min(100,p)}%`;tf.style.background=t.ty==='study'?'var(--blue)':'var(--yellow)';
-  ab.style.display='inline-flex';ab.innerHTML=`<span class="material-icons-round" style="font-size:14px;">pause</span>`;
-  fb.style.display=t.ty==='study'?'inline-flex':'none';
+  tl.textContent=`${esc(t.t)} (${t.s}~${t.e})`;
+  tf.style.width=`${Math.min(100,p)}%`;tf.style.background=t.ty==='s'?'var(--blue)':'var(--yellow)';
+  eb.classList.toggle('a',t.ty==='s');
+  document.getElementById('imBtn').style.display='inline-flex';
 }
-function toggleTask(){if(st.run){st.run=false;upT();}}
 function finishE(){
-  const t=gCT();if(!t)return;
+  const t=getCur();if(!t)return;
   t.d=true;st.run=false;
-  if(st.ci<st.sch.length-1){st.ci++;st.run=true;}
-  sv();rendSch();upT();msg('✅ 提前完成');
+  if(st.ci<st.sch.length-1){st.ci++;st.run=true;const n=st.sch[st.ci];if(n&&n.ty==='s'){playBell('s');speak('Starting: '+n.t);}}
+  else{showFinish();}
+  sv();renderExecList();upExecTimer();
 }
-function tick(){
-  if(!st.run||st.ci<0)return;upT();
-  const t=gCT();if(!t){st.run=false;rendSch();return;}
-  if(gR(t)<=0){
+function execTick(){
+  if(!st.run||st.ci<0)return;upExecTimer();
+  const t=getCur();if(!t){st.run=false;renderExecList();return;}
+  if(getRem(t)<=0){
     t.d=true;
-    if(st.ci<st.sch.length-1){st.ci++;const n=st.sch[st.ci];if(n&&n.ty==='study')playBell('s');}
-    else{st.run=false;showFinish();}
-    sv();rendSch();upT();
+    if(st.ci<st.sch.length-1){st.ci++;const n=st.sch[st.ci];
+      if(n&&n.ty==='s'){playBell('s');speak('Starting: '+n.t);}else if(n&&n.ty==='b'){playBell('b');speak('Break time');}
+    }else{st.run=false;showFinish();}
+    sv();renderExecList();upExecTimer();
   }
 }
 
-// ===== FINISH / FS =====
-function showFinish(){document.getElementById('finishScene').classList.add('o');const all=st.sch.every(s=>s.d);document.getElementById('finishM').textContent=all?'🎉 全部完成':'✓ 完成';document.getElementById('finishS').textContent=all?'好好休息！':'继续前进';}
-function closeFinish(){document.getElementById('finishScene').classList.remove('o');rendSch();}
-function openFS(){document.getElementById('fsOverlay').classList.add('o');upFS();}
-function exitFS(){document.getElementById('fsOverlay').classList.remove('o');}
-function upFS(){
-  const t=gCT();const ft=document.getElementById('fsTime'),fs=document.getElementById('fsSubj'),fb=document.getElementById('fsBar');
-  if(t&&st.run){const rem=gR(t);ft.textContent=`${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;fs.textContent=t.t;const total=(t2m(t.e)-t2m(t.s))*60;fb.style.width=`${total>0?(total-rem)/total*100:0}%`;}
-  else{ft.textContent='--:--';fs.textContent='等待';fb.style.width='0%';}
+// ===== IMMERSIVE OVERLAY (from Control) =====
+function toggleImmersive(){if(imActive)exitIm();else openIm();}
+function openIm(){
+  const t=getCur();if(!t||!st.run)return;
+  imActive=true;const ov=document.getElementById('imOverlay');
+  ov.className='a '+(t.ty==='s'?'im-mode-study':'im-mode-break');
+  document.getElementById('imSubj').textContent=t.t;
+  document.getElementById('imBar').style.background=t.ty==='s'?'var(--blue)':'var(--yellow)';
+  document.getElementById('imQuote').textContent=IM_QUOTES[Math.floor(Math.random()*IM_QUOTES.length)];
+  upImTimer();
 }
+function exitIm(){imActive=false;document.getElementById('imOverlay').classList.remove('a');}
+function upImTimer(){
+  const t=getCur();if(!t||!imActive){return;}
+  const rem=getRem(t);const total=(t2m(t.e)-t2m(t.s))*60;
+  document.getElementById('imTime').textContent=`${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
+  document.getElementById('imBar').style.width=`${total>0?(total-rem)/total*100:0}%`;
+}
+// Override execTick to also update im
+const _origTick=execTick;execTick=function(){_origTick();if(imActive)upImTimer();};
+
+// ===== FINISH =====
+function showFinish(){document.getElementById('finishScene').classList.add('a');
+  document.getElementById('finishM').textContent=st.sch.every(s=>s.d)?'🎉 全部完成！':'✅ 完成';
+  document.getElementById('finishS').textContent='好好休息！';
+  if(cfg.bell)playBell('e');}
+function closeFinish(){document.getElementById('finishScene').classList.remove('a');renderExecList();}
 
 // ===== BLUEPRINT CRUD =====
 function openBP(){eBp=null;document.getElementById('bpTitle').textContent='新建蓝图';document.getElementById('bpN').value='';document.getElementById('bpT').value='mandatory';document.getElementById('bpH').value='2';document.getElementById('bpS').value='2';document.getElementById('bpDs').value=today;document.getElementById('bpDe').value='';document.getElementById('bpC').value='学习';document.getElementById('bpG').value='100';rC('bpColors','#4d9ef7');oM('bpModal');}
-function edBP(id){const b=st.bps.find(x=>x.id===id);if(!b)return;eBp=id;document.getElementById('bpTitle').textContent='编辑';document.getElementById('bpN').value=b.n;document.getElementById('bpT').value=b.t;document.getElementById('bpH').value=b.h;document.getElementById('bpS').value=b.sp;document.getElementById('bpDs').value=b.ds;document.getElementById('bpDe').value=b.de;document.getElementById('bpC').value=b.c||'学习';document.getElementById('bpG').value=b.gh||100;rC('bpColors',b.c||'#4d9ef7');oM('bpModal');}
-function saveBP(){
-  const n=document.getElementById('bpN').value.trim();if(!n){msg('输入名称');return;}
+function edBP(id){const b=st.bps.find(x=>x.id===id);if(!b)return;eBp=id;document.getElementById('bpTitle').textContent='编辑';document.getElementById('bpN').value=b.n;document.getElementById('bpT').value=b.t;document.getElementById('bpH').value=b.h;document.getElementById('bpS').value=b.sp;document.getElementById('bpDs').value=b.ds;document.getElementById('bpDe').value=b.de;document.getElementById('bpC').value=b.c||'学习';document.getElementById('bpG').value=b.gh||100;rC('bpColors',b.col||'#4d9ef7');oM('bpModal');}
+function saveBP(){const n=document.getElementById('bpN').value.trim();if(!n){msg('输入名称');return;}
   const bp={id:eBp||uid(),n,t:document.getElementById('bpT').value,h:parseFloat(document.getElementById('bpH').value)||2,sp:parseInt(document.getElementById('bpS').value)||2,ds:document.getElementById('bpDs').value||'',de:document.getElementById('bpDe').value||'',c:document.getElementById('bpC').value,gh:parseFloat(document.getElementById('bpG').value)||100,ch:0,col:document.querySelector('#bpColors .s')?.style?.background||'#4d9ef7'};
   if(eBp){const i=st.bps.findIndex(x=>x.id===eBp);if(i>=0)st.bps[i]={...st.bps[i],...bp};}else st.bps.push(bp);
-  cM('bpModal');sv();renderBP();renderTog();msg(eBp?'已更新':'已创建');
-}
+  cM('bpModal');sv();renderBP();renderTog();msg(eBp?'已更新':'已创建');}
 function delBP(id){if(!confirm('删除？'))return;st.bps=st.bps.filter(b=>b.id!==id);sv();renderBP();renderTog();msg('已删除');}
 function rC(id,sel){const el=document.getElementById(id);if(!el)return;el.innerHTML=COLORS.map(c=>`<div class="cdot${c===sel?' s':''}" style="background:${c};" onclick="pkC(event,'${id}','${c}')"></div>`).join('');}
 function pkC(e,id,c){document.querySelectorAll(`#${id} .cdot`).forEach(d=>d.classList.remove('s'));e.target.classList.add('s');}
 
 // ===== BREAKS =====
 function openBreaks(){rBrk();oM('breaksModal');}
-function rBrk(){document.getElementById('breaksL').innerHTML=cfg.bigs.map((b,i)=>`<div class="bre"><input class="fi" value="${esc(b.n)}" style="font-size:11px;padding:4px 6px;flex:1;" onchange="updBN(${i},this.value)"><input type="time" value="${b.s}" onchange="updBS(${i},this.value)"><span style="font-size:11px;color:var(--text3)">~</span><input type="time" value="${b.e}" onchange="updBE(${i},this.value)"><button class="btn-ico" onclick="rmBrk(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button></div>`).join('');}
-function updBN(i,v){cfg.bigs[i].n=v;}
-function updBS(i,v){cfg.bigs[i].s=v;}
-function updBE(i,v){cfg.bigs[i].e=v;}
+function rBrk(){document.getElementById('breaksL').innerHTML=cfg.bigs.map((b,i)=>`<div class="bre"><input class="fi" value="${esc(b.n)}" style="font-size:11px;padding:4px 6px;flex:1;" onchange="upbN(${i},this.value)"><input type="time" value="${b.s}" onchange="upbS(${i},this.value)"><span style="font-size:11px;color:var(--text3)">~</span><input type="time" value="${b.e}" onchange="upbE(${i},this.value)"><button class="btn-ico" onclick="rmBrk(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button></div>`).join('');}
+function upbN(i,v){cfg.bigs[i].n=v;}function upbS(i,v){cfg.bigs[i].s=v;}function upbE(i,v){cfg.bigs[i].e=v;}
 function addBrk(){cfg.bigs.push({n:'新休息',s:'15:00',e:'15:30'});rBrk();}
 function rmBrk(i){cfg.bigs.splice(i,1);rBrk();}
 function saveBrk(){cM('breaksModal');sv();msg('已保存');}
 
 // ===== SETTINGS =====
 function openSettings(){oM('settingsModal');}
-function syncT(){cfg.ws=document.getElementById('sWs').value;cfg.we=document.getElementById('sWe').value;cfg.bd=parseInt(document.getElementById('sBd').value)||15;document.getElementById('ws').value=cfg.ws;document.getElementById('we').value=cfg.we;document.getElementById('bd').value=cfg.bd;sv();}
+function syncT(){cfg.ws=document.getElementById('sWs').value;cfg.we=document.getElementById('sWe').value;cfg.bd=parseInt(document.getElementById('sBd').value)||15;
+  document.getElementById('ws').value=cfg.ws;document.getElementById('we').value=cfg.we;document.getElementById('bd').value=cfg.bd;sv();}
 function saveAI(){cfg.key=document.getElementById('sKey').value.trim();cfg.prov=document.getElementById('sProv').value;cfg.mod=document.getElementById('sMod').value.trim();sv();}
 
-// ===== STATS =====
-function rendS(){
-  const el=document.getElementById('stats');
-  const t=st.sch.length,d=st.sch.filter(s=>s.d).length;
-  el.innerHTML=`<div class="st"><span class="material-icons-round" style="font-size:14px;">schedule</span> ${t}项</div><div class="st"><span class="material-icons-round" style="font-size:14px;">check_circle</span> ${d}/${t}</div>`;
-}
-
 // ===== DATA =====
-function expD(){
-  const data={st,cfg,at:new Date().toISOString()};
-  const b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`th-${today}.json`;a.click();URL.revokeObjectURL(u);
-}
-function impD(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(d.st)st=d.st;if(d.cfg)cfg=d.cfg;sv();renderBP();renderTog();rendSch();rendS();msg('已导入');}catch(e){msg('失败');}};r.readAsText(f);}
-function clrAll(){
-  if(!confirm('清除所有数据？不可恢复！'))return;
-  st={bps:[],toggles:{},sch:[],run:false,ci:-1,tmps:[],hist:{}};cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};sv();renderBP();renderTog();rendSch();rendS();msg('已清空');
-}
+function expD(){const data={st,cfg,at:new Date().toISOString()};const b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`th-${today}.json`;a.click();URL.revokeObjectURL(u);}
+function impD(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(d.st)st=d.st;if(d.cfg)cfg=d.cfg;sv();renderBP();renderTog();rendS();renderGenPreview();switchView();msg('已导入');}catch(e){msg('失败');}};r.readAsText(f);}
+function clrAll(){if(!confirm('清除所有数据？不可恢复！'))return;
+  st={bps:[],toggles:{},sch:[],run:false,ci:-1,tmps:[],hist:{}};cfg.bells={s:{src:'def',f:523,nid:'',upd:''},e:{src:'def',f:784,nid:'',upd:''},b:{src:'def',f:659,nid:'',upd:''}};
+  sv();renderBP();renderTog();rendS();renderGenPreview();switchView();msg('已清空');}
 
 // ===== INIT =====
 function init(){
   ld();today=gT();
-  const d=new Date();document.getElementById('todayLbl').textContent=`${d.getMonth()+1}月${d.getDate()}日 星期${DAYS[d.getDay()]}`;
+  const d=new Date();
+  document.getElementById('todayLbl').textContent=`${d.getMonth()+1}月${d.getDate()}日`;
   document.getElementById('toggleDate').textContent=today;
   document.getElementById('ws').value=cfg.ws;document.getElementById('we').value=cfg.we;document.getElementById('bd').value=cfg.bd;
   document.getElementById('sWs').value=cfg.ws;document.getElementById('sWe').value=cfg.we;document.getElementById('sBd').value=cfg.bd;
   document.getElementById('sKey').value=cfg.key||'';document.getElementById('sProv').value=cfg.prov||'deepseek';document.getElementById('sMod').value=cfg.mod||'deepseek-chat';
-  renderBP();renderTog();rendS();rendSch();
+  renderBP();renderTog();rendS();renderGenPreview();
   restoreAudio();
-  tInt=setInterval(tick,1000);
+  // Decide which view
+  switchView();
 }
 document.addEventListener('DOMContentLoaded',init);
 window.addEventListener('beforeunload',sv);
