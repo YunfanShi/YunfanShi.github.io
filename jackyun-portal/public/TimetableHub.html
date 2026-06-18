@@ -473,17 +473,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     </div><div class="mf"><button class="btn btn-p" onclick="cM('settingsModal')">完成</button></div>
   </div></div>
 
-<!-- LATE START MODAL -->
-<div class="mb" id="lateModal" onclick="mbB(event,'lateModal')">
-  <div class="ms"><div class="mh"><div class="mt">⏰ 时间已过去</div><button class="icon-btn" onclick="cM('lateModal')"><span class="material-icons-round">close</span></button></div>
+<!-- TIME ADJUST MODAL (replaces old late-start modal) -->
+<div class="mb" id="adjustModal" onclick="mbB(event,'adjustModal')">
+  <div class="ms w"><div class="mh"><div class="mt">⏰ 时间不够，调整任务时长</div><button class="icon-btn" onclick="cM('adjustModal')"><span class="material-icons-round">close</span></button></div>
     <div class="mbdy">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">工作开始 <span id="lsWs" class="stime" style="font-family:var(--mono);color:var(--text)">10:00</span>，当前 <span id="lsNow" class="stime" style="font-family:var(--mono);color:var(--text)">11:00</span></div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">已过去 <span id="lsPast" style="color:var(--yellow)">0</span> 分钟，填写已完成任务（未填部分自动后推）</div>
-      <div id="lsRows"></div>
-      <div class="ls-remain" id="lsRemain">剩余未填：<span id="lsLeft">0</span> 分钟（后推 <span id="lsShift">0</span> 分钟）</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">可用 <span id="adjAvail" style="color:var(--blue);font-weight:500">0</span> 分钟，已过 <span id="adjIdle" style="color:var(--yellow)">0</span> 分钟（从 <span id="adjWs" style="font-family:var(--mono)">10:00</span> 开始）</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">手动调整每个任务的时长，减少红字缺口</div>
+      <div id="adjRows"></div>
+      <div class="ls-remain" id="adjRemain">缺口：<span id="adjGap" style="color:var(--red);font-weight:500">0</span> 分钟</div>
       <div class="ls-actions">
-        <button class="btn btn-o" onclick="skipLateStart()">直接后推 · 不做记录</button>
-        <button class="btn btn-p" onclick="processLateStart()">确认生成</button>
+        <button class="btn btn-o" onclick="cM('adjustModal');generate()">取消</button>
+        <button class="btn btn-p" onclick="confirmAdjust()">确认生成</button>
       </div>
     </div>
   </div></div>
@@ -643,8 +643,9 @@ function togT(id,v){if(!st.toggles[today])st.toggles[today]={};st.toggles[today]
 function addTmp(){const n=document.getElementById('tmpN').value.trim();const d=parseInt(document.getElementById('tmpD').value)||60;if(!n){msg('输入名称');return;}st.tmps.push({n,d});cM('tempModal');document.getElementById('tmpN').value='';sv();renderTog();}
 function rmTmp(i){st.tmps.splice(i,1);sv();renderTog();}
 
-// ===== LATE START HANDLING =====
-let lateSes=[],lateShift=0,lateWs=0;
+// ===== TIME ADJUST MODAL (replaces old late-start) =====
+// Stored ses input for the adjust modal
+let adjSes=[],adjAvail=0,adjWs=0;
 // Helper: check if curMin is inside any big break, returns break end minute or 0
 function inBigBreakAt(curMin,breaks){
   for(let b of breaks||[]){
@@ -653,63 +654,51 @@ function inBigBreakAt(curMin,breaks){
   }
   return 0;
 }
-function openLateModal(ws,sB,sel,tm,ses){
-  lateSes=JSON.parse(JSON.stringify(ses));
-  lateShift=0;lateWs=ws;
+// Calculate the actual start minute and idle minutes given current time
+function calcStartAndIdle(ws){
   const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  // If curMin is inside a big break, adjust ws to break end
-  const brEnd=inBigBreakAt(curMin,sB);
-  const adjustedWs=brEnd?Math.max(ws,brEnd):ws;
-  const pastMin=Math.max(0,curMin-adjustedWs);
-  document.getElementById('lsWs').textContent=m2t(adjustedWs);
-  document.getElementById('lsNow').textContent=m2t(curMin);
-  document.getElementById('lsPast').textContent=pastMin;
-  const opts=sel.map(b=>b.n).concat(tm.map(t=>t.n)).filter((v,i,a)=>a.indexOf(v)===i);
-  const cont=document.getElementById('lsRows');
-  const rows=[{n:'空闲',d:0}];
-  function renderLsRows(){
-    cont.innerHTML=rows.map((r,i)=>{
-      const selOpts=opts.map(o=>`<option value="${esc(o)}"${r.n===o?' selected':''}>${esc(o)}</option>`).join('');
-      return `<div class="ls-row">
-        <select onchange="updateLsRow(${i},'n',this.value)">${selOpts}<option value="__idle">空闲</option></select>
-        <input class="ti-n" type="number" min="5" max="${Math.max(pastMin,10)}" value="${r.d||10}" onchange="updateLsRow(${i},'d',parseInt(this.value)||0)">
-        <span style="font-size:10px;color:var(--text3)">分</span>
-        <button class="btn-ico" onclick="rmLsRow(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button>
-      </div>`;
-    }).join('');
-    cont.innerHTML+=`<button class="btn btn-t btn-xs" onclick="addLsRow()" style="margin-top:2px;">+ 添加任务</button>`;
-    updateLsRemain(pastMin);
-  }
-  window.updateLsRow=function(i,k,v){if(k==='n')rows[i].n=v;else rows[i].d=v;updateLsRemain(pastMin);};
-  window.addLsRow=function(){rows.push({n:opts[0]||'空闲',d:10});renderLsRows();};
-  window.rmLsRow=function(i){rows.splice(i,1);renderLsRows();};
-  window.updateLsRemain=function(pastMin){
-    const filled=rows.reduce((s,r)=>s+(r.d||0),0);
-    const left=Math.max(0,pastMin-filled);
-    document.getElementById('lsLeft').textContent=left;
-    document.getElementById('lsShift').textContent=left;
-    lateShift=left;
-  };
-  renderLsRows();
-  oM('lateModal');
+  const brEnd=inBigBreakAt(curMin,cfg.bigs);
+  const startMin=brEnd?Math.max(ws,brEnd):Math.max(ws,curMin);
+  const idle=Math.max(0,curMin-ws);
+  return {startMin,idle};
 }
-window.processLateStart=function(){
-  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  const brEnd=inBigBreakAt(curMin,cfg.bigs);
-  // start from current time (not lateWs + something)
-  const startMin=brEnd?brEnd:curMin;
-  // Calculate idle: from workStart to startMin
-  const idle=Math.max(0,curMin-lateWs);
-  cM('lateModal');
-  doGenerate(startMin,lateSes,idle);
-};
-window.skipLateStart=function(){
-  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  const brEnd=inBigBreakAt(curMin,cfg.bigs);
-  const startMin=brEnd?brEnd:curMin;
-  const idle=Math.max(0,curMin-lateWs);
-  cM('lateModal');
-  doGenerate(startMin,lateSes,idle);
+function openAdjustModal(ws,ses,fullAvail){
+  adjSes=JSON.parse(JSON.stringify(ses.map(s=>({n:s.n,d:s.d,od:s.d,id:s.id}))));
+  adjAvail=fullAvail;adjWs=ws;
+  const {startMin,idle}=calcStartAndIdle(ws);
+  document.getElementById('adjAvail').textContent=fullAvail;
+  document.getElementById('adjIdle').textContent=idle;
+  document.getElementById('adjWs').textContent=m2t(ws);
+  renderAdjRows();
+  oM('adjustModal');
+}
+function renderAdjRows(){
+  const cont=document.getElementById('adjRows');
+  cont.innerHTML=adjSes.map((s,i)=>`<div class="ls-row">
+    <span style="font-size:12px;font-weight:500;min-width:80px;">${esc(s.n)}</span>
+    <input class="ti-n" type="number" min="5" max="${s.od}" value="${s.d}" onchange="upAdjDur(${i},this.value)">
+    <span style="font-size:10px;color:var(--text3)">分（原 <span style="color:var(--text2)">${s.od}</span>）</span>
+  </div>`).join('');
+  calcAdjGap();
+}
+window.upAdjDur=function(i,v){adjSes[i].d=Math.max(5,Math.min(adjSes[i].od,parseInt(v)||adjSes[i].od));renderAdjRows();};
+function calcAdjGap(){
+  const totalS=adjSes.reduce((s,x)=>s+x.d,0);
+  const bc=adjSes.length-1,brm=bc*cfg.bd;
+  const gap=totalS+brm-adjAvail;
+  const el=document.getElementById('adjGap');
+  el.textContent=Math.max(0,gap);
+  el.style.color=gap>0?'var(--red)':'var(--green)';
+  document.getElementById('adjRemain').innerHTML=`${gap>0?'缺口':'多出'}：<span style="color:${gap>0?'var(--red)':'var(--green)'};font-weight:500">${Math.abs(gap)}</span> 分钟`;
+  return gap;
+}
+window.confirmAdjust=function(){
+  const gap=calcAdjGap();
+  if(gap>0){msg(`⛔ 还差 ${gap} 分钟，再减少一些任务时长`);return;}
+  const {startMin,idle}=calcStartAndIdle(adjWs);
+  cM('adjustModal');
+  const adjusted=adjSes.map(s=>({n:s.n,d:s.d,id:s.id}));
+  doGenerate(startMin,adjusted,idle);
 };
 
 // ===== GACHA GENERATOR =====
@@ -726,8 +715,9 @@ function doGenerate(startMin,ses,idleMin){
   });
   if(avail<=0){msg('工作时间不足');return;}
   const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
+  // If time is short, prompt user to adjust durations
   if(totalS+brm>avail){
-    if(totalS+brm>avail+30){msg(`时间不足！需要${totalS+brm}分，可用${avail}分，超出${totalS+brm-avail}分`);return;}
+    if(totalS+brm>avail+30){openAdjustModal(startMin,ses,avail);return;}
     msg(`⚠️ 超出${totalS+brm-avail}分，尝试生成`);
   }
   showGacha(ses.map(s=>s.n));
@@ -829,15 +819,13 @@ function generate(){
   tm.forEach(t=>t.ss.forEach(s=>ses.push({n:t.n,d:s.d,id:null})));
   if(!ses.length){msg('今天没有勾选的任务');return;}
   const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
-  if(totalS+brm>avail){msg(`时间不足！需要${totalS+brm}分，可用${avail}分`);return;}
-  // Check for late start
-  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  if(curMin>ws+5){
-    openLateModal(ws,sB,sel,tm,ses);
+  if(totalS+brm>avail){
+    openAdjustModal(ws,ses,avail);
     return;
   }
   ses=sh(ses);
-  doGenerate(ws,ses,0);
+  const {startMin,idle}=calcStartAndIdle(ws);
+  doGenerate(startMin,ses,idle);
 }
 function reroll(){if(st.sch.length)generate();}
 function showGacha(names){const el=document.getElementById('gachaCards');
