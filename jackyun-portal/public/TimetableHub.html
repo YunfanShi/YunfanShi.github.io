@@ -470,11 +470,16 @@ let cfg={ws:'10:00',we:'22:00',bd:15,bigs:[{n:'午餐',s:'12:00',e:'13:00'},{n:'
   key:'',prov:'deepseek',mod:'deepseek-chat',bell:true,tts:true,voice:''};
 let eBp=null,bCtx=null,tInt=null,today='',execInt=null,imActive=false;
 const DAYS=['日','一','二','三','四','五','六'];
-const IM_QUOTES=['Focus on the task at hand.','Step by step.','You can do this.','Stay present.','Progress over perfection.','Keep going.'];
 
 function gT(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 // ===== PERSISTENCE =====
-function sv(){localStorage.setItem('ths',JSON.stringify(st));localStorage.setItem('thc',JSON.stringify(cfg));}
+function sv(){
+  // Strip blob URLs before saving to localStorage (they're ephemeral)
+  const cfgClean=JSON.parse(JSON.stringify(cfg));
+  Object.keys(cfgClean.bells||{}).forEach(k=>{if(cfgClean.bells[k]){cfgClean.bells[k].upd='';cfgClean.bells[k].name=cfg.bells[k]?.name||'';}});
+  localStorage.setItem('ths',JSON.stringify(st));
+  localStorage.setItem('thc',JSON.stringify(cfgClean));
+}
 function ld(){
   try{const o=JSON.parse(localStorage.getItem('th_state'));const n=JSON.parse(localStorage.getItem('ths'));
     if(o&&!n){if(o.blueprints)st.bps=o.blueprints.map(b=>({id:b.id||uid(),n:b.name||b.n,t:b.type||b.t,h:b.hoursPerDay||b.h,sp:b.splits||b.sp,ds:b.dateStart||b.ds,de:b.dateEnd||b.de,c:b.category||b.c,gh:b.goalHours||b.gh,ch:b.completedHours||b.ch,col:b.color||b.col||'#4d9ef7'}));
@@ -493,8 +498,8 @@ function ld(){
 }
 // ===== INDEXEDDB AUDIO =====
 function oDb(){return new Promise((res,rej)=>{if(!indexedDB)return rej();const r=indexedDB.open('th_audio',1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('files'))d.createObjectStore('files');};r.onsuccess=()=>res(r.result);r.onerror=()=>rej();});}
-async function svAudio(k,file){const db=await oDb();return new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');tx.oncomplete=()=>{db.close();res();};tx.onerror=()=>{db.close();rej();};tx.objectStore('files').put({blob:file,name:file.name,type:file.type},k);});}
-async function ldAudio(k){const db=await oDb();return new Promise((res)=>{const tx=db.transaction('files','readonly');const r=tx.objectStore('files').get(k);r.onsuccess=()=>{db.close();res(r.result||null);};r.onerror=()=>{db.close();res(null);};});}
+async function svAudio(k,file){const db=await oDb();return new Promise((res,rej)=>{const tx=db.transaction('files','readwrite');const store=tx.objectStore('files');const req=store.put({blob:file,name:file.name,type:file.type},k);req.onsuccess=()=>{db.close();res();};req.onerror=()=>{db.close();rej(req.error);};});}
+async function ldAudio(k){const db=await oDb();return new Promise((res)=>{const tx=db.transaction('files','readonly');const store=tx.objectStore('files');const req=store.get(k);req.onsuccess=()=>{db.close();res(req.result||null);};req.onerror=()=>{db.close();res(null);};});}
 
 // ===== AUDIO =====
 async function playBell(type){
@@ -729,9 +734,15 @@ function openIm(){
   const t=getCur();if(!t||!st.run)return;
   imActive=true;const ov=document.getElementById('imOverlay');
   ov.className='a '+(t.ty==='s'?'im-mode-study':'im-mode-break');
-  document.getElementById('imSubj').textContent=t.t;
+  const nextTask=st.sch[st.ci+1];
+  const infoParts=[`当前任务：${t.t}（${t.s}~${t.e}）`];
+  if(nextTask&&nextTask.ty==='s'){infoParts.push(`下一项：${nextTask.t}（${nextTask.s}~${nextTask.e}）`);}
+  else if(nextTask&&nextTask.ty==='b'){infoParts.push(`下一项：${nextTask.t}（${nextTask.s}~${nextTask.e}）`);}
+  document.getElementById('imSubj').textContent=`${t.t}（${t.s}~${t.e}）`;
   document.getElementById('imBar').style.background=t.ty==='s'?'var(--blue)':'var(--yellow)';
-  document.getElementById('imQuote').textContent=IM_QUOTES[Math.floor(Math.random()*IM_QUOTES.length)];
+  document.getElementById('imQuote').textContent=infoParts.join(' · ');
+  document.getElementById('imQuote').style.marginTop='12px';
+  document.getElementById('imQuote').style.fontSize='14px';
   upImTimer();
 }
 function exitIm(){imActive=false;document.getElementById('imOverlay').classList.remove('a');}
@@ -740,6 +751,11 @@ function upImTimer(){
   const rem=getRem(t);const total=(t2m(t.e)-t2m(t.s))*60;
   document.getElementById('imTime').textContent=`${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
   document.getElementById('imBar').style.width=`${total>0?(total-rem)/total*100:0}%`;
+  // Update next-task info dynamically
+  const nextTask=st.sch[st.ci+1];
+  const infoParts=[`当前任务：${t.t}（${t.s}~${t.e}）`];
+  if(nextTask){infoParts.push(`下一项：${nextTask.t}（${nextTask.s}~${nextTask.e}）`);}
+  document.getElementById('imQuote').textContent=infoParts.join(' · ');
 }
 // Override execTick to also update im
 const _origTick=execTick;execTick=function(){_origTick();if(imActive)upImTimer();};
@@ -793,9 +809,8 @@ function init(){
   document.getElementById('sWs').value=cfg.ws;document.getElementById('sWe').value=cfg.we;document.getElementById('sBd').value=cfg.bd;
   document.getElementById('sKey').value=cfg.key||'';document.getElementById('sProv').value=cfg.prov||'deepseek';document.getElementById('sMod').value=cfg.mod||'deepseek-chat';
   renderBP();renderTog();rendS();renderGenPreview();
-  restoreAudio();
   // Decide which view
-  switchView();
+  restoreAudio().then(()=>switchView());
 }
 document.addEventListener('DOMContentLoaded',init);
 window.addEventListener('beforeunload',sv);
