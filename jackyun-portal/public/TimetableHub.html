@@ -631,7 +631,7 @@ function renderTog(){
   const el=document.getElementById('toggleList');const a=st.bps.filter(b=>isA(b));
   if(!a.length){el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text3);font-size:11px;">今天没有激活的任务</div>';return;}
   if(!st.toggles[today])st.toggles[today]={};
-  a.forEach(b=>{if(b.t==='mandatory')st.toggles[today][b.id]=true;});
+  a.forEach(b=>{if(b.t==='mandatory')st.toggles[today][b.id]=true;else if(st.toggles[today][b.id]===undefined)st.toggles[today][b.id]=false;});
   el.innerHTML=a.map(b=>{const on=st.toggles[today][b.id]!==false;const sm=Math.round(b.h*60/b.sp);
     return`<div class="trow ${on?'':'off'}"><input class="trow-cb" type="checkbox" ${on?'checked':''} ${b.t==='mandatory'?'disabled':''} onchange="togT('${b.id}',this.checked)">
       <span class="trow-n">${esc(b.n)}</span><span class="trow-d">${b.h}h(${b.sp}×${sm}min)</span></div>`;}).join('');
@@ -645,17 +645,26 @@ function rmTmp(i){st.tmps.splice(i,1);sv();renderTog();}
 
 // ===== LATE START HANDLING =====
 let lateSes=[],lateShift=0,lateWs=0;
+// Helper: check if curMin is inside any big break, returns break end minute or 0
+function inBigBreakAt(curMin,breaks){
+  for(let b of breaks||[]){
+    const bs=t2m(b.s),be=t2m(b.e);
+    if(curMin>=bs&&curMin<be)return be;
+  }
+  return 0;
+}
 function openLateModal(ws,sB,sel,tm,ses){
-  lateSes=JSON.parse(JSON.stringify(ses)); // deep clone so modifications don't affect original
+  lateSes=JSON.parse(JSON.stringify(ses));
   lateShift=0;lateWs=ws;
   const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  const pastMin=Math.max(0,curMin-ws);
-  document.getElementById('lsWs').textContent=m2t(ws);
+  // If curMin is inside a big break, adjust ws to break end
+  const brEnd=inBigBreakAt(curMin,sB);
+  const adjustedWs=brEnd?Math.max(ws,brEnd):ws;
+  const pastMin=Math.max(0,curMin-adjustedWs);
+  document.getElementById('lsWs').textContent=m2t(adjustedWs);
   document.getElementById('lsNow').textContent=m2t(curMin);
   document.getElementById('lsPast').textContent=pastMin;
-  // Build selectable options from all selected tasks
   const opts=sel.map(b=>b.n).concat(tm.map(t=>t.n)).filter((v,i,a)=>a.indexOf(v)===i);
-  // Create rows for user to fill
   const cont=document.getElementById('lsRows');
   const rows=[{n:'空闲',d:0}];
   function renderLsRows(){
@@ -663,7 +672,7 @@ function openLateModal(ws,sB,sel,tm,ses){
       const selOpts=opts.map(o=>`<option value="${esc(o)}"${r.n===o?' selected':''}>${esc(o)}</option>`).join('');
       return `<div class="ls-row">
         <select onchange="updateLsRow(${i},'n',this.value)">${selOpts}<option value="__idle">空闲</option></select>
-        <input class="ti-n" type="number" min="5" max="${pastMin}" value="${r.d||10}" onchange="updateLsRow(${i},'d',parseInt(this.value)||0)">
+        <input class="ti-n" type="number" min="5" max="${Math.max(pastMin,10)}" value="${r.d||10}" onchange="updateLsRow(${i},'d',parseInt(this.value)||0)">
         <span style="font-size:10px;color:var(--text3)">分</span>
         <button class="btn-ico" onclick="rmLsRow(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button>
       </div>`;
@@ -685,98 +694,122 @@ function openLateModal(ws,sB,sel,tm,ses){
   oM('lateModal');
 }
 window.processLateStart=function(){
-  // Recalculate pastMin from current time (not stale DOM value)
   const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  const pastMin=Math.max(0,curMin-lateWs);
-  // Read filled minutes from modal
-  let filled=0;
-  document.querySelectorAll('#lsRows .ls-row').forEach(r=>{
-    const inp=r.querySelector('.ti-n');
-    if(inp)filled+=parseInt(inp.value)||0;
-  });
-  const left=Math.max(0,pastMin-filled);
-  // Deduct filled tasks from lateSes
-  document.querySelectorAll('#lsRows .ls-row').forEach(r=>{
-    const sel=r.querySelector('select');const inp=r.querySelector('.ti-n');
-    if(!sel||!inp)return;
-    const name=sel.value;const dur=parseInt(inp.value)||0;
-    if(dur>0&&name!=='__idle'){
-      for(let si=0;si<lateSes.length;si++){
-        if(lateSes[si].n===name){
-          lateSes[si].d=Math.max(0,lateSes[si].d-dur);
-          if(lateSes[si].d<=0){lateSes.splice(si,1);}
-          break;
-        }
-      }
-    }
-  });
+  const brEnd=inBigBreakAt(curMin,cfg.bigs);
+  // start from current time (not lateWs + something)
+  const startMin=brEnd?brEnd:curMin;
+  // Calculate idle: from workStart to startMin
+  const idle=Math.max(0,curMin-lateWs);
   cM('lateModal');
-  doGenerate(lateWs+left,lateSes,left);
+  doGenerate(startMin,lateSes,idle);
 };
 window.skipLateStart=function(){
-  // Recalculate pastMin from current time
   const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
-  const pastMin=Math.max(0,curMin-lateWs);
+  const brEnd=inBigBreakAt(curMin,cfg.bigs);
+  const startMin=brEnd?brEnd:curMin;
+  const idle=Math.max(0,curMin-lateWs);
   cM('lateModal');
-  doGenerate(lateWs+pastMin,lateSes,pastMin);
+  doGenerate(startMin,lateSes,idle);
 };
 
 // ===== GACHA GENERATOR =====
-function doGenerate(startMin,ses,shift){
-  const ws=startMin,we=t2m(cfg.we);
+function doGenerate(startMin,ses,idleMin){
+  const we=t2m(cfg.we);
   // Filter big breaks that are in the future relative to startMin
-  const sB=[...cfg.bigs].filter(b=>t2m(b.s)>=ws&&t2m(b.e)<=we||(t2m(b.e)>ws&&t2m(b.s)<=we));
-  // Calculate available time: we-ws minus any big break portion AFTER startMin
-  let avail=we-ws;
+  const sB=[...cfg.bigs].filter(b=>t2m(b.e)>startMin&&t2m(b.s)<we);
+  // Calculate available time: we-startMin minus big break portions after startMin
+  let avail=we-startMin;
   sB.forEach(b=>{
-    let bs=Math.max(ws,t2m(b.s));
+    let bs=Math.max(startMin,t2m(b.s));
     let be=Math.min(we,t2m(b.e));
     if(be>bs)avail-=(be-bs);
   });
   if(avail<=0){msg('工作时间不足');return;}
   const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
   if(totalS+brm>avail){
-    // Allow 30 min grace before blocking
     if(totalS+brm>avail+30){msg(`时间不足！需要${totalS+brm}分，可用${avail}分，超出${totalS+brm-avail}分`);return;}
     msg(`⚠️ 超出${totalS+brm-avail}分，尝试生成`);
   }
   showGacha(ses.map(s=>s.n));
   setTimeout(()=>{
-    let sch=[],cur=ws,bi=0;
+    let sch=[],cur=startMin;
     const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
-    ses.forEach((s,i)=>{
-      // Insert any big breaks that overlap with current cur
-      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){
+    let bi=0;
+    // Insert idle entry first (always at workStart time)
+    if(idleMin>0){
+      const wsT=t2m(cfg.ws);
+      sch.push({s:m2t(wsT),e:m2t(wsT+idleMin),t:'已过去（空闲）',ty:'b',d:true});
+      if(cur<wsT+idleMin)cur=wsT+idleMin;
+    }
+    // Helper: insert any big breaks that cur has reached
+    function pushBigBreaks(){
+      while(bi<sorted.length){
         const br=sorted[bi];
-        if(cur>=t2m(br.e)){bi++;continue;} // break already fully in the past - skip
-        // Break is partially past: insert from cur to br.e
-        if(cur<t2m(br.e)){
-          sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});
-          cur=t2m(br.e);
+        const bs=t2m(br.s),be=t2m(br.e);
+        if(cur>=be){bi++;continue;}
+        if(cur>=bs){
+          sch.push({s:m2t(cur),e:m2t(be),t:br.n,ty:'b',d:false});
+          cur=be;
+          bi++;
+        }else break;
+      }
+    }
+    // Helper: insert a small break if no big break overlaps
+    function trySmallBreak(isLast){
+      if(isLast)return;
+      let ov=false;
+      for(let b of sorted){
+        const bs=t2m(b.s),be=t2m(b.e);
+        if(cur+cfg.bd>bs&&cur<be){ov=true;break;}
+      }
+      if(!ov){
+        const be=cur+cfg.bd;
+        sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});
+        cur=be;
+      }
+    }
+    ses.forEach((s,i)=>{
+      pushBigBreaks();
+      // Check if this session would cross a big break start → split
+      let remain=s.d;
+      while(remain>0){
+        let nextBr=null;
+        for(let b of sorted){
+          const bs=t2m(b.s);
+          if(cur<bs&&cur+remain>bs){nextBr=b;break;}
         }
-        bi++;
+        if(nextBr){
+          const partLen=t2m(nextBr.s)-cur;
+          if(partLen>0){
+            sch.push({s:m2t(cur),e:m2t(t2m(nextBr.s)),t:s.n,ty:'s',d:false,id:s.id});
+            cur=t2m(nextBr.s);
+          }
+          remain-=partLen;
+          pushBigBreaks(); // insert the big break
+        }else{
+          // No crossing → place the rest of this session
+          const end=cur+remain;
+          sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'s',d:false,id:s.id});
+          cur=end;
+          remain=0;
+        }
       }
-      const end=cur+s.d;sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'s',d:false,id:s.id});cur=end;
-      // Small break only if no big break overlaps
-      if(i<ses.length-1){
-        let ov=false;
-        for(let b of sorted){if(cur>t2m(b.s)&&cur<t2m(b.e)){ov=true;break;}}
-        if(!ov){let be=cur+cfg.bd;sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});cur=be;}
-      }
+      // Small break unless it's the last
+      trySmallBreak(i===ses.length-1);
     });
-    // Remaining big breaks after all sessions
-    while(bi<sorted.length){const br=sorted[bi];
-      if(cur<t2m(br.s))cur=t2m(br.s);
-      if(cur<t2m(br.e)){sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);}
-      bi++;}
-    // Sort by start time to avoid any ordering issues
+    // Insert any remaining big breaks
+    pushBigBreaks();
+    while(bi<sorted.length){
+      const br=sorted[bi],bs=t2m(br.s),be=t2m(br.e);
+      if(cur<bs)cur=bs;
+      if(cur<be){
+        sch.push({s:m2t(cur),e:m2t(be),t:br.n,ty:'b',d:false});
+        cur=be;
+      }
+      bi++;
+    }
     sch.sort((a,b)=>t2m(a.s)-t2m(b.s));
     st.sch=sch;st.run=false;st.ci=-1;sv();renderGenPreview();msg(`✅ ${sch.length}个时段`);closeGacha();
-    // Prepend past-idle entry if shifted
-    if(shift>0){
-      const wsT=t2m(cfg.ws);
-      st.sch.unshift({s:m2t(wsT),e:m2t(wsT+shift),t:'已过去（空闲）',ty:'b',d:true});
-    }
     document.getElementById('viewGen').classList.remove('a');
     document.getElementById('viewExec').classList.add('a');
     initExec();
@@ -800,7 +833,6 @@ function generate(){
   // Check for late start
   const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
   if(curMin>ws+5){
-    // Late start detected - show modal
     openLateModal(ws,sB,sel,tm,ses);
     return;
   }
