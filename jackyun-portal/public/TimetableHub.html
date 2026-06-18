@@ -294,6 +294,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   display:none;align-items:center;gap:8px;backdrop-filter:blur(10px)}
 #bellToast.s{display:inline-flex}
 #bellToast button{border:none;background:rgba(255,255,255,.1);color:#ccc;border-radius:99px;font-size:10px;padding:3px 8px;cursor:pointer}
+/* Late Start Modal */
+.ls-rem{font-size:11px;color:var(--text3);margin:4px 0}
+.ls-row{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:4px;border:1px solid var(--border)}
+.ls-row select{flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);color:var(--text);outline:none;font-family:inherit}
+.ls-row .ti-n{width:50px}
+.ls-row .btn-ico{width:24px;height:24px}
+.ls-remain{font-size:11px;color:var(--text3);text-align:right;margin-top:6px}
+.ls-actions{display:flex;gap:8px;margin-top:10px}
+.ls-actions .btn{flex:1}
+.task-row.p{opacity:.5}
+.task-row.p .task-check{background:var(--text3);border-color:var(--text3);color:#000;font-size:8px}
+.task-row.p .task-name{text-decoration:none;color:var(--text3)}
+/* Schedule adjust btn (only in gen preview) */
+.sr-edit{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+.sr:hover .sr-edit{display:inline-flex}
 @media(max-width:768px){.gen-left{width:100%;max-height:40vh;border-right:none;border-bottom:1px solid var(--border)}.gen-hub{flex-direction:column}.gen-collapse{display:none}}
 </style>
 </head>
@@ -458,6 +473,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     </div><div class="mf"><button class="btn btn-p" onclick="cM('settingsModal')">完成</button></div>
   </div></div>
 
+<!-- LATE START MODAL -->
+<div class="mb" id="lateModal" onclick="mbB(event,'lateModal')">
+  <div class="ms"><div class="mh"><div class="mt">⏰ 时间已过去</div><button class="icon-btn" onclick="cM('lateModal')"><span class="material-icons-round">close</span></button></div>
+    <div class="mbdy">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">工作开始 <span id="lsWs" class="stime" style="font-family:var(--mono);color:var(--text)">10:00</span>，当前 <span id="lsNow" class="stime" style="font-family:var(--mono);color:var(--text)">11:00</span></div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">已过去 <span id="lsPast" style="color:var(--yellow)">0</span> 分钟，填写已完成任务（未填部分自动后推）</div>
+      <div id="lsRows"></div>
+      <div class="ls-remain" id="lsRemain">剩余未填：<span id="lsLeft">0</span> 分钟（后推 <span id="lsShift">0</span> 分钟）</div>
+      <div class="ls-actions">
+        <button class="btn btn-o" onclick="skipLateStart()">直接后推 · 不做记录</button>
+        <button class="btn btn-p" onclick="processLateStart()">确认生成</button>
+      </div>
+    </div>
+  </div></div>
+
 <div id="snackbar"><span id="snackM">完成</span></div>
 <div id="bellToast"><span>🔔 铃声</span><button onclick="stopBell()">关闭</button></div>
 
@@ -613,7 +643,120 @@ function togT(id,v){if(!st.toggles[today])st.toggles[today]={};st.toggles[today]
 function addTmp(){const n=document.getElementById('tmpN').value.trim();const d=parseInt(document.getElementById('tmpD').value)||60;if(!n){msg('输入名称');return;}st.tmps.push({n,d});cM('tempModal');document.getElementById('tmpN').value='';sv();renderTog();}
 function rmTmp(i){st.tmps.splice(i,1);sv();renderTog();}
 
+// ===== LATE START HANDLING =====
+let lateSes=[],lateShift=0,lateWs=0;
+function openLateModal(ws,sB,sel,tm,ses){
+  lateSes=ses;lateShift=0;lateWs=ws;
+  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
+  const pastMin=Math.max(0,curMin-ws);
+  document.getElementById('lsWs').textContent=m2t(ws);
+  document.getElementById('lsNow').textContent=m2t(curMin);
+  document.getElementById('lsPast').textContent=pastMin;
+  // Build selectable options from all selected tasks
+  const opts=sel.map(b=>b.n).concat(tm.map(t=>t.n)).filter((v,i,a)=>a.indexOf(v)===i);
+  // Create rows for user to fill
+  const cont=document.getElementById('lsRows');
+  const rows=[{n:'空闲',d:0}];
+  // Auto-add one row
+  function renderLsRows(){
+    cont.innerHTML=rows.map((r,i)=>{
+      const selOpts=opts.map(o=>`<option value="${esc(o)}"${r.n===o?' selected':''}>${esc(o)}</option>`).join('');
+      return `<div class="ls-row">
+        <select onchange="updateLsRow(${i},'n',this.value)">${selOpts}<option value="__idle">空闲</option></select>
+        <input class="ti-n" type="number" min="5" max="${pastMin}" value="${r.d||10}" onchange="updateLsRow(${i},'d',parseInt(this.value)||0)">
+        <span style="font-size:10px;color:var(--text3)">分</span>
+        <button class="btn-ico" onclick="rmLsRow(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button>
+      </div>`;
+    }).join('');
+    // Add add-btn
+    cont.innerHTML+=`<button class="btn btn-t btn-xs" onclick="addLsRow()" style="margin-top:2px;">+ 添加任务</button>`;
+    updateLsRemain(pastMin);
+  }
+  window.updateLsRow=function(i,k,v){if(k==='n')rows[i].n=v;else rows[i].d=v;updateLsRemain(pastMin);};
+  window.addLsRow=function(){rows.push({n:opts[0]||'空闲',d:10});renderLsRows();};
+  window.rmLsRow=function(i){rows.splice(i,1);renderLsRows();};
+  window.updateLsRemain=function(pastMin){
+    const filled=rows.reduce((s,r)=>s+(r.d||0),0);
+    const left=Math.max(0,pastMin-filled);
+    document.getElementById('lsLeft').textContent=left;
+    document.getElementById('lsShift').textContent=left;
+    lateShift=left;
+  };
+  renderLsRows();
+  oM('lateModal');
+}
+window.processLateStart=function(){
+  const pastMin=parseInt(document.getElementById('lsPast').textContent)||0;
+  const filled=document.querySelectorAll('#lsRows .ls-row').length>0?(()=>{
+    const rows=document.querySelectorAll('#lsRows .ls-row');
+    let total=0;
+    rows.forEach(r=>{const inp=r.querySelector('.ti-n');if(inp)total+=parseInt(inp.value)||0;});
+    return total;
+  })():0;
+  const left=Math.max(0,pastMin-filled);
+  // Build past sch entries for what user already did
+  const pastEntries=[];
+  document.querySelectorAll('#lsRows .ls-row').forEach(r=>{
+    const sel=r.querySelector('select');const inp=r.querySelector('.ti-n');
+    if(!sel||!inp)return;
+    const name=sel.value;const dur=parseInt(inp.value)||0;
+    if(dur>0&&name!=='__idle'){
+      // Find the task in ses/deduct
+      const wsT=lateWs;
+      pastEntries.push({s:m2t(wsT),e:m2t(wsT+dur),t:name,ty:'s',d:false});
+      // Deduct from ses total - reduce a matching ses block
+      for(let si=0;si<lateSes.length;si++){
+        if(lateSes[si].n===name){
+          lateSes[si].d=Math.max(0,lateSes[si].d-dur);
+          if(lateSes[si].d<=0){lateSes.splice(si,1);}
+          break;
+        }
+      }
+    }else if(dur>0&&name==='__idle'){
+      pastEntries.push({s:m2t(lateWs),e:m2t(lateWs+dur),t:'空闲',ty:'b',d:false});
+    }
+  });
+  cM('lateModal');
+  // Proceed with generation using shift
+  doGenerate(lateWs+left,lateSes,left);
+};
+window.skipLateStart=function(){
+  const pastMin=parseInt(document.getElementById('lsPast').textContent)||0;
+  cM('lateModal');
+  doGenerate(lateWs+pastMin,lateSes,pastMin);
+};
+
 // ===== GACHA GENERATOR =====
+function doGenerate(startMin,ses,shift){
+  const ws=startMin,we=t2m(cfg.we);let avail=we-ws;
+  const sB=[...cfg.bigs].filter(b=>t2m(b.s)>=t2m(cfg.ws)&&t2m(b.e)<=we);
+  sB.forEach(b=>avail-=t2m(b.e)-t2m(b.s));
+  if(avail<=0){msg('工作时间不足');return;}
+  const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
+  if(totalS+brm>avail){msg(`时间不足！需要${totalS+brm}分，可用${avail}分`);return;}
+  showGacha(ses.map(s=>s.n));
+  setTimeout(()=>{
+    let sch=[],cur=ws,bi=0;const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
+    ses.forEach((s,i)=>{
+      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){const br=sorted[bi];sch.push({s:m2t(t2m(br.s)),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
+      const end=cur+s.d;sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'s',d:false,id:s.id});cur=end;
+      if(i<ses.length-1){let be=cur+cfg.bd;let ov=false;for(let b of sorted){if(cur>=t2m(b.s)&&cur<t2m(b.e)){ov=true;break;}}if(!ov){sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});cur=be;}}
+    });
+    while(bi<sorted.length){const br=sorted[bi];if(cur<t2m(br.s))cur=t2m(br.s);
+      sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
+    st.sch=sch;st.run=false;st.ci=-1;sv();renderGenPreview();msg(`✅ ${sch.length}个时段`);closeGacha();
+    // Add past entries to sch for display in executor
+    // Past entries are prepended
+    if(shift>0){
+      const pastMin=shift;
+      const wsT=t2m(cfg.ws);
+      st.sch.unshift({s:m2t(wsT),e:m2t(wsT+pastMin),t:'已过去（空闲）',ty:'b',d:true});
+    }
+    document.getElementById('viewGen').classList.remove('a');
+    document.getElementById('viewExec').classList.add('a');
+    initExec();
+  },1200);
+}
 function generate(){
   cfg.ws=document.getElementById('ws').value;cfg.we=document.getElementById('we').value;
   cfg.bd=parseInt(document.getElementById('bd').value)||15;sv();
@@ -629,23 +772,15 @@ function generate(){
   if(!ses.length){msg('今天没有勾选的任务');return;}
   const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
   if(totalS+brm>avail){msg(`时间不足！需要${totalS+brm}分，可用${avail}分`);return;}
+  // Check for late start
+  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
+  if(curMin>ws+5){
+    // Late start detected - show modal
+    openLateModal(ws,sB,sel,tm,ses);
+    return;
+  }
   ses=sh(ses);
-  showGacha(ses.map(s=>s.n));
-  setTimeout(()=>{
-    let sch=[],cur=ws,bi=0;const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
-    ses.forEach((s,i)=>{
-      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){const br=sorted[bi];sch.push({s:m2t(t2m(br.s)),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
-      const end=cur+s.d;sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'s',d:false,id:s.id});cur=end;
-      if(i<ses.length-1){let be=cur+cfg.bd;let ov=false;for(let b of sorted){if(cur>=t2m(b.s)&&cur<t2m(b.e)){ov=true;break;}}if(!ov){sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});cur=be;}}
-    });
-    while(bi<sorted.length){const br=sorted[bi];if(cur<t2m(br.s))cur=t2m(br.s);
-      sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
-    st.sch=sch;st.run=false;st.ci=-1;sv();renderGenPreview();msg(`✅ ${sch.length}个时段`);closeGacha();
-    // Auto-switch to executor
-    document.getElementById('viewGen').classList.remove('a');
-    document.getElementById('viewExec').classList.add('a');
-    initExec();
-  },1200);
+  doGenerate(ws,ses,0);
 }
 function reroll(){if(st.sch.length)generate();}
 function showGacha(names){const el=document.getElementById('gachaCards');
