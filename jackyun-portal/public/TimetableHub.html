@@ -646,7 +646,8 @@ function rmTmp(i){st.tmps.splice(i,1);sv();renderTog();}
 // ===== LATE START HANDLING =====
 let lateSes=[],lateShift=0,lateWs=0;
 function openLateModal(ws,sB,sel,tm,ses){
-  lateSes=ses;lateShift=0;lateWs=ws;
+  lateSes=JSON.parse(JSON.stringify(ses)); // deep clone so modifications don't affect original
+  lateShift=0;lateWs=ws;
   const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
   const pastMin=Math.max(0,curMin-ws);
   document.getElementById('lsWs').textContent=m2t(ws);
@@ -657,7 +658,6 @@ function openLateModal(ws,sB,sel,tm,ses){
   // Create rows for user to fill
   const cont=document.getElementById('lsRows');
   const rows=[{n:'空闲',d:0}];
-  // Auto-add one row
   function renderLsRows(){
     cont.innerHTML=rows.map((r,i)=>{
       const selOpts=opts.map(o=>`<option value="${esc(o)}"${r.n===o?' selected':''}>${esc(o)}</option>`).join('');
@@ -668,7 +668,6 @@ function openLateModal(ws,sB,sel,tm,ses){
         <button class="btn-ico" onclick="rmLsRow(${i})"><span class="material-icons-round" style="font-size:14px;">close</span></button>
       </div>`;
     }).join('');
-    // Add add-btn
     cont.innerHTML+=`<button class="btn btn-t btn-xs" onclick="addLsRow()" style="margin-top:2px;">+ 添加任务</button>`;
     updateLsRemain(pastMin);
   }
@@ -686,25 +685,22 @@ function openLateModal(ws,sB,sel,tm,ses){
   oM('lateModal');
 }
 window.processLateStart=function(){
-  const pastMin=parseInt(document.getElementById('lsPast').textContent)||0;
-  const filled=document.querySelectorAll('#lsRows .ls-row').length>0?(()=>{
-    const rows=document.querySelectorAll('#lsRows .ls-row');
-    let total=0;
-    rows.forEach(r=>{const inp=r.querySelector('.ti-n');if(inp)total+=parseInt(inp.value)||0;});
-    return total;
-  })():0;
+  // Recalculate pastMin from current time (not stale DOM value)
+  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
+  const pastMin=Math.max(0,curMin-lateWs);
+  // Read filled minutes from modal
+  let filled=0;
+  document.querySelectorAll('#lsRows .ls-row').forEach(r=>{
+    const inp=r.querySelector('.ti-n');
+    if(inp)filled+=parseInt(inp.value)||0;
+  });
   const left=Math.max(0,pastMin-filled);
-  // Build past sch entries for what user already did
-  const pastEntries=[];
+  // Deduct filled tasks from lateSes
   document.querySelectorAll('#lsRows .ls-row').forEach(r=>{
     const sel=r.querySelector('select');const inp=r.querySelector('.ti-n');
     if(!sel||!inp)return;
     const name=sel.value;const dur=parseInt(inp.value)||0;
     if(dur>0&&name!=='__idle'){
-      // Find the task in ses/deduct
-      const wsT=lateWs;
-      pastEntries.push({s:m2t(wsT),e:m2t(wsT+dur),t:name,ty:'s',d:false});
-      // Deduct from ses total - reduce a matching ses block
       for(let si=0;si<lateSes.length;si++){
         if(lateSes[si].n===name){
           lateSes[si].d=Math.max(0,lateSes[si].d-dur);
@@ -712,45 +708,74 @@ window.processLateStart=function(){
           break;
         }
       }
-    }else if(dur>0&&name==='__idle'){
-      pastEntries.push({s:m2t(lateWs),e:m2t(lateWs+dur),t:'空闲',ty:'b',d:false});
     }
   });
   cM('lateModal');
-  // Proceed with generation using shift
   doGenerate(lateWs+left,lateSes,left);
 };
 window.skipLateStart=function(){
-  const pastMin=parseInt(document.getElementById('lsPast').textContent)||0;
+  // Recalculate pastMin from current time
+  const now=new Date();const curMin=now.getHours()*60+now.getMinutes();
+  const pastMin=Math.max(0,curMin-lateWs);
   cM('lateModal');
   doGenerate(lateWs+pastMin,lateSes,pastMin);
 };
 
 // ===== GACHA GENERATOR =====
 function doGenerate(startMin,ses,shift){
-  const ws=startMin,we=t2m(cfg.we);let avail=we-ws;
-  const sB=[...cfg.bigs].filter(b=>t2m(b.s)>=t2m(cfg.ws)&&t2m(b.e)<=we);
-  sB.forEach(b=>avail-=t2m(b.e)-t2m(b.s));
+  const ws=startMin,we=t2m(cfg.we);
+  // Filter big breaks that are in the future relative to startMin
+  const sB=[...cfg.bigs].filter(b=>t2m(b.s)>=ws&&t2m(b.e)<=we||(t2m(b.e)>ws&&t2m(b.s)<=we));
+  // Calculate available time: we-ws minus any big break portion AFTER startMin
+  let avail=we-ws;
+  sB.forEach(b=>{
+    let bs=Math.max(ws,t2m(b.s));
+    let be=Math.min(we,t2m(b.e));
+    if(be>bs)avail-=(be-bs);
+  });
   if(avail<=0){msg('工作时间不足');return;}
   const totalS=ses.reduce((s,x)=>s+x.d,0),bc=ses.length-1,brm=bc*cfg.bd;
-  if(totalS+brm>avail){msg(`时间不足！需要${totalS+brm}分，可用${avail}分`);return;}
+  if(totalS+brm>avail){
+    // Allow 30 min grace before blocking
+    if(totalS+brm>avail+30){msg(`时间不足！需要${totalS+brm}分，可用${avail}分，超出${totalS+brm-avail}分`);return;}
+    msg(`⚠️ 超出${totalS+brm-avail}分，尝试生成`);
+  }
   showGacha(ses.map(s=>s.n));
   setTimeout(()=>{
-    let sch=[],cur=ws,bi=0;const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
+    let sch=[],cur=ws,bi=0;
+    const sorted=[...sB].sort((a,b)=>t2m(a.s)-t2m(b.s));
     ses.forEach((s,i)=>{
-      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){const br=sorted[bi];sch.push({s:m2t(t2m(br.s)),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
+      // Insert any big breaks that overlap with current cur
+      while(bi<sorted.length&&cur>=t2m(sorted[bi].s)){
+        const br=sorted[bi];
+        if(cur>=t2m(br.e)){bi++;continue;} // break already fully in the past - skip
+        // Break is partially past: insert from cur to br.e
+        if(cur<t2m(br.e)){
+          sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});
+          cur=t2m(br.e);
+        }
+        bi++;
+      }
       const end=cur+s.d;sch.push({s:m2t(cur),e:m2t(end),t:s.n,ty:'s',d:false,id:s.id});cur=end;
-      if(i<ses.length-1){let be=cur+cfg.bd;let ov=false;for(let b of sorted){if(cur>=t2m(b.s)&&cur<t2m(b.e)){ov=true;break;}}if(!ov){sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});cur=be;}}
+      // Small break only if no big break overlaps
+      if(i<ses.length-1){
+        let ov=false;
+        for(let b of sorted){if(cur>t2m(b.s)&&cur<t2m(b.e)){ov=true;break;}}
+        if(!ov){let be=cur+cfg.bd;sch.push({s:m2t(cur),e:m2t(be),t:'小休息',ty:'b',d:false});cur=be;}
+      }
     });
-    while(bi<sorted.length){const br=sorted[bi];if(cur<t2m(br.s))cur=t2m(br.s);
-      sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);bi++;}
+    // Remaining big breaks after all sessions
+    while(bi<sorted.length){const br=sorted[bi];
+      if(cur<t2m(br.s))cur=t2m(br.s);
+      if(cur<t2m(br.e)){sch.push({s:m2t(cur),e:m2t(t2m(br.e)),t:br.n,ty:'b',d:false});cur=t2m(br.e);}
+      bi++;}
+    // Sort by start time to avoid any ordering issues
+    sch.sort((a,b)=>t2m(a.s)-t2m(b.s));
     st.sch=sch;st.run=false;st.ci=-1;sv();renderGenPreview();msg(`✅ ${sch.length}个时段`);closeGacha();
-    // Add past entries to sch for display in executor
-    // Past entries are prepended
+    // Prepend past-idle entry if shifted
     if(shift>0){
-      const pastMin=shift;
       const wsT=t2m(cfg.ws);
-      st.sch.unshift({s:m2t(wsT),e:m2t(wsT+pastMin),t:'已过去（空闲）',ty:'b',d:true});
+      st.sch.unshift({s:m2t(wsT),e:m2t(wsT+shift),t:'已过去（空闲）',ty:'b',d:true});
     }
     document.getElementById('viewGen').classList.remove('a');
     document.getElementById('viewExec').classList.add('a');
