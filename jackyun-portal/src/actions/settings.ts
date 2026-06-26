@@ -144,6 +144,9 @@ export async function updateProfile(
       // non-fatal, profiles already updated
     }
 
+    // Force refresh the session so new metadata is available immediately
+    await supabase.auth.refreshSession();
+
     revalidatePath('/settings');
     revalidatePath('/dashboard');
     return { success: true, error: null };

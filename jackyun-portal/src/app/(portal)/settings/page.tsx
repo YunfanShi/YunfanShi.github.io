@@ -3,7 +3,7 @@ import { checkHasPassword } from '@/actions/auth';
 import { getAiConfig, getSidebarPreferences } from '@/actions/settings';
 import { createClient } from '@/lib/supabase/server';
 import AiConfigPanel from '@/components/settings/ai-config-panel';
-import ProfileEditor from '@/components/settings/profile-editor';
+import NameEditor from '@/components/settings/name-editor';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import ExportDataPanel from '@/components/settings/export-data-panel';
 import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
@@ -58,8 +58,11 @@ export default async function SettingsPage() {
         <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">账户与应用配置</p>
       </div>
 
-      {/* 头像编辑暂时隐藏（Vercel 494 错误排查中） */}
-      {/* <ProfileSection initialName={displayName} initialAvatar={avatarUrl} userId={userId} /> */}
+      {/* 个人资料 - 仅名字编辑（不含头像，头像有已知问题） */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="person" title="个人资料" />
+        <NameEditor initialName={displayName} />
+      </section>
 
       {/* 账户安全 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
@@ -127,12 +130,4 @@ export default async function SettingsPage() {
   );
 }
 
-function ProfileSection({ initialName, initialAvatar, userId }: { initialName: string; initialAvatar: string; userId: string }) {
-  return (
-    <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
-      <SectionHeader icon="person" title="个人资料" />
-      <ProfileEditor initialName={initialName} initialAvatar={initialAvatar} userId={userId} />
-    </section>
-  );
-}
 
