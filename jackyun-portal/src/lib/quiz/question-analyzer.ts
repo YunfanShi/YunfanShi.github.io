@@ -1,6 +1,7 @@
 'use client';
 
 import { AnalyzedQuestion, QuestionType } from '@/types/quiz';
+import { callAiApi } from '@/lib/ai-config';
 
 /**
  * Attempt to repair broken JSON from AI responses.
@@ -278,27 +279,25 @@ export interface FeedbackResult {
 }
 
 /**
- * Call LLM proxy - proxy reads AI config from Supabase user_settings
+ * Call LLM directly from browser using user's own AI config from localStorage
  */
 async function callLLM(messages: Array<{ role: string; content: string }>, options: {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
 } = {}): Promise<string> {
-  const res = await fetch('/api/llm-proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      temperature: options.temperature ?? 0.1,
-      max_tokens: options.max_tokens ?? 2000,
-      stream: options.stream ?? false,
-      messages,
-    }),
-  });
+  const res = await callAiApi(messages, options);
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}`);
+    const text = await res.text().catch(() => '');
+    let errMsg: string;
+    try {
+      const err = JSON.parse(text);
+      errMsg = err.error?.message ?? err.message ?? `HTTP ${res.status}`;
+    } catch {
+      errMsg = text || `HTTP ${res.status}`;
+    }
+    throw new Error(errMsg);
   }
 
   const data = await res.json();

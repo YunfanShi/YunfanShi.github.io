@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { callAiApi, getAiConfig } from '@/lib/ai-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
@@ -60,18 +61,23 @@ export default function AiChatFab() {
     }
 
     try {
-      const res = await fetch('/api/llm-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages,
-          stream: true,
-        }),
-      });
+      const config = getAiConfig();
+      if (!config.baseUrl || !config.apiKey) {
+        throw new Error('请先在设置页面配置 AI API Key');
+      }
+
+      const res = await callAiApi(newMessages, { stream: true });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: { message?: string } }).error?.message ?? `HTTP ${res.status}: 请前往设置页面配置 AI API Key`);
+        const text = await res.text().catch(() => '');
+        let errMsg: string;
+        try {
+          const err = JSON.parse(text);
+          errMsg = err.error?.message ?? err.message ?? `HTTP ${res.status}`;
+        } catch {
+          errMsg = text || `HTTP ${res.status}`;
+        }
+        throw new Error(errMsg);
       }
 
       const reader = res.body?.getReader();

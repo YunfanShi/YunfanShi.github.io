@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { saveAiConfig } from '@/actions/settings';
+import { getAiConfig, saveAiConfig } from '@/lib/ai-config';
 
 interface AiConfigPanelProps {
   initialBaseUrl: string;
@@ -136,11 +136,11 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setError(null);
     setMessage(null);
 
-    const result = await saveAiConfig(baseUrl.trim(), apiKey.trim(), model.trim());
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setMessage('AI 配置已保存');
+    try {
+      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() });
+      setMessage('AI 配置已保存到本地浏览器');
+    } catch {
+      setError('保存失败');
     }
     setLoading(false);
   }
@@ -202,7 +202,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
           )}
         </div>
         <p className="text-xs text-[var(--muted-foreground)] mt-1">
-          你的 API Key 仅保存在你的账户中，不会与其他用户共享
+          你的 API Key 仅保存在此浏览器中，不会上传到任何服务器
         </p>
       </div>
       <div>
