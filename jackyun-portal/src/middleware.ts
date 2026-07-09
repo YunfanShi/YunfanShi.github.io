@@ -21,6 +21,13 @@ function hasSupabaseCookies(request: NextRequest): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ── Guest mode check ──
+  // If the user has a guest cookie, skip all auth checks and let them through
+  const isGuest = request.cookies.get('guest')?.value === '1';
+  if (isGuest) {
+    return NextResponse.next();
+  }
+
   // ── Early return for public routes ──
   // Avoid creating a Supabase client and writing cookies for unauthenticated/public traffic.
   // This prevents cookie header bloat that can lead to Vercel 494 REQUEST_HEADER_TOO_LARGE.

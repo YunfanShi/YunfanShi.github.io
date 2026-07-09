@@ -64,7 +64,7 @@ export default function Topbar({ user }: TopbarProps) {
             </span>
           </button>
         )}
-        {user && (
+        {user ? (
           <>
             <UserAvatar user={user} />
             <form action={signOut}>
@@ -77,6 +77,14 @@ export default function Topbar({ user }: TopbarProps) {
               </button>
             </form>
           </>
+        ) : (
+          <a
+            href="/login"
+            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <span className="material-icons-round text-lg">account_circle</span>
+            <span className="hidden sm:inline">登录 / 注册</span>
+          </a>
         )}
       </div>
     </header>

@@ -1,6 +1,7 @@
 import LoginButton from '@/components/auth/login-button';
 import GoogleLoginButton from '@/components/auth/google-login-button';
 import EmailLoginForm from '@/components/auth/email-login-form';
+import GuestLoginButton from '@/components/auth/guest-login-button';
 
 export default function LoginPage() {
   return (
@@ -46,7 +47,17 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[var(--muted-foreground)]">
+        {/* Guest Entry - No Account Needed */}
+        <div className="mt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-[var(--card-border)]" />
+            <span className="text-xs text-[var(--muted-foreground)]">也可以</span>
+            <div className="flex-1 h-px bg-[var(--card-border)]" />
+          </div>
+          <GuestLoginButton />
+        </div>
+
+        <p className="mt-4 text-center text-xs text-[var(--muted-foreground)]">
           仅限授权用户访问
         </p>
       </div>
