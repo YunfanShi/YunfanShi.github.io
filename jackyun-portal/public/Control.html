@@ -28,7 +28,7 @@
             width: 350px; background: #fff; border-right: 1px solid #e0e0e0; 
             display: flex; flex-direction: column; z-index: 20; 
             box-shadow: 4px 0 24px rgba(0,0,0,0.02); flex-shrink: 0; 
-            height: 100vh; /* Critical: Full Height */
+            height: 100vh;
         }
         
         .player-header { padding: 20px; background: #242424; color: white; flex-shrink: 0; }
@@ -55,16 +55,16 @@
 
         /* Flexible Iframe Container */
         .iframe-container { 
-            flex: 1; /* Takes all available space */
+            flex: 1;
             background: #000; display: flex; justify-content: center; 
-            overflow: hidden; position: relative; min-height: 0; /* Important for flex overflow */
+            overflow: hidden; position: relative; min-height: 0;
         }
         
         /* Settings Area Pinned to Bottom */
         .settings-area { 
             padding: 15px; background: #f9f9f9; border-top: 1px solid #eee; 
             font-size: 13px; display: flex; flex-direction: column; gap: 10px; 
-            flex-shrink: 0; /* NEVER SHRINK */
+            flex-shrink: 0;
         }
         .setting-row { display: flex; justify-content: space-between; align-items: center; color: #555; font-weight: bold; }
         .setting-btn { border: none; background: #eee; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 4px;}
@@ -72,6 +72,66 @@
         .setting-btn.active { background: #d1e7dd; color: #0f5132; }
         
         .tts-select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; background: white; margin-top: 5px;}
+
+        /* === Song Pool Modal === */
+        .song-pool-btn {
+            background: #e8f0fe;
+            color: #1967d2;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .song-pool-btn:hover { background: #d2e3fc; }
+
+        .panel-overlay {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            display: none; align-items: flex-end; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .panel-overlay.active { display: flex; }
+        .panel-sheet {
+            background: white; border-radius: 24px 24px 0 0; width: 100%; max-width: 500px;
+            max-height: 70vh; overflow-y: auto; padding: 24px;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .panel-sheet h3 { margin: 0 0 16px; font-size: 18px; font-weight: 700; text-align: center; }
+        .add-song-row { display: flex; gap: 8px; margin-bottom: 16px; }
+        .add-song-row input {
+            flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none;
+        }
+        .add-song-row input:focus { border-color: var(--md-primary); }
+        .add-song-btn {
+            background: var(--md-primary); color: white; border: none;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;
+        }
+        .add-song-btn:hover { background: #a00000; }
+
+        .song-list { display: flex; flex-direction: column; gap: 6px; }
+        .song-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #f5f5f5; padding: 8px 12px; border-radius: 8px; font-size: 13px;
+        }
+        .song-item .song-name { font-weight: 500; }
+        .song-item .song-id { color: #999; font-family: 'Roboto Mono', monospace; font-size: 11px; margin-left: 8px; }
+        .song-item .song-del {
+            background: none; border: none; color: var(--md-primary); cursor: pointer; font-size: 16px; padding: 4px;
+        }
+        .song-empty { text-align: center; color: #aaa; font-size: 13px; padding: 30px; }
+        .panel-close-btn {
+            width: 100%; padding: 10px; border: none; background: #eee; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;
+        }
+        .panel-close-btn:hover { background: #ddd; }
 
         /* === MAIN CONTENT === */
         main { flex: 1; padding: 30px 40px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; position: relative; }
@@ -87,12 +147,11 @@
             background: white; border-radius: 20px; padding: 40px; text-align: center; 
             box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; position: relative; 
             display: flex; flex-direction: column; justify-content: center;
-            min-height: 300px; /* Ensure height */
+            min-height: 300px;
         }
         .timer-card.finished-mode { border-color: var(--color-done); background: #f0fdf4; }
         
         .timer-digits { 
-            /* Fix: Clamp font size to prevent explosion */
             font-size: clamp(60px, 15vw, 120px); 
             font-family: 'Inter', sans-serif; font-weight: 900; color: #333; 
             line-height: 1.1; letter-spacing: -4px; font-variant-numeric: tabular-nums; 
@@ -173,8 +232,8 @@
 <div id="immersive-overlay" style="opacity: 1; pointer-events: auto; background: #111;">
     <div class="overlay-content">
         <span class="material-icons-round big-icon" style="color:var(--md-primary)">security</span>
-        <h1 class="overlay-title">Warden V10.2</h1>
-        <p class="overlay-quote" style="font-family:sans-serif;">Network Time Enforced • Auto-Finish Logic</p>
+        <h1 class="overlay-title">Warden V10.3</h1>
+        <p class="overlay-quote" style="font-family:sans-serif;">Network Time Enforced • Custom Song Pool</p>
         <button onclick="initSystem()" style="margin-top:40px; padding: 15px 50px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; box-shadow: 0 10px 30px rgba(194, 12, 12, 0.4);">
             Initialize System
         </button>
@@ -193,11 +252,32 @@
     </div>
 </div>
 
+<!-- Song Pool Manager Panel -->
+<div class="panel-overlay" id="songPoolPanel" onclick="if(event.target===this) closeSongPool()">
+    <div class="panel-sheet">
+        <h3>🎵 我的歌曲池</h3>
+        <p style="font-size:12px; color:#888; text-align:center; margin-bottom:16px;">
+            添加歌曲名称和网易云歌曲 ID，休息时随机播放
+        </p>
+        <div class="add-song-row">
+            <input type="text" id="songNameInput" placeholder="歌曲名称 (如 晴天)" style="min-width:0;">
+            <input type="text" id="songIdInput" placeholder="歌曲 ID (如 186001)" style="min-width:0; max-width:100px;">
+            <button class="add-song-btn" onclick="addSongToPool()">添加</button>
+        </div>
+        <div class="song-list" id="songPoolList">
+            <!-- populated by JS -->
+        </div>
+        <button class="panel-close-btn" onclick="closeSongPool()">关闭</button>
+    </div>
+</div>
+
 <aside>
     <div class="player-header">
         <div class="player-title"><span class="material-icons-round" style="color:var(--md-primary)">library_music</span> MEDIA CONTROL</div>
         <div class="playlist-control">
             <select id="playlist-picker" class="playlist-select" onchange="changePlaylist(this.value)">
+                <option value="17652191106">🎵 High-Quality Music Collection</option>
+                <option value="17959109602">⏳ Limited Time Playlist</option>
                 <option value="17723303753">Timetable Pack (Default)</option>
                 <option value="17704807303">逆水寒·战斗 (Combat)</option>
                 <option value="17672788372">逆水寒·前200 (Top 200)</option>
@@ -225,6 +305,13 @@
         <div class="setting-row" style="margin-top:10px;">
             <span>Auto-Confirm BGM</span>
             <button id="btn-auto-bgm" class="setting-btn active" onclick="toggleSetting('autoBgm')">ON</button>
+        </div>
+
+        <div class="setting-row">
+            <span><span class="material-icons-round" style="font-size:14px;">library_music</span> 歌曲池</span>
+            <button class="song-pool-btn" onclick="openSongPool()">
+                <span class="material-icons-round" style="font-size:14px;">edit</span> 管理
+            </button>
         </div>
         
         <div class="setting-row">
@@ -261,6 +348,16 @@
 </main>
 
 <script>
+    /* ======================== 0. VERSION CONTROL ======================== */
+    const SCHEDULE_VERSION = '20260709-v3';
+    const cachedVersion = localStorage.getItem('w3_version');
+    if (cachedVersion !== SCHEDULE_VERSION) {
+        localStorage.removeItem('w3_schedule');
+        localStorage.removeItem('w3_date');
+        localStorage.setItem('w3_version', SCHEDULE_VERSION);
+        console.log('[Schedule] Version mismatch, cache cleared.');
+    }
+
     /* ======================== 1. CONFIG & DATA ======================== */
     const AUTO_BGM_LIST = [
         {id: 2640844158, name: "天阙万钧 (九光寒林·战斗)"},
@@ -287,6 +384,67 @@
         "6": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}]
     };
 
+    /* ======================== SONG POOL MANAGEMENT ======================== */
+    function getSongPool() {
+        return JSON.parse(localStorage.getItem('w3_song_pool') || '[]');
+    }
+    function saveSongPool(pool) {
+        localStorage.setItem('w3_song_pool', JSON.stringify(pool));
+    }
+
+    function openSongPool() {
+        document.getElementById('songPoolPanel').classList.add('active');
+        renderSongPool();
+    }
+    function closeSongPool() {
+        document.getElementById('songPoolPanel').classList.remove('active');
+    }
+
+    function addSongToPool() {
+        const name = document.getElementById('songNameInput').value.trim();
+        const id = document.getElementById('songIdInput').value.trim();
+        if (!name || !id || isNaN(id)) {
+            alert('请填写歌曲名称和有效的网易云歌曲 ID');
+            return;
+        }
+        const pool = getSongPool();
+        if (pool.find(s => s.id === id)) {
+            alert('该歌曲 ID 已存在');
+            return;
+        }
+        pool.push({ id, name });
+        saveSongPool(pool);
+        document.getElementById('songNameInput').value = '';
+        document.getElementById('songIdInput').value = '';
+        renderSongPool();
+    }
+
+    function removeSongFromPool(idx) {
+        const pool = getSongPool();
+        pool.splice(idx, 1);
+        saveSongPool(pool);
+        renderSongPool();
+    }
+
+    function renderSongPool() {
+        const container = document.getElementById('songPoolList');
+        const pool = getSongPool();
+        if (pool.length === 0) {
+            container.innerHTML = '<div class="song-empty">还没有添加歌曲，快来添加吧 🎵</div>';
+            return;
+        }
+        container.innerHTML = pool.map((s, idx) => `
+            <div class="song-item">
+                <div>
+                    <span class="song-name">${s.name}</span>
+                    <span class="song-id">ID: ${s.id}</span>
+                </div>
+                <button class="song-del" onclick="removeSongFromPool(${idx})">&times;</button>
+            </div>
+        `).join('');
+    }
+
+    /* ======================== STATE ======================== */
     let STATE = {
         schedule: JSON.parse(localStorage.getItem('w3_schedule')) || [],
         voiceUri: localStorage.getItem('w3_voice') || '',
@@ -298,11 +456,11 @@
         autoBgmConfirm: localStorage.getItem('w10_autobgm') !== 'false', 
         bgmPromptActive: false,
         bgmPromptTimeout: null,
-        mode: 'standard', // 'standard', 'finished'
-        timeOffset: 0 // Server Time - Local Time
+        mode: 'standard',
+        timeOffset: 0
     };
 
-    /* ======================== 2. NETWORK TIME SYNC (REQUIRED) ======================== */
+    /* ======================== 2. NETWORK TIME SYNC ======================== */
     async function syncServerTime() {
         const dot = document.getElementById('sync-status');
         dot.className = 'sync-dot';
@@ -313,21 +471,16 @@
             const data = await res.json();
             const serverTime = new Date(data.datetime).getTime();
             const end = Date.now();
-            
-            // Calculate offset (server time - local time)
-            // Adjusting for latency (approx half RTT)
             STATE.timeOffset = serverTime - end + (end - start) / 2;
-            
             dot.className = 'sync-dot synced';
             console.log(`[TimeSync] Offset: ${STATE.timeOffset}ms`);
         } catch (e) {
             console.warn("[TimeSync] Failed, using local.", e);
             dot.className = 'sync-dot error';
-            STATE.timeOffset = 0; // Fallback to 0 if failed
+            STATE.timeOffset = 0;
         }
     }
 
-    // Critical: Get Acccurate Time
     function getNow() {
         return new Date(Date.now() + STATE.timeOffset);
     }
@@ -338,7 +491,6 @@
         overlay.style.opacity = '0';
         setTimeout(() => overlay.style.display = 'none', 600);
 
-        // Network Time Check
         syncServerTime();
 
         const today = getNow().toDateString();
@@ -360,7 +512,7 @@
         window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
         
         loadCustomPlaylists();
-        changePlaylist("17723303753");
+        changePlaylist("17652191106");
         STATE.bgmPlayer.onended = playRandomTrack;
         
         setupMediaKeys();
@@ -378,7 +530,6 @@
         const curS = now.getSeconds();
         const curTotalS = curM * 60 + curS;
 
-        // 1. Buffer Logic
         const nextStudy = STATE.schedule.find(s => s.type === 'study' && !s.done && timeToMinutes(s.start) > curM);
         if (nextStudy) {
             const startM = timeToMinutes(nextStudy.start);
@@ -396,7 +547,6 @@
             }
         }
 
-        // 2. BGM Prompt
         const nextBreak = STATE.schedule.find(s => s.type === 'break' && !s.done && timeToMinutes(s.start) > curM);
         if (nextBreak) {
             const startS = timeToMinutes(nextBreak.start) * 60;
@@ -406,21 +556,17 @@
             }
         }
 
-        // 3. Current Task
         const currentSlot = STATE.schedule.find(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
 
         if (currentSlot) {
-            // FINISH EARLY LOGIC CHECK
             if (currentSlot.done) {
-                // If marked done, we enter 'finished' mode immediately
                 if (STATE.mode !== 'finished') {
                     enterFinishedMode(currentSlot);
                 }
                 updateTimer("COMPLETED - REST", 0, 100, false);
-                return; // Stop processing to avoid overwriting UI
+                return;
             } 
             
-            // Normal Active Logic
             STATE.mode = 'standard';
             document.getElementById('main-card').classList.remove('finished-mode');
             document.getElementById('btn-early').classList.add('visible');
@@ -435,7 +581,7 @@
                 } else {
                     triggerImmersiveAlert('break', currentSlot.task);
                     speak("Break time.");
-                    document.getElementById('btn-early').classList.remove('visible'); // No finish early for breaks
+                    document.getElementById('btn-early').classList.remove('visible');
                     if (STATE.autoBgmConfirm && STATE.bgmPlayer.paused) playRandomTrack();
                 }
                 highlightRow(currentSlot);
@@ -453,7 +599,7 @@
         }
     }
 
-    /* ======================== 5. FINISH EARLY LOGIC (NEW) ======================== */
+    /* ======================== 5. FINISH EARLY LOGIC ======================== */
     function finishTaskEarly() {
         const now = getNow();
         const curM = now.getHours()*60 + now.getMinutes();
@@ -461,10 +607,10 @@
         
         if (idx > -1) {
             const task = STATE.schedule[idx];
-            task.done = true; // Mark done
+            task.done = true;
             saveSchedule();
             renderTable();
-            enterFinishedMode(task); // Trigger mode switch immediately
+            enterFinishedMode(task);
             speak("Task completed early. Entering rest mode.");
         }
     }
@@ -476,7 +622,6 @@
         triggerImmersiveAlert('done', "Task Completed");
         highlightRow(task);
         
-        // Auto Play Music if it was a Study task
         if (task.type === 'study' && STATE.bgmPlayer.paused) {
             playRandomTrack();
         }
@@ -585,8 +730,16 @@
         }
     }
 
+    /* ======================== MUSIC: RANDOM FROM SONG POOL ======================== */
     function playRandomTrack() {
-        const track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
+        const pool = getSongPool();
+        let track;
+        // If song pool is not empty, pick from pool; otherwise fallback to built-in list
+        if (pool.length > 0) {
+            track = pool[Math.floor(Math.random() * pool.length)];
+        } else {
+            track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
+        }
         updateAutoPlayInfo(track.name);
         STATE.bgmPlayer.src = `https://music.163.com/song/media/outer/url?id=${track.id}.mp3`;
         STATE.bgmPlayer.play().catch(console.error);
@@ -678,7 +831,7 @@
     }
     function loadCustomPlaylists() {
         const select = document.getElementById('playlist-picker');
-        while(select.options.length > 4) select.remove(4);
+        while(select.options.length > 6) select.remove(6);
         STATE.customPlaylists.forEach(p => {
             const option = document.createElement('option');
             option.value = p.id;
