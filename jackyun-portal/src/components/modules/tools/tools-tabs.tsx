@@ -4,11 +4,13 @@ import { useState } from 'react';
 import TextTools from '@/components/modules/tools/text-tools';
 import TimeSync from '@/components/modules/tools/time-sync';
 import ClipboardShare from '@/components/modules/tools/clipboard-share';
+import MarkdownToWord from '@/components/modules/tools/markdown-to-word';
 
 const TABS = [
   { id: 'text', label: '文本工具', icon: 'text_snippet', color: '#4285F4' },
   { id: 'time', label: '时间同步', icon: 'schedule', color: '#34A853' },
   { id: 'clipboard', label: '剪贴板', icon: 'content_paste', color: '#FBBC05' },
+  { id: 'md2word', label: 'Markdown 转 Word', icon: 'description', color: '#8E24AA' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -50,6 +52,7 @@ export default function ToolsTabs() {
         {active === 'text' && <TextTools />}
         {active === 'time' && <TimeSync />}
         {active === 'clipboard' && <ClipboardShare />}
+        {active === 'md2word' && <MarkdownToWord />}
       </div>
     </div>
   );
