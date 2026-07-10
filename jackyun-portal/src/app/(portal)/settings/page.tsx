@@ -10,6 +10,7 @@ import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-sect
 import LoggerViewerWrapper from '@/components/settings/logger-viewer-wrapper';
 import FullscreenToggle from '@/components/settings/fullscreen-toggle';
 import SidebarPrefsPanel from '@/components/settings/sidebar-prefs-panel';
+import TtsConfigPanel from '@/components/settings/tts-config-panel';
 
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
@@ -99,6 +100,12 @@ export default async function SettingsPage() {
 
       {/* 模块显示偏好 */}
       <SidebarPrefsPanel initialPrefs={sidebarPrefs} />
+
+      {/* 语音设置 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="record_voice_over" title="语音设置" />
+        <TtsConfigPanel />
+      </section>
 
       {/* 更新日志 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">

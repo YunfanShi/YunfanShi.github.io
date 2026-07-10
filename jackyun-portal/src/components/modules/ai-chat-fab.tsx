@@ -2,16 +2,33 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
+import { getToolsDescription, parseToolCall, executeToolCall, ToolScope } from '@/lib/ai-tools';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
 interface Message {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-export default function AiChatFab() {
-  const [open, setOpen] = useState(false);
+interface AiChatFabProps {
+  /** 权限范围：global | quiz | plan | control，默认 global */
+  scope?: ToolScope;
+  /** 自定义 system prompt 后缀 */
+  systemPromptSuffix?: string;
+  /** 是否在页面内嵌入（不显示浮动按钮，直接在页面内渲染） */
+  embedded?: boolean;
+  /** 页面内模式的标题 */
+  embeddedTitle?: string;
+}
+
+export default function AiChatFab({
+  scope = 'global',
+  systemPromptSuffix = '',
+  embedded = false,
+  embeddedTitle = 'AI 助手',
+}: AiChatFabProps) {
+  const [open, setOpen] = useState(embedded);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,6 +60,21 @@ export default function AiChatFab() {
     autoResize();
   }, [input]);
 
+  // 添加 scope 相关的 system 消息
+  function getSystemMessage(): Message {
+    const toolsDesc = getToolsDescription(scope);
+    const scopeName = {
+      global: '你是主页智能助手，可以调用所有工具。',
+      quiz: '你是 QuizWise 题目的智能辅导老师，可以帮助分析题目、批改答案。',
+      plan: '你是学习计划助手，可以帮助管理学习进度、安排计划。',
+      control: '你是 Control 控制中心助手，可以查询和控制计时、音乐等功能。',
+    };
+    return {
+      role: 'system',
+      content: `${scopeName[scope] || scopeName.global}\n${toolsDesc}\n${systemPromptSuffix}`.trim(),
+    };
+  }
+
   async function handleSend() {
     const text = input.trim();
     if (!text || loading) return;
@@ -66,7 +98,10 @@ export default function AiChatFab() {
         throw new Error('请先在设置页面配置 AI API Key');
       }
 
-      const res = await callAiApi(newMessages, { stream: true });
+      // 构建带 system prompt 的消息列表
+      const apiMessages = [getSystemMessage(), ...newMessages];
+
+      const res = await callAiApi(apiMessages, { stream: true });
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
@@ -141,36 +176,57 @@ export default function AiChatFab() {
     }
   }
 
+  // 在流式响应完成后检查工具调用
+  const lastAssistantContent = messages.length > 0 ? messages[messages.length - 1] : null;
+  useEffect(() => {
+    if (!streaming && lastAssistantContent?.role === 'assistant' && lastAssistantContent.content) {
+      const toolCall = parseToolCall(lastAssistantContent.content);
+      if (toolCall) {
+        (async () => {
+          setStatusText('正在执行操作...');
+          const result = await executeToolCall(toolCall);
+          setStatusText('');
+          // 将工具调用结果添加到对话中
+          setMessages((prev) => [...prev, { role: 'system', content: `🔧 工具执行结果：${result}` }]);
+        })();
+      }
+    }
+  }, [streaming, lastAssistantContent]);
+
+  // 嵌入式样式：不固定定位
+  const containerClass = embedded
+    ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
+    : 'fixed bottom-20 right-4 z-50 w-80 sm:w-96 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
+
   return (
     <>
       {/* Chat window */}
       {open && (
-        <div
-          className="fixed bottom-20 right-4 z-50 w-80 sm:w-96 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: '480px' }}
-        >
+        <div className={containerClass} style={{ height: embedded ? '400px' : '480px' }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)]">
             <div className="flex items-center gap-2">
               <span className="material-icons-round text-[#4285F4] text-lg">smart_toy</span>
-              <span className="text-sm font-semibold text-[var(--foreground)]">AI 助手</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">{embeddedTitle}</span>
               {statusText && (
                 <span className="text-xs text-[var(--muted-foreground)] animate-pulse">{statusText}</span>
               )}
             </div>
             <div className="flex items-center gap-1">
+              {!embedded && (
+                <button
+                  onClick={() => setOpen(false)}
+                  className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  <span className="material-icons-round text-base">close</span>
+                </button>
+              )}
               <button
                 onClick={() => setMessages([])}
                 title="清空对话"
                 className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
               >
                 <span className="material-icons-round text-base">delete_sweep</span>
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-              >
-                <span className="material-icons-round text-base">close</span>
               </button>
             </div>
           </div>
@@ -254,16 +310,18 @@ export default function AiChatFab() {
         </div>
       )}
 
-      {/* FAB */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-[#4285F4] text-white shadow-lg hover:bg-[#3367d6] hover:shadow-xl active:scale-95 transition-all flex items-center justify-center"
-        title="AI 助手"
-      >
-        <span className="material-icons-round text-xl">
-          {open ? 'close' : 'smart_toy'}
-        </span>
-      </button>
+      {/* FAB - 仅当非嵌入式时显示 */}
+      {!embedded && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-[#4285F4] text-white shadow-lg hover:bg-[#3367d6] hover:shadow-xl active:scale-95 transition-all flex items-center justify-center"
+          title="AI 助手"
+        >
+          <span className="material-icons-round text-xl">
+            {open ? 'close' : 'smart_toy'}
+          </span>
+        </button>
+      )}
     </>
   );
 }

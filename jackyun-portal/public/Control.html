@@ -221,6 +221,31 @@
         .btn-confirm:hover { background: #a00000; }
         .btn-cancel { background: #eee; color: #333; }
         
+        /* === TTS Subtitle & Voice Selector === */
+        .tts-subtitle {
+            margin-top: 4px; padding: 6px 10px; border-radius: 4px;
+            font-size: 11px; color: #888; background: #f0f0f0;
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            transition: all 0.2s; min-height: 28px;
+            border: 1px solid transparent;
+        }
+        .tts-subtitle:hover { background: #e8e8e8; border-color: #ddd; }
+        .tts-subtitle.active { background: #d1e7dd; color: #0f5132; border-color: #badbcc; }
+        .tts-subtitle .tts-subtitle-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tts-subtitle .tts-subtitle-stop { display: none; font-weight: bold; color: #dc3545; margin-left: 8px; }
+        .tts-subtitle.active .tts-subtitle-stop { display: inline; }
+
+        .voice-group { margin-bottom: 6px; }
+        .voice-group-title { font-size: 10px; font-weight: bold; color: #666; text-transform: uppercase; display: block; padding: 4px 6px; background: #f9f9f9; border-radius: 3px; margin-bottom: 2px; }
+        .voice-item { padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 3px; color: #555; display: flex; justify-content: space-between; }
+        .voice-item:hover { background: #e8f0fe; color: #1967d2; }
+        .voice-item.active { background: #d2e3fc; color: #1967d2; font-weight: bold; }
+        .voice-item .voice-lang { font-size: 10px; color: #999; font-family: 'Roboto Mono', monospace; }
+        
+        /* TTS 朗读状态按钮 */
+        #tts-status.speaking { background: #d1e7dd; color: #0f5132; animation: ttsPulse 1.5s ease-in-out infinite; }
+        @keyframes ttsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(15, 81, 50, 0.4); } 50% { box-shadow: 0 0 0 4px rgba(15, 81, 50, 0); } }
+
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
     </style>
@@ -298,9 +323,24 @@
     <div class="settings-area">
         <div class="setting-row">
             <span><span class="material-icons-round" style="font-size:14px;">record_voice_over</span> AI Voice</span>
-            <button class="setting-btn" onclick="populateVoiceSelect()">↻</button>
+            <div style="display:flex;gap:4px;">
+                <button class="setting-btn" id="tts-status" onclick="stopSpeaking()" title="点击停止朗读">🔊</button>
+                <button class="setting-btn" onclick="populateVoiceSelect(); populateTtsEngineVoices();">↻</button>
+            </div>
         </div>
         <select id="voice-select" class="tts-select" onchange="testVoice()"></select>
+        
+        <!-- 字幕区域 - 点击可打断 -->
+        <div id="tts-subtitle" class="tts-subtitle" onclick="stopSpeaking()">
+            <span class="tts-subtitle-text">点击此处可打断朗读</span>
+            <span class="tts-subtitle-stop">✕ 停止</span>
+        </div>
+        
+        <!-- TTS 引擎音色列表 -->
+        <div id="tts-engine-voices" class="tts-engine-voices" style="display:none;max-height:150px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:4px;margin-top:4px;"></div>
+        <button class="setting-btn" style="width:100%;margin-top:4px;" onclick="const el=document.getElementById('tts-engine-voices');el.style.display=el.style.display==='none'?'block':'none';if(el.style.display==='block')populateTtsEngineVoices();">
+            <span class="material-icons-round" style="font-size:12px;">unfold_more</span> 查看/选择音色
+        </button>
         
         <div class="setting-row" style="margin-top:10px;">
             <span>Auto-Confirm BGM</span>
@@ -508,8 +548,13 @@
         
         setInterval(tick, 1000);
         
+        // 读取全局 TTS 配置（来自设置页面）
+        loadGlobalTtsConfig();
         populateVoiceSelect();
-        window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
+        window.speechSynthesis.onvoiceschanged = () => {
+            populateVoiceSelect();
+            populateTtsEngineVoices();
+        };
         
         loadCustomPlaylists();
         changePlaylist("17652191106");
@@ -796,29 +841,209 @@
         });
     }
 
+    /**
+     * 读取全局 TTS 配置（来自设置页面）
+     */
+    function loadGlobalTtsConfig() {
+        try {
+            const raw = localStorage.getItem('jackyun-tts-config');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.voiceURI) {
+                    STATE.voiceUri = parsed.voiceURI;
+                    localStorage.setItem('w3_voice', STATE.voiceUri);
+                }
+                console.log('[TTS] Loaded global config:', parsed);
+            }
+        } catch(e) {
+            console.warn('[TTS] Failed to load global config:', e);
+        }
+    }
+
+    /**
+     * 获取全局 TTS 配置
+     */
+    function getGlobalTtsConfig() {
+        try {
+            const raw = localStorage.getItem('jackyun-tts-config');
+            if (raw) return JSON.parse(raw);
+        } catch(e) {}
+        return null;
+    }
+
     function populateVoiceSelect() {
         const sel = document.getElementById('voice-select');
         sel.innerHTML = '';
-        const voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('en'));
-        voices.forEach(v => {
+        // 默认选项：使用全局配置
+        const defaultOption = document.createElement('option');
+        defaultOption.value = 'global';
+        defaultOption.innerText = '🌐 全局设置 (由设置页配置)';
+        sel.appendChild(defaultOption);
+
+        const allVoices = window.speechSynthesis.getVoices();
+        allVoices.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.voiceURI;
-            opt.innerText = v.name;
+            opt.innerText = `${v.name} (${v.lang})`;
             sel.appendChild(opt);
         });
-        if(STATE.voiceUri) sel.value = STATE.voiceUri;
+
+        // 优先使用全局配置的语音
+        const globalConfig = getGlobalTtsConfig();
+        if (globalConfig && globalConfig.voiceURI) {
+            STATE.voiceUri = globalConfig.voiceURI;
+            sel.value = globalConfig.voiceURI;
+            if (!sel.value || sel.value === '') sel.value = 'global';
+        } else if (STATE.voiceUri) {
+            sel.value = STATE.voiceUri;
+            if (!sel.value) sel.value = 'global';
+        } else {
+            sel.value = 'global';
+        }
     }
 
+    /**
+     * 智能朗读（支持中文和英文，使用全局 TTS 配置）
+     */
     function speak(text) {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'en-US';
-        const v = window.speechSynthesis.getVoices().find(v => v.voiceURI === STATE.voiceUri);
-        if(v) u.voice = v;
+        
+        // 智能检测语言
+        const hasChinese = /[\u4e00-\u9fff]/.test(text);
+        u.lang = hasChinese ? 'zh-CN' : 'en-US';
+        
+        // 如果开启了字幕，显示当前朗读内容
+        const subtitleEl = document.getElementById('tts-subtitle');
+        const ttsStatusEl = document.getElementById('tts-status');
+        if (subtitleEl) {
+            subtitleEl.textContent = text;
+            subtitleEl.classList.add('active');
+        }
+        if (ttsStatusEl) {
+            ttsStatusEl.classList.add('speaking');
+        }
+
+        u.onend = () => {
+            if (subtitleEl) subtitleEl.classList.remove('active');
+            if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
+        };
+        u.onerror = () => {
+            if (subtitleEl) subtitleEl.classList.remove('active');
+            if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
+        };
+
+        // 尝试使用全局配置的语音
+        const globalConfig = getGlobalTtsConfig();
+        let voiceUri = STATE.voiceUri;
+        
+        // 如果选择了"全局设置"，则使用全局配置
+        const sel = document.getElementById('voice-select');
+        if (sel && sel.value === 'global') {
+            if (globalConfig && globalConfig.voiceURI) {
+                voiceUri = globalConfig.voiceURI;
+            } else {
+                // 自动选择引擎
+                const enginePrefix = globalConfig?.engine === 'edge' ? 'Microsoft' : 
+                                   globalConfig?.engine === 'chrome' ? 'Google' : '';
+                if (enginePrefix) {
+                    const matched = allVoices().find(v => 
+                        v.name.includes(enginePrefix) && 
+                        (hasChinese ? v.lang.includes('zh') : v.lang.includes('en'))
+                    );
+                    if (matched) voiceUri = matched.voiceURI;
+                }
+            }
+        }
+
+        if (voiceUri && voiceUri !== 'global') {
+            const v = allVoices().find(v => v.voiceURI === voiceUri);
+            if (v) u.voice = v;
+        }
+
+        // 应用全局语速和音调
+        if (globalConfig) {
+            if (globalConfig.rate) u.rate = globalConfig.rate;
+            if (globalConfig.pitch) u.pitch = globalConfig.pitch;
+        }
+
         window.speechSynthesis.speak(u);
     }
+
+    function allVoices() {
+        return window.speechSynthesis.getVoices();
+    }
     
-    function testVoice() { STATE.voiceUri = document.getElementById('voice-select').value; localStorage.setItem('w3_voice', STATE.voiceUri); speak("Voice updated."); }
+    function testVoice() { 
+        const sel = document.getElementById('voice-select');
+        if (sel.value === 'global') {
+            const globalConfig = getGlobalTtsConfig();
+            STATE.voiceUri = globalConfig?.voiceURI || '';
+        } else {
+            STATE.voiceUri = sel.value;
+        }
+        localStorage.setItem('w3_voice', STATE.voiceUri); 
+        speak("Hello, voice updated. 你好，语音已更新。"); 
+    }
+
+    /**
+     * 停止当前朗读
+     */
+    function stopSpeaking() {
+        window.speechSynthesis.cancel();
+        const subtitleEl = document.getElementById('tts-subtitle');
+        const ttsStatusEl = document.getElementById('tts-status');
+        if (subtitleEl) subtitleEl.classList.remove('active');
+        if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
+    }
+
+    /**
+     * 填充 TTS 引擎语音下拉（用于全局引擎列表显示）
+     */
+    function populateTtsEngineVoices() {
+        const engineVoicesEl = document.getElementById('tts-engine-voices');
+        if (!engineVoicesEl) return;
+        const voices = window.speechSynthesis.getVoices();
+        const edgeVoices = voices.filter(v => v.name.includes('Microsoft'));
+        const chromeVoices = voices.filter(v => v.name.includes('Google'));
+        const otherVoices = voices.filter(v => !v.name.includes('Microsoft') && !v.name.includes('Google'));
+        
+        let html = '';
+        if (edgeVoices.length > 0) {
+            html += `<div class="voice-group"><span class="voice-group-title">Microsoft Edge TTS</span>`;
+            edgeVoices.forEach(v => {
+                const isActive = STATE.voiceUri === v.voiceURI;
+                html += `<div class="voice-item ${isActive ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`;
+            });
+            html += `</div>`;
+        }
+        if (chromeVoices.length > 0) {
+            html += `<div class="voice-group"><span class="voice-group-title">Google Chrome TTS</span>`;
+            chromeVoices.forEach(v => {
+                const isActive = STATE.voiceUri === v.voiceURI;
+                html += `<div class="voice-item ${isActive ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`;
+            });
+            html += `</div>`;
+        }
+        if (otherVoices.length > 0) {
+            html += `<div class="voice-group"><span class="voice-group-title">其他</span>`;
+            otherVoices.forEach(v => {
+                const isActive = STATE.voiceUri === v.voiceURI;
+                html += `<div class="voice-item ${isActive ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`;
+            });
+            html += `</div>`;
+        }
+        engineVoicesEl.innerHTML = html || '<div style="text-align:center;color:#aaa;padding:10px;font-size:12px;">暂无可用语音</div>';
+    }
+
+    function selectVoiceAndTest(voiceURI) {
+        STATE.voiceUri = voiceURI;
+        localStorage.setItem('w3_voice', STATE.voiceUri);
+        const sel = document.getElementById('voice-select');
+        if (sel) sel.value = voiceURI;
+        populateTtsEngineVoices();
+        speak("Voice selected. 语音已选择。");
+    }
     function changePlaylist(id) { document.getElementById('music-iframe').src = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`; }
     function addCustomPlaylist() {
         const id = prompt("Enter NetEase Playlist ID:");
