@@ -15,6 +15,8 @@
     "@tailwindcss/typography": "^0.5.19",
     "@types/katex": "^0.16.8",
     "clsx": "^2.1.0",
+    "docx": "^9.7.1",
+    "file-saver": "^2.0.5",
     "highlight.js": "^11.11.1",
     "katex": "^0.17.0",
     "next": "^15.1.0",
@@ -32,6 +34,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
