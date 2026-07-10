@@ -26,6 +26,7 @@ const ALL_NAV_ITEMS = [
   { label: '考试倒计时', icon: 'hourglass_empty', href: '/igcountdown' },
   { label: 'Mock 刷题', icon: 'quiz', href: '/mock-portal' },
   { label: 'QuizWise 刷题', icon: 'psychology', href: '/quiz' },
+  { label: 'Markdown → Word', icon: 'description', href: '/md2word' },
   { label: '工具箱', icon: 'build', href: '/tools' },
   { label: '设置', icon: 'settings', href: '/settings' },
 ];
