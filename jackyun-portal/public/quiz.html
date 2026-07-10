@@ -312,6 +312,18 @@ const PROVIDER_ENDPOINTS = {
 };
 
 function getLLMConfig() {
+  // 优先使用统一配置 (jackyun-ai-config)
+  try {
+    const unified = JSON.parse(localStorage.getItem('jackyun-ai-config') || '');
+    if (unified.apiKey) {
+      return {
+        baseUrl: unified.baseUrl || PROVIDER_ENDPOINTS.deepseek,
+        apiKey: unified.apiKey,
+        model: unified.model || 'deepseek-v4-flash'
+      };
+    }
+  } catch {}
+  // 回退到旧配置
   const provider = localStorage.getItem('ai_provider') || 'deepseek';
   const apiKey = localStorage.getItem('ds_key') || '';
   const baseUrl = PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.deepseek;

@@ -400,12 +400,17 @@ INSTRUCTION: You are a WeChat Study Buddy. Keep replies SHORT (1-2 sentences), c
 `;
         }
 
+        function getAiConfig() {
+            try {
+                const raw = localStorage.getItem('jackyun-ai-config');
+                if (!raw) return { baseUrl: '', apiKey: '', model: '' };
+                return JSON.parse(raw);
+            } catch { return { baseUrl: '', apiKey: '', model: '' }; }
+        }
+
         async function callLLM(msg) {
-            const key = localStorage.getItem('llm_key');
-            if(!key) { appendMsg("System", "Please set API Key in Settings."); return; }
-            
-            const url = localStorage.getItem('llm_url');
-            const model = localStorage.getItem('llm_model');
+            const cfg = getAiConfig();
+            if(!cfg.apiKey) { appendMsg("System", "请先在 Jackyun Portal 的设置页面配置 AI API Key"); return; }
             
             // Build fresh conversation with latest context
             let messages = [{ role: "system", content: getSystemContext() }];
@@ -418,21 +423,35 @@ INSTRUCTION: You are a WeChat Study Buddy. Keep replies SHORT (1-2 sentences), c
             messages.push({ role: "user", content: msg });
 
             try {
-                const res = await fetch(url, {
+                const res = await fetch('/api/llm-proxy', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                    body: JSON.stringify({ model: model, messages: messages, stream: false })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        baseUrl: cfg.baseUrl,
+                        apiKey: cfg.apiKey,
+                        model: cfg.model || 'deepseek-chat',
+                        messages: messages,
+                        stream: false,
+                        max_tokens: 1000,
+                        temperature: 0.85
+                    })
                 });
-                const data = await res.json();
-                if(data.choices) {
-                    const reply = data.choices[0].message.content;
-                    appendMsg("AI", reply);
-                    
-                    // Update State History
-                    STATE.chatHistory.push({ role: "user", content: msg });
-                    STATE.chatHistory.push({ role: "assistant", content: reply });
-                    saveChatHistory();
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    let errMsg;
+                    try { const err = JSON.parse(errText); errMsg = err.error?.message || err.message || `HTTP ${res.status}`; }
+                    catch { errMsg = errText || `HTTP ${res.status}`; }
+                    throw new Error(errMsg);
                 }
+                const data = await res.json();
+                const reply = data.choices?.[0]?.message?.content || data.choices?.[0]?.text;
+                if(!reply) throw new Error("AI 没有返回内容");
+                appendMsg("AI", reply);
+                
+                // Update State History
+                STATE.chatHistory.push({ role: "user", content: msg });
+                STATE.chatHistory.push({ role: "assistant", content: reply });
+                saveChatHistory();
             } catch(e) {
                 appendMsg("System", "Error: " + e.message);
             }
@@ -718,7 +737,7 @@ INSTRUCTION: You are a WeChat Study Buddy. Keep replies SHORT (1-2 sentences), c
             else if(now < STATE.graceUntil) { const left = Math.ceil((STATE.graceUntil - now)/1000); bar.innerHTML = `<span class="status-pill status-grace">PREPARING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`; }
             else if(now < STATE.restUntil) { const left = Math.ceil((STATE.restUntil - now)/1000); bar.innerHTML = `<span class="status-pill status-rest">RESTING: ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`; }
             else bar.innerHTML = `<span class="status-pill status-danger">VULNERABLE (AI WATCHING)</span>`;
-            if(!localStorage.getItem('llm_key')) return; if(now < STATE.graceUntil || now < STATE.restUntil || STATE.activeTask) return;
+            const aiCfg = getAiConfig(); if(!aiCfg.apiKey) return; if(now < STATE.graceUntil || now < STATE.restUntil || STATE.activeTask) return;
             const d = new Date(); const isToday = (STATE.date.getDate() === d.getDate() && STATE.date.getMonth() === d.getMonth()); if(!isToday) return;
             const curMins = d.getHours()*60 + d.getMinutes(); if(curMins > STATE.latestStartMins) triggerEnforcer(false);
         }

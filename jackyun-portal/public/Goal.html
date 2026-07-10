@@ -790,9 +790,10 @@ function getDoneTotal(g){
   }
   return {done:g.done||0, total:g.total||0};
 }
-function getKey(){return localStorage.getItem('ds_key')||'';}
-function getProvider(){return localStorage.getItem('ai_provider')||'deepseek';}
-function getModel(){const s=localStorage.getItem('ai_model');return s||(PROVIDER_MODELS[getProvider()]||'deepseek-v4-flash');}
+function getUnifiedConfig(){try{const r=localStorage.getItem('jackyun-ai-config');if(!r)return null;return JSON.parse(r);}catch{return null;}}
+function getKey(){const u=getUnifiedConfig();if(u&&u.apiKey)return u.apiKey;return localStorage.getItem('ds_key')||'';}
+function getProvider(){const u=getUnifiedConfig();if(u)return u.baseUrl?'custom':'deepseek';return localStorage.getItem('ai_provider')||'deepseek';}
+function getModel(){const u=getUnifiedConfig();if(u&&u.model)return u.model;const s=localStorage.getItem('ai_model');return s||(PROVIDER_MODELS[getProvider()]||'deepseek-v4-flash');}
 function getEndpoint(){const p=getProvider();return p==='custom'?(localStorage.getItem('ai_custom_endpoint')||''):(PROVIDER_ENDPOINTS[p]||PROVIDER_ENDPOINTS.deepseek);}
 function gc(id){return COLORS.find(c=>c.id===id)||COLORS[0];}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

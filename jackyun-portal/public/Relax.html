@@ -342,9 +342,11 @@
 
         <hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin: 20px 0;">
 
-        <label class="config-label">API Keys</label>
-        <input type="password" id="key-deepseek" class="config-input" placeholder="Deepseek Key">
-        <input type="password" id="key-qwen" class="config-input" placeholder="Qwen Key">
+        <label class="config-label">AI 配置</label>
+        <div style="background: rgba(26,115,232,0.1); border-left: 3px solid #1a73e8; padding: 10px; border-radius: 6px; margin: 5px 0 15px 0; font-size: 13px; line-height: 1.6;">
+            AI 功能现在使用统一配置。请前往 <strong>Jackyun Portal</strong> 的 <strong>设置 → AI 配置</strong> 页面设置 API Key。
+            <div style="margin-top: 8px; font-size: 12px; color: var(--secondary);">当前状态：<span id="ai-config-status">检查中...</span></div>
+        </div>
 
         <div style="margin: 10px 0; display: flex; align-items: center; gap: 10px;">
             <input type="checkbox" id="debug-mode-switch">
@@ -387,9 +389,38 @@
         langTTS: localStorage.getItem('jack_lang_tts') || 'English' 
     };
 
+    // 统一 AI 配置读取：从 jackyun-ai-config (与 Jackyun Portal 主页一致)
+    function getAiConfig() {
+        try {
+            const raw = localStorage.getItem('jackyun-ai-config');
+            if (!raw) return { baseUrl: '', apiKey: '', model: '' };
+            return JSON.parse(raw);
+        } catch { return { baseUrl: '', apiKey: '', model: '' }; }
+    }
+
+    function checkAiConfigStatus() {
+        const cfg = getAiConfig();
+        const el = document.getElementById('ai-config-status');
+        if (el) {
+            el.textContent = cfg.apiKey ? `✅ 已配置 (${cfg.model || '默认模型'})` : '❌ 未配置 API Key';
+        }
+    }
+
     window.onload = () => {
-        document.getElementById('key-deepseek').value = localStorage.getItem('jack_sk_ds') || '';
-        document.getElementById('key-qwen').value = localStorage.getItem('jack_sk_qw') || '';
+        // 向后兼容：尝试从旧 key 迁移到 jackyun-ai-config
+        const cfg = getAiConfig();
+        if (!cfg.apiKey) {
+            const oldDs = localStorage.getItem('jack_sk_ds') || '';
+            const oldQw = localStorage.getItem('jack_sk_qw') || '';
+            if (oldDs || oldQw) {
+                localStorage.setItem('jackyun-ai-config', JSON.stringify({
+                    baseUrl: oldDs ? 'https://api.deepseek.com' : 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                    apiKey: oldDs || oldQw,
+                    model: oldDs ? 'deepseek-chat' : 'qwen-plus'
+                }));
+            }
+        }
+        checkAiConfigStatus();
         document.getElementById('debug-mode-switch').checked = state.debugMode;
         document.getElementById('cfg-lang-chat').value = state.langChat;
         document.getElementById('cfg-lang-tts').value = state.langTTS;
@@ -421,8 +452,6 @@
     }
     
     function saveConfigs() {
-        localStorage.setItem('jack_sk_ds', document.getElementById('key-deepseek').value);
-        localStorage.setItem('jack_sk_qw', document.getElementById('key-qwen').value);
         state.voiceUri = document.getElementById('voice-select').value;
         state.debugMode = document.getElementById('debug-mode-switch').checked;
         state.langChat = document.getElementById('cfg-lang-chat').value;
@@ -566,17 +595,34 @@ Example (Chat=Chinese, TTS=Japanese):
         const loadingId = addBubble("Processing...", 'ai', true);
 
         try {
-            const model = document.getElementById('model-select').value;
-            let apiKey = model.includes('deepseek') ? localStorage.getItem('jack_sk_ds') : localStorage.getItem('jack_sk_qw');
-            let url = model.includes('deepseek') ? 'https://api.deepseek.com/chat/completions' : 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+            const cfg = getAiConfig();
+            if (!cfg.apiKey) throw new Error("请先在 Jackyun Portal 的设置页面配置 AI API Key");
 
-            if(!apiKey) throw new Error("API Key Missing!");
-
-            const res = await fetch(url, {
+            const res = await fetch('/api/llm-proxy', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({ model: model, messages: context })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    baseUrl: cfg.baseUrl,
+                    apiKey: cfg.apiKey,
+                    model: cfg.model || 'deepseek-chat',
+                    messages: context,
+                    stream: false,
+                    max_tokens: 2000,
+                    temperature: 0.7
+                })
             });
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                let errMsg;
+                try {
+                    const err = JSON.parse(errText);
+                    errMsg = err.error?.message || err.message || `HTTP ${res.status}`;
+                } catch {
+                    errMsg = errText || `HTTP ${res.status}`;
+                }
+                throw new Error(errMsg);
+            }
 
             const data = await res.json();
             
@@ -585,9 +631,8 @@ Example (Chat=Chinese, TTS=Japanese):
                 document.getElementById(loadingId).remove();
             }
 
-            if(data.error) throw new Error(data.error.message);
-
-            const rawText = data.choices[0].message.content;
+            const rawText = data.choices?.[0]?.message?.content || data.choices?.[0]?.text;
+            if (!rawText) throw new Error("AI 没有返回内容");
             
             const ttsMatch = rawText.match(/\[TTS:\s*(?:")?(.*?)(?:")?\]/);
             const cnMatch = rawText.match(/\[CN:\s*(?:")?(.*?)(?:")?\]/);

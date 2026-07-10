@@ -3870,6 +3870,14 @@ function startHitokoto() { fetchHitokoto(); clearInterval(hitokoTimer); hitokoTi
 // ╚══════════════════════════════════════════════════════════════════╝
  
 /* ── Storage ───────────────────────────────────────────────────── */
+// 统一 AI 配置：优先从 jackyun-ai-config 读取
+function getUnifiedConfig() {
+  try {
+    const raw = localStorage.getItem('jackyun-ai-config');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
 const AIK  = 'warden_ai_key';
 const AIP  = 'warden_ai_provider';
 const AIEP = 'warden_ai_custom_endpoint';
@@ -3882,9 +3890,11 @@ const AI_PROVS = {
   custom:  { ep:'', model:'', label:'自定义' },
 };
  
-const aiKey   = ()=> localStorage.getItem(AIK)||'';
-const aiProv  = ()=> localStorage.getItem(AIP)||'deepseek';
+const aiKey   = ()=> { const u = getUnifiedConfig(); if (u && u.apiKey) return u.apiKey; return localStorage.getItem(AIK)||''; };
+const aiProv  = ()=> { const u = getUnifiedConfig(); if (u) return u.baseUrl ? 'custom' : 'deepseek'; return localStorage.getItem(AIP)||'deepseek'; };
 const aiModel = ()=> {
+  const u = getUnifiedConfig();
+  if (u && u.model) return u.model;
   if(aiProv()==='custom') return localStorage.getItem(AIM)||'';
   return AI_PROVS[aiProv()]?.model||'deepseek-chat';
 };
