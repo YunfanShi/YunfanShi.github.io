@@ -202,6 +202,49 @@
         .overlay-quote { font-size: 24px; font-weight: 300; margin-top: 30px; max-width: 800px; font-family: 'Songti SC', serif; line-height: 1.5; opacity: 0.9; }
         .overlay-author { font-size: 16px; margin-top: 10px; opacity: 0.6; font-style: italic; }
 
+        /* === Focus Confirmation Overlay === */
+        #focus-confirm-overlay {
+            position: fixed; inset: 0; z-index: 3000;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center; animation: fadeIn 0.3s ease;
+        }
+        #focus-confirm-overlay.active { display: flex; }
+        .focus-confirm-card {
+            background: white; color: #1f1f1f; border-radius: 24px;
+            padding: 40px; max-width: 450px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.4s ease;
+        }
+        .focus-confirm-card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
+        .focus-confirm-card .task-name-display {
+            font-size: 18px; color: var(--md-primary); font-weight: 600;
+            margin: 12px 0; padding: 12px; background: #fff0f0; border-radius: 12px;
+        }
+        .focus-confirm-card .countdown-display {
+            font-size: 48px; font-weight: 900; color: var(--md-primary);
+            font-family: 'Inter', sans-serif; margin: 20px 0;
+            transition: color 0.5s;
+        }
+        .focus-confirm-card .countdown-display.urgent { color: #ff0000; animation: pulse 1s infinite; }
+        .focus-confirm-card .hint { font-size: 13px; color: #888; margin-top: 8px; }
+        .focus-start-btn {
+            width: 100%; padding: 16px; border: none; border-radius: 50px;
+            background: var(--md-primary); color: white; font-size: 18px; font-weight: 700;
+            cursor: pointer; margin-top: 16px; transition: all 0.2s;
+        }
+        .focus-start-btn:hover { background: #a00000; transform: scale(1.02); }
+
+        /* 20分钟专注提醒 */
+        .focus-reminder-toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #1a1a1a; color: white; padding: 12px 24px;
+            border-radius: 50px; font-size: 14px; font-weight: 600;
+            z-index: 4000; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: none; animation: slideDown 0.3s ease;
+        }
+        .focus-reminder-toast.active { display: block; }
+        @keyframes slideDown { from { transform: translateX(-50%) translateY(-20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+
         /* BGM Prompt */
         #bgm-prompt {
             position: fixed; bottom: 40px; right: 40px; width: 400px;
@@ -266,6 +309,24 @@
 </div>
 
 <div id="immersive-transition"></div>
+
+<!-- Focus Confirmation Overlay (anti-procrastination) -->
+<div id="focus-confirm-overlay">
+    <div class="focus-confirm-card">
+        <h2>⏰ 该学习了！</h2>
+        <div class="task-name-display" id="focus-task-name">---</div>
+        <div style="font-size:14px; color:#666;">点击下方按钮开始专注</div>
+        <div class="countdown-display" id="focus-countdown">10</div>
+        <div class="hint">倒计时结束后将自动开始</div>
+        <button class="focus-start-btn" onclick="confirmFocusStart()">
+            <span class="material-icons-round" style="vertical-align:middle; font-size:20px;">play_arrow</span>
+            开始学习
+        </button>
+    </div>
+</div>
+
+<!-- 20分钟专注提醒 -->
+<div class="focus-reminder-toast" id="focus-reminder-toast"></div>
 
 <div id="bgm-prompt">
     <div class="prompt-header"><span class="material-icons-round">queue_music</span> Break Approaching</div>
@@ -415,13 +476,13 @@
     ];
 
     const SCHEDULE_DATA = {
-        "0": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "1": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "2": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "3": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "4": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "5": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "6": [{"start":"08:30","end":"09:00","task":"读1篇雅思阅读文章（要求流利发音准确）","type":"study"},{"start":"09:00","end":"09:30","task":"课间休息","type":"break"},{"start":"09:30","end":"10:00","task":"单词学习复习40词","type":"study"},{"start":"10:00","end":"12:00","task":"一套听力套题及分析","type":"study"},{"start":"12:00","end":"12:10","task":"课间休息","type":"break"},{"start":"12:10","end":"13:10","task":"一套阅读套题/一篇写作机经（大作文/小作文交替）","type":"study"},{"start":"13:10","end":"14:30","task":"午餐/午休","type":"break"},{"start":"14:30","end":"15:00","task":"语文阅读","type":"study"},{"start":"15:00","end":"15:10","task":"课间休息","type":"break"},{"start":"15:10","end":"16:10","task":"一套阅读套题分析/一篇写作分析","type":"study"},{"start":"16:10","end":"16:30","task":"课间休息","type":"break"},{"start":"16:30","end":"17:30","task":"一套口语机经练习（P1, P2/P3）","type":"study"},{"start":"17:30","end":"17:40","task":"课间休息","type":"break"},{"start":"17:40","end":"18:40","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"18:40","end":"20:00","task":"晚餐/休息","type":"break"},{"start":"20:00","end":"21:00","task":"单词学习复习40词 & 今日复盘","type":"study"}]
+        "0": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
+        "1": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
+        "2": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
+        "3": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
+        "4": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
+        "5": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
+        "6": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}]
     };
 
     /* ======================== SONG POOL MANAGEMENT ======================== */
@@ -903,26 +964,116 @@
     }
 
     /**
-     * 智能朗读（支持中文和英文，使用全局 TTS 配置）
+     * 翻译缓存 - 避免重复翻译相同文本
      */
-    function speak(text) {
+    let translateCache = {};
+
+    /**
+     * 调用 LLM 翻译中文为英文（用于 TTS 朗读）
+     * 使用本地保存的 AI API key（jackyun-ai-config）
+     */
+    async function translateToEnglish(chineseText) {
+        // 检查缓存
+        if (translateCache[chineseText]) {
+            return translateCache[chineseText];
+        }
+        
+        try {
+            const aiConfigRaw = localStorage.getItem('jackyun-ai-config');
+            if (!aiConfigRaw) {
+                console.warn('[TTS] No AI config found, reading Chinese directly');
+                return null; // fallback to direct read
+            }
+            const aiConfig = JSON.parse(aiConfigRaw);
+            if (!aiConfig.baseUrl || !aiConfig.apiKey) {
+                return null;
+            }
+            
+            const baseUrl = aiConfig.baseUrl.replace(/\/+$/, '');
+            const res = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${aiConfig.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: aiConfig.model || 'deepseek-v4-flash',
+                    messages: [
+                        { role: 'system', content: 'You are a concise translator. Translate the following Chinese text to natural English for text-to-speech. Output ONLY the English translation, no explanations, no quotes, no extra text.' },
+                        { role: 'user', content: chineseText }
+                    ],
+                    max_tokens: 200,
+                    temperature: 0.1,
+                    stream: false
+                })
+            });
+            
+            if (!res.ok) {
+                console.warn('[TTS] Translation API error:', res.status);
+                return null;
+            }
+            
+            const data = await res.json();
+            const translation = data.choices?.[0]?.message?.content?.trim();
+            if (translation) {
+                // 缓存结果
+                translateCache[chineseText] = translation;
+                return translation;
+            }
+        } catch(e) {
+            console.warn('[TTS] Translation failed:', e);
+        }
+        return null;
+    }
+
+    /**
+     * 智能朗读（中文自动翻译为英文后朗读，字幕显示中文）
+     * 使用 LLM 翻译 + 英文 TTS
+     */
+    function speak(text, skipSubtitleUpdate) {
         window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
         
-        // 智能检测语言
         const hasChinese = /[\u4e00-\u9fff]/.test(text);
-        u.lang = hasChinese ? 'zh-CN' : 'en-US';
         
-        // 如果开启了字幕，显示当前朗读内容
+        // 字幕始终显示原始中文（让用户知道在做什么）
         const subtitleEl = document.getElementById('tts-subtitle');
         const ttsStatusEl = document.getElementById('tts-status');
-        if (subtitleEl) {
-            subtitleEl.textContent = text;
+        
+        if (!skipSubtitleUpdate && subtitleEl) {
+            const subtitleText = subtitleEl.querySelector('.tts-subtitle-text') || subtitleEl;
+            subtitleText.textContent = text;
             subtitleEl.classList.add('active');
         }
         if (ttsStatusEl) {
             ttsStatusEl.classList.add('speaking');
         }
+
+        if (!hasChinese) {
+            // 如果是纯英文，直接朗读
+            doSpeak(text, 'en-US', subtitleEl, ttsStatusEl);
+        } else {
+            // 中文文本 -> 异步翻译 -> 朗读英文翻译
+            translateToEnglish(text).then(translation => {
+                if (translation) {
+                    // 字幕仍然显示中文，但朗读英文
+                    doSpeak(translation, 'en-US', subtitleEl, ttsStatusEl);
+                } else {
+                    // 翻译失败，直接读中文
+                    doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl);
+                }
+            }).catch(() => {
+                // 异常，直接读中文
+                doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl);
+            });
+        }
+    }
+
+    /**
+     * 实际执行 TTS 朗读
+     */
+    function doSpeak(textToRead, lang, subtitleEl, ttsStatusEl) {
+        const u = new SpeechSynthesisUtterance(textToRead);
+        u.lang = lang;
 
         u.onend = () => {
             if (subtitleEl) subtitleEl.classList.remove('active');
@@ -933,23 +1084,20 @@
             if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
         };
 
-        // 尝试使用全局配置的语音
         const globalConfig = getGlobalTtsConfig();
         let voiceUri = STATE.voiceUri;
-        
-        // 如果选择了"全局设置"，则使用全局配置
+
         const sel = document.getElementById('voice-select');
         if (sel && sel.value === 'global') {
             if (globalConfig && globalConfig.voiceURI) {
                 voiceUri = globalConfig.voiceURI;
             } else {
-                // 自动选择引擎
                 const enginePrefix = globalConfig?.engine === 'edge' ? 'Microsoft' : 
                                    globalConfig?.engine === 'chrome' ? 'Google' : '';
                 if (enginePrefix) {
                     const matched = allVoices().find(v => 
                         v.name.includes(enginePrefix) && 
-                        (hasChinese ? v.lang.includes('zh') : v.lang.includes('en'))
+                        (lang === 'en-US' ? v.lang.includes('en') : v.lang.includes('zh'))
                     );
                     if (matched) voiceUri = matched.voiceURI;
                 }
@@ -961,7 +1109,6 @@
             if (v) u.voice = v;
         }
 
-        // 应用全局语速和音调
         if (globalConfig) {
             if (globalConfig.rate) u.rate = globalConfig.rate;
             if (globalConfig.pitch) u.pitch = globalConfig.pitch;
@@ -974,7 +1121,65 @@
         return window.speechSynthesis.getVoices();
     }
     
-    function testVoice() { 
+        /* ======================== ANTI-PROCRASTINATION: FOCUS CONFIRM ======================== */
+    let focusConfirmInterval = null;
+    let focusReminderInterval = null;
+    let pendingFocusTask = null;
+    let focusCountdownSeconds = 10;
+
+    /**
+     * 显示专注确认弹窗
+     */
+    function showFocusConfirm(taskName) {
+        pendingFocusTask = taskName;
+        focusCountdownSeconds = 10;
+        const overlay = document.getElementById('focus-confirm-overlay');
+        const taskEl = document.getElementById('focus-task-name');
+        const countdownEl = document.getElementById('focus-countdown');
+        taskEl.textContent = taskName;
+        countdownEl.textContent = '10';
+        countdownEl.classList.remove('urgent');
+        overlay.classList.add('active');
+        
+        // 开始10秒倒计时
+        if (focusConfirmInterval) clearInterval(focusConfirmInterval);
+        focusConfirmInterval = setInterval(() => {
+            focusCountdownSeconds--;
+            countdownEl.textContent = focusCountdownSeconds;
+            if (focusCountdownSeconds <= 3) {
+                countdownEl.classList.add('urgent');
+            }
+            if (focusCountdownSeconds <= 0) {
+                // 倒计时结束，自动开始
+                confirmFocusStart();
+            }
+        }, 1000);
+    }
+
+    /**
+     * 确认开始专注
+     */
+    function confirmFocusStart() {
+        if (focusConfirmInterval) {
+            clearInterval(focusConfirmInterval);
+            focusConfirmInterval = null;
+        }
+        const overlay = document.getElementById('focus-confirm-overlay');
+        overlay.classList.remove('active');
+        
+        // 开始20分钟专注提醒计时器
+        if (focusReminderInterval) clearInterval(focusReminderInterval);
+        let elapsedMinutes = 20;
+        focusReminderInterval = setInterval(() => {
+            const toast = document.getElementById('focus-reminder-toast');
+            toast.textContent = `⏰ 已经学习了 ${elapsedMinutes} 分钟，继续坚持！`;
+            toast.classList.add('active');
+            setTimeout(() => toast.classList.remove('active'), 5000);
+            elapsedMinutes += 20;
+        }, 20 * 60 * 1000);
+    }
+
+    function testVoice() {
         const sel = document.getElementById('voice-select');
         if (sel.value === 'global') {
             const globalConfig = getGlobalTtsConfig();
