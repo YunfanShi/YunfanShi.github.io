@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V10.2 Network Core</title>
+    <title>Jack's Warden | V10.4 Focus</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -53,14 +53,12 @@
         .auto-play-info.active { display: block; animation: fadeIn 0.5s; }
         .scrolling-text { color: var(--md-primary); font-weight: bold; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* Flexible Iframe Container */
         .iframe-container { 
             flex: 1;
             background: #000; display: flex; justify-content: center; 
             overflow: hidden; position: relative; min-height: 0;
         }
         
-        /* Settings Area Pinned to Bottom */
         .settings-area { 
             padding: 15px; background: #f9f9f9; border-top: 1px solid #eee; 
             font-size: 13px; display: flex; flex-direction: column; gap: 10px; 
@@ -122,7 +120,6 @@
             background: #f5f5f5; padding: 8px 12px; border-radius: 8px; font-size: 13px;
         }
         .song-item .song-name { font-weight: 500; }
-        .song-item .song-id { color: #999; font-family: 'Roboto Mono', monospace; font-size: 11px; margin-left: 8px; }
         .song-item .song-del {
             background: none; border: none; color: var(--md-primary); cursor: pointer; font-size: 16px; padding: 4px;
         }
@@ -142,7 +139,7 @@
         .sync-dot.synced { background: #00e676; box-shadow: 0 0 5px #00e676; }
         .sync-dot.error { background: #ff1744; }
 
-        /* === TIMER CARD FIXED === */
+        /* === TIMER CARD === */
         .timer-card { 
             background: white; border-radius: 20px; padding: 40px; text-align: center; 
             box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; position: relative; 
@@ -168,84 +165,103 @@
         }
         .early-finish-btn.visible { opacity: 1; pointer-events: auto; }
 
+        /* === SCHEDULE CARD === */
         .schedule-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; flex: 1; overflow-y: auto; }
-        .task-row { display: grid; grid-template-columns: 50px 80px 1fr 80px; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; align-items: center; }
+        
+        /* Category header row */
+        .cat-header {
+            background: #f0f4f8; padding: 10px 20px; font-weight: 700; font-size: 14px;
+            border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 8px;
+            position: sticky; top: 0; z-index: 5;
+        }
+        .task-row { display: grid; grid-template-columns: 50px 80px 1fr; padding: 14px 20px 14px 30px; border-bottom: 1px solid #f0f0f0; align-items: center; }
+        .task-row:last-child { border-bottom: none; }
         .task-row.active { background: #fff0f0; border-left: 6px solid var(--md-primary); }
         .task-row.done { background: #f8f9fa; opacity: 0.5; }
         .task-row.done .task-name { text-decoration: line-through; }
+        .task-row.skipped { background: #f5f5f5; opacity: 0.4; }
+        .task-row.skipped .task-name { text-decoration: line-through; color: #999; }
         .checkbox-custom { width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 4px; cursor: pointer; display: grid; place-items: center; color: white; }
         .task-row.done .checkbox-custom { background: var(--color-done); border-color: var(--color-done); }
         .task-time { font-family: 'Roboto Mono'; font-size: 13px; color: #666; }
-        .task-type { font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: right; }
-        .task-type.study { color: var(--color-study); }
-        .task-type.break { color: var(--color-break); }
+        .task-name { font-size: 13px; color: #333; line-height: 1.3; }
+        .task-skipped-badge { font-size: 10px; color: #999; margin-left: 6px; }
 
-        /* === ANIMATION OVERLAYS === */
-        #immersive-overlay {
-            position: fixed; inset: 0; z-index: 1000;
-            background: rgba(0,0,0,0.9); backdrop-filter: blur(20px);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.6s var(--ease-out);
-            color: white; text-align: center;
-        }
+        /* === OVERLAYS === */
+        #immersive-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.9); backdrop-filter: blur(20px); display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.6s var(--ease-out); color: white; text-align: center; }
         #immersive-overlay.active { opacity: 1; pointer-events: auto; }
-        
         .mode-study { background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%); }
-        .mode-break { background: linear-gradient(135deg, #300000 0%, #c0392b 100%); }
-        .mode-prep { background: linear-gradient(135deg, #332b00 0%, #f1c40f 100%); }
-        .mode-done { background: linear-gradient(135deg, #064e3b 0%, #10b981 100%); }
-
         .overlay-content { transform: translateY(30px); transition: transform 0.8s var(--ease-out); }
         #immersive-overlay.active .overlay-content { transform: translateY(0); }
         .big-icon { font-size: 120px; margin-bottom: 20px; animation: float 6s ease-in-out infinite; }
-        .overlay-title { font-size: 60px; font-weight: 900; margin: 0; letter-spacing: -2px; text-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .overlay-quote { font-size: 24px; font-weight: 300; margin-top: 30px; max-width: 800px; font-family: 'Songti SC', serif; line-height: 1.5; opacity: 0.9; }
-        .overlay-author { font-size: 16px; margin-top: 10px; opacity: 0.6; font-style: italic; }
+        .overlay-title { font-size: 60px; font-weight: 900; margin: 0; letter-spacing: -2px; }
+        .overlay-quote { font-size: 24px; font-weight: 300; margin-top: 30px; max-width: 800px; line-height: 1.5; opacity: 0.9; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
-        /* === Focus Confirmation Overlay === */
-        #focus-confirm-overlay {
+        /* === TASK START DIALOG === */
+        #task-start-dialog {
             position: fixed; inset: 0; z-index: 3000;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
             display: none; flex-direction: column; justify-content: center; align-items: center;
-            color: white; text-align: center; animation: fadeIn 0.3s ease;
+            color: white; text-align: center;
         }
-        #focus-confirm-overlay.active { display: flex; }
-        .focus-confirm-card {
+        #task-start-dialog.active { display: flex; }
+        .task-start-card {
             background: white; color: #1f1f1f; border-radius: 24px;
-            padding: 40px; max-width: 450px; width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.4s ease;
+            padding: 40px; max-width: 480px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
         }
-        .focus-confirm-card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
-        .focus-confirm-card .task-name-display {
-            font-size: 18px; color: var(--md-primary); font-weight: 600;
-            margin: 12px 0; padding: 12px; background: #fff0f0; border-radius: 12px;
+        .task-start-card .ts-icon { font-size: 48px; margin-bottom: 12px; }
+        .task-start-card h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; }
+        .task-start-card .ts-cat { font-size: 14px; color: var(--md-primary); font-weight: 600; margin-bottom: 8px; }
+        .task-start-card .ts-task { font-size: 16px; color: #333; margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-radius: 8px; }
+        .task-start-card .ts-timer {
+            display: flex; gap: 20px; justify-content: center; margin-bottom: 20px;
         }
-        .focus-confirm-card .countdown-display {
-            font-size: 48px; font-weight: 900; color: var(--md-primary);
-            font-family: 'Inter', sans-serif; margin: 20px 0;
-            transition: color 0.5s;
+        .task-start-card .ts-timer-box {
+            background: #fff0f0; border-radius: 12px; padding: 12px 20px; min-width: 120px;
         }
-        .focus-confirm-card .countdown-display.urgent { color: #ff0000; animation: pulse 1s infinite; }
-        .focus-confirm-card .hint { font-size: 13px; color: #888; margin-top: 8px; }
-        .focus-start-btn {
+        .task-start-card .ts-timer-box .ts-label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .task-start-card .ts-timer-box .ts-value { font-size: 28px; font-weight: 900; color: var(--md-primary); font-family: 'Inter', sans-serif; }
+        .task-start-card .ts-timer-box .ts-value.green { color: var(--color-done); }
+        .ts-start-btn {
             width: 100%; padding: 16px; border: none; border-radius: 50px;
             background: var(--md-primary); color: white; font-size: 18px; font-weight: 700;
-            cursor: pointer; margin-top: 16px; transition: all 0.2s;
+            cursor: pointer; transition: all 0.2s;
         }
-        .focus-start-btn:hover { background: #a00000; transform: scale(1.02); }
+        .ts-start-btn:hover { background: #a00000; transform: scale(1.02); }
 
-        /* 20分钟专注提醒 */
-        .focus-reminder-toast {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            background: #1a1a1a; color: white; padding: 12px 24px;
-            border-radius: 50px; font-size: 14px; font-weight: 600;
-            z-index: 4000; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            display: none; animation: slideDown 0.3s ease;
+        /* === LLM CHAT DIALOG (within task-start) === */
+        .ts-llm-section { margin-top: 16px; border-top: 1px solid #eee; padding-top: 16px; display: none; }
+        .ts-llm-section.active { display: block; }
+        .ts-llm-chat {
+            max-height: 200px; overflow-y: auto; margin-bottom: 10px;
+            display: flex; flex-direction: column; gap: 8px;
         }
-        .focus-reminder-toast.active { display: block; }
-        @keyframes slideDown { from { transform: translateX(-50%) translateY(-20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+        .ts-llm-msg {
+            padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5;
+            max-width: 85%;
+        }
+        .ts-llm-msg.llm {
+            background: #f0e6ff; color: #4a148c; align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .ts-llm-msg.user {
+            background: #e3f2fd; color: #0d47a1; align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .ts-llm-msg .ts-llm-name { font-size: 10px; font-weight: 700; margin-bottom: 2px; opacity: 0.6; }
+        .ts-llm-input-row { display: flex; gap: 6px; }
+        .ts-llm-input-row input {
+            flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none;
+        }
+        .ts-llm-input-row input:focus { border-color: var(--md-primary); }
+        .ts-llm-send {
+            background: var(--md-primary); color: white; border: none;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;
+        }
 
-        /* BGM Prompt */
+        /* === BGM Prompt === */
         #bgm-prompt {
             position: fixed; bottom: 40px; right: 40px; width: 400px;
             background: white; border-radius: 16px; padding: 25px;
@@ -261,10 +277,9 @@
         .prompt-actions { display: flex; gap: 10px; }
         .prompt-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
         .btn-confirm { background: var(--color-break); color: white; }
-        .btn-confirm:hover { background: #a00000; }
         .btn-cancel { background: #eee; color: #333; }
         
-        /* === TTS Subtitle & Voice Selector === */
+        /* === TTS Subtitle === */
         .tts-subtitle {
             margin-top: 4px; padding: 6px 10px; border-radius: 4px;
             font-size: 11px; color: #888; background: #f0f0f0;
@@ -272,7 +287,6 @@
             transition: all 0.2s; min-height: 28px;
             border: 1px solid transparent;
         }
-        .tts-subtitle:hover { background: #e8e8e8; border-color: #ddd; }
         .tts-subtitle.active { background: #d1e7dd; color: #0f5132; border-color: #badbcc; }
         .tts-subtitle .tts-subtitle-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tts-subtitle .tts-subtitle-stop { display: none; font-weight: bold; color: #dc3545; margin-left: 8px; }
@@ -283,13 +297,9 @@
         .voice-item { padding: 4px 8px; font-size: 11px; cursor: pointer; border-radius: 3px; color: #555; display: flex; justify-content: space-between; }
         .voice-item:hover { background: #e8f0fe; color: #1967d2; }
         .voice-item.active { background: #d2e3fc; color: #1967d2; font-weight: bold; }
-        .voice-item .voice-lang { font-size: 10px; color: #999; font-family: 'Roboto Mono', monospace; }
         
-        /* TTS 朗读状态按钮 */
         #tts-status.speaking { background: #d1e7dd; color: #0f5132; animation: ttsPulse 1.5s ease-in-out infinite; }
         @keyframes ttsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(15, 81, 50, 0.4); } 50% { box-shadow: 0 0 0 4px rgba(15, 81, 50, 0); } }
-
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
     </style>
 </head>
@@ -300,8 +310,8 @@
 <div id="immersive-overlay" style="opacity: 1; pointer-events: auto; background: #111;">
     <div class="overlay-content">
         <span class="material-icons-round big-icon" style="color:var(--md-primary)">security</span>
-        <h1 class="overlay-title">Warden V10.3</h1>
-        <p class="overlay-quote" style="font-family:sans-serif;">Network Time Enforced • Custom Song Pool</p>
+        <h1 class="overlay-title">Warden V10.4</h1>
+        <p class="overlay-quote">Focus Timer • LLM Coaching • Smart Schedule</p>
         <button onclick="initSystem()" style="margin-top:40px; padding: 15px 50px; font-size: 18px; border-radius: 50px; border: none; background: var(--md-primary); color: white; cursor: pointer; font-weight: bold; box-shadow: 0 10px 30px rgba(194, 12, 12, 0.4);">
             Initialize System
         </button>
@@ -310,23 +320,38 @@
 
 <div id="immersive-transition"></div>
 
-<!-- Focus Confirmation Overlay (anti-procrastination) -->
-<div id="focus-confirm-overlay">
-    <div class="focus-confirm-card">
-        <h2>⏰ 该学习了！</h2>
-        <div class="task-name-display" id="focus-task-name">---</div>
-        <div style="font-size:14px; color:#666;">点击下方按钮开始专注</div>
-        <div class="countdown-display" id="focus-countdown">10</div>
-        <div class="hint">倒计时结束后将自动开始</div>
-        <button class="focus-start-btn" onclick="confirmFocusStart()">
+<!-- Task Start Dialog (with procrastination timer + LLM chat) -->
+<div id="task-start-dialog">
+    <div class="task-start-card">
+        <div class="ts-icon">⏰</div>
+        <h2>该开始学习了！</h2>
+        <div class="ts-cat" id="ts-cat"></div>
+        <div class="ts-task" id="ts-task"></div>
+        <div class="ts-timer">
+            <div class="ts-timer-box">
+                <div class="ts-label">已拖延</div>
+                <div class="ts-value" id="ts-wasted">00:00</div>
+            </div>
+            <div class="ts-timer-box">
+                <div class="ts-label">剩余时间</div>
+                <div class="ts-value green" id="ts-remaining">--:--</div>
+            </div>
+        </div>
+        <button class="ts-start-btn" onclick="confirmTaskStart()">
             <span class="material-icons-round" style="vertical-align:middle; font-size:20px;">play_arrow</span>
-            开始学习
+            开始任务
         </button>
+        
+        <!-- LLM Chat Section (appears after 5 min delay) -->
+        <div class="ts-llm-section" id="ts-llm-section">
+            <div class="ts-llm-chat" id="ts-llm-chat"></div>
+            <div class="ts-llm-input-row">
+                <input type="text" id="ts-llm-input" placeholder="和 AI 教练聊几句...">
+                <button class="ts-llm-send" onclick="sendLlmMessage()">发送</button>
+            </div>
+        </div>
     </div>
 </div>
-
-<!-- 20分钟专注提醒 -->
-<div class="focus-reminder-toast" id="focus-reminder-toast"></div>
 
 <div id="bgm-prompt">
     <div class="prompt-header"><span class="material-icons-round">queue_music</span> Break Approaching</div>
@@ -338,7 +363,7 @@
     </div>
 </div>
 
-<!-- Song Pool Manager Panel -->
+<!-- Song Pool Panel -->
 <div class="panel-overlay" id="songPoolPanel" onclick="if(event.target===this) closeSongPool()">
     <div class="panel-sheet">
         <h3>🎵 我的歌曲池</h3>
@@ -350,9 +375,7 @@
             <input type="text" id="songIdInput" placeholder="歌曲 ID (如 186001)" style="min-width:0; max-width:100px;">
             <button class="add-song-btn" onclick="addSongToPool()">添加</button>
         </div>
-        <div class="song-list" id="songPoolList">
-            <!-- populated by JS -->
-        </div>
+        <div class="song-list" id="songPoolList"></div>
         <button class="panel-close-btn" onclick="closeSongPool()">关闭</button>
     </div>
 </div>
@@ -376,11 +399,9 @@
             <span>[SPACE] Pause</span><span>[← →] Skip</span>
         </div>
     </div>
-
     <div class="iframe-container">
         <iframe id="music-iframe" frameborder="no" border="0" marginwidth="0" marginheight="0" width=340 height=100% src=""></iframe>
     </div>
-
     <div class="settings-area">
         <div class="setting-row">
             <span><span class="material-icons-round" style="font-size:14px;">record_voice_over</span> AI Voice</span>
@@ -390,31 +411,24 @@
             </div>
         </div>
         <select id="voice-select" class="tts-select" onchange="testVoice()"></select>
-        
-        <!-- 字幕区域 - 点击可打断 -->
         <div id="tts-subtitle" class="tts-subtitle" onclick="stopSpeaking()">
             <span class="tts-subtitle-text">点击此处可打断朗读</span>
             <span class="tts-subtitle-stop">✕ 停止</span>
         </div>
-        
-        <!-- TTS 引擎音色列表 -->
         <div id="tts-engine-voices" class="tts-engine-voices" style="display:none;max-height:150px;overflow-y:auto;border:1px solid #eee;border-radius:4px;padding:4px;margin-top:4px;"></div>
         <button class="setting-btn" style="width:100%;margin-top:4px;" onclick="const el=document.getElementById('tts-engine-voices');el.style.display=el.style.display==='none'?'block':'none';if(el.style.display==='block')populateTtsEngineVoices();">
             <span class="material-icons-round" style="font-size:12px;">unfold_more</span> 查看/选择音色
         </button>
-        
         <div class="setting-row" style="margin-top:10px;">
             <span>Auto-Confirm BGM</span>
             <button id="btn-auto-bgm" class="setting-btn active" onclick="toggleSetting('autoBgm')">ON</button>
         </div>
-
         <div class="setting-row">
             <span><span class="material-icons-round" style="font-size:14px;">library_music</span> 歌曲池</span>
             <button class="song-pool-btn" onclick="openSongPool()">
                 <span class="material-icons-round" style="font-size:14px;">edit</span> 管理
             </button>
         </div>
-        
         <div class="setting-row">
             <span>Network Time</span>
             <button class="setting-btn" onclick="syncServerTime()"><span class="material-icons-round" style="font-size:12px;">sync</span> Sync</button>
@@ -433,7 +447,6 @@
             <span id="clock-display" style="margin-left:8px;">00:00:00</span>
         </div>
     </header>
-
     <div class="timer-card" id="main-card">
         <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()">
             <span class="material-icons-round">done_all</span> Finish Early
@@ -444,13 +457,12 @@
             <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
         </div>
     </div>
-
     <div class="schedule-card" id="schedule-list"></div>
 </main>
 
 <script>
-    /* ======================== 0. VERSION CONTROL ======================== */
-    const SCHEDULE_VERSION = '20260709-v3';
+    /* ======================== VERSION CONTROL ======================== */
+    const SCHEDULE_VERSION = '20260712-v4';
     const cachedVersion = localStorage.getItem('w3_version');
     if (cachedVersion !== SCHEDULE_VERSION) {
         localStorage.removeItem('w3_schedule');
@@ -459,90 +471,152 @@
         console.log('[Schedule] Version mismatch, cache cleared.');
     }
 
-    /* ======================== 1. CONFIG & DATA ======================== */
+    /* ======================== MUSIC ======================== */
     const AUTO_BGM_LIST = [
-        {id: 2640844158, name: "天阙万钧 (九光寒林·战斗)"},
-        {id: 3312207342, name: "驭骨掌中 (关山藏锋·米擒负)"},
-        {id: 3312206530, name: "红丝魇 (关山藏锋·练小窈)"},
-        {id: 3332977605, name: "凭澜引 (怒潮归流·曲河星)"},
-        {id: 2119745415, name: "揽月 (谪仙惊涛·李白)"},
-        {id: 2119743531, name: "怒涛砥霜剑 (谪仙惊涛·战斗)"},
-        {id: 2137411622, name: "星罗棋布 (永夜星都·天弈之墟)"},
-        {id: 2137412905, name: "众生如棋 (永夜星都·天弈之墟)"},
-        {id: 2137411613, name: "天悬太一 (永夜星都·天极中宫)"},
-        {id: 2719266561, name: "无日无更 (无更市)"},
-        {id: 864099181,  name: "逆水寒 (河山集)"},
-        {id: 2686665002, name: "夕拾谣 (南海乱墟·流珠)"}
+        {id: 2640844158, name: "天阙万钧"}, {id: 3312207342, name: "驭骨掌中"},
+        {id: 3312206530, name: "红丝魇"}, {id: 3332977605, name: "凭澜引"},
+        {id: 2119745415, name: "揽月"}, {id: 2119743531, name: "怒涛砥霜剑"},
+        {id: 2137411622, name: "星罗棋布"}, {id: 2137412905, name: "众生如棋"},
+        {id: 2137411613, name: "天悬太一"}, {id: 2719266561, name: "无日无更"},
+        {id: 864099181, name: "逆水寒"}, {id: 2686665002, name: "夕拾谣"}
     ];
 
+    /* ======================== SCHEDULE DATA with cat(大标题)/detail(小标题) ======================== */
     const SCHEDULE_DATA = {
-        "0": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "1": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "2": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "3": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "4": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "5": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}],
-        "6": [{"start":"08:00","end":"08:30","task":"读1篇雅思阅读文章，要求流利并且发音准确并对比发音","type":"study"},{"start":"08:30","end":"09:20","task":"早餐/休息","type":"break"},{"start":"09:20","end":"09:50","task":"单词学习复习40词","type":"study"},{"start":"09:50","end":"10:00","task":"课间休息","type":"break"},{"start":"10:00","end":"12:00","task":"一套阅读套题及分析/一篇写作机经及分析（大作文/小作文交替进行）","type":"study"},{"start":"12:00","end":"12:30","task":"休息","type":"break"},{"start":"12:30","end":"14:00","task":"午餐/午睡","type":"break"},{"start":"14:00","end":"14:30","task":"语文阅读","type":"study"},{"start":"14:30","end":"16:30","task":"一套听力套题及分析","type":"study"},{"start":"16:30","end":"17:00","task":"休息","type":"break"},{"start":"17:00","end":"18:30","task":"一套口语机经练习（P1,P2/P3）","type":"study"},{"start":"18:30","end":"19:30","task":"钢琴《Exodus出埃及记》每日学习一个小节","type":"study"},{"start":"19:30","end":"21:00","task":"晚餐/休息","type":"break"},{"start":"21:00","end":"22:00","task":"单词学习复习40词 & 今日复盘","type":"study"}]
+        "0": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ],
+        "1": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ],
+        "2": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ],
+        "3": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ],
+        "4": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ],
+        "5": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ],
+        "6": [
+            {start:"08:00",end:"08:30",cat:"📖 阅读/写作",detail:"读1篇雅思阅读文章(流利发音准确并对比)",type:"study"},
+            {start:"08:30",end:"09:20",cat:"🍽️ 休息",detail:"早餐/休息",type:"break"},
+            {start:"09:20",end:"09:50",cat:"📝 单词",detail:"单词学习复习40词",type:"study"},
+            {start:"09:50",end:"10:00",cat:"🍽️ 休息",detail:"课间休息",type:"break"},
+            {start:"10:00",end:"12:00",cat:"📖 阅读/写作",detail:"阅读套题分析/写作机经分析(大/小作文交替)",type:"study"},
+            {start:"12:00",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"12:30",end:"14:00",cat:"🍽️ 休息",detail:"午餐/午睡",type:"break"},
+            {start:"14:00",end:"14:30",cat:"📚 语文",detail:"语文阅读",type:"study"},
+            {start:"14:30",end:"16:30",cat:"🔊 听力",detail:"听力套题及分析",type:"study"},
+            {start:"16:30",end:"17:00",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习(P1,P2/P3)",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"21:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"单词复习40词 & 今日复盘",type:"study"}
+        ]
     };
 
-    /* ======================== SONG POOL MANAGEMENT ======================== */
-    function getSongPool() {
-        return JSON.parse(localStorage.getItem('w3_song_pool') || '[]');
-    }
-    function saveSongPool(pool) {
-        localStorage.setItem('w3_song_pool', JSON.stringify(pool));
-    }
-
-    function openSongPool() {
-        document.getElementById('songPoolPanel').classList.add('active');
-        renderSongPool();
-    }
-    function closeSongPool() {
-        document.getElementById('songPoolPanel').classList.remove('active');
-    }
-
+    /* ======================== SONG POOL ======================== */
+    function getSongPool() { return JSON.parse(localStorage.getItem('w3_song_pool') || '[]'); }
+    function saveSongPool(pool) { localStorage.setItem('w3_song_pool', JSON.stringify(pool)); }
+    function openSongPool() { document.getElementById('songPoolPanel').classList.add('active'); renderSongPool(); }
+    function closeSongPool() { document.getElementById('songPoolPanel').classList.remove('active'); }
     function addSongToPool() {
         const name = document.getElementById('songNameInput').value.trim();
         const id = document.getElementById('songIdInput').value.trim();
-        if (!name || !id || isNaN(id)) {
-            alert('请填写歌曲名称和有效的网易云歌曲 ID');
-            return;
-        }
+        if (!name || !id || isNaN(id)) { alert('请填写歌曲名称和有效的网易云歌曲 ID'); return; }
         const pool = getSongPool();
-        if (pool.find(s => s.id === id)) {
-            alert('该歌曲 ID 已存在');
-            return;
-        }
-        pool.push({ id, name });
-        saveSongPool(pool);
-        document.getElementById('songNameInput').value = '';
-        document.getElementById('songIdInput').value = '';
+        if (pool.find(s => s.id === id)) { alert('歌曲 ID 已存在'); return; }
+        pool.push({ id, name }); saveSongPool(pool);
+        document.getElementById('songNameInput').value = ''; document.getElementById('songIdInput').value = '';
         renderSongPool();
     }
-
-    function removeSongFromPool(idx) {
-        const pool = getSongPool();
-        pool.splice(idx, 1);
-        saveSongPool(pool);
-        renderSongPool();
-    }
-
+    function removeSongFromPool(idx) { const pool = getSongPool(); pool.splice(idx, 1); saveSongPool(pool); renderSongPool(); }
     function renderSongPool() {
-        const container = document.getElementById('songPoolList');
-        const pool = getSongPool();
-        if (pool.length === 0) {
-            container.innerHTML = '<div class="song-empty">还没有添加歌曲，快来添加吧 🎵</div>';
-            return;
-        }
-        container.innerHTML = pool.map((s, idx) => `
-            <div class="song-item">
-                <div>
-                    <span class="song-name">${s.name}</span>
-                    <span class="song-id">ID: ${s.id}</span>
-                </div>
-                <button class="song-del" onclick="removeSongFromPool(${idx})">&times;</button>
-            </div>
-        `).join('');
+        const c = document.getElementById('songPoolList'); const pool = getSongPool();
+        if (!pool.length) { c.innerHTML = '<div class="song-empty">还没有添加歌曲 🎵</div>'; return; }
+        c.innerHTML = pool.map((s, idx) => `<div class="song-item"><div><span class="song-name">${s.name}</span></div><button class="song-del" onclick="removeSongFromPool(${idx})">&times;</button></div>`).join('');
     }
 
     /* ======================== STATE ======================== */
@@ -550,154 +624,106 @@
         schedule: JSON.parse(localStorage.getItem('w3_schedule')) || [],
         voiceUri: localStorage.getItem('w3_voice') || '',
         lastDate: localStorage.getItem('w3_date') || '',
-        lastTaskName: null,
-        bufferActive: false,
+        lastTaskName: null, bufferActive: false,
         bgmPlayer: document.getElementById('bgm-player'),
         customPlaylists: JSON.parse(localStorage.getItem('w3_playlists')) || [],
-        autoBgmConfirm: localStorage.getItem('w10_autobgm') !== 'false', 
-        bgmPromptActive: false,
-        bgmPromptTimeout: null,
-        mode: 'standard',
-        timeOffset: 0
+        autoBgmConfirm: localStorage.getItem('w10_autobgm') !== 'false',
+        bgmPromptActive: false, bgmPromptTimeout: null,
+        mode: 'standard', timeOffset: 0,
+        taskStarted: false // 是否已点击"开始任务"
     };
 
-    /* ======================== 2. NETWORK TIME SYNC ======================== */
+    /* ======================== NETWORK TIME ======================== */
     async function syncServerTime() {
-        const dot = document.getElementById('sync-status');
-        dot.className = 'sync-dot';
-        
+        const dot = document.getElementById('sync-status'); dot.className = 'sync-dot';
         try {
             const start = Date.now();
             const res = await fetch('http://worldtimeapi.org/api/timezone/Asia/Shanghai');
             const data = await res.json();
-            const serverTime = new Date(data.datetime).getTime();
-            const end = Date.now();
-            STATE.timeOffset = serverTime - end + (end - start) / 2;
+            STATE.timeOffset = new Date(data.datetime).getTime() - Date.now() + (Date.now() - start) / 2;
             dot.className = 'sync-dot synced';
-            console.log(`[TimeSync] Offset: ${STATE.timeOffset}ms`);
-        } catch (e) {
-            console.warn("[TimeSync] Failed, using local.", e);
-            dot.className = 'sync-dot error';
-            STATE.timeOffset = 0;
-        }
+        } catch (e) { dot.className = 'sync-dot error'; STATE.timeOffset = 0; }
     }
+    function getNow() { return new Date(Date.now() + STATE.timeOffset); }
 
-    function getNow() {
-        return new Date(Date.now() + STATE.timeOffset);
-    }
-
-    /* ======================== 3. INITIALIZATION ======================== */
+    /* ======================== INIT ======================== */
+    let focusReminderInterval = null;
     function initSystem() {
         const overlay = document.getElementById('immersive-overlay');
-        overlay.style.opacity = '0';
-        setTimeout(() => overlay.style.display = 'none', 600);
-
+        overlay.style.opacity = '0'; setTimeout(() => overlay.style.display = 'none', 600);
         syncServerTime();
-
         const today = getNow().toDateString();
-        if(STATE.lastDate !== today) {
-            loadSchedule();
-            localStorage.setItem('w3_date', today);
-        } else if (STATE.schedule.length === 0) {
-            loadSchedule();
-        } else {
-            renderTable();
-        }
-
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        new AudioContext().resume();
-        
+        if (STATE.lastDate !== today) { loadSchedule(); localStorage.setItem('w3_date', today); }
+        else if (!STATE.schedule.length) { loadSchedule(); }
+        else { renderTable(); }
+        new (window.AudioContext || window.webkitAudioContext)().resume();
         setInterval(tick, 1000);
-        
-        // 读取全局 TTS 配置（来自设置页面）
-        loadGlobalTtsConfig();
-        populateVoiceSelect();
-        window.speechSynthesis.onvoiceschanged = () => {
-            populateVoiceSelect();
-            populateTtsEngineVoices();
-        };
-        
-        loadCustomPlaylists();
-        changePlaylist("17652191106");
+        loadGlobalTtsConfig(); populateVoiceSelect();
+        window.speechSynthesis.onvoiceschanged = () => { populateVoiceSelect(); populateTtsEngineVoices(); };
+        loadCustomPlaylists(); changePlaylist("17652191106");
         STATE.bgmPlayer.onended = playRandomTrack;
-        
-        setupMediaKeys();
-        updateSettingsUI();
+        setupMediaKeys(); updateSettingsUI();
     }
 
-    /* ======================== 4. CORE LOOP ======================== */
+    /* ======================== CORE LOOP ======================== */
+    let taskStartDialogTimer = null;
+    let wastedSeconds = 0;
+    let currentPendingTask = null;
+
     function tick() {
         const now = getNow();
-        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-        
-        if(STATE.schedule.length === 0) return;
+        document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        if (!STATE.schedule.length) return;
 
-        const curM = now.getHours()*60 + now.getMinutes();
+        const curM = now.getHours() * 60 + now.getMinutes();
         const curS = now.getSeconds();
         const curTotalS = curM * 60 + curS;
 
-        const nextStudy = STATE.schedule.find(s => s.type === 'study' && !s.done && timeToMinutes(s.start) > curM);
-        if (nextStudy) {
-            const startM = timeToMinutes(nextStudy.start);
-            const diffM = startM - curM;
-            if (diffM <= 10 && diffM > 0) {
-                if (!STATE.bufferActive) {
-                    STATE.bufferActive = true;
-                    triggerImmersiveAlert('prep', nextStudy.task);
-                    speak(`Preparation mode. ${nextStudy.task} in 10 minutes.`);
-                }
-                updateTimer(nextStudy.task + " (PREP)", (startM*60 - curTotalS), 600, true);
-                return;
-            } else {
-                STATE.bufferActive = false;
-            }
-        }
-
-        const nextBreak = STATE.schedule.find(s => s.type === 'break' && !s.done && timeToMinutes(s.start) > curM);
-        if (nextBreak) {
-            const startS = timeToMinutes(nextBreak.start) * 60;
-            const diffS = startS - curTotalS;
-            if (diffS <= 20 && diffS > 0 && !STATE.bgmPromptActive) {
-                triggerBgmPrompt();
-            }
-        }
-
+        // Find current slot
         const currentSlot = STATE.schedule.find(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+
+        // --- Task Start Dialog Logic (仅 study 任务) ---
+        if (currentSlot && currentSlot.type === 'study' && !currentSlot.done && !currentSlot.taskStarted) {
+            // Check if we should show dialog (within first 2 minutes of task)
+            const startM = timeToMinutes(currentSlot.start);
+            const elapsedM = curM - startM;
+            if (elapsedM >= 0 && elapsedM < 2 && !document.getElementById('task-start-dialog').classList.contains('active')) {
+                showTaskStartDialog(currentSlot);
+            }
+        }
+
+        if (currentSlot && currentSlot.type === 'study' && !currentSlot.done && currentSlot.taskStarted) {
+            // Focus mode active — show task timer
+            const start = timeToMinutes(currentSlot.start);
+            const end = timeToMinutes(currentSlot.end);
+            const remaining = (end * 60) - curTotalS;
+            updateTimer(currentSlot.cat + ' ✅', remaining, (end - start) * 60, false);
+            STATE.lastTaskName = currentSlot.task;
+            highlightRow(currentSlot);
+            return;
+        }
 
         if (currentSlot) {
             if (currentSlot.done) {
-                if (STATE.mode !== 'finished') {
-                    enterFinishedMode(currentSlot);
-                }
-                updateTimer("COMPLETED - REST", 0, 100, false);
-                return;
-            } 
-            
+                if (STATE.mode !== 'finished') { enterFinishedMode(currentSlot); }
+                updateTimer("COMPLETED - REST", 0, 100, false); return;
+            }
             STATE.mode = 'standard';
             document.getElementById('main-card').classList.remove('finished-mode');
             document.getElementById('btn-early').classList.add('visible');
-            
+
             if (STATE.lastTaskName !== currentSlot.task) {
                 STATE.lastTaskName = currentSlot.task;
-                if (currentSlot.type === 'study') {
-                    STATE.bgmPlayer.pause();
-                    updateAutoPlayInfo("");
-                    triggerImmersiveAlert('study', currentSlot.task);
-                    speak(`Focus session: ${currentSlot.task}`);
-                } else {
-                    triggerImmersiveAlert('break', currentSlot.task);
-                    speak("Break time.");
-                    document.getElementById('btn-early').classList.remove('visible');
+                if (currentSlot.type === 'break') {
+                    triggerImmersiveAlert('break', currentSlot.cat);
                     if (STATE.autoBgmConfirm && STATE.bgmPlayer.paused) playRandomTrack();
                 }
                 highlightRow(currentSlot);
             }
-            
             const start = timeToMinutes(currentSlot.start);
             const end = timeToMinutes(currentSlot.end);
-            const remaining = (end*60) - curTotalS;
-            updateTimer(currentSlot.task, remaining, (end-start)*60, false);
-            
+            const remaining = (end * 60) - curTotalS;
+            updateTimer(currentSlot.cat, remaining, (end - start) * 60, false);
         } else {
             updateTimer("FREE TIME", 0, 100, false);
             STATE.lastTaskName = null;
@@ -705,114 +731,164 @@
         }
     }
 
-    /* ======================== 5. FINISH EARLY LOGIC ======================== */
-    function finishTaskEarly() {
+    /* ======================== TASK START DIALOG ======================== */
+    function showTaskStartDialog(task) {
+        currentPendingTask = task;
+        const dlg = document.getElementById('task-start-dialog');
+        document.getElementById('ts-cat').textContent = task.cat;
+        document.getElementById('ts-task').textContent = task.detail;
+        dlg.classList.add('active');
+
+        // Calculate remaining time
         const now = getNow();
-        const curM = now.getHours()*60 + now.getMinutes();
-        const idx = STATE.schedule.findIndex(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
-        
-        if (idx > -1) {
-            const task = STATE.schedule[idx];
-            task.done = true;
-            saveSchedule();
-            renderTable();
-            enterFinishedMode(task);
-            speak("Task completed early. Entering rest mode.");
-        }
+        const end = timeToMinutes(task.end);
+        const curM = now.getHours() * 60 + now.getMinutes();
+        const remainingMin = end - curM;
+        const remM = Math.floor(remainingMin);
+        const remS = Math.floor((remainingMin - remM) * 60);
+        document.getElementById('ts-remaining').textContent = `${String(remM).padStart(2,'0')}:${String(remS).padStart(2,'0')}`;
+
+        // Start wasted timer
+        wastedSeconds = 0;
+        document.getElementById('ts-wasted').textContent = '00:00';
+        document.getElementById('ts-llm-section').classList.remove('active');
+
+        if (taskStartDialogTimer) clearInterval(taskStartDialogTimer);
+        taskStartDialogTimer = setInterval(() => {
+            wastedSeconds++;
+            const wm = Math.floor(wastedSeconds / 60);
+            const ws = wastedSeconds % 60;
+            document.getElementById('ts-wasted').textContent = `${String(wm).padStart(2,'0')}:${String(ws).padStart(2,'0')}`;
+
+            // After 5 min → show LLM chat
+            if (wastedSeconds >= 300 && !document.getElementById('ts-llm-section').classList.contains('active')) {
+                document.getElementById('ts-llm-section').classList.add('active');
+                callLlmCoach('init');
+            }
+        }, 1000);
+
+        // Speak TTS
+        speak(`It's time for ${task.detail}. Please start now.`);
     }
 
-    function enterFinishedMode(task) {
-        STATE.mode = 'finished';
-        document.getElementById('main-card').classList.add('finished-mode');
-        document.getElementById('btn-early').classList.remove('visible');
-        triggerImmersiveAlert('done', "Task Completed");
-        highlightRow(task);
-        
-        if (task.type === 'study' && STATE.bgmPlayer.paused) {
-            playRandomTrack();
+    function confirmTaskStart() {
+        if (taskStartDialogTimer) { clearInterval(taskStartDialogTimer); taskStartDialogTimer = null; }
+        document.getElementById('task-start-dialog').classList.remove('active');
+        document.getElementById('ts-llm-section').classList.remove('active');
+
+        if (currentPendingTask) {
+            currentPendingTask.taskStarted = true;
+            // Start 20-min reminder
+            if (focusReminderInterval) clearInterval(focusReminderInterval);
+            let elapsed = 20;
+            focusReminderInterval = setInterval(() => {
+                const t = document.getElementById('focus-reminder-toast');
+                if (!t) return;
+                t.textContent = `⏰ 已经学习了 ${elapsed} 分钟，继续坚持！`;
+                t.classList.add('active');
+                setTimeout(() => t.classList.remove('active'), 5000);
+                elapsed += 20;
+            }, 20 * 60 * 1000);
         }
+        // Also remove the corresponding focus-confirm-overlay from old version if exists
+        const oldOverlay = document.getElementById('focus-confirm-overlay');
+        if (oldOverlay) oldOverlay.classList.remove('active');
     }
 
-    /* ======================== 6. UI & UTILS ======================== */
-    function updateTimer(label, secs, total, isBuffer) {
-        if(secs < 0) secs = 0;
-        const m = Math.floor(secs/60).toString().padStart(2,'0');
-        const s = (secs%60).toString().padStart(2,'0');
-        document.getElementById('timer-display').innerText = `${m}:${s}`;
-        document.getElementById('timer-label').innerText = label;
-        
-        const card = document.getElementById('main-card');
-        const bar = document.getElementById('progress-bar');
-        
-        if (isBuffer) {
-            card.style.borderColor = "#ffc107";
-            bar.style.background = "#ffc107";
-        } else if (STATE.mode === 'finished') {
-            card.style.borderColor = "var(--color-done)";
-            bar.style.background = "var(--color-done)";
-        } else {
-            card.style.borderColor = "#e0e0e0";
-            bar.style.background = "var(--md-primary)";
-        }
-        
-        const pct = total > 0 ? ((total-secs)/total)*100 : 0;
-        bar.style.width = pct + "%";
-    }
+    /* ======================== LLM COACH ======================== */
+    let llmChatHistory = [];
 
-    async function triggerImmersiveAlert(type, taskName) {
-        const container = document.getElementById('immersive-transition');
-        let quote = "Loading wisdom...";
-        let author = "";
+    async function callLlmCoach(type, userMsg) {
+        if (type === 'init') {
+            llmChatHistory = [
+                { role: 'system', content: `你是一个学习教练。现在是${getNow().toLocaleString('zh-CN')}。用户应该做 "${currentPendingTask?.detail}" 但是还没有开始。你已拖延${Math.floor(wastedSeconds/60)}分钟。用中文、热情、有鼓励性地说一两句话，让用户赶紧开始学习。不要说教太长。` }
+            ];
+        } else if (type === 'chat') {
+            llmChatHistory.push({ role: 'user', content: userMsg });
+        }
+
+        // Call via /api/llm-proxy
         try {
-            const cat = type === 'study' ? 'i' : (type === 'break' ? 'a' : 'd'); 
-            const res = await fetch(`https://v1.hitokoto.cn/?c=${cat}&encode=json`);
-            const data = await res.json();
-            quote = data.hitokoto;
-            author = data.from;
-        } catch(e) { quote = "Time is the wisest counselor of all."; }
+            const aiConfigRaw = localStorage.getItem('jackyun-ai-config');
+            const config = aiConfigRaw ? JSON.parse(aiConfigRaw) : null;
+            const baseUrl = config?.baseUrl || '';
+            const apiKey = config?.apiKey || '';
 
-        const icons = { 'study': 'auto_stories', 'break': 'spa', 'prep': 'history_edu', 'done': 'check_circle' };
-        
-        container.innerHTML = `
-            <div id="temp-overlay" class="mode-${type}" 
-                 style="position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; background:rgba(0,0,0,0.95); animation: fadeIn 0.5s;">
-                <span class="material-icons-round big-icon">${icons[type]}</span>
-                <h1 class="overlay-title">${taskName}</h1>
-                <div class="overlay-quote">“${quote}”</div>
-                <div class="overlay-author">—— ${author}</div>
-            </div>
-        `;
-        setTimeout(() => {
-            const el = document.getElementById('temp-overlay');
-            if(el) { el.style.opacity = 0; setTimeout(() => el.remove(), 500); }
-        }, 4000);
+            const res = await fetch((baseUrl ? baseUrl.replace(/\/+$/, '') : '') + '/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}) },
+                body: JSON.stringify({
+                    model: config?.model || 'deepseek-v4-flash',
+                    messages: llmChatHistory,
+                    max_tokens: 300, temperature: 0.7
+                })
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const reply = data.choices?.[0]?.message?.content?.trim() || '快开始学习吧！';
+            llmChatHistory.push({ role: 'assistant', content: reply });
+
+            // Display in chat
+            const chat = document.getElementById('ts-llm-chat');
+            chat.innerHTML += `<div class="ts-llm-msg llm"><div class="ts-llm-name">AI 教练</div>${escapeHtml(reply)}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+
+            // TTS the reply
+            speak(reply);
+        } catch (e) {
+            const chat = document.getElementById('ts-llm-chat');
+            chat.innerHTML += `<div class="ts-llm-msg llm"><div class="ts-llm-name">AI 教练</div>快开始学习吧！时间不等人！</div>`;
+        }
     }
 
-    /* ======================== 7. SCHEDULE & PLAYLIST ======================== */
+    function sendLlmMessage() {
+        const input = document.getElementById('ts-llm-input');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        const chat = document.getElementById('ts-llm-chat');
+        chat.innerHTML += `<div class="ts-llm-msg user"><div class="ts-llm-name">我</div>${escapeHtml(text)}</div>`;
+        chat.scrollTop = chat.scrollHeight;
+        callLlmCoach('chat', text);
+    }
+
+    function escapeHtml(text) { return text.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>'); }
+
+    /* ======================== RENDER TABLE (分组大标题/小标题) ======================== */
     function loadSchedule() {
         const todayIdx = getNow().getDay();
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
         const plan = SCHEDULE_DATA[todayIdx] || [];
         STATE.schedule = JSON.parse(JSON.stringify(plan));
-        saveSchedule();
-        renderTable();
+        saveSchedule(); renderTable();
     }
 
     function renderTable() {
         const div = document.getElementById('schedule-list');
         div.innerHTML = '';
+        let lastCat = '';
         STATE.schedule.forEach((s, idx) => {
+            if (s.cat !== lastCat) {
+                // Insert category header
+                const header = document.createElement('div');
+                header.className = 'cat-header';
+                header.innerHTML = `<span>${s.cat}</span>`;
+                div.appendChild(header);
+                lastCat = s.cat;
+            }
             const row = document.createElement('div');
-            row.className = `task-row ${s.done ? 'done' : ''}`;
+            let statusClass = '';
+            if (s.done) statusClass = 'done';
+            row.className = `task-row ${statusClass}`;
+            if (!s.done && s.taskStarted) row.classList.add('active');
             row.id = `row-${idx}`;
             row.innerHTML = `
                 <div class="checkbox-custom" onclick="toggleTask(${idx})">
                     ${s.done ? '<span class="material-icons-round" style="font-size:16px;">check_circle</span>' : '<span class="material-icons-round" style="font-size:16px; color:#ddd;">radio_button_unchecked</span>'}
                 </div>
-                <div class="task-time">${s.start} - ${s.end}</div>
-                <div class="task-name">${s.task}</div>
-                <div class="task-type ${s.type}">${s.type}</div>
+                <div class="task-time">${s.start}</div>
+                <div class="task-name">${s.detail}</div>
             `;
             div.appendChild(row);
         });
@@ -820,79 +896,196 @@
 
     function toggleTask(idx) {
         STATE.schedule[idx].done = !STATE.schedule[idx].done;
-        saveSchedule();
-        renderTable();
+        saveSchedule(); renderTable();
     }
 
     function highlightRow(activeTask) {
         document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
         const idx = STATE.schedule.indexOf(activeTask);
-        if(idx > -1) {
+        if (idx > -1) {
             const el = document.getElementById(`row-${idx}`);
-            if(el) {
-                el.classList.add('active');
-                el.scrollIntoView({behavior: "smooth", block: "center"});
-            }
+            if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
         }
     }
 
-    /* ======================== MUSIC: RANDOM FROM SONG POOL ======================== */
+    /* ======================== MUSIC ======================== */
     function playRandomTrack() {
         const pool = getSongPool();
-        let track;
-        // If song pool is not empty, pick from pool; otherwise fallback to built-in list
-        if (pool.length > 0) {
-            track = pool[Math.floor(Math.random() * pool.length)];
-        } else {
-            track = AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
-        }
+        let track = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : AUTO_BGM_LIST[Math.floor(Math.random() * AUTO_BGM_LIST.length)];
         updateAutoPlayInfo(track.name);
         STATE.bgmPlayer.src = `https://music.163.com/song/media/outer/url?id=${track.id}.mp3`;
-        STATE.bgmPlayer.play().catch(console.error);
+        STATE.bgmPlayer.play().catch(() => {});
     }
-
     function updateAutoPlayInfo(text) {
-        const infoBox = document.getElementById('auto-play-info');
-        const textEl = document.getElementById('scrolling-song-name');
-        if (text) {
-            infoBox.classList.add('active');
-            textEl.innerText = "♫ " + text;
-        } else {
-            infoBox.classList.remove('active');
-        }
+        const box = document.getElementById('auto-play-info');
+        const el = document.getElementById('scrolling-song-name');
+        if (text) { box.classList.add('active'); el.innerText = "♫ " + text; }
+        else { box.classList.remove('active'); }
     }
 
-    /* ======================== 8. PROMPT & SETTINGS ======================== */
+    /* ======================== BGM PROMPT ======================== */
     function triggerBgmPrompt() {
         STATE.bgmPromptActive = true;
-        const modal = document.getElementById('bgm-prompt');
+        document.getElementById('bgm-prompt').classList.add('active');
         const bar = document.getElementById('prompt-fill');
-        modal.classList.add('active');
         bar.style.width = '100%';
         setTimeout(() => bar.style.width = '0%', 100);
-        STATE.bgmPromptTimeout = setTimeout(() => { handleBgmChoice(STATE.autoBgmConfirm); }, 20000);
+        STATE.bgmPromptTimeout = setTimeout(() => handleBgmChoice(STATE.autoBgmConfirm), 20000);
     }
-
     function handleBgmChoice(play) {
         clearTimeout(STATE.bgmPromptTimeout);
         document.getElementById('bgm-prompt').classList.remove('active');
         STATE.bgmPromptActive = false;
-        if (play) { playRandomTrack(); triggerImmersiveAlert('break', "Music Started"); } 
-        else { speak("Music cancelled."); }
+        if (play) { playRandomTrack(); triggerImmersiveAlert('break', "Music Started"); }
     }
-
     function toggleSetting(key) {
-        if (key === 'autoBgm') {
-            STATE.autoBgmConfirm = !STATE.autoBgmConfirm;
-            localStorage.setItem('w10_autobgm', STATE.autoBgmConfirm);
-            updateSettingsUI();
-        }
+        if (key === 'autoBgm') { STATE.autoBgmConfirm = !STATE.autoBgmConfirm; localStorage.setItem('w10_autobgm', STATE.autoBgmConfirm); updateSettingsUI(); }
     }
-
     function updateSettingsUI() {
         const btn = document.getElementById('btn-auto-bgm');
         btn.innerText = STATE.autoBgmConfirm ? "ON" : "OFF";
         btn.className = `setting-btn ${STATE.autoBgmConfirm ? 'active' : ''}`;
+    }
+
+    /* ======================== TIMER UI ======================== */
+    function updateTimer(label, secs, total, isBuffer) {
+        if (secs < 0) secs = 0;
+        document.getElementById('timer-display').innerText = `${Math.floor(secs/60).toString().padStart(2,'0')}:${(secs%60).toString().padStart(2,'0')}`;
+        document.getElementById('timer-label').innerText = label;
+        const card = document.getElementById('main-card');
+        const bar = document.getElementById('progress-bar');
+        if (isBuffer) { card.style.borderColor = "#ffc107"; bar.style.background = "#ffc107"; }
+        else if (STATE.mode === 'finished') { card.style.borderColor = "var(--color-done)"; bar.style.background = "var(--color-done)"; }
+        else { card.style.borderColor = "#e0e0e0"; bar.style.background = "var(--md-primary)"; }
+        bar.style.width = (total > 0 ? ((total - secs) / total) * 100 : 0) + "%";
+    }
+
+    async function triggerImmersiveAlert(type, taskName) {
+        const container = document.getElementById('immersive-transition');
+        let quote = "Keep going!"; let author = "";
+        try {
+            const cat = type === 'study' ? 'i' : (type === 'break' ? 'a' : 'd');
+            const res = await fetch(`https://v1.hitokoto.cn/?c=${cat}&encode=json`);
+            const data = await res.json(); quote = data.hitokoto; author = data.from;
+        } catch (e) {}
+        const icons = { 'study': 'auto_stories', 'break': 'spa', 'done': 'check_circle' };
+        container.innerHTML = `<div id="temp-overlay" class="mode-${type}" style="position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; background:rgba(0,0,0,0.95); animation:fadeIn 0.5s;"><span class="material-icons-round big-icon">${icons[type] || 'auto_stories'}</span><h1 class="overlay-title">${taskName}</h1><div class="overlay-quote">“${quote}”</div>${author ? `<div class="overlay-author">—— ${author}</div>` : ''}</div>`;
+        setTimeout(() => { const el = document.getElementById('temp-overlay'); if (el) { el.style.opacity = 0; setTimeout(() => el.remove(), 500); } }, 4000);
+    }
+
+    function finishTaskEarly() {
+        const now = getNow();
+        const curM = now.getHours() * 60 + now.getMinutes();
+        const idx = STATE.schedule.findIndex(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+        if (idx > -1) {
+            STATE.schedule[idx].done = true;
+            saveSchedule(); renderTable();
+            if (focusReminderInterval) { clearInterval(focusReminderInterval); focusReminderInterval = null; }
+            speak("Task completed early. Well done!");
+        }
+    }
+
+    function enterFinishedMode(task) {
+        STATE.mode = 'finished';
+        document.getElementById('main-card').classList.add('finished-mode');
+        document.getElementById('btn-early').classList.remove('visible');
+        if (task.type === 'study' && STATE.bgmPlayer.paused) playRandomTrack();
+    }
+
+    /* ======================== TTS ======================== */
+    let translateCache = {};
+
+    async function translateToEnglish(chineseText) {
+        if (translateCache[chineseText]) return translateCache[chineseText];
+        try {
+            const aiConfigRaw = localStorage.getItem('jackyun-ai-config');
+            const config = aiConfigRaw ? JSON.parse(aiConfigRaw) : null;
+            if (!config?.baseUrl || !config?.apiKey) return null;
+            const baseUrl = config.baseUrl.replace(/\/+$/, '');
+            const res = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+                body: JSON.stringify({
+                    model: config.model || 'deepseek-v4-flash',
+                    messages: [{ role: 'system', content: 'Translate Chinese to concise English for TTS. Output ONLY translation.' }, { role: 'user', content: chineseText }],
+                    max_tokens: 200, temperature: 0.1
+                })
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            const t = data.choices?.[0]?.message?.content?.trim();
+            if (t) { translateCache[chineseText] = t; return t; }
+        } catch (e) { console.warn('[TTS] Translation failed:', e); }
+        return null;
+    }
+
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const subtitleEl = document.getElementById('tts-subtitle');
+        const ttsStatusEl = document.getElementById('tts-status');
+        if (subtitleEl) { subtitleEl.querySelector('.tts-subtitle-text').textContent = text; subtitleEl.classList.add('active'); }
+        if (ttsStatusEl) ttsStatusEl.classList.add('speaking');
+
+        const hasChinese = /[\u4e00-\u9fff]/.test(text);
+        if (!hasChinese) { doSpeak(text, 'en-US', subtitleEl, ttsStatusEl); }
+        else {
+            translateToEnglish(text).then(t => {
+                if (t) doSpeak(t, 'en-US', subtitleEl, ttsStatusEl);
+                else doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl);
+            }).catch(() => doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl));
+        }
+    }
+
+    function doSpeak(textToRead, lang, subtitleEl, ttsStatusEl) {
+        const u = new SpeechSynthesisUtterance(textToRead);
+        u.lang = lang;
+        u.onend = () => { if (subtitleEl) subtitleEl.classList.remove('active'); if (ttsStatusEl) ttsStatusEl.classList.remove('speaking'); };
+        u.onerror = () => { if (subtitleEl) subtitleEl.classList.remove('active'); if (ttsStatusEl) ttsStatusEl.classList.remove('speaking'); };
+        const globalConfig = getGlobalTtsConfig();
+        let voiceUri = STATE.voiceUri;
+        const sel = document.getElementById('voice-select');
+        if (sel && sel.value === 'global' && globalConfig?.voiceURI) voiceUri = globalConfig.voiceURI;
+        if (voiceUri && voiceUri !== 'global') { const v = allVoices().find(v => v.voiceURI === voiceUri); if (v) u.voice = v; }
+        if (globalConfig) { if (globalConfig.rate) u.rate = globalConfig.rate; if (globalConfig.pitch) u.pitch = globalConfig.pitch; }
+        window.speechSynthesis.speak(u);
+    }
+
+    function allVoices() { return window.speechSynthesis.getVoices(); }
+    function stopSpeaking() { window.speechSynthesis.cancel(); document.getElementById('tts-subtitle')?.classList.remove('active'); document.getElementById('tts-status')?.classList.remove('speaking'); }
+
+    function loadGlobalTtsConfig() {
+        try { const raw = localStorage.getItem('jackyun-tts-config'); if (raw) { const p = JSON.parse(raw); if (p.voiceURI) { STATE.voiceUri = p.voiceURI; localStorage.setItem('w3_voice', p.voiceURI); } } } catch (e) {}
+    }
+    function getGlobalTtsConfig() { try { const raw = localStorage.getItem('jackyun-tts-config'); if (raw) return JSON.parse(raw); } catch (e) {} return null; }
+
+    function populateVoiceSelect() {
+        const sel = document.getElementById('voice-select'); sel.innerHTML = '';
+        const def = document.createElement('option'); def.value = 'global'; def.innerText = '🌐 全局设置'; sel.appendChild(def);
+        const allVoices = window.speechSynthesis.getVoices();
+        allVoices.forEach(v => { const o = document.createElement('option'); o.value = v.voiceURI; o.innerText = `${v.name} (${v.lang})`; sel.appendChild(o); });
+        const gc = getGlobalTtsConfig();
+        if (gc?.voiceURI) { STATE.voiceUri = gc.voiceURI; sel.value = gc.voiceURI; if (!sel.value) sel.value = 'global'; }
+        else if (STATE.voiceUri) { sel.value = STATE.voiceUri; if (!sel.value) sel.value = 'global'; }
+        else sel.value = 'global';
+    }
+
+    function populateTtsEngineVoices() {
+        const el = document.getElementById('tts-engine-voices'); if (!el) return;
+        const voices = window.speechSynthesis.getVoices();
+        const groups = [
+            { name: 'Microsoft Edge TTS', items: voices.filter(v => v.name.includes('Microsoft')) },
+            { name: 'Google Chrome TTS', items: voices.filter(v => v.name.includes('Google')) },
+            { name: '其他', items: voices.filter(v => !v.name.includes('Microsoft') && !v.name.includes('Google')) }
+        ];
+        el.innerHTML = groups.map(g => g.items.length ? `<div class="voice-group"><span class="voice-group-title">${g.name}</span>${g.items.map(v => `<div class="voice-item ${STATE.voiceUri === v.voiceURI ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`).join('')}</div>` : '').join('') || '<div style="text-align:center;color:#aaa;padding:10px;font-size:12px;">暂无可用语音</div>';
+    }
+
+    function selectVoiceAndTest(uri) { STATE.voiceUri = uri; localStorage.setItem('w3_voice', uri); const sel = document.getElementById('voice-select'); if (sel) sel.value = uri; populateTtsEngineVoices(); speak("Voice selected."); }
+    function testVoice() {
+        const sel = document.getElementById('voice-select');
+        STATE.voiceUri = sel?.value === 'global' ? (getGlobalTtsConfig()?.voiceURI || '') : sel?.value || '';
+        localStorage.setItem('w3_voice', STATE.voiceUri);
+        speak("Hello, voice updated.");
     }
 
     function setupMediaKeys() {
@@ -902,376 +1095,29 @@
         });
     }
 
-    /**
-     * 读取全局 TTS 配置（来自设置页面）
-     */
-    function loadGlobalTtsConfig() {
-        try {
-            const raw = localStorage.getItem('jackyun-tts-config');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (parsed.voiceURI) {
-                    STATE.voiceUri = parsed.voiceURI;
-                    localStorage.setItem('w3_voice', STATE.voiceUri);
-                }
-                console.log('[TTS] Loaded global config:', parsed);
-            }
-        } catch(e) {
-            console.warn('[TTS] Failed to load global config:', e);
-        }
-    }
-
-    /**
-     * 获取全局 TTS 配置
-     */
-    function getGlobalTtsConfig() {
-        try {
-            const raw = localStorage.getItem('jackyun-tts-config');
-            if (raw) return JSON.parse(raw);
-        } catch(e) {}
-        return null;
-    }
-
-    function populateVoiceSelect() {
-        const sel = document.getElementById('voice-select');
-        sel.innerHTML = '';
-        // 默认选项：使用全局配置
-        const defaultOption = document.createElement('option');
-        defaultOption.value = 'global';
-        defaultOption.innerText = '🌐 全局设置 (由设置页配置)';
-        sel.appendChild(defaultOption);
-
-        const allVoices = window.speechSynthesis.getVoices();
-        allVoices.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v.voiceURI;
-            opt.innerText = `${v.name} (${v.lang})`;
-            sel.appendChild(opt);
-        });
-
-        // 优先使用全局配置的语音
-        const globalConfig = getGlobalTtsConfig();
-        if (globalConfig && globalConfig.voiceURI) {
-            STATE.voiceUri = globalConfig.voiceURI;
-            sel.value = globalConfig.voiceURI;
-            if (!sel.value || sel.value === '') sel.value = 'global';
-        } else if (STATE.voiceUri) {
-            sel.value = STATE.voiceUri;
-            if (!sel.value) sel.value = 'global';
-        } else {
-            sel.value = 'global';
-        }
-    }
-
-    /**
-     * 翻译缓存 - 避免重复翻译相同文本
-     */
-    let translateCache = {};
-
-    /**
-     * 调用 LLM 翻译中文为英文（用于 TTS 朗读）
-     * 使用本地保存的 AI API key（jackyun-ai-config）
-     */
-    async function translateToEnglish(chineseText) {
-        // 检查缓存
-        if (translateCache[chineseText]) {
-            return translateCache[chineseText];
-        }
-        
-        try {
-            const aiConfigRaw = localStorage.getItem('jackyun-ai-config');
-            if (!aiConfigRaw) {
-                console.warn('[TTS] No AI config found, reading Chinese directly');
-                return null; // fallback to direct read
-            }
-            const aiConfig = JSON.parse(aiConfigRaw);
-            if (!aiConfig.baseUrl || !aiConfig.apiKey) {
-                return null;
-            }
-            
-            const baseUrl = aiConfig.baseUrl.replace(/\/+$/, '');
-            const res = await fetch(`${baseUrl}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${aiConfig.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: aiConfig.model || 'deepseek-v4-flash',
-                    messages: [
-                        { role: 'system', content: 'You are a concise translator. Translate the following Chinese text to natural English for text-to-speech. Output ONLY the English translation, no explanations, no quotes, no extra text.' },
-                        { role: 'user', content: chineseText }
-                    ],
-                    max_tokens: 200,
-                    temperature: 0.1,
-                    stream: false
-                })
-            });
-            
-            if (!res.ok) {
-                console.warn('[TTS] Translation API error:', res.status);
-                return null;
-            }
-            
-            const data = await res.json();
-            const translation = data.choices?.[0]?.message?.content?.trim();
-            if (translation) {
-                // 缓存结果
-                translateCache[chineseText] = translation;
-                return translation;
-            }
-        } catch(e) {
-            console.warn('[TTS] Translation failed:', e);
-        }
-        return null;
-    }
-
-    /**
-     * 智能朗读（中文自动翻译为英文后朗读，字幕显示中文）
-     * 使用 LLM 翻译 + 英文 TTS
-     */
-    function speak(text, skipSubtitleUpdate) {
-        window.speechSynthesis.cancel();
-        
-        const hasChinese = /[\u4e00-\u9fff]/.test(text);
-        
-        // 字幕始终显示原始中文（让用户知道在做什么）
-        const subtitleEl = document.getElementById('tts-subtitle');
-        const ttsStatusEl = document.getElementById('tts-status');
-        
-        if (!skipSubtitleUpdate && subtitleEl) {
-            const subtitleText = subtitleEl.querySelector('.tts-subtitle-text') || subtitleEl;
-            subtitleText.textContent = text;
-            subtitleEl.classList.add('active');
-        }
-        if (ttsStatusEl) {
-            ttsStatusEl.classList.add('speaking');
-        }
-
-        if (!hasChinese) {
-            // 如果是纯英文，直接朗读
-            doSpeak(text, 'en-US', subtitleEl, ttsStatusEl);
-        } else {
-            // 中文文本 -> 异步翻译 -> 朗读英文翻译
-            translateToEnglish(text).then(translation => {
-                if (translation) {
-                    // 字幕仍然显示中文，但朗读英文
-                    doSpeak(translation, 'en-US', subtitleEl, ttsStatusEl);
-                } else {
-                    // 翻译失败，直接读中文
-                    doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl);
-                }
-            }).catch(() => {
-                // 异常，直接读中文
-                doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl);
-            });
-        }
-    }
-
-    /**
-     * 实际执行 TTS 朗读
-     */
-    function doSpeak(textToRead, lang, subtitleEl, ttsStatusEl) {
-        const u = new SpeechSynthesisUtterance(textToRead);
-        u.lang = lang;
-
-        u.onend = () => {
-            if (subtitleEl) subtitleEl.classList.remove('active');
-            if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
-        };
-        u.onerror = () => {
-            if (subtitleEl) subtitleEl.classList.remove('active');
-            if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
-        };
-
-        const globalConfig = getGlobalTtsConfig();
-        let voiceUri = STATE.voiceUri;
-
-        const sel = document.getElementById('voice-select');
-        if (sel && sel.value === 'global') {
-            if (globalConfig && globalConfig.voiceURI) {
-                voiceUri = globalConfig.voiceURI;
-            } else {
-                const enginePrefix = globalConfig?.engine === 'edge' ? 'Microsoft' : 
-                                   globalConfig?.engine === 'chrome' ? 'Google' : '';
-                if (enginePrefix) {
-                    const matched = allVoices().find(v => 
-                        v.name.includes(enginePrefix) && 
-                        (lang === 'en-US' ? v.lang.includes('en') : v.lang.includes('zh'))
-                    );
-                    if (matched) voiceUri = matched.voiceURI;
-                }
-            }
-        }
-
-        if (voiceUri && voiceUri !== 'global') {
-            const v = allVoices().find(v => v.voiceURI === voiceUri);
-            if (v) u.voice = v;
-        }
-
-        if (globalConfig) {
-            if (globalConfig.rate) u.rate = globalConfig.rate;
-            if (globalConfig.pitch) u.pitch = globalConfig.pitch;
-        }
-
-        window.speechSynthesis.speak(u);
-    }
-
-    function allVoices() {
-        return window.speechSynthesis.getVoices();
-    }
-    
-        /* ======================== ANTI-PROCRASTINATION: FOCUS CONFIRM ======================== */
-    let focusConfirmInterval = null;
-    let focusReminderInterval = null;
-    let pendingFocusTask = null;
-    let focusCountdownSeconds = 10;
-
-    /**
-     * 显示专注确认弹窗
-     */
-    function showFocusConfirm(taskName) {
-        pendingFocusTask = taskName;
-        focusCountdownSeconds = 10;
-        const overlay = document.getElementById('focus-confirm-overlay');
-        const taskEl = document.getElementById('focus-task-name');
-        const countdownEl = document.getElementById('focus-countdown');
-        taskEl.textContent = taskName;
-        countdownEl.textContent = '10';
-        countdownEl.classList.remove('urgent');
-        overlay.classList.add('active');
-        
-        // 开始10秒倒计时
-        if (focusConfirmInterval) clearInterval(focusConfirmInterval);
-        focusConfirmInterval = setInterval(() => {
-            focusCountdownSeconds--;
-            countdownEl.textContent = focusCountdownSeconds;
-            if (focusCountdownSeconds <= 3) {
-                countdownEl.classList.add('urgent');
-            }
-            if (focusCountdownSeconds <= 0) {
-                // 倒计时结束，自动开始
-                confirmFocusStart();
-            }
-        }, 1000);
-    }
-
-    /**
-     * 确认开始专注
-     */
-    function confirmFocusStart() {
-        if (focusConfirmInterval) {
-            clearInterval(focusConfirmInterval);
-            focusConfirmInterval = null;
-        }
-        const overlay = document.getElementById('focus-confirm-overlay');
-        overlay.classList.remove('active');
-        
-        // 开始20分钟专注提醒计时器
-        if (focusReminderInterval) clearInterval(focusReminderInterval);
-        let elapsedMinutes = 20;
-        focusReminderInterval = setInterval(() => {
-            const toast = document.getElementById('focus-reminder-toast');
-            toast.textContent = `⏰ 已经学习了 ${elapsedMinutes} 分钟，继续坚持！`;
-            toast.classList.add('active');
-            setTimeout(() => toast.classList.remove('active'), 5000);
-            elapsedMinutes += 20;
-        }, 20 * 60 * 1000);
-    }
-
-    function testVoice() {
-        const sel = document.getElementById('voice-select');
-        if (sel.value === 'global') {
-            const globalConfig = getGlobalTtsConfig();
-            STATE.voiceUri = globalConfig?.voiceURI || '';
-        } else {
-            STATE.voiceUri = sel.value;
-        }
-        localStorage.setItem('w3_voice', STATE.voiceUri); 
-        speak("Hello, voice updated. 你好，语音已更新。"); 
-    }
-
-    /**
-     * 停止当前朗读
-     */
-    function stopSpeaking() {
-        window.speechSynthesis.cancel();
-        const subtitleEl = document.getElementById('tts-subtitle');
-        const ttsStatusEl = document.getElementById('tts-status');
-        if (subtitleEl) subtitleEl.classList.remove('active');
-        if (ttsStatusEl) ttsStatusEl.classList.remove('speaking');
-    }
-
-    /**
-     * 填充 TTS 引擎语音下拉（用于全局引擎列表显示）
-     */
-    function populateTtsEngineVoices() {
-        const engineVoicesEl = document.getElementById('tts-engine-voices');
-        if (!engineVoicesEl) return;
-        const voices = window.speechSynthesis.getVoices();
-        const edgeVoices = voices.filter(v => v.name.includes('Microsoft'));
-        const chromeVoices = voices.filter(v => v.name.includes('Google'));
-        const otherVoices = voices.filter(v => !v.name.includes('Microsoft') && !v.name.includes('Google'));
-        
-        let html = '';
-        if (edgeVoices.length > 0) {
-            html += `<div class="voice-group"><span class="voice-group-title">Microsoft Edge TTS</span>`;
-            edgeVoices.forEach(v => {
-                const isActive = STATE.voiceUri === v.voiceURI;
-                html += `<div class="voice-item ${isActive ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`;
-            });
-            html += `</div>`;
-        }
-        if (chromeVoices.length > 0) {
-            html += `<div class="voice-group"><span class="voice-group-title">Google Chrome TTS</span>`;
-            chromeVoices.forEach(v => {
-                const isActive = STATE.voiceUri === v.voiceURI;
-                html += `<div class="voice-item ${isActive ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`;
-            });
-            html += `</div>`;
-        }
-        if (otherVoices.length > 0) {
-            html += `<div class="voice-group"><span class="voice-group-title">其他</span>`;
-            otherVoices.forEach(v => {
-                const isActive = STATE.voiceUri === v.voiceURI;
-                html += `<div class="voice-item ${isActive ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`;
-            });
-            html += `</div>`;
-        }
-        engineVoicesEl.innerHTML = html || '<div style="text-align:center;color:#aaa;padding:10px;font-size:12px;">暂无可用语音</div>';
-    }
-
-    function selectVoiceAndTest(voiceURI) {
-        STATE.voiceUri = voiceURI;
-        localStorage.setItem('w3_voice', STATE.voiceUri);
-        const sel = document.getElementById('voice-select');
-        if (sel) sel.value = voiceURI;
-        populateTtsEngineVoices();
-        speak("Voice selected. 语音已选择。");
-    }
+    /* ======================== UTILITY ======================== */
     function changePlaylist(id) { document.getElementById('music-iframe').src = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`; }
     function addCustomPlaylist() {
         const id = prompt("Enter NetEase Playlist ID:");
-        if(id && !isNaN(id)) {
-            const name = prompt("Enter Name:", "Custom List");
-            STATE.customPlaylists.push({id, name: name || "Custom"});
-            localStorage.setItem('w3_playlists', JSON.stringify(STATE.customPlaylists));
-            loadCustomPlaylists();
-        }
+        if (id && !isNaN(id)) { const name = prompt("Enter Name:", "Custom List"); STATE.customPlaylists.push({ id, name: name || "Custom" }); localStorage.setItem('w3_playlists', JSON.stringify(STATE.customPlaylists)); loadCustomPlaylists(); }
     }
     function loadCustomPlaylists() {
         const select = document.getElementById('playlist-picker');
-        while(select.options.length > 6) select.remove(6);
-        STATE.customPlaylists.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.id;
-            option.innerText = p.name;
-            select.appendChild(option);
-        });
+        while (select.options.length > 6) select.remove(6);
+        STATE.customPlaylists.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.innerText = p.name; select.appendChild(o); });
     }
-    function timeToMinutes(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+    function timeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
     function saveSchedule() { localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule)); }
 
+    /* ======================== FOCUS REMINDER TOAST (for old overlay compatibility) ======================== */
+    // Create toast element if not exists in HTML
+    (function() {
+        if (!document.getElementById('focus-reminder-toast')) {
+            const el = document.createElement('div');
+            el.id = 'focus-reminder-toast';
+            el.className = 'focus-reminder-toast';
+            document.body.appendChild(el);
+        }
+    })();
 </script>
 </body>
-</html>
