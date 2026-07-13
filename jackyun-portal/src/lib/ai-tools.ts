@@ -225,7 +225,8 @@ export function getToolsByScope(scope: ToolScope): AiTool[] {
 }
 
 /**
- * 生成用于 system prompt 的工具描述
+ * 生成用于 system prompt 的工具描述和 TTS 指引
+ * 注意：TTS 语言信息是运行时动态注入的
  */
 export function getToolsDescription(scope: ToolScope): string {
   const tools = getToolsByScope(scope);
@@ -253,10 +254,16 @@ export function getToolsDescription(scope: ToolScope): string {
     '2. 如果不需要调用工具，则不输出工具调用代码块\n' +
     '3. 先回答用户的问题，再判断是否需要调用工具\n' +
     '4. 调用结果会自动添加到对话中\n\n' +
-    '【TTS 朗读格式】\n' +
-    '如果你的回复包含表格、代码块等不适合语音朗读的内容，请在回复末尾用 [TTS] 标签包裹一段适合语音朗读的文字摘要。\n' +
-    '格式：[TTS]这里写适合朗读的文本摘要[/TTS]\n' +
-    '如果所有内容都适合朗读，则不需要 [TTS] 标签。'
+    '【TTS 朗读语言说明（重要）】\n' +
+    '用户已经设置了 TTS 朗读语言，系统只会朗读你回复中对应语言的文本。\n' +
+    '如果你的回复语言和用户设置的 TTS 语言不同，请在回复末尾用 [TTS_LANG:语言代码] 标签附加一份适合朗读的译文。\n' +
+    '格式：\n' +
+    '[TTS_LANG:语言代码]适合朗读的文本摘要[/TTS_LANG]\n' +
+    '语言代码为 "zh-CN"（中文）或 "en-US"（英文）。\n' +
+    '注意：这个标签内的文本不会在聊天界面显示，也**不会**送给用户看到，只用于 TTS 朗读。\n' +
+    '示例：如果 TTS 语言是英文但你用中文回复，请在末尾加上：\n' +
+    '[TTS_LANG:en-US]Here is the English version for TTS.[/TTS_LANG]\n' +
+    '如果回复语言和 TTS 语言一致，且没有不适合朗读的内容（表格、代码等），则不需要 [TTS_LANG] 标签。'
   );
 }
 

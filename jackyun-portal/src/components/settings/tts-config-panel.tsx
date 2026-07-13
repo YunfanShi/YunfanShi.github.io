@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, TtsConfig } from '@/lib/tts-config';
+import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, getTtsLanguage, getTtsLanguageLabel, TtsConfig } from '@/lib/tts-config';
 
 export default function TtsConfigPanel() {
   const [config, setConfig] = useState<TtsConfig>(() => getTtsConfig());
   const [voices, setVoices] = useState<{ edge: SpeechSynthesisVoice[]; chrome: SpeechSynthesisVoice[]; other: SpeechSynthesisVoice[] }>({ edge: [], chrome: [], other: [] });
   const [speaking, setSpeaking] = useState(false);
   const [autoSpeakAi, setAutoSpeakAi] = useState(() => isAutoSpeakAiEnabled());
+  const [ttsLanguage, setTtsLanguage] = useState<'zh-CN' | 'en-US'>(() => getTtsLanguage() as 'zh-CN' | 'en-US');
   const [testText, setTestText] = useState('你好，欢迎使用语音朗读功能。Hello, welcome to the text-to-speech feature.');
   const [previewText, setPreviewText] = useState('');
 
@@ -71,6 +72,14 @@ export default function TtsConfigPanel() {
     saveTtsConfig({ ...currentConfig, autoSpeakAi: newValue });
   }
 
+  function handleTtsLanguageChange(lang: 'zh-CN' | 'en-US') {
+    setTtsLanguage(lang);
+    const currentConfig = getTtsConfig();
+    saveTtsConfig({ ...currentConfig, ttsLanguage: lang });
+    // 触发试听
+    speakWithConfig(lang === 'zh-CN' ? '你好，这是中文语音测试' : 'Hello, this is an English voice test', undefined, undefined);
+  }
+
   // 获取当前引擎的语音列表
   const currentVoices =
     config.engine === 'edge' ? voices.edge :
@@ -110,6 +119,37 @@ export default function TtsConfigPanel() {
             }`}
           />
         </button>
+      </div>
+
+      {/* TTS 语言选择 */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+          🌐 TTS 朗读语言
+        </label>
+        <p className="text-xs text-[var(--muted-foreground)] mb-2">
+          选择朗读 AI 回复时使用的语言，AI 会在回复末尾自动附加对应语言的朗读文本
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {([
+            { value: 'zh-CN' as const, label: '中文' },
+            { value: 'en-US' as const, label: 'English' },
+          ]).map((lang) => (
+            <button
+              key={lang.value}
+              onClick={() => handleTtsLanguageChange(lang.value)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                ttsLanguage === lang.value
+                  ? 'bg-[#4285F4] text-white'
+                  : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--card-border)] hover:border-[#4285F4]/50'
+              }`}
+            >
+              {lang.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] mt-1">
+          选择后将试听对应语言的语音效果
+        </p>
       </div>
 
       {/* 引擎选择 */}

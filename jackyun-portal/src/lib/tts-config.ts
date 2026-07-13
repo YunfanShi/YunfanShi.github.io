@@ -2,7 +2,7 @@
  * 统一 TTS 配置管理 —— 纯本地存储
  *
  * 存储位置：localStorage key "jackyun-tts-config"
- * 存储格式：{ engine: string; voiceURI: string; rate: number; pitch: number; autoSpeakAi: boolean }
+ * 存储格式：{ engine: string; voiceURI: string; rate: number; pitch: number; autoSpeakAi: boolean; ttsLanguage: string }
  */
 
 export interface TtsConfig {
@@ -12,6 +12,8 @@ export interface TtsConfig {
   pitch: number;
   /** AI 回复自动朗读开关 */
   autoSpeakAi: boolean;
+  /** TTS 朗读语言 */
+  ttsLanguage: 'zh-CN' | 'en-US';
 }
 
 const STORAGE_KEY = 'jackyun-tts-config';
@@ -22,6 +24,7 @@ const DEFAULT_CONFIG: TtsConfig = {
   rate: 1.0,
   pitch: 1.0,
   autoSpeakAi: false,
+  ttsLanguage: 'zh-CN',
 };
 
 /** 从 localStorage 读取 TTS 配置 */
@@ -39,6 +42,7 @@ export function getTtsConfig(): TtsConfig {
       rate: parsed.rate ?? DEFAULT_CONFIG.rate,
       pitch: parsed.pitch ?? DEFAULT_CONFIG.pitch,
       autoSpeakAi: parsed.autoSpeakAi ?? DEFAULT_CONFIG.autoSpeakAi,
+      ttsLanguage: (parsed.ttsLanguage === 'en-US' ? 'en-US' : 'zh-CN') as TtsConfig['ttsLanguage'],
     };
   } catch {
     return { ...DEFAULT_CONFIG };
@@ -90,33 +94,41 @@ export function getVoicesByEngine(): {
  * 从 AI 回复中提取适合 TTS 朗读的文本
  *
  * 规则：
- * 1. 优先提取 [TTS]...[/TTS] 标记内的文本
- * 2. 如果没有 [TTS] 标记，去除所有代码块（```...```）和表格（以 | 开头的行）
- * 3. 返回纯文本
+ * 1. 优先提取 [TTS]...[/TTS] 标记内的文本（通用）
+ * 2. 如果有指定语言的 [TTS_LANG:zh-CN]...[/TTS_LANG] 标签，匹配当前 TTS 语言
+ * 3. 如果没有标记，去除所有代码块（```...```）和表格（以 | 开头的行）
+ * 4. 返回纯文本
  */
 export function extractTtsText(content: string): string {
   if (!content) return '';
 
-  // 1. 尝试提取 [TTS] 标记内的内容
+  const config = getTtsConfig();
+  const lang = config.ttsLanguage || 'zh-CN';
+
+  // 1. 尝试提取匹配当前 TTS 语言的 [TTS_LANG] 标签
+  const langMatch = content.match(new RegExp(`\\[TTS_LANG:${lang}\\]([\\s\\S]*?)\\[\\/TTS_LANG\\]`));
+  if (langMatch) {
+    return langMatch[1].trim();
+  }
+
+  // 2. 尝试提取通用的 [TTS] 标签
   const ttsMatch = content.match(/\[TTS\]([\s\S]*?)\[\/TTS\]/);
   if (ttsMatch) {
     return ttsMatch[1].trim();
   }
 
-  // 2. 去除代码块
+  // 3. 去除代码块
   let text = content.replace(/```[\s\S]*?```/g, '');
 
-  // 3. 去除表格行（以 | 开头或包含 |---| 的行）
+  // 4. 去除表格行（以 | 开头或包含 |---| 的行）
   text = text.split('\n').filter(line => {
     const trimmed = line.trim();
-    // 跳过纯表格行
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) return false;
-    // 跳过分隔线
     if (/^[\s\|:-]+$/.test(trimmed)) return false;
     return true;
   }).join('\n');
 
-  // 4. 压缩多余空行
+  // 5. 压缩多余空行
   text = text.replace(/\n{3,}/g, '\n\n').trim();
 
   return text || content;
@@ -138,9 +150,8 @@ export function speakWithConfig(
   const config = getTtsConfig();
   const utterance = new SpeechSynthesisUtterance(text);
 
-  // 设置语言（智能检测）
-  const hasChinese = /[\u4e00-\u9fff]/.test(text);
-  utterance.lang = hasChinese ? 'zh-CN' : 'en-US';
+  // 使用配置的 TTS 语言，而非自动检测
+  utterance.lang = config.ttsLanguage || 'zh-CN';
 
   // 设置语速和音调
   utterance.rate = config.rate;
@@ -158,7 +169,7 @@ export function speakWithConfig(
       const matched = voices.find(
         (v) =>
           v.name.includes(enginePrefix) &&
-          (hasChinese ? v.lang.includes('zh') : v.lang.includes('en')),
+          v.lang.startsWith(utterance.lang), // 精确匹配配置语言
       );
       if (matched) utterance.voice = matched;
     }
@@ -189,4 +200,15 @@ export function isSpeaking(): boolean {
 /** 检查 AI 自动朗读是否开启 */
 export function isAutoSpeakAiEnabled(): boolean {
   return getTtsConfig().autoSpeakAi;
+}
+
+/** 获取当前 TTS 语言 */
+export function getTtsLanguage(): string {
+  return getTtsConfig().ttsLanguage || 'zh-CN';
+}
+
+/** 获取 TTS 语言的中文标签（用于 AI Prompt） */
+export function getTtsLanguageLabel(): string {
+  const lang = getTtsLanguage();
+  return lang === 'en-US' ? '英文' : '中文';
 }

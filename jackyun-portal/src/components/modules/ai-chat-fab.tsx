@@ -183,24 +183,24 @@ export default function AiChatFab({
     }
   }
 
-  // 流式完成后自动朗读
+  // 流式完成后自动朗读 - 仅当 streaming 从 true → false 时触发一次
+  const prevStreamingRef = useRef(false);
   useEffect(() => {
-    if (!streaming && messages.length > 0 && !autoSpeakDoneRef.current) {
+    // 只在 streaming 从 true 变为 false 时触发（流式回复刚结束）
+    if (prevStreamingRef.current === true && streaming === false && messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
-      if (lastMsg?.role === 'assistant' && lastMsg.content) {
-        autoSpeakDoneRef.current = true;
-        if (isAutoSpeakAiEnabled()) {
-          const ttsText = extractTtsText(lastMsg.content);
-          if (ttsText) {
-            setSpeakingMsgIndex(messages.length - 1);
-            speakWithConfig(ttsText, undefined, () => {
-              setSpeakingMsgIndex(null);
-            });
-          }
+      if (lastMsg?.role === 'assistant' && lastMsg.content && isAutoSpeakAiEnabled()) {
+        const ttsText = extractTtsText(lastMsg.content);
+        if (ttsText) {
+          setSpeakingMsgIndex(messages.length - 1);
+          speakWithConfig(ttsText, undefined, () => {
+            setSpeakingMsgIndex(null);
+          });
         }
       }
     }
-  }, [streaming, messages]);
+    prevStreamingRef.current = streaming;
+  }, [streaming]);
 
   // 统一 ENTER = 发送，Shift+Enter = 换行
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

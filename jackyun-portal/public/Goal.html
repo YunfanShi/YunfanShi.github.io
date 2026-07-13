@@ -2490,8 +2490,10 @@ function saveCdData(){localStorage.setItem('cd_v2',JSON.stringify(countdowns));}
 function calcCountdown(targetDate,fmt){
   const now=new Date(),target=new Date(targetDate+'T00:00:00');
   target.setDate(target.getDate()+1); // end of that day
-  const diff=target-now,past=diff<0,abs=Math.abs(diff);
-  const totalSec=Math.floor(abs/1000),totalMin=Math.floor(totalSec/60),totalH=Math.floor(totalMin/60),totalD=Math.floor(totalH/24);
+  const diff=target-now,past=diff<0;
+  // 如果日期已过，所有值归零，防止出现 -1 周
+  if(past)return{parts:[{v:0,u:'周'},{v:0,u:'天'}],past:true,totalD:0};
+  const totalSec=Math.floor(diff/1000),totalMin=Math.floor(totalSec/60),totalH=Math.floor(totalMin/60),totalD=Math.floor(totalH/24);
   const totalW=Math.floor(totalD/7),totalM=Math.floor(totalD/30.436875);
   const s=totalSec%60,m=totalMin%60,h=totalH%24,wd=totalD-(totalW*7),dInM=totalD-Math.floor(totalM*30.436875);
   let parts=[];

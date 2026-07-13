@@ -1152,14 +1152,20 @@
         if (subtitleEl) { subtitleEl.querySelector('.tts-subtitle-text').textContent = text; subtitleEl.classList.add('active'); }
         if (ttsStatusEl) ttsStatusEl.classList.add('speaking');
 
-        const hasChinese = /[\u4e00-\u9fff]/.test(text);
-        if (!hasChinese) { doSpeak(text, 'en-US', subtitleEl, ttsStatusEl); }
-        else {
-            translateToEnglish(text).then(t => {
-                if (t) doSpeak(t, 'en-US', subtitleEl, ttsStatusEl);
-                else doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl);
-            }).catch(() => doSpeak(text, 'zh-CN', subtitleEl, ttsStatusEl));
-        }
+        // Use configured TTS language
+        const ttsLang = getTtsLanguage();
+        doSpeak(text, ttsLang, subtitleEl, ttsStatusEl);
+    }
+
+    function getTtsLanguage() {
+        try {
+            const raw = localStorage.getItem('jackyun-tts-config');
+            if (raw) {
+                const p = JSON.parse(raw);
+                if (p.ttsLanguage === 'en-US') return 'en-US';
+            }
+        } catch(e) {}
+        return 'zh-CN';
     }
 
     function doSpeak(textToRead, lang, subtitleEl, ttsStatusEl) {
@@ -1267,6 +1273,15 @@
     }
 
     function getAiSystemMessage() {
+        const ttsLang = localStorage.getItem('jackyun-tts-config');
+        let ttsLangCode = 'zh-CN';
+        let ttsLangLabel = '中文';
+        try {
+            if (ttsLang) {
+                const parsed = JSON.parse(ttsLang);
+                if (parsed.ttsLanguage === 'en-US') { ttsLangCode = 'en-US'; ttsLangLabel = '英文'; }
+            }
+        } catch(e) {}
         return {
             role: 'system',
             content: `你是 Control 控制中心助手，可以帮助用户查询和控制计时、音乐等功能。
@@ -1278,8 +1293,13 @@
 工具调用格式：{"tool": "工具ID", "params": { "参数名": "值" }}
 请将工具调用放在回复末尾的独立代码块中，格式为 \`\`\`tool_call\`\`\`
 
-注意：如果你的回复中包含表格、代码块等不适合语音朗读的内容，请在回复末尾用 [TTS] 标签包裹一段适合语音朗读的文字摘要。例如：
-[TTS] 以上是今天的学习计划表格，共包含 5 个任务。[/TTS]`
+【重要：TTS 朗读语言说明】
+用户设置 TTS 朗读语言为 ${ttsLangLabel}（${ttsLangCode}），系统只会朗读你回复中对应语言的文本。
+如果你的回复语言和 TTS 语言不同，请在回复末尾用 [TTS_LANG:语言代码] 标签附加一份适合朗读的译文。
+格式：[TTS_LANG:语言代码]适合朗读的文本摘要[/TTS_LANG]
+语言代码为 "zh-CN"（中文）或 "en-US"（英文）。
+这个标签内的文本不会在聊天界面显示，只用于 TTS 朗读。
+如果回复语言和 TTS 语言一致，则不需要 [TTS_LANG] 标签。`
         };
     }
 
