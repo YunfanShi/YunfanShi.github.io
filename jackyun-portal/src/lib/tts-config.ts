@@ -2,7 +2,7 @@
  * 统一 TTS 配置管理 —— 纯本地存储
  *
  * 存储位置：localStorage key "jackyun-tts-config"
- * 存储格式：{ engine: string; voiceURI: string; rate: number; pitch: number }
+ * 存储格式：{ engine: string; voiceURI: string; rate: number; pitch: number; autoSpeakAi: boolean }
  */
 
 export interface TtsConfig {
@@ -10,6 +10,8 @@ export interface TtsConfig {
   voiceURI: string;
   rate: number;
   pitch: number;
+  /** AI 回复自动朗读开关 */
+  autoSpeakAi: boolean;
 }
 
 const STORAGE_KEY = 'jackyun-tts-config';
@@ -19,6 +21,7 @@ const DEFAULT_CONFIG: TtsConfig = {
   voiceURI: '',
   rate: 1.0,
   pitch: 1.0,
+  autoSpeakAi: false,
 };
 
 /** 从 localStorage 读取 TTS 配置 */
@@ -35,6 +38,7 @@ export function getTtsConfig(): TtsConfig {
       voiceURI: parsed.voiceURI ?? DEFAULT_CONFIG.voiceURI,
       rate: parsed.rate ?? DEFAULT_CONFIG.rate,
       pitch: parsed.pitch ?? DEFAULT_CONFIG.pitch,
+      autoSpeakAi: parsed.autoSpeakAi ?? DEFAULT_CONFIG.autoSpeakAi,
     };
   } catch {
     return { ...DEFAULT_CONFIG };
@@ -80,6 +84,42 @@ export function getVoicesByEngine(): {
   }
 
   return { edge, chrome, other };
+}
+
+/**
+ * 从 AI 回复中提取适合 TTS 朗读的文本
+ *
+ * 规则：
+ * 1. 优先提取 [TTS]...[/TTS] 标记内的文本
+ * 2. 如果没有 [TTS] 标记，去除所有代码块（```...```）和表格（以 | 开头的行）
+ * 3. 返回纯文本
+ */
+export function extractTtsText(content: string): string {
+  if (!content) return '';
+
+  // 1. 尝试提取 [TTS] 标记内的内容
+  const ttsMatch = content.match(/\[TTS\]([\s\S]*?)\[\/TTS\]/);
+  if (ttsMatch) {
+    return ttsMatch[1].trim();
+  }
+
+  // 2. 去除代码块
+  let text = content.replace(/```[\s\S]*?```/g, '');
+
+  // 3. 去除表格行（以 | 开头或包含 |---| 的行）
+  text = text.split('\n').filter(line => {
+    const trimmed = line.trim();
+    // 跳过纯表格行
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) return false;
+    // 跳过分隔线
+    if (/^[\s\|:-]+$/.test(trimmed)) return false;
+    return true;
+  }).join('\n');
+
+  // 4. 压缩多余空行
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+  return text || content;
 }
 
 /**
@@ -144,4 +184,9 @@ export function stopSpeaking(): void {
 export function isSpeaking(): boolean {
   if (typeof window === 'undefined') return false;
   return window.speechSynthesis.speaking;
+}
+
+/** 检查 AI 自动朗读是否开启 */
+export function isAutoSpeakAiEnabled(): boolean {
+  return getTtsConfig().autoSpeakAi;
 }

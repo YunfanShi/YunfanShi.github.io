@@ -231,16 +231,32 @@ export function getToolsDescription(scope: ToolScope): string {
   const tools = getToolsByScope(scope);
   if (tools.length === 0) return '';
 
+  const scopeName = {
+    global: '全局助手',
+    quiz: 'QuizWise 辅导老师',
+    plan: '学习计划助手',
+    control: 'Control 控制中心助手',
+  };
+
   return (
-    '你可以使用以下工具来帮助用户。当用户提出相应需求时，在回复末尾用 JSON 格式返回工具调用：\n' +
+    '【可用工具列表】\n' +
+    '当用户提出相关需求时，你可以在回复末尾的 ```tool_call 代码块中返回工具调用指令。\n' +
+    '系统会自动解析并在当前页面执行该工具。\n\n' +
     tools
       .map(
-        (tool) =>
-          `- ${tool.name} (${tool.id})：${tool.description}`,
+        (tool, i) =>
+          `${i + 1}. **${tool.name}**（ID: \`${tool.id}\`）\n   ${tool.description}\n   调用格式：\`\`\`tool_call\n   {"tool": "${tool.id}", "params": { ... }}\n   \`\`\``,
       )
-      .join('\n') +
-    '\n\n工具调用格式：{"tool": "工具ID", "params": { "参数名": "值" }}' +
-    '\n请将工具调用放在回复末尾的独立代码块中，格式为 ```tool_call```'
+      .join('\n\n') +
+    '\n\n【工具调用规则】\n' +
+    '1. 在回复内容的**最后**添加工具调用代码块，用 ```tool_call 包裹\n' +
+    '2. 如果不需要调用工具，则不输出工具调用代码块\n' +
+    '3. 先回答用户的问题，再判断是否需要调用工具\n' +
+    '4. 调用结果会自动添加到对话中\n\n' +
+    '【TTS 朗读格式】\n' +
+    '如果你的回复包含表格、代码块等不适合语音朗读的内容，请在回复末尾用 [TTS] 标签包裹一段适合语音朗读的文字摘要。\n' +
+    '格式：[TTS]这里写适合朗读的文本摘要[/TTS]\n' +
+    '如果所有内容都适合朗读，则不需要 [TTS] 标签。'
   );
 }
 

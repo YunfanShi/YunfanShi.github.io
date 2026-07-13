@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isSpeaking, TtsConfig } from '@/lib/tts-config';
+import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, TtsConfig } from '@/lib/tts-config';
 
 export default function TtsConfigPanel() {
   const [config, setConfig] = useState<TtsConfig>(() => getTtsConfig());
   const [voices, setVoices] = useState<{ edge: SpeechSynthesisVoice[]; chrome: SpeechSynthesisVoice[]; other: SpeechSynthesisVoice[] }>({ edge: [], chrome: [], other: [] });
   const [speaking, setSpeaking] = useState(false);
+  const [autoSpeakAi, setAutoSpeakAi] = useState(() => isAutoSpeakAiEnabled());
   const [testText, setTestText] = useState('你好，欢迎使用语音朗读功能。Hello, welcome to the text-to-speech feature.');
   const [previewText, setPreviewText] = useState('');
 
@@ -63,6 +64,13 @@ export default function TtsConfigPanel() {
     setSpeaking(false);
   }
 
+  function handleAutoSpeakAiToggle() {
+    const newValue = !autoSpeakAi;
+    setAutoSpeakAi(newValue);
+    const currentConfig = getTtsConfig();
+    saveTtsConfig({ ...currentConfig, autoSpeakAi: newValue });
+  }
+
   // 获取当前引擎的语音列表
   const currentVoices =
     config.engine === 'edge' ? voices.edge :
@@ -77,6 +85,32 @@ export default function TtsConfigPanel() {
       <p className="text-sm text-[var(--muted-foreground)]">
         配置语音朗读（TTS）引擎和音色，所有支持 TTS 的页面（如 Control 页面）将使用此设置。
       </p>
+
+      {/* 自动朗读 AI 回复开关 */}
+      <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-[var(--background)] border border-[var(--card-border)]">
+        <div>
+          <label className="text-sm font-medium text-[var(--foreground)] cursor-pointer">
+            🔊 自动朗读 AI 回复
+          </label>
+          <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+            开启后，AI 助手的回复将自动朗读
+          </p>
+        </div>
+        <button
+          onClick={handleAutoSpeakAiToggle}
+          className={`relative w-12 h-6 rounded-full transition-colors ${
+            autoSpeakAi ? 'bg-[#4285F4]' : 'bg-gray-300'
+          }`}
+          role="switch"
+          aria-checked={autoSpeakAi}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+              autoSpeakAi ? 'translate-x-6' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
 
       {/* 引擎选择 */}
       <div>

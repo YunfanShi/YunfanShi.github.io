@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
 import { getToolsDescription, parseToolCall, executeToolCall, ToolScope } from '@/lib/ai-tools';
+import { speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, extractTtsText } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
@@ -35,8 +36,11 @@ export default function AiChatFab({
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
+  const [speakingMsgIndex, setSpeakingMsgIndex] = useState<number | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoSpeakDoneRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -75,19 +79,30 @@ export default function AiChatFab({
     };
   }
 
-  async function handleSend() {
-    const text = input.trim();
+  async function handleSend(retryMessage?: string) {
+    const text = retryMessage || input.trim();
     if (!text || loading) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: text }];
+    // 如果是重试，移除最后一条 user + assistant 消息
+    let baseMessages = messages;
+    if (retryMessage) {
+      // 找到最后一条 user 消息并替换
+      const lastUserIndex = [...baseMessages].reverse().findIndex(m => m.role === 'user');
+      if (lastUserIndex >= 0) {
+        const realIndex = baseMessages.length - 1 - lastUserIndex;
+        baseMessages = baseMessages.slice(0, realIndex);
+      }
+    }
+
+    const newMessages: Message[] = [...baseMessages, { role: 'user', content: text }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
     setStreaming(true);
     setError(null);
     setStatusText('AI 正在思考...');
+    autoSpeakDoneRef.current = false;
 
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -168,11 +183,75 @@ export default function AiChatFab({
     }
   }
 
+  // 流式完成后自动朗读
+  useEffect(() => {
+    if (!streaming && messages.length > 0 && !autoSpeakDoneRef.current) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant' && lastMsg.content) {
+        autoSpeakDoneRef.current = true;
+        if (isAutoSpeakAiEnabled()) {
+          const ttsText = extractTtsText(lastMsg.content);
+          if (ttsText) {
+            setSpeakingMsgIndex(messages.length - 1);
+            speakWithConfig(ttsText, undefined, () => {
+              setSpeakingMsgIndex(null);
+            });
+          }
+        }
+      }
+    }
+  }, [streaming, messages]);
+
   // 统一 ENTER = 发送，Shift+Enter = 换行
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  }
+
+  // 朗读消息
+  function handleSpeak(content: string, index: number) {
+    if (speakingMsgIndex === index) {
+      stopSpeaking();
+      setSpeakingMsgIndex(null);
+      return;
+    }
+    stopSpeaking();
+    const ttsText = extractTtsText(content);
+    if (ttsText) {
+      setSpeakingMsgIndex(index);
+      speakWithConfig(ttsText, undefined, () => {
+        setSpeakingMsgIndex(null);
+      });
+    }
+  }
+
+  // 复制消息
+  async function handleCopy(content: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch {
+      // fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = content;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    }
+  }
+
+  // 重试（重新生成最后一条 AI 回复）
+  function handleRetry() {
+    if (loading) return;
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    if (lastUserMsg) {
+      handleSend(lastUserMsg.content);
     }
   }
 
@@ -202,7 +281,7 @@ export default function AiChatFab({
     <>
       {/* Chat window */}
       {open && (
-        <div className={containerClass} style={{ height: embedded ? '400px' : '480px' }}>
+        <div className={containerClass} style={{ height: embedded ? '100%' : '480px' }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)]">
             <div className="flex items-center gap-2">
@@ -240,33 +319,85 @@ export default function AiChatFab({
               </p>
             )}
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+              <div key={i}>
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm break-words ${
-                    msg.role === 'user'
-                      ? 'bg-[#4285F4] text-white rounded-br-sm'
-                      : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--card-border)] rounded-bl-sm'
-                  }`}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {msg.role === 'assistant' ? (
-                    msg.content ? (
-                      <MarkdownRenderer content={msg.content} />
-                    ) : streaming ? (
-                      <span className="flex items-center gap-2">
-                        <span className="inline-flex gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm break-words ${
+                      msg.role === 'user'
+                        ? 'bg-[#4285F4] text-white rounded-br-sm'
+                        : msg.role === 'system'
+                        ? 'bg-[#FFF8E1] text-[#795548] border border-[#FFE082] rounded text-xs w-full text-center'
+                        : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--card-border)] rounded-bl-sm'
+                    }`}
+                  >
+                    {msg.role === 'assistant' ? (
+                      msg.content ? (
+                        <MarkdownRenderer content={msg.content} />
+                      ) : streaming ? (
+                        <span className="flex items-center gap-2">
+                          <span className="inline-flex gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </span>
                         </span>
-                      </span>
-                    ) : null
-                  ) : (
-                    <span className="whitespace-pre-wrap">{msg.content}</span>
-                  )}
+                      ) : null
+                    ) : msg.role === 'system' ? (
+                      <span className="whitespace-pre-wrap text-xs">{msg.content}</span>
+                    ) : (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    )}
+                  </div>
                 </div>
+
+                {/* 操作按钮组 - 仅对 AI 消息显示 */}
+                {msg.role === 'assistant' && msg.content && !streaming && (
+                  <div className="flex items-center gap-1 mt-1 ml-1">
+                    {/* 朗读按钮 */}
+                    <button
+                      onClick={() => handleSpeak(msg.content, i)}
+                      title={speakingMsgIndex === i ? '停止朗读' : '朗读'}
+                      className={`p-1 rounded-full transition-colors ${
+                        speakingMsgIndex === i
+                          ? 'text-[#4285F4] bg-[#4285F4]/10 animate-pulse'
+                          : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                      }`}
+                    >
+                      <span className="material-icons-round text-sm">
+                        {speakingMsgIndex === i ? 'volume_up' : 'volume_up'}
+                      </span>
+                    </button>
+
+                    {/* 复制按钮 */}
+                    <button
+                      onClick={() => handleCopy(msg.content, i)}
+                      title="复制"
+                      className={`p-1 rounded-full transition-colors ${
+                        copiedIndex === i
+                          ? 'text-green-500'
+                          : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                      }`}
+                    >
+                      <span className="material-icons-round text-sm">
+                        {copiedIndex === i ? 'check' : 'content_copy'}
+                      </span>
+                    </button>
+
+                    {/* 重试按钮 - 仅对最后一条 AI 消息显示 */}
+                    {i === messages.length - 1 && messages.filter(m => m.role === 'user').length > 0 && (
+                      <button
+                        onClick={handleRetry}
+                        title="重新生成"
+                        disabled={loading}
+                        className="p-1 rounded-full text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)] transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-icons-round text-sm">replay</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {/* Loading indicator - shows dots when waiting for first response */}
@@ -300,7 +431,7 @@ export default function AiChatFab({
               className="flex-1 resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] disabled:opacity-60 transition-colors"
             />
             <button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || loading}
               className="p-2 rounded-xl bg-[#4285F4] text-white hover:bg-[#3367d6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
