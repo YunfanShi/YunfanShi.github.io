@@ -361,20 +361,18 @@ window.addEventListener('storage', (e) => {
     }
 });
 
-// HTTP Polling - lowered to 800ms for lower latency
+// HTTP Polling - only followers poll
 function startPolling() {
     if (_pollStarted) return;
     _pollStarted = true;
-    const sessionId = getTimeBasedSession();
     
     _pollTimer = setInterval(async () => {
         try {
-            const since = Date.now() - 60000;
+            const since = Date.now() - 3000;
             const res = await fetch(`/api/answer-sheet-sync?since=${since}`);
             const data = await res.json();
             if (data.broadcasts && data.broadcasts.length > 0) {
                 for (const b of data.broadcasts) {
-                    // Normalize payload from API response (defend against string-encoded payload)
                     if (b.payload && typeof b.payload === 'string') {
                         try { b.payload = JSON.parse(b.payload); } catch(e) { b.payload = {}; }
                     }
@@ -389,7 +387,7 @@ function startPolling() {
                 }
             }
         } catch(e) {}
-    }, 800);
+    }, 1500);
 }
 
 function stopPolling() {
@@ -410,16 +408,16 @@ async function broadcastEvent(targetTime, payload) {
         });
     } catch(e) {}
 
-    // BroadcastChannel
+    // BroadcastChannel (same browser, different tabs)
     if (_bc) { try { _bc.postMessage(broadcastData); } catch(e) {} }
-    // localStorage
+    // localStorage (same browser)
     try {
         localStorage.setItem('mps_broadcast', JSON.stringify(broadcastData));
         setTimeout(() => { try { localStorage.removeItem('mps_broadcast'); } catch(e) {} }, 2000);
     } catch(e) {}
 }
 
-// Helper: ensure payload is always an object (defend against string-encoded payload from DB)
+// Helper: ensure payload is always an object
 function normalizePayload(payload) {
     if (typeof payload === 'string') {
         try { return JSON.parse(payload); } catch (e) { return {}; }
@@ -428,16 +426,22 @@ function normalizePayload(payload) {
 }
 
 async function handleIncomingBroadcast(data) {
-    // Ensure payload is an object
     data.payload = normalizePayload(data.payload);
-
-    // Time-windowed dedup: if we already processed a broadcast within the last 5s with same targetTime, skip
-    if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
-
     const p = data.payload;
     if (!p || p._type !== 'music') return;
 
-    // Discard stale broadcasts (>10s old)
+    // Dedup: same targetTime already processed
+    if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
+
+    // Anti-flood: if already PLAYING or ARMED, ignore new play/next/prev
+    if (STATE.status === 'PLAYING' || STATE.status === 'ARMED') {
+        if (p.action === 'play' || p.action === 'next' || p.action === 'prev') {
+            console.log('[Sync] Ignoring broadcast while already playing/armed:', p.action);
+            return;
+        }
+    }
+
+    // Discard stale broadcasts
     const now = SuningSync.getPreciseTime();
     if (data.targetTime && data.targetTime < now - 5000) {
         console.log('[Sync] Discarding stale broadcast (targetTime too old):', data.targetTime, 'vs now', now);
@@ -445,11 +449,9 @@ async function handleIncomingBroadcast(data) {
     }
 
     RECEIVED_BROADCAST = data;
-
     console.log('[Sync] Music broadcast:', p.action, 'target:', data.targetTime);
 
     if (p.action === 'play' || p.action === 'next' || p.action === 'prev') {
-        // Follower: load the same song
         STATE.audio.src = p.songUrl;
         STATE.audio.load();
         STATE.targetTime = data.targetTime;
@@ -457,12 +459,10 @@ async function handleIncomingBroadcast(data) {
         UI.updatePlayBtn('ARMED');
         UI.setSync('syncing', `SYNC ${p.songName || ''}`);
 
-        // Show what's playing
         const el = document.getElementById('followerSongName');
         if (el) el.textContent = p.songName || 'Unknown Track';
         document.getElementById('followerNowPlaying').classList.add('show');
 
-        // Start countdown loop
         Engine.followerLoop();
     } else if (p.action === 'stop') {
         Engine.reset();
@@ -510,7 +510,6 @@ function setRole(role) {
     localStorage.setItem('mps_role', role);
     const isMaster = role === 'master';
 
-    // Cleanup old state when switching roles
     stopPolling();
     Engine.reset();
 
@@ -523,13 +522,11 @@ function setRole(role) {
         badge.textContent = '🔊 主设备';
         badge.className = 'role-badge master';
         document.getElementById('syncStatusText').textContent = '管理歌单，点击播放控制所有设备';
-        // Restore library
         Library.render();
     } else {
         badge.textContent = '📻 副设备';
         badge.className = 'role-badge follower';
         document.getElementById('syncStatusText').textContent = '等待主设备播放...';
-        // Start polling for follower
         startPolling();
     }
 }
@@ -574,11 +571,9 @@ const Engine = {
         const sec = new Date(target).getSeconds();
         UI.setSync('syncing', `ARMED: :${sec.toString().padStart(2,'0')}`);
 
-        // Update now playing
         document.getElementById('masterSongName').textContent = s.name || `Track ${s.id}`;
         document.getElementById('masterNowPlaying').classList.add('show');
 
-        // Broadcast to follower devices
         broadcastEvent(target, {
             _type: 'music',
             action: 'play',
@@ -618,14 +613,12 @@ const Engine = {
         this.animFrame = requestAnimationFrame(() => this.loop());
     },
 
-    // Follower uses this instead of normal loop
     followerLoop() {
         if (STATE.status !== 'ARMED') return;
 
         const now = SuningSync.getPreciseTime();
         const remaining = (STATE.targetTime + STATE.manualOffset) - now;
 
-        // If targetTime is >2s in the past, the signal was too late — discard instead of playing immediately
         if (remaining <= 0) {
             if (remaining < -2000) {
                 console.log('[Follower] targetTime expired by >2s, discarding');
@@ -657,7 +650,6 @@ const Engine = {
         UI.setSync('online', 'READY');
         UI.updatePlayBtn('IDLE');
 
-        // Broadcast stop to all followers
         broadcastEvent(Date.now() + 1000, {
             _type: 'music',
             action: 'stop',
@@ -732,7 +724,6 @@ const Library = {
         this.render();
         if (STATE.status !== 'IDLE') {
             if (STATE.songs.length > 0) {
-                // Broadcast next song
                 const now = SuningSync.getPreciseTime();
                 let target = Math.ceil(now / STATE.interval) * STATE.interval;
                 if (target - now < 4000) target += STATE.interval;
@@ -836,9 +827,7 @@ function copyScript() {
 function runImport() {
     try {
         let val = document.getElementById('import-area').value.trim();
-        // Be tolerant: if missing outer brackets, try fixing common wrap patterns
         if (!val.startsWith('[')) {
-            // Try wrapping in array brackets
             val = '[' + val + ']';
         }
         const d = JSON.parse(val);
@@ -867,7 +856,6 @@ Library.render();
 UI.updateStats();
 SuningSync.forceSync();
 
-// Defer role init to ensure all const declarations are finalized
 setTimeout(function() {
     var role = localStorage.getItem('mps_role') || 'master';
     setRole(role);
