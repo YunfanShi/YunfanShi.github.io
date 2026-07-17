@@ -284,11 +284,10 @@ const STATE = {
     audio: document.getElementById('main-audio')
 };
 
-let RECEIVED_BROADCAST_IDS = new Set();
+let RECEIVED_BROADCAST = null;
 let _pollTimer = null;
 let _pollStarted = false;
 let _pollBackoff = 0;
-let _processedBroadcastIds = new Set();
 
 // ═══════════════════════════════════════════════
 // 2. SUNING TIME SYNC
