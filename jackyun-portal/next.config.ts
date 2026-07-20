@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/temp/:slug*',
+        destination: '/:slug*.html',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/middleware';
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-password', '/update-password'];
+const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-password', '/update-password', '/temp'];
 
 // OAuth providers that are automatically trusted (no whitelist needed)
 // Users logging in via these providers are auto-registered as regular users
