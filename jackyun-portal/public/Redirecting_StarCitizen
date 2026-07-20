@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting · robertsspaceindustries.com</title>
+    <style>
+        /* --- Google Material Design 风格变量 --- */
+        :root {
+            --md-sys-color-primary: #1a73e8;
+            --md-sys-color-surface: #ffffff;
+            --md-sys-color-surface-variant: #f1f3f4;
+            --md-sys-color-background: #f8f9fa;
+            --md-sys-color-on-surface: #202124;
+            --md-sys-color-on-surface-variant: #5f6368;
+            --md-sys-shape-corner-extra-large: 28px;
+            --md-sys-elevation-level1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background-color: var(--md-sys-color-background);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--md-sys-color-on-surface);
+            -webkit-font-smoothing: antialiased;
+            padding: 20px;
+        }
+
+        /* --- 卡片容器 --- */
+        .card {
+            background: var(--md-sys-color-surface);
+            padding: 48px 40px;
+            border-radius: var(--md-sys-shape-corner-extra-large);
+            box-shadow: var(--md-sys-elevation-level1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: fadeUp 0.6s cubic-bezier(0.2, 0.0, 0.2, 1) forwards;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+        }
+
+        /* --- Logo & 标题 --- */
+        .logo-container {
+            margin-bottom: 20px;
+        }
+
+        .google-logo-icon {
+            width: 52px;
+            height: 52px;
+            fill: var(--md-sys-color-primary);
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 500;
+            margin: 0 0 4px 0;
+            color: var(--md-sys-color-on-surface);
+            letter-spacing: -0.3px;
+        }
+
+        p.subtitle {
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin: 0 0 32px 0;
+            line-height: 1.5;
+        }
+
+        /* --- 状态卡片 (纯展示，无交互) --- */
+        .device-card {
+            background-color: var(--md-sys-color-surface-variant);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            border: 1px solid transparent;
+        }
+
+        .device-card.active {
+            background-color: #e8f0fe;
+            border-color: var(--md-sys-color-primary);
+        }
+
+        .device-icon {
+            width: 24px;
+            height: 24px;
+            fill: var(--md-sys-color-primary);
+            flex-shrink: 0;
+        }
+
+        .device-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-sys-color-primary);
+        }
+
+        /* --- 进度条 --- */
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: var(--md-sys-color-primary);
+            width: 0%;
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            min-height: 20px;
+            font-weight: 400;
+        }
+
+        /* --- 动画 --- */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 响应式 --- */
+        @media (max-width: 480px) {
+            .card {
+                padding: 36px 24px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="logo-container">
+            <svg class="google-logo-icon" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+        </div>
+
+        <h1>Vocab Flow</h1>
+        <p class="subtitle">正在准备跳转 …</p>
+
+        <!-- 状态卡片：固定展示目标站点 -->
+        <div class="device-card active" id="device-card">
+            <svg class="device-icon" viewBox="0 0 24 24">
+                <path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
+            </svg>
+            <span class="device-text">前往 robertsspaceindustries.com</span>
+        </div>
+
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div id="status-text" class="status-text">正在重定向到 robertsspaceindustries.com …</div>
+    </div>
+
+    <script>
+        (function() {
+            // ----- 目标地址 (固定跳转) -----
+            const TARGET_URL = "https://robertsspaceindustries.com/en/";
+            const REDIRECT_DELAY_SECONDS = 3;  // 3秒后跳转
+
+            // ----- DOM 引用 -----
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('status-text');
+
+            // ----- 进度条 & 倒计时 -----
+            let elapsed = 0;
+            const totalMs = REDIRECT_DELAY_SECONDS * 1000;
+            const stepMs = 30; // 每30ms更新一次，平滑
+
+            function updateStatusText(remainingSeconds) {
+                if (remainingSeconds > 0) {
+                    statusText.textContent = `正在重定向到 robertsspaceindustries.com … ${remainingSeconds}s`;
+                } else {
+                    statusText.textContent = '即将跳转 …';
+                }
+            }
+
+            // 初始显示
+            updateStatusText(REDIRECT_DELAY_SECONDS);
+
+            const timer = setInterval(() => {
+                elapsed += stepMs;
+                const progress = Math.min((elapsed / totalMs) * 100, 100);
+                progressBar.style.width = progress + '%';
+
+                // 更新倒计时文本 (每秒更新一次)
+                const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+                if (remaining !== parseInt(statusText.textContent.match(/\d+/)?.[0])) {
+                    updateStatusText(remaining);
+                }
+
+                if (elapsed >= totalMs) {
+                    clearInterval(timer);
+                    statusText.textContent = '正在跳转 …';
+                    window.location.href = TARGET_URL;
+                }
+            }, stepMs);
+        })();
+    </script>
+</body>
+</html>
