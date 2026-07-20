@@ -7,14 +7,17 @@ import {
   getWhitelistInfo,
   getWhitelistEmails,
   getWhitelistUsernames,
+  getAdmins,
 } from '@/actions/admin';
 import AccountLinkingPanel from '@/components/admin/account-linking-panel';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import {
-  WhitelistEmailsPanel,
-  WhitelistUsernamesPanel,
-  ForceMergePanel,
-} from '@/components/admin/whitelist-panels';
+   WhitelistEmailsPanel,
+   WhitelistUsernamesPanel,
+   ForceMergePanel,
+ } from '@/components/admin/whitelist-panels';
+ import { RedirectGenerator } from '@/components/admin/redirect-generator';
+ import { AdminManagerPanel } from '@/components/admin/admin-manager-panel';
 
 const TABLE_ICONS: Record<string, string> = {
   vocab_words: 'menu_book',
@@ -78,12 +81,13 @@ export default async function AdminPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [systemInfo, tableStats, whitelistInfo, whitelistEmails, whitelistUsernames] = await Promise.all([
+  const [systemInfo, tableStats, whitelistInfo, whitelistEmails, whitelistUsernames, admins] = await Promise.all([
     getSystemInfo(),
     getTableStats(),
     getWhitelistInfo(),
     getWhitelistEmails().catch(() => []),
     getWhitelistUsernames().catch(() => []),
+    getAdmins().catch(() => []),
   ]);
 
   const linkedProviders = user ? await getLinkedProviders(user.id).catch(() => []) : [];
@@ -294,6 +298,34 @@ export default async function AdminPage({
             );
           })}
         </div>
+      </section>
+
+      {/* 跳转链接生成器 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="material-icons-round text-[var(--muted-foreground)] text-lg">rocket_launch</span>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+            跳转链接生成器
+          </h2>
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] mb-4">
+          输入名称和 URL，自动生成混淆跳转链接，适用于外部站点跳转。
+        </p>
+        <RedirectGenerator />
+      </section>
+
+      {/* 管理员管理 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="material-icons-round text-[var(--muted-foreground)] text-lg">admin_panel_settings</span>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+            管理员管理
+          </h2>
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] mb-4">
+          查看和添加管理员。不能移除自己的管理员权限。
+        </p>
+        <AdminManagerPanel admins={admins} currentUserId={userId} />
       </section>
 
       {/* 快速操作 */}

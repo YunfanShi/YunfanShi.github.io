@@ -206,6 +206,66 @@ export async function isUserWhitelisted(
   return false;
 }
 
+// ===== Admin Manager =====
+
+export async function getAdmins(): Promise<{ id: string; email: string | null; display_name: string | null; created_at: string }[]> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, display_name, created_at')
+    .eq('role', 'admin')
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function addAdmin(
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await requireAdmin();
+
+  // Find the user by email in profiles
+  const { data: profile, error: findError } = await supabase
+    .from('profiles')
+    .select('id, role')
+    .eq('email', email.trim().toLowerCase())
+    .maybeSingle();
+
+  if (findError) return { success: false, error: findError.message };
+  if (!profile) return { success: false, error: '未找到该邮箱对应的用户' };
+  if (profile.role === 'admin') return { success: false, error: '该用户已经是管理员' };
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ role: 'admin', updated_at: new Date().toISOString() })
+    .eq('id', profile.id);
+
+  if (updateError) return { success: false, error: updateError.message };
+  revalidatePath('/admin');
+  return { success: true };
+}
+
+export async function removeAdmin(
+  targetUserId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await requireAdmin();
+
+  // Cannot remove yourself
+  if (targetUserId === user.id) {
+    return { success: false, error: '不能移除自己的管理员权限' };
+  }
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ role: 'user', updated_at: new Date().toISOString() })
+    .eq('id', targetUserId)
+    .eq('role', 'admin');
+
+  if (updateError) return { success: false, error: updateError.message };
+  revalidatePath('/admin');
+  return { success: true };
+}
+
 export async function forceAccountMerge(
   primaryIdOrEmail: string,
   secondaryIdOrEmail: string,
