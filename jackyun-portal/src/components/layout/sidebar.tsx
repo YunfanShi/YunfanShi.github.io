@@ -8,7 +8,7 @@ import { saveSidebarPreferences } from '@/actions/settings';
 
 const ALL_NAV_ITEMS = [
   { label: 'Dashboard', icon: 'dashboard', href: '/dashboard' },
-  { label: '日程中心', icon: 'calendar_month', href: '/timetable-hub' },
+  { label: '日程规划', icon: 'tune', href: '/timetable-hub' },
   { label: '学习计划', icon: 'school', href: '/study' },
   { label: '词汇宝库', icon: 'menu_book', href: '/vocab' },
   // Music pair
@@ -18,7 +18,7 @@ const ALL_NAV_ITEMS = [
   { label: '诗词天地', icon: 'auto_stories', href: '/poem' },
   { label: '倒计时', icon: 'timer', href: '/countdown' },
   { label: '放松一下', icon: 'sports_esports', href: '/relax' },
-  { label: '控制中心', icon: 'tune', href: '/control' },
+  { label: '日程中心', icon: 'calendar_month', href: '/control' },
   // Answer sheet pair
   { id: 'answer-sheet', label: '答题卡', icon: 'content_paste', href: '/answer-sheet', group: 'answerSheet' as const, mode: 'standard' as const },
   { id: 'answer-sheet-sync', label: '同步答题卡', icon: 'sync', href: '/answer-sheet-sync', group: 'answerSheet' as const, mode: 'sync' as const },

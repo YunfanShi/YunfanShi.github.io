@@ -3,6 +3,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+const XOR_KEY = 'JackWarden2024XOR';
+
+function xorEncode(str: string): string {
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    result += String.fromCharCode(str.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+  }
+  return result;
+}
+
 interface RedirectInfo {
   url: string;
   name: string;
@@ -23,9 +33,11 @@ export default function RedirectingPage() {
         return;
       }
 
-      // Decode base64
-      const decoded = atob(t);
-      const parsed: RedirectInfo = JSON.parse(decoded);
+      // Decode: base64 -> unescape -> XOR -> JSON
+      const raw = atob(t);
+      const xored = decodeURIComponent(escape(raw));
+      const json = xorEncode(xored);
+      const parsed: RedirectInfo = JSON.parse(json);
 
       // Security check: only allow http/https
       if (!parsed.url || !/^https?:\/\//i.test(parsed.url)) {

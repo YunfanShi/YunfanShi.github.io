@@ -2,6 +2,22 @@
 
 import { useState } from 'react';
 
+// Simple XOR cipher with a fixed key for URL obfuscation
+const XOR_KEY = 'JackWarden2024XOR';
+
+function xorEncode(str: string): string {
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    result += String.fromCharCode(str.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+  }
+  return result;
+}
+
+function xorDecode(str: string): string {
+  // XOR is symmetric
+  return xorEncode(str);
+}
+
 export function RedirectGenerator() {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
@@ -28,7 +44,8 @@ export function RedirectGenerator() {
     }
 
     const payload = JSON.stringify({ url: url.trim(), name: name.trim() });
-    const encoded = btoa(payload);
+    const xored = xorEncode(payload);
+    const encoded = btoa(unescape(encodeURIComponent(xored)));
     const baseUrl = window.location.origin;
     const redirectUrl = `${baseUrl}/temp/redirecting?t=${encoded}`;
     setGeneratedUrl(redirectUrl);
