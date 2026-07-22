@@ -456,7 +456,7 @@
     <div class="ct-desc" id="ct-desc">描述</div>
     <div class="ct-actions" id="ct-actions">
         <button class="ct-btn ct-btn-ghost" onclick="closeConfirmToast()">取消</button>
-        <button class="ct-btn ct-btn-primary" id="ct-confirm-btn" onclick="closeConfirmToast()">确认</button>
+        <button class="ct-btn ct-btn-primary" id="ct-confirm-btn" onclick="handleConfirmClick()">确认</button>
     </div>
 </div>
 
@@ -1071,6 +1071,18 @@
         toast.classList.add('active');
     }
 
+    function handleConfirmClick() {
+        if (confirmCallback) {
+            const cb = confirmCallback;
+            // Close toast first, then execute callback
+            document.getElementById('confirm-toast').classList.remove('active');
+            confirmCallback = null;
+            cb();
+        } else {
+            closeConfirmToast();
+        }
+    }
+
     function closeConfirmToast() {
         document.getElementById('confirm-toast').classList.remove('active');
         confirmCallback = null;
@@ -1226,9 +1238,8 @@
             if (!task.inProgress) { clearInterval(focusReminderInterval); return; }
             const toast = document.getElementById('focus-reminder-toast');
             if (!toast) return;
-            toast.textContent = `⏰ 已经学习 ${elapsed} 分钟，继续坚持！`;
-            toast.classList.add('active');
-            setTimeout(() => toast.classList.remove('active'), 5000);
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 5000);
             elapsed += 20;
         }, 20 * 60 * 1000);
 
@@ -1542,9 +1553,14 @@
 
     function loadCustomPlaylists() {
         const picker = document.getElementById('playlist-picker');
+        // Remove old custom options first (data-custom attribute)
+        const oldCustoms = picker.querySelectorAll('option[data-custom="true"]');
+        oldCustoms.forEach(o => o.remove());
         STATE.customPlaylists.forEach(p => {
             const opt = document.createElement('option');
-            opt.value = p.id; opt.innerText = `📁 ${p.name}`;
+            opt.value = p.id;
+            opt.innerText = `📁 ${p.name}`;
+            opt.setAttribute('data-custom', 'true');
             picker.appendChild(opt);
         });
     }
@@ -1576,16 +1592,7 @@
             setTimeout(() => { t.style.display = 'none'; }, duration || 5000);
         };
         window.showFocusReminder = origShow;
-        const toast = document.getElementById('focus-reminder-toast');
-        if (toast) {
-            // Override to show/hide with class
-            toast.classList.add = function(cls) {
-                if (cls === 'active') this.style.display = 'block';
-            };
-            toast.classList.remove = function(cls) {
-                if (cls === 'active') this.style.display = 'none';
-            };
-        }
+        // Direct style.display control only, no classList override
     })();
 
     console.log('[Warden] Anti-procrastination system initialized v5');
