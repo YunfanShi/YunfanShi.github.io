@@ -25,6 +25,11 @@ export default function RedirectingPage() {
   const [progress, setProgress] = useState(0);
   const [countdown, setCountdown] = useState(3);
 
+  // Auto-collapse sidebar for full-width redirect view
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('toggle-sidebar-collapse', { detail: { collapsed: true } }));
+  }, []);
+
   useEffect(() => {
     try {
       const t = searchParams.get('t');

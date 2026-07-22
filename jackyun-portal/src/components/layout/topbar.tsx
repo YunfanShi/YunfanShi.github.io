@@ -9,7 +9,7 @@ interface TopbarProps {
   user: User | null;
 }
 
-const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') === 'true' : false;
+const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') !== 'false' : false;
 
 export default function Topbar({ user }: TopbarProps) {
   const [showFullscreen, setShowFullscreen] = useState(showFullscreenDefault);
