@@ -2042,17 +2042,37 @@
     // --- 9. Patch initSystem ---
     const _origInit = initSystem;
     initSystem = function() {
-        _origInit.apply(this, arguments);
         initDeadlineBar();
-        // Override tick to include deadline update
-        const origTick = tick;
-        tick = function() {
-            origTick.apply(this, arguments);
-            updateDeadline();
-        };
+        _origInit.apply(this, arguments);
+        // Separate interval for deadline update (avoids tick override issue)
+        setInterval(updateDeadline, 1000);
         // Render history if already open
         const histBody = document.getElementById('hist-body');
         if (histBody && histBody.classList.contains('open')) renderHistory();
     };
+
+    // --- 10. Fix AI Voice button: click to stop/re-read last spoken ---
+    let lastSpokenText = '';
+    const _origSpeak = speak;
+    speak = function(text) {
+        lastSpokenText = text;
+        _origSpeak.apply(this, arguments);
+    };
+
+    // Replace the voice button handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const ttsBtn = document.getElementById('tts-status');
+        if (ttsBtn) {
+            ttsBtn.onclick = function() {
+                if (window.speechSynthesis.speaking) {
+                    stopSpeaking();
+                } else if (lastSpokenText) {
+                    speak(lastSpokenText);
+                } else {
+                    speak('Hello, voice ready.');
+                }
+            };
+        }
+    });
 </script>
 </body>
