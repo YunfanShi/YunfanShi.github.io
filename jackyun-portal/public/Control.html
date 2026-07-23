@@ -431,6 +431,37 @@
         .task-row.study .task-duration { color: #1a73e8; }
         .task-row.break .task-duration { color: #f29900; }
 
+        /* === VIEW MODE SWITCHER (全屏模式) === */
+        .view-controls { display: flex; gap: 6px; align-items: center; }
+        .view-btn {
+            border: none; background: #2d3748; color: #a0aec0; padding: 6px 12px;
+            border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+            display: flex; align-items: center; gap: 4px; transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .view-btn:hover { background: #4a5568; color: #fff; }
+        .view-btn.active { background: var(--md-primary); color: #fff; }
+        .view-btn-exit { display: none; }
+        .view-btn-exit.visible { display: inline-flex; }
+
+        /* Sidebar hidden state */
+        body.view-schedule aside { display: none; }
+        body.view-schedule main { max-width: 100%; }
+        body.view-schedule .schedule-card { flex: 1; }
+
+        /* Countdown-only state */
+        body.view-countdown aside { display: none; }
+        body.view-countdown main { max-width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        body.view-countdown .schedule-card { display: none; }
+        body.view-countdown #history-panel { display: none; }
+        body.view-countdown .timer-card { 
+            min-height: auto; padding: 60px 60px 30px; max-width: 700px; width: 100%;
+        }
+        body.view-countdown .timer-digits { font-size: clamp(80px, 20vw, 160px); }
+        body.view-countdown .timer-label { font-size: 28px; }
+        body.view-countdown .timer-stats { gap: 30px; }
+        body.view-countdown .timer-stat { padding: 14px 24px; min-width: 120px; }
+        body.view-countdown .timer-stat .ts-value { font-size: 24px; }
         /* === VIEW TOGGLE BUTTONS (卡片右上角图标) === */
         .view-icon-btn {
             width: 32px; height: 32px; border-radius: 50%; border: none;
@@ -461,6 +492,7 @@
             font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;
         }
         .history-sheet .hist-close-btn:hover { background: #ddd; }
+
 
         /* === DAY SWITCHER === */
         .day-switcher { display: flex; align-items: center; gap: 10px; }
@@ -732,7 +764,12 @@
             <h2 style="margin:0; font-size:20px;">Daily Schedule</h2>
             <div id="day-label" style="font-size:14px; color:#666;">Loading...</div>
         </div>
-        <div class="date-badge">
+        <div class="date-badge" style="display:flex; align-items:center; gap:8px;">
+            <div class="view-controls">
+                <button class="view-btn" onclick="switchView('schedule')" title="全屏显示全部任务">📋 全部任务</button>
+                <button class="view-btn" onclick="switchView('countdown')" title="全屏显示倒计时">⏱️ 倒计时</button>
+                <button class="view-btn view-btn-exit" id="btn-exit-view" onclick="switchView('normal')">✕ 退出全屏</button>
+            </div>
             <div id="sync-status" class="sync-dot" title="Network Time Status"></div>
             <span id="clock-display" style="margin-left:8px;">00:00:00</span>
         </div>
@@ -1557,10 +1594,6 @@
         ];
         el.innerHTML = groups.map(g => g.items.length ? `<div class="voice-group"><span class="voice-group-title">${g.name}</span>${g.items.map(v => `<div class="voice-item ${STATE.voiceUri === v.voiceURI ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`).join('')}</div>` : '').join('') || '<div style="text-align:center;color:#aaa;padding:10px;font-size:12px;">暂无可用语音</div>';
     }
-
-    function selectVoiceAndTest(uri) { STATE.voiceUri = uri; localStorage.setItem('w3_voice', uri); const sel = document.getElementById('voice-select'); if (sel) sel.value = uri; populateTtsEngineVoices(); speak("Voice selected."); }
-    function testVoice() {
-        const sel = document.getElementById('voice-select');
         STATE.voiceUri = sel?.value === 'global' ? (getGlobalTtsConfig()?.voiceURI || '') : sel?.value || '';
         localStorage.setItem('w3_voice', STATE.voiceUri);
         speak("Hello, voice updated.");
@@ -1591,6 +1624,7 @@
     let currentViewMode = 'normal';
     function switchView(mode) {
         const body = document.body;
+        // Remove all view classes
         body.classList.remove('view-schedule', 'view-countdown');
         currentViewMode = mode;
         if (mode === 'schedule') {
