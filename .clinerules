@@ -9,6 +9,8 @@
 * [Git Workflow]: 
     * You are authorized to manage the deployment workflow.
     * **IMPORTANT: BEFORE starting any task, you MUST run `git pull origin main` to fetch the latest remote changes and ensure you're working with an up-to-date base.**
+    * **⚠️ CRITICAL: After a PR is merged on GitHub, you MUST `git checkout main && git pull origin main` to sync local BEFORE making any new changes or branches. Otherwise local remote diverge causes merge conflicts.**
+    * **IMPORTANT: This repo uses `git config pull.rebase false` (merge strategy). Never use `--rebase` or `--no-rebase` flags.**
     * After implementing features or fixes, create a **new branch** (e.g. `feat/xxx` or `fix/xxx`) and commit there.
     * **NEVER force push** (`git push --force` or `git push -f`).
     * **NEVER push directly to `main`.** Always push your feature branch and open a Pull Request on GitHub.

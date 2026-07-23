@@ -431,69 +431,6 @@
         .task-row.study .task-duration { color: #1a73e8; }
         .task-row.break .task-duration { color: #f29900; }
 
-        /* === VIEW MODE SWITCHER (全屏模式) === */
-        .view-controls { display: flex; gap: 6px; align-items: center; }
-        .view-btn {
-            border: none; background: #2d3748; color: #a0aec0; padding: 6px 12px;
-            border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
-            display: flex; align-items: center; gap: 4px; transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .view-btn:hover { background: #4a5568; color: #fff; }
-        .view-btn.active { background: var(--md-primary); color: #fff; }
-        .view-btn-exit { display: none; }
-        .view-btn-exit.visible { display: inline-flex; }
-
-        /* Sidebar hidden state */
-        body.view-schedule aside { display: none; }
-        body.view-schedule main { max-width: 100%; }
-        body.view-schedule .schedule-card { flex: 1; }
-
-        /* Countdown-only state */
-        body.view-countdown aside { display: none; }
-        body.view-countdown main { max-width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        body.view-countdown .schedule-card { display: none; }
-        body.view-countdown #history-panel { display: none; }
-        body.view-countdown .timer-card { 
-            min-height: auto; padding: 60px 60px 30px; max-width: 700px; width: 100%;
-        }
-        body.view-countdown .timer-digits { font-size: clamp(80px, 20vw, 160px); }
-        body.view-countdown .timer-label { font-size: 28px; }
-        body.view-countdown .timer-stats { gap: 30px; }
-        body.view-countdown .timer-stat { padding: 14px 24px; min-width: 120px; }
-        body.view-countdown .timer-stat .ts-value { font-size: 24px; }
-        /* === VIEW TOGGLE BUTTONS (卡片右上角图标) === */
-        .view-icon-btn {
-            width: 32px; height: 32px; border-radius: 50%; border: none;
-            background: #e8e8e8; color: #888; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s; font-size: 16px; flex-shrink: 0;
-        }
-        .view-icon-btn:hover { background: var(--md-primary); color: #fff; }
-        .view-icon-btn.exit-btn { background: var(--md-primary); color: #fff; display: none; }
-        .view-icon-btn.exit-btn.visible { display: flex; }
-
-        /* == History overlay == */
-        #history-overlay {
-            position: fixed; inset: 0; z-index: 2000;
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
-            display: none; align-items: center; justify-content: center;
-            animation: fadeIn 0.2s ease;
-        }
-        #history-overlay.active { display: flex; }
-        .history-sheet {
-            background: white; border-radius: 24px; width: 90%; max-width: 520px;
-            max-height: 75vh; overflow-y: auto; padding: 24px;
-            animation: slideUp 0.3s ease; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .history-sheet h3 { margin: 0 0 16px; font-size: 18px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .history-sheet .hist-close-btn {
-            width: 100%; padding: 10px; border: none; background: #eee; border-radius: 8px;
-            font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;
-        }
-        .history-sheet .hist-close-btn:hover { background: #ddd; }
-
-
         /* === DAY SWITCHER === */
         .day-switcher { display: flex; align-items: center; gap: 10px; }
         .day-switcher button {
@@ -503,15 +440,20 @@
         }
         .day-switcher button:hover { background: #ddd; }
 
-        /* === HISTORY PANEL === */
-        #history-panel { margin-top: 16px; }
-        .hist-toggle {
-            width: 100%; padding: 12px; border: none; border-radius: 10px;
-            background: #f0f4f8; cursor: pointer; font-weight: 600;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            font-size: 13px; transition: 0.2s;
+        /* === VIEW & HISTORY ICON BUTTONS (红色圆形) === */
+        .view-icon-btn {
+            width: 32px; height: 32px; border-radius: 50%; border: none;
+            background: var(--md-primary); color: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; flex-shrink: 0;
         }
-        .hist-toggle:hover { background: #e2e8f0; }
+        .view-icon-btn:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(194,12,12,0.4); }
+        .view-icon-btn .material-icons-round { font-size: 18px; }
+        .view-icon-btn.exit { background: #555; color: #fff; display: none; }
+        .view-icon-btn.exit.visible { display: flex; }
+
+        /* === HISTORY DROPDOWN INSIDE SCHEDULE CARD === */
+        #history-panel { display: none; }
         .hist-body { display: none; padding: 12px 0; font-size: 13px; }
         .hist-body.open { display: block; }
         .hist-day { margin-bottom: 12px; padding: 10px; border-radius: 8px; background: #fafafa; }
@@ -764,24 +706,21 @@
             <h2 style="margin:0; font-size:20px;">Daily Schedule</h2>
             <div id="day-label" style="font-size:14px; color:#666;">Loading...</div>
         </div>
-        <div class="date-badge" style="display:flex; align-items:center; gap:8px;">
-            <div class="view-controls">
-                <button class="view-btn" onclick="switchView('schedule')" title="全屏显示全部任务">📋 全部任务</button>
-                <button class="view-btn" onclick="switchView('countdown')" title="全屏显示倒计时">⏱️ 倒计时</button>
-                <button class="view-btn view-btn-exit" id="btn-exit-view" onclick="switchView('normal')">✕ 退出全屏</button>
-            </div>
+        <div class="date-badge">
             <div id="sync-status" class="sync-dot" title="Network Time Status"></div>
             <span id="clock-display" style="margin-left:8px;">00:00:00</span>
         </div>
     </header>
     <div class="timer-card" id="main-card">
-        <div style="position:absolute; right:20px; top:20px; display:flex; gap:8px; z-index:10;">
-            <button class="view-icon-btn" onclick="switchView('countdown')" title="全屏倒计时">
-                <span class="material-icons-round" style="font-size:18px;">fullscreen</span>
-            </button>
-            <button class="view-icon-btn exit-btn" id="btn-exit-view" onclick="switchView('normal')" title="退出全屏">✕</button>
-            <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()">
+        <div style="position:absolute; right:20px; top:20px; display:flex; gap:6px; z-index:10;">
+            <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()" style="position:relative; right:auto; top:auto;">
                 <span class="material-icons-round">done_all</span> Finish Early
+            </button>
+            <button class="view-icon-btn" onclick="switchView('countdown')" title="全屏倒计时">
+                <span class="material-icons-round">fullscreen</span>
+            </button>
+            <button class="view-icon-btn exit" id="btn-exit-view" onclick="switchView('normal')" title="退出全屏">
+                <span class="material-icons-round">close_fullscreen</span>
             </button>
         </div>
         <div class="timer-label" id="timer-label">STANDBY</div>
@@ -815,26 +754,22 @@
                 <span id="day-label-header" style="font-size:13px; font-weight:600;">今天</span>
                 <button onclick="changeDay(1)">›</button>
             </div>
-            <button class="view-icon-btn" onclick="switchView('schedule')" title="全屏时间表" style="margin-left:auto;">
-                <span class="material-icons-round" style="font-size:18px;">fullscreen</span>
-            </button>
-            <button class="view-icon-btn" onclick="openHistoryOverlay()" title="历史记录">📋</button>
             <button class="ai-plan-btn" onclick="askAiPlan()">🤖 AI 规划</button>
+            <button class="view-icon-btn" onclick="switchView('schedule')" title="全屏时间表" style="width:28px;height:28px;">
+                <span class="material-icons-round">open_in_full</span>
+            </button>
+            <button class="view-icon-btn" onclick="toggleHistory()" title="历史记录" style="width:28px;height:28px;background:var(--color-done);">
+                <span class="material-icons-round">history</span>
+            </button>
         </div>
         <div id="ai-plan-output"></div>
         <div id="schedule-list"></div>
     </div>
-    <!-- History Panel removed - now using overlay -->
-</main>
-
-<!-- History Overlay -->
-<div id="history-overlay" onclick="if(event.target===this) closeHistoryOverlay()">
-    <div class="history-sheet">
-        <h3>📋 历史记录</h3>
-        <div id="hist-body-overlay"></div>
-        <button class="hist-close-btn" onclick="closeHistoryOverlay()">关闭</button>
+    <!-- History dropdown placed inside schedule-card via JS -->
+    <div id="history-panel">
+        <div class="hist-body" id="hist-body"></div>
     </div>
-</div>
+</main>
 
 <!-- Encourage Toast -->
 <div class="encourage-toast" id="encourage-toast"></div>
@@ -1594,6 +1529,10 @@
         ];
         el.innerHTML = groups.map(g => g.items.length ? `<div class="voice-group"><span class="voice-group-title">${g.name}</span>${g.items.map(v => `<div class="voice-item ${STATE.voiceUri === v.voiceURI ? 'active' : ''}" onclick="selectVoiceAndTest('${v.voiceURI}')">${v.name} <span class="voice-lang">${v.lang}</span></div>`).join('')}</div>` : '').join('') || '<div style="text-align:center;color:#aaa;padding:10px;font-size:12px;">暂无可用语音</div>';
     }
+
+    function selectVoiceAndTest(uri) { STATE.voiceUri = uri; localStorage.setItem('w3_voice', uri); const sel = document.getElementById('voice-select'); if (sel) sel.value = uri; populateTtsEngineVoices(); speak("Voice selected."); }
+    function testVoice() {
+        const sel = document.getElementById('voice-select');
         STATE.voiceUri = sel?.value === 'global' ? (getGlobalTtsConfig()?.voiceURI || '') : sel?.value || '';
         localStorage.setItem('w3_voice', STATE.voiceUri);
         speak("Hello, voice updated.");
@@ -1621,53 +1560,19 @@
     function saveSchedule() { localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule)); }
 
     /* ======================== VIEW MODE SWITCHER ======================== */
-    let currentViewMode = 'normal';
     function switchView(mode) {
         const body = document.body;
-        // Remove all view classes
         body.classList.remove('view-schedule', 'view-countdown');
-        currentViewMode = mode;
+        const exitBtn = document.getElementById('btn-exit-view');
         if (mode === 'schedule') {
             body.classList.add('view-schedule');
-            document.getElementById('btn-exit-view').classList.add('visible');
+            if (exitBtn) exitBtn.classList.add('visible');
         } else if (mode === 'countdown') {
             body.classList.add('view-countdown');
-            document.getElementById('btn-exit-view').classList.add('visible');
+            if (exitBtn) exitBtn.classList.add('visible');
         } else {
-            document.getElementById('btn-exit-view').classList.remove('visible');
+            if (exitBtn) exitBtn.classList.remove('visible');
         }
-    }
-
-    /* ======================== HISTORY OVERLAY ======================== */
-    function openHistoryOverlay() {
-        const overlay = document.getElementById('history-overlay');
-        const body = document.getElementById('hist-body-overlay');
-        if (!body) return;
-        const log = getHistoryLog();
-        const days = Object.keys(log).sort().reverse().slice(0, 7);
-        if (!days.length) {
-            body.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无历史记录</div>';
-        } else {
-            body.innerHTML = days.map(date => {
-                const tasks = log[date] || [];
-                const done = tasks.filter(t => t.done).length;
-                const total = tasks.length;
-                return `<div class="hist-day">
-                    <div class="hist-day-header">${date} — ${done}/${total} 已完成</div>
-                    ${tasks.map(t => `
-                        <div class="hist-item">
-                            <span>${t.start} ${t.detail}</span>
-                            <span class="${t.done?'done':'missed'}">${t.done?'✅':'⬜'} ${t.notes?'📝':''}</span>
-                        </div>
-                    `).join('')}
-                </div>`;
-            }).join('');
-        }
-        overlay.classList.add('active');
-    }
-
-    function closeHistoryOverlay() {
-        document.getElementById('history-overlay').classList.remove('active');
     }
 
     /* ======================== AI SIDEBAR (Full Chat) ======================== */
