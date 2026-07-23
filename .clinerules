@@ -8,7 +8,11 @@
 * [SSH Status]: SSH authentication is fully configured and authorized on this local machine.
 * [Git Workflow]: 
     * You are authorized to manage the deployment workflow.
-    * After implementing any features or fixes, you must automatically stage the files, commit them with a clean message, and push the updates to the remote repository using the configured SSH channel.
+    * **IMPORTANT: BEFORE starting any task, you MUST run `git pull origin main` to fetch the latest remote changes and ensure you're working with an up-to-date base.**
+    * After implementing features or fixes, create a **new branch** (e.g. `feat/xxx` or `fix/xxx`) and commit there.
+    * **NEVER force push** (`git push --force` or `git push -f`).
+    * **NEVER push directly to `main`.** Always push your feature branch and open a Pull Request on GitHub.
+    * Wait for PR to be reviewed and merged before updating `main`.
 
 # 2. PROJECT DIRECTORY STRUCTURE
 # --------------------------------------------------
@@ -40,6 +44,7 @@
 
 # 4. EXECUTION PIPELINE
 # --------------------------------------------------
+0. **Pull Latest**: Run `git pull origin main` to ensure the local repo is up-to-date before any work.
 1. **Develop/Modify**: Implement requested tasks in the codebase.
 2. **Review Docs**: Check and update `README.md` if the change affects project usage.
 3. **Log Update**: Write the details of the change into `jackyun-portal/public/UpdateHub.html`.
