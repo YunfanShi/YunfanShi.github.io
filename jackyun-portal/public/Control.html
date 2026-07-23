@@ -141,12 +141,29 @@
 
         /* === TIMER CARD === */
         .timer-card { 
-            background: white; border-radius: 20px; padding: 40px; text-align: center; 
+            background: white; border-radius: 20px; padding: 40px 40px 20px; text-align: center; 
             box-shadow: var(--shadow-2); border: 1px solid #e0e0e0; position: relative; 
             display: flex; flex-direction: column; justify-content: center;
             min-height: 300px;
         }
         .timer-card.finished-mode { border-color: var(--color-done); background: #f0fdf4; }
+        
+        /* Task stats row in timer card */
+        .timer-stats {
+            display: flex; justify-content: center; gap: 20px; margin-top: 16px; flex-wrap: wrap;
+        }
+        .timer-stat {
+            background: #f0f4f8; border-radius: 12px; padding: 10px 18px; min-width: 100px;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            transition: all 0.3s ease;
+        }
+        .timer-stat .ts-icon { font-size: 14px; color: #666; }
+        .timer-stat .ts-value { font-size: 20px; font-weight: 900; font-family: 'Inter', sans-serif; color: #333; }
+        .timer-stat .ts-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+        .timer-stat.warn { background: #fff3e0; }
+        .timer-stat.warn .ts-value { color: #e65100; }
+        .timer-stat.good { background: #e8f5e9; }
+        .timer-stat.good .ts-value { color: #2e7d32; }
         
         .timer-digits { 
             font-size: clamp(60px, 15vw, 120px); 
@@ -599,6 +616,24 @@
             <input type="text" id="songIdInput" placeholder="歌曲 ID (如 186001)" style="min-width:0; max-width:100px;">
             <button class="add-song-btn" onclick="addSongToPool()">添加</button>
         </div>
+        <!-- Batch Import Section -->
+        <div style="margin-bottom:14px; padding:12px; background:#f8f9ff; border-radius:10px; border:1px solid #e0e4f0;">
+            <div style="font-size:12px; font-weight:700; color:#1967d2; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:16px;">download</span> 批量导入（从网易云歌单抓取）
+            </div>
+            <div style="margin-bottom:8px;">
+                <button class="song-pool-btn" onclick="copyNetEaseScript()" style="width:100%; justify-content:center; background:#e8f0fe;">
+                    <span class="material-icons-round" style="font-size:12px;">content_copy</span> 1. 复制抓取脚本
+                </button>
+            </div>
+            <div style="font-size:10px; color:#888; margin:4px 0 6px; line-height:1.4;">
+                📋 打开 <a href="https://music.163.com" target="_blank" style="color:var(--md-primary);">music.163.com</a> 找到歌单 → F12 → Console → 粘贴脚本 → 回车 → 复制输出的 JSON
+            </div>
+            <div style="display:flex; gap:6px;">
+                <textarea id="batchImportArea" placeholder="在此粘贴 JSON..." style="flex:1; padding:6px 10px; border:1px solid #ddd; border-radius:6px; font-size:11px; font-family:'Roboto Mono',monospace; resize:none; height:50px; outline:none;"></textarea>
+                <button class="add-song-btn" onclick="runBatchImport()" style="white-space:nowrap; font-size:11px; padding:6px 12px;">导入</button>
+            </div>
+        </div>
         <div class="song-list" id="songPoolList"></div>
         <button class="panel-close-btn" onclick="closeSongPool()">关闭</button>
     </div>
@@ -677,6 +712,24 @@
         </button>
         <div class="timer-label" id="timer-label">STANDBY</div>
         <div class="timer-digits" id="timer-display">--:--</div>
+        <!-- Task stats -->
+        <div class="timer-stats" id="timer-stats">
+            <div class="timer-stat" id="stat-remaining-tasks">
+                <span class="ts-icon">📋</span>
+                <span class="ts-value" id="stat-tasks-val">0</span>
+                <span class="ts-label">待完成任务</span>
+            </div>
+            <div class="timer-stat" id="stat-remaining-time">
+                <span class="ts-icon">⏱</span>
+                <span class="ts-value" id="stat-time-val">0h 0m</span>
+                <span class="ts-label">待完成时间</span>
+            </div>
+            <div class="timer-stat" id="stat-progress">
+                <span class="ts-icon">✅</span>
+                <span class="ts-value" id="stat-progress-val">0/0</span>
+                <span class="ts-label">完成进度</span>
+            </div>
+        </div>
         <div style="position:absolute; bottom:0; left:0; width:100%; height:6px; background:#f0f0f0;">
             <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
         </div>
@@ -701,6 +754,9 @@
 
 <!-- Encourage Toast -->
 <div class="encourage-toast" id="encourage-toast"></div>
+
+<!-- Burst Particle Overlay (for break/music transitions) -->
+<canvas id="particle-canvas" style="position:fixed; inset:0; z-index:900; pointer-events:none; display:none;"></canvas>
 
 <script>
     /* ======================== VERSION CONTROL ======================== */
@@ -873,6 +929,52 @@
         renderSongPool();
     }
     function removeSongFromPool(idx) { const pool = getSongPool(); pool.splice(idx, 1); saveSongPool(pool); renderSongPool(); }
+    
+    // Batch import from NetEase Music playlist (ported from MusicPlayerSync)
+    function copyNetEaseScript() {
+        const SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
+        navigator.clipboard.writeText(SCRIPT).then(() => {
+            const confirmed = confirm("✅ 脚本已复制到剪贴板！\n\n下一步：\n1. 打开 music.163.com\n2. 进入你的歌单页面\n3. 按 F12 打开开发者工具\n4. 切换到 Console（控制台）\n5. 粘贴脚本并按回车\n6. 复制输出的 JSON\n\n是否现在打开网易云音乐？");
+            if (confirmed) window.open("https://music.163.com", "_blank");
+        }).catch(() => {
+            alert("无法自动复制，请手动复制以下脚本：\n\n" + SCRIPT);
+        });
+    }
+    
+    function runBatchImport() {
+        const area = document.getElementById('batchImportArea');
+        let val = area.value.trim();
+        if (!val) { alert('请先粘贴 JSON 数据'); return; }
+        try {
+            // Try parsing as array
+            if (!val.startsWith('[')) {
+                val = '[' + val + ']';
+            }
+            const data = JSON.parse(val);
+            if (!Array.isArray(data)) { alert('JSON 格式错误，需要一个数组'); return; }
+            const pool = getSongPool();
+            let added = 0;
+            data.forEach(item => {
+                const id = String(item.id || '');
+                const name = item.name || 'Unknown';
+                if (id && !pool.find(s => s.id === id)) {
+                    pool.push({ id, name });
+                    added++;
+                }
+            });
+            if (added > 0) {
+                saveSongPool(pool);
+                renderSongPool();
+                area.value = '';
+                alert(`✅ 成功导入 ${added} 首歌曲！`);
+            } else {
+                alert('没有新歌曲可导入（可能已全部存在）');
+            }
+        } catch (e) {
+            alert('JSON 解析错误：' + e.message + '\n\n请确保格式为：[{"id":"186001","name":"晴天"}]');
+        }
+    }
+    
     function renderSongPool() {
         const c = document.getElementById('songPoolList'); const pool = getSongPool();
         if (!pool.length) { c.innerHTML = '<div class="song-empty">还没有添加歌曲 🎵</div>'; return; }
@@ -925,6 +1027,60 @@
         setupMediaKeys(); updateSettingsUI();
     }
 
+    /* ======================== TASK STATS ======================== */
+    function updateTaskStats() {
+        const statsEl = document.getElementById('timer-stats');
+        if (!statsEl || !STATE.schedule.length) return;
+        const now = getNow();
+        const curM = now.getHours() * 60 + now.getMinutes();
+        
+        // Find current task index
+        let currentIdx = STATE.schedule.findIndex(s => curM >= timeToMinutes(s.start) && curM < timeToMinutes(s.end));
+        if (currentIdx === -1) {
+            // Maybe we're before schedule starts — count from first task
+            currentIdx = 0;
+        }
+        
+        // Calculate remaining tasks (study) and time
+        let remainingStudyTasks = 0;
+        let remainingStudyMinutes = 0;
+        for (let i = currentIdx; i < STATE.schedule.length; i++) {
+            const s = STATE.schedule[i];
+            if (s.type === 'study' && !s.done && !s.skipped) {
+                remainingStudyTasks++;
+                const startM = timeToMinutes(s.start);
+                const endM = timeToMinutes(s.end);
+                if (i === currentIdx) {
+                    // Current task: only count remaining time from now
+                    remainingStudyMinutes += Math.max(0, endM - curM);
+                } else {
+                    remainingStudyMinutes += (endM - startM);
+                }
+            }
+        }
+        
+        // Total and done count
+        const totalStudy = STATE.schedule.filter(s => s.type === 'study').length;
+        const doneStudy = STATE.schedule.filter(s => s.type === 'study' && s.done).length;
+        
+        // Update DOM
+        document.getElementById('stat-tasks-val').textContent = remainingStudyTasks;
+        
+        const hours = Math.floor(remainingStudyMinutes / 60);
+        const mins = remainingStudyMinutes % 60;
+        document.getElementById('stat-time-val').textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+        document.getElementById('stat-progress-val').textContent = `${doneStudy}/${totalStudy}`;
+        
+        // Color coding
+        const tasksStat = document.getElementById('stat-remaining-tasks');
+        const timeStat = document.getElementById('stat-remaining-time');
+        const progressStat = document.getElementById('stat-progress');
+        
+        tasksStat.className = 'timer-stat' + (remainingStudyTasks > 5 ? ' warn' : remainingStudyTasks <= 2 && remainingStudyTasks > 0 ? ' good' : '');
+        timeStat.className = 'timer-stat' + (remainingStudyMinutes > 180 ? ' warn' : remainingStudyMinutes <= 60 ? ' good' : '');
+        progressStat.className = 'timer-stat' + (doneStudy === totalStudy && totalStudy > 0 ? ' good' : '');
+    }
+
     /* ======================== CORE LOOP ======================== */
     let taskStartDialogTimer = null;
     let wastedSeconds = 0;
@@ -934,6 +1090,8 @@
         const now = getNow();
         document.getElementById('clock-display').innerText = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         if (!STATE.schedule.length) return;
+        // Update task stats every tick
+        updateTaskStats();
 
         const curM = now.getHours() * 60 + now.getMinutes();
         const curS = now.getSeconds();
@@ -2049,6 +2207,160 @@
         // Render history if already open
         const histBody = document.getElementById('hist-body');
         if (histBody && histBody.classList.contains('open')) renderHistory();
+    };
+
+    // --- 11. PARTICLE BURST ANIMATION (for break/music transitions, ported from AnswerSheetSync gacha) ---
+    let _particleRunning = false;
+    let _particleAnimId = null;
+
+    function triggerParticleBurst(color1, color2) {
+        if (_particleRunning) return;
+        const canvas = document.getElementById('particle-canvas');
+        if (!canvas) return;
+        _particleRunning = true;
+        canvas.style.display = 'block';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+
+        // Primary colors
+        const c1 = color1 || [194, 12, 12]; // md-primary red
+        const c2 = color2 || [242, 153, 0];  // break gold
+        
+        const N = 180;
+        const particles = [];
+        for (let i = 0; i < N; i++) {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            if (side === 0) { x = Math.random() * W; y = -10; }
+            else if (side === 1) { x = W + 10; y = Math.random() * H; }
+            else if (side === 2) { x = Math.random() * W; y = H + 10; }
+            else { x = -10; y = Math.random() * H; }
+            const mix = Math.random();
+            const r = Math.round(c1[0] * (1-mix) + c2[0] * mix);
+            const g = Math.round(c1[1] * (1-mix) + c2[1] * mix);
+            const b = Math.round(c1[2] * (1-mix) + c2[2] * mix);
+            const angle = Math.atan2(cy - y, cx - x) + (Math.random() - 0.5) * 0.8;
+            const speed = 2 + Math.random() * 3;
+            particles.push({
+                x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                r, g, b, size: 2 + Math.random() * 4, alpha: 1,
+                shape: Math.random() < 0.35 ? 'square' : 'circle', rot: Math.random() * Math.PI * 2,
+                rotV: (Math.random() - 0.5) * 0.1, age: 0, maxAge: 3 + Math.random() * 2
+            });
+        }
+
+        const T_CONVERGE = 1.8, T_TIGHTEN = 3.0, T_BURST = 3.8;
+        let startTime = null;
+        let flashed = false;
+
+        function draw() {
+            if (!_particleRunning) return;
+            if (!startTime) startTime = performance.now();
+            const t = (performance.now() - startTime) / 1000;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.12)';
+            ctx.fillRect(0, 0, W, H);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.age += 0.016;
+                p.rot += p.rotV;
+
+                if (t < T_CONVERGE) {
+                    const towardX = cx - p.x, towardY = cy - p.y;
+                    const d = Math.hypot(towardX, towardY) + 0.1;
+                    p.vx += towardX / d * 0.004;
+                    p.vy += towardY / d * 0.004;
+                    p.vx += (Math.random() - 0.5) * 0.1;
+                    p.vy += (Math.random() - 0.5) * 0.1;
+                } else if (t < T_TIGHTEN) {
+                    const progress = (t - T_CONVERGE) / (T_TIGHTEN - T_CONVERGE);
+                    const pull = 1 - Math.pow(1 - progress, 3);
+                    const towardX = cx - p.x, towardY = cy - p.y;
+                    const d = Math.hypot(towardX, towardY) + 0.1;
+                    p.vx += towardX / d * (pull * 5 + 0.5);
+                    p.vy += towardY / d * (pull * 5 + 0.5);
+                    p.vx *= 0.86;
+                    p.vy *= 0.86;
+                    p.size = p.size * (1 - progress * 0.3);
+                } else if (t < T_BURST) {
+                    const progress = (t - T_TIGHTEN) / (T_BURST - T_TIGHTEN);
+                    const pull = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                    const towardX = cx - p.x, towardY = cy - p.y;
+                    const d = Math.hypot(towardX, towardY) + 0.1;
+                    p.vx += towardX / d * (pull * 6);
+                    p.vy += towardY / d * (pull * 6);
+                    p.vx *= 0.80;
+                    p.vy *= 0.80;
+                    p.size = Math.max(0.5, p.size * (1 + pull * 0.5));
+                    p.alpha = 1;
+                } else {
+                    if (p.age > 0.1 && p._burst === undefined) {
+                        p._burst = true;
+                        const angle = Math.atan2(p.y - cy, p.x - cx) || Math.random() * Math.PI * 2;
+                        const spd = 5 + Math.random() * 15;
+                        p.vx = Math.cos(angle) * spd;
+                        p.vy = Math.sin(angle) * spd;
+                    }
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vx *= 0.92;
+                    p.vy *= 0.92;
+                    p.alpha = Math.max(0, p.alpha - 0.025);
+                    p.size *= 0.97;
+                }
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.alpha > 0.02) {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    const [cr, cg, cb] = [Math.min(255, Math.round(p.r)), Math.min(255, Math.round(p.g)), Math.min(255, Math.round(p.b))];
+                    ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+                    ctx.shadowColor = `rgba(${cr},${cg},${cb},0.6)`;
+                    ctx.shadowBlur = p.size * 2;
+                    if (p.shape === 'square') {
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate(p.rot);
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            // Flash on burst
+            if (t >= T_BURST && !flashed) {
+                flashed = true;
+                const fl = document.createElement('div');
+                fl.style.cssText = `position:fixed;inset:0;background:rgba(255,255,255,0.6);pointer-events:none;z-index:901;transition:opacity 0.4s ease-out`;
+                document.body.appendChild(fl);
+                requestAnimationFrame(() => fl.style.opacity = '0');
+                setTimeout(() => fl.remove(), 500);
+            }
+
+            if (t < 6) {
+                _particleAnimId = requestAnimationFrame(draw);
+            } else {
+                _particleRunning = false;
+                canvas.style.display = 'none';
+                ctx.clearRect(0, 0, W, H);
+            }
+        }
+        _particleAnimId = requestAnimationFrame(draw);
+    }
+
+    // Patch playRandomTrack to add particle burst
+    const _origPlayRandomTrack = playRandomTrack;
+    playRandomTrack = function() {
+        _origPlayRandomTrack.apply(this, arguments);
+        triggerParticleBurst();
     };
 
     // --- 10. Fix AI Voice button: click to stop/re-read last spoken ---
