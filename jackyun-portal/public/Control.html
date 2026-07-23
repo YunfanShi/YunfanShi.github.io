@@ -431,6 +431,37 @@
         .task-row.study .task-duration { color: #1a73e8; }
         .task-row.break .task-duration { color: #f29900; }
 
+        /* === VIEW TOGGLE BUTTONS (卡片右上角图标) === */
+        .view-icon-btn {
+            width: 32px; height: 32px; border-radius: 50%; border: none;
+            background: #e8e8e8; color: #888; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; font-size: 16px; flex-shrink: 0;
+        }
+        .view-icon-btn:hover { background: var(--md-primary); color: #fff; }
+        .view-icon-btn.exit-btn { background: var(--md-primary); color: #fff; display: none; }
+        .view-icon-btn.exit-btn.visible { display: flex; }
+
+        /* == History overlay == */
+        #history-overlay {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        #history-overlay.active { display: flex; }
+        .history-sheet {
+            background: white; border-radius: 24px; width: 90%; max-width: 520px;
+            max-height: 75vh; overflow-y: auto; padding: 24px;
+            animation: slideUp 0.3s ease; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .history-sheet h3 { margin: 0 0 16px; font-size: 18px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .history-sheet .hist-close-btn {
+            width: 100%; padding: 10px; border: none; background: #eee; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;
+        }
+        .history-sheet .hist-close-btn:hover { background: #ddd; }
+
         /* === DAY SWITCHER === */
         .day-switcher { display: flex; align-items: center; gap: 10px; }
         .day-switcher button {
@@ -707,9 +738,15 @@
         </div>
     </header>
     <div class="timer-card" id="main-card">
-        <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()">
-            <span class="material-icons-round">done_all</span> Finish Early
-        </button>
+        <div style="position:absolute; right:20px; top:20px; display:flex; gap:8px; z-index:10;">
+            <button class="view-icon-btn" onclick="switchView('countdown')" title="全屏倒计时">
+                <span class="material-icons-round" style="font-size:18px;">fullscreen</span>
+            </button>
+            <button class="view-icon-btn exit-btn" id="btn-exit-view" onclick="switchView('normal')" title="退出全屏">✕</button>
+            <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()">
+                <span class="material-icons-round">done_all</span> Finish Early
+            </button>
+        </div>
         <div class="timer-label" id="timer-label">STANDBY</div>
         <div class="timer-digits" id="timer-display">--:--</div>
         <!-- Task stats -->
@@ -741,16 +778,26 @@
                 <span id="day-label-header" style="font-size:13px; font-weight:600;">今天</span>
                 <button onclick="changeDay(1)">›</button>
             </div>
+            <button class="view-icon-btn" onclick="switchView('schedule')" title="全屏时间表" style="margin-left:auto;">
+                <span class="material-icons-round" style="font-size:18px;">fullscreen</span>
+            </button>
+            <button class="view-icon-btn" onclick="openHistoryOverlay()" title="历史记录">📋</button>
             <button class="ai-plan-btn" onclick="askAiPlan()">🤖 AI 规划</button>
         </div>
         <div id="ai-plan-output"></div>
         <div id="schedule-list"></div>
     </div>
-    <div id="history-panel">
-        <button class="hist-toggle" onclick="toggleHistory()">📋 历史记录</button>
-        <div class="hist-body" id="hist-body"></div>
-    </div>
+    <!-- History Panel removed - now using overlay -->
 </main>
+
+<!-- History Overlay -->
+<div id="history-overlay" onclick="if(event.target===this) closeHistoryOverlay()">
+    <div class="history-sheet">
+        <h3>📋 历史记录</h3>
+        <div id="hist-body-overlay"></div>
+        <button class="hist-close-btn" onclick="closeHistoryOverlay()">关闭</button>
+    </div>
+</div>
 
 <!-- Encourage Toast -->
 <div class="encourage-toast" id="encourage-toast"></div>
@@ -1317,12 +1364,19 @@
         saveSchedule(); renderTable();
     }
 
+    let lastHighlightedIdx = -1;
     function highlightRow(activeTask) {
         document.querySelectorAll('.task-row').forEach(r => r.classList.remove('active'));
         const idx = STATE.schedule.indexOf(activeTask);
         if (idx > -1) {
             const el = document.getElementById(`row-${idx}`);
-            if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+            if (el) { 
+                el.classList.add('active'); 
+                if (idx !== lastHighlightedIdx) {
+                    lastHighlightedIdx = idx;
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }
         }
     }
 
@@ -1532,6 +1586,55 @@
     }
     function timeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
     function saveSchedule() { localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule)); }
+
+    /* ======================== VIEW MODE SWITCHER ======================== */
+    let currentViewMode = 'normal';
+    function switchView(mode) {
+        const body = document.body;
+        body.classList.remove('view-schedule', 'view-countdown');
+        currentViewMode = mode;
+        if (mode === 'schedule') {
+            body.classList.add('view-schedule');
+            document.getElementById('btn-exit-view').classList.add('visible');
+        } else if (mode === 'countdown') {
+            body.classList.add('view-countdown');
+            document.getElementById('btn-exit-view').classList.add('visible');
+        } else {
+            document.getElementById('btn-exit-view').classList.remove('visible');
+        }
+    }
+
+    /* ======================== HISTORY OVERLAY ======================== */
+    function openHistoryOverlay() {
+        const overlay = document.getElementById('history-overlay');
+        const body = document.getElementById('hist-body-overlay');
+        if (!body) return;
+        const log = getHistoryLog();
+        const days = Object.keys(log).sort().reverse().slice(0, 7);
+        if (!days.length) {
+            body.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无历史记录</div>';
+        } else {
+            body.innerHTML = days.map(date => {
+                const tasks = log[date] || [];
+                const done = tasks.filter(t => t.done).length;
+                const total = tasks.length;
+                return `<div class="hist-day">
+                    <div class="hist-day-header">${date} — ${done}/${total} 已完成</div>
+                    ${tasks.map(t => `
+                        <div class="hist-item">
+                            <span>${t.start} ${t.detail}</span>
+                            <span class="${t.done?'done':'missed'}">${t.done?'✅':'⬜'} ${t.notes?'📝':''}</span>
+                        </div>
+                    `).join('')}
+                </div>`;
+            }).join('');
+        }
+        overlay.classList.add('active');
+    }
+
+    function closeHistoryOverlay() {
+        document.getElementById('history-overlay').classList.remove('active');
+    }
 
     /* ======================== AI SIDEBAR (Full Chat) ======================== */
     let aiMessages = [];
