@@ -387,6 +387,104 @@
         .voice-item:hover { background: #e8f0fe; color: #1967d2; }
         .voice-item.active { background: #d2e3fc; color: #1967d2; font-weight: bold; }
         
+        /* === DEADLINE BAR === */
+        #deadline-bar {
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 18px; border-radius: 12px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white; font-size: 13px; font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #deadline-bar .db-label { opacity: 0.8; font-size: 12px; }
+        #deadline-bar .db-time { font-family: 'Inter', sans-serif; font-weight: 900; font-size: 18px; letter-spacing: 1px; }
+        #deadline-bar .db-progress-wrap { flex: 1; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; }
+        #deadline-bar .db-progress { height: 100%; background: linear-gradient(90deg, #00e676, #00bcd4); border-radius: 3px; transition: width 1s linear; }
+        #deadline-bar .db-pct { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px; min-width: 40px; text-align: right; }
+        #deadline-bar.done { background: linear-gradient(135deg, #1b4332, #2d6a4f); }
+        #deadline-bar.done .db-progress { background: #52b788; width: 100% !important; }
+
+        /* === SCHEDULE ENHANCEMENTS === */
+        .task-row { transition: all 0.2s ease; }
+        .task-row.study { border-left: 4px solid #1a73e8; background: #f0f6ff; }
+        .task-row.break { border-left: 4px solid #f29900; background: #fffbf0; }
+        .task-row.study.active { border-left: 4px solid var(--md-primary); background: #fff0f0; }
+        .task-row.break.active { border-left: 4px solid var(--color-break); background: #fff0f0; }
+        .task-row.done { opacity: 0.5; border-left-color: var(--color-done) !important; background: #f8f9fa !important; }
+        .task-duration { font-size: 11px; color: #999; }
+        .task-row.study .task-duration { color: #1a73e8; }
+        .task-row.break .task-duration { color: #f29900; }
+
+        /* === DAY SWITCHER === */
+        .day-switcher { display: flex; align-items: center; gap: 10px; }
+        .day-switcher button {
+            width: 28px; height: 28px; border-radius: 50%; border: none;
+            background: #eee; cursor: pointer; display: flex; align-items: center;
+            justify-content: center; font-size: 16px; transition: 0.2s;
+        }
+        .day-switcher button:hover { background: #ddd; }
+
+        /* === HISTORY PANEL === */
+        #history-panel { margin-top: 16px; }
+        .hist-toggle {
+            width: 100%; padding: 12px; border: none; border-radius: 10px;
+            background: #f0f4f8; cursor: pointer; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            font-size: 13px; transition: 0.2s;
+        }
+        .hist-toggle:hover { background: #e2e8f0; }
+        .hist-body { display: none; padding: 12px 0; font-size: 13px; }
+        .hist-body.open { display: block; }
+        .hist-day { margin-bottom: 12px; padding: 10px; border-radius: 8px; background: #fafafa; }
+        .hist-day-header { font-weight: 600; margin-bottom: 6px; color: #333; }
+        .hist-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #666; }
+        .hist-item .done { color: var(--color-done); }
+        .hist-item .missed { color: var(--md-primary); }
+
+        /* === AI PLANNING BUTTON === */
+        .ai-plan-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 8px; border: none;
+            background: linear-gradient(135deg, #1a73e8, #7c4dff);
+            color: white; font-size: 12px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; margin-left: auto;
+        }
+        .ai-plan-btn:hover { transform: scale(1.03); box-shadow: 0 2px 12px rgba(26,115,232,0.4); }
+        .ai-plan-btn.loading { opacity: 0.6; pointer-events: none; }
+        #ai-plan-output {
+            background: #f8f9ff; border-radius: 8px; padding: 12px; margin-top: 8px;
+            font-size: 13px; line-height: 1.6; display: none; border: 1px solid #dde;
+        }
+        #ai-plan-output.open { display: block; }
+
+        /* === CUSTOM TASK INPUT === */
+        .custom-task-input {
+            display: none; gap: 6px; padding: 8px 20px 8px 30px;
+            background: #fafafa; border-bottom: 1px solid #f0f0f0;
+        }
+        .custom-task-input.open { display: flex; }
+        .custom-task-input input[type="text"] { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+        .custom-task-input input[type="number"] { width: 60px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+        .custom-task-input button { padding: 6px 12px; border: none; border-radius: 4px; background: var(--md-primary); color: white; cursor: pointer; font-size: 11px; font-weight: 600; }
+
+        /* === NOTE INPUT === */
+        .task-note-input { display: none; margin-top: 4px; width: 100%; }
+        .task-note-input.open { display: block; }
+        .task-note-input textarea {
+            width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 11px; resize: none; outline: none; font-family: inherit;
+        }
+
+        /* === ENCOURAGEMENT TOAST === */
+        .encourage-toast {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: #1a1a2e; color: white; padding: 14px 24px;
+            border-radius: 14px; font-size: 14px; font-weight: 500;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3); z-index: 500;
+            opacity: 0; transition: opacity 0.4s; pointer-events: none;
+            max-width: 80vw; text-align: center; line-height: 1.5;
+        }
+        .encourage-toast.show { opacity: 1; }
+
         #tts-status.speaking { background: #d1e7dd; color: #0f5132; animation: ttsPulse 1.5s ease-in-out infinite; }
         @keyframes ttsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(15, 81, 50, 0.4); } 50% { box-shadow: 0 0 0 4px rgba(15, 81, 50, 0); } }
         @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
@@ -583,8 +681,26 @@
             <div id="progress-bar" style="height:100%; width:0%; background:var(--md-primary); transition:width 1s linear;"></div>
         </div>
     </div>
-    <div class="schedule-card" id="schedule-list"></div>
+    <div class="schedule-card">
+        <div class="cat-header" style="display:flex; align-items:center; gap:8px;">
+            <div class="day-switcher">
+                <button onclick="changeDay(-1)">‹</button>
+                <span id="day-label-header" style="font-size:13px; font-weight:600;">今天</span>
+                <button onclick="changeDay(1)">›</button>
+            </div>
+            <button class="ai-plan-btn" onclick="askAiPlan()">🤖 AI 规划</button>
+        </div>
+        <div id="ai-plan-output"></div>
+        <div id="schedule-list"></div>
+    </div>
+    <div id="history-panel">
+        <button class="hist-toggle" onclick="toggleHistory()">📋 历史记录</button>
+        <div class="hist-body" id="hist-body"></div>
+    </div>
 </main>
+
+<!-- Encourage Toast -->
+<div class="encourage-toast" id="encourage-toast"></div>
 
 <script>
     /* ======================== VERSION CONTROL ======================== */
@@ -613,111 +729,131 @@
         "0": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"12:30",cat:"📋 复盘日",detail:"整理一周错题，不做新题",type:"study"},
+            {start:"10:00",end:"12:30",cat:"📋 复盘日",detail:"整理一周错题",type:"study"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"📋 翻错题本",detail:"翻错题本",type:"study"},
-            {start:"15:30",end:"16:30",cat:"📖 看范文",detail:"看范文",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语自由说",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"📖 看范文",detail:"看范文",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语自由说",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 1 = Monday (听力+阅读)
         "1": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"10:40",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:40",end:"11:50",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"11:50",end:"12:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"10:00",end:"10:45",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
+            {start:"10:45",end:"11:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"11:00",end:"12:20",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
+            {start:"12:20",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
-            {start:"15:30",end:"16:30",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 2 = Tuesday (听力+大作文)
         "2": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
             {start:"10:00",end:"10:40",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:40",end:"11:40",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
-            {start:"11:40",end:"12:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"10:40",end:"10:55",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:55",end:"11:55",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
+            {start:"11:55",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
-            {start:"15:30",end:"16:30",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 3 = Wednesday (阅读+小作文)
         "3": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
             {start:"10:00",end:"11:10",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"11:10",end:"12:10",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
-            {start:"12:10",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"11:10",end:"11:25",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"11:25",end:"12:25",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
+            {start:"12:25",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
-            {start:"15:30",end:"16:30",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 4 = Thursday (听力+阅读，同周一)
         "4": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"10:40",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:40",end:"11:50",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"11:50",end:"12:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"10:00",end:"10:45",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
+            {start:"10:45",end:"11:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"11:00",end:"12:20",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
+            {start:"12:20",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
-            {start:"15:30",end:"16:30",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 5 = Friday (听力+大作文，同周二)
         "5": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
             {start:"10:00",end:"10:40",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:40",end:"11:40",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
-            {start:"11:40",end:"12:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"10:40",end:"10:55",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:55",end:"11:55",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
+            {start:"11:55",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
-            {start:"15:30",end:"16:30",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 6 = Saturday (阅读+小作文，同周三)
         "6": [
             {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
             {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
             {start:"10:00",end:"11:10",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"11:10",end:"12:10",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
-            {start:"12:10",end:"12:30",cat:"🍽️ 休息",detail:"休息",type:"break"},
+            {start:"11:10",end:"11:25",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"11:25",end:"12:25",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
+            {start:"12:25",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
-            {start:"15:30",end:"16:30",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
-            {start:"16:30",end:"18:00",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
-            {start:"18:00",end:"18:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
-            {start:"18:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐/休息",type:"break"},
-            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词（第2次）复习早上40词",type:"study"},
-            {start:"21:00",end:"22:00",cat:"📋 轻松复盘",detail:"翻错题本，不分析新题",type:"study"}
+            {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"15:45",end:"16:45",cat:"✏️ 写作分析",detail:"写作分析",type:"study"},
+            {start:"16:45",end:"17:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
+            {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
+            {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
+            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ]
     };
 
@@ -1578,7 +1714,6 @@
     }
 
     /* ======================== FOCUS REMINDER TOAST (for old overlay compatibility) ======================== */
-    // Create toast element if not exists in HTML
     (function() {
         if (!document.getElementById('focus-reminder-toast')) {
             const el = document.createElement('div');
@@ -1587,5 +1722,337 @@
             document.body.appendChild(el);
         }
     })();
+
+    /* ======================== NEW FEATURES ======================== */
+
+    // --- 1. DEADLINE BAR (22:00 countdown) ---
+    function initDeadlineBar() {
+        if (!document.getElementById('deadline-bar')) {
+            const bar = document.createElement('div');
+            bar.id = 'deadline-bar';
+            bar.innerHTML = `
+                <span class="db-label">📅 今日截止</span>
+                <span class="db-time" id="db-time">--:--:--</span>
+                <div class="db-progress-wrap"><div class="db-progress" id="db-progress"></div></div>
+                <span class="db-pct" id="db-pct">0%</span>
+            `;
+            const main = document.querySelector('main');
+            main.insertBefore(bar, main.firstChild.nextSibling);
+        }
+    }
+
+    function updateDeadline() {
+        const now = getNow();
+        const curM = now.getHours() * 60 + now.getMinutes();
+        const curS = now.getSeconds();
+        const dayStart = 8 * 60; // 08:00
+        const deadline = 22 * 60; // 22:00
+        const bar = document.getElementById('deadline-bar');
+        if (!bar) return;
+
+        const remainingSec = (deadline - curM) * 60 - curS;
+        if (remainingSec <= 0) {
+            bar.className = 'done';
+            document.getElementById('db-time').textContent = '已结束 ✅';
+            document.getElementById('db-progress').style.width = '100%';
+            document.getElementById('db-pct').textContent = '100%';
+            return;
+        }
+        bar.className = '';
+        const h = Math.floor(remainingSec / 3600);
+        const m = Math.floor((remainingSec % 3600) / 60);
+        const s = remainingSec % 60;
+        document.getElementById('db-time').textContent =
+            `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+        const totalDay = deadline - dayStart;
+        const elapsed = Math.max(0, curM - dayStart);
+        const pct = Math.min(100, Math.round((elapsed / totalDay) * 100));
+        document.getElementById('db-progress').style.width = pct + '%';
+        document.getElementById('db-pct').textContent = pct + '%';
+    }
+
+    // --- 2. ENHANCED RENDER TABLE (with type class, duration, end time) ---
+    function renderTable() {
+        const div = document.getElementById('schedule-list');
+        div.innerHTML = '';
+        let lastCat = '';
+        STATE.schedule.forEach((s, idx) => {
+            if (s.cat !== lastCat) {
+                const header = document.createElement('div');
+                header.className = 'cat-header';
+                header.innerHTML = `<span>${s.cat}</span>`;
+                div.appendChild(header);
+                lastCat = s.cat;
+            }
+            const row = document.createElement('div');
+            let statusClass = '';
+            if (s.done) statusClass = 'done';
+            row.className = `task-row ${s.type} ${statusClass}`;
+            if (!s.done && s.taskStarted) row.classList.add('active');
+            row.id = `row-${idx}`;
+
+            // Calculate duration
+            const startM = timeToMinutes(s.start);
+            const endM = timeToMinutes(s.end);
+            const durMin = endM - startM;
+
+            // End time display
+            const timeStr = `${s.start} → ${s.end}`;
+            const durStr = durMin + 'min';
+
+            let addBtn = '';
+            let noteInput = '';
+            if (s.type === 'break' && !s.custom) {
+                addBtn = `<div class="custom-task-input" id="custom-input-${idx}">
+                    <input type="text" id="custom-name-${idx}" placeholder="任务名">
+                    <input type="number" id="custom-dur-${idx}" placeholder="分钟" min="1" max="60">
+                    <button onclick="addCustomTask(${idx})">添加</button>
+                </div>`;
+            }
+            if (s.type === 'study') {
+                noteInput = `<div class="task-note-input ${s.notes?'open':''}" id="note-input-${idx}">
+                    <textarea rows="1" placeholder="记录完成内容..." oninput="saveTaskNote(${idx},this.value)">${s.notes||''}</textarea>
+                </div>`;
+            }
+
+            const doneIcon = s.done
+                ? '<span class="material-icons-round" style="font-size:16px;">check_circle</span>'
+                : '<span class="material-icons-round" style="font-size:16px; color:#ddd;">radio_button_unchecked</span>';
+
+            row.innerHTML = `
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="checkbox-custom" onclick="toggleTask(${idx})">${doneIcon}</div>
+                    ${s.type === 'study' ? `<span class="material-icons-round" style="font-size:12px;cursor:pointer;color:#999;" onclick="toggleNote(${idx})">edit_note</span>` : ''}
+                    ${s.type === 'break' && !s.custom ? `<span class="material-icons-round" style="font-size:12px;cursor:pointer;color:#999;" onclick="toggleCustomInput(${idx})">add_circle</span>` : ''}
+                </div>
+                <div>
+                    <div class="task-time">${timeStr}</div>
+                    <div class="task-duration">${durStr}</div>
+                </div>
+                <div>
+                    <div class="task-name">${s.detail}</div>
+                    ${noteInput}
+                    ${addBtn}
+                </div>
+            `;
+            div.appendChild(row);
+        });
+    }
+
+    // --- 3. CUSTOM TASK (during break) ---
+    function toggleCustomInput(idx) {
+        const el = document.getElementById('custom-input-' + idx);
+        if (el) el.classList.toggle('open');
+    }
+
+    function addCustomTask(idx) {
+        const name = document.getElementById('custom-name-' + idx).value.trim();
+        const dur = parseInt(document.getElementById('custom-dur-' + idx).value);
+        if (!name || !dur || dur < 1) { alert('请填写任务名和时长'); return; }
+        // Insert after current slot
+        const slot = STATE.schedule[idx];
+        const endM = timeToMinutes(slot.end);
+        const newEnd = timeToMinutes(slot.end) + dur;
+        const newStart = endM;
+        const newTask = {
+            start: String(Math.floor(newStart/60)).padStart(2,'0') + ':' + String(newStart%60).padStart(2,'0'),
+            end: String(Math.floor(newEnd/60)).padStart(2,'0') + ':' + String(newEnd%60).padStart(2,'0'),
+            cat: '📌 自定义', detail: name, type: 'study', custom: true, done: false, taskStarted: false
+        };
+        STATE.schedule.splice(idx + 1, 0, newTask);
+        saveSchedule();
+        renderTable();
+        document.getElementById('custom-input-' + idx).classList.remove('open');
+    }
+
+    // --- 4. TASK NOTES ---
+    function toggleNote(idx) {
+        const el = document.getElementById('note-input-' + idx);
+        if (el) el.classList.toggle('open');
+    }
+
+    function saveTaskNote(idx, val) {
+        STATE.schedule[idx].notes = val;
+        saveSchedule();
+    }
+
+    // --- 5. DAY SWITCHER ---
+    let viewDayOffset = 0;
+    function changeDay(delta) {
+        viewDayOffset += delta;
+        const todayIdx = getNow().getDay();
+        const targetDay = (todayIdx + viewDayOffset + 7) % 7;
+        const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+        const cnDays = ["周日","周一","周二","周三","周四","周五","周六"];
+        document.getElementById('day-label-header').textContent = viewDayOffset === 0 ? '今天' : cnDays[targetDay];
+        const plan = SCHEDULE_DATA[targetDay] || [];
+        STATE.schedule = JSON.parse(JSON.stringify(plan));
+        saveSchedule();
+        renderTable();
+        document.getElementById('day-label').innerText = `${days[targetDay]}'s Schedule`;
+    }
+
+    // --- 6. ENCOURAGEMENT ---
+    let encourageInterval = null;
+    function startEncourageReminder() {
+        if (encourageInterval) clearInterval(encourageInterval);
+        let count = 1;
+        encourageInterval = setInterval(() => {
+            if (count % 2 === 0 && count <= 4) { // every 20 min up to 40
+                showEncourage(count * 10);
+            }
+            count++;
+        }, 10 * 60 * 1000);
+    }
+
+    async function showEncourage(min) {
+        const el = document.getElementById('encourage-toast');
+        if (!el) return;
+        let quote = `已经学习了 ${min} 分钟，继续加油！💪`;
+        try {
+            const res = await fetch('https://v1.hitokoto.cn/?c=i&c=d&c=k&encode=json&max_length=40');
+            const data = await res.json();
+            if (data.hitokoto) quote = `🔥 ${data.hitokoto}`;
+        } catch (e) {}
+        el.textContent = quote;
+        el.classList.add('show');
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove('show'), 6000);
+    }
+
+    // Patch confirmTaskStart to add encouragement
+    const _origConfirmTaskStart = confirmTaskStart;
+    confirmTaskStart = function() {
+        _origConfirmTaskStart.apply(this, arguments);
+        startEncourageReminder();
+        // Also play music on start
+        if (STATE.autoBgmConfirm && STATE.bgmPlayer.paused) playRandomTrack();
+        // Show fullscreen brief
+        if (currentPendingTask) {
+            triggerImmersiveAlert('study',
+                currentPendingTask.detail + '\n' +
+                currentPendingTask.start + ' → ' + currentPendingTask.end);
+        }
+    };
+
+    // --- 7. AI PLANNING ---
+    async function askAiPlan() {
+        const btn = document.querySelector('.ai-plan-btn');
+        const out = document.getElementById('ai-plan-output');
+        btn.classList.add('loading');
+        out.classList.add('open');
+        out.textContent = '⏳ AI 分析中...';
+
+        const configRaw = localStorage.getItem('jackyun-ai-config');
+        const config = configRaw ? JSON.parse(configRaw) : null;
+        if (!config?.baseUrl || !config?.apiKey) {
+            out.textContent = '⚠️ 请先在设置页面配置 AI API Key';
+            btn.classList.remove('loading');
+            return;
+        }
+
+        const todayIdx = getNow().getDay();
+        const doneCount = STATE.schedule.filter(s => s.done).length;
+        const totalCount = STATE.schedule.length;
+        const prompt = `今天是周${todayIdx}。时间表如下：\n${STATE.schedule.map((s,i) =>
+            `${i+1}. ${s.start}-${s.end} ${s.cat}: ${s.detail} ${s.done?'✅':'⬜'}`
+        ).join('\n')}\n\n已完成 ${doneCount}/${totalCount}。请用中文给出简短建议：是否要调整安排？哪些需要优先完成？`;
+
+        try {
+            const baseUrl = config.baseUrl.replace(/\/+$/, '');
+            const res = await fetch(baseUrl + '/chat/completions', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','Authorization':'Bearer '+config.apiKey},
+                body: JSON.stringify({
+                    model: config.model || 'gpt-3.5-turbo',
+                    messages: [{role:'user',content:prompt}],
+                    max_tokens: 500, temperature: 0.3
+                })
+            });
+            if (!res.ok) { out.textContent = '⚠️ AI 请求失败，请稍后重试'; return; }
+            const data = await res.json();
+            const reply = data.choices?.[0]?.message?.content?.trim() || '暂无建议';
+            out.textContent = '🤖 ' + reply;
+        } catch(e) {
+            out.textContent = '⚠️ 网络错误，请稍后重试';
+        } finally {
+            btn.classList.remove('loading');
+        }
+    }
+
+    // --- 8. HISTORY LOG ---
+    function getHistoryLog() {
+        try { return JSON.parse(localStorage.getItem('control_history') || '{}'); }
+        catch(e) { return {}; }
+    }
+
+    function saveHistoryLog(log) {
+        localStorage.setItem('control_history', JSON.stringify(log));
+    }
+
+    function logCurrentTasks() {
+        const today = getNow().toISOString().slice(0,10);
+        const log = getHistoryLog();
+        log[today] = STATE.schedule.map(s => ({
+            start: s.start, end: s.end, cat: s.cat,
+            detail: s.detail, type: s.type,
+            done: s.done || false, notes: s.notes || ''
+        }));
+        saveHistoryLog(log);
+    }
+
+    // Patch toggleTask to log
+    const _origToggleTask = toggleTask;
+    toggleTask = function(idx) {
+        _origToggleTask.apply(this, arguments);
+        logCurrentTasks();
+    };
+
+    function toggleHistory() {
+        const body = document.getElementById('hist-body');
+        body.classList.toggle('open');
+        if (body.classList.contains('open')) renderHistory();
+    }
+
+    function renderHistory() {
+        const body = document.getElementById('hist-body');
+        const log = getHistoryLog();
+        const days = Object.keys(log).sort().reverse().slice(0, 7);
+        if (!days.length) {
+            body.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无历史记录</div>';
+            return;
+        }
+        body.innerHTML = days.map(date => {
+            const tasks = log[date] || [];
+            const done = tasks.filter(t => t.done).length;
+            const total = tasks.length;
+            return `<div class="hist-day">
+                <div class="hist-day-header">${date} — ${done}/${total} 已完成</div>
+                ${tasks.map(t => `
+                    <div class="hist-item">
+                        <span>${t.start} ${t.detail}</span>
+                        <span class="${t.done?'done':'missed'}">${t.done?'✅':'⬜'} ${t.notes?'📝':''}</span>
+                    </div>
+                `).join('')}
+            </div>`;
+        }).join('');
+    }
+
+    // --- 9. Patch initSystem ---
+    const _origInit = initSystem;
+    initSystem = function() {
+        _origInit.apply(this, arguments);
+        initDeadlineBar();
+        // Override tick to include deadline update
+        const origTick = tick;
+        tick = function() {
+            origTick.apply(this, arguments);
+            updateDeadline();
+        };
+        // Render history if already open
+        const histBody = document.getElementById('hist-body');
+        if (histBody && histBody.classList.contains('open')) renderHistory();
+    };
 </script>
 </body>
