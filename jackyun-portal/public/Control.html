@@ -440,6 +440,21 @@
         }
         .day-switcher button:hover { background: #ddd; }
 
+        /* === FULLSCREEN VIEW STATES === */
+        body.view-schedule aside { display: none; }
+        body.view-schedule main { max-width: 100%; }
+        body.view-schedule .schedule-card { flex: 1; }
+        body.view-countdown aside { display: none; }
+        body.view-countdown main { max-width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        body.view-countdown .schedule-card { display: none; }
+        body.view-countdown #history-panel { display: none; }
+        body.view-countdown .timer-card { min-height: auto; padding: 60px 60px 30px; max-width: 700px; width: 100%; }
+        body.view-countdown .timer-digits { font-size: clamp(80px, 20vw, 160px); }
+        body.view-countdown .timer-label { font-size: 28px; }
+        body.view-countdown .timer-stats { gap: 30px; }
+        body.view-countdown .timer-stat { padding: 14px 24px; min-width: 120px; }
+        body.view-countdown .timer-stat .ts-value { font-size: 24px; }
+
         /* === VIEW & HISTORY ICON BUTTONS (红色圆形) === */
         .view-icon-btn {
             width: 32px; height: 32px; border-radius: 50%; border: none;
