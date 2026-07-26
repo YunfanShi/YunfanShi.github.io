@@ -84,17 +84,29 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'start_timer',
     name: '开始计时',
-    description: '在 Control 页面开始专注计时。参数：duration (分钟数)',
+    description: '在日程中心（Control）页面开始专注计时。参数：duration (分钟数，默认30)',
     scope: ['global', 'control'],
     handler: async (params) => {
       const duration = parseInt(params.duration || '30');
-      // 通过 localStorage 发送指令到 Control 页面
       localStorage.setItem(
         'warden_ai_command',
         JSON.stringify({ action: 'start_timer', duration })
       );
       window.location.href = '/Control.html';
-      return `已在 Control 页面设置 ${duration} 分钟计时器`;
+      return `已在日程中心设置 ${duration} 分钟计时器`;
+    },
+  },
+  {
+    id: 'stop_timer',
+    name: '停止计时',
+    description: '停止日程中心当前的计时器',
+    scope: ['global', 'control'],
+    handler: async () => {
+      localStorage.setItem(
+        'warden_ai_command',
+        JSON.stringify({ action: 'stop_timer' })
+      );
+      return '已发送停止计时指令';
     },
   },
   {
@@ -113,11 +125,142 @@ export const AI_TOOLS: AiTool[] = [
     },
   },
 
+  // ====== 日程管理工具（Control 日程中心） ======
+  {
+    id: 'get_schedule',
+    name: '查看当天日程',
+    description: '查看今天的完整时间表和任务安排。参数：无（自动读取当天数据）',
+    scope: ['global', 'control'],
+    handler: async () => {
+      try {
+        const scheduleData = localStorage.getItem('w3_schedule');
+        if (scheduleData) {
+          const tasks = JSON.parse(scheduleData);
+          if (tasks.length > 0) {
+            const taskList = tasks
+              .map((t: any, i: number) =>
+                `  ${i + 1}. ${t.start}-${t.end} | ${t.cat} | ${t.detail}${t.done ? ' ✅' : t.skipped ? ' ⏭️' : ''}`
+              )
+              .join('\n');
+            const doneCount = tasks.filter((t: any) => t.done).length;
+            return `📋 今日日程（完成 ${doneCount}/${tasks.length}）：\n${taskList}`;
+          }
+          return '今天还没有安排任务。';
+        }
+        return '无法获取日程数据，请先确认是否在日程中心初始化了系统。';
+      } catch {
+        return '无法获取日程信息';
+      }
+    },
+  },
+  {
+    id: 'get_current_task',
+    name: '查看当前任务',
+    description: '查看现在正在进行的任务',
+    scope: ['global', 'control'],
+    handler: async () => {
+      try {
+        const scheduleData = localStorage.getItem('w3_schedule');
+        if (!scheduleData) return '无法获取日程数据';
+        const tasks = JSON.parse(scheduleData);
+        const now = new Date();
+        const curM = now.getHours() * 60 + now.getMinutes();
+        const currentTask = tasks.find(
+          (t: any) =>
+            curM >= timeToMin(t.start) && curM < timeToMin(t.end)
+        );
+        if (currentTask) {
+          const status = currentTask.done
+            ? '✅ 已完成'
+            : currentTask.skipped
+            ? '⏭️ 已跳过'
+            : '⏳ 进行中';
+          return `当前任务（${status}）：${currentTask.cat} - ${currentTask.detail}（${currentTask.start}-${currentTask.end}）`;
+        }
+        return '当前没有进行中的任务。';
+      } catch {
+        return '无法获取当前任务信息';
+      }
+    },
+  },
+  {
+    id: 'toggle_task_done',
+    name: '标记任务完成/取消',
+    description: '标记某个任务为已完成，或取消完成状态。参数：task_index (任务序号，从1开始)',
+    scope: ['global', 'control'],
+    handler: async (params) => {
+      const idx = parseInt(params.task_index || '0') - 1;
+      try {
+        const scheduleData = localStorage.getItem('w3_schedule');
+        if (!scheduleData) return '无法获取日程数据';
+        const tasks = JSON.parse(scheduleData);
+        if (idx < 0 || idx >= tasks.length) return `无效的任务序号，共有 ${tasks.length} 个任务`;
+        tasks[idx].done = !tasks[idx].done;
+        localStorage.setItem('w3_schedule', JSON.stringify(tasks));
+        return `已${tasks[idx].done ? '标记为完成 ✅' : '取消完成 🔄'}：${tasks[idx].detail}`;
+      } catch {
+        return '操作失败';
+      }
+    },
+  },
+  {
+    id: 'skip_task',
+    name: '跳过任务',
+    description: '跳过当前任务。参数：无',
+    scope: ['global', 'control'],
+    handler: async () => {
+      try {
+        const scheduleData = localStorage.getItem('w3_schedule');
+        if (!scheduleData) return '无法获取日程数据';
+        const tasks = JSON.parse(scheduleData);
+        const now = new Date();
+        const curM = now.getHours() * 60 + now.getMinutes();
+        const idx = tasks.findIndex(
+          (t: any) =>
+            curM >= timeToMin(t.start) && curM < timeToMin(t.end)
+        );
+        if (idx === -1) return '当前没有进行中的任务可以跳过';
+        tasks[idx].skipped = true;
+        localStorage.setItem('w3_schedule', JSON.stringify(tasks));
+        return `已跳过任务：${tasks[idx].detail}`;
+      } catch {
+        return '跳过任务失败';
+      }
+    },
+  },
+  {
+    id: 'finish_task_early',
+    name: '提前完成任务',
+    description: '提前结束当前正在进行的任务。参数：无',
+    scope: ['global', 'control'],
+    handler: async () => {
+      localStorage.setItem(
+        'warden_ai_command',
+        JSON.stringify({ action: 'finish_early' })
+      );
+      return '已发送提前完成指令';
+    },
+  },
+  {
+    id: 'switch_day',
+    name: '切换到某天日程',
+    description: '查看某一天的日程安排。参数：day_offset (偏移量，0=今天，-1=昨天，1=明天)',
+    scope: ['global', 'control'],
+    handler: async (params) => {
+      const offset = parseInt(params.day_offset || '0');
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + offset);
+      const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const dayStr = dayNames[targetDate.getDay()];
+      return `切换到了${offset === 0 ? '今天' : dayStr}的日程。\n提示：请在日程中心页面使用日期切换按钮查看。`;
+    },
+  },
+
   // ====== 查询类工具 ======
   {
     id: 'get_today_schedule',
-    name: '查看今日日程',
-    description: '查看今天的学习计划安排。参数：无',
+    name: '查看今日学习计划',
+    description: '查看今天的学习计划安排（Studyplan 数据）。参数：无',
     scope: ['global', 'plan'],
     handler: async () => {
       try {
@@ -218,6 +361,14 @@ export const AI_TOOLS: AiTool[] = [
 ];
 
 /**
+ * 辅助：将 "HH:MM" 转为分钟数（用于日程中心）
+ */
+function timeToMin(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
  * 根据 scope 获取可用的工具列表
  */
 export function getToolsByScope(scope: ToolScope): AiTool[] {
@@ -236,7 +387,7 @@ export function getToolsDescription(scope: ToolScope): string {
     global: '全局助手',
     quiz: 'QuizWise 辅导老师',
     plan: '学习计划助手',
-    control: 'Control 控制中心助手',
+    control: '日程中心助手',
   };
 
   return (
