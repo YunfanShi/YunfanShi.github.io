@@ -444,6 +444,10 @@
         body.view-schedule aside { display: none; }
         body.view-schedule main { max-width: 100%; }
         body.view-schedule .schedule-card { flex: 1; }
+        body.view-schedule-only aside { display: none; }
+        body.view-schedule-only main { max-width: 100%; }
+        body.view-schedule-only .timer-card { display: none; }
+        body.view-schedule-only .schedule-card { flex: 1; }
         body.view-countdown aside { display: none; }
         body.view-countdown main { max-width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         body.view-countdown .schedule-card { display: none; }
@@ -731,7 +735,7 @@
             <button class="early-finish-btn" id="btn-early" onclick="finishTaskEarly()" style="position:relative; right:auto; top:auto;">
                 <span class="material-icons-round">done_all</span> Finish Early
             </button>
-            <button class="view-icon-btn" onclick="switchView('countdown')" title="全屏倒计时">
+            <button class="view-icon-btn" onclick="switchView('schedule')" title="隐藏侧栏">
                 <span class="material-icons-round">fullscreen</span>
             </button>
             <button class="view-icon-btn exit" id="btn-exit-view" onclick="switchView('normal')" title="退出全屏">
@@ -770,7 +774,7 @@
                 <button onclick="changeDay(1)">›</button>
             </div>
             <button class="ai-plan-btn" onclick="askAiPlan()">🤖 AI 规划</button>
-            <button class="view-icon-btn" onclick="switchView('schedule')" title="全屏时间表" style="width:28px;height:28px;">
+            <button class="view-icon-btn" onclick="switchView('schedule-only')" title="全屏日程表" style="width:28px;height:28px;">
                 <span class="material-icons-round">open_in_full</span>
             </button>
             <button class="view-icon-btn" onclick="toggleHistory()" title="历史记录" style="width:28px;height:28px;background:var(--color-done);">
@@ -1577,10 +1581,13 @@
     /* ======================== VIEW MODE SWITCHER ======================== */
     function switchView(mode) {
         const body = document.body;
-        body.classList.remove('view-schedule', 'view-countdown');
+        body.classList.remove('view-schedule', 'view-countdown', 'view-schedule-only');
         const exitBtn = document.getElementById('btn-exit-view');
         if (mode === 'schedule') {
             body.classList.add('view-schedule');
+            if (exitBtn) exitBtn.classList.add('visible');
+        } else if (mode === 'schedule-only') {
+            body.classList.add('view-schedule-only');
             if (exitBtn) exitBtn.classList.add('visible');
         } else if (mode === 'countdown') {
             body.classList.add('view-countdown');

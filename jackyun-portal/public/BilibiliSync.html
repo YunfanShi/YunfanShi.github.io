@@ -79,11 +79,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 .video-wrapper{background:var(--white);border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
 .video-header{border-bottom:3px solid var(--pink);padding:16px 20px;}
 .video-title{font-size:18px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;}
+.video-title-sub{font-size:12px;color:var(--text-secondary);margin-top:2px;font-weight:400;}
 .video-info{font-size:12px;color:var(--text-secondary);margin-top:4px;}
-.video-container{position:relative;width:100%;padding-top:56.25%;background:#000;}
-.video-container iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
+.video-container{position:relative;width:100%;background:#000;}
+.video-container video{width:100%;display:block;max-height:70vh;margin:0 auto;}
 .video-controls{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);background:#fafafa;}
-.ctrl-btn{width:36px;height:36px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--white);border:1px solid var(--border);font-size:16px;transition:all .15s;}
+.ctrl-btn{width:36px;height:36px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--white);border:1px solid var(--border);font-size:16px;transition:all .15s;flex-shrink:0;}
 .ctrl-btn:hover{background:var(--pink);color:white;border-color:var(--pink);}
 .ctrl-btn.active{background:var(--pink);color:white;border-color:var(--pink);}
 .ctrl-btn:disabled{opacity:.4;cursor:not-allowed;}
@@ -91,7 +92,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 .seek-bar{flex:1;min-width:120px;position:relative;}
 .seek-bar input[type="range"]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:2px;outline:none;padding:0;cursor:pointer;}
 .seek-bar input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--pink);cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.2);}
-.time-display{font-size:12px;font-family:'Roboto Mono',monospace;color:var(--text-secondary);white-space:nowrap;min-width:80px;text-align:center;}
+.time-display{font-size:12px;font-family:'Roboto Mono',monospace;color:var(--text-secondary);white-space:nowrap;min-width:80px;text-align:center;user-select:none;}
 .vol-control{display:flex;align-items:center;gap:6px;}
 .vol-control input[type="range"]{width:60px;height:4px;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:2px;outline:none;padding:0;cursor:pointer;}
 .vol-control input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;background:var(--text-secondary);cursor:pointer;}
@@ -105,6 +106,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 .waiting-panel p{font-size:13px;color:var(--text-secondary);line-height:1.8;}
 .waiting-status{background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px;font-size:12px;color:#92400e;margin-top:16px;}
 @keyframes pulse{50%{opacity:.5}}
+
+/* Video loading overlay */
+.video-loading-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white;z-index:5;}
+.video-loading-overlay.active{display:flex;}
+.video-loading-overlay .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#fb7299;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.video-loading-text{font-size:13px;color:rgba(255,255,255,.7);}
 
 /* Countdown overlay */
 #countdownOverlay{
@@ -136,6 +144,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 
 /* Video info bar */
 .video-stats{padding:8px 16px;background:#f8f9fa;border-top:1px solid var(--border);display:flex;gap:16px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap;}
+.video-stats .stat-tag{background:var(--blue-light);color:var(--blue);padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;}
 
 /* URL input with history */
 .url-history{font-size:11px;color:var(--text-secondary);margin-top:4px;}
@@ -147,6 +156,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 .bili-btn:hover{background:#e35e8a;}
 .bili-btn.live{animation:livePulse 2s infinite;}
 @keyframes livePulse{50%{box-shadow:0 0 0 4px rgba(251,114,153,.3)}}
+
+/* Speed selector */
+.speed-select{margin-left:auto;}
+.speed-select select{padding:4px 8px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--white);cursor:pointer;width:auto;}
+
+/* Resolution badge */
+.res-badge{font-size:10px;background:#34a853;color:white;padding:2px 6px;border-radius:3px;font-weight:600;letter-spacing:.5px;}
 
 @media(max-width:768px){main{grid-template-columns:1fr}}
 </style>
@@ -216,8 +232,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
       <div class="card-body">
         <div class="form-group">
           <label>B站视频链接</label>
-          <input id="videoUrl" type="text" placeholder="https://www.bilibili.com/video/BV1xx... 或 b23.tv/xxxx" oninput="onUrlChange()">
-          <div class="url-history" id="urlHint">支持 BV号 / b23.tv 短链</div>
+          <input id="videoUrl" type="text" placeholder="BV号 例如: BV1xx... 或完整链接" oninput="onUrlChange()">
+          <div class="url-history" id="urlHint">支持 BV号 / b23.tv 短链 / 完整B站链接</div>
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:16px;">
@@ -277,21 +293,36 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 
   <div id="videoContent" style="display:none;">
     <div class="video-header">
-      <div class="video-title" id="videoTitleDisplay">🎬 Bilibili 视频</div>
+      <div class="video-title" id="videoTitleDisplay">🎬 加载中...</div>
+      <div class="video-title-sub" id="videoTitleSub"></div>
       <div class="video-info" id="videoInfoDisplay"></div>
     </div>
     <div class="video-container">
-      <iframe id="bilibiliPlayer" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      <video id="player" preload="auto" playsinline></video>
+      <div class="video-loading-overlay" id="videoLoadingOverlay">
+        <div class="spinner"></div>
+        <div class="video-loading-text" id="loadingText">正在加载视频...</div>
+      </div>
     </div>
     <div class="video-controls" id="videoControls">
       <button class="ctrl-btn" id="playBtn" onclick="togglePlay()" disabled>▶</button>
       <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
       <div class="seek-bar">
-        <input type="range" id="seekBar" min="0" max="1000" value="0" oninput="onSeekInput()" onchange="onSeekChange()" disabled>
+        <input type="range" id="seekBar" min="0" max="1000" value="0" disabled>
       </div>
       <div class="vol-control">
-        <span style="font-size:14px;">🔊</span>
-        <input type="range" id="volBar" min="0" max="100" value="50" oninput="onVolumeChange()">
+        <span style="font-size:14px;cursor:pointer;" id="volIcon" onclick="toggleMute()">🔊</span>
+        <input type="range" id="volBar" min="0" max="100" value="80" oninput="onVolumeChange()">
+      </div>
+      <div class="speed-select">
+        <select id="speedSelect" onchange="onSpeedChange()" disabled>
+          <option value="0.5">0.5x</option>
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
       </div>
     </div>
     <div class="video-stats" id="videoStats">
@@ -310,7 +341,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--pink);box-shadow:0 0 
 
 <script>
 /* ============================================
-   BILIBILI VIDEO SYNC ENGINE v2 - Fixed
+   BILIBILI VIDEO SYNC ENGINE v3
+   Uses native <video> + B站 API for real control
    ============================================ */
 
 // ═══════════════════════════════════════════════
@@ -334,6 +366,7 @@ let SYNC_CONNECTED = false;
 let RECEIVED_BROADCAST = null;
 let COUNTDOWN_ACTIVE = false;
 let _processedBroadcastIds = new Set();
+let _isSeeking = false;
 
 document.getElementById('deviceIdDisp').textContent = '设备ID: ' + DEVICE_CONFIG.deviceId;
 
@@ -447,12 +480,11 @@ async function testConnection() {
   }
 
   try {
-    const testPayload = { _test: true, ts: Date.now() };
     const sess = getTimeBasedSession();
     const res = await fetch('/api/answer-sheet-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: sess, targetTime: Date.now() + 10000, payload: testPayload, senderDeviceId: DEVICE_CONFIG.deviceId }),
+      body: JSON.stringify({ sessionId: sess, targetTime: Date.now() + 10000, payload: { _test: true, ts: Date.now() }, senderDeviceId: DEVICE_CONFIG.deviceId }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -540,7 +572,6 @@ function startPolling(sessionId) {
       }
 
       try {
-        // Increased window from 8000 to 15000 to accommodate 3s+ delay
         const since = Date.now() - 15000;
         const res = await fetch(`/api/answer-sheet-sync?self=${DEVICE_CONFIG.deviceId}&since=${since}`);
         const data = await res.json();
@@ -549,7 +580,6 @@ function startPolling(sessionId) {
           _processingBroadcasts = true;
           let newBroadcasts = 0;
           for (const b of data.broadcasts) {
-            // Normalize payload from API response (defend against string-encoded payload)
             if (b.payload && typeof b.payload === 'string') {
               try { b.payload = JSON.parse(b.payload); } catch(e) { b.payload = {}; }
             }
@@ -595,7 +625,6 @@ function stopPolling() {
 // ─── Broadcast ───
 async function broadcastEvent(targetTime, payload) {
   if (!SESSION_ID) {
-    // Ensure time is synced before generating session
     if (NET_OFFSET === 0) {
       try { await SuningSync.forceSync(); } catch(e) {}
     }
@@ -646,10 +675,10 @@ async function broadcastEvent(targetTime, payload) {
 }
 
 // ═══════════════════════════════════════════════
-// 4. BILIBILI VIDEO ENGINE
+// 4. BILIBILI VIDEO ENGINE (Native <video>)
 // ═══════════════════════════════════════════════
 
-// B站视频URL解析
+// ─── URL Parsing ───
 function parseBilibiliUrl(url) {
   if (!url) return null;
   url = url.trim();
@@ -668,18 +697,34 @@ function parseBilibiliUrl(url) {
   return null;
 }
 
-function buildPlayerUrl(videoId) {
-  // Use autoplay=1 to allow auto-start on receiver devices
-  return `//player.bilibili.com/player.html?bvid=${videoId}&autoplay=1&high_quality=1&danmaku=1`;
+// ─── Video State ───
+let currentVideoId = null;
+let currentVideoTitle = '';
+let currentCid = null;
+let videoLoading = false;
+
+// ─── Video Element ───
+const video = document.getElementById('player');
+
+// ─── B站 API via Proxy ───
+async function fetchBiliInfo(bvid) {
+  const res = await fetch(`/api/bilibili-proxy?type=info&bvid=${bvid}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(`B站 API: ${data.message || '未知错误'}`);
+  return data.data;
 }
 
-let currentVideoId = null;
-let playerReady = false;
-let _playInterval = null;
-let _lastBroadcastTime = 0;
+async function fetchBiliPlayUrl(bvid, cid) {
+  const res = await fetch(`/api/bilibili-proxy?type=playurl&bvid=${bvid}&cid=${cid}&qn=80&fnval=4048`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data = await res.json();
+  if (data.code !== 0) throw new Error(`B站 API: ${data.message || '播放地址获取失败'}`);
+  return data.data;
+}
 
-// Load video into iframe
-function loadVideo() {
+// ─── Load Video ───
+async function loadVideo() {
   const urlInput = document.getElementById('videoUrl');
   const url = urlInput.value.trim();
   if (!url) {
@@ -694,72 +739,106 @@ function loadVideo() {
   }
 
   if (parsed.type === 'b23') {
-    resolveB23Url(parsed.id);
+    showToast('⏳ 解析短链接...');
+    // b23 short links need to be resolved - use the BV approach
+    showToast('⚠️ 请直接使用BV号（如BV1xx...）');
     return;
   }
 
-  startVideo(parsed.id);
+  await startVideo(parsed.id);
 }
 
-async function resolveB23Url(shortCode) {
-  showToast('⏳ 正在解析短链接...');
+async function startVideo(bvid) {
+  showLoading(true, '正在获取视频信息...');
+
   try {
-    const res = await fetch(`https://api.bilibili.com/x/share/click?bvid=${shortCode}`, { mode: 'cors' });
-    const realUrl = `https://b23.tv/${shortCode}`;
-    const parsed = parseBilibiliUrl(realUrl);
-    if (!parsed || parsed.type === 'b23') {
-      showToast('⚠️ 请直接使用BV号或完整链接');
-      return;
+    // Get video info
+    const info = await fetchBiliInfo(bvid);
+    const title = info.title || bvid;
+    currentVideoTitle = title;
+    currentCid = info.cid;
+    currentVideoId = bvid;
+
+    // Update UI
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('videoContent').style.display = 'block';
+    document.getElementById('videoTitleDisplay').textContent = `🎬 ${title}`;
+    document.getElementById('videoTitleSub').textContent = `BV: ${bvid} · ${formatDuration(info.duration)}`;
+    document.getElementById('videoInfoDisplay').textContent = `UP主: ${info.owner?.name || '未知'} · ${info.stat?.view ? `${formatNumber(info.stat.view)} 播放` : ''}`;
+    document.getElementById('openBilibiliBtn').style.display = '';
+
+    // Get play URL
+    showLoading(true, '正在获取视频流地址...');
+    const playData = await fetchBiliPlayUrl(bvid, currentCid);
+
+    // Extract video URL
+    let videoUrl = null;
+    let quality = '';
+
+    // Try DASH first (best quality)
+    if (playData.dash && playData.dash.video && playData.dash.video.length > 0) {
+      const videoTrack = playData.dash.video[0];
+      videoUrl = videoTrack.base_url || videoTrack.baseUrl;
+      quality = `${playData.quality || 80}p DASH`;
+
+      // If base_url is relative, prepend https:
+      if (videoUrl && videoUrl.startsWith('//')) {
+        videoUrl = 'https:' + videoUrl;
+      }
     }
-    startVideo(parsed.id);
+
+    // Fallback to DURL (mp4)
+    if (!videoUrl && playData.durl && playData.durl.length > 0) {
+      videoUrl = playData.durl[0].url;
+      quality = `${playData.quality || 80}p MP4`;
+    }
+
+    if (!videoUrl) {
+      throw new Error('无法获取视频流地址');
+    }
+
+    // Update UI with quality
+    const statsEl = document.getElementById('videoStats');
+    statsEl.innerHTML = `<span class="res-badge">${quality}</span> <span>缓冲中...</span>`;
+
+    // Load video into player
+    showLoading(true, '正在加载视频流...');
+    video.src = videoUrl;
+    video.load();
+
+    debugLog(`📺 视频加载: ${bvid} | 质量: ${quality}`);
+
+    saveRecentUrl(bvid);
+
+    // Broadcast if sync mode
+    if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+      broadcastVideoLoad(bvid, title, currentCid);
+    }
+
   } catch (e) {
-    showToast('⚠️ 请直接使用BV号（如BV1xx...）');
-  }
-}
-
-function startVideo(bvid) {
-  currentVideoId = bvid;
-  const playerUrl = buildPlayerUrl(bvid);
-
-  document.getElementById('emptyState').style.display = 'none';
-  document.getElementById('videoContent').style.display = 'block';
-  document.getElementById('videoTitleDisplay').textContent = `🎬 BV: ${bvid}`;
-  document.getElementById('videoInfoDisplay').textContent = `Bilibili视频 · ${bvid}`;
-
-  const iframe = document.getElementById('bilibiliPlayer');
-  iframe.src = playerUrl;
-
-  document.getElementById('openBilibiliBtn').style.display = '';
-
-  // B站 iframe needs time to load, then enable controls
-  setTimeout(() => {
-    playerReady = true;
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('seekBar').disabled = false;
-    document.getElementById('videoStats').innerHTML = '<span>▶ 已加载，等待播放</span>';
-    showToast('✅ 视频已加载');
-  }, 2000);
-
-  startPlayerPolling();
-
-  saveRecentUrl(bvid);
-
-  // Broadcast if sync mode (with 4s countdown to give time for polling)
-  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
-    broadcastVideoLoad(bvid);
+    console.error('[Video] Load error:', e);
+    showLoading(false);
+    showToast(`❌ 加载失败: ${e.message}`);
+    debugLog(`❌ 加载失败: ${e.message}`);
+    document.getElementById('videoStats').innerHTML = `<span style="color:var(--red);">❌ 加载失败: ${e.message}</span>`;
   }
 }
 
 function clearVideo() {
   currentVideoId = null;
-  playerReady = false;
-  stopPlayerPolling();
+  currentCid = null;
+  currentVideoTitle = '';
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  videoLoading = false;
+  showLoading(false);
   document.getElementById('emptyState').style.display = '';
   document.getElementById('videoContent').style.display = 'none';
-  document.getElementById('bilibiliPlayer').src = '';
   document.getElementById('openBilibiliBtn').style.display = 'none';
   document.getElementById('playBtn').disabled = true;
   document.getElementById('seekBar').disabled = true;
+  document.getElementById('speedSelect').disabled = true;
   document.getElementById('timeDisplay').textContent = '00:00 / 00:00';
   document.getElementById('seekBar').value = 0;
   document.getElementById('videoStats').innerHTML = '<span>⏸ 未开始</span>';
@@ -771,75 +850,192 @@ function openBilibili() {
   }
 }
 
-// ─── Player state tracking ───
-// B站 iframe doesn't expose internal state via JS cross-origin,
-// so we track play/pause state via our own timer and simulate the UI
-
-let _isPlaying = false;
-let _currentTime = 0;
-let _duration = 0;
-
-function startPlayerPolling() {
-  stopPlayerPolling();
-  _currentTime = 0;
-  _duration = 600; // assume 10 min default
-
-  _playInterval = setInterval(() => {
-    if (!playerReady) return;
-    if (_isPlaying) {
-      _currentTime += 1;
-    }
-    updateTimeDisplay();
-  }, 1000);
+// ─── Loading overlay ───
+function showLoading(active, text) {
+  const overlay = document.getElementById('videoLoadingOverlay');
+  const textEl = document.getElementById('loadingText');
+  if (active) {
+    overlay.classList.add('active');
+    textEl.textContent = text || '正在加载视频...';
+  } else {
+    overlay.classList.remove('active');
+  }
+  videoLoading = active;
 }
 
-function stopPlayerPolling() {
-  if (_playInterval) { clearInterval(_playInterval); _playInterval = null; }
-  _isPlaying = false;
+// ─── Video Event Handlers ───
+video.addEventListener('loadedmetadata', () => {
+  debugLog(`📹 视频元数据已加载: ${formatDuration(video.duration)}`);
+  showLoading(false);
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('seekBar').disabled = false;
+  document.getElementById('speedSelect').disabled = false;
+  updateTimeDisplay();
+  document.getElementById('videoStats').innerHTML = `<span>▶ 已就绪 · ${currentVideoId || ''}</span>`;
+});
+
+video.addEventListener('canplay', () => {
+  showLoading(false);
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('seekBar').disabled = false;
+});
+
+video.addEventListener('waiting', () => {
+  showLoading(true, '缓冲中...');
+});
+
+video.addEventListener('playing', () => {
+  showLoading(false);
+  document.getElementById('playBtn').textContent = '⏸';
+  document.getElementById('videoStats').innerHTML = `<span>▶ 播放中 · ${currentVideoId || ''}</span>`;
+});
+
+video.addEventListener('pause', () => {
+  document.getElementById('playBtn').textContent = '▶';
+  if (!video.seeking) {
+    document.getElementById('videoStats').innerHTML = `<span>⏸ 已暂停</span>`;
+  }
+});
+
+video.addEventListener('ended', () => {
+  document.getElementById('playBtn').textContent = '▶';
+  document.getElementById('videoStats').innerHTML = `<span>⏹ 播放结束</span>`;
+  showToast('⏹ 视频播放结束');
+});
+
+video.addEventListener('timeupdate', () => {
+  if (!_isSeeking) {
+    updateTimeDisplay();
+  }
+});
+
+video.addEventListener('error', (e) => {
+  const err = video.error;
+  console.error('[Video] Error:', err);
+  showLoading(false);
+  let msg = '视频加载失败';
+  if (err) {
+    switch (err.code) {
+      case MediaError.MEDIA_ERR_ABORTED: msg = '播放被中断'; break;
+      case MediaError.MEDIA_ERR_NETWORK: msg = '网络错误'; break;
+      case MediaError.MEDIA_ERR_DECODE: msg = '解码失败'; break;
+      case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: msg = '视频格式不支持'; break;
+    }
+  }
+  document.getElementById('videoStats').innerHTML = `<span style="color:var(--red);">❌ ${msg}</span>`;
+  showToast(`❌ ${msg}`);
+  debugLog(`❌ 视频错误: ${msg}`);
+});
+
+video.addEventListener('volumechange', () => {
+  const icon = document.getElementById('volIcon');
+  if (video.muted || video.volume === 0) {
+    icon.textContent = '🔇';
+  } else if (video.volume < 0.5) {
+    icon.textContent = '🔉';
+  } else {
+    icon.textContent = '🔊';
+  }
+});
+
+// ─── Playback Controls ───
+function togglePlay() {
+  if (video.paused || video.ended) {
+    video.play().catch(e => {
+      showToast('⚠️ 播放失败: ' + e.message);
+    });
+  } else {
+    video.pause();
+  }
+
+  // Broadcast if sync mode
+  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+    const now = SuningSync.getPreciseTime();
+    const targetTime = now + 2000; // 2s for network
+    broadcastEvent(targetTime, {
+      _type: 'bilibili-sync',
+      action: video.paused ? 'pause' : 'play',
+      time: video.currentTime,
+      bvid: currentVideoId,
+      cid: currentCid,
+    });
+    if (!video.paused) {
+      startCountdown(targetTime, {
+        action: 'play',
+        time: video.currentTime,
+        bvid: currentVideoId,
+        cid: currentCid,
+      });
+    }
+  }
+}
+
+// Seek bar
+document.getElementById('seekBar').addEventListener('input', (e) => {
+  _isSeeking = true;
+  const val = parseFloat(e.target.value);
+  if (video.duration) {
+    video.currentTime = (val / 1000) * video.duration;
+  }
+  updateTimeDisplay();
+});
+
+document.getElementById('seekBar').addEventListener('change', (e) => {
+  _isSeeking = false;
+  const val = parseFloat(e.target.value);
+  if (video.duration) {
+    video.currentTime = (val / 1000) * video.duration;
+  }
+
+  // Broadcast seek
+  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+    const now = SuningSync.getPreciseTime();
+    const targetTime = now + 2000;
+    broadcastEvent(targetTime, {
+      _type: 'bilibili-sync',
+      action: 'seek',
+      time: video.currentTime,
+      bvid: currentVideoId,
+      cid: currentCid,
+    });
+  }
+});
+
+function onVolumeChange() {
+  const val = parseInt(document.getElementById('volBar').value) / 100;
+  video.volume = val;
+  if (val > 0) video.muted = false;
+}
+
+function toggleMute() {
+  video.muted = !video.muted;
+  document.getElementById('volBar').value = video.muted ? 0 : (video.volume * 100);
+}
+
+function onSpeedChange() {
+  const val = parseFloat(document.getElementById('speedSelect').value);
+  video.playbackRate = val;
+}
+
+function formatDuration(sec) {
+  if (!sec || isNaN(sec)) return '00:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatNumber(n) {
+  if (!n) return '0';
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+  return n.toString();
 }
 
 function updateTimeDisplay() {
-  const fmt = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-  };
-  document.getElementById('timeDisplay').textContent = `${fmt(_currentTime)} / ${fmt(_duration || 600)}`;
-  const pct = _duration > 0 ? (_currentTime / _duration) * 1000 : 0;
+  const current = video.currentTime || 0;
+  const dur = video.duration || 0;
+  document.getElementById('timeDisplay').textContent = `${formatDuration(current)} / ${formatDuration(dur)}`;
+  const pct = dur > 0 ? (current / dur) * 1000 : 0;
   document.getElementById('seekBar').value = Math.min(1000, Math.max(0, pct));
-}
-
-function togglePlay() {
-  if (!playerReady || !currentVideoId) return;
-
-  _isPlaying = !_isPlaying;
-  const btn = document.getElementById('playBtn');
-  btn.textContent = _isPlaying ? '⏸' : '▶';
-  document.getElementById('videoStats').innerHTML = _isPlaying
-    ? `<span>▶ 播放中 · ${currentVideoId}</span>`
-    : `<span>⏸ 已暂停 · ${currentVideoId}</span>`;
-
-  // Broadcast if sync mode (with 3s delay for network)
-  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
-    broadcastPlayerAction({ type: _isPlaying ? 'play' : 'pause', time: _currentTime });
-  }
-}
-
-function onSeekInput() {
-  const val = parseFloat(document.getElementById('seekBar').value);
-  _currentTime = (val / 1000) * (_duration || 600);
-  updateTimeDisplay();
-}
-
-function onSeekChange() {
-  // Broadcast seek (with 3s delay for network)
-  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
-    broadcastPlayerAction({ type: 'seek', time: _currentTime });
-  }
-}
-
-function onVolumeChange() {
-  // Volume is local only
 }
 
 // ─── Save/load recent URLs ───
@@ -879,7 +1075,7 @@ function onUrlChange() {
   if (parsed) {
     document.getElementById('urlHint').innerHTML = `✅ 识别为: ${parsed.id}`;
   } else {
-    document.getElementById('urlHint').innerHTML = '支持 BV号 / b23.tv 短链';
+    document.getElementById('urlHint').innerHTML = '支持 BV号 / b23.tv 短链 / 完整B站链接';
   }
 }
 
@@ -887,41 +1083,22 @@ function onUrlChange() {
 // 5. SYNC BROADCAST (Bilibili specific)
 // ═══════════════════════════════════════════════
 
-async function broadcastVideoLoad(bvid) {
+async function broadcastVideoLoad(bvid, title, cid) {
   if (!DEVICE_CONFIG.isInput) return;
   const now = SuningSync.getPreciseTime();
-  const targetTime = now + 5000; // 5 second countdown — more time for poll to pick up
+  const targetTime = now + 4000; // 4s countdown
 
   const payload = {
     _type: 'bilibili-sync',
     action: 'load',
     bvid: bvid,
+    title: title,
+    cid: cid,
     targetTime: targetTime,
   };
 
   await broadcastEvent(targetTime, payload);
   startCountdown(targetTime, payload);
-}
-
-async function broadcastPlayerAction(action) {
-  if (!DEVICE_CONFIG.isInput) return;
-
-  // Increase delay from 200ms to 3000ms to ensure poll cycle picks it up
-  const now = SuningSync.getPreciseTime();
-  const targetTime = now + 3000; // 3 seconds for network delay + poll
-
-  const payload = {
-    _type: 'bilibili-sync',
-    action: action.type,
-    time: action.time,
-    bvid: currentVideoId,
-  };
-
-  await broadcastEvent(targetTime, payload);
-  // For controller, also schedule the local action after countdown
-  if (action.type === 'play' || action.type === 'pause') {
-    startCountdown(targetTime, payload);
-  }
 }
 
 // ═══════════════════════════════════════════════
@@ -944,7 +1121,6 @@ async function handleIncomingBroadcast(data) {
   if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime &&
       RECEIVED_BROADCAST.payload && RECEIVED_BROADCAST.payload.action === data.payload.action) return;
 
-  // Increased tolerance window from 5000 to 15000ms
   const now = Date.now();
   if (data.targetTime && data.targetTime < now - 15000) return;
 
@@ -965,63 +1141,91 @@ async function handleIncomingBroadcast(data) {
       executeVideoLoad(payload);
     }
   } else if (action === 'play' || action === 'pause' || action === 'seek') {
-    startCountdown(payload.targetTime, payload);
+    if (payload.targetTime) {
+      startCountdown(payload.targetTime, payload);
+    } else {
+      // Direct execute if no target time (for local BC messages)
+      executePlayerAction(payload);
+    }
   }
 }
 
-function executeVideoLoad(payload) {
+async function executeVideoLoad(payload) {
   if (!payload.bvid) return;
 
   document.getElementById('waitingPanel').style.display = 'none';
 
+  // If we already have this video loaded, just play/resume
+  if (currentVideoId === payload.bvid) {
+    showToast(`📺 同步信号: ${payload.title || payload.bvid}`);
+    return;
+  }
+
+  // Fetch and play
   currentVideoId = payload.bvid;
-  const playerUrl = buildPlayerUrl(payload.bvid);
+  currentCid = payload.cid;
 
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('videoContent').style.display = 'block';
-  document.getElementById('videoTitleDisplay').textContent = `🎬 BV: ${payload.bvid}`;
-  document.getElementById('videoInfoDisplay').textContent = `Bilibili视频 · ${payload.bvid}`;
-
-  const iframe = document.getElementById('bilibiliPlayer');
-  iframe.src = playerUrl;  // Uses autoplay=1
-
+  document.getElementById('videoTitleDisplay').textContent = `🎬 ${payload.title || payload.bvid}`;
+  document.getElementById('videoTitleSub').textContent = `BV: ${payload.bvid}`;
   document.getElementById('openBilibiliBtn').style.display = '';
 
-  setTimeout(() => {
-    playerReady = true;
-    document.getElementById('playBtn').disabled = false;
-    document.getElementById('seekBar').disabled = false;
-    startPlayerPolling();
-    showToast(`📺 已加载视频 ${payload.bvid}`);
-  }, 2000);
+  showLoading(true, '同步加载视频...');
+
+  try {
+    if (!payload.cid) {
+      const info = await fetchBiliInfo(payload.bvid);
+      currentCid = info.cid;
+    }
+
+    const playData = await fetchBiliPlayUrl(payload.bvid, currentCid);
+    let videoUrl = null;
+
+    if (playData.dash && playData.dash.video && playData.dash.video.length > 0) {
+      videoUrl = playData.dash.video[0].base_url || playData.dash.video[0].baseUrl;
+      if (videoUrl && videoUrl.startsWith('//')) videoUrl = 'https:' + videoUrl;
+    }
+    if (!videoUrl && playData.durl && playData.durl.length > 0) {
+      videoUrl = playData.durl[0].url;
+    }
+
+    if (!videoUrl) throw new Error('无法获取视频流');
+
+    video.src = videoUrl;
+    video.load();
+
+    showToast(`📺 同步加载: ${payload.title || payload.bvid}`);
+    debugLog(`📺 同步加载视频: ${payload.bvid}`);
+  } catch (e) {
+    showLoading(false);
+    showToast(`❌ 同步加载失败: ${e.message}`);
+    debugLog(`❌ 同步加载失败: ${e.message}`);
+  }
 }
 
 function executePlayerAction(payload) {
-  if (!playerReady) {
-    playerReady = true;
-    if (!_playInterval) startPlayerPolling();
-  }
-
   const action = payload.action;
   const time = payload.time || 0;
 
   if (action === 'play') {
-    _isPlaying = true;
-    _currentTime = time;
+    if (video.src) {
+      video.currentTime = time;
+      video.play().catch(() => {});
+    }
+    document.getElementById('playBtn').textContent = '⏸';
     document.getElementById('playBtn').disabled = false;
     document.getElementById('seekBar').disabled = false;
-    document.getElementById('playBtn').textContent = '⏸';
-    document.getElementById('videoStats').innerHTML = `<span>▶ 同步播放 · ${currentVideoId || ''}</span>`;
+    document.getElementById('speedSelect').disabled = false;
     showToast('▶ 同步播放');
   } else if (action === 'pause') {
-    _isPlaying = false;
-    _currentTime = time;
+    video.pause();
+    video.currentTime = time;
     document.getElementById('playBtn').textContent = '▶';
-    document.getElementById('videoStats').innerHTML = `<span>⏸ 同步暂停</span>`;
     showToast('⏸ 同步暂停');
   } else if (action === 'seek') {
-    _currentTime = time;
-    showToast(`⏩ 跳转到 ${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}`);
+    video.currentTime = time;
+    showToast(`⏩ 跳转至 ${formatDuration(time)}`);
   }
 
   updateTimeDisplay();
@@ -1045,7 +1249,7 @@ function startCountdown(targetTime, payload) {
   overlay.classList.add('active');
   numEl.textContent = '3';
   label.textContent = '同步即将开始';
-  hint.textContent = '正在加载视频...';
+  hint.textContent = '执行同步操作...';
 
   window._pendingPayload = payload;
 
@@ -1135,7 +1339,7 @@ function onSyncModeChange() {
   const info = document.getElementById('syncInfo');
   if (enabled) {
     info.style.display = 'block';
-    info.textContent = '🌐 同步模式已开启，播放/暂停/跳转将广播到所有设备（含3秒缓冲）';
+    info.textContent = '🌐 同步模式已开启，播放/暂停/跳转将广播到所有设备';
     if (!SESSION_ID) {
       SESSION_ID = getTimeBasedSession();
       startPolling(SESSION_ID);
@@ -1150,7 +1354,7 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   if (window._toastTimer) clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 // ═══════════════════════════════════════════════
@@ -1171,6 +1375,19 @@ async function init() {
     SESSION_ID = getTimeBasedSession();
     startPolling(SESSION_ID);
   }
+
+  // Restore volume
+  const savedVol = localStorage.getItem('bili_volume');
+  if (savedVol !== null) {
+    const vol = parseFloat(savedVol);
+    video.volume = vol;
+    document.getElementById('volBar').value = vol * 100;
+  }
+
+  // Save volume on change
+  video.addEventListener('volumechange', () => {
+    localStorage.setItem('bili_volume', video.volume.toString());
+  });
 }
 
 init();
