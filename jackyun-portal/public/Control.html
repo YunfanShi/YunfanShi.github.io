@@ -798,7 +798,7 @@
 
 <script>
     /* ======================== VERSION CONTROL ======================== */
-    const SCHEDULE_VERSION = '20260723-v5';
+    const SCHEDULE_VERSION = '20260727-v6';
     const cachedVersion = localStorage.getItem('w3_version');
     if (cachedVersion !== SCHEDULE_VERSION) {
         localStorage.removeItem('w3_schedule');
@@ -821,9 +821,9 @@
     const SCHEDULE_DATA = {
         // 0 = Sunday (复盘日)
         "0": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"12:30",cat:"📋 复盘日",detail:"整理一周错题",type:"study"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"12:00",cat:"📋 复盘日",detail:"整理一周错题",type:"study"},
+            {start:"12:00",end:"12:30",cat:"☕ 休息",detail:"午餐前休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"📋 翻错题本",detail:"翻错题本",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -832,17 +832,16 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语自由说",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 1 = Monday (听力+阅读)
         "1": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"10:45",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:45",end:"11:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
-            {start:"11:00",end:"12:20",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"12:20",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"10:15",cat:"🔊 听力",detail:"听力做题（45min）",type:"study"},
+            {start:"10:15",end:"10:30",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:30",end:"11:50",cat:"📖 阅读",detail:"阅读做题（80min）",type:"study"},
+            {start:"11:50",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -851,17 +850,16 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 2 = Tuesday (听力+大作文)
         "2": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"10:40",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:40",end:"10:55",cat:"☕ 休息",detail:"课间休息",type:"break"},
-            {start:"10:55",end:"11:55",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
-            {start:"11:55",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"10:10",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
+            {start:"10:10",end:"10:25",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:25",end:"11:25",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
+            {start:"11:25",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -870,17 +868,16 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 3 = Wednesday (阅读+小作文)
         "3": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"11:10",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"11:10",end:"11:25",cat:"☕ 休息",detail:"课间休息",type:"break"},
-            {start:"11:25",end:"12:25",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
-            {start:"12:25",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"10:40",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
+            {start:"10:40",end:"10:55",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:55",end:"11:55",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
+            {start:"11:55",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -889,17 +886,16 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 4 = Thursday (听力+阅读，同周一)
         "4": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"10:45",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:45",end:"11:00",cat:"☕ 休息",detail:"课间休息",type:"break"},
-            {start:"11:00",end:"12:20",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"12:20",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"10:15",cat:"🔊 听力",detail:"听力做题（45min）",type:"study"},
+            {start:"10:15",end:"10:30",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:30",end:"11:50",cat:"📖 阅读",detail:"阅读做题（80min）",type:"study"},
+            {start:"11:50",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -908,17 +904,16 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 5 = Friday (听力+大作文，同周二)
         "5": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"10:40",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
-            {start:"10:40",end:"10:55",cat:"☕ 休息",detail:"课间休息",type:"break"},
-            {start:"10:55",end:"11:55",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
-            {start:"11:55",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"10:10",cat:"🔊 听力",detail:"听力做题（40min）",type:"study"},
+            {start:"10:10",end:"10:25",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:25",end:"11:25",cat:"✏️ 大作文",detail:"大作文（60min）",type:"study"},
+            {start:"11:25",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"🔊 听力分析",detail:"听力分析",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -927,17 +922,16 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ],
         // 6 = Saturday (阅读+小作文，同周三)
         "6": [
-            {start:"08:00",end:"09:10",cat:"🍽️ 休息",detail:"起床/早餐/休息",type:"break"},
-            {start:"09:10",end:"10:00",cat:"📝 单词",detail:"背单词40词（第1次）",type:"study"},
-            {start:"10:00",end:"11:10",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
-            {start:"11:10",end:"11:25",cat:"☕ 休息",detail:"课间休息",type:"break"},
-            {start:"11:25",end:"12:25",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
-            {start:"12:25",end:"12:30",cat:"☕ 休息",detail:"短暂休息",type:"break"},
+            {start:"07:00",end:"08:50",cat:"🌅 起床/早餐",detail:"8:00前起床，9:00前完成所有准备",type:"break"},
+            {start:"09:30",end:"10:40",cat:"📖 阅读",detail:"阅读做题（70min）",type:"study"},
+            {start:"10:40",end:"10:55",cat:"☕ 休息",detail:"课间休息",type:"break"},
+            {start:"10:55",end:"11:55",cat:"✏️ 小作文",detail:"小作文（60min）",type:"study"},
+            {start:"11:55",end:"12:30",cat:"☕ 休息",detail:"自由/休息",type:"break"},
             {start:"12:30",end:"14:30",cat:"🍽️ 休息",detail:"午餐/午休",type:"break"},
             {start:"14:30",end:"15:30",cat:"📖 阅读分析",detail:"阅读分析",type:"study"},
             {start:"15:30",end:"15:45",cat:"☕ 休息",detail:"课间休息",type:"break"},
@@ -946,7 +940,7 @@
             {start:"17:00",end:"18:30",cat:"🗣️ 口语",detail:"口语机经练习（P1,P2,P3）",type:"study"},
             {start:"18:30",end:"19:30",cat:"🎹 钢琴",detail:"《Exodus出埃及记》每日一小节",type:"study"},
             {start:"19:30",end:"20:00",cat:"🍽️ 休息",detail:"晚餐",type:"break"},
-            {start:"20:00",end:"21:00",cat:"⏳ 自由",detail:"自由时间（可背单词）",type:"break"},
+            {start:"20:00",end:"21:00",cat:"📝 单词",detail:"背单词40词",type:"study"},
             {start:"21:00",end:"22:00",cat:"📋 复盘",detail:"轻松复盘",type:"study"}
         ]
     };
