@@ -748,33 +748,33 @@ export default function AiChatFab({
             <div ref={bottomRef} />
           </div>
 
-          {/* TTS Subtitle bar */}
+          {/* TTS Subtitle bar — 高对比度黑底白字 */}
           {(subtitleLang) && (
             <div
               onClick={handleSubtitleClick}
-              className="px-3 py-2 border-t border-[var(--card-border)] bg-[#E8F5E9] cursor-pointer transition-all hover:bg-[#C8E6C9]"
+              className="px-3 py-2 border-t border-[#333] bg-[#1a1a2e] cursor-pointer transition-all hover:bg-[#16213e] select-none"
               title="点击停止朗读"
             >
               {subtitleLang === 'dual' ? (
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-[#2E7D32] bg-white rounded px-1 py-0.5 flex-shrink-0">🇨🇳 中文</span>
-                    <span className="text-xs text-[#1B5E20] truncate">{subtitleText1}</span>
+                    <span className="text-[10px] font-bold text-white bg-[#2E7D32] rounded px-1.5 py-0.5 flex-shrink-0">🇨🇳 中文</span>
+                    <span className="text-xs text-white truncate">{subtitleText1}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-[#1565C0] bg-white rounded px-1 py-0.5 flex-shrink-0">🇬🇧 English</span>
-                    <span className="text-xs text-[#0D47A1] truncate">{subtitleText2}</span>
+                    <span className="text-[10px] font-bold text-white bg-[#1565C0] rounded px-1.5 py-0.5 flex-shrink-0">🇬🇧 English</span>
+                    <span className="text-xs text-white truncate">{subtitleText2}</span>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-[var(--muted-foreground)] bg-white rounded px-1 py-0.5 flex-shrink-0">
+                  <span className="text-[10px] font-bold text-white bg-[#555] rounded px-1.5 py-0.5 flex-shrink-0">
                     {subtitleLang === 'zh' ? '🇨🇳 中文' : '🇬🇧 English'}
                   </span>
-                  <span className="text-xs text-[var(--foreground)] truncate animate-pulse">
+                  <span className="text-xs text-white truncate">
                     {subtitleLang === 'zh' ? subtitleText1 : subtitleText2 || subtitleText1}
                   </span>
-                  <span className="material-icons-round text-sm text-[#EA4335] flex-shrink-0 ml-auto">stop</span>
+                  <span className="text-[10px] text-[#FF5252] flex-shrink-0 ml-auto font-bold">✕ 停止</span>
                 </div>
               )}
             </div>
