@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, getTtsLanguage, getTtsLanguageLabel, TtsConfig } from '@/lib/tts-config';
+import { saveTtsConfig as saveTtsConfigServer } from '@/actions/settings';
 
 export default function TtsConfigPanel() {
   const [config, setConfig] = useState<TtsConfig>(() => getTtsConfig());
@@ -25,28 +26,43 @@ export default function TtsConfigPanel() {
     };
   }, [loadVoices]);
 
+  function syncToServer(cfg: TtsConfig) {
+    saveTtsConfigServer(
+      cfg.engine,
+      cfg.voiceURI,
+      cfg.rate,
+      cfg.pitch,
+      cfg.autoSpeakAi,
+      cfg.ttsLanguage,
+    ).catch(() => {}); // 静默同步，不阻塞用户
+  }
+
   function handleEngineChange(engine: TtsConfig['engine']) {
     const newConfig = { ...config, engine, voiceURI: '' };
     setConfig(newConfig);
     saveTtsConfig(newConfig);
+    syncToServer(newConfig);
   }
 
   function handleVoiceChange(voiceURI: string) {
     const newConfig = { ...config, voiceURI };
     setConfig(newConfig);
     saveTtsConfig(newConfig);
+    syncToServer(newConfig);
   }
 
   function handleRateChange(rate: number) {
     const newConfig = { ...config, rate };
     setConfig(newConfig);
     saveTtsConfig(newConfig);
+    syncToServer(newConfig);
   }
 
   function handlePitchChange(pitch: number) {
     const newConfig = { ...config, pitch };
     setConfig(newConfig);
     saveTtsConfig(newConfig);
+    syncToServer(newConfig);
   }
 
   function handleTest() {
@@ -69,13 +85,17 @@ export default function TtsConfigPanel() {
     const newValue = !autoSpeakAi;
     setAutoSpeakAi(newValue);
     const currentConfig = getTtsConfig();
-    saveTtsConfig({ ...currentConfig, autoSpeakAi: newValue });
+    const newConfig = { ...currentConfig, autoSpeakAi: newValue };
+    saveTtsConfig(newConfig);
+    syncToServer(newConfig);
   }
 
   function handleTtsLanguageChange(lang: 'zh-CN' | 'en-US') {
     setTtsLanguage(lang);
     const currentConfig = getTtsConfig();
-    saveTtsConfig({ ...currentConfig, ttsLanguage: lang });
+    const newConfig = { ...currentConfig, ttsLanguage: lang };
+    saveTtsConfig(newConfig);
+    syncToServer(newConfig);
     // 触发试听
     speakWithConfig(lang === 'zh-CN' ? '你好，这是中文语音测试' : 'Hello, this is an English voice test', undefined, undefined);
   }

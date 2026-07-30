@@ -44,6 +44,31 @@ export function clearAiConfig(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+/**
+ * 将 AI 配置同步到 Supabase 服务器（跨设备持久化）
+ * 调用 Server Action saveAiConfig 保存到 user_settings 表
+ */
+export async function syncAiConfigToServer(): Promise<{ error: string | null }> {
+  if (typeof window === 'undefined') return { error: 'Server-side only' };
+  const config = getAiConfig();
+  try {
+    const res = await fetch('/api/llm-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _save_ai_config: true,
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        model: config.model,
+      }),
+    });
+    const data = await res.json();
+    return { error: data.error || null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : '同步失败' };
+  }
+}
+
 /** 检查是否有有效的 AI 配置（baseUrl 和 apiKey 都不为空） */
 export function hasValidAiConfig(): boolean {
   const config = getAiConfig();
