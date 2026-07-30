@@ -302,6 +302,114 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
 `;
         html = html.replace(/<\/head>/i, `${interceptScript}</head>`);
 
+        // Inject localStorage sync script
+        const syncScript = `
+<script>
+(function() {
+  'use strict';
+
+  // ═══════════════════════════════════════════
+  // localStorage ↔ Supabase sync bridge
+  // ═══════════════════════════════════════════
+  // Sync keys for sidebar modules (only these are synced to cloud)
+  var SYNC_KEYS = [
+    'jackyun_control_events',
+    'jackyun_goal_data',
+    'jackyun_igcountdown',
+    'mock_records',
+    'bilibili_sync_config',
+    'studyguide_progress',
+  ];
+
+  var _origSetItem = localStorage.setItem.bind(localStorage);
+  var _syncQueue = {};
+  var _syncTimer = null;
+
+  // Attempt to load cloud data on init
+  function initSync() {
+    fetch('/api/legacy-sync', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(result) {
+        if (!result || !result.ok || !result.data) return;
+        var cloudData = result.data;
+        var keys = Object.keys(cloudData);
+        for (var i = 0; i < keys.length; i++) {
+          var k = keys[i];
+          if (SYNC_KEYS.indexOf(k) === -1) continue;
+          var cloudVal = cloudData[k];
+          // Only sync if cloud has a value
+          if (cloudVal != null) {
+            try {
+              var strVal = typeof cloudVal === 'string' ? cloudVal : JSON.stringify(cloudVal);
+              _origSetItem(k, strVal);
+            } catch(e) {}
+          }
+        }
+        console.log('[LegacySync] Cloud data loaded:', keys.length, 'keys');
+      })
+      .catch(function() { /* not logged in or offline — ignore */ });
+  }
+
+  // Debounced push to server
+  function flushSync() {
+    if (_syncTimer) clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(function() {
+      var keys = Object.keys(_syncQueue);
+      if (keys.length === 0) return;
+      var data = {};
+      for (var i = 0; i < keys.length; i++) {
+        data[keys[i]] = _syncQueue[keys[i]];
+      }
+      _syncQueue = {};
+
+      // Push each key individually
+      var pushNext = function(idx) {
+        if (idx >= keys.length) return;
+        var key = keys[idx];
+        fetch('/api/legacy-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: key, value: data[key] }),
+        }).then(function() { pushNext(idx + 1); }).catch(function() { pushNext(idx + 1); });
+      };
+      pushNext(0);
+    }, 2000); // 2s debounce
+  }
+
+  // Override setItem to intercept sync keys
+  localStorage.setItem = function(key, value) {
+    _origSetItem(key, value);
+    if (SYNC_KEYS.indexOf(key) !== -1) {
+      try {
+        _syncQueue[key] = typeof value === 'string' ? JSON.parse(value) : value;
+      } catch(e) {
+        _syncQueue[key] = value;
+      }
+      flushSync();
+    }
+  };
+
+  // Also intercept removeItem for sync keys
+  var _origRemoveItem = localStorage.removeItem.bind(localStorage);
+  localStorage.removeItem = function(key) {
+    _origRemoveItem(key);
+    if (SYNC_KEYS.indexOf(key) !== -1) {
+      _syncQueue[key] = null;
+      flushSync();
+    }
+  };
+
+  // Run init after page scripts have loaded
+  if (document.readyState === 'complete') {
+    setTimeout(initSync, 100);
+  } else {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(initSync, 100); });
+  }
+})();
+</script>
+`;
+        html = html.replace(/<\/head>/i, `${syncScript}</head>`);
+
         if (!cancelled) {
           setSrcdoc(html);
           setError(null);
