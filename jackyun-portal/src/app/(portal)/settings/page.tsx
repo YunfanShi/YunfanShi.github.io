@@ -8,6 +8,7 @@ import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import ExportDataPanel from '@/components/settings/export-data-panel';
 import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
 import LoggerViewerWrapper from '@/components/settings/logger-viewer-wrapper';
+import DeleteAccountPanel from '@/components/settings/delete-account-panel';
 import FullscreenToggle from '@/components/settings/fullscreen-toggle';
 import SidebarPrefsPanel from '@/components/settings/sidebar-prefs-panel';
 import TtsConfigPanel from '@/components/settings/tts-config-panel';
@@ -133,6 +134,9 @@ export default async function SettingsPage() {
 
       {/* 客户端日志 */}
       <LoggerViewerWrapper />
+
+      {/* 危险区域 - 账户注销 */}
+      <DeleteAccountPanel />
     </div>
   );
 }

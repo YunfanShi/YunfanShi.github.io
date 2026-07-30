@@ -10,6 +10,7 @@ const ALL_NAV_ITEMS = [
   { label: 'Dashboard', icon: 'dashboard', href: '/dashboard' },
   { label: '控制中心', icon: 'tune', href: '/timetable-hub' },
   { label: '学习计划', icon: 'school', href: '/study' },
+  { label: 'StudyGuide', icon: 'auto_stories', href: '/study-guide' },
   { label: '词汇宝库', icon: 'menu_book', href: '/vocab' },
   // Music pair
   { id: 'music-player', label: '音乐播放器', icon: 'music_note', href: '/music', group: 'music' as const, mode: 'player' as const },
