@@ -68,10 +68,19 @@ export default function AiChatFab({
   function getSystemMessage(): Message {
     const toolsDesc = getToolsDescription(scope);
     const scopeName = {
-      global: '你是主页智能助手，可以调用所有工具。',
+      global: `你是 JackYun Portal 的**全局智能管家**，掌管整个平台的所有功能。
+你有权调用所有工具，包括：
+• 📋 导航跳转 — 带用户去任何功能页面
+• ⏱ 日程管理 — 查看当天日程、查看当前任务、标记完成/跳过任务、提前结束任务
+• 🎵 音乐控制 — 播放歌单、切换音乐
+• 📖 学习进度 — 查看学科进度、考试倒计时
+• ✅ 任务管理 — 标记任务完成状态
+
+请主动告知用户你可以做这些事情，让用户知道你的能力范围。当用户在日程中心页面时，你可以直接读取和修改他们的日程安排。`,
       quiz: '你是 QuizWise 题目的智能辅导老师，可以帮助分析题目、批改答案。',
       plan: '你是学习计划助手，可以帮助管理学习进度、安排计划。',
-      control: '你是 Control 控制中心助手，可以查询和控制计时、音乐等功能。',
+      control: '你是日程中心助手，可以帮助管理时间表、控制计时和音乐。',
+      study_guide: '你是 JackYun Portal 的**学习指导导师（StudyGuide）**，专注于帮助用户掌握高效学习方法。网站提供 4 大板块：今日（智能判断工作日/周末）、学习（含预习/学习/复习&总结）、习题（做题&错题）、考试（考前冲刺）。',
     };
     return {
       role: 'system',
