@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyGuide · JackYun</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="icon" type="image/png" sizes="512x512" href="Webicon.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="Webicon.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+    <style>
+        /* =========================================
+           Google Material Design 3 主题
+           ========================================= */
+        :root {
+            --md-primary: #1A73E8;
+            --md-primary-container: #D2E3FC;
+            --md-on-primary: #FFFFFF;
+            --md-secondary: #5F6368;
+            --md-surface: #FFFFFF;
+            --md-surface-variant: #F8F9FA;
+            --md-surface-dim: #E8EAED;
+            --md-outline: #DADCE0;
+            --md-outline-variant: #E8EAED;
+            --md-on-surface: #202124;
+            --md-on-surface-variant: #5F6368;
+            --md-error: #D93025;
+            --md-success: #1E8E3E;
+            --md-warning: #F9AB00;
+            
+            --md-elevation-1: 0 1px 3px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.04);
+            --md-elevation-2: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.06);
+            --md-elevation-3: 0 2px 8px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.06);
+            --md-elevation-4: 0 4px 16px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.06);
+            
+            --font-sans: 'Google Sans', 'Noto Sans SC', 'Inter', -apple-system, sans-serif;
+            --font-mono: 'Google Sans Mono', 'SF Mono', monospace;
+            
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-full: 100px;
+            
+            --transition: cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-decelerated: cubic-bezier(0, 0, 0.2, 1);
+            --transition-accelerated: cubic-bezier(0.4, 0, 1, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--md-surface-variant);
+            color: var(--md-on-surface);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* =========================================
+           Layout
+           ========================================= */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--md-surface);
+            border-right: 1px solid var(--md-outline-variant);
+            padding: 20px 12px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            margin-bottom: 24px;
+        }
+        .sidebar-logo .logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--md-primary), #4285F4);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 22px;
+        }
+        .sidebar-logo .logo-text {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+            letter-spacing: -0.3px;
+        }
+        .sidebar-logo .logo-badge {
+            font-size: 11px;
+            color: var(--md-secondary);
+            margin-top: 2px;
+        }
+
+        .nav-section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--md-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 16px 16px 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 16px;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            color: var(--md-on-surface-variant);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s var(--transition);
+            text-decoration: none;
+            user-select: none;
+            position: relative;
+        }
+        .nav-item:hover {
+            background: var(--md-surface-variant);
+            color: var(--md-on-surface);
+        }
+        .nav-item.active {
+            background: var(--md-primary-container);
+            color: var(--md-primary);
+        }
+        .nav-item.active .nav-icon { color: var(--md-primary); }
+        .nav-icon {
+            font-size: 22px;
+            color: var(--md-on-surface-variant);
+            flex-shrink: 0;
+        }
+        .nav-item .material-icons-round {
+            font-size: 22px;
+        }
+        .nav-check {
+            margin-left: auto;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            border: 2px solid var(--md-outline);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s var(--transition);
+            flex-shrink: 0;
+            font-size: 14px;
+            color: transparent;
+        }
+        .nav-check.checked {
+            background: var(--md-primary);
+            border-color: var(--md-primary);
+            color: white;
+        }
+
+        /* Main Content Area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            min-width: 0;
+        }
+
+        .content-scroll {
+            flex: 1;
+            padding: 40px 48px;
+            overflow-y: auto;
+            max-width: 900px;
+        }
+
+        /* AI Sidebar */
+        .ai-sidebar {
+            width: 380px;
+            background: var(--md-surface);
+            border-left: 1px solid var(--md-outline-variant);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            flex-shrink: 0;
+        }
+        .ai-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--md-outline-variant);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .ai-avatar {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--md-primary), #4285F4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        .ai-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+        }
+        .ai-subtitle {
+            font-size: 12px;
+            color: var(--md-secondary);
+        }
+        .ai-messages {
+            flex: 1;
+            padding: 16px 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: var(--md-surface-variant);
+        }
+        .ai-msg {
+            max-width: 88%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        .ai-msg.bot {
+            background: var(--md-surface);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--md-outline-variant);
+            color: var(--md-on-surface);
+        }
+        .ai-msg.user {
+            background: var(--md-primary);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-msg.system {
+            background: #FFF8E1;
+            color: #795548;
+            border: 1px solid #FFE082;
+            border-radius: var(--radius-md);
+            text-align: center;
+            font-size: 12px;
+            width: 100%;
+            max-width: 100%;
+        }
+        .ai-input-area {
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--md-outline-variant);
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .ai-input {
+            flex: 1;
+            border: 1px solid var(--md-outline);
+            border-radius: var(--radius-full);
+            padding: 10px 18px;
+            font-size: 14px;
+            font-family: var(--font-sans);
+            background: var(--md-surface);
+            color: var(--md-on-surface);
+            outline: none;
+            resize: none;
+            max-height: 100px;
+            line-height: 1.5;
+            transition: border-color 0.2s var(--transition);
+        }
+        .ai-input:focus {
+            border-color: var(--md-primary);
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
+        }
+        .ai-send-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--md-primary);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s var(--transition);
+        }
+        .ai-send-btn:hover { background: #1557B0; transform: scale(1.05); }
+        .ai-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .ai-status {
+            font-size: 11px;
+            color: var(--md-secondary);
+            text-align: center;
+            padding: 4px 16px 0;
+            min-height: 20px;
+        }
+
+        /* =========================================
+           Page Header
+           ========================================= */
+        .page-header {
+            margin-bottom: 32px;
+        }
+        .page-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--md-on-surface);
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .page-header .header-icon {
+            font-size: 32px;
+            color: var(--md-primary);
+        }
+        .page-header p {
+            font-size: 15px;
+            color: var(--md-on-surface-variant);
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+
+        /* =========================================
+           Tab System
+           ========================================= */
+        .tabs-container {
+            margin-bottom: 32px;
+        }
+
+        .main-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--md-surface-dim);
+            border-radius: var(--radius-full);
+            padding: 4px;
+            position: relative;
+        }
+        .main-tab {
+            flex: 1;
+            padding: 10px 20px;
+            border-radius: var(--radius-full);
+            border: none;
+            background: transparent;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-on-surface-variant);
+            cursor: pointer;
+            transition: all 0.3s var(--transition);
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .main-tab:hover { color: var(--md-on-surface); }
+        .main-tab.active {
+            background: var(--md-surface);
+            color: var(--md-primary);
+            box-shadow: var(--md-elevation-1);
+        }
+        .main-tab .tab-icon {
+            font-size: 20px;
+        }
+        .main-tab .tab-badge {
+            font-size: 10px;
+            background: var(--md-primary-container);
+            color: var(--md-primary);
+            padding: 1px 8px;
+            border-radius: var(--radius-full);
+            margin-left: 4px;
+        }
+
+        /* Sub-tabs (for 学习) */
+        .sub-tabs {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 0 4px;
+        }
+        .sub-tab {
+            padding: 8px 20px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--md-outline);
+            background: transparent;
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--md-on-surface-variant);
+            cursor: pointer;
+            transition: all 0.2s var(--transition);
+        }
+        .sub-tab:hover {
+            background: var(--md-surface-variant);
+            border-color: var(--md-secondary);
+        }
+        .sub-tab.active {
+            background: var(--md-primary-container);
+            border-color: var(--md-primary);
+            color: var(--md-primary);
+        }
+
+        /* Time granule pills */
+        .time-pills {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .time-pill {
+            padding: 6px 16px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--md-outline);
+            background: transparent;
+            font-family: var(--font-sans);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--md-on-surface-variant);
+            cursor: pointer;
+            transition: all 0.2s var(--transition);
+        }
+        .time-pill:hover { border-color: var(--md-primary); color: var(--md-primary); }
+        .time-pill.active {
+            background: var(--md-primary);
+            border-color: var(--md-primary);
+            color: white;
+        }
+
+        /* =========================================
+           Content Cards
+           ========================================= */
+        .content-panel {
+            animation: fadeInUp 0.35s var(--transition-decelerated);
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .method-card {
+            background: var(--md-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--md-outline-variant);
+            padding: 24px;
+            margin-bottom: 16px;
+            transition: all 0.2s var(--transition);
+            box-shadow: var(--md-elevation-1);
+        }
+        .method-card:hover {
+            box-shadow: var(--md-elevation-2);
+        }
+
+        .method-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            cursor: pointer;
+        }
+        .method-card-icon {
+            width: 44px; height: 44px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .method-card-icon.blue { background: #E8F0FE; color: var(--md-primary); }
+        .method-card-icon.green { background: #E6F4EA; color: var(--md-success); }
+        .method-card-icon.orange { background: #FEF7E0; color: var(--md-warning); }
+        .method-card-icon.red { background: #FCE8E6; color: var(--md-error); }
+        .method-card-icon.purple { background: #F3E8FD; color: #9334E6; }
+
+        .method-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+            margin-bottom: 4px;
+        }
+        .method-card-subtitle {
+            font-size: 13px;
+            color: var(--md-on-surface-variant);
+            line-height: 1.5;
+        }
+        .method-card-expand {
+            margin-left: auto;
+            color: var(--md-outline);
+            transition: transform 0.3s var(--transition);
+        }
+        .method-card.expanded .method-card-expand {
+            transform: rotate(180deg);
+        }
+
+        .method-card-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s var(--transition-decelerated), opacity 0.25s var(--transition);
+            opacity: 0;
+        }
+        .method-card.expanded .method-card-body {
+            max-height: 2000px;
+            opacity: 1;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--md-outline-variant);
+        }
+
+        .method-step {
+            display: flex;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--md-surface-dim);
+        }
+        .method-step:last-child { border-bottom: none; }
+        .method-step-num {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--md-primary-container);
+            color: var(--md-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .method-step-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+            margin-bottom: 4px;
+        }
+        .method-step-desc {
+            font-size: 13px;
+            color: var(--md-on-surface-variant);
+            line-height: 1.6;
+        }
+        .method-step-desc code {
+            background: var(--md-surface-variant);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+        }
+
+        /* Checklist inside card */
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            cursor: pointer;
+        }
+        .checklist-checkbox {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--md-outline);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s var(--transition);
+            font-size: 16px;
+            color: transparent;
+        }
+        .checklist-checkbox.checked {
+            background: var(--md-primary);
+            border-color: var(--md-primary);
+            color: white;
+        }
+        .checklist-label {
+            font-size: 14px;
+            color: var(--md-on-surface);
+            flex: 1;
+        }
+        .checklist-label.done {
+            text-decoration: line-through;
+            color: var(--md-on-surface-variant);
+        }
+
+        /* =========================================
+           Time Timeline (今日板块专用)
+           ========================================= */
+        .timeline {
+            position: relative;
+            padding-left: 32px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--md-outline-variant);
+        }
+        .timeline-item {
+            position: relative;
+            padding-bottom: 20px;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: -24px;
+            top: 4px;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--md-primary);
+            border: 3px solid var(--md-primary-container);
+        }
+        .timeline-time {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--md-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .timeline-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+            margin-bottom: 4px;
+        }
+        .timeline-desc {
+            font-size: 13px;
+            color: var(--md-on-surface-variant);
+            line-height: 1.5;
+        }
+
+        /* =========================================
+           Modal / Dialog
+           ========================================= */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            animation: fadeIn 0.2s var(--transition);
+        }
+        .modal-overlay.show { display: flex; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .modal-sheet {
+            background: var(--md-surface);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            padding: 24px 32px 32px;
+            max-width: 560px;
+            width: 100%;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+            animation: slideUp 0.3s var(--transition-decelerated);
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .modal-handle {
+            width: 40px; height: 4px;
+            background: var(--md-outline);
+            border-radius: 2px;
+            margin: 0 auto 16px;
+        }
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+            margin-bottom: 8px;
+        }
+        .modal-desc {
+            font-size: 14px;
+            color: var(--md-on-surface-variant);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .modal-btn {
+            padding: 10px 24px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--md-outline);
+            background: var(--md-surface);
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-on-surface);
+            cursor: pointer;
+            transition: all 0.2s var(--transition);
+        }
+        .modal-btn:hover { background: var(--md-surface-variant); }
+        .modal-btn.primary {
+            background: var(--md-primary);
+            color: white;
+            border-color: var(--md-primary);
+        }
+        .modal-btn.primary:hover { background: #1557B0; }
+
+        /* =========================================
+           Timeline Switch (今日)
+           ========================================= */
+        .day-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--md-surface);
+            border-radius: var(--radius-xl);
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--md-outline-variant);
+            box-shadow: var(--md-elevation-1);
+        }
+        .day-indicator-icon {
+            font-size: 28px;
+            color: var(--md-warning);
+        }
+        .day-indicator-text {
+            flex: 1;
+        }
+        .day-indicator-text .day-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--md-on-surface);
+        }
+        .day-indicator-text .day-desc {
+            font-size: 13px;
+            color: var(--md-on-surface-variant);
+        }
+
+        /* =========================================
+           Stats / Quick info
+           ========================================= */
+        .stat-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--md-surface);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--md-outline-variant);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--md-primary);
+        }
+        .stat-label {
+            font-size: 12px;
+            color: var(--md-on-surface-variant);
+            margin-top: 4px;
+        }
+
+        /* =========================================
+           Utilities
+           ========================================= */
+        .tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: var(--radius-full);
+            font-size: 11px;
+            font-weight: 500;
+            margin: 2px 4px 2px 0;
+        }
+        .tag.daily { background: #E8F0FE; color: var(--md-primary); }
+        .tag.weekly { background: #E6F4EA; color: var(--md-success); }
+        .tag.biweekly { background: #F3E8FD; color: #9334E6; }
+        .tag.exam { background: #FCE8E6; color: var(--md-error); }
+
+        .text-muted { color: var(--md-on-surface-variant); }
+        .text-primary { color: var(--md-primary); }
+        .mt-2 { margin-top: 8px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-4 { margin-bottom: 16px; }
+        .gap-2 { gap: 8px; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+
+        /* =========================================
+           Scrollbar
+           ========================================= */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--md-outline); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--md-secondary); }
+
+        /* =========================================
+           Responsive
+           ========================================= */
+        @media (max-width: 1200px) {
+            .ai-sidebar { display: none; }
+        }
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .content-scroll { padding: 24px 20px; }
+            .main-tab { font-size: 12px; padding: 8px 12px; }
+            .main-tab .tab-icon { font-size: 18px; }
+            .page-header h1 { font-size: 24px; }
+            .modal-sheet { padding: 20px; }
+        }
+
+        /* Loading dots */
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            padding: 4px 0;
+        }
+        .loading-dots span {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--md-primary);
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.32s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- ============ Sidebar ============ -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">
+                <span class="material-icons-round">school</span>
+            </div>
+            <div>
+                <div class="logo-text">StudyGuide</div>
+                <div class="logo-badge">学习系统操作手册</div>
+            </div>
+        </div>
+
+        <div class="nav-section-label">板块</div>
+        
+        <div class="nav-item active" data-tab="today" onclick="switchMainTab('today')">
+            <span class="material-icons-round nav-icon">today</span>
+            今日
+            <span class="nav-check" id="check-today"></span>
+        </div>
+        <div class="nav-item" data-tab="learn" onclick="switchMainTab('learn')">
+            <span class="material-icons-round nav-icon">menu_book</span>
+            学习
+            <span class="nav-check" id="check-learn"></span>
+        </div>
+        <div class="nav-item" data-tab="practice" onclick="switchMainTab('practice')">
+            <span class="material-icons-round nav-icon">assignment</span>
+            习题
+            <span class="nav-check" id="check-practice"></span>
+        </div>
+        <div class="nav-item" data-tab="exam" onclick="switchMainTab('exam')">
+            <span class="material-icons-round nav-icon">fact_check</span>
+            考试
+            <span class="nav-check" id="check-exam"></span>
+        </div>
+    </nav>
+
+    <!-- ============ Main Content ============ -->
+    <div class="main-area">
+        <div class="content-scroll" id="contentScroll">
+            <!-- Content will be rendered by JS -->
+            <div id="contentArea"></div>
+        </div>
+
+        <!-- ============ AI Sidebar ============ -->
+        <aside class="ai-sidebar" id="aiSidebar">
+            <div class="ai-header">
+                <div class="ai-avatar">
+                    <span class="material-icons-round">smart_toy</span>
+                </div>
+                <div>
+                    <div class="ai-title">学习导师</div>
+                    <div class="ai-subtitle" id="aiStatus">就绪</div>
+                </div>
+            </div>
+            <div class="ai-messages" id="aiMessages">
+                <div class="ai-msg bot">
+                    👋 你好！我是你的学习指导导师。<br>
+                    可以问我关于学习方法、复习技巧、错题分析等问题。
+                </div>
+            </div>
+            <div class="ai-status" id="aiStatusBar"></div>
+            <div class="ai-input-area">
+                <textarea class="ai-input" id="aiInput" rows="1" placeholder="Enter 发送，Shift+Enter 换行" oninput="autoResize(this)"></textarea>
+                <button class="ai-send-btn" id="aiSendBtn" onclick="sendAiMessage()">
+                    <span class="material-icons-round" style="font-size: 20px;">send</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- ============ Modal ============ -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-title" id="modalTitle">提示</div>
+        <div class="modal-desc" id="modalDesc">切换时间模式</div>
+        <div class="modal-actions" id="modalActions">
+            <button class="modal-btn primary" onclick="closeModal()">知道了</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* =========================================
+       DATA: 所有板块内容（硬编码）
+       ========================================= */
+    const STUDY_DATA = {
+        learn: {
+            label: '学习',
+            icon: 'menu_book',
+            subTabs: ['preview', 'study', 'review'],
+            subTabLabels: { preview: '预习', study: '学习', review: '复习&总结' },
+            content: {
+                preview: {
+                    title: '4-P 预习框架',
+                    icon: 'visibility',
+                    desc: '每天课前10分钟，只做这一次。没有每周/每两周的预习规划。',
+                    timeGranules: ['daily'],
+                    granules: {
+                        daily: {
+                            label: '每日',
+                            steps: [
+                                { num: 'P1', title: '预览 (Preview)', desc: '翻开新课，只看大标题、小标题、所有图片/表格、黑体加粗的术语。绝对不看正文段落和推导过程。' },
+                                { num: 'P2', title: '预测 (Predict)', desc: '开口说一句："我猜这一节大概先讲A，再讲B，最后得出C结论。" 说错了也没关系。' },
+                                { num: 'P3', title: '连接 (Connect)', desc: '强行问自己："这个新东西跟我之前学的XX章节/公式有没有关系？"（例如：学法拉第定律时想"这跟之前学的安培定则好像都跟电和磁有关"）' },
+                                { num: 'P4', title: '提问 (Question)', desc: '在草稿纸顶部写3个具体疑问（例如："为什么公式里有负号？""这个定律在什么情况下不成立？"）。带着这三个问题去上课。' }
+                            ]
+                        }
+                    }
+                },
+                study: {
+                    title: '康奈尔笔记法',
+                    icon: 'edit_note',
+                    desc: '课堂 + 课后30分钟内整理。没有每周/每两周的学习动作。',
+                    timeGranules: ['daily'],
+                    granules: {
+                        daily: {
+                            label: '每日',
+                            sections: [
+                                {
+                                    title: '右侧主栏（Record）',
+                                    desc: '正常记，把公式、推导步骤、例题过程都记清楚。分大标题/小标题，格式工整，字迹清晰。目的是方便以后查找。'
+                                },
+                                {
+                                    title: '左侧线索栏（Reduce）',
+                                    desc: '课后整理时，在左侧写关键词和定义。例如："牛顿第二定律"、"比热容公式 c = Q/(mΔT)"、"串并联判断方法"。不写长问题，只写提示词。'
+                                },
+                                {
+                                    title: '底部总结栏（Reflect）',
+                                    desc: '第一行：用你自己的话写这页内容的本质（比如"本质：能量守恒在热学中的应用"）。下面空几行：写你目前发现的常见错误或容易搞混的点（比如"这里容易把摄氏度和开尔文搞混，注意ΔT数值相同"）。'
+                                }
+                            ]
+                        }
+                    }
+                },
+                review: {
+                    title: '复习 & 总结',
+                    icon: 'sync_alt',
+                    desc: '每日轻档（看关键词说），每周重档（闭书画树/清模糊点），每两周查漏（随机抽测）。',
+                    timeGranules: ['daily', 'weekly', 'biweekly'],
+                    granules: {
+                        daily: {
+                            label: '每日 · 轻档复习（5-10分钟）',
+                            steps: [
+                                { num: '①', title: '摊开今天的康奈尔页', desc: '手遮右侧主栏。只看左侧关键词（如"比热容公式"）。' },
+                                { num: '②', title: '张嘴说出内容', desc: '公式是什么、字母啥意思、要注意啥。动嘴效果最好。' },
+                                { num: '③', title: '自我判定', desc: '说对了 → 在关键词旁打 <b>√</b>。说错了或卡壳超过3秒 → 画 <b>△</b>，立刻看一眼右侧主栏，合上重新说一遍，直到说对。' },
+                                { num: '💡', title: '进阶玩法', desc: '如果你觉得每天做这个太累，可以一天复习、一天总结交替进行。' }
+                            ]
+                        },
+                        weekly: {
+                            label: '每周 · 重档总结（60-90分钟）',
+                            steps: [
+                                { num: '①', title: '过筛子', desc: '摊开本周所有康奈尔页，把画了 △ 的页挑出来，重新做"看关键词→张嘴说"。说顺了的，把△改成 √。还是卡壳的，画 ○（下周早读专门看这些）。' },
+                                { num: '②', title: '闭书画知识树', desc: '拿一张白纸，合上所有笔记。在纸中央写本周大主题，向外画分支，挂上你能想到的公式、定义、陷阱。画完翻书，用红笔补上漏掉的部分（漏掉的就是下周重点）。' },
+                                { num: '③', title: '模糊点清零', desc: '拿出"模糊点本子"里本周记下的所有卡壳语句，翻书/查资料，用红笔改成确定的陈述句。' }
+                            ]
+                        },
+                        biweekly: {
+                            label: '每两周 · 查漏（20-30分钟）',
+                            steps: [
+                                { num: '①', title: '随机抽测', desc: '从过去两周打了 √ 的康奈尔页里，随机抽10个左侧关键词，遮右栏看词说含义。' },
+                                { num: '②', title: '判定', desc: '答对率 ≥ 90% → 安全。答对率 < 90% → 下两周的每日轻档复习全部暂停新课内容，回头重背这些旧关键词。' }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        practice: {
+            label: '习题',
+            icon: 'assignment',
+            subTabs: ['daily', 'weekly', 'biweekly'],
+            subTabLabels: { daily: '每日执行', weekly: '每周执行', biweekly: '每两周执行' },
+            content: {
+                daily: {
+                    title: '做题 & 错题录入',
+                    icon: 'task_alt',
+                    desc: '每日执行：做新题 + 变阻器三档 + 错题录入',
+                    timeGranules: ['daily'],
+                    granules: {
+                        daily: {
+                            label: '每日',
+                            sections: [
+                                {
+                                    title: '变阻器三档（判断你当前的状态）',
+                                    type: 'table',
+                                    rows: [
+                                        { state: '完全不会（公式写不出来）', action: '不做空白题，只看课本上的例题（Worked Example）', note: '一行一行看懂每一步为什么这么做' },
+                                        { state: '公式会但不会用（会默写但一做题就卡）', action: '做常规习题，但标注卡壳点', note: '在草稿纸上写下"我卡在了哪一步？"' },
+                                        { state: '基本都会，怕新题', action: '做交错练习（不同章节混着做）', note: '每道题先在左上角写"诊断：此题考XX定理"，再动笔算' }
+                                    ]
+                                },
+                                {
+                                    title: '错题录入 Notion（必填三个字段）',
+                                    type: 'fields',
+                                    fields: [
+                                        { name: '考纲节点', desc: '这道题对应考纲的哪个具体小节（如"CAIE Physics 2.3"）' },
+                                        { name: '根本原因', desc: '从以下四项中选且只选一项：概念不清 / 边界条件 / 定理用错 / 计算粗心' },
+                                        { name: '下次检查日期', desc: '按间隔设定：1天 / 3天 / 5天 / 7天 / 14天（首次录入设为1天后）' }
+                                    ]
+                                },
+                                {
+                                    title: '间隔到达日：费曼讲解错题（不是闭卷重算）',
+                                    type: 'feynman',
+                                    dims: [
+                                        { name: '核心原理', desc: '这道题考的是哪个物理/数学原理？' },
+                                        { name: '公式/变量', desc: '核心公式是什么？每个字母代表什么？单位是什么？' },
+                                        { name: '边界条件', desc: '这道题必须满足什么前提条件，才能用这个公式？' },
+                                        { name: '执行轨迹', desc: '解题的步骤顺序是什么？先求什么，再求什么？' }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                },
+                weekly: {
+                    title: '错题病因统计',
+                    icon: 'analytics',
+                    desc: '每周执行：统计病因 + 专项纠正',
+                    timeGranules: ['weekly'],
+                    granules: {
+                        weekly: {
+                            label: '每周（30分钟）',
+                            steps: [
+                                { num: '①', title: '病因统计', desc: '打开Notion，看这一周"根本原因"哪一类出现最多。' },
+                                { num: '②', title: '专项纠正', desc: '不用急着做新题，针对高频病因做专项纠正：<br>• <b>概念不清最多</b> → 翻教材该章节的"引言"和"黑体字定义"，大声读三遍<br>• <b>边界条件错最多</b> → 不做计算题，找5道判断题，只练"找前提条件"<br>• <b>定理用错最多</b> → 拿两张纸，左边写能量守恒题，右边写动量守恒题，对比题干关键词差异' }
+                            ]
+                        }
+                    }
+                },
+                biweekly: {
+                    title: '错题大盘点',
+                    icon: 'summarize',
+                    desc: '每两周执行：深度专项训练',
+                    timeGranules: ['biweekly'],
+                    granules: {
+                        biweekly: {
+                            label: '每两周（30分钟）',
+                            steps: [
+                                { num: '①', title: '数据汇总', desc: '看过去两周的统计数据，哪类病因连续出现频率最高。' },
+                                { num: '②', title: '深度专项训练', desc: '针对这个病因，做一次深度专项训练（比如连续两周都是"边界条件错"，就花一整个晚上只练"找边界"这个子技能，不碰任何计算）。' }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        exam: {
+            label: '考试',
+            icon: 'fact_check',
+            subTabs: ['2weeks', '1week', '3days'],
+            subTabLabels: { '2weeks': '考前2周', '1week': '考前1周', '3days': '考前3天' },
+            content: {
+                '2weeks': {
+                    title: '考前2周 · 模拟考节奏',
+                    icon: 'timer',
+                    desc: '考前2周启动。不再做日常的新课预习/学习。',
+                    timeGranules: ['biweekly'],
+                    granules: {
+                        biweekly: {
+                            label: '考前2周',
+                            steps: [
+                                { num: '①', title: '每周2次高保真模拟考', desc: '手机锁舱，严格计时，无音乐无干扰。设定3分钟熔断机制：一道题卡壳超过3分钟，在草稿纸上写下可能用到的公式作为占位符，立刻跳过做下一题。' },
+                                { num: '②', title: '考后统计', desc: '因为"超时跳过"丢了多少分？比例超过15%，下周策略改为"先做所有大题的第一步（列公式）"。' }
+                            ]
+                        }
+                    }
+                },
+                '1week': {
+                    title: '考前1周 · 新题拆解',
+                    icon: 'puzzle',
+                    desc: '每天3道，不动笔算到底，只做三步。',
+                    timeGranules: ['weekly'],
+                    granules: {
+                        weekly: {
+                            label: '考前1周（每天3道）',
+                            steps: [
+                                { num: '①', title: '去数字化', desc: '圈掉所有具体数字，只读文字，问"这发生了什么过程？"' },
+                                { num: '②', title: '符号化', desc: '把文字变成 m、v、B、R 等符号写在左侧。' },
+                                { num: '③', title: '逆向推导', desc: '看问题要求什么，倒推"要得到这个，我需要先知道什么中间量？"做完三步就换下一题，不纠结最终答案。' }
+                            ]
+                        }
+                    }
+                },
+                '3days': {
+                    title: '考前3天 · 错题费曼大扫荡',
+                    icon: 'cleaning_services',
+                    desc: '所有已升级到7天和14天的错题全部过一遍。',
+                    timeGranules: ['weekly'],
+                    granules: {
+                        weekly: {
+                            label: '考前3天',
+                            steps: [
+                                { num: '①', title: '打印/摊开所有长期错题', desc: '把Notion里所有已经升级到"7天"和"14天"的错题全部打印出来（或摊开）。' },
+                                { num: '②', title: '快速费曼讲解', desc: '看着题目，快速费曼讲解每道题的核心原理和边界条件。' },
+                                { num: '③', title: '标红冲刺', desc: '如果哪道题讲不顺，标红，考前最后一天只盯着这些标红的看。确保长期错题在考前全部"讲得通"。' }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    /* =========================================
+       STATE
+       ========================================= */
+    const STATE = {
+        mainTab: 'today',
+        subTab: null,
+        timeGranule: 'daily',
+        examMode: false,
+        progress: {},
+        aiMessages: [],
+        aiLoading: false
+    };
+
+    // Load from localStorage
+    function loadState() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('studyguide_progress') || '{}');
+            STATE.progress = saved.checklists || {};
+            STATE.examMode = saved.examMode || false;
+            STATE.mainTab = saved.lastTab || 'today';
+            STATE.timeGranule = saved.lastGranule || 'daily';
+        } catch(e) { /* ignore */ }
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem('studyguide_progress', JSON.stringify({
+                checklists: STATE.progress,
+                examMode: STATE.examMode,
+                lastTab: STATE.mainTab,
+                lastGranule: STATE.timeGranule
+            }));
+        } catch(e) { /* ignore */ }
+    }
+
+    /* =========================================
+       TODAY DETECTION
+       ========================================= */
+    function getTodayInfo() {
+        const now = new Date();
+        const day = now.getDay(); // 0=Sunday, 1-5=weekday, 6=Saturday
+        const isWeekend = day === 0 || day === 6;
+        const isSunday = day === 0;
+        const isSaturday = day === 6;
+        
+        // Check if this is a "biweekly" Sunday (every other Sunday)
+        let isBiweeklySunday = false;
+        if (isSunday) {
+            const lastBiweekly = localStorage.getItem('studyguide_last_biweekly');
+            if (lastBiweekly) {
+                const diff = Math.floor((now.getTime() - new Date(lastBiweekly).getTime()) / 86400000);
+                isBiweeklySunday = diff >= 12; // ~2 weeks
+            } else {
+                isBiweeklySunday = true; // First time
+            }
+        }
+
+        return { day, isWeekend, isSunday, isSaturday, isBiweeklySunday, now };
+    }
+
+    /* =========================================
+       RENDER ENGINE
+       ========================================= */
+    function switchMainTab(tab) {
+        STATE.mainTab = tab;
+        STATE.subTab = null;
+        
+        // Update nav
+        document.querySelectorAll('.nav-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.tab === tab);
+        });
+
+        // Set default sub-tab
+        if (tab === 'learn') STATE.subTab = 'preview';
+        if (tab === 'practice') STATE.subTab = 'daily';
+        if (tab === 'exam') STATE.subTab = '2weeks';
+
+        render();
+        saveState();
+    }
+
+    function switchSubTab(subTab) {
+        STATE.subTab = subTab;
+        render();
+    }
+
+    function switchTimeGranule(granule) {
+        STATE.timeGranule = granule;
+        saveState();
+        render();
+    }
+
+    function render() {
+        const area = document.getElementById('contentArea');
+        
+        if (STATE.mainTab === 'today') {
+            area.innerHTML = renderToday();
+        } else {
+            area.innerHTML = renderModule(STATE.mainTab);
+            
+            // Auto-show modal for today on first load
+            if (STATE.mainTab === 'today') {
+                showTodayModal();
+            }
+        }
+
+        // Update checkmarks
+        updateNavChecks();
+    }
+
+    /* =========================================
+       RENDER: 今日
+       ========================================= */
+    function renderToday() {
+        const info = getTodayInfo();
+        const dateStr = info.now.toLocaleDateString('zh-CN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        
+        let defaultGranule = 'daily';
+        let dayLabel = '工作日';
+        let dayDesc = '为你展示每日方法。适合在课前/课后执行。';
+        let suggestionText = '需要查看每周方法吗？';
+
+        if (info.isSaturday) {
+            defaultGranule = 'weekly';
+            dayLabel = '周六';
+            dayDesc = '为你展示每周方法。适合利用周末时间做深度复习。';
+            suggestionText = '需要查看每日方法吗？';
+        } else if (info.isSunday) {
+            defaultGranule = info.isBiweeklySunday ? 'biweekly' : 'weekly';
+            dayLabel = '周日';
+            dayDesc = info.isBiweeklySunday ? '为你展示每两周方法。适合做查漏补缺。' : '为你展示每周方法。适合做本周收尾。';
+            suggestionText = info.isBiweeklySunday ? '需要查看每周方法吗？' : '需要查看每日方法吗？';
+        }
+
+        STATE.timeGranule = defaultGranule;
+
+        // Count today's progress
+        const todayKey = formatDateKey(info.now);
+        const todayProgress = STATE.progress[todayKey] || {};
+        const totalToday = 5; // 5 steps in daily timeline
+        const doneToday = Object.values(todayProgress).filter(v => v).length;
+
+        return `
+            <div class="page-header">
+                <h1>
+                    <span class="material-icons-round header-icon">today</span>
+                    ${dateStr}
+                </h1>
+                <p>今日是 <strong>${dayLabel}</strong> · 已完成本日任务 ${doneToday}/${totalToday}</p>
+            </div>
+
+            <div class="day-indicator" onclick="showTodayModal()">
+                <span class="material-icons-round day-indicator-icon">info</span>
+                <div class="day-indicator-text">
+                    <div class="day-label">${dayLabel}学习模式</div>
+                    <div class="day-desc">${dayDesc}</div>
+                </div>
+                <span class="material-icons-round" style="color:var(--md-secondary);">arrow_forward_ios</span>
+            </div>
+
+            <div class="time-pills">
+                <button class="time-pill ${STATE.timeGranule === 'daily' ? 'active' : ''}" onclick="switchTimeGranule('daily')">每日</button>
+                <button class="time-pill ${STATE.timeGranule === 'weekly' ? 'active' : ''}" onclick="switchTimeGranule('weekly')">每周</button>
+                <button class="time-pill ${STATE.timeGranule === 'biweekly' ? 'active' : ''}" onclick="switchTimeGranule('biweekly')">每两周</button>
+                <button class="time-pill ${STATE.timeGranule === 'exam' ? 'active' : ''}" onclick="switchTimeGranule('exam')">考前</button>
+            </div>
+
+            <div class="content-panel">
+                ${renderGranuleTimeline(STATE.timeGranule, todayKey)}
+            </div>
+        `;
+    }
+
+    function renderGranuleTimeline(granule, dateKey) {
+        const timelines = {
+            daily: [
+                { time: '课前10分钟', icon: 'visibility', title: '预习', desc: '4-P框架：看标题→猜逻辑→连旧知→写3问', checkKey: 'preview' },
+                { time: '课堂', icon: 'edit_note', title: '学习', desc: '康奈尔右侧正常记，工整、分大小标题', checkKey: 'record' },
+                { time: '课后30分钟', icon: 'summarize', title: '整理', desc: '康奈尔左侧写关键词/定义，底部写理解+常见错', checkKey: 'reduce' },
+                { time: '晚间5-10分钟', icon: 'sync_alt', title: '复习（轻档）', desc: '遮右侧，看左侧关键词张嘴说。说对打√，说错画△并重说。', checkKey: 'recite' },
+                { time: '晚间（视时间）', icon: 'task_alt', title: '做题 + 错题录入', desc: '判状态→做对应难度的题。错题进Notion：填考纲节点/根本原因/下次检查日期。', checkKey: 'practice' },
+                { time: '睡前', icon: 'lightbulb', title: '模糊点记录', desc: '今天有什么"好像懂了又说不清"的？记进模糊点本子，周末集中清。', checkKey: 'blur' }
+            ],
+            weekly: [
+                { time: '第1步 · 20分钟', icon: 'sync_alt', title: '复习（重档过筛子）', desc: '本周所有康奈尔页的△关键词过筛子，改√或画○。', checkKey: 'wk_review' },
+                { time: '第2步 · 40分钟', icon: 'account_tree', title: '总结（闭书画树+清模糊点）', desc: '闭书画本周知识树 + 模糊点本子清零（红笔改陈述句）。', checkKey: 'wk_tree' },
+                { time: '第3步 · 30分钟', icon: 'analytics', title: '错题病因统计+专项纠正', desc: 'Notion本周错题病因统计 + 针对高频病因做专项纠正（非重算）。', checkKey: 'wk_error' }
+            ],
+            biweekly: [
+                { time: '第1步 · 15分钟', icon: 'quiz', title: '随机抽测', desc: '随机抽10页已打√的康奈尔页，遮右说左，测留存率。', checkKey: 'bw_random' },
+                { time: '第2步 · 30分钟', icon: 'bomb', title: '深度专项训练', desc: '看过去两周高频病因，做一次深度专项训练。', checkKey: 'bw_deep' }
+            ],
+            exam: [
+                { time: '考前2周', icon: 'timer', title: '模拟考节奏', desc: '每周2次高保真模拟考 + 3分钟熔断机制 + 考后统计。', checkKey: 'ex_mock' },
+                { time: '考前1周', icon: 'puzzle', title: '新题拆解训练', desc: '每天3道：去数字化→符号化→逆向推导，不动笔算到底。', checkKey: 'ex_puzzle' },
+                { time: '考前3天', icon: 'cleaning_services', title: '错题费曼大扫荡', desc: '所有7天/14天错题过一遍，讲不顺的标红，最后一天冲刺。', checkKey: 'ex_feynman' }
+            ]
+        };
+
+        const items = timelines[granule] || timelines.daily;
+        const progress = STATE.progress[dateKey] || {};
+
+        return `
+            <div class="timeline">
+                ${items.map((item, i) => {
+                    const checkKey = dateKey + '_' + item.checkKey;
+                    const checked = progress[item.checkKey] || false;
+                    return `
+                        <div class="timeline-item">
+                            <div class="timeline-dot" style="background: ${checked ? 'var(--md-success)' : 'var(--md-primary)'};"></div>
+                            <div class="timeline-time">
+                                <span class="material-icons-round" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">${item.icon}</span>
+                                ${item.time}
+                            </div>
+                            <div class="timeline-title">${item.title}</div>
+                            <div class="timeline-desc">${item.desc}</div>
+                            <div class="checklist-item mt-2" onclick="toggleTodayCheck('${dateKey}', '${item.checkKey}')">
+                                <div class="checklist-checkbox ${checked ? 'checked' : ''}">
+                                    <span class="material-icons-round" style="font-size: 16px;">${checked ? 'check' : ''}</span>
+                                </div>
+                                <div class="checklist-label ${checked ? 'done' : ''}">${checked ? '已完成' : '标记为已完成'}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    function toggleTodayCheck(dateKey, checkKey) {
+        if (!STATE.progress[dateKey]) STATE.progress[dateKey] = {};
+        STATE.progress[dateKey][checkKey] = !STATE.progress[dateKey][checkKey];
+        saveState();
+        render();
+    }
+
+    function formatDateKey(date) {
+        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    }
+
+    /* =========================================
+       RENDER: 模块（学习/习题/考试）
+       ========================================= */
+    function renderModule(tab) {
+        const module = STUDY_DATA[tab];
+        if (!module) return '<p>模块数据未找到</p>';
+
+        const subTabs = module.subTabs || [];
+        const activeSub = STATE.subTab || subTabs[0];
+        const subContent = module.content[activeSub];
+        
+        // Get time granules available for this sub content
+        const granules = subContent?.granules || {};
+        const granuleKeys = Object.keys(granules);
+        const activeGranule = granuleKeys.includes(STATE.timeGranule) ? STATE.timeGranule : (granuleKeys[0] || 'daily');
+
+        return `
+            <div class="page-header">
+                <h1>
+                    <span class="material-icons-round header-icon">${module.icon}</span>
+                    ${module.label}
+                </h1>
+                <p>${subContent?.desc || ''}</p>
+            </div>
+
+            <div class="tabs-container">
+                <div class="sub-tabs">
+                    ${subTabs.map(st => `
+                        <button class="sub-tab ${st === activeSub ? 'active' : ''}" onclick="switchSubTab('${st}')">
+                            ${module.subTabLabels[st] || st}
+                        </button>
+                    `).join('')}
+                </div>
+
+                ${granuleKeys.length > 1 ? `
+                <div class="time-pills">
+                    ${granuleKeys.map(gk => `
+                        <button class="time-pill ${gk === activeGranule ? 'active' : ''}" onclick="switchTimeGranule('${gk}')">
+                            ${granules[gk].label.split('·')[0].trim()}
+                        </button>
+                    `).join('')}
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="content-panel">
+                ${renderGranuleContent(subContent, activeGranule, tab, activeSub)}
+            </div>
+        `;
+    }
+
+    function renderGranuleContent(subContent, granuleKey, tab, subTab) {
+        if (!subContent || !subContent.granules) return '';
+        
+        const granule = subContent.granules[granuleKey];
+        if (!granule) return `<p class="text-muted">该时间粒度暂无内容</p>`;
+
+        const progressKey = `${tab}_${subTab}_${granuleKey}`;
+        const progress = STATE.progress[progressKey] || {};
+
+        // Steps-based rendering
+        if (granule.steps) {
+            return `
+                <div class="method-card expanded">
+                    <div class="method-card-header">
+                        <div class="method-card-icon blue">
+                            <span class="material-icons-round">${subContent.icon || 'checklist'}</span>
+                        </div>
+                        <div>
+                            <div class="method-card-title">${granule.label}</div>
+                            <div class="method-card-subtitle">${subContent.desc}</div>
+                        </div>
+                    </div>
+                    <div class="method-card-body" style="max-height: 2000px; opacity: 1; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--md-outline-variant);">
+                        ${granule.steps.map((step, i) => `
+                            <div class="method-step">
+                                <div class="method-step-num">${step.num}</div>
+                                <div>
+                                    <div class="method-step-title">${step.title}</div>
+                                    <div class="method-step-desc">${step.desc}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="checklist-item mt-4" onclick="toggleModuleCheck('${progressKey}', 'done')">
+                            <div class="checklist-checkbox ${progress['done'] ? 'checked' : ''}">
+                                <span class="material-icons-round" style="font-size: 16px;">${progress['done'] ? 'check' : ''}</span>
+                            </div>
+                            <div class="checklist-label ${progress['done'] ? 'done' : ''}">
+                                ${progress['done'] ? '本节已完成 ✓' : '标记为已完成'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Sections-based rendering
+        if (granule.sections) {
+            return granule.sections.map((sec, si) => `
+                <div class="method-card expanded">
+                    <div class="method-card-header">
+                        <div class="method-card-icon ${si === 0 ? 'blue' : si === 1 ? 'green' : 'orange'}">
+                            <span class="material-icons-round">${sec.type === 'table' ? 'table_chart' : sec.type === 'fields' ? 'list_alt' : sec.type === 'feynman' ? 'psychology' : 'article'}</span>
+                        </div>
+                        <div>
+                            <div class="method-card-title">${sec.title}</div>
+                            <div class="method-card-subtitle">${sec.desc || ''}</div>
+                        </div>
+                    </div>
+                    <div class="method-card-body" style="max-height: 2000px; opacity: 1; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--md-outline-variant);">
+                        ${sec.type === 'table' && sec.rows ? `
+                            ${sec.rows.map((row, ri) => `
+                                <div class="method-step">
+                                    <div class="method-step-num">${ri + 1}</div>
+                                    <div>
+                                        <div class="method-step-title">${row.state}</div>
+                                        <div class="method-step-desc"><b>操作：</b>${row.action}</div>
+                                        <div class="method-step-desc mt-2"><b>要点：</b>${row.note}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        ` : sec.type === 'fields' && sec.fields ? `
+                            ${sec.fields.map((f, fi) => `
+                                <div class="method-step">
+                                    <div class="method-step-num">${fi + 1}</div>
+                                    <div>
+                                        <div class="method-step-title">${f.name}</div>
+                                        <div class="method-step-desc">${f.desc}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        ` : sec.type === 'feynman' && sec.dims ? `
+                            <div class="method-step-desc" style="margin-bottom: 12px;">到了"下次检查日期"，拿出错题，不要动笔算。看着题目，张嘴给自己讲：</div>
+                            ${sec.dims.map((d, di) => `
+                                <div class="method-step">
+                                    <div class="method-step-num">${di + 1}</div>
+                                    <div>
+                                        <div class="method-step-title">${d.name}</div>
+                                        <div class="method-step-desc">${d.desc}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            <div class="method-step-desc mt-2" style="padding: 12px; background: var(--md-surface-variant); border-radius: var(--radius-md);">
+                                <b>判定：</b>流畅讲完（不卡壳）→ 间隔升级（1→3→5→7→14天归档）。讲卡壳了 → 打回"明天"，重新检查。
+                            </div>
+                        ` : `
+                            <div class="method-step-desc">${sec.desc || ''}</div>
+                        `}
+                        
+                        <div class="checklist-item mt-4" onclick="toggleModuleCheck('${progressKey}_${si}', 'done')">
+                            <div class="checklist-checkbox ${(STATE.progress[progressKey + '_' + si] || {}).done ? 'checked' : ''}">
+                                <span class="material-icons-round" style="font-size: 16px;">${(STATE.progress[progressKey + '_' + si] || {}).done ? 'check' : ''}</span>
+                            </div>
+                            <div class="checklist-label ${(STATE.progress[progressKey + '_' + si] || {}).done ? 'done' : ''}">
+                                ${(STATE.progress[progressKey + '_' + si] || {}).done ? '已完成 ✓' : '标记为已完成'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        return '';
+    }
+
+    function toggleModuleCheck(key, field) {
+        if (!STATE.progress[key]) STATE.progress[key] = {};
+        STATE.progress[key][field] = !STATE.progress[key][field];
+        saveState();
+        updateNavChecks();
+        
+        // Re-render only the checkmarks
+        const area = document.getElementById('contentArea');
+        if (STATE.mainTab === 'today') {
+            render();
+        } else {
+            render();
+        }
+    }
+
+    /* =========================================
+       NAV CHECKS
+       ========================================= */
+    function updateNavChecks() {
+        // Count progress for each tab
+        const tabs = ['today', 'learn', 'practice', 'exam'];
+        tabs.forEach(tab => {
+            const check = document.getElementById(`check-${tab}`);
+            if (!check) return;
+            
+            // Simple heuristic: if any progress exists for this tab
+            let hasProgress = false;
+            const todayKey = formatDateKey(new Date());
+            
+            if (tab === 'today') {
+                const todayProg = STATE.progress[todayKey] || {};
+                hasProgress = Object.values(todayProg).some(v => v);
+            } else {
+                for (const key in STATE.progress) {
+                    if (key.startsWith(tab)) {
+                        hasProgress = true;
+                        break;
+                    }
+                }
+            }
+            
+            check.classList.toggle('checked', hasProgress);
+        });
+    }
+
+    /* =========================================
+       TODAY MODAL
+       ========================================= */
+    function showTodayModal() {
+        const info = getTodayInfo();
+        const overlay = document.getElementById('modalOverlay');
+        const title = document.getElementById('modalTitle');
+        const desc = document.getElementById('modalDesc');
+        const actions = document.getElementById('modalActions');
+
+        let msg = '';
+        let buttons = [];
+
+        if (!info.isWeekend) {
+            // Weekday
+            msg = '今天是工作日，为你展示每日方法。';
+            buttons = [
+                { label: '📅 查看每周方法', cb: () => { switchTimeGranule('weekly'); closeModal(); } },
+                { label: '📆 查看每两周方法', cb: () => { switchTimeGranule('biweekly'); closeModal(); } },
+                { label: '🎯 查看考前方法', cb: () => { switchTimeGranule('exam'); closeModal(); } },
+                { label: '✓ 仅看今日', cb: () => closeModal(), primary: true }
+            ];
+        } else if (info.isSaturday) {
+            msg = '今天是周六，为你展示每周方法。';
+            buttons = [
+                { label: '📅 查看每日方法', cb: () => { switchTimeGranule('daily'); closeModal(); } },
+                { label: '📆 查看每两周方法', cb: () => { switchTimeGranule('biweekly'); closeModal(); } },
+                { label: '🎯 查看考前方法', cb: () => { switchTimeGranule('exam'); closeModal(); } },
+                { label: '✓ 仅看今日', cb: () => closeModal(), primary: true }
+            ];
+        } else {
+            // Sunday
+            if (info.isBiweeklySunday) {
+                msg = '今天是隔周周日，为你展示每两周方法。可以做查漏补缺。';
+                buttons = [
+                    { label: '📅 查看每日方法', cb: () => { switchTimeGranule('daily'); closeModal(); } },
+                    { label: '📆 查看每周方法', cb: () => { switchTimeGranule('weekly'); closeModal(); } },
+                    { label: '🎯 查看考前方法', cb: () => { switchTimeGranule('exam'); closeModal(); } },
+                    { label: '✓ 仅看今日', cb: () => { 
+                        localStorage.setItem('studyguide_last_biweekly', new Date().toISOString());
+                        closeModal(); 
+                    }, primary: true }
+                ];
+            } else {
+                msg = '今天是周日，为你展示每周收尾方法。';
+                buttons = [
+                    { label: '📅 查看每日方法', cb: () => { switchTimeGranule('daily'); closeModal(); } },
+                    { label: '📆 查看每两周方法', cb: () => { switchTimeGranule('biweekly'); closeModal(); } },
+                    { label: '🎯 查看考前方法', cb: () => { switchTimeGranule('exam'); closeModal(); } },
+                    { label: '✓ 仅看今日', cb: () => closeModal(), primary: true }
+                ];
+            }
+        }
+
+        title.textContent = '💡今日学习模式';
+        desc.textContent = msg;
+        actions.innerHTML = buttons.map(btn => `
+            <button class="modal-btn ${btn.primary ? 'primary' : ''}" onclick="(${btn.cb.toString()})()">${btn.label}</button>
+        `).join('');
+
+        overlay.classList.add('show');
+    }
+
+    function closeModal(e) {
+        if (e && e.target !== document.getElementById('modalOverlay') && !e.target.closest('.modal-overlay')) return;
+        document.getElementById('modalOverlay').classList.remove('show');
+    }
+
+    /* =========================================
+       AI CHAT
+       ========================================= */
+    async function sendAiMessage() {
+        const input = document.getElementById('aiInput');
+        const text = input.value.trim();
+        if (!text || STATE.aiLoading) return;
+
+        input.value = '';
+        autoResize(input);
+
+        // Add user message
+        addAiMessage(text, 'user');
+        STATE.aiMessages.push({ role: 'user', content: text });
+
+        // Show loading
+        const loadingId = addAiLoading();
+        STATE.aiLoading = true;
+        document.getElementById('aiStatus').textContent = '思考中...';
+        document.getElementById('aiSendBtn').disabled = true;
+
+        try {
+            // Read AI config from localStorage (same as other pages)
+            const cfg = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
+            if (!cfg.apiKey) throw new Error('请先在 Jackyun Portal 的设置页面配置 AI API Key');
+
+            const systemPrompt = `你是 JackYun Portal 的**学习指导导师（StudyGuide）**，专注于帮助用户掌握高效学习方法。
+
+你的定位：
+- 你是 JackYun Portal 学习系统（StudyGuide）的内置 AI 助手
+- 网站提供 4 大板块：今日（根据工作日/周末智能展示）、学习（含预习/学习/复习&总结）、习题（做题&错题）、考试（考前冲刺）
+- 每个板块按 每日/每周/每两周 三个时间粒度组织
+
+你的能力：
+1. 📖 解释任何板块的方法论（如什么是 4-P 框架、康奈尔笔记法、费曼技巧）
+2. 🧠 针对用户的具体学科（数学/物理/CS/IELTS）给出定制化建议
+3. 📋 帮用户规划每日/每周学习节奏
+4. ❓ 解答学习过程中遇到的具体问题（概念、公式、题目思路）
+5. 🔧 帮用户诊断学习卡点（如"为什么我总在边界条件上出错"）
+
+回复风格：
+- Google Material Design 风格：简洁、现代、结构化
+- 使用清晰的层级：标题 → 要点 → 示例
+- 如果涉及公式，使用 $$...$$ 或 $...$ 格式
+- 对于学习方法类问题，引用该页面中的具体板块和时间线
+- 语言：优先使用中文回答`;
+
+            const res = await fetch('/api/llm-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    baseUrl: cfg.baseUrl,
+                    apiKey: cfg.apiKey,
+                    model: cfg.model || 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...STATE.aiMessages.slice(-10)
+                    ],
+                    stream: false,
+                    max_tokens: 2000,
+                    temperature: 0.7
+                })
+            });
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                let errMsg;
+                try { const err = JSON.parse(errText); errMsg = err.error?.message || err.message || `HTTP ${res.status}`; }
+                catch { errMsg = errText || `HTTP ${res.status}`; }
+                throw new Error(errMsg);
+            }
+
+            const data = await res.json();
+            const reply = data.choices?.[0]?.message?.content || data.choices?.[0]?.text;
+            if (!reply) throw new Error('AI 没有返回内容');
+
+            // Remove loading
+            document.getElementById(loadingId)?.remove();
+
+            // Render reply (support basic Markdown and KaTeX)
+            const rendered = renderAiText(reply);
+            addAiMessage(rendered, 'bot');
+            STATE.aiMessages.push({ role: 'assistant', content: reply });
+
+            document.getElementById('aiStatus').textContent = '就绪';
+
+        } catch (e) {
+            document.getElementById(loadingId)?.remove();
+            addAiMessage(`<span style="color: var(--md-error);">❌ ${e.message}</span>`, 'bot');
+            document.getElementById('aiStatus').textContent = '出错了';
+        }
+
+        STATE.aiLoading = false;
+        document.getElementById('aiSendBtn').disabled = false;
+    }
+
+    function addAiMessage(content, role) {
+        const container = document.getElementById('aiMessages');
+        const div = document.createElement('div');
+        div.className = `ai-msg ${role}`;
+        div.innerHTML = content;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function addAiLoading() {
+        const container = document.getElementById('aiMessages');
+        const div = document.createElement('div');
+        div.className = 'ai-msg bot';
+        div.id = 'ai-loading-' + Date.now();
+        div.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div.id;
+    }
+
+    function renderAiText(text) {
+        // Simple Markdown-like rendering
+        let html = text
+            .replace(/### (.+)/g, '<div style="font-size: 16px; font-weight: 700; margin: 12px 0 6px;">$1</div>')
+            .replace(/## (.+)/g, '<div style="font-size: 18px; font-weight: 700; margin: 16px 0 8px;">$1</div>')
+            .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+            .replace(/\*(.+?)\*/g, '<i>$1</i>')
+            .replace(/\n/g, '<br>');
+        return html;
+    }
+
+    /* =========================================
+       UTILITIES
+       ========================================= */
+    function autoResize(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+    }
+
+    // Enter to send
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('aiInput');
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendAiMessage();
+            }
+        });
+
+        loadState();
+        render();
+        
+        // Show modal on first visit of the day
+        const lastVisit = localStorage.getItem('studyguide_last_visit');
+        const today = formatDateKey(new Date());
+        if (lastVisit !== today) {
+            localStorage.setItem('studyguide_last_visit', today);
+            setTimeout(() => showTodayModal(), 500);
+        }
+    });
+</script>
+
+</body>
+</html>

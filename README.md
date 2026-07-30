@@ -1,6 +1,6 @@
 # JackYun Personal Portal
 
-> 个人全能管理系统 — 全栈功能集成，学习·生活·工具一站式平台
+> 个人全能管理系统 — 全栈功能集成
 >
 > Built with Next.js 15 + Supabase + Tailwind CSS 4 + TypeScript 5
 
@@ -15,7 +15,7 @@
 | 根目录（`*.html`） | 旧版静态 HTML 页面（历史遗留，通过 Legacy Bridge 嵌入新系统） |
 | `jackyun-portal/` | **新版** Next.js 15 App Router + Supabase 全栈应用（主系统） |
 
-旧版 HTML 文件列表（根目录）：`AnswerSheet.html` `Control.html` `Countdown.html` `EM.html` `Goal.html` `IGCountdown.html` `igcse_timer.html` `index.html` `jack-warden-mock.html` `Jump.html` `JumpMusic.html` `MockPortal.html` `MusicPlayer.html` `MusicPlayerBase.html` `MusicPlayerMobile.html` `Poem.html` `Relax.html` `Studyplan.html` `Test.html` `Time.html` `UpdateHub.html` `Vocab.html` `VocabJ.html` `VocabM.html`
+旧版 HTML 文件列表（根目录）：`AnswerSheet.html` `Control.html` `Countdown.html` `EM.html` `Goal.html` `IGCountdown.html` `igcse_timer.html` `index.html` `jack-warden-mock.html` `Jump.html` `JumpMusic.html` `MockPortal.html` `MusicPlayer.html` `MusicPlayerBase.html` `MusicPlayerMobile.html` `Poem.html` `Relax.html` `StudyGuide.html` `Studyplan.html` `Test.html` `Time.html` `UpdateHub.html` `Vocab.html` `VocabJ.html` `VocabM.html`
 
 ---
 
@@ -856,5 +856,3 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 Private — JackYun Personal Portal，仅供个人使用。
 
 ---
-
-> Built with ❤️ by Yunfan Shi | [jackyun.top](https://jackyun.top)

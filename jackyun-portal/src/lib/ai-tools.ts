@@ -8,7 +8,7 @@
  * - control (Control)：仅控制和查询
  */
 
-export type ToolScope = 'global' | 'quiz' | 'plan' | 'control';
+export type ToolScope = 'global' | 'quiz' | 'plan' | 'control' | 'study_guide';
 
 export interface AiTool {
   /** 工具唯一标识 */
@@ -345,7 +345,7 @@ export const AI_TOOLS: AiTool[] = [
     id: 'current_time',
     name: '查看时间',
     description: '查看当前日期和时间。参数：无',
-    scope: ['global', 'quiz', 'plan', 'control'],
+    scope: ['global', 'quiz', 'plan', 'control', 'study_guide'],
     handler: async () => {
       const now = new Date();
       return `当前时间：${now.toLocaleString('zh-CN', {
@@ -388,6 +388,7 @@ export function getToolsDescription(scope: ToolScope): string {
     quiz: 'QuizWise 辅导老师',
     plan: '学习计划助手',
     control: '日程中心助手',
+    study_guide: '学习指导导师',
   };
 
   return (
