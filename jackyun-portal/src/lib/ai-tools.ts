@@ -515,6 +515,201 @@ export const AI_TOOLS: AiTool[] = [
       })}`;
     },
   },
+  // ====== 目标管理工具（从 Goal.html 复制能力） ======
+  {
+    id: 'read_goal_data',
+    name: '读取目标数据',
+    description: '读取所有目标管理的完整数据，包括名称、进度、截止日期、优先级等',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('jackyun_goal_data');
+        if (!raw) return '尚无目标数据';
+        const goals: any[] = JSON.parse(raw);
+        if (!Array.isArray(goals) || goals.length === 0) return '尚无目标数据';
+        return goals.map((g: any) => {
+          const pct = g.total > 0 ? Math.round((g.done / g.total) * 100) : 0;
+          const deadline = g.deadline ? '截止 ' + g.deadline : '无截止日期';
+          const parent = g.parentId ? '子任务(父ID:' + g.parentId + ')' : '主任务';
+          return '- [' + parent + '] ' + g.name + '：进度 ' + g.done + '/' + g.total + '（' + pct + '%），' + deadline;
+        }).join('\n');
+      } catch (e: any) {
+        return '读取目标数据出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'manage_goal',
+    name: '修改目标',
+    description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit',
+    scope: ['global'],
+    handler: async (params: Record<string, string>) => {
+      try {
+        const raw = localStorage.getItem('jackyun_goal_data');
+        const goals: any[] = raw ? JSON.parse(raw) : [];
+        const action = params.action || '';
+        if (action === 'create') {
+          const newGoal: any = {
+            id: Date.now(),
+            name: params.name || '新目标',
+            desc: params.desc || '',
+            cat: params.cat || 'general',
+            priority: params.priority || 'mid',
+            parentId: params.parentId !== undefined ? (params.parentId === 'null' ? null : Number(params.parentId)) : null,
+            done: Number(params.done) || 0,
+            total: Number(params.total) || 10,
+            color: params.color || 'blue',
+            deadline: params.deadline || null,
+            unit: params.unit || '',
+            createdAt: new Date().toISOString(),
+            history: [],
+          };
+          goals.push(newGoal);
+          localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
+          window.dispatchEvent(new Event('storage'));
+          return '✅ 已创建目标「' + newGoal.name + '」（ID: ' + newGoal.id + '）';
+        } else if (action === 'update') {
+          const id = Number(params.id);
+          const idx = goals.findIndex((g: any) => g.id === id);
+          if (idx === -1) return '❌ 未找到 ID 为 ' + id + ' 的目标';
+          if (params.name !== undefined) goals[idx].name = params.name;
+          if (params.desc !== undefined) goals[idx].desc = params.desc;
+          if (params.deadline !== undefined) goals[idx].deadline = params.deadline || null;
+          if (params.priority !== undefined) goals[idx].priority = params.priority;
+          if (params.done !== undefined) goals[idx].done = Number(params.done);
+          if (params.total !== undefined) goals[idx].total = Number(params.total);
+          if (params.color !== undefined) goals[idx].color = params.color;
+          if (params.unit !== undefined) goals[idx].unit = params.unit;
+          localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
+          window.dispatchEvent(new Event('storage'));
+          return '✅ 已更新目标「' + goals[idx].name + '」';
+        } else if (action === 'delete') {
+          const id = Number(params.id);
+          const newGoals = goals.filter((g: any) => g.id !== id && g.parentId !== id);
+          localStorage.setItem('jackyun_goal_data', JSON.stringify(newGoals));
+          window.dispatchEvent(new Event('storage'));
+          return '✅ 已删除目标 ID: ' + id;
+        }
+        return '请指定 action: create/update/delete';
+      } catch (e: any) {
+        return '修改目标出错：' + (e.message || String(e));
+      }
+    },
+  },
+  // ====== 日程中心工具 ======
+  {
+    id: 'read_timetable',
+    name: '读取日程',
+    description: '读取日程中心的安排，包括事件、任务和时间表',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('jackyun_control_events');
+        if (!raw) return '尚无日程数据';
+        const events: any[] = JSON.parse(raw);
+        if (!Array.isArray(events) || events.length === 0) return '尚无日程事件';
+        return events.slice(0, 20).map((e: any) =>
+          '- ' + (e.title || '未命名事件') + (e.time ? ' at ' + e.time : '') + (e.done ? ' ✓已完成' : '')
+        ).join('\n') + (events.length > 20 ? '\n...及另外 ' + (events.length - 20) + ' 条' : '');
+      } catch (e: any) {
+        return '读取日程出错：' + (e.message || String(e));
+      }
+    },
+  },
+  // ====== 考试倒计时工具 ======
+  {
+    id: 'read_countdown',
+    name: '读取考试倒计时',
+    description: '读取 IGCSE 考试倒计时的数据，包括考试日期、计时器设置等',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('jackyun_igcountdown');
+        if (!raw) return '尚无倒计时数据';
+        const data: any = JSON.parse(raw);
+        const examDate: string = data.examDate || data.sExamDate || '';
+        const timers: any[] = data.timers || [];
+        let result = '';
+        if (examDate) {
+          const days = Math.ceil((new Date(examDate).getTime() - Date.now()) / 86400000);
+          result += '考试日期：' + examDate + '（' + (days > 0 ? '还剩 ' + days + ' 天' : days === 0 ? '就是今天！' : '已超期 ' + (-days) + ' 天') + '）\n';
+        }
+        if (timers.length > 0) {
+          result += '计时器（' + timers.length + ' 个）：\n' + timers.slice(0, 10).map((t: any) =>
+            '  - ' + (t.name || '未命名') + ': ' + (t.running ? '运行中' : t.paused ? '暂停' : '已停止')
+          ).join('\n');
+        }
+        return result || '倒计时数据为空';
+      } catch (e: any) {
+        return '读取倒计时出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'manage_countdown',
+    name: '修改考试倒计时',
+    description: '修改 IGCSE 考试倒计时设置。参数：examDate (YYYY-MM-DD 格式的考试日期)',
+    scope: ['global'],
+    handler: async (params: Record<string, string>) => {
+      try {
+        const raw = localStorage.getItem('jackyun_igcountdown');
+        const data: any = raw ? JSON.parse(raw) : {};
+        if (params.examDate) {
+          data.examDate = params.examDate;
+          localStorage.setItem('jackyun_igcountdown', JSON.stringify(data));
+          window.dispatchEvent(new Event('storage'));
+          return '✅ 考试日期已更新为 ' + params.examDate;
+        }
+        return '请提供 examDate 参数';
+      } catch (e: any) {
+        return '修改倒计时出错：' + (e.message || String(e));
+      }
+    },
+  },
+  // ====== 学习进度工具 ======
+  {
+    id: 'read_study_progress',
+    name: '读取学习进度',
+    description: '读取学习计划的进度数据，包括各学科的完成情况',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('studyguide_progress');
+        if (!raw) return '尚无学习进度数据';
+        const data: any = JSON.parse(raw);
+        const progress = data.checklists || {};
+        const keys = Object.keys(progress);
+        if (keys.length === 0) return '尚无学习进度记录';
+        return '学习进度（' + keys.length + ' 天有记录）：\n' + keys.slice(-7).map((k: string) => {
+          const items: any = progress[k];
+          const done = Object.values(items).filter((v: any) => v).length;
+          const total = Object.keys(items).length;
+          return '  - ' + k + ': ' + done + '/' + total;
+        }).join('\n') + (keys.length > 7 ? '\n...共 ' + keys.length + ' 天' : '');
+      } catch (e: any) {
+        return '读取学习进度出错：' + (e.message || String(e));
+      }
+    },
+  },
+  // ====== Quiz 刷题数据工具 ======
+  {
+    id: 'read_quiz_data',
+    name: '读取刷题数据',
+    description: '读取 QuizWise 刷题记录和进度',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('quizwise_current_questions');
+        if (!raw) return '尚无刷题数据';
+        const data: any = JSON.parse(raw);
+        const questions = data.questions || data;
+        const count = Array.isArray(questions) ? questions.length : 0;
+        return '刷题数据：' + count + ' 道题目' + (data.subject ? '，科目：' + data.subject : '');
+      } catch (e: any) {
+        return '读取刷题数据出错：' + (e.message || String(e));
+      }
+    },
+  },
 ];
 
 /**
@@ -568,31 +763,49 @@ export function getToolsDescription(scope: ToolScope): string {
 }
 
 /**
- * 解析 AI 回复中的工具调用
+ * 解析 AI 回复中的工具调用（支持多个）
  */
 export function parseToolCall(
   content: string,
 ): { tool: string; params: Record<string, string> } | null {
-  const match = content.match(/```tool_call\n([\s\S]*?)\n```/);
-  if (match) {
+  const calls = parseToolCalls(content);
+  return calls.length > 0 ? calls[0] : null;
+}
+
+/**
+ * 解析 AI 回复中的所有工具调用（返回数组，支持一次性执行多个工具）
+ */
+export function parseToolCalls(
+  content: string,
+): Array<{ tool: string; params: Record<string, string> }> {
+  const results: Array<{ tool: string; params: Record<string, string> }> = [];
+
+  // 1. 匹配 ```tool_call\n{...}\n``` 格式
+  const toolCallRegex = /```tool_call\n([\s\S]*?)\n```/g;
+  let match;
+  while ((match = toolCallRegex.exec(content)) !== null) {
     try {
-      return JSON.parse(match[1].trim());
+      const obj = JSON.parse(match[1].trim());
+      results.push({ tool: obj.tool, params: obj.params || {} });
     } catch {
-      // try without tool_call marker
+      // skip invalid
     }
   }
 
-  const jsonMatch = content.match(/\{\s*"tool"\s*:\s*"(.*?)"\s*,\s*"params"\s*:\s*\{([\s\S]*?)\}\s*\}/);
-  if (jsonMatch) {
-    try {
-      const obj = JSON.parse(jsonMatch[0]);
-      return { tool: obj.tool, params: obj.params || {} };
-    } catch {
-      // ignore
+  // 2. 如果没找到 tool_call 代码块，尝试匹配裸 JSON 格式
+  if (results.length === 0) {
+    const bareJsonRegex = /\{\s*"tool"\s*:\s*"(.*?)"\s*,\s*"params"\s*:\s*\{([\s\S]*?)\}\s*\}/g;
+    while ((match = bareJsonRegex.exec(content)) !== null) {
+      try {
+        const obj = JSON.parse(match[0]);
+        results.push({ tool: obj.tool, params: obj.params || {} });
+      } catch {
+        // skip invalid
+      }
     }
   }
 
-  return null;
+  return results;
 }
 
 /**

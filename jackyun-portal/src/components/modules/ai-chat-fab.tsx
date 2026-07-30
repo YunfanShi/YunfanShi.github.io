@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
-import { getToolsDescription, parseToolCall, executeToolCall, ToolScope } from '@/lib/ai-tools';
+import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope } from '@/lib/ai-tools';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
@@ -91,10 +92,8 @@ function getSourceLabel(source: ConversationSource): string {
 function truncateConversation(conv: Conversation): Conversation {
   const msgs = conv.messages;
   if (msgs.length <= MAX_CONTEXT_ROUNDS * 2) return conv;
-  // 只保留最新 N 条用户+助手消息（不保留旧的 system 工具结果）
   const nonSystem = msgs.filter(m => m.role !== 'system');
   const kept = nonSystem.slice(-MAX_CONTEXT_ROUNDS * 2);
-  // 只保留最近的 2 条 system 消息（工具执行结果）
   const systemMsgs = msgs.filter(m => m.role === 'system').slice(-2);
   return { ...conv, messages: [...kept, ...systemMsgs] };
 }
@@ -127,6 +126,95 @@ function saveActiveId(id: string): void {
   localStorage.setItem(ACTIVE_ID_KEY, id);
 }
 
+// ── TTS Subtitle Portal Component ──────────────────────────────────────────
+
+function TtsSubtitle({
+  text,
+  visible,
+  onClose,
+}: {
+  text: string;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  if (typeof window === 'undefined') return null;
+  if (!visible || !text) return null;
+
+  const ttsConfig = getTtsConfig();
+  const lang = ttsConfig.ttsLanguage || 'zh-CN';
+  const langLabel = lang === 'en-US' ? 'EN' : '中';
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        bottom: '60px',
+        left: '50%',
+        translate: '-50% 0',
+        zIndex: 9999,
+        maxWidth: '90vw',
+        width: 'auto',
+        padding: '10px 20px',
+        borderRadius: '12px',
+        background: 'rgba(0,0,0,0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.15)',
+        color: '#fff',
+        textAlign: 'center',
+        cursor: 'pointer',
+        transition: 'opacity 0.2s ease',
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? 'auto' : 'none',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            padding: '2px 6px',
+            borderRadius: '4px',
+            background: lang === 'en-US' ? '#1565C0' : '#2E7D32',
+            color: '#fff',
+            flexShrink: 0,
+          }}
+        >
+          {langLabel}
+        </span>
+        <span
+          style={{
+            fontSize: '15px',
+            fontWeight: 500,
+            lineHeight: 1.4,
+            letterSpacing: '0.3px',
+            textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {text}
+        </span>
+        <span
+          style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            color: '#FF5252',
+            flexShrink: 0,
+            marginLeft: '4px',
+          }}
+        >
+          ✕
+        </span>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function AiChatFab({
@@ -136,11 +224,10 @@ export default function AiChatFab({
   embeddedTitle = 'AI 助手',
   currentPath: propPath,
 }: AiChatFabProps) {
-  // 使用 usePathname() 来自动获取当前页面路径
   const pathname = usePathname();
   const currentPath = propPath || pathname || '';
   const [open, setOpen] = useState(embedded);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // 对话列表侧栏
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvIdState] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -149,32 +236,28 @@ export default function AiChatFab({
   const [error, setError] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
   const [speakingMsgIndex, setSpeakingMsgIndex] = useState<number | null>(null);
-  // TTS subtitle state
-  const [subtitleLang, setSubtitleLang] = useState<'zh' | 'en' | 'dual' | ''>('');
-  const [subtitleText1, setSubtitleText1] = useState('');
-  const [subtitleText2, setSubtitleText2] = useState('');
+  // TTS subtitle: 使用 extractTtsText 获取实际朗读文本，显示在屏幕中下方
+  const [subtitleText, setSubtitleText] = useState('');
+  const [subtitleVisible, setSubtitleVisible] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSpeakDoneRef = useRef(false);
   const initializedRef = useRef(false);
-  // useRef 实时追踪当前对话消息，避免 stale closure
+  const isBusyRef = useRef(false);
+  const requestIdRef = useRef(0);
   const messagesRef = useRef<Message[]>([]);
 
-  // 获取当前对话的消息
   const activeConv = conversations.find(c => c.id === activeConvId);
   const messages = activeConv?.messages ?? [];
-  // 同步到 ref
   messagesRef.current = messages;
 
-  // 初始化：加载对话
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
     const loaded = loadConversations();
     setConversations(loaded);
     const activeId = loadActiveId();
-    // 如果有 activeId 且能找到对应对话
     if (activeId && loaded.some(c => c.id === activeId)) {
       setActiveConvIdState(activeId);
     } else if (loaded.length > 0) {
@@ -184,12 +267,10 @@ export default function AiChatFab({
     }
   }, []);
 
-  // 自动滚动
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, streaming]);
 
-  // 自动 resize textarea
   const autoResize = () => {
     const el = textareaRef.current;
     if (!el) return;
@@ -198,12 +279,10 @@ export default function AiChatFab({
   };
   useEffect(() => { autoResize(); }, [input]);
 
-  // 焦点
   useEffect(() => {
     if (open) setTimeout(() => textareaRef.current?.focus(), 100);
   }, [open]);
 
-  // 创建新对话
   const createNewConversation = useCallback(() => {
     const source = getSourceFromPath(currentPath);
     const newConv: Conversation = {
@@ -224,7 +303,6 @@ export default function AiChatFab({
     return newConv;
   }, [currentPath]);
 
-  // 切换对话
   const switchConversation = (id: string) => {
     setActiveConvIdState(id);
     saveActiveId(id);
@@ -232,7 +310,6 @@ export default function AiChatFab({
     setError(null);
   };
 
-  // 删除对话
   const deleteConversation = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setConversations(prev => {
@@ -241,7 +318,6 @@ export default function AiChatFab({
       return updated;
     });
     if (activeConvId === id) {
-      // 切换到另一个对话
       const remaining = conversations.filter(c => c.id !== id);
       if (remaining.length > 0) {
         setActiveConvIdState(remaining[0].id);
@@ -252,7 +328,6 @@ export default function AiChatFab({
     }
   };
 
-  // 更新对话（追加消息后保存）
   const updateConversation = (updater: (prev: Conversation) => Conversation) => {
     setConversations(prev => {
       const updated = prev.map(c => {
@@ -265,7 +340,6 @@ export default function AiChatFab({
     });
   };
 
-  // 获取 system prompt，包含页面上下文
   function getSystemMessage(): Message {
     const toolsDesc = getToolsDescription(scope);
     const source = getSourceFromPath(currentPath);
@@ -287,7 +361,7 @@ export default function AiChatFab({
 
   function getPageContext(source: ConversationSource): string {
     const contexts: Record<ConversationSource, string> = {
-      dashboard: '你当前在「主页仪表盘 (Dashboard)」\n- 你可以看到学习统计概览（词汇数、任务完成率）\n- 这里有所有功能模块的入口卡片\n- 用户可以通过你说「打开xxx」来跳转到任何功能页面',
+      dashboard: '你当前在「主页仪表盘 (Dashboard)」\n- 你可以看到学习统计概览（词汇数、任务完成率）\n- 这里有所有功能模块的入口卡片\n- 用户可以通过你说「打开xxx」来跳转到任何功能页面\n\n【全局管理权限说明】\n你可以管理以下所有模块的数据（但界面操作依然由各页面负责）：\n1. 📋 **日程中心 (TimetableHub)** — 读取和修改日程安排、事件\n2. 🎯 **目标管理 (Goal)** — 读取和创建/修改/删除目标数据（进度、截止日期、优先级等）\n3. 📚 **学习计划 (StudyPlan)** — 读取学习进度\n4. 🧠 **QuizWise 刷题** — 读取刷题记录\n5. ⏱ **考试倒计时 (IGCountdown)** — 读取和修改考试日期\n\n当用户提出与上述模块相关的需求时，使用对应的工具读取或修改数据。',
       control: '你当前在「日程中心 (Control/Timetable)」\n- 用户可以查看/管理日程安排\n- 可以查看当前任务、标记完成、跳过任务\n- 支持专注计时和音乐播放控制',
       'study-guide': '你当前在「学习指导 (StudyGuide)」\n- 提供「今日」「学习」「习题」「考试」四大板块\n- 帮助用户掌握高效学习方法',
       study: '你当前在「学习计划 (StudyPlan)」\n- 用户可以查看和管理学习进度\n- 支持学科进度追踪和考试倒计时',
@@ -305,23 +379,22 @@ export default function AiChatFab({
     return contexts[source] || contexts.other;
   }
 
-  // 发送消息
   async function handleSend(retryMessage?: string) {
     const text = retryMessage || input.trim();
-    if (!text || loading) return;
+    if (!text || loading || isBusyRef.current) return;
 
-    // 确保有活跃对话
+    isBusyRef.current = true;
+    const requestId = ++requestIdRef.current;
+
     let convId = activeConvId;
     if (!convId) {
       const newConv = createNewConversation();
       convId = newConv.id;
     }
 
-    // 如果当前对话有内容且是新对话，自动设置标题
     setConversations(prev => {
       const updated = prev.map(c => {
         if (c.id !== convId) return c;
-        // 如果标题还是"新对话"，用第一条消息前 20 字做标题
         if (c.title === '新对话' && c.messages.length === 0) {
           return { ...c, title: text.slice(0, 20) + (text.length > 20 ? '...' : '') };
         }
@@ -331,7 +404,6 @@ export default function AiChatFab({
       return updated;
     });
 
-    // 添加用户消息
     updateConversation(conv => ({
       ...conv,
       messages: [...conv.messages, { role: 'user', content: text }],
@@ -355,10 +427,9 @@ export default function AiChatFab({
         throw new Error('请先在设置页面配置 AI API Key');
       }
 
-      // 从 messagesRef 读取最新消息（避免 stale closure）
       const latestMsgs = messagesRef.current;
       const filteredMsgs = retryMessage
-        ? latestMsgs.slice(0, -1)  // 重试时去掉最后一条 assistant 消息
+        ? latestMsgs.slice(0, -1)
         : latestMsgs;
 
       const apiMessages = [getSystemMessage(), ...filteredMsgs];
@@ -382,9 +453,13 @@ export default function AiChatFab({
 
       const decoder = new TextDecoder();
       let assistantContent = '';
+      let displayContent = '';
       let messageAdded = false;
 
       setStatusText('AI 正在回复...');
+
+      // Use streaming buffer for controlled display speed
+      streamBufferRef.current = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -399,28 +474,48 @@ export default function AiChatFab({
                 choices?: { delta?: { content?: string } }[];
               };
               const delta = parsed.choices?.[0]?.delta?.content ?? '';
+              if (!delta) continue;
+              // Store full content (for tool_call parsing later)
               assistantContent += delta;
+              // Push chars to display buffer
+              streamBufferRef.current.push(...delta.split(''));
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+
+      // Start the display timer to flush buffer at controlled speed
+      if (streamBufferRef.current.length > 0) {
+        await new Promise<void>((resolve) => {
+          startDisplayTimer(
+            (char) => {
+              displayContent += char;
               if (!messageAdded) {
                 messageAdded = true;
                 updateConversation(conv => ({
                   ...conv,
-                  messages: [...conv.messages, { role: 'assistant', content: assistantContent }],
+                  messages: [...conv.messages, { role: 'assistant', content: displayContent }],
                   updatedAt: new Date().toISOString(),
                 }));
                 setStatusText('AI 正在回复...');
               } else {
                 updateConversation(conv => {
                   const updated = [...conv.messages];
-                  updated[updated.length - 1] = { role: 'assistant', content: assistantContent };
+                  updated[updated.length - 1] = { role: 'assistant', content: displayContent };
                   return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
                 });
               }
-            } catch {
-              // ignore parse errors on streaming chunks
+            },
+            () => {
+              resolve();
             }
-          }
-        }
+          );
+        });
       }
+
+      // Ensure assistantContent (full, not display-limited) is in the conversation
       if (!messageAdded && assistantContent === '') {
         updateConversation(conv => ({
           ...conv,
@@ -435,10 +530,12 @@ export default function AiChatFab({
     } finally {
       setLoading(false);
       setStreaming(false);
+      if (requestIdRef.current === requestId) {
+        isBusyRef.current = false;
+      }
     }
   }
 
-  // 流式完成后自动朗读
   const prevStreamingRef = useRef(false);
   useEffect(() => {
     if (prevStreamingRef.current === true && streaming === false && messages.length > 0) {
@@ -447,8 +544,13 @@ export default function AiChatFab({
         const ttsText = extractTtsText(lastMsg.content);
         if (ttsText) {
           setSpeakingMsgIndex(messages.length - 1);
+          // 自动朗读时更新字幕为 TTS 实际朗读的文本，显示在屏幕中下方
+          setSubtitleText(ttsText);
+          setSubtitleVisible(true);
           speakWithConfig(ttsText, undefined, () => {
             setSpeakingMsgIndex(null);
+            setSubtitleVisible(false);
+            setSubtitleText('');
           });
         }
       }
@@ -463,62 +565,34 @@ export default function AiChatFab({
     }
   }
 
-  // 更新字幕内容
-  function updateSubtitleFromContent(content: string) {
-    const dual = extractDualLangText(content);
-    const ttsConfig = getTtsConfig();
-    const lang = ttsConfig.ttsLanguage || 'zh-CN';
-    
-    if (dual.zhText && dual.enText && dual.zhText !== dual.enText) {
-      // 双语字幕
-      setSubtitleLang('dual');
-      setSubtitleText1(dual.zhText);
-      setSubtitleText2(dual.enText);
-    } else if (lang === 'en-US' && dual.enText) {
-      setSubtitleLang('en');
-      setSubtitleText1(dual.enText);
-      setSubtitleText2('');
-    } else if (dual.zhText) {
-      setSubtitleLang('zh');
-      setSubtitleText1(dual.zhText);
-      setSubtitleText2('');
-    } else {
-      setSubtitleLang('');
-      setSubtitleText1('');
-      setSubtitleText2('');
-    }
-  }
-
   function handleSpeak(content: string, index: number) {
     if (speakingMsgIndex === index) {
       stopSpeaking();
       setSpeakingMsgIndex(null);
-      setSubtitleLang('');
-      setSubtitleText1('');
-      setSubtitleText2('');
+      setSubtitleVisible(false);
+      setSubtitleText('');
       return;
     }
     stopSpeaking();
     const ttsText = extractTtsText(content);
     if (ttsText) {
       setSpeakingMsgIndex(index);
-      updateSubtitleFromContent(content);
+      // 使用 extractTtsText（TTS 实际朗读的文本）作为字幕内容
+      setSubtitleText(ttsText);
+      setSubtitleVisible(true);
       speakWithConfig(ttsText, undefined, () => {
         setSpeakingMsgIndex(null);
-        setSubtitleLang('');
-        setSubtitleText1('');
-        setSubtitleText2('');
+        setSubtitleVisible(false);
+        setSubtitleText('');
       });
     }
   }
 
-  // 点击字幕停止
   function handleSubtitleClick() {
     stopSpeaking();
     setSpeakingMsgIndex(null);
-    setSubtitleLang('');
-    setSubtitleText1('');
-    setSubtitleText2('');
+    setSubtitleVisible(false);
+    setSubtitleText('');
   }
 
   async function handleCopy(content: string, index: number) {
@@ -546,21 +620,32 @@ export default function AiChatFab({
     }
   }
 
-  // 在流式响应完成后检查工具调用
+  // 过滤 tool_call 代码块，不让用户看见
+  function stripToolCalls(content: string): string {
+    return content.replace(/```tool_call[\s\S]*?```/g, '');
+  }
+
+  // 流式响应完成后检查工具调用（支持多个）
   const lastAssistantContent = messages.length > 0 ? messages[messages.length - 1] : null;
   useEffect(() => {
     if (!streaming && lastAssistantContent?.role === 'assistant' && lastAssistantContent.content) {
-      const toolCall = parseToolCall(lastAssistantContent.content);
-      if (toolCall) {
+      const toolCalls = parseToolCalls(lastAssistantContent.content);
+      if (toolCalls.length > 0) {
         (async () => {
+          isBusyRef.current = true;
           setStatusText('正在执行操作...');
-          const result = await executeToolCall(toolCall);
+          for (let i = 0; i < toolCalls.length; i++) {
+            const tc = toolCalls[i];
+            setStatusText(toolCalls.length > 1 ? `正在执行操作 (${i + 1}/${toolCalls.length})...` : '正在执行操作...');
+            const result = await executeToolCall(tc);
+            updateConversation(conv => ({
+              ...conv,
+              messages: [...conv.messages, { role: 'system', content: `🔧 工具执行结果：${result}` }],
+              updatedAt: new Date().toISOString(),
+            }));
+          }
           setStatusText('');
-          updateConversation(conv => ({
-            ...conv,
-            messages: [...conv.messages, { role: 'system', content: `🔧 工具执行结果：${result}` }],
-            updatedAt: new Date().toISOString(),
-          }));
+          isBusyRef.current = false;
         })();
       }
     }
@@ -568,16 +653,50 @@ export default function AiChatFab({
 
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
-    : 'fixed bottom-20 right-4 z-50 w-80 sm:w-96 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
+    : 'fixed bottom-20 right-4 z-50 w-96 sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
+
+  // ════════════════════════════════════════════════════════
+  // Streaming speed control
+  // ════════════════════════════════════════════════════════
+  const SPEED_PRESETS = { slow: 60, normal: 35, fast: 10 }; // ms per character
+  const [speedPreset, setSpeedPreset] = useState<'slow' | 'normal' | 'fast'>('normal');
+  const streamBufferRef = useRef<string[]>([]);
+  const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Called to flush buffered characters to UI at controlled speed
+  const startDisplayTimer = useCallback((onChar: (char: string) => void, onDone: () => void) => {
+    if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+    const ms = SPEED_PRESETS[speedPreset];
+    streamTimerRef.current = setInterval(() => {
+      if (streamBufferRef.current.length > 0) {
+        onChar(streamBufferRef.current.shift()!);
+      }
+    }, ms);
+    // Also check periodically if buffer is drained
+    const checkDone = setInterval(() => {
+      if (streamBufferRef.current.length === 0) {
+        if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+        streamTimerRef.current = null;
+        clearInterval(checkDone);
+        onDone();
+      }
+    }, 100);
+  }, [speedPreset]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+    };
+  }, []);
 
   return (
     <>
       {open && (
-        <div className={containerClass} style={{ height: embedded ? '100%' : '520px' }}>
+        <div className={containerClass} style={{ height: embedded ? '100%' : '620px' }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)]">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* 菜单按钮 */}
               <button
                 onClick={() => setSidebarOpen(v => !v)}
                 className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors flex-shrink-0"
@@ -599,6 +718,24 @@ export default function AiChatFab({
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Speed control */}
+              <div className="flex items-center gap-0.5 mr-1">
+                <button
+                  onClick={() => setSpeedPreset('slow')}
+                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'slow' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
+                  title="慢速"
+                >🐢</button>
+                <button
+                  onClick={() => setSpeedPreset('normal')}
+                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'normal' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
+                  title="正常"
+                >⚡</button>
+                <button
+                  onClick={() => setSpeedPreset('fast')}
+                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'fast' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
+                  title="快速"
+                >🐇</button>
+              </div>
               <button
                 onClick={createNewConversation}
                 title="新建对话"
@@ -677,7 +814,7 @@ export default function AiChatFab({
                   >
                     {msg.role === 'assistant' ? (
                       msg.content ? (
-                        <MarkdownRenderer content={msg.content} />
+                        <MarkdownRenderer content={stripToolCalls(msg.content)} />
                       ) : streaming && i === messages.length - 1 ? (
                         <span className="flex items-center gap-2">
                           <span className="inline-flex gap-1">
@@ -695,7 +832,6 @@ export default function AiChatFab({
                   </div>
                 </div>
 
-                {/* 操作按钮组 - 仅对 AI 消息显示 */}
                 {msg.role === 'assistant' && msg.content && !streaming && (
                   <div className="flex items-center gap-1 mt-1 ml-1">
                     <button
@@ -753,38 +889,6 @@ export default function AiChatFab({
             <div ref={bottomRef} />
           </div>
 
-          {/* TTS Subtitle bar — 高对比度黑底白字 */}
-          {(subtitleLang) && (
-            <div
-              onClick={handleSubtitleClick}
-              className="px-3 py-2 border-t border-[#333] bg-[#1a1a2e] cursor-pointer transition-all hover:bg-[#16213e] select-none"
-              title="点击停止朗读"
-            >
-              {subtitleLang === 'dual' ? (
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-white bg-[#2E7D32] rounded px-1.5 py-0.5 flex-shrink-0">🇨🇳 中文</span>
-                    <span className="text-xs text-white truncate">{subtitleText1}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-white bg-[#1565C0] rounded px-1.5 py-0.5 flex-shrink-0">🇬🇧 English</span>
-                    <span className="text-xs text-white truncate">{subtitleText2}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-white bg-[#555] rounded px-1.5 py-0.5 flex-shrink-0">
-                    {subtitleLang === 'zh' ? '🇨🇳 中文' : '🇬🇧 English'}
-                  </span>
-                  <span className="text-xs text-white truncate">
-                    {subtitleLang === 'zh' ? subtitleText1 : subtitleText2 || subtitleText1}
-                  </span>
-                  <span className="text-[10px] text-[#FF5252] flex-shrink-0 ml-auto font-bold">✕ 停止</span>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Input */}
           <div className="flex items-end gap-2 p-3 border-t border-[var(--card-border)]">
             <textarea
@@ -820,6 +924,13 @@ export default function AiChatFab({
           </span>
         </button>
       )}
+
+      {/* 全局 TTS 字幕 — 使用 Portal 渲染到屏幕中下方，显示 TTS 实际朗读文本 */}
+      <TtsSubtitle
+        text={subtitleText}
+        visible={subtitleVisible}
+        onClose={handleSubtitleClick}
+      />
     </>
   );
 }
