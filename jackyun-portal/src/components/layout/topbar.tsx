@@ -4,6 +4,8 @@ import { User } from '@supabase/supabase-js';
 import UserAvatar from '@/components/auth/user-avatar';
 import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/components/language-provider';
+import { t } from '@/lib/i18n';
 
 interface TopbarProps {
   user: User | null;
@@ -12,6 +14,7 @@ interface TopbarProps {
 const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') === 'true' : false;
 
 export default function Topbar({ user }: TopbarProps) {
+  const { lang } = useLanguage();
   const [showFullscreen, setShowFullscreen] = useState(showFullscreenDefault);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -50,14 +53,14 @@ export default function Topbar({ user }: TopbarProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--card)] px-6">
       <div className="text-base font-medium text-[var(--foreground)]">
-        JackYun Portal
+        {t('topbar.brand', lang)}
       </div>
       <div className="flex items-center gap-4">
         {showFullscreen && (
           <button
             onClick={toggleFullscreen}
             className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            title={isFullscreen ? '退出全屏' : '全屏模式'}
+            title={isFullscreen ? t('topbar.exit-fullscreen', lang) : t('topbar.fullscreen', lang)}
           >
             <span className="material-icons-round text-lg">
               {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
@@ -73,7 +76,7 @@ export default function Topbar({ user }: TopbarProps) {
                 className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <span className="material-icons-round text-lg">logout</span>
-                <span className="hidden sm:inline">退出</span>
+                <span className="hidden sm:inline">{t('topbar.logout', lang)}</span>
               </button>
             </form>
           </>
@@ -83,7 +86,7 @@ export default function Topbar({ user }: TopbarProps) {
             className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <span className="material-icons-round text-lg">account_circle</span>
-            <span className="hidden sm:inline">登录 / 注册</span>
+            <span className="hidden sm:inline">{t('topbar.login', lang)}</span>
           </a>
         )}
       </div>
