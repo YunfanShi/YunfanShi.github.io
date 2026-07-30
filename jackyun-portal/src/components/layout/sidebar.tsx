@@ -5,38 +5,40 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import type { SidebarPreferences } from '@/actions/settings';
 import { saveSidebarPreferences } from '@/actions/settings';
+import { useLanguage } from '@/components/language-provider';
+import { t } from '@/lib/i18n';
 
-const ALL_NAV_ITEMS = [
-  { label: 'Dashboard', icon: 'dashboard', href: '/dashboard' },
-  { label: '控制中心', icon: 'tune', href: '/timetable-hub' },
-  { label: '学习计划', icon: 'school', href: '/study' },
-  { label: 'StudyGuide', icon: 'auto_stories', href: '/study-guide' },
-  { label: '词汇宝库', icon: 'menu_book', href: '/vocab' },
+const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string; group?: 'music' | 'answerSheet'; mode?: 'player' | 'sync' | 'standard' }[] = [
+  { labelKey: 'nav.dashboard', icon: 'dashboard', href: '/dashboard' },
+  { labelKey: 'nav.control-center', icon: 'tune', href: '/timetable-hub' },
+  { labelKey: 'nav.study-plan', icon: 'school', href: '/study' },
+  { labelKey: 'nav.study-guide', icon: 'auto_stories', href: '/study-guide' },
+  { labelKey: 'nav.vocab', icon: 'menu_book', href: '/vocab' },
   // Music pair
-  { id: 'music-player', label: '音乐播放器', icon: 'music_note', href: '/music', group: 'music' as const, mode: 'player' as const },
-  { id: 'music-sync', label: '同步音乐', icon: 'sync_alt', href: '/music-sync', group: 'music' as const, mode: 'sync' as const },
-  { label: 'B站同步', icon: 'smart_display', href: '/bilibili-sync' },
-  { label: '诗词天地', icon: 'auto_stories', href: '/poem' },
-  { label: '倒计时', icon: 'timer', href: '/countdown' },
-  { label: '放松一下', icon: 'sports_esports', href: '/relax' },
-  { label: '日程中心', icon: 'calendar_month', href: '/control' },
+  { id: 'music-player', labelKey: 'nav.music-player', icon: 'music_note', href: '/music', group: 'music' as const, mode: 'player' as const },
+  { id: 'music-sync', labelKey: 'nav.music-sync', icon: 'sync_alt', href: '/music-sync', group: 'music' as const, mode: 'sync' as const },
+  { labelKey: 'nav.bilibili-sync', icon: 'smart_display', href: '/bilibili-sync' },
+  { labelKey: 'nav.poem', icon: 'auto_stories', href: '/poem' },
+  { labelKey: 'nav.countdown', icon: 'timer', href: '/countdown' },
+  { labelKey: 'nav.relax', icon: 'sports_esports', href: '/relax' },
+  { labelKey: 'nav.schedule', icon: 'calendar_month', href: '/control' },
   // Answer sheet pair
-  { id: 'answer-sheet', label: '答题卡', icon: 'content_paste', href: '/answer-sheet', group: 'answerSheet' as const, mode: 'standard' as const },
-  { id: 'answer-sheet-sync', label: '同步答题卡', icon: 'sync', href: '/answer-sheet-sync', group: 'answerSheet' as const, mode: 'sync' as const },
-  { label: '计划显示器', icon: 'flag', href: '/goal' },
-  { label: '考试倒计时', icon: 'hourglass_empty', href: '/igcountdown' },
-  { label: 'Mock 刷题', icon: 'quiz', href: '/mock-portal' },
-  { label: 'QuizWise 刷题', icon: 'psychology', href: '/quiz' },
-  { label: 'Markdown → Word', icon: 'description', href: '/md2word' },
-  { label: '工具箱', icon: 'build', href: '/tools' },
-  { label: '设置', icon: 'settings', href: '/settings' },
+  { id: 'answer-sheet', labelKey: 'nav.answer-sheet', icon: 'content_paste', href: '/answer-sheet', group: 'answerSheet' as const, mode: 'standard' as const },
+  { id: 'answer-sheet-sync', labelKey: 'nav.answer-sheet-sync', icon: 'sync', href: '/answer-sheet-sync', group: 'answerSheet' as const, mode: 'sync' as const },
+  { labelKey: 'nav.goal', icon: 'flag', href: '/goal' },
+  { labelKey: 'nav.exam-countdown', icon: 'hourglass_empty', href: '/igcountdown' },
+  { labelKey: 'nav.mock', icon: 'quiz', href: '/mock-portal' },
+  { labelKey: 'nav.quizwise', icon: 'psychology', href: '/quiz' },
+  { labelKey: 'nav.md2word', icon: 'description', href: '/md2word' },
+  { labelKey: 'nav.tools', icon: 'build', href: '/tools' },
+  { labelKey: 'nav.settings', icon: 'settings', href: '/settings' },
 ];
 
-const ADMIN_ITEM = { label: '管理员', icon: 'admin_panel_settings', href: '/admin' };
+const ADMIN_ITEM = { labelKey: 'nav.admin', icon: 'admin_panel_settings', href: '/admin' };
 
 interface NavItem {
   id?: string;
-  label: string;
+  labelKey: string;
   icon: string;
   href: string;
   group?: 'music' | 'answerSheet';
@@ -49,6 +51,7 @@ interface Props {
 
 export default function Sidebar({ initialPrefs }: Props) {
   const pathname = usePathname();
+  const { lang } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [prefs, setPrefs] = useState<SidebarPreferences>(initialPrefs);
@@ -165,7 +168,7 @@ export default function Sidebar({ initialPrefs }: Props) {
                 >
                   {item.icon}
                 </span>
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && <span>{t(item.labelKey, lang)}</span>}
               </Link>
             );
           })}
@@ -192,20 +195,21 @@ function FirstTimeDialog({
 }) {
   const [musicMode, setMusicMode] = useState<'player' | 'sync'>('player');
   const [answerSheetMode, setAnswerSheetMode] = useState<'standard' | 'sync'>('standard');
+  const { lang } = useLanguage();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="w-full max-w-md mx-4 rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl animate-scale-in">
         <h2 className="text-lg font-semibold text-[var(--foreground)] mb-1">
-          欢迎使用 JackYun Portal
+          {t('sidebar.first-time.title', lang)}
         </h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-5">
-          请选择你偏好的模块版本，之后可以在设置中随时更改。
+          {t('sidebar.first-time.desc', lang)}
         </p>
 
         {/* Music module selection */}
         <div className="mb-5">
-          <p className="text-sm font-medium text-[var(--foreground)] mb-2">🎵 音乐模块</p>
+          <p className="text-sm font-medium text-[var(--foreground)] mb-2">{t('sidebar.first-time.music', lang)}</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -216,7 +220,7 @@ function FirstTimeDialog({
                   : 'border-[var(--card-border)] text-[var(--foreground)] hover:border-[#4285F4]/30'
               }`}
             >
-              音乐播放器
+              {t('sidebar.first-time.player', lang)}
             </button>
             <button
               type="button"
@@ -227,14 +231,14 @@ function FirstTimeDialog({
                   : 'border-[var(--card-border)] text-[var(--foreground)] hover:border-[#4285F4]/30'
               }`}
             >
-              同步音乐
+              {t('sidebar.first-time.sync', lang)}
             </button>
           </div>
         </div>
 
         {/* Answer sheet module selection */}
         <div className="mb-6">
-          <p className="text-sm font-medium text-[var(--foreground)] mb-2">📝 答题卡模块</p>
+          <p className="text-sm font-medium text-[var(--foreground)] mb-2">{t('sidebar.first-time.answer', lang)}</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -245,7 +249,7 @@ function FirstTimeDialog({
                   : 'border-[var(--card-border)] text-[var(--foreground)] hover:border-[#4285F4]/30'
               }`}
             >
-              答题卡
+              {t('sidebar.first-time.standard', lang)}
             </button>
             <button
               type="button"
@@ -256,7 +260,7 @@ function FirstTimeDialog({
                   : 'border-[var(--card-border)] text-[var(--foreground)] hover:border-[#4285F4]/30'
               }`}
             >
-              同步答题卡
+              {t('sidebar.first-time.answer-sync', lang)}
             </button>
           </div>
         </div>
@@ -267,14 +271,14 @@ function FirstTimeDialog({
             onClick={onSkip}
             className="flex-1 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--muted-foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            跳过
+            {t('sidebar.first-time.skip', lang)}
           </button>
           <button
             type="button"
             onClick={() => onSave(musicMode, answerSheetMode)}
             className="flex-1 px-4 py-2 rounded-lg bg-[#4285F4] text-white text-sm font-medium hover:bg-[#3367D6] transition-colors"
           >
-            确认
+            {t('sidebar.first-time.confirm', lang)}
           </button>
         </div>
       </div>
