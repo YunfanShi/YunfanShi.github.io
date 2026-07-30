@@ -98,38 +98,35 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'play_music',
     name: '播放音乐',
-    description: '播放网易云歌单或音乐。参数：playlist_id (歌单ID，默认17652191106)',
+    description: '播放网易云歌曲。参数：song_id (歌曲ID，如 186001)，可选 song_name (歌曲名称)',
     scope: ['global', 'control'],
     handler: async (params) => {
-      const playlistId = params.playlist_id || '17652191106';
-      // 通过 localStorage 事件通知 MiniPlayer 或音乐页面
+      const songId = params.song_id || params.songId || '';
+      const songName = params.song_name || params.songName || '';
+      if (!songId) return '请提供歌曲 ID（如 song_id: "186001"）';
+      // 清除上次命令
+      localStorage.removeItem('jackyun_ai_music_command');
+      // 触发自定义事件让 MiniPlayer 弹出
+      window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
+        detail: { action: 'play', songId, songName, timestamp: Date.now() },
+      }));
+      // 写入 localStorage（供跨页面通信 + 持久化）
       localStorage.setItem(
         'jackyun_ai_music_command',
-        JSON.stringify({
-          action: 'play',
-          playlistId,
-          timestamp: Date.now(),
-        })
+        JSON.stringify({ action: 'play', songId, songName, timestamp: Date.now() })
       );
-      // 同时触发自定义事件供同页面组件监听
-      window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
-        detail: { action: 'play', playlistId },
-      }));
-      return `🎵 正在播放歌单，如果未看到播放器请先打开音乐页面`;
+      return `🎵 正在播放${songName || '歌曲'}，右下角可见播放器图标`;
     },
   },
   {
     id: 'stop_music',
     name: '停止播放',
-    description: '停止当前音乐播放',
+    description: '停止当前音乐播放。参数：无',
     scope: ['global', 'control'],
     handler: async () => {
-      localStorage.setItem(
-        'jackyun_ai_music_command',
-        JSON.stringify({ action: 'stop', timestamp: Date.now() })
-      );
+      localStorage.removeItem('jackyun_ai_music_command');
       window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
-        detail: { action: 'stop' },
+        detail: { action: 'stop', timestamp: Date.now() },
       }));
       return '已停止音乐播放';
     },
