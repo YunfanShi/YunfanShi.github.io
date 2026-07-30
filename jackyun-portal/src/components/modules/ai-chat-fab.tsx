@@ -91,11 +91,12 @@ function getSourceLabel(source: ConversationSource): string {
 function truncateConversation(conv: Conversation): Conversation {
   const msgs = conv.messages;
   if (msgs.length <= MAX_CONTEXT_ROUNDS * 2) return conv;
-  // 保留 system 消息 + 最新的 N 条
-  const systemMsgs = msgs.filter(m => m.role === 'system');
+  // 只保留最新 N 条用户+助手消息（不保留旧的 system 工具结果）
   const nonSystem = msgs.filter(m => m.role !== 'system');
   const kept = nonSystem.slice(-MAX_CONTEXT_ROUNDS * 2);
-  return { ...conv, messages: [...systemMsgs, ...kept] };
+  // 只保留最近的 2 条 system 消息（工具执行结果）
+  const systemMsgs = msgs.filter(m => m.role === 'system').slice(-2);
+  return { ...conv, messages: [...kept, ...systemMsgs] };
 }
 
 // ── Storage ─────────────────────────────────────────────────────────────────
