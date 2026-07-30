@@ -158,10 +158,14 @@ export default function AiChatFab({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSpeakDoneRef = useRef(false);
   const initializedRef = useRef(false);
+  // useRef 实时追踪当前对话消息，避免 stale closure
+  const messagesRef = useRef<Message[]>([]);
 
   // 获取当前对话的消息
   const activeConv = conversations.find(c => c.id === activeConvId);
   const messages = activeConv?.messages ?? [];
+  // 同步到 ref
+  messagesRef.current = messages;
 
   // 初始化：加载对话
   useEffect(() => {
@@ -351,13 +355,13 @@ export default function AiChatFab({
         throw new Error('请先在设置页面配置 AI API Key');
       }
 
-      // 获取当前对话的完整消息列表
-      const currentConv = conversations.find(c => c.id === convId);
-      const baseMsgs = retryMessage
-        ? (currentConv?.messages.slice(0, -1) ?? [])
-        : (currentConv?.messages ?? []);
+      // 从 messagesRef 读取最新消息（避免 stale closure）
+      const latestMsgs = messagesRef.current;
+      const filteredMsgs = retryMessage
+        ? latestMsgs.slice(0, -1)  // 重试时去掉最后一条 assistant 消息
+        : latestMsgs;
 
-      const apiMessages = [getSystemMessage(), ...baseMsgs];
+      const apiMessages = [getSystemMessage(), ...filteredMsgs];
 
       const res = await callAiApi(apiMessages, { stream: true });
 

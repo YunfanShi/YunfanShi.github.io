@@ -13,9 +13,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  */
 export default function MiniPlayer() {
   const [songId, setSongId] = useState('');
+  const [playlistId, setPlaylistId] = useState('');
   const [songName, setSongName] = useState('');
-  const [visible, setVisible] = useState(false);       // 是否正在播放
-  const [expanded, setExpanded] = useState(false);      // 是否展开显示
+  const [playerType, setPlayerType] = useState<'song' | 'playlist'>('song');
+  const [visible, setVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
@@ -52,11 +54,20 @@ export default function MiniPlayer() {
 
       if (detail.action === 'play') {
         const id = detail.songId || detail.playlistId || '';
+        const type = detail.type || 'song';
         if (id) {
-          setSongId(id);
+          if (type === 'playlist' || detail.playlistId) {
+            setPlaylistId(id);
+            setPlayerType('playlist');
+            setSongId('');
+          } else {
+            setSongId(id);
+            setPlayerType('song');
+            setPlaylistId('');
+          }
           setSongName(detail.songName || '');
           setVisible(true);
-          setExpanded(false); // 先折叠
+          setExpanded(false);
         }
       } else if (detail.action === 'stop') {
         setVisible(false);
@@ -65,7 +76,6 @@ export default function MiniPlayer() {
     };
     window.addEventListener('jackyun-ai-music', handler);
 
-    // 仅监听跨页面的 storage 事件（不主动轮询）
     const storageHandler = (e: StorageEvent) => {
       if (e.key !== 'jackyun_ai_music_command') return;
       if (!e.newValue) return;
@@ -76,8 +86,17 @@ export default function MiniPlayer() {
         lastTimestamp.current = ts;
         if (cmd.action === 'play') {
           const id = cmd.songId || cmd.playlistId || '';
+          const type = cmd.type || 'song';
           if (id) {
-            setSongId(id);
+            if (type === 'playlist' || cmd.playlistId) {
+              setPlaylistId(id);
+              setPlayerType('playlist');
+              setSongId('');
+            } else {
+              setSongId(id);
+              setPlayerType('song');
+              setPlaylistId('');
+            }
             setSongName(cmd.songName || '');
             setVisible(true);
             setExpanded(false);
@@ -139,7 +158,11 @@ export default function MiniPlayer() {
 
   if (!visible) return null;
 
-  const iframeSrc = `https://music.163.com/outchain/player?type=2&id=${songId}&auto=1&height=66`;
+  const isPlaylist = playerType === 'playlist' && playlistId;
+  const playerId = isPlaylist ? playlistId : songId;
+  const playerTypeStr = isPlaylist ? '0' : '2'; // 0=歌单, 2=单曲
+  const playerHeight = isPlaylist ? '430' : '66';
+  const iframeSrc = `https://music.163.com/outchain/player?type=${playerTypeStr}&id=${playerId}&auto=1&height=${playerHeight}`;
 
   // 折叠状态：只显示一个小圆点
   if (!expanded) {
@@ -193,12 +216,12 @@ export default function MiniPlayer() {
         </div>
       </div>
 
-      {/* 单曲播放条 (height=66 的 iframe，仅显示播放控件) */}
-      <div className="w-full" style={{ height: 66, overflow: 'hidden' }}>
+      {/* 播放器 iframe（单曲66px / 歌单430px） */}
+      <div className="w-full" style={{ height: playerHeight, overflow: 'hidden' }}>
         <iframe
           src={iframeSrc}
           width="100%"
-          height="66"
+          height={playerHeight}
           frameBorder="no"
           allow="autoplay"
           style={{ display: 'block', border: 'none' }}
