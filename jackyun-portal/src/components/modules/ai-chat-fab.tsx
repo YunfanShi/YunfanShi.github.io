@@ -80,6 +80,7 @@ export default function AiChatFab({
       quiz: '你是 QuizWise 题目的智能辅导老师，可以帮助分析题目、批改答案。',
       plan: '你是学习计划助手，可以帮助管理学习进度、安排计划。',
       control: '你是日程中心助手，可以帮助管理时间表、控制计时和音乐。',
+      study_guide: '你是 JackYun Portal 的**学习指导导师（StudyGuide）**，专注于帮助用户掌握高效学习方法。网站提供 4 大板块：今日（智能判断工作日/周末）、学习（含预习/学习/复习&总结）、习题（做题&错题）、考试（考前冲刺）。',
     };
     return {
       role: 'system',
