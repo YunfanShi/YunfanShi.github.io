@@ -173,6 +173,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { message: 'Invalid request body' } }, { status: 400 });
   }
 
+  // Check if this is a config-save request
+  if (body._save_ai_config === true) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: '请先登录' }, { status: 401 });
+    }
+    const { error } = await supabase.from('user_settings').upsert(
+      {
+        user_id: user.id,
+        key: 'ai_config',
+        value: { baseUrl: body.baseUrl, apiKey: body.apiKey, model: body.model },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,key' },
+    );
+    if (error) {
+      auditLog({ ip: clientIp, model: 'unknown', keySource: 'cloud', status: 500, durationMs: Date.now() - startTime, error: error.message });
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // Check if this is a config-only probe or admin check
   const configOnly = body._get_config_only === true;
   if (configOnly) {

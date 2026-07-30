@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getAiConfig, saveAiConfig } from '@/lib/ai-config';
+import { getAiConfig, saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
 
 interface AiConfigPanelProps {
   initialBaseUrl: string;
@@ -138,7 +138,13 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
 
     try {
       saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() });
-      setMessage('AI 配置已保存到本地浏览器');
+      // 同步到服务器（跨设备持久化）
+      const result = await syncAiConfigToServer();
+      if (result.error) {
+        setMessage('AI 配置已保存到本地浏览器（云端同步失败，登录后自动恢复）');
+      } else {
+        setMessage('AI 配置已保存（本地 + 云端）');
+      }
     } catch {
       setError('保存失败');
     }

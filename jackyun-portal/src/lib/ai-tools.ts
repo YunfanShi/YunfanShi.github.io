@@ -31,26 +31,40 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'navigate',
     name: '跳转到页面',
-    description: '跳转到一个功能页面。参数：page (control|quiz|plan|study|vocab|music|settings|goal|relax|dashboard)',
+    description: '跳转到一个功能页面。参数：page (dashboard|control|quiz|study|vocab|music|poem|settings|goal|relax|study-guide|mock-portal|tools|countdown|bilibili-sync|igcountdown|timetable-hub|update-hub|md2word|answer-sheet)，可选 section (页面内的区域名称，如 timer/schedule)',
     scope: ['global'],
     handler: async (params) => {
       const pageMap: Record<string, string> = {
-        control: '/Control.html',
-        quiz: '/quiz.html',
-        plan: '/Studyplan.html',
-        study: '/Studyplan.html',
-        vocab: '/Vocab.html',
-        music: '/MusicPlayer.html',
-        settings: '/settings',
-        goal: '/Goal.html',
-        relax: '/Relax.html',
         dashboard: '/dashboard',
+        control: '/control',
+        quiz: '/quiz',
+        study: '/study',
+        studyplan: '/study',
+        plan: '/study',
+        vocab: '/vocab',
+        music: '/music',
+        poem: '/poem',
+        settings: '/settings',
+        goal: '/goal',
+        relax: '/relax',
+        'study-guide': '/study-guide',
+        'mock-portal': '/mock-portal',
+        tools: '/tools',
+        countdown: '/countdown',
+        'bilibili-sync': '/bilibili-sync',
+        igcountdown: '/igcountdown',
+        'timetable-hub': '/timetable-hub',
+        'update-hub': '/update-hub',
+        md2word: '/md2word',
+        'answer-sheet': '/answer-sheet',
       };
       const page = params.page?.toLowerCase() || '';
+      const section = params.section || '';
       const url = pageMap[page];
       if (url) {
-        window.location.href = url;
-        return `正在跳转到 ${page} 页面...`;
+        const target = section ? `${url}#${section}` : url;
+        window.location.href = target;
+        return `正在跳转到 ${page} 页面${section ? `的 ${section} 区域` : ''}...`;
       }
       return `未知页面: ${page}`;
     },
@@ -80,11 +94,50 @@ export const AI_TOOLS: AiTool[] = [
     },
   },
 
-  // ====== 控制类工具 ======
+  // ====== 播放/控制类工具（弹窗模式，不跳转页面） ======
+  {
+    id: 'play_music',
+    name: '播放音乐',
+    description: '播放网易云歌单或音乐。参数：playlist_id (歌单ID，默认17652191106)',
+    scope: ['global', 'control'],
+    handler: async (params) => {
+      const playlistId = params.playlist_id || '17652191106';
+      // 通过 localStorage 事件通知 MiniPlayer 或音乐页面
+      localStorage.setItem(
+        'jackyun_ai_music_command',
+        JSON.stringify({
+          action: 'play',
+          playlistId,
+          timestamp: Date.now(),
+        })
+      );
+      // 同时触发自定义事件供同页面组件监听
+      window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
+        detail: { action: 'play', playlistId },
+      }));
+      return `🎵 正在播放歌单，如果未看到播放器请先打开音乐页面`;
+    },
+  },
+  {
+    id: 'stop_music',
+    name: '停止播放',
+    description: '停止当前音乐播放',
+    scope: ['global', 'control'],
+    handler: async () => {
+      localStorage.setItem(
+        'jackyun_ai_music_command',
+        JSON.stringify({ action: 'stop', timestamp: Date.now() })
+      );
+      window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
+        detail: { action: 'stop' },
+      }));
+      return '已停止音乐播放';
+    },
+  },
   {
     id: 'start_timer',
     name: '开始计时',
-    description: '在日程中心（Control）页面开始专注计时。参数：duration (分钟数，默认30)',
+    description: '开始专注计时。参数：duration (分钟数，默认30)',
     scope: ['global', 'control'],
     handler: async (params) => {
       const duration = parseInt(params.duration || '30');
@@ -92,14 +145,17 @@ export const AI_TOOLS: AiTool[] = [
         'warden_ai_command',
         JSON.stringify({ action: 'start_timer', duration })
       );
-      window.location.href = '/Control.html';
-      return `已在日程中心设置 ${duration} 分钟计时器`;
+      // 也触发自定义事件
+      window.dispatchEvent(new CustomEvent('jackyun-ai-command', {
+        detail: { action: 'start_timer', duration },
+      }));
+      return `⏱ 已设置 ${duration} 分钟计时器（请打开日程中心页面查看）`;
     },
   },
   {
     id: 'stop_timer',
     name: '停止计时',
-    description: '停止日程中心当前的计时器',
+    description: '停止当前计时器',
     scope: ['global', 'control'],
     handler: async () => {
       localStorage.setItem(
@@ -107,21 +163,6 @@ export const AI_TOOLS: AiTool[] = [
         JSON.stringify({ action: 'stop_timer' })
       );
       return '已发送停止计时指令';
-    },
-  },
-  {
-    id: 'play_music',
-    name: '播放音乐',
-    description: '播放网易云歌单或音乐。参数：playlist_id (歌单ID)',
-    scope: ['global', 'control'],
-    handler: async (params) => {
-      const playlistId = params.playlist_id || '17652191106';
-      localStorage.setItem(
-        'warden_ai_command',
-        JSON.stringify({ action: 'play_music', playlistId })
-      );
-      window.location.href = '/Control.html';
-      return `已切换到歌单`;
     },
   },
 
@@ -333,14 +374,115 @@ export const AI_TOOLS: AiTool[] = [
     description: '分析一道考试题目，识别类型、提取答案和解析。参数：question_text (题目文本)',
     scope: ['global', 'quiz'],
     handler: async (params) => {
-      // QuizWise 页面会监听这个 localStorage 指令
       const questionText = params.question_text || '';
       localStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text: questionText }));
       return '已将题目发送到 QuizWise 进行分析，请打开 QuizWise 页面查看结果';
     },
   },
 
-  // ====== 通用工具 ======
+  // ====== 实用小工具 ======
+  {
+    id: 'search_web',
+    name: '搜索网页',
+    description: '在浏览器新标签页中打开 Google 搜索。参数：query (搜索关键词)',
+    scope: ['global'],
+    handler: async (params) => {
+      const query = encodeURIComponent(params.query || '');
+      if (query) {
+        window.open(`https://www.google.com/search?q=${query}`, '_blank');
+        return `🔍 已打开 Google 搜索：${params.query}`;
+      }
+      return '请提供搜索关键词';
+    },
+  },
+  {
+    id: 'calculate',
+    name: '计算器',
+    description: '执行数学计算并返回结果。参数：expression (数学表达式，如 25*4+10)',
+    scope: ['global', 'quiz', 'plan', 'control', 'study_guide'],
+    handler: async (params) => {
+      const expr = (params.expression || '').trim();
+      if (!expr) return '请提供要计算的表达式';
+      try {
+        // 安全评估：只允许数字和基本运算符
+        const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, '');
+        if (!sanitized) return '表达式包含不支持的字符';
+        const result = Function(`"use strict"; return (${sanitized})`)();
+        if (typeof result !== 'number' || !isFinite(result)) {
+          return '计算结果无效';
+        }
+        return `🧮 ${expr} = ${result}`;
+      } catch {
+        return '无法计算该表达式，请检查格式';
+      }
+    },
+  },
+  {
+    id: 'set_reminder',
+    name: '设置提醒',
+    description: '设置一个浏览器提醒通知。参数：title (提醒标题)，delay (延迟秒数，默认60秒)',
+    scope: ['global'],
+    handler: async (params) => {
+      const title = params.title || '提醒';
+      const delay = parseInt(params.delay || '60');
+      if (delay < 10) return '延迟时间不能少于10秒';
+      setTimeout(() => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('JackYun Portal', { body: title, icon: '/Webicon.png' });
+        } else if ('Notification' in window && Notification.permission !== 'denied') {
+          Notification.requestPermission().then(perm => {
+            if (perm === 'granted') {
+              new Notification('JackYun Portal', { body: title, icon: '/Webicon.png' });
+            }
+          });
+        }
+      }, delay * 1000);
+      const minutes = Math.round(delay / 60);
+      return `⏰ 已设置提醒"${title}"，将在${minutes > 0 ? `${minutes}分钟后` : `${delay}秒后`}通知你`;
+    },
+  },
+  {
+    id: 'get_weather',
+    name: '天气查询',
+    description: '在新标签页中打开天气查询页面。参数：city (城市名，如 Shanghai)',
+    scope: ['global'],
+    handler: async (params) => {
+      const city = encodeURIComponent(params.city || '');
+      if (city) {
+        window.open(`https://www.google.com/search?q=${city}+天气`, '_blank');
+        return `🌤 已打开 ${params.city} 的天气查询`;
+      }
+      return '请提供城市名称';
+    },
+  },
+  {
+    id: 'open_app',
+    name: '打开工具',
+    description: '打开一个在线工具或应用。参数：app (工具名称: google-docs|google-sheets|canva|notion|github|gmail|calendar|youtube)',
+    scope: ['global'],
+    handler: async (params) => {
+      const appMap: Record<string, string> = {
+        'google-docs': 'https://docs.google.com',
+        'google-sheets': 'https://sheets.google.com',
+        canva: 'https://www.canva.com',
+        notion: 'https://www.notion.so',
+        github: 'https://github.com',
+        gmail: 'https://mail.google.com',
+        calendar: 'https://calendar.google.com',
+        youtube: 'https://youtube.com',
+        drive: 'https://drive.google.com',
+        classroom: 'https://classroom.google.com',
+      };
+      const app = (params.app || '').toLowerCase();
+      const url = appMap[app];
+      if (url) {
+        window.open(url, '_blank');
+        return `🚀 已打开 ${app}`;
+      }
+      const apps = Object.keys(appMap).join('、');
+      return `未知工具，可用工具：${apps}`;
+    },
+  },
   {
     id: 'current_time',
     name: '查看时间',
@@ -377,19 +519,10 @@ export function getToolsByScope(scope: ToolScope): AiTool[] {
 
 /**
  * 生成用于 system prompt 的工具描述和 TTS 指引
- * 注意：TTS 语言信息是运行时动态注入的
  */
 export function getToolsDescription(scope: ToolScope): string {
   const tools = getToolsByScope(scope);
   if (tools.length === 0) return '';
-
-  const scopeName = {
-    global: '全局助手',
-    quiz: 'QuizWise 辅导老师',
-    plan: '学习计划助手',
-    control: '日程中心助手',
-    study_guide: '学习指导导师',
-  };
 
   return (
     '【可用工具列表】\n' +
@@ -425,7 +558,6 @@ export function getToolsDescription(scope: ToolScope): string {
 export function parseToolCall(
   content: string,
 ): { tool: string; params: Record<string, string> } | null {
-  // 查找 ```tool_call 代码块
   const match = content.match(/```tool_call\n([\s\S]*?)\n```/);
   if (match) {
     try {
@@ -435,7 +567,6 @@ export function parseToolCall(
     }
   }
 
-  // 尝试查找 JSON 格式的 tool call
   const jsonMatch = content.match(/\{\s*"tool"\s*:\s*"(.*?)"\s*,\s*"params"\s*:\s*\{([\s\S]*?)\}\s*\}/);
   if (jsonMatch) {
     try {

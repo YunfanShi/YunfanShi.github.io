@@ -92,6 +92,55 @@ export async function saveSidebarPreferences(prefs: SidebarPreferences): Promise
   }
 }
 
+// ── TTS Config ──────────────────────────────────────────────────────────────
+
+export async function saveTtsConfig(
+  engine: string,
+  voiceURI: string,
+  rate: number,
+  pitch: number,
+  autoSpeakAi: boolean,
+  ttsLanguage: string,
+): Promise<{ error: string | null }> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { error } = await supabase.from('user_settings').upsert(
+    {
+      user_id: user.id,
+      key: 'tts_config',
+      value: { engine, voiceURI, rate, pitch, autoSpeakAi, ttsLanguage },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,key' },
+  );
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+export async function getTtsConfig(): Promise<{
+  engine: string; voiceURI: string; rate: number; pitch: number;
+  autoSpeakAi: boolean; ttsLanguage: string;
+}> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data } = await supabase
+    .from('user_settings')
+    .select('value')
+    .eq('user_id', user.id)
+    .eq('key', 'tts_config')
+    .maybeSingle();
+  const val = data?.value as {
+    engine?: string; voiceURI?: string; rate?: number; pitch?: number;
+    autoSpeakAi?: boolean; ttsLanguage?: string;
+  } | null;
+  return {
+    engine: val?.engine ?? 'system',
+    voiceURI: val?.voiceURI ?? '',
+    rate: val?.rate ?? 1.0,
+    pitch: val?.pitch ?? 1.0,
+    autoSpeakAi: val?.autoSpeakAi ?? false,
+    ttsLanguage: val?.ttsLanguage ?? 'zh-CN',
+  };
+}
+
 export async function updateProfile(
   displayName: string,
   avatarUrl: string,

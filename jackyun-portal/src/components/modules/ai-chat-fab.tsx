@@ -1,36 +1,147 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
 import { getToolsDescription, parseToolCall, executeToolCall, ToolScope } from '@/lib/ai-tools';
-import { speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, extractTtsText } from '@/lib/tts-config';
+import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
+
+// ── Conversation types ──────────────────────────────────────────────────────
+
+type ConversationSource = 'dashboard' | 'control' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'other';
+
+interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  source: ConversationSource;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
+// ── Constants ───────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'jackyun-ai-conversations';
+const ACTIVE_ID_KEY = 'jackyun-ai-active-conversation';
+const MAX_CONTEXT_ROUNDS = 30; // 保留最近 30 轮（60 条消息）
+const MAX_CONVERSATIONS = 50; // 最多保留 50 个对话
+
 interface AiChatFabProps {
-  /** 权限范围：global | quiz | plan | control，默认 global */
   scope?: ToolScope;
-  /** 自定义 system prompt 后缀 */
   systemPromptSuffix?: string;
-  /** 是否在页面内嵌入（不显示浮动按钮，直接在页面内渲染） */
   embedded?: boolean;
-  /** 页面内模式的标题 */
   embeddedTitle?: string;
+  /** 当前页面路径（用于 source 标记） */
+  currentPath?: string;
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function getSourceFromPath(path: string): ConversationSource {
+  if (!path || path === '/' || path === '/dashboard') return 'dashboard';
+  const p = path.replace(/^\//, '').split('/')[0];
+  const map: Record<string, ConversationSource> = {
+    control: 'control',
+    'study-guide': 'study-guide',
+    study: 'study',
+    quiz: 'quiz',
+    vocab: 'vocab',
+    music: 'music',
+    poem: 'poem',
+    settings: 'settings',
+    goal: 'goal',
+    relax: 'relax',
+    countdown: 'countdown',
+    tools: 'tools',
+  };
+  return map[p] || 'other';
+}
+
+function getSourceLabel(source: ConversationSource): string {
+  const labels: Record<ConversationSource, string> = {
+    dashboard: '🏠 主页',
+    control: '📋 日程中心',
+    'study-guide': '📖 学习指导',
+    study: '📚 学习计划',
+    quiz: '🧠 QuizWise',
+    vocab: '📝 词汇',
+    music: '🎵 音乐',
+    poem: '📜 诗词',
+    settings: '⚙️ 设置',
+    goal: '🎯 目标',
+    relax: '🎮 放松',
+    countdown: '⏱ 倒计时',
+    tools: '🔧 工具',
+    other: '💬 通用',
+  };
+  return labels[source] || '💬 通用';
+}
+
+function truncateConversation(conv: Conversation): Conversation {
+  const msgs = conv.messages;
+  if (msgs.length <= MAX_CONTEXT_ROUNDS * 2) return conv;
+  // 保留 system 消息 + 最新的 N 条
+  const systemMsgs = msgs.filter(m => m.role === 'system');
+  const nonSystem = msgs.filter(m => m.role !== 'system');
+  const kept = nonSystem.slice(-MAX_CONTEXT_ROUNDS * 2);
+  return { ...conv, messages: [...systemMsgs, ...kept] };
+}
+
+// ── Storage ─────────────────────────────────────────────────────────────────
+
+function loadConversations(): Conversation[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as Conversation[];
+  } catch { return []; }
+}
+
+function saveConversations(convs: Conversation[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
+  } catch { /* localStorage full */ }
+}
+
+function loadActiveId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(ACTIVE_ID_KEY);
+}
+
+function saveActiveId(id: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ACTIVE_ID_KEY, id);
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function AiChatFab({
   scope = 'global',
   systemPromptSuffix = '',
   embedded = false,
   embeddedTitle = 'AI 助手',
+  currentPath: propPath,
 }: AiChatFabProps) {
+  // 使用 usePathname() 来自动获取当前页面路径
+  const pathname = usePathname();
+  const currentPath = propPath || pathname || '';
   const [open, setOpen] = useState(embedded);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // 对话列表侧栏
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConvId, setActiveConvIdState] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
@@ -41,70 +152,183 @@ export default function AiChatFab({
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSpeakDoneRef = useRef(false);
+  const initializedRef = useRef(false);
 
+  // 获取当前对话的消息
+  const activeConv = conversations.find(c => c.id === activeConvId);
+  const messages = activeConv?.messages ?? [];
+
+  // 初始化：加载对话
   useEffect(() => {
-    if (open) {
-      setTimeout(() => textareaRef.current?.focus(), 100);
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const loaded = loadConversations();
+    setConversations(loaded);
+    const activeId = loadActiveId();
+    // 如果有 activeId 且能找到对应对话
+    if (activeId && loaded.some(c => c.id === activeId)) {
+      setActiveConvIdState(activeId);
+    } else if (loaded.length > 0) {
+      setActiveConvIdState(loaded[0].id);
+    } else {
+      createNewConversation();
     }
-  }, [open]);
+  }, []);
 
+  // 自动滚动
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, streaming]);
 
-  // Auto-resize textarea
+  // 自动 resize textarea
   const autoResize = () => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   };
+  useEffect(() => { autoResize(); }, [input]);
 
+  // 焦点
   useEffect(() => {
-    autoResize();
-  }, [input]);
+    if (open) setTimeout(() => textareaRef.current?.focus(), 100);
+  }, [open]);
 
-  // 添加 scope 相关的 system 消息
+  // 创建新对话
+  const createNewConversation = useCallback(() => {
+    const source = getSourceFromPath(currentPath);
+    const newConv: Conversation = {
+      id: generateId(),
+      title: '新对话',
+      messages: [],
+      source,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setConversations(prev => {
+      const updated = [newConv, ...prev].slice(0, MAX_CONVERSATIONS);
+      saveConversations(updated);
+      return updated;
+    });
+    setActiveConvIdState(newConv.id);
+    setSidebarOpen(false);
+    return newConv;
+  }, [currentPath]);
+
+  // 切换对话
+  const switchConversation = (id: string) => {
+    setActiveConvIdState(id);
+    saveActiveId(id);
+    setSidebarOpen(false);
+    setError(null);
+  };
+
+  // 删除对话
+  const deleteConversation = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConversations(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      saveConversations(updated);
+      return updated;
+    });
+    if (activeConvId === id) {
+      // 切换到另一个对话
+      const remaining = conversations.filter(c => c.id !== id);
+      if (remaining.length > 0) {
+        setActiveConvIdState(remaining[0].id);
+        saveActiveId(remaining[0].id);
+      } else {
+        createNewConversation();
+      }
+    }
+  };
+
+  // 更新对话（追加消息后保存）
+  const updateConversation = (updater: (prev: Conversation) => Conversation) => {
+    setConversations(prev => {
+      const updated = prev.map(c => {
+        if (c.id !== activeConvId) return c;
+        const newConv = updater(c);
+        return truncateConversation(newConv);
+      });
+      saveConversations(updated);
+      return updated;
+    });
+  };
+
+  // 获取 system prompt，包含页面上下文
   function getSystemMessage(): Message {
     const toolsDesc = getToolsDescription(scope);
-    const scopeName = {
-      global: `你是 JackYun Portal 的**全局智能管家**，掌管整个平台的所有功能。
-你有权调用所有工具，包括：
-• 📋 导航跳转 — 带用户去任何功能页面
-• ⏱ 日程管理 — 查看当天日程、查看当前任务、标记完成/跳过任务、提前结束任务
-• 🎵 音乐控制 — 播放歌单、切换音乐
-• 📖 学习进度 — 查看学科进度、考试倒计时
-• ✅ 任务管理 — 标记任务完成状态
+    const source = getSourceFromPath(currentPath);
+    const pageContext = getPageContext(source);
 
-请主动告知用户你可以做这些事情，让用户知道你的能力范围。当用户在日程中心页面时，你可以直接读取和修改他们的日程安排。`,
+    const scopeName = {
+      global: `你是 JackYun Portal 的**全局智能管家**，掌管整个平台的所有功能。`,
       quiz: '你是 QuizWise 题目的智能辅导老师，可以帮助分析题目、批改答案。',
       plan: '你是学习计划助手，可以帮助管理学习进度、安排计划。',
       control: '你是日程中心助手，可以帮助管理时间表、控制计时和音乐。',
-      study_guide: '你是 JackYun Portal 的**学习指导导师（StudyGuide）**，专注于帮助用户掌握高效学习方法。网站提供 4 大板块：今日（智能判断工作日/周末）、学习（含预习/学习/复习&总结）、习题（做题&错题）、考试（考前冲刺）。',
+      study_guide: '你是 JackYun Portal 的**学习指导导师（StudyGuide）**，专注于帮助用户掌握高效学习方法。',
     };
-    return {
-      role: 'system',
-      content: `${scopeName[scope] || scopeName.global}\n${toolsDesc}\n${systemPromptSuffix}`.trim(),
-    };
+
+    let content = `${scopeName[scope] || scopeName.global}\n\n`;
+    content += `【当前页面】\n${pageContext}\n\n`;
+    content += `${toolsDesc}\n${systemPromptSuffix}`.trim();
+    return { role: 'system', content };
   }
 
+  function getPageContext(source: ConversationSource): string {
+    const contexts: Record<ConversationSource, string> = {
+      dashboard: '你当前在「主页仪表盘 (Dashboard)」\n- 你可以看到学习统计概览（词汇数、任务完成率）\n- 这里有所有功能模块的入口卡片\n- 用户可以通过你说「打开xxx」来跳转到任何功能页面',
+      control: '你当前在「日程中心 (Control/Timetable)」\n- 用户可以查看/管理日程安排\n- 可以查看当前任务、标记完成、跳过任务\n- 支持专注计时和音乐播放控制',
+      'study-guide': '你当前在「学习指导 (StudyGuide)」\n- 提供「今日」「学习」「习题」「考试」四大板块\n- 帮助用户掌握高效学习方法',
+      study: '你当前在「学习计划 (StudyPlan)」\n- 用户可以查看和管理学习进度\n- 支持学科进度追踪和考试倒计时',
+      quiz: '你当前在「QuizWise 刷题」\n- 用户可以刷题、分析题目、批改答案',
+      vocab: '你当前在「词汇宝库」\n- 用户可以管理英语词汇、复习单词',
+      music: '你当前在「音乐播放器」\n- 用户可以浏览歌单、播放音乐',
+      poem: '你当前在「诗词天地」\n- 用户可以浏览和背诵经典诗词',
+      settings: '你当前在「设置页面」\n- 用户可以配置 AI、TTS、语言、账户等',
+      goal: '你当前在「目标管理 (Goal)」\n- 用户可以查看和管理目标进度',
+      relax: '你当前在「放松一下」\n- 提供游戏和娱乐功能',
+      countdown: '你当前在「倒计时」\n- 用户可以查看重要日期倒计时',
+      tools: '你当前在「工具箱」\n- 提供各种实用小工具',
+      other: '你当前在 JackYun Portal 中',
+    };
+    return contexts[source] || contexts.other;
+  }
+
+  // 发送消息
   async function handleSend(retryMessage?: string) {
     const text = retryMessage || input.trim();
     if (!text || loading) return;
 
-    // 如果是重试，移除最后一条 user + assistant 消息
-    let baseMessages = messages;
-    if (retryMessage) {
-      // 找到最后一条 user 消息并替换
-      const lastUserIndex = [...baseMessages].reverse().findIndex(m => m.role === 'user');
-      if (lastUserIndex >= 0) {
-        const realIndex = baseMessages.length - 1 - lastUserIndex;
-        baseMessages = baseMessages.slice(0, realIndex);
-      }
+    // 确保有活跃对话
+    let convId = activeConvId;
+    if (!convId) {
+      const newConv = createNewConversation();
+      convId = newConv.id;
     }
 
-    const newMessages: Message[] = [...baseMessages, { role: 'user', content: text }];
-    setMessages(newMessages);
+    // 如果当前对话有内容且是新对话，自动设置标题
+    setConversations(prev => {
+      const updated = prev.map(c => {
+        if (c.id !== convId) return c;
+        // 如果标题还是"新对话"，用第一条消息前 20 字做标题
+        if (c.title === '新对话' && c.messages.length === 0) {
+          return { ...c, title: text.slice(0, 20) + (text.length > 20 ? '...' : '') };
+        }
+        return c;
+      });
+      saveConversations(updated);
+      return updated;
+    });
+
+    // 添加用户消息
+    updateConversation(conv => ({
+      ...conv,
+      messages: [...conv.messages, { role: 'user', content: text }],
+      updatedAt: new Date().toISOString(),
+    }));
+
     setInput('');
     setLoading(true);
     setStreaming(true);
@@ -122,8 +346,13 @@ export default function AiChatFab({
         throw new Error('请先在设置页面配置 AI API Key');
       }
 
-      // 构建带 system prompt 的消息列表
-      const apiMessages = [getSystemMessage(), ...newMessages];
+      // 获取当前对话的完整消息列表
+      const currentConv = conversations.find(c => c.id === convId);
+      const baseMsgs = retryMessage
+        ? (currentConv?.messages.slice(0, -1) ?? [])
+        : (currentConv?.messages ?? []);
+
+      const apiMessages = [getSystemMessage(), ...baseMsgs];
 
       const res = await callAiApi(apiMessages, { stream: true });
 
@@ -164,13 +393,17 @@ export default function AiChatFab({
               assistantContent += delta;
               if (!messageAdded) {
                 messageAdded = true;
-                setMessages((prev) => [...prev, { role: 'assistant', content: assistantContent }]);
+                updateConversation(conv => ({
+                  ...conv,
+                  messages: [...conv.messages, { role: 'assistant', content: assistantContent }],
+                  updatedAt: new Date().toISOString(),
+                }));
                 setStatusText('AI 正在回复...');
               } else {
-                setMessages((prev) => {
-                  const updated = [...prev];
+                updateConversation(conv => {
+                  const updated = [...conv.messages];
                   updated[updated.length - 1] = { role: 'assistant', content: assistantContent };
-                  return updated;
+                  return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
                 });
               }
             } catch {
@@ -180,7 +413,11 @@ export default function AiChatFab({
         }
       }
       if (!messageAdded && assistantContent === '') {
-        setMessages((prev) => [...prev, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }]);
+        updateConversation(conv => ({
+          ...conv,
+          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
+          updatedAt: new Date().toISOString(),
+        }));
       }
       setStatusText('');
     } catch (err) {
@@ -192,10 +429,9 @@ export default function AiChatFab({
     }
   }
 
-  // 流式完成后自动朗读 - 仅当 streaming 从 true → false 时触发一次
+  // 流式完成后自动朗读
   const prevStreamingRef = useRef(false);
   useEffect(() => {
-    // 只在 streaming 从 true 变为 false 时触发（流式回复刚结束）
     if (prevStreamingRef.current === true && streaming === false && messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg?.role === 'assistant' && lastMsg.content && isAutoSpeakAiEnabled()) {
@@ -209,9 +445,8 @@ export default function AiChatFab({
       }
     }
     prevStreamingRef.current = streaming;
-  }, [streaming]);
+  }, [streaming, messages]);
 
-  // 统一 ENTER = 发送，Shift+Enter = 换行
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -219,7 +454,6 @@ export default function AiChatFab({
     }
   }
 
-  // 朗读消息
   function handleSpeak(content: string, index: number) {
     if (speakingMsgIndex === index) {
       stopSpeaking();
@@ -236,14 +470,12 @@ export default function AiChatFab({
     }
   }
 
-  // 复制消息
   async function handleCopy(content: string, index: number) {
     try {
       await navigator.clipboard.writeText(content);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch {
-      // fallback
       const textarea = document.createElement('textarea');
       textarea.value = content;
       document.body.appendChild(textarea);
@@ -255,10 +487,9 @@ export default function AiChatFab({
     }
   }
 
-  // 重试（重新生成最后一条 AI 回复）
   function handleRetry() {
-    if (loading) return;
-    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    if (loading || !activeConv) return;
+    const lastUserMsg = [...activeConv.messages].reverse().find(m => m.role === 'user');
     if (lastUserMsg) {
       handleSend(lastUserMsg.content);
     }
@@ -274,33 +505,56 @@ export default function AiChatFab({
           setStatusText('正在执行操作...');
           const result = await executeToolCall(toolCall);
           setStatusText('');
-          // 将工具调用结果添加到对话中
-          setMessages((prev) => [...prev, { role: 'system', content: `🔧 工具执行结果：${result}` }]);
+          updateConversation(conv => ({
+            ...conv,
+            messages: [...conv.messages, { role: 'system', content: `🔧 工具执行结果：${result}` }],
+            updatedAt: new Date().toISOString(),
+          }));
         })();
       }
     }
   }, [streaming, lastAssistantContent]);
 
-  // 嵌入式样式：不固定定位
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
     : 'fixed bottom-20 right-4 z-50 w-80 sm:w-96 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
 
   return (
     <>
-      {/* Chat window */}
       {open && (
-        <div className={containerClass} style={{ height: embedded ? '100%' : '480px' }}>
+        <div className={containerClass} style={{ height: embedded ? '100%' : '520px' }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)]">
-            <div className="flex items-center gap-2">
-              <span className="material-icons-round text-[#4285F4] text-lg">smart_toy</span>
-              <span className="text-sm font-semibold text-[var(--foreground)]">{embeddedTitle}</span>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {/* 菜单按钮 */}
+              <button
+                onClick={() => setSidebarOpen(v => !v)}
+                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors flex-shrink-0"
+                title="对话列表"
+              >
+                <span className="material-icons-round text-base">menu</span>
+              </button>
+              <span className="material-icons-round text-[#4285F4] text-lg flex-shrink-0">smart_toy</span>
+              <span className="text-sm font-semibold text-[var(--foreground)] truncate">
+                {activeConv?.title || embeddedTitle}
+              </span>
+              {activeConv && (
+                <span className="text-[10px] text-[var(--muted-foreground)] bg-[var(--background)] rounded px-1.5 py-0.5 flex-shrink-0">
+                  {getSourceLabel(activeConv.source)}
+                </span>
+              )}
               {statusText && (
-                <span className="text-xs text-[var(--muted-foreground)] animate-pulse">{statusText}</span>
+                <span className="text-xs text-[var(--muted-foreground)] animate-pulse truncate">{statusText}</span>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={createNewConversation}
+                title="新建对话"
+                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              >
+                <span className="material-icons-round text-base">add</span>
+              </button>
               {!embedded && (
                 <button
                   onClick={() => setOpen(false)}
@@ -309,15 +563,44 @@ export default function AiChatFab({
                   <span className="material-icons-round text-base">close</span>
                 </button>
               )}
-              <button
-                onClick={() => setMessages([])}
-                title="清空对话"
-                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-              >
-                <span className="material-icons-round text-base">delete_sweep</span>
-              </button>
             </div>
           </div>
+
+          {/* Conversation list sidebar */}
+          {sidebarOpen && (
+            <div className="border-b border-[var(--card-border)] max-h-48 overflow-y-auto bg-[var(--background)]">
+              {conversations.length === 0 ? (
+                <p className="text-center text-xs text-[var(--muted-foreground)] py-4">暂无对话记录</p>
+              ) : (
+                conversations.map(conv => (
+                  <div
+                    key={conv.id}
+                    onClick={() => switchConversation(conv.id)}
+                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer text-sm transition-colors ${
+                      conv.id === activeConvId
+                        ? 'bg-[#4285F4]/10 text-[#4285F4]'
+                        : 'text-[var(--foreground)] hover:bg-[var(--card)]'
+                    }`}
+                  >
+                    <span className="material-icons-round text-sm flex-shrink-0">chat</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-xs">{conv.title}</p>
+                      <p className="text-[10px] text-[var(--muted-foreground)]">
+                        {getSourceLabel(conv.source)} · {new Date(conv.updatedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => deleteConversation(conv.id, e)}
+                      className="p-1 rounded hover:bg-[#EA4335]/10 text-[var(--muted-foreground)] hover:text-[#EA4335] transition-colors flex-shrink-0"
+                      title="删除"
+                    >
+                      <span className="material-icons-round text-sm">delete</span>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -344,7 +627,7 @@ export default function AiChatFab({
                     {msg.role === 'assistant' ? (
                       msg.content ? (
                         <MarkdownRenderer content={msg.content} />
-                      ) : streaming ? (
+                      ) : streaming && i === messages.length - 1 ? (
                         <span className="flex items-center gap-2">
                           <span className="inline-flex gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -364,7 +647,6 @@ export default function AiChatFab({
                 {/* 操作按钮组 - 仅对 AI 消息显示 */}
                 {msg.role === 'assistant' && msg.content && !streaming && (
                   <div className="flex items-center gap-1 mt-1 ml-1">
-                    {/* 朗读按钮 */}
                     <button
                       onClick={() => handleSpeak(msg.content, i)}
                       title={speakingMsgIndex === i ? '停止朗读' : '朗读'}
@@ -374,12 +656,8 @@ export default function AiChatFab({
                           : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
                       }`}
                     >
-                      <span className="material-icons-round text-sm">
-                        {speakingMsgIndex === i ? 'volume_up' : 'volume_up'}
-                      </span>
+                      <span className="material-icons-round text-sm">volume_up</span>
                     </button>
-
-                    {/* 复制按钮 */}
                     <button
                       onClick={() => handleCopy(msg.content, i)}
                       title="复制"
@@ -393,8 +671,6 @@ export default function AiChatFab({
                         {copiedIndex === i ? 'check' : 'content_copy'}
                       </span>
                     </button>
-
-                    {/* 重试按钮 - 仅对最后一条 AI 消息显示 */}
                     {i === messages.length - 1 && messages.filter(m => m.role === 'user').length > 0 && (
                       <button
                         onClick={handleRetry}
@@ -409,7 +685,6 @@ export default function AiChatFab({
                 )}
               </div>
             ))}
-            {/* Loading indicator - shows dots when waiting for first response */}
             {loading && !streaming && messages[messages.length - 1]?.role !== 'assistant' && (
               <div className="flex justify-start">
                 <div className="bg-[var(--background)] border border-[var(--card-border)] rounded-2xl rounded-bl-sm px-4 py-2">
@@ -450,7 +725,7 @@ export default function AiChatFab({
         </div>
       )}
 
-      {/* FAB - 仅当非嵌入式时显示 */}
+      {/* FAB */}
       {!embedded && (
         <button
           onClick={() => setOpen((v) => !v)}
