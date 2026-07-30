@@ -62,7 +62,7 @@ export function clearTtsConfig(): void {
 }
 
 /**
- * 获取可用的语音列表，按引擎分组
+ * 获取可用的语音列表，按引擎分组（带二次重试确保 voices 加载完成）
  */
 export function getVoicesByEngine(): {
   edge: SpeechSynthesisVoice[];
@@ -73,6 +73,10 @@ export function getVoicesByEngine(): {
     return { edge: [], chrome: [], other: [] };
   }
   const voices = window.speechSynthesis.getVoices();
+  return categorizeVoices(voices);
+}
+
+function categorizeVoices(voices: SpeechSynthesisVoice[]) {
   const edge: SpeechSynthesisVoice[] = [];
   const chrome: SpeechSynthesisVoice[] = [];
   const other: SpeechSynthesisVoice[] = [];
@@ -90,14 +94,70 @@ export function getVoicesByEngine(): {
   return { edge, chrome, other };
 }
 
+/** 等待 voices 加载完成（最多等待 2 秒） */
+export function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+    const onChanged = () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.onvoiceschanged = onChanged;
+    // Timeout after 2s
+    setTimeout(() => {
+      window.speechSynthesis.onvoiceschanged = null;
+      resolve(window.speechSynthesis.getVoices());
+    }, 2000);
+  });
+}
+
 /**
- * 从 AI 回复中提取适合 TTS 朗读的文本
+ * 清理 Markdown 语法，提取纯文本
+ */
+function stripMarkdown(text: string): string {
+  return text
+    // 去掉 tool_call 代码块
+    .replace(/```tool_call[\s\S]*?```/g, '')
+    // 去掉代码块
+    .replace(/```[\s\S]*?```/g, '')
+    // 去掉 [TTS_LANG] 标签本身（防止被读出来）
+    .replace(/\[TTS_LANG:[^\]]*\][\s\S]*?\[\/TTS_LANG\]/g, '')
+    .replace(/\[TTS\][\s\S]*?\[\/TTS\]/g, '')
+    // 去掉 Markdown 链接 [text](url)
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    // 去掉加粗/斜体
+    .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+    // 去掉行内代码
+    .replace(/`([^`]+)`/g, '$1')
+    // 去掉标题标记
+    .replace(/^#+\s*/gm, '')
+    // 去掉列表标记
+    .replace(/^[\s]*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    // 去掉引用
+    .replace(/^>\s*/gm, '')
+    // 去掉分割线
+    .replace(/^---+/gm, '')
+    // 去掉表格行
+    .replace(/^[\s]*\|.*\|[\s]*$/gm, '')
+    // 去掉 HTML 标签
+    .replace(/<[^>]+>/g, '')
+    // 压缩多余空行
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * 从 AI 回复中提取适合 TTS 朗读的文本（纯文本，无 Markdown）
  *
  * 规则：
- * 1. 优先提取 [TTS]...[/TTS] 标记内的文本（通用）
- * 2. 如果有指定语言的 [TTS_LANG:zh-CN]...[/TTS_LANG] 标签，匹配当前 TTS 语言
- * 3. 如果没有标记，去除所有代码块（```...```）和表格（以 | 开头的行）
- * 4. 返回纯文本
+ * 1. 优先提取 [TTS_LANG:语言代码]...[/TTS_LANG] 标记内的文本
+ * 2. 然后尝试提取 [TTS]...[/TTS] 通用标记
+ * 3. 最后退回到全部去除 Markdown
  */
 export function extractTtsText(content: string): string {
   if (!content) return '';
@@ -108,34 +168,96 @@ export function extractTtsText(content: string): string {
   // 1. 尝试提取匹配当前 TTS 语言的 [TTS_LANG] 标签
   const langMatch = content.match(new RegExp(`\\[TTS_LANG:${lang}\\]([\\s\\S]*?)\\[\\/TTS_LANG\\]`));
   if (langMatch) {
-    return langMatch[1].trim();
+    return stripMarkdown(langMatch[1]).trim();
   }
 
   // 2. 尝试提取通用的 [TTS] 标签
   const ttsMatch = content.match(/\[TTS\]([\s\S]*?)\[\/TTS\]/);
   if (ttsMatch) {
-    return ttsMatch[1].trim();
+    return stripMarkdown(ttsMatch[1]).trim();
   }
 
-  // 3. 去除代码块
-  let text = content.replace(/```[\s\S]*?```/g, '');
+  // 3. 退回到全部内容去除 Markdown
+  return stripMarkdown(content) || content;
+}
 
-  // 4. 去除表格行（以 | 开头或包含 |---| 的行）
-  text = text.split('\n').filter(line => {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('|') && trimmed.endsWith('|')) return false;
-    if (/^[\s\|:-]+$/.test(trimmed)) return false;
-    return true;
-  }).join('\n');
+/**
+ * 双语字幕文本提取：返回两个语言版本的文本
+ * 如果 AI 回复中有 [TTS_LANG:zh-CN] 和 [TTS_LANG:en-US] 标签，则提取双语
+ * 否则返回相同文本或仅当前语言文本
+ */
+export function extractDualLangText(content: string): {
+  zhText: string;
+  enText: string;
+} {
+  if (!content) return { zhText: '', enText: '' };
 
-  // 5. 压缩多余空行
-  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  const zhMatch = content.match(/\[TTS_LANG:zh-CN\]([\s\S]*?)\[\/TTS_LANG\]/);
+  const enMatch = content.match(/\[TTS_LANG:en-US\]([\s\S]*?)\[\/TTS_LANG\]/);
 
-  return text || content;
+  const zhText = zhMatch ? stripMarkdown(zhMatch[1]).trim() : '';
+  const enText = enMatch ? stripMarkdown(enMatch[1]).trim() : '';
+
+  // 如果没有双语标签，尝试 [TTS] 标签
+  if (!zhText && !enText) {
+    const ttsMatch = content.match(/\[TTS\]([\s\S]*?)\[\/TTS\]/);
+    const fullText = ttsMatch ? stripMarkdown(ttsMatch[1]).trim() : stripMarkdown(content).trim();
+    return { zhText: fullText, enText: fullText };
+  }
+
+  // 如果只有一种语言，另一种也用纯文本
+  if (!zhText) {
+    const plain = stripMarkdown(content).trim();
+    return { zhText: plain, enText: enText || plain };
+  }
+  if (!enText) {
+    const plain = stripMarkdown(content).trim();
+    return { zhText: zhText || plain, enText: plain };
+  }
+
+  return { zhText, enText };
+}
+
+/**
+ * 查找匹配配置的最佳语音（带重试机制）
+ */
+function findBestVoice(config: TtsConfig, voices?: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const list = voices || window.speechSynthesis.getVoices();
+  if (list.length === 0) return null;
+
+  // 如果有 voiceURI 精确匹配
+  if (config.voiceURI) {
+    const exact = list.find((v) => v.voiceURI === config.voiceURI);
+    if (exact) return exact;
+  }
+
+  // 按引擎 + 语言匹配
+  const enginePrefix = config.engine === 'edge' ? 'Microsoft' :
+                       config.engine === 'chrome' ? 'Google' : '';
+  const targetLang = config.ttsLanguage || 'zh-CN';
+
+  if (enginePrefix) {
+    // 精确匹配引擎 + 语言
+    let matched = list.find(
+      (v) => v.name.includes(enginePrefix) && v.lang.startsWith(targetLang)
+    );
+    if (matched) return matched;
+
+    // 回退：匹配引擎 + 任意语言
+    matched = list.find((v) => v.name.includes(enginePrefix));
+    if (matched) return matched;
+  }
+
+  // 最后回退：匹配语言
+  const anyLang = list.find((v) => v.lang.startsWith(targetLang));
+  if (anyLang) return anyLang;
+
+  return list[0] || null;
 }
 
 /**
  * 使用当前配置朗读文本
+ * 自动重试确保 voices 加载完成
  */
 export function speakWithConfig(
   text: string,
@@ -150,35 +272,48 @@ export function speakWithConfig(
   const config = getTtsConfig();
   const utterance = new SpeechSynthesisUtterance(text);
 
-  // 使用配置的 TTS 语言，而非自动检测
-  utterance.lang = config.ttsLanguage || 'zh-CN';
-
   // 设置语速和音调
   utterance.rate = config.rate;
   utterance.pitch = config.pitch;
 
-  // 按引擎筛选语音
-  if (config.voiceURI) {
-    utterance.voice = window.speechSynthesis
-      .getVoices()
-      .find((v) => v.voiceURI === config.voiceURI) ?? null;
-  } else {
-    const voices = window.speechSynthesis.getVoices();
-    const enginePrefix = config.engine === 'edge' ? 'Microsoft' : config.engine === 'chrome' ? 'Google' : '';
-    if (enginePrefix) {
-      const matched = voices.find(
-        (v) =>
-          v.name.includes(enginePrefix) &&
-          v.lang.startsWith(utterance.lang), // 精确匹配配置语言
-      );
-      if (matched) utterance.voice = matched;
-    }
+  // 设置语言（供没有 voice 匹配时回退）
+  utterance.lang = config.ttsLanguage || 'zh-CN';
+
+  // 立即尝试匹配语音
+  const immediateVoice = findBestVoice(config);
+  if (immediateVoice) {
+    utterance.voice = immediateVoice;
+    utterance.lang = immediateVoice.lang; // 跟随 voice 的语言
   }
 
   if (onStart) utterance.onstart = onStart;
   if (onEnd) utterance.onend = onEnd;
 
+  // 错误处理：如果 voice 没加载到，朗读会失败，静默继续
+  utterance.onerror = () => {
+    // ignore
+  };
+
   window.speechSynthesis.speak(utterance);
+
+  // 如果 voices 还没加载完成（首次调用），异步重试
+  if (!immediateVoice) {
+    waitForVoices().then((voices) => {
+      const retryVoice = findBestVoice(config, voices);
+      if (retryVoice) {
+        // 再次朗读
+        window.speechSynthesis.cancel();
+        const retryUtterance = new SpeechSynthesisUtterance(text);
+        retryUtterance.voice = retryVoice;
+        retryUtterance.lang = retryVoice.lang;
+        retryUtterance.rate = config.rate;
+        retryUtterance.pitch = config.pitch;
+        if (onStart) retryUtterance.onstart = onStart;
+        if (onEnd) retryUtterance.onend = onEnd;
+        window.speechSynthesis.speak(retryUtterance);
+      }
+    });
+  }
 }
 
 /**

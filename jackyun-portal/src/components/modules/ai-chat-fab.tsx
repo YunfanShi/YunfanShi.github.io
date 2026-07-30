@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
 import { getToolsDescription, parseToolCall, executeToolCall, ToolScope } from '@/lib/ai-tools';
-import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText } from '@/lib/tts-config';
+import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
@@ -148,6 +148,10 @@ export default function AiChatFab({
   const [error, setError] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
   const [speakingMsgIndex, setSpeakingMsgIndex] = useState<number | null>(null);
+  // TTS subtitle state
+  const [subtitleLang, setSubtitleLang] = useState<'zh' | 'en' | 'dual' | ''>('');
+  const [subtitleText1, setSubtitleText1] = useState('');
+  const [subtitleText2, setSubtitleText2] = useState('');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -454,20 +458,62 @@ export default function AiChatFab({
     }
   }
 
+  // 更新字幕内容
+  function updateSubtitleFromContent(content: string) {
+    const dual = extractDualLangText(content);
+    const ttsConfig = getTtsConfig();
+    const lang = ttsConfig.ttsLanguage || 'zh-CN';
+    
+    if (dual.zhText && dual.enText && dual.zhText !== dual.enText) {
+      // 双语字幕
+      setSubtitleLang('dual');
+      setSubtitleText1(dual.zhText);
+      setSubtitleText2(dual.enText);
+    } else if (lang === 'en-US' && dual.enText) {
+      setSubtitleLang('en');
+      setSubtitleText1(dual.enText);
+      setSubtitleText2('');
+    } else if (dual.zhText) {
+      setSubtitleLang('zh');
+      setSubtitleText1(dual.zhText);
+      setSubtitleText2('');
+    } else {
+      setSubtitleLang('');
+      setSubtitleText1('');
+      setSubtitleText2('');
+    }
+  }
+
   function handleSpeak(content: string, index: number) {
     if (speakingMsgIndex === index) {
       stopSpeaking();
       setSpeakingMsgIndex(null);
+      setSubtitleLang('');
+      setSubtitleText1('');
+      setSubtitleText2('');
       return;
     }
     stopSpeaking();
     const ttsText = extractTtsText(content);
     if (ttsText) {
       setSpeakingMsgIndex(index);
+      updateSubtitleFromContent(content);
       speakWithConfig(ttsText, undefined, () => {
         setSpeakingMsgIndex(null);
+        setSubtitleLang('');
+        setSubtitleText1('');
+        setSubtitleText2('');
       });
     }
+  }
+
+  // 点击字幕停止
+  function handleSubtitleClick() {
+    stopSpeaking();
+    setSpeakingMsgIndex(null);
+    setSubtitleLang('');
+    setSubtitleText1('');
+    setSubtitleText2('');
   }
 
   async function handleCopy(content: string, index: number) {
@@ -701,6 +747,38 @@ export default function AiChatFab({
             )}
             <div ref={bottomRef} />
           </div>
+
+          {/* TTS Subtitle bar */}
+          {(subtitleLang) && (
+            <div
+              onClick={handleSubtitleClick}
+              className="px-3 py-2 border-t border-[var(--card-border)] bg-[#E8F5E9] cursor-pointer transition-all hover:bg-[#C8E6C9]"
+              title="点击停止朗读"
+            >
+              {subtitleLang === 'dual' ? (
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-[#2E7D32] bg-white rounded px-1 py-0.5 flex-shrink-0">🇨🇳 中文</span>
+                    <span className="text-xs text-[#1B5E20] truncate">{subtitleText1}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-[#1565C0] bg-white rounded px-1 py-0.5 flex-shrink-0">🇬🇧 English</span>
+                    <span className="text-xs text-[#0D47A1] truncate">{subtitleText2}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-semibold text-[var(--muted-foreground)] bg-white rounded px-1 py-0.5 flex-shrink-0">
+                    {subtitleLang === 'zh' ? '🇨🇳 中文' : '🇬🇧 English'}
+                  </span>
+                  <span className="text-xs text-[var(--foreground)] truncate animate-pulse">
+                    {subtitleLang === 'zh' ? subtitleText1 : subtitleText2 || subtitleText1}
+                  </span>
+                  <span className="material-icons-round text-sm text-[#EA4335] flex-shrink-0 ml-auto">stop</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Input */}
           <div className="flex items-end gap-2 p-3 border-t border-[var(--card-border)]">
