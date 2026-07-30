@@ -98,24 +98,42 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'play_music',
     name: '播放音乐',
-    description: '播放网易云歌曲。参数：song_id (歌曲ID，如 186001)，可选 song_name (歌曲名称)',
+    description: '播放网易云音乐。支持两种模式：song_id (单曲ID，如 186001) 或 playlist_id (歌单ID，如 17652191106)。可选 song_name (歌曲名称)',
     scope: ['global', 'control'],
     handler: async (params) => {
       const songId = params.song_id || params.songId || '';
+      const playlistId = params.playlist_id || params.playlistId || '';
       const songName = params.song_name || params.songName || '';
-      if (!songId) return '请提供歌曲 ID（如 song_id: "186001"）';
+      
+      if (!songId && !playlistId) {
+        return '请提供歌曲 ID（如 song_id: "186001"）或歌单 ID（如 playlist_id: "17652191106"）';
+      }
+      
       // 清除上次命令
       localStorage.removeItem('jackyun_ai_music_command');
+      
+      const detail: any = { action: 'play', timestamp: Date.now() };
+      let label = '';
+      
+      if (songId) {
+        detail.songId = songId;
+        detail.type = 'song';
+        detail.songName = songName;
+        label = songName || `歌曲 ${songId}`;
+      } else {
+        detail.playlistId = playlistId;
+        detail.type = 'playlist';
+        detail.songName = songName || '';
+        label = '歌单';
+      }
+      
       // 触发自定义事件让 MiniPlayer 弹出
-      window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
-        detail: { action: 'play', songId, songName, timestamp: Date.now() },
-      }));
-      // 写入 localStorage（供跨页面通信 + 持久化）
-      localStorage.setItem(
-        'jackyun_ai_music_command',
-        JSON.stringify({ action: 'play', songId, songName, timestamp: Date.now() })
-      );
-      return `🎵 正在播放${songName || '歌曲'}，右下角可见播放器图标`;
+      window.dispatchEvent(new CustomEvent('jackyun-ai-music', { detail }));
+      
+      // 写入 localStorage
+      localStorage.setItem('jackyun_ai_music_command', JSON.stringify(detail));
+      
+      return `🎵 正在播放${label}，右下角可见播放器图标`;
     },
   },
   {
