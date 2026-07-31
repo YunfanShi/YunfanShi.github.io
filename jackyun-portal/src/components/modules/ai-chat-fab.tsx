@@ -975,7 +975,14 @@ export default function AiChatFab({
       const assistantContent = await streamAiReply(apiMessages, convId, currentReplaceIndex);
       currentReplaceIndex = undefined;
 
-      if (!assistantContent.trim()) {
+      // ⚠️ 关键修复：把 AI 自己的回复也加入消息队列！
+      // 这样下一轮推理能看到自己说了什么，避免反复读取而不执行修改
+      apiMessages.push({ role: 'assistant', content: assistantContent });
+
+      // 解析工具调用（即使没有可见文本，只要有 tool_call 就继续执行）
+      const toolCalls = parseToolCalls(assistantContent);
+
+      if (!assistantContent.trim() && toolCalls.length === 0) {
         updateConversation(conv => ({
           ...conv,
           messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
@@ -984,8 +991,6 @@ export default function AiChatFab({
         break;
       }
 
-      // 解析工具调用（支持多个，但提示 AI 一次一个；这里按顺序逐个执行）
-      const toolCalls = parseToolCalls(assistantContent);
       if (toolCalls.length === 0) break; // 没有工具调用，任务完成
 
       let loopHasToolCall = false;
