@@ -415,8 +415,8 @@ option{background:#1a1a1a;}
           <input class="fi" id="iDone" type="number" min="0" value="0">
         </div>
         <div class="fg">
-          <label class="flbl">总数量 *</label>
-          <input class="fi" id="iTotal" type="number" min="1" value="10">
+          <label class="flbl">总数量 * <span style="font-size:10px;color:var(--ai);text-transform:none;letter-spacing:0;">0 = 无上限任务</span></label>
+          <input class="fi" id="iTotal" type="number" min="0" value="10">
         </div>
       </div>
       <div class="fg" id="colorRowWrap">
@@ -757,7 +757,12 @@ let prefs   = JSON.parse(localStorage.getItem('ai_prefs')||'{"autoPred":true,"sh
 let currentPredId = null;
 
 /* ===================== PERSISTENCE ===================== */
-function save(){localStorage.setItem('gt_v6',JSON.stringify(goals));}
+function save(){
+  // 同时写入两个 key：gt_v6（本页实际使用）+ jackyun_goal_data（AI 工具/云端同步使用）
+  localStorage.setItem('gt_v6',JSON.stringify(goals));
+  localStorage.setItem('jackyun_goal_data',JSON.stringify(goals));
+  window.dispatchEvent(new CustomEvent('jackyun-goal-updated',{detail:{goals}}));
+}
 function savePreds(){localStorage.setItem('ai_preds',JSON.stringify(aiPreds));}
 function savePref(){
   prefs.autoPred = document.getElementById('toggleAutoPred').checked;
@@ -781,6 +786,7 @@ function getPct(g){
     const td=ch.reduce((s,c)=>s+(c.done||0),0), tt=ch.reduce((s,c)=>s+(c.total||0),0);
     return tt>0?Math.min(100,Math.round(td/tt*100)):0;
   }
+  // total<=0 表示无上限任务：不显示百分比，返回 0（避免除零）
   return g.total>0?Math.min(100,Math.round((g.done||0)/g.total*100)):0;
 }
 function getDoneTotal(g){
@@ -1643,8 +1649,12 @@ const AI_TOOLS={
         const g=findGoal(op.id);
         if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
         const old=`${g.done||0}/${g.total}`;
-        if(op.done!=null) g.done=Math.min(Number(op.done),g.total);
-        if(op.total!=null) g.total=Number(op.total);
+        // total=0 表示无上限任务，done 不受 total 限制
+        if(op.total!=null){
+          const tv=Number(op.total);
+          g.total=Number.isFinite(tv)&&tv>=0?tv:g.total;
+        }
+        if(op.done!=null) g.done=g.total>0?Math.min(Number(op.done),g.total):Math.max(0,Number(op.done));
         if(!g.history) g.history=[];
         g.history.push({date:today(),done:g.done,total:g.total,note:'AI修改'});
         aiLog('log','set_progress',`OK: ${g.name} ${old} → ${g.done}/${g.total}`);
@@ -1700,15 +1710,18 @@ const AI_TOOLS={
         const g=findGoal(op.id);
         if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
         const n=Number(op.value);
-        if(isNaN(n)||n<1){return {ok:false,msg:`总量必须为正整数，收到: ${op.value}`};}
+        // 0 表示无上限任务
+        if(isNaN(n)||n<0){return {ok:false,msg:`总量必须为非负整数，收到: ${op.value}`};}
         const old=g.total;
         g.total=n;
-        aiLog('log','set_total',`OK: ${g.name} ${old} → ${n}`);
-        return {ok:true,msg:`${g.name}：总量 ${old} → ${n}`};
+        // 修改总量后 done 不能超过 total（total>0 时）
+        if(n>0&&(g.done||0)>n) g.done=n;
+        aiLog('log','set_total',`OK: ${g.name} ${old} → ${n}${n===0?' (无上限)':''}`);
+        return {ok:true,msg:`${g.name}：总量 ${old} → ${n}${n===0?'（无上限）':''}`};
       }catch(e){aiLog('error','set_total','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){
-      try{const g=findGoal(op.id);return {field:'总数量',old:String(g?.total||'?'),new:String(op.value)};}
+      try{const g=findGoal(op.id);return {field:'总数量',old:String(g?.total||'?'),new:String(op.value)+(Number(op.value)===0?'（无上限）':'')};}
       catch(e){return {field:'总数量',old:'?',new:String(op.value)};}
     }
   },
@@ -1823,6 +1836,10 @@ const AI_TOOLS={
       try{
         aiLog('log','create_goal','Applying',op);
         if(!op.name){return {ok:false,msg:'目标名称不能为空'};}
+        // total=0 表示无上限任务
+        const totalVal=Number(op.total);
+        const totalV=Number.isFinite(totalVal)&&totalVal>=0?totalVal:10;
+        const doneVal=totalV>0?Math.min(Number(op.done)||0,totalV):Math.max(0,Number(op.done)||0);
         const newG={
           id:Date.now()+Math.floor(Math.random()*1000),
           name:op.name,
@@ -1830,8 +1847,8 @@ const AI_TOOLS={
           cat:op.cat||'其他',
           priority:op.priority||'mid',
           parentId:op.parentId!=null?normalizeId(op.parentId):null,
-          done:Number(op.done)||0,
-          total:Number(op.total)||10,
+          done:doneVal,
+          total:totalV,
           color:op.color||'blue',
           deadline:op.deadline||'',
           unit:op.unit||'',
@@ -2309,12 +2326,15 @@ function saveGoal(){
   const name=document.getElementById('iName').value.trim();
   if(!name){document.getElementById('iName').focus();toast('请输入目标名称');return;}
   const dv=Math.max(0,parseInt(document.getElementById('iDone').value)||0);
-  const tv=Math.max(1,parseInt(document.getElementById('iTotal').value)||1);
+  // total=0 表示无上限任务（如背单词、口语练习等没有终点的任务）
+  const tvRaw=parseInt(document.getElementById('iTotal').value);
+  const tv=Number.isFinite(tvRaw)&&tvRaw>=0?tvRaw:10;
+  const doneVal=tv>0?Math.min(dv,tv):dv;
   const parentIdRaw=document.getElementById('iParent').value;
   const parentId=parentIdRaw?parseInt(parentIdRaw):null;
   const obj={name,desc:document.getElementById('iDesc').value.trim(),cat:document.getElementById('iCat').value,
     priority:document.getElementById('iPri').value,deadline:document.getElementById('iDeadline').value,
-    unit:document.getElementById('iUnit').value.trim(),done:Math.min(dv,tv),total:tv,color:selColor,parentId};
+    unit:document.getElementById('iUnit').value.trim(),done:doneVal,total:tv,color:selColor,parentId};
   if(editId){
     const g=goals.find(x=>x.id===editId);
     if(g){
@@ -2338,26 +2358,49 @@ function openProg(id){
   document.getElementById('qDone').value=g.done||0;document.getElementById('qTotal').value=g.total||10;
   document.getElementById('qUnitLabel').textContent=g.unit||'';document.getElementById('qNote').value='';
   const p=getPct(g);document.getElementById('qPctDisplay').textContent=p+'%';
-  document.getElementById('progPreview').innerHTML=segBar(p,38,9);openM('progModal');
+  // 无上限任务显示连续累积提示
+  if(g.total===0){
+    document.getElementById('qPctDisplay').textContent='∞ 无上限';
+    document.getElementById('progPreview').innerHTML=segBar(0,38,9)+'<div style="text-align:center;font-size:10px;color:var(--ai);margin-top:3px;">无上限任务 · 每完成一次累计 +1</div>';
+  } else {
+    document.getElementById('progPreview').innerHTML=segBar(p,38,9);
+  }
+  openM('progModal');
 }
 function onQDone(){
-  const d=Math.max(0,parseInt(document.getElementById('qDone').value)||0),t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  const p=Math.min(100,Math.round(d/t*100));
-  document.getElementById('qPctDisplay').textContent=p+'%';document.getElementById('progPreview').innerHTML=segBar(p,38,9);
+  const d=Math.max(0,parseInt(document.getElementById('qDone').value)||0),t=parseInt(document.getElementById('qTotal').value)||0;
+  const p=t>0?Math.min(100,Math.round(d/t*100)):0;
+  document.getElementById('qPctDisplay').textContent=t>0?p+'%':'∞ 无上限';
+  document.getElementById('progPreview').innerHTML=segBar(p,38,9)+(t===0?'<div style="text-align:center;font-size:10px;color:var(--ai);margin-top:3px;">无上限任务 · 每完成一次累计 +1</div>':'');
 }
 function stepDone(delta){
-  const inp=document.getElementById('qDone'),t=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
-  inp.value=Math.max(0,Math.min(t,(parseInt(inp.value)||0)+delta));onQDone();
+  const inp=document.getElementById('qDone'),t=parseInt(document.getElementById('qTotal').value)||0;
+  if(t>0){
+    inp.value=Math.max(0,Math.min(t,(parseInt(inp.value)||0)+delta));
+  } else {
+    // 无上限：不限制上限
+    inp.value=Math.max(0,(parseInt(inp.value)||0)+delta);
+  }
+  onQDone();
 }
-function setDoneMax(){document.getElementById('qDone').value=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);onQDone();}
+function setDoneMax(){
+  // 无上限任务没有"全部完成"的概念
+  const t=parseInt(document.getElementById('qTotal').value)||0;
+  if(t>0){
+    document.getElementById('qDone').value=Math.max(1,t);onQDone();
+  } else {
+    toast('无上限任务没有完成上限，继续累积即可 🎯');
+  }
+}
 function saveQ(){
   if(quickId===null)return;
   const dv=Math.max(0,parseInt(document.getElementById('qDone').value)||0);
-  const tv=Math.max(1,parseInt(document.getElementById('qTotal').value)||1);
+  const tvRaw=parseInt(document.getElementById('qTotal').value);
+  const tv=Number.isFinite(tvRaw)&&tvRaw>=0?tvRaw:0; // 0=无上限
   const note=document.getElementById('qNote').value.trim();
   const g=goals.find(x=>x.id===quickId);
   if(g){
-    g.done=Math.min(dv,tv);g.total=tv;
+    g.done=tv>0?Math.min(dv,tv):dv;g.total=tv;
     if(!g.history)g.history=[];
     g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note});
     // invalidate old pred
@@ -2554,6 +2597,38 @@ function addCdItem(){
   renderCdList();setTimeout(()=>document.getElementById('cdList').lastElementChild?.scrollIntoView({behavior:'smooth'}),80);
 }
 function saveCd(){countdowns=JSON.parse(JSON.stringify(cdDraft));saveCdData();startCdTimer();closeM('cdModal');toast('倒计时已保存 ✓');}
+
+/* ===================== POSTMESSAGE 页面上报 ===================== */
+// 告知父窗口（Next.js Portal）当前实际页面，让浮窗 AI 感知准确上下文
+try{
+  window.parent?.postMessage({type:'jackyun-page',page:'goal'},'*');
+}catch(e){/* ignore */}
+
+/* ===================== EXTERNAL SYNC（AI 工具 ↔ 页面数据） ===================== */
+// 监听 jackyun_goal_data 被外部（如浮窗 AI 的 manage_goal 工具）修改，刷新页面数据
+window.addEventListener('storage',(e)=>{
+  if(e.key==='jackyun_goal_data'||e.key==='gt_v6'){
+    try{
+      const incoming=JSON.parse(e.newValue||'null');
+      if(Array.isArray(incoming)&&incoming.length>=0){
+        goals=incoming;
+        save(); // 同步回 gt_v6
+        updateAIStatus();render();startCdTimer();renderStats();
+      }
+    }catch(err){/* invalid JSON — ignore */}
+  }
+});
+
+// 自定义事件也触发（同一页面内 localStorage.setItem 不会触发 storage 事件）
+window.addEventListener('jackyun-goal-updated',(e)=>{
+  try{
+    const incoming=e.detail?.goals;
+    if(Array.isArray(incoming)){
+      // 只有外部 AI 修改时才需要重新渲染；本页 save() 会自己 render
+      localStorage.setItem('jackyun_goal_data',JSON.stringify(incoming));
+    }
+  }catch(err){/* ignore */}
+});
 
 /* ===================== INIT ===================== */
 initGreeting();

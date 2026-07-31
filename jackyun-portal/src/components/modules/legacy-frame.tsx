@@ -232,7 +232,45 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
   };
 
   // ═══════════════════════════════════════════
-  // 3. MutationObserver - 隐藏动态创建的 AI 配置 UI
+  // 3. 页面感知 postMessage — 告知父窗口当前实际页面
+  // ═══════════════════════════════════════════
+  // 根据 iframe 加载的 src 推断页面名并上报给父窗口
+  var pageHint = '';
+  try {
+    var src = window.location.href || '';
+    var fname = src.split('/').pop().split('?')[0].toLowerCase();
+    var pageMap = {
+      'goal.html': 'goal',
+      'control.html': 'control',
+      'timetablehub.html': 'timetablehub',
+      'studyguide.html': 'study-guide',
+      'studyplan.html': 'studyplan',
+      'countdown.html': 'countdown',
+      'igcountdown.html': 'igcountdown',
+      'quizwise.html': 'quiz',
+      'vocab.html': 'vocab',
+      'musicplayer.html': 'music',
+      'relax.html': 'relax',
+      'mockportal.html': 'mockportal',
+      'answersheet.html': 'answersheet',
+      'bilibilisync.html': 'bilibili-sync',
+      'poem.html': 'poem'
+    };
+    pageHint = pageMap[fname] || fname.replace('.html','');
+  } catch(e) {}
+
+  function reportPage() {
+    try {
+      window.parent.postMessage({ type: 'jackyun-page', page: pageHint }, '*');
+    } catch(e) {}
+  }
+  // 上报一次 + 监听 storage 变化（用户可能切换 iframe 页面）
+  reportPage();
+  window.addEventListener('focus', reportPage);
+  window.addEventListener('load', function() { setTimeout(reportPage, 100); });
+
+  // ═══════════════════════════════════════════
+  // 4. MutationObserver - 隐藏动态创建的 AI 配置 UI
   // ═══════════════════════════════════════════
   var HIDE_SELECTORS = [
     '#aiKeyInp', '#apiKeyInput', '#apiKey',
@@ -318,6 +356,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
     'w3_schedule',
     // Goal
     'jackyun_goal_data',
+    'gt_v6',
     // IGCountdown / Exam Countdown
     'jackyun_igcountdown',
     // Countdown (倒计日)

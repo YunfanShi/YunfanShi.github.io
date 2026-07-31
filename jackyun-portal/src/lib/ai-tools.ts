@@ -527,15 +527,15 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('jackyun_goal_data');
-        if (!raw) return '尚无目标数据';
-        const goals: any[] = JSON.parse(raw);
-        if (!Array.isArray(goals) || goals.length === 0) return '尚无目标数据';
+        const goals = readGoalData();
+        if (goals.length === 0) return '尚无目标数据';
         return goals.map((g: any) => {
-          const pct = g.total > 0 ? Math.round((g.done / g.total) * 100) : 0;
+          // 支持无上限任务（total=0 表示没有终点，只显示已完成数）
+          const pct = g.total > 0 ? Math.round((g.done || 0) / g.total * 100) : 0;
           const deadline = g.deadline ? '截止 ' + g.deadline : '无截止日期';
           const parent = g.parentId ? '子任务(父ID:' + g.parentId + ')' : '主任务';
-          return '- [' + parent + '] ' + g.name + '：进度 ' + g.done + '/' + g.total + '（' + pct + '%），' + deadline;
+          const totalText = g.total > 0 ? String(g.total) : '∞（无上限）';
+          return '- [' + parent + '] ' + g.name + '：进度 ' + (g.done || 0) + '/' + totalText + (g.total > 0 ? '（' + pct + '%）' : '（无限累积）') + '，' + deadline;
         }).join('\n');
       } catch (e: any) {
         return '读取目标数据出错：' + (e.message || String(e));
@@ -545,16 +545,17 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'manage_goal',
     name: '修改目标',
-    description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit',
+    description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit。total 可为 0 表示无上限任务。',
     scope: ['global'],
     requiresConsent: true,
     consentInfo: (params) => `目标管理操作：${params.action === 'create' ? '创建新目标「' + (params.name || '') + '」' : params.action === 'delete' ? '删除目标 ID ' + params.id : '修改目标（ID: ' + params.id + '）'}。后果：数据将被更新并云端同步。`,
     handler: async (params: Record<string, string>) => {
       try {
-        const raw = localStorage.getItem('jackyun_goal_data');
-        const goals: any[] = raw ? JSON.parse(raw) : [];
+        const goals = readGoalData();
         const action = params.action || '';
         if (action === 'create') {
+          // total: 0 表示无上限任务
+          const totalVal = params.total !== undefined && params.total !== '' ? Number(params.total) : NaN;
           const newGoal: any = {
             id: Date.now(),
             name: params.name || '新目标',
@@ -563,7 +564,7 @@ export const AI_TOOLS: AiTool[] = [
             priority: params.priority || 'mid',
             parentId: params.parentId !== undefined ? (params.parentId === 'null' ? null : Number(params.parentId)) : null,
             done: Number(params.done) || 0,
-            total: Number(params.total) || 10,
+            total: Number.isFinite(totalVal) && totalVal >= 0 ? totalVal : 10,
             color: params.color || 'blue',
             deadline: params.deadline || null,
             unit: params.unit || '',
@@ -571,9 +572,9 @@ export const AI_TOOLS: AiTool[] = [
             history: [],
           };
           goals.push(newGoal);
-          localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
+          writeGoalData(goals);
           window.dispatchEvent(new Event('storage'));
-          return '✅ 已创建目标「' + newGoal.name + '」（ID: ' + newGoal.id + '）';
+          return '✅ 已创建目标「' + newGoal.name + '」（ID: ' + newGoal.id + '）' + (newGoal.total === 0 ? '（无上限任务）' : '');
         } else if (action === 'update') {
           const id = Number(params.id);
           const idx = goals.findIndex((g: any) => g.id === id);
@@ -583,16 +584,19 @@ export const AI_TOOLS: AiTool[] = [
           if (params.deadline !== undefined) goals[idx].deadline = params.deadline || null;
           if (params.priority !== undefined) goals[idx].priority = params.priority;
           if (params.done !== undefined) goals[idx].done = Number(params.done);
-          if (params.total !== undefined) goals[idx].total = Number(params.total);
+          if (params.total !== undefined) {
+            const totalVal = Number(params.total);
+            goals[idx].total = Number.isFinite(totalVal) && totalVal >= 0 ? totalVal : goals[idx].total;
+          }
           if (params.color !== undefined) goals[idx].color = params.color;
           if (params.unit !== undefined) goals[idx].unit = params.unit;
-          localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
+          writeGoalData(goals);
           window.dispatchEvent(new Event('storage'));
           return '✅ 已更新目标「' + goals[idx].name + '」';
         } else if (action === 'delete') {
           const id = Number(params.id);
           const newGoals = goals.filter((g: any) => g.id !== id && g.parentId !== id);
-          localStorage.setItem('jackyun_goal_data', JSON.stringify(newGoals));
+          writeGoalData(newGoals);
           window.dispatchEvent(new Event('storage'));
           return '✅ 已删除目标 ID: ' + id;
         }
@@ -906,6 +910,37 @@ export const AI_TOOLS: AiTool[] = [
 function timeToMin(timeStr: string): number {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
+}
+
+/**
+ * 读取目标数据的辅助：同时读取 gt_v6（Goal.html 实际存储）和 jackyun_goal_data（云端同步 key）
+ */
+function readGoalData(): any[] {
+  // 优先读取 jackyun_goal_data（云端同步的 key）
+  const cloudRaw = localStorage.getItem('jackyun_goal_data');
+  if (cloudRaw) {
+    try {
+      const data = JSON.parse(cloudRaw);
+      if (Array.isArray(data)) return data;
+    } catch {}
+  }
+  // 回退读取 gt_v6（Goal.html 实际使用的 key）
+  const v6Raw = localStorage.getItem('gt_v6');
+  if (v6Raw) {
+    try {
+      const data = JSON.parse(v6Raw);
+      if (Array.isArray(data)) return data;
+    } catch {}
+  }
+  return [];
+}
+
+/**
+ * 写入目标数据的辅助：同时写入 gt_v6 和 jackyun_goal_data
+ */
+function writeGoalData(goals: any[]): void {
+  localStorage.setItem('gt_v6', JSON.stringify(goals));
+  localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
 }
 
 /**
