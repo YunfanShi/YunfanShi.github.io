@@ -155,9 +155,10 @@ function stripMarkdown(text: string): string {
  * 从 AI 回复中提取适合 TTS 朗读的文本（纯文本，无 Markdown）
  *
  * 规则：
- * 1. 优先提取 [TTS_LANG:语言代码]...[/TTS_LANG] 标记内的文本
- * 2. 然后尝试提取 [TTS]...[/TTS] 通用标记
- * 3. 最后退回到全部去除 Markdown
+ * 1. 优先提取匹配当前 TTS 语言 [TTS_LANG:语言代码]...[/TTS_LANG] 标记内的文本
+ * 2. 然后尝试提取任何 [TTS_LANG:语言代码] 标签内文本（无论语言，AI 通常输出与 TTS 语言一致的标签）
+ * 3. 再尝试提取 [TTS]...[/TTS] 通用标记
+ * 4. 最后智能判断：只有当纯文本的语言与 TTS 语言匹配时才返回，否则返回空（避免用英文语音念中文）
  */
 export function extractTtsText(content: string): string {
   if (!content) return '';
@@ -171,14 +172,35 @@ export function extractTtsText(content: string): string {
     return stripMarkdown(langMatch[1]).trim();
   }
 
-  // 2. 尝试提取通用的 [TTS] 标签
+  // 2. 尝试提取任何语言的 [TTS_LANG] 标签内文本
+  //    如果 AI 只输出了一种语言版本的标签，我们也朗读它
+  const anyLangMatch = content.match(/\[TTS_LANG:[^\]]+\]([\s\S]*?)\[\/TTS_LANG\]/);
+  if (anyLangMatch) {
+    return stripMarkdown(anyLangMatch[1]).trim();
+  }
+
+  // 3. 尝试提取通用的 [TTS] 标签
   const ttsMatch = content.match(/\[TTS\]([\s\S]*?)\[\/TTS\]/);
   if (ttsMatch) {
     return stripMarkdown(ttsMatch[1]).trim();
   }
 
-  // 3. 退回到全部内容去除 Markdown
-  return stripMarkdown(content) || content;
+  // 4. 退回到全部内容去除 Markdown，但需要智能判断语言是否匹配
+  const plainText = stripMarkdown(content).trim();
+  if (!plainText) return '';
+
+  // 如果 TTS 语言是英文，但文本主要是中文（非 ASCII 字符占多数），不朗读
+  // 避免用英文语音读中文导致的乱码
+  if (lang === 'en-US') {
+    const asciiChars = (plainText.match(/[\x00-\x7F]/g) || []).length;
+    const totalChars = plainText.replace(/\s/g, '').length;
+    if (totalChars > 0 && asciiChars / totalChars < 0.6) {
+      return ''; // 大部分是非 ASCII 字符（中文），不朗读
+    }
+  }
+
+  // 如果是中文 TTS，只要有中文标签内的内容就朗读
+  return plainText;
 }
 
 /**

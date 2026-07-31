@@ -247,6 +247,14 @@ export default function AiChatFab({
   const isBusyRef = useRef(false);
   const requestIdRef = useRef(0);
   const messagesRef = useRef<Message[]>([]);
+  // 同步的当前会话 ID ref（避免 state 异步更新导致的首次对话消息丢失问题）
+  const activeConvIdRef = useRef<string | null>(null);
+
+  // 同步 ref 和 state 的会话 ID 设置函数
+  const setActiveConvId = useCallback((id: string | null) => {
+    activeConvIdRef.current = id;
+    setActiveConvIdState(id);
+  }, []);
 
   const activeConv = conversations.find(c => c.id === activeConvId);
   const messages = activeConv?.messages ?? [];
@@ -259,9 +267,9 @@ export default function AiChatFab({
     setConversations(loaded);
     const activeId = loadActiveId();
     if (activeId && loaded.some(c => c.id === activeId)) {
-      setActiveConvIdState(activeId);
+      setActiveConvId(activeId);
     } else if (loaded.length > 0) {
-      setActiveConvIdState(loaded[0].id);
+      setActiveConvId(loaded[0].id);
     } else {
       createNewConversation();
     }
@@ -298,13 +306,13 @@ export default function AiChatFab({
       saveConversations(updated);
       return updated;
     });
-    setActiveConvIdState(newConv.id);
+    setActiveConvId(newConv.id);
     setSidebarOpen(false);
     return newConv;
-  }, [currentPath]);
+  }, [currentPath, setActiveConvId]);
 
   const switchConversation = (id: string) => {
-    setActiveConvIdState(id);
+    setActiveConvId(id);
     saveActiveId(id);
     setSidebarOpen(false);
     setError(null);
@@ -320,7 +328,7 @@ export default function AiChatFab({
     if (activeConvId === id) {
       const remaining = conversations.filter(c => c.id !== id);
       if (remaining.length > 0) {
-        setActiveConvIdState(remaining[0].id);
+        setActiveConvId(remaining[0].id);
         saveActiveId(remaining[0].id);
       } else {
         createNewConversation();
@@ -328,17 +336,18 @@ export default function AiChatFab({
     }
   };
 
-  const updateConversation = (updater: (prev: Conversation) => Conversation) => {
+  const updateConversation = useCallback((updater: (prev: Conversation) => Conversation, targetConvId?: string) => {
+    const targetId = targetConvId || activeConvIdRef.current || activeConvId;
     setConversations(prev => {
       const updated = prev.map(c => {
-        if (c.id !== activeConvId) return c;
+        if (c.id !== targetId) return c;
         const newConv = updater(c);
         return truncateConversation(newConv);
       });
       saveConversations(updated);
       return updated;
     });
-  };
+  }, [activeConvId]);
 
   function getSystemMessage(): Message {
     const toolsDesc = getToolsDescription(scope);
@@ -386,29 +395,18 @@ export default function AiChatFab({
     isBusyRef.current = true;
     const requestId = ++requestIdRef.current;
 
-    let convId = activeConvId;
+    let convId = activeConvIdRef.current || activeConvId;
     if (!convId) {
       const newConv = createNewConversation();
       convId = newConv.id;
     }
-
-    setConversations(prev => {
-      const updated = prev.map(c => {
-        if (c.id !== convId) return c;
-        if (c.title === '新对话' && c.messages.length === 0) {
-          return { ...c, title: text.slice(0, 20) + (text.length > 20 ? '...' : '') };
-        }
-        return c;
-      });
-      saveConversations(updated);
-      return updated;
-    });
+    activeConvIdRef.current = convId;
 
     updateConversation(conv => ({
       ...conv,
       messages: [...conv.messages, { role: 'user', content: text }],
       updatedAt: new Date().toISOString(),
-    }));
+    }), convId);
 
     setInput('');
     setLoading(true);
@@ -625,10 +623,44 @@ export default function AiChatFab({
     return content.replace(/```tool_call[\s\S]*?```/g, '');
   }
 
-  // 流式响应完成后检查工具调用（支持多个）
+  // 过滤所有 AI 内部标签（tool_call / TTS_LANG / TITLE）不显示给用户
+  function stripTags(content: string): string {
+    return content
+      .replace(/```tool_call[\s\S]*?```/g, '')
+      .replace(/\[TTS_LANG:[^\]]*\][\s\S]*?\[\/TTS_LANG\]/g, '')
+      .replace(/\[TTS\][\s\S]*?\[\/TTS\]/g, '')
+      .replace(/\[TITLE\][\s\S]*?\[\/TITLE\]/g, '')
+      .trim();
+  }
+
+  // 从 AI 回复中提取 [TITLE] 标签（用于对话标题）
+  function extractTitle(content: string): string | null {
+    const match = content.match(/\[TITLE\]([\s\S]*?)\[\/TITLE\]/);
+    return match ? match[1].trim() : null;
+  }
+
+  // 流式响应完成后检查工具调用 + 提取对话标题
   const lastAssistantContent = messages.length > 0 ? messages[messages.length - 1] : null;
   useEffect(() => {
     if (!streaming && lastAssistantContent?.role === 'assistant' && lastAssistantContent.content) {
+      // 提取 [TITLE] 标签设置对话标题（仅第一次对话）
+      const title = extractTitle(lastAssistantContent.content);
+      if (title && activeConv) {
+        const userMsgCount = activeConv.messages.filter(m => m.role === 'user').length;
+        if (userMsgCount === 1 && activeConv.title === '新对话') {
+          const convId = activeConv.id;
+          setConversations(prev => {
+            const updated = prev.map(c => {
+              if (c.id !== convId) return c;
+              return { ...c, title: title.slice(0, 30) };
+            });
+            saveConversations(updated);
+            return updated;
+          });
+        }
+      }
+
+      // 检查工具调用（支持多个）
       const toolCalls = parseToolCalls(lastAssistantContent.content);
       if (toolCalls.length > 0) {
         (async () => {
@@ -658,14 +690,27 @@ export default function AiChatFab({
   // ════════════════════════════════════════════════════════
   // Streaming speed control
   // ════════════════════════════════════════════════════════
-  const SPEED_PRESETS = { slow: 60, normal: 35, fast: 10 }; // ms per character
-  const [speedPreset, setSpeedPreset] = useState<'slow' | 'normal' | 'fast'>('normal');
+  // slow=🐢慢速逐字, normal=⚡中速逐字, instant=🐇不限速（直接显示全部）
+  const SPEED_PRESETS = { slow: 60, normal: 35, instant: 0 }; // ms per character (0=不限速)
+  type SpeedPresetType = 'slow' | 'normal' | 'instant';
+  const [speedPreset, setSpeedPreset] = useState<SpeedPresetType>('normal');
   const streamBufferRef = useRef<string[]>([]);
   const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Called to flush buffered characters to UI at controlled speed
   const startDisplayTimer = useCallback((onChar: (char: string) => void, onDone: () => void) => {
     if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+
+    // 不限速模式：直接显示全部内容
+    if (SPEED_PRESETS[speedPreset] === 0) {
+      let buffer = streamBufferRef.current;
+      while (buffer.length > 0) {
+        onChar(buffer.shift()!);
+      }
+      onDone();
+      return;
+    }
+
     const ms = SPEED_PRESETS[speedPreset];
     streamTimerRef.current = setInterval(() => {
       if (streamBufferRef.current.length > 0) {
@@ -718,22 +763,22 @@ export default function AiChatFab({
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Speed control */}
+              {/* Speed control: 🐢慢 → ⚡中 → 🐇不限速 */}
               <div className="flex items-center gap-0.5 mr-1">
                 <button
                   onClick={() => setSpeedPreset('slow')}
                   className={`p-1 rounded text-xs transition-colors ${speedPreset === 'slow' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
-                  title="慢速"
+                  title="慢速（逐字显示）"
                 >🐢</button>
                 <button
                   onClick={() => setSpeedPreset('normal')}
                   className={`p-1 rounded text-xs transition-colors ${speedPreset === 'normal' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
-                  title="正常"
+                  title="中速（逐字显示）"
                 >⚡</button>
                 <button
-                  onClick={() => setSpeedPreset('fast')}
-                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'fast' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
-                  title="快速"
+                  onClick={() => setSpeedPreset('instant')}
+                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'instant' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
+                  title="不限速（直接显示全部）"
                 >🐇</button>
               </div>
               <button
@@ -814,7 +859,7 @@ export default function AiChatFab({
                   >
                     {msg.role === 'assistant' ? (
                       msg.content ? (
-                        <MarkdownRenderer content={stripToolCalls(msg.content)} />
+                        <MarkdownRenderer content={stripTags(msg.content)} />
                       ) : streaming && i === messages.length - 1 ? (
                         <span className="flex items-center gap-2">
                           <span className="inline-flex gap-1">
