@@ -8,7 +8,7 @@
  * - control (Control)：仅控制和查询
  */
 
-export type ToolScope = 'global' | 'quiz' | 'plan' | 'control' | 'study_guide';
+export type ToolScope = 'global' | 'dashboard' | 'quiz' | 'plan' | 'control' | 'study_guide' | 'goal' | 'study' | 'vocab' | 'music' | 'poem' | 'relax' | 'countdown' | 'settings' | 'tools';
 
 export interface ConsentInfo {
   /** 要执行的操作描述 */
@@ -62,7 +62,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 跳转到目标管理页面。`,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'goal', 'study', 'study_guide', 'quiz', 'vocab', 'music', 'poem', 'relax', 'countdown', 'settings', 'tools', 'control'],
     handler: async (params) => {
       const pageMap: Record<string, string> = {
         dashboard: '/dashboard',
@@ -113,7 +113,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 会在新标签页中打开指定链接。`,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'study_guide', 'vocab', 'music', 'poem', 'relax', 'settings', 'tools'],
     handler: async (params) => {
       const url = params.url || '';
       if (url) {
@@ -162,7 +162,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "play_music", "params": {"playlist_id": "17652191106"}}
 \`\`\``,
-    scope: ['global', 'control'],
+    scope: ['global', 'dashboard', 'control', 'music', 'relax'],
     handler: async (params) => {
       const songId = params.song_id || params.songId || '';
       const playlistId = params.playlist_id || params.playlistId || '';
@@ -210,7 +210,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "stop_music", "params": {}}
 \`\`\``,
-    scope: ['global', 'control'],
+    scope: ['global', 'dashboard', 'control', 'music', 'relax'],
     handler: async () => {
       localStorage.removeItem('jackyun_ai_music_command');
       window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
@@ -233,7 +233,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 会启动一个 25 分钟的专注计时器。`,
-    scope: ['global', 'control'],
+    scope: ['global', 'dashboard', 'control'],
     handler: async (params) => {
       const duration = parseInt(params.duration || '30');
       localStorage.setItem(
@@ -258,7 +258,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "stop_timer", "params": {}}
 \`\`\``,
-    scope: ['global', 'control'],
+    scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       localStorage.setItem(
         'warden_ai_command',
@@ -280,7 +280,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "get_schedule", "params": {}}
 \`\`\``,
-    scope: ['global', 'control'],
+    scope: ['global', 'dashboard', 'control', 'tools'],
     handler: async () => {
       try {
         const scheduleData = localStorage.getItem('w3_schedule');
@@ -314,7 +314,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "get_current_task", "params": {}}
 \`\`\``,
-    scope: ['global', 'control'],
+    scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       try {
         const scheduleData = localStorage.getItem('w3_schedule');
@@ -460,7 +460,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "get_today_schedule", "params": {}}
 \`\`\``,
-    scope: ['global', 'plan'],
+    scope: ['global', 'plan', 'dashboard', 'study', 'study_guide'],
     handler: async () => {
       try {
         const studyplanData = localStorage.getItem('caie_schedule_current');
@@ -491,7 +491,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "get_progress", "params": {"subject": "Mathematics"}}
 \`\`\``,
-    scope: ['global', 'plan'],
+    scope: ['global', 'plan', 'dashboard', 'study', 'study_guide'],
     handler: async (params) => {
       const subject = params.subject || '';
       try {
@@ -521,7 +521,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "get_countdown", "params": {"type": "exam"}}
 \`\`\``,
-    scope: ['global', 'plan'],
+    scope: ['global', 'plan', 'dashboard', 'study', 'study_guide', 'countdown'],
     handler: async (params) => {
       try {
         const settings = JSON.parse(localStorage.getItem('caie_settings_v2_1') || '{}');
@@ -577,7 +577,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "search_web", "params": {"query": "IGCSE 数学真题"}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'study_guide', 'vocab', 'music', 'poem', 'settings', 'tools'],
     handler: async (params) => {
       const query = encodeURIComponent(params.query || '');
       if (query) {
@@ -599,7 +599,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "calculate", "params": {"expression": "25*4+10"}}
 \`\`\``,
-    scope: ['global', 'quiz', 'plan', 'control', 'study_guide'],
+    scope: ['global', 'dashboard', 'quiz', 'plan', 'control', 'study_guide', 'goal', 'study', 'vocab', 'music', 'poem', 'relax', 'countdown', 'settings', 'tools'],
     handler: async (params) => {
       const expr = (params.expression || '').trim();
       if (!expr) return '请提供要计算的表达式（expression 参数）';
@@ -663,7 +663,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "get_weather", "params": {"city": "Shanghai"}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'dashboard'],
     handler: async (params) => {
       const city = encodeURIComponent(params.city || '');
       if (city) {
@@ -686,7 +686,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "open_app", "params": {"app": "notion"}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'tools'],
     handler: async (params) => {
       const appMap: Record<string, string> = {
         'google-docs': 'https://docs.google.com',
@@ -721,7 +721,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "current_time", "params": {}}
 \`\`\``,
-    scope: ['global', 'quiz', 'plan', 'control', 'study_guide'],
+    scope: ['global', 'dashboard', 'quiz', 'plan', 'control', 'study_guide', 'goal', 'study', 'vocab', 'music', 'poem', 'relax', 'countdown', 'settings', 'tools'],
     handler: async () => {
       const now = new Date();
       return `当前时间：${now.toLocaleString('zh-CN', {
@@ -750,7 +750,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 返回结果包含清晰的树形层级结构，每个目标的 ID 是关键——后续 manage_goal 操作必须使用这里返回的真实 ID。`,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'goal', 'study', 'study_guide', 'control', 'tools'],
     handler: async () => {
       try {
         const goals = readGoalData();
@@ -877,7 +877,7 @@ export const AI_TOOLS: AiTool[] = [
 3. 一次输出所有需要的 manage_goal 调用（批量操作）
 4. 操作完成后，再次调用 read_goal_data 确认结果
 5. 最后如实汇报结果给用户`,
-    scope: ['global'],
+    scope: ['global', 'goal'],
     requiresConsent: true,
     riskLevel: 'high',
     consentInfo: (params) => {
@@ -1042,7 +1042,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 返回最近的日程事件（最多20条）。`,
-    scope: ['global'],
+    scope: ['global', 'control'],
     handler: async () => {
       try {
         const raw = localStorage.getItem('jackyun_control_events');
@@ -1069,7 +1069,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "read_countdown", "params": {}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'countdown'],
     handler: async () => {
       try {
         const raw = localStorage.getItem('jackyun_igcountdown');
@@ -1107,7 +1107,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 更新后，顶部倒计时会立即重新计算剩余天数。`,
-    scope: ['global'],
+    scope: ['global', 'countdown'],
     requiresConsent: true,
     riskLevel: 'high',
     consentInfo: (params) => ({
@@ -1143,7 +1143,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "read_study_progress", "params": {}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'study_guide', 'study'],
     handler: async () => {
       try {
         const raw = localStorage.getItem('studyguide_progress');
@@ -1177,7 +1177,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 红色=不会/薄弱，黄色=半懂，绿色=掌握。`,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'study', 'study_guide'],
     handler: async () => {
       try {
         const prefix = 'jackyun_traffic_';
@@ -1215,7 +1215,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "manage_traffic_audit", "params": {"subject": "Mathematics", "unit": "Quadratic Equations", "color": "green"}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'study'],
     handler: async (params) => {
       try {
         const { subject, unit, color } = params;
@@ -1261,7 +1261,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 会读取所有目标数据、红绿灯状态，自动生成合理的时间安排。`,
-    scope: ['global'],
+    scope: ['global', 'control', 'goal'],
     handler: async (params) => {
       try {
         // 读取 Goal 数据
@@ -1332,7 +1332,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "read_schedule_results", "params": {}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       try {
         const raw = localStorage.getItem('w3_schedule');
@@ -1363,7 +1363,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`
 
 基于完成率和跳过任务数给出优化建议。`,
-    scope: ['global'],
+    scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       try {
         const raw = localStorage.getItem('w3_schedule');
@@ -1402,7 +1402,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\`tool_call
 {"tool": "read_quiz_data", "params": {}}
 \`\`\``,
-    scope: ['global'],
+    scope: ['global', 'quiz', 'dashboard'],
     handler: async () => {
       try {
         const raw = localStorage.getItem('quizwise_current_questions');
@@ -1470,30 +1470,75 @@ export function getToolsByScope(scope: ToolScope): AiTool[] {
 }
 
 /**
+ * 平台功能目录 — 让 AI 知道整个平台有哪些页面和功能
+ * 但不会注入具体工具描述，AI 需要时通过 request_page_tools 按需获取
+ */
+export function getPlatformOverview(): string {
+  return `【平台功能目录】
+你所在的 JackYun Portal 包含以下功能页面。当前页面已直接提供相关工具，其他页面的能力可按需获取：
+
+- 🏠 主页 (dashboard)：全局概览、快速访问所有数据
+- 🎯 目标管理 (goal)：创建/修改/删除目标、调整层级、跟踪进度
+- 📋 日程中心 (control)：查看今日日程、标记完成/跳过、启动计时器、生成日程
+- 📚 学习计划 (study)：查看学习计划、学科进度、红绿灯审计
+- 📖 学习指导 (study-guide)：每日学习进度、学习建议
+- 🧠 QuizWise (quiz)：刷题、分析题目、批改答案
+- 📝 词汇宝库 (vocab)：英语词汇管理
+- 🎵 音乐播放器 (music)：播放/停止网易云音乐
+- 📜 诗词天地 (poem)：浏览背诵经典诗词
+- 🎮 放松一下 (relax)：游戏娱乐、播放音乐
+- ⏱ 倒计时 (countdown)：查看/修改考试倒计时
+- ⚙️ 设置 (settings)：AI、TTS、语言、账户配置
+- 🧰 工具箱 (tools)：计算、搜索、打开在线工具
+
+📌 **按需获取其他页面工具：**
+如果用户需要操作**非当前页面**的功能数据，你可以调用 \`request_page_tools\` 工具获取该页面的完整工具手册。
+\`\`\`tool_call
+{"tool": "request_page_tools", "params": {"page": "goal"}}
+\`\`\`
+获取后即可在当前对话中继续使用这些工具（系统会将工具描述注入后续消息）。`;
+}
+
+/**
  * 生成用于 system prompt 的工具描述 — 完整操作手册
  */
 export function getToolsDescription(scope: ToolScope): string {
   const tools = getToolsByScope(scope);
-  if (tools.length === 0) return '';
 
-  return (
-    '【可用工具完整手册】\n' +
-    '当用户提出相关需求时，你可以在回复末尾使用 ```tool_call 代码块调用工具。\n' +
-    '系统会自动解析并在当前页面执行。你可以连续多轮调用工具完成任务，直到目标达成。\n\n' +
-    tools
-      .map((tool, i) => {
-        return `━━━ 工具 ${i + 1}/${tools.length}：${tool.name}（ID: \`${tool.id}\`）━━━\n` +
-          `${tool.description}`;
-      })
-      .join('\n\n') +
-    '\n\n【工具调用规则（极其重要，必须遵守）】\n' +
+  const baseToolsDesc = tools.length > 0
+    ? '【可用工具完整手册】\n' +
+      '当用户提出相关需求时，你可以在回复末尾使用 ```tool_call 代码块调用工具。\n' +
+      '系统会自动解析并在当前页面执行。你可以连续多轮调用工具完成任务，直到目标达成。\n\n' +
+      tools
+        .map((tool, i) => {
+          return `━━━ 工具 ${i + 1}/${tools.length}：${tool.name}（ID: \`${tool.id}\`）━━━\n` +
+            `${tool.description}`;
+        })
+        .join('\n\n')
+    : '';
+
+  return baseToolsDesc +
+    (baseToolsDesc ? '\n\n' : '') +
+    '【按需工具：request_page_tools】\n' +
+    '如果你需要操作**当前页面没有**的其他功能数据，调用此工具获取目标页面的工具描述：\n' +
+    '- page (必填)：目标页面标识，可选值：goal / control / study / study-guide / quiz / vocab / music / poem / relax / countdown / tools / settings\n' +
+    '调用示例：\n' +
+    '```tool_call\n' +
+    '{"tool": "request_page_tools", "params": {"page": "goal"}}\n' +
+    '```\n' +
+    '系统会返回该页面的所有可用工具描述，之后你就可以正常使用了。\n\n' +
+    '【工具调用规则（极其重要，必须遵守）】\n' +
     '1. 📖 **先读后改（铁律）**：任何修改/删除操作之前，必须先调用对应的读取工具获取真实数据。例如修改目标前必须先调用 read_goal_data。\n' +
     '2. 🔢 **不编造 ID**：所有目标 ID、任务序号等必须来自读取工具返回的实际数据。如果工具返回 ❌ 错误，说明参数有误，分析原因后重试。\n' +
     '3. ⚡ **批量执行**：如果一次需要执行多个操作（比如批量调整多个目标的层级），在同一个回复中输出**多个** ```tool_call 代码块。系统会串行执行它们。\n' +
     '4. ✅ **确认后再汇报**：所有工具调用完成后，回顾每条工具执行结果。如果存在 ❌ 错误，必须在最终总结中明确指出哪些操作失败、为什么失败。\n' +
     '5. 🚫 **诚实原则**：严禁在工具失败时编造「已全部完成」「全部成功」等虚假总结！必须如实汇报每项操作的成功/失败状态。\n' +
     '6. 🔄 **纠错能力**：如果工具返回错误（如 ❌ 未找到 ID），先分析返回的可用数据列表，然后使用正确的参数重新调用。\n' +
-    '7. 📊 **最终总结**：任务完成后，给出**完整的总结**，包含成功项和失败项，以及当前的最新状态。\n\n' +
+    '7. 📊 **最终总结**：任务完成后，给出**完整的总结**，包含成功项和失败项，以及当前的最新状态。\n' +
+    '8. 📌 **数据读取效率规则（重要！）**：\n' +
+    '   - 同一个数据源只需读取一次。如果对话历史中已有该数据（例如已调用过 read_goal_data），直接使用已有数据分析和回复，**不要重复调用**同一个读取工具。\n' +
+    '   - 只有在该数据**可能已被修改**（比如你执行了写入操作 manage_goal / manage_countdown / toggle_task_done 之后）或用户明确要求刷新数据时，才需要重新读取。\n' +
+    '   - 重复调用相同工具获取相同数据是浪费且低效的。\n\n' +
     '【TTS 朗读语言说明（非常重要，必须遵守）】\n' +
     '用户已经设置了 TTS 朗读语言，只能用你回复中与 TTS 语言一致的部分进行朗读。\n' +
     '语言代码为 "zh-CN"（中文）或 "en-US"（英文）。\n\n' +
@@ -1506,8 +1551,7 @@ export function getToolsDescription(scope: ToolScope): string {
     '如果这是本次对话的**第一条用户消息**（对话刚开始），你需要在回复最后额外添加一个 [TITLE] 标签，为本次对话生成一个简短标题（10-30字，概括用户本次对话的核心意图）。\n' +
     '格式：\n' +
     '[TITLE]简短标题[/TITLE]\n' +
-    '注意：这个标签不会在聊天界面显示，只用于对话列表标题。后续对话**不需要**再生成标题。'
-  );
+    '注意：这个标签不会在聊天界面显示，只用于对话列表标题。后续对话**不需要**再生成标题。';
 }
 
 /**
