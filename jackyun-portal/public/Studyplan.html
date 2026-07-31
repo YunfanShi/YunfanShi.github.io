@@ -628,7 +628,8 @@
     <div class="nav-scroll" id="sidebar-content">
         </div>
 
-    <div style="padding:0; border-top: 1px solid #ddd; display:flex; flex-direction:column; flex-shrink:0; max-height:280px;">
+    <!-- ⚠️ AI 助手已隐藏：功能由主页 AI (ai-chat-fab) 接管 -->
+    <div style="padding:0; border-top: 1px solid #ddd; display:none; flex-direction:column; flex-shrink:0; max-height:280px;">
         <div style="display:flex; align-items:center; padding:8px 16px; font-size:12px; font-weight:600; color:var(--secondary); border-bottom:1px solid #eee;">
             <span class="material-icons-round" style="font-size:14px; margin-right:6px;">smart_toy</span>
             AI 助手 (Plan)
@@ -885,13 +886,18 @@
     let currentSchedule = JSON.parse(localStorage.getItem('caie_schedule_current')) || []; // [{time, task, done}]
     let customTasks = JSON.parse(localStorage.getItem('caie_custom_tasks')) || ["CS50P Python", "不背单词"];
 
-    // Update Quest Steps Labels
+    // Update Quest Steps Labels — 红绿灯审计 (Traffic Light Audit)
+    // 🟢 绿灯 = 已掌握核心公式 → 不管它
+    // 🟡 黄灯 = 记得一半/单位模糊 → 建Anki卡片
+    // 🔴 红灯 = 完全空白 → 回课本看引言+定义
     const QUEST_STEPS = [
         { id: "note", label: "Notes", icon: "menu_book", btn: "Read ZNotes" },
-        { id: "quiz", label: "Quiz", icon: "quiz", btn: "Do Quiz" },
-        { id: "model", label: "Answers", icon: "done_all", btn: "Check" },
+        { id: "traffic", label: "红绿灯审计", icon: "traffic", btn: "审计" },
         { id: "notion", label: "Log", icon: "edit_note", btn: "Notion" }
     ];
+
+    // 红绿灯状态存储 key 前缀
+    const TRAFFIC_PREFIX = 'jackyun_traffic_';
 
     // --- 3. Initialization ---
     function init() {
@@ -977,20 +983,38 @@
             `;
 
             if (status === 'active') {
-                let clickAction = '';
-                if (step.id === 'note') clickAction = `window.open('${link}', '_blank'); completeStep('${subject}','${unit}','${step.id}')`;
-                else if (step.id === 'quiz') clickAction = `alert('Do Topical Questions!'); completeStep('${subject}','${unit}','${step.id}')`; 
-                else if (step.id === 'model') clickAction = `alert('Check Answers!'); completeStep('${subject}','${unit}','${step.id}')`;
-                else if (step.id === 'notion') clickAction = `window.open('notion://'); completeStep('${subject}','${unit}','${step.id}')`;
+                if (step.id === 'traffic') {
+                    // 红绿灯审计：显示红/黄/绿三个按钮，点击即切换状态并保存
+                    const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
+                    const currentTraffic = localStorage.getItem(trafficKey) || '';
+                    const trafficBtn = (color, label, desc) => `
+                        <button 
+                            onclick="setTrafficStatus('${subject}','${unit}','${color}',event)" 
+                            style="width:80px; padding:10px 0; border-radius:12px; border:2px solid #ddd; cursor:pointer; font-size:14px; background:${currentTraffic === color ? color : '#fff'}; color:${currentTraffic === color ? '#fff' : '#333'}; font-weight:600;"
+                            title="${desc}">${label}</button>`;
+                    actionBtnHtml = `
+                        <div class="quest-action" style="flex-direction:column; align-items:stretch; gap:10px;">
+                            <span style="font-size:14px; color:#666;">红绿灯审计 — 如果现在闭卷考这个知识点，能写出核心公式吗？</span>
+                            <div style="display:flex; gap:10px; justify-content:center;">
+                                ${trafficBtn('#34a853', '🟢 绿灯', '能，不需要想 → 不管它')}
+                                ${trafficBtn('#fbbc04', '🟡 黄灯', '记得一半/单位模糊 → 建Anki卡片')}
+                                ${trafficBtn('#ea4335', '🔴 红灯', '完全空白 → 回课本看引言+定义')}
+                            </div>
+                        </div>`;
+                } else {
+                    let clickAction = '';
+                    if (step.id === 'note') clickAction = `window.open('${link}', '_blank'); completeStep('${subject}','${unit}','${step.id}')`;
+                    else if (step.id === 'notion') clickAction = `window.open('notion://'); completeStep('${subject}','${unit}','${step.id}')`;
 
-                actionBtnHtml = `
-                    <div class="quest-action">
-                        <span style="font-size:14px; color:#666;">Next: ${step.label}</span>
-                        <button class="btn-primary" onclick="${clickAction}">
-                            ${step.btn} <span class="material-icons-round">arrow_forward</span>
-                        </button>
-                    </div>
-                `;
+                    actionBtnHtml = `
+                        <div class="quest-action">
+                            <span style="font-size:14px; color:#666;">Next: ${step.label}</span>
+                            <button class="btn-primary" onclick="${clickAction}">
+                                ${step.btn} <span class="material-icons-round">arrow_forward</span>
+                            </button>
+                        </div>
+                    `;
+                }
             }
         });
         stepsHtml += `</div>`;
@@ -1032,6 +1056,56 @@
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         renderSidebar(); // Update checkmark
         renderMainView(subject);
+    }
+
+    // 红绿灯审计：点击红/黄/绿按钮，切换状态并保存到 localStorage（含日期）
+    function setTrafficStatus(subject, unit, color, event) {
+        if (event) event.stopPropagation();
+        const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
+        const today = new Date().toISOString().slice(0, 10);
+        const data = {
+            color: color,
+            date: today,
+            subject: subject,
+            unit: unit
+        };
+        localStorage.setItem(trafficKey, JSON.stringify(data));
+        // 标记红绿灯步骤完成
+        progressDB[`${subject}|${unit}|traffic`] = true;
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
+        renderMainView(subject);
+    }
+
+    // 获取某单元的红绿灯状态（供 AI 工具读取）
+    function getTrafficStatus(subject, unit) {
+        try {
+            const raw = localStorage.getItem(`${TRAFFIC_PREFIX}${subject}|${unit}`);
+            if (raw) {
+                const data = JSON.parse(raw);
+                const colorMap = {
+                    '#34a853': 'green', '#fbbc04': 'yellow', '#ea4335': 'red'
+                };
+                return {
+                    color: colorMap[data.color] || data.color || 'unknown',
+                    date: data.date || '',
+                    subject: subject,
+                    unit: unit
+                };
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    // 收集所有单元的红绿灯审计数据（供主页 AI 读取）
+    function getAllTrafficStatus() {
+        const results = [];
+        for (const [subject, data] of Object.entries(syllabusDB)) {
+            for (const unit of data.units) {
+                const status = getTrafficStatus(subject, unit);
+                if (status) results.push(status);
+            }
+        }
+        return results;
     }
 
     // --- 6. MOCK EXAM SYSTEM ---
@@ -1260,25 +1334,7 @@
         const container = document.getElementById('daily-quest-area');
         container.innerHTML = '';
 
-        // 1. Koolearn (Fixed)
-        const koolearnCard = document.createElement('div');
-        koolearnCard.className = 'quest-card koolearn';
-        koolearnCard.innerHTML = `
-            <div class="quest-header">
-                <div>
-                    <div class="quest-breadcrumbs">🔥 DAILY ROUTINE</div>
-                    <div class="quest-title" style="color:#1976d2">新东方 (Koolearn)</div>
-                </div>
-                <span class="material-icons-round" style="color:#1976d2; font-size:32px;">school</span>
-            </div>
-            <button class="btn-primary" style="width:100%; background:#1976d2;" 
-                onclick="window.open('https://study.koolearn.com/', '_blank')">
-                Start Class <span class="material-icons-round">open_in_new</span>
-            </button>
-        `;
-        container.appendChild(koolearnCard);
-
-        // 2. Urgent Mission
+        // 1. Urgent Mission
         if (settings.urgent) {
             const uCard = document.createElement('div');
             uCard.className = 'quest-card urgent';

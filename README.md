@@ -129,12 +129,15 @@ theme: {
 | `/music-sync` | `src/app/(portal)/music-sync/page.tsx` | Legacy Frame | 同步音乐（嵌入旧版 HTML） |
 | `/bilibili-sync` | `src/app/(portal)/bilibili-sync/page.tsx` | Legacy Frame | B站同步（嵌入旧版 HTML） |
 | `/poem` | `src/app/(portal)/poem/page.tsx` | Legacy Frame | 诗词天地（嵌入旧版 HTML） |
-| `/countdown` | `src/app/(portal)/countdown/page.tsx` | Legacy Frame | 倒计时（嵌入旧版 HTML） |
+| `/time-management` | `src/app/(portal)/time-management/page.tsx` | Server Component | 时间管理主页（番茄钟/倒计时/倒计日入口） |
+| `/pomodoro` | `src/app/(portal)/pomodoro/page.tsx` | Client Component | 番茄钟（Google 风格，专注/短休/长休/任务列表） |
+| `/countdown` | `src/app/(portal)/countdown/page.tsx` | Legacy Frame | 倒计日（嵌入旧版 HTML，初始数据已清空） |
 | `/relax` | `src/app/(portal)/relax/page.tsx` | Legacy Frame | 放松一下（嵌入旧版 HTML） |
 | `/answer-sheet` | `src/app/(portal)/answer-sheet/page.tsx` | Legacy Frame | 答题卡（嵌入旧版 HTML） |
-| `/control` | `src/app/(portal)/control/page.tsx` | Legacy Frame | 控制中心（嵌入旧版 HTML） |
+| `/control` | `src/app/(portal)/control/page.tsx` | Legacy Frame | 日程（执行日程，嵌入旧版 HTML） |
 | `/goal` | `src/app/(portal)/goal/page.tsx` | Legacy Frame | 计划显示器（嵌入旧版 HTML） |
-| `/igcountdown` | `src/app/(portal)/igcountdown/page.tsx` | Legacy Frame | 考试倒计时（嵌入旧版 HTML） |
+| `/igcountdown` | `src/app/(portal)/igcountdown/page.tsx` | Legacy Frame | 考试倒计时（旧 URL，保留兼容） |
+| `/examcountdown` | `src/app/(portal)/examcountdown/page.tsx` | Legacy Frame | 倒计时（考试，新 URL） |
 | `/update-hub` | `src/app/(portal)/update-hub/page.tsx` | Legacy Frame | 更新日志（嵌入旧版 HTML） |
 | `/mock-portal` | `src/app/(portal)/mock-portal/page.tsx` | Legacy Frame | Mock 刷题（嵌入旧版 HTML） |
 | `/tools` | `src/app/(portal)/tools/page.tsx` | Server Component | 工具箱（文本处理/时间同步/剪贴板） |

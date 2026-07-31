@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
-import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope } from '@/lib/ai-tools';
+import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS } from '@/lib/ai-tools';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
@@ -25,6 +25,8 @@ interface Conversation {
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** 重试次数（0-5） */
+  retryCount?: number;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -610,11 +612,173 @@ export default function AiChatFab({
     }
   }
 
-  function handleRetry() {
-    if (loading || !activeConv) return;
-    const lastUserMsg = [...activeConv.messages].reverse().find(m => m.role === 'user');
-    if (lastUserMsg) {
-      handleSend(lastUserMsg.content);
+  // 每条消息重试 0/5 次限制 + 重试时不回传旧版回复
+  function handleRetry(targetIndex?: number) {
+    if (loading || !activeConv || isBusyRef.current) return;
+    // 找到要重试的 AI 消息及其对应的用户消息
+    const assistantMsgs = activeConv.messages.filter(m => m.role === 'assistant');
+    const targetAssistantIdx = targetIndex !== undefined
+      ? activeConv.messages.findIndex((m, i) => i === targetIndex && m.role === 'assistant')
+      : activeConv.messages.length - 1;
+    
+    const targetMsg = targetAssistantIdx >= 0 ? activeConv.messages[targetAssistantIdx] : null;
+    
+    // 检查重试次数限制（max 5）
+    const currentRetryCount = targetMsg?.retryCount || 0;
+    if (currentRetryCount >= 5) {
+      setError('已达到最大重试次数（5 次），请开启新对话');
+      return;
+    }
+    
+    // 找到这条 AI 消息之前的最后一条用户消息
+    let userMsgIdx = -1;
+    for (let i = (targetAssistantIdx >= 0 ? targetAssistantIdx : activeConv.messages.length) - 1; i >= 0; i--) {
+      if (activeConv.messages[i].role === 'user') {
+        userMsgIdx = i;
+        break;
+      }
+    }
+    if (userMsgIdx < 0) return;
+    const userMsg = activeConv.messages[userMsgIdx];
+    
+    // 更新重试计数
+    updateConversation(conv => {
+      const updated = [...conv.messages];
+      const target = updated[targetAssistantIdx];
+      if (target && target.role === 'assistant') {
+        updated[targetAssistantIdx] = { ...target, retryCount: (target.retryCount || 0) + 1 };
+      }
+      return { ...conv, messages: updated };
+    });
+    
+    // 调用 handleSend 并传入：用户消息文本 + 要替换的 assistant 消息索引
+    sendWithRetry(userMsg.content, targetAssistantIdx);
+  }
+
+  // 带重试参数的发送函数：替换指定索引的 assistant 消息
+  async function sendWithRetry(userText: string, replaceIndex?: number) {
+    if (!userText || loading || isBusyRef.current) return;
+    
+    isBusyRef.current = true;
+    const requestId = ++requestIdRef.current;
+    const convId = activeConvIdRef.current || activeConvId;
+    if (!convId) return;
+    activeConvIdRef.current = convId;
+    
+    setLoading(true);
+    setStreaming(true);
+    setError(null);
+    setStatusText('AI 正在重新思考...');
+    autoSpeakDoneRef.current = false;
+    
+    try {
+      const config = getAiConfig();
+      if (!config.baseUrl || !config.apiKey) {
+        throw new Error('请先在设置页面配置 AI API Key');
+      }
+      
+      // 构造发送给 API 的消息
+      const latestMsgs = messagesRef.current;
+      
+      // 重试时：过滤掉旧的 assistant 回复，但保留之前的上下文
+      const filteredMsgs = latestMsgs.filter(m => m.role !== 'system');
+      
+      // 计算要发送的消息队列 - 去除旧的 assistant 回复
+      const apiMessages = [getSystemMessage(), ...filteredMsgs];
+      
+      const res = await callAiApi(apiMessages, { stream: true });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        let errMsg: string;
+        try {
+          const err = JSON.parse(text);
+          errMsg = err.error?.message ?? err.message ?? `HTTP ${res.status}`;
+        } catch {
+          errMsg = text || `HTTP ${res.status}`;
+        }
+        throw new Error(errMsg);
+      }
+      
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('无法读取 AI 响应流');
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      let displayContent = '';
+      let messageAdded = false;
+      setStatusText('AI 正在回复...');
+      streamBufferRef.current = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(data) as { choices?: { delta?: { content?: string } }[] };
+              const delta = parsed.choices?.[0]?.delta?.content ?? '';
+              if (!delta) continue;
+              assistantContent += delta;
+              streamBufferRef.current.push(...delta.split(''));
+            } catch {}
+          }
+        }
+      }
+      
+      if (streamBufferRef.current.length > 0) {
+        await new Promise<void>((resolve) => {
+          startDisplayTimer(
+            (char) => {
+              displayContent += char;
+              if (!messageAdded) {
+                messageAdded = true;
+                updateConversation(conv => {
+                  const updated = [...conv.messages];
+                  if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
+                    // 替换旧回复
+                    updated[replaceIndex] = { role: 'assistant', content: displayContent };
+                  } else {
+                    // 追加新回复
+                    updated.push({ role: 'assistant', content: displayContent });
+                  }
+                  return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
+                });
+                setStatusText('AI 正在回复...');
+              } else {
+                updateConversation(conv => {
+                  const updated = [...conv.messages];
+                  const targetIdx = replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant'
+                    ? replaceIndex
+                    : updated.length - 1;
+                  updated[targetIdx] = { role: 'assistant', content: displayContent };
+                  return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
+                });
+              }
+            },
+            () => resolve()
+          );
+        });
+      }
+      
+      if (!messageAdded && assistantContent === '') {
+        updateConversation(conv => ({
+          ...conv,
+          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
+          updatedAt: new Date().toISOString(),
+        }));
+      }
+      setStatusText('');
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '请求失败，请检查网络连接和 API 配置';
+      setError(errMsg);
+    } finally {
+      setLoading(false);
+      setStreaming(false);
+      if (requestIdRef.current === requestId) {
+        isBusyRef.current = false;
+      }
     }
   }
 
@@ -668,6 +832,24 @@ export default function AiChatFab({
           setStatusText('正在执行操作...');
           for (let i = 0; i < toolCalls.length; i++) {
             const tc = toolCalls[i];
+            const toolDef = AI_TOOLS.find(t => t.id === tc.tool);
+            
+            // 需要用户确认的操作 → 弹窗确认
+            if (toolDef?.requiresConsent) {
+              const consentDescription = toolDef.consentInfo?.(tc.params) || `执行${toolDef.name}`;
+              const confirmed = window.confirm(
+                `🤖 AI 想要执行以下操作：\n\n${consentDescription}\n\n是否同意？`
+              );
+              if (!confirmed) {
+                updateConversation(conv => ({
+                  ...conv,
+                  messages: [...conv.messages, { role: 'system', content: `🚫 用户拒绝了「${toolDef.name}」操作` }],
+                  updatedAt: new Date().toISOString(),
+                }));
+                continue;
+              }
+            }
+            
             setStatusText(toolCalls.length > 1 ? `正在执行操作 (${i + 1}/${toolCalls.length})...` : '正在执行操作...');
             const result = await executeToolCall(tc);
             updateConversation(conv => ({
@@ -905,8 +1087,8 @@ export default function AiChatFab({
                     </button>
                     {i === messages.length - 1 && messages.filter(m => m.role === 'user').length > 0 && (
                       <button
-                        onClick={handleRetry}
-                        title="重新生成"
+                        onClick={() => handleRetry(i)}
+                        title={`重新生成${msg.retryCount ? ` (${msg.retryCount}/5)` : ''}`}
                         disabled={loading}
                         className="p-1 rounded-full text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)] transition-colors disabled:opacity-50"
                       >
