@@ -728,6 +728,7 @@
     <div class="settings-tabs">
         <button class="tab-btn active" onclick="switchTab('tab-general')">General & Emergency</button>
         <button class="tab-btn" onclick="switchTab('tab-syllabus')">Syllabus Manager</button>
+        <button class="tab-btn" onclick="switchTab('tab-steps')">任务链配置</button>
     </div>
 
     <div id="tab-general" class="tab-content active">
@@ -779,6 +780,16 @@
         <div style="display:flex; gap:10px; margin-top:10px;">
             <input type="text" id="new-unit-name" placeholder="New Unit Name">
             <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">Add</button>
+        </div>
+    </div>
+
+    <div id="tab-steps" class="tab-content">
+        <h4>🔗 任务链配置（Notes / 红绿灯审计 等步骤）</h4>
+        <p style="font-size:12px; color:#666;">修改每个步骤的名称、图标和按钮文字。修改后点击「保存任务链」生效。</p>
+        <div id="steps-editor-container" style="margin-top:12px; display:flex; flex-direction:column; gap:10px;"></div>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="btn-outline" onclick="addStepEditor()">＋ 添加步骤</button>
+            <button class="btn-primary" onclick="saveStepsConfig()">💾 保存任务链</button>
         </div>
     </div>
 
@@ -1609,6 +1620,70 @@
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         event.target.classList.add('active');
+        // 切换到任务链配置时渲染编辑器
+        if (tabId === 'tab-steps') renderStepsEditor();
+    }
+
+    /* ======================== 12.5 任务链配置编辑器（人工修改通道） ======================== */
+    let stepsEditorDraft = [];
+
+    function renderStepsEditor() {
+        stepsEditorDraft = JSON.parse(JSON.stringify(QUEST_STEPS));
+        const container = document.getElementById('steps-editor-container');
+        container.innerHTML = '';
+        updateStepsEditorUI();
+    }
+
+    function updateStepsEditorUI() {
+        const container = document.getElementById('steps-editor-container');
+        container.innerHTML = stepsEditorDraft.map((s, i) => `
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; align-items:end; padding:10px; background:#f8f9fa; border-radius:10px; border:1px solid #eee;">
+                <div>
+                    <label style="font-size:11px; color:#555;">名称 (显示在步骤链)</label>
+                    <input value="${esc(s.label)}" onchange="stepsEditorDraft[${i}].label=this.value">
+                </div>
+                <div>
+                    <label style="font-size:11px; color:#555;">图标 (Material Icon 名)</label>
+                    <input value="${esc(s.icon)}" onchange="stepsEditorDraft[${i}].icon=this.value">
+                </div>
+                <div>
+                    <label style="font-size:11px; color:#555;">按钮文字</label>
+                    <input value="${esc(s.btn)}" onchange="stepsEditorDraft[${i}].btn=this.value">
+                </div>
+                <div style="display:flex; gap:4px;">
+                    <button class="btn-icon" onclick="moveStepEditor(${i}, -1)" title="上移">▲</button>
+                    <button class="btn-icon" onclick="moveStepEditor(${i}, 1)" title="下移">▼</button>
+                    <button class="btn-icon del" onclick="removeStepEditor(${i})" title="删除" style="color:#ba1a1a;">✕</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function addStepEditor() {
+        stepsEditorDraft.push({ id: 'custom' + Date.now(), label: '新步骤', icon: 'check_circle', btn: '完成' });
+        updateStepsEditorUI();
+    }
+
+    function moveStepEditor(i, dir) {
+        const j = i + dir;
+        if (j < 0 || j >= stepsEditorDraft.length) return;
+        [stepsEditorDraft[i], stepsEditorDraft[j]] = [stepsEditorDraft[j], stepsEditorDraft[i]];
+        updateStepsEditorUI();
+    }
+
+    function removeStepEditor(i) {
+        stepsEditorDraft.splice(i, 1);
+        updateStepsEditorUI();
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    function saveStepsConfig() {
+        if (!stepsEditorDraft.length) { alert('至少需要保留一个步骤'); return; }
+        localStorage.setItem('caie_studyplan_config', JSON.stringify({ questSteps: stepsEditorDraft }));
+        location.reload();
     }
 
     function renderUnitEditorList() {
