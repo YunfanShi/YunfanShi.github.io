@@ -71,6 +71,31 @@ function getSourceFromPath(path: string): ConversationSource {
   return map[p] || 'other';
 }
 
+/** iframe 内 Legacy 页面上报的页面标识 → ConversationSource 映射 */
+function getSourceFromIframePage(page: string): ConversationSource | null {
+  const iframeMap: Record<string, ConversationSource> = {
+    goal: 'goal',
+    control: 'control',
+    timetablehub: 'control',
+    'study-guide': 'study-guide',
+    studyguide: 'study-guide',
+    studyplan: 'study',
+    study: 'study',
+    countdown: 'countdown',
+    igcountdown: 'countdown',
+    quizwise: 'quiz',
+    quiz: 'quiz',
+    vocab: 'vocab',
+    music: 'music',
+    poem: 'poem',
+    relax: 'relax',
+    mockportal: 'other',
+    answersheet: 'other',
+  };
+  const key = page.toLowerCase();
+  return iframeMap[key] || null;
+}
+
 function getSourceLabel(source: ConversationSource): string {
   const labels: Record<ConversationSource, string> = {
     dashboard: '🏠 主页',
@@ -294,7 +319,7 @@ export default function AiChatFab({
   }, [open]);
 
   const createNewConversation = useCallback(() => {
-    const source = getSourceFromPath(currentPath);
+    const source = getEffectiveSource();
     const newConv: Conversation = {
       id: generateId(),
       title: '新对话',
@@ -353,7 +378,7 @@ export default function AiChatFab({
 
   function getSystemMessage(): Message {
     const toolsDesc = getToolsDescription(scope);
-    const source = getSourceFromPath(currentPath);
+    const source = getEffectiveSource();
     const pageContext = getPageContext(source);
 
     const scopeName = {
@@ -404,9 +429,13 @@ export default function AiChatFab({
     }
     activeConvIdRef.current = convId;
 
+    // 立即将用户消息同步到 ref，避免 React state 异步更新导致的时序问题
+    const userMsg: Message = { role: 'user', content: text };
+    messagesRef.current = [...messagesRef.current.filter(m => m.role !== 'system'), userMsg];
+
     updateConversation(conv => ({
       ...conv,
-      messages: [...conv.messages, { role: 'user', content: text }],
+      messages: [...conv.messages, userMsg],
       updatedAt: new Date().toISOString(),
     }), convId);
 
@@ -875,7 +904,7 @@ export default function AiChatFab({
   // slow=🐢慢速逐字, normal=⚡中速逐字, instant=🐇不限速（直接显示全部）
   const SPEED_PRESETS = { slow: 60, normal: 35, instant: 0 }; // ms per character (0=不限速)
   type SpeedPresetType = 'slow' | 'normal' | 'instant';
-  const [speedPreset, setSpeedPreset] = useState<SpeedPresetType>('normal');
+  const [speedPreset, setSpeedPreset] = useState<SpeedPresetType>('instant');
   const streamBufferRef = useRef<string[]>([]);
   const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -916,6 +945,36 @@ export default function AiChatFab({
       if (streamTimerRef.current) clearInterval(streamTimerRef.current);
     };
   }, []);
+
+  // ════════════════════════════════════════════════════════
+  // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
+  // ════════════════════════════════════════════════════════
+  const iframePageRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    function handleIframeMessage(e: MessageEvent) {
+      try {
+        const data = e.data;
+        if (!data || typeof data !== 'object') return;
+        // Legacy 页面通过 postMessage 上报自己所在页面
+        if (data.type === 'jackyun-page' && typeof data.page === 'string') {
+          iframePageRef.current = data.page;
+        }
+      } catch {}
+    }
+    window.addEventListener('message', handleIframeMessage);
+    return () => window.removeEventListener('message', handleIframeMessage);
+  }, []);
+
+  // 获取实际来源：优先 iframe 上报的页面，其次 URL 路径
+  const getEffectiveSource = useCallback((): ConversationSource => {
+    const iframePage = iframePageRef.current;
+    if (iframePage) {
+      const mapped = getSourceFromIframePage(iframePage);
+      if (mapped) return mapped;
+    }
+    return getSourceFromPath(currentPath);
+  }, [currentPath]);
 
   return (
     <>
