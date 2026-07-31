@@ -32,6 +32,8 @@ interface Message {
   collapsed?: boolean;
   /** AI 思考过程（reasoning_content），与最终回复分离存储 */
   reasoningContent?: string;
+  /** token 消耗统计（输入+输出） */
+  tokenUsage?: { input?: number; output?: number };
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -589,6 +591,8 @@ export default function AiChatFab({
   const [tokenPrice, setTokenPrice] = useState<number>(() => getTokenPrice());
   // 设置弹窗
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 打断当前流式输出
+  const abortControllerRef = useRef<AbortController | null>(null);
   // 消息容器引用（用于判断用户是否在底部）
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isUserAtBottomRef = useRef(true);
@@ -918,7 +922,15 @@ export default function AiChatFab({
     }
 
     // 根据思考深度传入对应的 temperature（真正影响 AI 的推理深度）
-    const res = await callAiApi(apiMessages, { stream: true, temperature: getThinkingTemperature(thinkingLevel) });
+    // 创建 AbortController 用于打断
+    abortControllerRef.current = new AbortController();
+
+    const res = await callAiApi(apiMessages, {
+      stream: true,
+      temperature: getThinkingTemperature(thinkingLevel),
+      // @ts-ignore - signal passes through to fetch
+      signal: abortControllerRef.current.signal,
+    });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       let errMsg: string;
@@ -945,6 +957,11 @@ export default function AiChatFab({
     let assistantContent = '';       // 最终回复（content，用户可见 + 用于工具解析）
     let reasoningContent = '';       // 思考过程（reasoning_content，折叠显示，不用于 TTS）
     let messageAdded = false;
+    let tokenUsage: { input?: number; output?: number } | undefined;
+
+    // 记录请求开始时间用于计算输入 token
+    const inputChars = apiMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+    const estimatedInputTokens = Math.ceil(inputChars / 4);
 
     setStatusText('AI 正在思考...');
 
@@ -959,9 +976,18 @@ export default function AiChatFab({
           try {
             const parsed = JSON.parse(data) as {
               choices?: { delta?: { content?: string; reasoning_content?: string } }[];
+              usage?: { prompt_tokens?: number; completion_tokens?: number };
             };
             const deltaContent = parsed.choices?.[0]?.delta?.content ?? '';
             const deltaReasoning = parsed.choices?.[0]?.delta?.reasoning_content ?? '';
+
+            // 解析 token 消耗（SSE 末尾 usage 字段）
+            if (parsed.usage?.prompt_tokens || parsed.usage?.completion_tokens) {
+              tokenUsage = {
+                input: parsed.usage.prompt_tokens,
+                output: parsed.usage.completion_tokens,
+              };
+            }
 
             if (!deltaContent && !deltaReasoning) continue;
 
@@ -980,6 +1006,7 @@ export default function AiChatFab({
                   role: 'assistant',
                   content: assistantContent,
                   reasoningContent: reasoningContent || undefined,
+                  tokenUsage: tokenUsage || (assistantContent ? { input: estimatedInputTokens, output: Math.ceil(assistantContent.length / 4) } : undefined),
                 };
                 if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
                   updated[replaceIndex] = newMsg;
@@ -999,6 +1026,7 @@ export default function AiChatFab({
                   role: 'assistant',
                   content: assistantContent,
                   reasoningContent: reasoningContent || updated[targetIdx].reasoningContent,
+                  tokenUsage: tokenUsage || updated[targetIdx].tokenUsage,
                 };
                 return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
               }, convId);
@@ -1026,7 +1054,7 @@ export default function AiChatFab({
   /**
    * Agent 主循环：读取 → 执行 → 再读取 → 再执行 ...
    */
-  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string, replaceIndex?: number): Promise<void> {
+  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string, replaceIndex?: number, continueAfterLimit = false): Promise<void> {
     let apiMessages = [...initialApiMessages];
     let loopCount = 0;
     let currentReplaceIndex = replaceIndex;
@@ -1037,6 +1065,33 @@ export default function AiChatFab({
     while (loopCount < effectiveMaxLoops) {
       loopCount++;
       setStatusText(loopCount === 1 ? 'AI 正在思考...' : `Agent 正在推理（第 ${loopCount} 轮）...`);
+
+      // 自动压缩：检查上下文总字符数，超过 8000 字压缩早期消息
+      const totalChars = apiMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+      if (totalChars > 8000 && apiMessages.length > 20 && !continueAfterLimit) {
+        const recent = apiMessages.slice(-20);
+        const old = apiMessages.slice(0, -20);
+        try {
+          setStatusText('正在压缩对话历史...');
+          const config = getAiConfig();
+          if (config.baseUrl && config.apiKey) {
+            const res = await callAiApi([
+              { role: 'system', content: '请将以下对话历史压缩为一段简洁摘要（保留关键信息：用户目标、已完成的操作、当前状态）。只输出摘要。' },
+              ...old,
+            ], { stream: false, temperature: 0.3 });
+            if (res.ok) {
+              const data = await res.json();
+              const summary = data.choices?.[0]?.message?.content || '';
+              if (summary) {
+                apiMessages = [
+                  { role: 'system', content: `[压缩摘要] ${summary.slice(0, 500)}` },
+                  ...recent,
+                ];
+              }
+            }
+          }
+        } catch { /* 压缩失败不影响主流程 */ }
+      }
 
       // 流式调用 AI（直接显示内容）
       // 重试时第一轮替换旧消息，后续轮次正常追加
@@ -1085,15 +1140,54 @@ export default function AiChatFab({
           }
         }
 
+        // 高风险工具执行前：保存修改前数据快照（数据回退点）
+        const highRisk = toolDef?.riskLevel === 'high';
+        let snapshotBefore: string | null = null;
+        if (highRisk) {
+          if (tc.tool === 'manage_goal') {
+            snapshotBefore = localStorage.getItem('jackyun_goal_data') || localStorage.getItem('gt_v6');
+          } else if (tc.tool === 'manage_countdown') {
+            snapshotBefore = localStorage.getItem('jackyun_igcountdown');
+          }
+        }
+
         // 执行工具
         const result = await executeToolCall(tc);
         const sysMsg = `🔧 工具执行结果：${result}`;
         addSystemMessage(sysMsg, convId);
         apiMessages.push({ role: 'system', content: sysMsg });
+
+        // 高风险工具执行后：保存 before/after 快照到 localStorage
+        if (highRisk && snapshotBefore !== null) {
+          const snapshotKey = `jackyun-savepoint-${convId}`;
+          const existing = JSON.parse(localStorage.getItem(snapshotKey) || '{"records":[]}');
+          const after = tc.tool === 'manage_goal'
+            ? localStorage.getItem('jackyun_goal_data') || localStorage.getItem('gt_v6')
+            : tc.tool === 'manage_countdown'
+              ? localStorage.getItem('jackyun_igcountdown')
+              : null;
+          existing.records = existing.records || [];
+          existing.records.push({
+            tool: tc.tool,
+            description: sysMsg.slice(0, 60),
+            before: snapshotBefore,
+            after,
+            timestamp: new Date().toISOString(),
+          });
+          // 最多保留最近 20 条快照
+          if (existing.records.length > 20) existing.records.splice(0, existing.records.length - 20);
+          localStorage.setItem(snapshotKey, JSON.stringify(existing));
+        }
       }
 
       // 如果本回合有工具调用，继续下一轮推理
       if (!loopHasToolCall) break;
+    }
+
+    // 到达上限但仍有后续 → 显示"继续执行"按钮
+    if (loopCount >= effectiveMaxLoops) {
+      localStorage.setItem(`jackyun-continue-${convId}`, JSON.stringify({ apiMessages }));
+      addSystemMessage(`⚠️ 已完成 ${effectiveMaxLoops} 轮推理。`, convId);
     }
 
     setStatusText('');
@@ -1101,7 +1195,14 @@ export default function AiChatFab({
 
   async function handleSend(retryMessage?: string, retryTargetIndex?: number) {
     const text = retryMessage || input.trim();
-    if (!text || loading || isBusyRef.current) return;
+    if (!text || isBusyRef.current) return;
+
+    // 如果正在输出，先中止当前流式请求
+    if (loading) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+    }
 
     isBusyRef.current = true;
     const requestId = ++requestIdRef.current;
@@ -1566,6 +1667,11 @@ export default function AiChatFab({
 
                 {msg.role === 'assistant' && msg.content && !loading && (
                   <div className="flex items-center gap-1 mt-1 ml-1">
+                    {(msg as Message).tokenUsage && (
+                      <span className="text-[10px] text-[var(--muted-foreground)] mr-1">
+                        📊 {((msg as Message).tokenUsage!.input || 0) + ((msg as Message).tokenUsage!.output || 0)} tokens · ≈¥{((((msg as Message).tokenUsage!.input || 0) + ((msg as Message).tokenUsage!.output || 0)) / 1000000 * tokenPrice).toFixed(4)}
+                      </span>
+                    )}
                     <button
                       onClick={() => handleSpeak(msg.content, i)}
                       title={speakingMsgIndex === i ? '停止朗读' : '朗读'}
@@ -1623,6 +1729,20 @@ export default function AiChatFab({
 
           {/* Input */}
           <div className="flex items-end gap-2 p-3 border-t border-[var(--card-border)]">
+            {loading && (
+              <button
+                onClick={() => {
+                  abortControllerRef.current?.abort();
+                  abortControllerRef.current = null;
+                  setLoading(false);
+                  setStatusText('');
+                }}
+                title="停止输出"
+                className="p-2 rounded-xl bg-[#EA4335] text-white hover:bg-[#c5221f] transition-colors flex-shrink-0"
+              >
+                <span className="material-icons-round text-base">stop</span>
+              </button>
+            )}
             <textarea
               ref={textareaRef}
               value={input}
