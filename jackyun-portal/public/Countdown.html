@@ -519,17 +519,8 @@
     <script>
         // --- Configuration & Data ---
         
-        const DEFAULT_CONFIG = [
-            { id: 'cny', title: '春节 (CNY)', date: '2026-02-17T00:00:00', color: '#ea4335' },
-            { id: 'chem_p42', title: 'Chemistry (理论)', date: '2026-04-28T13:00:00', color: '#fbbc04' },
-            { id: 'math_p23', title: 'Math (Paper 23)', date: '2026-04-29T09:00:00', color: '#1a73e8' },
-            { id: 'bio_p42', title: 'Biology (理论)', date: '2026-04-30T13:00:00', color: '#34a853' },
-            { id: 'math_p43', title: 'Math (Paper 43)', date: '2026-05-06T09:00:00', color: '#1a73e8' },
-            { id: 'chem_p62', title: 'Chemistry (实验)', date: '2026-05-07T13:00:00', color: '#fbbc04' },
-            { id: 'phy_p42', title: 'Physics (理论)', date: '2026-05-08T13:00:00', color: '#ea4335' },
-            { id: 'bio_p62', title: 'Biology (实验)', date: '2026-05-12T13:00:00', color: '#34a853' },
-            { id: 'phy_p62', title: 'Physics (实验)', date: '2026-05-19T13:00:00', color: '#ea4335' }
-        ];
+        // 初始倒计时已清空（2026-07-31）：用户可自行添加
+        const DEFAULT_CONFIG = [];
 
         let events = [];
         let currentId = '';
@@ -567,10 +558,10 @@
         }
 
         function resetToDefaults() {
-            if(confirm("Restore default IGCSE exam schedule? This will delete custom events.")) {
+            if(confirm("Restore default exam schedule? This will delete custom events.")) {
                 events = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
                 changeSortMode('date'); // Reset to date sort
-                switchTheme(events[0].id);
+                if (events.length > 0) switchTheme(events[0].id);
             }
         }
 

@@ -21,6 +21,10 @@ export interface AiTool {
   scope: ToolScope[];
   /** 处理函数：解析参数并执行 */
   handler: (params: Record<string, string>) => string | Promise<string>;
+  /** 是否需要用户确认后才执行（写操作需要） */
+  requiresConsent?: boolean;
+  /** 确认弹窗描述：操作 + 原因 + 后果 */
+  consentInfo?: (params: Record<string, string>) => string;
 }
 
 /**
@@ -543,6 +547,8 @@ export const AI_TOOLS: AiTool[] = [
     name: '修改目标',
     description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit',
     scope: ['global'],
+    requiresConsent: true,
+    consentInfo: (params) => `目标管理操作：${params.action === 'create' ? '创建新目标「' + (params.name || '') + '」' : params.action === 'delete' ? '删除目标 ID ' + params.id : '修改目标（ID: ' + params.id + '）'}。后果：数据将被更新并云端同步。`,
     handler: async (params: Record<string, string>) => {
       try {
         const raw = localStorage.getItem('jackyun_goal_data');
@@ -650,6 +656,8 @@ export const AI_TOOLS: AiTool[] = [
     name: '修改考试倒计时',
     description: '修改 IGCSE 考试倒计时设置。参数：examDate (YYYY-MM-DD 格式的考试日期)',
     scope: ['global'],
+    requiresConsent: true,
+    consentInfo: (params) => `考试倒计时操作：将考试日期更新为 ${params.examDate || '未知日期'}。后果：顶部倒计时将立即重新计算并云端同步。`,
     handler: async (params: Record<string, string>) => {
       try {
         const raw = localStorage.getItem('jackyun_igcountdown');
@@ -688,6 +696,186 @@ export const AI_TOOLS: AiTool[] = [
         }).join('\n') + (keys.length > 7 ? '\n...共 ' + keys.length + ' 天' : '');
       } catch (e: any) {
         return '读取学习进度出错：' + (e.message || String(e));
+      }
+    },
+  },
+  // ====== 红绿灯审计工具（Studyplan） ======
+  {
+    id: 'read_traffic_audit',
+    name: '读取红绿灯审计',
+    description: '读取学习计划中所有知识点的红绿灯审计状态（红/黄/绿）',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const prefix = 'jackyun_traffic_';
+        const results: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            try {
+              const data = JSON.parse(localStorage.getItem(key) || '');
+              const colorMap: Record<string, string> = { '#34a853': '🟢 绿灯', '#fbbc04': '🟡 黄灯', '#ea4335': '🔴 红灯' };
+              results.push(`- ${data.subject} | ${data.unit}: ${colorMap[data.color] || data.color} (${data.date || ''})`);
+            } catch {}
+          }
+        }
+        return results.length > 0
+          ? '红绿灯审计数据（' + results.length + ' 项）：\n' + results.join('\n')
+          : '还没有红绿灯审计记录。请在 学习计划 页面为知识点打分。';
+      } catch (e: any) {
+        return '读取红绿灯审计出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'manage_traffic_audit',
+    name: '修改红绿灯审计',
+    description: '修改某个知识点的红绿灯状态。参数：subject (科目名), unit (知识点/单元名), color (green|yellow|red)',
+    scope: ['global'],
+    handler: async (params) => {
+      try {
+        const { subject, unit, color } = params;
+        if (!subject || !unit || !color) return '请提供 subject、unit、color 参数';
+        const colorMap: Record<string, string> = {
+          'green': '#34a853', 'yellow': '#fbbc04', 'red': '#ea4335',
+          '绿灯': '#34a853', '黄灯': '#fbbc04', '红灯': '#ea4335',
+        };
+        const hexColor = colorMap[color] || '';
+        if (!hexColor) return 'color 必须是 green/yellow/red';
+        const key = `jackyun_traffic_${subject}|${unit}`;
+        localStorage.setItem(key, JSON.stringify({
+          color: hexColor,
+          date: new Date().toISOString().slice(0, 10),
+          subject,
+          unit,
+        }));
+        // 同步到 caie_progress_v2_1
+        try {
+          const progress = JSON.parse(localStorage.getItem('caie_progress_v2_1') || '{}');
+          progress[`${subject}|${unit}|traffic`] = true;
+          localStorage.setItem('caie_progress_v2_1', JSON.stringify(progress));
+        } catch {}
+        return '✅ 已更新「' + subject + ' | ' + unit + '」红绿灯状态为 ' + color;
+      } catch (e: any) {
+        return '修改红绿灯审计出错：' + (e.message || String(e));
+      }
+    },
+  },
+  // ====== 日程生成器 → 日程中心 联动工具 ======
+  {
+    id: 'create_schedule_from_goal',
+    name: '从目标生成日程',
+    description: '根据 Goal 目标数据和当前学习进度，生成一份日程计划并输出到日程表。参数：date (可选，YYYY-MM-DD 格式，默认今天)',
+    scope: ['global'],
+    handler: async (params) => {
+      try {
+        // 读取 Goal 数据
+        const goalRaw = localStorage.getItem('jackyun_goal_data');
+        const goals = goalRaw ? JSON.parse(goalRaw) : [];
+        // 读取学习进度
+        const progressRaw = localStorage.getItem('caie_progress_v2_1');
+        const progress = progressRaw ? JSON.parse(progressRaw) : {};
+        // 读取红绿灯审计
+        const trafficData: any[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('jackyun_traffic_')) {
+            try {
+              trafficData.push(JSON.parse(localStorage.getItem(key) || ''));
+            } catch {}
+          }
+        }
+
+        const targetDate = params.date || new Date().toISOString().slice(0, 10);
+        const redCount = trafficData.filter((t: any) => t.color === '#ea4335').length;
+        const yellowCount = trafficData.filter((t: any) => t.color === '#fbbc04').length;
+
+        // 生成日程
+        const schedule = [
+          { time: '09:00-10:00', task: '🗂 学习计划回顾', detail: '查看今日目标和红绿灯状态', done: false },
+        ];
+        if (redCount > 0) schedule.push({ time: '10:00-11:00', task: `🔴 红灯复习（${redCount} 个知识点）`, detail: '回课本看引言+定义，闭卷抄公式', done: false });
+        if (yellowCount > 0) schedule.push({ time: '11:00-11:30', task: `🟡 黄灯复习（${yellowCount} 个知识点）`, detail: '制作 Anki 卡片', done: false });
+        goals.slice(0, 3).forEach((g: any, i: number) => {
+          if (g.done < g.total) {
+            schedule.push({ time: `${14 + i}:00-${15 + i}:00`, task: `🎯 ${g.name}`, detail: `进度 ${g.done}/${g.total}`, done: false });
+          }
+        });
+        if (schedule.length <= 1) schedule.push({ time: '14:00-15:00', task: '📚 自由学习', detail: '安排当前最需要提升的科目', done: false });
+
+        localStorage.setItem('jackyun_schedule_output', JSON.stringify({
+          date: targetDate,
+          schedule,
+          generatedAt: new Date().toISOString(),
+          source: 'ai-schedule-generator',
+        }));
+        // 输出给日程中心 (w3_schedule)
+        const w3Schedule = schedule.map((s: any) => ({
+          start: s.time.split('-')[0],
+          end: s.time.split('-')[1],
+          cat: 'AI',
+          detail: `${s.task} (${s.detail || ''})`,
+          done: false,
+        }));
+        localStorage.setItem('w3_schedule', JSON.stringify(w3Schedule));
+        window.dispatchEvent(new Event('storage'));
+        return '✅ 已生成今日日程（' + schedule.length + ' 个时间段）并同步到日程中心。\n' +
+          schedule.map((s: any, i: number) => `${i + 1}. ${s.time} ${s.task}`).join('\n');
+      } catch (e: any) {
+        return '生成日程出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'read_schedule_results',
+    name: '读取日程执行结果',
+    description: '读取日程中心的执行结果（已完成/跳过的任务），用于 AI 分析建议',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('w3_schedule');
+        if (!raw) return '尚无日程数据';
+        const tasks = JSON.parse(raw);
+        if (!Array.isArray(tasks) || tasks.length === 0) return '日程表为空';
+        const doneCount = tasks.filter((t: any) => t.done).length;
+        const skippedCount = tasks.filter((t: any) => t.skipped).length;
+        const taskList = tasks.map((t: any, i: number) =>
+          `  ${i + 1}. ${t.detail || t.task || '任务'} (${t.start}-${t.end}) ${t.done ? '✅' : t.skipped ? '⏭️' : '⬜'}`
+        ).join('\n');
+        return `📋 日程执行结果（完成 ${doneCount}/${tasks.length}，跳过 ${skippedCount}）：\n${taskList}`;
+      } catch (e: any) {
+        return '读取执行结果出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'analyze_schedule_and_suggest',
+    name: '分析日程并建议',
+    description: '分析日程执行结果，生成增减活动的建议并反馈给用户',
+    scope: ['global'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('w3_schedule');
+        if (!raw) return '需要先有日程数据才能分析';
+        const tasks = JSON.parse(raw);
+        const doneCount = tasks.filter((t: any) => t.done).length;
+        const skippedCount = tasks.filter((t: any) => t.skipped).length;
+        const completionRate = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
+
+        let suggestions: string[] = [];
+        if (completionRate >= 80) {
+          suggestions.push('✅ 完成率很高！可以考虑增加 1 个新的学习任务');
+        } else if (completionRate >= 50) {
+          suggestions.push('📊 完成率不错，建议减少一些任务量，保证质量');
+        } else {
+          suggestions.push('⚠️ 完成率偏低，建议大幅减少任务量，聚焦最重要的 2-3 项');
+        }
+        if (skippedCount > 0) {
+          suggestions.push('🔄 有 ' + skippedCount + ' 个任务被跳过，建议检查是否任务设置过大或时间冲突');
+        }
+        return `📊 日程分析（完成率 ${completionRate}%）：\n` + suggestions.join('\n');
+      } catch (e: any) {
+        return '分析日程出错：' + (e.message || String(e));
       }
     },
   },

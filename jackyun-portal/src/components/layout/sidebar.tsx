@@ -12,21 +12,22 @@ const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string
   { labelKey: 'nav.dashboard', icon: 'dashboard', href: '/dashboard' },
   { labelKey: 'nav.control-center', icon: 'tune', href: '/timetable-hub' },
   { labelKey: 'nav.study-plan', icon: 'school', href: '/study' },
+  // Goal 计划显示器：移到学习计划下面
+  { labelKey: 'nav.goal', icon: 'flag', href: '/goal' },
   { labelKey: 'nav.study-guide', icon: 'auto_stories', href: '/study-guide' },
   { labelKey: 'nav.vocab', icon: 'menu_book', href: '/vocab' },
+  // 时间管理：主页 + 3 个工具
+  { labelKey: 'nav.time-management', icon: 'timer', href: '/time-management' },
   // Music pair
   { id: 'music-player', labelKey: 'nav.music-player', icon: 'music_note', href: '/music', group: 'music' as const, mode: 'player' as const },
   { id: 'music-sync', labelKey: 'nav.music-sync', icon: 'sync_alt', href: '/music-sync', group: 'music' as const, mode: 'sync' as const },
   { labelKey: 'nav.bilibili-sync', icon: 'smart_display', href: '/bilibili-sync' },
   { labelKey: 'nav.poem', icon: 'auto_stories', href: '/poem' },
-  { labelKey: 'nav.countdown', icon: 'timer', href: '/countdown' },
   { labelKey: 'nav.relax', icon: 'sports_esports', href: '/relax' },
   { labelKey: 'nav.schedule', icon: 'calendar_month', href: '/control' },
   // Answer sheet pair
   { id: 'answer-sheet', labelKey: 'nav.answer-sheet', icon: 'content_paste', href: '/answer-sheet', group: 'answerSheet' as const, mode: 'standard' as const },
   { id: 'answer-sheet-sync', labelKey: 'nav.answer-sheet-sync', icon: 'sync', href: '/answer-sheet-sync', group: 'answerSheet' as const, mode: 'sync' as const },
-  { labelKey: 'nav.goal', icon: 'flag', href: '/goal' },
-  { labelKey: 'nav.exam-countdown', icon: 'hourglass_empty', href: '/igcountdown' },
   { labelKey: 'nav.mock', icon: 'quiz', href: '/mock-portal' },
   { labelKey: 'nav.quizwise', icon: 'psychology', href: '/quiz' },
   { labelKey: 'nav.md2word', icon: 'description', href: '/md2word' },

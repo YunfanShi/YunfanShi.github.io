@@ -313,12 +313,40 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
   // ═══════════════════════════════════════════
   // Sync keys for sidebar modules (only these are synced to cloud)
   var SYNC_KEYS = [
+    // Control / TimetableHub
     'jackyun_control_events',
+    'w3_schedule',
+    // Goal
     'jackyun_goal_data',
+    // IGCountdown / Exam Countdown
     'jackyun_igcountdown',
-    'mock_records',
-    'bilibili_sync_config',
+    // Countdown (倒计日)
+    'jackyun_countdown_data',
+    // Study (学习计划)
+    'caie_schedule_current',
+    'caie_progress_v2_1',
+    'caie_syllabus_v3',
+    'caie_settings_v2_1',
+    'jackyun_syllabus_audit',
+    'jackyun_traffic_',
+    'jackyun_study_notes',
+    // StudyGuide
     'studyguide_progress',
+    // Mock / Quiz
+    'mock_records',
+    'quizwise_current_questions',
+    // Bilibili
+    'bilibili_sync_config',
+    // Music
+    'jackyun_music_playlists',
+    // Vocab
+    'jackyun_vocab_data',
+    // Pomodoro
+    'jackyun_pomodoro_tasks',
+    'jackyun_pomodoro_settings',
+    // Schedule flow (Goal → TimetableHub → Control)
+    'jackyun_schedule_output',
+    'jackyun_schedule_results',
   ];
 
   var _origSetItem = localStorage.setItem.bind(localStorage);
