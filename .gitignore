@@ -43,3 +43,7 @@
 
 # Misc
 **/*.pem
+# Backup files (dev only)
+**/* 2.*
+**/*.bak
+**/control_test*.*
