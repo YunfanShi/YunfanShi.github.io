@@ -4,15 +4,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
-import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel } from '@/lib/ai-tools';
+import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
 // ── Conversation types ──────────────────────────────────────────────────────
-
-type ConversationSource = 'dashboard' | 'control' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'other';
+// ConversationSource 类型已从 ai-tools.ts 导入
 
 interface Conversation {
   id: string;
@@ -744,26 +743,6 @@ export default function AiChatFab({
     return { role: 'system', content };
   }
 
-  function getPageContext(source: ConversationSource): string {
-    const contexts: Record<ConversationSource, string> = {
-      dashboard: '你当前在「主页仪表盘 (Dashboard)」\n- 你可以看到学习统计概览（词汇数、任务完成率）\n- 这里有所有功能模块的入口卡片\n- 用户可以通过你说「打开xxx」来跳转到任何功能页面\n\n【全局管理权限说明】\n你可以管理以下所有模块的数据（但界面操作依然由各页面负责）：\n1. 📋 **日程中心 (TimetableHub)** — 读取和修改日程安排、事件\n2. 🎯 **目标管理 (Goal)** — 读取和创建/修改/删除目标数据（进度、截止日期、优先级等）\n3. 📚 **学习计划 (StudyPlan)** — 读取学习进度\n4. 🧠 **QuizWise 刷题** — 读取刷题记录\n5. ⏱ **考试倒计时 (IGCountdown)** — 读取和修改考试日期\n\n当用户提出与上述模块相关的需求时，使用对应的工具读取或修改数据。',
-      control: '你当前在「日程中心 (Control/Timetable)」\n- 用户可以查看/管理日程安排\n- 可以查看当前任务、标记完成、跳过任务\n- 支持专注计时和音乐播放控制',
-      'study-guide': '你当前在「学习指导 (StudyGuide)」\n- 提供「今日」「学习」「习题」「考试」四大板块\n- 帮助用户掌握高效学习方法',
-      study: '你当前在「学习计划 (StudyPlan)」\n- 用户可以查看和管理学习进度\n- 支持学科进度追踪和考试倒计时',
-      quiz: '你当前在「QuizWise 刷题」\n- 用户可以刷题、分析题目、批改答案',
-      vocab: '你当前在「词汇宝库」\n- 用户可以管理英语词汇、复习单词',
-      music: '你当前在「音乐播放器」\n- 用户可以浏览歌单、播放音乐',
-      poem: '你当前在「诗词天地」\n- 用户可以浏览和背诵经典诗词',
-      settings: '你当前在「设置页面」\n- 用户可以配置 AI、TTS、语言、账户等',
-      goal: '你当前在「目标管理 (Goal)」\n- 用户可以查看和管理目标进度',
-      relax: '你当前在「放松一下」\n- 提供游戏和娱乐功能',
-      countdown: '你当前在「倒计时」\n- 用户可以查看重要日期倒计时',
-      tools: '你当前在「工具箱」\n- 提供各种实用小工具',
-      other: '你当前在 JackYun Portal 中',
-    };
-    return contexts[source] || contexts.other;
-  }
-
   /**
    * 请求用户确认（替代 window.confirm）
    * 返回 true=同意执行, false=拒绝
@@ -1044,9 +1023,11 @@ export default function AiChatFab({
 
   /** 追加系统消息 */
   function addSystemMessage(content: string, convId: string) {
+    // 失败消息（❌ 开头）默认展开，让用户看到真实错误
+    const isError = content.includes('❌');
     updateConversation(conv => ({
       ...conv,
-      messages: [...conv.messages, { role: 'system', content, collapsed: true }],
+      messages: [...conv.messages, { role: 'system', content, collapsed: !isError }],
       updatedAt: new Date().toISOString(),
     }), convId);
   }
@@ -1374,6 +1355,66 @@ export default function AiChatFab({
     }
   }
 
+  /** 复制完整记录：原始 AI 回复 + reasoning + 关联工具执行结果 */
+  async function handleCopyFull(msgIndex: number) {
+    const msg = messages[msgIndex];
+    if (!msg) return;
+
+    const parts: string[] = [];
+
+    // 查找这条 AI 消息之前的用户消息
+    let userMsg = '';
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userMsg = messages[i].content;
+        break;
+      }
+    }
+    if (userMsg) parts.push(`【用户输入】\n${userMsg}`);
+
+    // 原始 AI 回复（含 tool_call）
+    if (msg.role === 'assistant' && msg.content) {
+      parts.push(`【AI 完整回复】\n${msg.content}`);
+    }
+
+    // reasoning 思考过程
+    const reasoning = (msg as Message).reasoningContent;
+    if (reasoning) {
+      parts.push(`【AI 思考过程】\n${reasoning}`);
+    }
+
+    // 找到这条 AI 消息之后关联的系统消息（工具执行结果）
+    const toolResults: string[] = [];
+    for (let i = msgIndex + 1; i < messages.length; i++) {
+      if (messages[i].role === 'system') {
+        toolResults.push(messages[i].content);
+      } else {
+        break; // 遇到下一条用户/AI 消息就停止
+      }
+    }
+    if (toolResults.length > 0) {
+      parts.push(`【工具执行记录】\n${toolResults.join('\n\n')}`);
+    }
+
+    const fullText = parts.join('\n\n────────────────\n\n');
+    if (!fullText) return;
+
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopiedIndex(msgIndex);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = fullText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedIndex(msgIndex);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    }
+  }
+
   // 简化重试：直接复用 handleSend
   function handleRetry(targetIndex?: number) {
     if (loading || !activeConv || isBusyRef.current || consentDialog) return;
@@ -1694,6 +1735,19 @@ export default function AiChatFab({
                     >
                       <span className="material-icons-round text-sm">
                         {copiedIndex === i ? 'check' : 'content_copy'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleCopyFull(i)}
+                      title="复制完整记录（含思考过程、工具调用和结果）"
+                      className={`p-1 rounded-full transition-colors ${
+                        copiedIndex === i
+                          ? 'text-green-500'
+                          : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                      }`}
+                    >
+                      <span className="material-icons-round text-sm">
+                        {copiedIndex === i ? 'check' : 'assignment'}
                       </span>
                     </button>
                     {i === messages.length - 1 && messages.filter(m => m.role === 'user').length > 0 && (
