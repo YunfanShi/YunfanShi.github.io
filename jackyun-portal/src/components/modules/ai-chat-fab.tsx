@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
-import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
+import { getToolsDescription, getPlatformOverview, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
@@ -724,21 +724,55 @@ export default function AiChatFab({
     });
   }, [activeConvId]);
 
+  /** 根据页面 source 自动匹配对应的 ToolScope（当未显式传入 scope 时使用） */
+  const getScopeFromSource = useCallback((src: ConversationSource): ToolScope => {
+    if (scope !== 'global') return scope; // 已显式指定 scope 的页面不受影响
+    const scopeMap: Partial<Record<ConversationSource, ToolScope>> = {
+      dashboard: 'dashboard',
+      goal: 'goal',
+      control: 'control',
+      study: 'study',
+      'study-guide': 'study_guide',
+      quiz: 'quiz',
+      vocab: 'vocab',
+      music: 'music',
+      poem: 'poem',
+      relax: 'relax',
+      countdown: 'countdown',
+      settings: 'settings',
+      tools: 'tools',
+      other: 'global',
+    };
+    return scopeMap[src] || 'global';
+  }, [scope]);
+
   function getSystemMessage(): Message {
-    const toolsDesc = getToolsDescription(scope);
     const source = getEffectiveSource();
+    const effectiveScope = getScopeFromSource(source);
+    const toolsDesc = getToolsDescription(effectiveScope);
     const pageContext = getPageContext(source);
 
-    const scopeName = {
+    const scopeName: Record<ToolScope, string> = {
       global: `你是 JackYun Portal 的**全局智能管家**，掌管整个平台的所有功能。`,
+      dashboard: `你是 JackYun Portal 的**智能管家**，正在主页仪表盘为用户提供服务。你可以快速查看目标、日程、学习计划等所有数据。`,
       quiz: '你是 QuizWise 题目的智能辅导老师，可以帮助分析题目、批改答案。',
       plan: '你是学习计划助手，可以帮助管理学习进度、安排计划。',
       control: '你是日程中心助手，可以帮助管理时间表、控制计时和音乐。',
       study_guide: '你是 JackYun Portal 的**学习指导导师（StudyGuide）**，专注于帮助用户掌握高效学习方法。',
+      goal: '你是目标管理助手，帮助用户创建、修改、跟踪所有学习生活目标。',
+      study: '你是学习计划助手，帮助用户管理学习进度、查看学科进度和红绿灯状态。',
+      vocab: '你是英语词汇助手，帮助用户复习和管理单词。',
+      music: '你是音乐助手，帮助用户播放和搜索音乐。',
+      poem: '你是诗词助手，帮助用户学习和背诵经典诗词。',
+      relax: '你是放松娱乐助手，帮助用户放松心情、播放音乐。',
+      countdown: '你是倒计时助手，帮助用户查看和管理考试倒计时。',
+      settings: '你是设置助手，帮助用户配置 AI、TTS 等系统选项。',
+      tools: '你是工具助手，帮助用户使用各种实用小工具。',
     };
 
-    let content = `${scopeName[scope] || scopeName.global}\n\n`;
+    let content = `${scopeName[effectiveScope] || scopeName.global}\n\n`;
     content += `【当前页面】\n${pageContext}\n\n`;
+    content += `${getPlatformOverview()}\n\n`;
     content += `${toolsDesc}\n${systemPromptSuffix}`.trim();
     return { role: 'system', content };
   }
@@ -1040,8 +1074,15 @@ export default function AiChatFab({
     let loopCount = 0;
     let currentReplaceIndex = replaceIndex;
 
-    // 思考深度决定推理轮数上限：低4/中10/高15
-    const effectiveMaxLoops = thinkingLevel === 'low' ? 4 : thinkingLevel === 'high' ? 15 : 10;
+    // 思考深度决定推理轮数上限：低4/中10/高15（主页自动降到更少）
+    const isDashboard = getEffectiveSource() === 'dashboard';
+    const baseMaxLoops = thinkingLevel === 'low' ? 4 : thinkingLevel === 'high' ? 15 : 10;
+    const effectiveMaxLoops = isDashboard ? Math.min(baseMaxLoops, 5) : baseMaxLoops;
+
+    // ⚠️ 智能去重：记录已执行过的只读工具（同一轮内不重复读取相同数据）
+    // 写操作（manage_*/toggle_*/skip_*）会清除读取记录，允许重新读取以确认修改结果
+    const executedReadTools = new Set<string>();
+    let lastWriteTool: string | null = null;
 
     while (loopCount < effectiveMaxLoops) {
       loopCount++;
@@ -1109,6 +1150,24 @@ export default function AiChatFab({
         loopHasToolCall = true;
 
         setStatusText(`正在执行「${toolDef?.name || tc.tool}」...`);
+
+        // ⚠️ 智能去重：只读工具（read_*/get_*）在同一轮循环中只执行一次
+        // 如果中间有写操作（manage_*/toggle_*/skip_*），清除记录允许重新读取以确认修改
+        const isReadTool = /^(read_|get_)/.test(tc.tool);
+        const isWriteTool = /^(manage_|toggle_|skip_|finish_|switch_|create_)/.test(tc.tool);
+        if (isReadTool && !isWriteTool) {
+          if (executedReadTools.has(tc.tool)) {
+            const skipMsg = `⏭️ 已跳过重复读取：${tc.tool}（数据已在本次对话中获取，直接使用已有结果）`;
+            addSystemMessage(skipMsg, convId);
+            apiMessages.push({ role: 'assistant', content: skipMsg });
+            continue;
+          }
+          executedReadTools.add(tc.tool);
+        } else if (isWriteTool) {
+          // 写操作会改变数据，清除对应数据源的读取记录
+          executedReadTools.clear();
+          lastWriteTool = tc.tool;
+        }
 
         // 需要用户确认的写操作 → 弹窗
         if (toolDef?.requiresConsent) {
@@ -1777,6 +1836,28 @@ export default function AiChatFab({
             )}
             {error && (
               <p className="text-xs text-[#EA4335] bg-[#EA4335]/10 rounded-lg px-3 py-2">{error}</p>
+            )}
+
+            {/* Token 累计汇总 */}
+            {messages.some(m => m.role === 'assistant' && (m as Message).tokenUsage) && (
+              <div className="flex items-center justify-between pt-1 pb-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[var(--muted-foreground)]">📊 本轮对话累计</span>
+                  {(() => {
+                    const allUsage = messages
+                      .filter(m => m.role === 'assistant' && (m as Message).tokenUsage)
+                      .map(m => (m as Message).tokenUsage!);
+                    const totalInput = allUsage.reduce((s, u) => s + (u.input || 0), 0);
+                    const totalOutput = allUsage.reduce((s, u) => s + (u.output || 0), 0);
+                    const totalTokens = totalInput + totalOutput;
+                    return (
+                      <span className="text-[10px] font-semibold text-[var(--foreground)]">
+                        {totalTokens.toLocaleString()} tokens（输入 {totalInput.toLocaleString()} + 输出 {totalOutput.toLocaleString()}）≈ ¥{(totalTokens / 1000000 * tokenPrice).toFixed(4)}
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
             )}
             <div ref={bottomRef} />
           </div>
