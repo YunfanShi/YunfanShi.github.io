@@ -961,16 +961,19 @@ export default function AiChatFab({
   /**
    * Agent 主循环：读取 → 执行 → 再读取 → 再执行 ...
    */
-  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string): Promise<void> {
+  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string, replaceIndex?: number): Promise<void> {
     let apiMessages = [...initialApiMessages];
     let loopCount = 0;
+    let currentReplaceIndex = replaceIndex;
 
     while (loopCount < MAX_AGENT_LOOPS) {
       loopCount++;
       setStatusText(loopCount === 1 ? 'AI 正在思考...' : `Agent 正在推理（第 ${loopCount} 轮）...`);
 
       // 流式调用 AI（直接显示内容）
-      const assistantContent = await streamAiReply(apiMessages, convId);
+      // 重试时第一轮替换旧消息，后续轮次正常追加
+      const assistantContent = await streamAiReply(apiMessages, convId, currentReplaceIndex);
+      currentReplaceIndex = undefined;
 
       if (!assistantContent.trim()) {
         updateConversation(conv => ({
@@ -1081,8 +1084,8 @@ export default function AiChatFab({
 
       const apiMessages = [getSystemMessage(), ...filteredMsgs];
 
-      // Agent 循环
-      await runAgentLoop(apiMessages, convId);
+      // Agent 循环（重试时传入 replaceIndex 替换旧回复）
+      await runAgentLoop(apiMessages, convId, retryTargetIndex);
 
       // 检查 TTS 自动朗读
       const latestConv = conversations.find(c => c.id === convId);
