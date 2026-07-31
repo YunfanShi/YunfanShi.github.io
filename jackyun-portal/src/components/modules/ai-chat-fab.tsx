@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
-import { callAiApi, getAiConfig } from '@/lib/ai-config';
+import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature } from '@/lib/ai-config';
 import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo } from '@/lib/ai-tools';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
@@ -29,6 +29,8 @@ interface Message {
   retryCount?: number;
   /** 是否已折叠显示（工具调用结果等系统消息） */
   collapsed?: boolean;
+  /** AI 思考过程（reasoning_content），与最终回复分离存储 */
+  reasoningContent?: string;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -578,6 +580,8 @@ export default function AiChatFab({
   const [subtitleText, setSubtitleText] = useState('');
   const [subtitleVisible, setSubtitleVisible] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  // 思考深度级别（默认中）
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>(() => getThinkingLevel());
   // 确认弹窗
   const [consentDialog, setConsentDialog] = useState<ConsentDialogState | null>(null);
   // 等待用户确认的 resolve 函数
@@ -840,6 +844,13 @@ export default function AiChatFab({
     }
   }, [consentDialog]);
 
+  /** 从 reasoning content 中提取摘要标题（前 30 字符） */
+  function summarizeReasoning(content: string): string {
+    const clean = content.replace(/[\n\r]+/g, ' ').trim();
+    const truncated = clean.length > 30 ? clean.slice(0, 30) + '...' : clean;
+    return truncated || 'AI 处理中...';
+  }
+
   /** 折叠系统消息为一行摘要 */
   function summarizeSystemMessage(content: string): string {
     // 工具执行结果 → 摘要
@@ -875,7 +886,8 @@ export default function AiChatFab({
       throw new Error('请先在设置页面配置 AI API Key');
     }
 
-    const res = await callAiApi(apiMessages, { stream: true });
+    // 根据思考深度传入对应的 temperature（真正影响 AI 的推理深度）
+    const res = await callAiApi(apiMessages, { stream: true, temperature: getThinkingTemperature(thinkingLevel) });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       let errMsg: string;
@@ -892,11 +904,11 @@ export default function AiChatFab({
     if (!reader) throw new Error('无法读取 AI 响应流');
 
     const decoder = new TextDecoder();
-    let assistantContent = '';
-    let displayContent = '';
+    let assistantContent = '';       // 最终回复（content，用户可见 + 用于工具解析）
+    let reasoningContent = '';       // 思考过程（reasoning_content，折叠显示，不用于 TTS）
     let messageAdded = false;
 
-    setStatusText('AI 正在回复...');
+    setStatusText('AI 正在思考...');
 
     while (true) {
       const { done, value } = await reader.read();
@@ -910,22 +922,31 @@ export default function AiChatFab({
             const parsed = JSON.parse(data) as {
               choices?: { delta?: { content?: string; reasoning_content?: string } }[];
             };
-            // 兼容 DeepSeek 推理模型：content 为空时回退到 reasoning_content
-            const delta = parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.delta?.reasoning_content ?? '';
-            if (!delta) continue;
+            const deltaContent = parsed.choices?.[0]?.delta?.content ?? '';
+            const deltaReasoning = parsed.choices?.[0]?.delta?.reasoning_content ?? '';
 
-            // 流式直出：每个 chunk 直接追加到 UI
-            assistantContent += delta;
-            displayContent += delta;
+            if (!deltaContent && !deltaReasoning) continue;
+
+            // 分离存储：reasoning 过程单独收集，不混入最终回复
+            if (deltaReasoning) reasoningContent += deltaReasoning;
+            if (deltaContent) {
+              assistantContent += deltaContent;
+              setStatusText('AI 正在回复...');
+            }
 
             if (!messageAdded) {
               messageAdded = true;
               updateConversation(conv => {
                 const updated = [...conv.messages];
+                const newMsg: Message = {
+                  role: 'assistant',
+                  content: assistantContent,
+                  reasoningContent: reasoningContent || undefined,
+                };
                 if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
-                  updated[replaceIndex] = { role: 'assistant', content: displayContent };
+                  updated[replaceIndex] = newMsg;
                 } else {
-                  updated.push({ role: 'assistant', content: displayContent });
+                  updated.push(newMsg);
                 }
                 return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
               }, convId);
@@ -935,7 +956,12 @@ export default function AiChatFab({
                 const targetIdx = replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant'
                   ? replaceIndex
                   : updated.length - 1;
-                updated[targetIdx] = { role: 'assistant', content: displayContent };
+                updated[targetIdx] = {
+                  ...updated[targetIdx],
+                  role: 'assistant',
+                  content: assistantContent,
+                  reasoningContent: reasoningContent || updated[targetIdx].reasoningContent,
+                };
                 return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
               }, convId);
             }
@@ -967,7 +993,10 @@ export default function AiChatFab({
     let loopCount = 0;
     let currentReplaceIndex = replaceIndex;
 
-    while (loopCount < MAX_AGENT_LOOPS) {
+    // 思考深度为低时减少循环上限，快速完成
+    const effectiveMaxLoops = thinkingLevel === 'low' ? 4 : MAX_AGENT_LOOPS;
+
+    while (loopCount < effectiveMaxLoops) {
       loopCount++;
       setStatusText(loopCount === 1 ? 'AI 正在思考...' : `Agent 正在推理（第 ${loopCount} 轮）...`);
 
@@ -1342,6 +1371,21 @@ export default function AiChatFab({
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
+              {/* 思考深度选择器 */}
+              <select
+                value={thinkingLevel}
+                onChange={(e) => {
+                  const level = e.target.value as ThinkingLevel;
+                  setThinkingLevel(level);
+                  saveThinkingLevel(level);
+                }}
+                title="思考深度"
+                className="text-[10px] bg-[var(--background)] border border-[var(--card-border)] rounded px-1 py-0.5 text-[var(--muted-foreground)] outline-none cursor-pointer"
+              >
+                <option value="low">低 · 快速</option>
+                <option value="medium">中 · 平衡</option>
+                <option value="high">高 · 深度</option>
+              </select>
               <button
                 onClick={createNewConversation}
                 title="新建对话"
@@ -1419,17 +1463,45 @@ export default function AiChatFab({
                     }`}
                   >
                     {msg.role === 'assistant' ? (
-                      msg.content ? (
-                        <MarkdownRenderer content={stripTags(msg.content)} />
-                      ) : loading && i === messages.length - 1 ? (
-                        <span className="flex items-center gap-2">
-                          <span className="inline-flex gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <>
+                        {/* AI 思考过程 — 折叠显示，不用于 TTS */}
+                        {thinkingLevel !== 'low' && (msg as Message).reasoningContent && (
+                          <div
+                            className="mb-1.5 cursor-pointer select-none rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-2 py-1"
+                            onClick={() => {
+                              updateConversation(conv => {
+                                const updated = [...conv.messages];
+                                updated[i] = { ...updated[i], collapsed: !updated[i].collapsed };
+                                return { ...conv, messages: updated };
+                              });
+                            }}
+                          >
+                            <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted-foreground)]">
+                              <span className="material-icons-round text-xs">psychology_alt</span>
+                              <span className="flex-1 truncate">
+                                {msg.collapsed === false ? 'AI 思考过程' : summarizeReasoning((msg as Message).reasoningContent || '')}
+                              </span>
+                              <span>{msg.collapsed === false ? '▲' : '▶'}</span>
+                            </div>
+                            {msg.collapsed === false && (
+                              <div className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-[11px] leading-1.5 text-[var(--muted-foreground)]">
+                                {(msg as Message).reasoningContent}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {msg.content ? (
+                          <MarkdownRenderer content={stripTags(msg.content)} />
+                        ) : loading && i === messages.length - 1 ? (
+                          <span className="flex items-center gap-2">
+                            <span className="inline-flex gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </span>
                           </span>
-                        </span>
-                      ) : null
+                        ) : null}
+                      </>
                     ) : msg.role === 'system' ? (
                       // 系统消息（工具结果）→ 折叠显示，点击展开
                       <div

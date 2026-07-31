@@ -11,6 +11,38 @@ export interface AiConfig {
   model: string;
 }
 
+/** 思考深度等级 — 影响 temperature 和 system prompt */
+export type ThinkingLevel = 'low' | 'medium' | 'high';
+
+const THINKING_LEVEL_KEY = 'jackyun-ai-thinking-level';
+
+/** 获取用户设置的思考深度（默认 medium） */
+export function getThinkingLevel(): ThinkingLevel {
+  if (typeof window === 'undefined') return 'medium';
+  try {
+    const val = localStorage.getItem(THINKING_LEVEL_KEY);
+    if (val === 'low' || val === 'high') return val;
+    return 'medium';
+  } catch {
+    return 'medium';
+  }
+}
+
+/** 保存用户设置的思考深度 */
+export function saveThinkingLevel(level: ThinkingLevel): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(THINKING_LEVEL_KEY, level);
+}
+
+/** 根据思考深度获取对应的 temperature 值 */
+export function getThinkingTemperature(level: ThinkingLevel): number {
+  switch (level) {
+    case 'low': return 0.6;   // 快速响应，少思考
+    case 'high': return 0.05; // 深度推理，认真分析
+    default: return 0.2;      // 平衡默认
+  }
+}
+
 const STORAGE_KEY = 'jackyun-ai-config';
 
 /** 从 localStorage 读取 AI 配置 */
@@ -83,7 +115,6 @@ export async function callAiApi(
   messages: Array<{ role: string; content: string }>,
   options: {
     temperature?: number;
-    max_tokens?: number;
     stream?: boolean;
   } = {},
 ): Promise<Response> {
@@ -96,18 +127,20 @@ export async function callAiApi(
     throw new Error('请先在设置页面配置 AI API Key');
   }
 
+  const body: Record<string, unknown> = {
+    model: model || 'gpt-3.5-turbo',
+    messages,
+    temperature: options.temperature ?? getThinkingTemperature(getThinkingLevel()),
+    stream: options.stream ?? false,
+  };
+
+  // 无 max_tokens：不限制回复长度，让 AI 完整回答
   return fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: model || 'gpt-3.5-turbo',
-      messages,
-      temperature: options.temperature ?? 0.1,
-      max_tokens: options.max_tokens ?? 2000,
-      stream: options.stream ?? false,
-    }),
+    body: JSON.stringify(body),
   });
 }
