@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
-import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS } from '@/lib/ai-tools';
+import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo } from '@/lib/ai-tools';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
@@ -25,8 +25,10 @@ interface Conversation {
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
-  /** 重试次数（0-5） */
+  /** 重试次数 */
   retryCount?: number;
+  /** 是否已折叠显示（工具调用结果等系统消息） */
+  collapsed?: boolean;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -35,6 +37,7 @@ const STORAGE_KEY = 'jackyun-ai-conversations';
 const ACTIVE_ID_KEY = 'jackyun-ai-active-conversation';
 const MAX_CONTEXT_ROUNDS = 30; // 保留最近 30 轮（60 条消息）
 const MAX_CONVERSATIONS = 50; // 最多保留 50 个对话
+const MAX_AGENT_LOOPS = 8; // Agent 最大推理循环次数（防止死循环）
 
 interface AiChatFabProps {
   scope?: ToolScope;
@@ -43,6 +46,23 @@ interface AiChatFabProps {
   embeddedTitle?: string;
   /** 当前页面路径（用于 source 标记） */
   currentPath?: string;
+}
+
+// ── Consent Dialog 类型 ─────────────────────────────────────────────────────
+
+interface ConsentDialogState {
+  tool: string;
+  toolName: string;
+  consent: ConsentInfo;
+  /** 当前弹窗模式：confirm=确认 / ask=疑问对话 / review=独立审查 */
+  mode: 'confirm' | 'ask' | 'review';
+  /** 疑问对话消息 */
+  askMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  askInput: string;
+  askLoading: boolean;
+  /** 审查结果 */
+  reviewResult: string;
+  reviewLoading: boolean;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -242,6 +262,298 @@ function TtsSubtitle({
   );
 }
 
+// ── Consent Dialog Component ────────────────────────────────────────────────
+
+function ConsentDialog({
+  state,
+  onApprove,
+  onReject,
+  onClose,
+  onAskSubmit,
+  onReview,
+}: {
+  state: ConsentDialogState;
+  onApprove: () => void;
+  onReject: () => void;
+  onClose: () => void;
+  onAskSubmit: (question: string) => Promise<void>;
+  onReview: () => Promise<void>;
+}) {
+  const [askInput, setAskInput] = useState('');
+  const [asking, setAsking] = useState(false);
+  const askBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    askBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [state.askMessages, state.askLoading]);
+
+  const handleAskSubmit = async () => {
+    const q = askInput.trim();
+    if (!q || asking) return;
+    setAsking(true);
+    try {
+      await onAskSubmit(q);
+      setAskInput('');
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
+        padding: '16px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '480px',
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          background: 'var(--card)',
+          borderRadius: '16px',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+          border: '1px solid var(--card-border)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 弹窗头部 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--card-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>🤖</span>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>AI 操作确认</span>
+            {state.mode === 'review' && (
+              <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: '#7B1FA2', color: '#fff' }}>独立审查</span>
+            )}
+            {state.mode === 'ask' && (
+              <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: '#FB8C00', color: '#fff' }}>疑问对话</span>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            style={{ padding: '4px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--muted-foreground)', cursor: 'pointer', fontSize: '16px' }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, minHeight: 0 }}>
+          {/* 操作信息 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* 操作 */}
+            <div style={{ background: 'var(--background)', borderRadius: '12px', padding: '12px 16px', border: '1px solid var(--card-border)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#4285F4', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>🔧</span> 要执行的操作
+              </div>
+              <div style={{ fontSize: '14px', color: 'var(--foreground)', lineHeight: 1.5 }}>{state.consent.action}</div>
+            </div>
+            {/* 目的 */}
+            <div style={{ background: 'var(--background)', borderRadius: '12px', padding: '12px 16px', border: '1px solid var(--card-border)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#1E88E5', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>🎯</span> 操作目的
+              </div>
+              <div style={{ fontSize: '14px', color: 'var(--foreground)', lineHeight: 1.5 }}>{state.consent.purpose}</div>
+            </div>
+            {/* 后果 */}
+            <div style={{ background: '#FFF8E1', borderRadius: '12px', padding: '12px 16px', border: '1px solid #FFE082' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#F57F17', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>⚠️</span> 可能的影响
+              </div>
+              <div style={{ fontSize: '14px', color: '#795548', lineHeight: 1.5 }}>{state.consent.consequence}</div>
+            </div>
+          </div>
+
+          {/* 疑问对话模式 */}
+          {state.mode === 'ask' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--card-border)', paddingTop: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: '4px' }}>💬 与 AI 沟通你的疑问</div>
+              <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px', background: 'var(--background)', borderRadius: '12px', minHeight: '60px' }}>
+                {state.askMessages.length === 0 && (
+                  <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '16px 8px' }}>
+                    你可以问 AI 为什么要这样做、有什么替代方案，或任何你关心的问题。
+                  </div>
+                )}
+                {state.askMessages.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <div style={{
+                      maxWidth: '85%',
+                      padding: '8px 12px',
+                      borderRadius: '12px',
+                      fontSize: '13px',
+                      lineHeight: 1.5,
+                      background: m.role === 'user' ? '#4285F4' : 'var(--card)',
+                      color: m.role === 'user' ? '#fff' : 'var(--foreground)',
+                      border: m.role === 'user' ? 'none' : '1px solid var(--card-border)',
+                      wordBreak: 'break-word',
+                    }}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+                {state.askLoading && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <div style={{ display: 'inline-flex', gap: '3px', padding: '8px 12px', borderRadius: '12px', background: 'var(--card)', border: '1px solid var(--card-border)' }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ width: 6, height: 6, background: '#4285F4', borderRadius: '50%' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ width: 6, height: 6, background: '#4285F4', borderRadius: '50%', animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ width: 6, height: 6, background: '#4285F4', borderRadius: '50%', animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                )}
+                <div ref={askBottomRef} />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  value={askInput}
+                  onChange={e => setAskInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAskSubmit(); }}
+                  placeholder="输入你的问题..."
+                  disabled={asking}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--card-border)',
+                    background: 'var(--card)',
+                    color: 'var(--foreground)',
+                    fontSize: '13px',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={handleAskSubmit}
+                  disabled={!askInput.trim() || asking}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#4285F4',
+                    color: '#fff',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: asking ? 'not-allowed' : 'pointer',
+                    opacity: asking || !askInput.trim() ? 0.6 : 1,
+                  }}
+                >
+                  发送
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 独立审查模式 */}
+          {state.mode === 'review' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--card-border)', paddingTop: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: '4px' }}>🔍 独立 AI 审查结果</div>
+              {state.reviewLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', background: 'var(--background)', borderRadius: '12px', fontSize: '13px', color: 'var(--muted-foreground)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#7B1FA2] animate-bounce" style={{ width: 6, height: 6, background: '#7B1FA2', borderRadius: '50%' }} />
+                  独立审查员正在评估该操作的合理性和风险...
+                </div>
+              ) : (
+                <div style={{ padding: '12px 16px', background: '#F3E5F5', borderRadius: '12px', border: '1px solid #CE93D8', fontSize: '13px', lineHeight: 1.6, color: '#4A148C', whiteSpace: 'pre-wrap' }}>
+                  {state.reviewResult || '请点击下方按钮发起审查。'}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 操作按钮 */}
+          <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--card-border)', paddingTop: '16px', flexWrap: 'wrap' }}>
+            <button
+              onClick={onApprove}
+              disabled={state.mode === 'review' && state.reviewLoading}
+              style={{
+                flex: 1,
+                minWidth: '100px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: '#34A853',
+                color: '#fff',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ✅ 同意修改
+            </button>
+            <button
+              onClick={() => {
+                if (!state.consent) return;
+                // 切回疑问模式
+                onAskSubmit('这个操作具体是做什么的？请详细解释一下。');
+              }}
+              style={{
+                flex: 1,
+                minWidth: '100px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: '1px solid var(--card-border)',
+                background: 'var(--card)',
+                color: 'var(--foreground)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ❓ 有疑问
+            </button>
+            <button
+              onClick={() => onReview()}
+              disabled={state.mode === 'review' && state.reviewLoading}
+              style={{
+                flex: 1,
+                minWidth: '100px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: '1px solid #CE93D8',
+                background: '#F3E5F5',
+                color: '#7B1FA2',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              🔍 审查
+            </button>
+            <button
+              onClick={onReject}
+              style={{
+                flex: 1,
+                minWidth: '100px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: '#EA4335',
+                color: '#fff',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              🚫 不同意
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function AiChatFab({
@@ -259,7 +571,6 @@ export default function AiChatFab({
   const [activeConvId, setActiveConvIdState] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('');
   const [speakingMsgIndex, setSpeakingMsgIndex] = useState<number | null>(null);
@@ -267,6 +578,10 @@ export default function AiChatFab({
   const [subtitleText, setSubtitleText] = useState('');
   const [subtitleVisible, setSubtitleVisible] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  // 确认弹窗
+  const [consentDialog, setConsentDialog] = useState<ConsentDialogState | null>(null);
+  // 等待用户确认的 resolve 函数
+  const consentResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSpeakDoneRef = useRef(false);
@@ -304,7 +619,7 @@ export default function AiChatFab({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading, streaming]);
+  }, [messages, loading]);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -415,7 +730,294 @@ export default function AiChatFab({
     return contexts[source] || contexts.other;
   }
 
-  async function handleSend(retryMessage?: string) {
+  /**
+   * 请求用户确认（替代 window.confirm）
+   * 返回 true=同意执行, false=拒绝
+   */
+  function requestConsent(toolCall: { tool: string; params: Record<string, string> }, toolDef: { name: string; consentInfo?: (params: Record<string, string>) => ConsentInfo }): Promise<boolean> {
+    return new Promise(resolve => {
+      const consent = toolDef.consentInfo?.(toolCall.params) || {
+        action: `执行 ${toolDef.name}`,
+        purpose: '',
+        consequence: '',
+      };
+      consentResolverRef.current = (approved: boolean) => {
+        consentResolverRef.current = null;
+        setConsentDialog(null);
+        resolve(approved);
+      };
+      setConsentDialog({
+        tool: toolCall.tool,
+        toolName: toolDef.name,
+        consent,
+        mode: 'confirm',
+        askMessages: [],
+        askInput: '',
+        askLoading: false,
+        reviewResult: '',
+        reviewLoading: false,
+      });
+    });
+  }
+
+  /** 处理疑问提问：在弹窗内与 AI 对话 */
+  const handleAskSubmit = useCallback(async (question: string): Promise<void> => {
+    if (!consentDialog) return;
+    const userQuestion = question.trim();
+    if (!userQuestion) return;
+
+    // 追加用户问题
+    const updatedAskMessages = [...consentDialog.askMessages, { role: 'user' as const, content: userQuestion }];
+    setConsentDialog(prev => prev ? { ...prev, askMessages: updatedAskMessages, askLoading: true } : prev);
+
+    try {
+      const config = getAiConfig();
+      if (!config.baseUrl || !config.apiKey) {
+        throw new Error('请先在设置页面配置 AI API Key');
+      }
+
+      // 构造解释消息：带上操作上下文
+      const explainMessages = [
+        { role: 'system', content: `你是一个正在向用户解释操作理由的 AI 助手。用户对以下操作有疑问，请用友好、详细的语言解释。\n\n当前操作：${consentDialog.consent.action}\n操作目的：${consentDialog.consent.purpose}\n可能影响：${consentDialog.consent.consequence}\n\n请直接回答用户的问题，给出清晰的解释。` },
+        ...updatedAskMessages.slice(-6), // 只保留最近6条对话
+      ];
+
+      const res = await callAiApi(explainMessages, { stream: false, temperature: 0.5 });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const answer = data.choices?.[0]?.message?.content || '抱歉，我暂时无法回答这个问题。';
+
+      setConsentDialog(prev => prev ? {
+        ...prev,
+        askMessages: [...prev.askMessages, { role: 'assistant', content: answer }],
+        askLoading: false,
+        mode: 'ask',
+      } : prev);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '获取解释失败';
+      setConsentDialog(prev => prev ? {
+        ...prev,
+        askMessages: [...prev.askMessages, { role: 'assistant', content: `❌ ${errMsg}` }],
+        askLoading: false,
+        mode: 'ask',
+      } : prev);
+    }
+  }, [consentDialog]);
+
+  /** 发起独立审查 */
+  const handleReview = useCallback(async (): Promise<void> => {
+    if (!consentDialog) return;
+    setConsentDialog(prev => prev ? { ...prev, mode: 'review', reviewLoading: true, reviewResult: '' } : prev);
+
+    try {
+      const config = getAiConfig();
+      if (!config.baseUrl || !config.apiKey) {
+        throw new Error('请先在设置页面配置 AI API Key');
+      }
+
+      const reviewPrompt = `你是独立的 AI 审查员。以下是一个 AI 助手即将对用户执行的操作。请从客观、独立的角度评估这个操作是否合理。\n\n请从以下方面分析：\n1. 这个操作是否合理？为什么？\n2. 操作有哪些潜在风险或负面影响？\n3. 有没有更安全或更优的替代方案？\n4. 最终结论：建议执行还是不执行？\n\n待审查的操作信息：\n🔧 操作：${consentDialog.consent.action}\n🎯 目的：${consentDialog.consent.purpose}\n⚠️ 可能影响：${consentDialog.consent.consequence}\n\n请给出简洁但全面的审查意见。`;
+
+      const reviewMessages = [
+        { role: 'system', content: '你是独立的 AI 审查员，负责评估其他 AI 的操作是否合理。你的判断完全独立，不受操作执行方的影响。' },
+        { role: 'user', content: reviewPrompt },
+      ];
+
+      const res = await callAiApi(reviewMessages, { stream: false, temperature: 0.7 });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const reviewResult = data.choices?.[0]?.message?.content || '（审查结果为空）';
+
+      setConsentDialog(prev => prev ? { ...prev, reviewResult, reviewLoading: false, mode: 'review' } : prev);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : '审查失败';
+      setConsentDialog(prev => prev ? { ...prev, reviewResult: `❌ 审查失败：${errMsg}`, reviewLoading: false, mode: 'review' } : prev);
+    }
+  }, [consentDialog]);
+
+  /** 折叠系统消息为一行摘要 */
+  function summarizeSystemMessage(content: string): string {
+    // 工具执行结果 → 摘要
+    if (content.startsWith('🔧 工具执行结果：')) {
+      const result = content.replace('🔧 工具执行结果：', '');
+      // 取前几个结果
+      const lines = result.split('\n').filter(Boolean);
+      const firstLine = lines[0] || '';
+      const summary = firstLine.length > 60 ? firstLine.slice(0, 60) + '...' : firstLine;
+      return `🔧 工具执行结果：${summary}${lines.length > 1 ? `（共 ${lines.length} 行）` : ''}`;
+    }
+    // 用户拒绝
+    if (content.startsWith('🚫')) return content.slice(0, 80) + (content.length > 80 ? '...' : '');
+    return content.length > 80 ? content.slice(0, 80) + '...' : content;
+  }
+
+  /** 折叠的 ToolCall 消息内容（用于渲染详情） */
+  function getSystemMessageFull(content: string): string {
+    return content;
+  }
+
+  /**
+   * 流式发送单次 AI 请求，并实时追加/更新 assistant 消息
+   * 返回完整 assistantContent（含 tool_call 标签）
+   */
+  async function streamAiReply(
+    apiMessages: Array<{ role: string; content: string }>,
+    convId: string,
+    replaceIndex?: number,
+  ): Promise<string> {
+    const config = getAiConfig();
+    if (!config.baseUrl || !config.apiKey) {
+      throw new Error('请先在设置页面配置 AI API Key');
+    }
+
+    const res = await callAiApi(apiMessages, { stream: true });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      let errMsg: string;
+      try {
+        const err = JSON.parse(text);
+        errMsg = err.error?.message ?? err.message ?? `HTTP ${res.status}`;
+      } catch {
+        errMsg = text || `HTTP ${res.status}`;
+      }
+      throw new Error(errMsg);
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error('无法读取 AI 响应流');
+
+    const decoder = new TextDecoder();
+    let assistantContent = '';
+    let displayContent = '';
+    let messageAdded = false;
+
+    setStatusText('AI 正在回复...');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data) as {
+              choices?: { delta?: { content?: string } }[];
+            };
+            const delta = parsed.choices?.[0]?.delta?.content ?? '';
+            if (!delta) continue;
+
+            // 流式直出：每个 chunk 直接追加到 UI
+            assistantContent += delta;
+            displayContent += delta;
+
+            if (!messageAdded) {
+              messageAdded = true;
+              updateConversation(conv => {
+                const updated = [...conv.messages];
+                if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
+                  updated[replaceIndex] = { role: 'assistant', content: displayContent };
+                } else {
+                  updated.push({ role: 'assistant', content: displayContent });
+                }
+                return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
+              }, convId);
+            } else {
+              updateConversation(conv => {
+                const updated = [...conv.messages];
+                const targetIdx = replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant'
+                  ? replaceIndex
+                  : updated.length - 1;
+                updated[targetIdx] = { role: 'assistant', content: displayContent };
+                return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
+              }, convId);
+            }
+          } catch {
+            // ignore malformed chunk
+          }
+        }
+      }
+    }
+
+    setStatusText('');
+    return assistantContent;
+  }
+
+  /** 追加系统消息 */
+  function addSystemMessage(content: string, convId: string) {
+    updateConversation(conv => ({
+      ...conv,
+      messages: [...conv.messages, { role: 'system', content, collapsed: true }],
+      updatedAt: new Date().toISOString(),
+    }), convId);
+  }
+
+  /**
+   * Agent 主循环：读取 → 执行 → 再读取 → 再执行 ...
+   */
+  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string): Promise<void> {
+    let apiMessages = [...initialApiMessages];
+    let loopCount = 0;
+
+    while (loopCount < MAX_AGENT_LOOPS) {
+      loopCount++;
+      setStatusText(loopCount === 1 ? 'AI 正在思考...' : `Agent 正在推理（第 ${loopCount} 轮）...`);
+
+      // 流式调用 AI（直接显示内容）
+      const assistantContent = await streamAiReply(apiMessages, convId);
+
+      if (!assistantContent.trim()) {
+        updateConversation(conv => ({
+          ...conv,
+          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
+          updatedAt: new Date().toISOString(),
+        }), convId);
+        break;
+      }
+
+      // 解析工具调用（支持多个，但提示 AI 一次一个；这里按顺序逐个执行）
+      const toolCalls = parseToolCalls(assistantContent);
+      if (toolCalls.length === 0) break; // 没有工具调用，任务完成
+
+      let loopHasToolCall = false;
+      for (const tc of toolCalls) {
+        const toolDef = AI_TOOLS.find(t => t.id === tc.tool);
+        loopHasToolCall = true;
+
+        setStatusText(`正在执行「${toolDef?.name || tc.tool}」...`);
+
+        // 需要用户确认的写操作 → 弹窗
+        if (toolDef?.requiresConsent) {
+          const approved = await requestConsent(tc, toolDef);
+          if (!approved) {
+            const sysMsg = `🚫 用户拒绝了「${toolDef.name}」操作`;
+            addSystemMessage(sysMsg, convId);
+            apiMessages.push({ role: 'system', content: sysMsg });
+            continue;
+          }
+        }
+
+        // 执行工具
+        const result = await executeToolCall(tc);
+        const sysMsg = `🔧 工具执行结果：${result}`;
+        addSystemMessage(sysMsg, convId);
+        apiMessages.push({ role: 'system', content: sysMsg });
+      }
+
+      // 如果本回合有工具调用，继续下一轮推理
+      if (!loopHasToolCall) break;
+    }
+
+    setStatusText('');
+  }
+
+  async function handleSend(retryMessage?: string, retryTargetIndex?: number) {
     const text = retryMessage || input.trim();
     if (!text || loading || isBusyRef.current) return;
 
@@ -433,15 +1035,25 @@ export default function AiChatFab({
     const userMsg: Message = { role: 'user', content: text };
     messagesRef.current = [...messagesRef.current.filter(m => m.role !== 'system'), userMsg];
 
-    updateConversation(conv => ({
-      ...conv,
-      messages: [...conv.messages, userMsg],
-      updatedAt: new Date().toISOString(),
-    }), convId);
+    if (retryMessage) {
+      // 重试：替换旧的 assistant 回复
+      updateConversation(conv => {
+        const updated = [...conv.messages];
+        if (retryTargetIndex !== undefined && retryTargetIndex >= 0 && updated[retryTargetIndex]?.role === 'assistant') {
+          updated[retryTargetIndex] = { role: 'assistant', content: '（重新生成中...）' };
+        }
+        return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
+      }, convId);
+    } else {
+      updateConversation(conv => ({
+        ...conv,
+        messages: [...conv.messages, userMsg],
+        updatedAt: new Date().toISOString(),
+      }), convId);
+    }
 
     setInput('');
     setLoading(true);
-    setStreaming(true);
     setError(null);
     setStatusText('AI 正在思考...');
     autoSpeakDoneRef.current = false;
@@ -451,114 +1063,53 @@ export default function AiChatFab({
     }
 
     try {
-      const config = getAiConfig();
-      if (!config.baseUrl || !config.apiKey) {
-        throw new Error('请先在设置页面配置 AI API Key');
-      }
-
       const latestMsgs = messagesRef.current;
-      const filteredMsgs = retryMessage
-        ? latestMsgs.slice(0, -1)
-        : latestMsgs;
+
+      // 重试时：剔除被替换的 assistant 回复
+      let filteredMsgs: Message[];
+      if (retryMessage) {
+        filteredMsgs = latestMsgs.filter((m, i) => {
+          if (m.role === 'assistant' && retryTargetIndex !== undefined && i === retryTargetIndex) return false;
+          return true;
+        });
+      } else {
+        // 剔除最后一个 user 消息（因为 runAgentLoop 会重新构造）
+        filteredMsgs = latestMsgs.filter(m => m.role !== 'user' || m.content !== text);
+        // 加上当前 user 消息
+        filteredMsgs = [...filteredMsgs, userMsg];
+      }
 
       const apiMessages = [getSystemMessage(), ...filteredMsgs];
 
-      const res = await callAiApi(apiMessages, { stream: true });
+      // Agent 循环
+      await runAgentLoop(apiMessages, convId);
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        let errMsg: string;
-        try {
-          const err = JSON.parse(text);
-          errMsg = err.error?.message ?? err.message ?? `HTTP ${res.status}`;
-        } catch {
-          errMsg = text || `HTTP ${res.status}`;
-        }
-        throw new Error(errMsg);
-      }
-
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error('无法读取 AI 响应流');
-
-      const decoder = new TextDecoder();
-      let assistantContent = '';
-      let displayContent = '';
-      let messageAdded = false;
-
-      setStatusText('AI 正在回复...');
-
-      // Use streaming buffer for controlled display speed
-      streamBufferRef.current = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') break;
-            try {
-              const parsed = JSON.parse(data) as {
-                choices?: { delta?: { content?: string } }[];
-              };
-              const delta = parsed.choices?.[0]?.delta?.content ?? '';
-              if (!delta) continue;
-              // Store full content (for tool_call parsing later)
-              assistantContent += delta;
-              // Push chars to display buffer
-              streamBufferRef.current.push(...delta.split(''));
-            } catch {
-              // ignore
-            }
+      // 检查 TTS 自动朗读
+      const latestConv = conversations.find(c => c.id === convId);
+      if (latestConv && latestConv.messages.length > 0) {
+        const lastMsg = latestConv.messages[latestConv.messages.length - 1];
+        if (lastMsg?.role === 'assistant' && lastMsg.content && isAutoSpeakAiEnabled()) {
+          const ttsText = extractTtsText(lastMsg.content);
+          if (ttsText) {
+            setSpeakingMsgIndex(latestConv.messages.length - 1);
+            setSubtitleText(ttsText);
+            setSubtitleVisible(true);
+            speakWithConfig(ttsText, undefined, () => {
+              setSpeakingMsgIndex(null);
+              setSubtitleVisible(false);
+              setSubtitleText('');
+            });
           }
         }
       }
 
-      // Start the display timer to flush buffer at controlled speed
-      if (streamBufferRef.current.length > 0) {
-        await new Promise<void>((resolve) => {
-          startDisplayTimer(
-            (char) => {
-              displayContent += char;
-              if (!messageAdded) {
-                messageAdded = true;
-                updateConversation(conv => ({
-                  ...conv,
-                  messages: [...conv.messages, { role: 'assistant', content: displayContent }],
-                  updatedAt: new Date().toISOString(),
-                }));
-                setStatusText('AI 正在回复...');
-              } else {
-                updateConversation(conv => {
-                  const updated = [...conv.messages];
-                  updated[updated.length - 1] = { role: 'assistant', content: displayContent };
-                  return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
-                });
-              }
-            },
-            () => {
-              resolve();
-            }
-          );
-        });
-      }
-
-      // Ensure assistantContent (full, not display-limited) is in the conversation
-      if (!messageAdded && assistantContent === '') {
-        updateConversation(conv => ({
-          ...conv,
-          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
-          updatedAt: new Date().toISOString(),
-        }));
-      }
       setStatusText('');
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '请求失败，请检查网络连接和 API 配置';
       setError(errMsg);
+      setStatusText('');
     } finally {
       setLoading(false);
-      setStreaming(false);
       if (requestIdRef.current === requestId) {
         isBusyRef.current = false;
       }
@@ -567,13 +1118,13 @@ export default function AiChatFab({
 
   const prevStreamingRef = useRef(false);
   useEffect(() => {
-    if (prevStreamingRef.current === true && streaming === false && messages.length > 0) {
+    if (prevStreamingRef.current === true && !loading && messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
-      if (lastMsg?.role === 'assistant' && lastMsg.content && isAutoSpeakAiEnabled()) {
+      if (lastMsg?.role === 'assistant' && lastMsg.content && isAutoSpeakAiEnabled() && !autoSpeakDoneRef.current) {
+        autoSpeakDoneRef.current = true;
         const ttsText = extractTtsText(lastMsg.content);
         if (ttsText) {
           setSpeakingMsgIndex(messages.length - 1);
-          // 自动朗读时更新字幕为 TTS 实际朗读的文本，显示在屏幕中下方
           setSubtitleText(ttsText);
           setSubtitleVisible(true);
           speakWithConfig(ttsText, undefined, () => {
@@ -584,8 +1135,8 @@ export default function AiChatFab({
         }
       }
     }
-    prevStreamingRef.current = streaming;
-  }, [streaming, messages]);
+    prevStreamingRef.current = loading;
+  }, [loading, messages]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -606,7 +1157,6 @@ export default function AiChatFab({
     const ttsText = extractTtsText(content);
     if (ttsText) {
       setSpeakingMsgIndex(index);
-      // 使用 extractTtsText（TTS 实际朗读的文本）作为字幕内容
       setSubtitleText(ttsText);
       setSubtitleVisible(true);
       speakWithConfig(ttsText, undefined, () => {
@@ -641,24 +1191,24 @@ export default function AiChatFab({
     }
   }
 
-  // 每条消息重试 0/5 次限制 + 重试时不回传旧版回复
+  // 简化重试：直接复用 handleSend
   function handleRetry(targetIndex?: number) {
-    if (loading || !activeConv || isBusyRef.current) return;
+    if (loading || !activeConv || isBusyRef.current || consentDialog) return;
     // 找到要重试的 AI 消息及其对应的用户消息
     const assistantMsgs = activeConv.messages.filter(m => m.role === 'assistant');
     const targetAssistantIdx = targetIndex !== undefined
       ? activeConv.messages.findIndex((m, i) => i === targetIndex && m.role === 'assistant')
       : activeConv.messages.length - 1;
-    
+
     const targetMsg = targetAssistantIdx >= 0 ? activeConv.messages[targetAssistantIdx] : null;
-    
+
     // 检查重试次数限制（max 5）
     const currentRetryCount = targetMsg?.retryCount || 0;
     if (currentRetryCount >= 5) {
       setError('已达到最大重试次数（5 次），请开启新对话');
       return;
     }
-    
+
     // 找到这条 AI 消息之前的最后一条用户消息
     let userMsgIdx = -1;
     for (let i = (targetAssistantIdx >= 0 ? targetAssistantIdx : activeConv.messages.length) - 1; i >= 0; i--) {
@@ -669,7 +1219,7 @@ export default function AiChatFab({
     }
     if (userMsgIdx < 0) return;
     const userMsg = activeConv.messages[userMsgIdx];
-    
+
     // 更新重试计数
     updateConversation(conv => {
       const updated = [...conv.messages];
@@ -679,144 +1229,12 @@ export default function AiChatFab({
       }
       return { ...conv, messages: updated };
     });
-    
-    // 调用 handleSend 并传入：用户消息文本 + 要替换的 assistant 消息索引
-    sendWithRetry(userMsg.content, targetAssistantIdx);
+
+    // 调用 handleSend 并传入用户消息文本
+    handleSend(userMsg.content, targetAssistantIdx);
   }
 
-  // 带重试参数的发送函数：替换指定索引的 assistant 消息
-  async function sendWithRetry(userText: string, replaceIndex?: number) {
-    if (!userText || loading || isBusyRef.current) return;
-    
-    isBusyRef.current = true;
-    const requestId = ++requestIdRef.current;
-    const convId = activeConvIdRef.current || activeConvId;
-    if (!convId) return;
-    activeConvIdRef.current = convId;
-    
-    setLoading(true);
-    setStreaming(true);
-    setError(null);
-    setStatusText('AI 正在重新思考...');
-    autoSpeakDoneRef.current = false;
-    
-    try {
-      const config = getAiConfig();
-      if (!config.baseUrl || !config.apiKey) {
-        throw new Error('请先在设置页面配置 AI API Key');
-      }
-      
-      // 构造发送给 API 的消息
-      const latestMsgs = messagesRef.current;
-      
-      // 重试时：过滤掉旧的 assistant 回复，但保留之前的上下文
-      const filteredMsgs = latestMsgs.filter(m => m.role !== 'system');
-      
-      // 计算要发送的消息队列 - 去除旧的 assistant 回复
-      const apiMessages = [getSystemMessage(), ...filteredMsgs];
-      
-      const res = await callAiApi(apiMessages, { stream: true });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        let errMsg: string;
-        try {
-          const err = JSON.parse(text);
-          errMsg = err.error?.message ?? err.message ?? `HTTP ${res.status}`;
-        } catch {
-          errMsg = text || `HTTP ${res.status}`;
-        }
-        throw new Error(errMsg);
-      }
-      
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error('无法读取 AI 响应流');
-      const decoder = new TextDecoder();
-      let assistantContent = '';
-      let displayContent = '';
-      let messageAdded = false;
-      setStatusText('AI 正在回复...');
-      streamBufferRef.current = [];
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') break;
-            try {
-              const parsed = JSON.parse(data) as { choices?: { delta?: { content?: string } }[] };
-              const delta = parsed.choices?.[0]?.delta?.content ?? '';
-              if (!delta) continue;
-              assistantContent += delta;
-              streamBufferRef.current.push(...delta.split(''));
-            } catch {}
-          }
-        }
-      }
-      
-      if (streamBufferRef.current.length > 0) {
-        await new Promise<void>((resolve) => {
-          startDisplayTimer(
-            (char) => {
-              displayContent += char;
-              if (!messageAdded) {
-                messageAdded = true;
-                updateConversation(conv => {
-                  const updated = [...conv.messages];
-                  if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
-                    // 替换旧回复
-                    updated[replaceIndex] = { role: 'assistant', content: displayContent };
-                  } else {
-                    // 追加新回复
-                    updated.push({ role: 'assistant', content: displayContent });
-                  }
-                  return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
-                });
-                setStatusText('AI 正在回复...');
-              } else {
-                updateConversation(conv => {
-                  const updated = [...conv.messages];
-                  const targetIdx = replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant'
-                    ? replaceIndex
-                    : updated.length - 1;
-                  updated[targetIdx] = { role: 'assistant', content: displayContent };
-                  return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
-                });
-              }
-            },
-            () => resolve()
-          );
-        });
-      }
-      
-      if (!messageAdded && assistantContent === '') {
-        updateConversation(conv => ({
-          ...conv,
-          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
-          updatedAt: new Date().toISOString(),
-        }));
-      }
-      setStatusText('');
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : '请求失败，请检查网络连接和 API 配置';
-      setError(errMsg);
-    } finally {
-      setLoading(false);
-      setStreaming(false);
-      if (requestIdRef.current === requestId) {
-        isBusyRef.current = false;
-      }
-    }
-  }
-
-  // 过滤 tool_call 代码块，不让用户看见
-  function stripToolCalls(content: string): string {
-    return content.replace(/```tool_call[\s\S]*?```/g, '');
-  }
-
-  // 过滤所有 AI 内部标签（tool_call / TTS_LANG / TITLE）不显示给用户
+  // 过滤 AI 内部标签（tool_call / TTS_LANG / TITLE）不显示给用户
   function stripTags(content: string): string {
     return content
       .replace(/```tool_call[\s\S]*?```/g, '')
@@ -832,11 +1250,10 @@ export default function AiChatFab({
     return match ? match[1].trim() : null;
   }
 
-  // 流式响应完成后检查工具调用 + 提取对话标题
+  // 流式响应完成后检查标题提取
   const lastAssistantContent = messages.length > 0 ? messages[messages.length - 1] : null;
   useEffect(() => {
-    if (!streaming && lastAssistantContent?.role === 'assistant' && lastAssistantContent.content) {
-      // 提取 [TITLE] 标签设置对话标题（仅第一次对话）
+    if (!loading && lastAssistantContent?.role === 'assistant' && lastAssistantContent.content) {
       const title = extractTitle(lastAssistantContent.content);
       if (title && activeConv) {
         const userMsgCount = activeConv.messages.filter(m => m.role === 'user').length;
@@ -852,99 +1269,12 @@ export default function AiChatFab({
           });
         }
       }
-
-      // 检查工具调用（支持多个）
-      const toolCalls = parseToolCalls(lastAssistantContent.content);
-      if (toolCalls.length > 0) {
-        (async () => {
-          isBusyRef.current = true;
-          setStatusText('正在执行操作...');
-          for (let i = 0; i < toolCalls.length; i++) {
-            const tc = toolCalls[i];
-            const toolDef = AI_TOOLS.find(t => t.id === tc.tool);
-            
-            // 需要用户确认的操作 → 弹窗确认
-            if (toolDef?.requiresConsent) {
-              const consentDescription = toolDef.consentInfo?.(tc.params) || `执行${toolDef.name}`;
-              const confirmed = window.confirm(
-                `🤖 AI 想要执行以下操作：\n\n${consentDescription}\n\n是否同意？`
-              );
-              if (!confirmed) {
-                updateConversation(conv => ({
-                  ...conv,
-                  messages: [...conv.messages, { role: 'system', content: `🚫 用户拒绝了「${toolDef.name}」操作` }],
-                  updatedAt: new Date().toISOString(),
-                }));
-                continue;
-              }
-            }
-            
-            setStatusText(toolCalls.length > 1 ? `正在执行操作 (${i + 1}/${toolCalls.length})...` : '正在执行操作...');
-            const result = await executeToolCall(tc);
-            updateConversation(conv => ({
-              ...conv,
-              messages: [...conv.messages, { role: 'system', content: `🔧 工具执行结果：${result}` }],
-              updatedAt: new Date().toISOString(),
-            }));
-          }
-          setStatusText('');
-          isBusyRef.current = false;
-        })();
-      }
     }
-  }, [streaming, lastAssistantContent]);
+  }, [loading, lastAssistantContent]);
 
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
     : 'fixed bottom-20 right-4 z-50 w-96 sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
-
-  // ════════════════════════════════════════════════════════
-  // Streaming speed control
-  // ════════════════════════════════════════════════════════
-  // slow=🐢慢速逐字, normal=⚡中速逐字, instant=🐇不限速（直接显示全部）
-  const SPEED_PRESETS = { slow: 60, normal: 35, instant: 0 }; // ms per character (0=不限速)
-  type SpeedPresetType = 'slow' | 'normal' | 'instant';
-  const [speedPreset, setSpeedPreset] = useState<SpeedPresetType>('instant');
-  const streamBufferRef = useRef<string[]>([]);
-  const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Called to flush buffered characters to UI at controlled speed
-  const startDisplayTimer = useCallback((onChar: (char: string) => void, onDone: () => void) => {
-    if (streamTimerRef.current) clearInterval(streamTimerRef.current);
-
-    // 不限速模式：直接显示全部内容
-    if (SPEED_PRESETS[speedPreset] === 0) {
-      let buffer = streamBufferRef.current;
-      while (buffer.length > 0) {
-        onChar(buffer.shift()!);
-      }
-      onDone();
-      return;
-    }
-
-    const ms = SPEED_PRESETS[speedPreset];
-    streamTimerRef.current = setInterval(() => {
-      if (streamBufferRef.current.length > 0) {
-        onChar(streamBufferRef.current.shift()!);
-      }
-    }, ms);
-    // Also check periodically if buffer is drained
-    const checkDone = setInterval(() => {
-      if (streamBufferRef.current.length === 0) {
-        if (streamTimerRef.current) clearInterval(streamTimerRef.current);
-        streamTimerRef.current = null;
-        clearInterval(checkDone);
-        onDone();
-      }
-    }, 100);
-  }, [speedPreset]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (streamTimerRef.current) clearInterval(streamTimerRef.current);
-    };
-  }, []);
 
   // ════════════════════════════════════════════════════════
   // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
@@ -956,7 +1286,6 @@ export default function AiChatFab({
       try {
         const data = e.data;
         if (!data || typeof data !== 'object') return;
-        // Legacy 页面通过 postMessage 上报自己所在页面
         if (data.type === 'jackyun-page' && typeof data.page === 'string') {
           iframePageRef.current = data.page;
         }
@@ -1004,24 +1333,6 @@ export default function AiChatFab({
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Speed control: 🐢慢 → ⚡中 → 🐇不限速 */}
-              <div className="flex items-center gap-0.5 mr-1">
-                <button
-                  onClick={() => setSpeedPreset('slow')}
-                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'slow' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
-                  title="慢速（逐字显示）"
-                >🐢</button>
-                <button
-                  onClick={() => setSpeedPreset('normal')}
-                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'normal' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
-                  title="中速（逐字显示）"
-                >⚡</button>
-                <button
-                  onClick={() => setSpeedPreset('instant')}
-                  className={`p-1 rounded text-xs transition-colors ${speedPreset === 'instant' ? 'text-[#4285F4] bg-[#4285F4]/10' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}
-                  title="不限速（直接显示全部）"
-                >🐇</button>
-              </div>
               <button
                 onClick={createNewConversation}
                 title="新建对话"
@@ -1094,14 +1405,14 @@ export default function AiChatFab({
                       msg.role === 'user'
                         ? 'bg-[#4285F4] text-white rounded-br-sm'
                         : msg.role === 'system'
-                        ? 'bg-[#FFF8E1] text-[#795548] border border-[#FFE082] rounded text-xs w-full text-center'
+                        ? 'bg-[#FFF8E1] text-[#795548] border border-[#FFE082] rounded text-xs w-full'
                         : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--card-border)] rounded-bl-sm'
                     }`}
                   >
                     {msg.role === 'assistant' ? (
                       msg.content ? (
                         <MarkdownRenderer content={stripTags(msg.content)} />
-                      ) : streaming && i === messages.length - 1 ? (
+                      ) : loading && i === messages.length - 1 ? (
                         <span className="flex items-center gap-2">
                           <span className="inline-flex gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#4285F4] animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -1111,14 +1422,31 @@ export default function AiChatFab({
                         </span>
                       ) : null
                     ) : msg.role === 'system' ? (
-                      <span className="whitespace-pre-wrap text-xs">{msg.content}</span>
+                      // 系统消息（工具结果）→ 折叠显示，点击展开
+                      <div
+                        className="cursor-pointer select-none"
+                        onClick={() => {
+                          updateConversation(conv => {
+                            const updated = [...conv.messages];
+                            updated[i] = { ...updated[i], collapsed: !updated[i].collapsed };
+                            return { ...conv, messages: updated };
+                          });
+                        }}
+                      >
+                        <span className="whitespace-pre-wrap text-xs block">
+                          {msg.collapsed === false ? msg.content : summarizeSystemMessage(msg.content)}
+                        </span>
+                        <span className="text-[10px] text-[#A1887F] mt-0.5 block">
+                          {msg.collapsed === false ? '▲ 点击折叠' : '▼ 点击查看详情'}
+                        </span>
+                      </div>
                     ) : (
                       <span className="whitespace-pre-wrap">{msg.content}</span>
                     )}
                   </div>
                 </div>
 
-                {msg.role === 'assistant' && msg.content && !streaming && (
+                {msg.role === 'assistant' && msg.content && !loading && (
                   <div className="flex items-center gap-1 mt-1 ml-1">
                     <button
                       onClick={() => handleSpeak(msg.content, i)}
@@ -1158,7 +1486,7 @@ export default function AiChatFab({
                 )}
               </div>
             ))}
-            {loading && !streaming && messages[messages.length - 1]?.role !== 'assistant' && (
+            {loading && (
               <div className="flex justify-start">
                 <div className="bg-[var(--background)] border border-[var(--card-border)] rounded-2xl rounded-bl-sm px-4 py-2">
                   <span className="inline-flex gap-1">
@@ -1217,6 +1545,24 @@ export default function AiChatFab({
         visible={subtitleVisible}
         onClose={handleSubtitleClick}
       />
+
+      {/* 自定义操作确认弹窗 */}
+      {consentDialog && (
+        <ConsentDialog
+          state={consentDialog}
+          onApprove={() => {
+            consentResolverRef.current?.(true);
+            // 继续 Agent 循环
+          }}
+          onReject={() => consentResolverRef.current?.(false)}
+          onClose={() => {
+            // 关闭弹窗视为拒绝
+            consentResolverRef.current?.(false);
+          }}
+          onAskSubmit={handleAskSubmit}
+          onReview={handleReview}
+        />
+      )}
     </>
   );
 }

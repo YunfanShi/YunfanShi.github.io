@@ -6,113 +6,6 @@ const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
 const CLOUD_API_KEY = process.env.CLOUD_LLM_API_KEY || '';
 const CLOUD_MODEL = process.env.CLOUD_LLM_MODEL || 'deepseek-v4-flash';
 
-// ──────────────────────────────────────────────
-//  Rate Limiting & Token Quota (in-memory)
-//  Note: Resets on cold start (Vercel serverless).
-//  For production, use Redis/Upstash or a DB table.
-// ──────────────────────────────────────────────
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-interface QuotaEntry {
-  tokensUsed: number;
-  resetAt: number; // midnight UTC+8 timestamp
-}
-
-// Per-user rate limiting: max requests per minute
-const RATE_LIMIT_MAX = Number(process.env.LLM_RATE_LIMIT_RPM) || 30; // 30 req/min per user
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-
-// Per-user daily token quota (input + output combined)
-const DAILY_TOKEN_QUOTA = Number(process.env.LLM_DAILY_TOKEN_QUOTA) || 500_000; // 500k tokens/day
-const QUOTA_RESET_HOUR_UTC8 = 0; // reset at midnight Asia/Shanghai
-
-const rateLimitMap = new Map<string, RateLimitEntry>();
-const quotaMap = new Map<string, QuotaEntry>();
-
-// Cleanup stale entries every 10 minutes
-const CLEANUP_INTERVAL_MS = 600_000;
-let lastCleanup = Date.now();
-
-function getUserIdKey(userId: string): string {
-  return `user:${userId}`;
-}
-
-function getIpKey(ip: string): string {
-  return `ip:${ip}`;
-}
-
-function getNextMidnightUTC8(): number {
-  const now = new Date();
-  // Asia/Shanghai midnight = UTC+8 00:00 = UTC 16:00 previous day
-  const shanghaiNow = new Date(now.getTime() + 8 * 3600_000);
-  const midnight = new Date(
-    shanghaiNow.getFullYear(),
-    shanghaiNow.getMonth(),
-    shanghaiNow.getDate() + 1,
-    QUOTA_RESET_HOUR_UTC8,
-    0,
-    0,
-    0,
-  );
-  return midnight.getTime() - 8 * 3600_000; // back to UTC
-}
-
-function cleanupStaleEntries() {
-  const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return;
-  lastCleanup = now;
-
-  for (const [key, entry] of rateLimitMap) {
-    if (now > entry.resetAt) rateLimitMap.delete(key);
-  }
-  for (const [key, entry] of quotaMap) {
-    if (now > entry.resetAt) quotaMap.delete(key);
-  }
-}
-
-function checkRateLimit(key: string): { allowed: boolean; remaining: number; resetAt: number } {
-  cleanupStaleEntries();
-  const now = Date.now();
-  let entry = rateLimitMap.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    entry = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
-    rateLimitMap.set(key, entry);
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1, resetAt: entry.resetAt };
-  }
-
-  entry.count++;
-  if (entry.count > RATE_LIMIT_MAX) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
-  }
-
-  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count, resetAt: entry.resetAt };
-}
-
-function checkTokenQuota(userKey: string, tokenCount: number): { allowed: boolean; tokensUsed: number } {
-  cleanupStaleEntries();
-  const now = Date.now();
-  const nextMidnight = getNextMidnightUTC8();
-  let entry = quotaMap.get(userKey);
-
-  if (!entry || now > entry.resetAt) {
-    entry = { tokensUsed: tokenCount, resetAt: nextMidnight };
-    quotaMap.set(userKey, entry);
-    return { allowed: tokenCount <= DAILY_TOKEN_QUOTA, tokensUsed: tokenCount };
-  }
-
-  entry.tokensUsed += tokenCount;
-  if (entry.tokensUsed > DAILY_TOKEN_QUOTA) {
-    return { allowed: false, tokensUsed: entry.tokensUsed };
-  }
-
-  return { allowed: true, tokensUsed: entry.tokensUsed };
-}
-
 function extractClientIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -147,8 +40,6 @@ function auditLog(event: {
   outputTokens?: number;
   status: number;
   durationMs: number;
-  rateLimited?: boolean;
-  quotaExceeded?: boolean;
   error?: string;
 }) {
   const logLine = JSON.stringify({
@@ -262,66 +153,6 @@ export async function POST(req: NextRequest) {
     }
 
     userId = user.id;
-
-    // ── Rate Limiting (only for cloud key usage) ──
-    const userKey = getUserIdKey(userId);
-    const ipKey = getIpKey(clientIp);
-
-    // Check per-user rate limit
-    const userRateLimit = checkRateLimit(userKey);
-    if (!userRateLimit.allowed) {
-      const retryAfter = Math.ceil((userRateLimit.resetAt - Date.now()) / 1000);
-      auditLog({ userId, ip: clientIp, model: clientModel || CLOUD_MODEL, keySource: 'cloud', status: 429, durationMs: Date.now() - startTime, rateLimited: true });
-      return NextResponse.json(
-        {
-          error: {
-            message: `请求过于频繁，请在 ${retryAfter} 秒后重试。每分钟最多 ${RATE_LIMIT_MAX} 次请求。`,
-            retryAfter,
-          },
-        },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(retryAfter) },
-        },
-      );
-    }
-
-    // Check per-IP rate limit (as a secondary defense)
-    const ipRateLimit = checkRateLimit(ipKey);
-    if (!ipRateLimit.allowed) {
-      const retryAfter = Math.ceil((ipRateLimit.resetAt - Date.now()) / 1000);
-      auditLog({ userId, ip: clientIp, model: clientModel || CLOUD_MODEL, keySource: 'cloud', status: 429, durationMs: Date.now() - startTime, rateLimited: true });
-      return NextResponse.json(
-        {
-          error: {
-            message: `请求过于频繁，请在 ${retryAfter} 秒后重试。每分钟最多 ${RATE_LIMIT_MAX} 次请求。`,
-            retryAfter,
-          },
-        },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(retryAfter) },
-        },
-      );
-    }
-
-    // ── Token Quota (only for cloud key usage) ──
-    const estimatedInput = estimateInputTokens(body);
-    const tokenQuota = checkTokenQuota(userKey, estimatedInput);
-
-    if (!tokenQuota.allowed) {
-      auditLog({ userId, ip: clientIp, model: clientModel || CLOUD_MODEL, keySource: 'cloud', status: 429, durationMs: Date.now() - startTime, quotaExceeded: true, inputTokens: estimatedInput });
-      return NextResponse.json(
-        {
-          error: {
-            message: `您今日的 AI Token 配额已用尽（${DAILY_TOKEN_QUOTA.toLocaleString()} tokens/天）。请明天再试，或前往设置页面配置自己的 API Key。`,
-            dailyQuota: DAILY_TOKEN_QUOTA,
-            tokensUsed: tokenQuota.tokensUsed,
-          },
-        },
-        { status: 429 },
-      );
-    }
 
     // First check: does user have their own API config saved in user_settings?
     const { data: settingRow } = await supabase
@@ -444,9 +275,6 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
-        'X-RateLimit-Remaining': keySource === 'cloud' && userId
-          ? String(checkRateLimit(getUserIdKey(userId)).remaining)
-          : 'unlimited',
       },
     });
   }
@@ -470,14 +298,5 @@ export async function POST(req: NextRequest) {
     durationMs: Date.now() - startTime,
   });
 
-  const response = NextResponse.json(data);
-
-  // Add rate limit headers
-  if (keySource === 'cloud' && userId) {
-    const rl = checkRateLimit(getUserIdKey(userId));
-    response.headers.set('X-RateLimit-Remaining', String(rl.remaining));
-    response.headers.set('X-RateLimit-Reset', new Date(rl.resetAt).toISOString());
-  }
-
-  return response;
+  return NextResponse.json(data);
 }

@@ -10,6 +10,15 @@
 
 export type ToolScope = 'global' | 'quiz' | 'plan' | 'control' | 'study_guide';
 
+export interface ConsentInfo {
+  /** 要执行的操作描述 */
+  action: string;
+  /** 为什么要这么做（目的） */
+  purpose: string;
+  /** 可能的影响/后果 */
+  consequence: string;
+}
+
 export interface AiTool {
   /** 工具唯一标识 */
   id: string;
@@ -23,8 +32,8 @@ export interface AiTool {
   handler: (params: Record<string, string>) => string | Promise<string>;
   /** 是否需要用户确认后才执行（写操作需要） */
   requiresConsent?: boolean;
-  /** 确认弹窗描述：操作 + 原因 + 后果 */
-  consentInfo?: (params: Record<string, string>) => string;
+  /** 确认弹窗信息：操作 + 目的 + 后果 */
+  consentInfo?: (params: Record<string, string>) => ConsentInfo;
 }
 
 /**
@@ -548,7 +557,33 @@ export const AI_TOOLS: AiTool[] = [
     description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit。total 可为 0 表示无上限任务。',
     scope: ['global'],
     requiresConsent: true,
-    consentInfo: (params) => `目标管理操作：${params.action === 'create' ? '创建新目标「' + (params.name || '') + '」' : params.action === 'delete' ? '删除目标 ID ' + params.id : '修改目标（ID: ' + params.id + '）'}。后果：数据将被更新并云端同步。`,
+    consentInfo: (params) => {
+      if (params.action === 'create') {
+        return {
+          action: `创建新目标「${params.name || '未命名'}」` + (params.total !== undefined && params.total !== '' ? `，任务量 ${params.total}` : ''),
+          purpose: '将新的学习或生活目标添加到目标管理页，方便在主页/目标页跟踪进度。',
+          consequence: '目标将出现在目标管理列表中并被云端同步。如不需要可以直接删除。',
+        };
+      }
+      if (params.action === 'delete') {
+        return {
+          action: `删除目标（ID: ${params.id}）` + (params.name ? `「${params.name}」` : ''),
+          purpose: '从目标管理中移除不再需要跟踪的目标，保持列表清晰。',
+          consequence: '该目标及其所有子任务将被永久删除，删除后无法恢复！',
+        };
+      }
+      const fieldDesc: Record<string, string> = {
+        name: '名称', desc: '描述', deadline: '截止日期', priority: '优先级',
+        done: '已完成数量', total: '总任务量', color: '颜色', unit: '单位', parentId: '父任务',
+      };
+      const fields = Object.keys(params).filter(k => !['action', 'id'].includes(k));
+      const fieldLabel = fields.map(f => fieldDesc[f] || f).join('、') || '字段';
+      return {
+        action: `修改目标（ID: ${params.id}${params.name ? '「' + params.name + '」' : ''}）的${fieldLabel}`,
+        purpose: '更新目标信息，使目标进度和数据保持最新，方便跟踪完成情况。',
+        consequence: '修改的内容会立即保存并云端同步，同时主页/目标页显示将同步更新。',
+      };
+    },
     handler: async (params: Record<string, string>) => {
       try {
         const goals = readGoalData();
@@ -661,7 +696,11 @@ export const AI_TOOLS: AiTool[] = [
     description: '修改 IGCSE 考试倒计时设置。参数：examDate (YYYY-MM-DD 格式的考试日期)',
     scope: ['global'],
     requiresConsent: true,
-    consentInfo: (params) => `考试倒计时操作：将考试日期更新为 ${params.examDate || '未知日期'}。后果：顶部倒计时将立即重新计算并云端同步。`,
+    consentInfo: (params) => ({
+      action: `将考试日期更新为 ${params.examDate || '未知日期'}`,
+      purpose: '更新考试倒计时，确保倒计时显示正确的剩余天数。',
+      consequence: '顶部倒计时将立即重新计算并云端同步。如填错日期可再次修改。',
+    }),
     handler: async (params: Record<string, string>) => {
       try {
         const raw = localStorage.getItem('jackyun_igcountdown');
@@ -967,11 +1006,18 @@ export function getToolsDescription(scope: ToolScope): string {
           `${i + 1}. **${tool.name}**（ID: \`${tool.id}\`）\n   ${tool.description}\n   调用格式：\`\`\`tool_call\n   {"tool": "${tool.id}", "params": { ... }}\n   \`\`\``,
       )
       .join('\n\n') +
-    '\n\n【工具调用规则】\n' +
-    '1. 在回复内容的**最后**添加工具调用代码块，用 ```tool_call 包裹\n' +
-    '2. 如果不需要调用工具，则不输出工具调用代码块\n' +
-    '3. 先回答用户的问题，再判断是否需要调用工具\n' +
-    '4. 调用结果会自动添加到对话中\n\n' +
+    '\n\n【工具调用规则（重要）】\n' +
+    '1. 你是 **Agent 智能体**：可以连续多轮调用工具完成任务，直到目标达成为止。\n' +
+    '2. 每轮只调用**一个**工具，工具执行结果会自动追加到对话中。\n' +
+    '3. 收到工具结果后，你需要根据结果**继续推理**：\n' +
+    '   - 如果需要再读取数据 → 继续调用读取工具\n' +
+    '   - 如果读取完成可以执行修改 → 再调用修改工具\n' +
+    '   - 如果需要多个修改操作 → 逐个调用，每轮一个\n' +
+    '4. 在回复内容的**最后**添加工具调用代码块，用 ```tool_call 包裹。\n' +
+    '5. 如果不需要调用工具，则不输出工具调用代码块。\n' +
+    '6. **不要在一轮回复中输出多个工具调用代码块**，一次只能调用一个工具，等待结果后再继续。\n' +
+    '7. **不要重复调用相同的读取工具**：如果已经读取过某数据且内容没有变化，不要再次读取。\n' +
+    '8. 当所有任务完成后，给用户一个**完整的总结**，不要再调用工具。\n\n' +
     '【TTS 朗读语言说明（非常重要，必须遵守）】\n' +
     '用户已经设置了 TTS 朗读语言，只能用你回复中与 TTS 语言一致的部分进行朗读。\n' +
     '语言代码为 "zh-CN"（中文）或 "en-US"（英文）。\n\n' +
