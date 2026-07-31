@@ -653,8 +653,22 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 - 读取用户 `user_settings` 表中的 `ai_config`（baseUrl, apiKey, model）
 - 支持任意兼容 OpenAI `/chat/completions` 接口的 LLM 服务
-- 支持流式响应（SSE, Server-Sent Events）
+- 支持流式响应（SSE, Server-Sent Events），**无任何速率限制和 Token 配额**
 - 如果用户未配置 API Key，返回中文提示信息
+
+### 9.1 AI Agent 智能模式（`ai-chat-fab.tsx`）
+
+主页 AI 已升级为 **Agent 智能体模式**：
+
+- **多轮推理循环**：AI 可以连续调用工具（读取 → 执行 → 再读取 → 再执行），直到完成任务，最多 8 轮推理
+- **流式实时显示**：SSE 流到达即显示，无速度限制、无文本缓冲延迟
+- **自定义确认弹窗**：写操作前弹出详细确认窗口（操作/目的/后果），支持：
+  - ✅ 同意修改 → 立即执行
+  - ❓ 有疑问 → 弹窗内与 AI 实时对话，获得进一步解释
+  - 🔍 审查 → 发送给独立 AI 审查员评估操作合理性和风险
+  - 🚫 不同意 → 拒绝执行
+- **工具结果折叠**：`🔧 工具执行结果` 系统消息自动折叠为摘要，点击可展开查看详情
+- **重试简化**：重试逻辑复用主发送流程，支持 5 次重试上限
 
 ---
 

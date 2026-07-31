@@ -11,4 +11,4 @@ export function cn(...inputs: ClassValue[]) {
  *       新功能 → 中间位 +1（如 2.2.1 → 2.3.0）
  *       大改版 → 第一位 +1
  */
-export const APP_VERSION = '2.2.1';
+export const APP_VERSION = '2.7';
