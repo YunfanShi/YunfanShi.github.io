@@ -267,9 +267,9 @@ export default function AiChatFab({
     setConversations(loaded);
     const activeId = loadActiveId();
     if (activeId && loaded.some(c => c.id === activeId)) {
-      setActiveConvIdState(activeId);
+      setActiveConvId(activeId);
     } else if (loaded.length > 0) {
-      setActiveConvIdState(loaded[0].id);
+      setActiveConvId(loaded[0].id);
     } else {
       createNewConversation();
     }
@@ -328,7 +328,7 @@ export default function AiChatFab({
     if (activeConvId === id) {
       const remaining = conversations.filter(c => c.id !== id);
       if (remaining.length > 0) {
-        setActiveConvIdState(remaining[0].id);
+        setActiveConvId(remaining[0].id);
         saveActiveId(remaining[0].id);
       } else {
         createNewConversation();
