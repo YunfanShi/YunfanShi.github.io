@@ -908,9 +908,10 @@ export default function AiChatFab({
           if (data === '[DONE]') continue;
           try {
             const parsed = JSON.parse(data) as {
-              choices?: { delta?: { content?: string } }[];
+              choices?: { delta?: { content?: string; reasoning_content?: string } }[];
             };
-            const delta = parsed.choices?.[0]?.delta?.content ?? '';
+            // 兼容 DeepSeek 推理模型：content 为空时回退到 reasoning_content
+            const delta = parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.delta?.reasoning_content ?? '';
             if (!delta) continue;
 
             // 流式直出：每个 chunk 直接追加到 UI
