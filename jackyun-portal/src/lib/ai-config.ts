@@ -14,7 +14,43 @@ export interface AiConfig {
 /** 思考深度等级 — 影响 temperature 和 system prompt */
 export type ThinkingLevel = 'low' | 'medium' | 'high';
 
+/** 操作模式 — YOLO 全部通过 / safe 低风险自动通过高风险确认 */
+export type SafetyMode = 'yolo' | 'safe';
+
 const THINKING_LEVEL_KEY = 'jackyun-ai-thinking-level';
+const SAFETY_MODE_KEY = 'jackyun-ai-safety-mode';
+const TOKEN_PRICE_KEY = 'jackyun-ai-token-price';
+
+/** 获取操作模式（默认 safe） */
+export function getSafetyMode(): SafetyMode {
+  if (typeof window === 'undefined') return 'safe';
+  try {
+    const val = localStorage.getItem(SAFETY_MODE_KEY);
+    return val === 'yolo' ? 'yolo' : 'safe';
+  } catch { return 'safe'; }
+}
+
+/** 保存操作模式 */
+export function saveSafetyMode(mode: SafetyMode): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SAFETY_MODE_KEY, mode);
+}
+
+/** 获取模型价格（元 / 1M tokens，默认 2 元） */
+export function getTokenPrice(): number {
+  if (typeof window === 'undefined') return 2;
+  try {
+    const val = localStorage.getItem(TOKEN_PRICE_KEY);
+    const num = Number(val);
+    return isFinite(num) && num > 0 ? num : 2;
+  } catch { return 2; }
+}
+
+/** 保存模型价格 */
+export function saveTokenPrice(price: number): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(TOKEN_PRICE_KEY, String(price));
+}
 
 /** 获取用户设置的思考深度（默认 medium） */
 export function getThinkingLevel(): ThinkingLevel {
