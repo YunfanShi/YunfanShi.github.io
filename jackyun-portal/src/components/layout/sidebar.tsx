@@ -10,7 +10,6 @@ import { t } from '@/lib/i18n';
 
 const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string; group?: 'music' | 'answerSheet'; mode?: 'player' | 'sync' | 'standard' }[] = [
   { labelKey: 'nav.dashboard', icon: 'dashboard', href: '/dashboard' },
-  { labelKey: 'nav.control-center', icon: 'tune', href: '/timetable-hub' },
   { labelKey: 'nav.study-plan', icon: 'school', href: '/study' },
   // Goal 计划显示器：移到学习计划下面
   { labelKey: 'nav.goal', icon: 'flag', href: '/goal' },
@@ -33,9 +32,12 @@ const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string
   { labelKey: 'nav.md2word', icon: 'description', href: '/md2word' },
   { labelKey: 'nav.tools', icon: 'build', href: '/tools' },
   { labelKey: 'nav.settings', icon: 'settings', href: '/settings' },
+  { labelKey: 'nav.update', icon: 'history', href: '/update' },
 ];
 
 const ADMIN_ITEM = { labelKey: 'nav.admin', icon: 'admin_panel_settings', href: '/admin' };
+
+const TIMESTAMPS_KEY = 'jackyun_nav_timestamps';
 
 interface NavItem {
   id?: string;
@@ -50,6 +52,21 @@ interface Props {
   initialPrefs: SidebarPreferences;
 }
 
+function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / 86400000);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+  if (diffDays === 0) return time;
+  if (diffDays === 1) return `昨天 ${time}`;
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${time}`;
+}
+
 export default function Sidebar({ initialPrefs }: Props) {
   const pathname = usePathname();
   const { lang } = useLanguage();
@@ -57,6 +74,26 @@ export default function Sidebar({ initialPrefs }: Props) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [prefs, setPrefs] = useState<SidebarPreferences>(initialPrefs);
   const [showFirstTimeDialog, setShowFirstTimeDialog] = useState(false);
+  const [timestamps, setTimestamps] = useState<Record<string, string>>({});
+
+  // Load timestamps and record current page visit
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(TIMESTAMPS_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      setTimestamps(data);
+      // Record current page visit
+      if (pathname) {
+        const now = new Date().toISOString();
+        const updated = { ...data, [pathname]: now };
+        localStorage.setItem(TIMESTAMPS_KEY, JSON.stringify(updated));
+        setTimestamps(updated);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [pathname]);
 
   // Detect first-time user: if prefs match defaults exactly, they haven't configured yet
   useEffect(() => {
@@ -152,11 +189,12 @@ export default function Sidebar({ initialPrefs }: Props) {
         >
           {displayItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const ts = timestamps[item.href];
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-[#4285F4]/10 text-[#4285F4]'
                     : 'text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -169,7 +207,16 @@ export default function Sidebar({ initialPrefs }: Props) {
                 >
                   {item.icon}
                 </span>
-                {!collapsed && <span>{t(item.labelKey, lang)}</span>}
+                {!collapsed && (
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate">{t(item.labelKey, lang)}</span>
+                    {ts && (
+                      <span className="block text-[10px] leading-tight text-[var(--muted-foreground)] opacity-70 group-hover:opacity-100 transition-opacity">
+                        {formatTimestamp(ts)}
+                      </span>
+                    )}
+                  </span>
+                )}
               </Link>
             );
           })}

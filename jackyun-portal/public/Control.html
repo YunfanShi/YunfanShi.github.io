@@ -725,9 +725,20 @@
             <h2 style="margin:0; font-size:20px;">Daily Schedule</h2>
             <div id="day-label" style="font-size:14px; color:#666;">Loading...</div>
         </div>
-        <div class="date-badge">
-            <div id="sync-status" class="sync-dot" title="Network Time Status"></div>
-            <span id="clock-display" style="margin-left:8px;">00:00:00</span>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <button
+                onclick="window.location.href='/timetable-hub'"
+                title="打开日程生成器"
+                style="width:38px; height:38px; border-radius:50%; border:none; background:#c20c0c; color:white; cursor:pointer; display:flex; justify-content:center; align-items:center; box-shadow:0 2px 8px rgba(194,12,12,0.3); transition:transform 0.2s;"
+                onmouseover="this.style.transform='scale(1.1)'"
+                onmouseout="this.style.transform='scale(1)'"
+            >
+                <span class="material-icons-round" style="font-size:20px;">auto_fix_high</span>
+            </button>
+            <div class="date-badge">
+                <div id="sync-status" class="sync-dot" title="Network Time Status"></div>
+                <span id="clock-display" style="margin-left:8px;">00:00:00</span>
+            </div>
         </div>
     </header>
     <div class="timer-card" id="main-card">

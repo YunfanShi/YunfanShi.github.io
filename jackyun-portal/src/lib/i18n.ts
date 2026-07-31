@@ -21,7 +21,6 @@ type TranslationMap = Record<string, { zh: string; en: string }>;
 const translations: TranslationMap = {
   // ── Sidebar nav items ──
   'nav.dashboard':            { zh: 'Dashboard',            en: 'Dashboard' },
-  'nav.control-center':       { zh: '日程生成器',           en: 'Schedule Generator' },
   'nav.study-plan':           { zh: '学习计划',             en: 'Study Plan' },
   'nav.study-guide':          { zh: 'StudyGuide',           en: 'StudyGuide' },
   'nav.vocab':                { zh: '词汇宝库',             en: 'Vocab Treasury' },
@@ -44,6 +43,7 @@ const translations: TranslationMap = {
   'nav.md2word':              { zh: 'Markdown → Word',      en: 'Markdown → Word' },
   'nav.tools':                { zh: '工具箱',               en: 'Tools' },
   'nav.settings':             { zh: '设置',                 en: 'Settings' },
+  'nav.update':               { zh: '更新',                 en: 'Update' },
   'nav.admin':                { zh: '管理员',               en: 'Admin' },
 
   // ── Topbar ──
@@ -66,6 +66,7 @@ const translations: TranslationMap = {
   'settings.section.changelog':{ zh: '更新日志',            en: 'Changelog' },
   'settings.section.changelog-desc':{ zh: '查看 JackYun Portal 的版本更新历史。', en: 'View the version history of JackYun Portal.' },
   'settings.view-changelog':  { zh: '查看更新历史',         en: 'View Changelog' },
+  'settings.section.about':   { zh: '关于',                 en: 'About' },
   'settings.section.data':    { zh: '数据管理',             en: 'Data Management' },
   'settings.section.data-desc':{ zh: '导出你的所有数据，包括词汇、学习计划、诗词等。', en: 'Export all your data, including vocabulary, study plans, poems, etc.' },
   'settings.reset-password':  { zh: '通过邮件重置密码',     en: 'Reset Password via Email' },
