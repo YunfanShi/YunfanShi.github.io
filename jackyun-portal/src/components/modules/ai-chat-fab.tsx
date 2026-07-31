@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature } from '@/lib/ai-config';
 import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo } from '@/lib/ai-tools';
+import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
@@ -582,6 +583,9 @@ export default function AiChatFab({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   // 思考深度级别（默认中）
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>(() => getThinkingLevel());
+  // 消息容器引用（用于判断用户是否在底部）
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isUserAtBottomRef = useRef(true);
   // 确认弹窗
   const [consentDialog, setConsentDialog] = useState<ConsentDialogState | null>(null);
   // 等待用户确认的 resolve 函数
@@ -621,9 +625,25 @@ export default function AiChatFab({
     }
   }, []);
 
+  // 智能自动滚动：只在用户已在底部时跟随
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isUserAtBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, loading]);
+
+  // 监听容器滚动，判断用户位置
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      if (!container) return;
+      isUserAtBottomRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [open]);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -903,6 +923,13 @@ export default function AiChatFab({
     const reader = res.body?.getReader();
     if (!reader) throw new Error('无法读取 AI 响应流');
 
+    // 记录 AI 请求日志（全站持久化）
+    logger.info('AI', `请求发送: ${apiMessages[apiMessages.length - 1]?.content?.slice(0, 60) || '(空)'}`, {
+      model: config.model,
+      messages: apiMessages.length,
+      ts: new Date().toISOString(),
+    });
+
     const decoder = new TextDecoder();
     let assistantContent = '';       // 最终回复（content，用户可见 + 用于工具解析）
     let reasoningContent = '';       // 思考过程（reasoning_content，折叠显示，不用于 TTS）
@@ -1013,9 +1040,15 @@ export default function AiChatFab({
       const toolCalls = parseToolCalls(assistantContent);
 
       if (!assistantContent.trim() && toolCalls.length === 0) {
+        // 记录空响应日志（全站持久化）- 便于用户去设置页查看原因
+        logger.error('AI', '空响应: AI 流式响应完成但无 content 和 tool_call', {
+          model: getAiConfig().model,
+          hasReasoning: messages[messages.length - 1]?.reasoningContent ? true : false,
+          ts: new Date().toISOString(),
+        });
         updateConversation(conv => ({
           ...conv,
-          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
+          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请点击重试。已记录日志，可到设置页面查看详细原因）' }],
           updatedAt: new Date().toISOString(),
         }), convId);
         break;
@@ -1441,7 +1474,7 @@ export default function AiChatFab({
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && (
               <p className="text-center text-sm text-[var(--muted-foreground)] mt-8">
                 👋 有什么可以帮助你的？<br />
@@ -1484,7 +1517,7 @@ export default function AiChatFab({
                               <span>{msg.collapsed === false ? '▲' : '▶'}</span>
                             </div>
                             {msg.collapsed === false && (
-                              <div className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-[11px] leading-1.5 text-[var(--muted-foreground)]">
+                              <div className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-[11px] leading-normal text-[var(--muted-foreground)]">
                                 {(msg as Message).reasoningContent}
                               </div>
                             )}
