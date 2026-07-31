@@ -908,9 +908,10 @@ export default function AiChatFab({
           if (data === '[DONE]') continue;
           try {
             const parsed = JSON.parse(data) as {
-              choices?: { delta?: { content?: string } }[];
+              choices?: { delta?: { content?: string; reasoning_content?: string } }[];
             };
-            const delta = parsed.choices?.[0]?.delta?.content ?? '';
+            // 兼容 DeepSeek 推理模型：content 为空时回退到 reasoning_content
+            const delta = parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.delta?.reasoning_content ?? '';
             if (!delta) continue;
 
             // 流式直出：每个 chunk 直接追加到 UI
@@ -975,7 +976,14 @@ export default function AiChatFab({
       const assistantContent = await streamAiReply(apiMessages, convId, currentReplaceIndex);
       currentReplaceIndex = undefined;
 
-      if (!assistantContent.trim()) {
+      // ⚠️ 关键修复：把 AI 自己的回复也加入消息队列！
+      // 这样下一轮推理能看到自己说了什么，避免反复读取而不执行修改
+      apiMessages.push({ role: 'assistant', content: assistantContent });
+
+      // 解析工具调用（即使没有可见文本，只要有 tool_call 就继续执行）
+      const toolCalls = parseToolCalls(assistantContent);
+
+      if (!assistantContent.trim() && toolCalls.length === 0) {
         updateConversation(conv => ({
           ...conv,
           messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
@@ -984,8 +992,6 @@ export default function AiChatFab({
         break;
       }
 
-      // 解析工具调用（支持多个，但提示 AI 一次一个；这里按顺序逐个执行）
-      const toolCalls = parseToolCalls(assistantContent);
       if (toolCalls.length === 0) break; // 没有工具调用，任务完成
 
       let loopHasToolCall = false;
