@@ -312,19 +312,6 @@
         <p class="subtitle">更新日志 · 功能模块状态 · 一站掌握</p>
     </header>
 
-    <!-- ========== STICKY NAV ========== -->
-    <div class="nav-container">
-        <div class="toggle-switch">
-            <div class="slider" id="slider"></div>
-            <button class="toggle-btn active" onclick="switchView('desktop', this)">
-                <span class="material-symbols-rounded">desktop_windows</span> 桌面端
-            </button>
-            <button class="toggle-btn" onclick="switchView('mobile', this)">
-                <span class="material-symbols-rounded">phone_iphone</span> 移动端
-            </button>
-        </div>
-    </div>
-
     <!-- ========== DYNAMIC CONTENT ========== -->
     <div class="content-container" id="main-content"></div>
 
@@ -337,6 +324,7 @@
             desktop: {
                 urlPrefix: "",
                 logsMajor: [
+                    { date: "2026-07-31 v2.9", content: "🧹 更新页面改版：版本记录清理重整、按时间线排序、移除无效的移动端视图，一目了然。🤖 AI 助手新增任务完成标记：AI 在任务结束后输出 [TASK_COMPLETE] 标记，系统检测后立即结束并展示任务统计卡片——包含⏱用时、🧠推理轮数、🔧工具调用次数、📥📤输入输出 Token 数和💴按 DeepSeek V4 Flash 定价估算的费用。此功能全局生效。" },
                     { date: "2026-07-31 v2.9", content: "🤖 AI 智能管家更聪明了：AI 会根据你所在页面自动切换工具模式——在主页只显示常用的简洁工具，在目标页面专注目标管理，不再把所有功能都塞给它，回答更精准更快速。AI 现在知道按需获取其他页面能力，不会占用多余计算。同时修复了 AI 重复读取同一数据的问题（比如已经看过目标列表就不会再看一遍，除非数据被修改过），显著减少 token 消耗和等待时间。每条 AI 回复下方新增本轮对话累计 token 显示，方便你了解每次对话的消耗情况。" },
                     { date: "2026-07-31 v2.8", content: "🤖 AI 智能管家能力全面升级：所有工具都配备了详细的使用手册，AI 现在清楚知道每个页面有什么数据、每个工具怎么正确使用、需要哪些参数，不会再出现「找不到目标」「操作失败」等问题。目标管理新增按名称查找目标、失败时自动显示可用目标列表；修改目标前强制先读取真实数据，杜绝编造 ID。每条 AI 回复新增「复制完整记录」按钮，一键复制思考过程、工具调用和操作结果；工具执行失败时自动展开显示错误详情，不会再被折叠隐藏。" },
                     { date: "2026-07-31 v2.7", content: "🤖 AI 智能管家升级为 Agent 模式：现在可以像真人助手一样连续思考、读取数据、执行操作，一气呵成完成复杂任务，不用再一步步提醒。执行修改前会弹出详细的确认窗口，清楚说明要做什么、为什么这么做、会有什么影响，你也可以随时提问让 AI 解释，或让独立的 AI 审查员评估操作是否合理。回复速度大幅提升：取消了所有速度限制，内容实时流式显示，工具执行结果自动折叠成摘要，点击即可查看详情。" },
@@ -348,9 +336,9 @@
                     { date: "2025-12-17", content: "电脑端从旧域名 jack2025a.github.io 迁移到 jackyun.top" },
                 ],
                 logsRegular: [
-                    { date: "2026-07-31 v2.2.1", content: "🛠️ 界面优化 - 日程生成器入口从侧边栏移到日程页面角落，侧边栏更简洁；每个导航项显示最近使用时间；更新日志页面更名为「更新」；加载动画按页面显示专属文案；设置页面新增版本号显示。" },
-                    { date: "2026-07-31 v2.2.1", content: "📖 学习计划优化 - 学习 Notes 后不再跳转外部链接直接进入红绿灯审计；红绿灯可以随时切换颜色并支持回退修改；删除了多余 Log 步骤。" },
-                    { date: "2026-07-31 v2.2.1", content: "🎯 目标显示修复 - AI 创建的目标现在可以正确显示在目标页面；目标数据源头统一，AI 修改与手动修改使用同一数据；StudyGuide 新增红绿灯审计完整操作方法。" },
+                    { date: "2026-07-31 v2.9", content: "🛠️ 界面优化 - 日程生成器入口从侧边栏移到日程页面角落，侧边栏更简洁；每个导航项显示最近使用时间；更新日志页面更名为「更新」；加载动画按页面显示专属文案；设置页面新增版本号显示。" },
+                    { date: "2026-07-31 v2.9", content: "📖 学习计划优化 - 学习 Notes 后不再跳转外部链接直接进入红绿灯审计；红绿灯可以随时切换颜色并支持回退修改；删除了多余 Log 步骤。" },
+                    { date: "2026-07-31 v2.9", content: "🎯 目标显示修复 - AI 创建的目标现在可以正确显示在目标页面；目标数据源头统一，AI 修改与手动修改使用同一数据；StudyGuide 新增红绿灯审计完整操作方法。" },
                     { date: "2026-07-31 v2.5.25", content: "🤖 AI 助手大修复：修复发消息不回复/先回上一条/必须发两次才回复的严重问题（AI 现在能正确记住你刚才说的话了）；修复 AI 修改目标后页面不显示变化的问题（数据现在会实时同步到目标页面）；目标新增\"无上限任务\"模式（比如背单词、练口语这种没有终点的任务，总数量填 0 就能一直累积）；AI 现在能准确识别你在哪个页面（主页/目标/日程等），不再答非所问；回复速度改为默认最快，不再有打字机延迟。" },
                     { date: "2026-07-30 v2.5.24", content: "🔊 TTS 修复：修复音色设置不起作用的 Bug（voice 加载异步重试机制，确保选择的音色正确使用）；新增双语字幕条（有 [TTS_LANG] 标签时显示双语字幕，无标签显示单语）；优化底层内容提取（完整过滤 Markdown 语法，不再朗读加粗等格式符号）；修复英文 TTS 内容不对的问题" },
                     { date: "2026-07-30 v2.5.28", content: "🤖 AI 修复与优化：修复 AI 回复消息错位问题（发第 N 条时才回复第 N 条）；隐藏 tool_call 代码块不让用户看到；支持一次 AI 回复连续执行多个工具（如同时播放音乐和开始计时）；TTS 字幕改为屏幕中下方全局显示，并显示 TTS 实际朗读的文本" },
@@ -571,73 +559,18 @@
                         link: "/admin"
                     },
                 ]
-            },
-            mobile: {
-                urlPrefix: "https://jack2025a.github.io/",
-                logsMajor: [
-                    { date: "2025-12-17", content: "移动端全新上线，全功能无损适配" }
-                ],
-                logsRegular: [],
-                modules: [
-                    {
-                        id: "vocab_m",
-                        name: "Vocab Flow (Mobile)",
-                        icon: "touch_app",
-                        date: "2025-12-17",
-                        status: "online",
-                        desc: "专为手机设计的单词卡片，适配低配置手机，极致省电。",
-                        link: "https://jack2025a.github.io/VocabM.html"
-                    },
-                    {
-                        id: "poem_m",
-                        name: "Poem 沉浸背诵 (Mobile)",
-                        icon: "menu_book",
-                        date: "2025-12-17",
-                        status: "online",
-                        desc: "古诗词学习和背诵移动版，沉浸式设计适配手机屏幕。",
-                        link: "https://jack2025a.github.io/Poem.html"
-                    },
-                ]
             }
-        };
 
         // ==========================================
         // 2. 核心逻辑
         // ==========================================
 
-        let currentView = 'desktop';
-
         function init() {
-            renderContent('desktop');
-            updateSlider(document.querySelector('.toggle-btn.active'));
+            renderContent();
         }
 
-        function switchView(view, btn) {
-            if (view === currentView) return;
-
-            updateSlider(btn);
-
-            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            const container = document.getElementById('main-content');
-            container.classList.add('fading');
-
-            setTimeout(() => {
-                renderContent(view);
-                currentView = view;
-                container.classList.remove('fading');
-            }, 300);
-        }
-
-        function updateSlider(btn) {
-            const slider = document.getElementById('slider');
-            slider.style.width = btn.offsetWidth + 'px';
-            slider.style.transform = `translateX(${btn.offsetLeft}px)`;
-        }
-
-        function renderContent(type) {
-            const data = database[type];
+        function renderContent() {
+            const data = database.desktop;
             const container = document.getElementById('main-content');
 
             const statusLabel = { online: '在线', beta: '测试中', offline: '已下线' };
@@ -646,7 +579,7 @@
                 <section>
                     <div class="section-title">
                         <span class="material-symbols-rounded">history</span>
-                        平台更新记录 (${type === 'desktop' ? '桌面端' : '移动端'})
+                        平台更新记录
                     </div>
                     <div class="global-log">
                         ${data.logsMajor.length > 0 ? `
@@ -713,10 +646,6 @@
 
             container.innerHTML = logsHTML + modulesHTML;
         }
-
-        window.addEventListener('resize', () => {
-            updateSlider(document.querySelector('.toggle-btn.active'));
-        });
 
         init();
     </script>

@@ -7,6 +7,7 @@ import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLe
 import { getToolsDescription, getPlatformOverview, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
+import { estimateAiCost } from '@/lib/utils';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
@@ -928,7 +929,7 @@ export default function AiChatFab({
     apiMessages: Array<{ role: string; content: string }>,
     convId: string,
     replaceIndex?: number,
-  ): Promise<string> {
+  ): Promise<{ content: string; tokenUsage?: { input?: number; output?: number } }> {
     const config = getAiConfig();
     if (!config.baseUrl || !config.apiKey) {
       throw new Error('请先在设置页面配置 AI API Key');
@@ -1052,7 +1053,7 @@ export default function AiChatFab({
     }
 
     setStatusText('');
-    return assistantContent;
+    return { content: assistantContent, tokenUsage };
   }
 
   /** 追加系统消息 */
@@ -1073,6 +1074,13 @@ export default function AiChatFab({
     let apiMessages = [...initialApiMessages];
     let loopCount = 0;
     let currentReplaceIndex = replaceIndex;
+
+    // ── 任务统计 ───────────────────────────────────────────────
+    const loopStartTime = Date.now();
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalToolCalls = 0;
+    let completedExplicitly = false;
 
     // 思考深度决定推理轮数上限：低4/中10/高15（主页自动降到更少）
     const isDashboard = getEffectiveSource() === 'dashboard';
@@ -1117,12 +1125,24 @@ export default function AiChatFab({
 
       // 流式调用 AI（直接显示内容）
       // 重试时第一轮替换旧消息，后续轮次正常追加
-      const assistantContent = await streamAiReply(apiMessages, convId, currentReplaceIndex);
+      const { content: assistantContent, tokenUsage: roundUsage } = await streamAiReply(apiMessages, convId, currentReplaceIndex);
       currentReplaceIndex = undefined;
+
+      // 累计 token 消耗
+      if (roundUsage) {
+        totalInputTokens += roundUsage.input || 0;
+        totalOutputTokens += roundUsage.output || 0;
+      }
 
       // ⚠️ 关键修复：把 AI 自己的回复也加入消息队列！
       // 这样下一轮推理能看到自己说了什么，避免反复读取而不执行修改
       apiMessages.push({ role: 'assistant', content: assistantContent });
+
+      // 检测 [TASK_COMPLETE] 标记 → 任务已完成，停止推理
+      if (assistantContent.includes('[TASK_COMPLETE]')) {
+        completedExplicitly = true;
+        break;
+      }
 
       // 解析工具调用（即使没有可见文本，只要有 tool_call 就继续执行）
       const toolCalls = parseToolCalls(assistantContent);
@@ -1193,6 +1213,7 @@ export default function AiChatFab({
 
         // 执行工具
         const result = await executeToolCall(tc);
+        totalToolCalls++;
         const sysMsg = `🔧 工具执行结果：${result}`;
         addSystemMessage(sysMsg, convId);
         apiMessages.push({ role: 'system', content: sysMsg });
@@ -1228,6 +1249,23 @@ export default function AiChatFab({
     if (loopCount >= effectiveMaxLoops) {
       localStorage.setItem(`jackyun-continue-${convId}`, JSON.stringify({ apiMessages }));
       addSystemMessage(`⚠️ 已完成 ${effectiveMaxLoops} 轮推理。`, convId);
+    }
+
+    // ── 追加任务统计 ──
+    if (loopCount > 1 || totalToolCalls > 0) {
+      const durationSec = ((Date.now() - loopStartTime) / 1000).toFixed(1);
+      const cost = totalInputTokens > 0 || totalOutputTokens > 0
+        ? `\n💴 估算费用：≈ ¥${estimateAiCost(totalInputTokens, totalOutputTokens).toFixed(4)}（DeepSeek V4 Flash）`
+        : '';
+      const endLabel = completedExplicitly ? '✅ 主动完成' : (loopCount >= effectiveMaxLoops ? '⏰ 达到轮数上限' : '');
+      const header = endLabel ? `📊 任务统计（${endLabel}）` : '📊 任务统计';
+      const statsMsg = [
+        header,
+        `⏱️ ${durationSec}秒 · 🧠 ${loopCount}轮 · 🔧 ${totalToolCalls}次`,
+        `📥 输入 ${totalInputTokens.toLocaleString()} · 📤 输出 ${totalOutputTokens.toLocaleString()} tokens`,
+        cost,
+      ].filter(Boolean).join('\n');
+      addSystemMessage(statsMsg, convId);
     }
 
     setStatusText('');
@@ -1517,13 +1555,14 @@ export default function AiChatFab({
     handleSend(userMsg.content, targetAssistantIdx);
   }
 
-  // 过滤 AI 内部标签（tool_call / TTS_LANG / TITLE）不显示给用户
+  // 过滤 AI 内部标签（tool_call / TTS_LANG / TITLE / TASK_COMPLETE）不显示给用户
   function stripTags(content: string): string {
     return content
       .replace(/```tool_call[\s\S]*?```/g, '')
       .replace(/\[TTS_LANG:[^\]]*\][\s\S]*?\[\/TTS_LANG\]/g, '')
       .replace(/\[TTS\][\s\S]*?\[\/TTS\]/g, '')
       .replace(/\[TITLE\][\s\S]*?\[\/TITLE\]/g, '')
+      .replace(/\[TASK_COMPLETE\]/g, '')
       .trim();
   }
 
@@ -1741,24 +1780,34 @@ export default function AiChatFab({
                         ) : null}
                       </>
                     ) : msg.role === 'system' ? (
-                      // 系统消息（工具结果）→ 折叠显示，点击展开
-                      <div
-                        className="cursor-pointer select-none"
-                        onClick={() => {
-                          updateConversation(conv => {
-                            const updated = [...conv.messages];
-                            updated[i] = { ...updated[i], collapsed: !updated[i].collapsed };
-                            return { ...conv, messages: updated };
-                          });
-                        }}
-                      >
-                        <span className="whitespace-pre-wrap text-xs block">
-                          {msg.collapsed === false ? msg.content : summarizeSystemMessage(msg.content)}
-                        </span>
-                        <span className="text-[10px] text-[#A1887F] mt-0.5 block">
-                          {msg.collapsed === false ? '▲ 点击折叠' : '▼ 点击查看详情'}
-                        </span>
-                      </div>
+                      // 系统消息
+                      msg.content.startsWith('📊 任务统计') ? (
+                        // 任务统计卡片：始终展开，高亮样式
+                        <div className="rounded-lg border border-[#34A853]/30 bg-[#E8F5E9]/50 dark:bg-[#1B3A1B]/30 px-3 py-2">
+                          <span className="whitespace-pre-wrap text-xs block text-[var(--foreground)]">
+                            {msg.content}
+                          </span>
+                        </div>
+                      ) : (
+                        // 工具结果 → 折叠显示，点击展开
+                        <div
+                          className="cursor-pointer select-none"
+                          onClick={() => {
+                            updateConversation(conv => {
+                              const updated = [...conv.messages];
+                              updated[i] = { ...updated[i], collapsed: !updated[i].collapsed };
+                              return { ...conv, messages: updated };
+                            });
+                          }}
+                        >
+                          <span className="whitespace-pre-wrap text-xs block">
+                            {msg.collapsed === false ? msg.content : summarizeSystemMessage(msg.content)}
+                          </span>
+                          <span className="text-[10px] text-[#A1887F] mt-0.5 block">
+                            {msg.collapsed === false ? '▲ 点击折叠' : '▼ 点击查看详情'}
+                          </span>
+                        </div>
+                      )
                     ) : (
                       <span className="whitespace-pre-wrap">{msg.content}</span>
                     )}
