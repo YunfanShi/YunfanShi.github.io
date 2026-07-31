@@ -14,6 +14,7 @@ import SidebarPrefsPanel from '@/components/settings/sidebar-prefs-panel';
 import TtsConfigPanel from '@/components/settings/tts-config-panel';
 import LanguageSwitcher from '@/components/settings/language-switcher';
 import ExportDataPanel from '@/components/settings/export-data-panel';
+import { APP_VERSION } from '@/lib/utils';
 
 function SectionHeader({ icon, titleKey }: { icon: string; titleKey: string }) {
   const { lang } = useLanguage();
@@ -109,12 +110,28 @@ export default function SettingsContent({
           {t('settings.section.changelog-desc', lang)}
         </p>
         <Link
-          href="/update-hub"
+          href="/update"
           className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#4285F4]/5 hover:border-[#4285F4]/30 transition-colors w-fit"
         >
           <span className="material-icons-round text-base text-[#4285F4]">history</span>
           {t('settings.view-changelog', lang)}
         </Link>
+      </section>
+
+      {/* 关于 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <SectionHeader icon="info" titleKey="settings.section.about" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#4285F4]/10 flex items-center justify-center">
+            <span className="material-icons-round text-[#4285F4]">rocket_launch</span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">JackYun Portal</p>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {lang === 'zh' ? '版本' : 'Version'} v{APP_VERSION}
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* 数据管理 */}

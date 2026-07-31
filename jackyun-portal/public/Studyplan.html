@@ -890,11 +890,25 @@
     // 🟢 绿灯 = 已掌握核心公式 → 不管它
     // 🟡 黄灯 = 记得一半/单位模糊 → 建Anki卡片
     // 🔴 红灯 = 完全空白 → 回课本看引言+定义
-    const QUEST_STEPS = [
+    // 配置可被编辑（人工或 AI），存储在 caie_studyplan_config
+    function loadStudyPlanConfig() {
+        try {
+            const raw = localStorage.getItem('caie_studyplan_config');
+            if (raw) {
+                const config = JSON.parse(raw);
+                if (config.questSteps && Array.isArray(config.questSteps)) return config;
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    const DEFAULT_QUEST_STEPS = [
         { id: "note", label: "Notes", icon: "menu_book", btn: "Read ZNotes" },
-        { id: "traffic", label: "红绿灯审计", icon: "traffic", btn: "审计" },
-        { id: "notion", label: "Log", icon: "edit_note", btn: "Notion" }
+        { id: "traffic", label: "红绿灯审计", icon: "traffic", btn: "审计" }
     ];
+
+    const savedConfig = loadStudyPlanConfig();
+    const QUEST_STEPS = savedConfig ? savedConfig.questSteps : DEFAULT_QUEST_STEPS;
 
     // 红绿灯状态存储 key 前缀
     const TRAFFIC_PREFIX = 'jackyun_traffic_';
@@ -984,14 +998,28 @@
 
             if (status === 'active') {
                 if (step.id === 'traffic') {
-                    // 红绿灯审计：显示红/黄/绿三个按钮，点击即切换状态并保存
+                    // 红绿灯审计：点击红/黄/绿按钮可随时切换颜色（不自动完成）
+                    // 点击「确认审计」后才标记步骤完成 —— 支持随时修改/回退
                     const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
-                    const currentTraffic = localStorage.getItem(trafficKey) || '';
+                    let currentTraffic = '';
+                    let trafficDate = '';
+                    try {
+                        const raw = localStorage.getItem(trafficKey);
+                        if (raw) {
+                            const parsed = JSON.parse(raw);
+                            currentTraffic = parsed.color || '';
+                            trafficDate = parsed.date || '';
+                        }
+                    } catch(e) {}
                     const trafficBtn = (color, label, desc) => `
                         <button 
-                            onclick="setTrafficStatus('${subject}','${unit}','${color}',event)" 
-                            style="width:80px; padding:10px 0; border-radius:12px; border:2px solid #ddd; cursor:pointer; font-size:14px; background:${currentTraffic === color ? color : '#fff'}; color:${currentTraffic === color ? '#fff' : '#333'}; font-weight:600;"
+                            onclick="selectTrafficColor('${subject}','${unit}','${color}',event)" 
+                            id="traffic-btn-${subject}-${unit}-${color}"
+                            style="width:80px; padding:10px 0; border-radius:12px; border:${currentTraffic === color ? '3px solid ' + color : '2px solid #ddd'}; cursor:pointer; font-size:14px; background:${currentTraffic === color ? color : '#fff'}; color:${currentTraffic === color ? '#fff' : '#333'}; font-weight:600; transform:${currentTraffic === color ? 'scale(1.05)' : 'scale(1)'}; box-shadow:${currentTraffic === color ? '0 0 8px ' + color + '66' : 'none'}; transition:all 0.2s;"
                             title="${desc}">${label}</button>`;
+                    const statusText = currentTraffic 
+                        ? (currentTraffic === '#34a853' ? '🟢 绿灯 · 已掌握' : currentTraffic === '#fbbc04' ? '🟡 黄灯 · 需建卡片' : '🔴 红灯 · 需复习') + (trafficDate ? ` · ${trafficDate}` : '')
+                        : '请选择你的掌握程度';
                     actionBtnHtml = `
                         <div class="quest-action" style="flex-direction:column; align-items:stretch; gap:10px;">
                             <span style="font-size:14px; color:#666;">红绿灯审计 — 如果现在闭卷考这个知识点，能写出核心公式吗？</span>
@@ -1000,11 +1028,17 @@
                                 ${trafficBtn('#fbbc04', '🟡 黄灯', '记得一半/单位模糊 → 建Anki卡片')}
                                 ${trafficBtn('#ea4335', '🔴 红灯', '完全空白 → 回课本看引言+定义')}
                             </div>
+                            <div id="traffic-status-${subject}-${unit}" style="text-align:center; font-size:13px; font-weight:500; color:#555;">${statusText}</div>
+                            <div style="display:flex; gap:10px; justify-content:center;">
+                                <button class="btn-primary" onclick="confirmTrafficAudit('${subject}','${unit}')">
+                                    确认审计 <span class="material-icons-round">check</span>
+                                </button>
+                            </div>
                         </div>`;
                 } else {
                     let clickAction = '';
-                    if (step.id === 'note') clickAction = `window.open('${link}', '_blank'); completeStep('${subject}','${unit}','${step.id}')`;
-                    else if (step.id === 'notion') clickAction = `window.open('notion://'); completeStep('${subject}','${unit}','${step.id}')`;
+                    // Notes 点击不跳转外部链接，直接完成该步骤进入下一步
+                    if (step.id === 'note') clickAction = `completeStep('${subject}','${unit}','${step.id}')`;
 
                     actionBtnHtml = `
                         <div class="quest-action">
@@ -1058,8 +1092,8 @@
         renderMainView(subject);
     }
 
-    // 红绿灯审计：点击红/黄/绿按钮，切换状态并保存到 localStorage（含日期）
-    function setTrafficStatus(subject, unit, color, event) {
+    // 红绿灯审计：点击红/黄/绿按钮只切换选中颜色（可随时改），不自动完成步骤
+    function selectTrafficColor(subject, unit, color, event) {
         if (event) event.stopPropagation();
         const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
         const today = new Date().toISOString().slice(0, 10);
@@ -1070,7 +1104,19 @@
             unit: unit
         };
         localStorage.setItem(trafficKey, JSON.stringify(data));
-        // 标记红绿灯步骤完成
+        // 重新渲染当前卡片以更新按钮选中态
+        renderMainView(subject);
+    }
+
+    // 红绿灯审计：点击「确认审计」后标记该步骤完成，进入下一步（可回退）
+    function confirmTrafficAudit(subject, unit) {
+        const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
+        const raw = localStorage.getItem(trafficKey);
+        if (!raw) {
+            alert('请先选择红/黄/绿灯状态，再点击确认审计');
+            return;
+        }
+        // 标记红绿灯步骤完成（保存进度）
         progressDB[`${subject}|${unit}|traffic`] = true;
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         renderMainView(subject);

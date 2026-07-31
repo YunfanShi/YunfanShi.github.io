@@ -58,7 +58,7 @@ export const AI_TOOLS: AiTool[] = [
         'bilibili-sync': '/bilibili-sync',
         igcountdown: '/igcountdown',
         'timetable-hub': '/timetable-hub',
-        'update-hub': '/update-hub',
+        'update-hub': '/update',
         md2word: '/md2word',
         'answer-sheet': '/answer-sheet',
       };
