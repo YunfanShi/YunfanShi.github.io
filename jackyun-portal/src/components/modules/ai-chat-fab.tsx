@@ -1054,7 +1054,7 @@ export default function AiChatFab({
   /**
    * Agent 主循环：读取 → 执行 → 再读取 → 再执行 ...
    */
-  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string, replaceIndex?: number): Promise<void> {
+  async function runAgentLoop(initialApiMessages: Array<{ role: string; content: string }>, convId: string, replaceIndex?: number, continueAfterLimit = false): Promise<void> {
     let apiMessages = [...initialApiMessages];
     let loopCount = 0;
     let currentReplaceIndex = replaceIndex;
@@ -1065,6 +1065,33 @@ export default function AiChatFab({
     while (loopCount < effectiveMaxLoops) {
       loopCount++;
       setStatusText(loopCount === 1 ? 'AI 正在思考...' : `Agent 正在推理（第 ${loopCount} 轮）...`);
+
+      // 自动压缩：检查上下文总字符数，超过 8000 字压缩早期消息
+      const totalChars = apiMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+      if (totalChars > 8000 && apiMessages.length > 20 && !continueAfterLimit) {
+        const recent = apiMessages.slice(-20);
+        const old = apiMessages.slice(0, -20);
+        try {
+          setStatusText('正在压缩对话历史...');
+          const config = getAiConfig();
+          if (config.baseUrl && config.apiKey) {
+            const res = await callAiApi([
+              { role: 'system', content: '请将以下对话历史压缩为一段简洁摘要（保留关键信息：用户目标、已完成的操作、当前状态）。只输出摘要。' },
+              ...old,
+            ], { stream: false, temperature: 0.3 });
+            if (res.ok) {
+              const data = await res.json();
+              const summary = data.choices?.[0]?.message?.content || '';
+              if (summary) {
+                apiMessages = [
+                  { role: 'system', content: `[压缩摘要] ${summary.slice(0, 500)}` },
+                  ...recent,
+                ];
+              }
+            }
+          }
+        } catch { /* 压缩失败不影响主流程 */ }
+      }
 
       // 流式调用 AI（直接显示内容）
       // 重试时第一轮替换旧消息，后续轮次正常追加
@@ -1113,15 +1140,54 @@ export default function AiChatFab({
           }
         }
 
+        // 高风险工具执行前：保存修改前数据快照（数据回退点）
+        const highRisk = toolDef?.riskLevel === 'high';
+        let snapshotBefore: string | null = null;
+        if (highRisk) {
+          if (tc.tool === 'manage_goal') {
+            snapshotBefore = localStorage.getItem('jackyun_goal_data') || localStorage.getItem('gt_v6');
+          } else if (tc.tool === 'manage_countdown') {
+            snapshotBefore = localStorage.getItem('jackyun_igcountdown');
+          }
+        }
+
         // 执行工具
         const result = await executeToolCall(tc);
         const sysMsg = `🔧 工具执行结果：${result}`;
         addSystemMessage(sysMsg, convId);
         apiMessages.push({ role: 'system', content: sysMsg });
+
+        // 高风险工具执行后：保存 before/after 快照到 localStorage
+        if (highRisk && snapshotBefore !== null) {
+          const snapshotKey = `jackyun-savepoint-${convId}`;
+          const existing = JSON.parse(localStorage.getItem(snapshotKey) || '{"records":[]}');
+          const after = tc.tool === 'manage_goal'
+            ? localStorage.getItem('jackyun_goal_data') || localStorage.getItem('gt_v6')
+            : tc.tool === 'manage_countdown'
+              ? localStorage.getItem('jackyun_igcountdown')
+              : null;
+          existing.records = existing.records || [];
+          existing.records.push({
+            tool: tc.tool,
+            description: sysMsg.slice(0, 60),
+            before: snapshotBefore,
+            after,
+            timestamp: new Date().toISOString(),
+          });
+          // 最多保留最近 20 条快照
+          if (existing.records.length > 20) existing.records.splice(0, existing.records.length - 20);
+          localStorage.setItem(snapshotKey, JSON.stringify(existing));
+        }
       }
 
       // 如果本回合有工具调用，继续下一轮推理
       if (!loopHasToolCall) break;
+    }
+
+    // 到达上限但仍有后续 → 显示"继续执行"按钮
+    if (loopCount >= effectiveMaxLoops) {
+      localStorage.setItem(`jackyun-continue-${convId}`, JSON.stringify({ apiMessages }));
+      addSystemMessage(`⚠️ 已完成 ${effectiveMaxLoops} 轮推理。`, convId);
     }
 
     setStatusText('');
