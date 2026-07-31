@@ -138,7 +138,7 @@ theme: {
 | `/goal` | `src/app/(portal)/goal/page.tsx` | Legacy Frame | 计划显示器（嵌入旧版 HTML） |
 | `/igcountdown` | `src/app/(portal)/igcountdown/page.tsx` | Legacy Frame | 考试倒计时（旧 URL，保留兼容） |
 | `/examcountdown` | `src/app/(portal)/examcountdown/page.tsx` | Legacy Frame | 倒计时（考试，新 URL） |
-| `/update-hub` | `src/app/(portal)/update-hub/page.tsx` | Legacy Frame | 更新日志（嵌入旧版 HTML） |
+| `/update` | `src/app/(portal)/update/page.tsx` | Legacy Frame | 更新（嵌入旧版 HTML） |
 | `/mock-portal` | `src/app/(portal)/mock-portal/page.tsx` | Legacy Frame | Mock 刷题（嵌入旧版 HTML） |
 | `/tools` | `src/app/(portal)/tools/page.tsx` | Server Component | 工具箱（文本处理/时间同步/剪贴板） |
 | `/settings` | `src/app/(portal)/settings/page.tsx` | Server Component | 设置（密码/AI配置/数据导出） |
@@ -695,7 +695,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 | 12 | 同步答题卡 | `sync` | `/answer-sheet-sync` |
 | 13 | 计划显示器 | `flag` | `/goal` |
 | 14 | 考试倒计时 | `hourglass_empty` | `/igcountdown` |
-| 15 | 更新日志 | `history` | `/update-hub` |
+| 15 | 更新 | `history` | `/update` |
 | 16 | Mock 刷题 | `quiz` | `/mock-portal` |
 | 17 | QuizWise 刷题 | `psychology` | `/quiz` |
 | 18 | 工具箱 | `build` | `/tools` |
@@ -771,7 +771,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 #### 12.12 Mock 刷题 (`/mock-portal`)
 - 嵌入旧版 `MockPortal.html`（Legacy Frame）
 
-#### 12.13 更新日志 (`/update-hub`)
+#### 12.13 更新 (`/update`)
 - 嵌入旧版 `UpdateHub.html`（Legacy Frame）
 
 #### 12.14 工具箱 (`/tools`)
