@@ -1,5 +1,5 @@
 /**
- * AI 助手工具注册表 —— 定义每个 AI 助手可用的工具
+ * AI 助手工具注册表 —— 定义每个 AI 助手可用的工具 + 完整使用手册
  *
  * 不同 scope 的 AI 助手拥有不同的工具权限：
  * - global (主页)：全部工具
@@ -49,7 +49,19 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'navigate',
     name: '跳转到页面',
-    description: '跳转到一个功能页面。参数：page (dashboard|control|quiz|study|vocab|music|poem|settings|goal|relax|study-guide|mock-portal|tools|countdown|bilibili-sync|igcountdown|timetable-hub|update-hub|md2word|answer-sheet)，可选 section (页面内的区域名称，如 timer/schedule)',
+    description: `跳转到一个功能页面。
+
+参数说明：
+- page (必填)：要跳转的页面标识，可选值：
+  dashboard(主页) / control(日程中心) / quiz(QuizWise刷题) / study(学习计划) / vocab(词汇) / music(音乐) / poem(诗词) / settings(设置) / goal(目标管理) / relax(放松) / study-guide(学习指导) / mock-portal(模拟考试) / tools(工具箱) / countdown(倒计时) / bilibili-sync(B站同步) / igcountdown(IG倒计时) / timetable-hub(课程表) / update-hub(更新日志) / md2word(MD转Word) / answer-sheet(答题卡)
+- section (可选)：跳转到页面内的某个区域，如 timer/schedule
+
+调用示例：
+\`\`\`tool_call
+{"tool": "navigate", "params": {"page": "goal"}}
+\`\`\`
+
+跳转到目标管理页面。`,
     scope: ['global'],
     handler: async (params) => {
       const pageMap: Record<string, string> = {
@@ -84,13 +96,23 @@ export const AI_TOOLS: AiTool[] = [
         window.location.href = target;
         return `正在跳转到 ${page} 页面${section ? `的 ${section} 区域` : ''}...`;
       }
-      return `未知页面: ${page}`;
+      return `未知页面: ${page}。可用页面：${Object.keys(pageMap).join(', ')}`;
     },
   },
   {
     id: 'open_link',
     name: '打开外部链接',
-    description: '打开一个外部链接或资源。参数：url (完整链接地址)',
+    description: `打开一个外部链接或资源。
+
+参数说明：
+- url (必填)：完整的链接地址（需要 http:// 或 https:// 开头）
+
+调用示例：
+\`\`\`tool_call
+{"tool": "open_link", "params": {"url": "https://example.com"}}
+\`\`\`
+
+会在新标签页中打开指定链接。`,
     scope: ['global'],
     handler: async (params) => {
       const url = params.url || '';
@@ -98,13 +120,20 @@ export const AI_TOOLS: AiTool[] = [
         window.open(url, '_blank');
         return `已打开链接: ${url}`;
       }
-      return '请提供要打开的链接';
+      return '请提供要打开的链接（url 参数）';
     },
   },
   {
     id: 'go_back',
     name: '返回上一页',
-    description: '返回上一页',
+    description: `返回浏览器上一页。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "go_back", "params": {}}
+\`\`\``,
     scope: ['global'],
     handler: async () => {
       window.history.back();
@@ -116,7 +145,23 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'play_music',
     name: '播放音乐',
-    description: '播放网易云音乐。支持两种模式：song_id (单曲ID，如 186001) 或 playlist_id (歌单ID，如 17652191106)。可选 song_name (歌曲名称)',
+    description: `播放网易云音乐（通过右下角迷你播放器播放，不需要跳转页面）。
+
+参数说明：
+- song_id (可选)：网易云单曲 ID，如 "186001"
+- playlist_id (可选)：网易云歌单 ID，如 "17652191106"
+- song_name (可选)：歌曲名称（便于显示）
+注意：song_id 和 playlist_id 至少提供一个。
+
+调用示例（播放单曲）：
+\`\`\`tool_call
+{"tool": "play_music", "params": {"song_id": "186001", "song_name": "罗生门"}}
+\`\`\`
+
+调用示例（播放歌单）：
+\`\`\`tool_call
+{"tool": "play_music", "params": {"playlist_id": "17652191106"}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async (params) => {
       const songId = params.song_id || params.songId || '';
@@ -157,7 +202,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'stop_music',
     name: '停止播放',
-    description: '停止当前音乐播放。参数：无',
+    description: `停止当前音乐播放。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "stop_music", "params": {}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
       localStorage.removeItem('jackyun_ai_music_command');
@@ -170,7 +222,17 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'start_timer',
     name: '开始计时',
-    description: '开始专注计时。参数：duration (分钟数，默认30)',
+    description: `开始专注计时（在日程中心页面生效）。
+
+参数说明：
+- duration (可选)：分钟数，默认 30
+
+调用示例：
+\`\`\`tool_call
+{"tool": "start_timer", "params": {"duration": "25"}}
+\`\`\`
+
+会启动一个 25 分钟的专注计时器。`,
     scope: ['global', 'control'],
     handler: async (params) => {
       const duration = parseInt(params.duration || '30');
@@ -188,7 +250,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'stop_timer',
     name: '停止计时',
-    description: '停止当前计时器',
+    description: `停止当前计时器。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "stop_timer", "params": {}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
       localStorage.setItem(
@@ -203,7 +272,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_schedule',
     name: '查看当天日程',
-    description: '查看今天的完整时间表和任务安排。参数：无（自动读取当天数据）',
+    description: `查看今天的完整时间表和任务安排（日程中心数据）。
+
+参数：无（自动读取当天数据）
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_schedule", "params": {}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
       try {
@@ -230,7 +306,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_current_task',
     name: '查看当前任务',
-    description: '查看现在正在进行的任务',
+    description: `查看现在正在进行的任务。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_current_task", "params": {}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
       try {
@@ -261,7 +344,17 @@ export const AI_TOOLS: AiTool[] = [
     id: 'toggle_task_done',
     name: '标记任务完成/取消',
     riskLevel: 'high',
-    description: '标记某个任务为已完成，或取消完成状态。参数：task_index (任务序号，从1开始)',
+    description: `标记某个任务为已完成，或取消完成状态。
+
+参数说明：
+- task_index (必填)：任务序号（从 1 开始），对应 get_schedule 中显示的任务序号
+
+调用示例：
+\`\`\`tool_call
+{"tool": "toggle_task_done", "params": {"task_index": "2"}}
+\`\`\`
+
+如果第 2 个任务未完成，则标记为完成；如果已完成，则取消完成。`,
     scope: ['global', 'control'],
     handler: async (params) => {
       const idx = parseInt(params.task_index || '0') - 1;
@@ -282,7 +375,14 @@ export const AI_TOOLS: AiTool[] = [
     id: 'skip_task',
     name: '跳过任务',
     riskLevel: 'high',
-    description: '跳过当前任务。参数：无',
+    description: `跳过当前正在进行的任务（标记为跳过）。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "skip_task", "params": {}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
       try {
@@ -308,7 +408,14 @@ export const AI_TOOLS: AiTool[] = [
     id: 'finish_task_early',
     name: '提前完成任务',
     riskLevel: 'high',
-    description: '提前结束当前正在进行的任务。参数：无',
+    description: `提前结束当前正在进行的任务（日程中心的「提前完成」功能）。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "finish_task_early", "params": {}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
       localStorage.setItem(
@@ -321,7 +428,15 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'switch_day',
     name: '切换到某天日程',
-    description: '查看某一天的日程安排。参数：day_offset (偏移量，0=今天，-1=昨天，1=明天)',
+    description: `查看某一天的日程安排。
+
+参数说明：
+- day_offset (必填)：偏移量，0=今天，-1=昨天，1=明天，2=后天...
+
+调用示例（查看明天的日程）：
+\`\`\`tool_call
+{"tool": "switch_day", "params": {"day_offset": "1"}}
+\`\`\``,
     scope: ['global', 'control'],
     handler: async (params) => {
       const offset = parseInt(params.day_offset || '0');
@@ -337,7 +452,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_today_schedule',
     name: '查看今日学习计划',
-    description: '查看今天的学习计划安排（Studyplan 数据）。参数：无',
+    description: `查看今天的学习计划安排（Studyplan 数据）。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_today_schedule", "params": {}}
+\`\`\``,
     scope: ['global', 'plan'],
     handler: async () => {
       try {
@@ -360,7 +482,15 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_progress',
     name: '查看学科进度',
-    description: '查看指定学科的学习进度。参数：subject (学科名称，如 Mathematics)',
+    description: `查看指定学科的学习进度。
+
+参数说明：
+- subject (必填)：学科名称，如 "Mathematics"、"Physics"、"Chemistry"、"Biology"
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_progress", "params": {"subject": "Mathematics"}}
+\`\`\``,
     scope: ['global', 'plan'],
     handler: async (params) => {
       const subject = params.subject || '';
@@ -382,7 +512,15 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_countdown',
     name: '查看倒计时',
-    description: '查看考试或开学倒计时。参数：type (exam|school)',
+    description: `查看考试或学校开学倒计时。
+
+参数说明：
+- type (必填)：倒计时类型，"exam" 考试 或 "school" 开学
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_countdown", "params": {"type": "exam"}}
+\`\`\``,
     scope: ['global', 'plan'],
     handler: async (params) => {
       try {
@@ -407,7 +545,17 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'analyze_question',
     name: '分析题目',
-    description: '分析一道考试题目，识别类型、提取答案和解析。参数：question_text (题目文本)',
+    description: `分析一道考试题目，识别类型、提取答案和解析。
+
+参数说明：
+- question_text (必填)：完整的题目文本
+
+调用示例：
+\`\`\`tool_call
+{"tool": "analyze_question", "params": {"question_text": "把题目文本粘贴到这里"}}
+\`\`\`
+
+会将题目发送到 QuizWise 页面进行分析。`,
     scope: ['global', 'quiz'],
     handler: async (params) => {
       const questionText = params.question_text || '';
@@ -420,7 +568,15 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'search_web',
     name: '搜索网页',
-    description: '在浏览器新标签页中打开 Google 搜索。参数：query (搜索关键词)',
+    description: `在浏览器新标签页中打开 Google 搜索。
+
+参数说明：
+- query (必填)：搜索关键词
+
+调用示例：
+\`\`\`tool_call
+{"tool": "search_web", "params": {"query": "IGCSE 数学真题"}}
+\`\`\``,
     scope: ['global'],
     handler: async (params) => {
       const query = encodeURIComponent(params.query || '');
@@ -434,11 +590,19 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'calculate',
     name: '计算器',
-    description: '执行数学计算并返回结果。参数：expression (数学表达式，如 25*4+10)',
+    description: `执行数学计算并返回结果。
+
+参数说明：
+- expression (必填)：数学表达式，如 "25*4+10"、"2*(3+5)"、"sqrt(16)"
+
+调用示例：
+\`\`\`tool_call
+{"tool": "calculate", "params": {"expression": "25*4+10"}}
+\`\`\``,
     scope: ['global', 'quiz', 'plan', 'control', 'study_guide'],
     handler: async (params) => {
       const expr = (params.expression || '').trim();
-      if (!expr) return '请提供要计算的表达式';
+      if (!expr) return '请提供要计算的表达式（expression 参数）';
       try {
         // 安全评估：只允许数字和基本运算符
         const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, '');
@@ -457,7 +621,16 @@ export const AI_TOOLS: AiTool[] = [
     id: 'set_reminder',
     name: '设置提醒',
     riskLevel: 'high',
-    description: '设置一个浏览器提醒通知。参数：title (提醒标题)，delay (延迟秒数，默认60秒)',
+    description: `设置一个浏览器通知提醒。
+
+参数说明：
+- title (必填)：提醒标题
+- delay (可选)：延迟秒数，默认 60 秒，不能少于 10 秒
+
+调用示例（30秒后提醒做数学题）：
+\`\`\`tool_call
+{"tool": "set_reminder", "params": {"title": "做30分钟数学题", "delay": "1800"}}
+\`\`\``,
     scope: ['global'],
     handler: async (params) => {
       const title = params.title || '提醒';
@@ -481,7 +654,15 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_weather',
     name: '天气查询',
-    description: '在新标签页中打开天气查询页面。参数：city (城市名，如 Shanghai)',
+    description: `在新标签页中打开天气查询页面。
+
+参数说明：
+- city (必填)：城市名，如 "Shanghai"、"Beijing"
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_weather", "params": {"city": "Shanghai"}}
+\`\`\``,
     scope: ['global'],
     handler: async (params) => {
       const city = encodeURIComponent(params.city || '');
@@ -489,13 +670,22 @@ export const AI_TOOLS: AiTool[] = [
         window.open(`https://www.google.com/search?q=${city}+天气`, '_blank');
         return `🌤 已打开 ${params.city} 的天气查询`;
       }
-      return '请提供城市名称';
+      return '请提供城市名称（city 参数）';
     },
   },
   {
     id: 'open_app',
     name: '打开工具',
-    description: '打开一个在线工具或应用。参数：app (工具名称: google-docs|google-sheets|canva|notion|github|gmail|calendar|youtube)',
+    description: `打开一个在线工具或应用（新标签页）。
+
+参数说明：
+- app (必填)：工具名称，可选值：
+  google-docs / google-sheets / canva / notion / github / gmail / calendar / youtube / drive / classroom
+
+调用示例：
+\`\`\`tool_call
+{"tool": "open_app", "params": {"app": "notion"}}
+\`\`\``,
     scope: ['global'],
     handler: async (params) => {
       const appMap: Record<string, string> = {
@@ -523,7 +713,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'current_time',
     name: '查看时间',
-    description: '查看当前日期和时间。参数：无',
+    description: `查看当前日期和时间。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "current_time", "params": {}}
+\`\`\``,
     scope: ['global', 'quiz', 'plan', 'control', 'study_guide'],
     handler: async () => {
       const now = new Date();
@@ -541,20 +738,74 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_goal_data',
     name: '读取目标数据',
-    description: '读取所有目标管理的完整数据，包括名称、进度、截止日期、优先级等',
+    description: `读取所有目标管理的完整数据，包括名称、ID、进度、截止日期、优先级、层级关系等。
+
+参数：无
+
+⚠️ 重要：在修改/删除任何目标之前，必须先调用此工具获取真实 ID！
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_goal_data", "params": {}}
+\`\`\`
+
+返回结果包含清晰的树形层级结构，每个目标的 ID 是关键——后续 manage_goal 操作必须使用这里返回的真实 ID。`,
     scope: ['global'],
     handler: async () => {
       try {
         const goals = readGoalData();
-        if (goals.length === 0) return '尚无目标数据';
-        return goals.map((g: any) => {
-          // 支持无上限任务（total=0 表示没有终点，只显示已完成数）
+        if (goals.length === 0) return '尚无目标数据。可以使用 manage_goal 工具的 create 操作创建新目标。';
+        
+        // 构建树形结构
+        const parents = goals.filter((g: any) => !g.parentId);
+        const childrenMap: Record<number, any[]> = {};
+        goals.forEach((g: any) => {
+          if (g.parentId) {
+            if (!childrenMap[g.parentId]) childrenMap[g.parentId] = [];
+            childrenMap[g.parentId].push(g);
+          }
+        });
+
+        const lines: string[] = [];
+        lines.push(`📊 目标数据概览（共 ${goals.length} 个目标，${parents.length} 个主任务）：`);
+        
+        const formatGoal = (g: any, indent: string, isLast: boolean): string => {
           const pct = g.total > 0 ? Math.round((g.done || 0) / g.total * 100) : 0;
-          const deadline = g.deadline ? '截止 ' + g.deadline : '无截止日期';
-          const parent = g.parentId ? '子任务(父ID:' + g.parentId + ')' : '主任务';
-          const totalText = g.total > 0 ? String(g.total) : '∞（无上限）';
-          return '- [' + parent + '] ' + g.name + '：进度 ' + (g.done || 0) + '/' + totalText + (g.total > 0 ? '（' + pct + '%）' : '（无限累积）') + '，' + deadline;
-        }).join('\n');
+          const pctStr = g.total > 0 ? `（${pct}%）` : '（无上限）';
+          const deadline = g.deadline ? `，截止 ${g.deadline}` : '';
+          const priority = g.priority ? `，优先级:${g.priority}` : '';
+          const totalStr = g.total > 0 ? `${g.done || 0}/${g.total}` : `已累计 ${g.done || 0}（无上限）`;
+          const cat = g.cat ? `，分类:${g.cat}` : '';
+          return `${lines.length > 0 ? '' : ''}${indent}${isLast ? '└─' : '├─'} ${g.name}（ID:${g.id}）进度:${totalStr}${pctStr}${deadline}${priority}${cat}`;
+        };
+
+        parents.forEach((p: any, pi: number) => {
+          lines.push(`🎯 ${p.name}（ID:${p.id}）进度:${p.total > 0 ? `${p.done || 0}/${p.total}` : `已累计 ${p.done || 0}（无上限）`}${p.deadline ? `，截止 ${p.deadline}` : ''}${p.priority ? `，优先级:${p.priority}` : ''}`);
+          const children = childrenMap[p.id] || [];
+          children.forEach((c: any, ci: number) => {
+            lines.push(formatGoal(c, '  ', ci === children.length - 1));
+          });
+        });
+
+        // 独立子任务（parentId 指向不存在的主任务）
+        const orphans = goals.filter((g: any) => g.parentId && !parents.some((p: any) => p.id === g.parentId));
+        if (orphans.length > 0) {
+          lines.push('⚠️ 孤立子任务（父任务不存在）：');
+          orphans.forEach((o: any) => {
+            lines.push(`  ├─ ${o.name}（ID:${o.id}，parentId:${o.parentId}）`);
+          });
+        }
+
+        // 按 ID 排序的完整列表（供 AI 精确查找）
+        lines.push('\n📋 按 ID 索引的完整目标列表：');
+        [...goals]
+          .sort((a: any, b: any) => a.id - b.id)
+          .forEach((g: any) => {
+            const parentName = g.parentId ? goals.find((x: any) => x.id === g.parentId)?.name || g.parentId : '主任务';
+            lines.push(`  ID:${g.id} | ${g.name} | ${g.parentId ? `子任务(父:${parentName})` : '主任务'} | ${g.total > 0 ? `${g.done || 0}/${g.total}` : `累计${g.done || 0}`}${g.deadline ? ` | 截止:${g.deadline}` : ''}`);
+          });
+
+        return lines.join('\n');
       } catch (e: any) {
         return '读取目标数据出错：' + (e.message || String(e));
       }
@@ -563,7 +814,69 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'manage_goal',
     name: '修改目标',
-    description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit。total 可为 0 表示无上限任务。',
+    description: `创建/修改/删除目标管理的目标。
+
+📌 重要规则：
+- ⚠️ 在修改或删除目标前，你必须**先调用 read_goal_data** 获取所有目标的真实 ID！
+- ❌ 不要自己凭空想象 ID，必须使用 read_goal_data 返回结果中的实际数字。
+- ✅ 修改子任务的父级时，parentId 必须是 read_goal_data 返回的主任务真实 ID。
+
+📋 参数说明：
+| 参数     | 必填 | 说明 |
+|---------|------|------|
+| action  | ✅ 必须 | "create"(创建) / "update"(修改) / "delete"(删除) |
+| id      | update/delete 必须 | 目标 ID（从 read_goal_data 获取的真实数字） |
+| name    | create 建议 | 目标名称 |
+| desc    | 可选 | 描述文字 |
+| done    | 可选 | 已完成数量（数字） |
+| total   | 可选 | 总任务量（0=无上限任务，如背单词） |
+| parentId | 可选 | 父任务 ID；设为 null 或 "null" 表示独立任务 |
+| deadline | 可选 | 截止日期，格式 "YYYY-MM-DD" |
+| priority | 可选 | "high" / "mid" / "low" |
+| color   | 可选 | 颜色："blue"/"green"/"red"/"yellow"/"purple"/"orange" |
+| unit    | 可选 | 单位，如"章""页""个""篇""小时" |
+
+✅ 正确用法示例：
+
+1️⃣ 创建新主任务：
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "create", "name": "历史", "total": "10", "unit": "章"}}
+\`\`\`
+
+2️⃣ 创建子任务（挂到主任务下）：
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "create", "name": "中国近代史", "parentId": 18, "total": "5"}}
+\`\`\`
+
+3️⃣ 修改目标（更新进度）：
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "update", "id": 9, "done": "3"}}
+\`\`\`
+
+4️⃣ 调整目标层级（把 ID 9 挂到 ID 8 下面）：
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "update", "id": 9, "parentId": 8}}
+\`\`\`
+
+5️⃣ 批量修改（一次输出多个 tool_call 代码块）：
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "update", "id": 9, "parentId": 8}}
+\`\`\`
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "update", "id": 10, "parentId": 8}}
+\`\`\`
+
+6️⃣ 删除目标：
+\`\`\`tool_call
+{"tool": "manage_goal", "params": {"action": "delete", "id": 3}}
+\`\`\`
+
+📋 标准操作流程：
+1. 先调用 read_goal_data 获取完整数据（包含所有真实 ID）
+2. 根据返回的 ID 和名称确定要操作的目标
+3. 一次输出所有需要的 manage_goal 调用（批量操作）
+4. 操作完成后，再次调用 read_goal_data 确认结果
+5. 最后如实汇报结果给用户`,
     scope: ['global'],
     requiresConsent: true,
     riskLevel: 'high',
@@ -598,6 +911,7 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const goals = readGoalData();
         const action = params.action || '';
+        
         if (action === 'create') {
           // total: 0 表示无上限任务
           const totalVal = params.total !== undefined && params.total !== '' ? Number(params.total) : NaN;
@@ -607,7 +921,7 @@ export const AI_TOOLS: AiTool[] = [
             desc: params.desc || '',
             cat: params.cat || 'general',
             priority: params.priority || 'mid',
-            parentId: params.parentId !== undefined ? (params.parentId === 'null' ? null : Number(params.parentId)) : null,
+            parentId: params.parentId !== undefined ? (params.parentId === 'null' || params.parentId === '' ? null : Number(params.parentId)) : null,
             done: Number(params.done) || 0,
             total: Number.isFinite(totalVal) && totalVal >= 0 ? totalVal : 10,
             color: params.color || 'blue',
@@ -619,31 +933,94 @@ export const AI_TOOLS: AiTool[] = [
           goals.push(newGoal);
           writeGoalData(goals);
           window.dispatchEvent(new Event('storage'));
+          // 同时触发自定义事件让 Goal.html 感知更新
+          window.dispatchEvent(new CustomEvent('jackyun-goal-updated', { detail: { goals } }));
           return '✅ 已创建目标「' + newGoal.name + '」（ID: ' + newGoal.id + '）' + (newGoal.total === 0 ? '（无上限任务）' : '');
         } else if (action === 'update') {
-          const id = Number(params.id);
-          const idx = goals.findIndex((g: any) => g.id === id);
-          if (idx === -1) return '❌ 未找到 ID 为 ' + id + ' 的目标';
+          let id = Number(params.id);
+          let idx = goals.findIndex((g: any) => g.id === id);
+          
+          // 如果按 ID 找不到，尝试按 name 模糊匹配
+          if (idx === -1 && params.name) {
+            const nameLower = params.name.toLowerCase();
+            const matches = goals
+              .map((g: any, i: number) => ({ g, i }))
+              .filter(({ g }) => (g.name || '').toLowerCase().includes(nameLower) || nameLower.includes((g.name || '').toLowerCase()));
+            if (matches.length === 1) {
+              idx = matches[0].i;
+              id = goals[idx].id;
+            } else if (matches.length > 1) {
+              return `⚠️ 名称「${params.name}」匹配到多个目标，请使用 read_goal_data 确认具体 ID：${matches.map(m => `ID:${m.g.id}=${m.g.name}`).join('，')}`;
+            }
+          }
+          
+          if (idx === -1) {
+            // 失败时返回可用目标列表，帮助 AI 纠正
+            const available = goals.map((g: any) => `  ID:${g.id} | ${g.name} | ${g.parentId ? '子任务' : '主任务'}`).join('\n');
+            return `❌ 未找到 ID 为 ${params.id} 的目标。当前所有可用目标：\n${available}\n请先调用 read_goal_data 确认正确的 ID 后重试。`;
+          }
           if (params.name !== undefined) goals[idx].name = params.name;
           if (params.desc !== undefined) goals[idx].desc = params.desc;
           if (params.deadline !== undefined) goals[idx].deadline = params.deadline || null;
           if (params.priority !== undefined) goals[idx].priority = params.priority;
-          if (params.done !== undefined) goals[idx].done = Number(params.done);
+          if (params.done !== undefined) {
+            const doneVal = Number(params.done);
+            goals[idx].done = Number.isFinite(doneVal) && doneVal >= 0 ? doneVal : goals[idx].done;
+          }
           if (params.total !== undefined) {
             const totalVal = Number(params.total);
             goals[idx].total = Number.isFinite(totalVal) && totalVal >= 0 ? totalVal : goals[idx].total;
           }
           if (params.color !== undefined) goals[idx].color = params.color;
           if (params.unit !== undefined) goals[idx].unit = params.unit;
+          if (params.parentId !== undefined) {
+            const pid = params.parentId === 'null' || params.parentId === '' ? null : Number(params.parentId);
+            // 防止循环引用：不能把父任务设置为自己的子任务
+            if (pid !== null && pid !== goals[idx].id) {
+              const isDescendant = (currentId: number | null, targetId: number): boolean => {
+                if (currentId === null) return false;
+                if (currentId === targetId) return true;
+                const parent = goals.find((g: any) => g.id === currentId);
+                return parent ? isDescendant(parent.parentId, targetId) : false;
+              };
+              if (!isDescendant(pid, goals[idx].id)) {
+                goals[idx].parentId = pid;
+              } else {
+                return `❌ 无法设置：目标「${goals[idx].name}」的父任务不能是其自身或子任务`;
+              }
+            } else {
+              goals[idx].parentId = pid;
+            }
+          }
           writeGoalData(goals);
           window.dispatchEvent(new Event('storage'));
-          return '✅ 已更新目标「' + goals[idx].name + '」';
+          window.dispatchEvent(new CustomEvent('jackyun-goal-updated', { detail: { goals } }));
+          return '✅ 已更新目标「' + goals[idx].name + '」（ID: ' + id + '）';
         } else if (action === 'delete') {
-          const id = Number(params.id);
+          let id = Number(params.id);
+          let exists = goals.some((g: any) => g.id === id);
+          
+          // 如果按 ID 找不到，尝试按 name 模糊匹配
+          if (!exists && params.name) {
+            const nameLower = params.name.toLowerCase();
+            const matches = goals.filter((g: any) => (g.name || '').toLowerCase().includes(nameLower) || nameLower.includes((g.name || '').toLowerCase()));
+            if (matches.length === 1) {
+              id = matches[0].id;
+              exists = true;
+            } else if (matches.length > 1) {
+              return `⚠️ 名称「${params.name}」匹配到多个目标，请使用 read_goal_data 确认具体 ID：${matches.map(g => `ID:${g.id}=${g.name}`).join('，')}`;
+            }
+          }
+          
+          if (!exists) {
+            const available = goals.map((g: any) => `  ID:${g.id} | ${g.name} | ${g.parentId ? '子任务' : '主任务'}`).join('\n');
+            return `❌ 未找到 ID 为 ${params.id} 的目标。当前所有可用目标：\n${available}\n请先调用 read_goal_data 确认正确的 ID 后重试。`;
+          }
           const newGoals = goals.filter((g: any) => g.id !== id && g.parentId !== id);
           writeGoalData(newGoals);
           window.dispatchEvent(new Event('storage'));
-          return '✅ 已删除目标 ID: ' + id;
+          window.dispatchEvent(new CustomEvent('jackyun-goal-updated', { detail: { goals: newGoals } }));
+          return '✅ 已删除目标 ID: ' + id + '（及其所有子任务）';
         }
         return '请指定 action: create/update/delete';
       } catch (e: any) {
@@ -655,7 +1032,16 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_timetable',
     name: '读取日程',
-    description: '读取日程中心的安排，包括事件、任务和时间表',
+    description: `读取日程中心（TimetableHub）的安排，包括事件、任务和时间表。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_timetable", "params": {}}
+\`\`\`
+
+返回最近的日程事件（最多20条）。`,
     scope: ['global'],
     handler: async () => {
       try {
@@ -675,7 +1061,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_countdown',
     name: '读取考试倒计时',
-    description: '读取 IGCSE 考试倒计时的数据，包括考试日期、计时器设置等',
+    description: `读取 IGCSE 考试倒计时的数据，包括考试日期、计时器设置等。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_countdown", "params": {}}
+\`\`\``,
     scope: ['global'],
     handler: async () => {
       try {
@@ -703,7 +1096,17 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'manage_countdown',
     name: '修改考试倒计时',
-    description: '修改 IGCSE 考试倒计时设置。参数：examDate (YYYY-MM-DD 格式的考试日期)',
+    description: `修改 IGCSE 考试倒计时设置。
+
+参数说明：
+- examDate (必填)：考试日期，格式 "YYYY-MM-DD"
+
+调用示例：
+\`\`\`tool_call
+{"tool": "manage_countdown", "params": {"examDate": "2027-06-02"}}
+\`\`\`
+
+更新后，顶部倒计时会立即重新计算剩余天数。`,
     scope: ['global'],
     requiresConsent: true,
     riskLevel: 'high',
@@ -722,7 +1125,7 @@ export const AI_TOOLS: AiTool[] = [
           window.dispatchEvent(new Event('storage'));
           return '✅ 考试日期已更新为 ' + params.examDate;
         }
-        return '请提供 examDate 参数';
+        return '请提供 examDate 参数（格式 YYYY-MM-DD）';
       } catch (e: any) {
         return '修改倒计时出错：' + (e.message || String(e));
       }
@@ -732,7 +1135,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_study_progress',
     name: '读取学习进度',
-    description: '读取学习计划的进度数据，包括各学科的完成情况',
+    description: `读取学习计划（StudyGuide）的进度数据，包括各学科的完成情况。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_study_progress", "params": {}}
+\`\`\``,
     scope: ['global'],
     handler: async () => {
       try {
@@ -757,7 +1167,16 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_traffic_audit',
     name: '读取红绿灯审计',
-    description: '读取学习计划中所有知识点的红绿灯审计状态（红/黄/绿）',
+    description: `读取学习计划（StudyPlan）中所有知识点的红绿灯审计状态（红/黄/绿）。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_traffic_audit", "params": {}}
+\`\`\`
+
+红色=不会/薄弱，黄色=半懂，绿色=掌握。`,
     scope: ['global'],
     handler: async () => {
       try {
@@ -785,7 +1204,17 @@ export const AI_TOOLS: AiTool[] = [
     id: 'manage_traffic_audit',
     name: '修改红绿灯审计',
     riskLevel: 'high',
-    description: '修改某个知识点的红绿灯状态。参数：subject (科目名), unit (知识点/单元名), color (green|yellow|red)',
+    description: `修改某个知识点的红绿灯状态（在学习计划页面生效）。
+
+参数说明：
+- subject (必填)：科目名，如 "Mathematics"、"Physics"
+- unit (必填)：知识点/单元名
+- color (必填)：状态颜色，green(绿灯/掌握) / yellow(黄灯/半懂) / red(红灯/不会)
+
+调用示例：
+\`\`\`tool_call
+{"tool": "manage_traffic_audit", "params": {"subject": "Mathematics", "unit": "Quadratic Equations", "color": "green"}}
+\`\`\``,
     scope: ['global'],
     handler: async (params) => {
       try {
@@ -821,7 +1250,17 @@ export const AI_TOOLS: AiTool[] = [
     id: 'create_schedule_from_goal',
     name: '从目标生成日程',
     riskLevel: 'high',
-    description: '根据 Goal 目标数据和当前学习进度，生成一份日程计划并输出到日程表。参数：date (可选，YYYY-MM-DD 格式，默认今天)',
+    description: `根据 Goal 目标数据和当前学习进度，生成一份日程计划并输出到日程中心。
+
+参数说明：
+- date (可选)：目标日期，"YYYY-MM-DD" 格式，默认今天
+
+调用示例：
+\`\`\`tool_call
+{"tool": "create_schedule_from_goal", "params": {}}
+\`\`\`
+
+会读取所有目标数据、红绿灯状态，自动生成合理的时间安排。`,
     scope: ['global'],
     handler: async (params) => {
       try {
@@ -885,7 +1324,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_schedule_results',
     name: '读取日程执行结果',
-    description: '读取日程中心的执行结果（已完成/跳过的任务），用于 AI 分析建议',
+    description: `读取日程中心（TimetableHub）的执行结果（已完成/跳过的任务），用于分析建议。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_schedule_results", "params": {}}
+\`\`\``,
     scope: ['global'],
     handler: async () => {
       try {
@@ -907,7 +1353,16 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'analyze_schedule_and_suggest',
     name: '分析日程并建议',
-    description: '分析日程执行结果，生成增减活动的建议并反馈给用户',
+    description: `分析日程执行结果，生成学习建议。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "analyze_schedule_and_suggest", "params": {}}
+\`\`\`
+
+基于完成率和跳过任务数给出优化建议。`,
     scope: ['global'],
     handler: async () => {
       try {
@@ -939,7 +1394,14 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_quiz_data',
     name: '读取刷题数据',
-    description: '读取 QuizWise 刷题记录和进度',
+    description: `读取 QuizWise 刷题记录和进度。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "read_quiz_data", "params": {}}
+\`\`\``,
     scope: ['global'],
     handler: async () => {
       try {
@@ -993,6 +1455,11 @@ function readGoalData(): any[] {
 function writeGoalData(goals: any[]): void {
   localStorage.setItem('gt_v6', JSON.stringify(goals));
   localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
+  
+  // 触发自定义事件，让同页面的 Goal.html 也能感知（即使不在 iframe 中）
+  try {
+    window.dispatchEvent(new CustomEvent('jackyun-goal-updated', { detail: { goals } }));
+  } catch {}
 }
 
 /**
@@ -1003,34 +1470,30 @@ export function getToolsByScope(scope: ToolScope): AiTool[] {
 }
 
 /**
- * 生成用于 system prompt 的工具描述和 TTS 指引
+ * 生成用于 system prompt 的工具描述 — 完整操作手册
  */
 export function getToolsDescription(scope: ToolScope): string {
   const tools = getToolsByScope(scope);
   if (tools.length === 0) return '';
 
   return (
-    '【可用工具列表】\n' +
-    '当用户提出相关需求时，你可以在回复末尾的 ```tool_call 代码块中返回工具调用指令。\n' +
-    '系统会自动解析并在当前页面执行该工具。\n\n' +
+    '【可用工具完整手册】\n' +
+    '当用户提出相关需求时，你可以在回复末尾使用 ```tool_call 代码块调用工具。\n' +
+    '系统会自动解析并在当前页面执行。你可以连续多轮调用工具完成任务，直到目标达成。\n\n' +
     tools
-      .map(
-        (tool, i) =>
-          `${i + 1}. **${tool.name}**（ID: \`${tool.id}\`）\n   ${tool.description}\n   调用格式：\`\`\`tool_call\n   {"tool": "${tool.id}", "params": { ... }}\n   \`\`\``,
-      )
+      .map((tool, i) => {
+        return `━━━ 工具 ${i + 1}/${tools.length}：${tool.name}（ID: \`${tool.id}\`）━━━\n` +
+          `${tool.description}`;
+      })
       .join('\n\n') +
-    '\n\n【工具调用规则（重要）】\n' +
-    '1. 你是 **Agent 智能体**：可以连续多轮调用工具完成任务，直到目标达成为止。\n' +
-    '2. **支持批量工具调用**：如果一次需要执行多个操作（比如创建多个目标、读取多个数据），你可以在回复中输出**多个** ```tool_call 代码块，系统会**并行执行**读取类型工具，串行执行修改类型工具。\n' +
-    '3. 收到工具结果后，你需要根据结果**继续推理**：\n' +
-    '   - 如果需要再读取数据 → 继续调用读取工具\n' +
-    '   - 如果读取完成可以执行修改 → 再调用修改工具\n' +
-    '   - 如果任务简单明确 → 直接一次性调用所有工具，不要一个个来\n' +
-    '4. 在回复内容的**最后**添加工具调用代码块，用 ```tool_call 包裹。\n' +
-    '5. 如果不需要调用工具，则不输出工具调用代码块。\n' +
-    '6. **不要重复调用相同的读取工具**：如果已经读取过某数据且内容没有变化，不要再次读取。看到工具执行结果后，不要再次调用同一个读取工具。\n' +
-    '7. 当所有任务完成后，给用户一个**完整的总结**，不要再调用工具。\n' +
-    '8. **效率优先**：例如用户要创建 4 个雅思子任务（听说读写），应该**一次输出 4 个 manage_goal 调用**，而不是一个一个来。\n\n' +
+    '\n\n【工具调用规则（极其重要，必须遵守）】\n' +
+    '1. 📖 **先读后改（铁律）**：任何修改/删除操作之前，必须先调用对应的读取工具获取真实数据。例如修改目标前必须先调用 read_goal_data。\n' +
+    '2. 🔢 **不编造 ID**：所有目标 ID、任务序号等必须来自读取工具返回的实际数据。如果工具返回 ❌ 错误，说明参数有误，分析原因后重试。\n' +
+    '3. ⚡ **批量执行**：如果一次需要执行多个操作（比如批量调整多个目标的层级），在同一个回复中输出**多个** ```tool_call 代码块。系统会串行执行它们。\n' +
+    '4. ✅ **确认后再汇报**：所有工具调用完成后，回顾每条工具执行结果。如果存在 ❌ 错误，必须在最终总结中明确指出哪些操作失败、为什么失败。\n' +
+    '5. 🚫 **诚实原则**：严禁在工具失败时编造「已全部完成」「全部成功」等虚假总结！必须如实汇报每项操作的成功/失败状态。\n' +
+    '6. 🔄 **纠错能力**：如果工具返回错误（如 ❌ 未找到 ID），先分析返回的可用数据列表，然后使用正确的参数重新调用。\n' +
+    '7. 📊 **最终总结**：任务完成后，给出**完整的总结**，包含成功项和失败项，以及当前的最新状态。\n\n' +
     '【TTS 朗读语言说明（非常重要，必须遵守）】\n' +
     '用户已经设置了 TTS 朗读语言，只能用你回复中与 TTS 语言一致的部分进行朗读。\n' +
     '语言代码为 "zh-CN"（中文）或 "en-US"（英文）。\n\n' +
@@ -1108,4 +1571,273 @@ export async function executeToolCall(
   } catch (err) {
     return `工具执行错误：${err instanceof Error ? err.message : String(err)}`;
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 页面数据全景图 — 告诉 AI 当前页面有什么数据可以读/写
+// ─────────────────────────────────────────────────────────────
+
+export type ConversationSource = 'dashboard' | 'control' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'other';
+
+export function getPageContext(source: ConversationSource): string {
+  const contexts: Record<ConversationSource, string> = {
+    dashboard: `📊 当前页面数据全景图
+
+你在「主页仪表盘 (Dashboard)」。以下是这个页面上所有你可以读取或操作的数据：
+
+【🎯 目标管理数据】（localStorage key: jackyun_goal_data / gt_v6）
+  📖 可读取：目标名称、ID、进度(done/total)、截止日期、优先级、颜色、层级关系、分类
+  ✏️ 可操作：创建/修改/删除目标、调整进度、调整层级（父子关系）
+  🛠 使用工具：read_goal_data（先读取）→ manage_goal（再修改）
+
+【📋 日程中心数据】（localStorage key: w3_schedule / jackyun_control_events）
+  📖 可读取：今日日程时间段、任务名称、完成/跳过状态
+  ✏️ 可操作：标记任务完成/取消、跳过任务、查看当前任务
+  🛠 使用工具：get_schedule、get_current_task、toggle_task_done、skip_task、read_schedule_results
+
+【📚 学习计划数据】（localStorage key: caie_schedule_current / caie_progress_v2_1 / caie_syllabus_v3）
+  📖 可读取：今日学习计划、各学科进度、考试/开学倒计时
+  ✏️ 可操作：（只读）
+  🛠 使用工具：get_today_schedule、get_progress、get_countdown
+
+【🚦 红绿灯审计数据】（localStorage key: jackyun_traffic_*）
+  📖 可读取：各科目各单元的红绿灯状态（红/黄/绿）
+  ✏️ 可操作：修改知识点红绿灯状态
+  🛠 使用工具：read_traffic_audit、manage_traffic_audit
+
+【⏱ 考试倒计时数据】（localStorage key: jackyun_igcountdown）
+  📖 可读取：考试日期、计时器设置
+  ✏️ 可操作：修改考试日期
+  🛠 使用工具：read_countdown、manage_countdown
+
+【🧠 QuizWise 刷题数据】（localStorage key: quizwise_current_questions）
+  📖 可读取：刷题记录、科目
+  ✏️ 可操作：（只读）
+  🛠 使用工具：read_quiz_data
+
+【📖 学习指导数据】（localStorage key: studyguide_progress）
+  📖 可读取：每日学习进度
+  ✏️ 可操作：（只读）
+  🛠 使用工具：read_study_progress
+
+【其他实用能力】
+  🎵 播放/停止网易云音乐（play_music / stop_music）
+  ⏱ 设置专注计时器（start_timer / stop_timer）
+  🔍 搜索网页（search_web）、计算（calculate）、设置提醒（set_reminder）、查看时间（current_time）
+  🚀 打开在线工具（open_app）、查看天气（get_weather）
+  🗺 跳转到任何功能页（navigate）、打开外链（open_link）
+
+【🗓 日程智能联动】
+  🛠 create_schedule_from_goal：根据目标和红绿灯状态自动生成今日日程
+  🛠 analyze_schedule_and_suggest：分析日程完成率并给出建议
+
+当用户提出需求时，先判断需要哪些数据，再按流程：读取数据 → 分析 → 执行修改 → 确认结果 → 汇报。`,
+    control: `📊 当前页面数据全景图
+
+你在「日程中心 (Control/TimetableHub)」。以下是这个页面上所有你可以读取或操作的数据：
+
+【📋 日程安排数据】（localStorage key: w3_schedule / jackyun_control_events）
+  📖 可读取：今日日程（时间段、任务名、类别、完成状态）、当前任务、执行结果
+  ✏️ 可操作：标记任务完成/取消（切换done）、跳过任务、提前完成任务
+  🛠 使用工具：get_schedule、get_current_task、toggle_task_done、skip_task、finish_task_early、switch_day、read_schedule_results、analyze_schedule_and_suggest
+
+【⏱ 计时器控制】
+  ✏️ 可操作：开始/停止专注计时
+  🛠 使用工具：start_timer、stop_timer
+
+【🎵 音乐播放】
+  ✏️ 可操作：播放/停止网易云音乐
+  🛠 使用工具：play_music、stop_music
+
+【🎯 目标数据】
+  📖 可读取：目标进度（用于分析日程与目标的关联）
+  🛠 使用工具：read_goal_data（只读建议）
+
+【🗓 日程生成】
+  ✏️ 可操作：根据目标和红绿灯状态生成日程
+  🛠 使用工具：create_schedule_from_goal
+
+用户可以在日程中心管理时间安排。你可以帮他查看日程、标记完成、调整计划。`,
+    'study-guide': `📊 当前页面数据全景图
+
+你在「学习指导 (StudyGuide)」。以下是这个页面上所有你可以读取或操作的数据：
+
+【📖 学习进度数据】（localStorage key: studyguide_progress）
+  📖 可读取：每日学习进度（checklist 勾选情况）
+  ✏️ 可操作：（只读）
+  🛠 使用工具：read_study_progress
+
+【📚 学习计划数据】（localStorage key: caie_schedule_current / caie_progress_v2_1 / caie_syllabus_v3）
+  📖 可读取：今日学习计划、各学科进度、考试/开学倒计时
+  🛠 使用工具：get_today_schedule、get_progress、get_countdown
+
+【🚦 红绿灯审计数据】（localStorage key: jackyun_traffic_*）
+  📖 可读取/操作：知识点红绿灯状态
+  🛠 使用工具：read_traffic_audit、manage_traffic_audit
+
+【其他实用能力】
+  🔍 搜索网页、🧮 计算、🕐 查看时间
+
+页面提供「今日」「学习」「习题」「考试」四大板块，帮助用户掌握高效学习方法。`,
+    study: `📊 当前页面数据全景图
+
+你在「学习计划 (StudyPlan)」。以下是这个页面上所有你可以读取或操作的数据：
+
+【📚 学习计划数据】（localStorage key: caie_schedule_current / caie_progress_v2_1 / caie_syllabus_v3 / caie_settings_v2_1）
+  📖 可读取：今日安排、各学科单元进度、考试/开学日期
+  🛠 使用工具：get_today_schedule、get_progress、get_countdown
+
+【🚦 红绿灯审计数据】（localStorage key: jackyun_traffic_*）
+  📖 可读取：各知识点红绿灯状态
+  ✏️ 可操作：修改红绿灯状态
+  🛠 使用工具：read_traffic_audit、manage_traffic_audit
+
+【🎯 目标数据】
+  📖 可读取：目标进度，用于辅助学习计划
+  🛠 使用工具：read_goal_data（只读建议）
+
+【其他实用能力】
+  🧮 计算、🕐 查看时间、⏱ 倒计时
+
+用户可以学习计划页面查看和管理学习进度。`,
+    quiz: `📊 当前页面数据全景图
+
+你在「QuizWise 刷题」。以下是这个页面上所有你可以读取或操作的数据：
+
+【🧠 刷题数据】（localStorage key: quizwise_current_questions）
+  📖 可读取：当前题目列表、科目
+  ✏️ 可操作：分析题目（发送到页面）
+  🛠 使用工具：read_quiz_data、analyze_question
+
+【💡 其他能力】
+  🧮 计算、🕐 查看时间
+
+用户在这里刷题和学习。你作为智能辅导老师，可以帮助分析题目、批改答案、讲解知识点。`,
+    vocab: `📊 当前页面数据全景图
+
+你在「词汇宝库 (Vocab)」。用户可以管理英语词汇、复习单词。
+
+【其他实用能力】
+  📖 可以查询单词意思（使用 search_web）
+  🧮 计算、🕐 查看时间
+  🎯 可以读取目标数据辅助学习规划
+
+用户在这里管理英语词汇。`,
+    music: `📊 当前页面数据全景图
+
+你在「音乐播放器 (Music)」。
+
+【🎵 音乐播放控制】
+  ✏️ 可操作：播放/停止网易云音乐（单曲或歌单）
+  🛠 使用工具：play_music、stop_music
+
+【其他实用能力】
+  🔍 搜索歌词/歌手（search_web）、🕐 查看时间
+
+用户在这里听音乐、管理歌单。`,
+    poem: `📊 当前页面数据全景图
+
+你在「诗词天地 (Poem)」。用户可以浏览和背诵经典诗词。
+
+【其他实用能力】
+  🔍 搜索诗词（search_web）、🧮 计算、🕐 查看时间
+
+用户在这里浏览诗词、背诵经典。`,
+    settings: `📊 当前页面数据全景图
+
+你在「设置页面 (Settings)」。用户在这里配置 AI、TTS、语言、账户等。
+
+【其他实用能力】
+  🕐 查看时间、🧮 计算、🔍 搜索
+
+帮助用户了解设置在什么位置、如何配置。`,
+    goal: `📊 当前页面数据全景图
+
+你在「目标管理 (Goal)」。以下是这个页面上所有你可以读取或操作的数据：
+
+【🎯 目标管理数据】（localStorage key: jackyun_goal_data / gt_v6）
+  📖 可读取：所有目标的完整数据，包括：
+    - 目标ID（重要！修改时必须使用）
+    - 名称、描述（name / desc）
+    - 进度（done / total，total=0表示无上限任务）
+    - 截止日期（deadline）
+    - 优先级（priority: high/mid/low）
+    - 颜色（color）
+    - 分类（cat）
+    - 层级关系（parentId：null=主任务，数字=子任务）
+    - 单位（unit）
+  ✏️ 可操作：
+    - 创建新目标（主任务或子任务）
+    - 修改目标名称、描述、进度、总量、截止日期、优先级、颜色、单位
+    - 调整目标层级（把子任务挂到主任务下 / 设为独立任务）
+    - 删除目标（含所有子任务）
+  🛠 使用工具：
+    - read_goal_data（读取所有目标）— 修改前必须调用！
+    - manage_goal（创建/修改/删除）— 参数：action, id, name, done, total, parentId, deadline, priority, color, unit, desc
+
+📌 重要提示：
+1. 修改/删除目标前，**必须先调用 read_goal_data** 获取真实 ID！
+2. 不要凭空猜测 ID，必须使用 read_goal_data 返回的实际数字
+3. 批量操作时，在同一个回复中输出多个 manage_goal 调用
+
+【📋 日程联动】
+  🛠 create_schedule_from_goal：根据目标生成日程
+
+用户在目标管理页面跟踪所有学习/生活目标的进度。你作为智能助手，可以帮助创建目标、调整层级、更新进度。`,
+    relax: `📊 当前页面数据全景图
+
+你在「放松一下 (Relax)」。提供游戏和娱乐功能。
+
+【其他实用能力】
+  🎵 播放音乐（play_music / stop_music）
+  🕐 查看时间、🧮 计算
+
+用户在这里放松娱乐。`,
+    countdown: `📊 当前页面数据全景图
+
+你在「倒计时 (Countdown)」。用户可以查看重要日期倒计时。
+
+【⏱ 倒计时数据】（localStorage key: jackyun_igcountdown / cd_v2）
+  📖 可读取：考试日期、计时器设置
+  ✏️ 可操作：修改考试日期
+  🛠 使用工具：read_countdown、manage_countdown、get_countdown
+
+【其他实用能力】
+  🕐 查看时间、🧮 计算
+
+用户在这里查看和管理考试倒计时。`,
+    tools: `📊 当前页面数据全景图
+
+你在「工具箱 (Tools)」。提供各种实用小工具。
+
+【🧰 工具箱能力】
+  📝 Markdown 转 Word（页面功能）
+  🧮 计算（calculate）
+  🕐 查看时间（current_time）
+  🔍 搜索（search_web）
+  🚀 打开在线工具（open_app）
+
+【其他数据访问】
+  🎯 目标数据（read_goal_data）
+  📋 日程数据（get_schedule 等）
+  📚 学习进度（get_progress 等）
+
+用户可以在这里使用各种工具。`,
+    other: `📊 当前页面数据全景图
+
+你在 JackYun Portal 中。以下是你全局可以访问的所有数据：
+
+【🎯 目标管理】→ read_goal_data / manage_goal
+【📋 日程中心】→ get_schedule / get_current_task / toggle_task_done / skip_task / read_timetable / read_schedule_results / create_schedule_from_goal / analyze_schedule_and_suggest
+【📚 学习计划】→ get_today_schedule / get_progress / get_countdown / read_traffic_audit / manage_traffic_audit / read_study_progress
+【⏱ 考试倒计时】→ read_countdown / manage_countdown / get_countdown
+【🧠 QuizWise】→ read_quiz_data / analyze_question
+【🎵 音乐】→ play_music / stop_music
+【⏱ 计时器】→ start_timer / stop_timer
+【🔍 搜索/工具】→ search_web / calculate / set_reminder / get_weather / open_app / current_time
+【🗺 导航】→ navigate / open_link / go_back
+
+当用户提出需求时，先判断需要哪些数据，按流程：读取 → 分析 → 修改 → 确认 → 汇报。`,
+  };
+  return contexts[source] || contexts.other;
 }
