@@ -19,6 +19,9 @@ export interface ConsentInfo {
   consequence: string;
 }
 
+/** 工具风险等级 — 用于 YOLO/安全模式判断 */
+export type ToolRiskLevel = 'low' | 'high';
+
 export interface AiTool {
   /** 工具唯一标识 */
   id: string;
@@ -34,6 +37,8 @@ export interface AiTool {
   requiresConsent?: boolean;
   /** 确认弹窗信息：操作 + 目的 + 后果 */
   consentInfo?: (params: Record<string, string>) => ConsentInfo;
+  /** 风险等级：high 需要确认（安全模式下），low 自动通过 */
+  riskLevel?: ToolRiskLevel;
 }
 
 /**
@@ -255,6 +260,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'toggle_task_done',
     name: '标记任务完成/取消',
+    riskLevel: 'high',
     description: '标记某个任务为已完成，或取消完成状态。参数：task_index (任务序号，从1开始)',
     scope: ['global', 'control'],
     handler: async (params) => {
@@ -275,6 +281,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'skip_task',
     name: '跳过任务',
+    riskLevel: 'high',
     description: '跳过当前任务。参数：无',
     scope: ['global', 'control'],
     handler: async () => {
@@ -300,6 +307,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'finish_task_early',
     name: '提前完成任务',
+    riskLevel: 'high',
     description: '提前结束当前正在进行的任务。参数：无',
     scope: ['global', 'control'],
     handler: async () => {
@@ -448,6 +456,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'set_reminder',
     name: '设置提醒',
+    riskLevel: 'high',
     description: '设置一个浏览器提醒通知。参数：title (提醒标题)，delay (延迟秒数，默认60秒)',
     scope: ['global'],
     handler: async (params) => {
@@ -557,6 +566,7 @@ export const AI_TOOLS: AiTool[] = [
     description: '创建/修改/删除目标。参数：action(create/update/delete), id, name, desc, deadline, priority, done, total, color, parentId, unit。total 可为 0 表示无上限任务。',
     scope: ['global'],
     requiresConsent: true,
+    riskLevel: 'high',
     consentInfo: (params) => {
       if (params.action === 'create') {
         return {
@@ -696,6 +706,7 @@ export const AI_TOOLS: AiTool[] = [
     description: '修改 IGCSE 考试倒计时设置。参数：examDate (YYYY-MM-DD 格式的考试日期)',
     scope: ['global'],
     requiresConsent: true,
+    riskLevel: 'high',
     consentInfo: (params) => ({
       action: `将考试日期更新为 ${params.examDate || '未知日期'}`,
       purpose: '更新考试倒计时，确保倒计时显示正确的剩余天数。',
@@ -773,6 +784,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'manage_traffic_audit',
     name: '修改红绿灯审计',
+    riskLevel: 'high',
     description: '修改某个知识点的红绿灯状态。参数：subject (科目名), unit (知识点/单元名), color (green|yellow|red)',
     scope: ['global'],
     handler: async (params) => {
@@ -808,6 +820,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'create_schedule_from_goal',
     name: '从目标生成日程',
+    riskLevel: 'high',
     description: '根据 Goal 目标数据和当前学习进度，生成一份日程计划并输出到日程表。参数：date (可选，YYYY-MM-DD 格式，默认今天)',
     scope: ['global'],
     handler: async (params) => {
@@ -1008,16 +1021,16 @@ export function getToolsDescription(scope: ToolScope): string {
       .join('\n\n') +
     '\n\n【工具调用规则（重要）】\n' +
     '1. 你是 **Agent 智能体**：可以连续多轮调用工具完成任务，直到目标达成为止。\n' +
-    '2. 每轮只调用**一个**工具，工具执行结果会自动追加到对话中。\n' +
+    '2. **支持批量工具调用**：如果一次需要执行多个操作（比如创建多个目标、读取多个数据），你可以在回复中输出**多个** ```tool_call 代码块，系统会**并行执行**读取类型工具，串行执行修改类型工具。\n' +
     '3. 收到工具结果后，你需要根据结果**继续推理**：\n' +
     '   - 如果需要再读取数据 → 继续调用读取工具\n' +
     '   - 如果读取完成可以执行修改 → 再调用修改工具\n' +
-    '   - 如果需要多个修改操作 → 逐个调用，每轮一个\n' +
+    '   - 如果任务简单明确 → 直接一次性调用所有工具，不要一个个来\n' +
     '4. 在回复内容的**最后**添加工具调用代码块，用 ```tool_call 包裹。\n' +
     '5. 如果不需要调用工具，则不输出工具调用代码块。\n' +
-    '6. **不要在一轮回复中输出多个工具调用代码块**，一次只能调用一个工具，等待结果后再继续。\n' +
-    '7. **不要重复调用相同的读取工具**：如果已经读取过某数据且内容没有变化，不要再次读取。\n' +
-    '8. 当所有任务完成后，给用户一个**完整的总结**，不要再调用工具。\n\n' +
+    '6. **不要重复调用相同的读取工具**：如果已经读取过某数据且内容没有变化，不要再次读取。看到工具执行结果后，不要再次调用同一个读取工具。\n' +
+    '7. 当所有任务完成后，给用户一个**完整的总结**，不要再调用工具。\n' +
+    '8. **效率优先**：例如用户要创建 4 个雅思子任务（听说读写），应该**一次输出 4 个 manage_goal 调用**，而不是一个一个来。\n\n' +
     '【TTS 朗读语言说明（非常重要，必须遵守）】\n' +
     '用户已经设置了 TTS 朗读语言，只能用你回复中与 TTS 语言一致的部分进行朗读。\n' +
     '语言代码为 "zh-CN"（中文）或 "en-US"（英文）。\n\n' +

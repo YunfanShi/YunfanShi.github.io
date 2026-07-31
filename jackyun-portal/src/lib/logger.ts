@@ -48,8 +48,12 @@ interface LogEntry {
 //  Storage
 // ──────────────────────────────────────────────
 
-const MAX_MEMORY = 2000;
-const MAX_LOCAL = 500;
+/**
+ * 全站后台日志 — 打开网站即启动，持久保存到 localStorage
+ * 最多保留 100 条，超出自动覆盖最旧的
+ */
+const MAX_MEMORY = 200;
+const MAX_LOCAL = 100;
 const LOCAL_KEY = 'jackyun_client_logs';
 
 let _idCounter = 0;

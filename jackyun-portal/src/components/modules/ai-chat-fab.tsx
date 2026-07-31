@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
-import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature } from '@/lib/ai-config';
-import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo } from '@/lib/ai-tools';
+import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
+import { getToolsDescription, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel } from '@/lib/ai-tools';
+import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
@@ -582,6 +583,15 @@ export default function AiChatFab({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   // 思考深度级别（默认中）
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>(() => getThinkingLevel());
+  // 操作模式（YOLO / 安全）
+  const [safetyMode, setSafetyMode] = useState<SafetyMode>(() => getSafetyMode());
+  // token 价格（元/1M）
+  const [tokenPrice, setTokenPrice] = useState<number>(() => getTokenPrice());
+  // 设置弹窗
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // 消息容器引用（用于判断用户是否在底部）
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isUserAtBottomRef = useRef(true);
   // 确认弹窗
   const [consentDialog, setConsentDialog] = useState<ConsentDialogState | null>(null);
   // 等待用户确认的 resolve 函数
@@ -621,9 +631,25 @@ export default function AiChatFab({
     }
   }, []);
 
+  // 智能自动滚动：只在用户已在底部时跟随
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isUserAtBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, loading]);
+
+  // 监听容器滚动，判断用户位置
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      if (!container) return;
+      isUserAtBottomRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [open]);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -738,7 +764,12 @@ export default function AiChatFab({
    * 请求用户确认（替代 window.confirm）
    * 返回 true=同意执行, false=拒绝
    */
-  function requestConsent(toolCall: { tool: string; params: Record<string, string> }, toolDef: { name: string; consentInfo?: (params: Record<string, string>) => ConsentInfo }): Promise<boolean> {
+  function requestConsent(toolCall: { tool: string; params: Record<string, string> }, toolDef: { name: string; consentInfo?: (params: Record<string, string>) => ConsentInfo; riskLevel?: ToolRiskLevel }): Promise<boolean> {
+    // YOLO 模式：全部通过，不弹窗
+    if (safetyMode === 'yolo') return Promise.resolve(true);
+    // 安全模式：低风险工具自动通过
+    if (toolDef.riskLevel === 'low' || !toolDef.riskLevel) return Promise.resolve(true);
+
     return new Promise(resolve => {
       const consent = toolDef.consentInfo?.(toolCall.params) || {
         action: `执行 ${toolDef.name}`,
@@ -903,6 +934,13 @@ export default function AiChatFab({
     const reader = res.body?.getReader();
     if (!reader) throw new Error('无法读取 AI 响应流');
 
+    // 记录 AI 请求日志（全站持久化）
+    logger.info('AI', `请求发送: ${apiMessages[apiMessages.length - 1]?.content?.slice(0, 60) || '(空)'}`, {
+      model: config.model,
+      messages: apiMessages.length,
+      ts: new Date().toISOString(),
+    });
+
     const decoder = new TextDecoder();
     let assistantContent = '';       // 最终回复（content，用户可见 + 用于工具解析）
     let reasoningContent = '';       // 思考过程（reasoning_content，折叠显示，不用于 TTS）
@@ -993,8 +1031,8 @@ export default function AiChatFab({
     let loopCount = 0;
     let currentReplaceIndex = replaceIndex;
 
-    // 思考深度为低时减少循环上限，快速完成
-    const effectiveMaxLoops = thinkingLevel === 'low' ? 4 : MAX_AGENT_LOOPS;
+    // 思考深度决定推理轮数上限：低4/中10/高15
+    const effectiveMaxLoops = thinkingLevel === 'low' ? 4 : thinkingLevel === 'high' ? 15 : 10;
 
     while (loopCount < effectiveMaxLoops) {
       loopCount++;
@@ -1013,9 +1051,15 @@ export default function AiChatFab({
       const toolCalls = parseToolCalls(assistantContent);
 
       if (!assistantContent.trim() && toolCalls.length === 0) {
+        // 记录空响应日志（全站持久化）- 便于用户去设置页查看原因
+        logger.error('AI', '空响应: AI 流式响应完成但无 content 和 tool_call', {
+          model: getAiConfig().model,
+          hasReasoning: messages[messages.length - 1]?.reasoningContent ? true : false,
+          ts: new Date().toISOString(),
+        });
         updateConversation(conv => ({
           ...conv,
-          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请检查 API 配置）' }],
+          messages: [...conv.messages, { role: 'assistant', content: '（AI 没有返回内容，请点击重试。已记录日志，可到设置页面查看详细原因）' }],
           updatedAt: new Date().toISOString(),
         }), convId);
         break;
@@ -1371,21 +1415,14 @@ export default function AiChatFab({
               )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              {/* 思考深度选择器 */}
-              <select
-                value={thinkingLevel}
-                onChange={(e) => {
-                  const level = e.target.value as ThinkingLevel;
-                  setThinkingLevel(level);
-                  saveThinkingLevel(level);
-                }}
-                title="思考深度"
-                className="text-[10px] bg-[var(--background)] border border-[var(--card-border)] rounded px-1 py-0.5 text-[var(--muted-foreground)] outline-none cursor-pointer"
+              {/* 设置按钮 */}
+              <button
+                onClick={() => setSettingsOpen(true)}
+                title="AI 设置"
+                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
               >
-                <option value="low">低 · 快速</option>
-                <option value="medium">中 · 平衡</option>
-                <option value="high">高 · 深度</option>
-              </select>
+                <span className="material-icons-round text-base">settings</span>
+              </button>
               <button
                 onClick={createNewConversation}
                 title="新建对话"
@@ -1441,7 +1478,7 @@ export default function AiChatFab({
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && (
               <p className="text-center text-sm text-[var(--muted-foreground)] mt-8">
                 👋 有什么可以帮助你的？<br />
@@ -1484,7 +1521,7 @@ export default function AiChatFab({
                               <span>{msg.collapsed === false ? '▲' : '▶'}</span>
                             </div>
                             {msg.collapsed === false && (
-                              <div className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-[11px] leading-1.5 text-[var(--muted-foreground)]">
+                              <div className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-[11px] leading-normal text-[var(--muted-foreground)]">
                                 {(msg as Message).reasoningContent}
                               </div>
                             )}
@@ -1626,6 +1663,112 @@ export default function AiChatFab({
         visible={subtitleVisible}
         onClose={handleSubtitleClick}
       />
+
+      {/* AI 设置弹窗 */}
+      {settingsOpen && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            padding: '16px',
+          }}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              background: 'var(--card)',
+              borderRadius: '16px',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+              border: '1px solid var(--card-border)',
+              overflow: 'hidden',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--card-border)' }}>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>⚙️ AI 设置</span>
+              <button onClick={() => setSettingsOpen(false)} style={{ padding: '4px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--muted-foreground)', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+            </div>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* 思考深度 */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted-foreground)', marginBottom: '6px' }}>🧠 思考深度</div>
+                <select
+                  value={thinkingLevel}
+                  onChange={(e) => {
+                    const level = e.target.value as ThinkingLevel;
+                    setThinkingLevel(level);
+                    saveThinkingLevel(level);
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '13px', outline: 'none' }}
+                >
+                  <option value="low">低 · 快速（4轮推理，隐藏思考过程）</option>
+                  <option value="medium">中 · 平衡（10轮推理，折叠思考）</option>
+                  <option value="high">高 · 深度（15轮推理，完整思考）</option>
+                </select>
+              </div>
+
+              {/* 操作模式 */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted-foreground)', marginBottom: '6px' }}>🛡️ 操作模式</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => { setSafetyMode('safe'); saveSafetyMode('safe'); }}
+                    style={{
+                      flex: 1, padding: '10px 12px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                      border: safetyMode === 'safe' ? '2px solid #4285F4' : '1px solid var(--card-border)',
+                      background: safetyMode === 'safe' ? '#4285F4/10' : 'var(--background)', color: 'var(--foreground)',
+                    }}
+                  >
+                    安全模式
+                    <div style={{ fontSize: '10px', fontWeight: 400, marginTop: '4px', color: 'var(--muted-foreground)' }}>低风险自动通过，高风险确认</div>
+                  </button>
+                  <button
+                    onClick={() => { setSafetyMode('yolo'); saveSafetyMode('yolo'); }}
+                    style={{
+                      flex: 1, padding: '10px 12px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                      border: safetyMode === 'yolo' ? '2px solid #EA4335' : '1px solid var(--card-border)',
+                      background: safetyMode === 'yolo' ? '#EA4335/10' : 'var(--background)', color: 'var(--foreground)',
+                    }}
+                  >
+                    YOLO 模式
+                    <div style={{ fontSize: '10px', fontWeight: 400, marginTop: '4px', color: 'var(--muted-foreground)' }}>全部工具直接执行，不询问</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Token 价格 */}
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted-foreground)', marginBottom: '6px' }}>💰 模型价格（元 / 100 万 tokens）</div>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={tokenPrice}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setTokenPrice(val > 0 ? val : 0.1);
+                  }}
+                  onBlur={() => saveTokenPrice(tokenPrice)}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '13px', outline: 'none' }}
+                />
+                <div style={{ fontSize: '10px', color: 'var(--muted-foreground)', marginTop: '4px' }}>
+                  用于估算每次对话的 token 费用（如 DeepSeek 约 ¥2/百万 tokens）
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* 自定义操作确认弹窗 */}
       {consentDialog && (
