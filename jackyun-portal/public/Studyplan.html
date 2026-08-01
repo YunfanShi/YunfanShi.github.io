@@ -91,6 +91,20 @@
         }
         .nav-subject-header:hover { background: rgba(0,0,0,0.05); }
         .nav-subject-header.active { background: var(--primary-container); color: #001d33; }
+        .nav-traffic-dots{display:inline-flex;gap:3px;flex-shrink:0;}
+        .nav-traffic-dot{width:8px;height:8px;border-radius:50%;background:#e0e0e0;}
+
+        /* 红绿灯统计看板 */
+        .traffic-dashboard{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
+        .traffic-stat{flex:1;min-width:120px;background:white;border:1px solid #eee;border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;align-items:center;gap:10px;}
+        .traffic-stat .ts-ico{font-size:22px;}
+        .traffic-stat .ts-num{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+        .traffic-stat .ts-lbl{font-size:11px;color:#777;margin-top:2px;}
+        .traffic-stat.ts-total .ts-num{color:#1a73e8;}
+        .traffic-stat.ts-red .ts-num{color:#ea4335;}
+        .traffic-stat.ts-yellow .ts-num{color:#f9ab00;}
+        .traffic-stat.ts-green .ts-num{color:#34a853;}
+        .traffic-stat.ts-none .ts-num{color:#9e9e9e;}
 
         /* --- Main Content Area --- */
         main {
@@ -683,6 +697,9 @@
 
     <div class="content-scroll" id="main-view">
         
+        <!-- 红绿灯统计看板 -->
+        <div id="traffic-dashboard" style="display:none;"></div>
+
         <div class="quest-container">
             <div class="section-header">
                 <span class="material-icons-round">auto_awesome</span>
@@ -765,21 +782,21 @@
     </div>
 
     <div id="tab-syllabus" class="tab-content">
-        <h4>📚 Manage Subject Units</h4>
-        <p style="font-size:12px; color:#666;">Add, Remove or Reorder units for any subject.</p>
+        <h4>📚 知识点管理</h4>
+        <p style="font-size:12px; color:#666;">添加、删除或调整每个科目的知识点（进度数据不会丢失）。</p>
         
-        <label>Select Subject</label>
+        <label>选择科目</label>
         <select id="editor-subject-select" onchange="renderUnitEditorList()">
-            <option value="" disabled selected>-- Choose Subject --</option>
+            <option value="" disabled selected>-- 请选择科目 --</option>
         </select>
         
         <div id="unit-editor-container" style="margin-top:15px; border:1px solid #ddd; padding:10px; max-height:250px; overflow-y:auto; border-radius:8px;">
-            <div style="text-align:center; color:#aaa; font-size:12px;">Select a subject to edit units</div>
+            <div style="text-align:center; color:#aaa; font-size:12px;">选择一个科目以编辑知识点</div>
         </div>
         
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="text" id="new-unit-name" placeholder="New Unit Name">
-            <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">Add</button>
+            <input type="text" id="new-unit-name" placeholder="新知识点名称">
+            <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">添加</button>
         </div>
     </div>
 
@@ -927,6 +944,7 @@
     // --- 3. Initialization ---
     function init() {
         renderSidebar();
+        renderTrafficDashboard();
         startGlobalCountdowns();
         loadDailyQuests();
         populateSettings();
@@ -1115,8 +1133,10 @@
             unit: unit
         };
         localStorage.setItem(trafficKey, JSON.stringify(data));
-        // 重新渲染当前卡片以更新按钮选中态
+        // 重新渲染当前卡片以更新按钮选中态 + 刷新统计看板/侧边栏圆点
         renderMainView(subject);
+        renderTrafficDashboard();
+        renderSidebar();
     }
 
     // 红绿灯审计：点击「确认审计」后标记该步骤完成，进入下一步（可回退）
@@ -1131,6 +1151,8 @@
         progressDB[`${subject}|${unit}|traffic`] = true;
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         renderMainView(subject);
+        renderTrafficDashboard();
+        renderSidebar();
     }
 
     // 获取某单元的红绿灯状态（供 AI 工具读取）
@@ -1498,13 +1520,35 @@
     }
 
     // --- 10. Sidebar ---
+    // 辅助：统计某科目红黄绿/未审计数量
+    function countTrafficForSubject(subject) {
+        const data = syllabusDB[subject];
+        if (!data) return { red: 0, yellow: 0, green: 0, none: 0 };
+        let red = 0, yellow = 0, green = 0, none = 0;
+        for (const unit of data.units) {
+            const s = getTrafficStatus(subject, unit);
+            if (!s) { none++; continue; }
+            if (s.color === 'red') red++;
+            else if (s.color === 'yellow') yellow++;
+            else if (s.color === 'green') green++;
+            else none++;
+        }
+        return { red, yellow, green, none };
+    }
+    // 侧边栏每科目显示红黄绿三色圆点（无需悬停即可看到状态）
+    function subjectTrafficDotsHTML(subject) {
+        const { red, yellow, green, none } = countTrafficForSubject(subject);
+        const tip = `🔴 红灯 ${red} · 🟡 黄灯 ${yellow} · 🟢 绿灯 ${green} · 未审计 ${none}`;
+        const dot = (color, count) => `<span class="nav-traffic-dot" style="background:${count > 0 ? color : '#e0e0e0'};" title="${tip}"></span>`;
+        return `<span class="nav-traffic-dots">${dot('#ea4335', red)}${dot('#f9ab00', yellow)}${dot('#34a853', green)}</span>`;
+    }
     function renderSidebar() {
         const container = document.getElementById('sidebar-content');
         container.innerHTML = '';
         for (const [subject, data] of Object.entries(syllabusDB)) {
             const div = document.createElement('div');
             div.className = 'nav-subject-header';
-            div.innerHTML = `<span>${subject}</span>`;
+            div.innerHTML = `<span>${subject}</span>${subjectTrafficDotsHTML(subject)}`;
             if (isSubjectComplete(subject)) div.innerHTML += ` <span class="material-icons-round" style="color:#2e7d32">check_circle</span>`;
             
             div.onclick = () => {
@@ -1514,6 +1558,28 @@
             };
             container.appendChild(div);
         }
+    }
+
+    // 红绿灯全局统计看板（顶部）
+    function renderTrafficDashboard() {
+        const el = document.getElementById('traffic-dashboard');
+        if (!el) return;
+        let total = 0, red = 0, yellow = 0, green = 0, none = 0;
+        for (const [subject, data] of Object.entries(syllabusDB)) {
+            const c = countTrafficForSubject(subject);
+            total += c.red + c.yellow + c.green + c.none;
+            red += c.red; yellow += c.yellow; green += c.green; none += c.none;
+        }
+        if (total === 0) { el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        el.className = 'traffic-dashboard';
+        const stat = (cls, ico, num, lbl) => `<div class="traffic-stat ${cls}"><span class="ts-ico">${ico}</span><div><div class="ts-num">${num}</div><div class="ts-lbl">${lbl}</div></div></div>`;
+        el.innerHTML =
+            stat('ts-total', '📊', total, '全部知识点') +
+            stat('ts-green', '🟢', green, '绿灯 · 已掌握') +
+            stat('ts-yellow', '🟡', yellow, '黄灯 · 需建卡片') +
+            stat('ts-red', '🔴', red, '红灯 · 需复习') +
+            stat('ts-none', '⚪', none, '未审计');
     }
 
     // --- 11. Schedule Generator Logic ---
