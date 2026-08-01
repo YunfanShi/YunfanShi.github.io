@@ -19,6 +19,22 @@ export default function Topbar({ user }: TopbarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
+    // Expose the signed-in user's display name to legacy (iframe) HTML pages
+    // so they can replace any hardcoded names with the account name.
+    if (user) {
+      const displayName =
+        (user.user_metadata?.full_name as string | undefined) ??
+        (user.user_metadata?.user_name as string | undefined) ??
+        (user.user_metadata?.name as string | undefined) ??
+        (user.email?.split('@')[0] as string | undefined) ??
+        'User';
+      try {
+        localStorage.setItem('jackyun_user_display_name', displayName);
+      } catch {}
+    }
+  }, [user]);
+
+  useEffect(() => {
     const handler = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
