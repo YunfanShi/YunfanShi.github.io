@@ -114,6 +114,9 @@ option{background:#1a1a1a;}
 .gdesc{font-size:12px;color:var(--text3);}
 .gcat{font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px;}
 .gdeadline{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.gdeadline.urgent{color:#ff5c5c;font-weight:600;background:rgba(255,92,92,.12);border:1px solid rgba(255,92,92,.3);padding:1px 6px;border-radius:4px;}
+.cd-event-bubble{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:rgba(255,92,92,.14);color:#ff5c5c;border:1px solid rgba(255,92,92,.35);animation:bubblePulse 1.6s ease-in-out infinite;cursor:default;}
+@keyframes bubblePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,92,92,.25);}50%{box-shadow:0 0 8px 2px rgba(255,92,92,.35);}}
 .gright{display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .gpct{font-size:21px;font-weight:600;font-family:var(--mono);letter-spacing:-1px;line-height:1;}
 .gbadge{font-size:11px;font-weight:500;padding:3px 8px;border-radius:5px;white-space:nowrap;margin-top:3px;text-align:center;}
@@ -882,6 +885,29 @@ function isOverdue(g){
   return deadlineDays(g.deadline)<=0;
 }
 
+// 返回 ≤3 天的倒计日事件（来自「倒计日」页面的 jack_countdown_events），用于任务卡片高亮气泡
+function urgentCountdownEvents(){
+  try{
+    const evts=JSON.parse(localStorage.getItem('jack_countdown_events')||'[]');
+    if(!Array.isArray(evts)) return [];
+    const now=new Date();
+    return evts.filter(e=>e&&e.date).map(e=>({
+      title:e.title||'重要日期',
+      date:e.date,
+      days:Math.ceil((new Date(e.date+'T00:00:00')-now)/864e5)
+    })).filter(e=>e.days>=0&&e.days<=3).sort((a,b)=>a.days-b.days);
+  }catch(e){ return []; }
+}
+function cdUrgentBubbleHTML(){
+  const evs=urgentCountdownEvents();
+  if(!evs.length) return '';
+  const e=evs[0];
+  const dd=e.days===0?'今天':e.days+'天后';
+  const extra=evs.length>1?` +${evs.length-1}`:'';
+  const tip=evs.map(x=>`${x.title} ${x.date}（${x.days===0?'今天':x.days+'天后'}）`).join('\n');
+  return `<span class="cd-event-bubble" title="${tip}">⏰ ${esc(e.title)} ${dd}${extra}</span>`;
+}
+
 /* ===================== AI STATUS ===================== */
 function updateAIStatus(){
   const key=getKey(),bar=document.getElementById('aiStatusBar'),dot=document.getElementById('aiDot'),txt=document.getElementById('aiStatusText');
@@ -1533,8 +1559,9 @@ function renderGoalCard(g, isChild=false){
         <div class="gmeta">
           ${g.desc?`<span class="gdesc">${esc(g.desc)}</span>`:''}
           <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[g.cat]||'✦'} ${g.cat}</span>
-          ${g.deadline?`<span class="gdeadline">${g.deadline.slice(5).replace('-','/')}</span>`:''}
+          ${g.deadline?`<span class="gdeadline${dl!=null&&dl<=3&&!isDone?' urgent':''}">${g.deadline.slice(5).replace('-','/')}</span>`:''}
           ${(g.deadlineHistory&&g.deadlineHistory.length>0)?`<span title="截止日期已修改${g.deadlineHistory.length}次" style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(245,166,35,0.12);color:#f5a623;border:1px solid rgba(245,166,35,0.2);cursor:default;">📅×${g.deadlineHistory.length}</span>`:''}
+          ${cdUrgentBubbleHTML()}
         </div>
         ${isLeaf(g)?predChipHTML(g):''}
       </div>
@@ -1605,8 +1632,9 @@ function render(){
               <div class="pcard-meta">
                 ${r.desc?`<span class="gdesc">${esc(r.desc)}</span>`:''}
                 <span class="gcat" style="background:${c.dim};color:${c.hex};">${CAT_E[r.cat]||'✦'} ${r.cat}</span>
-                ${r.deadline?`<span class="gdeadline">${r.deadline.slice(5).replace('-','/')}</span>`:''}
+                ${r.deadline?`<span class="gdeadline${dl!=null&&dl<=3&&!isDone?' urgent':''}">${r.deadline.slice(5).replace('-','/')}</span>`:''}
                 ${(r.deadlineHistory&&r.deadlineHistory.length>0)?`<span title="截止日期已修改${r.deadlineHistory.length}次" style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(245,166,35,0.12);color:#f5a623;border:1px solid rgba(245,166,35,0.2);cursor:default;">📅×${r.deadlineHistory.length}</span>`:''}
+                ${cdUrgentBubbleHTML()}
               </div>
               ${isDone?'':predChipHTML(r)}
             </div>
