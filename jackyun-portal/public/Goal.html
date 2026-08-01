@@ -2763,16 +2763,24 @@ function renderTimerUI(id){
   const el=document.getElementById('timerArea'+id);
   if(el) el.innerHTML=timerAreaHTML(goals.find(x=>x.id===id));
 }
+function avgSessionTime(g){
+  const s=(g.sessions||[]);
+  if(!s.length) return null;
+  const totalMin=s.reduce((a,b)=>a+(b.minutes||0),0);
+  return Math.round(totalMin/s.length);
+}
 function timerAreaHTML(g){
   if(!g) return '';
   const t=activeTimers[g.id];
+  const avg=avgSessionTime(g);
+  const avgHtml=avg!=null?`<span style="font-size:10px;color:var(--text3);margin-left:auto;font-family:var(--mono);">均 ${avg}分</span>`:'';
   let inner;
   if(t&&t.running){
-    inner=`<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="pauseTaskTimer(${g.id})" title="暂停">⏸</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+    inner=`<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span>${avgHtml}<button class="btn btn-ico" onclick="pauseTaskTimer(${g.id})" title="暂停">⏸</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
   } else if(t&&!t.running){
-    inner=`<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="startTaskTimer(${g.id})" title="继续">▶</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+    inner=`<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span>${avgHtml}<button class="btn btn-ico" onclick="startTaskTimer(${g.id})" title="继续">▶</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
   } else {
-    inner=`<div class="gt-timer idle"><button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px;color:var(--ai);" onclick="startTaskTimer(${g.id})">▶ 开始任务</button></div>`;
+    inner=`<div class="gt-timer idle"><button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px;color:var(--ai);" onclick="startTaskTimer(${g.id})">▶ 开始任务</button>${avgHtml}</div>`;
   }
   // 外层容器带 id，renderTimerUI 才能精确更新
   return `<div id="timerArea${g.id}">${inner}</div>`;
