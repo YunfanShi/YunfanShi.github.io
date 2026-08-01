@@ -91,8 +91,13 @@
         }
         .nav-subject-header:hover { background: rgba(0,0,0,0.05); }
         .nav-subject-header.active { background: var(--primary-container); color: #001d33; }
-        .nav-traffic-dots{display:inline-flex;gap:3px;flex-shrink:0;}
-        .nav-traffic-dot{width:8px;height:8px;border-radius:50%;background:#e0e0e0;}
+        .nav-traffic-dots{display:inline-flex;gap:4px;flex-shrink:0;align-items:center;}
+        .nav-traffic-dot{width:13px;height:13px;border-radius:50%;background:#e0e0e0;display:inline-block;}
+        .nav-traffic-dot-count{display:none;}
+        .nav-traffic-dots:hover .nav-traffic-dot-count{display:inline;font-size:9px;color:#666;font-weight:600;margin-left:1px;}
+        .nav-traffic-dots:not(:hover) .nav-traffic-dot-count{display:none;}
+        .nav-traffic-dot-label{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;color:#333;background:rgba(0,0,0,0.05);padding:1px 4px;border-radius:99px;}
+        .nav-traffic-dot-label .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
 
         /* 红绿灯统计看板 */
         .traffic-dashboard{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
@@ -1559,7 +1564,8 @@
         const { red, yellow, green, none } = countTrafficForSubject(subject);
         const tip = `🔴 红灯 ${red} · 🟡 黄灯 ${yellow} · 🟢 绿灯 ${green} · 未审计 ${none}`;
         const dot = (color, count) => `<span class="nav-traffic-dot" style="background:${count > 0 ? color : '#e0e0e0'};" title="${tip}"></span>`;
-        return `<span class="nav-traffic-dots">${dot('#ea4335', red)}${dot('#f9ab00', yellow)}${dot('#34a853', green)}</span>`;
+        const label = (color, count) => `<span class="nav-traffic-dot-label" title="${tip}"><span class="dot" style="background:${color};"></span>${count}</span>`;
+        return `<span class="nav-traffic-dots" style="gap:3px;">${label('#ea4335', red)}${label('#f9ab00', yellow)}${label('#34a853', green)}</span>`;
     }
     function renderSidebar() {
         const container = document.getElementById('sidebar-content');
