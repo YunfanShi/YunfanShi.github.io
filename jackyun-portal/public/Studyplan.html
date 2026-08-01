@@ -91,6 +91,20 @@
         }
         .nav-subject-header:hover { background: rgba(0,0,0,0.05); }
         .nav-subject-header.active { background: var(--primary-container); color: #001d33; }
+        .nav-traffic-dots{display:inline-flex;gap:3px;flex-shrink:0;}
+        .nav-traffic-dot{width:8px;height:8px;border-radius:50%;background:#e0e0e0;}
+
+        /* 红绿灯统计看板 */
+        .traffic-dashboard{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
+        .traffic-stat{flex:1;min-width:120px;background:white;border:1px solid #eee;border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;align-items:center;gap:10px;}
+        .traffic-stat .ts-ico{font-size:22px;}
+        .traffic-stat .ts-num{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+        .traffic-stat .ts-lbl{font-size:11px;color:#777;margin-top:2px;}
+        .traffic-stat.ts-total .ts-num{color:#1a73e8;}
+        .traffic-stat.ts-red .ts-num{color:#ea4335;}
+        .traffic-stat.ts-yellow .ts-num{color:#f9ab00;}
+        .traffic-stat.ts-green .ts-num{color:#34a853;}
+        .traffic-stat.ts-none .ts-num{color:#9e9e9e;}
 
         /* --- Main Content Area --- */
         main {
@@ -683,6 +697,9 @@
 
     <div class="content-scroll" id="main-view">
         
+        <!-- 红绿灯统计看板 -->
+        <div id="traffic-dashboard" style="display:none;"></div>
+
         <div class="quest-container">
             <div class="section-header">
                 <span class="material-icons-round">auto_awesome</span>
@@ -765,21 +782,25 @@
     </div>
 
     <div id="tab-syllabus" class="tab-content">
-        <h4>📚 Manage Subject Units</h4>
-        <p style="font-size:12px; color:#666;">Add, Remove or Reorder units for any subject.</p>
+        <h4>📚 知识点管理</h4>
+        <p style="font-size:12px; color:#666;">添加、删除或调整每个科目的知识点（进度数据不会丢失）。</p>
         
-        <label>Select Subject</label>
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <button class="btn-outline" style="flex:1; font-size:12px;" onclick="openImportSyllabus()">📥 导入大纲</button>
+        </div>
+        
+        <label>选择科目</label>
         <select id="editor-subject-select" onchange="renderUnitEditorList()">
-            <option value="" disabled selected>-- Choose Subject --</option>
+            <option value="" disabled selected>-- 请选择科目 --</option>
         </select>
         
         <div id="unit-editor-container" style="margin-top:15px; border:1px solid #ddd; padding:10px; max-height:250px; overflow-y:auto; border-radius:8px;">
-            <div style="text-align:center; color:#aaa; font-size:12px;">Select a subject to edit units</div>
+            <div style="text-align:center; color:#aaa; font-size:12px;">选择一个科目以编辑知识点</div>
         </div>
         
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="text" id="new-unit-name" placeholder="New Unit Name">
-            <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">Add</button>
+            <input type="text" id="new-unit-name" placeholder="新知识点名称">
+            <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">添加</button>
         </div>
     </div>
 
@@ -835,6 +856,21 @@
 
     <div class="schedule-grid" id="schedule-output">
     </div>
+</dialog>
+
+<dialog id="import-syllabus-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">📥 导入大纲</h3>
+        <button onclick="document.getElementById('import-syllabus-modal').close()" style="background:none; border:none; cursor:pointer; font-size:20px;">&times;</button>
+    </div>
+    <p style="font-size:12px; color:#666; margin-top:10px;">第一行写科目名（如 Mathematics (0580)），下方每行写一个知识点。已存在的科目将合并去重，不会丢失进度。</p>
+    <textarea id="import-syllabus-text" rows="8" placeholder="Mathematics (0580)&#10;- Number&#10;- Algebra & Graphs&#10;&#10;Physics (0625)&#10;- Motion, Forces and Energy&#10;- Waves"></textarea>
+    <div style="text-align:right; margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn-outline" onclick="aiParseSyllabus()">🤖 AI 解析</button>
+        <button class="btn-outline" onclick="previewImportSyllabus()">👀 预览</button>
+        <button class="btn-primary" onclick="confirmImportSyllabus()">✅ 导入</button>
+    </div>
+    <div id="import-syllabus-preview" style="margin-top:12px; font-size:12px; color:#444; background:#f8f9fa; border-radius:8px; padding:10px; max-height:200px; overflow-y:auto;"></div>
 </dialog>
 
 <script>
@@ -927,6 +963,7 @@
     // --- 3. Initialization ---
     function init() {
         renderSidebar();
+        renderTrafficDashboard();
         startGlobalCountdowns();
         loadDailyQuests();
         populateSettings();
@@ -1068,11 +1105,11 @@
         if (currentStepIndex >= QUEST_STEPS.length && !isUnitDone) {
              actionBtnHtml = `
                 <div class="quest-action" style="border-color:#ffd700; background:#fffbe6;">
-                    <span style="font-weight:bold; color:#b8860b">All steps done. Finish Unit?</span>
-                    <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unit}')">Conquer Unit</button>
+                    <span style="font-weight:bold; color:#b8860b">所有步骤已完成，确认掌握该知识点？</span>
+                    <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unit}')">✓ 已掌握</button>
                 </div>`;
         } else if (isUnitDone) {
-             actionBtnHtml = `<div style="margin-top:20px; color:#2e7d32; font-weight:bold; text-align:right;">Unit Complete <span class="material-icons-round" style="vertical-align:middle;">check_circle</span></div>`;
+             actionBtnHtml = `<div style="margin-top:20px; color:#2e7d32; font-weight:bold; text-align:right;">知识点已掌握 <span class="material-icons-round" style="vertical-align:middle;">check_circle</span></div>`;
              card.style.background = "#f6fff6";
         }
 
@@ -1115,8 +1152,10 @@
             unit: unit
         };
         localStorage.setItem(trafficKey, JSON.stringify(data));
-        // 重新渲染当前卡片以更新按钮选中态
+        // 重新渲染当前卡片以更新按钮选中态 + 刷新统计看板/侧边栏圆点
         renderMainView(subject);
+        renderTrafficDashboard();
+        renderSidebar();
     }
 
     // 红绿灯审计：点击「确认审计」后标记该步骤完成，进入下一步（可回退）
@@ -1131,6 +1170,8 @@
         progressDB[`${subject}|${unit}|traffic`] = true;
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         renderMainView(subject);
+        renderTrafficDashboard();
+        renderSidebar();
     }
 
     // 获取某单元的红绿灯状态（供 AI 工具读取）
@@ -1498,13 +1539,35 @@
     }
 
     // --- 10. Sidebar ---
+    // 辅助：统计某科目红黄绿/未审计数量
+    function countTrafficForSubject(subject) {
+        const data = syllabusDB[subject];
+        if (!data) return { red: 0, yellow: 0, green: 0, none: 0 };
+        let red = 0, yellow = 0, green = 0, none = 0;
+        for (const unit of data.units) {
+            const s = getTrafficStatus(subject, unit);
+            if (!s) { none++; continue; }
+            if (s.color === 'red') red++;
+            else if (s.color === 'yellow') yellow++;
+            else if (s.color === 'green') green++;
+            else none++;
+        }
+        return { red, yellow, green, none };
+    }
+    // 侧边栏每科目显示红黄绿三色圆点（无需悬停即可看到状态）
+    function subjectTrafficDotsHTML(subject) {
+        const { red, yellow, green, none } = countTrafficForSubject(subject);
+        const tip = `🔴 红灯 ${red} · 🟡 黄灯 ${yellow} · 🟢 绿灯 ${green} · 未审计 ${none}`;
+        const dot = (color, count) => `<span class="nav-traffic-dot" style="background:${count > 0 ? color : '#e0e0e0'};" title="${tip}"></span>`;
+        return `<span class="nav-traffic-dots">${dot('#ea4335', red)}${dot('#f9ab00', yellow)}${dot('#34a853', green)}</span>`;
+    }
     function renderSidebar() {
         const container = document.getElementById('sidebar-content');
         container.innerHTML = '';
         for (const [subject, data] of Object.entries(syllabusDB)) {
             const div = document.createElement('div');
             div.className = 'nav-subject-header';
-            div.innerHTML = `<span>${subject}</span>`;
+            div.innerHTML = `<span>${subject}</span>${subjectTrafficDotsHTML(subject)}`;
             if (isSubjectComplete(subject)) div.innerHTML += ` <span class="material-icons-round" style="color:#2e7d32">check_circle</span>`;
             
             div.onclick = () => {
@@ -1514,6 +1577,28 @@
             };
             container.appendChild(div);
         }
+    }
+
+    // 红绿灯全局统计看板（顶部）
+    function renderTrafficDashboard() {
+        const el = document.getElementById('traffic-dashboard');
+        if (!el) return;
+        let total = 0, red = 0, yellow = 0, green = 0, none = 0;
+        for (const [subject, data] of Object.entries(syllabusDB)) {
+            const c = countTrafficForSubject(subject);
+            total += c.red + c.yellow + c.green + c.none;
+            red += c.red; yellow += c.yellow; green += c.green; none += c.none;
+        }
+        if (total === 0) { el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        el.className = 'traffic-dashboard';
+        const stat = (cls, ico, num, lbl) => `<div class="traffic-stat ${cls}"><span class="ts-ico">${ico}</span><div><div class="ts-num">${num}</div><div class="ts-lbl">${lbl}</div></div></div>`;
+        el.innerHTML =
+            stat('ts-total', '📊', total, '全部知识点') +
+            stat('ts-green', '🟢', green, '绿灯 · 已掌握') +
+            stat('ts-yellow', '🟡', yellow, '黄灯 · 需建卡片') +
+            stat('ts-red', '🔴', red, '红灯 · 需复习') +
+            stat('ts-none', '⚪', none, '未审计');
     }
 
     // --- 11. Schedule Generator Logic ---
@@ -1684,6 +1769,119 @@
         if (!stepsEditorDraft.length) { alert('至少需要保留一个步骤'); return; }
         localStorage.setItem('caie_studyplan_config', JSON.stringify({ questSteps: stepsEditorDraft }));
         location.reload();
+    }
+
+    /* ======================== 12.6 大纲导入（文本解析 + AI解析 + 预览确认） ======================== */
+    // 解析用户粘贴的大纲文本 → [{subject, units:[]}]，支持两种格式：
+    //   简单格式：科目名行 + 每行一个知识点（- 开头或纯文本）
+    //   结构化：`学科: xxx` `章节: xxx` `知识点: xxx`
+    function parseSyllabusText(raw) {
+        const result = [];
+        let currentSubject = null;
+        const lines = raw.split(/\r?\n/);
+        for (const lineRaw of lines) {
+            const trimmed = lineRaw.trim();
+            if (!trimmed) continue;
+            const line = trimmed.replace(/^[-•*>\d.)、\s]+/, '').trim();
+            if (!line) continue;
+            const isListLine = /^[-•*>]/.test(trimmed) || /^\d+[.)、]/.test(trimmed);
+            const subjMatch = trimmed.match(/^(?:学科|subject)[:：]\s*(.+)/i);
+            const chapMatch = trimmed.match(/^(?:章节|chapter|ch)[:：]\s*(.+)/i);
+            const pointMatch = trimmed.match(/^(?:知识点|topic|point)[:：]\s*(.+)/i);
+            let handled = true;
+            if (subjMatch) {
+                currentSubject = { subject: subjMatch[1].trim(), units: [] };
+                result.push(currentSubject);
+            } else if (pointMatch) {
+                if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
+                const pt = pointMatch[1].trim().replace(/^[-•*>\s]+/, '');
+                if (pt) currentSubject.units.push(pt);
+            } else if (chapMatch) {
+                if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
+                const chap = chapMatch[1].trim().replace(/^[-•*>\s]+/, '');
+                if (chap) currentSubject.units.push(chap);
+            } else if (isListLine) {
+                // 列表行 → 知识点（若包含 : 分隔如 "章节: xxx" 已在上文处理）
+                if (!currentSubject) currentSubject = { subject: '未命名科目', units: [] }, result.push(currentSubject);
+                if (line && !/^(?:章节|chapter|知识点|topic)[:：]/i.test(trimmed)) currentSubject.units.push(line);
+            } else {
+                // 非列表行 → 新科目（带代码 或 较短名称）
+                currentSubject = { subject: line, units: [] };
+                result.push(currentSubject);
+            }
+        }
+        // 清理无知识点的科目（保留有知识点的）
+        return result.filter(r => r.units.length > 0);
+    }
+
+    // AI 解析：调用 planAiCall 让 AI 从随意文本中提取结构化大纲
+    async function aiParseSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value.trim();
+        if (!raw) { alert('请先粘贴或输入大纲文本'); return; }
+        const cfg = getPlanAiConfig();
+        if (!cfg || !cfg.baseUrl || !cfg.apiKey) { alert('请先在设置页面配置 AI API Key（⚙ 设置 → AI 配置）'); return; }
+        const btn = event.target; btn.disabled = true; btn.textContent = '🤖 AI 解析中…';
+        try {
+            const prompt = `请从以下大纲文本中提取科目和知识点，严格按此格式输出（每个科目一段，知识点以-开头）：\n\n${raw}\n\n格式要求：\n第一行：科目名\n- 知识点1\n- 知识点2\n...\n\n只输出结构化大纲，不要解释。`;
+            const reply = await planAiCall([{ role: 'user', content: prompt }]);
+            document.getElementById('import-syllabus-text').value = reply.trim();
+            previewImportSyllabus();
+        } catch (e) {
+            alert('AI 解析失败：' + (e.message || e));
+        } finally {
+            btn.disabled = false; btn.textContent = '🤖 AI 解析';
+        }
+    }
+
+    function openImportSyllabus() {
+        document.getElementById('import-syllabus-text').value = '';
+        document.getElementById('import-syllabus-preview').innerHTML = '';
+        document.getElementById('import-syllabus-modal').showModal();
+    }
+
+    function previewImportSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value;
+        const parsed = parseSyllabusText(raw);
+        const preview = document.getElementById('import-syllabus-preview');
+        if (!parsed.length) { preview.innerHTML = '<span style="color:#ba1a1a;">未识别到大纲，请检查格式（第一行科目名，每行一个知识点）。</span>'; return; }
+        preview.innerHTML = parsed.map(p => {
+            const existing = syllabusDB[p.subject];
+            const dupCount = existing ? p.units.filter(u => existing.units.includes(u)).length : 0;
+            return `<div style="margin-bottom:8px;"><b>${escapeHtml(p.subject)}</b> — ${p.units.length} 个知识点（重复 ${dupCount} 个将跳过）<br>${p.units.map(u => '· ' + escapeHtml(u)).join('<br>')}</div>`;
+        }).join('<hr style="border:none;border-top:1px solid #eee;margin:8px 0;">');
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    function confirmImportSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value;
+        const parsed = parseSyllabusText(raw);
+        if (!parsed.length) { alert('未识别到大纲，请检查格式'); return; }
+        let added = 0, merged = 0;
+        parsed.forEach(p => {
+            if (!p.subject) return;
+            // 规范化 link：若科目存在保留原 link，否则构造默认 znotes 链接
+            if (!syllabusDB[p.subject]) {
+                const code = (p.subject.match(/\d{4}/) || [''])[0];
+                syllabusDB[p.subject] = { link: code ? `https://znotes.org/caie/igcse/${p.subject.toLowerCase()}/` : '', units: [] };
+            }
+            p.units.forEach(u => {
+                if (!u) return;
+                if (syllabusDB[p.subject].units.includes(u)) return; // 去重
+                syllabusDB[p.subject].units.push(u);
+                added++;
+            });
+            merged++;
+        });
+        saveSyllabus();
+        document.getElementById('import-syllabus-modal').close();
+        populateSettings();
+        renderUnitEditorList();
+        renderSidebar();
+        renderTrafficDashboard();
+        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点（已存在的知识点自动跳过，进度不受影响）`);
     }
 
     function renderUnitEditorList() {
