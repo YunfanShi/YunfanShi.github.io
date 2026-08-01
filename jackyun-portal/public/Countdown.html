@@ -97,6 +97,12 @@
             position: relative;
         }
 
+        /* Expired Tab */
+        .tab-btn.expired {
+            opacity: 0.55;
+            text-decoration: line-through;
+        }
+
         /* Styles for Custom Sort Mode (Draggable) */
         .tab-btn.draggable {
             cursor: grab;
@@ -178,6 +184,30 @@
             background-color: var(--theme-color);
             transition: background-color 0.3s;
         }
+
+        /* Expired Card State */
+        .card.expired-card {
+            opacity: 0.75;
+        }
+        .card.expired-card .title-text,
+        .card.expired-card .number {
+            color: var(--text-sub);
+        }
+
+        .expired-banner {
+            display: none;
+            margin: 0 auto 20px;
+            padding: 10px 24px;
+            border-radius: 99px;
+            background: rgba(234, 67, 53, 0.08);
+            border: 1.5px solid var(--g-red);
+            color: var(--g-red);
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1px;
+            width: fit-content;
+        }
+        .expired-banner.a { display: inline-block; }
 
         .label-text {
             text-transform: uppercase;
@@ -356,6 +386,22 @@
             font-size: 14px;
         }
         .event-item:last-child { border-bottom: none; }
+        .event-item.expired-item { opacity: 0.55; }
+        .event-item .expired-tag {
+            display: none;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--g-red);
+            border: 1px solid rgba(234, 67, 53, 0.4);
+            background: rgba(234, 67, 53, 0.06);
+            padding: 2px 8px;
+            border-radius: 99px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .event-item.expired-item .expired-tag { display: inline-block; }
+        .event-item .evt-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .event-item .evt-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .delete-btn {
             color: #ea4335;
@@ -393,17 +439,6 @@
         }
         .add-btn:hover { background-color: #1557b0; }
 
-        .reset-btn {
-            background-color: transparent;
-            color: #5f6368;
-            border: 1px solid #dadce0;
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
         /* Responsive */
         @media (max-width: 768px) {
             .number { font-size: 36px; }
@@ -427,9 +462,11 @@
         <button class="settings-btn" onclick="openModal()" title="Settings">⚙️</button>
     </div>
 
-    <div class="card">
+    <div class="card" id="main-card">
         <div class="label-text" id="target-date-display">TARGET DATE</div>
         <div class="title-text" id="main-title">EVENT TITLE</div>
+
+        <div class="expired-banner" id="expired-banner">⏰ 已过期</div>
 
         <div class="countdown-grid">
             <div class="unit-box">
@@ -512,7 +549,6 @@
                 </select>
                 <button class="add-btn" onclick="addNewEvent()">Add Event</button>
             </div>
-            <button class="reset-btn" onclick="resetToDefaults()">Reset to Default IGCSE Exams</button>
         </div>
     </div>
 
@@ -557,14 +593,6 @@
             renderEventList();
         }
 
-        function resetToDefaults() {
-            if(confirm("Restore default exam schedule? This will delete custom events.")) {
-                events = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-                changeSortMode('date'); // Reset to date sort
-                if (events.length > 0) switchTheme(events[0].id);
-            }
-        }
-
         // --- Sorting Mode Logic ---
         function changeSortMode(mode) {
             sortMode = mode;
@@ -590,6 +618,7 @@
             events.forEach((evt, index) => {
                 const btn = document.createElement('button');
                 btn.className = `tab-btn ${evt.id === currentId ? 'active' : ''}`;
+                if (isExpired(evt.date)) btn.classList.add('expired');
                 btn.innerText = evt.title;
                 btn.onclick = () => switchTheme(evt.id);
                 
@@ -662,6 +691,10 @@
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('drag-over'));
         }
 
+        function isExpired(dateStr) {
+            return new Date(dateStr) - new Date() <= 0;
+        }
+
         function switchTheme(id) {
             const evt = events.find(e => e.id === id);
             if (!evt) return;
@@ -682,6 +715,13 @@
                 b.classList.remove('active');
                 if (b.innerText === evt.title) b.classList.add('active');
             });
+
+            // Update expired visual state
+            const expired = isExpired(evt.date);
+            const card = document.getElementById('main-card');
+            const banner = document.getElementById('expired-banner');
+            card.classList.toggle('expired-card', expired);
+            banner.classList.toggle('a', expired);
             
             updateTimer();
         }
@@ -702,13 +742,22 @@
             list.innerHTML = '';
             events.forEach((evt, index) => {
                 const item = document.createElement('div');
-                item.className = 'event-item';
+                const expired = isExpired(evt.date);
+                item.className = 'event-item' + (expired ? ' expired-item' : '');
                 
                 const info = document.createElement('span');
+                info.className = 'evt-info';
                 const d = new Date(evt.date);
-                info.innerText = `${evt.title} (${d.getMonth()+1}/${d.getDate()})`;
-                info.style.color = evt.color;
-                info.style.fontWeight = 'bold';
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'evt-title';
+                titleSpan.innerText = `${evt.title} (${d.getMonth()+1}/${d.getDate()})`;
+                titleSpan.style.color = evt.color;
+                titleSpan.style.fontWeight = 'bold';
+                const expTag = document.createElement('span');
+                expTag.className = 'expired-tag';
+                expTag.innerText = '已过期';
+                info.appendChild(titleSpan);
+                info.appendChild(expTag);
 
                 const delBtn = document.createElement('button');
                 delBtn.className = 'delete-btn';
@@ -776,7 +825,8 @@
             const target = new Date(targetDateStr);
             let diff = target - now;
 
-            if (diff <= 0) return { mo:0, wk:0, d:0, h:0, m:0, s:0 };
+            if (isNaN(diff)) return { expired: true, mo:0, wk:0, d:0, h:0, m:0, s:0 };
+            if (diff <= 0) return { expired: true, mo:0, wk:0, d:0, h:0, m:0, s:0 };
 
             let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
             if (target.getDate() < now.getDate()) months--;
@@ -805,7 +855,7 @@
 
             let seconds = Math.floor(remaining / oneSec);
 
-            return { mo: months, wk: weeks, d: days, h: hours, m: minutes, s: seconds };
+            return { expired: false, mo: months, wk: weeks, d: days, h: hours, m: minutes, s: seconds };
         }
 
         function updateTimer() {
@@ -815,13 +865,22 @@
 
             const data = calculateDiff(evt.date);
 
-            document.getElementById('val-mo').innerText = data.mo;
-            document.getElementById('val-wk').innerText = data.wk;
-            document.getElementById('val-day').innerText = data.d;
-            
-            document.getElementById('val-hr').innerText = String(data.h).padStart(2, '0');
-            document.getElementById('val-min').innerText = String(data.m).padStart(2, '0');
-            document.getElementById('val-sec').innerText = String(data.s).padStart(2, '0');
+            // Expired → show dashes instead of numbers
+            if (data.expired) {
+                document.getElementById('val-mo').innerText = '—';
+                document.getElementById('val-wk').innerText = '—';
+                document.getElementById('val-day').innerText = '—';
+                document.getElementById('val-hr').innerText = '—';
+                document.getElementById('val-min').innerText = '—';
+                document.getElementById('val-sec').innerText = '⏰';
+            } else {
+                document.getElementById('val-mo').innerText = data.mo;
+                document.getElementById('val-wk').innerText = data.wk;
+                document.getElementById('val-day').innerText = data.d;
+                document.getElementById('val-hr').innerText = String(data.h).padStart(2, '0');
+                document.getElementById('val-min').innerText = String(data.m).padStart(2, '0');
+                document.getElementById('val-sec').innerText = String(data.s).padStart(2, '0');
+            }
         }
 
         function updateInfo() {
@@ -848,15 +907,7 @@
         updateInfo();
         setInterval(() => {
             updateTimer();
-            updateInfo();
         }, 1000);
-
-        window.onclick = function(event) {
-            const modal = document.getElementById('settings-modal');
-            if (event.target == modal) {
-                closeModal();
-            }
-        }
     </script>
 </body>
 </html>

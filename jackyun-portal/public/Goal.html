@@ -874,10 +874,29 @@ function isParent(g){return g.parentId===null&&goals.some(c=>c.parentId===g.id);
 function isLeaf(g){return !goals.some(c=>c.parentId===g.id);}
 
 /* Deadline: treat as end-of-day — add 1 day so "June 12" = June 12 23:59:59 */
+// 统一日期解析：兼容 'YYYY-MM-DD' 与 'YYYY-MM-DDTHH:mm' 两种格式（Countdown 页 datetime-local 不带秒）
+function parseEventDate(dateStr){
+  if(!dateStr) return new Date(NaN);
+  let d=dateStr.trim();
+  // 已经是完整 datetime → 直接解析
+  let dt=new Date(d);
+  if(!isNaN(dt.getTime())) return dt;
+  // 'YYYY-MM-DDTHH:mm' 无秒 → 补 ':00'
+  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d)){
+    return new Date(d+':00');
+  }
+  // 纯日期 → 当天结束
+  if(/^\d{4}-\d{2}-\d{2}$/.test(d)){
+    const t=new Date(d+'T00:00:00');
+    t.setDate(t.getDate()+1); // 当天结束
+    return t;
+  }
+  return new Date(NaN);
+}
 function deadlineDays(dateStr){
   if(!dateStr) return null;
-  const target=new Date(dateStr+'T00:00:00');
-  target.setDate(target.getDate()+1); // end of that day
+  const target=parseEventDate(dateStr);
+  if(isNaN(target.getTime())) return null;
   return Math.ceil((target-new Date())/864e5);
 }
 function isOverdue(g){
@@ -891,11 +910,10 @@ function urgentCountdownEvents(){
     const evts=JSON.parse(localStorage.getItem('jack_countdown_events')||'[]');
     if(!Array.isArray(evts)) return [];
     const now=new Date();
-    return evts.filter(e=>e&&e.date).map(e=>({
-      title:e.title||'重要日期',
-      date:e.date,
-      days:Math.ceil((new Date(e.date+'T00:00:00')-now)/864e5)
-    })).filter(e=>e.days>=0&&e.days<=3).sort((a,b)=>a.days-b.days);
+    return evts.filter(e=>e&&e.date).map(e=>{
+      const d=parseEventDate(e.date);
+      return {title:e.title||'重要日期', date:e.date, days:Math.ceil((d-now)/864e5)};
+    }).filter(e=>!isNaN(e.days)&&e.days>=0&&e.days<=3).sort((a,b)=>a.days-b.days);
   }catch(e){ return []; }
 }
 function cdUrgentBubbleHTML(){
@@ -1155,10 +1173,10 @@ function buildCountdownContext(){
     const evts=JSON.parse(localStorage.getItem('jack_countdown_events')||'[]');
     if(!Array.isArray(evts)||!evts.length) return '';
     const now=new Date();
-    const upcoming=evts.filter(e=>e&&e.date).map(e=>({
-      title:e.title||'重要日期',
-      days:Math.ceil((new Date(e.date+'T00:00:00')-now)/864e5)
-    })).filter(e=>e.days>=0).sort((a,b)=>a.days-b.days).slice(0,5);
+    const upcoming=evts.filter(e=>e&&e.date).map(e=>{
+      const d=parseEventDate(e.date);
+      return {title:e.title||'重要日期', days:Math.ceil((d-now)/864e5)};
+    }).filter(e=>!isNaN(e.days)&&e.days>=0).sort((a,b)=>a.days-b.days).slice(0,5);
     if(!upcoming.length) return '';
     return '【倒计日（重要日期）】\n'+upcoming.map(e=>`- ${e.title}：距今 ${e.days} 天`).join('\n');
   }catch(e){ return ''; }
@@ -1491,6 +1509,7 @@ function rerunPred(){
 
 /* ===================== DUAL COUNTDOWN HELPER ===================== */
 function fmtCountdown(totalMs){
+  if(isNaN(totalMs)) return '—';
   if(totalMs<=0) return '已到期';
   const totalS=Math.floor(totalMs/1000);
   const d=Math.floor(totalS/86400);
@@ -1525,8 +1544,7 @@ function dualCdHTML(g){
 
   if(hasDeadline){
     // deadline end of that day
-    const dlTarget=new Date(g.deadline+'T00:00:00');
-    dlTarget.setDate(dlTarget.getDate()+1);
+    const dlTarget=parseEventDate(g.deadline);
     const msLeft=dlTarget-new Date();
     const isOver=msLeft<=0;
     const cls=isOver?'overdue-box':'dl-box';
@@ -1542,6 +1560,21 @@ function dualCdHTML(g){
 }
 
 /* ===================== RENDER CARD ===================== */
+function moveGoalOrder(id, dir){
+  const idx=goals.findIndex(g=>g.id===id);
+  if(idx<0) return;
+  const isChild=goals[idx].parentId!==null;
+  // 同层排序：按照 goals 数组中的相邻顺序
+  const siblings=goals.filter(g=>isChild?(g.parentId===goals[idx].parentId):(g.parentId===null));
+  const sidx=siblings.findIndex(s=>s.id===id);
+  const target=sidx+dir;
+  if(target<0||target>=siblings.length) return;
+  const a=siblings[sidx], b=siblings[target];
+  const ia=goals.findIndex(g=>g.id===a.id), ib=goals.findIndex(g=>g.id===b.id);
+  [goals[ia],goals[ib]]=[goals[ib],goals[ia]];
+  save(); render();
+  toast(dir<0?'已上移 ↑':'已下移 ↓');
+}
 function renderGoalCard(g, isChild=false){
   const c=gc(g.color), p=getPct(g), isDone=p===100, ov=isOverdue(g);
   const dl=deadlineDays(g.deadline);
@@ -1572,6 +1605,8 @@ function renderGoalCard(g, isChild=false){
           <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
         </div>
         <div class="gactions">
+          <button class="btn btn-ico" onclick="moveGoalOrder(${g.id},-1)" title="上移">▲</button>
+          <button class="btn btn-ico" onclick="moveGoalOrder(${g.id},1)" title="下移">▼</button>
           <button class="btn btn-ico" onclick="openDetail(${g.id})" title="详情">◎</button>
           <button class="btn btn-ico" onclick="openEdit(${g.id})" title="编辑">✎</button>
           ${isLeaf(g)?`<button class="btn btn-ico" onclick="openProg(${g.id})" title="更新进度">↑</button>`:''}
@@ -1645,6 +1680,8 @@ function render(){
                 <div class="gbadge" style="background:${bc};color:${bcolor};">${badge}</div>
               </div>
               <div class="pcard-actions">
+                <button class="btn btn-ico" onclick="moveGoalOrder(${r.id},-1)" title="上移">▲</button>
+                <button class="btn btn-ico" onclick="moveGoalOrder(${r.id},1)" title="下移">▼</button>
                 <button class="btn btn-ico" onclick="openDetail(${r.id})" title="详情">◎</button>
                 <button class="btn btn-ico" onclick="openEdit(${r.id})" title="编辑">✎</button>
                 <button class="btn btn-ico" onclick="batchPredictParent(${r.id})" title="一键预测所有子任务" style="color:var(--ai);">✦</button>
@@ -1711,7 +1748,7 @@ function render(){
       if(g.deadline){
         const el=document.getElementById('dlcd'+g.id);
         if(el){
-          const t=new Date(g.deadline+'T00:00:00');t.setDate(t.getDate()+1);
+          const t=parseEventDate(g.deadline);
           el.textContent=fmtCountdown(t-new Date());
         }
       }
@@ -2664,13 +2701,16 @@ function renderTimerUI(id){
 function timerAreaHTML(g){
   if(!g) return '';
   const t=activeTimers[g.id];
+  let inner;
   if(t&&t.running){
-    return `<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="pauseTaskTimer(${g.id})" title="暂停">⏸</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+    inner=`<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="pauseTaskTimer(${g.id})" title="暂停">⏸</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+  } else if(t&&!t.running){
+    inner=`<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="startTaskTimer(${g.id})" title="继续">▶</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+  } else {
+    inner=`<div class="gt-timer idle"><button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px;color:var(--ai);" onclick="startTaskTimer(${g.id})">▶ 开始任务</button></div>`;
   }
-  if(t&&!t.running){
-    return `<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="startTaskTimer(${g.id})" title="继续">▶</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
-  }
-  return `<div class="gt-timer idle"><button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px;color:var(--ai);" onclick="startTaskTimer(${g.id})">▶ 开始任务</button></div>`;
+  // 外层容器带 id，renderTimerUI 才能精确更新
+  return `<div id="timerArea${g.id}">${inner}</div>`;
 }
 let endTimerCtx=null;
 function openEndTimerModal(id,ms){
@@ -2901,8 +2941,10 @@ let countdowns=JSON.parse(localStorage.getItem('cd_v2')||'null')||[
 let cdDraft=[],cdTimer=null;
 function saveCdData(){localStorage.setItem('cd_v2',JSON.stringify(countdowns));}
 function calcCountdown(targetDate,fmt){
-  const now=new Date(),target=new Date(targetDate+'T00:00:00');
-  target.setDate(target.getDate()+1); // end of that day
+  const now=new Date();
+  const target=parseEventDate(targetDate);
+  // parseEventDate 对纯日期已自动 +1 到当天结束，datetime 格式按精确时间
+  if(isNaN(target.getTime())) return{parts:[{v:0,u:'天'}],past:true,totalD:0};
   const diff=target-now,past=diff<0;
   // 如果日期已过，所有值归零，防止出现 -1 周
   if(past)return{parts:[{v:0,u:'周'},{v:0,u:'天'}],past:true,totalD:0};
