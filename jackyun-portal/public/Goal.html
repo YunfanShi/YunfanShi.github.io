@@ -264,6 +264,16 @@ option{background:#1a1a1a;}
 .cd-box-time.dl-time{color:#4d9ef7;}
 .cd-box-time.overdue-time{color:#ff5c5c;}
 
+/* TASK TIMER */
+@keyframes breathe{0%,100%{border-color:rgba(52,199,106,.25);box-shadow:0 0 0 0 rgba(52,199,106,.12);}50%{border-color:rgba(52,199,106,.85);box-shadow:0 0 14px 2px rgba(52,199,106,.25);}}
+.gt-timer.running{animation:breathe 2.2s ease-in-out infinite;}
+.gt-timer{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);}
+.gt-timer.running{border-color:rgba(52,199,106,.35);background:rgba(52,199,106,.07);}
+.gt-timer.paused{border-color:var(--border2);}
+.gt-timer-time{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--ai);flex:none;}
+.gt-timer.running .gt-timer-time{color:#34c76a;}
+.gt-timer .btn-ico{padding:2px 8px;height:24px;font-size:12px;}
+
 /* MOVE OPTION */
 .move-opt{display:flex;align-items:center;gap:12px;padding:10px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s;}
 .move-opt:hover{border-color:var(--blue);background:var(--blue-dim);}
@@ -415,8 +425,8 @@ option{background:#1a1a1a;}
           <input class="fi" id="iDone" type="number" min="0" value="0">
         </div>
         <div class="fg">
-          <label class="flbl">总数量 * <span style="font-size:10px;color:var(--ai);text-transform:none;letter-spacing:0;">0 = 无上限任务</span></label>
-          <input class="fi" id="iTotal" type="number" min="0" value="10">
+          <label class="flbl">总数量 * <span style="font-size:10px;color:var(--ai);text-transform:none;letter-spacing:0;">留空或 0 = 无上限任务</span></label>
+          <input class="fi" id="iTotal" type="number" min="0" value="" placeholder="留空 = 无上限">
         </div>
       </div>
       <div class="fg" id="colorRowWrap">
@@ -442,7 +452,7 @@ option{background:#1a1a1a;}
           style="width:84px;font-size:26px;font-weight:600;text-align:center;padding:9px 6px;font-family:var(--mono);"
           oninput="onQDone()">
         <span style="font-size:22px;color:var(--text3);font-weight:300;">/</span>
-        <input class="fi" id="qTotal" type="number" min="1" value="10"
+        <input class="fi" id="qTotal" type="number" min="0" value="0"
           style="width:84px;font-size:26px;font-weight:600;text-align:center;padding:9px 6px;font-family:var(--mono);color:var(--text2);"
           oninput="onQDone()">
         <span id="qUnitLabel" style="font-size:13px;color:var(--text2);min-width:28px;"></span>
@@ -465,12 +475,34 @@ option{background:#1a1a1a;}
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;">
         <input type="checkbox" id="qIsHistorical" style="width:15px;height:15px;accent-color:var(--yellow);cursor:pointer;">
         <span style="color:var(--text);">📦 标记为历史数据</span>
-        <span style="font-size:11px;color:var(--text3);margin-left:auto;">（本次记录是过去累积的量，不是今天一天完成的）</span>
+<span style="font-size:11px;color:var(--text3);margin-left:auto;">（勾选后不计入今日完成量，仅供AI参考历史累积）</span>
       </label>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('progModal')">取消</button>
       <button class="btn btn-pri" onclick="saveQ()">确认更新</button>
+    </div>
+  </div>
+</div>
+
+<!-- END TASK TIMER MODAL -->
+<div class="overlay" id="endTimerModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="mhd">✅ 结束任务</div>
+    <div class="mbody">
+      <div id="endTimerInfo" style="font-size:13px;color:var(--text2);margin-bottom:12px;"></div>
+      <div class="fg">
+        <label class="flbl">本次完成了多少？<span style="font-size:10px;color:var(--text3);">（无上限任务填累计增量）</span></label>
+        <input class="fi" id="endDone" type="number" min="0" value="0" style="font-size:20px;font-weight:600;font-family:var(--mono);text-align:center;">
+      </div>
+      <div class="fg" style="margin-top:10px;">
+        <label class="flbl">备注（可选）</label>
+        <input class="fi" id="endNote" maxlength="80" placeholder="这次做了什么…">
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('endTimerModal');cancelEndTimer()">取消</button>
+      <button class="btn btn-pri" onclick="confirmEndTimer()">记录并结束</button>
     </div>
   </div>
 </div>
@@ -779,9 +811,17 @@ let editId=null, quickId=null, selColor='blue';
 let aiPreds = JSON.parse(localStorage.getItem('ai_preds')||'{}');
 let prefs   = JSON.parse(localStorage.getItem('ai_prefs')||'{"autoPred":true,"showPred":true,"weekdayHours":2,"weekendHours":6,"holidays":[]}');
 let currentPredId = null;
+let activeTimers={};
+try{ activeTimers=JSON.parse(localStorage.getItem('gt_timers_v1')||'{}'); }catch(e){}
+function saveTimers(){ localStorage.setItem('gt_timers_v1',JSON.stringify(activeTimers)); }
+
+// Context cache for buildAllContext — invalidated on save, reused within 30s
+let _ctxCache=null, _ctxCacheTS=0, _ctxCacheKey='';
+function invalidateCtxCache(){ _ctxCache=null; _ctxCacheTS=0; }
 
 /* ===================== PERSISTENCE ===================== */
 function save(){
+  invalidateCtxCache(); // goals changed → context must rebuild
   // 同时写入两个 key：gt_v6（本页实际使用）+ jackyun_goal_data（AI 工具/云端同步使用）
   localStorage.setItem('gt_v6',JSON.stringify(goals));
   localStorage.setItem('jackyun_goal_data',JSON.stringify(goals));
@@ -1077,6 +1117,28 @@ function buildGoalContext(g, includeSiblings=true){
   return ctx;
 }
 
+/* ===================== SESSION / COUNTDOWN CONTEXT HELPERS ===================== */
+function sessionSummary(g){
+  const cutoff=new Date(Date.now()-6*864e5).toISOString().slice(0,10);
+  const s=(g.sessions||[]).filter(x=>x&&x.date>=cutoff);
+  const mins=s.reduce((a,b)=>a+(b.minutes||0),0);
+  return mins>0?`${mins}分钟（${s.length}次专注）`:'暂无';
+}
+function buildCountdownContext(){
+  try{
+    const evts=JSON.parse(localStorage.getItem('jack_countdown_events')||'[]');
+    if(!Array.isArray(evts)||!evts.length) return '';
+    const now=new Date();
+    const upcoming=evts.filter(e=>e&&e.date).map(e=>({
+      title:e.title||'重要日期',
+      days:Math.ceil((new Date(e.date+'T00:00:00')-now)/864e5)
+    })).filter(e=>e.days>=0).sort((a,b)=>a.days-b.days).slice(0,5);
+    if(!upcoming.length) return '';
+    return '【倒计日（重要日期）】\n'+upcoming.map(e=>`- ${e.title}：距今 ${e.days} 天`).join('\n');
+  }catch(e){ return ''; }
+}
+
+
 function buildParentContext(g){
   const children=goals.filter(c=>c.parentId===g.id);
   const pct=getPct(g);
@@ -1161,11 +1223,14 @@ function buildAllContext(){
   // Performance guard: with many goals/history entries the prompt grows huge
   // and the AI gets slow or unresponsive. Cap detail per goal.
   const ROOT_LIMIT=30;
-  const HIST_LIMIT=20;
+  const HIST_LIMIT=10;
 
+  // 短期缓存（30s）：goals 未变化时直接复用已构建的上下文字符串，避免重复计算
+  const now=Date.now();
+  if(_ctxCache && (now-_ctxCacheTS)<30000) return _ctxCache;
 
   let out=`现在：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
-  out+=buildScheduleContext()+'\n\n════════════════════\n\n';
+  out+=buildScheduleContext()+'\n\n'+buildCountdownContext()+'\n\n════════════════════\n\n';
 
   out+=roots.slice(0,ROOT_LIMIT).map(r=>{
     const children=goals.filter(c=>c.parentId===r.id);
@@ -1190,11 +1255,12 @@ function buildAllContext(){
 完成：${r.done||0}/${r.total} ${r.unit||''} (${pct}%)
 截止：${r.deadline||'未设置'}${dlDays!=null?` (距今${dlDays}天)`:''}
 速率：${vel}
+近7天专注：${sessionSummary(r)}
 全部历史记录(${hist.length}${histTotal>HIST_LIMIT?'/共'+histTotal+'条':''}次)：
 ${hist.map(h=>`  ${h.date}${h.isHistorical?' [历史累积]':''}${h.anomaly?' [异常]':''}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}${h.note?' ('+h.note+')':''}`).join('\n')||'  无'}`;
       const cached=aiPreds[r.id];
       if(cached&&cached.text){
-        const sum=cached.text.replace(/\[DAYS:-?\d+\]/g,'').trim().slice(0,150).replace(/\n/g,' ');
+        const sum=cached.text.replace(/\[DAYS:-?\d+\]/g,'').trim().slice(0,90).replace(/\n/g,' ');
         txt+=`\n最新AI分析：${sum}…`;
       }
       return txt;
@@ -1206,6 +1272,7 @@ ${hist.map(h=>`  ${h.date}${h.isHistorical?' [历史累积]':''}${h.anomaly?' [�
     out+=`\n\n（另有 ${roots.length-ROOT_LIMIT} 个独立目标因数量过多未展开，仅列出名称：${roots.slice(ROOT_LIMIT).map(r=>r.name).join('、')}）`;
   }
 
+  _ctxCache=out; _ctxCacheTS=Date.now();
   return out;
 }
 
@@ -1506,6 +1573,7 @@ function renderGoalCard(g, isChild=false){
       </div>
     </div>
     ${dualCdHTML(g)}
+    ${timerAreaHTML(g)}
   </div>`;
 }
 
@@ -1593,6 +1661,11 @@ function render(){
   if(window._cdTicker) clearInterval(window._cdTicker);
   window._cdTicker=setInterval(()=>{
     goals.forEach(g=>{
+      // Task timer ticker
+      if(activeTimers[g.id]){
+        const tt=document.getElementById('tt'+g.id);
+        if(tt) tt.textContent=fmtTaskTime(timerMs(g.id));
+      }
       // AI countdown
       const cached=aiPreds[g.id];
       const days=cached?extractDays(cached.text):null;
@@ -1938,7 +2011,7 @@ const AI_TOOLS={
         if(!op.name){return {ok:false,msg:'目标名称不能为空'};}
         // total=0 表示无上限任务
         const totalVal=Number(op.total);
-        const totalV=Number.isFinite(totalVal)&&totalVal>=0?totalVal:10;
+        const totalV=Number.isFinite(totalVal)&&totalVal>=0?totalVal:0;
         const doneVal=totalV>0?Math.min(Number(op.done)||0,totalV):Math.max(0,Number(op.done)||0);
         const newG={
           id:Date.now()+Math.floor(Math.random()*1000),
@@ -1995,7 +2068,7 @@ function AGENT_SYSTEM(){
     +BBB+'ACTION\n{"op":"set_unit","id":目标ID数字,"value":"单位"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"set_color","id":目标ID数字,"value":"blue或green或yellow或red或purple或teal或pink或orange"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"set_parent","id":目标ID数字,"value":父任务ID数字或null}\n'+BBB+'\n\n'
-    +BBB+'ACTION\n{"op":"add_history","id":目标ID数字,"done":数字,"total":数字,"date":"YYYY-MM-DD","note":"备注"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"add_history","id":目标ID数字,"done":数字,"total":数字,"date":"YYYY-MM-DD","note":"备注","isHistorical":true}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"mark_anomaly","id":目标ID数字,"date":"YYYY-MM-DD","reason":"异常原因"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"create_goal","name":"名称","desc":"描述","cat":"分类","priority":"mid","parentId":null,"done":0,"total":10,"color":"blue","deadline":"YYYY-MM-DD","unit":"单位"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"delete_goal","id":目标ID数字}\n'+BBB+'\n\n'
@@ -2005,11 +2078,13 @@ function AGENT_SYSTEM(){
     +'- 如果用户要修改数据，先用中文说明你要做什么，再输出对应的ACTION块\n'
     +'- 可以一次输出多个ACTION块完成批量操作\n'
     +'- 每个ACTION块只包含一个JSON对象，不要有注释\n'
+    +'- ⚠️【硬性规则】凡是标记为 isHistorical:true 或带 [历史累积] 前缀的记录，均代表过去多日累积数据，不是今日单日成果。当用户问「今天做了多少」「今日进度」「今天完成量」等今日维度的问题时，必须排除所有历史累积记录，仅统计 date 为今天且未标记 isHistorical 的记录！\n'
     +'- 历史数据：标注了 [历史累积] 的记录是用户过去一段时间陆续完成的（可能是批量补录），计算速率/预测时请使用这些记录所在日期的真实时间跨度，不要把大额单日数字当成一天完成的量\n'
     +'- 异常数据：标注了 [异常] 的记录应被忽略，不应参与速率计算和完成时间预测\n'
     +'- 如果发现某条历史记录看起来像一次性补录的大额数据（单次增加超过总量的40%），可以用 mark_anomaly 操作标记它，并在回复中向用户说明\n'
     +'- 明天 = '+tomorrow+'\n'
-    +'- 下周 = '+nextWeek;
+    +'- 下周 = '+nextWeek+'\n'
+    +'- 当用户问「今天干什么/今天该做什么」时：直接基于目标数据（剩余量、截止日期、预测完成时间、今日可用小时、倒计日考试日期）给出今天具体要做的2-5件事，按优先级排序并含具体数字目标，不要给泛泛建议';
 };
 
 async function askCustom(){
@@ -2401,7 +2476,7 @@ function openAdd(){
   document.getElementById('mTitle').textContent='新建目标';
   ['iName','iDesc','iDeadline','iUnit'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('iCat').value='学习';document.getElementById('iPri').value='mid';
-  document.getElementById('iDone').value=0;document.getElementById('iTotal').value=10;
+  document.getElementById('iDone').value=0;document.getElementById('iTotal').value='';
   document.getElementById('colorRow').innerHTML=buildCR('blue');
   populateParentSelect();
   document.getElementById('iParent').value='';
@@ -2420,7 +2495,7 @@ function openEdit(id){
   document.getElementById('iName').value=g.name;document.getElementById('iDesc').value=g.desc||'';
   document.getElementById('iCat').value=g.cat||'学习';document.getElementById('iPri').value=g.priority||'mid';
   document.getElementById('iDeadline').value=g.deadline||'';document.getElementById('iUnit').value=g.unit||'';
-  document.getElementById('iDone').value=g.done||0;document.getElementById('iTotal').value=g.total||10;
+  document.getElementById('iDone').value=g.done||0;document.getElementById('iTotal').value=g.total;
   document.getElementById('colorRow').innerHTML=buildCR(g.color);
   populateParentSelect(id);
   document.getElementById('iParent').value=g.parentId||'';
@@ -2432,7 +2507,8 @@ function saveGoal(){
   const dv=Math.max(0,parseInt(document.getElementById('iDone').value)||0);
   // total=0 表示无上限任务（如背单词、口语练习等没有终点的任务）
   const tvRaw=parseInt(document.getElementById('iTotal').value);
-  const tv=Number.isFinite(tvRaw)&&tvRaw>=0?tvRaw:10;
+  // 留空或无效输入 → 0（无上限任务）
+  const tv=Number.isFinite(tvRaw)&&tvRaw>=0?tvRaw:0;
   const doneVal=tv>0?Math.min(dv,tv):dv;
   const parentIdRaw=document.getElementById('iParent').value;
   const parentId=parentIdRaw?parseInt(parentIdRaw):null;
@@ -2459,7 +2535,7 @@ function openProg(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   quickId=id;
   document.getElementById('progMTitle').textContent='更新进度 — '+g.name;
-  document.getElementById('qDone').value=g.done||0;document.getElementById('qTotal').value=g.total||10;
+  document.getElementById('qDone').value=g.done||0;document.getElementById('qTotal').value=g.total;
   document.getElementById('qUnitLabel').textContent=g.unit||'';document.getElementById('qNote').value='';
   if(document.getElementById('qIsHistorical'))document.getElementById('qIsHistorical').checked=false;
   const p=getPct(g);document.getElementById('qPctDisplay').textContent=p+'%';
@@ -2524,13 +2600,90 @@ function saveQ(){
   }
 }
 
+/* ===================== TASK TIMER ===================== */
+function timerMs(id){
+  const t=activeTimers[id]; if(!t) return 0;
+  return t.acc + (t.running ? Math.max(0,Date.now()-(t.start||Date.now())) : 0);
+}
+function fmtTaskTime(ms){
+  const totalS=Math.max(0,Math.floor(ms/1000));
+  const h=Math.floor(totalS/3600),m=Math.floor((totalS%3600)/60),s=totalS%60;
+  const p=n=>String(n).padStart(2,'0');
+  return h>0?`${h}:${p(m)}:${p(s)}`:`${p(m)}:${p(s)}`;
+}
+function startTaskTimer(id){
+  const g=goals.find(x=>x.id===id); if(!g) return;
+  const t=activeTimers[id];
+  if(t&&t.running){ toast('该任务已在计时中'); return; }
+  activeTimers[id]={start:Date.now(),acc:(t?t.acc:0),running:true};
+  saveTimers(); renderTimerUI(id); toast('▶ 已开始计时');
+}
+function pauseTaskTimer(id){
+  const t=activeTimers[id]; if(!t||!t.running) return;
+  t.acc+=Math.max(0,Date.now()-t.start); t.start=null; t.running=false;
+  saveTimers(); renderTimerUI(id);
+}
+function stopTaskTimer(id){
+  const t=activeTimers[id]; if(!t) return;
+  const ms=t.acc+(t.running?Math.max(0,Date.now()-t.start):0);
+  delete activeTimers[id]; saveTimers();
+  openEndTimerModal(id,ms);
+}
+function renderTimerUI(id){
+  const el=document.getElementById('timerArea'+id);
+  if(el) el.innerHTML=timerAreaHTML(goals.find(x=>x.id===id));
+}
+function timerAreaHTML(g){
+  if(!g) return '';
+  const t=activeTimers[g.id];
+  if(t&&t.running){
+    return `<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="pauseTaskTimer(${g.id})" title="暂停">⏸</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+  }
+  if(t&&!t.running){
+    return `<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span><button class="btn btn-ico" onclick="startTaskTimer(${g.id})" title="继续">▶</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+  }
+  return `<div class="gt-timer idle"><button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px;color:var(--ai);" onclick="startTaskTimer(${g.id})">▶ 开始任务</button></div>`;
+}
+let endTimerCtx=null;
+function openEndTimerModal(id,ms){
+  const g=goals.find(x=>x.id===id); if(!g) return;
+  endTimerCtx={id,ms};
+  document.getElementById('endTimerInfo').innerHTML=`<b>${esc(g.name)}</b><br>本次专注：<b style="color:var(--ai);font-family:var(--mono);font-size:18px;">${fmtTaskTime(ms)}</b>`;
+  document.getElementById('endDone').value=0;
+  document.getElementById('endNote').value='';
+  openM('endTimerModal');
+}
+function cancelEndTimer(){ endTimerCtx=null; }
+function confirmEndTimer(){
+  if(!endTimerCtx) return;
+  const {id,ms}=endTimerCtx; endTimerCtx=null;
+  const g=goals.find(x=>x.id===id); if(!g) return;
+  const minutes=Math.round(ms/60000);
+  const delta=Math.max(0,parseInt(document.getElementById('endDone').value)||0);
+  const note=document.getElementById('endNote').value.trim();
+  if(!g.sessions) g.sessions=[];
+  g.sessions.push({date:today(),minutes,note});
+  if(delta>0){
+    const newDone=g.total>0?Math.min(g.total,(g.done||0)+delta):(g.done||0)+delta;
+    g.done=newDone;
+    if(!g.history) g.history=[];
+    g.history.push({date:today(),done:newDone,total:g.total,note:note||('专注 '+fmtTaskTime(ms)),isHistorical:false});
+  }
+  delete activeTimers[id]; saveTimers();
+  delete aiPreds[id]; savePreds();
+  fullRefresh(); closeM('endTimerModal');
+  toast('✅ 已记录 '+fmtTaskTime(ms)+' 专注时间'+(delta>0?` · 进度 +${delta}${g.unit||''}`:''));
+  if(g.parentId!=null) setTimeout(()=>autoPredictIfNeeded(g.parentId),300);
+}
+
 /* ===================== DETAIL ===================== */
 function openDetail(id){
   const g=goals.find(x=>x.id===id);if(!g)return;
   const c=gc(g.color),dl=deadlineDays(g.deadline);
   document.getElementById('dTitle').textContent=g.name;
   document.getElementById('dEditBtn').onclick=()=>{closeM('detailModal');openEdit(id);};
-  const hist=(g.history||[]).slice().reverse().slice(0,10);
+  const histArr=g.history||[];
+  const hist=histArr.map((h,i)=>({h,i})).reverse().slice(0,10);
 
   // Deadline history
   const dlHist=(g.deadlineHistory||[]).slice().reverse();
@@ -2550,7 +2703,7 @@ function openDetail(id){
     </div>`).join('')}
   `:'';
 
-  const histH=hist.length?hist.map(h=>{
+  const histH=hist.length?hist.map(({h,i})=>{
     const hd=h.done!=null?h.done:(h.v||0),ht=h.total||g.total;
     const hp=ht>0?Math.min(100,Math.round(hd/ht*100)):0;
     const flags=(h.isHistorical?`<span title="标记为历史数据" style="font-size:10px;background:rgba(245,166,35,0.15);color:#f5a623;border:1px solid rgba(245,166,35,0.3);border-radius:3px;padding:0 4px;flex-shrink:0;">📦</span>`:'')
@@ -2560,12 +2713,16 @@ function openDetail(id){
       <div style="flex:1;">${segBar(hp,28,7)}</div>
       <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:46px;text-align:right;">${hd}/${ht}</span>
       ${flags}
-      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
+      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
+      ${h.isHistorical?`<button class="btn btn-ico" title="改为当天完成" onclick="toggleHistoryFlag(${id},${i})" style="font-size:11px;">☀️</button>`:`<button class="btn btn-ico" title="标记为历史累积（不是一天完成的）" onclick="toggleHistoryFlag(${id},${i})" style="font-size:11px;">📦</button>`}
+      <button class="btn btn-ico del" title="删除此条记录" onclick="deleteHistoryEntry(${id},${i})" style="font-size:10px;">✕</button>
     </div>`;}).join(''):'<div style="color:var(--text3);font-size:13px;padding:9px 0;">暂无更新记录</div>';
+  const sessions=(g.sessions||[]).slice().reverse().slice(0,8);
+  const sessionH=sessions.length?`<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-top:12px;margin-bottom:7px;">⏱ 专注记录 <span style="font-size:9px;color:var(--text3);">(最近${sessions.length}次)</span></div>${sessions.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:70px;">${s.date}</span><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ai);min-width:70px;">${fmtTaskTime((s.minutes||0)*60000)}</span><span style="flex:1;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.note||'')}</span></div>`).join('')}</div>`:'';
   const p=getPct(g),{done:dd,total:dt}=getDoneTotal(g);
   const kv=[['完成情况',dd+' / '+dt+(g.unit?' '+g.unit:'')],['完成率',p+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],
     ['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],
-    ['截止日期',g.deadline||(dl!=null?`${dl}天后`:'未设置')],['更新次数',(g.history||[]).length+'次']];
+    ['截止日期',g.deadline||(dl!=null?`${dl}天后`:'未设置')],['更新次数',(g.history||[]).length+'次'],['专注总时长',fmtTaskTime(((g.sessions||[]).reduce((s,x)=>s+(x.minutes||0),0))*60000)]];
   const cached=aiPreds[id];
   const aiSec=cached?`<div style="margin-bottom:16px;"><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">AI 分析 ${cached.auto?'(自动)':''}</div><div style="background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:8px;padding:11px;font-size:12px;line-height:1.6;">${renderMD(cached.text)}</div><div style="text-align:right;font-size:10px;color:var(--text3);margin-top:3px;">${new Date(cached.ts).toLocaleString('zh-CN')}</div></div>`:'';
   // children summary
@@ -2576,7 +2733,10 @@ function openDetail(id){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px;">
       ${kv.map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">${k}</div><div style="font-size:13px;font-weight:500;color:var(--text);">${v}</div></div>`).join('')}
     </div>${chSec}${aiSec}
-    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">更新历史</div>${histH}
+    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:7px;">更新历史
+      <button class="btn btn-ico" onclick="cleanDuplicateHistory(${id})" title="清理相邻重复记录（done/total 完全一致，保留最新）" style="font-size:10px;width:auto;padding:0 6px;height:20px;color:var(--text2);">🧹 清理重复</button>
+    </div>${histH}
+    ${sessionH}
     ${dlHistH}`;
   openM('detailModal');
 }
@@ -2588,6 +2748,37 @@ function delGoal(id){
   goals=goals.filter(g=>!idsToDelete.includes(g.id));
   idsToDelete.forEach(i=>{delete aiPreds[i];});
   savePreds();fullRefresh();toast('目标已删除');
+}
+
+/* ===================== HISTORY ENTRY MANAGEMENT ===================== */
+function deleteHistoryEntry(id, idx){
+  const g=goals.find(x=>x.id===id); if(!g||!g.history) return;
+  if(!confirm('确定删除这条更新记录？')) return;
+  g.history.splice(idx,1);
+  delete aiPreds[id]; savePreds();
+  save(); openDetail(id);
+}
+function toggleHistoryFlag(id, idx){
+  const g=goals.find(x=>x.id===id); if(!g||!g.history||!g.history[idx]) return;
+  g.history[idx].isHistorical=!g.history[idx].isHistorical;
+  save(); openDetail(id);
+}
+// 一键清理重复记录：相邻两条（按时间排序）done 与 total 完全一致时删除较旧一条
+function cleanDuplicateHistory(id){
+  const g=goals.find(x=>x.id===id); if(!g||!g.history||g.history.length<2) return;
+  const sorted=g.history.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.ts||0)-(b.ts||0));
+  const same=(a,b)=>((a.done!=null?a.done:(a.v||0))===(b.done!=null?b.done:(b.v||0)))&&((a.total!=null?a.total:(a.total||g.total))===(b.total!=null?b.total:(b.total||g.total)));
+  let removed=0; const kept=[];
+  for(let i=0;i<sorted.length;i++){
+    if(i>0&&same(sorted[i],sorted[i-1])){ removed++; continue; }
+    kept.push(sorted[i]);
+  }
+  if(removed>0){
+    g.history=kept;
+    save(); toast(`已清理 ${removed} 条重复记录 ✨`); openDetail(id);
+  } else {
+    toast('未发现相邻重复记录 ✓');
+  }
 }
 
 /* ===================== EXPORT / IMPORT ===================== */
@@ -2699,11 +2890,24 @@ function calcCountdown(targetDate,fmt){
   else if(fmt==='Md')parts=[{v:totalM,u:'月'},{v:dInM,u:'天'}];
   return{parts,past,totalD};
 }
+function getAllCountdowns(){
+  const list=JSON.parse(JSON.stringify(countdowns||[]));
+  try{
+    const evts=JSON.parse(localStorage.getItem('jack_countdown_events')||'[]');
+    if(Array.isArray(evts)){
+      evts.forEach(e=>{
+        if(e&&e.date) list.push({id:'cdp_'+(e.id||Math.floor(Math.random()*1e9)),label:e.title||'重要日期',emoji:'📅',target:e.date,format:'dhm',color:e.color||'#4d9ef7',fromCountdownPage:true});
+      });
+    }
+  }catch(e){}
+  return list.sort((a,b)=>(a.target||'9999').localeCompare(b.target||'9999'));
+}
 function renderCdBanner(){
   const strip=document.getElementById('cdStrip'),banner=document.getElementById('cdBanner');
-  if(!countdowns.length){banner.classList.remove('visible');return;}
+  const list=getAllCountdowns();
+  if(!list.length){banner.classList.remove('visible');return;}
   banner.classList.add('visible');
-  strip.innerHTML=countdowns.map(cd=>{
+  strip.innerHTML=list.map(cd=>{
     const res=calcCountdown(cd.target,cd.format),parts=res.parts,past=res.past,totalD=res.totalD;
     const numColor=cd.color||(totalD<=3?'#ff5c5c':totalD<=14?'#f5a623':'#4d9ef7');
     const urgClass=past?'cd-past':totalD<=3?'cd-urgent':totalD<=14?'cd-warn':'cd-ok';
@@ -2713,15 +2917,20 @@ function renderCdBanner(){
       if(i<parts.length-1)numsHtml+='<span class="cd-sep">·</span>';
     });
     const pastLabel=past?'<span style="font-size:10px;color:var(--text3);margin-left:3px;">已过</span>':'';
-    return `<div class="cd-item ${urgClass}"><div class="cd-item-left"><span class="cd-emoji">${cd.emoji||'⏱'}</span><span class="cd-label">${esc(cd.label)}${pastLabel}</span></div><div class="cd-numbers">${numsHtml}</div><div class="cd-actions-ico"><button class="btn btn-ico" onclick="openCdSettings()">✎</button><button class="btn btn-ico del" onclick="deleteCd(${cd.id})">✕</button></div></div>`;
+    const srcBadge=cd.fromCountdownPage?'<span title="来自「倒计日」页面" style="font-size:9px;background:rgba(245,166,35,.15);color:#f5a623;border:1px solid rgba(245,166,35,.25);border-radius:3px;padding:0 4px;margin-left:4px;">倒计日</span>':'';
+    const actions=cd.fromCountdownPage
+      ?`<a class="btn btn-ico" style="font-size:11px;text-decoration:none;" title="去倒计日页面管理" href="/countdown" target="_top">↗</a>`
+      :`<button class="btn btn-ico" onclick="openCdSettings()">✎</button><button class="btn btn-ico del" onclick="deleteCd(${cd.id})">✕</button>`;
+    return `<div class="cd-item ${urgClass}"><div class="cd-item-left"><span class="cd-emoji">${cd.emoji||'⏱'}</span><span class="cd-label">${esc(cd.label)}${srcBadge}${pastLabel}</span></div><div class="cd-numbers">${numsHtml}</div><div class="cd-actions-ico">${actions}</div></div>`;
   }).join('');
 }
 function startCdTimer(){
   if(cdTimer)clearInterval(cdTimer);renderCdBanner();
-  cdTimer=setInterval(renderCdBanner,countdowns.some(c=>c.format==='dhms')?1000:30000);
+  cdTimer=setInterval(renderCdBanner,getAllCountdowns().some(c=>c.format==='dhms')?1000:30000);
 }
 function deleteCd(id){countdowns=countdowns.filter(c=>c.id!==id);saveCdData();startCdTimer();toast('倒计时已删除');}
 function openCdSettings(){cdDraft=JSON.parse(JSON.stringify(countdowns));renderCdList();openM('cdModal');}
+window.addEventListener('storage',e=>{ if(e.key==='jack_countdown_events'||e.key==='cd_v2'){ startCdTimer(); } });
 function renderCdList(){
   const el=document.getElementById('cdList');
   if(!cdDraft.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px;">还没有倒计时，点击下方按钮添加 👇</div>';return;}

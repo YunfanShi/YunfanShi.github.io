@@ -186,10 +186,66 @@
         .log-item:last-child { border-left: 2px solid transparent; padding-bottom: 0; }
 
         .log-item.major::before {
-            background: #1a73e8;
-            border-color: #1a73e8;
-            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.3);
+            background: #d93025;
+            border-color: #d93025;
+            box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.3);
         }
+        .log-item.major {
+            background: linear-gradient(135deg, rgba(255, 143, 0, 0.06), rgba(217, 48, 37, 0.06));
+            border-left: 2px solid rgba(217, 48, 37, 0.5);
+            border-radius: 0 12px 12px 0;
+            padding: 12px 16px 20px 20px;
+            margin-bottom: 6px;
+        }
+        .log-item.major .log-content { font-weight: 500; }
+
+        .log-content-clamp {
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .log-expand-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 4px 0 0;
+            font-family: 'Google Sans', sans-serif;
+        }
+        .log-expand-btn:hover { text-decoration: underline; }
+
+        .back-top-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 999;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Google Sans', sans-serif;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            transform: translateY(10px);
+        }
+        .back-top-btn.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .back-top-btn:hover { background: #1557b0; }
 
         .log-item::before {
             content: '';
@@ -312,6 +368,9 @@
         <p class="subtitle">更新日志 · 功能模块状态 · 一站掌握</p>
     </header>
 
+    <!-- ========== BACK TO TOP ========== -->
+    <button class="back-top-btn" id="backTopBtn">↑ 回到最新</button>
+
     <!-- ========== DYNAMIC CONTENT ========== -->
     <div class="content-container" id="main-content"></div>
 
@@ -324,6 +383,7 @@
             desktop: {
                 urlPrefix: "",
                 logsMajor: [
+                    { date: "2026-08-01 v3.0", content: "🎯 目标显示器全面升级：修复无上限任务被默认限制为10的问题（现在留空或填0就是无上限）；AI 现在能正确区分「今天完成量」和「历史累积数据」，不再把过去几天的量算成今天做的；AI 回复速度大幅提升（上下文构建加了30秒缓存，不再重复计算）；新增任务计时器（开始/暂停/结束，计时中卡片有绿色呼吸动画），结束时可快速记录完成量；更新记录新增一键清理相邻重复记录功能，长按历史标记可随时切换当日/历史；任务截止日期与倒计日页面自动联动，接近考试日期时卡片高亮提醒。" },
                     { date: "2026-07-31 v2.9", content: "🧹 更新页面改版：版本记录清理重整、按时间线排序、移除无效的移动端视图，一目了然。🤖 AI 助手新增任务完成标记：AI 在任务结束后输出 [TASK_COMPLETE] 标记，系统检测后立即结束并展示任务统计卡片——包含⏱用时、🧠推理轮数、🔧工具调用次数、📥📤输入输出 Token 数和💴按 DeepSeek V4 Flash 定价估算的费用。此功能全局生效。" },
                     { date: "2026-07-31 v2.9", content: "🤖 AI 智能管家更聪明了：AI 会根据你所在页面自动切换工具模式——在主页只显示常用的简洁工具，在目标页面专注目标管理，不再把所有功能都塞给它，回答更精准更快速。AI 现在知道按需获取其他页面能力，不会占用多余计算。同时修复了 AI 重复读取同一数据的问题（比如已经看过目标列表就不会再看一遍，除非数据被修改过），显著减少 token 消耗和等待时间。每条 AI 回复下方新增本轮对话累计 token 显示，方便你了解每次对话的消耗情况。" },
                     { date: "2026-07-31 v2.8", content: "🤖 AI 智能管家能力全面升级：所有工具都配备了详细的使用手册，AI 现在清楚知道每个页面有什么数据、每个工具怎么正确使用、需要哪些参数，不会再出现「找不到目标」「操作失败」等问题。目标管理新增按名称查找目标、失败时自动显示可用目标列表；修改目标前强制先读取真实数据，杜绝编造 ID。每条 AI 回复新增「复制完整记录」按钮，一键复制思考过程、工具调用和操作结果；工具执行失败时自动展开显示错误详情，不会再被折叠隐藏。" },
@@ -587,10 +647,11 @@
                         <div class="log-section-label major">
                             <span class="material-symbols-rounded" style="font-size:18px">star</span> 重要更新
                         </div>
-                        ${data.logsMajor.map(log => `
+                        ${data.logsMajor.map((log, i) => `
                             <div class="log-item major">
                                 <div class="log-date">${log.date}</div>
-                                <div class="log-content">${log.content}</div>
+                                <div class="log-content${log.content.length > 100 ? ' log-content-clamp' : ''}" id="mc${i}">${log.content}</div>
+                                ${log.content.length > 100 ? `<button class="log-expand-btn" onclick="toggleLog(${i},'major')">展开全文</button>` : ''}
                             </div>
                         `).join('')}
                         ` : ''}
@@ -598,10 +659,11 @@
                         <div class="log-section-label regular">
                             <span class="material-symbols-rounded" style="font-size:18px">sync</span> 常规更新
                         </div>
-                        ${data.logsRegular.map(log => `
+                        ${data.logsRegular.map((log, i) => `
                             <div class="log-item">
                                 <div class="log-date">${log.date}</div>
-                                <div class="log-content">${log.content}</div>
+                                <div class="log-content${log.content.length > 100 ? ' log-content-clamp' : ''}" id="rc${i}">${log.content}</div>
+                                ${log.content.length > 100 ? `<button class="log-expand-btn" onclick="toggleLog(${i},'regular')">展开全文</button>` : ''}
                             </div>
                         `).join('')}
                         ` : ''}
@@ -646,6 +708,31 @@
             `;
 
             container.innerHTML = logsHTML + modulesHTML;
+        }
+
+        function toggleLog(idx, type) {
+            const el = document.getElementById((type === 'major' ? 'mc' : 'rc') + idx);
+            if (!el) return;
+            const btn = el.nextElementSibling;
+            const isClamped = el.classList.contains('log-content-clamp');
+            if (isClamped) {
+                el.classList.remove('log-content-clamp');
+                btn.textContent = '收起';
+            } else {
+                el.classList.add('log-content-clamp');
+                btn.textContent = '展开全文';
+            }
+        }
+
+        // Back to top button
+        const backBtn = document.getElementById('backTopBtn');
+        if (backBtn) {
+            window.addEventListener('scroll', () => {
+                backBtn.classList.toggle('show', window.scrollY > 400);
+            });
+            backBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
         }
 
         init();
