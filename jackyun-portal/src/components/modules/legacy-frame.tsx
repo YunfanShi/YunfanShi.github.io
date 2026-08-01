@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 interface LegacyFrameProps {
   src: string;
   title?: string;
+  /** Display name of the signed-in user (used to replace hardcoded names in legacy HTML). */
+  userName?: string;
 }
 
-export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameProps) {
+export default function LegacyFrame({ src, title = 'Legacy Page', userName }: LegacyFrameProps) {
   const [srcdoc, setSrcdoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -23,6 +25,21 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
           return;
         }
         let html = await res.text();
+
+        // Replace hardcoded names (e.g. "Jack") in legacy HTML with the
+        // signed-in user's display name. Only visible text is touched —
+        // brand names ("JackYun Portal") and localStorage keys are left alone.
+        if (userName) {
+          const display = userName;
+          const displayUpper = display.toUpperCase();
+          html = html
+            .replace(/Jack's Warden/gi, `${display}'s Warden`)
+            .replace(/JACK'S WARDEN/g, `${displayUpper}'S WARDEN`)
+            .replace(/Jack's Exam Countdown/gi, `${display}'s Exam Countdown`)
+            .replace(/Jack's Ecosystem/gi, `${display}'s Ecosystem`)
+            .replace(/IGCSE Timer · Jack's Ecosystem/gi, `IGCSE Timer · ${display}'s Ecosystem`)
+            .replace(/User: Jack \(9th Grade, IGCSE Student\)/g, `User: ${display} (Student)`);
+        }
 
         // Inject <base> tag to resolve relative paths
         html = html.replace(
@@ -389,30 +406,55 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
   ];
 
   var _origSetItem = localStorage.setItem.bind(localStorage);
+  var _origGetItem = localStorage.getItem.bind(localStorage);
   var _syncQueue = {};
   var _syncTimer = null;
 
-  // Attempt to load cloud data on init
+  // ── Timestamp ledger ──────────────────────────────────────────
+  // Records the last-known timestamp per sync key so we can decide
+  // whether the cloud copy is newer than the local copy. Stored in
+  // localStorage so it survives page reloads.
+  var TS_KEY = 'jackyun_sync_timestamps';
+  var _localTs = {};
+  function loadLocalTs() {
+    try { var raw = _origGetItem(TS_KEY); if (raw) _localTs = JSON.parse(raw); } catch(e) { _localTs = {}; }
+  }
+  function setLocalTs(key, ts) {
+    if (!key || typeof ts !== 'string' || !ts) return;
+    _localTs[key] = ts;
+    try { _origSetItem(TS_KEY, JSON.stringify(_localTs)); } catch(e) {}
+  }
+
+  // Attempt to load cloud data on init — pull ONLY when cloud is newer.
   function initSync() {
     fetch('/api/legacy-sync', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(result) {
         if (!result || !result.ok || !result.data) return;
         var cloudData = result.data;
+        var cloudTs = result.timestamps || {};
         var keys = Object.keys(cloudData);
+        var pulled = 0;
         for (var i = 0; i < keys.length; i++) {
           var k = keys[i];
           if (SYNC_KEYS.indexOf(k) === -1) continue;
           var cloudVal = cloudData[k];
-          // Only sync if cloud has a value
-          if (cloudVal != null) {
-            try {
-              var strVal = typeof cloudVal === 'string' ? cloudVal : JSON.stringify(cloudVal);
-              _origSetItem(k, strVal);
-            } catch(e) {}
-          }
+          if (cloudVal == null) continue;
+          // Timestamp compare — skip if the local copy is newer/equal.
+          var cTs = cloudTs[k];
+          var lTs = _localTs[k];
+          if (cTs && lTs && (new Date(cTs).getTime() <= new Date(lTs).getTime())) continue;
+          try {
+            var strVal = typeof cloudVal === 'string' ? cloudVal : JSON.stringify(cloudVal);
+            _origSetItem(k, strVal);
+            if (cTs) setLocalTs(k, cTs);
+            pulled++;
+          } catch(e) {}
         }
-        console.log('[LegacySync] Cloud data loaded:', keys.length, 'keys');
+        if (pulled > 0) console.log('[LegacySync] Cloud data loaded:', pulled, 'keys');
+        // Notify the page (and any embedded app) that cloud data arrived,
+        // so it can re-initialize from the freshest copy.
+        try { window.dispatchEvent(new CustomEvent('jackyun-cloud-synced', { detail: { pulled: pulled } })); } catch(e) {}
       })
       .catch(function() { /* not logged in or offline — ignore */ });
   }
@@ -437,10 +479,17 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: key, value: data[key] }),
-        }).then(function() { pushNext(idx + 1); }).catch(function() { pushNext(idx + 1); });
+        }).then(function(r) {
+          // Record server timestamp so a later refresh won't clobber it
+          if (r && r.ok) {
+            r.json().then(function(j) { if (j && j.timestamp) setLocalTs(key, j.timestamp); })
+             .catch(function() {});
+          }
+          pushNext(idx + 1);
+        }).catch(function() { pushNext(idx + 1); });
       };
       pushNext(0);
-    }, 2000); // 2s debounce
+    }, 2000); // 2s debounce — user asked for refresh-based sync, not realtime
   }
 
   // Override setItem to intercept sync keys
@@ -452,6 +501,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
       } catch(e) {
         _syncQueue[key] = value;
       }
+      setLocalTs(key, new Date().toISOString());
       flushSync();
     }
   };
@@ -462,11 +512,15 @@ export default function LegacyFrame({ src, title = 'Legacy Page' }: LegacyFrameP
     _origRemoveItem(key);
     if (SYNC_KEYS.indexOf(key) !== -1) {
       _syncQueue[key] = null;
+      setLocalTs(key, new Date().toISOString());
       flushSync();
     }
   };
 
-  // Run init after page scripts have loaded
+  // Load the timestamp ledger before anything else
+  loadLocalTs();
+
+  // Pull latest cloud data when the page opens.
   if (document.readyState === 'complete') {
     setTimeout(initSync, 100);
   } else {

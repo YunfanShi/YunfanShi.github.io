@@ -462,6 +462,11 @@ option{background:#1a1a1a;}
         <label class="flbl">备注（可选）</label>
         <input class="fi" id="qNote" placeholder="这次更新的说明…" maxlength="80">
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;">
+        <input type="checkbox" id="qIsHistorical" style="width:15px;height:15px;accent-color:var(--yellow);cursor:pointer;">
+        <span style="color:var(--text);">📦 标记为历史数据</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:auto;">（本次记录是过去累积的量，不是今天一天完成的）</span>
+      </label>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeM('progModal')">取消</button>
@@ -997,8 +1002,12 @@ function buildGoalContext(g, includeSiblings=true){
   const hist=(g.history||[]);
   const dlDays=deadlineDays(g.deadline);
   let velocity='暂无历史数据';
-  if(hist.length>=2){
-    const f=hist[0],l=hist[hist.length-1];
+  // Exclude entries flagged as historical (bulk-imported) or anomalous from
+  // the velocity math, otherwise a single bulk upload looks like it all
+  // happened in one day.
+  const realHist=hist.filter(h=>!h.isHistorical&&!h.anomaly);
+  if(realHist.length>=2){
+    const f=realHist[0],l=realHist[realHist.length-1];
     const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
     const fd=f.done!=null?f.done:(f.v||0),ld=l.done!=null?l.done:(l.v||0);
     velocity=`每天约 ${((ld-fd)/days).toFixed(2)} ${g.unit||'单位'}`;
@@ -1013,7 +1022,7 @@ function buildGoalContext(g, includeSiblings=true){
 完成: ${g.done||0} / ${g.total} ${g.unit||'单位'} (${pct}%)
 截止: ${g.deadline||'未设置'}${dlDays!=null?`（距今${dlDays}天）`:''}
 截止日期变更历史(${dlHist.length}次): ${dlHistStr}
-历史(${hist.length}次): ${hist.slice(-5).map(h=>`${h.date}:${h.done!=null?h.done:(h.v||0)}/${h.total||g.total}`).join(', ')||'无'}
+历史(${hist.length}次): ${hist.slice(-8).map(h=>`${h.date}${h.isHistorical?'[历史累积]':''}${h.anomaly?'[异常]':''}:${h.done!=null?h.done:(h.v||0)}/${h.total||g.total}`).join(', ')||'无'}
 当前速率: ${velocity}`;
 
   if(includeSiblings && g.parentId!==null){
@@ -1089,8 +1098,9 @@ ${buildScheduleContext()}
     const hist=c.history||[];
     const dlDays=deadlineDays(c.deadline);
     let vel='暂无历史数据';
-    if(hist.length>=2){
-      const f=hist[0],l=hist[hist.length-1];
+    const realHist=hist.filter(h=>!h.isHistorical&&!h.anomaly);
+    if(realHist.length>=2){
+      const f=realHist[0],l=realHist[realHist.length-1];
       const calDays=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
       const fd=f.done!=null?f.done:0,ld=l.done!=null?l.done:0;
       vel=`平均每天推进约 ${((ld-fd)/calDays).toFixed(2)} ${c.unit||'单位'}`;
@@ -1148,22 +1158,30 @@ function buildAllContext(){
   const t=nowStr();
   const roots=goals.filter(g=>g.parentId===null);
 
+  // Performance guard: with many goals/history entries the prompt grows huge
+  // and the AI gets slow or unresponsive. Cap detail per goal.
+  const ROOT_LIMIT=30;
+  const HIST_LIMIT=20;
+
+
   let out=`现在：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
   out+=buildScheduleContext()+'\n\n════════════════════\n\n';
 
-  out+=roots.map(r=>{
+  out+=roots.slice(0,ROOT_LIMIT).map(r=>{
     const children=goals.filter(c=>c.parentId===r.id);
     if(children.length){
       // Use full parent context (includes parallel daily log)
       return buildParentContext(r);
     } else {
-      // Use full goal context with all history
+      // Use full goal context with all history (capped to keep prompt small)
       const pct=getPct(r);
-      const hist=r.history||[];
+      const hist=(r.history||[]).slice(-HIST_LIMIT);
+      const histTotal=(r.history||[]).length;
       const dlDays=deadlineDays(r.deadline);
       let vel='暂无历史数据';
-      if(hist.length>=2){
-        const f=hist[0],l=hist[hist.length-1];
+      const realHist=hist.filter(h=>!h.isHistorical&&!h.anomaly);
+      if(realHist.length>=2){
+        const f=realHist[0],l=realHist[realHist.length-1];
         const days=Math.max(1,Math.ceil((new Date(l.date)-new Date(f.date))/864e5));
         const fd=f.done!=null?f.done:(f.v||0),ld=l.done!=null?l.done:(l.v||0);
         vel=`平均每天约 ${((ld-fd)/days).toFixed(2)} ${r.unit||'单位'}`;
@@ -1172,8 +1190,8 @@ function buildAllContext(){
 完成：${r.done||0}/${r.total} ${r.unit||''} (${pct}%)
 截止：${r.deadline||'未设置'}${dlDays!=null?` (距今${dlDays}天)`:''}
 速率：${vel}
-全部历史记录(${hist.length}次)：
-${hist.map(h=>`  ${h.date}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}${h.note?' ('+h.note+')':''}`).join('\n')||'  无'}`;
+全部历史记录(${hist.length}${histTotal>HIST_LIMIT?'/共'+histTotal+'条':''}次)：
+${hist.map(h=>`  ${h.date}${h.isHistorical?' [历史累积]':''}${h.anomaly?' [异常]':''}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}${h.note?' ('+h.note+')':''}`).join('\n')||'  无'}`;
       const cached=aiPreds[r.id];
       if(cached&&cached.text){
         const sum=cached.text.replace(/\[DAYS:-?\d+\]/g,'').trim().slice(0,150).replace(/\n/g,' ');
@@ -1183,24 +1201,65 @@ ${hist.map(h=>`  ${h.date}：${h.done!=null?h.done:(h.v||0)}/${h.total||r.total}
     }
   }).join('\n\n════════════════════\n\n');
 
+
+  if(roots.length>ROOT_LIMIT){
+    out+=`\n\n（另有 ${roots.length-ROOT_LIMIT} 个独立目标因数量过多未展开，仅列出名称：${roots.slice(ROOT_LIMIT).map(r=>r.name).join('、')}）`;
+  }
+
   return out;
 }
 
 /* ===================== CALL AI (via proxy) ===================== */
+// callAI: streams the LLM response through /api/llm-proxy.
+// - Adds a timeout so the UI doesn't hang forever if the model stalls.
+// - Throws a clear, actionable error message for the user.
 async function callAI(messages,onChunk,maxTokens=3000){
-  const res=await fetch('/api/llm-proxy',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({messages,stream:true,max_tokens:maxTokens,temperature:0.7})});
-  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`API 错误 ${res.status}`);}
-  const reader=res.body.getReader(),dec=new TextDecoder();let full='';
-  while(true){
-    const{done,value}=await reader.read();if(done)break;
-    for(const line of dec.decode(value).split('\n')){
-      if(!line.startsWith('data:'))continue;
-      const d=line.slice(5).trim();if(d==='[DONE]')break;
-      try{const t=JSON.parse(d).choices?.[0]?.delta?.content||'';if(t){full+=t;if(onChunk)onChunk(full);}}catch(e){}
-    }
+  // Guard against a frozen / dead request with a generous timeout.
+  const controller=typeof AbortController!=='undefined'?new AbortController():null;
+  const timeoutMs=60000; // 60s cap — long enough for slow models, short enough to recover
+  let timer=null;
+  if(controller){
+    timer=setTimeout(()=>controller.abort(),timeoutMs);
   }
-  return full;
+  try{
+    const res=await fetch('/api/llm-proxy',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages,stream:true,max_tokens:maxTokens,temperature:0.7}),
+      signal:controller?controller.signal:undefined});
+    if(!res.ok){
+      let msg=`API 错误 ${res.status}`;
+      try{const e=await res.json();msg=e.error?.message||msg;}catch(e2){}
+      if(res.status===401) msg='请先登录后再使用 AI 功能';
+      else if(res.status===429) msg='AI 请求过于频繁，请稍后再试';
+      throw new Error(msg);
+    }
+    const reader=res.body.getReader(),dec=new TextDecoder();let full='';
+    let lastChunkTime=Date.now();
+    const idleTimer=setInterval(()=>{
+      // If the stream stalls for >25s with no data, surface a warning to the user.
+      if(Date.now()-lastChunkTime>25000){
+        try{onChunk&&onChunk(full+' \n\n*（AI 响应暂停，仍在等待…）*');}catch(e){}
+      }
+    },10000);
+    try{
+      while(true){
+        const{done,value}=await reader.read();if(done)break;
+        lastChunkTime=Date.now();
+        for(const line of dec.decode(value).split('\n')){
+          if(!line.startsWith('data:'))continue;
+          const d=line.slice(5).trim();if(d==='[DONE]')break;
+          try{const t=JSON.parse(d).choices?.[0]?.delta?.content||'';if(t){full+=t;if(onChunk)onChunk(full);}}catch(e){}
+        }
+      }
+    } finally { clearInterval(idleTimer); }
+    return full;
+  }catch(err){
+    if(controller&&err.name==='AbortError'){
+      throw new Error('⏱ AI 响应超时（60秒）。数据量大时可以再试一次，或先精简你的目标。');
+    }
+    throw err;
+  } finally {
+    if(timer) clearTimeout(timer);
+  }
 }
 
 /* ===================== RENDER MD ===================== */
@@ -1247,8 +1306,8 @@ async function autoPredictIfNeeded(id){
     let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是目标管理AI。现在是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。重要：子任务是并行推进的；当某些子任务接近完成时，用户会把更多精力集中到剩余任务上，速度会加快，请考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
-      :`你是目标管理AI。现在是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。重要：当其他兄弟任务接近完成或已完成时，用户会把更多精力集中到本任务上，请考虑这一加速效应而不是只用历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
+      ?`你是目标管理AI。现在是${t}。中文。分析这个大任务下所有子任务，参考已有分析，自由发挥预测整体完成时间。重要：子任务是并行推进的；当某些子任务接近完成时，用户会把更多精力集中到剩余任务上，速度会加快，请考虑这一加速效应。注意：历史记录中标注[历史累积]的是过去一段时间陆续补录的量（不是一天完成的），标注[异常]的应忽略，计算速率时请使用真实时间跨度。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是目标管理AI。现在是${t}。中文。根据历史数据自由预测完成时间，结合兄弟任务情况给出分析。重要：当其他兄弟任务接近完成或已完成时，用户会把更多精力集中到本任务上，请考虑这一加速效应而不是只用历史平均速率。注意：历史记录中标注[历史累积]的是过去一段时间陆续补录的量（不是一天完成的），标注[异常]的应忽略，计算速率时请使用真实时间跨度。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间：\n\n${ctx}`}
@@ -1303,8 +1362,8 @@ async function runPred(id){
     const t0=Date.now();let full='';
     const ctx=isParentTask?buildParentContext(g):buildGoalContext(g,true);
     const sysMsg=isParentTask
-      ?`你是专业目标管理AI。现在是${t}。中文，自由发挥，不要有字数限制。综合所有子任务进度和已有分析，预测整体完成时间。重要：子任务并行推进；当部分子任务接近完成时，剩余子任务会获得更多精力投入，速度会显著加快，请在预测中充分考虑这一加速效应。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
-      :`你是专业目标管理AI。现在是${t}。中文，自由发挥，不要有字数限制。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾。重要：当其他兄弟任务已完成或接近完成时，用户会把全部精力集中到本任务上，速度会显著提升，预测时请考虑这一集中精力加速效应，而不是简单外推历史平均速率。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
+      ?`你是专业目标管理AI。现在是${t}。中文，自由发挥，不要有字数限制。综合所有子任务进度和已有分析，预测整体完成时间。重要：子任务并行推进；当部分子任务接近完成时，剩余子任务会获得更多精力投入，速度会显著加快，请在预测中充分考虑这一加速效应。注意：历史记录中标注[历史累积]的是过去一段时间陆续补录的量（不是一天完成的），标注[异常]的应忽略，计算速率时请使用真实时间跨度。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`
+      :`你是专业目标管理AI。现在是${t}。中文，自由发挥，不要有字数限制。根据历史数据预测完成时间，结合兄弟任务已有分析给出统一有洞察力的建议，避免互相矛盾。重要：当其他兄弟任务已完成或接近完成时，用户会把全部精力集中到本任务上，速度会显著提升，预测时请考虑这一集中精力加速效应，而不是简单外推历史平均速率。注意：历史记录中标注[历史累积]的是过去一段时间陆续补录的量（不是一天完成的），标注[异常]的应忽略，计算速率时请使用真实时间跨度。在回答末尾必须单独一行写：[DAYS:N]，N是从今天到预计完成还差几天的整数（今天完成写0，已超期写负数）。`;
     await callAI([
       {role:'system',content:sysMsg},
       {role:'user',content:`请预测完成时间并给建议：\n\n${ctx}`}
@@ -1819,13 +1878,35 @@ const AI_TOOLS={
         const g=findGoal(op.id);
         if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
         if(!g.history) g.history=[];
-        const entry={date:op.date||today(),done:Number(op.done)||0,total:Number(op.total)||g.total,note:op.note||'AI添加'};
+        const entry={date:op.date||today(),done:Number(op.done)||0,total:Number(op.total)||g.total,note:op.note||'AI添加',isHistorical:op.isHistorical===true};
         g.history.push(entry);
         aiLog('log','add_history',`OK: ${g.name}`,entry);
-        return {ok:true,msg:`${g.name}：已添加历史记录 ${entry.done}/${entry.total}`};
+        return {ok:true,msg:`${g.name}：已添加历史记录 ${entry.done}/${entry.total}${entry.isHistorical?'（标记为历史累积）':''}`};
       }catch(e){aiLog('error','add_history','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
     },
     diff(op){return {field:'历史记录',old:'—',new:`${op.date||today()} ${op.done}/${op.total||'?'}`};}
+  },
+  mark_anomaly:{
+    label:'标记异常数据', icon:'⚠️', danger:false,
+    apply(op){
+      try{
+        aiLog('log','mark_anomaly','Applying',op);
+        const g=findGoal(op.id);
+        if(!g) return {ok:false,msg:`目标不存在 (id=${op.id})`};
+        if(!g.history) return {ok:false,msg:'该目标没有历史记录可标记'};
+        // Find entry by date; if multiple entries on same date, mark the last one
+        const target=op.date||today();
+        let entry=null;
+        for(let i=g.history.length-1;i>=0;i--){
+          if(g.history[i].date===target){entry=g.history[i];break;}
+        }
+        if(!entry) return {ok:false,msg:`未找到 ${target} 的历史记录`};
+        entry.anomaly={reason:op.reason||'AI标记为异常',flaggedBy:'ai',ts:Date.now()};
+        aiLog('log','mark_anomaly',`OK: ${g.name} ${target} marked anomaly`,entry);
+        return {ok:true,msg:`${g.name}：已将 ${target} 的记录标记为异常数据（预测时会忽略）`};
+      }catch(e){aiLog('error','mark_anomaly','Exception',e);return {ok:false,msg:'内部错误: '+e.message};}
+    },
+    diff(op){return {field:'异常标记',old:'正常',new:`标记 ${op.date||today()} 为异常`};}
   },
   delete_goal:{
     label:'删除目标', icon:'🗑️', danger:true,
@@ -1915,6 +1996,7 @@ function AGENT_SYSTEM(){
     +BBB+'ACTION\n{"op":"set_color","id":目标ID数字,"value":"blue或green或yellow或red或purple或teal或pink或orange"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"set_parent","id":目标ID数字,"value":父任务ID数字或null}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"add_history","id":目标ID数字,"done":数字,"total":数字,"date":"YYYY-MM-DD","note":"备注"}\n'+BBB+'\n\n'
+    +BBB+'ACTION\n{"op":"mark_anomaly","id":目标ID数字,"date":"YYYY-MM-DD","reason":"异常原因"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"create_goal","name":"名称","desc":"描述","cat":"分类","priority":"mid","parentId":null,"done":0,"total":10,"color":"blue","deadline":"YYYY-MM-DD","unit":"单位"}\n'+BBB+'\n\n'
     +BBB+'ACTION\n{"op":"delete_goal","id":目标ID数字}\n'+BBB+'\n\n'
     +'## 严格规则\n'
@@ -1923,6 +2005,9 @@ function AGENT_SYSTEM(){
     +'- 如果用户要修改数据，先用中文说明你要做什么，再输出对应的ACTION块\n'
     +'- 可以一次输出多个ACTION块完成批量操作\n'
     +'- 每个ACTION块只包含一个JSON对象，不要有注释\n'
+    +'- 历史数据：标注了 [历史累积] 的记录是用户过去一段时间陆续完成的（可能是批量补录），计算速率/预测时请使用这些记录所在日期的真实时间跨度，不要把大额单日数字当成一天完成的量\n'
+    +'- 异常数据：标注了 [异常] 的记录应被忽略，不应参与速率计算和完成时间预测\n'
+    +'- 如果发现某条历史记录看起来像一次性补录的大额数据（单次增加超过总量的40%），可以用 mark_anomaly 操作标记它，并在回复中向用户说明\n'
     +'- 明天 = '+tomorrow+'\n'
     +'- 下周 = '+nextWeek;
 };
@@ -2376,6 +2461,7 @@ function openProg(id){
   document.getElementById('progMTitle').textContent='更新进度 — '+g.name;
   document.getElementById('qDone').value=g.done||0;document.getElementById('qTotal').value=g.total||10;
   document.getElementById('qUnitLabel').textContent=g.unit||'';document.getElementById('qNote').value='';
+  if(document.getElementById('qIsHistorical'))document.getElementById('qIsHistorical').checked=false;
   const p=getPct(g);document.getElementById('qPctDisplay').textContent=p+'%';
   // 无上限任务显示连续累积提示
   if(g.total===0){
@@ -2417,11 +2503,12 @@ function saveQ(){
   const tvRaw=parseInt(document.getElementById('qTotal').value);
   const tv=Number.isFinite(tvRaw)&&tvRaw>=0?tvRaw:0; // 0=无上限
   const note=document.getElementById('qNote').value.trim();
+  const isHistorical=document.getElementById('qIsHistorical')?.checked||false;
   const g=goals.find(x=>x.id===quickId);
   if(g){
     g.done=tv>0?Math.min(dv,tv):dv;g.total=tv;
     if(!g.history)g.history=[];
-    g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note});
+    g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note,isHistorical});
     // invalidate old pred
     delete aiPreds[quickId];savePreds();
   }
@@ -2466,10 +2553,13 @@ function openDetail(id){
   const histH=hist.length?hist.map(h=>{
     const hd=h.done!=null?h.done:(h.v||0),ht=h.total||g.total;
     const hp=ht>0?Math.min(100,Math.round(hd/ht*100)):0;
+    const flags=(h.isHistorical?`<span title="标记为历史数据" style="font-size:10px;background:rgba(245,166,35,0.15);color:#f5a623;border:1px solid rgba(245,166,35,0.3);border-radius:3px;padding:0 4px;flex-shrink:0;">📦</span>`:'')
+      +(h.anomaly?`<span title="异常数据：${esc(h.anomaly.reason||'异常')}" style="font-size:10px;background:rgba(255,92,92,0.15);color:#ff5c5c;border:1px solid rgba(255,92,92,0.3);border-radius:3px;padding:0 4px;flex-shrink:0;">⚠️</span>`:'');
     return `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:74px;">${h.date}</span>
       <div style="flex:1;">${segBar(hp,28,7)}</div>
       <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:46px;text-align:right;">${hd}/${ht}</span>
+      ${flags}
       ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
     </div>`;}).join(''):'<div style="color:var(--text3);font-size:13px;padding:9px 0;">暂无更新记录</div>';
   const p=getPct(g),{done:dd,total:dt}=getDoneTotal(g);
@@ -2506,15 +2596,57 @@ function exportData(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='goals-export.json';a.click();toast('已导出 JSON ↓');
 }
 function importData(){document.getElementById('importFile').click();}
+function detectHistoricalData(importedGoals){
+  // Heuristic: if a single history entry records a jump of more than 40% of
+  // the total (or >10 units at once), it's very likely bulk/historical data.
+  const suspects=[];
+  importedGoals.forEach(g=>{
+    const hist=g.history||[];
+    if(hist.length<1)return;
+    const total=g.total>0?g.total:(hist[hist.length-1].total||0);
+    for(let i=0;i<hist.length;i++){
+      const h=hist[i];
+      if(h.isHistorical||h.anomaly)continue;
+      const prevDone=i>0?(hist[i-1].done!=null?hist[i-1].done:(hist[i-1].v||0)):0;
+      const curDone=h.done!=null?h.done:(h.v||0);
+      const jump=curDone-prevDone;
+      if(total>0&&jump/total>0.4) suspects.push({g,date:h.date,jump,curDone,total});
+      else if(total<=0&&jump>10) suspects.push({g,date:h.date,jump,curDone,total});
+    }
+  });
+  return suspects;
+}
 function doImport(e){
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
   r.onload=ev=>{
     try{
       const d=JSON.parse(ev.target.result);
+      let importedGoals;
+      if(d.goals&&Array.isArray(d.goals)){importedGoals=d.goals;}
+      else if(Array.isArray(d)){importedGoals=d;}
+      else throw new Error('格式不正确');
+
+      const suspects=detectHistoricalData(importedGoals);
+      if(suspects.length){
+        // Ask the user whether these big jumps are historical bulk data.
+        const list=suspects.slice(0,5).map(s=>`• ${s.g.name}: ${s.date} 单次 +${s.jump}${s.g.unit||''} → ${s.curDone}/${s.total}`).join('\n');
+        const extra=suspects.length>5?`\n… 等共 ${suspects.length} 处大额记录`:'';
+        const isHistorical=confirm(
+          `检测到可能的历史累积数据：\n${list}${extra}\n\n这些单次大幅增加（超过总量40%）的记录，很可能是你一次性补录的过去累积数据，而不是当天实际完成的。\n\n点击「确定」：将标记为历史数据（AI 预测时会按时间跨度计算，不会误判为一天完成）\n点击「取消」：按普通每日记录导入`
+        );
+        if(isHistorical){
+          const targetDates=new Set(suspects.map(s=>s.date));
+          importedGoals.forEach(g=>{
+            (g.history||[]).forEach(h=>{
+              if(targetDates.has(h.date)){h.isHistorical=true;}
+            });
+          });
+        }
+      }
+
       if(d.goals&&Array.isArray(d.goals)){goals=d.goals;if(d.aiPreds)aiPreds=d.aiPreds;}
       else if(Array.isArray(d)){goals=d;}
-      else throw new Error('格式不正确');
       save();savePreds();fullRefresh();toast('导入成功 ✓');
     }catch(err){toast('导入失败: '+err.message);}
   };r.readAsText(file);e.target.value='';
@@ -2648,6 +2780,22 @@ window.addEventListener('jackyun-goal-updated',(e)=>{
     }
   }catch(err){/* ignore */}
 });
+
+// 云端同步完成后（LegacyFrame 注入脚本拉取到新数据），重新从 localStorage 读取最新目标
+window.addEventListener('jackyun-cloud-synced',(e)=>{
+  try{
+    const freshRaw=localStorage.getItem('jackyun_goal_data')||localStorage.getItem('gt_v6');
+    if(freshRaw){
+      const fresh=JSON.parse(freshRaw);
+      if(Array.isArray(fresh)&&fresh.length>=0){
+        goals=fresh;
+        save(); // 同步回两个 key，保持一致性
+        updateAIStatus();render();startCdTimer();renderStats();
+      }
+    }
+  }catch(err){/* ignore */ console.warn('[Goal] cloud-synced refresh failed',err);}
+});
+
 
 /* ===================== INIT ===================== */
 initGreeting();

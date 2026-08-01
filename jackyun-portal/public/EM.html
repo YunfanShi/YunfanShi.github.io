@@ -3,7 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Warden | V23 CONTEXT AWARE</title>
+    <title>My Warden | V23 CONTEXT AWARE</title>
+    
+    <script>
+    // Pull the signed-in user's display name set by the Portal Topbar.
+    // Falls back to a neutral label so nothing is hardcoded to a specific user.
+    (function() {
+        function getDisplayName() {
+            try { return localStorage.getItem('jackyun_user_display_name') || ''; } catch(e) { return ''; }
+        }
+        function applyName() {
+            var name = getDisplayName();
+            if (!name) return;
+            var t = document.title;
+            document.title = t.replace(/My Warden/, name + "'s Warden");
+            var brand = document.querySelector('.brand');
+            if (brand) brand.innerHTML = (name.toUpperCase() + "'S WARDEN <span>V23 CONTEXT AWARE</span>");
+        }
+        if (document.readyState === 'complete') applyName();
+        else document.addEventListener('DOMContentLoaded', applyName);
+    })();
+    </script>
     
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -215,7 +235,7 @@
     </div>
 
     <header>
-        <div class="brand">JACK'S WARDEN <span>V23 CONTEXT AWARE</span></div>
+        <div class="brand" id="warden-brand">WARDEN <span>V23 CONTEXT AWARE</span></div>
         <div style="display:flex; gap:15px; align-items:center">
             <span class="material-icons-round icon-btn" onclick="openSettings()" title="AI Settings">settings</span>
             <span class="material-icons-round icon-btn" onclick="triggerEnforcer(true)" title="Chat Buddy" style="color:var(--accent-green)">chat</span>
@@ -386,7 +406,7 @@
 
             return `
 [SYSTEM DATA - DO NOT IGNORE]
-User: Jack (9th Grade, IGCSE Student).
+User: ${(function(){try{return localStorage.getItem('jackyun_user_display_name')||'Student';}catch(e){return 'Student';}})()} (Student).
 Current Date: ${STATE.dateStr}.
 Current Time: ${new Date().toLocaleTimeString()}.
 Status: ${STATE.metrics.isImpossible ? "CRITICAL (IMPOSSIBLE TO FINISH BY 22:30)" : "Safe"}.

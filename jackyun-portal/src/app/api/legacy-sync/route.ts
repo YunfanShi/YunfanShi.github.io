@@ -10,6 +10,8 @@ function apiError(message: string, status: number, detail?: unknown) {
 }
 
 // GET /api/legacy-sync — load all legacy data for the current user
+// Each value is wrapped with its updated_at timestamp so the client can
+// decide whether the cloud copy is newer than the local copy.
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -20,16 +22,20 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('legacy_sync_data')
-      .select('storage_key, storage_value')
+      .select('storage_key, storage_value, updated_at')
       .eq('user_id', user.id);
 
     if (error) return apiError('Database query failed', 500, error);
 
+    // Backwards-compatible shape: { key: value } as before, plus a
+    // parallel _ts map { key: updated_at } for timestamp comparison.
     const result: Record<string, unknown> = {};
+    const timestamps: Record<string, string> = {};
     for (const row of data ?? []) {
       result[row.storage_key] = row.storage_value;
+      if (row.updated_at) timestamps[row.storage_key] = row.updated_at;
     }
-    return NextResponse.json({ ok: true, data: result });
+    return NextResponse.json({ ok: true, data: result, timestamps });
   } catch (err) {
     return apiError('Internal server error', 500, err instanceof Error ? err.message : String(err));
   }
