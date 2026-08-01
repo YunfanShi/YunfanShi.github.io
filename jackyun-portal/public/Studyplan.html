@@ -866,6 +866,7 @@
     <p style="font-size:12px; color:#666; margin-top:10px;">第一行写科目名（如 Mathematics (0580)），下方每行写一个知识点。已存在的科目将合并去重，不会丢失进度。</p>
     <textarea id="import-syllabus-text" rows="8" placeholder="Mathematics (0580)&#10;- Number&#10;- Algebra & Graphs&#10;&#10;Physics (0625)&#10;- Motion, Forces and Energy&#10;- Waves"></textarea>
     <div style="text-align:right; margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn-outline" onclick="aiParseSyllabus()">🤖 AI 解析</button>
         <button class="btn-outline" onclick="previewImportSyllabus()">👀 预览</button>
         <button class="btn-primary" onclick="confirmImportSyllabus()">✅ 导入</button>
     </div>
@@ -1104,11 +1105,11 @@
         if (currentStepIndex >= QUEST_STEPS.length && !isUnitDone) {
              actionBtnHtml = `
                 <div class="quest-action" style="border-color:#ffd700; background:#fffbe6;">
-                    <span style="font-weight:bold; color:#b8860b">All steps done. Finish Unit?</span>
-                    <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unit}')">Conquer Unit</button>
+                    <span style="font-weight:bold; color:#b8860b">所有步骤已完成，确认掌握该知识点？</span>
+                    <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unit}')">✓ 已掌握</button>
                 </div>`;
         } else if (isUnitDone) {
-             actionBtnHtml = `<div style="margin-top:20px; color:#2e7d32; font-weight:bold; text-align:right;">Unit Complete <span class="material-icons-round" style="vertical-align:middle;">check_circle</span></div>`;
+             actionBtnHtml = `<div style="margin-top:20px; color:#2e7d32; font-weight:bold; text-align:right;">知识点已掌握 <span class="material-icons-round" style="vertical-align:middle;">check_circle</span></div>`;
              card.style.background = "#f6fff6";
         }
 
@@ -1770,27 +1771,66 @@
         location.reload();
     }
 
-    /* ======================== 12.6 大纲导入（文本解析 + 预览确认） ======================== */
-    // 解析用户粘贴的大纲文本 → [{subject, units:[]}]
+    /* ======================== 12.6 大纲导入（文本解析 + AI解析 + 预览确认） ======================== */
+    // 解析用户粘贴的大纲文本 → [{subject, units:[]}]，支持两种格式：
+    //   简单格式：科目名行 + 每行一个知识点（- 开头或纯文本）
+    //   结构化：`学科: xxx` `章节: xxx` `知识点: xxx`
     function parseSyllabusText(raw) {
         const result = [];
         let currentSubject = null;
         const lines = raw.split(/\r?\n/);
         for (const lineRaw of lines) {
-            const line = lineRaw.replace(/^[-•*>\s]+/, '').replace(/^\d+[.)、]\s*/, '').trim();
+            const trimmed = lineRaw.trim();
+            if (!trimmed) continue;
+            const line = trimmed.replace(/^[-•*>\d.)、\s]+/, '').trim();
             if (!line) continue;
-            // 判定为科目行：非列表项（没有以 - • * 数字开头）且看起来像 名称(代码)
-            const isList = /^[-•*>\d]/.test(lineRaw.trim());
-            const looksSubject = !isList && /\(?\d{4}\)?/.test(line) || (!isList && line.split(/[-(]/).length >= 2 && line.length < 60);
-            if (!isList) {
-                // 新科目（允许同时多个科目段落）
+            const isListLine = /^[-•*>]/.test(trimmed) || /^\d+[.)、]/.test(trimmed);
+            const subjMatch = trimmed.match(/^(?:学科|subject)[:：]\s*(.+)/i);
+            const chapMatch = trimmed.match(/^(?:章节|chapter|ch)[:：]\s*(.+)/i);
+            const pointMatch = trimmed.match(/^(?:知识点|topic|point)[:：]\s*(.+)/i);
+            let handled = true;
+            if (subjMatch) {
+                currentSubject = { subject: subjMatch[1].trim(), units: [] };
+                result.push(currentSubject);
+            } else if (pointMatch) {
+                if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
+                const pt = pointMatch[1].trim().replace(/^[-•*>\s]+/, '');
+                if (pt) currentSubject.units.push(pt);
+            } else if (chapMatch) {
+                if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
+                const chap = chapMatch[1].trim().replace(/^[-•*>\s]+/, '');
+                if (chap) currentSubject.units.push(chap);
+            } else if (isListLine) {
+                // 列表行 → 知识点（若包含 : 分隔如 "章节: xxx" 已在上文处理）
+                if (!currentSubject) currentSubject = { subject: '未命名科目', units: [] }, result.push(currentSubject);
+                if (line && !/^(?:章节|chapter|知识点|topic)[:：]/i.test(trimmed)) currentSubject.units.push(line);
+            } else {
+                // 非列表行 → 新科目（带代码 或 较短名称）
                 currentSubject = { subject: line, units: [] };
                 result.push(currentSubject);
-            } else if (currentSubject) {
-                currentSubject.units.push(line);
             }
         }
-        return result;
+        // 清理无知识点的科目（保留有知识点的）
+        return result.filter(r => r.units.length > 0);
+    }
+
+    // AI 解析：调用 planAiCall 让 AI 从随意文本中提取结构化大纲
+    async function aiParseSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value.trim();
+        if (!raw) { alert('请先粘贴或输入大纲文本'); return; }
+        const cfg = getPlanAiConfig();
+        if (!cfg || !cfg.baseUrl || !cfg.apiKey) { alert('请先在设置页面配置 AI API Key（⚙ 设置 → AI 配置）'); return; }
+        const btn = event.target; btn.disabled = true; btn.textContent = '🤖 AI 解析中…';
+        try {
+            const prompt = `请从以下大纲文本中提取科目和知识点，严格按此格式输出（每个科目一段，知识点以-开头）：\n\n${raw}\n\n格式要求：\n第一行：科目名\n- 知识点1\n- 知识点2\n...\n\n只输出结构化大纲，不要解释。`;
+            const reply = await planAiCall([{ role: 'user', content: prompt }]);
+            document.getElementById('import-syllabus-text').value = reply.trim();
+            previewImportSyllabus();
+        } catch (e) {
+            alert('AI 解析失败：' + (e.message || e));
+        } finally {
+            btn.disabled = false; btn.textContent = '🤖 AI 解析';
+        }
     }
 
     function openImportSyllabus() {
