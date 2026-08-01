@@ -785,6 +785,10 @@
         <h4>📚 知识点管理</h4>
         <p style="font-size:12px; color:#666;">添加、删除或调整每个科目的知识点（进度数据不会丢失）。</p>
         
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <button class="btn-outline" style="flex:1; font-size:12px;" onclick="openImportSyllabus()">📥 导入大纲</button>
+        </div>
+        
         <label>选择科目</label>
         <select id="editor-subject-select" onchange="renderUnitEditorList()">
             <option value="" disabled selected>-- 请选择科目 --</option>
@@ -852,6 +856,20 @@
 
     <div class="schedule-grid" id="schedule-output">
     </div>
+</dialog>
+
+<dialog id="import-syllabus-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">📥 导入大纲</h3>
+        <button onclick="document.getElementById('import-syllabus-modal').close()" style="background:none; border:none; cursor:pointer; font-size:20px;">&times;</button>
+    </div>
+    <p style="font-size:12px; color:#666; margin-top:10px;">第一行写科目名（如 Mathematics (0580)），下方每行写一个知识点。已存在的科目将合并去重，不会丢失进度。</p>
+    <textarea id="import-syllabus-text" rows="8" placeholder="Mathematics (0580)&#10;- Number&#10;- Algebra & Graphs&#10;&#10;Physics (0625)&#10;- Motion, Forces and Energy&#10;- Waves"></textarea>
+    <div style="text-align:right; margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn-outline" onclick="previewImportSyllabus()">👀 预览</button>
+        <button class="btn-primary" onclick="confirmImportSyllabus()">✅ 导入</button>
+    </div>
+    <div id="import-syllabus-preview" style="margin-top:12px; font-size:12px; color:#444; background:#f8f9fa; border-radius:8px; padding:10px; max-height:200px; overflow-y:auto;"></div>
 </dialog>
 
 <script>
@@ -1750,6 +1768,80 @@
         if (!stepsEditorDraft.length) { alert('至少需要保留一个步骤'); return; }
         localStorage.setItem('caie_studyplan_config', JSON.stringify({ questSteps: stepsEditorDraft }));
         location.reload();
+    }
+
+    /* ======================== 12.6 大纲导入（文本解析 + 预览确认） ======================== */
+    // 解析用户粘贴的大纲文本 → [{subject, units:[]}]
+    function parseSyllabusText(raw) {
+        const result = [];
+        let currentSubject = null;
+        const lines = raw.split(/\r?\n/);
+        for (const lineRaw of lines) {
+            const line = lineRaw.replace(/^[-•*>\s]+/, '').replace(/^\d+[.)、]\s*/, '').trim();
+            if (!line) continue;
+            // 判定为科目行：非列表项（没有以 - • * 数字开头）且看起来像 名称(代码)
+            const isList = /^[-•*>\d]/.test(lineRaw.trim());
+            const looksSubject = !isList && /\(?\d{4}\)?/.test(line) || (!isList && line.split(/[-(]/).length >= 2 && line.length < 60);
+            if (!isList) {
+                // 新科目（允许同时多个科目段落）
+                currentSubject = { subject: line, units: [] };
+                result.push(currentSubject);
+            } else if (currentSubject) {
+                currentSubject.units.push(line);
+            }
+        }
+        return result;
+    }
+
+    function openImportSyllabus() {
+        document.getElementById('import-syllabus-text').value = '';
+        document.getElementById('import-syllabus-preview').innerHTML = '';
+        document.getElementById('import-syllabus-modal').showModal();
+    }
+
+    function previewImportSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value;
+        const parsed = parseSyllabusText(raw);
+        const preview = document.getElementById('import-syllabus-preview');
+        if (!parsed.length) { preview.innerHTML = '<span style="color:#ba1a1a;">未识别到大纲，请检查格式（第一行科目名，每行一个知识点）。</span>'; return; }
+        preview.innerHTML = parsed.map(p => {
+            const existing = syllabusDB[p.subject];
+            const dupCount = existing ? p.units.filter(u => existing.units.includes(u)).length : 0;
+            return `<div style="margin-bottom:8px;"><b>${escapeHtml(p.subject)}</b> — ${p.units.length} 个知识点（重复 ${dupCount} 个将跳过）<br>${p.units.map(u => '· ' + escapeHtml(u)).join('<br>')}</div>`;
+        }).join('<hr style="border:none;border-top:1px solid #eee;margin:8px 0;">');
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+    }
+
+    function confirmImportSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value;
+        const parsed = parseSyllabusText(raw);
+        if (!parsed.length) { alert('未识别到大纲，请检查格式'); return; }
+        let added = 0, merged = 0;
+        parsed.forEach(p => {
+            if (!p.subject) return;
+            // 规范化 link：若科目存在保留原 link，否则构造默认 znotes 链接
+            if (!syllabusDB[p.subject]) {
+                const code = (p.subject.match(/\d{4}/) || [''])[0];
+                syllabusDB[p.subject] = { link: code ? `https://znotes.org/caie/igcse/${p.subject.toLowerCase()}/` : '', units: [] };
+            }
+            p.units.forEach(u => {
+                if (!u) return;
+                if (syllabusDB[p.subject].units.includes(u)) return; // 去重
+                syllabusDB[p.subject].units.push(u);
+                added++;
+            });
+            merged++;
+        });
+        saveSyllabus();
+        document.getElementById('import-syllabus-modal').close();
+        populateSettings();
+        renderUnitEditorList();
+        renderSidebar();
+        renderTrafficDashboard();
+        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点（已存在的知识点自动跳过，进度不受影响）`);
     }
 
     function renderUnitEditorList() {
