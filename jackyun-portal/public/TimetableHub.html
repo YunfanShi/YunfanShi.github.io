@@ -334,6 +334,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="gen-left" id="genLeft">
       <div class="gen-scroll">
         <div class="sec"><div class="sec-ico b"><span class="material-icons-round" style="font-size:16px;">view_list</span></div><span class="sec-title">任务蓝图</span><span class="sec-act" onclick="openBP()">+ 新建</span></div>
+        <button class="btn btn-o btn-sm btn-w" style="margin-bottom:6px;" onclick="importGoalsAsBP()"><span class="material-icons-round" style="font-size:13px;">download</span> 📥 从目标导入蓝图</button>
         <div id="bpList"></div>
         <div class="sec"><div class="sec-ico y"><span class="material-icons-round" style="font-size:16px;">checklist</span></div><span class="sec-title">今日勾选</span><span id="toggleDate" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
         <div id="toggleList"></div>
@@ -618,9 +619,51 @@ function switchToGen(){document.getElementById('viewExec').classList.remove('a')
 function rerollFromExec(){switchToGen();}
 
 // ===== GENERATOR RENDERS =====
+function importGoalsAsBP(){
+  try{
+    const raw=localStorage.getItem('jackyun_goal_data')||localStorage.getItem('gt_v6');
+    if(!raw){msg('❌ 未找到目标数据');return;}
+    const goals=JSON.parse(raw);
+    if(!Array.isArray(goals)||!goals.length){msg('❌ 目标列表为空');return;}
+    const roots=goals.filter(g=>g.parentId===null);
+    let added=0,skipped=0;
+    roots.forEach(g=>{
+      // 跳过已导入的
+      if(st.bps.some(b=>b.fromGoal===g.id)){skipped++;return;}
+      const total=Number(g.total)||0;
+      const done=Number(g.done)||0;
+      const remaining=Math.max(0,total-done);
+      // 无上限任务（total=0）按每天1h估算；有上限按7天平均
+      const h=total>0?Math.max(0.5,Math.ceil(remaining/Math.max(1,deadlineDaysBP(g.deadline)))):1;
+      const colMap={'blue':'#4d9ef7','green':'#34c76a','yellow':'#f5a623','red':'#ff5c5c','purple':'#b57bee','teal':'#2dd4bf','pink':'#f472b6','orange':'#fb923c'};
+      st.bps.push({
+        id:'goal_'+g.id,
+        n:g.name,
+        t:(remaining===0&&total>0)?'optional':'mandatory',
+        h:h,
+        sp:1,
+        ds:new Date().toISOString().slice(0,10),
+        de:g.deadline||new Date(Date.now()+30*864e5).toISOString().slice(0,10),
+        c:g.cat||'学习',
+        col:colMap[g.color]||'#4d9ef7',
+        fromGoal:g.id,
+        gh:h,ch:0
+      });
+      added++;
+    });
+    sv();renderBP();renderTog();
+    msg(`✅ 已导入 ${added} 个目标${skipped?`（跳过 ${skipped} 个重复）`:''}`);
+  }catch(e){msg('❌ 导入失败: '+e.message);}
+}
+function deadlineDaysBP(d){
+  if(!d)return 30;
+  const t=new Date(d),now=new Date();
+  const days=Math.ceil((t-now)/864e5);
+  return days>0?days:1;
+}
 function renderBP(){
   const el=document.getElementById('bpList');
-  if(!st.bps.length){el.innerHTML='<div style="text-align:center;padding:24px 12px;color:var(--text3);font-size:12px;">暂无蓝图<br><span style="font-size:11px;">点击「+ 新建」</span></div>';return;}
+  if(!st.bps.length){el.innerHTML='<div style="text-align:center;padding:24px 12px;color:var(--text3);font-size:12px;">暂无蓝图<br><span style="font-size:11px;">点击「+ 新建」或「📥 从目标导入」</span></div>';return;}
   el.innerHTML=st.bps.map(b=>{
     const sm=Math.round(b.h*60/b.sp);
     return`<div class="bp-card ${b.t}" onclick="edBP('${b.id}')"><div class="bp-hdr"><div class="bp-l"><span class="bp-dot" style="background:${b.col||'#4d9ef7'}"></span><span class="bp-name">${esc(b.n)}</span></div><span class="bp-badge ${b.t==='mandatory'?'m':'o'}">${b.t==='mandatory'?'必做':'可选'}</span></div>
@@ -746,6 +789,8 @@ function doGenerate(startMin,ses,idleMin){
     }
     sch.sort((a,b)=>t2m(a.s)-t2m(b.s));
     st.sch=sch;st.run=false;st.ci=-1;sv();renderGenPreview();msg(`✅ ${sch.length}个时段`);closeGacha();
+    // 发布蓝图供 Control 页面读取
+    try{localStorage.setItem('jack_timetable_plan',JSON.stringify({date:gT(),plan:sch.map(r=>({s:r.s,e:r.e,t:r.t,ty:r.ty||'s'}))}));}catch(e){}
     document.getElementById('viewGen').classList.remove('a');
     document.getElementById('viewExec').classList.add('a');
     initExec();
