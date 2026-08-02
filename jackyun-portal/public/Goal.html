@@ -270,12 +270,24 @@ option{background:#1a1a1a;}
 /* TASK TIMER */
 @keyframes breathe{0%,100%{border-color:rgba(52,199,106,.25);box-shadow:0 0 0 0 rgba(52,199,106,.12);}50%{border-color:rgba(52,199,106,.85);box-shadow:0 0 14px 2px rgba(52,199,106,.25);}}
 .gt-timer.running{animation:breathe 2.2s ease-in-out infinite;}
-.gt-timer{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);}
+.gt-timer{display:flex;align-items:center;gap:7px;margin-top:8px;padding:8px 12px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);}
 .gt-timer.running{border-color:rgba(52,199,106,.35);background:rgba(52,199,106,.07);}
 .gt-timer.paused{border-color:var(--border2);}
-.gt-timer-time{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--ai);flex:none;}
+.gt-timer-time{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--ai);margin-right:2px;}
 .gt-timer.running .gt-timer-time{color:#34c76a;}
-.gt-timer .btn-ico{padding:2px 8px;height:24px;font-size:12px;}
+.gt-timer-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);margin-left:auto;white-space:nowrap;}
+.gt-timer-ctrl{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface3);color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;padding:0;}
+.gt-timer-ctrl:hover{background:var(--border2);color:var(--text);transform:scale(1.06);}
+.gt-timer-ctrl:active{transform:scale(.94);}
+.gt-timer-ctrl.resume-btn{background:rgba(77,158,247,.12);color:var(--blue);}
+.gt-timer-ctrl.resume-btn:hover{background:rgba(77,158,247,.25);}
+.gt-timer-ctrl.pause-btn{background:rgba(245,166,35,.12);color:var(--yellow);}
+.gt-timer-ctrl.pause-btn:hover{background:rgba(245,166,35,.25);color:var(--yellow);}
+.gt-timer-ctrl.stop-btn{background:rgba(255,92,92,.12);color:var(--red);}
+.gt-timer-ctrl.stop-btn:hover{background:rgba(255,92,92,.28);color:#fff;}
+.gt-timer-ctrl .material-icons-round{font-size:18px;}
+.gt-timer-est{font-size:10px;color:var(--text3);font-family:var(--mono);cursor:help;white-space:nowrap;}
+.gt-timer-est b{color:var(--ai);}
 
 /* DRAG & DROP */
 .drag-over{border:2px dashed var(--blue)!important;background:var(--blue-dim)!important;opacity:.85;}
@@ -836,6 +848,7 @@ function save(){
   localStorage.setItem('gt_v6',JSON.stringify(goals));
   localStorage.setItem('jackyun_goal_data',JSON.stringify(goals));
   window.dispatchEvent(new CustomEvent('jackyun-goal-updated',{detail:{goals}}));
+  syncTimeEstimates(); // 时长估算同步给 TimetableHub
 }
 function savePreds(){localStorage.setItem('ai_preds',JSON.stringify(aiPreds));}
 function savePref(){
@@ -2769,18 +2782,45 @@ function avgSessionTime(g){
   const totalMin=s.reduce((a,b)=>a+(b.minutes||0),0);
   return Math.round(totalMin/s.length);
 }
+// 估算单位时间：总专注分钟 ÷ 进度增量。用于 TimetableHub 排程参考
+function estMinutesPerUnit(g){
+  const sessions=g.sessions||[];
+  if(!sessions.length) return null;
+  let totalMin=0, totalDelta=0;
+  sessions.forEach(s=>{
+    totalMin+=s.minutes||0;
+    totalDelta+=s.delta||0;
+  });
+  if(totalDelta<=0||totalMin<=0) return null;
+  return Math.round(totalMin/totalDelta);
+}
+// 将每个 goal 的时长估算写入 jackyun_goal_time_est，供 TimetableHub 读取
+function syncTimeEstimates(){
+  try{
+    const est={};
+    goals.forEach(g=>{
+      if(isLeaf(g)){
+        const m=estMinutesPerUnit(g);
+        est[g.id]={name:g.name,unit:g.unit||'次',minutes:m,parentId:g.parentId};
+      }
+    });
+    localStorage.setItem('jackyun_goal_time_est',JSON.stringify({updated:new Date().toISOString(),goals:est}));
+  }catch(e){}
+}
 function timerAreaHTML(g){
   if(!g) return '';
   const t=activeTimers[g.id];
   const avg=avgSessionTime(g);
-  const avgHtml=avg!=null?`<span style="font-size:10px;color:var(--text3);margin-left:auto;font-family:var(--mono);">均 ${avg}分</span>`:'';
+  const est=estMinutesPerUnit(g);
+  const estHtml=est!=null?`<span class="gt-timer-est" title="根据你的 ${(g.sessions||[]).length} 次专注记录，平均完成 1${g.unit||'次'} 约需 ${est} 分钟">每${g.unit||'次'}约 <b>${est}分</b></span>`:'';
+  const avgHtml=avg!=null?`<span class="gt-timer-lbl" title="平均每次专注时长">均 ${avg}分</span>`:'';
   let inner;
   if(t&&t.running){
-    inner=`<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span>${avgHtml}<button class="btn btn-ico" onclick="pauseTaskTimer(${g.id})" title="暂停">⏸</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+    inner=`<div class="gt-timer running"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span>${avgHtml}${estHtml}<button class="gt-timer-ctrl pause-btn" onclick="pauseTaskTimer(${g.id})" title="暂停"><span class="material-icons-round">pause</span></button><button class="gt-timer-ctrl stop-btn" onclick="stopTaskTimer(${g.id})" title="结束任务"><span class="material-icons-round">stop</span></button></div>`;
   } else if(t&&!t.running){
-    inner=`<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span>${avgHtml}<button class="btn btn-ico" onclick="startTaskTimer(${g.id})" title="继续">▶</button><button class="btn btn-ico" style="color:var(--green);" onclick="stopTaskTimer(${g.id})" title="结束任务">✅ 结束</button></div>`;
+    inner=`<div class="gt-timer paused"><span class="gt-timer-time" id="tt${g.id}">${fmtTaskTime(timerMs(g.id))}</span>${avgHtml}${estHtml}<button class="gt-timer-ctrl resume-btn" onclick="startTaskTimer(${g.id})" title="继续"><span class="material-icons-round">play_arrow</span></button><button class="gt-timer-ctrl stop-btn" onclick="stopTaskTimer(${g.id})" title="结束任务"><span class="material-icons-round">stop</span></button></div>`;
   } else {
-    inner=`<div class="gt-timer idle"><button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:12px;color:var(--ai);" onclick="startTaskTimer(${g.id})">▶ 开始任务</button>${avgHtml}</div>`;
+    inner=`<div class="gt-timer idle"><button class="gt-timer-ctrl resume-btn" onclick="startTaskTimer(${g.id})" title="开始任务" style="width:auto;padding:0 14px;border-radius:99px;"><span class="material-icons-round" style="font-size:16px;">play_arrow</span><span style="font-size:11px;margin-left:4px;">开始</span></button>${avgHtml}${estHtml}</div>`;
   }
   // 外层容器带 id，renderTimerUI 才能精确更新
   return `<div id="timerArea${g.id}">${inner}</div>`;
@@ -2803,7 +2843,7 @@ function confirmEndTimer(){
   const delta=Math.max(0,parseInt(document.getElementById('endDone').value)||0);
   const note=document.getElementById('endNote').value.trim();
   if(!g.sessions) g.sessions=[];
-  g.sessions.push({date:today(),minutes,note});
+  g.sessions.push({date:today(),minutes,note,delta});
   if(delta>0){
     const newDone=g.total>0?Math.min(g.total,(g.done||0)+delta):(g.done||0)+delta;
     g.done=newDone;
@@ -2854,12 +2894,12 @@ function openDetail(id){
       <div style="flex:1;">${segBar(hp,28,7)}</div>
       <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${c.hex};min-width:46px;text-align:right;">${hd}/${ht}</span>
       ${flags}
-      ${h.note?`<span style="font-size:11px;color:var(--text3);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(h.note)}</span>`:''}
+      <span id="hnote${id}-${i}" style="font-size:11px;color:var(--text3);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="点击编辑备注" onclick="editHistoryNote(${id},${i})">${h.note?esc(h.note):'✎ 添加备注'}</span>
       ${h.isHistorical?`<button class="btn btn-ico" title="改为当天完成" onclick="toggleHistoryFlag(${id},${i})" style="font-size:11px;">☀️</button>`:`<button class="btn btn-ico" title="标记为历史累积（不是一天完成的）" onclick="toggleHistoryFlag(${id},${i})" style="font-size:11px;">📦</button>`}
       <button class="btn btn-ico del" title="删除此条记录" onclick="deleteHistoryEntry(${id},${i})" style="font-size:10px;">✕</button>
     </div>`;}).join(''):'<div style="color:var(--text3);font-size:13px;padding:9px 0;">暂无更新记录</div>';
   const sessions=(g.sessions||[]).slice().reverse().slice(0,8);
-  const sessionH=sessions.length?`<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-top:12px;margin-bottom:7px;">⏱ 专注记录 <span style="font-size:9px;color:var(--text3);">(最近${sessions.length}次)</span></div>${sessions.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:70px;">${s.date}</span><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ai);min-width:70px;">${fmtTaskTime((s.minutes||0)*60000)}</span><span style="flex:1;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.note||'')}</span></div>`).join('')}</div>`:'';
+  const sessionH=sessions.length?`<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-top:12px;margin-bottom:7px;">⏱ 专注记录 <span style="font-size:9px;color:var(--text3);">(最近${sessions.length}次)</span></div>${sessions.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:11px;color:var(--text2);min-width:70px;">${s.date}</span><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ai);min-width:70px;">${fmtTaskTime((s.minutes||0)*60000)}</span>${(s.delta&&s.delta>0)?`<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);min-width:40px;text-align:right;">+${s.delta}${g.unit||''}</span>`:''}<span style="flex:1;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.note||'')}</span></div>`).join('')}</div>`:'';
   const p=getPct(g),{done:dd,total:dt}=getDoneTotal(g);
   const kv=[['完成情况',dd+' / '+dt+(g.unit?' '+g.unit:'')],['完成率',p+'%'],['分类',`${CAT_E[g.cat]||''} ${g.cat}`],
     ['优先级',g.priority==='high'?'🔴 高':g.priority==='mid'?'🟡 中':'🟢 低'],
@@ -2892,6 +2932,28 @@ function delGoal(id){
 }
 
 /* ===================== HISTORY ENTRY MANAGEMENT ===================== */
+// 在线编辑历史记录的备注：点击备注 → 输入框 → 回车/失焦保存
+function editHistoryNote(id, idx){
+  const g=goals.find(x=>x.id===id); if(!g||!g.history||!g.history[idx]) return;
+  const span=document.getElementById(`hnote${id}-${idx}`);
+  if(!span) return;
+  const cur=g.history[idx].note||'';
+  const input=document.createElement('input');
+  input.type='text'; input.value=cur; input.maxLength=80;
+  input.style.cssText='font-size:11px;font-family:var(--mono);color:var(--text);background:var(--surface2);border:1px solid var(--blue);border-radius:4px;padding:2px 6px;width:100px;outline:none;';
+  span.replaceWith(input);
+  input.focus(); input.select();
+  const saveNote=()=>{
+    const v=input.value.trim();
+    if(v!==cur){ g.history[idx].note=v; save(); }
+    openDetail(id);
+  };
+  input.addEventListener('blur',saveNote);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); input.blur(); }
+    else if(e.key==='Escape'){ openDetail(id); }
+  });
+}
 function deleteHistoryEntry(id, idx){
   const g=goals.find(x=>x.id===id); if(!g||!g.history) return;
   if(!confirm('确定删除这条更新记录？')) return;
