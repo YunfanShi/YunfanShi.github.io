@@ -863,66 +863,59 @@
     </div>
 </dialog>
 
-<dialog id="import-syllabus-modal">
+<dialog id="import-syllabus-modal" style="width:720px; max-width:90vw;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">📥 导入大纲</h3>
         <button onclick="document.getElementById('import-syllabus-modal').close()" style="background:none; border:none; cursor:pointer; font-size:20px;">&times;</button>
     </div>
-    <p style="font-size:12px; color:#666; margin-top:10px;">第一行写科目名（如 Mathematics (0580)），下方每行写一个知识点。已存在的科目将合并去重，不会丢失进度。</p>
-    <textarea id="import-syllabus-text" rows="8" placeholder="Mathematics (0580)&#10;- Number&#10;- Algebra & Graphs&#10;&#10;Physics (0625)&#10;- Motion, Forces and Energy&#10;- Waves"></textarea>
+
+    <!-- 考试局选择 -->
+    <div style="margin-top:14px; background:#f8f9fa; border-radius:12px; padding:12px 14px; border:1px solid #eee;">
+        <div style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; color:#333; margin-bottom:8px;">
+            <span class="material-icons-round" style="font-size:16px; color:var(--primary);">school</span>
+            考试局（决定正则匹配规则）
+        </div>
+        <div style="display:flex; gap:10px;">
+            <label style="flex:1; display:flex; align-items:center; gap:8px; background:#fff; border:2px solid var(--primary); border-radius:10px; padding:10px 12px; cursor:pointer; font-size:13px; font-weight:600;" id="exam-board-label-caie">
+                <input type="radio" name="exam-board" value="caie" checked onchange="onExamBoardChange('caie')" style="width:auto; margin:0; accent-color:var(--primary);">
+                🇬🇧 CAIE 剑桥
+                <span style="font-size:10px; color:#888; font-weight:400;">Cambridge International</span>
+            </label>
+            <label style="flex:1; display:flex; align-items:center; gap:8px; background:#fff; border:2px solid #ddd; border-radius:10px; padding:10px 12px; cursor:pointer; font-size:13px; font-weight:600;" id="exam-board-label-edexcel">
+                <input type="radio" name="exam-board" value="edexcel" onchange="onExamBoardChange('edexcel')" style="width:auto; margin:0; accent-color:var(--primary);">
+                🇬🇧 Edexcel 爱德思
+                <span style="font-size:10px; color:#888; font-weight:400;">Pearson Edexcel</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- 解析说明 -->
+    <div style="margin-top:10px; font-size:12px; color:#666; line-height:1.7; background:#fffbe6; border:1px solid #ffe9a8; border-radius:10px; padding:8px 12px;">
+        <b>三种解析方式：</b><br>
+        <b>🤖 AI 解析</b> — 粘贴整份考纲（含大量介绍文字），AI 智能提取章节/知识点<br>
+        <b>🔍 正则匹配</b> — 本地正则自动提取编号知识点（如 <code>1.1 Physical quantities</code>、<code>1.2.1 ...</code>），快且免费<br>
+        <b>✍️ 手动整理</b> — 已整理好的列表，直接在预览区确认导入
+    </div>
+
+    <textarea id="import-syllabus-text" rows="8" placeholder="在此粘贴考纲文本（复制自 PDF/网页）&#10;&#10;例如 CAIE Physics 9702 的 Subject content 部分：&#10;1.1 Physical quantities&#10;1.1.1 understand that all physical quantities consist of a numerical magnitude and a unit&#10;1.2 SI units&#10;..." style="margin-top:10px; font-family:'Roboto Mono',monospace; font-size:12px;"></textarea>
+    
     <div style="text-align:right; margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
         <button class="btn-outline" onclick="aiParseSyllabus()">🤖 AI 解析</button>
-        <button class="btn-outline" onclick="previewImportSyllabus()">👀 预览</button>
-        <button class="btn-primary" onclick="confirmImportSyllabus()">✅ 导入</button>
+        <button class="btn-outline" onclick="regexParseSyllabus()" id="btn-regex-parse">🔍 正则匹配</button>
+        <button class="btn-outline" onclick="previewImportSyllabus()">👀 预览/编辑</button>
+        <button class="btn-primary" onclick="confirmImportSyllabus()">✅ 确认导入</button>
     </div>
-    <div id="import-syllabus-preview" style="margin-top:12px; font-size:12px; color:#444; background:#f8f9fa; border-radius:8px; padding:10px; max-height:200px; overflow-y:auto;"></div>
+
+    <!-- 可编辑预览区 -->
+    <div id="import-syllabus-preview" style="margin-top:12px; font-size:12px; color:#444; background:#f8f9fa; border-radius:8px; padding:10px; max-height:240px; overflow-y:auto;"></div>
+    <div id="import-syllabus-stats" style="margin-top:6px; font-size:11px; color:#888;"></div>
 </dialog>
 
 <script>
-    // --- 1. DEFAULT DATA (Replaced with new Syllabus) ---
-    // If LocalStorage is empty, these will be used.
-    const DEFAULT_SYLLABUS = {
-        "Mathematics (0580)": {
-            link: "https://znotes.org/caie/igcse/maths-0580/",
-            units: [
-                "Number", "Algebra & Graphs", "Geometry", "Mensuration", "Coordinate Geometry", 
-                "Trigonometry", "Vectors & Transformations", "Probability", "Statistics"
-            ]
-        },
-        "Additional Mathematics (0606)": {
-            link: "https://znotes.org/caie/igcse/additional-maths-0606/",
-            units: [
-                "Functions", "Quadratic functions", "Factors of polynomials", "Equations, inequalities and graphs",
-                "Simultaneous equations", "Logarithmic and exponential functions", "Straight-line graphs",
-                "Coordinate geometry of the circle", "Circular measure", "Trigonometry", "Permutations and combinations",
-                "Series", "Vectors in two dimensions", "Calculus"
-            ]
-        },
-        "Biology (0610)": {
-            link: "https://znotes.org/caie/igcse/biology-0610/",
-            units: [
-                "Characteristics and Classification of Living Organisms", "Organisation of the Organism", "Movement Into and Out of Cells",
-                "Biological Molecules", "Enzymes", "Plant Nutrition", "Human Nutrition", "Transport in Plants", "Transport in Animals",
-                "Diseases and Immunity", "Gas Exchange in Humans", "Respiration", "Excretion in Humans", "Coordination and Response",
-                "Drugs", "Reproduction", "Inheritance", "Variation and Selection", "Organisms and their Environment",
-                "Human Influences on Ecosystems", "Biotechnology and Genetic Modification"
-            ]
-        },
-        "Chemistry (0620)": {
-            link: "https://znotes.org/caie/igcse/chemistry-0620/",
-            units: [
-                "States of Matter", "Atoms, Elements and Compounds", "Stoichiometry", "Electrochemistry", "Chemical Energetics",
-                "Chemical Reactions", "Acids, Bases and Salts", "The Periodic Table", "Metals", "Chemistry of the Environment",
-                "Organic Chemistry", "Experimental Techniques and Chemical Analysis"
-            ]
-        },
-        "Physics (0625)": {
-            link: "https://znotes.org/caie/igcse/physics-0625/",
-            units: [
-                "Motion, Forces and Energy", "Thermal Physics", "Waves", "Electricity and Magnetism", "Nuclear Physics", "Space Physics"
-            ]
-        }
-    };
+    // --- 1. DEFAULT DATA (Empty — user must import syllabus) ---
+    // If LocalStorage is empty, no pre-populated subjects are shown.
+    // Users must import a syllabus via the Syllabus Manager.
+    const DEFAULT_SYLLABUS = {};
 
     // --- 2. State & Persistence ---
     // Load Syllabus from LS or Default
@@ -982,10 +975,10 @@
     function isSubjectComplete(subject) {
         const data = syllabusDB[subject];
         if (!data) return false;
-        // In this version, units are strings, not objects with subs
-        // We consider a unit done if FINAL|unit_done is true
+        // Handle both string units and {name, subs} object units
         for (const unit of data.units) {
-            if (!progressDB[`${subject}|${unit}|FINAL|unit_done`]) return false;
+            const unitName = getUnitName(unit);
+            if (!progressDB[`${subject}|${unitName}|FINAL|unit_done`]) return false;
         }
         return true;
     }
@@ -1004,10 +997,34 @@
             unitDiv.id = `unit-${unitIdx}`;
             unitDiv.style.marginBottom = '40px';
             
-            // In the new data structure, Units are flat. 
-            // We treat each Unit as a "Quest Card" directly.
+            // Handle both string units and {name, subs} object units
             const card = createQuestCard(subject, unit, link);
             unitDiv.appendChild(card);
+
+            // 如果该知识点有子项（subs），添加可展开的子知识点列表
+            const subs = getUnitSubs(unit);
+            if (subs.length) {
+                const subsWrap = document.createElement('div');
+                subsWrap.style.cssText = 'margin-top:10px; margin-left:16px; border-left:3px solid #cce5ff; padding:8px 0 8px 16px; background:rgba(204,229,255,0.12); border-radius:0 10px 10px 0;';
+                subsWrap.innerHTML = `
+                    <div style="font-size:11px; color:var(--secondary); font-weight:600; margin-bottom:6px; display:flex; align-items:center; gap:4px;">
+                        <span class="material-icons-round" style="font-size:13px;">expand_more</span>
+                        考纲细分要求 (${subs.length}) — 点击展开
+                    </div>
+                    <div id="subs-body-${subject.replace(/[^a-zA-Z0-9]/g,'_')}-${unitIdx}" style="display:none; font-size:12px; color:#444; line-height:1.8;">
+                        ${subs.map(s => `<div style="padding:3px 0;">· ${escapeHtml(s)}</div>`).join('')}
+                    </div>
+                `;
+                subsWrap.querySelector('div').addEventListener('click', function() {
+                    const body = document.getElementById(`subs-body-${subject.replace(/[^a-zA-Z0-9]/g,'_')}-${unitIdx}`);
+                    if (body) {
+                        const isHidden = body.style.display === 'none';
+                        body.style.display = isHidden ? 'block' : 'none';
+                        this.querySelector('span').textContent = isHidden ? 'expand_less' : 'expand_more';
+                    }
+                });
+                unitDiv.appendChild(subsWrap);
+            }
 
             area.appendChild(unitDiv);
         });
@@ -1022,21 +1039,22 @@
     function createQuestCard(subject, unit, link) {
         const card = document.createElement('div');
         card.className = 'quest-card';
+        const unitName = getUnitName(unit);
         
         // Progress Logic
         let currentStepIndex = 0;
         for (let i = 0; i < QUEST_STEPS.length; i++) {
-            const key = `${subject}|${unit}|${QUEST_STEPS[i].id}`;
+            const key = `${subject}|${unitName}|${QUEST_STEPS[i].id}`;
             if (progressDB[key]) currentStepIndex = i + 1;
             else break;
         }
 
-        const isUnitDone = progressDB[`${subject}|${unit}|FINAL|unit_done`];
+        const isUnitDone = progressDB[`${subject}|${unitName}|FINAL|unit_done`];
         if (isUnitDone) currentStepIndex = QUEST_STEPS.length; // Max out
 
         // 始终显示红绿灯掌握状态（无论是否已完成）
         let trafficBadge = '<span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500; color:#999; background:#f0f0f0; padding:3px 10px; border-radius:99px; margin-top:6px;">⚪ 未评估</span>';
-        const trafficStatus = getTrafficStatus(subject, unit);
+        const trafficStatus = getTrafficStatus(subject, unitName);
         if (trafficStatus) {
             const tColor = trafficStatus.color;
             const tLabel = tColor === 'red' ? '🔴 红灯' : tColor === 'yellow' ? '🟡 黄灯' : tColor === 'green' ? '🟢 绿灯' : '⚪ 未知';
@@ -1066,7 +1084,7 @@
                 if (step.id === 'traffic') {
                     // 红绿灯审计：点击红/黄/绿按钮可随时切换颜色（不自动完成）
                     // 点击「确认审计」后才标记步骤完成 —— 支持随时修改/回退
-                    const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
+                    const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unitName}`;
                     let currentTraffic = '';
                     let trafficDate = '';
                     try {
@@ -1079,24 +1097,24 @@
                     } catch(e) {}
                     const trafficBtn = (color, label, desc) => `
                         <button 
-                            onclick="selectTrafficColor('${subject}','${unit}','${color}',event)" 
-                            id="traffic-btn-${subject}-${unit}-${color}"
+                            onclick="selectTrafficColor('${subject}','${unitName}','${color}',event)" 
+                            id="traffic-btn-${subject}-${unitName}-${color}"
                             style="width:80px; padding:10px 0; border-radius:12px; border:${currentTraffic === color ? '3px solid ' + color : '2px solid #ddd'}; cursor:pointer; font-size:14px; background:${currentTraffic === color ? color : '#fff'}; color:${currentTraffic === color ? '#fff' : '#333'}; font-weight:600; transform:${currentTraffic === color ? 'scale(1.05)' : 'scale(1)'}; box-shadow:${currentTraffic === color ? '0 0 8px ' + color + '66' : 'none'}; transition:all 0.2s;"
                             title="${desc}">${label}</button>`;
                     const statusText = currentTraffic 
-                        ? (currentTraffic === '#34a853' ? '🟢 绿灯 · 已掌握' : currentTraffic === '#fbbc04' ? '🟡 黄灯 · 需建卡片' : '🔴 红灯 · 需复习') + (trafficDate ? ` · ${trafficDate}` : '')
-                        : '请选择你的掌握程度';
+                        ? (currentTraffic === '#34a853' ? '🟢 绿灯 · 已达标' : currentTraffic === '#fbbc04' ? '🟡 黄灯 · 需巩固' : '🔴 红灯 · 需复习') + (trafficDate ? ` · ${trafficDate}` : '')
+                        : '请根据考纲要求判断掌握程度';
                     actionBtnHtml = `
                         <div class="quest-action" style="flex-direction:column; align-items:stretch; gap:10px;">
-                            <span style="font-size:14px; color:#666;">红绿灯审计 — 如果现在闭卷考这个知识点，能写出核心公式吗？</span>
+                            <span style="font-size:14px; color:#666;">红绿灯审计 — 按照考纲要求，判断对该知识点的掌握程度：</span>
                             <div style="display:flex; gap:10px; justify-content:center;">
-                                ${trafficBtn('#34a853', '🟢 绿灯', '能，不需要想 → 不管它')}
-                                ${trafficBtn('#fbbc04', '🟡 黄灯', '记得一半/单位模糊 → 建Anki卡片')}
-                                ${trafficBtn('#ea4335', '🔴 红灯', '完全空白 → 回课本看引言+定义')}
+                                ${trafficBtn('#34a853', '🟢 绿灯', '完全达到考纲要求，不需复习')}
+                                ${trafficBtn('#fbbc04', '🟡 黄灯', '部分达到考纲要求，需巩固薄弱点')}
+                                ${trafficBtn('#ea4335', '🔴 红灯', '未达到考纲要求，需回课本重新学习')}
                             </div>
-                            <div id="traffic-status-${subject}-${unit}" style="text-align:center; font-size:13px; font-weight:500; color:#555;">${statusText}</div>
+                            <div id="traffic-status-${subject}-${unitName}" style="text-align:center; font-size:13px; font-weight:500; color:#555;">${statusText}</div>
                             <div style="display:flex; gap:10px; justify-content:center;">
-                                <button class="btn-primary" onclick="confirmTrafficAudit('${subject}','${unit}')">
+                                <button class="btn-primary" onclick="confirmTrafficAudit('${subject}','${unitName}')">
                                     确认审计 <span class="material-icons-round">check</span>
                                 </button>
                             </div>
@@ -1104,7 +1122,7 @@
                 } else {
                     let clickAction = '';
                     // Notes 点击不跳转外部链接，直接完成该步骤进入下一步
-                    if (step.id === 'note') clickAction = `completeStep('${subject}','${unit}','${step.id}')`;
+                    if (step.id === 'note') clickAction = `completeStep('${subject}','${unitName}','${step.id}')`;
 
                     actionBtnHtml = `
                         <div class="quest-action">
@@ -1125,13 +1143,13 @@
             const trafficC = trafficStatus ? trafficStatus.color : null;
             if (trafficC === 'red' || trafficC === 'yellow') {
                 const warnTxt = trafficC === 'red'
-                    ? '🔴 红灯 · 完全空白 — 建议先回课本复习引言和定义，再重新审计'
-                    : '🟡 黄灯 · 记得一半/单位模糊 — 建议先建 Anki 卡片巩固，再重新审计';
+                    ? '🔴 红灯 · 未达到考纲要求 — 建议先回课本重新学习，再重新审计'
+                    : '🟡 黄灯 · 部分达到考纲要求 — 建议先巩固薄弱点，再重新审计';
                 actionBtnHtml = `
                     <div class="quest-action" style="border-color:#f9ab00; background:#fff8e1; flex-direction:column; gap:8px; align-items:stretch;">
                         <span style="font-weight:600; color:#b8860b; text-align:center;">${warnTxt}</span>
                         <div style="display:flex; gap:8px; justify-content:center;">
-                            <button class="btn-outline" style="color:#b8860b; border-color:#b8860b;" onclick="revertTraffic('${subject}','${unit}')">↩ 重新审计</button>
+                            <button class="btn-outline" style="color:#b8860b; border-color:#b8860b;" onclick="revertTraffic('${subject}','${unitName}')">↩ 重新审计</button>
                         </div>
                     </div>`;
             } else {
@@ -1139,8 +1157,8 @@
                     <div class="quest-action" style="border-color:#ffd700; background:#fffbe6; flex-direction:column; gap:8px; align-items:stretch;">
                         <span style="font-weight:bold; color:#b8860b; text-align:center;">所有步骤已完成，确认掌握该知识点？</span>
                         <div style="display:flex; gap:8px; justify-content:center;">
-                            <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unit}')">✓ 已掌握</button>
-                            <button class="btn-outline" onclick="revertTraffic('${subject}','${unit}')">↩ 重新审计</button>
+                            <button class="btn-primary" style="background:#b8860b" onclick="finishUnit('${subject}','${unitName}')">✓ 已掌握</button>
+                            <button class="btn-outline" onclick="revertTraffic('${subject}','${unitName}')">↩ 重新审计</button>
                         </div>
                     </div>`;
             }
@@ -1152,7 +1170,7 @@
                         <span class="material-icons-round" style="color:#2e7d32;">check_circle</span>
                         知识点已掌握
                     </div>
-                    <button class="btn-outline" style="color:#d93025; border-color:#d93025;" onclick="revertUnit('${subject}','${unit}')">
+                    <button class="btn-outline" style="color:#d93025; border-color:#d93025;" onclick="revertUnit('${subject}','${unitName}')">
                         ↩ 回退知识点
                     </button>
                 </div>`;
@@ -1163,7 +1181,7 @@
             <div class="quest-header">
                 <div>
                     <div class="quest-breadcrumbs">${subject}</div>
-                    <div class="quest-title">${unit}</div>
+                    <div class="quest-title">${escapeHtml(unitName)}</div>
                     ${trafficBadge}
                 </div>
             </div>
@@ -1269,7 +1287,8 @@
         const results = [];
         for (const [subject, data] of Object.entries(syllabusDB)) {
             for (const unit of data.units) {
-                const status = getTrafficStatus(subject, unit);
+                const unitName = getUnitName(unit);
+                const status = getTrafficStatus(subject, unitName);
                 if (status) results.push(status);
             }
         }
@@ -1615,7 +1634,8 @@
         if (!data) return { red: 0, yellow: 0, green: 0, none: 0 };
         let red = 0, yellow = 0, green = 0, none = 0;
         for (const unit of data.units) {
-            const s = getTrafficStatus(subject, unit);
+            const unitName = getUnitName(unit);
+            const s = getTrafficStatus(subject, unitName);
             if (!s) { none++; continue; }
             if (s.color === 'red') red++;
             else if (s.color === 'yellow') yellow++;
@@ -1842,10 +1862,22 @@
         location.reload();
     }
 
-    /* ======================== 12.6 大纲导入（文本解析 + AI解析 + 预览确认） ======================== */
-    // 解析用户粘贴的大纲文本 → [{subject, units:[]}]，支持两种格式：
-    //   简单格式：科目名行 + 每行一个知识点（- 开头或纯文本）
-    //   结构化：`学科: xxx` `章节: xxx` `知识点: xxx`
+    /* ======================== 12.6 大纲导入（考试局 + AI解析 + 正则匹配 + 可编辑预览） ======================== */
+    // 当前选中的考试局
+    let currentExamBoard = 'caie';
+
+    // 解析预览数据：{subject, units: [{name, subs, selected}]}
+    let importPreviewData = [];
+
+    function onExamBoardChange(board) {
+        currentExamBoard = board;
+        document.getElementById('exam-board-label-caie').style.borderColor = board === 'caie' ? 'var(--primary)' : '#ddd';
+        document.getElementById('exam-board-label-edexcel').style.borderColor = board === 'edexcel' ? 'var(--primary)' : '#ddd';
+    }
+
+    // ××× 通用文本解析（手动整理格式 / AI 返回格式） ×××
+    // 格式：第一行科目名，下面每行一个知识点（- 开头或纯文本）
+    // 也支持 `章节: xxx`、`知识点: xxx` 标记
     function parseSyllabusText(raw) {
         const result = [];
         let currentSubject = null;
@@ -1859,33 +1891,143 @@
             const subjMatch = trimmed.match(/^(?:学科|subject)[:：]\s*(.+)/i);
             const chapMatch = trimmed.match(/^(?:章节|chapter|ch)[:：]\s*(.+)/i);
             const pointMatch = trimmed.match(/^(?:知识点|topic|point)[:：]\s*(.+)/i);
-            let handled = true;
             if (subjMatch) {
                 currentSubject = { subject: subjMatch[1].trim(), units: [] };
                 result.push(currentSubject);
             } else if (pointMatch) {
                 if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
                 const pt = pointMatch[1].trim().replace(/^[-•*>\s]+/, '');
-                if (pt) currentSubject.units.push(pt);
+                if (pt) currentSubject.units.push({ name: pt, subs: [] });
             } else if (chapMatch) {
                 if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
                 const chap = chapMatch[1].trim().replace(/^[-•*>\s]+/, '');
-                if (chap) currentSubject.units.push(chap);
+                if (chap) currentSubject.units.push({ name: chap, subs: [] });
             } else if (isListLine) {
-                // 列表行 → 知识点（若包含 : 分隔如 "章节: xxx" 已在上文处理）
                 if (!currentSubject) currentSubject = { subject: '未命名科目', units: [] }, result.push(currentSubject);
-                if (line && !/^(?:章节|chapter|知识点|topic)[:：]/i.test(trimmed)) currentSubject.units.push(line);
+                if (line && !/^(?:章节|chapter|知识点|topic)[:：]/i.test(trimmed)) currentSubject.units.push({ name: line, subs: [] });
             } else {
-                // 非列表行 → 新科目（带代码 或 较短名称）
+                // 非列表行 → 新科目
                 currentSubject = { subject: line, units: [] };
                 result.push(currentSubject);
             }
         }
-        // 清理无知识点的科目（保留有知识点的）
         return result.filter(r => r.units.length > 0);
     }
 
-    // AI 解析：调用 planAiCall 让 AI 从随意文本中提取结构化大纲
+    // ××× 正则匹配：CAIE 考纲格式 ×××
+    // 匹配 "N.N Title" 整行（如 "1.1 Physical quantities"）
+    // 以及 "N.N.N ..." 子行（归入最近的 N.N 章节）
+    function regexParseCAIE(raw) {
+        const lines = raw.split(/\r?\n/);
+        // 先尝试识别科目名（如 "Physics (9702)" / "Cambridge International AS & A Level Physics 9702"）
+        let subjectName = '';
+        const subjMatch = raw.match(/(?:Cambridge International\s+)?([A-Z][A-Za-z &\-\u00e9]+?)\s+(?:AS|A Level)?\s*\d{4}/);
+        if (subjMatch) subjectName = subjMatch[1].trim();
+        // 也支持 xxxx/xx 或纯科目名行
+        if (!subjectName) {
+            const codeMatch = raw.match(/^(.+?)\s*\(?(\d{4})\)?\s*$/m);
+            if (codeMatch && codeMatch[1].trim().length < 60) subjectName = codeMatch[1].trim();
+        }
+        // 提取编号行：1.1 / 1.2.1 等
+        const chapters = []; // {id, name, subs: []}
+        const chapterMap = {};
+        for (const lineRaw of lines) {
+            const t = lineRaw.trim();
+            // 匹配 1.1 Title  或  1.2.1 Title  （编号 + 空格 + 非数字文本）
+            const m = t.match(/^(\d+(?:\.\d+)+)\s+(.+)$/);
+            if (!m) continue;
+            const id = m[1];
+            const name = m[2].trim();
+            const parts = id.split('.').map(Number);
+            if (parts.length === 2) {
+                // 一级：1.1
+                const chap = { id: id, name: name, subs: [] };
+                chapters.push(chap);
+                chapterMap[id] = chap;
+            } else if (parts.length >= 3) {
+                // 二级+：1.1.1 → 归入最近的 1.1
+                const parentId = parts.slice(0, 2).join('.');
+                const parent = chapterMap[parentId];
+                if (parent) {
+                    parent.subs.push({ id: id, name: name });
+                } else {
+                    // 没有父级就自成一个章节
+                    const chap = { id: id, name: name, subs: [] };
+                    chapters.push(chap);
+                    chapterMap[id] = chap;
+                }
+            }
+        }
+        return { subjectName, chapters };
+    }
+
+    // ××× 正则匹配：Edexcel 考纲格式 ×××
+    // 匹配 "What students need to learn:" 表格区域中的知识点行
+    function regexParseEdexcel(raw) {
+        const lines = raw.split(/\r?\n/);
+        let subjectName = '';
+        // 尝试匹配 "Pearson Edexcel International Advanced Level in Mathematics" 或 "Edexcel International GCSE in Economics"
+        const subjMatch = raw.match(/Edexcel International (?:GCSE|Advanced Level|Advanced Subsidiary)(?: in|.*?\bin)\s+([A-Z][A-Za-z &\u2013\u2014\/-]+?)(?:\s*\(|\s*Specification|\s*$)/i);
+        if (subjMatch) subjectName = subjMatch[1].trim();
+        if (!subjectName) {
+            const m = raw.match(/^([^\n]{2,60})\s*$/m);
+            if (m) subjectName = m[1].trim();
+        }
+        const chapters = [];
+        const chapterMap = {};
+        // Edexcel 结构：Unit 标题 + "What students need to learn" 表格，每个知识点是 "X.Y 标题" 形式
+        let currentUnit = null;
+        for (const lineRaw of lines) {
+            const t = lineRaw.trim();
+            // 匹配 unit 标题（如 "Unit P1: Pure Mathematics 1" 或 "1. Algebra and functions"）
+            const unitM = t.match(/^Unit\s+(\w+)\s*:?\s*(.+)$/i) || t.match(/^(\d+)\.\s+(.+)$/);
+            if (unitM && t.length < 80 && !/^\d+\.\d/.test(t)) {
+                const unitName = unitM[2].trim();
+                const chap = { id: unitM[1], name: unitName, subs: [] };
+                chapters.push(chap);
+                chapterMap[unitName] = chap;
+                currentUnit = chap;
+                continue;
+            }
+            // 匹配 "1.1 Laws of indices..." 或 "What students need to learn:" 下的条目
+            const m = t.match(/^(\d+\.\d+)\s+(.+)$/);
+            if (m && currentUnit) {
+                currentUnit.subs.push({ id: m[1], name: m[2].trim() });
+            }
+        }
+        return { subjectName, chapters };
+    }
+
+    // ××× 正则匹配解析（根据考试局选择） ×××
+    function regexParseSyllabus() {
+        const raw = document.getElementById('import-syllabus-text').value;
+        if (!raw.trim()) { alert('请先粘贴考纲文本'); return; }
+        let result;
+        if (currentExamBoard === 'caie') {
+            result = regexParseCAIE(raw);
+        } else {
+            result = regexParseEdexcel(raw);
+        }
+        if (!result.chapters.length) {
+            document.getElementById('import-syllabus-preview').innerHTML =
+                '<span style="color:#ba1a1a;">未匹配到编号知识点格式。请检查文本是否包含如 "1.1 Physical quantities" 这样的编号行，或尝试改用 AI 解析。</span>';
+            document.getElementById('import-syllabus-stats').textContent = '';
+            return;
+        }
+        const subjectName = result.subjectName || '未命名科目';
+        importPreviewData = [{
+            subject: subjectName,
+            units: result.chapters.map(c => ({
+                name: c.name,
+                subs: c.subs.map(s => s.name),
+                selected: true
+            }))
+        }];
+        renderImportPreview();
+        updateImportStats();
+    }
+
+    // ××× AI 解析（prompt 根据考试局不同） ×××
     async function aiParseSyllabus() {
         const raw = document.getElementById('import-syllabus-text').value.trim();
         if (!raw) { alert('请先粘贴或输入大纲文本'); return; }
@@ -1893,8 +2035,15 @@
         if (!cfg || !cfg.baseUrl || !cfg.apiKey) { alert('请先在设置页面配置 AI API Key（⚙ 设置 → AI 配置）'); return; }
         const btn = event.target; btn.disabled = true; btn.textContent = '🤖 AI 解析中…';
         try {
-            const prompt = `请从以下大纲文本中提取科目和知识点，严格按此格式输出（每个科目一段，知识点以-开头）：\n\n${raw}\n\n格式要求：\n第一行：科目名\n- 知识点1\n- 知识点2\n...\n\n只输出结构化大纲，不要解释。`;
+            let prompt;
+            if (currentExamBoard === 'caie') {
+                prompt = `你是考纲解析助手。请从下面的 ${currentExamBoard === 'caie' ? 'CAIE/剑桥' : 'Edexcel/爱德思'} 考纲文本中提取科目名和所有编号知识点。\n\n规则：\n1. 第一行输出科目名（含考试代码如果是数字，如 Physics (9702)）\n2. 输出格式为：\n科目名\n- 知识点1\n  - 子知识点1.1\n- 知识点2\n3. 只输出结构化大纲，不要解释\n4. 保留原编号前缀（如 1.1、1.1.1），确保子知识点缩进在其父知识点下\n\n考纲文本：\n\n${raw}`;
+            } else {
+                prompt = `你是考纲解析助手。请从下面的 Edexcel/爱德思 考纲文本中提取科目名和所有编号知识点。\n\n规则：\n1. 第一行输出科目名\n2. 每个单元作为一个一级知识点，单元下的 "What students need to learn" 知识点作为子知识点\n3. 输出格式为：\n科目名\n- 单元名\n  - 子知识点\n- 单元名2\n  - 子知识点\n4. 只输出结构化大纲，不要解释\n\n考纲文本：\n\n${raw}`;
+            }
             const reply = await planAiCall([{ role: 'user', content: prompt }]);
+            // AI 返回的结构化文本 → 用 parseSyllabusText 解析
+            // 把带缩进的子知识点行也解析进来
             document.getElementById('import-syllabus-text').value = reply.trim();
             previewImportSyllabus();
         } catch (e) {
@@ -1904,55 +2053,172 @@
         }
     }
 
+    // ××× 打开导入弹窗 ×××
     function openImportSyllabus() {
         document.getElementById('import-syllabus-text').value = '';
         document.getElementById('import-syllabus-preview').innerHTML = '';
+        document.getElementById('import-syllabus-stats').textContent = '';
+        importPreviewData = [];
+        // 重置考试局选择为默认 CAIE
+        currentExamBoard = 'caie';
+        document.getElementById('exam-board-label-caie').style.borderColor = 'var(--primary)';
+        document.getElementById('exam-board-label-edexcel').style.borderColor = '#ddd';
         document.getElementById('import-syllabus-modal').showModal();
     }
 
+    // ××× 预览/编辑：渲染可编辑的勾选列表 ×××
     function previewImportSyllabus() {
         const raw = document.getElementById('import-syllabus-text').value;
         const parsed = parseSyllabusText(raw);
+        if (!parsed.length) {
+            document.getElementById('import-syllabus-preview').innerHTML =
+                '<span style="color:#ba1a1a;">未识别到大纲，请检查格式（第一行科目名，每行一个知识点），或使用 AI/正则解析。</span>';
+            document.getElementById('import-syllabus-stats').textContent = '';
+            return;
+        }
+        importPreviewData = parsed.map(p => ({
+            subject: p.subject,
+            units: p.units.map(u => ({
+                name: u.name,
+                subs: u.subs || [],
+                selected: true
+            }))
+        }));
+        renderImportPreview();
+        updateImportStats();
+    }
+
+    // 渲染预览（可编辑：勾选/改名/删除）
+    function renderImportPreview() {
         const preview = document.getElementById('import-syllabus-preview');
-        if (!parsed.length) { preview.innerHTML = '<span style="color:#ba1a1a;">未识别到大纲，请检查格式（第一行科目名，每行一个知识点）。</span>'; return; }
-        preview.innerHTML = parsed.map(p => {
-            const existing = syllabusDB[p.subject];
-            const dupCount = existing ? p.units.filter(u => existing.units.includes(u)).length : 0;
-            return `<div style="margin-bottom:8px;"><b>${escapeHtml(p.subject)}</b> — ${p.units.length} 个知识点（重复 ${dupCount} 个将跳过）<br>${p.units.map(u => '· ' + escapeHtml(u)).join('<br>')}</div>`;
-        }).join('<hr style="border:none;border-top:1px solid #eee;margin:8px 0;">');
+        if (!importPreviewData.length) return;
+        preview.innerHTML = importPreviewData.map((p, pi) => `
+            <div style="margin-bottom:14px; border:1px solid #e0e0e0; border-radius:10px; padding:8px 10px; background:#fff;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <input type="text" value="${escapeHtml(p.subject)}" 
+                        onchange="updateImportSubject(${pi}, this.value)"
+                        style="font-weight:700; font-size:13px; padding:4px 8px; width:auto; flex:1; margin:0;">
+                    <span style="font-size:11px; color:#888;">${p.units.length} 项</span>
+                </div>
+                ${p.units.map((u, ui) => `
+                    <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-top:1px dashed #f0f0f0;">
+                        <input type="checkbox" ${u.selected ? 'checked' : ''} 
+                            onchange="toggleImportUnit(${pi}, ${ui}, this.checked)"
+                            style="width:auto; margin:0; accent-color:var(--primary);">
+                        <input type="text" value="${escapeHtml(u.name)}" 
+                            onchange="updateImportUnit(${pi}, ${ui}, this.value)"
+                            style="flex:1; font-size:12px; padding:3px 8px; margin:0;">
+                        ${u.subs.length ? `<span style="font-size:10px; color:#999; white-space:nowrap;">${u.subs.length} 子项</span>` : ''}
+                        <button onclick="deleteImportUnit(${pi}, ${ui})" style="background:none; border:none; cursor:pointer; color:#ba1a1a; font-size:14px; padding:0 2px;">&times;</button>
+                    </div>
+                    ${u.subs.length ? `
+                        <div style="margin-left:28px; padding:2px 0 4px; font-size:11px; color:#777; line-height:1.6; border-left:2px solid #e8e8e8; padding-left:10px;">
+                            ${u.subs.map(s => '· ' + escapeHtml(s)).join('<br>')}
+                        </div>
+                    ` : ''}
+                `).join('')}
+            </div>
+        `).join('');
+    }
+
+    function updateImportStats() {
+        const stats = document.getElementById('import-syllabus-stats');
+        if (!importPreviewData.length) { stats.textContent = ''; return; }
+        let totalUnits = 0, selectedUnits = 0;
+        importPreviewData.forEach(p => {
+            p.units.forEach(u => { totalUnits++; if (u.selected) selectedUnits++; });
+        });
+        stats.textContent = `共 ${importPreviewData.length} 个科目，${totalUnits} 个知识点（已选 ${selectedUnits} 个）`;
+    }
+
+    function updateImportSubject(pi, val) {
+        if (importPreviewData[pi]) importPreviewData[pi].subject = val;
+    }
+
+    function toggleImportUnit(pi, ui, checked) {
+        if (importPreviewData[pi] && importPreviewData[pi].units[ui]) {
+            importPreviewData[pi].units[ui].selected = checked;
+            updateImportStats();
+        }
+    }
+
+    function updateImportUnit(pi, ui, val) {
+        if (importPreviewData[pi] && importPreviewData[pi].units[ui]) {
+            importPreviewData[pi].units[ui].name = val;
+        }
+    }
+
+    function deleteImportUnit(pi, ui) {
+        if (importPreviewData[pi]) {
+            importPreviewData[pi].units.splice(ui, 1);
+            if (!importPreviewData[pi].units.length) importPreviewData.splice(pi, 1);
+            renderImportPreview();
+            updateImportStats();
+        }
     }
 
     function escapeHtml(s) {
         return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
     }
 
+    // ××× 确认导入 ×××
     function confirmImportSyllabus() {
-        const raw = document.getElementById('import-syllabus-text').value;
-        const parsed = parseSyllabusText(raw);
-        if (!parsed.length) { alert('未识别到大纲，请检查格式'); return; }
-        let added = 0, merged = 0;
-        parsed.forEach(p => {
-            if (!p.subject) return;
+        // 如果预览数据为空，尝试从文本解析
+        if (!importPreviewData.length) {
+            const raw = document.getElementById('import-syllabus-text').value;
+            const parsed = parseSyllabusText(raw);
+            if (parsed.length) {
+                importPreviewData = parsed.map(p => ({
+                    subject: p.subject,
+                    units: p.units.map(u => ({ name: u.name, subs: u.subs || [], selected: true }))
+                }));
+            }
+        }
+        if (!importPreviewData.length) { alert('没有可导入的大纲，请先解析或粘贴'); return; }
+        let added = 0, merged = 0, skipped = 0;
+        importPreviewData.forEach(p => {
+            if (!p.subject || !p.subject.trim()) return;
+            const subjectName = p.subject.trim();
             // 规范化 link：若科目存在保留原 link，否则构造默认 znotes 链接
-            if (!syllabusDB[p.subject]) {
-                const code = (p.subject.match(/\d{4}/) || [''])[0];
-                syllabusDB[p.subject] = { link: code ? `https://znotes.org/caie/igcse/${p.subject.toLowerCase()}/` : '', units: [] };
+            if (!syllabusDB[subjectName]) {
+                const code = (subjectName.match(/\d{4}/) || [''])[0];
+                syllabusDB[subjectName] = { link: code ? `https://znotes.org/caie/igcse/${subjectName.toLowerCase()}/` : '', units: [] };
             }
             p.units.forEach(u => {
-                if (!u) return;
-                if (syllabusDB[p.subject].units.includes(u)) return; // 去重
-                syllabusDB[p.subject].units.push(u);
+                if (!u.selected || !u.name || !u.name.trim()) return;
+                const unitName = u.name.trim();
+                // 去重：同名跳过
+                const existing = syllabusDB[subjectName].units.find(x => {
+                    if (typeof x === 'string') return x === unitName;
+                    return x && x.name === unitName;
+                });
+                if (existing) { skipped++; return; }
+                // 新格式：{ name, subs }, subs 为子知识点数组
+                const subs = (u.subs || []).filter(s => s && s.trim()).map(s => s.trim());
+                syllabusDB[subjectName].units.push(subs.length ? { name: unitName, subs: subs } : unitName);
                 added++;
             });
             merged++;
         });
         saveSyllabus();
         document.getElementById('import-syllabus-modal').close();
+        importPreviewData = [];
         populateSettings();
         renderUnitEditorList();
         renderSidebar();
         renderTrafficDashboard();
-        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点（已存在的知识点自动跳过，进度不受影响）`);
+        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点（跳过 ${skipped} 个已存在）`);
+    }
+
+    // 辅助：获取单元显示名（兼容 string 和 {name, subs} 对象）
+    function getUnitName(unit) {
+        if (typeof unit === 'string') return unit;
+        return unit && unit.name ? unit.name : String(unit);
+    }
+    // 辅助：获取单元子项（兼容 string 和 {name, subs} 对象）
+    function getUnitSubs(unit) {
+        if (typeof unit === 'object' && unit && Array.isArray(unit.subs)) return unit.subs;
+        return [];
     }
 
     function renderUnitEditorList() {
@@ -1964,15 +2230,23 @@
 
         const units = syllabusDB[sub].units;
         units.forEach((unit, idx) => {
+            const unitName = getUnitName(unit);
+            const subs = getUnitSubs(unit);
             const div = document.createElement('div');
             div.className = 'unit-editor-item';
+            div.style.flexDirection = 'column';
+            div.style.alignItems = 'stretch';
+            div.style.gap = '4px';
             div.innerHTML = `
-                <span>${unit}</span>
-                <div class="unit-editor-controls">
-                    <button onclick="moveUnit('${sub}', ${idx}, -1)">▲</button>
-                    <button onclick="moveUnit('${sub}', ${idx}, 1)">▼</button>
-                    <button onclick="deleteUnit('${sub}', ${idx})" style="color:#ba1a1a;">&times;</button>
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                    <span style="font-size:13px;">${escapeHtml(unitName)}${subs.length ? ` <span style="font-size:10px; color:#888;">(${subs.length} 子项)</span>` : ''}</span>
+                    <div class="unit-editor-controls">
+                        <button onclick="moveUnit('${sub}', ${idx}, -1)">▲</button>
+                        <button onclick="moveUnit('${sub}', ${idx}, 1)">▼</button>
+                        <button onclick="deleteUnit('${sub}', ${idx})" style="color:#ba1a1a;">&times;</button>
+                    </div>
                 </div>
+                ${subs.length ? `<div style="font-size:10px; color:#999; padding-left:12px; line-height:1.5; max-height:60px; overflow:hidden;">${subs.slice(0,3).map(s => '· ' + escapeHtml(s)).join('<br>')}${subs.length > 3 ? `<br>… 还有 ${subs.length - 3} 项` : ''}</div>` : ''}
             `;
             container.appendChild(div);
         });
@@ -1991,7 +2265,8 @@
     }
 
     function deleteUnit(sub, idx) {
-        if(confirm("Delete this unit? Progress might be hidden.")) {
+        const unitName = getUnitName(syllabusDB[sub].units[idx]);
+        if(confirm(`确定删除 "${unitName}" 吗？进度数据可能隐藏。`)) {
             syllabusDB[sub].units.splice(idx, 1);
             saveSyllabus();
             renderUnitEditorList();
