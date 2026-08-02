@@ -1320,6 +1320,24 @@
         const todayIdx = getNow().getDay();
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
+        // 优先读取日程中心（TimetableHub）生成的当日计划 —— Goal → 蓝图 → Control 联动
+        try {
+            const tmp = JSON.parse(localStorage.getItem('jack_timetable_plan'));
+            const n = getNow();
+            const tday = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+            if (tmp && tmp.date === tday && Array.isArray(tmp.plan) && tmp.plan.length) {
+                STATE.schedule = tmp.plan.map(r => ({
+                    start: r.s, end: r.e,
+                    time: `${r.s}-${r.e}`,
+                    cat: (r.ty === 'b' ? '休息' : '任务'),
+                    detail: r.t,
+                    type: (r.ty === 'b' ? 'break' : 'study'),
+                    done: false, skipped: false
+                }));
+                saveSchedule(); renderTable();
+                return;
+            }
+        } catch(e) {}
         const plan = SCHEDULE_DATA[todayIdx] || [];
         STATE.schedule = JSON.parse(JSON.stringify(plan));
         saveSchedule(); renderTable();
