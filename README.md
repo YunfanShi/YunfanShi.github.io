@@ -139,6 +139,7 @@ theme: {
 | `/igcountdown` | `src/app/(portal)/igcountdown/page.tsx` | Legacy Frame | 考试倒计时（旧 URL，保留兼容） |
 | `/examcountdown` | `src/app/(portal)/examcountdown/page.tsx` | Legacy Frame | 倒计时（考试，新 URL） |
 | `/update` | `src/app/(portal)/update/page.tsx` | Legacy Frame | 更新（嵌入旧版 HTML） |
+| `/help` | `src/app/(portal)/help/page.tsx` | Legacy Frame | 帮助中心（嵌入 HelpCenter.html） |
 | `/mock-portal` | `src/app/(portal)/mock-portal/page.tsx` | Legacy Frame | Mock 刷题（嵌入旧版 HTML） |
 | `/tools` | `src/app/(portal)/tools/page.tsx` | Server Component | 工具箱（文本处理/时间同步/剪贴板） |
 | `/settings` | `src/app/(portal)/settings/page.tsx` | Server Component | 设置（密码/AI配置/数据导出） |
@@ -719,11 +720,12 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 | 13 | 计划显示器 | `flag` | `/goal` |
 | 14 | 考试倒计时 | `hourglass_empty` | `/igcountdown` |
 | 15 | 更新 | `history` | `/update` |
-| 16 | Mock 刷题 | `quiz` | `/mock-portal` |
-| 17 | QuizWise 刷题 | `psychology` | `/quiz` |
-| 18 | 工具箱 | `build` | `/tools` |
-| 19 | 设置 | `settings` | `/settings` |
-| 20 | 管理员 | `admin_panel_settings` | `/admin` |
+| 16 | 帮助中心 | `help` | `/help` |
+| 17 | Mock 刷题 | `quiz` | `/mock-portal` |
+| 18 | QuizWise 刷题 | `psychology` | `/quiz` |
+| 19 | 工具箱 | `build` | `/tools` |
+| 20 | 设置 | `settings` | `/settings` |
+| 21 | 管理员 | `admin_panel_settings` | `/admin` |
 
 ---
 
@@ -797,28 +799,36 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 #### 12.13 更新 (`/update`)
 - 嵌入旧版 `UpdateHub.html`（Legacy Frame）
 
-#### 12.14 工具箱 (`/tools`)
+#### 12.14 帮助中心 (`/help`)
+- 嵌入 `HelpCenter.html`（Legacy Frame）
+- 类似微软/谷歌帮助文档的完整使用指南
+- 8 大分类：快速开始、学习工作流、日程与时间、学习模块、AI 助手、设置与工具、音乐与娱乐、其他
+- 三步学习流程指南：Goal 定目标 → Control/TimetableHub 生成日程 → StudyGuide 高效学习
+- 搜索功能 + 分类卡片导航
+- 底部「联系 AI 客服」按钮 → 通过 postMessage(`jackyun-open-ai`) 打开全局 AI 助手
+
+#### 12.15 工具箱 (`/tools`)
 - 原生 Next.js Server Component
 - 文本工具（Text Tools）：大文字转换、排版
 - 时间同步（Time Sync）
 - 剪贴板共享（Clipboard Share）
 
-#### 12.15 设置 (`/settings`)
+#### 12.16 设置 (`/settings`)
 - 账户安全：修改密码 / 邮件重置密码
 - AI 配置：baseUrl + apiKey + model（存储在 `user_settings` 表的 `ai_config` key）
 - 数据导出：JSON / CSV 格式导出全部用户数据
 
-#### 12.16 管理员 (`/admin`)
+#### 12.17 管理员 (`/admin`)
 - 用户信息展示：头像、用户名、GitHub 用户名、登录方式、用户 ID
 - 白名单配置：环境变量只读展示 + 数据库白名单动态管理
 - 账号关联：Link/Unlink Provider + Force Merge
 - 管理工具：版本历史 + 专注模式
 - 退出登录
 
-#### 12.17 专注模式 (`/admin/enforcer`)
+#### 12.18 专注模式 (`/admin/enforcer`)
 - Focus Enforcer 强制专注计时器
 
-#### 12.18 版本历史 (`/admin/update-hub`)
+#### 12.19 版本历史 (`/admin/update-hub`)
 - 时间线展示版本更新记录（v1.6 → v1.5.5 → v1.0.0）
 - 模块状态面板：Poem 沉浸背诵、Vocab Master、ADN、LexiconLab、Battlefield 6 Hub、Vocab Flow
 

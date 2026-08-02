@@ -44,6 +44,7 @@ const translations: TranslationMap = {
   'nav.tools':                { zh: '工具箱',               en: 'Tools' },
   'nav.settings':             { zh: '设置',                 en: 'Settings' },
   'nav.update':               { zh: '更新',                 en: 'Update' },
+  'nav.help-center':          { zh: '帮助中心',             en: 'Help Center' },
   'nav.admin':                { zh: '管理员',               en: 'Admin' },
 
   // ── Topbar ──
