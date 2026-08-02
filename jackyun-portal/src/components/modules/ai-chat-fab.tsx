@@ -92,6 +92,7 @@ function getSourceFromPath(path: string): ConversationSource {
     relax: 'relax',
     countdown: 'countdown',
     tools: 'tools',
+    help: 'help',
   };
   return map[p] || 'other';
 }
@@ -116,6 +117,7 @@ function getSourceFromIframePage(page: string): ConversationSource | null {
     relax: 'relax',
     mockportal: 'other',
     answersheet: 'other',
+    helpcenter: 'help',
   };
   const key = page.toLowerCase();
   return iframeMap[key] || null;
@@ -136,6 +138,7 @@ function getSourceLabel(source: ConversationSource): string {
     relax: '🎮 放松',
     countdown: '⏱ 倒计时',
     tools: '🔧 工具',
+    help: '📖 帮助中心',
     other: '💬 通用',
   };
   return labels[source] || '💬 通用';
@@ -742,6 +745,7 @@ export default function AiChatFab({
       countdown: 'countdown',
       settings: 'settings',
       tools: 'tools',
+      help: 'global',
       other: 'global',
     };
     return scopeMap[src] || 'global';
@@ -769,6 +773,7 @@ export default function AiChatFab({
       countdown: '你是倒计时助手，帮助用户查看和管理考试倒计时。',
       settings: '你是设置助手，帮助用户配置 AI、TTS 等系统选项。',
       tools: '你是工具助手，帮助用户使用各种实用小工具。',
+      help: '你是 JackYun Portal 的帮助中心 AI 客服，熟悉平台所有功能的使用方法，可以指导用户操作任何页面。',
     };
 
     let content = `${scopeName[effectiveScope] || scopeName.global}\n\n`;
@@ -1610,6 +1615,11 @@ export default function AiChatFab({
         if (!data || typeof data !== 'object') return;
         if (data.type === 'jackyun-page' && typeof data.page === 'string') {
           iframePageRef.current = data.page;
+        }
+        // 帮助中心「联系 AI 客服」按钮 → 打开全局 AI 对话
+        if (data.type === 'jackyun-open-ai') {
+          setOpen(true);
+          setTimeout(() => textareaRef.current?.focus(), 100);
         }
       } catch {}
     }

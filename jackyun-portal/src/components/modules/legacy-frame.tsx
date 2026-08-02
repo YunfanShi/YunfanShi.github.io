@@ -271,7 +271,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
       'mockportal.html': 'mockportal',
       'answersheet.html': 'answersheet',
       'bilibilisync.html': 'bilibili-sync',
-      'poem.html': 'poem'
+      'poem.html': 'poem',
+      'helpcenter.html': 'helpcenter'
     };
     pageHint = pageMap[fname] || fname.replace('.html','');
   } catch(e) {}

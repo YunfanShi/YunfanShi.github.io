@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帮助中心 | JackYun Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #1765cc;
+            --primary-bg: #e8f0fe;
+            --surface: #ffffff;
+            --background: #f8f9fa;
+            --text-main: #202124;
+            --text-sub: #5f6368;
+            --border: #dadce0;
+            --shadow-card: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            --shadow-hover: 0 4px 8px 3px rgba(60,64,67,0.15);
+            --anim-curve: cubic-bezier(0.4, 0.0, 0.2, 1);
+            --green: #1e8e3e;
+            --green-bg: #e6f4ea;
+            --orange: #e8710a;
+            --orange-bg: #fef7e0;
+            --red: #d93025;
+            --red-bg: #fce8e6;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            text-align: center;
+            padding: 48px 20px 36px;
+            background: linear-gradient(135deg, #1a73e8 0%, #4285f4 50%, #669df6 100%);
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            top: -60%;
+            right: -10%;
+            width: 420px;
+            height: 420px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            bottom: -80%;
+            left: -5%;
+            width: 360px;
+            height: 360px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+        }
+
+        .header-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header-icon {
+            font-size: 44px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.92;
+            margin: 0 0 24px;
+        }
+
+        /* 搜索框 */
+        .search-wrap {
+            max-width: 560px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .search-wrap .material-symbols-rounded {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            translate: 0 -50%;
+            color: var(--text-sub);
+            font-size: 20px;
+            pointer-events: none;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 14px 20px 14px 48px;
+            border: none;
+            border-radius: 28px;
+            font-size: 15px;
+            font-family: 'Google Sans', sans-serif;
+            outline: none;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            transition: box-shadow 0.2s;
+        }
+
+        #searchInput:focus {
+            box-shadow: 0 6px 32px rgba(0,0,0,0.28);
+        }
+
+        /* ── 主体布局 ── */
+        .layout {
+            display: flex;
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+            gap: 32px;
+            align-items: flex-start;
+        }
+
+        /* 左侧导航 */
+        .side-nav {
+            width: 260px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 24px;
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: var(--shadow-card);
+            scrollbar-width: thin;
+        }
+
+        .side-nav::-webkit-scrollbar { width: 4px; }
+        .side-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .nav-group-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            padding: 12px 12px 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-main);
+            transition: background 0.15s var(--anim-curve);
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            font-family: 'Google Sans', sans-serif;
+        }
+
+        .nav-item .material-symbols-rounded {
+            font-size: 18px;
+            color: var(--text-sub);
+            flex-shrink: 0;
+        }
+
+        .nav-item:hover {
+            background: var(--background);
+        }
+
+        .nav-item.active {
+            background: var(--primary-bg);
+            color: var(--primary);
+        }
+
+        .nav-item.active .material-symbols-rounded {
+            color: var(--primary);
+        }
+
+        /* 右侧内容 */
+        .content-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* 首页分类卡片 */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 18px;
+            margin-bottom: 40px;
+        }
+
+        .category-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px;
+            cursor: pointer;
+            transition: box-shadow 0.2s var(--anim-curve), translate 0.2s var(--anim-curve);
+            box-shadow: var(--shadow-card);
+        }
+
+        .category-card:hover {
+            box-shadow: var(--shadow-hover);
+            translate: 0 -2px;
+        }
+
+        .category-card .cat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 12px;
+            background: var(--primary-bg);
+        }
+
+        .category-card h3 {
+            font-size: 16px;
+            margin: 0 0 6px;
+        }
+
+        .category-card p {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin: 0 0 12px;
+            line-height: 1.5;
+        }
+
+        .category-card .cat-count {
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* 文章区 */
+        .article {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 36px 40px;
+            box-shadow: var(--shadow-card);
+            max-width: 860px;
+        }
+
+        .article-header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+        }
+
+        .article-breadcrumb {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+        }
+
+        .article-breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .article h2 {
+            font-size: 26px;
+            margin: 0 0 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .article-meta {
+            font-size: 13px;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .article h3 {
+            font-size: 18px;
+            margin: 28px 0 10px;
+            color: var(--text-main);
+        }
+
+        .article h4 {
+            font-size: 15px;
+            margin: 20px 0 8px;
+            color: var(--text-main);
+        }
+
+        .article p {
+            font-size: 14px;
+            line-height: 1.75;
+            color: var(--text-main);
+            margin: 0 0 12px;
+        }
+
+        .article ul, .article ol {
+            font-size: 14px;
+            line-height: 1.75;
+            margin: 0 0 14px;
+            padding-left: 22px;
+            color: var(--text-main);
+        }
+
+        .article li { margin-bottom: 5px; }
+
+        .article a {
+            color: var(--primary);
+        }
+
+        .article img { max-width: 100%; border-radius: 8px; }
+
+        /* 强调块 */
+        .callout {
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin: 16px 0;
+            font-size: 14px;
+            line-height: 1.6;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .callout .material-symbols-rounded {
+            font-size: 20px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .callout.info {
+            background: var(--primary-bg);
+            color: #174ea6;
+        }
+
+        .callout.tip {
+            background: var(--green-bg);
+            color: #137333;
+        }
+
+        .callout.warn {
+            background: var(--orange-bg);
+            color: #a75c00;
+        }
+
+        .callout.important {
+            background: var(--red-bg);
+            color: #c5221f;
+        }
+
+        /* 步骤块 */
+        .steps {
+            counter-reset: step;
+            margin: 18px 0;
+        }
+
+        .step {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 16px;
+            align-items: flex-start;
+        }
+
+        .step-num {
+            counter-increment: step;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .step-num::before {
+            content: counter(step);
+        }
+
+        .step-body {
+            flex: 1;
+        }
+
+        .step-body strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .step-body p, .step-body ul {
+            margin: 0 0 8px;
+        }
+
+        /* 流程 1-2-3 展示 */
+        .flow-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 18px 0 24px;
+        }
+
+        .flow-card {
+            flex: 1;
+            min-width: 180px;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 16px;
+            text-align: center;
+            position: relative;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .flow-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .flow-card .flow-arrow {
+            position: absolute;
+            right: -18px;
+            top: 50%;
+            translate: 0 -50%;
+            color: var(--primary);
+            font-size: 20px;
+            z-index: 2;
+            background: var(--background);
+            border-radius: 50%;
+        }
+
+        .flow-card .flow-icon {
+            font-size: 30px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .flow-card .flow-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 4px;
+            color: var(--primary);
+        }
+
+        .flow-card .flow-desc {
+            font-size: 12px;
+            color: var(--text-sub);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* 页面索引表 */
+        .page-index {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+
+        .page-index th {
+            text-align: left;
+            padding: 10px 14px;
+            background: var(--background);
+            font-weight: 600;
+            color: var(--text-sub);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .page-index td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .page-index tr:hover td {
+            background: var(--background);
+        }
+
+        .page-index .page-name {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .page-index .page-desc {
+            color: var(--text-sub);
+            font-size: 13px;
+        }
+
+        /* 客服区 */
+        .help-footer {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px 40px;
+            margin-top: 28px;
+            text-align: center;
+            box-shadow: var(--shadow-card);
+            max-width: 860px;
+        }
+
+        .help-footer h3 {
+            font-size: 20px;
+            margin: 0 0 8px;
+        }
+
+        .help-footer p {
+            font-size: 14px;
+            color: var(--text-sub);
+            margin: 0 0 20px;
+        }
+
+        .ai-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 28px;
+            padding: 14px 32px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: 'Google Sans', sans-serif;
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 16px rgba(26,115,232,0.35);
+        }
+
+        .ai-btn:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 6px 24px rgba(26,115,232,0.45);
+        }
+
+        .ai-btn .material-symbols-rounded {
+            font-size: 20px;
+        }
+
+        .ai-hint {
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        /* 平铺工具卡片 */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+            margin: 16px 0;
+        }
+
+        .tool-chip {
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .tool-chip:hover {
+            border-color: var(--primary);
+            background: var(--primary-bg);
+        }
+
+        .tool-chip .material-symbols-rounded {
+            font-size: 20px;
+            color: var(--primary);
+        }
+
+        .tool-chip.small {
+            font-size: 13px;
+        }
+
+        a.tool-chip {
+            text-decoration: none;
+            color: var(--text-main);
+        }
+
+        /* 时间线 */
+        .timeline {
+            position: relative;
+            padding-left: 24px;
+            margin: 16px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 4px;
+            bottom: 4px;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .tl-item {
+            position: relative;
+            padding: 0 0 18px;
+        }
+
+        .tl-item::before {
+            content: '';
+            position: absolute;
+            left: -22px;
+            top: 6px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .tl-item strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+
+        .tl-item p {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* 响应式 */
+        @media (max-width: 900px) {
+            .layout {
+                flex-direction: column;
+                padding: 16px;
+            }
+
+            .side-nav {
+                width: 100%;
+                position: static;
+                max-height: none;
+            }
+
+            .article {
+                padding: 24px 20px;
+            }
+
+            .help-footer {
+                padding: 24px 20px;
+            }
+
+            .flow-card .flow-arrow {
+                display: none;
+            }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+    <div class="header-inner">
+        <span class="header-icon material-symbols-rounded">support_agent</span>
+        <h1>帮助中心</h1>
+        <p class="subtitle">了解 JackYun Portal 的每一个功能，快速上手你的学习之旅</p>
+        <div class="search-wrap">
+            <span class="material-symbols-rounded">search</span>
+            <input id="searchInput" type="text" placeholder="搜索帮助内容，例如：如何生成日程 / Goal / 音乐..." autocomplete="off">
+        </div>
+    </div>
+</header>
+
+<!-- ── 主体 ── -->
+<div class="layout">
+    <!-- 左侧导航 -->
+    <nav class="side-nav" id="sideNav"></nav>
+
+    <!-- 右侧内容 -->
+    <div class="content-wrap">
+        <!-- 首页总览 -->
+        <div id="view-home">
+            <h2 style="font-size:22px; margin: 0 0 20px;">📖 从这里开始</h2>
+            <div class="category-grid" id="categoryGrid"></div>
+
+            <div class="article" style="margin-top: 8px;">
+                <h3 style="margin-top:0;">👋 欢迎使用 JackYun Portal</h3>
+                <p>JackYun Portal 是你的<strong>一站式学习管理平台</strong>。它将目标管理、日程安排、学习计划和 AI 智能助手整合在一起，帮助你科学规划每一天的学习和生活。</p>
+                <p>本帮助中心将所有功能按类别整理，你可以通过<strong>左侧导航</strong>或<strong>顶部搜索</strong>快速找到需要的使用说明。</p>
+                <div class="callout tip">
+                    <span class="material-symbols-rounded">lightbulb</span>
+                    <div><strong>小提示</strong>：页面右下角有一个 🤖 <strong>AI 智能助手</strong>，如果你看完文档仍有疑问，可以随时向它提问，它会结合你的实际数据给出个性化帮助。</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文章视图 -->
+        <div id="view-article" class="hidden">
+            <article class="article" id="articleContent"></article>
+
+            <!-- 客服区 -->
+            <div class="help-footer" id="helpFooter">
+                <h3>💬 还是没找到答案？</h3>
+                <p>你可以直接向 JackYun AI 提问，它会结合你的目标、日程和学习数据，给出最贴合你实际情况的回答。</p>
+                <button class="ai-btn" onclick="openAiChat()">
+                    <span class="material-symbols-rounded">smart_toy</span>
+                    联系 AI 客服
+                </button>
+                <div class="ai-hint">点击后会在页面右下角打开 AI 助手对话窗口</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// 帮助中心数据
+// ══════════════════════════════════════════
+
+// 分类定义
+const CATEGORIES = [
+    {
+        id: 'getting-started',
+        label: '快速开始',
+        icon: 'rocket_launch',
+        color: '#1a73e8',
+        bg: '#e8f0fe',
+        articles: ['welcome', 'quick-start', 'workflow-overview']
+    },
+    {
+        id: 'workflow',
+        label: '学习工作流',
+        icon: 'route',
+        color: '#188038',
+        bg: '#e6f4ea',
+        articles: ['wf-goal', 'wf-schedule', 'wf-study', 'wf-summary']
+    },
+    {
+        id: 'schedule',
+        label: '日程与时间',
+        icon: 'calendar_month',
+        color: '#e8710a',
+        bg: '#fef7e0',
+        articles: ['control-guide', 'timetablehub-guide', 'time-management', 'countdown-guide']
+    },
+    {
+        id: 'study',
+        label: '学习模块',
+        icon: 'school',
+        color: '#9334e6',
+        bg: '#f3e8fd',
+        articles: ['studyplan-guide', 'studyguide-guide', 'vocab-guide', 'quizwise-guide', 'mock-guide']
+    },
+    {
+        id: 'ai',
+        label: 'AI 助手',
+        icon: 'smart_toy',
+        color: '#0b8043',
+        bg: '#e6f4ea',
+        articles: ['ai-guide', 'ai-tools']
+    },
+    {
+        id: 'settings-tools',
+        label: '设置与工具',
+        icon: 'settings',
+        color: '#5f6368',
+        bg: '#f1f3f4',
+        articles: ['settings-guide', 'tools-guide', 'md2word-guide', 'answersheet-guide']
+    },
+    {
+        id: 'fun',
+        label: '音乐与娱乐',
+        icon: 'music_note',
+        color: '#d93025',
+        bg: '#fce8e6',
+        articles: ['music-guide', 'music-sync-guide', 'bilibili-guide', 'poem-guide', 'relax-guide']
+    },
+    {
+        id: 'misc',
+        label: '其他',
+        icon: 'more_horiz',
+        color: '#00796b',
+        bg: '#e0f2f1',
+        articles: ['updatehub-guide']
+    }
+];
+
+// 文章数据（帮助文档正文）
+const ARTICLES = {
+
+    // ── 快速开始 ──
+    welcome: {
+        title: '什么是 JackYun Portal？',
+        icon: 'eco',
+        category: 'getting-started',
+        content: `
+            <p>JackYun Portal 是你专属的<strong>一体化学习管理平台</strong>，覆盖从「定目标 → 排日程 → 去学习 → 做检测」的完整学习闭环。</p>
+
+            <h3>核心能力一览</h3>
+            <table class="page-index">
+                <tr><th>模块</th><th>作用</th></tr>
+                <tr><td class="page-name">🎯 计划显示器 (Goal)</td><td class="page-desc">创建学习/生活目标，跟踪完成进度</td></tr>
+                <tr><td class="page-name">📋 日程中心 (Control)</td><td class="page-desc">按时间表管理每日日程，专注计时</td></tr>
+                <tr><td class="page-name">📚 学习计划 (StudyPlan)</td><td class="page-desc">按学科规划 CAIE 备考进度，红绿灯审计</td></tr>
+                <tr><td class="page-name">📖 学习指导 (StudyGuide)</td><td class="page-desc">学习科学方法，记录每日学习进度</td></tr>
+                <tr><td class="page-name">🧠 QuizWise</td><td class="page-desc">刷题、AI 批改、错题解析</td></tr>
+                <tr><td class="page-name">🎵 音乐播放器</td><td class="page-desc">学习时播放网易云音乐 / B 站音乐</td></tr>
+                <tr><td class="page-name">🤖 AI 智能助手</td><td class="page-desc">全局 AI，可读写你的数据并执行操作</td></tr>
+            </table>
+
+            <h3>平台特色</h3>
+            <div class="callout info">
+                <span class="material-symbols-rounded">auto_awesome</span>
+                <div><strong>AI 深度集成</strong>：不只是聊天，AI 可以读取你的目标、日程、学习进度等真实数据，并帮你创建任务、生成日程、调整计划。</div>
+            </div>
+            <div class="callout tip">
+                <span class="material-symbols-rounded">sync</span>
+                <div><strong>数据云同步</strong>：你的关键数据（目标、日程、学习进度等）会自动同步到云端，换设备不丢数据。</div>
+            </div>
+            <div class="callout warn">
+                <span class="material-symbols-rounded">palette</span>
+                <div><strong>多语言支持</strong>：支持中 / 英双语界面，可在「设置 → 语言」中切换。</div>
+            </div>
+        `
+    },
+
+    quick_start: {
+        title: '快速开始：5 分钟上手',
+        icon: 'bolt',
+        category: 'getting-started',
+        content: `
+            <p>跟着下面的步骤，5 分钟就能熟悉平台的核心操作。</p>
+
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>第 1 步：浏览主页 Dashboard</strong>
+                        <p>登录后首先会进入主页，这里汇总了目标进度、今日日程、学习计划和考试倒计时的关键信息，是你每天的「驾驶舱」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>第 2 步：设置好你的 AI 助手</strong>
+                        <p>打开左侧「设置」→「AI 配置」，填入你的 AI API Key（支持 DeepSeek、OpenAI 等）。配置好后，页面右下角的 AI 助手就全功率运行了。</p>
+                        <div class="callout tip">
+                            <span class="material-symbols-rounded">lightbulb</span>
+                            <div>还不知道怎么配置？查看 <a onclick="openArticle('settings-guide')">设置页面使用指南</a>。</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>第 3 步：创建你的第一个目标</strong>
+                        <p>进入「计划显示器 (Goal)」，点击「新建目标」创建一个学习目标，比如「完成数学 Chapter 3 复习」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>第 4 步：生成今天的日程</strong>
+                        <p>有了目标后，进入「日程中心 (Control)」→「TimetableHub」，你可以手动排课，也可以让 <strong>AI 根据目标自动生成日程</strong>。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>第 5 步：按日程学习</strong>
+                        <p>每天按日程中心的安排学习，用「学习指导 StudyGuide」记录进度，用「学习计划 StudyPlan」跟踪学科备考状态。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout warn">
+                <span class="material-symbols-rounded">priority_high</span>
+                <div><strong>推荐流程</strong>：完整的学习闭环是「<a onclick="openArticle('wf-goal')">Goal 定目标 → 自动生成日程 → StudyGuide 高效学习</a>」，建议先阅读「学习工作流」分类。</div>
+            </div>
+        `
+    },
+
+    workflow_overview: {
+        title: '推荐学习流程总览',
+        icon: 'map',
+        category: 'getting-started',
+        content: `
+            <p>为了方便你快速理解平台的使用方法，我们把核心学习流程整理成了一条主线和两条辅助线。</p>
+
+            <h3>🎯 主线：目标驱动的学习闭环</h3>
+            <div class="flow-row">
+                <div class="flow-card">
+                    <span class="material-symbols-rounded flow-icon">flag</span>
+                    <p class="flow-title">① 设定目标</p>
+                    <p class="flow-desc">在 Goal 创建学习目标</p>
+                    <span class="material-symbols-rounded flow-arrow">arrow_forward</span>
+                </div>
+                <div class="flow-card">
+                    <span class="material-symbols-rounded flow-icon">calendar_month</span>
+                    <p class="flow-title">② 生成日程</p>
+                    <p class="flow-desc">在 Control 的 TimetableHub 自动排程</p>
+                    <span class="material-symbols-rounded flow-arrow">arrow_forward</span>
+                </div>
+                <div class="flow-card">
+                    <span class="material-symbols-rounded flow-icon">auto_stories</span>
+                    <p class="flow-title">③ 高效学习</p>
+                    <p class="flow-desc">按 StudyGuide 的方法学习并记录</p>
+                </div>
+            </div>
+
+            <h3>📚 辅助线 1：学科备考</h3>
+            <p>使用「学习计划 StudyPlan」管理各学科的 CAIE 备考进度，配合「红绿灯审计」标注每个知识点的掌握程度（红=不会 / 黄=模糊 / 绿=掌握），再结合 QuizWise 刷题检验学习效果。</p>
+
+            <h3>🎵 辅助线 2：专注环境</h3>
+            <p>学习时可以开启「播放器」播放音乐营造氛围，配合「日程中心」的专注番茄钟，帮助保持高效状态。觉得枯燥时可以去「放松一下」调节心情。</p>
+
+            <p>更详细的步骤，请查看「学习工作流」分类下的文章。</p>
+        `
+    },
+
+    // ── 学习工作流 ──
+    wf_goal: {
+        title: '第 1 步：用 Goal 设定目标',
+        icon: 'flag',
+        category: 'workflow',
+        content: `
+            <p>「计划显示器 (Goal)」是整个学习流程的<strong>起点</strong>。一切日程都是围绕目标产生的，所以先学会如何管理目标。</p>
+
+            <h3>😀 如何打开 Goal</h3>
+            <p>点击左侧边栏的「计划显示器」即可进入。</p>
+
+            <h3>📝 创建目标</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>点击「新建目标」按钮</strong>
+                        <p>填写目标名称（如「复习 IGCSE 数学 Chapter 3」）、截止日期、优先级（高/中/低）、颜色等。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>设置进度上限</strong>
+                        <p>如果任务是「可计数的」（比如刷 20 道题），可以设置总量 total；如果是开放任务（比如读完一本书），可以不设上限。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>创建子任务（可选）</strong>
+                        <p>可以把大目标拆成子任务（如把「复习数学」拆成「Chapter 1」「Chapter 2」），方便追踪。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>🔁 用 AI 帮你管理目标</h3>
+            <p>在 Goal 页面点击右下角 🤖 AI 助手，可以直接说：</p>
+            <ul>
+                <li>「帮我创建一个目标：每天背 20 个单词，截止 12 月 31 日」</li>
+                <li>「把『数学复习』标记完成 5/20」</li>
+                <li>「把我所有的高优先级目标列出来」</li>
+            </ul>
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>AI 会先读取你的目标数据再操作，修改前会请求你的确认，安全可靠。</div>
+            </div>
+
+            <h3>✨ 目标 → 日程 的桥梁</h3>
+            <p>设定好目标后，下一步就是<strong>根据目标生成日程</strong>。GOAL 与分析红绿灯状态联动，可一键生成今日学习安排。具体请阅读「<a onclick="openArticle('wf-schedule')">第 2 步：用 Control 生成日程</a>」。</p>
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>提示：目标必须设置<strong>截止日期</strong>并处于「进行中」状态，AI 才能更好地为你安排优先级。</div>
+            </div>
+        `
+    },
+
+    wf_schedule: {
+        title: '第 2 步：用 Control / TimetableHub 生成日程',
+        icon: 'calendar_month',
+        category: 'workflow',
+        content: `
+            <p>「日程中心 (Control)」管理你每天的时间安排。日程的来源有两种：<strong>手动创建</strong>和 <strong>AI 自动生成</strong>。</p>
+
+            <h3>😀 两种进入方式</h3>
+            <ul>
+                <li><strong>侧边栏「日程」</strong>：直接打开日程中心 Control。</li>
+                <li><strong>Control 内的 TimetableHub</strong>：在日程中心中找到「TimetableHub / 课程表」入口，可以管理一周的固定课程和活动蓝图。</li>
+            </ul>
+
+            <h3>📋 方式一：在 TimetableHub 手动排程</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>创建课程蓝图</strong>
+                        <p>在 TimetableHub 中，为每天的固定课程（如第一节数学、第二节英语）创建「蓝图卡片」。也可以为运动、吃饭等固定活动创建「自由活动卡片」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>按周循环生效</strong>
+                        <p>蓝图卡片按周循环，保存后每天的日程中心就会自动出现这些固定安排。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>🤖 方式二：AI 根据目标自动生成日程</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>确保已有目标和红绿灯数据</strong>
+                        <p>AI 会综合你的<strong>目标列表</strong>和<strong>学习计划中的红绿灯状态</strong>（红=薄弱、黄=待巩固、绿=已掌握），把时间优先分配给薄弱环节。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>告诉 AI 生成日程</strong>
+                        <p>在 Control 页面点击右下角 🤖 AI，说「<strong>根据我的目标生成今天的日程</strong>」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>确认生成的安排</strong>
+                        <p>AI 会先读取你的目标、红绿灯和已有课程蓝图，再给出完整的日程建议，你可以让 AI 调整时间段或任务内容。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>推荐话术：「<strong>看看我的红绿灯，给红的知识点安排今天的学习日程</strong>」——AI 会优先排薄弱科目。</div>
+            </div>
+
+            <h3>✅ 每日执行</h3>
+            <p>日程生成后，每天在 Control 中跟着时间表走：到点开始任务、完成后标记 ✅、也可以让 AI 帮你标记。详情见「<a onclick="openArticle('control-guide')">日程中心使用指南</a>」。</p>
+        `
+    },
+
+    wf_study: {
+        title: '第 3 步：用 StudyGuide 高效学习',
+        icon: 'auto_stories',
+        category: 'workflow',
+        content: `
+            <p>日程安排好了，怎么<strong>有效地学</strong>呢？「学习指导 (StudyGuide)」就是你的学习科学导师。它不是知识的搬运工，而是教你<strong>怎么学</strong>。</p>
+
+            <h3>😀 如何打开 StudyGuide</h3>
+            <p>点击左侧边栏的「StudyGuide」即可进入。</p>
+
+            <h3>📊 四个核心板块</h3>
+            <table class="page-index">
+                <tr><th>板块</th><th>作用</th></tr>
+                <tr><td class="page-name">📅 今日</td><td class="page-desc">记录今天学了什么、完成了哪些 checklist</td></tr>
+                <tr><td class="page-name">📚 学习</td><td class="page-desc">学习高效方法（费曼学习法、间隔重复等）并按步骤执行</td></tr>
+                <tr><td class="page-name">📝 习题</td><td class="page-desc">用测验检验学习效果，巩固薄弱点</td></tr>
+                <tr><td class="page-name">⏰ 考试</td><td class="page-desc">查看考试倒计时，倒推复习计划</td></tr>
+            </table>
+
+            <h3>✨ 怎么用最有效</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>学之前：看「今日」计划</strong>
+                        <p>先看今天日程里的学习任务，心里有数。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>学习时：执行「学习」板块中的方法</strong>
+                        <p>比如用「费曼技巧」——学完一个概念后，试着用最简单的话解释给别人听，讲不出来就说明还没掌握。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>学完后：勾选今日完成项</strong>
+                        <p>把做过的 checklist 勾上，进度会被记录（localStorage: studyguide_progress），AI 也能读取。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>定期检验：用「习题」测验</strong>
+                        <p>学习 ≠ 看过。做习题才能检验是否真正掌握。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>学习指导与「学习计划 StudyPlan」配合使用效果更好：StudyPlan 管<strong>学科进度</strong>，StudyGuide 管<strong>学习方法</strong>。</div>
+            </div>
+        `
+    },
+
+    wf_summary: {
+        title: '完整流程一图流',
+        icon: 'terminal',
+        category: 'workflow',
+        content: `
+            <p>把三步串起来，就是平台最核心的使用方式：</p>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">route</span>
+                <div>
+                    <strong>① Goal 定目标</strong>：创建带截止日期的学习目标 →<br>
+                    <strong>② 用日程执行</strong>：在 TimetableHub 排固定课表，并让 AI 结合目标与红绿灯生成每日日程，在 Control 中逐一完成后打勾 →<br>
+                    <strong>③ 用方法学习</strong>：在 StudyGuide 中按科学方法学习、记录进度、做题检验
+                </div>
+            </div>
+
+            <h3>📌 配套能力</h3>
+            <ul>
+                <li><strong>红绿灯审计</strong>（学习计划内）：给每个知识点标红黄绿，AI 排程时会优先安排红色（薄弱）知识点。</li>
+                <li><strong>考试倒计时</strong>：设置考试日期后，倒计时会反向驱动你的复习节奏。</li>
+                <li><strong>音乐播放器</strong>：学习时轻音乐背景音，帮助进入心流。</li>
+                <li><strong>QuizWise 刷题</strong>：检测学习成果，AI 讲解错题。</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>想让 AI 帮你走完整条流程？直接对 AI 说：「<strong>帮我制定一个四周的复习计划，从目标开始</strong>」，AI 会引导你完成每一步。</div>
+            </div>
+        `
+    },
+
+    // ── 日程与时间 ──
+    control_guide: {
+        title: '日程中心 Control 使用指南',
+        icon: 'calendar_month',
+        category: 'schedule',
+        content: `
+            <p>「日程中心 (Control)」是你每天的<strong>时间指挥官</strong>。它会按照你设定好的时间表，把一天切成一个个专注时段。</p>
+
+            <h3>😀 如何打开</h3>
+            <p>点击左侧边栏的「日程」即可进入。</p>
+
+            <h3>🕐 主要功能</h3>
+
+            <h4>1. 查看今日日程</h4>
+            <p>页面显示今天从早到晚的时间段安排，每个时段包含<strong>开始/结束时间、任务名称、类别</strong>。当前时间段会高亮显示。</p>
+
+            <h4>2. 标记主动 / 跳过</h4>
+            <p>完成一个任务后，点击任务的「完成」按钮标记 ✅；如果临时有事做不了，可以「跳过」。完成后会有完成动画反馈。</p>
+
+            <h4>3. 专注计时器</h4>
+            <p>Control 内置番茄钟 / 专注计时器，开始后可以用它倒计时保持专注。也可以对 AI 说「开启 25 分钟番茄钟」。</p>
+
+            <h4>4. 内嵌音乐播放器</h4>
+            <p>Control 侧边带有 Bilibili / 网易云音乐播放器，可以选择歌单或单曲，学习时播放背景音乐。播放状态会同步到全局 MiniPlayer。</p>
+
+            <h4>5. 与 AI 联动</h4>
+            <ul>
+                <li>查看当前任务：「现在该做什么？」</li>
+                <li>标记完成：「帮我把当前任务标记完成」</li>
+                <li>跳过任务：「跳过英语课这个任务」</li>
+                <li>分析执行情况：「分析我这几天的日程完成率，给我建议」</li>
+            </ul>
+
+            <div class="callout warn">
+                <span class="material-symbols-rounded">priority_high</span>
+                <div>日程内容来自 <strong>TimetableHub 的课程蓝图</strong>和 <strong>AI 根据目标生成的日程</strong>。想改固定课表请到 TimetableHub；想改今日安排可直接对 AI 说。</div>
+            </div>
+        `
+    },
+
+    timetablehub_guide: {
+        title: 'TimetableHub 课程表使用指南',
+        icon: 'calendar_view_week',
+        category: 'schedule',
+        content: `
+            <p>「TimetableHub（课程表）」是日程中心的<strong>底层蓝图</strong>。在这里设定好每周的固定课程和活动，日程中心每天就会自动执行这套课表。</p>
+
+            <h3>😀 如何进入</h3>
+            <p>进入「日程中心 Control」后，找到 <strong>TimetableHub / 课程表</strong> 的入口即可打开。</p>
+
+            <h3>🧩 蓝图卡片</h3>
+            <table class="page-index">
+                <tr><th>卡片类型</th><th>说明</th><th>示例</th></tr>
+                <tr><td class="page-name">📘 固定课程</td><td class="page-desc">每天按课表上课的必修/选修课</td><td class="page-desc">周一 8:00 数学、周三 14:00 英语</td></tr>
+                <tr><td class="page-name">🏃 自由活动</td><td class="page-desc">运动、吃饭、休息等固定安排</td><td class="page-desc">每天 17:00 运动 1 小时</td></tr>
+            </table>
+
+            <h3>📝 创建蓝图</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>点击「新建」创建卡片</strong>
+                        <p>选择星期、填入课程/活动名称、设置开始与结束时间。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>选择是否每周重复</strong>
+                        <p>默认按周循环，这样只需设置一次，每周自动生效。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>保存</strong>
+                        <p>保存后回到日程中心即可看到新的日程安排。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>🤖 与 AI 配合</h3>
+            <p>当你在 Control 让 AI「根据目标生成日程」时，AI 会<strong>先读取 TimetableHub 的固定蓝图</strong>，然后在空格子里安排学习任务，不会打乱你的固定课程与活动。</p>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>建议先把一周的固定安排（上课、吃饭、运动）配齐，再让 AI 填充剩余时间，这样的日程最合理。</div>
+            </div>
+        `
+    },
+
+    time_management: {
+        title: '时间管理 · 番茄钟与倒计时',
+        icon: 'timer',
+        category: 'schedule',
+        content: `
+            <p>「时间管理」集合了多种时间工具，帮助你把时间「看得见、控得住」。</p>
+
+            <h3>🍅 番茄钟 (Pomodoro)</h3>
+            <p>经典的 25 分钟专注 + 5 分钟休息节奏。在时间管理页面启动番茄钟后，它会提醒你何时专注、何时休息。与日程中心配合：在 Control 中开始专注计时效果更沉浸。</p>
+
+            <h3>⏱ 倒计日 (Countdown)</h3>
+            <p>为自己关心的重要日子设置倒计时——比如考试、生日、旅行出发日。可以自定义名称和日期，一眼看到「还有多少天」。</p>
+            <ul>
+                <li>创建倒计时：输入名称 + 日期，保存。</li>
+                <li>AI 辅助：「帮我把期末考试设为倒计时」。</li>
+            </ul>
+
+            <h3>📐 考试倒计时</h3>
+            <p>针对 IGCSE / CAIE 考试的专项倒计时，与学习计划中的考试日期联动，是备考的重要节奏参考。</p>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>倒计时数据 AI 可读可改：「我的数学考试还有几天？」「把考试日期改到 6 月 1 号」。</div>
+            </div>
+        `
+    },
+
+    countdown_guide: {
+        title: '倒计日 / 考试倒计时使用指南',
+        icon: 'hourglass',
+        category: 'schedule',
+        content: `
+            <p>倒计时是一种强大的心理工具——把大目标「具象化」成一个数字，每天都在提醒你。</p>
+
+            <h3>⏳ 两种倒计时</h3>
+            <ol>
+                <li><strong>倒计日 Countdown</strong>：自己管理的重要日期（生日、旅行、重要事件）。</li>
+                <li><strong>考试倒计时 IGCountdown</strong>：锁定 IGCSE / CAIE 各科考试日期，自动计算剩余天数。</li>
+            </ol>
+
+            <h3>📝 怎么用</h3>
+            <ul>
+                <li>设置考试日期后，主页 Dashboard 也会展示最近考试倒计时。</li>
+                <li>「学习计划 StudyPlan」会根据考试日期自动倒排复习节奏。</li>
+                <li>对 AI 说「离物理考试还有几天」即可快速查询。</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>把倒计时和 Goal 结合：给每个考试科目设一个「倒计时前完成复习」的目标，学习更有紧迫感。</div>
+            </div>
+        `
+    },
+
+    // ── 学习模块 ──
+    studyplan_guide: {
+        title: '学习计划 StudyPlan 使用指南',
+        icon: 'school',
+        category: 'study',
+        content: `
+            <p>「学习计划 (StudyPlan)」是你的<strong>学科备考总指挥部</strong>，按 CAIE 考试局科目组织，管理每个学科下面的单元进度。</p>
+
+            <h3>😀 如何打开</h3>
+            <p>点击左侧边栏的「学习计划」即可进入。</p>
+
+            <h3>📚 主要功能</h3>
+
+            <h4>1. 学科 & 单元进度</h4>
+            <p>每个学科（数学、物理、化学、经济等）按单元（Chapter）展开，可以看到每个单元的学习状态和完成进度。</p>
+
+            <h4>2. 红绿灯审计 🚦</h4>
+            <p>给每个知识点标上红/黄/绿：
+                <ul>
+                    <li>🟥 <strong>红色</strong> = 还没掌握 / 薄弱</li>
+                    <li>🟨 <strong>黄色</strong> = 有点模糊 / 需要巩固</li>
+                    <li>🟩 <strong>绿色</strong> = 已掌握</li>
+                </ul>
+            红绿灯是 AI 排日程的<strong>重要依据</strong>——AI 会把时间优先分给红色的知识点。</p>
+
+            <h4>3. 考试 / 开学倒计时</h4>
+            <p>顶部显示各科考试与开学的倒计时，提醒你剩余备考时间。</p>
+
+            <h4>4. 今日学习安排</h4>
+            <p>可以看到今天应该学哪些内容（来自日程联动），按计划完成并勾选。</p>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「我的数学学到哪了？」（读取进度）</li>
+                <li>「把物理 Chapter 2 标成红色，我没掌握」（修改红绿灯）</li>
+                <li>「帮我把红色知识点的学习排到本周」（联动日程）</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>红绿灯是 AI 排日程的最强信号，建议每次学完一个单元，都更新一下红绿灯状态。</div>
+            </div>
+        `
+    },
+
+    studyguide_guide: {
+        title: '学习指导 StudyGuide 使用指南',
+        icon: 'auto_stories',
+        category: 'study',
+        content: `
+            <p>「学习指导 (StudyGuide)」教你怎么<strong>科学学习</strong>。它提供「学习如何学习」的方法论，并帮你记录每日学习成果。</p>
+
+            <h3>😀 如何打开</h3>
+            <p>点击左侧边栏的「StudyGuide」即可进入。</p>
+
+            <h3>📊 四大板块</h3>
+
+            <h4>📅 今日 Today</h4>
+            <p>记录每天的学习行动：填写完成了哪些任务、勾选 checklist（如「今天用了费曼技巧」「今天做了 10 道题」），进度会保存。</p>
+
+            <h4>📚 学习 Learn</h4>
+            <p>系统讲解高效学习法，例如：</p>
+            <ul>
+                <li><strong>费曼技巧</strong>：用自己的话讲给别人听，讲不明白就是没学会。</li>
+                <li><strong>间隔重复</strong>：在遗忘点前复习，效率最高。</li>
+                <li><strong>主动回忆</strong>：盖住答案回忆，而不是反复阅读。</li>
+            </ul>
+
+            <h4>📝 习题 Practice</h4>
+            <p>把学到的知识和习题结合，用测验检验掌握程度，而不是「感觉会了」。</p>
+
+            <h4>⏰ 考试 Exam</h4>
+            <p>查看考试倒计时，配合学习计划安排复习节奏。</p>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「我今天的学习进度怎么样？」（读取 studyguide_progress）</li>
+                <li>「帮我用费曼技巧检查一下牛顿定律掌握没有」</li>
+                <li>「根据我红绿灯情况推荐今天学什么」</li>
+            </ul>
+        `
+    },
+
+    vocab_guide: {
+        title: '词汇宝库 Vocab 使用指南',
+        icon: 'menu_book',
+        category: 'study',
+        content: `
+            <p>「词汇宝库 (Vocab)」帮你建立属于自己的<strong>英语词汇库</strong>，告别死记硬背。</p>
+
+            <h3>😀 如何打开</h3>
+            <p>点击左侧边栏的「词汇宝库」即可进入。</p>
+
+            <h3>📝 核心用法</h3>
+            <ul>
+                <li><strong>添加单词</strong>：把生词、重点词加入词库，可附释义、例句。</li>
+                <li><strong>分类管理</strong>：按学科/主题/难度分类，学习时更有针对性。</li>
+                <li><strong>复习回顾</strong>：定期回到词库复习，配合间隔重复效果最佳。</li>
+            </ul>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「这个词是什么意思？」（AI 联网查词）</li>
+                <li>「帮我把单词按学科分类」</li>
+                <li>「给我出 10 道词汇测试题检验记忆」</li>
+            </ul>
+        `
+    },
+
+    quizwise_guide: {
+        title: 'QuizWise 刷题使用指南',
+        icon: 'psychology',
+        category: 'study',
+        content: `
+            <p>「QuizWise」是你身边的<strong>AI 智能刷题教练</strong>。做题 → AI 批改 → 讲解知识点，一气呵成。</p>
+
+            <h3>😀 如何打开</h3>
+            <p>点击左侧边栏的「QuizWise 刷题」即可进入。</p>
+
+            <h3>📝 怎么刷</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>加载 / 选择题目</strong>
+                        <p>按科目选择题目集，页面会显示当前题目列表。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>作答</strong>
+                        <p>逐题作答，完成后提交。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>AI 批改与讲解</strong>
+                        <p>让 AI 分析你的答题情况、批改对错、讲解每个选项的知识点。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「帮我批改这次的答案并给我讲解错题」</li>
+                <li>「根据我的错题，推荐今天该复习哪个知识点」</li>
+                <li>「给我出一道关于光合作用的题」</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>刷题是检验「真的会了」的最好方式。配合 StudyGuide 的「习题」板块使用更佳。</div>
+            </div>
+        `
+    },
+
+    mock_guide: {
+        title: 'Mock 刷题使用指南',
+        icon: 'quiz',
+        category: 'study',
+        content: `
+            <p>「Mock 刷题」用于<strong>模拟考试训练</strong>。通过整套模拟题 + 计时环境，提前适应真实考试节奏。</p>
+
+            <h3>😀 如何打开</h3>
+            <p>点击左侧边栏的「Mock 刷题」即可进入。</p>
+
+            <h3>📝 用法</h3>
+            <ul>
+                <li>选择科目，开始一次模拟考试。</li>
+                <li>按真实考试时间分配答题，练习时间管理。</li>
+                <li>考后回顾错题，让 AI 分析薄弱环节。</li>
+            </ul>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「给我安排一次数学 Mock 考试」</li>
+                <li>「分析我最近一次 Mock 的错题，总结薄弱知识点」</li>
+            </ul>
+        `
+    },
+
+    // ── AI 助手 ──
+    ai_guide: {
+        title: 'AI 助手使用指南',
+        icon: 'smart_toy',
+        category: 'ai',
+        content: `
+            <p>页面右下角的 🤖 <strong>AI 智能助手</strong>（AiChatFab）是整个平台的智慧大脑。它不只是聊天机器人，而是能<strong>读写你的真实数据</strong>、<strong>执行操作</strong>的智能管家。</p>
+
+            <h3>✨ 能做什么</h3>
+            <table class="page-index">
+                <tr><th>能力</th><th>示例</th></tr>
+                <tr><td class="page-name">🗺 导航</td><td class="page-desc">「打开日程中心」「去设置页面」</td></tr>
+                <tr><td class="page-name">🎯 目标管理</td><td class="page-desc">创建/修改/删除目标、调整进度与层级</td></tr>
+                <tr><td class="page-name">📋 日程联动</td><td class="page-desc">根据目标+红绿灯生成日程、标记完成、跳过任务</td></tr>
+                <tr><td class="page-name">📚 学习计划</td><td class="page-desc">读取学科进度、修改红绿灯、查倒计时</td></tr>
+                <tr><td class="page-name">🧠 刷题辅导</td><td class="page-desc">分析题目、批改答案、讲解知识点</td></tr>
+                <tr><td class="page-name">🎵 音乐控制</td><td class="page-desc">播放/停止单曲或歌单</td></tr>
+                <tr><td class="page-name">⏱ 计时器</td><td class="page-desc">开始/停止番茄钟、专注计时</td></tr>
+                <tr><td class="page-name">🌐 搜索与工具</td><td class="page-desc">网页搜索、数学计算、天气查询、设置提醒</td></tr>
+            </table>
+
+            <h3>✍️ 怎么用好它</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>描述清楚需求</strong>
+                        <p>说明「做什么 + 对象 + 时间」：✅「把明天的物理复习任务加到日程」；❌「帮我安排一下」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>让 AI 先读取再修改</strong>
+                        <p>AI 会先读取你的数据再操作。修改类操作（如删目标、改日程）会<strong>弹窗请求你的确认</strong>，确认后才执行。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>用自然语言联动多个功能</strong>
+                        <p>「看看我红色知识点的学习安排需要调整吗」这种跨数据的需求，正是 AI 的强项。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>🛠 安全机制</h3>
+            <ul>
+                <li><strong>安全模式</strong>：高风险写操作需要你确认。</li>
+                <li><strong>YOLO 模式</strong>：可关闭确认（在 AI 设置中切换），谨慎使用。</li>
+                <li><strong>独立审查</strong>：对 AI 的操作拿不准时，可以让第二个 AI 独立审查该操作是否合理。</li>
+            </ul>
+
+            <h3>⚙️ 设置</h3>
+            <p>在 AI 对话框右上角齿轮 ⚙️，可配置思考深度（影响 AI 推理轮数）、安全模式、token 定价等。API Key 在「设置 → AI 配置」中填写。</p>
+        `
+    },
+
+    ai_tools: {
+        title: 'AI 工具详解',
+        icon: 'handyman',
+        category: 'ai',
+        content: `
+            <p>AI 助手内置了多种工具，这里列出常用工具和触发话术，方便你「点菜」。</p>
+
+            <h3>🗺 导航工具</h3>
+            <ul>
+                <li><strong>跳转页面</strong>：「打开 / 去 ...」+ 页面名（支持主页、日程、学习计划、词汇、音乐、设置、目标、放松、学习指导、Mock、倒计时、B站、课程表、更新、MD转Word、答题卡等）。</li>
+                <li><strong>打开链接</strong>：「打开网站 xxx」。</li>
+            </ul>
+
+            <h3>🎯 目标工具</h3>
+            <ul>
+                <li><strong>读取目标</strong> read_goal_data：「我的目标有哪些？」</li>
+                <li><strong>管理目标</strong> manage_goal：「创建一个 XX 目标」「把 XX 进度改为 5/20」「删除 XX」。</li>
+                <li><strong>生成日程</strong> create_schedule_from_goal：「根据目标生成今天的日程」。</li>
+            </ul>
+
+            <h3>📋 日程工具</h3>
+            <ul>
+                <li>get_schedule：「今天的日程」</li>
+                <li>get_current_task：「现在该做什么」</li>
+                <li>toggle_task_done：「把 XX 任务标记完成」</li>
+                <li>skip_task：「跳过 XX」</li>
+                <li>read_schedule_results / analyze_schedule_and_suggest：「分析日程完成率」</li>
+                <li>read_timetable：「读一下我的课程表」</li>
+            </ul>
+
+            <h3>📚 学习工具</h3>
+            <ul>
+                <li>get_today_schedule：「今天学什么」</li>
+                <li>get_progress：「各学科进度」</li>
+                <li>get_countdown：「考试还剩几天」</li>
+                <li>read_traffic_audit / manage_traffic_audit：「查看/修改红绿灯」</li>
+                <li>read_study_progress：「学习指导进度」</li>
+            </ul>
+
+            <h3>🧠 刷题工具</h3>
+            <ul>
+                <li>read_quiz_data：「当前题目」</li>
+                <li>analyze_question：「帮我分析这道题 / 批改」</li>
+            </ul>
+
+            <h3>🎵 音乐 & 其他</h3>
+            <ul>
+                <li>play_music / stop_music：「播放 XXX / 停止音乐」</li>
+                <li>start_timer / stop_timer：「开始 25 分钟/停止计时」</li>
+                <li>search_web：「搜索 ...」</li>
+                <li>calculate：「计算 123×45」</li>
+                <li>get_weather：「今天天气」</li>
+                <li>set_reminder：「提醒我 XX」</li>
+                <li>current_time：「现在几点」</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>不需要记工具名！直接用自然语言说需求，AI 会自动选择合适的工具。</div>
+            </div>
+        `
+    },
+
+    // ── 设置与工具 ──
+    settings_guide: {
+        title: '设置页面使用指南',
+        icon: 'settings',
+        category: 'settings-tools',
+        content: `
+            <p>「设置」页面集中管理平台的各种配置。下面逐一说明。</p>
+
+            <h3>🤖 AI 配置</h3>
+            <ul>
+                <li><strong>API Key</strong>：填写你的 AI 服务商 Key（支持 DeepSeek、OpenAI、通义千问等）。这是 AI 助手运行的前提。</li>
+                <li><strong>模型 / 端点</strong>：选择模型（如 DeepSeek Chat）、自定义端点等，高级用户可调整。</li>
+                <li><strong>思考深度</strong>：低/中/高，影响 AI 解答复杂问题的推理轮数。</li>
+                <li><strong>安全模式</strong>：标准=写操作需确认；YOLO=全部自动执行（不推荐对高风险操作）。</li>
+            </ul>
+
+            <h3>🔊 TTS 语音</h3>
+            <p>配置 AI 回复的语音朗读：语言（中文/英文）、音色、语速等。开启后 AI 回复会朗读出来，学习/通勤时很实用。</p>
+
+            <h3>🌐 语言</h3>
+            <p>切换界面语言：中文 / English。</p>
+
+            <h3>👤 账户</h3>
+            <p>登录账户信息、头像、退出登录等。</p>
+
+            <h3>🎯 个性化</h3>
+            <p>音乐模块偏好（播放器 / 同步）、答题卡模式（标准 / 同步）、侧边栏显示等。</p>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>AI 相关的配置修改后立即生效，无需重启。遇到 AI 无法回复时，优先检查 API Key 是否配置正确。</div>
+            </div>
+        `
+    },
+
+    tools_guide: {
+        title: '工具箱使用指南',
+        icon: 'build',
+        category: 'settings-tools',
+        content: `
+            <p>「工具箱」汇聚了一些实用小工具。</p>
+
+            <h3>🧰 包含的工具</h3>
+            <table class="page-index">
+                <tr><th>工具</th><th>用途</th></tr>
+                <tr><td class="page-name">📝 Markdown → Word</td><td class="page-desc">把 Markdown 文档导出为 Word 文件</td></tr>
+                <tr><td class="page-name">🧮 计算</td><td class="page-desc">快速计算（也可直接问 AI）</td></tr>
+                <tr><td class="page-name">🔍 搜索</td><td class="page-desc">网页搜索（也可直接问 AI）</td></tr>
+                <tr><td class="page-name">🚀 在线工具</td><td class="page-desc">打开常用在线工具网站</td></tr>
+            </table>
+
+            <h3>🤖 与 AI 联动</h3>
+            <p>大部分工具能力 AI 已内置：「计算 25×4」「搜索 XXX」。请在工具箱页面打开网页工具时注意外部网站内容。</p>
+
+            <p>更多详情见「<a onclick="openArticle('md2word-guide')">Markdown → Word 使用指南</a>」。</p>
+        `
+    },
+
+    md2word_guide: {
+        title: 'Markdown → Word 使用指南',
+        icon: 'description',
+        category: 'settings-tools',
+        content: `
+            <p>把 Markdown 格式的笔记一键转换成 Word 文档，适合交作业、整理学习资料。</p>
+
+            <h3>📝 怎么用</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>粘贴 Markdown 内容</strong>
+                        <p>把你写的 Markdown（标题、列表、表格、代码块等）粘贴到输入区。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>点击转换 / 导出</strong>
+                        <p>系统会生成 Word 文档下载。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>打开检查</strong>
+                        <p>用 Word/WPS 打开，检查格式是否符合预期。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>写笔记时建议用支持 Markdown 的编辑器（如 VS Code、Typora），写完直接粘贴导出。</div>
+            </div>
+        `
+    },
+
+    answersheet_guide: {
+        title: '答题卡使用指南',
+        icon: 'content_paste',
+        category: 'settings-tools',
+        content: `
+            <p>「答题卡」用于刷题时记录答案，支持两种模式（可在设置中切换）。</p>
+
+            <h3>📋 标准答题卡</h3>
+            <p>适合日常刷题：边做题边填写答案，支持选择题、填空题等题型。填写后可让 AI 批改。</p>
+
+            <h3>🔄 同步答题卡</h3>
+            <p>适合课堂听写/测验：答题卡数据自动同步，方便老师/家长查看进度。</p>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「帮我根据答题卡批改这 10 道题」</li>
+                <li>「统计我答题卡的正确率」</li>
+            </ul>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>答题卡模式（标准/同步）可在「设置 → 个性化」中切换，侧边栏会显示对应的入口。</div>
+            </div>
+        `
+    },
+
+    // ── 音乐与娱乐 ──
+    music_guide: {
+        title: '音乐播放器使用指南',
+        icon: 'music_note',
+        category: 'fun',
+        content: `
+            <p>学习时来点背景音乐，更容易进入心流状态。「音乐播放器」支持网易云音乐（单曲/歌单）和 B 站音乐。</p>
+
+            <h3>🎵 核心功能</h3>
+            <ul>
+                <li><strong>播放单曲</strong>：输入歌名/链接即可播放。</li>
+                <li><strong>播放歌单</strong>：选择已保存的歌单连续播放。</li>
+                <li><strong>MiniPlayer</strong>：切到其他页面时，音乐在右下角小播放器继续播放，不中断学习节奏。</li>
+                <li><strong>播放模式</strong>：单曲循环 / 列表循环 / 随机，可按需切换。</li>
+            </ul>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「播放 XX 这首歌」</li>
+                <li>「播放我的学习歌单」</li>
+                <li>「停止音乐」</li>
+            </ul>
+
+            <div class="callout warn">
+                <span class="material-symbols-rounded">priority_high</span>
+                <div>音乐播放需要保持当前页面处于活跃状态，部分浏览器可能阻止自动播放，首次需要点击页面任意位置开启声音。</div>
+            </div>
+        `
+    },
+
+    music_sync_guide: {
+        title: '同步音乐使用指南',
+        icon: 'sync_alt',
+        category: 'fun',
+        content: `
+            <p>「同步音乐」模式面向需要<strong>设备间同步</strong>的场景，音乐播放状态会在多设备间同步。</p>
+
+            <h3>🔄 与播放器模式的切换</h3>
+            <p>音乐模块有两种模式：「播放器」（默认）和「同步」。首次使用平台时会让你选择，也可以在「设置 → 个性化」中切换。侧边栏会显示对应的入口。</p>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>如果你主要在手机、平板、电脑之间切换学习，推荐「同步」模式；如果专注一台设备，用「播放器」模式即可。</div>
+            </div>
+        `
+    },
+
+    bilibili_guide: {
+        title: 'B站同步使用指南',
+        icon: 'smart_display',
+        category: 'fun',
+        content: `
+            <p>「B站同步」可以把 B 站视频/歌曲接入学习场景（例如把网课、学习视频加入日程播放）。</p>
+
+            <h3>📺 主要用途</h3>
+            <ul>
+                <li>把 B 站学习视频（网课、纪录片）加入播放列表。</li>
+                <li>在日程/专注时段自动播放学习视频。</li>
+                <li>通过 AI 控制播放。</li>
+            </ul>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「播放 B 站上的 XX 网课视频」</li>
+                <li>「把 B 站视频加入我的学习列表」</li>
+            </ul>
+        `
+    },
+
+    poem_guide: {
+        title: '诗词天地使用指南',
+        icon: 'auto_stories',
+        category: 'fun',
+        content: `
+            <p>「诗词天地」收录经典诗词，支持浏览与背诵，是语文素养提升的好帮手。</p>
+
+            <h3>📜 主要功能</h3>
+            <ul>
+                <li>浏览经典古诗词、名句。</li>
+                <li>背诵模式：看提示回忆全诗，检验记忆。</li>
+                <li>搜索诗词 / 作者。</li>
+            </ul>
+
+            <h3>🤖 与 AI 联动</h3>
+            <ul>
+                <li>「帮我找一首杜甫的诗」</li>
+                <li>「解释一下『会当凌绝顶』的意思」</li>
+            </ul>
+        `
+    },
+
+    relax_guide: {
+        title: '放松一下使用指南',
+        icon: 'sports_esports',
+        category: 'fun',
+        content: `
+            <p>学习要张弛有度。「放松一下」提供小游戏减轻压力，也能播放音乐。</p>
+
+            <h3>🎮 有什么</h3>
+            <ul>
+                <li>小游戏：快速切换注意力，休整大脑。</li>
+                <li>播放音乐：配合背景音乐放松。</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>番茄钟休息的 5 分钟，最适合来「放松一下」调剂心情，但注意别超时哦。</div>
+            </div>
+        `
+    },
+
+    // ── 其他 ──
+    updatehub_guide: {
+        title: '更新日志 Update Hub 使用指南',
+        icon: 'history',
+        category: 'misc',
+        content: `
+            <p>「更新日志」记录平台的每一次版本更新。想了解最近新增了什么功能、修复了什么问题，来这里准没错。</p>
+
+            <h3>📋 怎么看</h3>
+            <ul>
+                <li><strong>⭐ 重要更新</strong>：平台重大改动、新功能/新模块上线。</li>
+                <li><strong>🔄 常规更新</strong>：小功能优化、Bug 修复、体验改进。</li>
+                <li><strong>模块状态</strong>：各功能模块当前的可用状态。</li>
+            </ul>
+
+            <h3>🔢 版本号说明</h3>
+            <ul>
+                <li>大版本 <strong>x.0</strong>：平台架构/大改版。</li>
+                <li>中版本 <strong>x.x</strong>：新增功能/模块。</li>
+                <li>小版本 <strong>x.x.x</strong>：Bug 修复与体验优化。</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>遇到版本相关的问题，可以截图更新日志里的版本号告诉 AI，帮助定位问题。</div>
+            </div>
+        `
+    }
+};
+
+// ══════════════════════════════════════════
+// 渲染逻辑
+// ══════════════════════════════════════════
+
+function renderSideNav(activeCat = null, activeArt = null) {
+    const nav = document.getElementById('sideNav');
+    nav.innerHTML = '';
+
+    CATEGORIES.forEach(cat => {
+        const label = document.createElement('div');
+        label.className = 'nav-group-label';
+        label.textContent = cat.label;
+        nav.appendChild(label);
+
+        cat.articles.forEach(id => {
+            const art = ARTICLES[id];
+            if (!art) return;
+            const btn = document.createElement('button');
+            btn.className = 'nav-item' + (activeArt === id ? ' active' : '');
+            btn.innerHTML = `<span class="material-symbols-rounded">${art.icon}</span><span>${art.title}</span>`;
+            btn.onclick = () => openArticle(id);
+            nav.appendChild(btn);
+        });
+    });
+}
+
+function renderCategoryGrid() {
+    const grid = document.getElementById('categoryGrid');
+    grid.innerHTML = '';
+
+    CATEGORIES.forEach(cat => {
+        const card = document.createElement('div');
+        card.className = 'category-card';
+        card.innerHTML = `
+            <div class="cat-icon" style="background:${cat.bg}; color:${cat.color}">
+                <span class="material-symbols-rounded">${cat.icon}</span>
+            </div>
+            <h3>${cat.label}</h3>
+            <p>${getCatDesc(cat.id)}</p>
+            <span class="cat-count">${cat.articles.length} 篇文章 →</span>
+        `;
+        card.onclick = () => {
+            const firstId = cat.articles[0];
+            if (ARTICLES[firstId]) openArticle(firstId);
+        };
+        grid.appendChild(card);
+    });
+}
+
+function getCatDesc(catId) {
+    const descs = {
+        'getting-started': '第一次使用？从这里了解平台全貌',
+        'workflow': 'Goal 定目标 → 生成日程 → 高效学习的核心流程',
+        'schedule': '日程中心、课程表、番茄钟与倒计时说明',
+        'study': '学习计划、学习指导、词汇、刷题使用方法',
+        'ai': '让你的 AI 管家发挥全部实力',
+        'settings-tools': '设置、工具箱、答题卡等功能配置',
+        'fun': '音乐、B站、诗词与休闲放松',
+        'misc': '更新日志等其它内容'
+    };
+    return descs[catId] || '';
+}
+
+function openArticle(id) {
+    const art = ARTICLES[id];
+    if (!art) return;
+
+    const cat = CATEGORIES.find(c => c.id === art.category);
+    const catLabel = cat ? cat.label : '';
+
+    document.getElementById('view-home').classList.add('hidden');
+    document.getElementById('view-article').classList.remove('hidden');
+
+    const content = document.getElementById('articleContent');
+    content.innerHTML = `
+        <div class="article-header">
+            <div class="article-breadcrumb">
+                <a onclick="showHome()">帮助中心</a> / ${catLabel}
+            </div>
+            <h2><span class="material-symbols-rounded" style="vertical-align:-5px; margin-right:8px; color:var(--primary); font-size:28px;">${art.icon}</span>${art.title}</h2>
+            <div class="article-meta">
+                <span class="material-symbols-rounded" style="font-size:14px;">schedule</span>
+                最后更新：${getUpdateDate()}
+            </div>
+        </div>
+        ${art.content}
+    `;
+
+    renderSideNav(cat ? cat.id : null, id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // 更新 URL hash（可选，方便刷新还原）
+    try { history.replaceState(null, '', '#article-' + id); } catch(e) {}
+}
+
+function showHome() {
+    document.getElementById('view-article').classList.add('hidden');
+    document.getElementById('view-home').classList.remove('hidden');
+    renderSideNav();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    try { history.replaceState(null, '', '#'); } catch(e) {}
+}
+
+function getUpdateDate() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+// ══════════════════════════════════════════
+// 搜索
+// ══════════════════════════════════════════
+
+function setupSearch() {
+    const input = document.getElementById('searchInput');
+    input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        if (!q) {
+            renderSideNav();
+            return;
+        }
+        // 过滤左侧导航
+        const nav = document.getElementById('sideNav');
+        nav.innerHTML = '';
+
+        const matches = [];
+        CATEGORIES.forEach(cat => {
+            const catMatches = cat.articles.filter(id => {
+                const art = ARTICLES[id];
+                if (!art) return false;
+                const haystack = (art.title + ' ' + art.content).toLowerCase();
+                return haystack.includes(q);
+            });
+            if (catMatches.length > 0) {
+                matches.push({ cat, ids: catMatches });
+            }
+        });
+
+        if (matches.length === 0) {
+            nav.innerHTML = '<div class="nav-group-label" style="padding:12px;">未找到相关文章</div>';
+            return;
+        }
+
+        matches.forEach(({ cat, ids }) => {
+            const label = document.createElement('div');
+            label.className = 'nav-group-label';
+            label.textContent = cat.label;
+            nav.appendChild(label);
+            ids.forEach(id => {
+                const art = ARTICLES[id];
+                const btn = document.createElement('button');
+                btn.className = 'nav-item';
+                btn.innerHTML = `<span class="material-symbols-rounded">${art.icon}</span><span>${art.title}</span>`;
+                btn.onclick = () => openArticle(id);
+                nav.appendChild(btn);
+            });
+        });
+    });
+}
+
+// ══════════════════════════════════════════
+// 联系 AI 客服 — 打开主页 AI
+// ══════════════════════════════════════════
+
+function openAiChat() {
+    try {
+        // 通知父窗口（Next.js 应用）打开全局 AI 对话
+        window.parent.postMessage({ type: 'jackyun-open-ai', page: 'helpcenter' }, '*');
+    } catch(e) {
+        // 如果不在 iframe 中（直接打开 HTML），尝试兜底提示
+        alert('请在 JackYun Portal 中使用 AI 客服。窗口右上角可手动打开 AI 助手。');
+    }
+}
+
+// ══════════════════════════════════════════
+// 初始化
+// ══════════════════════════════════════════
+
+function init() {
+    renderSideNav();
+    renderCategoryGrid();
+    setupSearch();
+
+    // 支持 URL hash 直达文章，如 #article-wf-schedule
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#article-')) {
+        const id = hash.replace('#article-', '');
+        if (ARTICLES[id]) {
+            document.getElementById('view-article').classList.remove('hidden');
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('articleContent').innerHTML = `
+                <div class="article-header">
+                    <div class="article-breadcrumb">
+                        <a onclick="showHome()">帮助中心</a> / ${(CATEGORIES.find(c => c.id === ARTICLES[id].category) || {}).label || ''}
+                    </div>
+                    <h2><span class="material-symbols-rounded" style="vertical-align:-5px; margin-right:8px; color:var(--primary); font-size:28px;">${ARTICLES[id].icon}</span>${ARTICLES[id].title}</h2>
+                    <div class="article-meta">
+                        <span class="material-symbols-rounded" style="font-size:14px;">schedule</span>
+                        最后更新：${getUpdateDate()}
+                    </div>
+                </div>
+                ${ARTICLES[id].content}
+            `;
+            renderSideNav(ARTICLES[id].category, id);
+        }
+    }
+}
+
+init();
+</script>
+</body>
+</html>

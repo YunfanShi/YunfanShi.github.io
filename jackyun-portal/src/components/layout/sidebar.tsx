@@ -33,6 +33,7 @@ const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string
   { labelKey: 'nav.tools', icon: 'build', href: '/tools' },
   { labelKey: 'nav.settings', icon: 'settings', href: '/settings' },
   { labelKey: 'nav.update', icon: 'history', href: '/update' },
+  { labelKey: 'nav.help-center', icon: 'help', href: '/help' },
 ];
 
 const ADMIN_ITEM = { labelKey: 'nav.admin', icon: 'admin_panel_settings', href: '/admin' };

@@ -8,7 +8,7 @@
  * - control (Control)：仅控制和查询
  */
 
-export type ToolScope = 'global' | 'dashboard' | 'quiz' | 'plan' | 'control' | 'study_guide' | 'goal' | 'study' | 'vocab' | 'music' | 'poem' | 'relax' | 'countdown' | 'settings' | 'tools';
+export type ToolScope = 'global' | 'dashboard' | 'quiz' | 'plan' | 'control' | 'study_guide' | 'goal' | 'study' | 'vocab' | 'music' | 'poem' | 'relax' | 'countdown' | 'settings' | 'tools' | 'help';
 
 export interface ConsentInfo {
   /** 要执行的操作描述 */
@@ -1626,7 +1626,7 @@ export async function executeToolCall(
 // 页面数据全景图 — 告诉 AI 当前页面有什么数据可以读/写
 // ─────────────────────────────────────────────────────────────
 
-export type ConversationSource = 'dashboard' | 'control' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'other';
+export type ConversationSource = 'dashboard' | 'control' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'help' | 'other';
 
 export function getPageContext(source: ConversationSource): string {
   const contexts: Record<ConversationSource, string> = {
@@ -1800,6 +1800,34 @@ export function getPageContext(source: ConversationSource): string {
   🕐 查看时间、🧮 计算、🔍 搜索
 
 帮助用户了解设置在什么位置、如何配置。`,
+    help: `📊 当前页面数据全景图
+
+你在「帮助中心 (Help Center)」。这是一个类似微软/谷歌帮助文档的页面，教会用户如何使用整个 JackYun Portal。
+
+【📖 帮助中心包含的分类】：
+  🚀 快速开始 — 平台概览、5 分钟上手、推荐学习流程
+  🎯 学习工作流 — Goal 定目标 → Control/TimetableHub 生成日程 → StudyGuide 高效学习的三步流程
+  🗓 日程与时间 — 日程中心（Control）、课程表（TimetableHub）、时间管理、倒计时
+  📚 学习模块 — 学习计划（StudyPlan）、学习指导（StudyGuide）、词汇（Vocab）、QuizWise、Mock
+  🤖 AI 助手 — AI 使用指南、AI 工具详解
+  ⚙️ 设置与工具 — 设置页面、工具箱、Markdown转Word、答题卡
+  🎵 音乐与娱乐 — 音乐播放器、同步音乐、B站、诗词、放松
+  📋 其他 — 更新日志
+
+【👤 用户可能问的问题类型】：
+  1. 某个页面怎么用（如「日程中心怎么用」「Goal 怎么创建目标」）
+  2. 某个功能在哪（如「设置在哪」「红绿灯在哪」）
+  3. 学习流程怎么走（如「怎么让 AI 帮我生成日程」「三步学习流程是什么」）
+  4. AI 助手怎么用（如「AI 能做什么」「怎么配置 API Key」）
+
+【🎯 你的职责】：
+  帮助用户了解平台任何功能的使用方法。当用户询问如何做某事时，你可以：
+  1. 用自然语言清晰讲解操作步骤
+  2. 使用 navigate 工具直接跳转到对应功能页面
+  3. 结合用户的真实数据（目标、日程、学习进度）给出个性化建议
+  4. 直接帮用户执行操作（如创建目标、生成日程）
+
+你已经拥有全局所有工具权限，可以直接使用 read_goal_data、get_schedule、create_schedule_from_goal 等工具来帮助用户。`,
     goal: `📊 当前页面数据全景图
 
 你在「目标管理 (Goal)」。以下是这个页面上所有你可以读取或操作的数据：
