@@ -744,6 +744,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 - AI 智能排程：选中任务 → 自动避开固定时间块按优先级填充 → 变更预览面板逐条接受/拒绝 → 全部应用才生效
 - 固定时间块（硬约束）：专注块可挂任务组自动顺排 + 超时红提示；休息块不可挂载
 - 多套方案管理：创建/复制/删除/一键切换，localStorage `th2_plans` / `th2_plan_{id}`
+- **临时日程模式**：顶部「标准/临时」切换按钮。临时模式仅显示今天、时间轴从当前时间开始到 24:00，适合快速安排今日剩余时间
 - Control 双向同步：改动即时写回 `w3_schedule` / `jack_timetable_plan` / `jackyun_control_events`
 - 侧边栏默认收起，支持父框架 postMessage 收左栏避免双层侧边栏冲突
 - AI 工具：`th_read_plans` `th_read_plan` `th_add_task` `th_delete_task` `th_move_task` `th_shift_add` `th_swap_tasks` `th_add_fixed_block`（写入 ai-tools.ts）
@@ -792,6 +793,12 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 #### 12.10 计划显示器 (`/goal`)
 - 嵌入旧版 `Goal.html`（Legacy Frame）
+- **今日计划**：面板内直接添加今日任务（选择目标、数量、预计分钟），或让 AI 根据目标进度和截止日期自动生成今日清单
+- AI 可行性分析：判断今天能否完成，给出时间轴安排建议
+- **一键推送到日程表**：自动避开固定时间块、贪心填充空闲时段，写入 TimetableHub 当前方案并同步到控制中心执行
+- **固定时间块**：设置页可管理上课/睡觉/午休等雷打不动的时段，AI 规划时自动避开
+- Goal ↔ TimetableHub 实时互读互写：目标更新自动同步到任务池，无需手动导入
+- AI 上下文缓存优化：目标数据签名缓存（60s），减少重复构建、提升 AI 响应速度
 
 #### 12.11 考试倒计时 (`/igcountdown`)
 - 嵌入旧版 `IGCountdown.html`（Legacy Frame）

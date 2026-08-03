@@ -960,6 +960,12 @@ function saveTimers(){ localStorage.setItem('gt_timers_v1',JSON.stringify(active
 
 // Context cache for buildAllContext — invalidated on save, reused within 30s
 let _ctxCache=null, _ctxCacheTS=0, _ctxCacheKey='';
+let _schedCtxCache=null, _schedCtxTS=0, _schedCtxSig='';
+let _countdownCtxCache=null, _countdownCtxTS=0;
+// 生成 goals 状态的轻量 signature，用于判断上下文缓存是否仍然有效
+function goalsSig(){
+  try{return goals.slice(0,15).map(g=>`${g.id}:${g.done||0}/${g.total||0}`).join('|')+':n='+goals.length}catch(e){return String(goals.length)}
+}
 function invalidateCtxCache(){ _ctxCache=null; _ctxCacheTS=0; }
 
 /* ===================== PERSISTENCE ===================== */
@@ -1175,6 +1181,10 @@ function nowStr(){
 /* ===================== SCHEDULE CONTEXT ===================== */
 function buildScheduleContext(){
   const d=new Date();
+  // 短期缓存：避免在同一个 AI 会话中反复重建
+  const sig=`${d.getHours()}:${Math.floor(d.getMinutes()/10)}`;
+  if(_schedCtxCache && sig===_schedCtxSig) return _schedCtxCache;
+  _schedCtxSig=sig;
   const dow=d.getDay(); // 0=Sun,6=Sat
   const isWeekend=(dow===0||dow===6);
   const wdH=prefs.weekdayHours||2;
@@ -1220,6 +1230,7 @@ function buildScheduleContext(){
 - 如果其他任务快完成，剩余任务可获得更多时间投入
 - 请基于实际可用时间（而非日历天数）计算预测天数`;
 
+  _schedCtxCache=ctx; _schedCtxTS=Date.now();
   return ctx;
 }
 
@@ -1413,7 +1424,10 @@ function buildAllContext(){
 
   // 短期缓存（30s）：goals 未变化时直接复用已构建的上下文字符串，避免重复计算
   const now=Date.now();
-  if(_ctxCache && (now-_ctxCacheTS)<30000) return _ctxCache;
+  // 缓存基于 goals 内容的 signature，而非纯时间；goals 不变且 60s 内则复用
+  const sig=goalsSig();
+  if(_ctxCache && sig===_ctxCacheKey && (now-_ctxCacheTS)<60000) return _ctxCache;
+  _ctxCacheKey=sig;
 
   let out=`现在：${t}\n总目标数：${goals.filter(g=>g.parentId===null).length}\n总子任务数：${goals.filter(g=>g.parentId!==null).length}\n\n`;
   out+=buildScheduleContext()+'\n\n'+buildCountdownContext()+'\n\n════════════════════\n\n';
