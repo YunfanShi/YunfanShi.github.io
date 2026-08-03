@@ -181,6 +181,58 @@ function saveActiveId(id: string): void {
   localStorage.setItem(ACTIVE_ID_KEY, id);
 }
 
+// ── Page Quick Actions ─────────────────────────────────────────────────────
+// 每个页面的快捷操作按钮，显示在 FAB 对话框输入框上方
+interface QuickAction {
+  label: string;
+  prompt: string;
+}
+
+const PAGE_QUICK_ACTIONS: Partial<Record<ConversationSource, QuickAction[]>> = {
+  goal: [
+    { label: '📊 总体分析', prompt: '请分析我当前所有目标的完成情况和进度，给出整体评估。' },
+    { label: '🎯 优先级建议', prompt: '根据目标截止日期和完成度，给我今天应优先做的优先级建议。' },
+    { label: '📅 制定今日计划', prompt: '根据我的目标帮我制定今天的学习计划，考虑我的固定时间块，预估每个任务需要多少分钟。' },
+    { label: '⚠️ 风险预警', prompt: '检查哪些目标有逾期风险，分析原因并给出补救措施。' },
+  ],
+  control: [
+    { label: '📅 今日排程', prompt: '请查看我今天的日程安排，列出今天的任务时间表。' },
+    { label: '🔍 检查冲突', prompt: '请检查我的时间表是否有任务冲突或时间重叠问题。' },
+    { label: '📊 时间分析', prompt: '分析我本周的时间分配情况，哪些科目分配时间不足？' },
+    { label: '⚡ 快速填充', prompt: '帮我把未安排的任务自动排入合适的空闲时段。' },
+  ],
+  dashboard: [
+    { label: '🔍 全局分析', prompt: '请给我今天的全局概览：目标进度、今日日程、待办事项汇总。' },
+    { label: '📊 今日概览', prompt: '总结我今天的关键信息和任务。' },
+    { label: '💡 智能建议', prompt: '基于我的数据，给我三条今日提升效率的建议。' },
+  ],
+  study: [
+    { label: '📋 查看计划', prompt: '查看我的学习计划和大纲情况。' },
+    { label: '🔄 更新进度', prompt: '帮我更新学习计划的进度和红绿灯状态。' },
+    { label: '📊 学习分析', prompt: '分析我的学习情况，哪些科目掌握得好，哪些需要加强？' },
+  ],
+  quiz: [
+    { label: '📝 开始测验', prompt: '帮我从当前知识库生成一份测验。' },
+    { label: '📊 成绩分析', prompt: '分析我的测验成绩，找出薄弱点。' },
+    { label: '🎯 薄弱点训练', prompt: '根据我的错题记录，为我生成针对薄弱点的练习。' },
+  ],
+  vocab: [
+    { label: '📝 复习单词', prompt: '根据我的记忆曲线，今天应该复习哪些单词？' },
+    { label: '📊 词汇统计', prompt: '统计我的词汇学习进度和掌握情况。' },
+  ],
+  music: [
+    { label: '🎵 播放音乐', prompt: '帮我在音乐播放器中播放一首适合学习的歌。' },
+    { label: '⏸️ 停止播放', prompt: '停止当前音乐播放。' },
+  ],
+  relax: [
+    { label: '🎮 推荐放松', prompt: '我现在想放松一下，有什么推荐？' },
+  ],
+  countdown: [
+    { label: '⏱ 查看倒计时', prompt: '查看我最近的重要倒计时事件。' },
+    { label: '⚠️ 紧急事件', prompt: '哪些倒计时事件即将到期需要我注意？' },
+  ],
+};
+
 // ── TTS Subtitle Portal Component ──────────────────────────────────────────
 
 function TtsSubtitle({
@@ -1920,6 +1972,32 @@ export default function AiChatFab({
             )}
             <div ref={bottomRef} />
           </div>
+
+          {/* Page Quick Actions */}
+          {!loading && (() => {
+            const currentSource = getEffectiveSource();
+            const actions = PAGE_QUICK_ACTIONS[currentSource] || [];
+            if (actions.length === 0) return null;
+            return (
+              <div className="px-3 pt-2 flex flex-wrap gap-1.5 border-t border-[var(--card-border)]">
+                {actions.map(action => (
+                  <button
+                    key={action.label}
+                    onClick={() => {
+                      createNewConversation();
+                      setTimeout(() => {
+                        setInput(action.prompt);
+                      }, 50);
+                    }}
+                    className="text-[11px] px-2.5 py-1 rounded-full border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[#4285F4] hover:border-[#4285F4]/40 hover:bg-[#4285F4]/5 transition-colors whitespace-nowrap"
+                    title={action.prompt}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Input */}
           <div className="flex items-end gap-2 p-3 border-t border-[var(--card-border)]">
