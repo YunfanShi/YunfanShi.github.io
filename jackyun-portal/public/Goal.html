@@ -3240,8 +3240,12 @@ function todayBlockedMinutes(){
   return blocks.filter(b=>(b.days||[]).includes(dayIdx)).reduce((s,b)=>s+(t2min(b.end)-t2min(b.start)),0);
 }
 function todayAvailableMinutes(){
-  // 模型 = 24h - 固定块
-  return Math.max(0,24*60-todayBlockedMinutes());
+  // 模型 = 用户设置的工作日/周末可用时间 - 固定块
+  const dow=new Date().getDay(); // 0=Sun, 6=Sat
+  const isWeekend=(dow===0||dow===6);
+  const baseH=isWeekend?(prefs.weekendHours||6):(prefs.weekdayHours||2);
+  const blocked=todayBlockedMinutes();
+  return Math.max(0,baseH*60-blocked);
 }
 
 function goalEstMinutes(goalId){
@@ -3304,7 +3308,9 @@ function renderTodayPlan(){
     const s=plan.aiSuggestion;
     suggestEl.style.display='block';
     suggestEl.className='today-ai-suggest today-feas-'+(s.feasible===false?'bad':s.warn?'warn':'ok');
-    suggestEl.innerHTML=`<div class="feas">${s.feasible===false?'⚠️ 可能无法完成':s.warn?'⚡ 有点紧凑，建议精简':'✅ 计划合理'}</div>${s.advice||''}`;
+    // 优先显示 AI 完整回复（Markdown），避免被 120 字摘要覆盖
+    const full=s.fullResponse||s.advice||'';
+    suggestEl.innerHTML=`<div class="feas">${s.feasible===false?'⚠️ 可能无法完成':s.warn?'⚡ 有点紧凑，建议精简':'✅ 计划合理'}</div>${full?renderMD(full):''}`;
   }else if(suggestEl){suggestEl.style.display='none';}
   // 下拉选单填充
   const sel=document.getElementById('todayTaskSel');
@@ -3388,13 +3394,13 @@ async function aiPlanToday(){
           plan.items.push({id:Date.now()+Math.random(),goalId:null,name:pi.name,count:pi.count||1,estMin:pi.estMin||30});
           existing.add(pi.name);
         });
-        plan.aiSuggestion={feasible:parsed.feasible!==false,warn:parsed.warn||false,advice:parsed.advice||'AI 已生成建议，可手动调整后推送。',ts:Date.now()};
+        plan.aiSuggestion={feasible:parsed.feasible!==false,warn:parsed.warn||false,advice:parsed.advice||'AI 已生成建议，可手动调整后推送。',fullResponse:full,ts:Date.now()};
         saveDailyPlan(plan);
         toast('✨ AI 已生成今日计划');
       }else{
         // 无法解析 → 保留分析文本
         const plan=loadDailyPlan();
-        plan.aiSuggestion={feasible:true,warn:true,advice:'AI 已给出建议文本，请参考上方内容手动添加任务。',ts:Date.now()};
+        plan.aiSuggestion={feasible:true,warn:true,advice:'AI 已给出建议文本，请参考上方内容手动添加任务。',fullResponse:full,ts:Date.now()};
         saveDailyPlan(plan);
       }
     }catch(err){
@@ -3420,9 +3426,9 @@ function parseAiPlanItems(text){
     }
   }
   if(!items.length)return null;
-  // advice = 非清单行中较短的句子
-  const nonItem=lines.filter(l=>l.trim()&&!/^[-*]\s/.test(l)).slice(-6).join(' ').trim();
-  advice=nonItem.slice(0,120);
+  // advice = 非清单行中较短的句子（扩展到 500 字，保留 AI 详细分析）
+  const nonItem=lines.filter(l=>l.trim()&&!/^[-*]\s/.test(l)).slice(-8).join('\n').trim();
+  advice=nonItem.slice(0,500);
   return {items,feasible,warn,advice};
 }
 
@@ -3459,8 +3465,28 @@ function pushTodayToTimetable(){
   });
   // 写入 TimetableHub 当前方案：追加任务并排程
   try{
-    const active=localStorage.getItem('th2_active_plan_id');
+    let active=localStorage.getItem('th2_active_plan_id');
     const colMap={'blue':'#4d9ef7','green':'#34c76a','yellow':'#f5a623','red':'#ff5c5c','purple':'#b57bee','teal':'#2dd4bf','pink':'#f472b6','orange':'#fb923c'};
+    // 如果没有激活方案 → 优先取第一个已有方案；都没有则自动创建一个默认方案，避免"请先打开日程表"
+    if(!active){
+      try{
+        const plans=JSON.parse(localStorage.getItem('th2_plans')||'[]');
+        if(Array.isArray(plans)&&plans.length) active=plans[0].id;
+      }catch(e){}
+    }
+    if(!active){
+      const nid='plan_'+Date.now().toString(36);
+      const np={id:nid,name:'默认方案',color:'#4d9ef7',createdAt:new Date().toISOString()};
+      const npDetail={id:nid,name:'默认方案',color:'#4d9ef7',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),tasks:[],fixedBlocks:[]};
+      let plans=[];
+      try{plans=JSON.parse(localStorage.getItem('th2_plans')||'[]');}catch(e){plans=[];}
+      if(!Array.isArray(plans))plans=[];
+      plans.push(np);
+      localStorage.setItem('th2_plans',JSON.stringify(plans));
+      localStorage.setItem('th2_plans_'+nid,JSON.stringify(npDetail));
+      localStorage.setItem('th2_active_plan_id',nid);
+      active=nid;
+    }
     if(active){
       const key='th2_plans_'+active;
       const p=JSON.parse(localStorage.getItem(key));
