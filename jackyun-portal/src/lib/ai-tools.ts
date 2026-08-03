@@ -1083,7 +1083,7 @@ export const AI_TOOLS: AiTool[] = [
           const mark = p.id === activeId ? ' [当前]' : '';
           let detail = p.name + mark;
           try {
-            const planData = JSON.parse(localStorage.getItem('th2_plan_' + p.id) || 'null');
+            const planData = JSON.parse(localStorage.getItem('th2_plans' + p.id) || 'null');
             if (planData) {
               const tasks = planData.tasks || [];
               const schedCount = tasks.filter((t: any) => t.sched).length;
@@ -1122,7 +1122,7 @@ export const AI_TOOLS: AiTool[] = [
           planId = found.id;
         }
         if (!planId) return '尚未创建时间表方案。';
-        const planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null');
+        const planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null');
         if (!planData) return '未找到该方案的数据。';
         const lines = ['📅 方案：' + (planData.name || '未命名')];
         const tasks: any[] = planData.tasks || [];
@@ -1173,7 +1173,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!name) return '请提供任务名称。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData) return '尚未创建时间表方案，请先到时间表编辑器创建。';
         if (!planData.tasks) planData.tasks = [];
         let parentId: string | null = null;
@@ -1196,8 +1196,8 @@ export const AI_TOOLS: AiTool[] = [
         };
         planData.tasks.push(task);
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已添加任务「' + name + '」（' + task.duration + 'min' + (parentId ? '，子任务' : '，主任务') + '）。';
       } catch (e: any) {
@@ -1225,7 +1225,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!name) return '请提供任务名称。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const matches = planData.tasks.filter((t: any) => (t.name || '').includes(name));
         if (!matches.length) return '未找到名为「' + name + '」的任务。';
@@ -1234,8 +1234,8 @@ export const AI_TOOLS: AiTool[] = [
         planData.tasks = planData.tasks.filter((t: any) => t.id !== delId && t.parentId !== delId);
         for (const fb of planData.fixedBlocks || []) fb.tasks = (fb.tasks || []).filter((x: any) => x.taskId !== delId);
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已删除任务「' + matches[0].name + '」（含其子任务）。';
       } catch (e: any) {
@@ -1279,7 +1279,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!name) return '请提供任务名称。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const t = planData.tasks.find((x: any) => (x.name || '').includes(name));
         if (!t) return '未找到名为「' + name + '」的任务。';
@@ -1306,8 +1306,8 @@ export const AI_TOOLS: AiTool[] = [
         }
         t.sched.durMin = t.duration;
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         const pos = '周' + (t.sched.dayIdx || 0) + ' ' + (t.sched.startMin / 60) + ':' + String((t.sched.startMin % 60) || 0).padStart(2, '0');
         return '✅ 已完成对「' + t.name + '」的调整：' + (changed.length ? changed.join('、') + '；' : '') + '当前位置 ' + pos;
@@ -1336,7 +1336,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!off) return '请提供偏移分钟数（正数=后移，负数=前移）。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         let n = 0;
         for (const t of planData.tasks) {
@@ -1346,8 +1346,8 @@ export const AI_TOOLS: AiTool[] = [
           }
         }
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已将 ' + n + ' 个任务' + (off > 0 ? '整体后移' : '整体前移') + ' ' + Math.abs(off) + ' 分钟。';
       } catch (e: any) {
@@ -1376,7 +1376,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!n1 || !n2) return '请提供两个任务名称。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const a = planData.tasks.find((t: any) => (t.name || '').includes(n1));
         const b = planData.tasks.find((t: any) => (t.name || '').includes(n2));
@@ -1387,8 +1387,8 @@ export const AI_TOOLS: AiTool[] = [
         a.sched = { ...b.sched };
         b.sched = tmp;
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已互换「' + a.name + '」和「' + b.name + '」的时间位置。';
       } catch (e: any) {
@@ -1421,7 +1421,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!name) return '请提供任务名称。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const t = planData.tasks.find((x: any) => (x.name || '').includes(name));
         if (!t) return '未找到名为「' + name + '」的任务。';
@@ -1438,8 +1438,8 @@ export const AI_TOOLS: AiTool[] = [
         }
         if (t.parentId) t.collapsed = true;
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已将「' + t.name + '」设为' + (t.parentId ? '子任务' : '主任务') + '。';
       } catch (e: any) {
@@ -1477,7 +1477,7 @@ export const AI_TOOLS: AiTool[] = [
         if (eMin <= sMin) return '结束时间必须晚于开始时间。';
         const planId = localStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData) return '尚未创建时间表方案。';
         if (!planData.fixedBlocks) planData.fixedBlocks = [];
         const daysStr = params.days || '0,1,2,3,4';
@@ -1488,8 +1488,8 @@ export const AI_TOOLS: AiTool[] = [
           days, startMin: sMin, endMin: eMin, tasks: [],
         });
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已添加固定时间块「' + name + '」（' + start + '~' + end + '）。AI 排程将自动避开。';
       } catch (e: any) {
@@ -1956,7 +1956,7 @@ export const AI_TOOLS: AiTool[] = [
         if (!blocks.length) {
           const active = localStorage.getItem('th2_active_plan_id');
           if (active) {
-            const p = JSON.parse(localStorage.getItem('th2_plans_' + active) || 'null');
+            const p = JSON.parse(localStorage.getItem('th2_plans' + active) || 'null');
             if (p && Array.isArray(p.fixedBlocks)) {
               blocks = p.fixedBlocks.map((fb: any) => ({
                 name: fb.name,
@@ -1981,7 +1981,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'get_task_pool',
     name: '读取任务池',
-    description: `读取 TimetableHub 当前方案的任务池（localStorage: th2_plans_<active>）。
+    description: `读取 TimetableHub 当前方案的任务池（localStorage: th2_plans<active>）。
 返回所有任务（含已排程/未排程、子任务、来自 Goal 的标记）。
 
 参数：无
@@ -1996,7 +1996,7 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const active = localStorage.getItem('th2_active_plan_id');
         if (!active) return '未找到活动方案';
-        const p = JSON.parse(localStorage.getItem('th2_plans_' + active) || 'null');
+        const p = JSON.parse(localStorage.getItem('th2_plans' + active) || 'null');
         if (!p || !Array.isArray(p.tasks)) return '任务池为空';
         if (!p.tasks.length) return '任务池为空';
         const parents = p.tasks.filter((t: any) => !t.parentId);
@@ -2288,7 +2288,7 @@ export function getPageContext(source: ConversationSource): string {
   ✏️ 可操作：标记任务完成/取消（切换done）、跳过任务、提前完成任务
   🛠 使用工具：get_schedule、get_current_task、toggle_task_done、skip_task、finish_task_early、switch_day、read_schedule_results、analyze_schedule_and_suggest
 
-【🗓 时间表编辑器（TimetableHub v2）】（localStorage key: th2_plans / th2_plan_{id}）
+【🗓 时间表编辑器（TimetableHub v2）】（localStorage key: th2_plans / th2_plans{id}）
   📖 可读取：所有时间表方案（th_read_plans）、单个方案详情含任务/层级/固定块/排程（th_read_plan）
   ✏️ 可操作：添加任务（th_add_task）、删除任务（th_delete_task）、移动任务到指定时间/修改时长（th_move_task）、批量整体偏移（th_shift_add）、互换两个任务位置（th_swap_tasks）、切换主/子任务归属（th_set_parent）、添加固定时间块（th_add_fixed_block）
   🛠 使用工具：th_read_plans、th_read_plan、th_add_task、th_delete_task、th_move_task、th_shift_add、th_swap_tasks、th_set_parent、th_add_fixed_block

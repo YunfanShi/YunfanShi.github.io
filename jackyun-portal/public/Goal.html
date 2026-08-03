@@ -1149,8 +1149,11 @@ function predChipHTML(g){
 
 /* ===================== BUILD AI CONTEXT ===================== */
 function today(){
-  // Returns YYYY-MM-DD — used for data storage
-  return new Date().toISOString().slice(0,10);
+  // Returns YYYY-MM-DD (local date) — used for data storage
+  // Must use local date to stay consistent with TimetableHub/Control (todayStr)
+  // toISOString() uses UTC and causes a 1-day mismatch between 00:00-08:00 in UTC+8
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function recordDeadlineChange(g, oldDl, newDl, source){
