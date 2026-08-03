@@ -1499,22 +1499,42 @@ async function callAI(messages,onChunk,maxTokens=3000){
       else if(res.status===429) msg='AI 请求过于频繁，请稍后再试';
       throw new Error(msg);
     }
-    const reader=res.body.getReader(),dec=new TextDecoder();let full='';
+    const reader=res.body.getReader(),dec=new TextDecoder();
+    let full='';
+    // 流式解析缓冲区：网络块可能在某条 data: 行中间断开（或中文多字节被切断），
+    // 必须保留未完整行，等下一块拼上后再解析，否则 JSON 解析失败会丢失整个 delta，
+    // 导致最终只得到极短的回复。
+    let buffer='';
     let lastChunkTime=Date.now();
     const idleTimer=setInterval(()=>{
-      // If the stream stalls for >25s with no data, surface a warning to the user.
-      if(Date.now()-lastChunkTime>25000){
+      // If the stream stalls for >15s with no data, surface a warning to the user.
+      if(Date.now()-lastChunkTime>15000){
         try{onChunk&&onChunk(full+' \n\n*（AI 响应暂停，仍在等待…）*');}catch(e){}
       }
-    },10000);
+    },8000);
     try{
       while(true){
         const{done,value}=await reader.read();if(done)break;
         lastChunkTime=Date.now();
-        for(const line of dec.decode(value).split('\n')){
-          if(!line.startsWith('data:'))continue;
-          const d=line.slice(5).trim();if(d==='[DONE]')break;
+        buffer+=dec.decode(value,{stream:true});
+        const lines=buffer.split('\n');
+        buffer=lines.pop()||''; // 保留不完整的最后一行
+        for(const line of lines){
+          const l=line.replace(/\r$/,''); // 兼容 CRLF
+          if(!l.startsWith('data:'))continue;
+          const d=l.slice(5).trim();
+          if(d==='[DONE]')break;
           try{const t=JSON.parse(d).choices?.[0]?.delta?.content||'';if(t){full+=t;if(onChunk)onChunk(full);}}catch(e){}
+        }
+      }
+      // 冲刷末尾残余（无换行结尾的情况）
+      if(buffer.trim()){
+        const l=buffer.replace(/\r$/,'');
+        if(l.startsWith('data:')){
+          const d=l.slice(5).trim();
+          if(d&&d!=='[DONE]'){
+            try{const t=JSON.parse(d).choices?.[0]?.delta?.content||'';if(t){full+=t;if(onChunk)onChunk(full);}}catch(e){}
+          }
         }
       }
     } finally { clearInterval(idleTimer); }
@@ -3383,7 +3403,7 @@ async function aiPlanToday(){
         full=p;
         resp.className='today-ai-suggest today-feas-warn';
         resp.innerHTML=`<div class="feas">✨ AI 规划中…</div>`+renderMD(p);
-      },4000);
+      },8000);
       // 尝试从 AI 回复解析任务清单
       const parsed=parseAiPlanItems(full);
       if(parsed&&parsed.items.length){
@@ -3438,7 +3458,11 @@ function pushTodayToTimetable(){
   if(!plan.items.length){toast('今日计划为空');return;}
   const total=getTodayItemTotal();
   const free=todayAvailableMinutes();
-  if(total>free){toast('⚠ 总耗时超过可用时间，请先精简');return;}
+  let overWarn=false;
+  if(total>free){
+    // 不再硬拦截：任务总耗时超过可用时间时仍允许推送，但给出明确提示（用户可能想在空闲时段挤一挤）
+    overWarn=true;
+  }
   // 计算建议时间段
   const blocks=loadFixedBlocks();
   const dow=new Date().getDay();
@@ -3515,7 +3539,13 @@ function pushTodayToTimetable(){
         // 显示推送结果
         const res=document.getElementById('todayPushRes');
         res.style.display='block';
-        res.innerHTML=`<b>📤 已推送到日程表</b>（方案：${(JSON.parse(localStorage.getItem('th2_plans')||'[]').find(p=>p.id===active)||{}).name||'当前方案'}）<table>${schedule.map(s=>`<tr><td>${esc(s.name)}</td><td>${min2t(s.start)}~${min2t(s.end)}</td><td>${s.end-s.start}min</td></tr>`).join('')}</table>`;
+        if(!schedule.length){
+          res.innerHTML=`<b>⚠️ 推送未完成</b>：今日计划中没有任何任务能被排入时间轴。<br><span style="color:var(--text3);">可能原因：当前时间之后的时间段全部被固定时间块占用。可以在「⏱ 通用设置」中减少固定时间块，或手动调整今日计划的开始时间。</span>`;
+          toast('⚠ 没有可排入的任务，请检查固定时间块');
+          return;
+        }
+        const warnHtml=overWarn?`<div style="margin-top:8px;font-size:11px;color:#f5a623;border-top:1px solid rgba(245,166,35,.2);padding-top:6px;">⚠️ 计划总耗时 ${total}min 超过了今日可用时间 ${free}min，请适当精简任务或增加可用时间。</div>`:'';
+        res.innerHTML=`<b>📤 已推送到日程表</b>（方案：${(JSON.parse(localStorage.getItem('th2_plans')||'[]').find(p=>p.id===active)||{}).name||'当前方案'}）<table>${schedule.map(s=>`<tr><td>${esc(s.name)}</td><td>${min2t(s.start)}~${min2t(s.end)}</td><td>${s.end-s.start}min</td></tr>`).join('')}</table>${warnHtml}`;
         toast(`✅ 已推送 ${schedule.length} 个任务到日程表`);
         return;
       }
