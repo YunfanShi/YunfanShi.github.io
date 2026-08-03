@@ -372,9 +372,6 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
     // Control / TimetableHub
     'jackyun_control_events',
     'w3_schedule',
-    'th2_plans',
-    'th2_active_plan_id',
-    'th2_plan_',
     // Goal
     'jackyun_goal_data',
     'gt_v6',
