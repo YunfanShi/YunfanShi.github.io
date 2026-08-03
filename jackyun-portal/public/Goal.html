@@ -3227,7 +3227,7 @@ function loadFixedBlocks(){
   try{
     const active=localStorage.getItem('th2_active_plan_id');
     if(active){
-      const p=JSON.parse(localStorage.getItem('th2_plans_'+active));
+      const p=JSON.parse(localStorage.getItem('th2_plans'+active));
       if(p&&Array.isArray(p.fixedBlocks)) return p.fixedBlocks.map(fb=>({id:fb.id,name:fb.name,start:min2t(fb.startMin),end:min2t(fb.endMin),days:fb.days,color:fb.color||'#f5a623'}));
     }
   }catch(e){}
@@ -3235,11 +3235,11 @@ function loadFixedBlocks(){
 }
 function saveFixedBlocks(blocks){
   localStorage.setItem(LS_FIXED,JSON.stringify({blocks,updatedAt:new Date().toISOString()}));
-  // 同步到 TimetableHub：写入 th2_plans_<active> 的 fixedBlocks
+  // 同步到 TimetableHub：写入 th2_plans<active> 的 fixedBlocks（注意：TimetableHub 的 key 为 'th2_plans'+id，无下划线）
   try{
     const active=localStorage.getItem('th2_active_plan_id');
     if(active){
-      const key='th2_plans_'+active;
+      const key='th2_plans'+active;
       const p=JSON.parse(localStorage.getItem(key));
       if(p){
         p.fixedBlocks=blocks.map(b=>({id:b.id,name:b.name,type:'rest',days:b.days||[],startMin:t2min(b.start),endMin:t2min(b.end),tasks:[]}));
@@ -3507,12 +3507,12 @@ function pushTodayToTimetable(){
       if(!Array.isArray(plans))plans=[];
       plans.push(np);
       localStorage.setItem('th2_plans',JSON.stringify(plans));
-      localStorage.setItem('th2_plans_'+nid,JSON.stringify(npDetail));
+      localStorage.setItem('th2_plans'+nid,JSON.stringify(npDetail));
       localStorage.setItem('th2_active_plan_id',nid);
       active=nid;
     }
     if(active){
-      const key='th2_plans_'+active;
+      const key='th2_plans'+active;
       const p=JSON.parse(localStorage.getItem(key));
       if(p&&Array.isArray(p.tasks)){
         schedule.forEach(s=>{
