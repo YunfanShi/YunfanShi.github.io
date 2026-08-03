@@ -738,12 +738,15 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 - 卡片悬停效果：上移 1px + 阴影 + 顶部品牌色条展开动画
 
 #### 12.2 日程中心 (`/timetable-hub`)
-- 嵌入旧版 `TimetableHub.html`（Legacy Frame）
-- Timetable Hub — 一站式动态时间表平台，融合学习计划/控制中心/目标管理
-- 任务蓝图系统：自定义名称、时长、分割次数、日期范围、必做/可选类型
-- Gacha 抽卡引擎：随机排序所有学习会话，自动插入小休息和大休息
-- 铃声系统：Web Audio API 默认音调、本地上传 MP3、网易云音乐 ID
-- 全屏沉浸式执行视图 + 实时倒计时 + 提前完成按钮
+- 嵌入 `TimetableHub.html` v2（Legacy Frame）—— 时间表编辑器
+- 一周七天时间轴（06:00-24:00），任务块拖拽调时/互换、双击编辑详情（开始/结束/时长三联动）
+- 任务蓝图：主/子任务层级、默认折叠、独立进度条（0-100%）
+- AI 智能排程：选中任务 → 自动避开固定时间块按优先级填充 → 变更预览面板逐条接受/拒绝 → 全部应用才生效
+- 固定时间块（硬约束）：专注块可挂任务组自动顺排 + 超时红提示；休息块不可挂载
+- 多套方案管理：创建/复制/删除/一键切换，localStorage `th2_plans` / `th2_plan_{id}`
+- Control 双向同步：改动即时写回 `w3_schedule` / `jack_timetable_plan` / `jackyun_control_events`
+- 侧边栏默认收起，支持父框架 postMessage 收左栏避免双层侧边栏冲突
+- AI 工具：`th_read_plans` `th_read_plan` `th_add_task` `th_delete_task` `th_move_task` `th_shift_add` `th_swap_tasks` `th_add_fixed_block`（写入 ai-tools.ts）
 
 #### 12.3 学习计划 (`/study`)
 - 嵌入旧版 `Studyplan.html`（Legacy Frame）
