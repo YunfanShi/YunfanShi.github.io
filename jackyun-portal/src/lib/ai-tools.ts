@@ -1856,6 +1856,164 @@ export const AI_TOOLS: AiTool[] = [
       }
     },
   },
+  {
+    id: 'get_daily_plan',
+    name: '读取今日计划',
+    description: `读取 Goal 页面的今日计划（localStorage: jackyun_daily_plan）。
+返回今日任务清单（任务名、数量、预计分钟）和 AI 可行性建议。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_daily_plan", "params": {}}
+\`\`\`
+`,
+    scope: ['goal', 'global', 'dashboard'],
+    handler: async () => {
+      try {
+        const raw = localStorage.getItem('jackyun_daily_plan');
+        if (!raw) return '今日计划为空';
+        const plan = JSON.parse(raw);
+        if (!plan || !Array.isArray(plan.items) || !plan.items.length) return '今日计划为空';
+        const total = plan.items.reduce((s: number, i: any) => s + ((i.count || 1) * (i.estMin || 30)), 0);
+        const lines = plan.items.map((i: any) => `- ${i.name}：${i.count || 1} 个 × ${i.estMin || 30}min ≈ ${(i.count || 1) * (i.estMin || 30)}min`);
+        return '今日计划（总耗时 ' + total + 'min）：\n' + lines.join('\n') + (plan.aiSuggestion ? '\nAI 建议：' + (plan.aiSuggestion.advice || '') : '');
+      } catch (e: any) {
+        return '读取今日计划出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'set_daily_plan',
+    name: '设置今日计划',
+    description: `为 Goal 页面设置/更新今日计划（localStorage: jackyun_daily_plan）。
+参数：items（数组，每项含 name 任务名、count 数量、estMin 预计分钟/个）
+覆盖当天原有计划（同一天内再次调用会替换）。
+
+参数说明：
+- items: [{ name: string, count?: number, estMin?: number }]
+
+调用示例：
+\`\`\`tool_call
+{"tool": "set_daily_plan", "params": {"items": [{"name": "雅思阅读", "count": 1, "estMin": 45}, {"name": "数学第三单元", "count": 2, "estMin": 30}]}}
+\`\`\`
+`,
+    scope: ['goal', 'global'],
+    requiresConsent: true,
+    consentInfo: (params: any) => ({
+      action: '设置今日计划',
+      purpose: '替换 Goal 页面的今日任务清单',
+      consequence: `将写入 ${(params.items || []).length} 条任务并覆盖今日原计划`,
+    }),
+    riskLevel: 'high',
+    handler: async (params: any) => {
+      try {
+        const items = Array.isArray(params?.items) ? params.items : [];
+        if (!items.length) return '未提供有效任务列表';
+        const today = new Date().toISOString().slice(0, 10);
+        const normalized = items.map((i: any) => ({
+          id: Date.now() + Math.random(),
+          goalId: null,
+          name: String(i.name || '任务').trim(),
+          count: Math.max(1, parseInt(i.count) || 1),
+          estMin: Math.max(5, parseInt(i.estMin) || 30),
+        }));
+        const plan = { date: today, items: normalized, aiSuggestion: null, updatedAt: new Date().toISOString() };
+        localStorage.setItem('jackyun_daily_plan', JSON.stringify(plan));
+        window.dispatchEvent(new CustomEvent('jackyun-daily-plan-updated', { detail: plan }));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_daily_plan', newValue: JSON.stringify(plan) }));
+        const total = normalized.reduce((s: number, i: any) => s + (i.count * i.estMin), 0);
+        return '✅ 已设置今日计划（' + normalized.length + ' 项，总耗时 ' + total + 'min）：\n' +
+          normalized.map((i: any) => `- ${i.name}：${i.count} × ${i.estMin}min`).join('\n');
+      } catch (e: any) {
+        return '设置今日计划出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'get_fixed_blocks',
+    name: '读取固定时间块',
+    description: `读取 Goal 页面的固定时间块（localStorage: jackyun_fixed_blocks）。
+返回不可占用时段（上课/睡觉/午休等）。若本地无数据则回退到 TimetableHub 当前方案。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_fixed_blocks", "params": {}}
+\`\`\`
+`,
+    scope: ['goal', 'control', 'global', 'dashboard'],
+    handler: async () => {
+      try {
+        let blocks: any[] = [];
+        const raw = localStorage.getItem('jackyun_fixed_blocks');
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (Array.isArray(d.blocks)) blocks = d.blocks;
+        }
+        if (!blocks.length) {
+          const active = localStorage.getItem('th2_active_plan_id');
+          if (active) {
+            const p = JSON.parse(localStorage.getItem('th2_plans_' + active) || 'null');
+            if (p && Array.isArray(p.fixedBlocks)) {
+              blocks = p.fixedBlocks.map((fb: any) => ({
+                name: fb.name,
+                start: String(Math.floor(fb.startMin / 60)).padStart(2, '0') + ':' + String(fb.startMin % 60).padStart(2, '0'),
+                end: String(Math.floor(fb.endMin / 60)).padStart(2, '0') + ':' + String(fb.endMin % 60).padStart(2, '0'),
+                days: fb.days || [],
+              }));
+            }
+          }
+        }
+        if (!blocks.length) return '暂无固定时间块';
+        const days = ['一', '二', '三', '四', '五', '六', '日'];
+        return '固定时间块：\n' + blocks.map((b: any) => {
+          const ds = (b.days || []).length === 7 ? '每天' : (b.days || []).map((d: number) => days[d]).join('/');
+          return `- ${b.name}：${b.start}~${b.end}（${ds}）`;
+        }).join('\n');
+      } catch (e: any) {
+        return '读取固定时间块出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'get_task_pool',
+    name: '读取任务池',
+    description: `读取 TimetableHub 当前方案的任务池（localStorage: th2_plans_<active>）。
+返回所有任务（含已排程/未排程、子任务、来自 Goal 的标记）。
+
+参数：无
+
+调用示例：
+\`\`\`tool_call
+{"tool": "get_task_pool", "params": {}}
+\`\`\`
+`,
+    scope: ['control', 'global', 'dashboard'],
+    handler: async () => {
+      try {
+        const active = localStorage.getItem('th2_active_plan_id');
+        if (!active) return '未找到活动方案';
+        const p = JSON.parse(localStorage.getItem('th2_plans_' + active) || 'null');
+        if (!p || !Array.isArray(p.tasks)) return '任务池为空';
+        if (!p.tasks.length) return '任务池为空';
+        const parents = p.tasks.filter((t: any) => !t.parentId);
+        const kids = p.tasks.filter((t: any) => t.parentId);
+        const lines: string[] = [];
+        for (const par of parents) {
+          const sched = par.sched ? `（已排：周${['一', '二', '三', '四', '五', '六', '日'][par.sched.dayIdx]} ${String(Math.floor(par.sched.startMin / 60)).padStart(2, '0')}:${String(par.sched.startMin % 60).padStart(2, '0')} ${par.sched.durMin}min）` : '（未排程）';
+          lines.push(`- ${par.name} ${par.duration}min ${par.fromGoal ? '[来自Goal]' : ''}${sched}`);
+          kids.filter((k: any) => k.parentId === par.id).forEach((k: any) => lines.push(`  └ ${k.name} ${k.duration}min${k.sched ? '（已排程）' : '（未排程）'}`));
+        }
+        p.tasks.filter((t: any) => t.parentId && !p.tasks.some((x: any) => x.id === t.parentId)).forEach((t: any) => lines.push(`- ${t.name} ${t.duration}min [孤儿任务]`));
+        return '任务池（' + p.tasks.length + ' 项）：\n' + lines.join('\n');
+      } catch (e: any) {
+        return '读取任务池出错：' + (e.message || String(e));
+      }
+    },
+  },
 ];
 
 /**
