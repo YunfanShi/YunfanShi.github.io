@@ -164,6 +164,12 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;bac
 .fb-block.w .fb-l{color:var(--blue);background:rgba(10,10,10,.8)}
 .fb-block.r .fb-l{color:var(--yellow);background:rgba(10,10,10,.8)}
 .fb-block .mat{font-size:10px}
+/* 专注块内的顺序任务条 */
+.fb-task-row{position:absolute;left:6px;right:6px;border-radius:6px;display:flex;align-items:center;
+  padding:2px 6px;font-size:9px;color:#fff;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-height:13px}
+.fb-task-row.over{border:1px solid var(--red);color:var(--red);background:var(--red-dim)!important}
+.fb-task-overflow{position:absolute;left:6px;right:6px;bottom:2px;font-size:8px;color:var(--red);
+  background:var(--red-dim);border:1px solid rgba(255,92,92,.3);border-radius:6px;padding:1px 4px;z-index:3;text-align:center}
 /* 溢出红提示 */
 .over-note{position:absolute;top:3px;right:6px;font-size:9px;color:var(--red);background:var(--red-dim);
   padding:1px 6px;border-radius:99px;font-weight:500;z-index:7;border:1px solid rgba(255,92,92,.3)}
@@ -626,9 +632,27 @@ function loadPlan(id,save=true){
       createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),tasks:[],fixedBlocks:[]};
   }
   selectedTaskIds=new Set();
-  aiPending=null;detailTaskId=null;
+  detailTaskId=null;
+  // 恢复上次未应用的 AI 预览草稿（若有）
+  aiPending=null;
+  try{
+    const draft=JSON.parse(localStorage.getItem(LS_PREVIEW+planId)||'null');
+    if(draft&&draft.changes&&draft.changes.length&&draft.ts){
+      aiPending=draft;
+      renderAiPreview();
+      setAiStatus('恢复上次未应用的变更草稿（'+draft.changes.filter(c=>c.ok).length+' 条待审阅）');
+    }
+  }catch(e){aiPending=null;}
   renderAll();
   if(save)saveNow(false);
+}
+// 持久化 AI 预览草稿（未应用前实时写入 localStorage）
+function persistAiPreview(){
+  if(!aiPending||!planId)return;
+  localStorage.setItem(LS_PREVIEW+planId,JSON.stringify({...aiPending,ts:Date.now()}));
+}
+function clearAiPreview(){
+  if(planId)try{localStorage.removeItem(LS_PREVIEW+planId)}catch(e){}
 }
 
 // ===== CONTROL SYNC (双写保证 Control 能看到) =====
@@ -956,7 +980,6 @@ window.fbTaskChange=function(i,field,val){
 };
 window.fbTaskRowRm=function(i){
   fbTaskDraft.splice(i,1);
-  if($('fbType').value!=='work'){wrap.innerHTML='';return}
   renderFbTasksList();
 };
 window.addFbTask=function(){
@@ -1014,6 +1037,24 @@ const HOUR_H=56; // px per hour
 function gridH(){return GRID_HOURS*HOUR_H}
 function gridTop(min){return (min-MIN_DAY)/60*HOUR_H}
 function gridMin(top){return MIN_DAY+top/HOUR_H*60}
+// 在专注块内按顺序渲染绑定的任务（自动从块起点顺排，超块则截断并标红）
+function fbTaskRowsHtml(fb){
+  if(fb.type!=='work'||!fb.tasks||!fb.tasks.length)return '';
+  const span=fb.endMin-fb.startMin;
+  if(span<=0)return '';
+  let out='',cursor=0,over=false;
+  for(const bt of fb.tasks){
+    const t=plan.tasks.find(x=>x.id===bt.taskId);
+    const dur=bt.durMin||(t?t.duration:45);
+    const topPct=(cursor/span*100);
+    const hPct=Math.min(100,(dur/span*100));
+    if(cursor>=span){over=true;break;}
+    out+=`<div class="fb-task-row${cursor+dur>span?' over':''}" style="top:${topPct}%;height:${hPct}%;background:${t?t.color:'#4d9ef7'}cc">${esc(t?t.name:'任务')} ${dur}min</div>`;
+    cursor+=dur;
+  }
+  if(over||cursor>span)out+=`<div class="fb-task-overflow">⚠超 ${cursor-span}min</div>`;
+  return out;
+}
 function renderGrid(){
   renderHead();
   renderBody();
@@ -1051,9 +1092,10 @@ function renderBody(){
     let fbh='';
     for(const fb of fbs){
       const top=gridTop(fb.startMin),h=(fb.endMin-fb.startMin)/60*HOUR_H;
-      if(top<0){fbh+=`<div class="fb-block ${fb.type}" style="top:0;height:${h+top}px"><span class="fb-l"><span class="material-icons-round">${fb.type==='rest'?'coffee':'psychology'}</span>${esc(fb.name)}</span></div>`;continue}
-      if(top+h>gridH()){fbh+=`<div class="fb-block ${fb.type}" style="top:${Math.max(0,top)}px;height:${gridH()-top}px"><span class="fb-l">${esc(fb.name)}</span></div>`;continue}
-      fbh+=`<div class="fb-block ${fb.type}" style="top:${top}px;height:${h}px"><span class="fb-l"><span class="material-icons-round">${fb.type==='rest'?'coffee':'psychology'}</span>${esc(fb.name)}</span></div>`;
+      const taskRows=fbTaskRowsHtml(fb);
+      if(top<0){fbh+=`<div class="fb-block ${fb.type}" style="top:0;height:${Math.max(0,h+top)}px"><span class="fb-l"><span class="material-icons-round">${fb.type==='rest'?'coffee':'psychology'}</span>${esc(fb.name)}</span>${taskRows}</div>`;continue}
+      if(top+h>gridH()){fbh+=`<div class="fb-block ${fb.type}" style="top:${Math.max(0,top)}px;height:${Math.max(0,gridH()-top)}px"><span class="fb-l">${esc(fb.name)}</span>${taskRows}</div>`;continue}
+      fbh+=`<div class="fb-block ${fb.type}" style="top:${top}px;height:${h}px"><span class="fb-l"><span class="material-icons-round">${fb.type==='rest'?'coffee':'psychology'}</span>${esc(fb.name)}</span>${taskRows}</div>`;
     }
     // tasks for this day (including bound work-block tasks positioned by block)
     const dayTasks=plan.tasks.filter(t=>t.sched&&t.sched.dayIdx===i);
@@ -1327,6 +1369,7 @@ function applyAiChanges(changes,isAi){
   if(!diff.length){setAiStatus('AI 未产生变化（任务已排好）');return}
   aiPending={changes:diff,history:[]};
   renderAiPreview();
+  persistAiPreview(); // 实时存入 localStorage
   setAiStatus(isAi?'AI 已生成 '+diff.length+' 条调整，请审阅':'本地已生成 '+diff.length+' 条调整，请审阅');
 }
 function renderAiPreview(){
@@ -1358,6 +1401,7 @@ window.toggleChange=function(i,v){
   el.querySelector('.ai-chg-cb').checked=v;
   const n=aiPending.changes.filter(c=>c.ok).length;
   $('aiPreviewCount').textContent=n+' 条变更';
+  persistAiPreview(); // 勾选状态也实时保存
 };
 function applyAllChanges(){
   if(!aiPending)return;
@@ -1372,7 +1416,7 @@ function applyAllChanges(){
   saveNow(true);aiPending=null;closeAiPanel();renderAll();
 }
 function rejectAllChanges(){
-  aiPending=null;closeAiPanel();msg('已全部拒绝，原时间表未改动');
+  aiPending=null;clearAiPreview();closeAiPanel();msg('已全部拒绝，原时间表未改动');
 }
 function closeAiPanel(){
   $('aiPanel').style.display='none';

@@ -1245,15 +1245,16 @@ export const AI_TOOLS: AiTool[] = [
   },
   {
     id: 'th_move_task',
-    name: '移动时间表任务',
+    name: '移动/调整时间表任务',
     riskLevel: 'high',
-    description: `移动时间表任务到新的时间位置，或批量整体偏移。
+    description: `移动时间表任务到新的时间位置、批量整体偏移，或修改任务时长。
 
-参数说明（三选一）：
+参数说明：
 - name (必填)：任务名称
 - day (可选)：星期几 0=周一 ... 6=周日，默认保持原日期
 - start (可选)：开始时间，如 "09:00"
 - shift (可选)：整体偏移分钟（正数=后移，负数=前移）；填了 shift 时忽略 day/start
+- duration (可选)：新的预估时长（分钟 5-600），修改后任务块高度与结束时间自动更新
 
 调用示例：
 \`\`\`tool_call
@@ -1266,6 +1267,10 @@ export const AI_TOOLS: AiTool[] = [
 或整体偏移
 \`\`\`tool_call
 {"tool": "th_move_task", "params": {"name": "数学", "shift": 30}}
+\`\`\`
+或修改时长
+\`\`\`tool_call
+{"tool": "th_move_task", "params": {"name": "数学作业", "duration": 45}}
 \`\`\``,
     scope: ['global', 'control'],
     handler: async (params) => {
@@ -1278,15 +1283,21 @@ export const AI_TOOLS: AiTool[] = [
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const t = planData.tasks.find((x: any) => (x.name || '').includes(name));
         if (!t) return '未找到名为「' + name + '」的任务。';
+        const changed: string[] = [];
+        // 修改时长（独立能力）
+        if (params.duration !== undefined) {
+          const d = parseInt(params.duration);
+          if (isNaN(d) || d < 5 || d > 600) return '时长必须是 5-600 分钟的整数。';
+          t.duration = d;
+          if (t.sched) t.sched.durMin = d;
+          changed.push('时长改为 ' + d + ' 分钟');
+        }
         if (!t.sched) t.sched = {};
         if (params.shift !== undefined) {
           const off = parseInt(params.shift) || 0;
           const min = Math.max(360, Math.min(1440 - (t.duration || 60), (t.sched.startMin || 540) + off));
           t.sched.startMin = min;
-          planData.updatedAt = new Date().toISOString();
-          localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
-          window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
-          return '✅ 已将「' + t.name + '」' + (off > 0 ? '后移' : '前移') + ' ' + Math.abs(off) + ' 分钟。';
+          changed.push((off > 0 ? '后移' : '前移') + ' ' + Math.abs(off) + ' 分钟');
         }
         if (params.day !== undefined) t.sched.dayIdx = parseInt(params.day) % 7;
         if (params.start) {
@@ -1298,7 +1309,8 @@ export const AI_TOOLS: AiTool[] = [
         localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
-        return '✅ 已移动「' + t.name + '」到 周' + (t.sched.dayIdx || 0) + ' ' + (t.sched.startMin / 60) + ':' + String((t.sched.startMin % 60) || 0).padStart(2, '0');
+        const pos = '周' + (t.sched.dayIdx || 0) + ' ' + (t.sched.startMin / 60) + ':' + String((t.sched.startMin % 60) || 0).padStart(2, '0');
+        return '✅ 已完成对「' + t.name + '」的调整：' + (changed.length ? changed.join('、') + '；' : '') + '当前位置 ' + pos;
       } catch (e: any) {
         return '移动任务出错：' + (e.message || String(e));
       }
@@ -1381,6 +1393,57 @@ export const AI_TOOLS: AiTool[] = [
         return '✅ 已互换「' + a.name + '」和「' + b.name + '」的时间位置。';
       } catch (e: any) {
         return '互换任务出错：' + (e.message || String(e));
+      }
+    },
+  },
+  {
+    id: 'th_set_parent',
+    name: '设置任务父级',
+    riskLevel: 'high',
+    description: `切换时间表任务的主/子任务归属（把任务设为独立主任务，或挂到某个主任务下面）。
+
+参数说明：
+- name (必填)：任务名称
+- parent (可选)：父任务名称；填了则把该任务设为父任务的子任务；不填或不传则设为独立主任务
+
+调用示例（把"数学作业"设为独立主任务）：
+\`\`\`tool_call
+{"tool": "th_set_parent", "params": {"name": "数学作业"}}
+\`\`\`
+或（挂到"数学"下面）：
+\`\`\`tool_call
+{"tool": "th_set_parent", "params": {"name": "数学作业", "parent": "数学"}}
+\`\`\``,
+    scope: ['global', 'control'],
+    handler: async (params) => {
+      try {
+        const name = (params.name || '').trim();
+        if (!name) return '请提供任务名称。';
+        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        let planData: any = null;
+        try { planData = JSON.parse(localStorage.getItem('th2_plan_' + planId) || 'null'); } catch {}
+        if (!planData || !planData.tasks) return '尚未创建时间表方案。';
+        const t = planData.tasks.find((x: any) => (x.name || '').includes(name));
+        if (!t) return '未找到名为「' + name + '」的任务。';
+        if (!params.parent) {
+          t.parentId = null;
+        } else {
+          const p = planData.tasks.find((x: any) => !x.parentId && (x.name || '').includes(params.parent));
+          if (!p) return '未找到主任务「' + params.parent + '」，请确认名称或先创建主任务。';
+          if (p.id === t.id) return '不能把任务设为自己的子任务。';
+          // 防止其子任务成为父级的循环
+          const descendants = planData.tasks.filter((x: any) => x.parentId === t.id);
+          if (descendants.some((x: any) => x.id === p.id)) return '不能把任务的子任务设为它的父级。';
+          t.parentId = p.id;
+        }
+        if (t.parentId) t.collapsed = true;
+        planData.updatedAt = new Date().toISOString();
+        localStorage.setItem('th2_plan_' + planId, JSON.stringify(planData));
+        window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plan_' + planId }));
+        window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
+        return '✅ 已将「' + t.name + '」设为' + (t.parentId ? '子任务' : '主任务') + '。';
+      } catch (e: any) {
+        return '设置任务父级出错：' + (e.message || String(e));
       }
     },
   },
@@ -2069,8 +2132,8 @@ export function getPageContext(source: ConversationSource): string {
 
 【🗓 时间表编辑器（TimetableHub v2）】（localStorage key: th2_plans / th2_plan_{id}）
   📖 可读取：所有时间表方案（th_read_plans）、单个方案详情含任务/层级/固定块/排程（th_read_plan）
-  ✏️ 可操作：添加任务（th_add_task）、删除任务（th_delete_task）、移动任务到指定时间（th_move_task）、批量整体偏移（th_shift_add）、互换两个任务位置（th_swap_tasks）、添加固定时间块（th_add_fixed_block）
-  🛠 使用工具：th_read_plans、th_read_plan、th_add_task、th_delete_task、th_move_task、th_shift_add、th_swap_tasks、th_add_fixed_block
+  ✏️ 可操作：添加任务（th_add_task）、删除任务（th_delete_task）、移动任务到指定时间/修改时长（th_move_task）、批量整体偏移（th_shift_add）、互换两个任务位置（th_swap_tasks）、切换主/子任务归属（th_set_parent）、添加固定时间块（th_add_fixed_block）
+  🛠 使用工具：th_read_plans、th_read_plan、th_add_task、th_delete_task、th_move_task、th_shift_add、th_swap_tasks、th_set_parent、th_add_fixed_block
   📌 写入后会自动同步到 Control 日程和各设备。修改前建议先 th_read_plan 查看当前排程。
 
 【⏱ 计时器控制】
