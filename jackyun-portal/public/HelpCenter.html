@@ -767,20 +767,20 @@ const CATEGORIES = [
         articles: ['welcome', 'quick-start', 'workflow-overview']
     },
     {
-        id: 'workflow',
-        label: '学习工作流',
-        icon: 'route',
-        color: '#188038',
-        bg: '#e6f4ea',
-        articles: ['wf-goal', 'wf-schedule', 'wf-study', 'wf-summary']
-    },
-    {
         id: 'schedule',
         label: '日程与时间',
         icon: 'calendar_month',
         color: '#e8710a',
         bg: '#fef7e0',
-        articles: ['control-guide', 'timetablehub-guide', 'time-management', 'countdown-guide']
+        articles: ['control-guide', 'timetablehub-guide', 'timetablehub-v2', 'ai-scheduling', 'fixed-blocks', 'temp-mode', 'time-management', 'countdown-guide']
+    },
+    {
+        id: 'workflow',
+        label: '学习工作流',
+        icon: 'route',
+        color: '#188038',
+        bg: '#e6f4ea',
+        articles: ['wf-goal', 'wf-schedule', 'wf-today-plan', 'wf-goal-timetable', 'wf-study', 'wf-summary']
     },
     {
         id: 'study',
@@ -1849,6 +1849,358 @@ const ARTICLES = {
             <div class="callout tip">
                 <span class="material-symbols-rounded">lightbulb</span>
                 <div>番茄钟休息的 5 分钟，最适合来「放松一下」调剂心情，但注意别超时哦。</div>
+            </div>
+        `
+    },
+
+    // ── 学习工作流 · 新增文章 ──
+    'wf-today-plan': {
+        title: 'Goal「今日计划」使用指南',
+        icon: 'today',
+        category: 'workflow',
+        content: `
+            <p>「今日计划」是 Goal 页面上方的智能规划面板，让你在想清楚今天干什么的同时，<strong>一键把计划推送到日程表</strong>执行。</p>
+
+            <h3>✍️ 添加今日任务</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>从目标中选择</strong>
+                        <p>在「今日计划」面板的下拉框中，从你的目标列表选择一个任务（如「数学第一单元」「背 20 个单词」），点击「＋ 添加」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>调整数量与预计时间</strong>
+                        <p>每个任务可设置「数量 × 预计分钟/个」，面板自动计算总耗时（min），并显示「今日可用时间」和计划占用比例（超 100% 会变红提醒）。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>✨ AI 帮我规划</h3>
+            <p>点击「✨ AI 帮我规划」，AI 会综合你的<strong>目标进度、截止日期、固定时间块</strong>，自动生成今日要做的事并填入面板。AI 回复的文章里会附带「可行性分析」和「时间安排建议」。</p>
+
+            <h3>📤 推送到日程表</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>点击「推送到日程表」</strong>
+                        <p>系统自动为每个任务分配空闲时间段（避开固定时间块），写入当前 TimetableHub 方案。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>查看推送结果</strong>
+                        <p>面板显示「📤 已推送到日程表」+ 每个任务的时间段表格；如果计划过满会黄色提示。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>到日程中心执行</strong>
+                        <p>打开「日程中心 Control」，今天的安排就是你推送的内容，按时间表逐个完成并打勾。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>即使没打开日程表也能直接推送——系统会自动创建「默认方案」并写入，不依赖先打开 TimetableHub。</div>
+            </div>
+        `
+    },
+
+    'wf-goal-timetable': {
+        title: 'Goal ↔ 日程表联动详解',
+        icon: 'sync_alt',
+        category: 'workflow',
+        content: `
+            <p>Goal 与 TimetableHub / 日程中心 Control 之间有<strong>双向联动</strong>：目标 → 日程 → 执行，形成一个完整的闭环。</p>
+
+            <h3>🔗 联动链路总览</h3>
+            <div class="flow-row">
+                <div class="flow-card">
+                    <span class="material-symbols-rounded flow-icon">flag</span>
+                    <p class="flow-title">① 目标数据</p>
+                    <p class="flow-desc">Goal 中创建目标 + 设置进度/优先级/单位</p>
+                    <span class="material-symbols-rounded flow-arrow">arrow_forward</span>
+                </div>
+                <div class="flow-card">
+                    <span class="material-symbols-rounded flow-icon">calendar_month</span>
+                    <p class="flow-title">② 今日计划推送</p>
+                    <p class="flow-desc">「今日计划」→「推送到日程表」写入方案</p>
+                    <span class="material-symbols-rounded flow-arrow">arrow_forward</span>
+                </div>
+                <div class="flow-card">
+                    <span class="material-symbols-rounded flow-icon">exercise</span>
+                    <p class="flow-title">③ 执行</p>
+                    <p class="flow-desc">在 Control 按时间表完成，标记完成 ✅</p>
+                </div>
+            </div>
+
+            <h3>📤 Goal → 日程表（推送方向）</h3>
+            <ul>
+                <li><strong>今日计划推送</strong>：Goal 页面「推送到日程表」把任务写入当前 TimetableHub 方案并立即同步到 Control。</li>
+                <li><strong>任务进度联动</strong>：推送到日程表的任务带「来自 Goal」标记，在 TimetableHub 任务池里显示「来自 Goal」。</li>
+                <li><strong>时长估算联动</strong>：Goal 会根据你每次「专注计时」的结果（分钟 + 完成数量）自动估算「完成 1 单位约需 X 分钟」，供 TimetableHub 排程参考。</li>
+            </ul>
+
+            <h3>📥 日程表 → Goal（回写方向）</h3>
+            <ul>
+                <li><strong>TimetableHub 任务导入</strong>：在 TimetableHub 任务池可以直接「从 Goal 导入」目标，导入后作为任务排程。</li>
+                <li><strong>固定时间块同步</strong>：在 Goal 设置里添加的固定时间块会自动写入当前方案的 fixedBlocks，AI 排程自动避开。</li>
+                <li><strong>倒计日联动</strong>：Goal 顶部横幅展示「倒计日」页面的近期事件（≤3 天），紧迫感拉满。</li>
+            </ul>
+
+            <h3>🔄 双向实时同步</h3>
+            <p>方案切换、今日计划推送、固定块变更都会通过 storage 事件和 timetablehub-updated 自定义事件实时通知到其他页面（即使不刷新也能立即看到变化）。</p>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>推荐链路：<strong>Goal 建目标 → 设置固定时间块 → 「今日计划」推送 → Control 执行 → 计时记录反哺时长估算</strong>——用的越久，AI 排程越准。</div>
+            </div>
+        `
+    },
+
+    // ── 日程与时间 · 新增文章 ──
+    'timetablehub-v2': {
+        title: 'TimetableHub v2 时间表编辑器完整指南',
+        icon: 'drag_indicator',
+        category: 'schedule',
+        content: `
+            <p>TimetableHub 已经升级到 <strong>v2.0 时间表编辑器</strong>，这是一套从底层的「任务池」到顶层的「一周时间网格」的完整排课系统。先在任务池建好所有学习任务，再拖拽进时间轴，还能让 AI 帮你智能排程。</p>
+
+            <h3>🧩 界面总览</h3>
+            <ul>
+                <li><strong>左侧栏 — 任务池 (Task Pool)</strong>：所有任务的清单，支持主/子任务层级、进度条、优先级。</li>
+                <li><strong>中间 — 时间网格 (Grid)</strong>：一周七天的时间轴，拖拽任务块到具体时间段即可排程。</li>
+                <li><strong>顶部 — 方案管理 (Plans)</strong>：多套方案切换、复制、新建、删除（如「备考版」「日常版」）。</li>
+                <li><strong>顶部右侧 — AI 智能排程</strong>：让 AI 根据任务优先级自动安排一周。</li>
+            </ul>
+
+            <h3>📝 第一步：在任务池添加任务</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>添加主任务</strong>
+                        <p>点击「＋ 添加任务」，填写名称、预估时长（分钟）、优先级（1-5 星）。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>添加子任务（可选）</strong>
+                        <p>每个主任务下方可加子任务，展开后单独排程。子任务适合拆解「30 分钟背单词 → 第一单元 / 第二单元」这类步骤。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>从 Goal 导入（可选）</strong>
+                        <p>任务池可以直接<strong>从 Goal 目标导入</strong>，导入的任务带「来自 Goal」标记，进度与 Goal 联动。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>调整进度条</strong>
+                        <p>任务卡上可直接拖动进度条，标记完成比例；子任务完成框勾选后自动计入主任务进度。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>📅 第二步：拖到时间网格排程</h3>
+            <ul>
+                <li><strong>拖拽排程</strong>：把任务池中的任务块拖到右侧时间网格的具体星期 + 时间段。</li>
+                <li><strong>拖拽调时</strong>：已排程的块可以直接在网格内上下拖动改时间，左右拖动换星期。</li>
+                <li><strong>调整时长</strong>：拖块底部边缘可拉伸改时长；也可以在任务池中改 duration 分钟后自动更新块。</li>
+                <li><strong>互换位置</strong>：长按两块中的一块拖到另一块上，可快速交换两者时间。</li>
+            </ul>
+
+            <h3>🤖 第三步：AI 智能排程</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>点击「AI 排程」</strong>
+                        <p>编辑器右上角触发 AI 智能排程，AI 会读取任务池的优先级和预估时长。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>审阅「变更预览面板」</strong>
+                        <p>AI 会先生成一份<strong>变更预览</strong>（哪些任务排到星期几几点、时长多少），你可以逐条同意/拒绝，再一键应用。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>应用后网格更新</strong>
+                        <p>确认后网格自动更新，并同步到日程中心 Control。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>建议先设置好「固定时间块」（上课、睡觉等不可占用时段），再让 AI 排程，AI 会避开这些时段。</div>
+            </div>
+        `
+    },
+
+    'ai-scheduling': {
+        title: 'AI 智能排程使用指南',
+        icon: 'auto_fix_high',
+        category: 'schedule',
+        content: `
+            <p>「AI 智能排程」是 TimetableHub 的核心亮点：不用手动一格一格拖，AI 根据你的任务优先级、预估时长和固定时间块，自动生成合理的一周安排。</p>
+
+            <h3>🛠 准备工作（重要）</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>任务池要有任务</strong>
+                        <p>先添加任务并设置「预估时长」和「优先级」。没有时长的任务 AI 会按 60 分钟估算。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>设置固定时间块</strong>
+                        <p>在「固定时间块」里把上课、吃饭、睡觉等不可占用时段标出来，AI 排程会自动避开。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>⚡ 使用步骤</h3>
+            <ol>
+                <li>点击 TimetableHub 顶部「AI 智能排程」按钮。</li>
+                <li>AI 自动读取任务池 + 固定块，生成<strong>变更预览面板</strong>。</li>
+                <li>在预览面板中逐条审阅：<strong>同意 / 拒绝</strong>每条改动。</li>
+                <li>点击「应用变更」，网格立即更新。</li>
+            </ol>
+
+            <h3>🎯 技巧</h3>
+            <ul>
+                <li>想让 AI 优先排重要任务？把重要任务优先级拉到 4-5 星。</li>
+                <li>想让某些任务固定在某天某时段？先手动拖好，再让 AI 排剩下的。</li>
+                <li>对预览结果不满意？先「拒绝」再重新让 AI 生成，或微调任务时长。</li>
+            </ul>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>AI 排程完成后，方案会自动同步到日程中心 Control，无需手动再导。</div>
+            </div>
+        `
+    },
+
+    'fixed-blocks': {
+        title: '固定时间块使用指南',
+        icon: 'lock_clock',
+        category: 'schedule',
+        content: `
+            <p>「固定时间块」代表你每天/每周<strong>雷打不动</strong>的时间段：上课、吃饭、睡觉、运动、乐器课……设置后，AI 智能排程会自动避开这些时段。</p>
+
+            <h3>🕐 在哪里设置</h3>
+            <ul>
+                <li><strong>TimetableHub</strong>：左侧栏「固定时间块」区域 → ＋ 添加。</li>
+                <li><strong>Goal 页面</strong>：设置 → 「固定时间块」→ 添加/编辑（与 TimetableHub 自动同步）。</li>
+            </ul>
+
+            <h3>📝 创建固定块</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>填写名称</strong>
+                        <p>如「上午第1-4节上课」「午休」「晚上球场训练」。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>设置开始/结束时间</strong>
+                        <p>按时间段填写。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>选择适用星期</strong>
+                        <p>周一~周日可多选；每天都有则全选。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>类型（可选）</strong>
+                        <p>TimetableHub 中可设「休息（不可排任务）」或「专注（可挂任务）」。Goal 同步的固定块默认是休息类型。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>🤖 联动效果</h3>
+            <ul>
+                <li><strong>AI 排程</strong>：自动避开固定块，在空余时间安排学习。</li>
+                <li><strong>Goal 今日计划</strong>：AI 规划「今日计划」时，会计算今日可用时间 = 你的可用小时 − 固定块占用，并提示计划是否过满。</li>
+                <li><strong>日程中心</strong>：固定块也会显示为休息/占用时段。</li>
+            </ul>
+
+            <div class="callout tip">
+                <span class="material-symbols-rounded">lightbulb</span>
+                <div>把固定块设全，AI 排出来的日程才最贴合你真实的一天。</div>
+            </div>
+        `
+    },
+
+    'temp-mode': {
+        title: '临时模式使用指南',
+        icon: 'bolt',
+        category: 'schedule',
+        content: `
+            <p>「临时模式」可以让你<strong>临时修改一天的安排而不影响整个方案</strong>——非常适合今天有个临时活动、或今天想微调时间的情况。</p>
+
+            <h3>⚡ 什么是临时模式</h3>
+            <p>正常在 TimetableHub 改动会<strong>写回方案</strong>（影响未来所有周）。开启「临时模式」后，你的改动只对<strong>当前这一天</strong>生效，方案的长期内容不受影响。</p>
+
+            <h3>🕹 怎么用</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>在 TimetableHub 打开临时模式</strong>
+                        <p>工具栏找到「临时模式」开关并开启。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>调整当天安排</strong>
+                        <p>拖拽/增删当天任务，改动只作用于今日。</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num"></div>
+                    <div class="step-body">
+                        <strong>关闭临时模式（可选）</strong>
+                        <p>下次进入自动恢复当前方案名对应的一周安排。</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3>📋 控制中心显示方案名</h3>
+            <p>开启或切换方案后，回到「日程中心 Control」，顶部会显示当前使用的<strong>方案名称徽章</strong>（如「📋 备考版」），让你随时知道正在执行哪套计划。</p>
+
+            <div class="callout info">
+                <span class="material-symbols-rounded">info</span>
+                <div>红色底线提示：临时模式下的改动红线逻辑已修复，不会污染长期方案数据。</div>
             </div>
         `
     },
