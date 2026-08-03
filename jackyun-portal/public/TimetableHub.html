@@ -358,6 +358,8 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   <div class="top-title"><span class="material-icons-round mat" style="font-size:20px">calendar_month</span>
     <span>时间表编辑器</span><span class="top-sub" id="planNameLbl">—</span></div>
   <div class="top-right">
+    <button class="tb-btn" id="tempModeBtn" onclick="toggleTempMode()" title="标准日程：周一~周日 · 06:00 开始（点击切换临时）">
+      <span class="material-icons-round" id="tempModeIco">calendar_view_week</span><span class="t-lbl" id="tempModeLbl">标准</span></button>
     <button class="tb-btn" onclick="openImportGoal()" title="从 Goal 导入任务"><span class="material-icons-round">download</span><span class="t-lbl">导入</span></button>
     <button class="tb-btn" onclick="saveNow(true)" title="保存"><span class="material-icons-round">save</span><span class="t-lbl">保存</span></button>
     <button class="tb-btn p" onclick="runAISchedule()" id="aiBtn" title="AI 智能排程">
@@ -574,6 +576,7 @@ const LS_PLANS='th2_plans';
 const LS_ACTIVE='th2_active_plan_id';
 const LS_PREVIEW='th2_ai_preview_';
 const LS_SETTINGS='th2_settings';
+const LS_TEMP_MODE='th2_temp_mode';
 const CONFIG_LS='jackyun-ai-config';
 
 // ===== STATE =====
@@ -588,6 +591,10 @@ let sbOpen=false;
 let detailTaskId=null;
 let editFbId=null;
 let editTaskId=null;
+// 临时日程模式：仅显示今天，时间轴从当前时间开始
+let tempMode=false;
+let gridStart=MIN_DAY;   // 当前时间轴起点（分钟）
+let gridDur=GRID_HOURS;  // 当前时间轴小时数
 
 // ===== HELPERS =====
 function $(id){return document.getElementById(id)}
@@ -870,7 +877,7 @@ function openDetail(id){
   detailTaskId=id;
   $('detailTitle').textContent=esc(t.name);
   $('dName').value=t.name;
-  const s=t.sched?t.sched.startMin:MIN_DAY;
+  const s=t.sched?t.sched.startMin:gridStart;
   $('dStart').value=min2t(s);
   $('dEnd').value=min2t(s+t.duration);
   $('dDur').value=t.duration;
@@ -1034,9 +1041,36 @@ function delFb(id){
 
 // ===== GRID RENDER =====
 const HOUR_H=56; // px per hour
-function gridH(){return GRID_HOURS*HOUR_H}
-function gridTop(min){return (min-MIN_DAY)/60*HOUR_H}
-function gridMin(top){return MIN_DAY+top/HOUR_H*60}
+function gridH(){return gridDur*HOUR_H}
+function gridTop(min){return (min-gridStart)/60*HOUR_H}
+function gridMin(top){return gridStart+top/HOUR_H*60}
+// 切换临时／标准日程模式
+function toggleTempMode(){
+  tempMode=!tempMode;
+  try{localStorage.setItem(LS_TEMP_MODE,tempMode?'1':'')}catch(e){}
+  applyTempMode();
+  renderAll();
+  msg(tempMode?'⏰ 已切换为临时日程（今天 · 从当前时间开始）':'📅 已切换为标准日程（周一~周日 · 06:00 开始）');
+}
+function applyTempMode(){
+  if(tempMode){
+    const now=new Date();
+    gridStart=Math.ceil((now.getHours()*60+now.getMinutes())/60)*60; // 对齐到下一个整点
+    gridDur=Math.max(1,Math.ceil((24*60-gridStart)/60));
+    if(gridDur>18)gridDur=18;
+  }else{
+    gridStart=MIN_DAY;
+    gridDur=GRID_HOURS;
+  }
+  updateTempBtn();
+}
+function updateTempBtn(){
+  const btn=$('tempModeBtn');if(!btn)return;
+  btn.classList.toggle('p',tempMode);
+  const ico=$('tempModeIco');if(ico)ico.textContent=tempMode?'timelapse':'calendar_view_week';
+  const lbl=$('tempModeLbl');if(lbl)lbl.textContent=tempMode?'临时':'标准';
+  btn.title=tempMode?'临时日程：仅今天 · 从当前时间开始（点击切回标准）':'标准日程：周一~周日 · 06:00 开始（点击切换临时）';
+}
 // 在专注块内按顺序渲染绑定的任务（自动从块起点顺排，超块则截断并标红）
 function fbTaskRowsHtml(fb){
   if(fb.type!=='work'||!fb.tasks||!fb.tasks.length)return '';
@@ -1063,6 +1097,14 @@ function renderGrid(){
 function renderHead(){
   const el=$('gHead');
   const now=new Date();const todayIdx=dayOfWeek(now);
+  if(tempMode){
+    // 临时模式：只显示今天一列
+    const d=new Date();
+    el.innerHTML=`<div class="g-head-time">GMT+8</div>`+
+      `<div class="g-day today" onclick="gridDayClick(${todayIdx})">
+        <div class="g-dn">📍 ${DAY_NAMES[todayIdx]}</div><div class="g-dt">${d.getMonth()+1}/${d.getDate()} · 临时日程</div></div>`;
+    return;
+  }
   const dts=[];
   for(let i=0;i<7;i++){
     const d=new Date();d.setDate(d.getDate()+(i-todayIdx));
@@ -1079,14 +1121,18 @@ function renderBody(){
   const timeCol=$('gTimeCol');
   timeCol.style.height=gridH()+'px';
   let timeHtml='';
-  for(let h=0;h<GRID_HOURS;h++){
-    const m=MIN_DAY+h*60;
+  const hourCount=Math.ceil(gridDur);
+  for(let h=0;h<hourCount;h++){
+    const m=gridStart+h*60;
     timeHtml+=`<div class="g-hour" style="top:${h*HOUR_H}px">${String(Math.floor(m/60)).padStart(2,'0')}:00</div>`;
   }
   timeCol.innerHTML=timeHtml;
   const days=$('gDays');
   let html='';
-  for(let i=0;i<7;i++){
+  const now=new Date();const tidx=dayOfWeek(now);
+  // 临时模式只渲染今天；标准模式渲染全部 7 天
+  const dayList=tempMode?[tidx]:[0,1,2,3,4,5,6];
+  for(const i of dayList){
     // fixed blocks for this day
     const fbs=(plan.fixedBlocks||[]).filter(fb=>fb.days.includes(i));
     let fbh='';
@@ -1100,16 +1146,15 @@ function renderBody(){
     // tasks for this day (including bound work-block tasks positioned by block)
     const dayTasks=plan.tasks.filter(t=>t.sched&&t.sched.dayIdx===i);
     let th='';
-    const now=new Date();const tidx=dayOfWeek(now);
     const isToday=i===tidx;
-    // hourlines
+    // hourlines (使用当前时间轴小时数)
     let hl='';
-    for(let h=0;h<GRID_HOURS;h++){
+    for(let h=0;h<hourCount;h++){
       hl+=`<div class="g-hourline" style="top:${h*HOUR_H}px"></div>`;
       hl+=`<div class="g-hourline half" style="top:${h*HOUR_H+HOUR_H/2}px"></div>`;
     }
-    // now line
-    const nl=isToday?`<div class="g-nowline" style="top:${gridTop(now.getHours()*60+now.getMinutes())}px"></div>`:'';
+    // now line（临时模式：红线固定在顶部；标准模式：按当前分钟定位）
+    const nl=isToday?`<div class="g-nowline" style="top:${tempMode?0:gridTop(now.getHours()*60+now.getMinutes())}px"></div>`:'';
     // tasks
     for(const t of dayTasks){
       const top=gridTop(t.sched.startMin),h=(t.sched.durMin||t.duration)/60*HOUR_H;
@@ -1133,7 +1178,8 @@ function renderBody(){
         }
       }
     }
-    html+=`<div class="g-day-col" data-day="${i}" onpointerdown="gridDayClick(${i})">
+    const flexBasis=tempMode?'':'';
+    html+=`<div class="g-day-col" data-day="${i}" onpointerdown="gridDayClick(${i})" ${tempMode?'style="min-width:300px;flex:1"':''}>
       ${hl}${nl}${fbh}${th}
     </div>`;
   }
@@ -1143,7 +1189,15 @@ function renderBody(){
 }
 function gridDayClick(i){/* potential day selection for new tasks - keep simple */}
 function updateNowLine(){
-  // refresh every minute
+  // 临时模式下每过 1 分钟时间轴起点就变化，需要整体重渲染
+  if(tempMode){
+    renderGrid();
+  }else{
+    // 标准模式仅需移动红线位置
+    const now=new Date();
+    const nl=document.querySelector('.g-nowline');
+    if(nl)nl.style.top=gridTop(now.getHours()*60+now.getMinutes())+'px';
+  }
 }
 setInterval(updateNowLine,60000);
 
@@ -1277,11 +1331,14 @@ function runAISchedule(){
 }
 function buildAiContext(target){
   const fbs=plan.fixedBlocks||[];
+  const todayIdx=dayOfWeek(new Date());
   return {tasks:target.map(t=>({id:t.id,name:t.name,duration:t.duration,priority:t.priority,
       parentId:t.parentId,progress:t.progress})),
     fixedBlocks:fbs.map(f=>({name:f.name,type:f.type,days:f.days,start:min2t(f.startMin),end:min2t(f.endMin)})),
     allTasks:plan.tasks.map(t=>({id:t.id,name:t.name,duration:t.duration})),
-    grid:{start:'06:00',end:'24:00',dayNames:DAY_NAMES}};
+    grid:{start:tempMode?min2t(gridStart):'06:00',end:'24:00',
+      dayNames:tempMode?[DAY_NAMES[todayIdx]]:DAY_NAMES,
+      mode:tempMode?'temp':'standard'}};
 }
 async function callScheduleAi(ctx){
   const config=readAiConfig();
@@ -1653,6 +1710,9 @@ document.addEventListener('keydown',e=>{
 
 // ===== INIT =====
 function init(){
+  // 恢复临时模式设置
+  try{tempMode=localStorage.getItem(LS_TEMP_MODE)==='1'}catch(e){}
+  applyTempMode();
   loadAll();
   // sidebar default collapsed — already collapsed by CSS
   window.addEventListener('storage',e=>{

@@ -738,6 +738,7 @@
             <div class="date-badge">
                 <div id="sync-status" class="sync-dot" title="Network Time Status"></div>
                 <span id="clock-display" style="margin-left:8px;">00:00:00</span>
+                <span id="plan-badge" title="当前日程方案" style="margin-left:8px;background:#c20c0c;color:#fff;padding:2px 10px;border-radius:99px;font-size:11px;font-family:'Roboto',sans-serif;font-weight:600;white-space:nowrap;display:none;">—</span>
             </div>
         </div>
     </header>
@@ -1320,6 +1321,8 @@
         const todayIdx = getNow().getDay();
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         document.getElementById('day-label').innerText = `${days[todayIdx]}'s Schedule`;
+        // 显示当前活动方案名称（来自 TimetableHub）
+        updatePlanBadge();
         // 优先读取日程中心（TimetableHub）生成的当日计划 —— Goal → 蓝图 → Control 联动
         try {
             const tmp = JSON.parse(localStorage.getItem('jack_timetable_plan'));
@@ -1342,6 +1345,38 @@
         STATE.schedule = JSON.parse(JSON.stringify(plan));
         saveSchedule(); renderTable();
     }
+
+    // 显示当前 TimetableHub 活动方案名称；无方案时显示默认日程
+    function updatePlanBadge() {
+        const badge = document.getElementById('plan-badge');
+        if (!badge) return;
+        try {
+            const activeId = localStorage.getItem('th2_active_plan_id');
+            const plans = JSON.parse(localStorage.getItem('th2_plans') || '[]');
+            const p = plans.find(x => x.id === activeId);
+            const hasPlanData = !!localStorage.getItem('jack_timetable_plan');
+            if (p && p.name && hasPlanData) {
+                badge.textContent = '📋 ' + p.name;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.textContent = '📋 默认日程';
+                badge.style.display = 'inline-block';
+            }
+        } catch(e) { badge.style.display = 'none'; }
+    }
+
+    // 监听 TimetableHub 方案切换，实时更新徽章
+    window.addEventListener('storage', e => {
+        if (e.key === 'th2_active_plan_id' || e.key === 'th2_plans' || e.key === 'jack_timetable_plan') {
+            updatePlanBadge();
+        }
+    });
+    window.addEventListener('message', e => {
+        const d = e.data || {};
+        if (d.type === 'timetablehub-updated') {
+            updatePlanBadge();
+        }
+    });
 
     function renderTable() {
         const div = document.getElementById('schedule-list');
