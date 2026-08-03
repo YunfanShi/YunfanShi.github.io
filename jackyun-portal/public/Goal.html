@@ -207,6 +207,47 @@ option{background:#1a1a1a;}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(70px);background:#1c1c1c;border:1px solid var(--border2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);z-index:999;transition:transform .28s cubic-bezier(.4,0,.2,1);white-space:nowrap;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 
+/* TODAY PLAN PANEL */
+.today-panel{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:18px;margin-bottom:22px;position:relative;}
+.today-panel-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.today-panel-title{font-size:15px;font-weight:600;letter-spacing:-.3px;display:flex;align-items:center;gap:7px;}
+.today-panel-date{font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:4px;}
+.today-panel-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;}
+.today-total{font-size:12px;color:var(--text2);font-family:var(--mono);padding:4px 12px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);white-space:nowrap;}
+.today-total b{color:var(--ai);}
+.today-list{display:flex;flex-direction:column;gap:6px;}
+.today-item{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;transition:border-color .15s;}
+.today-item:hover{border-color:var(--border2);}
+.today-item-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.today-item-name{flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.today-item-times{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);font-family:var(--mono);}
+.today-item-times input{background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 6px;width:46px;outline:none;text-align:center;}
+.today-item-times input:focus{border-color:var(--blue);}
+.today-item-times input.today-count{width:38px;}
+.today-item-min{font-size:11px;font-family:var(--mono);color:var(--text2);min-width:56px;text-align:right;cursor:pointer;}
+.today-item-del{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:3px;border-radius:5px;flex-shrink:0;}
+.today-item-del:hover{color:var(--red);background:rgba(255,92,92,.12);}
+.today-empty{text-align:center;padding:22px;color:var(--text3);font-size:12px;line-height:1.7;}
+.today-ai-suggest{background:var(--ai-dim);border:1px solid var(--ai-border);border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.65;color:var(--text);margin-top:10px;display:none;}
+.today-ai-suggest b{color:var(--ai);}
+.today-ai-suggest .feas{font-weight:600;margin-bottom:4px;}
+.today-feas-ok .feas{color:var(--green);}
+.today-feas-warn .feas{color:#f5a623;}
+.today-feas-bad .feas{color:var(--red);}
+.today-item-add{display:flex;gap:8px;margin-top:8px;}
+.today-item-add select{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:12.5px;padding:7px 11px;outline:none;}
+.today-item-add select:focus{border-color:var(--blue);}
+.today-item-add button{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:7px 14px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+.today-item-add button:hover{border-color:var(--blue);color:var(--blue);}
+.today-push-res{display:none;margin-top:10px;font-size:12px;line-height:1.7;background:rgba(52,199,106,.07);border:1px solid rgba(52,199,106,.25);border-radius:8px;padding:10px 14px;color:var(--text);}
+.today-push-res b{color:var(--green);}
+.today-push-res table{width:100%;margin-top:6px;border-collapse:collapse;font-size:11px;font-family:var(--mono);}
+.today-push-res td{padding:3px 6px;color:var(--text2);}
+.today-push-res td:first-child{color:var(--text);font-weight:500;font-family:var(--font);}
+.today-push-res td:last-child{text-align:right;}
+.today-blocked{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin-top:8px;font-family:var(--mono);}
+.today-blocked b{color:#f5a623;}
+
 /* AI RESPONSE */
 .ai-response{background:var(--surface2);border:1px solid var(--ai-border);border-radius:10px;padding:14px;font-size:13px;line-height:1.7;color:var(--text);min-height:70px;max-height:340px;overflow-y:auto;}
 .ai-response.loading-state{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text2);}
@@ -223,6 +264,24 @@ option{background:#1a1a1a;}
 .ai-feat-ico{font-size:20px;margin-bottom:5px;}
 .ai-feat-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;}
 .ai-feat-desc{font-size:10px;color:var(--text2);line-height:1.4;}
+
+/* SETTINGS SECTION: FIXED BLOCKS */
+.fb-settings-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+.fb-settings-item{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;}
+.fb-settings-item .fb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.fb-settings-item .fb-info{flex:1;min-width:0;}
+.fb-settings-item .fb-name{font-size:12.5px;font-weight:500;}
+.fb-settings-item .fb-meta{font-size:10.5px;color:var(--text3);font-family:var(--mono);}
+.fb-settings-item button{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:3px;border-radius:5px;}
+.fb-settings-item button:hover{color:var(--red);background:rgba(255,92,92,.12);}
+.fb-settings-item button.edit:hover{color:var(--blue);background:rgba(77,158,247,.12);}
+.today-days-toggle{display:flex;gap:4px;}
+.today-days-toggle button{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;font-family:var(--mono);}
+.today-days-toggle button.on{background:var(--blue);color:#000;border-color:var(--blue);}
+.today-fb-modal-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;}
+.today-fb-modal-colors{display:flex;gap:6px;flex-wrap:wrap;padding-top:6px;}
+.today-fb-modal-colors .tdot{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0;}
+.today-fb-modal-colors .tdot.sel{border-color:var(--text);transform:scale(1.12);}
 
 /* SETTINGS */
 .settings-section{margin-bottom:18px;}
@@ -375,6 +434,27 @@ option{background:#1a1a1a;}
   </div>
 
   <div class="stats" id="statsEl"></div>
+
+  <!-- TODAY PLAN PANEL -->
+  <div class="today-panel">
+    <div class="today-panel-hd">
+      <div class="today-panel-title">📋 今日计划 <span class="today-panel-date" id="todayDateLbl"></span></div>
+      <div class="today-panel-actions">
+        <span class="today-total" id="todayTotalLbl">总耗时 <b>0</b> min</span>
+        <button class="btn btn-ai" style="padding:5px 12px;font-size:12px;" onclick="aiPlanToday()">✨ AI 帮我规划</button>
+        <button class="btn btn-pri" style="padding:5px 12px;font-size:12px;" onclick="pushTodayToTimetable()">📤 推送到日程表</button>
+      </div>
+    </div>
+    <div id="todayList"></div>
+    <div class="today-item-add">
+      <select id="todayTaskSel"><option value="">— 从目标中选择 —</option></select>
+      <button onclick="addTodayItem()">＋ 添加</button>
+      <button onclick="openSettings()" title="固定时间块设置">⏱ 通用设置</button>
+    </div>
+    <div class="today-ai-suggest" id="todayAiSuggest"></div>
+    <div class="today-push-res" id="todayPushRes"></div>
+    <div class="today-blocked" id="todayBlocked"></div>
+  </div>
 
   <div class="filter-row">
     <div class="tabs">
@@ -746,6 +826,11 @@ option{background:#1a1a1a;}
         </div>
       </div>
       <div class="settings-section">
+        <div class="settings-title">⏱ 固定时间块 <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;">（这些时段 AI 规划时会避开）</span></div>
+        <div class="fb-settings-list" id="fbSettingsList"></div>
+        <button class="btn btn-ghost" style="font-size:12px;width:100%;justify-content:center;" onclick="openFbSettingsModal()">＋ 添加固定时间块</button>
+      </div>
+      <div class="settings-section">
         <div class="settings-title">数据</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;">
           <button class="btn btn-ghost" onclick="exportData()" style="font-size:12px;">↑ 导出 JSON</button>
@@ -764,6 +849,41 @@ option{background:#1a1a1a;}
     <div class="mfoot"><button class="btn btn-pri" onclick="closeM('settingsModal')">完成</button></div>
   </div>
 </div>
+<!-- FIXED BLOCK SETTINGS MODAL (Goal page) -->
+<div class="overlay" id="fbSettingsModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="mhd" id="fbSettingsModalTitle">新建固定时间块</div>
+    <div class="mbody">
+      <div class="fg">
+        <label class="flbl">名称</label>
+        <input class="fi" id="fbSGName" placeholder="如：上课 / 睡觉 / 午休" maxlength="20">
+      </div>
+      <div class="today-fb-modal-row">
+        <div class="fg">
+          <label class="flbl">开始</label>
+          <input class="fi" type="time" id="fbSGStart" value="08:00">
+        </div>
+        <div class="fg">
+          <label class="flbl">结束</label>
+          <input class="fi" type="time" id="fbSGEnd" value="12:00">
+        </div>
+        <div class="fg">
+          <label class="flbl">颜色</label>
+          <div class="today-fb-modal-colors" id="fbSGColors"></div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="flbl">适用星期</label>
+        <div class="today-days-toggle" id="fbSGDays"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeM('fbSettingsModal')">取消</button>
+      <button class="btn btn-pri" onclick="saveFbSettingsModal()">保存</button>
+    </div>
+  </div>
+</div>
+
 <div id="wardenSyncBanner">
   <div class="wsb-head">⚡ Mock Portal 进度更新</div>
   <div class="wsb-sub" id="wsbSub"></div>
@@ -3047,6 +3167,398 @@ function doImport(e){
   };r.readAsText(file);e.target.value='';
 }
 
+/* ===================== TODAY PLAN (今日计划) ===================== */
+// 数据模型：jackyun_daily_plan = { date, items: [{id, goalId, name, count, estMin, startMin?, note}], fixedBlocks, aiSuggestion }
+const LS_DAILY='jackyun_daily_plan';
+const LS_FIXED='jackyun_fixed_blocks';
+
+function loadDailyPlan(){
+  try{
+    const raw=localStorage.getItem(LS_DAILY);
+    if(raw){const d=JSON.parse(raw);if(d&&d.date===today()&&Array.isArray(d.items))return d;}
+    return {date:today(),items:[],aiSuggestion:null,updatedAt:new Date().toISOString()};
+  }catch(e){return {date:today(),items:[],aiSuggestion:null};}
+}
+function saveDailyPlan(plan){
+  plan.date=today();plan.updatedAt=new Date().toISOString();
+  localStorage.setItem(LS_DAILY,JSON.stringify(plan));
+  // 通知其他页面（TimetableHub）有新计划
+  window.dispatchEvent(new CustomEvent('jackyun-daily-plan-updated',{detail:plan}));
+  window.dispatchEvent(new StorageEvent('storage',{key:LS_DAILY,newValue:JSON.stringify(plan)}));
+  renderTodayPlan();
+}
+function loadFixedBlocks(){
+  try{const raw=localStorage.getItem(LS_FIXED);if(raw){const d=JSON.parse(raw);if(Array.isArray(d.blocks))return d.blocks;}}catch(e){}
+  // fallback: 从 TimetableHub 当前方案的 fixedBlocks 读取（自动同步）
+  try{
+    const active=localStorage.getItem('th2_active_plan_id');
+    if(active){
+      const p=JSON.parse(localStorage.getItem('th2_plans_'+active));
+      if(p&&Array.isArray(p.fixedBlocks)) return p.fixedBlocks.map(fb=>({id:fb.id,name:fb.name,start:min2t(fb.startMin),end:min2t(fb.endMin),days:fb.days,color:fb.color||'#f5a623'}));
+    }
+  }catch(e){}
+  return [];
+}
+function saveFixedBlocks(blocks){
+  localStorage.setItem(LS_FIXED,JSON.stringify({blocks,updatedAt:new Date().toISOString()}));
+  // 同步到 TimetableHub：写入 th2_plans_<active> 的 fixedBlocks
+  try{
+    const active=localStorage.getItem('th2_active_plan_id');
+    if(active){
+      const key='th2_plans_'+active;
+      const p=JSON.parse(localStorage.getItem(key));
+      if(p){
+        p.fixedBlocks=blocks.map(b=>({id:b.id,name:b.name,type:'rest',days:b.days||[],startMin:t2min(b.start),endMin:t2min(b.end),tasks:[]}));
+        localStorage.setItem(key,JSON.stringify(p));
+        window.dispatchEvent(new StorageEvent('storage',{key}));
+        window.dispatchEvent(new CustomEvent('timetablehub-updated',{detail:{planId:active}}));
+      }
+    }
+  }catch(e){}
+}
+function t2min(t){const[h,m]=String(t).split(':').map(Number);return h*60+m;}
+function min2t(m){m=((m%1440)+1440)%1440;return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
+
+function todayBlockedMinutes(){
+  const dow=new Date().getDay(); // 0=Sun
+  const dayIdx=(dow+6)%7; // Mon=0
+  const blocks=loadFixedBlocks();
+  return blocks.filter(b=>(b.days||[]).includes(dayIdx)).reduce((s,b)=>s+(t2min(b.end)-t2min(b.start)),0);
+}
+function todayAvailableMinutes(){
+  // 模型 = 24h - 固定块
+  return Math.max(0,24*60-todayBlockedMinutes());
+}
+
+function goalEstMinutes(goalId){
+  try{
+    const est=JSON.parse(localStorage.getItem('jackyun_goal_time_est')||'{}');
+    if(est.goals&&est.goals[goalId]&&est.goals[goalId].minutes) return est.goals[goalId].minutes;
+  }catch(e){}
+  const g=goals.find(x=>x.id===goalId);
+  if(g&&g.unit){return 30;} // default estimate per unit
+  return 30;
+}
+
+function getTodayItemTotal(){
+  const plan=loadDailyPlan();
+  return plan.items.reduce((s,i)=>s+(i.estMin||30),0);
+}
+
+function renderTodayPlan(){
+  const plan=loadDailyPlan();
+  const dateEl=document.getElementById('todayDateLbl');
+  if(dateEl){
+    const d=new Date();
+    dateEl.textContent=`${d.getMonth()+1}/${d.getDate()} · ${['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]}`;
+  }
+  const totalEl=document.getElementById('todayTotalLbl');
+  if(totalEl) totalEl.innerHTML=`总耗时 <b>${getTodayItemTotal()}</b> min`;
+  const listEl=document.getElementById('todayList');
+  if(!listEl) return;
+  if(!plan.items.length){
+    listEl.innerHTML='<div class="today-empty">今天还没有任务安排<br><span style="font-size:11px;">从下方选择目标添加，或点击「✨ AI 帮我规划」</span></div>';
+  }else{
+    listEl.innerHTML=plan.items.map((item,i)=>{
+      const g=goals.find(x=>x.id===item.goalId);
+      const color=g?gc(g.color).hex:'#4d9ef7';
+      return `<div class="today-item">
+        <span class="today-item-dot" style="background:${color}"></span>
+        <span class="today-item-name">${esc(item.name||(g?g.name:'任务'))}</span>
+        <span class="today-item-times">
+          <input type="number" class="today-count" value="${item.count||1}" min="1" onchange="updateTodayCount(${i},this.value)" title="数量">
+          <span>${g&&g.unit?esc(g.unit):'次'} ×</span>
+          <input type="number" value="${item.estMin||30}" min="5" step="5" onchange="updateTodayMin(${i},this.value)" title="预计分钟/单位">
+          <span>min</span>
+        </span>
+        <span class="today-item-min" title="总耗时">≈ ${(item.count||1)*(item.estMin||30)}min</span>
+        <button class="today-item-del" onclick="removeTodayItem(${i})" title="移除">✕</button>
+      </div>`;
+    }).join('');
+  }
+  // 可用时间提示
+  const blockedEl=document.getElementById('todayBlocked');
+  if(blockedEl){
+    const free=todayAvailableMinutes();
+    const total=getTodayItemTotal();
+    const done=Math.round(total/free*100);
+    blockedEl.innerHTML=`<b>⏱ 今日可用 ${Math.floor(free/60)}h${free%60?String(free%60).padStart(2,'0')+'m':''}</b>${todayBlockedMinutes()>0?` · 固定时段占用 ${todayBlockedMinutes()}min`:''}${total>0?` · 计划占用 <b style="color:${done>100?'#ff5c5c':done>80?'#f5a623':'#34c76a'}">${done}%</b>`:''}`;
+  }
+  // AI 建议
+  const suggestEl=document.getElementById('todayAiSuggest');
+  if(suggestEl&&plan.aiSuggestion){
+    const s=plan.aiSuggestion;
+    suggestEl.style.display='block';
+    suggestEl.className='today-ai-suggest today-feas-'+(s.feasible===false?'bad':s.warn?'warn':'ok');
+    suggestEl.innerHTML=`<div class="feas">${s.feasible===false?'⚠️ 可能无法完成':s.warn?'⚡ 有点紧凑，建议精简':'✅ 计划合理'}</div>${s.advice||''}`;
+  }else if(suggestEl){suggestEl.style.display='none';}
+  // 下拉选单填充
+  const sel=document.getElementById('todayTaskSel');
+  if(sel){
+    const usable=goals.filter(g=>!isLeaf(g)||(g.total>0&&getPct(g)<100)||g.total===0);
+    sel.innerHTML='<option value="">— 从目标中选择 —</option>'+usable.map(g=>`<option value="${g.id}">${esc(g.name)}${g.unit?'（'+esc(g.unit)+'）':''}</option>`).join('');
+  }
+}
+
+function addTodayItem(){
+  const sel=document.getElementById('todayTaskSel');
+  if(!sel||!sel.value){toast('请先选择目标');return;}
+  const goalId=Number(sel.value);
+  const g=goals.find(x=>x.id===goalId);
+  if(!g)return;
+  const plan=loadDailyPlan();
+  if(plan.items.some(i=>i.goalId===goalId)){
+    // 已存在 → 数量+1
+    const item=plan.items.find(i=>i.goalId===goalId);
+    item.count=(item.count||1)+1;
+  }else{
+    plan.items.push({id:Date.now()+Math.random(),goalId,name:g.name,count:1,estMin:goalEstMinutes(goalId)});
+  }
+  saveDailyPlan(plan);
+  toast(`已添加「${g.name}」 ✓`);
+}
+
+function updateTodayCount(i,v){
+  const plan=loadDailyPlan();
+  if(plan.items[i]){plan.items[i].count=Math.max(1,parseInt(v)||1);saveDailyPlan(plan);}
+}
+function updateTodayMin(i,v){
+  const plan=loadDailyPlan();
+  if(plan.items[i]){plan.items[i].estMin=Math.max(5,parseInt(v)||30);saveDailyPlan(plan);}
+}
+function removeTodayItem(i){
+  const plan=loadDailyPlan();
+  plan.items.splice(i,1);
+  saveDailyPlan(plan);
+  toast('已移除');
+}
+
+async function aiPlanToday(){
+  if(!getKey()){toast('请先配置 API Key');openSettings();return;}
+  if(!plan_aiLocked){
+    plan_aiLocked=true;
+    const resp=document.getElementById('todayAiSuggest');
+    resp.style.display='block';
+    resp.className='today-ai-suggest';
+    resp.innerHTML='<div class="feas">✨ AI 正在分析今天的计划…</div><div style="color:var(--text2)">考虑你的目标进度、截止日期和固定时间块…</div>';
+    try{
+      const ctx=buildAllContext();
+      const fixed=loadFixedBlocks().map(b=>`${b.name} ${b.start}~${b.end} ${(b.days||[]).map(d=>['一','二','三','四','五','六','日'][d]||'?').join('/')}`).join('；')||'无';
+      const user=`帮我制定今天的计划。我的固定时间块：${fixed}。今日可用 ${Math.floor(todayAvailableMinutes()/60)}h${todayAvailableMinutes()%60}min。
+我的目标数据：${ctx}
+请给出今天我应该做的 3-6 件事，每件事包含：任务名称、数量（如+1）、预计耗时（分钟）。先分析可行性（能否在今日剩余时间完成），再给出时间安排建议。
+回答格式：
+## 可行性分析
+[结论 + 理由]
+## 今日计划清单
+1. **任务名**：数量 x 个，约 xx 分钟（建议时间段：xx:xx~xx:xx）
+2. ...
+## 时间安排
+[整体时间轴建议，考虑固定块]`;
+      let full='';
+      await callAI([
+        {role:'system',content:'你是学习规划AI。基于用户目标和固定时间块，制定今天可行的计划。给出具体时间安排。中文回答。'},
+        {role:'user',content:user}
+      ],p=>{
+        full=p;
+        resp.className='today-ai-suggest today-feas-warn';
+        resp.innerHTML=`<div class="feas">✨ AI 规划中…</div>`+renderMD(p);
+      },4000);
+      // 尝试从 AI 回复解析任务清单
+      const parsed=parseAiPlanItems(full);
+      if(parsed&&parsed.items.length){
+        const plan=loadDailyPlan();
+        const existing=new Set(plan.items.map(i=>i.name));
+        parsed.items.forEach(pi=>{
+          if(existing.has(pi.name))return;
+          plan.items.push({id:Date.now()+Math.random(),goalId:null,name:pi.name,count:pi.count||1,estMin:pi.estMin||30});
+          existing.add(pi.name);
+        });
+        plan.aiSuggestion={feasible:parsed.feasible!==false,warn:parsed.warn||false,advice:parsed.advice||'AI 已生成建议，可手动调整后推送。',ts:Date.now()};
+        saveDailyPlan(plan);
+        toast('✨ AI 已生成今日计划');
+      }else{
+        // 无法解析 → 保留分析文本
+        const plan=loadDailyPlan();
+        plan.aiSuggestion={feasible:true,warn:true,advice:'AI 已给出建议文本，请参考上方内容手动添加任务。',ts:Date.now()};
+        saveDailyPlan(plan);
+      }
+    }catch(err){
+      resp.className='today-ai-suggest error-state';
+      resp.innerHTML='❌ '+esc(err.message);
+    }finally{plan_aiLocked=false;}
+  }
+}
+// 简单解析 AI 返回的计划清单
+function parseAiPlanItems(text){
+  if(!text)return null;
+  const items=[];
+  const lines=text.split('\n');
+  let feasible=true,warn=false,advice='';
+  for(const line of lines){
+    const m=line.match(/^[-*]\s*\**\s*(.+?)\s*\**\s*[:：]\s*(?:(\d+)\s*[个次份章套页张遍次]*\s*[x×*]?)?\s*(?:约|大概|预计)?\s*(\d+)\s*分钟/);
+    if(m){
+      items.push({name:m[1].trim(),count:parseInt(m[2]||'1'),estMin:parseInt(m[3]||'30')});
+    }else if(/不太|可能完不成|不够|超出|太满|建议减少|精简/.test(line)){
+      warn=true;
+    }else if(/可以完成|合理|可行|来得及/.test(line)){
+      feasible=true;
+    }
+  }
+  if(!items.length)return null;
+  // advice = 非清单行中较短的句子
+  const nonItem=lines.filter(l=>l.trim()&&!/^[-*]\s/.test(l)).slice(-6).join(' ').trim();
+  advice=nonItem.slice(0,120);
+  return {items,feasible,warn,advice};
+}
+
+// 推送到 TimetableHub
+function pushTodayToTimetable(){
+  const plan=loadDailyPlan();
+  if(!plan.items.length){toast('今日计划为空');return;}
+  const total=getTodayItemTotal();
+  const free=todayAvailableMinutes();
+  if(total>free){toast('⚠ 总耗时超过可用时间，请先精简');return;}
+  // 计算建议时间段
+  const blocks=loadFixedBlocks();
+  const dow=new Date().getDay();
+  const dayIdx=(dow+6)%7;
+  const occupied=blocks.filter(b=>(b.days||[]).includes(dayIdx)).map(b=>[t2min(b.start),t2min(b.end)]).sort((a,b)=>a[0]-b[0]);
+  // 贪心填充空档
+  let cursor=Math.max(8*60,cursorNow()); // 从当前时间或 8:00 开始
+  if(cursorNow()>8*60)cursor=cursorNow();
+  const schedule=[];
+  plan.items.forEach(item=>{
+    const dur=(item.count||1)*(item.estMin||30);
+    let placed=false;
+    while(cursor<24*60){
+      const conflict=occupied.some(([s,e])=>cursor<e&&cursor+dur>s);
+      if(!conflict){schedule.push({name:item.name,start:cursor,end:cursor+dur,goalId:item.goalId});cursor+=dur;placed=true;break;}
+      // 跳到冲突结束
+      const next=occupied.filter(([s,e])=>cursor<e&&cursor+dur>s).map(([s,e])=>e).sort((a,b)=>a-b)[0];
+      cursor=next||cursor+30;
+    }
+    if(!placed){// 放到最晚可用位置
+      const gap=occupied[occupied.length-1]?occupied[occupied.length-1][1]:18*60;
+      if(gap+dur<=24*60){schedule.push({name:item.name,start:gap,end:gap+dur});}
+    }
+  });
+  // 写入 TimetableHub 当前方案：追加任务并排程
+  try{
+    const active=localStorage.getItem('th2_active_plan_id');
+    const colMap={'blue':'#4d9ef7','green':'#34c76a','yellow':'#f5a623','red':'#ff5c5c','purple':'#b57bee','teal':'#2dd4bf','pink':'#f472b6','orange':'#fb923c'};
+    if(active){
+      const key='th2_plans_'+active;
+      const p=JSON.parse(localStorage.getItem(key));
+      if(p&&Array.isArray(p.tasks)){
+        schedule.forEach(s=>{
+          const g=goals.find(x=>x.id===s.goalId);
+          p.tasks.push({
+            id:'goal_'+(Date.now()+Math.random().toString(36).slice(2,7)),
+            parentId:null,name:s.name,duration:s.end-s.start,priority:g&&g.priority==='high'?5:3,
+            color:g&&colMap[g.color]?colMap[g.color]:'#4d9ef7',notes:'来自Goal今日计划',progress:0,
+            collapsed:true,sched:{dayIdx:dayIdx,startMin:s.start,durMin:s.end-s.start},fromGoal:s.goalId
+          });
+        });
+        localStorage.setItem(key,JSON.stringify(p));
+        // 同步到 Control
+        try{
+          const entries=schedule.map(s=>({s:min2t(s.start),e:min2t(s.end),t:s.name,ty:'s'}));
+          // merge with fixed blocks
+          blocks.forEach(b=>{if((b.days||[]).includes(dayIdx))entries.push({s:b.start,e:b.end,t:b.name,ty:'b'});});
+          entries.sort((a,b)=>t2min(a.s)-t2min(b.s));
+          localStorage.setItem('jack_timetable_plan',JSON.stringify({date:today(),plan:entries,source:'goal-daily-plan',updatedAt:new Date().toISOString()}));
+          localStorage.setItem('w3_schedule',JSON.stringify(entries.map(r=>({start:r.s,end:r.e,title:r.t,detail:r.t,done:false,category:r.ty==='b'?'休息':'学习'}))));
+          window.dispatchEvent(new StorageEvent('storage',{key:'w3_schedule'}));
+          window.dispatchEvent(new CustomEvent('timetablehub-updated',{detail:{source:'goal-daily-plan'}}));
+        }catch(e){}
+        // 显示推送结果
+        const res=document.getElementById('todayPushRes');
+        res.style.display='block';
+        res.innerHTML=`<b>📤 已推送到日程表</b>（方案：${(JSON.parse(localStorage.getItem('th2_plans')||'[]').find(p=>p.id===active)||{}).name||'当前方案'}）<table>${schedule.map(s=>`<tr><td>${esc(s.name)}</td><td>${min2t(s.start)}~${min2t(s.end)}</td><td>${s.end-s.start}min</td></tr>`).join('')}</table>`;
+        toast(`✅ 已推送 ${schedule.length} 个任务到日程表`);
+        return;
+      }
+    }
+  }catch(e){console.error('push to timetable failed',e);}
+  toast('⚠ 未找到 TimetableHub 数据，请先打开日程表');
+}
+
+// ===== 固定时间块设置（Goal 页） =====
+function renderFbSettingsList(){
+  const blocks=loadFixedBlocks();
+  const el=document.getElementById('fbSettingsList');
+  if(!el)return;
+  const dayNames=['一','二','三','四','五','六','日'];
+  if(!blocks.length){
+    el.innerHTML='<div style="font-size:11px;color:var(--text3);text-align:center;padding:10px;">暂无固定时间块<br>添加可让 AI 规划时自动避开</div>';
+    return;
+  }
+  const colorHex=['#4d9ef7','#34c76a','#f5a623','#ff5c5c','#b57bee','#2dd4bf','#f472b6','#fb923c'];
+  el.innerHTML=blocks.map((b,i)=>{
+    const days=(b.days||[]).length===7?'每天':(b.days||[]).map(d=>dayNames[d]).join('/');
+    const col=b.color||'#f5a623';
+    return `<div class="fb-settings-item">
+      <span class="fb-dot" style="background:${col}"></span>
+      <div class="fb-info"><div class="fb-name">${esc(b.name||'未命名')}</div><div class="fb-meta">${b.start}~${b.end} · ${days}</div></div>
+      <button class="edit" onclick="openFbSettingsModal('${b.id}')" title="编辑">✎</button>
+      <button onclick="delFbSettingsItem('${b.id}')" title="删除">✕</button>
+    </div>`;
+  }).join('');
+}
+let fbSGEditId=null;
+function openFbSettingsModal(id){
+  fbSGEditId=id;
+  const blocks=loadFixedBlocks();
+  const b=id?blocks.find(x=>x.id===id):null;
+  document.getElementById('fbSettingsModalTitle').textContent=b?'编辑固定时间块':'新建固定时间块';
+  document.getElementById('fbSGName').value=b?b.name:'';
+  document.getElementById('fbSGStart').value=b?b.start:'08:00';
+  document.getElementById('fbSGEnd').value=b?b.end:'12:00';
+  // colors
+  const colorHex=['#4d9ef7','#34c76a','#f5a623','#ff5c5c','#b57bee','#2dd4bf','#f472b6','#fb923c'];
+  const selCol=b&&b.color?b.color:colorHex[2];
+  document.getElementById('fbSGColors').innerHTML=colorHex.map(c=>`<div class="tdot ${c===selCol?'sel':''}" style="background:${c}" onclick="this.parentNode.querySelectorAll('.tdot').forEach(x=>x.classList.remove('sel'));this.classList.add('sel');this.dataset.col=this.style.background"></div>`).join('');
+  // days
+  const dayNames=['周一','周二','周三','周四','周五','周六','周日'];
+  const selDays=b&&b.days?b.days:[0,1,2,3,4];
+  document.getElementById('fbSGDays').innerHTML=dayNames.map((n,i)=>`<button class="${selDays.includes(i)?'on':''}" onclick="this.classList.toggle('on')">${n.slice(1)}</button>`).join('');
+  openM('fbSettingsModal');
+}
+function saveFbSettingsModal(){
+  const name=document.getElementById('fbSGName').value.trim()||'未命名块';
+  const start=document.getElementById('fbSGStart').value;
+  const end=document.getElementById('fbSGEnd').value;
+  const colEl=document.querySelector('#fbSGColors .tdot.sel');
+  const col=colEl?colEl.style.background:'#f5a623';
+  const days=[...document.querySelectorAll('#fbSGDays button.on')].map(b=>['一','二','三','四','五','六','日'].indexOf(b.textContent));
+  if(t2min(end)<=t2min(start)){toast('结束时间需晚于开始');return;}
+  const id=fbSGEditId||'fb_'+(Date.now()+Math.random().toString(36).slice(2,6));
+  let newBlocks=loadFixedBlocks().filter(b=>b.id!==id);
+  newBlocks.push({id,name,start,end,days,color:col});
+  saveFixedBlocks(newBlocks);
+  closeM('fbSettingsModal');
+  renderFbSettingsList();
+  renderTodayPlan();
+  toast('✅ 固定时间块已保存');
+}
+function delFbSettingsItem(id){
+  const blocks=loadFixedBlocks().filter(b=>b.id!==id);
+  saveFixedBlocks(blocks);
+  renderFbSettingsList();
+  renderTodayPlan();
+  toast('已删除');
+}
+// 当前时间（分钟）
+function cursorNow(){const d=new Date();return d.getHours()*60+d.getMinutes();}
+let plan_aiLocked=false;
+
+// 监听 TimetableHub 或外部修改 daily plan
+window.addEventListener('storage',e=>{
+  if(e.key===LS_DAILY){renderTodayPlan();}
+  if(e.key===LS_FIXED){renderFbSettingsList();renderTodayPlan();}
+});
+
 /* ===================== MODAL UTILS ===================== */
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
@@ -3225,6 +3737,8 @@ document.getElementById('toggleAutoPred').checked=prefs.autoPred;
 document.getElementById('toggleShowPred').checked=prefs.showPred;
 
 updateAIStatus();render();startCdTimer();
+renderTodayPlan();
+renderFbSettingsList();
 
 // on load: auto predict all tasks that have no pred and are in progress
 if(prefs.autoPred&&getKey()){
