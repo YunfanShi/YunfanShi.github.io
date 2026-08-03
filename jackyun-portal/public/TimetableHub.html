@@ -1537,7 +1537,7 @@ function openImportGoal(){
   try{timeEst=JSON.parse(localStorage.getItem('jackyun_goal_time_est')||'{}').goals||{}}catch(e){}
   const impBox=$('impList');
   impBox.innerHTML='';
-  const importable=goals.filter(g=>!plan.tasks.some(t=>t.fromGoal===g.id));
+  const importable=goals.filter(g=>!plan.tasks.some(t=>t.fromGoal==g.id));
   if(!importable.length){impBox.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">所有 Goal 均已在任务池中</div>';$('importGoal').classList.add('o');return}
   const colMap={'blue':'#4d9ef7','green':'#34c76a','yellow':'#f5a623','red':'#ff5c5c','purple':'#b57bee','teal':'#2dd4bf','pink':'#f472b6','orange':'#fb923c'};
   importable.forEach(g=>{
@@ -1568,7 +1568,7 @@ function doImportGoal(){
   checked.forEach(cb=>{
     const row=cb.closest('.imp-item');
     const gid=cb.dataset.id;
-    const goal=JSON.parse(localStorage.getItem('jackyun_goal_data')||localStorage.getItem('gt_v6')||'[]').find(g=>g.id===gid);
+    const goal=JSON.parse(localStorage.getItem('jackyun_goal_data')||localStorage.getItem('gt_v6')||'[]').find(g=>g.id==gid);
     if(!goal)return;
     const parent=JSON.parse(localStorage.getItem('jackyun_goal_data')||'[]').find(p=>p.id===goal.parentId);
     const tid=uid();
