@@ -154,6 +154,30 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;bac
 .task .t-time{font-size:9px;color:var(--text3);font-family:var(--mono);opacity:.9;margin-top:1px}
 .task .t-progbar{height:2px;background:rgba(255,255,255,.15);border-radius:99px;margin-top:3px;overflow:hidden}
 .task .t-progbar-fill{height:100%;background:var(--blue);border-radius:99px}
+/* Resize handles */
+.task .r-handle{position:absolute;left:4px;right:4px;height:6px;cursor:ns-resize;z-index:5;
+  background:transparent;transition:background .15s}
+.task .r-handle.t{top:-3px;border-top:2px solid rgba(255,255,255,0)}
+.task .r-handle.b{bottom:-3px;border-bottom:2px solid rgba(255,255,255,0)}
+.task:hover .r-handle.t{border-top-color:var(--blue)}
+.task:hover .r-handle.b{border-bottom-color:var(--blue)}
+.task.resizing{opacity:.7}
+/* Task pool draggable */
+.tp[draggable="true"]{cursor:grab}
+.tp[draggable="true"]:active{cursor:grabbing}
+.tp.dragging{opacity:.4}
+/* Grid drop zone highlight */
+.g-day-col.drop-active{background:var(--blue-dim)}
+/* Insert-break between tasks */
+.ins-break{position:absolute;left:50%;transform:translateX(-50%);z-index:8;height:18px;width:22px;
+  border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);
+  font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  opacity:0;transition:all .15s;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.g-day-col:hover .ins-break{opacity:1}
+.ins-break:hover{background:var(--blue);color:#000;border-color:var(--blue);transform:translateX(-50%) scale(1.15)}
+/* Marquee selection */
+.marquee{position:absolute;border:1.5px dashed var(--blue);background:var(--blue-dim);z-index:15;pointer-events:none;border-radius:4px}
+.task.box-sel{outline:2px solid var(--blue);outline-offset:1px;box-shadow:0 0 0 3px var(--blue-dim);z-index:7}
 /* Fixed blocks overlay */
 .fb-block{position:absolute;left:0;right:0;border-radius:8px;z-index:2;pointer-events:none;
   border:1px dashed}
@@ -867,35 +891,84 @@ function renderTaskPool(){
     const sel=selectedTaskIds.has(p.id);
     const prog=avgProgress(p,kids);
     const expanded=!p.collapsed;
-    html+=`<div class="tp ${sel?'sel':''}" onclick="toggleTaskSel('${p.id}',event)">
+    html+=`<div class="tp ${sel?'sel':''}" draggable="true" ondragstart="poolDragStart(event,'${p.id}')" ondragend="poolDragEnd(event)" onclick="toggleTaskSel('${p.id}',event)" title="拖到右侧时间轴排程">
       <button class="tp-chev" onclick="event.stopPropagation();toggleCollapseTask('${p.id}')"><span class="material-icons-round" style="font-size:13px">${expanded?'expand_more':'chevron_right'}</span></button>
       <input type="checkbox" class="tp-cb" ${sel?'checked':''} onclick="event.stopPropagation();toggleTaskSel('${p.id}')">
       <span class="tp-dot" style="background:${p.color}"></span>
       <div class="tp-info">
         <div class="tp-name">${esc(p.name)}<span style="font-size:8px;color:var(--text3)">${p.duration}min</span></div>
-        <div class="prog-bin"><input type="range" min="0" max="100" value="${prog}" onchange="setTaskProgress('${p.id}',this.value,event)" onclick="event.stopPropagation()"><span style="font-size:9px;color:var(--text3);min-width:24px">${prog}%</span></div>
+        <div class="prog-bin"><span style="font-size:9px;color:var(--text3)">${prog}%</span></div>
       </div>
       <button class="tp-x" onclick="event.stopPropagation();delTask('${p.id}')"><span class="material-icons-round">close</span></button>
     </div>`;
     if(expanded){
       for(const c of kids){
         const csel=selectedTaskIds.has(c.id);
-        html+=`<div class="tp tp-child ${csel?'sel':''}" onclick="toggleTaskSel('${c.id}',event)">
+        html+=`<div class="tp tp-child ${csel?'sel':''}" draggable="true" ondragstart="poolDragStart(event,'${c.id}')" ondragend="poolDragEnd(event)" onclick="toggleTaskSel('${c.id}',event)" title="拖到右侧时间轴排程">
           <input type="checkbox" class="tp-cb" ${csel?'checked':''} onclick="event.stopPropagation();toggleTaskSel('${c.id}')">
           <span class="tp-dot" style="background:${c.color};width:6px;height:6px"></span>
           <div class="tp-info">
             <div class="tp-name">${esc(c.name)}<span style="font-size:8px;color:var(--text3)">${c.duration}min</span></div>
-            <div class="prog-bin"><input type="range" min="0" max="100" value="${c.progress||0}" onchange="setTaskProgress('${c.id}',this.value,event)" onclick="event.stopPropagation()"><span style="font-size:9px;color:var(--text3);min-width:24px">${c.progress||0}%</span></div>
+            <div class="prog-bin"><span style="font-size:9px;color:var(--text3)">${c.progress||0}%</span></div>
           </div>
           <button class="tp-x" onclick="event.stopPropagation();delTask('${c.id}')"><span class="material-icons-round">close</span></button>
         </div>`;
       }
     }
   }
+  html+=`<div style="font-size:9px;color:var(--text3);padding:2px 4px;border-top:1px dashed var(--border);margin-top:4px">⬅ 把任务拖到右侧时间轴即可排程</div>`;
   // orphans (child with missing parent)
   const orphanIds=new Set(childrenOf.map(c=>c.parentId));
   for(const t of tasks){if(t.parentId&&!orphanIds.has(t.parentId)){/*show as parent*/}}
   el.innerHTML=html;
+  // 给每个 g-day-col 挂 dragover/drop（在 renderBody 之后执行）
+  bindGridDropZones();
+}
+// Pool drag: HTML5 drag & drop of task-pool items onto the grid
+let poolDragId=null;
+window.poolDragStart=function(e,id){
+  poolDragId=id;
+  e.dataTransfer.effectAllowed='copy';
+  e.dataTransfer.setData('text/plain',id);
+  e.currentTarget.classList.add('dragging');
+};
+window.poolDragEnd=function(e){e.currentTarget.classList.remove('dragging');poolDragId=null;};
+function bindGridDropZones(){
+  setTimeout(()=>{
+    document.querySelectorAll('.g-day-col').forEach(col=>{
+      if(col._poolDragBound)return;
+      col._poolDragBound=true;
+      col.addEventListener('dragover',e=>{
+        if(poolDragId){
+          e.preventDefault();
+          e.dataTransfer.dropEffect='copy';
+          col.classList.add('drop-active');
+        }
+      });
+      col.addEventListener('dragleave',()=>col.classList.remove('drop-active'));
+      col.addEventListener('drop',e=>{
+        col.classList.remove('drop-active');
+        if(!poolDragId)return;
+        e.preventDefault();
+        const id=poolDragId;
+        poolDragId=null;
+        const t=plan.tasks.find(x=>x.id===id);
+        if(!t)return;
+        if(t.sched){msg('该任务已排程，可直接拖动时间块调整');return;}
+        const dayIdx=parseInt(col.dataset.day);
+        const rect=col.getBoundingClientRect();
+        const relTop=e.clientY-rect.top+col.scrollTop;
+        const start=Math.round(gridMin(relTop)/5)*5;
+        const dur=t.duration||60;
+        if(hasScheduleConflict(dayIdx,start,dur,id)){
+          msg('⚠ 该位置与已有任务或固定时间块重叠');
+          return;
+        }
+        t.sched={dayIdx,startMin:start,durMin:dur};
+        saveNow(false);renderAll();msg('✅ 已排程「'+t.name+'」');
+      });
+    });
+  },50);
 }
 function avgProgress(p,kids){
   if(!kids.length)return p.progress||0;
@@ -1265,11 +1338,29 @@ function renderBody(){
         data-task="${t.id}" data-day="${i}"
         onpointerdown="taskDragStart(event,'${t.id}',${i})"
         onclick="openDetail('${t.id}')"
-        title="点击编辑 · 拖动调整时间">
+        title="点击编辑 · 拖动调整时间 · 上下边缘拉伸时长">
         <div class="t-name"><span class="material-icons-round" style="font-size:10px">${isParent?'task_alt':'subdirectory_arrow_right'}</span>${esc(t.name)}</div>
         <div class="t-time">${min2t(t.sched.startMin)}~${min2t(t.sched.startMin+t.sched.durMin)}</div>
         <div class="t-progbar"><div class="t-progbar-fill" style="width:${prog}%"></div></div>
+        <div class="r-handle t" onpointerdown="taskResizeStart(event,'${t.id}',${i},'top')" onclick="event.stopPropagation()" title="拉伸开始时间"></div>
+        <div class="r-handle b" onpointerdown="taskResizeStart(event,'${t.id}',${i},'bottom')" onclick="event.stopPropagation()" title="拉伸结束时间"></div>
       </div>`;
+    }
+    // insert-break buttons between sorted tasks in this day
+    {
+      const sorted=dayTasks.slice().sort((a,b)=>(a.sched.startMin||0)-(b.sched.startMin||0));
+      for(let si=0;si<sorted.length-1;si++){
+        const a=sorted[si], b=sorted[si+1];
+        const gapTop=gridTop(a.sched.startMin+(a.sched.durMin||a.duration||0));
+        const gapBottom=gridTop(b.sched.startMin);
+        const gap=Math.round((gapBottom-gapTop)/2);
+        if(gapBottom>=gapTop&&gap>=0){
+          const btnTop=Math.max(0,gapTop+Math.min(gap,30));
+          th+=`<button class="ins-break" style="top:${btnTop}px"
+            onclick="event.stopPropagation();insertBreakAt(${i},${b.sched.startMin},this)" title="在此插入休息时间">
+            <span class="material-icons-round" style="font-size:11px">add</span></button>`;
+        }
+      }
     }
     // overlay notes for bound work-block overflow
     for(const fb of fbs){
@@ -1281,7 +1372,7 @@ function renderBody(){
       }
     }
     const flexBasis=tempMode?'':'';
-    html+=`<div class="g-day-col" data-day="${i}" onpointerdown="gridDayClick(${i})" ${tempMode?'style="min-width:300px;flex:1"':''}>
+    html+=`<div class="g-day-col" data-day="${i}" ${tempMode?'style="min-width:300px;flex:1"':''}>
       ${hl}${nl}${fbh}${th}
     </div>`;
   }
@@ -1444,8 +1535,157 @@ function taskDragStart(e,id,dayIdx){
   document.addEventListener('pointerup',onUp);
   document.body.style.userSelect='none';
 }
-// Prevent grid default drag on task children
-document.addEventListener('dragstart',e=>e.preventDefault());
+// Prevent default drag ONLY on grid task elements (not pool items)
+document.addEventListener('dragstart',e=>{
+  if(e.target.closest&&e.target.closest('.task'))e.preventDefault();
+});
+
+// ===== TASK RESIZE (拖拽上下边缘调整时长) =====
+function taskResizeStart(e,id,dayIdx,edge){
+  if(e.button!==0)return;
+  e.preventDefault();
+  e.stopPropagation();
+  const t=plan.tasks.find(x=>x.id===id);
+  if(!t||!t.sched)return;
+  const el=e.currentTarget.closest('.task');
+  const startY=e.clientY;
+  const origStart=t.sched.startMin;
+  const origDur=t.sched.durMin||t.duration||60;
+  el.classList.add('resizing');
+  function onMove(ev){
+    const dy=ev.clientY-startY;
+    const deltaMin=Math.round(dy/HOUR_H*60/5)*5;
+    if(edge==='bottom'){
+      const newDur=Math.max(10,origDur+deltaMin);
+      t.sched.durMin=newDur;
+      el.style.height=Math.max(26,newDur/60*HOUR_H)+'px';
+      el.querySelector('.t-time').textContent=`${min2t(t.sched.startMin)}~${min2t(t.sched.startMin+newDur)}`;
+    }else{
+      const newStart=Math.max(MIN_DAY,Math.min(origStart+deltaMin,origStart+origDur-10));
+      const newDur=origStart+origDur-newStart;
+      t.sched.startMin=newStart;
+      t.sched.durMin=newDur;
+      el.style.top=gridTop(newStart)+'px';
+      el.style.height=Math.max(26,newDur/60*HOUR_H)+'px';
+      el.querySelector('.t-time').textContent=`${min2t(newStart)}~${min2t(newStart+newDur)}`;
+    }
+  }
+  function onUp(ev){
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    el.classList.remove('resizing');
+    // 冲突检测：调整后若重叠则回滚
+    const dur=t.sched.durMin||t.duration||60;
+    if(hasScheduleConflict(t.sched.dayIdx,t.sched.startMin,dur,t.id)){
+      t.sched={dayIdx,startMin:origStart,durMin:origDur};
+      msg('⚠ 调整后与已有任务/固定块重叠，已还原');
+    }
+    saveNow(false);renderGrid();
+  }
+  document.addEventListener('pointermove',onMove);
+  document.addEventListener('pointerup',onUp);
+  document.body.style.userSelect='none';
+}
+
+// ===== INSERT BREAK BETWEEN TASKS =====
+function insertBreakAt(dayIdx,startMin,btn){
+  if(!plan)return;
+  if(btn)btn.style.display='none';
+  const dur=15; // 默认15分钟休息
+  const existing=plan.tasks.find(t=>t && t.sched && t.sched.dayIdx===dayIdx && t.sched.startMin===startMin && t.notes==='__break__');
+  if(existing){msg('该位置已有休息');return;}
+  // 从该位置开始的所有任务后移 duration
+  const shift=plan.tasks.filter(t=>t.sched&&t.sched.dayIdx===dayIdx&&t.sched.startMin>=startMin);
+  shift.sort((a,b)=>a.sched.startMin-b.sched.startMin);
+  for(const t of shift){
+    t.sched.startMin=Math.min(MAX_DAY-dur,t.sched.startMin+dur);
+  }
+  plan.tasks.push({
+    id:uid(),
+    parentId:null,
+    name:'☕ 休息',
+    duration:dur,
+    priority:1,
+    color:'#f5a623',
+    notes:'__break__',
+    progress:0,
+    collapsed:true,
+    sched:{dayIdx,startMin,durMin:dur}
+  });
+  saveNow(false);renderAll();msg('✅ 已插入 15 分钟休息');
+}
+
+// ===== MARQUEE BOX SELECTION =====
+let marqueeState=null;
+function gridMarqueeStart(e,dayIdx){
+  // 仅在没有按住 task、且非拖动任务时启用（按住 Ctrl + 在空白处拖动 = 框选）
+  if(e.button!==0)return;
+  if(e.target.closest('.task')||e.target.closest('.ins-break'))return;
+  const col=e.currentTarget;
+  const rect=col.getBoundingClientRect();
+  const startX=e.clientX,startY=e.clientY;
+  const scrollEl=document.getElementById('gridScroll');
+  marqueeState={col,dayIdx,startX,startY,active:false,el:null};
+  function onMove(ev){
+    if(!marqueeState)return;
+    const dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(!marqueeState.active && (Math.abs(dx)>6||Math.abs(dy)>6)){
+      marqueeState.active=true;
+      marqueeState.el=document.createElement('div');
+      marqueeState.el.className='marquee';
+      col.appendChild(marqueeState.el);
+    }
+    if(marqueeState.active&&marqueeState.el){
+      const x=Math.min(startX,ev.clientX)-rect.left;
+      const y=Math.min(startY,ev.clientY)-rect.top;
+      const w=Math.abs(dx),h=Math.abs(dy);
+      marqueeState.el.style.left=Math.max(0,x)+'px';
+      marqueeState.el.style.top=Math.max(0,y)+'px';
+      marqueeState.el.style.width=Math.max(20,w)+'px';
+      marqueeState.el.style.height=Math.max(20,h)+'px';
+      // highlight covered tasks
+      document.querySelectorAll(`.g-day-col[data-day="${dayIdx}"] .task`).forEach(task=>{
+        const tr=task.getBoundingClientRect();
+        const overlap=!(tr.right<Math.min(startX,ev.clientX)||tr.left>Math.max(startX,ev.clientX)||
+          tr.bottom<Math.min(startY,ev.clientY)||tr.top>Math.max(startY,ev.clientY));
+        task.classList.toggle('box-sel',overlap);
+      });
+    }
+  }
+  function onUp(ev){
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    if(marqueeState&&marqueeState.el)marqueeState.el.remove();
+    // 收集选中的任务ID
+    if(marqueeState&&marqueeState.active){
+      const sel=new Set();
+      document.querySelectorAll('.task.box-sel').forEach(t=>{
+        sel.add(t.dataset.task);
+        t.classList.remove('box-sel');
+        // 如果存在 Select 批量 → 合并到 selectedTaskIds
+        if(selectedTaskIds)selectedTaskIds.add(t.dataset.task);
+      });
+      if(sel.size){updateAiBtnState();renderTaskPool();msg(`已框选 ${sel.size} 个任务`);}
+    }
+    marqueeState=null;
+  }
+  document.addEventListener('pointermove',onMove);
+  document.addEventListener('pointerup',onUp);
+}
+// 在 g-day-col 上挂载 marquee 选择（pointerdown 空白区域）
+function bindGridMarquee(){
+  setTimeout(()=>{
+    document.querySelectorAll('.g-day-col').forEach(col=>{
+      if(col._marqueeBound)return;
+      col._marqueeBound=true;
+      // 需要阻止原来的 gridDayClick，用 pointerdown on 空白
+      col.addEventListener('pointerdown',e=>{
+        if(e.target.closest('.task')||e.target.closest('.ins-break'))return;
+        gridMarqueeStart(e,parseInt(col.dataset.day));
+      });
+    });
+  },50);
+}
 
 // ===== AI SCHEDULING =====
 function runAISchedule(){
@@ -1967,6 +2207,8 @@ function init(){
   setInterval(updateNowLine,60000);
   renderGrid();
   updateAiBtnState();
+  bindGridDropZones();
+  bindGridMarquee();
 }
 document.addEventListener('DOMContentLoaded',init);
 window.addEventListener('beforeunload',()=>saveNow(false));

@@ -3317,6 +3317,13 @@ function getTodayItemTotal(){
   const plan=loadDailyPlan();
   return plan.items.reduce((s,i)=>s+(i.estMin||30),0);
 }
+/** 把分钟格式化为 "X小时X分钟"（小于1小时只显示分钟） */
+function fmtMinDuration(totalMin){
+  const m=Math.max(0,Math.round(totalMin||0));
+  if(m<60) return m+'分钟';
+  const h=Math.floor(m/60), r=m%60;
+  return r>0?`${h}小时${r}分钟`:`${h}小时`;
+}
 
 function renderTodayPlan(){
   const plan=loadDailyPlan();
@@ -3326,7 +3333,7 @@ function renderTodayPlan(){
     dateEl.textContent=`${d.getMonth()+1}/${d.getDate()} · ${['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]}`;
   }
   const totalEl=document.getElementById('todayTotalLbl');
-  if(totalEl) totalEl.innerHTML=`总耗时 <b>${getTodayItemTotal()}</b> min`;
+  if(totalEl) totalEl.innerHTML=`总耗时 <b>${fmtMinDuration(getTodayItemTotal())}</b>`;
   const listEl=document.getElementById('todayList');
   if(!listEl) return;
   if(!plan.items.length){
@@ -3344,7 +3351,7 @@ function renderTodayPlan(){
           <input type="number" value="${item.estMin||30}" min="5" step="5" onchange="updateTodayMin(${i},this.value)" title="预计分钟/单位">
           <span>min</span>
         </span>
-        <span class="today-item-min" title="总耗时">≈ ${(item.count||1)*(item.estMin||30)}min</span>
+        <span class="today-item-min" title="总耗时">≈ ${fmtMinDuration((item.count||1)*(item.estMin||30))}</span>
         <button class="today-item-del" onclick="removeTodayItem(${i})" title="移除">✕</button>
       </div>`;
     }).join('');
