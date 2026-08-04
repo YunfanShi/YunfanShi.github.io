@@ -1348,9 +1348,9 @@
                     start: r.s, end: r.e,
                     time: `${r.s}-${r.e}`,
                     cat: (r.ty === 'b' ? '休息' : '任务'),
-                    detail: r.t,
+                    detail: r.t || r.detail || '任务',
                     type: (r.ty === 'b' ? 'break' : 'study'),
-                    done: false, skipped: false
+                    done: !!r.done, progress: r.progress || 0, id: r.id || '', skipped: false
                 }));
                 saveSchedule(); renderTable();
                 return;
@@ -1382,14 +1382,23 @@
 
     // 监听 TimetableHub 方案切换，实时更新徽章
     window.addEventListener('storage', e => {
-        if (e.key === 'th2_active_plan_id' || e.key === 'th2_plans' || e.key === 'jack_timetable_plan') {
+        if (e.key === 'th2_active_plan_id' || e.key === 'th2_plans' || e.key === 'jack_timetable_plan' ||
+            e.key === 'w3_schedule' || e.key === 'w3_week_plan' || (e.key && e.key.startsWith('jack_timetable_plan_'))) {
             updatePlanBadge();
+            if (viewDayOffset === 0 && (e.key === 'w3_week_plan' || e.key === 'w3_schedule' || (e.key && e.key.startsWith('jack_timetable_plan_')))) {
+                loadSchedule();
+            }
         }
     });
     window.addEventListener('message', e => {
         const d = e.data || {};
         if (d.type === 'timetablehub-updated') {
             updatePlanBadge();
+        }
+        if (d.type === 'timetablehub-deployed') {
+            updatePlanBadge();
+            if (viewDayOffset === 0) { loadSchedule(); }
+            else { viewDayOffset = 0; document.getElementById('day-label-header').textContent = '今天'; loadSchedule(); }
         }
     });
 
@@ -2174,6 +2183,48 @@
 
     // --- 5. DAY SWITCHER ---
     let viewDayOffset = 0;
+    // 目标日期 → YYYY-MM-DD（本地时区）
+    function offsetDateStr(offsetDays) {
+        const d = getNow();
+        d.setDate(d.getDate() + offsetDays);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    // 从 TimetableHub 部署的数据读取某一天的日程（含进度/完成状态），找不到则回退到内置模板
+    function loadDayFromDeployed(targetDay) {
+        const dateStr = offsetDateStr(viewDayOffset);
+        try {
+            const daily = JSON.parse(localStorage.getItem('jack_timetable_plan_' + dateStr));
+            if (daily && daily.date === dateStr && Array.isArray(daily.plan) && daily.plan.length) {
+                STATE.schedule = daily.plan.map(r => ({
+                    start: r.s, end: r.e,
+                    time: `${r.s}-${r.e}`,
+                    cat: (r.ty === 'b' ? '休息' : '任务'),
+                    detail: r.t || r.detail || '任务',
+                    type: (r.ty === 'b' ? 'break' : 'study'),
+                    done: !!r.done, progress: r.progress || 0, id: r.id || ''
+                }));
+                saveSchedule(); renderTable();
+                return true;
+            }
+        } catch(e) {}
+        // 回退：从周计划 w3_week_plan 读取
+        try {
+            const wp = JSON.parse(localStorage.getItem('w3_week_plan'));
+            if (wp && wp.days && Array.isArray(wp.days[dateStr]) && wp.days[dateStr].length) {
+                STATE.schedule = wp.days[dateStr].map(r => ({
+                    start: r.start, end: r.end,
+                    time: `${r.start}-${r.end}`,
+                    cat: r.cat || (r.type === 'break' ? '休息' : '任务'),
+                    detail: r.detail || r.title || '任务',
+                    type: r.type || 'study',
+                    done: !!r.done, progress: r.progress || 0
+                }));
+                saveSchedule(); renderTable();
+                return true;
+            }
+        } catch(e) {}
+        return false;
+    }
     function changeDay(delta) {
         viewDayOffset += delta;
         const todayIdx = getNow().getDay();
@@ -2181,8 +2232,10 @@
         const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
         const cnDays = ["周日","周一","周二","周三","周四","周五","周六"];
         document.getElementById('day-label-header').textContent = viewDayOffset === 0 ? '今天' : cnDays[targetDay];
-        const plan = SCHEDULE_DATA[targetDay] || [];
-        STATE.schedule = JSON.parse(JSON.stringify(plan));
+        if (!loadDayFromDeployed(targetDay)) {
+            const plan = SCHEDULE_DATA[targetDay] || [];
+            STATE.schedule = JSON.parse(JSON.stringify(plan));
+        }
         saveSchedule();
         renderTable();
         document.getElementById('day-label').innerText = `${days[targetDay]}'s Schedule`;

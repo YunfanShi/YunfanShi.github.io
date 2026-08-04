@@ -360,6 +360,8 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   <div class="top-right">
     <button class="tb-btn" id="tempModeBtn" onclick="toggleTempMode()" title="标准日程：周一~周日 · 06:00 开始（点击切换临时）">
       <span class="material-icons-round" id="tempModeIco">calendar_view_week</span><span class="t-lbl" id="tempModeLbl">标准</span></button>
+    <button class="tb-btn" onclick="deployToControl()" title="把整套周计划部署到日程中心（Control）执行" style="color:#34c76a;border:1px solid rgba(52,199,106,.3);background:rgba(52,199,106,.08)">
+      <span class="material-icons-round">rocket_launch</span><span class="t-lbl">部署到日程中心</span></button>
     <button class="tb-btn" onclick="openImportGoal()" title="从 Goal 导入任务"><span class="material-icons-round">download</span><span class="t-lbl">导入</span></button>
     <button class="tb-btn" onclick="saveNow(true)" title="保存"><span class="material-icons-round">save</span><span class="t-lbl">保存</span></button>
     <button class="tb-btn p" onclick="runAISchedule()" id="aiBtn" title="AI 智能排程">
@@ -721,11 +723,52 @@ function pushControlSync(){
   }
   entries.sort((a,b)=>t2min(a.s)-t2min(b.s));
   try{localStorage.setItem('jack_timetable_plan',JSON.stringify({date:todayStr(),plan:entries,source:'timetablehub-v2',updatedAt:new Date().toISOString()}))}catch(e){}
+  // 2.5 按天写入：jack_timetable_plan_{YYYY-MM-DD} — Control 切换明后天时能读到对应天的日程
+  try{
+    for(let day=0;day<7;day++){
+      const d=new Date();d.setDate(d.getDate()+((day-dayOfWeek()+7)%7));
+      const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const dayEntries=[];
+      for(const t of plan.tasks){
+        if(t.sched&&t.sched.dayIdx===day){
+          dayEntries.push({s:min2t(t.sched.startMin),e:min2t(t.sched.startMin+(t.sched.durMin||t.duration)),t:taskNameSafe(t),ty:'s',id:t.id,progress:t.progress||0,done:(t.progress||0)>=100,dayIdx:day});
+        }
+      }
+      for(const fb of plan.fixedBlocks||[]){
+        if(fb.days.includes(day)) dayEntries.push({s:min2t(fb.startMin),e:min2t(fb.endMin),t:taskNameSafe(fb),ty:fb.type==='rest'?'b':'s'});
+      }
+      dayEntries.sort((a,b)=>t2min(a.s)-t2min(b.s));
+      localStorage.setItem('jack_timetable_plan_'+dateStr,JSON.stringify({date:dateStr,plan:dayEntries,source:'timetablehub-v2',updatedAt:new Date().toISOString()}));
+    }
+  }catch(e){}
   // 3. w3_schedule — Control 主日程
   try{
     const w3=entries.map(r=>({start:r.s,end:r.e,title:r.t,detail:r.t,done:!!r.done,progress:r.progress||0,category:r.ty==='b'?'休息':'学习',id:r.id||''}));
     localStorage.setItem('w3_schedule',JSON.stringify(w3));
   }catch(e){}
+  // 3.5 部署到日程中心：七天的周计划一次性写入 w3_week_plan，Control 可读取
+  try{
+    const weekPlan={};
+    for(let day=0;day<7;day++){
+      const d=new Date();d.setDate(d.getDate()+((day-dayOfWeek()+7)%7));
+      const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const dayEntries=[];
+      for(const t of plan.tasks){
+        if(t.sched&&t.sched.dayIdx===day){
+          dayEntries.push({start:min2t(t.sched.startMin),end:min2t(t.sched.startMin+(t.sched.durMin||t.duration)),detail:taskNameSafe(t),cat:'任务',type:'study',done:(t.progress||0)>=100,progress:t.progress||0});
+        }
+      }
+      for(const fb of plan.fixedBlocks||[]){
+        if(fb.days.includes(day)) dayEntries.push({start:min2t(fb.startMin),end:min2t(fb.endMin),detail:taskNameSafe(fb),cat:'休息',type:'break'});
+      }
+      weekPlan[dateStr]=dayEntries.sort((a,b)=>t2min(a.start)-t2min(b.start));
+    }
+    localStorage.setItem('w3_week_plan',JSON.stringify({planName:plan.name,days:weekPlan,updatedAt:new Date().toISOString()}));
+  }catch(e){}
+  // 3.6 部署：向父窗口广播「已部署」消息，Control iframe 收到后刷新
+  if(window.parent!==window){
+    try{window.parent.postMessage({type:'timetablehub-deployed'},'*')}catch(e){}
+  }
   // 4. jackyun_control_events — 兼容
   try{
     const ev=localStorage.getItem('jackyun_control_events');
@@ -747,6 +790,15 @@ window.addEventListener('message',e=>{
   const d=e.data||{};
   if(d.type==='timetablehub-request'){pushControlSync();}
 });
+// 部署到日程中心按钮：把整套周计划（含今天+未来6天）写入 Control 可读的全部 key
+function deployToControl(){
+  if(!plan)return;
+  saveNow(false);
+  // 显式触发一次完整部署（pushControlSync 已在 saveNow 中调用）
+  pushControlSync();
+  const cnt=(plan.tasks||[]).filter(t=>t.sched).length;
+  msg('🚀 已部署到日程中心：'+cnt+' 个已排任务（含一周 7 天）');
+}
 
 // ===== RENDER =====
 function renderAll(){renderPlans();renderTaskPool();renderFbList();renderGrid();renderPlanName();}
@@ -1273,6 +1325,10 @@ function taskDragStart(e,id,dayIdx){
   let curDay=dayIdx;
   const dayCols=[...document.querySelectorAll('.g-day-col')];
   let dragging=true,swappedWith=null;
+  // 是否真的发生了拖动（移动超过 3px）。纯单击时不执行 save/render，
+  // 让 onclick=openDetail 能正常触发，解决「点击时间块无法编辑」。
+  let hasMoved=false;
+  const DRAG_THRESHOLD=3;
   dragState={id,origDay,curDay};
   el.classList.add('drag');
   let raf=0;
@@ -1287,7 +1343,12 @@ function taskDragStart(e,id,dayIdx){
     if(!dragging)return;
     if(raf)cancelAnimationFrame(raf);
     raf=requestAnimationFrame(()=>{
+      const dx=ev.clientX-startX;
       const dy=ev.clientY-startY;
+      // 标记真正发生了拖动（超过阈值），以此区分「单击」与「拖拽」
+      if(!hasMoved && (Math.abs(dx)>DRAG_THRESHOLD || Math.abs(dy)>DRAG_THRESHOLD)){
+        hasMoved=true;
+      }
       const top=Math.max(0,Math.min(gridH()-30,origTop+dy));
       el.style.top=top+'px';
       // day detection
@@ -1326,8 +1387,14 @@ function taskDragStart(e,id,dayIdx){
     document.removeEventListener('pointerup',onUp);
     document.body.style.userSelect='';
     document.querySelectorAll('.task.drop-target').forEach(x=>x.classList.remove('drop-target'));
+    el.classList.remove('drag');
     const t=plan.tasks.find(x=>x.id===id);
     if(!t){return}
+    // 纯单击（无位移）→ 不保存不重渲染，让 onclick=openDetail 正常打开编辑弹窗
+    if(!hasMoved){
+      dragState=null;
+      return;
+    }
     // compute new top from current el position
     const rect=el.getBoundingClientRect();
     const col=el.closest('.g-day-col');
@@ -1337,7 +1404,6 @@ function taskDragStart(e,id,dayIdx){
     // swap detection final
     const under=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.task');
     const swapId=under&&under!==el?under.dataset.task:null;
-    el.classList.remove('drag');
     if(swapId&&swapId!==id){
       // perform swap of sched
       const other=plan.tasks.find(x=>x.id===swapId);
@@ -1453,6 +1519,7 @@ function readAiConfig(){
 }
 function localScheduler(target){
   // Greedy: sort by priority desc, pack into free slots avoiding fixed blocks
+  // 从今天（todayIdx）开始优先排，紧急任务优先落在今明两天；只在每日可用时段内安排
   const changes=[];
   const used=new Set(); // "dayIdx:startMin:endMin" occupied
   // mark fixed blocks occupied
@@ -1461,24 +1528,33 @@ function localScheduler(target){
       for(let m=fb.startMin;m<fb.endMin;m+=5)used.add(`${d}:${Math.floor(m/5)}`);
     }
   }
+  // 每日可用时段
+  const dayR=getDayRange();
+  const rangeStart=dayR.startMin, rangeEnd=dayR.endMin;
   // group children with parent
   const sorted=[...target].sort((a,b)=>(b.priority||3)-(a.priority||3));
-  let day=0;
+  const todayIdx=dayOfWeek(new Date());
   for(const t of sorted){
     const dur=t.duration||60;
     let placed=false;
-    for(let d=0;d<7&&!placed;d++){
-      for(let start=MIN_DAY;start<=MAX_DAY-dur;start+=15){
+    // 从今天开始轮转 7 天（今天 → 明天 → …），让紧急任务优先落在今天或最近几天
+    for(let step=0;step<7&&!placed;step++){
+      const d=(todayIdx+step)%7;
+      // 仅在整个每日可用时段范围内尝试
+      for(let start=rangeStart;start<=rangeEnd-dur;start+=15){
         let ok=true;
         for(let m=start;m<start+dur;m+=5){if(used.has(`${d}:${Math.floor(m/5)}`)){ok=false;break}}
         if(ok){
           for(let m=start;m<start+dur;m+=5)used.add(`${d}:${Math.floor(m/5)}`);
-          changes.push({taskId:t.id,dayIdx:d,startMin:start,durMin:dur,reason:'按优先级自动安排'});
+          const reason=step===0?`安排在${DAY_NAMES[d]}（今天）`:`安排在${DAY_NAMES[d]}（${step}天后）`;
+          changes.push({taskId:t.id,dayIdx:d,startMin:start,durMin:dur,reason});
           placed=true;break;
         }
       }
     }
-    if(!placed){changes.push({taskId:t.id,dayIdx:0,startMin:18*60,durMin:dur,reason:'⚠ 未找到空闲时段（可能与固定块冲突）'})}
+    if(!placed){
+      changes.push({taskId:t.id,dayIdx:todayIdx,startMin:rangeStart,durMin:dur,reason:'⚠ 未找到空闲时段（可能与固定块冲突）'});
+    }
   }
   return changes;
 }
