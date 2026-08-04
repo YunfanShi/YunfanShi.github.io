@@ -1243,6 +1243,23 @@ function updateNowLine(){
 setInterval(updateNowLine,60000);
 
 // ===== DRAG & DROP =====
+// 检测任务与新位置是否与已有任务/固定时间块重叠（排除自身）
+function hasScheduleConflict(dayIdx, startMin, durMin, excludeTaskId){
+  if(durMin<=0) return true;
+  const end=startMin+durMin;
+  // 与已有已排任务重叠
+  for(const ot of plan.tasks){
+    if(ot.id===excludeTaskId||!ot.sched||ot.sched.dayIdx!==dayIdx) continue;
+    const oEnd=ot.sched.startMin+(ot.sched.durMin||ot.duration||0);
+    if(startMin<oEnd&&end>ot.sched.startMin) return true;
+  }
+  // 与固定时间块重叠（work/rest 均不允许压顶）
+  for(const fb of plan.fixedBlocks||[]){
+    if(!fb.days.includes(dayIdx)) continue;
+    if(startMin<fb.endMin&&end>fb.startMin) return true;
+  }
+  return false;
+}
 function taskDragStart(e,id,dayIdx){
   if(e.button!==0)return;
   e.preventDefault();
@@ -1332,9 +1349,19 @@ function taskDragStart(e,id,dayIdx){
         return;
       }
     }
-    // normal move
-    if(!t.sched)t.sched={dayIdx:curDay,startMin:newStart,durMin:t.duration};
-    else{t.sched.dayIdx=curDay;t.sched.startMin=Math.max(MIN_DAY,Math.min(MAX_DAY-t.duration,newStart));}
+    // normal move（带重叠检测：目标位置与已有任务/固定块冲突时拒绝放置）
+    const dur=(t.sched&&t.sched.durMin)||t.duration||60;
+    let proposed;
+    if(!t.sched) proposed={dayIdx:curDay,startMin:newStart,durMin:dur};
+    else proposed={dayIdx:curDay,startMin:newStart,durMin:dur};
+    if(hasScheduleConflict(proposed.dayIdx,proposed.startMin,proposed.durMin,id)){
+      msg('⚠ 该位置与已有任务或固定时间块重叠，已取消移动');
+      renderGrid();
+      dragState=null;
+      return;
+    }
+    t.sched=proposed;
+    t.sched.startMin=Math.max(MIN_DAY,Math.min(MAX_DAY-t.sched.durMin,newStart));
     saveNow(false);renderGrid();
     dragState=null;
   }
