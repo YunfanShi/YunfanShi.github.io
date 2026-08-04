@@ -3538,6 +3538,10 @@ function pushTodayToTimetable(){
           localStorage.setItem('w3_schedule',JSON.stringify(entries.map(r=>({start:r.s,end:r.e,title:r.t,detail:r.t,done:false,category:r.ty==='b'?'休息':'学习'}))));
           window.dispatchEvent(new StorageEvent('storage',{key:'w3_schedule'}));
           window.dispatchEvent(new CustomEvent('timetablehub-updated',{detail:{source:'goal-daily-plan'}}));
+          // 通知父窗口（门户 shell）→ 由父窗口转发给 TimetableHub iframe
+          if(window.parent!==window){
+            try{window.parent.postMessage({type:'goal-daily-plan-pushed',activePlanId:active,plan:p},'*');}catch(e){}
+          }
         }catch(e){}
         // 显示推送结果
         const res=document.getElementById('todayPushRes');

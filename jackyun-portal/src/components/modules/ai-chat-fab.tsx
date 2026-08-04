@@ -1657,6 +1657,7 @@ export default function AiChatFab({
 
   // ════════════════════════════════════════════════════════
   // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
+  // 同时作为门户层消息桥：处理 iframe 导航请求 + Goal→TimetableHub 数据推送转发
   // ════════════════════════════════════════════════════════
   const iframePageRef = useRef<string | null>(null);
 
@@ -1672,6 +1673,32 @@ export default function AiChatFab({
         if (data.type === 'jackyun-open-ai') {
           setOpen(true);
           setTimeout(() => textareaRef.current?.focus(), 100);
+        }
+        // ═══ 门户层路由桥：iframe 内请求跳转到门户页面（修复 Control → TimetableHub 套娃） ═══
+        if (data.type === 'jackyun-navigate') {
+          const href = typeof data.href === 'string' ? data.href : '/';
+          // 顶层跳转（Next.js App Router 页面），避免 iframe 内嵌套加载
+          if (window.location.pathname !== href) {
+            window.location.href = href;
+          }
+        }
+        // ═══ Goal → TimetableHub 数据推送转发：把 Goal 页面写入的方案数据广播给同域 iframe ═══
+        // Goal 页面 pushTodayToTimetable() 后发送 goal-daily-plan-pushed，
+        // 门户层收到后，如果 TimetableHub iframe 存在则转发 message 促使其重载，
+        // 不存在则无需转发（TimetableHub 打开时会自动从 localStorage 读取最新数据）。
+        if (data.type === 'goal-daily-plan-pushed') {
+          try {
+            const frames = document.querySelectorAll('iframe');
+            frames.forEach((f) => {
+              try {
+                const src = (f.getAttribute('src') || f.title || '').toLowerCase();
+                if (src.includes('timetablehub')) {
+                  // 若 TimetableHub iframe 已挂载，转发同步消息让其 reload 最新方案
+                  f.contentWindow?.postMessage({ type: 'timetablehub-sync', from: 'portal-bridge' }, '*');
+                }
+              } catch {}
+            });
+          } catch {}
         }
       } catch {}
     }
