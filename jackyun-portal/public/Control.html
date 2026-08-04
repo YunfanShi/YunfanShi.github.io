@@ -1444,7 +1444,42 @@
     function toggleTask(idx) {
         STATE.schedule[idx].done = !STATE.schedule[idx].done;
         saveSchedule(); renderTable();
+        cloudSyncControl();
     }
+
+    // ===== CONTROL CLOUD SYNC (30天滑动窗口 + 压缩) =====
+    // 将 CONTROL 当天日程（含完成状态）压缩后写入云端 th_state.controlSchedules
+    function compressControlDay() {
+        const d = getNow();
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const items = (STATE.schedule || []).map(s => ({
+            s: timeToMinutes(s.start),
+            e: timeToMinutes(s.end),
+            n: s.detail || s.cat || '任务',
+            ty: s.type === 'break' ? 'b' : 's',
+            d: s.done ? 1 : 0
+        })).sort((a,b)=>a.s-b.s);
+        return { [dateStr]: { t: items, u: new Date().toISOString() } };
+    }
+    async function cloudSyncControl() {
+        try {
+            const res = await fetch('/api/timetable-sync', { method: 'GET' });
+            const existing = await res.json();
+            const prev = existing.ok && existing.th_state && typeof existing.th_state === 'object' ? existing.th_state : {};
+            const merged = { ...(prev.controlSchedules && typeof prev.controlSchedules === 'object' ? prev.controlSchedules : {}), ...compressControlDay() };
+            // 30天滑动窗口
+            const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+            const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
+            Object.keys(merged).forEach(k => { if (k < cutoffStr) delete merged[k]; });
+            await fetch('/api/timetable-sync', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ th_state: { ...prev, controlSchedules: merged } })
+            });
+        } catch(e) { /* 静默失败：离线/未登录时仅本地保存 */ }
+    }
+    // 定时同步（每5分钟 + 页面卸载时）
+    setInterval(() => { try { cloudSyncControl(); } catch(e){} }, 5 * 60 * 1000);
+    window.addEventListener('beforeunload', () => { try { cloudSyncControl(); } catch(e){} });
 
     let lastHighlightedIdx = -1;
     function highlightRow(activeTask) {
