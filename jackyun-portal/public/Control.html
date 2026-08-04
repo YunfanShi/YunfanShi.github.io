@@ -1174,7 +1174,7 @@
             const start = timeToMinutes(currentSlot.start);
             const end = timeToMinutes(currentSlot.end);
             const remaining = (end * 60) - curTotalS;
-            updateTimer(currentSlot.cat + ' ✅', remaining, (end - start) * 60, false);
+            updateTimer(getTaskLabel(currentSlot) + ' ✅', remaining, (end - start) * 60, false);
             STATE.lastTaskName = currentSlot.task;
             highlightRow(currentSlot);
             return;
@@ -1200,12 +1200,21 @@
             const start = timeToMinutes(currentSlot.start);
             const end = timeToMinutes(currentSlot.end);
             const remaining = (end * 60) - curTotalS;
-            updateTimer(currentSlot.cat, remaining, (end - start) * 60, false);
+            updateTimer(getTaskLabel(currentSlot), remaining, (end - start) * 60, false);
         } else {
             updateTimer("FREE TIME", 0, 100, false);
             STATE.lastTaskName = null;
             document.getElementById('btn-early').classList.remove('visible');
         }
+    }
+
+    /* ======================== TIMER LABEL HELPER ======================== */
+    function getTaskLabel(slot) {
+        // TimetableHub synced tasks put the real name in `detail` and `cat` is generic "任务"
+        if (slot.detail && slot.detail !== '任务' && slot.detail !== slot.cat) {
+            return slot.detail;
+        }
+        return slot.cat;
     }
 
     /* ======================== TASK START DIALOG ======================== */
