@@ -387,6 +387,16 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     </div>
     <div id="fbList"></div>
 
+    <div class="sb-sec"><span class="material-icons-round">wb_sunny</span><span class="sb-sec-t">每日可用时段</span></div>
+    <div style="padding:0 4px 8px">
+      <div class="fr" style="gap:5px;margin-bottom:6px">
+        <div class="fg" style="margin-bottom:0"><label class="fl">开始</label><input class="fi" type="time" id="dayStartInp" value="06:00" style="font-size:11px;padding:6px"></div>
+        <div class="fg" style="margin-bottom:0"><label class="fl">结束</label><input class="fi" type="time" id="dayEndInp" value="24:00" style="font-size:11px;padding:6px"></div>
+      </div>
+      <button class="btn btn-o btn-sm btn-w" onclick="saveDayRange()">保存时段</button>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.4">AI 排程时只在此时段内安排任务</div>
+    </div>
+
     <div class="sb-sec"><span class="material-icons-round">info</span><span class="sb-sec-t">数据</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px">
       <button class="btn btn-o btn-sm" onclick="expD()">↑ 导出</button>
@@ -609,6 +619,26 @@ function t2min(t){const[h,m]=String(t).split(':').map(Number);return h*60+m}
 function dayOfWeek(d=new Date()){return (d.getDay()+6)%7} // Mon=0 ... Sun=6
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 
+// ===== 每日可用时段 =====
+function getDayRange(){
+  try{
+    const r=JSON.parse(localStorage.getItem('th2_day_range')||'null');
+    if(r&&typeof r.startMin==='number'&&typeof r.endMin==='number'&&r.endMin>r.startMin)return r;
+  }catch(e){}
+  return {startMin:6*60,endMin:24*60};
+}
+function saveDayRange(){
+  const st=t2min($('dayStartInp').value),en=t2min($('dayEndInp').value);
+  if(en<=st){msg('结束时间需晚于开始时间');return}
+  localStorage.setItem('th2_day_range',JSON.stringify({startMin:st,endMin:en}));
+  msg('✅ 已保存每日可用时段 '+min2t(st)+'~'+min2t(en));
+}
+function applyDayRangeInputs(){
+  const r=getDayRange();
+  if($('dayStartInp'))$('dayStartInp').value=min2t(r.startMin);
+  if($('dayEndInp'))$('dayEndInp').value=min2t(r.endMin);
+}
+
 // ===== PERSISTENCE =====
 function saveNow(showMsg){
   if(!plan)return;
@@ -663,12 +693,22 @@ function clearAiPreview(){
 }
 
 // ===== CONTROL SYNC (双写保证 Control 能看到) =====
+function taskNameSafe(t){return (t&&(typeof t.name==='string'?t.name:(typeof t.title==='string'?t.title:''))||'未命名任务')}
 function pushControlSync(){
   if(!plan)return;
-  // 1. 旧版计划 jack_timetable_plan — Control 直接读取
+  // 1. 旧版计划 jack_timetable_plan — Control 直接读取（含进度/完成状态/任务ID）
   const entries=[];
   for(const t of plan.tasks){
-    if(t.sched){entries.push({s:min2t(t.sched.startMin),e:min2t(t.sched.startMin+t.sched.durMin),t:t.name,ty:'s'})}
+    if(t.sched){entries.push({
+      s:min2t(t.sched.startMin),
+      e:min2t(t.sched.startMin+t.sched.durMin),
+      t:taskNameSafe(t),
+      ty:'s',
+      id:t.id,
+      progress:t.progress||0,
+      done:(t.progress||0)>=100,
+      dayIdx:t.sched.dayIdx
+    })}
   }
   // 2. 固定块作为休息/占用时段
   for(const fb of plan.fixedBlocks||[]){
@@ -677,13 +717,13 @@ function pushControlSync(){
         const d=new Date();d.setDate(d.getDate()+(i-dayOfWeek()+7)%7);
       }
     }
-    entries.push({s:min2t(fb.startMin),e:min2t(fb.endMin),t:fb.name,ty:fb.type==='rest'?'b':'s'});
+    entries.push({s:min2t(fb.startMin),e:min2t(fb.endMin),t:taskNameSafe(fb),ty:fb.type==='rest'?'b':'s'});
   }
   entries.sort((a,b)=>t2min(a.s)-t2min(b.s));
   try{localStorage.setItem('jack_timetable_plan',JSON.stringify({date:todayStr(),plan:entries,source:'timetablehub-v2',updatedAt:new Date().toISOString()}))}catch(e){}
   // 3. w3_schedule — Control 主日程
   try{
-    const w3=entries.map(r=>({start:r.s,end:r.e,title:r.t,detail:r.t,done:false,category:r.ty==='b'?'休息':'学习'}));
+    const w3=entries.map(r=>({start:r.s,end:r.e,title:r.t,detail:r.t,done:!!r.done,progress:r.progress||0,category:r.ty==='b'?'休息':'学习',id:r.id||''}));
     localStorage.setItem('w3_schedule',JSON.stringify(w3));
   }catch(e){}
   // 4. jackyun_control_events — 兼容
@@ -1163,7 +1203,8 @@ function renderBody(){
       th+=`<div class="task ${isParent?'task-parent':'task-child'}" style="top:${Math.max(0,top)}px;height:${Math.max(h,26)}px;background:${t.color}${isParent?'':''};left:4px;right:4px"
         data-task="${t.id}" data-day="${i}"
         onpointerdown="taskDragStart(event,'${t.id}',${i})"
-        ondblclick="openDetail('${t.id}')">
+        onclick="openDetail('${t.id}')"
+        title="点击编辑 · 拖动调整时间">
         <div class="t-name"><span class="material-icons-round" style="font-size:10px">${isParent?'task_alt':'subdirectory_arrow_right'}</span>${esc(t.name)}</div>
         <div class="t-time">${min2t(t.sched.startMin)}~${min2t(t.sched.startMin+t.sched.durMin)}</div>
         <div class="t-progbar"><div class="t-progbar-fill" style="width:${prog}%"></div></div>
@@ -1202,6 +1243,23 @@ function updateNowLine(){
 setInterval(updateNowLine,60000);
 
 // ===== DRAG & DROP =====
+// 检测任务与新位置是否与已有任务/固定时间块重叠（排除自身）
+function hasScheduleConflict(dayIdx, startMin, durMin, excludeTaskId){
+  if(durMin<=0) return true;
+  const end=startMin+durMin;
+  // 与已有已排任务重叠
+  for(const ot of plan.tasks){
+    if(ot.id===excludeTaskId||!ot.sched||ot.sched.dayIdx!==dayIdx) continue;
+    const oEnd=ot.sched.startMin+(ot.sched.durMin||ot.duration||0);
+    if(startMin<oEnd&&end>ot.sched.startMin) return true;
+  }
+  // 与固定时间块重叠（work/rest 均不允许压顶）
+  for(const fb of plan.fixedBlocks||[]){
+    if(!fb.days.includes(dayIdx)) continue;
+    if(startMin<fb.endMin&&end>fb.startMin) return true;
+  }
+  return false;
+}
 function taskDragStart(e,id,dayIdx){
   if(e.button!==0)return;
   e.preventDefault();
@@ -1291,9 +1349,19 @@ function taskDragStart(e,id,dayIdx){
         return;
       }
     }
-    // normal move
-    if(!t.sched)t.sched={dayIdx:curDay,startMin:newStart,durMin:t.duration};
-    else{t.sched.dayIdx=curDay;t.sched.startMin=Math.max(MIN_DAY,Math.min(MAX_DAY-t.duration,newStart));}
+    // normal move（带重叠检测：目标位置与已有任务/固定块冲突时拒绝放置）
+    const dur=(t.sched&&t.sched.durMin)||t.duration||60;
+    let proposed;
+    if(!t.sched) proposed={dayIdx:curDay,startMin:newStart,durMin:dur};
+    else proposed={dayIdx:curDay,startMin:newStart,durMin:dur};
+    if(hasScheduleConflict(proposed.dayIdx,proposed.startMin,proposed.durMin,id)){
+      msg('⚠ 该位置与已有任务或固定时间块重叠，已取消移动');
+      renderGrid();
+      dragState=null;
+      return;
+    }
+    t.sched=proposed;
+    t.sched.startMin=Math.max(MIN_DAY,Math.min(MAX_DAY-t.sched.durMin,newStart));
     saveNow(false);renderGrid();
     dragState=null;
   }
@@ -1342,10 +1410,10 @@ function buildAiContext(target){
 }
 async function callScheduleAi(ctx){
   const config=readAiConfig();
-  if(!config||!config.apiKey){throw new Error('no-config')}
   const system=`你是时间表编辑器中的智能排程助手。用户选中了一批待排任务，请为他们安排到一周七天的时间轴上。
 约束：
-- 时间轴范围 06:00-24:00
+- 今天是${WEEK_CN[dayOfWeek(new Date())]}（dayIdx ${dayOfWeek(new Date())}），注意把紧急任务优先安排在今天或最近几天
+- 每日可用时段：${min2t(getDayRange().startMin)} - ${min2t(getDayRange().endMin)}（只在此范围内安排，startMin 不得早于 ${getDayRange().startMin} 也不得晚于 ${getDayRange().endMin}）
 - 固定时间块（type=work 专注 / rest 强制休息）不可被任务占用（休息块内严禁放任务）
 - 高优先级任务优先安排在精力最好的时段；同一父任务下的子任务尽量连续或相邻
 - 返回严格 JSON：{"changes":[{"taskId":"...","dayIdx":0-6,"startMin":分钟数(如 540=09:00),"durMin":分钟,"reason":"简要中文说明"}]}
@@ -1354,10 +1422,14 @@ async function callScheduleAi(ctx){
 只返回 JSON，不要其他文字。`;
   const user=JSON.stringify(ctx);
   try{
+    const controller=typeof AbortController!=='undefined'?new AbortController():null;
+    const timeout=controller?setTimeout(()=>controller.abort(),30000):null;
     const resp=await fetch('/api/llm-proxy',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({messages:[{role:'system',content:system},{role:'user',content:user}],model:config.model||'deepseek-chat',temperature:0.3})
+      body:JSON.stringify({messages:[{role:'system',content:system},{role:'user',content:user}],model:(config&&config.model)||'deepseek-chat',temperature:0.3}),
+      signal:controller?controller.signal:undefined
     });
+    if(timeout)clearTimeout(timeout);
     if(!resp.ok)throw new Error('llm-fail');
     const data=await resp.json();
     let text='';
@@ -1375,9 +1447,9 @@ function extractJson(text){
   return null;
 }
 function readAiConfig(){
-  try{const raw=localStorage.getItem(CONFIG_LS);if(raw)return JSON.parse(raw)}catch(e){}
-  // also check old keys
-  try{return {apiKey:localStorage.getItem('thc')?null:null,model:'deepseek-chat'}}catch(e){return null}
+  try{const raw=localStorage.getItem(CONFIG_LS);if(raw){const c=JSON.parse(raw);if(c)return c}}catch(e){}
+  // 门户 iframe 内可能没有本地 key（由服务端 llm-proxy 统一提供），返回空但允许继续调用
+  return null;
 }
 function localScheduler(target){
   // Greedy: sort by priority desc, pack into free slots avoiding fixed blocks
@@ -1502,38 +1574,41 @@ async function aiChatSend(){
   msgs.scrollTop=msgs.scrollHeight;
   aiChatHist.push({role:'user',content:txt});
   const config=readAiConfig();
-  if(!config||!config.apiKey){
-    msgs.innerHTML+=`<div class="ai-pm a">⚠ 未配置 AI。先用本地规则处理常用指令…</div>`;
-    handleLocalRefine(txt).then(()=>{$('aiChatBtn').disabled=false;});
-    return;
-  }
+  const dayR=getDayRange();
   // build base context
   const target=plan.tasks.filter(t=>aiPending?true:(!t.sched));
   const ctx=buildAiContext(plan.tasks);
-  const system=`你是时间表编辑器内的对话微调助手。当前有 ${aiPending?aiPending.changes.length:0} 条待应用的变更。用户输入自然语言指令来调整排程。
+  const system=`你是时间表编辑器内的对话微调助手。今天是${WEEK_CN[dayOfWeek(new Date())]}。每日可用时段：${min2t(dayR.startMin)} - ${min2t(dayR.endMin)}。当前有 ${aiPending?aiPending.changes.length:0} 条待应用的变更。用户输入自然语言指令来调整排程。
 支持操作：整体偏移、互换两个任务、修改单个任务时间/时长、取消某任务。
 请返回严格 JSON：{"changes":[{"taskId":"...","dayIdx":0-6,"startMin":0-1440,"durMin":5-600,"reason":"..."}]}
 如果用户说要"互换A和B"，返回两条 change 并用 swapPending = [taskIdA, taskIdB] 字段标记。
-时间轴 06:00-24:00，避开 fixedBlocks：${JSON.stringify((plan.fixedBlocks||[]).map(f=>({name:f.name,type:f.type,start:min2t(f.startMin),end:min2t(f.endMin),days:f.days})))}`;
+只允许在每日可用时段内安排（startMin 在 ${dayR.startMin}-${dayR.endMin} 之间），避开 fixedBlocks：${JSON.stringify((plan.fixedBlocks||[]).map(f=>({name:f.name,type:f.type,start:min2t(f.startMin),end:min2t(f.endMin),days:f.days})))}`;
   const messages=[{role:'system',content:system},...aiChatHist];
-  try{
-    const resp=await fetch('/api/llm-proxy',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({messages,model:config.model||'deepseek-chat',temperature:0.2})});
-    const data=await resp.json();
-    let text=data.choices?data.choices[0].message.content:(data.output||'');
-    const json=extractJson(text);
-    if(json&&json.changes){
-      msgs.innerHTML+=`<div class="ai-pm a">✅ 已重新计算 ${json.changes.length} 条调整</div>`;
-      applyAiChanges(json.changes,true);
-    }else{
-      msgs.innerHTML+=`<div class="ai-pm a">⚠ 未理解指令，请换一种说法</div>`;
+  const doCall=async()=>{
+    const controller=typeof AbortController!=='undefined'?new AbortController():null;
+    const timeout=controller?setTimeout(()=>controller.abort(),30000):null;
+    try{
+      const resp=await fetch('/api/llm-proxy',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages,model:(config&&config.model)||'deepseek-chat',temperature:0.2}),
+        signal:controller?controller.signal:undefined});
+      if(timeout)clearTimeout(timeout);
+      const data=await resp.json();
+      let text=data.choices?data.choices[0].message.content:(data.output||'');
+      const json=extractJson(text);
+      if(json&&json.changes){
+        msgs.innerHTML+=`<div class="ai-pm a">✅ 已重新计算 ${json.changes.length} 条调整</div>`;
+        applyAiChanges(json.changes,true);
+      }else{
+        msgs.innerHTML+=`<div class="ai-pm a">⚠ 未理解指令，请换一种说法</div>`;
+      }
+    }catch(e){
+      msgs.innerHTML+=`<div class="ai-pm a">⚠ AI 调用失败：${esc(e.message)}。尝试本地解析…</div>`;
+      await handleLocalRefine(txt);
     }
-  }catch(e){
-    msgs.innerHTML+=`<div class="ai-pm a">⚠ AI 调用失败：${esc(e.message)}。尝试本地解析…</div>`;
-    handleLocalRefine(txt);
-  }
-  $('aiChatBtn').disabled=false;
-  aiChatHist.push({role:'assistant',content:'ok'});
+    $('aiChatBtn').disabled=false;
+    aiChatHist.push({role:'assistant',content:'ok'});
+  };
+  doCall();
 }
 async function handleLocalRefine(txt){
   const tryAll=JSON.stringify(plan).toLowerCase();
@@ -1713,13 +1788,25 @@ function init(){
   // 恢复临时模式设置
   try{tempMode=localStorage.getItem(LS_TEMP_MODE)==='1'}catch(e){}
   applyTempMode();
+  applyDayRangeInputs();
   loadAll();
   // sidebar default collapsed — already collapsed by CSS
+  // 监听外部（Goal 推送 / AI 工具）对方案数据的修改 → 自动重载
   window.addEventListener('storage',e=>{
-    if(e.key===LS_ACTIVE||e.key===LS_PLANS||(e.key&&e.key.startsWith(LS_PLANS))){
-      // external change (e.g. Control or AI tools modified) → reload
-      const reqId=e.key===LS_ACTIVE;
-      if(reqId&&e.newValue!==planId){loadAll();renderAll();}
+    const k=e.key;
+    if(k===LS_ACTIVE||k===LS_PLANS||(k&&k.startsWith(LS_PLANS))||k==='jack_timetable_plan'||k==='w3_schedule'){
+      if(k===LS_ACTIVE&&e.newValue!==planId){loadAll();renderAll();return;}
+      // 方案详情变化：仅当前激活方案重载，避免重复初始化
+      if(k&&k.startsWith(LS_PLANS)&&k===LS_PLANS+planId){
+        loadAll();renderAll();
+      }
+    }
+  });
+  // 请求父窗口把最新方案同步给我们（iframe 内 storage 不跨 iframe 触发）
+  window.addEventListener('message',e=>{
+    const d=e.data||{};
+    if(d.type==='goal-daily-plan-pushed'||d.type==='timetablehub-sync'){
+      loadAll();renderAll();msg('📥 已同步最新日程数据');
     }
   });
   // request latest plan from parent if this is in iframe (Control sync)

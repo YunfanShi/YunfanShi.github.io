@@ -739,13 +739,15 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 #### 12.2 日程中心 (`/timetable-hub`)
 - 嵌入 `TimetableHub.html` v2（Legacy Frame）—— 时间表编辑器
-- 一周七天时间轴（06:00-24:00），任务块拖拽调时/互换、双击编辑详情（开始/结束/时长三联动）
+- 一周七天时间轴（06:00-24:00），任务块可**单击**打开编辑详情（开始/结束/时长三联动）、拖拽调时/互换；拖动时自动检测重叠避免任务互压
 - 任务蓝图：主/子任务层级、默认折叠、独立进度条（0-100%）
-- AI 智能排程：选中任务 → 自动避开固定时间块按优先级填充 → 变更预览面板逐条接受/拒绝 → 全部应用才生效
+- AI 智能排程：选中任务 → 自动避开固定时间块按优先级填充 → 变更预览面板逐条接受/拒绝 → 全部应用才生效；AI 感知今天是周几，紧急任务优先排到今天或最近几天
+- **每日可用时段**：侧边栏可设置每天几点到几点才有空（`th2_day_range`），AI 排程只在此范围内安排任务
 - 固定时间块（硬约束）：专注块可挂任务组自动顺排 + 超时红提示；休息块不可挂载
 - 多套方案管理：创建/复制/删除/一键切换，localStorage `th2_plans` / `th2_plan_{id}`
 - **临时日程模式**：顶部「标准/临时」切换按钮。临时模式仅显示今天、时间轴从当前时间开始到 24:00，适合快速安排今日剩余时间
-- Control 双向同步：改动即时写回 `w3_schedule` / `jack_timetable_plan` / `jackyun_control_events`
+- Control 双向同步：改动即时写回 `w3_schedule` / `jack_timetable_plan` / `jackyun_control_events`，含任务名、进度、完成状态（不再出现 `undefined`）
+- 接收 Goal「推送到日程表」后经门户桥实时刷新（iframe 内 storage 不跨 iframe，故通过 postMessage 广播）
 - 侧边栏默认收起，支持父框架 postMessage 收左栏避免双层侧边栏冲突
 - AI 工具：`th_read_plans` `th_read_plan` `th_add_task` `th_delete_task` `th_move_task` `th_shift_add` `th_swap_tasks` `th_add_fixed_block`（写入 ai-tools.ts）
 
