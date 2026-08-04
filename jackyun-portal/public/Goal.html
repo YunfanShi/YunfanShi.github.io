@@ -413,6 +413,7 @@ option{background:#1a1a1a;}
   </div>
   <div class="topbar-r">
     <button class="btn btn-ai" onclick="openAIHub()">✦ AI 助手</button>
+    <button class="btn btn-ghost" onclick="openProgressReport()">📊 学习进度</button>
     <button class="btn btn-ghost" onclick="openCdSettings()">⏱ 倒计时</button>
     <button class="btn btn-ghost" onclick="openSettings()">⚙ 设置</button>
     <button class="btn btn-ghost" onclick="exportData()">↑ 导出</button>
@@ -574,6 +575,10 @@ option{background:#1a1a1a;}
       <div class="fg" style="margin-top:12px;">
         <label class="flbl">备注（可选）</label>
         <input class="fi" id="qNote" placeholder="这次更新的说明…" maxlength="80">
+      </div>
+      <div class="fg" style="margin-top:4px;">
+        <label class="flbl">⏱ 使用时间 <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0;">（选填，分钟）</span></label>
+        <input class="fi" id="qUseTime" type="number" min="0" placeholder="" style="width:120px;">
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;">
         <input type="checkbox" id="qIsHistorical" style="width:15px;height:15px;accent-color:var(--yellow);cursor:pointer;">
@@ -900,6 +905,26 @@ option{background:#1a1a1a;}
       onclick="applyWardenSync()">✓ 同步到目标</button>
   </div>
 </div>
+<!-- PROGRESS REPORT MODAL -->
+<div class="overlay" id="progressReportModal">
+  <div class="modal wide" style="max-width:780px;max-height:88vh;display:flex;flex-direction:column;">
+    <div class="mhd"><span style="font-size:18px;">📊</span> 学习进度报告
+      <button class="btn btn-ico del" style="margin-left:auto;width:30px;height:30px;" onclick="closeM('progressReportModal')" title="关闭">✕</button>
+    </div>
+    <div class="mbody" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:0;">
+      <!-- Tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <button class="btn btn-ai" id="prTabToday" style="font-size:13px;" onclick="prSwitchTab('today')">📋 今日任务</button>
+        <button class="btn btn-ghost" id="prTabRecords" style="font-size:13px;" onclick="prSwitchTab('records')">📅 任务记录</button>
+      </div>
+      <!-- Tab: Today Tasks -->
+      <div id="prTodayView" style="flex:1;overflow-y:auto;min-height:0;"></div>
+      <!-- Tab: Records (Calendar) -->
+      <div id="prRecordsView" style="flex:1;overflow-y:auto;min-height:0;display:none;"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2838,6 +2863,7 @@ function openProg(id){
   document.getElementById('progMTitle').textContent='更新进度 — '+g.name;
   document.getElementById('qDone').value=g.done||0;document.getElementById('qTotal').value=g.total;
   document.getElementById('qUnitLabel').textContent=g.unit||'';document.getElementById('qNote').value='';
+  const qt=document.getElementById('qUseTime'); if(qt) qt.value='';
   if(document.getElementById('qIsHistorical'))document.getElementById('qIsHistorical').checked=false;
   const p=getPct(g);document.getElementById('qPctDisplay').textContent=p+'%';
   // 无上限任务显示连续累积提示
@@ -2881,11 +2907,17 @@ function saveQ(){
   const tv=Number.isFinite(tvRaw)&&tvRaw>=0?tvRaw:0; // 0=无上限
   const note=document.getElementById('qNote').value.trim();
   const isHistorical=document.getElementById('qIsHistorical')?.checked||false;
+  const useTime=Math.max(0,parseInt(document.getElementById('qUseTime')?.value)||0);
   const g=goals.find(x=>x.id===quickId);
   if(g){
     g.done=tv>0?Math.min(dv,tv):dv;g.total=tv;
     if(!g.history)g.history=[];
     g.history.push({date:new Date().toISOString().slice(0,10),done:g.done,total:g.total,note,isHistorical});
+    // 记录使用时间（与 Goal 计时数据格式一致）
+    if(useTime>0){
+      if(!g.sessions) g.sessions=[];
+      g.sessions.push({date:today(),minutes:useTime,note:note||'手动记录',delta:0});
+    }
     // invalidate old pred
     delete aiPreds[quickId];savePreds();
   }
@@ -3474,11 +3506,22 @@ function pushTodayToTimetable(){
   // 贪心填充空档
   let cursor=Math.max(8*60,cursorNow()); // 从当前时间或 8:00 开始
   if(cursorNow()>8*60)cursor=cursorNow();
+  // 部署时间模式支持（从现在开始 / 设定时间）
+  try{
+    const ds=window.__deploySettings||{mode:'now',start:'08:00',end:'22:00'};
+    if(ds.mode==='scheduled'){
+      cursor=t2min(ds.start||'08:00');
+    }else{
+      cursor=Math.max(8*60,cursorNow());
+      if(cursorNow()>8*60)cursor=cursorNow();
+    }
+  }catch(e){}
+  const deployEndLimit=(window.__deploySettings&&window.__deploySettings.mode==='scheduled')?t2min(window.__deploySettings.end||'22:00'):24*60;
   const schedule=[];
   plan.items.forEach(item=>{
     const dur=(item.count||1)*(item.estMin||30);
     let placed=false;
-    while(cursor<24*60){
+    while(cursor<deployEndLimit){
       const conflict=occupied.some(([s,e])=>cursor<e&&cursor+dur>s);
       if(!conflict){schedule.push({name:item.name,start:cursor,end:cursor+dur,goalId:item.goalId});cursor+=dur;placed=true;break;}
       // 跳到冲突结束
@@ -3486,8 +3529,8 @@ function pushTodayToTimetable(){
       cursor=next||cursor+30;
     }
     if(!placed){// 放到最晚可用位置
-      const gap=occupied[occupied.length-1]?occupied[occupied.length-1][1]:18*60;
-      if(gap+dur<=24*60){schedule.push({name:item.name,start:gap,end:gap+dur});}
+      const gap=occupied[occupied.length-1]?occupied[occupied.length-1][1]:deployEndLimit;
+      if(gap+dur<=deployEndLimit){schedule.push({name:item.name,start:gap,end:gap+dur});}
     }
   });
   // 写入 TimetableHub 当前方案：追加任务并排程
@@ -3973,5 +4016,6 @@ try {
 checkWardenSync();
 window.addEventListener('focus', checkWardenSync);
 </script>
+<script src="GoalFeatures.js"></script>
 </body>
 </html>

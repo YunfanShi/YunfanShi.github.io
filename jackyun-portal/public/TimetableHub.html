@@ -381,6 +381,15 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     <div class="sb-sec"><span class="material-icons-round">task_alt</span><span class="sb-sec-t">任务池</span>
       <button class="sb-sec-a" onclick="openTaskModal()"><span class="material-icons-round" style="font-size:13px">add</span>任务</button>
       <button class="sb-sec-a" onclick="openImportGoal()">📥 import</button>
+      <button class="sb-sec-a" id="batchModeBtn" onclick="toggleBatchMode()">⚡ 批量</button>
+    </div>
+    <!-- Batch action bar -->
+    <div id="batchActionBar" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:8px;margin-top:6px;gap:6px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:11px;color:var(--text2);flex:1;min-width:60px;"><b id="batchCount">0</b> 已选</span>
+      <button class="sb-sec-a" onclick="batchDelete()" style="color:var(--red);">🗑 删除</button>
+      <button class="sb-sec-a" onclick="batchDelay()">⏰ 延迟</button>
+      <button class="sb-sec-a" onclick="batchEdit()">📝 编辑</button>
+      <button class="sb-sec-a" onclick="batchClear()">✕ 取消</button>
     </div>
     <div class="task-pool" id="taskPool"></div>
 
@@ -1860,6 +1869,72 @@ document.addEventListener('keydown',e=>{
 // the new page expects centralized config; fallback silently if absent
 
 // ===== INIT =====
+// ===== BATCH OPERATIONS =====
+let batchMode=false;
+function toggleBatchMode(){
+  batchMode=!batchMode;
+  const bar=$('batchActionBar');
+  const btn=$('batchModeBtn');
+  if(bar) bar.style.display=batchMode?'flex':'none';
+  if(btn) btn.style.color=batchMode?'var(--green)':'';
+  if(!batchMode) batchClear();
+  updateBatchCount();
+}
+function updateBatchCount(){
+  const n=selectedTaskIds.size;
+  const el=$('batchCount');
+  if(el) el.textContent=n;
+}
+function batchClear(){
+  selectedTaskIds.clear();
+  renderTaskPool();
+  updateBatchCount();
+}
+function batchDelete(){
+  if(selectedTaskIds.size===0){msg('请先选择任务');return}
+  if(!confirm(`删除选中的 ${selectedTaskIds.size} 个任务？`))return;
+  plan.tasks=plan.tasks.filter(t=>!selectedTaskIds.has(t.id));
+  for(const fb of plan.fixedBlocks||[])fb.tasks=fb.tasks.filter(x=>!selectedTaskIds.has(x.taskId));
+  selectedTaskIds.clear();
+  saveNow(false);renderAll();msg('✅ 已批量删除');
+}
+function batchDelay(){
+  if(selectedTaskIds.size===0){msg('请先选择任务');return}
+  const v=prompt(`为选中的 ${selectedTaskIds.size} 个任务统一延迟多少分钟？`,'30');
+  if(v===null)return;
+  const off=parseInt(v)||0;
+  if(!off){msg('无效的分钟数');return}
+  let n=0;
+  for(const t of plan.tasks){
+    if(t.sched&&selectedTaskIds.has(t.id)){
+      const dur=t.sched.durMin||t.duration||60;
+      t.sched.startMin=Math.max(MIN_DAY,Math.min(MAX_DAY-dur,t.sched.startMin+off));
+      n++;
+    }
+  }
+  if(!n)msg('选中的任务均未排程，无法延迟');
+  else{msg(`✅ 已统一延迟 ${Math.abs(off)} 分钟（${n} 个任务）`)}
+  saveNow(false);renderAll();renderTaskPool();
+}
+function batchEdit(){
+  if(selectedTaskIds.size===0){msg('请先选择任务');return}
+  const v=prompt('统一设置的优先级（1=低 2=中低 3=普通 4=高 5=紧急）','3');
+  if(v===null)return;
+  const p=parseInt(v)||3;
+  if(p<1||p>5){msg('优先级需在 1-5 之间');return}
+  let n=0;
+  for(const t of plan.tasks){
+    if(selectedTaskIds.has(t.id)){t.priority=p;n++;}
+  }
+  saveNow(false);renderAll();msg(`✅ 已批量修改 ${n} 个任务的优先级`);
+}
+// hook toggleTaskSel to update batch count
+const _origToggleTaskSel=toggleTaskSel;
+toggleTaskSel=function(id,e){
+  _origToggleTaskSel.apply(this,arguments);
+  updateBatchCount();
+};
+
 function init(){
   // 恢复临时模式设置
   try{tempMode=localStorage.getItem(LS_TEMP_MODE)==='1'}catch(e){}
