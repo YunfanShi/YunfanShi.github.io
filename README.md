@@ -3,6 +3,8 @@
 > 个人全能管理系统 — 全栈功能集成
 >
 > Built with Next.js 15 + Supabase + Tailwind CSS 4 + TypeScript 5
+>
+> 当前版本：**v3.10.0**
 
 ---
 
@@ -15,7 +17,7 @@
 | 根目录（`*.html`） | 旧版静态 HTML 页面（历史遗留，通过 Legacy Bridge 嵌入新系统） |
 | `jackyun-portal/` | **新版** Next.js 15 App Router + Supabase 全栈应用（主系统） |
 
-旧版 HTML 文件列表（根目录）：`AnswerSheet.html` `Control.html` `Countdown.html` `EM.html` `Goal.html` `IGCountdown.html` `igcse_timer.html` `index.html` `jack-warden-mock.html` `Jump.html` `JumpMusic.html` `MockPortal.html` `MusicPlayer.html` `MusicPlayerBase.html` `MusicPlayerMobile.html` `Poem.html` `Relax.html` `StudyGuide.html` `Studyplan.html` `Test.html` `Time.html` `UpdateHub.html` `Vocab.html` `VocabJ.html` `VocabM.html`
+旧版 HTML 文件已全部迁移至 `jackyun-portal/public/` 目录，作为生产环境的静态资源，由 Legacy Bridge 机制统一管理 API 密钥和 LLM 请求代理。
 
 ---
 
@@ -26,79 +28,38 @@
 | **框架** | [Next.js 15](https://nextjs.org/) | App Router 模式，Server Component 优先 |
 | **后端/数据库** | [Supabase](https://supabase.com/) | PostgreSQL + Auth + Row Level Security |
 | **样式** | [Tailwind CSS 4](https://tailwindcss.com/) | 使用 @tailwindcss/postcss 插件，CSS 变量主题系统 |
-| **认证** | GitHub OAuth · Google OAuth · Email/Password | 多 Provider 账号关联，白名单访问控制 |
+| **认证** | GitHub OAuth · Google OAuth · Email/Password · 游客模式 | 多 Provider 账号关联，白名单访问控制，无需登录即可体验 |
 | **语言** | TypeScript 5.9 | 严格模式（`"strict": true`） |
+| **国际化** | 自定义 i18n | 中 / 英双语支持，设置页一键切换 |
 | **图标** | Material Icons Round | Google Fonts CDN 引入 |
 | **LaTeX** | KaTeX 0.17 | 数学公式渲染（AI 助手回复中支持） |
+| **Markdown** | react-markdown + remark/rehype 生态 | 支持 GFM、代码高亮（highlight.js）、数学公式、Emoji、Raw HTML |
 | **AI 集成** | @google/generative-ai | 统一 LLM Proxy 代理，支持 OpenAI / DeepSeek / Gemini 等 |
+| **文档导出** | docx + file-saver | Markdown 转 Word (.docx) 文档导出 |
 | **工具类** | clsx + tailwind-merge | `cn()` 合并 CSS 类名 |
 | **部署** | Vercel (推荐) / 自托管 Node.js | `output: 'standalone'` 模式 |
 
 ### package.json 依赖
 
 **运行时依赖**：
-- `@google/generative-ai` — Google Gemini AI SDK
-- `@supabase/ssr` — Supabase SSR 客户端
-- `@supabase/supabase-js` — Supabase JS 客户端
-- `clsx` + `tailwind-merge` — CSS 类名合并工具
-- `katex` + `@types/katex` — LaTeX 渲染
 - `next` 15.x + `react` 19.x + `react-dom` 19.x
+- `@google/generative-ai` — Google Gemini AI SDK
+- `@supabase/ssr` + `@supabase/supabase-js` — Supabase SSR / JS 客户端
+- `@tailwindcss/typography` — Tailwind 排版插件
+- `katex` + `@types/katex` — LaTeX 渲染
+- `react-markdown` — Markdown 渲染
+- `remark-gfm` / `remark-math` / `remark-emoji` — Markdown 扩展
+- `rehype-katex` / `rehype-highlight` / `rehype-raw` / `rehype-sanitize` — Markdown 后处理
+- `highlight.js` — 代码高亮
+- `docx` + `file-saver` — Word 文档导出
+- `clsx` + `tailwind-merge` — CSS 类名合并工具
 
 **开发依赖**：
 - `@tailwindcss/postcss` + `tailwindcss` 4.x
 - `typescript` 5.9.3
 - `eslint` 9.x + `eslint-config-next` 15.x
-- `@types/node` + `@types/react` + `@types/react-dom`
-
-### Next.js 配置
-
-```typescript
-// next.config.ts
-const nextConfig: NextConfig = {
-  output: 'standalone',           // Docker/自托管部署
-  images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },   // Google 头像
-      { protocol: 'https', hostname: 'avatars.githubusercontent.com' }, // GitHub 头像
-    ],
-  },
-};
-```
-
-### TypeScript 配置
-
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "target": "ES2017",
-    "strict": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "jsx": "preserve",
-    "paths": { "@/*": ["./src/*"] }
-  }
-}
-```
-
-### Tailwind 配置
-
-```typescript
-// tailwind.config.ts — 品牌色 + 圆角扩展
-theme: {
-  extend: {
-    colors: {
-      brand: {
-        blue: '#4285F4',
-        red: '#EA4335',
-        yellow: '#FBBC05',
-        green: '#34A853',
-      },
-    },
-    borderRadius: { card: '12px' },
-  },
-},
-```
+- `@types/node` + `@types/react` + `@types/react-dom` + `@types/file-saver`
+- `@types/katex`
 
 ---
 
@@ -108,7 +69,7 @@ theme: {
 
 | 路由 | 文件 | 说明 |
 |------|------|------|
-| `/login` | `src/app/(auth)/login/page.tsx` | 登录页（Email + GitHub + Google OAuth） |
+| `/login` | `src/app/(auth)/login/page.tsx` | 登录页（Email + GitHub + Google OAuth + 游客模式） |
 | `/auth/callback` | `src/app/(auth)/auth/callback/route.ts` | Supabase OAuth 回调处理 |
 | `/reset-password` | `src/app/(auth)/reset-password/page.tsx` | 邮件重置密码 |
 | `/update-password` | `src/app/(auth)/update-password/page.tsx` | 新密码设置（OAuth 用户首次设密码） |
@@ -118,34 +79,44 @@ theme: {
 
 所有 Portal 页面共享 Sidebar + Topbar + LegacyBridge + KeyboardShortcuts + AiChatFab 布局。
 
+#### 侧边栏可见路由
+
 | 路由 | 文件 | 类型 | 说明 |
 |------|------|------|------|
 | `/` | `src/app/page.tsx` | 重定向 | → `/dashboard` |
 | `/dashboard` | `src/app/(portal)/dashboard/page.tsx` | Server Component | 导航中心 + 学习统计 |
-| `/timetable-hub` | `src/app/(portal)/timetable-hub/page.tsx` | Legacy Frame | 日程中心 · Timetable Hub（合并学习计划/控制中心/目标管理，动态时间表平台） |
-| `/study` | `src/app/(portal)/study/page.tsx` | Legacy Frame | 学习计划（嵌入旧版 HTML） |
-| `/vocab` | `src/app/(portal)/vocab/page.tsx` | Legacy Frame | 词汇宝库（嵌入旧版 HTML） |
-| `/music` | `src/app/(portal)/music/page.tsx` | Legacy Frame | 音乐播放器（嵌入旧版 HTML） |
-| `/music-sync` | `src/app/(portal)/music-sync/page.tsx` | Legacy Frame | 同步音乐（嵌入旧版 HTML） |
-| `/bilibili-sync` | `src/app/(portal)/bilibili-sync/page.tsx` | Legacy Frame | B站同步（嵌入旧版 HTML） |
-| `/poem` | `src/app/(portal)/poem/page.tsx` | Legacy Frame | 诗词天地（嵌入旧版 HTML） |
+| `/study` | `src/app/(portal)/study/page.tsx` | Legacy Frame | 学习计划（嵌入旧版 HTML，考纲导入/红绿灯审计） |
+| `/goal` | `src/app/(portal)/goal/page.tsx` | Legacy Frame | 计划显示器（嵌入旧版 HTML，今日计划/计时器/学习进度） |
+| `/study-guide` | `src/app/(portal)/study-guide/page.tsx` | Legacy Frame | 学习指南（嵌入 StudyGuide.html，今日/学习/习题/考试） |
+| `/vocab` | `src/app/(portal)/vocab/page.tsx` | Legacy Frame | 词汇宝库（嵌入旧版 HTML，SRS 间隔复习） |
 | `/time-management` | `src/app/(portal)/time-management/page.tsx` | Server Component | 时间管理主页（番茄钟/倒计时/倒计日入口） |
 | `/pomodoro` | `src/app/(portal)/pomodoro/page.tsx` | Client Component | 番茄钟（Google 风格，专注/短休/长休/任务列表） |
-| `/countdown` | `src/app/(portal)/countdown/page.tsx` | Legacy Frame | 倒计日（嵌入旧版 HTML，初始数据已清空） |
-| `/relax` | `src/app/(portal)/relax/page.tsx` | Legacy Frame | 放松一下（嵌入旧版 HTML） |
-| `/answer-sheet` | `src/app/(portal)/answer-sheet/page.tsx` | Legacy Frame | 答题卡（嵌入旧版 HTML） |
+| `/music` | `src/app/(portal)/music/page.tsx` | Legacy Frame | 音乐播放器（嵌入旧版 HTML，网易云歌曲库） |
+| `/music-sync` | `src/app/(portal)/music-sync/page.tsx` | Legacy Frame | 同步音乐（嵌入旧版 HTML，多设备同步播放） |
+| `/bilibili-sync` | `src/app/(portal)/bilibili-sync/page.tsx` | Legacy Frame | B站同步（嵌入旧版 HTML，多设备同步观影） |
+| `/poem` | `src/app/(portal)/poem/page.tsx` | Legacy Frame | 诗词天地（嵌入旧版 HTML，背诵模式/掌握度评级） |
+| `/relax` | `src/app/(portal)/relax/page.tsx` | Legacy Frame | 放松一下（嵌入旧版 HTML，AI 聊天/番茄钟/白噪音） |
 | `/control` | `src/app/(portal)/control/page.tsx` | Legacy Frame | 日程（执行日程，嵌入旧版 HTML） |
-| `/goal` | `src/app/(portal)/goal/page.tsx` | Legacy Frame | 计划显示器（嵌入旧版 HTML） |
+| `/answer-sheet` | `src/app/(portal)/answer-sheet/page.tsx` | Legacy Frame | 答题卡（嵌入旧版 HTML） |
+| `/answer-sheet-sync` | `src/app/(portal)/answer-sheet-sync/page.tsx` | Legacy Frame | 同步答题卡（嵌入旧版 HTML，多设备联动） |
+| `/mock-portal` | `src/app/(portal)/mock-portal/page.tsx` | Legacy Frame | Mock 刷题（嵌入旧版 HTML） |
+| `/quiz` | `src/app/(portal)/quiz/page.tsx` | Client Component | QuizWise AI 刷题（原生组件，AI 拆题/批改） |
+| `/md2word` | `src/app/(portal)/md2word/page.tsx` | Client Component | Markdown 转 Word（原生组件，一键导出 .docx） |
+| `/tools` | `src/app/(portal)/tools/page.tsx` | Server Component | 工具箱（文本处理/Markdown转Word/时间同步/剪贴板） |
+| `/settings` | `src/app/(portal)/settings/page.tsx` | Server Component | 设置（账户/语言/AI配置/TTS/侧边栏偏好/数据导出） |
+| `/update` | `src/app/(portal)/update/page.tsx` | Legacy Frame | 更新（嵌入 UpdateHub.html） |
+| `/help` | `src/app/(portal)/help/page.tsx` | Legacy Frame | 帮助中心（嵌入 HelpCenter.html） |
+| `/admin` | `src/app/(portal)/admin/page.tsx` | Server Component | 管理员面板（仅管理员可见） |
+
+#### 隐藏路由（直接 URL 访问，不在侧边栏显示）
+
+| 路由 | 文件 | 类型 | 说明 |
+|------|------|------|------|
+| `/timetable-hub` | `src/app/(portal)/timetable-hub/page.tsx` | Legacy Frame | 日程中心 Timeline Hub（时间表编辑器） |
+| `/countdown` | `src/app/(portal)/countdown/page.tsx` | Legacy Frame | 倒计日（嵌入旧版 HTML） |
 | `/igcountdown` | `src/app/(portal)/igcountdown/page.tsx` | Legacy Frame | 考试倒计时（旧 URL，保留兼容） |
 | `/examcountdown` | `src/app/(portal)/examcountdown/page.tsx` | Legacy Frame | 倒计时（考试，新 URL） |
-| `/update` | `src/app/(portal)/update/page.tsx` | Legacy Frame | 更新（嵌入旧版 HTML） |
-| `/help` | `src/app/(portal)/help/page.tsx` | Legacy Frame | 帮助中心（嵌入 HelpCenter.html） |
-| `/mock-portal` | `src/app/(portal)/mock-portal/page.tsx` | Legacy Frame | Mock 刷题（嵌入旧版 HTML） |
-| `/tools` | `src/app/(portal)/tools/page.tsx` | Server Component | 工具箱（文本处理/时间同步/剪贴板） |
-| `/settings` | `src/app/(portal)/settings/page.tsx` | Server Component | 设置（密码/AI配置/数据导出） |
-| `/admin` | `src/app/(portal)/admin/page.tsx` | Server Component | 管理员面板 |
-| `/admin/enforcer` | `src/app/(portal)/admin/enforcer/page.tsx` | Server Component | 专注模式（Focus Enforcer） |
-| `/admin/update-hub` | `src/app/(portal)/admin/update-hub/page.tsx` | Server Component | 版本历史详情 |
+| `/temp/*` | `src/app/(portal)/temp/redirecting/page.tsx` | Client Component | 临时短链直达（无需登录访问 public 下 HTML） |
 
 ### API 路由
 
@@ -153,7 +124,10 @@ theme: {
 |------|------|------|
 | `/api/health` | `src/app/api/health/route.ts` | 健康检查端点 |
 | `/api/legacy-sync` | `src/app/api/legacy-sync/route.ts` | 旧版 localStorage → 新版 API 数据同步桥 |
-| `/api/llm-proxy` | `src/app/api/llm-proxy/route.ts` | 统一 LLM 代理（读取用户 AI 配置，转发请求） |
+| `/api/llm-proxy` | `src/app/api/llm-proxy/route.ts` | 统一 LLM 代理（读取用户 AI 配置，转发请求，含管理员检查） |
+| `/api/bilibili-proxy` | `src/app/api/bilibili-proxy/route.ts` | B站视频资源代理 |
+| `/api/answer-sheet-sync` | `src/app/api/answer-sheet-sync/route.ts` | 同步答题卡数据同步 |
+| `/api/timetable-sync` | `src/app/api/timetable-sync/route.ts` | 时间表云端数据同步 |
 
 ---
 
@@ -166,6 +140,7 @@ theme: {
 | **GitHub OAuth** | Supabase Auth，授权后自动注册 | OAuth 自动信任（无需白名单） |
 | **Google OAuth** | Supabase Auth，授权后自动注册 | OAuth 自动信任（无需白名单） |
 | **Email / Password** | Supabase Auth，邮箱+密码登录 | 必须通过白名单检查 |
+| **游客模式** | 无需登录直接访问所有模块 | 登录页底部「以游客身份继续」 |
 
 ### 认证中间件流程（`src/middleware.ts`）
 
@@ -204,11 +179,13 @@ theme: {
 - **取消关联**（Unlink）：管理员面板 → 移除某个 Provider
 - **强制合并**（Force Merge）：将副账号的所有数据迁移到主账号，合并 linked_providers
 
-### 密码管理
+### 密码与账户管理
 
 - Email 登录用户：可修改密码（需要当前密码验证）
 - OAuth 用户：可通过邮件设置初始密码，或直接重置密码
 - 密码重置流程：`/reset-password` → 邮件链接 → `/auth/callback?type=recovery` → `/update-password`
+- **账户注销**：软删除（`profiles.deleted_at`），数据保留 30 天，侧边栏浏览器数据自动同步到云端
+- 显示名称 / 个人资料：设置页可随时修改昵称和头像
 
 ---
 
@@ -218,9 +195,10 @@ theme: {
 
 | Migration | 表名 | 核心字段 | 说明 |
 |-----------|------|---------|------|
-| `001` + `007` | `profiles` | id, github_username, username, email, display_name, avatar_url, role, linked_providers | 用户档案 + 自动创建触发器 |
+| `001` + `007` | `profiles` | id, github_username, username, email, display_name, avatar_url, role, linked_providers, deleted_at | 用户档案 + 自动创建触发器 + 软删除 |
 | `008` | `whitelist_emails` | id, email, note, created_by | 数据库白名单邮箱 |
 | `008` | `whitelist_usernames` | id, username, platform, note, created_by | 数据库白名单用户名 |
+| `015` | `user_settings` | key, value (JSONB) | 用户配置（如 ai_config、侧边栏偏好） |
 
 ### 业务数据表
 
@@ -243,11 +221,13 @@ theme: {
 | `006` + `012` | `countdowns` | title, target_date, description, color, sort_order | 倒计时事件 |
 | `014` | `relax_chat` | role, content | AI 聊天历史 |
 | `014` | `relax_state` | water_count, water_date, theme | 放松模块状态 |
-| `015` | `user_settings` | key, value (JSONB) | 用户配置（如 ai_config） |
+| `016` | `quiz_*` | 题库/答题记录相关 | QuizWise AI 刷题模块 |
+| `019` + `020` | `answer_sheet_sync_*` | 同步答题卡相关 | 多设备同步答题卡 |
+| `021` | `timetable_hub_*` | 时间表方案相关 | Timetable Hub 时间表编辑器云同步 |
 
 ### 执行迁移
 
-在 Supabase Dashboard > SQL Editor 中按序执行 `jackyun-portal/supabase/migrations/` 目录下的 SQL 文件（`001` → `015`）。
+在 Supabase Dashboard > SQL Editor 中按序执行 `jackyun-portal/supabase/migrations/` 目录下的 SQL 文件（`001` → `022`）。
 
 ---
 
@@ -355,6 +335,129 @@ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubun
 
 ---
 
+## 国际化（i18n）
+
+- 支持语言：简体中文（默认） / English
+- 语言提供器：`src/components/language-provider.tsx`
+- 翻译资源：`src/lib/i18n.ts`
+- 切换入口：设置页面 → 语言切换面板（`language-switcher.tsx`）
+- 选择保存在 localStorage 中，全站自动翻译（侧边栏、顶栏、设置等）
+
+---
+
+## 组件目录结构
+
+```
+src/components/
+├── admin/                    # 管理员相关组件
+│   ├── account-linking-panel.tsx      # 多账号关联
+│   ├── admin-manager-panel.tsx        # 管理员账户管理
+│   ├── change-password-panel.tsx      # 修改密码
+│   ├── enforcer-app.tsx               # 专注模式
+│   ├── redirect-generator.tsx         # 跳转链接生成器
+│   └── whitelist-panels.tsx           # 白名单管理
+├── auth/                    # 认证相关组件
+│   ├── email-login-form.tsx           # 邮箱登录表单
+│   ├── google-login-button.tsx        # Google 登录
+│   ├── guest-login-button.tsx         # 游客登录
+│   ├── login-button.tsx               # 登录按钮
+│   └── user-avatar.tsx                # 用户头像
+├── layout/                  # 布局组件
+│   ├── error-boundary.tsx             # 错误边界
+│   ├── keyboard-shortcuts.tsx         # 键盘快捷键
+│   ├── sidebar.tsx                    # 侧边栏
+│   └── topbar.tsx                     # 顶栏
+├── modules/                 # 功能模块组件
+│   ├── ai-chat-fab.tsx                # AI 浮动聊天 FAB（Agent 模式）
+│   ├── floating-timer.tsx             # 浮动计时器小窗
+│   ├── latex-renderer.tsx             # LaTeX 渲染
+│   ├── legacy-bridge.tsx              # 旧版 localStorage 同步桥
+│   ├── legacy-frame.tsx               # 旧版 HTML 嵌入框架
+│   ├── markdown-renderer.tsx          # Markdown 渲染
+│   ├── mini-player.tsx                # 迷你播放器
+│   ├── product-card.tsx               # 产品卡片
+│   ├── countdown/                     # 倒计时模块
+│   ├── music/                         # 音乐模块
+│   ├── poem/                          # 诗词模块
+│   ├── quiz/                          # QuizWise 刷题模块
+│   │   ├── quiz-app.tsx               # 刷题主应用
+│   │   ├── quiz-history.tsx           # 答题历史
+│   │   ├── quiz-settings.tsx          # 刷题设置
+│   │   ├── subject-selector.tsx       # 科目选择
+│   │   ├── question-card.tsx          # 题目卡片
+│   │   ├── question-input.tsx         # 题目输入
+│   │   ├── multiple-choice.tsx        # 选择题
+│   │   ├── fill-blank.tsx             # 填空题
+│   │   ├── true-false.tsx             # 判断题
+│   │   ├── essay-question.tsx         # 简答题
+│   │   ├── result-display.tsx         # 成绩展示
+│   │   ├── progress-bar.tsx           # 进度条
+│   │   ├── ai-feedback-button.tsx     # AI 反馈
+│   │   └── ...
+│   ├── relax/                         # 放松模块
+│   ├── study/                         # 学习计划模块
+│   ├── tools/                         # 工具箱模块
+│   │   ├── text-tools.tsx             # 文本工具
+│   │   ├── markdown-to-word.tsx       # Markdown 转 Word
+│   │   ├── time-sync.tsx              # 时间同步
+│   │   ├── clipboard-share.tsx        # 剪贴板共享
+│   │   └── tools-tabs.tsx             # 工具箱页签
+│   └── vocab/                         # 词汇模块
+└── settings/                # 设置相关组件
+    ├── ai-config-panel.tsx            # AI 配置
+    ├── delete-account-panel.tsx       # 删除账户
+    ├── export-data-panel.tsx          # 数据导出
+    ├── fullscreen-toggle.tsx          # 全屏切换
+    ├── language-switcher.tsx          # 语言切换
+    ├── logger-viewer.tsx              # 日志查看器
+    ├── logger-viewer-wrapper.tsx      # 日志查看包装器
+    ├── name-editor.tsx                # 昵称编辑
+    ├── profile-editor.tsx             # 个人资料编辑
+    ├── quiz-language-section.tsx      # 刷题语言设置
+    ├── settings-content.tsx           # 设置内容容器
+    ├── sidebar-prefs-panel.tsx        # 侧边栏偏好
+    └── tts-config-panel.tsx           # TTS 语音配置
+```
+
+---
+
+## 侧边栏导航项
+
+侧边栏 `ALL_NAV_ITEMS`（`src/components/layout/sidebar.tsx`）支持：
+- **双模式切换**：音乐播放器/同步音乐、答题卡/同步答题卡 二选一互斥显示（首次使用弹窗选择，设置页可随时更改）
+- **最近访问时间戳**：导航项下方显示上次访问时间
+- **可滚动 + 隐藏滚动条**
+- **管理员专属**：Admin 入口仅管理员可见
+
+| # | 标签 | 图标（Material Icons） | 路由 | 说明 |
+|---|------|----------------------|------|------|
+| 1 | Dashboard | `dashboard` | `/dashboard` | 导航中心 |
+| 2 | 学习计划 | `school` | `/study` | 考纲导入/红绿灯审计 |
+| 3 | 计划显示器 | `flag` | `/goal` | 今日计划/计时器 |
+| 4 | 学习指南 | `auto_stories` | `/study-guide` | 三步学习流程 |
+| 5 | 词汇宝库 | `menu_book` | `/vocab` | SRS 间隔复习 |
+| 6 | 时间管理 | `timer` | `/time-management` | 番茄钟/倒计时入口 |
+| 7 | 音乐播放器 * | `music_note` | `/music` | 网易云歌曲库 |
+| 8 | 同步音乐 * | `sync_alt` | `/music-sync` | 多设备同步播放 |
+| 9 | B站同步 | `smart_display` | `/bilibili-sync` | 多设备同步观影 |
+| 10 | 诗词天地 | `auto_stories` | `/poem` | 背诵模式/评级 |
+| 11 | 放松一下 | `sports_esports` | `/relax` | AI 聊天/白噪音 |
+| 12 | 日程 | `calendar_month` | `/control` | 执行日程 |
+| 13 | 答题卡 * | `content_paste` | `/answer-sheet` | 答题卡 |
+| 14 | 同步答题卡 * | `sync` | `/answer-sheet-sync` | 多设备联动 |
+| 15 | Mock 刷题 | `quiz` | `/mock-portal` | 旧版刷题 |
+| 16 | QuizWise 刷题 | `psychology` | `/quiz` | AI 智能刷题 |
+| 17 | MD2Word | `description` | `/md2word` | Markdown 转 Word |
+| 18 | 工具箱 | `build` | `/tools` | 文本/时间/剪贴板 |
+| 19 | 设置 | `settings` | `/settings` | 账户/语言/AI |
+| 20 | 更新 | `history` | `/update` | 版本记录 |
+| 21 | 帮助中心 | `help` | `/help` | 使用教程 |
+| 22 | 管理 * | `admin_panel_settings` | `/admin` | 仅管理员可见 |
+
+\* 带 `*` 的为双模式互斥项（音乐播放器/同步音乐 二选一、答题卡/同步答题卡 二选一）
+
+---
+
 ## 代码规范（指导 AI 编程）
 
 以下规范是项目的强制编码约束，AI 助手在生成代码时必须严格遵守。
@@ -379,7 +482,7 @@ import { createClient } from '../../lib/supabase/server';
 ```
 
 #### 1.3 类型定义位置
-- 模块专属类型 → `src/types/模块名.ts`（如 `countdown.ts`, `vocab.ts`, `music.ts`, `poem.ts`, `study.ts`, `relax.ts`）
+- 模块专属类型 → `src/types/模块名.ts`（如 `countdown.ts`, `vocab.ts`, `music.ts`, `poem.ts`, `study.ts`, `relax.ts`, `quiz.ts`）
 - 通用/共享类型 → `src/types/index.ts`（如 `Profile`, `WhitelistInfo`, `SystemInfo`, `TableStat`）
 - Props 接口 → 在组件文件中内联定义
 - 使用 `import type { ... }` 导入纯类型
@@ -404,47 +507,12 @@ interface ProductCardProps { id: string; title: string; description: string; ico
 #### 2.2 Client Component（按需启用）
 - **文件顶部必须添加** `'use client'` 指令
 - 适合：需要 `useState`、`useEffect`、`useRouter`、`usePathname`、`useRef`、事件处理等交互逻辑
-- 示例文件：`sidebar.tsx`、`ai-chat-fab.tsx`、`legacy-frame.tsx`、`keyboard-shortcuts.tsx`
+- 示例文件：`sidebar.tsx`、`ai-chat-fab.tsx`、`legacy-frame.tsx`、`keyboard-shortcuts.tsx`、`quiz-app.tsx`
 
 #### 2.3 组件文件命名
 - 文件名：`kebab-case.tsx`（如 `ai-chat-fab.tsx`、`legacy-frame.tsx`）
 - 组件函数名：`PascalCase`（如 `AiChatFab`, `LegacyFrame`）
 - **必须**默认导出：`export default function ComponentName() { ... }`
-
-#### 2.4 组件目录结构
-```
-src/components/
-├── admin/           # 管理员相关组件
-│   ├── account-linking-panel.tsx
-│   ├── change-password-panel.tsx
-│   ├── enforcer-app.tsx
-│   └── whitelist-panels.tsx
-├── auth/            # 认证相关组件
-│   ├── email-login-form.tsx
-│   ├── google-login-button.tsx
-│   ├── login-button.tsx
-│   └── user-avatar.tsx
-├── layout/          # 布局组件
-│   ├── keyboard-shortcuts.tsx
-│   ├── sidebar.tsx
-│   └── topbar.tsx
-├── modules/         # 功能模块组件
-│   ├── ai-chat-fab.tsx
-│   ├── latex-renderer.tsx
-│   ├── legacy-bridge.tsx
-│   ├── legacy-frame.tsx
-│   ├── product-card.tsx
-│   ├── countdown/
-│   ├── music/
-│   ├── poem/
-│   ├── relax/
-│   ├── study/
-│   ├── tools/
-│   └── vocab/
-└── settings/        # 设置相关组件
-    ├── ai-config-panel.tsx
-    └── export-data-panel.tsx
-```
 
 ---
 
@@ -455,14 +523,16 @@ src/components/
 
 ```
 src/actions/
+├── account.ts    # 账户管理（注销/软删除等）
 ├── admin.ts      # 管理员操作
 ├── auth.ts       # 认证操作
 ├── countdown.ts  # 倒计时操作
 ├── export.ts     # 数据导出
 ├── music.ts      # 音乐播放器操作
 ├── poem.ts       # 诗词操作
+├── quiz.ts       # QuizWise 刷题操作
 ├── relax.ts      # 放松模块操作
-├── settings.ts   # 用户设置操作
+├── settings.ts   # 用户设置操作（含侧边栏偏好）
 ├── study.ts      # 学习计划操作
 └── vocab.ts      # 词汇操作
 ```
@@ -562,13 +632,17 @@ import { cn } from '@/lib/utils';
 
 #### 5.2 Sidebar 规范
 - 使用 `'use client'`（需要 `usePathname`, `useState`）
-- 支持折叠/展开（`collapsed` state，宽度 16 / 60）
+- 支持折叠/展开（`collapsed` state，宽度 64 / 240）
 - 活跃状态：蓝色高亮 `bg-[#4285F4]/10 text-[#4285F4]`
 - 图标：使用 Material Icons Round
+- 音乐/答题卡双模式互斥显示（首次使用弹窗选择）
+- 导航项显示最近访问时间戳
+- 支持全屏模式时自动折叠（监听 `toggle-sidebar-collapse` 事件）
 
 #### 5.3 Topbar 规范
-- 使用 Server Component（接收 `user` props）
+- Server Component（接收 `user` props）
 - 显示 `UserAvatar` 组件 + 退出登录按钮
+- 登录/注册入口（游客模式时）
 
 ---
 
@@ -656,6 +730,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 - 支持任意兼容 OpenAI `/chat/completions` 接口的 LLM 服务
 - 支持流式响应（SSE, Server-Sent Events），**无任何速率限制和 Token 配额**
 - 如果用户未配置 API Key，返回中文提示信息
+- 内置管理员检查端点（`_check_admin`）
 
 ### 9.1 AI Agent 智能模式（`ai-chat-fab.tsx`）
 
@@ -663,12 +738,15 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 - **多轮推理循环**：AI 可以连续调用工具（读取 → 执行 → 再读取 → 再执行），直到完成任务，最多 8 轮推理
 - **流式实时显示**：SSE 流到达即显示，无速度限制、无文本缓冲延迟
-- **页面专属工具**：AI 根据所在页面自动匹配对应的工具集（主页 14 个常用工具 / 目标页 5 个 / 日程页 17 个等），只注入当前页面相关工具的完整手册，避免冗余信息干扰
-- **按需工具加载**：平台功能目录告知 AI 所有页面概况；需要操作其他页面数据时通过 `request_page_tools` 按需获取工具描述，动态注入后续消息
-- **智能去重**：同一轮 Agent 循环中只读工具（`read_*` / `get_*`）只执行一次；执行写操作（`manage_*` / `toggle_*` / `skip_*`）后自动清除读取记录，允许重新读取以确认修改结果
-- **Token 累计显示**：每条 AI 回复下方显示单轮 token 消耗；消息列表底部显示本轮对话累计 token（输入 + 输出）和估算费用
-- **完整工具手册**：每个工具的 System Prompt 都包含完整说明书（参数表、使用条件、正确/错误示例、批量操作演示），AI 明确知道每个工具怎么正确使用
-- **页面数据全景图**：System Prompt 为每个页面列出所有可用数据源（localStorage key、可读/可写权限、关联工具），AI 知道当前页面有什么信息、怎么获取
+- **智能难度分级**：简单问题（查时间/打招呼/算数）直接秒答，中等任务快速完成，复杂任务（制定计划/分析进度）才用深度思考模型
+- **算力优化**：每次提问消耗减少约 85%
+- **页面专属工具**：AI 根据所在页面自动匹配对应的工具集（主页 / 目标页 / 日程页等）
+- **按需工具加载**：平台功能目录告知 AI 所有页面概况；需要操作其他页面数据时通过 `request_page_tools` 按需获取工具描述
+- **智能去重**：同一轮 Agent 循环中只读工具只执行一次；执行写操作后自动清除读取记录
+- **Token 累计显示**：每条 AI 回复下方显示单轮 token 消耗；消息列表底部显示本轮对话累计 token 和估算费用（DeepSeek V4 Flash 定价）
+- **对话管理**：聊天记录保存，多对话新建/切换/删除，上下文保留 30 轮，标题自动生成
+- **完整工具手册**：每个工具的 System Prompt 都包含完整说明书（参数表、使用条件、正确/错误示例、批量操作演示）
+- **页面数据全景图**：System Prompt 为每个页面列出所有可用数据源（localStorage key、可读/可写权限、关联工具）
 - **先读后改铁律**：修改/删除目标前必须先调用 `read_goal_data` 获取真实 ID；工具失败时自动返回可用目标列表帮助 AI 纠错
 - **诚实汇报原则**：工具执行失败时 AI 必须如实汇报，严禁编造「已成功」虚假总结
 - **自定义确认弹窗**：写操作前弹出详细确认窗口（操作/目的/后果），支持：
@@ -676,9 +754,11 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
   - ❓ 有疑问 → 弹窗内与 AI 实时对话，获得进一步解释
   - 🔍 审查 → 发送给独立 AI 审查员评估操作合理性和风险
   - 🚫 不同意 → 拒绝执行
-- **工具结果折叠**：`🔧 工具执行结果` 系统消息自动折叠为摘要，点击可展开查看详情；**失败消息（❌ 开头）自动展开**，用户直接看到错误
+- **工具结果折叠**：`🔧 工具执行结果` 系统消息自动折叠为摘要，点击可展开查看详情；**失败消息（❌ 开头）自动展开**
 - **复制完整记录**：每条 AI 回复新增「复制完整记录」按钮，一键复制用户输入 + AI 完整回复（含 tool_call）+ 思考过程 + 工具执行结果
 - **重试简化**：重试逻辑复用主发送流程，支持 5 次重试上限
+- **任务完成统计**：AI 输出 `[TASK_COMPLETE]` 标记后自动展示任务统计卡片（用时/推理轮数/工具调用次数/Token/费用）
+- **修复稳定性**：修复消息错位、循环调用工具停不下来等问题
 
 ---
 
@@ -698,120 +778,118 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 ---
 
-### 11. 菜单导航项（完整列表）
+### 11. 功能模块详解
 
-侧边栏 `NAV_ITEMS`（`src/components/layout/sidebar.tsx`）：
-
-| # | 标签 | 图标（Material Icons） | 路由 |
-|---|------|----------------------|------|
-| 1 | Dashboard | `dashboard` | `/dashboard` |
-| 2 | 日程中心 | `calendar_month` | `/timetable-hub` |
-| 3 | 学习计划 | `school` | `/study` |
-| 3 | 词汇宝库 | `menu_book` | `/vocab` |
-| 4 | 音乐播放器 | `music_note` | `/music` |
-| 5 | 同步音乐 | `sync_alt` | `/music-sync` |
-| 6 | B站同步 | `smart_display` | `/bilibili-sync` |
-| 7 | 诗词天地 | `auto_stories` | `/poem` |
-| 8 | 倒计时 | `timer` | `/countdown` |
-| 9 | 放松一下 | `sports_esports` | `/relax` |
-| 10 | 控制中心 | `tune` | `/control` |
-| 11 | 答题卡 | `content_paste` | `/answer-sheet` |
-| 12 | 同步答题卡 | `sync` | `/answer-sheet-sync` |
-| 13 | 计划显示器 | `flag` | `/goal` |
-| 14 | 考试倒计时 | `hourglass_empty` | `/igcountdown` |
-| 15 | 更新 | `history` | `/update` |
-| 16 | 帮助中心 | `help` | `/help` |
-| 17 | Mock 刷题 | `quiz` | `/mock-portal` |
-| 18 | QuizWise 刷题 | `psychology` | `/quiz` |
-| 19 | 工具箱 | `build` | `/tools` |
-| 20 | 设置 | `settings` | `/settings` |
-| 21 | 管理员 | `admin_panel_settings` | `/admin` |
-
----
-
-### 12. 功能模块详解
-
-#### 12.1 Dashboard (`/dashboard`)
+#### 11.1 Dashboard (`/dashboard`)
 - 欢迎语：从 `user_metadata.full_name` / `user_name` 获取
-- 统计卡片：词汇总数（`vocab_words` count）、已掌握词汇（`mastered = true` count）、任务完成率（`study_tasks` completed/total）
+- 统计卡片：词汇总数、已掌握词汇、任务完成率
 - 产品卡片导航网格（响应式：`grid-cols-1 sm:2 lg:3 xl:4`）
 - 卡片悬停效果：上移 1px + 阴影 + 顶部品牌色条展开动画
 
-#### 12.2 日程中心 (`/timetable-hub`)
-- 嵌入 `TimetableHub.html` v2（Legacy Frame）—— 时间表编辑器
-- 一周七天时间轴（06:00-24:00），任务块可**单击**打开编辑详情（开始/结束/时长三联动）、拖拽调时/互换；拖动时自动检测重叠避免任务互压
-- 任务蓝图：主/子任务层级、默认折叠、独立进度条（0-100%）
-- AI 智能排程：选中任务 → 自动避开固定时间块按优先级填充 → 变更预览面板逐条接受/拒绝 → 全部应用才生效；AI 感知今天是周几，紧急任务优先排到今天或最近几天
-- **每日可用时段**：侧边栏可设置每天几点到几点才有空（`th2_day_range`），AI 排程只在此范围内安排任务
-- 固定时间块（硬约束）：专注块可挂任务组自动顺排 + 超时红提示；休息块不可挂载
-- 多套方案管理：创建/复制/删除/一键切换，localStorage `th2_plans` / `th2_plan_{id}`
-- **临时日程模式**：顶部「标准/临时」切换按钮。临时模式仅显示今天、时间轴从当前时间开始到 24:00，适合快速安排今日剩余时间
-- Control 双向同步：改动即时写回 `w3_schedule` / `jack_timetable_plan` / `jackyun_control_events`，含任务名、进度、完成状态（不再出现 `undefined`）
-- 接收 Goal「推送到日程表」后经门户桥实时刷新（iframe 内 storage 不跨 iframe，故通过 postMessage 广播）
-- 侧边栏默认收起，支持父框架 postMessage 收左栏避免双层侧边栏冲突
-- AI 工具：`th_read_plans` `th_read_plan` `th_add_task` `th_delete_task` `th_move_task` `th_shift_add` `th_swap_tasks` `th_add_fixed_block`（写入 ai-tools.ts）
-
-#### 12.3 学习计划 (`/study`)
+#### 11.2 学习计划 (`/study`)
 - 嵌入旧版 `Studyplan.html`（Legacy Frame）
 - 课程大纲管理（`study_syllabus`）：按科目单元步进
+- **考纲导入**：支持 CAIE 剑桥和 Edexcel 爱德思考试局一键导入，正则匹配自动提取知识点，AI 整本解析
+- **红绿灯审计**：🔴 红灯需复习 / 🟡 黄灯需巩固 / 🟢 绿灯已掌握 / ⚪ 未评估，支持回退和重新审计
 - 学习配置（`study_config`）：开学日期、考试日期、紧急科目/截止日期
 - Mock 考试记录（`study_mock_records`）
 
-#### 12.3 词汇宝库 (`/vocab`)
-- 嵌入旧版 `Vocab.html`（Legacy Frame）
-- SRS（间隔重复）算法：`status`（new/learning/review/mastered）、`stage`、`next_review`、`interval_minutes`
-- TTS 发音设置
-- 每日学习统计（`vocab_stats`）
-- 批量导入功能
-
-#### 12.4 音乐播放器 (`/music`)
-- 嵌入旧版 `MusicPlayer.html`（Legacy Frame）
-- 网易云音乐 ID 歌曲库（`music_songs`）
-- NTP 时间同步播放
-- 播放设置：手动偏移 `manual_offset`、间隔 `interval_ms`、播放模式 `play_mode`
-
-#### 12.5 诗词天地 (`/poem`)
-- 嵌入旧版 `Poem.html`（Legacy Frame）
-- 背诵模式：计时、退却次数统计
-- 掌握度评级（0-5）
-- 背诵会话记录（`poem_sessions`）：最佳时间、完成次数
-
-#### 12.6 倒计时 (`/countdown`)
-- 嵌入旧版 `Countdown.html`（Legacy Frame）
-- 支持拖拽排序（`sort_order`）
-- 批量导入事件
-
-#### 12.7 放松一下 (`/relax`)
-- 嵌入旧版 `Relax.html`（Legacy Frame）
-- AI 聊天（`relax_chat` 持久化）
-- 番茄钟、呼吸练习、喝水追踪、白噪音生成、调色板
-
-#### 12.8 控制中心 (`/control`)
-- 嵌入旧版 `Control.html`（Legacy Frame）
-- 系统快捷控制
-
-#### 12.9 答题卡 (`/answer-sheet`)
-- 嵌入旧版 `AnswerSheet.html`（Legacy Frame）
-
-#### 12.10 计划显示器 (`/goal`)
+#### 11.3 计划显示器 Goal (`/goal`)
 - 嵌入旧版 `Goal.html`（Legacy Frame）
 - **今日计划**：面板内直接添加今日任务（选择目标、数量、预计分钟），或让 AI 根据目标进度和截止日期自动生成今日清单
 - AI 可行性分析：判断今天能否完成，给出时间轴安排建议
 - **一键推送到日程表**：自动避开固定时间块、贪心填充空闲时段，写入 TimetableHub 当前方案并同步到控制中心执行
 - **固定时间块**：设置页可管理上课/睡觉/午休等雷打不动的时段，AI 规划时自动避开
-- Goal ↔ TimetableHub 实时互读互写：目标更新自动同步到任务池，无需手动导入
-- AI 上下文缓存优化：目标数据签名缓存（60s），减少重复构建、提升 AI 响应速度
+- **任务计时器**：开始/暂停/结束，记录专注增长量，自动估算单位任务耗时
+- **学习进度报告**：右上角按钮，查看今日任务和任务记录日历
+- **无上限任务**：总数量填 0 可无限累积
+- **拖拽排序**：任务卡片直接拖动排序（支持跨层级）
+- Goal ↔ TimetableHub 实时互读互写：目标更新自动同步到任务池
+- AI 上下文缓存优化（60s 签名缓存，响应更快）
 
-#### 12.11 考试倒计时 (`/igcountdown`)
-- 嵌入旧版 `IGCountdown.html`（Legacy Frame）
+#### 11.4 学习指南 (`/study-guide`)
+- 嵌入 `StudyGuide.html`（Legacy Frame）
+- Google Material Design 3 风格，4 大板块（今日/学习/习题/考试）按每日/每周/每两周智能展示
+- 今日板块根据工作日/周末自动切换学习模式
+- 集成 AI 学习导师答疑解惑
+- 康奈尔笔记：底部总结栏支持三种固定格式（核心概念类/零散知识点类/对比类）
 
-#### 12.12 Mock 刷题 (`/mock-portal`)
+#### 11.5 词汇宝库 (`/vocab`)
+- 嵌入旧版 `Vocab.html`（Legacy Frame）
+- SRS（间隔重复）算法：`status`（new/learning/review/mastered）、`stage`、`next_review`、`interval_minutes`
+- TTS 发音设置、每日学习统计（`vocab_stats`）、批量导入功能
+
+#### 11.6 时间管理 (`/time-management`)
+- 原生 Next.js Server Component
+- 番茄钟/倒计时/倒计日入口导航页
+
+#### 11.7 番茄钟 (`/pomodoro`)
+- 原生 Client Component
+- Google 风格：专注/短暂休息/长时间休息三种模式
+- 环形进度条、任务列表、自定义时长时间提醒
+
+#### 11.8 音乐播放器 (`/music`) / 同步音乐 (`/music-sync`)
+- 嵌入旧版 `MusicPlayer.html` / `MusicPlayerSync.html`（Legacy Frame）
+- 网易云音乐 ID 歌曲库（`music_songs`）、NTP 时间同步播放
+- 播放设置：手动偏移 `manual_offset`、间隔 `interval_ms`、播放模式 `play_mode`
+- 侧边栏双模式互斥显示（首次使用弹窗选择）
+
+#### 11.9 B站同步 (`/bilibili-sync`)
+- 嵌入旧版 `BilibiliSync.html`（Legacy Frame）
+- 控制设备输入 BV 号，副屏自动加载同一视频
+- 原生视频播放器替代 iframe：进度条拖拽、音量调节、倍速播放、静音切换
+- 多设备实时同步播放/暂停/跳转
+
+#### 11.10 诗词天地 (`/poem`)
+- 嵌入旧版 `Poem.html`（Legacy Frame）
+- 背诵模式：计时、退却次数统计、掌握度评级（0-5）
+- 背诵会话记录（`poem_sessions`）：最佳时间、完成次数
+
+#### 11.11 放松一下 (`/relax`)
+- 嵌入旧版 `Relax.html`（Legacy Frame）
+- AI 聊天（`relax_chat` 持久化）
+- 番茄钟、呼吸练习、喝水追踪、白噪音生成、调色板
+
+#### 11.12 日程 Control (`/control`)
+- 嵌入旧版 `Control.html`（Legacy Frame）
+- 系统快捷控制、任务列表、音乐播放、倒计时卡片
+- 全屏模式：全部任务 / 倒计时专注视图
+- 显示从 TimetableHub 同步过来的任务名和进度
+
+#### 11.13 答题卡 (`/answer-sheet`) / 同步答题卡 (`/answer-sheet-sync`)
+- 嵌入旧版 `AnswerSheet.html` / `AnswerSheetSync.html`（Legacy Frame）
+- 2-3 台设备同步播放 Gacha 粒子动画，左/中/右宽体拼接视觉
+- 输入设备判断对错并放音乐，中屏显示成绩
+- AI 批改结果双面板显示
+
+#### 11.14 Mock 刷题 (`/mock-portal`)
 - 嵌入旧版 `MockPortal.html`（Legacy Frame）
 
-#### 12.13 更新 (`/update`)
-- 嵌入旧版 `UpdateHub.html`（Legacy Frame）
+#### 11.15 QuizWise 刷题 (`/quiz`)
+- 原生 Client Component 模块
+- AI 智能拆题 / AI 批改 / 自动评分
+- 支持题型：选择题、填空题、判断题、简答题
+- 答题历史记录、科目选择、进度条、AI 反馈
 
-#### 12.14 帮助中心 (`/help`)
+#### 11.16 MD2Word (`/md2word`)
+- 原生 Client Component
+- 支持编辑 Markdown 并实时预览
+- 上传 .md 文件、一键下载为 .docx 文档或复制为 Word 格式
+- 支持标题/表格/代码块/列表/粗斜体等格式保留
+- 完整 Landing Page 设计（Hero/三步操作指南/FAQ）
+
+#### 11.17 工具箱 (`/tools`)
+- 原生 Next.js Server Component
+- 文本工具（Text Tools）：大文字转换、排版
+- Markdown 转 Word（Markdown to Word）
+- 时间同步（Time Sync）
+- 剪贴板共享（Clipboard Share）
+
+#### 11.18 更新 (`/update`)
+- 嵌入旧版 `UpdateHub.html`（Legacy Frame）
+- 版本记录按时间线排序，重要更新（logsMajor）/ 常规更新（logsRegular）分类
+
+#### 11.19 帮助中心 (`/help`)
 - 嵌入 `HelpCenter.html`（Legacy Frame）
 - 类似微软/谷歌帮助文档的完整使用指南
 - 8 大分类：快速开始、学习工作流、日程与时间、学习模块、AI 助手、设置与工具、音乐与娱乐、其他
@@ -819,34 +897,31 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 - 搜索功能 + 分类卡片导航
 - 底部「联系 AI 客服」按钮 → 通过 postMessage(`jackyun-open-ai`) 打开全局 AI 助手
 
-#### 12.15 工具箱 (`/tools`)
-- 原生 Next.js Server Component
-- 文本工具（Text Tools）：大文字转换、排版
-- 时间同步（Time Sync）
-- 剪贴板共享（Clipboard Share）
+#### 11.20 设置 (`/settings`)
+- **账户安全**：修改密码 / 邮件重置密码 / 删除账户（软删除，保留 30 天）
+- **语言切换**：中文 / English 一键切换
+- **AI 配置**：baseUrl + apiKey + model（存储在 `user_settings` 表的 `ai_config` key）
+- **TTS 配置**：Edge/Chrome 引擎选择、音色预览、语速/音调调节、自动朗读开关
+- **侧边栏偏好**：音乐播放器/同步音乐、答题卡/同步答题卡 双模式选择
+- **数据导出**：JSON / CSV 格式导出全部用户数据
+- **个人资料**：编辑昵称、头像
+- **日志查看器**：系统日志排查
+- **全屏切换**
 
-#### 12.16 设置 (`/settings`)
-- 账户安全：修改密码 / 邮件重置密码
-- AI 配置：baseUrl + apiKey + model（存储在 `user_settings` 表的 `ai_config` key）
-- 数据导出：JSON / CSV 格式导出全部用户数据
-
-#### 12.17 管理员 (`/admin`)
+#### 11.21 管理员 (`/admin`)
 - 用户信息展示：头像、用户名、GitHub 用户名、登录方式、用户 ID
 - 白名单配置：环境变量只读展示 + 数据库白名单动态管理
 - 账号关联：Link/Unlink Provider + Force Merge
-- 管理工具：版本历史 + 专注模式
+- 管理工具：跳转链接生成器（Base64 混淆）、专注模式、版本历史
+- 管理员账户管理（`admin-manager-panel`）
 - 退出登录
 
-#### 12.18 专注模式 (`/admin/enforcer`)
+#### 11.22 专注模式 (`/admin/enforcer`)
 - Focus Enforcer 强制专注计时器
-
-#### 12.19 版本历史 (`/admin/update-hub`)
-- 时间线展示版本更新记录（v1.6 → v1.5.5 → v1.0.0）
-- 模块状态面板：Poem 沉浸背诵、Vocab Master、ADN、LexiconLab、Battlefield 6 Hub、Vocab Flow
 
 ---
 
-### 13. 文件命名规范总结
+### 12. 文件命名规范总结
 
 | 类型 | 命名规则 | 示例 |
 |------|---------|------|
@@ -862,7 +937,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 ---
 
-### 14. 禁止事项（红线）
+### 13. 禁止事项（红线）
 
 - ❌ **禁止使用硬编码颜色**（如 `bg-white`、`text-black`、`bg-gray-200`），必须使用 `var()` CSS 变量
 - ❌ **禁止在 Server Action 中不进行用户认证**
@@ -874,7 +949,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 ---
 
-### 15. AI 编程检查清单
+### 14. AI 编程检查清单
 
 在编写任何代码前，AI 助手应确认：
 
@@ -891,11 +966,14 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 
 ---
 
-## 原有 HTML 页面说明
+## 旧版 HTML 页面说明
 
-根目录下的旧版 `.html` 文件是由 Gemini Pro / Claude Sonnet 构建的独立功能页面，已通过 `jackyun-portal/public/` 目录部署为新版系统的静态资源，并由 Legacy Bridge 机制统一管理 API 密钥和 LLM 请求代理。
+`jackyun-portal/public/` 目录下的 `.html` 文件是由 Gemini Pro / Claude Sonnet 构建的独立功能页面，已部署为新版系统的静态资源，并由 Legacy Bridge 机制统一管理 API 密钥和 LLM 请求代理。
 
-**技术债**：旧版页面正在逐步迁移到 Next.js 原生组件，当前策略是通过 iframe + 注入脚本实现兼容过渡。
+**public/ 目录静态资源列表**：
+`AnswerSheet.html` `AnswerSheetSync.html` `BilibiliSync.html` `CNAME` `Control.html` `Countdown.html` `EM.html` `Goal.html` `GoalFeatures.js` `HelpCenter.html` `IGCountdown.html` `index.html` `Jump.html` `JumpMusic.html` `MockPortal.html` `MusicPlayer.html` `MusicPlayerSync.html` `Poem.html` `QuizWise.html` `Relax.html` `StudyGuide.html` `Studyplan.html` `Test.html` `Time.html` `TimetableHub.html` `UpdateHub.html` `Vocab.html` `Webicon.png` `quiz.html`
+
+**技术债**：旧版页面正在逐步迁移到 Next.js 原生组件，当前策略是通过 iframe + 注入脚本实现兼容过渡。已迁移的原生组件：QuizWise 刷题、番茄钟、时间管理入口、工具箱、MD2Word、倒计时管理。
 
 ---
 
