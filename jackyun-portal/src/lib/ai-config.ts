@@ -9,6 +9,8 @@ export interface AiConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 深度思考模型（默认与主模型相同，可单独配置如 deepseek-reasoner） */
+  proModel?: string;
 }
 
 /** 思考深度等级 — 影响 temperature 和 system prompt */
@@ -20,6 +22,7 @@ export type SafetyMode = 'yolo' | 'safe';
 const THINKING_LEVEL_KEY = 'jackyun-ai-thinking-level';
 const SAFETY_MODE_KEY = 'jackyun-ai-safety-mode';
 const TOKEN_PRICE_KEY = 'jackyun-ai-token-price';
+const PRO_MODEL_KEY = 'jackyun-ai-pro-model';
 
 /** 获取操作模式（默认 safe） */
 export function getSafetyMode(): SafetyMode {
@@ -34,6 +37,21 @@ export function getSafetyMode(): SafetyMode {
 export function saveSafetyMode(mode: SafetyMode): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SAFETY_MODE_KEY, mode);
+}
+
+/** 获取深度思考模型（Pro），未设置时回退到主模型 */
+export function getProModel(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(PRO_MODEL_KEY) || '';
+  } catch { return ''; }
+}
+
+/** 保存深度思考模型（Pro） */
+export function saveProModel(model: string): void {
+  if (typeof window === 'undefined') return;
+  if (model.trim()) localStorage.setItem(PRO_MODEL_KEY, model.trim());
+  else localStorage.removeItem(PRO_MODEL_KEY);
 }
 
 /** 获取模型价格（元 / 1M tokens，默认 2 元） */
@@ -94,6 +112,7 @@ export function getAiConfig(): AiConfig {
       baseUrl: parsed.baseUrl ?? '',
       apiKey: parsed.apiKey ?? '',
       model: parsed.model ?? '',
+      proModel: parsed.proModel ?? '',
     };
   } catch {
     return { baseUrl: '', apiKey: '', model: '' };
@@ -152,12 +171,18 @@ export async function callAiApi(
   options: {
     temperature?: number;
     stream?: boolean;
+    /** 指定模型（如 deepseek-reasoner / deepseek-chat）；不传则用主模型 */
+    model?: string;
+    /** 最大输出 token 数（新模型需要传入以支持思考） */
+    maxTokens?: number;
+    /** 禁止思考模式（部分模型通过 extra 参数或 max_tokens 控制） */
+    noThinking?: boolean;
   } = {},
 ): Promise<Response> {
   const config = getAiConfig();
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
   const apiKey = config.apiKey;
-  const model = config.model;
+  const model = options.model || config.model;
 
   if (!baseUrl || !apiKey) {
     throw new Error('请先在设置页面配置 AI API Key');
@@ -170,6 +195,14 @@ export async function callAiApi(
     stream: options.stream ?? false,
   };
 
+  if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
+  // 部分 API 用 extra_body.reasoning_effort 或 thinking 控制思考
+  if (options.noThinking) {
+    (body as Record<string, unknown>).thinking = { type: 'disabled' };
+  }
+  // signal 透传（AbortController）
+  const signal = (options as Record<string, unknown>).signal as AbortSignal | undefined;
+
   // 无 max_tokens：不限制回复长度，让 AI 完整回答
   return fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -178,5 +211,6 @@ export async function callAiApi(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
 }
