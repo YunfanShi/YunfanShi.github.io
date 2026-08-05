@@ -693,7 +693,81 @@ function saveNow(showMsg){
   localStorage.setItem(LS_ACTIVE,planId);
   localStorage.setItem(LS_PLANS+planId,JSON.stringify(plan));
   pushControlSync();
+  cloudSyncSchedules();
   if(showMsg)msg('✅ 已保存');
+}
+// ===== CLOUD SYNC (30天滑动窗口 + 压缩) =====
+/**
+ * 将 TimetableHub 的 7 天周计划压缩后同步到云端（/api/timetable-sync → th_state.schedules）
+ * 云端只保留最近 30 天；更早的数据仅存本地 localStorage，不占云端储存。
+ * 压缩格式：{"YYYY-MM-DD": {t:[{s:startMin,e:endMin,n:名称,ty:'s'|'b',d:是否完成}], u:更新时间ISO}}
+ */
+function compressDaySchedules(){
+  const out={};
+  if(!plan)return out;
+  for(let day=0;day<7;day++){
+    const d=new Date();d.setDate(d.getDate()+((day-(new Date().getDay()+6)%7+7)%7));
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const items=[];
+    for(const t of plan.tasks){
+      if(t.sched&&t.sched.dayIdx===day){
+        items.push({s:t.sched.startMin,e:t.sched.startMin+(t.sched.durMin||t.duration||60),n:taskNameSafe(t),ty:'s',d:(t.progress||0)>=100?1:0});
+      }
+    }
+    for(const fb of plan.fixedBlocks||[]){
+      if(fb.days.includes(day)) items.push({s:fb.startMin,e:fb.endMin,n:taskNameSafe(fb),ty:fb.type==='rest'?'b':'s',d:0});
+    }
+    items.sort((a,b)=>a.s-b.s);
+    if(items.length) out[dateStr]={t:items,u:new Date().toISOString()};
+  }
+  return out;
+}
+async function cloudSyncSchedules(){
+  try{
+    // 读取现有云端数据（避免覆盖其他页面写入的字段）
+    const getRes=await fetch('/api/timetable-sync',{method:'GET'});
+    const existing=(await getRes.json())||{};
+    const prevState=existing.ok&&existing.th_state&&typeof existing.th_state==='object'?existing.th_state:{};
+    // 合并本次 7 天计划
+    const mergedSchedules={...(prevState.schedules&&typeof prevState.schedules==='object'?prevState.schedules:{})};
+    Object.assign(mergedSchedules,compressDaySchedules());
+    // 30天滑动窗口：只保留最近30天
+    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
+    const cutoffStr=`${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
+    for(const key of Object.keys(mergedSchedules)){
+      if(key<cutoffStr) delete mergedSchedules[key];
+    }
+    // 写回云端 th_state.schedules
+    await fetch('/api/timetable-sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      th_state:{...prevState, schedules:mergedSchedules}
+    })});
+  }catch(e){ /* 静默失败：离线/未登录时仅本地保存 */ }
+}
+// 页面加载时先从云端拉取（若本地为空则用云端恢复）
+async function cloudLoadSchedules(){
+  try{
+    const res=await fetch('/api/timetable-sync',{method:'GET'});
+    const data=await res.json();
+    if(!data.ok)return;
+    const scheds=data.th_state&&data.th_state.schedules?data.th_state.schedules:{};
+    const todayIdx=(new Date().getDay()+6)%7;
+    const d=new Date();
+    const todayStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const todayData=scheds[todayStr];
+    // 仅当本地没有今天的数据时，用云端恢复今天的任务排程
+    const localHasToday=(plan.tasks||[]).some(t=>t.sched&&t.sched.dayIdx===todayIdx);
+    if(!localHasToday&&todayData&&Array.isArray(todayData.t)){
+      const restored=todayData.t.filter(x=>x.ty==='s').map(x=>({
+        id:uid(),parentId:null,name:x.n||'任务',duration:x.e-x.s||60,priority:3,
+        color:'#4d9ef7',notes:'',progress:x.d?100:0,collapsed:true,
+        sched:{dayIdx:todayIdx,startMin:x.s,durMin:x.e-x.s||60}
+      }));
+      if(restored.length){
+        plan.tasks=plan.tasks.concat(restored);
+        saveNow(false);
+      }
+    }
+  }catch(e){}
 }
 function loadAll(){
   try{plans=JSON.parse(localStorage.getItem(LS_PLANS))||[]}catch(e){plans=[]}
@@ -2428,6 +2502,7 @@ function init(){
   applyTempMode();
   applyDayRangeInputs();
   loadAll();
+  cloudLoadSchedules();
   // sidebar default collapsed — already collapsed by CSS
   // 监听外部（Goal 推送 / AI 工具）对方案数据的修改 → 自动重载
   window.addEventListener('storage',e=>{
