@@ -1772,7 +1772,42 @@
         STATE.customPlaylists.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.innerText = p.name; select.appendChild(o); });
     }
     function timeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
-    function saveSchedule() { localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule)); }
+    function saveSchedule() {
+        localStorage.setItem('w3_schedule', JSON.stringify(STATE.schedule));
+        // 同步完成状态回云端：把 STATE.schedule 的进度/完成状态写回 th2_plans{id}
+        try {
+            const activeId = localStorage.getItem('th2_active_plan_id');
+            if (activeId) {
+                const p = JSON.parse(localStorage.getItem('th2_plans' + activeId) || 'null');
+                if (p && Array.isArray(p.tasks)) {
+                    let changed = false;
+                    for (const s of STATE.schedule) {
+                        if (!s.id) continue;
+                        const t = p.tasks.find((x) => x.id === s.id);
+                        if (t) {
+                            const newProg = s.done ? 100 : (s.progress || 0);
+                            if ((t.progress || 0) !== newProg) { t.progress = newProg; changed = true; }
+                        }
+                    }
+                    if (changed) {
+                        p.updatedAt = new Date().toISOString();
+                        localStorage.setItem('th2_plans' + activeId, JSON.stringify(p));
+                        // 触发 TimetableHub 的 storage 监听（同窗口用自定义事件跨 iframe）
+                        try { window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + activeId })); } catch (e) {}
+                        // 推送完成状态到云端，让其他设备也能看到
+                        try {
+                            fetch('/api/timetable-sync', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ th_state: { plan: p, plans: JSON.parse(localStorage.getItem('th2_plans') || '[]'), activePlanId: activeId, updatedAt: new Date().toISOString() } }),
+                                credentials: 'same-origin'
+                            }).catch(() => {});
+                        } catch (e) {}
+                    }
+                }
+            }
+        } catch (e) { /* 静默失败 */ }
+    }
 
     /* ======================== VIEW MODE SWITCHER ======================== */
     function switchView(mode) {
