@@ -4,6 +4,7 @@ import LegacyBridge from '@/components/modules/legacy-bridge';
 import KeyboardShortcuts from '@/components/layout/keyboard-shortcuts';
 import AiChatFab from '@/components/modules/ai-chat-fab';
 import MiniPlayer from '@/components/modules/mini-player';
+import FlyingTimer from '@/components/modules/floating-timer';
 import LanguageProvider from '@/components/language-provider';
 import { createClient } from '@/lib/supabase/server';
 import { getSidebarPreferences } from '@/actions/settings';
@@ -32,6 +33,7 @@ export default async function PortalLayout({
         <KeyboardShortcuts />
         <AiChatFab />
         <MiniPlayer />
+        <FlyingTimer />
       </div>
     </LanguageProvider>
   );

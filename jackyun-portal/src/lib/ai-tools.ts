@@ -1622,6 +1622,7 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const prefix = 'jackyun_traffic_';
         const results: string[] = [];
+        // ⚠️ 性能优化：不遍历全部 localStorage，直接按前缀读取（红绿灯 key 结构与前缀一致）
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && key.startsWith(prefix)) {
