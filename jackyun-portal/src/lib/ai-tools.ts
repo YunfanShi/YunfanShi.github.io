@@ -2077,7 +2077,7 @@ export function getPlatformOverview(): string {
 
 - 🏠 主页 (dashboard)：全局概览、快速访问所有数据
 - 🎯 目标管理 (goal)：创建/修改/删除目标、调整层级、跟踪进度
-- 📋 日程中心 (control)：查看今日日程、标记完成/跳过、启动计时器、生成日程
+- � 时间表编辑器 (timetable-hub)：创建方案、添加/删除/移动任务、添加固定时间块、AI 智能排程
 - 📚 学习计划 (study)：查看学习计划、学科进度、红绿灯审计
 - 📖 学习指导 (study-guide)：每日学习进度、学习建议
 - 🧠 QuizWise (quiz)：刷题、分析题目、批改答案
@@ -2119,7 +2119,7 @@ export function getToolsDescription(scope: ToolScope): string {
     (baseToolsDesc ? '\n\n' : '') +
     '【按需工具：request_page_tools】\n' +
     '如果你需要操作**当前页面没有**的其他功能数据，调用此工具获取目标页面的工具描述：\n' +
-    '- page (必填)：目标页面标识，可选值：goal / control / study / study-guide / quiz / vocab / music / poem / relax / countdown / tools / settings\n' +
+    '- page (必填)：目标页面标识，可选值：goal / control / timetable-hub / study / study-guide / quiz / vocab / music / poem / relax / countdown / tools / settings\n' +
     '调用示例：\n' +
     '```tool_call\n' +
     '{"tool": "request_page_tools", "params": {"page": "goal"}}\n' +
@@ -2224,7 +2224,7 @@ export async function executeToolCall(
 // 页面数据全景图 — 告诉 AI 当前页面有什么数据可以读/写
 // ─────────────────────────────────────────────────────────────
 
-export type ConversationSource = 'dashboard' | 'control' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'help' | 'other';
+export type ConversationSource = 'dashboard' | 'control' | 'timetable-hub' | 'study-guide' | 'study' | 'quiz' | 'vocab' | 'music' | 'poem' | 'settings' | 'goal' | 'relax' | 'countdown' | 'tools' | 'help' | 'other';
 
 export function getPageContext(source: ConversationSource): string {
   const contexts: Record<ConversationSource, string> = {
@@ -2311,6 +2311,37 @@ export function getPageContext(source: ConversationSource): string {
   🛠 使用工具：create_schedule_from_goal
 
 用户可以在日程中心管理时间安排。你可以帮他查看日程、标记完成、调整计划，也可以直接编辑时间表编辑器中的方案。
+
+📌 **交互模式（重要）**：
+- 你默认处于**被动响应模式**：只回答用户问的问题，**不要主动推荐、建议或生成**任何日程/方案/任务安排。
+- 只有用户**明确要求**你帮忙排程/调整/分析时，才调用工具执行。
+- 如果用户不满意某次结果（如"还是不行"），先读取真实数据核实现状，再基于事实如实汇报，**不要重复调用相同工具造成重复任务**。
+- 不要生成重复的未排程任务副本；执行写入前先 th_read_plan 查看当前任务池。`,
+    'timetable-hub': `📊 当前页面数据全景图
+
+你在「时间表编辑器 (TimetableHub v2)」。以下是这个页面上所有你可以读取或操作的数据：
+
+【🗓 时间表方案】（localStorage key: th2_plans / th2_plans{id} / th2_active_plan_id）
+  📖 可读取：所有时间表方案（th_read_plans）、单个方案详情含任务/层级/固定块/排程（th_read_plan）
+  ✏️ 可操作：添加任务（th_add_task）、删除任务（th_delete_task）、移动任务到指定时间/修改时长（th_move_task）、批量整体偏移（th_shift_add）、互换两个任务位置（th_swap_tasks）、切换主/子任务归属（th_set_parent）、添加固定时间块（th_add_fixed_block）
+  🛠 使用工具：th_read_plans、th_read_plan、th_add_task、th_delete_task、th_move_task、th_shift_add、th_swap_tasks、th_set_parent、th_add_fixed_block
+
+【每日可用时段】（localStorage key: th2_day_range）
+  📖 可读取：每天的开始/结束时间（影响 AI 排程的可用范围）
+
+【📋 日程中心联动】
+  ✏️ 保存方案后会自动同步到 Control 日程中心（写入 jack_timetable_plan / w3_schedule / w3_week_plan），并推送到云端（/api/timetable-sync）供其他设备读取。
+  📌 写入后会自动同步到 Control 日程和各设备。修改前建议先 th_read_plan 查看当前排程。
+
+【📋 日程中心数据】（localStorage key: w3_schedule / jackyun_control_events）
+  📖 可读取：今日日程（时间段、任务名、完成状态）
+  ✏️ 可操作：标记任务完成/取消（toggle_task_done）、跳过任务（skip_task）
+  🛠 使用工具：get_schedule、get_current_task、toggle_task_done、skip_task
+
+【其他实用能力】
+  🔍 搜索网页（search_web）、🧮 计算（calculate）、🕐 查看时间（current_time）、⏱ 设置计时器（start_timer / stop_timer）
+
+当用户提出需求时，先判断需要哪些数据，再按流程：读取数据 → 分析 → 执行修改 → 确认结果 → 汇报。
 
 📌 **交互模式（重要）**：
 - 你默认处于**被动响应模式**：只回答用户问的问题，**不要主动推荐、建议或生成**任何日程/方案/任务安排。
