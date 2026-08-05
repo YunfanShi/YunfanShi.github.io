@@ -342,6 +342,10 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .ai-dock-status{font-size:10px;color:var(--text2);text-align:center;padding:3px 0}
 .ai-dock-status.on{color:var(--green)}
 
+/* ===== CLOUD STATUS ===== */
+.cloud-status.ok{color:var(--green)}
+.cloud-status.err{color:var(--red)}
+
 /* ===== SNACKBAR ===== */
 #snackbar{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);z-index:900;
   background:var(--surface3);color:var(--text);padding:10px 22px;border-radius:99px;font-size:12.5px;
@@ -394,6 +398,7 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
       <span class="material-icons-round">rocket_launch</span><span class="t-lbl">部署到日程中心</span></button>
     <button class="tb-btn" onclick="openImportGoal()" title="从 Goal 导入任务"><span class="material-icons-round">download</span><span class="t-lbl">导入</span></button>
     <button class="tb-btn" onclick="saveNow(true)" title="保存"><span class="material-icons-round">save</span><span class="t-lbl">保存</span></button>
+    <span class="cloud-status" id="cloudStatus" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);white-space:nowrap;transition:color .2s"></span>
     <button class="tb-btn p" onclick="runAISchedule()" id="aiBtn" title="AI 智能排程">
       <span class="material-icons-round">auto_awesome</span><span class="t-lbl">AI智能排程</span></button>
   </div>
@@ -894,6 +899,17 @@ function pushControlSync(){
     try{window.parent.postMessage({type:'timetablehub-updated',planId,planName:plan.name},'*')}catch(e){}
   }
 }
+// ===== 云端同步状态指示 =====
+function setCloudStatus(s,cls){
+  const el=document.getElementById('cloudStatus');
+  if(!el)return;
+  el.textContent=s||'';
+  el.className='cloud-status'+(cls?' '+cls:'');
+  clearTimeout(setCloudStatus._t);
+  if(cls==='ok'||cls==='err'){
+    setCloudStatus._t=setTimeout(()=>{if(el){el.textContent='';el.className='cloud-status'}},3000);
+  }
+}
 // 云端同步：把当前方案（含 th_state / th_config）上传到 Supabase，其他设备可从云端读取
 let cloudSyncTimer=null;
 let cloudSyncRetryCount=0;
@@ -907,14 +923,21 @@ function pushCloudSync(){
         th_state:{plan,plans,activePlanId:planId,dayRange:getDayRange(),updatedAt:new Date().toISOString()},
         th_config:{dayRange:getDayRange()}
       };
+      setCloudStatus('⏳ 同步中');
       fetch('/api/timetable-sync',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(payload),
         credentials:'same-origin'
       }).then(res=>{
-        if(res.ok)cloudSyncRetryCount=0;
+        if(res.ok){
+          cloudSyncRetryCount=0;
+          setCloudStatus('☁️ 已同步','ok');
+        }else{
+          setCloudStatus('⚠️ 同步失败','err');
+        }
       }).catch(()=>{
+        setCloudStatus('⚠️ 同步失败','err');
         // 失败后自动重试一次（2 秒后），提升跨设备同步可靠性
         if(cloudSyncRetryCount<1){
           cloudSyncRetryCount++;
