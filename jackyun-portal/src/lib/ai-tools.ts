@@ -2014,6 +2014,76 @@ export const AI_TOOLS: AiTool[] = [
       }
     },
   },
+  // ====== 元工具：按需获取工具手册（防止 system prompt 过大） ======
+  {
+    id: 'request_page_tools',
+    name: '按需获取页面工具',
+    description: `获取指定页面的完整工具手册（包含参数说明和调用示例）。
+
+参数说明：
+- page (必填)：目标页面标识，可选值：dashboard / goal / control / timetable-hub / study / study-guide / quiz / vocab / music / poem / relax / countdown / tools / settings / help
+
+调用示例：
+\`\`\`tool_call
+{"tool": "request_page_tools", "params": {"page": "goal"}}
+\`\`\`
+
+系统会返回该页面的所有可用工具完整描述。⚠️ 仅在确实需要操作其他页面数据时才调用，不要反复调用同一页面。`,
+    scope: ['global', 'dashboard', 'goal', 'study', 'study_guide', 'quiz', 'vocab', 'music', 'poem', 'relax', 'countdown', 'settings', 'tools', 'control', 'help'] as ToolScope[],
+    handler: async (params) => {
+      const page = (params.page || '').toLowerCase();
+      const pageScopeMap: Record<string, ToolScope[]> = {
+        dashboard: ['dashboard'],
+        goal: ['goal'],
+        control: ['control'],
+        'timetable-hub': ['control'],
+        study: ['study'],
+        'study-guide': ['study_guide'],
+        quiz: ['quiz'],
+        vocab: ['vocab'],
+        music: ['music'],
+        poem: ['poem'],
+        relax: ['relax'],
+        countdown: ['countdown'],
+        tools: ['tools'],
+        settings: ['settings'],
+        help: ['global'],
+      };
+      const scopes = pageScopeMap[page];
+      if (!scopes) {
+        return `未知页面 "${page}"。可用页面：${Object.keys(pageScopeMap).join(' / ')}`;
+      }
+      const tools = scopes.flatMap(s => getToolsByScope(s));
+      const unique = Array.from(new Map(tools.map(t => [t.id, t])).values());
+      if (!unique.length) return `页面 "${page}" 暂无可用工具`;
+      return '【' + page + ' 页面完整工具手册】\n' +
+        unique.map((tool, i) =>
+          `━━━ 工具 ${i + 1}/${unique.length}：${tool.name}（ID: \`${tool.id}\`）━━━\n${tool.description}`
+        ).join('\n\n');
+    },
+  },
+  {
+    id: 'request_tool_details',
+    name: '查看工具详情',
+    description: `查看某个工具的完整使用说明（含参数和调用示例）。
+
+参数说明：
+- tool (必填)：工具 ID，如 "read_goal_data"
+
+调用示例：
+\`\`\`tool_call
+{"tool": "request_tool_details", "params": {"tool": "manage_goal"}}
+\`\`\`
+
+⚠️ 仅在需要精确参数格式时才调用；已了解的工具不要再重复查看。`,
+    scope: ['global', 'dashboard', 'goal', 'study', 'study_guide', 'quiz', 'vocab', 'music', 'poem', 'relax', 'countdown', 'settings', 'tools', 'control', 'help'] as ToolScope[],
+    handler: async (params) => {
+      const id = (params.tool || '').toLowerCase();
+      const tool = AI_TOOLS.find(t => t.id === id);
+      if (!tool) return `未找到工具 "${id}"`;
+      return `━━━ ${tool.name}（ID: \`${tool.id}\`）━━━\n${tool.description}`;
+    },
+  },
 ];
 
 /**
@@ -2097,34 +2167,90 @@ export function getPlatformOverview(): string {
 获取后即可在当前对话中继续使用这些工具（系统会将工具描述注入后续消息）。`;
 }
 
+/** 工具精简描述缓存（供 getToolsDescription 生成索引） */
+const TOOL_SHORT_DESC: Record<string, string> = {
+  navigate: '跳转页面',
+  open_link: '打开外链',
+  go_back: '返回上页',
+  play_music: '播放音乐',
+  stop_music: '停止音乐',
+  start_timer: '开始计时',
+  stop_timer: '停止计时',
+  get_schedule: '查今日日程',
+  get_current_task: '查当前任务',
+  toggle_task_done: '标记完成',
+  skip_task: '跳过任务',
+  finish_task_early: '提前完成',
+  switch_day: '切换日期',
+  get_today_schedule: '查学习计划',
+  get_progress: '查学科进度',
+  get_countdown: '查倒计时',
+  analyze_question: '分析题目',
+  search_web: '搜索网页',
+  calculate: '数学计算',
+  set_reminder: '设置提醒',
+  get_weather: '天气查询',
+  open_app: '打开工具',
+  current_time: '查看时间',
+  read_goal_data: '读目标数据',
+  manage_goal: '增删改目标',
+  read_timetable: '读日程事件',
+  th_read_plans: '读时间表方案',
+  th_read_plan: '读方案详情',
+  th_add_task: '添加任务',
+  th_delete_task: '删除任务',
+  th_move_task: '移动任务',
+  th_shift_add: '批量偏移',
+  th_swap_tasks: '互换任务',
+  th_set_parent: '设父子级',
+  th_add_fixed_block: '加固定块',
+  read_countdown: '读考试倒计时',
+  manage_countdown: '改考试日期',
+  read_study_progress: '读学习进度',
+  read_traffic_audit: '读红绿灯',
+  manage_traffic_audit: '改红绿灯',
+  create_schedule_from_goal: '目标生成日程',
+  read_schedule_results: '读执行结果',
+  analyze_schedule_and_suggest: '日程分析建议',
+  read_quiz_data: '读刷题数据',
+  get_daily_plan: '读今日计划',
+  set_daily_plan: '设置今日计划',
+  get_fixed_blocks: '读固定时间块',
+  get_task_pool: '读任务池',
+  request_page_tools: '按需获取页面工具',
+  request_tool_details: '查看工具详情',
+};
+
 /**
- * 生成用于 system prompt 的工具描述 — 完整操作手册
+ * 生成用于 system prompt 的工具描述 — 精简索引模式
+ * 只列出工具名 + 一句话说明，避免将全部参数手册注入每次请求
+ * AI 需要精确参数时调用 request_tool_details 按需获取
  */
 export function getToolsDescription(scope: ToolScope): string {
   const tools = getToolsByScope(scope);
 
   const baseToolsDesc = tools.length > 0
-    ? '【可用工具完整手册】\n' +
-      '当用户提出相关需求时，你可以在回复末尾使用 ```tool_call 代码块调用工具。\n' +
-      '系统会自动解析并在当前页面执行。你可以连续多轮调用工具完成任务，直到目标达成。\n\n' +
+    ? '【可用工具索引（精简版）】\n' +
+      '你可以在回复末尾使用 ```tool_call 代码块调用工具。系统会自动解析并在当前页面执行。\n' +
+      '下列是当前页面可用的工具。**需要精确参数格式时，先调用 request_tool_details 查看该工具的完整说明**：\n\n' +
       tools
-        .map((tool, i) => {
-          return `━━━ 工具 ${i + 1}/${tools.length}：${tool.name}（ID: \`${tool.id}\`）━━━\n` +
-            `${tool.description}`;
+        .map((tool) => {
+          const short = TOOL_SHORT_DESC[tool.id] || tool.name;
+          return `- \`${tool.id}\` — ${short}`;
         })
-        .join('\n\n')
+        .join('\n')
     : '';
 
   return baseToolsDesc +
     (baseToolsDesc ? '\n\n' : '') +
-    '【按需工具：request_page_tools】\n' +
-    '如果你需要操作**当前页面没有**的其他功能数据，调用此工具获取目标页面的工具描述：\n' +
-    '- page (必填)：目标页面标识，可选值：goal / control / timetable-hub / study / study-guide / quiz / vocab / music / poem / relax / countdown / tools / settings\n' +
+    '【按需工具】\n' +
+    '1. `request_tool_details`：查看某个工具（含上面任一工具）的完整参数说明和调用示例。\n' +
+    '2. `request_page_tools`：获取其他页面（goal/control/timetable-hub/study/quiz/tools/settings 等）的可用工具列表。\n' +
     '调用示例：\n' +
     '```tool_call\n' +
-    '{"tool": "request_page_tools", "params": {"page": "goal"}}\n' +
+    '{"tool": "request_tool_details", "params": {"tool": "manage_goal"}}\n' +
     '```\n' +
-    '系统会返回该页面的所有可用工具描述，之后你就可以正常使用了。\n\n' +
+    '⚠️ 已了解的工具不要再重复查看；只需要精确参数时才调用。\n\n' +
     '【工具调用规则（极其重要，必须遵守）】\n' +
     '1. 📖 **先读后改（铁律）**：任何修改/删除操作之前，必须先调用对应的读取工具获取真实数据。例如修改目标前必须先调用 read_goal_data。\n' +
     '2. 🔢 **不编造 ID**：所有目标 ID、任务序号等必须来自读取工具返回的实际数据。如果工具返回 ❌ 错误，说明参数有误，分析原因后重试。\n' +

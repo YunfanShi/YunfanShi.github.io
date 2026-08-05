@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
-import { callAiApi, getAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
+import { callAiApi, getAiConfig, getProModel, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
 import { getToolsDescription, getPlatformOverview, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
@@ -995,6 +995,7 @@ export default function AiChatFab({
     apiMessages: Array<{ role: string; content: string }>,
     convId: string,
     replaceIndex?: number,
+    options: { model?: string; temperature?: number; maxTokens?: number } = {},
   ): Promise<{ content: string; tokenUsage?: { input?: number; output?: number } }> {
     const config = getAiConfig();
     if (!config.baseUrl || !config.apiKey) {
@@ -1007,7 +1008,9 @@ export default function AiChatFab({
 
     const res = await callAiApi(apiMessages, {
       stream: true,
-      temperature: getThinkingTemperature(thinkingLevel),
+      temperature: options.temperature ?? getThinkingTemperature(thinkingLevel),
+      model: options.model,
+      maxTokens: options.maxTokens,
       // @ts-ignore - signal passes through to fetch
       signal: abortControllerRef.current.signal,
     });
@@ -1045,6 +1048,37 @@ export default function AiChatFab({
 
     setStatusText('AI 正在思考...');
 
+    // ═══ P1-4 性能优化：节流 UI 更新 ═══
+    // 流式 chunk 可能每秒几十个，逐个更新 React state + 写 localStorage 会造成频繁
+    // re-render 和主线程卡顿。这里节流为每 100ms 最多更新一次，大幅降低渲染压力。
+    let lastUiUpdate = 0;
+
+    /** 节流方式批量更新对话（首次务必更新，后续 100ms 节流，流结束后强制 flush） */
+    const flushToUi = (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastUiUpdate < 100) return;
+      lastUiUpdate = now;
+      if (!messageAdded) {
+        messageAdded = true;
+      }
+      updateConversation(conv => {
+        const updated = [...conv.messages];
+        const newMsg: Message = {
+          role: 'assistant',
+          content: assistantContent,
+          reasoningContent: reasoningContent || undefined,
+          tokenUsage: tokenUsage || (assistantContent ? { input: estimatedInputTokens, output: Math.ceil(assistantContent.length / 4) } : undefined),
+        };
+        if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
+          updated[replaceIndex] = newMsg;
+        } else {
+          updated.push(newMsg);
+        }
+        return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
+      }, convId);
+      setStatusText(assistantContent ? 'AI 正在回复...' : 'AI 正在思考...');
+    };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -1075,48 +1109,19 @@ export default function AiChatFab({
             if (deltaReasoning) reasoningContent += deltaReasoning;
             if (deltaContent) {
               assistantContent += deltaContent;
-              setStatusText('AI 正在回复...');
             }
 
-            if (!messageAdded) {
-              messageAdded = true;
-              updateConversation(conv => {
-                const updated = [...conv.messages];
-                const newMsg: Message = {
-                  role: 'assistant',
-                  content: assistantContent,
-                  reasoningContent: reasoningContent || undefined,
-                  tokenUsage: tokenUsage || (assistantContent ? { input: estimatedInputTokens, output: Math.ceil(assistantContent.length / 4) } : undefined),
-                };
-                if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
-                  updated[replaceIndex] = newMsg;
-                } else {
-                  updated.push(newMsg);
-                }
-                return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
-              }, convId);
-            } else {
-              updateConversation(conv => {
-                const updated = [...conv.messages];
-                const targetIdx = replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant'
-                  ? replaceIndex
-                  : updated.length - 1;
-                updated[targetIdx] = {
-                  ...updated[targetIdx],
-                  role: 'assistant',
-                  content: assistantContent,
-                  reasoningContent: reasoningContent || updated[targetIdx].reasoningContent,
-                  tokenUsage: tokenUsage || updated[targetIdx].tokenUsage,
-                };
-                return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
-              }, convId);
-            }
+            // 节流更新 UI
+            flushToUi();
           } catch {
             // ignore malformed chunk
           }
         }
       }
     }
+
+    // 流结束：强制 flush 最终内容（含 token 用量）
+    flushToUi(true);
 
     setStatusText('');
     return { content: assistantContent, tokenUsage };
@@ -1148,10 +1153,27 @@ export default function AiChatFab({
     let totalToolCalls = 0;
     let completedExplicitly = false;
 
-    // 思考深度决定推理轮数上限：低4/中10/高15（主页自动降到更少）
+    // ═══ 智能模型路由（P0-3）：根据任务复杂度选择策略 ═══
+    // easy   → Flash 直接回答（最多 2 轮，不调 Pro）
+    // medium → Flash 思考+执行（3 轮）
+    // hard   → Pro 首轮深度思考 → Flash 后续执行（8 轮）
+    const proModel = getProModel();
+    const lastUserMsg = initialApiMessages.filter(m => m.role === 'user').pop()?.content || '';
+    const trimmed = lastUserMsg.trim();
+    const isSimpleChat = /^(你好|hi|hello|hey|谢谢|再见|拜拜|在吗|你是谁|你会什么|能做什么|好的|ok|嗯|感谢|早安|晚安|哈喽|嗨)\b/i.test(trimmed) || trimmed.length <= 12;
+    const isComplexTask = trimmed.length > 25 && /(分析|总结|生成|制定|排程|规划|批量|创建|修改|删除|更新|帮我|建议|评估|报告|统计|预测)/.test(trimmed);
+    const taskMode: 'easy' | 'medium' | 'hard' = isSimpleChat
+      ? 'easy'
+      : (isComplexTask && !!proModel)
+        ? 'hard'
+        : 'medium';
+
+    // 推理轮数上限：easy=2（直接答）/ medium=3 / hard=8（主页上限 6）
+    const baseMaxLoops = taskMode === 'easy' ? 2 : taskMode === 'hard' ? 8 : 3;
     const isDashboard = getEffectiveSource() === 'dashboard';
-    const baseMaxLoops = thinkingLevel === 'low' ? 4 : thinkingLevel === 'high' ? 15 : 10;
-    const effectiveMaxLoops = isDashboard ? Math.min(baseMaxLoops, 5) : baseMaxLoops;
+    const effectiveMaxLoops = continueAfterLimit
+      ? baseMaxLoops
+      : (isDashboard ? Math.max(1, Math.min(baseMaxLoops, 6)) : baseMaxLoops);
 
     // ⚠️ 智能去重：记录已执行过的只读工具（同一轮内不重复读取相同数据）
     // 写操作（manage_*/toggle_*/skip_*）会清除读取记录，允许重新读取以确认修改结果
@@ -1191,7 +1213,19 @@ export default function AiChatFab({
 
       // 流式调用 AI（直接显示内容）
       // 重试时第一轮替换旧消息，后续轮次正常追加
-      const { content: assistantContent, tokenUsage: roundUsage } = await streamAiReply(apiMessages, convId, currentReplaceIndex);
+      // ═══ 智能模型路由 ═══
+      // easy/medium → 默认 Flash 全程处理
+      // hard → 首轮用 Pro 深度思考（配 8000 token），后续轮用 Flash 快速执行工具
+      const useProForThisRound = taskMode === 'hard' && loopCount === 1 && !!proModel;
+      const { content: assistantContent, tokenUsage: roundUsage } = await streamAiReply(
+        apiMessages,
+        convId,
+        currentReplaceIndex,
+        {
+          model: useProForThisRound ? proModel : undefined,
+          ...(useProForThisRound ? { maxTokens: 8000, temperature: 0.1 } : {}),
+        }
+      );
       currentReplaceIndex = undefined;
 
       // 累计 token 消耗
@@ -1639,26 +1673,40 @@ export default function AiChatFab({
   }
 
   // 流式响应完成后检查标题提取
-  const lastAssistantContent = messages.length > 0 ? messages[messages.length - 1] : null;
+  // ⚠️ 修复：Agent 循环结束后会追加「任务统计」系统消息，原逻辑只看 messages 最后一条
+  // 导致永远匹配不到 assistant 消息，标题一直是「新对话」。现在改为查找最后一条 assistant 消息。
+  // 同时增加 fallback：无 [TITLE] 标签时取第一条用户消息前 20 字作标题。
   useEffect(() => {
-    if (!loading && lastAssistantContent?.role === 'assistant' && lastAssistantContent.content) {
-      const title = extractTitle(lastAssistantContent.content);
-      if (title && activeConv) {
-        const userMsgCount = activeConv.messages.filter(m => m.role === 'user').length;
-        if (userMsgCount === 1 && activeConv.title === '新对话') {
-          const convId = activeConv.id;
-          setConversations(prev => {
-            const updated = prev.map(c => {
-              if (c.id !== convId) return c;
-              return { ...c, title: title.slice(0, 30) };
-            });
-            saveConversations(updated);
-            return updated;
-          });
-        }
+    if (loading || !activeConv || activeConv.title !== '新对话') return;
+    const userMsgCount = activeConv.messages.filter(m => m.role === 'user').length;
+    if (userMsgCount !== 1) return;
+
+    let lastAssistantContent = '';
+    for (let i = activeConv.messages.length - 1; i >= 0; i--) {
+      if (activeConv.messages[i].role === 'assistant' && activeConv.messages[i].content) {
+        lastAssistantContent = activeConv.messages[i].content;
+        break;
       }
     }
-  }, [loading, lastAssistantContent]);
+    if (!lastAssistantContent) return;
+
+    const firstUserMsg = activeConv.messages.find(m => m.role === 'user')?.content || '';
+    const title =
+      extractTitle(lastAssistantContent) ||
+      (firstUserMsg ? firstUserMsg.slice(0, 20) : '') ||
+      '新对话';
+    if (!title || title === '新对话') return;
+
+    const convId = activeConv.id;
+    setConversations(prev => {
+      const updated = prev.map(c => {
+        if (c.id !== convId) return c;
+        return { ...c, title: title.slice(0, 30) };
+      });
+      saveConversations(updated);
+      return updated;
+    });
+  }, [loading, activeConv]);
 
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'

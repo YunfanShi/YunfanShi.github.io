@@ -67,4 +67,4 @@
 3. **Log Update**: Write the details of the change into `jackyun-portal/public/UpdateHub.html`.
 4. **Deploy**: Run `git add`, `git commit -m "your message"`, and `git push` via SSH automatically.
 5. If that is any change with supabase that need to updates, you need to talk to me to make sure these changes are updated.
-6. If you need to fix a complex bugs or add some new functions/ websites, you need to backup the all files for released version (do not put develop environment and files into the Folder) Put the backup folder in /Users/loong/Desktop/Yunfanshi/Backup and named it as the version number in the update hub.
+6. **备份策略（仅重大更新需要）**：只有**大版本更新**（版本号第一位变化，如 3.x → 4.0）或**中大版本更新**（中间位变化，如 3.1 → 3.2）才需要备份。备份所有已发布版本的文件（不要将开发环境和文件放入该文件夹），将备份文件夹放在 /Users/loong/Desktop/Yunfanshi/Backup 并按更新中心的版本号命名。小版本修复（如 3.2.1 → 3.2.2）**不需要备份**。
