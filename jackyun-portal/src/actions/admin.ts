@@ -386,33 +386,35 @@ export async function getActiveNotifications(): Promise<SiteNotification[]> {
 
 /**
  * 获取所有通知（管理员面板用，包括禁用/过期的）
+ * 通过 SECURITY DEFINER 函数 list_site_notifications() 调用，
+ * 函数内部校验 profiles.role='admin'，避免 RLS 权限问题。
  */
 export async function getAllNotifications(): Promise<SiteNotification[]> {
   const { supabase } = await requireAdmin();
-  const { data, error } = await supabase
-    .from('site_notifications')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data, error } = await supabase.rpc('list_site_notifications');
   if (error) throw new Error(error.message);
   return (data ?? []) as SiteNotification[];
 }
 
 /**
  * 创建通知（管理员）
+ * 通过 SECURITY DEFINER 函数 create_site_notification(payload jsonb) 调用，
+ * 函数内部校验 profiles.role='admin'。
  */
 export async function createNotification(
   input: NotificationInput,
 ): Promise<{ success: boolean; error?: string }> {
-  const { supabase, user } = await requireAdmin();
+  const { supabase } = await requireAdmin();
 
-  const { error } = await supabase.from('site_notifications').insert({
-    title: input.title.trim(),
-    content: input.content,
-    content_type: input.content_type,
-    is_active: input.is_active,
-    start_time: input.start_time || null,
-    end_time: input.end_time || null,
-    created_by: user.id,
+  const { error } = await supabase.rpc('create_site_notification', {
+    payload: {
+      title: input.title.trim(),
+      content: input.content,
+      content_type: input.content_type,
+      is_active: input.is_active,
+      start_time: input.start_time || null,
+      end_time: input.end_time || null,
+    },
   });
 
   if (error) return { success: false, error: error.message };
@@ -422,6 +424,8 @@ export async function createNotification(
 
 /**
  * 更新通知（管理员）
+ * 通过 SECURITY DEFINER 函数 update_site_notification(p_id uuid, payload jsonb) 调用，
+ * 函数内部校验 profiles.role='admin'。
  */
 export async function updateNotification(
   id: string,
@@ -429,18 +433,17 @@ export async function updateNotification(
 ): Promise<{ success: boolean; error?: string }> {
   const { supabase } = await requireAdmin();
 
-  const { error } = await supabase
-    .from('site_notifications')
-    .update({
+  const { error } = await supabase.rpc('update_site_notification', {
+    p_id: id,
+    payload: {
       title: input.title.trim(),
       content: input.content,
       content_type: input.content_type,
       is_active: input.is_active,
       start_time: input.start_time || null,
       end_time: input.end_time || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+    },
+  });
 
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin');
@@ -449,16 +452,17 @@ export async function updateNotification(
 
 /**
  * 删除通知（管理员）
+ * 通过 SECURITY DEFINER 函数 delete_site_notification(p_id uuid) 调用，
+ * 函数内部校验 profiles.role='admin'。
  */
 export async function deleteNotification(
   id: string,
 ): Promise<{ success: boolean; error?: string }> {
   const { supabase } = await requireAdmin();
 
-  const { error } = await supabase
-    .from('site_notifications')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.rpc('delete_site_notification', {
+    p_id: id,
+  });
 
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin');
