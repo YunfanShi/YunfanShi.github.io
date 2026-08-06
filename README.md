@@ -4,7 +4,7 @@
 >
 > Built with Next.js 15 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.11.1**
+> 当前版本：**v3.11.2**
 
 ---
 
