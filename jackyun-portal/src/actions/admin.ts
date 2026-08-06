@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import type { WhitelistEmail, WhitelistUsername } from '@/types';
+import type { SiteNotification, WhitelistEmail, WhitelistUsername } from '@/types';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -340,4 +340,144 @@ export async function forceAccountMerge(
 
   revalidatePath('/admin');
   return { success: true, migratedTables };
+}
+
+// ===== Site Notifications =====
+
+export interface NotificationInput {
+  title: string;
+  content: string;
+  content_type: 'html' | 'markdown';
+  is_active: boolean;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+/**
+ * 获取当前用户待展示的活跃通知（未过期、未关闭）
+ * 用于全站弹窗：只在 portal 页面加载时调用
+ */
+export async function getActiveNotifications(): Promise<SiteNotification[]> {
+  const { supabase } = await getAuthenticatedUser();
+  const now = new Date().toISOString();
+
+  // 1. 获取所有启用的、时间范围内的通知
+  const { data: notifications, error } = await supabase
+    .from('site_notifications')
+    .select('*')
+    .eq('is_active', true)
+    .or(`start_time.is.null,start_time.lte.${now}`)
+    .or(`end_time.is.null,end_time.gte.${now}`)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  if (!notifications || notifications.length === 0) return [];
+
+  // 2. 过滤掉该用户已关闭的通知
+  const ids = notifications.map((n) => n.id);
+  const { data: dismissals } = await supabase
+    .from('notification_dismissals')
+    .select('notification_id')
+    .in('notification_id', ids);
+
+  const dismissedIds = new Set((dismissals ?? []).map((d) => d.notification_id));
+  return notifications.filter((n) => !dismissedIds.has(n.id)) as SiteNotification[];
+}
+
+/**
+ * 获取所有通知（管理员面板用，包括禁用/过期的）
+ */
+export async function getAllNotifications(): Promise<SiteNotification[]> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase
+    .from('site_notifications')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SiteNotification[];
+}
+
+/**
+ * 创建通知（管理员）
+ */
+export async function createNotification(
+  input: NotificationInput,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await requireAdmin();
+
+  const { error } = await supabase.from('site_notifications').insert({
+    title: input.title.trim(),
+    content: input.content,
+    content_type: input.content_type,
+    is_active: input.is_active,
+    start_time: input.start_time || null,
+    end_time: input.end_time || null,
+    created_by: user.id,
+  });
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin');
+  return { success: true };
+}
+
+/**
+ * 更新通知（管理员）
+ */
+export async function updateNotification(
+  id: string,
+  input: NotificationInput,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from('site_notifications')
+    .update({
+      title: input.title.trim(),
+      content: input.content,
+      content_type: input.content_type,
+      is_active: input.is_active,
+      start_time: input.start_time || null,
+      end_time: input.end_time || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin');
+  return { success: true };
+}
+
+/**
+ * 删除通知（管理员）
+ */
+export async function deleteNotification(
+  id: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from('site_notifications')
+    .delete()
+    .eq('id', id);
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin');
+  return { success: true };
+}
+
+/**
+ * 用户关闭一条通知（写入 dismissals 表）
+ */
+export async function dismissNotification(
+  notificationId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await getAuthenticatedUser();
+
+  const { error } = await supabase.from('notification_dismissals').insert({
+    notification_id: notificationId,
+    user_id: user.id,
+  });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }

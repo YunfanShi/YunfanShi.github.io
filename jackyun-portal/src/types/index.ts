@@ -129,3 +129,16 @@ export interface WhitelistInfo {
   githubUsers: string[];
   emails: string[];
 }
+
+export interface SiteNotification {
+  id: string;
+  title: string;
+  content: string;
+  content_type: 'html' | 'markdown';
+  is_active: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
