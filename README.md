@@ -4,7 +4,7 @@
 >
 > Built with Next.js 15 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.10.0**
+> 当前版本：**v3.11.0**
 
 ---
 
@@ -224,10 +224,12 @@
 | `016` | `quiz_*` | 题库/答题记录相关 | QuizWise AI 刷题模块 |
 | `019` + `020` | `answer_sheet_sync_*` | 同步答题卡相关 | 多设备同步答题卡 |
 | `021` | `timetable_hub_*` | 时间表方案相关 | Timetable Hub 时间表编辑器云同步 |
+| `023` | `site_notifications` | 全站通知公告 | 管理员创建弹窗通知（HTML/Markdown），含有效期和用户已读记录 |
+| `023` | `notification_dismissals` | 通知已读记录 | 记录每个用户已关闭的通知，实现"每个通知只显示一次" |
 
 ### 执行迁移
 
-在 Supabase Dashboard > SQL Editor 中按序执行 `jackyun-portal/supabase/migrations/` 目录下的 SQL 文件（`001` → `022`）。
+在 Supabase Dashboard > SQL Editor 中按序执行 `jackyun-portal/supabase/migrations/` 目录下的 SQL 文件（`001` → `023`）。
 
 ---
 
@@ -354,6 +356,7 @@ src/components/
 │   ├── admin-manager-panel.tsx        # 管理员账户管理
 │   ├── change-password-panel.tsx      # 修改密码
 │   ├── enforcer-app.tsx               # 专注模式
+│   ├── notification-manager-panel.tsx # 全站通知管理
 │   ├── redirect-generator.tsx         # 跳转链接生成器
 │   └── whitelist-panels.tsx           # 白名单管理
 ├── auth/                    # 认证相关组件
@@ -376,6 +379,7 @@ src/components/
 │   ├── markdown-renderer.tsx          # Markdown 渲染
 │   ├── mini-player.tsx                # 迷你播放器
 │   ├── product-card.tsx               # 产品卡片
+│   ├── site-notification-modal.tsx    # 全站通知弹窗
 │   ├── countdown/                     # 倒计时模块
 │   ├── music/                         # 音乐模块
 │   ├── poem/                          # 诗词模块
@@ -913,6 +917,7 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 - 白名单配置：环境变量只读展示 + 数据库白名单动态管理
 - 账号关联：Link/Unlink Provider + Force Merge
 - 管理工具：跳转链接生成器（Base64 混淆）、专注模式、版本历史
+- **全站通知管理**（`notification-manager-panel`）：创建/编辑/删除弹窗公告，支持 Markdown / HTML 格式，可设置有效期和启用状态
 - 管理员账户管理（`admin-manager-panel`）
 - 退出登录
 

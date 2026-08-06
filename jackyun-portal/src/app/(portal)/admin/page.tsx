@@ -16,8 +16,9 @@ import {
    WhitelistUsernamesPanel,
    ForceMergePanel,
  } from '@/components/admin/whitelist-panels';
- import { RedirectGenerator } from '@/components/admin/redirect-generator';
- import { AdminManagerPanel } from '@/components/admin/admin-manager-panel';
+import { RedirectGenerator } from '@/components/admin/redirect-generator';
+import { AdminManagerPanel } from '@/components/admin/admin-manager-panel';
+import { NotificationManagerPanel } from '@/components/admin/notification-manager-panel';
 
 const TABLE_ICONS: Record<string, string> = {
   vocab_words: 'menu_book',
@@ -298,6 +299,20 @@ export default async function AdminPage({
             );
           })}
         </div>
+      </section>
+
+      {/* 全站通知管理 */}
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="material-icons-round text-[var(--muted-foreground)] text-lg">campaign</span>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+            全站通知
+          </h2>
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] mb-4">
+          创建和管理全站弹出公告，支持 Markdown / HTML 格式，可设置有效期。
+        </p>
+        <NotificationManagerPanel />
       </section>
 
       {/* 跳转链接生成器 */}

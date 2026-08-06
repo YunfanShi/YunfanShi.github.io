@@ -5,6 +5,7 @@ import KeyboardShortcuts from '@/components/layout/keyboard-shortcuts';
 import AiChatFab from '@/components/modules/ai-chat-fab';
 import MiniPlayer from '@/components/modules/mini-player';
 import FlyingTimer from '@/components/modules/floating-timer';
+import SiteNotificationModal from '@/components/modules/site-notification-modal';
 import LanguageProvider from '@/components/language-provider';
 import { createClient } from '@/lib/supabase/server';
 import { getSidebarPreferences } from '@/actions/settings';
@@ -34,6 +35,7 @@ export default async function PortalLayout({
         <AiChatFab />
         <MiniPlayer />
         <FlyingTimer />
+        <SiteNotificationModal />
       </div>
     </LanguageProvider>
   );
