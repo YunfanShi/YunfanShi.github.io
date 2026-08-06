@@ -89,8 +89,10 @@ BEGIN
     content = COALESCE(payload->>'content', content),
     content_type = COALESCE(payload->>'content_type', content_type),
     is_active = COALESCE((payload->>'is_active')::boolean, is_active),
-    start_time = COALESCE(NULLIF(payload->>'start_time', '')::timestamptz, start_time),
-    end_time = COALESCE(NULLIF(payload->>'end_time', '')::timestamptz, end_time),
+    -- 时间字段：Server Action 总是传完整 payload，key 存在时直接
+    -- 用 NULLIF 把空字符串/null 转为 NULL（允许清空有效期），不再 COALESCE 保留旧值
+    start_time = CASE WHEN payload ? 'start_time' THEN NULLIF(payload->>'start_time', '')::timestamptz ELSE start_time END,
+    end_time = CASE WHEN payload ? 'end_time' THEN NULLIF(payload->>'end_time', '')::timestamptz ELSE end_time END,
     updated_at = now()
   WHERE id = p_id;
 
