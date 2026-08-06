@@ -192,7 +192,7 @@ export default function SiteNotificationModal() {
         style={{
           background: 'var(--card, #ffffff)',
           borderRadius: '16px',
-          maxWidth: '750px',
+          maxWidth: '860px',
           width: '100%',
           maxHeight: '90vh',
           display: 'flex',
