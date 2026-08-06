@@ -4,7 +4,7 @@
 >
 > Built with Next.js 15 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.11.0**
+> 当前版本：**v3.11.1**
 
 ---
 
@@ -229,7 +229,7 @@
 
 ### 执行迁移
 
-在 Supabase Dashboard > SQL Editor 中按序执行 `jackyun-portal/supabase/migrations/` 目录下的 SQL 文件（`001` → `023`）。
+在 Supabase Dashboard > SQL Editor 中按序执行 `jackyun-portal/supabase/migrations/` 目录下的 SQL 文件（`001` → `024`）。
 
 ---
 
