@@ -19,18 +19,18 @@ export default function ProductCard({
   return (
     <Link
       href={href}
-      className="group relative flex flex-col rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-200 overflow-hidden"
+      className="group relative flex min-h-52 flex-col overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)]"
     >
       {/* Top color bar */}
       <div
-        className="absolute top-0 left-0 right-0 h-1 origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
+        className="absolute left-0 top-0 h-1 w-full origin-left scale-x-0 transition-transform duration-200 group-hover:scale-x-100"
         style={{ backgroundColor: color }}
       />
 
       {/* Icon */}
       <div
-        className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl"
-        style={{ backgroundColor: `${color}1A` }}
+        className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105"
+        style={{ backgroundColor: `${color}14` }}
       >
         <span
           className="material-icons-round text-2xl"
@@ -41,17 +41,17 @@ export default function ProductCard({
       </div>
 
       {/* Text */}
-      <h3 className="text-base font-semibold text-[var(--foreground)]">
+      <h3 className="text-base font-medium text-[var(--foreground)]">
         {title}
       </h3>
-      <p className="mt-1 text-sm text-[var(--muted-foreground)] line-clamp-2">
+      <p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)] line-clamp-2">
         {description}
       </p>
 
       {/* Arrow */}
-      <div className="mt-auto pt-4 flex items-center text-xs font-medium" style={{ color }}>
-        <span>进入</span>
-        <span className="material-icons-round text-base ml-1 transition-transform group-hover:translate-x-1">
+      <div className="mt-auto flex items-center pt-5 text-xs font-medium text-[var(--brand)]">
+        <span>打开模块</span>
+        <span className="material-icons-round ml-1 text-base transition-transform duration-200 group-hover:translate-x-1">
           arrow_forward
         </span>
       </div>

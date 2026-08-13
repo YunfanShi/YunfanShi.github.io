@@ -1,0 +1,237 @@
+/* Shared color tokens. Layout remains owned by each embedded page. */
+:root,
+html[data-jy-theme="light"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --bg: #ffffff;
+  --bg-color: #ffffff;
+  --g-gray: #f8f9fa;
+  --md-bg: #f8f9fa;
+  --surface: #ffffff;
+  --surface2: #f8f9fa;
+  --surface3: #e8f0fe;
+  --surface-variant: #f1f3f4;
+  --card-bg: #ffffff;
+  --white: #ffffff;
+  --text: #202124;
+  --text-main: #202124;
+  --text-primary: #202124;
+  --text2: #5f6368;
+  --text3: #80868b;
+  --text-sub: #5f6368;
+  --text-sec: #5f6368;
+  --text-secondary: #5f6368;
+  --border: #dadce0;
+  --border2: #bdc1c6;
+  --outline: #5f6368;
+  --primary: #1a73e8;
+  --primary-dark: #185abc;
+  --primary-hover: #185abc;
+  --primary-container: #e8f0fe;
+  --primary-bg: #e8f0fe;
+  --on-primary: #ffffff;
+  --accent: #1a73e8;
+  --accent-color: #1a73e8;
+  --accent-hover: #185abc;
+  --blue: #1a73e8;
+  --blue-light: #e8f0fe;
+  --blue-dim: #e8f0fe;
+  --ai: #1a73e8;
+  --ai-dim: #e8f0fe;
+  --ai-border: #aecbfa;
+  --green: #188038;
+  --green-light: #e6f4ea;
+  --green-dim: #e6f4ea;
+  --red: #d93025;
+  --red-light: #fce8e6;
+  --red-dim: #fce8e6;
+  --yellow: #f9ab00;
+  --yellow-dim: #fef7e0;
+  --orange: #e37400;
+  --purple: #9334e6;
+  --purple-dim: #f3e8fd;
+  --error: #d93025;
+  --danger: #d93025;
+  --success: #188038;
+  --warning: #e37400;
+  --warn: #e37400;
+  --g-blue: #1a73e8;
+  --g-red: #ea4335;
+  --g-yellow: #fbbc04;
+  --g-green: #34a853;
+  --theme-color: #1a73e8;
+  --seg-done: #1a73e8;
+  --seg-todo: #dadce0;
+  --md-primary: #1a73e8;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #e8f0fe;
+  --md-on-primary-container: #174ea6;
+  --md-secondary: #5f6368;
+  --md-surface: #ffffff;
+  --md-surface-dim: #f8f9fa;
+  --md-surface-container: #f8f9fa;
+  --md-surface-container-high: #f1f3f4;
+  --md-surface-variant: #f1f3f4;
+  --md-on-surface: #202124;
+  --md-on-surface-variant: #5f6368;
+  --md-outline: #5f6368;
+  --md-outline-variant: #dadce0;
+  --md-error: #d93025;
+  --md-error-container: #fce8e6;
+  --md-success: #188038;
+  --md-warning: #e37400;
+  --md-sys-color-primary: #1a73e8;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #e8f0fe;
+  --md-sys-color-on-primary-container: #174ea6;
+  --md-sys-color-surface: #ffffff;
+  --md-sys-color-surface-container: #f8f9fa;
+  --md-sys-color-on-surface: #202124;
+  --md-sys-color-outline: #dadce0;
+  --md-sys-color-error: #d93025;
+  --md-sys-color-success: #188038;
+  --shadow: 0 1px 2px rgba(60, 64, 67, .16), 0 1px 3px 1px rgba(60, 64, 67, .08);
+  --shadow-card: 0 1px 2px rgba(60, 64, 67, .14);
+  --shadow-hover: 0 2px 6px rgba(60, 64, 67, .18);
+}
+
+html[data-jy-theme="dark"] {
+  color-scheme: dark;
+  --background: #000000;
+  --bg: #000000;
+  --bg-color: #000000;
+  --g-gray: #050505;
+  --md-bg: #000000;
+  --surface: #101010;
+  --surface2: #181818;
+  --surface3: #242424;
+  --surface-variant: #242424;
+  --card-bg: #101010;
+  --white: #101010;
+  --text: #f5f5f5;
+  --text-main: #f5f5f5;
+  --text-primary: #f5f5f5;
+  --text2: #d0d0d0;
+  --text3: #b0b0b0;
+  --text-sub: #d0d0d0;
+  --text-sec: #d0d0d0;
+  --text-secondary: #d0d0d0;
+  --border: #303030;
+  --border2: #525252;
+  --outline: #b0b0b0;
+  --primary: #8ab4f8;
+  --primary-dark: #aecbfa;
+  --primary-hover: #aecbfa;
+  --primary-container: #174ea6;
+  --primary-bg: #174ea6;
+  --on-primary: #000000;
+  --accent: #8ab4f8;
+  --accent-color: #8ab4f8;
+  --accent-hover: #aecbfa;
+  --blue: #8ab4f8;
+  --blue-light: #174ea6;
+  --blue-dim: #174ea6;
+  --ai: #8ab4f8;
+  --ai-dim: #174ea6;
+  --ai-border: #669df6;
+  --green: #81c995;
+  --green-light: #0d652d;
+  --green-dim: #0d652d;
+  --red: #f28b82;
+  --red-light: #8c1d18;
+  --red-dim: #8c1d18;
+  --yellow: #fdd663;
+  --yellow-dim: #594300;
+  --orange: #fdd663;
+  --purple: #d7aefb;
+  --purple-dim: #681da8;
+  --error: #f28b82;
+  --danger: #f28b82;
+  --success: #81c995;
+  --warning: #fdd663;
+  --warn: #fdd663;
+  --g-blue: #8ab4f8;
+  --g-red: #f28b82;
+  --g-yellow: #fdd663;
+  --g-green: #81c995;
+  --theme-color: #8ab4f8;
+  --seg-done: #8ab4f8;
+  --seg-todo: #303030;
+  --md-primary: #8ab4f8;
+  --md-on-primary: #000000;
+  --md-primary-container: #174ea6;
+  --md-on-primary-container: #d2e3fc;
+  --md-secondary: #d0d0d0;
+  --md-surface: #000000;
+  --md-surface-dim: #000000;
+  --md-surface-container: #101010;
+  --md-surface-container-high: #181818;
+  --md-surface-variant: #242424;
+  --md-on-surface: #f5f5f5;
+  --md-on-surface-variant: #d0d0d0;
+  --md-outline: #b0b0b0;
+  --md-outline-variant: #303030;
+  --md-error: #f28b82;
+  --md-error-container: #8c1d18;
+  --md-success: #81c995;
+  --md-warning: #fdd663;
+  --md-sys-color-primary: #8ab4f8;
+  --md-sys-color-on-primary: #000000;
+  --md-sys-color-primary-container: #174ea6;
+  --md-sys-color-on-primary-container: #d2e3fc;
+  --md-sys-color-surface: #000000;
+  --md-sys-color-surface-container: #101010;
+  --md-sys-color-on-surface: #f5f5f5;
+  --md-sys-color-outline: #303030;
+  --md-sys-color-error: #f28b82;
+  --md-sys-color-success: #81c995;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .45);
+  --shadow-hover: 0 2px 8px rgba(0, 0, 0, .55);
+}
+
+/* Surface-only dark adaptations. These never change layout or component state. */
+html[data-jy-theme="dark"],
+html[data-jy-theme="dark"] body {
+  background-color: #000000 !important;
+  color: #f5f5f5 !important;
+}
+html[data-jy-theme="dark"] header,
+html[data-jy-theme="dark"] aside,
+html[data-jy-theme="dark"] nav,
+html[data-jy-theme="dark"] main,
+html[data-jy-theme="dark"] .topbar,
+html[data-jy-theme="dark"] .top-bar,
+html[data-jy-theme="dark"] .sidebar {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+html[data-jy-theme="dark"] .card,
+html[data-jy-theme="dark"] .pcard,
+html[data-jy-theme="dark"] .gcard,
+html[data-jy-theme="dark"] .quest-card,
+html[data-jy-theme="dark"] .traffic-stat,
+html[data-jy-theme="dark"] .stat-chip,
+html[data-jy-theme="dark"] .today-panel,
+html[data-jy-theme="dark"] .timer-card,
+html[data-jy-theme="dark"] .schedule-card,
+html[data-jy-theme="dark"] .countdown-card,
+html[data-jy-theme="dark"] .modal,
+html[data-jy-theme="dark"] .modal-content,
+html[data-jy-theme="dark"] .modal-box,
+html[data-jy-theme="dark"] .panel-sheet,
+html[data-jy-theme="dark"] .mock-record,
+html[data-jy-theme="dark"] .content-card {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+html[data-jy-theme="dark"] input,
+html[data-jy-theme="dark"] textarea,
+html[data-jy-theme="dark"] select,
+html[data-jy-theme="dark"] .fi {
+  background-color: var(--surface2) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}

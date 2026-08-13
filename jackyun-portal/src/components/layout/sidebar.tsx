@@ -29,7 +29,6 @@ const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string
   { id: 'answer-sheet-sync', labelKey: 'nav.answer-sheet-sync', icon: 'sync', href: '/answer-sheet-sync', group: 'answerSheet' as const, mode: 'sync' as const },
   { labelKey: 'nav.mock', icon: 'quiz', href: '/mock-portal' },
   { labelKey: 'nav.quizwise', icon: 'psychology', href: '/quiz' },
-  { labelKey: 'nav.md2word', icon: 'description', href: '/md2word' },
   { labelKey: 'nav.tools', icon: 'build', href: '/tools' },
   { labelKey: 'nav.settings', icon: 'settings', href: '/settings' },
   { labelKey: 'nav.update', icon: 'history', href: '/update' },
@@ -160,19 +159,23 @@ export default function Sidebar({ initialPrefs }: Props) {
     <>
       <aside
         className={`flex flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] transition-all duration-200 ${
-          collapsed ? 'w-16' : 'w-60'
+          collapsed ? 'w-16' : 'w-64'
         }`}
       >
         {/* Header */}
-        <div className="flex h-14 items-center justify-between px-4 border-b border-[var(--sidebar-border)] flex-shrink-0">
+        <div className="flex h-16 items-center justify-between border-b border-[var(--sidebar-border)] px-4 flex-shrink-0">
           {!collapsed && (
-            <span className="text-base font-semibold text-[var(--foreground)]">
-              JackYun
-            </span>
+            <div className="flex items-center gap-3">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--brand)] text-sm font-bold text-white dark:text-[#202124]">J</div>
+              <div>
+                <p className="text-sm font-semibold tracking-[-0.02em] text-[var(--foreground)]">JackYun</p>
+                <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--muted-foreground)]">Workspace</p>
+              </div>
+            </div>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ml-auto"
+            className="ml-auto grid h-9 w-9 place-items-center rounded-lg transition-colors hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]"
             aria-label="Toggle sidebar"
           >
             <span className="material-icons-round text-xl text-[var(--muted-foreground)]">
@@ -183,7 +186,7 @@ export default function Sidebar({ initialPrefs }: Props) {
 
         {/* Nav items - scrollable with hidden scrollbar */}
         <nav
-          className="flex-1 overflow-y-auto py-4 space-y-1 px-2
+          className="flex-1 space-y-1 overflow-y-auto px-2 py-4
             [&::-webkit-scrollbar]:hidden
             [-ms-overflow-style:none]
             [scrollbar-width:none]"
@@ -195,15 +198,15 @@ export default function Sidebar({ initialPrefs }: Props) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-[#4285F4]/10 text-[#4285F4]'
-                    : 'text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6] dark:text-[#d2e3fc]'
+                    : 'text-[var(--foreground)] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]'
                 }`}
               >
                 <span
                   className={`material-icons-round text-xl flex-shrink-0 ${
-                    isActive ? 'text-[#4285F4]' : 'text-[var(--muted-foreground)]'
+                    isActive ? 'text-[#1a73e8] dark:text-[#8ab4f8]' : 'text-[var(--muted-foreground)]'
                   }`}
                 >
                   {item.icon}

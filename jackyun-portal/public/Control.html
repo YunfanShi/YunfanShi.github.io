@@ -530,7 +530,45 @@
         @keyframes ttsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(15, 81, 50, 0.4); } 50% { box-shadow: 0 0 0 4px rgba(15, 81, 50, 0); } }
         @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
     </style>
-</head>
+<link rel="stylesheet" href="/jackyun-theme.css">
+<style id="jackyun-control-material-theme">
+html[data-jy-theme="light"] body { color:var(--text); }
+html[data-jy-theme="light"] aside,
+html[data-jy-theme="light"] .settings-area,
+html[data-jy-theme="light"] .timer-card,
+html[data-jy-theme="light"] .schedule-card,
+html[data-jy-theme="light"] .panel-sheet { background:var(--surface); border-color:var(--border); }
+html[data-jy-theme="light"] .player-header { background:var(--primary); color:#fff; }
+html[data-jy-theme="light"] .playlist-select,
+html[data-jy-theme="light"] .auto-play-info { background:#185abc; color:#e8f0fe; }
+html[data-jy-theme="light"] .iframe-container { background:var(--surface2); }
+html[data-jy-theme="light"] .date-badge { background:var(--primary-container); color:var(--md-on-primary-container); }
+html[data-jy-theme="light"] .timer-stat,
+html[data-jy-theme="light"] .cat-header { background:var(--surface2); }
+html[data-jy-theme="light"] .timer-stat .ts-value,
+html[data-jy-theme="light"] .task-name { color:var(--text); }
+html[data-jy-theme="light"] #immersive-overlay { background:linear-gradient(135deg,#1a73e8,#174ea6) !important; }
+html[data-jy-theme="light"] .mode-study { background:linear-gradient(135deg,#1a73e8,#174ea6); }
+html[data-jy-theme="dark"] .player-header,
+html[data-jy-theme="dark"] .iframe-container { background:var(--surface2); }
+html[data-jy-theme="dark"] body,
+html[data-jy-theme="dark"] .setting-row,
+html[data-jy-theme="dark"] .task-name,
+html[data-jy-theme="dark"] .timer-stat .ts-value,
+html[data-jy-theme="dark"] #day-label { color:var(--text) !important; }
+html[data-jy-theme="dark"] .settings-area,
+html[data-jy-theme="dark"] .timer-card,
+html[data-jy-theme="dark"] .schedule-card,
+html[data-jy-theme="dark"] .cat-header,
+html[data-jy-theme="dark"] .timer-stat { background:var(--surface) !important; color:var(--text) !important; border-color:var(--border) !important; }
+html[data-jy-theme="dark"] .task-time,
+html[data-jy-theme="dark"] .timer-stat .ts-icon,
+html[data-jy-theme="dark"] .timer-stat .ts-label,
+html[data-jy-theme="dark"] [style*="color:#666"],
+html[data-jy-theme="dark"] [style*="color:#999"] { color:var(--text2) !important; }
+html[data-jy-theme="dark"] .date-badge { background:var(--surface3); color:var(--text); }
+</style>
+<script src="/jackyun-theme.js"></script></head>
 <body>
 
 <audio id="bgm-player"></audio>

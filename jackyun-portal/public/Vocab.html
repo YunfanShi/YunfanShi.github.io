@@ -127,8 +127,17 @@
 
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .slide-up-anim { animation: slideUp 0.3s ease-out forwards; }
+        /* JackYun portal: Material page system */
+        :root { --md-sys-color-primary:#1a73e8; --md-sys-color-on-primary:#fff; --md-sys-color-primary-container:#e8f0fe; --md-sys-color-on-primary-container:#174ea6; --md-sys-color-surface:#fff; --md-sys-color-surface-container:#f8f9fa; --md-sys-color-on-surface:#202124; --md-sys-color-outline:#dadce0; }
+        .dark { --md-sys-color-primary:#8ab4f8; --md-sys-color-on-primary:#202124; --md-sys-color-primary-container:#174ea6; --md-sys-color-on-primary-container:#d2e3fc; --md-sys-color-surface:#202124; --md-sys-color-surface-container:#292a2d; --md-sys-color-on-surface:#e8eaed; --md-sys-color-outline:#3c4043; }
+        .card { border:1px solid var(--md-sys-color-outline); border-radius:10px; }
+        .btn-filled,.btn-tonal,.btn-danger-tonal { border-radius:8px; }
+        .btn-filled:hover { background:#185abc; box-shadow:none; }
+        .nav-rail-item { border-radius:8px; width:72px; }
+        .nav-rail-item.active { background:#e8f0fe; color:#174ea6; }
+        .dark .nav-rail-item.active { background:#174ea6; color:#d2e3fc; }
     </style>
-</head>
+<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body class="flex">
 
     <nav class="w-24 h-full bg-[var(--md-sys-color-surface)] border-r border-black/5 dark:border-white/5 flex flex-col items-center py-6 z-20">

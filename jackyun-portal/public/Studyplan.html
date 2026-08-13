@@ -634,8 +634,22 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
+        /* JackYun portal: Material page system */
+        :root { --primary:#1a73e8; --on-primary:#fff; --primary-container:#e8f0fe; --secondary:#5f6368; --surface:#f8f9fa; --surface-variant:#dadce0; --outline:#5f6368; --bg-color:#fff; --card-bg:#fff; --radius-l:12px; --radius-m:10px; }
+        * { transition: background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease; }
+        aside { width:280px; background:#f8f9fa; border-color:#dadce0; }
+        .brand { padding:20px 22px; font-size:16px; font-weight:600; color:#202124; }
+        .nav-subject-header { padding:10px 12px; border-radius:8px; }
+        .nav-subject-header:hover,.nav-subject-header.active { background:#e8f0fe; color:#174ea6; }
+        .top-bar { background:#fff; backdrop-filter:none; border-color:#dadce0; padding:12px 28px; }
+        .traffic-stat,.stat-chip,.quest-card,.mock-record { border-color:#dadce0; border-radius:10px; box-shadow:none; }
+        .traffic-stat.ts-total .ts-num { color:#1a73e8; }
+        .quest-card.schedule-item:hover { transform:translateY(-1px); border-color:#9aa0a6; box-shadow:0 1px 2px rgba(60,64,67,.16); }
+        .btn-primary { background:#1a73e8; border-radius:8px; }
+        .btn-primary:hover { background:#185abc; box-shadow:none; }
+        .btn-outline,.btn-icon { border-radius:8px; }
     </style>
-</head>
+<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body>
 
 <aside>

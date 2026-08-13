@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 
 interface ToolCard {
   id: string;
@@ -21,8 +20,8 @@ const TOOLS: ToolCard[] = [
     description: '番茄工作法 · 保持专注',
     icon: 'lunch_dining',
     emoji: '🍅',
-    color: '#EA4335',
-    bgColor: '#FCE8E6',
+    color: '#d93025',
+    bgColor: '#fce8e6',
     href: '/pomodoro',
   },
   {
@@ -31,8 +30,8 @@ const TOOLS: ToolCard[] = [
     description: '考试倒计时 · 备考冲刺',
     icon: 'hourglass_empty',
     emoji: '⏳',
-    color: '#4285F4',
-    bgColor: '#E8F0FE',
+    color: '#1a73e8',
+    bgColor: '#e8f0fe',
     href: '/examcountdown',
   },
   {
@@ -41,36 +40,41 @@ const TOOLS: ToolCard[] = [
     description: '重要日期 · 天数记录',
     icon: 'event_available',
     emoji: '📅',
-    color: '#34A853',
-    bgColor: '#E6F4EA',
+    color: '#188038',
+    bgColor: '#e6f4ea',
     href: '/countdown',
   },
 ];
 
 export default function TimeManagementPage() {
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          ⏱ 时间管理
-        </h1>
-        <p className="mt-1 text-[var(--muted-foreground)]">
-          选择你需要的计时工具
-        </p>
-      </div>
+    <div className="page-enter mx-auto max-w-[1280px]">
+      <section className="mb-10 border-b border-[var(--card-border)] pb-8">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Focus with intention</p>
+          <h1 className="mt-3 text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">时间管理</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">把专注、冲刺与重要时刻放进同一个节奏里，让每一段时间都更有价值。</p>
+        </div>
+      </section>
 
       {/* Tool cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="mb-5 flex items-end justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Choose your rhythm</p>
+          <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">选择计时方式</h2>
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">3 个工具</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map((tool) => (
           <Link
             key={tool.id}
             href={tool.href}
-            className="group relative overflow-hidden rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5"
+            className="group relative min-h-56 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)]"
           >
             {/* Icon */}
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4"
+              className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105"
               style={{ background: tool.bgColor }}
             >
               <span className="material-icons-round text-3xl" style={{ color: tool.color }}>
@@ -79,7 +83,7 @@ export default function TimeManagementPage() {
             </div>
 
             {/* Title */}
-            <h2 className="text-lg font-semibold text-[var(--foreground)] mb-1">
+            <h2 className="mb-2 text-lg font-medium text-[var(--foreground)]">
               {tool.title}
             </h2>
 
@@ -89,7 +93,7 @@ export default function TimeManagementPage() {
             </p>
 
             {/* Arrow */}
-            <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[var(--background)] flex items-center justify-center text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute right-5 top-5 grid h-8 w-8 place-items-center rounded-lg bg-[#f1f3f4] text-[var(--foreground)] opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:bg-[#3c4043]">
               <span className="material-icons-round text-base">arrow_forward</span>
             </div>
           </Link>
@@ -97,10 +101,9 @@ export default function TimeManagementPage() {
       </div>
 
       {/* Bottom note */}
-      <div className="mt-12 rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-6">
-        <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">
-          💡 小贴士
-        </h3>
+      <div className="mt-8 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">A small reminder</p>
+        <h3 className="mt-2 text-base font-medium text-[var(--foreground)]">让计划服务于行动</h3>
         <p className="text-sm text-[var(--muted-foreground)] leading-relaxed">
           使用番茄钟保持专注，使用倒计时冲刺备考，使用倒计日记录重要日子。
           以上工具的侧边栏入口已统一收纳到这里。

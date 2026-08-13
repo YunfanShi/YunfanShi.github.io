@@ -17,6 +17,7 @@ export default function Topbar({ user }: TopbarProps) {
   const { lang } = useLanguage();
   const [showFullscreen, setShowFullscreen] = useState(showFullscreenDefault);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     // Expose the signed-in user's display name to legacy (iframe) HTML pages
@@ -54,6 +55,23 @@ export default function Topbar({ user }: TopbarProps) {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      setTheme(localStorage.getItem('jackyun_theme') === 'dark' ? 'dark' : 'light');
+    } catch {}
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    try { localStorage.setItem('jackyun_theme', next); } catch {}
+    document.documentElement.dataset.theme = next;
+    document.documentElement.style.colorScheme = next;
+    document.querySelectorAll('iframe').forEach((frame) => {
+      frame.contentWindow?.postMessage({ type: 'jackyun-theme', theme: next }, '*');
+    });
+  };
+
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
       await document.documentElement.requestFullscreen();
@@ -67,15 +85,27 @@ export default function Topbar({ user }: TopbarProps) {
   };
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--card)] px-6">
-      <div className="text-base font-medium text-[var(--foreground)]">
-        {t('topbar.brand', lang)}
+    <header className="flex h-16 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--card)] px-4 sm:px-6">
+      <div>
+        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">JackYun Workspace</p>
+        <div className="mt-0.5 text-base font-medium text-[var(--foreground)]">
+          {t('topbar.brand', lang)}
+        </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
+          title={theme === 'light' ? '切换到深色主题' : '切换到亮色主题'}
+          aria-label={theme === 'light' ? '切换到深色主题' : '切换到亮色主题'}
+        >
+          <span className="material-icons-round text-lg">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+        </button>
         {showFullscreen && (
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
             title={isFullscreen ? t('topbar.exit-fullscreen', lang) : t('topbar.fullscreen', lang)}
           >
             <span className="material-icons-round text-lg">
@@ -89,7 +119,7 @@ export default function Topbar({ user }: TopbarProps) {
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
               >
                 <span className="material-icons-round text-lg">logout</span>
                 <span className="hidden sm:inline">{t('topbar.logout', lang)}</span>
@@ -99,7 +129,7 @@ export default function Topbar({ user }: TopbarProps) {
         ) : (
           <a
             href="/login"
-            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
           >
             <span className="material-icons-round text-lg">account_circle</span>
             <span className="hidden sm:inline">{t('topbar.login', lang)}</span>

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
 import ProductCard from '@/components/modules/product-card';
 
 const MODULES = [
@@ -93,16 +94,16 @@ interface StatCardProps {
 
 function StatCard({ icon, color, label, value }: StatCardProps) {
   return (
-    <div className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 flex items-center gap-4">
+    <div className="group flex items-center gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)]">
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105"
         style={{ background: `${color}15`, color }}
       >
         <span className="material-icons-round text-xl">{icon}</span>
       </div>
       <div>
-        <p className="text-2xl font-bold text-[var(--foreground)]">{value}</p>
-        <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
+        <p className="text-2xl font-bold tracking-[-0.04em] text-[var(--foreground)]">{value}</p>
+        <p className="mt-0.5 text-xs font-medium text-[var(--muted-foreground)]">{label}</p>
       </div>
     </div>
   );
@@ -144,24 +145,43 @@ export default async function DashboardPage() {
     tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          你好，{username} 👋
-        </h1>
-        <p className="mt-1 text-[var(--muted-foreground)]">
-          欢迎回到你的个人门户
-        </p>
+    <div className="page-enter mx-auto max-w-[1440px]">
+      <section className="mb-10 border-b border-[var(--card-border)] pb-8">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Your learning space</p>
+            <h1 className="text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">你好，{username}</h1>
+            <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">让每一次专注都有迹可循，把学习、计划与灵感沉淀为你的长期能力。</p>
+          </div>
+          <Link href="/study" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1a73e8] px-4 text-sm font-medium text-white transition-colors hover:bg-[#185abc] dark:bg-[#8ab4f8] dark:text-[#202124] dark:hover:bg-[#aecbfa]">
+            继续学习 <span className="material-icons-round text-lg">arrow_forward</span>
+          </Link>
+        </div>
+      </section>
+
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Progress overview</p>
+          <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">今日进度</h2>
+        </div>
+        <p className="hidden text-sm text-[var(--muted-foreground)] sm:block">小步积累，持续靠近目标</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+      <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <StatCard icon="menu_book" color="#EA4335" label="词汇总数" value={totalVocab} />
         <StatCard icon="check_circle" color="#34A853" label="已掌握词汇" value={masteredVocab} />
         <StatCard icon="task_alt" color="#4285F4" label="任务完成率" value={`${completionRate}%`} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">All tools</p>
+          <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">探索你的工作台</h2>
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">{MODULES.length} 个模块</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {MODULES.map((mod) => (
           <ProductCard key={mod.id} {...mod} />
         ))}

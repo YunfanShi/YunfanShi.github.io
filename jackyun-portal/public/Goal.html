@@ -398,8 +398,43 @@ option{background:#1a1a1a;}
 .wsb-rstat { font-size: 11px; color: var(--text2); font-family: var(--mono); }
 .wsb-rdiff { font-size: 11px; font-weight: 700; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* JackYun portal: Material page system */
+:root { --bg:#fff; --surface:#fff; --surface2:#f8f9fa; --surface3:#e8f0fe; --border:#dadce0; --border2:#9aa0a6; --text:#202124; --text2:#5f6368; --text3:#80868b; --blue:#1a73e8; --blue-dim:#e8f0fe; --green:#188038; --green-dim:#e6f4ea; --red:#d93025; --yellow:#f9ab00; --ai:#1a73e8; --ai-dim:#e8f0fe; --ai-border:#aecbfa; --seg-done:#1a73e8; --seg-todo:#dadce0; --radius:10px; }
+.topbar,.cd-banner { background:#fff; backdrop-filter:none; border-color:var(--border); }
+.brand-dots span { background:#1a73e8!important; border-radius:2px; }
+.pcard,.gcard,.today-panel,.cd-item { box-shadow:none; border-color:var(--border); }
+.pcard:hover,.gcard:hover,.gcard.child:hover { background:#fff; border-color:var(--border2); box-shadow:0 1px 2px rgba(60,64,67,.16); }
+.gcard.child { background:#f8f9fa; }
+.btn-pri { background:#1a73e8; color:#fff; }
+.btn-pri:hover { background:#185abc; }
+.btn,.tabs,.stat,.sort-sel,.fi,.modal { border-radius:8px; }
+.modal { background:#fff; border-color:var(--border); box-shadow:0 8px 24px rgba(60,64,67,.18); }
+.overlay { background:rgba(32,33,36,.45); backdrop-filter:none; }
 </style>
-</head>
+<link rel="stylesheet" href="/jackyun-theme.css">
+<style id="jackyun-goal-dark-contrast">
+html[data-jy-theme="dark"] .topbar,
+html[data-jy-theme="dark"] .cd-banner { background:#050505 !important; }
+html[data-jy-theme="dark"] .pcard,
+html[data-jy-theme="dark"] .gcard,
+html[data-jy-theme="dark"] .gcard.child,
+html[data-jy-theme="dark"] .today-panel,
+html[data-jy-theme="dark"] .cd-item,
+html[data-jy-theme="dark"] .stat,
+html[data-jy-theme="dark"] .tabs { background:var(--surface) !important; color:var(--text) !important; }
+html[data-jy-theme="dark"] .pcard:hover,
+html[data-jy-theme="dark"] .gcard:hover,
+html[data-jy-theme="dark"] .gcard.child:hover { background:var(--surface2) !important; }
+html[data-jy-theme="dark"] .modal { background:var(--surface) !important; color:var(--text) !important; }
+html[data-jy-theme="dark"] .tab,
+html[data-jy-theme="dark"] .gdesc,
+html[data-jy-theme="dark"] .gdeadline,
+html[data-jy-theme="dark"] .gfoot-l,
+html[data-jy-theme="dark"] .today-empty,
+html[data-jy-theme="dark"] .today-item-times { color:var(--text2) !important; }
+html[data-jy-theme="dark"] option { background:#101010; color:var(--text); }
+</style>
+<script src="/jackyun-theme.js"></script></head>
 <body>
 
 <div class="topbar">

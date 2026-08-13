@@ -567,7 +567,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
   }
 
   return (
-    <div style={{ margin: '-24px', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+    <div className="-m-4 h-[calc(100vh-72px)] overflow-hidden sm:-m-6 lg:-m-8">
       <iframe
         ref={iframeRef}
         srcDoc={srcdoc}
