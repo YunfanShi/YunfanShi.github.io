@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '@/components/language-provider';
+import { legacyLanguageBridge } from '@/lib/legacy-i18n';
 
 interface LegacyFrameProps {
   src: string;
@@ -10,6 +12,7 @@ interface LegacyFrameProps {
 }
 
 export default function LegacyFrame({ src, title = 'Legacy Page', userName }: LegacyFrameProps) {
+  const { lang } = useLanguage();
   const [srcdoc, setSrcdoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -46,6 +49,10 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
           /<head([^>]*)>/i,
           `<head$1><base href="${src}">`
         );
+
+        // Inject a language bridge before page scripts so every legacy page uses
+        // the same persisted language preference as the React portal.
+        html = html.replace(/<\/head>/i, `${legacyLanguageBridge(lang)}</head>`);
 
         // Inject aggressive CSS to hide legacy API key inputs + save buttons
         const hideCss = `
@@ -114,6 +121,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 <script>
 (function() {
   'use strict';
+  var interfaceLanguage = ${JSON.stringify(lang)};
 
   // ═══════════════════════════════════════════
   // 1. localStorage 伪装 - 让所有 Key 检查通过
@@ -193,7 +201,9 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
     if (body) {
       try {
         if (typeof body === 'string') {
-          proxyOptions.body = body;
+          var parsedBody = JSON.parse(body);
+          parsedBody.interfaceLanguage = interfaceLanguage;
+          proxyOptions.body = JSON.stringify(parsedBody);
         } else if (body instanceof ReadableStream) {
           return null; // Can't intercept streams
         }
@@ -201,7 +211,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
         return null;
       }
     } else {
-      proxyOptions.body = JSON.stringify({ model: 'auto' });
+      proxyOptions.body = JSON.stringify({ model: 'auto', interfaceLanguage: interfaceLanguage });
     }
 
     return fetch('/api/llm-proxy', proxyOptions);
@@ -242,7 +252,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
           jsonBody = JSON.parse(body);
         } catch(e) {}
       }
-      _send.call(this, JSON.stringify(jsonBody || {}));
+      if (jsonBody && typeof jsonBody === 'object') jsonBody.interfaceLanguage = interfaceLanguage;
+      _send.call(this, JSON.stringify(jsonBody || { interfaceLanguage: interfaceLanguage }));
     } else {
       _send.call(this, body);
     }
@@ -573,7 +584,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 
     load();
     return () => { cancelled = true; };
-  }, [src]);
+  }, [src, userName, lang]);
 
   if (error) {
     return (

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import type { Language } from '@/lib/i18n';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -41,6 +42,24 @@ export async function saveAiConfig(
   );
   if (error) return { error: error.message };
   return { error: null };
+}
+
+export async function getLanguagePreference(): Promise<Language> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { data } = await supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', 'language_preference').maybeSingle();
+    return (data?.value as { language?: string } | null)?.language === 'en' ? 'en' : 'zh';
+  } catch { return 'zh'; }
+}
+
+export async function saveLanguagePreference(language: Language): Promise<{ error: string | null }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, key: 'language_preference', value: { language }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    if (error) return { error: error.message };
+    revalidatePath('/');
+    return { error: null };
+  } catch (error) { return { error: error instanceof Error ? error.message : '保存语言偏好失败' }; }
 }
 
 export type MusicSidebarMode = 'player' | 'sync';

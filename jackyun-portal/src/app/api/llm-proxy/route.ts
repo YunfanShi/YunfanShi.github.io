@@ -52,6 +52,14 @@ function auditLog(event: {
   console.log(logLine);
 }
 
+function withLanguageInstruction(messages: unknown, language: unknown): unknown {
+  if (!Array.isArray(messages)) return messages;
+  const instruction = language === 'en'
+    ? 'Respond in English. Keep any user-provided proper nouns, code, formulas, and quoted text unchanged unless the user asks for translation.'
+    : '请使用简体中文回答。除非用户要求翻译，否则保留用户提供的专有名词、代码、公式和引用文本。';
+  return [{ role: 'system', content: instruction }, ...messages];
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const clientIp = extractClientIp(req);
@@ -203,10 +211,11 @@ export async function POST(req: NextRequest) {
   });
 
   // 构建上游请求体（剔除客户端专用字段和内部字段）
-  const { baseUrl: _, apiKey: __, _get_config_only: ___, ...upstreamFields } = body;
+  const { baseUrl: _, apiKey: __, _get_config_only: ___, interfaceLanguage, ...upstreamFields } = body;
   const upstreamBody: Record<string, unknown> = {
     ...upstreamFields,
     model: (upstreamFields.model as string) || model,
+    messages: withLanguageInstruction(upstreamFields.messages, interfaceLanguage),
   };
 
   // 转发到上游 LLM API

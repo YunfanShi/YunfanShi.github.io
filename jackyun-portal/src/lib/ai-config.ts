@@ -1,3 +1,5 @@
+import { getStoredLanguage } from '@/lib/i18n';
+
 /**
  * 统一 AI 配置管理 —— 纯本地存储，不上传云端
  *
@@ -193,6 +195,9 @@ export async function callAiApi(
     messages,
     temperature: options.temperature ?? getThinkingTemperature(getThinkingLevel()),
     stream: options.stream ?? false,
+    // The proxy strips this internal field before forwarding and adds a
+    // provider-neutral system instruction in the selected display language.
+    interfaceLanguage: getStoredLanguage(),
   };
 
   if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
@@ -203,14 +208,15 @@ export async function callAiApi(
   // signal 透传（AbortController）
   const signal = (options as Record<string, unknown>).signal as AbortSignal | undefined;
 
-  // 无 max_tokens：不限制回复长度，让 AI 完整回答
-  return fetch(`${baseUrl}/chat/completions`, {
+  // Route all providers through the server proxy: it normalizes provider
+  // errors, applies the selected response language, and keeps provider logic
+  // out of individual UI modules.
+  return fetch('/api/llm-proxy', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, baseUrl, apiKey }),
     signal,
   });
 }

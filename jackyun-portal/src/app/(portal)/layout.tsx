@@ -9,7 +9,7 @@ import SiteNotificationModal from '@/components/modules/site-notification-modal'
 import LanguageProvider from '@/components/language-provider';
 import ClientLoggerBoot from '@/components/layout/client-logger-boot';
 import { createClient } from '@/lib/supabase/server';
-import { getSidebarPreferences } from '@/actions/settings';
+import { getLanguagePreference, getSidebarPreferences } from '@/actions/settings';
 
 export default async function PortalLayout({
   children,
@@ -21,10 +21,10 @@ export default async function PortalLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const sidebarPrefs = await getSidebarPreferences();
+  const [sidebarPrefs, language] = await Promise.all([getSidebarPreferences(), getLanguagePreference()]);
 
   return (
-    <LanguageProvider>
+    <LanguageProvider initialLanguage={language}>
       <ClientLoggerBoot />
       <div className="flex h-screen overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} />

@@ -426,7 +426,24 @@ export async function getNotificationInbox(): Promise<SiteNotification[]> {
     .or(`end_time.is.null,end_time.gte.${now}`)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as SiteNotification[];
+  const notifications = (data ?? []) as SiteNotification[];
+  if (!notifications.length) return [];
+  const { data: dismissals, error: dismissalsError } = await supabase
+    .from('notification_dismissals')
+    .select('notification_id')
+    .in('notification_id', notifications.map((item) => item.id));
+  if (dismissalsError) throw new Error(dismissalsError.message);
+  const dismissed = new Set((dismissals ?? []).map((item) => item.notification_id));
+  // Old rapid retries may have produced identical support messages. Show only
+  // the newest copy; deleting it hides the entire duplicate group for this user.
+  const seenMessages = new Set<string>();
+  return notifications.filter((item) => {
+    if (item.delivery_type !== 'message') return !dismissed.has(item.id);
+    const key = `${item.title}\u0000${item.content}\u0000${item.recipient_user_id ?? ''}`;
+    if (seenMessages.has(key)) return false;
+    seenMessages.add(key);
+    return !dismissed.has(item.id);
+  });
 }
 
 /**
@@ -524,10 +541,10 @@ export async function dismissNotification(
 ): Promise<{ success: boolean; error?: string }> {
   const { supabase, user } = await getAuthenticatedUser();
 
-  const { error } = await supabase.from('notification_dismissals').insert({
+  const { error } = await supabase.from('notification_dismissals').upsert({
     notification_id: notificationId,
     user_id: user.id,
-  });
+  }, { onConflict: 'notification_id,user_id', ignoreDuplicates: true });
 
   if (error) return { success: false, error: error.message };
   return { success: true };
