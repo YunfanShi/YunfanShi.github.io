@@ -131,6 +131,28 @@ BEGIN
   INSERT INTO ticket_operation_audit(report_id, actor_id, operation, details) VALUES (p_report_id, auth.uid(), 'visual_preferences_repaired', '{}'::jsonb);
 END; $$;
 
+CREATE OR REPLACE FUNCTION public.admin_clear_ticket_legacy_sync(p_report_id uuid)
+RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE target_user uuid; removed bigint;
+BEGIN
+  IF NOT is_admin_user() THEN RAISE EXCEPTION 'Forbidden'; END IF;
+  SELECT user_id INTO target_user FROM bug_reports WHERE id = p_report_id;
+  IF target_user IS NULL THEN RAISE EXCEPTION 'Report not found'; END IF;
+  DELETE FROM legacy_sync_data WHERE user_id = target_user;
+  GET DIAGNOSTICS removed = ROW_COUNT;
+  INSERT INTO ticket_operation_audit(report_id, actor_id, operation, details) VALUES (p_report_id, auth.uid(), 'legacy_sync_cache_cleared', jsonb_build_object('records_removed', removed));
+  RETURN removed;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.admin_record_ticket_operation(p_report_id uuid, p_operation text, p_details jsonb DEFAULT '{}'::jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT is_admin_user() THEN RAISE EXCEPTION 'Forbidden'; END IF;
+  IF p_operation NOT IN ('password_reset_email_sent', 'diagnostics_viewed') THEN RAISE EXCEPTION 'Unsupported operation'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM bug_reports WHERE id = p_report_id) THEN RAISE EXCEPTION 'Report not found'; END IF;
+  INSERT INTO ticket_operation_audit(report_id, actor_id, operation, details) VALUES (p_report_id, auth.uid(), p_operation, COALESCE(p_details, '{}'::jsonb));
+END; $$;
+
 CREATE OR REPLACE FUNCTION public.admin_resolve_account_appeal(p_report_id uuid, p_approved boolean, p_response text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE target_user uuid; appeal_type text; report_title text; old_status text; deletion_time timestamptz; result_label text;
@@ -178,3 +200,5 @@ GRANT EXECUTE ON FUNCTION public.admin_update_remote_preference(uuid, text, json
 GRANT EXECUTE ON FUNCTION public.admin_restore_ticket_user_account(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_repair_ticket_preferences(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_export_ticket_user_data(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_clear_ticket_legacy_sync(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_record_ticket_operation(uuid, text, jsonb) TO authenticated;

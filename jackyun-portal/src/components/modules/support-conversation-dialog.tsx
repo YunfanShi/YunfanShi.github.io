@@ -21,6 +21,7 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState('');
   const [remoteRequest, setRemoteRequest] = useState<{ id: string; status: 'requested' | 'approved' | 'denied' | 'revoked' | 'expired' } | null>(null);
+  const [minimized, setMinimized] = useState(false);
   const [pending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +44,7 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [conversation?.messages.length]);
+  useEffect(() => { if (conversation?.status === 'closed') onClose(); }, [conversation?.status, onClose]);
 
   const send = () => {
     if (!draft.trim() || !conversation || conversation.status === 'closed') return;
@@ -63,9 +65,10 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
     startTransition(async () => { const result = await respondRemoteAssistance(remoteRequest.id, approved); if (!result.success) return setNotice(result.error ?? '授权操作失败。'); setRemoteRequest((current) => current ? { ...current, status: approved ? 'approved' : 'denied' } : null); });
   };
 
+  if (minimized) return <button type="button" onClick={() => setMinimized(false)} className="fixed bottom-5 right-5 z-[120] flex items-center gap-2 rounded-full bg-[#155eef] px-4 py-3 text-sm font-semibold text-white shadow-2xl"><span className="material-icons-round">support_agent</span>客服对话</button>;
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#101828]/60 p-3 backdrop-blur-sm sm:p-6" onClick={onClose}>
-      <section className="flex h-[min(760px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-[var(--card)] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-[120] flex justify-end bg-[#101828]/35 p-3 backdrop-blur-[1px] sm:p-5" onClick={() => setMinimized(true)}>
+      <section className="flex h-[calc(100vh-1.5rem)] w-full max-w-[960px] flex-col overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl sm:h-[calc(100vh-2.5rem)]" onClick={(event) => event.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-[var(--card-border)] px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#155eef] text-white">
@@ -81,8 +84,8 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">JackYun 客服中心 · 对话记录会保存在工单中</p>
             </div>
           </div>
-          <button type="button" aria-label="关闭客服对话" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--background)]">
-            <span className="material-icons-round">close</span>
+          <button type="button" aria-label="最小化客服对话" title="最小化，工单结束后将自动隐藏" onClick={() => setMinimized(true)} className="grid h-9 w-9 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--background)]">
+            <span className="material-icons-round">minimize</span>
           </button>
         </header>
 
@@ -92,7 +95,7 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
             <div key={message.id} className={`flex ${message.is_admin ? 'justify-start' : 'justify-end'}`}>
               <article className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${message.is_admin ? 'rounded-bl-md border border-[var(--card-border)] bg-[var(--card)] text-[var(--foreground)]' : 'rounded-br-md bg-[#155eef] text-white'}`}>
                 <p className={`mb-1 text-[11px] font-semibold ${message.is_admin ? 'text-[#155eef]' : 'text-white/75'}`}>{message.is_admin ? '支持团队' : '我'}</p>
-                <p className="whitespace-pre-wrap leading-6">{message.body}</p>
+                {message.body.startsWith('[导航协助]') ? <NavigationCard body={message.body} /> : <p className="whitespace-pre-wrap leading-6">{message.body}</p>}
                 <p className={`mt-2 text-[10px] ${message.is_admin ? 'text-[var(--muted-foreground)]' : 'text-white/65'}`}>{stamp(message.created_at)}</p>
               </article>
             </div>
@@ -121,4 +124,11 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
       </section>
     </div>
   );
+}
+
+function NavigationCard({ body }: { body: string }) {
+  const [path = '/dashboard', label = '工作台'] = body.slice('[导航协助]'.length).split('|');
+  const allowed = ['/dashboard', '/settings', '/study-guide', '/timetable-hub'];
+  if (!allowed.includes(path)) return <p>管理员发送了一条页面协助指令。</p>;
+  return <div><p>管理员建议你打开“{label}”。</p><button type="button" onClick={() => { window.location.assign(path); }} className="mt-3 rounded-lg bg-[#155eef] px-3 py-2 text-sm font-semibold text-white">打开{label}</button></div>;
 }
