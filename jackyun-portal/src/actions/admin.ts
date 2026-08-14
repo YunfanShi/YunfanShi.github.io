@@ -46,7 +46,7 @@ export async function getSystemInfo() {
 }
 
 export async function getTableStats() {
-  const { supabase } = await getAuthenticatedUser();
+  const { supabase } = await requireAdmin();
 
   const tables = [
     'vocab_words',
@@ -100,7 +100,7 @@ export async function getWhitelistInfo() {
 // ===== Whitelist CRUD =====
 
 export async function getWhitelistEmails(): Promise<WhitelistEmail[]> {
-  const { supabase } = await getAuthenticatedUser();
+  const { supabase } = await requireAdmin();
   const { data, error } = await supabase
     .from('whitelist_emails')
     .select('*')
@@ -138,7 +138,7 @@ export async function removeWhitelistEmail(
 }
 
 export async function getWhitelistUsernames(): Promise<WhitelistUsername[]> {
-  const { supabase } = await getAuthenticatedUser();
+  const { supabase } = await requireAdmin();
   const { data, error } = await supabase
     .from('whitelist_usernames')
     .select('*')
@@ -245,6 +245,23 @@ export async function getSyncOverview(): Promise<{ source: string; records: numb
   const { data, error } = await supabase.rpc('admin_sync_overview');
   if (error) throw new Error(error.message);
   return ((data ?? []) as { source: string; records: number | string; most_recent: string | null }[]).map((row) => ({ source: row.source, records: Number(row.records), most_recent: row.most_recent }));
+}
+
+export type DashboardOverview = {
+  metrics: { total_users: number; new_users: number; active_notifications: number; open_reports: number; restricted_accounts: number };
+  trends: Record<'users' | 'reports' | 'focus_minutes', { date: string; value: number }[]>;
+  todos: {
+    reports: { id: string; title: string; severity: string; status: string; created_at: string }[];
+    accounts: { id: string; display_name: string | null; email: string | null; account_status: string; deleted_at: string | null }[];
+    notifications: { id: string; title: string; start_time: string | null; end_time: string | null; is_active: boolean }[];
+  };
+};
+
+export async function getDashboardOverview(days: 7 | 30 = 30): Promise<DashboardOverview> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc('admin_dashboard_overview', { p_days: days });
+  if (error) throw new Error(error.message);
+  return data as DashboardOverview;
 }
 
 export async function addAdmin(

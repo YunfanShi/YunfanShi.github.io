@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { DiagnosticSnapshot } from '@/lib/logger';
 
@@ -24,6 +25,32 @@ export async function submitBugReport(input: BugReportInput) {
   } catch (cause) { console.error('[BugReport] Resend request failed', { reportId: report.id, cause: cause instanceof Error ? cause.message : String(cause) }); return { success: true, mailSent: false, mailError: '邮件服务网络请求失败' }; }
 }
 
-export type BugReport = { id: string; title: string; description: string; severity: string; status: string; page_url: string | null; created_at: string; diagnostics: DiagnosticSnapshot | null };
-export async function getAdminBugReports(): Promise<BugReport[]> { const supabase = await createClient(); const { data, error } = await supabase.rpc('admin_list_bug_reports'); if (error) throw new Error(error.message); return (data ?? []) as BugReport[]; }
-export async function replyToBugReport(id: string, body: string, status: string) { const supabase = await createClient(); const { error } = await supabase.rpc('admin_reply_bug_report', { p_report_id: id, p_body: body, p_status: status }); return error ? { success: false, error: error.message } : { success: true }; }
+export type UserBugReport = { id: string; title: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; created_at: string; updated_at: string };
+export async function getMyBugReports(): Promise<UserBugReport[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase.from('bug_reports').select('id, title, severity, status, created_at, updated_at').order('updated_at', { ascending: false }).limit(10);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as UserBugReport[];
+}
+
+export type BugReport = { id: string; user_id: string; title: string; description: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; page_url: string | null; created_at: string; updated_at: string; diagnostics: DiagnosticSnapshot | null };
+export type TicketDetail = { replies: { id: string; body: string; author_id: string; created_at: string }[]; notes: { id: string; body: string; author_id: string; created_at: string }[]; events: { id: string; event_type: 'status_changed' | 'internal_note'; previous_status: string | null; next_status: string | null; created_at: string }[] };
+
+async function requireAdminFeedback() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const usernames = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+  const username = (user.user_metadata?.user_name as string | undefined)?.toLowerCase();
+  if (profile?.role !== 'admin' && (!username || !usernames.includes(username))) throw new Error('Forbidden: Admin only');
+  return supabase;
+}
+
+export async function getAdminBugReports(): Promise<BugReport[]> { const supabase = await requireAdminFeedback(); const { data, error } = await supabase.rpc('admin_list_bug_reports'); if (error) throw new Error(error.message); return (data ?? []) as BugReport[]; }
+export async function getBugReportDetail(id: string): Promise<TicketDetail> { const supabase = await requireAdminFeedback(); const { data, error } = await supabase.rpc('admin_list_bug_report_details', { p_report_id: id }); if (error) throw new Error(error.message); return data as TicketDetail; }
+export async function replyToBugReport(id: string, body: string, status: BugReport['status']) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_reply_bug_report', { p_report_id: id, p_body: body, p_status: status }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
+export async function updateBugReportStatus(id: string, status: BugReport['status']) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_update_bug_report_status', { p_report_id: id, p_status: status }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
+export async function addBugReportInternalNote(id: string, body: string) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_add_bug_report_note', { p_report_id: id, p_body: body }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
