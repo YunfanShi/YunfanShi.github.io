@@ -12,6 +12,7 @@ export default function NotificationInbox() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SiteNotification[]>([]);
   const [unread, setUnread] = useState(0);
+  const [selected, setSelected] = useState<SiteNotification | null>(null);
 
   useEffect(() => {
     Promise.all([getNotificationInbox(), getActiveNotifications()])
@@ -19,8 +20,9 @@ export default function NotificationInbox() {
       .catch(() => {});
   }, []);
 
-  const markRead = (id: string) => {
-    dismissNotification(id).then(() => setUnread((value) => Math.max(0, value - 1))).catch(() => {});
+  const openMessage = (item: SiteNotification) => {
+    setSelected(item);
+    dismissNotification(item.id).then(() => setUnread((value) => Math.max(0, value - 1))).catch(() => {});
   };
 
   return (
@@ -34,8 +36,8 @@ export default function NotificationInbox() {
           <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3"><p className="font-semibold text-[var(--foreground)]">通知中心</p><span className="text-xs text-[var(--muted-foreground)]">{items.length} 条公告</span></div>
           <div className="max-h-96 overflow-y-auto">
             {items.length ? items.map((item) => (
-              <button type="button" onClick={() => markRead(item.id)} key={item.id} className="block w-full border-b border-[var(--card-border)] px-4 py-3 text-left last:border-0 hover:bg-[var(--background)]">
-                <p className="text-sm font-medium text-[var(--foreground)]">{item.title}</p>
+              <button type="button" onClick={() => openMessage(item)} key={item.id} className="block w-full border-b border-[var(--card-border)] px-4 py-3 text-left last:border-0 hover:bg-[var(--background)]">
+                <div className="flex items-center gap-2"><p className="text-sm font-medium text-[var(--foreground)]">{item.title}</p><span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${item.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{item.delivery_type === 'message' ? '消息' : '通知'}</span></div>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{preview(item.content)}</p>
                 <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">{new Date(item.created_at).toLocaleDateString('zh-CN')}</p>
               </button>
@@ -43,6 +45,7 @@ export default function NotificationInbox() {
           </div>
         </div>
       )}
+      {selected && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setSelected(null)}><article className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${selected.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{selected.delivery_type === 'message' ? '平台消息' : '平台通知'}</span><h2 className="mt-3 text-xl font-semibold text-[var(--foreground)]">{selected.title}</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{new Date(selected.created_at).toLocaleString('zh-CN')}</p></div><button onClick={() => setSelected(null)} className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)]"><span className="material-icons-round">close</span></button></div><div className="mt-6 whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">{selected.content}</div></article></div>}
     </div>
   );
 }

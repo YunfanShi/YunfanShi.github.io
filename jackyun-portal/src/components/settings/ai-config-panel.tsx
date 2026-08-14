@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { getAiConfig, saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
+import { explainAiError } from '@/lib/ai-error';
 
 interface AiConfigPanelProps {
   initialBaseUrl: string;
@@ -117,7 +118,8 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
           setTestSuccess(true);
         }
       } else {
-        setTestResponseContent(`HTTP ${res.status} — ${raw.slice(0, 500)}`);
+        const explained = explainAiError(res.status, raw);
+        setTestResponseContent(`${explained.reason}\n错误代码：${explained.code}\nHTTP：${res.status}\n详情：${explained.detail}`);
         setTestSuccess(false);
       }
     } catch (err) {

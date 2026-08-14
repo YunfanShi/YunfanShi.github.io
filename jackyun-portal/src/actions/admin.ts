@@ -376,6 +376,7 @@ export interface NotificationInput {
   title: string;
   content: string;
   content_type: 'html' | 'markdown';
+  delivery_type: 'notice' | 'message';
   is_active: boolean;
   start_time: string | null;
   end_time: string | null;
@@ -394,6 +395,7 @@ export async function getActiveNotifications(): Promise<SiteNotification[]> {
     .from('site_notifications')
     .select('*')
     .eq('is_active', true)
+    .eq('delivery_type', 'notice')
     .or(`start_time.is.null,start_time.lte.${now}`)
     .or(`end_time.is.null,end_time.gte.${now}`)
     .order('created_at', { ascending: true });
@@ -454,6 +456,7 @@ export async function createNotification(
       title: input.title.trim(),
       content: input.content,
       content_type: input.content_type,
+      delivery_type: input.delivery_type,
       is_active: input.is_active,
       start_time: input.start_time || null,
       end_time: input.end_time || null,
@@ -482,6 +485,7 @@ export async function updateNotification(
       title: input.title.trim(),
       content: input.content,
       content_type: input.content_type,
+      delivery_type: input.delivery_type,
       is_active: input.is_active,
       start_time: input.start_time || null,
       end_time: input.end_time || null,

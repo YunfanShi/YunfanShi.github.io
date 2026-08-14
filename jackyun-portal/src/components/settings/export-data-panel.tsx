@@ -1,62 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { exportUserData } from '@/actions/export';
+import { exportAllUserData, importSelectedData, previewDataImport, type DataArchive } from '@/actions/export';
 
+type Preview = { table: string; incoming: number; local: number; changed: boolean };
 export default function ExportDataPanel() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleExport(format: 'json' | 'csv') {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await exportUserData(format);
-      const blob = new Blob([data], {
-        type: format === 'json' ? 'application/json' : 'text/csv',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `export-${new Date().toISOString().slice(0, 10)}.${format}`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '导出失败');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-wrap gap-3">
-      <button
-        onClick={() => handleExport('json')}
-        disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#4285F4]/5 hover:border-[#4285F4]/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-      >
-        <span className="material-icons-round text-base text-[#4285F4]">data_object</span>
-        导出 JSON
-      </button>
-      <button
-        onClick={() => handleExport('csv')}
-        disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#34A853]/5 hover:border-[#34A853]/30 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-      >
-        <span className="material-icons-round text-base text-[#34A853]">table_view</span>
-        导出 CSV
-      </button>
-      {loading && (
-        <span className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
-          <span className="material-icons-round text-sm animate-spin">autorenew</span>
-          导出中...
-        </span>
-      )}
-      {error && (
-        <p className="w-full text-sm text-[#EA4335] bg-[#EA4335]/10 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
-    </div>
-  );
+  const [loading, setLoading] = useState(false); const [error, setError] = useState('');
+  const [preview, setPreview] = useState<Preview[]>([]); const [archive, setArchive] = useState<DataArchive | null>(null); const [selected, setSelected] = useState<string[]>([]); const [message, setMessage] = useState('');
+  const exportAll = async () => { setLoading(true); setError(''); try { const data = await exportAllUserData(); const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `jackyun-full-backup-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(url); } catch (e) { setError(e instanceof Error ? e.message : '导出失败'); } finally { setLoading(false); } };
+  const chooseFile = async (file?: File) => { if (!file) return; setLoading(true); setError(''); setMessage(''); try { const data = JSON.parse(await file.text()) as DataArchive; if (data.version !== 1 || !data.tables) throw new Error('不是 JackYun 完整备份文件'); const rows = await previewDataImport(data); setArchive(data); setPreview(rows); setSelected(rows.filter((row) => row.changed).map((row) => row.table)); } catch (e) { setError(e instanceof Error ? e.message : '无法读取备份'); } finally { setLoading(false); } };
+  const apply = async () => { if (!archive || !selected.length) return; setLoading(true); setError(''); try { const result = await importSelectedData(archive, selected as never); setMessage(`已导入 ${result.imported.length} 类数据；空数据跳过 ${result.skipped.length} 类。`); } catch (e) { setError(e instanceof Error ? e.message : '导入失败'); } finally { setLoading(false); } };
+  const toggle = (table: string) => setSelected((current) => current.includes(table) ? current.filter((value) => value !== table) : [...current, table]);
+  return <div className="space-y-4"><div className="flex flex-wrap gap-3"><button onClick={exportAll} disabled={loading} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm font-medium hover:bg-[#4285F4]/5 disabled:opacity-50"><span className="material-icons-round mr-1 align-middle text-[#4285F4]">download</span>导出全部数据</button><label className="cursor-pointer rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white hover:bg-[#3367d6]"><span className="material-icons-round mr-1 align-middle">upload</span>选择备份导入<input type="file" accept="application/json,.json" className="hidden" onChange={(event) => chooseFile(event.target.files?.[0])} /></label></div><p className="text-xs text-[var(--muted-foreground)]">完整备份包括学习、题库、音乐、倒计时、专注、设置与旧模块同步数据。导入采用合并方式，不会先清空当前数据。</p>{preview.length > 0 && <div className="rounded-xl border border-[var(--card-border)]"><div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3"><p className="text-sm font-semibold">导入差异预览</p><div className="flex gap-2 text-xs"><button onClick={() => setSelected(preview.map((row) => row.table))} className="text-[#4285F4]">全选</button><button onClick={() => setSelected([])} className="text-[var(--muted-foreground)]">全不选</button></div></div><div className="max-h-64 overflow-y-auto">{preview.map((row) => <label key={row.table} className="flex cursor-pointer items-center gap-3 border-b border-[var(--card-border)] px-4 py-2.5 last:border-0"><input type="checkbox" checked={selected.includes(row.table)} onChange={() => toggle(row.table)} /><span className="flex-1 text-sm">{row.table}</span><span className="text-xs text-[var(--muted-foreground)]">备份 {row.incoming} · 本机 {row.local}</span></label>)}</div><div className="flex justify-end border-t border-[var(--card-border)] p-3"><button disabled={loading || !selected.length} onClick={apply} className="rounded-lg bg-[#34A853] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">导入所选 {selected.length} 项</button></div></div>}{loading && <p className="text-sm text-[var(--muted-foreground)]">处理中…</p>}{error && <p className="rounded-lg bg-[#EA4335]/10 px-3 py-2 text-sm text-[#EA4335]">{error}</p>}{message && <p className="rounded-lg bg-[#34A853]/10 px-3 py-2 text-sm text-[#34A853]">{message}</p>}</div>;
 }

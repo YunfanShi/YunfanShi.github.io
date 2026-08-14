@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { explainAiError } from '@/lib/ai-error';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -239,6 +240,7 @@ export async function POST(req: NextRequest) {
 
   if (!upstream.ok) {
     const text = await upstream.text();
+    const explained = explainAiError(upstream.status, text);
     auditLog({
       userId,
       ip: clientIp,
@@ -250,7 +252,7 @@ export async function POST(req: NextRequest) {
       error: text.slice(0, 200),
     });
     return NextResponse.json(
-      { error: { message: `LLM API 错误 (${upstream.status}): ${text.slice(0, 300)}` } },
+      { error: { message: explained.reason, code: explained.code, upstream_status: upstream.status, detail: explained.detail } },
       { status: upstream.status },
     );
   }

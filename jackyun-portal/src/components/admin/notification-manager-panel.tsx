@@ -14,6 +14,7 @@ interface NotificationFormState {
   title: string;
   content: string;
   content_type: 'html' | 'markdown';
+  delivery_type: 'notice' | 'message';
   is_active: boolean;
   start_time: string;
   end_time: string;
@@ -23,6 +24,7 @@ const EMPTY_FORM: NotificationFormState = {
   title: '',
   content: '',
   content_type: 'markdown',
+  delivery_type: 'notice',
   is_active: true,
   start_time: '',
   end_time: '',
@@ -85,6 +87,7 @@ export function NotificationManagerPanel() {
       title: n.title,
       content: n.content,
       content_type: n.content_type,
+      delivery_type: n.delivery_type ?? 'notice',
       is_active: n.is_active,
       start_time: n.start_time ? n.start_time.slice(0, 16) : '',
       end_time: n.end_time ? n.end_time.slice(0, 16) : '',
@@ -105,6 +108,7 @@ export function NotificationManagerPanel() {
       title: form.title,
       content: form.content,
       content_type: form.content_type,
+      delivery_type: form.delivery_type,
       is_active: form.is_active,
       start_time: form.start_time ? new Date(form.start_time).toISOString() : null,
       end_time: form.end_time ? new Date(form.end_time).toISOString() : null,
@@ -157,6 +161,7 @@ export function NotificationManagerPanel() {
         title: n.title,
         content: n.content,
         content_type: n.content_type,
+        delivery_type: n.delivery_type ?? 'notice',
         is_active: !n.is_active,
         start_time: n.start_time,
         end_time: n.end_time,
@@ -180,14 +185,14 @@ export function NotificationManagerPanel() {
       {/* Header row */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-[var(--muted-foreground)]">
-          创建全站弹出通知，支持 Markdown 或 HTML 格式。
+          “通知”会弹窗并进入消息中心；“消息”仅显示在消息中心。
         </p>
         <button
           onClick={openCreate}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#4285F4] text-white text-sm font-medium hover:bg-[#3367d6] transition-colors"
         >
           <span className="material-icons-round text-base">add</span>
-          新建通知
+          新建通知 / 消息
         </button>
       </div>
 
@@ -253,6 +258,9 @@ export function NotificationManagerPanel() {
                       }`}
                     >
                       {n.content_type === 'html' ? 'HTML' : 'Markdown'}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${n.delivery_type === 'message' ? 'bg-[#9E77ED]/10 text-[#7F56D9]' : 'bg-[#34A853]/10 text-[#027A48]'}`}>
+                      {n.delivery_type === 'message' ? '消息（仅中心）' : '通知（弹窗 + 中心）'}
                     </span>
                     {!n.is_active && (
                       <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-[#EA4335]/10 text-[#EA4335]">
@@ -346,6 +354,15 @@ export function NotificationManagerPanel() {
                   placeholder="通知标题（显示在弹窗顶部）"
                   className={inputCls}
                 />
+              </div>
+
+              {/* Content type */}
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">投递方式</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setForm({ ...form, delivery_type: 'notice' })} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.delivery_type === 'notice' ? 'border-[#34A853] bg-[#34A853]/10 text-[#027A48]' : 'border-[var(--card-border)] text-[var(--muted-foreground)]'}`}>通知<br /><span className="text-[10px] font-normal">弹窗 + 消息中心</span></button>
+                  <button type="button" onClick={() => setForm({ ...form, delivery_type: 'message' })} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.delivery_type === 'message' ? 'border-[#7F56D9] bg-[#9E77ED]/10 text-[#7F56D9]' : 'border-[var(--card-border)] text-[var(--muted-foreground)]'}`}>消息<br /><span className="text-[10px] font-normal">仅消息中心</span></button>
+                </div>
               </div>
 
               {/* Content type */}

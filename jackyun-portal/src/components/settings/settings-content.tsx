@@ -14,6 +14,7 @@ import SidebarPrefsPanel from '@/components/settings/sidebar-prefs-panel';
 import TtsConfigPanel from '@/components/settings/tts-config-panel';
 import LanguageSwitcher from '@/components/settings/language-switcher';
 import ExportDataPanel from '@/components/settings/export-data-panel';
+import BugReportPanel from '@/components/settings/bug-report-panel';
 import { APP_VERSION } from '@/lib/utils';
 
 function SectionHeader({ icon, titleKey }: { icon: string; titleKey: string }) {
@@ -144,6 +145,8 @@ export default function SettingsContent({
         </p>
         <ExportDataPanel />
       </section>
+
+      <BugReportPanel />
 
       {/* 客户端日志 */}
       <LoggerViewerWrapper />

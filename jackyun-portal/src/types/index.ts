@@ -135,6 +135,7 @@ export interface SiteNotification {
   title: string;
   content: string;
   content_type: 'html' | 'markdown';
+  delivery_type: 'notice' | 'message';
   is_active: boolean;
   start_time: string | null;
   end_time: string | null;

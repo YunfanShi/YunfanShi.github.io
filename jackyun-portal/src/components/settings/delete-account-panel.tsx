@@ -51,7 +51,7 @@ export default function DeleteAccountPanel() {
           onClick={() => setShowConfirm(true)}
           className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors"
         >
-          注销账户
+          停用并删除账户
         </button>
       ) : (
         <div className="space-y-3">
@@ -88,7 +88,7 @@ export default function DeleteAccountPanel() {
               disabled={confirmText !== 'DELETE' || loading}
               className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? '处理中...' : '确认注销'}
+              {loading ? '处理中...' : '确认停用'}
             </button>
           </div>
         </div>
