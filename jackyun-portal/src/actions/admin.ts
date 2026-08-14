@@ -250,6 +250,29 @@ export async function setAccountStatus(
   return { success: true };
 }
 
+/** Send the same recovery link that a user can request from the sign-in page. */
+export async function sendPasswordResetForUser(
+  userId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase } = await requireAdmin();
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', userId)
+    .maybeSingle();
+  if (profileError) return { success: false, error: profileError.message };
+  if (!profile?.email) return { success: false, error: '该用户没有可用于重置密码的邮箱。' };
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000');
+  const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+    redirectTo: `${siteUrl}/auth/callback?type=recovery`,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function getSyncOverview(): Promise<{ source: string; records: number; most_recent: string | null }[]> {
   const { supabase } = await requireAdmin();
   const { data, error } = await supabase.rpc('admin_sync_overview');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { setAccountStatus, type ManagedUser } from '@/actions/admin';
+import { sendPasswordResetForUser, setAccountStatus, type ManagedUser } from '@/actions/admin';
 
 const REASONS = ['违反平台使用规范', '异常或高风险行为', '多次滥用平台功能', '账户安全保护', '其他'] as const;
 
@@ -17,6 +17,7 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'suspended' | 'deleted'>('all');
   const [draft, setDraft] = useState<SuspensionDraft | null>(null);
+  const [resetTarget, setResetTarget] = useState<ManagedUser | null>(null);
   const [notice, setNotice] = useState('');
   const [pending, startTransition] = useTransition();
 
@@ -48,6 +49,17 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
     });
   };
 
+  const sendPasswordReset = () => {
+    if (!resetTarget) return;
+    startTransition(async () => {
+      setNotice('');
+      const result = await sendPasswordResetForUser(resetTarget.id);
+      if (!result.success) return setNotice(result.error ?? '密码重置邮件发送失败。');
+      setNotice(`已向 ${resetTarget.email} 发送密码重置邮件。`);
+      setResetTarget(null);
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -70,6 +82,7 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN')}</td>
               <td className="px-4 py-3 text-right">
+                {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="mr-2 rounded-lg border border-[#b2ddff] px-3 py-1.5 text-xs font-semibold text-[#175cd3] disabled:opacity-50">发送重置邮件</button>}
                 {user.id !== currentUserId && !user.deleted_at && (user.account_status === 'active' ? (
                   <button type="button" onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318]">暂停账户</button>
                 ) : (
@@ -92,6 +105,14 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
             <label className="mt-4 block text-sm font-semibold">补充解释</label>
             <textarea value={draft.explanation} onChange={(event) => setDraft({ ...draft, explanation: event.target.value })} rows={5} placeholder="说明触发暂停的情况、用户可以如何处理，以及审核所需信息…" className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-transparent p-3 text-sm leading-6" />
             <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={() => setDraft(null)} className="rounded-xl border border-[#d0d5dd] px-4 py-2.5 text-sm font-semibold">取消</button><button type="button" disabled={pending || (draft.reason === '其他' && !draft.customReason.trim())} onClick={suspend} className="rounded-xl bg-[#d92d20] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{pending ? '处理中…' : '确认暂停'}</button></div>
+          </section>
+        </div>
+      )}
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm" onClick={() => !pending && setResetTarget(null)}>
+          <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#182230]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start gap-3"><span className="material-icons-round mt-0.5 text-[#175cd3]">lock_reset</span><div><h2 className="font-semibold">发送密码重置邮件</h2><p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#98a2b3]">将向 {resetTarget.email} 发送一次性重置链接。管理员不会看到或设置用户的新密码。</p></div></div>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={() => setResetTarget(null)} className="rounded-xl border border-[#d0d5dd] px-4 py-2.5 text-sm font-semibold">取消</button><button type="button" disabled={pending} onClick={sendPasswordReset} className="rounded-xl bg-[#155eef] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{pending ? '发送中…' : '确认发送'}</button></div>
           </section>
         </div>
       )}

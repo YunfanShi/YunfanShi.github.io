@@ -2,14 +2,14 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useTransition } from 'react';
-import { submitAccountAppeal, type TicketType } from '@/actions/feedback';
+import { submitAccountAppeal, type AccountAppealTicketType } from '@/actions/feedback';
 
 const SupportConversationDialog = dynamic(() => import('@/components/modules/support-conversation-dialog'), {
   loading: () => null,
 });
 
 interface Props {
-  ticketType: Exclude<TicketType, 'bug'>;
+  ticketType: AccountAppealTicketType;
   existingTicketId: string | null;
   canAppeal: boolean;
 }

@@ -66,7 +66,7 @@ export default function NotificationInbox() {
             {items.length ? items.map((item) => (
               <div key={item.id} className="flex border-b border-[var(--card-border)] last:border-0 hover:bg-[var(--background)]">
                 <button type="button" onClick={() => openMessage(item)} className="min-w-0 flex-1 px-4 py-3 text-left">
-                  <div className="flex items-center gap-2"><p className="truncate text-sm font-medium text-[var(--foreground)]">{item.title}</p><span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${item.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{item.delivery_type === 'message' ? '消息' : '通知'}</span></div>
+                  <div className="flex items-center gap-2"><p className="truncate text-sm font-medium text-[var(--foreground)]">{item.title}</p><span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${item.related_ticket_id ? 'bg-[#eff4ff] text-[#175cd3]' : item.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{item.related_ticket_id ? '人工客服' : item.delivery_type === 'message' ? '消息' : '通知'}</span></div>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{preview(item.content)}</p>
                   <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">{new Date(item.created_at).toLocaleDateString('zh-CN')}</p>
                 </button>
