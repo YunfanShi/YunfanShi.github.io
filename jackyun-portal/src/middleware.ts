@@ -124,8 +124,7 @@ export async function middleware(request: NextRequest) {
     const isEnvAdmin = githubUsername ? adminUsers.includes(githubUsername) : false;
 
     if (!isEnvAdmin && profile?.role !== 'admin') {
-      const unauthorizedUrl = new URL('/unauthorized', request.url);
-      return NextResponse.redirect(unauthorizedUrl);
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 

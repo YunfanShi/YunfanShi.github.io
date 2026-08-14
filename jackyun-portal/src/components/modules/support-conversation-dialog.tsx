@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { addMyTicketMessage, getMyTicketConversation, type MyTicketConversation } from '@/actions/feedback';
+import { addMyTicketMessage, getMyRemoteAssistanceRequest, getMyTicketConversation, respondRemoteAssistance, type MyTicketConversation } from '@/actions/feedback';
 
 interface Props {
   ticketId: string;
@@ -20,6 +20,7 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
   const [conversation, setConversation] = useState<MyTicketConversation | null>(null);
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState('');
+  const [remoteRequest, setRemoteRequest] = useState<{ id: string; status: 'requested' | 'approved' | 'denied' | 'revoked' | 'expired' } | null>(null);
   const [pending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +28,7 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
     getMyTicketConversation(ticketId)
       .then((value) => {
         setConversation(value);
+        getMyRemoteAssistanceRequest(ticketId).then(setRemoteRequest).catch(() => {});
         if (!value) setNotice('无法读取这条客服对话。');
       })
       .catch(() => setNotice('对话加载失败，请稍后重试。'));
@@ -55,6 +57,10 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
       setNotice('');
       refresh();
     });
+  };
+  const respondRemote = (approved: boolean) => {
+    if (!remoteRequest) return;
+    startTransition(async () => { const result = await respondRemoteAssistance(remoteRequest.id, approved); if (!result.success) return setNotice(result.error ?? '授权操作失败。'); setRemoteRequest((current) => current ? { ...current, status: approved ? 'approved' : 'denied' } : null); });
   };
 
   return (
@@ -94,6 +100,8 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
           {conversation?.messages.filter((message) => message.message_kind === 'resolution').map((message) => (
             <article key={message.id} className="overflow-hidden rounded-2xl border border-[#fecdca] bg-[#fffbfa] shadow-sm"><div className="flex items-center gap-2 bg-[#fef3f2] px-4 py-3 text-sm font-semibold text-[#b42318]"><span className="material-icons-round text-lg">task_alt</span>系统处理结果：本次人工客服咨询已结束</div><div className="border-t border-[#fecdca] px-4 py-3"><p className="text-xs font-semibold text-[#b54708]">管理员处理说明</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#344054]">{message.body}</p><p className="mt-2 text-[10px] text-[#667085]">{stamp(message.created_at)}</p></div></article>
           ))}
+          {remoteRequest?.status === 'requested' && <article className="rounded-2xl border border-[#b2ddff] bg-[#eff8ff] p-4"><p className="font-semibold text-[#175cd3]">管理员请求远程协助</p><p className="mt-2 text-sm leading-6 text-[#344054]">授权后管理员仅能查看脱敏配置状态、偏好和诊断日志；无法读取或写入密码、API Key、私密内容。授权将在 30 分钟后自动失效。</p><div className="mt-3 flex gap-2"><button disabled={pending} onClick={() => respondRemote(true)} className="rounded-lg bg-[#155eef] px-3 py-2 text-sm font-semibold text-white">允许协助</button><button disabled={pending} onClick={() => respondRemote(false)} className="rounded-lg border border-[#b2ddff] px-3 py-2 text-sm font-semibold text-[#175cd3]">拒绝</button></div></article>}
+          {remoteRequest?.status === 'approved' && <p className="rounded-xl bg-[#ecfdf3] px-4 py-3 text-center text-sm text-[#027a48]">你已授权远程协助；授权将在 30 分钟后自动失效。</p>}
           <div ref={bottomRef} />
         </div>
 

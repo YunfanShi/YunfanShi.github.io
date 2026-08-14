@@ -2,10 +2,16 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import ClientLoggerBoot from '@/components/layout/client-logger-boot';
 import { AdminNavigation } from '@/components/admin/admin-navigation';
+import { redirect } from 'next/navigation';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/dashboard');
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const adminUsers = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
+  const username = (user.user_metadata?.user_name as string | undefined)?.toLowerCase();
+  if (profile?.role !== 'admin' && (!username || !adminUsers.includes(username))) redirect('/dashboard');
   const name = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '管理员';
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-[#182230] dark:bg-[#111827] dark:text-white">
