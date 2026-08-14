@@ -62,6 +62,23 @@ export async function saveLanguagePreference(language: Language): Promise<{ erro
   } catch (error) { return { error: error instanceof Error ? error.message : '保存语言偏好失败' }; }
 }
 
+export type ThemePreference = 'light' | 'gray' | 'dark';
+export async function getThemePreference(): Promise<ThemePreference> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { data } = await supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', 'theme_preference').maybeSingle();
+    const theme = (data?.value as { theme?: string } | null)?.theme;
+    return theme === 'gray' || theme === 'dark' ? theme : 'light';
+  } catch { return 'light'; }
+}
+export async function saveThemePreference(theme: ThemePreference): Promise<{ error: string | null }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, key: 'theme_preference', value: { theme }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    return { error: error?.message ?? null };
+  } catch (error) { return { error: error instanceof Error ? error.message : '保存主题偏好失败' }; }
+}
+
 export type MusicSidebarMode = 'player' | 'sync';
 export type AnswerSheetSidebarMode = 'standard' | 'sync';
 export interface SidebarPreferences {
