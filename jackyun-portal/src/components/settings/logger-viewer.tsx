@@ -12,6 +12,7 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
   fetch: '#34D399',
   xhr: '#34D399',
   unhandled: '#DC2626',
+  interaction: '#F97316',
 };
 
 const LEVEL_LABELS: Record<LogLevel, string> = {
@@ -23,6 +24,7 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
   fetch: 'FETCH',
   xhr: 'XHR',
   unhandled: 'PANIC',
+  interaction: 'CLICK',
 };
 
 export default function LoggerViewer() {
@@ -35,7 +37,7 @@ export default function LoggerViewer() {
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const allLevels: LogLevel[] = ['error', 'unhandled', 'warn', 'info', 'debug', 'log', 'fetch', 'xhr'];
+  const allLevels: LogLevel[] = ['error', 'unhandled', 'warn', 'interaction', 'info', 'debug', 'log', 'fetch', 'xhr'];
   const counts = allLevels.reduce((acc, lvl) => {
     acc[lvl] = logs.filter(l => l.level === lvl).length;
     return acc;

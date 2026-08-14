@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { APP_VERSION } from '@/lib/utils';
 
 const entries = [
-  { version: `v${APP_VERSION}`, date: '2026-08-14', title: '时间管理与运营后台升级', text: '番茄钟云端同步、独立 Admin 管理控制台、通知中心、隐藏游客入口、安全头像上传与 Apple OAuth 登录入口。' },
+  { version: `v${APP_VERSION}`, date: '2026-08-14', title: 'Bug 反馈诊断与邮件投递修复', text: '修复 Admin 反馈卡片的状态与按钮交互；Bug 报告现在会附上脱敏的网络、错误和点击轨迹诊断日志，并显示 Resend 邮件投递失败原因，便于快速处理。' },
+  { version: 'v3.12.1', date: '2026-08-14', title: '时间管理与运营后台升级', text: '番茄钟云端同步、独立 Admin 管理控制台、通知中心、隐藏游客入口、安全头像上传与 Apple OAuth 登录入口。' },
   { version: 'v3.11.x', date: '2026-08', title: '学习体验持续优化', text: '学习规划、目标、日程与工具模块持续改进。' },
 ];
 

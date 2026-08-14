@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import ClientLoggerBoot from '@/components/layout/client-logger-boot';
 
 const nav = [
   { href: '/admin', icon: 'space_dashboard', label: '运营总览' },
@@ -16,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const name = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '管理员';
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-[#182230] dark:bg-[#111827] dark:text-white">
+      <ClientLoggerBoot />
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#e4e7ec] bg-white/95 px-5 backdrop-blur dark:border-white/10 dark:bg-[#111827]/95 lg:px-8">
         <Link href="/admin" className="flex items-center gap-3 font-semibold tracking-tight"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#155eef] text-white">J</span><span>JackYun Admin</span></Link>
         <div className="flex items-center gap-3 text-sm text-[#667085] dark:text-[#98a2b3]"><span className="hidden sm:inline">{name}</span><Link href="/dashboard" className="rounded-lg border border-[#d0d5dd] px-3 py-1.5 font-medium hover:bg-[#f9fafb] dark:border-white/15 dark:hover:bg-white/10">返回工作台</Link></div>

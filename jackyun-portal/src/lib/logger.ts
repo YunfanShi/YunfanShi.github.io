@@ -27,7 +27,7 @@
 //  Types
 // ──────────────────────────────────────────────
 
-type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'fetch' | 'xhr' | 'unhandled';
+type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'fetch' | 'xhr' | 'unhandled' | 'interaction';
 
 interface LogEntry {
   id: number;
@@ -43,6 +43,8 @@ interface LogEntry {
   status?: number;
   duration?: number;
 }
+
+export type DiagnosticSnapshot = { capturedAt: string; page: string; viewport: string; timezone: string; logs: LogEntry[] };
 
 // ──────────────────────────────────────────────
 //  Storage
@@ -62,6 +64,17 @@ const _logs: LogEntry[] = [];
 function getTimestamp(): string {
   return new Date().toISOString();
 }
+
+const SENSITIVE_KEY = /authorization|cookie|token|secret|password|api[-_]?key|session/i;
+function sanitizeValue(value: unknown, depth = 0): unknown {
+  if (depth > 4) return '[truncated]';
+  if (typeof value === 'string') return value.length > 800 ? `${value.slice(0, 800)}…[truncated]` : value;
+  if (Array.isArray(value)) return value.slice(0, 30).map((item) => sanitizeValue(item, depth + 1));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 40).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? '[redacted]' : sanitizeValue(item, depth + 1)]));
+  return value;
+}
+function safeUrl(value: string): string { try { const url = new URL(value, window.location.origin); return `${url.origin}${url.pathname}`; } catch { return value.split('?')[0]; } }
+function storedLogs(): LogEntry[] { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[]; } catch { return []; } }
 
 function storeEntry(entry: LogEntry) {
   _logs.push(entry);
@@ -149,6 +162,12 @@ const logger = {
 
   /** 导出日志为 JSON */
   exportLogs: (): string => JSON.stringify(_logs, null, 2),
+
+  /** 反馈附件：仅限最近事件，且所有敏感字段都经过脱敏。 */
+  getDiagnosticSnapshot: (): DiagnosticSnapshot => {
+    const entries = [...storedLogs(), ..._logs].slice(-120).map((entry) => ({ ...entry, url: entry.url ? safeUrl(entry.url) : undefined, data: sanitizeValue(entry.data), stack: entry.stack?.slice(0, 2000) }));
+    return { capturedAt: getTimestamp(), page: typeof window === 'undefined' ? '' : safeUrl(window.location.href), viewport: typeof window === 'undefined' ? '' : `${window.innerWidth}×${window.innerHeight}`, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, logs: entries.slice(-80) };
+  },
 
   /** 订阅日志变化 */
   subscribe: (cb: (entry: LogEntry) => void): (() => void) => {
@@ -249,12 +268,7 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
     const method = (args[1]?.method || 'GET').toUpperCase();
 
     // 请求日志
-    const reqEntry = makeEntry('fetch', 'Network', `${method} ${url}`, {
-      headers: args[1]?.headers ? Object.fromEntries(
-        args[1].headers instanceof Headers ? args[1].headers.entries() : Object.entries(args[1].headers)
-      ) : undefined,
-      body: args[1]?.body ? (typeof args[1].body === 'string' ? args[1].body.slice(0, 500) : '[ReadableStream]') : undefined,
-    }, { url, method });
+    const reqEntry = makeEntry('fetch', 'Network', `${method} ${safeUrl(url)}`, undefined, { url: safeUrl(url), method });
     pushEntry(reqEntry);
 
     try {
@@ -357,6 +371,15 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
     });
     pushEntry(entry);
   });
+
+  // 用户操作轨迹：只记录可交互元素的标签，绝不记录输入框内容。
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('button, a, [role="button"], input[type="submit"], input[type="button"], [data-log-action]') : null;
+    if (!target) return;
+    const label = target.getAttribute('data-log-action') || target.getAttribute('aria-label') || target.getAttribute('title') || target.textContent?.trim().replace(/\s+/g, ' ').slice(0, 120) || target.tagName.toLowerCase();
+    const href = target instanceof HTMLAnchorElement ? safeUrl(target.href) : undefined;
+    pushEntry(makeEntry('interaction', 'Interaction', `点击：${label}`, { element: target.tagName.toLowerCase(), href }, { url: href }));
+  }, true);
 
   // ── 6. 启动日志 ──
   const bootEntry = makeEntry('info', 'Logger', '🔍 全量客户端日志系统已启动', {
