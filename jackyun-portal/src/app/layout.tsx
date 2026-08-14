@@ -21,7 +21,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: "try{var t=localStorage.getItem('jackyun_theme')==='dark'?'dark':'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}catch(e){}",
+            __html: "try{var s=localStorage.getItem('jackyun_theme'),t=s==='gray'||s==='dark'?s:'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='light'?'light':'dark'}catch(e){}",
           }}
         />
         <link

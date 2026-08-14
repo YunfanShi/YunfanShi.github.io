@@ -337,7 +337,34 @@
             .completion-title { font-size: 28px; }
         }
     </style>
-<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
+<link rel="stylesheet" href="/jackyun-theme.css">
+<style id="jackyun-poem-three-themes">
+html[data-jy-theme="light"] body { background:linear-gradient(135deg,#f8f9fa,#e8eaed); }
+html[data-jy-theme="light"] .app-container { background:#fff; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body { background:var(--background) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .app-container,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .nav-bar,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .main-content,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .view-content,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #poem-view-container,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #completion-view { background:var(--surface) !important; color:var(--text); border-color:var(--border); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .input-wrapper,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .search-box,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-list-item,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .completion-score-card,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .analysis-col,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .top-icon-btn { background:var(--surface2) !important; color:var(--text) !important; border-color:var(--border); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) textarea,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .text-content,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .is-title .text-content,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .analysis-list li { color:var(--text) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #recite-timer,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .mobile-controls { background:color-mix(in srgb,var(--surface) 94%,transparent) !important; color:var(--text); border-color:var(--border); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #pause-overlay { background:color-mix(in srgb,var(--surface) 96%,transparent) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .mask { background:var(--surface3); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-line:hover .mask { background:var(--border2); }
+</style>
+<script src="/jackyun-theme.js"></script></head>
 <body>
 
     <div class="app-container">

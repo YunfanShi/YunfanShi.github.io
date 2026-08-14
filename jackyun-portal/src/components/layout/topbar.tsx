@@ -11,13 +11,21 @@ interface TopbarProps {
   user: User | null;
 }
 
+type Theme = 'light' | 'gray' | 'dark';
+
+const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = {
+  light: { next: 'gray', label: '切换到灰色主题', icon: 'contrast' },
+  gray: { next: 'dark', label: '切换到黑色主题', icon: 'dark_mode' },
+  dark: { next: 'light', label: '切换到亮色主题', icon: 'light_mode' },
+};
+
 const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') === 'true' : false;
 
 export default function Topbar({ user }: TopbarProps) {
   const { lang } = useLanguage();
   const [showFullscreen, setShowFullscreen] = useState(showFullscreenDefault);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
     // Expose the signed-in user's display name to legacy (iframe) HTML pages
@@ -57,16 +65,17 @@ export default function Topbar({ user }: TopbarProps) {
 
   useEffect(() => {
     try {
-      setTheme(localStorage.getItem('jackyun_theme') === 'dark' ? 'dark' : 'light');
+      const saved = localStorage.getItem('jackyun_theme');
+      setTheme(saved === 'gray' || saved === 'dark' ? saved : 'light');
     } catch {}
   }, []);
 
   const toggleTheme = () => {
-    const next = theme === 'light' ? 'dark' : 'light';
+    const next = THEME_META[theme].next;
     setTheme(next);
     try { localStorage.setItem('jackyun_theme', next); } catch {}
     document.documentElement.dataset.theme = next;
-    document.documentElement.style.colorScheme = next;
+    document.documentElement.style.colorScheme = next === 'light' ? 'light' : 'dark';
     document.querySelectorAll('iframe').forEach((frame) => {
       frame.contentWindow?.postMessage({ type: 'jackyun-theme', theme: next }, '*');
     });
@@ -97,10 +106,10 @@ export default function Topbar({ user }: TopbarProps) {
           type="button"
           onClick={toggleTheme}
           className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
-          title={theme === 'light' ? '切换到深色主题' : '切换到亮色主题'}
-          aria-label={theme === 'light' ? '切换到深色主题' : '切换到亮色主题'}
+          title={THEME_META[theme].label}
+          aria-label={THEME_META[theme].label}
         >
-          <span className="material-icons-round text-lg">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+          <span className="material-icons-round text-lg">{THEME_META[theme].icon}</span>
         </button>
         {showFullscreen && (
           <button

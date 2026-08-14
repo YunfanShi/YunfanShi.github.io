@@ -383,7 +383,34 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .tb-btn{padding:7px 10px}
 }
 </style>
-<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
+<link rel="stylesheet" href="/jackyun-theme.css">
+<style id="jackyun-schedule-three-themes">
+html[data-jy-theme="light"] .topbar,
+html[data-jy-theme="light"] .g-head { background:rgba(255,255,255,.97); color:var(--text); }
+html[data-jy-theme="light"] .top-title .mat { color:#5f6368; }
+html[data-jy-theme="light"] .tp:hover { background:var(--surface2); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .top-title .mat { color:var(--text2); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .topbar,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .g-head { background:color-mix(in srgb,var(--background) 96%,transparent) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .top-sub,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .g-hour,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .g-dt,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .tp-meta,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fb-meta,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .plan-meta,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .ai-ps,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .ai-chg-r { color:var(--text2) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .task { background:var(--surface2) !important; color:var(--text) !important; border:1px solid var(--border2) !important; border-left:3px solid var(--text3) !important; box-shadow:none; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .task:hover { background:var(--surface3) !important; border-color:var(--text2) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fb-block.w,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fb-block.r { background:color-mix(in srgb,var(--surface3) 72%,transparent) !important; border-color:var(--border2) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fb-task-row { background:var(--surface3) !important; color:var(--text) !important; border-left:2px solid var(--text3); }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .tp.sel,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .plan-card.active,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .g-day.active { background:var(--surface3) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .ai-dock-btn { background:var(--surface3); color:var(--text); box-shadow:0 8px 28px rgba(0,0,0,.45); }
+</style>
+<script src="/jackyun-theme.js"></script></head>
 <body>
 
 <!-- ===== TOPBAR ===== -->

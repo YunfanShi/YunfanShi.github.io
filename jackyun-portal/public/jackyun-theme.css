@@ -95,6 +95,31 @@ html[data-jy-theme="light"] {
   --shadow-hover: 0 2px 6px rgba(60, 64, 67, .18);
 }
 
+html[data-jy-theme="gray"] {
+  color-scheme: dark;
+  --background:#202124;--bg:#202124;--bg-color:#202124;--g-gray:#252629;--md-bg:#202124;
+  --surface:#292a2d;--surface2:#303134;--surface3:#3c4043;--surface-variant:#3c4043;--card-bg:#292a2d;--white:#292a2d;
+  --text:#f1f3f4;--text-main:#f1f3f4;--text-primary:#f1f3f4;--text2:#d2d5d3;--text3:#b7bab8;
+  --text-sub:#d2d5d3;--text-sec:#d2d5d3;--text-secondary:#d2d5d3;
+  --border:#45474a;--border2:#64676a;--outline:#b7bab8;
+  --primary:#8ab4f8;--primary-dark:#aecbfa;--primary-hover:#aecbfa;--primary-container:#174ea6;--primary-bg:#174ea6;--on-primary:#202124;
+  --accent:#8ab4f8;--accent-color:#8ab4f8;--accent-hover:#aecbfa;--blue:#8ab4f8;--blue-light:#174ea6;--blue-dim:#174ea6;
+  --ai:#8ab4f8;--ai-dim:#174ea6;--ai-border:#669df6;
+  --green:#81c995;--green-light:#0d652d;--green-dim:#0d652d;--red:#f28b82;--red-light:#8c1d18;--red-dim:#8c1d18;
+  --yellow:#fdd663;--yellow-dim:#594300;--orange:#fdd663;--purple:#d7aefb;--purple-dim:#681da8;
+  --error:#f28b82;--danger:#f28b82;--success:#81c995;--warning:#fdd663;--warn:#fdd663;
+  --g-blue:#8ab4f8;--g-red:#f28b82;--g-yellow:#fdd663;--g-green:#81c995;--theme-color:#8ab4f8;
+  --seg-done:#8ab4f8;--seg-todo:#45474a;
+  --md-primary:#8ab4f8;--md-on-primary:#202124;--md-primary-container:#174ea6;--md-on-primary-container:#d2e3fc;
+  --md-secondary:#d2d5d3;--md-surface:#202124;--md-surface-dim:#202124;--md-surface-container:#292a2d;
+  --md-surface-container-high:#303134;--md-surface-variant:#3c4043;--md-on-surface:#f1f3f4;--md-on-surface-variant:#d2d5d3;
+  --md-outline:#b7bab8;--md-outline-variant:#45474a;--md-error:#f28b82;--md-error-container:#8c1d18;--md-success:#81c995;--md-warning:#fdd663;
+  --md-sys-color-primary:#8ab4f8;--md-sys-color-on-primary:#202124;--md-sys-color-primary-container:#174ea6;
+  --md-sys-color-on-primary-container:#d2e3fc;--md-sys-color-surface:#202124;--md-sys-color-surface-container:#292a2d;
+  --md-sys-color-on-surface:#f1f3f4;--md-sys-color-outline:#45474a;--md-sys-color-error:#f28b82;--md-sys-color-success:#81c995;
+  --shadow:0 1px 3px rgba(0,0,0,.48);--shadow-card:0 1px 2px rgba(0,0,0,.42);--shadow-hover:0 2px 8px rgba(0,0,0,.52);
+}
+
 html[data-jy-theme="dark"] {
   color-scheme: dark;
   --background: #000000;
@@ -191,46 +216,46 @@ html[data-jy-theme="dark"] {
 }
 
 /* Surface-only dark adaptations. These never change layout or component state. */
-html[data-jy-theme="dark"],
-html[data-jy-theme="dark"] body {
-  background-color: #000000 !important;
-  color: #f5f5f5 !important;
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]),
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body {
+  background-color: var(--background) !important;
+  color: var(--text) !important;
 }
-html[data-jy-theme="dark"] header,
-html[data-jy-theme="dark"] aside,
-html[data-jy-theme="dark"] nav,
-html[data-jy-theme="dark"] main,
-html[data-jy-theme="dark"] .topbar,
-html[data-jy-theme="dark"] .top-bar,
-html[data-jy-theme="dark"] .sidebar {
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) header,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) aside,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) nav,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) main,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .topbar,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .top-bar,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .sidebar {
   background-color: var(--surface) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
-html[data-jy-theme="dark"] .card,
-html[data-jy-theme="dark"] .pcard,
-html[data-jy-theme="dark"] .gcard,
-html[data-jy-theme="dark"] .quest-card,
-html[data-jy-theme="dark"] .traffic-stat,
-html[data-jy-theme="dark"] .stat-chip,
-html[data-jy-theme="dark"] .today-panel,
-html[data-jy-theme="dark"] .timer-card,
-html[data-jy-theme="dark"] .schedule-card,
-html[data-jy-theme="dark"] .countdown-card,
-html[data-jy-theme="dark"] .modal,
-html[data-jy-theme="dark"] .modal-content,
-html[data-jy-theme="dark"] .modal-box,
-html[data-jy-theme="dark"] .panel-sheet,
-html[data-jy-theme="dark"] .mock-record,
-html[data-jy-theme="dark"] .content-card {
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .card,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .pcard,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .gcard,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .quest-card,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .traffic-stat,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .stat-chip,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .today-panel,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .timer-card,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .schedule-card,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .countdown-card,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .modal,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .modal-content,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .modal-box,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .panel-sheet,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .mock-record,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .content-card {
   background-color: var(--card-bg) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
-html[data-jy-theme="dark"] input,
-html[data-jy-theme="dark"] textarea,
-html[data-jy-theme="dark"] select,
-html[data-jy-theme="dark"] .fi {
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) input,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) textarea,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) select,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fi {
   background-color: var(--surface2) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;

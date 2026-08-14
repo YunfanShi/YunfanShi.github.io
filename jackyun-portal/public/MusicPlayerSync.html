@@ -127,7 +127,39 @@
         @keyframes rotate { 100% { transform: rotate(360deg); } }
         .spin { animation: rotate 1s linear infinite; }
     </style>
-<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
+<link rel="stylesheet" href="/jackyun-theme.css">
+<style id="jackyun-music-sync-three-themes">
+html[data-jy-theme="light"] body,
+html[data-jy-theme="light"] main { background:var(--background); color:var(--text); }
+html[data-jy-theme="light"] header,
+html[data-jy-theme="light"] aside,
+html[data-jy-theme="light"] .panel,
+html[data-jy-theme="light"] .player-bar,
+html[data-jy-theme="light"] .card { background:var(--surface); color:var(--text); border-color:var(--border); }
+html[data-jy-theme="light"] .list { background:var(--surface2); }
+html[data-jy-theme="light"] .brand,
+html[data-jy-theme="light"] .item-title,
+html[data-jy-theme="light"] .card h3 { color:var(--text); }
+html[data-jy-theme="light"] input,
+html[data-jy-theme="light"] .paste-area,
+html[data-jy-theme="light"] .metro-box { background:var(--surface2); color:var(--text); }
+html[data-jy-theme="light"] .sync-trigger,
+html[data-jy-theme="light"] .status-pill,
+html[data-jy-theme="light"] .ctrl-btn,
+html[data-jy-theme="light"] .modal .card > div[style*="background:#1e2430"] { background:var(--surface3) !important; color:var(--text); border-color:var(--border); }
+html[data-jy-theme="light"] .panel[style*="background:#1e1b4b"] { background:var(--surface2) !important; border-bottom-color:var(--border) !important; }
+html[data-jy-theme="light"] .panel[style*="background:#1e1b4b"] .btn-sec[style*="background:#7c3aed"] { background:var(--primary) !important; border-color:var(--primary) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) aside,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .list,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #masterPanel,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #followerPanel { background:var(--surface) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .panel[style*="background:#1e1b4b"] { background:var(--surface2) !important; border-bottom-color:var(--border2) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .panel[style*="background:#1e1b4b"] .btn-sec[style*="background:#7c3aed"] { background:var(--surface3) !important; border-color:var(--border2) !important; color:var(--text) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge.master,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge.follower { background:var(--surface3); color:var(--text); }
+</style>
+<script src="/jackyun-theme.js"></script></head>
 <body>
 
 <div id="import-modal" class="modal">

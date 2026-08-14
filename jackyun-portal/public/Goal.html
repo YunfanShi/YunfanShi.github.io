@@ -413,26 +413,32 @@ option{background:#1a1a1a;}
 </style>
 <link rel="stylesheet" href="/jackyun-theme.css">
 <style id="jackyun-goal-dark-contrast">
-html[data-jy-theme="dark"] .topbar,
-html[data-jy-theme="dark"] .cd-banner { background:#050505 !important; }
-html[data-jy-theme="dark"] .pcard,
-html[data-jy-theme="dark"] .gcard,
-html[data-jy-theme="dark"] .gcard.child,
-html[data-jy-theme="dark"] .today-panel,
-html[data-jy-theme="dark"] .cd-item,
-html[data-jy-theme="dark"] .stat,
-html[data-jy-theme="dark"] .tabs { background:var(--surface) !important; color:var(--text) !important; }
-html[data-jy-theme="dark"] .pcard:hover,
-html[data-jy-theme="dark"] .gcard:hover,
-html[data-jy-theme="dark"] .gcard.child:hover { background:var(--surface2) !important; }
-html[data-jy-theme="dark"] .modal { background:var(--surface) !important; color:var(--text) !important; }
-html[data-jy-theme="dark"] .tab,
-html[data-jy-theme="dark"] .gdesc,
-html[data-jy-theme="dark"] .gdeadline,
-html[data-jy-theme="dark"] .gfoot-l,
-html[data-jy-theme="dark"] .today-empty,
-html[data-jy-theme="dark"] .today-item-times { color:var(--text2) !important; }
-html[data-jy-theme="dark"] option { background:#101010; color:var(--text); }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .topbar,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .cd-banner { background:var(--background) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .pcard,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gcard,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gcard.child,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .today-panel,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .today-item,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .cd-item,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .stat,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .tabs,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #wardenSyncBanner,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:#fff"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background: #fff"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:white"] { background:var(--surface) !important; color:var(--text) !important; border-color:var(--border) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .pcard:hover,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gcard:hover,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gcard.child:hover { background:var(--surface2) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .modal { background:var(--surface) !important; color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .tab,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gdesc,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gdeadline,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gfoot-l,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .today-empty,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .today-item-times,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .wsb-sub { color:var(--text2) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) option { background:var(--surface); color:var(--text); }
 </style>
 <script src="/jackyun-theme.js"></script></head>
 <body>

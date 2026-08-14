@@ -549,24 +549,51 @@ html[data-jy-theme="light"] .timer-stat .ts-value,
 html[data-jy-theme="light"] .task-name { color:var(--text); }
 html[data-jy-theme="light"] #immersive-overlay { background:linear-gradient(135deg,#1a73e8,#174ea6) !important; }
 html[data-jy-theme="light"] .mode-study { background:linear-gradient(135deg,#1a73e8,#174ea6); }
-html[data-jy-theme="dark"] .player-header,
-html[data-jy-theme="dark"] .iframe-container { background:var(--surface2); }
-html[data-jy-theme="dark"] body,
-html[data-jy-theme="dark"] .setting-row,
-html[data-jy-theme="dark"] .task-name,
-html[data-jy-theme="dark"] .timer-stat .ts-value,
-html[data-jy-theme="dark"] #day-label { color:var(--text) !important; }
-html[data-jy-theme="dark"] .settings-area,
-html[data-jy-theme="dark"] .timer-card,
-html[data-jy-theme="dark"] .schedule-card,
-html[data-jy-theme="dark"] .cat-header,
-html[data-jy-theme="dark"] .timer-stat { background:var(--surface) !important; color:var(--text) !important; border-color:var(--border) !important; }
-html[data-jy-theme="dark"] .task-time,
-html[data-jy-theme="dark"] .timer-stat .ts-icon,
-html[data-jy-theme="dark"] .timer-stat .ts-label,
-html[data-jy-theme="dark"] [style*="color:#666"],
-html[data-jy-theme="dark"] [style*="color:#999"] { color:var(--text2) !important; }
-html[data-jy-theme="dark"] .date-badge { background:var(--surface3); color:var(--text); }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .player-header,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .iframe-container { background:var(--surface2); }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) body,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .setting-row,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-name,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-digits,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-label,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-stat .ts-value,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #day-label { color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .settings-area,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-card,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .schedule-card,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .cat-header,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-stat,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .ai-sidebar,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .ai-sidebar-header,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .ai-sidebar-input-area,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #bgm-prompt,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-start-card,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .hist-day,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:#fafafa"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background: #fafafa"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:white"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background: white"] { background:var(--surface) !important; color:var(--text) !important; border-color:var(--border) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-row.study,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-row.break,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-row.active,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-row.done,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-row.skipped { background:var(--surface2) !important; color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .ai-msg.assistant,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .tts-subtitle,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .voice-group-title,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .voice-item { background:var(--surface2); color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-time,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .task-duration,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-stat .ts-icon,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .timer-stat .ts-label,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .hist-item,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .prompt-body,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#555"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#666"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#888"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#999"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#aaa"] { color:var(--text2) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:var(--surface3); color:var(--text); }
 </style>
 <script src="/jackyun-theme.js"></script></head>
 <body>

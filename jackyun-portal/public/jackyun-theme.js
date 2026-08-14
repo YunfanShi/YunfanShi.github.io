@@ -3,13 +3,13 @@
   var KEY = 'jackyun_theme';
 
   function normalize(value) {
-    return value === 'dark' ? 'dark' : 'light';
+    return value === 'gray' || value === 'dark' ? value : 'light';
   }
 
   function apply(theme) {
     var next = normalize(theme);
     document.documentElement.dataset.jyTheme = next;
-    document.documentElement.classList.toggle('dark', next === 'dark');
+    document.documentElement.classList.toggle('dark', next !== 'light');
   }
 
   function readTheme() {

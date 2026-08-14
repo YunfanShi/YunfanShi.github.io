@@ -773,32 +773,38 @@
   </style>
 <link rel="stylesheet" href="/jackyun-theme.css">
 <style id="jackyun-mock-dark-contrast">
-html[data-jy-theme="dark"] body { background:#000 !important; color:var(--text) !important; }
-html[data-jy-theme="dark"] #appbar,
-html[data-jy-theme="dark"] #filterPanel,
-html[data-jy-theme="dark"] #settingsDr,
-html[data-jy-theme="dark"] .bg-white,
-html[data-jy-theme="dark"] .pcard,
-html[data-jy-theme="dark"] .cart-item,
-html[data-jy-theme="dark"] .score-modal-box { background:var(--surface) !important; color:var(--text) !important; border-color:var(--border) !important; }
-html[data-jy-theme="dark"] .pcard.sel,
-html[data-jy-theme="dark"] .fchip.on { background:#10264d !important; }
-html[data-jy-theme="dark"] .fchip,
-html[data-jy-theme="dark"] .gcnt,
-html[data-jy-theme="dark"] input,
-html[data-jy-theme="dark"] textarea,
-html[data-jy-theme="dark"] select { background:var(--surface2) !important; color:var(--text) !important; border-color:var(--border) !important; }
-html[data-jy-theme="dark"] [style*="color:#202124"],
-html[data-jy-theme="dark"] [style*="color: #202124"],
-html[data-jy-theme="dark"] [style*="color:#5F6368"],
-html[data-jy-theme="dark"] [style*="color:#9AA0A6"] { color:var(--text) !important; }
-html[data-jy-theme="dark"] [style*="background:white"],
-html[data-jy-theme="dark"] [style*="background: white"] { background:var(--surface) !important; }
-html[data-jy-theme="dark"] .fsec-hdr:hover,
-html[data-jy-theme="dark"] .btn-o:hover { background:var(--surface3) !important; }
-html[data-jy-theme="dark"] .syllabus-note { background:#3d3000; color:#fff0b3; }
-html[data-jy-theme="dark"] .drag-handle,
-html[data-jy-theme="dark"] .cbadge { color:var(--text2); }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) body { background:var(--background) !important; color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #appbar,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #filterPanel,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #settingsDr,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) #cartDrawer,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .bg-white,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .pcard,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .cart-item,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .score-modal-box,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:white"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background: white"] { background:var(--surface) !important; color:var(--text) !important; border-color:var(--border) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:#F8F9FA"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:#FAFAFA"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:#F1F3F4"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="background:#E8EAED"] { background:var(--surface2) !important; color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .pcard.sel,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .fchip.on { background:var(--surface3) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .fchip,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .gcnt,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) input,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) textarea,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) select { background:var(--surface2) !important; color:var(--text) !important; border-color:var(--border) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#202124"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color: #202124"] { color:var(--text) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#5F6368"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#9AA0A6"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) [style*="color:#DADCE0"],
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .drag-handle,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .cbadge { color:var(--text2) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .fsec-hdr:hover,
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .btn-o:hover { background:var(--surface3) !important; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .syllabus-note { background:#3d3000; color:#fff0b3; }
 </style>
 <script src="/jackyun-theme.js"></script></head>
 <body>

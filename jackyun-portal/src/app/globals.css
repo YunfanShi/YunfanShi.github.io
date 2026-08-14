@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.min.css";
 @plugin "@tailwindcss/typography";
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="gray"], [data-theme="gray"] *, [data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   --background: #ffffff;
@@ -29,6 +29,20 @@
     --brand-strong: #aecbfa;
     --accent: #8ab4f8;
     --surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+}
+
+[data-theme="gray"] {
+    --background: #202124;
+    --foreground: #f1f3f4;
+    --muted-foreground: #c4c7c5;
+    --card: #292a2d;
+    --card-border: #45474a;
+    --sidebar-bg: #252629;
+    --sidebar-border: #45474a;
+    --brand: #8ab4f8;
+    --brand-strong: #aecbfa;
+    --accent: #8ab4f8;
+    --surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.48);
 }
 
 body {
