@@ -32,23 +32,29 @@ async function currentUser() {
   return { supabase, user };
 }
 
-export async function getPomodoroWorkspace(): Promise<{ tasks: PomodoroTask[]; settings: PomodoroSettings; completedToday: number }> {
+export async function getPomodoroWorkspace(): Promise<{ tasks: PomodoroTask[]; settings: PomodoroSettings; completedToday: number; weeklyMinutes: number; activeDays: number }> {
   const { supabase, user } = await currentUser();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const [tasksResult, settingsResult, sessionsResult] = await Promise.all([
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - 6);
+  const [tasksResult, settingsResult, sessionsResult, weekResult] = await Promise.all([
     supabase.from('focus_tasks').select('*').eq('user_id', user.id).order('created_at'),
     supabase.from('focus_settings').select('*').eq('user_id', user.id).maybeSingle(),
     supabase.from('focus_sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('completed_at', today.toISOString()),
+    supabase.from('focus_sessions').select('duration_seconds, completed_at').eq('user_id', user.id).gte('completed_at', weekStart.toISOString()),
   ]);
   if (tasksResult.error) throw new Error(tasksResult.error.message);
   if (settingsResult.error) throw new Error(settingsResult.error.message);
   if (sessionsResult.error) throw new Error(sessionsResult.error.message);
+  if (weekResult.error) throw new Error(weekResult.error.message);
   const row = settingsResult.data;
   return {
     tasks: (tasksResult.data ?? []).map((task) => ({ id: task.id, text: task.title, estimated: task.estimated_pomodoros, completed: task.is_completed, donePomodoros: task.completed_pomodoros })),
     settings: row ? { pomodoroMin: row.pomodoro_min, shortBreakMin: row.short_break_min, longBreakMin: row.long_break_min, longBreakInterval: row.long_break_interval, soundEnabled: row.sound_enabled, notificationsEnabled: row.notifications_enabled } : DEFAULT_SETTINGS,
     completedToday: sessionsResult.count ?? 0,
+    weeklyMinutes: Math.round((weekResult.data ?? []).reduce((total, session) => total + session.duration_seconds, 0) / 60),
+    activeDays: new Set((weekResult.data ?? []).map((session) => session.completed_at.slice(0, 10))).size,
   };
 }
 

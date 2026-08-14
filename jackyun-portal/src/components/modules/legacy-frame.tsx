@@ -367,7 +367,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
   // ═══════════════════════════════════════════
   // localStorage ↔ Supabase sync bridge
   // ═══════════════════════════════════════════
-  // Sync keys for sidebar modules (only these are synced to cloud)
+  // Explicit keys plus portal-owned prefixes are synced to cloud. This covers
+  // legacy modules without copying browser-only/system keys or API placeholders.
   var SYNC_KEYS = [
     // Control / TimetableHub
     'jackyun_control_events',
@@ -408,6 +409,12 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
     'jackyun_schedule_output',
     'jackyun_schedule_results',
   ];
+  var SYNC_PREFIXES = ['jackyun_', 'th2_', 'gt_', 'w3_', 'caie_', 'studyguide_', 'mock_', 'quizwise_', 'bilibili_', 'igcse_'];
+  function isSyncKey(key) {
+    if (SYNC_KEYS.indexOf(key) !== -1) return true;
+    for (var i = 0; i < SYNC_PREFIXES.length; i++) if (String(key).indexOf(SYNC_PREFIXES[i]) === 0) return true;
+    return false;
+  }
 
   var _origSetItem = localStorage.setItem.bind(localStorage);
   var _origGetItem = localStorage.getItem.bind(localStorage);
@@ -429,7 +436,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
     try { _origSetItem(TS_KEY, JSON.stringify(_localTs)); } catch(e) {}
   }
 
-  // Attempt to load cloud data on init — pull ONLY when cloud is newer.
+  // Attempt to load cloud data on every open. The cloud is authoritative so a
+  // second device always receives the newest successfully synced state.
   function initSync() {
     fetch('/api/legacy-sync', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
       .then(function(r) { return r.ok ? r.json() : null; })
@@ -441,13 +449,11 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
         var pulled = 0;
         for (var i = 0; i < keys.length; i++) {
           var k = keys[i];
-          if (SYNC_KEYS.indexOf(k) === -1) continue;
+          if (!isSyncKey(k)) continue;
           var cloudVal = cloudData[k];
           if (cloudVal == null) continue;
-          // Timestamp compare — skip if the local copy is newer/equal.
+          // Cloud state is intentionally authoritative on page open.
           var cTs = cloudTs[k];
-          var lTs = _localTs[k];
-          if (cTs && lTs && (new Date(cTs).getTime() <= new Date(lTs).getTime())) continue;
           try {
             var strVal = typeof cloudVal === 'string' ? cloudVal : JSON.stringify(cloudVal);
             _origSetItem(k, strVal);
@@ -496,10 +502,27 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
     }, 2000); // 2s debounce — user asked for refresh-based sync, not realtime
   }
 
+  // Do not lose a final edit when a user closes or switches away from a legacy page.
+  function flushBeforeLeave() {
+    if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
+    var keys = Object.keys(_syncQueue);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      try {
+        fetch('/api/legacy-sync', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: key, value: _syncQueue[key] }),
+        });
+      } catch(e) {}
+    }
+    _syncQueue = {};
+  }
+
   // Override setItem to intercept sync keys
   localStorage.setItem = function(key, value) {
     _origSetItem(key, value);
-    if (SYNC_KEYS.indexOf(key) !== -1) {
+    if (isSyncKey(key)) {
       try {
         _syncQueue[key] = typeof value === 'string' ? JSON.parse(value) : value;
       } catch(e) {
@@ -514,12 +537,14 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
   var _origRemoveItem = localStorage.removeItem.bind(localStorage);
   localStorage.removeItem = function(key) {
     _origRemoveItem(key);
-    if (SYNC_KEYS.indexOf(key) !== -1) {
+    if (isSyncKey(key)) {
       _syncQueue[key] = null;
       setLocalTs(key, new Date().toISOString());
       flushSync();
     }
   };
+
+  window.addEventListener('pagehide', flushBeforeLeave);
 
   // Load the timestamp ledger before anything else
   loadLocalTs();

@@ -100,7 +100,7 @@ export async function middleware(request: NextRequest) {
       // Check profiles table for role='admin'
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+      .select('role, account_status')
         .eq('id', user.id)
         .maybeSingle();
       if (profile?.role !== 'admin') {
@@ -108,6 +108,17 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(unauthorizedUrl);
       }
     }
+  }
+
+  // Suspended accounts can authenticate but cannot access product data.
+  const { data: accountProfile } = await supabase
+    .from('profiles')
+    .select('account_status')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (accountProfile?.account_status === 'suspended') {
+    const unauthorizedUrl = new URL('/unauthorized', request.url);
+    return NextResponse.redirect(unauthorizedUrl);
   }
 
   return response;

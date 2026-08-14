@@ -219,6 +219,34 @@ export async function getAdmins(): Promise<{ id: string; email: string | null; d
   return data ?? [];
 }
 
+export type ManagedUser = {
+  id: string; email: string | null; display_name: string | null; avatar_url: string | null;
+  role: string; account_status: 'active' | 'suspended'; suspended_reason: string | null;
+  created_at: string; updated_at: string; deleted_at: string | null; focus_sessions: number; legacy_records: number;
+};
+
+export async function getManagedUsers(): Promise<ManagedUser[]> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc('admin_list_users');
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as ManagedUser[]).map((row: ManagedUser) => ({ ...row, focus_sessions: Number(row.focus_sessions), legacy_records: Number(row.legacy_records) }));
+}
+
+export async function setAccountStatus(userId: string, status: 'active' | 'suspended', reason?: string): Promise<{ success: boolean; error?: string }> {
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase.rpc('admin_set_account_status', { target_id: userId, next_status: status, reason: reason ?? null });
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin');
+  return { success: true };
+}
+
+export async function getSyncOverview(): Promise<{ source: string; records: number; most_recent: string | null }[]> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc('admin_sync_overview');
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { source: string; records: number | string; most_recent: string | null }[]).map((row) => ({ source: row.source, records: Number(row.records), most_recent: row.most_recent }));
+}
+
 export async function addAdmin(
   email: string,
 ): Promise<{ success: boolean; error?: string }> {

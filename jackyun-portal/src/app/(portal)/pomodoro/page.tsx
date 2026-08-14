@@ -143,6 +143,8 @@ export default function PomodoroPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(true);
+  const [weeklyMinutes, setWeeklyMinutes] = useState(0);
+  const [activeDays, setActiveDays] = useState(0);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -150,11 +152,13 @@ export default function PomodoroPage() {
   // ── Init ──
   useEffect(() => {
     getPomodoroWorkspace()
-      .then(({ tasks: cloudTasks, settings: cloudSettings, completedToday }) => {
+      .then(({ tasks: cloudTasks, settings: cloudSettings, completedToday, weeklyMinutes: cloudWeeklyMinutes, activeDays: cloudActiveDays }) => {
         setTasks(cloudTasks);
         setSettings(cloudSettings);
         setSeconds(cloudSettings.pomodoroMin * 60);
         setCompletedCount(completedToday);
+        setWeeklyMinutes(cloudWeeklyMinutes);
+        setActiveDays(cloudActiveDays);
       })
       .catch(() => {})
       .finally(() => setIsLoadingWorkspace(false));
@@ -339,9 +343,15 @@ export default function PomodoroPage() {
 
   // ── Render ──
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="mx-auto flex min-h-full max-w-6xl flex-col pb-8">
+      <section className="mb-6 overflow-hidden rounded-[28px] bg-[#172554] px-6 py-7 text-white shadow-xl sm:px-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#bfdbfe]">Focus studio</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">把注意力留给重要的事</h1><p className="mt-2 text-sm text-[#bfdbfe]">任务、节奏和专注记录会自动保存到云端。</p></div>
+          <div className="flex gap-3"><div className="rounded-2xl bg-white/10 px-4 py-3"><p className="text-xs text-[#bfdbfe]">本周专注</p><p className="mt-1 text-xl font-bold">{weeklyMinutes} 分钟</p></div><div className="rounded-2xl bg-white/10 px-4 py-3"><p className="text-xs text-[#bfdbfe]">活跃天数</p><p className="mt-1 text-xl font-bold">{activeDays} / 7</p></div></div>
+        </div>
+      </section>
       {/* Top bar: mode tabs + settings */}
-      <div className="flex items-center justify-center gap-2 mb-8 flex-wrap">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         {/* Mode tabs */}
         <div className="flex items-center gap-1 p-1 rounded-full border border-[var(--card-border)] bg-[var(--card)]">
           {(Object.keys(MODE_META) as Mode[]).map((m) => (
@@ -381,8 +391,10 @@ export default function PomodoroPage() {
         </div>
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       {/* Timer */}
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] px-5 py-8 shadow-sm">
+        <p className="mb-5 text-sm font-semibold text-[var(--muted-foreground)]">{activeTaskId ? `正在专注：${tasks.find((task) => task.id === activeTaskId)?.text ?? '任务'}` : '选择一个任务，让每个番茄都有归属'}</p>
         <Ring seconds={seconds} total={getModeSeconds(mode)} color={modeColor} running={running} />
 
         {/* Controls */}
@@ -422,11 +434,10 @@ export default function PomodoroPage() {
       </div>
 
       {/* Tasks */}
-      <div className="mt-12 rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] overflow-hidden">
+      <div className="overflow-hidden rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] shadow-sm">
         <div className="px-6 py-4 border-b border-[var(--card-border)]">
-          <h2 className="text-base font-semibold text-[var(--foreground)]">
-            任务列表
-          </h2>
+          <div className="flex items-center justify-between"><h2 className="text-base font-semibold text-[var(--foreground)]">专注任务</h2><span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-xs font-semibold text-[#175cd3]">{tasks.filter((task) => !task.completed).length} 个待完成</span></div>
+          <p className="mt-1 text-xs text-[var(--muted-foreground)]">点击任务设为当前专注目标</p>
         </div>
 
         {/* Task list */}
@@ -508,6 +519,7 @@ export default function PomodoroPage() {
             <span className="material-icons-round">add</span>
           </button>
         </form>
+      </div>
       </div>
 
       {/* Settings Modal */}
