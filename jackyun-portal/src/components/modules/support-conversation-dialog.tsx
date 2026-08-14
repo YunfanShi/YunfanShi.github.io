@@ -82,7 +82,7 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
 
         <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--background)]/60 px-4 py-5 sm:px-6">
           {!conversation && !notice && <p className="py-10 text-center text-sm text-[var(--muted-foreground)]">正在载入对话…</p>}
-          {conversation?.messages.map((message) => (
+          {conversation?.messages.filter((message) => message.message_kind !== 'resolution').map((message) => (
             <div key={message.id} className={`flex ${message.is_admin ? 'justify-start' : 'justify-end'}`}>
               <article className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${message.is_admin ? 'rounded-bl-md border border-[var(--card-border)] bg-[var(--card)] text-[var(--foreground)]' : 'rounded-br-md bg-[#155eef] text-white'}`}>
                 <p className={`mb-1 text-[11px] font-semibold ${message.is_admin ? 'text-[#155eef]' : 'text-white/75'}`}>{message.is_admin ? '支持团队' : '我'}</p>
@@ -90,6 +90,9 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
                 <p className={`mt-2 text-[10px] ${message.is_admin ? 'text-[var(--muted-foreground)]' : 'text-white/65'}`}>{stamp(message.created_at)}</p>
               </article>
             </div>
+          ))}
+          {conversation?.messages.filter((message) => message.message_kind === 'resolution').map((message) => (
+            <article key={message.id} className="overflow-hidden rounded-2xl border border-[#fecdca] bg-[#fffbfa] shadow-sm"><div className="flex items-center gap-2 bg-[#fef3f2] px-4 py-3 text-sm font-semibold text-[#b42318]"><span className="material-icons-round text-lg">task_alt</span>系统处理结果：本次人工客服咨询已结束</div><div className="border-t border-[#fecdca] px-4 py-3"><p className="text-xs font-semibold text-[#b54708]">管理员处理说明</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#344054]">{message.body}</p><p className="mt-2 text-[10px] text-[#667085]">{stamp(message.created_at)}</p></div></article>
           ))}
           <div ref={bottomRef} />
         </div>

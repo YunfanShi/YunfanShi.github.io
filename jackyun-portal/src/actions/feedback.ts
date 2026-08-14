@@ -42,7 +42,7 @@ export async function getMyTicketMessages(reportId: string): Promise<TicketMessa
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-  const { data, error } = await supabase.from('support_replies').select('id, body, author_id, created_at, updated_at').eq('report_id', reportId).order('created_at');
+  const { data, error } = await supabase.from('support_replies').select('id, body, author_id, message_kind, created_at, updated_at').eq('report_id', reportId).order('created_at');
   if (error) throw new Error(error.message);
   // The client only needs an ownership marker to decide whether to show Edit;
   // do not serialize its real auth user id into the support transcript.
@@ -84,7 +84,7 @@ export async function editMyTicketMessage(messageId: string, body: string) {
 }
 
 export type BugReport = { id: string; user_id: string; title: string; description: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; ticket_type: TicketType; page_url: string | null; created_at: string; updated_at: string; diagnostics: DiagnosticSnapshot | null };
-export type TicketMessage = { id: string; body: string; author_id: string; is_admin?: boolean; author_name?: string; created_at: string; updated_at: string };
+export type TicketMessage = { id: string; body: string; author_id: string; is_admin?: boolean; author_name?: string; message_kind?: 'message' | 'resolution'; created_at: string; updated_at: string };
 export type TicketDetail = { user: { id: string; email: string | null; display_name: string | null; avatar_url: string | null; created_at: string; account_status: string; deleted_at: string | null; suspended_reason: string | null; suspended_explanation: string | null } | null; messages: TicketMessage[]; notes: { id: string; body: string; author_id: string; created_at: string }[]; events: { id: string; event_type: 'status_changed' | 'internal_note'; previous_status: string | null; next_status: string | null; created_at: string }[] };
 
 async function requireAdminFeedback() {
@@ -107,6 +107,7 @@ export async function deleteBugReport(id: string) { const supabase = await requi
 export async function updateBugReportStatus(id: string, status: BugReport['status']) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_update_bug_report_status', { p_report_id: id, p_status: status }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
 export async function addBugReportInternalNote(id: string, body: string) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_add_bug_report_note', { p_report_id: id, p_body: body }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
 export async function resolveAccountAppeal(id: string, approved: boolean, response: string) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_resolve_account_appeal', { p_report_id: id, p_approved: approved, p_response: response.trim() }); if (!error) { revalidatePath('/admin/tickets'); revalidatePath('/admin/users'); } return error ? { success: false, error: error.message } : { success: true }; }
+export async function updateBugReportType(id: string, ticketType: TicketType) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_update_bug_report_type', { p_report_id: id, p_ticket_type: ticketType }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
 
 export async function submitAccountAppeal(
   ticketType: AccountAppealTicketType,

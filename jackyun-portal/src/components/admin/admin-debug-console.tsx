@@ -34,7 +34,17 @@ export default function AdminDebugConsole() {
 
   if (!isAdmin) return null;
   const copyDiagnostics = async () => {
-    await navigator.clipboard.writeText(JSON.stringify(logger.getDiagnosticSnapshot(), null, 2));
+    const text = JSON.stringify(logger.getDiagnosticSnapshot(), null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = text; input.style.position = 'fixed'; input.style.opacity = '0';
+      document.body.appendChild(input); input.select();
+      const success = document.execCommand('copy');
+      input.remove();
+      if (!success) return;
+    }
     setCopied(true); window.setTimeout(() => setCopied(false), 1400);
   };
 
