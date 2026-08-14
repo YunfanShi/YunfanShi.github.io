@@ -25,12 +25,13 @@ export async function submitBugReport(input: BugReportInput) {
   } catch (cause) { console.error('[BugReport] Resend request failed', { reportId: report.id, cause: cause instanceof Error ? cause.message : String(cause) }); return { success: true, mailSent: false, mailError: '邮件服务网络请求失败' }; }
 }
 
-export type UserBugReport = { id: string; title: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; created_at: string; updated_at: string };
+export type TicketType = 'bug' | 'suspension_appeal' | 'deletion_recovery';
+export type UserBugReport = { id: string; title: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; ticket_type: TicketType; created_at: string; updated_at: string };
 export async function getMyBugReports(): Promise<UserBugReport[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-  const { data, error } = await supabase.from('bug_reports').select('id, title, severity, status, created_at, updated_at').order('updated_at', { ascending: false }).limit(10);
+  const { data, error } = await supabase.from('bug_reports').select('id, title, severity, status, ticket_type, created_at, updated_at').order('updated_at', { ascending: false }).limit(10);
   if (error) throw new Error(error.message);
   return (data ?? []) as UserBugReport[];
 }
@@ -44,10 +45,32 @@ export async function getMyTicketMessages(reportId: string): Promise<TicketMessa
   // do not serialize its real auth user id into the support transcript.
   return (data ?? []).map((entry) => ({ ...entry, author_id: entry.author_id === user.id ? reportId : entry.author_id, is_admin: entry.author_id !== user.id })) as TicketMessage[];
 }
+export type MyTicketConversation = {
+  id: string;
+  title: string;
+  status: UserBugReport['status'];
+  ticket_type: TicketType;
+  messages: TicketMessage[];
+};
+export async function getMyTicketConversation(reportId: string): Promise<MyTicketConversation | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: ticket, error } = await supabase
+    .from('bug_reports')
+    .select('id, title, status, ticket_type')
+    .eq('id', reportId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error || !ticket) return null;
+  const messages = await getMyTicketMessages(reportId);
+  return { ...ticket, messages } as MyTicketConversation;
+}
 export async function addMyTicketMessage(reportId: string, body: string) {
   const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: '请先登录' };
   const { error } = await supabase.from('support_replies').insert({ report_id: reportId, author_id: user.id, body: body.trim() });
+  if (!error) await supabase.from('bug_reports').update({ updated_at: new Date().toISOString() }).eq('id', reportId).eq('user_id', user.id);
   return error ? { success: false, error: error.message } : { success: true };
 }
 export async function editMyTicketMessage(messageId: string, body: string) {
@@ -57,9 +80,9 @@ export async function editMyTicketMessage(messageId: string, body: string) {
   return error || !data ? { success: false, error: error?.message ?? '该消息无法修改' } : { success: true };
 }
 
-export type BugReport = { id: string; user_id: string; title: string; description: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; page_url: string | null; created_at: string; updated_at: string; diagnostics: DiagnosticSnapshot | null };
+export type BugReport = { id: string; user_id: string; title: string; description: string; severity: 'low' | 'normal' | 'high' | 'critical'; status: 'open' | 'in_progress' | 'resolved' | 'closed'; ticket_type: TicketType; page_url: string | null; created_at: string; updated_at: string; diagnostics: DiagnosticSnapshot | null };
 export type TicketMessage = { id: string; body: string; author_id: string; is_admin?: boolean; author_name?: string; created_at: string; updated_at: string };
-export type TicketDetail = { user: { id: string; email: string | null; display_name: string | null; avatar_url: string | null; created_at: string; account_status: string } | null; messages: TicketMessage[]; notes: { id: string; body: string; author_id: string; created_at: string }[]; events: { id: string; event_type: 'status_changed' | 'internal_note'; previous_status: string | null; next_status: string | null; created_at: string }[] };
+export type TicketDetail = { user: { id: string; email: string | null; display_name: string | null; avatar_url: string | null; created_at: string; account_status: string; deleted_at: string | null; suspended_reason: string | null; suspended_explanation: string | null } | null; messages: TicketMessage[]; notes: { id: string; body: string; author_id: string; created_at: string }[]; events: { id: string; event_type: 'status_changed' | 'internal_note'; previous_status: string | null; next_status: string | null; created_at: string }[] };
 
 async function requireAdminFeedback() {
   const supabase = await createClient();
@@ -80,3 +103,58 @@ export async function closeBugReport(id: string, result: string) { const supabas
 export async function deleteBugReport(id: string) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_delete_bug_report', { p_report_id: id }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
 export async function updateBugReportStatus(id: string, status: BugReport['status']) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_update_bug_report_status', { p_report_id: id, p_status: status }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
 export async function addBugReportInternalNote(id: string, body: string) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_add_bug_report_note', { p_report_id: id, p_body: body }); if (!error) revalidatePath('/admin/tickets'); return error ? { success: false, error: error.message } : { success: true }; }
+export async function resolveAccountAppeal(id: string, approved: boolean, response: string) { const supabase = await requireAdminFeedback(); const { error } = await supabase.rpc('admin_resolve_account_appeal', { p_report_id: id, p_approved: approved, p_response: response.trim() }); if (!error) { revalidatePath('/admin/tickets'); revalidatePath('/admin/users'); } return error ? { success: false, error: error.message } : { success: true }; }
+
+export async function submitAccountAppeal(
+  ticketType: Exclude<TicketType, 'bug'>,
+  message: string,
+): Promise<{ success: boolean; ticketId?: string; error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: '请先登录' };
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('account_status, deleted_at')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profileError || !profile) return { success: false, error: '无法读取账户状态' };
+  if (ticketType === 'suspension_appeal' && profile.account_status !== 'suspended') {
+    return { success: false, error: '当前账户未被暂停' };
+  }
+  if (ticketType === 'deletion_recovery') {
+    if (!profile.deleted_at) return { success: false, error: '当前账户不在注销恢复期内' };
+    const deadline = new Date(profile.deleted_at).getTime() + 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() > deadline) return { success: false, error: '30 天恢复期已结束' };
+  }
+
+  const { data: existing } = await supabase
+    .from('bug_reports')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('ticket_type', ticketType)
+    .neq('status', 'closed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { success: true, ticketId: existing.id };
+
+  const title = ticketType === 'suspension_appeal' ? '账户暂停申诉' : '注销账户恢复申请';
+  const body = message.trim() || (ticketType === 'suspension_appeal' ? '请求管理员复核账户暂停决定。' : '请求在 30 天保留期内恢复账户。');
+  const { data: report, error } = await supabase
+    .from('bug_reports')
+    .insert({
+      user_id: user.id,
+      title,
+      description: body,
+      severity: 'high',
+      page_url: '/account-status',
+      ticket_type: ticketType,
+    })
+    .select('id')
+    .single();
+  if (error) return { success: false, error: error.message };
+  await supabase.from('support_replies').insert({ report_id: report.id, author_id: user.id, body });
+  revalidatePath('/account-status');
+  return { success: true, ticketId: report.id };
+}

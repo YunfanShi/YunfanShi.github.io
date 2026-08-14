@@ -1,8 +1,9 @@
-import { User } from '@supabase/supabase-js';
 import Image from 'next/image';
 
 interface UserAvatarProps {
-  user: User;
+  user: {
+    user_metadata: Record<string, unknown>;
+  };
 }
 
 export default function UserAvatar({ user }: UserAvatarProps) {

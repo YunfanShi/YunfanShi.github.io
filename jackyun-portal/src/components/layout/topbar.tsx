@@ -1,6 +1,5 @@
 'use client';
 
-import { User } from '@supabase/supabase-js';
 import UserAvatar from '@/components/auth/user-avatar';
 import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
@@ -9,7 +8,11 @@ import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
 
 interface TopbarProps {
-  user: User | null;
+  user: {
+    id: string;
+    email?: string;
+    user_metadata: Record<string, unknown>;
+  } | null;
 }
 
 type Theme = 'light' | 'gray' | 'dark';

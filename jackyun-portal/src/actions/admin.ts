@@ -221,7 +221,7 @@ export async function getAdmins(): Promise<{ id: string; email: string | null; d
 
 export type ManagedUser = {
   id: string; email: string | null; display_name: string | null; avatar_url: string | null;
-  role: string; account_status: 'active' | 'suspended'; suspended_reason: string | null;
+  role: string; account_status: 'active' | 'suspended'; suspended_reason: string | null; suspended_explanation: string | null;
   created_at: string; updated_at: string; deleted_at: string | null; focus_sessions: number; legacy_records: number;
 };
 
@@ -232,9 +232,19 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
   return ((data ?? []) as ManagedUser[]).map((row: ManagedUser) => ({ ...row, focus_sessions: Number(row.focus_sessions), legacy_records: Number(row.legacy_records) }));
 }
 
-export async function setAccountStatus(userId: string, status: 'active' | 'suspended', reason?: string): Promise<{ success: boolean; error?: string }> {
+export async function setAccountStatus(
+  userId: string,
+  status: 'active' | 'suspended',
+  reason?: string,
+  explanation?: string,
+): Promise<{ success: boolean; error?: string }> {
   const { supabase } = await requireAdmin();
-  const { error } = await supabase.rpc('admin_set_account_status', { target_id: userId, next_status: status, reason: reason ?? null });
+  const { error } = await supabase.rpc('admin_set_account_status', {
+    target_id: userId,
+    next_status: status,
+    reason: reason ?? null,
+    explanation: explanation ?? null,
+  });
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin');
   return { success: true };

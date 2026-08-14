@@ -1,26 +1,100 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { setAccountStatus, type ManagedUser } from '@/actions/admin';
 
+const REASONS = ['违反平台使用规范', '异常或高风险行为', '多次滥用平台功能', '账户安全保护', '其他'] as const;
+
+interface SuspensionDraft {
+  user: ManagedUser;
+  reason: string;
+  customReason: string;
+  explanation: string;
+}
+
 export default function UserOperationsPanel({ users, currentUserId }: { users: ManagedUser[]; currentUserId: string }) {
+  const [items, setItems] = useState(users);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'suspended' | 'deleted'>('all');
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<SuspensionDraft | null>(null);
   const [notice, setNotice] = useState('');
-  const visible = useMemo(() => users.filter((user) => {
+  const [pending, startTransition] = useTransition();
+
+  const visible = useMemo(() => items.filter((user) => {
     const search = `${user.display_name ?? ''} ${user.email ?? ''} ${user.id}`.toLowerCase().includes(query.toLowerCase());
     const state = filter === 'all' || (filter === 'deleted' ? Boolean(user.deleted_at) : user.account_status === filter);
     return search && state;
-  }), [users, query, filter]);
-  const changeStatus = async (user: ManagedUser) => {
-    const next = user.account_status === 'active' ? 'suspended' : 'active';
-    const reason = next === 'suspended' ? prompt('暂停原因（会向管理员显示）：') ?? '' : '';
-    if (next === 'suspended' && !reason.trim()) return;
-    setPendingId(user.id); setNotice('');
-    const result = await setAccountStatus(user.id, next, reason);
-    setNotice(result.success ? `已${next === 'suspended' ? '暂停' : '恢复'}该账户，请刷新列表查看最新状态。` : result.error ?? '操作失败');
-    setPendingId(null);
+  }), [items, query, filter]);
+
+  const restore = (user: ManagedUser) => startTransition(async () => {
+    setNotice('');
+    const result = await setAccountStatus(user.id, 'active');
+    if (!result.success) return setNotice(result.error ?? '恢复账户失败。');
+    setItems((all) => all.map((entry) => entry.id === user.id ? { ...entry, account_status: 'active', suspended_reason: null, suspended_explanation: null } : entry));
+    setNotice('账户暂停已取消。');
+  });
+
+  const suspend = () => {
+    if (!draft) return;
+    const reason = draft.reason === '其他' ? draft.customReason.trim() : draft.reason;
+    if (!reason) return;
+    startTransition(async () => {
+      setNotice('');
+      const result = await setAccountStatus(draft.user.id, 'suspended', reason, draft.explanation.trim());
+      if (!result.success) return setNotice(result.error ?? '暂停账户失败。');
+      setItems((all) => all.map((entry) => entry.id === draft.user.id ? { ...entry, account_status: 'suspended', suspended_reason: reason, suspended_explanation: draft.explanation.trim() || null } : entry));
+      setNotice('账户已暂停。用户下次访问时会看到原因、说明和申诉入口。');
+      setDraft(null);
+    });
   };
-  return <div className="space-y-4"><div className="flex flex-col gap-3 sm:flex-row"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、邮箱或用户 ID" className="h-10 flex-1 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] dark:border-white/15 dark:bg-white/5" /><div className="flex gap-1 rounded-lg bg-[#f2f4f7] p-1 dark:bg-white/5">{([['all', '全部'], ['active', '正常'], ['suspended', '已暂停'], ['deleted', '待恢复']] as const).map(([value, label]) => <button key={value} onClick={() => setFilter(value)} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${filter === value ? 'bg-white text-[#155eef] shadow-sm dark:bg-[#344054]' : 'text-[#667085] dark:text-[#98a2b3]'}`}>{label}</button>)}</div></div>{notice && <p className="rounded-lg bg-[#eff8ff] px-3 py-2 text-xs text-[#175cd3]">{notice}</p>}<div className="overflow-x-auto rounded-xl border border-[#eaecf0] dark:border-white/10"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[#f9fafb] text-xs text-[#667085] dark:bg-white/5 dark:text-[#98a2b3]"><tr><th className="px-4 py-3">用户</th><th className="px-4 py-3">角色</th><th className="px-4 py-3">状态</th><th className="px-4 py-3">云端数据</th><th className="px-4 py-3">注册时间</th><th className="px-4 py-3" /></tr></thead><tbody>{visible.map((user) => <tr key={user.id} className="border-t border-[#eaecf0] dark:border-white/10"><td className="px-4 py-3"><p className="font-medium">{user.display_name || '未命名用户'}</p><p className="mt-0.5 text-xs text-[#667085] dark:text-[#98a2b3]">{user.email || user.id}</p></td><td className="px-4 py-3"><span className="rounded-full bg-[#eff4ff] px-2 py-1 text-xs font-medium text-[#175cd3]">{user.role}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${user.deleted_at ? 'bg-[#fef3f2] text-[#b42318]' : user.account_status === 'suspended' ? 'bg-[#fffaeb] text-[#b54708]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{user.deleted_at ? '待恢复' : user.account_status === 'suspended' ? '已暂停' : '正常'}</span>{user.suspended_reason && <p className="mt-1 max-w-32 truncate text-xs text-[#667085]" title={user.suspended_reason}>{user.suspended_reason}</p>}</td><td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td><td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN')}</td><td className="px-4 py-3 text-right">{user.id !== currentUserId && !user.deleted_at && <button onClick={() => changeStatus(user)} disabled={pendingId === user.id} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${user.account_status === 'active' ? 'bg-[#fef3f2] text-[#b42318]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{pendingId === user.id ? '处理中…' : user.account_status === 'active' ? '暂停账户' : '恢复账户'}</button>}</td></tr>)}</tbody></table>{visible.length === 0 && <p className="p-8 text-center text-sm text-[#667085]">未找到用户</p>}</div></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、邮箱或用户 ID" className="h-10 flex-1 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] dark:border-white/15 dark:bg-white/5" />
+        <div className="flex gap-1 rounded-lg bg-[#f2f4f7] p-1 dark:bg-white/5">
+          {([['all', '全部'], ['active', '正常'], ['suspended', '已暂停'], ['deleted', '待恢复']] as const).map(([value, label]) => (
+            <button type="button" key={value} onClick={() => setFilter(value)} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${filter === value ? 'bg-white text-[#155eef] shadow-sm dark:bg-[#344054]' : 'text-[#667085] dark:text-[#98a2b3]'}`}>{label}</button>
+          ))}
+        </div>
+      </div>
+      {notice && <p role="status" className="rounded-lg bg-[#eff8ff] px-3 py-2 text-xs text-[#175cd3]">{notice}</p>}
+      <div className="overflow-x-auto rounded-xl border border-[#eaecf0] dark:border-white/10">
+        <table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="bg-[#f9fafb] text-xs text-[#667085] dark:bg-white/5 dark:text-[#98a2b3]"><tr><th className="px-4 py-3">用户</th><th className="px-4 py-3">角色</th><th className="px-4 py-3">状态</th><th className="px-4 py-3">云端数据</th><th className="px-4 py-3">注册时间</th><th className="px-4 py-3" /></tr></thead>
+          <tbody>{visible.map((user) => (
+            <tr key={user.id} className="border-t border-[#eaecf0] dark:border-white/10">
+              <td className="px-4 py-3"><p className="font-medium">{user.display_name || '未命名用户'}</p><p className="mt-0.5 text-xs text-[#667085] dark:text-[#98a2b3]">{user.email || user.id}</p></td>
+              <td className="px-4 py-3"><span className="rounded-full bg-[#eff4ff] px-2 py-1 text-xs font-medium text-[#175cd3]">{user.role}</span></td>
+              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${user.deleted_at ? 'bg-[#fef3f2] text-[#b42318]' : user.account_status === 'suspended' ? 'bg-[#fffaeb] text-[#b54708]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{user.deleted_at ? '待恢复' : user.account_status === 'suspended' ? '已暂停' : '正常'}</span>{user.suspended_reason && <p className="mt-1 max-w-40 truncate text-xs text-[#667085]" title={`${user.suspended_reason}${user.suspended_explanation ? `：${user.suspended_explanation}` : ''}`}>{user.suspended_reason}</p>}</td>
+              <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td>
+              <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN')}</td>
+              <td className="px-4 py-3 text-right">
+                {user.id !== currentUserId && !user.deleted_at && (user.account_status === 'active' ? (
+                  <button type="button" onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318]">暂停账户</button>
+                ) : (
+                  <button type="button" disabled={pending} onClick={() => restore(user)} className="rounded-lg bg-[#ecfdf3] px-3 py-1.5 text-xs font-semibold text-[#027a48] disabled:opacity-50">取消暂停</button>
+                ))}
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+        {!visible.length && <p className="p-8 text-center text-sm text-[#667085]">未找到用户</p>}
+      </div>
+
+      {draft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm" onClick={() => !pending && setDraft(null)}>
+          <section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#182230]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.1em] text-[#b42318]">暂停账户</p><h2 className="mt-2 text-xl font-semibold">{draft.user.display_name || draft.user.email || '该用户'}</h2><p className="mt-1 text-sm text-[#667085] dark:text-[#98a2b3]">以下内容会展示给用户，并用于后续申诉审核。</p></div><button type="button" aria-label="关闭" onClick={() => setDraft(null)} className="rounded-lg p-1 text-[#667085]"><span className="material-icons-round">close</span></button></div>
+            <label className="mt-5 block text-sm font-semibold">通用原因</label>
+            <select value={draft.reason} onChange={(event) => setDraft({ ...draft, reason: event.target.value })} className="mt-2 h-11 w-full rounded-xl border border-[#d0d5dd] bg-transparent px-3 text-sm">{REASONS.map((reason) => <option key={reason}>{reason}</option>)}</select>
+            {draft.reason === '其他' && <input value={draft.customReason} onChange={(event) => setDraft({ ...draft, customReason: event.target.value })} placeholder="输入暂停原因" className="mt-3 h-11 w-full rounded-xl border border-[#d0d5dd] bg-transparent px-3 text-sm" />}
+            <label className="mt-4 block text-sm font-semibold">补充解释</label>
+            <textarea value={draft.explanation} onChange={(event) => setDraft({ ...draft, explanation: event.target.value })} rows={5} placeholder="说明触发暂停的情况、用户可以如何处理，以及审核所需信息…" className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-transparent p-3 text-sm leading-6" />
+            <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={() => setDraft(null)} className="rounded-xl border border-[#d0d5dd] px-4 py-2.5 text-sm font-semibold">取消</button><button type="button" disabled={pending || (draft.reason === '其他' && !draft.customReason.trim())} onClick={suspend} className="rounded-xl bg-[#d92d20] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{pending ? '处理中…' : '确认暂停'}</button></div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
 }

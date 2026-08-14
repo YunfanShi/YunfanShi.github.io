@@ -1,8 +1,16 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { dismissNotification, getActiveNotifications, getNotificationInbox } from '@/actions/admin';
+import { dismissNotification, getNotificationInbox } from '@/actions/admin';
 import type { SiteNotification } from '@/types';
+
+const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
+  loading: () => <p className="text-sm text-[var(--muted-foreground)]">正在渲染内容...</p>,
+});
+const SupportConversationDialog = dynamic(() => import('./support-conversation-dialog'), {
+  loading: () => null,
+});
 
 function preview(content: string) {
   return content.replaceAll('#', '').replaceAll('*', '').replaceAll('_', '').replaceAll('`', '');
@@ -13,12 +21,13 @@ export default function NotificationInbox() {
   const [items, setItems] = useState<SiteNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [selected, setSelected] = useState<SiteNotification | null>(null);
+  const [chatTicket, setChatTicket] = useState<{ id: string; title: string } | null>(null);
   const knownIds = useRef(new Set<string>());
 
-  const refresh = (announceNew = false) => Promise.all([getNotificationInbox(), getActiveNotifications()])
-    .then(([all, pending]) => {
+  const refresh = (announceNew = false) => getNotificationInbox()
+    .then((all) => {
       const newMessages = announceNew ? all.filter((item) => item.delivery_type === 'message' && !knownIds.current.has(item.id)) : [];
-      setItems(all); setUnread(pending.length); all.forEach((item) => knownIds.current.add(item.id));
+      setItems(all); setUnread(all.length); all.forEach((item) => knownIds.current.add(item.id));
       if (newMessages.length && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         const latest = newMessages[0]; new Notification('JackYun 新消息', { body: latest.title, icon: '/Webicon.png' });
       }
@@ -31,7 +40,8 @@ export default function NotificationInbox() {
   }, []);
 
   const openMessage = (item: SiteNotification) => {
-    setSelected(item);
+    if (item.related_ticket_id) setChatTicket({ id: item.related_ticket_id, title: item.title });
+    else setSelected(item);
     dismissNotification(item.id).then(() => setUnread((value) => Math.max(0, value - 1))).catch(() => {});
   };
 
@@ -66,7 +76,47 @@ export default function NotificationInbox() {
           </div>
         </div>
       )}
-      {selected && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setSelected(null)}><article className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${selected.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{selected.delivery_type === 'message' ? '平台消息' : '平台通知'}</span><h2 className="mt-3 text-xl font-semibold text-[var(--foreground)]">{selected.title}</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{new Date(selected.created_at).toLocaleString('zh-CN')}</p></div><button onClick={() => setSelected(null)} className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)]"><span className="material-icons-round">close</span></button></div><div className="mt-6 whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">{selected.content}</div></article></div>}
+      {selected && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelected(null)}
+        >
+          <article
+            className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-[var(--card)] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${selected.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>
+                  {selected.delivery_type === 'message' ? '平台消息' : '平台通知'}
+                </span>
+                <h2 className="mt-3 text-xl font-semibold text-[var(--foreground)]">{selected.title}</h2>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  {new Date(selected.created_at).toLocaleString('zh-CN')}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭消息"
+                onClick={() => setSelected(null)}
+                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)]"
+              >
+                <span className="material-icons-round">close</span>
+              </button>
+            </div>
+            <div className="mt-6">
+              {selected.content_type === 'markdown' ? (
+                <MarkdownRenderer content={selected.content} />
+              ) : (
+                <div className="whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">
+                  {selected.content}
+                </div>
+              )}
+            </div>
+          </article>
+        </div>
+      )}
+      {chatTicket && <SupportConversationDialog ticketId={chatTicket.id} fallbackTitle={chatTicket.title} onClose={() => setChatTicket(null)} />}
     </div>
   );
 }

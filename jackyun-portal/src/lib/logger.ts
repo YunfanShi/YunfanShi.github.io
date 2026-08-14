@@ -76,20 +76,35 @@ function sanitizeValue(value: unknown, depth = 0): unknown {
 function safeUrl(value: string): string { try { const url = new URL(value, window.location.origin); return `${url.origin}${url.pathname}`; } catch { return value.split('?')[0]; } }
 function storedLogs(): LogEntry[] { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[]; } catch { return []; } }
 
+let persistTimer: number | null = null;
+let pendingEntries: LogEntry[] = [];
+
+function flushPendingEntries() {
+  if (!pendingEntries.length) return;
+  const entries = pendingEntries;
+  pendingEntries = [];
+  persistTimer = null;
+  try {
+    const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[];
+    const next = existing.concat(entries).slice(-MAX_LOCAL);
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
+  } catch { /* localStorage 不可用 */ }
+}
+
+function schedulePersistence() {
+  if (persistTimer !== null) return;
+  persistTimer = window.setTimeout(flushPendingEntries, 750);
+}
+
 function storeEntry(entry: LogEntry) {
   _logs.push(entry);
   if (_logs.length > MAX_MEMORY) {
     _logs.splice(0, _logs.length - MAX_MEMORY);
   }
-  // 异步持久化到 localStorage
-  try {
-    const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[];
-    existing.push(entry);
-    if (existing.length > MAX_LOCAL) {
-      existing.splice(0, existing.length - MAX_LOCAL);
-    }
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(existing));
-  } catch { /* localStorage 不可用 */ }
+  // localStorage is synchronous. Batch writes so clicks and Next.js
+  // navigation fetches do not repeatedly parse/stringify the whole log.
+  pendingEntries.push(entry);
+  schedulePersistence();
 }
 
 // 可变引用，支持后续包装订阅
@@ -380,6 +395,11 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
     const href = target instanceof HTMLAnchorElement ? safeUrl(target.href) : undefined;
     pushEntry(makeEntry('interaction', 'Interaction', `点击：${label}`, { element: target.tagName.toLowerCase(), href }, { url: href }));
   }, true);
+
+  window.addEventListener('pagehide', flushPendingEntries);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingEntries();
+  });
 
   // ── 6. 启动日志 ──
   const bootEntry = makeEntry('info', 'Logger', '🔍 全量客户端日志系统已启动', {

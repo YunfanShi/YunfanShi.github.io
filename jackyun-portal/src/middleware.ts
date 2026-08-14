@@ -20,6 +20,7 @@ function hasSupabaseCookies(request: NextRequest): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const isAccountStatusRoute = pathname.startsWith('/account-status');
 
   // ── Early return for public routes ──
   // Avoid creating a Supabase client and writing cookies for unauthenticated/public traffic.
@@ -40,19 +41,54 @@ export async function middleware(request: NextRequest) {
 
   const { supabase, response } = await createClient(request);
 
-  // Refresh session if expired - required for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verify the JWT locally when the project uses asymmetric signing keys.
+  // Unlike getUser(), getClaims() does not make an Auth API request on every
+  // client-side navigation (the JWKS response is cached by the SDK).
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
 
   // If not authenticated, redirect to login
-  if (!user) {
+  if (!claims) {
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
 
   // ── Whitelist / Auto-register check ─────────────────────────────────
-  const provider = user.app_metadata?.provider as string | undefined;
+  const provider = claims.app_metadata?.provider as string | undefined;
+  const email = claims.email?.toLowerCase();
+  const userId = claims.sub;
+
+  // Fetch the profile once. Previously admin pages fetched it twice and all
+  // profile checks ran after the email whitelist request, creating a waterfall.
+  const profilePromise = supabase
+    .from('profiles')
+    .select('role, account_status, deleted_at')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const whitelistPromise = provider === 'email' && email
+    ? supabase
+        .from('whitelist_emails')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const [{ data: profile }, { data: dbMatch }] = await Promise.all([
+    profilePromise,
+    whitelistPromise,
+  ]);
+
+  // Restricted users retain one authenticated surface for reviewing the
+  // decision and talking to support. They cannot reach product data routes.
+  const isRestricted = profile?.account_status === 'suspended' || Boolean(profile?.deleted_at);
+  if (isRestricted) {
+    if (isAccountStatusRoute) return response;
+    return NextResponse.redirect(new URL('/account-status', request.url));
+  }
+  if (isAccountStatusRoute) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
 
   let isAuthorized = false;
 
@@ -62,19 +98,12 @@ export async function middleware(request: NextRequest) {
     isAuthorized = true;
   } else if (provider === 'email') {
     // Email/password users still require whitelist approval
-    const email = user.email?.toLowerCase();
     if (email) {
       const envEmails = (process.env.AUTHORIZED_EMAILS ?? '')
         .split(',')
         .map((e) => e.trim().toLowerCase())
         .filter(Boolean);
 
-      // Check database whitelist first
-      const { data: dbMatch } = await supabase
-        .from('whitelist_emails')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
       isAuthorized = !!dbMatch || envEmails.includes(email);
     }
   }
@@ -90,35 +119,14 @@ export async function middleware(request: NextRequest) {
       .split(',')
       .map((u) => u.trim().toLowerCase())
       .filter(Boolean);
-    const githubUsername = (
-      user.user_metadata?.user_name as string | undefined
-    )?.toLowerCase();
+    const githubUsername = (claims.user_metadata?.user_name as string | undefined)?.toLowerCase();
 
     const isEnvAdmin = githubUsername ? adminUsers.includes(githubUsername) : false;
 
-    if (!isEnvAdmin) {
-      // Check profiles table for role='admin'
-      const { data: profile } = await supabase
-        .from('profiles')
-      .select('role, account_status')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (profile?.role !== 'admin') {
-        const unauthorizedUrl = new URL('/unauthorized', request.url);
-        return NextResponse.redirect(unauthorizedUrl);
-      }
+    if (!isEnvAdmin && profile?.role !== 'admin') {
+      const unauthorizedUrl = new URL('/unauthorized', request.url);
+      return NextResponse.redirect(unauthorizedUrl);
     }
-  }
-
-  // Suspended accounts can authenticate but cannot access product data.
-  const { data: accountProfile } = await supabase
-    .from('profiles')
-    .select('account_status')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (accountProfile?.account_status === 'suspended') {
-    const unauthorizedUrl = new URL('/unauthorized', request.url);
-    return NextResponse.redirect(unauthorizedUrl);
   }
 
   return response;

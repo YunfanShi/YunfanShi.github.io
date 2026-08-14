@@ -141,6 +141,7 @@ export interface SiteNotification {
   end_time: string | null;
   created_by: string | null;
   recipient_user_id: string | null;
+  related_ticket_id: string | null;
   created_at: string;
   updated_at: string;
 }
