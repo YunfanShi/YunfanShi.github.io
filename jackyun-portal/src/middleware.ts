@@ -6,7 +6,7 @@ const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-pass
 
 // OAuth providers that are automatically trusted (no whitelist needed)
 // Users logging in via these providers are auto-registered as regular users
-const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google', 'email'];
+const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google', 'apple'];
 
 // Supabase auth cookies always contain one of these prefixes
 const SUPABASE_COOKIE_PREFIXES = ['sb-', 'supabase-auth-'];
@@ -20,13 +20,6 @@ function hasSupabaseCookies(request: NextRequest): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // ── Guest mode check ──
-  // If the user has a guest cookie, skip all auth checks and let them through
-  const isGuest = request.cookies.get('guest')?.value === '1';
-  if (isGuest) {
-    return NextResponse.next();
-  }
 
   // ── Early return for public routes ──
   // Avoid creating a Supabase client and writing cookies for unauthenticated/public traffic.

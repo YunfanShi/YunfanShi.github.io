@@ -75,14 +75,6 @@ const MODULES = [
     color: '#34A853',
     href: '/control',
   },
-  {
-    id: 'admin',
-    title: '管理员',
-    description: '系统管理与配置',
-    icon: 'admin_panel_settings',
-    color: '#34A853',
-    href: '/admin',
-  },
 ];
 
 interface StatCardProps {

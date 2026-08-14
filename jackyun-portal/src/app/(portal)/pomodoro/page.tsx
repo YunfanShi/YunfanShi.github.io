@@ -1,18 +1,21 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  completePomodoroSession,
+  createPomodoroTask,
+  deletePomodoroTask,
+  getPomodoroWorkspace,
+  savePomodoroSettings,
+  updatePomodoroTask,
+  type PomodoroTask,
+} from '@/actions/pomodoro';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Mode = 'pomodoro' | 'short' | 'long';
 
-interface TimerTask {
-  id: string;
-  text: string;
-  estimated: number; // 预估番茄数
-  completed: boolean;
-  donePomodoros: number;
-}
+type TimerTask = PomodoroTask;
 
 interface Settings {
   pomodoroMin: number;
@@ -40,42 +43,7 @@ const DEFAULT_SETTINGS: Settings = {
   notificationsEnabled: true,
 };
 
-const STORAGE_TASKS = 'jackyun_pomodoro_tasks';
-const STORAGE_SETTINGS = 'jackyun_pomodoro_settings';
-
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function loadTasks(): TimerTask[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_TASKS);
-    if (!raw) return [];
-    return JSON.parse(raw) as TimerTask[];
-  } catch { return []; }
-}
-
-function saveTasks(tasks: TimerTask[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
-}
-
-function loadSettings(): Settings {
-  if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS };
-  try {
-    const raw = localStorage.getItem(STORAGE_SETTINGS);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as Settings;
-  } catch { return { ...DEFAULT_SETTINGS }; }
-}
-
-function saveSettings(settings: Settings): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(settings));
-}
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -173,17 +141,23 @@ export default function PomodoroPage() {
   const [completedCount, setCompletedCount] = useState(0);
   const [cycleCount, setCycleCount] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(true);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // ── Init ──
   useEffect(() => {
-    setTasks(loadTasks());
-    const s = loadSettings();
-    setSettings(s);
-    setSeconds(s.pomodoroMin * 60);
-    setCompletedCount(Number(localStorage.getItem('jackyun_pomodoro_completed') || 0));
+    getPomodoroWorkspace()
+      .then(({ tasks: cloudTasks, settings: cloudSettings, completedToday }) => {
+        setTasks(cloudTasks);
+        setSettings(cloudSettings);
+        setSeconds(cloudSettings.pomodoroMin * 60);
+        setCompletedCount(completedToday);
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingWorkspace(false));
 
     // Create audio context-free bell (Web Audio API)
     audioRef.current = new Audio();
@@ -272,10 +246,16 @@ export default function PomodoroPage() {
       }
     }
 
-    // Update stats
-    const newCount = completedCount + 1;
-    setCompletedCount(newCount);
-    localStorage.setItem('jackyun_pomodoro_completed', String(newCount));
+    // Save a completed focus session to the cloud and update the selected task.
+    if (mode === 'pomodoro') {
+      const duration = getModeSeconds('pomodoro');
+      completePomodoroSession(activeTaskId, duration).then(() => {
+        if (activeTaskId) {
+          setTasks((current) => current.map((task) => task.id === activeTaskId ? { ...task, donePomodoros: task.donePomodoros + 1 } : task));
+        }
+      }).catch(() => {});
+      setCompletedCount((count) => count + 1);
+    }
 
     // Auto-switch mode
     if (mode === 'pomodoro') {
@@ -295,21 +275,16 @@ export default function PomodoroPage() {
     }
   };
 
-  const addTask = (e: React.FormEvent) => {
+  const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = taskInput.trim();
     if (!text) return;
-    const newTask: TimerTask = {
-      id: generateId(),
-      text,
-      estimated: 1,
-      completed: false,
-      donePomodoros: 0,
-    };
-    const updated = [...tasks, newTask];
-    setTasks(updated);
-    saveTasks(updated);
-    setTaskInput('');
+    try {
+      const newTask = await createPomodoroTask(text);
+      setTasks((current) => [...current, newTask]);
+      setTaskInput('');
+      setActiveTaskId((current) => current ?? newTask.id);
+    } catch {}
   };
 
   const toggleTask = (id: string) => {
@@ -317,13 +292,15 @@ export default function PomodoroPage() {
       t.id === id ? { ...t, completed: !t.completed } : t
     );
     setTasks(updated);
-    saveTasks(updated);
+    const task = updated.find((item) => item.id === id);
+    if (task) updatePomodoroTask(id, { completed: task.completed }).catch(() => {});
   };
 
   const removeTask = (id: string) => {
     const updated = tasks.filter(t => t.id !== id);
     setTasks(updated);
-    saveTasks(updated);
+    if (activeTaskId === id) setActiveTaskId(null);
+    deletePomodoroTask(id).catch(() => {});
   };
 
   const adjustTaskPomodoros = (id: string, delta: number) => {
@@ -331,13 +308,14 @@ export default function PomodoroPage() {
       t.id === id ? { ...t, estimated: Math.max(1, t.estimated + delta) } : t
     );
     setTasks(updated);
-    saveTasks(updated);
+    const task = updated.find((item) => item.id === id);
+    if (task) updatePomodoroTask(id, { estimated: task.estimated }).catch(() => {});
   };
 
   const updateSetting = (key: keyof Settings, value: number | boolean) => {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
-    saveSettings(updated);
+    savePomodoroSettings(updated).catch(() => {});
 
     // If changing duration and timer not running, update display
     if (!running) {
@@ -439,7 +417,7 @@ export default function PomodoroPage() {
 
         {/* Completed stats */}
         <p className="mt-6 text-sm text-[var(--muted-foreground)]">
-          今日已完成 <span style={{ color: modeColor }} className="font-bold">{completedCount}</span> 个番茄钟
+          {isLoadingWorkspace ? '正在同步你的专注数据…' : <>今日已完成 <span style={{ color: modeColor }} className="font-bold">{completedCount}</span> 个番茄钟 · 已云端同步</>}
         </p>
       </div>
 
@@ -461,9 +439,10 @@ export default function PomodoroPage() {
             tasks.map(task => (
               <div
                 key={task.id}
-                className={`flex items-center gap-3 p-3 rounded-xl border border-[var(--card-border)] transition-all ${
+                onClick={() => setActiveTaskId(task.id)}
+                className={`flex cursor-pointer items-center gap-3 p-3 rounded-xl border transition-all ${
                   task.completed ? 'opacity-60' : ''
-                }`}
+                } ${activeTaskId === task.id ? 'border-[#4285F4] bg-[#4285F4]/5' : 'border-[var(--card-border)]'}`}
               >
                 {/* Checkbox */}
                 <button
@@ -482,6 +461,8 @@ export default function PomodoroPage() {
                   {task.text}
                 </span>
 
+                {activeTaskId === task.id && <span className="text-[10px] font-semibold text-[#4285F4]">当前任务</span>}
+
                 {/* Pomodoro estimate */}
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <span className="text-xl">🍅</span>
@@ -489,11 +470,11 @@ export default function PomodoroPage() {
                   <span className="text-xs text-[var(--muted-foreground)]">/ {task.estimated}</span>
                   <div className="flex flex-col ml-1">
                     <button
-                      onClick={() => adjustTaskPomodoros(task.id, 1)}
+                      onClick={(event) => { event.stopPropagation(); adjustTaskPomodoros(task.id, 1); }}
                       className="text-[10px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] leading-none"
                     >▲</button>
                     <button
-                      onClick={() => adjustTaskPomodoros(task.id, -1)}
+                      onClick={(event) => { event.stopPropagation(); adjustTaskPomodoros(task.id, -1); }}
                       className="text-[10px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] leading-none"
                     >▼</button>
                   </div>
@@ -501,7 +482,7 @@ export default function PomodoroPage() {
 
                 {/* Delete */}
                 <button
-                  onClick={() => removeTask(task.id)}
+                  onClick={(event) => { event.stopPropagation(); removeTask(task.id); }}
                   className="p-1 rounded hover:bg-[#EA4335]/10 text-[var(--muted-foreground)] hover:text-[#EA4335] transition-colors flex-shrink-0"
                 >
                   <span className="material-icons-round text-base">close</span>

@@ -384,6 +384,21 @@ export async function getActiveNotifications(): Promise<SiteNotification[]> {
   return notifications.filter((n) => !dismissedIds.has(n.id)) as SiteNotification[];
 }
 
+/** Active announcements for the persistent notification center. */
+export async function getNotificationInbox(): Promise<SiteNotification[]> {
+  const { supabase } = await getAuthenticatedUser();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('site_notifications')
+    .select('*')
+    .eq('is_active', true)
+    .or(`start_time.is.null,start_time.lte.${now}`)
+    .or(`end_time.is.null,end_time.gte.${now}`)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SiteNotification[];
+}
+
 /**
  * 获取所有通知（管理员面板用，包括禁用/过期的）
  * 通过 SECURITY DEFINER 函数 list_site_notifications() 调用，

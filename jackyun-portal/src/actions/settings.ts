@@ -205,3 +205,21 @@ export async function updateProfile(
     return { success: false, error: message };
   }
 }
+
+export async function uploadAvatar(formData: FormData): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const file = formData.get('avatar');
+    if (!(file instanceof File)) return { success: false, error: '请选择头像文件' };
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return { success: false, error: '仅支持 JPG、PNG 或 WebP 格式' };
+    if (file.size > 2 * 1024 * 1024) return { success: false, error: '头像不能超过 2MB' };
+    const extension = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
+    const path = `${user.id}/avatar.${extension}`;
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
+    if (error) return { success: false, error: error.message };
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return { success: true, url: data.publicUrl };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '头像上传失败' };
+  }
+}

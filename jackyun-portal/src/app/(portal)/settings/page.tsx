@@ -27,8 +27,9 @@ export default async function SettingsPage() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    displayName = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '';
-    avatarUrl = user?.user_metadata?.avatar_url ?? '';
+    const { data: profile } = user ? await supabase.from('profiles').select('display_name, avatar_url').eq('id', user.id).maybeSingle() : { data: null };
+    displayName = profile?.display_name ?? user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '';
+    avatarUrl = profile?.avatar_url ?? user?.user_metadata?.avatar_url ?? '';
     userId = user?.id ?? '';
   } catch { /* fallback: not authenticated, show empty profile */ }
 
@@ -43,5 +44,4 @@ export default async function SettingsPage() {
     />
   );
 }
-
 

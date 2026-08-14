@@ -3,7 +3,7 @@
 import { useLanguage } from '@/components/language-provider';
 import { t } from '@/lib/i18n';
 import Link from 'next/link';
-import NameEditor from '@/components/settings/name-editor';
+import ProfileEditor from '@/components/settings/profile-editor';
 import ChangePasswordPanel from '@/components/admin/change-password-panel';
 import AiConfigPanel from '@/components/settings/ai-config-panel';
 import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
@@ -41,6 +41,8 @@ export default function SettingsContent({
   hasPassword,
   aiConfig,
   displayName,
+  avatarUrl,
+  userId,
   sidebarPrefs,
 }: SettingsContentProps) {
   const { lang } = useLanguage();
@@ -58,7 +60,7 @@ export default function SettingsContent({
       {/* 个人资料 */}
       <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
         <SectionHeader icon="person" titleKey="settings.section.profile" />
-        <NameEditor initialName={displayName} />
+        <ProfileEditor initialName={displayName} initialAvatar={avatarUrl} userId={userId} />
       </section>
 
       {/* 账户安全 */}

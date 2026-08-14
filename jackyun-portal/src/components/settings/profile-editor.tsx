@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateProfile } from '@/actions/settings';
+import { updateProfile, uploadAvatar } from '@/actions/settings';
 import logger from '@/lib/logger';
 
 const TAG = 'ProfileEditor';
@@ -13,6 +13,7 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [errorDetail, setErrorDetail] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -21,7 +22,15 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
     logger.info(TAG, 'Saving profile via server action', { userId, displayName });
 
     try {
-      const result = await updateProfile(displayName, avatarUrl);
+      let nextAvatarUrl = avatarUrl;
+      if (avatarFile) {
+        const data = new FormData();
+        data.set('avatar', avatarFile);
+        const upload = await uploadAvatar(data);
+        if (!upload.success || !upload.url) throw new Error(upload.error || '头像上传失败');
+        nextAvatarUrl = upload.url;
+      }
+      const result = await updateProfile(displayName.trim(), nextAvatarUrl);
       logger.info(TAG, 'Server action result', result);
 
       if (!result.success) {
@@ -39,6 +48,8 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
       });
 
       setMessage('✅ 资料已保存');
+      setAvatarUrl(nextAvatarUrl);
+      setAvatarFile(null);
       setEditing(false);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '保存失败';
@@ -65,8 +76,8 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
             <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100">
               <span className="material-icons-round text-white bg-black/50 rounded-full p-1 text-sm">photo_camera</span>
             </span>
-            <input type="file" accept="image/*" className="hidden" onChange={e => {
-              const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = () => setAvatarUrl(r.result as string); r.readAsDataURL(f); }
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => {
+              const f = e.target.files?.[0]; if (f) { setAvatarFile(f); setAvatarUrl(URL.createObjectURL(f)); }
             }} />
           </label>
         ) : (
@@ -75,7 +86,7 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
         )}
         <div className="flex-1">
           {editing ? (
-            <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="输入你的名字"
+            <input type="text" value={displayName} maxLength={50} onChange={e => setDisplayName(e.target.value)} placeholder="输入你的名字"
               className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-1.5 text-sm text-[var(--foreground)] outline-none focus:border-[#4285F4]" />
           ) : (
             <p className="font-medium text-[var(--foreground)]">{displayName || '未设置'}</p>
@@ -90,7 +101,7 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
               className="px-4 py-2 rounded-lg bg-[#4285F4] text-sm font-medium text-white hover:bg-[#3367d6] disabled:opacity-60 transition-colors">
               {saving ? '保存中...' : '保存'}
             </button>
-            <button onClick={() => { setEditing(false); setAvatarUrl(initialAvatar); setDisplayName(initialName); }}
+            <button onClick={() => { setEditing(false); setAvatarUrl(initialAvatar); setDisplayName(initialName); setAvatarFile(null); }}
               className="px-4 py-2 rounded-lg border border-[var(--card-border)] text-sm text-[var(--foreground)] hover:bg-[var(--background)] transition-colors">取消</button>
           </>
         ) : (

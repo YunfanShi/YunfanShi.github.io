@@ -6,6 +6,7 @@ import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/language-provider';
 import { t } from '@/lib/i18n';
+import NotificationInbox from '@/components/modules/notification-inbox';
 
 interface TopbarProps {
   user: User | null;
@@ -122,6 +123,7 @@ export default function Topbar({ user }: TopbarProps) {
             </span>
           </button>
         )}
+        {user && <NotificationInbox />}
         {user ? (
           <>
             <UserAvatar user={user} />

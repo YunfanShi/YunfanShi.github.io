@@ -1,0 +1,31 @@
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { getAdmins, getAllNotifications, getTableStats, getWhitelistEmails, getWhitelistUsernames } from '@/actions/admin';
+import { AdminManagerPanel } from '@/components/admin/admin-manager-panel';
+import { NotificationManagerPanel } from '@/components/admin/notification-manager-panel';
+import { WhitelistEmailsPanel, WhitelistUsernamesPanel, ForceMergePanel } from '@/components/admin/whitelist-panels';
+
+function Metric({ icon, label, value, tint }: { icon: string; label: string; value: number; tint: string }) {
+  return <div className="rounded-2xl border border-[#e4e7ec] bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#182230]"><div className="flex items-center justify-between"><div className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: `${tint}18`, color: tint }}><span className="material-icons-round">{icon}</span></div><span className="text-2xl font-bold tracking-tight">{value}</span></div><p className="mt-4 text-sm font-medium text-[#667085] dark:text-[#98a2b3]">{label}</p></div>;
+}
+
+export default async function AdminPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const [tableStats, notifications, admins, emails, usernames, profileCount, deletedCount] = await Promise.all([
+    getTableStats(), getAllNotifications().catch(() => []), getAdmins().catch(() => []), getWhitelistEmails().catch(() => []), getWhitelistUsernames().catch(() => []),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }), supabase.from('profiles').select('id', { count: 'exact', head: true }).not('deleted_at', 'is', null),
+  ]);
+  const dataTotal = tableStats.reduce((sum, row) => sum + row.count, 0);
+  const activeNotifications = notifications.filter((item) => item.is_active).length;
+  return (
+    <div className="mx-auto max-w-[1320px] space-y-8 pb-10">
+      <section className="rounded-2xl bg-[#101828] px-6 py-8 text-white shadow-xl sm:px-8"><p className="text-sm font-medium text-[#b2ddff]">运营总览</p><div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 className="text-3xl font-semibold tracking-tight">管理中心</h1><p className="mt-2 max-w-xl text-sm leading-6 text-[#d0d5dd]">集中管理用户、内容公告、权限与平台运行状态。</p></div><p className="text-sm text-[#98a2b3]">当前管理员：{user?.email ?? '—'}</p></div></section>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Metric icon="groups" label="注册用户" value={profileCount.count ?? 0} tint="#155eef" /><Metric icon="campaign" label="活跃通知" value={activeNotifications} tint="#9e77ed" /><Metric icon="database" label="业务数据" value={dataTotal} tint="#12b76a" /><Metric icon="person_off" label="待恢复账户" value={deletedCount.count ?? 0} tint="#f79009" /></section>
+      <section className="grid gap-4 md:grid-cols-3">{[{ href: '#notifications', icon: 'campaign', title: '发布通知', desc: '创建定时、可撤回的平台公告' }, { href: '#access', icon: 'manage_accounts', title: '权限管理', desc: '管理管理员与登录白名单' }, { href: '/admin/update-hub', icon: 'history', title: '版本记录', desc: '维护公开的产品更新日志' }].map((item) => <Link key={item.title} href={item.href} className="rounded-2xl border border-[#e4e7ec] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#182230]"><span className="material-icons-round text-[#155eef]">{item.icon}</span><h2 className="mt-4 font-semibold">{item.title}</h2><p className="mt-1 text-sm text-[#667085] dark:text-[#98a2b3]">{item.desc}</p></Link>)}</section>
+      <section id="notifications" className="scroll-mt-20 rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#182230]"><h2 className="text-lg font-semibold">通知中心</h2><p className="mt-1 text-sm text-[#667085] dark:text-[#98a2b3]">发布、排期、停用或编辑全站通知。用户端会记录已读状态。</p><div className="mt-5"><NotificationManagerPanel /></div></section>
+      <section id="access" className="scroll-mt-20 grid gap-5 xl:grid-cols-2"><div className="rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#182230]"><h2 className="text-lg font-semibold">管理员与账号治理</h2><p className="mt-1 text-sm text-[#667085] dark:text-[#98a2b3]">管理员角色、白名单与账户合并均在此统一处理。</p><div className="mt-5"><AdminManagerPanel admins={admins} currentUserId={user?.id ?? ''} /></div><div className="mt-6 border-t border-[#eaecf0] pt-5 dark:border-white/10"><ForceMergePanel /></div></div><div className="space-y-5"><div className="rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#182230]"><h2 className="text-lg font-semibold">邮箱白名单</h2><div className="mt-4"><WhitelistEmailsPanel items={emails} /></div></div><div className="rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#182230]"><h2 className="text-lg font-semibold">第三方账号白名单</h2><div className="mt-4"><WhitelistUsernamesPanel items={usernames} /></div></div></div></section>
+      <section id="system" className="scroll-mt-20 rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#182230]"><h2 className="text-lg font-semibold">数据概览</h2><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">{tableStats.map((row) => <div key={row.tableName} className="rounded-xl bg-[#f9fafb] p-4 dark:bg-white/5"><p className="text-xl font-bold">{row.count}</p><p className="mt-1 text-xs text-[#667085] dark:text-[#98a2b3]">{row.tableName}</p></div>)}</div></section>
+    </div>
+  );
+}

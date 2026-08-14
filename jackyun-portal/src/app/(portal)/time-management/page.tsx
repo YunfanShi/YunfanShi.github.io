@@ -17,7 +17,7 @@ const TOOLS: ToolCard[] = [
   {
     id: 'pomodoro',
     title: '番茄钟',
-    description: '番茄工作法 · 保持专注',
+    description: '任务绑定 · 云端同步 · 专注数据沉淀',
     icon: 'lunch_dining',
     emoji: '🍅',
     color: '#d93025',
@@ -63,7 +63,7 @@ export default function TimeManagementPage() {
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Choose your rhythm</p>
           <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">选择计时方式</h2>
         </div>
-        <span className="text-sm text-[var(--muted-foreground)]">3 个工具</span>
+        <span className="text-sm text-[var(--muted-foreground)]">3 个工具 · 已同步</span>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map((tool) => (
@@ -105,7 +105,7 @@ export default function TimeManagementPage() {
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">A small reminder</p>
         <h3 className="mt-2 text-base font-medium text-[var(--foreground)]">让计划服务于行动</h3>
         <p className="text-sm text-[var(--muted-foreground)] leading-relaxed">
-          使用番茄钟保持专注，使用倒计时冲刺备考，使用倒计日记录重要日子。
+          使用番茄钟保持专注，使用倒计时冲刺备考，使用倒计日记录重要日子。番茄任务、设置和今日专注记录会随账户同步。
           以上工具的侧边栏入口已统一收纳到这里。
         </p>
       </div>
