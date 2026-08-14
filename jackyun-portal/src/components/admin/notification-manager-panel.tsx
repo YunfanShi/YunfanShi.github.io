@@ -185,7 +185,7 @@ export function NotificationManagerPanel() {
       {/* Header row */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-[var(--muted-foreground)]">
-          “通知”会弹窗并进入消息中心；“消息”仅显示在消息中心。
+          这里只管理面向全体用户的公告：“通知”会弹窗并进入消息中心；“消息”仅显示在消息中心。工单私信不会出现在此处。
         </p>
         <button
           onClick={openCreate}

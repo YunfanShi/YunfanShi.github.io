@@ -434,13 +434,9 @@ export async function getActiveNotifications(): Promise<SiteNotification[]> {
 /** Active announcements for the persistent notification center. */
 export async function getNotificationInbox(): Promise<SiteNotification[]> {
   const { supabase } = await getAuthenticatedUser();
-  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('site_notifications')
     .select('*')
-    .eq('is_active', true)
-    .or(`start_time.is.null,start_time.lte.${now}`)
-    .or(`end_time.is.null,end_time.gte.${now}`)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   const notifications = (data ?? []) as SiteNotification[];
@@ -472,7 +468,9 @@ export async function getAllNotifications(): Promise<SiteNotification[]> {
   const { supabase } = await requireAdmin();
   const { data, error } = await supabase.rpc('list_site_notifications');
   if (error) throw new Error(error.message);
-  return (data ?? []) as SiteNotification[];
+  // The announcement manager is intentionally public-only. Support outcomes
+  // are private inbox messages and must never appear beside broadcast content.
+  return ((data ?? []) as SiteNotification[]).filter((notification) => notification.recipient_user_id === null);
 }
 
 /**

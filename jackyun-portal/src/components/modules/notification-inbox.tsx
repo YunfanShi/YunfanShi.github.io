@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { dismissNotification, getActiveNotifications, getNotificationInbox } from '@/actions/admin';
 import type { SiteNotification } from '@/types';
 
@@ -13,11 +13,21 @@ export default function NotificationInbox() {
   const [items, setItems] = useState<SiteNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [selected, setSelected] = useState<SiteNotification | null>(null);
+  const knownIds = useRef(new Set<string>());
+
+  const refresh = (announceNew = false) => Promise.all([getNotificationInbox(), getActiveNotifications()])
+    .then(([all, pending]) => {
+      const newMessages = announceNew ? all.filter((item) => item.delivery_type === 'message' && !knownIds.current.has(item.id)) : [];
+      setItems(all); setUnread(pending.length); all.forEach((item) => knownIds.current.add(item.id));
+      if (newMessages.length && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        const latest = newMessages[0]; new Notification('JackYun 新消息', { body: latest.title, icon: '/Webicon.png' });
+      }
+    }).catch(() => {});
 
   useEffect(() => {
-    Promise.all([getNotificationInbox(), getActiveNotifications()])
-      .then(([all, pending]) => { setItems(all); setUnread(pending.length); })
-      .catch(() => {});
+    refresh();
+    const timer = window.setInterval(() => refresh(true), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const openMessage = (item: SiteNotification) => {
@@ -41,7 +51,7 @@ export default function NotificationInbox() {
       </button>
       {open && (
         <div className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-xl">
-          <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3"><p className="font-semibold text-[var(--foreground)]">通知中心</p><span className="text-xs text-[var(--muted-foreground)]">{items.length} 条内容</span></div>
+          <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3"><p className="font-semibold text-[var(--foreground)]">通知中心</p><div className="flex items-center gap-2"><span className="text-xs text-[var(--muted-foreground)]">{items.length} 条记录</span>{typeof Notification !== 'undefined' && Notification.permission === 'default' && <button type="button" onClick={() => Notification.requestPermission()} className="text-xs font-medium text-[#155eef]">开启提醒</button>}</div></div>
           <div className="max-h-96 overflow-y-auto">
             {items.length ? items.map((item) => (
               <div key={item.id} className="flex border-b border-[var(--card-border)] last:border-0 hover:bg-[var(--background)]">
