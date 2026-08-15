@@ -529,6 +529,48 @@
         #tts-status.speaking { background: #d1e7dd; color: #0f5132; animation: ttsPulse 1.5s ease-in-out infinite; }
         @keyframes ttsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(15, 81, 50, 0.4); } 50% { box-shadow: 0 0 0 4px rgba(15, 81, 50, 0); } }
         @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+
+        @media (max-width: 767px) {
+            html, body { height: auto; min-height: 100dvh; }
+            body { display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+            main { order: 1; flex: none; width: 100%; min-height: 100dvh; gap: 12px; padding: 14px 10px calc(20px + env(safe-area-inset-bottom)); overflow: visible; }
+            main > header { order: 1; align-items: stretch; flex-direction: column; gap: 10px; }
+            main > header > div:last-child { justify-content: space-between; }
+            .date-badge { min-height: 44px; flex: 1; justify-content: center; padding-inline: 10px; }
+            .timer-card { order: 2; min-height: 230px; padding: 62px 12px 20px; border-radius: 14px; }
+            .timer-digits { margin: 4px 0; font-size: clamp(52px, 21vw, 78px); letter-spacing: -3px; }
+            .timer-label { margin-bottom: 10px; font-size: 18px; }
+            .timer-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+            .timer-stat { min-width: 0; padding: 9px 5px; }
+            .timer-stat .ts-value { font-size: clamp(15px, 4.6vw, 19px); overflow-wrap: anywhere; }
+            .schedule-card { order: 3; flex: none; max-height: none; overflow: visible; border-radius: 14px; }
+            .schedule-card > .cat-header { top: 0; flex-wrap: wrap; gap: 8px; padding: 9px 10px; }
+            .day-switcher { flex: 1 1 auto; justify-content: space-between; }
+            .day-switcher button, .view-icon-btn { width: 40px !important; height: 40px !important; }
+            .ai-plan-btn { min-height: 40px; margin-left: 0; }
+            .task-row { grid-template-columns: 42px minmax(0, 1fr); gap: 4px 8px; padding: 12px 10px; align-items: start; }
+            .task-row > div:first-child { grid-row: 1 / span 2; }
+            .task-row > div:nth-child(2) { grid-column: 2; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+            .task-row > div:nth-child(3) { grid-column: 2; min-width: 0; }
+            .task-time { font-size: 12px; }
+            .task-name { font-size: 14px; overflow-wrap: anywhere; }
+            .checkbox-custom { width: 36px; height: 36px; }
+            .custom-task-input.open { flex-wrap: wrap; padding: 8px 0; }
+            .custom-task-input input[type="text"] { flex-basis: 100%; }
+            .task-start-card { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 24px 16px; overflow-y: auto; }
+            .task-start-card .ts-timer { gap: 8px; }
+            .task-start-card .ts-timer-box { min-width: 0; flex: 1; padding-inline: 8px; }
+            .big-icon { font-size: 72px; }
+            .overlay-title { font-size: clamp(36px, 12vw, 52px); }
+            .overlay-quote { padding-inline: 16px; font-size: 16px; }
+            aside { order: 2; width: 100%; height: auto; min-height: 520px; border-top: 1px solid #e0e0e0; border-right: 0; }
+            aside .iframe-container { flex: none; height: min(48dvh, 360px); min-height: 240px; }
+            .settings-area { padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
+            .panel-sheet { padding: 18px 14px calc(18px + env(safe-area-inset-bottom)); }
+            body.view-schedule aside, body.view-schedule-only aside, body.view-countdown aside { display: none; }
+            body.view-countdown main { min-height: 100dvh; padding: 12px; }
+            body.view-countdown .timer-card { padding: 70px 12px 24px; }
+        }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css">
 <style id="jackyun-control-material-theme">

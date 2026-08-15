@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { dismissTicketNotifications } from '@/actions/admin';
 import { addMyTicketMessage, getMyRemoteAssistanceRequest, getMyTicketConversation, respondRemoteAssistance, type MyTicketConversation } from '@/actions/feedback';
 
 interface Props {
@@ -30,10 +31,11 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
       .then((value) => {
         setConversation(value);
         getMyRemoteAssistanceRequest(ticketId).then(setRemoteRequest).catch(() => {});
+        if (value && !minimized) dismissTicketNotifications(ticketId).catch(() => {});
         if (!value) setNotice('无法读取这条客服对话。');
       })
       .catch(() => setNotice('对话加载失败，请稍后重试。'));
-  }, [ticketId]);
+  }, [minimized, ticketId]);
 
   useEffect(() => {
     refresh();
@@ -44,7 +46,12 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [conversation?.messages.length]);
-  useEffect(() => { if (conversation?.status === 'closed') onClose(); }, [conversation?.status, onClose]);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('jackyun:support-state', { detail: { ticketId, open: !minimized } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('jackyun:support-state', { detail: { ticketId, open: false } }));
+    };
+  }, [minimized, ticketId]);
 
   const send = () => {
     if (!draft.trim() || !conversation || conversation.status === 'closed') return;
@@ -84,9 +91,14 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">JackYun 客服中心 · 对话记录会保存在工单中</p>
             </div>
           </div>
-          <button type="button" aria-label="最小化客服对话" title="最小化，工单结束后将自动隐藏" onClick={() => setMinimized(true)} className="grid h-9 w-9 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--background)]">
-            <span className="material-icons-round">minimize</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button type="button" aria-label="最小化客服对话" title="最小化客服对话" onClick={() => setMinimized(true)} className="grid h-10 w-10 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--background)]">
+              <span className="material-icons-round">minimize</span>
+            </button>
+            <button type="button" aria-label="关闭客服对话" title="关闭客服对话" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--background)]">
+              <span className="material-icons-round">close</span>
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--background)]/60 px-4 py-5 sm:px-6">

@@ -597,3 +597,56 @@ export async function dismissNotification(
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
+
+/** Mark a group of notifications as read for the current user. */
+export async function dismissNotifications(
+  notificationIds: string[],
+): Promise<{ success: boolean; error?: string }> {
+  const uniqueIds = Array.from(new Set(notificationIds)).filter(Boolean).slice(0, 500);
+  if (!uniqueIds.length) return { success: true };
+
+  const { supabase, user } = await getAuthenticatedUser();
+  // RLS limits this lookup to public notifications and messages addressed to
+  // the signed-in user, so arbitrary ids cannot be acknowledged here.
+  const { data: visible, error: visibleError } = await supabase
+    .from('site_notifications')
+    .select('id')
+    .in('id', uniqueIds);
+  if (visibleError) return { success: false, error: visibleError.message };
+  if (!visible?.length) return { success: true };
+
+  const { error } = await supabase.from('notification_dismissals').upsert(
+    visible.map(({ id }) => ({ notification_id: id, user_id: user.id })),
+    { onConflict: 'notification_id,user_id', ignoreDuplicates: true },
+  );
+  return error ? { success: false, error: error.message } : { success: true };
+}
+
+/** Clear unread admin messages as soon as their support conversation is open. */
+export async function dismissTicketNotifications(
+  ticketId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data: ticket, error: ticketError } = await supabase
+    .from('bug_reports')
+    .select('id')
+    .eq('id', ticketId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (ticketError) return { success: false, error: ticketError.message };
+  if (!ticket) return { success: false, error: '客服对话不存在' };
+
+  const { data: notifications, error: notificationError } = await supabase
+    .from('site_notifications')
+    .select('id')
+    .eq('related_ticket_id', ticketId)
+    .eq('recipient_user_id', user.id);
+  if (notificationError) return { success: false, error: notificationError.message };
+  if (!notifications?.length) return { success: true };
+
+  const { error } = await supabase.from('notification_dismissals').upsert(
+    notifications.map(({ id }) => ({ notification_id: id, user_id: user.id })),
+    { onConflict: 'notification_id,user_id', ignoreDuplicates: true },
+  );
+  return error ? { success: false, error: error.message } : { success: true };
+}

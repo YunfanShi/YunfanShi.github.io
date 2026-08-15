@@ -371,12 +371,48 @@ option{background:#1a1a1a;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:99px;}
 
-@media(max-width:700px){
-  .main{padding:20px 14px;}
-  .topbar{padding:0 16px;}
+@media(max-width:767px){
+  .main{display:flex;flex-direction:column;padding:18px 12px calc(24px + env(safe-area-inset-bottom));}
+  .page-hd{order:1;margin-bottom:14px;}
+  .today-panel{order:2;margin-bottom:14px;padding:14px;}
+  .stats{order:3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px;}
+  .filter-row{order:4;align-items:stretch;margin-bottom:12px;}
+  .goal-list{order:5;}
+  .ai-bar{order:6;margin:18px 0 0;}
+  .topbar{height:auto;min-height:58px;padding:7px 10px;}
+  .topbar-r .btn{min-height:42px;padding-inline:12px;}
+  .page-title{font-size:24px;}
+  .stat{min-width:0;border-radius:12px;padding:10px 11px;}
+  .stat-lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .today-panel-hd{align-items:stretch;flex-direction:column;gap:10px;}
+  .today-panel-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-left:0;}
+  .today-panel-actions .today-total{grid-column:1/-1;text-align:center;padding-block:7px;}
+  .today-panel-actions .btn{min-height:42px;justify-content:center;white-space:normal;text-align:center;}
+  .today-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;padding:11px 10px;}
+  .today-item-name{white-space:normal;overflow-wrap:anywhere;}
+  .today-item-times{grid-column:2/-1;justify-content:flex-start;flex-wrap:wrap;}
+  .today-item-min{grid-column:2;text-align:left;min-width:0;}
+  .today-item-del{grid-column:3;grid-row:1;min-width:40px;min-height:40px;}
+  .today-item-add{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .today-item-add select{grid-column:1/-1;min-height:44px;}
+  .today-item-add button{min-height:44px;padding-inline:8px;white-space:normal;}
+  .tabs{max-width:100%;overflow-x:auto;scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{min-height:40px;flex:0 0 auto;padding-inline:12px;}
+  .sort-sel{width:100%;min-height:44px;}
+  .pcard,.gcard{padding:14px 13px 12px;}
+  .pcard-header,.gtop{display:grid;grid-template-columns:minmax(0,1fr) auto;}
+  .pcard-right,.gright{align-items:flex-start;gap:6px;}
+  .pcard-actions,.gactions{opacity:1;flex-wrap:wrap;justify-content:flex-end;}
+  .btn-ico{width:40px;height:40px;}
+  .children-list{padding-left:10px;}
+  .gname{white-space:normal;overflow-wrap:anywhere;}
   .frow,.frow3{grid-template-columns:1fr;}
   .ai-features{grid-template-columns:1fr 1fr;}
   .modal.wide{max-width:100%;}
+  .overlay{align-items:flex-end;padding:8px 8px max(8px,env(safe-area-inset-bottom));}
+  .modal{max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow-y:auto;border-radius:18px 18px 12px 12px;}
+  .mfoot{position:sticky;bottom:0;background:inherit;}
 }
 #wardenSyncBanner {
   position: fixed; bottom: 24px; right: 24px; z-index: 999;

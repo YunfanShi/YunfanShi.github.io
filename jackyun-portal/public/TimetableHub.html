@@ -382,6 +382,39 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
   .tb-btn span.t-lbl{display:none}
   .tb-btn{padding:7px 10px}
 }
+@media (max-width:767px){
+  :root{--sb-w:min(92vw,360px)}
+  body,.main{height:100dvh;min-height:100dvh}
+  .topbar{height:58px;padding:5px 8px;gap:3px;padding-top:max(5px,env(safe-area-inset-top))}
+  .top-title{min-width:0;flex:1;font-size:13px;gap:5px}
+  .top-title>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top-sub,.cloud-status{display:none!important}
+  .top-right{flex:0 0 auto;gap:2px}
+  .top-right .tb-btn{width:42px;height:42px;padding:0;justify-content:center}
+  .top-right .tb-btn:nth-of-type(3),.top-right .tb-btn:nth-of-type(4){display:none}
+  .ham{width:44px;height:44px}
+  .sb{top:58px;padding-bottom:env(safe-area-inset-bottom)}
+  .main{padding-top:58px}
+  .grid-scroll{scroll-snap-type:x proximity;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}
+  .g-head,.g-body{width:max-content;min-width:100%}
+  .g-head-time,.g-body-time{width:56px}
+  .g-head-time{position:sticky;left:0;z-index:12;background:var(--bg)}
+  .g-body-time{position:sticky;left:0;z-index:8;background:var(--bg)}
+  .g-time-col{width:56px}
+  .g-day,.g-day-col{flex:0 0 calc(100vw - 56px);min-width:calc(100vw - 56px);scroll-snap-align:start}
+  .g-day{padding:11px 4px}
+  .task{left:6px!important;right:6px!important;padding:5px 8px;min-height:32px}
+  .task .t-name{white-space:normal;overflow-wrap:anywhere}
+  .ins-break{width:34px;height:26px;opacity:.8}
+  .ai-dock{right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom))}
+  .ai-dock-btn{width:48px;height:48px}
+  .ai-dock-menu{width:min(300px,calc(100vw - 20px));bottom:58px}
+  .ai-panel{inset:auto 8px max(8px,env(safe-area-inset-bottom));width:auto;max-height:calc(100dvh - 74px)}
+  .mb,.imp-overlay{align-items:flex-end;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+  .ms,.imp-panel{max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));border-radius:18px 18px 10px 10px}
+  .fr{flex-direction:column;gap:0}
+  .mf{position:sticky;bottom:0;background:var(--surface)}
+}
 </style>
 <link rel="stylesheet" href="/jackyun-theme.css">
 <style id="jackyun-schedule-three-themes">
@@ -1467,10 +1500,22 @@ function fbTaskRowsHtml(fb){
   if(over||cursor>span)out+=`<div class="fb-task-overflow">⚠超 ${cursor-span}min</div>`;
   return out;
 }
+let mobileInitialDayFocused=false;
+function focusCurrentMobileDay(){
+  if(mobileInitialDayFocused||tempMode||window.innerWidth>=768)return;
+  const todayColumn=document.querySelector(`.g-day-col[data-day="${dayOfWeek(new Date())}"]`);
+  const scroll=$('gridScroll');
+  if(!todayColumn||!scroll)return;
+  requestAnimationFrame(()=>{
+    scroll.scrollLeft=Math.max(0,todayColumn.offsetLeft-56);
+    mobileInitialDayFocused=true;
+  });
+}
 function renderGrid(){
   renderHead();
   renderBody();
   updateNowLine();
+  focusCurrentMobileDay();
 }
 function renderHead(){
   const el=$('gHead');

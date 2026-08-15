@@ -185,7 +185,7 @@ export function NotificationManagerPanel() {
       {/* Header row */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-[var(--muted-foreground)]">
-          这里只管理面向全体用户的公告：“通知”会弹窗并进入消息中心；“消息”仅显示在消息中心。工单私信不会出现在此处。
+          这里只管理面向全体用户的公告：“通知”会弹窗并显示在通知列表；“消息”仅显示在通知列表。工单私信不会出现在此处。
         </p>
         <button
           onClick={openCreate}
@@ -360,8 +360,8 @@ export function NotificationManagerPanel() {
               <div>
                 <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">投递方式</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setForm({ ...form, delivery_type: 'notice' })} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.delivery_type === 'notice' ? 'border-[#34A853] bg-[#34A853]/10 text-[#027A48]' : 'border-[var(--card-border)] text-[var(--muted-foreground)]'}`}>通知<br /><span className="text-[10px] font-normal">弹窗 + 消息中心</span></button>
-                  <button type="button" onClick={() => setForm({ ...form, delivery_type: 'message' })} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.delivery_type === 'message' ? 'border-[#7F56D9] bg-[#9E77ED]/10 text-[#7F56D9]' : 'border-[var(--card-border)] text-[var(--muted-foreground)]'}`}>消息<br /><span className="text-[10px] font-normal">仅消息中心</span></button>
+                  <button type="button" onClick={() => setForm({ ...form, delivery_type: 'notice' })} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.delivery_type === 'notice' ? 'border-[#34A853] bg-[#34A853]/10 text-[#027A48]' : 'border-[var(--card-border)] text-[var(--muted-foreground)]'}`}>通知<br /><span className="text-[10px] font-normal">弹窗 + 通知</span></button>
+                  <button type="button" onClick={() => setForm({ ...form, delivery_type: 'message' })} className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.delivery_type === 'message' ? 'border-[#7F56D9] bg-[#9E77ED]/10 text-[#7F56D9]' : 'border-[var(--card-border)] text-[var(--muted-foreground)]'}`}>消息<br /><span className="text-[10px] font-normal">仅通知</span></button>
                 </div>
               </div>
 
