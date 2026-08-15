@@ -652,6 +652,30 @@
             line-height: 1.5;
         }
 
+        .execution-note {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            margin: 16px 0;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            line-height: 1.55;
+            font-size: 13px;
+        }
+        .execution-note strong { display: block; margin-bottom: 3px; }
+        .priority-badge {
+            display: inline-block;
+            margin: 4px 0 6px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .priority-badge.required { background: #E8F0FE; color: var(--md-primary); }
+        .priority-badge.optional { background: var(--md-surface-variant); color: var(--md-on-surface-variant); }
+
         /* =========================================
            Modal / Dialog
            ========================================= */
@@ -988,15 +1012,18 @@
                             sections: [
                                 {
                                     title: '右侧主栏（Record）',
-                                    desc: '正常记，把公式、推导步骤、例题过程都记清楚。分大标题/小标题，格式工整，字迹清晰。目的是方便以后查找。'
+                                    desc: '课堂上完整记录，重点是准确和好找。',
+                                    details: '正常记。分大标题/小标题，公式、推导过程、例题都记清楚。不要只记逻辑连接词，工整、好找是目标。'
                                 },
                                 {
                                     title: '左侧线索栏（Reduce）',
-                                    desc: '课后整理时，在左侧写关键词和定义。例如："牛顿第二定律"、"比热容公式 c = Q/(mΔT)"、"串并联判断方法"。不写长问题，只写提示词。'
+                                    desc: '课后提炼关键词、定义和能触发回忆的问题。',
+                                    details: '课后在左侧写关键词和定义，例如："牛顿第二定律"、"比热容公式 c = Q/(mΔT)"。再写长问题、指令和提示词，例如："默写牛顿第二定律公式，并说明什么情况下不能用？"'
                                 },
                                 {
                                     title: '底部总结栏（Reflect）',
-                                    desc: '根据这一页的内容类型，选一种固定格式写 Conclusion：<br><br>📌 <b>格式一 · 讲一个核心概念：</b><br>"本质：______"（用一句话说出这页的核心本质，比如"本质：能量守恒在热学中的应用"）<br>"易错：______"（比如"这里容易把摄氏度和开尔文搞混，注意ΔT数值相同"）<br><br>📌 <b>格式二 · 罗列很多零散知识点：</b><br>"这页讲了什么？"（把散落的知识点用自己的话串成一段，比如"这页讲了三个内容：一是XXX公式，二是XXX定律，三是XXX的适用条件"）<br>"容易搞混的点"（比如"场强公式E=F/q和电势公式之间的关系容易混"）<br><br>📌 <b>格式三 · 对比类：</b><br>"核心区别是______"（用一句话点明两个/多个概念的本质区别）<br>"容易搞错的是______"（指出最容易搞混的地方，比如"容易把串联分压和并联分流搞反"）'
+                                    desc: '课后用自己的话写理解，并记录常见错误。',
+                                    details: '写两样东西：<br>① 你的理解：这页内容的本质是什么、讲了什么或核心区别是什么。<br>② 常见错误：哪些地方容易搞混、漏条件或用错。'
                                 }
                             ]
                         }
@@ -1005,7 +1032,7 @@
                 review: {
                     title: '复习 & 总结',
                     icon: 'sync_alt',
-                    desc: '每日轻档（看关键词说），每周重档（闭书画树/清模糊点），每两周查漏（随机抽测），周六红绿灯审计考纲知识点。',
+                    desc: '核心动作每日完成；重档总结、病因统计和红绿灯审计按周执行，避免方法本身变成压力。',
                     timeGranules: ['daily', 'weekly', 'traffic', 'biweekly'],
                     granules: {
                         daily: {
@@ -1021,8 +1048,9 @@
                             label: '每周 · 重档总结（60-90分钟）',
                             steps: [
                                 { num: '①', title: '过筛子', desc: '摊开本周所有康奈尔页，把画了 △ 的页挑出来，重新做"看关键词→张嘴说"。说顺了的，把△改成 √。还是卡壳的，画 ○（下周早读专门看这些）。' },
-                                { num: '②', title: '闭书画知识树', desc: '拿一张白纸，合上所有笔记。在纸中央写本周大主题，向外画分支，挂上你能想到的公式、定义、陷阱。画完翻书，用红笔补上漏掉的部分（漏掉的就是下周重点）。' },
-                                { num: '③', title: '模糊点清零', desc: '拿出"模糊点本子"里本周记下的所有卡壳语句，翻书/查资料，用红笔改成确定的陈述句。' }
+                                { num: '②', title: '闭书画知识树', desc: '限时10-15分钟，优先画核心概念、公式关系、使用条件和易混点。画完翻书，用红笔补漏。' },
+                                { num: '③', title: '模糊点清零', desc: '拿出"模糊点本子"里本周记下的所有卡壳语句，翻书/查资料，用红笔改成确定的陈述句。' },
+                                { num: '④', title: '红绿灯审计', desc: '对照考纲审10个知识点：绿灯延后复查，黄灯做1张卡片，红灯只回课本看引言和定义，不急着刷题。' }
                             ]
                         },
                         traffic: {
@@ -1062,10 +1090,10 @@
                             label: '每日',
                             sections: [
                                 {
-                                    title: '变阻器三档（判断你当前的状态）',
+                                    title: '变阻器三关卡（先判断状态，再动手）',
                                     type: 'table',
                                     rows: [
-                                        { state: '完全不会（公式写不出来）', action: '不做空白题，只看课本上的例题（Worked Example）', note: '一行一行看懂每一步为什么这么做' },
+                                        { state: '完全不会（公式写不出来）', action: '不做空白题，只研究课本上的2道例题（Worked Example）', note: '一行一行挪纸，看懂每一步为什么这么做' },
                                         { state: '公式会但不会用（会默写但一做题就卡）', action: '做常规习题，但标注卡壳点', note: '在草稿纸上写下"我卡在了哪一步？"' },
                                         { state: '基本都会，怕新题', action: '做交错练习（不同章节混着做）', note: '每道题先在左上角写"诊断：此题考XX定理"，再动笔算' }
                                     ]
@@ -1075,7 +1103,7 @@
                                     type: 'fields',
                                     fields: [
                                         { name: '考纲节点', desc: '这道题对应考纲的哪个具体小节（如"CAIE Physics 2.3"）' },
-                                        { name: '根本原因', desc: '从以下四项中选且只选一项：概念不清 / 边界条件 / 定理用错 / 计算粗心' },
+                                        { name: '根本原因', desc: '从三项中选且只选一项：概念不清 / 边界条件 / 定理用错。若只是计算粗心，不录入错题本；若同类粗心反复出现，再检查是否有流程或边界问题。' },
                                         { name: '下次检查日期', desc: '按间隔设定：1天 / 3天 / 5天 / 7天 / 14天（首次录入设为1天后）' }
                                     ]
                                 },
@@ -1102,7 +1130,7 @@
                         weekly: {
                             label: '每周（30分钟）',
                             steps: [
-                                { num: '①', title: '病因统计', desc: '打开Notion，看这一周"根本原因"哪一类出现最多。' },
+                                { num: '①', title: '病因统计', desc: '打开Notion，看这一周三类可纠正病因（概念不清 / 边界条件 / 定理用错）哪一类出现最多。计算粗心不纳入统计。' },
                                 { num: '②', title: '专项纠正', desc: '不用急着做新题，针对高频病因做专项纠正：<br>• <b>概念不清最多</b> → 翻教材该章节的"引言"和"黑体字定义"，大声读三遍<br>• <b>边界条件错最多</b> → 不做计算题，找5道判断题，只练"找前提条件"<br>• <b>定理用错最多</b> → 拿两张纸，左边写能量守恒题，右边写动量守恒题，对比题干关键词差异' }
                             ]
                         }
@@ -1117,7 +1145,7 @@
                         biweekly: {
                             label: '每两周（30分钟）',
                             steps: [
-                                { num: '①', title: '数据汇总', desc: '看过去两周的统计数据，哪类病因连续出现频率最高。' },
+                                { num: '①', title: '数据汇总', desc: '看过去两周的统计数据，哪类可纠正病因连续出现频率最高。' },
                                 { num: '②', title: '深度专项训练', desc: '针对这个病因，做一次深度专项训练（比如连续两周都是"边界条件错"，就花一整个晚上只练"找边界"这个子技能，不碰任何计算）。' }
                             ]
                         }
@@ -1140,7 +1168,7 @@
                         biweekly: {
                             label: '考前2周',
                             steps: [
-                                { num: '①', title: '每周2次高保真模拟考', desc: '手机锁舱，严格计时，无音乐无干扰。设定3分钟熔断机制：一道题卡壳超过3分钟，在草稿纸上写下可能用到的公式作为占位符，立刻跳过做下一题。' },
+                                { num: '①', title: '每周2次高保真模拟考', desc: '手机锁屏，严格计时，无音乐无干扰。设定3分钟熔断机制：一道题卡壳超过3分钟，在草稿纸上写下可能用到的公式作为占位符，立刻跳过做下一题。' },
                                 { num: '②', title: '考后统计', desc: '因为"超时跳过"丢了多少分？比例超过15%，下周策略改为"先做所有大题的第一步（列公式）"。' }
                             ]
                         }
@@ -1376,13 +1404,17 @@
             suggestionText = info.isBiweeklySunday ? '需要查看每周方法吗？' : '需要查看每日方法吗？';
         }
 
-        STATE.timeGranule = defaultGranule;
+        const todayGranules = ['daily', 'weekly', 'biweekly', 'exam'];
+        if (!todayGranules.includes(STATE.timeGranule)) STATE.timeGranule = defaultGranule;
 
         // Count today's progress
         const todayKey = formatDateKey(info.now);
         const todayProgress = STATE.progress[todayKey] || {};
-        const totalToday = 5; // 5 steps in daily timeline
-        const doneToday = Object.values(todayProgress).filter(v => v).length;
+        const dailyItems = getTimelineItems('daily');
+        const requiredToday = dailyItems.filter(item => item.required);
+        const doneRequiredToday = requiredToday.filter(item => todayProgress[item.checkKey]).length;
+        const totalToday = dailyItems.length;
+        const doneToday = dailyItems.filter(item => todayProgress[item.checkKey]).length;
 
         return `
             <div class="page-header">
@@ -1390,7 +1422,7 @@
                     <span class="material-icons-round header-icon">today</span>
                     ${dateStr}
                 </h1>
-                <p>今日是 <strong>${dayLabel}</strong> · 已完成本日任务 ${doneToday}/${totalToday}</p>
+                <p>今日是 <strong>${dayLabel}</strong> · 必做 ${doneRequiredToday}/${requiredToday.length} · 全部 ${doneToday}/${totalToday}</p>
             </div>
 
             <div class="day-indicator" onclick="showTodayModal()">
@@ -1400,6 +1432,11 @@
                     <div class="day-desc">${dayDesc}</div>
                 </div>
                 <span class="material-icons-round" style="color:var(--md-secondary);">arrow_forward_ios</span>
+            </div>
+
+            <div class="execution-note">
+                <span class="material-icons-round">bolt</span>
+                <div><strong>今天先完成最低闭环</strong>课前4-P → 课后整理 → 晚间5分钟遮挡回忆。还有精力再做题；不要为了“全套执行”而放弃启动。</div>
             </div>
 
             <div class="time-pills">
@@ -1415,15 +1452,15 @@
         `;
     }
 
-    function renderGranuleTimeline(granule, dateKey) {
+    function getTimelineItems(granule) {
         const timelines = {
             daily: [
-                { time: '课前10分钟', icon: 'visibility', title: '预习', desc: '4-P框架：看标题→猜逻辑→连旧知→写3问', checkKey: 'preview' },
-                { time: '课堂', icon: 'edit_note', title: '学习', desc: '康奈尔右侧正常记，工整、分大小标题', checkKey: 'record' },
-                { time: '课后30分钟', icon: 'summarize', title: '整理', desc: '康奈尔左侧写关键词/定义，底部按三选一格式写 Conclusion（本质+易错 / 讲了什么+搞混 / 核心区别+搞错）', checkKey: 'reduce' },
-                { time: '晚间5-10分钟', icon: 'sync_alt', title: '复习（轻档）', desc: '遮右侧，看左侧关键词张嘴说。说对打√，说错画△并重说。', checkKey: 'recite' },
-                { time: '晚间（视时间）', icon: 'task_alt', title: '做题 + 错题录入', desc: '判状态→做对应难度的题。错题进Notion：填考纲节点/根本原因/下次检查日期。', checkKey: 'practice' },
-                { time: '睡前', icon: 'lightbulb', title: '模糊点记录', desc: '今天有什么"好像懂了又说不清"的？记进模糊点本子，周末集中清。', checkKey: 'blur' }
+                { time: '课前10分钟', icon: 'visibility', title: '预习', desc: '4-P框架：看标题→猜逻辑→连旧知→写3问', checkKey: 'preview', required: true },
+                { time: '课堂', icon: 'edit_note', title: '学习', desc: '康奈尔右侧正常记，工整、分大小标题', checkKey: 'record', required: true },
+                { time: '课后30分钟', icon: 'summarize', title: '整理', desc: '康奈尔左侧写关键词、定义和一个长问题；底部写本质/理解 + 常见错误。', checkKey: 'reduce', required: true },
+                { time: '晚间5-10分钟', icon: 'sync_alt', title: '复习（轻档）', desc: '遮右侧，看左侧关键词张嘴说。说对打√，说错画△并重说。', checkKey: 'recite', required: true },
+                { time: '晚间（视时间）', icon: 'task_alt', title: '做题 + 错题录入', desc: '先判三关卡再做题。错题填考纲节点/三类主因/下次检查日期；单纯计算粗心不录入。', checkKey: 'practice', required: false },
+                { time: '睡前', icon: 'lightbulb', title: '模糊点记录', desc: '今天有什么"好像懂了又说不清"的？记进模糊点本子，周末集中清。', checkKey: 'blur', required: false }
             ],
             weekly: [
                 { time: '第1步 · 20分钟', icon: 'sync_alt', title: '复习（重档过筛子）', desc: '本周所有康奈尔页的△关键词过筛子，改√或画○。', checkKey: 'wk_review' },
@@ -1441,7 +1478,12 @@
             ]
         };
 
-        const items = timelines[granule] || timelines.daily;
+        const requiredKeys = new Set(['preview', 'record', 'reduce', 'recite', 'wk_review', 'wk_tree', 'bw_random', 'ex_mock', 'ex_puzzle']);
+        return (timelines[granule] || timelines.daily).map(item => ({ required: requiredKeys.has(item.checkKey), ...item }));
+    }
+
+    function renderGranuleTimeline(granule, dateKey) {
+        const items = getTimelineItems(granule);
         const progress = STATE.progress[dateKey] || {};
 
         return `
@@ -1457,14 +1499,14 @@
                                 ${item.time}
                             </div>
                             <div class="timeline-title">${item.title}</div>
+                            <span class="priority-badge ${item.required ? 'required' : 'optional'}">${item.required ? '必做' : '选做'}</span>
                             <div class="timeline-desc">${item.desc}</div>
                             <div class="checklist-item mt-2" onclick="toggleTodayCheck('${dateKey}', '${item.checkKey}')">
                                 <div class="checklist-checkbox ${checked ? 'checked' : ''}">
                                     <span class="material-icons-round" style="font-size: 16px;">${checked ? 'check' : ''}</span>
                                 </div>
                                 <div class="checklist-label ${checked ? 'done' : ''}">${checked ? '已完成' : '标记为已完成'}</div>
-                            </div>
-                        </div>
+                                </div>
                     `;
                 }).join('')}
             </div>
@@ -1629,7 +1671,7 @@
                                 <b>判定：</b>流畅讲完（不卡壳）→ 间隔升级（1→3→5→7→14天归档）。讲卡壳了 → 打回"明天"，重新检查。
                             </div>
                         ` : `
-                            <div class="method-step-desc">${sec.desc || ''}</div>
+                            <div class="method-step-desc">${sec.details || sec.desc || ''}</div>
                         `}
                         
                         <div class="checklist-item mt-4" onclick="toggleModuleCheck('${progressKey}_${si}', 'done')">
