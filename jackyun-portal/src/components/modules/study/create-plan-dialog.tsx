@@ -39,7 +39,7 @@ export default function CreatePlanDialog() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
-          <div className="w-full max-w-md rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
+          <div role="dialog" aria-modal="true" className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-xl sm:p-6">
             {/* Header */}
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -83,7 +83,7 @@ export default function CreatePlanDialog() {
               </div>
 
               {/* Dates */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[var(--foreground)]">
                     开始日期

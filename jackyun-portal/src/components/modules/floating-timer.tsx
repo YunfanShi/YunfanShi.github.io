@@ -101,6 +101,7 @@ export default function FlyingTimer() {
 
   return (
     <div
+      className="mobile-floating-timer"
       onMouseDown={handleMouseDown}
       onClick={handleExpand}
       style={{
@@ -108,7 +109,7 @@ export default function FlyingTimer() {
         left: `${position.x}px`,
         top: `${position.y}px`,
         zIndex: 9998,
-        width: '210px',
+        width: 'min(210px, calc(100vw - 16px))',
         background: 'rgba(17,24,39,0.92)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',

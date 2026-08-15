@@ -172,6 +172,7 @@ export default function SiteNotificationModal() {
 
   return (
     <div
+      className="site-notification-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
@@ -181,7 +182,7 @@ export default function SiteNotificationModal() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: 'max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom))',
         animation: 'fadeIn 0.25s ease',
       }}
       onClick={(e) => {
@@ -189,12 +190,14 @@ export default function SiteNotificationModal() {
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         style={{
           background: 'var(--card, #ffffff)',
           borderRadius: '16px',
           maxWidth: '860px',
           width: '100%',
-          maxHeight: '90vh',
+          maxHeight: 'calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -305,6 +308,15 @@ export default function SiteNotificationModal() {
           width: 100%;
           border-collapse: collapse;
           margin: 10px 0;
+        }
+        .notification-content {
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+        .notification-content table {
+          display: block;
+          max-width: 100%;
+          overflow-x: auto;
         }
         .notification-content table th,
         .notification-content table td {

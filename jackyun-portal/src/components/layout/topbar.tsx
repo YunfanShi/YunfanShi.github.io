@@ -102,18 +102,29 @@ export default function Topbar({ user }: TopbarProps) {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--card)] px-4 sm:px-6">
-      <div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">JackYun Workspace</p>
-        <div className="mt-0.5 text-base font-medium text-[var(--foreground)]">
-          {t('topbar.brand', lang)}
+    <header className="flex min-h-16 items-center justify-between gap-2 border-b border-[var(--sidebar-border)] bg-[var(--card)] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 md:h-16 md:py-0">
+      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+        <button
+          type="button"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] md:hidden"
+          aria-label="打开导航菜单"
+          aria-controls="portal-navigation"
+          onClick={() => window.dispatchEvent(new Event('toggle-mobile-sidebar'))}
+        >
+          <span className="material-icons-round">menu</span>
+        </button>
+        <div className="min-w-0">
+          <p className="hidden text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:block">JackYun Workspace</p>
+          <div className="mt-0.5 text-base font-medium text-[var(--foreground)]">
+            {t('topbar.brand', lang)}
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         <button
           type="button"
           onClick={toggleTheme}
-          className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:px-3"
           title={THEME_META[theme].label}
           aria-label={THEME_META[theme].label}
         >
@@ -122,7 +133,7 @@ export default function Topbar({ user }: TopbarProps) {
         {showFullscreen && (
           <button
             onClick={toggleFullscreen}
-            className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
+            className="hidden h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:flex"
             title={isFullscreen ? t('topbar.exit-fullscreen', lang) : t('topbar.fullscreen', lang)}
           >
             <span className="material-icons-round text-lg">
@@ -137,7 +148,7 @@ export default function Topbar({ user }: TopbarProps) {
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:gap-1 sm:px-3"
               >
                 <span className="material-icons-round text-lg">logout</span>
                 <span className="hidden sm:inline">{t('topbar.logout', lang)}</span>
@@ -147,7 +158,7 @@ export default function Topbar({ user }: TopbarProps) {
         ) : (
           <a
             href="/login"
-            className="flex h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043]"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:gap-1 sm:px-3"
           >
             <span className="material-icons-round text-lg">account_circle</span>
             <span className="hidden sm:inline">{t('topbar.login', lang)}</span>

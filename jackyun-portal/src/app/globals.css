@@ -52,7 +52,14 @@ body {
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   letter-spacing: -0.01em;
   text-rendering: optimizeLegibility;
+  overflow-wrap: anywhere;
 }
+
+img, video, canvas, svg { max-width: 100%; }
+
+input, textarea, select, button { max-width: 100%; }
+
+iframe { display: block; max-width: 100%; }
 
 button, a { -webkit-tap-highlight-color: transparent; }
 
@@ -185,4 +192,26 @@ button:focus-visible, a:focus-visible {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--card-border) transparent;
+}
+
+@media (max-width: 767px) {
+  [role="dialog"] {
+    max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  table { max-width: 100%; }
+  pre, .katex-display { max-width: 100%; overflow-x: auto; }
+
+  .mobile-floating-player {
+    left: auto !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  .mobile-floating-timer {
+    left: 8px !important;
+    top: auto !important;
+    bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
+  }
 }

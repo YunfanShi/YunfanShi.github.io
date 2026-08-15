@@ -1710,7 +1710,7 @@ export default function AiChatFab({
 
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
-    : 'fixed bottom-20 right-4 z-50 w-96 sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
+    : 'fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-2 z-50 w-[calc(100vw-1rem)] sm:right-4 sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
 
   // ════════════════════════════════════════════════════════
   // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
@@ -1776,7 +1776,7 @@ export default function AiChatFab({
   return (
     <>
       {open && (
-        <div className={containerClass} style={{ height: embedded ? '100%' : '620px' }}>
+        <div className={containerClass} style={{ height: embedded ? '100%' : 'min(620px, calc(100dvh - 6rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)]">
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -2124,7 +2124,7 @@ export default function AiChatFab({
       {!embedded && (
         <button
           onClick={() => setOpen((v) => !v)}
-          className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-[#4285F4] text-white shadow-lg hover:bg-[#3367d6] hover:shadow-xl active:scale-95 transition-all flex items-center justify-center"
+          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 w-12 h-12 rounded-full bg-[#4285F4] text-white shadow-lg hover:bg-[#3367d6] hover:shadow-xl active:scale-95 transition-all flex items-center justify-center"
           title="AI 助手"
         >
           <span className="material-icons-round text-xl">

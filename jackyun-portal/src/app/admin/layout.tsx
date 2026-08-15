@@ -16,9 +16,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-[#182230] dark:bg-[#111827] dark:text-white">
       <ClientLoggerBoot />
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#e4e7ec] bg-white/95 px-5 backdrop-blur dark:border-white/10 dark:bg-[#111827]/95 lg:px-8">
-        <Link href="/admin" className="flex items-center gap-3 font-semibold tracking-tight"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#155eef] text-white">J</span><span>JackYun Admin</span></Link>
-        <div className="flex items-center gap-3 text-sm text-[#667085] dark:text-[#98a2b3]"><span className="hidden sm:inline">{name}</span><Link href="/dashboard" className="rounded-lg border border-[#d0d5dd] px-3 py-1.5 font-medium hover:bg-[#f9fafb] dark:border-white/15 dark:hover:bg-white/10">返回工作台</Link></div>
+      <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-[#e4e7ec] bg-white/95 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur dark:border-white/10 dark:bg-[#111827]/95 sm:px-5 lg:h-16 lg:px-8 lg:py-0">
+        <Link href="/admin" className="flex min-w-0 items-center gap-2 font-semibold tracking-tight sm:gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#155eef] text-white">J</span><span className="truncate"><span className="sm:hidden">管理台</span><span className="hidden sm:inline">JackYun Admin</span></span></Link>
+        <div className="flex shrink-0 items-center gap-2 text-sm text-[#667085] dark:text-[#98a2b3]"><span className="hidden sm:inline">{name}</span><Link href="/dashboard" className="rounded-lg border border-[#d0d5dd] px-3 py-1.5 font-medium hover:bg-[#f9fafb] dark:border-white/15 dark:hover:bg-white/10">返回工作台</Link></div>
       </header>
       <div className="border-b border-[#e4e7ec] bg-white dark:border-white/10 dark:bg-[#111827] lg:hidden"><AdminNavigation compact /></div>
       <div className="mx-auto flex max-w-[1600px]">
@@ -26,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <p className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#98a2b3]">运营控制台</p>
           <AdminNavigation />
         </aside>
-        <main className="min-w-0 flex-1 p-5 lg:p-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-5 lg:p-8">{children}</main>
       </div>
     </div>
   );

@@ -326,7 +326,7 @@ export function NotificationManagerPanel() {
             if (e.target === e.currentTarget) setModalOpen(false);
           }}
         >
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col max-h-[85vh]">
+          <div role="dialog" aria-modal="true" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl">
             {/* Modal header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--card-border)]">
               <h3 className="text-base font-bold text-[var(--foreground)]">

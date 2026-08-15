@@ -59,13 +59,13 @@ export default function SettingsContent({
       <LanguageSwitcher />
 
       {/* 个人资料 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="person" titleKey="settings.section.profile" />
         <ProfileEditor initialName={displayName} initialAvatar={avatarUrl} userId={userId} />
       </section>
 
       {/* 账户安全 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="lock" titleKey="settings.section.security" />
         <ChangePasswordPanel hasPassword={hasPassword} />
         <div className="mt-3">
@@ -80,7 +80,7 @@ export default function SettingsContent({
       </section>
 
       {/* AI 配置 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="smart_toy" titleKey="settings.section.ai" />
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
           {t('settings.section.ai-desc', lang)}
@@ -92,7 +92,7 @@ export default function SettingsContent({
       <QuizLanguageSectionWrapper />
 
       {/* 界面设置 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="display_settings" titleKey="settings.section.ui" />
         <FullscreenToggle />
       </section>
@@ -101,13 +101,13 @@ export default function SettingsContent({
       <SidebarPrefsPanel initialPrefs={sidebarPrefs} />
 
       {/* 语音设置 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="record_voice_over" titleKey="settings.section.voice" />
         <TtsConfigPanel />
       </section>
 
       {/* 更新日志 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="history" titleKey="settings.section.changelog" />
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
           {t('settings.section.changelog-desc', lang)}
@@ -122,7 +122,7 @@ export default function SettingsContent({
       </section>
 
       {/* 关于 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="info" titleKey="settings.section.about" />
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-[#4285F4]/10 flex items-center justify-center">
@@ -138,7 +138,7 @@ export default function SettingsContent({
       </section>
 
       {/* 数据管理 */}
-      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
         <SectionHeader icon="download" titleKey="settings.section.data" />
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
           {t('settings.section.data-desc', lang)}

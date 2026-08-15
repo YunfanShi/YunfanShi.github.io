@@ -260,3 +260,143 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fi {
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
+
+/* Shared responsive foundation for both iframe and direct /temp rendering. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { max-width: 100%; }
+html { overflow-x: clip; }
+body { overflow-x: hidden; overflow-wrap: anywhere; }
+img, video, canvas, svg, iframe { max-width: 100%; }
+input, textarea, select { min-width: 0; max-width: 100%; }
+pre, code, .katex-display { max-width: 100%; overflow-x: auto; }
+
+@media (max-width: 767px) {
+  body { min-height: 100dvh; }
+  [role="button"], a.btn { min-height: 40px; }
+
+  :is(.modal, .modal-content, .modal-box, .panel-sheet, dialog, [role="dialog"]) {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  }
+  :is(.modal-content, .modal-box, .panel-sheet, dialog) {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  table { max-width: 100%; }
+  :is(.table-wrap, .table-container, .grid-scroll, .content-scroll) {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* MusicPlayer and MusicPlayerSync */
+  body:has(.player-bar) header {
+    min-height: 56px;
+    height: auto;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  body:has(.player-bar) .brand { min-width: 0; font-size: 15px; }
+  body:has(.player-bar) .tag { display: none; }
+  body:has(.player-bar) .header-right { gap: 4px; }
+  body:has(.player-bar) .sync-trigger { padding: 8px 10px; }
+  body:has(.player-bar) .container {
+    height: calc(100dvh - 57px);
+    min-height: 0;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  body:has(.player-bar) .container > aside {
+    width: 100%;
+    min-height: 220px;
+    max-height: 44dvh;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  body:has(.player-bar) .container > main {
+    min-height: 360px;
+    padding: 20px 12px calc(20px + env(safe-area-inset-bottom));
+  }
+  body:has(.player-bar) .timer-huge {
+    height: auto;
+    margin-bottom: 8px;
+    font-size: clamp(52px, 20vw, 88px);
+    letter-spacing: -4px;
+  }
+  body:has(.player-bar) .player-bar {
+    max-width: 100%;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 14px;
+  }
+  body:has(.player-bar) .card { width: calc(100vw - 16px); padding: 18px; }
+  body:has(.player-bar) .input-row { flex-wrap: wrap; }
+
+  /* Relax workspace */
+  body:has(.main-container) > .sidebar { display: none; }
+  body:has(.main-container) .main-container {
+    display: flex;
+    height: 100dvh;
+    min-width: 0;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  body:has(.main-container) .scroll-area {
+    flex: none;
+    overflow: visible;
+    padding: 20px 14px;
+  }
+  body:has(.main-container) .hero-title { margin-bottom: 24px; font-size: 2rem; }
+  body:has(.main-container) .widget-card { margin-bottom: 18px; padding: 18px; }
+  body:has(.main-container) .ai-chat-side {
+    min-height: 520px;
+    height: 72dvh;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  /* Control and Studyplan tool surfaces */
+  body:has(.iframe-container) main { min-width: 0; padding: 18px 12px; }
+  body:has(.iframe-container) header { align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  body:has(.iframe-container) .playlist-control,
+  body:has(.iframe-container) .add-song-row { flex-wrap: wrap; }
+  body:has(.iframe-container) #schedule-modal { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  body:has(.schedule-grid) dialog { width: calc(100vw - 16px); padding: 16px; }
+  body:has(.schedule-grid) .schedule-grid { grid-template-columns: 56px minmax(0, 1fr); padding-right: 0; }
+
+  /* Remaining dense legacy screens */
+  .questions-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .stat-grid { gap: 8px !important; }
+  .stats-grid { gap: 8px !important; }
+  .main-scroll { min-width: 0; }
+  body:has(.main-scroll) .main { padding: 12px; }
+  .content-container { width: 100% !important; padding-inline: 12px !important; }
+  #wardenSyncBanner { right: 8px !important; bottom: max(8px, env(safe-area-inset-bottom)) !important; width: calc(100vw - 16px) !important; }
+  #musicIndicator { right: 8px !important; max-width: calc(100vw - 16px); }
+
+  /* Goal toolbar keeps every action reachable without widening the page. */
+  body:has(.topbar-r) .topbar {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  body:has(.topbar-r) .brand { flex: 0 0 auto; }
+  body:has(.topbar-r) .brand-name,
+  body:has(.topbar-r) .ai-badge { display: none; }
+  body:has(.topbar-r) .topbar-r {
+    min-width: 0;
+    flex: 1;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+  body:has(.topbar-r) .topbar-r::-webkit-scrollbar { display: none; }
+  body:has(.topbar-r) .topbar-r > * { flex: 0 0 auto; }
+  body:has(.topbar-r) .overlay .modal { max-width: 100% !important; }
+
+  /* Control's closed AI drawer must not create an off-canvas scroll area. */
+  body:has(.ai-sidebar) .ai-sidebar { width: min(380px, 100vw); }
+  body:has(.ai-sidebar) .ai-sidebar:not(.active) { display: none; }
+  body:has(.ai-sidebar) .ai-sidebar.active { display: flex; }
+}

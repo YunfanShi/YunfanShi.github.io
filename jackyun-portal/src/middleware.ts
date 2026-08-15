@@ -139,9 +139,9 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - api/ routes (handle auth independently via createClient)
-     * - Static assets (svg, png, jpg, jpeg, gif, webp)
+     * - Static assets (styles, scripts, fonts, images and source maps)
      * - Common bot/crawler paths (wp-admin, wp-login, xmlrpc, .env, phpmyadmin)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|wp-admin|wp-login|xmlrpc|\\.env|phpmyadmin).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:css|js|map|woff2?|ttf|otf|svg|png|jpg|jpeg|gif|webp)$|wp-admin|wp-login|xmlrpc|\\.env|phpmyadmin).*)',
   ],
 };

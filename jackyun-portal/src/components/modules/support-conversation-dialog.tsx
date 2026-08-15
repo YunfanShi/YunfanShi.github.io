@@ -65,10 +65,10 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
     startTransition(async () => { const result = await respondRemoteAssistance(remoteRequest.id, approved); if (!result.success) return setNotice(result.error ?? '授权操作失败。'); setRemoteRequest((current) => current ? { ...current, status: approved ? 'approved' : 'denied' } : null); });
   };
 
-  if (minimized) return <button type="button" onClick={() => setMinimized(false)} className="fixed bottom-5 right-5 z-[120] flex items-center gap-2 rounded-full bg-[#155eef] px-4 py-3 text-sm font-semibold text-white shadow-2xl"><span className="material-icons-round">support_agent</span>客服对话</button>;
+  if (minimized) return <button type="button" onClick={() => setMinimized(false)} className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-[120] flex items-center gap-2 rounded-full bg-[#155eef] px-4 py-3 text-sm font-semibold text-white shadow-2xl"><span className="material-icons-round">support_agent</span>客服对话</button>;
   return (
     <div className="fixed inset-0 z-[120] flex justify-end bg-[#101828]/35 p-3 backdrop-blur-[1px] sm:p-5" onClick={() => setMinimized(true)}>
-      <section className="flex h-[calc(100vh-1.5rem)] w-full max-w-[960px] flex-col overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl sm:h-[calc(100vh-2.5rem)]" onClick={(event) => event.stopPropagation()}>
+      <section role="dialog" aria-modal="true" className="flex h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full max-w-[960px] flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl sm:h-[calc(100dvh-2.5rem)] sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-[var(--card-border)] px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#155eef] text-white">

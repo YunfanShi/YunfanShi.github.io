@@ -65,11 +65,11 @@ export default async function PortalLayout({
   return (
     <LanguageProvider initialLanguage={language}>
       <ClientLoggerBoot />
-      <div className="flex h-screen overflow-hidden bg-[var(--background)]">
+      <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar user={user} />
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
         <LegacyBridge />
         <KeyboardShortcuts />

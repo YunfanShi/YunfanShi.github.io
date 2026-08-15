@@ -401,7 +401,7 @@ export default function CountdownApp({ initialCountdowns }: { initialCountdowns:
       {/* Add/Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="w-full max-w-md rounded-[16px] bg-[var(--card)] border border-[var(--card-border)] shadow-2xl overflow-hidden">
+          <div role="dialog" aria-modal="true" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl">
             {/* Modal header */}
             <div className="flex items-center justify-between border-b border-[var(--card-border)] px-5 py-4">
               <h2 className="text-base font-semibold text-[var(--foreground)]">
@@ -413,7 +413,7 @@ export default function CountdownApp({ initialCountdowns }: { initialCountdowns:
             </div>
 
             {/* Modal body */}
-            <div className="p-5">
+            <div className="overflow-y-auto p-4 sm:p-5">
               {formError && (
                 <div className="mb-4 flex items-center gap-2 rounded-[8px] bg-[#ea433515] px-3 py-2 text-sm text-[#ea4335]">
                   <span className="material-icons-round text-base">error_outline</span>

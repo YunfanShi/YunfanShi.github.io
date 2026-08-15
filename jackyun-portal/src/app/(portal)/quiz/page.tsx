@@ -37,16 +37,16 @@ export default function QuizPage() {
   // Show the HTML version in an iframe
   if (version === 'html') {
     return (
-      <div className="flex flex-col h-full">
+      <div className="-m-3 flex h-[calc(100%+1.5rem)] min-h-0 flex-col sm:-m-6 sm:h-[calc(100%+3rem)] lg:-m-8 lg:h-[calc(100%+4rem)]">
         {/* Version switcher bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--card-border)] bg-[var(--card)] flex-shrink-0">
-          <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--card-border)] bg-[var(--card)] px-3 py-2 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2 text-sm">
             <span className="material-icons-round text-[var(--muted-foreground)] text-base">psychology</span>
             <span className="font-medium text-[var(--foreground)]">QuizWise 刷题</span>
-            <span className="text-xs text-[var(--muted-foreground)] px-2 py-0.5 rounded bg-[var(--background)] border border-[var(--card-border)]">HTML 版</span>
+            <span className="hidden text-xs text-[var(--muted-foreground)] px-2 py-0.5 rounded bg-[var(--background)] border border-[var(--card-border)] sm:inline">HTML 版</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--muted-foreground)]">版本：</span>
+            <span className="hidden text-xs text-[var(--muted-foreground)] sm:inline">版本：</span>
             <button
               onClick={() => {
                 selectVersion('html');
@@ -82,7 +82,7 @@ export default function QuizPage() {
         {/* First-time selection dialog */}
         {showDialog && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-[var(--card)] border border-[var(--card-border)] rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6 animate-scale-in">
+            <div role="dialog" aria-modal="true" className="mx-3 max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl animate-scale-in sm:mx-4 sm:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <span className="material-icons-round text-2xl text-[#4285F4]">psychology</span>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">选择 QuizWise 版本</h2>
@@ -92,7 +92,7 @@ export default function QuizPage() {
                 请选择你偏好的 QuizWise 版本。你可以稍后在设置中更改。
               </p>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="mb-6 grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 sm:gap-4">
                 <button
                   onClick={() => selectVersion('html')}
                   className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-[var(--card-border)] hover:border-[#4285F4]/40 hover:bg-[#4285F4]/5 transition-all text-left"

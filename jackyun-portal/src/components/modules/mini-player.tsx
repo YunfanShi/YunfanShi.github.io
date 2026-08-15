@@ -249,7 +249,7 @@ export default function MiniPlayer() {
   if (!expanded) {
     return (
       <div
-        className="fixed z-[60] w-10 h-10 rounded-full bg-[#c20c0c] shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform animate-pulse"
+        className="mobile-floating-player fixed z-[60] w-10 h-10 rounded-full bg-[#c20c0c] shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform animate-pulse"
         style={{ left: position.x, top: position.y }}
         onClick={handleIconClick}
         title={`播放中${songName ? ': ' + songName : ''}`}
@@ -262,11 +262,11 @@ export default function MiniPlayer() {
   // 展开状态：原生播放器控件
   return (
     <div
-      className="fixed z-[60] rounded-xl overflow-hidden shadow-2xl border border-[#333] bg-[#1a1a2e] select-none"
+      className="mobile-floating-player fixed z-[60] rounded-xl overflow-hidden shadow-2xl border border-[#333] bg-[#1a1a2e] select-none"
       style={{
         left: position.x,
         top: position.y,
-        width: 320,
+        width: 'min(320px, calc(100vw - 16px))',
         cursor: dragging ? 'grabbing' : 'grab',
       }}
     >

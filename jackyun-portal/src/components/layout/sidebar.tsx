@@ -71,12 +71,22 @@ export default function Sidebar({ initialPrefs }: Props) {
   const pathname = usePathname();
   const { lang } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileViewport, setMobileViewport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [prefs, setPrefs] = useState<SidebarPreferences>(initialPrefs);
   const [showFirstTimeDialog, setShowFirstTimeDialog] = useState(false);
   const [timestamps, setTimestamps] = useState<Record<string, string>>({});
 
   // Load timestamps and record current page visit
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const updateViewport = () => setMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener('change', updateViewport);
+    return () => media.removeEventListener('change', updateViewport);
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -120,6 +130,33 @@ export default function Sidebar({ initialPrefs }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleMobileToggle = () => setMobileOpen((open) => !open);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+
+    window.addEventListener('toggle-mobile-sidebar', handleMobileToggle);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('toggle-mobile-sidebar', handleMobileToggle);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
+
   // Separate effect for admin check
   useEffect(() => {
     fetch('/api/llm-proxy', {
@@ -157,14 +194,26 @@ export default function Sidebar({ initialPrefs }: Props) {
 
   return (
     <>
+      <button
+        type="button"
+        aria-label="关闭导航菜单"
+        className={`fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] transition-opacity md:hidden ${
+          mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={() => setMobileOpen(false)}
+      />
       <aside
-        className={`flex flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] transition-all duration-200 ${
-          collapsed ? 'w-16' : 'w-64'
+        id="portal-navigation"
+        inert={mobileViewport && !mobileOpen ? true : undefined}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[min(20rem,calc(100vw-3rem))] flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-2xl transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:shadow-none ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
+          collapsed ? 'md:w-16' : 'md:w-64'
         }`}
       >
         {/* Header */}
         <div className="flex h-16 items-center justify-between border-b border-[var(--sidebar-border)] px-4 flex-shrink-0">
-          {!collapsed && (
+          {(!collapsed || mobileViewport) && (
             <div className="flex items-center gap-3">
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--brand)] text-sm font-bold text-white dark:text-[#202124]">J</div>
               <div>
@@ -175,7 +224,7 @@ export default function Sidebar({ initialPrefs }: Props) {
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="ml-auto grid h-9 w-9 place-items-center rounded-lg transition-colors hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]"
+            className="ml-auto hidden h-11 w-11 place-items-center rounded-lg transition-colors hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] md:grid"
             aria-label="Toggle sidebar"
           >
             <span className="material-icons-round text-xl text-[var(--muted-foreground)]">
@@ -198,6 +247,7 @@ export default function Sidebar({ initialPrefs }: Props) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMobileOpen(false)}
                 className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6] dark:text-[#d2e3fc]'
@@ -211,7 +261,7 @@ export default function Sidebar({ initialPrefs }: Props) {
                 >
                   {item.icon}
                 </span>
-                {!collapsed && (
+                {(!collapsed || mobileViewport) && (
                   <span className="flex-1 min-w-0">
                     <span className="block truncate">{t(item.labelKey, lang)}</span>
                     {ts && (
@@ -251,7 +301,7 @@ function FirstTimeDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl animate-scale-in">
+      <div role="dialog" aria-modal="true" className="mx-4 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl animate-scale-in sm:p-6">
         <h2 className="text-lg font-semibold text-[var(--foreground)] mb-1">
           {t('sidebar.first-time.title', lang)}
         </h2>

@@ -603,7 +603,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
   }
 
   return (
-    <div className="-m-4 h-[calc(100vh-72px)] overflow-hidden sm:-m-6 lg:-m-8">
+    <div className="-m-3 h-[calc(100%+1.5rem)] min-h-0 overflow-hidden sm:-m-6 sm:h-[calc(100%+3rem)] lg:-m-8 lg:h-[calc(100%+4rem)]">
       <iframe
         ref={iframeRef}
         srcDoc={srcdoc}

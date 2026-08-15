@@ -41,7 +41,7 @@ export default function ToolsTabs() {
       </div>
 
       {/* Content card */}
-      <div className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
+      <div className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-3 sm:p-5">
         <div className="flex items-center gap-2 mb-5">
           <span className="material-icons-round text-xl" style={{ color: activeTab.color }}>
             {activeTab.icon}

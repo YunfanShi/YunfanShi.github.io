@@ -38,7 +38,7 @@ export default function LanguageSwitcher() {
       {/* Language selection modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl animate-scale-in">
+          <div role="dialog" aria-modal="true" className="mx-4 max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl animate-scale-in sm:p-6">
             <h2 className="text-lg font-semibold text-[var(--foreground)] mb-1">
               {t('language.title', lang)}
             </h2>

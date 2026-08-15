@@ -55,7 +55,7 @@ export default function NotificationInbox() {
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen(!open)} aria-label="通知中心" className="relative grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--background)]">
+      <button type="button" onClick={() => setOpen(!open)} aria-label="通知中心" className="relative grid h-11 w-11 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--background)] sm:h-9 sm:w-9">
         <span className="material-icons-round text-xl">notifications</span>
         {unread > 0 && <span className="absolute right-0 top-0 min-w-4 rounded-full bg-[#d92d20] px-1 text-[10px] font-bold leading-4 text-white">{unread > 9 ? '9+' : unread}</span>}
       </button>
@@ -82,7 +82,9 @@ export default function NotificationInbox() {
           onClick={() => setSelected(null)}
         >
           <article
-            className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-[var(--card)] p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-[var(--card)] p-4 shadow-2xl sm:p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">

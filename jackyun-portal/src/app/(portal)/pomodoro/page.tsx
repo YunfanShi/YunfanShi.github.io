@@ -494,7 +494,7 @@ export default function PomodoroPage() {
                 {/* Delete */}
                 <button
                   onClick={(event) => { event.stopPropagation(); removeTask(task.id); }}
-                  className="p-1 rounded hover:bg-[#EA4335]/10 text-[var(--muted-foreground)] hover:text-[#EA4335] transition-colors flex-shrink-0"
+                  className="grid h-10 w-10 flex-shrink-0 place-items-center rounded hover:bg-[#EA4335]/10 text-[var(--muted-foreground)] hover:text-[#EA4335] transition-colors"
                 >
                   <span className="material-icons-round text-base">close</span>
                 </button>
@@ -525,7 +525,7 @@ export default function PomodoroPage() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md bg-[var(--card)] border border-[var(--card-border)] rounded-[16px] shadow-2xl p-6">
+          <div role="dialog" aria-modal="true" className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[16px] border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-[var(--foreground)]">番茄钟设置</h2>
               <button
