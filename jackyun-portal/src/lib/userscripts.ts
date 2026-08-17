@@ -8,7 +8,11 @@ export interface UserscriptEntry {
   description: string;
   sites: string[];
   features: string[];
-  file: string;
+  file?: string;
+  installUrl?: string;
+  sourceUrl?: string;
+  license?: string;
+  external?: boolean;
   caution?: string;
 }
 
@@ -83,5 +87,47 @@ export const USERSCRIPTS: UserscriptEntry[] = [
     sites: ['yunfanshi.github.io/Relax.html'],
     features: ['指令解释', '即时监听', '轻量 UI'],
     file: '/userscripts/relax-interpreter.user.js',
+  },
+  {
+    id: 'youtube-alchemy',
+    name: 'YouTube Alchemy',
+    version: 'GitHub',
+    category: 'study',
+    description: '面向 YouTube 学习场景的社区增强脚本，提供字幕与 transcript 导出、播放速度、默认字幕语言、隐藏 Shorts 等大量选项。',
+    sites: ['youtube.com'],
+    features: ['Transcript 导出', '播放控制', '字幕语言', '隐藏干扰内容'],
+    installUrl: 'https://raw.githubusercontent.com/TimMacy/YouTubeAlchemy/main/YouTubeAlchemy.js',
+    sourceUrl: 'https://github.com/TimMacy/YouTubeAlchemy',
+    license: 'AGPL-3.0',
+    external: true,
+    caution: '第三方项目会独立更新；安装前请在 GitHub 查看最新说明和权限。',
+  },
+  {
+    id: 'immersive-translate',
+    name: '沉浸式翻译 · Userscript',
+    version: '官方发布版',
+    category: 'study',
+    description: '为网页、PDF、EPUB 和字幕提供双语对照翻译，适合阅读英文资料和进行语言学习。',
+    sites: ['多网站', 'PDF', 'EPUB'],
+    features: ['双语对照', 'PDF 翻译', '字幕翻译', '输入框翻译'],
+    installUrl: 'https://download.immersivetranslate.com/immersive-translate.user.js',
+    sourceUrl: 'https://github.com/immersive-translate/immersive-translate',
+    license: '非开源发布版',
+    external: true,
+    caution: '翻译内容可能发送给你选择的翻译服务；该 GitHub 仓库用于发布版本，不包含当前源代码。',
+  },
+  {
+    id: 'bilibili-subtitle-download',
+    name: 'Bilibili International Subtitle Downloader',
+    version: 'GitHub',
+    category: 'study',
+    description: '为 Bilibili International 视频提供字幕下载入口，适合保存课程字幕后做笔记或语言分析。',
+    sites: ['bilibili.tv'],
+    features: ['字幕下载', '课程笔记', 'Tampermonkey'],
+    installUrl: 'https://raw.githubusercontent.com/AdvMaple/bilibili-subtitle-download-plugin/feature/download.user.js',
+    sourceUrl: 'https://github.com/AdvMaple/bilibili-subtitle-download-plugin',
+    license: '仓库未明确标注',
+    external: true,
+    caution: '这是较早的社区脚本，主要面向 Bilibili International；网页结构变化后可能失效。',
   },
 ];

@@ -1,4 +1,15 @@
-export type ResourceCategory = 'igcse' | 'alevel-cie' | 'alevel-edexcel' | 'ielts' | 'computer' | 'tools';
+export type ResourceCategory =
+  | 'igcse'
+  | 'alevel-cie'
+  | 'alevel-edexcel'
+  | 'ielts'
+  | 'ai'
+  | 'math-science'
+  | 'computer'
+  | 'courses'
+  | 'language'
+  | 'research'
+  | 'tools';
 
 export interface LearningResource {
   name: string;
@@ -16,7 +27,12 @@ export const RESOURCE_CATEGORIES: { id: 'all' | ResourceCategory; label: string;
   { id: 'alevel-cie', label: 'A Level · CIE', icon: 'science' },
   { id: 'alevel-edexcel', label: 'A Level · Edexcel', icon: 'calculate' },
   { id: 'ielts', label: 'English · IELTS', icon: 'translate' },
+  { id: 'ai', label: 'AI 助手', icon: 'smart_toy' },
+  { id: 'math-science', label: '数学与科学', icon: 'functions' },
   { id: 'computer', label: 'Computer', icon: 'terminal' },
+  { id: 'courses', label: '公开课程', icon: 'cast_for_education' },
+  { id: 'language', label: '语言学习', icon: 'record_voice_over' },
+  { id: 'research', label: '知识与论文', icon: 'manage_search' },
   { id: 'tools', label: '学习工具', icon: 'auto_awesome' },
 ];
 
@@ -115,6 +131,90 @@ export const LEARNING_RESOURCES: LearningResource[] = [
     source: 'bookmark',
   },
   {
+    name: 'ChatGPT',
+    url: 'https://chatgpt.com/',
+    category: 'ai',
+    description: '适合概念讲解、写作反馈、代码分析与基于文件的学习对话；重要结论仍需核对原始资料。',
+    tags: ['OpenAI', '文件分析', '写作', '编程'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Claude',
+    url: 'https://claude.ai/',
+    category: 'ai',
+    description: '适合阅读长文档、整理思路、逐步讲解复杂概念，以及生成可交互的学习内容。',
+    tags: ['Anthropic', '长文档', '分析', '编程'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Google Gemini',
+    url: 'https://gemini.google.com/',
+    category: 'ai',
+    description: 'Google 的多模态 AI 助手，适合结合图片、网页与 Google 服务完成学习任务。',
+    tags: ['Google', '多模态', 'Research'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'DeepSeek',
+    url: 'https://chat.deepseek.com/',
+    category: 'ai',
+    description: '中文友好的通用 AI 助手，可用于推理、数学与代码问题的讨论和解题复盘。',
+    tags: ['中文', 'Reasoning', 'Math', 'Code'],
+    source: 'official',
+  },
+  {
+    name: 'Qwen Chat',
+    url: 'https://chat.qwen.ai/',
+    category: 'ai',
+    description: '通义千问官方聊天入口，适合中文学习、多模态理解、文档整理与编程辅助。',
+    tags: ['Alibaba', '中文', '多模态'],
+    source: 'official',
+  },
+  {
+    name: 'Perplexity',
+    url: 'https://www.perplexity.ai/',
+    category: 'ai',
+    description: '以搜索与引用来源为核心的 AI 问答，适合建立资料线索；引用内容仍应打开原文确认。',
+    tags: ['AI Search', 'Sources', 'Research'],
+    source: 'added',
+  },
+  {
+    name: 'Khan Academy',
+    url: 'https://www.khanacademy.org/',
+    category: 'math-science',
+    description: '覆盖中小学到大学基础数学、科学、经济与计算机课程，包含视频和分级练习。',
+    tags: ['Math', 'Science', 'Practice'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Wolfram|Alpha',
+    url: 'https://www.wolframalpha.com/',
+    category: 'math-science',
+    description: '用于计算、绘图、单位换算和查询数学科学事实；适合验证过程而不是只抄最终答案。',
+    tags: ['Calculator', 'Algebra', 'Science'],
+    source: 'official',
+  },
+  {
+    name: 'GeoGebra',
+    url: 'https://www.geogebra.org/',
+    category: 'math-science',
+    description: '免费的几何、代数、函数图像、微积分与 3D 数学可视化工具。',
+    tags: ['Geometry', 'Graphing', 'Visualization'],
+    source: 'official',
+  },
+  {
+    name: 'PhET Interactive Simulations',
+    url: 'https://phet.colorado.edu/',
+    category: 'math-science',
+    description: 'University of Colorado Boulder 提供的交互式物理、化学、数学和地球科学模拟。',
+    tags: ['Physics', 'Chemistry', 'Simulation'],
+    source: 'official',
+  },
+  {
     name: 'CS50P · Python',
     url: 'https://www.youtube.com/watch?v=nLRL_NcnK-4',
     category: 'computer',
@@ -146,6 +246,105 @@ export const LEARNING_RESOURCES: LearningResource[] = [
     description: '网页开发与常见编程语言的交互式入门教程和语法参考。',
     tags: ['Web', 'Reference', 'Tutorial'],
     source: 'bookmark',
+  },
+  {
+    name: 'MIT OpenCourseWare',
+    url: 'https://ocw.mit.edu/',
+    category: 'courses',
+    description: '免费浏览 MIT 各院系课程资料，常见内容包括 syllabus、讲义、作业、考试与公开视频。',
+    tags: ['MIT', 'Open Access', 'University'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'freeCodeCamp',
+    url: 'https://www.freecodecamp.org/learn/',
+    category: 'courses',
+    description: '免费的项目式编程课程，覆盖网页开发、Python、数据分析和机器学习基础。',
+    tags: ['Coding', 'Projects', 'Free'],
+    source: 'official',
+  },
+  {
+    name: 'edX',
+    url: 'https://www.edx.org/',
+    category: 'courses',
+    description: '汇集大学和机构在线课程；部分课程可免费旁听，证书或评分功能可能收费。',
+    tags: ['MOOC', 'University', 'Courses'],
+    source: 'added',
+  },
+  {
+    name: 'Coursera',
+    url: 'https://www.coursera.org/courses',
+    category: 'courses',
+    description: '大学和企业课程平台，适合结构化学习；免费旁听和付费项目因课程而异。',
+    tags: ['MOOC', 'Certificates', 'Courses'],
+    source: 'added',
+  },
+  {
+    name: 'BBC Learning English',
+    url: 'https://www.bbc.co.uk/learningenglish/',
+    category: 'language',
+    description: '按水平提供听力、口语、词汇、语法、新闻英语与短时长课程。',
+    tags: ['Listening', 'Vocabulary', 'News'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Cambridge Dictionary',
+    url: 'https://dictionary.cambridge.org/',
+    category: 'language',
+    description: '查询英英释义、英美发音、搭配和真实例句，适合 IELTS 写作与词汇积累。',
+    tags: ['Dictionary', 'Pronunciation', 'Examples'],
+    source: 'official',
+  },
+  {
+    name: 'YouGlish',
+    url: 'https://youglish.com/',
+    category: 'language',
+    description: '从真实视频片段中检索单词和短语的发音与上下文用法。',
+    tags: ['Pronunciation', 'Context', 'Video'],
+    source: 'added',
+  },
+  {
+    name: 'AnkiWeb',
+    url: 'https://ankiweb.net/',
+    category: 'language',
+    description: '基于间隔重复的记忆卡同步服务，适合词汇、定义、公式和知识点长期复习。',
+    tags: ['SRS', 'Flashcards', 'Memory'],
+    source: 'official',
+  },
+  {
+    name: 'Google Scholar',
+    url: 'https://scholar.google.com/',
+    category: 'research',
+    description: '检索论文、书籍、会议文章和引用关系，适合从综述或高被引资料开始研究。',
+    tags: ['Papers', 'Citations', 'Academic'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'arXiv',
+    url: 'https://arxiv.org/',
+    category: 'research',
+    description: '数学、物理、计算机科学等领域的开放预印本平台；内容通常尚未经过正式同行评审。',
+    tags: ['Preprints', 'STEM', 'Open Access'],
+    source: 'official',
+  },
+  {
+    name: 'Wikipedia',
+    url: 'https://www.wikipedia.org/',
+    category: 'research',
+    description: '快速建立主题全貌与关键词的起点；正式写作时应继续查看页面引用的原始来源。',
+    tags: ['Encyclopedia', 'Overview', 'References'],
+    source: 'official',
+  },
+  {
+    name: 'Internet Archive',
+    url: 'https://archive.org/',
+    category: 'research',
+    description: '非营利数字图书馆，可查历史网页、书籍、音视频与软件档案。',
+    tags: ['Archive', 'Books', 'Wayback Machine'],
+    source: 'official',
   },
   {
     name: 'NotebookLM',
