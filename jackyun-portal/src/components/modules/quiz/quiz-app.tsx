@@ -47,6 +47,9 @@ function normalizeQuestionType(raw: string): QuestionType {
   const map: Record<string, QuestionType> = {
     multiple_choice: 'multiple_choice',
     mcq: 'multiple_choice',
+    multi_select: 'multi_select',
+    multiple_select: 'multi_select',
+    checkbox: 'multi_select',
     fill_blank: 'fill_blank',
     fill: 'fill_blank',
     essay: 'essay',
@@ -55,6 +58,8 @@ function normalizeQuestionType(raw: string): QuestionType {
     true_false: 'true_false',
     tf: 'true_false',
     matching: 'matching',
+    ordering: 'ordering',
+    sequence: 'ordering',
   };
   const key = (raw || '').toLowerCase().replace(/[\s-]/g, '_');
   return map[key] || 'essay';
@@ -157,7 +162,10 @@ export default function QuizApp() {
     // Objective questions (MC/TF): instant local check, no AI delay
     if (
       questionData.type === 'multiple_choice' ||
-      questionData.type === 'true_false'
+      questionData.type === 'true_false' ||
+      questionData.type === 'multi_select' ||
+      questionData.type === 'matching' ||
+      questionData.type === 'ordering'
     ) {
       isCorrect = checkMultipleChoice(answer, questionData.correctAnswer);
       

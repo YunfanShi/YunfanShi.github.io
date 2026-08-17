@@ -126,6 +126,31 @@
         @keyframes pulse { 50% { opacity: 0.5; } }
         @keyframes rotate { 100% { transform: rotate(360deg); } }
         .spin { animation: rotate 1s linear infinite; }
+
+        @media (max-width: 767px) {
+            body { min-height: 100dvh; height: auto; overflow-y: auto; }
+            header { height: auto; min-height: 64px; padding: 10px 12px; gap: 8px; }
+            .brand { min-width: 0; font-size: 14px; }
+            .brand .tag { display: none; }
+            .header-right { gap: 5px !important; }
+            .sync-trigger { min-width: 44px; min-height: 44px; padding: 8px 10px; justify-content: center; }
+            #sync-main-txt { display: none; }
+            .header-right .stats { display: none !important; }
+            .container { display: flex; height: auto; min-height: calc(100dvh - 64px); flex-direction: column; }
+            aside { width: 100%; min-height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid var(--border); }
+            #masterPanel { min-height: auto; }
+            .panel { padding: 14px 12px; }
+            .input-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+            input { min-width: 0; width: 100%; }
+            .list { max-height: 32dvh; flex: none; }
+            main { min-height: 390px; padding: 28px 12px calc(24px + env(safe-area-inset-bottom)); justify-content: flex-start; }
+            .status-pill { margin-bottom: 28px; }
+            .timer-huge { height: auto; min-height: 76px; margin-bottom: 12px; font-size: clamp(48px, 17vw, 76px); letter-spacing: -4px; }
+            .player-bar { width: 100%; max-width: 430px; justify-content: space-between; gap: 6px; margin-top: 28px; padding: 12px; }
+            .ctrl-btn { width: 44px; height: 44px; flex: none; }
+            .ctrl-btn.huge { width: 60px; height: 60px; }
+            .card { width: calc(100% - 20px); max-height: calc(100dvh - 20px); overflow-y: auto; padding: 20px 16px; }
+        }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css">
 <style id="jackyun-music-sync-three-themes">

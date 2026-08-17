@@ -43,6 +43,13 @@ const ACTIVE_ID_KEY = 'jackyun-ai-active-conversation';
 const MAX_CONTEXT_ROUNDS = 30; // 保留最近 30 轮（60 条消息）
 const MAX_CONVERSATIONS = 50; // 最多保留 50 个对话
 const MAX_AGENT_LOOPS = 8; // Agent 最大推理循环次数（防止死循环）
+const FAB_POSITION_KEY = 'jackyun-ai-fab-position';
+
+interface FabPosition {
+  x: number;
+  y: number;
+  dock: 'left' | 'right' | null;
+}
 
 interface AiChatFabProps {
   scope?: ToolScope;
@@ -634,6 +641,10 @@ export default function AiChatFab({
   const pathname = usePathname();
   const currentPath = propPath || pathname || '';
   const [open, setOpen] = useState(embedded);
+  const [fabPosition, setFabPosition] = useState<FabPosition | null>(null);
+  const [isDraggingFab, setIsDraggingFab] = useState(false);
+  const dragStartRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+  const dragMovedRef = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvIdState] = useState<string | null>(null);
@@ -672,6 +683,73 @@ export default function AiChatFab({
   const messagesRef = useRef<Message[]>([]);
   // 同步的当前会话 ID ref（避免 state 异步更新导致的首次对话消息丢失问题）
   const activeConvIdRef = useRef<string | null>(null);
+
+  const clampFabPosition = useCallback((position: FabPosition): FabPosition => {
+    if (typeof window === 'undefined') return position;
+    const buttonSize = 48;
+    return {
+      ...position,
+      x: Math.min(Math.max(position.x, position.dock === 'left' ? -20 : 8), window.innerWidth - (position.dock === 'right' ? 28 : buttonSize + 8)),
+      y: Math.min(Math.max(position.y, 8), window.innerHeight - buttonSize - 8),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (embedded) return;
+    const fallback: FabPosition = { x: window.innerWidth - 64, y: window.innerHeight - 72, dock: 'right' };
+    try {
+      const saved = JSON.parse(localStorage.getItem(FAB_POSITION_KEY) || 'null') as FabPosition | null;
+      setFabPosition(clampFabPosition(saved ?? fallback));
+    } catch {
+      setFabPosition(clampFabPosition(fallback));
+    }
+    const handleResize = () => setFabPosition((previous) => previous ? clampFabPosition(previous) : previous);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [clampFabPosition, embedded]);
+
+  useEffect(() => {
+    if (!fabPosition || embedded) return;
+    try { localStorage.setItem(FAB_POSITION_KEY, JSON.stringify(fabPosition)); } catch {}
+  }, [fabPosition, embedded]);
+
+  const startFabDrag = useCallback((event: React.PointerEvent) => {
+    if (embedded || !fabPosition) return;
+    if ((event.target as HTMLElement).closest('button, input, textarea, select, a')) return;
+    dragMovedRef.current = false;
+    dragStartRef.current = {
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      x: fabPosition.x,
+      y: fabPosition.y,
+    };
+    setIsDraggingFab(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }, [embedded, fabPosition]);
+
+  const moveFab = useCallback((event: React.PointerEvent) => {
+    const start = dragStartRef.current;
+    if (!start) return;
+    const dx = event.clientX - start.pointerX;
+    const dy = event.clientY - start.pointerY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) dragMovedRef.current = true;
+    setFabPosition(clampFabPosition({ x: start.x + dx, y: start.y + dy, dock: null }));
+  }, [clampFabPosition]);
+
+  const endFabDrag = useCallback(() => {
+    if (!dragStartRef.current) return;
+    dragStartRef.current = null;
+    setIsDraggingFab(false);
+    setFabPosition((previous) => {
+      if (!previous || typeof window === 'undefined') return previous;
+      const dock = previous.x + 24 < window.innerWidth / 2 ? 'left' : 'right';
+      return clampFabPosition({
+        x: dock === 'left' ? -20 : window.innerWidth - 28,
+        y: previous.y,
+        dock,
+      });
+    });
+  }, [clampFabPosition]);
 
   // 同步 ref 和 state 的会话 ID 设置函数
   const setActiveConvId = useCallback((id: string | null) => {
@@ -1710,7 +1788,7 @@ export default function AiChatFab({
 
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
-    : 'fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-2 z-50 w-[calc(100vw-1rem)] sm:right-4 sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden';
+    : `fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 w-[calc(100vw-1rem)] sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden ${fabPosition?.dock === 'left' ? 'left-2 sm:left-4' : 'right-2 sm:right-4'}`;
 
   // ════════════════════════════════════════════════════════
   // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
@@ -1778,7 +1856,14 @@ export default function AiChatFab({
       {open && (
         <div className={containerClass} style={{ height: embedded ? '100%' : 'min(620px, calc(100dvh - 6rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)]">
+          <div
+            className={`flex touch-none items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)] ${embedded ? '' : 'cursor-grab active:cursor-grabbing'}`}
+            onPointerDown={startFabDrag}
+            onPointerMove={moveFab}
+            onPointerUp={endFabDrag}
+            onPointerCancel={endFabDrag}
+            title={embedded ? undefined : '拖动可移动并贴边收起'}
+          >
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <button
                 onClick={() => setSidebarOpen(v => !v)}
@@ -2123,12 +2208,24 @@ export default function AiChatFab({
       {/* FAB */}
       {!embedded && (
         <button
-          onClick={() => setOpen((v) => !v)}
-          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 w-12 h-12 rounded-full bg-[#4285F4] text-white shadow-lg hover:bg-[#3367d6] hover:shadow-xl active:scale-95 transition-all flex items-center justify-center"
-          title="AI 助手"
+          onClick={() => {
+            if (dragMovedRef.current) {
+              dragMovedRef.current = false;
+              return;
+            }
+            setOpen((v) => !v);
+          }}
+          onPointerDown={startFabDrag}
+          onPointerMove={moveFab}
+          onPointerUp={endFabDrag}
+          onPointerCancel={endFabDrag}
+          style={fabPosition ? { left: fabPosition.x, top: fabPosition.y } : undefined}
+          className={`fixed z-50 flex h-12 w-12 touch-none items-center justify-center bg-[#4285F4] text-white shadow-lg transition-[transform,background-color,box-shadow,border-radius] hover:bg-[#3367d6] hover:shadow-xl active:scale-95 ${fabPosition ? '' : 'bottom-[max(1rem,env(safe-area-inset-bottom))] right-4'} ${isDraggingFab ? 'cursor-grabbing scale-105' : 'cursor-grab'} ${fabPosition?.dock === 'left' ? 'rounded-r-full rounded-l-none justify-end pr-2' : fabPosition?.dock === 'right' ? 'rounded-l-full rounded-r-none justify-start pl-2' : 'rounded-full'}`}
+          title="AI 助手（拖动可贴边收起）"
+          aria-label={open ? '关闭 AI 助手' : '打开 AI 助手'}
         >
           <span className="material-icons-round text-xl">
-            {open ? 'close' : 'smart_toy'}
+            {open ? 'close' : fabPosition?.dock === 'left' ? 'chevron_right' : fabPosition?.dock === 'right' ? 'chevron_left' : 'smart_toy'}
           </span>
         </button>
       )}

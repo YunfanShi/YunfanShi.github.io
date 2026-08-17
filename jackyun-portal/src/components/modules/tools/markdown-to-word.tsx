@@ -128,6 +128,28 @@ function mdToDocxElements(md: string) {
       continue;
     }
 
+    // 分隔线
+    if (/^(---+|___+|\*\*\*+)$/.test(trimmed)) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: '────────────────────────', color: 'B7B7B7' })],
+        spacing: { before: 120, after: 120 },
+      }));
+      i++;
+      continue;
+    }
+
+    // GitHub task list
+    const taskMatch = trimmed.match(/^[-*+]\s+\[([ xX])\]\s+(.+)/);
+    if (taskMatch) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: taskMatch[1].toLowerCase() === 'x' ? '☒  ' : '☐  ' }), ...parseInlineMarkdown(taskMatch[2])],
+        indent: { left: convertInchesToTwip(0.35) },
+        spacing: { before: 60, after: 60 },
+      }));
+      i++;
+      continue;
+    }
+
     // 无序列表
     const ulMatch = trimmed.match(/^[-*+]\s+(.+)/);
     if (ulMatch) {
@@ -284,6 +306,7 @@ export default function MarkdownToWord() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [outputName, setOutputName] = useState('学习笔记');
 
   const lines = useMemo(() => mdContent.split('\n').length, [mdContent]);
 
@@ -349,14 +372,15 @@ export default function MarkdownToWord() {
       });
 
       const blob = await Packer.toBlob(doc);
-      saveAs(blob, fileName ? fileName.replace(/\.(md|markdown|txt)$/, '.docx') : 'markdown-to-word.docx');
+      const safeName = outputName.trim().replace(/[\\/:*?"<>|]/g, '-') || (fileName ? fileName.replace(/\.(md|markdown|txt)$/i, '') : 'markdown-to-word');
+      saveAs(blob, `${safeName}.docx`);
     } catch (err) {
       console.error('DOCX 生成失败:', err);
       alert('文档生成失败，请检查 Markdown 格式');
     } finally {
       setConverting(false);
     }
-  }, [mdContent, fileName]);
+  }, [mdContent, fileName, outputName]);
 
   /** 复制为 Word 格式 */
   const handleCopyForWord = useCallback(async () => {
@@ -440,6 +464,14 @@ export default function MarkdownToWord() {
       </div>
 
       {/* 编辑器 + 预览左右分栏 */}
+      <label className="flex flex-col gap-1 text-sm font-medium text-[var(--foreground)] sm:max-w-sm">
+        输出文件名
+        <div className="flex items-center rounded-[10px] border border-[var(--card-border)] bg-[var(--background)] px-3 focus-within:ring-2 focus-within:ring-[#4285F4]">
+          <input value={outputName} onChange={event => setOutputName(event.target.value)} className="min-h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="学习笔记" />
+          <span className="text-xs text-[var(--muted-foreground)]">.docx</span>
+        </div>
+      </label>
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* 左侧：编辑器 */}
         <div className="flex flex-col gap-2">

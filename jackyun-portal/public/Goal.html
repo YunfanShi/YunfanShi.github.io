@@ -402,11 +402,16 @@ option{background:#1a1a1a;}
   .sort-sel{width:100%;min-height:44px;}
   .pcard,.gcard{padding:14px 13px 12px;}
   .pcard-header,.gtop{display:grid;grid-template-columns:minmax(0,1fr) auto;}
-  .pcard-right,.gright{align-items:flex-start;gap:6px;}
+  .pcard-right,.gright{min-width:0;align-items:flex-start;gap:6px;}
+  .pcard-name,.gname,.gdesc,.gcat,.gdeadline{word-break:normal;overflow-wrap:anywhere;}
+  .pcard-pct,.gpct{font-size:20px;}
   .pcard-actions,.gactions{opacity:1;flex-wrap:wrap;justify-content:flex-end;}
   .btn-ico{width:40px;height:40px;}
   .children-list{padding-left:10px;}
   .gname{white-space:normal;overflow-wrap:anywhere;}
+  .gmeta{align-items:flex-start;}
+  .gfoot{align-items:flex-start;flex-direction:column;}
+  .segbar{min-width:0;}
   .frow,.frow3{grid-template-columns:1fr;}
   .ai-features{grid-template-columns:1fr 1fr;}
   .modal.wide{max-width:100%;}
