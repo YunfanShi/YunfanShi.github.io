@@ -18,7 +18,7 @@ const categories: { id: 'all' | ScriptCategory; label: string }[] = [
 ];
 
 const safetyLabels: Record<ScriptSafety, { label: string; className: string }> = {
-  local: { label: '本站源码 · 本地数据', className: 'bg-[#e6f4ea] text-[#137333] dark:bg-[#137333]/25 dark:text-[#ceead6]' },
+  local: { label: '本站托管源码', className: 'bg-[#e6f4ea] text-[#137333] dark:bg-[#137333]/25 dark:text-[#ceead6]' },
   selected: { label: '精选第三方来源', className: 'bg-[#e8f0fe] text-[#1967d2] dark:bg-[#174ea6]/35 dark:text-[#d2e3fc]' },
   caution: { label: '安装前重点检查', className: 'bg-[#fef7e0] text-[#8a5600] dark:bg-[#b06000]/25 dark:text-[#fde293]' },
 };
