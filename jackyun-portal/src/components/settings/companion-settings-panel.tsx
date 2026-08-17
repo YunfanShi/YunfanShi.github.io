@@ -16,7 +16,7 @@ export default function CompanionSettingsPanel({ initialPreferences, devices }: 
   async function rename(id: string, currentName: string) { const name = prompt('设备名称', currentName); if (!name || name === currentName) return; const result = await renameCompanionDevice(id, name); if (result.error) return setStatus(result.error); setItems((current) => current.map((item) => item.id === id ? { ...item, name: name.trim() } : item)); setStatus('设备名称已更新'); }
   async function clearData() { if (!confirm('这会删除已同步的活动、稍后学习与 Companion 专注记录，设备和设置会保留。确定继续吗？')) return; const result = await deleteCompanionData(); setStatus(result.error ?? 'Companion 云端数据已删除'); }
   return <div className="space-y-6">
-    <div className="rounded-2xl bg-[#e8f0fe] p-4 text-sm leading-6 text-[#174ea6] dark:bg-[#174ea6]/25 dark:text-[#d2e3fc]"><strong>隐私优先同步</strong><p>普通活动只保存白名单域名、类别和有效秒数；只有主动加入“稍后学习”时才保存完整链接与标题。</p><a href="/downloads/jackyun-companion-v1.0.0.zip" download className="mt-3 inline-flex rounded-lg bg-[#1a73e8] px-3 py-2 text-xs font-semibold text-white">下载 Chrome / Edge 扩展</a></div>
+    <div className="rounded-2xl bg-[#e8f0fe] p-4 text-sm leading-6 text-[#174ea6] dark:bg-[#174ea6]/25 dark:text-[#d2e3fc]"><strong>隐私优先同步</strong><p>普通活动只保存白名单域名、类别和有效秒数；只有主动加入“稍后学习”时才保存完整链接与标题。</p><a href="/downloads/jackyun-companion-v1.0.0.crx" download className="mt-3 inline-flex rounded-lg bg-[#1a73e8] px-3 py-2 text-xs font-semibold text-white">下载 Chrome / Edge 扩展</a></div>
     <div className="space-y-1">{[
       ['enabled', '启用 Companion 时间统计', '暂停后扩展仍可使用快捷入口，但不累计时间'],
       ['countAI', '把 AI 网站计入学习时间', 'ChatGPT、Claude、Gemini、DeepSeek、Qwen 等'],
