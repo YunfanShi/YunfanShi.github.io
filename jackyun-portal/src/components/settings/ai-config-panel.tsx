@@ -32,7 +32,8 @@ function detectProvider(url: string) {
 export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialModel }: AiConfigPanelProps) {
   const [provider, setProvider] = useState(() => detectProvider(initialBaseUrl));
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
-  const [apiKey, setApiKey] = useState(initialApiKey);
+  const [apiKey, setApiKey] = useState(initialApiKey === '__stored__' ? '' : initialApiKey);
+  const [hasStoredKey, setHasStoredKey] = useState(initialApiKey === '__stored__');
   const [model, setModel] = useState(initialModel || '');
   const [showApiKey, setShowApiKey] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -92,13 +93,12 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setTestRequest(JSON.stringify(reqBody, null, 2));
 
     try {
-      const res = await fetch(`${baseUrl.trim()}/chat/completions`, {
+      const res = await fetch('/api/llm-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey.trim()}`,
         },
-        body: JSON.stringify(reqBody),
+        body: JSON.stringify({ ...reqBody, baseUrl: baseUrl.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) }),
       });
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -139,13 +139,15 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setMessage(null);
 
     try {
-      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() });
+      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim() });
       // 同步到服务器（跨设备持久化）
       const result = await syncAiConfigToServer();
       if (result.error) {
         setMessage('AI 配置已保存到本地浏览器（云端同步失败，登录后自动恢复）');
       } else {
         setMessage('AI 配置已保存（本地 + 云端）');
+        setHasStoredKey(true);
+        setApiKey('');
       }
     } catch {
       setError('保存失败');
@@ -193,7 +195,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
             type={showApiKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-..."
+            placeholder={hasStoredKey ? '已安全保存；留空表示不更换' : 'sk-...'}
             className={`${inputClass} pr-10`}
           />
           {apiKey && (
@@ -210,7 +212,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
           )}
         </div>
         <p className="text-xs text-[var(--muted-foreground)] mt-1">
-          你的 API Key 仅保存在此浏览器中，不会上传到任何服务器
+          API Key 使用 AES-256-GCM 加密后保存；页面只显示是否已配置，不回传明文。
         </p>
       </div>
       <div>

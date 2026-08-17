@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { explainAiError } from '@/lib/ai-error';
+import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -80,11 +81,22 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
+    const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim().replace(/\/+$/, '') : '';
+    const model = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
+    if (baseUrl && !/^https:\/\//i.test(baseUrl)) return NextResponse.json({ error: 'AI Base URL 必须使用 HTTPS' }, { status: 400 });
+    const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+    if (apiKey && apiKey !== '__stored__') {
+      let encryptedValue: string;
+      try { encryptedValue = encryptSecret(apiKey); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : '密钥加密失败' }, { status: 503 }); }
+      const { error: secretError } = await supabase.from('user_secrets').upsert({ user_id: user.id, key: 'ai_api_key', encrypted_value: encryptedValue, key_version: 1, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+      if (secretError) return NextResponse.json({ error: secretError.message }, { status: 500 });
+    }
+    const { data: storedSecret } = await supabase.from('user_secrets').select('key').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle();
     const { error } = await supabase.from('user_settings').upsert(
       {
         user_id: user.id,
         key: 'ai_config',
-        value: { baseUrl: body.baseUrl, apiKey: body.apiKey, model: body.model },
+        value: { baseUrl, model, hasApiKey: Boolean(storedSecret) },
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,key' },
@@ -164,23 +176,37 @@ export async function POST(req: NextRequest) {
     userId = user.id;
 
     // First check: does user have their own API config saved in user_settings?
-    const { data: settingRow } = await supabase
-      .from('user_settings')
-      .select('value')
-      .eq('user_id', user.id)
-      .eq('key', 'ai_config')
-      .maybeSingle();
+    const [{ data: settingRow }, { data: secretRow }] = await Promise.all([
+      supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', 'ai_config').maybeSingle(),
+      supabase.from('user_secrets').select('encrypted_value').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle(),
+    ]);
 
     const aiConfig = settingRow?.value as
-      | { baseUrl?: string; apiKey?: string; model?: string }
+      | { baseUrl?: string; apiKey?: string; model?: string; hasApiKey?: boolean }
       | null;
 
+    let encryptedApiKey = '';
+    if (secretRow?.encrypted_value) {
+      try { encryptedApiKey = decryptSecret(secretRow.encrypted_value); } catch (error) { console.error('[llm-proxy] Unable to decrypt user API key', error); }
+    }
+
     // Use user's own API config if they have set one
-    if (aiConfig?.apiKey?.trim()) {
-      baseUrl = (aiConfig.baseUrl?.trim() || '').replace(/\/+$/, '');
-      apiKey = aiConfig.apiKey.trim();
-      model = aiConfig.model?.trim() || clientModel || 'deepseek-v4-flash';
+    if (encryptedApiKey || aiConfig?.apiKey?.trim()) {
+      const savedConfig = aiConfig ?? {};
+      baseUrl = (savedConfig.baseUrl?.trim() || '').replace(/\/+$/, '');
+      apiKey = encryptedApiKey || savedConfig.apiKey!.trim();
+      model = savedConfig.model?.trim() || clientModel || 'deepseek-v4-flash';
       keySource = 'user';
+      // One-time migration for configurations saved before encrypted secrets existed.
+      if (!encryptedApiKey && savedConfig.apiKey?.trim()) {
+        try {
+          const encryptedValue = encryptSecret(savedConfig.apiKey.trim());
+          await Promise.all([
+            supabase.from('user_secrets').upsert({ user_id: user.id, key: 'ai_api_key', encrypted_value: encryptedValue, key_version: 1, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
+            supabase.from('user_settings').upsert({ user_id: user.id, key: 'ai_config', value: { baseUrl, model, hasApiKey: true }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
+          ]);
+        } catch (error) { console.error('[llm-proxy] Legacy API key migration failed', error); }
+      }
     } else {
       // Fallback to cloud-level API config (server env vars)
       baseUrl = CLOUD_API_URL;
@@ -211,7 +237,12 @@ export async function POST(req: NextRequest) {
   });
 
   // 构建上游请求体（剔除客户端专用字段和内部字段）
-  const { baseUrl: _, apiKey: __, _get_config_only: ___, interfaceLanguage, ...upstreamFields } = body;
+  const upstreamFields = { ...body };
+  const interfaceLanguage = upstreamFields.interfaceLanguage;
+  delete upstreamFields.baseUrl;
+  delete upstreamFields.apiKey;
+  delete upstreamFields._get_config_only;
+  delete upstreamFields._save_ai_config;
   const upstreamBody: Record<string, unknown> = {
     ...upstreamFields,
     model: (upstreamFields.model as string) || model,

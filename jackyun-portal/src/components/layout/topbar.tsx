@@ -4,7 +4,7 @@ import UserAvatar from '@/components/auth/user-avatar';
 import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/language-provider';
-import { getThemePreference, saveThemePreference } from '@/actions/settings';
+import { getThemePreference, saveSettingsField, saveThemePreference } from '@/actions/settings';
 import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
 
@@ -82,6 +82,7 @@ export default function Topbar({ user }: TopbarProps) {
     setTheme(next);
     try { localStorage.setItem('jackyun_theme', next); } catch {}
     saveThemePreference(next).catch(() => {});
+    void saveSettingsField('appearance_preferences', 'theme', next);
     document.documentElement.dataset.theme = next;
     document.documentElement.style.colorScheme = next === 'light' ? 'light' : 'dark';
     document.querySelectorAll('iframe').forEach((frame) => {

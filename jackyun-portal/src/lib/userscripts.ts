@@ -37,7 +37,7 @@ export const USERSCRIPTS: UserscriptEntry[] = [
   {
     id: 'jackyun-portal-companion',
     name: 'JackYun Portal Companion',
-    version: '1.0.0',
+    version: '1.1.0 Lite',
     category: 'portal',
     description: '本站自研的学习网站助手：只在设备本地统计有效使用时间，提供每日/七日报告、目标、专注计时和数据备份。',
     sites: ['JackYun Portal', '40+ 学习与 AI 网站'],

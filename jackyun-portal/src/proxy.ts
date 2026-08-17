@@ -18,7 +18,7 @@ function hasSupabaseCookies(request: NextRequest): boolean {
   );
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAccountStatusRoute = pathname.startsWith('/account-status');
 
@@ -36,6 +36,7 @@ export async function middleware(request: NextRequest) {
   // Just redirect to login immediately.
   if (!hasSupabaseCookies(request)) {
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -50,6 +51,7 @@ export async function middleware(request: NextRequest) {
   // If not authenticated, redirect to login
   if (!claims) {
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 

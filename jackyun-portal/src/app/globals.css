@@ -21,6 +21,19 @@
   --motion-medium: 200ms;
 }
 
+html[data-reduced-motion='true'] *,
+html[data-reduced-motion='true'] *::before,
+html[data-reduced-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-density='compact'] main {
+  --settings-density-gap: 0.75rem;
+}
+
 [data-theme="dark"] {
     --background: #000000;
     --foreground: #f5f5f5;

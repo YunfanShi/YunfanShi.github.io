@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { saveSettingsField } from '@/actions/settings';
 
-export default function FullscreenToggle() {
-  const [enabled, setEnabled] = useState(false);
+export default function FullscreenToggle({ initialEnabled = false }: { initialEnabled?: boolean }) {
+  const [enabled, setEnabled] = useState(initialEnabled);
 
   useEffect(() => {
-    setEnabled(localStorage.getItem('show_fullscreen_btn') === 'true');
-  }, []);
+    const local = localStorage.getItem('show_fullscreen_btn');
+    setEnabled(local === null ? initialEnabled : local === 'true');
+    if (local === null) localStorage.setItem('show_fullscreen_btn', initialEnabled ? 'true' : 'false');
+  }, [initialEnabled]);
 
   const handleToggle = () => {
     const newVal = !enabled;
@@ -18,6 +21,7 @@ export default function FullscreenToggle() {
       key: 'show_fullscreen_btn',
       newValue: newVal ? 'true' : 'false',
     }));
+    void saveSettingsField('appearance_preferences', 'showFullscreen', newVal);
   };
 
   return (

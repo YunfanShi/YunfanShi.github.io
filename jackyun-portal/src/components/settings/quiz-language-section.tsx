@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { getSettingsSection, saveSettingsField } from '@/actions/settings';
+
 function SectionHeader({ icon, title }: { icon: string; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
@@ -12,6 +15,9 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 }
 
 export default function QuizLanguageSection() {
+  const [values, setValues] = useState({ quizUiLanguage: 'zh', quizAnswerLanguage: 'zh_kw_en', quizFeedbackLevel: 'normal' });
+  useEffect(() => { void getSettingsSection('learning_preferences').then((cloud) => setValues((current) => ({ ...current, ...cloud }))); }, []);
+  function update(key: keyof typeof values, value: string, localKey: string) { setValues((current) => ({ ...current, [key]: value })); localStorage.setItem(localKey, value); void saveSettingsField('learning_preferences', key, value); }
   return (
     <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
       <SectionHeader icon="translate" title="QuizWise 语言与回答偏好" />
@@ -24,9 +30,9 @@ export default function QuizLanguageSection() {
             UI 语言
           </label>
           <select
-            defaultValue="zh"
+            value={values.quizUiLanguage}
             className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors"
-            onChange={e => { if (typeof window !== 'undefined') localStorage.setItem('quizwise_ui_lang', e.target.value); }}
+            onChange={e => update('quizUiLanguage', e.target.value, 'quizwise_ui_lang')}
           >
             <option value="zh">中文</option>
             <option value="en">English</option>
@@ -37,9 +43,9 @@ export default function QuizLanguageSection() {
             回答语言偏好
           </label>
           <select
-            defaultValue="zh_kw_en"
+            value={values.quizAnswerLanguage}
             className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors"
-            onChange={e => { if (typeof window !== 'undefined') localStorage.setItem('quizwise_answer_lang', e.target.value); }}
+            onChange={e => update('quizAnswerLanguage', e.target.value, 'quizwise_answer_lang')}
           >
             <option value="zh_kw_en">中文回答 + 关键词英文（推荐）</option>
             <option value="zh">全中文</option>
@@ -53,9 +59,9 @@ export default function QuizLanguageSection() {
             反馈详细程度
           </label>
           <select
-            defaultValue="normal"
+            value={values.quizFeedbackLevel}
             className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-colors"
-            onChange={e => { if (typeof window !== 'undefined') localStorage.setItem('quizwise_feedback_level', e.target.value); }}
+            onChange={e => update('quizFeedbackLevel', e.target.value, 'quizwise_feedback_level')}
           >
             <option value="brief">简洁（要点提示）</option>
             <option value="normal">标准（详细解释）</option>

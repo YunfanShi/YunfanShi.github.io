@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { Language } from '@/lib/i18n';
+import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES, type NavigationPreferencesV2 } from '@/lib/companion';
+import { encryptSecret } from '@/lib/secret-crypto';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -15,14 +17,14 @@ async function getAuthenticatedUser() {
 
 export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; model: string }> {
   const { supabase, user } = await getAuthenticatedUser();
-  const { data } = await supabase
+  const [{ data }, { data: secret }] = await Promise.all([supabase
     .from('user_settings')
     .select('value')
     .eq('user_id', user.id)
     .eq('key', 'ai_config')
-    .maybeSingle();
+    .maybeSingle(), supabase.from('user_secrets').select('key').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle()]);
   const val = data?.value as { baseUrl?: string; apiKey?: string; model?: string } | null;
-  return { baseUrl: val?.baseUrl ?? '', apiKey: val?.apiKey ?? '', model: val?.model ?? '' };
+  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '' };
 }
 
 export async function saveAiConfig(
@@ -30,18 +32,32 @@ export async function saveAiConfig(
   apiKey: string,
   model: string,
 ): Promise<{ error: string | null }> {
-  const { supabase, user } = await getAuthenticatedUser();
-  const { error } = await supabase.from('user_settings').upsert(
-    {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const normalizedUrl = baseUrl.trim().replace(/\/+$/, '');
+    if (normalizedUrl && !/^https:\/\//i.test(normalizedUrl)) return { error: 'AI Base URL 必须使用 HTTPS' };
+    const normalizedKey = apiKey.trim();
+    if (normalizedKey && normalizedKey !== '__stored__') {
+      const { error: secretError } = await supabase.from('user_secrets').upsert({
+        user_id: user.id,
+        key: 'ai_api_key',
+        encrypted_value: encryptSecret(normalizedKey),
+        key_version: 1,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,key' });
+      if (secretError) return { error: secretError.message };
+    }
+    const { data: secret } = await supabase.from('user_secrets').select('key').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle();
+    const { error } = await supabase.from('user_settings').upsert({
       user_id: user.id,
       key: 'ai_config',
-      value: { baseUrl, apiKey, model },
+      value: { baseUrl: normalizedUrl, model: model.trim().slice(0, 160), hasApiKey: Boolean(secret) },
       updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,key' },
-  );
-  if (error) return { error: error.message };
-  return { error: null };
+    }, { onConflict: 'user_id,key' });
+    return { error: error?.message ?? null };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : '保存 AI 配置失败' };
+  }
 }
 
 export async function getLanguagePreference(): Promise<Language> {
@@ -81,12 +97,8 @@ export async function saveThemePreference(theme: ThemePreference): Promise<{ err
 
 export type MusicSidebarMode = 'player' | 'sync';
 export type AnswerSheetSidebarMode = 'standard' | 'sync';
-export interface SidebarPreferences {
-  musicMode: MusicSidebarMode;
-  answerSheetMode: AnswerSheetSidebarMode;
-}
-
-const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = { musicMode: 'player', answerSheetMode: 'standard' };
+export type SidebarPreferences = NavigationPreferencesV2;
+const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = DEFAULT_NAVIGATION_PREFERENCES;
 
 export async function getSidebarPreferences(): Promise<SidebarPreferences> {
   try {
@@ -97,14 +109,99 @@ export async function getSidebarPreferences(): Promise<SidebarPreferences> {
       .eq('user_id', user.id)
       .eq('key', 'sidebar_preferences')
       .maybeSingle();
-    const val = data?.value as Partial<SidebarPreferences> | null;
-    if (val?.musicMode && val?.answerSheetMode) {
-      return { musicMode: val.musicMode as MusicSidebarMode, answerSheetMode: val.answerSheetMode as AnswerSheetSidebarMode };
-    }
-    return { ...DEFAULT_SIDEBAR_PREFS };
+    return coerceNavigationPreferences(data?.value);
   } catch {
     return { ...DEFAULT_SIDEBAR_PREFS };
   }
+}
+
+export type SettingsKey = 'general_preferences' | 'appearance_preferences' | 'companion_preferences' | 'learning_preferences' | 'advanced_preferences';
+const SETTINGS_KEYS: SettingsKey[] = ['general_preferences', 'appearance_preferences', 'companion_preferences', 'learning_preferences', 'advanced_preferences'];
+
+function oneOf(value: unknown, allowed: readonly string[], fallback: string) { return typeof value === 'string' && allowed.includes(value) ? value : fallback; }
+function integer(value: unknown, min: number, max: number, fallback: number) { const parsed = Math.round(Number(value)); return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback; }
+function sanitizeSettingsSection(key: SettingsKey, value: Record<string, unknown>): Record<string, unknown> {
+  if (key === 'general_preferences') return { startPage: oneOf(value.startPage, ['dashboard', 'study', 'time-management'], 'dashboard'), timezone: oneOf(value.timezone, ['auto', 'Asia/Shanghai'], 'auto'), notifications: value.notifications !== false };
+  if (key === 'appearance_preferences') return { theme: oneOf(value.theme, ['light', 'gray', 'dark'], 'light'), density: oneOf(value.density, ['comfortable', 'compact'], 'comfortable'), reducedMotion: value.reducedMotion === true, showFullscreen: value.showFullscreen === true };
+  if (key === 'companion_preferences') return { enabled: value.enabled !== false, countAI: value.countAI !== false, idleSeconds: Number(oneOf(String(value.idleSeconds ?? ''), ['30', '60', '120', '300'], '60')), goalMinutes: integer(value.goalMinutes, 10, 1440, 120), retentionDays: Number(oneOf(String(value.retentionDays ?? ''), ['30', '90', '180', '365'], '365')), savePageTitles: value.savePageTitles === true };
+  if (key === 'learning_preferences') return {
+    streakReminder: value.streakReminder !== false,
+    focusNotifications: value.focusNotifications !== false,
+    quizUiLanguage: oneOf(value.quizUiLanguage, ['zh', 'en'], 'zh'),
+    quizAnswerLanguage: oneOf(value.quizAnswerLanguage, ['zh_kw_en', 'zh', 'en', 'en_kw_zh', 'bilingual'], 'zh_kw_en'),
+    quizFeedbackLevel: oneOf(value.quizFeedbackLevel, ['brief', 'normal', 'detailed'], 'normal'),
+  };
+  return { diagnostics: value.diagnostics === true, betaFeatures: value.betaFeatures === true };
+}
+
+export async function saveSettingsSection(key: SettingsKey, value: Record<string, unknown>): Promise<{ error: string | null }> {
+  if (!SETTINGS_KEYS.includes(key)) return { error: '不支持的设置分类' };
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const sanitized = sanitizeSettingsSection(key, value);
+    const serialized = JSON.stringify(sanitized);
+    if (serialized.length > 20000) return { error: '设置数据过大' };
+    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, key, value: sanitized, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    if (!error) { revalidatePath('/'); revalidatePath('/settings'); }
+    return { error: error?.message ?? null };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : '保存设置失败' };
+  }
+}
+
+export async function getSettingsSection(key: SettingsKey): Promise<Record<string, unknown>> {
+  if (!SETTINGS_KEYS.includes(key)) return {};
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { data } = await supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', key).maybeSingle();
+    return data?.value && typeof data.value === 'object' ? data.value as Record<string, unknown> : {};
+  } catch { return {}; }
+}
+
+export async function saveSettingsField(key: SettingsKey, field: string, value: unknown): Promise<{ error: string | null }> {
+  if (!SETTINGS_KEYS.includes(key) || !/^[a-z][a-zA-Z0-9]{0,63}$/.test(field)) return { error: '不支持的设置字段' };
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { data } = await supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', key).maybeSingle();
+    const current = data?.value && typeof data.value === 'object' ? data.value as Record<string, unknown> : {};
+    const sanitized = sanitizeSettingsSection(key, { ...current, [field]: value });
+    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, key, value: sanitized, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    if (!error) { revalidatePath('/'); revalidatePath('/settings'); }
+    return { error: error?.message ?? null };
+  } catch (error) { return { error: error instanceof Error ? error.message : '保存设置失败' }; }
+}
+
+export async function revokeCompanionDevice(deviceId: string): Promise<{ error: string | null }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { error } = await supabase.from('companion_devices').update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('user_id', user.id).eq('id', deviceId);
+    if (!error) revalidatePath('/settings');
+    return { error: error?.message ?? null };
+  } catch (error) { return { error: error instanceof Error ? error.message : '撤销设备失败' }; }
+}
+
+export async function renameCompanionDevice(deviceId: string, name: string): Promise<{ error: string | null }> {
+  if (!/^[0-9a-f-]{36}$/i.test(deviceId) || !name.trim() || name.trim().length > 80) return { error: '设备名称无效' };
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const { error } = await supabase.from('companion_devices').update({ name: name.trim(), updated_at: new Date().toISOString() }).eq('user_id', user.id).eq('id', deviceId).is('revoked_at', null);
+    if (!error) revalidatePath('/settings');
+    return { error: error?.message ?? null };
+  } catch (error) { return { error: error instanceof Error ? error.message : '重命名设备失败' }; }
+}
+
+export async function deleteCompanionData(): Promise<{ error: string | null }> {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    const results = await Promise.all([
+      supabase.from('companion_activity_daily').delete().eq('user_id', user.id),
+      supabase.from('companion_learning_queue').delete().eq('user_id', user.id),
+      supabase.from('focus_sessions').delete().eq('user_id', user.id).eq('source', 'companion'),
+    ]);
+    const failure = results.find((result) => result.error)?.error;
+    if (!failure) { revalidatePath('/activity'); revalidatePath('/dashboard'); }
+    return { error: failure?.message ?? null };
+  } catch (error) { return { error: error instanceof Error ? error.message : '删除 Companion 数据失败' }; }
 }
 
 export async function saveSidebarPreferences(prefs: SidebarPreferences): Promise<{ error: string | null }> {

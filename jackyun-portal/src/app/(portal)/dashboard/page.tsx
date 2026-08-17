@@ -113,7 +113,9 @@ export default async function DashboardPage() {
     '用户';
 
   // Fetch stats
-  const [vocabResult, masteredResult, studyResult] = await Promise.all([
+  const today = new Date().toLocaleDateString('en-CA');
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6);
+  const [vocabResult, masteredResult, studyResult, companionResult, deviceResult] = await Promise.all([
     supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
@@ -127,6 +129,8 @@ export default async function DashboardPage() {
       .from('study_tasks')
       .select('completed', { count: 'exact', head: false })
       .eq('user_id', user?.id ?? ''),
+    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user?.id ?? '').gte('activity_date', weekStart.toISOString().slice(0, 10)),
+    supabase.from('companion_devices').select('id', { count: 'exact', head: true }).eq('user_id', user?.id ?? '').is('revoked_at', null),
   ]);
 
   const totalVocab = vocabResult.count ?? 0;
@@ -135,6 +139,9 @@ export default async function DashboardPage() {
   const completedTasks = tasks.filter((t) => t.completed).length;
   const completionRate =
     tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+  const companionRows = companionResult.data ?? [];
+  const companionTodaySeconds = companionRows.filter((row) => row.activity_date === today).reduce((sum, row) => sum + Number(row.active_seconds || 0), 0);
+  const companionWeekSeconds = companionRows.reduce((sum, row) => sum + Number(row.active_seconds || 0), 0);
 
   return (
     <div className="page-enter mx-auto max-w-[1440px]">
@@ -165,6 +172,10 @@ export default async function DashboardPage() {
         <StatCard icon="check_circle" color="#34A853" label="已掌握词汇" value={masteredVocab} />
         <StatCard icon="task_alt" color="#4285F4" label="任务完成率" value={`${completionRate}%`} />
       </div>
+
+      <section className="mb-10 overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]">
+        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-7"><div><div className="flex items-center gap-3"><span className="material-icons-round grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">JackYun Companion</p><h2 className="text-xl font-semibold">浏览器学习活动</h2></div></div><p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">跨学习网站记录有效时间，只保存域名级聚合。扩展离线时会在恢复网络后继续同步。</p><Link href="/activity" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">查看完整活动报告<span className="material-icons-round text-lg">arrow_forward</span></Link></div><div className="grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日</p><strong className="mt-2 block text-2xl">{Math.round(companionTodaySeconds / 60)}m</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">七日</p><strong className="mt-2 block text-2xl">{Math.round(companionWeekSeconds / 3600 * 10) / 10}h</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">设备</p><strong className="mt-2 block text-2xl">{deviceResult.count ?? 0}</strong></div></div></div>
+      </section>
 
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>

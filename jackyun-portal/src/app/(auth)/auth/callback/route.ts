@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type');
   const isLinking = searchParams.get('linking') === 'true';
   const linkingUserId = searchParams.get('linking_user_id');
+  const next = searchParams.get('next');
 
   if (code) {
     // Determine the final redirect URL upfront based on the auth flow type,
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     // write auth session cookies directly onto the redirect Response.
     // This prevents Vercel 494 REQUEST_HEADER_TOO_LARGE caused by cookies
     // not being properly included in the 302 redirect.
-    let redirectUrl = `${origin}/dashboard`;  // default: normal login
+    let redirectUrl = next?.startsWith('/') && !next.startsWith('//') ? `${origin}${next}` : `${origin}/dashboard`;
 
     if (type === 'recovery') {
       redirectUrl = `${origin}/update-password`;

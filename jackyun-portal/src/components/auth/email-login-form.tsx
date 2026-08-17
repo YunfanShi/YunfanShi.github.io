@@ -42,7 +42,8 @@ export default function EmailLoginForm() {
       });
 
       if (!signInError) {
-        router.push('/dashboard');
+        const next = new URLSearchParams(window.location.search).get('next');
+        router.push(next?.startsWith('/') && !next.startsWith('//') ? next : '/dashboard');
         router.refresh();
         return;
       }

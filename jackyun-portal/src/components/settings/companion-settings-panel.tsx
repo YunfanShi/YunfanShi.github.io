@@ -1,0 +1,33 @@
+'use client';
+
+import { useState } from 'react';
+import { deleteCompanionData, renameCompanionDevice, revokeCompanionDevice, saveSettingsSection } from '@/actions/settings';
+
+export interface CompanionDeviceView { id: string; name: string; platform: string; extension_version: string; last_seen_at: string; revoked_at: string | null; }
+
+const defaults = { enabled: true, countAI: true, idleSeconds: 60, goalMinutes: 120, retentionDays: 365, savePageTitles: false };
+
+export default function CompanionSettingsPanel({ initialPreferences, devices }: { initialPreferences: Record<string, unknown>; devices: CompanionDeviceView[] }) {
+  const [preferences, setPreferences] = useState({ ...defaults, ...initialPreferences });
+  const [items, setItems] = useState(devices);
+  const [status, setStatus] = useState('');
+  async function save() { setStatus('保存中…'); const result = await saveSettingsSection('companion_preferences', preferences); setStatus(result.error ?? '已同步到 Supabase'); }
+  async function revoke(id: string) { if (!confirm('撤销后此设备必须重新登录，确定继续吗？')) return; const result = await revokeCompanionDevice(id); if (result.error) return setStatus(result.error); setItems((current) => current.map((item) => item.id === id ? { ...item, revoked_at: new Date().toISOString() } : item)); setStatus('设备已撤销'); }
+  async function rename(id: string, currentName: string) { const name = prompt('设备名称', currentName); if (!name || name === currentName) return; const result = await renameCompanionDevice(id, name); if (result.error) return setStatus(result.error); setItems((current) => current.map((item) => item.id === id ? { ...item, name: name.trim() } : item)); setStatus('设备名称已更新'); }
+  async function clearData() { if (!confirm('这会删除已同步的活动、稍后学习与 Companion 专注记录，设备和设置会保留。确定继续吗？')) return; const result = await deleteCompanionData(); setStatus(result.error ?? 'Companion 云端数据已删除'); }
+  return <div className="space-y-6">
+    <div className="rounded-2xl bg-[#e8f0fe] p-4 text-sm leading-6 text-[#174ea6] dark:bg-[#174ea6]/25 dark:text-[#d2e3fc]"><strong>隐私优先同步</strong><p>普通活动只保存白名单域名、类别和有效秒数；只有主动加入“稍后学习”时才保存完整链接与标题。</p><a href="/downloads/jackyun-companion-v1.0.0.zip" download className="mt-3 inline-flex rounded-lg bg-[#1a73e8] px-3 py-2 text-xs font-semibold text-white">下载 Chrome / Edge 扩展</a></div>
+    <div className="space-y-1">{[
+      ['enabled', '启用 Companion 时间统计', '暂停后扩展仍可使用快捷入口，但不累计时间'],
+      ['countAI', '把 AI 网站计入学习时间', 'ChatGPT、Claude、Gemini、DeepSeek、Qwen 等'],
+      ['savePageTitles', '允许主动收藏页面标题', '仅在点击“加入稍后学习”时使用'],
+    ].map(([key, label, description]) => <label key={key} className="flex items-center justify-between gap-4 border-b border-[var(--card-border)] py-4"><span><strong className="block text-sm">{label}</strong><small className="text-[var(--muted-foreground)]">{description}</small></span><input type="checkbox" checked={preferences[key as keyof typeof preferences] === true} onChange={(event) => setPreferences({ ...preferences, [key]: event.target.checked })} className="h-5 w-5" /></label>)}
+      <label className="flex items-center justify-between gap-4 border-b border-[var(--card-border)] py-4"><span><strong className="block text-sm">空闲后暂停</strong><small className="text-[var(--muted-foreground)]">鼠标和键盘无操作后停止累计</small></span><select value={preferences.idleSeconds} onChange={(event) => setPreferences({ ...preferences, idleSeconds: Number(event.target.value) })} className="rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select></label>
+      <label className="flex items-center justify-between gap-4 border-b border-[var(--card-border)] py-4"><span><strong className="block text-sm">每日学习目标</strong><small className="text-[var(--muted-foreground)]">与学习设置及扩展进度环共用</small></span><input type="number" min="10" max="1440" step="10" value={preferences.goalMinutes} onChange={(event) => setPreferences({ ...preferences, goalMinutes: Math.min(1440, Math.max(10, Number(event.target.value) || 120)) })} className="w-24 rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label>
+      <label className="flex items-center justify-between gap-4 py-4"><span><strong className="block text-sm">数据保留期限</strong><small className="text-[var(--muted-foreground)]">到期后由维护任务清理日级活动记录</small></span><select value={preferences.retentionDays} onChange={(event) => setPreferences({ ...preferences, retentionDays: Number(event.target.value) })} className="rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2"><option value="30">30 天</option><option value="90">90 天</option><option value="180">180 天</option><option value="365">365 天</option></select></label>
+      <button type="button" onClick={save} className="rounded-xl bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">保存 Companion 设置</button>{status && <span className="ml-3 text-xs text-[var(--muted-foreground)]">{status}</span>}
+    </div>
+    <div><h3 className="text-sm font-semibold">已连接设备</h3><div className="mt-3 space-y-2">{items.length ? items.map((device) => <article key={device.id} className="flex items-center gap-3 rounded-xl border border-[var(--card-border)] p-3"><span className="material-icons-round grid h-10 w-10 place-items-center rounded-xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div className="min-w-0 flex-1"><strong className="block truncate text-sm">{device.name}</strong><p className="text-xs text-[var(--muted-foreground)]">{device.platform} · v{device.extension_version} · {new Date(device.last_seen_at).toLocaleString('zh-CN')}</p></div>{device.revoked_at ? <span className="text-xs text-[#b3261e]">已撤销</span> : <div className="flex gap-2"><button type="button" onClick={() => rename(device.id, device.name)} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-xs">重命名</button><button type="button" onClick={() => revoke(device.id)} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-xs text-[#b3261e]">撤销</button></div>}</article>) : <p className="rounded-xl border border-dashed border-[var(--card-border)] p-6 text-center text-sm text-[var(--muted-foreground)]">尚未连接 Companion 扩展。</p>}</div></div>
+    <div className="rounded-xl border border-[var(--card-border)] p-4"><h3 className="text-sm font-semibold">跟踪范围与数据控制</h3><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">仅统计扩展清单中的学习、考试、编程、语言、AI、研究和 JackYun 域名；失焦、后台和空闲状态均暂停。</p><button type="button" onClick={clearData} className="mt-3 rounded-lg border border-[#b3261e]/30 px-3 py-2 text-xs font-semibold text-[#b3261e]">删除已同步的 Companion 数据</button></div>
+  </div>;
+}

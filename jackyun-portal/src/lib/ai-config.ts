@@ -152,6 +152,9 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
       }),
     });
     const data = await res.json();
+    if (!data.error && config.apiKey && config.apiKey !== '__stored__') {
+      saveAiConfig({ ...config, apiKey: '__stored__' });
+    }
     return { error: data.error || null };
   } catch (err) {
     return { error: err instanceof Error ? err.message : '同步失败' };
@@ -183,10 +186,10 @@ export async function callAiApi(
 ): Promise<Response> {
   const config = getAiConfig();
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
-  const apiKey = config.apiKey;
+  const apiKey = config.apiKey === '__stored__' ? '' : config.apiKey;
   const model = options.model || config.model;
 
-  if (!baseUrl || !apiKey) {
+  if (!baseUrl) {
     throw new Error('请先在设置页面配置 AI API Key');
   }
 
@@ -216,7 +219,7 @@ export async function callAiApi(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...body, baseUrl, apiKey }),
+    body: JSON.stringify({ ...body, baseUrl, ...(apiKey ? { apiKey } : {}) }),
     signal,
   });
 }

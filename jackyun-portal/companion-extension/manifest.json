@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "JackYun Companion",
+  "version": "1.0.0",
+  "description": "JackYun Portal 学习时间、专注、稍后学习和多设备同步助手。",
+  "permissions": ["storage", "alarms", "idle", "identity", "notifications", "tabs"],
+  "host_permissions": [
+    "https://jackyun.top/*",
+    "https://gdcwwlnzylrzrqhaaljq.supabase.co/*",
+    "https://chatgpt.com/*", "https://claude.ai/*", "https://gemini.google.com/*",
+    "https://chat.deepseek.com/*", "https://chat.qwen.ai/*", "https://www.perplexity.ai/*", "https://notebooklm.google.com/*",
+    "https://bestexamhelp.com/*", "https://znotes.org/*", "https://pastpapers.papacambridge.com/*", "https://revisiontown.com/*",
+    "https://www.savemyexams.com/*", "https://www.physicsandmathstutor.com/*", "https://www.cambridgeinternational.org/*",
+    "https://qualifications.pearson.com/*", "https://ielts.org/*", "https://www.chinaielts.org/*",
+    "https://www.khanacademy.org/*", "https://www.wolframalpha.com/*", "https://www.geogebra.org/*", "https://phet.colorado.edu/*",
+    "https://www.youtube.com/*", "https://www.luogu.com.cn/*", "https://www.w3schools.com/*", "https://www.freecodecamp.org/*",
+    "https://ocw.mit.edu/*", "https://www.edx.org/*", "https://www.coursera.org/*", "https://www.bbc.co.uk/learningenglish/*",
+    "https://dictionary.cambridge.org/*", "https://youglish.com/*", "https://ankiweb.net/*", "https://scholar.google.com/*",
+    "https://arxiv.org/*", "https://*.wikipedia.org/*", "https://archive.org/*"
+  ],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "icons": { "128": "icon128.png" },
+  "action": { "default_title": "JackYun Companion", "default_popup": "popup.html", "default_icon": { "128": "icon128.png" } },
+  "content_scripts": [{
+    "matches": [
+      "https://jackyun.top/*", "https://chatgpt.com/*", "https://claude.ai/*", "https://gemini.google.com/*",
+      "https://chat.deepseek.com/*", "https://chat.qwen.ai/*", "https://www.perplexity.ai/*", "https://notebooklm.google.com/*",
+      "https://bestexamhelp.com/*", "https://znotes.org/*", "https://pastpapers.papacambridge.com/*", "https://revisiontown.com/*",
+      "https://www.savemyexams.com/*", "https://www.physicsandmathstutor.com/*", "https://www.cambridgeinternational.org/*",
+      "https://qualifications.pearson.com/*", "https://ielts.org/*", "https://www.chinaielts.org/*",
+      "https://www.khanacademy.org/*", "https://www.wolframalpha.com/*", "https://www.geogebra.org/*", "https://phet.colorado.edu/*",
+      "https://www.youtube.com/*", "https://www.luogu.com.cn/*", "https://www.w3schools.com/*", "https://www.freecodecamp.org/*",
+      "https://ocw.mit.edu/*", "https://www.edx.org/*", "https://www.coursera.org/*", "https://www.bbc.co.uk/learningenglish/*",
+      "https://dictionary.cambridge.org/*", "https://youglish.com/*", "https://ankiweb.net/*", "https://scholar.google.com/*",
+      "https://arxiv.org/*", "https://*.wikipedia.org/*", "https://archive.org/*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}

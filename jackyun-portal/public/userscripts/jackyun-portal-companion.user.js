@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JackYun Portal Companion
 // @namespace    https://jackyun.top/
-// @version      1.0.0
+// @version      1.1.0
 // @description  Google 风格学习助手：有效使用时间、每日/七日报告、目标、专注计时与本地备份。
 // @author       JackYun
 // @license      MIT
@@ -171,7 +171,7 @@
         <div class="jyc-section"><h3>最近 7 天</h3><div class="jyc-bars" id="jyc-week"></div></div>
         <div class="jyc-section"><h3>专注计时</h3><div class="jyc-actions"><button class="jyc-btn primary" id="jyc-focus-25" type="button">开始 25 分钟</button><button class="jyc-btn" id="jyc-focus-50" type="button">开始 50 分钟</button><button class="jyc-btn danger" id="jyc-focus-stop" type="button">结束计时</button><button class="jyc-btn" id="jyc-notify" type="button">测试提示</button></div></div>
         <div class="jyc-section"><h3>设置与数据</h3><div class="jyc-field"><label for="jyc-goal">每日目标（分钟）</label><input id="jyc-goal" type="number" min="10" max="1440" step="10"></div><div class="jyc-field"><label for="jyc-idle">无操作后暂停</label><select id="jyc-idle"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select></div><label class="jyc-check"><input id="jyc-enabled" type="checkbox">启用时间统计</label><label class="jyc-check"><input id="jyc-count-ai" type="checkbox">把 AI 网站计入学习时间</label><div class="jyc-actions" style="margin-top:12px"><button class="jyc-btn" id="jyc-export" type="button">导出 JSON</button><button class="jyc-btn" id="jyc-import" type="button">导入备份</button><button class="jyc-btn danger" id="jyc-reset" type="button">清除统计</button><button class="jyc-btn" id="jyc-hide-fab" type="button">隐藏悬浮按钮</button></div><input id="jyc-file" type="file" accept="application/json" hidden></div>
-        <div class="jyc-privacy">隐私说明：所有统计仅保存在 Tampermonkey 本地存储中；脚本不读取页面正文、不记录输入内容，也不会向服务器发送统计数据。</div>
+        <div class="jyc-privacy"><strong>Companion Lite</strong>：所有统计仅保存在 Tampermonkey 本地，不读取正文或输入内容。需要账号登录、多设备同步、稍后学习和设备管理时，请前往 <a href="https://jackyun.top/settings?section=companion" target="_blank" rel="noopener noreferrer" style="color:inherit;font-weight:bold">JackYun Portal 安装正式扩展</a>。</div>
       </div>
     </section><div class="jyc-toast" id="jyc-toast" role="status"></div>`;
   document.body.appendChild(root);

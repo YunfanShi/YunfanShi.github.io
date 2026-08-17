@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JackYun Companion</title><link rel="stylesheet" href="popup.css"></head>
+<body><main>
+  <header><div class="logo">JY</div><div><h1>JackYun Companion</h1><p id="sync-state">正在读取状态…</p></div><button id="sync" class="icon" title="立即同步">↻</button></header>
+  <section id="signed-out" hidden><div class="hero"><h2>把学习记录带回 JackYun</h2><p>登录后同步有效学习时间、专注记录、稍后学习和设备设置。</p><button id="sign-in" class="primary">登录 JackYun 账号</button></div></section>
+  <section id="signed-in" hidden>
+    <div class="stats"><article><span>今日有效学习</span><strong id="today">0 分钟</strong><div class="progress"><i id="progress"></i></div></article><article><span>目标</span><strong id="goal-label">120 分钟</strong><small id="site-count">0 个网站</small></article></div>
+    <section class="card"><div class="section-title"><h2>今日网站</h2><span id="device"></span></div><div id="sites" class="sites"></div></section>
+    <section class="card"><h2>专注计时</h2><div id="focus-state" class="muted">尚未开始</div><div class="buttons"><button data-focus="25" class="primary">25 分钟</button><button data-focus="50">50 分钟</button><button id="stop-focus" class="danger">结束</button></div></section>
+    <section class="card"><h2>当前页面</h2><p id="current-page" class="truncate muted">未检测到支持的页面</p><button id="save-page" class="wide">加入稍后学习</button></section>
+    <details class="card"><summary>同步与隐私设置</summary><label><span>启用有效时间统计</span><input id="enabled" type="checkbox"></label><label><span>把 AI 网站计入学习</span><input id="count-ai" type="checkbox"></label><label><span>每日目标</span><input id="goal" type="number" min="10" max="1440" step="10"></label><label><span>空闲暂停</span><select id="idle"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select></label><button id="import-lite" class="wide" type="button">导入 Companion Lite 备份</button><input id="lite-file" type="file" accept="application/json" hidden><p class="privacy">普通统计只同步域名、分类和有效秒数。只有主动收藏时才上传页面标题和完整链接。</p></details>
+    <nav><a href="https://jackyun.top/dashboard" target="_blank">Dashboard</a><a href="https://jackyun.top/study" target="_blank">学习计划</a><a href="https://jackyun.top/resources" target="_blank">资源库</a><a href="https://jackyun.top/time-management" target="_blank">时间管理</a></nav>
+    <button id="sign-out" class="text">退出此扩展账号</button>
+  </section>
+  <p id="notice" role="status"></p>
+</main><script src="popup.js"></script></body></html>
