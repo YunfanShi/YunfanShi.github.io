@@ -14,6 +14,8 @@ const ALL_NAV_ITEMS: { labelKey: string; icon: string; href: string; id?: string
   // Goal 计划显示器：移到学习计划下面
   { labelKey: 'nav.goal', icon: 'flag', href: '/goal' },
   { labelKey: 'nav.study-guide', icon: 'auto_stories', href: '/study-guide' },
+  { labelKey: 'nav.learning-resources', icon: 'travel_explore', href: '/resources' },
+  { labelKey: 'nav.userscripts', icon: 'extension', href: '/userscripts' },
   { labelKey: 'nav.vocab', icon: 'menu_book', href: '/vocab' },
   // 时间管理：主页 + 3 个工具
   { labelKey: 'nav.time-management', icon: 'timer', href: '/time-management' },
