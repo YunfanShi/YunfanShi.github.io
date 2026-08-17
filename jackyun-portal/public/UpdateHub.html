@@ -319,7 +319,8 @@
         .module-desc { font-size: 14px; color: var(--text-sub); line-height: 1.5; flex: 1; margin-bottom: 16px; }
 
         .update-info {
-            background: #f8f9fa;
+            background: var(--background);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 12px 16px;
             margin-bottom: 16px;
@@ -354,6 +355,25 @@
         }
 
         .action-btn:hover { background: #1557b0; }
+
+        html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) body,
+        html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) header { background: var(--background); color: var(--text-main); }
+        html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .toggle-switch,
+        html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .global-log,
+        html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .card { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text-main) !important; }
+        html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .update-info { background: var(--background) !important; border-color: var(--border) !important; color: var(--text-main) !important; }
+
+        @media (max-width: 640px) {
+            header { padding: 34px 16px 42px; }
+            h1 { font-size: 30px; }
+            .subtitle { font-size: 15px; }
+            .nav-container { top: 8px; margin-bottom: 28px; }
+            .toggle-switch { max-width: calc(100vw - 24px); overflow-x: auto; border-radius: 16px; }
+            .toggle-btn { flex: 0 0 auto; min-height: 44px; padding: 10px 18px; }
+            .content-container { padding-inline: 12px; }
+            .grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+            .global-log, .card { border-radius: 16px; padding: 18px; }
+        }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body>

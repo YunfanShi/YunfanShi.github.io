@@ -6,6 +6,7 @@ import MultipleChoice from './multiple-choice';
 import EssayQuestion from './essay-question';
 import FillBlank from './fill-blank';
 import TrueFalse from './true-false';
+import OptionComposer from './option-composer';
 import AiFeedbackButton from './ai-feedback-button';
 import { UserAnswer } from './quiz-app';
 
@@ -37,23 +38,27 @@ export default function QuestionCard({
   const isCorrect = userAnswer?.isCorrect === true;
   const isGrading = userAnswer?.isGrading === true;
   // For essay/fill-blank, don't show result until grading is complete
-  const isObjective = question.type === 'multiple_choice' || question.type === 'true_false' || question.type === 'matching';
+  const isObjective = ['multiple_choice', 'true_false', 'multi_select', 'matching', 'ordering'].includes(question.type);
   const effectiveShowResult = showResult && answered && (isObjective || !isGrading);
 
   const typeLabel = {
     multiple_choice: 'Multiple Choice',
+    multi_select: 'Multiple Select',
     fill_blank: 'Fill in the Blank',
     essay: 'Essay',
     true_false: 'True or False',
     matching: 'Matching',
+    ordering: 'Ordering',
   }[question.type] || question.type;
 
   const typeIcon = {
     multiple_choice: 'checklist',
+    multi_select: 'check_box',
     fill_blank: 'edit_note',
     essay: 'article',
     true_false: 'toggle_on',
     matching: 'swap_horiz',
+    ordering: 'format_list_numbered',
   }[question.type] || 'quiz';
 
   return (
@@ -152,6 +157,18 @@ export default function QuestionCard({
             isCorrect={isCorrect}
             correctAnswer={question.correctAnswer}
             showResult={showResult}
+          />
+        )}
+
+        {(question.type === 'multi_select' || question.type === 'matching' || question.type === 'ordering') && question.options && (
+          <OptionComposer
+            type={question.type}
+            options={question.options}
+            value={userAnswer?.answer || ''}
+            onSubmit={onAnswer}
+            disabled={!!answered}
+            showResult={showResult}
+            correctAnswer={question.correctAnswer}
           />
         )}
 

@@ -110,7 +110,7 @@ const ANALYSIS_PROMPT_ZH = `你是一位专业的学科老师，负责分析考�
 {
   "questions": [
     {
-      "type": "multiple_choice | fill_blank | essay | true_false",
+      "type": "multiple_choice | multi_select | fill_blank | essay | true_false | matching | ordering",
       "questionText": "题目内容",
       "options": [{"label": "A", "text": "..."}, ...] 或 null,
       "correctAnswer": "正确答案",
@@ -124,6 +124,9 @@ const ANALYSIS_PROMPT_ZH = `你是一位专业的学科老师，负责分析考�
 - 填空题(填空题)：correctAnswer为缺失的词/短语
 - 简答题(简答题)：correctAnswer为答案要点概述
 - 判断题(判断题)：options应为[{"label":"正确","text":"正确"},{"label":"错误","text":"错误"}]
+- 多选题：type为multi_select，options列出所有选项，correctAnswer用逗号分隔所有正确选项字母（如"A,C,D"）
+- 匹配题：type为matching，每个option是一条完整配对，correctAnswer用逗号分隔所有正确配对的label
+- 排序题：type为ordering，options按题目给出的乱序项目列出，correctAnswer用逗号分隔正确顺序的label
 - 只返回JSON，不要添加任何额外文字
 
 待分析题目：
@@ -134,7 +137,7 @@ const ANALYSIS_PROMPT_EN = `You are an expert teacher analyzing exam questions. 
 {
   "questions": [
     {
-      "type": "multiple_choice | fill_blank | essay | true_false",
+      "type": "multiple_choice | multi_select | fill_blank | essay | true_false | matching | ordering",
       "questionText": "The question text",
       "options": [{"label": "A", "text": "..."}, ...] or null,
       "correctAnswer": "The correct answer text",
@@ -148,6 +151,7 @@ Rules:
 - For fill_blank: correctAnswer is the missing word/phrase
 - For essay: correctAnswer is the expected answer outline
 - For true_false: options should be [{"label":"True","text":"True"},{"label":"False","text":"False"}]
+- For multi_select, matching and ordering: return every item in options and use a comma-separated label list in correctAnswer; preserve the correct sequence for ordering
 - If the question contains images/figures reference in text, note them
 - Return ONLY valid JSON, no markdown, no extra text
 
@@ -360,7 +364,7 @@ export async function analyzeQuestions(
  * Check if a question type is objective (can be locally checked)
  */
 export function isObjectiveQuestion(type: QuestionType): boolean {
-  return type === 'multiple_choice' || type === 'true_false' || type === 'matching';
+  return type === 'multiple_choice' || type === 'true_false' || type === 'multi_select' || type === 'matching' || type === 'ordering';
 }
 
 /**
@@ -429,6 +433,17 @@ export function checkMultipleChoice(
   const normalize = (s: string) => s.trim().toLowerCase();
   const ua = normalize(userAnswer);
   const ca = normalize(correctAnswer);
+
+  const normalizeLabels = (value: string) => value
+    .toLowerCase()
+    .split(/[,，;；>|→\n]+/)
+    .map(part => part.trim().match(/^([a-z0-9]+)/)?.[1] || part.trim())
+    .filter(Boolean);
+  if (/[,，;；>|→\n]/.test(userAnswer) || /[,，;；>|→\n]/.test(correctAnswer)) {
+    const userLabels = normalizeLabels(userAnswer);
+    const correctLabels = normalizeLabels(correctAnswer);
+    return userLabels.length === correctLabels.length && userLabels.every((value, index) => value === correctLabels[index]);
+  }
 
   // Check if the letter matches (e.g., user picks "A", correct is "A" or "A)")
   const letterMatch = ua.match(/^([a-d])[).]?\s*/);

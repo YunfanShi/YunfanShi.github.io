@@ -940,33 +940,31 @@ video.addEventListener('volumechange', () => {
 
 // ─── Playback Controls ───
 function togglePlay() {
-  if (video.paused || video.ended) {
+  const wantsPlay = video.paused || video.ended;
+
+  // 同步模式下先广播统一执行时刻，本机也在同一时刻执行，避免主设备提前两秒播放。
+  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
+    const now = SuningSync.getPreciseTime();
+    const targetTime = now + 2000; // 2s for network
+    const payload = {
+      _type: 'bilibili-sync',
+      action: wantsPlay ? 'play' : 'pause',
+      time: video.currentTime,
+      bvid: currentVideoId,
+      cid: currentCid,
+      targetTime,
+    };
+    broadcastEvent(targetTime, payload);
+    startCountdown(targetTime, payload);
+    return;
+  }
+
+  if (wantsPlay) {
     video.play().catch(e => {
       showToast('⚠️ 播放失败: ' + e.message);
     });
   } else {
     video.pause();
-  }
-
-  // Broadcast if sync mode
-  if (document.getElementById('enableSyncMode').checked && DEVICE_CONFIG.isInput) {
-    const now = SuningSync.getPreciseTime();
-    const targetTime = now + 2000; // 2s for network
-    broadcastEvent(targetTime, {
-      _type: 'bilibili-sync',
-      action: video.paused ? 'pause' : 'play',
-      time: video.currentTime,
-      bvid: currentVideoId,
-      cid: currentCid,
-    });
-    if (!video.paused) {
-      startCountdown(targetTime, {
-        action: 'play',
-        time: video.currentTime,
-        bvid: currentVideoId,
-        cid: currentCid,
-      });
-    }
   }
 }
 
@@ -1135,14 +1133,11 @@ async function handleIncomingBroadcast(data) {
   const action = payload.action;
 
   if (action === 'load') {
-    if (payload.targetTime) {
-      startCountdown(payload.targetTime, payload);
-    } else {
-      executeVideoLoad(payload);
-    }
+    // 视频加载耗时不可预测，收到信号后立即预加载；播放仍由独立的定时指令控制。
+    executeVideoLoad(payload);
   } else if (action === 'play' || action === 'pause' || action === 'seek') {
-    if (payload.targetTime) {
-      startCountdown(payload.targetTime, payload);
+    if (data.targetTime) {
+      startCountdown(data.targetTime, { ...payload, targetTime: data.targetTime });
     } else {
       // Direct execute if no target time (for local BC messages)
       executePlayerAction(payload);
@@ -1204,14 +1199,23 @@ async function executeVideoLoad(payload) {
   }
 }
 
-function executePlayerAction(payload) {
+async function executePlayerAction(payload) {
   const action = payload.action;
   const time = payload.time || 0;
 
   if (action === 'play') {
     if (video.src) {
-      video.currentTime = time;
-      video.play().catch(() => {});
+      if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+        await new Promise(resolve => {
+          const done = () => { video.removeEventListener('canplay', done); resolve(); };
+          video.addEventListener('canplay', done, { once: true });
+          setTimeout(done, 5000);
+        });
+      }
+      // 若缓冲导致错过目标时刻，补偿已经过去的时间，避免设备越播越偏。
+      const elapsed = payload.targetTime ? Math.max(0, (SuningSync.getPreciseTime() - payload.targetTime) / 1000) : 0;
+      video.currentTime = Math.min(time + elapsed, Number.isFinite(video.duration) ? video.duration : time + elapsed);
+      video.play().catch(() => showToast('请点击播放按钮以允许浏览器播放视频'));
     }
     document.getElementById('playBtn').textContent = '⏸';
     document.getElementById('playBtn').disabled = false;

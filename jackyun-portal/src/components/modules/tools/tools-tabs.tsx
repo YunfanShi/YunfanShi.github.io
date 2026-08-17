@@ -5,12 +5,14 @@ import TextTools from '@/components/modules/tools/text-tools';
 import TimeSync from '@/components/modules/tools/time-sync';
 import ClipboardShare from '@/components/modules/tools/clipboard-share';
 import MarkdownToWord from '@/components/modules/tools/markdown-to-word';
+import StudyDailyTools from '@/components/modules/tools/study-daily-tools';
 
 const TABS = [
   { id: 'text', label: '文本工具', icon: 'text_snippet', color: '#4285F4' },
   { id: 'time', label: '时间同步', icon: 'schedule', color: '#34A853' },
   { id: 'clipboard', label: '剪贴板', icon: 'content_paste', color: '#FBBC05' },
   { id: 'md2word', label: 'Markdown 转 Word', icon: 'description', color: '#8E24AA' },
+  { id: 'study', label: '学习与日常', icon: 'school', color: '#E37400' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -23,12 +25,12 @@ export default function ToolsTabs() {
   return (
     <div className="flex flex-col gap-5">
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-1">
+      <div className="flex gap-1 overflow-x-auto rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActive(tab.id)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-[9px] py-2.5 text-sm font-medium transition-all"
+            className="flex min-h-11 min-w-12 flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2.5 text-sm font-medium transition-all"
             style={{
               backgroundColor: active === tab.id ? tab.color : 'transparent',
               color: active === tab.id ? '#fff' : 'var(--muted-foreground)',
@@ -53,6 +55,7 @@ export default function ToolsTabs() {
         {active === 'time' && <TimeSync />}
         {active === 'clipboard' && <ClipboardShare />}
         {active === 'md2word' && <MarkdownToWord />}
+        {active === 'study' && <StudyDailyTools />}
       </div>
     </div>
   );

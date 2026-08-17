@@ -441,9 +441,14 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .number { font-size: 36px; }
-            .card { padding: 25px; width: 92%; }
-            .countdown-grid, .countdown-row-2 { gap: 10px; }
+            body { min-height: 100dvh; padding-bottom: env(safe-area-inset-bottom); }
+            .number { font-size: clamp(30px, 10vw, 42px); color: var(--text-main) !important; }
+            .highlight-num { color: var(--theme-color) !important; }
+            .expired-card .number { color: var(--text-sub) !important; }
+            .card { padding: 22px 14px; width: calc(100% - 20px); }
+            .countdown-grid, .countdown-row-2 { gap: 6px; }
+            .unit-box { min-width: 0; padding-inline: 4px; }
+            .unit-label { font-size: 11px; }
             .tabs-wrapper { max-width: 85vw; }
             .title-text { font-size: 22px; }
             .radio-group { flex-direction: column; gap: 10px; }

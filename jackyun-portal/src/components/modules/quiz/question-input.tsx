@@ -67,7 +67,7 @@ export default function QuestionInput({
             <p className="font-medium text-[var(--foreground)] mb-1">粘贴题目</p>
             <p>粘贴一道或多道题目，AI 会自动识别题型、提取选项并给出正确答案。</p>
             <p className="mt-1">
-              <strong>支持题型：</strong>单选题、填空题、判断题、简答题
+              <strong>支持题型：</strong>单选、多选、填空、判断、简答、匹配与排序题
             </p>
           </div>
       </div>
@@ -132,11 +132,13 @@ export default function QuestionInput({
 
       {/* Quick Tips */}
       {!isAnalyzing && !error && (
-        <div className="grid grid-cols-3 gap-3 pt-2">
+        <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-3">
           {[
             { icon: 'quiz', title: 'Multiple Choice', desc: 'Questions with A/B/C/D options' },
             { icon: 'edit_note', title: 'Fill in Blank', desc: 'Questions with missing words/phrases' },
             { icon: 'article', title: 'Essay Questions', desc: 'Open-ended answers graded by AI' },
+            { icon: 'check_box', title: 'Multi-select & Matching', desc: 'Select every correct answer or pair' },
+            { icon: 'format_list_numbered', title: 'Ordering', desc: 'Tap items in the correct sequence' },
           ].map((tip) => (
             <div key={tip.title} className="p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-center">
               <span className="material-icons-round text-[#4285F4] text-xl mb-1">{tip.icon}</span>

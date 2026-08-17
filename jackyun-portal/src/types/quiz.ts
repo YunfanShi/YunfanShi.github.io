@@ -1,6 +1,6 @@
 // Quiz type definitions
 
-export type QuestionType = 'multiple_choice' | 'fill_blank' | 'essay' | 'true_false' | 'matching';
+export type QuestionType = 'multiple_choice' | 'multi_select' | 'fill_blank' | 'essay' | 'true_false' | 'matching' | 'ordering';
 
 export interface QuestionOption {
   label: string; // A, B, C, D

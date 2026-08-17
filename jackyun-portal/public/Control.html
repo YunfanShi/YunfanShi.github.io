@@ -58,6 +58,7 @@
             background: #000; display: flex; justify-content: center; 
             overflow: hidden; position: relative; min-height: 0;
         }
+        .mobile-music-fallback { display: none; }
         
         .settings-area { 
             padding: 15px; background: #f9f9f9; border-top: 1px solid #eee; 
@@ -565,6 +566,10 @@
             .overlay-quote { padding-inline: 16px; font-size: 16px; }
             aside { order: 2; width: 100%; height: auto; min-height: 520px; border-top: 1px solid #e0e0e0; border-right: 0; }
             aside .iframe-container { flex: none; height: min(48dvh, 360px); min-height: 240px; }
+            aside .iframe-container iframe { display: none; }
+            .mobile-music-fallback { display: flex; width: 100%; min-height: 210px; padding: 24px 18px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; text-align: center; color: var(--text); background: var(--surface2); }
+            .mobile-music-fallback p { max-width: 28rem; margin: 0; color: var(--text2); font-size: 13px; line-height: 1.6; }
+            .mobile-music-fallback a { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0 18px; border-radius: 10px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 600; }
             .settings-area { padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
             .panel-sheet { padding: 18px 14px calc(18px + env(safe-area-inset-bottom)); }
             body.view-schedule aside, body.view-schedule-only aside, body.view-countdown aside { display: none; }
@@ -791,6 +796,12 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
     </div>
     <div class="iframe-container">
         <iframe id="music-iframe" frameborder="no" border="0" marginwidth="0" marginheight="0" width=340 height=100% src=""></iframe>
+        <div class="mobile-music-fallback">
+            <span class="material-icons-round" style="font-size:36px;color:var(--primary);">open_in_new</span>
+            <strong>手机浏览器不支持网易云嵌入播放器</strong>
+            <p>日程和计时功能仍可正常使用。音乐请在网易云 App 或新窗口中播放，避免出现空白区域和无法点击的问题。</p>
+            <a href="https://music.163.com" target="_blank" rel="noopener noreferrer">打开网易云音乐</a>
+        </div>
     </div>
     <div class="settings-area">
         <div class="setting-row">
