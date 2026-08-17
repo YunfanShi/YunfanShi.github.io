@@ -1,15 +1,27 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { USERSCRIPTS, type ScriptCategory } from '@/lib/userscripts';
+import { USERSCRIPTS, type ScriptCategory, type ScriptSafety } from '@/lib/userscripts';
 
 const categories: { id: 'all' | ScriptCategory; label: string }[] = [
   { id: 'all', label: '全部脚本' },
   { id: 'study', label: '学习增强' },
+  { id: 'video', label: '视频娱乐' },
+  { id: 'reading', label: '阅读资讯' },
+  { id: 'developer', label: '开发工具' },
+  { id: 'productivity', label: '效率与 AI' },
+  { id: 'social', label: '社交社区' },
+  { id: 'privacy', label: '隐私保护' },
   { id: 'focus', label: '专注管理' },
   { id: 'communication', label: '通信工具' },
   { id: 'portal', label: 'JackYun Portal' },
 ];
+
+const safetyLabels: Record<ScriptSafety, { label: string; className: string }> = {
+  local: { label: '本站源码 · 本地数据', className: 'bg-[#e6f4ea] text-[#137333] dark:bg-[#137333]/25 dark:text-[#ceead6]' },
+  selected: { label: '精选第三方来源', className: 'bg-[#e8f0fe] text-[#1967d2] dark:bg-[#174ea6]/35 dark:text-[#d2e3fc]' },
+  caution: { label: '安装前重点检查', className: 'bg-[#fef7e0] text-[#8a5600] dark:bg-[#b06000]/25 dark:text-[#fde293]' },
+};
 
 export default function UserscriptLibrary() {
   const [category, setCategory] = useState<'all' | ScriptCategory>('all');
@@ -47,11 +59,11 @@ export default function UserscriptLibrary() {
               Tampermonkey Userscripts
             </div>
             <h1 className="text-3xl font-bold tracking-[-0.04em] sm:text-4xl">网站插件大全</h1>
-            <p className="mt-3 text-sm leading-6 text-[#bdc1c6] sm:text-base">集中保存学习、专注和通信增强脚本。查看适用网站与功能后，可直接复制源码或下载独立的 .user.js 文件。</p>
+            <p className="mt-3 text-sm leading-6 text-[#bdc1c6] sm:text-base">收录学习、AI、视频、阅读、开发、社交、效率和隐私脚本，并提供本站自研助手。每个条目都标明来源、适用网站与权限范围。</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-[#bdc1c6] lg:max-w-xs">
             <p className="font-semibold text-white">使用前确认</p>
-            <p className="mt-1 leading-5">请先安装 Tampermonkey，并只启用你了解的脚本。网站结构变化后，脚本功能可能失效。</p>
+            <p className="mt-1 leading-5">请先安装 Tampermonkey。第三方脚本不能保证绝对安全；安装前请检查更新日期、权限、源码与用户反馈。</p>
           </div>
         </div>
       </section>
@@ -73,7 +85,10 @@ export default function UserscriptLibrary() {
 
       <p className="mb-3 mt-5 text-sm text-[var(--muted-foreground)]">{visible.length} 个可用脚本</p>
       <div className="grid gap-4 lg:grid-cols-2">
-        {visible.map((script) => (
+        {visible.map((script) => {
+          const safety = script.safety ?? (script.file ? 'local' : 'selected');
+          const safetyMeta = safetyLabels[safety];
+          return (
           <article key={script.id} className="flex flex-col rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-[var(--surface-shadow)]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -87,6 +102,12 @@ export default function UserscriptLibrary() {
               <span className="material-icons-round grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f0fe] text-[#1a73e8] dark:bg-[#174ea6]/45 dark:text-[#aecbfa]">code</span>
             </div>
             <p className="mt-4 text-sm leading-6 text-[var(--muted-foreground)]">{script.description}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className={`rounded-full px-2.5 py-1 font-semibold ${safetyMeta.className}`}>{safetyMeta.label}</span>
+              {script.sourceLabel && <span className="rounded-full border border-[var(--card-border)] px-2.5 py-1 text-[var(--muted-foreground)]">来源：{script.sourceLabel}</span>}
+              {script.updated && <span className="text-[var(--muted-foreground)]">更新 {script.updated}</span>}
+            </div>
+            {script.popularity && <p className="mt-2 text-xs text-[var(--muted-foreground)]">{script.popularity}</p>}
             <div className="mt-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">适用网站</p>
               <div className="mt-2 flex flex-wrap gap-1.5">{script.sites.map((site) => <span key={site} className="rounded-full border border-[var(--card-border)] px-2.5 py-1 font-mono text-[11px] text-[var(--foreground)]">{site}</span>)}</div>
@@ -94,6 +115,7 @@ export default function UserscriptLibrary() {
             <ul className="mt-4 grid gap-2 text-sm text-[var(--foreground)] sm:grid-cols-2">
               {script.features.map((feature) => <li key={feature} className="flex items-center gap-2"><span className="material-icons-round text-base text-[#34a853]">check_circle</span>{feature}</li>)}
             </ul>
+            {script.permissions && <div className="mt-4 rounded-xl border border-[var(--card-border)] px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-semibold text-[var(--foreground)]">权限范围：</span>{script.permissions.join(' · ')}</div>}
             {script.caution && <p className="mt-4 rounded-xl bg-[#fef7e0] px-3 py-2 text-xs leading-5 text-[#7a4f01] dark:bg-[#b06000]/20 dark:text-[#fde293]">{script.caution}</p>}
             <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
               {script.file ? (
@@ -104,16 +126,17 @@ export default function UserscriptLibrary() {
               ) : (
                 <a href={script.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold text-[var(--foreground)] hover:border-[var(--brand)]">
                   <span className="material-icons-round text-lg">code</span>
-                  查看 GitHub
+                  查看 {script.sourceLabel ?? '来源'}
                 </a>
               )}
               <a href={script.file ?? script.installUrl} download={script.file ? true : undefined} target={script.external ? '_blank' : undefined} rel={script.external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] dark:text-[#202124]">
                 <span className="material-icons-round text-lg">{script.external ? 'extension' : 'download'}</span>
-                {script.external ? '打开安装' : '下载脚本'}
+                {script.external ? '查看 / 安装' : '下载脚本'}
               </a>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
       {visible.length === 0 && <div className="rounded-2xl border border-dashed border-[var(--card-border)] py-16 text-center text-sm text-[var(--muted-foreground)]">没有找到匹配的脚本。</div>}
     </div>

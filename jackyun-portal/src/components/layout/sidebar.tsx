@@ -207,7 +207,7 @@ export default function Sidebar({ initialPrefs }: Props) {
       <aside
         id="portal-navigation"
         inert={mobileViewport && !mobileOpen ? true : undefined}
-        className={`fixed inset-y-0 left-0 z-50 flex w-[min(20rem,calc(100vw-3rem))] flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-2xl transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[min(20rem,calc(100vw-3rem))] flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-2xl transition-[transform,width] duration-200 ease-[cubic-bezier(0.2,0,0,1)] will-change-transform md:static md:z-auto md:translate-x-0 md:shadow-none ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${
           collapsed ? 'md:w-16' : 'md:w-64'

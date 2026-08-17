@@ -644,7 +644,12 @@ export default function AiChatFab({
   const [fabPosition, setFabPosition] = useState<FabPosition | null>(null);
   const [isDraggingFab, setIsDraggingFab] = useState(false);
   const dragStartRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+  const liveFabPositionRef = useRef<FabPosition | null>(null);
+  const dragFrameRef = useRef<number | null>(null);
   const dragMovedRef = useRef(false);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  const fabRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvIdState] = useState<string | null>(null);
@@ -684,28 +689,78 @@ export default function AiChatFab({
   // 同步的当前会话 ID ref（避免 state 异步更新导致的首次对话消息丢失问题）
   const activeConvIdRef = useRef<string | null>(null);
 
-  const clampFabPosition = useCallback((position: FabPosition): FabPosition => {
+  const clampFabPosition = useCallback((position: FabPosition, preserveDock = true): FabPosition => {
     if (typeof window === 'undefined') return position;
     const buttonSize = 48;
+    const dock = preserveDock ? position.dock : null;
     return {
-      ...position,
-      x: Math.min(Math.max(position.x, position.dock === 'left' ? -20 : 8), window.innerWidth - (position.dock === 'right' ? 28 : buttonSize + 8)),
+      dock,
+      x: dock === 'left'
+        ? -20
+        : dock === 'right'
+          ? window.innerWidth - 28
+          : Math.min(Math.max(position.x, 8), window.innerWidth - buttonSize - 8),
       y: Math.min(Math.max(position.y, 8), window.innerHeight - buttonSize - 8),
     };
   }, []);
+
+  const getPanelPosition = useCallback((position: FabPosition) => {
+    if (typeof window === 'undefined') return { x: 8, y: 8, width: 480, height: 620 };
+    const margin = 8;
+    const gap = 12;
+    const buttonSize = 48;
+    const width = Math.min(480, window.innerWidth - margin * 2);
+    const height = Math.min(620, window.innerHeight - margin * 2);
+    const buttonCenter = position.x + buttonSize / 2;
+    const x = Math.min(Math.max(buttonCenter - width / 2, margin), window.innerWidth - width - margin);
+    const above = position.y - gap - height;
+    const below = position.y + buttonSize + gap;
+    const y = above >= margin
+      ? above
+      : below + height <= window.innerHeight - margin
+        ? below
+        : Math.min(Math.max(position.y - height / 2, margin), window.innerHeight - height - margin);
+    return { x, y, width, height };
+  }, []);
+
+  const paintFabPosition = useCallback((position: FabPosition) => {
+    liveFabPositionRef.current = position;
+    if (dragFrameRef.current !== null) cancelAnimationFrame(dragFrameRef.current);
+    dragFrameRef.current = requestAnimationFrame(() => {
+      if (fabRef.current) fabRef.current.style.translate = `${position.x}px ${position.y}px`;
+      if (panelRef.current) {
+        const panel = getPanelPosition(position);
+        panelRef.current.style.translate = `${panel.x}px ${panel.y}px`;
+      }
+      dragFrameRef.current = null;
+    });
+  }, [getPanelPosition]);
 
   useEffect(() => {
     if (embedded) return;
     const fallback: FabPosition = { x: window.innerWidth - 64, y: window.innerHeight - 72, dock: 'right' };
     try {
       const saved = JSON.parse(localStorage.getItem(FAB_POSITION_KEY) || 'null') as FabPosition | null;
-      setFabPosition(clampFabPosition(saved ?? fallback));
+      const initial = clampFabPosition(saved ?? fallback);
+      liveFabPositionRef.current = initial;
+      setFabPosition(initial);
     } catch {
-      setFabPosition(clampFabPosition(fallback));
+      const initial = clampFabPosition(fallback);
+      liveFabPositionRef.current = initial;
+      setFabPosition(initial);
     }
-    const handleResize = () => setFabPosition((previous) => previous ? clampFabPosition(previous) : previous);
+    const handleResize = () => setFabPosition((previous) => {
+      if (!previous) return previous;
+      const next = clampFabPosition(previous);
+      liveFabPositionRef.current = next;
+      return next;
+    });
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      dragCleanupRef.current?.();
+      if (dragFrameRef.current !== null) cancelAnimationFrame(dragFrameRef.current);
+    };
   }, [clampFabPosition, embedded]);
 
   useEffect(() => {
@@ -713,43 +768,85 @@ export default function AiChatFab({
     try { localStorage.setItem(FAB_POSITION_KEY, JSON.stringify(fabPosition)); } catch {}
   }, [fabPosition, embedded]);
 
-  const startFabDrag = useCallback((event: React.PointerEvent) => {
-    if (embedded || !fabPosition) return;
-    if ((event.target as HTMLElement).closest('button, input, textarea, select, a')) return;
-    dragMovedRef.current = false;
-    dragStartRef.current = {
-      pointerX: event.clientX,
-      pointerY: event.clientY,
-      x: fabPosition.x,
-      y: fabPosition.y,
-    };
-    setIsDraggingFab(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }, [embedded, fabPosition]);
-
-  const moveFab = useCallback((event: React.PointerEvent) => {
+  const moveFab = useCallback((event: Pick<PointerEvent, 'clientX' | 'clientY' | 'preventDefault'>) => {
     const start = dragStartRef.current;
     if (!start) return;
     const dx = event.clientX - start.pointerX;
     const dy = event.clientY - start.pointerY;
     if (Math.abs(dx) + Math.abs(dy) > 5) dragMovedRef.current = true;
-    setFabPosition(clampFabPosition({ x: start.x + dx, y: start.y + dy, dock: null }));
-  }, [clampFabPosition]);
+    if (!dragMovedRef.current) return;
+    event.preventDefault();
+    paintFabPosition(clampFabPosition({ x: start.x + dx, y: start.y + dy, dock: null }, false));
+  }, [clampFabPosition, paintFabPosition]);
 
   const endFabDrag = useCallback(() => {
+    dragCleanupRef.current?.();
+    dragCleanupRef.current = null;
     if (!dragStartRef.current) return;
     dragStartRef.current = null;
     setIsDraggingFab(false);
-    setFabPosition((previous) => {
-      if (!previous || typeof window === 'undefined') return previous;
-      const dock = previous.x + 24 < window.innerWidth / 2 ? 'left' : 'right';
-      return clampFabPosition({
+    if (!dragMovedRef.current) return;
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+    const previous = liveFabPositionRef.current ?? fabPosition;
+    if (!previous || typeof window === 'undefined') return;
+    const dock = previous.x + 24 < window.innerWidth / 2 ? 'left' : 'right';
+    const next = clampFabPosition({
         x: dock === 'left' ? -20 : window.innerWidth - 28,
         y: previous.y,
         dock,
       });
-    });
-  }, [clampFabPosition]);
+    liveFabPositionRef.current = next;
+    if (fabRef.current) fabRef.current.style.translate = `${next.x}px ${next.y}px`;
+    if (panelRef.current) {
+      const panel = getPanelPosition(next);
+      panelRef.current.style.translate = `${panel.x}px ${panel.y}px`;
+    }
+    setFabPosition(next);
+    // The click emitted by the same pointer sequence must be ignored, while the
+    // user's next deliberate click should still open the assistant.
+    window.setTimeout(() => { dragMovedRef.current = false; }, 0);
+  }, [clampFabPosition, fabPosition, getPanelPosition]);
+
+  const startFabDrag = useCallback((event: React.PointerEvent) => {
+    if (embedded || !fabPosition) return;
+    const isFabHandle = event.currentTarget === fabRef.current;
+    if (!isFabHandle && (event.target as HTMLElement).closest('button, input, textarea, select, a')) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    dragCleanupRef.current?.();
+    dragMovedRef.current = false;
+    const livePosition = liveFabPositionRef.current ?? fabPosition;
+    dragStartRef.current = {
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      x: livePosition.x,
+      y: livePosition.y,
+    };
+    setIsDraggingFab(true);
+
+    const pointerId = event.pointerId;
+    const handlePointerMove = (nativeEvent: PointerEvent) => {
+      if (nativeEvent.pointerId === pointerId) moveFab(nativeEvent);
+    };
+    const handlePointerEnd = (nativeEvent: PointerEvent) => {
+      if (nativeEvent.pointerId === pointerId) endFabDrag();
+    };
+    const handleWindowBlur = () => endFabDrag();
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+    dragCleanupRef.current = cleanup;
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
+    window.addEventListener('blur', handleWindowBlur);
+  }, [embedded, endFabDrag, fabPosition, moveFab]);
 
   // 同步 ref 和 state 的会话 ID 设置函数
   const setActiveConvId = useCallback((id: string | null) => {
@@ -1788,7 +1885,8 @@ export default function AiChatFab({
 
   const containerClass = embedded
     ? 'w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-lg flex flex-col overflow-hidden'
-    : `fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 w-[calc(100vw-1rem)] sm:w-[480px] rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl flex flex-col overflow-hidden ${fabPosition?.dock === 'left' ? 'left-2 sm:left-4' : 'right-2 sm:right-4'}`;
+    : 'fixed left-0 top-0 z-50 flex flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl will-change-transform';
+  const panelPosition = fabPosition ? getPanelPosition(fabPosition) : null;
 
   // ════════════════════════════════════════════════════════
   // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
@@ -1854,14 +1952,24 @@ export default function AiChatFab({
   return (
     <>
       {open && (
-        <div className={containerClass} style={{ height: embedded ? '100%' : 'min(620px, calc(100dvh - 6rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}>
+        <div
+          ref={panelRef}
+          className={`${containerClass} ${embedded ? '' : 'animate-ai-panel-in'} ${isDraggingFab ? 'transition-none' : 'transition-[translate,opacity,scale] duration-200 ease-[cubic-bezier(0.2,0,0,1)]'}`}
+          style={embedded ? { height: '100%' } : panelPosition ? {
+            width: panelPosition.width,
+            height: panelPosition.height,
+            translate: `${panelPosition.x}px ${panelPosition.y}px`,
+          } : {
+            right: 8,
+            bottom: 72,
+            width: 'min(480px, calc(100vw - 16px))',
+            height: 'min(620px, calc(100dvh - 80px))',
+          }}
+        >
           {/* Header */}
           <div
             className={`flex touch-none items-center justify-between px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card)] ${embedded ? '' : 'cursor-grab active:cursor-grabbing'}`}
             onPointerDown={startFabDrag}
-            onPointerMove={moveFab}
-            onPointerUp={endFabDrag}
-            onPointerCancel={endFabDrag}
             title={embedded ? undefined : '拖动可移动并贴边收起'}
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -2208,6 +2316,7 @@ export default function AiChatFab({
       {/* FAB */}
       {!embedded && (
         <button
+          ref={fabRef}
           onClick={() => {
             if (dragMovedRef.current) {
               dragMovedRef.current = false;
@@ -2216,11 +2325,8 @@ export default function AiChatFab({
             setOpen((v) => !v);
           }}
           onPointerDown={startFabDrag}
-          onPointerMove={moveFab}
-          onPointerUp={endFabDrag}
-          onPointerCancel={endFabDrag}
-          style={fabPosition ? { left: fabPosition.x, top: fabPosition.y } : undefined}
-          className={`fixed z-50 flex h-12 w-12 touch-none items-center justify-center bg-[#4285F4] text-white shadow-lg transition-[transform,background-color,box-shadow,border-radius] hover:bg-[#3367d6] hover:shadow-xl active:scale-95 ${fabPosition ? '' : 'bottom-[max(1rem,env(safe-area-inset-bottom))] right-4'} ${isDraggingFab ? 'cursor-grabbing scale-105' : 'cursor-grab'} ${fabPosition?.dock === 'left' ? 'rounded-r-full rounded-l-none justify-end pr-2' : fabPosition?.dock === 'right' ? 'rounded-l-full rounded-r-none justify-start pl-2' : 'rounded-full'}`}
+          style={fabPosition ? { left: 0, top: 0, translate: `${fabPosition.x}px ${fabPosition.y}px` } : undefined}
+          className={`fixed z-50 flex h-12 w-12 touch-none select-none items-center justify-center bg-[#4285F4] text-white shadow-lg will-change-transform hover:bg-[#3367d6] hover:shadow-xl active:scale-95 ${fabPosition ? '' : 'bottom-[max(1rem,env(safe-area-inset-bottom))] right-4'} ${isDraggingFab ? 'cursor-grabbing scale-105 transition-none' : 'cursor-grab transition-[translate,scale,background-color,box-shadow,border-radius] duration-200 ease-[cubic-bezier(0.2,0,0,1)]'} ${fabPosition?.dock === 'left' ? 'rounded-r-full rounded-l-none justify-end pr-2' : fabPosition?.dock === 'right' ? 'rounded-l-full rounded-r-none justify-start pl-2' : 'rounded-full'}`}
           title="AI 助手（拖动可贴边收起）"
           aria-label={open ? '关闭 AI 助手' : '打开 AI 助手'}
         >

@@ -32,7 +32,7 @@
             --font-mono: 'Roboto Mono', monospace;
         }
 
-        * { box-sizing: border-box; transition: all 0.2s ease-in-out; }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -636,7 +636,7 @@
 
         /* JackYun portal: Material page system */
         :root { --primary:#1a73e8; --on-primary:#fff; --primary-container:#e8f0fe; --secondary:#5f6368; --surface:#f8f9fa; --surface-variant:#dadce0; --outline:#5f6368; --bg-color:#fff; --card-bg:#fff; --radius-l:12px; --radius-m:10px; }
-        * { transition: background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease; }
+        :is(button,a,input,textarea,select,.nav-item,.card,.subject-card,.task-item) { transition: background-color .16s cubic-bezier(.2,0,0,1),border-color .16s cubic-bezier(.2,0,0,1),color .16s cubic-bezier(.2,0,0,1),box-shadow .16s cubic-bezier(.2,0,0,1),transform .16s cubic-bezier(.2,0,0,1); }
         aside { width:280px; background:#f8f9fa; border-color:#dadce0; }
         .brand { padding:20px 22px; font-size:16px; font-weight:600; color:#202124; }
         .nav-subject-header { padding:10px 12px; border-radius:8px; }
