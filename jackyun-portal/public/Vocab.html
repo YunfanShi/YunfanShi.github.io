@@ -136,6 +136,40 @@
         .nav-rail-item { border-radius:8px; width:72px; }
         .nav-rail-item.active { background:#e8f0fe; color:#174ea6; }
         .dark .nav-rail-item.active { background:#174ea6; color:#d2e3fc; }
+        @media (max-width:767px) {
+            body { height:100dvh; min-width:0; flex-direction:column; overflow:hidden; padding-bottom:calc(68px + env(safe-area-inset-bottom)); }
+            body > nav {
+                position:fixed !important;
+                inset:auto 0 0 0;
+                z-index:80;
+                width:100% !important;
+                height:calc(68px + env(safe-area-inset-bottom)) !important;
+                padding:4px 8px env(safe-area-inset-bottom) !important;
+                display:flex !important;
+                flex-direction:row !important;
+                align-items:center !important;
+                gap:2px;
+                border-top:1px solid var(--md-sys-color-outline);
+                border-right:0;
+            }
+            body > nav > div:first-child { display:none; }
+            .nav-rail-item,
+            .nav-rail-item.mt-auto { flex:1; width:auto; height:56px; min-width:0; margin:0 !important; padding:5px 2px; }
+            .nav-rail-item .icon { font-size:22px; }
+            .nav-rail-item .label { font-size:11px; }
+            body > main { width:100%; height:calc(100dvh - 68px - env(safe-area-inset-bottom)) !important; min-width:0; }
+            .view-page { padding:16px 12px 24px !important; }
+            .view-page > header { align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:16px !important; }
+            #view-dashboard .grid-cols-4 { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:8px; }
+            #view-dashboard .grid-cols-4 .card { padding:14px; min-width:0; }
+            #view-dashboard .grid-cols-4 .text-3xl { font-size:1.55rem; }
+            #view-dashboard > .card.flex { gap:8px; padding:12px; }
+            #view-dashboard > .grid-cols-3 { grid-template-columns:minmax(0,1fr) !important; height:auto !important; gap:12px; }
+            #view-dashboard > .grid-cols-3 > .col-span-2 { grid-column:span 1 / span 1 !important; min-height:250px; padding:22px; }
+            #view-dashboard > .grid-cols-3 > .grid { min-height:230px; }
+            #view-dashboard .text-3xl { font-size:1.65rem; }
+            #toast-container { bottom:calc(76px + env(safe-area-inset-bottom)); width:calc(100% - 24px); }
+        }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body class="flex">

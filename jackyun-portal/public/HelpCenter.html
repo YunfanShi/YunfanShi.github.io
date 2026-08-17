@@ -676,7 +676,28 @@
             .side-nav {
                 width: 100%;
                 position: static;
-                max-height: none;
+                display: none;
+                max-height: min(62dvh, 520px);
+                overflow-y: auto;
+            }
+            .side-nav.mobile-open { display: block; }
+            .mobile-help-nav {
+                position: sticky;
+                top: 8px;
+                z-index: 20;
+                width: 100%;
+                min-height: 48px;
+                padding: 0 14px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: var(--surface);
+                color: var(--text);
+                font: inherit;
+                font-weight: 600;
+                box-shadow: 0 2px 8px rgba(60,64,67,.12);
             }
 
             .article {
@@ -691,6 +712,9 @@
                 display: none;
             }
         }
+
+        .mobile-help-nav { display:none; }
+        @media (max-width:900px) { .mobile-help-nav { display:flex; } }
 
         .hidden { display: none !important; }
     </style>
@@ -712,6 +736,10 @@
 
 <!-- ── 主体 ── -->
 <div class="layout">
+    <button class="mobile-help-nav" id="mobileHelpNav" type="button" onclick="toggleHelpNav()" aria-controls="sideNav" aria-expanded="false">
+        <span><span class="material-symbols-rounded" style="vertical-align:-6px;margin-right:8px;">menu_book</span>浏览帮助目录</span>
+        <span class="material-symbols-rounded" id="mobileHelpNavIcon">expand_more</span>
+    </button>
     <!-- 左侧导航 -->
     <nav class="side-nav" id="sideNav"></nav>
 
@@ -2255,7 +2283,7 @@ function renderSideNav(activeCat = null, activeArt = null) {
             const btn = document.createElement('button');
             btn.className = 'nav-item' + (activeArt === id ? ' active' : '');
             btn.innerHTML = `<span class="material-symbols-rounded">${art.icon}</span><span>${art.title}</span>`;
-            btn.onclick = () => openArticle(id);
+            btn.onclick = () => { openArticle(id); toggleHelpNav(false); };
             nav.appendChild(btn);
         });
     });
@@ -2282,6 +2310,17 @@ function renderCategoryGrid() {
         };
         grid.appendChild(card);
     });
+}
+
+function toggleHelpNav(force) {
+    const nav = document.getElementById('sideNav');
+    const button = document.getElementById('mobileHelpNav');
+    const icon = document.getElementById('mobileHelpNavIcon');
+    if (!nav || !button || !icon) return;
+    const open = typeof force === 'boolean' ? force : !nav.classList.contains('mobile-open');
+    nav.classList.toggle('mobile-open', open);
+    button.setAttribute('aria-expanded', String(open));
+    icon.textContent = open ? 'expand_less' : 'expand_more';
 }
 
 function getCatDesc(catId) {
@@ -2388,7 +2427,7 @@ function setupSearch() {
                 const btn = document.createElement('button');
                 btn.className = 'nav-item';
                 btn.innerHTML = `<span class="material-symbols-rounded">${art.icon}</span><span>${art.title}</span>`;
-                btn.onclick = () => openArticle(id);
+                btn.onclick = () => { openArticle(id); toggleHelpNav(false); };
                 nav.appendChild(btn);
             });
         });

@@ -71,6 +71,9 @@
             min-height: 100vh;
         }
 
+        .mobile-guide-bar,
+        .mobile-guide-backdrop { display: none; }
+
         /* Sidebar */
         .sidebar {
             width: 280px;
@@ -848,12 +851,66 @@
             .ai-sidebar { display: none; }
         }
         @media (max-width: 768px) {
-            .sidebar { display: none; }
-            .content-scroll { padding: 24px 20px; }
+            body.guide-nav-open { overflow: hidden; }
+            .mobile-guide-bar {
+                position: fixed;
+                inset: 0 0 auto 0;
+                z-index: 120;
+                min-height: calc(56px + env(safe-area-inset-top));
+                padding: env(safe-area-inset-top) 12px 0;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: color-mix(in srgb, var(--md-surface) 94%, transparent);
+                border-bottom: 1px solid var(--md-outline-variant);
+                backdrop-filter: blur(12px);
+            }
+            .mobile-guide-menu {
+                width: 44px;
+                height: 44px;
+                border: 0;
+                border-radius: 50%;
+                display: grid;
+                place-items: center;
+                flex: 0 0 auto;
+                color: var(--md-on-surface);
+                background: transparent;
+            }
+            .mobile-guide-title { min-width: 0; font-size: 16px; font-weight: 600; }
+            .mobile-guide-title small { display: block; margin-top: 1px; color: var(--md-secondary); font-size: 11px; font-weight: 400; }
+            .app-container { min-height: 100dvh; padding-top: calc(56px + env(safe-area-inset-top)); }
+            .sidebar {
+                display: flex;
+                position: fixed;
+                inset: 0 auto 0 0;
+                z-index: 140;
+                width: min(86vw, 320px);
+                height: 100dvh;
+                padding-top: calc(16px + env(safe-area-inset-top));
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
+                transform: translateX(-105%);
+                transition: transform .22s var(--transition);
+                box-shadow: 12px 0 32px rgba(0,0,0,.18);
+            }
+            .sidebar.mobile-open { transform: translateX(0); }
+            .mobile-guide-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 130;
+                display: block;
+                visibility: hidden;
+                opacity: 0;
+                border: 0;
+                background: rgba(0,0,0,.42);
+                transition: opacity .22s ease, visibility .22s ease;
+            }
+            .mobile-guide-backdrop.mobile-open { visibility: visible; opacity: 1; }
+            .main-area { width: 100%; }
+            .content-scroll { padding: 22px 14px calc(28px + env(safe-area-inset-bottom)); }
             .main-tab { font-size: 12px; padding: 8px 12px; }
             .main-tab .tab-icon { font-size: 18px; }
             .page-header h1 { font-size: 24px; }
-            .modal-sheet { padding: 20px; }
+            .modal-sheet { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); max-height: calc(100dvh - 12px); }
         }
 
         /* Loading dots */
@@ -878,6 +935,14 @@
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body>
+
+<div class="mobile-guide-bar">
+    <button class="mobile-guide-menu" type="button" onclick="toggleGuideNav(true)" aria-label="打开学习指南导航" aria-controls="sidebar" aria-expanded="false">
+        <span class="material-icons-round">menu</span>
+    </button>
+    <div class="mobile-guide-title">StudyGuide<small>选择学习板块</small></div>
+</div>
+<button class="mobile-guide-backdrop" type="button" onclick="toggleGuideNav(false)" aria-label="关闭学习指南导航"></button>
 
 <div class="app-container">
     <!-- ============ Sidebar ============ -->
@@ -1349,6 +1414,18 @@
 
         render();
         saveState();
+        toggleGuideNav(false);
+    }
+
+    function toggleGuideNav(open) {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.querySelector('.mobile-guide-backdrop');
+        const trigger = document.querySelector('.mobile-guide-menu');
+        if (!sidebar || !backdrop || !trigger) return;
+        sidebar.classList.toggle('mobile-open', open);
+        backdrop.classList.toggle('mobile-open', open);
+        document.body.classList.toggle('guide-nav-open', open);
+        trigger.setAttribute('aria-expanded', String(open));
     }
 
     function switchSubTab(subTab) {
@@ -1960,6 +2037,9 @@
             localStorage.setItem('studyguide_last_visit', today);
             setTimeout(() => showTodayModal(), 500);
         }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') toggleGuideNav(false);
     });
 </script>
 

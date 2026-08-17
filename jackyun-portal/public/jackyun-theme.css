@@ -334,7 +334,31 @@ pre, code, .katex-display { max-width: 100%; overflow-x: auto; }
   body:has(.player-bar) .input-row { flex-wrap: wrap; }
 
   /* Relax workspace */
-  body:has(.main-container) > .sidebar { display: none; }
+  body:has(.main-container) > .sidebar {
+    position: fixed;
+    inset: auto auto max(8px, env(safe-area-inset-bottom)) 50%;
+    z-index: 120;
+    width: auto;
+    height: 56px;
+    padding: 6px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--border, rgba(0,0,0,.12));
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface, #fff) 94%, transparent);
+    box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    backdrop-filter: blur(14px);
+    transform: translateX(-50%);
+  }
+  body:has(.main-container) > .sidebar .icon-btn {
+    width: 44px;
+    height: 44px;
+    margin: 0 !important;
+    border-radius: 12px;
+  }
+  body:has(.main-container) > .sidebar .mood-dot { right: 2px; bottom: 2px; }
   body:has(.main-container) .main-container {
     display: flex;
     height: 100dvh;
@@ -345,7 +369,7 @@ pre, code, .katex-display { max-width: 100%; overflow-x: auto; }
   body:has(.main-container) .scroll-area {
     flex: none;
     overflow: visible;
-    padding: 20px 14px;
+    padding: 20px 14px calc(84px + env(safe-area-inset-bottom));
   }
   body:has(.main-container) .hero-title { margin-bottom: 24px; font-size: 2rem; }
   body:has(.main-container) .widget-card { margin-bottom: 18px; padding: 18px; }

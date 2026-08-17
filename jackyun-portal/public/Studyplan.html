@@ -648,11 +648,68 @@
         .btn-primary { background:#1a73e8; border-radius:8px; }
         .btn-primary:hover { background:#185abc; box-shadow:none; }
         .btn-outline,.btn-icon { border-radius:8px; }
+        .mobile-study-menu,
+        .mobile-study-backdrop { display:none; }
+        @media (max-width:767px) {
+            body { width:100%; height:100dvh; overflow:hidden; }
+            body.study-nav-open { overflow:hidden; }
+            aside {
+                position:fixed;
+                inset:0 auto 0 0;
+                z-index:80;
+                width:min(88vw,330px);
+                height:100dvh;
+                padding-bottom:env(safe-area-inset-bottom);
+                transform:translateX(-105%);
+                transition:transform .22s ease;
+                box-shadow:12px 0 32px rgba(0,0,0,.2);
+            }
+            aside.mobile-open { transform:translateX(0); }
+            .mobile-study-backdrop {
+                position:fixed;
+                inset:0;
+                z-index:70;
+                display:block;
+                visibility:hidden;
+                opacity:0;
+                border:0;
+                background:rgba(0,0,0,.42);
+                transition:opacity .22s ease,visibility .22s ease;
+            }
+            .mobile-study-backdrop.mobile-open { visibility:visible; opacity:1; }
+            main { width:100%; min-width:0; height:100dvh; }
+            .top-bar { padding:8px 10px; gap:8px; min-height:60px; }
+            .mobile-study-menu {
+                display:grid;
+                place-items:center;
+                width:44px;
+                height:44px;
+                flex:0 0 auto;
+                border:0;
+                border-radius:50%;
+                background:transparent;
+                color:var(--secondary);
+            }
+            .top-bar > div:nth-of-type(1) { min-width:0; }
+            .top-bar > div:nth-of-type(1) h2 { font-size:15px !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .top-bar > div:nth-of-type(1) > div { display:none; }
+            .stats-group { min-width:0; gap:4px; margin-left:auto; }
+            .stat-chip { display:none; }
+            .time-warning { min-width:0; padding:7px 9px; font-size:11px; }
+            .stats-group > button { min-width:44px; min-height:44px; padding:8px; }
+            .content-scroll { padding:16px 12px calc(24px + env(safe-area-inset-bottom)); }
+            .traffic-dashboard:not(:empty) { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+            .traffic-stat { min-width:0; padding:10px; }
+            .traffic-stat:first-child { grid-column:1 / -1; }
+            .quest-card { padding:16px; }
+            .quest-card.schedule-item { align-items:flex-start; gap:10px; }
+            dialog { max-width:calc(100vw - 16px) !important; max-height:calc(100dvh - 16px) !important; padding:16px !important; overflow-y:auto; }
+        }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body>
 
-<aside>
+<aside id="studyNav">
     <div class="brand">
         <span class="material-icons-round">account_balance</span>
         CAIE 考试局
@@ -685,9 +742,11 @@
         </div>
     </div>
 </aside>
+<button class="mobile-study-backdrop" type="button" onclick="toggleStudyNav(false)" aria-label="关闭学科导航"></button>
 
 <main>
     <div class="top-bar">
+        <button class="mobile-study-menu" type="button" onclick="toggleStudyNav(true)" aria-label="打开学科导航" aria-controls="studyNav" aria-expanded="false"><span class="material-icons-round">menu</span></button>
         <div>
             <h2 style="margin:0; font-size:18px;">Welcome back, Jack.</h2>
             <div style="font-size:12px; color:var(--secondary);">Process is everything.</div>
@@ -1679,10 +1738,25 @@
                 document.querySelectorAll('.nav-subject-header').forEach(el => el.classList.remove('active'));
                 div.classList.add('active');
                 renderMainView(subject);
+                toggleStudyNav(false);
             };
             container.appendChild(div);
         }
     }
+
+    function toggleStudyNav(open) {
+        const nav = document.getElementById('studyNav');
+        const backdrop = document.querySelector('.mobile-study-backdrop');
+        const trigger = document.querySelector('.mobile-study-menu');
+        if (!nav || !backdrop || !trigger) return;
+        nav.classList.toggle('mobile-open', open);
+        backdrop.classList.toggle('mobile-open', open);
+        document.body.classList.toggle('study-nav-open', open);
+        trigger.setAttribute('aria-expanded', String(open));
+    }
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') toggleStudyNav(false);
+    });
 
     // 红绿灯全局统计看板（顶部）
     function renderTrafficDashboard() {
