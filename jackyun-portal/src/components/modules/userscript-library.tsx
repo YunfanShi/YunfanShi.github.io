@@ -76,9 +76,13 @@ export default function UserscriptLibrary() {
         {visible.map((script) => (
           <article key={script.id} className="flex flex-col rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-[var(--surface-shadow)]">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-[var(--foreground)]">{script.name}</h2>
-                <p className="mt-1 font-mono text-xs text-[var(--muted-foreground)]">v{script.version}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-[var(--muted-foreground)]">
+                  <span>{script.version === 'GitHub' || script.version === '官方发布版' ? script.version : `v${script.version}`}</span>
+                  {script.external && <span className="rounded-full bg-[#f3e8fd] px-2 py-0.5 font-sans font-semibold text-[#8430ce] dark:bg-[#8430ce]/25 dark:text-[#e9d2fd]">第三方</span>}
+                  {script.license && <span className="font-sans">{script.license}</span>}
+                </div>
               </div>
               <span className="material-icons-round grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f0fe] text-[#1a73e8] dark:bg-[#174ea6]/45 dark:text-[#aecbfa]">code</span>
             </div>
@@ -92,13 +96,20 @@ export default function UserscriptLibrary() {
             </ul>
             {script.caution && <p className="mt-4 rounded-xl bg-[#fef7e0] px-3 py-2 text-xs leading-5 text-[#7a4f01] dark:bg-[#b06000]/20 dark:text-[#fde293]">{script.caution}</p>}
             <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
-              <button type="button" onClick={() => copyScript(script.id, script.file)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold text-[var(--foreground)] hover:border-[var(--brand)]">
-                <span className="material-icons-round text-lg">{copiedId === script.id ? 'done' : 'content_copy'}</span>
-                {copiedId === script.id ? '已复制' : '复制源码'}
-              </button>
-              <a href={script.file} download className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] dark:text-[#202124]">
-                <span className="material-icons-round text-lg">download</span>
-                下载脚本
+              {script.file ? (
+                <button type="button" onClick={() => copyScript(script.id, script.file!)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold text-[var(--foreground)] hover:border-[var(--brand)]">
+                  <span className="material-icons-round text-lg">{copiedId === script.id ? 'done' : 'content_copy'}</span>
+                  {copiedId === script.id ? '已复制' : '复制源码'}
+                </button>
+              ) : (
+                <a href={script.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold text-[var(--foreground)] hover:border-[var(--brand)]">
+                  <span className="material-icons-round text-lg">code</span>
+                  查看 GitHub
+                </a>
+              )}
+              <a href={script.file ?? script.installUrl} download={script.file ? true : undefined} target={script.external ? '_blank' : undefined} rel={script.external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] dark:text-[#202124]">
+                <span className="material-icons-round text-lg">{script.external ? 'extension' : 'download'}</span>
+                {script.external ? '打开安装' : '下载脚本'}
               </a>
             </div>
           </article>

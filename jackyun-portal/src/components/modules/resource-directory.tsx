@@ -26,11 +26,11 @@ export default function ResourceDirectory() {
         <div className="relative max-w-3xl">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#e8f0fe] px-3 py-1.5 text-xs font-semibold text-[#174ea6] dark:bg-[#174ea6]/40 dark:text-[#d2e3fc]">
             <span className="material-icons-round text-base">bookmarks</span>
-            来自你的 Bookmarks，并补充官方入口
+            来自 Bookmarks、官方平台与开源社区
           </div>
           <h1 className="text-3xl font-bold tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">学习网站收录</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">
-            按考试体系和学习方向整理资料站、真题库、课程与 AI 工具。每张卡片都会说明适合什么场景，减少在书签里反复寻找。
+            按考试体系和学习方向整理资料站、真题库、AI 助手、公开课程与研究工具。每张卡片都会说明适合什么场景，减少在书签里反复寻找。
           </p>
           <label className="mt-6 flex max-w-xl items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 focus-within:border-[var(--brand)]">
             <span className="material-icons-round text-xl text-[var(--muted-foreground)]">search</span>
