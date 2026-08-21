@@ -6,6 +6,7 @@
 // @author       JackYun
 // @license      MIT
 // @match        https://jackyun.top/*
+// @match        https://jackyun.cn/*
 // @match        https://yunfanshi.github.io/*
 // @match        https://bestexamhelp.com/*
 // @match        https://znotes.org/*

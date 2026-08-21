@@ -9,7 +9,7 @@
     ['语言学习', ['bbc.co.uk', 'dictionary.cambridge.org', 'youglish.com', 'ankiweb.net']],
     ['数理工具', ['wolframalpha.com', 'geogebra.org', 'phet.colorado.edu']],
     ['研究阅读', ['scholar.google.com', 'arxiv.org', 'wikipedia.org', 'archive.org']],
-    ['JackYun', ['jackyun.top']],
+    ['JackYun', ['jackyun.top', 'jackyun.cn']],
   ];
   const category = rules.find(([, hosts]) => hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`)))?.[0];
   if (!category) return;

@@ -31,6 +31,9 @@ export interface UserscriptEntry {
   permissions?: string[];
   updated?: string;
   popularity?: string;
+  installSteps?: string[];
+  testedVersion?: string;
+  verifiedOn?: string;
 }
 
 export const USERSCRIPTS: UserscriptEntry[] = [
@@ -148,18 +151,25 @@ export const USERSCRIPTS: UserscriptEntry[] = [
     caution: '翻译内容可能发送给你选择的翻译服务；该 GitHub 仓库用于发布版本，不包含当前源代码。',
   },
   {
-    id: 'bilibili-subtitle-download',
-    name: 'Bilibili International Subtitle Downloader',
-    version: 'GitHub',
+    id: 'bilibili-evolved',
+    name: 'Bilibili Evolved',
+    version: 'v2.11.2',
     category: 'study',
-    description: '为 Bilibili International 视频提供字幕下载入口，适合保存课程字幕后做笔记或语言分析。',
-    sites: ['bilibili.tv'],
-    features: ['字幕下载', '课程笔记', 'Tampermonkey'],
-    installUrl: 'https://raw.githubusercontent.com/AdvMaple/bilibili-subtitle-download-plugin/feature/download.user.js',
-    sourceUrl: 'https://github.com/AdvMaple/bilibili-subtitle-download-plugin',
-    license: '仓库未明确标注',
+    description: 'Bilibili 官方仓库维护的综合增强脚本。字幕下载由独立组件提供，适用于国内主站；安装本体后还需从组件管理中安装“下载字幕”。',
+    sites: ['www.bilibili.com'],
+    features: ['下载字幕组件', '播放器增强', '多语言字幕选择', 'Tampermonkey / Violentmonkey'],
+    installUrl: 'https://raw.githubusercontent.com/the1812/Bilibili-Evolved/master/dist/bilibili-evolved.user.js',
+    sourceUrl: 'https://github.com/the1812/Bilibili-Evolved',
+    sourceLabel: 'GitHub',
+    license: 'MIT',
     external: true,
-    caution: '这是较早的社区脚本，主要面向 Bilibili International；网页结构变化后可能失效。',
+    safety: 'selected',
+    permissions: ['bilibili.com 页面', '组件在线加载', '字幕和视频相关接口'],
+    updated: 'v2.11.2',
+    testedVersion: 'v2.11.2（待本地实机复核）',
+    verifiedOn: '2026-08-20（来源核对；功能未宣称已实机通过）',
+    installSteps: ['安装脚本本体', '打开 Bilibili Evolved 设置', '进入组件/插件/样式管理', '安装“下载字幕”组件并刷新视频页'],
+    caution: '初次安装不会预装字幕组件。人工字幕预期支持；多语言和 AI 字幕需按视频逐项验证，不能视为全部兼容。请使用项目首页提供的 userscript 安装方式，不要用 Release 页面 ZIP 直接安装。',
   },
   {
     id: 'html5-video-tools',

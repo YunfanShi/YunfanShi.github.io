@@ -953,7 +953,7 @@
             </div>
             <div>
                 <div class="logo-text">StudyGuide</div>
-                <div class="logo-badge">学习系统操作手册</div>
+                <div class="logo-badge">学习系统操作手册 · 内容版本 2026-08-19</div>
             </div>
         </div>
 
@@ -1058,10 +1058,10 @@
                         daily: {
                             label: '每日',
                             steps: [
-                                { num: 'P1', title: '预览 (Preview)', desc: '翻开新课，只看大标题、小标题、所有图片/表格、黑体加粗的术语。绝对不看正文段落和推导过程。' },
+                                { num: 'P1', title: '预览 (Preview)', desc: '预习是在猜逻辑，不是提前学完整正文：只看大标题、小标题、所有图片/表格、黑体加粗术语。特别留意标题之间的矛盾、跳跃和旧认知冲突。' },
                                 { num: 'P2', title: '预测 (Predict)', desc: '开口说一句："我猜这一节大概先讲A，再讲B，最后得出C结论。" 说错了也没关系。' },
                                 { num: 'P3', title: '连接 (Connect)', desc: '强行问自己："这个新东西跟我之前学的XX章节/公式有没有关系？"（例如：学法拉第定律时想"这跟之前学的安培定则好像都跟电和磁有关"）' },
-                                { num: 'P4', title: '提问 (Question)', desc: '在草稿纸顶部写3个具体疑问（例如："为什么公式里有负号？""这个定律在什么情况下不成立？"）。带着这三个问题去上课。' }
+                                { num: 'P4', title: '提问 (Question)', desc: '问题必须来自标题间的矛盾或旧认知冲突；完成标准是写出3个具体疑问（例如："为什么公式里有负号？""这个定律在什么情况下不成立？"），带着问题去上课。' }
                             ]
                         }
                     }
@@ -1088,7 +1088,7 @@
                                 {
                                     title: '底部总结栏（Reflect）',
                                     desc: '课后用自己的话写理解，并记录常见错误。',
-                                    details: '写两样东西：<br>① 你的理解：这页内容的本质是什么、讲了什么或核心区别是什么。<br>② 常见错误：哪些地方容易搞混、漏条件或用错。'
+                                    details: '写三样东西：<br>① 你的理解：这页内容的本质是什么、讲了什么或核心区别是什么。<br>② 常见错误：哪些地方容易搞混、漏条件或用错。<br>③ Conclusion 三选一：所以我现在能…… / 这和……的区别是…… / 遇到……时应先……。'
                                 }
                             ]
                         }
@@ -1103,6 +1103,9 @@
                         daily: {
                             label: '每日 · 轻档复习（5-10分钟）',
                             steps: [
+                                { num: '①', title: '十步学习流程', desc: '预览目标→提出问题→建立旧知连接→课堂记录→课后整理→闭卷回忆→主动解释→基础题→变式题→复盘补漏。每一步都要能说出下一步的成功判定。' },
+                                { num: '②', title: '考纲红黄绿审计', desc: '绿灯：闭卷能完整解释；黄灯：有印象但公式、单位或条件模糊；红灯：完全空白。黄灯做卡片，红灯回教材引言和定义后再审，不用盲目刷题。' },
+                                { num: '③', title: '知识体系与费曼四层', desc: '知识体系从基础知识→知识点联系→综合题→跨章节调用。解释能力从知道是什么→用自己的话解释→回答追问→应用到题目。讲不通就退回第二天。' },
                                 { num: '①', title: '摊开今天的康奈尔页', desc: '手遮右侧主栏。只看左侧关键词（如"比热容公式"）。' },
                                 { num: '②', title: '张嘴说出内容', desc: '公式是什么、字母啥意思、要注意啥。动嘴效果最好。' },
                                 { num: '③', title: '自我判定', desc: '说对了 → 在关键词旁打 <b>√</b>。说错了或卡壳超过3秒 → 画 <b>△</b>，立刻看一眼右侧主栏，合上重新说一遍，直到说对。' },
@@ -1160,7 +1163,9 @@
                                     rows: [
                                         { state: '完全不会（公式写不出来）', action: '不做空白题，只研究课本上的2道例题（Worked Example）', note: '一行一行挪纸，看懂每一步为什么这么做' },
                                         { state: '公式会但不会用（会默写但一做题就卡）', action: '做常规习题，但标注卡壳点', note: '在草稿纸上写下"我卡在了哪一步？"' },
-                                        { state: '基本都会，怕新题', action: '做交错练习（不同章节混着做）', note: '每道题先在左上角写"诊断：此题考XX定理"，再动笔算' }
+                                        { state: '基本都会，怕新题', action: '先做简单/中等/困难预扫描，再做交错练习', note: '每道题先写诊断：此题考XX定理；超过考试预计时间约两倍就停笔复盘' },
+                                        { state: '陌生题', action: '三步拆解：读过程→识别模型→列出未知量和条件', note: '先讲因果链，再写公式；定义、字母意义、单位必须完整' },
+                                        { state: '逆向刷题', action: '套卷→定位章节→同类专项→限时训练→总结→重新套卷检测', note: '目标是暴露漏洞，不是只追求一次分数' }
                                     ]
                                 },
                                 {
@@ -1169,7 +1174,7 @@
                                     fields: [
                                         { name: '考纲节点', desc: '这道题对应考纲的哪个具体小节（如"CAIE Physics 2.3"）' },
                                         { name: '根本原因', desc: '从三项中选且只选一项：概念不清 / 边界条件 / 定理用错。若只是计算粗心，不录入错题本；若同类粗心反复出现，再检查是否有流程或边界问题。' },
-                                        { name: '下次检查日期', desc: '按间隔设定：1天 / 3天 / 5天 / 7天 / 14天（首次录入设为1天后）' }
+                                        { name: '下次检查日期', desc: '按完整间隔升级：1 → 3 → 5 → 7 → 14天 → 归档；讲不清楚就退回第二天，不直接标记掌握。' }
                                     ]
                                 },
                                 {
@@ -1196,7 +1201,7 @@
                             label: '每周（30分钟）',
                             steps: [
                                 { num: '①', title: '病因统计', desc: '打开Notion，看这一周三类可纠正病因（概念不清 / 边界条件 / 定理用错）哪一类出现最多。计算粗心不纳入统计。' },
-                                { num: '②', title: '专项纠正', desc: '不用急着做新题，针对高频病因做专项纠正：<br>• <b>概念不清最多</b> → 翻教材该章节的"引言"和"黑体字定义"，大声读三遍<br>• <b>边界条件错最多</b> → 不做计算题，找5道判断题，只练"找前提条件"<br>• <b>定理用错最多</b> → 拿两张纸，左边写能量守恒题，右边写动量守恒题，对比题干关键词差异' }
+                                { num: '②', title: '专项纠正与费曼大扫荡', desc: '不用急着做新题，针对高频病因做专项纠正；每周把错题讲一遍，检查因果链、定义完整性、字母意义和单位。<br>• <b>概念不清</b> → 回教材引言和定义<br>• <b>边界条件错</b> → 做判断题，只练找前提<br>• <b>定理用错</b> → 对比两类题干关键词' }
                             ]
                         }
                     }
@@ -1250,7 +1255,8 @@
                             steps: [
                                 { num: '①', title: '去数字化', desc: '圈掉所有具体数字，只读文字，问"这发生了什么过程？"' },
                                 { num: '②', title: '符号化', desc: '把文字变成 m、v、B、R 等符号写在左侧。' },
-                                { num: '③', title: '逆向推导', desc: '看问题要求什么，倒推"要得到这个，我需要先知道什么中间量？"做完三步就换下一题，不纠结最终答案。' }
+                                { num: '③', title: '逆向推导', desc: '看问题要求什么，倒推"要得到这个，我需要先知道什么中间量？"做完三步就换下一题，不纠结最终答案。超过预计时间约两倍立即停止死磕。' },
+                                { num: '④', title: '强弱科分流', desc: '强科做教材细节扫描；弱科执行“套卷—回教材—基础题—同类题—再套卷”。套卷用于发现问题，不把分数当唯一目标。' }
                             ]
                         }
                     }
@@ -1266,7 +1272,7 @@
                             steps: [
                                 { num: '①', title: '打印/摊开所有长期错题', desc: '把Notion里所有已经升级到"7天"和"14天"的错题全部打印出来（或摊开）。' },
                                 { num: '②', title: '快速费曼讲解', desc: '看着题目，快速费曼讲解每道题的核心原理和边界条件。' },
-                                { num: '③', title: '标红冲刺', desc: '如果哪道题讲不顺，标红，考前最后一天只盯着这些标红的看。确保长期错题在考前全部"讲得通"。' }
+                                { num: '③', title: '标红冲刺', desc: '如果哪道题讲不顺，标红，考前最后一天只看标红且仍讲不通的错题；不再开启新难题。' }
                             ]
                         }
                     }
@@ -1289,9 +1295,10 @@
                             label: '核心认知',
                             steps: [
                                 { num: '🧠', title: '认识"计划谬误"（Planning Fallacy）', desc: '我们大脑做计划时，永远按照"绝对完美、中间没有任何卡顿和走神"的理想状态来算时间。比如你下午4点到9点安排了5个小时的任务——雅思听力、口语、写作、校内作业、总结方法、背单词——这6项硬核任务，哪怕学习专家也很难全部高质量完成。所以不是你有问题，是计划本身就有问题。' },
-                                { num: '①', title: '开启时间感知训练', desc: '你之所以预估不准，是因为脑子里没有真实的时间标尺。从今天开始，做计划时别只写任务名，在旁边写下"预估番茄钟个数"。做完之后，再记一笔"实际花了几个钟"。坚持一周，你会对自己的真实效率大吃一惊。' },
+                                { num: '①', title: '开启时间感知训练', desc: '你之所以预估不准，是因为脑子里没有真实的时间标尺。从今天开始，做计划时别只写任务名，在旁边写下"预估番茄钟个数"。做完之后，再记一笔"实际花了几个钟"。坚持一周，比较预估与实际，不用靠感觉责怪自己。' },
                                 { num: '②', title: '把目标"原子化"', desc: '不要在计划本上写"复习物理"或"搞懂雅思阅读"——这种目标太模糊，大脑一看就本能地抗拒。拿一张纸，左边写大目标，右边精确写下今天必须做的<b>3件微小事务</b>（例如：完成5道电磁感应题、背10个核心句子）。每天只盯右边这3件，把视线从"盯山顶"变成"踩脚下"。' },
-                                { num: '③', title: '强制缩减，每天只做3件事', desc: '每天给自己安排的"加餐"任务绝对不要超过3件。大脑一看到长长的清单就会累，一累就想去刷手机。只写3件，完成就收工。' }
+                                { num: '③', title: '强制缩减，每天只做3件事', desc: '每天给自己安排的"加餐"任务绝对不要超过3件。大脑一看到长长的清单就会累，一累就想去刷手机。只写3件，完成就收工。状态差时先检查睡眠、情绪和环境，不直接归因于懒惰。' },
+                                { num: '④', title: '状态底座（可展开）', desc: '<details><summary>展开睡眠与状态建议</summary><p>优先保证规律睡眠、起床后接触自然光、学习前补水并清空桌面。若连续几天状态差，先降低任务难度、改变学习地点，并记录最差时段的触发原因。</p></details>' }
                             ]
                         }
                     }
@@ -1323,7 +1330,7 @@
                             label: '环境与仪式',
                             steps: [
                                 { num: '📵', title: '建立"手机牢笼"', desc: '把手机静音，放到另一个房间或者书包最深处。研究证明，手机哪怕屏幕朝下放在视野范围内，也会在潜意识中占用你10%-15%的注意力带宽。不要高估自己的意志力——物理隔离才是最有效的。' },
-                                { num: '①', title: '打造"启动仪式"（21天条件反射）', desc: '每次开始学习前，固定做同一套动作：清理桌面 → 倒一杯水 → 按下计时器。重复21天，大脑就会形成条件反射——只要做完这套动作，自动进入专注状态。这个仪式比任何"自律"都管用。' },
+                                { num: '①', title: '打造"启动仪式"（21天条件反射）', desc: '每次开始学习前，固定做同一套动作：清理桌面 → 倒一杯水 → 改变到固定学习地点 → 按下计时器。重复记录真实用时，逐步形成稳定启动线索。' },
                                 { num: '②', title: '警惕休息时的"认知残留"', desc: '用番茄钟工作法（25分钟专注 + 5分钟休息，或者 50+10）。但最关键的铁律是：<b>休息这几分钟绝对禁止刷短视频或社交软件</b>。这些高刺激信息会把上一个专注周期的状态彻底撕碎。休息时只做低刺激的事：闭眼冥想、拉伸、喝水、远眺。' },
                                 { num: '③', title: '每次只做一件事', desc: '不要想着"这5个小时我要搞定6项任务"。人的大脑不是 CPU，不能多核并行。挑选今天最重要的1-2件事，彻底做完，再考虑其他。完成比"做了很多"重要得多。' }
                             ]
@@ -1534,22 +1541,23 @@
             daily: [
                 { time: '课前10分钟', icon: 'visibility', title: '预习', desc: '4-P框架：看标题→猜逻辑→连旧知→写3问', checkKey: 'preview', required: true },
                 { time: '课堂', icon: 'edit_note', title: '学习', desc: '康奈尔右侧正常记，工整、分大小标题', checkKey: 'record', required: true },
-                { time: '课后30分钟', icon: 'summarize', title: '整理', desc: '康奈尔左侧写关键词、定义和一个长问题；底部写本质/理解 + 常见错误。', checkKey: 'reduce', required: true },
-                { time: '晚间5-10分钟', icon: 'sync_alt', title: '复习（轻档）', desc: '遮右侧，看左侧关键词张嘴说。说对打√，说错画△并重说。', checkKey: 'recite', required: true },
-                { time: '晚间（视时间）', icon: 'task_alt', title: '做题 + 错题录入', desc: '先判三关卡再做题。错题填考纲节点/三类主因/下次检查日期；单纯计算粗心不录入。', checkKey: 'practice', required: false },
-                { time: '睡前', icon: 'lightbulb', title: '模糊点记录', desc: '今天有什么"好像懂了又说不清"的？记进模糊点本子，周末集中清。', checkKey: 'blur', required: false }
+                                { time: '课后30分钟', icon: 'summarize', title: '整理', desc: '康奈尔左侧写关键词、定义和一个长问题；底部写本质/理解 + 常见错误。结论可用三种模板：所以我现在能…… / 这和……的区别是…… / 这道题遇到……时应先……。', checkKey: 'reduce', required: true },
+                                { time: '晚间5-10分钟', icon: 'sync_alt', title: '复习（轻档）', desc: '遮右侧→回忆→批改。卡壳超过3秒即判为未掌握，画△并重说。补记今天真正掌握了什么、遗忘和错误在哪里。', checkKey: 'recite', required: true },
+                                { time: '晚间（视时间）', icon: 'task_alt', title: '做题 + 错题录入', desc: '先判三关卡，再做基础题和变式题。陌生题按“过程—模型—未知量”拆解；超过考试预计时间约两倍就停止死磕。', checkKey: 'practice', required: false },
+                                { time: '睡前', icon: 'lightbulb', title: '模糊点记录', desc: '今天有什么"好像懂了又说不清"的？记进模糊点本子，周末集中清；记录状态最好/最差的时段及原因。', checkKey: 'blur', required: false },
+                                { time: '结束前5分钟', icon: 'flag', title: '今日闭环', desc: '学习→主动解释→闭卷回忆→基础题→变式题→找漏洞→回教材/老师/AI→再做→当天或第二天复习。今天只选最多2–3个主攻科目：最大短板、维持强项、有余力再做。', checkKey: 'daily_loop', required: false }
             ],
             weekly: [
                 { time: '第1步 · 20分钟', icon: 'sync_alt', title: '复习（重档过筛子）', desc: '本周所有康奈尔页的△关键词过筛子，改√或画○。', checkKey: 'wk_review' },
-                { time: '第2步 · 40分钟', icon: 'account_tree', title: '总结（闭书画树+清模糊点）', desc: '闭书画本周知识树 + 模糊点本子清零（红笔改陈述句）。', checkKey: 'wk_tree' },
-                { time: '第3步 · 30分钟', icon: 'analytics', title: '错题病因统计+专项纠正', desc: 'Notion本周错题病因统计 + 针对高频病因做专项纠正（非重算）。', checkKey: 'wk_error' }
+                { time: '第2步 · 40分钟', icon: 'account_tree', title: '总结（闭书画树+清模糊点）', desc: '闭书画本周知识树 + 模糊点本子清零（红笔改陈述句）。知识树至少写：定义、理解、公式、字母意义、单位、使用条件、题型、易错点、知识联系。', checkKey: 'wk_tree' },
+                { time: '第3步 · 30分钟', icon: 'analytics', title: '错题病因统计+专项纠正', desc: 'Notion本周错题病因统计 + 针对高频病因做专项纠正（非重算）；写下本周复盘：哪一类错误重复、哪个时间段效率最好、下周只保留哪2–3个薄弱知识块。', checkKey: 'wk_error' }
             ],
             biweekly: [
                 { time: '第1步 · 15分钟', icon: 'quiz', title: '随机抽测', desc: '随机抽10页已打√的康奈尔页，遮右说左，测留存率。', checkKey: 'bw_random' },
-                { time: '第2步 · 30分钟', icon: 'bomb', title: '深度专项训练', desc: '看过去两周高频病因，做一次深度专项训练。', checkKey: 'bw_deep' }
+                { time: '第2步 · 30分钟', icon: 'bomb', title: '深度专项训练', desc: '汇总△/○、黄灯、红灯、高频错题节点和知识树补漏，只选择2–3个真正薄弱知识块进入下一周期。', checkKey: 'bw_deep' }
             ],
             exam: [
-                { time: '考前2周', icon: 'timer', title: '模拟考节奏', desc: '每周2次高保真模拟考 + 3分钟熔断机制 + 考后统计。', checkKey: 'ex_mock' },
+                { time: '考前2周', icon: 'timer', title: '模拟考节奏', desc: '套卷主要用于暴露问题，不只追求分数；每周2次高保真模拟考 + 做卷前难度预扫描 + 题目时间上限 + 3分钟熔断机制 + 考后统计。', checkKey: 'ex_mock' },
                 { time: '考前1周', icon: 'puzzle', title: '新题拆解训练', desc: '每天3道：去数字化→符号化→逆向推导，不动笔算到底。', checkKey: 'ex_puzzle' },
                 { time: '考前3天', icon: 'cleaning_services', title: '错题费曼大扫荡', desc: '所有7天/14天错题过一遍，讲不顺的标红，最后一天冲刺。', checkKey: 'ex_feynman' }
             ]
@@ -1578,7 +1586,7 @@
                             <div class="timeline-title">${item.title}</div>
                             <span class="priority-badge ${item.required ? 'required' : 'optional'}">${item.required ? '必做' : '选做'}</span>
                             <div class="timeline-desc">${item.desc}</div>
-                            <div class="checklist-item mt-2" onclick="toggleTodayCheck('${dateKey}', '${item.checkKey}')">
+                            <div class="checklist-item mt-2" role="button" tabindex="0" aria-label="${item.title}：标记完成" onclick="toggleTodayCheck('${dateKey}', '${item.checkKey}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTodayCheck('${dateKey}', '${item.checkKey}')}" >
                                 <div class="checklist-checkbox ${checked ? 'checked' : ''}">
                                     <span class="material-icons-round" style="font-size: 16px;">${checked ? 'check' : ''}</span>
                                 </div>
@@ -1685,7 +1693,7 @@
                             </div>
                         `).join('')}
                         
-                        <div class="checklist-item mt-4" onclick="toggleModuleCheck('${progressKey}', 'done')">
+                        <div class="checklist-item mt-4" role="button" tabindex="0" aria-label="标记本节完成" onclick="toggleModuleCheck('${progressKey}', 'done')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleModuleCheck('${progressKey}', 'done')}" >
                             <div class="checklist-checkbox ${progress['done'] ? 'checked' : ''}">
                                 <span class="material-icons-round" style="font-size: 16px;">${progress['done'] ? 'check' : ''}</span>
                             </div>
@@ -1751,7 +1759,7 @@
                             <div class="method-step-desc">${sec.details || sec.desc || ''}</div>
                         `}
                         
-                        <div class="checklist-item mt-4" onclick="toggleModuleCheck('${progressKey}_${si}', 'done')">
+                        <div class="checklist-item mt-4" role="button" tabindex="0" aria-label="标记此项完成" onclick="toggleModuleCheck('${progressKey}_${si}', 'done')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleModuleCheck('${progressKey}_${si}', 'done')}" >
                             <div class="checklist-checkbox ${(STATE.progress[progressKey + '_' + si] || {}).done ? 'checked' : ''}">
                                 <span class="material-icons-round" style="font-size: 16px;">${(STATE.progress[progressKey + '_' + si] || {}).done ? 'check' : ''}</span>
                             </div>
@@ -1919,7 +1927,9 @@
 3. 📋 帮用户规划每日/每周学习节奏
 4. ❓ 解答学习过程中遇到的具体问题（概念、公式、题目思路）
 5. 🔧 帮用户诊断学习卡点（如"为什么我总在边界条件上出错"）和执行卡点（拖延、计划完不成、注意力分散）
-6. 🧘 针对拖延症给出具体建议（目标原子化、两分钟启动、手机隔离、番茄钟休息注意事项等）
+6. 🧘 针对拖延症给出具体建议（目标原子化、两分钟启动、手机隔离、番茄钟休息注意事项、睡眠与状态底座等）
+7. 📚 引导完整学习闭环：预习猜逻辑→康奈尔记录→遮挡回忆→主动解释→基础题→变式题→找漏洞→回教材/老师/AI→再做→当天或第二天复习。
+8. 🧪 处理刷题与考试策略：陌生题三步拆解、简单/中等/困难预扫描、1/3/5/7/14天错题间隔、强弱科分流和“套卷用于暴露问题”的原则。
 
 回复风格：
 - Google Material Design 风格：简洁、现代、结构化

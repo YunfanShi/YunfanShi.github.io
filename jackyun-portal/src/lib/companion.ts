@@ -23,7 +23,7 @@ export const COMPANION_HOST_RULES: ReadonlyArray<{
   { category: '语言学习', hosts: ['bbc.co.uk', 'dictionary.cambridge.org', 'youglish.com', 'ankiweb.net'] },
   { category: '数理工具', hosts: ['wolframalpha.com', 'geogebra.org', 'phet.colorado.edu'] },
   { category: '研究阅读', hosts: ['scholar.google.com', 'arxiv.org', 'wikipedia.org', 'archive.org'] },
-  { category: 'JackYun', hosts: ['jackyun.top', 'yunfanshi.github.io'] },
+  { category: 'JackYun', hosts: ['jackyun.top', 'jackyun.cn', 'yunfanshi.github.io'] },
 ];
 
 export function normalizeHostname(value: string): string {

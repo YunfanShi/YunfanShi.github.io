@@ -116,6 +116,8 @@ export default function UserscriptLibrary() {
               {script.features.map((feature) => <li key={feature} className="flex items-center gap-2"><span className="material-icons-round text-base text-[#34a853]">check_circle</span>{feature}</li>)}
             </ul>
             {script.permissions && <div className="mt-4 rounded-xl border border-[var(--card-border)] px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-semibold text-[var(--foreground)]">权限范围：</span>{script.permissions.join(' · ')}</div>}
+            {script.testedVersion && <div className="mt-3 rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-semibold text-[var(--foreground)]">已测试版本：</span>{script.testedVersion}<br /><span className="font-semibold text-[var(--foreground)]">最后验证：</span>{script.verifiedOn}</div>}
+            {script.installSteps && <details className="mt-3 rounded-xl border border-[var(--card-border)] px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]"><summary className="cursor-pointer font-semibold text-[var(--foreground)]">查看安装步骤</summary><ol className="mt-2 list-decimal space-y-1 pl-5">{script.installSteps.map((step) => <li key={step}>{step}</li>)}</ol></details>}
             {script.caution && <p className="mt-4 rounded-xl bg-[#fef7e0] px-3 py-2 text-xs leading-5 text-[#7a4f01] dark:bg-[#b06000]/20 dark:text-[#fde293]">{script.caution}</p>}
             <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
               {script.file ? (

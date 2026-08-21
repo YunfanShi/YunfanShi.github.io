@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/middleware';
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-password', '/update-password', '/temp'];
+const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-password', '/update-password', '/temp', '/Techempire', '/techempire'];
 
 // OAuth providers that are automatically trusted (no whitelist needed)
 // Users logging in via these providers are auto-registered as regular users
@@ -20,12 +20,17 @@ function hasSupabaseCookies(request: NextRequest): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === '/techempire' || pathname.startsWith('/techempire/')) {
+    const canonical = request.nextUrl.clone();
+    canonical.pathname = pathname.replace(/^\/techempire/, '/Techempire');
+    return NextResponse.redirect(canonical, 308);
+  }
   const isAccountStatusRoute = pathname.startsWith('/account-status');
 
   // ── Early return for public routes ──
   // Avoid creating a Supabase client and writing cookies for unauthenticated/public traffic.
   // This prevents cookie header bloat that can lead to Vercel 494 REQUEST_HEADER_TOO_LARGE.
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+  if (PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
     return NextResponse.next();
   }
 

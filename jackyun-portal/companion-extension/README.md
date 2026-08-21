@@ -4,6 +4,8 @@ Manifest V3 extension for Chrome and Edge. It tracks active time only on the all
 
 ## Portal configuration
 
+> Security status: the previous manifest contained a leaked private key. It has been removed. This source tree is not a publishable package until a new public key, extension ID, and OAuth client have been provisioned.
+
 1. In Supabase Authentication → OAuth Server, enable OAuth 2.1 and set the authorization path to `https://jackyun.top/oauth/consent`.
 2. Register a public OAuth client named `JackYun Companion`.
 3. Load this folder once and copy the redirect URL shown by `chrome.identity.getRedirectURL('oauth2')`; register that exact `https://<extension-id>.chromiumapp.org/oauth2` URI on the OAuth client.

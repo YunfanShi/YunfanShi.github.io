@@ -2,11 +2,11 @@
   "manifest_version": 3,
   "name": "JackYun Companion",
   "version": "1.0.0",
-  "key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC31gGcM+WzRT4E\nFPHdKqcqUwTCSqmELQuM125VwA8IrDsd38QcvJ1iHqz0s6DidOaid281/agk7kin\nHEaBuk1JfnF1lqRA3GqqI4eUaKmRMpV162SP4sptaLNsuOw75YAniuyxLb8VQvQ4\ncITWfvfnNcpuSJ8cE78kGbExbBvbGSeBAEVZGTbcZhy4L1TdJPtuAHFx220vmMaB\nSLCshs/cItZe43br39d4IzEvRFHbeTGi7cD9Ubp2vtpgB+mUWfAxZAMq1stu/pjl\nwb6NxzRj620TV4woLv7OLPDNmv/yxoKqRro3iuQN3sQpjElEmhhQmIoREQ38RnIt\nKypVT5y3AgMBAAECggEANip6QvoPniiywyUgtpfQtWnMpyq0k9tp4c/AFMgIJfgJ\nWx4JfKYegUCkmV0r9E2ZfxlNzUy19Fu5UHPGWob4KsV0zL7cGrhXPVZGpnXIMJ4E\n57+526NpHZ+R7mD2ShevEPegEfx2pt8Zcl/E5CZ5CMkSojgHmZA/63Uefn9qHb3l\nutMTfPjUme3CSmCEyIqvbvkaB00TBXIB0nYYGkHvI6DYU0h6dHfvfDFfH4KObBeO\n14kNOQZOFHzYPGWXi+PWkOlmRHXsblFdrrMaHpX5AtYZRp5YU1LZSlPnHnXuQo0I\nlsSc1kQNZwjQfcbkhqBPzFtr0qPoe9ET0/KsgXwVYQKBgQDgPe5fbBZ4w997/Aie\nC4u6UA9YQUoKlQSu/+71XFlCmpFi5RkqxvkfZ2ejeaQuFMLm+Pj/So73rkpQICVO\nYW/4Wm5+ph3kR1J2ryPsKdD/AjEmUEGWlalXHsWkg4Rc7liLYrhu3++7Ze55rv3g\n5sI2GwI1op1buLuuXgg8MX5ejwKBgQDR3yAGwB3zzfz12HVQpLCPqIA2N9F+W55q\nb+5yDFpKSSAFhHBBvODwfLB6vV9CUAhDTgfj5rxowUHp7MOBU8zm4wYS4Mdr1OVh\nBqQRhrisUPSiSA/0VJ7+t6/Sva3JsinjLxfidvYVEt6qNzeKk7XOeTXQTr5tMlAy\n0BWWWPHzWQKBgEPBMrdOV3Ph6zLxMkFex7dh3WETSSXtZN7jofYtEyNWxLsW8gXE\n3R0qB1yTspHh4AoeDE5G3u/jj7yqGduXAVgPKvfFhZ6mFjqaLMZ81BNZPDSRZ1/y\nlJooSBuvSV0y/zoOeB+4Nh1vbSEDSN6dmuzyODawjc9bAAptixt08PPtAoGAYIcu\nlMxCOoPQyEaR1tCYwMpwhf9wZJzBJRVsZ5pU4Pv3NXJvq1yzXQkMprd5G+fxlPtL\n17+lgsz4gx454b7obH2YqpAmSOt3wQOr7L+5KtBlZEqew/Mz2dYkkVpal31RlMNx\nSeELWDAAp+uTqTI9GcVYQgIlxdWxW12nwCoSxqkCgYEAvdKA3VYEnxovkyBS/DmH\nsB8sgiUDuHNTYgrHd1dgk56Kv+FXjVrXIczjkF2jXkMEynbicUPEukec8EaWe6sJ\nFjg3TsEiSKkXl9S3oItbhmCiR+nEhwiu1i8HZGDikWsAf97lOOC/3Hs/EUWsS6Eu\nmi8titUZ92a+nM7C9tFm/D0=\n-----END PRIVATE KEY-----\n",
   "description": "JackYun Portal 学习时间、专注、稍后学习和多设备同步助手。",
   "permissions": ["storage", "alarms", "idle", "identity", "notifications", "tabs"],
   "host_permissions": [
     "https://jackyun.top/*",
+    "https://jackyun.cn/*",
     "https://gdcwwlnzylrzrqhaaljq.supabase.co/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",
@@ -63,6 +63,7 @@
     {
       "matches": [
         "https://jackyun.top/*",
+        "https://jackyun.cn/*",
         "https://chatgpt.com/*",
         "https://claude.ai/*",
         "https://gemini.google.com/*",

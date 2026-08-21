@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check:secrets": "node scripts/check-no-private-keys.mjs",
+    "check:companion": "node scripts/check-companion-package.mjs",
+    "check:study-guide": "node scripts/check-study-guide.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
