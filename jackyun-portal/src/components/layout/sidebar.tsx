@@ -8,12 +8,15 @@ import { saveSidebarPreferences } from '@/actions/settings';
 import { useLanguage } from '@/components/language-provider';
 import { t } from '@/lib/i18n';
 import { NAVIGATION_GROUPS, NAVIGATION_ITEMS, navigationIdFromPath, type NavigationGroupId, type NavigationItem } from '@/lib/navigation';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; }
 const PENDING_USAGE_KEY = 'jackyun_nav_usage_pending';
 const ADAPTIVE_SNAPSHOT_KEY = 'jackyun_nav_adaptive_snapshot_v1';
+const LOCAL_PREFS_KEY = 'jackyun_sidebar_preferences';
 
 export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
+  const { signedIn } = useAuthMode();
   const pathname = usePathname();
   const { lang } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
@@ -23,6 +26,15 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
   const [prefs, setPrefs] = useState(initialPrefs);
   const [stableAdaptiveScores, setStableAdaptiveScores] = useState(adaptiveScores);
 
+  useEffect(() => {
+    try {
+      const local = localStorage.getItem(LOCAL_PREFS_KEY);
+      if (local) queueMicrotask(() => setPrefs(JSON.parse(local) as SidebarPreferences));
+    } catch { /* Keep server defaults when local data is unavailable. */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(prefs)); } catch {}
+  }, [prefs]);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
     const update = () => setMobileViewport(media.matches);
@@ -48,9 +60,10 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
     return () => { document.body.style.overflow = previous; };
   }, [mobileOpen]);
   useEffect(() => {
+    if (!signedIn) return;
     fetch('/api/llm-proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _get_config_only: true, _check_admin: true }) })
       .then((response) => response.json()).then((data) => setIsAdmin(Boolean(data.isAdmin))).catch(() => setIsAdmin(false));
-  }, []);
+  }, [signedIn]);
   useEffect(() => {
     const itemId = navigationIdFromPath(pathname);
     if (!itemId) return;
@@ -58,6 +71,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
     try { pending = JSON.parse(localStorage.getItem(PENDING_USAGE_KEY) || '[]'); } catch { pending = []; }
     const queue = [...pending, itemId].slice(-100);
     localStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(queue));
+    if (!signedIn) return;
     void (async () => {
       const remaining = [...queue];
       while (remaining.length) {
@@ -68,7 +82,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
         } catch { break; }
       }
     })();
-  }, [pathname]);
+  }, [pathname, signedIn]);
   useEffect(() => {
     if (!prefs.adaptiveEnabled) return;
     const today = new Date().toLocaleDateString('en-CA');
@@ -106,7 +120,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
   function toggleGroup(group: NavigationGroupId) {
     const collapsedGroups = prefs.collapsedGroups.includes(group) ? prefs.collapsedGroups.filter((id) => id !== group) : [...prefs.collapsedGroups, group];
     const next = { ...prefs, collapsedGroups };
-    setPrefs(next); void saveSidebarPreferences(next);
+    setPrefs(next); if (signedIn) void saveSidebarPreferences(next);
   }
   function renderItem(item: NavigationItem) {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);

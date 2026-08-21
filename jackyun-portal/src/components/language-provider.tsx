@@ -18,15 +18,17 @@ export function useLanguage() {
   return useContext(LanguageContext);
 }
 
-export default function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE }: { children: ReactNode; initialLanguage?: Language }) {
+export default function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE, signedIn = false }: { children: ReactNode; initialLanguage?: Language; signedIn?: boolean }) {
   const [lang, setLang] = useState<Language>(initialLanguage);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     // Read from localStorage on mount
     const stored = getStoredLanguage();
-    setLang(localStorage.getItem(STORAGE_KEY) ? stored : initialLanguage);
-    setHydrated(true);
+    queueMicrotask(() => {
+      setLang(localStorage.getItem(STORAGE_KEY) ? stored : initialLanguage);
+      setHydrated(true);
+    });
   }, [initialLanguage]);
 
   const setLanguage = useCallback((newLang: Language) => {
@@ -34,8 +36,8 @@ export default function LanguageProvider({ children, initialLanguage = DEFAULT_L
     storeLanguage(newLang);
     document.documentElement.lang = newLang === 'en' ? 'en' : 'zh-CN';
     window.dispatchEvent(new CustomEvent('jackyun-language-change', { detail: { language: newLang } }));
-    void saveLanguagePreference(newLang);
-  }, []);
+    if (signedIn) void saveLanguagePreference(newLang);
+  }, [signedIn]);
 
   // Listen for language changes from other tabs
   useEffect(() => {

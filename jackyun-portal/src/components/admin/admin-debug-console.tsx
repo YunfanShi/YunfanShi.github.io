@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import logger from '@/lib/logger';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 type Preview = 'suspended' | 'deleted' | null;
 
 export default function AdminDebugConsole() {
+  const { signedIn } = useAuthMode();
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -15,11 +17,12 @@ export default function AdminDebugConsole() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!signedIn) return;
     fetch('/api/llm-proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _get_config_only: true, _check_admin: true }) })
       .then((response) => response.json())
       .then((data) => setIsAdmin(data.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, []);
+  }, [signedIn]);
 
   useEffect(() => {
     if (!isAdmin) return;

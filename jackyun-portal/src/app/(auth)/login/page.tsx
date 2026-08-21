@@ -2,8 +2,11 @@ import LoginButton from '@/components/auth/login-button';
 import GoogleLoginButton from '@/components/auth/google-login-button';
 import EmailLoginForm from '@/components/auth/email-login-form';
 import AppleLoginButton from '@/components/auth/apple-login-button';
+import Link from 'next/link';
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const requested = (await searchParams).next;
+  const guestTarget = requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard';
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-5">
       <div className="w-full max-w-sm py-10">
@@ -37,10 +40,21 @@ export default function LoginPage() {
             <LoginButton />
             <AppleLoginButton />
           </div>
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-[var(--card-border)]" />
+            <span className="text-xs text-[var(--muted-foreground)]">无需账号</span>
+            <div className="h-px flex-1 bg-[var(--card-border)]" />
+          </div>
+          <Link href={guestTarget} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[#1a73e8] hover:text-[#1a73e8]">
+            <span className="material-icons-round text-lg">person_outline</span>
+            游客登录
+          </Link>
+          <p className="text-center text-xs leading-5 text-[var(--muted-foreground)]">游客数据只保存在当前设备；之后登录会自动合并并开启云同步。</p>
         </div>
 
         <p className="mt-5 text-center text-xs text-[var(--muted-foreground)]">
-          仅限授权用户访问
+          登录用户可跨设备同步，游客可直接使用全部本地功能
         </p>
       </div>
     </div>

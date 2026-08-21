@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/middleware';
 
-// Routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/auth/callback', '/unauthorized', '/reset-password', '/update-password', '/temp', '/Techempire', '/techempire'];
+// The workspace is local-first: product pages are usable without an account.
+// Only administration and account-enforcement surfaces require authentication.
+const AUTH_REQUIRED_ROUTES = ['/admin', '/account-status'];
 
 // OAuth providers that are automatically trusted (no whitelist needed)
 // Users logging in via these providers are auto-registered as regular users
@@ -26,11 +27,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonical, 308);
   }
   const isAccountStatusRoute = pathname.startsWith('/account-status');
+  const requiresAuth = AUTH_REQUIRED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
   // ── Early return for public routes ──
   // Avoid creating a Supabase client and writing cookies for unauthenticated/public traffic.
   // This prevents cookie header bloat that can lead to Vercel 494 REQUEST_HEADER_TOO_LARGE.
-  if (PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+  if (!requiresAuth && !hasSupabaseCookies(request)) {
     return NextResponse.next();
   }
 
@@ -54,11 +56,12 @@ export async function proxy(request: NextRequest) {
   const claims = claimsData?.claims;
 
   // If not authenticated, redirect to login
-  if (!claims) {
+  if (!claims && requiresAuth) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
+  if (!claims) return response;
 
   // ── Whitelist / Auto-register check ─────────────────────────────────
   const provider = claims.app_metadata?.provider as string | undefined;

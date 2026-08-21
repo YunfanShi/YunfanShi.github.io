@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { QuizSession, QuizSessionWithQuestions, QuizQuestion } from '@/types/quiz';
 import { getSessionHistory, getSessionQuestions, deleteSession, getQuizStats } from '@/actions/quiz';
+import { deleteLocalQuizHistory, getLocalQuizHistory } from '@/lib/quiz/storage';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 interface QuizHistoryProps {
   onClose: () => void;
 }
 
 export default function QuizHistory({ onClose }: QuizHistoryProps) {
+  const { signedIn } = useAuthMode();
   const [sessions, setSessions] = useState<QuizSession[]>([]);
   const [stats, setStats] = useState<{ totalQuizzes: number; totalQuestions: number; averageAccuracy: number; totalTimeMinutes: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,34 +23,37 @@ export default function QuizHistory({ onClose }: QuizHistoryProps) {
     setLoading(true);
     setError(null);
 
-    const [historyResult, statsResult] = await Promise.all([
-      getSessionHistory(50, 0),
-      getQuizStats(),
-    ]);
+    const [historyResult, statsResult] = signedIn ? await Promise.all([
+      getSessionHistory(50, 0), getQuizStats(),
+    ]) : [{ error: 'local-only' }, { error: 'local-only' }];
 
     if ('sessions' in historyResult) {
       setSessions(historyResult.sessions);
     } else {
-      setError(historyResult.error);
+      const local = getLocalQuizHistory();
+      setSessions(local);
+      if (!local.length) setError('游客记录仅保存在当前设备；完成一次练习后会显示在这里。');
     }
 
     if ('totalQuizzes' in statsResult) {
       setStats(statsResult);
     }
     setLoading(false);
-  }, []);
+  }, [signedIn]);
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(loadData);
   }, [loadData]);
 
   const handleViewSession = async (sessionId: string) => {
+    if (sessionId.startsWith('local-')) return;
     if (expandedSession?.id === sessionId) {
       setExpandedSession(null);
       return;
     }
 
     setExpandLoading(true);
+    if (!signedIn) return;
     const result = await getSessionQuestions(sessionId);
     if ('session' in result) {
       setExpandedSession(result.session);
@@ -57,6 +63,12 @@ export default function QuizHistory({ onClose }: QuizHistoryProps) {
 
   const handleDelete = async (sessionId: string) => {
     if (!confirm('Delete this quiz session?')) return;
+    if (sessionId.startsWith('local-')) {
+      deleteLocalQuizHistory(sessionId);
+      setSessions((current) => current.filter((session) => session.id !== sessionId));
+      return;
+    }
+    if (!signedIn) return;
     const result = await deleteSession(sessionId);
     if ('ok' in result) {
       setSessions(prev => prev.filter(s => s.id !== sessionId));
@@ -93,13 +105,7 @@ export default function QuizHistory({ onClose }: QuizHistoryProps) {
           <span className="material-icons-round text-[#4285F4]">history</span>
           Quiz History
         </h2>
-        <button
-          onClick={() => loadData()}
-          className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted-foreground)] transition-all"
-          title="Refresh"
-        >
-          <span className="material-icons-round text-base">refresh</span>
-        </button>
+        <div className="flex items-center gap-1"><button onClick={() => loadData()} className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted-foreground)] transition-all" title="Refresh"><span className="material-icons-round text-base">refresh</span></button><button onClick={onClose} className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--muted-foreground)] transition-all" title="Close"><span className="material-icons-round text-base">close</span></button></div>
       </div>
 
       {/* Stats */}
@@ -164,6 +170,7 @@ export default function QuizHistory({ onClose }: QuizHistoryProps) {
                   <p className="text-xs text-[var(--muted-foreground)]">
                     {formatDate(session.started_at)} · {session.correct_count}/{session.total_questions} correct
                     {session.duration_seconds > 0 && ` · ${formatDuration(session.duration_seconds)}`}
+                    {session.id.startsWith('local-') && ' · 本机记录'}
                   </p>
                 </div>
                 <span className="material-icons-round text-sm text-[var(--muted-foreground)]">

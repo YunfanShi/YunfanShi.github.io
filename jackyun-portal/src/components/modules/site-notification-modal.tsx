@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveNotifications, dismissNotification } from '@/actions/admin';
 import type { SiteNotification } from '@/types';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 const DISMISSED_KEY = 'site_notification_dismissed';
 
@@ -96,12 +97,17 @@ function NotificationContent({ notification }: { notification: SiteNotification 
 }
 
 export default function SiteNotificationModal() {
+  const { signedIn } = useAuthMode();
   const [notifications, setNotifications] = useState<SiteNotification[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const checkedRef = useRef(false);
 
   useEffect(() => {
+    if (!signedIn) {
+      queueMicrotask(() => setLoading(false));
+      return;
+    }
     if (checkedRef.current) return;
     checkedRef.current = true;
 
@@ -134,7 +140,7 @@ export default function SiteNotificationModal() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [signedIn]);
 
   const current = notifications[currentIndex];
 
@@ -154,10 +160,8 @@ export default function SiteNotificationModal() {
     }
 
     // 2. Persist to database
-    try {
-      await dismissNotification(current.id);
-    } catch {
-      // if this fails, localStorage still protects against re-showing
+    if (signedIn) {
+      try { await dismissNotification(current.id); } catch { /* Local dismissal remains authoritative offline. */ }
     }
 
     // 3. Move to next notification or close
@@ -166,7 +170,7 @@ export default function SiteNotificationModal() {
     } else {
       setNotifications([]);
     }
-  }, [current, currentIndex, notifications.length]);
+  }, [current, currentIndex, notifications.length, signedIn]);
 
   if (loading || !current) return null;
 

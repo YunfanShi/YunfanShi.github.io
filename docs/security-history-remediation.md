@@ -6,6 +6,8 @@
 - 被忽略的本地 `companion-extension.pem` 已删除。
 - 旧 CRX/ZIP 已删除。
 - 当前扫描器不会在工作树和扩展包中接受 PEM 私钥。
+- 已生成新的本地专用签名密钥（由 `*.pem` 规则忽略），manifest 只包含可公开的公钥。
+- 新固定开发扩展 ID：`nlckikhapgbekdclakobfopdihiibafl`。
 
 仍需仓库负责人批准的动作：
 

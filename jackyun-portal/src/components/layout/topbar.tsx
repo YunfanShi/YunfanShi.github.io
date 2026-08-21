@@ -72,10 +72,10 @@ export default function Topbar({ user }: TopbarProps) {
     try {
       const saved = localStorage.getItem('jackyun_theme');
       const localTheme = saved === 'gray' || saved === 'dark' ? saved : 'light';
-      setTheme(localTheme);
-      getThemePreference().then((cloudTheme) => { setTheme(cloudTheme); document.documentElement.dataset.theme = cloudTheme; }).catch(() => {});
+      queueMicrotask(() => setTheme(localTheme));
+      if (user) getThemePreference().then((cloudTheme) => { setTheme(cloudTheme); document.documentElement.dataset.theme = cloudTheme; }).catch(() => {});
     } catch {}
-  }, []);
+  }, [user]);
 
   const toggleTheme = () => {
     const next = THEME_META[theme].next;
@@ -162,7 +162,7 @@ export default function Topbar({ user }: TopbarProps) {
             className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:gap-1 sm:px-3"
           >
             <span className="material-icons-round text-lg">account_circle</span>
-            <span className="hidden sm:inline">{t('topbar.login', lang)}</span>
+            <span className="hidden sm:inline">登录并同步</span>
           </a>
         )}
       </div>

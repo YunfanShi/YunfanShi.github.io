@@ -2,7 +2,7 @@
 
 ## 当前安全结果
 
-- `manifest.json` 不再包含私钥或 `key` 字段。
+- `manifest.json` 只包含新生成的公开公钥，不包含私钥。
 - 仓库与工作目录 PEM 扫描通过。
 - 旧 CRX/ZIP 发布产物已移除。
 - API 配置默认关闭：只有 `COMPANION_V1_ENABLED=true` 才启用。
@@ -13,10 +13,13 @@
 ## 当前开发包
 
 - 文件：`public/downloads/jackyun-companion-dev-v1.0.0.zip`
-- SHA-256：`62f36706da0f842dfb87f6116e080695d9f2cd540fe4a2f73e3a6f71cfb1eb52`
+- SHA-256：`82b580dd4fa4a2afcb84dc3eb6b09c59bb76378bb8e2a614312f21b6bc143dcb`
 - 安装方式：开发者模式加载解压缩目录。
-- 正式扩展 ID、公钥指纹、Chrome Web Store Item ID、Edge Add-ons 地址：待商店/开发者账号配置。
+- 固定开发扩展 ID：`nlckikhapgbekdclakobfopdihiibafl`。
+- 公钥 SHA-256 指纹：`db2a8a70f614a32b0ae15ef38788105b662057d813ac5ee87cd68ae5b8031576`。
+- OAuth 精确回调：`https://nlckikhapgbekdclakobfopdihiibafl.chromiumapp.org/oauth2`。
+- Chrome Web Store Item ID、Edge Add-ons 地址与 OAuth 客户端 ID：仍需对应账号负责人配置。
 
 ## 尚未能由本地代码证明的项目
 
-登录、取消授权、OAuth state/PKCE、refresh、离线同步、撤销设备、跨浏览器固定 ID 和商店升级测试必须在真实扩展运行时和 Supabase OAuth 客户端配置完成后执行。
+登录、取消授权、OAuth state/PKCE、refresh、离线同步、撤销设备和商店升级测试必须在 Supabase OAuth 客户端配置完成后执行。当前自动检查已经确认源码 manifest、ZIP manifest、固定 ID 和发布清单完全一致。

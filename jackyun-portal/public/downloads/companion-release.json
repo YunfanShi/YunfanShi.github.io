@@ -1,19 +1,19 @@
 {
   "product": "JackYun Companion",
   "version": "1.0.0",
-  "status": "development-package-only",
-  "updatedAt": "2026-08-20",
+  "status": "fixed-development-identity",
+  "updatedAt": "2026-08-21",
   "chromeWebStoreUrl": null,
   "edgeAddonsUrl": null,
-  "extensionId": null,
-  "publicKeyFingerprint": null,
-  "oauthRedirectUri": null,
+  "extensionId": "nlckikhapgbekdclakobfopdihiibafl",
+  "publicKeyFingerprint": "db2a8a70f614a32b0ae15ef38788105b662057d813ac5ee87cd68ae5b8031576",
+  "oauthRedirectUri": "https://nlckikhapgbekdclakobfopdihiibafl.chromiumapp.org/oauth2",
   "developmentZip": "/downloads/jackyun-companion-dev-v1.0.0.zip",
-  "sha256": "62f36706da0f842dfb87f6116e080695d9f2cd540fe4a2f73e3a6f71cfb1eb52",
+  "sha256": "82b580dd4fa4a2afcb84dc3eb6b09c59bb76378bb8e2a614312f21b6bc143dcb",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
-    "正式扩展身份、公钥、商店 Item ID 和 OAuth 客户端尚未配置。",
+    "固定开发身份和公钥已配置；商店 Item ID 与 OAuth 客户端仍需账号负责人在对应控制台创建。",
     "开发 ZIP 只能通过 chrome://extensions 或 edge://extensions 的加载解压缩扩展功能安装。",
-    "正式发布前必须完成固定 ID、OAuth、登录、同步和撤销设备测试。"
+    "正式发布前必须注册上方精确 OAuth 回调，并完成登录、同步、撤销设备与商店审核测试。"
   ]
 }

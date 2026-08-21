@@ -11,6 +11,7 @@ import {
   clearCurrentSession,
   getQuizSettings,
   saveQuizSettings,
+  appendLocalQuizHistory,
 } from '@/lib/quiz/storage';
 import {
   createSession,
@@ -24,6 +25,7 @@ import QuizHistory from './quiz-history';
 import QuizSettingsPanel from './quiz-settings';
 import SubjectSelector from './subject-selector';
 import ProgressBar from './progress-bar';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 type View =
   | 'input'       // initial input screen
@@ -66,6 +68,7 @@ function normalizeQuestionType(raw: string): QuestionType {
 }
 
 export default function QuizApp() {
+  const { signedIn } = useAuthMode();
   const [view, setView] = useState<View>('input');
   const [questions, setQuestions] = useState<AnalyzedQuestion[]>([]);
   const [dbQuestions, setDbQuestions] = useState<QuizQuestion[]>([]);
@@ -87,8 +90,10 @@ export default function QuizApp() {
         ...q,
         type: normalizeQuestionType(q.type),
       }));
-      setQuestions(normalized);
-      setView('subject');
+      queueMicrotask(() => {
+        setQuestions(normalized);
+        setView('subject');
+      });
     }
   }, []);
 
@@ -128,7 +133,7 @@ export default function QuizApp() {
     setView('quiz');
 
     // Create session in DB — now returns real question IDs
-    const result = await createSession(subject, questions);
+    const result = signedIn ? await createSession(subject, questions).catch(() => ({ error: 'local-only' })) : { error: 'local-only' };
     if ('sessionId' in result) {
       setSessionId(result.sessionId);
       saveCurrentSession({ id: result.sessionId, startedAt: new Date().toISOString() });
@@ -149,7 +154,7 @@ export default function QuizApp() {
         order_index: i,
       })));
     }
-  }, [questions]);
+  }, [questions, signedIn]);
 
   // Answer a question
   const handleAnswer = useCallback(async (
@@ -229,13 +234,24 @@ export default function QuizApp() {
 
   // Complete quiz
   const handleComplete = useCallback(async () => {
-    if (sessionId) {
+    if (signedIn && sessionId) {
       await completeSession(sessionId);
     }
+    const now = new Date().toISOString();
+    appendLocalQuizHistory({
+      id: `local-${crypto.randomUUID()}`,
+      subject_name: subjectName || 'Untitled Quiz',
+      started_at: now,
+      completed_at: now,
+      total_questions: questions.length,
+      correct_count: userAnswers.filter((answer) => answer.isCorrect === true).length,
+      accuracy: questions.length ? Math.round(userAnswers.filter((answer) => answer.isCorrect === true).length / questions.length * 100) : 0,
+      duration_seconds: 0,
+    });
     clearCurrentQuestions();
     clearCurrentSession();
     setView('results');
-  }, [sessionId]);
+  }, [questions.length, sessionId, signedIn, subjectName, userAnswers]);
 
   // Finish and go back
   const handleFinishReview = useCallback(() => {

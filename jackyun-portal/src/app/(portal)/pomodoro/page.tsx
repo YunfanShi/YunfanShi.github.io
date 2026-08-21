@@ -10,6 +10,7 @@ import {
   updatePomodoroTask,
   type PomodoroTask,
 } from '@/actions/pomodoro';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,34 @@ const DEFAULT_SETTINGS: Settings = {
   soundEnabled: true,
   notificationsEnabled: true,
 };
+
+const LOCAL_WORKSPACE_KEY = 'jackyun_pomodoro_workspace_v1';
+
+interface LocalFocusSession {
+  id: string;
+  completedAt: string;
+  durationSeconds: number;
+  synced: boolean;
+}
+
+interface LocalPomodoroWorkspace {
+  tasks: TimerTask[];
+  settings: Settings;
+  sessions: LocalFocusSession[];
+}
+
+function readLocalWorkspace(): LocalPomodoroWorkspace {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_WORKSPACE_KEY) || 'null') as Partial<LocalPomodoroWorkspace> | null;
+    return {
+      tasks: Array.isArray(parsed?.tasks) ? parsed.tasks : [],
+      settings: parsed?.settings ? { ...DEFAULT_SETTINGS, ...parsed.settings } : DEFAULT_SETTINGS,
+      sessions: Array.isArray(parsed?.sessions) ? parsed.sessions : [],
+    };
+  } catch {
+    return { tasks: [], settings: DEFAULT_SETTINGS, sessions: [] };
+  }
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -131,6 +160,7 @@ function Ring({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export default function PomodoroPage() {
+  const { signedIn } = useAuthMode();
   const [mode, setMode] = useState<Mode>('pomodoro');
   const [seconds, setSeconds] = useState(DEFAULT_SETTINGS.pomodoroMin * 60);
   const [running, setRunning] = useState(false);
@@ -145,20 +175,52 @@ export default function PomodoroPage() {
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(true);
   const [weeklyMinutes, setWeeklyMinutes] = useState(0);
   const [activeDays, setActiveDays] = useState(0);
+  const [localSessions, setLocalSessions] = useState<LocalFocusSession[]>([]);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // ── Init ──
   useEffect(() => {
-    getPomodoroWorkspace()
-      .then(({ tasks: cloudTasks, settings: cloudSettings, completedToday, weeklyMinutes: cloudWeeklyMinutes, activeDays: cloudActiveDays }) => {
-        setTasks(cloudTasks);
-        setSettings(cloudSettings);
-        setSeconds(cloudSettings.pomodoroMin * 60);
-        setCompletedCount(completedToday);
-        setWeeklyMinutes(cloudWeeklyMinutes);
-        setActiveDays(cloudActiveDays);
+    const local = readLocalWorkspace();
+    const today = new Date().toLocaleDateString('en-CA');
+    const recentLocal = local.sessions.filter((session) => Date.now() - new Date(session.completedAt).getTime() < 7 * 86_400_000);
+    queueMicrotask(() => {
+      if (local.tasks.length) setTasks(local.tasks);
+      setSettings(local.settings);
+      setSeconds(local.settings.pomodoroMin * 60);
+      setLocalSessions(local.sessions);
+      setCompletedCount(local.sessions.filter((session) => session.completedAt.slice(0, 10) === today).length);
+      setWeeklyMinutes(Math.round(recentLocal.reduce((sum, session) => sum + session.durationSeconds, 0) / 60));
+      setActiveDays(new Set(recentLocal.map((session) => session.completedAt.slice(0, 10))).size);
+    });
+
+    if (!signedIn) {
+      queueMicrotask(() => setIsLoadingWorkspace(false));
+    } else getPomodoroWorkspace()
+      .then(async ({ tasks: cloudTasks, settings: cloudSettings, completedToday, weeklyMinutes: cloudWeeklyMinutes, activeDays: cloudActiveDays }) => {
+        const localOnly = local.tasks.filter((task) => !cloudTasks.some((cloudTask) => cloudTask.id === task.id || cloudTask.text.trim() === task.text.trim()));
+        const migrated: TimerTask[] = [];
+        for (const task of localOnly) {
+          const created = await createPomodoroTask(task.text);
+          await updatePomodoroTask(created.id, { estimated: task.estimated, completed: task.completed });
+          migrated.push({ ...created, estimated: task.estimated, completed: task.completed, donePomodoros: task.donePomodoros });
+        }
+        const mergedTasks = [...cloudTasks, ...migrated];
+        const effectiveSettings = localStorage.getItem(LOCAL_WORKSPACE_KEY) ? local.settings : cloudSettings;
+        setTasks(mergedTasks);
+        setSettings(effectiveSettings);
+        setSeconds(effectiveSettings.pomodoroMin * 60);
+        setCompletedCount(completedToday + local.sessions.filter((session) => !session.synced && session.completedAt.slice(0, 10) === today).length);
+        setWeeklyMinutes(cloudWeeklyMinutes + Math.round(local.sessions.filter((session) => !session.synced && Date.now() - new Date(session.completedAt).getTime() < 7 * 86_400_000).reduce((sum, session) => sum + session.durationSeconds, 0) / 60));
+        setActiveDays(Math.max(cloudActiveDays, new Set(recentLocal.map((session) => session.completedAt.slice(0, 10))).size));
+        if (localStorage.getItem(LOCAL_WORKSPACE_KEY)) await savePomodoroSettings(effectiveSettings);
+        const syncedSessions = [...local.sessions];
+        for (const session of syncedSessions.filter((entry) => !entry.synced)) {
+          await completePomodoroSession(null, session.durationSeconds);
+          session.synced = true;
+        }
+        setLocalSessions(syncedSessions);
       })
       .catch(() => {})
       .finally(() => setIsLoadingWorkspace(false));
@@ -172,30 +234,12 @@ export default function PomodoroPage() {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
-  }, []);
+  }, [signedIn]);
 
-  // ── Timer logic ──
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setSeconds(prev => {
-          if (prev <= 1) {
-            // Timer complete
-            handleTimerComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, mode]);
+    if (isLoadingWorkspace) return;
+    try { localStorage.setItem(LOCAL_WORKSPACE_KEY, JSON.stringify({ tasks, settings, sessions: localSessions } satisfies LocalPomodoroWorkspace)); } catch {}
+  }, [isLoadingWorkspace, localSessions, settings, tasks]);
 
   // Update document title
   useEffect(() => {
@@ -227,7 +271,7 @@ export default function PomodoroPage() {
     setSeconds(getModeSeconds(mode));
   };
 
-  const handleTimerComplete = () => {
+  function handleTimerComplete() {
     setRunning(false);
 
     // Play sound
@@ -253,7 +297,10 @@ export default function PomodoroPage() {
     // Save a completed focus session to the cloud and update the selected task.
     if (mode === 'pomodoro') {
       const duration = getModeSeconds('pomodoro');
-      completePomodoroSession(activeTaskId, duration).then(() => {
+      const localSession: LocalFocusSession = { id: crypto.randomUUID(), completedAt: new Date().toISOString(), durationSeconds: duration, synced: false };
+      setLocalSessions((current) => [...current, localSession].slice(-500));
+      if (signedIn) completePomodoroSession(activeTaskId, duration).then(() => {
+        setLocalSessions((current) => current.map((session) => session.id === localSession.id ? { ...session, synced: true } : session));
         if (activeTaskId) {
           setTasks((current) => current.map((task) => task.id === activeTaskId ? { ...task, donePomodoros: task.donePomodoros + 1 } : task));
         }
@@ -277,18 +324,44 @@ export default function PomodoroPage() {
       setMode('pomodoro');
       setSeconds(getModeSeconds('pomodoro'));
     }
-  };
+  }
+
+  // ── Timer logic ──
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => {
+        setSeconds(prev => {
+          if (prev <= 1) {
+            handleTimerComplete();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, mode]);
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = taskInput.trim();
     if (!text) return;
+    const localTask: TimerTask = { id: crypto.randomUUID(), text, estimated: 1, completed: false, donePomodoros: 0 };
+    setTasks((current) => [...current, localTask]);
+    setTaskInput('');
+    setActiveTaskId((current) => current ?? localTask.id);
+    if (!signedIn) return;
     try {
-      const newTask = await createPomodoroTask(text);
-      setTasks((current) => [...current, newTask]);
-      setTaskInput('');
-      setActiveTaskId((current) => current ?? newTask.id);
-    } catch {}
+      const cloudTask = await createPomodoroTask(text);
+      setTasks((current) => current.map((task) => task.id === localTask.id ? cloudTask : task));
+      setActiveTaskId((current) => current === localTask.id ? cloudTask.id : current);
+    } catch { /* Guest/offline task remains local and migrates after login. */ }
   };
 
   const toggleTask = (id: string) => {
@@ -297,14 +370,14 @@ export default function PomodoroPage() {
     );
     setTasks(updated);
     const task = updated.find((item) => item.id === id);
-    if (task) updatePomodoroTask(id, { completed: task.completed }).catch(() => {});
+    if (signedIn && task) updatePomodoroTask(id, { completed: task.completed }).catch(() => {});
   };
 
   const removeTask = (id: string) => {
     const updated = tasks.filter(t => t.id !== id);
     setTasks(updated);
     if (activeTaskId === id) setActiveTaskId(null);
-    deletePomodoroTask(id).catch(() => {});
+    if (signedIn) deletePomodoroTask(id).catch(() => {});
   };
 
   const adjustTaskPomodoros = (id: string, delta: number) => {
@@ -313,13 +386,13 @@ export default function PomodoroPage() {
     );
     setTasks(updated);
     const task = updated.find((item) => item.id === id);
-    if (task) updatePomodoroTask(id, { estimated: task.estimated }).catch(() => {});
+    if (signedIn && task) updatePomodoroTask(id, { estimated: task.estimated }).catch(() => {});
   };
 
   const updateSetting = (key: keyof Settings, value: number | boolean) => {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
-    savePomodoroSettings(updated).catch(() => {});
+    if (signedIn) savePomodoroSettings(updated).catch(() => {});
 
     // If changing duration and timer not running, update display
     if (!running) {
@@ -346,7 +419,7 @@ export default function PomodoroPage() {
     <div className="mx-auto flex min-h-full max-w-6xl flex-col pb-8">
       <section className="mb-6 overflow-hidden rounded-[28px] bg-[#172554] px-6 py-7 text-white shadow-xl sm:px-8">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#bfdbfe]">Focus studio</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">把注意力留给重要的事</h1><p className="mt-2 text-sm text-[#bfdbfe]">任务、节奏和专注记录会自动保存到云端。</p></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#bfdbfe]">Focus studio</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">把注意力留给重要的事</h1><p className="mt-2 text-sm text-[#bfdbfe]">任务、节奏和专注记录始终先保存到本机；登录后自动同步。</p></div>
           <div className="flex gap-3"><div className="rounded-2xl bg-white/10 px-4 py-3"><p className="text-xs text-[#bfdbfe]">本周专注</p><p className="mt-1 text-xl font-bold">{weeklyMinutes} 分钟</p></div><div className="rounded-2xl bg-white/10 px-4 py-3"><p className="text-xs text-[#bfdbfe]">活跃天数</p><p className="mt-1 text-xl font-bold">{activeDays} / 7</p></div></div>
         </div>
       </section>
@@ -429,7 +502,7 @@ export default function PomodoroPage() {
 
         {/* Completed stats */}
         <p className="mt-6 text-sm text-[var(--muted-foreground)]">
-          {isLoadingWorkspace ? '正在同步你的专注数据…' : <>今日已完成 <span style={{ color: modeColor }} className="font-bold">{completedCount}</span> 个番茄钟 · 已云端同步</>}
+          {isLoadingWorkspace ? '正在读取你的专注数据…' : <>今日已完成 <span style={{ color: modeColor }} className="font-bold">{completedCount}</span> 个番茄钟 · 已保存到本机</>}
         </p>
       </div>
 

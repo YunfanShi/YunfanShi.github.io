@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
 
 const TAG = 'API/LegacySync';
 
@@ -32,6 +33,7 @@ export async function GET() {
     const result: Record<string, unknown> = {};
     const timestamps: Record<string, string> = {};
     for (const row of data ?? []) {
+      if (!isSyncableStorageKey(row.storage_key)) continue;
       result[row.storage_key] = row.storage_value;
       if (row.updated_at) timestamps[row.storage_key] = row.updated_at;
     }
@@ -50,28 +52,22 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
     if (!user) return apiError('Unauthorized', 401);
 
-    const body = await request.json();
-    const { key, value } = body as { key: string; value: unknown };
-    if (!key) return apiError('Missing key', 400);
+    const body = await request.json() as { key?: string; value?: unknown; entries?: Array<{ key?: string; value?: unknown }> };
+    const entries = Array.isArray(body.entries) ? body.entries : [{ key: body.key, value: body.value }];
+    if (!entries.length || entries.length > 200) return apiError('Invalid entry count', 400);
+    const now = new Date().toISOString();
+    const rows = entries.map(({ key, value }) => {
+      if (!key || !isSyncableStorageKey(key)) throw new Error('Storage key is not syncable');
+      const storageValue = storageValueToString(value);
+      if (storageValue.length > 100_000) throw new Error('Storage value is too large');
+      return { user_id: user.id, storage_key: key, storage_value: storageValue, updated_at: now };
+    });
 
-    const storageValue =
-      typeof value === 'string'
-        ? (() => { try { return JSON.parse(value); } catch { return value; } })()
-        : value;
-
-    const { error } = await supabase.from('legacy_sync_data').upsert(
-      {
-        user_id: user.id,
-        storage_key: key,
-        storage_value: storageValue,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,storage_key' },
-    );
+    const { error } = await supabase.from('legacy_sync_data').upsert(rows, { onConflict: 'user_id,storage_key' });
 
     if (error) return apiError('Database upsert failed', 500, error);
 
-    return NextResponse.json({ ok: true, timestamp: new Date().toISOString() });
+    return NextResponse.json({ ok: true, timestamp: now, count: rows.length });
   } catch (err) {
     return apiError('Internal server error', 500, err instanceof Error ? err.message : String(err));
   }
@@ -88,7 +84,7 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const { key, value } = body as { key: string; value: unknown };
-    if (!key) return apiError('Missing key', 400);
+    if (!key || !isSyncableStorageKey(key)) return apiError('Storage key is not syncable', 400);
 
     const storageValue =
       typeof value === 'string'
@@ -124,7 +120,7 @@ export async function DELETE(request: NextRequest) {
 
     const body = await request.json();
     const { key } = body as { key: string };
-    if (!key) return apiError('Missing key', 400);
+    if (!key || !isSyncableStorageKey(key)) return apiError('Storage key is not syncable', 400);
 
     const { error } = await supabase
       .from('legacy_sync_data')

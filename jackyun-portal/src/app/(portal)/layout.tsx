@@ -14,6 +14,9 @@ import type { SidebarPreferences } from '@/actions/settings';
 import type { Language } from '@/lib/i18n';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
+import GuestModeNotice from '@/components/layout/guest-mode-notice';
+import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
+import AuthModeProvider from '@/components/auth/auth-mode-provider';
 
 const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = DEFAULT_NAVIGATION_PREFERENCES;
 
@@ -71,12 +74,15 @@ export default async function PortalLayout({
     : null;
 
   return (
-    <LanguageProvider initialLanguage={language}>
+    <AuthModeProvider signedIn={Boolean(user)}>
+    <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
-      <CloudSettingsHydrator appearance={appearancePreferences} />
+      <CloudSettingsHydrator appearance={appearancePreferences} signedIn={Boolean(user)} />
+      <LocalWorkspaceSync userId={user?.id ?? null} />
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <GuestModeNotice signedIn={Boolean(user)} />
           <Topbar user={user} />
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
@@ -89,5 +95,6 @@ export default async function PortalLayout({
         <AdminDebugConsole />
       </div>
     </LanguageProvider>
+    </AuthModeProvider>
   );
 }

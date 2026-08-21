@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { saveSidebarPreferences, type SidebarPreferences } from '@/actions/settings';
 import { NAVIGATION_GROUPS, NAVIGATION_ITEMS } from '@/lib/navigation';
 import { DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 function SortableRow({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -22,9 +23,17 @@ function SortableList({ ids, onChange, render }: { ids: string[]; onChange: (ids
 }
 
 export default function SidebarPrefsPanel({ initialPrefs }: { initialPrefs: SidebarPreferences }) {
+  const { signedIn } = useAuthMode();
   const [prefs, setPrefs] = useState(initialPrefs);
   const [status, setStatus] = useState('');
-  async function save(next = prefs) { setStatus('保存中…'); const result = await saveSidebarPreferences(next); setStatus(result.error ? result.error : '已同步到 Supabase'); }
+  useEffect(() => { try { const local = localStorage.getItem('jackyun_sidebar_preferences'); if (local) queueMicrotask(() => setPrefs(JSON.parse(local) as SidebarPreferences)); } catch {} }, []);
+  async function save(next = prefs) {
+    setStatus('保存中…');
+    try { localStorage.setItem('jackyun_sidebar_preferences', JSON.stringify(next)); } catch {}
+    if (!signedIn) { setStatus('已保存到本机；登录后自动同步'); return; }
+    const result = await saveSidebarPreferences(next);
+    setStatus(result.error ? '已保存到本机；云同步暂时不可用' : '已保存到本机并同步到云端');
+  }
   function toggle(list: 'hiddenItems' | 'pinnedItems', id: string) { setPrefs((current) => ({ ...current, [list]: current[list].includes(id) ? current[list].filter((item) => item !== id) : [...current[list], id] })); }
 
   return <div className="space-y-5">

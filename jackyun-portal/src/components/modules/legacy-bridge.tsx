@@ -1,18 +1,27 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 /**
  * LegacyBridge - listens for postMessage events from legacy HTML iframes
  * and syncs localStorage data to Supabase via the API route.
  */
 export default function LegacyBridge() {
+  const { signedIn } = useAuthMode();
   useEffect(() => {
     async function handleMessage(event: MessageEvent) {
       const msg = event.data;
       if (!msg || msg.source !== 'supabase-adapter') return;
 
       const { type, payload, requestId } = msg;
+
+      if (!signedIn) {
+        if (type === 'request-init') {
+          (event.source as WindowProxy)?.postMessage({ source: 'supabase-bridge', type: 'ready-ack', payload: null, requestId }, event.origin || '*');
+        }
+        return;
+      }
 
       if (type === 'request-init') {
         // Load user's legacy data and send back to iframe
@@ -65,7 +74,7 @@ export default function LegacyBridge() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [signedIn]);
 
   return null;
 }

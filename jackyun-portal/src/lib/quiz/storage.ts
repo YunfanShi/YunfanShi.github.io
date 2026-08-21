@@ -1,16 +1,9 @@
 'use client';
 
-import { AnalyzedQuestion, QuizSession, QuizQuestion, QuizSettings } from '@/types/quiz';
+import { AnalyzedQuestion, QuizSession, QuizSettings } from '@/types/quiz';
 
 const DB_NAME = 'quizwise';
 const DB_VERSION = 1;
-
-interface QuizStoredData {
-  currentQuestions?: AnalyzedQuestion[];
-  currentSession?: { id: string; startedAt: string };
-  quizSettings?: QuizSettings;
-  cachedSessions?: QuizSession[];
-}
 
 // Open IndexedDB
 function openDB(): Promise<IDBDatabase> {
@@ -144,6 +137,19 @@ export function getQuizSettings(): QuizSettings {
 
 export function saveQuizSettings(settings: QuizSettings): void {
   lsSet('quiz_settings', settings);
+}
+
+export function getLocalQuizHistory(): QuizSession[] {
+  return lsGet<QuizSession[]>('history') ?? [];
+}
+
+export function appendLocalQuizHistory(entry: Omit<QuizSession, 'user_id' | 'subject_id'>): void {
+  const history = getLocalQuizHistory();
+  lsSet('history', [{ ...entry, user_id: 'local', subject_id: null }, ...history].slice(0, 100));
+}
+
+export function deleteLocalQuizHistory(id: string): void {
+  lsSet('history', getLocalQuizHistory().filter((entry) => entry.id !== id));
 }
 
 // Selected subject preference
