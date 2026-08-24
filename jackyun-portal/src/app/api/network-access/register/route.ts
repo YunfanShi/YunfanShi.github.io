@@ -1,14 +1,25 @@
 import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import {
   normalizeMac,
   normalizeOptionalText,
   normalizePrivateIpv4,
   type NetworkRegistrationPayload,
 } from '@/lib/network-access';
+import { NETWORK_PORTAL_COOKIE, verifyNetworkPortalSession } from '@/lib/network-portal-session';
 
 const JSON_HEADERS = { 'cache-control': 'no-store' };
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const portalSession = verifyNetworkPortalSession(
+    cookieStore.get(NETWORK_PORTAL_COOKIE)?.value,
+    process.env.NETWORK_PORTAL_SESSION_SECRET,
+  );
+  if (!portalSession) {
+    return Response.json({ error: '请通过本地路由器入口访问。' }, { status: 403, headers: JSON_HEADERS });
+  }
+
   const origin = request.headers.get('origin');
   const host = request.headers.get('host');
   if (origin && host) {
@@ -46,9 +57,9 @@ export async function POST(request: Request) {
     p_claimed_name: claimedName,
     p_relationship: normalizeOptionalText(body.relationship, 40) ?? null,
     p_device_label: normalizeOptionalText(body.deviceLabel, 60) ?? null,
-    p_mac_address: normalizeMac(body.clientMac) ?? null,
-    p_private_ip: normalizePrivateIpv4(body.clientIp) ?? null,
-    p_router_nas_id: normalizeOptionalText(body.routerNasId, 80) ?? null,
+    p_mac_address: normalizeMac(portalSession.clientMac) ?? null,
+    p_private_ip: normalizePrivateIpv4(portalSession.clientIp) ?? null,
+    p_router_nas_id: normalizeOptionalText(portalSession.routerNasId, 80) ?? null,
     p_privacy_accepted: true,
   });
 

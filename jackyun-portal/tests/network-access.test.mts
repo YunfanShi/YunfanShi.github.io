@@ -6,6 +6,11 @@ import {
   normalizeOptionalText,
   normalizePrivateIpv4,
 } from '../src/lib/network-access.ts';
+import {
+  createNetworkPortalSession,
+  secretsMatch,
+  verifyNetworkPortalSession,
+} from '../src/lib/network-portal-session.ts';
 
 test('normalizes supported MAC address formats', () => {
   assert.equal(normalizeMac('aa-bb-cc-dd-ee-ff'), 'AA:BB:CC:DD:EE:FF');
@@ -26,4 +31,21 @@ test('reads aliases and bounds optional text', () => {
   assert.equal(firstSearchParam({ mac: ['first', 'second'] }, ['mac']), 'first');
   assert.equal(normalizeOptionalText('  abcdef  ', 4), 'abcd');
   assert.equal(normalizeOptionalText('   ', 10), undefined);
+});
+
+test('creates and verifies a short-lived router portal session', () => {
+  const secret = 'session-secret-that-is-at-least-32-characters';
+  const now = 1_700_000_000_000;
+  const token = createNetworkPortalSession({ clientIp: '192.168.10.25' }, secret, now);
+  assert.ok(token);
+  assert.equal(verifyNetworkPortalSession(token, secret, now)?.clientIp, '192.168.10.25');
+  assert.equal(verifyNetworkPortalSession(token, secret, now + 16 * 60 * 1000), undefined);
+  assert.equal(verifyNetworkPortalSession(`${token}x`, secret, now), undefined);
+});
+
+test('requires a sufficiently strong exact router entry key', () => {
+  const key = 'router-entry-key-that-is-at-least-32-characters';
+  assert.equal(secretsMatch(key, key), true);
+  assert.equal(secretsMatch(`${key}x`, key), false);
+  assert.equal(secretsMatch('short', 'short'), false);
 });

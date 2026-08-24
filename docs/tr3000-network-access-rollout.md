@@ -13,7 +13,7 @@
 
 ## 已准备的站点能力
 
-- 公开登记页：`https://jackyun.top/network-access`
+- 路由器登记页：`https://jackyun.top/network-access`。公网直接访问只显示“仅限本地网络访问”，不会显示或提交登记表单。
 - 后台管理页：`https://jackyun.top/admin/network`
 - 登记字段：姓名/常用称呼、关系、设备备注，以及路由器可选提供的局域网 IP、MAC、NAS ID。
 - 不收集 Wi-Fi 密码、短信验证码、付款信息或浏览内容。
@@ -28,25 +28,26 @@
 2. 受信任的局域网桥接程序读取 DHCP/邻居/QoS 表；
 3. 管理员在 TR3000 设备列表中手动匹配。
 
-当前页面兼容这些常见参数别名：
+路由器专用入口为 `/network-access/enter`。入口必须同时提供生产环境中的 `portal_key` 和至少一个有效的私网 IP/MAC；验证成功后，服务器会删除 URL 中的入口凭证并签发 15 分钟 HttpOnly 会话。当前入口兼容这些常见参数别名：
 
 - MAC：`client_mac`、`clientmac`、`mac`、`sta_mac`
 - IP：`client_ip`、`clientip`、`ip`、`sta_ip`
 - NAS：`nas_id`、`nasid`、`router_id`
 
-TR3000 的 `HotspotSystem` 模板是否会附带这些参数需要用一台测试手机验证。若不附带，登记仍会保存姓名，但后台会明确显示“缺少完整 IP/MAC”，禁止生成可应用动作。
+TR3000 的 `HotspotSystem` 模板是否会附带这些参数需要用一台测试手机验证。若不附带有效 IP 或 MAC，入口直接拒绝访问，不保存登记。
 
 ## 安全上线顺序
 
-1. 在 Supabase 应用 `20260824153450_network_access_registry.sql`。
-2. 部署站点，验证 `/network-access` 能登记、`/admin/network` 仅管理员可读。
-3. 用测试 URL 验证参数映射，例如：
-   `https://jackyun.top/network-access?client_ip=192.168.10.25&client_mac=AA-BB-CC-DD-EE-FF&nas_id=tr3000-main`
-4. 在 TR3000 中只选择一个测试 SSID；强制主页 URL 填 `https://jackyun.top/network-access`。
-5. 保持“保存&应用”未点击，先截图复核本地网段、SSID 和 URL。
-6. 获得明确确认后才保存，并用一台非管理员设备测试登记、关闭页面、重新连接和租用时间到期行为。
-7. 验证后台姓名、IP、MAC 与 TR3000 在线设备一致，再手动应用一条低风险 QoS 规则。
-8. 验证限速和解除限速，最后再扩大到两个 SSID。
+1. 在 Supabase 应用 `20260824155545_network_access_registry.sql`。
+2. 在生产环境设置两个独立、至少 32 字符的随机值：`NETWORK_PORTAL_ENTRY_KEY` 与 `NETWORK_PORTAL_SESSION_SECRET`；不得写入 Git 或前端变量。
+3. 部署站点，验证直接访问 `/network-access` 不显示表单、`/admin/network` 仅管理员可读。
+4. 用测试 URL 验证参数映射，例如：
+   `https://jackyun.top/network-access/enter?portal_key=<路由器专用凭证>&client_ip=192.168.10.25&client_mac=AA-BB-CC-DD-EE-FF&nas_id=tr3000-main`
+5. 在 TR3000 中只选择一个测试 SSID；强制主页 URL 填入由管理员保管的路由器专用入口 URL。
+6. 保持“保存&应用”未点击，先截图复核本地网段、SSID 和 URL。
+7. 获得明确确认后才保存，并用一台非管理员设备测试登记、关闭页面、重新连接和租用时间到期行为。
+8. 验证后台姓名、IP、MAC 与 TR3000 在线设备一致，再手动应用一条低风险 QoS 规则。
+9. 验证限速和解除限速，最后再扩大到两个 SSID。
 
 ## 自动联动的第二阶段
 
