@@ -9,6 +9,20 @@ export default function TechEmpireExperience() {
   useEffect(() => {
     const page = document.querySelector<HTMLElement>('[data-tech-page]');
     if (!page) return;
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootStyle = root.getAttribute('style');
+    const previousBodyStyle = body.getAttribute('style');
+
+    // This route lives outside the portal shell. Release any page-level scroll
+    // lock left by a mobile drawer or modal during client-side navigation.
+    root.style.setProperty('height', 'auto', 'important');
+    root.style.setProperty('overflow-y', 'auto', 'important');
+    root.style.setProperty('overscroll-behavior-y', 'auto', 'important');
+    body.style.setProperty('height', 'auto', 'important');
+    body.style.setProperty('overflow-y', 'auto', 'important');
+    body.style.setProperty('overscroll-behavior-y', 'auto', 'important');
+    body.style.setProperty('touch-action', 'pan-y', 'important');
     let frame = 0;
     const updateScroll = () => {
       cancelAnimationFrame(frame);
@@ -37,6 +51,10 @@ export default function TechEmpireExperience() {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', updateScroll);
       window.removeEventListener('pointermove', updatePointer);
+      if (previousRootStyle === null) root.removeAttribute('style');
+      else root.setAttribute('style', previousRootStyle);
+      if (previousBodyStyle === null) body.removeAttribute('style');
+      else body.setAttribute('style', previousBodyStyle);
     };
   }, []);
 

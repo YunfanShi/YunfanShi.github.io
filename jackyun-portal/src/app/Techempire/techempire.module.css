@@ -8,8 +8,8 @@
   --pointer-y: 30vh;
   --orb-shift: 0px;
   min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow-x: clip;
+  overflow-y: initial;
   position: relative;
   background:
     radial-gradient(700px circle at var(--pointer-x) var(--pointer-y), rgb(126 249 230 / 5%), transparent 48%),
@@ -17,6 +17,8 @@
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
   scroll-behavior: smooth;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
 }
 
 .scrollProgress {
