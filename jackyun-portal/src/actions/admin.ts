@@ -225,6 +225,73 @@ export type ManagedUser = {
   created_at: string; updated_at: string; deleted_at: string | null; focus_sessions: number; legacy_records: number;
 };
 
+export type NetworkDevice = {
+  id: string;
+  mac_address: string | null;
+  private_ip: string | null;
+  claimed_name: string;
+  admin_label: string | null;
+  relationship: string | null;
+  device_label: string | null;
+  router_nas_id: string | null;
+  access_tier: 'trusted' | 'known' | 'guest' | 'unknown';
+  access_policy: 'review' | 'unrestricted' | 'limited' | 'blocked';
+  desired_download_mbps: number | null;
+  desired_upload_mbps: number | null;
+  router_note: string | null;
+  admin_notes: string | null;
+  sync_status: 'pending_review' | 'pending_apply' | 'applied' | 'error';
+  identifiers_supplied: boolean;
+  registration_count: number;
+  last_registered_at: string;
+  updated_at: string;
+};
+
+export type NetworkDeviceUpdate = Pick<
+  NetworkDevice,
+  'id' | 'admin_label' | 'access_tier' | 'access_policy' | 'desired_download_mbps' |
+  'desired_upload_mbps' | 'router_note' | 'admin_notes' | 'sync_status'
+>;
+
+export async function getNetworkDevices(): Promise<NetworkDevice[]> {
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase.rpc('admin_list_network_devices');
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as NetworkDevice[]).map((device) => ({
+    ...device,
+    desired_download_mbps: device.desired_download_mbps === null ? null : Number(device.desired_download_mbps),
+    desired_upload_mbps: device.desired_upload_mbps === null ? null : Number(device.desired_upload_mbps),
+    registration_count: Number(device.registration_count),
+  }));
+}
+
+export async function updateNetworkDevice(
+  input: NetworkDeviceUpdate,
+): Promise<{ success: boolean; error?: string }> {
+  const { supabase } = await requireAdmin();
+  const download = input.access_policy === 'limited' ? Number(input.desired_download_mbps) : null;
+  const upload = input.access_policy === 'limited' ? Number(input.desired_upload_mbps) : null;
+  if (input.access_policy === 'limited' && (
+    !Number.isFinite(download) || !Number.isFinite(upload) || download! <= 0 || upload! <= 0
+  )) {
+    return { success: false, error: '限速策略需要有效的上下行速率。' };
+  }
+  const { error } = await supabase.rpc('admin_update_network_device', {
+    p_id: input.id,
+    p_admin_label: input.admin_label?.trim() || null,
+    p_access_tier: input.access_tier,
+    p_access_policy: input.access_policy,
+    p_download_mbps: download,
+    p_upload_mbps: upload,
+    p_router_note: input.router_note?.trim() || null,
+    p_admin_notes: input.admin_notes?.trim() || null,
+    p_sync_status: input.sync_status,
+  });
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin/network');
+  return { success: true };
+}
+
 export async function getManagedUsers(): Promise<ManagedUser[]> {
   const { supabase } = await requireAdmin();
   const { data, error } = await supabase.rpc('admin_list_users');

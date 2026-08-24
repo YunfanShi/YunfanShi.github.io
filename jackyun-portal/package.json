@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "test:network-access": "node --test tests/network-access.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",
     "check:companion": "node scripts/check-companion-package.mjs",
     "check:study-guide": "node scripts/check-study-guide.mjs"

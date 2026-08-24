@@ -21,6 +21,7 @@
 | Companion | `PORTAL` 与 host permissions | 新包同时验证新域名，正式切换后移除旧域名 | 旧域名 |
 | Userscript | `@namespace` / `@match` | 发行新版本并保留旧域名过渡期 | 旧域名 |
 | 旧 HTML | 多处 `https://jackyun.top` | 分批替换；外部链接保留兼容跳转 | 旧链接 |
+| TR3000 强制主页 | `https://jackyun.top/network-access` | 新域名登记接口和 HTTPS 验证后再切换 | `https://jackyun.top/network-access` |
 | 邮件/元数据 | `NEXT_PUBLIC_SITE_URL` 派生 | 新域名验证后重新发送/发布 | 旧链接 |
 
 ## 执行顺序
@@ -30,8 +31,9 @@
 3. 双域名验证登录、密码重置、OAuth、API、Study Guide 本地进度和旧 HTML。
 4. 更新代码、扩展 host permissions、Userscript 元数据和站点 canonical。
 5. 重新打包 Companion，记录 Item ID、扩展 ID、公钥指纹和 OAuth 回调。
-6. 新域名稳定运行一个完整发布周期后，旧域名做 308 跳转。
-7. 至少保留旧域名一个完整发布周期，再评估删除旧回调。
+6. 验证 `/network-access` 登记与 `/admin/network` 管理流程后，再更新 TR3000 强制主页 URL。
+7. 新域名稳定运行一个完整发布周期后，旧域名做 308 跳转。
+8. 至少保留旧域名一个完整发布周期，再评估删除旧回调。
 
 ## 回滚方案
 
