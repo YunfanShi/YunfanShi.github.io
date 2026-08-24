@@ -37,6 +37,18 @@ export default function TechEmpireExperience() {
       page.style.setProperty('--pointer-x', `${event.clientX}px`);
       page.style.setProperty('--pointer-y', `${event.clientY}px`);
     };
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.deltaY === 0) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const nestedScroller = target?.closest<HTMLElement>('[data-native-scroll]');
+      if (nestedScroller && nestedScroller.scrollHeight > nestedScroller.clientHeight) return;
+
+      // Some browser extensions and embedded-shell states swallow the native
+      // wheel chain before it reaches the document. Own the page-level wheel
+      // gesture so mouse wheels and trackpads always move this standalone route.
+      event.preventDefault();
+      window.scrollBy({ top: event.deltaY, left: 0, behavior: 'auto' });
+    };
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) entry.target.setAttribute('data-entered', 'true');
@@ -45,12 +57,14 @@ export default function TechEmpireExperience() {
     page.querySelectorAll('[data-tech-section]').forEach((section) => observer.observe(section));
     window.addEventListener('scroll', updateScroll, { passive: true });
     window.addEventListener('pointermove', updatePointer, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
     updateScroll();
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', updateScroll);
       window.removeEventListener('pointermove', updatePointer);
+      window.removeEventListener('wheel', handleWheel, { capture: true });
       if (previousRootStyle === null) root.removeAttribute('style');
       else root.setAttribute('style', previousRootStyle);
       if (previousBodyStyle === null) body.removeAttribute('style');
