@@ -1,8 +1,8 @@
 {
   "product": "JackYun Companion",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "status": "signed-release-candidate",
-  "updatedAt": "2026-08-21",
+  "updatedAt": "2026-08-24",
   "chromeWebStoreUrl": null,
   "edgeAddonsUrl": null,
   "extensionId": "nlckikhapgbekdclakobfopdihiibafl",
@@ -10,13 +10,13 @@
   "oauthRedirectUri": "https://nlckikhapgbekdclakobfopdihiibafl.chromiumapp.org/oauth2",
   "developmentZip": "/downloads/jackyun-companion-dev-v1.0.0.zip",
   "sha256": "82b580dd4fa4a2afcb84dc3eb6b09c59bb76378bb8e2a614312f21b6bc143dcb",
-  "releaseZip": "/downloads/jackyun-companion-v1.0.0.zip",
-  "zipSha256": "f7c20e38c26cae75fc5321be7281e4e69978196514b639159c0c343c157117f5",
-  "signedCrx": "/downloads/jackyun-companion-v1.0.0.crx",
-  "crxSha256": "c0869fa6d5b18bca49c6679f073871242efd7a7eece2a546d22457550331928d",
+  "releaseZip": "/downloads/jackyun-companion-v1.0.1.zip",
+  "zipSha256": "0fccaad80a5e7247e65a0276a183cfe0e08e7c6358a5570a0763947cae94a332",
+  "signedCrx": "/downloads/jackyun-companion-v1.0.1.crx",
+  "crxSha256": "08edba2ed44f4a727b735f45794d85eaf2676066068dd2035be2cbeb619c34a3",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
-    "ZIP 与 CRX 已使用固定身份生成；Chrome Web Store Item 和商店审核仍需账号负责人完成。",
+    "1.0.1 增加远程配置回退、关键请求重试与扩展 API CORS；Chrome Web Store Item 和商店审核仍需账号负责人完成。",
     "Windows 与 macOS 版 Chrome 不允许直接拖入本地 CRX；免开发者模式安装必须来自 Chrome Web Store。",
     "ZIP 可上传 Chrome Web Store，或解压后通过 chrome://extensions 的加载已解压扩展程序安装。"
   ]

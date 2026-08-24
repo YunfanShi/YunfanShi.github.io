@@ -15,6 +15,7 @@ const extensionId = manifest.key
   : null;
 const release = JSON.parse(readFileSync('public/downloads/companion-release.json', 'utf8'));
 if (extensionId && release.extensionId !== extensionId) throw new Error('Release extensionId does not match manifest.key');
+if (release.version !== manifest.version) throw new Error('Release version does not match manifest.version');
 if (/PRIVATE KEY/.test(readFileSync(manifestPath, 'utf8'))) throw new Error('Private key material found in manifest');
 
 function readVarint(buffer, start) {
@@ -62,7 +63,7 @@ if (existsSync(zipPath)) {
   if (release.sha256 !== zipSha256) throw new Error('Release SHA-256 does not match the extension ZIP');
 }
 
-const releaseZipPath = 'public/downloads/jackyun-companion-v1.0.0.zip';
+const releaseZipPath = `public/downloads/jackyun-companion-v${manifest.version}.zip`;
 if (!existsSync(releaseZipPath)) throw new Error('Release ZIP is missing');
 const releaseZipListing = execFileSync('unzip', ['-Z1', releaseZipPath], { encoding: 'utf8' });
 if (/\.pem$|\.key$/m.test(releaseZipListing)) throw new Error('Private key file included in release ZIP');
@@ -71,7 +72,7 @@ if (releaseZipManifest.key !== manifest.key) throw new Error('Release ZIP identi
 const releaseZipSha256 = createHash('sha256').update(readFileSync(releaseZipPath)).digest('hex');
 if (release.zipSha256 !== releaseZipSha256) throw new Error('Release ZIP SHA-256 does not match');
 
-const crxPath = 'public/downloads/jackyun-companion-v1.0.0.crx';
+const crxPath = `public/downloads/jackyun-companion-v${manifest.version}.crx`;
 if (!existsSync(crxPath)) throw new Error('Signed CRX is missing');
 const crx = readFileSync(crxPath);
 if (crx.subarray(0, 4).toString('ascii') !== 'Cr24' || crx.readUInt32LE(4) !== 3) throw new Error('Release CRX is not CRX3');

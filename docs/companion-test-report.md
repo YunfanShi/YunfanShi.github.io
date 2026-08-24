@@ -12,10 +12,11 @@
 
 ## 当前发布候选包
 
-- 商店上传 ZIP：`public/downloads/jackyun-companion-v1.0.0.zip`
-- ZIP SHA-256：`f7c20e38c26cae75fc5321be7281e4e69978196514b639159c0c343c157117f5`
-- 签名 CRX3：`public/downloads/jackyun-companion-v1.0.0.crx`
-- CRX SHA-256：`c0869fa6d5b18bca49c6679f073871242efd7a7eece2a546d22457550331928d`
+- 商店上传 ZIP：`public/downloads/jackyun-companion-v1.0.1.zip`
+- ZIP SHA-256：`0fccaad80a5e7247e65a0276a183cfe0e08e7c6358a5570a0763947cae94a332`
+- 签名 CRX3：`public/downloads/jackyun-companion-v1.0.1.crx`
+- CRX SHA-256：`08edba2ed44f4a727b735f45794d85eaf2676066068dd2035be2cbeb619c34a3`
+- 1.0.1：远程配置失败时使用内置公开配置，关键网络请求进行超时重试，Portal Companion API 明确允许固定扩展来源。
 - Windows/macOS 安装方式：商店审核前解压 ZIP，并在开发者模式加载；Chrome 官方策略禁止拖入本地 CRX 直接安装。
 - 固定开发扩展 ID：`nlckikhapgbekdclakobfopdihiibafl`。
 - 公钥 SHA-256 指纹：`db2a8a70f614a32b0ae15ef38788105b662057d813ac5ee87cd68ae5b8031576`。

@@ -1,6 +1,12 @@
 const PORTAL = 'https://jackyun.top';
 const VERSION = chrome.runtime.getManifest().version;
 const DEFAULT_PREFERENCES = { enabled: true, countAI: true, idleSeconds: 60, goalMinutes: 120, retentionDays: 365, savePageTitles: false };
+const DEFAULT_CONFIG = Object.freeze({
+  enabled: true,
+  supabaseUrl: 'https://gdcwwlnzylrzrqhaaljq.supabase.co',
+  oauthClientId: '8d65c941-79c0-4678-af1f-e0699ef700aa',
+  apiVersion: 1,
+});
 
 const local = {
   async get(keys) { return chrome.storage.local.get(keys); },
@@ -18,13 +24,47 @@ function uuid() { return crypto.randomUUID(); }
 function base64url(bytes) { return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 async function sha256(value) { return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))); }
 
+function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+
+async function fetchWithRetry(input, options = {}, attempts = 3) {
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(input, { ...options, signal: controller.signal });
+      if (response.status < 500 || attempt === attempts - 1) return response;
+      lastError = new Error(`服务器暂时不可用（${response.status}）`);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeout);
+    }
+    await delay(400 * 2 ** attempt);
+  }
+  throw lastError || new Error('网络连接失败');
+}
+
+function usableConfig(value) {
+  return Boolean(value && typeof value === 'object' && typeof value.supabaseUrl === 'string' && value.supabaseUrl.startsWith('https://') && typeof value.oauthClientId === 'string' && value.oauthClientId.length > 10);
+}
+
 async function getConfig() {
   const cached = await local.get(['config', 'configAt']);
-  if (cached.config && Date.now() - Number(cached.configAt || 0) < 300000) return cached.config;
-  const response = await fetch(`${PORTAL}/api/companion/config`);
-  if (!response.ok) throw new Error('无法连接 JackYun Portal');
-  const config = await response.json();
-  await local.set({ config, configAt: Date.now() });
+  if (usableConfig(cached.config) && Date.now() - Number(cached.configAt || 0) < 300000) return cached.config;
+  try {
+    const response = await fetchWithRetry(`${PORTAL}/api/companion/config`);
+    if (response.ok) {
+      const remote = await response.json();
+      if (usableConfig(remote)) {
+        const config = { ...DEFAULT_CONFIG, ...remote };
+        await local.set({ config, configAt: Date.now() });
+        return config;
+      }
+    }
+  } catch { /* The public bundled config keeps first-run login available offline. */ }
+  const config = usableConfig(cached.config) ? { ...DEFAULT_CONFIG, ...cached.config } : { ...DEFAULT_CONFIG };
+  await local.set({ config, configAt: Date.now(), configFallback: true });
   return config;
 }
 
@@ -41,7 +81,7 @@ async function refreshSession() {
   const config = await getConfig();
   const stored = await local.get(['refreshToken']);
   if (!stored.refreshToken) return null;
-  const response = await fetch(`${config.supabaseUrl}/auth/v1/oauth/token`, {
+  const response = await fetchWithRetry(`${config.supabaseUrl}/auth/v1/oauth/token`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: stored.refreshToken, client_id: config.oauthClientId }),
   });
@@ -73,7 +113,7 @@ async function signIn() {
   if (returned.searchParams.get('state') !== state) throw new Error('登录状态验证失败');
   const code = returned.searchParams.get('code');
   if (!code) throw new Error(returned.searchParams.get('error_description') || '未收到授权码');
-  const tokenResponse = await fetch(`${config.supabaseUrl}/auth/v1/oauth/token`, {
+  const tokenResponse = await fetchWithRetry(`${config.supabaseUrl}/auth/v1/oauth/token`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: config.oauthClientId, code_verifier: verifier }),
   });
@@ -81,7 +121,7 @@ async function signIn() {
   const tokens = await tokenResponse.json();
   await session.set({ accessToken: tokens.access_token, expiresAt: Date.now() + Number(tokens.expires_in || 3600) * 1000 });
   await local.set({ refreshToken: tokens.refresh_token, signedInAt: Date.now() });
-  await syncNow();
+  try { await syncNow(); } catch (error) { await local.set({ lastSyncError: error.message || String(error) }); }
   return true;
 }
 
@@ -115,7 +155,7 @@ async function recordActivity(payload) {
 async function api(path, options = {}) {
   const token = await getAccessToken();
   if (!token) throw new Error('请先登录');
-  const response = await fetch(`${PORTAL}/api/companion${path}`, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
+  const response = await fetchWithRetry(`${PORTAL}/api/companion${path}`, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
   if (response.status === 401) { await session.remove(['accessToken', 'expiresAt']); throw new Error('登录已过期，请重试'); }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || '同步失败');

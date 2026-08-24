@@ -18,7 +18,7 @@ For development and production, use separate OAuth clients and exact redirect UR
 
 The signed release artifacts are:
 
-- `public/downloads/jackyun-companion-v1.0.0.zip` for Chrome Web Store upload or unpacked developer-mode installation.
-- `public/downloads/jackyun-companion-v1.0.0.crx` for signature verification, Verified CRX Uploads, Linux, or managed enterprise environments.
+- `public/downloads/jackyun-companion-v1.0.1.zip` for Chrome Web Store upload or unpacked developer-mode installation.
+- `public/downloads/jackyun-companion-v1.0.1.crx` for signature verification, Verified CRX Uploads, Linux, or managed enterprise environments.
 
 On Windows and macOS, Chrome blocks direct installation of local CRX files that are not delivered by the Chrome Web Store. Until store review is complete, extract the ZIP, open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose “Load unpacked,” and select the extracted directory containing `manifest.json`.

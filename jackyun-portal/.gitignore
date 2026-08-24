@@ -23,7 +23,7 @@
 .DS_Store
 *.pem
 *.crx
-!public/downloads/jackyun-companion-v1.0.0.crx
+!public/downloads/jackyun-companion-v*.crx
 
 # debug
 npm-debug.log*
