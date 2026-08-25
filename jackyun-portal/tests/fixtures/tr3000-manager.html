@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Cudy TR3000 test fixture</title>
+</head>
+<body>
+  <h1 id="page-title">终端设备</h1>
+  <table id="devices">
+    <tbody>
+      <tr><td>1</td><td>测试手机<br>5G WiFi</td><td>192.168.10.25<br>AA:BB:CC:DD:EE:FF</td><td>0.00 Kbps</td><td>-50 dBm</td></tr>
+    </tbody>
+  </table>
+  <button id="advanced" type="button">高级设置</button>
+  <button id="qos-menu" type="button" hidden>QoS</button>
+  <main id="qos-root"></main>
+  <script>
+    document.querySelector('#advanced').addEventListener('click', () => {
+      document.querySelector('#qos-menu').hidden = false;
+    });
+    document.querySelector('#qos-menu').addEventListener('click', () => {
+      location.hash = '#/qos';
+      document.title = 'QoS · Cudy TR3000 test fixture';
+      document.querySelector('#page-title').textContent = 'QoS';
+      document.querySelector('#devices').hidden = true;
+      document.querySelector('#qos-root').innerHTML = '<button id="add-rule" type="button">新增规则</button>';
+      document.querySelector('#add-rule').addEventListener('click', () => {
+        document.querySelector('#qos-root').insertAdjacentHTML('beforeend', `
+          <section role="dialog">
+            <label>MAC 地址 <input id="qos-mac" name="mac"></label>
+            <label>下行 Mbps <input id="qos-down" name="download" type="number"></label>
+            <label>上行 Mbps <input id="qos-up" name="upload" type="number"></label>
+            <label>备注 <input id="qos-remark" name="remark"></label>
+            <button id="save-apply" type="button">保存并应用</button>
+          </section>`);
+        document.querySelector('#save-apply').addEventListener('click', (event) => {
+          event.currentTarget.dataset.clicked = '1';
+        });
+      });
+    });
+  </script>
+  <script src="../../public/userscripts/tr3000-manager.user.js"></script>
+</body>
+</html>

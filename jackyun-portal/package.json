@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:network-access": "node --test tests/network-access.test.mts",
     "test:security": "node --test tests/llm-endpoint.test.mts",
+    "test:tr3000": "node --test tests/tr3000-manager.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",
     "check:companion": "node scripts/check-companion-package.mjs",
     "check:study-guide": "node scripts/check-study-guide.mjs"

@@ -38,11 +38,28 @@ export default function UserscriptLibrary() {
     });
   }, [category, query]);
 
+  function legacyCopy(text: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.cssText = 'position:fixed;left:-9999px;top:0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    return copied;
+  }
+
   async function copyScript(id: string, file: string) {
     try {
-      const response = await fetch(file);
+      const response = await fetch(new URL(file, window.location.origin), { cache: 'no-store' });
       if (!response.ok) throw new Error('Script could not be loaded');
-      await navigator.clipboard.writeText(await response.text());
+      const source = await response.text();
+      try {
+        await navigator.clipboard.writeText(source);
+      } catch {
+        if (!legacyCopy(source)) throw new Error('Clipboard unavailable');
+      }
       setCopiedId(id);
       window.setTimeout(() => setCopiedId((current) => current === id ? null : current), 1800);
     } catch {
@@ -120,7 +137,7 @@ export default function UserscriptLibrary() {
             {script.testedVersion && <div className="mt-3 rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-semibold text-[var(--foreground)]">已测试版本：</span>{script.testedVersion}<br /><span className="font-semibold text-[var(--foreground)]">最后验证：</span>{script.verifiedOn}</div>}
             {script.installSteps && <details className="mt-3 rounded-xl border border-[var(--card-border)] px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]"><summary className="cursor-pointer font-semibold text-[var(--foreground)]">查看安装步骤</summary><ol className="mt-2 list-decimal space-y-1 pl-5">{script.installSteps.map((step) => <li key={step}>{step}</li>)}</ol></details>}
             {script.caution && <p className="mt-4 rounded-xl bg-[#fef7e0] px-3 py-2 text-xs leading-5 text-[#7a4f01] dark:bg-[#b06000]/20 dark:text-[#fde293]">{script.caution}</p>}
-            <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+            <div className={`mt-auto grid gap-2 pt-5 ${script.file ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {script.file ? (
                 <button type="button" onClick={() => copyScript(script.id, script.file!)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold text-[var(--foreground)] hover:border-[var(--brand)]">
                   <span className="material-icons-round text-lg">{copiedId === script.id ? 'done' : 'content_copy'}</span>
@@ -132,9 +149,13 @@ export default function UserscriptLibrary() {
                   查看 {script.sourceLabel ?? '来源'}
                 </a>
               )}
-              <a href={script.file ?? script.installUrl} download={script.file ? true : undefined} target={script.external ? '_blank' : undefined} rel={script.external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] dark:text-[#202124]">
+              {script.file && <a href={script.file} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-sm font-semibold text-white hover:bg-[var(--brand-strong)] dark:text-[#202124]">
+                <span className="material-icons-round text-lg">extension</span>
+                安装脚本
+              </a>}
+              <a href={script.file ?? script.installUrl} download={script.file ? '' : undefined} target={script.external ? '_blank' : undefined} rel={script.external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--brand)] px-3 text-sm font-semibold text-[var(--brand)] hover:bg-[var(--surface-muted)]">
                 <span className="material-icons-round text-lg">{script.external ? 'extension' : 'download'}</span>
-                {script.external ? '查看 / 安装' : '下载脚本'}
+                {script.external ? '查看 / 安装' : '仅下载'}
               </a>
             </div>
           </article>

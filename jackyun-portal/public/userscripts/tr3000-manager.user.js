@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         JackYun TR3000 管理增强器
 // @namespace    https://jackyun.top/
-// @version      2.0.0
+// @version      2.1.0
 // @description  为 Cudy TR3000 增加可用的三档 QoS、原生备注同步、新设备队列和全屏管理台。
 // @author       JackYun
 // @match        http://192.168.10.1/*
 // @icon         http://192.168.10.1/luci-static/light/img/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_setClipboard
 // @grant        GM_registerMenuCommand
 // @run-at       document-idle
 // @downloadURL  https://jackyun.top/userscripts/tr3000-manager.user.js
@@ -17,7 +18,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '2.0.0';
+  const VERSION = '2.1.0';
   const PREFIX = 'jy_tr3000_';
   const HOST_ID = 'jy-tr3000-manager-host';
   const MAC_RE = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/i;
@@ -72,13 +73,17 @@
     }]));
   }
 
+  function matchesAny(text, patterns) {
+    return patterns.some((pattern) => pattern.test(String(text || '')));
+  }
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
     }[char]));
   }
 
-  const CORE = Object.freeze({ normalizeMac, extractMac, extractPrivateIp, normalizeRate, cleanDeviceName, extractDeviceNameFromCells, validateProfiles });
+  const CORE = Object.freeze({ normalizeMac, extractMac, extractPrivateIp, normalizeRate, cleanDeviceName, extractDeviceNameFromCells, validateProfiles, matchesAny });
   if (typeof document === 'undefined') {
     globalThis.__TR3000_MANAGER_CORE__ = CORE;
     return;
@@ -243,17 +248,32 @@
   }
 
   function findControl(root, patterns) {
-    return [...(root?.querySelectorAll?.('button,a,input[type="button"],input[type="submit"]') || [])].find((control) => {
-      const text = `${control.innerText || ''} ${control.value || ''} ${control.title || ''} ${control.getAttribute('aria-label') || ''}`;
-      return visible(control) && patterns.some((pattern) => pattern.test(text));
+    return [...(root?.querySelectorAll?.('button,a,[role="button"],[data-href],[onclick],input[type="button"],input[type="submit"]') || [])].find((control) => {
+      const text = `${control.innerText || ''} ${control.value || ''} ${control.title || ''} ${control.getAttribute('aria-label') || ''} ${control.getAttribute('href') || ''} ${control.dataset?.href || ''}`;
+      return visible(control) && matchesAny(text, patterns);
     });
   }
 
+  function inputDescription(input) {
+    const labels = [];
+    if (input.id) {
+      try {
+        const label = document.querySelector(`label[for="${CSS.escape(input.id)}"]`);
+        if (label) labels.push(label.innerText || label.textContent || '');
+      } catch { /* Invalid firmware-generated IDs are handled by ancestor text below. */ }
+    }
+    const wrappingLabel = input.closest('label');
+    if (wrappingLabel) labels.push(wrappingLabel.innerText || wrappingLabel.textContent || '');
+    const group = input.closest('.form-group,.form-item,.control-group,.cbi-value,.el-form-item,.ant-form-item,.form-row,tr');
+    if (group) labels.push(group.innerText || group.textContent || '');
+    const previous = input.previousElementSibling || input.parentElement?.previousElementSibling;
+    if (previous) labels.push(previous.innerText || previous.textContent || '');
+    return `${labels.join(' ')} ${input.name || ''} ${input.id || ''} ${input.placeholder || ''} ${input.title || ''} ${input.getAttribute('aria-label') || ''}`;
+  }
+
   function findInput(root, patterns) {
-    return [...root.querySelectorAll('input:not([type="hidden"]),select')].find((input) => {
-      const group = input.closest('.form-group,.cbi-value,tr,.row,label,div');
-      const text = `${group?.innerText || ''} ${input.name || ''} ${input.id || ''} ${input.placeholder || ''}`;
-      return visible(input) && patterns.some((pattern) => pattern.test(text));
+    return [...root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]),select')].find((input) => {
+      return visible(input) && matchesAny(inputDescription(input), patterns);
     });
   }
 
@@ -265,22 +285,16 @@
   }
 
   function fieldText(input) {
-    const group = input.closest('.form-group,.cbi-value,tr,.row,label,div');
-    return `${group?.innerText || ''} ${input.name || ''} ${input.id || ''} ${input.placeholder || ''}`;
+    return inputDescription(input);
   }
 
-  function findQosLink() {
-    const candidates = [...document.querySelectorAll('a[href],[data-href]')];
-    const found = candidates.find((item) => /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${item.innerText || ''} ${item.getAttribute('href') || ''} ${item.dataset.href || ''}`));
-    if (!found) return undefined;
-    const raw = found.href || found.dataset.href;
-    if (!raw) return undefined;
-    const url = new URL(raw, location.href);
-    return url.origin === location.origin ? url.href : undefined;
+  function findQosControl() {
+    return findControl(document, [/\bqos\b/i, /服务质量/i, /流量控制/i, /带宽控制/i, /智能限速/i]);
   }
 
   function isQosPage() {
-    return /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${location.pathname} ${document.title} ${document.querySelector('h1,h2,.title,.breadcrumb')?.textContent || ''}`);
+    const headings = [...document.querySelectorAll('h1,h2,h3,.title,.breadcrumb,.page-title')].slice(0, 12).map((item) => item.textContent || '').join(' ');
+    return /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${location.pathname} ${location.hash} ${document.title} ${headings}`);
   }
 
   function nativeRemarkFromRow(row, mac, ip) {
@@ -316,21 +330,38 @@
       .find((row) => !host?.contains(row) && extractMac(row.innerText || row.textContent || '') === mac);
   }
 
+  function nativeFields(root) {
+    return {
+      mac: findInput(root, [/\bmac\b/i, /物理地址/i, /硬件地址/i, /设备地址/i]),
+      down: findInput(root, [/下行/i, /下载/i, /download/i, /\bdown\b/i, /\bdl\b/i, /\brx\b/i]),
+      up: findInput(root, [/上行/i, /上传/i, /upload/i, /\bup\b/i, /\bul\b/i, /\btx\b/i]),
+      remark: findInput(root, [/备注/i, /remark/i, /comment/i, /名称/i, /name/i]),
+    };
+  }
+
   async function waitForEditor() {
-    for (let attempt = 0; attempt < 12; attempt += 1) {
+    for (let attempt = 0; attempt < 24; attempt += 1) {
       const dialog = [...document.querySelectorAll('.modal.in,.modal.show,[role="dialog"],.cbi-modal')].find(visible);
       const root = dialog || document;
-      const inputs = [...root.querySelectorAll('input:not([type="hidden"]),select')].filter(visible);
-      if (inputs.some((input) => /mac|物理地址|硬件地址/i.test(fieldText(input))) && inputs.length >= 3) return root;
+      const fields = nativeFields(root);
+      if (fields.down && fields.up && fields.down !== fields.up) return { root, fields };
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     return undefined;
+  }
+
+  function hideManagerForNativeUi() {
+    if (!config.open) return;
+    config.open = false;
+    saveConfig();
+    render();
   }
 
   async function fillNative(device, tier) {
     const profile = config.profiles[tier];
     if (!isQosPage()) {
       store.set('pendingNative', { mac: device.mac, ip: device.ip, name: displayName(device), tier, at: Date.now() });
+      hideManagerForNativeUi();
       return await openQos()
         ? { ok: true, navigating: true, message: '正在打开原生 QoS，进入后会按 MAC 继续填写' }
         : { ok: false, message: '未在当前固件菜单中发现 QoS 链接；请先手动打开 QoS 页面，再点击重试' };
@@ -339,15 +370,14 @@
     let editor = row && findControl(row, [/编辑/i, /edit/i, /修改/i, /modify/i]);
     if (!editor) editor = findControl(document, [/新增/i, /添加/i, /add/i, /create/i]);
     if (!editor) return { ok: false, message: '已到 QoS 页面，但没有识别到“编辑”或“新增”按钮' };
+    const editingExisting = Boolean(row);
+    hideManagerForNativeUi();
     editor.click();
-    const dialog = await waitForEditor();
-    if (!dialog) return { ok: false, message: '原生编辑器已打开，但没有识别到完整表单' };
-    const macInput = findInput(dialog, [/mac/i, /物理地址/i, /硬件地址/i, /设备地址/i]);
-    const down = findInput(dialog, [/下行/i, /下载/i, /download/i, /\bdown\b/i, /\bdl\b/i, /\brx\b/i]);
-    const up = findInput(dialog, [/上行/i, /上传/i, /upload/i, /\bup\b/i, /\bul\b/i, /\btx\b/i]);
-    const remark = findInput(dialog, [/备注/i, /remark/i, /comment/i, /名称/i, /name/i]);
-    if (!macInput || !down || !up) return { ok: false, message: '无法同时识别 MAC、下行和上行字段，已停止填写' };
-    setInput(macInput, device.mac);
+    const editorState = await waitForEditor();
+    if (!editorState) return { ok: false, message: '原生编辑器已打开，但没有识别到上下行速率字段' };
+    const { root: dialog, fields: { mac: macInput, down, up, remark } } = editorState;
+    if (!macInput && !editingExisting) return { ok: false, message: '新增规则时没有识别到 MAC 字段，已停止填写' };
+    if (macInput && (!editingExisting || normalizeMac(macInput.value) !== device.mac)) setInput(macInput, device.mac);
     setInput(down, profile.down);
     setInput(up, profile.up);
     if (remark) {
@@ -359,7 +389,7 @@
       down.focus();
       return { ok: true, applied: false, message: '已按 MAC 填入原生 QoS；请核对备注和速率后手动保存&应用' };
     }
-    const save = findControl(dialog, [/保存\s*&?\s*应用/i, /保存应用/i, /save\s*&?\s*apply/i]);
+    const save = findControl(dialog, [/保存\s*(?:并|和|及|&)?\s*应用/i, /保存应用/i, /save\s*(?:and|&)?\s*apply/i]);
     if (!save) return { ok: true, applied: false, message: '已填表，但未找到可靠的保存&应用按钮' };
     save.click();
     return { ok: true, applied: true, message: '已触发原生保存&应用' };
@@ -368,7 +398,12 @@
   async function applyTier(device, tier, source = 'manual') {
     if (!device || !config.profiles[tier]) return;
     putQueue(device, tier, source);
-    const result = await fillNative(device, tier);
+    let result;
+    try {
+      result = await fillNative(device, tier);
+    } catch (error) {
+      result = { ok: false, message: `原生页面适配失败：${error?.message || String(error)}` };
+    }
     if (result.navigating) return;
     if (result.ok) {
       config.tiers[device.mac] = tier;
@@ -387,16 +422,27 @@
   }
 
   async function openQos() {
-    let href = findQosLink();
-    if (!href) {
+    let control = findQosControl();
+    if (!control) {
       const advanced = findControl(document, [/高级设置/i, /advanced\s*settings/i]);
       if (advanced) {
         advanced.click();
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        href = findQosLink();
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        control = findQosControl();
       }
     }
-    if (href) { location.assign(href); return true; }
+    if (control) {
+      const raw = control.getAttribute('href') || control.dataset?.href;
+      if (raw && !/^javascript:/i.test(raw)) {
+        const url = new URL(raw, location.href);
+        if (url.origin !== location.origin) return false;
+      }
+      control.click();
+      setTimeout(() => {
+        if (isQosPage() && store.get('pendingNative', null)) resumePendingNative();
+      }, 900);
+      return true;
+    }
     toast('没有从固件菜单识别到 QoS 链接，请手动打开 QoS 后在队列中重试', 'warning');
     return false;
   }
@@ -406,9 +452,7 @@
     if (!pending || !isQosPage() || Date.now() - Number(pending.at || 0) > 10 * 60 * 1000) return;
     await new Promise((resolve) => setTimeout(resolve, 600));
     const device = { ...pending, name: pending.name || '未命名设备', element: findRowByMac(pending.mac) };
-    const result = await fillNative(device, pending.tier);
-    toast(result.message, result.ok ? 'info' : 'warning');
-    addLog(result.ok ? 'info' : 'warning', `${displayName(device)} → ${config.profiles[pending.tier]?.label || pending.tier}`, result.message);
+    await applyTier(device, pending.tier, 'resume');
   }
 
   function toggleTrusted(device) {
@@ -434,6 +478,29 @@
     if (name) config.aliases[device.mac] = name; else delete config.aliases[device.mac];
     saveConfig();
     render();
+  }
+
+  async function copyText(value) {
+    if (typeof GM_setClipboard === 'function') {
+      try {
+        GM_setClipboard(value, 'text');
+        return true;
+      } catch { /* Fall through to browser clipboard methods. */ }
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = value;
+      input.setAttribute('readonly', '');
+      input.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      return copied;
+    }
   }
 
   function filteredDevices() {
@@ -526,7 +593,9 @@
     const link = document.createElement('a');
     link.href = url;
     link.download = `tr3000-manager-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
     link.click();
+    link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
@@ -571,7 +640,10 @@
     else if (action === 'trust') toggleTrusted(device);
     else if (action === 'rename') rename(device);
     else if (action === 'unlimited') requestUnlimited(device);
-    else if (action === 'copy') { await navigator.clipboard.writeText(device.mac); toast('MAC 已复制', 'success'); }
+    else if (action === 'copy') {
+      const copied = await copyText(device.mac);
+      toast(copied ? 'MAC 已复制' : '复制失败，请手动选择 MAC', copied ? 'success' : 'warning');
+    }
     else if (action === 'open-qos') await openQos();
     else if (action === 'select') { if (button.checked) selected.add(device.mac); else selected.delete(device.mac); render(); }
     else if (action === 'clear-selected') { selected.clear(); render(); }

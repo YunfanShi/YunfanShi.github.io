@@ -41,7 +41,7 @@ export const USERSCRIPTS: UserscriptEntry[] = [
   {
     id: 'tr3000-manager',
     name: 'JackYun TR3000 管理增强器',
-    version: '2.0.0',
+    version: '2.1.0',
     category: 'network',
     description: '为本地 Cudy TR3000 增加全屏管理台、三档 QoS、跨页原生表单续接、原生备注同步和新设备队列。',
     sites: ['192.168.10.1', 'Cudy TR3000 V1.0'],
@@ -50,10 +50,10 @@ export const USERSCRIPTS: UserscriptEntry[] = [
     license: 'MIT',
     sourceLabel: 'JackYun',
     safety: 'caution',
-    permissions: ['仅 192.168.10.1 页面', 'GM 本地存储', '不发起外部请求'],
+    permissions: ['仅 192.168.10.1 页面', 'GM 本地存储', 'GM 剪贴板（复制 MAC）', '不发起外部请求'],
     testedVersion: 'TR3000 V1.0 · FW 2.5.27-20260804-183625（页面能力只读检查；真实保存保持关闭）',
     verifiedOn: '2026-08-25',
-    installSteps: ['安装 Tampermonkey', '下载并安装脚本', '登录 192.168.10.1', '打开“网络设备”页面建立基线', '保持安全模式并用一台测试设备验证'],
+    installSteps: ['安装 Tampermonkey', '点击“安装脚本”并在 Tampermonkey 中确认', '登录 192.168.10.1', '打开“网络设备”页面建立基线', '保持安全模式并用一台测试设备验证'],
     caution: '脚本可以填写路由器原生 QoS 表单。首次使用必须保持安全模式，核对 MAC 和速率后再手动保存；固件升级后需要重新验证。',
   },
   {

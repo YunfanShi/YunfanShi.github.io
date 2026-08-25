@@ -13,6 +13,7 @@ const core = sandbox.globalThis.__TR3000_MANAGER_CORE__ as {
   cleanDeviceName(value: string, mac?: string, ip?: string): string;
   extractDeviceNameFromCells(cells: string[], mac?: string, ip?: string): string;
   validateProfiles(value?: Record<string, { down?: unknown; up?: unknown }>): Record<string, { label: string; color: string; down: number; up: number }>;
+  matchesAny(value: string, patterns: RegExp[]): boolean;
 };
 
 test('normalizes and extracts TR3000 device identifiers', () => {
@@ -20,6 +21,14 @@ test('normalizes and extracts TR3000 device identifiers', () => {
   assert.equal(core.extractMac('Phone AA:bb:cc:dd:ee:ff online'), 'AA:BB:CC:DD:EE:FF');
   assert.equal(core.extractPrivateIp('client 192.168.10.25'), '192.168.10.25');
   assert.equal(core.extractPrivateIp('public 8.8.8.8'), undefined);
+});
+
+test('recognizes the TR3000 save-and-apply labels used by Chinese and English firmware', () => {
+  const patterns = [/保存\s*(?:并|和|及|&)?\s*应用/i, /保存应用/i, /save\s*(?:and|&)?\s*apply/i];
+  assert.equal(core.matchesAny('保存并应用', patterns), true);
+  assert.equal(core.matchesAny('保存 & 应用', patterns), true);
+  assert.equal(core.matchesAny('Save and Apply', patterns), true);
+  assert.equal(core.matchesAny('取消', patterns), false);
 });
 
 test('validates all configurable quota profiles', () => {
