@@ -51,7 +51,7 @@ export default function LoggerViewer() {
     });
 
     // Load existing logs on mount
-    setLogs(logger.getLogs());
+    queueMicrotask(() => setLogs(logger.getLogs()));
 
     return unsub;
   }, [paused]);

@@ -4,95 +4,26 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveNotifications, dismissNotification } from '@/actions/admin';
 import type { SiteNotification } from '@/types';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import remarkGfm from 'remark-gfm';
 
 const DISMISSED_KEY = 'site_notification_dismissed';
 
-// 使用映射表动态构造 HTML entity，避免格式化工具解码
-const HTML_ESCAPES: Record<string, string> = {
-  '&': '&' + 'amp;',
-  '<': '&' + 'lt;',
-  '>': '&' + 'gt;',
-};
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>]/g, (c) => HTML_ESCAPES[c] ?? c);
-}
-
-/**
- * 简易 Markdown 渲染器（支持常见语法）
- * 支持：标题、粗体、斜体、行内代码、代码块、链接、列表、引用、分隔线
- */
-function renderMarkdown(md: string): string {
-  let html = escapeHtml(md);
-
-  // Code blocks (```lang ... ```)
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
-    return `<pre style="background:#f5f5f5;padding:12px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5;margin:10px 0;"><code>${code.trim()}</code></pre>`;
-  });
-
-  // Inline code
-  html = html.replace(/`([^`\n]+)`/g, '<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:0.9em;color:#d63384;">$1</code>');
-
-  // Headings
-  html = html.replace(/^### (.*)$/gm, '<h3 style="margin:14px 0 8px;font-size:16px;font-weight:700;">$1</h3>');
-  html = html.replace(/^## (.*)$/gm, '<h2 style="margin:16px 0 8px;font-size:19px;font-weight:700;">$1</h2>');
-  html = html.replace(/^# (.*)$/gm, '<h1 style="margin:18px 0 10px;font-size:24px;font-weight:800;">$1</h1>');
-
-  // Bold
-  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-  // Italic
-  html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#4285F4;text-decoration:underline;">$1</a>');
-
-  // Unordered list
-  html = html.replace(/^[-*] (.*)$/gm, '<li style="margin:4px 0 4px 20px;list-style:disc;">$1</li>');
-  // Ordered list
-  html = html.replace(/^\d+\. (.*)$/gm, '<li style="margin:4px 0 4px 20px;list-style:decimal;">$1</li>');
-
-  // Blockquote (after escapeHtml, '>' becomes '&' + 'gt;')
-  const blockquoteEscaped = '&' + 'gt;';
-  html = html.replace(
-    new RegExp('^' + blockquoteEscaped + ' (.*)$', 'gm'),
-    '<blockquote style="border-left:4px solid #ddd;padding:8px 12px;margin:10px 0;color:#666;background:#fafafa;border-radius:0 8px 8px 0;">$1</blockquote>',
-  );
-
-  // Horizontal rule
-  html = html.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid #eee;margin:14px 0;">');
-
-  // Paragraphs
-  html = html
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .map((block) => {
-      // Wrap non-html blocks in paragraphs
-      if (/^<(h\d|pre|blockquote|ul|ol|hr|li)/.test(block)) return block;
-      // Inline line breaks
-      block = block.replace(/\n/g, '<br>');
-      return `<p style="margin:8px 0;line-height:1.7;">${block}</p>`;
-    })
-    .join('');
-
-  return html;
-}
-
 function NotificationContent({ notification }: { notification: SiteNotification }) {
-  if (notification.content_type === 'html') {
-    return (
-      <div
-        className="notification-content"
-        dangerouslySetInnerHTML={{ __html: notification.content }}
-      />
-    );
-  }
   return (
-    <div
-      className="notification-content"
-      style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--foreground)' }}
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(notification.content) }}
-    />
+    <div className="notification-content prose prose-sm max-w-none text-[var(--foreground)] dark:prose-invert">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={notification.content_type === 'html' ? [rehypeRaw, rehypeSanitize] : [rehypeSanitize]}
+        components={{
+          a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+        }}
+      >
+        {notification.content}
+      </ReactMarkdown>
+    </div>
   );
 }
 

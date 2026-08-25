@@ -53,10 +53,10 @@ export default function MiniPlayer() {
     });
 
     // 初始位置：右下角
-    setPosition({
-      x: typeof window !== 'undefined' ? window.innerWidth - 70 : 0,
-      y: typeof window !== 'undefined' ? window.innerHeight - 120 : 0,
-    });
+    queueMicrotask(() => setPosition({
+      x: window.innerWidth - 70,
+      y: window.innerHeight - 120,
+    }));
 
     return () => {
       mounted.current = false;

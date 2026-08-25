@@ -19,7 +19,7 @@ export async function exportAllUserData(): Promise<DataArchive> {
   const { supabase, user } = await getAuthenticatedUser();
   const tables: Partial<Record<DataTable, Record<string, unknown>[]>> = {};
   await Promise.all(DATA_TABLES.map(async (table) => {
-    let query = supabase.from(table).select('*');
+    const query = supabase.from(table).select('*');
     if (table === 'quiz_questions') {
       const { data: sessions } = await supabase.from('quiz_sessions').select('id').eq('user_id', user.id);
       const ids = (sessions ?? []).map((session) => session.id);

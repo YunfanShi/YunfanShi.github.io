@@ -19,9 +19,10 @@ export default function TtsConfigPanel() {
   }, []);
 
   useEffect(() => {
-    loadVoices();
+    const initialLoad = window.setTimeout(loadVoices, 0);
     window.speechSynthesis.onvoiceschanged = loadVoices;
     return () => {
+      clearTimeout(initialLoad);
       window.speechSynthesis.onvoiceschanged = null;
     };
   }, [loadVoices]);

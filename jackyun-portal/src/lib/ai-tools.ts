@@ -1814,7 +1814,7 @@ export const AI_TOOLS: AiTool[] = [
         const skippedCount = tasks.filter((t: any) => t.skipped).length;
         const completionRate = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
 
-        let suggestions: string[] = [];
+        const suggestions: string[] = [];
         if (completionRate >= 80) {
           suggestions.push('✅ 完成率很高！可以考虑增加 1 个新的学习任务');
         } else if (completionRate >= 50) {

@@ -39,9 +39,12 @@ export default function TimeSync() {
   const [dateResult, setDateResult] = useState('');
 
   useEffect(() => {
-    setNow(new Date());
+    const initialTick = window.setTimeout(() => setNow(new Date()), 0);
     const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initialTick);
+      clearInterval(id);
+    };
   }, []);
 
   function convertUnixToDate() {

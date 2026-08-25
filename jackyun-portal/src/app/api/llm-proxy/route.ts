@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { explainAiError } from '@/lib/ai-error';
 import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
+import { normalizeLlmBaseUrl } from '@/lib/llm-endpoint';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -65,6 +66,11 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const clientIp = extractClientIp(req);
 
+  const declaredLength = Number(req.headers.get('content-length') ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > 1_000_000) {
+    return NextResponse.json({ error: { message: '请求内容过大' } }, { status: 413 });
+  }
+
   // 解析请求体
   let body: Record<string, unknown>;
   try {
@@ -72,6 +78,9 @@ export async function POST(req: NextRequest) {
   } catch {
     auditLog({ ip: clientIp, model: 'unknown', keySource: 'client', status: 400, durationMs: Date.now() - startTime, error: 'Invalid JSON' });
     return NextResponse.json({ error: { message: 'Invalid request body' } }, { status: 400 });
+  }
+  if (JSON.stringify(body).length > 1_000_000) {
+    return NextResponse.json({ error: { message: '请求内容过大' } }, { status: 413 });
   }
 
   // Check if this is a config-save request
@@ -81,9 +90,10 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
-    const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim().replace(/\/+$/, '') : '';
+    const requestedBaseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : '';
+    const baseUrl = requestedBaseUrl ? normalizeLlmBaseUrl(requestedBaseUrl) : '';
     const model = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
-    if (baseUrl && !/^https:\/\//i.test(baseUrl)) return NextResponse.json({ error: 'AI Base URL 必须使用 HTTPS' }, { status: 400 });
+    if (requestedBaseUrl && !baseUrl) return NextResponse.json({ error: 'AI 服务地址不在服务器允许列表中' }, { status: 400 });
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
     if (apiKey && apiKey !== '__stored__') {
       let encryptedValue: string;
@@ -143,9 +153,13 @@ export async function POST(req: NextRequest) {
   }
 
   // 提取客户端上传的 API 配置（用户自定义 API）
-  const clientBaseUrl = (body.baseUrl as string)?.trim() || '';
+  const requestedClientBaseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim() : '';
+  const clientBaseUrl = requestedClientBaseUrl ? normalizeLlmBaseUrl(requestedClientBaseUrl) : '';
   const clientApiKey = (body.apiKey as string)?.trim() || '';
-  const clientModel = (body.model as string)?.trim() || '';
+  const clientModel = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
+  if (requestedClientBaseUrl && !clientBaseUrl) {
+    return NextResponse.json({ error: { message: 'AI 服务地址不在服务器允许列表中' } }, { status: 400 });
+  }
 
   let baseUrl: string;
   let apiKey: string;
@@ -193,7 +207,12 @@ export async function POST(req: NextRequest) {
     // Use user's own API config if they have set one
     if (encryptedApiKey || aiConfig?.apiKey?.trim()) {
       const savedConfig = aiConfig ?? {};
-      baseUrl = (savedConfig.baseUrl?.trim() || '').replace(/\/+$/, '');
+      const savedBaseUrl = savedConfig.baseUrl?.trim() || '';
+      const normalizedSavedBaseUrl = normalizeLlmBaseUrl(savedBaseUrl);
+      if (!normalizedSavedBaseUrl) {
+        return NextResponse.json({ error: { message: '已保存的 AI 服务地址不再被服务器允许，请前往设置更新。' } }, { status: 400 });
+      }
+      baseUrl = normalizedSavedBaseUrl;
       apiKey = encryptedApiKey || savedConfig.apiKey!.trim();
       model = savedConfig.model?.trim() || clientModel || 'deepseek-v4-flash';
       keySource = 'user';
@@ -223,9 +242,15 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  if (!/^https:\/\//i.test(baseUrl)) {
+    return NextResponse.json({ error: { message: 'AI 服务地址必须使用 HTTPS' } }, { status: 503 });
+  }
 
   // ── Audit: request received ──
   const estimatedInputTokens = estimateInputTokens(body);
+  if (estimatedInputTokens > 50_000) {
+    return NextResponse.json({ error: { message: '输入内容过长，请缩短对话后重试。' } }, { status: 413 });
+  }
   auditLog({
     userId,
     ip: clientIp,
@@ -259,6 +284,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(upstreamBody),
+      signal: AbortSignal.timeout(120_000),
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : '网络错误';

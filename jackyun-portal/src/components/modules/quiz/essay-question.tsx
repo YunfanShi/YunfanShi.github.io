@@ -29,7 +29,7 @@ export default function EssayQuestion({
   }, [disabled]);
 
   useEffect(() => {
-    setText(userAnswer);
+    queueMicrotask(() => setText(userAnswer));
   }, [userAnswer]);
 
   const handleSubmit = () => {

@@ -570,7 +570,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
   // Emergency banner: within 72 h of deadline
   const showEmergency = (() => {
     if (!config.emergency_deadline) return false;
-    const diff = new Date(config.emergency_deadline).getTime() - Date.now();
+    const diff = new Date(config.emergency_deadline).getTime() - new Date().getTime();
     return diff > 0 && diff < 72 * 3600 * 1000;
   })();
 

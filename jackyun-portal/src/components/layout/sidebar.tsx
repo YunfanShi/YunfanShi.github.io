@@ -10,19 +10,19 @@ import { t } from '@/lib/i18n';
 import { NAVIGATION_GROUPS, NAVIGATION_ITEMS, navigationIdFromPath, type NavigationGroupId, type NavigationItem } from '@/lib/navigation';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
-interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; }
+interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; initialIsAdmin?: boolean; }
 const PENDING_USAGE_KEY = 'jackyun_nav_usage_pending';
 const ADAPTIVE_SNAPSHOT_KEY = 'jackyun_nav_adaptive_snapshot_v1';
 const LOCAL_PREFS_KEY = 'jackyun_sidebar_preferences';
 
-export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
+export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAdmin = false }: Props) {
   const { signedIn } = useAuthMode();
   const pathname = usePathname();
   const { lang } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileViewport, setMobileViewport] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = initialIsAdmin;
   const [prefs, setPrefs] = useState(initialPrefs);
   const [stableAdaptiveScores, setStableAdaptiveScores] = useState(adaptiveScores);
 
@@ -59,11 +59,6 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {} }: Props) {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previous; };
   }, [mobileOpen]);
-  useEffect(() => {
-    if (!signedIn) return;
-    fetch('/api/llm-proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _get_config_only: true, _check_admin: true }) })
-      .then((response) => response.json()).then((data) => setIsAdmin(Boolean(data.isAdmin))).catch(() => setIsAdmin(false));
-  }, [signedIn]);
   useEffect(() => {
     const itemId = navigationIdFromPath(pathname);
     if (!itemId) return;

@@ -11,12 +11,10 @@ export default function QuizPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_VERSION_KEY);
-    if (saved === 'react' || saved === 'html') {
-      setVersion(saved);
-    } else {
-      // First time - show dialog
-      setShowDialog(true);
-    }
+    queueMicrotask(() => {
+      if (saved === 'react' || saved === 'html') setVersion(saved);
+      else setShowDialog(true);
+    });
   }, []);
 
   const selectVersion = (v: 'react' | 'html') => {

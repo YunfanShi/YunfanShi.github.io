@@ -1,8 +1,7 @@
-const fs = require('fs');
-const path = require('path');
+import { readFileSync, writeFileSync } from 'node:fs';
 
-const filePath = path.join(__dirname, '..', 'public', 'Control.html');
-let html = fs.readFileSync(filePath, 'utf-8');
+const filePath = new URL('../public/Control.html', import.meta.url);
+let html = readFileSync(filePath, 'utf-8');
 
 // 1. Remove AI CSS section
 html = html.replace(
@@ -47,5 +46,5 @@ html = html.replace(
   '_particleRunning = false;\n        canvas.style.display = "none";\n        ctx.clearRect(0, 0, W, H);\n        window.removeEventListener("resize", window._particleResize);'
 );
 
-fs.writeFileSync(filePath, html, 'utf-8');
+writeFileSync(filePath, html, 'utf-8');
 console.log('Control.html updated successfully. Size:', html.length, 'bytes');

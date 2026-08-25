@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { saveRelaxState } from '@/actions/relax';
 
 interface Props {
@@ -14,12 +14,6 @@ const GOAL = 8;
 export default function HydrationTracker({ initialCount, initialDate, theme }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [count, setCount] = useState(initialDate === today ? initialCount : 0);
-
-  useEffect(() => {
-    if (initialDate !== today) {
-      setCount(0);
-    }
-  }, [initialDate, today]);
 
   const handleDrop = (idx: number) => {
     const newCount = idx < count ? idx : idx + 1;
