@@ -12,6 +12,7 @@ const categories: { id: 'all' | ScriptCategory; label: string }[] = [
   { id: 'productivity', label: '效率与 AI' },
   { id: 'social', label: '社交社区' },
   { id: 'privacy', label: '隐私保护' },
+  { id: 'network', label: '网络管理' },
   { id: 'focus', label: '专注管理' },
   { id: 'communication', label: '通信工具' },
   { id: 'portal', label: 'JackYun Portal' },

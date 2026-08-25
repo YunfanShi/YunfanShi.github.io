@@ -8,7 +8,8 @@ export type ScriptCategory =
   | 'developer'
   | 'productivity'
   | 'social'
-  | 'privacy';
+  | 'privacy'
+  | 'network';
 
 export type ScriptSafety = 'local' | 'selected' | 'caution';
 
@@ -37,6 +38,24 @@ export interface UserscriptEntry {
 }
 
 export const USERSCRIPTS: UserscriptEntry[] = [
+  {
+    id: 'tr3000-manager',
+    name: 'JackYun TR3000 管理增强器',
+    version: '1.0.0',
+    category: 'network',
+    description: '为本地 Cudy TR3000 管理页增加三档 QoS、新设备队列、批量分级、信任标记、操作说明和本地日志。',
+    sites: ['192.168.10.1', 'Cudy TR3000 V1.0'],
+    features: ['低/中/高三档配额', '新设备安全基线', '批量分级', '本地备注与信任标记', '安全自动填表', '配置导入导出'],
+    file: '/userscripts/tr3000-manager.user.js',
+    license: 'MIT',
+    sourceLabel: 'JackYun',
+    safety: 'caution',
+    permissions: ['仅 192.168.10.1 页面', 'GM 本地存储', '不发起外部请求'],
+    testedVersion: 'TR3000 V1.0 · FW 2.5.27-20260804-183625（页面能力只读检查；真实保存保持关闭）',
+    verifiedOn: '2026-08-25',
+    installSteps: ['安装 Tampermonkey', '下载并安装脚本', '登录 192.168.10.1', '打开“网络设备”页面建立基线', '保持安全模式并用一台测试设备验证'],
+    caution: '脚本可以填写路由器原生 QoS 表单。首次使用必须保持安全模式，核对 MAC 和速率后再手动保存；固件升级后需要重新验证。',
+  },
   {
     id: 'jackyun-portal-companion',
     name: 'JackYun Portal Companion',
