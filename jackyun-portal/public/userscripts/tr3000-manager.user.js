@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         JackYun TR3000 管理增强器
 // @namespace    https://jackyun.top/
-// @version      1.0.0
-// @description  为 Cudy TR3000 增加三档 QoS、新设备队列、批量操作、说明和本地日志。
+// @version      2.0.0
+// @description  为 Cudy TR3000 增加可用的三档 QoS、原生备注同步、新设备队列和全屏管理台。
 // @author       JackYun
 // @match        http://192.168.10.1/*
 // @icon         http://192.168.10.1/luci-static/light/img/favicon.ico
@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '2.0.0';
   const PREFIX = 'jy_tr3000_';
   const HOST_ID = 'jy-tr3000-manager-host';
   const MAC_RE = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/i;
@@ -44,13 +44,19 @@
   }
 
   function cleanDeviceName(text, mac, ip) {
-    const ignored = /^(在线|离线|有线|无线|wifi|ethernet|unknown|未知|详情|编辑|限速|qos)$/i;
+    const ignored = /^(\d+|在线|离线|有线|无线|(?:2\.4g|5g)?\s*wifi|ethernet|unknown|未知|详情|编辑|限速|qos|-?\d+\s*dBm)$/i;
     return String(text || '').split(/[\n\r|]+/)
       .map((part) => part.trim().replace(/\s+/g, ' '))
       .filter(Boolean)
       .filter((part) => !mac || !part.toUpperCase().includes(mac))
       .filter((part) => !ip || !part.includes(ip))
-      .find((part) => part.length <= 80 && !ignored.test(part)) || '未命名设备';
+      .find((part) => part.length <= 80 && !ignored.test(part) && !/\b(?:K|M|G)bps\b/i.test(part)) || '未命名设备';
+  }
+
+  function extractDeviceNameFromCells(cells, mac, ip) {
+    const preferred = Array.from(cells || []).slice(1, 3).map(String).join('\n');
+    const name = cleanDeviceName(preferred, mac, ip);
+    return name !== '未命名设备' ? name : cleanDeviceName(Array.from(cells || []).join('\n'), mac, ip);
   }
 
   function validateProfiles(value = {}) {
@@ -72,7 +78,7 @@
     }[char]));
   }
 
-  const CORE = Object.freeze({ normalizeMac, extractMac, extractPrivateIp, normalizeRate, cleanDeviceName, validateProfiles });
+  const CORE = Object.freeze({ normalizeMac, extractMac, extractPrivateIp, normalizeRate, cleanDeviceName, extractDeviceNameFromCells, validateProfiles });
   if (typeof document === 'undefined') {
     globalThis.__TR3000_MANAGER_CORE__ = CORE;
     return;
@@ -89,6 +95,8 @@
     trusted: [],
     aliases: {},
     tiers: {},
+    nativeRemarks: {},
+    fullPage: true,
   };
 
   const store = {
@@ -115,6 +123,7 @@
     trusted: Array.isArray(saved.trusted) ? saved.trusted.map(normalizeMac).filter(Boolean) : [],
     aliases: saved.aliases && typeof saved.aliases === 'object' ? saved.aliases : {},
     tiers: saved.tiers && typeof saved.tiers === 'object' ? saved.tiers : {},
+    nativeRemarks: saved.nativeRemarks && typeof saved.nativeRemarks === 'object' ? saved.nativeRemarks : {},
   };
   let known = store.get('known', {});
   let queue = store.get('queue', []);
@@ -128,9 +137,11 @@
   let timer;
   let toastTimer;
   let autoBusy = false;
+  let renderPending = false;
+  let scanDebounce;
 
   const saveConfig = () => store.set('config', config);
-  const displayName = (device) => config.aliases[device.mac] || device.name || '未命名设备';
+  const displayName = (device) => config.aliases[device.mac] || config.nativeRemarks[device.mac] || device.name || '未命名设备';
   const findDevice = (mac) => devices.find((device) => device.mac === normalizeMac(mac));
   const visible = (el) => el instanceof Element && getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0;
 
@@ -169,6 +180,20 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 3600);
   }
 
+  function requestRender(force = false) {
+    if (!force && shadow?.activeElement?.matches?.('input,select,textarea')) {
+      renderPending = true;
+      return;
+    }
+    renderPending = false;
+    render();
+  }
+
+  function rowCells(el) {
+    const cells = [...el.querySelectorAll(':scope > th,:scope > td')];
+    return cells.length ? cells.map((cell) => (cell.innerText || cell.textContent || '').trim()) : [];
+  }
+
   function scanDevices() {
     const candidates = document.querySelectorAll('tr,.device-item,.client-item,.cbi-section-table-row,.list-group-item,.panel-body,.card');
     const found = new Map();
@@ -178,7 +203,8 @@
       const mac = extractMac(text);
       if (!mac) continue;
       const ip = extractPrivateIp(text);
-      const candidate = { mac, ip, name: cleanDeviceName(text, mac, ip), element: el, raw: text };
+      const cells = rowCells(el);
+      const candidate = { mac, ip, name: extractDeviceNameFromCells(cells.length ? cells : [text], mac, ip), element: el, raw: text };
       if (!found.has(mac) || text.length < found.get(mac).raw.length) found.set(mac, candidate);
     }
     devices = [...found.values()].map((device) => ({
@@ -201,7 +227,8 @@
       }
       store.set('known', known);
     }
-    render();
+    syncNativeRemarks();
+    requestRender();
   }
 
   function handleNew(device) {
@@ -237,23 +264,100 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  function fieldText(input) {
+    const group = input.closest('.form-group,.cbi-value,tr,.row,label,div');
+    return `${group?.innerText || ''} ${input.name || ''} ${input.id || ''} ${input.placeholder || ''}`;
+  }
+
+  function findQosLink() {
+    const candidates = [...document.querySelectorAll('a[href],[data-href]')];
+    const found = candidates.find((item) => /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${item.innerText || ''} ${item.getAttribute('href') || ''} ${item.dataset.href || ''}`));
+    if (!found) return undefined;
+    const raw = found.href || found.dataset.href;
+    if (!raw) return undefined;
+    const url = new URL(raw, location.href);
+    return url.origin === location.origin ? url.href : undefined;
+  }
+
+  function isQosPage() {
+    return /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${location.pathname} ${document.title} ${document.querySelector('h1,h2,.title,.breadcrumb')?.textContent || ''}`);
+  }
+
+  function nativeRemarkFromRow(row, mac, ip) {
+    const ignored = /^(\d+|启用|禁用|开启|关闭|编辑|删除|操作|下载|上传|上行|下行|不限|unlimited)$/i;
+    return rowCells(row)
+      .flatMap((cell) => cell.split(/[\n\r|]+/))
+      .map((part) => part.trim().replace(/\s+/g, ' '))
+      .filter((part) => part && part.length <= 60)
+      .filter((part) => !ignored.test(part) && !extractMac(part) && !extractPrivateIp(part))
+      .filter((part) => !/^(?:\d+(?:\.\d+)?\s*)?(?:K|M|G)?bps$/i.test(part) && part !== ip && part.toUpperCase() !== mac)
+      .at(-1);
+  }
+
+  function syncNativeRemarks() {
+    if (!isQosPage()) return;
+    let changed = false;
+    for (const row of document.querySelectorAll('tr,.cbi-section-table-row,.list-group-item,.card')) {
+      if (host?.contains(row)) continue;
+      const text = row.innerText || row.textContent || '';
+      const mac = extractMac(text);
+      if (!mac) continue;
+      const remark = nativeRemarkFromRow(row, mac, extractPrivateIp(text));
+      if (remark && config.nativeRemarks[mac] !== remark) {
+        config.nativeRemarks[mac] = remark;
+        changed = true;
+      }
+    }
+    if (changed) saveConfig();
+  }
+
+  function findRowByMac(mac) {
+    return [...document.querySelectorAll('tr,.cbi-section-table-row,.list-group-item,.card')]
+      .find((row) => !host?.contains(row) && extractMac(row.innerText || row.textContent || '') === mac);
+  }
+
+  async function waitForEditor() {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const dialog = [...document.querySelectorAll('.modal.in,.modal.show,[role="dialog"],.cbi-modal')].find(visible);
+      const root = dialog || document;
+      const inputs = [...root.querySelectorAll('input:not([type="hidden"]),select')].filter(visible);
+      if (inputs.some((input) => /mac|物理地址|硬件地址/i.test(fieldText(input))) && inputs.length >= 3) return root;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return undefined;
+  }
+
   async function fillNative(device, tier) {
     const profile = config.profiles[tier];
-    let editor = findControl(device.element, [/限速/i, /qos/i, /编辑/i, /edit/i, /speed/i]);
-    if (!editor) return { ok: false, message: '当前页面没有找到该设备的原生 QoS/编辑按钮' };
+    if (!isQosPage()) {
+      store.set('pendingNative', { mac: device.mac, ip: device.ip, name: displayName(device), tier, at: Date.now() });
+      return await openQos()
+        ? { ok: true, navigating: true, message: '正在打开原生 QoS，进入后会按 MAC 继续填写' }
+        : { ok: false, message: '未在当前固件菜单中发现 QoS 链接；请先手动打开 QoS 页面，再点击重试' };
+    }
+    const row = findRowByMac(device.mac);
+    let editor = row && findControl(row, [/编辑/i, /edit/i, /修改/i, /modify/i]);
+    if (!editor) editor = findControl(document, [/新增/i, /添加/i, /add/i, /create/i]);
+    if (!editor) return { ok: false, message: '已到 QoS 页面，但没有识别到“编辑”或“新增”按钮' };
     editor.click();
-    await new Promise((resolve) => setTimeout(resolve, 450));
-    const dialog = [...document.querySelectorAll('.modal.in,.modal.show,[role="dialog"],.cbi-modal')].find(visible) || document;
+    const dialog = await waitForEditor();
+    if (!dialog) return { ok: false, message: '原生编辑器已打开，但没有识别到完整表单' };
+    const macInput = findInput(dialog, [/mac/i, /物理地址/i, /硬件地址/i, /设备地址/i]);
     const down = findInput(dialog, [/下行/i, /下载/i, /download/i, /\bdown\b/i, /\bdl\b/i, /\brx\b/i]);
     const up = findInput(dialog, [/上行/i, /上传/i, /upload/i, /\bup\b/i, /\bul\b/i, /\btx\b/i]);
     const remark = findInput(dialog, [/备注/i, /remark/i, /comment/i, /名称/i, /name/i]);
-    if (!down || !up) return { ok: false, message: '已打开编辑器，但无法可靠识别上下行输入框' };
+    if (!macInput || !down || !up) return { ok: false, message: '无法同时识别 MAC、下行和上行字段，已停止填写' };
+    setInput(macInput, device.mac);
     setInput(down, profile.down);
     setInput(up, profile.up);
-    if (remark && !String(remark.value || '').trim()) setInput(remark, `${displayName(device)} · ${profile.label}`.slice(0, 60));
+    if (remark) {
+      const value = config.aliases[device.mac] || config.nativeRemarks[device.mac] || device.name;
+      if (value) setInput(remark, String(value).slice(0, 60));
+    }
+    store.set('pendingNative', null);
     if (config.safeMode) {
       down.focus();
-      return { ok: true, applied: false, message: '已填入原生表单，请核对后手动保存&应用' };
+      return { ok: true, applied: false, message: '已按 MAC 填入原生 QoS；请核对备注和速率后手动保存&应用' };
     }
     const save = findControl(dialog, [/保存\s*&?\s*应用/i, /保存应用/i, /save\s*&?\s*apply/i]);
     if (!save) return { ok: true, applied: false, message: '已填表，但未找到可靠的保存&应用按钮' };
@@ -265,6 +369,7 @@
     if (!device || !config.profiles[tier]) return;
     putQueue(device, tier, source);
     const result = await fillNative(device, tier);
+    if (result.navigating) return;
     if (result.ok) {
       config.tiers[device.mac] = tier;
       saveConfig();
@@ -278,14 +383,32 @@
       addLog('warning', `${displayName(device)} 已加入待办`, result.message);
       toast(`${result.message}，已保留待办`, 'warning');
     }
-    render();
+    requestRender();
   }
 
-  function openQos() {
-    const link = [...document.querySelectorAll('a')].find((item) => /qos|服务质量|流量控制|限速/i.test(`${item.innerText || ''} ${item.href || ''}`));
-    if (link) { link.click(); return true; }
-    toast('未识别 QoS 菜单，请从“高级设置”手动打开 QoS', 'warning');
+  async function openQos() {
+    let href = findQosLink();
+    if (!href) {
+      const advanced = findControl(document, [/高级设置/i, /advanced\s*settings/i]);
+      if (advanced) {
+        advanced.click();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        href = findQosLink();
+      }
+    }
+    if (href) { location.assign(href); return true; }
+    toast('没有从固件菜单识别到 QoS 链接，请手动打开 QoS 后在队列中重试', 'warning');
     return false;
+  }
+
+  async function resumePendingNative() {
+    const pending = store.get('pendingNative', null);
+    if (!pending || !isQosPage() || Date.now() - Number(pending.at || 0) > 10 * 60 * 1000) return;
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const device = { ...pending, name: pending.name || '未命名设备', element: findRowByMac(pending.mac) };
+    const result = await fillNative(device, pending.tier);
+    toast(result.message, result.ok ? 'info' : 'warning');
+    addLog(result.ok ? 'info' : 'warning', `${displayName(device)} → ${config.profiles[pending.tier]?.label || pending.tier}`, result.message);
   }
 
   function toggleTrusted(device) {
@@ -377,12 +500,24 @@
 
   function render() {
     if (!shadow) return;
+    const active = shadow.activeElement;
+    const focusKey = active?.dataset ? Object.entries(active.dataset).find(([key]) => ['role', 'profile', 'setting'].includes(key)) : undefined;
+    const focusState = focusKey ? { selector: `[data-${focusKey[0]}="${CSS.escape(focusKey[1])}"]`, value: active.value, start: active.selectionStart, end: active.selectionEnd } : undefined;
     const pending = queue.filter((item) => item.status === 'pending').length;
     const views = { devices: devicesView, queue: queueView, settings: settingsView, help: helpView, logs: logsView };
     shadow.querySelector('.shell').classList.toggle('open', config.open);
-    shadow.querySelector('.panel').innerHTML = `<header><div><span>JACKYUN · TR3000</span><h2>网络管理中心</h2></div><button data-action="close">×</button></header><div class="summary"><div><b>${devices.length}</b><small>当前设备</small></div><div><b>${devices.filter((d) => d.trusted).length}</b><small>信任设备</small></div><div><b>${pending}</b><small>待处理</small></div></div><nav>${[['devices', '设备'], ['queue', `队列${pending ? ` ${pending}` : ''}`], ['settings', '配置'], ['help', '说明'], ['logs', '日志']].map(([id, label]) => `<button data-action="tab" data-tab="${id}" class="${config.tab === id ? 'active' : ''}">${label}</button>`).join('')}</nav><main>${views[config.tab]?.() || devicesView()}</main><footer><span><i class="${config.safeMode ? 'safe' : 'unsafe'}"></i>${config.safeMode ? '安全模式' : '自动应用模式'}</span><button data-action="open-qos">原生 QoS ↗</button><small>v${VERSION}</small></footer>`;
+    shadow.querySelector('.shell').classList.toggle('full-page', config.fullPage);
+    shadow.querySelector('.panel').innerHTML = `<header><div><span>JACKYUN · TR3000</span><h2>网络管理中心</h2></div><div class="header-actions"><button data-action="fullscreen" title="${config.fullPage ? '切换侧边栏' : '切换全屏'}">${config.fullPage ? '↙' : '↗'}</button><button data-action="close">×</button></div></header><div class="summary"><div><b>${devices.length}</b><small>当前设备</small></div><div><b>${devices.filter((d) => d.trusted).length}</b><small>信任设备</small></div><div><b>${pending}</b><small>待处理</small></div></div><nav>${[['devices', '设备'], ['queue', `队列${pending ? ` ${pending}` : ''}`], ['settings', '配置'], ['help', '说明'], ['logs', '日志']].map(([id, label]) => `<button data-action="tab" data-tab="${id}" class="${config.tab === id ? 'active' : ''}">${label}</button>`).join('')}</nav><main>${views[config.tab]?.() || devicesView()}</main><footer><span><i class="${config.safeMode ? 'safe' : 'unsafe'}"></i>${config.safeMode ? '安全模式：由你确认保存' : '自动应用模式'}</span><button data-action="open-qos">原生 QoS ↗</button><small>v${VERSION}</small></footer>`;
     const bubble = shadow.querySelector('.bubble b');
     bubble.textContent = pending || '';
+    if (focusState) {
+      const next = shadow.querySelector(focusState.selector);
+      if (next) {
+        next.value = focusState.value;
+        next.focus();
+        if (typeof next.setSelectionRange === 'function' && focusState.start !== null) next.setSelectionRange(focusState.start, focusState.end);
+      }
+    }
   }
 
   function exportConfig() {
@@ -419,7 +554,7 @@
       config[key] = Math.min(60, Math.max(3, Number(input.value) || 5));
       restart();
     } else config[key] = input.value;
-    saveConfig(); render();
+    saveConfig();
   }
 
   async function clicked(event) {
@@ -428,6 +563,7 @@
     const action = button.dataset.action;
     const device = button.dataset.mac ? findDevice(button.dataset.mac) : undefined;
     if (action === 'toggle' || action === 'close') { config.open = action === 'toggle' ? !config.open : false; saveConfig(); render(); }
+    else if (action === 'fullscreen') { config.fullPage = !config.fullPage; saveConfig(); render(); }
     else if (action === 'tab') { config.tab = button.dataset.tab; saveConfig(); render(); }
     else if (action === 'filter') { filter = button.dataset.filter; render(); }
     else if (action === 'scan') { scanDevices(); toast('扫描完成', 'success'); }
@@ -436,8 +572,8 @@
     else if (action === 'rename') rename(device);
     else if (action === 'unlimited') requestUnlimited(device);
     else if (action === 'copy') { await navigator.clipboard.writeText(device.mac); toast('MAC 已复制', 'success'); }
-    else if (action === 'open-qos') openQos();
-    else if (action === 'select') { button.checked ? selected.add(device.mac) : selected.delete(device.mac); render(); }
+    else if (action === 'open-qos') await openQos();
+    else if (action === 'select') { if (button.checked) selected.add(device.mac); else selected.delete(device.mac); render(); }
     else if (action === 'clear-selected') { selected.clear(); render(); }
     else if (action === 'batch') {
       const targets = [...selected].map(findDevice).filter(Boolean);
@@ -475,7 +611,7 @@
   }
 
   const CSS = `
-    :host{all:initial}*,*::before,*::after{box-sizing:border-box}.shell{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#e8eef9;position:fixed;z-index:2147483646;pointer-events:none}.bubble{pointer-events:auto;position:fixed;right:18px;bottom:20px;width:58px;height:58px;border:0;border-radius:20px;background:linear-gradient(145deg,#2563eb,#06b6d4);color:#fff;box-shadow:0 16px 45px #02061766;cursor:pointer;font-weight:800}.bubble b{position:absolute;right:-4px;top:-5px;min-width:20px;height:20px;border-radius:10px;background:#ef4444;font-size:11px;line-height:20px}.panel{pointer-events:auto;position:fixed;right:16px;top:16px;bottom:16px;width:min(450px,calc(100vw - 24px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #94a3b838;border-radius:24px;background:#08101cf8;box-shadow:0 32px 100px #02061799;transform:translateX(calc(100% + 28px));opacity:0;transition:.22s}.open .panel{transform:none;opacity:1}.open .bubble{opacity:0;pointer-events:none}header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px 14px;background:linear-gradient(135deg,#2563eb48,#06b6d415)}header span{font-size:10px;letter-spacing:.18em;color:#93c5fd;font-weight:800}header h2{margin:4px 0 0;font-size:23px}header button{border:0;background:#ffffff15;color:#cbd5e1;border-radius:12px;width:38px;height:38px;font-size:25px;cursor:pointer}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#24324a;border-block:1px solid #24324a}.summary div{padding:12px;background:#0e192b;text-align:center}.summary b{display:block;font-size:20px}.summary small{color:#93a4bd}nav{display:flex;gap:3px;padding:9px 12px;border-bottom:1px solid #24324a;overflow:auto}nav button,.filters button{border:0;background:transparent;color:#93a4bd;padding:8px 10px;border-radius:9px;white-space:nowrap;cursor:pointer;font-size:12px;font-weight:700}nav button.active,.filters button.active{background:#1d4ed8;color:#fff}main{flex:1;overflow:auto;padding:14px}.toolbar{display:grid;grid-template-columns:1fr auto;gap:8px}.toolbar label{display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border:1px solid #24324a;border-radius:12px;background:#0e192b}.toolbar input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#e8eef9}.toolbar button,.section-title button,.card button,.queue button,.empty button{border:1px solid #24324a;background:#14213a;color:#e8eef9;border-radius:10px;padding:8px 11px;cursor:pointer;font-weight:700}.filters{display:flex;gap:4px;padding:9px 0;overflow:auto}.batch{display:flex;align-items:center;gap:5px;margin-bottom:9px;padding:8px;border:1px solid #1d4ed8;border-radius:11px;background:#2563eb20;font-size:11px}.batch span{margin-right:auto}.batch button{border:0;border-radius:7px;padding:5px 7px;background:#1e3a5f;color:#fff}.list{display:grid;gap:9px}.device,.queue,.card,.guide section{border:1px solid #24324a;border-radius:15px;background:#111c2f;padding:13px}.trusted-device{border-color:#22c55e88}.device-head{display:grid;grid-template-columns:auto 1fr auto;gap:9px}.device-head>div{min-width:0}.title{display:flex;align-items:center;gap:7px}.title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.device p,.queue p,.card p,.section-title p,.log p{margin:4px 0;color:#93a4bd;font-size:10px}.device code{margin-right:8px;color:#9fb0c8}.icon{border:0;background:transparent;color:#93a4bd;font-size:18px}.badge{border:1px solid var(--c);color:var(--c);border-radius:8px;padding:2px 6px;font-size:9px}.badge.trusted{--c:#22c55e}.badge.unknown{--c:#94a3b8}.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}.tier{border:1px solid var(--c);border-radius:9px;background:#0f1b2d;color:#eaf2ff;padding:7px 4px;cursor:pointer;font-size:11px;font-weight:800}.actions{display:flex;gap:5px;margin-top:8px}.actions button{flex:1;border:0;border-radius:8px;background:#18263f;color:#aebdd2;padding:6px 4px;font-size:10px}.empty{text-align:center;border:1px dashed #33435d;border-radius:16px;padding:28px 18px;color:#93a4bd}.empty p{font-size:12px;line-height:1.6}.section-title{display:flex;justify-content:space-between;gap:8px;margin-bottom:10px}.queue{display:flex;justify-content:space-between;gap:8px}.queue>div:last-child{display:flex;flex-direction:column;gap:5px}.status{margin-left:6px;padding:2px 5px;border-radius:6px;background:#334155;font-size:9px}.status.pending{background:#7c2d12;color:#fed7aa}.status.prepared{background:#713f12;color:#fde68a}.status.applied{background:#14532d;color:#bbf7d0}.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.profile{border-top:3px solid var(--c);border-radius:9px;background:#0c1728;padding:9px}.profile label,.field{display:block;margin-top:7px;color:#93a4bd;font-size:9px}.profile input,.field input,.field select{width:100%;margin-top:3px;border:1px solid #24324a;border-radius:7px;background:#111e32;color:#e8eef9;padding:7px}.primary{background:#2563eb!important}.wide{width:100%;margin-top:10px}.switch{display:flex;align-items:flex-start;gap:9px;margin-top:13px}.switch input{display:none}.switch>span{width:36px;height:20px;border-radius:10px;background:#334155;position:relative;flex:none}.switch>span:after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}.switch input:checked+span{background:#2563eb}.switch input:checked+span:after{left:19px}.switch div{display:grid}.switch small{color:#93a4bd}.two{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.danger{border-color:#ef444455}.guide{display:grid;gap:10px}.guide p,.guide li{color:#a7b6cb;font-size:12px;line-height:1.65}.guide ol{padding-left:20px}.log{display:flex;gap:9px;border-bottom:1px solid #24324a;padding:8px 2px}.log i{width:8px;height:8px;border-radius:50%;background:#64748b;margin-top:5px}.log.success i{background:#22c55e}.log.warning i{background:#f59e0b}.log small{color:#64748b}footer{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid #24324a;background:#0a1423;color:#93a4bd;font-size:10px}footer span{margin-right:auto}footer i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}footer i.safe{background:#22c55e}footer i.unsafe{background:#ef4444}footer button{border:0;background:transparent;color:#93c5fd}.toast{position:fixed;right:32px;bottom:30px;max-width:350px;transform:translateY(20px);opacity:0;border:1px solid #334155;border-radius:11px;background:#0f1b2d;color:#fff;padding:11px 14px;box-shadow:0 15px 40px #0006;transition:.18s}.toast.show{transform:none;opacity:1}.toast[data-type="warning"]{border-color:#d97706}.toast[data-type="success"]{border-color:#16a34a}@media(max-width:560px){.panel{right:6px;top:6px;bottom:6px;width:calc(100vw - 12px)}.profile-grid{grid-template-columns:1fr}.toast{right:15px;left:15px}}
+    :host{all:initial}*,*::before,*::after{box-sizing:border-box}.shell{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#e8eef9;position:fixed;z-index:2147483646;pointer-events:none}.bubble{pointer-events:auto;position:fixed;right:18px;bottom:20px;width:58px;height:58px;border:0;border-radius:20px;background:linear-gradient(145deg,#2563eb,#06b6d4);color:#fff;box-shadow:0 16px 45px #02061766;cursor:pointer;font-weight:800}.bubble b{position:absolute;right:-4px;top:-5px;min-width:20px;height:20px;border-radius:10px;background:#ef4444;font-size:11px;line-height:20px}.panel{pointer-events:auto;position:fixed;right:16px;top:16px;bottom:16px;width:min(450px,calc(100vw - 24px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #94a3b838;border-radius:24px;background:#08101cf8;box-shadow:0 32px 100px #02061799;transform:translateX(calc(100% + 28px));opacity:0;transition:.22s}.open .panel{transform:none;opacity:1}.open .bubble{opacity:0;pointer-events:none}.full-page .panel{inset:0;width:100vw;border:0;border-radius:0;background:#08101c}.full-page main{width:min(1180px,100%);margin-inline:auto}.header-actions{display:flex;gap:8px}header{display:flex;justify-content:space-between;align-items:center;padding:20px 22px 14px;background:linear-gradient(135deg,#2563eb48,#06b6d415)}header span{font-size:10px;letter-spacing:.18em;color:#93c5fd;font-weight:800}header h2{margin:4px 0 0;font-size:23px}header button{border:0;background:#ffffff15;color:#cbd5e1;border-radius:12px;width:38px;height:38px;font-size:25px;cursor:pointer}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#24324a;border-block:1px solid #24324a}.summary div{padding:12px;background:#0e192b;text-align:center}.summary b{display:block;font-size:20px}.summary small{color:#93a4bd}nav{display:flex;gap:3px;padding:9px 12px;border-bottom:1px solid #24324a;overflow:auto}nav button,.filters button{border:0;background:transparent;color:#93a4bd;padding:8px 10px;border-radius:9px;white-space:nowrap;cursor:pointer;font-size:12px;font-weight:700}nav button.active,.filters button.active{background:#1d4ed8;color:#fff}main{flex:1;overflow:auto;padding:14px}.toolbar{display:grid;grid-template-columns:1fr auto;gap:8px}.toolbar label{display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border:1px solid #24324a;border-radius:12px;background:#0e192b}.toolbar input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#e8eef9}.toolbar button,.section-title button,.card button,.queue button,.empty button{border:1px solid #24324a;background:#14213a;color:#e8eef9;border-radius:10px;padding:8px 11px;cursor:pointer;font-weight:700}.filters{display:flex;gap:4px;padding:9px 0;overflow:auto}.batch{display:flex;align-items:center;gap:5px;margin-bottom:9px;padding:8px;border:1px solid #1d4ed8;border-radius:11px;background:#2563eb20;font-size:11px}.batch span{margin-right:auto}.batch button{border:0;border-radius:7px;padding:5px 7px;background:#1e3a5f;color:#fff}.list{display:grid;gap:9px}.device,.queue,.card,.guide section{border:1px solid #24324a;border-radius:15px;background:#111c2f;padding:13px}.trusted-device{border-color:#22c55e88}.device-head{display:grid;grid-template-columns:auto 1fr auto;gap:9px}.device-head>div{min-width:0}.title{display:flex;align-items:center;gap:7px}.title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.device p,.queue p,.card p,.section-title p,.log p{margin:4px 0;color:#93a4bd;font-size:10px}.device code{margin-right:8px;color:#9fb0c8}.icon{border:0;background:transparent;color:#93a4bd;font-size:18px}.badge{border:1px solid var(--c);color:var(--c);border-radius:8px;padding:2px 6px;font-size:9px}.badge.trusted{--c:#22c55e}.badge.unknown{--c:#94a3b8}.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}.tier{border:1px solid var(--c);border-radius:9px;background:#0f1b2d;color:#eaf2ff;padding:7px 4px;cursor:pointer;font-size:11px;font-weight:800}.actions{display:flex;gap:5px;margin-top:8px}.actions button{flex:1;border:0;border-radius:8px;background:#18263f;color:#aebdd2;padding:6px 4px;font-size:10px}.empty{text-align:center;border:1px dashed #33435d;border-radius:16px;padding:28px 18px;color:#93a4bd}.empty p{font-size:12px;line-height:1.6}.section-title{display:flex;justify-content:space-between;gap:8px;margin-bottom:10px}.queue{display:flex;justify-content:space-between;gap:8px}.queue>div:last-child{display:flex;flex-direction:column;gap:5px}.status{margin-left:6px;padding:2px 5px;border-radius:6px;background:#334155;font-size:9px}.status.pending{background:#7c2d12;color:#fed7aa}.status.prepared{background:#713f12;color:#fde68a}.status.applied{background:#14532d;color:#bbf7d0}.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.profile{border-top:3px solid var(--c);border-radius:9px;background:#0c1728;padding:9px}.profile label,.field{display:block;margin-top:7px;color:#93a4bd;font-size:9px}.profile input,.field input,.field select{width:100%;margin-top:3px;border:1px solid #24324a;border-radius:7px;background:#111e32;color:#e8eef9;padding:7px}.primary{background:#2563eb!important}.wide{width:100%;margin-top:10px}.switch{display:flex;align-items:flex-start;gap:9px;margin-top:13px}.switch input{display:none}.switch>span{width:36px;height:20px;border-radius:10px;background:#334155;position:relative;flex:none}.switch>span:after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}.switch input:checked+span{background:#2563eb}.switch input:checked+span:after{left:19px}.switch div{display:grid}.switch small{color:#93a4bd}.two{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.danger{border-color:#ef444455}.guide{display:grid;gap:10px}.guide p,.guide li{color:#a7b6cb;font-size:12px;line-height:1.65}.guide ol{padding-left:20px}.log{display:flex;gap:9px;border-bottom:1px solid #24324a;padding:8px 2px}.log i{width:8px;height:8px;border-radius:50%;background:#64748b;margin-top:5px}.log.success i{background:#22c55e}.log.warning i{background:#f59e0b}.log small{color:#64748b}footer{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid #24324a;background:#0a1423;color:#93a4bd;font-size:10px}footer span{margin-right:auto}footer i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}footer i.safe{background:#22c55e}footer i.unsafe{background:#ef4444}footer button{border:0;background:transparent;color:#93c5fd}.toast{position:fixed;right:32px;bottom:30px;max-width:350px;transform:translateY(20px);opacity:0;border:1px solid #334155;border-radius:11px;background:#0f1b2d;color:#fff;padding:11px 14px;box-shadow:0 15px 40px #0006;transition:.18s}.toast.show{transform:none;opacity:1}.toast[data-type="warning"]{border-color:#d97706}.toast[data-type="success"]{border-color:#16a34a}@media(max-width:560px){.panel{right:6px;top:6px;bottom:6px;width:calc(100vw - 12px)}.full-page .panel{inset:0;width:100vw}.profile-grid{grid-template-columns:1fr}.toast{right:15px;left:15px}}
   `;
 
   function restart() {
@@ -494,16 +630,25 @@
     shadow.addEventListener('input', (event) => {
       if (event.target.matches('[data-role="search"]')) { search = event.target.value; render(); }
     });
+    shadow.addEventListener('focusout', () => {
+      if (renderPending) setTimeout(() => requestRender(), 0);
+    });
     shadow.addEventListener('change', (event) => {
       if (event.target.matches('[data-setting]')) settingChanged(event.target);
       if (event.target.matches('[data-role="import-file"]') && event.target.files[0]) importConfig(event.target.files[0]);
     });
     scanDevices();
+    resumePendingNative();
     restart();
-    const observer = new MutationObserver(() => setTimeout(scanDevices, 400));
+    const observer = new MutationObserver((records) => {
+      if (!records.some((record) => !host.contains(record.target))) return;
+      clearTimeout(scanDebounce);
+      scanDebounce = setTimeout(scanDevices, 500);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     if (typeof GM_registerMenuCommand === 'function') {
       GM_registerMenuCommand('打开 TR3000 管理中心', () => { config.open = true; saveConfig(); render(); });
+      GM_registerMenuCommand('切换全屏管理台', () => { config.open = true; config.fullPage = !config.fullPage; saveConfig(); render(); });
       GM_registerMenuCommand('扫描当前页面设备', scanDevices);
       GM_registerMenuCommand('打开原生 QoS', openQos);
     }
