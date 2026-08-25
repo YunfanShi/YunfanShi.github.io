@@ -62,7 +62,6 @@ const EMPTY_FORM: FormState = { title: '', target_date: '', color: '#4285f4', de
 export default function CountdownApp({ initialCountdowns }: { initialCountdowns: CountdownEvent[] }) {
   const [countdowns, setCountdowns] = useState<CountdownEvent[]>(initialCountdowns);
   const [activeId, setActiveId] = useState<string | null>(initialCountdowns[0]?.id ?? null);
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
   const [now, setNow] = useState(new Date());
 
   // modal state
@@ -83,16 +82,11 @@ export default function CountdownApp({ initialCountdowns }: { initialCountdowns:
   useEffect(() => {
     const id = setInterval(() => {
       setNow(new Date());
-      if (active) setTimeLeft(getTimeLeft(active.target_date));
     }, 1000);
     return () => clearInterval(id);
-  }, [active]);
+  }, []);
 
-  // recalc when active changes
-  useEffect(() => {
-    if (active) setTimeLeft(getTimeLeft(active.target_date));
-    else setTimeLeft(null);
-  }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const timeLeft = active ? getTimeLeft(active.target_date) : null;
 
   // set CSS theme color
   useEffect(() => {
@@ -501,7 +495,7 @@ export default function CountdownApp({ initialCountdowns }: { initialCountdowns:
       )}
 
       {/* Montserrat font */}
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      { }
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap');`}</style>
     </div>
   );

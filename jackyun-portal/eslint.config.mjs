@@ -11,7 +11,17 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "**/* 2.*",
+      "public/**/*.bak",
     ],
+  },
+  {
+    files: ["src/lib/ai-tools.ts"],
+    rules: {
+      // Tool payloads cross a JSON boundary and intentionally support provider-
+      // specific shapes. Runtime validation is authoritative in this adapter.
+      "@typescript-eslint/no-explicit-any": "off",
+    },
   },
 ];
 

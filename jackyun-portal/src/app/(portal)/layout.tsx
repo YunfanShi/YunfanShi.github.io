@@ -14,7 +14,6 @@ import type { SidebarPreferences } from '@/actions/settings';
 import type { Language } from '@/lib/i18n';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
-import GuestModeNotice from '@/components/layout/guest-mode-notice';
 import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
 import AuthModeProvider from '@/components/auth/auth-mode-provider';
 
@@ -33,17 +32,21 @@ export default async function PortalLayout({
   // repeated auth verification and issued one query per preference.
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
   const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const [{ data: settings }, { data: navigationUsage }] = claims
-    ? await Promise.all([supabase
-        .from('user_settings')
-        .select('key, value')
-        .eq('user_id', claims.sub)
-        .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences']), supabase
-        .from('navigation_usage_daily')
-        .select('activity_date, nav_item_id, opens')
-        .eq('user_id', claims.sub)
-        .gte('activity_date', thirtyDaysAgo.toISOString().slice(0, 10))])
-    : [{ data: null }, { data: null }];
+  const [{ data: settings }, { data: navigationUsage }, { data: profile }] = claims
+    ? await Promise.all([
+        supabase
+          .from('user_settings')
+          .select('key, value')
+          .eq('user_id', claims.sub)
+          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences']),
+        supabase
+          .from('navigation_usage_daily')
+          .select('activity_date, nav_item_id, opens')
+          .eq('user_id', claims.sub)
+          .gte('activity_date', thirtyDaysAgo.toISOString().slice(0, 10)),
+        supabase.from('profiles').select('role').eq('id', claims.sub).maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }, { data: null }];
 
   let sidebarPrefs = { ...DEFAULT_SIDEBAR_PREFS };
   let language: Language = 'zh';
@@ -72,6 +75,12 @@ export default async function PortalLayout({
         user_metadata: claims.user_metadata ?? {},
       }
     : null;
+  const envAdmins = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const githubUsername = (claims?.user_metadata?.user_name as string | undefined)?.toLowerCase();
+  const isAdmin = profile?.role === 'admin' || Boolean(githubUsername && envAdmins.includes(githubUsername));
 
   return (
     <AuthModeProvider signedIn={Boolean(user)}>
@@ -80,9 +89,8 @@ export default async function PortalLayout({
       <CloudSettingsHydrator appearance={appearancePreferences} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
-        <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} />
+        <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <GuestModeNotice signedIn={Boolean(user)} />
           <Topbar user={user} />
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
@@ -92,7 +100,7 @@ export default async function PortalLayout({
         <MiniPlayer />
         <FlyingTimer />
         <SiteNotificationModal />
-        <AdminDebugConsole />
+        <AdminDebugConsole isAdmin={isAdmin} />
       </div>
     </LanguageProvider>
     </AuthModeProvider>

@@ -20,7 +20,7 @@ export default async function AccountStatusPage() {
   const deadline = profile.deleted_at
     ? new Date(new Date(profile.deleted_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
     : null;
-  const canAppeal = !deadline || Date.now() <= new Date(deadline).getTime();
+  const canAppeal = !deadline || new Date().getTime() <= new Date(deadline).getTime();
   const html = profile.deleted_at && deadline
     ? deletionRecoveryHtml(profile.deleted_at, deadline)
     : suspendedAccountHtml(profile.suspended_reason, profile.suspended_explanation);

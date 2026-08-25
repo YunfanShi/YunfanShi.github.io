@@ -686,6 +686,7 @@ export default function AiChatFab({
   const isBusyRef = useRef(false);
   const requestIdRef = useRef(0);
   const messagesRef = useRef<Message[]>([]);
+  const [iframePage, setIframePage] = useState<string | null>(null);
   // 同步的当前会话 ID ref（避免 state 异步更新导致的首次对话消息丢失问题）
   const activeConvIdRef = useRef<string | null>(null);
 
@@ -743,11 +744,11 @@ export default function AiChatFab({
       const saved = JSON.parse(localStorage.getItem(FAB_POSITION_KEY) || 'null') as FabPosition | null;
       const initial = clampFabPosition(saved ?? fallback);
       liveFabPositionRef.current = initial;
-      setFabPosition(initial);
+      queueMicrotask(() => setFabPosition(initial));
     } catch {
       const initial = clampFabPosition(fallback);
       liveFabPositionRef.current = initial;
-      setFabPosition(initial);
+      queueMicrotask(() => setFabPosition(initial));
     }
     const handleResize = () => setFabPosition((previous) => {
       if (!previous) return previous;
@@ -856,22 +857,17 @@ export default function AiChatFab({
 
   const activeConv = conversations.find(c => c.id === activeConvId);
   const messages = activeConv?.messages ?? [];
-  messagesRef.current = messages;
-
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-    const loaded = loadConversations();
-    setConversations(loaded);
-    const activeId = loadActiveId();
-    if (activeId && loaded.some(c => c.id === activeId)) {
-      setActiveConvId(activeId);
-    } else if (loaded.length > 0) {
-      setActiveConvId(loaded[0].id);
-    } else {
-      createNewConversation();
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const getEffectiveSource = useCallback((): ConversationSource => {
+    if (iframePage) {
+      const mapped = getSourceFromIframePage(iframePage);
+      if (mapped) return mapped;
     }
-  }, []);
+    return getSourceFromPath(currentPath);
+  }, [currentPath, iframePage]);
 
   // 智能自动滚动：只在用户已在底部时跟随
   useEffect(() => {
@@ -923,7 +919,24 @@ export default function AiChatFab({
     setActiveConvId(newConv.id);
     setSidebarOpen(false);
     return newConv;
-  }, [currentPath, setActiveConvId]);
+  }, [getEffectiveSource, setActiveConvId]);
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const loaded = loadConversations();
+    const activeId = loadActiveId();
+    queueMicrotask(() => {
+      setConversations(loaded);
+      if (activeId && loaded.some(c => c.id === activeId)) {
+        setActiveConvId(activeId);
+      } else if (loaded.length > 0) {
+        setActiveConvId(loaded[0].id);
+      } else {
+        createNewConversation();
+      }
+    });
+  }, [createNewConversation, setActiveConvId]);
 
   const switchConversation = (id: string) => {
     setActiveConvId(id);
@@ -1186,7 +1199,7 @@ export default function AiChatFab({
       temperature: options.temperature ?? getThinkingTemperature(thinkingLevel),
       model: options.model,
       maxTokens: options.maxTokens,
-      // @ts-ignore - signal passes through to fetch
+      // @ts-expect-error -- signal passes through to the provider-compatible fetch options.
       signal: abortControllerRef.current.signal,
     });
     if (!res.ok) {
@@ -1660,13 +1673,15 @@ export default function AiChatFab({
         autoSpeakDoneRef.current = true;
         const ttsText = extractTtsText(lastMsg.content);
         if (ttsText) {
-          setSpeakingMsgIndex(messages.length - 1);
-          setSubtitleText(ttsText);
-          setSubtitleVisible(true);
-          speakWithConfig(ttsText, undefined, () => {
-            setSpeakingMsgIndex(null);
-            setSubtitleVisible(false);
-            setSubtitleText('');
+          queueMicrotask(() => {
+            setSpeakingMsgIndex(messages.length - 1);
+            setSubtitleText(ttsText);
+            setSubtitleVisible(true);
+            speakWithConfig(ttsText, undefined, () => {
+              setSpeakingMsgIndex(null);
+              setSubtitleVisible(false);
+              setSubtitleText('');
+            });
           });
         }
       }
@@ -1873,13 +1888,15 @@ export default function AiChatFab({
     if (!title || title === '新对话') return;
 
     const convId = activeConv.id;
-    setConversations(prev => {
-      const updated = prev.map(c => {
-        if (c.id !== convId) return c;
-        return { ...c, title: title.slice(0, 30) };
+    queueMicrotask(() => {
+      setConversations(prev => {
+        const updated = prev.map(c => {
+          if (c.id !== convId) return c;
+          return { ...c, title: title.slice(0, 30) };
+        });
+        saveConversations(updated);
+        return updated;
       });
-      saveConversations(updated);
-      return updated;
     });
   }, [loading, activeConv]);
 
@@ -1892,15 +1909,13 @@ export default function AiChatFab({
   // iframe 页面感知 — 监听 Legacy 页面通过 postMessage 上报实际页面
   // 同时作为门户层消息桥：处理 iframe 导航请求 + Goal→TimetableHub 数据推送转发
   // ════════════════════════════════════════════════════════
-  const iframePageRef = useRef<string | null>(null);
-
   useEffect(() => {
     function handleIframeMessage(e: MessageEvent) {
       try {
         const data = e.data;
         if (!data || typeof data !== 'object') return;
         if (data.type === 'jackyun-page' && typeof data.page === 'string') {
-          iframePageRef.current = data.page;
+          setIframePage(data.page);
         }
         // 帮助中心「联系 AI 客服」按钮 → 打开全局 AI 对话
         if (data.type === 'jackyun-open-ai') {
@@ -1938,16 +1953,6 @@ export default function AiChatFab({
     window.addEventListener('message', handleIframeMessage);
     return () => window.removeEventListener('message', handleIframeMessage);
   }, []);
-
-  // 获取实际来源：优先 iframe 上报的页面，其次 URL 路径
-  const getEffectiveSource = useCallback((): ConversationSource => {
-    const iframePage = iframePageRef.current;
-    if (iframePage) {
-      const mapped = getSourceFromIframePage(iframePage);
-      if (mapped) return mapped;
-    }
-    return getSourceFromPath(currentPath);
-  }, [currentPath]);
 
   return (
     <>

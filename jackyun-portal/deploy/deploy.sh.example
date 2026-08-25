@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run from a clean checkout on the server after replacing these paths.
+APP_ROOT=/opt/jackyun-portal
+RELEASE_ID="$(date -u +%Y%m%d%H%M%S)"
+RELEASE_DIR="$APP_ROOT/releases/$RELEASE_ID"
+
+npm ci
+npm run lint -- --quiet
+npm run test:security
+npm run check:secrets
+npm run check:study-guide
+npm run build
+
+mkdir -p "$RELEASE_DIR/.next"
+cp -R .next/standalone/. "$RELEASE_DIR/"
+cp -R .next/static "$RELEASE_DIR/.next/static"
+cp -R public "$RELEASE_DIR/public"
+
+ln -sfn "$RELEASE_DIR" "$APP_ROOT/current.next"
+mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
+sudo systemctl restart jackyun-portal
+curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/api/health

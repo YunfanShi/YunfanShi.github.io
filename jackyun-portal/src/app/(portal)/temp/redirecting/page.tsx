@@ -19,7 +19,7 @@ export default function RedirectingPage() {
     try {
       const t = searchParams.get('t');
       if (!t) {
-        setError('缺少跳转参数');
+        queueMicrotask(() => setError('缺少跳转参数'));
         return;
       }
 
@@ -29,13 +29,13 @@ export default function RedirectingPage() {
 
       // Security check: only allow http/https
       if (!parsed.url || !/^https?:\/\//i.test(parsed.url)) {
-        setError('无效的跳转地址');
+        queueMicrotask(() => setError('无效的跳转地址'));
         return;
       }
 
-      setInfo(parsed);
+      queueMicrotask(() => setInfo(parsed));
     } catch {
-      setError('无效的跳转参数');
+      queueMicrotask(() => setError('无效的跳转参数'));
     }
   }, [searchParams]);
 

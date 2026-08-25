@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { addTicketMessage, clearTicketLegacySync, closeBugReport, exportTicketUserData, getAdminBugReports, getBugReportDetail, getRemoteAssistanceSnapshot, recordTicketOperation, repairTicketPreferences, requestRemoteAssistance, resolveAccountAppeal, restoreTicketUserAccount, sendTicketPasswordReset, updateBugReportType, updateRemoteAssistancePreference, type BugReport, type TicketDetail } from '@/actions/feedback';
 
 const types: { value: BugReport['ticket_type']; label: string }[] = [
@@ -21,12 +21,16 @@ export default function BugReportsPanel({ reports, initialTicketId }: { reports:
   const [pending, startTransition] = useTransition();
   const selected = items.find((item) => item.id === id);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const next = await getAdminBugReports();
     setItems(next);
     if (id) setDetail(await getBugReportDetail(id));
-  };
-  useEffect(() => { load().catch(() => setNotice('无法加载工单。')); const timer = setInterval(() => load().catch(() => {}), 20_000); return () => clearInterval(timer); }, [id]);
+  }, [id]);
+  useEffect(() => {
+    const initial = window.setTimeout(() => load().catch(() => setNotice('无法加载工单。')), 0);
+    const timer = window.setInterval(() => load().catch(() => {}), 20_000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, [load]);
 
   const run = (operation: () => Promise<{ success: boolean; error?: string }>, successMessage: string) => startTransition(async () => {
     const result = await operation();

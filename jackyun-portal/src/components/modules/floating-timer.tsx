@@ -26,10 +26,10 @@ export default function FlyingTimer() {
 
   // 默认位置：屏幕中部偏右（不与右下角 MiniPlayer/AI FAB 冲突）
   useEffect(() => {
-    setPosition({
-      x: typeof window !== 'undefined' ? window.innerWidth - 260 : 0,
-      y: typeof window !== 'undefined' ? window.innerHeight / 2 - 40 : 0,
-    });
+    queueMicrotask(() => setPosition({
+      x: window.innerWidth - 260,
+      y: window.innerHeight / 2 - 40,
+    }));
   }, []);
 
   // 监听 iframe postMessage

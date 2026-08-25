@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { useLanguage } from '@/components/language-provider';
 import { legacyLanguageBridge } from '@/lib/legacy-i18n';
 
@@ -11,8 +12,25 @@ interface LegacyFrameProps {
   userName?: string;
 }
 
+const legacyHtmlCache = new Map<string, Promise<string>>();
+
+function loadLegacyHtml(src: string): Promise<string> {
+  const cached = legacyHtmlCache.get(src);
+  if (cached) return cached;
+  const request = fetch(src).then(async (response) => {
+    if (!response.ok) throw new Error(`加载失败: HTTP ${response.status}`);
+    return response.text();
+  }).catch((error) => {
+    legacyHtmlCache.delete(src);
+    throw error;
+  });
+  legacyHtmlCache.set(src, request);
+  return request;
+}
+
 export default function LegacyFrame({ src, title = 'Legacy Page', userName }: LegacyFrameProps) {
   const { lang } = useLanguage();
+  const { signedIn } = useAuthMode();
   const [srcdoc, setSrcdoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -22,12 +40,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 
     async function load() {
       try {
-        const res = await fetch(src);
-        if (!res.ok) {
-          setError(`加载失败: HTTP ${res.status}`);
-          return;
-        }
-        let html = await res.text();
+        let html = await loadLegacyHtml(src);
 
         // Replace hardcoded names (e.g. "Jack") in legacy HTML with the
         // signed-in user's display name. Only visible text is touched —
@@ -569,7 +582,9 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 })();
 </script>
 `;
-        html = html.replace(/<\/head>/i, `${syncScript}</head>`);
+        if (signedIn) {
+          html = html.replace(/<\/head>/i, `${syncScript}</head>`);
+        }
 
         if (!cancelled) {
           setSrcdoc(html);
@@ -584,7 +599,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 
     load();
     return () => { cancelled = true; };
-  }, [src, userName, lang]);
+  }, [src, userName, lang, signedIn]);
 
   if (error) {
     return (

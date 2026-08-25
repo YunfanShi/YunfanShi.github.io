@@ -258,7 +258,7 @@ export default function AdminTestPage() {
   // ── System Test State ──
   const [sysRunning, setSysRunning] = useState(false);
   const [sysResults, setSysResults] = useState<Record<string, TestResult>>({});
-  const [sysStartTime, setSysStartTime] = useState(0);
+  const [sysDurationMs, setSysDurationMs] = useState(0);
 
   // ── Logger State ──
   const [showLogs, setShowLogs] = useState(false);
@@ -317,9 +317,10 @@ export default function AdminTestPage() {
 
   // ── System Tests ──
   async function runSystemTests() {
+    const startedAt = Date.now();
     setSysRunning(true);
     setSysResults({});
-    setSysStartTime(Date.now());
+    setSysDurationMs(0);
     logger.info('TestPage/System', 'Starting system health checks');
 
     const checks: [string, () => Promise<TestResult>][] = [
@@ -344,8 +345,9 @@ export default function AdminTestPage() {
       total: checks.length,
       passed: Object.values(results).filter(r => r.ok).length,
       failed: Object.values(results).filter(r => !r.ok).length,
-      totalDuration: `${((Date.now() - sysStartTime) / 1000).toFixed(2)}s`,
+      totalDuration: `${((Date.now() - startedAt) / 1000).toFixed(2)}s`,
     });
+    setSysDurationMs(Date.now() - startedAt);
     setSysRunning(false);
   }
 
@@ -399,9 +401,10 @@ export default function AdminTestPage() {
     })();
 
     const sysTestPromise = (async () => {
+      const startedAt = Date.now();
       setSysRunning(true);
       setSysResults({});
-      setSysStartTime(Date.now());
+      setSysDurationMs(0);
       const checks: [string, () => Promise<TestResult>][] = [
         ['🌐 API Health', checkApiHealth],
         ['🗄️ Supabase Connection', checkSupabaseConnection],
@@ -418,6 +421,7 @@ export default function AdminTestPage() {
         results[name] = result;
         setSysResults({ ...results });
       }
+      setSysDurationMs(Date.now() - startedAt);
       setSysRunning(false);
     })();
 
@@ -572,7 +576,7 @@ export default function AdminTestPage() {
           {sysTotal > 0 && (
             <span className="text-xs text-[var(--muted-foreground)]">
               {sysOkCount}/{sysTotal} 通过
-              {sysStartTime > 0 && !sysRunning && ` (总耗时: ${((Date.now() - sysStartTime) / 1000).toFixed(2)}s)`}
+              {sysDurationMs > 0 && !sysRunning && ` (总耗时: ${(sysDurationMs / 1000).toFixed(2)}s)`}
             </span>
           )}
         </div>

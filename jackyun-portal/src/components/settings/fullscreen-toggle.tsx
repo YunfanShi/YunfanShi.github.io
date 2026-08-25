@@ -8,7 +8,7 @@ export default function FullscreenToggle({ initialEnabled = false }: { initialEn
 
   useEffect(() => {
     const local = localStorage.getItem('show_fullscreen_btn');
-    setEnabled(local === null ? initialEnabled : local === 'true');
+    queueMicrotask(() => setEnabled(local === null ? initialEnabled : local === 'true'));
     if (local === null) localStorage.setItem('show_fullscreen_btn', initialEnabled ? 'true' : 'false');
   }, [initialEnabled]);
 

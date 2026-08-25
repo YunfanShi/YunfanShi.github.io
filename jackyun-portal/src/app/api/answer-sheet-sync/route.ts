@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================
 // Answer Sheet Sync API
@@ -8,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // ============================================
 
 // Lazy Supabase client
-let _supabaseClient: any = null;
+let _supabaseClient: SupabaseClient | null = null;
 
 async function tryGetSupabase() {
   if (_supabaseClient) return _supabaseClient;

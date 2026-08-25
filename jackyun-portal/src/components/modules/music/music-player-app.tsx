@@ -11,9 +11,10 @@ async function suningFetch(): Promise<number> {
     const t0 = performance.now();
     const cb = 'cb_sn_' + Date.now();
     const script = document.createElement('script');
+    const callbackWindow = window as unknown as Record<string, unknown>;
     let done = false;
 
-    (window as any)[cb] = (data: { currentTime: number }) => {
+    callbackWindow[cb] = (data: { currentTime: number }) => {
       if (done) return;
       done = true;
       const rtt = performance.now() - t0;
@@ -23,7 +24,7 @@ async function suningFetch(): Promise<number> {
     };
 
     const cleanup = () => {
-      delete (window as any)[cb];
+      delete callbackWindow[cb];
       script.remove();
     };
     script.src = `https://f.m.suning.com/api/ct.do?callback=${cb}&_=${t0}`;
@@ -168,7 +169,10 @@ export default function MusicPlayerApp({ initialSongs, initialSettings }: Props)
     }
   }, [speedState]);
 
-  useEffect(() => { doSync(); }, [doSync]);
+  useEffect(() => {
+    const initialSync = window.setTimeout(() => void doSync(), 0);
+    return () => clearTimeout(initialSync);
+  }, [doSync]);
 
   // ── RAF loop ──────────────────────────────────────────────────────────────
 
@@ -335,8 +339,8 @@ export default function MusicPlayerApp({ initialSongs, initialSettings }: Props)
       }]);
       setAddId('');
       setAddName('');
-    } catch (err: any) {
-      setAddErr(err.message ?? 'Failed');
+    } catch (err: unknown) {
+      setAddErr(err instanceof Error ? err.message : 'Failed');
     } finally {
       setAddLoading(false);
     }
@@ -366,8 +370,8 @@ export default function MusicPlayerApp({ initialSongs, initialSettings }: Props)
       setSongs(prev => [...prev, ...newSongs]);
       setImportText('');
       setShowImport(false);
-    } catch (err: any) {
-      setImportErr(err.message ?? 'Failed');
+    } catch (err: unknown) {
+      setImportErr(err instanceof Error ? err.message : 'Failed');
     }
   };
 

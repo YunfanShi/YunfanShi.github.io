@@ -225,7 +225,6 @@ function mdToDocxElements(md: string) {
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
     if (imgMatch) {
       const alt = imgMatch[1];
-      const src = imgMatch[2];
       children.push(
         new Paragraph({
           children: [new TextRun({ text: `[图片: ${alt}]`, italics: true, color: '666666' })],
@@ -239,7 +238,6 @@ function mdToDocxElements(md: string) {
 
     // 普通段落
     const runs = parseInlineMarkdown(trimmed);
-    const hasLink = runs.some(r => r instanceof TextRun && (r as any).link !== undefined);
     children.push(
       new Paragraph({
         children: runs,
@@ -542,7 +540,7 @@ export default function MarkdownToWord() {
 
 /** 简化版 Markdown 转 HTML（用于复制到 Word） */
 function simpleMdToHtml(md: string): string {
-  let html = md
+  const html = md
     // 代码块
     .replace(/```[\s\S]*?```/g, (match) => {
       const code = match.replace(/```\w*\n?/, '').replace(/```$/, '');

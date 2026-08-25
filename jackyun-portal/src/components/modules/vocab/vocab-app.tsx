@@ -340,7 +340,7 @@ export default function VocabApp({ initialWords, initialStats, initialSettings }
         }));
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [session, words, stats, settings, speak],
   );
 
@@ -1526,7 +1526,7 @@ export default function VocabApp({ initialWords, initialStats, initialSettings }
             }}
           >
             <span style={{ fontSize: 13, color: 'var(--vc-on-surface)' }}>
-              已记住 "{s.undoWord.word}"
+              已记住 &ldquo;{s.undoWord.word}&rdquo;
             </span>
             <button
               onClick={handleUndo}

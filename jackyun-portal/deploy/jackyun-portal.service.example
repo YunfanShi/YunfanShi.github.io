@@ -1,0 +1,26 @@
+[Unit]
+Description=JackYun Portal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jackyun
+Group=jackyun
+WorkingDirectory=/opt/jackyun-portal/current
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+EnvironmentFile=/etc/jackyun-portal.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/jackyun-portal/shared
+
+[Install]
+WantedBy=multi-user.target

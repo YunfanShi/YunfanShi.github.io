@@ -5,6 +5,8 @@ import MarkdownRenderer from '@/components/modules/markdown-renderer';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel as DocxHeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType, convertInchesToTwip } from 'docx';
 import { saveAs } from 'file-saver';
 
+const HEADING_LEVELS = [undefined, DocxHeadingLevel.HEADING_1, DocxHeadingLevel.HEADING_2, DocxHeadingLevel.HEADING_3, DocxHeadingLevel.HEADING_4, DocxHeadingLevel.HEADING_5, DocxHeadingLevel.HEADING_6] as const;
+
 const EXAMPLE_MD = `# IELTS Writing Task 1 & Task 2 Complete Collection
 
 ---
@@ -173,11 +175,10 @@ function mdToDocxElements(md: string) {
       const level = parseInt(headingMatch[1]) as 1 | 2 | 3 | 4 | 5 | 6;
       const text = headingMatch[2];
       const runs = parseInlineMarkdown(text);
-      levels = [, DocxHeadingLevel.HEADING_1, DocxHeadingLevel.HEADING_2, DocxHeadingLevel.HEADING_3, DocxHeadingLevel.HEADING_4, DocxHeadingLevel.HEADING_5, DocxHeadingLevel.HEADING_6];
       children.push(
         new Paragraph({
           children: runs,
-          heading: levels[level] ?? DocxHeadingLevel.HEADING_1,
+          heading: HEADING_LEVELS[level] ?? DocxHeadingLevel.HEADING_1,
           spacing: { before: 240, after: 120 },
         })
       );
@@ -284,8 +285,6 @@ function mdToDocxElements(md: string) {
   return children;
 }
 
-let levels: any[];
-
 /** 解析行内 Markdown */
 function parseInlineMarkdown(text: string): TextRun[] {
   const runs: TextRun[] = [];
@@ -310,7 +309,7 @@ function parseInlineMarkdown(text: string): TextRun[] {
 
 /** Markdown 转 HTML（用于复制到 Word） */
 function simpleMdToHtml(md: string): string {
-  let html = md
+  const html = md
     .replace(/```[\s\S]*?```/g, (m) => {
       const code = m.replace(/```\w*\n?/, '').replace(/```$/, '');
       return `<pre style="background:#f5f5f5;padding:12px;border-radius:6px;font-family:monospace;font-size:12px;">${escapeHtml(code)}</pre>`;
@@ -373,7 +372,6 @@ export default function Md2WordPage() {
     if (!mdContent.trim()) { alert('请输入 Markdown 内容'); return; }
     setConverting(true);
     try {
-      levels = [];
       const elements = mdToDocxElements(mdContent);
       const doc = new Document({
         title: 'Markdown 转 Word 文档',
@@ -603,7 +601,7 @@ function hello() {
                   </ul>
                   <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-sm">
                     <p><span className="text-blue-600">function</span> hello() {'{'}</p>
-                    <p className="pl-4">console.<span className="text-yellow-600">log</span>(<span className="text-green-600">"Hello World!"</span>);</p>
+                    <p className="pl-4">console.<span className="text-yellow-600">log</span>(<span className="text-green-600">&quot;Hello World!&quot;</span>);</p>
                     <p>{'}'}</p>
                   </div>
                   <table className="w-full border-collapse border border-gray-300">

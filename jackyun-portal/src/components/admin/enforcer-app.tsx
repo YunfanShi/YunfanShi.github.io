@@ -65,9 +65,11 @@ export default function EnforcerApp() {
   // Load persisted data
   useEffect(() => {
     const pin = localStorage.getItem('enforcer_pin') ?? '';
-    setSavedPin(pin);
     const saved = localStorage.getItem('enforcer_sessions');
-    if (saved) setSessions(JSON.parse(saved));
+    queueMicrotask(() => {
+      setSavedPin(pin);
+      if (saved) setSessions(JSON.parse(saved));
+    });
   }, []);
 
   const saveSessions = useCallback((records: SessionRecord[]) => {

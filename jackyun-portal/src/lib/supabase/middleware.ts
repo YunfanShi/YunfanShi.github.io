@@ -2,7 +2,7 @@ import { createServerClient, type SetAllCookies } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function createClient(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
