@@ -153,7 +153,7 @@ export default function UserscriptLibrary() {
                 <span className="material-icons-round text-lg">extension</span>
                 安装脚本
               </a>}
-              <a href={script.file ?? script.installUrl} download={script.file ? '' : undefined} target={script.external ? '_blank' : undefined} rel={script.external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--brand)] px-3 text-sm font-semibold text-[var(--brand)] hover:bg-[var(--surface-muted)]">
+              <a href={script.file ?? script.installUrl} download={script.file?.split('/').at(-1)} target={script.external ? '_blank' : undefined} rel={script.external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--brand)] px-3 text-sm font-semibold text-[var(--brand)] hover:bg-[var(--surface-muted)]">
                 <span className="material-icons-round text-lg">{script.external ? 'extension' : 'download'}</span>
                 {script.external ? '查看 / 安装' : '仅下载'}
               </a>
