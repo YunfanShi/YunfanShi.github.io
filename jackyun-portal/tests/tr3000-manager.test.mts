@@ -10,6 +10,7 @@ const core = sandbox.globalThis.__TR3000_MANAGER_CORE__ as {
   normalizeMac(value: string): string | undefined;
   extractMac(value: string): string | undefined;
   extractPrivateIp(value: string): string | undefined;
+  rateForUnit(value: number, unit?: string): number;
   cleanDeviceName(value: string, mac?: string, ip?: string): string;
   extractDeviceNameFromCells(cells: string[], mac?: string, ip?: string): string;
   validateProfiles(value?: Record<string, { down?: unknown; up?: unknown }>): Record<string, { label: string; color: string; down: number; up: number }>;
@@ -29,6 +30,19 @@ test('recognizes the TR3000 save-and-apply labels used by Chinese and English fi
   assert.equal(core.matchesAny('保存 & 应用', patterns), true);
   assert.equal(core.matchesAny('Save and Apply', patterns), true);
   assert.equal(core.matchesAny('取消', patterns), false);
+});
+
+test('converts configured Mbps to the native Cudy nft-qos rate unit', () => {
+  assert.equal(core.rateForUnit(5, 'kbytes'), 625);
+  assert.equal(core.rateForUnit(30, 'KBytes/s'), 3750);
+  assert.equal(core.rateForUnit(10, 'kbits'), 10000);
+  assert.equal(core.rateForUnit(8, 'mbytes'), 1);
+  assert.equal(core.rateForUnit(100, 'Mbps'), 100);
+});
+
+test('recognizes the ddrate and uurate field names used by current TR3000 firmware', () => {
+  assert.equal(core.matchesAny('cbid.nft-qos.cfg01.ddrate', [/ddrate/i]), true);
+  assert.equal(core.matchesAny('cbid.nft-qos.cfg01.uurate', [/uurate/i]), true);
 });
 
 test('validates all configurable quota profiles', () => {

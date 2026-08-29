@@ -19,25 +19,52 @@
       document.querySelector('#qos-menu').hidden = false;
     });
     document.querySelector('#qos-menu').addEventListener('click', () => {
-      location.hash = '#/qos';
-      document.title = 'QoS · Cudy TR3000 test fixture';
-      document.querySelector('#page-title').textContent = 'QoS';
-      document.querySelector('#devices').hidden = true;
-      document.querySelector('#qos-root').innerHTML = '<button id="add-rule" type="button">新增规则</button>';
+      const existingRule = new URLSearchParams(location.search).get('existing') === '1' ? `
+        <tbody><tr>
+          <td><input id="qos-mac" name="cbid.nft-qos.cfg01.mac" value="AA:BB:CC:DD:EE:FF"></td>
+          <td><input id="qos-down" name="cbid.nft-qos.cfg01.ddrate" type="number" value="1250"><input name="cbid.nft-qos.cfg01.drunit" type="hidden" value="kbytes"></td>
+          <td><input id="qos-up" name="cbid.nft-qos.cfg01.uurate" type="number" value="500"><input name="cbid.nft-qos.cfg01.urunit" type="hidden" value="kbytes"></td>
+          <td><input id="qos-remark" name="cbid.nft-qos.cfg01.comment" value="旧备注"></td>
+        </tr></tbody>` : '';
+      document.querySelector('#qos-root').innerHTML = `
+        <section class="modal fade in" role="dialog" style="display:block">
+          <form>
+            <h4 class="modal-title">QoS</h4>
+            <table><thead><tr><th>MAC-Address</th><th>Download Rate</th><th>Upload Rate</th><th>Comment</th></tr></thead>${existingRule}</table>
+            <button id="add-rule" type="button">Add</button>
+            <button id="save-apply" type="button">Save &amp; Apply</button>
+          </form>
+        </section>`;
       document.querySelector('#add-rule').addEventListener('click', () => {
-        document.querySelector('#qos-root').insertAdjacentHTML('beforeend', `
-          <section role="dialog">
-            <label>MAC 地址 <input id="qos-mac" name="mac"></label>
-            <label>下行 Mbps <input id="qos-down" name="download" type="number"></label>
-            <label>上行 Mbps <input id="qos-up" name="upload" type="number"></label>
-            <label>备注 <input id="qos-remark" name="remark"></label>
-            <button id="save-apply" type="button">保存并应用</button>
-          </section>`);
-        document.querySelector('#save-apply').addEventListener('click', (event) => {
-          event.currentTarget.dataset.clicked = '1';
-        });
+        document.querySelector('#add-rule').dataset.clicked = '1';
+        document.querySelector('#qos-root table').insertAdjacentHTML('beforeend', `
+          <tbody><tr>
+            <td><input id="qos-mac" name="cbid.nft-qos.cfg01.mac"></td>
+            <td><input id="qos-down" name="cbid.nft-qos.cfg01.ddrate" type="number"><input name="cbid.nft-qos.cfg01.drunit" type="hidden" value="kbytes"></td>
+            <td><input id="qos-up" name="cbid.nft-qos.cfg01.uurate" type="number"><input name="cbid.nft-qos.cfg01.urunit" type="hidden" value="kbytes"></td>
+            <td><input id="qos-remark" name="cbid.nft-qos.cfg01.comment"></td>
+          </tr></tbody>`);
+      });
+      document.querySelector('#save-apply').addEventListener('click', (event) => {
+        event.currentTarget.dataset.clicked = '1';
+        document.querySelector('#qos-root form').insertAdjacentHTML('beforeend', '<div class="alert alert-success">Configuration applied.</div>');
       });
     });
+  </script>
+  <script>
+    const gmStore = new Map();
+    if (new URLSearchParams(location.search).get('auto') === '1') {
+      gmStore.set('jy_tr3000_config', { safeMode: false, open: true, fullPage: true });
+    }
+    window.GM_getValue = (key, fallback) => gmStore.has(key) ? gmStore.get(key) : fallback;
+    window.GM_setValue = (key, value) => {
+      gmStore.set(key, value);
+      document.documentElement.dataset.gmKeys = [...gmStore.keys()].join(',');
+      if (key.endsWith('pendingNative')) document.documentElement.dataset.gmPending = JSON.stringify(value);
+      if (key.endsWith('logs')) document.documentElement.dataset.gmLogs = JSON.stringify(value);
+    };
+    window.GM_setClipboard = () => {};
+    window.GM_registerMenuCommand = () => {};
   </script>
   <script src="../../public/userscripts/tr3000-manager.user.js"></script>
 </body>

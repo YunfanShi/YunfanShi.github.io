@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         JackYun TR3000 管理增强器
 // @namespace    https://jackyun.top/
-// @version      2.1.0
+// @version      2.2.0
 // @description  为 Cudy TR3000 增加可用的三档 QoS、原生备注同步、新设备队列和全屏管理台。
 // @author       JackYun
 // @match        http://192.168.10.1/*
+// @match        https://192.168.10.1/*
 // @icon         http://192.168.10.1/luci-static/light/img/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -18,7 +19,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '2.1.0';
+  const VERSION = '2.2.0';
   const PREFIX = 'jy_tr3000_';
   const HOST_ID = 'jy-tr3000-manager-host';
   const MAC_RE = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/i;
@@ -77,13 +78,23 @@
     return patterns.some((pattern) => pattern.test(String(text || '')));
   }
 
+  function rateForUnit(mbps, unitText = '') {
+    const value = normalizeRate(mbps, 0);
+    const unit = String(unitText || '').trim().toLowerCase().replaceAll(/\s+/g, '');
+    if (/^(?:kbit|kbits|kbps|kbit\/s|kbits\/s)$/.test(unit)) return Math.round(value * 1000 * 100) / 100;
+    if (/^(?:byte|bytes|b\/s|byte\/s|bytes\/s)$/.test(unit)) return Math.round(value * 125000 * 100) / 100;
+    if (/^(?:kbyte|kbytes|kb\/s|kbyte\/s|kbytes\/s)$/.test(unit)) return Math.round(value * 125 * 100) / 100;
+    if (/^(?:mbyte|mbytes|mb\/s|mbyte\/s|mbytes\/s)$/.test(unit)) return Math.round((value / 8) * 100) / 100;
+    return value;
+  }
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
     }[char]));
   }
 
-  const CORE = Object.freeze({ normalizeMac, extractMac, extractPrivateIp, normalizeRate, cleanDeviceName, extractDeviceNameFromCells, validateProfiles, matchesAny });
+  const CORE = Object.freeze({ normalizeMac, extractMac, extractPrivateIp, normalizeRate, rateForUnit, cleanDeviceName, extractDeviceNameFromCells, validateProfiles, matchesAny });
   if (typeof document === 'undefined') {
     globalThis.__TR3000_MANAGER_CORE__ = CORE;
     return;
@@ -142,6 +153,7 @@
   let timer;
   let toastTimer;
   let autoBusy = false;
+  let resumeBusy = false;
   let renderPending = false;
   let scanDebounce;
 
@@ -284,21 +296,32 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function fieldText(input) {
-    return inputDescription(input);
-  }
-
   function findQosControl() {
     return findControl(document, [/\bqos\b/i, /服务质量/i, /流量控制/i, /带宽控制/i, /智能限速/i]);
   }
 
   function isQosPage() {
-    const headings = [...document.querySelectorAll('h1,h2,h3,.title,.breadcrumb,.page-title')].slice(0, 12).map((item) => item.textContent || '').join(' ');
-    return /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${location.pathname} ${location.hash} ${document.title} ${headings}`);
+    const headings = [...document.querySelectorAll('h1,h2,h3,h4,.title,.breadcrumb,.page-title,.modal-title')]
+      .filter(visible)
+      .slice(0, 20)
+      .map((item) => item.textContent || '')
+      .join(' ');
+    const qosDialog = [...document.querySelectorAll('.modal.in,.modal.show,[role="dialog"],.cbi-modal')]
+      .filter(visible)
+      .some((dialog) => /qos|服务质量|流量控制|带宽控制|智能限速/i.test(dialog.textContent || '')
+        && /mac|物理地址|硬件地址|设备地址/i.test(dialog.textContent || ''));
+    return qosDialog || /qos|服务质量|流量控制|带宽控制|智能限速/i.test(`${location.pathname} ${location.hash} ${document.title} ${headings}`);
+  }
+
+  function qosScope() {
+    return [...document.querySelectorAll('.modal.in,.modal.show,[role="dialog"],.cbi-modal')]
+      .filter(visible)
+      .find((dialog) => /qos|服务质量|流量控制|带宽控制|智能限速/i.test(dialog.textContent || '')
+        && /mac|物理地址|硬件地址|设备地址/i.test(dialog.textContent || '')) || document;
   }
 
   function nativeRemarkFromRow(row, mac, ip) {
-    const ignored = /^(\d+|启用|禁用|开启|关闭|编辑|删除|操作|下载|上传|上行|下行|不限|unlimited)$/i;
+    const ignored = /^(\d+|启用|禁用|开启|关闭|编辑|删除|操作|下载|上传|上行|下行|不限|unlimited|-?\d+\s*dBm)$/i;
     return rowCells(row)
       .flatMap((cell) => cell.split(/[\n\r|]+/))
       .map((part) => part.trim().replace(/\s+/g, ' '))
@@ -311,12 +334,13 @@
   function syncNativeRemarks() {
     if (!isQosPage()) return;
     let changed = false;
-    for (const row of document.querySelectorAll('tr,.cbi-section-table-row,.list-group-item,.card')) {
+    for (const row of qosScope().querySelectorAll('tr,.cbi-section-table-row,.list-group-item,.card')) {
       if (host?.contains(row)) continue;
       const text = row.innerText || row.textContent || '';
-      const mac = extractMac(text);
+      const fields = nativeFields(row);
+      const mac = extractMac(text) || normalizeMac(fields.mac?.value);
       if (!mac) continue;
-      const remark = nativeRemarkFromRow(row, mac, extractPrivateIp(text));
+      const remark = String(fields.remark?.value || '').trim() || nativeRemarkFromRow(row, mac, extractPrivateIp(text));
       if (remark && config.nativeRemarks[mac] !== remark) {
         config.nativeRemarks[mac] = remark;
         changed = true;
@@ -326,17 +350,33 @@
   }
 
   function findRowByMac(mac) {
-    return [...document.querySelectorAll('tr,.cbi-section-table-row,.list-group-item,.card')]
-      .find((row) => !host?.contains(row) && extractMac(row.innerText || row.textContent || '') === mac);
+    return [...qosScope().querySelectorAll('tr,.cbi-section-table-row,.list-group-item,.card')]
+      .find((row) => {
+        if (host?.contains(row)) return false;
+        if (extractMac(row.innerText || row.textContent || '') === mac) return true;
+        return [...row.querySelectorAll('input,select')].some((input) => normalizeMac(input.value) === mac);
+      });
   }
 
   function nativeFields(root) {
     return {
       mac: findInput(root, [/\bmac\b/i, /物理地址/i, /硬件地址/i, /设备地址/i]),
-      down: findInput(root, [/下行/i, /下载/i, /download/i, /\bdown\b/i, /\bdl\b/i, /\brx\b/i]),
-      up: findInput(root, [/上行/i, /上传/i, /upload/i, /\bup\b/i, /\bul\b/i, /\btx\b/i]),
+      down: findInput(root, [/下行/i, /下载/i, /download/i, /ddrate/i, /\bdown\b/i, /\bdl\b/i, /\brx\b/i]),
+      up: findInput(root, [/上行/i, /上传/i, /upload/i, /uurate/i, /\bup\b/i, /\bul\b/i, /\btx\b/i]),
       remark: findInput(root, [/备注/i, /remark/i, /comment/i, /名称/i, /name/i]),
     };
+  }
+
+  function rateUnit(root, rateInput, direction) {
+    const patterns = direction === 'down'
+      ? [/drunit/i, /download.*unit/i, /down.*unit/i, /dl.*unit/i]
+      : [/urunit/i, /upload.*unit/i, /up.*unit/i, /ul.*unit/i];
+    const row = rateInput?.closest('tr,.form-group,.form-item,.control-group,.cbi-value,.form-row');
+    const candidates = [...(row?.querySelectorAll?.('input,select') || []), ...(root?.querySelectorAll?.('input,select') || [])];
+    const control = candidates.find((input) => matchesAny(`${input.name || ''} ${input.id || ''} ${input.title || ''}`, patterns));
+    if (control?.value) return control.value;
+    const description = inputDescription(rateInput);
+    return description.match(/(?:kbytes|kbyte|mbytes|mbyte|kbits|kbit|mbits|mbit|bytes|byte|kbps|mbps)(?:\s*\/\s*s)?/i)?.[0] || 'mbps';
   }
 
   async function waitForEditor() {
@@ -348,6 +388,22 @@
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     return undefined;
+  }
+
+  async function waitForApplyConfirmation(editorRoot) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const notices = [...document.querySelectorAll('.alert,.message,.cbi-message,.modal.in,.modal.show,[role="alert"],[role="status"]')]
+        .filter((item) => !host?.contains(item) && visible(item))
+        .map((item) => item.textContent || '')
+        .join(' ');
+      if (/configuration\s+applied|配置已应用|应用成功|保存成功/i.test(notices)) return { confirmed: true };
+      if (/apply\s+failed|save\s+failed|配置失败|应用失败|保存失败|invalid|无效/i.test(notices)) {
+        return { confirmed: false, error: '路由器返回保存失败提示' };
+      }
+      if (!editorRoot?.isConnected || !visible(editorRoot)) return { confirmed: true };
+    }
+    return { confirmed: false };
   }
 
   function hideManagerForNativeUi() {
@@ -367,19 +423,30 @@
         : { ok: false, message: '未在当前固件菜单中发现 QoS 链接；请先手动打开 QoS 页面，再点击重试' };
     }
     const row = findRowByMac(device.mac);
-    let editor = row && findControl(row, [/编辑/i, /edit/i, /修改/i, /modify/i]);
-    if (!editor) editor = findControl(document, [/新增/i, /添加/i, /add/i, /create/i]);
-    if (!editor) return { ok: false, message: '已到 QoS 页面，但没有识别到“编辑”或“新增”按钮' };
     const editingExisting = Boolean(row);
-    hideManagerForNativeUi();
-    editor.click();
-    const editorState = await waitForEditor();
+    const inlineFields = row ? nativeFields(row) : undefined;
+    let editorState = inlineFields?.down && inlineFields?.up && inlineFields.down !== inlineFields.up
+      ? { root: qosScope(), fields: inlineFields }
+      : undefined;
+    if (!editorState) {
+      let editor = row && findControl(row, [/编辑/i, /edit/i, /修改/i, /modify/i]);
+      if (!editor) editor = findControl(qosScope(), [/新增/i, /添加/i, /^\s*(?:add|create)\s*$/i]);
+      if (!editor) return { ok: false, message: '已到 QoS 页面，但没有识别到现有规则字段或“编辑/新增”按钮' };
+      store.set('pendingNative', { mac: device.mac, ip: device.ip, name: displayName(device), tier, at: Date.now() });
+      hideManagerForNativeUi();
+      editor.click();
+      editorState = await waitForEditor();
+    } else {
+      hideManagerForNativeUi();
+    }
     if (!editorState) return { ok: false, message: '原生编辑器已打开，但没有识别到上下行速率字段' };
     const { root: dialog, fields: { mac: macInput, down, up, remark } } = editorState;
     if (!macInput && !editingExisting) return { ok: false, message: '新增规则时没有识别到 MAC 字段，已停止填写' };
     if (macInput && (!editingExisting || normalizeMac(macInput.value) !== device.mac)) setInput(macInput, device.mac);
-    setInput(down, profile.down);
-    setInput(up, profile.up);
+    const downUnit = rateUnit(dialog, down, 'down');
+    const upUnit = rateUnit(dialog, up, 'up');
+    setInput(down, rateForUnit(profile.down, downUnit));
+    setInput(up, rateForUnit(profile.up, upUnit));
     if (remark) {
       const value = config.aliases[device.mac] || config.nativeRemarks[device.mac] || device.name;
       if (value) setInput(remark, String(value).slice(0, 60));
@@ -392,7 +459,11 @@
     const save = findControl(dialog, [/保存\s*(?:并|和|及|&)?\s*应用/i, /保存应用/i, /save\s*(?:and|&)?\s*apply/i]);
     if (!save) return { ok: true, applied: false, message: '已填表，但未找到可靠的保存&应用按钮' };
     save.click();
-    return { ok: true, applied: true, message: '已触发原生保存&应用' };
+    const confirmation = await waitForApplyConfirmation(dialog);
+    if (confirmation.error) return { ok: false, message: confirmation.error };
+    return confirmation.confirmed
+      ? { ok: true, applied: true, message: '路由器已确认保存&应用' }
+      : { ok: true, applied: false, message: '已点击保存&应用，但未检测到路由器确认，请在原生页面核对' };
   }
 
   async function applyTier(device, tier, source = 'manual') {
@@ -438,9 +509,13 @@
         if (url.origin !== location.origin) return false;
       }
       control.click();
-      setTimeout(() => {
-        if (isQosPage() && store.get('pendingNative', null)) resumePendingNative();
-      }, 900);
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        if (isQosPage()) {
+          if (store.get('pendingNative', null)) resumePendingNative();
+          break;
+        }
+      }
       return true;
     }
     toast('没有从固件菜单识别到 QoS 链接，请手动打开 QoS 后在队列中重试', 'warning');
@@ -449,10 +524,15 @@
 
   async function resumePendingNative() {
     const pending = store.get('pendingNative', null);
-    if (!pending || !isQosPage() || Date.now() - Number(pending.at || 0) > 10 * 60 * 1000) return;
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    const device = { ...pending, name: pending.name || '未命名设备', element: findRowByMac(pending.mac) };
-    await applyTier(device, pending.tier, 'resume');
+    if (resumeBusy || !pending || !isQosPage() || Date.now() - Number(pending.at || 0) > 10 * 60 * 1000) return;
+    resumeBusy = true;
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const device = { ...pending, name: pending.name || '未命名设备', element: findRowByMac(pending.mac) };
+      await applyTier(device, pending.tier, 'resume');
+    } finally {
+      resumeBusy = false;
+    }
   }
 
   function toggleTrusted(device) {
@@ -715,7 +795,10 @@
     const observer = new MutationObserver((records) => {
       if (!records.some((record) => !host.contains(record.target))) return;
       clearTimeout(scanDebounce);
-      scanDebounce = setTimeout(scanDevices, 500);
+      scanDebounce = setTimeout(() => {
+        scanDevices();
+        if (store.get('pendingNative', null) && isQosPage()) resumePendingNative();
+      }, 500);
     });
     observer.observe(document.body, { childList: true, subtree: true });
     if (typeof GM_registerMenuCommand === 'function') {
