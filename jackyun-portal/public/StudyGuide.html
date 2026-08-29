@@ -570,6 +570,36 @@
             font-size: 12px;
             font-family: var(--font-mono);
         }
+        .more-details {
+            margin-top: 10px;
+            border: 1px solid var(--md-outline-variant);
+            border-radius: var(--radius-md);
+            background: var(--md-surface-container-low);
+            overflow: hidden;
+        }
+        .more-details summary {
+            cursor: pointer;
+            padding: 9px 12px;
+            color: var(--md-primary);
+            font-size: 13px;
+            font-weight: 600;
+            list-style: none;
+        }
+        .more-details summary::-webkit-details-marker { display: none; }
+        .more-details summary::after {
+            content: '＋';
+            float: right;
+            color: var(--md-outline);
+        }
+        .more-details[open] summary::after { content: '－'; }
+        .more-details-body {
+            padding: 0 12px 12px;
+            color: var(--md-on-surface-variant);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .more-details-body b { color: var(--md-on-surface); }
+        .more-details-body p { margin: 7px 0 0; }
 
         /* Checklist inside card */
         .checklist-item {
@@ -967,6 +997,26 @@
             0%, 80%, 100% { transform: scale(0); }
             40% { transform: scale(1); }
         }
+        .pomodoro-preset-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .pomodoro-preset-actions button {
+            min-height: 36px;
+            border: 1px solid var(--md-primary);
+            border-radius: 18px;
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            padding: 0 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .pomodoro-preset-actions button:hover {
+            filter: brightness(.97);
+            box-shadow: var(--shadow-1);
+        }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
 <body>
@@ -998,6 +1048,11 @@
             <span class="material-icons-round nav-icon">today</span>
             今日
             <span class="nav-check" id="check-today"></span>
+        </div>
+        <div class="nav-item" data-tab="workflow" onclick="switchMainTab('workflow')">
+            <span class="material-icons-round nav-icon">route</span>
+            学习流程
+            <span class="nav-check" id="check-workflow"></span>
         </div>
         <div class="nav-item" data-tab="learn" onclick="switchMainTab('learn')">
             <span class="material-icons-round nav-icon">menu_book</span>
@@ -1078,6 +1133,79 @@
        DATA: 所有板块内容（硬编码）
        ========================================= */
     const STUDY_DATA = {
+        workflow: {
+            label: '学习流程',
+            icon: 'route',
+            subTabs: ['core', 'session', 'review', 'routing'],
+            subTabLabels: { core: '完整主线', session: '一次学习', review: '复习流程', routing: '卡住怎么办' },
+            content: {
+                core: {
+                    title: '完整学习主线',
+                    icon: 'route',
+                    desc: '先看全局，再按问题进入学习、习题或复习工具；这是一条循环，不是六套方法。',
+                    when: '第一次使用本网站、方法太多不知道从哪里开始，或想检查自己的学习是否形成闭环时。',
+                    done: '能说清当前处于哪一步、下一步要做什么，并完成一个知识点的小闭环。',
+                    timeGranules: ['daily'],
+                    granules: {
+                        daily: {
+                            label: '理解 → 连接 → 复习 → 应用',
+                            steps: [
+                                { num: '①', title: '确定结果', desc: '先写今天结束时必须能够证明的结果，不写模糊的“学一会儿”。', detail: '<b>为什么：</b>没有完成标准，就无法判断应该停止还是继续。<p><b>怎么做：</b>使用“动作 + 范围 + 检测”写法，例如“闭卷解释牛顿第二定律的条件，并独立做2道基础题”。</p><p><b>不要写：</b>复习物理、看完第二章、提高阅读。</p>' },
+                                { num: '②', title: '理解知识', desc: '先弄清是什么、为什么、什么时候用，并能举出一个简单例子。', detail: '<b>操作：</b>看完一小段后合上资料，用自己的话回答四问；讲不清时只回去查缺失部分。<p><b>例子：</b>学动量时，不只背公式，还要解释它描述什么、何时守恒、为什么封闭系统适用。</p><p><b>通过标准：</b>不用原文也能讲清，并做对1道直接题。</p>' },
+                                { num: '③', title: '建立连接', desc: '把新知识接到旧知识、相似概念、因果关系或现实情境中。', detail: '<b>操作：</b>至少完成一种连接：前置知识、相似与区别、因果链、共同题型或现实用途。<p><b>例子：</b>“牛顿第二定律 → 加速度 → 速度随时间变化”，因此它可以连接运动学公式解决综合题。</p><p><b>通过标准：</b>能说明“为什么这两个知识点有关”，而不是只画一条线。</p>' },
+                                { num: '④', title: '间隔复习', desc: '到期时先闭卷检测，再根据表现决定下次日期。', detail: '<b>操作：</b>先回忆或做题，再看答案。默认参考1、3、5、7、14天，但结果决定间隔。<p><b>调整：</b>快、准、全→延长；漏条件→保持；卡壳或看答案才想起→第二天重测。</p><p><b>关键：</b>间隔复习不是定期重读，而是定期检测。</p>' },
+                                { num: '⑤', title: '应用与迁移', desc: '从直接题走向多知识点题，并解释它与现实问题的关系。', detail: '<b>顺序：</b>直接基础题 → 改条件的变式题 → 连接多个知识点的综合题 → 现实或实验解释。<p><b>例子：</b>学完压强后，解释雪鞋为什么做得宽，再连接受力分析解决斜面上的压强问题。</p><p><b>通过标准：</b>换数字、换问法或加入一个旧知识后仍能独立完成。</p>' },
+                                { num: '⑥', title: '检测并回退', desc: '哪里失败就回到对应步骤补，不从头全部重学。', detail: '<b>回退规则：</b>讲不清→回理解；不知道调用什么→回连接；想不起来→缩短间隔；会讲不会做→回基础题；总是拖延→进入拖延症应对。<p><b>例子：</b>公式会背但题目看不出用法，不需要重新抄定义，应练“题目信息对应哪个知识点”。</p>' }
+                            ]
+                        }
+                    }
+                },
+                session: {
+                    title: '一次学习怎么走',
+                    icon: 'play_circle',
+                    desc: '适用于一节课、一个章节或一个50分钟学习段。',
+                    when: '已经选好一个具体知识点，准备开始学习时。',
+                    done: '留下解释、联系、题目结果和下次复习日期四个可检查证据。',
+                    timeGranules: ['daily'],
+                    granules: { daily: { label: '一次学习（约50分钟）', steps: [
+                        { num: '①', title: '5分钟定目标与预习', desc: '写一个可检测结果，快速看标题、图表和关键词，提出1–3个问题。', detail: '<b>例子：</b>“50分钟后，我能解释电阻的影响因素，并做2道串并联基础题。”预习只负责找到方向，不提前抄完整正文。' },
+                        { num: '②', title: '20分钟理解', desc: '学习一个小范围；每看完一段就停下来用自己的话复述。', detail: '<b>建议：</b>一次只处理一个概念或一种题型。遇到推导时，每一步都问“从什么条件得到这一步”。复述失败才回看。' },
+                        { num: '③', title: '10分钟连接', desc: '写一条旧知联系、一处区别或一条因果链。', detail: '<b>例子：</b>“功率是做功快慢；电功率同样表示能量转化快慢，但情境和变量不同。”连接必须写出关系含义。' },
+                        { num: '④', title: '10分钟应用', desc: '做1道直接题和1道轻微变式题，并标出具体卡点。', detail: '<b>卡点写法：</b>写“不会判断串联电路电流关系”，不要写“粗心”或“整题不会”。如果基础题失败，结束变式题并回例题。' },
+                        { num: '⑤', title: '5分钟收尾', desc: '闭卷说一遍核心内容，记录下一次复习日期。', detail: '<b>收尾记录：</b>今天学会了什么；与什么旧知识相连；仍缺什么；明天或到期时要用什么问题检测。' }
+                    ] } }
+                },
+                review: {
+                    title: '学习后怎么复习',
+                    icon: 'sync_alt',
+                    desc: '复习负责确认是否还会，不负责把今天所有资料再看一遍。',
+                    when: '当天收尾、间隔日期到期或周末整理时。',
+                    done: '在无提示条件下讲清并通过题目；失败项有明确回退动作和下次日期。',
+                    timeGranules: ['daily'],
+                    granules: { daily: { label: '复习判断流程', steps: [
+                        { num: '①', title: '不看资料先测试', desc: '口头解释、空白纸默写或做一道题，三选一或组合使用。', detail: '<b>选择：</b>概念用口头解释；公式与结构用空白纸；应用能力用题目。先测再看，才能发现真实记忆。' },
+                        { num: '②', title: '定位具体缺口', desc: '区分是忘记、漏条件、连接失败还是应用失败。', detail: '<b>例子：</b>能写公式但不知道什么时候使用，属于条件或知识调用问题，不属于单纯遗忘。分类决定接下来查定义、做对比还是练题。' },
+                        { num: '③', title: '只修缺口并重测', desc: '查看最少必要资料，合上后立即重新解释或再做一题。', detail: '<b>原则：</b>纠正必须以再次输出结束。只看懂答案会产生熟悉感，但不能证明下次仍会。' },
+                        { num: '④', title: '决定下一次日期', desc: '依据检测结果升级、保持或退回，不机械照抄间隔表。', detail: '<b>记录：</b>日期 + 检测方式，例如“9月1日：闭卷解释条件并做1道变式题”。连续在不同题目上正确应用后再归档。' }
+                    ] } }
+                },
+                routing: {
+                    title: '卡住时走哪条路',
+                    icon: 'alt_route',
+                    desc: '先诊断问题，不要遇到任何困难都靠重看或刷更多题。',
+                    when: '学习没有进展、同类错误重复或不知道该打开哪个板块时。',
+                    done: '能选出唯一的下一步动作，而不是继续收集方法。',
+                    timeGranules: ['daily'],
+                    granules: { daily: { label: '问题 → 下一步', steps: [
+                        { num: '①', title: '完全讲不清', desc: '回教材定义、引言和一个最简单的例子，再合书解释。', detail: '<b>不要做：</b>直接刷综合题。<p><b>下一步：</b>进入“学习→学习”，整理概念、条件和例子；能做基础题后再离开。</p>' },
+                        { num: '②', title: '知识点各自会，但连不起来', desc: '写出前置关系、共同变量或因果链，再做一道双知识点题。', detail: '<b>问题：</b>哪个知识点提供中间量？哪个知识点使用这个中间量？<p><b>例子：</b>先用受力求加速度，再用运动学求位移。</p>' },
+                        { num: '③', title: '学过但想不起来', desc: '停止重读，先做闭卷提示回忆，并把下一次间隔缩短。', detail: '<b>提示顺序：</b>先看标题，再看关键词，最后才看完整答案。每次只增加一层提示，重说成功后安排第二天检测。' },
+                        { num: '④', title: '会讲但不会做题', desc: '回例题预测下一步，再做结构相似的基础题。', detail: '<b>重点：</b>写出题目信息如何触发知识点。不要只抄完整解答；遮住下一步，先预测，再解释为什么。' },
+                        { num: '⑤', title: '知道该做但无法开始', desc: '只保留一个任务，做两分钟，并把手机移出视线。', detail: '<b>例子：</b>不是“开始复习”，而是“打开错题页并口头解释第一题的核心原理”。两分钟后再决定是否继续一个番茄钟。' }
+                    ] } }
+                }
+            }
+        },
         learn: {
             label: '学习',
             icon: 'menu_book',
@@ -1385,7 +1513,7 @@
                             steps: [
                                 { num: '①', title: '把手机移出视线', desc: '静音后放到另一个房间或书包深处；不要放在桌面上考验意志力。' },
                                 { num: '②', title: '打造固定启动仪式', desc: '每次开始学习前，固定做同一套动作：清理桌面 → 倒一杯水 → 到学习地点 → 按下计时器。可以实际比较家里、图书馆等不同地点的专注度和完成量，找出最适合自己的环境，再将它固定为启动线索。不设定“多少天一定形成习惯”的硬性承诺。' },
-                                { num: '③', title: '休息不刷短视频', desc: '用25+5或50+10；休息只做喝水、拉伸、远眺等低刺激活动。' },
+                                { num: '③', title: '休息不刷短视频', desc: '用25+5或50+10；休息只做喝水、拉伸、远眺等低刺激活动。<div class="pomodoro-preset-actions"><button onclick="event.stopPropagation(); launchPomodoroPreset(\'standard\')">用 25+5 开始</button><button onclick="event.stopPropagation(); launchPomodoroPreset(\'deep\')">用 50+10 开始</button></div>' },
                                 { num: '④', title: '一个专注段只做一件事', desc: '中途冒出的其他任务先记在纸上，等计时结束再处理。' }
                             ]
                         }
@@ -1394,6 +1522,85 @@
             }
         }
     };
+
+    const EXPANDED_DETAILS = {
+        '定今天的结果': '<b>为什么：</b>“学习物理”没有终点，容易做了很久仍不知道是否完成。<p><b>怎么定：</b>写成“动作 + 范围 + 检测”。例如：闭卷解释电磁感应方向，并独立做2道基础题。</p><p><b>优先级：</b>先最大短板，再维持强项；每科只留一个结果。</p>',
+        '第1步 · 理解': '<b>详细操作：</b>学完一个小知识点就暂停，合上资料回答“是什么、为什么、什么时候用、举一个例子”。<p><b>判断：</b>如果只能背原句、漏使用条件或基础题不会，就还没有完成理解。</p>',
+        '第2步 · 连接': '<b>可以连接什么：</b>前置知识、相似与区别、因果关系、共同变量、同一题型或现实情境。<p><b>例子：</b>“合力 → 加速度 → 速度变化”，说明受力知识怎样调用运动学知识。</p><p><b>有效连接：</b>必须说清为什么有关，不能只写两个名词。</p>',
+        '第3步 · 间隔复习': '<b>操作：</b>先遮住答案解释或做题，再看资料。快、准、全就延长；漏条件保持；看答案才想起就第二天再测。<p><b>例子：</b>今天学会，明天闭卷讲；若顺利再排第3天，失败则仍排明天。</p>',
+        '第4步 · 应用': '<b>难度顺序：</b>直接题 → 改条件的变式题 → 两个知识点的综合题 → 现实或实验解释。<p><b>例子：</b>学习压强后，先算基础题，再解释雪鞋为什么宽，最后连接受力分析处理斜面问题。</p>',
+        '今日闭环与三句总结': '<b>完成证据：</b>能讲清、能写一条有效联系、能做一道题、已记录下次日期。<p><b>三句模板：</b>我今天真正理解了___；它与___的关系是___；我将在___用___方式复习。</p>',
+        '理解 + 连接': '<b>上午安排：</b>第1个专注段筛选2–3个模糊点；中间两个专注段逐个理解；最后一个专注段闭书画联系图。<p><b>不要做：</b>从头重抄整周笔记或同时处理多个科目。</p>',
+        '应用 + 纠错': '<b>下午安排：</b>先用基础题热身，再做变式或综合题；每次错误只记录最主要的具体原因。<p><b>例子：</b>不要写“粗心”，写“没有检查单位”或“没识别出守恒条件”。</p>',
+        '间隔复习 + 下周安排': '<b>晚上安排：</b>第一个25分钟检查到期知识和长期错题；休息后用第二个25分钟选择下周2–3个主攻块。<p><b>停止标准：</b>安排完成后结束学习，不用为了坐满一天增加低质量任务。</p>',
+        '随机抽测': '<b>怎么抽：</b>从已经标记掌握的内容随机选10项，避免只挑熟悉的。<p><b>怎么看结果：</b>答对率低于90%，或同一类条件连续漏掉，就重新进入下周期清单。</p>',
+        '深度专项训练': '<b>适用条件：</b>同一种错误连续出现，而不是偶尔错一次。<p><b>例子：</b>连续漏边界条件，就集中练“判断公式能否使用”，暂时不练复杂计算。</p>',
+        '模拟考节奏': '<b>怎么做：</b>按正式考试计时、隔离手机、按分值分配时间。超时且没有新进展时写下卡点并跳过。<p><b>考后：</b>按知识、调用、流程和时间四类统计，不只看总分。</p>',
+        '新题拆解训练': '<b>三步：</b>先去数字看发生的过程；再把条件写成符号；最后从问题倒推需要的中间量。<p><b>目的：</b>训练识别结构，不要求每天把3道题全部算完。</p>',
+        '错题费曼大扫荡': '<b>怎么讲：</b>不动笔先说核心原理、使用条件和解题顺序。<p><b>判断：</b>讲不顺就标红、查证、第二天重测；最后一天只看仍然标红的短清单。</p>',
+        '预览 (Preview)': '<b>看什么：</b>标题、小标题、图表、加粗词；先不看完整正文和推导。<p><b>目的：</b>建立章节地图，找出可能的重点与冲突。</p>',
+        '预测 (Predict)': '<b>怎么说：</b>用一句话预测“先讲A，再解释B，最后解决C”。预测错没有关系，它会让听课时更容易发现新信息。',
+        '连接 (Connect)': '<b>问题：</b>这个新内容依赖什么旧知识？和什么相似或相反？<p><b>例子：</b>电磁感应和磁场方向都涉及电与磁，但解决的问题和判断规则不同。</p>',
+        '提问 (Question)': '<b>好问题：</b>必须具体并能在课堂中寻找答案，例如“为什么公式有负号”“这个结论在什么条件下失效”。<p><b>避免：</b>“这章难不难”“我能不能学会”一类无法指导学习的问题。</p>',
+        '右侧主栏（Record）': '<b>课堂操作：</b>按大小标题记录定义、公式、推导与例题，留出空白方便补充。<p><b>重点：</b>准确、可查找；不是逐字抄老师说的所有话。</p>',
+        '左侧线索栏（Reduce）': '<b>课后操作：</b>把右栏压缩成关键词和问题，例如“默写公式并说明不能使用的情况”。<p><b>判断：</b>看到左栏应该能触发一段完整回忆，而不是直接泄露答案。</p>',
+        '底部总结栏（Reflect）': '<b>写什么：</b>用自己的话写核心概念、成立原因、使用条件、实际用途和常见错误。<p><b>例子：</b>不要抄定义；写“这个公式只在___条件下使用，最容易漏掉___”。</p>',
+        '先闭卷回忆': '<b>选择方式：</b>概念用口头解释，公式和结构用空白纸，应用能力用一道题。<p><b>原则：</b>先测再看，才能区分“熟悉”与“真正会”。</p>',
+        '再对照纠正': '<b>怎么纠正：</b>只看漏掉的一句、一个条件或一步推导；合上资料后立即重说。<p><b>不要做：</b>因为漏一个条件就重新阅读整章。</p>',
+        '用题目验证': '<b>选题：</b>先选直接使用该知识的基础题。<p><b>结果：</b>会讲不会做，通常说明知识调用或步骤不清，需要回例题预测步骤，而不是继续背定义。</p>',
+        '安排下次复习': '<b>记录格式：</b>日期 + 检测方式，例如“9月1日：闭卷解释条件并做1道变式题”。<p><b>归档：</b>在不同题目上连续正确应用后再停止高频复查。</p>',
+        '写三句总结（可选）': '<b>用途：</b>把当天的理解、连接和下一步压缩成可追踪记录。<p><b>什么时候省略：</b>状态很差时可只完成闭卷检测、纠正、题目验证和日期安排。</p>',
+        '只筛不会的': '<b>筛选来源：</b>△、○、红灯、反复错题和知识图中的红笔补漏。<p><b>原则：</b>已经稳定掌握的内容不平均重复复习。</p>',
+        '画一张知识联系图': '<b>最小结构：</b>核心概念、公式、条件、相似区别和一个题型。<p><b>例子：</b>用箭头写明“提供中间量”“限制使用条件”或“可以相互转换”，不要只连线。</p>',
+        '决定下周重点': '<b>选择依据：</b>考试权重、当前薄弱程度和投入回报。<p><b>输出：</b>只留下2–3个主攻块，每个都写下一次学习或应用任务。</p>',
+        '红绿灯是什么': '<b>用途：</b>快速扫描考纲覆盖情况，不替代日常学习。<p><b>频率：</b>需要检查大范围遗漏时再用，不必每周完整审一遍所有章节。</p>',
+        '绿灯 · 已掌握': '<b>标准：</b>不用提示就能解释核心公式、字母意义、单位和使用条件，并能做基础题。<p><b>动作：</b>延长复查，不继续重复投入。</p>',
+        '黄灯 · 模糊': '<b>标准：</b>有印象但漏公式部分、单位或条件。<p><b>动作：</b>只针对缺口制作一张卡片或一次短检测，避免重新学习整章。</p>',
+        '红灯 · 空白': '<b>标准：</b>无法解释章节在解决什么问题，或基础公式完全无法回忆。<p><b>动作：</b>回引言、定义和一道例题；合书解释、写公式、做基础题，第二天重测。</p>',
+        '执行步骤': '<b>完整顺序：</b>按考纲逐条检测→标色→只处理黄灯和红灯→记录下次日期。<p><b>重点：</b>颜色由闭卷表现决定，不由“看起来熟悉”决定。</p>',
+        '汇总旧知识信号': '<b>收集：</b>过去两周的△、○、黄灯、红灯、重复错题和知识图补漏。<p><b>目的：</b>把分散的问题汇成候选清单，而不是马上全部重学。</p>',
+        '只选2–3个薄弱块': '<b>排序：</b>先考试权重大且影响后续知识的内容，再看错误频率。<p><b>输出：</b>每个薄弱块必须对应一个可执行任务和复查日期。</p>',
+        '完全不会': '<b>识别：</b>连核心公式、定义或第一步都写不出。<p><b>处理：</b>先看例题，遮住下一步预测，解释原因，合书重做，再做一道相似基础题。</p>',
+        '会公式但不会用': '<b>识别：</b>能默写公式，但不知道题目中的哪些信息触发它。<p><b>处理：</b>逐题写“已知信息→知识点→为什么调用”，专练知识调用。</p>',
+        '会基础题但怕陌生题': '<b>处理：</b>去掉数字看过程、把条件符号化、从问题倒推中间量。<p><b>综合题：</b>先列已知、隐含条件和待求量，再决定知识链。</p>',
+        '考纲节点': '<b>怎么填：</b>写到可以回到教材的最小章节，例如“Physics 2.3 动量守恒条件”，不要只写“力学”。',
+        '根本原因': '<b>怎么选：</b>选最早导致错误的主要原因。若因为没识别条件而用了错误定理，优先记“边界条件错”，不是“计算粗心”。',
+        '下次检查日期': '<b>怎么定：</b>依据本次检测表现安排；同时写明下次用解释、基础题还是变式题检测。',
+        '核心原理': '<b>回答示例：</b>“本题核心是动量守恒，因为研究对象在该方向受到的外部冲量可忽略。”只说定理名称不够。',
+        '公式/变量': '<b>回答要求：</b>说出公式、每个变量的意义与单位，并说明题目中的量分别对应哪个变量。',
+        '边界条件': '<b>检查：</b>公式成立需要哪些前提？题目哪个信息证明前提满足？若不满足应换什么方法？',
+        '执行轨迹': '<b>说法：</b>先求什么、它为下一步提供什么、最后怎样得到所求量。重点是因果顺序，不是背答案步骤。',
+        '病因统计': '<b>操作：</b>统计本周错题的首要原因，找最高频的一类。题目太少时不必计算比例，直接看重复模式。',
+        '只纠正最高频的一类': '<b>例子：</b>条件错就专练判断前提；定理用错就并排比较题干信号；流程错就固定使用检查清单。一次只纠正一种能力。',
+        '抽查长期错题': '<b>怎么抽：</b>从7天、14天错题随机选择，不先看解答。先讲再决定是否需要重算，减少无效的整题抄写。',
+        '数据汇总': '<b>看什么：</b>过去两周哪类错误重复最多、哪些考纲节点反复出现，以及专项训练后是否下降。',
+        '每周2次高保真模拟考': '<b>环境：</b>正式计时、无手机、无音乐。<p><b>时间：</b>按分值预算；超时无进展就写下公式和卡点、先跳过，最后返回。</p>',
+        '考后统计': '<b>记录：</b>总分之外，还要记录知识缺口、调用失败、步骤错误和时间分配。下一次训练只针对主要失分来源。',
+        '去数字化': '<b>操作：</b>暂时忽略具体数值，只用一句话描述发生了什么过程，例如“物体受恒力后速度改变”。',
+        '符号化': '<b>操作：</b>把已知条件写成变量和关系式，同时标注单位与方向，减少文字信息负担。',
+        '逆向推导': '<b>操作：</b>从最终问题开始问“直接求它需要什么”，一直倒推到题目已经给出的量。',
+        '强弱科分流': '<b>强科：</b>用套卷和教材扫描找细节漏洞。<p><b>弱科：</b>套卷定位问题→回教材→基础题→同类题→再用套卷检测。</p>',
+        '打印/摊开所有长期错题': '<b>范围：</b>只选已经进入7天、14天间隔或仍然标红的错题，不把所有历史错题重新做一遍。',
+        '快速费曼讲解': '<b>每题回答：</b>考什么、为什么用、成立条件是什么、解题顺序是什么。能快速讲清才算通过。',
+        '标红冲刺': '<b>规则：</b>只保留仍讲不通的少量问题。最后一天查短清单，不新增难题或大范围重学。',
+        '先删任务': '<b>操作：</b>把清单分成“今天必须完成”和“有余力再做”，必须项最多3个。先删除低回报任务，再估时间。',
+        '把任务写到能直接开始': '<b>公式：</b>动作 + 对象 + 数量/范围 + 完成判断。<p><b>例子：</b>“完成5道电磁感应基础题，错题能说出错误原因”。</p>',
+        '记录真实用时': '<b>记录：</b>预估番茄钟、实际番茄钟和主要中断原因。一周后比较同类任务，调整下一周计划。',
+        '状态差先检查底座': '<b>顺序：</b>先睡眠，再情绪，再环境，最后才考虑任务难度。连续几天状态差时降低目标或更换地点。',
+        '只保留一个任务': '<b>做法：</b>把其他任务暂时折叠或写到旁边，桌面只留下当前需要的材料，减少“先做哪个”的决策。',
+        '先做两分钟': '<b>例子：</b>打开题目、圈出已知条件并写第一条公式。两分钟的目标是启动，不是完成整项任务。',
+        '精力最好时先做最重要的': '<b>怎么找：</b>根据过去记录确定自己上午、下午或晚上的高状态时段；把最重要的认知任务放在那里，而不是机械照搬别人的作息。',
+        '把手机移出视线': '<b>具体做法：</b>静音、关闭通知，放到另一个房间或书包深处。若必须计时，使用电脑或独立计时器。',
+        '打造固定启动仪式': '<b>示例：</b>清桌面→倒水→放好唯一资料→启动计时器。动作要短且固定，用来减少开始前的犹豫。',
+        '休息不刷短视频': '<b>替代活动：</b>喝水、走动、拉伸、远眺。高刺激内容容易让5分钟休息变成长时间中断。',
+        '一个专注段只做一件事': '<b>中断处理：</b>突然想到其他任务时先写在“稍后”纸条上，不立刻切换；计时结束后再判断是否处理。'
+    };
+
+    function renderExpandedDetails(title, directDetail) {
+        const content = directDetail || EXPANDED_DETAILS[title];
+        if (!content) return '';
+        return `<details class="more-details"><summary>查看详细说明</summary><div class="more-details-body">${content}</div></details>`;
+    }
 
     /* =========================================
        STATE
@@ -1469,6 +1676,7 @@
 
         // Set default sub-tab
         if (tab === 'learn') STATE.subTab = 'preview';
+        if (tab === 'workflow') STATE.subTab = 'core';
         if (tab === 'practice') STATE.subTab = 'daily';
         if (tab === 'exam') STATE.subTab = '2weeks';
         if (tab === 'procrastination') STATE.subTab = 'mindset';
@@ -1498,6 +1706,13 @@
         STATE.timeGranule = granule;
         saveState();
         render();
+    }
+
+    function launchPomodoroPreset(preset) {
+        if (preset !== 'standard' && preset !== 'deep') return;
+        localStorage.setItem('pomodoro_launch_preset', preset);
+        const destination = window.top.location.protocol === 'file:' ? 'Pomodoro.html' : '/pomodoro';
+        window.top.location.href = destination;
     }
 
     function render() {
@@ -1666,12 +1881,14 @@
                             <div class="timeline-title">${item.title}</div>
                             <span class="priority-badge ${item.required ? 'required' : 'optional'}">${item.required ? '必做' : '选做'}</span>
                             <div class="timeline-desc">${item.desc}</div>
+                            ${renderExpandedDetails(item.title, item.detail)}
                             <div class="checklist-item mt-2" role="button" tabindex="0" aria-label="${item.title}：标记完成" onclick="toggleTodayCheck('${dateKey}', '${item.checkKey}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTodayCheck('${dateKey}', '${item.checkKey}')}" >
                                 <div class="checklist-checkbox ${checked ? 'checked' : ''}">
                                     <span class="material-icons-round" style="font-size: 16px;">${checked ? 'check' : ''}</span>
                                 </div>
                                 <div class="checklist-label ${checked ? 'done' : ''}">${checked ? '已完成' : '标记为已完成'}</div>
-                                </div>
+                            </div>
+                        </div>
                     `;
                 }).join('')}
             </div>
@@ -1779,6 +1996,7 @@
                                 <div>
                                     <div class="method-step-title">${step.title}</div>
                                     <div class="method-step-desc">${step.desc}</div>
+                                    ${renderExpandedDetails(step.title, step.detail)}
                                 </div>
                             </div>
                         `).join('')}
@@ -1818,6 +2036,7 @@
                                         <div class="method-step-title">${row.state}</div>
                                         <div class="method-step-desc"><b>操作：</b>${row.action}</div>
                                         <div class="method-step-desc mt-2"><b>要点：</b>${row.note}</div>
+                                        ${renderExpandedDetails(row.state, row.detail)}
                                     </div>
                                 </div>
                             `).join('')}
@@ -1828,6 +2047,7 @@
                                     <div>
                                         <div class="method-step-title">${f.name}</div>
                                         <div class="method-step-desc">${f.desc}</div>
+                                        ${renderExpandedDetails(f.name, f.detail)}
                                     </div>
                                 </div>
                             `).join('')}
@@ -1839,6 +2059,7 @@
                                     <div>
                                         <div class="method-step-title">${d.name}</div>
                                         <div class="method-step-desc">${d.desc}</div>
+                                        ${renderExpandedDetails(d.name, d.detail)}
                                     </div>
                                 </div>
                             `).join('')}
@@ -1847,6 +2068,7 @@
                             </div>
                         ` : `
                             <div class="method-step-desc">${sec.details || sec.desc || ''}</div>
+                            ${renderExpandedDetails(sec.title, sec.detail)}
                         `}
                         
                         <div class="checklist-item mt-4" role="button" tabindex="0" aria-label="标记此项完成" onclick="toggleModuleCheck('${progressKey}_${si}', 'done')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleModuleCheck('${progressKey}_${si}', 'done')}" >
