@@ -110,7 +110,7 @@ const ANALYSIS_PROMPT_ZH = `你是一位专业的学科老师，负责分析考�
 {
   "questions": [
     {
-      "type": "multiple_choice | multi_select | fill_blank | essay | true_false | matching | ordering",
+      "type": "multiple_choice | multi_select | fill_blank | numeric | short_answer | essay | true_false | matching | ordering",
       "questionText": "题目内容",
       "options": [{"label": "A", "text": "..."}, ...] 或 null,
       "correctAnswer": "正确答案",
@@ -122,7 +122,9 @@ const ANALYSIS_PROMPT_ZH = `你是一位专业的学科老师，负责分析考�
 规则：
 - 选择题(选择题)：提取所有选项(A/B/C/D)，correctAnswer填写正确选项的字母+内容
 - 填空题(填空题)：correctAnswer为缺失的词/短语
-- 简答题(简答题)：correctAnswer为答案要点概述
+- 数值计算题：type为numeric，correctAnswer写数值、单位和允许的误差（如适用）
+- 简答题：type为short_answer，correctAnswer为核心答案要点
+- 论述题/大题：type为essay，correctAnswer为评分点与答案纲要
 - 判断题(判断题)：options应为[{"label":"正确","text":"正确"},{"label":"错误","text":"错误"}]
 - 多选题：type为multi_select，options列出所有选项，correctAnswer用逗号分隔所有正确选项字母（如"A,C,D"）
 - 匹配题：type为matching，每个option是一条完整配对，correctAnswer用逗号分隔所有正确配对的label
@@ -137,7 +139,7 @@ const ANALYSIS_PROMPT_EN = `You are an expert teacher analyzing exam questions. 
 {
   "questions": [
     {
-      "type": "multiple_choice | multi_select | fill_blank | essay | true_false | matching | ordering",
+      "type": "multiple_choice | multi_select | fill_blank | numeric | short_answer | essay | true_false | matching | ordering",
       "questionText": "The question text",
       "options": [{"label": "A", "text": "..."}, ...] or null,
       "correctAnswer": "The correct answer text",
@@ -149,6 +151,8 @@ const ANALYSIS_PROMPT_EN = `You are an expert teacher analyzing exam questions. 
 Rules:
 - For multiple_choice: extract all options (A/B/C/D), set correctAnswer to the correct choice letter+text
 - For fill_blank: correctAnswer is the missing word/phrase
+- For numeric: correctAnswer includes the value, unit and accepted tolerance when relevant
+- For short_answer: correctAnswer is a concise set of marking points
 - For essay: correctAnswer is the expected answer outline
 - For true_false: options should be [{"label":"True","text":"True"},{"label":"False","text":"False"}]
 - For multi_select, matching and ordering: return every item in options and use a comma-separated label list in correctAnswer; preserve the correct sequence for ordering

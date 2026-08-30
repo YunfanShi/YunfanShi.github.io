@@ -1,6 +1,17 @@
 const PORTAL = 'https://jackyun.top';
 const VERSION = chrome.runtime.getManifest().version;
 const DEFAULT_PREFERENCES = { enabled: true, countAI: true, idleSeconds: 60, goalMinutes: 120, retentionDays: 365, savePageTitles: false };
+const DEFAULT_SAFEGUARD = {
+  enabled: true,
+  blockChinese: true,
+  translationGraceMinutes: 2,
+  translatedSessionMinutes: 60,
+  studySessionMinutes: 30,
+  activeCategories: { Pornography: true, Videos: false, Novels: false, Gaming: false, Social: false },
+  customSites: [],
+  customEducationHosts: [],
+  customEntertainmentHosts: [],
+};
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   supabaseUrl: 'https://gdcwwlnzylrzrqhaaljq.supabase.co',
@@ -135,6 +146,64 @@ async function preferences() {
   return { ...DEFAULT_PREFERENCES, ...(stored.preferences || {}) };
 }
 
+function normalizeHostList(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => String(item || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/:?#]/)[0]).filter(Boolean))].slice(0, 500);
+}
+
+async function safeguardConfig() {
+  const stored = await local.get(['safeguard']);
+  const raw = stored.safeguard && typeof stored.safeguard === 'object' ? stored.safeguard : {};
+  return {
+    ...DEFAULT_SAFEGUARD,
+    ...raw,
+    activeCategories: { ...DEFAULT_SAFEGUARD.activeCategories, ...(raw.activeCategories || {}) },
+    customSites: Array.isArray(raw.customSites) ? raw.customSites.slice(0, 1000) : [],
+    customEducationHosts: normalizeHostList(raw.customEducationHosts),
+    customEntertainmentHosts: normalizeHostList(raw.customEntertainmentHosts),
+  };
+}
+
+async function saveSafeguardConfig(value) {
+  const current = await safeguardConfig();
+  const next = {
+    ...current,
+    ...(value && typeof value === 'object' ? value : {}),
+    activeCategories: { ...current.activeCategories, ...(value?.activeCategories || {}) },
+    customEducationHosts: normalizeHostList(value?.customEducationHosts ?? current.customEducationHosts),
+    customEntertainmentHosts: normalizeHostList(value?.customEntertainmentHosts ?? current.customEntertainmentHosts),
+  };
+  await local.set({ safeguard: next });
+  return next;
+}
+
+function sessionKey(hostname) {
+  const normalized = String(hostname || '').trim().toLowerCase().replace(/^www\./, '');
+  return normalized ? `safeguard:${normalized}` : null;
+}
+
+async function getSafeguardSession(hostname) {
+  const key = sessionKey(hostname);
+  if (!key) return null;
+  const stored = await session.get([key]);
+  const value = stored[key];
+  if (!value || Number(value.expiresAt) <= Date.now()) {
+    await session.remove([key]);
+    return null;
+  }
+  return value;
+}
+
+async function setSafeguardSession(payload) {
+  const key = sessionKey(payload?.hostname);
+  const mode = String(payload?.mode || '');
+  const expiresAt = Number(payload?.expiresAt || 0);
+  if (!key || !['translate', 'translated', 'study'].includes(mode) || expiresAt <= Date.now()) throw new Error('Invalid SafeGuard session');
+  const value = { mode, expiresAt: Math.min(expiresAt, Date.now() + 4 * 60 * 60 * 1000) };
+  await session.set({ [key]: value });
+  return value;
+}
+
 async function recordActivity(payload) {
   const prefs = await preferences();
   if (!prefs.enabled || (payload.category === 'AI 助手' && !prefs.countAI)) return;
@@ -255,6 +324,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'SAVE_PAGE') return api('/learning-queue', { method: 'POST', body: JSON.stringify(message.page) });
     if (message.type === 'GET_QUEUE') return api('/learning-queue');
     if (message.type === 'IMPORT_LITE') return importLiteData(message.payload);
+    if (message.type === 'SAFEGUARD_GET_CONFIG') return safeguardConfig();
+    if (message.type === 'SAFEGUARD_SAVE_CONFIG') return saveSafeguardConfig(message.payload);
+    if (message.type === 'SAFEGUARD_GET_SESSION') return getSafeguardSession(message.hostname);
+    if (message.type === 'SAFEGUARD_SET_SESSION') return setSafeguardSession(message.payload);
     return null;
   })().then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
   return true;

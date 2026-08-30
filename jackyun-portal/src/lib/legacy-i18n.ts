@@ -39,9 +39,11 @@ export function legacyLanguageBridge(language: Language): string {
     for (var i = 0; i < attrs.length; i++) {
       var el = attrs[i]; ['placeholder', 'title', 'aria-label'].forEach(function(attr) {
         var value = el.getAttribute(attr); if (!value) return;
-        var key = '__jyOriginal_' + attr;
-        if (!el.dataset[key]) el.dataset[key] = value;
-        el.setAttribute(attr, language === 'en' ? translate(el.dataset[key]) : el.dataset[key]);
+        // dataset keys cannot contain hyphens ("aria-label" used to throw here
+        // and abort translation/initialisation for the whole legacy page).
+        var key = '__jyOriginal_' + attr.replace(/-/g, '_');
+        if (el[key] === undefined) el[key] = value;
+        el.setAttribute(attr, language === 'en' ? translate(el[key]) : el[key]);
       });
     }
   }

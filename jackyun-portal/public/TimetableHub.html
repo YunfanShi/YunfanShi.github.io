@@ -714,7 +714,7 @@ let gridDur=GRID_HOURS;  // 当前时间轴小时数
 
 // ===== HELPERS =====
 function $(id){return document.getElementById(id)}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'})[c])}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function msg(m){const el=$('snackbar');$('snackM').textContent=m;el.classList.add('s');clearTimeout(msg._t);msg._t=setTimeout(()=>el.classList.remove('s'),2500)}
 function oM(id){$(id).classList.add('o')}

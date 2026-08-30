@@ -559,8 +559,37 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'quiz'],
     handler: async (params) => {
       const questionText = params.question_text || '';
+      if (!questionText.trim()) return '请提供完整题目文本';
       localStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text: questionText }));
+      window.dispatchEvent(new CustomEvent('quizwise-ai-command'));
       return '已将题目发送到 QuizWise 进行分析，请打开 QuizWise 页面查看结果';
+    },
+  },
+  {
+    id: 'generate_quiz',
+    name: '生成 QuizWise 测验',
+    description: `根据用户要求生成一组题目，并直接送入 QuizWise。
+
+参数说明：
+- questions_text (必填)：你生成的完整题目文本，必须包含题目、选项（如适用）和可判断的答案线索
+- subject (可选)：科目名称
+
+可混合使用：单选、多选、判断、填空、数值计算、简答、论述、匹配与排序题。
+
+调用示例：
+\`\`\`tool_call
+{"tool":"generate_quiz","params":{"subject":"A-Level Mathematics","questions_text":"1. ...\\nA) ...\\nB) ..."}}
+\`\`\`
+
+先按用户指定的科目、难度、数量和题型生成高质量题目，再调用本工具。`,
+    scope: ['global', 'dashboard', 'quiz'],
+    handler: async (params) => {
+      const text = params.questions_text || params.question_text || '';
+      if (text.trim().length < 10) return '生成内容太短，请提供完整题目后重试';
+      localStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text, subject: params.subject || '' }));
+      window.dispatchEvent(new CustomEvent('quizwise-ai-command'));
+      if (!window.location.pathname.startsWith('/quiz')) window.open('/quiz', '_self');
+      return `已生成测验并发送到 QuizWise${params.subject ? `（${params.subject}）` : ''}`;
     },
   },
 
@@ -2187,6 +2216,7 @@ const TOOL_SHORT_DESC: Record<string, string> = {
   get_progress: '查学科进度',
   get_countdown: '查倒计时',
   analyze_question: '分析题目',
+  generate_quiz: '生成测验并送入 QuizWise',
   search_web: '搜索网页',
   calculate: '数学计算',
   set_reminder: '设置提醒',
@@ -2524,7 +2554,7 @@ export function getPageContext(source: ConversationSource): string {
 【🧠 刷题数据】（localStorage key: quizwise_current_questions）
   📖 可读取：当前题目列表、科目
   ✏️ 可操作：分析题目（发送到页面）
-  🛠 使用工具：read_quiz_data、analyze_question
+  🛠 使用工具：read_quiz_data、analyze_question、generate_quiz
 
 【💡 其他能力】
   🧮 计算、🕐 查看时间
@@ -2676,7 +2706,7 @@ export function getPageContext(source: ConversationSource): string {
 【📋 日程中心】→ get_schedule / get_current_task / toggle_task_done / skip_task / read_timetable / read_schedule_results / create_schedule_from_goal / analyze_schedule_and_suggest
 【📚 学习计划】→ get_today_schedule / get_progress / get_countdown / read_traffic_audit / manage_traffic_audit / read_study_progress
 【⏱ 考试倒计时】→ read_countdown / manage_countdown / get_countdown
-【🧠 QuizWise】→ read_quiz_data / analyze_question
+【🧠 QuizWise】→ read_quiz_data / analyze_question / generate_quiz
 【🎵 音乐】→ play_music / stop_music
 【⏱ 计时器】→ start_timer / stop_timer
 【🔍 搜索/工具】→ search_web / calculate / set_reminder / get_weather / open_app / current_time

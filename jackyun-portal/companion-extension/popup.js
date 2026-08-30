@@ -2,10 +2,20 @@ const $ = (selector) => document.querySelector(selector);
 const send = (message) => chrome.runtime.sendMessage(message).then((response) => { if (!response?.ok) throw new Error(response?.error || '操作失败'); return response.result; });
 let status = null;
 let currentTab = null;
+let safeguard = null;
 function minutes(seconds) { return Math.round(Number(seconds || 0) / 60); }
 function notice(text, error = false) { $('#notice').textContent = text; $('#notice').style.color = error ? '#b3261e' : '#1967d2'; }
 async function render() {
-  status = await send({ type: 'STATUS' });
+  [status, safeguard] = await Promise.all([send({ type: 'STATUS' }), send({ type: 'SAFEGUARD_GET_CONFIG' })]);
+  $('#sg-enabled').checked = safeguard.enabled;
+  $('#sg-chinese').checked = safeguard.blockChinese;
+  $('#sg-porn').checked = Boolean(safeguard.activeCategories?.Pornography);
+  $('#sg-videos').checked = Boolean(safeguard.activeCategories?.Videos);
+  $('#sg-gaming').checked = Boolean(safeguard.activeCategories?.Gaming);
+  $('#sg-grace').value = safeguard.translationGraceMinutes;
+  $('#sg-study').value = safeguard.studySessionMinutes;
+  $('#sg-education').value = (safeguard.customEducationHosts || []).join('\n');
+  $('#sg-entertainment').value = (safeguard.customEntertainmentHosts || []).join('\n');
   $('#signed-in').hidden = !status.signedIn;
   $('#signed-out').hidden = status.signedIn;
   $('#sync-state').textContent = status.signedIn ? (status.lastSyncAt ? `已同步 · ${new Date(status.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '等待首次同步') : '尚未登录';
@@ -47,5 +57,21 @@ $('#lite-file').addEventListener('change', async (event) => {
     notice(`已导入 ${result.imported} 条 Lite 网站记录`);
   } catch (error) { notice(error.message, true); }
   event.target.value = '';
+});
+function hostLines(selector) { return $(selector).value.split(/[,\s;|]+/).map((value) => value.trim()).filter(Boolean); }
+$('#sg-save').addEventListener('click', async () => {
+  try {
+    safeguard = await send({ type: 'SAFEGUARD_SAVE_CONFIG', payload: {
+      ...safeguard,
+      enabled: $('#sg-enabled').checked,
+      blockChinese: $('#sg-chinese').checked,
+      translationGraceMinutes: Math.max(1, Math.min(10, Number($('#sg-grace').value) || 2)),
+      studySessionMinutes: Math.max(5, Math.min(120, Number($('#sg-study').value) || 30)),
+      activeCategories: { ...safeguard.activeCategories, Pornography: $('#sg-porn').checked, Videos: $('#sg-videos').checked, Gaming: $('#sg-gaming').checked },
+      customEducationHosts: hostLines('#sg-education'),
+      customEntertainmentHosts: hostLines('#sg-entertainment'),
+    } });
+    notice('SafeGuard 设置已保存；刷新网页后应用');
+  } catch (error) { notice(error.message, true); }
 });
 render().catch((error) => notice(error.message, true));

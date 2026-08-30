@@ -11,10 +11,43 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
   const [value, setValue] = useState(initialValue);
   const [status, setStatus] = useState('');
   const localKey = `jackyun_settings_${sectionKey}`;
-  useEffect(() => { try { const local = localStorage.getItem(localKey); if (local) queueMicrotask(() => setValue({ ...initialValue, ...JSON.parse(local) })); } catch {} }, [initialValue, localKey]);
+  useEffect(() => {
+    if (signedIn) {
+      queueMicrotask(() => setValue(initialValue));
+      return;
+    }
+    try {
+      const local = localStorage.getItem(localKey);
+      if (local) {
+        const saved = { ...initialValue, ...JSON.parse(local) };
+        if (sectionKey === 'appearance_preferences') {
+          const currentTheme = localStorage.getItem('jackyun_theme');
+          const fullscreen = localStorage.getItem('show_fullscreen_btn');
+          if (currentTheme === 'light' || currentTheme === 'gray' || currentTheme === 'dark') saved.theme = currentTheme;
+          if (fullscreen !== null) saved.showFullscreen = fullscreen !== 'false';
+        }
+        queueMicrotask(() => setValue(saved));
+      }
+    } catch {}
+  }, [initialValue, localKey, sectionKey, signedIn]);
+
+  function applySavedAppearance() {
+    if (sectionKey !== 'appearance_preferences') return;
+    const theme = value.theme === 'gray' || value.theme === 'dark' ? value.theme : 'light';
+    const showFullscreen = value.showFullscreen !== false;
+    localStorage.setItem('jackyun_theme', theme);
+    localStorage.setItem('show_fullscreen_btn', String(showFullscreen));
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.density = value.density === 'compact' ? 'compact' : 'comfortable';
+    document.documentElement.dataset.reducedMotion = value.reducedMotion === true ? 'true' : 'false';
+    document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+    document.querySelectorAll('iframe').forEach((frame) => frame.contentWindow?.postMessage({ type: 'jackyun-theme', theme }, '*'));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'show_fullscreen_btn', newValue: String(showFullscreen) }));
+  }
   async function save() {
     setStatus('保存中…');
     try { localStorage.setItem(localKey, JSON.stringify(value)); } catch {}
+    applySavedAppearance();
     if (!signedIn) { setStatus('已保存到本机；登录后自动同步'); return; }
     const result = await saveSettingsSection(sectionKey, value);
     setStatus(result.error ? '已保存到本机；云同步暂时不可用' : '已保存到本机并同步到云端');

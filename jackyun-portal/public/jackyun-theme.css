@@ -21,6 +21,7 @@ html[data-jy-theme="light"] {
   --text-sub: #5f6368;
   --text-sec: #5f6368;
   --text-secondary: #5f6368;
+  --secondary: #5f6368;
   --border: #dadce0;
   --border2: #bdc1c6;
   --outline: #5f6368;
@@ -101,6 +102,7 @@ html[data-jy-theme="gray"] {
   --surface:#292a2d;--surface2:#303134;--surface3:#3c4043;--surface-variant:#3c4043;--card-bg:#292a2d;--white:#292a2d;
   --text:#f1f3f4;--text-main:#f1f3f4;--text-primary:#f1f3f4;--text2:#d2d5d3;--text3:#b7bab8;
   --text-sub:#d2d5d3;--text-sec:#d2d5d3;--text-secondary:#d2d5d3;
+  --secondary:#d2d5d3;
   --border:#45474a;--border2:#64676a;--outline:#b7bab8;
   --primary:#8ab4f8;--primary-dark:#aecbfa;--primary-hover:#aecbfa;--primary-container:#174ea6;--primary-bg:#174ea6;--on-primary:#202124;
   --accent:#8ab4f8;--accent-color:#8ab4f8;--accent-hover:#aecbfa;--blue:#8ab4f8;--blue-light:#174ea6;--blue-dim:#174ea6;
@@ -141,6 +143,7 @@ html[data-jy-theme="dark"] {
   --text-sub: #d0d0d0;
   --text-sec: #d0d0d0;
   --text-secondary: #d0d0d0;
+  --secondary: #d0d0d0;
   --border: #303030;
   --border2: #525252;
   --outline: #b0b0b0;
@@ -221,6 +224,35 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body {
   background-color: var(--background) !important;
   color: var(--text) !important;
 }
+
+/* Component-level contrast fixes found by the full gray-theme route audit. */
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .priority-badge.required {
+  background: var(--primary-container) !important;
+  color: var(--md-on-primary-container) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .day-switcher button {
+  background: var(--surface3) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .day-switcher button:hover {
+  background: var(--primary-container) !important;
+  color: var(--md-on-primary-container) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) :is(
+  #fab-schedule,
+  #plan-ai-send,
+  #ai-sidebar-send,
+  #btn-play,
+  .control.primary,
+  .add
+) {
+  color: var(--on-primary) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .tag {
+  background: var(--primary-container) !important;
+  color: var(--md-on-primary-container) !important;
+}
 html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) header,
 html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) aside,
 html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) nav,
@@ -259,6 +291,98 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .fi {
   background-color: var(--surface2) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
+}
+
+/* Legacy pages still contain a handful of literal light-theme colours. Keep
+   their original colourful accents, but move neutral surfaces and text onto
+   the shared theme tokens so gray/dark never becomes gray-on-white or
+   black-on-gray. These selectors are deliberately page-scoped. */
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) .brand,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) .section-header,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) .section-header .material-icons-round,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) .top-bar h2 {
+  color: var(--text) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) .brand .material-icons-round,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) .top-bar button .material-icons-round {
+  color: var(--primary) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) :is(.traffic-stat,.stat-chip,.quest-card,.mock-record,.checkbox-group,.unit-editor-item,dialog) {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#studyNav) :is(.time-warning,.task-block.break) {
+  background: var(--surface3) !important;
+  color: var(--text) !important;
+  border-color: var(--border2) !important;
+}
+
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#info-today) .info-bar,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#info-today) .info-item {
+  background: var(--surface) !important;
+  color: var(--text2) !important;
+  border-color: var(--border) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#info-today) .info-bold {
+  color: var(--text) !important;
+}
+
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#musicNameIntro) :is(.music-config,.music-row,.music-file-name,.music-clear-btn),
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#progPct) .cbadge,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(.poem-status-tag) .poem-status-tag,
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#syncStatusText) .btn-outline {
+  background: var(--surface2) !important;
+  color: var(--text2) !important;
+  border-color: var(--border2) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#musicNameIntro) [style*="color:#7c3aed"] { color: var(--purple) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#musicNameIntro) [style*="color:#b45309"] { color: var(--yellow) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#musicNameIntro) [style*="color:#1557b0"] { color: var(--blue) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#musicNameIntro) [style*="color:#c5221f"] { color: var(--red) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#progPct) #progWrap {
+  background: var(--surface3) !important;
+  color: var(--text) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#progPct) #progPct { color: var(--primary) !important; }
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#progPct) [style*="background:#FEF7E0"] {
+  background: var(--yellow-dim) !important;
+  border-color: var(--yellow) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(#syncStatusText) .sync-status {
+  color: var(--text2) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(.setting-btn) .setting-btn:not(.active),
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(.main-container) .icon-btn {
+  background: var(--surface3) !important;
+  color: var(--text2) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(.main-container) .icon-btn.active {
+  background: color-mix(in srgb, var(--primary) 20%, var(--surface)) !important;
+  color: var(--primary) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) body:has(.ai-sidebar-close) .ai-sidebar-close {
+  color: var(--text2) !important;
+}
+
+/* Primary actions keep their blue/green identity. Dark text is the matching
+   accessible foreground for the lighter accent palette used in dark themes. */
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) :is(.print-btn,.music-upload-btn,.generate-btn,.btn-primary,.btn-pri,.btn-add,.ai-toggle-btn,.action-btn,.time-pill.active,.view-icon-btn,#sidebarModeFilter,#immersive-overlay button) {
+  color: var(--on-primary) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) :is(.view-icon-btn,#immersive-overlay button) .material-icons-round {
+  color: inherit !important;
+}
+
+/* IGCSE timer first-run coach mark. The old white bubble inherited dark-theme
+   text tokens, making the introduction appear blank. */
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #obbub {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #obbub :is(h1,h2,h3,p,span) {
+  color: inherit !important;
 }
 
 /* Shared responsive foundation for both iframe and direct /temp rendering. */

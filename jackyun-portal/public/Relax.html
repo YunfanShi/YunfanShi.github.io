@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sanctuary V1.8 | Resurrection</title>
+    <title>放松空间 | JackYun Portal</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+KuaiLe&family=Inter:wght@400;600&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -213,8 +213,20 @@
             border-left: 3px solid #fbbc04; display: none; line-height: 1.5;
         }
 
+        .relax-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+        .relax-action { min-height:72px; border:1px solid var(--border,#dadce0); border-radius:14px; background:var(--surface-variant); color:var(--text-main); cursor:pointer; padding:10px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:5px; }
+        .relax-action:hover,.relax-action.active { border-color:var(--primary); background:color-mix(in srgb,var(--primary) 14%,var(--surface)); }
+        .relax-action strong { font-size:12px; }
+        .relax-action small { color:var(--secondary); line-height:1.35; }
+        .grounding { margin-top:14px; border:1px solid var(--border,#dadce0); border-radius:14px; overflow:hidden; }
+        .grounding summary { cursor:pointer; padding:12px 14px; font-weight:700; color:var(--text-main); }
+        .grounding ol { margin:0; padding:0 18px 14px 34px; color:var(--secondary); line-height:1.8; font-size:12px; }
+        .mood-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:14px; }
+        .mood-btn { border:1px solid var(--border,#dadce0); border-radius:999px; background:var(--surface-variant); color:var(--text-main); padding:7px 11px; cursor:pointer; }
+        .mood-btn.active { border-color:var(--primary); box-shadow:inset 0 0 0 1px var(--primary); }
+        @media(max-width:560px){.relax-grid{grid-template-columns:1fr 1fr}.relax-action:last-child{grid-column:1/-1}}
     </style>
-<link rel="stylesheet" href="/jackyun-theme.css?v=mobile-20260817"><script src="/jackyun-theme.js"></script></head>
+<link rel="stylesheet" href="/jackyun-theme.css?v=mobile-20260830"><script src="/jackyun-theme.js"></script></head>
 <body>
     <canvas id="matrix-canvas"></canvas>
 
@@ -239,12 +251,12 @@
     </aside>
 
     <div class="mission-toast" id="mission-toast">
-        📅 距离 Physics 0625 考试还有: <span id="exam-countdown">--</span> 天
+        📅 距离你设定的考试还有: <span id="exam-countdown">--</span> 天
     </div>
 
     <div class="main-container">
         <section class="scroll-area">
-            <h1 class="hero-title">Jack，Resurrection. <span class="material-icons-round" style="font-size: 36px; color: var(--accent);">auto_fix_high</span></h1>
+            <h1 class="hero-title">先慢下来，再继续。 <span class="material-icons-round" style="font-size: 36px; color: var(--accent);">self_improvement</span></h1>
 
             <div class="widget-card breathe-widget" id="main-widget">
                 <div class="breathe-circle" id="breathe-circle"></div>
@@ -264,18 +276,18 @@
             </div>
 
             <div class="widget-card dock-section">
-                <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; color: var(--secondary); text-transform: uppercase; letter-spacing: 1px;">Dock</h3>
-                <div class="dock-grid">
-                    <a href="notion://" class="app-item"><div class="app-icon-img"><img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" width="24"></div><span>Notion</span></a>
-                    <a href="discord://" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #5865F2;">discord</span></div><span>Discord</span></a>
-                    <a href="javascript:handleMission('TIMER_25')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #fbbc04;">timer</span></div><span>Timer</span></a>
-                    <a href="javascript:handleMed('BREATH_SYNC')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: #34a853;">self_improvement</span></div><span>Breath</span></a>
-                    <a href="javascript:runTool('COLOR_GEN')" class="app-item"><div class="app-icon-img"><span class="material-icons-round" style="color: var(--accent);">palette</span></div><span>Colors</span></a>
+                <h3 style="margin:0 0 6px">现在就能用的放松工具</h3>
+                <p style="margin:0 0 14px;color:var(--secondary);font-size:12px">声音在本机实时生成，不请求外部音频，也不会打断当前页面。</p>
+                <div class="relax-grid">
+                    <button class="relax-action" onclick="handleMed('BREATH_SYNC')"><span class="material-icons-round" style="color:#34a853">self_improvement</span><strong>4–7–8 呼吸</strong><small>跟随圆环完成一轮</small></button>
+                    <button class="relax-action" onclick="startCountdown(3)"><span class="material-icons-round" style="color:#fbbc04">timer</span><strong>3 分钟复位</strong><small>短暂离屏与伸展</small></button>
+                    <button class="relax-action" data-sound="rain" onclick="toggleAmbient('rain',this)"><span class="material-icons-round" style="color:#4285f4">rainy</span><strong>柔和雨声</strong><small>再次点击停止</small></button>
+                    <button class="relax-action" data-sound="brown" onclick="toggleAmbient('brown',this)"><span class="material-icons-round" style="color:#8d6e63">graphic_eq</span><strong>棕色噪声</strong><small>帮助遮蔽环境杂音</small></button>
+                    <button class="relax-action" onclick="toggleZen(true)"><span class="material-icons-round" style="color:#9c27b0">visibility_off</span><strong>安静全屏</strong><small>点击画面即可退出</small></button>
+                    <button class="relax-action" onclick="handleMed('SPINE_LOCK')"><span class="material-icons-round" style="color:#ea4335">accessibility_new</span><strong>60 秒伸展</strong><small>放松颈肩与眼睛</small></button>
                 </div>
-            </div>
-            
-             <div class="widget-card" style="padding: 0; overflow: hidden; height: 100px;">
-                 <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=100% height=100 src="//music.163.com/outchain/player?type=0&id=316192152&auto=0&height=90"></iframe>
+                <details class="grounding"><summary>焦虑时：5–4–3–2–1 落地练习</summary><ol><li>说出你看见的 5 样东西</li><li>感受身体接触到的 4 样东西</li><li>留意你听见的 3 种声音</li><li>辨认 2 种气味</li><li>说出 1 件此刻值得感谢的小事</li></ol></details>
+                <div class="mood-row"><span style="font-size:12px;color:var(--secondary)">现在感觉：</span><button class="mood-btn" onclick="saveMood('tense',this)">紧绷</button><button class="mood-btn" onclick="saveMood('neutral',this)">一般</button><button class="mood-btn" onclick="saveMood('calm',this)">平静</button><span id="mood-saved" style="font-size:11px;color:var(--secondary)"></span></div>
             </div>
         </section>
 
@@ -428,6 +440,7 @@
         loadVoices();
         renderChat();
         updateWaterUI();
+        loadMood();
         if(state.theme !== 'default') changeTheme(state.theme);
         if(state.examDate) updateExamCountdown();
         
@@ -818,6 +831,54 @@ Example (Chat=Chinese, TTS=Japanese):
     function stopMatrix() {
         clearInterval(matrixInterval);
         document.getElementById('matrix-canvas').style.display = 'none';
+    }
+
+    // --- Local ambient audio, mood and recovery tools ---
+    let ambient = { kind: '', context: null, source: null };
+    function stopAmbient() {
+        try { ambient.source?.stop(); ambient.context?.close(); } catch(e) {}
+        ambient = { kind: '', context: null, source: null };
+        document.querySelectorAll('[data-sound]').forEach(btn => btn.classList.remove('active'));
+    }
+    function toggleAmbient(kind, button) {
+        if (ambient.kind === kind) { stopAmbient(); return; }
+        stopAmbient();
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) throw new Error('当前浏览器不支持实时声音');
+            const context = new AudioCtx();
+            const buffer = context.createBuffer(1, context.sampleRate * 3, context.sampleRate);
+            const output = buffer.getChannelData(0);
+            let previous = 0;
+            for (let i = 0; i < output.length; i++) {
+                const white = Math.random() * 2 - 1;
+                previous = kind === 'brown' ? (previous + 0.02 * white) / 1.02 : white;
+                output[i] = kind === 'brown' ? previous * 3.2 : white * 0.45;
+            }
+            const source = context.createBufferSource(); source.buffer = buffer; source.loop = true;
+            const filter = context.createBiquadFilter();
+            filter.type = kind === 'rain' ? 'bandpass' : 'lowpass';
+            filter.frequency.value = kind === 'rain' ? 1800 : 520;
+            filter.Q.value = kind === 'rain' ? 0.65 : 0.4;
+            const gain = context.createGain(); gain.gain.value = kind === 'rain' ? 0.055 : 0.075;
+            source.connect(filter).connect(gain).connect(context.destination); source.start();
+            ambient = { kind, context, source }; button.classList.add('active');
+        } catch (error) { stopAmbient(); alert(error.message || '无法播放环境声'); }
+    }
+    function saveMood(mood, button) {
+        const entry = { mood, at: new Date().toISOString() };
+        localStorage.setItem('jackyun_relax_mood_latest', JSON.stringify(entry));
+        document.querySelectorAll('.mood-btn').forEach(item => item.classList.toggle('active', item === button));
+        document.getElementById('mood-saved').textContent = '已记录，仅保存在本机';
+        document.getElementById('mood-indicator').style.background = mood === 'calm' ? '#34a853' : mood === 'tense' ? '#ea4335' : '#fbbc04';
+    }
+    function loadMood() {
+        try {
+            const entry = JSON.parse(localStorage.getItem('jackyun_relax_mood_latest') || 'null');
+            if (!entry?.mood) return;
+            const button = [...document.querySelectorAll('.mood-btn')][['tense','neutral','calm'].indexOf(entry.mood)];
+            if (button) { button.classList.add('active'); document.getElementById('mood-saved').textContent = '上次已记录'; }
+        } catch(e) {}
     }
 
     // --- Breath & Timer Logic ---

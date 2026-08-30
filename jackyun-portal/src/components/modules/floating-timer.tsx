@@ -19,10 +19,15 @@ export default function FlyingTimer() {
   const [visible, setVisible] = useState(false);
   const [title, setTitle] = useState('计时器');
   const [timeText, setTimeText] = useState('--:--');
+  const [secondaryText, setSecondaryText] = useState('');
+  const [panelId, setPanelId] = useState('timer');
+  const [statusColor, setStatusColor] = useState('#34a853');
+  const [actionHref, setActionHref] = useState('');
   const [running, setRunning] = useState(true);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
+  const sourceWindow = useRef<WindowProxy | null>(null);
 
   // 默认位置：屏幕中部偏右（不与右下角 MiniPlayer/AI FAB 冲突）
   useEffect(() => {
@@ -34,28 +39,56 @@ export default function FlyingTimer() {
 
   // 监听 iframe postMessage
   useEffect(() => {
+    function safeText(value: unknown, fallback = '', max = 100) {
+      return typeof value === 'string' ? value.trim().slice(0, max) : fallback;
+    }
+    function openGeneric(data: Record<string, unknown>, source: MessageEventSource | null) {
+      setPanelId(safeText(data.panelId, 'page-tool', 60));
+      setTitle(safeText(data.title, '页面工具', 80));
+      setTimeText(safeText(data.primaryText ?? data.timeText, '--:--', 80));
+      setSecondaryText(safeText(data.secondaryText, '', 100));
+      setRunning(data.running !== false);
+      setStatusColor(/^#[0-9a-f]{6}$/i.test(String(data.statusColor || '')) ? String(data.statusColor) : '#34a853');
+      setActionHref(/^\/[a-z0-9/_-]*$/i.test(String(data.actionHref || '')) ? String(data.actionHref) : '');
+      sourceWindow.current = source && 'postMessage' in source ? source as WindowProxy : null;
+      setVisible(true);
+    }
     function handleMessage(e: MessageEvent) {
       try {
         const data = e.data;
         if (!data || typeof data !== 'object') return;
 
         if (data.type === 'jackyun-open-pip') {
-          setTitle(typeof data.title === 'string' && data.title ? data.title : '计时器');
-          setTimeText(typeof data.timeText === 'string' ? data.timeText : '--:--');
-          setRunning(data.running !== false);
-          setVisible(true);
+          openGeneric({ ...data, panelId: 'legacy-timer', primaryText: data.timeText }, e.source);
         } else if (data.type === 'jackyun-update-pip') {
           if (typeof data.timeText === 'string') setTimeText(data.timeText);
           if (typeof data.title === 'string' && data.title) setTitle(data.title);
           if (typeof data.running === 'boolean') setRunning(data.running);
+        } else if (data.type === 'jackyun-open-floating-window') {
+          openGeneric(data, e.source);
+        } else if (data.type === 'jackyun-update-floating-window') {
+          if (typeof data.primaryText === 'string') setTimeText(data.primaryText.slice(0, 80));
+          if (typeof data.secondaryText === 'string') setSecondaryText(data.secondaryText.slice(0, 100));
+          if (typeof data.title === 'string') setTitle(data.title.slice(0, 80));
+          if (typeof data.running === 'boolean') setRunning(data.running);
         } else if (data.type === 'jackyun-close-pip') {
+          setVisible(false);
+        } else if (data.type === 'jackyun-close-floating-window' && (!data.panelId || data.panelId === panelId)) {
           setVisible(false);
         }
       } catch { /* ignore */ }
     }
+    function handleCustomEvent(event: Event) {
+      const detail = (event as CustomEvent<Record<string, unknown>>).detail;
+      if (detail) openGeneric(detail, window);
+    }
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+    window.addEventListener('jackyun-floating-window', handleCustomEvent);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('jackyun-floating-window', handleCustomEvent);
+    };
+  }, [panelId]);
 
   // 拖拽逻辑
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -85,6 +118,8 @@ export default function FlyingTimer() {
   // 点击还原：通知 iframe 打开展开视图
   const handleExpand = useCallback(() => {
     try {
+      sourceWindow.current?.postMessage({ type: 'jackyun-floating-window-action', panelId, action: 'expand' }, '*');
+      if (actionHref && window.location.pathname !== actionHref) window.location.assign(actionHref);
       const frames = document.querySelectorAll('iframe');
       frames.forEach((f) => {
         try {
@@ -95,7 +130,7 @@ export default function FlyingTimer() {
         } catch {}
       });
     } catch {}
-  }, []);
+  }, [actionHref, panelId]);
 
   if (!visible) return null;
 
@@ -133,8 +168,8 @@ export default function FlyingTimer() {
           width: 10,
           height: 10,
           borderRadius: '50%',
-          background: running ? '#34a853' : '#fbbc04',
-          boxShadow: running ? '0 0 8px rgba(52,168,83,0.8)' : 'none',
+          background: running ? statusColor : '#fbbc04',
+          boxShadow: running ? `0 0 8px ${statusColor}99` : 'none',
           flexShrink: 0,
           animation: running ? 'pipPulse 1.6s ease-in-out infinite' : 'none',
         }}
@@ -147,10 +182,12 @@ export default function FlyingTimer() {
         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.5px', fontFamily: "'Roboto Mono', monospace" }}>
           {timeText}
         </div>
+        {secondaryText && <div style={{ fontSize: 10, marginTop: 2, opacity: 0.72, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{secondaryText}</div>}
       </div>
       <button
         onClick={(e) => {
           e.stopPropagation();
+          sourceWindow.current?.postMessage({ type: 'jackyun-floating-window-action', panelId, action: 'close' }, '*');
           setVisible(false);
         }}
         style={{

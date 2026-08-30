@@ -13,7 +13,10 @@ export default function QuizPage() {
     const saved = localStorage.getItem(LS_VERSION_KEY);
     queueMicrotask(() => {
       if (saved === 'react' || saved === 'html') setVersion(saved);
-      else setShowDialog(true);
+      else {
+        setVersion('react');
+        setShowDialog(true);
+      }
     });
   }, []);
 
@@ -25,12 +28,38 @@ export default function QuizPage() {
 
   // Also save preference to quiz_settings if available
   const syncToSettings = (v: 'react' | 'html') => {
-    const current = JSON.parse(localStorage.getItem('quizwise_current_questions') || '{}');
-    if (current) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('quizwise_current_questions') || '{}');
+      const current = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
       current.versionPreference = v;
       localStorage.setItem('quizwise_current_questions', JSON.stringify(current));
+    } catch {
+      localStorage.setItem('quizwise_current_questions', JSON.stringify({ versionPreference: v }));
     }
   };
+
+  const versionDialog = showDialog ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div role="dialog" aria-modal="true" aria-labelledby="quiz-version-title" className="mx-3 max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl animate-scale-in sm:mx-4 sm:p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="material-icons-round text-2xl text-[#4285F4]">psychology</span>
+          <h2 id="quiz-version-title" className="text-lg font-bold text-[var(--foreground)]">选择 QuizWise 版本</h2>
+        </div>
+        <p className="mb-6 text-sm text-[var(--muted-foreground)]">请选择偏好的 QuizWise 版本。之后仍可随时切换。</p>
+        <div className="mb-6 grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 sm:gap-4">
+          <button onClick={() => selectVersion('html')} className="flex flex-col items-center gap-3 rounded-xl border-2 border-[var(--card-border)] p-5 text-left transition-all hover:border-[#4285F4]/40 hover:bg-[#4285F4]/5">
+            <span className="material-icons-round text-3xl text-[#EA4335]">code</span>
+            <span className="text-center"><strong className="block text-sm text-[var(--foreground)]">HTML 版本</strong><small className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">独立网页应用<br />兼容旧数据</small></span>
+          </button>
+          <button onClick={() => selectVersion('react')} className="flex flex-col items-center gap-3 rounded-xl border-2 border-[var(--card-border)] p-5 text-left transition-all hover:border-[#34A853]/40 hover:bg-[#34A853]/5">
+            <span className="material-icons-round text-3xl text-[#34A853]">integration_instructions</span>
+            <span className="text-center"><strong className="block text-sm text-[var(--foreground)]">TSX 版本（推荐）</strong><small className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">九种题型<br />支持主页 AI 生成测验</small></span>
+          </button>
+        </div>
+        <p className="text-center text-xs text-[var(--muted-foreground)]">选择后立即保存；设置中可再次切换。</p>
+      </div>
+    </div>
+  ) : null;
 
   // Show the HTML version in an iframe
   if (version === 'html') {
@@ -77,61 +106,11 @@ export default function QuizPage() {
           />
         </div>
 
-        {/* First-time selection dialog */}
-        {showDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div role="dialog" aria-modal="true" className="mx-3 max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl animate-scale-in sm:mx-4 sm:p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="material-icons-round text-2xl text-[#4285F4]">psychology</span>
-                <h2 className="text-lg font-bold text-[var(--foreground)]">选择 QuizWise 版本</h2>
-              </div>
-
-              <p className="text-sm text-[var(--muted-foreground)] mb-6">
-                请选择你偏好的 QuizWise 版本。你可以稍后在设置中更改。
-              </p>
-
-              <div className="mb-6 grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 sm:gap-4">
-                <button
-                  onClick={() => selectVersion('html')}
-                  className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-[var(--card-border)] hover:border-[#4285F4]/40 hover:bg-[#4285F4]/5 transition-all text-left"
-                >
-                  <span className="material-icons-round text-3xl text-[#EA4335]">code</span>
-                  <div className="text-center">
-                    <p className="font-semibold text-[var(--foreground)] text-sm">HTML 版本</p>
-                    <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                      独立网页应用<br />
-                      加载速度更快<br />
-                      完整的独立体验
-                    </p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => selectVersion('react')}
-                  className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-[var(--card-border)] hover:border-[#34A853]/40 hover:bg-[#34A853]/5 transition-all text-left"
-                >
-                  <span className="material-icons-round text-3xl text-[#34A853]">integration_instructions</span>
-                  <div className="text-center">
-                    <p className="font-semibold text-[var(--foreground)] text-sm">TSX 版本 (React)</p>
-                    <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                      与 Portal 主题一致<br />
-                      更好的集成体验<br />
-                      支持更多高级功能
-                    </p>
-                  </div>
-                </button>
-              </div>
-
-              <p className="text-xs text-[var(--muted-foreground)] text-center">
-                两个版本功能相同，你可以随时在设置中切换
-              </p>
-            </div>
-          </div>
-        )}
+        {versionDialog}
       </div>
     );
   }
 
   // React version (default)
-  return <QuizApp />;
+  return <><QuizApp />{versionDialog}</>;
 }

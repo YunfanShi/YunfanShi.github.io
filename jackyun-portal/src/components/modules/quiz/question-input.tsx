@@ -67,7 +67,7 @@ export default function QuestionInput({
             <p className="font-medium text-[var(--foreground)] mb-1">粘贴题目</p>
             <p>粘贴一道或多道题目，AI 会自动识别题型、提取选项并给出正确答案。</p>
             <p className="mt-1">
-              <strong>支持题型：</strong>单选、多选、填空、判断、简答、匹配与排序题
+              <strong>支持题型：</strong>单选、多选、判断、填空、数值计算、简答、论述、匹配与排序题
             </p>
           </div>
       </div>

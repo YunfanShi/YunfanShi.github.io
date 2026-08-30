@@ -12,5 +12,20 @@
     <nav><a href="https://jackyun.top/dashboard" target="_blank">Dashboard</a><a href="https://jackyun.top/study" target="_blank">学习计划</a><a href="https://jackyun.top/resources" target="_blank">资源库</a><a href="https://jackyun.top/time-management" target="_blank">时间管理</a></nav>
     <button id="sign-out" class="text">退出此扩展账号</button>
   </section>
+  <details class="card safeguard-card" open>
+    <summary>🛡️ English SafeGuard</summary>
+    <p class="privacy">中文网站会先暂停。完成浏览器或沉浸式翻译后，扩展会按页面实际显示的英文自动复检；教育页面可使用限时 Study Purpose。</p>
+    <label><span>启用 SafeGuard</span><input id="sg-enabled" type="checkbox"></label>
+    <label><span>拦截中文网站与页面</span><input id="sg-chinese" type="checkbox"></label>
+    <label><span>成人内容分类</span><input id="sg-porn" type="checkbox"></label>
+    <label><span>视频分类</span><input id="sg-videos" type="checkbox"></label>
+    <label><span>游戏分类</span><input id="sg-gaming" type="checkbox"></label>
+    <label><span>翻译等待（分钟）</span><input id="sg-grace" type="number" min="1" max="10"></label>
+    <label><span>学习放行（分钟）</span><input id="sg-study" type="number" min="5" max="120"></label>
+    <label class="stack"><span>额外教育网站（每行一个域名）</span><textarea id="sg-education" rows="3" placeholder="example.edu.cn"></textarea></label>
+    <label class="stack"><span>额外视频/游戏黑名单</span><textarea id="sg-entertainment" rows="3" placeholder="video.example.cn"></textarea></label>
+    <button id="sg-save" class="wide primary" type="button">保存 SafeGuard 设置</button>
+  </details>
+  <details class="card"><summary>JackYun Companion 集成功能</summary><ul class="module-list"><li><strong>Companion</strong><span>学习统计、专注、同步与备份</span></li><li><strong>SafeGuard</strong><span>中文站点拦截、翻译验证、学习用途限时放行</span></li></ul></details>
   <p id="notice" role="status"></p>
 </main><script src="popup.js"></script></body></html>

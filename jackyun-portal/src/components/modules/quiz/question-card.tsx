@@ -45,6 +45,8 @@ export default function QuestionCard({
     multiple_choice: 'Multiple Choice',
     multi_select: 'Multiple Select',
     fill_blank: 'Fill in the Blank',
+    numeric: 'Numeric / Calculation',
+    short_answer: 'Short Answer',
     essay: 'Essay',
     true_false: 'True or False',
     matching: 'Matching',
@@ -55,6 +57,8 @@ export default function QuestionCard({
     multiple_choice: 'checklist',
     multi_select: 'check_box',
     fill_blank: 'edit_note',
+    numeric: 'calculate',
+    short_answer: 'short_text',
     essay: 'article',
     true_false: 'toggle_on',
     matching: 'swap_horiz',
@@ -127,7 +131,7 @@ export default function QuestionCard({
           />
         )}
 
-        {question.type === 'essay' && (
+        {(question.type === 'essay' || question.type === 'short_answer') && (
           <EssayQuestion
             userAnswer={userAnswer?.answer || ''}
             onAnswer={onAnswer}
@@ -138,7 +142,7 @@ export default function QuestionCard({
           />
         )}
 
-        {question.type === 'fill_blank' && (
+        {(question.type === 'fill_blank' || question.type === 'numeric') && (
           <FillBlank
             userAnswer={userAnswer?.answer || ''}
             onAnswer={onAnswer}

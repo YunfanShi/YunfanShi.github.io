@@ -20,6 +20,9 @@ export default function StudyDailyTools() {
   const [breakMinutes, setBreakMinutes] = useState(5);
   const [score, setScore] = useState(86);
   const [total, setTotal] = useState(100);
+  const [currentGrade, setCurrentGrade] = useState(82);
+  const [completedWeight, setCompletedWeight] = useState(60);
+  const [targetGrade, setTargetGrade] = useState(85);
   const [unitValue, setUnitValue] = useState(1);
   const [conversion, setConversion] = useState<'km-mi' | 'kg-lb' | 'c-f'>('km-mi');
 
@@ -30,6 +33,14 @@ export default function StudyDailyTools() {
   const cycles = Math.max(0, Math.floor((studyMinutes + breakMinutes) / Math.max(1, focusMinutes + breakMinutes)));
   const converted = conversion === 'km-mi' ? unitValue * 0.621371 : conversion === 'kg-lb' ? unitValue * 2.20462 : unitValue * 9 / 5 + 32;
   const conversionLabel = conversion === 'km-mi' ? '英里' : conversion === 'kg-lb' ? '磅' : '°F';
+  const boundedWeight = Math.min(100, Math.max(0, completedWeight));
+  const remainingWeight = 100 - boundedWeight;
+  const requiredRemaining = remainingWeight > 0 ? (targetGrade * 100 - currentGrade * boundedWeight) / remainingWeight : Number.POSITIVE_INFINITY;
+  const targetMessage = remainingWeight === 0
+    ? (currentGrade >= targetGrade ? '目标已经达到' : '所有成绩已计入，无法再通过剩余项目提升')
+    : requiredRemaining <= 0 ? '即使剩余项目得 0 分也能达到目标'
+      : requiredRemaining > 100 ? `目标超出当前可达范围（需 ${requiredRemaining.toFixed(1)}%）`
+        : `剩余 ${remainingWeight.toFixed(0)}% 权重平均需 ${requiredRemaining.toFixed(1)}%`;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -49,6 +60,12 @@ export default function StudyDailyTools() {
         <h3 className="mb-3 flex items-center gap-2 font-semibold text-[var(--foreground)]"><span className="material-icons-round text-[#FBBC05]">calculate</span>成绩百分比</h3>
         <div className="grid grid-cols-2 gap-2"><Field label="所得分" value={score} onChange={setScore} step={0.5} /><Field label="总分" value={total} onChange={setTotal} min={1} step={0.5} /></div>
         <div className="mt-4 rounded-xl bg-[#FBBC05]/10 p-3 text-sm text-[var(--foreground)]">成绩：<strong>{total > 0 ? Math.min(999, score / total * 100).toFixed(1) : '0.0'}%</strong></div>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4">
+        <h3 className="mb-3 flex items-center gap-2 font-semibold text-[var(--foreground)]"><span className="material-icons-round text-[#EA4335]">track_changes</span>目标成绩倒推</h3>
+        <div className="grid grid-cols-3 gap-2"><Field label="当前平均分 %" value={currentGrade} onChange={setCurrentGrade} step={0.5} /><Field label="已完成权重 %" value={completedWeight} onChange={setCompletedWeight} step={1} /><Field label="目标总评 %" value={targetGrade} onChange={setTargetGrade} step={0.5} /></div>
+        <div className={`mt-4 rounded-xl p-3 text-sm text-[var(--foreground)] ${requiredRemaining > 100 ? 'bg-[#EA4335]/10' : 'bg-[#34A853]/10'}`}>{targetMessage}</div>
       </section>
 
       <section className="rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4">

@@ -9,7 +9,7 @@ export default function CloudSettingsHydrator({ appearance, signedIn }: { appear
     localStorage.setItem('jackyun_theme', theme);
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
-    const showFullscreen = appearance.showFullscreen === true;
+    const showFullscreen = appearance.showFullscreen !== false;
     localStorage.setItem('show_fullscreen_btn', String(showFullscreen));
     window.dispatchEvent(new StorageEvent('storage', { key: 'show_fullscreen_btn', newValue: String(showFullscreen) }));
     document.documentElement.dataset.density = appearance.density === 'compact' ? 'compact' : 'comfortable';

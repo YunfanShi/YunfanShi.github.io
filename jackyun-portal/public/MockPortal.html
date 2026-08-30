@@ -873,13 +873,16 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .syllabus-note { backgrou
   <div class="p-4">
     <div class="syllabus-note">
       <span class="mi" style="font-size:14px;vertical-align:middle">info</span>
-      <strong>📋 考纲 & 题库说明（2020–2025）：</strong>
+      <strong>📋 可配置卷库说明：</strong>
       <ul style="margin-top:6px;margin-left:20px">
+        <li>🌍 <strong>默认卷库</strong>：Cambridge IGCSE、Cambridge 9709 AS &amp; A Level，以及 Pearson Edexcel IAL 数学</li>
+        <li>🧩 <strong>国际课程</strong>：包含纯数、力学、统计等 AL / A2 常见模块；可在设置中按考试局启用</li>
+        <li>📥 <strong>学校自定义</strong>：支持导入或粘贴 JSON 卷库配置，不再受页面内置科目和年份限制</li>
         <li>📐 <strong>0580 数学</strong>：P1/P2各1 hour 30 minutes(70分)，P3共2 hours(104分)，P4共2 hours 30 minutes(130分)</li>
         <li>🔬 <strong>理科(0610/0620/0625)</strong>：P1/P2各45 minutes(40分)，P3/P4各1 hour 15 minutes(80分)，P5共1 hour 15 minutes(40分)，P6共1 hour(40分)</li>
         <li>⚠️ <strong>2025新考纲(0580)</strong>：P2改为2 hours(100分)非计算器；P4改为2 hours(100分)计算器；P1/P3不变</li>
         <li>📅 <strong>考季规律</strong>：March仅时区2；May/June和Oct/Nov各有时区1、2、3</li>
-        <li>🟢 <strong>2025年卷子</strong>：按规律推算（March已考，MJ/ON预测）</li>
+        <li>🟢 <strong>预测条目</strong>：2026 条目用于计划与模拟，不代表试卷已由考试局发布</li>
       </ul>
     </div>
 
@@ -990,6 +993,27 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .syllabus-note { backgrou
     </button>
   </div>
   <div class="p-5 space-y-5">
+
+    <div id="paperLibrarySettings" style="border:1.5px solid var(--border);border-radius:16px;padding:16px;background:var(--surface,#fff)">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="mi" style="color:var(--primary);font-size:18px">inventory_2</span>
+        <p class="font-bold text-sm" style="color:var(--text-main,#202124)">卷库配置</p>
+      </div>
+      <p class="text-xs mb-3" style="color:var(--text-sub)">内置 IGCSE、CAIE AS/A Level 与 Pearson Edexcel IAL；也可导入学校或 AI 生成的 JSON 卷库。</p>
+      <div id="paperPresetList" style="display:flex;flex-direction:column;gap:7px;margin-bottom:12px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-o" style="justify-content:center;font-size:11px" onclick="document.getElementById('paperConfigFile').click()"><span class="mi" style="font-size:15px">upload_file</span>导入 JSON</button>
+        <button class="btn btn-o" style="justify-content:center;font-size:11px" onclick="togglePaperConfigPaste()"><span class="mi" style="font-size:15px">content_paste</span>粘贴配置</button>
+        <button class="btn btn-o" style="justify-content:center;font-size:11px" onclick="exportPaperConfig()"><span class="mi" style="font-size:15px">download</span>导出当前</button>
+        <button class="btn btn-o" style="justify-content:center;font-size:11px" onclick="resetPaperConfig()"><span class="mi" style="font-size:15px">restart_alt</span>恢复默认</button>
+      </div>
+      <div id="paperConfigPastePanel" style="display:none;margin-top:10px">
+        <textarea id="paperConfigPasteInput" aria-label="卷库 JSON 配置" placeholder='{"schemaVersion":1,"papers":[{"subject":"SCHOOL-MATH","paper":"P1","year":2026,"duration":90,"totalMarks":75}]}' style="width:100%;min-height:120px;resize:vertical;border:1.5px solid var(--border);border-radius:10px;padding:9px;background:var(--surface,#fff);color:var(--text-main,#202124);font:11px/1.5 'Roboto Mono',monospace"></textarea>
+        <button class="btn btn-p w-full" style="justify-content:center;font-size:11px;margin-top:7px" onclick="applyPastedPaperConfig()"><span class="mi" style="font-size:15px">check</span>校验并导入</button>
+      </div>
+      <input id="paperConfigFile" type="file" accept="application/json,.json" style="display:none" onchange="importPaperConfigFile(this.files?.[0]);this.value=''" />
+      <p id="paperConfigSummary" class="text-xs mt-2" style="color:var(--text-sub)"></p>
+    </div>
 
     <div style="background:linear-gradient(135deg,#1A1A2E,#16213E);border-radius:16px;padding:18px">
       <div class="flex items-center gap-2 mb-1">
@@ -1584,7 +1608,7 @@ function generatePaperDB() {
 
   for (const year of YEARS) {
     const mathPapers = getMathPapers(year);
-    const isPredict = year >= 2025;
+    const isPredict = year >= 2026;
 
     for (const pt of mathPapers) {
       db.push({ id:`0580-${year}-MA-${pt.code}2`, subject:'0580', subjectName:'Mathematics', subjectIcon:'calculate', subjectColor:'#1A73E8', year, paper:`${pt.code}2`, paperFull:`${pt.full} (${VARIANT_REGIONS[2].name})`, variantRegion:VARIANT_REGIONS[2].region, session:'March', duration:pt.duration, totalMarks:pt.marks, tier:pt.tier, locked:false, syllabusInfo:isPredict?pt.note:'', isPredicted:isPredict });
@@ -1617,7 +1641,7 @@ function generatePaperDB() {
 
   for (const subj of SCI_SUBJECTS) {
     for (const year of YEARS) {
-      const isPredict = year >= 2025;
+      const isPredict = year >= 2026;
       const VARIANT_REGIONS_LOCAL = { 1:{name:'Variant 1',region:'🇬🇧 时区1 英/欧/非/美'}, 2:{name:'Variant 2',region:'🇨🇳 时区2 中/东亚/巴'}, 3:{name:'Variant 3',region:'🇦🇺 时区3 澳/新/东南亚'} };
       for (const pt of SCI_PAPERS) {
         db.push({ id:`${subj.subject}-${year}-MA-${pt.code}2`, ...subj, year, paper:`${pt.code}2`, paperFull:`${pt.full} (${VARIANT_REGIONS_LOCAL[2].name})`, variantRegion:VARIANT_REGIONS_LOCAL[2].region, session:'March', duration:pt.duration, totalMarks:pt.marks, tier:pt.tier, locked:false, syllabusInfo:'', isPredicted:isPredict });
@@ -1632,6 +1656,217 @@ function generatePaperDB() {
   }
 
   return db;
+}
+
+const PAPER_CONFIG_KEY = 'mock_portal_config_v1';
+const DEFAULT_PAPER_PRESETS = ['cambridge-igcse', 'cambridge-9709', 'pearson-ial-math'];
+
+const PAPER_PRESET_META = {
+  'cambridge-igcse': { label:'Cambridge IGCSE', detail:'0580 数学、0610 生物、0620 化学、0625 物理' },
+  'cambridge-9709': { label:'Cambridge AS & A Level', detail:'9709 纯数 P1–P3、力学 P4、统计 P5–P6' },
+  'pearson-ial-math': { label:'Pearson Edexcel IAL', detail:'纯数 P1–P4、力学 M1–M3、统计 S1–S3' },
+};
+
+function generateCambridge9709DB() {
+  const db = [];
+  const years = [2026, 2025, 2024, 2023, 2022, 2021, 2020];
+  const components = [
+    { code:'P1', full:'Pure Mathematics 1', duration:110, marks:75, level:'AS / A Level' },
+    { code:'P2', full:'Pure Mathematics 2', duration:75, marks:50, level:'AS' },
+    { code:'P3', full:'Pure Mathematics 3', duration:110, marks:75, level:'A2' },
+    { code:'P4', full:'Mechanics', duration:75, marks:50, level:'AS / A Level' },
+    { code:'P5', full:'Probability & Statistics 1', duration:75, marks:50, level:'AS / A Level' },
+    { code:'P6', full:'Probability & Statistics 2', duration:75, marks:50, level:'A2' },
+  ];
+  const sessions = [
+    { name:'March', variants:[2] },
+    { name:'May/June', variants:[1,2,3] },
+    { name:'Oct/Nov', variants:[1,2,3] },
+  ];
+  const regions = { 1:'Variant 1', 2:'Variant 2', 3:'Variant 3' };
+  for (const year of years) for (const session of sessions) for (const component of components) for (const variant of session.variants) {
+    const sessionCode = session.name === 'March' ? 'MA' : session.name === 'May/June' ? 'MJ' : 'ON';
+    db.push({
+      id:`9709-${year}-${sessionCode}-${component.code}${variant}`,
+      board:'CAIE', course:'AS & A Level', subject:'9709', subjectName:'Mathematics', subjectIcon:'functions', subjectColor:'#2563EB',
+      year, paper:`${component.code}${variant}`, paperType:component.code, variant,
+      paperFull:`${component.full} (${regions[variant]})`, variantRegion:regions[variant], session:session.name,
+      duration:component.duration, totalMarks:component.marks, tier:component.level, level:component.level,
+      locked:false, syllabusInfo:'Cambridge 9709', isPredicted:year >= 2026,
+    });
+  }
+  return db;
+}
+
+function generatePearsonIALMathDB() {
+  const db = [];
+  const years = [2026, 2025, 2024, 2023, 2022, 2021, 2020];
+  const units = [
+    { code:'P1', ref:'WMA11', full:'Pure Mathematics 1', level:'IAS' },
+    { code:'P2', ref:'WMA12', full:'Pure Mathematics 2', level:'IAS' },
+    { code:'P3', ref:'WMA13', full:'Pure Mathematics 3', level:'IA2' },
+    { code:'P4', ref:'WMA14', full:'Pure Mathematics 4', level:'IA2' },
+    { code:'M1', ref:'WME01', full:'Mechanics 1', level:'IAS / IA2' },
+    { code:'M2', ref:'WME02', full:'Mechanics 2', level:'IA2' },
+    { code:'M3', ref:'WME03', full:'Mechanics 3', level:'IA2' },
+    { code:'S1', ref:'WST01', full:'Statistics 1', level:'IAS / IA2' },
+    { code:'S2', ref:'WST02', full:'Statistics 2', level:'IA2' },
+    { code:'S3', ref:'WST03', full:'Statistics 3', level:'IA2' },
+  ];
+  for (const year of years) for (const session of ['January','May/June','October']) for (const unit of units) {
+    const sessionCode = session === 'January' ? 'JAN' : session === 'May/June' ? 'MJ' : 'OCT';
+    db.push({
+      id:`${unit.ref}-${year}-${sessionCode}-01`, board:'Pearson Edexcel', course:'International A Level',
+      subject:'IAL-MATH', subjectName:'Mathematics', subjectIcon:'calculate', subjectColor:'#7C3AED',
+      year, paper:unit.code, paperType:unit.code, variant:null, displayCode:`${unit.ref}/01`,
+      paperFull:`${unit.full} (${unit.ref}/01)`, variantRegion:'No regional variant', session,
+      duration:90, totalMarks:75, tier:unit.level, level:unit.level, locked:false,
+      syllabusInfo:'Pearson Edexcel IAL Mathematics', isPredicted:year >= 2026,
+    });
+  }
+  return db;
+}
+
+function loadPaperConfig() {
+  const fallback = { schemaVersion:1, enabledPresets:[...DEFAULT_PAPER_PRESETS], papers:[] };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PAPER_CONFIG_KEY) || 'null');
+    if (!parsed || parsed.schemaVersion !== 1) return fallback;
+    return {
+      schemaVersion:1,
+      enabledPresets:Array.isArray(parsed.enabledPresets) ? parsed.enabledPresets.filter(id => PAPER_PRESET_META[id]) : [...DEFAULT_PAPER_PRESETS],
+      papers:Array.isArray(parsed.papers) ? parsed.papers.map(normalizeImportedPaper).filter(Boolean) : [],
+    };
+  } catch (error) {
+    console.warn('卷库配置读取失败，已使用默认配置', error);
+    return fallback;
+  }
+}
+
+function normalizeImportedPaper(input, index=0) {
+  if (!input || typeof input !== 'object') return null;
+  const clean = (value, max=120) => String(value ?? '').replace(/[<>"'`]/g, '').trim().slice(0, max);
+  const subject = clean(input.subject, 40);
+  const paper = clean(input.paper, 30);
+  const year = Number(input.year);
+  const duration = Number(input.duration);
+  const totalMarks = Number(input.totalMarks);
+  if (!subject || !paper || !/^[A-Za-z0-9._-]+$/.test(subject) || !/^[A-Za-z0-9._/-]+$/.test(paper) || !Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isFinite(duration) || duration < 1 || duration > 600 || !Number.isFinite(totalMarks) || totalMarks < 1 || totalMarks > 1000) return null;
+  const paperType = clean(input.paperType || paper, 30);
+  const variantValue = input.variant === null || input.variant === undefined || input.variant === '' ? null : Number(input.variant);
+  const color = /^#[0-9a-f]{6}$/i.test(input.subjectColor || '') ? input.subjectColor : '#0EA5E9';
+  return {
+    id:clean(input.id, 160) || `custom-${subject}-${year}-${paper}-${index}`,
+    board:clean(input.board || 'Custom', 50), course:clean(input.course || 'Imported', 80),
+    subject, subjectName:clean(input.subjectName || subject, 80), subjectIcon:clean(input.subjectIcon || 'description', 40), subjectColor:color,
+    year, paper, paperType, variant:Number.isFinite(variantValue) ? variantValue : null,
+    displayCode:clean(input.displayCode, 60), paperFull:clean(input.paperFull || paperType, 140),
+    variantRegion:clean(input.variantRegion || (Number.isFinite(variantValue) ? `Variant ${variantValue}` : 'No regional variant'), 120),
+    session:clean(input.session || 'Custom', 50), duration, totalMarks,
+    tier:clean(input.tier || input.level || 'Custom', 50), level:clean(input.level || input.tier || 'Custom', 50),
+    locked:false, syllabusInfo:clean(input.syllabusInfo || 'Imported configuration', 160), isTeacher:true, isPredicted:Boolean(input.isPredicted),
+  };
+}
+
+function buildPaperDatabase() {
+  const config = loadPaperConfig();
+  const db = [];
+  if (config.enabledPresets.includes('cambridge-igcse')) db.push(...generatePaperDB());
+  if (config.enabledPresets.includes('cambridge-9709')) db.push(...generateCambridge9709DB());
+  if (config.enabledPresets.includes('pearson-ial-math')) db.push(...generatePearsonIALMathDB());
+  db.push(...config.papers);
+  const seen = new Set();
+  return db.filter(paper => paper && !seen.has(paper.id) && seen.add(paper.id));
+}
+
+function paperTypeOf(paper) { return paper.paperType || String(paper.paper).slice(0, -1); }
+function paperVariantOf(paper) {
+  if (paper.variant === null) return null;
+  if (Number.isFinite(Number(paper.variant))) return Number(paper.variant);
+  const fallback = Number(String(paper.paper).slice(-1));
+  return Number.isFinite(fallback) ? fallback : null;
+}
+function paperCodeOf(paper) { return paper.displayCode || `${paper.subject}/${paper.paper.replace(/^P/, '')}`; }
+
+function savePaperConfig(config) {
+  localStorage.setItem(PAPER_CONFIG_KEY, JSON.stringify(config));
+  paperDB = buildPaperDatabase();
+  refreshDynamicCatalog();
+  FILTER_DEFS.forEach(def => { state.filters[def.key] = []; });
+  renderFilterPanel(); applyFilters(); updateFilterPanelVisibility(); updateCartBar(); updateProgress(); updateSettingsUI();
+}
+
+function renderPaperLibraryUI() {
+  const list = document.getElementById('paperPresetList');
+  const summary = document.getElementById('paperConfigSummary');
+  if (!list || !summary) return;
+  const config = loadPaperConfig();
+  list.innerHTML = Object.entries(PAPER_PRESET_META).map(([id, meta]) => `<label style="display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--surface,#fff)"><input type="checkbox" ${config.enabledPresets.includes(id)?'checked':''} onchange="togglePaperPreset('${id}',this.checked)" style="margin-top:2px"><span><strong style="display:block;font-size:12px;color:var(--text-main,#202124)">${meta.label}</strong><span style="display:block;font-size:10px;color:var(--text-sub);margin-top:2px">${meta.detail}</span></span></label>`).join('');
+  summary.textContent = `当前 ${paperDB.length} 张卷子 · ${config.papers.length} 张外部导入`;
+}
+
+function togglePaperPreset(id, enabled) {
+  const config = loadPaperConfig();
+  const next = new Set(config.enabledPresets);
+  enabled ? next.add(id) : next.delete(id);
+  config.enabledPresets = [...next];
+  savePaperConfig(config);
+  showToast(`✅ 已${enabled?'启用':'停用'} ${PAPER_PRESET_META[id].label}`);
+}
+
+function applyImportedPaperConfig(raw) {
+  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const source = Array.isArray(parsed) ? parsed : parsed?.papers;
+  if (!Array.isArray(source)) throw new Error('配置必须包含 papers 数组');
+  if (source.length > 5000) throw new Error('单次最多导入 5000 张卷子');
+  const papers = source.map(normalizeImportedPaper).filter(Boolean);
+  if (!papers.length) throw new Error('没有符合格式的卷子；请检查 subject、paper、year、duration、totalMarks');
+  const config = loadPaperConfig();
+  config.papers = papers;
+  savePaperConfig(config);
+  showToast(`✅ 已导入 ${papers.length} 张卷子`);
+}
+
+function importPaperConfigFile(file) {
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('⚠️ 配置文件不能超过 2 MB'); return; }
+  const reader = new FileReader();
+  reader.onload = () => { try { applyImportedPaperConfig(reader.result); } catch (error) { showToast(`⚠️ ${error.message}`); } };
+  reader.onerror = () => showToast('⚠️ 文件读取失败');
+  reader.readAsText(file);
+}
+
+function togglePaperConfigPaste() {
+  const panel = document.getElementById('paperConfigPastePanel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') document.getElementById('paperConfigPasteInput')?.focus();
+}
+
+function applyPastedPaperConfig() {
+  const input = document.getElementById('paperConfigPasteInput');
+  const raw = input?.value.trim();
+  if (!raw) { showToast('⚠️ 请先粘贴 JSON 配置'); return; }
+  try {
+    applyImportedPaperConfig(raw);
+    input.value = '';
+    document.getElementById('paperConfigPastePanel').style.display = 'none';
+  } catch (error) { showToast(`⚠️ ${error.message}`); }
+}
+
+function exportPaperConfig() {
+  const config = loadPaperConfig();
+  const payload = { ...config, exportedAt:new Date().toISOString(), formatHelp:{ required:['subject','paper','year','duration','totalMarks'], optional:['id','board','course','subjectName','paperType','variant','session','level','displayCode'] } };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = 'mock-portal-paper-library.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function resetPaperConfig() {
+  if (!confirm('恢复默认卷库？已导入的卷库配置会被移除，但学习进度不会删除。')) return;
+  localStorage.removeItem(PAPER_CONFIG_KEY);
+  paperDB = buildPaperDatabase(); refreshDynamicCatalog(); FILTER_DEFS.forEach(def => { state.filters[def.key] = []; }); renderFilterPanel(); applyFilters(); updateFilterPanelVisibility(); updateSettingsUI();
+  showToast('✅ 已恢复默认卷库');
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -1720,7 +1955,7 @@ function openScoreModal(paperId) {
         <span class="mi" style="color:${p.subjectColor};font-size:20px">${p.subjectIcon}</span>
       </div>
       <div style="flex:1">
-        <div style="font-weight:800;font-size:16px;color:#202124;font-family:'Roboto Mono',monospace">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
+        <div style="font-weight:800;font-size:16px;color:#202124;font-family:'Roboto Mono',monospace">${paperCodeOf(p)}</div>
         <div style="font-size:11px;color:var(--text-sub)">${p.subjectName} · ${p.year} ${sCode} · ${p.tier}</div>
       </div>
     </div>
@@ -1973,7 +2208,7 @@ function openPostExamScoreCollection(paperIds) {
           <span class="mi" style="color:${p.subjectColor};font-size:18px">${p.subjectIcon}</span>
         </div>
         <div style="flex:1">
-          <div style="font-weight:800;font-size:15px;color:white;font-family:'Roboto Mono',monospace">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
+          <div style="font-weight:800;font-size:15px;color:white;font-family:'Roboto Mono',monospace">${paperCodeOf(p)}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.45)">${p.subjectName} · ${p.year} ${sCode} · ${p.tier}</div>
         </div>
         <div id="pesc-status-${id}" style="font-size:11px;color:rgba(255,255,255,.3)">未填写</div>
@@ -2136,6 +2371,23 @@ const FILTER_DEFS = [
   { key:'statuses', label:'✅ 状态', options:[{value:'todo',label:'未做'},{value:'inprog',label:'进行中'},{value:'done',label:'已完成'}] },
   { key:'custom',   label:'📂 来源', options:[{value:'teacher',label:'🧑‍🏫 老师添加'},{value:'predicted',label:'🟢 预测卷'},{value:'standard',label:'📋 标准题库'}] },
 ];
+
+function refreshDynamicCatalog() {
+  const unique = (values) => [...new Set(values)];
+  const subjectOptions = unique(paperDB.map(p => p.subject)).map(subject => {
+    const sample = paperDB.find(p => p.subject === subject);
+    const board = sample?.board ? `${sample.board} · ` : '';
+    return { value:subject, label:`${board}${subject} ${sample?.subjectName || ''}`.trim() };
+  });
+  const yearOptions = unique(paperDB.map(p => p.year)).sort((a,b) => b-a).map(year => ({ value:year, label:String(year) }));
+  const paperOptions = unique(paperDB.map(paperTypeOf)).sort((a,b) => a.localeCompare(b, undefined, { numeric:true })).map(value => ({ value, label:value }));
+  const sessionOptions = unique(paperDB.map(p => p.session)).sort().map(value => ({ value, label:value }));
+  const variantOptions = unique(paperDB.map(paperVariantOf).filter(Number.isFinite)).sort((a,b) => a-b).map(value => ({ value, label:`Variant ${value}` }));
+  const durationOptions = unique(paperDB.map(p => p.duration)).sort((a,b) => a-b).map(value => ({ value:String(value), label:fmtDurationMin(value) }));
+  const dynamic = { subjects:subjectOptions, years:yearOptions, papers:paperOptions, sessions:sessionOptions, variants:variantOptions, durations:durationOptions };
+  FILTER_DEFS.forEach(def => { if (dynamic[def.key]) def.options = dynamic[def.key]; });
+}
+function sourceTypeOf(paper) { return paper.isTeacher ? 'teacher' : paper.isPredicted ? 'predicted' : 'standard'; }
 let _sidebarMode = 'filter';
 
 function setSidebarMode(mode) {
@@ -2155,15 +2407,19 @@ function setSidebarMode(mode) {
 function renderQuickSelectPanel() {
   const panel = document.getElementById('quickSelectPanel');
   if (!panel) return;
-  const SUBJ = [
-    {v:'0580', label:'0580 数学', color:'#1A73E8', icon:'calculate'},
-    {v:'0610', label:'0610 生物', color:'#34A853', icon:'biotech'},
-    {v:'0620', label:'0620 化学', color:'#FF6D00', icon:'science'},
-    {v:'0625', label:'0625 物理', color:'#9334E8', icon:'bolt'},
-  ];
-  const YEARS = [2025,2024,2023,2022,2021,2020];
-  const SESSIONS = ['May/June','Oct/Nov','March'];
-  const PAPERS = ['P1','P2','P3','P4','P5','P6'];
+  const subjectsByCode = new Map();
+  paperDB.forEach(paper => {
+    if (!subjectsByCode.has(paper.subject)) subjectsByCode.set(paper.subject, {
+      v:paper.subject,
+      label:`${paper.subject} ${paper.subjectName || ''}`.trim(),
+      color:paper.subjectColor || '#1A73E8',
+      icon:paper.subjectIcon || 'description',
+    });
+  });
+  const SUBJ = [...subjectsByCode.values()].sort((a,b) => a.label.localeCompare(b.label, undefined, { numeric:true }));
+  const YEARS = [...new Set(paperDB.map(paper => paper.year))].sort((a,b) => b-a);
+  const SESSIONS = [...new Set(paperDB.map(paper => paper.session))].sort();
+  const PAPERS = [...new Set(paperDB.map(paperTypeOf))].sort((a,b) => a.localeCompare(b, undefined, { numeric:true }));
 
   const sectionStyle = 'margin-bottom:14px';
   const labelStyle   = 'font-size:10px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;padding:0 4px';
@@ -2188,7 +2444,7 @@ function renderQuickSelectPanel() {
             style="display:inline-block;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:white;color:var(--text-sub);transition:all .15s;user-select:none"
             onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'"
             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-sub)'">
-            ${y}${y===2025?' 🟢':''}
+            ${y}${paperDB.some(paper => paper.year === y && paper.isPredicted)?' 🟢':''}
           </span>`).join('')}
       </div>
     </div>
@@ -2309,8 +2565,8 @@ function updateFilterCounts() {
     if (profSubs.length>0 && !profSubs.includes(paper.subject)) return false;
     if (profSubs.length>0 && profSubs.includes(paper.subject)) {
       const dp = getSubjectProfile(paper.subject);
-      const ptCode = paper.paper.slice(0,-1);
-      const v = Number(paper.paper.slice(-1));
+      const ptCode = paperTypeOf(paper);
+      const v = paperVariantOf(paper);
       if (dp.years&&dp.years.length>0&&!dp.years.includes(paper.year)) return false;
       if (dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
       if (dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(paper.session)) return false;
@@ -2329,19 +2585,21 @@ function updateFilterCounts() {
           if (!active||active.length===0) continue;
           if (d.key==='subjects')  { if (!active.includes(paper.subject)) return false; }
           if (d.key==='years')     { if (!active.includes(paper.year)) return false; }
-          if (d.key==='papers')    { if (!active.some(pt=>paper.paper.startsWith(pt))) return false; }
+          if (d.key==='papers')    { if (!active.includes(paperTypeOf(paper))) return false; }
           if (d.key==='durations') { if (!active.some(dv=>paper.duration===Number(dv))) return false; }
-          if (d.key==='variants')  { if (!active.some(v=>String(paper.paper).endsWith(String(v)))) return false; }
+          if (d.key==='variants')  { if (!active.includes(paperVariantOf(paper))) return false; }
           if (d.key==='statuses')  { if (!(active.includes(state.paperStatus[paper.id]||'todo'))) return false; }
           if (d.key==='sessions')  { if (!active.includes(paper.session)) return false; }
+          if (d.key==='custom')    { if (!active.includes(sourceTypeOf(paper))) return false; }
         }
         if (def.key==='subjects')  return paper.subject===opt.value;
         if (def.key==='years')     return paper.year===opt.value;
-        if (def.key==='papers')    return paper.paper.startsWith(opt.value);
+        if (def.key==='papers')    return paperTypeOf(paper)===opt.value;
         if (def.key==='durations') return paper.duration===Number(opt.value);
-        if (def.key==='variants')  return String(paper.paper).endsWith(String(opt.value));
+        if (def.key==='variants')  return paperVariantOf(paper)===opt.value;
         if (def.key==='statuses')  return (state.paperStatus[paper.id]||'todo')===opt.value;
         if (def.key==='sessions')  return paper.session===opt.value;
+        if (def.key==='custom')    return sourceTypeOf(paper)===opt.value;
         return false;
       }).length;
       el.textContent = count;
@@ -2385,8 +2643,8 @@ function renderCards() {
     if (profSubs.length === 0) return true;
     if (!profSubs.includes(p.subject)) return false;
     const dp = getSubjectProfile(p.subject);
-    const ptCode = p.paper.slice(0,-1);
-    const v = Number(p.paper.slice(-1));
+    const ptCode = paperTypeOf(p);
+    const v = paperVariantOf(p);
     if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
     if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
     if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;
@@ -2599,7 +2857,7 @@ function renderCartList() {
   state.cart.forEach((id,i)=>{
     const p=paperDB.find(x=>x.id===id); if(!p) return;
     const status=state.paperStatus[p.id]||'todo'; const sc=STATUS_MAP[status];
-    const variantNum=p.paper.slice(-1); const paperNum=p.paper.slice(1,-1);
+    const variantNum=paperVariantOf(p); const paperNum=paperTypeOf(p).replace(/\D/g,'');
     const igcseCode=`${p.subject}/${paperNum}${variantNum}`;
     const sessionFull=p.session==='Oct/Nov'?`October/November ${p.year}`:`${p.session} ${p.year}`;
     const tierColor=p.tier.includes('Extended')?'#9334E8':p.tier.includes('Practical')||p.tier.includes('Alt')?'#EA4335':'#34A853';
@@ -2843,7 +3101,7 @@ function runGacha() {
     if (!subjects.includes(p.subject)) return false;
     if (!years.includes(p.year)) return false;
     if (!papers.some(pt => p.paper.startsWith(pt))) return false;
-    const v = Number(p.paper.slice(-1));
+    const v = paperVariantOf(p);
     if (!variants.includes(v)) return false;
     if (onlyTodo && (state.paperStatus[p.id]||'todo') === 'done') return false;
     // 尊重精细筛选
@@ -2853,7 +3111,7 @@ function runGacha() {
       if (profSubs.length > 0) {
         if (!profSubs.includes(p.subject)) return false;
         const dp = getSubjectProfile(p.subject);
-        const ptCode = p.paper.slice(0,-1);
+        const ptCode = paperTypeOf(p);
         if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
         if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
         if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;
@@ -2897,7 +3155,7 @@ function runGacha() {
               <span class="mi" style="color:${RARITY_COLORS[p.subject]};font-size:20px">${p.subjectIcon}</span>
             </div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:800;font-size:14px;color:white;font-family:'Roboto Mono',monospace">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
+              <div style="font-weight:800;font-size:14px;color:white;font-family:'Roboto Mono',monospace">${paperCodeOf(p)}</div>
               <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px">${p.year} ${p.session==='May/June'?'M/J':p.session==='March'?'Mar':'O/N'} · ${fmtDurationShort(p.duration)} · ${p.tier}</div>
             </div>
             <div style="font-size:10px;padding:2px 8px;border-radius:8px;background:${RARITY_COLORS[p.subject]}22;color:${RARITY_COLORS[p.subject]};font-weight:700;border:1px solid ${RARITY_COLORS[p.subject]}44">${p.subject}</div>
@@ -2996,7 +3254,7 @@ function showGachaResults() {
             <span class="mi" style="color:${color};font-size:22px">${p.subjectIcon}</span>
           </div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:800;font-size:16px;color:#202124;font-family:'Roboto Mono',monospace">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)}</div>
+            <div style="font-weight:800;font-size:16px;color:#202124;font-family:'Roboto Mono',monospace">${paperCodeOf(p)}</div>
             <div style="font-size:11px;color:var(--text-sub);margin-top:2px">${p.year} ${sc} · ${fmtDurationShort(p.duration)} · ${p.tier}</div>
             <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
               ${p.isPredicted?'<span style="font-size:10px;padding:1px 6px;border-radius:6px;background:#E8F5E9;color:#2E7D32;font-weight:600">🟢 预测</span>':''}
@@ -3228,6 +3486,18 @@ function toggleProfileTier(subj,tier) {
 
 function renderProfileUI() {
   const p=getProfile(); const subs=p.subjects||[];
+  const subjectsEl=document.getElementById('profileSubjects');
+  if(subjectsEl){
+    const subjects=[...new Set(paperDB.map(paper=>paper.subject))];
+    subjectsEl.innerHTML=subjects.map(subject=>{const sample=paperDB.find(paper=>paper.subject===subject);const color=sample?.subjectColor||'#1A73E8';return `<div class="fchip" data-v="${subject}" onclick="toggleProfileSubject('${subject}')" style="background:${color}26;border-color:${color}55;color:${color}">${subject} ${sample?.subjectName||''}</div>`;}).join('');
+  }
+  const profilePool=subs.length?paperDB.filter(paper=>subs.includes(paper.subject)):paperDB;
+  const sessionEl=document.getElementById('profileSession');
+  if(sessionEl){const sessions=[...new Set(profilePool.map(paper=>paper.session))].sort();sessionEl.innerHTML=sessions.map(session=>`<div class="fchip" data-v="${session}" onclick="selectProfileSession('${session}')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">${session}</div>`).join('');}
+  const yearEl=document.getElementById('profileYear');
+  if(yearEl){const years=[...new Set(profilePool.map(paper=>paper.year))].sort((a,b)=>b-a);yearEl.innerHTML=years.map(year=>`<div class="fchip" data-v="${year}" onclick="selectProfileYear('${year}')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">${year}</div>`).join('');}
+  const variantEl=document.getElementById('profileVariant');
+  if(variantEl){const variants=[...new Set(profilePool.map(paperVariantOf).filter(Number.isFinite))].sort((a,b)=>a-b);variantEl.innerHTML=variants.length?variants.map(variant=>`<div class="fchip" data-v="${variant}" onclick="selectProfileVariant('${variant}')" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)">Variant ${variant}</div>`).join(''):'<span style="font-size:11px;color:rgba(255,255,255,.4)">所选考试局无地区变体</span>';}
   document.querySelectorAll('#profileSubjects .fchip').forEach(el=>{ const on=subs.includes(el.dataset.v); el.style.opacity=on?'1':'0.5'; el.style.borderWidth=on?'2px':'1.5px'; el.style.filter=on?'brightness(1.3)':''; });
   document.querySelectorAll('#profileSession .fchip').forEach(el=>{ const on=el.dataset.v===p.session; el.style.background=on?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'; el.style.borderColor=on?'#818cf8':'rgba(255,255,255,.15)'; el.style.fontWeight=on?'600':'400'; });
   document.querySelectorAll('#profileYear .fchip').forEach(el=>{ const on=el.dataset.v===p.year; el.style.background=on?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'; el.style.borderColor=on?'#818cf8':'rgba(255,255,255,.15)'; el.style.fontWeight=on?'600':'400'; });
@@ -3238,7 +3508,7 @@ function renderProfileUI() {
   else {
     const mathTierOpts=[{v:'core',l:'Core (P1/P3)'},{v:'extended',l:'Extended (P2/P4)'}];
     const sciTierOpts=[{v:'core',l:'Core (P1/P3)'},{v:'extended',l:'Extended (P2/P4)'},{v:'p6',l:'P6 Alt. Practical'}];
-    tiersDiv.innerHTML=subs.map(subj=>{ const opts=subj==='0580'?mathTierOpts:sciTierOpts; const cur=p[`tier_${subj}`]||[]; const meta={'0580':'数学','0610':'生物','0620':'化学','0625':'物理'}; return `<div style="width:100%;margin-bottom:4px"><span style="font-size:10px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">${subj} ${meta[subj]}</span><div style="display:flex;flex-wrap:wrap;gap:5px">${opts.map(o=>`<div class="fchip" onclick="toggleProfileTier('${subj}','${o.v}')" style="background:${cur.includes(o.v)?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'};border-color:${cur.includes(o.v)?'#818cf8':'rgba(255,255,255,.15)'};color:${cur.includes(o.v)?'white':'rgba(255,255,255,.6)'};font-weight:${cur.includes(o.v)?'600':'400'};font-size:11px">${o.l}</div>`).join('')}</div></div>`; }).join('');
+    tiersDiv.innerHTML=subs.map(subj=>{ const sample=paperDB.find(paper=>paper.subject===subj); const levels=[...new Set(paperDB.filter(paper=>paper.subject===subj).map(paper=>paper.level).filter(Boolean))]; const opts=subj==='0580'?mathTierOpts:['0610','0620','0625'].includes(subj)?sciTierOpts:levels.map(level=>({v:level,l:level})); const cur=p[`tier_${subj}`]||[]; return `<div style="width:100%;margin-bottom:4px"><span style="font-size:10px;color:rgba(255,255,255,.4);display:block;margin-bottom:4px">${subj} ${sample?.subjectName||''}</span><div style="display:flex;flex-wrap:wrap;gap:5px">${opts.map(o=>`<div class="fchip" onclick="toggleProfileTier('${subj}','${o.v}')" style="background:${cur.includes(o.v)?'rgba(99,102,241,.35)':'rgba(255,255,255,.06)'};border-color:${cur.includes(o.v)?'#818cf8':'rgba(255,255,255,.15)'};color:${cur.includes(o.v)?'white':'rgba(255,255,255,.6)'};font-weight:${cur.includes(o.v)?'600':'400'};font-size:11px">${o.l}</div>`).join('')}</div></div>`; }).join('');
   }
   renderSubjectDetailFilters();
 }
@@ -3280,15 +3550,18 @@ function renderSubjectDetailFilters() {
   if(subs.length===0){detailDiv.style.display='none';return;}
   detailDiv.style.display='block';
   cardsDiv.innerHTML=subs.map(subj=>{
-    const meta=SUBJ_META_FULL[subj]; const dp=getSubjectProfile(subj); const papers=subj==='0580'?MATH_PAPERS:SCI_PAPERS_LIST;
+    const subjectPapers=paperDB.filter(paper=>paper.subject===subj); const sample=subjectPapers[0];
+    const meta=SUBJ_META_FULL[subj]||{name:sample?.subjectName||subj,icon:sample?.subjectIcon||'description',color:sample?.subjectColor||'#0EA5E9',label:sample?.subjectName||subj}; const dp=getSubjectProfile(subj);
+    const years=[...new Set(subjectPapers.map(paper=>paper.year))].sort((a,b)=>b-a); const papers=[...new Set(subjectPapers.map(paperTypeOf))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const sessions=[...new Set(subjectPapers.map(paper=>paper.session))].sort(); const variants=[...new Set(subjectPapers.map(paperVariantOf).filter(Number.isFinite))].sort((a,b)=>a-b);
     const selYears=dp.years||[]; const selPapers=dp.papers||[]; const selSessions=dp.sessions||[]; const selVariants=dp.variants||[];
     const chipStyle=(on,color)=>`display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:14px;font-size:11px;cursor:pointer;border:1.5px solid ${on?color:'rgba(255,255,255,.18)'};background:${on?color+'33':'rgba(255,255,255,.06)'};color:${on?'white':'rgba(255,255,255,.6)'};font-weight:${on?'600':'400'};user-select:none;margin:2px;transition:all .15s;`;
     return `<div style="border:1.5px solid ${meta.color}44;border-radius:12px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.04)">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span class="mi" style="color:${meta.color};font-size:16px">${meta.icon}</span><span style="font-size:12px;font-weight:700;color:${meta.color}">${subj} ${meta.label}</span><button onclick="clearSubjectDetail('${subj}')" style="margin-left:auto;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4);border-radius:8px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit">清除</button></div>
-      <div style="margin-bottom:8px"><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">📅 年份（多选）</div><div style="display:flex;flex-wrap:wrap">${ALL_YEARS.map(y=>`<span onclick="toggleSubjDetailOption('${subj}','years',${y})" style="${chipStyle(selYears.includes(y),meta.color)}">${y}${y===2025?'🟢':''}</span>`).join('')}</div></div>
+      <div style="margin-bottom:8px"><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">📅 年份（多选）</div><div style="display:flex;flex-wrap:wrap">${years.map(y=>`<span onclick="toggleSubjDetailOption('${subj}','years',${y})" style="${chipStyle(selYears.includes(y),meta.color)}">${y}</span>`).join('')}</div></div>
       <div style="margin-bottom:8px"><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">📄 卷型（多选）</div><div style="display:flex;flex-wrap:wrap">${papers.map(pt=>`<span onclick="toggleSubjDetailOption('${subj}','papers','${pt}')" style="${chipStyle(selPapers.includes(pt),meta.color)}">${pt}</span>`).join('')}</div></div>
-      <div style="margin-bottom:8px"><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">🗓 考季（多选）</div><div style="display:flex;flex-wrap:wrap">${ALL_SESSIONS.map(s=>`<span onclick="toggleSubjDetailOption('${subj}','sessions','${s}')" style="${chipStyle(selSessions.includes(s),meta.color)}">${s}</span>`).join('')}</div></div>
-      <div><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">🌍 变体（多选）</div><div style="display:flex;flex-wrap:wrap">${ALL_VARIANTS.map(v=>`<span onclick="toggleSubjDetailOption('${subj}','variants',${v})" style="${chipStyle(selVariants.includes(v),meta.color)}">${v===1?'🇬🇧 V1':v===2?'🇨🇳 V2':'🇦🇺 V3'}</span>`).join('')}</div></div>
+      <div style="margin-bottom:8px"><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">🗓 考季（多选）</div><div style="display:flex;flex-wrap:wrap">${sessions.map(s=>`<span onclick="toggleSubjDetailOption('${subj}','sessions','${s}')" style="${chipStyle(selSessions.includes(s),meta.color)}">${s}</span>`).join('')}</div></div>
+      ${variants.length?`<div><div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px">🌍 变体（多选）</div><div style="display:flex;flex-wrap:wrap">${variants.map(v=>`<span onclick="toggleSubjDetailOption('${subj}','variants',${v})" style="${chipStyle(selVariants.includes(v),meta.color)}">V${v}</span>`).join('')}</div></div>`:''}
     </div>`;
   }).join('');
 }
@@ -3303,9 +3576,9 @@ function updateFilterPanelVisibility() {
     const dp=getSubjectProfile(subj);
     paperDB.filter(paper=>paper.subject===subj).forEach(paper=>{
       if(dp.years&&dp.years.length>0&&!dp.years.includes(paper.year)) return;
-      const ptCode=paper.paper.slice(0,-1); if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return;
+      const ptCode=paperTypeOf(paper); if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return;
       if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(paper.session)) return;
-      const v=Number(paper.paper.slice(-1)); if(dp.variants&&dp.variants.length>0&&!dp.variants.includes(v)) return;
+      const v=paperVariantOf(paper); if(dp.variants&&dp.variants.length>0&&!dp.variants.includes(v)) return;
       allowedIds.add(paper.id);
     });
   });
@@ -3315,10 +3588,11 @@ function updateFilterPanelVisibility() {
       const hasMatch=[...allowedIds].some(id=>{ const paper=paperDB.find(p=>p.id===id); if(!paper) return false;
         if(def.key==='subjects')  return paper.subject===opt.value;
         if(def.key==='years')     return paper.year===opt.value;
-        if(def.key==='papers')    return paper.paper.startsWith(opt.value);
+        if(def.key==='papers')    return paperTypeOf(paper)===opt.value;
         if(def.key==='durations') return paper.duration===Number(opt.value);
-        if(def.key==='variants')  return String(paper.paper).endsWith(String(opt.value));
+        if(def.key==='variants')  return paperVariantOf(paper)===opt.value;
         if(def.key==='sessions')  return paper.session===opt.value;
+        if(def.key==='custom')    return sourceTypeOf(paper)===opt.value;
         if(def.key==='statuses')  return true;
         return false;
       });
@@ -3335,7 +3609,7 @@ function applyProfileFilter() {
   state.filters.subjects=[...subs];
   if(p.session) state.filters.sessions=[p.session];
   if(p.variant) state.filters.variants=[p.variant];
-  const papers=[]; subs.forEach(subj=>{const tiers=p[`tier_${subj}`]||['extended'];if(tiers.includes('core')){papers.push('P1');papers.push('P3');}if(tiers.includes('extended')){papers.push('P2');papers.push('P4');}if(tiers.includes('p6'))papers.push('P6');});
+  const papers=[]; subs.forEach(subj=>{const tiers=p[`tier_${subj}`]||[];if(subj==='0580'||['0610','0620','0625'].includes(subj)){const legacyTiers=tiers.length?tiers:['extended'];if(legacyTiers.includes('core')){papers.push('P1');papers.push('P3');}if(legacyTiers.includes('extended')){papers.push('P2');papers.push('P4');}if(legacyTiers.includes('p6'))papers.push('P6');}else if(tiers.length){paperDB.filter(paper=>paper.subject===subj&&tiers.includes(paper.level)).forEach(paper=>papers.push(paperTypeOf(paper)));}});
   const uniquePapers=[...new Set(papers)]; if(uniquePapers.length>0) state.filters.papers=uniquePapers;
   const hasDetailFilters=subs.some(subj=>{const dp=getSubjectProfile(subj);return(dp.years&&dp.years.length>0)||(dp.papers&&dp.papers.length>0)||(dp.sessions&&dp.sessions.length>0)||(dp.variants&&dp.variants.length>0);});
   renderFilterPanel(); applyFilters(); updateFilterPanelVisibility(); closeSettings();
@@ -3353,9 +3627,9 @@ function applyFilters() {
     const _onlyDone = statuses.length===1 && statuses.includes('done');
     if(subjects.length&&!subjects.includes(paper.subject)&&!(_onlyDone&&_isDone)) return false;
     if(years.length&&!years.includes(paper.year))                                        return false;
-    if(papers.length&&!papers.some(pt=>paper.paper.startsWith(pt)))                      return false;
+    if(papers.length&&!papers.includes(paperTypeOf(paper)))                              return false;
     if(durations.length&&!durations.some(d=>paper.duration===Number(d)))                 return false;
-    if(variants.length&&!variants.some(v=>String(paper.paper).endsWith(String(v))))      return false;
+    if(variants.length&&paperVariantOf(paper)!==null&&!variants.includes(paperVariantOf(paper))) return false;
     if(statuses.length&&!(statuses.includes(state.paperStatus[paper.id]||'todo')))        return false;
     if(sessions.length&&!sessions.includes(paper.session))                               return false;
     // 来源筛选
@@ -3378,7 +3652,7 @@ function applyFilters() {
     const skipDetailFilter = isDonePaper && showingDoneOnly;
 
     if(subs.length>0&&subs.includes(paper.subject)&&!skipDetailFilter){
-      const dp=getSubjectProfile(paper.subject); const ptCode=paper.paper.slice(0,-1); const v=Number(paper.paper.slice(-1));
+      const dp=getSubjectProfile(paper.subject); const ptCode=paperTypeOf(paper); const v=paperVariantOf(paper);
       if(dp.years&&dp.years.length>0&&!dp.years.includes(paper.year))     return false;
       if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode))       return false;
       if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(paper.session)) return false;
@@ -3395,8 +3669,8 @@ function applyFilters() {
 // ╚══════════════════════════════════════════════════════════╝
 
 function getPaperWarnings(p) {
-  const prof=getProfile(); const warnings=[]; const paperNum=p.paper.slice(1,-1); const variantNum=Number(p.paper.slice(-1)); const examYear=Number(prof.year)||2026;
-  if(prof.variant&&variantNum!==prof.variant){warnings.push({level:'warn',icon:'🌍',msg:'变体不匹配',detail:`你的考试是 Variant ${prof.variant}，这张是 Variant ${variantNum}（${['','英/欧','中/东亚','澳/新'][variantNum]}）。练习时仍有参考价值，但题型/分布略有差异。`});}
+  const prof=getProfile(); const warnings=[]; const paperNum=paperTypeOf(p).replace(/\D/g,''); const variantNum=paperVariantOf(p); const examYear=Number(prof.year)||2026;
+  if(prof.variant&&variantNum!==null&&variantNum!==prof.variant){warnings.push({level:'warn',icon:'🌍',msg:'变体不匹配',detail:`你的考试是 Variant ${prof.variant}，这张是 Variant ${variantNum}（${['','英/欧','中/东亚','澳/新'][variantNum]}）。练习时仍有参考价值，但题型/分布略有差异。`});}
   if(prof.session&&p.session!==prof.session){warnings.push({level:'info',icon:'🗓',msg:'考季不同',detail:`你参加 ${prof.session}，这是 ${p.session} 的卷子。内容相同，可正常练习。`});}
   if(prof.subjects&&prof.subjects.length>0&&!prof.subjects.includes(p.subject)){warnings.push({level:'info',icon:'📚',msg:'非报考科目',detail:`你未报考 ${p.subject} ${p.subjectName}，这张卷子不在你的备考范围内。`});}
   if(p.subject==='0580'){
@@ -3405,7 +3679,7 @@ function getPaperWarnings(p) {
     if(isNewSyllabus){if(pNum===2)warnings.push({level:'info',icon:'🧮',msg:'新考纲 P2 — 无计算器',detail:'2025新考纲 P2：❌ 不允许使用计算器，时长 2 hours，满分 100 marks'});if(pNum===4)warnings.push({level:'info',icon:'🧮',msg:'新考纲 P4 — 有计算器',detail:'2025新考纲 P4：✅ 允许使用计算器，时长 2 hours，满分 100 marks'});}
   }
   if(['0610','0620','0625'].includes(p.subject)){const pNum=Number(paperNum);if(pNum===5)warnings.push({level:'warn',icon:'🧪',msg:'P5 需要实验室',detail:'Paper 5 是实际操作考试，在中国大陆通常用 Paper 6 替代。'});if(pNum===6)warnings.push({level:'info',icon:'✅',msg:'P6 — 国内标准替代实验卷',detail:'Paper 6 替代实验考试，中国大陆考生通常参加此卷。1 hour，40 marks。'});}
-  if(p.isPredicted){warnings.push({level:'info',icon:'🟢',msg:'2025年预测卷',detail:'这是按考纲规律推算的 2025 年卷子，尚未正式公布。'});}
+  if(p.isPredicted){warnings.push({level:'info',icon:'🟢',msg:`${p.year} 年规划卷`,detail:`这是按当前卷型规律生成的 ${p.year} 年练习条目，请以考试局正式发布的时间表和试卷为准。`});}
   return warnings;
 }
 
@@ -3419,7 +3693,7 @@ function renderCartWarnings() {
   if(allWarnings.length===0&&hasProfile){panel.style.display='';panel.innerHTML=`<div style="margin:10px 16px;padding:10px 14px;border-radius:12px;background:#E6F4EA;border:1.5px solid #34A853;display:flex;align-items:center;gap:8px"><span style="font-size:18px">✅</span><p style="font-size:12px;color:#1E8E3E;font-weight:600">清单检查通过！所有卷子与你的报考信息匹配。</p></div>`;return;}
   if(allWarnings.length===0){panel.style.display='none';return;}
   panel.style.display='';
-  panel.innerHTML=`<div style="margin:10px 16px;border-radius:12px;overflow:hidden;border:1.5px solid ${errorCount>0?'#EA4335':'#FBBC04'}"><div style="background:${errorCount>0?'#EA4335':'#FBBC04'};padding:8px 14px;display:flex;align-items:center;gap:6px"><span style="font-size:16px">${errorCount>0?'🚨':'⚠️'}</span><span style="font-size:12px;font-weight:700;color:white;flex:1">清单提醒：${errorCount>0?`${errorCount} 个严重问题`:''}${errorCount>0&&warnCount>0?' · ':''}${warnCount>0?`${warnCount} 个警告`:''}</span></div><div style="background:white">${allWarnings.map((w,i)=>`<div style="padding:10px 14px;${i<allWarnings.length-1?'border-bottom:1px solid #F1F3F4':''}"><div style="display:flex;align-items:flex-start;gap:8px"><span style="font-size:14px;flex-shrink:0;margin-top:1px">${w.icon}</span><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:10px;font-family:'Roboto Mono',monospace;font-weight:700;color:${w.paper.subjectColor}">${w.paper.subject}/${w.paper.paper.slice(1,-1)}${w.paper.paper.slice(-1)}</span><span style="font-size:11px;font-weight:700;color:${w.level==='error'?'#DC2626':'#D97706'}">${w.msg}</span></div><p style="font-size:11px;color:#5F6368;white-space:pre-line;line-height:1.5">${w.detail}</p></div></div></div>`).join('')}</div></div>`;
+  panel.innerHTML=`<div style="margin:10px 16px;border-radius:12px;overflow:hidden;border:1.5px solid ${errorCount>0?'#EA4335':'#FBBC04'}"><div style="background:${errorCount>0?'#EA4335':'#FBBC04'};padding:8px 14px;display:flex;align-items:center;gap:6px"><span style="font-size:16px">${errorCount>0?'🚨':'⚠️'}</span><span style="font-size:12px;font-weight:700;color:white;flex:1">清单提醒：${errorCount>0?`${errorCount} 个严重问题`:''}${errorCount>0&&warnCount>0?' · ':''}${warnCount>0?`${warnCount} 个警告`:''}</span></div><div style="background:white">${allWarnings.map((w,i)=>`<div style="padding:10px 14px;${i<allWarnings.length-1?'border-bottom:1px solid #F1F3F4':''}"><div style="display:flex;align-items:flex-start;gap:8px"><span style="font-size:14px;flex-shrink:0;margin-top:1px">${w.icon}</span><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:10px;font-family:'Roboto Mono',monospace;font-weight:700;color:${w.paper.subjectColor}">${paperCodeOf(w.paper)}</span><span style="font-size:11px;font-weight:700;color:${w.level==='error'?'#DC2626':'#D97706'}">${w.msg}</span></div><p style="font-size:11px;color:#5F6368;white-space:pre-line;line-height:1.5">${w.detail}</p></div></div></div>`).join('')}</div></div>`;
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -3456,7 +3730,7 @@ function updateSettingsUI() {
   }
 
   const dateInput=document.getElementById('examDateInput'); if(dateInput) dateInput.value=state.settings.examDate||DEFAULT_EXAM_DATE;
-  updateCdUnitUI(); renderProfileUI();
+  updateCdUnitUI(); renderProfileUI(); renderPaperLibraryUI();
 }
 
 function setMode(m) { state.settings.mode=m; saveState(); updateSettingsUI(); showToast(m==='strict'?'⚡ 严格模式已启用':'🎓 练习模式已启用'); }
@@ -3562,7 +3836,7 @@ function isInProfileSearch(p){
   if(profSubs2.length===0)return true;
   if(!profSubs2.includes(p.subject))return false;
   const dp=getSubjectProfile(p.subject);
-  const ptCode=p.paper.slice(0,-1);const v=Number(p.paper.slice(-1));
+  const ptCode=paperTypeOf(p);const v=paperVariantOf(p);
   if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year))return false;
   if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode))return false;
   if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session))return false;
@@ -4034,7 +4308,7 @@ function aiBuildCtx(){
     if(profSubs.length>0&&!profSubs.includes(p.subject)) return false;
     if(profSubs.length>0&&profSubs.includes(p.subject)){
       const dp=getSubjectProfile(p.subject);
-      const ptCode=p.paper.slice(0,-1); const v=Number(p.paper.slice(-1));
+      const ptCode=paperTypeOf(p); const v=paperVariantOf(p);
       if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year)) return false;
       if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
       if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session)) return false;
@@ -4375,7 +4649,7 @@ function aiBuildPaperIndex(){
     if(profSubs.length>0&&!profSubs.includes(p.subject)) return false;
     if(profSubs.length>0&&profSubs.includes(p.subject)){
       const dp=getSubjectProfile(p.subject);
-      const ptCode=p.paper.slice(0,-1); const v=Number(p.paper.slice(-1));
+      const ptCode=paperTypeOf(p); const v=paperVariantOf(p);
       if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year)) return false;
       if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
       if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session)) return false;
@@ -4900,7 +5174,7 @@ function schRenderDay(key) {
                 const p = (typeof paperDB !== 'undefined' ? paperDB : []).find(x => x.id === id);
                 if (!p) return `<span class="sch-paper-chip">${id.slice(-8)}</span>`;
                 const sCode = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
-                return `<span class="sch-paper-chip" title="${p.paperFull}">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)} · ${p.year} ${sCode} · ${p.duration}m</span>`;
+                return `<span class="sch-paper-chip" title="${p.paperFull}">${paperCodeOf(p)} · ${p.year} ${sCode} · ${p.duration}m</span>`;
               }).join('');
               el.innerHTML = chips;
               el.closest('.sch-row')?.classList.add('assigned');
@@ -4925,7 +5199,7 @@ function schBuildCtx(dayKey) {
       if(profSubs.length>0&&!profSubs.includes(p.subject)) return false;
       if(profSubs.length>0&&profSubs.includes(p.subject)){
         const dp=getSubjectProfile(p.subject);
-        const ptCode=p.paper.slice(0,-1); const v=Number(p.paper.slice(-1));
+        const ptCode=paperTypeOf(p); const v=paperVariantOf(p);
         if(dp.years&&dp.years.length>0&&!dp.years.includes(p.year)) return false;
         if(dp.papers&&dp.papers.length>0&&!dp.papers.includes(ptCode)) return false;
         if(dp.sessions&&dp.sessions.length>0&&!dp.sessions.includes(p.session)) return false;
@@ -5223,7 +5497,7 @@ function schAnnotateGrid(planText) {
         const p = (typeof paperDB !== 'undefined' ? paperDB : []).find(x => x.id === id);
         if (!p) return `<span class="sch-paper-chip">${id.slice(-8)}</span>`;
         const sCode = p.session === 'May/June' ? 'M/J' : p.session === 'March' ? 'Mar' : 'O/N';
-        return `<span class="sch-paper-chip" title="${p.paperFull}">${p.subject}/${p.paper.slice(1,-1)}${p.paper.slice(-1)} · ${p.year} ${sCode} · ${p.duration}m</span>`;
+        return `<span class="sch-paper-chip" title="${p.paperFull}">${paperCodeOf(p)} · ${p.year} ${sCode} · ${p.duration}m</span>`;
       }).join('');
       el.innerHTML = chips;
       el.closest('.sch-row')?.classList.add('assigned');
@@ -5304,7 +5578,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ╚══════════════════════════════════════════════════════════╝
 
 function init() {
-  paperDB=generatePaperDB();
+  paperDB=buildPaperDatabase();
+  refreshDynamicCatalog();
   console.log(`📚 题库总数: ${paperDB.length} 张卷子`);
   loadState(); updateDate(); renderFilterPanel(); applyFilters(); updateFilterPanelVisibility(); updateCartBar(); updateProgress(); initScrollShadow(); startCountdown(); startHitokoto();
   const dateInput=document.getElementById('examDateInput'); if(dateInput) dateInput.value=state.settings.examDate||DEFAULT_EXAM_DATE;
@@ -5323,8 +5598,8 @@ function pushSyncToGoalTracker() {
       if (profSubs.length > 0 && !profSubs.includes(p.subject)) return false;
       if (profSubs.length > 0 && profSubs.includes(p.subject)) {
         const dp = (prof[`detail_${p.subject}`]) || {};
-        const ptCode = p.paper.slice(0, -1);
-        const v = Number(p.paper.slice(-1));
+        const ptCode = paperTypeOf(p);
+        const v = paperVariantOf(p);
         if (dp.years    && dp.years.length    > 0 && !dp.years.includes(p.year))       return false;
         if (dp.papers   && dp.papers.length   > 0 && !dp.papers.includes(ptCode))      return false;
         if (dp.sessions && dp.sessions.length > 0 && !dp.sessions.includes(p.session)) return false;

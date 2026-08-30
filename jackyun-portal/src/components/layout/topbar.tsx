@@ -4,7 +4,7 @@ import UserAvatar from '@/components/auth/user-avatar';
 import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/language-provider';
-import { getThemePreference, saveSettingsField, saveThemePreference } from '@/actions/settings';
+import { saveSettingsField } from '@/actions/settings';
 import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
 
@@ -24,7 +24,7 @@ const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = 
   dark: { next: 'light', label: '切换到亮色主题', icon: 'light_mode' },
 };
 
-const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') === 'true' : false;
+const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') !== 'false' : true;
 
 export default function Topbar({ user }: TopbarProps) {
   const { lang } = useLanguage();
@@ -73,15 +73,18 @@ export default function Topbar({ user }: TopbarProps) {
       const saved = localStorage.getItem('jackyun_theme');
       const localTheme = saved === 'gray' || saved === 'dark' ? saved : 'light';
       queueMicrotask(() => setTheme(localTheme));
-      if (user) getThemePreference().then((cloudTheme) => { setTheme(cloudTheme); document.documentElement.dataset.theme = cloudTheme; }).catch(() => {});
     } catch {}
   }, [user]);
 
   const toggleTheme = () => {
     const next = THEME_META[theme].next;
     setTheme(next);
-    try { localStorage.setItem('jackyun_theme', next); } catch {}
-    saveThemePreference(next).catch(() => {});
+    try {
+      localStorage.setItem('jackyun_theme', next);
+      const key = 'jackyun_settings_appearance_preferences';
+      const saved = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, unknown>;
+      localStorage.setItem(key, JSON.stringify({ ...saved, theme: next }));
+    } catch {}
     void saveSettingsField('appearance_preferences', 'theme', next);
     document.documentElement.dataset.theme = next;
     document.documentElement.style.colorScheme = next === 'light' ? 'light' : 'dark';

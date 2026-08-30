@@ -54,9 +54,13 @@ function normalizeQuestionType(raw: string): QuestionType {
     checkbox: 'multi_select',
     fill_blank: 'fill_blank',
     fill: 'fill_blank',
+    numeric: 'numeric',
+    calculation: 'numeric',
+    numerical: 'numeric',
     essay: 'essay',
     long_answer: 'essay',
-    short_answer: 'essay',
+    short_answer: 'short_answer',
+    short_response: 'short_answer',
     true_false: 'true_false',
     tf: 'true_false',
     matching: 'matching',
@@ -124,6 +128,26 @@ export default function QuizApp() {
     saveCurrentQuestionsSync(normalized);
     setView('subject');
   }, []);
+
+  // Consume commands sent by the global/homepage AI assistant. The custom
+  // event handles same-page calls; persisted storage handles navigation to /quiz.
+  useEffect(() => {
+    const consumeAiCommand = () => {
+      try {
+        const raw = localStorage.getItem('quizwise_ai_command');
+        if (!raw) return;
+        const command = JSON.parse(raw) as { action?: string; text?: string };
+        if (command.action !== 'analyze' || !command.text?.trim()) return;
+        localStorage.removeItem('quizwise_ai_command');
+        void handleAnalyze(command.text);
+      } catch {
+        localStorage.removeItem('quizwise_ai_command');
+      }
+    };
+    consumeAiCommand();
+    window.addEventListener('quizwise-ai-command', consumeAiCommand);
+    return () => window.removeEventListener('quizwise-ai-command', consumeAiCommand);
+  }, [handleAnalyze]);
 
   // Start quiz with subject
   const handleStartQuiz = useCallback(async (subject: string) => {

@@ -2356,7 +2356,7 @@ function openArticle(id) {
             <h2><span class="material-symbols-rounded" style="vertical-align:-5px; margin-right:8px; color:var(--primary); font-size:28px;">${art.icon}</span>${art.title}</h2>
             <div class="article-meta">
                 <span class="material-symbols-rounded" style="font-size:14px;">schedule</span>
-                最后更新：${getUpdateDate()}
+                最后更新：${getUpdateDate(art)}
             </div>
         </div>
         ${art.content}
@@ -2377,10 +2377,11 @@ function showHome() {
     try { history.replaceState(null, '', '#'); } catch(e) {}
 }
 
-function getUpdateDate() {
-    const d = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function getUpdateDate(article) {
+    // Do not present today's date as if every help article was edited today.
+    // Existing articles were last content-reviewed together in the documented
+    // Help Center update; individual future edits can provide `updatedAt`.
+    return article && article.updatedAt ? article.updatedAt : '2026-08-03';
 }
 
 // ══════════════════════════════════════════
@@ -2472,7 +2473,7 @@ function init() {
                     <h2><span class="material-symbols-rounded" style="vertical-align:-5px; margin-right:8px; color:var(--primary); font-size:28px;">${ARTICLES[id].icon}</span>${ARTICLES[id].title}</h2>
                     <div class="article-meta">
                         <span class="material-symbols-rounded" style="font-size:14px;">schedule</span>
-                        最后更新：${getUpdateDate()}
+                        最后更新：${getUpdateDate(ARTICLES[id])}
                     </div>
                 </div>
                 ${ARTICLES[id].content}
