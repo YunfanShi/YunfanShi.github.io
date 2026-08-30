@@ -48,6 +48,7 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;bac
 .tb-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:99px;border:none;
   font-size:12px;font-weight:500;transition:all .15s var(--ease);white-space:nowrap;color:var(--text2);background:transparent}
 .tb-btn:hover{background:var(--surface2);color:var(--text)}
+.tb-btn:disabled{opacity:.38;cursor:not-allowed;box-shadow:none}
 .tb-btn.p{background:var(--blue);color:#000}
 .tb-btn.p:hover{box-shadow:0 0 18px rgba(77,158,247,.35);background:#5aa9ff}
 .tb-btn.o{border:1px solid var(--border);background:var(--surface2)}
@@ -458,6 +459,8 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .ai-dock-btn { backgroun
       <span class="material-icons-round">rocket_launch</span><span class="t-lbl">部署到日程中心</span></button>
     <button class="tb-btn" onclick="openImportGoal()" title="从 Goal 导入任务"><span class="material-icons-round">download</span><span class="t-lbl">导入</span></button>
     <button class="tb-btn" onclick="saveNow(true)" title="保存"><span class="material-icons-round">save</span><span class="t-lbl">保存</span></button>
+    <button class="tb-btn" id="undoBtn" onclick="undoPlanChange()" title="撤销（Ctrl/⌘+Z）" disabled><span class="material-icons-round">undo</span><span class="t-lbl">撤销</span></button>
+    <button class="tb-btn" id="redoBtn" onclick="redoPlanChange()" title="重做（Ctrl/⌘+Shift+Z）" disabled><span class="material-icons-round">redo</span><span class="t-lbl">重做</span></button>
     <span class="cloud-status" id="cloudStatus" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);white-space:nowrap;transition:color .2s"></span>
     <button class="tb-btn p" onclick="runAISchedule()" id="aiBtn" title="AI 智能排程">
       <span class="material-icons-round">auto_awesome</span><span class="t-lbl">AI智能排程</span></button>
@@ -707,6 +710,9 @@ let sbOpen=false;
 let detailTaskId=null;
 let editFbId=null;
 let editTaskId=null;
+let undoStack=[];
+let redoStack=[];
+let restoringHistory=false;
 // 临时日程模式：仅显示今天，时间轴从当前时间开始
 let tempMode=false;
 let gridStart=MIN_DAY;   // 当前时间轴起点（分钟）
@@ -746,15 +752,55 @@ function applyDayRangeInputs(){
 }
 
 // ===== PERSISTENCE =====
+function comparablePlan(value){
+  try{
+    const data=typeof value==='string'?JSON.parse(value):JSON.parse(JSON.stringify(value));
+    if(data&&typeof data==='object')delete data.updatedAt;
+    return JSON.stringify(data);
+  }catch(e){return ''}
+}
+function updateHistoryButtons(){
+  if($('undoBtn'))$('undoBtn').disabled=undoStack.length===0;
+  if($('redoBtn'))$('redoBtn').disabled=redoStack.length===0;
+}
+function resetPlanHistory(){undoStack=[];redoStack=[];updateHistoryButtons()}
 function saveNow(showMsg){
   if(!plan)return;
+  const previousRaw=localStorage.getItem(LS_PLANS+planId);
+  if(!restoringHistory&&previousRaw&&comparablePlan(previousRaw)!==comparablePlan(plan)){
+    undoStack.push(previousRaw);
+    if(undoStack.length>50)undoStack.shift();
+    redoStack=[];
+  }
   plan.updatedAt=new Date().toISOString();
   localStorage.setItem(LS_PLANS,JSON.stringify(plans));
   localStorage.setItem(LS_ACTIVE,planId);
   localStorage.setItem(LS_PLANS+planId,JSON.stringify(plan));
   pushControlSync();
+  updateHistoryButtons();
   if(showMsg)msg('✅ 已保存');
 }
+function restorePlanHistory(source,target,message){
+  if(!source.length||!plan)return;
+  target.push(JSON.stringify(plan));
+  try{
+    const restored=JSON.parse(source.pop());
+    if(!restored||restored.id!==planId)throw new Error('invalid history');
+    plan=restored;
+    restoringHistory=true;
+    saveNow(false);
+    restoringHistory=false;
+    renderAll();
+    updateHistoryButtons();
+    msg(message);
+  }catch(e){
+    restoringHistory=false;
+    resetPlanHistory();
+    msg('无法恢复这一步，历史记录已重置');
+  }
+}
+function undoPlanChange(){restorePlanHistory(undoStack,redoStack,'↶ 已撤销')}
+function redoPlanChange(){restorePlanHistory(redoStack,undoStack,'↷ 已重做')}
 function loadAll(){
   try{plans=JSON.parse(localStorage.getItem(LS_PLANS))||[]}catch(e){plans=[]}
   if(!Array.isArray(plans))plans=[];
@@ -776,6 +822,7 @@ function loadPlan(id,save=true){
   }
   selectedTaskIds=new Set();
   detailTaskId=null;
+  resetPlanHistory();
   // 恢复上次未应用的 AI 预览草稿（若有）
   aiPending=null;
   try{
@@ -2421,6 +2468,10 @@ window.pkC=function(e,id,c){document.querySelectorAll(`#${id} .cdot`).forEach(d=
 // ===== KEYBOARD =====
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveNow(true)}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
+    e.preventDefault();
+    if(e.shiftKey)redoPlanChange();else undoPlanChange();
+  }
   if(e.key==='Escape'){closeAiPanel()}
 });
 

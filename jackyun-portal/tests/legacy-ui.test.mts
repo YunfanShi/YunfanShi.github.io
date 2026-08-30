@@ -54,6 +54,10 @@ test('timetable hub escapes user-authored labels before rendering HTML', async (
   assert.match(html, /'&':'&amp;'/);
   assert.match(html, /'<':'&lt;'/);
   assert.match(html, /'"':'&quot;'/);
+  assert.match(html, /function undoPlanChange\(\)/);
+  assert.match(html, /function redoPlanChange\(\)/);
+  assert.match(html, /undoStack\.length>50/);
+  assert.match(html, /e\.shiftKey\)redoPlanChange\(\)/);
 });
 
 test('relax starts with the optional zen overlay closed', async () => {
