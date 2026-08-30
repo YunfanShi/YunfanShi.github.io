@@ -1,6 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join, relative, sep } from 'node:path';
 
 const manifestPath = 'companion-extension/manifest.json';
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -53,6 +55,28 @@ function lengthDelimitedFields(buffer) {
   return fields;
 }
 
+function sourceFiles(directory, root = directory) {
+  return readdirSync(directory).flatMap((name) => {
+    const path = join(directory, name);
+    if (statSync(path).isDirectory()) return sourceFiles(path, root);
+    return [relative(root, path).split(sep).join('/')];
+  }).sort();
+}
+
+function assertArchiveMatchesSource(archivePath, label) {
+  const archivedFiles = execFileSync('unzip', ['-Z1', archivePath], { encoding: 'utf8' })
+    .split(/\r?\n/).filter((name) => name && !name.endsWith('/')).sort();
+  const expectedFiles = sourceFiles('companion-extension');
+  if (JSON.stringify(archivedFiles) !== JSON.stringify(expectedFiles)) {
+    throw new Error(`${label} file list differs from companion-extension source`);
+  }
+  for (const name of expectedFiles) {
+    const archived = execFileSync('unzip', ['-p', archivePath, name]);
+    const source = readFileSync(join('companion-extension', name));
+    if (!archived.equals(source)) throw new Error(`${label} contains stale file: ${name}`);
+  }
+}
+
 const zipPath = 'public/downloads/jackyun-companion-dev-v1.0.0.zip';
 if (existsSync(zipPath)) {
   const listing = execFileSync('unzip', ['-Z1', zipPath], { encoding: 'utf8' });
@@ -71,6 +95,7 @@ const releaseZipManifest = JSON.parse(execFileSync('unzip', ['-p', releaseZipPat
 if (releaseZipManifest.key !== manifest.key) throw new Error('Release ZIP identity differs from source manifest');
 const releaseZipSha256 = createHash('sha256').update(readFileSync(releaseZipPath)).digest('hex');
 if (release.zipSha256 !== releaseZipSha256) throw new Error('Release ZIP SHA-256 does not match');
+assertArchiveMatchesSource(releaseZipPath, 'Release ZIP');
 
 const crxPath = `public/downloads/jackyun-companion-v${manifest.version}.crx`;
 if (!existsSync(crxPath)) throw new Error('Signed CRX is missing');
@@ -83,5 +108,13 @@ const crxPublicKey = rsaProof && lengthDelimitedFields(rsaProof).find(({ field }
 if (!crxPublicKey || crxPublicKey.toString('base64') !== manifest.key) throw new Error('CRX signing identity differs from manifest.key');
 const crxSha256 = createHash('sha256').update(crx).digest('hex');
 if (release.crxSha256 !== crxSha256) throw new Error('Release CRX SHA-256 does not match');
+const crxPayloadDirectory = mkdtempSync(join(tmpdir(), 'jackyun-companion-crx-'));
+try {
+  const crxPayloadPath = join(crxPayloadDirectory, 'payload.zip');
+  writeFileSync(crxPayloadPath, crx.subarray(12 + headerSize));
+  assertArchiveMatchesSource(crxPayloadPath, 'Release CRX');
+} finally {
+  rmSync(crxPayloadDirectory, { recursive: true, force: true });
+}
 
 console.log(`Companion package checks passed (${extensionId ? `fixed ID ${extensionId}` : 'development identity not provisioned'}).`);

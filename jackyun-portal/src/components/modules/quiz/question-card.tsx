@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AnalyzedQuestion, QuestionOption } from '@/types/quiz';
+import { AnalyzedQuestion } from '@/types/quiz';
 import MultipleChoice from './multiple-choice';
 import EssayQuestion from './essay-question';
 import FillBlank from './fill-blank';

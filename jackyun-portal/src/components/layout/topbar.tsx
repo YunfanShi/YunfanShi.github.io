@@ -84,6 +84,7 @@ export default function Topbar({ user }: TopbarProps) {
       const key = 'jackyun_settings_appearance_preferences';
       const saved = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, unknown>;
       localStorage.setItem(key, JSON.stringify({ ...saved, theme: next }));
+      localStorage.setItem(`${key}__updated_at`, new Date().toISOString());
     } catch {}
     void saveSettingsField('appearance_preferences', 'theme', next);
     document.documentElement.dataset.theme = next;

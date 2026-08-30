@@ -8,6 +8,9 @@
   let overlayHost = null;
   let statusHost = null;
   let translateTimer = null;
+  let contentObserver = null;
+  let eligibilityObserver = null;
+  let eligibilityTimer = null;
   let lastReason = '';
 
   const send = (message) => chrome.runtime.sendMessage(message).then((response) => {
@@ -23,6 +26,9 @@
   function removeOverlay() {
     overlayHost?.remove();
     overlayHost = null;
+    eligibilityObserver?.disconnect();
+    eligibilityObserver = null;
+    clearTimeout(eligibilityTimer);
     document.documentElement.style.removeProperty('overflow');
   }
 
@@ -108,7 +114,14 @@
     };
     refreshStudyEligibility();
     if (allowBypass && document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refreshStudyEligibility, { once: true });
-    if (allowBypass) setTimeout(refreshStudyEligibility, 2000);
+    if (allowBypass) {
+      setTimeout(refreshStudyEligibility, 2000);
+      eligibilityObserver = new MutationObserver(() => {
+        clearTimeout(eligibilityTimer);
+        eligibilityTimer = setTimeout(refreshStudyEligibility, 500);
+      });
+      eligibilityObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    }
     shadow.querySelector('#translate').addEventListener('click', () => beginTranslation().catch(() => showOverlay(lastReason, true)));
     study.addEventListener('click', () => beginStudySession(eligibility).catch(() => {}));
     (document.documentElement || document).appendChild(overlayHost);
@@ -131,11 +144,23 @@
     }
     if (rules.isLikelyChineseHost(hostname)) return showOverlay('Chinese website detected');
     const detectContent = () => {
-      if (!overlayHost && rules.isChineseContent(pageStats())) showOverlay('Chinese page content detected');
+      if (!overlayHost && rules.isChineseContent(pageStats())) {
+        contentObserver?.disconnect();
+        showOverlay('Chinese page content detected');
+      }
     };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', detectContent, { once: true });
-    else detectContent();
-    setTimeout(detectContent, 2500);
+    const watchContent = () => {
+      detectContent();
+      if (overlayHost || contentObserver) return;
+      let scanTimer = null;
+      contentObserver = new MutationObserver(() => {
+        clearTimeout(scanTimer);
+        scanTimer = setTimeout(detectContent, 500);
+      });
+      contentObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchContent, { once: true });
+    else watchContent();
   }
 
   inspect().catch(() => {});

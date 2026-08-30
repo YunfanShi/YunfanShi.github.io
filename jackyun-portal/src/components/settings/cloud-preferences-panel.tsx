@@ -12,10 +12,6 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
   const [status, setStatus] = useState('');
   const localKey = `jackyun_settings_${sectionKey}`;
   useEffect(() => {
-    if (signedIn) {
-      queueMicrotask(() => setValue(initialValue));
-      return;
-    }
     try {
       const local = localStorage.getItem(localKey);
       if (local) {
@@ -27,8 +23,10 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
           if (fullscreen !== null) saved.showFullscreen = fullscreen !== 'false';
         }
         queueMicrotask(() => setValue(saved));
+        return;
       }
     } catch {}
+    if (signedIn) queueMicrotask(() => setValue(initialValue));
   }, [initialValue, localKey, sectionKey, signedIn]);
 
   function applySavedAppearance() {
@@ -46,7 +44,10 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
   }
   async function save() {
     setStatus('保存中…');
-    try { localStorage.setItem(localKey, JSON.stringify(value)); } catch {}
+    try {
+      localStorage.setItem(localKey, JSON.stringify(value));
+      localStorage.setItem(`${localKey}__updated_at`, new Date().toISOString());
+    } catch {}
     applySavedAppearance();
     if (!signedIn) { setStatus('已保存到本机；登录后自动同步'); return; }
     const result = await saveSettingsSection(sectionKey, value);

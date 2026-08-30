@@ -131,7 +131,8 @@ function sanitizeSettingsSection(key: SettingsKey, value: Record<string, unknown
     quizAnswerLanguage: oneOf(value.quizAnswerLanguage, ['zh_kw_en', 'zh', 'en', 'en_kw_zh', 'bilingual'], 'zh_kw_en'),
     quizFeedbackLevel: oneOf(value.quizFeedbackLevel, ['brief', 'normal', 'detailed'], 'normal'),
   };
-  return { diagnostics: value.diagnostics === true, betaFeatures: value.betaFeatures === true };
+  const releaseChannel = oneOf(value.releaseChannel, ['stable', 'preview'], value.betaFeatures === true ? 'preview' : 'stable');
+  return { diagnostics: value.diagnostics === true, releaseChannel, betaFeatures: releaseChannel === 'preview' };
 }
 
 export async function saveSettingsSection(key: SettingsKey, value: Record<string, unknown>): Promise<{ error: string | null }> {

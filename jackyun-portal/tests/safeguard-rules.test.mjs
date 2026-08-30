@@ -23,6 +23,13 @@ test('detects Chinese content and accepts an actually translated English present
   assert.equal(rules.isEnglishPresentation(english), true);
 });
 
+test('accepts Immersive Translate-style bilingual content only when substantial English is visible', () => {
+  const bilingual = rules.languageStats(`${'这是中文学习资料。'.repeat(30)} ${'This translated lesson explains the material in clear English sentences. '.repeat(35)}`, 'zh-CN');
+  const tokenEnglish = rules.languageStats(`${'这是中文学习资料。'.repeat(30)} English`, 'zh-CN');
+  assert.equal(rules.isEnglishPresentation(bilingual), true);
+  assert.equal(rules.isEnglishPresentation(tokenEnglish), false);
+});
+
 test('does not misclassify Japanese text as a Chinese page solely because it contains kanji', () => {
   const japanese = rules.languageStats('日本語の学習ページです。ひらがなとカタカナを使います。'.repeat(20), 'ja');
   assert.equal(rules.isChineseContent(japanese), false);
@@ -44,5 +51,20 @@ test('category blocks cannot be defeated by subdomains or disabled-category defa
   assert.equal(rules.categoryReason('m.pornhub.com', {}), 'Pornography');
   assert.equal(rules.categoryReason('www.youtube.com', {}), null);
   assert.equal(rules.categoryReason('www.youtube.com', { activeCategories: { Videos: true } }), 'Videos');
+  assert.equal(rules.categoryReason('news.example.com', { activeCategories: { Social: true }, customSites: [{ d: 'example.com', c: 'Social' }] }), 'Social');
 });
 
+test('custom entertainment rules override custom education rules', () => {
+  const config = { customEducationHosts: ['lessons.example.cn'], customEntertainmentHosts: ['example.cn'] };
+  assert.equal(rules.studyEligibility({ hostname: 'lessons.example.cn', config }).allowed, false);
+});
+
+test('Companion manifest loads SafeGuard globally and contains no TR3000 module', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../companion-extension/manifest.json', import.meta.url), 'utf8'));
+  const serialized = JSON.stringify(manifest).toLowerCase();
+  const safeguard = manifest.content_scripts.find((entry) => entry.js?.includes('safeguard.js'));
+  assert.deepEqual(safeguard.matches, ['<all_urls>']);
+  assert.deepEqual(safeguard.js, ['safeguard-rules.js', 'safeguard.js']);
+  assert.equal(serialized.includes('tr3000'), false);
+  assert.equal(serialized.includes('192.168.10.1'), false);
+});

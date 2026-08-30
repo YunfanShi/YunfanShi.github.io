@@ -36,7 +36,7 @@ export default async function PortalLayout({
     ? await Promise.all([
         supabase
           .from('user_settings')
-          .select('key, value')
+          .select('key, value, updated_at')
           .eq('user_id', claims.sub)
           .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences']),
         supabase
@@ -51,6 +51,7 @@ export default async function PortalLayout({
   let sidebarPrefs = { ...DEFAULT_SIDEBAR_PREFS };
   let language: Language = 'zh';
   let appearancePreferences: Record<string, unknown> = {};
+  let appearanceUpdatedAt: string | null = null;
   for (const setting of settings ?? []) {
     if (setting.key === 'sidebar_preferences') {
       sidebarPrefs = coerceNavigationPreferences(setting.value);
@@ -59,6 +60,7 @@ export default async function PortalLayout({
       language = value?.language === 'en' ? 'en' : 'zh';
     } else if (setting.key === 'appearance_preferences') {
       appearancePreferences = setting.value as Record<string, unknown>;
+      appearanceUpdatedAt = setting.updated_at;
     }
   }
   const adaptiveScores: Record<string, number> = {};
@@ -86,7 +88,7 @@ export default async function PortalLayout({
     <AuthModeProvider signedIn={Boolean(user)}>
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
-      <CloudSettingsHydrator appearance={appearancePreferences} signedIn={Boolean(user)} />
+      <CloudSettingsHydrator appearance={appearancePreferences} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} />

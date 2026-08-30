@@ -11,9 +11,9 @@
   "developmentZip": "/downloads/jackyun-companion-dev-v1.0.0.zip",
   "sha256": "82b580dd4fa4a2afcb84dc3eb6b09c59bb76378bb8e2a614312f21b6bc143dcb",
   "releaseZip": "/downloads/jackyun-companion-v1.1.0.zip",
-  "zipSha256": "052914ad342aadaaf57393b94dbbf4560072a1d0a68043ec4bf6d68a225c3e74",
+  "zipSha256": "5f0ef39eba69208dcb0e027f61e0aaea7569498367565f6bba3bbdde786cce06",
   "signedCrx": "/downloads/jackyun-companion-v1.1.0.crx",
-  "crxSha256": "f8375f2a578726357c922c65d3766bb75bc472977595b78c0ea54706b718a7cb",
+  "crxSha256": "48854fea74fa5c340574ab99a85f3d025314812221490bf89052255dad5fbf30",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
     "1.1.0 增加 English SafeGuard、可配置教育/娱乐站点规则，并保留与网页同步的 25/50 分钟专注记录。Chrome Web Store Item 和商店审核仍需账号负责人完成。",

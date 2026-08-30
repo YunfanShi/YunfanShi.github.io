@@ -19,11 +19,19 @@
     <label><span>拦截中文网站与页面</span><input id="sg-chinese" type="checkbox"></label>
     <label><span>成人内容分类</span><input id="sg-porn" type="checkbox"></label>
     <label><span>视频分类</span><input id="sg-videos" type="checkbox"></label>
+    <label><span>小说分类</span><input id="sg-novels" type="checkbox"></label>
     <label><span>游戏分类</span><input id="sg-gaming" type="checkbox"></label>
+    <label><span>社交分类</span><input id="sg-social" type="checkbox"></label>
     <label><span>翻译等待（分钟）</span><input id="sg-grace" type="number" min="1" max="10"></label>
     <label><span>学习放行（分钟）</span><input id="sg-study" type="number" min="5" max="120"></label>
     <label class="stack"><span>额外教育网站（每行一个域名）</span><textarea id="sg-education" rows="3" placeholder="example.edu.cn"></textarea></label>
     <label class="stack"><span>额外视频/游戏黑名单</span><textarea id="sg-entertainment" rows="3" placeholder="video.example.cn"></textarea></label>
+    <div class="domain-editor">
+      <span>自定义分类拦截域名</span>
+      <textarea id="sg-domain-input" rows="2" placeholder="example.com, another.example"></textarea>
+      <div class="domain-actions"><select id="sg-domain-category"><option>Pornography</option><option>Videos</option><option>Novels</option><option>Gaming</option><option>Social</option></select><button id="sg-add-domain" type="button">添加域名</button></div>
+      <div id="sg-site-list" class="sg-site-list"></div>
+    </div>
     <button id="sg-save" class="wide primary" type="button">保存 SafeGuard 设置</button>
   </details>
   <details class="card"><summary>JackYun Companion 集成功能</summary><ul class="module-list"><li><strong>Companion</strong><span>学习统计、专注、同步与备份</span></li><li><strong>SafeGuard</strong><span>中文站点拦截、翻译验证、学习用途限时放行</span></li></ul></details>

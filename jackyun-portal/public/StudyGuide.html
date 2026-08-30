@@ -729,7 +729,8 @@
             margin-top: 10px;
         }
         .exam-plan-form input,
-        .exam-plan-form select {
+        .exam-plan-form select,
+        .exam-plan-form textarea {
             min-width: 0;
             border: 1px solid var(--md-outline-variant);
             border-radius: 8px;
@@ -737,7 +738,56 @@
             color: var(--md-on-surface);
             padding: 8px 10px;
             font: inherit;
+            resize: vertical;
         }
+        .exam-plan-form .full { grid-column: 1 / -1; }
+        .tool-card {
+            margin: 16px 0;
+            padding: 18px;
+            border: 1px solid var(--md-outline-variant);
+            border-radius: var(--radius-lg);
+            background: var(--md-surface);
+        }
+        .tool-card h3 { margin: 0 0 6px; font-size: 16px; }
+        .tool-card > p { margin: 0 0 14px; color: var(--md-on-surface-variant); font-size: 13px; line-height: 1.55; }
+        .tool-form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .tool-form .full { grid-column: 1 / -1; }
+        .tool-field { display: grid; gap: 5px; color: var(--md-on-surface-variant); font-size: 12px; }
+        .tool-field input,
+        .tool-field select,
+        .tool-field textarea {
+            width: 100%;
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 8px;
+            background: var(--md-surface);
+            color: var(--md-on-surface);
+            padding: 9px 10px;
+            font: inherit;
+            resize: vertical;
+        }
+        .tool-output {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            background: var(--md-primary-container);
+            color: var(--md-on-primary-container);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .subject-guide { margin-bottom: 14px; border: 1px solid var(--md-outline-variant); border-radius: var(--radius-md); overflow: hidden; }
+        .subject-guide > summary { padding: 14px 16px; cursor: pointer; font-weight: 700; background: var(--md-surface-variant); }
+        .subject-guide-body { padding: 8px 14px 14px; }
+        .type-guide { border-bottom: 1px solid var(--md-outline-variant); }
+        .type-guide:last-child { border-bottom: 0; }
+        .type-guide > summary { padding: 12px 2px; cursor: pointer; font-weight: 600; color: var(--md-primary); }
+        .type-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; padding: 0 2px 14px; }
+        .type-guide-grid div { color: var(--md-on-surface-variant); font-size: 13px; line-height: 1.55; }
+        .type-guide-grid b { color: var(--md-on-surface); }
+        .type-guide-grid .full { grid-column: 1 / -1; }
 
         .execution-note {
             display: flex;
@@ -1026,6 +1076,14 @@
             .mobile-guide-backdrop.mobile-open { visibility: visible; opacity: 1; }
             .main-area { width: 100%; margin-left: 0; }
             .exam-plan-form { grid-template-columns: 1fr; }
+            .tool-form, .type-guide-grid { grid-template-columns: 1fr; }
+            .sub-tabs {
+                overflow-x: auto;
+                padding-bottom: 4px;
+                scrollbar-width: none;
+            }
+            .sub-tabs::-webkit-scrollbar { display: none; }
+            .sub-tab { flex: 0 0 auto; white-space: nowrap; }
             .content-scroll { padding: 22px 14px calc(28px + env(safe-area-inset-bottom)); }
             .main-tab { font-size: 12px; padding: 8px 12px; }
             .main-tab .tab-icon { font-size: 18px; }
@@ -1093,7 +1151,7 @@
             </div>
             <div>
                 <div class="logo-text">StudyGuide</div>
-                <div class="logo-badge">学习系统操作手册 · 内容版本 2026-08-29</div>
+                <div class="logo-badge">学习系统操作手册 · 内容版本 2026-08-30</div>
             </div>
         </div>
 
@@ -1121,13 +1179,18 @@
         </div>
         <div class="nav-item" data-tab="workflow" onclick="switchMainTab('workflow')">
             <span class="material-icons-round nav-icon">route</span>
-            学习流程
+            学习闭环
             <span class="nav-check" id="check-workflow"></span>
         </div>
         <div class="nav-item" data-tab="procrastination" onclick="switchMainTab('procrastination')">
             <span class="material-icons-round nav-icon">psychology</span>
             执行与专注
             <span class="nav-check" id="check-procrastination"></span>
+        </div>
+        <div class="nav-item" data-tab="ielts" onclick="switchMainTab('ielts')">
+            <span class="material-icons-round nav-icon">language</span>
+            IELTS 专项
+            <span class="nav-check" id="check-ielts"></span>
         </div>
 
         <div style="flex:1;"></div>
@@ -1229,23 +1292,81 @@
         practice: {
             label: '习题', icon: 'assignment',
             subTabs: ['general', 'types', 'diagnose', 'stuck'],
-            subTabLabels: { general: '通用做题流程', types: '学科与题型', diagnose: '错题诊断', stuck: '卡住与再训练' },
+            subTabLabels: { general: '难题怎么拆', types: '学科 / 题型怎么做', diagnose: '错题诊断', stuck: '卡题怎么办' },
             content: {
-                general: methodPage('通用做题流程', 'route', '做题的目标是暴露并修复能力缺口，而不是只累计题量。', '学校作业、专项题、套卷中的任何题都先走这条主线。', '能说明为什么选这个方法；错后能定位根因；最后用新题验证。', [
-                    step('题前', '明确任务与成功标准', '先认题型、指令词、限制条件和分值，判断这题真正要求什么输出。', '<b>指令词：</b>State只需明确结论；Explain要给因果；Compare要同时写相同与不同；Evaluate要权衡并下判断。不要用同一种答法处理所有问题。'),
-                    step('题中①', '提取信息并选择方法', '写出已知、未知、约束和可调用的知识，再说明为什么选它。', '<b>关键：</b>不是“看到数字就套公式”。文字题先找对象和关系；实验题先找变量与证据；代码题先trace状态变化。'),
-                    step('题中②', '执行并监控', '按步骤完成，同时检查单位、边界、符号、证据、逻辑跳步和时间。', '<b>时间规则：</b>超过合理时间且没有新进展，记录卡点后跳过；有明确推进时可以继续。'),
-                    step('题后', '核对答案之外的过程', '即使结果正确，也检查方法是否稳、解释是否完整、是否靠猜测。', '<b>正确也可能需要修：</b>碰巧猜对、过程不可复现、超时或依赖提示，都说明能力尚未稳定。'),
-                    step('修复', '诊断 → 最小修复 → 新题验证', '记录知识节点、根因和重测任务；修完后做同能力的新题。', '<b>不要立即重抄原题：</b>原题记忆会制造“已经会了”的错觉。用新题或改变条件，才能证明能力迁移。')
+                general: methodPage('难题怎么拆', 'route', '普通题直接做；陌生题、综合题或做到一半断掉时，再打开这一页。', '看完不知道怎么下手、信息太多、知识点会但不会组合，或中途失去方向时。', '找到一条从现有信息通向目标的路线，然后回到题目继续做。', [
+                    step('①', '目标是什么？', '先确认最后要你求、证、解释、比较、判断，还是写算法。', '<b>先看题目最后一句和 command word。</b>例如“Explain why...”要交代 why/how；“Compare...”要让双方落在同一比较维度；“Prove...”要从已知走到指定结论。此时不用抄整道题。'),
+                    step('②', '现在有什么，还缺什么？', '只找“已有”和“目标”之间缺的那一块，不机械重写所有 Given / Unknown。', '<b>例子：</b>题目给速度和时间、目标是距离，真正缺口是“速度—时间怎样对应位移”；材料给两组数据、目标是判断，更关键的是“用什么比较标准”。'),
+                    step('③', '什么知识能连上缺口？', '从公式、定义、因果、定理、图像关系、算法或答题结构中找桥梁。', '<b>核心就是：</b>目标 → 缺口 → 连接。先写一个最可能的连接并尝试，不必列出所有学过的方法。选不出来时，去“错题诊断”判断是否属于 Selection。'),
+                    step('④', '还不会，就从目标往回推', '问“要得到目标，上一层必须先知道什么？”直到碰到题目已经给出的信息。', '<b>写成短链：</b>目标 ← 中间量 ← 中间量 ← 已知。找到已知后，再正向完成。证明题可从要证结论反找前提；算法题可从期望输出反找需要维护的状态。'),
+                    step('⑤', '只做必要检查', '按这道题的风险检查，不走固定清单。', '<b>计算：</b>单位、方向、数量级。<p><b>文字题：</b>Explain是否真的写了why/how，Compare是否真正比较双方。</p><p><b>代码：</b>输出是否合理，正常与边界输入是否走得通。没有相关风险的项目不用检查。</p>')
                 ]),
-                types: methodPage('学科 → 题型', 'category', '先识别学科、题型和指令词，再选择对应输出结构；没有一套万能“解题模板”。', '看不出怎样下手、同一类题反复失分，或需要专项训练时。', '能先选择自己的学科和题型，再按对应输入、过程、输出完成任务。', [
-                    step('Math', '计算 / 多步骤陌生题 / 证明 / 建模', '不同题型分别训练运算可靠性、关系拆解、证明链和现实假设。', '<b>计算：</b>已知 → 未知 → 关系 → 运算 → 检查。<p><b>多步骤 / 陌生题：</b>去掉数字看结构 → 用符号表示关系 → 从目标逆推需要的中间量。</p><p><b>证明：</b>写已知、要证、允许关系、从哪端开始，并说明每一步依据。</p><p><b>建模：</b>定义变量、写假设、建立关系、解释结果和模型限制。</p>'),
-                    step('Physics', 'Calculation / Explain / Graph & Data / Experimental', '计算强调情境与条件；解释强调机制；图表和实验强调证据。', '<b>Calculation：</b>情境 → 已知 → 条件 → 关系 → 中间量 → 答案与单位。<p><b>Explain：</b>现象 → 原因 → 机制 → 结果。</p><p><b>Graph / Data：</b>轴与单位 → 趋势 → 数据证据 → 解释异常。</p><p><b>Experimental：</b>变量、控制、公平测试、测量、误差与改进。</p>'),
-                    step('Chemistry', 'Calculation / Reaction & Structure / Explain / Experimental', '把粒子层、符号层和宏观现象连接起来。', '<b>Calculation：</b>先统一物质的量、比例和单位。<p><b>Reaction / Structure：</b>从结构或粒子变化解释性质与产物。</p><p><b>Explain：</b>观察 → 粒子或能量机制 → 结果。</p><p><b>Experimental：</b>试剂、步骤、观察、结论、安全与误差。</p>'),
-                    step('Biology', 'Describe / Explain / Data / Experimental', 'Describe准确呈现现象；Explain补出因果机制；Data和实验必须使用证据。', '<b>Describe：</b>对象 → 方向 / 趋势 → 关键数据，不加入无根据原因。<p><b>Explain：</b>起因 → 生物过程 → 中间变化 → 结果。</p><p><b>Data：</b>引用数据、比较、识别异常和限制。</p><p><b>Experimental：</b>自变量、因变量、控制变量、重复与可靠性。</p>'),
-                    step('Computer Science', 'Theory / Algorithm / Pseudocode / Trace / Debug', '理论文字、算法设计和代码执行是不同能力，必须分开练。', '<b>先圈指令和数量：</b>“Explain two advantages”要求两个独立点，每一点都写Point → Why / How；不能只State。过程题写Trigger → Process → Change → Result；Compare必须让A与B使用同一比较维度。<p><b>Algorithm / Pseudocode：</b>输入 → 状态 → 循环与条件 → 输出 → 边界案例。</p><p><b>Trace：</b>用状态表逐行更新变量、列表或调用栈。</p><p><b>Debug：</b>Expected → Actual → First divergence → Cause → Minimal fix，再用正常和边界用例重测。</p>'),
-                    step('Humanities', 'Short response / Source / Essay / Evaluate', '用指令词和证据组织观点，而不是把记得的事实全部写上去。', '<b>Short response：</b>直接结论 + 必要证据。<p><b>Source：</b>来源信息 → 内容证据 → 语境 / 目的 → 可信度或限制。</p><p><b>Essay：</b>立场 → 分论点 → 证据 → 分析 → 回扣问题。</p><p><b>Evaluate：</b>双方证据 → 判断标准 → 条件化结论。</p>'),
-                    step('English / IELTS', 'Reading / Writing / Listening / Speaking', '把语言能力和题型策略分开诊断。', '<b>Reading：</b>题型 → 定位依据 → 同义替换 → 排除干扰。<p><b>Writing：</b>任务回应 → 结构 → 论证 / 概述 → 语言准确性。</p><p><b>Listening：</b>预测词性与信息类型 → 听定位信号 → 检查拼写和字数。</p><p><b>Speaking：</b>直接回答 → 原因 → 例子 / 延伸；录音检查停顿、连贯与准确性。</p>')
+                types: questionTypePage([
+                    subjectGuide('Math', [
+                        questionType('基础计算', '是否能稳定调用关系并准确运算。', '先看未知量、可用关系和限制条件。', '列关系 → 代入 → 运算 → 用量级或代回检查。', '只抄例题步骤；小数、符号或定义域没检查。', '解方程后把结果代回原式，排除增根。'),
+                        questionType('多步骤题', '能否把一个大目标拆成几个可求的中间量。', '先看最终目标，再问上一层需要什么。', '目标 ← 中间量 ← 已知；找到连接后正向完成。', '一开始就计算所有给出的数字，越算越远。', '求面积前先从相似关系求出缺失边长。'),
+                        questionType('陌生题', '能否迁移熟悉知识，而不是识别见过的题面。', '去掉故事和数字，找对象、关系、限制和目标。', '把结构翻译成图、符号或已知模型，再尝试一个连接。', '因为没见过题面就判断“没有学过”。', '把水箱情境转成“流入率－流出率＝体积变化率”。'),
+                        questionType('Proof / 证明', '每一步是否由已知、定义或合法关系推出。', '圈出已知、要证和可用条件；判断从哪一端更近。', '写一步就说明依据，最后明确回到要证结论。', '从结论倒推后直接当作正向证明；跳过关键等价条件。', '证明恒等式时只变形一侧，直到与另一侧完全相同。'),
+                        questionType('Modelling / 建模', '能否把现实情境转成变量、假设和关系。', '先定变量、单位、范围和允许的简化。', '假设 → 关系 → 求解 → 回到情境解释 → 说明限制。', '算出数字却不解释含义；使用超出模型范围的结果。', '用指数模型预测时说明增长率恒定这一假设。'),
+                        questionType('Function / Graph', '能否在式子、图像和变化特征之间转换。', '先看轴、定义域、截距、转折和渐近行为。', '用关键特征组织答案，再用代数验证。', '只看图形外观；平移、伸缩方向写反。', '从f(x-2)+3识别向右2、向上3。'),
+                        questionType('Geometry', '能否从图形条件找到可用关系并保持论证完整。', '先标已知角、平行、相似、圆性质和目标。', '每个结论旁写理由；需要时补辅助线。', '凭视觉判断相等；使用图中未给出的比例。', '由平行线得对应角相等，再证明两个三角形相似。'),
+                        questionType('Probability / Statistics', '能否选对样本空间、分布或统计量并解释结果。', '先判断独立/条件、离散/连续、样本还是总体。', '定义事件或变量 → 选模型 → 计算 → 用语境解释。', '混淆互斥与独立；只报p值不回答问题。', '写“在原假设成立时出现该结果的概率”，而不是“原假设为真的概率”。')
+                    ]),
+                    subjectGuide('Physics', [
+                        questionType('Calculation', '会不会把情境变成适用的物理关系。', '先找对象、已知量、方向、条件和目标量。', '关系 → 条件核对 → 中间量 → 答案、单位和方向。', '看到数字就套公式；漏分量、单位或适用条件。', '斜面题先沿斜面分解力，再写该方向的运动关系。'),
+                        questionType('Explain', '能否说明物理量为什么变化以及怎样导致结果。', '圈出要解释的变化和题目给的初始原因。', '原因 → 相关物理量变化 → 中间机制 → 最终结果。', '只重述现象；写“因为公式”却没说明量之间怎样变化。', '电阻增大→同电压下电流减小→单位时间能量转移率改变。'),
+                        questionType('Definition / State', '能否给出精确术语、定律或陈述。', '看command word和分值，判断要定义还是只写结论。', '直接写必要关键词，不加入可能出错的额外解释。', '用例子代替定义；漏“每单位”“变化率”等限定词。', '定义加速度时必须包含“速度的变化率”。'),
+                        questionType('Graph', '能否从轴、梯度、面积和形状读出物理意义。', '先看轴、单位、比例和题目问的是点、段还是整体。', '读数 / 计算 → 物理意义 → 必要时引用图上证据。', '把梯度和面积混用；不写单位。', '速度—时间图下的面积表示位移，梯度表示加速度。'),
+                        questionType('Data Analysis', '能否用数值证据识别趋势、异常和结论限制。', '看变量、误差范围、重复次数和数据覆盖范围。', '趋势 + 具体数据 + 异常/不确定性 + 有边界的结论。', '只说“增加”；忽略误差条重叠或样本太少。', '引用两组数据说明趋势，并指出误差范围重叠时证据不充分。'),
+                        questionType('Experimental Design', '能否设计可测、可重复且公平的检验。', '先确定自变量、因变量和需要控制的关键因素。', '改变什么 → 测什么 → 怎样控制 → 重复与处理数据 → 安全。', '只写“控制变量”；没有说明怎么控制或怎样测量。', '研究长度对周期影响时固定质量与振幅，每个长度多次计时取平均。'),
+                        questionType('Uncertainty / Error', '能否区分随机不确定性、系统误差和实际改进。', '先问误差怎样影响读数，重复能否解决。', '误差来源 → 影响方向/散布 → 对应改进。', '把所有问题都写成“人为误差”；用重复测量修复系统偏差。', '零点偏差会让所有读数同向偏移，应校零而不是只增加重复次数。'),
+                        questionType('Multi-stage Question', '能否保存中间结论并把多个主题连起来。', '先看后问依赖前问哪个结果，标出阶段目标。', '每阶段写关系与单位；失败时用题目允许的前问值继续。', '一个中间值错后整题放弃；中间值过早四舍五入。', '先由能量求速度，再把速度带入动量关系。')
+                    ]),
+                    subjectGuide('Chemistry', [
+                        questionType('Calculation / Stoichiometry', '能否在质量、物质的量、浓度和比例间正确转换。', '先配平方程，圈单位并找限制试剂。', '转mol → 用系数比 → 转目标量 → 检查有效数字。', '没有配平就用比例；把cm³直接当dm³。', '25.0 cm³先换成0.0250 dm³再计算物质的量。'),
+                        questionType('Equation', '能否用正确物种、电荷、状态和系数表达反应。', '先判断分子、离子、氧化还原还是有机反应。', '写骨架 → 配原子 → 配电荷 → 加状态并检查。', '改下标来配平；离子方程保留旁观离子。', '净离子方程中删去两边相同的旁观离子。'),
+                        questionType('Particle-level Explanation', '能否用粒子、碰撞、能量或平衡解释宏观现象。', '先确定观察到的变化，以及粒子层真正改变了什么。', '条件变化 → 粒子行为/能量分布 → 有效碰撞或平衡变化 → 现象。', '只说“反应更快”；没有解释为什么有效碰撞变多。', '升温使更多粒子能量超过活化能，因此有效碰撞频率增大。'),
+                        questionType('Structure & Bonding', '能否从结构和粒子间作用解释性质。', '先认结构类型，再区分键内与粒子间作用。', '结构 → 作用力/可移动粒子 → 所需能量或导电行为 → 性质。', '把分子内共价键当作沸腾时断裂的力。', '石墨导电要提到离域电子可沿层移动。'),
+                        questionType('Organic Pathway', '能否把官能团、试剂、条件和产物连成路线。', '先认起点和目标官能团，找需要的转化。', '每一步写试剂、条件、产物；再检查碳骨架变化。', '只写试剂不写条件；遗漏中间体。', '烯烃→醇要写水蒸气与催化条件，而不只写“加水”。'),
+                        questionType('Reaction Conditions', '能否区分试剂与温度、催化剂、溶剂等条件。', '看题目要识别反应、提高速率还是控制产物。', '反应类型 → 试剂 → 条件 → 选择该条件的原因。', '把催化剂写成反应物；同一试剂在不同条件下的产物混淆。', '醇氧化时蒸馏或回流会影响最终产物。'),
+                        questionType('Observation → Inference', '能否从真实观察推到合理结论，不过度断言。', '先分清“看到什么”和“它说明什么”。', '颜色/沉淀/气体等观察 → 支持的离子、气体或反应结论。', '把推论当观察；只写“有反应”。', '观察“石灰水变浑浊”，再推断气体可能是二氧化碳。'),
+                        questionType('Experimental', '能否写出可操作步骤、观察、安全和误差控制。', '先看目标是制备、鉴定、测量还是比较。', '装置/步骤 → 测量或观察 → 数据处理 → 安全与改进。', '步骤无法实际执行；改进没有对应误差来源。', '收集气体时根据溶解性与密度选择排水或向上/向下排空气。')
+                    ]),
+                    subjectGuide('Biology', [
+                        questionType('Describe', '能否准确说出图、过程或结果是什么样。', '找对象、方向、顺序和题目要求的数据范围。', '按顺序或趋势描述，并引用关键数值；不解释原因。', 'Describe里加入未经证据支持的why；只写“变化了”。', '“0–20分钟由2升至8，之后保持稳定”，而不是“快速上升”。'),
+                        questionType('Explain', '能否把已知生物知识变成完整因果链。', '找起始变化和最终结果，中间要经过哪个生物过程。', 'A变化 → 过程/结构受到影响 → B变化 → 因此出现结果。', '只列知识点；因果链跳过最关键的中间机制。', '气孔关闭→CO₂进入减少→光合作用底物受限→速率下降。'),
+                        questionType('Compare', '能否在相同维度上直接比较两者。', '选题目要求的特征、过程、数据或功能维度。', '“A... whereas B...”逐维度成对写，必要时含相同点。', '先写完A再写B，读者无法看出对应关系。', '“动脉壁较厚，而静脉壁较薄”是同一维度的直接比较。'),
+                        questionType('Data Analysis', '能否引用数据、识别趋势并控制结论强度。', '看轴、单位、样本量、误差条、异常和相关范围。', '趋势 + 数据证据 + 异常/不确定性 + 生物解释或限制。', '不引用数字；把相关直接写成因果。', '说明两处理组均值不同，同时检查误差条是否重叠。'),
+                        questionType('Experimental', '能否设计可重复的生物实验并处理变量。', '先定自变量、因变量、控制变量、样本与重复。', '操作化变量 → 测量 → 控制 → 重复/平均 → 风险与伦理。', '“用相同植物”不可操作；样本太少却下普遍结论。', '控制植物品种、初始大小和光照，只改变肥料浓度。'),
+                        questionType('Long Answer / Process', '能否按时间或因果顺序覆盖评分点并保持连贯。', '先数主要阶段，确定起点、关键变化和终点。', '用短因果链连接阶段；每段回答问题，不堆无关事实。', '想到什么写什么；关键词有了但顺序和关系不清。', '描述免疫反应时按识别→克隆→抗体作用→记忆细胞组织。')
+                    ]),
+                    subjectGuide('Computer Science', [
+                        questionType('State / Give', '能否给出题目要求数量的直接事实。', '圈command word、数量和对象。', '一个分点一个答案，不加可能出错的解释。', '写了一个长段却只有一个可评分点。', '“Give two devices”就清楚列出两个设备。'),
+                        questionType('Describe', '能否说清发生了什么或有什么特征。', '找过程顺序、组成或可观察特征。', '按顺序/特征写what，不必强行解释why。', '只写定义；漏过程中的状态变化。', '描述数据包经过路由器时写读取地址、查路由表、转发。'),
+                        questionType('Explain', '能否说明Point为什么或怎样带来结果。', '圈数量，例如“two advantages”，每点都需要原因。', 'Point → Why / How → 与题目情境的结果。', '只State优点；多个句子其实重复同一点。', '“云备份可异地保存，因此本地设备损坏时数据仍可恢复。”'),
+                        questionType('Compare', '能否让A与B在相同维度直接对照。', '先选速度、成本、安全、用途等比较维度。', '每个维度写A vs B，不是两段独立定义。', 'A写容量、B写价格，根本没有比较。', '“RAM易失而ROM非易失”是在持久性维度比较。'),
+                        questionType('Evaluate', '能否用情境、权衡和判断回答“是否合适”。', '先找用户需求和判断标准。', '好处 + 限制 + 情境证据 + 有条件的结论。', '列优缺点后停止；结论与用户情境无关。', '学校系统更重视管理与可靠性，因此成本更高仍可能值得。'),
+                        questionType('Process Question', '能否从触发条件写到内部变化和结果。', '找trigger、参与组件、数据如何移动/改变。', 'Trigger → Process → Movement/Change → Result。', '只给术语定义，没有回答“how it works”。', '虚拟内存：内存不足触发→页面移到磁盘→腾出RAM→需要时换回。'),
+                        questionType('Algorithm / Pseudocode', '能否把需求变成明确状态与控制流程。', '先列Input、Output、状态、条件、循环和边界案例。', '初始化 → 处理 → 更新 → 终止 → 输出；变量名表达含义。', '边写边猜；循环不保证结束；漏空输入。', '找最大值时先处理空列表，再用当前最大值逐项更新。'),
+                        questionType('Trace', '能否准确执行已有算法而不凭直觉跳步。', '建立变量/数组/输出的状态表。', '逐行运行，每次赋值后立即更新表格。', '一次跳多行；循环边界少一次或多一次。', '每轮记录i、total和输出，避免只在脑中跟踪。'),
+                        questionType('Debug', '能否找到程序第一次偏离预期的位置并做最小修改。', '准备能复现问题的输入和Expected / Actual。', 'Trace → First divergence → Cause → Minimal fix → 正常与边界重测。', '看到最终错误就随便改；一次改很多处无法判断原因。', '空列表崩溃时先定位首次访问index 0，再增加边界处理。'),
+                        questionType('Boolean Logic', '能否在表达式、真值表和逻辑电路间转换。', '先标变量含义、优先级和是否有NOT。', '加括号 → 分子表达式 → 逐列真值 → 检查边界组合。', '忽略运算优先级；NAND/NOR只做了一半否定。', '先算A AND B，再对结果NOT，避免把NAND误写成NOT A AND B。'),
+                        questionType('Database', '能否把需求转成结构、关系和查询。', '先找实体、字段、主键、外键和查询条件。', '模型关系 → 保持完整性 → 写条件/连接 → 检查重复与空值。', '用姓名当主键；JOIN条件缺失导致笛卡尔积。', '订单表用CustomerID外键连接客户，而不是重复保存全部客户资料。')
+                    ]),
+                    subjectGuide('Humanities', [
+                        questionType('Explain', '能否用证据说明原因、过程或影响。', '圈对象、时间范围和要解释的结果。', 'Claim → Evidence → Why this leads to the result。', '只叙述发生了什么；证据没有回到问题。', '用具体政策作为证据，再解释它怎样改变某群体的行为。'),
+                        questionType('Compare', '能否按同一维度比较相同与差异。', '先选政治、经济、社会、时间或影响等维度。', '逐维度A vs B，说明相似/不同及重要性。', '两篇独立小作文，没有直接比较。', '同一段比较两地区政策目标与实际效果。'),
+                        questionType('Source Analysis', '能否结合内容、来源和语境判断证据价值。', '看作者、时间、目的、受众和材料内容。', '引用内容 → 联系语境/目的 → 说明价值或限制。', '只说“有偏见所以没用”；不引用来源内容。', '宣传海报对了解政府意图有价值，但不能单独代表公众真实态度。'),
+                        questionType('Evaluate / To what extent', '能否设判断标准、权衡证据并给有条件结论。', '先明确评价标准和可能的替代解释。', '支持证据 → 反方/限制 → 权重比较 → 回答程度。', '平均列双方后说“都有道理”。', '用影响规模、持续时间和范围比较两个原因后判断主次。'),
+                        questionType('Essay / Long Response', '能否持续回答题目而不是堆知识。', '先定立场和2–4个直接服务问题的分论点。', 'Claim → Evidence → Analysis → Link；段间推进，结尾回答问题。', '背景过长；证据多但没有分析；结论只重复开头。', '每段最后说明该证据如何改变对“最重要原因”的判断。')
+                    ]),
+                    subjectGuide('IELTS', [
+                        questionType('Reading', '能否按具体题型定位、识别同义替换并控制推断。', '先认Matching、T/F/NG、Heading、Summary等题型和顺序规律。', '读题关键词 → 预测同义表达 → 定位证据 → 按题型规则作答。', '凭全文印象；把“未提及”当False。', 'T/F/NG只依据文章证据，不用自己的常识补充。'),
+                        questionType('Writing Task 1', '能否选出主要特征并准确比较，而不是逐项报数。', '先看图表类型、单位、时间和最明显的2–3个特征。', '改写题目 → Overview → 分组比较与关键数据。', '没有Overview；把每个数字都写一遍；因果解释无依据。', '先概括总体上升与最高/最低，再用数据支持。'),
+                        questionType('Writing Task 2', '能否完整回应题目并用清晰论证支持立场。', '先认opinion、discussion、problem-solution等任务。', '明确立场 → 每段一个主张 → 解释 → 具体例子 → 回扣。', '只谈主题不回答问题；例子取代论证。', '“To what extent”开头和结尾都要明确程度，不只写两方观点。'),
+                        questionType('Listening', '能否预测答案形态、跟随定位信号并准确记录。', '听前看词性、字数限制、场景和可能同义替换。', '预测 → 跟随转折/编号 → 记录 → 检查拼写与单复数。', '错过一题后一直纠结；违反字数限制。', '题目需要名词复数时，最后检查-s是否听到并符合语法。'),
+                        questionType('Speaking', '能否直接回答、自然展开并保持清楚连贯。', '先回答问题本身，再选一个最容易展开的原因或例子。', 'Answer → Reason → Example / Detail；Part 2按人物/地点/事件线组织。', '背诵模板；长铺垫后仍没回答；为了高级词牺牲准确。', '问“Do you enjoy...”先Yes/No，再说原因和一个真实例子。')
+                    ])
                 ]),
                 diagnose: methodPage('错题诊断：只留三个必填项', 'troubleshoot', '错题本不是答案收藏夹，而是下一次训练的任务单。', '做错、超时、靠提示、碰巧猜对或相同问题再次出现时。', '每题至少写清 Knowledge Node、Root Cause、Retest，并能归入可统计的根因类别。', [
                     step('①', 'Knowledge Node · 知识节点', '写最小且准确的知识或能力，不写整门学科。', '<b>例子：</b>“二次函数判别式与交点数量”“细胞膜运输的浓度梯度”“递归终止条件”“Evaluate结尾的判断标准”。'),
@@ -1253,12 +1374,63 @@
                     step('③', 'Retest · 重测任务', '写明何时、用什么新任务、什么标准算通过。', '<b>通用模板：</b>“在___日期，不看原答案，完成___个同能力新任务；必须___才算通过。”<p><b>例子：</b>“周四闭卷做2道新的Compare题；每题都要同时出现比较维度、相同点和差异才通过。”</p>'),
                     step('可选', '题型 / 指令词', '只有当它有助于统计和找规律时才记录。', '<b>周统计：</b>查看哪类根因、题型或指令词重复最多，再把最重要的2–3项送到执行中心的本周修复任务。')
                 ]),
-                stuck: methodPage('卡住与再训练', 'build', '卡住时先定位卡在哪一层，再做最小提示和逐级训练。', '一道题无新进展、看答案后仍不懂，或同一能力重复失败时。', '能够独立完成一条未见过的同能力任务，而不是只会复现原答案。', [
+                stuck: methodPage('卡题怎么办', 'build', '先找到具体卡点，只拿足以继续的最小提示，再练真正缺的那一小项能力。', '一道题没有新进展、看答案后仍不懂，或同一能力重复失败时。', '不同题面、无提示、经过间隔后仍能独立完成。', [
                     step('①', '说出具体卡点', '用一句话写“我已经知道什么；下一步不知道什么”。', '<b>不要写：</b>“整题不会”“我太粗心”。<p><b>更好：</b>“我能读出两个变量，但不知道应比较变化率还是总量。”</p>'),
-                    step('②', '按层级给最小提示', '先提示题型或条件，再提示方法方向，最后才看一个关键步骤。', '<b>停止提示：</b>一旦能继续就遮住提示自行完成。直接看完整答案会跳过诊断，也无法知道真正缺哪一层。'),
-                    step('③', '回退到最小前置能力', '知识缺口回概念；选择错误做分类；推理断裂补中间链；执行错误做短步骤练习。', '<b>例子：</b>综合题总选错方法，不必重学整章；先做5个“只判断用什么方法并说明理由”的短任务。'),
-                    step('④', '阶梯再训练', '示例对照 → 半提示任务 → 独立同类题 → 轻微变式题。', '<b>升级条件：</b>当前层能稳定解释并完成再升；失败就退一级，不用大量重复同难度原题。'),
-                    step('⑤', '延迟验证', '当天新题通过后，再安排一次延迟重测。', '<b>真正修好：</b>不同题面、无提示、经过间隔仍能完成。否则只是短期记住了刚才的步骤。')
+                    step('②', '只要下一步最小提示', '先提示条件，再提示方法类别，再提示中间方向；最后才给关键步骤。', '<b>向AI提问：</b>“不要直接给答案，只给我下一步最小提示。”一旦你能继续，就停止拿提示并回题目。下面的“卡题提示器”就是按这条规则工作。'),
+                    step('③', '找出为什么卡住', '结合Root Cause判断是Knowledge、Selection、Reasoning、Response Structure等哪一类。', '<b>如果是Knowledge：</b>直接回“学习”补知识。<p><b>如果是Selection：</b>方法会但没选出来；Reasoning是方向对却推不下去；Response Structure是内容知道但不会按题型组织。</p>'),
+                    step('④', '只练缺的那一小项', '先练薄弱能力，不马上堆很多完整综合题。', '<b>Selection：</b>只判断几道题该用什么方法并说理由。<p><b>Reasoning：</b>专门补缺失的中间推理链。</p><p><b>Response Structure：</b>只练Explain / Compare / Evaluate的答案骨架。</p>'),
+                    step('⑤', '新题验证，再延迟重测', '当天做一条同能力但不同题面的新题，之后纳入Review / Retest。', '<b>不要当天刷很多近乎相同的题。</b>当天通过只说明刚修完能用；隔一段时间再用不同题面、无提示完成，才算真正修好。')
+                ])
+            }
+        },
+        ielts: {
+            label: 'IELTS 专项', icon: 'language',
+            subTabs: ['overview', 'listening', 'reading', 'writing', 'speaking', 'language'],
+            subTabLabels: { overview: '总览', listening: 'Listening', reading: 'Reading', writing: 'Writing', speaking: 'Speaking', language: '词汇与语法' },
+            content: {
+                overview: methodPage('IELTS 专项：四项能力如何真正提升', 'language', 'IELTS训练不是“做题 → 看答案 → 下一套”，而是：真实输出 / 做题 → 找到具体问题 → 最小修复 → 换新材料验证迁移。', '准备开始一段IELTS学习，或者不知道今天某一科应该怎样训练时。', '知道当前训练的技能、主要问题，以及用什么新材料验证这次修复是否真正迁移。', [
+                    step('①', 'Listening', '一遍连续做 → 错题局部重听 → 判断没听出的原因 → 修复 → 新录音验证。', '<b>重点是real-time processing。</b>第一次做题禁止暂停和回拨；复盘阶段才允许回拨。回拨后听懂当前录音，不等于新录音第一次播放也能跟上。'),
+                    step('②', 'Reading', '限时做 → 找错题和Correct but Slow → 回原文找Evidence → 找错/慢的原因 → 新题验证。', '<b>正确但花费异常长时间，也需要分析。</b>最后做对不等于已经又快又准；换一个Passage仍能定位证据，才算迁移。'),
+                    step('③', 'Writing', '旧文自己修 → AI再检查 → 主要错误收敛 → Language Upgrade → 新作文验证。', '<b>旧作文变漂亮不是终点。</b>下一篇第一次独立写时，同类错误减少并能自然使用新表达，才算真正掌握。'),
+                    step('④', 'Speaking', '第一次真实回答 → 录音 → 找1–2个主要问题 → 同题纠正几遍 → 换新题验证。', '<b>重复允许，但不能无限重复。</b>同题说熟后必须换题；新问题下语法和表达仍稳定，才不是只背会一道题。')
+                ], '核心判断：熟练当前材料 ≠ 掌握能力；Transfer 才是最终验证。'),
+                listening: methodPage('Listening：一次听懂，而不是依赖回拨', 'headphones', '第一次做题不暂停、不回拨；复盘才回拨。训练第一次播放时的连续理解、定位和信息处理能力。', '做Cambridge IELTS Listening、Section专项、套题或其他雅思听力训练时。', '完成一次不暂停、不回拨的真实听力；对错误完成针对性修复，并明确这次错误属于哪一类。', [
+                    step('①', 'Test Mode · 一次连续做', '播放一次，不暂停、不倒退、不回拨；漏一题就让它过去，立即追下一题。', '<b>第一次播放时不要碰进度条。</b>不要因为上一题没听清而继续在脑中纠结。真实IELTS没有回拨；这里练的是real-time processing，不是最后能不能把全文搞懂。'),
+                    step('②', '对答案，先别读transcript', '找出错题、猜对但实际没听清的题，以及当时明显掉队的位置。', '<b>不能只看正确答案然后结束。</b>猜对但没听清仍然暴露了能力缺口；先保留当时的听觉证据，避免文字答案替你完成识别。'),
+                    step('③', 'Repair Mode · 错题局部重听', '只回听错误附近约10–30秒；第二遍或第三遍后问“现在能听出来吗？”', '<b>第二遍立刻听出时：</b>优先检查注意力、上一题拖住、定位丢失、处理速度、distractor或反应太慢，通常不必为了仪式感精听十遍。'),
+                    step('④', '仍听不出，再看transcript分类', '判断是Vocabulary、Sound Recognition、Connected Speech、Accent、Paraphrase、Processing Speed、Attention / Tracking、Distractor，还是Form / Spelling。', '<b>快速区分：</b>词不知道＝Vocabulary；看得懂但听不出＝Sound Recognition；连读/弱读/吞音/重音＝Connected Speech；题干与录音表达没对应＝Paraphrase；听到后理解太慢＝Processing Speed；掉队或走神＝Attention / Tracking；答案被but / however / actually / instead修正＝Distractor；听懂却拼写、单复数或格式错＝Form / Spelling。'),
+                    step('⑤', '按原因做最小修复', '不同错误用不同练法，不默认所有错误都做同一种精听。', '<b>声音/连读：</b>原音 → transcript → 再听 → 跟读 → 遮住文字再听。<p><b>处理速度：</b>短句后立即说核心意思，练sound → meaning，不逐词翻译。</p><p><b>Paraphrase：</b>记Question expression ↔ Recording expression。</p><p><b>Distractor：</b>找答案改变的语言信号。</p><p><b>拼写/形式：</b>单独修spelling、singular-plural或format，不误判成理解问题。</p>'),
+                    step('⑥', 'Transfer · 换新录音验证', '之后换一个Section或新录音，看第一次播放时能否识别同类声音和信息结构。', '<b>什么时候最后完整重听整个Section？</b>只有整体掉队严重、错误较多，或修复后需要检查整段能否自然跟上。原本只错少量题，不强制完整重听。')
+                ], 'DO：第一次连续听完，复盘时局部回拨。DON’T：每听不清一句就立刻拨回去。'),
+                reading: methodPage('Reading：正确率之外，还要解决“为什么慢”', 'article', 'IELTS Reading训练的是在有限时间内定位、识别paraphrase、判断证据并作答，不是把文章像课文一样逐句读透。', '做Passage、题型专项、Reading套题或限时训练时。', '知道错题为什么错，也知道做对但明显过慢的题为什么慢，并完成针对性验证。', [
+                    step('①', 'Timed Attempt', '正常限时做Passage或题型，记录时间和正确率；遇到难句不要无限停留。', '<b>保留真实表现。</b>这一步先暴露在时间压力下的定位和判断能力，不要边做边查答案或把每句都翻译完。'),
+                    step('②', '把结果分成三类', '✓ Correct & Efficient；△ Correct but Slow；○ Wrong。', '<b>Correct but Slow必须进入分析。</b>最终答对但定位、纠结或阅读耗时异常，说明过程成本仍然会挤压后面的题。'),
+                    step('③', '回原文找Evidence', '所有错题和明显慢题都要指出Question在问什么、Evidence在哪里，以及两者发生了什么paraphrase。', '<b>不要只接受答案。</b>找不到真正支撑答案的句子，就还没有确认自己是怎样做对或做错的。'),
+                    step('④', '诊断错或慢的原因', '从Vocabulary、Interpretation、Location、Paraphrase、Reasoning、Decision、Time / Strategy中选最具体的一类。', '<b>区分：</b>找错或找太慢＝Location；证据已找到但判断错＝Reasoning；两个选项反复纠结＝Decision；会做但成本过高＝Time / Strategy。'),
+                    step('⑤', '只修最小缺口', 'Paraphrase记一个对应；Location回看定位词；T/F/NG重判支持、反驳或未提及；Heading练主旨；Vocabulary只处理影响理解的词。', '<b>不要默认重新精读全文。</b>也不要把每篇Reading所有生词都摘出来；只记影响理解的高价值词、高频paraphrase和自己重复误判的词义。'),
+                    step('⑥', 'Transfer · 换新题', '换一个Passage或同题型新题，检查刚才的问题是否减少。', '<b>完成标准不是：</b>“旧题现在知道答案了。”<p><b>而是：</b>“新题上定位、判断或速度问题减少了。”</p>')
+                ]),
+                writing: methodPage('Writing：旧文修复 + 新文迁移', 'edit_note', '旧作文负责暴露和修复真实问题；新作文负责证明这些错误是否真正减少。', 'Task 1 / Task 2写作、旧作文修改、AI批改后复盘时。', '当前作文的主要问题收敛，并在新的独立作文中减少同类错误、主动使用部分新表达。', [
+                    step('①', 'Original Attempt · 自己先写', '先独立完成真实输出，不让AI预先生成答案或高分范文。', '<b>原稿必须保留你的真实能力。</b>否则AI无法判断哪些grammar、logic或task response问题是你自己会重复犯的。'),
+                    step('②', 'AI找问题，不直接代写', '请AI指出Grammar、Vocabulary / Collocation、Sentence Structure、Cohesion、Logic / Development和Task Response / Achievement的问题与原因。', '<b>默认要求：</b>先指出问题，让你自己改；不要立即完整重写句子或整篇文章。AI的角色是发现和解释，不是替你交一篇新作文。'),
+                    step('③', 'Self Revision Loop', '你自己修改 → 再发给AI检查 → 继续修，直到主要错误明显收敛。', '<b>停止标准：</b>剩余主要是可选措辞优化时，停止Error Loop。不要因为AI还能挑细节，就把同一篇反复修改7、8、10轮。'),
+                    step('④', 'Language Upgrade', '主要grammar和logic问题稳定后，再区分Necessary Correction、Natural Upgrade和Optional Sophistication。', '<b>升级重点：</b>natural collocation、precise vocabulary、concise wording、sentence variety、academic but natural expression、cohesion和更清楚的argument development。原则是same idea, better English；不把简单词全部换成生僻词，也不改变原观点。'),
+                    step('⑤', 'This Essay Errors ≠ Recurring Errors', 'This Essay只记本篇真实出现的问题；同一问题至少在2篇独立新作文里再次出现，才晋升为Recurring Error。', '<b>防止Notebook污染：</b>不要因为历史记录就假定当前作文也有同一错误。Recurring Errors优先跟踪subject–verb agreement、articles、countability、word form、prepositions / collocations、clause structure、tense / modality和sentence logic等真实重复问题。'),
+                    step('⑥', 'Transfer Essay · 写新题', '用一篇新的独立作文检查旧错误是否减少、新collocation和句式能否在陌生内容下自然产生。', '<b>Task 1：</b>额外检查static vs dynamic data、tense、percentage vs percentage points、comparison object consistency、higher/lower、数据表达和Overview。<p><b>Task 2：</b>检查position、topic sentence、explanation、example、causal chain、relevance和conclusion；不要为了复杂写逻辑跨度过大的句子。</p>')
+                ], '旧文 = Repair；新文 = Transfer Test。不要看这一篇改得多漂亮，要看下一篇第一次写时有没有进步。'),
+                speaking: methodPage('Speaking：把正确英语练成自动输出', 'record_voice_over', '允许重复同一道题，但目的不是背答案，而是让grammar、句型和表达从“需要思考”变成自动输出。', 'Part 1 / Part 2 / Part 3机经训练、录音练习、语法纠错时。', '同题纠正后，换一道新问题仍能保持目标语法和表达，而不是只有原题说得很熟。', [
+                    step('①', 'First Attempt · 真实回答', '直接回答问题，允许慢、停顿和犯错；不要先背完整答案。', '<b>Part 2可以准备关键词，</b>但不要写完整逐字稿再背。第一次回答要保留真实输出，才能看到自动化水平。'),
+                    step('②', 'Record & Diagnose', '录音回听，每轮只选1个主要grammar target，最多2个。', '<b>例如：</b>past tense、articles、subject–verb agreement、singular/plural、prepositions或sentence completion。也可处理repeated vocabulary、unnatural pause或unclear structure，但当前优先grammar automaticity。'),
+                    step('③', 'Same-question Repair', '保持大致内容再说2–4遍：自由回答 → 慢速修grammar → 减少停顿 → 接近自然速度。', '<b>不是机械背同一套wording。</b>内容可以略微变化。允许重复，但不能无限重复到只会这一题。语速顺序是：正确但稍慢 → 正确且更顺 → 自然速度；不要为了fluency强行说快。'),
+                    step('④', 'Sentence Repair Drill', '把真实错误立即口头改对，再用相同结构换2–3个不同内容造句。', '<b>例子：</b>出现“Last year I go...”后先纠正，再换人物、时间和事件说几个新句。目的是练pattern，不是只修原句。'),
+                    step('⑤', 'Transfer Question · 换题', '同题练顺后必须换一道新题，检查目标语法和表达能否继续稳定。', '<b>例如：</b>从“Describe a trip you enjoyed”换到“Describe an activity you enjoyed when you were younger”。过去时仍正确才说明正在自动化；换题就复发，说明只是熟悉答案。')
+                ], '允许重复，禁止无限重复。Repeat → Repair → Transfer，而不是Repeat → Memorise。'),
+                language: methodPage('词汇与语法：服务四项，而不是单独堆知识', 'spellcheck', '词汇和语法从真实Listening / Reading / Writing / Speaking问题中产生，再回到四项能力中验证。', '发现重复vocabulary / grammar问题，或者需要把“认识”升级为“会主动使用”时。', '新词、新搭配和语法结构能在新的四项材料里被识别或主动使用。', [
+                    step('①', 'Recognition Vocabulary ≠ Active Vocabulary', 'Recognition是在Reading / Listening中能理解；Active是在Writing / Speaking中能主动输出。', '<b>不要要求所有Reading生词都进入Active Vocabulary。</b>先判断这个词只需要识别，还是确实值得在输出中掌握。'),
+                    step('②', '建立小型Upgrade Bank', '只留值得复用的collocation、sentence pattern、自然学术表达和useful paraphrase。', '<b>不要无限收藏。</b>每篇Writing或一轮Speaking只挑少量真正想掌握的表达，例如当前2–5个重点。'),
+                    step('③', 'Grammar从真实错误出发', '优先练自己反复犯的article、subject–verb agreement、tense、singular/plural、word form、preposition和clause structure。', '<b>不要默认从Grammar Book Chapter 1全部重刷。</b>先用本次输出和多篇重复证据确定最值得自动化的结构。'),
+                    step('④', 'Grammar Automaticity Drill', '知道规则不等于能输出；改对真实错误后，换内容造句，并在Speaking和Writing中使用。', '<b>练的是自动调用。</b>规则解释正确只是起点；时间压力和新内容下仍能产生正确结构，才接近automaticity。'),
+                    step('⑤', 'Transfer · 回到四项', '在新题、新作文、新口语回答或新音频/文章中正确识别或使用，才算进入active language system。', '<b>不要把词汇表背熟当终点。</b>每个升级项都要有一个新的输入识别或输出使用证据。')
                 ])
             }
         },
@@ -1267,63 +1439,38 @@
             subTabs: ['school', 'major', 'strategy'],
             subTabLabels: { school: '学校考试', major: 'IGCSE / AS / A-Level', strategy: '考场策略' },
             content: {
-                school: methodPage('学校考试：覆盖范围内修漏洞', 'event_note', '考试计划叠加在正常学校流程上，不替代上课、作业和到期复习。', '单元测验、月考、期中和期末；有3周时走完整节奏，只有2周时压缩。', '有清晰范围、证据化弱点、修复与重测安排，并完成至少一次接近真实条件的检验。', [
-                    step('第3周', 'Map & Diagnose', '列出考试范围，结合红绿灯、错题和一次诊断任务定位薄弱点。', '<b>校内考试证据：</b>老师给的范围、最近章节、Homework、Quiz、Class notes和老师常用题型。<p><b>输出：</b>不是“复习第1–5章”，而是按主题标注证据，并只选最影响成绩和后续理解的漏洞。套卷此时主要用于暴露问题。</p>'),
-                    step('第2周', 'Repair & Verify', '按知识节点和根因做专项修复，每项都用新任务验证。', '<b>安排：</b>正常课程继续；额外时间倾斜给1–2个薄弱科目。不要规定每天固定题量，按漏洞是否通过重测决定。'),
-                    step('第1周', 'Simulate & Stabilize', '在接近真实条件下练时间分配、题型切换和完整输出，并减少新内容。', '<b>频率：</b>根据考试数量、精力和反馈决定，不硬性规定固定套数。每次模拟必须留出诊断和修复时间。<p><b>最后检查：</b>只保留一张Remaining Risk List：尚不稳定的少数知识、高频流程错误、考试规则和必备物品。</p>'),
-                    step('只有2周', '压缩但不删闭环', '第1周完成Map + Diagnose并开始Repair；第2周继续Verify，同时做少量Simulate与稳定状态。', '<b>不做：</b>考前三天统一“费曼大扫荡”。到期内容照常检测，考试弱点按证据优先处理。')
+                school: methodPage('学校考试：先看老师实际会考什么', 'event_note', '小测、单元测试、月考、期中和期末的准备期差很多；先按日期获得阶段建议，再用校内证据找范围。', '任何校内考试。重点不是重新学整本书，而是把考试范围内真正薄弱的部分找出来。', '范围清楚，薄弱项有证据，修复后用新任务验证；是否做完整模拟由考试规模决定。', [
+                    step('①', 'Map · 圈真实范围', '优先看老师给的范围、最近chapters、Class notes和课堂强调内容。', '<b>不要默认整本书：</b>把明确会考的topic列出来；范围不清时先问老师或查考试说明，而不是从第一页开始复习。'),
+                    step('②', 'Diagnose · 用已有证据找弱点', '看Homework、Quiz、课堂练习、老师反馈和常见题型。', '<b>快速判断：</b>哪些topic是红/黄灯？哪类command word或Root Cause反复出现？短测可用几道代表题，不必先做整套卷。'),
+                    step('③', 'Repair + Verify · 修完立刻换题验证', '只修最影响这次考试的知识或能力缺口。', '<b>验证：</b>用同能力、不同题面的任务证明已经修好。日期很近就只抓高价值风险；时间充足再扩展覆盖。'),
+                    step('④', '按考试规模决定模拟程度', '小测可能只需要mixed questions；期中期末才更需要section或timed paper。', '<b>没有固定比例：</b>系统根据剩余日期给建议，用户按老师安排、卷长和实际表现决定。正常课程与睡眠继续保留。')
                 ]),
                 major: methodPage('IGCSE / AS / A-Level：按 syllabus 与 paper 管理', 'school', '大考范围大，需要同时管理 syllabus 覆盖、paper要求、题型证据和长期节奏。', '大型阶段考试、mock和正式大考准备。', '每个考纲主题有状态和证据；知道不同paper测什么；练习分布反映真实权重与个人弱点。', [
                     step('①', '建立 Syllabus Map', '按官方考纲主题列范围，并用红绿灯标长期掌握状态。', '<b>状态必须有证据：</b>最近闭卷输出、代表题、老师反馈或past paper表现。不要只因为“学过”就标绿。'),
-                    step('②', '拆 Paper 与题型', '记录每张卷的时间、题型、指令词、工具限制和评分特点。', '<b>目的：</b>知识会了但不熟paper要求，仍会在Response Structure或Time/Strategy上失分。'),
-                    step('③', '用 Past Paper 诊断', '先按题型或主题取样，临近考试再做完整模拟。', '<b>先小后大：</b>基础不稳时连续做整卷会反复暴露同一问题；先修知识节点，再用跨主题与整卷验证。'),
-                    step('④', '按证据分配时间', '结合考试权重、当前状态、重复根因和后续依赖决定优先级。', '<b>不预设统一比例：</b>每周根据诊断更新1–2个额外重点，其余科目保持最低维持。')
+                    step('②', '建立 Paper Map', '记录每张Paper考什么、时间、分值、题型、command words和评分特点。', '<b>还要确认：</b>calculator / practical / data booklet等工具限制、多Paper配置及各卷权重。知识会了但不熟Paper要求，仍会在Response Structure或Time/Strategy上失分。'),
+                    step('③', 'Past Paper 分层使用', '前期做topic / question type，中期做cross-topic / sections，后期才逐渐增加full papers。', '<b>不要过早刷整卷：</b>离考试很远时，完整覆盖、topic practice和周期诊断更重要。修好知识节点后，再用跨主题任务验证组合能力。'),
+                    step('④', '临近考试再增加模拟', '完整mock用于检验时间、Paper切换、答题结构和状态稳定。', '<b>频率由证据决定：</b>每次完整模拟都要留出诊断与修复时间。考试还有几个月时，不需要维持高频full paper。')
                 ]),
-                strategy: methodPage('考场策略：先拿可得分，再保护全卷', 'timer', '考场策略的目标是把已有能力稳定转化为分数。', '计时模拟和正式考试都使用同一套动作，平时练成习惯。', '能在有限时间内完成预扫描、分配、跳题、检查和高分值输出。', [
-                    step('开卷前后', '读规则与快速预扫描', '确认题数、必选/选做、总分和时间，再扫题目难度与熟悉度。', '<b>不要过度扫描：</b>只做足以安排顺序的判断。先拿确定分，再处理中等题，最后回到高风险题。'),
-                    step('作答中', '按分值和进展控制时间', '为每部分设参考时间；超时且没有新进展时标记卡点并跳过。', '<b>不是机械到点就停：</b>若只差一个明确步骤可完成，可以收尾；若只是重复尝试同一路径，应保护后面可得分。'),
-                    step('高分值题', '先搭答案结构', '先列要点、因果链、比较维度或步骤，再展开。', '<b>好处：</b>减少遗漏，也能在时间不足时留下可评分的结构。计算题写关系和过程，论述题写判断标准和证据。'),
-                    step('最后检查', '按风险而非从头重做', '优先查漏题、单位、符号、边界、指令词、图表标注和高分值结论。', '<b>检查清单要来自个人错误统计：</b>如果你常漏条件，就先查条件；如果常答非所问，就先圈指令词和最终结论。')
+                strategy: methodPage('考场策略：正常做，卡住再跳', 'timer', '不要求开卷先给整张卷分类。默认从前往后做，用进展和分值保护后面的分数。', '计时练习和正式考试都使用，逐渐练成自然反应。', '能正常推进；无新进展时会跳；长题有结构；最后只查个人高风险。', [
+                    step('①', '正常从前往后做，卡住就跳', '有稳定进展就继续；重复尝试却没有新思路，就标记并往后做。', '<b>不是遇到难题立刻逃：</b>如果只差一个明确步骤，可以收尾；如果一直重走同一路径，就先保护后面能拿的分，最后再回来。'),
+                    step('②', '用“分值 → 时间”作为尺度', '总时间 ÷ 总分可以估出每分大约可用多久，但不是硬性秒表。', '<b>判断要同时看进展：</b>3分题花了远超合理时间且完全没推进，应跳过；高分题正在稳定展开，可以继续。'),
+                    step('③', '高分值长题先想一下结构', 'Explain、Evaluate、Proof或Algorithm开始前，用很短时间确定主要点、因果链、比较维度或大致步骤。', '<b>不是正式写长提纲：</b>只要避免写到一半才发现漏了核心部分。结构想清就立刻作答。'),
+                    step('④', '最后按个人高风险检查', '优先查漏题、单位、正负号、graph labels、command word和最终结论。', '<b>不要从第一题完整重做：</b>检查顺序来自你自己的错题统计。最常漏条件，就先查条件；常答非所问，就先查command word和结论。')
                 ])
             }
         },
         workflow: {
-            label: '学习流程', icon: 'route',
-            subTabs: ['loop', 'schoolday', 'independent', 'reviewflow', 'routing'],
-            subTabLabels: { loop: '完整主线', schoolday: '学校日', independent: '自主学习', reviewflow: '复习流程', routing: '卡住怎么办' },
+            label: '学习闭环', icon: 'route',
+            subTabs: ['loop'],
+            subTabLabels: { loop: '学习闭环' },
             content: {
-                loop: methodPage('理解 → 连接 → 复习 → 应用', 'route', '这是一条循环，不是四套并列方法；检测失败时只回退到对应步骤。', '不知道各种工具怎样配合，或想判断一个知识点是否形成闭环时。', '能讲清、能连接、经过间隔还能输出，并能用于合适任务。', [
-                    step('①', '理解', '用自己的话回答：是什么、为什么、什么时候用，并给一个例子。', '<b>证据：</b>合上资料仍能解释；不能只依赖原句。讲不清时回到定义、条件或例子，补完立即再次闭卷。'),
-                    step('②', '连接', '写一条“旧知识 → 新知识 → 能解释或解决什么”，或写清相似概念的区别。', '<b>只做有效连接：</b>关系必须能说出原因。例如“导数描述瞬时变化率，因此连接速度—时间关系”；不要求画整棵知识树。'),
-                    step('③', '复习', '到期时先闭卷检测，再按√/△/○安排下次日期。', '<b>复习不是重读：</b>状态由本次独立输出决定。失败时修最小缺口并立刻重测。'),
-                    step('④', '应用', '用直接任务、变式、综合关系或现实情境验证是否会用。', '<b>应用形式随知识变化：</b>可以是做题、解释现象、分析材料、写代码、设计实验或构建议题提纲。'),
-                    step('⑤', '检测并回退', '讲不清回理解；不会调用回连接或题型识别；想不起缩短复习间隔；会讲不会做进入习题。', '<b>不要从头全部重学：</b>先识别最小失败点。如果问题是无法开始或持续分心，转到“执行与专注”。')
+                loop: methodPage('理解 → 连接 → 检索 → 应用', 'route', '这不是另一套学习方法，只是一张总路线图：一个知识点从第一次接触到真正会用，大致经过什么。', '方法太多、不知道自己卡在哪一层时，快速看一眼并跳到对应工具。', '能指出当前失败在哪一步，并只打开最相关的那个板块。', [
+                    step('①', '理解', '不看原句，也能用自己的话说清是什么、为什么、什么时候用。', '<b>失败时：</b>去“学习”，使用Cornell、自学或其他适合当前知识的方式补理解。这里不再重复具体方法。'),
+                    step('②', '连接', '能把它和已有知识接出至少一条有意义的关系。', '<b>失败时：</b>回“学习”补一个旧知关系、区别或因果连接。连接有效即可，不需要为了形式画完整知识树。'),
+                    step('③', '检索 / 复习', '隔一段时间、不看资料仍能准确输出。', '<b>失败时：</b>去“学习 → 主动回忆与间隔”，先检索、修最小缺口，再安排下一次。'),
+                    step('④', '应用', '能把知识用于代表题、Explain、Compare、Code、Experiment或材料分析等真实任务。', '<b>失败时：</b>会讲但不会用，去“习题”；题平时会但考试表现差，去“考试”。'),
+                    step('→', '知道方向但做不起来', '如果方法清楚，只是无法开始或一直分心，问题不在学习闭环。', '<b>去“执行与专注”：</b>把任务写到能直接开始，降低启动门槛或处理环境干扰。')
                 ]),
-                schoolday: methodPage('学校日完整流程', 'school', '把学校本来就有的课前、课堂、课后与作业串成闭环，不额外制造重复任务。', '每个有新课的科目都走轻量流程；额外补弱只选1–2科。', '一天结束时，课堂内容已加工、作业已成为应用证据、到期内容已检测。', [
-                    step('课前', '4-P 预习', '5–10分钟扫结构、激活旧知、预测并留下1–3问。', '<b>没空时：</b>移到前一晚或当天空档。它是课堂准备，不需要提前学会全部内容。'),
-                    step('课中', 'Cornell Record', '听老师的逻辑并记录主栏，疑问先标记。', '<b>课堂优先级：</b>理解与跟随课堂高于版式完整。Cue和Summary留到课后。'),
-                    step('课后首个空档', 'Cue + Summary', '补回忆提示，遮挡解释，再写理解、连接和易错点。', '<b>时间：</b>最好当天，强调“第一个可用空档”，不是硬性30分钟内。完成后晚上不再写重复的每日总结。'),
-                    step('放学后', 'Homework / Application', '先完成学校作业；作业已经是应用与检验。', '<b>只有需要时加题：</b>作业不足、明确薄弱或考试专项才加练，避免为了系统另做一套机械任务。'),
-                    step('中午或晚上', 'Due Review Queue', '只测今天到期内容，标记状态并安排下次。', '<b>当天没有到期：</b>可以结束，不随便翻旧笔记凑复习时长。')
-                ]),
-                independent: methodPage('自主学习流程', 'self_improvement', '自学仍走理解—连接—复习—应用，但按可检测结果控制范围和时长。', '周末补弱、空课自学或主动扩展时。', '每个学习段留下输出证据；总时长可按上午2h、下午2h、晚上1h分段，但不是硬指标。', [
-                    step('①', '选1–2个重点结果', '从本周漏洞或当前目标中选，不把全天排满。', '<b>周末建议：</b>上午2小时、下午2小时、晚上1小时可以作为上限式框架，中间必须离开座位、吃饭、活动和休息；状态差时缩短，不补偿性熬夜。'),
-                    step('②', '选择专注节奏', '可用25+5番茄钟或50+10深度段，每段只处理一个明确问题。', '<b>怎么选：</b>难启动或任务碎时用25+5；已进入状态、需要推理时用50+10。休息不要打开会无限滚动的信息流。'),
-                    step('③', '跑小闭环', '每段完成理解、至少一条连接、一个应用证据和复习安排。', '<b>不是每段都平均分配：</b>新概念可能理解更久，错题专项可能应用更久；只要四个环节最终都有证据。'),
-                    step('④', '按证据停止', '达到结果或确认具体卡点后结束该段，更新下一步。', '<b>防止一坐一天：</b>时间到仍无进展，就记录卡点并切到休息、求助或最小前置任务，不用坐着制造努力感。')
-                ]),
-                reviewflow: methodPage('复习流程', 'history', '日常处理到期项，每周做诊断，每两周查长期留存，三者职责不同。', '需要知道“每天、每周、每两周到底分别做什么”时。', '不会重复执行同一套总结；每个周期都有唯一输出。', [
-                    step('每日', '处理到期队列', 'Cue → 闭卷输出 → 对照 → √/△/○ → 最小修复 → 下次日期。', '<b>输出：</b>具体知识点的本次状态。它解决“今天还会不会”。'),
-                    step('每周', '诊断并安排修复', '汇总信号、扫当前范围、选2–3个漏洞、安排修复和下周重点。', '<b>输出：</b>下一周的少量优先任务。它解决“最近哪里最值得花时间”，不做固定5小时复习日。'),
-                    step('每两周', '长期留存审计', '随机抽10个已掌握点，按知识类型闭卷测试，更新状态和策略。', '<b>输出：</b>留存趋势和复习策略调整。它解决“以前会的是否掉了”，不在此处做深度专项训练。')
-                ]),
-                routing: methodPage('卡住时去哪一个板块', 'alt_route', '先识别问题发生在哪一层，只打开当前需要的一页。', '方法太多、不知道下一步，或做了很多但问题没有变化时。', '能把问题路由到一个板块，并说出完成标准。', [
-                    step('没学懂', '去“学习”', '用4-P、Cornell或50分钟自学补理解和连接。', '<b>完成证据：</b>合书解释核心内容，并能指出与旧知识的关系。'),
-                    step('懂但不会做', '去“习题”', '先认题型和指令词，再诊断Selection、Reasoning、Execution等根因。', '<b>完成证据：</b>无提示完成一条同能力新任务，并安排延迟重测。'),
-                    step('临近考试', '去“考试”', '建立范围、阶段与考场策略；作为正常流程上的叠加计划。', '<b>完成证据：</b>考试范围有状态，弱点有验证任务，模拟结果已回流到诊断。'),
-                    step('知道怎么做但启动不了', '去“执行与专注”', '缩小下一动作、处理环境和注意力。', '<b>完成证据：</b>不是“更有动力”，而是已经开始一个可见的2分钟动作。'),
-                    step('不知道今天做什么', '回“执行中心”', '在今日、本周或每两周中只执行当前周期任务。', '<b>原则：</b>执行中心安排What/When；其他板块解释How。')
-                ])
             }
         },
         procrastination: {
@@ -1331,11 +1478,12 @@
             subTabs: ['plan', 'start', 'focus'],
             subTabLabels: { plan: '计划与取舍', start: '启动', focus: '专注与环境' },
             content: {
-                plan: methodPage('把计划写成可执行结果', 'event_available', '计划的作用是减少临场选择，不是把所有愿望塞进一天。', '任务太多、总延误、周末一坐一天或常因计划失败自责时。', '今天只有1–2个额外重点，每个任务都有动作、范围、检测和合理停止点。', [
+                plan: methodPage('计划写到可以直接开始', 'event_available', 'TickTick负责做什么和什么时候；StudyGuide负责开始以后具体怎么学。任务标题不需要塞进整套方法。', '任务太多、标题太长、总延误，或每次做计划都提前拆出大量微任务时。', '今天只有1–2个额外重点，每个任务至少有动作和范围；只有完成含义不清时才补标准。', [
                     step('①', '先保护底座', '睡眠、上课、吃饭、活动和必要休息先进入现实时间表。', '<b>原因：</b>专注不是意志力常量。用熬夜补计划会降低第二天的理解、回忆和控制能力。'),
-                    step('②', '写结果，不写主题', '用“动作＋范围＋检测”描述任务。', '<b>模糊：</b>“复习化学”。<p><b>清楚：</b>“闭卷画出电解池两极反应，并独立完成2道判断电极的题。”</p>'),
-                    step('③', '只选1–2个额外重点', '课表内科目照常维持；额外自学时间集中修最重要漏洞。', '<b>排序：</b>严重程度、重复频率、后续依赖、考试权重和可修复性。剩余任务进入以后，不在今天假装全部能做。'),
-                    step('④', '给计划留缓冲', '按过去真实用时估计，并为切换、卡点和休息留空间。', '<b>计划谬误：</b>不要按“最顺利的一次”估算。若任务经常超时，缩小范围或拆成诊断与修复两个结果。')
+                    step('②', '默认只写动作 + 范围', '写到打开任务后不用再想“我现在该碰哪一块”就够了。', '<b>太模糊：</b>“复习化学”。<p><b>合适：</b>“Review Chemistry — Chapter 6 Electrolysis”或“Review Physics — Momentum & Collisions”。开始后的复习方法留给StudyGuide，不写进标题。</p>'),
+                    step('③', '完成标准按需添加', '只有薄弱主题、红黄灯、考前修复、自学新知识或结束点很模糊时才补一句。', '<b>例子：</b>“Review Momentum”<br>完成标准：闭卷解释守恒条件 + 1道代表题通过。普通任务不需要强制加检测、题量和下次复习日期。'),
+                    step('④', '执行后再细化', '先做一个合理范围，再根据真实证据创建后续修复任务。', '<b>例子：</b>开始时只有“Review Physics — Chapter 5 Momentum”。做完发现Conservation Conditions为△、Collision Direction为○，这时再建“Fix — Momentum Conservation Conditions”和“Practice — Collision Direction”。'),
+                    step('⑤', '只选1–2个额外重点并留缓冲', '课表内科目正常维持；额外自学集中最重要漏洞，并按真实用时安排。', '<b>不要提前拆十几个微任务：</b>排序后先放入最值得做的范围，给卡点、切换和休息留空间。')
                 ]),
                 start: methodPage('降低启动门槛', 'play_arrow', '拖延出现时，不先等待动力，而是把下一步缩小到大脑不需要争论。', '知道该做什么却迟迟不开始，或总在准备工具、整理桌面中打转时。', '已经开始一个与最终任务直接相关的动作，并持续到第一个短专注段结束。', [
                     step('①', '写下一个可见动作', '动作必须能立即做，避免“开始学习”这类抽象命令。', '<b>例子：</b>“打开第23页，遮住例题答案，写出已知条件”；不是“搞懂整章”。'),
@@ -1359,8 +1507,28 @@
         return { num, title, desc, detail };
     }
 
-    function methodPage(title, icon, desc, when, done, steps) {
-        return { title, icon, desc, when, done, granules: { guide: { label: title, steps } } };
+    function methodPage(title, icon, desc, when, done, steps, principle = '') {
+        return { title, icon, desc, when, done, principle, granules: { guide: { label: title, steps } } };
+    }
+
+    function questionTypePage(subjects) {
+        const title = '学科 / 题型怎么做';
+        return {
+            title,
+            icon: 'category',
+            desc: '先选学科，再打开具体题型。每一项只回答：考什么、先看什么、怎样组织、常见错误和一个例子。',
+            when: '某一种题型不知道怎样开始，或同一题型反复失分时。',
+            done: '找到当前题型的关键动作，回到题目立刻尝试；不用把其他题型一起读完。',
+            granules: { guide: { label: title, questionTypes: subjects } }
+        };
+    }
+
+    function subjectGuide(name, types) {
+        return { name, types };
+    }
+
+    function questionType(name, tests, first, structure, trap, example) {
+        return { name, tests, first, structure, trap, example };
     }
 
     function renderExpandedDetails(title, directDetail) {
@@ -1381,7 +1549,8 @@
         weeklyReviewDay: 'flexible',
         progress: {},
         aiMessages: [],
-        aiLoading: false
+        aiLoading: false,
+        stuckHint: { known: '', stuck: '', history: [], loading: false }
     };
 
     // Load from localStorage
@@ -1438,6 +1607,7 @@
         if (tab === 'practice') STATE.subTab = 'general';
         if (tab === 'exam') STATE.subTab = 'school';
         if (tab === 'procrastination') STATE.subTab = 'plan';
+        if (tab === 'ielts') STATE.subTab = 'overview';
 
         render();
         saveState();
@@ -1500,6 +1670,10 @@
 
     function render() {
         const area = document.getElementById('contentArea');
+
+        document.querySelectorAll('.nav-item[data-tab]').forEach(el => {
+            el.classList.toggle('active', el.dataset.tab === STATE.mainTab);
+        });
         
         if (STATE.mainTab === 'today') {
             area.innerHTML = renderToday();
@@ -1579,17 +1753,18 @@
         if (!plan) {
             return `<div class="execution-note">
                 <span class="material-icons-round">event_upcoming</span>
-                <div><strong>当前没有考试叠加计划</strong>正常学习流程照常进行。临近考试时，可在考试板块建立计划；它只增加当期任务，不替代课前、课中、课后、作业和到期复习。
+                <div><strong>当前没有考试叠加计划</strong>正常学习照常进行。临近考试时，可在考试板块建立计划；它只增加当期任务，不替代课前、课中、课后、作业和到期复习。
                     <div class="timeline-actions"><button class="method-link" onclick="navigateToMethod('exam', 'school')">前往考试板块</button></div>
                 </div>
             </div>`;
         }
         const title = escapeHtml(plan.name || plan.title || '当前考试');
-        const phase = escapeHtml(getExamPlanPhase(plan));
+        const advice = getExamPlanAdvice(plan);
+        const phase = escapeHtml(advice.current);
         const date = plan.date ? ` · 考试日期 ${escapeHtml(plan.date)}` : '';
         return `<div class="execution-note">
             <span class="material-icons-round">event_note</span>
-            <div><strong>考试叠加计划：${title}</strong>${phase}${date}。正常学校流程继续执行，只把额外时间分配给当前考试任务。
+            <div><strong>考试叠加计划：${title}</strong>${phase}${date}。${escapeHtml(advice.note)}
                 <div class="timeline-actions"><button class="method-link" onclick="navigateToMethod('exam', 'school')">查看考试计划</button></div>
             </div>
         </div>`;
@@ -1599,7 +1774,7 @@
         return `
             <details class="source-panel">
                 <summary>来源与版本（Study Methods and Execution）</summary>
-                <p style="margin-top:10px;">Version: 20260829 · Powered by Jack Shi · Created on 2 August · Updated on 29 August。来源包括 Gemini、Bilibili、ChatGPT 与 Google；本页保留原方法的完整执行要点，并将其整理为可勾选步骤。</p>
+                <p style="margin-top:10px;">Version: 20260830 · Powered by Jack Shi · Created on 2 August · Updated on 30 August。来源包括 Gemini、Bilibili、ChatGPT 与 Google；本页保留有实际用途的方法，并按需整理为可快速调用的工具。</p>
                 <div class="source-links">
                     <a href="https://www.bilibili.com/video/BV1tibi6xEN4/" target="_blank" rel="noopener noreferrer">学习知识体系</a>
                     <a href="https://www.bilibili.com/video/BV1EhB9BLEHs/" target="_blank" rel="noopener noreferrer">学习时间</a>
@@ -1759,7 +1934,7 @@
                 <p>${subContent?.desc || ''}</p>
             </div>
 
-            <div class="tabs-container">
+            ${subTabs.length > 1 ? `<div class="tabs-container">
                 <div class="sub-tabs">
                     ${subTabs.map(st => `
                         <button class="sub-tab ${st === activeSub ? 'active' : ''}" onclick="switchSubTab('${st}')">
@@ -1777,7 +1952,7 @@
                     `).join('')}
                 </div>
                 ` : ''}
-            </div>
+            </div>` : ''}
 
             ${(subContent?.when || subContent?.done) ? `
             <div class="execution-note">
@@ -1789,12 +1964,146 @@
             </div>
             ` : ''}
 
+            ${subContent?.principle ? `
+            <div class="execution-note">
+                <span class="material-icons-round">verified</span>
+                <div><strong>核心规则</strong>${subContent.principle}</div>
+            </div>
+            ` : ''}
+
             ${tab === 'exam' ? renderExamPlanControls() : ''}
 
             <div class="content-panel">
                 ${renderGranuleContent(subContent, activeGranule, tab, activeSub)}
             </div>
+
+            ${renderModuleTool(tab, activeSub)}
         `;
+    }
+
+    function renderModuleTool(tab, subTab) {
+        if (tab === 'procrastination' && subTab === 'plan') return renderTaskWritingTool();
+        if (tab === 'practice' && subTab === 'stuck') return renderStuckHintTool();
+        return '';
+    }
+
+    function renderTaskWritingTool() {
+        return `<section class="tool-card" aria-labelledby="taskWriterTitle">
+            <h3 id="taskWriterTitle">任务写法助手</h3>
+            <p>默认只生成“动作 + 学科 + 范围”。只有你填写完成标准时，才把它放进简短描述。</p>
+            <div class="tool-form">
+                <label class="tool-field">Subject<input id="taskSubject" type="text" placeholder="Physics"></label>
+                <label class="tool-field">Action<input id="taskAction" type="text" placeholder="Review"></label>
+                <label class="tool-field full">Scope<input id="taskScope" type="text" placeholder="Momentum"></label>
+                <label class="tool-field full">Completion Standard（可选）<textarea id="taskStandard" rows="2" placeholder="闭卷解释守恒条件 + 1道代表题通过"></textarea></label>
+            </div>
+            <div class="timeline-actions">
+                <button class="method-link" onclick="generateTaskDraft()">生成简洁任务</button>
+                <button class="method-link" id="copyTaskBtn" onclick="copyTaskDraft()" disabled>Copy</button>
+            </div>
+            <div class="tool-output" id="taskDraftOutput" hidden>
+                <b id="taskDraftTitle"></b><div id="taskDraftDescription"></div>
+            </div>
+        </section>`;
+    }
+
+    function generateTaskDraft() {
+        const subject = document.getElementById('taskSubject')?.value.trim();
+        const action = document.getElementById('taskAction')?.value.trim();
+        const scope = document.getElementById('taskScope')?.value.trim();
+        const standard = document.getElementById('taskStandard')?.value.trim() || '';
+        const draft = buildTaskDraft(subject, action, scope, standard);
+        if (!draft) {
+            showSimpleModal('还缺一点信息', '请填写Subject、Action和Scope；完成标准可以留空。');
+            return;
+        }
+        STATE.taskDraft = draft;
+        document.getElementById('taskDraftTitle').textContent = STATE.taskDraft.title;
+        document.getElementById('taskDraftDescription').textContent = STATE.taskDraft.description;
+        document.getElementById('taskDraftOutput').hidden = false;
+        document.getElementById('copyTaskBtn').disabled = false;
+    }
+
+    function buildTaskDraft(subject, action, scope, standard = '') {
+        if (!subject || !action || !scope) return null;
+        return {
+            title: `${String(action).trim()} ${String(subject).trim()} — ${String(scope).trim()}`,
+            description: standard ? `完成标准：${String(standard).trim()}` : ''
+        };
+    }
+
+    async function copyTaskDraft() {
+        if (!STATE.taskDraft) return;
+        const text = [STATE.taskDraft.title, STATE.taskDraft.description].filter(Boolean).join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            document.getElementById('copyTaskBtn').textContent = 'Copied';
+        } catch (error) {
+            showSimpleModal('无法自动复制', '请手动选择上方生成的任务文字。');
+        }
+    }
+
+    function renderStuckHintTool() {
+        const hint = STATE.stuckHint;
+        const latest = hint.history[hint.history.length - 1] || '';
+        return `<section class="tool-card" aria-labelledby="stuckHintTitle">
+            <h3 id="stuckHintTitle">卡题提示器</h3>
+            <p>默认只给当前最小提示，不直接把答案或完整步骤揭出来。能继续以后就回题目。</p>
+            <div class="tool-form">
+                <label class="tool-field full">我已经做到哪里<textarea id="hintKnown" rows="3" placeholder="例如：我已经列出两个变量，也知道最终要比较变化率">${escapeHtml(hint.known)}</textarea></label>
+                <label class="tool-field full">我具体卡在哪里<textarea id="hintStuck" rows="3" placeholder="例如：不知道该用总量还是变化率继续">${escapeHtml(hint.stuck)}</textarea></label>
+            </div>
+            <div class="timeline-actions">
+                <button class="method-link" onclick="requestStuckHint(false)" ${hint.loading ? 'disabled' : ''}>${hint.loading ? '正在判断…' : '给我最小提示'}</button>
+                ${latest ? `<button class="method-link" onclick="requestStuckHint(true)" ${hint.loading ? 'disabled' : ''}>再给一点提示</button>` : ''}
+            </div>
+            ${latest ? `<div class="tool-output"><b>当前提示 ${hint.history.length}</b><div>${renderAiText(escapeHtml(latest))}</div></div>` : ''}
+        </section>`;
+    }
+
+    async function requestStuckHint(more) {
+        const known = more ? STATE.stuckHint.known : document.getElementById('hintKnown')?.value.trim();
+        const stuck = more ? STATE.stuckHint.stuck : document.getElementById('hintStuck')?.value.trim();
+        if (!known || !stuck) {
+            showSimpleModal('先写清具体卡点', '请分别写“我已经做到哪里”和“我具体卡在哪里”。');
+            return;
+        }
+        const cfg = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
+        if (!cfg.apiKey) {
+            showSimpleModal('需要先配置AI', '请先在Jackyun Portal设置页面配置AI API Key。');
+            return;
+        }
+        STATE.stuckHint.known = known;
+        STATE.stuckHint.stuck = stuck;
+        STATE.stuckHint.loading = true;
+        render();
+        const level = STATE.stuckHint.history.length + 1;
+        const previous = STATE.stuckHint.history.map((text, index) => `提示${index + 1}：${text}`).join('\n');
+        const prompt = `学生已经做到：${known}\n学生卡在：${stuck}\n${previous ? `之前已经给过：\n${previous}\n` : ''}现在给第${level}层提示。不要给最终答案，不要完整解题，只给一个足以继续的最小提示。顺序优先：相关条件 → 方法类别 → 中间方向 → 最后才是关键步骤。如果信息不足，只问一个最必要的问题。回复不超过80字。`;
+        try {
+            const res = await fetch('/api/llm-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    baseUrl: cfg.baseUrl,
+                    apiKey: cfg.apiKey,
+                    model: cfg.model || 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: '你是卡题提示器。严格遵守最小提示原则；除非用户明确要求完整答案，否则绝不一次给出完整解法。' },
+                        { role: 'user', content: prompt }
+                    ]
+                })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const answer = data.choices?.[0]?.message?.content || data.content || data.response || '暂时没有生成提示，请稍后再试。';
+            STATE.stuckHint.history.push(answer);
+        } catch (error) {
+            STATE.stuckHint.history.push('提示暂时无法生成。请先回题目圈出目标、已有信息和最具体的缺口，再向老师或同学只问下一步。');
+        } finally {
+            STATE.stuckHint.loading = false;
+            render();
+        }
     }
 
     function renderExamPlanControls() {
@@ -1802,7 +2111,7 @@
         if (!plan) {
             return `<div class="execution-note">
                 <span class="material-icons-round">add_task</span>
-                <div><strong>需要时建立真实考试计划</strong>填写名称、日期和类型，再选择三周或两周压缩节奏。执行中心会显示当前阶段；正常学校流程不会被替换。
+                <div><strong>考试计划生成器</strong>填写实际日期，系统按剩余时间给阶段建议。建议不是强制比例，你仍按考试范围、学校安排和真实表现决定。
                     <div class="exam-plan-form">
                         <input id="examPlanName" type="text" maxlength="60" placeholder="考试名称，如 Year 12 Mock">
                         <input id="examPlanDate" type="date" aria-label="考试日期">
@@ -1812,46 +2121,83 @@
                             <option value="as">AS Level</option>
                             <option value="alevel">A-Level</option>
                         </select>
+                        <textarea id="examPlanScope" class="full" rows="2" maxlength="300" placeholder="考试范围（可选），如 Chapter 4–7 / Paper 2"></textarea>
                     </div>
                     <div class="timeline-actions">
-                        <button class="method-link" onclick="startExamPlan('3week')">开启3周计划</button>
-                        <button class="method-link" onclick="startExamPlan('2week')">开启2周压缩计划</button>
+                        <button class="method-link" onclick="startExamPlan()">建立考试计划</button>
                     </div>
                 </div>
             </div>`;
         }
+        const advice = getExamPlanAdvice(plan);
         return `<div class="execution-note">
             <span class="material-icons-round">event_available</span>
-            <div><strong>已启用：${escapeHtml(plan.name || plan.title || '当前考试')}</strong>${escapeHtml(getExamPlanPhase(plan))}${plan.date ? ` · ${escapeHtml(plan.date)}` : ''}。你可以在执行中心同时看到正常流程和考试提醒。
+            <div><strong>已启用：${escapeHtml(plan.name || plan.title || '当前考试')}</strong>${plan.date ? `考试日期 ${escapeHtml(plan.date)} · ` : ''}${escapeHtml(advice.current)}
+                ${plan.scope ? `<br><b>范围：</b>${escapeHtml(plan.scope)}` : ''}
+                <br><b>接下来：</b>${escapeHtml(advice.later)}<br>${escapeHtml(advice.note)}
                 <div class="timeline-actions"><button class="method-link" onclick="clearExamPlan()">结束当前计划</button></div>
             </div>
         </div>`;
     }
 
-    function startExamPlan(kind) {
+    function startExamPlan() {
         const name = document.getElementById('examPlanName')?.value.trim() || '当前考试';
         const date = document.getElementById('examPlanDate')?.value || '';
         const examType = document.getElementById('examPlanType')?.value || 'school';
-        STATE.activeExamPlan = { name, date, examType, kind, startedAt: formatDateKey(new Date()) };
+        const scope = document.getElementById('examPlanScope')?.value.trim() || '';
+        if (!date) {
+            showSimpleModal('请先选择考试日期', '有了日期，系统才能计算剩余时间并给出阶段建议。');
+            return;
+        }
+        STATE.activeExamPlan = { name, date, examType, scope, startedAt: formatDateKey(new Date()) };
         saveState();
         render();
     }
 
-    function getExamPlanPhase(plan) {
-        const fallback = plan.kind === '2week'
-            ? '两周压缩：先Map + Diagnose + Repair，再Verify + Simulate + Stabilize'
-            : '三周节奏：Map & Diagnose → Repair & Verify → Simulate & Stabilize';
-        if (!plan.date) return plan.phase || fallback;
+    function getExamPlanAdvice(plan, now = new Date()) {
+        const noDate = {
+            daysLeft: null,
+            current: '补充考试日期后，系统会按剩余时间给建议',
+            later: 'Map → Diagnose → Repair → Verify → Simulate → Stabilize',
+            note: '这些阶段是参考，不是固定时间比例。'
+        };
+        if (!plan?.date) return noDate;
         const examDate = new Date(`${plan.date}T00:00:00`);
-        if (Number.isNaN(examDate.getTime())) return plan.phase || fallback;
-        const daysLeft = Math.ceil((examDate.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000);
-        if (daysLeft < 0) return '考试日期已过，请结束或重建计划';
-        if (plan.kind === '2week') {
-            return daysLeft > 7 ? `剩余${daysLeft}天 · Map + Diagnose + Repair` : `剩余${daysLeft}天 · Verify + Simulate + Stabilize`;
-        }
-        if (daysLeft > 14) return `剩余${daysLeft}天 · Map & Diagnose`;
-        if (daysLeft > 7) return `剩余${daysLeft}天 · Repair & Verify`;
-        return `剩余${daysLeft}天 · Simulate & Stabilize`;
+        if (Number.isNaN(examDate.getTime())) return noDate;
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const daysLeft = Math.ceil((examDate.getTime() - today.getTime()) / 86400000);
+        const baseNote = '正常课程和休息继续保留；阶段长度由你的范围、证据和学校安排决定。';
+        if (daysLeft < 0) return { daysLeft, current: '考试日期已过', later: '结束当前计划，或用新的日期重建', note: '以前保存的计划不会影响页面。' };
+        if (daysLeft <= 1) return {
+            daysLeft,
+            current: `剩余${daysLeft}天 · 快速Map + Diagnose → 修最关键漏洞 → Quick Verify`,
+            later: '停止扩展新内容，检查Remaining Risks、考试规则和物品，然后保证正常休息',
+            note: baseNote
+        };
+        if (daysLeft <= 7) return {
+            daysLeft,
+            current: `剩余${daysLeft}天 · 快速Map / Diagnose，把大部分时间留给Repair / Verify`,
+            later: '最后加入少量mixed或timed practice，再进入Stabilize',
+            note: baseNote
+        };
+        if (daysLeft <= 21) return {
+            daysLeft,
+            current: `剩余${daysLeft}天 · Map & Diagnose → Repair & Verify`,
+            later: '临近考试逐渐加入Simulate，并在最后阶段Stabilize',
+            note: baseNote
+        };
+        if (daysLeft <= 120) return {
+            daysLeft,
+            current: `剩余${daysLeft}天 · 建立完整范围地图，持续Repair和topic practice`,
+            later: '中期转向cross-topic / sections，后期再逐渐增加full papers与mock',
+            note: baseNote
+        };
+        return {
+            daysLeft,
+            current: `剩余${daysLeft}天 · 以长期学习、Syllabus Coverage和topic practice为主`,
+            later: '定期Diagnose / Verify；接近考试后才提高sections、full papers和mock比例',
+            note: '不要过早进入整卷刷题模式。' + baseNote
+        };
     }
 
     function clearExamPlan() {
@@ -1868,6 +2214,41 @@
 
         const progressKey = `${tab}_${subTab}_${granuleKey}`;
         const progress = STATE.progress[progressKey] || {};
+
+        if (granule.questionTypes) {
+            return `
+                <div class="method-card expanded">
+                    <div class="method-card-header">
+                        <div class="method-card-icon blue"><span class="material-icons-round">category</span></div>
+                        <div>
+                            <div class="method-card-title">${granule.label}</div>
+                            <div class="method-card-subtitle">只展开你现在遇到的学科和题型。</div>
+                        </div>
+                    </div>
+                    <div class="method-card-body" style="max-height:none;opacity:1;margin-top:16px;padding-top:16px;border-top:1px solid var(--md-outline-variant);">
+                        ${granule.questionTypes.map(subject => `
+                            <details class="subject-guide">
+                                <summary>${subject.name} · ${subject.types.length} 种题型</summary>
+                                <div class="subject-guide-body">
+                                    ${subject.types.map(type => `
+                                        <details class="type-guide">
+                                            <summary>${type.name}</summary>
+                                            <div class="type-guide-grid">
+                                                <div><b>实际在考：</b>${type.tests}</div>
+                                                <div><b>先看：</b>${type.first}</div>
+                                                <div><b>答案怎样组织：</b>${type.structure}</div>
+                                                <div><b>最常见错误：</b>${type.trap}</div>
+                                                <div class="full"><b>简短例子：</b>${type.example}</div>
+                                            </div>
+                                        </details>
+                                    `).join('')}
+                                </div>
+                            </details>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         // Steps-based rendering
         if (granule.steps) {
@@ -2000,7 +2381,7 @@
        ========================================= */
     function updateNavChecks() {
         // Count progress for each tab
-        const tabs = ['today', 'learn', 'practice', 'exam', 'workflow', 'procrastination'];
+        const tabs = ['today', 'learn', 'practice', 'exam', 'workflow', 'procrastination', 'ielts'];
         tabs.forEach(tab => {
             const check = document.getElementById(`check-${tab}`);
             if (!check) return;
@@ -2015,16 +2396,22 @@
                 ];
                 hasProgress = dashboardKeys.some(key => Object.values(STATE.progress[key] || {}).some(Boolean));
             } else {
-                for (const key in STATE.progress) {
-                    if (key.startsWith(tab)) {
-                        hasProgress = true;
-                        break;
-                    }
-                }
+                const validPrefixes = (STUDY_DATA[tab]?.subTabs || []).map(subTab => `${tab}_${subTab}_`);
+                hasProgress = Object.entries(STATE.progress).some(([key, value]) =>
+                    validPrefixes.some(prefix => key.startsWith(prefix)) && Object.values(value || {}).some(Boolean)
+                );
             }
             
             check.classList.toggle('checked', hasProgress);
         });
+    }
+
+    function showSimpleModal(titleText, message) {
+        const overlay = document.getElementById('modalOverlay');
+        document.getElementById('modalTitle').textContent = titleText;
+        document.getElementById('modalDesc').textContent = message;
+        document.getElementById('modalActions').innerHTML = '<button class="modal-btn primary" onclick="closeModal()">知道了</button>';
+        overlay.classList.add('show');
     }
 
     function closeModal(e) {
@@ -2063,16 +2450,27 @@
 网站信息架构：
 - 执行中心只回答 What / When：今日学校流程、本周诊断、每两周留存审计，以及当前考试叠加计划。
 - 学习回答 How：4-P预习、Cornell、主动回忆与间隔、Syllabus红绿灯、可选50分钟自学。
-- 习题回答如何做题和修错：通用流程、学科与题型、九类根因、卡住与再训练。
-- 考试包含学校考试、IGCSE/AS/A-Level和考场策略。考试计划叠加在正常流程上，不替代日常学习。
-- 学习流程位于考试下面，汇总理解→连接→复习→应用，以及学校日、自学、复习和卡住时的完整路线。
-- 执行与专注处理计划、启动、环境和注意力。
+- 习题是按需工具：难题怎么拆、学科/题型怎么做、错题诊断、卡题怎么办。普通熟悉题直接做；难题拆解的核心是“目标 → 缺口 → 连接”。
+- IELTS专项回答IELTS的How：总览、Listening、Reading、Writing、Speaking、词汇与语法。核心是Correction → Transfer，不负责日程、打卡、题库或考试计划。
+- 考试包含学校考试、大型考试管理、日期驱动的阶段建议和简洁考场策略。考试计划根据真实日期建议Map、Diagnose、Repair、Verify、Simulate、Stabilize，不使用固定2周/3周模板，也不替代日常学习。
+- 学习闭环位于考试下面，只解释理解 → 连接 → 检索 → 应用，以及失败时应去哪个模块；不包含学校日、自学、复习或卡题子页。
+- 执行与专注处理计划、启动、环境和注意力。计划写到“可以直接开始”即可，默认动作 + 范围，只有完成含义不清时才补完成标准。
+- TickTick等任务管理器负责What、When、Scope、Deadline、Priority和时间安排；StudyGuide负责How、诊断与修复。不要把任务标题写成方法说明书。
 
 回答顺序：
 1. 先确认学科、具体主题，以及任务类型或指令词（计算、Explain、Compare、Evaluate、材料分析、实验、Trace、Pseudocode等）。信息足够时不要重复追问。
 2. 判断主要卡点：学习理解、检索记忆、题型选择、推理执行、考试策略，还是启动专注。
 3. 只推荐最相关的一个主板块和一个具体页面，给出“现在做什么”和“做到什么算完成”。必要时再给一个后续去向。
 4. 不把Cornell、费曼、知识树、Anki、番茄钟并列成必须全部执行的方法。它们只是按需工具；Anki和番茄钟始终是可选的。
+5. 用户卡题时，默认只给当前最小提示：先提示条件，再提示方法类别，再提示中间方向，最后才是关键步骤。一旦用户能继续就停止；除非用户明确要求完整答案，否则不直接完整解题。
+
+IELTS路由与规则：
+- 用户问IELTS Listening错题，优先路由到“IELTS专项 → Listening”，而不是泛化的错题诊断。Test Mode禁止暂停/回拨；Repair Mode才局部重听，并按原因做最小修复。
+- Reading同时诊断Wrong和Correct but Slow；要求回原文确认Evidence与paraphrase，再用新题验证。
+- Writing默认AI找问题和原因 → 用户自己修改 → AI再检查；主要错误收敛后才做Language Upgrade，最终用New Essay Transfer。不要一开始重写整篇。
+- Writing的This Essay Errors只记录本篇真实错误；同一问题至少在2篇独立新作文重复出现，才成为Recurring Error。
+- Speaking允许同题重复修正，每轮集中1–2个主要问题；同题练顺后必须换新题，不鼓励背完整机经答案。
+- Vocabulary / Grammar来自四项真实问题；区分Recognition与Active Vocabulary，并通过新输出检查Grammar Automaticity。
 
 统一定义：
 - √＝本次闭卷检索独立、准确、完整；△＝有印象但遗漏或需轻提示；○＝无法独立回忆或看答案才想起。
@@ -2081,9 +2479,9 @@
 - 间隔1/3/5/7/14天只是起始参考，下一次日期由实际表现决定。
 
 表达要求：
-- 优先中文，短而清楚；使用“结论 → 操作步骤 → 例子 → 完成标准”。
+- 优先中文，短而清楚；先直接说下一步，必要时再补简短原因、例子或完成判断，不强制固定格式。
 - 例子必须适配用户的学科和题型，不默认所有问题都是计算或公式题。
-- 若用户临近考试，采用3周Map & Diagnose / Repair & Verify / Simulate & Stabilize；只有2周时压缩但保留诊断、修复和验证闭环。
+- 若用户临近考试，先看考试日期和范围：剩1天、1周、2–3周、2–4个月或更久，阶段侧重点不同；所有建议都不是死规则。
 - 不虚构固定题量、固定套卷频率、任意时间比例或必须一坐一天的学习安排。`;
 
             const res = await fetch('/api/llm-proxy', {

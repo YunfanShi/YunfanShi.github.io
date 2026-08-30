@@ -4,6 +4,7 @@ import test from 'node:test';
 import { legacyLanguageBridge } from '../src/lib/legacy-i18n.ts';
 
 const publicDir = new URL('../public/', import.meta.url);
+const projectDir = new URL('../', import.meta.url);
 
 test('legacy language bridge stores hyphenated attributes without dataset errors', () => {
   const bridge = legacyLanguageBridge('en');
@@ -53,4 +54,18 @@ test('timetable hub escapes user-authored labels before rendering HTML', async (
   assert.match(html, /'&':'&amp;'/);
   assert.match(html, /'<':'&lt;'/);
   assert.match(html, /'"':'&quot;'/);
+});
+
+test('relax starts with the optional zen overlay closed', async () => {
+  const html = await readFile(new URL('Relax.html', publicDir), 'utf8');
+  const zenRule = html.match(/#zen-layer\s*\{([^}]*)\}/)?.[1] || '';
+  assert.equal((zenRule.match(/display\s*:/g) || []).length, 1);
+  assert.match(zenRule, /display:\s*none/);
+});
+
+test('appearance sync migrates undated local settings without permanently blocking cloud updates', async () => {
+  const source = await readFile(new URL('src/components/layout/cloud-settings-hydrator.tsx', projectDir), 'utf8');
+  assert.doesNotMatch(source, /Number\.MAX_SAFE_INTEGER/);
+  assert.match(source, /localStorage\.setItem\(LOCAL_UPDATED_KEY, migratedAt\)/);
+  assert.match(source, /localTime > cloudTime/);
 });

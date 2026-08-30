@@ -1,6 +1,8 @@
 # JackYun Companion
 
-Manifest V3 extension for Chrome and Edge. It tracks active time only on the allowlisted learning sites, keeps an offline queue, and syncs aggregated daily records to JackYun Portal after OAuth 2.1 + PKCE login.
+Manifest V3 extension for Chrome and Edge. It tracks active time only on allowlisted learning sites, keeps an offline queue, syncs aggregated daily records to JackYun Portal after OAuth 2.1 + PKCE login, and includes English SafeGuard.
+
+English SafeGuard pauses Chinese-language websites before use. A user may open a short translation window and continue only after the visible page contains enough English, including browser-translated and Immersive Translate bilingual pages. A separate, time-limited Study Purpose path is available only for recognized educational domains or pages with multiple educational signals; Chinese video and gaming domains always override that exception. Classification happens locally and page text is not uploaded.
 
 ## Portal configuration
 
@@ -18,7 +20,7 @@ For development and production, use separate OAuth clients and exact redirect UR
 
 The signed release artifacts are:
 
-- `public/downloads/jackyun-companion-v1.0.1.zip` for Chrome Web Store upload or unpacked developer-mode installation.
-- `public/downloads/jackyun-companion-v1.0.1.crx` for signature verification, Verified CRX Uploads, Linux, or managed enterprise environments.
+- `public/downloads/jackyun-companion-v1.1.0.zip` for Chrome Web Store upload or unpacked developer-mode installation.
+- `public/downloads/jackyun-companion-v1.1.0.crx` for signature verification, Verified CRX Uploads, Linux, or managed enterprise environments.
 
 On Windows and macOS, Chrome blocks direct installation of local CRX files that are not delivered by the Chrome Web Store. Until store review is complete, extract the ZIP, open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose “Load unpacked,” and select the extracted directory containing `manifest.json`.

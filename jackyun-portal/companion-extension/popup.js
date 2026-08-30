@@ -11,11 +11,14 @@ async function render() {
   $('#sg-chinese').checked = safeguard.blockChinese;
   $('#sg-porn').checked = Boolean(safeguard.activeCategories?.Pornography);
   $('#sg-videos').checked = Boolean(safeguard.activeCategories?.Videos);
+  $('#sg-novels').checked = Boolean(safeguard.activeCategories?.Novels);
   $('#sg-gaming').checked = Boolean(safeguard.activeCategories?.Gaming);
+  $('#sg-social').checked = Boolean(safeguard.activeCategories?.Social);
   $('#sg-grace').value = safeguard.translationGraceMinutes;
   $('#sg-study').value = safeguard.studySessionMinutes;
   $('#sg-education').value = (safeguard.customEducationHosts || []).join('\n');
   $('#sg-entertainment').value = (safeguard.customEntertainmentHosts || []).join('\n');
+  renderSafeguardSites();
   $('#signed-in').hidden = !status.signedIn;
   $('#signed-out').hidden = status.signedIn;
   $('#sync-state').textContent = status.signedIn ? (status.lastSyncAt ? `已同步 · ${new Date(status.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '等待首次同步') : '尚未登录';
@@ -59,6 +62,35 @@ $('#lite-file').addEventListener('change', async (event) => {
   event.target.value = '';
 });
 function hostLines(selector) { return $(selector).value.split(/[,\s;|]+/).map((value) => value.trim()).filter(Boolean); }
+function normalizeHost(value) { return String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/:?#]/)[0]; }
+function renderSafeguardSites() {
+  const list = $('#sg-site-list');
+  list.replaceChildren();
+  for (const site of safeguard?.customSites || []) {
+    const row = document.createElement('div');
+    row.className = 'sg-site-row';
+    const text = document.createElement('span');
+    text.textContent = `${site.d} · ${site.c}`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '移除';
+    remove.addEventListener('click', () => {
+      safeguard.customSites = safeguard.customSites.filter((entry) => !(entry.d === site.d && entry.c === site.c));
+      renderSafeguardSites();
+    });
+    row.append(text, remove);
+    list.append(row);
+  }
+  if (!list.childElementCount) list.textContent = '尚未添加自定义域名。';
+}
+$('#sg-add-domain').addEventListener('click', () => {
+  const category = $('#sg-domain-category').value;
+  const domains = [...new Set(hostLines('#sg-domain-input').map(normalizeHost).filter((host) => host.includes('.') && host.length > 3))];
+  const existing = new Set((safeguard.customSites || []).map((site) => site.d));
+  for (const domain of domains) if (!existing.has(domain)) { safeguard.customSites.push({ d: domain, c: category }); existing.add(domain); }
+  $('#sg-domain-input').value = '';
+  renderSafeguardSites();
+});
 $('#sg-save').addEventListener('click', async () => {
   try {
     safeguard = await send({ type: 'SAFEGUARD_SAVE_CONFIG', payload: {
@@ -67,7 +99,8 @@ $('#sg-save').addEventListener('click', async () => {
       blockChinese: $('#sg-chinese').checked,
       translationGraceMinutes: Math.max(1, Math.min(10, Number($('#sg-grace').value) || 2)),
       studySessionMinutes: Math.max(5, Math.min(120, Number($('#sg-study').value) || 30)),
-      activeCategories: { ...safeguard.activeCategories, Pornography: $('#sg-porn').checked, Videos: $('#sg-videos').checked, Gaming: $('#sg-gaming').checked },
+      activeCategories: { ...safeguard.activeCategories, Pornography: $('#sg-porn').checked, Videos: $('#sg-videos').checked, Novels: $('#sg-novels').checked, Gaming: $('#sg-gaming').checked, Social: $('#sg-social').checked },
+      customSites: safeguard.customSites || [],
       customEducationHosts: hostLines('#sg-education'),
       customEntertainmentHosts: hostLines('#sg-entertainment'),
     } });
