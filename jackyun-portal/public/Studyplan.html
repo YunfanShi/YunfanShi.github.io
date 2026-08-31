@@ -927,6 +927,26 @@
             <button class="btn-outline" onclick="addCustomTask()" style="padding:5px 10px;">+</button>
         </div>
 
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid #e3e6ea;">
+            <label style="font-weight:bold; font-size:12px; color:#555;">排程配置</label>
+            <select id="schedule-profile" onchange="applyScheduleProfile(this.value)" style="margin-top:5px;">
+                <option value="balanced">平衡学习日（08:00–22:00）</option>
+                <option value="after-school">放学后（16:00–22:30）</option>
+                <option value="weekend">周末（09:00–22:00）</option>
+                <option value="custom">自定义</option>
+            </select>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                <label style="font-size:11px; color:#666;">开始<input type="time" id="schedule-start" value="08:00"></label>
+                <label style="font-size:11px; color:#666;">结束<input type="time" id="schedule-end" value="22:00"></label>
+            </div>
+            <label style="font-size:11px; color:#666; margin-top:8px;">固定休息（每行：开始-结束 名称）</label>
+            <textarea id="schedule-breaks" rows="3" placeholder="12:00-13:00 午餐&#10;18:00-19:00 晚餐" style="font-size:12px; font-family:'Roboto Mono',monospace;"></textarea>
+            <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+                <button class="btn-outline" onclick="exportScheduleConfig()" style="font-size:11px;">导出排程配置</button>
+                <label class="btn-outline" style="font-size:11px; cursor:pointer;">导入配置<input type="file" accept=".json,application/json" onchange="importScheduleConfig(event)" style="display:none"></label>
+            </div>
+        </div>
+
         <button class="btn-primary" style="width:100%; margin-top:10px; justify-content:center;" onclick="generateSchedule()">
             Generate Schedule <span class="material-icons-round">autorenew</span>
         </button>
@@ -991,18 +1011,43 @@
     const DEFAULT_SYLLABUS = {};
 
     // --- 2. State & Persistence ---
-    // Load Syllabus from LS or Default
-    let syllabusDB = JSON.parse(localStorage.getItem('caie_syllabus_v3')) || DEFAULT_SYLLABUS;
+    function readStoredJson(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw === null ? fallback : JSON.parse(raw);
+        } catch (error) {
+            console.warn(`忽略损坏的本地配置：${key}`);
+            return fallback;
+        }
+    }
 
-    let progressDB = JSON.parse(localStorage.getItem('caie_progress_v2_1')) || {};
-    let settings = JSON.parse(localStorage.getItem('caie_settings_v2_1')) || { 
+    // Load Syllabus from LS or Default
+    let syllabusDB = readStoredJson('caie_syllabus_v3', DEFAULT_SYLLABUS) || DEFAULT_SYLLABUS;
+
+    let progressDB = readStoredJson('caie_progress_v2_1', {}) || {};
+    let settings = readStoredJson('caie_settings_v2_1', null) || {
         school: "", 
         exam: "",
         urgent: null 
     };
-    let mockDB = JSON.parse(localStorage.getItem('caie_mock_v2_1')) || {}; 
-    let currentSchedule = JSON.parse(localStorage.getItem('caie_schedule_current')) || []; // [{time, task, done}]
-    let customTasks = JSON.parse(localStorage.getItem('caie_custom_tasks')) || ["CS50P Python", "不背单词"];
+    let mockDB = readStoredJson('caie_mock_v2_1', {}) || {};
+    let currentSchedule = readStoredJson('caie_schedule_current', []) || []; // [{time, task, done}]
+    let customTasks = readStoredJson('caie_custom_tasks', []);
+    if (!Array.isArray(customTasks)) customTasks = [];
+
+    const SCHEDULE_PROFILES = {
+        balanced: { start: '08:00', end: '22:00', breaks: [
+            { start: '12:00', end: '13:00', label: '午餐 / 休息' },
+            { start: '18:00', end: '19:00', label: '晚餐' }
+        ] },
+        'after-school': { start: '16:00', end: '22:30', breaks: [
+            { start: '18:30', end: '19:30', label: '晚餐' }
+        ] },
+        weekend: { start: '09:00', end: '22:00', breaks: [
+            { start: '12:30', end: '13:30', label: '午餐 / 休息' },
+            { start: '18:30', end: '19:30', label: '晚餐' }
+        ] }
+    };
 
     // Update Quest Steps Labels — 红绿灯审计 (Traffic Light Audit)
     // 🟢 绿灯 = 已掌握核心公式 → 不管它
@@ -1781,19 +1826,30 @@
     }
 
     // --- 11. Schedule Generator Logic ---
+    function appendScheduleChoice(container, value, checked = false) {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = value;
+        input.checked = checked;
+        label.append(input, document.createTextNode(` ${value}`));
+        container.appendChild(label);
+    }
+
     function openScheduleGenerator() {
         const container = document.getElementById('schedule-subjects');
         container.innerHTML = '';
         
         // Subjects
         Object.keys(syllabusDB).forEach(sub => {
-            container.innerHTML += `<label><input type="checkbox" value="${sub}"> ${sub}</label>`;
+            appendScheduleChoice(container, sub);
         });
         // Custom
         customTasks.forEach(task => {
-            container.innerHTML += `<label><input type="checkbox" value="${task}"> ${task}</label>`;
+            appendScheduleChoice(container, task);
         });
 
+        loadScheduleConfigInputs();
         document.getElementById('schedule-modal').showModal();
     }
 
@@ -1803,14 +1859,120 @@
         if(val && !customTasks.includes(val)) {
             customTasks.push(val);
             localStorage.setItem('caie_custom_tasks', JSON.stringify(customTasks));
-            openScheduleGenerator(); // Refresh list
+            appendScheduleChoice(document.getElementById('schedule-subjects'), val, true);
         }
         input.value = '';
     }
 
+    function scheduleTimeToMinutes(value) {
+        const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || '').trim());
+        if (!match) return NaN;
+        const hours = Number(match[1]), minutes = Number(match[2]);
+        if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+        return hours * 60 + minutes;
+    }
+
+    function scheduleMinutesToTime(value) {
+        const minutes = Math.max(0, Math.min(24 * 60, Math.round(value)));
+        const hours = Math.floor(minutes / 60);
+        return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+    }
+
+    function normalizeScheduleConfig(value) {
+        if (!value || typeof value !== 'object') throw new Error('配置必须是 JSON 对象');
+        const start = String(value.start || '');
+        const end = String(value.end || '');
+        const startMin = scheduleTimeToMinutes(start), endMin = scheduleTimeToMinutes(end);
+        if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin <= startMin) throw new Error('结束时间必须晚于开始时间');
+        const sourceBreaks = Array.isArray(value.breaks) ? value.breaks : [];
+        const breaks = sourceBreaks.map((item, index) => {
+            const breakStart = String(item && item.start || '');
+            const breakEnd = String(item && item.end || '');
+            const breakStartMin = scheduleTimeToMinutes(breakStart), breakEndMin = scheduleTimeToMinutes(breakEnd);
+            if (!Number.isFinite(breakStartMin) || !Number.isFinite(breakEndMin) || breakEndMin <= breakStartMin) throw new Error(`第 ${index + 1} 个休息时段无效`);
+            return { start: breakStart, end: breakEnd, label: String(item.label || '休息').slice(0, 40) };
+        }).filter(item => scheduleTimeToMinutes(item.end) > startMin && scheduleTimeToMinutes(item.start) < endMin)
+          .sort((a, b) => scheduleTimeToMinutes(a.start) - scheduleTimeToMinutes(b.start));
+        for (let index = 1; index < breaks.length; index++) {
+            if (scheduleTimeToMinutes(breaks[index].start) < scheduleTimeToMinutes(breaks[index - 1].end)) {
+                throw new Error(`第 ${index} 与第 ${index + 1} 个休息时段重叠`);
+            }
+        }
+        return { profile: String(value.profile || 'custom'), start, end, breaks };
+    }
+
+    function scheduleBreaksToText(breaks) {
+        return (breaks || []).map(item => `${item.start}-${item.end} ${item.label || '休息'}`).join('\n');
+    }
+
+    function parseScheduleBreaksText(raw) {
+        return String(raw || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).map((line, index) => {
+            const match = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})(?:\s+(.+))?$/.exec(line);
+            if (!match) throw new Error(`第 ${index + 1} 行格式应为 12:00-13:00 午餐`);
+            return { start: match[1], end: match[2], label: match[3] || '休息' };
+        });
+    }
+
+    function applyScheduleProfile(profile) {
+        const preset = SCHEDULE_PROFILES[profile];
+        if (!preset) return;
+        document.getElementById('schedule-start').value = preset.start;
+        document.getElementById('schedule-end').value = preset.end;
+        document.getElementById('schedule-breaks').value = scheduleBreaksToText(preset.breaks);
+    }
+
+    function getScheduleConfigFromInputs() {
+        return normalizeScheduleConfig({
+            profile: document.getElementById('schedule-profile').value,
+            start: document.getElementById('schedule-start').value,
+            end: document.getElementById('schedule-end').value,
+            breaks: parseScheduleBreaksText(document.getElementById('schedule-breaks').value)
+        });
+    }
+
+    function loadScheduleConfigInputs() {
+        let config;
+        try { config = normalizeScheduleConfig(settings.schedule || { ...SCHEDULE_PROFILES.balanced, profile: 'balanced' }); }
+        catch (error) { config = normalizeScheduleConfig({ ...SCHEDULE_PROFILES.balanced, profile: 'balanced' }); }
+        document.getElementById('schedule-profile').value = SCHEDULE_PROFILES[config.profile] ? config.profile : 'custom';
+        document.getElementById('schedule-start').value = config.start;
+        document.getElementById('schedule-end').value = config.end;
+        document.getElementById('schedule-breaks').value = scheduleBreaksToText(config.breaks);
+    }
+
+    function exportScheduleConfig() {
+        try {
+            const config = getScheduleConfigFromInputs();
+            const blob = new Blob([JSON.stringify({ schema: 'jackyun-studyplan-schedule-v1', ...config }, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'jackyun-studyplan-schedule.json';
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 0);
+        } catch (error) { alert(error.message || '无法导出配置'); }
+    }
+
+    function importScheduleConfig(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const config = normalizeScheduleConfig(JSON.parse(String(reader.result || '')));
+                document.getElementById('schedule-profile').value = SCHEDULE_PROFILES[config.profile] ? config.profile : 'custom';
+                document.getElementById('schedule-start').value = config.start;
+                document.getElementById('schedule-end').value = config.end;
+                document.getElementById('schedule-breaks').value = scheduleBreaksToText(config.breaks);
+                alert('排程配置已导入，点击生成后保存并应用');
+            } catch (error) { alert(error.message || '配置文件无效'); }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
     function generateSchedule() {
         const selected = Array.from(document.querySelectorAll('#schedule-subjects input:checked')).map(cb => cb.value);
-        let tasksPool = selected.length > 0 ? selected : [...Object.keys(syllabusDB)];
+        let tasksPool = selected.length > 0 ? selected : [...Object.keys(syllabusDB), ...customTasks];
         
         // Priority insert
         if(settings.urgent) {
@@ -1819,49 +1981,61 @@
             });
         }
 
+        if (!tasksPool.length) {
+            alert('请先导入至少一个科目，或添加一个自定义任务');
+            return;
+        }
+
+        let scheduleConfig;
+        try { scheduleConfig = getScheduleConfigFromInputs(); }
+        catch (error) { alert(error.message || '排程配置无效'); return; }
+        settings.schedule = scheduleConfig;
+        localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
+
         const now = new Date();
         const output = document.getElementById('schedule-output');
         output.innerHTML = '';
-        
-        let cursor = new Date(now);
-        cursor.setMinutes(0,0,0);
-        if(now.getMinutes() > 0) cursor.setHours(cursor.getHours() + 1);
 
-        const endTime = new Date(now);
-        endTime.setHours(22, 0, 0, 0);
+        const startMin = scheduleTimeToMinutes(scheduleConfig.start);
+        const endMin = scheduleTimeToMinutes(scheduleConfig.end);
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        let cursorMin = Math.max(startMin, Math.ceil(nowMin / 15) * 15);
+        if (cursorMin >= endMin) {
+            alert('今天的可排时间已经结束，请延后结束时间或改用明天的计划');
+            return;
+        }
+        const breaks = scheduleConfig.breaks.map(item => ({
+            ...item,
+            startMin: scheduleTimeToMinutes(item.start),
+            endMin: scheduleTimeToMinutes(item.end)
+        }));
 
         let taskIndex = 0;
         let generatedItems = [];
 
-        while(cursor < endTime) {
-            const h = cursor.getHours();
+        while(cursorMin < endMin) {
             let blockType = 'study';
             let blockLabel = '';
+            const activeBreak = breaks.find(item => cursorMin >= item.startMin && cursorMin < item.endMin);
+            const nextBreak = breaks.find(item => item.startMin > cursorMin);
+            let nextMin = Math.min(cursorMin + 60, endMin);
 
-            // Rules:
-            // 0-11: Sleep/Morning
-            // 13-15: Lunch
-            // 18-19: Dinner
-            
-            if (h >= 0 && h < 11) {
+            if (activeBreak) {
                 blockType = 'break';
-                blockLabel = 'Sleep / Morning';
-            } else if (h >= 13 && h < 15) {
-                blockType = 'break';
-                blockLabel = 'Lunch / Break';
-            } else if (h >= 18 && h < 19) {
-                blockType = 'break';
-                blockLabel = 'Dinner';
+                blockLabel = activeBreak.label;
+                nextMin = Math.min(activeBreak.endMin, endMin);
             } else {
                 blockLabel = tasksPool[taskIndex % tasksPool.length];
                 taskIndex++;
+                if (nextBreak && nextBreak.startMin < nextMin) nextMin = nextBreak.startMin;
             }
 
-            const timeStr = `${h}:00 - ${h+1}:00`;
+            if (nextMin <= cursorMin) break;
+            const timeStr = `${scheduleMinutesToTime(cursorMin)} - ${scheduleMinutesToTime(nextMin)}`;
             output.innerHTML += `
                 <div class="time-slot">${timeStr}</div>
                 <div class="task-block ${blockType === 'break' ? 'break' : ''}">
-                    <strong>${blockLabel}</strong>
+                    <strong>${esc(blockLabel)}</strong>
                 </div>
             `;
 
@@ -1869,7 +2043,7 @@
                 generatedItems.push({ time: timeStr, task: blockLabel, done: false });
             }
 
-            cursor.setHours(h + 1);
+            cursorMin = nextMin;
         }
         
         // Save to Schedule
@@ -1941,7 +2115,7 @@
     }
 
     function esc(s) {
-        return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     function saveStepsConfig() {

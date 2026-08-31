@@ -12,6 +12,13 @@ test('legacy language bridge stores hyphenated attributes without dataset errors
   assert.doesNotMatch(bridge, /el\.dataset\[key\]/);
 });
 
+test('legacy frame replaces personal Jack labels while preserving product branding', async () => {
+  const source = await readFile(new URL('src/components/modules/legacy-frame.tsx', projectDir), 'utf8');
+  assert.match(source, /Jack's Dashboard/);
+  assert.match(source, /Welcome back, Jack/);
+  assert.doesNotMatch(source, /replace\(\/JackYun/);
+});
+
 test('every embedded legacy page loads the shared theme contract', async () => {
   const pages = [
     'AnswerSheet.html', 'AnswerSheetSync.html', 'BilibiliSync.html',
@@ -72,4 +79,25 @@ test('appearance sync migrates undated local settings without permanently blocki
   assert.doesNotMatch(source, /Number\.MAX_SAFE_INTEGER/);
   assert.match(source, /localStorage\.setItem\(LOCAL_UPDATED_KEY, migratedAt\)/);
   assert.match(source, /localTime > cloudTime/);
+});
+
+test('study plan schedule is externally configurable and contains no personal task defaults', async () => {
+  const html = await readFile(new URL('Studyplan.html', publicDir), 'utf8');
+  assert.match(html, /const SCHEDULE_PROFILES =/);
+  assert.match(html, /function normalizeScheduleConfig/);
+  assert.match(html, /function importScheduleConfig/);
+  assert.match(html, /jackyun-studyplan-schedule-v1/);
+  assert.doesNotMatch(html, /\["CS50P Python", "不背单词"\]/);
+  assert.doesNotMatch(html, /blockLabel = 'Sleep \/ Morning'/);
+  assert.match(html, /'&':'&amp;'/);
+  assert.match(html, /今天的可排时间已经结束/);
+});
+
+test('new users do not receive personal demo goals or a hardcoded assistant identity', async () => {
+  const goal = await readFile(new URL('Goal.html', publicDir), 'utf8');
+  const relax = await readFile(new URL('Relax.html', publicDir), 'utf8');
+  assert.match(goal, /let goals = initGoalsFromStorage\(\) \|\| \[\];/);
+  assert.doesNotMatch(goal, /name:'ZNotes',desc:'笔记整理计划'/);
+  assert.doesNotMatch(relax, /Jack's AI assistant/);
+  assert.match(relax, /without assuming their name/);
 });

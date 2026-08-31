@@ -1046,14 +1046,7 @@ function initGoalsFromStorage() {
   return null;
 }
 
-let goals = initGoalsFromStorage() || [
-  {id:1,name:'ZNotes',desc:'笔记整理计划',cat:'学习',priority:'high',parentId:null,done:0,total:0,color:'blue',deadline:'2026-08-31',unit:'',history:[],created:Date.now()-864e5*10},
-  {id:2,name:'Physics',desc:'Physics笔记',cat:'学习',priority:'high',parentId:1,done:3,total:12,color:'blue',deadline:'2026-06-30',unit:'章',history:[{date:'2026-03-10',done:3,total:12}],created:Date.now()-864e5*8},
-  {id:3,name:'Chemistry',desc:'Chemistry笔记',cat:'学习',priority:'mid',parentId:1,done:5,total:15,color:'teal',deadline:'2026-07-15',unit:'章',history:[{date:'2026-03-08',done:4,total:15},{date:'2026-03-12',done:5,total:15}],created:Date.now()-864e5*7},
-  {id:4,name:'Mathematics',desc:'Mathematics笔记',cat:'学习',priority:'high',parentId:1,done:8,total:20,color:'purple',deadline:'2026-06-15',unit:'章',history:[{date:'2026-03-05',done:5,total:20},{date:'2026-03-14',done:8,total:20}],created:Date.now()-864e5*6},
-  {id:5,name:'健身计划',desc:'每周三次力量训练',cat:'健康',priority:'mid',parentId:null,done:24,total:30,color:'green',deadline:'2026-09-01',unit:'次',history:[{date:'2026-03-01',done:18,total:30},{date:'2026-03-15',done:24,total:30}],created:Date.now()-864e5*15},
-  {id:6,name:'读书100本',desc:'全年阅读计划',cat:'生活',priority:'low',parentId:null,done:22,total:100,color:'orange',deadline:'2026-12-31',unit:'本',history:[{date:'2026-02-15',done:8,total:100},{date:'2026-03-10',done:22,total:100}],created:Date.now()-864e5*30},
-];
+let goals = initGoalsFromStorage() || [];
 
 let filter = localStorage.getItem('gt_filter')||'all';
 let sort   = localStorage.getItem('gt_sort')||'created';

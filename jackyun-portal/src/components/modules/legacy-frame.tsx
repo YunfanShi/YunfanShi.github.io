@@ -52,7 +52,9 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
             .replace(/Jack's Warden/gi, `${display}'s Warden`)
             .replace(/JACK'S WARDEN/g, `${displayUpper}'S WARDEN`)
             .replace(/Jack's Exam Countdown/gi, `${display}'s Exam Countdown`)
+            .replace(/Jack's Dashboard/gi, `${display}'s Dashboard`)
             .replace(/Jack's Ecosystem/gi, `${display}'s Ecosystem`)
+            .replace(/Welcome back, Jack\./gi, `Welcome back, ${display}.`)
             .replace(/IGCSE Timer · Jack's Ecosystem/gi, `IGCSE Timer · ${display}'s Ecosystem`)
             .replace(/User: Jack \(9th Grade, IGCSE Student\)/g, `User: ${display} (Student)`);
         }
