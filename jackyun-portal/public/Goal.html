@@ -3784,10 +3784,13 @@ const CD_FORMATS=[
   {id:'dhms',label:'天时分秒',desc:'实时秒级'},{id:'Wd',label:'周天',desc:'周+天'},
   {id:'Mwd',label:'月周天',desc:'月+周+天'},{id:'Md',label:'月天',desc:'月+天'},
 ];
-let countdowns=JSON.parse(localStorage.getItem('cd_v2')||'null')||[
-  {id:1,label:'期末考试',emoji:'📝',target:'2026-06-20',format:'dhm',color:'#4d9ef7'},
-  {id:2,label:'元旦',emoji:'🎆',target:'2027-01-01',format:'Md',color:'#34c76a'},
-];
+let countdowns=[];
+try {
+  const savedCountdowns=JSON.parse(localStorage.getItem('cd_v2')||'[]');
+  if(Array.isArray(savedCountdowns)) countdowns=savedCountdowns;
+} catch(e) {
+  console.warn('Ignoring invalid countdown data',e);
+}
 let cdDraft=[],cdTimer=null;
 function saveCdData(){localStorage.setItem('cd_v2',JSON.stringify(countdowns));}
 function calcCountdown(targetDate,fmt){

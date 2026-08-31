@@ -43,6 +43,12 @@ test('help center uses recorded article dates instead of the current date', asyn
   assert.match(html, /article\.updatedAt/);
 });
 
+test('update hub records the latest user-facing maintenance release', async () => {
+  const html = await readFile(new URL('UpdateHub.html', publicDir), 'utf8');
+  assert.match(html, /2026-08-31 v3\.14\.2/);
+  assert.match(html, /示例目标和示例倒计时/);
+});
+
 test('mock portal provides validated external paper libraries and advanced-level presets', async () => {
   const html = await readFile(new URL('MockPortal.html', publicDir), 'utf8');
   assert.match(html, /cambridge-9709/);
@@ -97,7 +103,10 @@ test('new users do not receive personal demo goals or a hardcoded assistant iden
   const goal = await readFile(new URL('Goal.html', publicDir), 'utf8');
   const relax = await readFile(new URL('Relax.html', publicDir), 'utf8');
   assert.match(goal, /let goals = initGoalsFromStorage\(\) \|\| \[\];/);
+  assert.match(goal, /let countdowns=\[\];/);
+  assert.match(goal, /Array\.isArray\(savedCountdowns\)/);
   assert.doesNotMatch(goal, /name:'ZNotes',desc:'笔记整理计划'/);
+  assert.doesNotMatch(goal, /2026-06-20|2027-01-01/);
   assert.doesNotMatch(relax, /Jack's AI assistant/);
   assert.match(relax, /without assuming their name/);
 });
