@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">JackYun</title>
-  <desc id="desc">A geometric letter J in a dark rounded square with an amber accent.</desc>
-  <rect width="512" height="512" rx="132" fill="#181818"/>
-  <path d="M284 104h104l-22 72h-8v128c0 84-51 132-137 132-76 0-125-38-133-106l82-15c5 34 21 51 49 51 43 0 65-25 65-74V104z" fill="#F7F5EF"/>
-  <path d="M284 104h104l-22 72h-82z" fill="#D99A3E"/>
+  <desc id="desc">A smooth letter J in a dark rounded square with a warm amber accent.</desc>
+  <rect width="512" height="512" rx="144" fill="#191A1B"/>
+  <path d="M315 151v140c0 75-37 117-101 117-50 0-84-24-97-66" fill="none" stroke="#F7F5EF" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M315 151h67" fill="none" stroke="#D99A3E" stroke-width="38" stroke-linecap="round"/>
 </svg>
