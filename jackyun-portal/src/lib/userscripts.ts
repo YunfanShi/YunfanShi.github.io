@@ -58,10 +58,10 @@ export const USERSCRIPTS: UserscriptEntry[] = [
   },
   {
     id: 'jackyun-portal-companion',
-    name: 'JackYun Portal Companion',
+    name: 'JackYun Companion Lite · Userscript',
     version: '1.1.0 Lite',
     category: 'portal',
-    description: '本站自研的学习网站助手：只在设备本地统计有效使用时间，提供每日/七日报告、目标、专注计时和数据备份。',
+    description: '完整版浏览器扩展的轻量 Userscript 版本：只在设备本地统计有效使用时间，适合暂时无法加载扩展的环境。',
     sites: ['JackYun Portal', '40+ 学习与 AI 网站'],
     features: ['有效时间统计', '每日与七日报告', '专注计时', '目标进度', 'JSON 导入导出', '资源页时长徽章'],
     file: '/userscripts/jackyun-portal-companion.user.js',

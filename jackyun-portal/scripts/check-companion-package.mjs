@@ -6,6 +6,14 @@ import { join, relative, sep } from 'node:path';
 
 const manifestPath = 'companion-extension/manifest.json';
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+const popupHtml = readFileSync('companion-extension/popup.html', 'utf8');
+const popupSource = readFileSync('companion-extension/popup.js', 'utf8');
+for (const [, id] of popupSource.matchAll(/\$\('#([^']+)'\)/g)) {
+  if (!popupHtml.includes(`id="${id}"`)) throw new Error(`Popup script references missing element #${id}`);
+}
+for (const contentScript of manifest.content_scripts || []) {
+  for (const file of contentScript.js || []) if (!existsSync(join('companion-extension', file))) throw new Error(`Manifest references missing content script: ${file}`);
+}
 if (typeof manifest.key !== 'undefined') {
   if (typeof manifest.key !== 'string' || !manifest.key || /\s/.test(manifest.key) || !/^[A-Za-z0-9+/]+={0,2}$/.test(manifest.key)) {
     throw new Error('manifest.key must be a single-line Base64 public key');
@@ -17,7 +25,7 @@ const extensionId = manifest.key
   : null;
 const release = JSON.parse(readFileSync('public/downloads/companion-release.json', 'utf8'));
 if (extensionId && release.extensionId !== extensionId) throw new Error('Release extensionId does not match manifest.key');
-if (release.version !== manifest.version) throw new Error('Release version does not match manifest.version');
+if (release.previewVersion !== manifest.version) throw new Error('Preview version does not match manifest.version');
 if (/PRIVATE KEY/.test(readFileSync(manifestPath, 'utf8'))) throw new Error('Private key material found in manifest');
 
 function readVarint(buffer, start) {
@@ -87,7 +95,15 @@ if (existsSync(zipPath)) {
   if (release.sha256 !== zipSha256) throw new Error('Release SHA-256 does not match the extension ZIP');
 }
 
-const releaseZipPath = `public/downloads/jackyun-companion-v${manifest.version}.zip`;
+const previewZipPath = `public/downloads/jackyun-companion-v${manifest.version}.zip`;
+if (!existsSync(previewZipPath)) throw new Error('Preview ZIP is missing');
+const previewZipManifest = JSON.parse(execFileSync('unzip', ['-p', previewZipPath, 'manifest.json'], { encoding: 'utf8' }));
+if (previewZipManifest.version !== manifest.version || previewZipManifest.key !== manifest.key) throw new Error('Preview ZIP identity differs from source manifest');
+const previewZipSha256 = createHash('sha256').update(readFileSync(previewZipPath)).digest('hex');
+if (release.previewZipSha256 !== previewZipSha256) throw new Error('Preview ZIP SHA-256 does not match');
+assertArchiveMatchesSource(previewZipPath, 'Preview ZIP');
+
+const releaseZipPath = `public/downloads/jackyun-companion-v${release.version}.zip`;
 if (!existsSync(releaseZipPath)) throw new Error('Release ZIP is missing');
 const releaseZipListing = execFileSync('unzip', ['-Z1', releaseZipPath], { encoding: 'utf8' });
 if (/\.pem$|\.key$/m.test(releaseZipListing)) throw new Error('Private key file included in release ZIP');
@@ -95,9 +111,8 @@ const releaseZipManifest = JSON.parse(execFileSync('unzip', ['-p', releaseZipPat
 if (releaseZipManifest.key !== manifest.key) throw new Error('Release ZIP identity differs from source manifest');
 const releaseZipSha256 = createHash('sha256').update(readFileSync(releaseZipPath)).digest('hex');
 if (release.zipSha256 !== releaseZipSha256) throw new Error('Release ZIP SHA-256 does not match');
-assertArchiveMatchesSource(releaseZipPath, 'Release ZIP');
 
-const crxPath = `public/downloads/jackyun-companion-v${manifest.version}.crx`;
+const crxPath = `public/downloads/jackyun-companion-v${release.version}.crx`;
 if (!existsSync(crxPath)) throw new Error('Signed CRX is missing');
 const crx = readFileSync(crxPath);
 if (crx.subarray(0, 4).toString('ascii') !== 'Cr24' || crx.readUInt32LE(4) !== 3) throw new Error('Release CRX is not CRX3');
@@ -112,7 +127,8 @@ const crxPayloadDirectory = mkdtempSync(join(tmpdir(), 'jackyun-companion-crx-')
 try {
   const crxPayloadPath = join(crxPayloadDirectory, 'payload.zip');
   writeFileSync(crxPayloadPath, crx.subarray(12 + headerSize));
-  assertArchiveMatchesSource(crxPayloadPath, 'Release CRX');
+  const crxManifest = JSON.parse(execFileSync('unzip', ['-p', crxPayloadPath, 'manifest.json'], { encoding: 'utf8' }));
+  if (crxManifest.version !== release.version) throw new Error('Release CRX version differs from stable release manifest');
 } finally {
   rmSync(crxPayloadDirectory, { recursive: true, force: true });
 }

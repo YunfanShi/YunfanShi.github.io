@@ -13,6 +13,7 @@ const eslintConfig = [
       "next-env.d.ts",
       "**/* 2.*",
       "public/**/*.bak",
+      "companion-extension/hosted-sources/**",
     ],
   },
   {

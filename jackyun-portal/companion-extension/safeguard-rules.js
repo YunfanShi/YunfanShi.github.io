@@ -37,6 +37,7 @@
   const DEFAULT_CONFIG = Object.freeze({
     enabled: true,
     blockChinese: true,
+    excludeEducation: true,
     translationGraceMinutes: 2,
     translatedSessionMinutes: 60,
     studySessionMinutes: 30,
@@ -69,6 +70,7 @@
       ...raw,
       enabled: raw.enabled !== false,
       blockChinese: raw.blockChinese !== false,
+      excludeEducation: raw.excludeEducation !== false,
       translationGraceMinutes: Math.min(10, Math.max(1, Number(raw.translationGraceMinutes) || 2)),
       translatedSessionMinutes: Math.min(240, Math.max(5, Number(raw.translatedSessionMinutes) || 60)),
       studySessionMinutes: Math.min(120, Math.max(5, Number(raw.studySessionMinutes) || 30)),
@@ -106,6 +108,19 @@
     return stats.latin >= 160 && stats.latin >= Math.max(160, stats.han * 1.4);
   }
 
+  function presentationAssessment({ pageText = '', pageLang = '', subtitleText = '' }) {
+    const page = languageStats(pageText, pageLang);
+    const subtitles = languageStats(subtitleText, '');
+    const chineseSubtitles = subtitles.han >= 8 && subtitles.chineseShare >= 0.22;
+    if (chineseSubtitles && !isEnglishPresentation(subtitles)) {
+      return { accepted: false, reason: 'Chinese subtitles are still visible without enough English translation.', page, subtitles };
+    }
+    if (!isEnglishPresentation(page)) {
+      return { accepted: false, reason: 'The visible page is not yet presented mainly in English.', page, subtitles };
+    }
+    return { accepted: true, reason: chineseSubtitles ? 'English page and bilingual subtitles verified.' : 'English page presentation verified.', page, subtitles };
+  }
+
   function categoryReason(hostname, configValue) {
     const config = normalizeConfig(configValue);
     const sites = [...CATEGORY_SITES.map(([d, c]) => ({ d, c })), ...config.customSites];
@@ -138,6 +153,7 @@
     languageStats,
     isChineseContent,
     isEnglishPresentation,
+    presentationAssessment,
     categoryReason,
     studyEligibility,
   };

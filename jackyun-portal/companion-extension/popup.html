@@ -1,39 +1,55 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JackYun Companion</title><link rel="stylesheet" href="popup.css"></head>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JackYun Companion</title><link rel="stylesheet" href="popup.css"></head>
 <body><main>
-  <header><div class="logo">JY</div><div><h1>JackYun Companion</h1><p id="sync-state">正在读取状态…</p></div><button id="sync" class="icon" title="立即同步">↻</button></header>
-  <section id="signed-out" hidden><div class="hero"><h2>把学习记录带回 JackYun</h2><p>登录后同步有效学习时间、专注记录、稍后学习和设备设置。</p><button id="sign-in" class="primary">登录 JackYun 账号</button></div></section>
-  <section id="signed-in" hidden>
-    <div class="stats"><article><span>今日有效学习</span><strong id="today">0 分钟</strong><div class="progress"><i id="progress"></i></div></article><article><span>目标</span><strong id="goal-label">120 分钟</strong><small id="site-count">0 个网站</small></article></div>
-    <section class="card"><div class="section-title"><h2>今日网站</h2><span id="device"></span></div><div id="sites" class="sites"></div></section>
-    <section class="card"><h2>专注计时</h2><div id="focus-state" class="muted">尚未开始</div><div class="buttons"><button data-focus="25" class="primary">25 分钟</button><button data-focus="50">50 分钟</button><button id="stop-focus" class="danger">结束</button></div></section>
-    <section class="card"><h2>当前页面</h2><p id="current-page" class="truncate muted">未检测到支持的页面</p><button id="save-page" class="wide">加入稍后学习</button></section>
-    <details class="card"><summary>同步与隐私设置</summary><label><span>启用有效时间统计</span><input id="enabled" type="checkbox"></label><label><span>把 AI 网站计入学习</span><input id="count-ai" type="checkbox"></label><label><span>每日目标</span><input id="goal" type="number" min="10" max="1440" step="10"></label><label><span>空闲暂停</span><select id="idle"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select></label><button id="import-lite" class="wide" type="button">导入 Companion Lite 备份</button><input id="lite-file" type="file" accept="application/json" hidden><p class="privacy">普通统计只同步域名、分类和有效秒数。只有主动收藏时才上传页面标题和完整链接。</p></details>
-    <nav><a href="https://jackyun.top/dashboard" target="_blank">Dashboard</a><a href="https://jackyun.top/study" target="_blank">学习计划</a><a href="https://jackyun.top/resources" target="_blank">资源库</a><a href="https://jackyun.top/time-management" target="_blank">时间管理</a></nav>
-    <button id="sign-out" class="text">退出此扩展账号</button>
+  <header class="app-header"><div class="logo">JY</div><div class="app-title"><h1>JackYun Companion</h1><p id="sync-state">正在读取状态…</p></div><button id="sync" class="icon" title="立即同步" aria-label="立即同步">↻</button></header>
+  <div class="tabs" role="tablist"><button class="tab active" data-tab="home" role="tab">概览</button><button class="tab" data-tab="tools" role="tab">内置工具</button><button class="tab" data-tab="safety" role="tab">SafeGuard</button></div>
+
+  <section class="panel active" data-panel="home">
+    <section id="signed-out" hidden><div class="hero"><span class="eyebrow">隐私优先学习助手</span><h2>把学习记录带回 JackYun</h2><p>登录后同步有效学习时间、专注记录、稍后学习和设备设置。</p><button id="sign-in" class="primary wide">登录 JackYun 账号</button></div></section>
+    <section id="signed-in" hidden>
+      <div class="stats"><article><span>今日有效学习</span><strong id="today">0 分钟</strong><div class="progress"><i id="progress"></i></div></article><article><span>每日目标</span><strong id="goal-label">120 分钟</strong><small id="site-count">0 个网站</small></article></div>
+      <section class="card"><div class="section-title"><h2>今日网站</h2><span id="device"></span></div><div id="sites" class="sites"></div></section>
+      <section class="card"><div class="section-title"><h2>专注计时</h2><span id="focus-state">尚未开始</span></div><div class="buttons"><button data-focus="25" class="primary">25 分钟</button><button data-focus="50">50 分钟</button><button id="stop-focus" class="danger">结束</button></div></section>
+      <section class="card"><h2>当前页面</h2><p id="current-page" class="truncate muted">未检测到支持的页面</p><button id="save-page" class="wide">加入稍后学习</button></section>
+      <section class="card settings-card"><div class="section-heading"><div><span class="eyebrow">Sync & Privacy</span><h2>同步与隐私</h2></div><span class="privacy-badge">本地优先</span></div>
+        <div class="setting-row"><div><strong>有效时间统计</strong><small>失焦、后台和空闲时自动暂停</small></div><label class="switch"><input id="enabled" type="checkbox"><span></span></label></div>
+        <div class="setting-row"><div><strong>AI 网站计入学习</strong><small>ChatGPT、Claude、Gemini 等</small></div><label class="switch"><input id="count-ai" type="checkbox"><span></span></label></div>
+        <div class="setting-row compact"><label for="goal">每日目标</label><input id="goal" type="number" min="10" max="1440" step="10"></div>
+        <div class="setting-row compact"><label for="idle">空闲暂停</label><select id="idle"><option value="30">30 秒</option><option value="60">60 秒</option><option value="120">2 分钟</option><option value="300">5 分钟</option></select></div>
+        <button id="import-lite" class="wide subtle" type="button">导入 Companion Lite 备份</button><input id="lite-file" type="file" accept="application/json" hidden>
+        <p class="privacy-note"><strong>不会上传页面正文。</strong>普通统计只同步域名、分类和有效秒数；只有你主动收藏时才上传标题和完整链接。</p>
+      </section>
+      <nav><a href="https://jackyun.top/dashboard" target="_blank">Dashboard</a><a href="https://jackyun.top/study" target="_blank">学习计划</a><a href="https://jackyun.top/resources" target="_blank">资源库</a><a href="https://jackyun.top/time-management" target="_blank">时间管理</a></nav>
+      <button id="sign-out" class="text">退出此扩展账号</button>
+    </section>
   </section>
-  <details class="card safeguard-card" open>
-    <summary>🛡️ English SafeGuard</summary>
-    <p class="privacy">中文网站会先暂停。完成浏览器或沉浸式翻译后，扩展会按页面实际显示的英文自动复检；教育页面可使用限时 Study Purpose。</p>
-    <label><span>启用 SafeGuard</span><input id="sg-enabled" type="checkbox"></label>
-    <label><span>拦截中文网站与页面</span><input id="sg-chinese" type="checkbox"></label>
-    <label><span>成人内容分类</span><input id="sg-porn" type="checkbox"></label>
-    <label><span>视频分类</span><input id="sg-videos" type="checkbox"></label>
-    <label><span>小说分类</span><input id="sg-novels" type="checkbox"></label>
-    <label><span>游戏分类</span><input id="sg-gaming" type="checkbox"></label>
-    <label><span>社交分类</span><input id="sg-social" type="checkbox"></label>
-    <label><span>翻译等待（分钟）</span><input id="sg-grace" type="number" min="1" max="10"></label>
-    <label><span>学习放行（分钟）</span><input id="sg-study" type="number" min="5" max="120"></label>
-    <label class="stack"><span>额外教育网站（每行一个域名）</span><textarea id="sg-education" rows="3" placeholder="example.edu.cn"></textarea></label>
-    <label class="stack"><span>额外视频/游戏黑名单</span><textarea id="sg-entertainment" rows="3" placeholder="video.example.cn"></textarea></label>
-    <div class="domain-editor">
-      <span>自定义分类拦截域名</span>
-      <textarea id="sg-domain-input" rows="2" placeholder="example.com, another.example"></textarea>
-      <div class="domain-actions"><select id="sg-domain-category"><option>Pornography</option><option>Videos</option><option>Novels</option><option>Gaming</option><option>Social</option></select><button id="sg-add-domain" type="button">添加域名</button></div>
-      <div id="sg-site-list" class="sg-site-list"></div>
-    </div>
-    <button id="sg-save" class="wide primary" type="button">保存 SafeGuard 设置</button>
-  </details>
-  <details class="card"><summary>JackYun Companion 集成功能</summary><ul class="module-list"><li><strong>Companion</strong><span>学习统计、专注、同步与备份</span></li><li><strong>SafeGuard</strong><span>中文站点拦截、翻译验证、学习用途限时放行</span></li></ul></details>
+
+  <section class="panel" data-panel="tools">
+    <section class="intro"><span class="eyebrow">Hosted source included</span><h2>网站工具已合并</h2><p>Companion 随包保留本站托管脚本源码，并把适合长期启用的功能原生整合为可独立关闭的模块。</p></section>
+    <section class="card tool-settings">
+      <div class="setting-row"><div><strong>清理跟踪链接</strong><small>移除常见广告与分享追踪参数</small></div><label class="switch"><input id="tool-clean-links" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>ZNotes 键盘刷题</strong><small>1–4 选项，Enter 下一题</small></div><label class="switch"><input id="tool-znotes" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>BestExam PDF 整理</strong><small>把试卷页链接整理为 PDF 下载项</small></div><label class="switch"><input id="tool-bestexam" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>Discord 图片保护</strong><small>默认隐藏聊天大图，点击单张查看</small></div><label class="switch"><input id="tool-image-shield" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>双时区浮窗</strong><small>Discord/Bilibili 显示中国与 UTC−6</small></div><label class="switch"><input id="tool-timezone" type="checkbox"><span></span></label></div>
+      <button id="tools-save" class="wide primary" type="button">保存内置工具</button>
+    </section>
+    <details class="card source-list"><summary>随包源码包含什么</summary><ul class="module-list"><li><strong>Companion Lite</strong><span>本地学习统计与备份导入来源</span></li><li><strong>ZNotes Quiz Helper</strong><span>键盘刷题</span></li><li><strong>BestExam Downloader</strong><span>试卷链接整理</span></li><li><strong>Discord Image Shield</strong><span>图片保护</span></li><li><strong>Timezone Panel</strong><span>双时区显示</span></li><li><strong>Ultimate Focus</strong><span>YouTube 专注逻辑参考</span></li><li><strong>Relax Interpreter</strong><span>旧版 Relax 指令解释</span></li><li><strong>Save My Exams Console / TR3000</strong><span>源码保留但因权限与风险不自动运行</span></li></ul></details>
+  </section>
+
+  <section class="panel" data-panel="safety">
+    <section class="intro safety-intro"><span class="eyebrow">English-first browsing</span><h2>English SafeGuard</h2><p>非学习中文页面会被暂停。启动浏览器或沉浸式翻译后，Companion 自动检查正文与页面字幕，通过才放行。</p></section>
+    <section class="card safeguard-card">
+      <div class="setting-row"><div><strong>启用 SafeGuard</strong><small>在所有网页本地运行检测</small></div><label class="switch"><input id="sg-enabled" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>拦截中文页面</strong><small>要求英文正文与字幕</small></div><label class="switch"><input id="sg-chinese" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>自动排除学习网站</strong><small>教育域名与明确学习页面不强制翻译</small></div><label class="switch"><input id="sg-education-exempt" type="checkbox"><span></span></label></div>
+      <div class="category-grid"><label><input id="sg-porn" type="checkbox"><span>成人内容</span></label><label><input id="sg-videos" type="checkbox"><span>视频</span></label><label><input id="sg-novels" type="checkbox"><span>小说</span></label><label><input id="sg-gaming" type="checkbox"><span>游戏</span></label><label><input id="sg-social" type="checkbox"><span>社交</span></label></div>
+      <div class="dual-input"><label>翻译等待（分钟）<input id="sg-grace" type="number" min="1" max="10"></label><label>学习放行（分钟）<input id="sg-study" type="number" min="5" max="120"></label></div>
+      <details class="advanced"><summary>高级站点规则</summary><label class="stack"><span>额外教育网站（每行一个域名）</span><textarea id="sg-education" rows="3" placeholder="example.edu.cn"></textarea></label><label class="stack"><span>额外视频/游戏黑名单</span><textarea id="sg-entertainment" rows="3" placeholder="video.example.cn"></textarea></label><div class="domain-editor"><span>自定义分类拦截域名</span><textarea id="sg-domain-input" rows="2" placeholder="example.com, another.example"></textarea><div class="domain-actions"><select id="sg-domain-category"><option>Pornography</option><option>Videos</option><option>Novels</option><option>Gaming</option><option>Social</option></select><button id="sg-add-domain" type="button">添加域名</button></div><div id="sg-site-list" class="sg-site-list"></div></div></details>
+      <button id="sg-save" class="wide primary" type="button">保存 SafeGuard 设置</button>
+      <p class="privacy-note">页面文本只在当前标签页本地计算语言比例，不会发送到 JackYun 或翻译服务。实际翻译数据由你选择的浏览器/沉浸式翻译设置决定。</p>
+    </section>
+  </section>
   <p id="notice" role="status"></p>
 </main><script src="popup.js"></script></body></html>

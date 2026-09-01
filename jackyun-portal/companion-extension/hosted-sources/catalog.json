@@ -1,0 +1,51 @@
+{
+  "generatedFrom": "/userscripts",
+  "note": "Exact hosted-source snapshots. Runtime integrations live in ../integrated-tools.js and are independently configurable.",
+  "scripts": [
+    {
+      "file": "jackyun-portal-companion.user.js",
+      "name": "Companion Lite",
+      "integration": "reference"
+    },
+    {
+      "file": "znotes-quiz-helper.user.js",
+      "name": "ZNotes Quiz Helper",
+      "integration": "integrated"
+    },
+    {
+      "file": "bestexam-batch-downloader.user.js",
+      "name": "BestExam Batch Downloader",
+      "integration": "integrated"
+    },
+    {
+      "file": "discord-image-shield.user.js",
+      "name": "Discord Image Shield",
+      "integration": "integrated-lite"
+    },
+    {
+      "file": "timezone-panel.user.js",
+      "name": "Timezone Panel",
+      "integration": "integrated-lite"
+    },
+    {
+      "file": "jacks-ultimate-focus.user.js",
+      "name": "Ultimate Focus",
+      "integration": "reference"
+    },
+    {
+      "file": "relax-interpreter.user.js",
+      "name": "Relax Interpreter",
+      "integration": "reference"
+    },
+    {
+      "file": "save-my-exams-console.user.js",
+      "name": "Save My Exams Console",
+      "integration": "source-only"
+    },
+    {
+      "file": "tr3000-manager.user.js",
+      "name": "TR3000 Manager",
+      "integration": "source-only"
+    }
+  ]
+}

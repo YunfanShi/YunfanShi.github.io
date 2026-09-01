@@ -3,12 +3,14 @@ const send = (message) => chrome.runtime.sendMessage(message).then((response) =>
 let status = null;
 let currentTab = null;
 let safeguard = null;
+let tools = null;
 function minutes(seconds) { return Math.round(Number(seconds || 0) / 60); }
 function notice(text, error = false) { $('#notice').textContent = text; $('#notice').style.color = error ? '#b3261e' : '#1967d2'; }
 async function render() {
-  [status, safeguard] = await Promise.all([send({ type: 'STATUS' }), send({ type: 'SAFEGUARD_GET_CONFIG' })]);
+  [status, safeguard, tools] = await Promise.all([send({ type: 'STATUS' }), send({ type: 'SAFEGUARD_GET_CONFIG' }), send({ type: 'TOOLS_GET_CONFIG' })]);
   $('#sg-enabled').checked = safeguard.enabled;
   $('#sg-chinese').checked = safeguard.blockChinese;
+  $('#sg-education-exempt').checked = safeguard.excludeEducation !== false;
   $('#sg-porn').checked = Boolean(safeguard.activeCategories?.Pornography);
   $('#sg-videos').checked = Boolean(safeguard.activeCategories?.Videos);
   $('#sg-novels').checked = Boolean(safeguard.activeCategories?.Novels);
@@ -18,6 +20,11 @@ async function render() {
   $('#sg-study').value = safeguard.studySessionMinutes;
   $('#sg-education').value = (safeguard.customEducationHosts || []).join('\n');
   $('#sg-entertainment').value = (safeguard.customEntertainmentHosts || []).join('\n');
+  $('#tool-clean-links').checked = tools.cleanTrackingLinks;
+  $('#tool-znotes').checked = tools.znotesQuizHelper;
+  $('#tool-bestexam').checked = tools.bestExamDownloads;
+  $('#tool-image-shield').checked = tools.discordImageShield;
+  $('#tool-timezone').checked = tools.timezoneBadges;
   renderSafeguardSites();
   $('#signed-in').hidden = !status.signedIn;
   $('#signed-out').hidden = status.signedIn;
@@ -39,6 +46,10 @@ async function render() {
   [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   $('#current-page').textContent = currentTab?.title || '未检测到页面';
 }
+document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-tab]').forEach((item) => item.classList.toggle('active', item === button));
+  document.querySelectorAll('[data-panel]').forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === button.dataset.tab));
+}));
 $('#sign-in').addEventListener('click', async () => { try { notice('正在打开安全登录…'); await send({ type: 'SIGN_IN' }); await render(); notice('登录成功'); } catch (error) { notice(error.message, true); } });
 $('#sign-out').addEventListener('click', async () => { await send({ type: 'SIGN_OUT' }); await render(); notice('已退出'); });
 $('#sync').addEventListener('click', async () => { try { notice('正在同步…'); await send({ type: 'SYNC' }); await render(); notice('同步完成'); } catch (error) { notice(error.message, true); } });
@@ -91,12 +102,25 @@ $('#sg-add-domain').addEventListener('click', () => {
   $('#sg-domain-input').value = '';
   renderSafeguardSites();
 });
+$('#tools-save').addEventListener('click', async () => {
+  try {
+    tools = await send({ type: 'TOOLS_SAVE_CONFIG', payload: {
+      cleanTrackingLinks: $('#tool-clean-links').checked,
+      znotesQuizHelper: $('#tool-znotes').checked,
+      bestExamDownloads: $('#tool-bestexam').checked,
+      discordImageShield: $('#tool-image-shield').checked,
+      timezoneBadges: $('#tool-timezone').checked,
+    } });
+    notice('内置工具已保存；刷新对应网页后应用');
+  } catch (error) { notice(error.message, true); }
+});
 $('#sg-save').addEventListener('click', async () => {
   try {
     safeguard = await send({ type: 'SAFEGUARD_SAVE_CONFIG', payload: {
       ...safeguard,
       enabled: $('#sg-enabled').checked,
       blockChinese: $('#sg-chinese').checked,
+      excludeEducation: $('#sg-education-exempt').checked,
       translationGraceMinutes: Math.max(1, Math.min(10, Number($('#sg-grace').value) || 2)),
       studySessionMinutes: Math.max(5, Math.min(120, Number($('#sg-study').value) || 30)),
       activeCategories: { ...safeguard.activeCategories, Pornography: $('#sg-porn').checked, Videos: $('#sg-videos').checked, Novels: $('#sg-novels').checked, Gaming: $('#sg-gaming').checked, Social: $('#sg-social').checked },

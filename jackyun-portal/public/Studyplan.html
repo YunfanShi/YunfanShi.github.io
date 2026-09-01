@@ -625,6 +625,19 @@
             background: none; border: none; cursor: pointer; color: #777; font-size: 12px;
         }
         .unit-editor-controls button:hover { color: var(--primary); }
+        .syllabus-action-row {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-top: 10px; padding: 9px 10px; border-radius: 10px;
+            background: #f8f9fa; border: 1px solid #e5e7eb;
+        }
+        .syllabus-action-row input[type="search"] { flex: 1; min-width: 180px; margin: 0; font-size: 12px; }
+        .syllabus-danger-btn { color: #b3261e !important; border-color: #f2b8b5 !important; background: #fff8f7 !important; }
+        .syllabus-danger-btn:hover { background: #fce8e6 !important; }
+        #syllabus-undo-bar {
+            display: none; align-items: center; justify-content: space-between; gap: 12px;
+            margin-top: 10px; padding: 9px 12px; border-radius: 10px;
+            color: #174ea6; background: #eef4ff; border: 1px solid #c6dafc; font-size: 12px;
+        }
 
         /* Tabs in Settings */
         .settings-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
@@ -868,16 +881,29 @@
         </div>
         
         <label>选择科目</label>
-        <select id="editor-subject-select" onchange="renderUnitEditorList()">
+        <select id="editor-subject-select" onchange="updateSyllabusSubjectActions(); renderUnitEditorList()">
             <option value="" disabled selected>-- 请选择科目 --</option>
         </select>
+
+        <div id="syllabus-subject-actions" class="syllabus-action-row" style="display:none;">
+            <input type="search" id="unit-editor-search" placeholder="搜索当前大纲…" oninput="renderUnitEditorList()">
+            <button class="btn-outline syllabus-danger-btn" onclick="deleteCurrentSyllabus()">删除整份大纲</button>
+            <label style="width:100%; display:flex; align-items:center; gap:7px; font-size:11px; color:#666; cursor:pointer;">
+                <input type="checkbox" id="delete-syllabus-with-progress" style="width:auto; margin:0;">
+                同时清除该科目的任务进度、红绿灯和 Mock 记录（默认不清除）
+            </label>
+        </div>
+        <div id="syllabus-undo-bar">
+            <span id="syllabus-undo-message"></span>
+            <button class="btn-outline" onclick="undoLastSyllabusChange()" style="padding:5px 10px; white-space:nowrap;">撤销</button>
+        </div>
         
         <div id="unit-editor-container" style="margin-top:15px; border:1px solid #ddd; padding:10px; max-height:250px; overflow-y:auto; border-radius:8px;">
             <div style="text-align:center; color:#aaa; font-size:12px;">选择一个科目以编辑知识点</div>
         </div>
         
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="text" id="new-unit-name" placeholder="新知识点名称">
+            <input type="text" id="new-unit-name" placeholder="新知识点名称" onkeydown="if(event.key==='Enter') addUnitFromEditor()">
             <button class="btn-primary" style="padding:0 15px;" onclick="addUnitFromEditor()">添加</button>
         </div>
     </div>
@@ -956,7 +982,7 @@
     </div>
 </dialog>
 
-<dialog id="import-syllabus-modal" style="width:720px; max-width:90vw;">
+<dialog id="import-syllabus-modal" style="width:720px; max-width:90vw; max-height:90vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">📥 导入大纲</h3>
         <button onclick="document.getElementById('import-syllabus-modal').close()" style="background:none; border:none; cursor:pointer; font-size:20px;">&times;</button>
@@ -982,15 +1008,37 @@
         </div>
     </div>
 
+    <details open style="margin-top:10px; border:1px solid #c9daf8; border-radius:12px; background:#f7faff; overflow:hidden;">
+        <summary style="cursor:pointer; padding:11px 14px; font-size:13px; font-weight:700; color:#174ea6; user-select:none;">
+            📘 怎么看大纲、怎样用大纲学习
+        </summary>
+        <div id="syllabus-learning-guide" style="padding:0 14px 14px; font-size:12px; color:#3c4043; line-height:1.7;"></div>
+    </details>
+
+    <div style="margin-top:10px; padding:11px 12px; border:1px solid #d7eadb; border-radius:12px; background:#f7fcf8;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#137333;">
+            <span class="material-icons-round" style="font-size:17px;">inventory_2</span>
+            我的内置大纲方案
+        </div>
+        <div style="font-size:11px; color:#5f6368; margin:4px 0 8px;">默认不选择、不会自动导入。选择方案后先加载到预览，你仍可取消知识点或修改名称。</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="built-in-syllabus-plan" onchange="updateBuiltInPlanDescription()" style="flex:1; min-width:260px; margin:0; font-size:12px;">
+                <option value="">-- 请选择方案 --</option>
+            </select>
+            <button class="btn-outline" onclick="loadBuiltInSyllabusPlan()" style="white-space:nowrap;">加载到预览</button>
+        </div>
+        <div id="built-in-syllabus-description" style="font-size:11px; color:#5f6368; margin-top:7px;"></div>
+    </div>
+
     <!-- 解析说明 -->
     <div style="margin-top:10px; font-size:12px; color:#666; line-height:1.7; background:#fffbe6; border:1px solid #ffe9a8; border-radius:10px; padding:8px 12px;">
         <b>三种解析方式：</b><br>
         <b>🤖 AI 解析</b> — 粘贴整份考纲（含大量介绍文字），AI 智能提取章节/知识点<br>
-        <b>🔍 正则匹配</b> — 本地正则自动提取编号知识点（如 <code>1.1 Physical quantities</code>、<code>1.2.1 ...</code>），快且免费<br>
+        <b>🔍 正则匹配</b> — 本地识别大单元、小单元和更细编号（如 <code>1 Information representation</code>、<code>1.1 Data Representation</code>、<code>1.1.1 ...</code>），快且免费<br>
         <b>✍️ 手动整理</b> — 已整理好的列表，直接在预览区确认导入
     </div>
 
-    <textarea id="import-syllabus-text" rows="8" placeholder="在此粘贴考纲文本（复制自 PDF/网页）&#10;&#10;例如 CAIE Physics 9702 的 Subject content 部分：&#10;1.1 Physical quantities&#10;1.1.1 understand that all physical quantities consist of a numerical magnitude and a unit&#10;1.2 SI units&#10;..." style="margin-top:10px; font-family:'Roboto Mono',monospace; font-size:12px;"></textarea>
+    <textarea id="import-syllabus-text" rows="8" placeholder="在此粘贴考纲文本（复制自 PDF/网页）&#10;&#10;例如 CAIE Computer Science 9618 的 Subject content 部分：&#10;1 Information representation&#10;1.1 Data Representation&#10;1.2 Multimedia&#10;2 Communication&#10;2.1 Networks including the internet&#10;..." style="margin-top:10px; font-family:'Roboto Mono',monospace; font-size:12px;"></textarea>
     
     <div style="text-align:right; margin-top:10px; display:flex; gap:8px; justify-content:flex-end;">
         <button class="btn-outline" onclick="aiParseSyllabus()">🤖 AI 解析</button>
@@ -1004,6 +1052,7 @@
     <div id="import-syllabus-stats" style="margin-top:6px; font-size:11px; color:#888;"></div>
 </dialog>
 
+<script src="/studyplan-syllabus-presets.js"></script>
 <script>
     // --- 1. DEFAULT DATA (Empty — user must import syllabus) ---
     // If LocalStorage is empty, no pre-populated subjects are shown.
@@ -1034,6 +1083,8 @@
     let currentSchedule = readStoredJson('caie_schedule_current', []) || []; // [{time, task, done}]
     let customTasks = readStoredJson('caie_custom_tasks', []);
     if (!Array.isArray(customTasks)) customTasks = [];
+    let syllabusUndoAction = null;
+    let syllabusUndoTimer = null;
 
     const SCHEDULE_PROFILES = {
         balanced: { start: '08:00', end: '22:00', breaks: [
@@ -1598,6 +1649,7 @@
         Object.keys(syllabusDB).forEach(sub => {
             select.innerHTML += `<option value="${sub}">${sub}</option>`;
         });
+        updateSyllabusSubjectActions();
     }
 
     function saveSettings() {
@@ -2135,88 +2187,248 @@
         currentExamBoard = board;
         document.getElementById('exam-board-label-caie').style.borderColor = board === 'caie' ? 'var(--primary)' : '#ddd';
         document.getElementById('exam-board-label-edexcel').style.borderColor = board === 'edexcel' ? 'var(--primary)' : '#ddd';
+        renderSyllabusLearningGuide();
+    }
+
+    function renderSyllabusLearningGuide() {
+        const guide = document.getElementById('syllabus-learning-guide');
+        if (!guide) return;
+        const sharedTraffic = `
+            <div style="margin-top:9px; padding:9px 10px; border-radius:9px; background:#fff; border:1px solid #e0e7ff;">
+                <b>把大纲变成红绿灯：</b>导入后，大单元会成为学习卡片，小单元会显示在卡片下方。不要按“看过没有”打灯，要按证据：
+                <span style="color:#d93025; font-weight:600;">红灯</span>＝核心要求还不能独立完成；
+                <span style="color:#b06000; font-weight:600;">黄灯</span>＝部分会，但提示依赖、步骤遗漏或代表题不稳定；
+                <span style="color:#188038; font-weight:600;">绿灯</span>＝能闭卷解释，并能完成该单元的代表题。每次复习先处理红灯，再处理黄灯，绿灯只做间隔抽查。
+            </div>`;
+
+        if (currentExamBoard === 'caie') {
+            guide.innerHTML = `
+                <div style="font-weight:700; margin-bottom:4px;">CAIE / Cambridge 的读法</div>
+                <ol style="margin:0; padding-left:20px;">
+                    <li><b>先找对文件：</b>到 Cambridge International 官方网站按科目代码搜索 syllabus，确认考试年份覆盖你的考试 session。不要把 learner guide、coursebook 目录或 past paper 当成 syllabus。</li>
+                    <li><b>直接去 Subject content：</b>像 9618 Computer Science 中，<code>1 Information representation</code> 是大单元，<code>1.1 Data Representation</code> 是小单元。</li>
+                    <li><b>左栏决定“必须会什么”：</b><code>Candidates should be able to</code> 下的每一句才是学习目标。圈出动词：<i>state / describe / explain / calculate / write</i>，复习和测试必须用相同层级的动作。</li>
+                    <li><b>右栏决定深度和边界：</b><code>Notes and guidance</code> 给出要掌握的术语、范围、例子或限制，不能只读左栏标题。把右栏要求补进笔记和题目检查表。</li>
+                    <li><b>学习时逐条闭环：</b>读教材定位知识 → 合上资料按动词输出 → 做一道对应题 → 对照 mark scheme 补缺口 → 留下证据再打灯。</li>
+                </ol>
+                <div style="margin-top:7px; color:#5f6368;"><b>9618 示例：</b>看到 “Show understanding of different number systems”，不要只背进制定义；还要结合右栏要求练习 binary、denary、hexadecimal、BCD、one's/two's complement 及转换。</div>
+                ${sharedTraffic}`;
+        } else {
+            guide.innerHTML = `
+                <div style="font-weight:700; margin-bottom:4px;">Pearson Edexcel 的读法</div>
+                <ol style="margin:0; padding-left:20px;">
+                    <li><b>先找对文件：</b>到 Pearson Qualifications 官方网站找到对应 qualification 的最新 specification，核对名称、level、issue 和你的考试年份。不要只看教材目录或学校自制 checklist。</li>
+                    <li><b>先用 Content overview 建地图：</b>例如 A Level Mathematics 的 <code>Topic 1 – Proof</code>、<code>Topic 2 – Algebra and functions</code> 是大单元。</li>
+                    <li><b>再读 What students need to learn：</b><code>2.1</code>、<code>2.2</code> 等编号后的 Content 是可考的小目标。不要只记 Topic 名；把每一条 Content 变成可勾选的学习要求。</li>
+                    <li><b>Guidance 也要一起读：</b>它说明所需表示法、典型形式、例子和题目深度。Content 告诉你“会什么”，Guidance 帮你判断“会到什么程度”。</li>
+                    <li><b>学习时按编号留证据：</b>为每个 2.1/2.2 准备一个闭卷说明或代表题；做完用答案和 examiner/mark scheme 语言核对，再汇总成 Topic 的红黄绿状态。</li>
+                </ol>
+                <div style="margin-top:7px; color:#5f6368;"><b>数学示例：</b><code>2.1 laws of indices</code> 不能只说“懂指数律”；应能独立化简题目，并覆盖 Guidance 中要求的等价形式。</div>
+                ${sharedTraffic}`;
+        }
+    }
+
+    function populateBuiltInPlanOptions() {
+        const select = document.getElementById('built-in-syllabus-plan');
+        const presets = window.STUDYPLAN_SYLLABUS_PRESETS;
+        if (!select || !presets || select.options.length > 1) return;
+        Object.entries(presets.plans).forEach(([id, plan]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = plan.label;
+            select.appendChild(option);
+        });
+    }
+
+    function updateBuiltInPlanDescription() {
+        const select = document.getElementById('built-in-syllabus-plan');
+        const description = document.getElementById('built-in-syllabus-description');
+        const presets = window.STUDYPLAN_SYLLABUS_PRESETS;
+        if (!select || !description || !presets) return;
+        const plan = presets.plans[select.value];
+        description.textContent = plan ? plan.description : '';
+    }
+
+    function loadBuiltInSyllabusPlan() {
+        const select = document.getElementById('built-in-syllabus-plan');
+        const presets = window.STUDYPLAN_SYLLABUS_PRESETS;
+        if (!select || !presets) {
+            alert('内置大纲数据未加载，请刷新页面后重试');
+            return;
+        }
+        const plan = presets.plans[select.value];
+        if (!plan) {
+            alert('请先选择一个内置方案');
+            return;
+        }
+
+        importPreviewData = plan.subjectKeys.map(key => {
+            const preset = presets.subjects[key];
+            return {
+                subject: preset.subject,
+                units: preset.units.map(unit => {
+                    const isObject = typeof unit === 'object' && unit;
+                    return {
+                        name: isObject ? unit.name : unit,
+                        subs: isObject && Array.isArray(unit.subs) ? [...unit.subs] : [],
+                        selected: true
+                    };
+                })
+            };
+        });
+        document.getElementById('import-syllabus-text').value = '';
+        renderImportPreview();
+        updateImportStats();
+        updateBuiltInPlanDescription();
     }
 
     // ××× 通用文本解析（手动整理格式 / AI 返回格式） ×××
-    // 格式：第一行科目名，下面每行一个知识点（- 开头或纯文本）
-    // 也支持 `章节: xxx`、`知识点: xxx` 标记
+    // 格式：第一行科目名，下面用一级列表表示大单元、缩进列表表示小单元。
+    // 也支持 `学科: xxx`、`大单元: xxx`、`小单元: xxx` 等标记。
     function parseSyllabusText(raw) {
         const result = [];
         let currentSubject = null;
+        let currentUnit = null;
+        let currentUnitIndent = -1;
         const lines = raw.split(/\r?\n/);
         for (const lineRaw of lines) {
             const trimmed = lineRaw.trim();
             if (!trimmed) continue;
-            const line = trimmed.replace(/^[-•*>\d.)、\s]+/, '').trim();
-            if (!line) continue;
-            const isListLine = /^[-•*>]/.test(trimmed) || /^\d+[.)、]/.test(trimmed);
             const subjMatch = trimmed.match(/^(?:学科|subject)[:：]\s*(.+)/i);
-            const chapMatch = trimmed.match(/^(?:章节|chapter|ch)[:：]\s*(.+)/i);
-            const pointMatch = trimmed.match(/^(?:知识点|topic|point)[:：]\s*(.+)/i);
+            const majorMatch = trimmed.match(/^(?:大单元|单元|章节|major\s*unit|unit|chapter|section|ch)[:：]\s*(.+)/i);
+            const minorMatch = trimmed.match(/^(?:小单元|子单元|子章节|知识点|minor\s*unit|subunit|subtopic|topic|point)[:：]\s*(.+)/i);
+            const listMatch = lineRaw.match(/^(\s*)(?:[-•*>]\s*|\d+[.)、]\s+)(.+?)\s*$/);
+
+            const ensureSubject = () => {
+                if (!currentSubject) {
+                    currentSubject = { subject: '未命名科目', units: [] };
+                    result.push(currentSubject);
+                }
+            };
+            const addUnit = (name, indent = 0) => {
+                const clean = name.trim().replace(/^[-•*>]\s*/, '');
+                if (!clean) return;
+                ensureSubject();
+                currentUnit = { name: clean, subs: [] };
+                currentSubject.units.push(currentUnit);
+                currentUnitIndent = indent;
+            };
+            const addSub = name => {
+                const clean = name.trim().replace(/^[-•*>]\s*/, '');
+                if (!clean) return;
+                ensureSubject();
+                if (!currentUnit) addUnit(clean);
+                else if (!currentUnit.subs.includes(clean)) currentUnit.subs.push(clean);
+            };
+
             if (subjMatch) {
                 currentSubject = { subject: subjMatch[1].trim(), units: [] };
                 result.push(currentSubject);
-            } else if (pointMatch) {
-                if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
-                const pt = pointMatch[1].trim().replace(/^[-•*>\s]+/, '');
-                if (pt) currentSubject.units.push({ name: pt, subs: [] });
-            } else if (chapMatch) {
-                if (!currentSubject) { currentSubject = { subject: '未命名科目', units: [] }; result.push(currentSubject); }
-                const chap = chapMatch[1].trim().replace(/^[-•*>\s]+/, '');
-                if (chap) currentSubject.units.push({ name: chap, subs: [] });
-            } else if (isListLine) {
-                if (!currentSubject) currentSubject = { subject: '未命名科目', units: [] }, result.push(currentSubject);
-                if (line && !/^(?:章节|chapter|知识点|topic)[:：]/i.test(trimmed)) currentSubject.units.push({ name: line, subs: [] });
+                currentUnit = null;
+                currentUnitIndent = -1;
+            } else if (majorMatch) {
+                addUnit(majorMatch[1]);
+            } else if (minorMatch) {
+                addSub(minorMatch[1]);
+            } else if (listMatch) {
+                const indent = listMatch[1].replace(/\t/g, '    ').length;
+                const name = listMatch[2].trim();
+                if (currentUnit && indent > currentUnitIndent) addSub(name);
+                else addUnit(name, indent);
             } else {
-                // 非列表行 → 新科目
-                currentSubject = { subject: line, units: [] };
+                // 非列表行作为科目名；手动格式中的大/小单元应使用列表或明确标记。
+                currentSubject = { subject: trimmed, units: [] };
                 result.push(currentSubject);
+                currentUnit = null;
+                currentUnitIndent = -1;
             }
         }
         return result.filter(r => r.units.length > 0);
     }
 
     // ××× 正则匹配：CAIE 考纲格式 ×××
-    // 匹配 "N.N Title" 整行（如 "1.1 Physical quantities"）
-    // 以及 "N.N.N ..." 子行（归入最近的 N.N 章节）
+    // 支持官方格式的 "N 大单元 → N.N 小单元 → N.N.N 细分要求"，
+    // 也兼容没有 N 大单元行的旧格式（此时以最浅的小数编号为大单元）。
     function regexParseCAIE(raw) {
-        const lines = raw.split(/\r?\n/);
-        // 先尝试识别科目名（如 "Physics (9702)" / "Cambridge International AS & A Level Physics 9702"）
-        let subjectName = '';
-        const subjMatch = raw.match(/(?:Cambridge International\s+)?([A-Z][A-Za-z &\-\u00e9]+?)\s+(?:AS|A Level)?\s*\d{4}/);
-        if (subjMatch) subjectName = subjMatch[1].trim();
-        // 也支持 xxxx/xx 或纯科目名行
-        if (!subjectName) {
-            const codeMatch = raw.match(/^(.+?)\s*\(?(\d{4})\)?\s*$/m);
-            if (codeMatch && codeMatch[1].trim().length < 60) subjectName = codeMatch[1].trim();
+        // 整份 PDF 文本中前面有目录，只解析最后一个 Subject content 区段。
+        let content = raw;
+        const sectionMatches = [...raw.matchAll(/^\s*3\s+Subject\s+content\s*$/gim)];
+        if (sectionMatches.length) {
+            content = raw.slice(sectionMatches[sectionMatches.length - 1].index);
+            const endMatch = content.match(/^\s*4\s+Details\s+of\s+the\s+assessment\s*$/im);
+            if (endMatch && typeof endMatch.index === 'number') content = content.slice(0, endMatch.index);
         }
-        // 提取编号行：1.1 / 1.2.1 等
+        const lines = content.split(/\r?\n/);
+
+        let subjectName = '';
+        const cambridgeMatch = raw.match(/Cambridge International(?:\s+AS\s*&\s*A\s+Level|\s+IGCSE|\s+O\s+Level)?\s+([A-Z][A-Za-z0-9 &(),/'’–—-]+?)\s+(\d{4})(?=\s+(?:syllabus|for\b)|\s*$)/im);
+        if (cambridgeMatch) subjectName = `${cambridgeMatch[1].trim()} (${cambridgeMatch[2]})`;
+        if (!subjectName) {
+            const codeMatch = raw.match(/^\s*([A-Za-z][A-Za-z0-9 &(),/'’–—-]{1,55}?)\s*\(?(\d{4})\)?\s*$/m);
+            if (codeMatch) subjectName = `${codeMatch[1].trim()} (${codeMatch[2]})`;
+        }
+
         const chapters = []; // {id, name, subs: []}
         const chapterMap = {};
+        const numberedRows = [];
         for (const lineRaw of lines) {
             const t = lineRaw.trim();
-            // 匹配 1.1 Title  或  1.2.1 Title  （编号 + 空格 + 非数字文本）
-            const m = t.match(/^(\d+(?:\.\d+)+)\s+(.+)$/);
-            if (!m) continue;
-            const id = m[1];
-            const name = m[2].trim();
-            const parts = id.split('.').map(Number);
-            if (parts.length === 2) {
-                // 一级：1.1
-                const chap = { id: id, name: name, subs: [] };
-                chapters.push(chap);
-                chapterMap[id] = chap;
-            } else if (parts.length >= 3) {
-                // 二级+：1.1.1 → 归入最近的 1.1
-                const parentId = parts.slice(0, 2).join('.');
-                const parent = chapterMap[parentId];
-                if (parent) {
-                    parent.subs.push({ id: id, name: name });
-                } else {
-                    // 没有父级就自成一个章节
-                    const chap = { id: id, name: name, subs: [] };
+            if (!t) continue;
+
+            // PDF 目录表可能把大单元和第一个小单元放在同一行。
+            const combined = t.match(/^(\d{1,2})\s+(.+?)\s{2,}(\d{1,2}(?:\.\d+)+)\s+(.+)$/);
+            if (combined) {
+                numberedRows.push({ id: combined[1], name: combined[2].trim() });
+                numberedRows.push({ id: combined[3], name: combined[4].trim() });
+                continue;
+            }
+            const decimal = t.match(/^(\d{1,2}(?:\.\d+)+)\s+(.+)$/);
+            if (decimal) {
+                numberedRows.push({ id: decimal[1], name: decimal[2].trim() });
+                continue;
+            }
+            const major = t.match(/^(\d{1,2})[.)]?\s+([A-Z][A-Za-z0-9 .&,()/:'’+–—-]{2,100})$/);
+            if (major && !/^Subject\s+content$/i.test(major[2].replace(/\s+/g, ' ').trim())) {
+                numberedRows.push({ id: major[1], name: major[2].trim() });
+            }
+        }
+
+        const cleanName = name => name.replace(/\s+continued\s*$/i, '').trim();
+        const uniqueRows = numberedRows.filter((row, index, rows) => {
+            row.name = cleanName(row.name);
+            return row.name && rows.findIndex(other => other.id === row.id && cleanName(other.name) === row.name) === index;
+        });
+        const hasMajorRows = uniqueRows.some(row => !row.id.includes('.'));
+
+        if (hasMajorRows) {
+            for (const row of uniqueRows) {
+                if (!row.id.includes('.')) {
+                    const chap = { id: row.id, name: `${row.id} ${row.name}`, subs: [] };
                     chapters.push(chap);
-                    chapterMap[id] = chap;
+                    chapterMap[row.id] = chap;
+                    continue;
+                }
+                const parent = chapterMap[row.id.split('.')[0]];
+                if (parent && !parent.subs.some(sub => sub.id === row.id)) {
+                    parent.subs.push({ id: row.id, name: `${row.id} ${row.name}` });
+                }
+            }
+        } else {
+            const decimalRows = uniqueRows.filter(row => row.id.includes('.'));
+            const shallowestDepth = decimalRows.length
+                ? Math.min(...decimalRows.map(row => row.id.split('.').length))
+                : 0;
+            for (const row of decimalRows) {
+                const parts = row.id.split('.');
+                if (parts.length === shallowestDepth) {
+                    const chap = { id: row.id, name: `${row.id} ${row.name}`, subs: [] };
+                    chapters.push(chap);
+                    chapterMap[row.id] = chap;
+                    continue;
+                }
+                const parent = chapterMap[parts.slice(0, shallowestDepth).join('.')];
+                if (parent && !parent.subs.some(sub => sub.id === row.id)) {
+                    parent.subs.push({ id: row.id, name: `${row.id} ${row.name}` });
                 }
             }
         }
@@ -2228,34 +2440,72 @@
     function regexParseEdexcel(raw) {
         const lines = raw.split(/\r?\n/);
         let subjectName = '';
-        // 尝试匹配 "Pearson Edexcel International Advanced Level in Mathematics" 或 "Edexcel International GCSE in Economics"
-        const subjMatch = raw.match(/Edexcel International (?:GCSE|Advanced Level|Advanced Subsidiary)(?: in|.*?\bin)\s+([A-Z][A-Za-z &\u2013\u2014\/-]+?)(?:\s*\(|\s*Specification|\s*$)/i);
-        if (subjMatch) subjectName = subjMatch[1].trim();
+        // 同时支持 International 与英国本土 GCE specification 标题。
+        const internationalMatch = raw.match(/Edexcel International (?:GCSE|Advanced Level|Advanced Subsidiary)(?: in|.*?\bin)\s+([A-Z][A-Za-z &\u2013\u2014\/-]+?)(?:\s*\(|\s*Specification|\s*$)/i);
+        const gceMatch = raw.match(/Pearson Edexcel Level 3 Advanced GCE in\s+([A-Z][A-Za-z &\u2013\u2014\/-]+?)(?:\s*\n|\s*Specification)/i);
+        if (internationalMatch) subjectName = `${internationalMatch[1].trim()} (Edexcel)`;
+        else if (gceMatch) subjectName = `${gceMatch[1].trim()} (Edexcel)`;
         if (!subjectName) {
             const m = raw.match(/^([^\n]{2,60})\s*$/m);
             if (m) subjectName = m[1].trim();
         }
         const chapters = [];
         const chapterMap = {};
-        // Edexcel 结构：Unit 标题 + "What students need to learn" 表格，每个知识点是 "X.Y 标题" 形式
-        let currentUnit = null;
+
+        const addChapter = (area, id, name) => {
+            const key = `${area}:${id}`;
+            if (chapterMap[key]) return chapterMap[key];
+            const prefix = area === 'pure' ? 'Pure Mathematics' : area === 'statistics' ? 'Statistics' : area === 'mechanics' ? 'Mechanics' : '';
+            const chap = { id: key, name: `${prefix ? prefix + ' — ' : ''}${id} ${name}`.trim(), subs: [] };
+            chapters.push(chap);
+            chapterMap[key] = chap;
+            return chap;
+        };
+
+        // 先读取 Content overview：Topic 是红绿灯卡片的大单元。
+        let overviewArea = '';
         for (const lineRaw of lines) {
             const t = lineRaw.trim();
-            // 匹配 unit 标题（如 "Unit P1: Pure Mathematics 1" 或 "1. Algebra and functions"）
-            const unitM = t.match(/^Unit\s+(\w+)\s*:?\s*(.+)$/i) || t.match(/^(\d+)\.\s+(.+)$/);
-            if (unitM && t.length < 80 && !/^\d+\.\d/.test(t)) {
-                const unitName = unitM[2].trim();
-                const chap = { id: unitM[1], name: unitName, subs: [] };
-                chapters.push(chap);
-                chapterMap[unitName] = chap;
-                currentUnit = chap;
-                continue;
+            const topicM = t.match(/^[•●\-]?\s*Topic\s+(\d+)\s*[–—:-]\s*(.+)$/i);
+            if (/^Paper\s+1\b|^Paper\s+2\b|Pure Mathematics/i.test(t)) overviewArea = 'pure';
+            if (/^Section A\s*:\s*Statistics/i.test(t)) overviewArea = 'statistics';
+            if (/^Section B\s*:\s*Mechanics/i.test(t)) overviewArea = 'mechanics';
+            if (topicM) addChapter(overviewArea || 'topic', topicM[1], topicM[2].trim());
+        }
+
+        // 再限定在两段 What students need to learn 表格中读取 X.Y Content，避免把附录编号误当考纲。
+        const findSegment = startPattern => {
+            const flags = startPattern.flags.includes('g') ? startPattern.flags : startPattern.flags + 'g';
+            const matches = [...raw.matchAll(new RegExp(startPattern.source, flags))];
+            if (!matches.length) return '';
+            const afterStart = raw.slice(matches[matches.length - 1].index);
+            const end = afterStart.search(/^\s*Assessment information\s*$/im);
+            return end > 0 ? afterStart.slice(0, end) : afterStart;
+        };
+        const pureSegment = findSegment(/^\s*Paper\s+1\s+and\s+Paper\s+2\s*:\s*Pure\s+Mathematics\s*$/im);
+        const paper3Segment = findSegment(/^\s*Paper\s+3\s*:\s*Statistics\s+and\s+Mechanics\s*$/im);
+
+        const addContentRows = (segment, areaForTopic) => {
+            for (const lineRaw of segment.split(/\r?\n/)) {
+                const t = lineRaw.trim();
+                const m = t.match(/^(?:\d+\s{2,})?(\d+\.\d+(?:\.\d+)*)\s+(.+)$/);
+                if (!m) continue;
+                const id = m[1];
+                const topicId = id.split('.')[0];
+                const area = typeof areaForTopic === 'function' ? areaForTopic(Number(topicId)) : areaForTopic;
+                const parent = chapterMap[`${area}:${topicId}`] || addChapter(area, topicId, `Topic ${topicId}`);
+                const firstColumn = m[2].split(/\s{2,}/)[0].trim().replace(/\s+continued\s*$/i, '');
+                if (firstColumn && !parent.subs.some(sub => sub.id === id)) {
+                    parent.subs.push({ id, name: `${id} ${firstColumn}` });
+                }
             }
-            // 匹配 "1.1 Laws of indices..." 或 "What students need to learn:" 下的条目
-            const m = t.match(/^(\d+\.\d+)\s+(.+)$/);
-            if (m && currentUnit) {
-                currentUnit.subs.push({ id: m[1], name: m[2].trim() });
-            }
+        };
+        addContentRows(pureSegment, 'pure');
+        addContentRows(paper3Segment, topicId => topicId <= 5 ? 'statistics' : 'mechanics');
+
+        // 只粘贴局部详细表格时没有 Content overview，仍创建可用的 Topic 父级。
+        if (!chapters.length) {
+            addContentRows(raw, 'topic');
         }
         return { subjectName, chapters };
     }
@@ -2272,7 +2522,7 @@
         }
         if (!result.chapters.length) {
             document.getElementById('import-syllabus-preview').innerHTML =
-                '<span style="color:#ba1a1a;">未匹配到编号知识点格式。请检查文本是否包含如 "1.1 Physical quantities" 这样的编号行，或尝试改用 AI 解析。</span>';
+                '<span style="color:#ba1a1a;">未匹配到大纲层级。CAIE 请尽量复制 Subject content；Edexcel 请复制 Content overview 或 What students need to learn 表格。也可以尝试 AI 解析。</span>';
             document.getElementById('import-syllabus-stats').textContent = '';
             return;
         }
@@ -2299,9 +2549,9 @@
         try {
             let prompt;
             if (currentExamBoard === 'caie') {
-                prompt = `你是考纲解析助手。请从下面的 ${currentExamBoard === 'caie' ? 'CAIE/剑桥' : 'Edexcel/爱德思'} 考纲文本中提取科目名和所有编号知识点。\n\n规则：\n1. 第一行输出科目名（含考试代码如果是数字，如 Physics (9702)）\n2. 输出格式为：\n科目名\n- 知识点1\n  - 子知识点1.1\n- 知识点2\n3. 只输出结构化大纲，不要解释\n4. 保留原编号前缀（如 1.1、1.1.1），确保子知识点缩进在其父知识点下\n\n考纲文本：\n\n${raw}`;
+                prompt = `你是 CAIE/剑桥考纲解析助手。请从文本中提取科目名和 Subject content 的层级。\n\n规则：\n1. 第一行输出科目名和考试代码，如 Computer Science (9618)\n2. N Title（如 1 Information representation）是大单元，使用一级列表\n3. N.N Title（如 1.1 Data Representation）及更深编号是所属大单元的小单元，缩进一层\n4. 不要把页码、目录、Candidates should be able to 的正文或 Notes and guidance 误当单元\n5. 保留原编号，只输出结构化大纲，不要解释\n\n格式：\n科目名\n- 1 大单元\n  - 1.1 小单元\n- 2 大单元\n  - 2.1 小单元\n\n考纲文本：\n\n${raw}`;
             } else {
-                prompt = `你是考纲解析助手。请从下面的 Edexcel/爱德思 考纲文本中提取科目名和所有编号知识点。\n\n规则：\n1. 第一行输出科目名\n2. 每个单元作为一个一级知识点，单元下的 "What students need to learn" 知识点作为子知识点\n3. 输出格式为：\n科目名\n- 单元名\n  - 子知识点\n- 单元名2\n  - 子知识点\n4. 只输出结构化大纲，不要解释\n\n考纲文本：\n\n${raw}`;
+                prompt = `你是 Pearson Edexcel specification 解析助手。请提取科目名和课程层级。\n\n规则：\n1. 第一行输出科目名并标明 Edexcel\n2. Content overview 中的 Topic 是大单元；如果有 Pure Mathematics / Statistics / Mechanics，请保留分区名\n3. What students need to learn 表格中 X.Y 编号的 Content 是所属 Topic 的小单元\n4. Guidance 是学习深度说明，不要另建成单元；不要把附录 Notation 的编号误当课程内容\n5. 保留编号，只输出结构化大纲，不要解释\n\n格式：\n科目名\n- 分区 — Topic 大单元\n  - X.Y Content 小单元\n\n考纲文本：\n\n${raw}`;
             }
             const reply = await planAiCall([{ role: 'user', content: prompt }]);
             // AI 返回的结构化文本 → 用 parseSyllabusText 解析
@@ -2325,6 +2575,11 @@
         currentExamBoard = 'caie';
         document.getElementById('exam-board-label-caie').style.borderColor = 'var(--primary)';
         document.getElementById('exam-board-label-edexcel').style.borderColor = '#ddd';
+        renderSyllabusLearningGuide();
+        populateBuiltInPlanOptions();
+        const builtInSelect = document.getElementById('built-in-syllabus-plan');
+        if (builtInSelect) builtInSelect.value = '';
+        updateBuiltInPlanDescription();
         document.getElementById('import-syllabus-modal').showModal();
     }
 
@@ -2353,48 +2608,109 @@
     // 渲染预览（可编辑：勾选/改名/删除）
     function renderImportPreview() {
         const preview = document.getElementById('import-syllabus-preview');
-        if (!importPreviewData.length) return;
-        preview.innerHTML = importPreviewData.map((p, pi) => `
+        if (!importPreviewData.length) {
+            preview.innerHTML = '<div style="text-align:center; color:#888; padding:12px;">预览为空。请选择内置方案，或粘贴大纲后解析。</div>';
+            return;
+        }
+        const toolbar = `
+            <div style="position:sticky; top:-10px; z-index:2; display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:-10px -10px 10px; padding:8px 10px; background:#eef3f8; border-bottom:1px solid #dce3ea;">
+                <span style="font-size:11px; font-weight:700; color:#4b5563; margin-right:auto;">批量操作</span>
+                <button class="btn-outline" onclick="setAllImportSelection(true)" style="padding:4px 9px; font-size:11px;">全部选择</button>
+                <button class="btn-outline" onclick="setAllImportSelection(false)" style="padding:4px 9px; font-size:11px;">全部取消</button>
+            </div>`;
+        preview.innerHTML = toolbar + importPreviewData.map((p, pi) => {
+            const selectedCount = p.units.filter(unit => unit.selected).length;
+            const duplicateCount = p.units.filter((unit, ui) => isImportUnitExisting(pi, ui)).length;
+            return `
             <div style="margin-bottom:14px; border:1px solid #e0e0e0; border-radius:10px; padding:8px 10px; background:#fff;">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                     <input type="text" value="${escapeHtml(p.subject)}" 
                         onchange="updateImportSubject(${pi}, this.value)"
                         style="font-weight:700; font-size:13px; padding:4px 8px; width:auto; flex:1; margin:0;">
-                    <span style="font-size:11px; color:#888;">${p.units.length} 项</span>
+                    <span id="import-selected-${pi}" style="font-size:11px; color:#888; white-space:nowrap;">${selectedCount}/${p.units.length} 已选</span>
+                    <button onclick="deleteImportSubject(${pi})" title="从本次预览移除该科目" style="background:none; border:none; cursor:pointer; color:#ba1a1a; font-size:16px; padding:0 2px;">&times;</button>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+                    <button class="btn-outline" onclick="setImportSubjectSelection(${pi}, true)" style="padding:3px 8px; font-size:10px;">全选本学科</button>
+                    <button class="btn-outline" onclick="setImportSubjectSelection(${pi}, false)" style="padding:3px 8px; font-size:10px;">取消本学科</button>
+                    ${duplicateCount ? `<span style="font-size:10px; color:#b06000; margin-left:auto;">${duplicateCount} 项已存在，将自动跳过</span>` : ''}
                 </div>
                 ${p.units.map((u, ui) => `
-                    <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-top:1px dashed #f0f0f0;">
+                    <div style="display:flex; align-items:center; gap:8px; padding:5px 4px; border-top:1px dashed #f0f0f0; background:${isImportUnitExisting(pi, ui) ? '#fff8e1' : 'transparent'}; border-radius:5px;">
                         <input type="checkbox" ${u.selected ? 'checked' : ''} 
                             onchange="toggleImportUnit(${pi}, ${ui}, this.checked)"
                             style="width:auto; margin:0; accent-color:var(--primary);">
                         <input type="text" value="${escapeHtml(u.name)}" 
                             onchange="updateImportUnit(${pi}, ${ui}, this.value)"
                             style="flex:1; font-size:12px; padding:3px 8px; margin:0;">
+                        ${isImportUnitExisting(pi, ui) ? '<span style="font-size:10px; color:#b06000; white-space:nowrap;">已存在</span>' : ''}
                         ${u.subs.length ? `<span style="font-size:10px; color:#999; white-space:nowrap;">${u.subs.length} 子项</span>` : ''}
                         <button onclick="deleteImportUnit(${pi}, ${ui})" style="background:none; border:none; cursor:pointer; color:#ba1a1a; font-size:14px; padding:0 2px;">&times;</button>
                     </div>
                     ${u.subs.length ? `
-                        <div style="margin-left:28px; padding:2px 0 4px; font-size:11px; color:#777; line-height:1.6; border-left:2px solid #e8e8e8; padding-left:10px;">
-                            ${u.subs.map(s => '· ' + escapeHtml(s)).join('<br>')}
-                        </div>
+                        <details style="margin:2px 0 4px 28px; font-size:11px; color:#777; border-left:2px solid #e8e8e8; padding-left:10px;">
+                            <summary style="cursor:pointer; color:#5f6368;">查看 ${u.subs.length} 个小单元</summary>
+                            <div style="line-height:1.65; padding-top:3px;">${u.subs.map(s => '· ' + escapeHtml(s)).join('<br>')}</div>
+                        </details>
                     ` : ''}
                 `).join('')}
             </div>
-        `).join('');
+        `; }).join('');
+    }
+
+    function isImportUnitExisting(pi, ui) {
+        const subject = importPreviewData[pi];
+        const unit = subject && subject.units[ui];
+        const existingUnits = subject && syllabusDB[subject.subject]?.units;
+        if (!unit || !existingUnits) return false;
+        return existingUnits.some(existing => getUnitName(existing).trim().toLowerCase() === unit.name.trim().toLowerCase());
     }
 
     function updateImportStats() {
         const stats = document.getElementById('import-syllabus-stats');
         if (!importPreviewData.length) { stats.textContent = ''; return; }
-        let totalUnits = 0, selectedUnits = 0;
-        importPreviewData.forEach(p => {
-            p.units.forEach(u => { totalUnits++; if (u.selected) selectedUnits++; });
+        let totalUnits = 0, selectedUnits = 0, duplicates = 0;
+        importPreviewData.forEach((p, pi) => {
+            const subjectSelected = p.units.filter(unit => unit.selected).length;
+            const subjectLabel = document.getElementById(`import-selected-${pi}`);
+            if (subjectLabel) subjectLabel.textContent = `${subjectSelected}/${p.units.length} 已选`;
+            p.units.forEach((u, ui) => {
+                totalUnits++;
+                if (u.selected) {
+                    selectedUnits++;
+                    if (isImportUnitExisting(pi, ui)) duplicates++;
+                }
+            });
         });
-        stats.textContent = `共 ${importPreviewData.length} 个科目，${totalUnits} 个知识点（已选 ${selectedUnits} 个）`;
+        stats.textContent = `共 ${importPreviewData.length} 个科目，${totalUnits} 个知识点；已选 ${selectedUnits} 个，其中新增 ${selectedUnits - duplicates} 个、已存在 ${duplicates} 个`;
+    }
+
+    function setAllImportSelection(selected) {
+        importPreviewData.forEach(subject => subject.units.forEach(unit => { unit.selected = selected; }));
+        renderImportPreview();
+        updateImportStats();
+    }
+
+    function setImportSubjectSelection(pi, selected) {
+        if (!importPreviewData[pi]) return;
+        importPreviewData[pi].units.forEach(unit => { unit.selected = selected; });
+        renderImportPreview();
+        updateImportStats();
+    }
+
+    function deleteImportSubject(pi) {
+        if (!importPreviewData[pi]) return;
+        importPreviewData.splice(pi, 1);
+        renderImportPreview();
+        updateImportStats();
     }
 
     function updateImportSubject(pi, val) {
-        if (importPreviewData[pi]) importPreviewData[pi].subject = val;
+        if (importPreviewData[pi]) {
+            importPreviewData[pi].subject = val;
+            renderImportPreview();
+            updateImportStats();
+        }
     }
 
     function toggleImportUnit(pi, ui, checked) {
@@ -2407,6 +2723,8 @@
     function updateImportUnit(pi, ui, val) {
         if (importPreviewData[pi] && importPreviewData[pi].units[ui]) {
             importPreviewData[pi].units[ui].name = val;
+            renderImportPreview();
+            updateImportStats();
         }
     }
 
@@ -2420,7 +2738,7 @@
     }
 
     function escapeHtml(s) {
-        return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
     // ××× 确认导入 ×××
@@ -2437,26 +2755,44 @@
             }
         }
         if (!importPreviewData.length) { alert('没有可导入的大纲，请先解析或粘贴'); return; }
-        let added = 0, merged = 0, skipped = 0;
+        const selectedCount = importPreviewData.reduce((total, subject) =>
+            total + subject.units.filter(unit => unit.selected && unit.name && unit.name.trim()).length, 0);
+        if (!selectedCount) { alert('请至少选择一个要导入的知识点'); return; }
+        let added = 0, merged = 0, skipped = 0, addedSubs = 0;
         importPreviewData.forEach(p => {
             if (!p.subject || !p.subject.trim()) return;
             const subjectName = p.subject.trim();
+            const selectedUnits = p.units.filter(u => u.selected && u.name && u.name.trim());
+            if (!selectedUnits.length) return;
             // 规范化 link：若科目存在保留原 link，否则构造默认 znotes 链接
             if (!syllabusDB[subjectName]) {
                 const code = (subjectName.match(/\d{4}/) || [''])[0];
                 syllabusDB[subjectName] = { link: code ? `https://znotes.org/caie/igcse/${subjectName.toLowerCase()}/` : '', units: [] };
             }
-            p.units.forEach(u => {
-                if (!u.selected || !u.name || !u.name.trim()) return;
+            selectedUnits.forEach(u => {
                 const unitName = u.name.trim();
-                // 去重：同名跳过
-                const existing = syllabusDB[subjectName].units.find(x => {
-                    if (typeof x === 'string') return x === unitName;
-                    return x && x.name === unitName;
+                const existingIndex = syllabusDB[subjectName].units.findIndex(x => {
+                    if (typeof x === 'string') return x.trim().toLowerCase() === unitName.toLowerCase();
+                    return x && String(x.name).trim().toLowerCase() === unitName.toLowerCase();
                 });
-                if (existing) { skipped++; return; }
                 // 新格式：{ name, subs }, subs 为子知识点数组
                 const subs = (u.subs || []).filter(s => s && s.trim()).map(s => s.trim());
+                if (existingIndex >= 0) {
+                    const existing = syllabusDB[subjectName].units[existingIndex];
+                    const existingSubs = getUnitSubs(existing);
+                    const mergedSubs = [...existingSubs];
+                    subs.forEach(sub => {
+                        if (!mergedSubs.some(item => item.toLowerCase() === sub.toLowerCase())) {
+                            mergedSubs.push(sub);
+                            addedSubs++;
+                        }
+                    });
+                    if (mergedSubs.length && (typeof existing === 'string' || mergedSubs.length !== existingSubs.length)) {
+                        syllabusDB[subjectName].units[existingIndex] = { name: unitName, subs: mergedSubs };
+                    }
+                    skipped++;
+                    return;
+                }
                 syllabusDB[subjectName].units.push(subs.length ? { name: unitName, subs: subs } : unitName);
                 added++;
             });
@@ -2469,7 +2805,7 @@
         renderUnitEditorList();
         renderSidebar();
         renderTrafficDashboard();
-        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点（跳过 ${skipped} 个已存在）`);
+        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点${addedSubs ? `，补充 ${addedSubs} 个小单元` : ''}（合并 ${skipped} 个已存在项）`);
     }
 
     // 辅助：获取单元显示名（兼容 string 和 {name, subs} 对象）
@@ -2483,15 +2819,155 @@
         return [];
     }
 
+    function updateSyllabusSubjectActions() {
+        const select = document.getElementById('editor-subject-select');
+        const actions = document.getElementById('syllabus-subject-actions');
+        if (!select || !actions) return;
+        const hasSubject = Boolean(select.value && syllabusDB[select.value]);
+        actions.style.display = hasSubject ? 'flex' : 'none';
+        if (hasSubject) {
+            const search = document.getElementById('unit-editor-search');
+            const clearProgress = document.getElementById('delete-syllabus-with-progress');
+            if (search) search.value = '';
+            if (clearProgress) clearProgress.checked = false;
+        }
+    }
+
+    function showSyllabusUndo(message, action) {
+        syllabusUndoAction = action;
+        const bar = document.getElementById('syllabus-undo-bar');
+        const label = document.getElementById('syllabus-undo-message');
+        if (!bar || !label) return;
+        label.textContent = message;
+        bar.style.display = 'flex';
+        if (syllabusUndoTimer) clearTimeout(syllabusUndoTimer);
+        syllabusUndoTimer = setTimeout(() => {
+            syllabusUndoAction = null;
+            bar.style.display = 'none';
+        }, 10000);
+    }
+
+    function undoLastSyllabusChange() {
+        if (!syllabusUndoAction) return;
+        const action = syllabusUndoAction;
+        syllabusUndoAction = null;
+        if (syllabusUndoTimer) clearTimeout(syllabusUndoTimer);
+        action();
+        const bar = document.getElementById('syllabus-undo-bar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    function captureSubjectLearningData(subject) {
+        const progressEntries = Object.entries(progressDB).filter(([key]) => key.startsWith(`${subject}|`));
+        const trafficEntries = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`${TRAFFIC_PREFIX}${subject}|`)) {
+                trafficEntries.push([key, localStorage.getItem(key)]);
+            }
+        }
+        return {
+            progressEntries,
+            trafficEntries,
+            mock: Object.prototype.hasOwnProperty.call(mockDB, subject) ? JSON.parse(JSON.stringify(mockDB[subject])) : undefined,
+            urgent: settings.urgent ? JSON.parse(JSON.stringify(settings.urgent)) : null
+        };
+    }
+
+    function clearSubjectLearningData(subject, snapshot) {
+        snapshot.progressEntries.forEach(([key]) => delete progressDB[key]);
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
+        snapshot.trafficEntries.forEach(([key]) => localStorage.removeItem(key));
+        delete mockDB[subject];
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
+        if (settings.urgent && Array.isArray(settings.urgent.subjects)) {
+            settings.urgent.subjects = settings.urgent.subjects.filter(item => item !== subject);
+            if (!settings.urgent.subjects.length) settings.urgent = null;
+            localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
+        }
+    }
+
+    function restoreSubjectLearningData(subject, snapshot) {
+        snapshot.progressEntries.forEach(([key, value]) => { progressDB[key] = value; });
+        localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
+        snapshot.trafficEntries.forEach(([key, value]) => {
+            if (value !== null) localStorage.setItem(key, value);
+        });
+        if (snapshot.mock !== undefined) mockDB[subject] = snapshot.mock;
+        localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
+        settings.urgent = snapshot.urgent;
+        localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
+    }
+
+    function resetMainViewAfterSyllabusDelete(subject) {
+        const area = document.getElementById('active-subject-area');
+        if (area) {
+            area.innerHTML = `<div style="text-align:center; color:#888; padding:40px;">“${escapeHtml(subject)}”大纲已删除。可在设置中撤销，或重新选择其他科目。</div>`;
+        }
+    }
+
+    function deleteCurrentSyllabus() {
+        const select = document.getElementById('editor-subject-select');
+        const subject = select ? select.value : '';
+        if (!subject || !syllabusDB[subject]) return;
+        const clearProgress = Boolean(document.getElementById('delete-syllabus-with-progress')?.checked);
+        const warning = clearProgress
+            ? `确定删除“${subject}”整份大纲，并清除任务进度、红绿灯和 Mock 记录吗？\n\n删除后可在 10 秒内撤销。`
+            : `确定删除“${subject}”整份大纲吗？\n\n学习进度和红绿灯会保留，重新导入同名大纲后可继续使用。删除后可在 10 秒内撤销。`;
+        if (!confirm(warning)) return;
+
+        const syllabusSnapshot = JSON.parse(JSON.stringify(syllabusDB[subject]));
+        const learningSnapshot = clearProgress ? captureSubjectLearningData(subject) : null;
+        delete syllabusDB[subject];
+        saveSyllabus();
+        if (learningSnapshot) clearSubjectLearningData(subject, learningSnapshot);
+
+        populateSettings();
+        updateSyllabusSubjectActions();
+        renderUnitEditorList();
+        renderSidebar();
+        renderTrafficDashboard();
+        resetMainViewAfterSyllabusDelete(subject);
+        showSyllabusUndo(`已删除“${subject}”${clearProgress ? '及其学习记录' : '大纲（学习记录已保留）'}`, () => {
+            if (syllabusDB[subject]) {
+                alert('同名大纲已经存在，无法直接撤销覆盖');
+                return;
+            }
+            syllabusDB[subject] = syllabusSnapshot;
+            saveSyllabus();
+            if (learningSnapshot) restoreSubjectLearningData(subject, learningSnapshot);
+            populateSettings();
+            const restoredSelect = document.getElementById('editor-subject-select');
+            if (restoredSelect) restoredSelect.value = subject;
+            updateSyllabusSubjectActions();
+            renderUnitEditorList();
+            renderSidebar();
+            renderTrafficDashboard();
+            renderMainView(subject);
+        });
+    }
+
     function renderUnitEditorList() {
         const sub = document.getElementById('editor-subject-select').value;
         const container = document.getElementById('unit-editor-container');
         container.innerHTML = '';
 
-        if (!sub) return;
+        if (!sub || !syllabusDB[sub]) {
+            container.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px;">选择一个科目以编辑知识点</div>';
+            return;
+        }
 
         const units = syllabusDB[sub].units;
-        units.forEach((unit, idx) => {
+        const query = (document.getElementById('unit-editor-search')?.value || '').trim().toLowerCase();
+        const visibleUnits = units.map((unit, idx) => ({ unit, idx })).filter(({ unit }) => {
+            if (!query) return true;
+            return [getUnitName(unit), ...getUnitSubs(unit)].some(text => String(text).toLowerCase().includes(query));
+        });
+        if (!visibleUnits.length) {
+            container.innerHTML = `<div style="text-align:center; color:#888; padding:18px; font-size:12px;">${query ? '没有匹配的知识点' : '当前大纲还没有知识点'}</div>`;
+            return;
+        }
+        visibleUnits.forEach(({ unit, idx }) => {
             const unitName = getUnitName(unit);
             const subs = getUnitSubs(unit);
             const div = document.createElement('div');
@@ -2528,23 +3004,51 @@
 
     function deleteUnit(sub, idx) {
         const unitName = getUnitName(syllabusDB[sub].units[idx]);
-        if(confirm(`确定删除 "${unitName}" 吗？进度数据可能隐藏。`)) {
-            syllabusDB[sub].units.splice(idx, 1);
+        if(confirm(`确定从大纲中删除“${unitName}”吗？\n\n该知识点的进度和红绿灯会保留，重新添加同名知识点后可继续使用。`)) {
+            const removedUnit = syllabusDB[sub].units.splice(idx, 1)[0];
             saveSyllabus();
             renderUnitEditorList();
             renderMainView(sub);
+            renderSidebar();
+            renderTrafficDashboard();
+            showSyllabusUndo(`已从“${sub}”删除“${unitName}”`, () => {
+                if (!syllabusDB[sub]) {
+                    alert('该科目大纲已不存在，无法撤销知识点删除');
+                    return;
+                }
+                const insertAt = Math.min(idx, syllabusDB[sub].units.length);
+                syllabusDB[sub].units.splice(insertAt, 0, removedUnit);
+                saveSyllabus();
+                const select = document.getElementById('editor-subject-select');
+                if (select) select.value = sub;
+                updateSyllabusSubjectActions();
+                renderUnitEditorList();
+                renderMainView(sub);
+                renderSidebar();
+                renderTrafficDashboard();
+            });
         }
     }
 
     function addUnitFromEditor() {
         const sub = document.getElementById('editor-subject-select').value;
-        const name = document.getElementById('new-unit-name').value;
+        const input = document.getElementById('new-unit-name');
+        const name = input.value.trim();
         if (sub && name) {
+            const exists = syllabusDB[sub].units.some(unit => getUnitName(unit).toLowerCase() === name.toLowerCase());
+            if (exists) {
+                alert('当前大纲中已经有同名知识点');
+                input.focus();
+                return;
+            }
             syllabusDB[sub].units.push(name);
-            document.getElementById('new-unit-name').value = '';
+            input.value = '';
             saveSyllabus();
             renderUnitEditorList();
             renderMainView(sub);
+            renderSidebar();
+            renderTrafficDashboard();
+            input.focus();
         }
     }
 

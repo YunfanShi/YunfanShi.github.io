@@ -14,7 +14,10 @@
     "test:legacy-ui": "node --test tests/legacy-ui.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",
     "check:companion": "node scripts/check-companion-package.mjs",
-    "check:study-guide": "node scripts/check-study-guide.mjs"
+    "sync:companion-sources": "node scripts/sync-companion-hosted-sources.mjs",
+    "check:companion-sources": "node scripts/sync-companion-hosted-sources.mjs --check",
+    "check:study-guide": "node scripts/check-study-guide.mjs",
+    "check:studyplan-import": "node scripts/check-studyplan-import.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

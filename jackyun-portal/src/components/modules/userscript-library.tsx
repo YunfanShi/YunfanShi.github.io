@@ -86,6 +86,23 @@ export default function UserscriptLibrary() {
         </div>
       </section>
 
+      <section className="relative mt-6 overflow-hidden rounded-3xl border border-[#a9c7ff] bg-gradient-to-br from-[#eef4ff] via-white to-[#eefbf5] p-6 shadow-[0_18px_55px_rgba(37,88,211,0.12)] dark:border-[#3b5e9e] dark:from-[#172239] dark:via-[#1c2430] dark:to-[#162b28] sm:p-7">
+        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#8ab4f8]/25 blur-3xl" />
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
+          <div>
+            <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[#2458d3] px-3 py-1 text-xs font-bold text-white">首选推荐 · JackYun 自研</span><span className="rounded-full border border-[#86a9e8] px-3 py-1 font-mono text-xs text-[#2458d3] dark:text-[#aecbfa]">Companion 1.2.0</span></div>
+            <h2 className="mt-4 text-2xl font-bold tracking-[-0.04em] text-[#172033] dark:text-white">先装 JackYun Companion，再按需补充脚本</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#53627a] dark:text-[#bdc7d8]">一套扩展包含学习时间、25/50 分钟专注、多设备同步、稍后学习、English SafeGuard，以及本站托管脚本的完整源码。SafeGuard 可验收浏览器/沉浸式翻译后的正文与字幕，并默认排除学习网站。</p>
+            <ul className="mt-4 grid gap-2 text-sm text-[#26344a] dark:text-[#e2e8f2] sm:grid-cols-2"><li>✓ 本地优先统计与清晰隐私边界</li><li>✓ ZNotes 键盘刷题与 BestExam PDF 整理</li><li>✓ Discord 图片保护与双时区工具</li><li>✓ 跟踪链接清理和模块独立开关</li></ul>
+          </div>
+          <div className="grid gap-2 rounded-2xl border border-white/70 bg-white/75 p-4 backdrop-blur dark:border-white/10 dark:bg-black/15">
+            <a href="/downloads/jackyun-companion-v1.2.0.zip" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#2458d3] px-4 text-sm font-bold text-white hover:bg-[#1749bd]"><span className="material-icons-round">extension</span>下载 Companion 1.2</a>
+            <a href="/downloads/companion-install.md" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--card-border)] px-4 text-sm font-semibold text-[var(--foreground)]"><span className="material-icons-round text-lg">help</span>查看安装说明</a>
+            <p className="text-center text-[11px] leading-4 text-[var(--muted-foreground)]">当前为可加载已解压扩展的预览 ZIP；签名 1.1.0 仍保留供发布核验。</p>
+          </div>
+        </div>
+      </section>
+
       <div className="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <label className="flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
           <span className="material-icons-round text-xl text-[var(--muted-foreground)]">search</span>

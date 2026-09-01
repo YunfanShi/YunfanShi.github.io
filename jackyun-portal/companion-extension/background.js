@@ -4,6 +4,7 @@ const DEFAULT_PREFERENCES = { enabled: true, countAI: true, idleSeconds: 60, goa
 const DEFAULT_SAFEGUARD = {
   enabled: true,
   blockChinese: true,
+  excludeEducation: true,
   translationGraceMinutes: 2,
   translatedSessionMinutes: 60,
   studySessionMinutes: 30,
@@ -11,6 +12,13 @@ const DEFAULT_SAFEGUARD = {
   customSites: [],
   customEducationHosts: [],
   customEntertainmentHosts: [],
+};
+const DEFAULT_TOOLS = {
+  cleanTrackingLinks: true,
+  znotesQuizHelper: true,
+  bestExamDownloads: true,
+  discordImageShield: false,
+  timezoneBadges: false,
 };
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
@@ -177,6 +185,18 @@ async function saveSafeguardConfig(value) {
   return next;
 }
 
+async function toolsConfig() {
+  const stored = await local.get(['tools']);
+  return { ...DEFAULT_TOOLS, ...(stored.tools || {}) };
+}
+
+async function saveToolsConfig(value) {
+  const current = await toolsConfig();
+  const next = Object.fromEntries(Object.keys(DEFAULT_TOOLS).map((key) => [key, value?.[key] ?? current[key]]));
+  await local.set({ tools: next });
+  return next;
+}
+
 function sessionKey(hostname) {
   const normalized = String(hostname || '').trim().toLowerCase().replace(/^www\./, '');
   return normalized ? `safeguard:${normalized}` : null;
@@ -328,6 +348,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'SAFEGUARD_SAVE_CONFIG') return saveSafeguardConfig(message.payload);
     if (message.type === 'SAFEGUARD_GET_SESSION') return getSafeguardSession(message.hostname);
     if (message.type === 'SAFEGUARD_SET_SESSION') return setSafeguardSession(message.payload);
+    if (message.type === 'TOOLS_GET_CONFIG') return toolsConfig();
+    if (message.type === 'TOOLS_SAVE_CONFIG') return saveToolsConfig(message.payload);
     return null;
   })().then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
   return true;

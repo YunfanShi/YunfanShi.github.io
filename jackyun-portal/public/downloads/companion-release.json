@@ -1,6 +1,9 @@
 {
   "product": "JackYun Companion",
   "version": "1.1.0",
+  "previewVersion": "1.2.0",
+  "previewZip": "/downloads/jackyun-companion-v1.2.0.zip",
+  "previewZipSha256": "b1738b919f06edd9fe0da82712359c94d9e03c171c73b95855f9f03e33e48530",
   "status": "signed-release-candidate",
   "updatedAt": "2026-08-30",
   "chromeWebStoreUrl": null,
@@ -16,6 +19,7 @@
   "crxSha256": "48854fea74fa5c340574ab99a85f3d025314812221490bf89052255dad5fbf30",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
+    "1.2.0 预览版合并本站托管脚本源码、原生工具模块和新版 English SafeGuard UI；固定私钥不在仓库中，因此当前提供可加载已解压扩展的 ZIP，不伪造签名 CRX。",
     "1.1.0 增加 English SafeGuard、可配置教育/娱乐站点规则，并保留与网页同步的 25/50 分钟专注记录。Chrome Web Store Item 和商店审核仍需账号负责人完成。",
     "Windows 与 macOS 版 Chrome 不允许直接拖入本地 CRX；免开发者模式安装必须来自 Chrome Web Store。",
     "ZIP 可上传 Chrome Web Store，或解压后通过 chrome://extensions 的加载已解压扩展程序安装。"

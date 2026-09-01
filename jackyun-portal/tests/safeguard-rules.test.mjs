@@ -30,6 +30,14 @@ test('accepts Immersive Translate-style bilingual content only when substantial 
   assert.equal(rules.isEnglishPresentation(tokenEnglish), false);
 });
 
+test('requires visible Chinese subtitles to have substantial English translation', () => {
+  const englishPage = 'This page is presented in English for focused browsing. '.repeat(30);
+  const chineseOnly = rules.presentationAssessment({ pageText: englishPage, pageLang: 'en', subtitleText: '这是中文字幕。'.repeat(20) });
+  const bilingual = rules.presentationAssessment({ pageText: englishPage, pageLang: 'en', subtitleText: `${'这是中文字幕。'.repeat(15)} ${'This is the translated English subtitle. '.repeat(25)}` });
+  assert.equal(chineseOnly.accepted, false);
+  assert.equal(bilingual.accepted, true);
+});
+
 test('does not misclassify Japanese text as a Chinese page solely because it contains kanji', () => {
   const japanese = rules.languageStats('日本語の学習ページです。ひらがなとカタカナを使います。'.repeat(20), 'ja');
   assert.equal(rules.isChineseContent(japanese), false);
@@ -57,6 +65,11 @@ test('category blocks cannot be defeated by subdomains or disabled-category defa
 test('custom entertainment rules override custom education rules', () => {
   const config = { customEducationHosts: ['lessons.example.cn'], customEntertainmentHosts: ['example.cn'] };
   assert.equal(rules.studyEligibility({ hostname: 'lessons.example.cn', config }).allowed, false);
+});
+
+test('education exclusion is enabled by default and can be disabled explicitly', () => {
+  assert.equal(rules.normalizeConfig({}).excludeEducation, true);
+  assert.equal(rules.normalizeConfig({ excludeEducation: false }).excludeEducation, false);
 });
 
 test('Companion manifest loads SafeGuard globally and contains no TR3000 module', () => {

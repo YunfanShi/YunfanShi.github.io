@@ -23,6 +23,24 @@
     return rules.languageStats(text, document.documentElement?.lang || '');
   }
 
+  function visibleSubtitleText() {
+    const selectors = [
+      '[class*="subtitle" i]', '[class*="caption" i]', '[class*="danmaku" i]',
+      '.ytp-caption-segment', '.bpx-player-subtitle-panel-text', '[class*="bilibili-player-video-subtitle"]',
+    ];
+    return [...document.querySelectorAll(selectors.join(','))]
+      .filter((node) => node instanceof HTMLElement && node.offsetParent !== null)
+      .map((node) => node.innerText || node.textContent || '').join(' ').slice(0, 20000);
+  }
+
+  function presentationAssessment() {
+    return rules.presentationAssessment({
+      pageText: document.body?.innerText || document.documentElement?.innerText || '',
+      pageLang: document.documentElement?.lang || '',
+      subtitleText: visibleSubtitleText(),
+    });
+  }
+
   function removeOverlay() {
     overlayHost?.remove();
     overlayHost = null;
@@ -63,11 +81,12 @@
         return showOverlay('The page is still primarily Chinese after the translation window.', true);
       }
       if (session.mode !== 'translate') return clearInterval(translateTimer);
-      if (rules.isEnglishPresentation(pageStats())) {
+      const assessment = presentationAssessment();
+      if (assessment.accepted) {
         clearInterval(translateTimer);
         const verifiedUntil = Date.now() + config.translatedSessionMinutes * 60000;
         await send({ type: 'SAFEGUARD_SET_SESSION', payload: { hostname, mode: 'translated', expiresAt: verifiedUntil } });
-        showStatus(`English presentation verified. This site is available for ${config.translatedSessionMinutes} minutes.`);
+        showStatus(`${assessment.reason} This site is available for ${config.translatedSessionMinutes} minutes.`);
         setTimeout(removeStatus, 6000);
       } else if (Date.now() >= session.expiresAt) {
         clearInterval(translateTimer);
@@ -103,7 +122,7 @@
         .shield{display:grid;width:72px;height:72px;margin:0 auto 22px;place-items:center;border-radius:50%;background:#fce8e6;color:#c5221f;font-size:34px}h1{margin:0 0 14px;font-size:28px}p{margin:0;color:#5f6368;line-height:1.55}.reason{margin:22px 0;padding:11px;border-radius:10px;background:#f1f3f4;font:13px/1.45 ui-monospace,monospace;overflow-wrap:anywhere}
         .actions{display:grid;gap:10px;margin-top:20px}button{min-height:44px;padding:10px 18px;border:1px solid #dadce0;border-radius:22px;background:#fff;color:#1967d2;font-weight:700;cursor:pointer}button.primary{border-color:#0b57d0;background:#0b57d0;color:#fff}button:disabled{cursor:not-allowed;color:#9aa0a6;background:#f1f3f4}.hint{margin-top:14px;font-size:12px;color:#80868b}
       </style>
-      <div class="screen"><div class="bar"><span class="logo">JY</span>JackYun Companion · SafeGuard</div><main class="card"><div class="shield">🛡️</div><h1>English Study Protection</h1><p>This Chinese-language website is paused so your browsing stays in English.</p><div class="reason"></div><div class="actions"><button class="primary" id="translate">I’ll translate this page to English</button><button id="study">For Study Purpose</button></div><p class="hint" id="study-hint"></p></main></div>`;
+      <div class="screen"><div class="bar"><span class="logo">JY</span>JackYun Companion · English SafeGuard</div><main class="card"><div class="shield">🛡️</div><h1>先把页面变成英文</h1><p>此页面已暂停。请启动浏览器翻译或沉浸式翻译；Companion 会持续检查正文与字幕，通过后自动放行。</p><div class="reason"></div><div class="actions"><button class="primary" id="translate">开始强制翻译检查</button><button id="study">这是学习页面</button></div><p class="hint" id="study-hint"></p></main></div>`;
     shadow.querySelector('.reason').textContent = `${hostname} · ${reason}`;
     const study = shadow.querySelector('#study');
     shadow.querySelector('#translate').disabled = !allowBypass;
@@ -138,6 +157,8 @@
     const category = rules.categoryReason(hostname, config);
     if (category) return showOverlay(`Blocked category: ${category}`, false, false);
     if (!config.blockChinese) return;
+    const education = rules.studyEligibility({ hostname, title: document.title, path: location.pathname, text: document.body?.innerText || '', config });
+    if (config.excludeEducation && education.allowed) return;
     if (session?.expiresAt > Date.now()) {
       if (session.mode === 'translate') beginTranslation(session).catch(() => {});
       return;

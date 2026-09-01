@@ -26,7 +26,7 @@ const categories = [
   { id: 'companion', label: 'Companion 与同步', icon: 'devices', keywords: '扩展 设备 时间 同步 隐私' },
   { id: 'learning', label: '学习与专注', icon: 'school', keywords: '目标 番茄钟 Quiz 提醒' },
   { id: 'ai', label: 'AI 与语音', icon: 'smart_toy', keywords: '模型 API Key TTS 朗读' },
-  { id: 'data', label: '数据与隐私', icon: 'database', keywords: '导出 保留 清除' },
+  { id: 'data', label: '数据与隐私', icon: 'storage', keywords: '导出 保留 清除' },
   { id: 'advanced', label: '高级', icon: 'terminal', keywords: '日志 实验 诊断 反馈' },
   { id: 'about', label: '关于与支持', icon: 'info', keywords: '版本 更新 帮助 注销' },
 ] as const;
@@ -63,7 +63,7 @@ export default function SettingsContent(props: Props) {
       <aside className="min-w-0 self-start overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 lg:sticky lg:top-0 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
         <label className="flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5"><span className="material-icons-round text-lg text-[var(--muted-foreground)]">search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索设置…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
         <select value={active} onChange={(event) => choose(event.target.value as CategoryId)} className="mt-3 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 lg:hidden">{categories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
-        <nav className="mt-3 hidden space-y-1 lg:block">{visibleCategories.map((item) => <button key={item.id} type="button" onClick={() => choose(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium ${active === item.id ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6]/50 dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round text-lg">{item.icon}</span>{item.label}</button>)}</nav>
+        <nav className="mt-3 hidden space-y-1 lg:block">{visibleCategories.map((item) => <button key={item.id} type="button" onClick={() => choose(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium ${active === item.id ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6]/50 dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round shrink-0 text-lg">{item.icon}</span><span className="min-w-0 flex-1">{item.label}</span></button>)}</nav>
       </aside>
       <main className="min-w-0 space-y-5">
         {active === 'general' && <><Panel title="语言"><LanguageSwitcher /></Panel><Panel title="常规" description="控制启动、通知和时间显示。"><CloudPreferencesPanel sectionKey="general_preferences" initialValue={{ startPage: 'dashboard', timezone: 'auto', notifications: true, ...(settings.general_preferences || {}) }} fields={[{ key: 'startPage', label: '登录后的启动页面', description: '完成登录后默认打开的模块', type: 'select', options: [{ value: 'dashboard', label: 'Dashboard' }, { value: 'study', label: '学习计划' }, { value: 'time-management', label: '时间管理' }] }, { key: 'timezone', label: '时区', description: '自动跟随浏览器，或固定使用中国标准时间', type: 'select', options: [{ value: 'auto', label: '自动' }, { value: 'Asia/Shanghai', label: 'Asia/Shanghai' }] }, { key: 'notifications', label: '网站通知', description: '允许任务、专注和同步状态提醒', type: 'boolean' }]} /></Panel></>}
