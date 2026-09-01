@@ -31,7 +31,7 @@ export default function PomodoroTimer() {
   const notify = useCallback((msg: string) => {
     if (typeof window === 'undefined') return;
     if (Notification.permission === 'granted') {
-      new Notification('番茄钟', { body: msg, icon: '/favicon.ico' });
+      new Notification('番茄钟', { body: msg, icon: '/Webicon.png' });
     } else {
       // Fallback: simple alert-like banner handled by state
     }
