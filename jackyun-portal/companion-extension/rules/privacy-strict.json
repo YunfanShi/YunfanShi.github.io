@@ -1,0 +1,56 @@
+[
+  {
+    "id": 101,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": [
+        "google-analytics.com",
+        "googletagmanager.com",
+        "hotjar.com",
+        "hotjar.io",
+        "clarity.ms",
+        "mouseflow.com",
+        "fullstory.com",
+        "newrelic.com",
+        "nr-data.net",
+        "segment.io",
+        "segment.com",
+        "mixpanel.com",
+        "amplitude.com",
+        "app-measurement.com",
+        "branch.io",
+        "adjust.com",
+        "appsflyer.com",
+        "kochava.com",
+        "facebook.net",
+        "connect.facebook.net",
+        "bat.bing.com",
+        "sensorsdata.cn",
+        "growingio.com",
+        "talkingdata.net",
+        "cnzz.com",
+        "cnzz.net",
+        "51yes.com",
+        "hm.baidu.com",
+        "zz.bdstatic.com",
+        "log.mmstat.com",
+        "beacon.qq.com",
+        "report.qq.com",
+        "analytics.163.com"
+      ],
+      "domainType": "thirdParty",
+      "resourceTypes": ["script", "image", "xmlhttprequest", "ping", "websocket", "other"]
+    }
+  },
+  {
+    "id": 102,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/]+/(?:collect|event|track)(?:\\?|$)",
+      "domainType": "thirdParty",
+      "resourceTypes": ["ping"]
+    }
+  }
+]

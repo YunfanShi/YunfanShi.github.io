@@ -13,6 +13,7 @@ export interface AiConfig {
   model: string;
   /** 深度思考模型（默认与主模型相同，可单独配置如 deepseek-reasoner） */
   proModel?: string;
+  providerMode?: 'cloud' | 'personal';
 }
 
 /** 思考深度等级 — 影响 temperature 和 system prompt */
@@ -115,6 +116,7 @@ export function getAiConfig(): AiConfig {
       apiKey: parsed.apiKey ?? '',
       model: parsed.model ?? '',
       proModel: parsed.proModel ?? '',
+      providerMode: parsed.providerMode === 'cloud' ? 'cloud' : 'personal',
     };
   } catch {
     return { baseUrl: '', apiKey: '', model: '' };
@@ -149,6 +151,7 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
         model: config.model,
+        providerMode: config.providerMode ?? 'personal',
       }),
     });
     const data = await res.json();
@@ -164,6 +167,7 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
 /** 检查是否有有效的 AI 配置（baseUrl 和 apiKey 都不为空） */
 export function hasValidAiConfig(): boolean {
   const config = getAiConfig();
+  if (config.providerMode === 'cloud') return true;
   return config.baseUrl.trim().length > 0 && config.apiKey.trim().length > 0;
 }
 
@@ -182,6 +186,8 @@ export async function callAiApi(
     maxTokens?: number;
     /** 禁止思考模式（部分模型通过 extra 参数或 max_tokens 控制） */
     noThinking?: boolean;
+    /** 平台计费功能标识；不会转发给上游模型 */
+    feature?: 'chat' | 'reasoning' | 'personal_site' | 'ui_customization';
   } = {},
 ): Promise<Response> {
   const config = getAiConfig();
@@ -189,7 +195,7 @@ export async function callAiApi(
   const apiKey = config.apiKey === '__stored__' ? '' : config.apiKey;
   const model = options.model || config.model;
 
-  if (!baseUrl) {
+  if ((config.providerMode ?? 'personal') === 'personal' && (!baseUrl || !config.apiKey)) {
     throw new Error('请先在设置页面配置 AI API Key');
   }
 
@@ -219,7 +225,7 @@ export async function callAiApi(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...body, baseUrl, ...(apiKey ? { apiKey } : {}) }),
+    body: JSON.stringify({ ...body, feature: options.feature ?? 'chat', providerMode: config.providerMode ?? 'personal', baseUrl, ...(apiKey ? { apiKey } : {}) }),
     signal,
   });
 }

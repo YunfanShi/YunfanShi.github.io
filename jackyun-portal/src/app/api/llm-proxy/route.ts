@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { explainAiError } from '@/lib/ai-error';
 import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
 import { normalizeLlmBaseUrl } from '@/lib/llm-endpoint';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
     const requestedBaseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : '';
     const baseUrl = requestedBaseUrl ? normalizeLlmBaseUrl(requestedBaseUrl) : '';
     const model = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
+    const providerMode = body.providerMode === 'cloud' ? 'cloud' : 'personal';
     if (requestedBaseUrl && !baseUrl) return NextResponse.json({ error: 'AI 服务地址不在服务器允许列表中' }, { status: 400 });
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
     if (apiKey && apiKey !== '__stored__') {
@@ -106,7 +108,7 @@ export async function POST(req: NextRequest) {
       {
         user_id: user.id,
         key: 'ai_config',
-        value: { baseUrl, model, hasApiKey: Boolean(storedSecret) },
+        value: { baseUrl, model, providerMode, hasApiKey: Boolean(storedSecret) },
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,key' },
@@ -146,7 +148,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ available: true, isAdmin: profile?.role === 'admin' });
     }
 
-    if (CLOUD_API_URL && CLOUD_API_KEY) {
+    const configAdmin = createAdminClient();
+    const { data: managedProvider } = configAdmin
+      ? await configAdmin.from('ai_provider_configs').select('id').eq('enabled', true).limit(1).maybeSingle()
+      : { data: null };
+    if (managedProvider || (configAdmin && CLOUD_API_URL && CLOUD_API_KEY)) {
       return NextResponse.json({ available: true });
     }
     return NextResponse.json({ available: false }, { status: 400 });
@@ -166,6 +172,10 @@ export async function POST(req: NextRequest) {
   let model: string;
   let keySource: 'client' | 'user' | 'cloud' = 'client';
   let userId: string | undefined;
+  let inputCostPerMillion = 0;
+  let outputCostPerMillion = 0;
+  let reservationId: string | undefined;
+  const adminClient = createAdminClient();
 
   if (clientBaseUrl && clientApiKey) {
     // 客户端直接传了 API 配置 → 使用用户自己的 Key（不限速，不消耗 Cloud 配额）
@@ -196,7 +206,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     const aiConfig = settingRow?.value as
-      | { baseUrl?: string; apiKey?: string; model?: string; hasApiKey?: boolean }
+      | { baseUrl?: string; apiKey?: string; model?: string; providerMode?: string; hasApiKey?: boolean }
       | null;
 
     let encryptedApiKey = '';
@@ -205,7 +215,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Use user's own API config if they have set one
-    if (encryptedApiKey || aiConfig?.apiKey?.trim()) {
+    const forceCloud = body.providerMode === 'cloud' || aiConfig?.providerMode === 'cloud';
+    if (!forceCloud && (encryptedApiKey || aiConfig?.apiKey?.trim())) {
       const savedConfig = aiConfig ?? {};
       const savedBaseUrl = savedConfig.baseUrl?.trim() || '';
       const normalizedSavedBaseUrl = normalizeLlmBaseUrl(savedBaseUrl);
@@ -222,15 +233,37 @@ export async function POST(req: NextRequest) {
           const encryptedValue = encryptSecret(savedConfig.apiKey.trim());
           await Promise.all([
             supabase.from('user_secrets').upsert({ user_id: user.id, key: 'ai_api_key', encrypted_value: encryptedValue, key_version: 1, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
-            supabase.from('user_settings').upsert({ user_id: user.id, key: 'ai_config', value: { baseUrl, model, hasApiKey: true }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
+            supabase.from('user_settings').upsert({ user_id: user.id, key: 'ai_config', value: { baseUrl, model, providerMode: 'personal', hasApiKey: true }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
           ]);
         } catch (error) { console.error('[llm-proxy] Legacy API key migration failed', error); }
       }
     } else {
-      // Fallback to cloud-level API config (server env vars)
-      baseUrl = CLOUD_API_URL;
-      apiKey = CLOUD_API_KEY;
-      model = CLOUD_MODEL;
+      // Quotas and concurrency limits are server-enforced. Never fall back to
+      // an unmetered managed key when the service-role client is unavailable.
+      if (!adminClient) {
+        return NextResponse.json({ error: { message: '平台云端 AI 尚未完成服务端配额配置，请联系管理员。' } }, { status: 503 });
+      }
+      // Prefer the administrator-managed encrypted provider. Environment
+      // variables remain an emergency fallback for existing deployments.
+      const { data: managedProvider } = adminClient
+        ? await adminClient.from('ai_provider_configs').select('*').eq('enabled', true).order('is_default', { ascending: false }).order('created_at').limit(1).maybeSingle()
+        : { data: null };
+      if (managedProvider?.encrypted_api_key) {
+        baseUrl = managedProvider.base_url;
+        try { apiKey = decryptSecret(managedProvider.encrypted_api_key); } catch { apiKey = ''; }
+        const feature = typeof body.feature === 'string' ? body.feature : 'chat';
+        model = feature === 'personal_site' && managedProvider.site_model
+          ? managedProvider.site_model
+          : feature === 'reasoning' && managedProvider.reasoning_model
+            ? managedProvider.reasoning_model
+            : managedProvider.chat_model;
+        inputCostPerMillion = Number(managedProvider.input_cost_per_million) || 0;
+        outputCostPerMillion = Number(managedProvider.output_cost_per_million) || 0;
+      } else {
+        baseUrl = CLOUD_API_URL;
+        apiKey = CLOUD_API_KEY;
+        model = CLOUD_MODEL;
+      }
       keySource = 'cloud';
     }
   }
@@ -268,9 +301,34 @@ export async function POST(req: NextRequest) {
   delete upstreamFields.apiKey;
   delete upstreamFields._get_config_only;
   delete upstreamFields._save_ai_config;
+  delete upstreamFields.feature;
+  delete upstreamFields.providerMode;
+  if (keySource === 'cloud' && userId && adminClient) {
+    const requestedOutput = Math.max(1, Math.min(Number(upstreamFields.max_tokens) || 2000, 100000));
+    const feature = typeof body.feature === 'string' ? body.feature.slice(0, 64) : 'chat';
+    const { data: reservation, error: reserveError } = await adminClient.rpc('reserve_ai_usage', {
+      p_user_id: userId,
+      p_feature: feature,
+      p_input_tokens: estimatedInputTokens,
+      p_requested_output: requestedOutput,
+      p_model: model,
+    }).single();
+    if (reserveError || !reservation) {
+      const monthly = reserveError?.message.includes('MONTHLY_QUOTA_EXCEEDED');
+      const daily = reserveError?.message.includes('DAILY_QUOTA_EXCEEDED');
+      const site = reserveError?.message.includes('SITE_GENERATION_QUOTA_EXCEEDED');
+      const rate = reserveError?.message.includes('RATE_LIMIT_EXCEEDED') || reserveError?.message.includes('CONCURRENT_LIMIT_EXCEEDED');
+      return NextResponse.json({ error: { code: 'quota_exceeded', message: site ? '本月个性化网站生成次数已用完。' : monthly ? '本月 AI Token 额度已用完。' : daily ? '今日 AI Token 额度已用完。' : rate ? '请求过于频繁，请稍后再试。' : '暂时无法预留 AI 使用额度。' } }, { status: 429 });
+    }
+    const reservationRow = reservation as { reservation_id: string; allowed_output_tokens: number };
+    reservationId = reservationRow.reservation_id;
+    upstreamFields.max_tokens = reservationRow.allowed_output_tokens;
+  }
   const upstreamBody: Record<string, unknown> = {
     ...upstreamFields,
-    model: (upstreamFields.model as string) || model,
+    // Managed plans always use the administrator-selected model. Personal
+    // API users may still choose their own compatible model identifier.
+    model: keySource === 'cloud' ? model : (upstreamFields.model as string) || model,
     messages: withLanguageInstruction(upstreamFields.messages, interfaceLanguage),
   };
 
@@ -298,6 +356,7 @@ export async function POST(req: NextRequest) {
       durationMs: Date.now() - startTime,
       error: errorMsg,
     });
+    if (reservationId && adminClient) await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservationId, p_input_tokens: estimatedInputTokens, p_output_tokens: 0, p_success: false, p_estimated_cost: 0 });
     return NextResponse.json(
       { error: { message: `连接 LLM API 失败: ${errorMsg}` } },
       { status: 502 },
@@ -317,6 +376,7 @@ export async function POST(req: NextRequest) {
       durationMs: Date.now() - startTime,
       error: text.slice(0, 200),
     });
+    if (reservationId && adminClient) await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservationId, p_input_tokens: estimatedInputTokens, p_output_tokens: 0, p_success: false, p_estimated_cost: 0 });
     return NextResponse.json(
       { error: { message: explained.reason, code: explained.code, upstream_status: upstream.status, detail: explained.detail } },
       { status: upstream.status },
@@ -338,22 +398,57 @@ export async function POST(req: NextRequest) {
       status: 200,
       durationMs: Date.now() - startTime,
     });
-    return new NextResponse(upstream.body, {
+    if (!reservationId || !adminClient || !upstream.body) return new NextResponse(upstream.body, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
       },
     });
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let transcript = '';
+    let streamedBytes = 0;
+    const reservation = reservationId;
+    const meteredStream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        if (done) {
+          const usageMatches = [...transcript.matchAll(/"usage"\s*:\s*\{([^{}]+)\}/g)];
+          const lastUsage = usageMatches.at(-1)?.[1] ?? '';
+          const input = Number(lastUsage.match(/"(?:prompt_tokens|input_tokens)"\s*:\s*(\d+)/)?.[1]) || estimatedInputTokens;
+          // Some compatible providers omit usage from streaming responses.
+          // Fall back to a conservative byte-based estimate instead of
+          // silently billing zero output tokens.
+          const output = Number(lastUsage.match(/"(?:completion_tokens|output_tokens)"\s*:\s*(\d+)/)?.[1]) || Math.max(1, Math.ceil(streamedBytes / 8));
+          const cost = input / 1_000_000 * inputCostPerMillion + output / 1_000_000 * outputCostPerMillion;
+          await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservation, p_input_tokens: input, p_output_tokens: output, p_success: true, p_estimated_cost: cost });
+          controller.close(); return;
+        }
+        streamedBytes += value.byteLength;
+        transcript = (transcript + decoder.decode(value, { stream: true })).slice(-300000);
+        controller.enqueue(value);
+      },
+      async cancel(reason) {
+        await reader.cancel(reason);
+        await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservation, p_input_tokens: estimatedInputTokens, p_output_tokens: 0, p_success: true, p_estimated_cost: estimatedInputTokens / 1_000_000 * inputCostPerMillion });
+      },
+    });
+    return new NextResponse(meteredStream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
   }
 
   // 非流式 - 直接透传 JSON
   const data = await upstream.json();
 
   // Extract output token count for audit
-  const outputTokens = (data as Record<string, unknown>)?.usage
-    ? ((data as Record<string, unknown>).usage as Record<string, number>)?.total_tokens ?? undefined
-    : undefined;
+  const usage = (data as Record<string, unknown>)?.usage as Record<string, number> | undefined;
+  const actualInputTokens = usage?.prompt_tokens ?? usage?.input_tokens ?? estimatedInputTokens;
+  const actualOutputTokens = usage?.completion_tokens ?? usage?.output_tokens ?? 0;
+  const outputTokens = usage?.total_tokens ?? actualInputTokens + actualOutputTokens;
+  if (reservationId && adminClient) {
+    const cost = actualInputTokens / 1_000_000 * inputCostPerMillion + actualOutputTokens / 1_000_000 * outputCostPerMillion;
+    await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservationId, p_input_tokens: actualInputTokens, p_output_tokens: actualOutputTokens, p_success: true, p_estimated_cost: cost });
+  }
 
   auditLog({
     userId,

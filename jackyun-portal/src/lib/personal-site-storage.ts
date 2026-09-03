@@ -1,0 +1,7 @@
+import type { PersonalSiteDefinition } from '@/lib/personal-site';
+
+const DB_NAME = 'jackyun-personal-sites'; const STORE = 'sites';
+function database(): Promise<IDBDatabase> { return new Promise((resolve, reject) => { const request = indexedDB.open(DB_NAME, 1); request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'id' }); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); }
+export async function listLocalSites(): Promise<PersonalSiteDefinition[]> { const db = await database(); return new Promise((resolve, reject) => { const request = db.transaction(STORE).objectStore(STORE).getAll(); request.onsuccess = () => resolve((request.result as PersonalSiteDefinition[]).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))); request.onerror = () => reject(request.error); }); }
+export async function saveLocalSite(site: PersonalSiteDefinition): Promise<void> { const db = await database(); return new Promise((resolve, reject) => { const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(site); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error); }); }
+export async function deleteLocalSite(id: string): Promise<void> { const db = await database(); return new Promise((resolve, reject) => { const request = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(id); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error); }); }

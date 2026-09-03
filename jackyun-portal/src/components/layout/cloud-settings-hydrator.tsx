@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 const LOCAL_KEY = 'jackyun_settings_appearance_preferences';
 const LOCAL_UPDATED_KEY = `${LOCAL_KEY}__updated_at`;
 
-export default function CloudSettingsHydrator({ appearance, updatedAt, signedIn }: { appearance: Record<string, unknown>; updatedAt: string | null; signedIn: boolean }) {
+export default function CloudSettingsHydrator({ appearance, interfaceCustomization = {}, updatedAt, signedIn }: { appearance: Record<string, unknown>; interfaceCustomization?: Record<string, unknown>; updatedAt: string | null; signedIn: boolean }) {
   useEffect(() => {
     if (!signedIn || Object.keys(appearance).length === 0) return;
     let resolved = appearance;
@@ -36,6 +36,11 @@ export default function CloudSettingsHydrator({ appearance, updatedAt, signedIn 
     window.dispatchEvent(new StorageEvent('storage', { key: 'show_fullscreen_btn', newValue: String(showFullscreen) }));
     document.documentElement.dataset.density = resolved.density === 'compact' ? 'compact' : 'comfortable';
     document.documentElement.dataset.reducedMotion = resolved.reducedMotion === true ? 'true' : 'false';
-  }, [appearance, signedIn, updatedAt]);
+    if (Object.keys(interfaceCustomization).length) {
+      const hidden = interfaceCustomization.hideHomepageAi === true;
+      localStorage.setItem('jackyun_hide_homepage_ai', String(hidden));
+      window.dispatchEvent(new Event('jackyun-ai-visibility'));
+    }
+  }, [appearance, interfaceCustomization, signedIn, updatedAt]);
   return null;
 }

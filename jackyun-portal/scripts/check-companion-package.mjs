@@ -14,6 +14,12 @@ for (const [, id] of popupSource.matchAll(/\$\('#([^']+)'\)/g)) {
 for (const contentScript of manifest.content_scripts || []) {
   for (const file of contentScript.js || []) if (!existsSync(join('companion-extension', file))) throw new Error(`Manifest references missing content script: ${file}`);
 }
+for (const ruleset of manifest.declarative_net_request?.rule_resources || []) {
+  const path = join('companion-extension', ruleset.path);
+  if (!existsSync(path)) throw new Error(`Manifest references missing ruleset: ${ruleset.path}`);
+  const rules = JSON.parse(readFileSync(path, 'utf8'));
+  if (!Array.isArray(rules) || !rules.length) throw new Error(`Ruleset is empty: ${ruleset.path}`);
+}
 if (typeof manifest.key !== 'undefined') {
   if (typeof manifest.key !== 'string' || !manifest.key || /\s/.test(manifest.key) || !/^[A-Za-z0-9+/]+={0,2}$/.test(manifest.key)) {
     throw new Error('manifest.key must be a single-line Base64 public key');

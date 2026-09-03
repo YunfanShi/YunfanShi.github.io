@@ -20,6 +20,14 @@ const DEFAULT_TOOLS = {
   discordImageShield: false,
   timezoneBadges: false,
 };
+const DEFAULT_ADBLOCK = {
+  enabled: true,
+  privacy: true,
+  cosmetic: true,
+  siteAllowlist: [],
+};
+const ADBLOCK_ALLOW_RULE_START = 200000;
+const ADBLOCK_RESOURCE_TYPES = ['sub_frame', 'script', 'image', 'stylesheet', 'object', 'xmlhttprequest', 'ping', 'media', 'font', 'websocket', 'other'];
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   supabaseUrl: 'https://gdcwwlnzylrzrqhaaljq.supabase.co',
@@ -197,6 +205,53 @@ async function saveToolsConfig(value) {
   return next;
 }
 
+function normalizeAdblockHost(value) {
+  return String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/:?#]/)[0];
+}
+
+function normalizeAdblockConfig(value) {
+  const raw = value && typeof value === 'object' ? value : {};
+  const siteAllowlist = Array.isArray(raw.siteAllowlist)
+    ? [...new Set(raw.siteAllowlist.map(normalizeAdblockHost).filter((host) => host.includes('.') && host.length <= 253))].slice(0, 100)
+    : [];
+  return {
+    enabled: raw.enabled !== false,
+    privacy: raw.privacy !== false,
+    cosmetic: raw.cosmetic !== false,
+    siteAllowlist,
+  };
+}
+
+async function adblockConfig() {
+  const stored = await local.get(['adblock']);
+  return normalizeAdblockConfig({ ...DEFAULT_ADBLOCK, ...(stored.adblock || {}) });
+}
+
+async function applyAdblockRules(config) {
+  const enabledRulesets = config.enabled ? ['ads_core', ...(config.privacy ? ['privacy_strict'] : [])] : [];
+  await chrome.declarativeNetRequest.updateEnabledRulesets({
+    enableRulesetIds: enabledRulesets,
+    disableRulesetIds: ['ads_core', 'privacy_strict'].filter((id) => !enabledRulesets.includes(id)),
+  });
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeRuleIds = existing.map((rule) => rule.id).filter((id) => id >= ADBLOCK_ALLOW_RULE_START && id < ADBLOCK_ALLOW_RULE_START + 100);
+  const addRules = config.enabled ? config.siteAllowlist.map((host, index) => ({
+    id: ADBLOCK_ALLOW_RULE_START + index,
+    priority: 100,
+    action: { type: 'allow' },
+    condition: { initiatorDomains: [host], resourceTypes: ADBLOCK_RESOURCE_TYPES },
+  })) : [];
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+}
+
+async function saveAdblockConfig(value) {
+  const current = await adblockConfig();
+  const next = normalizeAdblockConfig({ ...current, ...(value && typeof value === 'object' ? value : {}) });
+  await local.set({ adblock: next });
+  await applyAdblockRules(next);
+  return next;
+}
+
 function sessionKey(hostname) {
   const normalized = String(hostname || '').trim().toLowerCase().replace(/^www\./, '');
   return normalized ? `safeguard:${normalized}` : null;
@@ -311,11 +366,22 @@ async function importLiteData(payload) {
   return { imported };
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create('companion-sync', { periodInMinutes: 5 });
   getDevice();
+  adblockConfig().then(async (config) => {
+    await local.set({ adblock: config });
+    await applyAdblockRules(config);
+    if (details.reason === 'install') {
+      await local.set({ onboardingSeen: false });
+      await chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
+    }
+  }).catch((error) => local.set({ adblockError: error.message || String(error) }));
 });
-chrome.runtime.onStartup.addListener(() => chrome.alarms.create('companion-sync', { periodInMinutes: 5 }));
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create('companion-sync', { periodInMinutes: 5 });
+  adblockConfig().then(applyAdblockRules).catch((error) => local.set({ adblockError: error.message || String(error) }));
+});
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'companion-sync') {
     try { await syncNow(); } catch (error) { await local.set({ lastSyncError: error.message || String(error) }); }
@@ -350,6 +416,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'SAFEGUARD_SET_SESSION') return setSafeguardSession(message.payload);
     if (message.type === 'TOOLS_GET_CONFIG') return toolsConfig();
     if (message.type === 'TOOLS_SAVE_CONFIG') return saveToolsConfig(message.payload);
+    if (message.type === 'ADBLOCK_GET_CONFIG') return adblockConfig();
+    if (message.type === 'ADBLOCK_SAVE_CONFIG') return saveAdblockConfig(message.payload);
+    if (message.type === 'OPEN_ONBOARDING') return chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
+    if (message.type === 'ONBOARDING_COMPLETE') { await local.set({ onboardingSeen: true }); return true; }
     return null;
   })().then((result) => sendResponse({ ok: true, result })).catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
   return true;

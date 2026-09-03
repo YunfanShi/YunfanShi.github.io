@@ -4,10 +4,17 @@ let status = null;
 let currentTab = null;
 let safeguard = null;
 let tools = null;
+let adblock = null;
 function minutes(seconds) { return Math.round(Number(seconds || 0) / 60); }
 function notice(text, error = false) { $('#notice').textContent = text; $('#notice').style.color = error ? '#b3261e' : '#1967d2'; }
 async function render() {
-  [status, safeguard, tools] = await Promise.all([send({ type: 'STATUS' }), send({ type: 'SAFEGUARD_GET_CONFIG' }), send({ type: 'TOOLS_GET_CONFIG' })]);
+  [status, safeguard, tools, adblock, [currentTab]] = await Promise.all([
+    send({ type: 'STATUS' }),
+    send({ type: 'SAFEGUARD_GET_CONFIG' }),
+    send({ type: 'TOOLS_GET_CONFIG' }),
+    send({ type: 'ADBLOCK_GET_CONFIG' }),
+    chrome.tabs.query({ active: true, currentWindow: true }),
+  ]);
   $('#sg-enabled').checked = safeguard.enabled;
   $('#sg-chinese').checked = safeguard.blockChinese;
   $('#sg-education-exempt').checked = safeguard.excludeEducation !== false;
@@ -25,6 +32,7 @@ async function render() {
   $('#tool-bestexam').checked = tools.bestExamDownloads;
   $('#tool-image-shield').checked = tools.discordImageShield;
   $('#tool-timezone').checked = tools.timezoneBadges;
+  renderAdblock();
   renderSafeguardSites();
   $('#signed-in').hidden = !status.signedIn;
   $('#signed-out').hidden = status.signedIn;
@@ -43,8 +51,28 @@ async function render() {
   for (const item of status.sites.slice(0, 5)) { const row = document.createElement('div'); row.className = 'site'; const name = document.createElement('span'); name.textContent = item.hostname; const time = document.createElement('time'); time.textContent = `${minutes(item.activeSeconds)}m`; row.append(name, time); sites.append(row); }
   if (!status.sites.length) sites.textContent = '今天还没有有效学习记录。';
   $('#focus-state').textContent = status.focus ? `进行中 · ${Math.max(0, Math.ceil((status.focus.endsAt - Date.now()) / 60000))} 分钟后完成` : '尚未开始';
-  [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   $('#current-page').textContent = currentTab?.title || '未检测到页面';
+}
+function currentHost() {
+  try { return normalizeHost(new URL(currentTab?.url || '').hostname); } catch { return ''; }
+}
+function adblockAllows(host) {
+  return Boolean(host && (adblock?.siteAllowlist || []).some((allowed) => host === allowed || host.endsWith(`.${allowed}`)));
+}
+function renderAdblock() {
+  const host = currentHost();
+  const allowed = adblockAllows(host);
+  $('#adblock-master').checked = adblock.enabled;
+  $('#adblock-enabled').checked = adblock.enabled;
+  $('#adblock-privacy').checked = adblock.privacy;
+  $('#adblock-cosmetic').checked = adblock.cosmetic;
+  $('#adblock-allowlist').value = (adblock.siteAllowlist || []).join('\n');
+  $('#adblock-state').textContent = adblock.enabled ? '净网保护已开启' : '净网保护已关闭';
+  $('#adblock-site-state').textContent = !adblock.enabled ? '点击右侧开关重新开启' : allowed ? '当前网站已放行' : '广告与追踪拦截运行中';
+  $('#adblock-current-host').textContent = host ? `当前网站 · ${host}` : '当前页面不支持站点设置';
+  $('#adblock-current-site').disabled = !host;
+  $('#adblock-current-site').textContent = allowed ? '恢复保护当前网站' : '在当前网站暂停保护';
+  document.querySelector('.protection-bar').classList.toggle('disabled', !adblock.enabled);
 }
 document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => {
   document.querySelectorAll('[data-tab]').forEach((item) => item.classList.toggle('active', item === button));
@@ -113,6 +141,40 @@ $('#tools-save').addEventListener('click', async () => {
     } });
     notice('内置工具已保存；刷新对应网页后应用');
   } catch (error) { notice(error.message, true); }
+});
+async function saveAdblock(reloadCurrentTab = false) {
+  adblock = await send({ type: 'ADBLOCK_SAVE_CONFIG', payload: {
+    enabled: $('#adblock-enabled').checked,
+    privacy: $('#adblock-privacy').checked,
+    cosmetic: $('#adblock-cosmetic').checked,
+    siteAllowlist: hostLines('#adblock-allowlist').map(normalizeHost),
+  } });
+  renderAdblock();
+  notice(reloadCurrentTab ? '设置已保存，正在刷新当前网页' : '净网设置已保存；刷新网页后完全应用');
+  if (reloadCurrentTab && Number.isInteger(currentTab?.id) && currentTab.url?.startsWith('http')) await chrome.tabs.reload(currentTab.id);
+}
+$('#adblock-master').addEventListener('change', async () => {
+  try {
+    $('#adblock-enabled').checked = $('#adblock-master').checked;
+    await saveAdblock(true);
+  } catch (error) { notice(error.message, true); }
+});
+$('#adblock-save').addEventListener('click', async () => {
+  try { await saveAdblock(false); } catch (error) { notice(error.message, true); }
+});
+$('#adblock-current-site').addEventListener('click', async () => {
+  const host = currentHost();
+  if (!host) return;
+  const allowlist = new Set((adblock.siteAllowlist || []).map(normalizeHost));
+  if (adblockAllows(host)) {
+    for (const allowed of allowlist) if (host === allowed || host.endsWith(`.${allowed}`)) allowlist.delete(allowed);
+  } else allowlist.add(host);
+  $('#adblock-allowlist').value = [...allowlist].join('\n');
+  try { await saveAdblock(true); } catch (error) { notice(error.message, true); }
+});
+$('#open-adblock').addEventListener('click', () => document.querySelector('[data-tab="adblock"]').click());
+$('#show-guide').addEventListener('click', async () => {
+  try { await send({ type: 'OPEN_ONBOARDING' }); window.close(); } catch (error) { notice(error.message, true); }
 });
 $('#sg-save').addEventListener('click', async () => {
   try {

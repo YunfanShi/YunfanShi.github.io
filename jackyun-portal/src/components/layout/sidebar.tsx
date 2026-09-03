@@ -10,12 +10,12 @@ import { t } from '@/lib/i18n';
 import { NAVIGATION_GROUPS, NAVIGATION_ITEMS, navigationIdFromPath, type NavigationGroupId, type NavigationItem } from '@/lib/navigation';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
-interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; initialIsAdmin?: boolean; }
+interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; initialIsAdmin?: boolean; betaActive?: boolean; }
 const PENDING_USAGE_KEY = 'jackyun_nav_usage_pending';
 const ADAPTIVE_SNAPSHOT_KEY = 'jackyun_nav_adaptive_snapshot_v1';
 const LOCAL_PREFS_KEY = 'jackyun_sidebar_preferences';
 
-export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAdmin = false }: Props) {
+export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAdmin = false, betaActive = false }: Props) {
   const { signedIn } = useAuthMode();
   const pathname = usePathname();
   const { lang } = useLanguage();
@@ -90,10 +90,11 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
 
   const items = useMemo(() => NAVIGATION_ITEMS.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
+    if (item.betaOnly && !betaActive) return false;
     if (item.variantGroup === 'music' && item.variant !== prefs.musicMode) return false;
     if (item.variantGroup === 'answerSheet' && item.variant !== prefs.answerSheetMode) return false;
     return item.protected || !prefs.hiddenItems.includes(item.id);
-  }), [isAdmin, prefs]);
+  }), [betaActive, isAdmin, prefs]);
   const orderedGroups = useMemo(() => {
     const rank = new Map(prefs.groupOrder.map((id, index) => [id, index]));
     return [...NAVIGATION_GROUPS].sort((a, b) => (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99));

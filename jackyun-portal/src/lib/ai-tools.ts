@@ -2095,6 +2095,7 @@ export const AI_TOOLS: AiTool[] = [
       const appearanceKey = 'jackyun_settings_appearance_preferences';
       let current: Record<string, unknown> = {};
       try { current = JSON.parse(localStorage.getItem(appearanceKey) || '{}'); } catch {}
+      const before = { ...current, hideHomepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' };
       const changed: string[] = [];
 
       if (params.theme && allowedThemes.includes(params.theme)) {
@@ -2124,6 +2125,8 @@ export const AI_TOOLS: AiTool[] = [
       if (!changed.length) return '没有可应用的有效界面选项。';
       localStorage.setItem(appearanceKey, JSON.stringify(current));
       localStorage.setItem(`${appearanceKey}__updated_at`, new Date().toISOString());
+      const after = { ...current, hideHomepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' };
+      void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after, summary: changed.join('，'), source: 'ai' }) });
       return `已应用并保存在本地：${changed.join('，')}。可在设置中恢复。`;
     },
   },
@@ -2137,6 +2140,9 @@ export const AI_TOOLS: AiTool[] = [
     consentInfo: () => ({ action: '恢复默认界面', purpose: '撤销 AI 所做的界面微调', consequence: '本地保存的界面微调将被清除。' }),
     handler: async () => {
       if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      let stored: Record<string, unknown> = {};
+      try { stored = JSON.parse(localStorage.getItem('jackyun_settings_appearance_preferences') || '{}'); } catch {}
+      const before = { ...stored, hideHomepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' };
       localStorage.removeItem('jackyun_settings_appearance_preferences');
       localStorage.removeItem('jackyun_settings_appearance_preferences__updated_at');
       localStorage.removeItem('jackyun_hide_homepage_ai');
@@ -2146,6 +2152,7 @@ export const AI_TOOLS: AiTool[] = [
       document.documentElement.dataset.reducedMotion = 'false';
       document.documentElement.style.colorScheme = 'light';
       window.dispatchEvent(new Event('jackyun-ai-visibility'));
+      void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after: { theme: 'light', density: 'comfortable', reducedMotion: false, hideHomepageAi: false }, summary: '恢复默认界面', source: 'restore' }) });
       return '界面已恢复默认设置。';
     },
   },

@@ -77,7 +77,7 @@ test('Companion manifest loads SafeGuard globally and contains no TR3000 module'
   const serialized = JSON.stringify(manifest).toLowerCase();
   const safeguard = manifest.content_scripts.find((entry) => entry.js?.includes('safeguard.js'));
   assert.deepEqual(safeguard.matches, ['<all_urls>']);
-  assert.deepEqual(safeguard.js, ['safeguard-rules.js', 'safeguard.js']);
+  assert.deepEqual(safeguard.js, ['adblock.js', 'safeguard-rules.js', 'safeguard.js']);
   assert.equal(serialized.includes('tr3000'), false);
   assert.equal(serialized.includes('192.168.10.1'), false);
 });

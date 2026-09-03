@@ -10,6 +10,7 @@ export interface NavigationItem {
   variant?: 'player' | 'sync' | 'standard';
   protected?: boolean;
   adminOnly?: boolean;
+  betaOnly?: boolean;
 }
 
 export const NAVIGATION_GROUPS: Array<{ id: NavigationGroupId; label: string; icon: string }> = [
@@ -37,6 +38,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'activity', labelKey: 'nav.activity', icon: 'insights', href: '/activity', group: 'time' },
   { id: 'schedule', labelKey: 'nav.schedule', icon: 'calendar_month', href: '/control', group: 'time' },
   { id: 'tools', labelKey: 'nav.tools', icon: 'build', href: '/tools', group: 'tools' },
+  { id: 'studio', labelKey: 'nav.studio', icon: 'auto_awesome', href: '/studio', group: 'tools', protected: true, betaOnly: true },
   { id: 'userscripts', labelKey: 'nav.userscripts', icon: 'extension', href: '/userscripts', group: 'tools' },
   { id: 'music-player', labelKey: 'nav.music-player', icon: 'music_note', href: '/music', group: 'relax', variantGroup: 'music', variant: 'player' },
   { id: 'music-sync', labelKey: 'nav.music-sync', icon: 'sync_alt', href: '/music-sync', group: 'relax', variantGroup: 'music', variant: 'sync' },

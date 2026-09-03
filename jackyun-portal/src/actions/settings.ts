@@ -15,7 +15,7 @@ async function getAuthenticatedUser() {
   return { supabase, user };
 }
 
-export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; model: string }> {
+export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; model: string; providerMode: 'cloud' | 'personal' }> {
   const { supabase, user } = await getAuthenticatedUser();
   const [{ data }, { data: secret }] = await Promise.all([supabase
     .from('user_settings')
@@ -23,8 +23,8 @@ export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; 
     .eq('user_id', user.id)
     .eq('key', 'ai_config')
     .maybeSingle(), supabase.from('user_secrets').select('key').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle()]);
-  const val = data?.value as { baseUrl?: string; apiKey?: string; model?: string } | null;
-  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '' };
+  const val = data?.value as { baseUrl?: string; apiKey?: string; model?: string; providerMode?: string } | null;
+  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '', providerMode: val?.providerMode === 'cloud' ? 'cloud' : 'personal' };
 }
 
 export async function saveAiConfig(

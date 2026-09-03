@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
-import { callAiApi, getAiConfig, getProModel, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
+import { callAiApi, getAiConfig, getProModel, hasValidAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
 import { getToolsDescription, getPlatformOverview, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, getTtsConfig } from '@/lib/tts-config';
@@ -1077,8 +1077,7 @@ export default function AiChatFab({
     setConsentDialog(prev => prev ? { ...prev, askMessages: updatedAskMessages, askLoading: true } : prev);
 
     try {
-      const config = getAiConfig();
-      if (!config.baseUrl || !config.apiKey) {
+      if (!hasValidAiConfig()) {
         throw new Error('请先在设置页面配置 AI API Key');
       }
 
@@ -1119,8 +1118,7 @@ export default function AiChatFab({
     setConsentDialog(prev => prev ? { ...prev, mode: 'review', reviewLoading: true, reviewResult: '' } : prev);
 
     try {
-      const config = getAiConfig();
-      if (!config.baseUrl || !config.apiKey) {
+      if (!hasValidAiConfig()) {
         throw new Error('请先在设置页面配置 AI API Key');
       }
 
@@ -1180,7 +1178,7 @@ export default function AiChatFab({
     options: { model?: string; temperature?: number; maxTokens?: number } = {},
   ): Promise<{ content: string; tokenUsage?: { input?: number; output?: number } }> {
     const config = getAiConfig();
-    if (!config.baseUrl || !config.apiKey) {
+    if (!hasValidAiConfig()) {
       throw new Error('请先在设置页面配置 AI API Key');
     }
 
@@ -1193,6 +1191,7 @@ export default function AiChatFab({
       temperature: options.temperature ?? getThinkingTemperature(thinkingLevel),
       model: options.model,
       maxTokens: options.maxTokens,
+      feature: thinkingLevel === 'high' ? 'reasoning' : 'chat',
       // @ts-expect-error -- signal passes through to the provider-compatible fetch options.
       signal: abortControllerRef.current.signal,
     });
@@ -1372,8 +1371,7 @@ export default function AiChatFab({
         const old = apiMessages.slice(0, -20);
         try {
           setStatusText('正在压缩对话历史...');
-          const config = getAiConfig();
-          if (config.baseUrl && config.apiKey) {
+          if (hasValidAiConfig()) {
             const res = await callAiApi([
               { role: 'system', content: '请将以下对话历史压缩为一段简洁摘要（保留关键信息：用户目标、已完成的操作、当前状态）。只输出摘要。' },
               ...old,

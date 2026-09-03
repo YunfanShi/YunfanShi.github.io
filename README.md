@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.15.0**
+> 当前版本：**v3.16.0**
 
 ---
 
@@ -38,6 +38,16 @@
 | **文档导出** | docx + file-saver | Markdown 转 Word (.docx) 文档导出 |
 | **工具类** | clsx + tailwind-merge | `cn()` 合并 CSS 类名 |
 | **部署** | Vercel (推荐) / 自托管 Node.js | `output: 'standalone'` 模式 |
+
+## BETA、AI 与配额配置（v3.16）
+
+1. 应用 `jackyun-portal/supabase/migrations/20260903090000_beta_enrollment_consent.sql` 和 `20260903100000_ai_platform_quotas_and_customization.sql`。
+2. 在仅服务端可见的部署环境变量中配置 `AI_CONFIG_ENCRYPTION_KEY` 和 `SUPABASE_SERVICE_ROLE_KEY`；严禁使用 `NEXT_PUBLIC_` 前缀。
+3. 管理员进入 `/admin/ai`，输入 OpenAI-compatible Base URL、API Key，以及普通/推理/网站生成模型 ID。密钥经 AES-256-GCM 加密后保存，页面不会读取明文。
+4. 用户在“设置 → AI 与语音”选择“平台云端 API”或“我的 API Key”。个人 Key 同样加密保存，且不消耗平台套餐额度。
+5. 管理员在 `/admin/users` 分配 Free、Plus、Pro、Ultra 套餐并邀请 BETA；用户明确同意测试协议后才会进入 BETA。
+
+平台调用会在数据库中原子预留并结算额度，默认按“输入 Token + 输出 Token × 2”计费，同时限制每日、每月、单次输出、每分钟请求、并发请求和每月网站生成次数。BETA 网站工作室位于 `/studio`：生成内容采用受控组件 JSON，保存在浏览器 IndexedDB，用户可选择同步到 Supabase。
 
 ### package.json 依赖
 

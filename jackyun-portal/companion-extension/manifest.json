@@ -2,9 +2,9 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnCDlLu+Qrn+B+zHvYQm3CO0EIPGRDQY1n9xadov905VoB0WojmZpOPy0jTs3KCyzzHT33IFBSYbQm6jF6O78si80lsRuRlms761w7a1B0A0l62o8BoIqOQt6oFqHS2iz5nFln0UQV3nMv9Kbj9/CjBOEXZ+OQoGjqWsuo6H3kH20XhdSJGmUGIWyd7Yg4I+fSdpkj8oNVSh3Jegi+kOjWDaWWmfSN/Kj5EHAssyfzG4Hqs1UMxb8sylqv0ogMHaVh3W/Z7ONYucV78+jv0T6VoU5iEq5yW8qyaxEwZK0jbsx3e0NKiXkdFE4dTW4t6gm2hfONyzgNhUdcbrsfAx4rQIDAQAB",
   "name": "JackYun Companion",
-  "version": "1.2.0",
-  "description": "JackYun 学习时间、专注、英文学习保护、首方工具和多设备同步助手。",
-  "permissions": ["storage", "alarms", "idle", "identity", "notifications", "tabs"],
+  "version": "1.3.0",
+  "description": "JackYun 学习、专注与净网助手：内置广告拦截、隐私保护和多设备同步。",
+  "permissions": ["storage", "alarms", "idle", "identity", "notifications", "tabs", "declarativeNetRequest"],
   "host_permissions": [
     "<all_urls>",
     "https://jackyun.top/*",
@@ -51,6 +51,20 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ads_core",
+        "enabled": true,
+        "path": "rules/ads-core.json"
+      },
+      {
+        "id": "privacy_strict",
+        "enabled": true,
+        "path": "rules/privacy-strict.json"
+      }
+    ]
+  },
   "icons": {
     "128": "icon128.png"
   },
@@ -64,7 +78,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["safeguard-rules.js", "safeguard.js"],
+      "js": ["adblock.js", "safeguard-rules.js", "safeguard.js"],
       "run_at": "document_start"
     },
     {

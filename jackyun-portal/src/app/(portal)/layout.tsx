@@ -40,7 +40,7 @@ export default async function PortalLayout({
           .from('user_settings')
           .select('key, value, updated_at')
           .eq('user_id', claims.sub)
-          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences']),
+          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences', 'interface_customization']),
         supabase
           .from('navigation_usage_daily')
           .select('activity_date, nav_item_id, opens')
@@ -55,6 +55,7 @@ export default async function PortalLayout({
   let language: Language = 'zh';
   let appearancePreferences: Record<string, unknown> = {};
   let appearanceUpdatedAt: string | null = null;
+  let interfaceCustomization: Record<string, unknown> = {};
   for (const setting of settings ?? []) {
     if (setting.key === 'sidebar_preferences') {
       sidebarPrefs = coerceNavigationPreferences(setting.value);
@@ -64,6 +65,8 @@ export default async function PortalLayout({
     } else if (setting.key === 'appearance_preferences') {
       appearancePreferences = setting.value as Record<string, unknown>;
       appearanceUpdatedAt = setting.updated_at;
+    } else if (setting.key === 'interface_customization') {
+      interfaceCustomization = setting.value as Record<string, unknown>;
     }
   }
   const adaptiveScores: Record<string, number> = {};
@@ -91,10 +94,10 @@ export default async function PortalLayout({
     <AuthModeProvider signedIn={Boolean(user)}>
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
-      <CloudSettingsHydrator appearance={appearancePreferences} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
+      <CloudSettingsHydrator appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
-        <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} />
+        <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} betaActive={betaEnrollment?.status === 'accepted'} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>

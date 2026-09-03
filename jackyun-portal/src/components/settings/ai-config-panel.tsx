@@ -8,6 +8,7 @@ interface AiConfigPanelProps {
   initialBaseUrl: string;
   initialApiKey: string;
   initialModel: string;
+  initialProviderMode: 'cloud' | 'personal';
 }
 
 const PROVIDERS = [
@@ -29,7 +30,8 @@ function detectProvider(url: string) {
   return PROVIDERS.find((p) => p.url && p.url === url) ?? PROVIDERS[PROVIDERS.length - 1];
 }
 
-export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialModel }: AiConfigPanelProps) {
+export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialModel, initialProviderMode }: AiConfigPanelProps) {
+  const [providerMode, setProviderMode] = useState(initialProviderMode);
   const [provider, setProvider] = useState(() => detectProvider(initialBaseUrl));
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
   const [apiKey, setApiKey] = useState(initialApiKey === '__stored__' ? '' : initialApiKey);
@@ -98,7 +100,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...reqBody, baseUrl: baseUrl.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) }),
+        body: JSON.stringify({ ...reqBody, providerMode, ...(providerMode === 'personal' ? { baseUrl: baseUrl.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) } : {}) }),
       });
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -139,15 +141,17 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setMessage(null);
 
     try {
-      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim() });
+      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode });
       // 同步到服务器（跨设备持久化）
       const result = await syncAiConfigToServer();
       if (result.error) {
         setMessage('AI 配置已保存到本地浏览器（云端同步失败，登录后自动恢复）');
       } else {
         setMessage('AI 配置已保存（本地 + 云端）');
-        setHasStoredKey(true);
-        setApiKey('');
+        if (providerMode === 'personal') {
+          setHasStoredKey(true);
+          setApiKey('');
+        }
       }
     } catch {
       setError('保存失败');
@@ -160,6 +164,8 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div><label className="block text-sm font-medium text-[var(--foreground)] mb-1">调用来源</label><select value={providerMode} onChange={(e) => setProviderMode(e.target.value as 'cloud' | 'personal')} className={selectClass}><option value="cloud">平台云端 API（消耗套餐额度）</option><option value="personal">我的 API Key（不消耗平台额度）</option></select><p className="mt-1 text-xs text-[var(--muted-foreground)]">云端模型由管理员配置；个人模式的密钥会加密保存。</p></div>
+      {providerMode === 'personal' && <>
       <div>
         <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
           AI 提供商
@@ -239,6 +245,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
           </select>
         )}
       </div>
+      </>}
 
       {error && (
         <p className="text-sm text-[#EA4335] bg-[#EA4335]/10 rounded-lg px-3 py-2">{error}</p>

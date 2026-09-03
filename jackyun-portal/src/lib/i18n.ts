@@ -45,6 +45,7 @@ const translations: TranslationMap = {
   'nav.quizwise':             { zh: 'QuizWise 刷题',        en: 'QuizWise' },
   'nav.md2word':              { zh: 'Markdown → Word',      en: 'Markdown → Word' },
   'nav.tools':                { zh: '工具箱',               en: 'Tools' },
+  'nav.studio':               { zh: 'AI 网站工作室 BETA',  en: 'AI Site Studio BETA' },
   'nav.settings':             { zh: '设置',                 en: 'Settings' },
   'nav.update':               { zh: '更新',                 en: 'Update' },
   'nav.help-center':          { zh: '帮助中心',             en: 'Help Center' },

@@ -3,7 +3,8 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JackYun Companion</title><link rel="stylesheet" href="popup.css"></head>
 <body><main>
   <header class="app-header"><div class="logo">JY</div><div class="app-title"><h1>JackYun Companion</h1><p id="sync-state">正在读取状态…</p></div><button id="sync" class="icon" title="立即同步" aria-label="立即同步">↻</button></header>
-  <div class="tabs" role="tablist"><button class="tab active" data-tab="home" role="tab">概览</button><button class="tab" data-tab="tools" role="tab">内置工具</button><button class="tab" data-tab="safety" role="tab">SafeGuard</button></div>
+  <section class="protection-bar"><div class="shield-mark" aria-hidden="true">◆</div><button id="open-adblock" class="protection-copy" type="button"><strong id="adblock-state">净网保护正在启动</strong><small id="adblock-site-state">广告与追踪拦截默认开启</small></button><label class="switch shield-switch" title="开启或关闭全部净网保护"><input id="adblock-master" type="checkbox"><span></span></label></section>
+  <div class="tabs" role="tablist"><button class="tab active" data-tab="home" role="tab">概览</button><button class="tab" data-tab="adblock" role="tab">净网</button><button class="tab" data-tab="tools" role="tab">工具</button><button class="tab" data-tab="safety" role="tab">SafeGuard</button></div>
 
   <section class="panel active" data-panel="home">
     <section id="signed-out" hidden><div class="hero"><span class="eyebrow">隐私优先学习助手</span><h2>把学习记录带回 JackYun</h2><p>登录后同步有效学习时间、专注记录、稍后学习和设备设置。</p><button id="sign-in" class="primary wide">登录 JackYun 账号</button></div></section>
@@ -22,6 +23,21 @@
       </section>
       <nav><a href="https://jackyun.top/dashboard" target="_blank">Dashboard</a><a href="https://jackyun.top/study" target="_blank">学习计划</a><a href="https://jackyun.top/resources" target="_blank">资源库</a><a href="https://jackyun.top/time-management" target="_blank">时间管理</a></nav>
       <button id="sign-out" class="text">退出此扩展账号</button>
+    </section>
+  </section>
+
+  <section class="panel" data-panel="adblock">
+    <section class="intro adblock-intro"><span class="eyebrow">Built-in · Offline · China-ready</span><h2>清爽上网，专注真正重要的事</h2><p>双层拦截广告请求和页面残留，不依赖 Google、扩展商店或在线订阅。</p><div class="feature-pills"><span>广告请求</span><span>追踪器</span><span>广告空位</span><span>国内站点</span></div></section>
+    <section class="card adblock-card">
+      <div class="setting-row"><div><strong>净网保护</strong><small>总开关，默认开启</small></div><label class="switch"><input id="adblock-enabled" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>增强隐私保护</strong><small>拦截分析、行为追踪与统计信标</small></div><label class="switch"><input id="adblock-privacy" type="checkbox"><span></span></label></div>
+      <div class="setting-row"><div><strong>隐藏广告空位</strong><small>清理网页中遗留的推广卡片与空白区域</small></div><label class="switch"><input id="adblock-cosmetic" type="checkbox"><span></span></label></div>
+      <button id="adblock-current-site" class="wide site-toggle" type="button">在当前网站暂停保护</button>
+      <p id="adblock-current-host" class="current-host">当前页面不支持站点设置</p>
+      <details class="advanced"><summary>始终放行的网站</summary><label class="stack"><span>每行一个域名；修改后点击保存</span><textarea id="adblock-allowlist" rows="4" placeholder="example.com"></textarea></label></details>
+      <button id="adblock-save" class="wide primary" type="button">保存净网设置</button>
+      <button id="show-guide" class="wide subtle" type="button">重新查看功能指引</button>
+      <p class="privacy-note"><strong>全部在本机完成。</strong>访问记录和网页正文不会因净网功能被上传。若页面异常，可在上方醒目开关关闭全部保护，或仅放行当前网站。</p>
     </section>
   </section>
 

@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.15.0",
+  "version": "3.16.0",
   "private": true,
   "engines": { "node": ">=22.0.0" },
   "scripts": {
@@ -12,6 +12,7 @@
     "test:security": "node --test tests/llm-endpoint.test.mts",
     "test:tr3000": "node --test tests/tr3000-manager.test.mts",
     "test:safeguard": "node --test tests/safeguard-rules.test.mjs",
+    "test:adblock": "node --test tests/adblock.test.mjs",
     "test:legacy-ui": "node --test tests/legacy-ui.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",
     "check:companion": "node scripts/check-companion-package.mjs",
@@ -21,7 +22,8 @@
     "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
     "test:sync": "node --test tests/sync-v2.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
-    "verify": "npm run lint && npm run test:sync && npm run test:beta && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
+    "test:ai-platform": "node --test tests/ai-platform.test.mts",
+    "verify": "npm run lint && npm run test:sync && npm run test:beta && npm run test:ai-platform && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:adblock && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
