@@ -7,7 +7,8 @@ function sanitize(value: unknown) {
     theme: raw.theme === 'gray' || raw.theme === 'dark' ? raw.theme : 'light',
     density: raw.density === 'compact' ? 'compact' : 'comfortable',
     reducedMotion: raw.reducedMotion === true,
-    hideHomepageAi: raw.hideHomepageAi === true,
+    accent: ['green', 'purple', 'orange'].includes(String(raw.accent)) ? raw.accent : 'blue',
+    cornerStyle: raw.cornerStyle === 'soft' ? 'soft' : 'rounded',
   };
 }
 

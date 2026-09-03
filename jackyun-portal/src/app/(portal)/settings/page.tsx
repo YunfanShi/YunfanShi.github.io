@@ -17,7 +17,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   let cloudSettings: Record<string, Record<string, unknown>> = {};
   let companionDevices: CompanionDeviceView[] = [];
   let section: string | undefined;
-  let aiQuota: AiQuotaSummary = { plan: 'free', dailyLimit: 5000, monthlyLimit: 50000, dailyUsed: 0, monthlyUsed: 0, maxOutput: 1000, siteGenerations: 0, siteGenerationLimit: 0 };
+  let aiQuota: AiQuotaSummary = { plan: 'free', dailyLimit: 20000, monthlyLimit: 300000, dailyUsed: 0, monthlyUsed: 0, maxOutput: 8000, siteGenerations: 0, siteGenerationLimit: 5 };
 
   const [searchResult, passwordResult, aiResult, sidebarResult] = await Promise.allSettled([
     searchParams,

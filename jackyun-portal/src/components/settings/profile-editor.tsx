@@ -43,7 +43,7 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
       fetch('/api/legacy-sync', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'profile', value: { display_name: displayName, avatar_url: avatarUrl } }),
+        body: JSON.stringify({ key: 'profile', value: { display_name: displayName.trim(), avatar_url: nextAvatarUrl } }),
       }).catch(() => {
         logger.warn(TAG, 'Legacy sync fallback failed (non-critical)');
       });

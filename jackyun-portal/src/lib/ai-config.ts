@@ -105,21 +105,21 @@ const STORAGE_KEY = 'jackyun-ai-config';
 /** 从 localStorage 读取 AI 配置 */
 export function getAiConfig(): AiConfig {
   if (typeof window === 'undefined') {
-    return { baseUrl: '', apiKey: '', model: '' };
+    return { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud' };
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { baseUrl: '', apiKey: '', model: '' };
+    if (!raw) return { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud' };
     const parsed = JSON.parse(raw) as Partial<AiConfig>;
     return {
       baseUrl: parsed.baseUrl ?? '',
       apiKey: parsed.apiKey ?? '',
       model: parsed.model ?? '',
       proModel: parsed.proModel ?? '',
-      providerMode: parsed.providerMode === 'cloud' ? 'cloud' : 'personal',
+      providerMode: parsed.providerMode === 'personal' ? 'personal' : 'cloud',
     };
   } catch {
-    return { baseUrl: '', apiKey: '', model: '' };
+    return { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud' };
   }
 }
 
@@ -151,7 +151,7 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
         model: config.model,
-        providerMode: config.providerMode ?? 'personal',
+        providerMode: config.providerMode ?? 'cloud',
       }),
     });
     const data = await res.json();
@@ -195,7 +195,7 @@ export async function callAiApi(
   const apiKey = config.apiKey === '__stored__' ? '' : config.apiKey;
   const model = options.model || config.model;
 
-  if ((config.providerMode ?? 'personal') === 'personal' && (!baseUrl || !config.apiKey)) {
+  if ((config.providerMode ?? 'cloud') === 'personal' && (!baseUrl || !config.apiKey)) {
     throw new Error('请先在设置页面配置 AI API Key');
   }
 
@@ -225,7 +225,7 @@ export async function callAiApi(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...body, feature: options.feature ?? 'chat', providerMode: config.providerMode ?? 'personal', baseUrl, ...(apiKey ? { apiKey } : {}) }),
+    body: JSON.stringify({ ...body, feature: options.feature ?? 'chat', providerMode: config.providerMode ?? 'cloud', baseUrl, ...(apiKey ? { apiKey } : {}) }),
     signal,
   });
 }

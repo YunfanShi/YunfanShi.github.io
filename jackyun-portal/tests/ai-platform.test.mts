@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { validatePersonalSite } from '../src/lib/personal-site.ts';
+import { isAdminIdentity } from '../src/lib/admin-auth.ts';
 
 test('personal site validator keeps only safe component types and web links', () => {
   const site = validatePersonalSite({ name: '学习主页', theme: 'purple', blocks: [
@@ -18,7 +19,8 @@ test('personal site validator keeps only safe component types and web links', ()
 test('quota migration uses server-only atomic reservations and four plans', () => {
   const sql = readFileSync(new URL('../supabase/migrations/20260903100000_ai_platform_quotas_and_customization.sql', import.meta.url), 'utf8');
   for (const plan of ['free', 'plus', 'pro', 'ultra']) assert.match(sql, new RegExp(`\\('${plan}'`));
-  assert.match(sql, /\('free', 'Free', 5000, 50000, 1000, 1\)/);
+  assert.match(sql, /\('free', 'Free', 20000, 300000, 8000, 5\)/);
+  assert.match(sql, /\('pro', 'Pro', 500000, 10000000, 32000, 100\)/);
   assert.match(sql, /pg_advisory_xact_lock/);
   assert.match(sql, /SITE_GENERATION_QUOTA_EXCEEDED/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.reserve_ai_usage[\s\S]*authenticated/);
@@ -43,4 +45,12 @@ test('BETA interface tools do not expose arbitrary code execution', () => {
   assert.match(tools, /id: 'reset_interface_preferences'/);
   assert.doesNotMatch(tools, /\beval\s*\(/);
   assert.doesNotMatch(tools, /new Function\s*\(/);
+});
+
+test('administrator identity is consistent for email and OAuth sign-in', () => {
+  const environment = { ADMIN_USERS: 'owner@example.com', ADMIN_EMAILS: 'admin@example.com' } as NodeJS.ProcessEnv;
+  assert.equal(isAdminIdentity({ email: 'OWNER@example.com' }, 'user', environment), true);
+  assert.equal(isAdminIdentity({ email: 'admin@example.com' }, 'user', environment), true);
+  assert.equal(isAdminIdentity({ email: 'member@example.com' }, 'user', environment), false);
+  assert.equal(isAdminIdentity({ email: 'member@example.com' }, 'admin', environment), true);
 });

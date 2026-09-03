@@ -18,6 +18,7 @@ import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
 import AuthModeProvider from '@/components/auth/auth-mode-provider';
 import BetaExperience from '@/components/modules/beta-experience';
 import type { BetaEnrollmentStatus } from '@/lib/beta';
+import { isAdminIdentity } from '@/lib/admin-auth';
 
 const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = DEFAULT_NAVIGATION_PREFERENCES;
 
@@ -46,7 +47,7 @@ export default async function PortalLayout({
           .select('activity_date, nav_item_id, opens')
           .eq('user_id', claims.sub)
           .gte('activity_date', thirtyDaysAgo.toISOString().slice(0, 10)),
-        supabase.from('profiles').select('role').eq('id', claims.sub).maybeSingle(),
+        supabase.from('profiles').select('role, display_name, avatar_url').eq('id', claims.sub).maybeSingle(),
         supabase.from('beta_enrollments').select('status').eq('user_id', claims.sub).maybeSingle(),
       ])
     : [{ data: null }, { data: null }, { data: null }, { data: null }];
@@ -80,15 +81,14 @@ export default async function PortalLayout({
     ? {
         id: claims.sub,
         email: claims.email,
-        user_metadata: claims.user_metadata ?? {},
+        user_metadata: {
+          ...(claims.user_metadata ?? {}),
+          ...(profile?.display_name ? { full_name: profile.display_name, user_name: profile.display_name } : {}),
+          ...(profile?.avatar_url ? { avatar_url: profile.avatar_url } : {}),
+        },
       }
     : null;
-  const envAdmins = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '')
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-  const githubUsername = (claims?.user_metadata?.user_name as string | undefined)?.toLowerCase();
-  const isAdmin = profile?.role === 'admin' || Boolean(githubUsername && envAdmins.includes(githubUsername));
+  const isAdmin = Boolean(user && isAdminIdentity(user, profile?.role));
 
   return (
     <AuthModeProvider signedIn={Boolean(user)}>

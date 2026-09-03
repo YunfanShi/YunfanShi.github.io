@@ -62,3 +62,10 @@ test('answer-sheet sync has no service-role fallback and authenticates every met
   assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY|NEXT_PUBLIC_SUPABASE_ANON_KEY/);
   assert.equal((source.match(/if \(!context\.user\)/g) ?? []).length, 3);
 });
+
+test('web sync writes use bounded concurrency instead of a serial database waterfall', async () => {
+  const source = await readFile(new URL('../src/app/api/sync/v2/route.ts', import.meta.url), 'utf8');
+  assert.match(source, /const DATABASE_CONCURRENCY = 8/);
+  assert.match(source, /mapWithConcurrency\(body\.operations/);
+  assert.match(source, /DUPLICATE_KEYS/);
+});

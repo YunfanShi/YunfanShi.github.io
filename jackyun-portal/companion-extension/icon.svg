@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="30" fill="#1a73e8"/>
-  <path d="M34 35h18v39c0 17-9 25-25 22V79c6 1 7-2 7-8V35Zm29 0h19l10 21 10-21h19L101 72v24H83V72L63 35Z" fill="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">JackYun</title>
+  <desc id="desc">A smooth letter J in a dark rounded square with a warm amber accent.</desc>
+  <rect width="512" height="512" rx="144" fill="#191A1B"/>
+  <path d="M315 151v140c0 75-37 117-101 117-50 0-84-24-97-66" fill="none" stroke="#F7F5EF" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M315 151h67" fill="none" stroke="#D99A3E" stroke-width="38" stroke-linecap="round"/>
 </svg>

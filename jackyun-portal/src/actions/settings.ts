@@ -24,13 +24,14 @@ export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; 
     .eq('key', 'ai_config')
     .maybeSingle(), supabase.from('user_secrets').select('key').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle()]);
   const val = data?.value as { baseUrl?: string; apiKey?: string; model?: string; providerMode?: string } | null;
-  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '', providerMode: val?.providerMode === 'cloud' ? 'cloud' : 'personal' };
+  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '', providerMode: val?.providerMode === 'personal' ? 'personal' : 'cloud' };
 }
 
 export async function saveAiConfig(
   baseUrl: string,
   apiKey: string,
   model: string,
+  providerMode: 'cloud' | 'personal' = 'cloud',
 ): Promise<{ error: string | null }> {
   try {
     const { supabase, user } = await getAuthenticatedUser();
@@ -51,7 +52,7 @@ export async function saveAiConfig(
     const { error } = await supabase.from('user_settings').upsert({
       user_id: user.id,
       key: 'ai_config',
-      value: { baseUrl: normalizedUrl, model: model.trim().slice(0, 160), hasApiKey: Boolean(secret) },
+      value: { baseUrl: normalizedUrl, model: model.trim().slice(0, 160), providerMode, hasApiKey: Boolean(secret) },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id,key' });
     return { error: error?.message ?? null };

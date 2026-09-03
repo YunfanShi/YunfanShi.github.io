@@ -62,6 +62,11 @@ html[data-density='compact'] main {
     --surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.48);
 }
 
+html[data-accent='green'] { --brand: #188038; --brand-strong: #137333; --accent: #188038; }
+html[data-accent='purple'] { --brand: #7e57c2; --brand-strong: #673ab7; --accent: #7e57c2; }
+html[data-accent='orange'] { --brand: #e37400; --brand-strong: #c26401; --accent: #e37400; }
+html[data-corner-style='soft'] main :where(.rounded-xl, .rounded-2xl, .rounded-3xl) { border-radius: 0.625rem; }
+
 body {
   background: var(--background);
   color: var(--foreground);

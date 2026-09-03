@@ -24,10 +24,12 @@ async function render(size) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-const png512 = await render(512);
+const [png512, png128] = await Promise.all([render(512), render(128)]);
 await Promise.all([
   writeFile(path.join(projectDir, 'public', 'Webicon.png'), png512),
   writeFile(path.join(workspaceDir, 'Webicon.png'), png512),
+  writeFile(path.join(projectDir, 'companion-extension', 'icon128.png'), png128),
+  writeFile(path.join(projectDir, 'companion-extension', 'icon.svg'), svg),
 ]);
 
-console.log('Rendered JackYun brand icon: public/Webicon.png and ../Webicon.png');
+console.log('Rendered JackYun brand icon for the website and Companion extension.');

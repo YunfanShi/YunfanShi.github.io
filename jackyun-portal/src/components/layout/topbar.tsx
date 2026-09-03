@@ -27,11 +27,9 @@ const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = 
   dark: { next: 'light', label: '切换到亮色主题', icon: 'light_mode' },
 };
 
-const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') !== 'false' : true;
-
 export default function Topbar({ user, betaActive = false }: TopbarProps) {
   const { lang } = useLanguage();
-  const [showFullscreen, setShowFullscreen] = useState(showFullscreenDefault);
+  const [showFullscreen, setShowFullscreen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [theme, setTheme] = useState<Theme>('light');
 
@@ -52,6 +50,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
   }, [user]);
 
   useEffect(() => {
+    try { queueMicrotask(() => setShowFullscreen(localStorage.getItem('show_fullscreen_btn') !== 'false')); } catch {}
     const handler = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };

@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { SiteNotification, WhitelistEmail, WhitelistUsername } from '@/types';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { isAdminIdentity } from '@/lib/admin-auth';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -21,15 +23,12 @@ async function requireAdmin() {
     .select('role')
     .eq('id', user.id)
     .single();
-  // Allow if role is 'admin' OR user is in ADMIN_USERS env var (fallback)
-  const adminUsers = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '')
-    .split(',')
-    .map((u) => u.trim().toLowerCase())
-    .filter(Boolean);
-  const githubUsername = (user.user_metadata?.user_name as string | undefined)?.toLowerCase();
-  const isEnvAdmin = githubUsername ? adminUsers.includes(githubUsername) : false;
-  if (profile?.role !== 'admin' && !isEnvAdmin) {
+  // Database role is authoritative; a verified admin email can bootstrap it.
+  if (!isAdminIdentity(user, profile?.role)) {
     throw new Error('Forbidden: Admin only');
+  }
+  if (profile?.role !== 'admin') {
+    await createAdminClient()?.from('profiles').update({ role: 'admin', updated_at: new Date().toISOString() }).eq('id', user.id);
   }
   return { supabase, user };
 }
@@ -297,6 +296,23 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
   const { data, error } = await supabase.rpc('admin_list_users');
   if (error) throw new Error(error.message);
   return ((data ?? []) as ManagedUser[]).map((row: ManagedUser) => ({ ...row, focus_sessions: Number(row.focus_sessions), legacy_records: Number(row.legacy_records) }));
+}
+
+export async function inviteUserAccount(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return { success: false, error: '请输入有效邮箱。' };
+    const admin = createAdminClient();
+    if (!admin) return { success: false, error: 'SUPABASE_SERVICE_ROLE_KEY 未配置，无法创建邀请。' };
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const { error } = await admin.auth.admin.inviteUserByEmail(normalized, { redirectTo: `${siteUrl}/auth/callback` });
+    if (error) return { success: false, error: error.message };
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '邀请账户失败。' };
+  }
 }
 
 export async function setAccountStatus(

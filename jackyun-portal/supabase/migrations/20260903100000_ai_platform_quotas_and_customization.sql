@@ -12,10 +12,10 @@ CREATE TABLE public.subscription_plans (
 
 INSERT INTO public.subscription_plans (code, display_name, daily_token_limit, monthly_token_limit, max_output_tokens, monthly_site_generations)
 VALUES
-  ('free', 'Free', 5000, 50000, 1000, 1),
-  ('plus', 'Plus', 50000, 1000000, 4000, 3),
-  ('pro', 'Pro', 200000, 5000000, 8000, 20),
-  ('ultra', 'Ultra', 800000, 20000000, 16000, 100)
+  ('free', 'Free', 20000, 300000, 8000, 5),
+  ('plus', 'Plus', 100000, 2000000, 16000, 30),
+  ('pro', 'Pro', 500000, 10000000, 32000, 100),
+  ('ultra', 'Ultra', 2000000, 50000000, 64000, 500)
 ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE public.user_entitlements (
