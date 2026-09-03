@@ -2046,7 +2046,7 @@ export const AI_TOOLS: AiTool[] = [
   {
     id: 'read_interface_preferences',
     name: '读取界面偏好',
-    description: `读取当前主题、界面密度、动画和主页 AI 显示状态。
+    description: `读取当前主题、界面密度、动画、强调色和卡片轮廓。
 
 参数：无。该工具只读取本地偏好，不会修改界面。`,
     scope: ['global', 'dashboard', 'settings'],
@@ -2058,7 +2058,7 @@ export const AI_TOOLS: AiTool[] = [
           theme: appearance.theme || localStorage.getItem('jackyun_theme') || 'light',
           density: appearance.density || 'comfortable',
           reducedMotion: appearance.reducedMotion === true,
-          homepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' ? 'hidden' : 'visible',
+          ...JSON.parse(localStorage.getItem('jackyun_interface_customization') || '{}'),
         });
       } catch {
         return '读取界面偏好失败。';
@@ -2070,17 +2070,18 @@ export const AI_TOOLS: AiTool[] = [
     name: '微调界面',
     riskLevel: 'high',
     requiresConsent: true,
-    description: `微调当前用户的界面。仅支持白名单选项，不接受 HTML、CSS 或 JavaScript。
+    description: `用结构化状态微调当前用户的界面。仅支持白名单选项，不接受或执行 HTML、CSS、JavaScript。
 
 参数（至少提供一个）：
 - theme：light / gray / dark
 - density：comfortable / compact
 - reduced_motion：true / false
-- homepage_ai：show / hide
+- accent：blue / green / purple / orange
+- corner_style：rounded / soft
 
 示例：
 \`\`\`tool_call
-{"tool":"customize_interface","params":{"homepage_ai":"hide","density":"compact"}}
+{"tool":"customize_interface","params":{"accent":"green","corner_style":"soft","density":"compact"}}
 \`\`\``,
     scope: ['global', 'dashboard', 'settings'],
     consentInfo: (params) => ({
@@ -2095,7 +2096,9 @@ export const AI_TOOLS: AiTool[] = [
       const appearanceKey = 'jackyun_settings_appearance_preferences';
       let current: Record<string, unknown> = {};
       try { current = JSON.parse(localStorage.getItem(appearanceKey) || '{}'); } catch {}
-      const before = { ...current, hideHomepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' };
+      let interfaceState: Record<string, unknown> = {};
+      try { interfaceState = JSON.parse(localStorage.getItem('jackyun_interface_customization') || '{}'); } catch {}
+      const before = { ...current, ...interfaceState };
       const changed: string[] = [];
 
       if (params.theme && allowedThemes.includes(params.theme)) {
@@ -2116,16 +2119,14 @@ export const AI_TOOLS: AiTool[] = [
         document.documentElement.dataset.reducedMotion = String(reduced);
         changed.push(`减少动画=${reduced ? '是' : '否'}`);
       }
-      if (params.homepage_ai === 'show' || params.homepage_ai === 'hide') {
-        const hidden = params.homepage_ai === 'hide';
-        localStorage.setItem('jackyun_hide_homepage_ai', String(hidden));
-        window.dispatchEvent(new Event('jackyun-ai-visibility'));
-        changed.push(`主页 AI=${hidden ? '隐藏' : '显示'}`);
-      }
+      if (['blue', 'green', 'purple', 'orange'].includes(params.accent)) { interfaceState.accent = params.accent; document.documentElement.dataset.accent = params.accent; changed.push(`强调色=${params.accent}`); }
+      if (params.corner_style === 'rounded' || params.corner_style === 'soft') { interfaceState.cornerStyle = params.corner_style; document.documentElement.dataset.cornerStyle = params.corner_style; changed.push(`圆角=${params.corner_style}`); }
       if (!changed.length) return '没有可应用的有效界面选项。';
       localStorage.setItem(appearanceKey, JSON.stringify(current));
       localStorage.setItem(`${appearanceKey}__updated_at`, new Date().toISOString());
-      const after = { ...current, hideHomepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' };
+      localStorage.setItem('jackyun_interface_customization', JSON.stringify(interfaceState));
+      localStorage.removeItem('jackyun_hide_homepage_ai');
+      const after = { ...current, ...interfaceState };
       void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after, summary: changed.join('，'), source: 'ai' }) });
       return `已应用并保存在本地：${changed.join('，')}。可在设置中恢复。`;
     },
@@ -2135,24 +2136,26 @@ export const AI_TOOLS: AiTool[] = [
     name: '恢复默认界面',
     riskLevel: 'high',
     requiresConsent: true,
-    description: '清除 BETA 界面微调，将主题、密度、动画和主页 AI 恢复为默认状态。',
+    description: '清除 BETA 界面微调，将主题、密度、动画、强调色和圆角恢复为默认状态。',
     scope: ['global', 'dashboard', 'settings'],
     consentInfo: () => ({ action: '恢复默认界面', purpose: '撤销 AI 所做的界面微调', consequence: '本地保存的界面微调将被清除。' }),
     handler: async () => {
       if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
       let stored: Record<string, unknown> = {};
       try { stored = JSON.parse(localStorage.getItem('jackyun_settings_appearance_preferences') || '{}'); } catch {}
-      const before = { ...stored, hideHomepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' };
+      const before = { ...stored };
       localStorage.removeItem('jackyun_settings_appearance_preferences');
       localStorage.removeItem('jackyun_settings_appearance_preferences__updated_at');
       localStorage.removeItem('jackyun_hide_homepage_ai');
+      localStorage.removeItem('jackyun_interface_customization');
       localStorage.setItem('jackyun_theme', 'light');
       document.documentElement.dataset.theme = 'light';
       document.documentElement.dataset.density = 'comfortable';
       document.documentElement.dataset.reducedMotion = 'false';
+      document.documentElement.dataset.accent = 'blue';
+      document.documentElement.dataset.cornerStyle = 'rounded';
       document.documentElement.style.colorScheme = 'light';
-      window.dispatchEvent(new Event('jackyun-ai-visibility'));
-      void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after: { theme: 'light', density: 'comfortable', reducedMotion: false, hideHomepageAi: false }, summary: '恢复默认界面', source: 'restore' }) });
+      void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after: { theme: 'light', density: 'comfortable', reducedMotion: false, accent: 'blue', cornerStyle: 'rounded' }, summary: '恢复默认界面', source: 'restore' }) });
       return '界面已恢复默认设置。';
     },
   },

@@ -41,7 +41,7 @@
 
 ## BETA、AI 与配额配置（v3.16）
 
-1. 应用 `jackyun-portal/supabase/migrations/20260903090000_beta_enrollment_consent.sql` 和 `20260903100000_ai_platform_quotas_and_customization.sql`。
+1. 依次应用 `jackyun-portal/supabase/migrations/20260903090000_beta_enrollment_consent.sql`、`20260903100000_ai_platform_quotas_and_customization.sql` 和 `20260903155117_raise_ai_plan_quotas.sql`。
 2. 在仅服务端可见的部署环境变量中配置 `AI_CONFIG_ENCRYPTION_KEY` 和 `SUPABASE_SERVICE_ROLE_KEY`；严禁使用 `NEXT_PUBLIC_` 前缀。
 3. 管理员进入 `/admin/ai`，输入 OpenAI-compatible Base URL、API Key，以及普通/推理/网站生成模型 ID。密钥经 AES-256-GCM 加密后保存，页面不会读取明文。
 4. 用户在“设置 → AI 与语音”选择“平台云端 API”或“我的 API Key”。个人 Key 同样加密保存，且不消耗平台套餐额度。
@@ -163,7 +163,7 @@
     │       ├─ 数据库 whitelist_emails 命中 OR 环境变量 AUTHORIZED_EMAILS 包含 → 放行
     │       └─ 白名单拒绝 → 重定向到 /unauthorized
     └─ 访问 /admin 路由
-            ├─ 环境变量 ADMIN_USERS 或 AUTHORIZED_GITHUB_USERS 匹配 → admin
+            ├─ 已验证邮箱匹配 ADMIN_EMAILS（或 ADMIN_USERS 中的邮箱项） → admin
             ├─ profiles.role = 'admin' → admin
             └─ 否 → 重定向到 /unauthorized
 ```
@@ -175,7 +175,8 @@
 1. **环境变量**（只读，在 `.env.local` 中配置）：
    - `AUTHORIZED_GITHUB_USERS` — GitHub 用户名白名单（逗号分隔）
    - `AUTHORIZED_EMAILS` — 邮箱白名单（逗号分隔）
-   - `ADMIN_USERS` — 管理员 GitHub 用户名（逗号分隔，缺省回退到 AUTHORIZED_GITHUB_USERS）
+   - `ADMIN_EMAILS` — 管理员已验证邮箱（逗号分隔）
+   - `ADMIN_USERS` — 兼容配置，仅其中格式合法的邮箱项会被识别为管理员
 
 2. **数据库白名单**（可在管理员面板动态管理）：
    - `whitelist_emails` 表 — 字段：`email`, `note`, `created_by`
@@ -285,9 +286,11 @@ AUTHORIZED_GITHUB_USERS=YunfanShi
 # Email 白名单（逗号分隔）
 AUTHORIZED_EMAILS=w.jack2025a@gmail.com,w.jack2025a@outlook.com
 
-# 管理员 GitHub 用户名（可选，逗号分隔）
-# 如不设置，则使用 AUTHORIZED_GITHUB_USERS 作为管理员列表
-ADMIN_USERS=YunfanShi
+# 管理员已验证邮箱（逗号分隔）
+ADMIN_EMAILS=admin@example.com
+
+# 兼容配置：仅接受邮箱格式，不再信任可由用户修改的 OAuth 用户名 metadata
+ADMIN_USERS=owner@example.com
 
 # 站点 URL
 NEXT_PUBLIC_SITE_URL=https://jackyun.top

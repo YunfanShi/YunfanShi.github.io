@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/middleware';
+import { isAdminIdentity } from '@/lib/admin-auth';
 
 // The workspace is local-first: product pages are usable without an account.
 // Only administration and account-enforcement surfaces require authentication.
@@ -125,15 +126,7 @@ export async function proxy(request: NextRequest) {
 
   // ── Admin route extra check ──────────────────────────────────────────
   if (pathname.startsWith('/admin')) {
-    const adminUsers = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '')
-      .split(',')
-      .map((u) => u.trim().toLowerCase())
-      .filter(Boolean);
-    const githubUsername = (claims.user_metadata?.user_name as string | undefined)?.toLowerCase();
-
-    const isEnvAdmin = githubUsername ? adminUsers.includes(githubUsername) : false;
-
-    if (!isEnvAdmin && profile?.role !== 'admin') {
+    if (!isAdminIdentity({ email: claims.email }, profile?.role)) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }

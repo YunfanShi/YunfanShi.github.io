@@ -9,6 +9,20 @@ import type { SyncOperation } from '@/types/sync';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_OPERATIONS = 100;
+const DATABASE_CONCURRENCY = 8;
+
+async function mapWithConcurrency<T, R>(items: T[], worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(DATABASE_CONCURRENCY, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index]);
+    }
+  }));
+  return results;
+}
 
 function contentHash(value: unknown, deleted: boolean): string {
   return createHash('sha256').update(deleted ? '__deleted__' : canonicalJson(value)).digest('hex');
@@ -82,6 +96,9 @@ export async function POST(request: NextRequest) {
   if (!Array.isArray(body.operations) || body.operations.length > MAX_OPERATIONS || !body.operations.every(validOperation)) {
     return apiError(requestId, 'Invalid sync operations', 400, 'INVALID_OPERATIONS');
   }
+  if (new Set(body.operations.map((raw) => (raw as SyncOperation).key)).size !== body.operations.length) {
+    return apiError(requestId, 'Only one operation per storage key is allowed', 400, 'DUPLICATE_KEYS');
+  }
 
   const platform = ['web', 'pwa', 'mobile-web'].includes(body.device?.platform ?? '') ? body.device!.platform! : 'web';
   const name = String(body.device?.name || 'Web browser').trim().slice(0, 80) || 'Web browser';
@@ -108,7 +125,7 @@ export async function POST(request: NextRequest) {
 
   const applied: Array<{ operationId: string; key: string; revision: number; contentHash: string }> = [];
   const conflicts: Array<Record<string, unknown>> = [];
-  for (const raw of body.operations) {
+  const outcomes = await mapWithConcurrency(body.operations, async (raw) => {
     const operation = raw as SyncOperation;
     const { data, error } = await supabase.rpc('apply_web_sync_operation', {
       p_operation_id: operation.id,
@@ -121,14 +138,16 @@ export async function POST(request: NextRequest) {
       p_content_hash: contentHash(operation.value, operation.deleted),
       p_deleted: operation.deleted,
     });
-    if (error) return apiError(requestId, 'Unable to apply sync operation', 500, 'SYNC_WRITE_FAILED');
+    if (error) throw new Error(error.message);
     const result = data as { status?: string; revision?: number; contentHash?: string; remoteValue?: unknown; remoteDeleted?: boolean; remoteHash?: string | null };
+    return { operation, result };
+  }).catch(() => null);
+  if (!outcomes) return apiError(requestId, 'Unable to apply sync operation', 500, 'SYNC_WRITE_FAILED');
+  const resolvedOperationIds: string[] = [];
+  for (const { operation, result } of outcomes) {
     if (result.status === 'applied') {
       applied.push({ operationId: operation.id, key: operation.key, revision: Number(result.revision), contentHash: String(result.contentHash) });
-      if (operation.resolvesOperationId) {
-        await supabase.from('sync_conflicts').update({ resolved_at: new Date().toISOString() })
-          .eq('user_id', user.id).eq('operation_id', operation.resolvesOperationId);
-      }
+      if (operation.resolvesOperationId) resolvedOperationIds.push(operation.resolvesOperationId);
     } else {
       conflicts.push({
         operationId: operation.id,
@@ -144,6 +163,8 @@ export async function POST(request: NextRequest) {
       });
     }
   }
+  if (resolvedOperationIds.length) await supabase.from('sync_conflicts').update({ resolved_at: new Date().toISOString() })
+    .eq('user_id', user.id).in('operation_id', resolvedOperationIds);
 
   return NextResponse.json({ ok: true, applied, conflicts, cursor: new Date().toISOString(), serverTime: new Date().toISOString(), requestId });
 }

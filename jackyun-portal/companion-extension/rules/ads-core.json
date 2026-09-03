@@ -32,6 +32,8 @@
         "applovin.com",
         "pangle.io",
         "pangleglobal.com",
+        "pangolin.snssdk.com",
+        "ad.toutiao.com",
         "byteoversea.com",
         "ads-twitter.com",
         "adform.net",
@@ -58,6 +60,7 @@
         "e.qq.com",
         "adsmind.apdcdn.tc.qq.com",
         "cpro.baidu.com",
+        "cpro.baidustatic.com",
         "pos.baidu.com",
         "baidustatic.com",
         "bdstatic.com",
@@ -82,6 +85,16 @@
       ],
       "domainType": "thirdParty",
       "resourceTypes": ["sub_frame", "script", "image", "stylesheet", "object", "xmlhttprequest", "ping", "media", "font", "websocket", "other"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://(?:www\\.)?(?:facebook\\.com|instagram\\.com)/tr(?:/|\\?|$)",
+      "domainType": "thirdParty",
+      "resourceTypes": ["image", "xmlhttprequest", "ping", "other"]
     }
   },
   {

@@ -25,6 +25,11 @@ test('ad blocking is packaged, enabled by default, and never blocks top-level na
       if (rule.condition.regexFilter) assert.doesNotThrow(() => new RegExp(rule.condition.regexFilter));
     }
   }
+  const allDomains = resources.flatMap((resource) => JSON.parse(readFileSync(new URL(resource.path, extension), 'utf8')))
+    .flatMap((rule) => rule.condition.requestDomains || []);
+  for (const domain of ['doubleclick.net', 'amazon-adsystem.com', 'connect.facebook.net', 'analytics.tiktok.com', 'cpro.baidu.com', 'ad.toutiao.com']) {
+    assert.ok(allDomains.includes(domain), `missing major ad/tracker source ${domain}`);
+  }
 });
 
 async function runCosmeticScript(adblock) {

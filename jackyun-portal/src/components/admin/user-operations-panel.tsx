@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { sendPasswordResetForUser, setAccountStatus, type ManagedUser } from '@/actions/admin';
+import { inviteUserAccount, sendPasswordResetForUser, setAccountStatus, type ManagedUser } from '@/actions/admin';
 import { setBetaInvitation } from '@/actions/beta';
 import type { BetaEnrollment, BetaEnrollmentStatus } from '@/lib/beta';
 import { setUserPlan, type PlanCode } from '@/actions/ai-admin';
@@ -29,6 +29,7 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
   const [pending, startTransition] = useTransition();
   const [betaByUser, setBetaByUser] = useState(() => new Map(betaEnrollments.map((entry) => [entry.user_id, entry])));
   const [plansByUser, setPlansByUser] = useState(userPlans);
+  const [inviteEmail, setInviteEmail] = useState('');
 
   const visible = useMemo(() => items.filter((user) => {
     const search = `${user.display_name ?? ''} ${user.email ?? ''} ${user.id}`.toLowerCase().includes(query.toLowerCase());
@@ -94,8 +95,21 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
     setNotice(`用户套餐已更新为 ${plan.toUpperCase()}。`);
   });
 
+  const inviteAccount = () => startTransition(async () => {
+    setNotice('');
+    const result = await inviteUserAccount(inviteEmail);
+    if (!result.success) return setNotice(result.error ?? '邀请账户失败。');
+    setNotice(`已向 ${inviteEmail.trim()} 发送账户邀请。`);
+    setInviteEmail('');
+  });
+
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-2 rounded-xl border border-[#dbe7ff] bg-[#f8faff] p-3 dark:border-[#155eef]/30 dark:bg-[#155eef]/10 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1"><p className="text-sm font-semibold">邀请新账户</p><p className="text-xs text-[#667085] dark:text-[#98a2b3]">发送安全注册链接；管理员不会设置或看到用户密码。</p></div>
+        <input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="name@example.com" className="h-10 min-w-0 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] dark:border-white/15 dark:bg-white/5 sm:w-64" />
+        <button type="button" disabled={pending || !inviteEmail.trim()} onClick={inviteAccount} className="h-10 rounded-lg bg-[#155eef] px-4 text-sm font-semibold text-white disabled:opacity-50">发送邀请</button>
+      </div>
       <div className="flex flex-col gap-3 sm:flex-row">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、邮箱或用户 ID" className="h-10 flex-1 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] dark:border-white/15 dark:bg-white/5" />
         <div className="flex gap-1 rounded-lg bg-[#f2f4f7] p-1 dark:bg-white/5">
@@ -116,7 +130,7 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
               <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${betaByUser.get(user.id)?.status === 'accepted' ? 'bg-[#f4ebff] text-[#6941c6]' : 'bg-[#f2f4f7] text-[#475467]'}`}>{betaByUser.get(user.id)?.status === 'accepted' ? 'BETA' : 'STABLE'}</span></td>
               <td className="px-4 py-3 text-xs"><p>{betaByUser.get(user.id) ? BETA_STATUS_LABELS[betaByUser.get(user.id)!.status] : '未邀请'}</p>{betaByUser.get(user.id)?.agreement_version && <p className="mt-1 text-[10px] text-[#667085]">协议 {betaByUser.get(user.id)!.agreement_version}</p>}</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td>
-              <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN')}</td>
+              <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</td>
               <td className="px-4 py-3 text-right">
                 {user.id !== currentUserId && !user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="mr-2 rounded-lg border border-[#d0d5dd] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="mr-2 rounded-lg bg-[#f4ebff] px-3 py-1.5 text-xs font-semibold text-[#6941c6] disabled:opacity-50">邀请 BETA</button>)}
                 {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="mr-2 rounded-lg border border-[#b2ddff] px-3 py-1.5 text-xs font-semibold text-[#175cd3] disabled:opacity-50">发送重置邮件</button>}

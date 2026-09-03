@@ -12,19 +12,13 @@ const AiChatFab = dynamic(() => import('./ai-chat-fab'), {
 
 export default function DeferredAiChat() {
   const [ready, setReady] = useState(false);
-  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const updateVisibility = () => setHidden(localStorage.getItem('jackyun_hide_homepage_ai') === 'true');
-    updateVisibility();
-    window.addEventListener('jackyun-ai-visibility', updateVisibility);
+    localStorage.removeItem('jackyun_hide_homepage_ai');
     const load = () => setReady(true);
     const id = window.setTimeout(load, 800);
-    return () => {
-      window.clearTimeout(id);
-      window.removeEventListener('jackyun-ai-visibility', updateVisibility);
-    };
+    return () => window.clearTimeout(id);
   }, []);
 
-  return ready && !hidden ? <AiChatFab /> : null;
+  return ready ? <AiChatFab /> : null;
 }

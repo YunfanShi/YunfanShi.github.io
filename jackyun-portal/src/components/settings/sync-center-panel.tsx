@@ -19,7 +19,11 @@ export default function SyncCenterPanel() {
     try {
       const deviceId = await getOrCreateDeviceId();
       const [deviceResponse, conflictResponse] = await Promise.all([fetch('/api/sync/devices'), fetch('/api/sync/conflicts')]);
-      if (!deviceResponse.ok || !conflictResponse.ok) throw new Error('同步中心加载失败');
+      if (!deviceResponse.ok || !conflictResponse.ok) {
+        const failed = !deviceResponse.ok ? deviceResponse : conflictResponse;
+        const payload = await failed.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+        throw new Error(payload?.error?.code ? `同步中心加载失败：${payload.error.code}` : `同步中心加载失败 (${failed.status})`);
+      }
       const devicePayload = await deviceResponse.json() as { devices: SyncDevice[] };
       const conflictPayload = await conflictResponse.json() as { conflicts: SyncConflict[] };
       setCurrentDeviceId(deviceId);

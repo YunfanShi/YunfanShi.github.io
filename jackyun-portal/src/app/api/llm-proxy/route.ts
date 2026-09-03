@@ -4,6 +4,7 @@ import { explainAiError } from '@/lib/ai-error';
 import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
 import { normalizeLlmBaseUrl } from '@/lib/llm-endpoint';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isAdminIdentity } from '@/lib/admin-auth';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -131,21 +132,12 @@ export async function POST(req: NextRequest) {
       if (!user) {
         return NextResponse.json({ available: false, isAdmin: false });
       }
-      const adminUsers = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '')
-        .split(',')
-        .map((u) => u.trim().toLowerCase())
-        .filter(Boolean);
-      const githubUsername = (user.user_metadata?.user_name as string | undefined)?.toLowerCase();
-      const isEnvAdmin = githubUsername ? adminUsers.includes(githubUsername) : false;
-      if (isEnvAdmin) {
-        return NextResponse.json({ available: true, isAdmin: true });
-      }
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
-      return NextResponse.json({ available: true, isAdmin: profile?.role === 'admin' });
+      return NextResponse.json({ available: true, isAdmin: isAdminIdentity(user, profile?.role) });
     }
 
     const configAdmin = createAdminClient();

@@ -37,9 +37,12 @@ export default function CloudSettingsHydrator({ appearance, interfaceCustomizati
     document.documentElement.dataset.density = resolved.density === 'compact' ? 'compact' : 'comfortable';
     document.documentElement.dataset.reducedMotion = resolved.reducedMotion === true ? 'true' : 'false';
     if (Object.keys(interfaceCustomization).length) {
-      const hidden = interfaceCustomization.hideHomepageAi === true;
-      localStorage.setItem('jackyun_hide_homepage_ai', String(hidden));
-      window.dispatchEvent(new Event('jackyun-ai-visibility'));
+      const accent = ['green', 'purple', 'orange'].includes(String(interfaceCustomization.accent)) ? String(interfaceCustomization.accent) : 'blue';
+      const cornerStyle = interfaceCustomization.cornerStyle === 'soft' ? 'soft' : 'rounded';
+      document.documentElement.dataset.accent = accent;
+      document.documentElement.dataset.cornerStyle = cornerStyle;
+      localStorage.setItem('jackyun_interface_customization', JSON.stringify({ accent, cornerStyle }));
+      localStorage.removeItem('jackyun_hide_homepage_ai');
     }
   }, [appearance, interfaceCustomization, signedIn, updatedAt]);
   return null;

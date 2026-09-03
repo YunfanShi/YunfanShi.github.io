@@ -85,7 +85,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId, device: deviceDescription(), operations: operations.slice(0, 100) }),
       });
-      if (!response.ok) throw new Error(`Sync rejected (${response.status})`);
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+        throw new Error(failure?.error?.code ? `${failure.error.message ?? '同步写入失败'} (${failure.error.code})` : `同步写入失败 (${response.status})`);
+      }
       const payload = await response.json() as {
         applied: Array<{ operationId: string; key: string; revision: number; contentHash: string }>;
         conflicts: SyncConflict[];
@@ -116,7 +119,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const [cursor, pending] = await Promise.all([getSetting<string>('cursor'), getOutbox()]);
       const pendingKeys = new Set(pending.map((item) => item.key));
       const response = await fetch(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Sync read failed (${response.status})`);
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+        throw new Error(failure?.error?.code ? `${failure.error.message ?? '同步读取失败'} (${failure.error.code})` : `同步读取失败 (${response.status})`);
+      }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
       for (const record of payload.records) {
         if (pendingKeys.has(record.key)) continue;
@@ -147,14 +153,21 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
 
     lastSnapshot = localSnapshot();
     void sync();
-    const timer = window.setInterval(() => void sync(), 3_000);
+    // Changes are durable in IndexedDB immediately; a calmer network cadence
+    // avoids continuous RSC/API contention while keeping cross-device sync prompt.
+    const timer = window.setInterval(() => void sync(), 30_000);
     const onSync = () => void sync();
+    const onVisibility = () => { if (document.visibilityState === 'visible') void sync(); };
     window.addEventListener('online', onSync);
+    window.addEventListener('focus', onSync);
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('jackyun-sync-retry', onSync);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
       window.removeEventListener('online', onSync);
+      window.removeEventListener('focus', onSync);
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('jackyun-sync-retry', onSync);
     };
   }, [userId]);
