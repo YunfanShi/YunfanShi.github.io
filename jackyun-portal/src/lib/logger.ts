@@ -336,8 +336,6 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
 
     this.addEventListener('loadend', () => {
       const duration = Math.round(performance.now() - (_this.__startTime || 0));
-      const level: LogLevel = _this.status >= 400 ? 'warn' : 'info';
-
       const entry = makeEntry(
         _this.status >= 400 ? 'error' : 'info',
         'XHR',

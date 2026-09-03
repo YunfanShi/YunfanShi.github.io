@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
 import LoggerViewer from '@/components/settings/logger-viewer';
 import logger from '@/lib/logger';
@@ -291,7 +291,7 @@ export default function AdminTestPage() {
           body: JSON.stringify(reqBody),
         });
       } else {
-        const { model: _, ...restBody } = reqBody;
+        const restBody = { messages: reqBody.messages, max_tokens: reqBody.max_tokens, stream: reqBody.stream };
         res = await fetch('/api/llm-proxy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -378,7 +378,7 @@ export default function AdminTestPage() {
             body: JSON.stringify(reqBody),
           });
         } else {
-          const { model: _, ...restBody } = reqBody;
+          const restBody = { messages: reqBody.messages, max_tokens: reqBody.max_tokens, stream: reqBody.stream };
           res = await fetch('/api/llm-proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

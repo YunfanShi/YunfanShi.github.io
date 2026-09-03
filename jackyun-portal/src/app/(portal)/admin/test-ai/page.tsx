@@ -67,7 +67,7 @@ export default function TestAiPage() {
           body: JSON.stringify(reqBody),
         });
       } else {
-        const { model: _, ...restBody } = reqBody;
+        const restBody = { messages: reqBody.messages, max_tokens: reqBody.max_tokens, stream: reqBody.stream };
         res = await fetch('/api/llm-proxy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

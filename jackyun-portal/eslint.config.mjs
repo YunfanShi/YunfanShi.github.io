@@ -13,6 +13,8 @@ const eslintConfig = [
       "next-env.d.ts",
       "**/* 2.*",
       "public/**/*.bak",
+      // Legacy/generated browser scripts are verified by their dedicated checks.
+      "public/**/*.js",
       "companion-extension/hosted-sources/**",
     ],
   },

@@ -1,228 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
+import { apiError, requestIdFrom } from '@/lib/api-response';
 
-// ============================================
-// Answer Sheet Sync API
-// Uses Supabase DB as single source of truth
-// Each broadcast has a broadcast_id for dedup
-// Devices mark broadcasts as consumed to prevent replay
-// ============================================
+const MAX_BODY_BYTES = 150_000;
+const ID = /^[A-Za-z0-9._:-]{1,120}$/;
 
-// Lazy Supabase client
-let _supabaseClient: SupabaseClient | null = null;
-
-async function tryGetSupabase() {
-  if (_supabaseClient) return _supabaseClient;
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) return null;
-    const { createClient } = await import('@supabase/supabase-js');
-    _supabaseClient = createClient(url, key);
-    return _supabaseClient;
-  } catch (e) {
-    return null;
-  }
+async function authenticated(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return { supabase, user, requestId: requestIdFrom(request) };
 }
 
-function generateBroadcastId() {
-  return 'bc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+export async function POST(request: NextRequest) {
+  const context = await authenticated(request);
+  if (!context.user) return apiError(context.requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
+  const declaredLength = Number(request.headers.get('content-length') ?? 0);
+  if (declaredLength > MAX_BODY_BYTES) return apiError(context.requestId, 'Request body too large', 413, 'PAYLOAD_TOO_LARGE');
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body || JSON.stringify(body).length > MAX_BODY_BYTES) return apiError(context.requestId, 'Invalid request body', 400, 'INVALID_BODY');
+
+  const sessionId = String(body.sessionId || '');
+  const senderDeviceId = String(body.senderDeviceId || '');
+  const targetTime = Number(body.targetTime);
+  if (!ID.test(sessionId) || !ID.test(senderDeviceId) || !Number.isFinite(targetTime) || Math.abs(targetTime - Date.now()) > 300_000 || !body.payload || typeof body.payload !== 'object') {
+    return apiError(context.requestId, 'Invalid broadcast', 400, 'INVALID_BROADCAST');
+  }
+  const minuteAgo = new Date(Date.now() - 60_000).toISOString();
+  const { count, error: rateError } = await context.supabase.from('answer_sheet_broadcasts').select('id', { count: 'exact', head: true })
+    .eq('user_id', context.user.id).gte('created_at', minuteAgo);
+  if (rateError) return apiError(context.requestId, 'Unable to validate broadcast rate', 500, 'RATE_CHECK_FAILED');
+  if ((count ?? 0) >= 60) return apiError(context.requestId, 'Too many broadcasts', 429, 'RATE_LIMITED');
+
+  const broadcastId = crypto.randomUUID();
+  const { error } = await context.supabase.from('answer_sheet_broadcasts').insert({
+    user_id: context.user.id,
+    session_id: sessionId,
+    sender_device_id: senderDeviceId,
+    target_time: targetTime,
+    payload: body.payload,
+    broadcast_id: broadcastId,
+    expires_at: new Date(Date.now() + 15_000).toISOString(),
+    consumed_by: [],
+  });
+  if (error) return apiError(context.requestId, 'Unable to create broadcast', 500, 'BROADCAST_WRITE_FAILED');
+  return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime, requestId: context.requestId });
 }
 
-/**
- * POST /api/answer-sheet-sync
- * Broadcast a sync event - writes to Supabase DB
- */
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { sessionId, senderDeviceId, targetTime, payload } = body;
-
-    if (!targetTime || !payload) {
-      return NextResponse.json({ error: 'Missing targetTime or payload' }, { status: 400 });
-    }
-
-    // Ensure payload is a plain object (defend against double-encoding)
-    let normalizedPayload = payload;
-    if (typeof normalizedPayload === 'string') {
-      try {
-        normalizedPayload = JSON.parse(normalizedPayload);
-      } catch (e) {
-        return NextResponse.json({ error: 'payload is string but not valid JSON' }, { status: 400 });
-      }
-    }
-
-    const broadcastId = generateBroadcastId();
-
-    // Write to Supabase DB as durable storage
-    const supabase = await tryGetSupabase();
-    if (!supabase) {
-      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
-    }
-
-    const { error } = await supabase.from('answer_sheet_broadcasts').insert({
-      session_id: sessionId || 'unknown',
-      sender_device_id: senderDeviceId || 'unknown',
-      target_time: targetTime,
-      payload: normalizedPayload,
-      broadcast_id: broadcastId,
-      expires_at: new Date(Date.now() + 15000).toISOString(),
-      consumed_by: [],
-    }).select('id').single();
-
-    if (error) {
-      console.error('[AnswerSheetSync] DB insert error:', error);
-      // Return real error instead of fake ok:true
-      return NextResponse.json({ 
-        error: 'DB insert failed', 
-        details: error.message 
-      }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, broadcastId, sessionId, targetTime });
-
-  } catch (err) {
-    console.error('[AnswerSheetSync] POST error:', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
-  }
+export async function GET(request: NextRequest) {
+  const context = await authenticated(request);
+  if (!context.user) return apiError(context.requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
+  const deviceId = request.nextUrl.searchParams.get('self') || '';
+  if (deviceId && !ID.test(deviceId)) return apiError(context.requestId, 'Invalid device', 400, 'INVALID_DEVICE');
+  const sinceMs = Number(request.nextUrl.searchParams.get('since') || Date.now() - 5_000);
+  const since = Number.isFinite(sinceMs) ? new Date(Math.max(sinceMs, Date.now() - 60_000)).toISOString() : new Date(Date.now() - 5_000).toISOString();
+  const { data, error } = await context.supabase.from('answer_sheet_broadcasts')
+    .select('id, broadcast_id, session_id, sender_device_id, target_time, payload, created_at')
+    .eq('user_id', context.user.id).gte('expires_at', new Date().toISOString()).gte('created_at', since)
+    .order('created_at', { ascending: false }).limit(20);
+  if (error) return apiError(context.requestId, 'Unable to read broadcasts', 500, 'BROADCAST_READ_FAILED');
+  const ids = (data ?? []).map((row) => row.id);
+  const consumed = deviceId && ids.length
+    ? await context.supabase.from('answer_sheet_consumptions').select('broadcast_id').eq('user_id', context.user.id).eq('device_id', deviceId).in('broadcast_id', ids)
+    : { data: [] as Array<{ broadcast_id: number }>, error: null };
+  if (consumed.error) return apiError(context.requestId, 'Unable to read consumption records', 500, 'CONSUMPTION_READ_FAILED');
+  const consumedIds = new Set((consumed.data ?? []).map((row) => row.broadcast_id));
+  const broadcasts = (data ?? []).filter((row) => row.sender_device_id !== deviceId && !consumedIds.has(row.id)).slice(0, 5).map((row) => ({
+    rowId: row.id, broadcastId: row.broadcast_id, sessionId: row.session_id, senderDeviceId: row.sender_device_id,
+    targetTime: row.target_time, payload: row.payload, createdAt: row.created_at,
+  }));
+  return NextResponse.json({ ok: true, broadcasts, requestId: context.requestId });
 }
 
-/**
- * GET /api/answer-sheet-sync
- * Returns ONLY un-consumed broadcasts for the requesting device
- * Query params:
- *   self: device ID - broadcasts from this device are excluded
- *   since: only return broadcasts created after this ms timestamp
- */
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const selfDeviceId = searchParams.get('self') || '';
-  const sinceMs = parseInt(searchParams.get('since') || '0', 10);
-  const sinceDate = sinceMs > 0 ? new Date(sinceMs).toISOString() : new Date(Date.now() - 5000).toISOString();
-
-  const supabase = await tryGetSupabase();
-  if (!supabase) {
-    return NextResponse.json({ broadcasts: [], error: 'Database not available' });
+export async function PATCH(request: NextRequest) {
+  const context = await authenticated(request);
+  if (!context.user) return apiError(context.requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
+  const body = await request.json().catch(() => null) as { rowId?: number; deviceId?: string } | null;
+  if (!Number.isSafeInteger(body?.rowId) || Number(body?.rowId) <= 0 || !body?.deviceId || !ID.test(body.deviceId)) {
+    return apiError(context.requestId, 'Invalid consumption', 400, 'INVALID_CONSUMPTION');
   }
-
-  try {
-    // Get broadcasts that:
-    // 1. Haven't expired
-    // 2. Weren't sent by self
-    // 3. Haven't been consumed by this device yet
-    // 4. Are newer than since Date
-    const { data, error } = await supabase
-      .from('answer_sheet_broadcasts')
-      .select('*')
-      .gte('expires_at', new Date().toISOString())
-      .gte('created_at', sinceDate)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      console.error('[AnswerSheetSync] GET error:', error);
-      return NextResponse.json({ broadcasts: [], error: error.message });
-    }
-
-    if (!data || data.length === 0) {
-      return NextResponse.json({ broadcasts: [] });
-    }
-
-    // Filter out self-sent and already-consumed
-    const results = [];
-    for (const row of data) {
-      // Skip self-sent
-      if (selfDeviceId && row.sender_device_id === selfDeviceId) continue;
-
-      // Skip if already consumed by this device
-      const consumedBy = row.consumed_by || [];
-      if (selfDeviceId && consumedBy.includes(selfDeviceId)) continue;
-
-      // Normalize payload: DB stores it as JSON, but Supabase may return as string
-      let payload = row.payload;
-      if (typeof payload === 'string') {
-        try {
-          payload = JSON.parse(payload);
-        } catch (e) {
-          payload = { _raw: payload };
-        }
-      }
-
-      results.push({
-        broadcastId: row.broadcast_id,
-        sessionId: row.session_id,
-        senderDeviceId: row.sender_device_id,
-        targetTime: row.target_time,
-        payload: payload,
-        createdAt: new Date(row.created_at).toISOString(),
-        // Include the DB row id so the client can mark as consumed
-        rowId: row.id,
-      });
-    }
-
-    return NextResponse.json({ broadcasts: results.slice(0, 5) });
-
-  } catch (e) {
-    console.error('[AnswerSheetSync] GET exception:', e);
-    return NextResponse.json({ broadcasts: [], error: e instanceof Error ? e.message : 'Unknown error' });
-  }
-}
-
-/**
- * PATCH /api/answer-sheet-sync
- * Mark a broadcast as consumed by a device
- * Body: { rowId: number, deviceId: string }
- */
-export async function PATCH(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { rowId, deviceId } = body;
-
-    if (!rowId || !deviceId) {
-      return NextResponse.json({ error: 'Missing rowId or deviceId' }, { status: 400 });
-    }
-
-    const supabase = await tryGetSupabase();
-    if (!supabase) {
-      return NextResponse.json({ error: 'Database not available' }, { status: 500 });
-    }
-
-    // Use Supabase's jsonb append to add device to consumed_by
-    const { error } = await supabase.rpc('append_consumed_by', {
-      row_id: rowId,
-      device_id: deviceId,
-    });
-
-    if (error) {
-      // If function doesn't exist, do manual update
-      const { data: current } = await supabase
-        .from('answer_sheet_broadcasts')
-        .select('consumed_by')
-        .eq('id', rowId)
-        .single();
-
-      if (current) {
-        const consumed = current.consumed_by || [];
-        if (!consumed.includes(deviceId)) {
-          consumed.push(deviceId);
-          const { error: updateError } = await supabase
-            .from('answer_sheet_broadcasts')
-            .update({ consumed_by: consumed })
-            .eq('id', rowId);
-          if (updateError) {
-            console.error('[AnswerSheetSync] PATCH update error:', updateError);
-            return NextResponse.json({ error: 'Update failed' }, { status: 500 });
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({ ok: true });
-
-  } catch (err) {
-    console.error('[AnswerSheetSync] PATCH error:', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
-  }
+  const { data: broadcast } = await context.supabase.from('answer_sheet_broadcasts').select('id').eq('id', body.rowId!).eq('user_id', context.user.id).maybeSingle();
+  if (!broadcast) return apiError(context.requestId, 'Broadcast not found', 404, 'NOT_FOUND');
+  const { error } = await context.supabase.from('answer_sheet_consumptions').upsert({ broadcast_id: body.rowId, user_id: context.user.id, device_id: body.deviceId }, { onConflict: 'broadcast_id,device_id' });
+  if (error) return apiError(context.requestId, 'Unable to record consumption', 500, 'CONSUMPTION_WRITE_FAILED');
+  return NextResponse.json({ ok: true, requestId: context.requestId });
 }
 
 export const dynamic = 'force-dynamic';

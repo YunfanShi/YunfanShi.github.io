@@ -16,6 +16,8 @@ import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/l
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
 import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
 import AuthModeProvider from '@/components/auth/auth-mode-provider';
+import BetaExperience from '@/components/modules/beta-experience';
+import type { BetaEnrollmentStatus } from '@/lib/beta';
 
 const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = DEFAULT_NAVIGATION_PREFERENCES;
 
@@ -32,7 +34,7 @@ export default async function PortalLayout({
   // repeated auth verification and issued one query per preference.
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
   const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const [{ data: settings }, { data: navigationUsage }, { data: profile }] = claims
+  const [{ data: settings }, { data: navigationUsage }, { data: profile }, { data: betaEnrollment }] = claims
     ? await Promise.all([
         supabase
           .from('user_settings')
@@ -45,8 +47,9 @@ export default async function PortalLayout({
           .eq('user_id', claims.sub)
           .gte('activity_date', thirtyDaysAgo.toISOString().slice(0, 10)),
         supabase.from('profiles').select('role').eq('id', claims.sub).maybeSingle(),
+        supabase.from('beta_enrollments').select('status').eq('user_id', claims.sub).maybeSingle(),
       ])
-    : [{ data: null }, { data: null }, { data: null }];
+    : [{ data: null }, { data: null }, { data: null }, { data: null }];
 
   let sidebarPrefs = { ...DEFAULT_SIDEBAR_PREFS };
   let language: Language = 'zh';
@@ -93,7 +96,7 @@ export default async function PortalLayout({
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <Topbar user={user} />
+          <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
         <LegacyBridge />
@@ -102,6 +105,7 @@ export default async function PortalLayout({
         <MiniPlayer />
         <FlyingTimer />
         <SiteNotificationModal />
+        <BetaExperience status={(betaEnrollment?.status as BetaEnrollmentStatus | undefined) ?? null} />
         <AdminDebugConsole isAdmin={isAdmin} />
       </div>
     </LanguageProvider>

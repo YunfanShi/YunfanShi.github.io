@@ -1,16 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
-import {
-  LOCAL_SYNC_STATUS_EVENT,
-  isSyncableStorageKey,
-  storageValueToString,
-} from '@/lib/local-workspace';
+import { LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
+import { getConflicts, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveConflict, saveMetadata, setSetting } from '@/lib/sync/outbox';
+import { threeWayMerge } from '@/lib/sync/merge';
+import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
-type SyncState = 'guest' | 'syncing' | 'synced' | 'offline';
-
-function announce(state: SyncState) {
-  window.dispatchEvent(new CustomEvent(LOCAL_SYNC_STATUS_EVENT, { detail: { state } }));
+function announce(detail: SyncStatusDetail) {
+  window.dispatchEvent(new CustomEvent(LOCAL_SYNC_STATUS_EVENT, { detail }));
 }
 
 function localSnapshot(): Record<string, string> {
@@ -24,72 +21,141 @@ function localSnapshot(): Record<string, string> {
   return snapshot;
 }
 
-async function upload(entries: Record<string, string>) {
-  const pairs = Object.entries(entries).map(([key, value]) => ({ key, value }));
-  if (!pairs.length) return true;
-  const response = await fetch('/api/legacy-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ entries: pairs }),
-  });
-  return response.ok;
+function parseStorageValue(value: string | undefined): unknown {
+  if (value === undefined) return null;
+  try { return JSON.parse(value); } catch { return value; }
 }
 
-async function removeFromCloud(keys: string[]) {
-  await Promise.all(keys.map((key) => fetch('/api/legacy-sync', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key }),
-  })));
+function deviceDescription() {
+  const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches;
+  return {
+    name: `${mobile ? 'Mobile' : 'Desktop'} ${standalone ? 'PWA' : 'Browser'}`,
+    platform: standalone ? 'pwa' : mobile ? 'mobile-web' : 'web',
+  };
+}
+
+async function publishStatus(state: SyncStatus, error?: string) {
+  const [pending, conflicts, lastSyncedAt] = await Promise.all([getOutbox(), getConflicts(), getSetting<string>('lastSyncedAt')]);
+  announce({ state: conflicts.length ? 'conflict' : state, pending: pending.length, conflicts: conflicts.length, lastSyncedAt, error });
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
   useEffect(() => {
-    if (!userId) {
-      localStorage.setItem('jackyun_guest_mode', 'true');
-      announce('guest');
-      return;
-    }
-
-    localStorage.removeItem('jackyun_guest_mode');
     let cancelled = false;
+    let running = false;
     let lastSnapshot: Record<string, string> = {};
 
-    const sync = async (initial = false) => {
-      try {
-        announce('syncing');
-        if (initial) {
-          const response = await fetch('/api/legacy-sync', { cache: 'no-store' });
-          if (!response.ok) throw new Error('Cloud sync unavailable');
-          const payload = await response.json() as { data?: Record<string, unknown> };
-          for (const [key, cloudValue] of Object.entries(payload.data ?? {})) {
-            if (!isSyncableStorageKey(key) || localStorage.getItem(key) !== null) continue;
-            localStorage.setItem(key, storageValueToString(cloudValue));
-          }
-        }
+    if (!userId) {
+      localStorage.setItem('jackyun_guest_mode', 'true');
+      announce({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
+      return;
+    }
+    localStorage.removeItem('jackyun_guest_mode');
 
-        const snapshot = localSnapshot();
-        const serialized = JSON.stringify(snapshot);
-        if (serialized !== JSON.stringify(lastSnapshot)) {
-          const removedKeys = Object.keys(lastSnapshot).filter((key) => !(key in snapshot));
-          if (!await upload(snapshot)) throw new Error('Cloud sync rejected');
-          if (removedKeys.length) await removeFromCloud(removedKeys);
-          lastSnapshot = snapshot;
-        }
-        if (!cancelled) announce('synced');
-      } catch {
-        if (!cancelled) announce('offline');
+    async function queueChanges() {
+      const snapshot = localSnapshot();
+      const metadata = await getMetadata();
+      const metadataByKey = new Map(metadata.map((item) => [item.key, item]));
+      // Metadata keys are required here: if the tab closes after localStorage
+      // deletion but before the polling tick, startup must still enqueue a tombstone.
+      const keys = new Set([...Object.keys(lastSnapshot), ...Object.keys(snapshot), ...metadataByKey.keys()]);
+      for (const key of keys) {
+        const current = snapshot[key];
+        const base = metadataByKey.get(key);
+        if (current === lastSnapshot[key] && base) continue;
+        await queueOperation({
+          id: crypto.randomUUID(), key,
+          baseRevision: base?.revision ?? 0,
+          baseHash: base?.contentHash ?? null,
+          baseValue: base?.deleted ? null : base?.value ?? null,
+          value: parseStorageValue(current),
+          deleted: current === undefined,
+          clientUpdatedAt: new Date().toISOString(),
+        });
       }
-    };
+      lastSnapshot = snapshot;
+    }
 
-    void sync(true);
-    const timer = window.setInterval(() => void sync(), 5_000);
-    const onOnline = () => void sync();
-    window.addEventListener('online', onOnline);
+    async function flush(deviceId: string): Promise<void> {
+      const operations = await getOutbox();
+      if (!operations.length) return;
+      await publishStatus('syncing');
+      const response = await fetch('/api/sync/v2', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, device: deviceDescription(), operations: operations.slice(0, 100) }),
+      });
+      if (!response.ok) throw new Error(`Sync rejected (${response.status})`);
+      const payload = await response.json() as {
+        applied: Array<{ operationId: string; key: string; revision: number; contentHash: string }>;
+        conflicts: SyncConflict[];
+      };
+      const byId = new Map(operations.map((operation) => [operation.id, operation]));
+      for (const applied of payload.applied) {
+        const operation = byId.get(applied.operationId);
+        if (!operation) continue;
+        await saveMetadata({ key: operation.key, value: operation.value, revision: applied.revision, contentHash: applied.contentHash, deleted: operation.deleted, updatedAt: new Date().toISOString() });
+        await removeOperation(applied.operationId);
+      }
+      for (const conflict of payload.conflicts) {
+        const operation = byId.get(conflict.operationId);
+        if (!operation) continue;
+        const merge = operation.deleted || conflict.remoteDeleted
+          ? { merged: null, conflicts: ['$delete'] }
+          : threeWayMerge(conflict.baseValue, conflict.localValue, conflict.remoteValue);
+        await removeOperation(operation.id);
+        if (merge.conflicts.length === 0) {
+          await queueOperation({ ...operation, id: crypto.randomUUID(), baseRevision: conflict.remoteRevision, baseHash: conflict.remoteHash, baseValue: conflict.remoteValue, value: merge.merged, clientUpdatedAt: new Date().toISOString(), resolvesOperationId: conflict.operationId });
+        } else {
+          await saveConflict({ ...conflict, localValue: operation.deleted ? null : operation.value, localDeleted: operation.deleted, createdAt: new Date().toISOString() });
+        }
+      }
+    }
+
+    async function pull() {
+      const [cursor, pending] = await Promise.all([getSetting<string>('cursor'), getOutbox()]);
+      const pendingKeys = new Set(pending.map((item) => item.key));
+      const response = await fetch(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Sync read failed (${response.status})`);
+      const payload = await response.json() as { records: SyncRecord[]; cursor: string };
+      for (const record of payload.records) {
+        if (pendingKeys.has(record.key)) continue;
+        if (record.deleted) localStorage.removeItem(record.key);
+        else localStorage.setItem(record.key, storageValueToString(record.value));
+        await saveMetadata(record);
+      }
+      await setSetting('cursor', payload.cursor);
+      lastSnapshot = localSnapshot();
+    }
+
+    async function sync() {
+      if (running || cancelled) return;
+      running = true;
+      try {
+        const deviceId = await getOrCreateDeviceId();
+        await queueChanges();
+        await flush(deviceId);
+        await pull();
+        await flush(deviceId);
+        const now = new Date().toISOString();
+        await setSetting('lastSyncedAt', now);
+        if (!cancelled) await publishStatus('synced');
+      } catch (error) {
+        if (!cancelled) await publishStatus('offline_pending', error instanceof Error ? error.message : 'Sync failed');
+      } finally { running = false; }
+    }
+
+    lastSnapshot = localSnapshot();
+    void sync();
+    const timer = window.setInterval(() => void sync(), 3_000);
+    const onSync = () => void sync();
+    window.addEventListener('online', onSync);
+    window.addEventListener('jackyun-sync-retry', onSync);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
-      window.removeEventListener('online', onOnline);
+      window.removeEventListener('online', onSync);
+      window.removeEventListener('jackyun-sync-retry', onSync);
     };
   }, [userId]);
 

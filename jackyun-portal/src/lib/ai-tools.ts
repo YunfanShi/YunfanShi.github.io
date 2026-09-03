@@ -808,7 +808,7 @@ export const AI_TOOLS: AiTool[] = [
           return `${lines.length > 0 ? '' : ''}${indent}${isLast ? '└─' : '├─'} ${g.name}（ID:${g.id}）进度:${totalStr}${pctStr}${deadline}${priority}${cat}`;
         };
 
-        parents.forEach((p: any, pi: number) => {
+        parents.forEach((p: any) => {
           lines.push(`🎯 ${p.name}（ID:${p.id}）进度:${p.total > 0 ? `${p.done || 0}/${p.total}` : `已累计 ${p.done || 0}（无上限）`}${p.deadline ? `，截止 ${p.deadline}` : ''}${p.priority ? `，优先级:${p.priority}` : ''}`);
           const children = childrenMap[p.id] || [];
           children.forEach((c: any, ci: number) => {
@@ -1738,8 +1738,6 @@ export const AI_TOOLS: AiTool[] = [
         const goalRaw = localStorage.getItem('jackyun_goal_data');
         const goals = goalRaw ? JSON.parse(goalRaw) : [];
         // 读取学习进度
-        const progressRaw = localStorage.getItem('caie_progress_v2_1');
-        const progress = progressRaw ? JSON.parse(progressRaw) : {};
         // 读取红绿灯审计
         const trafficData: any[] = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -2042,6 +2040,113 @@ export const AI_TOOLS: AiTool[] = [
       } catch (e: any) {
         return '读取任务池出错：' + (e.message || String(e));
       }
+    },
+  },
+  // ====== BETA：受控界面个性化（只写入白名单偏好，不执行代码） ======
+  {
+    id: 'read_interface_preferences',
+    name: '读取界面偏好',
+    description: `读取当前主题、界面密度、动画和主页 AI 显示状态。
+
+参数：无。该工具只读取本地偏好，不会修改界面。`,
+    scope: ['global', 'dashboard', 'settings'],
+    handler: async () => {
+      if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      try {
+        const appearance = JSON.parse(localStorage.getItem('jackyun_settings_appearance_preferences') || '{}');
+        return JSON.stringify({
+          theme: appearance.theme || localStorage.getItem('jackyun_theme') || 'light',
+          density: appearance.density || 'comfortable',
+          reducedMotion: appearance.reducedMotion === true,
+          homepageAi: localStorage.getItem('jackyun_hide_homepage_ai') === 'true' ? 'hidden' : 'visible',
+        });
+      } catch {
+        return '读取界面偏好失败。';
+      }
+    },
+  },
+  {
+    id: 'customize_interface',
+    name: '微调界面',
+    riskLevel: 'high',
+    requiresConsent: true,
+    description: `微调当前用户的界面。仅支持白名单选项，不接受 HTML、CSS 或 JavaScript。
+
+参数（至少提供一个）：
+- theme：light / gray / dark
+- density：comfortable / compact
+- reduced_motion：true / false
+- homepage_ai：show / hide
+
+示例：
+\`\`\`tool_call
+{"tool":"customize_interface","params":{"homepage_ai":"hide","density":"compact"}}
+\`\`\``,
+    scope: ['global', 'dashboard', 'settings'],
+    consentInfo: (params) => ({
+      action: '修改界面偏好',
+      purpose: '按照你的要求微调当前浏览器中的网站界面',
+      consequence: `将持久保存这些偏好：${JSON.stringify(params)}`,
+    }),
+    handler: async (params) => {
+      if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      const allowedThemes = ['light', 'gray', 'dark'];
+      const allowedDensities = ['comfortable', 'compact'];
+      const appearanceKey = 'jackyun_settings_appearance_preferences';
+      let current: Record<string, unknown> = {};
+      try { current = JSON.parse(localStorage.getItem(appearanceKey) || '{}'); } catch {}
+      const changed: string[] = [];
+
+      if (params.theme && allowedThemes.includes(params.theme)) {
+        current.theme = params.theme;
+        localStorage.setItem('jackyun_theme', params.theme);
+        document.documentElement.dataset.theme = params.theme;
+        document.documentElement.style.colorScheme = params.theme === 'light' ? 'light' : 'dark';
+        changed.push(`主题=${params.theme}`);
+      }
+      if (params.density && allowedDensities.includes(params.density)) {
+        current.density = params.density;
+        document.documentElement.dataset.density = params.density;
+        changed.push(`密度=${params.density}`);
+      }
+      if (params.reduced_motion === 'true' || params.reduced_motion === 'false') {
+        const reduced = params.reduced_motion === 'true';
+        current.reducedMotion = reduced;
+        document.documentElement.dataset.reducedMotion = String(reduced);
+        changed.push(`减少动画=${reduced ? '是' : '否'}`);
+      }
+      if (params.homepage_ai === 'show' || params.homepage_ai === 'hide') {
+        const hidden = params.homepage_ai === 'hide';
+        localStorage.setItem('jackyun_hide_homepage_ai', String(hidden));
+        window.dispatchEvent(new Event('jackyun-ai-visibility'));
+        changed.push(`主页 AI=${hidden ? '隐藏' : '显示'}`);
+      }
+      if (!changed.length) return '没有可应用的有效界面选项。';
+      localStorage.setItem(appearanceKey, JSON.stringify(current));
+      localStorage.setItem(`${appearanceKey}__updated_at`, new Date().toISOString());
+      return `已应用并保存在本地：${changed.join('，')}。可在设置中恢复。`;
+    },
+  },
+  {
+    id: 'reset_interface_preferences',
+    name: '恢复默认界面',
+    riskLevel: 'high',
+    requiresConsent: true,
+    description: '清除 BETA 界面微调，将主题、密度、动画和主页 AI 恢复为默认状态。',
+    scope: ['global', 'dashboard', 'settings'],
+    consentInfo: () => ({ action: '恢复默认界面', purpose: '撤销 AI 所做的界面微调', consequence: '本地保存的界面微调将被清除。' }),
+    handler: async () => {
+      if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      localStorage.removeItem('jackyun_settings_appearance_preferences');
+      localStorage.removeItem('jackyun_settings_appearance_preferences__updated_at');
+      localStorage.removeItem('jackyun_hide_homepage_ai');
+      localStorage.setItem('jackyun_theme', 'light');
+      document.documentElement.dataset.theme = 'light';
+      document.documentElement.dataset.density = 'comfortable';
+      document.documentElement.dataset.reducedMotion = 'false';
+      document.documentElement.style.colorScheme = 'light';
+      window.dispatchEvent(new Event('jackyun-ai-visibility'));
+      return '界面已恢复默认设置。';
     },
   },
   // ====== 元工具：按需获取工具手册（防止 system prompt 过大） ======

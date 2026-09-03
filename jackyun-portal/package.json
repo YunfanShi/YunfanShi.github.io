@@ -1,7 +1,8 @@
 {
   "name": "jackyun-portal",
-  "version": "0.1.0",
+  "version": "3.15.0",
   "private": true,
+  "engines": { "node": ">=22.0.0" },
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
@@ -17,7 +18,10 @@
     "sync:companion-sources": "node scripts/sync-companion-hosted-sources.mjs",
     "check:companion-sources": "node scripts/sync-companion-hosted-sources.mjs --check",
     "check:study-guide": "node scripts/check-study-guide.mjs",
-    "check:studyplan-import": "node scripts/check-studyplan-import.mjs"
+    "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
+    "test:sync": "node --test tests/sync-v2.test.mts",
+    "test:beta": "node --test tests/beta-enrollment.test.mts",
+    "verify": "npm run lint && npm run test:sync && npm run test:beta && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

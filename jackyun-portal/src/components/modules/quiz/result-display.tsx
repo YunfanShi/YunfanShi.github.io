@@ -41,12 +41,6 @@ export default function ResultDisplay({
     return 'Keep studying!';
   };
 
-  const getGradeColor = (pct: number) => {
-    if (pct >= 80) return 'from-[#34A853] to-[#0F9D58]';
-    if (pct >= 60) return 'from-[#FBBC04] to-[#F9A825]';
-    return 'from-[#EA4335] to-[#D32F2F]';
-  };
-
   return (
     <div className="animate-fade-in space-y-6">
       {/* Score Card */}

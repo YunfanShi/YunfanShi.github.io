@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig, getProModel, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
-import { getToolsDescription, getPlatformOverview, parseToolCall, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
+import { getToolsDescription, getPlatformOverview, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
-import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, extractDualLangText, getTtsConfig, isSpeaking } from '@/lib/tts-config';
+import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, getTtsConfig } from '@/lib/tts-config';
 import { estimateAiCost } from '@/lib/utils';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
@@ -42,7 +42,6 @@ const STORAGE_KEY = 'jackyun-ai-conversations';
 const ACTIVE_ID_KEY = 'jackyun-ai-active-conversation';
 const MAX_CONTEXT_ROUNDS = 30; // 保留最近 30 轮（60 条消息）
 const MAX_CONVERSATIONS = 50; // 最多保留 50 个对话
-const MAX_AGENT_LOOPS = 8; // Agent 最大推理循环次数（防止死循环）
 const FAB_POSITION_KEY = 'jackyun-ai-fab-position';
 
 interface FabPosition {
@@ -856,7 +855,7 @@ export default function AiChatFab({
   }, []);
 
   const activeConv = conversations.find(c => c.id === activeConvId);
-  const messages = activeConv?.messages ?? [];
+  const messages = useMemo(() => activeConv?.messages ?? [], [activeConv]);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -1170,11 +1169,6 @@ export default function AiChatFab({
     return content.length > 80 ? content.slice(0, 80) + '...' : content;
   }
 
-  /** 折叠的 ToolCall 消息内容（用于渲染详情） */
-  function getSystemMessageFull(content: string): string {
-    return content;
-  }
-
   /**
    * 流式发送单次 AI 请求，并实时追加/更新 assistant 消息
    * 返回完整 assistantContent（含 tool_call 标签）
@@ -1366,7 +1360,6 @@ export default function AiChatFab({
     // ⚠️ 智能去重：记录已执行过的只读工具（同一轮内不重复读取相同数据）
     // 写操作（manage_*/toggle_*/skip_*）会清除读取记录，允许重新读取以确认修改结果
     const executedReadTools = new Set<string>();
-    let lastWriteTool: string | null = null;
 
     while (loopCount < effectiveMaxLoops) {
       loopCount++;
@@ -1474,7 +1467,6 @@ export default function AiChatFab({
         } else if (isWriteTool) {
           // 写操作会改变数据，清除对应数据源的读取记录
           executedReadTools.clear();
-          lastWriteTool = tc.tool;
         }
 
         // 需要用户确认的写操作 → 弹窗
@@ -1806,7 +1798,6 @@ export default function AiChatFab({
   function handleRetry(targetIndex?: number) {
     if (loading || !activeConv || isBusyRef.current || consentDialog) return;
     // 找到要重试的 AI 消息及其对应的用户消息
-    const assistantMsgs = activeConv.messages.filter(m => m.role === 'assistant');
     const targetAssistantIdx = targetIndex !== undefined
       ? activeConv.messages.findIndex((m, i) => i === targetIndex && m.role === 'assistant')
       : activeConv.messages.length - 1;

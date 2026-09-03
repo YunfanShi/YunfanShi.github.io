@@ -5,6 +5,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { boundedByteRange, isValidBvid, isValidNumericId, normalizeFnval, normalizeQn, validateBilibiliCdnUrl } from '@/lib/bilibili-security';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,14 +24,15 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get('type') || 'info';
   const bvid = searchParams.get('bvid');
 
-  if (!bvid) {
-    return NextResponse.json({ error: 'Missing bvid' }, { status: 400 });
+  if (type !== 'videoproxy' && !isValidBvid(bvid)) {
+    return NextResponse.json({ error: 'Invalid bvid' }, { status: 400 });
   }
 
   try {
     if (type === 'info') {
       // Get video info (title, pages, duration, etc.)
-      const apiUrl = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
+      const apiUrl = new URL('https://api.bilibili.com/x/web-interface/view');
+      apiUrl.searchParams.set('bvid', bvid!);
       const res = await fetch(apiUrl, {
         headers: {
           'Referer': 'https://www.bilibili.com',
@@ -50,14 +53,20 @@ export async function GET(req: NextRequest) {
     if (type === 'playurl') {
       // Get video play URL (mp4/m3u8 direct links)
       const cid = searchParams.get('cid');
-      if (!cid) {
-        return NextResponse.json({ error: 'Missing cid for playurl' }, { status: 400 });
+      if (!isValidNumericId(cid)) {
+        return NextResponse.json({ error: 'Invalid cid for playurl' }, { status: 400 });
       }
 
       // Use fnval=16 (DASH) which works better for proxy
-      const qn = searchParams.get('qn') || '80';
-      const fnval = searchParams.get('fnval') || '4048'; // 4048=hls, 16=dash, 1=mp4
-      const apiUrl = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${qn}&fnval=${fnval}&fnver=0&fourk=1`;
+      const qn = normalizeQn(searchParams.get('qn'));
+      const fnval = normalizeFnval(searchParams.get('fnval'));
+      const apiUrl = new URL('https://api.bilibili.com/x/player/playurl');
+      apiUrl.searchParams.set('bvid', bvid!);
+      apiUrl.searchParams.set('cid', cid);
+      apiUrl.searchParams.set('qn', qn);
+      apiUrl.searchParams.set('fnval', fnval);
+      apiUrl.searchParams.set('fnver', '0');
+      apiUrl.searchParams.set('fourk', '1');
 
       const res = await fetch(apiUrl, {
         headers: {
@@ -84,19 +93,40 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Missing url' }, { status: 400 });
       }
 
-      const decodedUrl = decodeURIComponent(videoUrl);
-      
-      const res = await fetch(decodedUrl, {
-        headers: {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      let currentUrl = validateBilibiliCdnUrl(videoUrl);
+      if (!currentUrl) return NextResponse.json({ error: 'Invalid Bilibili CDN URL' }, { status: 400 });
+      let res: Response | null = null;
+      for (let redirect = 0; redirect < 3; redirect += 1) {
+        res = await fetch(currentUrl, {
+          redirect: 'manual',
+          headers: {
           'Referer': 'https://www.bilibili.com',
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': '*/*',
           'Origin': 'https://www.bilibili.com',
-        },
-      });
+            'Range': boundedByteRange(req.headers.get('range')),
+          },
+        });
+        if (![301, 302, 303, 307, 308].includes(res.status)) break;
+        const location = res.headers.get('location');
+        currentUrl = location ? validateBilibiliCdnUrl(new URL(location, currentUrl).toString()) : null;
+        if (!currentUrl) return NextResponse.json({ error: 'Unsafe CDN redirect' }, { status: 400 });
+      }
 
-      if (!res.ok) {
-        return NextResponse.json({ error: `CDN error: ${res.status}` }, { status: res.status });
+      if (!res || res.status !== 206) {
+        const status = res?.status ?? 502;
+        return NextResponse.json({ error: `CDN did not honor the bounded range: ${status}` }, { status: 502 });
+      }
+      const contentType = res.headers.get('content-type') || '';
+      const contentLength = Number(res.headers.get('content-length') || 0);
+      if (!/^(video|audio)\//i.test(contentType) && contentType !== 'application/octet-stream') {
+        return NextResponse.json({ error: 'Unexpected CDN response type' }, { status: 502 });
+      }
+      if (!Number.isSafeInteger(contentLength) || contentLength <= 0 || contentLength > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Invalid CDN response length' }, { status: 502 });
       }
 
       // Stream the video file back
@@ -104,9 +134,12 @@ export async function GET(req: NextRequest) {
       headers.set('Content-Type', res.headers.get('Content-Type') || 'video/mp4');
       headers.set('Access-Control-Allow-Origin', '*');
       headers.set('Cache-Control', 'public, max-age=300');
+      const contentRange = res.headers.get('content-range');
+      if (contentRange) headers.set('Content-Range', contentRange);
+      headers.set('Accept-Ranges', 'bytes');
       
       return new NextResponse(res.body, {
-        status: 200,
+        status: 206,
         headers,
       });
     }

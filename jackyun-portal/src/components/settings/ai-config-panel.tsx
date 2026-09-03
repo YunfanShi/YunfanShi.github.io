@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getAiConfig, saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
+import { saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
 import { explainAiError } from '@/lib/ai-error';
 
 interface AiConfigPanelProps {

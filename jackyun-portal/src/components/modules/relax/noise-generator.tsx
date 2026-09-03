@@ -23,7 +23,7 @@ export default function NoiseGenerator() {
   const gainRef   = useRef<GainNode | null>(null);
 
   const stopSource = useCallback(() => {
-    try { sourceRef.current?.stop(); } catch (_) { /* already stopped */ }
+    try { sourceRef.current?.stop(); } catch { /* already stopped */ }
     sourceRef.current?.disconnect();
     sourceRef.current = null;
   }, []);

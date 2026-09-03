@@ -367,7 +367,7 @@ export async function getDashboardOverview(days: 7 | 30 = 30): Promise<Dashboard
 export async function addAdmin(
   email: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const { supabase, user } = await requireAdmin();
+  const { supabase } = await requireAdmin();
 
   // Find the user by email in profiles
   const { data: profile, error: findError } = await supabase

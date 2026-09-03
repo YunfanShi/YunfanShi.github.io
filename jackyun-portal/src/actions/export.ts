@@ -1,6 +1,9 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createHash } from 'node:crypto';
+import type { DataArchiveV2 } from '@/types/sync';
+import { canonicalJson } from '@/lib/sync/hash';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -13,25 +16,45 @@ async function getAuthenticatedUser() {
 
 const DATA_TABLES = ['vocab_words', 'vocab_stats', 'vocab_settings', 'study_plans', 'study_tasks', 'study_syllabus', 'study_config', 'study_mock_records', 'poems', 'poem_sessions', 'playlists', 'tracks', 'music_songs', 'music_settings', 'countdowns', 'quiz_subjects', 'quiz_sessions', 'quiz_questions', 'quiz_settings', 'relax_chat', 'relax_state', 'focus_settings', 'focus_tasks', 'focus_sessions', 'user_settings', 'legacy_sync_data'] as const;
 type DataTable = typeof DATA_TABLES[number];
-export type DataArchive = { exported_at: string; version: 1; tables: Partial<Record<DataTable, Record<string, unknown>[]>> };
+export type DataArchiveV1 = { exported_at: string; version: 1; tables: Partial<Record<DataTable, Record<string, unknown>[]>> };
+export type DataArchive = DataArchiveV1 | DataArchiveV2<DataTable>;
 
-export async function exportAllUserData(): Promise<DataArchive> {
+function checksum(tables: DataArchive['tables']): string {
+  return createHash('sha256').update(canonicalJson(tables)).digest('hex');
+}
+
+function assertValidArchive(archive: DataArchive) {
+  if (!archive || !archive.tables || (archive.version !== 1 && archive.version !== 2)) throw new Error('Unsupported backup format');
+  if (archive.version === 2 && archive.checksum !== checksum(archive.tables)) throw new Error('Backup checksum mismatch');
+}
+
+export async function exportAllUserData(): Promise<DataArchiveV2<DataTable>> {
   const { supabase, user } = await getAuthenticatedUser();
   const tables: Partial<Record<DataTable, Record<string, unknown>[]>> = {};
   await Promise.all(DATA_TABLES.map(async (table) => {
     const query = supabase.from(table).select('*');
     if (table === 'quiz_questions') {
-      const { data: sessions } = await supabase.from('quiz_sessions').select('id').eq('user_id', user.id);
+      const { data: sessions, error: sessionsError } = await supabase.from('quiz_sessions').select('id').eq('user_id', user.id);
+      if (sessionsError) throw new Error(`quiz_sessions: ${sessionsError.message}`);
       const ids = (sessions ?? []).map((session) => session.id);
-      tables[table] = ids.length ? ((await query.in('session_id', ids)).data ?? []) : [];
+      if (!ids.length) {
+        tables[table] = [];
+        return;
+      }
+      const { data, error } = await query.in('session_id', ids);
+      if (error) throw new Error(`${table}: ${error.message}`);
+      tables[table] = data ?? [];
     } else {
-      tables[table] = ((await query.eq('user_id', user.id)).data ?? []) as Record<string, unknown>[];
+      const { data, error } = await query.eq('user_id', user.id);
+      if (error) throw new Error(`${table}: ${error.message}`);
+      tables[table] = data ?? [];
     }
   }));
-  return { exported_at: new Date().toISOString(), version: 1, tables };
+  return { exported_at: new Date().toISOString(), version: 2, schema_version: 'sync-v2', checksum: checksum(tables), tables };
 }
 
 export async function previewDataImport(archive: DataArchive) {
+  assertValidArchive(archive);
   const { supabase, user } = await getAuthenticatedUser();
   return Promise.all(DATA_TABLES.filter((table) => Array.isArray(archive.tables?.[table])).map(async (table) => {
     const incoming = archive.tables?.[table] ?? [];
@@ -43,6 +66,7 @@ export async function previewDataImport(archive: DataArchive) {
 }
 
 export async function importSelectedData(archive: DataArchive, selected: DataTable[]): Promise<{ imported: string[]; skipped: string[] }> {
+  assertValidArchive(archive);
   const { supabase, user } = await getAuthenticatedUser();
   const imported: string[] = []; const skipped: string[] = [];
   for (const table of selected) {

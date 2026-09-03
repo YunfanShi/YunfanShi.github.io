@@ -2,9 +2,9 @@
 
 > 个人全能管理系统 — 全栈功能集成
 >
-> Built with Next.js 15 + Supabase + Tailwind CSS 4 + TypeScript 5
+> Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.11.2**
+> 当前版本：**v3.15.0**
 
 ---
 
@@ -15,7 +15,7 @@
 | 目录 | 说明 |
 |------|------|
 | 根目录（`*.html`） | 旧版静态 HTML 页面（历史遗留，通过 Legacy Bridge 嵌入新系统） |
-| `jackyun-portal/` | **新版** Next.js 15 App Router + Supabase 全栈应用（主系统） |
+| `jackyun-portal/` | **新版** Next.js 16 App Router + Supabase 全栈应用（主系统） |
 
 旧版 HTML 文件已全部迁移至 `jackyun-portal/public/` 目录，作为生产环境的静态资源，由 Legacy Bridge 机制统一管理 API 密钥和 LLM 请求代理。
 
@@ -25,7 +25,7 @@
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| **框架** | [Next.js 15](https://nextjs.org/) | App Router 模式，Server Component 优先 |
+| **框架** | [Next.js 16](https://nextjs.org/) | App Router 模式，Server Component 优先 |
 | **后端/数据库** | [Supabase](https://supabase.com/) | PostgreSQL + Auth + Row Level Security |
 | **样式** | [Tailwind CSS 4](https://tailwindcss.com/) | 使用 @tailwindcss/postcss 插件，CSS 变量主题系统 |
 | **认证** | GitHub OAuth · Google OAuth · Email/Password · 游客模式 | 多 Provider 账号关联，白名单访问控制，无需登录即可体验 |
@@ -42,7 +42,7 @@
 ### package.json 依赖
 
 **运行时依赖**：
-- `next` 15.x + `react` 19.x + `react-dom` 19.x
+- `next` 16.x + `react` 19.x + `react-dom` 19.x
 - `@google/generative-ai` — Google Gemini AI SDK
 - `@supabase/ssr` + `@supabase/supabase-js` — Supabase SSR / JS 客户端
 - `@tailwindcss/typography` — Tailwind 排版插件
@@ -57,7 +57,7 @@
 **开发依赖**：
 - `@tailwindcss/postcss` + `tailwindcss` 4.x
 - `typescript` 5.9.3
-- `eslint` 9.x + `eslint-config-next` 15.x
+- `eslint` 9.x + `eslint-config-next` 16.x
 - `@types/node` + `@types/react` + `@types/react-dom` + `@types/file-saver`
 - `@types/katex`
 

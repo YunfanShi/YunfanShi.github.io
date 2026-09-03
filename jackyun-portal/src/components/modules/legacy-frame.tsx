@@ -584,7 +584,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 })();
 </script>
 `;
-        if (signedIn) {
+        const useLegacyDirectSync = false; // Sync v2 polls the shared origin storage and owns retry/conflict handling.
+        if (signedIn && useLegacyDirectSync) {
           html = html.replace(/<\/head>/i, `${syncScript}</head>`);
         }
 

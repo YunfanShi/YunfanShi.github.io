@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { SyllabusSubject, SyllabusUnit, StepState, StudyConfig, MockRecord } from '@/types/study';
+import type { SyllabusSubject, SyllabusUnit, StudyConfig, MockRecord } from '@/types/study';
 import {
   upsertSubject,
   updateStepDone,
@@ -104,11 +104,10 @@ interface QuestCardProps {
   unit: SyllabusUnit;
   unitIndex: number;
   color: string;
-  subjectName: string;
   onToggle: (unitIndex: number, stepIndex: number, done: boolean) => void;
 }
 
-function QuestCard({ unit, unitIndex, color, subjectName, onToggle }: QuestCardProps) {
+function QuestCard({ unit, unitIndex, color, onToggle }: QuestCardProps) {
   const steps = unit.steps;
 
   function getStepStatus(idx: number): 'done' | 'active' | 'locked' {
@@ -799,7 +798,6 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
                   unit={unit}
                   unitIndex={ui}
                   color={activeSubject.color}
-                  subjectName={activeSubject.subject_name}
                   onToggle={handleToggleStep}
                 />
               ))}

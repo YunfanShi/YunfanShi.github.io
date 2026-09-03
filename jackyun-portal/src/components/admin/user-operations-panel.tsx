@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { sendPasswordResetForUser, setAccountStatus, type ManagedUser } from '@/actions/admin';
+import { setBetaInvitation } from '@/actions/beta';
+import type { BetaEnrollment, BetaEnrollmentStatus } from '@/lib/beta';
 
 const REASONS = ['违反平台使用规范', '异常或高风险行为', '多次滥用平台功能', '账户安全保护', '其他'] as const;
 
@@ -12,7 +14,11 @@ interface SuspensionDraft {
   explanation: string;
 }
 
-export default function UserOperationsPanel({ users, currentUserId }: { users: ManagedUser[]; currentUserId: string }) {
+const BETA_STATUS_LABELS: Record<BetaEnrollmentStatus, string> = {
+  invited: '等待同意', accepted: '已同意', declined: '已拒绝', revoked: '已撤销',
+};
+
+export default function UserOperationsPanel({ users, currentUserId, betaEnrollments }: { users: ManagedUser[]; currentUserId: string; betaEnrollments: BetaEnrollment[] }) {
   const [items, setItems] = useState(users);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'suspended' | 'deleted'>('all');
@@ -20,6 +26,7 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
   const [resetTarget, setResetTarget] = useState<ManagedUser | null>(null);
   const [notice, setNotice] = useState('');
   const [pending, startTransition] = useTransition();
+  const [betaByUser, setBetaByUser] = useState(() => new Map(betaEnrollments.map((entry) => [entry.user_id, entry])));
 
   const visible = useMemo(() => items.filter((user) => {
     const search = `${user.display_name ?? ''} ${user.email ?? ''} ${user.id}`.toLowerCase().includes(query.toLowerCase());
@@ -60,6 +67,24 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
     });
   };
 
+  const updateBeta = (user: ManagedUser, invited: boolean) => startTransition(async () => {
+    setNotice('');
+    const result = await setBetaInvitation(user.id, invited);
+    if (!result.success) return setNotice(result.error ?? '更新 BETA 状态失败。');
+    setBetaByUser((current) => {
+      const next = new Map(current);
+      next.set(user.id, {
+        user_id: user.id,
+        status: invited ? 'invited' : 'revoked',
+        invited_at: new Date().toISOString(),
+        responded_at: null,
+        agreement_version: null,
+      });
+      return next;
+    });
+    setNotice(invited ? 'BETA 邀请已发出，用户下次进入网站时可以同意或拒绝。' : 'BETA 资格已撤销，用户将返回 Stable。');
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -73,15 +98,17 @@ export default function UserOperationsPanel({ users, currentUserId }: { users: M
       {notice && <p role="status" className="rounded-lg bg-[#eff8ff] px-3 py-2 text-xs text-[#175cd3]">{notice}</p>}
       <div className="overflow-x-auto rounded-xl border border-[#eaecf0] dark:border-white/10">
         <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="bg-[#f9fafb] text-xs text-[#667085] dark:bg-white/5 dark:text-[#98a2b3]"><tr><th className="px-4 py-3">用户</th><th className="px-4 py-3">角色</th><th className="px-4 py-3">状态</th><th className="px-4 py-3">云端数据</th><th className="px-4 py-3">注册时间</th><th className="px-4 py-3" /></tr></thead>
+          <thead className="bg-[#f9fafb] text-xs text-[#667085] dark:bg-white/5 dark:text-[#98a2b3]"><tr><th className="px-4 py-3">用户</th><th className="px-4 py-3">账户</th><th className="px-4 py-3">发布通道</th><th className="px-4 py-3">BETA 同意状态</th><th className="px-4 py-3">云端数据</th><th className="px-4 py-3">注册时间</th><th className="px-4 py-3" /></tr></thead>
           <tbody>{visible.map((user) => (
             <tr key={user.id} className="border-t border-[#eaecf0] dark:border-white/10">
               <td className="px-4 py-3"><p className="font-medium">{user.display_name || '未命名用户'}</p><p className="mt-0.5 text-xs text-[#667085] dark:text-[#98a2b3]">{user.email || user.id}</p></td>
-              <td className="px-4 py-3"><span className="rounded-full bg-[#eff4ff] px-2 py-1 text-xs font-medium text-[#175cd3]">{user.role}</span></td>
-              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${user.deleted_at ? 'bg-[#fef3f2] text-[#b42318]' : user.account_status === 'suspended' ? 'bg-[#fffaeb] text-[#b54708]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{user.deleted_at ? '待恢复' : user.account_status === 'suspended' ? '已暂停' : '正常'}</span>{user.suspended_reason && <p className="mt-1 max-w-40 truncate text-xs text-[#667085]" title={`${user.suspended_reason}${user.suspended_explanation ? `：${user.suspended_explanation}` : ''}`}>{user.suspended_reason}</p>}</td>
+              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${user.deleted_at ? 'bg-[#fef3f2] text-[#b42318]' : user.account_status === 'suspended' ? 'bg-[#fffaeb] text-[#b54708]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{user.deleted_at ? '待恢复' : user.account_status === 'suspended' ? '已暂停' : '正常'}</span><p className="mt-1 text-[10px] uppercase text-[#667085]">{user.role}</p>{user.suspended_reason && <p className="mt-1 max-w-40 truncate text-xs text-[#667085]" title={`${user.suspended_reason}${user.suspended_explanation ? `：${user.suspended_explanation}` : ''}`}>{user.suspended_reason}</p>}</td>
+              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${betaByUser.get(user.id)?.status === 'accepted' ? 'bg-[#f4ebff] text-[#6941c6]' : 'bg-[#f2f4f7] text-[#475467]'}`}>{betaByUser.get(user.id)?.status === 'accepted' ? 'BETA' : 'STABLE'}</span></td>
+              <td className="px-4 py-3 text-xs"><p>{betaByUser.get(user.id) ? BETA_STATUS_LABELS[betaByUser.get(user.id)!.status] : '未邀请'}</p>{betaByUser.get(user.id)?.agreement_version && <p className="mt-1 text-[10px] text-[#667085]">协议 {betaByUser.get(user.id)!.agreement_version}</p>}</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN')}</td>
               <td className="px-4 py-3 text-right">
+                {user.id !== currentUserId && !user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="mr-2 rounded-lg border border-[#d0d5dd] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="mr-2 rounded-lg bg-[#f4ebff] px-3 py-1.5 text-xs font-semibold text-[#6941c6] disabled:opacity-50">邀请 BETA</button>)}
                 {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="mr-2 rounded-lg border border-[#b2ddff] px-3 py-1.5 text-xs font-semibold text-[#175cd3] disabled:opacity-50">发送重置邮件</button>}
                 {user.id !== currentUserId && !user.deleted_at && (user.account_status === 'active' ? (
                   <button type="button" onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318]">暂停账户</button>

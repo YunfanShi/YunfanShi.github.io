@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isSpeaking, isAutoSpeakAiEnabled, getTtsLanguage, getTtsLanguageLabel, TtsConfig } from '@/lib/tts-config';
+import { getTtsConfig, saveTtsConfig, getVoicesByEngine, speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, getTtsLanguage, TtsConfig } from '@/lib/tts-config';
 import { saveTtsConfig as saveTtsConfigServer } from '@/actions/settings';
 
 export default function TtsConfigPanel() {

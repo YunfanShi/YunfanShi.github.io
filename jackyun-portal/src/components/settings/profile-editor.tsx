@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { updateProfile, uploadAvatar } from '@/actions/settings';
 import logger from '@/lib/logger';
+import Image from 'next/image';
 
 const TAG = 'ProfileEditor';
 
@@ -67,7 +68,7 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
         {editing ? (
           <label className="cursor-pointer group relative">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border border-[var(--card-border)] object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+              <Image src={avatarUrl} alt="头像" width={64} height={64} unoptimized className="h-16 w-16 rounded-full border border-[var(--card-border)] object-cover opacity-80 transition-opacity group-hover:opacity-60" />
             ) : (
               <div className="w-16 h-16 rounded-full bg-[#4285F4]/10 flex items-center justify-center">
                 <span className="material-icons-round text-3xl text-[#4285F4]">person</span>
@@ -81,7 +82,7 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
             }} />
           </label>
         ) : (
-          avatarUrl ? <img src={avatarUrl} alt="头像" className="w-16 h-16 rounded-full border border-[var(--card-border)] object-cover" /> :
+          avatarUrl ? <Image src={avatarUrl} alt="头像" width={64} height={64} unoptimized className="h-16 w-16 rounded-full border border-[var(--card-border)] object-cover" /> :
             <div className="w-16 h-16 rounded-full bg-[#4285F4]/10 flex items-center justify-center"><span className="material-icons-round text-3xl text-[#4285F4]">person</span></div>
         )}
         <div className="flex-1">

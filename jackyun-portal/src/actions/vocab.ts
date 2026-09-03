@@ -205,11 +205,9 @@ export async function getTodayStats(): Promise<VocabDayStats> {
     };
   }
   // Create default row
-  const { data: inserted, error: insErr } = await supabase
+  const { error: insErr } = await supabase
     .from('vocab_stats')
-    .insert({ user_id: user.id, date: today, today_time: 0, today_learned: 0, today_reviewed: 0 })
-    .select()
-    .single();
+    .insert({ user_id: user.id, date: today, today_time: 0, today_learned: 0, today_reviewed: 0 });
   if (insErr) throw new Error(insErr.message);
   return { today_time: 0, today_learned: 0, today_reviewed: 0, date: today };
 }

@@ -1,80 +1,35 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 /**
  * LegacyBridge - listens for postMessage events from legacy HTML iframes
- * and syncs localStorage data to Supabase via the API route.
+ * and acknowledges their initialization handshake. The parent workspace sync
+ * owns cloud reads and durable outbox writes so legacy pages cannot bypass v2.
  */
 export default function LegacyBridge() {
-  const { signedIn } = useAuthMode();
   useEffect(() => {
-    async function handleMessage(event: MessageEvent) {
+    function handleMessage(event: MessageEvent) {
       const msg = event.data;
       if (!msg || msg.source !== 'supabase-adapter') return;
 
-      const { type, payload, requestId } = msg;
-
-      if (!signedIn) {
-        if (type === 'request-init') {
-          (event.source as WindowProxy)?.postMessage({ source: 'supabase-bridge', type: 'ready-ack', payload: null, requestId }, event.origin || '*');
-        }
-        return;
-      }
+      const { type, requestId } = msg;
 
       if (type === 'request-init') {
-        // Load user's legacy data and send back to iframe
-        try {
-          const res = await fetch('/api/legacy-sync', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          const data = res.ok ? await res.json() : {};
-          (event.source as WindowProxy)?.postMessage(
-            { source: 'supabase-bridge', type: 'init-data', payload: data, requestId },
-            event.origin || '*',
-          );
-        } catch {
-          (event.source as WindowProxy)?.postMessage(
-            { source: 'supabase-bridge', type: 'ready-ack', payload: null, requestId },
-            event.origin || '*',
-          );
-        }
-        return;
+        (event.source as WindowProxy)?.postMessage(
+          { source: 'supabase-bridge', type: 'ready-ack', payload: null, requestId },
+          event.origin || '*',
+        );
       }
 
-      if (type === 'storage-set' && payload?.key) {
-        // Persist to Supabase
-        try {
-          await fetch('/api/legacy-sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key: payload.key, value: payload.value }),
-          });
-        } catch {
-          // silently fail — data is already in localStorage
-        }
-        return;
-      }
-
-      if (type === 'storage-remove' && payload?.key) {
-        try {
-          await fetch('/api/legacy-sync', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key: payload.key }),
-          });
-        } catch {
-          // silently fail
-        }
-        return;
-      }
+      // storage-set/storage-remove are intentionally ignored here. They already
+      // changed same-origin localStorage and LocalWorkspaceSync will durably
+      // enqueue them before any cloud pull can overwrite the key.
     }
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [signedIn]);
+  }, []);
 
   return null;
 }

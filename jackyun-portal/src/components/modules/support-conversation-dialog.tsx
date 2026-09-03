@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { dismissTicketNotifications } from '@/actions/admin';
 import { addMyTicketMessage, getMyRemoteAssistanceRequest, getMyTicketConversation, respondRemoteAssistance, type MyTicketConversation } from '@/actions/feedback';
+import Link from 'next/link';
 
 interface Props {
   ticketId: string;
@@ -142,5 +143,5 @@ function NavigationCard({ body }: { body: string }) {
   const [path = '/dashboard', label = '工作台'] = body.slice('[导航协助]'.length).split('|');
   const allowed = ['/dashboard', '/settings', '/study-guide', '/timetable-hub'];
   if (!allowed.includes(path)) return <p>管理员发送了一条页面协助指令。</p>;
-  return <div><p>管理员建议你打开“{label}”。</p><button type="button" onClick={() => { window.location.assign(path); }} className="mt-3 rounded-lg bg-[#155eef] px-3 py-2 text-sm font-semibold text-white">打开{label}</button></div>;
+  return <div><p>管理员建议你打开“{label}”。</p><Link href={path} className="mt-3 inline-flex rounded-lg bg-[#155eef] px-3 py-2 text-sm font-semibold text-white">打开{label}</Link></div>;
 }

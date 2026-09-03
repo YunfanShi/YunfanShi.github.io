@@ -7,6 +7,8 @@ import { useLanguage } from '@/components/language-provider';
 import { saveSettingsField } from '@/actions/settings';
 import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
+import SyncStatusIndicator from '@/components/layout/sync-status-indicator';
+import { APP_VERSION } from '@/lib/utils';
 
 interface TopbarProps {
   user: {
@@ -14,6 +16,7 @@ interface TopbarProps {
     email?: string;
     user_metadata: Record<string, unknown>;
   } | null;
+  betaActive?: boolean;
 }
 
 type Theme = 'light' | 'gray' | 'dark';
@@ -26,7 +29,7 @@ const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = 
 
 const showFullscreenDefault = typeof window !== 'undefined' ? localStorage.getItem('show_fullscreen_btn') !== 'false' : true;
 
-export default function Topbar({ user }: TopbarProps) {
+export default function Topbar({ user, betaActive = false }: TopbarProps) {
   const { lang } = useLanguage();
   const [showFullscreen, setShowFullscreen] = useState(showFullscreenDefault);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -126,6 +129,12 @@ export default function Topbar({ user }: TopbarProps) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+        {betaActive && (
+          <span className="rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm sm:text-xs" title="你正在使用测试版本">
+            BETA v{APP_VERSION}
+          </span>
+        )}
+        <SyncStatusIndicator signedIn={Boolean(user)} />
         <button
           type="button"
           onClick={toggleTheme}
