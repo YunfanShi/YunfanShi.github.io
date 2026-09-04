@@ -75,6 +75,7 @@ export default function SyncCenterPanel() {
       <button type="button" onClick={() => { window.dispatchEvent(new Event('jackyun-sync-retry')); void load(); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white">立即同步</button>
     </div>
     {error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{error}</p> : null}
+    {detail.error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{detail.error}</p> : null}
     {conflicts.length ? <div className="space-y-3"><h3 className="font-semibold">待处理冲突</h3>{conflicts.map((conflict) => {
       const merge = conflict.localDeleted || conflict.remoteDeleted
         ? { merged: null, conflicts: ['$delete'] }

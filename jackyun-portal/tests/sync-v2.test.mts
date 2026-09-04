@@ -4,6 +4,7 @@ import test from 'node:test';
 import { boundedByteRange, isValidBvid, normalizeFnval, normalizeQn, validateBilibiliCdnUrl } from '../src/lib/bilibili-security.ts';
 import { threeWayMerge } from '../src/lib/sync/merge.ts';
 import { canonicalJson } from '../src/lib/sync/hash.ts';
+import { buildSyncRequest, compactSyncOperations } from '../src/lib/sync/batch.ts';
 
 test('canonical JSON is stable across object key order', () => {
   assert.equal(canonicalJson({ b: 2, a: { d: 4, c: 3 } }), canonicalJson({ a: { c: 3, d: 4 }, b: 2 }));
@@ -25,6 +26,30 @@ test('stable-id arrays merge records while anonymous arrays conflict', () => {
 
 test('delete and edit is preserved as an explicit conflict', () => {
   assert.deepEqual(threeWayMerge({ value: 1 }, undefined, { value: 2 }), { merged: undefined, conflicts: ['$'] });
+});
+
+test('sync batches deduplicate keys while preserving the oldest base and newest value', () => {
+  const first = { id: '00000000-0000-4000-8000-000000000001', key: 'study', baseRevision: 2, baseHash: 'a'.repeat(64), baseValue: { value: 1 }, value: { value: 2 }, deleted: false, clientUpdatedAt: '2026-09-04T00:00:00.000Z' };
+  const latest = { ...first, id: '00000000-0000-4000-8000-000000000002', baseRevision: 3, baseHash: 'b'.repeat(64), baseValue: { value: 2 }, value: { value: 4 }, clientUpdatedAt: '2026-09-04T00:01:00.000Z' };
+  const middle = { ...latest, id: '00000000-0000-4000-8000-000000000003', value: { value: 3 }, clientUpdatedAt: '2026-09-04T00:00:30.000Z' };
+  assert.deepEqual(compactSyncOperations([latest, middle, first]), [{ ...latest, id: first.id, baseRevision: first.baseRevision, baseHash: first.baseHash, baseValue: first.baseValue }]);
+});
+
+test('sync request batching stays below the server byte and operation limits', () => {
+  const operations = Array.from({ length: 120 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    key: `key-${index}`,
+    baseRevision: 0,
+    baseHash: null,
+    baseValue: null,
+    value: 'x'.repeat(20_000),
+    deleted: false,
+    clientUpdatedAt: '2026-09-04T00:00:00.000Z',
+  }));
+  const request = buildSyncRequest('00000000-0000-4000-8000-000000000999', { name: 'Browser', platform: 'web' }, operations);
+  assert.ok(request.operations.length > 0 && request.operations.length <= 100);
+  assert.ok(new TextEncoder().encode(request.body).byteLength <= 900_000);
+  assert.deepEqual(JSON.parse(request.body).operations, request.operations);
 });
 
 test('Bilibili validation blocks SSRF and bounds media ranges', () => {

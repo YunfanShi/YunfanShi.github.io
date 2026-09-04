@@ -25,9 +25,11 @@ test('migration protects enrollment writes behind explicit RPCs', () => {
 test('BETA agreement and badge remain explicit in the user interface', () => {
   const dialog = readFileSync(new URL('../src/components/modules/beta-experience.tsx', import.meta.url), 'utf8');
   const topbar = readFileSync(new URL('../src/components/layout/topbar.tsx', import.meta.url), 'utf8');
+  const adminUsers = readFileSync(new URL('../src/components/admin/user-operations-panel.tsx', import.meta.url), 'utf8');
   assert.match(dialog, /测试用户协议/);
   assert.match(dialog, /同意并加入 BETA/);
   assert.match(dialog, /拒绝，使用 Stable/);
   assert.match(topbar, /BETA v\{APP_VERSION\}/);
+  assert.doesNotMatch(adminUsers, /user\.id !== currentUserId && !user\.deleted_at && \(betaByUser/);
+  assert.match(adminUsers, /disabled=\{pending \|\| user\.id === currentUserId\}/);
 });
-

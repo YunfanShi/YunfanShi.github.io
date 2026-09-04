@@ -131,13 +131,13 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
               <td className="px-4 py-3 text-xs"><p>{betaByUser.get(user.id) ? BETA_STATUS_LABELS[betaByUser.get(user.id)!.status] : '未邀请'}</p>{betaByUser.get(user.id)?.agreement_version && <p className="mt-1 text-[10px] text-[#667085]">协议 {betaByUser.get(user.id)!.agreement_version}</p>}</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</td>
-              <td className="px-4 py-3 text-right">
-                {user.id !== currentUserId && !user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="mr-2 rounded-lg border border-[#d0d5dd] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="mr-2 rounded-lg bg-[#f4ebff] px-3 py-1.5 text-xs font-semibold text-[#6941c6] disabled:opacity-50">邀请 BETA</button>)}
+              <td className="whitespace-nowrap px-4 py-3 text-right">
+                {!user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="mr-2 rounded-lg border border-[#d0d5dd] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="mr-2 rounded-lg bg-[#f4ebff] px-3 py-1.5 text-xs font-semibold text-[#6941c6] disabled:opacity-50">邀请 BETA</button>)}
                 {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="mr-2 rounded-lg border border-[#b2ddff] px-3 py-1.5 text-xs font-semibold text-[#175cd3] disabled:opacity-50">发送重置邮件</button>}
-                {user.id !== currentUserId && !user.deleted_at && (user.account_status === 'active' ? (
-                  <button type="button" onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318]">暂停账户</button>
+                {!user.deleted_at && (user.account_status === 'active' ? (
+                  <button type="button" disabled={pending || user.id === currentUserId} title={user.id === currentUserId ? '不能暂停当前登录账户' : undefined} onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318] disabled:cursor-not-allowed disabled:opacity-50">暂停账户</button>
                 ) : (
-                  <button type="button" disabled={pending} onClick={() => restore(user)} className="rounded-lg bg-[#ecfdf3] px-3 py-1.5 text-xs font-semibold text-[#027a48] disabled:opacity-50">取消暂停</button>
+                  <button type="button" disabled={pending || user.id === currentUserId} title={user.id === currentUserId ? '不能修改当前登录账户状态' : undefined} onClick={() => restore(user)} className="rounded-lg bg-[#ecfdf3] px-3 py-1.5 text-xs font-semibold text-[#027a48] disabled:cursor-not-allowed disabled:opacity-50">取消暂停</button>
                 ))}
               </td>
             </tr>

@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
-import { getConflicts, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveConflict, saveMetadata, setSetting } from '@/lib/sync/outbox';
+import { compactOutbox, getConflicts, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveConflict, saveMetadata, setSetting } from '@/lib/sync/outbox';
+import { buildSyncRequest } from '@/lib/sync/batch';
 import { threeWayMerge } from '@/lib/sync/merge';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
@@ -78,12 +79,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
 
     async function flush(deviceId: string): Promise<void> {
-      const operations = await getOutbox();
+      const operations = await compactOutbox();
       if (!operations.length) return;
       await publishStatus('syncing');
+      const request = buildSyncRequest(deviceId, deviceDescription(), operations);
       const response = await fetch('/api/sync/v2', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, device: deviceDescription(), operations: operations.slice(0, 100) }),
+        body: request.body,
       });
       if (!response.ok) {
         const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
@@ -93,7 +95,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         applied: Array<{ operationId: string; key: string; revision: number; contentHash: string }>;
         conflicts: SyncConflict[];
       };
-      const byId = new Map(operations.map((operation) => [operation.id, operation]));
+      const byId = new Map(request.operations.map((operation) => [operation.id, operation]));
       for (const applied of payload.applied) {
         const operation = byId.get(applied.operationId);
         if (!operation) continue;
@@ -147,7 +149,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         await setSetting('lastSyncedAt', now);
         if (!cancelled) await publishStatus('synced');
       } catch (error) {
-        if (!cancelled) await publishStatus('offline_pending', error instanceof Error ? error.message : 'Sync failed');
+        if (!cancelled) await publishStatus(navigator.onLine ? 'error' : 'offline_pending', error instanceof Error ? error.message : 'Sync failed');
       } finally { running = false; }
     }
 

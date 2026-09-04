@@ -1,6 +1,7 @@
 'use client';
 
 import type { SyncConflict, SyncOperation, SyncRecord } from '@/types/sync';
+import { compactSyncOperations } from '@/lib/sync/batch';
 
 const DB_NAME = 'jackyun-sync-v2';
 const DB_VERSION = 1;
@@ -41,11 +42,41 @@ export function getOutbox(): Promise<SyncOperation[]> {
   return storeRequest('outbox', 'readonly', (store) => store.getAll());
 }
 
+async function updateOutbox(action: (store: IDBObjectStore, operations: SyncOperation[]) => SyncOperation[]): Promise<SyncOperation[]> {
+  const db = await openDatabase();
+  try {
+    return await new Promise<SyncOperation[]>((resolve, reject) => {
+      const transaction = db.transaction('outbox', 'readwrite');
+      const store = transaction.objectStore('outbox');
+      const request = store.getAll();
+      let result: SyncOperation[] = [];
+      request.onsuccess = () => { result = action(store, request.result); };
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve(result);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted'));
+    });
+  } finally { db.close(); }
+}
+
+export async function compactOutbox(): Promise<SyncOperation[]> {
+  return updateOutbox((store, operations) => {
+    const compacted = compactSyncOperations(operations);
+    const retainedIds = new Set(compacted.map((operation) => operation.id));
+    for (const operation of operations) if (!retainedIds.has(operation.id)) store.delete(operation.id);
+    for (const operation of compacted) store.put(operation);
+    return compacted;
+  });
+}
+
 export async function queueOperation(operation: SyncOperation): Promise<void> {
-  const pending = await getOutbox();
-  const previous = pending.find((item) => item.key === operation.key);
-  const next = previous ? { ...operation, id: previous.id, baseRevision: previous.baseRevision, baseHash: previous.baseHash, baseValue: previous.baseValue } : operation;
-  await storeRequest('outbox', 'readwrite', (store) => store.put(next));
+  await updateOutbox((store, operations) => {
+    const matching = operations.filter((item) => item.key === operation.key);
+    const next = compactSyncOperations([...matching, operation])[0];
+    for (const previous of matching) store.delete(previous.id);
+    store.put(next);
+    return [next];
+  });
 }
 
 export async function removeOperation(id: string): Promise<void> {
