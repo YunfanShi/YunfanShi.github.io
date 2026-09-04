@@ -182,10 +182,11 @@ $$;
 revoke all on function public.apply_web_sync_operation(uuid, uuid, text, bigint, text, jsonb, jsonb, text, boolean) from public, anon;
 grant execute on function public.apply_web_sync_operation(uuid, uuid, text, bigint, text, jsonb, jsonb, text, boolean) to authenticated;
 
--- Answer-sheet broadcasts are short-lived, so removing legacy unowned rows is safe.
-delete from public.answer_sheet_broadcasts;
 alter table public.answer_sheet_broadcasts
   add column if not exists user_id uuid references auth.users(id) on delete cascade;
+-- Only pre-migration rows lack ownership. Keep rows created after the schema
+-- upgrade safe when this idempotent migration is replayed.
+delete from public.answer_sheet_broadcasts where user_id is null;
 alter table public.answer_sheet_broadcasts alter column user_id set not null;
 alter table public.answer_sheet_broadcasts
   add constraint answer_sheet_broadcasts_id_user_unique unique (id, user_id);
