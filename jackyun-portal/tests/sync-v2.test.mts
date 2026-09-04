@@ -48,6 +48,8 @@ test('security migration uses tenant RLS and restricted RPC grants', async () =>
   assert.match(sql, /where n\.nspname = 'public' and p\.prosecdef/i);
   assert.match(sql, /select unnest\(array\[/i);
   assert.match(sql, /revoke all on function public\.apply_web_sync_operation[\s\S]+from public, anon/i);
+  assert.match(sql, /delete from public\.answer_sheet_broadcasts where user_id is null/i);
+  assert.doesNotMatch(sql, /delete from public\.answer_sheet_broadcasts\s*;/i);
   assert.doesNotMatch(sql, /auth\.role\(\)/i);
 });
 
