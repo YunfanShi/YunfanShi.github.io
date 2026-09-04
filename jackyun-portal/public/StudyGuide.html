@@ -1151,7 +1151,7 @@
             </div>
             <div>
                 <div class="logo-text">StudyGuide</div>
-                <div class="logo-badge">学习系统操作手册 · 内容版本 2026-08-30</div>
+                <div class="logo-badge">学习系统操作手册 · 内容版本 2026-09-04</div>
             </div>
         </div>
 
@@ -1254,39 +1254,43 @@
         learn: {
             label: '学习', icon: 'menu_book',
             subTabs: ['preview', 'cornell', 'review', 'traffic', 'selfstudy'],
-            subTabLabels: { preview: '4-P 预习', cornell: 'Cornell 学习', review: '主动回忆与间隔', traffic: 'Syllabus 红绿灯', selfstudy: '50分钟自学' },
+            subTabLabels: { preview: 'Preview', cornell: 'Cornell Learning', review: 'Active Recall & Spacing', traffic: 'Syllabus Check', selfstudy: '50分钟自学' },
             content: {
-                preview: methodPage('4-P 预习：带着问题进课堂', 'visibility', '预习不是提前学完整章，而是建立地图、激活旧知识并生成1–3个问题。', '上新课前5–10分钟；时间不足时放到前一晚或当天第一个空档。', '能说出这节课大概解决什么，并留下1–3个课堂要验证的问题。', [
-                    step('①', 'Preview · 扫结构', '看标题、小标题、图表、例题和结论，只判断内容结构。', '<b>怎么做：</b>快速翻页，不逐句阅读。用一句话写“这一节大概在解释什么”。<p><b>例子：</b>看到“缓存、命中率、层级结构”，先判断本节在解释计算机为什么需要不同速度的存储层。</p>'),
-                    step('②', 'Prior knowledge · 激活旧知', '写出理解新课最可能用到的1–2个旧知识。', '<b>连接只做激活：</b>此时不画完整知识树，也不要求证明关系。只问“这节课可能建立在哪个旧概念上？”课堂后再验证。'),
-                    step('③', 'Predict · 先猜逻辑', '根据标题和图表预测老师会怎样解释，允许猜错。', '<b>为什么：</b>预测会让课堂输入有比较对象。<p><b>例子：</b>看到供需图，先猜“价格变化会让曲线移动还是沿曲线移动”，课堂再纠正。</p>'),
-                    step('④', 'Questions · 留下1–3问', '把不确定处改写成课堂可验证的问题。', '<b>好问题：</b>“什么条件下这个结论不成立？”“A与B看起来相似，区别在哪里？”<p><b>不要做：</b>为了凑数量写十个问题；1个真正的问题比一页摘抄更有效。</p>')
-                ]),
-                cornell: methodPage('Cornell：课中记录，课后加工', 'edit_note', 'Cornell 不是版式任务，而是把课堂输入变成可回忆、可解释、可连接的材料。', '课堂中先记录主栏；课后第一个可用空档补 Cue 和 Summary，最好当天完成。', '主栏保留老师的逻辑；Cue 不泄露答案；Summary 能用自己的话解释并指出联系或易错点。', [
-                    step('①', 'Record · 课堂主栏', '记录定义、条件、因果、步骤、例子和老师强调的易错点。', '<b>优先记录逻辑：</b>不要逐字抄。可用“因为→所以”“条件→结论”“输入→过程→输出”。听不懂处先画问号，不要为了补笔记错过后文。'),
-                    step('②', 'Cue · 写回忆提示', '课后把主栏内容改成左栏问题或关键词，提示必须能触发回忆但不能直接给答案。', '<b>错误示例：</b>“光合作用需要光并产生葡萄糖”已经把核心答案写进提示。<p><b>更好：</b>“光合作用的输入、主要阶段和产物是什么？哪些条件会限制速率？”</p>'),
-                    step('③', 'Cover & Recall · 遮挡输出', '遮住主栏，只看 Cue 口头解释、写要点或画过程。', '<b>规则：</b>先输出再看笔记。停顿后不要立刻揭答案，先尝试举例、回想课堂图或从旧知识推导；仍失败再查看最小部分。'),
-                    step('④', 'Summary · 理解与连接', '用2–4句写：核心意思、为什么成立、与什么旧知识有关、最容易错在哪里。', '<b>不是抄结论：</b>Summary 要证明你已加工信息。<p><b>例子：</b>“机会成本不是付出的价格，而是放弃的最佳替代选项；它连接稀缺性和选择，因此比较方案时要看被放弃的最高价值。”</p>')
-                ]),
-                review: methodPage('主动回忆与间隔复习', 'sync_alt', '复习的核心是检测还能否独立输出，而不是按日期重新阅读。', '每天处理 Due Review Queue；知识状态或测试表现决定下一次日期。', '每次先闭卷，并得到清晰状态：√、△或○以及下一次复习日期。', [
-                    step('①', '先看 Cue，不看答案', '根据知识类型输出：解释、写公式并应用、画过程、比较、trace或列提纲。', '<b>为什么要变化：</b>定义、机制、计算、程序和论证的“会”不一样；所有内容都只用口述会产生假象。<p><b>Anki：</b>可以承载短问答，但只是可选工具，不适合强行装下长推导或整篇论证。</p>'),
-                    step('②', '用统一标准判定', '√＝独立、准确、完整；△＝有印象但遗漏或需要轻提示；○＝无法独立回忆或看答案才想起。', '<b>不要按感觉：</b>“看着熟”不算√。如果核心条件漏掉，即使大意正确也应标△；如果需要答案才能继续，应标○。'),
-                    step('③', '只修最小缺口', '对照资料找出缺的条件、步骤或关系，然后立刻再次闭卷输出。', '<b>避免整章重读：</b>漏一个条件就修一个条件；流程顺序错就重建流程。只有多个基础点同时缺失，才回到该小节重新学习。'),
-                    step('④', '按表现安排下次', '√可延长间隔；△保持或略缩短；○通常次日重测。1/3/5/7/14天只是起始参考。', '<b>真正依据：</b>连续表现、知识难度和使用频率。不要为了遵守固定日历，把已经稳定的内容测得过密，或把失败内容推到很久以后。')
-                ]),
-                traffic: methodPage('Syllabus 红绿灯', 'traffic', '红绿灯描述一个课程范围的长期掌握状态；它和单次检索的√/△/○不是同一套状态。', '每周扫描当前正在学习的 syllabus 范围，考试前可扩大到考试覆盖范围。', '每个主题都有证据支持的绿、黄或红，并能指出下一步行动。', [
-                    step('🟢', '绿灯 · 能独立使用', '能闭卷输出核心内容，并完成该主题的代表性任务。', '<b>代表性任务因学科而异：</b>可以是计算、解释机制、分析材料、trace程序、比较观点或组织论证，不以“会背公式”为唯一标准。'),
-                    step('🟡', '黄灯 · 部分掌握', '基本理解，但在条件、选择方法、解释结构或变式应用上不稳定。', '<b>下一步：</b>把黄灯改写成具体能力缺口，例如“能描述光合作用，但解释限制因素变化时缺少因果链”。'),
-                    step('🔴', '红灯 · 尚不能独立完成', '无法解释核心内容，或代表性任务需要大量提示。', '<b>下一步：</b>先回学习板块补理解，再做最小基础任务验证；不要直接用大量套题掩盖基础缺口。'),
-                    step('↔', '状态之间怎样配合', '红绿灯看长期主题；√/△/○记录一次具体闭卷检索。', '<b>例子：</b>“细胞呼吸”整体可以是黄灯；其中“有氧呼吸场所”今天检索为√，“ATP产量解释”检索为○。多次检索证据再推动主题变色。')
-                ]),
-                selfstudy: methodPage('一次50分钟自学', 'timer', '这是可选的自学容器，不是每天必须坐满的固定配额。', '周末、空课或需要补弱时使用；一次只处理一个知识点或一种题型。', '留下一个可检测结果、一次闭卷输出、一个应用结果和下一次复习安排。', [
-                    step('5分钟', '定结果 + 4-P', '写“动作＋范围＋检测”，再扫结构并留下1–3个问题。', '<b>例子：</b>“50分钟后能不看资料解释递归的终止条件，并trace两段基础代码。”若范围太大，先切成一个小问题。'),
-                    step('20分钟', '理解', '学习一个小范围，每看完一段就停下来用自己的话复述。', '<b>卡住时：</b>只查复述失败的部分。推导或过程每一步都问“依据哪个条件”，避免眼睛跟着答案走。'),
-                    step('10分钟', '连接', '写一条旧知联系、区别、因果链或现实联系，并解释为什么有关。', '<b>只做一条有效联系：</b>例如“缓存利用局部性原理，所以访问模式会影响命中率”；不要求一次画完整知识树。'),
-                    step('10分钟', '应用', '做一个直接任务，再做一个轻微变化的任务。', '<b>任务不一定是计算题：</b>也可以是Compare、Explain、材料分析、代码trace或提纲。失败时记录具体卡点并进入习题流程。'),
-                    step('5分钟', '闭卷收尾', '重新输出核心内容，标记√/△/○并安排下次复习。', '<b>停止标准：</b>完成本次证据即可停，不因为还有时间就继续无目标输入。番茄钟可选25+5或50+10，按注意力状态选择。')
-                ])
+                preview: methodPage('Preview：每个 Unit 建一次地图', 'visibility', 'Preview 的目标不是提前学会，而是快速建立 Unit 地图；通常一个 Unit 只做一次，不随每节课重复。', '开始一个新 Unit 时快速扫一遍；不是每日任务，也不要求提前完整自学整个 Unit。', '能看出 Unit 的结构、主要连接和旧知入口即可；没有问题也可以结束。', [
+                    step('①', 'Structure · 扫结构', '快速看 Unit title、headings、subheadings、diagrams、formulas 和 highlighted concepts。', '<b>怎么做：</b>快速翻页，只建立范围感，不逐句阅读、不抄教材。目标是知道这个 Unit 大致包含哪些小节。'),
+                    step('②', 'Logic · 猜连接', '判断小节可能怎样连接，例如 concept → method、definition → application、cause → result、simple → complex。', '<b>允许猜错：</b>这里只建立待验证的逻辑地图，课堂和教材会继续修正它。'),
+                    step('③', 'Connection · 接旧知', '问：What does this build on? Which previous topic may be related?', '<b>够用即可：</b>找到一个可能的旧知入口就可以，不需要提前画完整知识网络。'),
+                    step('可选', 'Questions · 自然产生才记录', '有真实疑问就写下；因为还没学而没有问题，可以直接跳过。', '<b>没有问题不是预习失败。</b>问题可以在课堂学习过程中自然产生，并在课后向老师或 AI 询问。不要为了完成 Preview 强行编问题。')
+                ], 'Preview Once：Structure → Logic → Connection → Questions（Optional）。快速扫一遍即可。'),
+                cornell: methodPage('Cornell Learning：跟着学习证据更新', 'edit_note', 'Cornell 不是“一节课结束必须完成 Record → Cue → Summary”的固定模板。Record 跟课堂走，Cue 跟 subsection 走，Summary 跟 Unit 走。', '老师学完一个 subsection 后，按实际需要处理 Cue、教材核对、练习和作业证据；不是每一步每天都要机械执行。', '当天或最迟隔天留下可触发回忆的 Cue；只补真实缺口，并把第一次正式闭卷检索放到第二天。', [
+                    step('①', 'Class Learning · Record', '课堂实时记 Notes：核心概念、公式与条件、重要解释、例题方法、易错点和考试提示。', '<b>不要抄完整教材：</b>优先记录老师的逻辑和你真正需要保留的信息。没听懂处先标记，避免为了补笔记错过后文。'),
+                    step('②', 'Write Cue · 按 subsection', '老师学完一个小节后写 Cue；优先当天，最迟隔天。一般 1–3 个高质量 Cue 即可，不强制数量。', '<b>Cue 必须触发主动回忆，而不是标题。</b><p><b>Bad：</b>“Quadratic equations”</p><p><b>Good：</b>“When should I use the quadratic formula?” “What does the discriminant tell me?” “How can I identify the turning point?”</p><p>Cue 允许在教材核对或作业后修改。</p>'),
+                    step('③', 'Textbook Check · Locate → Compare → Fill Gaps → Leave', '先按实际课堂内容写 Cue，再定位对应教材 subsection，对照并只补缺口。', '<b>教材的作用：</b>提供规范结构；处理老师没有按 1.1 / 1.2 / 1.3 顺序讲的情况；补 definition、condition、formula、relationship 或 example。老师已经讲清楚就快速扫过；教材没有额外重要内容就离开。<p><b>不要为了完成 StudyGuide，把教材整节重新抄或重新完整学习一次。</b></p>'),
+                    step('④', 'Need Extra Verification? · 真正做决定', '概念清楚、例子理解、作业已提供足够练习时，Skip textbook questions。只有不确定能否独立做、作业太少、讲解不清或方法很陌生时，做 1–2 道代表题。', '<b>Use questions for verification, not for ceremonial extra workload.</b><p>代表题独立做对就继续；做不出则定位缺口 → 回教材或 Notes 做最小修复 → 再试另一道代表题。不设固定 5 题或 10 题。</p>'),
+                    step('⑤', 'Homework · Application + Verification', '作业用来验证能否选择并执行方法，并暴露 calculation、interpretation、selection、reasoning 或 execution 问题。', '<b>什么时候可以跳过额外题：</b>如果 homework 已经充分验证这个知识点，就不再机械做 textbook questions。学校作业不是流程外的负担，而是主要应用证据。'),
+                    step('⑥', 'Update from Evidence', '只根据教材、题目或作业暴露的真实问题，更新 Notes、红笔易错点或 Problematic Questions。', '<b>Notes：</b>补遗漏的 condition、formula、method choice 或 special case。<p><b>红笔易错点：</b>写“我从错误里学到了什么”，例如 check sign、convert units first。</p><p><b>Problematic Questions：</b>只保存值得以后重新测试的题，可标 Calculation、Interpretation、Selection、Reasoning、Execution、Response Structure、Time / Strategy；不需要抄完整解析。</p><p>两者不要重复：前者是短提醒，后者是未来的测试材料。</p>'),
+                    step('次日', 'Next-day Cue Recall', '第二天遮住 Notes，只看 Cue，从记忆回答，再按 √ / △ / ○ 分流。', '<b>允许的节奏：</b>Day 1 = learn + Cue + textbook + homework；Day 2 = first closed-book recall。写完 Cue 当晚不必立刻完成全部检索。详细分流见 Active Recall & Spacing。'),
+                    step('Unit', 'Unit Summary · 只写一次', '完整 Unit 学完后写 2–4 句或一小段：主要内容、核心连接、重要方法或规则、常见风险。', '<b>Summary 不按每节课写。</b>不要重抄 Notes；它只负责把整个 Unit 压缩成一张简短地图。完成后再做 Syllabus coverage check。')
+                ], 'SUBSECTION：Class Learning → Write Cue → Textbook Check → Update Notes / Cue → Need Extra Verification? → Homework → Update from Evidence → Next-day Cue Recall → √ / △ / ○。'),
+                review: methodPage('Active Recall & Spacing：先在第二天闭卷', 'sync_alt', '第一次正式 Cue Recall 可以放到第二天。复习只处理到期或有证据显示薄弱的内容，不要求重看全部 Notes。', '次日处理新 Cue；之后按表现进入 spaced review。周末集中验证本周的 △ / ○、错误模式和 Problematic Questions。', '每次先闭卷，得到 √、△或○，完成对应的最小动作；周末确认修复后的知识能否独立使用。', [
+                    step('①', 'Next-day Recall · 先遮 Notes', 'Cover Notes → read Cue → answer from memory；按知识类型解释、写公式并应用、画过程、比较、trace 或列提纲。', '<b>先输出再看资料。</b>不要求所有知识点在写 Cue 当晚立刻完成 Recall。Anki 可以承载短问答，但只是可选工具。'),
+                    step('②', '√ / △ / ○ · 记录这一次检索', '√＝独立、准确、完整；△＝有印象但遗漏或需要轻提示；○＝无法独立回忆或看答案才想起。', '<b>√：</b>leave it，之后做 spaced review。<p><b>△：</b>找出缺失部分，做 minimal repair，稍后重试。</p><p><b>○：</b>重开 Notes / Textbook，只重学最小缺口；关闭资料再 recall，需要应用时加一道代表题。</p>'),
+                    step('③', 'Spacing · 由证据决定', '√可延长间隔；△保持或略缩短；○尽快重测。1 / 3 / 5 / 7 / 14 天只是参考，不是仪式。', '<b>不要重复劳动：</b>稳定的 √ 不必每周全部重做；失败内容也不要只改日期而不修缺口。间隔由连续表现、难度和使用频率决定。'),
+                    step('周末', 'Weekly Verification', '使用本周 Cue、△ / ○、红笔易错点、Problematic Questions 和 homework evidence 做选择性验证。', '<b>怎么做：</b>①遮住答案回忆 Cue；②聚焦 △ / ○；③查看重复错误模式；④不看解析重做精选 Problematic Questions；⑤确认修复后能否独立使用；⑥决定哪些弱点留到下周。<p><b>什么时候可以跳过：</b>不要重新复习全部 √ 内容。</p>')
+                ], 'Recall 是检测，不是重读；只有 Recall、Homework 或 Questions 暴露问题时，才进一步修复。'),
+                traffic: methodPage('Syllabus Check：Unit 完成后的范围核对', 'traffic', 'Teacher ≠ Textbook ≠ Syllabus：三者职责不同，不需要每天逐条对照。', '平时用 Teacher + Textbook；一个 Unit 完成并写完 Summary 后，快速对照 Syllabus 做一次 coverage check。', '确认考试要求的范围没有遗漏，并把缺口变成具体的补学或验证动作；没有缺口就结束。', [
+                    step('Teacher', '理解与课堂重点', '老师负责讲解、技巧、课堂例题和强调重点。', '<b>不要把课堂顺序当作最终目录：</b>老师可能跨 subsection 讲，但这不代表需要每天同时核对全部来源。'),
+                    step('Textbook', '规范结构与补充', '教材提供规范结构、完整解释、标准 definition / condition / formula / example 和必要练习。', '<b>平时怎么用：</b>在 Cue 后定位对应 subsection，只补课堂留下的缺口，然后离开。'),
+                    step('Syllabus', '最终范围标准', 'Syllabus 回答“考试到底要求我会什么”，不是每天的学习步骤。', '<b>什么时候用：</b>Unit 完成后快速对照 learning objectives / content statements；考试前再按考试范围扩大检查。'),
+                    step('Check', 'Coverage → Evidence → Action', '逐项确认已学、能回忆、能应用；只处理没有证据或仍不稳定的点。', '<b>状态可继续用红绿灯：</b>🟢有独立使用证据；🟡部分掌握；🔴还不能独立完成。红绿灯看长期主题，√ / △ / ○只记录一次检索结果。')
+                ], 'Teacher 帮你理解，Textbook 帮你对齐结构，Syllabus 在 Unit 结束时检查最终范围。'),
+                selfstudy: methodPage('一次50分钟自学', 'timer', '这是按需使用的自学容器，不属于每日学习流程的必做步骤。', '周末、空课或证据显示需要补弱时使用；一次只处理一个知识点或一种题型。', '留下一个可检测结果和下一步即可；如果目标提前完成，可以提前结束。', [
+                    step('5分钟', '定结果', '写清动作、范围和可选完成标准，让自己可以直接开始。', '<b>例子：</b>“能不看资料解释递归的终止条件，并 trace 两段基础代码。”不要把整个 Unit 塞进一次自学。'),
+                    step('20分钟', '理解最小范围', '只学习当前缺口；每看完一小段，用自己的话解释。', '<b>卡住时：</b>定位复述失败的部分，不从头重读整章。'),
+                    step('10分钟', '建立一条连接', '连接一个旧知识、区别、因果链或现实例子，并说明为什么有关。', '<b>够用即可：</b>不要求一次画完整知识树。'),
+                    step('10分钟', '用代表任务验证', '选择能证明当前目标的一个任务；已有 homework evidence 时可以减少或跳过额外题。', '<b>任务不限于计算：</b>也可以是 Explain、Compare、材料分析、代码 trace 或提纲。'),
+                    step('5分钟', '记录证据并停止', '记下已验证的结果、剩余缺口和下一次复习安排。', '<b>停止标准：</b>完成本次目标即可，不因计时器还有时间继续制造工作。番茄钟可选 25+5 或 50+10。')
+                ], '这是 optional container；不要把它加进每天必须完成的 Class → Cue → Textbook → Homework → Recall 流程。')
             }
         },
         practice: {
@@ -1774,7 +1778,7 @@
         return `
             <details class="source-panel">
                 <summary>来源与版本（Study Methods and Execution）</summary>
-                <p style="margin-top:10px;">Version: 20260830 · Powered by Jack Shi · Created on 2 August · Updated on 30 August。来源包括 Gemini、Bilibili、ChatGPT 与 Google；本页保留有实际用途的方法，并按需整理为可快速调用的工具。</p>
+                <p style="margin-top:10px;">Version: 20260904 · Powered by Jack Shi · Created on 2 August · Updated on 4 September。来源包括 Gemini、Bilibili、ChatGPT 与 Google；本页保留有实际用途的方法，并按需整理为可快速调用的工具。</p>
                 <div class="source-links">
                     <a href="https://www.bilibili.com/video/BV1tibi6xEN4/" target="_blank" rel="noopener noreferrer">学习知识体系</a>
                     <a href="https://www.bilibili.com/video/BV1EhB9BLEHs/" target="_blank" rel="noopener noreferrer">学习时间</a>
@@ -1791,18 +1795,18 @@
     function getTimelineItems(granule) {
         const timelines = {
             daily: [
-                { time: '课前 · 5–10分钟', icon: 'visibility', title: '4-P 预习', desc: '为今天有新课的科目快速预习；写1–3个真正的问题。', detail: '<b>执行中心只负责提醒：</b>这里不重复讲4-P步骤。若两节课之间没有时间，可在前一天晚上或当天第一个空档完成。', checkKey: 'school_preview', required: true, method: { tab: 'learn', subTab: 'preview', label: '查看“学习 → 预习”' } },
-                { time: '课中', icon: 'edit_note', title: 'Cornell Record', desc: '听懂老师的逻辑，并记录右侧主栏；课堂不强求同时完成线索栏和总结栏。', detail: '<b>为什么分开：</b>课堂同时听讲、理解、写Cue和总结会增加负担。课中先保证输入质量，课后再加工。', checkKey: 'school_record', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Cornell”' } },
-                { time: '课后第一个可用空档 · 5–10分钟', icon: 'summarize', title: 'Cue + Summary', desc: '提炼回忆提示，用自己的话解释、连接旧知识并写易错点。最好当天完成，不把“30分钟内”当硬期限。', detail: '<b>避免重复：</b>这一步已经完成理解、连接和当日总结，因此晚上不再额外要求写“三句总结”。', checkKey: 'school_process', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Cornell”' } },
-                { time: '放学后', icon: 'assignment', title: 'Homework / Application', desc: '学校作业本身就是应用与验证；只有作业不足或明显不会用时才额外找题。', detail: '<b>先做正常作业：</b>不要为了完成StudyGuide再机械增加基础题和变式题。出现具体卡题、错题或专项补弱需求时，再进入习题模块。', checkKey: 'school_homework', required: true, method: { tab: 'practice', subTab: 'general', label: '需要时查看“习题”' } },
-                { time: '中午或晚上 · 5–15分钟', icon: 'sync_alt', title: 'Due Review Queue', desc: '只处理今天到期的知识：看Cue主动回忆→对照→标记√/△/○→修最小缺口→安排下次日期。', detail: '<b>没有到期内容时：</b>这一项可以直接完成，不需要随便找旧笔记重看。复习量由到期队列决定，不由“今天必须坐够多久”决定。', checkKey: 'due_review', required: true, method: { tab: 'learn', subTab: 'review', label: '查看“学习 → 主动回忆与间隔复习”' } }
+                { time: '新 Unit 开始时', icon: 'visibility', title: 'Preview Once', desc: '只在新 Unit 开始时扫 Structure → Logic → Connection；Questions 可以跳过。', detail: '<b>不是每日任务：</b>同一个 Unit 不需要每节课重复 Preview。没有自然产生问题也不算失败。', checkKey: 'school_preview', required: false, method: { tab: 'learn', subTab: 'preview', label: '查看“学习 → Preview”' } },
+                { time: '课中 → 小节结束', icon: 'edit_note', title: 'Class Learning → Write Cue → Textbook Check', desc: '课中 Record；一个 subsection 学完后写 Cue，再用教材 Locate → Compare → Fill Gaps → Leave。', detail: '<b>分层处理：</b>Notes 跟课堂走，Cue 跟 subsection 走。Cue 优先当天、最迟隔天；教材只补缺口，不重学整节。', checkKey: 'school_record', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Cornell Learning”' } },
+                { time: '教材核对后 · 按需', icon: 'rule', title: 'Need Extra Verification?', desc: '清楚且 homework 足够就 Skip；不确定能否独立做时，只做 1–2 道代表题。', detail: '<b>这是选做 decision：</b>教材题用于验证，不用于凑工作量。做不出时只修最小缺口，再换一道代表题验证。', checkKey: 'school_process', required: false, method: { tab: 'learn', subTab: 'cornell', label: '查看“教材题何时可跳过”' } },
+                { time: '放学后', icon: 'assignment', title: 'Homework → Update from Evidence', desc: '把作业当作 Application + Verification；只把暴露的问题补进 Notes、红笔易错点或 Problematic Questions。', detail: '<b>避免重复：</b>作业已充分验证的知识不再机械加题。红笔写学到的短提醒；Problematic Questions 保存以后要重测的题，两者不要重复。', checkKey: 'school_homework', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Update from Evidence”' } },
+                { time: '次日 / 到期时', icon: 'sync_alt', title: 'Cue Recall → √ / △ / ○', desc: '第一次正式闭卷检索可以在第二天；之后只处理到期内容和 △ / ○ 的最小缺口。', detail: '<b>Day 1：</b>learn + Cue + textbook + homework。<b>Day 2：</b>cover Notes → read Cue → answer from memory → classify。没有到期内容时不必随便找旧笔记重看。', checkKey: 'due_review', required: true, method: { tab: 'learn', subTab: 'review', label: '查看“学习 → Active Recall & Spacing”' } }
             ],
             weekly: [
-                { time: '第1步', icon: 'inbox', title: '汇总本周信号', desc: '收集△/○、作业错题、重复问题、老师反馈，以及当前范围的黄灯/红灯；先汇总，不马上全部重做。', detail: '<b>目的：</b>把一周中分散的问题放进同一张候选清单。已解决且没有重复出现的问题不必继续占用清单。', checkKey: 'weekly_signals', required: true },
-                { time: '第2步', icon: 'traffic', title: '扫描当前学习范围', desc: '只检查最近正在学的章节；判断能否闭卷输出核心内容，并完成一个代表性任务。', detail: '<b>不是公式检查：</b>核心内容可以是定义、条件、因果、机制、步骤、比较、图表、算法或论证。', checkKey: 'weekly_scope', required: true, method: { tab: 'learn', subTab: 'traffic', label: '查看“学习 → Syllabus红绿灯”' } },
-                { time: '第3步', icon: 'priority_high', title: '选出2–3个最大漏洞', desc: '按严重程度、重复频率、后续依赖和考试权重排序，只留下最值得解决的2–3项。', detail: '<b>输出要具体：</b>不要写“这门课不好”，写“Evaluate题总能列出两方观点，但结尾没有使用判断标准”。', checkKey: 'weekly_gaps', required: true },
-                { time: '第4步', icon: 'build', title: '安排修复任务', desc: '为每个漏洞指定方法去向和可检测结果，不在执行中心重复讲专项方法。', detail: '<b>例子：</b>“CS Virtual Memory Explain → 习题·文字题专项 → 完成2道同能力新题验证”。', checkKey: 'weekly_repairs', required: true, method: { tab: 'practice', subTab: 'diagnose', label: '查看“习题 → 错题诊断”' } },
-                { time: '第5步', icon: 'event', title: '安排下周', desc: '确定下周1–2个额外重点、下一次复习日期和是否有考试任务；正常课程照常进行。', detail: '<b>区别：</b>所有有课科目继续走轻量学校流程；额外自学时间才集中在1–2个薄弱科目。', checkKey: 'weekly_plan', required: true }
+                { time: '第1步', icon: 'inbox', title: '汇总本周验证证据', desc: '收集本周 Cue、△ / ○、红笔易错点、Problematic Questions 和 homework evidence。', detail: '<b>先汇总，不全重做：</b>已解决且没有再次出现的问题不继续占用清单。', checkKey: 'weekly_signals', required: true },
+                { time: '第2步', icon: 'psychology', title: '遮住答案回忆 Cue', desc: '优先抽查 △ / ○；稳定的 √ 不需要全部重复复习。', detail: '<b>按知识类型输出：</b>定义用解释，公式用写 + 应用，过程用图或步骤，论证用提纲。', checkKey: 'weekly_scope', required: true, method: { tab: 'learn', subTab: 'review', label: '查看“学习 → Weekly Verification”' } },
+                { time: '第3步', icon: 'error_outline', title: '检查重复错误模式', desc: '查看哪些 calculation、interpretation、selection、reasoning 或 execution 问题反复出现。', detail: '<b>写具体：</b>不要写“数学不好”，写“负号在移项后反复出错”或“会计算但经常选错方法”。', checkKey: 'weekly_gaps', required: true },
+                { time: '第4步', icon: 'replay', title: '重做精选 Problematic Questions', desc: '不看解答重做少量最有诊断价值的题，验证修复后的知识能否独立使用。', detail: '<b>仍失败时：</b>回到最小知识缺口修复，再用另一道代表题验证；不要整章重刷。', checkKey: 'weekly_repairs', required: true, method: { tab: 'practice', subTab: 'diagnose', label: '需要时查看“习题 → 错题诊断”' } },
+                { time: '第5步', icon: 'event', title: '决定下周仍需处理什么', desc: '只保留仍薄弱的知识和重复错误；Unit 完成时另做一次 Syllabus coverage check。', detail: '<b>不要制造任务：</b>没有证据显示薄弱的内容不额外安排。Syllabus 是 Unit-end 检查，不是每周或每天三方逐条对照。', checkKey: 'weekly_plan', required: true, method: { tab: 'learn', subTab: 'traffic', label: 'Unit 完成后查看 Syllabus Check' } }
             ],
             biweekly: [
                 { time: '第1步', icon: 'shuffle', title: '随机抽10个已掌握知识点', desc: '抽5个最近两周内容和5个更早内容；从√或🟢中随机选择，不只抽Cornell页面。', detail: '<b>目的：</b>检查“以前认为会的内容是否还保留”，不是再次总结最近两周的问题。', checkKey: 'retention_sample', required: true },

@@ -5,15 +5,18 @@ const html = readFileSync('public/StudyGuide.html', 'utf8');
 
 const required = [
   '执行中心', '学习', '习题', '考试', '学习闭环', '执行与专注', 'IELTS 专项',
-  '内容版本 2026-08-30', 'studyguide_progress',
+  '内容版本 2026-09-04', 'studyguide_progress',
   '今日', '本周', '每两周', '当前没有考试叠加计划',
-  '4-P 预习', 'Cornell Record', 'Cue + Summary', 'Homework / Application', 'Due Review Queue',
-  '汇总本周信号', '扫描当前学习范围', '选出2–3个最大漏洞', '安排修复任务', '安排下周',
+  'Preview Once', 'Class Learning → Write Cue → Textbook Check', 'Need Extra Verification?', 'Homework → Update from Evidence', 'Cue Recall → √ / △ / ○',
+  '汇总本周验证证据', '遮住答案回忆 Cue', '检查重复错误模式', '重做精选 Problematic Questions', '决定下周仍需处理什么',
   '随机抽10个已掌握知识点', '按知识类型完全闭卷测试', '查看两周留存趋势',
   '√＝独立、准确、完整', '△＝有印象但遗漏或需要轻提示', '○＝无法独立回忆或看答案才想起',
-  'Syllabus 红绿灯', '和单次检索的√/△/○不是同一套状态', 'Anki', '可选工具',
-  'Preview · 扫结构', 'Prior knowledge · 激活旧知', 'Predict · 先猜逻辑', 'Questions · 留下1–3问',
-  '课后第一个可用空档', '最好当天完成', '不能直接给答案',
+  'Syllabus Check', '红绿灯看长期主题，√ / △ / ○只记录一次检索结果', 'Anki', '可选工具',
+  'Structure · 扫结构', 'Logic · 猜连接', 'Connection · 接旧知', 'Questions · 自然产生才记录',
+  '优先当天，最迟隔天', 'Cue 必须触发主动回忆，而不是标题',
+  'Locate → Compare → Fill Gaps → Leave', 'Skip textbook questions', 'Use questions for verification, not for ceremonial extra workload',
+  'Homework · Application + Verification', '红笔易错点', 'Problematic Questions', 'Next-day Cue Recall', 'Unit Summary · 只写一次',
+  'Teacher ≠ Textbook ≠ Syllabus', 'Unit 完成并写完 Summary 后', 'Summary 不按每节课写',
   '难题怎么拆', '学科 / 题型怎么做', '错题诊断', '卡题怎么办',
   '普通题直接做；陌生题、综合题或做到一半断掉时，再打开这一页',
   '目标 → 缺口 → 连接', '从目标往回推', '只做必要检查',
@@ -109,6 +112,8 @@ vm.runInNewContext(`${script};globalThis.__studyGuideTest = {
   escapeHtml,
   renderToday,
   renderModuleFor(tab, subTab) { STATE.subTab = subTab || null; return renderModule(tab); },
+  loadState,
+  getState() { return { ...STATE }; },
   modules: Object.fromEntries(Object.entries(STUDY_DATA).map(([key, value]) => [key, value.subTabs])),
   typeLibrary: STUDY_DATA.practice.content.types.granules.guide.questionTypes,
 };`, sandbox);
@@ -149,6 +154,45 @@ for (const [module, tabs] of Object.entries(expectedTabs)) {
   if (!runtime.renderModuleFor(module).includes('查看详细说明') && module !== 'practice') {
     throw new Error(`Study Guide ${module} module cannot render its expandable guidance`);
   }
+}
+
+const preview = runtime.renderModuleFor('learn', 'preview');
+for (const text of ['一个 Unit 只做一次', 'Questions · 自然产生才记录', '没有问题不是预习失败', '不随每节课重复']) {
+  if (!preview.includes(text)) throw new Error(`Learning Preview is missing: ${text}`);
+}
+const cornell = runtime.renderModuleFor('learn', 'cornell');
+for (const text of [
+  'Cue 跟 subsection 走', 'Summary 跟 Unit 走', 'Textbook Check',
+  'Locate → Compare → Fill Gaps → Leave', 'Skip textbook questions',
+  'Homework · Application + Verification', 'Update from Evidence',
+  '红笔易错点', 'Problematic Questions', 'Next-day Cue Recall',
+]) {
+  if (!cornell.includes(text)) throw new Error(`Cornell Learning is missing: ${text}`);
+}
+const review = runtime.renderModuleFor('learn', 'review');
+for (const text of ['第一次正式 Cue Recall 可以放到第二天', '√ / △ / ○', 'Weekly Verification', '不要重新复习全部 √ 内容']) {
+  if (!review.includes(text)) throw new Error(`Active Recall & Spacing is missing: ${text}`);
+}
+const syllabus = runtime.renderModuleFor('learn', 'traffic');
+for (const text of ['Teacher ≠ Textbook ≠ Syllabus', 'Unit 完成并写完 Summary 后', 'coverage check', '不是每天的学习步骤']) {
+  if (!syllabus.includes(text)) throw new Error(`Syllabus Check is missing: ${text}`);
+}
+const selfStudy = runtime.renderModuleFor('learn', 'selfstudy');
+if (!selfStudy.includes('不属于每日学习流程的必做步骤') || !selfStudy.includes('optional container')) {
+  throw new Error('50-minute self-study must remain an optional container outside the daily learning flow');
+}
+
+storage.set('studyguide_progress', JSON.stringify({
+  checklists: { 'day:2026-09-03': { school_preview: true, school_record: true } },
+  lastTab: 'learn',
+  dashboardPeriod: 'weekly',
+  lastGranule: 'biweekly',
+  activeExamPlan: { name: 'Legacy exam', date: '2026-09-30', kind: '3week' },
+}));
+runtime.loadState();
+const legacyState = runtime.getState();
+if (!legacyState.progress['day:2026-09-03']?.school_preview || legacyState.mainTab !== 'learn' || legacyState.moduleGranule !== 'biweekly') {
+  throw new Error('Legacy StudyGuide localStorage state no longer loads safely');
 }
 
 const ieltsOverview = runtime.renderModuleFor('ielts', 'overview');
@@ -231,4 +275,4 @@ if (JSON.stringify(modern) !== JSON.stringify(legacy)) {
   throw new Error('Legacy activeExamPlan.kind must be ignored safely');
 }
 
-console.log('Study Guide structural refactor and IELTS module checks passed.');
+console.log('Study Guide content, compatibility, and IELTS module checks passed.');

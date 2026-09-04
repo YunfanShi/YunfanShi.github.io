@@ -1,13 +1,13 @@
 # StudyGuide 结构与职责映射
 
-核对版本：2026-08-30。
+核对版本：2026-09-04。
 
 核心边界：TickTick等任务管理器负责What、When、Scope、Deadline、Priority和时间安排；StudyGuide负责How、诊断与修复。StudyGuide中的页面都是按需工具，不要求用户每次完整走一套SOP。
 
 | 一级板块 | 当前结构 | 职责 |
 |---|---|---|
 | 执行中心 | 今日 / 本周 / 每两周 / 当前考试提醒 | 保留轻量执行摘要和周期诊断；不在这里重复解释具体方法。 |
-| 学习 | 4-P / Cornell / 主动回忆与间隔 / Syllabus红绿灯 / 可选50分钟自学 | 解决怎样理解、连接、记住和独立学习。 |
+| 学习 | Unit Preview / Cornell Learning / Active Recall & Spacing / Unit-end Syllabus Check / 可选50分钟自学 | 解决怎样理解、核对、验证、修复和独立学习。 |
 | 习题 | 难题怎么拆 / 学科与题型 / 错题诊断 / 卡题怎么办 | 普通题直接做；难题才用“目标→缺口→连接”。题型库按Math、Physics、Chemistry、Biology、CS、Humanities和IELTS细分。 |
 | 考试 | 学校考试 / IGCSE、AS、A-Level / 考场策略 | 用考试名称、日期、类型和可选范围生成日期驱动建议；不再要求先选2周或3周计划。 |
 | 学习闭环 | 单页：理解→连接→检索→应用 | 只做总路线与失败路由，不再重复学校日、自学、复习和卡题内容。 |
@@ -48,5 +48,13 @@
 - 任务写法助手：输入Subject、Action、Scope和可选完成标准，生成简短TickTick任务并支持复制。
 - 卡题提示器：输入已经做到哪里和具体卡点，AI按最小提示原则逐层回应。
 - 考试计划生成器：输入Exam Name、Date、Type和可选Scope，生成当前及后续阶段建议。
+
+## Learning 两层流程
+
+- Unit level：Preview 只在新 Unit 开始时做一次，快速看 Structure、Logic、Connection；Questions 可选。Unit 完成后写一次简短 Summary，再用 Syllabus 做 coverage check。
+- Subsection level：Class Learning → Write Cue → Textbook Check → 按需做 1–2 道代表题 → Homework → Update from Evidence → Next-day Cue Recall → √ / △ / ○ 分流。
+- Notes 和 Cue 可根据教材及作业证据更新。红笔易错点记录“从错误里学到什么”，Problematic Questions 保存“以后用什么题重测”。
+- 周末只验证本周 Cue、△ / ○、重复错误和精选 Problematic Questions；稳定的 √ 不要求全部重做。
+- 50分钟自学继续是按需容器，不进入学校日流程的必做清单。
 
 来源：用户提供的StudyGuide结构评审、原Google Docs及页面保留的视频来源。
