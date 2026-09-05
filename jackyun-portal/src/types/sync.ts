@@ -41,6 +41,7 @@ export interface SyncConflict {
   remoteDeleted: boolean;
   remoteHash: string | null;
   remoteRevision: number;
+  remoteUpdatedAt?: string;
   createdAt?: string;
 }
 

@@ -43,6 +43,7 @@ const translations: TranslationMap = {
   'nav.pomodoro':             { zh: '番茄钟',               en: 'Pomodoro' },
   'nav.mock':                 { zh: 'Mock 刷题',            en: 'Mock Practice' },
   'nav.quizwise':             { zh: 'QuizWise 刷题',        en: 'QuizWise' },
+  'nav.review':               { zh: '错题复习',             en: 'Mistake Review' },
   'nav.md2word':              { zh: 'Markdown → Word',      en: 'Markdown → Word' },
   'nav.tools':                { zh: '工具箱',               en: 'Tools' },
   'nav.studio':               { zh: 'AI 网站工作室 BETA',  en: 'AI Site Studio BETA' },

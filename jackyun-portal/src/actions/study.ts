@@ -34,6 +34,7 @@ export async function createPlan(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+  revalidatePath('/study/tasks');
 }
 
 export async function updatePlan(
@@ -50,6 +51,7 @@ export async function updatePlan(
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+  revalidatePath('/study/tasks');
 }
 
 export async function deletePlan(id: string) {
@@ -70,6 +72,7 @@ export async function deletePlan(id: string) {
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+  revalidatePath('/study/tasks');
 }
 
 export async function createTask(planId: string, title: string) {
@@ -86,6 +89,32 @@ export async function createTask(planId: string, title: string) {
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+  revalidatePath('/study/tasks');
+}
+
+export async function createQuickTask(input: {
+  title: string;
+  dueDate?: string | null;
+  estimatedMinutes?: number;
+}) {
+  const { supabase, user } = await getAuthenticatedUser();
+  const title = input.title?.trim();
+  if (!title || title.length > 140) throw new Error('任务名称需要 1–140 个字符');
+  const estimatedMinutes = Math.min(360, Math.max(10, Math.round(input.estimatedMinutes ?? 25)));
+  const dueDate = input.dueDate?.trim() || null;
+  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw new Error('截止日期格式不正确');
+
+  const { error } = await supabase.from('study_tasks').insert({
+    user_id: user.id,
+    plan_id: null,
+    title,
+    completed: false,
+    due_date: dueDate,
+    estimated_minutes: estimatedMinutes,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath('/dashboard');
+  revalidatePath('/study/tasks');
 }
 
 export async function toggleTask(taskId: string) {
@@ -102,12 +131,66 @@ export async function toggleTask(taskId: string) {
 
   const { error } = await supabase
     .from('study_tasks')
-    .update({ completed: !task.completed, updated_at: new Date().toISOString() })
+    .update({
+      completed: !task.completed,
+      completed_at: task.completed ? null : new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', taskId)
     .eq('user_id', user.id);
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+  revalidatePath('/study/tasks');
+}
+
+export interface StudyFocusLaunch {
+  focusTaskId: string;
+  studyTaskId: string;
+  title: string;
+  durationMinutes: number;
+}
+
+export async function prepareStudyFocus(
+  taskId: string,
+  requestedDurationMinutes?: number,
+): Promise<StudyFocusLaunch> {
+  const { supabase, user } = await getAuthenticatedUser();
+  const { data: task, error: taskError } = await supabase
+    .from('study_tasks')
+    .select('id, title, completed, estimated_minutes')
+    .eq('id', taskId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (taskError || !task) throw new Error('Task not found');
+  if (task.completed) throw new Error('Completed tasks cannot start a new focus session');
+
+  const durationMinutes = Math.min(
+    90,
+    Math.max(10, Math.round(requestedDurationMinutes ?? task.estimated_minutes ?? 25)),
+  );
+  const estimatedPomodoros = Math.max(1, Math.ceil((task.estimated_minutes ?? durationMinutes) / durationMinutes));
+  const { data: focusTask, error: focusError } = await supabase
+    .from('focus_tasks')
+    .upsert({
+      user_id: user.id,
+      study_task_id: task.id,
+      title: task.title,
+      estimated_pomodoros: estimatedPomodoros,
+      is_completed: false,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'study_task_id' })
+    .select('id')
+    .single();
+
+  if (focusError || !focusTask) throw new Error(focusError?.message ?? 'Unable to prepare focus task');
+  return {
+    focusTaskId: focusTask.id,
+    studyTaskId: task.id,
+    title: task.title,
+    durationMinutes,
+  };
 }
 
 export async function deleteTask(taskId: string) {
@@ -121,6 +204,7 @@ export async function deleteTask(taskId: string) {
 
   if (error) throw new Error(error.message);
   revalidatePath('/study');
+  revalidatePath('/study/tasks');
 }
 
 // ── Syllabus ──────────────────────────────────────────────────────────────────

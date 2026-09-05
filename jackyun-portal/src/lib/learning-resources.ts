@@ -1,7 +1,6 @@
 export type ResourceCategory =
   | 'igcse'
-  | 'alevel-cie'
-  | 'alevel-edexcel'
+  | 'alevel'
   | 'ielts'
   | 'ai'
   | 'math-science'
@@ -14,7 +13,7 @@ export type ResourceCategory =
 export interface LearningResource {
   name: string;
   url: string;
-  category: ResourceCategory;
+  categories: ResourceCategory[];
   description: string;
   tags: string[];
   source: 'bookmark' | 'official' | 'added';
@@ -24,8 +23,7 @@ export interface LearningResource {
 export const RESOURCE_CATEGORIES: { id: 'all' | ResourceCategory; label: string; icon: string }[] = [
   { id: 'all', label: '全部', icon: 'apps' },
   { id: 'igcse', label: 'IGCSE', icon: 'school' },
-  { id: 'alevel-cie', label: 'A Level · CIE', icon: 'science' },
-  { id: 'alevel-edexcel', label: 'A Level · Edexcel', icon: 'calculate' },
+  { id: 'alevel', label: 'A Level', icon: 'science' },
   { id: 'ielts', label: 'English · IELTS', icon: 'translate' },
   { id: 'ai', label: 'AI 助手', icon: 'smart_toy' },
   { id: 'math-science', label: '数学与科学', icon: 'functions' },
@@ -38,85 +36,112 @@ export const RESOURCE_CATEGORIES: { id: 'all' | ResourceCategory; label: string;
 
 export const LEARNING_RESOURCES: LearningResource[] = [
   {
+    name: 'Cambridge International IGCSE',
+    url: 'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-igcse/subjects/',
+    categories: ['igcse'],
+    description: 'Cambridge 官方科目目录，可查 syllabus、past papers、examiner reports、样卷与推荐教材。',
+    tags: ['Cambridge', 'Official', 'Syllabus', 'Past Papers'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Pearson Edexcel International GCSE',
+    url: 'https://qualifications.pearson.com/en/qualifications/edexcel-international-gcses.html',
+    categories: ['igcse'],
+    description: 'Pearson 官方 International GCSE 入口，可按科目查看 specification、样卷、考试材料与课程支持。',
+    tags: ['Edexcel', 'Official', 'Specification'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Cambridge International AS & A Level',
+    url: 'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-advanced/cambridge-international-as-and-a-levels/subjects/',
+    categories: ['alevel'],
+    description: 'Cambridge 官方科目目录，可查 syllabus、样卷、past papers 与官方支持资料。',
+    tags: ['Cambridge', 'Official', 'Syllabus', 'Past Papers'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'Pearson Edexcel International A Level',
+    url: 'https://qualifications.pearson.com/en/qualifications/edexcel-international-advanced-levels.html',
+    categories: ['alevel'],
+    description: 'Pearson 官方 IAL 入口，按科目查 specification、考试材料与资格说明。',
+    tags: ['Edexcel', 'Official', 'IAL', 'Specification'],
+    source: 'official',
+    featured: true,
+  },
+  {
+    name: 'ZNotes',
+    url: 'https://znotes.org/subjects/',
+    categories: ['igcse', 'alevel'],
+    description: '社区维护的 CAIE IGCSE、AS 与 A Level 学科笔记和学习资源，适合快速复习与查漏补缺。',
+    tags: ['CAIE', 'Notes', 'Community', 'Free'],
+    source: 'bookmark',
+    featured: true,
+  },
+  {
+    name: 'Save My Exams',
+    url: 'https://www.savemyexams.com/',
+    categories: ['igcse', 'alevel'],
+    description: '按考试局和 syllabus 整理复习笔记、专题题目、真题与答案；部分完整内容需要账户或订阅。',
+    tags: ['多考试局', 'Revision Notes', 'Topic Questions', 'Past Papers'],
+    source: 'added',
+    featured: true,
+  },
+  {
+    name: 'Physics & Maths Tutor',
+    url: 'https://www.physicsandmathstutor.com/',
+    categories: ['igcse', 'alevel'],
+    description: '覆盖 IGCSE、AS 与 A Level 的理科、人文和计算机科目，提供专题笔记、分类题与历年真题。',
+    tags: ['CAIE', 'Edexcel', 'Topic Questions', 'Past Papers'],
+    source: 'bookmark',
+    featured: true,
+  },
+  {
+    name: 'PapaCambridge',
+    url: 'https://pastpapers.papacambridge.com/',
+    categories: ['igcse', 'alevel'],
+    description: '覆盖 Cambridge IGCSE、AS 与 A Level 的历年试卷、mark scheme、grade threshold 与其他资料。',
+    tags: ['Cambridge', 'Past Papers', 'Mark Schemes'],
+    source: 'bookmark',
+  },
+  {
+    name: 'Dynamic Papers',
+    url: 'https://dynamicpapers.com/',
+    categories: ['igcse', 'alevel'],
+    description: '提供 Cambridge 与 Edexcel 的 IGCSE、AS、A Level 和 IAL 真题、评分方案及近期试卷更新。',
+    tags: ['Cambridge', 'Edexcel', 'Past Papers', 'Mark Schemes'],
+    source: 'added',
+  },
+  {
+    name: 'exam-mate',
+    url: 'https://www.exam-mate.com/',
+    categories: ['igcse', 'alevel'],
+    description: '可按课程、科目、主题和年份筛选 IGCSE 与 A Level 题目，并支持组卷；近期专题题目部分收费。',
+    tags: ['Cambridge', 'Edexcel', 'Topical Papers', 'Exam Builder'],
+    source: 'added',
+  },
+  {
     name: 'Best Exam Help',
     url: 'https://bestexamhelp.com/exam/cambridge-igcse/pp-igcse.php',
-    category: 'igcse',
+    categories: ['igcse'],
     description: '按科目与考试季整理 Cambridge IGCSE 历年真题，适合集中查找 question paper 与 mark scheme。',
-    tags: ['Past Papers', 'Cambridge', '真题'],
-    source: 'bookmark',
-    featured: true,
-  },
-  {
-    name: 'ZNotes · IGCSE',
-    url: 'https://znotes.org/caie/igcse/',
-    category: 'igcse',
-    description: '社区维护的 CAIE IGCSE 笔记、知识点与练习入口，适合快速复习和查漏补缺。',
-    tags: ['Notes', 'CAIE', 'Quiz'],
-    source: 'bookmark',
-    featured: true,
-  },
-  {
-    name: 'PapaCambridge Past Papers',
-    url: 'https://pastpapers.papacambridge.com/',
-    category: 'igcse',
-    description: '覆盖多个考试局与科目的历年试卷库，可作为真题检索的备用来源。',
-    tags: ['Past Papers', '多考试局'],
+    tags: ['Cambridge', 'Past Papers', '真题'],
     source: 'bookmark',
   },
   {
     name: 'RevisionTown IGCSE',
     url: 'https://revisiontown.com/igcse-past-papers/',
-    category: 'igcse',
+    categories: ['igcse'],
     description: '按 IGCSE 科目汇总的真题入口，适合快速跳转至对应资料目录。',
     tags: ['Past Papers', '分类目录'],
     source: 'bookmark',
   },
   {
-    name: 'Save My Exams · CIE Biology',
-    url: 'https://www.savemyexams.com/igcse/biology/cie/23/revision-notes/',
-    category: 'igcse',
-    description: 'CIE IGCSE Biology 分章节复习笔记；部分内容可能需要账户或订阅。',
-    tags: ['Biology', 'Revision Notes'],
-    source: 'bookmark',
-  },
-  {
-    name: 'Physics & Maths Tutor · Biology',
-    url: 'https://www.physicsandmathstutor.com/biology-revision/igcse-cie/',
-    category: 'igcse',
-    description: 'CIE IGCSE Biology 的专题笔记、题目与复习材料集合。',
-    tags: ['Biology', 'Topic Questions'],
-    source: 'bookmark',
-  },
-  {
-    name: 'Cambridge International AS & A Level',
-    url: 'https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-advanced/cambridge-international-as-and-a-levels/subjects/',
-    category: 'alevel-cie',
-    description: 'Cambridge 官方科目目录，可查 syllabus、样卷、past papers 与官方支持资料。',
-    tags: ['Official', 'Syllabus', 'Past Papers'],
-    source: 'official',
-    featured: true,
-  },
-  {
-    name: 'ZNotes · Subjects',
-    url: 'https://znotes.org/subjects/',
-    category: 'alevel-cie',
-    description: '从科目总目录进入 CAIE AS & A Level 社区笔记和学习小组。',
-    tags: ['Notes', 'Community'],
-    source: 'bookmark',
-  },
-  {
-    name: 'Pearson Edexcel International A Level',
-    url: 'https://qualifications.pearson.com/en/qualifications/edexcel-international-advanced-levels.html',
-    category: 'alevel-edexcel',
-    description: 'Pearson 官方 IAL 入口，按科目查 specification、考试材料与资格说明。',
-    tags: ['Official', 'IAL', 'Specification'],
-    source: 'official',
-    featured: true,
-  },
-  {
     name: 'IELTS Official Preparation',
     url: 'https://ielts.org/take-a-test/preparation-resources',
-    category: 'ielts',
+    categories: ['ielts'],
     description: 'IELTS 官方备考资源，包含样题、写作讲解、课程、讲座与练习材料。',
     tags: ['Official', 'Practice Tests', 'Writing'],
     source: 'official',
@@ -125,7 +150,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: '雅思中文官方网站 · 备考指南',
     url: 'https://www.chinaielts.org/prepare',
-    category: 'ielts',
+    categories: ['ielts'],
     description: '中文 IELTS 备考指南与考试信息，适合了解考试结构和备考路径。',
     tags: ['中文', 'Official', '指南'],
     source: 'bookmark',
@@ -133,7 +158,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'ChatGPT',
     url: 'https://chatgpt.com/',
-    category: 'ai',
+    categories: ['ai'],
     description: '适合概念讲解、写作反馈、代码分析与基于文件的学习对话；重要结论仍需核对原始资料。',
     tags: ['OpenAI', '文件分析', '写作', '编程'],
     source: 'official',
@@ -142,7 +167,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Claude',
     url: 'https://claude.ai/',
-    category: 'ai',
+    categories: ['ai'],
     description: '适合阅读长文档、整理思路、逐步讲解复杂概念，以及生成可交互的学习内容。',
     tags: ['Anthropic', '长文档', '分析', '编程'],
     source: 'official',
@@ -151,7 +176,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Google Gemini',
     url: 'https://gemini.google.com/',
-    category: 'ai',
+    categories: ['ai'],
     description: 'Google 的多模态 AI 助手，适合结合图片、网页与 Google 服务完成学习任务。',
     tags: ['Google', '多模态', 'Research'],
     source: 'official',
@@ -160,7 +185,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'DeepSeek',
     url: 'https://chat.deepseek.com/',
-    category: 'ai',
+    categories: ['ai'],
     description: '中文友好的通用 AI 助手，可用于推理、数学与代码问题的讨论和解题复盘。',
     tags: ['中文', 'Reasoning', 'Math', 'Code'],
     source: 'official',
@@ -168,7 +193,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Qwen Chat',
     url: 'https://chat.qwen.ai/',
-    category: 'ai',
+    categories: ['ai'],
     description: '通义千问官方聊天入口，适合中文学习、多模态理解、文档整理与编程辅助。',
     tags: ['Alibaba', '中文', '多模态'],
     source: 'official',
@@ -176,7 +201,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Perplexity',
     url: 'https://www.perplexity.ai/',
-    category: 'ai',
+    categories: ['ai'],
     description: '以搜索与引用来源为核心的 AI 问答，适合建立资料线索；引用内容仍应打开原文确认。',
     tags: ['AI Search', 'Sources', 'Research'],
     source: 'added',
@@ -184,7 +209,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Khan Academy',
     url: 'https://www.khanacademy.org/',
-    category: 'math-science',
+    categories: ['math-science'],
     description: '覆盖中小学到大学基础数学、科学、经济与计算机课程，包含视频和分级练习。',
     tags: ['Math', 'Science', 'Practice'],
     source: 'official',
@@ -193,7 +218,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Wolfram|Alpha',
     url: 'https://www.wolframalpha.com/',
-    category: 'math-science',
+    categories: ['math-science'],
     description: '用于计算、绘图、单位换算和查询数学科学事实；适合验证过程而不是只抄最终答案。',
     tags: ['Calculator', 'Algebra', 'Science'],
     source: 'official',
@@ -201,7 +226,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'GeoGebra',
     url: 'https://www.geogebra.org/',
-    category: 'math-science',
+    categories: ['math-science'],
     description: '免费的几何、代数、函数图像、微积分与 3D 数学可视化工具。',
     tags: ['Geometry', 'Graphing', 'Visualization'],
     source: 'official',
@@ -209,7 +234,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'PhET Interactive Simulations',
     url: 'https://phet.colorado.edu/',
-    category: 'math-science',
+    categories: ['math-science'],
     description: 'University of Colorado Boulder 提供的交互式物理、化学、数学和地球科学模拟。',
     tags: ['Physics', 'Chemistry', 'Simulation'],
     source: 'official',
@@ -217,7 +242,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'CS50P · Python',
     url: 'https://www.youtube.com/watch?v=nLRL_NcnK-4',
-    category: 'computer',
+    categories: ['computer'],
     description: 'Harvard CS50 的 Python 完整课程视频，适合系统入门编程。',
     tags: ['Python', 'YouTube', 'Course'],
     source: 'bookmark',
@@ -226,7 +251,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'C++ Full Course',
     url: 'https://www.youtube.com/watch?v=-TkoO8Z07hI',
-    category: 'computer',
+    categories: ['computer'],
     description: '从基础语法开始的 C++ 长课程，适合作为入门路线或复习索引。',
     tags: ['C++', 'YouTube', 'Course'],
     source: 'bookmark',
@@ -234,7 +259,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: '洛谷',
     url: 'https://www.luogu.com.cn/',
-    category: 'computer',
+    categories: ['computer'],
     description: '中文算法题库、在线评测与计算机科学学习社区。',
     tags: ['算法', 'OJ', '中文'],
     source: 'bookmark',
@@ -242,7 +267,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'W3Schools',
     url: 'https://www.w3schools.com/',
-    category: 'computer',
+    categories: ['computer'],
     description: '网页开发与常见编程语言的交互式入门教程和语法参考。',
     tags: ['Web', 'Reference', 'Tutorial'],
     source: 'bookmark',
@@ -250,7 +275,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'MIT OpenCourseWare',
     url: 'https://ocw.mit.edu/',
-    category: 'courses',
+    categories: ['courses'],
     description: '免费浏览 MIT 各院系课程资料，常见内容包括 syllabus、讲义、作业、考试与公开视频。',
     tags: ['MIT', 'Open Access', 'University'],
     source: 'official',
@@ -259,7 +284,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'freeCodeCamp',
     url: 'https://www.freecodecamp.org/learn/',
-    category: 'courses',
+    categories: ['courses'],
     description: '免费的项目式编程课程，覆盖网页开发、Python、数据分析和机器学习基础。',
     tags: ['Coding', 'Projects', 'Free'],
     source: 'official',
@@ -267,7 +292,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'edX',
     url: 'https://www.edx.org/',
-    category: 'courses',
+    categories: ['courses'],
     description: '汇集大学和机构在线课程；部分课程可免费旁听，证书或评分功能可能收费。',
     tags: ['MOOC', 'University', 'Courses'],
     source: 'added',
@@ -275,7 +300,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Coursera',
     url: 'https://www.coursera.org/courses',
-    category: 'courses',
+    categories: ['courses'],
     description: '大学和企业课程平台，适合结构化学习；免费旁听和付费项目因课程而异。',
     tags: ['MOOC', 'Certificates', 'Courses'],
     source: 'added',
@@ -283,7 +308,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'BBC Learning English',
     url: 'https://www.bbc.co.uk/learningenglish/',
-    category: 'language',
+    categories: ['language'],
     description: '按水平提供听力、口语、词汇、语法、新闻英语与短时长课程。',
     tags: ['Listening', 'Vocabulary', 'News'],
     source: 'official',
@@ -292,7 +317,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Cambridge Dictionary',
     url: 'https://dictionary.cambridge.org/',
-    category: 'language',
+    categories: ['language'],
     description: '查询英英释义、英美发音、搭配和真实例句，适合 IELTS 写作与词汇积累。',
     tags: ['Dictionary', 'Pronunciation', 'Examples'],
     source: 'official',
@@ -300,7 +325,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'YouGlish',
     url: 'https://youglish.com/',
-    category: 'language',
+    categories: ['language'],
     description: '从真实视频片段中检索单词和短语的发音与上下文用法。',
     tags: ['Pronunciation', 'Context', 'Video'],
     source: 'added',
@@ -308,7 +333,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'AnkiWeb',
     url: 'https://ankiweb.net/',
-    category: 'language',
+    categories: ['language'],
     description: '基于间隔重复的记忆卡同步服务，适合词汇、定义、公式和知识点长期复习。',
     tags: ['SRS', 'Flashcards', 'Memory'],
     source: 'official',
@@ -316,7 +341,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Google Scholar',
     url: 'https://scholar.google.com/',
-    category: 'research',
+    categories: ['research'],
     description: '检索论文、书籍、会议文章和引用关系，适合从综述或高被引资料开始研究。',
     tags: ['Papers', 'Citations', 'Academic'],
     source: 'official',
@@ -325,7 +350,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'arXiv',
     url: 'https://arxiv.org/',
-    category: 'research',
+    categories: ['research'],
     description: '数学、物理、计算机科学等领域的开放预印本平台；内容通常尚未经过正式同行评审。',
     tags: ['Preprints', 'STEM', 'Open Access'],
     source: 'official',
@@ -333,7 +358,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Wikipedia',
     url: 'https://www.wikipedia.org/',
-    category: 'research',
+    categories: ['research'],
     description: '快速建立主题全貌与关键词的起点；正式写作时应继续查看页面引用的原始来源。',
     tags: ['Encyclopedia', 'Overview', 'References'],
     source: 'official',
@@ -341,7 +366,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'Internet Archive',
     url: 'https://archive.org/',
-    category: 'research',
+    categories: ['research'],
     description: '非营利数字图书馆，可查历史网页、书籍、音视频与软件档案。',
     tags: ['Archive', 'Books', 'Wayback Machine'],
     source: 'official',
@@ -349,7 +374,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'NotebookLM',
     url: 'https://notebooklm.google.com/',
-    category: 'tools',
+    categories: ['tools'],
     description: '把课程资料、PDF 与笔记整理为可追溯来源的 AI 学习空间。',
     tags: ['AI', 'Notes', 'Research'],
     source: 'bookmark',
@@ -358,7 +383,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'paper.sc',
     url: 'https://paper.sc/',
-    category: 'tools',
+    categories: ['tools'],
     description: '简洁的在线文档与写作工具，可用于快速记录、整理和分享内容。',
     tags: ['Writing', 'Notes'],
     source: 'bookmark',
@@ -366,7 +391,7 @@ export const LEARNING_RESOURCES: LearningResource[] = [
   {
     name: 'YouTube',
     url: 'https://www.youtube.com/',
-    category: 'tools',
+    categories: ['tools'],
     description: '寻找学科讲解、公开课与编程长课程；建议配合播放列表建立学习路径。',
     tags: ['Video', 'Courses'],
     source: 'bookmark',

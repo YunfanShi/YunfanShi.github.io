@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   const cursor = rawCursor && Number.isFinite(Date.parse(rawCursor)) ? new Date(rawCursor).toISOString() : null;
   let query = supabase
     .from('legacy_sync_data')
-    .select('storage_key, storage_value, revision, content_hash, deleted_at, updated_at')
+    .select('storage_key, storage_value, revision, content_hash, deleted_at, updated_at, client_updated_at')
     .eq('user_id', user.id)
     .order('updated_at')
     .order('id')
@@ -63,13 +63,13 @@ export async function GET(request: NextRequest) {
   const nextCursor = data?.length ? data[data.length - 1].updated_at : new Date().toISOString();
   return NextResponse.json({
     ok: true,
-    records: (data ?? []).map((row) => ({
+    records: (data ?? []).filter((row) => isSyncableStorageKey(row.storage_key)).map((row) => ({
       key: row.storage_key,
       value: row.deleted_at ? null : row.storage_value,
       revision: Number(row.revision),
       contentHash: row.content_hash,
       deleted: Boolean(row.deleted_at),
-      updatedAt: row.updated_at,
+      updatedAt: row.client_updated_at ?? row.updated_at,
     })),
     cursor: nextCursor,
     serverTime: new Date().toISOString(),
@@ -123,7 +123,8 @@ export async function POST(request: NextRequest) {
     return apiError(requestId, 'Too many sync operations', 429, 'RATE_LIMITED');
   }
 
-  const applied: Array<{ operationId: string; key: string; revision: number; contentHash: string }> = [];
+  const applied: Array<{ operationId: string; key: string; revision: number; contentHash: string; updatedAt: string }> = [];
+  const remote: Array<{ key: string; value: unknown; revision: number; contentHash: string | null; deleted: boolean; updatedAt: string }> = [];
   const conflicts: Array<Record<string, unknown>> = [];
   const outcomes = await mapWithConcurrency(body.operations, async (raw) => {
     const operation = raw as SyncOperation;
@@ -137,17 +138,28 @@ export async function POST(request: NextRequest) {
       p_value: operation.deleted ? null : operation.value,
       p_content_hash: contentHash(operation.value, operation.deleted),
       p_deleted: operation.deleted,
+      p_client_updated_at: operation.clientUpdatedAt,
     });
     if (error) throw new Error(error.message);
-    const result = data as { status?: string; revision?: number; contentHash?: string; remoteValue?: unknown; remoteDeleted?: boolean; remoteHash?: string | null };
+    const result = data as { status?: string; revision?: number; contentHash?: string; updatedAt?: string; remoteValue?: unknown; remoteDeleted?: boolean; remoteHash?: string | null; remoteUpdatedAt?: string };
     return { operation, result };
   }).catch(() => null);
   if (!outcomes) return apiError(requestId, 'Unable to apply sync operation', 500, 'SYNC_WRITE_FAILED');
   const resolvedOperationIds: string[] = [];
   for (const { operation, result } of outcomes) {
     if (result.status === 'applied') {
-      applied.push({ operationId: operation.id, key: operation.key, revision: Number(result.revision), contentHash: String(result.contentHash) });
+      applied.push({ operationId: operation.id, key: operation.key, revision: Number(result.revision), contentHash: String(result.contentHash), updatedAt: result.updatedAt ?? operation.clientUpdatedAt });
       if (operation.resolvesOperationId) resolvedOperationIds.push(operation.resolvesOperationId);
+    } else if (result.status === 'remote') {
+      if (operation.resolvesOperationId) resolvedOperationIds.push(operation.resolvesOperationId);
+      remote.push({
+        key: operation.key,
+        value: result.remoteValue,
+        revision: Number(result.revision ?? 0),
+        contentHash: result.remoteHash ?? null,
+        deleted: Boolean(result.remoteDeleted),
+        updatedAt: result.remoteUpdatedAt ?? new Date().toISOString(),
+      });
     } else {
       conflicts.push({
         operationId: operation.id,
@@ -160,13 +172,14 @@ export async function POST(request: NextRequest) {
         remoteDeleted: Boolean(result.remoteDeleted),
         remoteHash: result.remoteHash ?? null,
         remoteRevision: Number(result.revision ?? 0),
+        remoteUpdatedAt: result.remoteUpdatedAt,
       });
     }
   }
   if (resolvedOperationIds.length) await supabase.from('sync_conflicts').update({ resolved_at: new Date().toISOString() })
     .eq('user_id', user.id).in('operation_id', resolvedOperationIds);
 
-  return NextResponse.json({ ok: true, applied, conflicts, cursor: new Date().toISOString(), serverTime: new Date().toISOString(), requestId });
+  return NextResponse.json({ ok: true, applied, remote, conflicts, cursor: new Date().toISOString(), serverTime: new Date().toISOString(), requestId });
 }
 
 export const dynamic = 'force-dynamic';

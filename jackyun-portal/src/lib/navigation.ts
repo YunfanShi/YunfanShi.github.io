@@ -34,6 +34,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'answer-sheet-sync', labelKey: 'nav.answer-sheet-sync', icon: 'sync', href: '/answer-sheet-sync', group: 'practice', variantGroup: 'answerSheet', variant: 'sync' },
   { id: 'mock', labelKey: 'nav.mock', icon: 'quiz', href: '/mock-portal', group: 'practice' },
   { id: 'quizwise', labelKey: 'nav.quizwise', icon: 'psychology', href: '/quiz', group: 'practice' },
+  { id: 'review', labelKey: 'nav.review', icon: 'history_edu', href: '/review', group: 'practice', protected: true },
   { id: 'time-management', labelKey: 'nav.time-management', icon: 'timer', href: '/time-management', group: 'time' },
   { id: 'activity', labelKey: 'nav.activity', icon: 'insights', href: '/activity', group: 'time' },
   { id: 'schedule', labelKey: 'nav.schedule', icon: 'calendar_month', href: '/control', group: 'time' },

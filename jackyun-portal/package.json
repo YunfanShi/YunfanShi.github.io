@@ -23,7 +23,8 @@
     "test:sync": "node --test tests/sync-v2.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
-    "verify": "npm run lint && npm run test:sync && npm run test:beta && npm run test:ai-platform && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:adblock && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
+    "test:learning": "node --test tests/learning-domain.test.mts",
+    "verify": "npm run lint && npm run test:learning && npm run test:sync && npm run test:beta && npm run test:ai-platform && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:adblock && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

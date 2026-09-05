@@ -5,6 +5,7 @@ import { boundedByteRange, isValidBvid, normalizeFnval, normalizeQn, validateBil
 import { threeWayMerge } from '../src/lib/sync/merge.ts';
 import { canonicalJson } from '../src/lib/sync/hash.ts';
 import { buildSyncRequest, compactSyncOperations } from '../src/lib/sync/batch.ts';
+import { isSyncableStorageKey } from '../src/lib/local-workspace.ts';
 
 test('canonical JSON is stable across object key order', () => {
   assert.equal(canonicalJson({ b: 2, a: { d: 4, c: 3 } }), canonicalJson({ a: { c: 3, d: 4 }, b: 2 }));
@@ -95,4 +96,31 @@ test('web sync writes use bounded concurrency instead of a serial database water
   assert.match(source, /const DATABASE_CONCURRENCY = 8/);
   assert.match(source, /mapWithConcurrency\(body\.operations/);
   assert.match(source, /DUPLICATE_KEYS/);
+});
+
+test('automatic sync excludes its timestamp ledger and removes manual conflict choices', async () => {
+  assert.equal(isSyncableStorageKey('jackyun_sync_timestamps'), false);
+  assert.equal(isSyncableStorageKey('jackyun_goal_data'), true);
+  const panel = await readFile(new URL('../src/components/settings/sync-center-panel.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(panel, /保留本机|保留云端|提交编辑结果|待处理冲突/);
+  assert.match(panel, /冲突自动处理/);
+});
+
+test('sync migration normalizes legacy JSON and resolves concurrent edits by per-key time', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260905085645_automatic_web_sync_lww.sql', import.meta.url), 'utf8');
+  assert.match(sql, /client_updated_at timestamptz/i);
+  assert.match(sql, /normalize_web_sync_value/i);
+  assert.match(sql, /effective_updated_at > current_record\.client_updated_at/i);
+  assert.match(sql, /status', 'remote'/i);
+  assert.doesNotMatch(sql, /insert into public\.sync_conflicts/i);
+  assert.match(sql, /update public\.sync_conflicts set resolved_at = now\(\)/i);
+  const legacyRoute = await readFile(new URL('../src/app/api/legacy-sync/route.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(legacyRoute, /storageValueToString/);
+});
+
+test('topbar avatar bypasses the image proxy and falls back after a load error', async () => {
+  const source = await readFile(new URL('../src/components/auth/user-avatar.tsx', import.meta.url), 'utf8');
+  assert.match(source, /unoptimized/);
+  assert.match(source, /onError=\{\(\) => setFailedUrl\(avatarUrl\)\}/);
+  assert.match(source, /alt=""/);
 });

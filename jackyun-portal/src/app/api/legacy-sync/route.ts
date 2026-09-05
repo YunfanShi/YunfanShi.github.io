@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
+import { isSyncableStorageKey } from '@/lib/local-workspace';
 
 const TAG = 'API/LegacySync';
 
@@ -58,9 +58,11 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const rows = entries.map(({ key, value }) => {
       if (!key || !isSyncableStorageKey(key)) throw new Error('Storage key is not syncable');
-      const storageValue = storageValueToString(value);
-      if (storageValue.length > 100_000) throw new Error('Storage value is too large');
-      return { user_id: user.id, storage_key: key, storage_value: storageValue, updated_at: now };
+      const storageValue = typeof value === 'string'
+        ? (() => { try { return JSON.parse(value); } catch { return value; } })()
+        : value;
+      if ((JSON.stringify(storageValue) ?? 'null').length > 100_000) throw new Error('Storage value is too large');
+      return { user_id: user.id, storage_key: key, storage_value: storageValue, updated_at: now, client_updated_at: now };
     });
 
     const { error } = await supabase.from('legacy_sync_data').upsert(rows, { onConflict: 'user_id,storage_key' });
@@ -91,19 +93,21 @@ export async function PUT(request: NextRequest) {
         ? (() => { try { return JSON.parse(value); } catch { return value; } })()
         : value;
 
+    const now = new Date().toISOString();
     const { error } = await supabase.from('legacy_sync_data').upsert(
       {
         user_id: user.id,
         storage_key: key,
         storage_value: storageValue,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
+        client_updated_at: now,
       },
       { onConflict: 'user_id,storage_key' },
     );
 
     if (error) return apiError('Database upsert failed', 500, error);
 
-    return NextResponse.json({ ok: true, timestamp: new Date().toISOString() });
+    return NextResponse.json({ ok: true, timestamp: now });
   } catch (err) {
     return apiError('Internal server error', 500, err instanceof Error ? err.message : String(err));
   }

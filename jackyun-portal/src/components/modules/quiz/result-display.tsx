@@ -22,6 +22,7 @@ export default function ResultDisplay({
   const total = questions.length;
   const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
   const answeredCount = userAnswers.filter(a => a.answer !== '').length;
+  const incorrectCount = userAnswers.filter(a => a.isCorrect === false).length;
 
   const getGradeEmoji = (pct: number) => {
     if (pct >= 90) return '🌟';
@@ -83,6 +84,16 @@ export default function ResultDisplay({
           {answeredCount} of {total} questions answered
         </p>
       </div>
+
+      {incorrectCount > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#f9ab00]/30 bg-[#f9ab00]/10 p-4">
+          <span className="material-icons-round text-[#f9ab00]">history_edu</span>
+          <div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">{incorrectCount} 道错题已准备进入复习队列</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">登录用户完成测验后可在“错题复习”中按间隔重新练习。</p>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-3 gap-3">

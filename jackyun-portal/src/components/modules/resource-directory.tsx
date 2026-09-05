@@ -3,6 +3,11 @@
 import { useMemo, useState } from 'react';
 import { LEARNING_RESOURCES, RESOURCE_CATEGORIES, type ResourceCategory } from '@/lib/learning-resources';
 
+const COURSE_LABELS: Partial<Record<ResourceCategory, string>> = {
+  igcse: 'IGCSE',
+  alevel: 'A Level',
+};
+
 export default function ResourceDirectory() {
   const [category, setCategory] = useState<'all' | ResourceCategory>('all');
   const [query, setQuery] = useState('');
@@ -10,7 +15,7 @@ export default function ResourceDirectory() {
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return LEARNING_RESOURCES.filter((resource) => {
-      const categoryMatch = category === 'all' || resource.category === category;
+      const categoryMatch = category === 'all' || resource.categories.includes(category);
       const textMatch = !needle || [resource.name, resource.description, ...resource.tags]
         .join(' ')
         .toLowerCase()
@@ -83,6 +88,11 @@ export default function ResourceDirectory() {
                   {resource.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-wrap justify-end gap-1.5">
+                  {resource.categories.map((resourceCategory) => COURSE_LABELS[resourceCategory] && (
+                    <span key={resourceCategory} className="rounded-full bg-[#e8f0fe] px-2 py-1 text-[10px] font-semibold text-[#174ea6] dark:bg-[#174ea6]/40 dark:text-[#d2e3fc]">
+                      {COURSE_LABELS[resourceCategory]}
+                    </span>
+                  ))}
                   {resource.featured && <span className="rounded-full bg-[#e6f4ea] px-2 py-1 text-[10px] font-semibold text-[#137333] dark:bg-[#137333]/35 dark:text-[#ceead6]">推荐</span>}
                   {resource.source === 'official' && <span className="rounded-full bg-[#fef7e0] px-2 py-1 text-[10px] font-semibold text-[#b06000] dark:bg-[#b06000]/30 dark:text-[#fde293]">官方</span>}
                 </div>

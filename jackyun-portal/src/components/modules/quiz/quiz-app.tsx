@@ -7,6 +7,7 @@ import {
   saveCurrentQuestionsSync,
   getCurrentQuestionsSync,
   clearCurrentQuestions,
+  getCurrentSession,
   saveCurrentSession,
   clearCurrentSession,
   getQuizSettings,
@@ -18,6 +19,7 @@ import {
   saveAnswer,
   completeSession,
 } from '@/actions/quiz';
+import { elapsedSeconds } from '@/lib/learning/metrics';
 import QuestionInput from './question-input';
 import QuestionCard from './question-card';
 import ResultDisplay from './result-display';
@@ -84,6 +86,7 @@ export default function QuizApp() {
   const [settings, setSettings] = useState(() => getQuizSettings());
   const [inputText, setInputText] = useState('');
   const questionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const quizStartedAtRef = useRef<string | null>(null);
 
   // Restore in-progress quiz on mount
   useEffect(() => {
@@ -151,6 +154,9 @@ export default function QuizApp() {
 
   // Start quiz with subject
   const handleStartQuiz = useCallback(async (subject: string) => {
+    const startedAt = new Date().toISOString();
+    quizStartedAtRef.current = startedAt;
+    saveCurrentSession({ id: `local-${crypto.randomUUID()}`, startedAt });
     setSubjectName(subject);
     setUserAnswers(questions.map(() => ({ questionIndex: 0, answer: '', isCorrect: null })));
     setCurrentIndex(0);
@@ -160,7 +166,7 @@ export default function QuizApp() {
     const result = signedIn ? await createSession(subject, questions).catch(() => ({ error: 'local-only' })) : { error: 'local-only' };
     if ('sessionId' in result) {
       setSessionId(result.sessionId);
-      saveCurrentSession({ id: result.sessionId, startedAt: new Date().toISOString() });
+      saveCurrentSession({ id: result.sessionId, startedAt });
 
       // Use REAL question IDs from DB
       const questionIds = result.questionIds;
@@ -261,19 +267,21 @@ export default function QuizApp() {
     if (signedIn && sessionId) {
       await completeSession(sessionId);
     }
-    const now = new Date().toISOString();
+    const completedAt = new Date().toISOString();
+    const startedAt = quizStartedAtRef.current ?? getCurrentSession()?.startedAt ?? completedAt;
     appendLocalQuizHistory({
       id: `local-${crypto.randomUUID()}`,
       subject_name: subjectName || 'Untitled Quiz',
-      started_at: now,
-      completed_at: now,
+      started_at: startedAt,
+      completed_at: completedAt,
       total_questions: questions.length,
       correct_count: userAnswers.filter((answer) => answer.isCorrect === true).length,
       accuracy: questions.length ? Math.round(userAnswers.filter((answer) => answer.isCorrect === true).length / questions.length * 100) : 0,
-      duration_seconds: 0,
+      duration_seconds: elapsedSeconds(startedAt, completedAt),
     });
     clearCurrentQuestions();
     clearCurrentSession();
+    quizStartedAtRef.current = null;
     setView('results');
   }, [questions.length, sessionId, signedIn, subjectName, userAnswers]);
 

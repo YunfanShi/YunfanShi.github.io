@@ -8,6 +8,7 @@ export function isSyncableStorageKey(key: string): boolean {
   return key.length > 0
     && key.length <= 120
     && key !== LOCAL_SYNC_META_KEY
+    && key !== 'jackyun_sync_timestamps'
     && !BLOCKED_KEY.test(key);
 }
 

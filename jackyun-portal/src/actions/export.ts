@@ -14,7 +14,7 @@ async function getAuthenticatedUser() {
   return { supabase, user };
 }
 
-const DATA_TABLES = ['vocab_words', 'vocab_stats', 'vocab_settings', 'study_plans', 'study_tasks', 'study_syllabus', 'study_config', 'study_mock_records', 'poems', 'poem_sessions', 'playlists', 'tracks', 'music_songs', 'music_settings', 'countdowns', 'quiz_subjects', 'quiz_sessions', 'quiz_questions', 'quiz_settings', 'relax_chat', 'relax_state', 'focus_settings', 'focus_tasks', 'focus_sessions', 'user_settings', 'legacy_sync_data'] as const;
+const DATA_TABLES = ['vocab_words', 'vocab_stats', 'vocab_settings', 'study_plans', 'study_tasks', 'study_syllabus', 'study_config', 'study_mock_records', 'poems', 'poem_sessions', 'playlists', 'tracks', 'music_songs', 'music_settings', 'countdowns', 'quiz_subjects', 'quiz_sessions', 'quiz_questions', 'quiz_settings', 'review_items', 'review_attempts', 'relax_chat', 'relax_state', 'focus_settings', 'focus_tasks', 'focus_sessions', 'user_settings', 'legacy_sync_data'] as const;
 type DataTable = typeof DATA_TABLES[number];
 export type DataArchiveV1 = { exported_at: string; version: 1; tables: Partial<Record<DataTable, Record<string, unknown>[]>> };
 export type DataArchive = DataArchiveV1 | DataArchiveV2<DataTable>;

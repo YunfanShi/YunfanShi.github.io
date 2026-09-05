@@ -7,6 +7,7 @@ interface Task {
   title: string;
   completed: boolean;
   due_date: string | null;
+  estimated_minutes: number;
 }
 
 interface StudyPlanWithTasks {

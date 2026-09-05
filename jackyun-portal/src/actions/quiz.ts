@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { AnalyzedQuestion, QuizSession, QuizQuestion, QuizSessionWithQuestions, QuizSubject } from '@/types/quiz';
 
@@ -116,14 +117,14 @@ export async function saveAnswer(
   }
 }
 
-export async function completeSession(sessionId: string): Promise<{ ok: boolean } | { error: string }> {
+export async function completeSession(sessionId: string): Promise<{ ok: boolean; reviewItemsCreated: number } | { error: string }> {
   try {
     const { supabase, user } = await getAuthenticatedUser();
 
     // Verify session ownership
     const { data: session } = await supabase
       .from('quiz_sessions')
-      .select('user_id, started_at')
+      .select('user_id, started_at, subject_name')
       .eq('id', sessionId)
       .single();
 
@@ -158,7 +159,48 @@ export async function completeSession(sessionId: string): Promise<{ ok: boolean 
       .eq('id', sessionId);
 
     if (error) throw new Error(error.message);
-    return { ok: true };
+
+    const { data: incorrectQuestions, error: incorrectError } = await supabase
+      .from('quiz_questions')
+      .select('id, question_text, question_type, options, correct_answer, user_answer, explanation')
+      .eq('session_id', sessionId)
+      .eq('is_correct', false);
+    if (incorrectError) throw new Error(incorrectError.message);
+
+    let reviewItemsCreated = 0;
+    const questionIds = (incorrectQuestions ?? []).map((question) => question.id);
+    if (questionIds.length > 0) {
+      const { data: existing, error: existingError } = await supabase
+        .from('review_items')
+        .select('quiz_question_id')
+        .eq('user_id', user.id)
+        .in('quiz_question_id', questionIds);
+      if (existingError) throw new Error(existingError.message);
+      const existingIds = new Set((existing ?? []).map((item) => item.quiz_question_id));
+      const newItems = (incorrectQuestions ?? [])
+        .filter((question) => !existingIds.has(question.id))
+        .map((question) => ({
+          user_id: user.id,
+          quiz_question_id: question.id,
+          subject: session.subject_name || '未分类',
+          question_text: question.question_text,
+          question_type: question.question_type,
+          options: question.options,
+          correct_answer: question.correct_answer,
+          last_user_answer: question.user_answer,
+          explanation: question.explanation,
+          next_review_at: new Date().toISOString(),
+        }));
+      if (newItems.length > 0) {
+        const { error: reviewError } = await supabase.from('review_items').insert(newItems);
+        if (reviewError) throw new Error(reviewError.message);
+        reviewItemsCreated = newItems.length;
+      }
+    }
+
+    revalidatePath('/review');
+    revalidatePath('/dashboard');
+    return { ok: true, reviewItemsCreated };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Failed to complete session' };
   }

@@ -2,12 +2,14 @@
 
 import { useState, useTransition, useRef } from 'react';
 import { toggleTask, deleteTask, createTask, deletePlan } from '@/actions/study';
+import StartStudyButton from './start-study-button';
 
 interface Task {
   id: string;
   title: string;
   completed: boolean;
   due_date: string | null;
+  estimated_minutes: number;
 }
 
 interface StudyPlanWithTasks {
@@ -162,6 +164,9 @@ export default function PlanCard({ plan }: PlanCardProps) {
                 >
                   {task.title}
                 </span>
+                {!task.completed && (
+                  <StartStudyButton taskId={task.id} durationMinutes={task.estimated_minutes ?? 25} />
+                )}
                 <button
                   onClick={() => handleDeleteTask(task.id)}
                   disabled={isPending}

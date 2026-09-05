@@ -41,6 +41,11 @@ export interface StudyTask {
   title: string;
   completed: boolean;
   due_date: string | null;
+  subject: string | null;
+  estimated_minutes: number;
+  priority: number;
+  scheduled_at: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

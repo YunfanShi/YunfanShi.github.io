@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
     p_value: deleted ? null : body.value,
     p_content_hash: hash,
     p_deleted: deleted,
+    p_client_updated_at: new Date().toISOString(),
   });
   if (error) return apiError(requestId, 'Unable to resolve conflict', 500, 'RESOLUTION_FAILED');
   const result = data as { status?: string; revision?: number };

@@ -103,6 +103,10 @@ export async function removeConflict(operationId: string): Promise<void> {
   await storeRequest('conflicts', 'readwrite', (store) => store.delete(operationId));
 }
 
+export async function clearConflicts(): Promise<void> {
+  await storeRequest('conflicts', 'readwrite', (store) => store.clear());
+}
+
 export async function getSetting<T>(key: string): Promise<T | null> {
   const row = await storeRequest<{ key: string; value: T } | undefined>('settings', 'readonly', (store) => store.get(key));
   return row?.value ?? null;

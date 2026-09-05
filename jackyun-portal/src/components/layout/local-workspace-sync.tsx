@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react';
 import { LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
-import { compactOutbox, getConflicts, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveConflict, saveMetadata, setSetting } from '@/lib/sync/outbox';
+import { clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest } from '@/lib/sync/batch';
-import { threeWayMerge } from '@/lib/sync/merge';
+import { canonicalJson } from '@/lib/sync/hash';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
 function announce(detail: SyncStatusDetail) {
@@ -37,8 +37,8 @@ function deviceDescription() {
 }
 
 async function publishStatus(state: SyncStatus, error?: string) {
-  const [pending, conflicts, lastSyncedAt] = await Promise.all([getOutbox(), getConflicts(), getSetting<string>('lastSyncedAt')]);
-  announce({ state: conflicts.length ? 'conflict' : state, pending: pending.length, conflicts: conflicts.length, lastSyncedAt, error });
+  const [pending, lastSyncedAt] = await Promise.all([getOutbox(), getSetting<string>('lastSyncedAt')]);
+  announce({ state, pending: pending.length, conflicts: 0, lastSyncedAt, error });
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
@@ -58,6 +58,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const snapshot = localSnapshot();
       const metadata = await getMetadata();
       const metadataByKey = new Map(metadata.map((item) => [item.key, item]));
+      let legacyTimestamps: Record<string, string> = {};
+      try {
+        legacyTimestamps = JSON.parse(localStorage.getItem('jackyun_sync_timestamps') || '{}') as Record<string, string>;
+      } catch {}
       // Metadata keys are required here: if the tab closes after localStorage
       // deletion but before the polling tick, startup must still enqueue a tombstone.
       const keys = new Set([...Object.keys(lastSnapshot), ...Object.keys(snapshot), ...metadataByKey.keys()]);
@@ -65,6 +69,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const current = snapshot[key];
         const base = metadataByKey.get(key);
         if (current === lastSnapshot[key] && base) continue;
+        const matchesCloudBase = base
+          && base.deleted === (current === undefined)
+          && (base.deleted || canonicalJson(parseStorageValue(current)) === canonicalJson(base.value));
+        if (matchesCloudBase) continue;
+        const legacyTimestamp = !base && Number.isFinite(Date.parse(legacyTimestamps[key]))
+          ? new Date(legacyTimestamps[key]).toISOString()
+          : null;
         await queueOperation({
           id: crypto.randomUUID(), key,
           baseRevision: base?.revision ?? 0,
@@ -72,7 +83,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           baseValue: base?.deleted ? null : base?.value ?? null,
           value: parseStorageValue(current),
           deleted: current === undefined,
-          clientUpdatedAt: new Date().toISOString(),
+          clientUpdatedAt: legacyTimestamp ?? new Date().toISOString(),
         });
       }
       lastSnapshot = snapshot;
@@ -92,27 +103,44 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         throw new Error(failure?.error?.code ? `${failure.error.message ?? '同步写入失败'} (${failure.error.code})` : `同步写入失败 (${response.status})`);
       }
       const payload = await response.json() as {
-        applied: Array<{ operationId: string; key: string; revision: number; contentHash: string }>;
+        applied: Array<{ operationId: string; key: string; revision: number; contentHash: string; updatedAt?: string }>;
+        remote: SyncRecord[];
         conflicts: SyncConflict[];
       };
       const byId = new Map(request.operations.map((operation) => [operation.id, operation]));
+      const byKey = new Map(request.operations.map((operation) => [operation.key, operation]));
       for (const applied of payload.applied) {
         const operation = byId.get(applied.operationId);
         if (!operation) continue;
-        await saveMetadata({ key: operation.key, value: operation.value, revision: applied.revision, contentHash: applied.contentHash, deleted: operation.deleted, updatedAt: new Date().toISOString() });
+        await saveMetadata({ key: operation.key, value: operation.value, revision: applied.revision, contentHash: applied.contentHash, deleted: operation.deleted, updatedAt: applied.updatedAt ?? operation.clientUpdatedAt });
         await removeOperation(applied.operationId);
+      }
+      for (const record of payload.remote ?? []) {
+        const matchingOperation = byKey.get(record.key);
+        if (!matchingOperation) continue;
+        const current = localStorage.getItem(record.key);
+        const localHasNotChanged = matchingOperation.deleted
+          ? current === null
+          : current !== null && canonicalJson(parseStorageValue(current)) === canonicalJson(matchingOperation.value);
+        if (localHasNotChanged) {
+          if (record.deleted) localStorage.removeItem(record.key);
+          else localStorage.setItem(record.key, storageValueToString(record.value));
+        }
+        await saveMetadata(record);
+        await removeOperation(matchingOperation.id);
       }
       for (const conflict of payload.conflicts) {
         const operation = byId.get(conflict.operationId);
         if (!operation) continue;
-        const merge = operation.deleted || conflict.remoteDeleted
-          ? { merged: null, conflicts: ['$delete'] }
-          : threeWayMerge(conflict.baseValue, conflict.localValue, conflict.remoteValue);
         await removeOperation(operation.id);
-        if (merge.conflicts.length === 0) {
-          await queueOperation({ ...operation, id: crypto.randomUUID(), baseRevision: conflict.remoteRevision, baseHash: conflict.remoteHash, baseValue: conflict.remoteValue, value: merge.merged, clientUpdatedAt: new Date().toISOString(), resolvesOperationId: conflict.operationId });
+        const remoteIsNewer = conflict.remoteUpdatedAt
+          && Date.parse(conflict.remoteUpdatedAt) > Date.parse(operation.clientUpdatedAt);
+        if (remoteIsNewer) {
+          if (conflict.remoteDeleted) localStorage.removeItem(operation.key);
+          else localStorage.setItem(operation.key, storageValueToString(conflict.remoteValue));
+          await saveMetadata({ key: operation.key, value: conflict.remoteValue, revision: conflict.remoteRevision, contentHash: conflict.remoteHash, deleted: conflict.remoteDeleted, updatedAt: conflict.remoteUpdatedAt! });
         } else {
-          await saveConflict({ ...conflict, localValue: operation.deleted ? null : operation.value, localDeleted: operation.deleted, createdAt: new Date().toISOString() });
+          await queueOperation({ ...operation, id: crypto.randomUUID(), baseRevision: conflict.remoteRevision, baseHash: conflict.remoteHash, baseValue: conflict.remoteValue, resolvesOperationId: conflict.operationId });
         }
       }
     }
@@ -128,12 +156,15 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
       for (const record of payload.records) {
         if (pendingKeys.has(record.key)) continue;
-        if (record.deleted) localStorage.removeItem(record.key);
-        else localStorage.setItem(record.key, storageValueToString(record.value));
+        const current = localStorage.getItem(record.key) ?? undefined;
+        if (current === lastSnapshot[record.key]) {
+          if (record.deleted) localStorage.removeItem(record.key);
+          else localStorage.setItem(record.key, storageValueToString(record.value));
+        }
         await saveMetadata(record);
       }
       await setSetting('cursor', payload.cursor);
-      lastSnapshot = localSnapshot();
+      await queueChanges();
     }
 
     async function sync() {
@@ -141,8 +172,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       running = true;
       try {
         const deviceId = await getOrCreateDeviceId();
+        await clearConflicts();
         await queueChanges();
         await flush(deviceId);
+        await queueChanges();
         await pull();
         await flush(deviceId);
         const now = new Date().toISOString();
