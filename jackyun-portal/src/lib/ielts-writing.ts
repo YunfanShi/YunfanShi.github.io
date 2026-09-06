@@ -13,6 +13,11 @@ export interface QuoteHighlightChunk {
   issueIds: string[];
 }
 
+export interface QuoteRange {
+  start: number;
+  end: number;
+}
+
 export interface WritingIssue {
   id: string;
   category: 'Grammar' | 'Vocabulary / Collocation' | 'Sentence Structure' | 'Cohesion' | 'Logic / Development' | 'Task Response / Achievement';
@@ -101,18 +106,30 @@ export function diffWriting(original: string, current: string): DiffChunk[] {
   return chunks;
 }
 
+function quoteMatcher(quote: string): RegExp | null {
+  const trimmed = quote.trim();
+  if (!trimmed) return null;
+  const pattern = trimmed
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, '\\s+')
+    .replace(/['’]/g, "['’]")
+    .replace(/[-–—]/g, '[-–—]');
+  return new RegExp(pattern, 'giu');
+}
+
+export function findQuotedTextRange(text: string, quote: string): QuoteRange | null {
+  const matcher = quoteMatcher(quote);
+  if (!matcher) return null;
+  const match = matcher.exec(text);
+  return match ? { start: match.index, end: match.index + match[0].length } : null;
+}
+
 export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
   if (!text) return [];
   const matches: Array<{ start: number; end: number; id: string }> = [];
   for (const item of quotes) {
-    const quote = item.quote.trim();
-    if (!quote) continue;
-    const pattern = quote
-      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      .replace(/\s+/g, '\\s+')
-      .replace(/['’]/g, "['’]")
-      .replace(/[-–—]/g, '[-–—]');
-    const matcher = new RegExp(pattern, 'giu');
+    const matcher = quoteMatcher(item.quote);
+    if (!matcher) continue;
     for (const match of text.matchAll(matcher)) {
       const start = match.index;
       matches.push({ start, end: start + match[0].length, id: item.id });

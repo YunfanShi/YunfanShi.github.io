@@ -69,4 +69,35 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(legacy, /JACKYUN_BROWSER_AI_REQUEST/);
   assert.match(extension, /eligibility = await api\('\/beta'\)/);
   assert.match(extension, /prompt_failed/);
+  assert.match(extension, /waitForAiReply/);
+  assert.match(extension, /AI_AUTOMATION_STATUS/);
+  assert.match(extension, /reply_received/);
+  const content = readFileSync(new URL('../companion-extension/content.js', import.meta.url), 'utf8');
+  assert.match(content, /AI_READ_RESPONSE/);
+  assert.match(content, /JACKYUN_COMPANION_AI_STATUS/);
+  assert.match(bridge, /AutomationProgress/);
+});
+
+test('admin operations protect the owner, reset quota windows, notify users, and start chats', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260907090000_admin_messaging_quota_resets_and_owner.sql', import.meta.url), 'utf8');
+  assert.match(sql, /profiles_single_super_admin_idx/i);
+  assert.match(sql, /The super administrator account cannot be suspended/i);
+  assert.match(sql, /is_super_admin_user\(\)/i);
+  assert.match(sql, /admin_reset_ai_quota/i);
+  assert.match(sql, /ai_quota_resets/i);
+  assert.match(sql, /admin_start_user_chat/i);
+  assert.match(sql, /recipient_user_id, related_ticket_id/i);
+  assert.match(sql, /BETA 测试资格已撤销/);
+  const users = readFileSync(new URL('../src/components/admin/user-operations-panel.tsx', import.meta.url), 'utf8');
+  assert.match(users, /重置每日 AI 额度/);
+  assert.match(users, /降级为普通用户/);
+  assert.match(users, /发起私聊/);
+});
+
+test('notification inbox renders sanitized HTML instead of showing source text', () => {
+  const inbox = readFileSync(new URL('../src/components/modules/notification-inbox.tsx', import.meta.url), 'utf8');
+  const renderer = readFileSync(new URL('../src/components/modules/markdown-renderer.tsx', import.meta.url), 'utf8');
+  assert.match(inbox, /<MarkdownRenderer content=\{selected\.content\}/);
+  assert.match(renderer, /rehypeRaw/);
+  assert.match(renderer, /rehypeSanitize/);
 });

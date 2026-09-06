@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BROWSER_AI_CANCELLED, BROWSER_AI_REQUEST_EVENT, browserAiResponse, type BrowserAiRequest } from '@/lib/browser-ai';
 import { getAiConfig } from '@/lib/ai-config';
 import { formatBrowserAiPrompt } from '@/lib/browser-ai';
@@ -9,12 +9,16 @@ export default function BrowserAiBridge() {
   const [request, setRequest] = useState<BrowserAiRequest | null>(null);
   const [reply, setReply] = useState('');
   const [notice, setNotice] = useState('');
+  const [automationStage, setAutomationStage] = useState<'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error'>('idle');
+  const requestRef = useRef<BrowserAiRequest | null>(null);
 
   useEffect(() => {
     const activateRequest = (next: BrowserAiRequest) => {
       setReply('');
       setNotice('');
       setRequest(next);
+      requestRef.current = next;
+      setAutomationStage(next.automation ? 'opening' : 'idle');
       console.info('[BETA/BrowserAI] Manual request created', { requestId: next.id, provider: next.provider, automation: next.automation, promptLength: next.prompt.length });
       if (next.automation) {
         window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt }, window.location.origin);
@@ -45,7 +49,23 @@ export default function BrowserAiBridge() {
       activateRequest(next);
     };
     window.addEventListener('message', legacyListener);
-    return () => { window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); };
+    const statusListener = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_AI_STATUS') return;
+      const active = requestRef.current;
+      if (!active || event.data.requestId !== active.id) return;
+      const stage = event.data.stage as typeof automationStage;
+      if (['opening', 'filling', 'waiting', 'receiving', 'complete', 'error'].includes(stage)) setAutomationStage(stage);
+      setNotice(event.data.error || event.data.detail || '');
+      if (stage === 'complete' && typeof event.data.reply === 'string' && event.data.reply.trim()) {
+        const content = event.data.reply.trim();
+        setReply(content);
+        active.resolve(browserAiResponse(content, active.stream));
+        requestRef.current = null;
+        window.setTimeout(() => setRequest(null), 650);
+      }
+    };
+    window.addEventListener('message', statusListener);
+    return () => { window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', statusListener); };
   }, []);
 
   useEffect(() => {
@@ -54,6 +74,7 @@ export default function BrowserAiBridge() {
       if (event.key !== 'Escape') return;
       console.warn('[BETA/BrowserAI] Request cancelled with Escape', { requestId: request.id });
       request.reject(new Error(BROWSER_AI_CANCELLED));
+      requestRef.current = null;
       setRequest(null);
     };
     window.addEventListener('keydown', closeOnEscape);
@@ -64,6 +85,7 @@ export default function BrowserAiBridge() {
   const close = () => {
     console.warn('[BETA/BrowserAI] Request cancelled', { requestId: request.id });
     request.reject(new Error(BROWSER_AI_CANCELLED));
+    requestRef.current = null;
     setRequest(null);
   };
   const copy = async () => {
@@ -80,6 +102,7 @@ export default function BrowserAiBridge() {
     if (!reply.trim()) return;
     console.info('[BETA/BrowserAI] Reply accepted', { requestId: request.id, replyLength: reply.length });
     request.resolve(browserAiResponse(reply.trim(), request.stream));
+    requestRef.current = null;
     setRequest(null);
   };
 
@@ -99,7 +122,7 @@ export default function BrowserAiBridge() {
       </header>
 
       <div className="overflow-y-auto p-5 sm:p-6" data-scroll-region>
-        <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>
+        {request.automation ? <AutomationProgress stage={automationStage} /> : <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>}
 
         <button type="button" onClick={copy} className="min-h-12 w-full rounded-xl bg-[#0891b2] px-4 text-sm font-bold text-white shadow-md shadow-cyan-950/15"><span className="material-icons-round mr-2 align-middle text-lg">content_copy</span>复制完整 Prompt 和数据</button>
         <details className="mt-3 overflow-hidden rounded-xl border border-[var(--card-border)]"><summary className="cursor-pointer px-3 py-3 text-xs font-bold text-[var(--muted-foreground)]">查看完整 Prompt</summary><textarea readOnly value={request.prompt} rows={9} onFocus={(event) => event.currentTarget.select()} className="w-full resize-y border-t border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none" /></details>
@@ -113,4 +136,10 @@ export default function BrowserAiBridge() {
       <footer className="mt-auto grid grid-cols-[auto_1fr] gap-2 border-t border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5"><button type="button" onClick={close} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-bold">取消</button><button type="button" disabled={!reply.trim()} onClick={submit} className="min-h-11 rounded-xl border-2 border-[#0891b2] px-4 text-sm font-bold text-[#0e7490] disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#67e8f9]"><span className="material-icons-round mr-2 align-middle text-lg">download_done</span>导入回复并继续</button></footer>
     </aside>
   </div>;
+}
+
+function AutomationProgress({ stage }: { stage: 'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error' }) {
+  const steps = [{ key: 'opening', label: '打开网站' }, { key: 'filling', label: '填写发送' }, { key: 'waiting', label: '等待回复' }, { key: 'receiving', label: '接收内容' }, { key: 'complete', label: '返回网站' }];
+  const current = stage === 'idle' ? 0 : Math.max(0, steps.findIndex((item) => item.key === stage));
+  return <div className="mb-5 rounded-2xl border border-[#bae6fd] bg-[#f0f9ff] p-4 dark:border-[#24516a] dark:bg-[#0b2639]"><div className="flex items-center gap-2 text-sm font-bold text-[#075985] dark:text-[#7dd3fc]"><span className={`material-icons-round ${stage === 'error' ? 'text-[#dc2626]' : stage === 'complete' ? 'text-[#16a34a]' : 'animate-spin'}`}>{stage === 'error' ? 'error' : stage === 'complete' ? 'check_circle' : 'progress_activity'}</span>{stage === 'error' ? '自动处理需要帮助' : stage === 'complete' ? '回复已收到' : 'Jack Companion 正在处理'}</div><ol className="mt-4 grid grid-cols-5 gap-1 text-center text-[9px] font-semibold text-[#64748b]">{steps.map((item, index) => <li key={item.key}><span className={`mx-auto grid h-6 w-6 place-items-center rounded-full ${stage !== 'error' && index <= current ? 'bg-[#0891b2] text-white' : 'bg-white text-[#64748b] dark:bg-white/10'}`}>{index + 1}</span><span className="mt-1 block">{item.label}</span></li>)}</ol></div>;
 }

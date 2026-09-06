@@ -20,7 +20,7 @@ async function adminContext() {
   if (profile?.role !== 'admin') throw new Error('Forbidden: Admin only');
   const admin = createAdminClient();
   if (!admin) throw new Error('SUPABASE_SERVICE_ROLE_KEY 未配置');
-  return { admin, user };
+  return { admin, supabase, user };
 }
 
 export async function getAiAdminData() {
@@ -78,8 +78,26 @@ export async function setUserPlan(userId: string, planCode: PlanCode): Promise<{
     const { admin, user } = await adminContext();
     const { error } = await admin.from('user_entitlements').upsert({ user_id: userId, plan_code: planCode, updated_by: user.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) return { success: false, error: error.message };
+    const { error: noticeError } = await admin.from('site_notifications').insert({
+      title: 'AI 套餐已更新',
+      content: `管理员已将你的平台 AI 套餐调整为 **${planCode.toUpperCase()}**。新额度立即生效。`,
+      content_type: 'markdown', delivery_type: 'message', recipient_user_id: userId, created_by: user.id,
+    });
+    if (noticeError) return { success: false, error: `套餐已更新，但通知发送失败：${noticeError.message}` };
     revalidatePath('/admin/users'); return { success: true };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : '更新套餐失败' }; }
+}
+
+export async function resetUserAiQuota(userId: string, scope: 'daily' | 'monthly'): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!UUID_PATTERN.test(userId) || !['daily', 'monthly'].includes(scope)) return { success: false, error: '用户或重置范围无效。' };
+    const { supabase } = await adminContext();
+    const { error } = await supabase.rpc('admin_reset_ai_quota', { p_user_id: userId, p_scope: scope });
+    if (error) return { success: false, error: error.message };
+    revalidatePath('/admin/users');
+    revalidatePath('/settings');
+    return { success: true };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : '额度重置失败' }; }
 }
 
 export async function getUserPlans(): Promise<Record<string, PlanCode>> {

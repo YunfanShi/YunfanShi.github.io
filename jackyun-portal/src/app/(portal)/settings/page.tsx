@@ -37,7 +37,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     const { data: { user } } = await supabase.auth.getUser();
     const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
     const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
-    const [{ data: profile }, { data: settingRows }, { data: devices }, { data: entitlement }, { data: plans }, { data: usage }, { data: betaEnrollment }] = user ? await Promise.all([
+    const [{ data: profile }, { data: settingRows }, { data: devices }, { data: entitlement }, { data: plans }, { data: usage }, { data: betaEnrollment }, { data: quotaResets }] = user ? await Promise.all([
       supabase.from('profiles').select('display_name, avatar_url').eq('id', user.id).maybeSingle(),
       supabase.from('user_settings').select('key, value').eq('user_id', user.id),
       supabase.from('companion_devices').select('id, name, platform, extension_version, last_seen_at, revoked_at').eq('user_id', user.id).order('last_seen_at', { ascending: false }),
@@ -45,7 +45,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       supabase.from('subscription_plans').select('*'),
       supabase.from('ai_usage_ledger').select('feature, status, billed_tokens, reserved_tokens, created_at').eq('user_id', user.id).gte('created_at', monthStart.toISOString()),
       supabase.from('beta_enrollments').select('status').eq('user_id', user.id).maybeSingle(),
-    ]) : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: [] }, { data: [] }, { data: null }];
+      supabase.from('ai_quota_resets').select('scope, created_at').eq('user_id', user.id).gte('created_at', monthStart.toISOString()).order('created_at', { ascending: false }),
+    ]) : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: [] }, { data: [] }, { data: null }, { data: [] }];
     displayName = profile?.display_name ?? user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? '';
     avatarUrl = profile?.avatar_url ?? user?.user_metadata?.avatar_url ?? '';
     userId = user?.id ?? '';
@@ -53,7 +54,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     cloudSettings = Object.fromEntries((settingRows ?? []).map((row) => [row.key, row.value as Record<string, unknown>]));
     companionDevices = (devices ?? []) as CompanionDeviceView[];
     const planCode = entitlement?.plan_code ?? 'free'; const plan = (plans ?? []).find((item) => item.code === planCode);
-    if (plan) { const rows = usage ?? []; const billed = (row: typeof rows[number]) => Number(row.status === 'reserved' ? row.reserved_tokens : row.billed_tokens); aiQuota = { plan: planCode, dailyLimit: Number(plan.daily_token_limit), monthlyLimit: Number(plan.monthly_token_limit) + Number(entitlement?.bonus_tokens ?? 0), dailyUsed: rows.filter((row) => row.created_at >= dayStart.toISOString()).reduce((n, row) => n + billed(row), 0), monthlyUsed: rows.reduce((n, row) => n + billed(row), 0), maxOutput: Number(plan.max_output_tokens), siteGenerations: rows.filter((row) => row.feature === 'personal_site' && row.status !== 'failed').length, siteGenerationLimit: Number(plan.monthly_site_generations) }; }
+    if (plan) { const rows = usage ?? []; const resetRows = quotaResets ?? []; const latestMonthly = resetRows.find((row) => row.scope === 'monthly')?.created_at; const latestDaily = resetRows.find((row) => row.scope === 'daily' || row.scope === 'monthly')?.created_at; const monthlySince = latestMonthly && latestMonthly > monthStart.toISOString() ? latestMonthly : monthStart.toISOString(); const dailySince = latestDaily && latestDaily > dayStart.toISOString() ? latestDaily : dayStart.toISOString(); const billed = (row: typeof rows[number]) => Number(row.status === 'reserved' ? row.reserved_tokens : row.billed_tokens); aiQuota = { plan: planCode, dailyLimit: Number(plan.daily_token_limit), monthlyLimit: Number(plan.monthly_token_limit) + Number(entitlement?.bonus_tokens ?? 0), dailyUsed: rows.filter((row) => row.created_at >= dailySince).reduce((n, row) => n + billed(row), 0), monthlyUsed: rows.filter((row) => row.created_at >= monthlySince).reduce((n, row) => n + billed(row), 0), maxOutput: Number(plan.max_output_tokens), siteGenerations: rows.filter((row) => row.created_at >= monthlySince && row.feature === 'personal_site' && row.status !== 'failed').length, siteGenerationLimit: Number(plan.monthly_site_generations) }; }
   } catch { /* fallback: not authenticated, show empty profile */ }
 
   return (

@@ -1,10 +1,12 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { inviteUserAccount, sendPasswordResetForUser, setAccountStatus, setUserRole, type ManagedUser } from '@/actions/admin';
+import { startUserChat } from '@/actions/feedback';
 import { setBetaInvitation } from '@/actions/beta';
 import type { BetaEnrollment, BetaEnrollmentStatus } from '@/lib/beta';
-import { setUserPlan, type PlanCode } from '@/actions/ai-admin';
+import { resetUserAiQuota, setUserPlan, type PlanCode } from '@/actions/ai-admin';
 
 const REASONS = ['违反平台使用规范', '异常或高风险行为', '多次滥用平台功能', '账户安全保护', '其他'] as const;
 
@@ -19,7 +21,8 @@ const BETA_STATUS_LABELS: Record<BetaEnrollmentStatus, string> = {
   invited: '等待同意', accepted: '已同意', declined: '已拒绝', revoked: '已撤销',
 };
 
-export default function UserOperationsPanel({ users, currentUserId, betaEnrollments, userPlans }: { users: ManagedUser[]; currentUserId: string; betaEnrollments: BetaEnrollment[]; userPlans: Record<string, PlanCode> }) {
+export default function UserOperationsPanel({ users, currentUserId, isSuperAdmin, betaEnrollments, userPlans }: { users: ManagedUser[]; currentUserId: string; isSuperAdmin: boolean; betaEnrollments: BetaEnrollment[]; userPlans: Record<string, PlanCode> }) {
+  const router = useRouter();
   const [items, setItems] = useState(users);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'suspended' | 'deleted'>('all');
@@ -30,6 +33,9 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
   const [betaByUser, setBetaByUser] = useState(() => new Map(betaEnrollments.map((entry) => [entry.user_id, entry])));
   const [plansByUser, setPlansByUser] = useState(userPlans);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [chatTarget, setChatTarget] = useState<ManagedUser | null>(null);
+  const [chatSubject, setChatSubject] = useState('管理员联系');
+  const [chatBody, setChatBody] = useState('');
 
   const visible = useMemo(() => items.filter((user) => {
     const search = `${user.display_name ?? ''} ${user.email ?? ''} ${user.id}`.toLowerCase().includes(query.toLowerCase());
@@ -96,6 +102,34 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
     setNotice(`${user.display_name || user.email || user.id} 已提权为 ADMIN。`);
   });
 
+  const demote = (user: ManagedUser) => startTransition(async () => {
+    setNotice('');
+    const result = await setUserRole(user.id, 'user');
+    if (!result.success) return setNotice(result.error ?? '管理员降级失败。');
+    setItems((all) => all.map((entry) => entry.id === user.id ? { ...entry, role: 'user' } : entry));
+    setNotice(`${user.display_name || user.email || user.id} 已降级为普通用户。`);
+  });
+
+  const resetQuota = (user: ManagedUser, scope: 'daily' | 'monthly') => {
+    const label = scope === 'daily' ? '每日' : '每月';
+    if (!window.confirm(`确定重置 ${user.display_name || user.email || '该用户'} 的${label} AI 额度吗？用户会收到消息。`)) return;
+    startTransition(async () => {
+      setNotice('');
+      const result = await resetUserAiQuota(user.id, scope);
+      setNotice(result.success ? `${label} AI 额度已重置，并已通知用户。` : result.error ?? '额度重置失败。');
+    });
+  };
+
+  const sendChat = () => {
+    if (!chatTarget || !chatSubject.trim() || !chatBody.trim()) return;
+    startTransition(async () => {
+      const result = await startUserChat(chatTarget.id, chatSubject, chatBody);
+      if (!result.success || !result.ticketId) return setNotice(result.error ?? '私聊创建失败。');
+      setChatTarget(null); setChatBody(''); setChatSubject('管理员联系');
+      router.push(`/admin/tickets?ticket=${encodeURIComponent(result.ticketId)}`);
+    });
+  };
+
   const updatePlan = (userId: string, plan: PlanCode) => startTransition(async () => {
     const result = await setUserPlan(userId, plan);
     if (!result.success) return setNotice(result.error ?? '更新套餐失败。');
@@ -133,21 +167,25 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
           <tbody>{visible.map((user) => (
             <tr key={user.id} className="border-t border-[#eaecf0] dark:border-white/10">
               <td className="px-4 py-3"><p className="font-medium">{user.display_name || '未命名用户'}</p><p className="mt-0.5 text-xs text-[#667085] dark:text-[#98a2b3]">{user.email || user.id}</p></td>
-              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${user.deleted_at ? 'bg-[#fef3f2] text-[#b42318]' : user.account_status === 'suspended' ? 'bg-[#fffaeb] text-[#b54708]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{user.deleted_at ? '待恢复' : user.account_status === 'suspended' ? '已暂停' : '正常'}</span><p className="mt-1 text-[10px] uppercase text-[#667085]">{user.role}</p>{user.suspended_reason && <p className="mt-1 max-w-40 truncate text-xs text-[#667085]" title={`${user.suspended_reason}${user.suspended_explanation ? `：${user.suspended_explanation}` : ''}`}>{user.suspended_reason}</p>}</td>
+              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${user.deleted_at ? 'bg-[#fef3f2] text-[#b42318]' : user.account_status === 'suspended' ? 'bg-[#fffaeb] text-[#b54708]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{user.deleted_at ? '待恢复' : user.account_status === 'suspended' ? '已暂停' : '正常'}</span><p className="mt-1 text-[10px] font-semibold uppercase text-[#667085]">{user.is_super_admin ? 'SUPER ADMIN' : user.role}</p>{user.suspended_reason && <p className="mt-1 max-w-40 truncate text-xs text-[#667085]" title={`${user.suspended_reason}${user.suspended_explanation ? `：${user.suspended_explanation}` : ''}`}>{user.suspended_reason}</p>}</td>
               <td className="px-4 py-3"><select aria-label={`${user.display_name || user.email || '用户'}套餐`} disabled={pending} value={plansByUser[user.id] ?? 'free'} onChange={(event) => updatePlan(user.id, event.target.value as PlanCode)} className="rounded-lg border border-[#d0d5dd] bg-transparent px-2 py-1 text-xs uppercase"><option value="free">Free</option><option value="plus">Plus</option><option value="pro">Pro</option><option value="ultra">Ultra</option></select></td>
               <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-bold ${betaByUser.get(user.id)?.status === 'accepted' ? 'bg-[#f4ebff] text-[#6941c6]' : 'bg-[#f2f4f7] text-[#475467]'}`}>{betaByUser.get(user.id)?.status === 'accepted' ? 'BETA' : 'STABLE'}</span></td>
               <td className="px-4 py-3 text-xs"><p>{betaByUser.get(user.id) ? BETA_STATUS_LABELS[betaByUser.get(user.id)!.status] : '未邀请'}</p>{betaByUser.get(user.id)?.agreement_version && <p className="mt-1 text-[10px] text-[#667085]">协议 {betaByUser.get(user.id)!.agreement_version}</p>}</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{user.focus_sessions} 次专注<br />{user.legacy_records} 条旧模块记录</td>
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</td>
               <td className="whitespace-nowrap px-4 py-3 text-right">
-                {!user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="mr-2 rounded-lg border border-[#d0d5dd] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="mr-2 rounded-lg bg-[#f4ebff] px-3 py-1.5 text-xs font-semibold text-[#6941c6] disabled:opacity-50">邀请 BETA</button>)}
-                {!user.deleted_at && user.role !== 'admin' && <button type="button" disabled={pending} onClick={() => promote(user)} className="mr-2 rounded-lg bg-[#e8f0fe] px-3 py-1.5 text-xs font-semibold text-[#174ea6] disabled:opacity-50">提权为 ADMIN</button>}
-                {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="mr-2 rounded-lg border border-[#b2ddff] px-3 py-1.5 text-xs font-semibold text-[#175cd3] disabled:opacity-50">发送重置邮件</button>}
-                {!user.deleted_at && (user.account_status === 'active' ? (
-                  <button type="button" disabled={pending || user.id === currentUserId} title={user.id === currentUserId ? '不能暂停当前登录账户' : undefined} onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318] disabled:cursor-not-allowed disabled:opacity-50">暂停账户</button>
-                ) : (
-                  <button type="button" disabled={pending || user.id === currentUserId} title={user.id === currentUserId ? '不能修改当前登录账户状态' : undefined} onClick={() => restore(user)} className="rounded-lg bg-[#ecfdf3] px-3 py-1.5 text-xs font-semibold text-[#027a48] disabled:cursor-not-allowed disabled:opacity-50">取消暂停</button>
-                ))}
+                <div className="flex items-center justify-end gap-2">
+                  <button type="button" disabled={pending || Boolean(user.deleted_at)} onClick={() => { setChatTarget(user); setChatSubject('管理员联系'); setChatBody(''); }} className="rounded-lg bg-[#155eef] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">发消息</button>
+                  <details className="text-left"><summary className="list-none cursor-pointer rounded-lg border border-[#d0d5dd] px-3 py-2 text-xs font-semibold">更多操作</summary><div className="ml-auto mt-2 grid w-52 gap-1 rounded-xl border border-[#d0d5dd] bg-white p-2 shadow-lg dark:border-white/15 dark:bg-[#182230]">
+                    {!user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">邀请 BETA</button>)}
+                    <button type="button" disabled={pending} onClick={() => resetQuota(user, 'daily')} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">重置每日 AI 额度</button>
+                    <button type="button" disabled={pending} onClick={() => resetQuota(user, 'monthly')} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">重置每月 AI 额度</button>
+                    {isSuperAdmin && !user.deleted_at && user.role !== 'admin' && <button type="button" disabled={pending} onClick={() => promote(user)} className="rounded-lg px-3 py-2 text-left text-xs text-[#174ea6] hover:bg-[#e8f0fe]">提权为 ADMIN</button>}
+                    {isSuperAdmin && user.role === 'admin' && !user.is_super_admin && <button type="button" disabled={pending} onClick={() => demote(user)} className="rounded-lg px-3 py-2 text-left text-xs text-[#b54708] hover:bg-[#fffaeb]">降级为普通用户</button>}
+                    {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">发送密码重置邮件</button>}
+                    {!user.deleted_at && (user.account_status === 'active' ? <button type="button" disabled={pending || user.id === currentUserId || user.is_super_admin} title={user.is_super_admin ? '超级管理员账户不可暂停' : undefined} onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg px-3 py-2 text-left text-xs text-[#b42318] hover:bg-[#fef3f2] disabled:opacity-40">暂停账户</button> : <button type="button" disabled={pending || user.id === currentUserId || user.is_super_admin} onClick={() => restore(user)} className="rounded-lg px-3 py-2 text-left text-xs text-[#027a48] hover:bg-[#ecfdf3] disabled:opacity-40">取消暂停</button>)}
+                  </div></details>
+                </div>
               </td>
             </tr>
           ))}</tbody>
@@ -173,6 +211,16 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
           <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#182230]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start gap-3"><span className="material-icons-round mt-0.5 text-[#175cd3]">lock_reset</span><div><h2 className="font-semibold">发送密码重置邮件</h2><p className="mt-2 text-sm leading-6 text-[#667085] dark:text-[#98a2b3]">将向 {resetTarget.email} 发送一次性重置链接。管理员不会看到或设置用户的新密码。</p></div></div>
             <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={() => setResetTarget(null)} className="rounded-xl border border-[#d0d5dd] px-4 py-2.5 text-sm font-semibold">取消</button><button type="button" disabled={pending} onClick={sendPasswordReset} className="rounded-xl bg-[#155eef] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{pending ? '发送中…' : '确认发送'}</button></div>
+          </section>
+        </div>
+      )}
+      {chatTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 p-4 backdrop-blur-sm" onClick={() => !pending && setChatTarget(null)}>
+          <section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#182230]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.1em] text-[#155eef]">发起私聊</p><h2 className="mt-2 text-xl font-semibold">{chatTarget.display_name || chatTarget.email || '该用户'}</h2><p className="mt-1 text-sm text-[#667085]">用户会收到通知，可以直接回复；之后可在工单页结束本次对话。</p></div><button type="button" aria-label="关闭" onClick={() => setChatTarget(null)}><span className="material-icons-round">close</span></button></div>
+            <label className="mt-5 block text-sm font-semibold">主题<input value={chatSubject} maxLength={120} onChange={(event) => setChatSubject(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[#d0d5dd] bg-transparent px-3 text-sm" /></label>
+            <label className="mt-4 block text-sm font-semibold">消息<textarea value={chatBody} maxLength={10000} onChange={(event) => setChatBody(event.target.value)} rows={6} placeholder="输入要发送给用户的消息…" className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-transparent p-3 text-sm leading-6" /></label>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" disabled={pending} onClick={() => setChatTarget(null)} className="rounded-xl border border-[#d0d5dd] px-4 py-2.5 text-sm font-semibold">取消</button><button type="button" disabled={pending || !chatSubject.trim() || !chatBody.trim()} onClick={sendChat} className="rounded-xl bg-[#155eef] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{pending ? '发送中…' : '发送并打开对话'}</button></div>
           </section>
         </div>
       )}

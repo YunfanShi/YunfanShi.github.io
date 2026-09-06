@@ -326,7 +326,30 @@ async function waitForTab(tabId) {
   throw new Error('AI 网页加载超时');
 }
 
-async function sendPromptToAiWebsite(payload) {
+async function notifyAiStatus(portalTabId, payload, stage, detail, extra = {}) {
+  if (!portalTabId) return;
+  await chrome.tabs.sendMessage(portalTabId, { type: 'AI_AUTOMATION_STATUS', requestId: payload.requestId, stage, detail, ...extra }).catch(() => {});
+}
+
+async function waitForAiReply(tabId, baselineCount, payload, portalTabId) {
+  let previous = '';
+  let stablePolls = 0;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    await delay(1000);
+    const state = await chrome.tabs.sendMessage(tabId, { type: 'AI_READ_RESPONSE', provider: payload.provider }).catch(() => null);
+    if (!state?.ok) continue;
+    const text = String(state.text || '').trim();
+    const hasNewResponse = Number(state.count || 0) > Number(baselineCount || 0) && text.length > 0;
+    if (!hasNewResponse) continue;
+    stablePolls = text === previous && !state.busy ? stablePolls + 1 : 0;
+    previous = text;
+    if (stablePolls >= 2) return text;
+    if (attempt % 5 === 0) await notifyAiStatus(portalTabId, payload, 'receiving', `已收到 ${text.length} 个字符，正在等待回复完成…`);
+  }
+  throw new Error('等待 AI 回复超时，请在手动模式中粘贴回复');
+}
+
+async function sendPromptToAiWebsite(payload, portalTabId) {
   const provider = String(payload?.provider || '');
   const prompt = String(payload?.prompt || '');
   if (!AI_PROVIDER_URLS[provider] || !prompt || prompt.length > 500000) throw new Error('无效的 AI Prompt 请求');
@@ -335,19 +358,26 @@ async function sendPromptToAiWebsite(payload) {
     await betaAiLog('eligibility_denied', { provider });
     throw new Error('当前账户没有 BETA 资格');
   }
+  await notifyAiStatus(portalTabId, payload, 'opening', '正在打开所选 AI 网站…');
   const target = new URL(AI_PROVIDER_URLS[provider]);
   const matches = await chrome.tabs.query({ url: `${target.origin}/*` });
   const tab = matches[0] || await chrome.tabs.create({ url: target.href, active: true });
   if (!tab.id) throw new Error('无法打开 AI 网页');
   await chrome.tabs.update(tab.id, { active: true });
   await waitForTab(tab.id);
+  await notifyAiStatus(portalTabId, payload, 'filling', '网站已打开，正在定位输入框并填写消息…');
   let lastError = null;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'AI_FILL_PROMPT', prompt, provider, submit: true });
       if (response?.ok) {
         await betaAiLog('prompt_submitted', { provider, requestId: payload.requestId, tabId: tab.id });
-        return { tabId: tab.id, provider };
+        await notifyAiStatus(portalTabId, payload, 'waiting', '消息已发送，正在等待 AI 完成回复…');
+        const reply = await waitForAiReply(tab.id, response.baselineCount, payload, portalTabId);
+        await betaAiLog('reply_received', { provider, requestId: payload.requestId, tabId: tab.id, replyLength: reply.length });
+        await notifyAiStatus(portalTabId, payload, 'complete', '回复已完整收到，正在返回 JackYun…', { reply });
+        await chrome.tabs.update(portalTabId, { active: true }).catch(() => {});
+        return { tabId: tab.id, provider, reply };
       }
       lastError = new Error(response?.error || 'AI 输入框尚未就绪');
     } catch (error) { lastError = error; }
@@ -469,7 +499,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'TOOLS_SAVE_CONFIG') return saveToolsConfig(message.payload);
     if (message.type === 'ADBLOCK_GET_CONFIG') return adblockConfig();
     if (message.type === 'ADBLOCK_SAVE_CONFIG') return saveAdblockConfig(message.payload);
-    if (message.type === 'AI_WEB_PROMPT') return sendPromptToAiWebsite(message.payload);
+    if (message.type === 'AI_WEB_PROMPT') {
+      try { return await sendPromptToAiWebsite(message.payload, sender.tab?.id); }
+      catch (error) {
+        await notifyAiStatus(sender.tab?.id, message.payload || {}, 'error', '自动处理未完成。', { error: error.message || String(error) });
+        throw error;
+      }
+    }
     if (message.type === 'BETA_AI_LOGS') { const stored = await local.get(['betaAiLogs']); return stored.betaAiLogs || []; }
     if (message.type === 'OPEN_ONBOARDING') return chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
     if (message.type === 'ONBOARDING_COMPLETE') { await local.set({ onboardingSeen: true }); return true; }

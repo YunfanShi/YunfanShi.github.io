@@ -4,27 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveNotifications, dismissNotification } from '@/actions/admin';
 import type { SiteNotification } from '@/types';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
-import ReactMarkdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
-import remarkGfm from 'remark-gfm';
+import MarkdownRenderer from '@/components/modules/markdown-renderer';
 
 const DISMISSED_KEY = 'site_notification_dismissed';
 
 function NotificationContent({ notification }: { notification: SiteNotification }) {
-  return (
-    <div className="notification-content prose prose-sm max-w-none text-[var(--foreground)] dark:prose-invert">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={notification.content_type === 'html' ? [rehypeRaw, rehypeSanitize] : [rehypeSanitize]}
-        components={{
-          a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-        }}
-      >
-        {notification.content}
-      </ReactMarkdown>
-    </div>
-  );
+  return <div className="notification-content"><MarkdownRenderer content={notification.content} /></div>;
 }
 
 export default function SiteNotificationModal() {

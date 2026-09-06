@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWritingReviewPrompt, countWords, diffWriting, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { buildWritingReviewPrompt, countWords, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { readFileSync } from 'node:fs';
 
 test('counts IELTS words and returns task targets deterministically', () => {
   assert.equal(countWords('  One   two\nthree  '), 3);
@@ -63,6 +64,12 @@ test('maps AI quote fragments back to highlighted essay text', () => {
   assert.ok(chunks.some((chunk) => chunk.highlighted && chunk.issueIds.includes('grammar-2')));
 });
 
+test('finds a quote range for editor selection with punctuation normalization', () => {
+  const essay = 'First paragraph.\nChildren’s progress — matters.';
+  assert.deepEqual(findQuotedTextRange(essay, "Children's progress - matters"), { start: 17, end: 46 });
+  assert.equal(findQuotedTextRange(essay, 'missing text'), null);
+});
+
 test('accepts the common escaped-underscore defect in otherwise valid model JSON', () => {
   const feedback = parseWritingFeedback('{"summary":"清楚","issues":[{"id":"1","category":"Grammar","severity":"high","quote":"people is","explanation":"说明","selfRevisionPrompt":"提示","ruleKey":"subject\\_verb\\_agreement"}]}');
   assert.equal(feedback.issues[0].ruleKey, 'subject_verb_agreement');
@@ -73,4 +80,11 @@ test('Chinese prompts require Chinese guidance but preserve verbatim English quo
   assert.match(prompt, /Simplified Chinese/);
   assert.match(prompt, /verbatim substring copied from Current draft/);
   assert.match(prompt, /Never translate/);
+});
+
+test('split workspace keeps a single reachable scrollbar with bottom padding', () => {
+  const workbench = readFileSync(new URL('../src/components/modules/ielts/writing-workbench.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  assert.match(workbench, /xl:min-h-0 xl:overflow-y-auto[^']*xl:pb-8/);
+  assert.match(css, /aside\[data-scroll-region\] > article\[data-scroll-region\][\s\S]*max-height: none !important/);
 });

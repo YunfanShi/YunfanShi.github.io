@@ -26,14 +26,14 @@ const customSchema = {
   ],
   attributes: {
     ...defaultSchema.attributes,
-    '*': [...(defaultSchema.attributes?.['*'] || []), ['className', 'style', 'encoding']],
-    code: [...(defaultSchema.attributes?.code || []), ['className']],
-    span: [...(defaultSchema.attributes?.span || []), ['className', 'style']],
-    div: [...(defaultSchema.attributes?.div || []), ['className', 'style']],
-    math: [...(defaultSchema.attributes?.math || []), ['xmlns', 'display']],
-    annotation: [...(defaultSchema.attributes?.annotation || []), ['encoding']],
+    '*': [...(defaultSchema.attributes?.['*'] || []), 'className', 'style', 'encoding'],
+    code: [...(defaultSchema.attributes?.code || []), 'className'],
+    span: [...(defaultSchema.attributes?.span || []), 'className', 'style'],
+    div: [...(defaultSchema.attributes?.div || []), 'className', 'style'],
+    math: [...(defaultSchema.attributes?.math || []), 'xmlns', 'display'],
+    annotation: [...(defaultSchema.attributes?.annotation || []), 'encoding'],
     // Allow data-* attributes globally for highlight.js
-    pre: [...(defaultSchema.attributes?.pre || []), ['className']],
+    pre: [...(defaultSchema.attributes?.pre || []), 'className'],
   },
 };
 

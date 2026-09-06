@@ -7,15 +7,17 @@ interface AdminUser {
   id: string;
   email: string | null;
   display_name: string | null;
+  is_super_admin: boolean;
   created_at: string;
 }
 
 interface AdminManagerPanelProps {
   admins: AdminUser[];
   currentUserId: string;
+  isSuperAdmin: boolean;
 }
 
-export function AdminManagerPanel({ admins, currentUserId }: AdminManagerPanelProps) {
+export function AdminManagerPanel({ admins, currentUserId, isSuperAdmin }: AdminManagerPanelProps) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function AdminManagerPanel({ admins, currentUserId }: AdminManagerPanelPr
                   当前
                 </span>
               )}
-              <button
+              {admin.is_super_admin ? <span className="rounded-full bg-[#f4ebff] px-2 py-0.5 text-[10px] font-semibold text-[#6941c6]">超级管理员</span> : isSuperAdmin && <button
                 onClick={() => handleRemove(admin.id, display)}
                 disabled={isSelf || removingId === admin.id}
                 className="ml-1 p-1 rounded text-[#EA4335] hover:bg-[#EA4335]/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -83,14 +85,14 @@ export function AdminManagerPanel({ admins, currentUserId }: AdminManagerPanelPr
                 <span className="material-icons-round text-base">
                   {removingId === admin.id ? 'hourglass_top' : 'remove_circle'}
                 </span>
-              </button>
+              </button>}
             </div>
           );
         })}
       </div>
 
       {/* Add admin form */}
-      <div className="flex gap-2 flex-wrap">
+      {isSuperAdmin ? <div className="flex gap-2 flex-wrap">
         <input
           type="email"
           value={email}
@@ -106,7 +108,7 @@ export function AdminManagerPanel({ admins, currentUserId }: AdminManagerPanelPr
           <span className="material-icons-round text-base">add_circle</span>
           添加管理员
         </button>
-      </div>
+      </div> : <p className="rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--muted-foreground)]">只有超级管理员可以授予或撤销管理员角色。</p>}
 
       {/* Status messages */}
       {error && (

@@ -418,7 +418,7 @@ export function NotificationManagerPanel() {
                 <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
                   {form.content_type === 'markdown'
                     ? '支持标题、粗体、斜体、链接、列表、引用、代码块等常见语法'
-                    : '支持任意 HTML 代码，可自定义样式'}
+                    : 'HTML 会按网页内容渲染，并自动移除脚本、事件属性等不安全代码'}
                 </p>
               </div>
 

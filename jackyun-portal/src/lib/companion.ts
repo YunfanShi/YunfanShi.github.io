@@ -76,7 +76,7 @@ export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferencesV2 = {
   groupOrder: ['home', 'learning', 'practice', 'time', 'tools', 'relax', 'system'],
   itemOrder: {
     home: ['dashboard'],
-    learning: ['study-plan', 'goal', 'study-guide', 'ielts-writing', 'learning-resources', 'vocab'],
+    learning: ['study-plan', 'goal', 'study-guide', 'ielts-writing', 'ielts-reading', 'learning-resources', 'vocab'],
     practice: ['answer-sheet', 'answer-sheet-sync', 'mock', 'quizwise'],
     time: ['time-management', 'activity', 'schedule'],
     tools: ['tools', 'userscripts'],

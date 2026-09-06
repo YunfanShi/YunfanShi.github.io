@@ -148,13 +148,7 @@ export default function NotificationInbox() {
               </button>
             </div>
             <div className="mt-6">
-              {selected.content_type === 'markdown' ? (
-                <MarkdownRenderer content={selected.content} />
-              ) : (
-                <div className="whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">
-                  {selected.content}
-                </div>
-              )}
+              <MarkdownRenderer content={selected.content} />
             </div>
           </article>
         </div>

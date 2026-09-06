@@ -208,11 +208,11 @@ export async function isUserWhitelisted(
 
 // ===== Admin Manager =====
 
-export async function getAdmins(): Promise<{ id: string; email: string | null; display_name: string | null; created_at: string }[]> {
+export async function getAdmins(): Promise<{ id: string; email: string | null; display_name: string | null; is_super_admin: boolean; created_at: string }[]> {
   const { supabase } = await requireAdmin();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, display_name, created_at')
+    .select('id, email, display_name, is_super_admin, created_at')
     .eq('role', 'admin')
     .order('created_at', { ascending: true });
   if (error) throw new Error(error.message);
@@ -221,7 +221,7 @@ export async function getAdmins(): Promise<{ id: string; email: string | null; d
 
 export type ManagedUser = {
   id: string; email: string | null; display_name: string | null; avatar_url: string | null;
-  role: string; account_status: 'active' | 'suspended'; suspended_reason: string | null; suspended_explanation: string | null;
+  role: string; is_super_admin: boolean; account_status: 'active' | 'suspended'; suspended_reason: string | null; suspended_explanation: string | null;
   created_at: string; updated_at: string; deleted_at: string | null; focus_sessions: number; legacy_records: number;
 };
 
@@ -297,6 +297,13 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
   const { data, error } = await supabase.rpc('admin_list_users');
   if (error) throw new Error(error.message);
   return ((data ?? []) as ManagedUser[]).map((row: ManagedUser) => ({ ...row, focus_sessions: Number(row.focus_sessions), legacy_records: Number(row.legacy_records) }));
+}
+
+export async function getCurrentAdminCapabilities(): Promise<{ isSuperAdmin: boolean }> {
+  const { supabase, user } = await requireAdmin();
+  const { data, error } = await supabase.from('profiles').select('is_super_admin').eq('id', user.id).single();
+  if (error) throw new Error(error.message);
+  return { isSuperAdmin: data?.is_super_admin === true };
 }
 
 export async function inviteUserAccount(email: string): Promise<{ success: boolean; error?: string }> {
