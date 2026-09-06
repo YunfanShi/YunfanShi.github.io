@@ -11,8 +11,7 @@ export default function BrowserAiBridge() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    const listener = (event: Event) => {
-      const next = (event as CustomEvent<BrowserAiRequest>).detail;
+    const activateRequest = (next: BrowserAiRequest) => {
       setReply('');
       setNotice('');
       setRequest(next);
@@ -21,6 +20,10 @@ export default function BrowserAiBridge() {
         window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt }, window.location.origin);
         setNotice('已请求 Jack Companion 打开所选 AI 并填写 Prompt；生成完成后请把回复粘贴到下方。');
       }
+    };
+    const listener = (event: Event) => {
+      const next = (event as CustomEvent<BrowserAiRequest>).detail;
+      activateRequest(next);
     };
     window.addEventListener(BROWSER_AI_REQUEST_EVENT, listener);
     const legacyListener = (event: MessageEvent) => {
@@ -39,11 +42,23 @@ export default function BrowserAiBridge() {
         resolve: async (response) => source?.postMessage({ type: 'JACKYUN_BROWSER_AI_RESPONSE', requestId, ok: true, body: await response.text(), stream: event.data.stream === true }, { targetOrigin: event.origin }),
         reject: (error) => source?.postMessage({ type: 'JACKYUN_BROWSER_AI_RESPONSE', requestId, ok: false, error: error.message }, { targetOrigin: event.origin }),
       };
-      setReply(''); setNotice(''); setRequest(next);
+      activateRequest(next);
     };
     window.addEventListener('message', legacyListener);
     return () => { window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); };
   }, []);
+
+  useEffect(() => {
+    if (!request) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      console.warn('[BETA/BrowserAI] Request cancelled with Escape', { requestId: request.id });
+      request.reject(new Error(BROWSER_AI_CANCELLED));
+      setRequest(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [request]);
 
   if (!request) return null;
   const close = () => {
@@ -52,9 +67,14 @@ export default function BrowserAiBridge() {
     setRequest(null);
   };
   const copy = async () => {
-    await navigator.clipboard.writeText(request.prompt);
-    setNotice('Prompt 和数据已复制。请发送给任意 AI，并把完整回复粘贴回来。');
-    console.info('[BETA/BrowserAI] Prompt copied', { requestId: request.id });
+    try {
+      await navigator.clipboard.writeText(request.prompt);
+      setNotice('Prompt 和数据已复制。请发送给任意 AI，并把完整回复粘贴回来。');
+      console.info('[BETA/BrowserAI] Prompt copied', { requestId: request.id });
+    } catch (error) {
+      setNotice('复制失败，请展开完整 Prompt 后手动复制。');
+      console.error('[BETA/BrowserAI] Prompt copy failed', { requestId: request.id, error });
+    }
   };
   const submit = () => {
     if (!reply.trim()) return;
@@ -63,17 +83,34 @@ export default function BrowserAiBridge() {
     setRequest(null);
   };
 
-  return <div className="fixed inset-0 z-[120] grid place-items-center bg-[#101828]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="browser-ai-title">
-    <section className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-[var(--card)] p-5 shadow-2xl sm:p-6">
-      <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#7f56d9]">BETA · 本地网页 AI</p><h2 id="browser-ai-title" className="mt-1 text-xl font-semibold">让你自己的 AI 完成本次请求</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">这是 API 不可用或没有 API Key 时的备用通道。数据不会发给 JackYun 的模型；只有你复制或授权 Companion 发送的内容会进入所选 AI 网站。</p></div><button type="button" onClick={close} aria-label="取消" className="rounded-lg p-2 text-[var(--muted-foreground)]"><span className="material-icons-round">close</span></button></div>
-      <label className="mt-5 block text-sm font-semibold">1. 复制以下 Prompt 与数据</label>
-      <textarea readOnly value={request.prompt} rows={10} className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5" />
-      <button type="button" onClick={copy} className="mt-2 rounded-xl bg-[#155eef] px-4 py-2.5 text-sm font-semibold text-white">复制 Prompt 和数据</button>
-      <label className="mt-5 block text-sm font-semibold">2. 粘贴 AI 的完整回复</label>
-      <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">若任务要求 JSON / NDJSON，请保留原格式，不要添加 Markdown 代码围栏或解释文字。</p>
-      <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={9} placeholder="在这里粘贴 AI 回复…" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 text-sm leading-6" />
-      {notice && <p role="status" className="mt-3 rounded-lg bg-[#eff8ff] px-3 py-2 text-xs text-[#175cd3]">{notice}</p>}
-      <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={close} className="rounded-xl border border-[var(--card-border)] px-4 py-2.5 text-sm font-semibold">取消本次请求</button><button type="button" disabled={!reply.trim()} onClick={submit} className="rounded-xl bg-[#7f56d9] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">提交给当前页面</button></div>
-    </section>
+  const providerName = ({ chatgpt: 'ChatGPT', deepseek: 'DeepSeek', claude: 'Claude', gemini: 'Gemini', qwen: '通义千问', perplexity: 'Perplexity' } as const)[request.provider];
+
+  return <div className="fixed inset-0 z-[120] flex items-end justify-end bg-[#071b33]/35 backdrop-blur-[2px] sm:items-stretch" role="dialog" aria-modal="true" aria-labelledby="browser-ai-title">
+    <button type="button" aria-label="取消本次 AI 请求" onClick={close} className="absolute inset-0 cursor-default" />
+    <aside className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-[var(--card-border)] bg-[var(--card)] shadow-[-24px_0_70px_rgba(7,27,51,.24)] sm:h-full sm:max-h-none sm:max-w-[540px] sm:rounded-none sm:rounded-l-[28px]">
+      <header className="bg-[linear-gradient(120deg,#ecfeff,#f0f9ff)] p-5 dark:bg-[linear-gradient(120deg,#0b2f35,#102a43)] sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#0891b2] text-white shadow-lg shadow-cyan-950/15"><span className="material-icons-round">hub</span></span>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#0e7490] dark:text-[#67e8f9]">本地网页 AI</p><span className="rounded-full bg-[#7c3aed] px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">BETA</span></div><h2 id="browser-ai-title" className="mt-1 text-xl font-semibold">让你自己的 AI 完成本次请求</h2></div>
+          <button type="button" onClick={close} aria-label="取消" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[var(--muted-foreground)] hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">close</span></button>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">API 不可用或没有 API Key 时，可将完整任务交给你已登录的 AI。JackYun 不会把这些数据发送到自己的模型。</p>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-white/75 px-3 py-1.5 text-[#0e7490] dark:bg-white/10 dark:text-[#67e8f9]">目标：{providerName}</span><span className="rounded-full bg-white/75 px-3 py-1.5 text-[var(--muted-foreground)] dark:bg-white/10">{request.automation ? 'Companion 自动填写' : '手动复制模式'}</span></div>
+      </header>
+
+      <div className="overflow-y-auto p-5 sm:p-6" data-scroll-region>
+        <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>
+
+        <button type="button" onClick={copy} className="min-h-12 w-full rounded-xl bg-[#0891b2] px-4 text-sm font-bold text-white shadow-md shadow-cyan-950/15"><span className="material-icons-round mr-2 align-middle text-lg">content_copy</span>复制完整 Prompt 和数据</button>
+        <details className="mt-3 overflow-hidden rounded-xl border border-[var(--card-border)]"><summary className="cursor-pointer px-3 py-3 text-xs font-bold text-[var(--muted-foreground)]">查看完整 Prompt</summary><textarea readOnly value={request.prompt} rows={9} onFocus={(event) => event.currentTarget.select()} className="w-full resize-y border-t border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none" /></details>
+
+        <label className="mt-5 block text-sm font-bold">粘贴 AI 的完整回复</label>
+        <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">必须遵守 Prompt 中的响应格式。若要求 JSON / NDJSON，请勿添加 Markdown 代码围栏、前言或解释。</p>
+        <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={10} placeholder="把 ChatGPT、DeepSeek、Claude、Gemini 或其他 AI 的完整回复粘贴到这里…" className="mt-3 w-full resize-y rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none focus:border-[#0891b2] focus:ring-4 focus:ring-[#0891b2]/10" />
+        {notice && <p role="status" className="mt-3 rounded-xl border border-[#bae6fd] bg-[#f0f9ff] px-3 py-2.5 text-xs leading-5 text-[#075985] dark:border-[#24516a] dark:bg-[#0b2639] dark:text-[#7dd3fc]">{notice}</p>}
+      </div>
+
+      <footer className="mt-auto grid grid-cols-[auto_1fr] gap-2 border-t border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5"><button type="button" onClick={close} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-bold">取消</button><button type="button" disabled={!reply.trim()} onClick={submit} className="min-h-11 rounded-xl border-2 border-[#0891b2] px-4 text-sm font-bold text-[#0e7490] disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#67e8f9]"><span className="material-icons-round mr-2 align-middle text-lg">download_done</span>导入回复并继续</button></footer>
+    </aside>
   </div>;
 }

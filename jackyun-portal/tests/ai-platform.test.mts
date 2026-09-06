@@ -62,7 +62,10 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   const extension = readFileSync(new URL('../companion-extension/background.js', import.meta.url), 'utf8');
   assert.match(config, /providerMode\?: 'cloud' \| 'personal' \| 'browser'/);
   assert.match(config, /requestBrowserAi\(messages/);
-  assert.match(bridge, /BETA · 本地网页 AI/);
+  assert.match(bridge, /本地网页 AI/);
+  assert.match(bridge, /sm:max-w-\[540px\]/);
+  assert.match(bridge, /查看完整 Prompt/);
+  assert.match(bridge, /activateRequest\(next\)/);
   assert.match(legacy, /JACKYUN_BROWSER_AI_REQUEST/);
   assert.match(extension, /eligibility = await api\('\/beta'\)/);
   assert.match(extension, /prompt_failed/);

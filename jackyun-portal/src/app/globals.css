@@ -247,10 +247,16 @@ main, nav, [data-scroll-region], .quiz-scroll {
     flex-shrink: 0;
   }
 
-  aside[data-scroll-region] > article:nth-child(2) {
+  aside[data-scroll-region] > article[data-scroll-region] {
     max-height: none !important;
     overflow: visible !important;
   }
+}
+
+/* External-model import is surfaced contextually under the active correction
+   action. Hide the retired standalone chooser while preserving old drafts. */
+[data-ielts-writing-workbench] aside > article:has(select) {
+  display: none;
 }
 
 @media (max-width: 767px) {

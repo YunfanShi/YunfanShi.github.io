@@ -37,6 +37,10 @@ begin
 end;
 $$;
 
+update public.legacy_sync_data
+set storage_value = public.normalize_web_sync_value(storage_value)
+where jsonb_typeof(storage_value) = 'string';
+
 drop function if exists public.apply_web_sync_operation(uuid, uuid, text, bigint, text, jsonb, jsonb, text, boolean);
 drop function if exists public.apply_web_sync_operation(uuid, uuid, text, bigint, text, jsonb, jsonb, text, boolean, timestamptz);
 

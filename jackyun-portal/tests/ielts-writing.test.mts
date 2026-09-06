@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWritingReviewPrompt, countWords, diffWriting, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { buildWritingReviewPrompt, countWords, diffWriting, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
 
 test('counts IELTS words and returns task targets deterministically', () => {
   assert.equal(countWords('  One   two\nthree  '), 3);
@@ -52,4 +52,12 @@ test('external prompt embeds the essay and enforces the selected response format
   assert.match(prompt, /My complete essay\./);
   assert.match(prompt, /Return Markdown only/);
   assert.match(prompt, /# Band estimate/);
+});
+
+test('maps AI quote fragments back to highlighted essay text', () => {
+  const essay = 'People is worried. Other people disagree.';
+  const chunks = highlightQuotedText(essay, [{ id: 'grammar-1', quote: 'people is' }]);
+  assert.equal(chunks.map((chunk) => chunk.text).join(''), essay);
+  assert.equal(chunks.find((chunk) => chunk.highlighted)?.text, 'People is');
+  assert.deepEqual(chunks.find((chunk) => chunk.highlighted)?.issueIds, ['grammar-1']);
 });

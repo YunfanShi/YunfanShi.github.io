@@ -7,6 +7,12 @@ export interface DiffChunk {
   text: string;
 }
 
+export interface QuoteHighlightChunk {
+  text: string;
+  highlighted: boolean;
+  issueIds: string[];
+}
+
 export interface WritingIssue {
   id: string;
   category: 'Grammar' | 'Vocabulary / Collocation' | 'Sentence Structure' | 'Cohesion' | 'Logic / Development' | 'Task Response / Achievement';
@@ -93,6 +99,33 @@ export function diffWriting(original: string, current: string): DiffChunk[] {
     else chunks.push({ ...part });
   }
   return chunks;
+}
+
+export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
+  if (!text) return [];
+  const matches: Array<{ start: number; end: number; id: string }> = [];
+  const lowerText = text.toLocaleLowerCase();
+  for (const item of quotes) {
+    const quote = item.quote.trim();
+    if (!quote) continue;
+    let from = 0;
+    const lowerQuote = quote.toLocaleLowerCase();
+    while (from < text.length) {
+      const start = lowerText.indexOf(lowerQuote, from);
+      if (start < 0) break;
+      matches.push({ start, end: start + quote.length, id: item.id });
+      from = start + quote.length;
+    }
+  }
+  if (!matches.length) return [{ text, highlighted: false, issueIds: [] }];
+  const boundaries = new Set([0, text.length]);
+  for (const match of matches) { boundaries.add(match.start); boundaries.add(match.end); }
+  const points = [...boundaries].sort((a, b) => a - b);
+  return points.slice(0, -1).map((start, index) => {
+    const end = points[index + 1];
+    const issueIds = [...new Set(matches.filter((match) => match.start < end && match.end > start).map((match) => match.id))];
+    return { text: text.slice(start, end), highlighted: issueIds.length > 0, issueIds };
+  });
 }
 
 export function targetWords(task: WritingTask): number {
