@@ -253,12 +253,6 @@ main, nav, [data-scroll-region], .quiz-scroll {
   }
 }
 
-/* External-model import is surfaced contextually under the active correction
-   action. Hide the retired standalone chooser while preserving old drafts. */
-[data-ielts-writing-workbench] aside > article:has(select) {
-  display: none;
-}
-
 @media (max-width: 767px) {
   [role="dialog"] {
     max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
