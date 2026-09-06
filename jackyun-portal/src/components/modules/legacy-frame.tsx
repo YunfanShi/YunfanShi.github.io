@@ -229,6 +229,28 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
       proxyOptions.body = JSON.stringify({ model: 'auto', interfaceLanguage: interfaceLanguage });
     }
 
+    try {
+      var savedConfig = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
+      if (savedConfig.providerMode === 'browser' && localStorage.getItem('jackyun_beta_active') === 'true') {
+        var requestId = crypto.randomUUID();
+        var requestBody = JSON.parse(proxyOptions.body || '{}');
+        return new Promise(function(resolve, reject) {
+          var timeout = setTimeout(function() {
+            window.removeEventListener('message', receive);
+            reject(new Error('本地网页 AI 等待超时'));
+          }, 600000);
+          function receive(event) {
+            if (event.origin !== location.origin || event.data?.type !== 'JACKYUN_BROWSER_AI_RESPONSE' || event.data.requestId !== requestId) return;
+            clearTimeout(timeout);
+            window.removeEventListener('message', receive);
+            if (!event.data.ok) return reject(new Error(event.data.error || '本地网页 AI 已取消'));
+            resolve(new Response(event.data.body, { status: 200, headers: { 'Content-Type': event.data.stream ? 'text/event-stream; charset=utf-8' : 'application/json; charset=utf-8' } }));
+          }
+          window.addEventListener('message', receive);
+          window.parent.postMessage({ type: 'JACKYUN_BROWSER_AI_REQUEST', requestId: requestId, messages: requestBody.messages || [], stream: requestBody.stream === true }, location.origin);
+        });
+      }
+    } catch(e) {}
     return fetch('/api/llm-proxy', proxyOptions);
   }
 

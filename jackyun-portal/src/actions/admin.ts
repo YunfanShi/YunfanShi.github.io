@@ -397,10 +397,10 @@ export async function addAdmin(
   if (!profile) return { success: false, error: '未找到该邮箱对应的用户' };
   if (profile.role === 'admin') return { success: false, error: '该用户已经是管理员' };
 
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ role: 'admin', updated_at: new Date().toISOString() })
-    .eq('id', profile.id);
+  const { error: updateError } = await supabase.rpc('admin_set_user_role', {
+    p_user_id: profile.id,
+    p_role: 'admin',
+  });
 
   if (updateError) return { success: false, error: updateError.message };
   revalidatePath('/admin');
@@ -417,14 +417,27 @@ export async function removeAdmin(
     return { success: false, error: '不能移除自己的管理员权限' };
   }
 
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ role: 'user', updated_at: new Date().toISOString() })
-    .eq('id', targetUserId)
-    .eq('role', 'admin');
+  const { error: updateError } = await supabase.rpc('admin_set_user_role', {
+    p_user_id: targetUserId,
+    p_role: 'user',
+  });
 
   if (updateError) return { success: false, error: updateError.message };
   revalidatePath('/admin');
+  return { success: true };
+}
+
+export async function setUserRole(
+  targetUserId: string,
+  role: 'user' | 'admin',
+): Promise<{ success: boolean; error?: string }> {
+  if (!/^[0-9a-f-]{36}$/i.test(targetUserId)) return { success: false, error: '用户 ID 无效。' };
+  const { supabase, user } = await requireAdmin();
+  if (targetUserId === user.id && role !== 'admin') return { success: false, error: '不能移除自己的管理员权限。' };
+  const { error } = await supabase.rpc('admin_set_user_role', { p_user_id: targetUserId, p_role: role });
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin');
+  revalidatePath('/admin/users');
   return { success: true };
 }
 

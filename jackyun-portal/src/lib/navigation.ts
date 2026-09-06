@@ -28,6 +28,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'study-plan', labelKey: 'nav.study-plan', icon: 'school', href: '/study', group: 'learning' },
   { id: 'goal', labelKey: 'nav.goal', icon: 'flag', href: '/goal', group: 'learning' },
   { id: 'study-guide', labelKey: 'nav.study-guide', icon: 'auto_stories', href: '/study-guide', group: 'learning' },
+  { id: 'ielts-writing', labelKey: 'nav.ielts-writing', icon: 'edit_note', href: '/ielts-writing', group: 'learning' },
   { id: 'learning-resources', labelKey: 'nav.learning-resources', icon: 'travel_explore', href: '/resources', group: 'learning' },
   { id: 'vocab', labelKey: 'nav.vocab', icon: 'menu_book', href: '/vocab', group: 'learning' },
   { id: 'answer-sheet', labelKey: 'nav.answer-sheet', icon: 'content_paste', href: '/answer-sheet', group: 'practice', variantGroup: 'answerSheet', variant: 'standard' },

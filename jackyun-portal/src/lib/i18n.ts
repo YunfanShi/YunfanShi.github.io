@@ -23,6 +23,7 @@ const translations: TranslationMap = {
   'nav.dashboard':            { zh: 'Dashboard',            en: 'Dashboard' },
   'nav.study-plan':           { zh: '学习计划',             en: 'Study Plan' },
   'nav.study-guide':          { zh: 'StudyGuide',           en: 'StudyGuide' },
+  'nav.ielts-writing':        { zh: '雅思写作工具',         en: 'IELTS Writing Lab' },
   'nav.learning-resources':   { zh: '学习网站收录',         en: 'Learning Resources' },
   'nav.userscripts':          { zh: '网站插件大全',         en: 'Userscript Library' },
   'nav.vocab':                { zh: '词汇宝库',             en: 'Vocab Treasury' },

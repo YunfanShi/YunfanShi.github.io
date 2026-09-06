@@ -98,6 +98,7 @@
 | `/study` | `src/app/(portal)/study/page.tsx` | Legacy Frame | 学习计划（嵌入旧版 HTML，考纲导入/红绿灯审计） |
 | `/goal` | `src/app/(portal)/goal/page.tsx` | Legacy Frame | 计划显示器（嵌入旧版 HTML，今日计划/计时器/学习进度） |
 | `/study-guide` | `src/app/(portal)/study-guide/page.tsx` | Legacy Frame | 学习指南（嵌入 StudyGuide.html，今日/学习/习题/考试） |
+| `/ielts-writing` | `src/app/(portal)/ielts-writing/page.tsx` | Native | 雅思写作修复工作台（原稿、AI 诊断、自改复查、语言升级与迁移验证） |
 | `/vocab` | `src/app/(portal)/vocab/page.tsx` | Legacy Frame | 词汇宝库（嵌入旧版 HTML，SRS 间隔复习） |
 | `/time-management` | `src/app/(portal)/time-management/page.tsx` | Server Component | 时间管理主页（番茄钟/倒计时/倒计日入口） |
 | `/pomodoro` | `src/app/(portal)/pomodoro/page.tsx` | Client Component | 番茄钟（Google 风格，专注/短休/长休/任务列表） |

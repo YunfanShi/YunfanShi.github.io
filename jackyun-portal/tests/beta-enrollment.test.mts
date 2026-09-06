@@ -31,5 +31,15 @@ test('BETA agreement and badge remain explicit in the user interface', () => {
   assert.match(dialog, /拒绝，使用 Stable/);
   assert.match(topbar, /BETA v\{APP_VERSION\}/);
   assert.doesNotMatch(adminUsers, /user\.id !== currentUserId && !user\.deleted_at && \(betaByUser/);
-  assert.match(adminUsers, /disabled=\{pending \|\| user\.id === currentUserId\}/);
+  assert.match(adminUsers, /当前管理员账户已切换到 BETA/);
+});
+
+test('repair migration lets admins self-enroll and promote users through guarded RPCs', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260906121742_sync_beta_admin_repair.sql', import.meta.url), 'utf8');
+  assert.match(sql, /p_invited and is_self then 'accepted'/i);
+  assert.match(sql, /create or replace function public\.admin_set_user_role/i);
+  assert.match(sql, /if not public\.is_admin_user\(\)/i);
+  assert.match(sql, /revoke all on function public\.admin_set_user_role\(uuid, text\) from public, anon/i);
+  const users = readFileSync(new URL('../src/components/admin/user-operations-panel.tsx', import.meta.url), 'utf8');
+  assert.match(users, /提权为 ADMIN/);
 });

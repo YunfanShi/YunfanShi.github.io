@@ -99,8 +99,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         body: request.body,
       });
       if (!response.ok) {
-        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
-        throw new Error(failure?.error?.code ? `${failure.error.message ?? '同步写入失败'} (${failure.error.code})` : `同步写入失败 (${response.status})`);
+        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
+        const detail = failure?.error?.code
+          ? `${failure.error.message ?? '同步写入失败'} (${failure.error.code})${failure.requestId ? ` · ${failure.requestId}` : ''}`
+          : `同步写入失败 (${response.status})`;
+        console.error('[Sync/BETA diagnostics] Write failed', { status: response.status, code: failure?.error?.code, requestId: failure?.requestId, pending: request.operations.length });
+        throw new Error(detail);
       }
       const payload = await response.json() as {
         applied: Array<{ operationId: string; key: string; revision: number; contentHash: string; updatedAt?: string }>;
@@ -150,8 +154,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const pendingKeys = new Set(pending.map((item) => item.key));
       const response = await fetch(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
       if (!response.ok) {
-        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
-        throw new Error(failure?.error?.code ? `${failure.error.message ?? '同步读取失败'} (${failure.error.code})` : `同步读取失败 (${response.status})`);
+        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
+        const detail = failure?.error?.code
+          ? `${failure.error.message ?? '同步读取失败'} (${failure.error.code})${failure.requestId ? ` · ${failure.requestId}` : ''}`
+          : `同步读取失败 (${response.status})`;
+        console.error('[Sync/BETA diagnostics] Read failed', { status: response.status, code: failure?.error?.code, requestId: failure?.requestId });
+        throw new Error(detail);
       }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
       for (const record of payload.records) {

@@ -26,6 +26,10 @@ const DEFAULT_ADBLOCK = {
   cosmetic: true,
   siteAllowlist: [],
 };
+const AI_PROVIDER_URLS = {
+  chatgpt: 'https://chatgpt.com/', deepseek: 'https://chat.deepseek.com/', claude: 'https://claude.ai/new',
+  gemini: 'https://gemini.google.com/app', qwen: 'https://chat.qwen.ai/', perplexity: 'https://www.perplexity.ai/',
+};
 const ADBLOCK_ALLOW_RULE_START = 200000;
 const ADBLOCK_RESOURCE_TYPES = ['sub_frame', 'script', 'image', 'stylesheet', 'object', 'xmlhttprequest', 'ping', 'media', 'font', 'websocket', 'other'];
 const DEFAULT_CONFIG = Object.freeze({
@@ -306,6 +310,53 @@ async function api(path, options = {}) {
   return result;
 }
 
+async function betaAiLog(type, details = {}) {
+  const stored = await local.get(['betaAiLogs']);
+  const logs = Array.isArray(stored.betaAiLogs) ? stored.betaAiLogs : [];
+  logs.push({ at: new Date().toISOString(), type, ...details });
+  await local.set({ betaAiLogs: logs.slice(-100) });
+}
+
+async function waitForTab(tabId) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.status === 'complete') return;
+    await delay(250);
+  }
+  throw new Error('AI 网页加载超时');
+}
+
+async function sendPromptToAiWebsite(payload) {
+  const provider = String(payload?.provider || '');
+  const prompt = String(payload?.prompt || '');
+  if (!AI_PROVIDER_URLS[provider] || !prompt || prompt.length > 500000) throw new Error('无效的 AI Prompt 请求');
+  const eligibility = await api('/beta');
+  if (!eligibility.betaActive) {
+    await betaAiLog('eligibility_denied', { provider });
+    throw new Error('当前账户没有 BETA 资格');
+  }
+  const target = new URL(AI_PROVIDER_URLS[provider]);
+  const matches = await chrome.tabs.query({ url: `${target.origin}/*` });
+  const tab = matches[0] || await chrome.tabs.create({ url: target.href, active: true });
+  if (!tab.id) throw new Error('无法打开 AI 网页');
+  await chrome.tabs.update(tab.id, { active: true });
+  await waitForTab(tab.id);
+  let lastError = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, { type: 'AI_FILL_PROMPT', prompt, provider, submit: true });
+      if (response?.ok) {
+        await betaAiLog('prompt_submitted', { provider, requestId: payload.requestId, tabId: tab.id });
+        return { tabId: tab.id, provider };
+      }
+      lastError = new Error(response?.error || 'AI 输入框尚未就绪');
+    } catch (error) { lastError = error; }
+    await delay(750);
+  }
+  await betaAiLog('prompt_failed', { provider, requestId: payload.requestId, error: lastError?.message || String(lastError) });
+  throw lastError || new Error('无法填写 AI 网页');
+}
+
 async function syncNow() {
   const [device, stored] = await Promise.all([getDevice(), local.get(['activity', 'pendingFocus', 'preferencesDirty'])]);
   let prefs = await preferences();
@@ -418,6 +469,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'TOOLS_SAVE_CONFIG') return saveToolsConfig(message.payload);
     if (message.type === 'ADBLOCK_GET_CONFIG') return adblockConfig();
     if (message.type === 'ADBLOCK_SAVE_CONFIG') return saveAdblockConfig(message.payload);
+    if (message.type === 'AI_WEB_PROMPT') return sendPromptToAiWebsite(message.payload);
+    if (message.type === 'BETA_AI_LOGS') { const stored = await local.get(['betaAiLogs']); return stored.betaAiLogs || []; }
     if (message.type === 'OPEN_ONBOARDING') return chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
     if (message.type === 'ONBOARDING_COMPLETE') { await local.set({ onboardingSeen: true }); return true; }
     return null;

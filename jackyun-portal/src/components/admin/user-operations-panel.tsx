@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { inviteUserAccount, sendPasswordResetForUser, setAccountStatus, type ManagedUser } from '@/actions/admin';
+import { inviteUserAccount, sendPasswordResetForUser, setAccountStatus, setUserRole, type ManagedUser } from '@/actions/admin';
 import { setBetaInvitation } from '@/actions/beta';
 import type { BetaEnrollment, BetaEnrollmentStatus } from '@/lib/beta';
 import { setUserPlan, type PlanCode } from '@/actions/ai-admin';
@@ -78,14 +78,22 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
       const next = new Map(current);
       next.set(user.id, {
         user_id: user.id,
-        status: invited ? 'invited' : 'revoked',
+        status: invited ? (user.id === currentUserId ? 'accepted' : 'invited') : 'revoked',
         invited_at: new Date().toISOString(),
         responded_at: null,
         agreement_version: null,
       });
       return next;
     });
-    setNotice(invited ? 'BETA 邀请已发出，用户下次进入网站时可以同意或拒绝。' : 'BETA 资格已撤销，用户将返回 Stable。');
+    setNotice(invited ? (user.id === currentUserId ? '当前管理员账户已切换到 BETA，刷新后生效。' : 'BETA 邀请已发出，用户下次进入网站时可以同意或拒绝。') : 'BETA 资格已撤销，用户将返回 Stable。');
+  });
+
+  const promote = (user: ManagedUser) => startTransition(async () => {
+    setNotice('');
+    const result = await setUserRole(user.id, 'admin');
+    if (!result.success) return setNotice(result.error ?? '管理员提权失败。');
+    setItems((all) => all.map((entry) => entry.id === user.id ? { ...entry, role: 'admin' } : entry));
+    setNotice(`${user.display_name || user.email || user.id} 已提权为 ADMIN。`);
   });
 
   const updatePlan = (userId: string, plan: PlanCode) => startTransition(async () => {
@@ -133,6 +141,7 @@ export default function UserOperationsPanel({ users, currentUserId, betaEnrollme
               <td className="px-4 py-3 text-xs text-[#667085] dark:text-[#98a2b3]">{new Date(user.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</td>
               <td className="whitespace-nowrap px-4 py-3 text-right">
                 {!user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="mr-2 rounded-lg border border-[#d0d5dd] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="mr-2 rounded-lg bg-[#f4ebff] px-3 py-1.5 text-xs font-semibold text-[#6941c6] disabled:opacity-50">邀请 BETA</button>)}
+                {!user.deleted_at && user.role !== 'admin' && <button type="button" disabled={pending} onClick={() => promote(user)} className="mr-2 rounded-lg bg-[#e8f0fe] px-3 py-1.5 text-xs font-semibold text-[#174ea6] disabled:opacity-50">提权为 ADMIN</button>}
                 {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="mr-2 rounded-lg border border-[#b2ddff] px-3 py-1.5 text-xs font-semibold text-[#175cd3] disabled:opacity-50">发送重置邮件</button>}
                 {!user.deleted_at && (user.account_status === 'active' ? (
                   <button type="button" disabled={pending || user.id === currentUserId} title={user.id === currentUserId ? '不能暂停当前登录账户' : undefined} onClick={() => setDraft({ user, reason: REASONS[0], customReason: '', explanation: '' })} className="rounded-lg bg-[#fef3f2] px-3 py-1.5 text-xs font-semibold text-[#b42318] disabled:cursor-not-allowed disabled:opacity-50">暂停账户</button>

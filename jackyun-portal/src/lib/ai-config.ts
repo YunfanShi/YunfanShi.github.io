@@ -1,4 +1,5 @@
 import { getStoredLanguage } from '@/lib/i18n';
+import { requestBrowserAi, type BrowserAiProvider } from '@/lib/browser-ai';
 
 /**
  * 统一 AI 配置管理 —— 纯本地存储，不上传云端
@@ -13,7 +14,9 @@ export interface AiConfig {
   model: string;
   /** 深度思考模型（默认与主模型相同，可单独配置如 deepseek-reasoner） */
   proModel?: string;
-  providerMode?: 'cloud' | 'personal';
+  providerMode?: 'cloud' | 'personal' | 'browser';
+  browserProvider?: BrowserAiProvider;
+  companionAutomation?: boolean;
 }
 
 /** 思考深度等级 — 影响 temperature 和 system prompt */
@@ -116,7 +119,9 @@ export function getAiConfig(): AiConfig {
       apiKey: parsed.apiKey ?? '',
       model: parsed.model ?? '',
       proModel: parsed.proModel ?? '',
-      providerMode: parsed.providerMode === 'personal' ? 'personal' : 'cloud',
+      providerMode: parsed.providerMode === 'personal' || parsed.providerMode === 'browser' ? parsed.providerMode : 'cloud',
+      browserProvider: parsed.browserProvider ?? 'chatgpt',
+      companionAutomation: parsed.companionAutomation === true,
     };
   } catch {
     return { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud' };
@@ -152,6 +157,8 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
         apiKey: config.apiKey,
         model: config.model,
         providerMode: config.providerMode ?? 'cloud',
+        browserProvider: config.browserProvider ?? 'chatgpt',
+        companionAutomation: config.companionAutomation === true,
       }),
     });
     const data = await res.json();
@@ -167,6 +174,7 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
 /** 检查是否有有效的 AI 配置（baseUrl 和 apiKey 都不为空） */
 export function hasValidAiConfig(): boolean {
   const config = getAiConfig();
+  if (config.providerMode === 'browser') return localStorage.getItem('jackyun_beta_active') === 'true';
   if (config.providerMode === 'cloud') return true;
   return config.baseUrl.trim().length > 0 && config.apiKey.trim().length > 0;
 }
@@ -194,6 +202,11 @@ export async function callAiApi(
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
   const apiKey = config.apiKey === '__stored__' ? '' : config.apiKey;
   const model = options.model || config.model;
+
+  if (config.providerMode === 'browser') {
+    if (localStorage.getItem('jackyun_beta_active') !== 'true') throw new Error('本地网页 AI 仅对 BETA 账户开放');
+    return requestBrowserAi(messages, config.browserProvider ?? 'chatgpt', config.companionAutomation === true, options.stream ?? false);
+  }
 
   if ((config.providerMode ?? 'cloud') === 'personal' && (!baseUrl || !config.apiKey)) {
     throw new Error('请先在设置页面配置 AI API Key');

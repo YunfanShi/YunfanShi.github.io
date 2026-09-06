@@ -34,6 +34,10 @@ async function render() {
   $('#tool-timezone').checked = tools.timezoneBadges;
   renderAdblock();
   renderSafeguardSites();
+  try {
+    const betaLogs = await send({ type: 'BETA_AI_LOGS' });
+    $('#beta-ai-logs').textContent = betaLogs.length ? betaLogs.slice(-8).reverse().map((entry) => `${entry.at} · ${entry.type}${entry.provider ? ` · ${entry.provider}` : ''}${entry.error ? ` · ${entry.error}` : ''}`).join('\n') : '尚无日志';
+  } catch { $('#beta-ai-logs').textContent = '日志读取失败'; }
   $('#signed-in').hidden = !status.signedIn;
   $('#signed-out').hidden = status.signedIn;
   $('#sync-state').textContent = status.signedIn ? (status.lastSyncAt ? `已同步 · ${new Date(status.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '等待首次同步') : '尚未登录';

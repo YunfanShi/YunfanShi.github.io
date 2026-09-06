@@ -1,14 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
+import { callAiApi, saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
 import { explainAiError } from '@/lib/ai-error';
+import type { BrowserAiProvider } from '@/lib/browser-ai';
 
 interface AiConfigPanelProps {
   initialBaseUrl: string;
   initialApiKey: string;
   initialModel: string;
-  initialProviderMode: 'cloud' | 'personal';
+  initialProviderMode: 'cloud' | 'personal' | 'browser';
+  initialBrowserProvider: BrowserAiProvider;
+  initialCompanionAutomation: boolean;
+  betaActive: boolean;
 }
 
 const PROVIDERS = [
@@ -30,8 +34,16 @@ function detectProvider(url: string) {
   return PROVIDERS.find((p) => p.url && p.url === url) ?? PROVIDERS[PROVIDERS.length - 1];
 }
 
-export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialModel, initialProviderMode }: AiConfigPanelProps) {
+const BROWSER_PROVIDERS: Array<{ value: BrowserAiProvider; label: string }> = [
+  { value: 'chatgpt', label: 'ChatGPT' }, { value: 'deepseek', label: 'DeepSeek 网页版' },
+  { value: 'claude', label: 'Claude' }, { value: 'gemini', label: 'Gemini' },
+  { value: 'qwen', label: '通义千问' }, { value: 'perplexity', label: 'Perplexity' },
+];
+
+export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialModel, initialProviderMode, initialBrowserProvider, initialCompanionAutomation, betaActive }: AiConfigPanelProps) {
   const [providerMode, setProviderMode] = useState(initialProviderMode);
+  const [browserProvider, setBrowserProvider] = useState(initialBrowserProvider);
+  const [companionAutomation, setCompanionAutomation] = useState(initialCompanionAutomation);
   const [provider, setProvider] = useState(() => detectProvider(initialBaseUrl));
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
   const [apiKey, setApiKey] = useState(initialApiKey === '__stored__' ? '' : initialApiKey);
@@ -95,7 +107,8 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setTestRequest(JSON.stringify(reqBody, null, 2));
 
     try {
-      const res = await fetch('/api/llm-proxy', {
+      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode, browserProvider, companionAutomation });
+      const res = providerMode === 'browser' ? await callAiApi(reqBody.messages, { maxTokens: 200 }) : await fetch('/api/llm-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +154,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setMessage(null);
 
     try {
-      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode });
+      saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode, browserProvider, companionAutomation });
       // 同步到服务器（跨设备持久化）
       const result = await syncAiConfigToServer();
       if (result.error) {
@@ -164,7 +177,12 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div><label className="block text-sm font-medium text-[var(--foreground)] mb-1">调用来源</label><select value={providerMode} onChange={(e) => setProviderMode(e.target.value as 'cloud' | 'personal')} className={selectClass}><option value="cloud">平台云端 API（消耗套餐额度）</option><option value="personal">我的 API Key（不消耗平台额度）</option></select><p className="mt-1 text-xs text-[var(--muted-foreground)]">云端模型由管理员配置；个人模式的密钥会加密保存。</p></div>
+      <div><label className="block text-sm font-medium text-[var(--foreground)] mb-1">调用来源</label><select value={providerMode} onChange={(e) => setProviderMode(e.target.value as 'cloud' | 'personal' | 'browser')} className={selectClass}><option value="cloud">平台云端 API（消耗套餐额度）</option><option value="personal">我的本地 API 配置（不消耗平台额度）</option>{betaActive && <option value="browser">本地网页 AI（手动中转） · BETA</option>}</select><p className="mt-1 text-xs text-[var(--muted-foreground)]">云端模型由管理员配置；个人 API 密钥会加密保存。网页 AI 不需要 API Key，默认关闭。</p></div>
+      {providerMode === 'browser' && betaActive && <div className="space-y-3 rounded-xl border border-[#7f56d9]/30 bg-[#7f56d9]/5 p-4">
+        <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">本地网页 AI <span className="ml-1 rounded bg-[#7f56d9] px-1.5 py-0.5 text-[10px] text-white">BETA</span></p><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">每次 AI 请求会暂停并显示 Prompt。你可以复制到任意 AI 网页，再把回复粘贴回输入框。</p></div></div>
+        <label className="block text-sm font-medium">首选 AI 网页<select value={browserProvider} onChange={(event) => setBrowserProvider(event.target.value as BrowserAiProvider)} className={`${selectClass} mt-1`}>{BROWSER_PROVIDERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        <label className="flex items-start gap-3 rounded-lg border border-[var(--card-border)] p-3"><input type="checkbox" checked={companionAutomation} onChange={(event) => setCompanionAutomation(event.target.checked)} className="mt-1" /><span><span className="text-sm font-semibold">让 Jack Companion 自动打开并填写 <span className="rounded bg-[#7f56d9] px-1.5 py-0.5 text-[10px] text-white">BETA</span></span><span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">仅在扩展已安装、已登录且账号有 BETA 资格时运行。仍由用户确认并粘贴回复；网站 DOM 变化时可能失败。</span></span></label>
+      </div>}
       {providerMode === 'personal' && <>
       <div>
         <label className="block text-sm font-medium text-[var(--foreground)] mb-1">

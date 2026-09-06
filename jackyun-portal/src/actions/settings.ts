@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { Language } from '@/lib/i18n';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES, type NavigationPreferencesV2 } from '@/lib/companion';
 import { encryptSecret } from '@/lib/secret-crypto';
+import type { BrowserAiProvider } from '@/lib/browser-ai';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -15,7 +16,7 @@ async function getAuthenticatedUser() {
   return { supabase, user };
 }
 
-export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; model: string; providerMode: 'cloud' | 'personal' }> {
+export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; model: string; providerMode: 'cloud' | 'personal' | 'browser'; browserProvider: BrowserAiProvider; companionAutomation: boolean }> {
   const { supabase, user } = await getAuthenticatedUser();
   const [{ data }, { data: secret }] = await Promise.all([supabase
     .from('user_settings')
@@ -23,15 +24,15 @@ export async function getAiConfig(): Promise<{ baseUrl: string; apiKey: string; 
     .eq('user_id', user.id)
     .eq('key', 'ai_config')
     .maybeSingle(), supabase.from('user_secrets').select('key').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle()]);
-  const val = data?.value as { baseUrl?: string; apiKey?: string; model?: string; providerMode?: string } | null;
-  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '', providerMode: val?.providerMode === 'personal' ? 'personal' : 'cloud' };
+  const val = data?.value as { baseUrl?: string; apiKey?: string; model?: string; providerMode?: string; browserProvider?: BrowserAiProvider; companionAutomation?: boolean } | null;
+  return { baseUrl: val?.baseUrl ?? '', apiKey: secret || val?.apiKey ? '__stored__' : '', model: val?.model ?? '', providerMode: val?.providerMode === 'personal' || val?.providerMode === 'browser' ? val.providerMode : 'cloud', browserProvider: val?.browserProvider ?? 'chatgpt', companionAutomation: val?.companionAutomation === true };
 }
 
 export async function saveAiConfig(
   baseUrl: string,
   apiKey: string,
   model: string,
-  providerMode: 'cloud' | 'personal' = 'cloud',
+  providerMode: 'cloud' | 'personal' | 'browser' = 'cloud',
 ): Promise<{ error: string | null }> {
   try {
     const { supabase, user } = await getAuthenticatedUser();

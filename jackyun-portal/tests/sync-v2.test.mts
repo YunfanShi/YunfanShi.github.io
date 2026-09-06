@@ -96,6 +96,16 @@ test('web sync writes use bounded concurrency instead of a serial database water
   assert.match(source, /const DATABASE_CONCURRENCY = 8/);
   assert.match(source, /mapWithConcurrency\(body\.operations/);
   assert.match(source, /DUPLICATE_KEYS/);
+  assert.match(source, /error\?\.code === 'PGRST202'/);
+  assert.match(source, /requestId/);
+});
+
+test('repair migration recreates the production sync RPC and preserves invoker security', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906121742_sync_beta_admin_repair.sql', import.meta.url), 'utf8');
+  assert.match(sql, /drop function if exists public\.apply_web_sync_operation[\s\S]+timestamptz/i);
+  assert.match(sql, /create function public\.apply_web_sync_operation/i);
+  assert.match(sql, /security invoker/i);
+  assert.match(sql, /on conflict \(id\) do nothing/i);
 });
 
 test('automatic sync excludes its timestamp ledger and removes manual conflict choices', async () => {

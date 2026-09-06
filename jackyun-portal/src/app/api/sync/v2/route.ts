@@ -11,6 +11,26 @@ const MAX_BODY_BYTES = 1_000_000;
 const MAX_OPERATIONS = 100;
 const DATABASE_CONCURRENCY = 8;
 
+type SyncRpcError = { code?: string; message: string; details?: string | null; hint?: string | null };
+type SyncRpcResult = { status?: string; revision?: number; contentHash?: string; updatedAt?: string; remoteValue?: unknown; remoteDeleted?: boolean; remoteHash?: string | null; remoteUpdatedAt?: string };
+type SyncOutcome = { operation: SyncOperation; result: SyncRpcResult } | { operation: SyncOperation; error: SyncRpcError };
+
+function logSyncFailure(requestId: string, userId: string, operation: SyncOperation, error: SyncRpcError) {
+  console.error(JSON.stringify({
+    ts: new Date().toISOString(),
+    service: 'web-sync-v2',
+    event: 'operation_failed',
+    requestId,
+    userId,
+    operationId: operation.id,
+    storageKey: operation.key,
+    databaseCode: error.code ?? 'unknown',
+    message: error.message,
+    details: error.details ?? undefined,
+    hint: error.hint ?? undefined,
+  }));
+}
+
 async function mapWithConcurrency<T, R>(items: T[], worker: (item: T) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
   let cursor = 0;
@@ -126,9 +146,9 @@ export async function POST(request: NextRequest) {
   const applied: Array<{ operationId: string; key: string; revision: number; contentHash: string; updatedAt: string }> = [];
   const remote: Array<{ key: string; value: unknown; revision: number; contentHash: string | null; deleted: boolean; updatedAt: string }> = [];
   const conflicts: Array<Record<string, unknown>> = [];
-  const outcomes = await mapWithConcurrency(body.operations, async (raw) => {
+  const outcomes: SyncOutcome[] = await mapWithConcurrency(body.operations, async (raw): Promise<SyncOutcome> => {
     const operation = raw as SyncOperation;
-    const { data, error } = await supabase.rpc('apply_web_sync_operation', {
+    const parameters = {
       p_operation_id: operation.id,
       p_device_id: body.deviceId,
       p_storage_key: operation.key,
@@ -139,14 +159,33 @@ export async function POST(request: NextRequest) {
       p_content_hash: contentHash(operation.value, operation.deleted),
       p_deleted: operation.deleted,
       p_client_updated_at: operation.clientUpdatedAt,
-    });
-    if (error) throw new Error(error.message);
-    const result = data as { status?: string; revision?: number; contentHash?: string; updatedAt?: string; remoteValue?: unknown; remoteDeleted?: boolean; remoteHash?: string | null; remoteUpdatedAt?: string };
+    };
+    let { data, error } = await supabase.rpc('apply_web_sync_operation', parameters);
+    // A deployment may briefly run against the previous 9-argument RPC while
+    // the repair migration reaches PostgREST. Keep writes working during that
+    // window instead of collapsing the entire batch into SYNC_WRITE_FAILED.
+    if (error?.code === 'PGRST202') {
+      const legacyParameters: Record<string, unknown> = { ...parameters };
+      delete legacyParameters.p_client_updated_at;
+      const legacy = await supabase.rpc('apply_web_sync_operation', legacyParameters);
+      data = legacy.data;
+      error = legacy.error;
+    }
+    if (error) {
+      logSyncFailure(requestId, user.id, operation, error);
+      return { operation, error: error as SyncRpcError };
+    }
+    const result = data as SyncRpcResult;
     return { operation, result };
-  }).catch(() => null);
-  if (!outcomes) return apiError(requestId, 'Unable to apply sync operation', 500, 'SYNC_WRITE_FAILED');
+  });
+  const firstFailure = outcomes.find((outcome) => 'error' in outcome);
+  if (firstFailure && 'error' in firstFailure) {
+    return apiError(requestId, `Unable to apply sync operation; reference ${requestId}`, 500, 'SYNC_WRITE_FAILED');
+  }
   const resolvedOperationIds: string[] = [];
-  for (const { operation, result } of outcomes) {
+  for (const outcome of outcomes) {
+    if (!('result' in outcome)) continue;
+    const { operation, result } = outcome;
     if (result.status === 'applied') {
       applied.push({ operationId: operation.id, key: operation.key, revision: Number(result.revision), contentHash: String(result.contentHash), updatedAt: result.updatedAt ?? operation.clientUpdatedAt });
       if (operation.resolvesOperationId) resolvedOperationIds.push(operation.resolvesOperationId);

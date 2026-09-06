@@ -41,7 +41,7 @@ function Panel({ title, description, children }: { title: string; description?: 
 
 interface Props {
   hasPassword: boolean;
-  aiConfig: { baseUrl: string; apiKey: string; model: string; providerMode: 'cloud' | 'personal' };
+  aiConfig: import('@/lib/ai-config').AiConfig;
   displayName: string;
   avatarUrl: string;
   userId: string;
@@ -50,6 +50,7 @@ interface Props {
   companionDevices: CompanionDeviceView[];
   initialSection?: string;
   aiQuota: AiQuotaSummary;
+  betaActive: boolean;
 }
 
 export default function SettingsContent(props: Props) {
@@ -76,7 +77,7 @@ export default function SettingsContent(props: Props) {
         {active === 'navigation' && <Panel title="侧边栏与导航" description="拖拽调整分组和项目；固定项目优先，自适应只在组内排序。"><SidebarPrefsPanel initialPrefs={props.sidebarPrefs} /></Panel>}
         {active === 'companion' && (isGuest ? <Panel title="Companion 与同步" description="登录后才能使用跨设备同步。"><Link href="/login?next=/settings?section=companion" className="inline-flex rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">登录后管理同步</Link></Panel> : <><Panel title="网页与 PWA 同步" description="修改会先持久保存在本机；断线恢复后自动上传，冲突不会被静默覆盖。"><SyncCenterPanel /></Panel><Panel title="Companion 扩展" description="管理扩展设备、有效时间统计和同步隐私。"><CompanionSettingsPanel initialPreferences={settings.companion_preferences || {}} devices={props.companionDevices} /></Panel></>)}
         {active === 'learning' && <><Panel title="每日学习目标"><CloudPreferencesPanel sectionKey="companion_preferences" initialValue={{ enabled: true, countAI: true, idleSeconds: 60, goalMinutes: 120, retentionDays: 365, savePageTitles: false, ...(settings.companion_preferences || {}) }} fields={[{ key: 'goalMinutes', label: '每日学习目标', description: 'Dashboard 与 Companion 使用同一目标', type: 'number', min: 10, max: 1440 }]} /></Panel><Panel title="提醒与专注"><CloudPreferencesPanel sectionKey="learning_preferences" initialValue={{ streakReminder: true, focusNotifications: true, quizUiLanguage: 'zh', quizAnswerLanguage: 'zh_kw_en', quizFeedbackLevel: 'normal', ...(settings.learning_preferences || {}) }} fields={[{ key: 'streakReminder', label: '连续学习提醒', description: '当天目标尚未完成时提醒', type: 'boolean' }, { key: 'focusNotifications', label: '专注完成通知', description: '番茄钟结束时发送通知', type: 'boolean' }]} /></Panel><QuizLanguageSectionWrapper /></>}
-        {active === 'ai' && <><Panel title="平台额度" description="平台云端 API 按输入 Token + 输出 Token × 2 计费；个人 Key 不消耗套餐额度。"><AiQuotaCard value={props.aiQuota} /></Panel><Panel title="AI 配置" description="可选择管理员提供的云端 API，或使用自己的加密 API Key。"><AiConfigPanel initialBaseUrl={props.aiConfig.baseUrl} initialApiKey={props.aiConfig.apiKey} initialModel={props.aiConfig.model} initialProviderMode={props.aiConfig.providerMode} /></Panel><Panel title="语音"><TtsConfigPanel /></Panel></>}
+        {active === 'ai' && <><Panel title="平台额度" description="平台云端 API 按输入 Token + 输出 Token × 2 计费；个人 Key 不消耗套餐额度。"><AiQuotaCard value={props.aiQuota} /></Panel><Panel title="AI 配置" description="可选择管理员提供的云端 API、自己的加密 API Key，或 BETA 本地网页 AI。"><AiConfigPanel initialBaseUrl={props.aiConfig.baseUrl} initialApiKey={props.aiConfig.apiKey} initialModel={props.aiConfig.model} initialProviderMode={props.aiConfig.providerMode ?? 'cloud'} initialBrowserProvider={props.aiConfig.browserProvider ?? 'chatgpt'} initialCompanionAutomation={props.aiConfig.companionAutomation === true} betaActive={props.betaActive} /></Panel><Panel title="语音"><TtsConfigPanel /></Panel></>}
         {active === 'data' && <Panel title="数据与隐私" description={isGuest ? '游客数据存储在当前浏览器的本地空间中。' : '导出账户数据，检查同步范围和数据保留。'}>{isGuest ? <p className="text-sm leading-6 text-[var(--muted-foreground)]">登录后，非敏感学习数据会自动合并到云端。API Key、密码、登录令牌和设备标识始终排除在通用同步之外。</p> : <ExportDataPanel />}</Panel>}
         {active === 'advanced' && <><Panel title="高级设置" description="发布通道由管理员邀请和你的明确同意共同决定；收到 BETA 邀请时系统会显示测试协议。"><CloudPreferencesPanel sectionKey="advanced_preferences" initialValue={{ diagnostics: false, ...(settings.advanced_preferences || {}) }} fields={[{ key: 'diagnostics', label: '诊断信息', description: '发生错误时保存不含正文和密码的技术信息', type: 'boolean' }]} /></Panel><BugReportPanel /><LoggerViewerWrapper /></>}
         {active === 'about' && <><Panel title="关于 JackYun Portal"><div className="flex items-center gap-4"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#e8f0fe] font-bold text-[#1a73e8]">JY</div><div><strong>JackYun Portal</strong><p className="text-sm text-[var(--muted-foreground)]">版本 v{APP_VERSION}</p></div></div><Link href="/update" className="mt-5 inline-flex rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm font-semibold">查看更新历史</Link></Panel>{!isGuest && <DeleteAccountPanel />}</>}

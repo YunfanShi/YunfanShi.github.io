@@ -54,3 +54,16 @@ test('administrator identity is consistent for email and OAuth sign-in', () => {
   assert.equal(isAdminIdentity({ email: 'member@example.com' }, 'user', environment), false);
   assert.equal(isAdminIdentity({ email: 'member@example.com' }, 'admin', environment), true);
 });
+
+test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
+  const config = readFileSync(new URL('../src/lib/ai-config.ts', import.meta.url), 'utf8');
+  const bridge = readFileSync(new URL('../src/components/modules/browser-ai-bridge.tsx', import.meta.url), 'utf8');
+  const legacy = readFileSync(new URL('../src/components/modules/legacy-frame.tsx', import.meta.url), 'utf8');
+  const extension = readFileSync(new URL('../companion-extension/background.js', import.meta.url), 'utf8');
+  assert.match(config, /providerMode\?: 'cloud' \| 'personal' \| 'browser'/);
+  assert.match(config, /requestBrowserAi\(messages/);
+  assert.match(bridge, /BETA · 本地网页 AI/);
+  assert.match(legacy, /JACKYUN_BROWSER_AI_REQUEST/);
+  assert.match(extension, /eligibility = await api\('\/beta'\)/);
+  assert.match(extension, /prompt_failed/);
+});

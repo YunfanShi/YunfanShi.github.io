@@ -19,6 +19,7 @@ import AuthModeProvider from '@/components/auth/auth-mode-provider';
 import BetaExperience from '@/components/modules/beta-experience';
 import type { BetaEnrollmentStatus } from '@/lib/beta';
 import { isAdminIdentity } from '@/lib/admin-auth';
+import BrowserAiBridge from '@/components/modules/browser-ai-bridge';
 
 const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = DEFAULT_NAVIGATION_PREFERENCES;
 
@@ -109,6 +110,7 @@ export default async function PortalLayout({
         <FlyingTimer />
         <SiteNotificationModal />
         <BetaExperience status={(betaEnrollment?.status as BetaEnrollmentStatus | undefined) ?? null} />
+        <BrowserAiBridge />
         <AdminDebugConsole isAdmin={isAdmin} />
       </div>
     </LanguageProvider>

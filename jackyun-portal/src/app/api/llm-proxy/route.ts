@@ -95,7 +95,12 @@ export async function POST(req: NextRequest) {
     const requestedBaseUrl = typeof body.baseUrl === 'string' ? body.baseUrl : '';
     const baseUrl = requestedBaseUrl ? normalizeLlmBaseUrl(requestedBaseUrl) : '';
     const model = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
-    const providerMode = body.providerMode === 'cloud' ? 'cloud' : 'personal';
+    const providerMode = body.providerMode === 'cloud' ? 'cloud' : body.providerMode === 'browser' ? 'browser' : 'personal';
+    if (providerMode === 'browser') {
+      const { data: enrollment } = await supabase.from('beta_enrollments').select('status').eq('user_id', user.id).maybeSingle();
+      if (enrollment?.status !== 'accepted') return NextResponse.json({ error: '本地网页 AI 仅对 BETA 账户开放' }, { status: 403 });
+    }
+    const browserProvider = typeof body.browserProvider === 'string' && ['chatgpt', 'deepseek', 'claude', 'gemini', 'qwen', 'perplexity'].includes(body.browserProvider) ? body.browserProvider : 'chatgpt';
     if (requestedBaseUrl && !baseUrl) return NextResponse.json({ error: 'AI 服务地址不在服务器允许列表中' }, { status: 400 });
     const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
     if (apiKey && apiKey !== '__stored__') {
@@ -109,7 +114,7 @@ export async function POST(req: NextRequest) {
       {
         user_id: user.id,
         key: 'ai_config',
-        value: { baseUrl, model, providerMode, hasApiKey: Boolean(storedSecret) },
+        value: { baseUrl, model, providerMode, browserProvider, companionAutomation: providerMode === 'browser' && body.companionAutomation === true, hasApiKey: Boolean(storedSecret) },
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,key' },
@@ -155,6 +160,9 @@ export async function POST(req: NextRequest) {
   const clientBaseUrl = requestedClientBaseUrl ? normalizeLlmBaseUrl(requestedClientBaseUrl) : '';
   const clientApiKey = (body.apiKey as string)?.trim() || '';
   const clientModel = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
+  if (body.providerMode === 'browser') {
+    return NextResponse.json({ error: { code: 'BROWSER_AI_CLIENT_REQUIRED', message: '本地网页 AI 请求必须在浏览器交互窗口中完成。' } }, { status: 409 });
+  }
   if (requestedClientBaseUrl && !clientBaseUrl) {
     return NextResponse.json({ error: { message: 'AI 服务地址不在服务器允许列表中' } }, { status: 400 });
   }

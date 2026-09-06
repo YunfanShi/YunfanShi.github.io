@@ -240,6 +240,19 @@ main, nav, [data-scroll-region], .quiz-scroll {
   scrollbar-color: var(--card-border) transparent;
 }
 
+/* The IELTS split workspace owns scrolling at the column level. Flex cards
+   must retain their full content height instead of shrinking to the viewport. */
+@media (min-width: 1280px) {
+  aside[data-scroll-region] > article {
+    flex-shrink: 0;
+  }
+
+  aside[data-scroll-region] > article:nth-child(2) {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
 @media (max-width: 767px) {
   [role="dialog"] {
     max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
