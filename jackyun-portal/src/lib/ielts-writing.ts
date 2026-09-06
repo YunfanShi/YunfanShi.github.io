@@ -104,17 +104,18 @@ export function diffWriting(original: string, current: string): DiffChunk[] {
 export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
   if (!text) return [];
   const matches: Array<{ start: number; end: number; id: string }> = [];
-  const lowerText = text.toLocaleLowerCase();
   for (const item of quotes) {
     const quote = item.quote.trim();
     if (!quote) continue;
-    let from = 0;
-    const lowerQuote = quote.toLocaleLowerCase();
-    while (from < text.length) {
-      const start = lowerText.indexOf(lowerQuote, from);
-      if (start < 0) break;
-      matches.push({ start, end: start + quote.length, id: item.id });
-      from = start + quote.length;
+    const pattern = quote
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\s+/g, '\\s+')
+      .replace(/['’]/g, "['’]")
+      .replace(/[-–—]/g, '[-–—]');
+    const matcher = new RegExp(pattern, 'giu');
+    for (const match of text.matchAll(matcher)) {
+      const start = match.index;
+      matches.push({ start, end: start + match[0].length, id: item.id });
     }
   }
   if (!matches.length) return [{ text, highlighted: false, issueIds: [] }];
@@ -155,14 +156,14 @@ export function buildWritingReviewPrompt(input: {
       : '这是原始独立写作。先诊断问题，让学生自己修改；不要代写整句或整篇。';
 
   const responseLanguage = input.outputLanguage === 'zh'
-    ? 'All summaries, explanations, priorities, prompts, and upgrade reasons must be in Simplified Chinese.'
-    : 'All summaries, explanations, priorities, prompts, and upgrade reasons must be in clear English.';
+    ? 'Write summary, priorities, explanations, self-revision prompts, and upgrade reasons in Simplified Chinese. Keep category, severity, type, ruleKey, and every quote/original/suggestion field in English.'
+    : 'Write summary, priorities, explanations, self-revision prompts, and upgrade reasons in clear English. Keep every quote exactly as it appears in the English draft.';
 
   const formatInstruction = input.responseFormat === 'markdown'
     ? `Return Markdown only, using exactly these headings:\n# Band estimate\n# Summary\n# Fix first\n# Issues\nFor every issue use: ## [Severity] Category — rule_key, then Quote, Explanation, and Self-revision prompt.\n# Language upgrades\n# Ready for upgrade\nDo not wrap the report in a code fence.`
     : `Return valid JSON only, with no Markdown.\n\nJSON shape:\n{\n  "bandEstimate": "5.5–6.0",\n  "summary": "short summary",\n  "priorities": ["what to fix first"],\n  "issues": [{\n    "id": "issue-1",\n    "category": "Grammar|Vocabulary / Collocation|Sentence Structure|Cohesion|Logic / Development|Task Response / Achievement",\n    "severity": "high|medium|low",\n    "quote": "short exact fragment",\n    "explanation": "why this is a problem",\n    "selfRevisionPrompt": "the smallest prompt that helps the student revise",\n    "ruleKey": "stable_error_key"\n  }],\n  "upgrades": [{\n    "original": "short fragment",\n    "suggestion": "a better local expression, not a full rewrite",\n    "why": "why it is better",\n    "type": "necessary|natural|optional"\n  }],\n  "readyForUpgrade": false\n}`;
 
-  return `You are a rigorous but restrained IELTS Writing coach. Follow the Correction → Transfer method.\n\n${modeInstruction}\n\n${responseLanguage}\n\nRules:\n- Never generate a complete model answer or rewrite the whole essay.\n- Every issue must quote a short fragment and use selfRevisionPrompt to ask a question or give the smallest useful hint.\n- Return only the 3–8 issues with the greatest score impact. Do not invent minor problems to fill a quota.\n- Use stable, short English ruleKey values such as article_usage, subject_verb_agreement, or unclear_causal_chain.\n- bandEstimate must be a range such as 5.5–6.0, never a promised exam score.\n- readyForUpgrade is true only after the main grammar, logic, and task-response problems have clearly converged.\n- Return upgrades only in upgrade mode. Label each necessary, natural, or optional. Otherwise return an empty array.\n- For Task 1, also check overview, comparison objects, tense, and data language. For Task 2, also check position, topic sentences, explanation, examples, causal chains, relevance, and conclusion.\n\n${formatInstruction}\n\nTask: ${taskLabel(input.task)}\nQuestion: ${input.question || 'No question supplied. Do not judge Task Response; analyse only the visible language and structure.'}\nPrevious issue keys: ${input.previousRuleKeys?.join(', ') || 'none'}\nOriginal attempt:\n${input.originalEssay || input.essay}\n\nCurrent draft:\n${input.essay}`;
+  return `You are a rigorous but restrained IELTS Writing coach. Follow the Correction → Transfer method.\n\n${modeInstruction}\n\n${responseLanguage}\n\nRules:\n- Never generate a complete model answer or rewrite the whole essay.\n- Every issue.quote MUST be a short, verbatim substring copied from Current draft. Never translate, correct, normalize, paraphrase, or add quotation marks to quote.\n- Use selfRevisionPrompt to ask a question or give the smallest useful hint.\n- Return only the 3–8 issues with the greatest score impact. Do not invent minor problems to fill a quota.\n- Use stable, short English ruleKey values such as article_usage, subject_verb_agreement, or unclear_causal_chain. Never escape underscores in JSON strings.\n- bandEstimate must be a range such as 5.5–6.0, never a promised exam score.\n- readyForUpgrade is true only after the main grammar, logic, and task-response problems have clearly converged.\n- Return upgrades only in upgrade mode. Label each necessary, natural, or optional. Otherwise return an empty array.\n- For Task 1, also check overview, comparison objects, tense, and data language. For Task 2, also check position, topic sentences, explanation, examples, causal chains, relevance, and conclusion.\n\n${formatInstruction}\n\nTask: ${taskLabel(input.task)}\nQuestion: ${input.question || 'No question supplied. Do not judge Task Response; analyse only the visible language and structure.'}\nPrevious issue keys: ${input.previousRuleKeys?.join(', ') || 'none'}\nOriginal attempt:\n${input.originalEssay || input.essay}\n\nCurrent draft:\n${input.essay}`;
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -174,7 +175,8 @@ export function parseWritingFeedback(raw: string): WritingFeedback {
   const start = unfenced.indexOf('{');
   const end = unfenced.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('AI 没有返回可读取的反馈，请重试。');
-  const value = JSON.parse(unfenced.slice(start, end + 1)) as Partial<WritingFeedback>;
+  const json = unfenced.slice(start, end + 1).replace(/\\(?=[_])/g, '');
+  const value = JSON.parse(json) as Partial<WritingFeedback>;
   if (typeof value.summary !== 'string' || !Array.isArray(value.issues)) throw new Error('AI 反馈格式不完整，请重试。');
 
   const allowedCategories = new Set<WritingIssue['category']>([

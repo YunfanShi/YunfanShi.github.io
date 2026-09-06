@@ -31,7 +31,7 @@ const COPY = {
     layout: 'Workspace layout', split: 'Side by side', stacked: 'Top and bottom',
     highlights: 'Issue highlights', highlightsOn: 'Highlights on', highlightsOff: 'Highlights off', highlightedDraft: 'Quoted issues in your current draft', noQuotedIssues: 'No quoted issue can be matched to the current draft.',
     originalEyebrow: 'Original attempt', originalTitle: 'Locked evidence of your starting point', loop: 'Correction loop', round: 'What to do this round', stages: ['Original', 'Self-revise', 'Upgrade', 'Transfer'],
-    diagnose: 'Find my key issues', recheck: 'Check my revision', analysing: 'Analysing…', upgrading: 'Upgrading…', upgrade: 'Language Upgrade', priority: 'Fix first', undo: 'Undo', resolved: 'Mark revised', think: 'Revise it yourself:', upgrades: 'Language upgrades',
+    diagnose: 'Find my key issues', recheck: 'Check my revision', analysing: 'Analysing…', upgrading: 'Upgrading…', upgrade: 'Language Upgrade', back: 'Previous step', priority: 'Fix first', undo: 'Undo', resolved: 'Mark revised', think: 'Revise it yourself:', upgrades: 'Language upgrades',
     emptyTitle: 'AI will not write it for you', emptyBody: 'It quotes the problem, explains why it matters, and gives the smallest useful prompt. Your first attempt is locked when analysis begins.',
     transfer: 'Transfer test', transferTitle: 'The next essay proves mastery', recurring: 'Seen in at least two independent essays:', recurringEmpty: 'An issue in one essay is not automatically a recurring error. It is promoted only after appearing in two independent new essays.', transferButton: 'Start a new transfer essay',
     revision: 'Revision map', revisionTitle: 'What changed since the first attempt', added: 'added', removed: 'removed', noRevision: 'Make a revision to see additions and deletions highlighted here.', currentOnly: 'Run the first analysis to lock an original version for comparison.',
@@ -47,7 +47,7 @@ const COPY = {
     layout: '工作台布局', split: '左右分栏', stacked: '上下排列',
     highlights: '问题高亮', highlightsOn: '高亮已开启', highlightsOff: '高亮已关闭', highlightedDraft: '当前稿中被引用的问题', noQuotedIssues: '当前反馈的引用无法在作文中精确匹配。',
     originalEyebrow: '真实原稿', originalTitle: '不可覆盖的起点证据', loop: '修复循环', round: '本轮怎么做', stages: ['原稿', '自己修改', '语言升级', '新文迁移'],
-    diagnose: '让 AI 找关键问题', recheck: '检查我的修改', analysing: '分析中…', upgrading: '升级中…', upgrade: '语言升级', priority: '本轮优先', undo: '撤销', resolved: '标记已改', think: '请自己修改：', upgrades: '表达升级',
+    diagnose: '让 AI 找关键问题', recheck: '检查我的修改', analysing: '分析中…', upgrading: '升级中…', upgrade: '语言升级', back: '返回上一步', priority: '本轮优先', undo: '撤销', resolved: '标记已改', think: '请自己修改：', upgrades: '表达升级',
     emptyTitle: 'AI 不会替你写', emptyBody: '它会引用问题片段、解释原因，并给出最小修改提示。首次分析时会锁定你的真实原稿。',
     transfer: '迁移验证', transferTitle: '下一篇才是掌握证明', recurring: '已在至少两篇独立作文出现：', recurringEmpty: '本篇错误不会自动算作反复错误。同类问题至少在两篇独立新作文再次出现才会升级。', transferButton: '开始新题迁移',
     revision: '修订地图', revisionTitle: '原稿到当前稿改了什么', added: '新增', removed: '删除', noRevision: '修改作文后，这里会高亮显示新增与删除的内容。', currentOnly: '首次分析会锁定原稿，之后即可进行版本对比。',
@@ -77,6 +77,7 @@ export default function WritingWorkbench() {
   const [highlightIssues, setHighlightIssues] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [feedback, setFeedback] = useState<WritingFeedback | null>(null);
+  const [feedbackHistory, setFeedbackHistory] = useState<Array<{ feedback: WritingFeedback | null; previousRuleKeys: string[]; resolved: string[] }>>([]);
   const [previousRuleKeys, setPreviousRuleKeys] = useState<string[]>([]);
   const [history, setHistory] = useState<ErrorHistoryEntry[]>([]);
   const [resolved, setResolved] = useState<string[]>([]);
@@ -155,10 +156,16 @@ export default function WritingWorkbench() {
       const data = await response.json();
       const result = parseWritingFeedback(data.choices?.[0]?.message?.content || '');
       const keys = result.issues.map((issue) => issue.ruleKey);
-      setFeedback(result); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); setExternalFallbackMode(null); setMessage(mode === 'upgrade' ? c.upgradeDone : c.feedbackDone);
+      setFeedbackHistory((current) => [...current, { feedback, previousRuleKeys, resolved }].slice(-10)); setFeedback(result); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); setExternalFallbackMode(null); setMessage(mode === 'upgrade' ? c.upgradeDone : c.feedbackDone);
     } catch (error) { setMessage(error instanceof Error ? error.message : c.failed); void showExternalFallback(mode); } finally { setLoadingMode(null); }
   }
-  function startTransferEssay() { const next = { ...defaultDraft, essayId: newEssayId(), task: draft.task, secondsLeft: draft.task === 'task2' ? 2400 : 1200 }; commitDraft(next, true); setFeedback(null); setPreviousRuleKeys([]); setResolved([]); setMessage(c.transferStarted); }
+  function goBack() {
+    if (externalFallbackMode) { setExternalFallbackMode(null); setExternalReply(''); setMessage(''); return; }
+    const previous = feedbackHistory.at(-1);
+    if (!previous) return;
+    setFeedback(previous.feedback); setPreviousRuleKeys(previous.previousRuleKeys); setResolved(previous.resolved); setHistory((current) => updateErrorHistory(current, draft.essayId, previous.previousRuleKeys)); setFeedbackHistory((current) => current.slice(0, -1)); setMessage('');
+  }
+  function startTransferEssay() { const next = { ...defaultDraft, essayId: newEssayId(), task: draft.task, secondsLeft: draft.task === 'task2' ? 2400 : 1200 }; commitDraft(next, true); setFeedback(null); setFeedbackHistory([]); setPreviousRuleKeys([]); setResolved([]); setMessage(c.transferStarted); }
   function restoreSnapshot() { try { const snapshots = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[]; const latest = snapshots.find((item) => validDraft(item?.draft)); if (!latest) { setMessage(c.noSnapshot); return; } commitDraft(latest.draft); setMessage(c.restored); } catch { setMessage(c.noSnapshot); } }
   function exportBackup() { const payload = JSON.stringify({ exportedAt: new Date().toISOString(), draft, history }, null, 2); const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `ielts-writing-${draft.essayId}.json`; anchor.click(); URL.revokeObjectURL(url); }
   async function copyExternalPrompt() { try { await navigator.clipboard.writeText(externalPrompt); setPromptCopied(true); window.setTimeout(() => setPromptCopied(false), 1800); } catch { setMessage(uiLanguage === 'en' ? 'Clipboard access failed. Select the prompt preview and copy it manually.' : '无法访问剪贴板，请在提示词预览中手动复制。'); } }
@@ -167,7 +174,7 @@ export default function WritingWorkbench() {
     try {
       const result = parseWritingFeedback(externalReply);
       const keys = result.issues.map((issue) => issue.ruleKey);
-      setFeedback(result); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); setExternalFallbackMode(null); setMessage(c.imported);
+      setFeedbackHistory((current) => [...current, { feedback, previousRuleKeys, resolved }].slice(-10)); setFeedback(result); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); setExternalFallbackMode(null); setMessage(c.imported);
       if (!draft.originalEssay) commitDraft({ ...draft, originalEssay: draft.essay }, true);
     } catch { setMessage(c.invalidReply); }
   }
@@ -194,7 +201,7 @@ export default function WritingWorkbench() {
 
     <aside className={`flex min-w-0 flex-col gap-5 ${workspaceLayout === 'split' ? 'xl:overflow-y-auto xl:overscroll-contain xl:pl-1' : ''}`} data-scroll-region={workspaceLayout === 'split' ? true : undefined}>
       <article className="order-1 shrink-0 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none">
-        <div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#d97706]">{c.loop}</p><h2 className="mt-1.5 text-xl font-semibold">{c.round}</h2></div>{feedback && <span className="rounded-xl bg-[#fff1d6] px-3 py-1.5 text-sm font-bold text-[#92400e] dark:bg-[#4a2e0c] dark:text-[#fcd34d]">Band {feedback.bandEstimate}</span>}</div>
+        <div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#d97706]">{c.loop}</p><h2 className="mt-1.5 text-xl font-semibold">{c.round}</h2></div><div className="flex items-center gap-2">{(feedbackHistory.length > 0 || externalFallbackMode) && <button type="button" onClick={goBack} className="flex min-h-9 items-center gap-1 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold text-[var(--muted-foreground)] hover:border-[#d97706] hover:text-[#b45309]"><span className="material-icons-round text-base">arrow_back</span>{c.back}</button>}{feedback && <span className="rounded-xl bg-[#fff1d6] px-3 py-1.5 text-sm font-bold text-[#92400e] dark:bg-[#4a2e0c] dark:text-[#fcd34d]">Band {feedback.bandEstimate}</span>}</div></div>
         <ol className="relative mb-5 grid grid-cols-4 gap-1 text-center text-[11px] font-bold"><span className="absolute left-[12%] right-[12%] top-4 h-px bg-[var(--card-border)]" />{c.stages.map((label, index) => <li key={label} className="relative"><span className={`mx-auto grid h-8 w-8 place-items-center rounded-full border-2 ${index <= stage ? 'border-[#0e7490] bg-[#0e7490] text-white' : 'border-[var(--card-border)] bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{index + 1}</span><span className={`mt-2 block ${index === stage ? 'text-[#0e7490]' : 'text-[var(--muted-foreground)]'}`}>{label}</span></li>)}</ol>
         <div className="grid gap-2 sm:grid-cols-2"><button type="button" disabled={Boolean(loadingMode)} onClick={() => review(feedback ? 'recheck' : 'diagnose')} className="min-h-12 rounded-xl bg-[#0e7490] px-4 text-sm font-bold text-white shadow-md shadow-cyan-950/15 disabled:opacity-50">{loadingMode === 'diagnose' || loadingMode === 'recheck' ? c.analysing : feedback ? c.recheck : c.diagnose}</button><button type="button" disabled={Boolean(loadingMode) || !feedback} onClick={() => review('upgrade')} className="min-h-12 rounded-xl border-2 border-[#0e7490] px-4 text-sm font-bold text-[#0e7490] disabled:opacity-40 dark:text-[#67e8f9]">{loadingMode === 'upgrade' ? c.upgrading : c.upgrade}</button></div>
         {message && <p role="status" className="mt-4 rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 text-sm leading-6 text-[var(--muted-foreground)]">{message} {/config|配置|API key/i.test(message) && <Link href="/settings" className="ml-1 font-bold text-[#0e7490] underline">{c.settings}</Link>}</p>}

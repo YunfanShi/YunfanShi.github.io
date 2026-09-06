@@ -55,9 +55,22 @@ test('external prompt embeds the essay and enforces the selected response format
 });
 
 test('maps AI quote fragments back to highlighted essay text', () => {
-  const essay = 'People is worried. Other people disagree.';
-  const chunks = highlightQuotedText(essay, [{ id: 'grammar-1', quote: 'people is' }]);
+  const essay = 'People is worried. Children’s progress — matters.';
+  const chunks = highlightQuotedText(essay, [{ id: 'grammar-1', quote: 'people is' }, { id: 'grammar-2', quote: "Children's progress - matters" }]);
   assert.equal(chunks.map((chunk) => chunk.text).join(''), essay);
   assert.equal(chunks.find((chunk) => chunk.highlighted)?.text, 'People is');
   assert.deepEqual(chunks.find((chunk) => chunk.highlighted)?.issueIds, ['grammar-1']);
+  assert.ok(chunks.some((chunk) => chunk.highlighted && chunk.issueIds.includes('grammar-2')));
+});
+
+test('accepts the common escaped-underscore defect in otherwise valid model JSON', () => {
+  const feedback = parseWritingFeedback('{"summary":"清楚","issues":[{"id":"1","category":"Grammar","severity":"high","quote":"people is","explanation":"说明","selfRevisionPrompt":"提示","ruleKey":"subject\\_verb\\_agreement"}]}');
+  assert.equal(feedback.issues[0].ruleKey, 'subject_verb_agreement');
+});
+
+test('Chinese prompts require Chinese guidance but preserve verbatim English quotes', () => {
+  const prompt = buildWritingReviewPrompt({ task: 'task2', question: '', essay: 'People is worried.', originalEssay: '', mode: 'diagnose', outputLanguage: 'zh', responseFormat: 'json' });
+  assert.match(prompt, /Simplified Chinese/);
+  assert.match(prompt, /verbatim substring copied from Current draft/);
+  assert.match(prompt, /Never translate/);
 });
