@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWritingReviewPrompt, countWords, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { buildWritingReviewPrompt, coerceWritingStage, countWords, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
 import { readFileSync } from 'node:fs';
 
 test('counts IELTS words and returns task targets deterministically', () => {
@@ -8,6 +8,14 @@ test('counts IELTS words and returns task targets deterministically', () => {
   assert.equal(countWords(''), 0);
   assert.equal(targetWords('task2'), 250);
   assert.equal(targetWords('task1-academic'), 150);
+});
+
+test('restores only valid user-selected writing stages', () => {
+  assert.equal(coerceWritingStage('0'), 0);
+  assert.equal(coerceWritingStage('3'), 3);
+  assert.equal(coerceWritingStage('4'), null);
+  assert.equal(coerceWritingStage('not-a-stage'), null);
+  assert.equal(coerceWritingStage(null), null);
 });
 
 test('parses fenced feedback and rejects incomplete responses', () => {
@@ -55,6 +63,27 @@ test('external prompt embeds the essay and enforces the selected response format
   assert.match(prompt, /# Band estimate/);
 });
 
+test('correction response mode requests a corrected local answer instead of a hint', () => {
+  const prompt = buildWritingReviewPrompt({ task: 'task2', question: '', essay: 'Parents provide the emotional support.', originalEssay: '', mode: 'diagnose', outputLanguage: 'en', responseFormat: 'json', guidanceMode: 'correction' });
+  assert.match(prompt, /"correction": "the corrected version of quote only/);
+  assert.match(prompt, /omit selfRevisionPrompt/);
+  assert.doesNotMatch(prompt, /"selfRevisionPrompt":/);
+});
+
+test('accepts correction-mode feedback without a self-revision prompt', () => {
+  const feedback = parseWritingFeedback('{"summary":"Article error","issues":[{"id":"1","category":"Grammar","severity":"medium","quote":"provide the emotional support","explanation":"The article is unnecessary.","correction":"provide emotional support","ruleKey":"article_usage"}]}');
+  assert.equal(feedback.issues[0]?.quote, 'provide the emotional support');
+  assert.equal(feedback.issues[0]?.correction, 'provide emotional support');
+});
+
+test('language-upgrade originals participate in the same editor highlighting', () => {
+  const essay = 'Parents can provide the emotional support for their children.';
+  const chunks = highlightQuotedText(essay, [{ id: 'upgrade-0', quote: 'provide the emotional support' }]);
+  const highlighted = chunks.find((chunk) => chunk.highlighted);
+  assert.equal(highlighted?.text, 'provide the emotional support');
+  assert.deepEqual(highlighted?.issueIds, ['upgrade-0']);
+});
+
 test('maps AI quote fragments back to highlighted essay text', () => {
   const essay = 'People is worried. Children’s progress — matters.';
   const chunks = highlightQuotedText(essay, [{ id: 'grammar-1', quote: 'people is' }, { id: 'grammar-2', quote: "Children's progress - matters" }]);
@@ -68,6 +97,16 @@ test('finds a quote range for editor selection with punctuation normalization', 
   const essay = 'First paragraph.\nChildren’s progress — matters.';
   assert.deepEqual(findQuotedTextRange(essay, "Children's progress - matters"), { start: 17, end: 46 });
   assert.equal(findQuotedTextRange(essay, 'missing text'), null);
+});
+
+test('matches visually identical AI quotes despite invisible and compatibility characters', () => {
+  const essay = 'The\u00a0result\u200b was “ｕｎｅｘｐｅｃｔｅｄ”—but useful.';
+  const quote = '“The result was "unexpected" - but useful.”';
+  const range = findQuotedTextRange(essay, quote);
+  assert.deepEqual(range, { start: 0, end: essay.length });
+  const chunks = highlightQuotedText(essay, [{ id: 'unicode-issue', quote }]);
+  assert.equal(chunks.map((chunk) => chunk.text).join(''), essay);
+  assert.ok(chunks.some((chunk) => chunk.highlighted && chunk.issueIds.includes('unicode-issue')));
 });
 
 test('accepts the common escaped-underscore defect in otherwise valid model JSON', () => {

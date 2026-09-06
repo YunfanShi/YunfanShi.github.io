@@ -1,6 +1,8 @@
 export type WritingTask = 'task1-academic' | 'task1-general' | 'task2';
 export type ReviewMode = 'diagnose' | 'recheck' | 'upgrade';
 export type ExternalResponseFormat = 'json' | 'markdown';
+export type WritingStage = 0 | 1 | 2 | 3;
+export type WritingGuidanceMode = 'hint' | 'correction';
 
 export interface DiffChunk {
   type: 'same' | 'added' | 'removed';
@@ -24,7 +26,8 @@ export interface WritingIssue {
   severity: 'high' | 'medium' | 'low';
   quote: string;
   explanation: string;
-  selfRevisionPrompt: string;
+  selfRevisionPrompt?: string;
+  correction?: string;
   ruleKey: string;
 }
 
@@ -52,6 +55,12 @@ export interface ErrorHistoryEntry {
 export interface KeyValueStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+}
+
+export function coerceWritingStage(value: string | null): WritingStage | null {
+  if (value === null || value.trim() === '') return null;
+  const stage = Number(value);
+  return Number.isInteger(stage) && stage >= 0 && stage <= 3 ? stage as WritingStage : null;
 }
 
 export function writeRedundantJson(storage: KeyValueStorage, primaryKey: string, mirrorKey: string, value: unknown): void {
@@ -106,34 +115,69 @@ export function diffWriting(original: string, current: string): DiffChunk[] {
   return chunks;
 }
 
-function quoteMatcher(quote: string): RegExp | null {
-  const trimmed = quote.trim();
-  if (!trimmed) return null;
-  const pattern = trimmed
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    .replace(/\s+/g, '\\s+')
-    .replace(/['’]/g, "['’]")
-    .replace(/[-–—]/g, '[-–—]');
-  return new RegExp(pattern, 'giu');
+interface NormalizedCharacter { value: string; start: number; end: number; }
+
+function normalizedCharacters(text: string): NormalizedCharacter[] {
+  const characters: NormalizedCharacter[] = [];
+  let offset = 0;
+  for (const original of text) {
+    const start = offset;
+    offset += original.length;
+    if (/[\u200B-\u200D\u2060\uFEFF]/u.test(original)) continue;
+    let canonical = original.normalize('NFKC').toLocaleLowerCase();
+    canonical = canonical
+      .replace(/[‘’‚‛′`´]/gu, "'")
+      .replace(/[“”„‟″]/gu, '"')
+      .replace(/[‐‑‒–—―−]/gu, '-')
+      .replace(/…/gu, '...');
+    if (/\s/u.test(canonical)) canonical = ' ';
+    for (const value of canonical) {
+      const previous = characters.at(-1);
+      if (value === ' ' && previous?.value === ' ') { previous.end = offset; continue; }
+      characters.push({ value, start, end: offset });
+    }
+  }
+  const punctuation = /[-,.;:!?()[\]{}"']/u;
+  return characters.filter((character, index) => {
+    if (character.value !== ' ') return true;
+    const previous = characters[index - 1]?.value;
+    const next = characters[index + 1]?.value;
+    return !((previous && punctuation.test(previous)) || (next && punctuation.test(next)));
+  });
+}
+
+function normalizedQuoteRanges(text: string, quote: string): QuoteRange[] {
+  const source = normalizedCharacters(text);
+  const normalizedQuote = normalizedCharacters(quote).map((character) => character.value).join('').trim();
+  if (!source.length || !normalizedQuote) return [];
+  const unwrapped = normalizedQuote.match(/^(?:"([\s\S]*)"|'([\s\S]*)')$/u)?.slice(1).find((value) => value !== undefined)?.trim();
+  const candidates = [...new Set([normalizedQuote, unwrapped].filter((value): value is string => Boolean(value)))];
+  const sourceValue = source.map((character) => character.value).join('');
+  const ranges: QuoteRange[] = [];
+  for (const candidate of candidates) {
+    let fromIndex = 0;
+    while (fromIndex <= sourceValue.length - candidate.length) {
+      const matchIndex = sourceValue.indexOf(candidate, fromIndex);
+      if (matchIndex < 0) break;
+      const first = source[matchIndex];
+      const last = source[matchIndex + candidate.length - 1];
+      if (first && last) ranges.push({ start: first.start, end: last.end });
+      fromIndex = matchIndex + Math.max(1, candidate.length);
+    }
+    if (ranges.length) break;
+  }
+  return ranges.filter((range, index) => !ranges.slice(0, index).some((existing) => existing.start === range.start && existing.end === range.end));
 }
 
 export function findQuotedTextRange(text: string, quote: string): QuoteRange | null {
-  const matcher = quoteMatcher(quote);
-  if (!matcher) return null;
-  const match = matcher.exec(text);
-  return match ? { start: match.index, end: match.index + match[0].length } : null;
+  return normalizedQuoteRanges(text, quote)[0] ?? null;
 }
 
 export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
   if (!text) return [];
   const matches: Array<{ start: number; end: number; id: string }> = [];
   for (const item of quotes) {
-    const matcher = quoteMatcher(item.quote);
-    if (!matcher) continue;
-    for (const match of text.matchAll(matcher)) {
-      const start = match.index;
-      matches.push({ start, end: start + match[0].length, id: item.id });
-    }
+    for (const range of normalizedQuoteRanges(text, item.quote)) matches.push({ ...range, id: item.id });
   }
   if (!matches.length) return [{ text, highlighted: false, issueIds: [] }];
   const boundaries = new Set([0, text.length]);
@@ -165,7 +209,9 @@ export function buildWritingReviewPrompt(input: {
   previousRuleKeys?: string[];
   outputLanguage?: 'en' | 'zh';
   responseFormat?: ExternalResponseFormat;
+  guidanceMode?: WritingGuidanceMode;
 }): string {
+  const guidanceMode = input.guidanceMode ?? 'hint';
   const modeInstruction = input.mode === 'upgrade'
     ? '主要错误应已收敛。区分 necessary correction、natural upgrade、optional sophistication；保持原观点，只做 same idea, better English。'
     : input.mode === 'recheck'
@@ -173,14 +219,21 @@ export function buildWritingReviewPrompt(input: {
       : '这是原始独立写作。先诊断问题，让学生自己修改；不要代写整句或整篇。';
 
   const responseLanguage = input.outputLanguage === 'zh'
-    ? 'Write summary, priorities, explanations, self-revision prompts, and upgrade reasons in Simplified Chinese. Keep category, severity, type, ruleKey, and every quote/original/suggestion field in English.'
-    : 'Write summary, priorities, explanations, self-revision prompts, and upgrade reasons in clear English. Keep every quote exactly as it appears in the English draft.';
+    ? `Write summary, priorities, explanations, ${guidanceMode === 'hint' ? 'self-revision prompts' : 'correction explanations'}, and upgrade reasons in Simplified Chinese. Keep category, severity, type, ruleKey, and every quote/original/suggestion/correction field in English.`
+    : `Write summary, priorities, explanations, ${guidanceMode === 'hint' ? 'self-revision prompts' : 'correction explanations'}, and upgrade reasons in clear English. Keep every quote exactly as it appears in the English draft.`;
+
+  const issueResponseField = guidanceMode === 'hint'
+    ? '    "selfRevisionPrompt": "the smallest question or hint that helps the student revise",'
+    : '    "correction": "the corrected version of quote only, not a full rewrite unless quote is a full sentence",';
+  const guidanceRule = guidanceMode === 'hint'
+    ? '- For each issue, return selfRevisionPrompt with the smallest useful question or hint. Do not reveal the corrected wording and omit correction.'
+    : '- For each issue, return correction with the corrected wording for quote. Do not ask a self-revision question and omit selfRevisionPrompt.';
 
   const formatInstruction = input.responseFormat === 'markdown'
-    ? `Return Markdown only, using exactly these headings:\n# Band estimate\n# Summary\n# Fix first\n# Issues\nFor every issue use: ## [Severity] Category — rule_key, then Quote, Explanation, and Self-revision prompt.\n# Language upgrades\n# Ready for upgrade\nDo not wrap the report in a code fence.`
-    : `Return valid JSON only, with no Markdown.\n\nJSON shape:\n{\n  "bandEstimate": "5.5–6.0",\n  "summary": "short summary",\n  "priorities": ["what to fix first"],\n  "issues": [{\n    "id": "issue-1",\n    "category": "Grammar|Vocabulary / Collocation|Sentence Structure|Cohesion|Logic / Development|Task Response / Achievement",\n    "severity": "high|medium|low",\n    "quote": "short exact fragment",\n    "explanation": "why this is a problem",\n    "selfRevisionPrompt": "the smallest prompt that helps the student revise",\n    "ruleKey": "stable_error_key"\n  }],\n  "upgrades": [{\n    "original": "short fragment",\n    "suggestion": "a better local expression, not a full rewrite",\n    "why": "why it is better",\n    "type": "necessary|natural|optional"\n  }],\n  "readyForUpgrade": false\n}`;
+    ? `Return Markdown only, using exactly these headings:\n# Band estimate\n# Summary\n# Fix first\n# Issues\nFor every issue use: ## [Severity] Category — rule_key, then Quote, Explanation, and ${guidanceMode === 'hint' ? 'Self-revision prompt' : 'Correction'}.\n# Language upgrades\n# Ready for upgrade\nDo not wrap the report in a code fence.`
+    : `Return valid JSON only, with no Markdown.\n\nJSON shape:\n{\n  "bandEstimate": "5.5–6.0",\n  "summary": "short summary",\n  "priorities": ["what to fix first"],\n  "issues": [{\n    "id": "issue-1",\n    "category": "Grammar|Vocabulary / Collocation|Sentence Structure|Cohesion|Logic / Development|Task Response / Achievement",\n    "severity": "high|medium|low",\n    "quote": "short exact fragment",\n    "explanation": "why this is a problem",\n${issueResponseField}\n    "ruleKey": "stable_error_key"\n  }],\n  "upgrades": [{\n    "original": "short verbatim fragment copied from Current draft",\n    "suggestion": "a better local expression, not a full rewrite",\n    "why": "why it is better",\n    "type": "necessary|natural|optional"\n  }],\n  "readyForUpgrade": false\n}`;
 
-  return `You are a rigorous but restrained IELTS Writing coach. Follow the Correction → Transfer method.\n\n${modeInstruction}\n\n${responseLanguage}\n\nRules:\n- Never generate a complete model answer or rewrite the whole essay.\n- Every issue.quote MUST be a short, verbatim substring copied from Current draft. Never translate, correct, normalize, paraphrase, or add quotation marks to quote.\n- Use selfRevisionPrompt to ask a question or give the smallest useful hint.\n- Return only the 3–8 issues with the greatest score impact. Do not invent minor problems to fill a quota.\n- Use stable, short English ruleKey values such as article_usage, subject_verb_agreement, or unclear_causal_chain. Never escape underscores in JSON strings.\n- bandEstimate must be a range such as 5.5–6.0, never a promised exam score.\n- readyForUpgrade is true only after the main grammar, logic, and task-response problems have clearly converged.\n- Return upgrades only in upgrade mode. Label each necessary, natural, or optional. Otherwise return an empty array.\n- For Task 1, also check overview, comparison objects, tense, and data language. For Task 2, also check position, topic sentences, explanation, examples, causal chains, relevance, and conclusion.\n\n${formatInstruction}\n\nTask: ${taskLabel(input.task)}\nQuestion: ${input.question || 'No question supplied. Do not judge Task Response; analyse only the visible language and structure.'}\nPrevious issue keys: ${input.previousRuleKeys?.join(', ') || 'none'}\nOriginal attempt:\n${input.originalEssay || input.essay}\n\nCurrent draft:\n${input.essay}`;
+  return `You are a rigorous but restrained IELTS Writing coach. Follow the Correction → Transfer method.\n\n${modeInstruction}\n\n${responseLanguage}\n\nRules:\n- Never generate a complete model answer or rewrite the whole essay.\n- Every issue.quote and every upgrades.original MUST be a short, verbatim substring copied from Current draft. Never translate, correct, normalize, paraphrase, or add quotation marks to these source fields.\n${guidanceRule}\n- Return only the 3–8 issues with the greatest score impact. Do not invent minor problems to fill a quota.\n- Use stable, short English ruleKey values such as article_usage, subject_verb_agreement, or unclear_causal_chain. Never escape underscores in JSON strings.\n- bandEstimate must be a range such as 5.5–6.0, never a promised exam score.\n- readyForUpgrade is true only after the main grammar, logic, and task-response problems have clearly converged.\n- Return upgrades only in upgrade mode. Label each necessary, natural, or optional. Otherwise return an empty array.\n- For Task 1, also check overview, comparison objects, tense, and data language. For Task 2, also check position, topic sentences, explanation, examples, causal chains, relevance, and conclusion.\n\n${formatInstruction}\n\nTask: ${taskLabel(input.task)}\nQuestion: ${input.question || 'No question supplied. Do not judge Task Response; analyse only the visible language and structure.'}\nPrevious issue keys: ${input.previousRuleKeys?.join(', ') || 'none'}\nOriginal attempt:\n${input.originalEssay || input.essay}\n\nCurrent draft:\n${input.essay}`;
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -203,7 +256,7 @@ export function parseWritingFeedback(raw: string): WritingFeedback {
   const issues = value.issues.filter((issue): issue is WritingIssue => Boolean(
     issue && typeof issue.id === 'string' && allowedCategories.has(issue.category) &&
     allowedSeverities.has(issue.severity) && typeof issue.quote === 'string' &&
-    typeof issue.explanation === 'string' && typeof issue.selfRevisionPrompt === 'string' && typeof issue.ruleKey === 'string',
+    typeof issue.explanation === 'string' && (typeof issue.selfRevisionPrompt === 'string' || typeof issue.correction === 'string') && typeof issue.ruleKey === 'string',
   ));
   const upgrades = Array.isArray(value.upgrades) ? value.upgrades.filter((upgrade): upgrade is LanguageUpgrade => Boolean(
     upgrade && typeof upgrade.original === 'string' && typeof upgrade.suggestion === 'string' &&
