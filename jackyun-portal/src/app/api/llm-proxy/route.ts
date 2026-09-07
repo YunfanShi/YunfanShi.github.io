@@ -301,6 +301,7 @@ export async function POST(req: NextRequest) {
   const upstreamFields = { ...body };
   const interfaceLanguage = upstreamFields.interfaceLanguage;
   const connectionTest = upstreamFields._connection_test === true;
+  const noThinking = upstreamFields._no_thinking === true;
   delete upstreamFields.baseUrl;
   delete upstreamFields.apiKey;
   delete upstreamFields._get_config_only;
@@ -309,11 +310,23 @@ export async function POST(req: NextRequest) {
   delete upstreamFields.providerMode;
   delete upstreamFields.interfaceLanguage;
   delete upstreamFields._connection_test;
-  // GLM enables reasoning by default. Disable it only for the tiny settings
-  // probe; other OpenAI-compatible providers never receive this vendor field.
+  delete upstreamFields._no_thinking;
+  // GLM 5.3 is an always-thinking model: sending thinking.type=disabled makes
+  // BigModel reject the request with code 1210. Translate the app's fast-mode
+  // hint to the lowest supported reasoning level for that model family.
   let upstreamHostname = '';
   try { upstreamHostname = new URL(baseUrl).hostname.toLowerCase(); } catch { /* The fetch below reports malformed emergency configuration. */ }
-  if (connectionTest && upstreamHostname.endsWith('bigmodel.cn')) {
+  const isBigModel = upstreamHostname.endsWith('bigmodel.cn');
+  const isGlm53 = isBigModel && /^glm-5\.3(?:-|$)/i.test(model);
+  const requestedThinking = upstreamFields.thinking;
+  const disablesThinking = typeof requestedThinking === 'object'
+    && requestedThinking !== null
+    && 'type' in requestedThinking
+    && requestedThinking.type === 'disabled';
+  if (isGlm53 && (connectionTest || noThinking || disablesThinking)) {
+    delete upstreamFields.thinking;
+    upstreamFields.reasoning_effort = 'low';
+  } else if ((connectionTest || noThinking) && isBigModel) {
     upstreamFields.thinking = { type: 'disabled' };
   }
   if (keySource === 'cloud' && userId && adminClient) {

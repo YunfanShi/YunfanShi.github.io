@@ -225,10 +225,9 @@ export async function callAiApi(
   };
 
   if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens;
-  // 部分 API 用 extra_body.reasoning_effort 或 thinking 控制思考
-  if (options.noThinking) {
-    (body as Record<string, unknown>).thinking = { type: 'disabled' };
-  }
+  // Keep the intent provider-neutral. The server proxy translates this into
+  // the parameter supported by the configured upstream model.
+  if (options.noThinking) body._no_thinking = true;
   // Route all providers through the server proxy: it normalizes provider
   // errors, applies the selected response language, and keeps provider logic
   // out of individual UI modules.

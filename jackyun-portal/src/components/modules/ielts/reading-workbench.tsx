@@ -80,7 +80,7 @@ export default function ReadingWorkbench() {
   async function generateArticle() {
     setLoading('article'); setMessage('');
     try {
-      const response = await callAiApi([{ role: 'system', content: 'You create level-controlled English reading material and return only valid JSON.' }, { role: 'user', content: buildReadingPrompt(settings) }], { temperature: 0.85, maxTokens: Math.max(3000, settings.wordCount * 3), feature: 'reasoning' });
+      const response = await callAiApi([{ role: 'system', content: 'You create level-controlled English reading material and return only valid JSON.' }, { role: 'user', content: buildReadingPrompt(settings) }], { temperature: 0.85, maxTokens: Math.max(3000, settings.wordCount * 3), noThinking: true, feature: 'reasoning' });
       const article = parseReadingArticle(await readAiResponseContent(response), settings, id('reading'), new Date().toISOString());
       setLibrary((items) => [article, ...items]); setCurrentId(article.id); setView('reader'); setMessage('文章已生成并保存到书架。');
     } catch (error) { setMessage(error instanceof Error ? error.message : '文章生成失败，请重试。'); } finally { setLoading(null); }
@@ -92,7 +92,7 @@ export default function ReadingWorkbench() {
     if (cached) { setSelectedWord(cached); return; }
     setLoading('word'); setMessage('');
     try {
-      const response = await callAiApi([{ role: 'system', content: 'You are a concise bilingual learner dictionary. Return only valid JSON.' }, { role: 'user', content: buildWordPrompt(word, context, current.level) }], { temperature: 0.15, maxTokens: 700, noThinking: true, feature: 'chat' });
+      const response = await callAiApi([{ role: 'system', content: 'You are a concise bilingual learner dictionary. Return only valid JSON.' }, { role: 'user', content: buildWordPrompt(word, context, current.level) }], { temperature: 0.15, maxTokens: 1600, noThinking: true, feature: 'chat' });
       const note = parseWordNote(await readAiResponseContent(response));
       setSelectedWord(note); updateArticle(current.id, (article) => ({ ...article, vocabulary: { ...article.vocabulary, [key]: note } }));
     } catch (error) { setMessage(error instanceof Error ? error.message : '查词失败。'); } finally { setLoading(null); }
@@ -101,7 +101,7 @@ export default function ReadingWorkbench() {
     if (!current) return;
     setLoading('quiz'); setMessage('');
     try {
-      const response = await callAiApi([{ role: 'system', content: 'You create fair reading-comprehension questions and return only valid JSON.' }, { role: 'user', content: buildReadingQuizPrompt(current, quizCount) }], { temperature: 0.25, maxTokens: 2600, feature: 'reasoning' });
+      const response = await callAiApi([{ role: 'system', content: 'You create fair reading-comprehension questions and return only valid JSON.' }, { role: 'user', content: buildReadingQuizPrompt(current, quizCount) }], { temperature: 0.25, maxTokens: 2600, noThinking: true, feature: 'reasoning' });
       const quiz = parseReadingQuiz(await readAiResponseContent(response), quizCount);
       updateArticle(current.id, (article) => ({ ...article, quiz })); setAnswers({}); setQuizSubmitted(false); setMessage('阅读理解题已生成；不想做可以直接跳过。');
     } catch (error) { setMessage(error instanceof Error ? error.message : '题目生成失败。'); } finally { setLoading(null); }

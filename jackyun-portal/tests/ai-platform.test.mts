@@ -34,7 +34,9 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   assert.match(route, /delete upstreamFields\.providerMode/);
   assert.match(route, /delete upstreamFields\.interfaceLanguage/);
   assert.match(route, /delete upstreamFields\._connection_test/);
-  assert.match(route, /upstreamHostname\.endsWith\('bigmodel\.cn'\)[\s\S]*thinking = \{ type: 'disabled' \}/);
+  assert.match(route, /delete upstreamFields\._no_thinking/);
+  assert.match(route, /isGlm53[\s\S]*delete upstreamFields\.thinking[\s\S]*reasoning_effort = 'low'/);
+  assert.match(route, /else if \(\(connectionTest \|\| noThinking\) && isBigModel\)[\s\S]*thinking = \{ type: 'disabled' \}/);
   assert.match(route, /reserve_ai_usage/);
   assert.match(route, /finalize_ai_usage/);
   assert.match(route, /keySource === 'cloud' \? model/);
@@ -62,10 +64,19 @@ test('streaming chat keeps one assistant bubble and repairs old partial duplicat
 test('settings cloud connection test is a bounded minimal probe', () => {
   const panel = readFileSync(new URL('../src/components/settings/ai-config-panel.tsx', import.meta.url), 'utf8');
   assert.match(panel, /Reply with exactly OK/);
-  assert.match(panel, /max_tokens: 8/);
+  assert.match(panel, /max_tokens: 64/);
   assert.match(panel, /_connection_test: true/);
   assert.match(panel, /AbortController/);
   assert.match(panel, /20_000/);
+});
+
+test('IELTS word lookup reserves enough output for always-thinking GLM models', () => {
+  const reading = readFileSync(new URL('../src/components/modules/ielts/reading-workbench.tsx', import.meta.url), 'utf8');
+  assert.match(reading, /maxTokens: 1600, noThinking: true/);
+  assert.match(reading, /wordCount \* 3\), noThinking: true/);
+  const config = readFileSync(new URL('../src/lib/ai-config.ts', import.meta.url), 'utf8');
+  assert.match(config, /body\._no_thinking = true/);
+  assert.doesNotMatch(config, /body as Record<string, unknown>\)\.thinking/);
 });
 
 test('personal site studio keeps streamed previews stable and exposes direct interactions', () => {

@@ -101,7 +101,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
         { role: 'user', content: 'Reply with exactly OK.' },
       ],
       temperature: 0,
-      max_tokens: 8,
+      max_tokens: 64,
       stream: false,
       _connection_test: true,
     };
@@ -114,7 +114,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
       const timeout = window.setTimeout(() => controller.abort(), 20_000);
       const res = await (async () => {
         try {
-          return providerMode === 'browser' ? await callAiApi(reqBody.messages, { temperature: 0, maxTokens: 8, noThinking: true, signal: controller.signal }) : await fetch('/api/llm-proxy', {
+          return providerMode === 'browser' ? await callAiApi(reqBody.messages, { temperature: 0, maxTokens: 64, noThinking: true, signal: controller.signal }) : await fetch('/api/llm-proxy', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
