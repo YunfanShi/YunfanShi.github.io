@@ -74,6 +74,10 @@ test('IELTS word lookup reserves enough output for always-thinking GLM models', 
   const reading = readFileSync(new URL('../src/components/modules/ielts/reading-workbench.tsx', import.meta.url), 'utf8');
   assert.match(reading, /maxTokens: 1600, noThinking: true/);
   assert.match(reading, /wordCount \* 3\), noThinking: true/);
+  assert.match(reading, /stream: true, feature: 'reasoning'/);
+  assert.match(reading, /readAiStreamingResponseContent/);
+  assert.match(reading, /loading === 'article' && generationProgress/);
+  assert.match(reading, /finally \{ setLoading\(null\); setGenerationProgress\(null\); \}/);
   const config = readFileSync(new URL('../src/lib/ai-config.ts', import.meta.url), 'utf8');
   assert.match(config, /body\._no_thinking = true/);
   assert.doesNotMatch(config, /body as Record<string, unknown>\)\.thinking/);
@@ -90,10 +94,15 @@ test('personal site studio keeps streamed previews stable and exposes direct int
 
 test('BETA interface tools do not expose arbitrary code execution', () => {
   const tools = readFileSync(new URL('../src/lib/ai-tools.ts', import.meta.url), 'utf8');
+  const settings = readFileSync(new URL('../src/components/settings/ai-visibility-control.tsx', import.meta.url), 'utf8');
+  const admin = readFileSync(new URL('../src/actions/ai-admin.ts', import.meta.url), 'utf8');
   assert.match(tools, /id: 'customize_interface'/);
   assert.match(tools, /id: 'reset_interface_preferences'/);
   assert.doesNotMatch(tools, /\beval\s*\(/);
   assert.doesNotMatch(tools, /new Function\s*\(/);
+  assert.doesNotMatch(tools, /\/api\/ui-customization/);
+  assert.doesNotMatch(settings, /\/api\/ui-customization|云端备份/);
+  assert.doesNotMatch(admin, /ui_customization_backups/);
 });
 
 test('administrator identity is consistent for email and OAuth sign-in', () => {

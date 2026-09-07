@@ -25,13 +25,12 @@ async function adminContext() {
 
 export async function getAiAdminData() {
   const { admin } = await adminContext();
-  const [providerResult, planResult, usageResult, backupResult] = await Promise.all([
+  const [providerResult, planResult, usageResult] = await Promise.all([
     admin.from('ai_provider_configs').select('*').order('created_at'),
     admin.from('subscription_plans').select('*').order('monthly_token_limit'),
     admin.from('ai_usage_ledger').select('input_tokens, output_tokens, billed_tokens, estimated_cost, status').gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString()),
-    admin.from('ui_customization_backups').select('id, user_id, summary, source, before_config, after_config, created_at').order('created_at', { ascending: false }).limit(50),
   ]);
-  const error = providerResult.error || planResult.error || usageResult.error || backupResult.error;
+  const error = providerResult.error || planResult.error || usageResult.error;
   if (error) throw new Error(error.message);
   const providers: AdminAiProvider[] = (providerResult.data ?? []).map((row) => ({ id: row.id, display_name: row.display_name, base_url: row.base_url, chat_model: row.chat_model, reasoning_model: row.reasoning_model, site_model: row.site_model, input_cost_per_million: Number(row.input_cost_per_million), output_cost_per_million: Number(row.output_cost_per_million), enabled: row.enabled, is_default: row.is_default, has_api_key: Boolean(row.encrypted_api_key) }));
   const completed = (usageResult.data ?? []).filter((row) => row.status === 'completed');
@@ -39,7 +38,6 @@ export async function getAiAdminData() {
     providers,
     plans: (planResult.data ?? []).map((row) => ({ ...row, daily_token_limit: Number(row.daily_token_limit), monthly_token_limit: Number(row.monthly_token_limit), max_output_tokens: Number(row.max_output_tokens), monthly_site_generations: Number(row.monthly_site_generations) })) as SubscriptionPlanAdmin[],
     usage: { requests: completed.length, inputTokens: completed.reduce((n, r) => n + Number(r.input_tokens), 0), outputTokens: completed.reduce((n, r) => n + Number(r.output_tokens), 0), billedTokens: completed.reduce((n, r) => n + Number(r.billed_tokens), 0), estimatedCost: completed.reduce((n, r) => n + Number(r.estimated_cost), 0) },
-    backups: backupResult.data ?? [],
   };
 }
 

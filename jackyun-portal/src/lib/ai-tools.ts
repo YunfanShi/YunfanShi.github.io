@@ -2098,7 +2098,6 @@ export const AI_TOOLS: AiTool[] = [
       try { current = JSON.parse(localStorage.getItem(appearanceKey) || '{}'); } catch {}
       let interfaceState: Record<string, unknown> = {};
       try { interfaceState = JSON.parse(localStorage.getItem('jackyun_interface_customization') || '{}'); } catch {}
-      const before = { ...current, ...interfaceState };
       const changed: string[] = [];
 
       if (params.theme && allowedThemes.includes(params.theme)) {
@@ -2126,8 +2125,6 @@ export const AI_TOOLS: AiTool[] = [
       localStorage.setItem(`${appearanceKey}__updated_at`, new Date().toISOString());
       localStorage.setItem('jackyun_interface_customization', JSON.stringify(interfaceState));
       localStorage.removeItem('jackyun_hide_homepage_ai');
-      const after = { ...current, ...interfaceState };
-      void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after, summary: changed.join('，'), source: 'ai' }) });
       return `已应用并保存在本地：${changed.join('，')}。可在设置中恢复。`;
     },
   },
@@ -2141,9 +2138,6 @@ export const AI_TOOLS: AiTool[] = [
     consentInfo: () => ({ action: '恢复默认界面', purpose: '撤销 AI 所做的界面微调', consequence: '本地保存的界面微调将被清除。' }),
     handler: async () => {
       if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
-      let stored: Record<string, unknown> = {};
-      try { stored = JSON.parse(localStorage.getItem('jackyun_settings_appearance_preferences') || '{}'); } catch {}
-      const before = { ...stored };
       localStorage.removeItem('jackyun_settings_appearance_preferences');
       localStorage.removeItem('jackyun_settings_appearance_preferences__updated_at');
       localStorage.removeItem('jackyun_hide_homepage_ai');
@@ -2155,7 +2149,6 @@ export const AI_TOOLS: AiTool[] = [
       document.documentElement.dataset.accent = 'blue';
       document.documentElement.dataset.cornerStyle = 'rounded';
       document.documentElement.style.colorScheme = 'light';
-      void fetch('/api/ui-customization', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after: { theme: 'light', density: 'comfortable', reducedMotion: false, accent: 'blue', cornerStyle: 'rounded' }, summary: '恢复默认界面', source: 'restore' }) });
       return '界面已恢复默认设置。';
     },
   },

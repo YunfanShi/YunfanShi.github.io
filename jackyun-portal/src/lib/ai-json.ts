@@ -120,3 +120,59 @@ export async function readAiResponseContent(response: Response): Promise<string>
   }
   return extractAssistantContent(payload);
 }
+
+export type AiStreamProgress = {
+  content: string;
+  reasoningCharacters: number;
+};
+
+/** Read an OpenAI-compatible SSE response without exposing hidden reasoning.
+ * Callers receive the visible answer accumulated so far and only the size of
+ * any reasoning stream, which is enough to render trustworthy progress UI.
+ */
+export async function readAiStreamingResponseContent(
+  response: Response,
+  onProgress?: (progress: AiStreamProgress) => void,
+): Promise<string> {
+  if (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream')) {
+    const content = await readAiResponseContent(response);
+    onProgress?.({ content, reasoningCharacters: 0 });
+    return content;
+  }
+  if (!response.body) throw new Error('无法读取 AI 响应流。');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let eventBuffer = '';
+  let content = '';
+  let reasoningCharacters = 0;
+
+  const consumeLine = (line: string) => {
+    if (!line.startsWith('data:')) return;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === '[DONE]') return;
+    try {
+      const event = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: unknown; reasoning_content?: unknown } }> };
+      const delta = event.choices?.[0]?.delta;
+      const visible = typeof delta?.content === 'string' ? delta.content : '';
+      const reasoning = typeof delta?.reasoning_content === 'string' ? delta.reasoning_content : '';
+      if (!visible && !reasoning) return;
+      content += visible;
+      reasoningCharacters += reasoning.length;
+      onProgress?.({ content, reasoningCharacters });
+    } catch { /* Ignore incomplete or provider-specific SSE events. */ }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    eventBuffer += decoder.decode(value, { stream: true });
+    const lines = eventBuffer.split('\n');
+    eventBuffer = lines.pop() ?? '';
+    lines.forEach(consumeLine);
+  }
+  eventBuffer += decoder.decode();
+  eventBuffer.split('\n').forEach(consumeLine);
+  if (!content.trim()) throw new Error('AI 没有返回可读取的正文，请重试。');
+  return content;
+}

@@ -25,7 +25,9 @@ test('portal shell failures degrade to defaults and routes expose retry boundari
   const layout = readFileSync(new URL('../src/app/(portal)/layout.tsx', import.meta.url), 'utf8');
   const portalError = readFileSync(new URL('../src/app/(portal)/error.tsx', import.meta.url), 'utf8');
   const adminError = readFileSync(new URL('../src/app/admin/error.tsx', import.meta.url), 'utf8');
+  const adminNavigation = readFileSync(new URL('../src/components/admin/admin-navigation.tsx', import.meta.url), 'utf8');
   assert.match(layout, /Promise\.allSettled/);
   assert.match(portalError, /onClick=\{reset\}/);
-  assert.match(adminError, /onClick=\{reset\}/);
+  assert.match(adminError, /window\.location\.reload\(\)/);
+  assert.match(adminNavigation, /prefetch=\{false\}/);
 });
