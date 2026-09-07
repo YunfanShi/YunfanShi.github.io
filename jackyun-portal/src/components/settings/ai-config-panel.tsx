@@ -103,6 +103,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
       temperature: 0,
       max_tokens: 8,
       stream: false,
+      _connection_test: true,
     };
 
     setTestRequest(JSON.stringify(reqBody, null, 2));

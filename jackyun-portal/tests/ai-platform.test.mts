@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { validatePersonalSite } from '../src/lib/personal-site.ts';
 import { isAdminIdentity } from '../src/lib/admin-auth.ts';
+import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.ts';
 
 test('personal site validator keeps only safe component types and web links', () => {
   const site = validatePersonalSite({ name: '学习主页', theme: 'purple', blocks: [
@@ -31,6 +32,9 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   const route = readFileSync(new URL('../src/app/api/llm-proxy/route.ts', import.meta.url), 'utf8');
   assert.match(route, /delete upstreamFields\.feature/);
   assert.match(route, /delete upstreamFields\.providerMode/);
+  assert.match(route, /delete upstreamFields\.interfaceLanguage/);
+  assert.match(route, /delete upstreamFields\._connection_test/);
+  assert.match(route, /upstreamHostname\.endsWith\('bigmodel\.cn'\)[\s\S]*thinking = \{ type: 'disabled' \}/);
   assert.match(route, /reserve_ai_usage/);
   assert.match(route, /finalize_ai_usage/);
   assert.match(route, /keySource === 'cloud' \? model/);
@@ -41,12 +45,36 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   assert.match(route, /forceCloudRequest[\s\S]*\? \[\{ data: null \}, \{ data: null \}\]/);
 });
 
+test('streaming chat keeps one assistant bubble and repairs old partial duplicates', () => {
+  const repaired = collapseStreamingMessageDuplicates([
+    { role: 'user', content: 'Hello' },
+    { role: 'assistant', content: 'A' },
+    { role: 'assistant', content: 'An answer' },
+    { role: 'system', content: 'tool result' },
+    { role: 'assistant', content: 'Done' },
+  ]);
+  assert.deepEqual(repaired.map((message) => message.content), ['Hello', 'An answer', 'tool result', 'Done']);
+  const chat = readFileSync(new URL('../src/components/modules/ai-chat-fab.tsx', import.meta.url), 'utf8');
+  assert.match(chat, /streamingMessageId/);
+  assert.match(chat, /findIndex\(\(message\) => message\.id === streamingMessageId\)/);
+});
+
 test('settings cloud connection test is a bounded minimal probe', () => {
   const panel = readFileSync(new URL('../src/components/settings/ai-config-panel.tsx', import.meta.url), 'utf8');
   assert.match(panel, /Reply with exactly OK/);
   assert.match(panel, /max_tokens: 8/);
+  assert.match(panel, /_connection_test: true/);
   assert.match(panel, /AbortController/);
   assert.match(panel, /20_000/);
+});
+
+test('personal site studio keeps streamed previews stable and exposes direct interactions', () => {
+  const studio = readFileSync(new URL('../src/components/modules/personal-site-studio.tsx', import.meta.url), 'utf8');
+  assert.match(studio, /const siteId = site\?\.id \?\? crypto\.randomUUID\(\)/);
+  assert.match(studio, /type="checkbox"/);
+  assert.match(studio, /onProgress\(block\.value \+ 10\)/);
+  assert.match(studio, /aria-label="上移组件"/);
+  assert.match(studio, /QUICK_PROMPTS/);
 });
 
 test('BETA interface tools do not expose arbitrary code execution', () => {

@@ -8,6 +8,7 @@ import { getToolsDescription, getPlatformOverview, parseToolCalls, executeToolCa
 import logger from '@/lib/logger';
 import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, getTtsConfig } from '@/lib/tts-config';
 import { estimateAiCost } from '@/lib/utils';
+import { collapseStreamingMessageDuplicates } from '@/lib/ai-conversations';
 import MarkdownRenderer from './markdown-renderer';
 import 'katex/dist/katex.min.css';
 
@@ -24,6 +25,8 @@ interface Conversation {
 }
 
 interface Message {
+  /** Stable identity lets every streamed chunk update one bubble. */
+  id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   /** 重试次数 */
@@ -168,7 +171,15 @@ function loadConversations(): Conversation[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as Conversation[];
+    const conversations = JSON.parse(raw) as Conversation[];
+    const repaired = conversations.map((conversation) => ({
+      ...conversation,
+      messages: collapseStreamingMessageDuplicates(conversation.messages),
+    }));
+    if (repaired.some((conversation, index) => conversation.messages.length !== conversations[index]?.messages.length)) {
+      saveConversations(repaired);
+    }
+    return repaired;
   } catch { return []; }
 }
 
@@ -1219,7 +1230,7 @@ export default function AiChatFab({
     const decoder = new TextDecoder();
     let assistantContent = '';       // 最终回复（content，用户可见 + 用于工具解析）
     let reasoningContent = '';       // 思考过程（reasoning_content，折叠显示，不用于 TTS）
-    let messageAdded = false;
+    const streamingMessageId = generateId();
     let tokenUsage: { input?: number; output?: number } | undefined;
 
     // 记录请求开始时间用于计算输入 token
@@ -1238,19 +1249,21 @@ export default function AiChatFab({
       const now = Date.now();
       if (!force && now - lastUiUpdate < 100) return;
       lastUiUpdate = now;
-      if (!messageAdded) {
-        messageAdded = true;
-      }
       updateConversation(conv => {
         const updated = [...conv.messages];
+        const streamedIndex = updated.findIndex((message) => message.id === streamingMessageId);
+        const targetIndex = replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant'
+          ? replaceIndex
+          : streamedIndex;
         const newMsg: Message = {
+          id: targetIndex >= 0 ? updated[targetIndex]?.id ?? streamingMessageId : streamingMessageId,
           role: 'assistant',
           content: assistantContent,
           reasoningContent: reasoningContent || undefined,
           tokenUsage: tokenUsage || (assistantContent ? { input: estimatedInputTokens, output: Math.ceil(assistantContent.length / 4) } : undefined),
         };
-        if (replaceIndex !== undefined && replaceIndex >= 0 && updated[replaceIndex]?.role === 'assistant') {
-          updated[replaceIndex] = newMsg;
+        if (targetIndex >= 0) {
+          updated[targetIndex] = newMsg;
         } else {
           updated.push(newMsg);
         }
@@ -2058,7 +2071,7 @@ export default function AiChatFab({
               </p>
             )}
             {messages.map((msg, i) => (
-              <div key={i}>
+              <div key={msg.id ?? i}>
                 <div
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >

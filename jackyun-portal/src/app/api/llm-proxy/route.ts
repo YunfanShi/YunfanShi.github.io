@@ -300,12 +300,22 @@ export async function POST(req: NextRequest) {
   // 构建上游请求体（剔除客户端专用字段和内部字段）
   const upstreamFields = { ...body };
   const interfaceLanguage = upstreamFields.interfaceLanguage;
+  const connectionTest = upstreamFields._connection_test === true;
   delete upstreamFields.baseUrl;
   delete upstreamFields.apiKey;
   delete upstreamFields._get_config_only;
   delete upstreamFields._save_ai_config;
   delete upstreamFields.feature;
   delete upstreamFields.providerMode;
+  delete upstreamFields.interfaceLanguage;
+  delete upstreamFields._connection_test;
+  // GLM enables reasoning by default. Disable it only for the tiny settings
+  // probe; other OpenAI-compatible providers never receive this vendor field.
+  let upstreamHostname = '';
+  try { upstreamHostname = new URL(baseUrl).hostname.toLowerCase(); } catch { /* The fetch below reports malformed emergency configuration. */ }
+  if (connectionTest && upstreamHostname.endsWith('bigmodel.cn')) {
+    upstreamFields.thinking = { type: 'disabled' };
+  }
   if (keySource === 'cloud' && userId && adminClient) {
     const requestedOutput = Math.max(1, Math.min(Number(upstreamFields.max_tokens) || 2000, 100000));
     const feature = typeof body.feature === 'string' ? body.feature.slice(0, 64) : 'chat';
