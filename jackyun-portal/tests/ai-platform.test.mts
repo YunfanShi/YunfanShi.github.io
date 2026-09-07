@@ -37,6 +37,16 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   assert.match(route, /feature === 'reasoning'/);
   assert.match(route, /Math\.ceil\(streamedBytes \/ 8\)/);
   assert.match(route, /if \(!adminClient\)[\s\S]*服务端配额配置/);
+  assert.match(route, /supabase\.auth\.getClaims\(\)/);
+  assert.match(route, /forceCloudRequest[\s\S]*\? \[\{ data: null \}, \{ data: null \}\]/);
+});
+
+test('settings cloud connection test is a bounded minimal probe', () => {
+  const panel = readFileSync(new URL('../src/components/settings/ai-config-panel.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /Reply with exactly OK/);
+  assert.match(panel, /max_tokens: 8/);
+  assert.match(panel, /AbortController/);
+  assert.match(panel, /20_000/);
 });
 
 test('BETA interface tools do not expose arbitrary code execution', () => {

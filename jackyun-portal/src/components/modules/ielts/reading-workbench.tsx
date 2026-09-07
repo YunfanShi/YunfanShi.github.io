@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
+import { readAiResponseContent } from '@/lib/ai-json';
 import {
   buildReadingPrompt, buildReadingQuizPrompt, buildWordPrompt, calculateReadingStats, parseReadingArticle, parseReadingQuiz, parseWordNote,
   type ReadingArticle, type ReadingLevel, type ReadingSettings, type ReadingStyle, type WordNote,
@@ -33,14 +34,6 @@ function formatDuration(seconds: number) {
   if (seconds < 60) return `${seconds} 秒`;
   const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60);
   return hours ? `${hours} 小时 ${minutes} 分` : `${minutes} 分钟`;
-}
-async function readAiContent(response: Response): Promise<string> {
-  if (!response.ok) {
-    const raw = await response.text();
-    try { throw new Error(JSON.parse(raw)?.error?.message || 'AI 请求失败'); } catch (error) { if (error instanceof SyntaxError) throw new Error(raw || 'AI 请求失败'); throw error; }
-  }
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
 }
 function readerTokens(text: string): string[] { return text.match(/[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*|[^\p{L}\p{N}]+/gu) ?? []; }
 
@@ -88,7 +81,7 @@ export default function ReadingWorkbench() {
     setLoading('article'); setMessage('');
     try {
       const response = await callAiApi([{ role: 'system', content: 'You create level-controlled English reading material and return only valid JSON.' }, { role: 'user', content: buildReadingPrompt(settings) }], { temperature: 0.85, maxTokens: Math.max(3000, settings.wordCount * 3), feature: 'reasoning' });
-      const article = parseReadingArticle(await readAiContent(response), settings, id('reading'), new Date().toISOString());
+      const article = parseReadingArticle(await readAiResponseContent(response), settings, id('reading'), new Date().toISOString());
       setLibrary((items) => [article, ...items]); setCurrentId(article.id); setView('reader'); setMessage('文章已生成并保存到书架。');
     } catch (error) { setMessage(error instanceof Error ? error.message : '文章生成失败，请重试。'); } finally { setLoading(null); }
   }
@@ -100,7 +93,7 @@ export default function ReadingWorkbench() {
     setLoading('word'); setMessage('');
     try {
       const response = await callAiApi([{ role: 'system', content: 'You are a concise bilingual learner dictionary. Return only valid JSON.' }, { role: 'user', content: buildWordPrompt(word, context, current.level) }], { temperature: 0.15, maxTokens: 700, noThinking: true, feature: 'chat' });
-      const note = parseWordNote(await readAiContent(response));
+      const note = parseWordNote(await readAiResponseContent(response));
       setSelectedWord(note); updateArticle(current.id, (article) => ({ ...article, vocabulary: { ...article.vocabulary, [key]: note } }));
     } catch (error) { setMessage(error instanceof Error ? error.message : '查词失败。'); } finally { setLoading(null); }
   }
@@ -109,7 +102,7 @@ export default function ReadingWorkbench() {
     setLoading('quiz'); setMessage('');
     try {
       const response = await callAiApi([{ role: 'system', content: 'You create fair reading-comprehension questions and return only valid JSON.' }, { role: 'user', content: buildReadingQuizPrompt(current, quizCount) }], { temperature: 0.25, maxTokens: 2600, feature: 'reasoning' });
-      const quiz = parseReadingQuiz(await readAiContent(response), quizCount);
+      const quiz = parseReadingQuiz(await readAiResponseContent(response), quizCount);
       updateArticle(current.id, (article) => ({ ...article, quiz })); setAnswers({}); setQuizSubmitted(false); setMessage('阅读理解题已生成；不想做可以直接跳过。');
     } catch (error) { setMessage(error instanceof Error ? error.message : '题目生成失败。'); } finally { setLoading(null); }
   }

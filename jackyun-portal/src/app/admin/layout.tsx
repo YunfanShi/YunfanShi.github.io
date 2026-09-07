@@ -8,15 +8,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/dashboard');
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  const isAdmin = isAdminIdentity(user, profile?.role);
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (!claims) redirect('/dashboard');
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', claims.sub).maybeSingle();
+  const isAdmin = isAdminIdentity({ email: claims.email }, profile?.role);
   if (!isAdmin) redirect('/dashboard');
   if (profile?.role !== 'admin') {
-    await createAdminClient()?.from('profiles').update({ role: 'admin', updated_at: new Date().toISOString() }).eq('id', user.id);
+    await createAdminClient()?.from('profiles').update({ role: 'admin', updated_at: new Date().toISOString() }).eq('id', claims.sub);
   }
-  const name = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? '管理员';
+  const name = (claims.user_metadata?.full_name as string | undefined) ?? claims.email ?? '管理员';
   return (
     <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#f6f8fc] text-[#182230] dark:bg-[#111827] dark:text-white">
       <ClientLoggerBoot />

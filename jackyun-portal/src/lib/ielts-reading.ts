@@ -1,4 +1,5 @@
 export type ReadingLevel = 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+import { parseAiJson } from './ai-json.ts';
 export type ReadingStyle = 'cinematic' | 'literary' | 'mystery' | 'adventure' | 'science-fiction' | 'fantasy' | 'slice-of-life' | 'historical' | 'academic' | 'journalistic';
 
 export interface ReadingSettings {
@@ -73,11 +74,7 @@ export interface ReadingStats {
 }
 
 function extractJson(raw: string): unknown {
-  const unfenced = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const start = unfenced.indexOf('{');
-  const end = unfenced.lastIndexOf('}');
-  if (start < 0 || end <= start) throw new Error('AI 没有返回可读取的 JSON。');
-  return JSON.parse(unfenced.slice(start, end + 1));
+  return parseAiJson(raw);
 }
 
 export function countReadingWords(text: string): number {

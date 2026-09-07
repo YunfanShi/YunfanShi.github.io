@@ -1192,7 +1192,6 @@ export default function AiChatFab({
       model: options.model,
       maxTokens: options.maxTokens,
       feature: thinkingLevel === 'high' ? 'reasoning' : 'chat',
-      // @ts-expect-error -- signal passes through to the provider-compatible fetch options.
       signal: abortControllerRef.current.signal,
     });
     if (!res.ok) {

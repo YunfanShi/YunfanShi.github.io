@@ -29,15 +29,18 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
+  const { data: claimsData } = await supabase.auth.getClaims().catch((error) => {
+    console.error('[portal-layout] Unable to read auth claims; continuing in local mode', error);
+    return { data: null };
+  });
   const claims = claimsData?.claims;
 
   // Load both shell preferences in one query. The previous implementation
   // repeated auth verification and issued one query per preference.
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
   const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  const [{ data: settings }, { data: navigationUsage }, { data: profile }, { data: betaEnrollment }] = claims
-    ? await Promise.all([
+  const shellResults = claims
+    ? await Promise.allSettled([
         supabase
           .from('user_settings')
           .select('key, value, updated_at')
@@ -51,7 +54,14 @@ export default async function PortalLayout({
         supabase.from('profiles').select('role, display_name, avatar_url').eq('id', claims.sub).maybeSingle(),
         supabase.from('beta_enrollments').select('status').eq('user_id', claims.sub).maybeSingle(),
       ])
-    : [{ data: null }, { data: null }, { data: null }, { data: null }];
+    : null;
+  const settings = shellResults?.[0].status === 'fulfilled' ? shellResults[0].value.data : null;
+  const navigationUsage = shellResults?.[1].status === 'fulfilled' ? shellResults[1].value.data : null;
+  const profile = shellResults?.[2].status === 'fulfilled' ? shellResults[2].value.data : null;
+  const betaEnrollment = shellResults?.[3].status === 'fulfilled' ? shellResults[3].value.data : null;
+  if (shellResults?.some((result) => result.status === 'rejected')) {
+    console.error('[portal-layout] Optional cloud shell data failed; rendered local defaults');
+  }
 
   let sidebarPrefs = { ...DEFAULT_SIDEBAR_PREFS };
   let language: Language = 'zh';

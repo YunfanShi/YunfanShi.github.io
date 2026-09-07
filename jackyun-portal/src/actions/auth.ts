@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
 
 export async function signOut() {
@@ -9,17 +10,33 @@ export async function signOut() {
   redirect('/login');
 }
 
-export async function resolveUsernameToEmail(
-  username: string,
-): Promise<{ email: string | null; error: string | null }> {
+export async function signInWithIdentifier(
+  identifier: string,
+  password: string,
+): Promise<{ success: boolean; error?: string }> {
+  const normalized = identifier.trim().toLowerCase();
+  if (!normalized || !password) return { success: false, error: '请输入账号和密码。' };
+
+  let email = normalized;
+  if (!normalized.includes('@')) {
+    const admin = createAdminClient();
+    if (!admin) return { success: false, error: 'ID 登录服务暂时不可用，请使用邮箱登录。' };
+    const { data, error } = await admin
+      .from('profiles')
+      .select('email')
+      .ilike('username', normalized)
+      .maybeSingle();
+    if (error || !data?.email) return { success: false, error: '账号或密码错误。' };
+    email = data.email.toLowerCase();
+  }
+
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('email')
-    .eq('username', username)
-    .single();
-  if (error || !data) return { email: null, error: '用户名不存在' };
-  return { email: data.email, error: null };
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (!error) return { success: true };
+  if (error.message.toLowerCase().includes('email not confirmed')) {
+    return { success: false, error: '邮箱尚未验证，请检查验证邮件。' };
+  }
+  return { success: false, error: '账号或密码错误。' };
 }
 
 export async function syncProfile(

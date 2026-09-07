@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { inviteUserAccount, sendPasswordResetForUser, setAccountStatus, setUserRole, type ManagedUser } from '@/actions/admin';
+import { createUserAccount, inviteUserAccount, sendPasswordResetForUser, setAccountStatus, setUserRole, type ManagedUser } from '@/actions/admin';
 import { startUserChat } from '@/actions/feedback';
 import { setBetaInvitation } from '@/actions/beta';
 import type { BetaEnrollment, BetaEnrollmentStatus } from '@/lib/beta';
@@ -33,6 +33,10 @@ export default function UserOperationsPanel({ users, currentUserId, isSuperAdmin
   const [betaByUser, setBetaByUser] = useState(() => new Map(betaEnrollments.map((entry) => [entry.user_id, entry])));
   const [plansByUser, setPlansByUser] = useState(userPlans);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [newLoginId, setNewLoginId] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newDisplayName, setNewDisplayName] = useState('');
   const [chatTarget, setChatTarget] = useState<ManagedUser | null>(null);
   const [chatSubject, setChatSubject] = useState('管理员联系');
   const [chatBody, setChatBody] = useState('');
@@ -145,12 +149,31 @@ export default function UserOperationsPanel({ users, currentUserId, isSuperAdmin
     setInviteEmail('');
   });
 
+  const createAccount = () => startTransition(async () => {
+    setNotice('');
+    const result = await createUserAccount({ loginId: newLoginId, password: newPassword, email: newEmail, displayName: newDisplayName });
+    if (!result.success) return setNotice(result.error ?? '账户创建失败。');
+    setNotice(`账户 ${newLoginId.trim()} 已创建，可立即使用登录 ID 和初始密码登录。`);
+    setNewLoginId(''); setNewPassword(''); setNewEmail(''); setNewDisplayName('');
+    router.refresh();
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-xl border border-[#dbe7ff] bg-[#f8faff] p-3 dark:border-[#155eef]/30 dark:bg-[#155eef]/10 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1"><p className="text-sm font-semibold">邀请新账户</p><p className="text-xs text-[#667085] dark:text-[#98a2b3]">发送安全注册链接；管理员不会设置或看到用户密码。</p></div>
         <input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="name@example.com" className="h-10 min-w-0 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] dark:border-white/15 dark:bg-white/5 sm:w-64" />
         <button type="button" disabled={pending || !inviteEmail.trim()} onClick={inviteAccount} className="h-10 rounded-lg bg-[#155eef] px-4 text-sm font-semibold text-white disabled:opacity-50">发送邀请</button>
+      </div>
+      <div className="rounded-xl border border-[#d1fadf] bg-[#f6fef9] p-3 dark:border-[#12b76a]/30 dark:bg-[#12b76a]/10">
+        <div><p className="text-sm font-semibold">直接创建 ID / 密码账户</p><p className="text-xs text-[#667085] dark:text-[#98a2b3]">邮箱可留空；无邮箱账户不能通过邮件找回密码，创建后请安全地把初始密码交给用户。</p></div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <input value={newLoginId} onChange={(event) => setNewLoginId(event.target.value)} autoComplete="off" placeholder="登录 ID（必填）" className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#12b76a] dark:border-white/15 dark:bg-white/5" />
+          <input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" placeholder="初始密码（至少 8 位）" className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#12b76a] dark:border-white/15 dark:bg-white/5" />
+          <input value={newDisplayName} onChange={(event) => setNewDisplayName(event.target.value)} placeholder="显示名（可选）" className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#12b76a] dark:border-white/15 dark:bg-white/5" />
+          <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="邮箱（可选）" className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#12b76a] dark:border-white/15 dark:bg-white/5" />
+          <button type="button" disabled={pending || !newLoginId.trim() || newPassword.length < 8} onClick={createAccount} className="h-10 rounded-lg bg-[#039855] px-4 text-sm font-semibold text-white disabled:opacity-50">创建账户</button>
+        </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名、邮箱或用户 ID" className="h-10 flex-1 rounded-lg border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] dark:border-white/15 dark:bg-white/5" />

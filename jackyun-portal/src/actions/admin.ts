@@ -323,6 +323,57 @@ export async function inviteUserAccount(email: string): Promise<{ success: boole
   }
 }
 
+export async function createUserAccount(input: {
+  loginId: string;
+  password: string;
+  email?: string;
+  displayName?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    const loginId = input.loginId.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(loginId)) {
+      return { success: false, error: '登录 ID 需为 3–32 位字母、数字、点、下划线或连字符。' };
+    }
+    if (input.password.length < 8) return { success: false, error: '初始密码至少需要 8 位。' };
+    const suppliedEmail = input.email?.trim().toLowerCase() ?? '';
+    if (suppliedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(suppliedEmail)) {
+      return { success: false, error: '请输入有效邮箱，或留空只使用登录 ID。' };
+    }
+
+    const admin = createAdminClient();
+    if (!admin) return { success: false, error: 'SUPABASE_SERVICE_ROLE_KEY 未配置，无法创建账户。' };
+    const { data: duplicate } = await admin.from('profiles').select('id').ilike('username', loginId).maybeSingle();
+    if (duplicate) return { success: false, error: '该登录 ID 已存在。' };
+
+    const email = suppliedEmail || `${loginId}@accounts.jackyun.top`;
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password: input.password,
+      email_confirm: true,
+      user_metadata: { login_id: loginId, display_name: input.displayName?.trim() || loginId },
+    });
+    if (error || !data.user) return { success: false, error: error?.message ?? '账户创建失败。' };
+
+    const { error: profileError } = await admin.from('profiles').upsert({
+      id: data.user.id,
+      username: loginId,
+      email,
+      display_name: input.displayName?.trim() || loginId,
+      linked_providers: ['email'],
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (profileError) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      return { success: false, error: profileError.message };
+    }
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '账户创建失败。' };
+  }
+}
+
 export async function setAccountStatus(
   userId: string,
   status: 'active' | 'suspended',

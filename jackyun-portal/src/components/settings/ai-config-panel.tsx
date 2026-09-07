@@ -97,10 +97,11 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     const reqBody = {
       model: model.trim(),
       messages: [
-        { role: 'system', content: 'You are a helpful assistant.' },
-        { role: 'user', content: 'Say "Hello! API connection successful." and introduce yourself briefly in one sentence.' },
+        { role: 'system', content: 'This is a connection probe. Return only OK.' },
+        { role: 'user', content: 'Reply with exactly OK.' },
       ],
-      max_tokens: 200,
+      temperature: 0,
+      max_tokens: 8,
       stream: false,
     };
 
@@ -108,13 +109,22 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
 
     try {
       saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode, browserProvider, companionAutomation });
-      const res = providerMode === 'browser' ? await callAiApi(reqBody.messages, { maxTokens: 200 }) : await fetch('/api/llm-proxy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...reqBody, providerMode, ...(providerMode === 'personal' ? { baseUrl: baseUrl.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) } : {}) }),
-      });
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 20_000);
+      const res = await (async () => {
+        try {
+          return providerMode === 'browser' ? await callAiApi(reqBody.messages, { temperature: 0, maxTokens: 8, noThinking: true, signal: controller.signal }) : await fetch('/api/llm-proxy', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ...reqBody, providerMode, ...(providerMode === 'personal' ? { baseUrl: baseUrl.trim(), ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) } : {}) }),
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(timeout);
+        }
+      })();
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       setTestDuration(`${duration}s`);
@@ -140,7 +150,9 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     } catch (err) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       setTestDuration(`${duration}s`);
-      setTestResponseContent(`Network error: ${err instanceof Error ? err.message : String(err)}`);
+      setTestResponseContent(err instanceof DOMException && err.name === 'AbortError'
+        ? '连接测试超过 20 秒，已停止。请检查云端模型状态或网络。'
+        : `Network error: ${err instanceof Error ? err.message : String(err)}`);
       setTestResponseRaw('');
       setTestSuccess(false);
     }

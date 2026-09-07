@@ -186,10 +186,9 @@ export async function POST(req: NextRequest) {
   } else {
     // 回退到云端配置 → 需要验证用户身份
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const authenticatedUserId = typeof claimsData?.claims.sub === 'string' ? claimsData.claims.sub : undefined;
+    if (!authenticatedUserId) {
       auditLog({ ip: clientIp, model: 'unknown', keySource: 'cloud', status: 401, durationMs: Date.now() - startTime, error: 'Unauthenticated' });
       return NextResponse.json(
         { error: { message: '请登录后使用 AI 功能，或前往设置页面配置自己的 API Key' } },
@@ -197,13 +196,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    userId = user.id;
+    userId = authenticatedUserId;
 
-    // First check: does user have their own API config saved in user_settings?
-    const [{ data: settingRow }, { data: secretRow }] = await Promise.all([
-      supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', 'ai_config').maybeSingle(),
-      supabase.from('user_secrets').select('encrypted_value').eq('user_id', user.id).eq('key', 'ai_api_key').maybeSingle(),
-    ]);
+    // An explicit cloud request never needs the user's personal provider rows.
+    // Skipping those two database calls keeps the settings connection probe fast.
+    const forceCloudRequest = body.providerMode === 'cloud';
+    const [{ data: settingRow }, { data: secretRow }] = forceCloudRequest
+      ? [{ data: null }, { data: null }]
+      : await Promise.all([
+        supabase.from('user_settings').select('value').eq('user_id', authenticatedUserId).eq('key', 'ai_config').maybeSingle(),
+        supabase.from('user_secrets').select('encrypted_value').eq('user_id', authenticatedUserId).eq('key', 'ai_api_key').maybeSingle(),
+      ]);
 
     const aiConfig = settingRow?.value as
       | { baseUrl?: string; apiKey?: string; model?: string; providerMode?: string; hasApiKey?: boolean }
@@ -215,7 +218,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Use user's own API config if they have set one
-    const forceCloud = body.providerMode === 'cloud' || aiConfig?.providerMode === 'cloud';
+    const forceCloud = forceCloudRequest || aiConfig?.providerMode === 'cloud';
     if (!forceCloud && (encryptedApiKey || aiConfig?.apiKey?.trim())) {
       const savedConfig = aiConfig ?? {};
       const savedBaseUrl = savedConfig.baseUrl?.trim() || '';
@@ -232,8 +235,8 @@ export async function POST(req: NextRequest) {
         try {
           const encryptedValue = encryptSecret(savedConfig.apiKey.trim());
           await Promise.all([
-            supabase.from('user_secrets').upsert({ user_id: user.id, key: 'ai_api_key', encrypted_value: encryptedValue, key_version: 1, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
-            supabase.from('user_settings').upsert({ user_id: user.id, key: 'ai_config', value: { baseUrl, model, providerMode: 'personal', hasApiKey: true }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
+            supabase.from('user_secrets').upsert({ user_id: authenticatedUserId, key: 'ai_api_key', encrypted_value: encryptedValue, key_version: 1, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
+            supabase.from('user_settings').upsert({ user_id: authenticatedUserId, key: 'ai_config', value: { baseUrl, model, providerMode: 'personal', hasApiKey: true }, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' }),
           ]);
         } catch (error) { console.error('[llm-proxy] Legacy API key migration failed', error); }
       }
@@ -437,8 +440,16 @@ export async function POST(req: NextRequest) {
     return new NextResponse(meteredStream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
   }
 
-  // 非流式 - 直接透传 JSON
-  const data = await upstream.json();
+  // 非流式：先读文本，避免兼容服务偶发返回 HTML/空响应时让路由自身抛出 500。
+  const upstreamText = await upstream.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(upstreamText) as unknown;
+  } catch {
+    auditLog({ userId, ip: clientIp, model, keySource, inputTokens: estimatedInputTokens, status: 502, durationMs: Date.now() - startTime, error: `Invalid upstream JSON: ${upstreamText.slice(0, 160)}` });
+    if (reservationId && adminClient) await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservationId, p_input_tokens: estimatedInputTokens, p_output_tokens: 0, p_success: false, p_estimated_cost: 0 });
+    return NextResponse.json({ error: { code: 'invalid_upstream_response', message: 'AI 服务返回了无效响应，请重试。' } }, { status: 502 });
+  }
 
   // Extract output token count for audit
   const usage = (data as Record<string, unknown>)?.usage as Record<string, number> | undefined;

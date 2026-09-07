@@ -1,4 +1,5 @@
 export type WritingTask = 'task1-academic' | 'task1-general' | 'task2';
+import { parseAiJson } from './ai-json.ts';
 export type ReviewMode = 'diagnose' | 'recheck' | 'upgrade';
 export type ExternalResponseFormat = 'json' | 'markdown';
 export type WritingStage = 0 | 1 | 2 | 3;
@@ -116,6 +117,7 @@ export function diffWriting(original: string, current: string): DiffChunk[] {
 }
 
 interface NormalizedCharacter { value: string; start: number; end: number; }
+interface NormalizedWord { value: string; start: number; end: number; }
 
 function normalizedCharacters(text: string): NormalizedCharacter[] {
   const characters: NormalizedCharacter[] = [];
@@ -166,7 +168,30 @@ function normalizedQuoteRanges(text: string, quote: string): QuoteRange[] {
     }
     if (ranges.length) break;
   }
+  if (!ranges.length) {
+    // Compatible models occasionally change only punctuation around an otherwise
+    // verbatim quote. Match the same consecutive word sequence as a conservative
+    // fallback so the editor can still locate it without fuzzy paraphrase matches.
+    const sourceWords = normalizedWords(text);
+    const quoteWords = normalizedWords(quote);
+    if (quoteWords.length >= 2) {
+      for (let index = 0; index <= sourceWords.length - quoteWords.length; index += 1) {
+        if (quoteWords.every((word, offset) => sourceWords[index + offset]?.value === word.value)) {
+          ranges.push({ start: sourceWords[index].start, end: sourceWords[index + quoteWords.length - 1].end });
+          index += quoteWords.length - 1;
+        }
+      }
+    }
+  }
   return ranges.filter((range, index) => !ranges.slice(0, index).some((existing) => existing.start === range.start && existing.end === range.end));
+}
+
+function normalizedWords(text: string): NormalizedWord[] {
+  return [...text.matchAll(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)].map((match) => ({
+    value: match[0].normalize('NFKC').toLocaleLowerCase().replace(/’/gu, "'"),
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
 }
 
 export function findQuotedTextRange(text: string, quote: string): QuoteRange | null {
@@ -241,12 +266,7 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 export function parseWritingFeedback(raw: string): WritingFeedback {
-  const unfenced = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const start = unfenced.indexOf('{');
-  const end = unfenced.lastIndexOf('}');
-  if (start < 0 || end <= start) throw new Error('AI 没有返回可读取的反馈，请重试。');
-  const json = unfenced.slice(start, end + 1).replace(/\\(?=[_])/g, '');
-  const value = JSON.parse(json) as Partial<WritingFeedback>;
+  const value = parseAiJson(raw) as Partial<WritingFeedback>;
   if (typeof value.summary !== 'string' || !Array.isArray(value.issues)) throw new Error('AI 反馈格式不完整，请重试。');
 
   const allowedCategories = new Set<WritingIssue['category']>([

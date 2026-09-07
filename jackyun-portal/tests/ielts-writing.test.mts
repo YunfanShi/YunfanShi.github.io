@@ -109,6 +109,19 @@ test('matches visually identical AI quotes despite invisible and compatibility c
   assert.ok(chunks.some((chunk) => chunk.highlighted && chunk.issueIds.includes('unicode-issue')));
 });
 
+test('keeps editor highlighting usable when AI changes punctuation only', () => {
+  const essay = 'Many students, however, prefer studying at home.';
+  const quote = 'students however prefer studying';
+  assert.deepEqual(findQuotedTextRange(essay, quote), { start: 5, end: 39 });
+  const chunks = highlightQuotedText(essay, [{ id: 'punctuation-only', quote }]);
+  assert.equal(chunks.map((chunk) => chunk.text).join(''), essay);
+  assert.ok(chunks.some((chunk) => chunk.highlighted && chunk.text === 'students, however, prefer studying'));
+});
+
+test('does not highlight paraphrases that merely share a few words', () => {
+  assert.equal(findQuotedTextRange('Many students prefer studying at home.', 'students strongly prefer remote lessons'), null);
+});
+
 test('accepts the common escaped-underscore defect in otherwise valid model JSON', () => {
   const feedback = parseWritingFeedback('{"summary":"清楚","issues":[{"id":"1","category":"Grammar","severity":"high","quote":"people is","explanation":"说明","selfRevisionPrompt":"提示","ruleKey":"subject\\_verb\\_agreement"}]}');
   assert.equal(feedback.issues[0].ruleKey, 'subject_verb_agreement');
@@ -126,4 +139,11 @@ test('split workspace keeps a single reachable scrollbar with bottom padding', (
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
   assert.match(workbench, /xl:min-h-0 xl:overflow-y-auto[^']*xl:pb-8/);
   assert.match(css, /aside\[data-scroll-region\] > article\[data-scroll-region\][\s\S]*max-height: none !important/);
+});
+
+test('language upgrade remains available after a reload loses transient feedback', () => {
+  const workbench = readFileSync(new URL('../src/components/modules/ielts/writing-workbench.tsx', import.meta.url), 'utf8');
+  const upgradeButton = workbench.match(/<button type="button" disabled=\{Boolean\(loadingMode\)\} onClick=\{\(\) => review\('upgrade'\)\}/);
+  assert.ok(upgradeButton);
+  assert.doesNotMatch(workbench, /disabled=\{Boolean\(loadingMode\) \|\| !feedback\} onClick=\{\(\) => review\('upgrade'\)\}/);
 });

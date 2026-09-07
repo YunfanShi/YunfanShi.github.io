@@ -196,6 +196,8 @@ export async function callAiApi(
     noThinking?: boolean;
     /** 平台计费功能标识；不会转发给上游模型 */
     feature?: 'chat' | 'reasoning' | 'personal_site' | 'ui_customization';
+    /** 允许调用方为轻量探针设置更短的超时。 */
+    signal?: AbortSignal;
   } = {},
 ): Promise<Response> {
   const config = getAiConfig();
@@ -227,9 +229,6 @@ export async function callAiApi(
   if (options.noThinking) {
     (body as Record<string, unknown>).thinking = { type: 'disabled' };
   }
-  // signal 透传（AbortController）
-  const signal = (options as Record<string, unknown>).signal as AbortSignal | undefined;
-
   // Route all providers through the server proxy: it normalizes provider
   // errors, applies the selected response language, and keeps provider logic
   // out of individual UI modules.
@@ -239,6 +238,6 @@ export async function callAiApi(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ ...body, feature: options.feature ?? 'chat', providerMode: config.providerMode ?? 'cloud', baseUrl, ...(apiKey ? { apiKey } : {}) }),
-    signal,
+    signal: options.signal,
   });
 }

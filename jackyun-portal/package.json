@@ -25,7 +25,8 @@
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
     "test:learning": "node --test tests/learning-domain.test.mts",
     "test:ielts-writing": "node --test tests/ielts-writing.test.mts",
-    "verify": "npm run lint && npm run test:learning && npm run test:ielts-writing && npm run test:sync && npm run test:beta && npm run test:ai-platform && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:adblock && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
+    "test:resilience": "node --test tests/ai-json.test.mts tests/auth-resilience.test.mts tests/ielts-reading.test.mts",
+    "verify": "npm run lint && npm run test:learning && npm run test:ielts-writing && npm run test:resilience && npm run test:sync && npm run test:beta && npm run test:ai-platform && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:adblock && npm run test:legacy-ui && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

@@ -53,7 +53,10 @@ export async function proxy(request: NextRequest) {
   // Verify the JWT locally when the project uses asymmetric signing keys.
   // Unlike getUser(), getClaims() does not make an Auth API request on every
   // client-side navigation (the JWKS response is cached by the SDK).
-  const { data: claimsData } = await supabase.auth.getClaims();
+  const { data: claimsData } = await supabase.auth.getClaims().catch((error) => {
+    console.error('[proxy] Auth claims request failed', error);
+    return { data: null };
+  });
   const claims = claimsData?.claims;
 
   // If not authenticated, redirect to login
@@ -85,10 +88,15 @@ export async function proxy(request: NextRequest) {
         .maybeSingle()
     : Promise.resolve({ data: null });
 
-  const [{ data: profile }, { data: dbMatch }] = await Promise.all([
+  const [profileResult, whitelistResult] = await Promise.allSettled([
     profilePromise,
     whitelistPromise,
   ]);
+  const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null;
+  const dbMatch = whitelistResult.status === 'fulfilled' ? whitelistResult.value.data : null;
+  if (profileResult.status === 'rejected' || whitelistResult.status === 'rejected') {
+    console.error('[proxy] Authorization lookup failed');
+  }
 
   // Restricted users retain one authenticated surface for reviewing the
   // decision and talking to support. They cannot reach product data routes.

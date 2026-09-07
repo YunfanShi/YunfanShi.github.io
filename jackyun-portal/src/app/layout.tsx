@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ThemeProvider from '@/components/theme-provider';
+import DeploymentRecovery from '@/components/layout/deployment-recovery';
 
 export const metadata: Metadata = {
   title: 'JackYun Portal',
@@ -31,7 +32,7 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="512x512" href="/Webicon.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/Webicon.png" />
       </head>
-      <body><ThemeProvider>{children}</ThemeProvider></body>
+      <body><DeploymentRecovery /><ThemeProvider>{children}</ThemeProvider></body>
     </html>
   );
 }
