@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { callAiApi, getAiConfig, getProModel, hasValidAiConfig, ThinkingLevel, getThinkingLevel, saveThinkingLevel, getThinkingTemperature, SafetyMode, getSafetyMode, saveSafetyMode, getTokenPrice, saveTokenPrice } from '@/lib/ai-config';
 import { getToolsDescription, getPlatformOverview, parseToolCalls, executeToolCall, ToolScope, AI_TOOLS, ConsentInfo, ToolRiskLevel, getPageContext, ConversationSource } from '@/lib/ai-tools';
 import logger from '@/lib/logger';
-import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, getTtsConfig } from '@/lib/tts-config';
+import { speakWithConfig, stopSpeaking, isAutoSpeakAiEnabled, extractTtsText, getTtsConfig, stripTtsAnnotations } from '@/lib/tts-config';
 import { estimateAiCost } from '@/lib/utils';
 import { collapseStreamingMessageDuplicates } from '@/lib/ai-conversations';
 import MarkdownRenderer from './markdown-renderer';
@@ -1024,8 +1024,12 @@ export default function AiChatFab({
   function getSystemMessage(): Message {
     const source = getEffectiveSource();
     const effectiveScope = getScopeFromSource(source);
+    const ttsConfig = getTtsConfig();
+    const ttsInstruction = ttsConfig.autoSpeakAi
+      ? `【TTS】只输出一个语言为 ${ttsConfig.ttsLanguage} 的朗读摘要，并严格使用 [TTS_LANG:${ttsConfig.ttsLanguage}]摘要[/TTS_LANG]。标签放在回复最后；不要输出其他语言的 TTS 标签，不要转义标签中的下划线。`
+      : '【TTS】自动朗读未开启，不要输出 TTS、TTS_LANG 或任何朗读标签。';
     if (assistantMode === 'chat') {
-      return { role: 'system', content: `你是 JackYun AI 的聊天助手。请直接、清晰地回答用户，支持 Markdown；不要调用工具，也不要声称执行了未实际执行的操作。\n\n当前页面：${getPageContext(source)}\n${systemPromptSuffix}`.trim() };
+      return { role: 'system', content: `你是 JackYun AI 的聊天助手。请直接、清晰地回答用户，支持 Markdown；不要调用工具，也不要声称执行了未实际执行的操作。\n\n当前页面：${getPageContext(source)}\n\n${ttsInstruction}\n${systemPromptSuffix}`.trim() };
     }
     const toolsDesc = getToolsDescription(effectiveScope);
     const pageContext = getPageContext(source);
@@ -1052,7 +1056,7 @@ export default function AiChatFab({
     let content = `${scopeName[effectiveScope] || scopeName.global}\n\n`;
     content += `【当前页面】\n${pageContext}\n\n`;
     content += `${getPlatformOverview()}\n\n`;
-    content += `${toolsDesc}\n${systemPromptSuffix}`.trim();
+    content += `${toolsDesc}\n\n${ttsInstruction}\n${systemPromptSuffix}`.trim();
     return { role: 'system', content };
   }
 
@@ -1748,13 +1752,14 @@ export default function AiChatFab({
   }
 
   async function handleCopy(content: string, index: number) {
+    const visibleContent = stripTags(content);
     try {
-      await navigator.clipboard.writeText(content);
+      await navigator.clipboard.writeText(visibleContent);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch {
       const textarea = document.createElement('textarea');
-      textarea.value = content;
+      textarea.value = visibleContent;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
@@ -1868,10 +1873,8 @@ export default function AiChatFab({
 
   // 过滤 AI 内部标签（tool_call / TTS_LANG / TITLE / TASK_COMPLETE）不显示给用户
   function stripTags(content: string): string {
-    return content
+    return stripTtsAnnotations(content)
       .replace(/```tool_call[\s\S]*?```/g, '')
-      .replace(/\[TTS_LANG:[^\]]*\][\s\S]*?\[\/TTS_LANG\]/g, '')
-      .replace(/\[TTS\][\s\S]*?\[\/TTS\]/g, '')
       .replace(/\[TITLE\][\s\S]*?\[\/TITLE\]/g, '')
       .replace(/\[TASK_COMPLETE\]/g, '')
       .trim();

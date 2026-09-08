@@ -6,6 +6,14 @@ import { isAdminIdentity } from '../src/lib/admin-auth.ts';
 import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.ts';
 import { readAiStream } from '../src/lib/ai-stream.ts';
 import { hasNewAiResponse } from '../companion-extension/ai-response-detection.mjs';
+import { extractTtsText, stripTtsAnnotations } from '../src/lib/tts-config.ts';
+
+test('TTS annotations stay hidden and subtitles use only the selected language', () => {
+  const escaped = '正文内容\n\n[TTS\\_LANG:zh-CN]中文朗读摘要。[/TTS\\_LANG]\n[TTS_LANG:en-US]English subtitle.[/TTS_LANG]';
+  assert.equal(stripTtsAnnotations(escaped), '正文内容');
+  assert.equal(extractTtsText(escaped), '中文朗读摘要。');
+  assert.equal(stripTtsAnnotations('正文内容\n[TTS\\_LANG:zh-CN]正在流式生成'), '正文内容');
+});
 
 test('personal site validator keeps only safe component types and web links', () => {
   const site = validatePersonalSite({ name: '学习主页', theme: 'purple', blocks: [

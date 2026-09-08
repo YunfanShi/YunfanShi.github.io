@@ -27,6 +27,38 @@ const DEFAULT_CONFIG: TtsConfig = {
   ttsLanguage: 'zh-CN',
 };
 
+const TTS_LANG_TAG_NAME = String.raw`TTS(?:\\?_|[\s-])?LANG`;
+
+function extractTtsLanguageBlocks(content: string): Array<{ language: string; text: string }> {
+  const pattern = new RegExp(
+    String.raw`\[\s*${TTS_LANG_TAG_NAME}\s*:\s*([^\]]+?)\s*\]([\s\S]*?)\[\s*\/\s*${TTS_LANG_TAG_NAME}\s*\]`,
+    'gi',
+  );
+  return [...content.matchAll(pattern)].map((match) => ({
+    language: match[1].trim().toLowerCase(),
+    text: match[2],
+  }));
+}
+
+/** Remove complete or still-streaming TTS annotations from user-visible content. */
+export function stripTtsAnnotations(content: string): string {
+  if (!content) return '';
+  const completeLanguageBlock = new RegExp(
+    String.raw`\[\s*${TTS_LANG_TAG_NAME}\s*:\s*[^\]]+?\s*\][\s\S]*?\[\s*\/\s*${TTS_LANG_TAG_NAME}\s*\]`,
+    'gi',
+  );
+  const openLanguageBlock = new RegExp(
+    String.raw`\[\s*${TTS_LANG_TAG_NAME}(?:\s*:[^\]]*)?(?:\]|$)[\s\S]*$`,
+    'i',
+  );
+  return content
+    .replace(completeLanguageBlock, '')
+    .replace(openLanguageBlock, '')
+    .replace(/\[\s*TTS\s*\][\s\S]*?\[\s*\/\s*TTS\s*\]/gi, '')
+    .replace(/\[\s*TTS(?:\s*\]|$)[\s\S]*$/i, '')
+    .trim();
+}
+
 /** 从 localStorage 读取 TTS 配置 */
 export function getTtsConfig(): TtsConfig {
   if (typeof window === 'undefined') {
@@ -119,14 +151,11 @@ export function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
  * 清理 Markdown 语法，提取纯文本
  */
 function stripMarkdown(text: string): string {
-  return text
+  return stripTtsAnnotations(text)
     // 去掉 tool_call 代码块
     .replace(/```tool_call[\s\S]*?```/g, '')
     // 去掉代码块
     .replace(/```[\s\S]*?```/g, '')
-    // 去掉 [TTS_LANG] 标签本身（防止被读出来）
-    .replace(/\[TTS_LANG:[^\]]*\][\s\S]*?\[\/TTS_LANG\]/g, '')
-    .replace(/\[TTS\][\s\S]*?\[\/TTS\]/g, '')
     // 去掉 Markdown 链接 [text](url)
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     // 去掉加粗/斜体
@@ -166,17 +195,11 @@ export function extractTtsText(content: string): string {
   const config = getTtsConfig();
   const lang = config.ttsLanguage || 'zh-CN';
 
-  // 1. 尝试提取匹配当前 TTS 语言的 [TTS_LANG] 标签
-  const langMatch = content.match(new RegExp(`\\[TTS_LANG:${lang}\\]([\\s\\S]*?)\\[\\/TTS_LANG\\]`));
-  if (langMatch) {
-    return stripMarkdown(langMatch[1]).trim();
-  }
-
-  // 2. 尝试提取任何语言的 [TTS_LANG] 标签内文本
-  //    如果 AI 只输出了一种语言版本的标签，我们也朗读它
-  const anyLangMatch = content.match(/\[TTS_LANG:[^\]]+\]([\s\S]*?)\[\/TTS_LANG\]/);
-  if (anyLangMatch) {
-    return stripMarkdown(anyLangMatch[1]).trim();
+  // Only the single language selected by the user may become a subtitle or be spoken.
+  const languageBlocks = extractTtsLanguageBlocks(content);
+  if (languageBlocks.length > 0) {
+    const selected = languageBlocks.find((block) => block.language === lang.toLowerCase());
+    return selected ? stripMarkdown(selected.text).trim() : '';
   }
 
   // 3. 尝试提取通用的 [TTS] 标签
@@ -186,7 +209,7 @@ export function extractTtsText(content: string): string {
   }
 
   // 4. 退回到全部内容去除 Markdown，但需要智能判断语言是否匹配
-  const plainText = stripMarkdown(content).trim();
+  const plainText = stripMarkdown(stripTtsAnnotations(content)).trim();
   if (!plainText) return '';
 
   // 如果 TTS 语言是英文，但文本主要是中文（非 ASCII 字符占多数），不朗读
