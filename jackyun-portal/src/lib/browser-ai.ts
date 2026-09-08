@@ -4,7 +4,7 @@ export const BROWSER_AI_REQUEST_EVENT = 'jackyun-browser-ai-request';
 export const BROWSER_AI_CANCELLED = 'BROWSER_AI_CANCELLED';
 
 export type BrowserAiProvider = 'chatgpt' | 'deepseek' | 'claude' | 'gemini' | 'qwen' | 'perplexity';
-export type BrowserAiConversationMode = 'new' | 'recent' | 'selected';
+export type BrowserAiConversationMode = 'new' | 'recent' | 'selected' | 'jackyun';
 
 export interface BrowserAiConversationTarget {
   mode: BrowserAiConversationMode;
@@ -42,7 +42,7 @@ export function getBrowserAiConversationTarget(): BrowserAiConversationTarget {
   if (typeof window === 'undefined') return { mode: 'new', url: '' };
   try {
     const parsed = JSON.parse(localStorage.getItem(CONVERSATION_TARGET_KEY) || '{}') as Partial<BrowserAiConversationTarget>;
-    return { mode: parsed.mode === 'recent' || parsed.mode === 'selected' ? parsed.mode : 'new', url: typeof parsed.url === 'string' ? parsed.url : '' };
+    return { mode: parsed.mode === 'recent' || parsed.mode === 'selected' || parsed.mode === 'jackyun' ? parsed.mode : 'new', url: typeof parsed.url === 'string' ? parsed.url : '' };
   } catch { return { mode: 'new', url: '' }; }
 }
 

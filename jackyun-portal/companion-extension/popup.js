@@ -7,6 +7,30 @@ let tools = null;
 let adblock = null;
 function minutes(seconds) { return Math.round(Number(seconds || 0) / 60); }
 function notice(text, error = false) { $('#notice').textContent = text; $('#notice').style.color = error ? '#b3261e' : '#1967d2'; }
+const automationStages = ['opening', 'filling', 'waiting', 'receiving', 'complete'];
+function renderAutomation(automation) {
+  const current = automation?.current;
+  const statusNode = $('#automation-status');
+  statusNode.classList.toggle('active', Boolean(current && current.stage !== 'error'));
+  statusNode.classList.toggle('error', current?.stage === 'error');
+  const title = statusNode.querySelector('strong');
+  const detail = $('#automation-detail');
+  const elapsed = $('#automation-elapsed');
+  if (!current) {
+    title.textContent = status?.signedIn ? '自动化引擎已就绪' : '登录后可使用自动处理';
+    detail.textContent = '等待任务'; elapsed.textContent = '';
+  } else {
+    const labels = { opening: '正在打开网站', filling: '正在填写发送', waiting: '正在等待回复', receiving: '正在接收内容', complete: '任务已完成', error: '任务需要帮助' };
+    title.textContent = labels[current.stage] || '正在处理';
+    detail.textContent = current.error || current.detail || '进度已更新';
+    elapsed.textContent = `${Math.max(0, Math.floor((Date.now() - Number(current.startedAt || Date.now())) / 1000))}s`;
+  }
+  const currentIndex = automationStages.indexOf(current?.stage);
+  document.querySelectorAll('.automation-flow li').forEach((item, index) => {
+    item.classList.toggle('done', current?.stage === 'complete' || (currentIndex >= 0 && index < currentIndex));
+    item.classList.toggle('current', current?.stage !== 'error' && index === currentIndex);
+  });
+}
 async function render() {
   [status, safeguard, tools, adblock, [currentTab]] = await Promise.all([
     send({ type: 'STATUS' }),
@@ -35,8 +59,7 @@ async function render() {
   renderAdblock();
   renderSafeguardSites();
   $('#automation-version').textContent = `v${status.automation?.version || status.device?.extensionVersion || chrome.runtime.getManifest().version}`;
-  $('#automation-status').classList.add('active');
-  $('#automation-status').querySelector('span').textContent = status.signedIn ? '自动化引擎已就绪 · Portal 开启后即可使用' : '引擎已就绪 · 登录后可验证 BETA 资格';
+  renderAutomation(status.automation);
   try {
     const betaLogs = await send({ type: 'BETA_AI_LOGS' });
     $('#beta-ai-logs').textContent = betaLogs.length ? betaLogs.slice(-8).reverse().map((entry) => `${entry.at} · ${entry.type}${entry.provider ? ` · ${entry.provider}` : ''}${entry.error ? ` · ${entry.error}` : ''}`).join('\n') : '尚无日志';
@@ -60,6 +83,13 @@ async function render() {
   $('#focus-state').textContent = status.focus ? `进行中 · ${Math.max(0, Math.ceil((status.focus.endsAt - Date.now()) / 60000))} 分钟后完成` : '尚未开始';
   $('#current-page').textContent = currentTab?.title || '未检测到页面';
 }
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.currentAiAutomation) {
+    if (status?.automation) status.automation.current = changes.currentAiAutomation.newValue;
+    renderAutomation({ current: changes.currentAiAutomation.newValue });
+  }
+});
+window.setInterval(() => { if (status?.automation?.current) renderAutomation(status.automation); }, 1000);
 function currentHost() {
   try { return normalizeHost(new URL(currentTab?.url || '').hostname); } catch { return ''; }
 }

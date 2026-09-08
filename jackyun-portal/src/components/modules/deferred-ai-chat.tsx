@@ -1,8 +1,10 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+const AiChatFab = dynamic(() => import('./ai-chat-fab'), { ssr: false, loading: () => null });
 
 /**
  * Keep the global AI affordance tiny. The previous implementation hydrated the
@@ -10,16 +12,17 @@ import { useEffect } from 'react';
  */
 export default function DeferredAiChat() {
   const pathname = usePathname();
-  const router = useRouter();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const openWorkspace = (event: MessageEvent) => {
-      if (event.data?.type === 'jackyun-open-ai') router.push('/ai?mode=agent');
+      if (event.data?.type === 'jackyun-open-ai') setReady(true);
     };
     window.addEventListener('message', openWorkspace);
     return () => window.removeEventListener('message', openWorkspace);
-  }, [router]);
+  }, []);
 
   if (pathname === '/ai') return null;
-  return <Link href="/ai" aria-label="打开 JackYun AI" title="打开 AI 工作台" className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-30 grid h-13 w-13 place-items-center rounded-2xl bg-gradient-to-br from-[#155eef] to-[#7f56d9] text-white shadow-[0_12px_30px_rgba(21,94,239,.32)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(21,94,239,.38)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#155eef]/30"><span className="material-icons-round text-2xl">auto_awesome</span></Link>;
+  if (ready) return <AiChatFab initiallyOpen />;
+  return <button type="button" onClick={() => setReady(true)} aria-label="打开 JackYun AI 悬浮窗" title="打开聊天 / Agent" className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-30 grid h-13 w-13 place-items-center rounded-2xl bg-[#0f172a] text-white shadow-[0_12px_30px_rgba(15,23,42,.3)] transition duration-200 hover:-translate-y-1 hover:bg-[#1e293b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#38bdf8]/30"><span className="material-icons-round text-2xl">auto_awesome</span></button>;
 }

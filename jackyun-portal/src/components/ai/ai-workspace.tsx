@@ -47,6 +47,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
   const [personalModel, setPersonalModel] = useState<ModelOption | null>(null);
   const [browserModels, setBrowserModels] = useState<ModelOption[]>([]);
   const [browserModelStatus, setBrowserModelStatus] = useState(() => getAiConfig().providerMode === 'browser' ? '正在读取当前账号可用模型…' : '');
+  const [modelRefreshKey, setModelRefreshKey] = useState(0);
   const [providerMode] = useState(() => getAiConfig().providerMode ?? 'cloud');
   const [browserProvider] = useState(() => getAiConfig().browserProvider ?? 'chatgpt');
   useEffect(() => {
@@ -66,9 +67,9 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
     };
     window.addEventListener('message', listener);
     window.postMessage({ type: 'JACKYUN_COMPANION_LIST_MODELS', requestId, provider: browserProvider }, window.location.origin);
-    const timeout = window.setTimeout(() => setBrowserModelStatus((value) => value.startsWith('正在') ? '模型读取超时，将使用网站默认模型' : value), 10_000);
+    const timeout = window.setTimeout(() => setBrowserModelStatus((value) => value.startsWith('正在') ? '读取超时，请确认 AI 网站已登录后重试' : value), 20_000);
     return () => { window.clearTimeout(timeout); window.removeEventListener('message', listener); };
-  }, [browserProvider, providerMode]);
+  }, [browserProvider, providerMode, modelRefreshKey]);
   const allModels = useMemo(() => providerMode === 'browser' ? (browserModels.length ? browserModels : personalModel ? [personalModel] : []) : personalModel ? [personalModel, ...models] : models, [browserModels, models, personalModel, providerMode]);
   const availableModels = useMemo(() => allModels.filter((model) => mode === 'agent' ? model.supportsAgent : model.supportsChat), [mode, allModels]);
   const [modelId, setModelId] = useState<number>(() => (initialMode === 'agent' ? models.find((model) => model.supportsAgent) : models.find((model) => model.supportsChat))?.id ?? 0);
@@ -82,7 +83,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
         <ModeButton active={mode === 'agent'} icon="smart_toy" label="Agent" onClick={() => setMode('agent')} />
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-2">
-        {providerMode === 'browser' && <span className="hidden max-w-[220px] truncate text-xs text-[var(--muted-foreground)] lg:inline" title={browserModelStatus}>{browserModelStatus}</span>}
+        {providerMode === 'browser' && <button type="button" onClick={() => { setBrowserModelStatus('正在重新读取模型…'); setModelRefreshKey((value) => value + 1); }} className="hidden max-w-[240px] items-center gap-1 truncate rounded-lg px-2 py-1 text-xs text-[var(--muted-foreground)] hover:bg-[var(--background)] lg:flex" title={`${browserModelStatus} · 点击重试`}><span className="material-icons-round text-sm">refresh</span><span className="truncate">{browserModelStatus}</span></button>}
         <label className="relative min-w-0"><span className="sr-only">选择模型</span><select value={selectedModel?.id ?? 0} onChange={(event) => setModelId(Number(event.target.value))} disabled={!availableModels.length} className="h-10 max-w-[230px] appearance-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] py-0 pl-3 pr-9 text-sm font-medium outline-none focus:border-[#155eef] disabled:opacity-60"><option value={0}>{availableModels.length ? '选择模型' : '当前套餐暂无模型'}</option>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.displayName} · {model.providerName}</option>)}</select><span className="material-icons-round pointer-events-none absolute right-2.5 top-2.5 text-lg text-[var(--muted-foreground)]">expand_more</span></label>
         <Link href="/settings?section=ai" aria-label="AI 设置" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--card-border)] text-[var(--muted-foreground)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)]"><span className="material-icons-round text-xl">settings</span></Link>
       </div>
@@ -91,7 +92,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
     {selectedModel && <div className="flex min-h-10 items-center gap-2 border-b border-[var(--card-border)] bg-[var(--background)]/70 px-4 text-xs text-[var(--muted-foreground)] sm:px-6"><span className={`h-2 w-2 rounded-full ${selectedModel.supportsAgent ? 'bg-[#7f56d9]' : 'bg-[#17b26a]'}`} /><span className="truncate">{selectedModel.description || selectedModel.modelId}</span><span className="ml-auto hidden shrink-0 sm:inline">输入 ¥{selectedModel.inputCostPerMillion}/M · 输出 ¥{selectedModel.outputCostPerMillion}/M{selectedModel.contextWindow ? ` · ${Math.round(selectedModel.contextWindow / 1000)}K 上下文` : ''}</span></div>}
 
     <div className="min-h-0 flex-1">
-      {!selectedModel ? <NoModels planCode={planCode} /> : mode === 'chat' ? <ChatWorkspace model={selectedModel} initialPrompt={initialPrompt} /> : <div className="h-full min-h-0 bg-[var(--background)]"><AgentWorkspace embedded embeddedTitle="Agent 工作台" currentPath="/ai" catalogModelId={selectedModel.id > 0 ? selectedModel.id : undefined} browserModel={selectedModel.id < 0 ? selectedModel.modelId : undefined} /></div>}
+      {!selectedModel ? <NoModels planCode={planCode} /> : mode === 'chat' ? <ChatWorkspace model={selectedModel} initialPrompt={initialPrompt} /> : <div className="h-full min-h-0 bg-[#f8fafc] dark:bg-[#07111f]"><AgentWorkspace embedded initialAssistantMode="agent" embeddedTitle="Agent 工作台" currentPath="/ai" catalogModelId={selectedModel.id > 0 ? selectedModel.id : undefined} browserModel={selectedModel.id < 0 ? selectedModel.modelId : undefined} /></div>}
     </div>
   </div>;
 }

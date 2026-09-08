@@ -372,13 +372,34 @@ function providerConversationUrl(provider, rawUrl) {
 
 async function listAiConversations(provider) {
   const base = AI_PROVIDER_URLS[String(provider || '')];
-  if (!base) return [];
+  if (!base) return { conversations: [], providerOpen: false };
   const target = new URL(base);
   const tabs = await chrome.tabs.query({ url: `${target.origin}/*` });
-  return tabs
+  const conversations = tabs
     .filter((tab) => tab.id && tab.url && isConversationUrl(provider, tab.url))
     .sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))
     .map((tab) => ({ title: String(tab.title || `${target.hostname} 对话`).slice(0, 160), url: providerConversationUrl(provider, tab.url), active: Boolean(tab.active) }));
+  return { conversations, providerOpen: tabs.length > 0 };
+}
+
+async function jackYunConversationUrl(provider) {
+  const stored = await local.get(['browserAiJackYunConversations']);
+  const conversations = stored.browserAiJackYunConversations && typeof stored.browserAiJackYunConversations === 'object' ? stored.browserAiJackYunConversations : {};
+  const url = String(conversations[provider] || '');
+  return isConversationUrl(provider, url) ? providerConversationUrl(provider, url) : '';
+}
+
+async function rememberJackYunConversation(provider, tabId) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (tab?.url && isConversationUrl(provider, tab.url)) {
+      const stored = await local.get(['browserAiJackYunConversations']);
+      const conversations = stored.browserAiJackYunConversations && typeof stored.browserAiJackYunConversations === 'object' ? stored.browserAiJackYunConversations : {};
+      await local.set({ browserAiJackYunConversations: { ...conversations, [provider]: providerConversationUrl(provider, tab.url) } });
+      return;
+    }
+    await delay(250);
+  }
 }
 
 async function ensureAiPageReady(tabId, payload = null, portalTabId = null) {
@@ -410,8 +431,21 @@ async function listAiModels(provider) {
 }
 
 async function notifyAiStatus(portalTabId, payload, stage, detail, extra = {}) {
-  if (!portalTabId) return;
-  await chrome.tabs.sendMessage(portalTabId, { type: 'AI_AUTOMATION_STATUS', requestId: payload.requestId, stage, detail, ...extra }).catch(() => {});
+  const stored = await local.get(['currentAiAutomation']);
+  const previous = stored.currentAiAutomation?.requestId === payload.requestId ? stored.currentAiAutomation : null;
+  const current = {
+    requestId: String(payload.requestId || ''), provider: String(payload.provider || ''), stage, detail,
+    error: String(extra.error || ''), startedAt: previous?.startedAt || Date.now(), updatedAt: Date.now(),
+  };
+  await local.set({ currentAiAutomation: current });
+  const aiTabId = Number(payload?.aiTabId || 0);
+  if (aiTabId > 0) {
+    await chrome.tabs.sendMessage(aiTabId, {
+      type: 'AI_AUTOMATION_STATUS', requestId: current.requestId, provider: current.provider,
+      stage, startedAt: current.startedAt,
+    }).catch(() => {});
+  }
+  if (portalTabId) await chrome.tabs.sendMessage(portalTabId, { type: 'AI_AUTOMATION_STATUS', requestId: payload.requestId, stage, detail, ...extra }).catch(() => {});
 }
 
 async function waitForAiReply(tabId, baselineCount, baselineText, payload, portalTabId) {
@@ -447,14 +481,21 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
     await betaAiLog('eligibility_denied', { provider });
     throw new Error('当前账户没有 BETA 资格');
   }
-  await notifyAiStatus(portalTabId, payload, 'opening', '正在打开所选 AI 网站…');
   const target = new URL(AI_PROVIDER_URLS[provider]);
   const matches = await chrome.tabs.query({ url: `${target.origin}/*` });
-  const conversationMode = ['recent', 'selected'].includes(payload?.conversationMode) ? payload.conversationMode : 'new';
+  await notifyAiStatus(portalTabId, payload, 'opening', matches.length ? 'AI 网站已打开，正在连接…' : '首次启动：正在打开 AI 网站，登录和页面加载可能需要更久…');
+  const conversationMode = ['recent', 'selected', 'jackyun'].includes(payload?.conversationMode) ? payload.conversationMode : 'new';
   let destination = target.href;
   let tab = null;
   let continuesConversation = false;
-  if (conversationMode === 'selected') {
+  if (conversationMode === 'jackyun') {
+    const savedUrl = await jackYunConversationUrl(provider);
+    if (savedUrl) {
+      destination = savedUrl;
+      tab = matches.find((item) => item.url === destination) || null;
+      continuesConversation = true;
+    }
+  } else if (conversationMode === 'selected') {
     destination = providerConversationUrl(provider, payload?.conversationUrl);
     if (!isConversationUrl(provider, destination)) throw new Error('所选标签页不是有效对话，请重新识别并选择');
     tab = matches.find((item) => item.url === destination) || null;
@@ -466,10 +507,12 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
   }
   tab = tab || await chrome.tabs.create({ url: destination, active: true });
   if (!tab.id) throw new Error('无法打开 AI 网页');
+  payload.aiTabId = tab.id;
   await chrome.tabs.update(tab.id, { active: true });
   await delay(150);
   await waitForTab(tab.id, payload, portalTabId);
   await ensureAiPageReady(tab.id, payload, portalTabId);
+  await notifyAiStatus(portalTabId, payload, 'opening', 'AI 网站已连接，正在准备自动处理…');
   if (String(payload?.model || '').trim()) {
     await notifyAiStatus(portalTabId, payload, 'filling', `正在切换到模型“${String(payload.model).slice(0, 80)}”…`);
     const switched = await chrome.tabs.sendMessage(tab.id, { type: 'AI_SELECT_MODEL', model: String(payload.model) });
@@ -481,6 +524,7 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
     try {
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'AI_FILL_PROMPT', prompt, provider, submit: true });
       if (response?.ok) {
+        if (conversationMode === 'jackyun' && !continuesConversation) await rememberJackYunConversation(provider, tab.id);
         await betaAiLog('prompt_submitted', { provider, conversationMode, requestId: payload.requestId, tabId: tab.id });
         await notifyAiStatus(portalTabId, payload, 'waiting', '消息已发送，正在等待 AI 完成回复…');
         const reply = await waitForAiReply(tab.id, response.baselineCount, response.baselineText, payload, portalTabId);
@@ -513,9 +557,9 @@ async function syncNow() {
 }
 
 async function getStatus() {
-  const [stored, current, device, prefs] = await Promise.all([local.get(['activity', 'lastSyncAt', 'lastSyncError', 'refreshToken', 'focus']), session.get(['accessToken']), getDevice(), preferences()]);
+  const [stored, current, device, prefs] = await Promise.all([local.get(['activity', 'lastSyncAt', 'lastSyncError', 'refreshToken', 'focus', 'currentAiAutomation']), session.get(['accessToken']), getDevice(), preferences()]);
   const todayRows = Object.values(stored.activity || {}).filter((item) => item.activityDate === day());
-  return { signedIn: Boolean(stored.refreshToken || current.accessToken), device, preferences: prefs, todaySeconds: todayRows.reduce((sum, item) => sum + Number(item.activeSeconds || 0), 0), sites: todayRows.sort((a, b) => b.activeSeconds - a.activeSeconds), lastSyncAt: stored.lastSyncAt || 0, lastSyncError: stored.lastSyncError || '', focus: stored.focus || null, automation: { available: true, version: VERSION, providers: Object.keys(AI_PROVIDER_URLS) } };
+  return { signedIn: Boolean(stored.refreshToken || current.accessToken), device, preferences: prefs, todaySeconds: todayRows.reduce((sum, item) => sum + Number(item.activeSeconds || 0), 0), sites: todayRows.sort((a, b) => b.activeSeconds - a.activeSeconds), lastSyncAt: stored.lastSyncAt || 0, lastSyncError: stored.lastSyncError || '', focus: stored.focus || null, automation: { available: true, version: VERSION, providers: Object.keys(AI_PROVIDER_URLS), current: stored.currentAiAutomation || null } };
 }
 
 async function startFocus(minutes) {
