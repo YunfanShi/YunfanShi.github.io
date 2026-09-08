@@ -324,13 +324,25 @@ async function betaAiLog(type, details = {}) {
   await local.set({ betaAiLogs: logs.slice(-100) });
 }
 
-async function waitForTab(tabId) {
+async function waitForTab(tabId, payload = null, portalTabId = null) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const tab = await chrome.tabs.get(tabId);
     if (tab.status === 'complete') return;
+    if (payload && attempt > 0 && attempt % 8 === 0) await notifyAiStatus(portalTabId, payload, 'opening', `AI 网页仍在加载（${Math.round(attempt / 4)} 秒）…`);
     await delay(250);
   }
   throw new Error('AI 网页加载超时');
+}
+
+function isConversationUrl(provider, rawUrl) {
+  try {
+    const url = new URL(providerConversationUrl(provider, rawUrl));
+    const patterns = {
+      chatgpt: /^\/c\/[\w-]+/, deepseek: /^\/a\/chat\/s\/[\w-]+/, claude: /^\/chat\/[\w-]+/,
+      gemini: /^\/app\/[\w-]+/, qwen: /^\/(?:c|chat)\/[\w-]+/, perplexity: /^\/search\/[\w-]+/,
+    };
+    return patterns[provider]?.test(url.pathname) === true;
+  } catch { return false; }
 }
 
 function providerConversationUrl(provider, rawUrl) {
@@ -349,9 +361,37 @@ async function listAiConversations(provider) {
   const target = new URL(base);
   const tabs = await chrome.tabs.query({ url: `${target.origin}/*` });
   return tabs
-    .filter((tab) => tab.id && tab.url)
+    .filter((tab) => tab.id && tab.url && isConversationUrl(provider, tab.url))
     .sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))
     .map((tab) => ({ title: String(tab.title || `${target.hostname} 对话`).slice(0, 160), url: providerConversationUrl(provider, tab.url), active: Boolean(tab.active) }));
+}
+
+async function ensureAiPageReady(tabId, payload = null, portalTabId = null) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const current = await chrome.tabs.sendMessage(tabId, { type: 'AI_PAGE_STATUS' }).catch(() => null);
+    if (current?.ok) return;
+    await delay(250);
+  }
+  if (payload) await notifyAiStatus(portalTabId, payload, 'opening', '正在重新加载旧标签页以连接最新版 Companion…');
+  await chrome.tabs.reload(tabId);
+  await waitForTab(tabId, payload, portalTabId);
+  const retry = await chrome.tabs.sendMessage(tabId, { type: 'AI_PAGE_STATUS' }).catch(() => null);
+  if (!retry?.ok) throw new Error('AI 网页未连接到 Companion，请在扩展管理页重新加载最新版后重试');
+}
+
+async function listAiModels(provider) {
+  const base = AI_PROVIDER_URLS[String(provider || '')];
+  if (!base) return [];
+  const target = new URL(base);
+  const tabs = await chrome.tabs.query({ url: `${target.origin}/*` });
+  let tab = [...tabs].sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))[0];
+  if (!tab) tab = await chrome.tabs.create({ url: target.href, active: true });
+  if (!tab?.id) throw new Error('无法打开 AI 网页来读取模型');
+  await waitForTab(tab.id);
+  await ensureAiPageReady(tab.id);
+  const response = await chrome.tabs.sendMessage(tab.id, { type: 'AI_LIST_MODELS' });
+  if (!response?.ok) throw new Error(response?.error || '未能读取当前账号的模型');
+  return Array.isArray(response.models) ? response.models : [];
 }
 
 async function notifyAiStatus(portalTabId, payload, stage, detail, extra = {}) {
@@ -365,14 +405,20 @@ async function waitForAiReply(tabId, baselineCount, payload, portalTabId) {
   for (let attempt = 0; attempt < 300; attempt += 1) {
     await delay(1000);
     const state = await chrome.tabs.sendMessage(tabId, { type: 'AI_READ_RESPONSE', provider: payload.provider }).catch(() => null);
-    if (!state?.ok) continue;
+    if (!state?.ok) {
+      if (attempt % 5 === 4) await notifyAiStatus(portalTabId, payload, 'waiting', `已等待 ${attempt + 1} 秒，正在重新连接 AI 页面…`);
+      continue;
+    }
     const text = String(state.text || '').trim();
     const hasNewResponse = Number(state.count || 0) > Number(baselineCount || 0) && text.length > 0;
-    if (!hasNewResponse) continue;
+    if (!hasNewResponse) {
+      if (attempt % 5 === 4) await notifyAiStatus(portalTabId, payload, 'waiting', `消息已发送，已等待 ${attempt + 1} 秒；AI 网页尚未返回内容…`);
+      continue;
+    }
     stablePolls = text === previous && !state.busy ? stablePolls + 1 : 0;
     previous = text;
     if (stablePolls >= 2) return text;
-    if (attempt % 5 === 0) await notifyAiStatus(portalTabId, payload, 'receiving', `已收到 ${text.length} 个字符，正在等待回复完成…`);
+    if (attempt % 5 === 0) await notifyAiStatus(portalTabId, payload, 'receiving', `已收到 ${text.length} 个字符，正在等待回复完成（${attempt + 1} 秒）…`);
   }
   throw new Error('等待 AI 回复超时，请在手动模式中粘贴回复');
 }
@@ -392,22 +438,29 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
   const conversationMode = ['recent', 'selected'].includes(payload?.conversationMode) ? payload.conversationMode : 'new';
   let destination = target.href;
   let tab = null;
+  let continuesConversation = false;
   if (conversationMode === 'selected') {
     destination = providerConversationUrl(provider, payload?.conversationUrl);
+    if (!isConversationUrl(provider, destination)) throw new Error('所选标签页不是有效对话，请重新识别并选择');
     tab = matches.find((item) => item.url === destination) || null;
+    continuesConversation = true;
   } else if (conversationMode === 'recent') {
-    tab = [...matches].sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))[0] || null;
-    if (tab?.url) destination = providerConversationUrl(provider, tab.url);
+    tab = [...matches].filter((item) => item.url && isConversationUrl(provider, item.url)).sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))[0] || null;
+    if (tab?.url) { destination = providerConversationUrl(provider, tab.url); continuesConversation = true; }
+    else await notifyAiStatus(portalTabId, payload, 'opening', '没有找到已打开的真实对话，将改为新建对话…');
   }
   tab = tab || await chrome.tabs.create({ url: destination, active: true });
   if (!tab.id) throw new Error('无法打开 AI 网页');
-  // Reload a reused conversation so the latest content script is present while
-  // preserving its URL and context. New mode always opens a fresh tab.
   await chrome.tabs.update(tab.id, { active: true });
-  if (matches.some((item) => item.id === tab.id)) await chrome.tabs.reload(tab.id);
   await delay(150);
-  await waitForTab(tab.id);
-  await notifyAiStatus(portalTabId, payload, 'filling', conversationMode === 'new' ? '新对话已打开，正在填写消息…' : `已进入对话“${String(tab.title || provider).slice(0, 60)}”，正在继续上下文…`);
+  await waitForTab(tab.id, payload, portalTabId);
+  await ensureAiPageReady(tab.id, payload, portalTabId);
+  if (String(payload?.model || '').trim()) {
+    await notifyAiStatus(portalTabId, payload, 'filling', `正在切换到模型“${String(payload.model).slice(0, 80)}”…`);
+    const switched = await chrome.tabs.sendMessage(tab.id, { type: 'AI_SELECT_MODEL', model: String(payload.model) });
+    if (!switched?.ok) throw new Error(switched?.error || '模型切换失败');
+  }
+  await notifyAiStatus(portalTabId, payload, 'filling', continuesConversation ? `已进入对话“${String(tab.title || provider).slice(0, 60)}”，正在继续上下文…` : '新对话已打开，正在填写消息…');
   let lastError = null;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
@@ -542,6 +595,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'ADBLOCK_GET_CONFIG') return adblockConfig();
     if (message.type === 'ADBLOCK_SAVE_CONFIG') return saveAdblockConfig(message.payload);
     if (message.type === 'AI_LIST_CONVERSATIONS') return listAiConversations(message.provider);
+    if (message.type === 'AI_LIST_MODELS') return listAiModels(message.provider);
     if (message.type === 'AI_WEB_PROMPT') {
       try { return await sendPromptToAiWebsite(message.payload, sender.tab?.id); }
       catch (error) {

@@ -43,12 +43,19 @@
         }).catch(() => window.postMessage({ type: 'JACKYUN_COMPANION_CONVERSATIONS', requestId, conversations: [] }, location.origin));
         return;
       }
+      if (event.data?.type === 'JACKYUN_COMPANION_LIST_MODELS') {
+        const requestId = String(event.data.requestId || '');
+        chrome.runtime.sendMessage({ type: 'AI_LIST_MODELS', provider: String(event.data.provider || '') }).then((response) => {
+          window.postMessage({ type: 'JACKYUN_COMPANION_MODELS', requestId, models: response?.ok && Array.isArray(response.result) ? response.result : [], error: response?.ok ? '' : String(response?.error || '') }, location.origin);
+        }).catch((error) => window.postMessage({ type: 'JACKYUN_COMPANION_MODELS', requestId, models: [], error: error?.message || String(error) }, location.origin));
+        return;
+      }
       if (event.data?.type !== 'JACKYUN_COMPANION_AI_PROMPT') return;
       const requestId = String(event.data.requestId || '');
       portalStatus({ requestId, stage: 'opening', detail: 'Companion 已接收请求，正在验证 BETA 资格…' });
       chrome.runtime.sendMessage({ type: 'AI_WEB_PROMPT', payload: {
         requestId, provider: String(event.data.provider || ''), prompt: String(event.data.prompt || ''),
-        conversationMode: String(event.data.conversationMode || 'new'), conversationUrl: String(event.data.conversationUrl || ''),
+        conversationMode: String(event.data.conversationMode || 'new'), conversationUrl: String(event.data.conversationUrl || ''), model: String(event.data.model || ''),
       } }).catch((error) => {
         console.error('[BETA/BrowserAI] Companion automation failed', error);
         portalStatus({ requestId, stage: 'error', detail: 'Companion 后台未能处理请求。', error: error?.message || String(error) });
@@ -149,7 +156,75 @@
     }) || Boolean(document.querySelector('[data-is-streaming="true"]'));
   }
 
+  function visible(element) {
+    return Boolean(element && element.getClientRects().length && element.getAttribute('aria-hidden') !== 'true');
+  }
+
+  function modelLabel(element) {
+    const lines = String(element?.innerText || element?.textContent || element?.getAttribute('aria-label') || '').split('\n').map((line) => line.trim()).filter(Boolean);
+    const useful = lines.find((line) => !/^(selected|new)$/i.test(line)) || '';
+    if (host === 'gemini.google.com') return useful.match(/^(?:\d+(?:\.\d+)+\s+(?:Flash-Lite|Flash|Pro)|Extended thinking)/i)?.[0] || useful;
+    return useful.replace(/^Selected\s+/i, '').trim();
+  }
+
+  async function openModelPicker() {
+    let trigger = null;
+    if (host === 'chatgpt.com') {
+      trigger = [...document.querySelectorAll('button')].find((button) => visible(button) && /^(Instant|Thinking effort|Auto|Fast)$/i.test(button.textContent?.trim() || '')) || null;
+    } else if (host === 'gemini.google.com') {
+      trigger = document.querySelector('[data-test-id="bard-mode-menu-button"], button[aria-label^="Open mode picker"]');
+    }
+    if (trigger && trigger.getAttribute('aria-expanded') !== 'true') {
+      trigger.click();
+      await new Promise((resolve) => setTimeout(resolve, 180));
+    }
+    return trigger;
+  }
+
+  async function listWebModels(keepOpen = false) {
+    const trigger = await openModelPicker();
+    let options = [];
+    if (host === 'chatgpt.com') options = [...document.querySelectorAll('[role="menuitemradio"]')];
+    else if (host === 'gemini.google.com') options = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')];
+    else if (host === 'chat.deepseek.com') options = [...document.querySelectorAll('[role="radio"], input[type="radio"]')];
+    else options = [...document.querySelectorAll('[role="menuitemradio"], [role="option"], [role="radio"]')];
+    const models = options.filter(visible).map((element) => {
+      const label = modelLabel(element);
+      const selected = element.getAttribute('aria-checked') === 'true' || element.getAttribute('aria-selected') === 'true' || element.checked === true || Boolean(element.querySelector?.('[aria-label="Selected"], [data-icon="check"]'));
+      return { id: label, label, selected };
+    }).filter((model) => model.label && model.label.length <= 100);
+    if (!keepOpen && trigger?.getAttribute('aria-expanded') === 'true') trigger.click();
+    return { models: [...new Map(models.map((model) => [model.id, model])).values()], trigger, options };
+  }
+
+  async function selectWebModel(requested) {
+    const model = String(requested || '').trim();
+    if (!model) return { ok: true, selected: '' };
+    const result = await listWebModels(true);
+    const option = result.options.find((element) => modelLabel(element) === model);
+    if (!option) {
+      if (result.trigger?.getAttribute('aria-expanded') === 'true') result.trigger.click();
+      throw new Error(`当前账号没有模型“${model}”`);
+    }
+    if (option.getAttribute('aria-checked') !== 'true' && option.getAttribute('aria-selected') !== 'true' && option.checked !== true) option.click();
+    else if (result.trigger?.getAttribute('aria-expanded') === 'true') result.trigger.click();
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    return { ok: true, selected: model };
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'AI_PAGE_STATUS') {
+      sendResponse({ ok: true, provider: host, url: location.href });
+      return true;
+    }
+    if (message.type === 'AI_LIST_MODELS') {
+      listWebModels().then(({ models }) => sendResponse({ ok: true, models })).catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
+      return true;
+    }
+    if (message.type === 'AI_SELECT_MODEL') {
+      selectWebModel(message.model).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
+      return true;
+    }
     if (message.type === 'AI_READ_RESPONSE') {
       const responses = assistantResponses();
       const latest = responses.at(-1);

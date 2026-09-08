@@ -211,7 +211,7 @@ export async function callAiApi(
 
   if (config.providerMode === 'browser') {
     if (localStorage.getItem('jackyun_beta_active') !== 'true') throw new Error('本地网页 AI 仅对 BETA 账户开放');
-    return requestBrowserAi(messages, config.browserProvider ?? 'chatgpt', config.companionAutomation === true, options.stream ?? false);
+    return requestBrowserAi(messages, config.browserProvider ?? 'chatgpt', config.companionAutomation === true, options.stream ?? false, options.model);
   }
 
   if ((config.providerMode ?? 'cloud') === 'personal' && (!baseUrl || !config.apiKey)) {

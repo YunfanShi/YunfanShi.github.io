@@ -62,6 +62,8 @@ interface AiChatFabProps {
   currentPath?: string;
   /** 独立工作台选择的管理员模型目录 ID。 */
   catalogModelId?: number;
+  /** 本地网页 AI 当前选择的账号模型。 */
+  browserModel?: string;
 }
 
 // ── Consent Dialog 类型 ─────────────────────────────────────────────────────
@@ -650,6 +652,7 @@ export default function AiChatFab({
   embeddedTitle = 'AI 助手',
   currentPath: propPath,
   catalogModelId,
+  browserModel,
 }: AiChatFabProps) {
   const pathname = usePathname();
   const currentPath = propPath || pathname || '';
@@ -1203,7 +1206,7 @@ export default function AiChatFab({
     const res = await callAiApi(apiMessages, {
       stream: true,
       temperature: options.temperature ?? getThinkingTemperature(thinkingLevel),
-      model: options.model,
+      model: options.model || browserModel,
       maxTokens: options.maxTokens,
       feature: thinkingLevel === 'high' ? 'reasoning' : 'chat',
       catalogModelId,

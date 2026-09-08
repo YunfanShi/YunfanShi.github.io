@@ -169,6 +169,19 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(extension, /conversationMode === 'selected'/);
   assert.match(content, /message-input-right-button-send/);
   assert.match(content, /JACKYUN_COMPANION_CONVERSATIONS/);
+  assert.match(extension, /isConversationUrl/);
+  assert.match(extension, /ensureAiPageReady/);
+  assert.match(extension, /AI_LIST_MODELS/);
+  assert.match(extension, /AI_SELECT_MODEL/);
+  assert.match(extension, /消息已发送，已等待/);
+  assert.match(content, /bard-mode-menu-button/);
+  assert.match(content, /menuitemradio/);
+  assert.match(content, /AI_SELECT_MODEL/);
+  assert.match(bridge, /Automation heartbeat timeout/);
+  assert.doesNotMatch(bridge, />progress_activity</);
+  const workspace = readFileSync(new URL('../src/components/ai/ai-workspace.tsx', import.meta.url), 'utf8');
+  assert.match(workspace, /JACKYUN_COMPANION_LIST_MODELS/);
+  assert.match(workspace, /browserModel=\{selectedModel\.id < 0/);
 });
 
 test('admin operations protect the owner, reset quota windows, notify users, and start chats', () => {

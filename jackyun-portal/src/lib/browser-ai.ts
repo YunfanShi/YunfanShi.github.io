@@ -17,6 +17,12 @@ export interface BrowserAiConversation {
   active: boolean;
 }
 
+export interface BrowserAiWebModel {
+  id: string;
+  label: string;
+  selected: boolean;
+}
+
 const CONVERSATION_TARGET_KEY = 'jackyun-browser-ai-conversation-target';
 
 export interface BrowserAiRequest {
@@ -25,6 +31,7 @@ export interface BrowserAiRequest {
   provider: BrowserAiProvider;
   conversationMode: BrowserAiConversationMode;
   conversationUrl: string;
+  model: string;
   automation: boolean;
   stream: boolean;
   resolve: (response: Response) => void;
@@ -68,11 +75,12 @@ export function requestBrowserAi(
   provider: BrowserAiProvider,
   automation: boolean,
   stream: boolean,
+  model = '',
 ): Promise<Response> {
   const conversation = getBrowserAiConversationTarget();
   return new Promise((resolve, reject) => {
     window.dispatchEvent(new CustomEvent<BrowserAiRequest>(BROWSER_AI_REQUEST_EVENT, {
-      detail: { id: crypto.randomUUID(), prompt: formatBrowserAiPrompt(messages), provider, conversationMode: conversation.mode, conversationUrl: conversation.url, automation, stream, resolve, reject },
+      detail: { id: crypto.randomUUID(), prompt: formatBrowserAiPrompt(messages), provider, conversationMode: conversation.mode, conversationUrl: conversation.url, model, automation, stream, resolve, reject },
     }));
   });
 }

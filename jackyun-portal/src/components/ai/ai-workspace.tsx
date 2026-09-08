@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { callAiApi, getAiConfig } from '@/lib/ai-config';
+import type { BrowserAiWebModel } from '@/lib/browser-ai';
 import { readAiStream } from '@/lib/ai-stream';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
 
@@ -44,13 +45,31 @@ function newConversation(): Conversation { return { id: id(), title: '新对话'
 export default function AiWorkspace({ models, planCode, initialMode = 'chat', initialPrompt = '' }: { models: ModelOption[]; planCode: string; initialMode?: 'chat' | 'agent'; initialPrompt?: string }) {
   const [mode, setMode] = useState<'chat' | 'agent'>(initialMode);
   const [personalModel, setPersonalModel] = useState<ModelOption | null>(null);
+  const [browserModels, setBrowserModels] = useState<ModelOption[]>([]);
+  const [browserModelStatus, setBrowserModelStatus] = useState(() => getAiConfig().providerMode === 'browser' ? '正在读取当前账号可用模型…' : '');
+  const [providerMode] = useState(() => getAiConfig().providerMode ?? 'cloud');
+  const [browserProvider] = useState(() => getAiConfig().browserProvider ?? 'chatgpt');
   useEffect(() => {
     const config = getAiConfig();
     if (config.providerMode !== 'personal' && config.providerMode !== 'browser') return;
     const label = config.providerMode === 'browser' ? `${config.browserProvider ?? 'Browser'} 网页版` : config.model || '个人 API 模型';
-    queueMicrotask(() => setPersonalModel({ id: -1, displayName: label, modelId: config.model || label, providerName: config.providerMode === 'browser' ? '本地网页 AI' : '个人 API', description: '使用你的个人配置，不消耗平台套餐额度', supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0 }));
+    queueMicrotask(() => setPersonalModel({ id: -1, displayName: label, modelId: config.providerMode === 'browser' ? '' : config.model || label, providerName: config.providerMode === 'browser' ? '本地网页 AI' : '个人 API', description: '使用你的个人配置，不消耗平台套餐额度', supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0 }));
   }, []);
-  const allModels = useMemo(() => personalModel ? [personalModel, ...models] : models, [models, personalModel]);
+  useEffect(() => {
+    if (providerMode !== 'browser') return;
+    const requestId = crypto.randomUUID();
+    const listener = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_MODELS' || event.data.requestId !== requestId) return;
+      const detected = (Array.isArray(event.data.models) ? event.data.models : []) as BrowserAiWebModel[];
+      setBrowserModels(detected.map((item, index) => ({ id: -1000 - index, displayName: item.label, modelId: item.id, providerName: '本地网页 AI', description: `${browserProvider} 当前登录账号可用${item.selected ? ' · 当前已选择' : ''}`, supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0 })));
+      setBrowserModelStatus(detected.length ? `已从 ${browserProvider} 读取 ${detected.length} 个模型` : event.data.error || '未读取到模型，将使用网站默认模型');
+    };
+    window.addEventListener('message', listener);
+    window.postMessage({ type: 'JACKYUN_COMPANION_LIST_MODELS', requestId, provider: browserProvider }, window.location.origin);
+    const timeout = window.setTimeout(() => setBrowserModelStatus((value) => value.startsWith('正在') ? '模型读取超时，将使用网站默认模型' : value), 10_000);
+    return () => { window.clearTimeout(timeout); window.removeEventListener('message', listener); };
+  }, [browserProvider, providerMode]);
+  const allModels = useMemo(() => providerMode === 'browser' ? (browserModels.length ? browserModels : personalModel ? [personalModel] : []) : personalModel ? [personalModel, ...models] : models, [browserModels, models, personalModel, providerMode]);
   const availableModels = useMemo(() => allModels.filter((model) => mode === 'agent' ? model.supportsAgent : model.supportsChat), [mode, allModels]);
   const [modelId, setModelId] = useState<number>(() => (initialMode === 'agent' ? models.find((model) => model.supportsAgent) : models.find((model) => model.supportsChat))?.id ?? 0);
   const selectedModel = availableModels.find((model) => model.id === modelId) ?? availableModels[0];
@@ -63,6 +82,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
         <ModeButton active={mode === 'agent'} icon="smart_toy" label="Agent" onClick={() => setMode('agent')} />
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-2">
+        {providerMode === 'browser' && <span className="hidden max-w-[220px] truncate text-xs text-[var(--muted-foreground)] lg:inline" title={browserModelStatus}>{browserModelStatus}</span>}
         <label className="relative min-w-0"><span className="sr-only">选择模型</span><select value={selectedModel?.id ?? 0} onChange={(event) => setModelId(Number(event.target.value))} disabled={!availableModels.length} className="h-10 max-w-[230px] appearance-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] py-0 pl-3 pr-9 text-sm font-medium outline-none focus:border-[#155eef] disabled:opacity-60"><option value={0}>{availableModels.length ? '选择模型' : '当前套餐暂无模型'}</option>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.displayName} · {model.providerName}</option>)}</select><span className="material-icons-round pointer-events-none absolute right-2.5 top-2.5 text-lg text-[var(--muted-foreground)]">expand_more</span></label>
         <Link href="/settings?section=ai" aria-label="AI 设置" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--card-border)] text-[var(--muted-foreground)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)]"><span className="material-icons-round text-xl">settings</span></Link>
       </div>
@@ -71,7 +91,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
     {selectedModel && <div className="flex min-h-10 items-center gap-2 border-b border-[var(--card-border)] bg-[var(--background)]/70 px-4 text-xs text-[var(--muted-foreground)] sm:px-6"><span className={`h-2 w-2 rounded-full ${selectedModel.supportsAgent ? 'bg-[#7f56d9]' : 'bg-[#17b26a]'}`} /><span className="truncate">{selectedModel.description || selectedModel.modelId}</span><span className="ml-auto hidden shrink-0 sm:inline">输入 ¥{selectedModel.inputCostPerMillion}/M · 输出 ¥{selectedModel.outputCostPerMillion}/M{selectedModel.contextWindow ? ` · ${Math.round(selectedModel.contextWindow / 1000)}K 上下文` : ''}</span></div>}
 
     <div className="min-h-0 flex-1">
-      {!selectedModel ? <NoModels planCode={planCode} /> : mode === 'chat' ? <ChatWorkspace model={selectedModel} initialPrompt={initialPrompt} /> : <div className="h-full min-h-0 bg-[var(--background)]"><AgentWorkspace embedded embeddedTitle="Agent 工作台" currentPath="/ai" catalogModelId={selectedModel.id > 0 ? selectedModel.id : undefined} /></div>}
+      {!selectedModel ? <NoModels planCode={planCode} /> : mode === 'chat' ? <ChatWorkspace model={selectedModel} initialPrompt={initialPrompt} /> : <div className="h-full min-h-0 bg-[var(--background)]"><AgentWorkspace embedded embeddedTitle="Agent 工作台" currentPath="/ai" catalogModelId={selectedModel.id > 0 ? selectedModel.id : undefined} browserModel={selectedModel.id < 0 ? selectedModel.modelId : undefined} /></div>}
     </div>
   </div>;
 }
@@ -120,7 +140,7 @@ function ChatWorkspace({ model, initialPrompt }: { model: ModelOption; initialPr
       const response = await callAiApi([
         { role: 'system', content: '你是 JackYun AI 的聊天助手。直接、清晰地回答用户，不要声称执行了未实际执行的操作。' },
         ...messages.filter((message) => !message.failed).map(({ role, content }) => ({ role, content })),
-      ], { stream: true, maxTokens: 4000, feature: 'chat', catalogModelId: model.id > 0 ? model.id : undefined, workspaceMode: 'chat', signal: controller.signal });
+      ], { stream: true, maxTokens: 4000, model: model.id < 0 ? model.modelId : undefined, feature: 'chat', catalogModelId: model.id > 0 ? model.id : undefined, workspaceMode: 'chat', signal: controller.signal });
       if (!response.ok) throw new Error(await responseError(response));
       await readAiStream(response, (result) => {
         setStatus(result.content ? '正在生成…' : '正在思考…');

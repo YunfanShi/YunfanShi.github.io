@@ -1,5 +1,5 @@
 export const BETA_AGREEMENT_VERSION = '2026-09-03';
-export const COMPANION_BETA_VERSION = '1.6.0';
+export const COMPANION_BETA_VERSION = '1.7.0';
 
 export const BETA_FEATURES = [
   {
@@ -16,7 +16,7 @@ export const BETA_FEATURES = [
     name: 'Companion 自动打开与填写',
     version: `Companion ${COMPANION_BETA_VERSION}`,
     status: '新 BETA',
-    description: '自动打开所选 AI 网页、填写并发送 Prompt，等待完整回复后回传 Portal。',
+    description: '自动识别账号模型、切换模型，打开所选 AI 对话并发送 Prompt，等待完整回复后回传 Portal。',
     testPoints: ['安装最新 BETA ZIP 并重新加载扩展', '扩展和 Portal 登录同一 BETA 账号', '确认打开、填写、等待、回传五个阶段都有状态'],
     knownIssue: '第三方 AI 网页改版或未登录时可能无法定位输入框；此时可直接使用页面里的手动复制模式。',
   },

@@ -13,15 +13,26 @@ export default function BrowserAiBridge() {
   const [automationStage, setAutomationStage] = useState<'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error'>('idle');
   const [companionState, setCompanionState] = useState<'checking' | 'ready' | 'outdated' | 'missing'>('checking');
   const [companionVersion, setCompanionVersion] = useState('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const requestRef = useRef<BrowserAiRequest | null>(null);
   const connectionTimerRef = useRef<number | null>(null);
+  const automationTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const dispatched = new Set<string>();
     const dispatchAutomation = (next: BrowserAiRequest) => {
       if (dispatched.has(next.id)) return;
       dispatched.add(next.id);
-      window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt, conversationMode: next.conversationMode, conversationUrl: next.conversationUrl }, window.location.origin);
+      window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt, conversationMode: next.conversationMode, conversationUrl: next.conversationUrl, model: next.model }, window.location.origin);
+    };
+    const resetAutomationWatchdog = (requestId: string) => {
+      if (automationTimerRef.current) window.clearTimeout(automationTimerRef.current);
+      automationTimerRef.current = window.setTimeout(() => {
+        if (requestRef.current?.id !== requestId) return;
+        setAutomationStage('error');
+        setNotice('Companion 已超过 20 秒没有更新进度，任务可能卡住。你可以取消后重试，或使用下方手动复制模式。');
+        console.error('[BETA/BrowserAI] Automation heartbeat timeout', { requestId });
+      }, 20_000);
     };
     const activateRequest = (next: BrowserAiRequest) => {
       setReply('');
@@ -29,8 +40,10 @@ export default function BrowserAiBridge() {
       setRequest(next);
       requestRef.current = next;
       setAutomationStage(next.automation ? 'opening' : 'idle');
+      setElapsedSeconds(0);
       console.info('[BETA/BrowserAI] Request created', { requestId: next.id, provider: next.provider, automation: next.automation, promptLength: next.prompt.length });
       if (next.automation) {
+        resetAutomationWatchdog(next.id);
         setCompanionState('checking');
         setCompanionVersion('');
         window.postMessage({ type: 'JACKYUN_COMPANION_PING' }, window.location.origin);
@@ -63,6 +76,7 @@ export default function BrowserAiBridge() {
         provider: config.browserProvider ?? 'chatgpt',
         conversationMode: conversation.mode,
         conversationUrl: conversation.url,
+        model: '',
         automation: config.companionAutomation === true,
         stream: event.data.stream === true,
         resolve: async (response) => source?.postMessage({ type: 'JACKYUN_BROWSER_AI_RESPONSE', requestId, ok: true, body: await response.text(), stream: event.data.stream === true }, { targetOrigin: event.origin }),
@@ -86,6 +100,7 @@ export default function BrowserAiBridge() {
       }
       setCompanionState('ready');
       setNotice(`Companion ${version} 已连接，正在发送任务…`);
+      resetAutomationWatchdog(active.id);
       dispatchAutomation(active);
     };
     window.addEventListener('message', readyListener);
@@ -96,8 +111,12 @@ export default function BrowserAiBridge() {
       if (connectionTimerRef.current) { window.clearTimeout(connectionTimerRef.current); connectionTimerRef.current = null; }
       setCompanionState('ready');
       const stage = event.data.stage as typeof automationStage;
+      console.info('[BETA/BrowserAI] Status', { requestId: active.id, stage, detail: event.data.detail || '', error: event.data.error || '' });
       if (['opening', 'filling', 'waiting', 'receiving', 'complete', 'error'].includes(stage)) setAutomationStage(stage);
       setNotice(event.data.error || event.data.detail || '');
+      if (stage === 'complete' || stage === 'error') {
+        if (automationTimerRef.current) { window.clearTimeout(automationTimerRef.current); automationTimerRef.current = null; }
+      } else resetAutomationWatchdog(active.id);
       if (stage === 'complete' && typeof event.data.reply === 'string' && event.data.reply.trim()) {
         const content = event.data.reply.trim();
         setReply(content);
@@ -108,8 +127,14 @@ export default function BrowserAiBridge() {
     };
     window.addEventListener('message', statusListener);
     window.postMessage({ type: 'JACKYUN_COMPANION_PING' }, window.location.origin);
-    return () => { if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current); window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', readyListener); window.removeEventListener('message', statusListener); };
+    return () => { if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current); if (automationTimerRef.current) window.clearTimeout(automationTimerRef.current); window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', readyListener); window.removeEventListener('message', statusListener); };
   }, []);
+
+  useEffect(() => {
+    if (!request?.automation || automationStage === 'complete') return;
+    const timer = window.setInterval(() => setElapsedSeconds((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [request?.automation, automationStage]);
 
   useEffect(() => {
     if (!request) return;
@@ -118,6 +143,7 @@ export default function BrowserAiBridge() {
       console.warn('[BETA/BrowserAI] Request cancelled with Escape', { requestId: request.id });
       request.reject(new Error(BROWSER_AI_CANCELLED));
       if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current);
+      if (automationTimerRef.current) window.clearTimeout(automationTimerRef.current);
       requestRef.current = null;
       setRequest(null);
     };
@@ -130,6 +156,7 @@ export default function BrowserAiBridge() {
     console.warn('[BETA/BrowserAI] Request cancelled', { requestId: request.id });
     request.reject(new Error(BROWSER_AI_CANCELLED));
     if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current);
+    if (automationTimerRef.current) window.clearTimeout(automationTimerRef.current);
     requestRef.current = null;
     setRequest(null);
   };
@@ -167,7 +194,7 @@ export default function BrowserAiBridge() {
       </header>
 
       <div className="overflow-y-auto p-5 sm:p-6" data-scroll-region>
-        {request.automation ? <><CompanionConnection state={companionState} version={companionVersion} /><AutomationProgress stage={automationStage} /></> : <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>}
+        {request.automation ? <><CompanionConnection state={companionState} version={companionVersion} /><AutomationProgress stage={automationStage} detail={notice} elapsedSeconds={elapsedSeconds} />{notice && <p role="status" className="mb-4 rounded-xl border border-[#bae6fd] bg-[#f0f9ff] px-3 py-2.5 text-xs leading-5 text-[#075985] dark:border-[#24516a] dark:bg-[#0b2639] dark:text-[#7dd3fc]">{notice}</p>}</> : <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>}
 
         <button type="button" onClick={copy} className="min-h-12 w-full rounded-xl bg-[#0891b2] px-4 text-sm font-bold text-white shadow-md shadow-cyan-950/15"><span className="material-icons-round mr-2 align-middle text-lg">content_copy</span>复制完整 Prompt 和数据</button>
         <details className="mt-3 overflow-hidden rounded-xl border border-[var(--card-border)]"><summary className="cursor-pointer px-3 py-3 text-xs font-bold text-[var(--muted-foreground)]">查看完整 Prompt</summary><textarea readOnly value={request.prompt} rows={9} onFocus={(event) => event.currentTarget.select()} className="w-full resize-y border-t border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none" /></details>
@@ -175,7 +202,7 @@ export default function BrowserAiBridge() {
         <label className="mt-5 block text-sm font-bold">粘贴 AI 的完整回复</label>
         <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">必须遵守 Prompt 中的响应格式。若要求 JSON / NDJSON，请勿添加 Markdown 代码围栏、前言或解释。</p>
         <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={10} placeholder="把 ChatGPT、DeepSeek、Claude、Gemini 或其他 AI 的完整回复粘贴到这里…" className="mt-3 w-full resize-y rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none focus:border-[#0891b2] focus:ring-4 focus:ring-[#0891b2]/10" />
-        {notice && <p role="status" className="mt-3 rounded-xl border border-[#bae6fd] bg-[#f0f9ff] px-3 py-2.5 text-xs leading-5 text-[#075985] dark:border-[#24516a] dark:bg-[#0b2639] dark:text-[#7dd3fc]">{notice}</p>}
+        {!request.automation && notice && <p role="status" className="mt-3 rounded-xl border border-[#bae6fd] bg-[#f0f9ff] px-3 py-2.5 text-xs leading-5 text-[#075985] dark:border-[#24516a] dark:bg-[#0b2639] dark:text-[#7dd3fc]">{notice}</p>}
       </div>
 
       <footer className="mt-auto grid grid-cols-[auto_1fr] gap-2 border-t border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5"><button type="button" onClick={close} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-bold">取消</button><button type="button" disabled={!reply.trim()} onClick={submit} className="min-h-11 rounded-xl border-2 border-[#0891b2] px-4 text-sm font-bold text-[#0e7490] disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#67e8f9]"><span className="material-icons-round mr-2 align-middle text-lg">download_done</span>导入回复并继续</button></footer>
@@ -192,8 +219,8 @@ function CompanionConnection({ state, version }: { state: 'checking' | 'ready' |
   return <div className={`mb-3 flex items-start gap-3 rounded-2xl border p-3 ${view.tone}`}><span className={`material-icons-round mt-0.5 ${state === 'checking' ? 'animate-pulse' : ''}`}>{view.icon}</span><div><p className="text-sm font-bold">{view.title}</p><p className="mt-0.5 text-xs leading-5 opacity-80">{view.detail}</p></div></div>;
 }
 
-function AutomationProgress({ stage }: { stage: 'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error' }) {
+function AutomationProgress({ stage, detail, elapsedSeconds }: { stage: 'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error'; detail: string; elapsedSeconds: number }) {
   const steps = [{ key: 'opening', label: '打开网站' }, { key: 'filling', label: '填写发送' }, { key: 'waiting', label: '等待回复' }, { key: 'receiving', label: '接收内容' }, { key: 'complete', label: '返回网站' }];
   const current = stage === 'idle' ? 0 : Math.max(0, steps.findIndex((item) => item.key === stage));
-  return <div className="mb-5 rounded-2xl border border-[#bae6fd] bg-[#f0f9ff] p-4 dark:border-[#24516a] dark:bg-[#0b2639]"><div className="flex items-center gap-2 text-sm font-bold text-[#075985] dark:text-[#7dd3fc]"><span className={`material-icons-round ${stage === 'error' ? 'text-[#dc2626]' : stage === 'complete' ? 'text-[#16a34a]' : 'animate-spin'}`}>{stage === 'error' ? 'error' : stage === 'complete' ? 'check_circle' : 'progress_activity'}</span>{stage === 'error' ? '自动处理需要帮助' : stage === 'complete' ? '回复已收到' : 'Jack Companion 正在处理'}</div><ol className="mt-4 grid grid-cols-5 gap-1 text-center text-[9px] font-semibold text-[#64748b]">{steps.map((item, index) => <li key={item.key}><span className={`mx-auto grid h-6 w-6 place-items-center rounded-full ${stage !== 'error' && index <= current ? 'bg-[#0891b2] text-white' : 'bg-white text-[#64748b] dark:bg-white/10'}`}>{index + 1}</span><span className="mt-1 block">{item.label}</span></li>)}</ol></div>;
+  return <div className="mb-3 min-w-0 rounded-2xl border border-[#bae6fd] bg-[#f0f9ff] p-4 dark:border-[#24516a] dark:bg-[#0b2639]"><div className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#075985] dark:text-[#7dd3fc]">{stage === 'error' || stage === 'complete' ? <span className={`material-icons-round shrink-0 ${stage === 'error' ? 'text-[#dc2626]' : 'text-[#16a34a]'}`}>{stage === 'error' ? 'error' : 'check_circle'}</span> : <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[#0891b2]/30 border-t-[#0891b2]" aria-hidden="true" />}<span className="min-w-0 flex-1 truncate">{stage === 'error' ? '自动处理需要帮助' : stage === 'complete' ? '回复已收到' : 'Jack Companion 正在处理'}</span><span className="shrink-0 text-xs font-medium tabular-nums opacity-70">{elapsedSeconds}s</span></div><p className="mt-2 truncate text-xs text-[#39708a] dark:text-[#9bdcf5]" title={detail}>{detail || '正在准备任务…'}</p><ol className="mt-4 grid grid-cols-5 gap-1 text-center text-[9px] font-semibold text-[#64748b]">{steps.map((item, index) => <li key={item.key} className="min-w-0"><span className={`mx-auto grid h-6 w-6 place-items-center rounded-full ${stage !== 'error' && index <= current ? 'bg-[#0891b2] text-white' : 'bg-white text-[#64748b] dark:bg-white/10'}`}>{index + 1}</span><span className="mt-1 block truncate" title={item.label}>{item.label}</span></li>)}</ol></div>;
 }
