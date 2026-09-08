@@ -58,9 +58,9 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
   return <div className="mx-auto flex h-[calc(100dvh-8.5rem)] min-h-[620px] max-w-[1600px] flex-col overflow-hidden rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] shadow-[0_24px_80px_rgba(15,23,42,0.10)]">
     <header className="flex min-h-[72px] flex-wrap items-center gap-3 border-b border-[var(--card-border)] px-4 py-3 sm:px-6">
       <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-[#155eef] to-[#7f56d9] text-white shadow-lg shadow-[#155eef]/20"><span className="material-icons-round">auto_awesome</span></div><div><h1 className="text-base font-semibold tracking-tight">JackYun AI</h1><p className="text-xs text-[var(--muted-foreground)]">{planCode.toUpperCase()} 套餐</p></div></div>
-      <div className="order-3 flex w-full rounded-xl bg-[var(--background)] p-1 sm:order-none sm:ml-4 sm:w-auto">
+      <div className="order-3 grid w-full grid-cols-2 rounded-xl bg-[var(--background)] p-1 sm:order-none sm:ml-4 sm:w-[240px]">
         <ModeButton active={mode === 'chat'} icon="chat_bubble" label="聊天" onClick={() => setMode('chat')} />
-        <ModeButton active={mode === 'agent'} icon="neurology" label="Agent" onClick={() => setMode('agent')} />
+        <ModeButton active={mode === 'agent'} icon="smart_toy" label="Agent" onClick={() => setMode('agent')} />
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-2">
         <label className="relative min-w-0"><span className="sr-only">选择模型</span><select value={selectedModel?.id ?? 0} onChange={(event) => setModelId(Number(event.target.value))} disabled={!availableModels.length} className="h-10 max-w-[230px] appearance-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] py-0 pl-3 pr-9 text-sm font-medium outline-none focus:border-[#155eef] disabled:opacity-60"><option value={0}>{availableModels.length ? '选择模型' : '当前套餐暂无模型'}</option>{availableModels.map((model) => <option key={model.id} value={model.id}>{model.displayName} · {model.providerName}</option>)}</select><span className="material-icons-round pointer-events-none absolute right-2.5 top-2.5 text-lg text-[var(--muted-foreground)]">expand_more</span></label>
@@ -77,7 +77,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
 }
 
 function ModeButton({ active, icon, label, onClick }: { active: boolean; icon: string; label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`flex h-9 flex-1 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition sm:flex-none ${active ? 'bg-[var(--card)] text-[var(--foreground)] shadow-sm' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}><span className="material-icons-round text-lg">{icon}</span>{label}</button>;
+  return <button type="button" onClick={onClick} className={`flex h-10 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition ${active ? 'bg-[var(--card)] text-[var(--foreground)] shadow-sm' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}><span className="material-icons-round shrink-0 text-lg">{icon}</span><span>{label}</span></button>;
 }
 
 function ChatWorkspace({ model, initialPrompt }: { model: ModelOption; initialPrompt: string }) {

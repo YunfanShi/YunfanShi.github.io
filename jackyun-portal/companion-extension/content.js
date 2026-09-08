@@ -31,7 +31,12 @@
       type: 'JACKYUN_COMPANION_AI_STATUS', ...payload,
     }, location.origin);
     window.addEventListener('message', (event) => {
-      if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'JACKYUN_COMPANION_AI_PROMPT') return;
+      if (event.source !== window || event.origin !== location.origin) return;
+      if (event.data?.type === 'JACKYUN_COMPANION_PING') {
+        window.postMessage({ type: 'JACKYUN_COMPANION_READY', version: chrome.runtime.getManifest().version }, location.origin);
+        return;
+      }
+      if (event.data?.type !== 'JACKYUN_COMPANION_AI_PROMPT') return;
       const requestId = String(event.data.requestId || '');
       portalStatus({ requestId, stage: 'opening', detail: 'Companion 已接收请求，正在验证 BETA 资格…' });
       chrome.runtime.sendMessage({ type: 'AI_WEB_PROMPT', payload: {
@@ -55,15 +60,47 @@
   }
 
   function setNativeValue(element, value) {
+    element.focus();
     if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
       const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(element, value);
     } else {
-      element.focus();
-      element.textContent = value;
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      if (!document.execCommand('insertText', false, value)) element.textContent = value;
     }
+    element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: value }));
     element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function composerValue(element) {
+    return element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement ? element.value : element.textContent || '';
+  }
+
+  function submitPrompt(composer) {
+    const scopedRoot = composer.closest('form') || composer.parentElement?.parentElement || document;
+    const controls = [...scopedRoot.querySelectorAll('button, [role="button"]'), ...document.querySelectorAll('button, [role="button"]')];
+    const enabled = (control) => control.getAttribute('aria-disabled') !== 'true' && !control.disabled && !control.classList.contains('ds-button--disabled') && control.getClientRects().length;
+    if (host === 'chat.deepseek.com') {
+      const deepseekSend = controls.filter((control) => enabled(control) && control.matches('.ds-button--primary[role="button"]')).at(-1);
+      if (deepseekSend) { deepseekSend.click(); return 'deepseek-button'; }
+    }
+    const submit = controls.find((button) => {
+      const label = `${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`.toLowerCase();
+      return enabled(button) && (button.type === 'submit' || /(send|submit|发送|提交)/.test(label));
+    });
+    if (submit) { submit.click(); return 'button'; }
+    const form = composer.closest('form');
+    if (form && typeof form.requestSubmit === 'function') { form.requestSubmit(); return 'form'; }
+    const eventOptions = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true };
+    composer.dispatchEvent(new KeyboardEvent('keydown', eventOptions));
+    composer.dispatchEvent(new KeyboardEvent('keypress', eventOptions));
+    composer.dispatchEvent(new KeyboardEvent('keyup', eventOptions));
+    return 'keyboard';
   }
 
   function aiComposer() {
@@ -114,15 +151,9 @@
       if (!composer) throw new Error('找不到 AI 输入框，网页结构可能已更新');
       setNativeValue(composer, String(message.prompt || ''));
       composer.focus();
-      if (message.submit) {
-        const submit = [...document.querySelectorAll('button')].find((button) => {
-          const label = `${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''}`.toLowerCase();
-          return !button.disabled && button.getClientRects().length && /(send|submit|发送|提交)/.test(label);
-        });
-        if (submit) submit.click();
-        else composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-      }
-      sendResponse({ ok: true, baselineCount });
+      if (!composerValue(composer).trim()) throw new Error('已找到输入框，但网页没有接受 Prompt');
+      const submittedBy = message.submit ? submitPrompt(composer) : 'none';
+      sendResponse({ ok: true, baselineCount, submittedBy });
     } catch (error) { sendResponse({ ok: false, error: error.message || String(error) }); }
     return true;
   });

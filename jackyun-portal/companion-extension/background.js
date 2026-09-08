@@ -101,10 +101,17 @@ async function getConfig() {
 
 async function getDevice() {
   const stored = await local.get(['device']);
-  if (stored.device?.id) return stored.device;
   const platform = /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
-  const device = { id: uuid(), name: `${platform === 'edge' ? 'Edge' : 'Chrome'} · ${navigator.platform || 'Computer'}`, platform, browserVersion: navigator.userAgent.slice(0, 80), extensionVersion: VERSION };
-  await local.set({ device });
+  const previous = stored.device && typeof stored.device === 'object' ? stored.device : {};
+  const device = {
+    ...previous,
+    id: previous.id || uuid(),
+    name: previous.name || `${platform === 'edge' ? 'Edge' : 'Chrome'} · ${navigator.platform || 'Computer'}`,
+    platform,
+    browserVersion: navigator.userAgent.slice(0, 80),
+    extensionVersion: VERSION,
+  };
+  if (JSON.stringify(device) !== JSON.stringify(previous)) await local.set({ device });
   return device;
 }
 
@@ -363,7 +370,10 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
   const matches = await chrome.tabs.query({ url: `${target.origin}/*` });
   const tab = matches[0] || await chrome.tabs.create({ url: target.href, active: true });
   if (!tab.id) throw new Error('无法打开 AI 网页');
-  await chrome.tabs.update(tab.id, { active: true });
+  // Reload an existing AI tab through its canonical URL. Content scripts added by
+  // an extension update are not injected into pages that were already open.
+  await chrome.tabs.update(tab.id, { active: true, url: target.href });
+  await delay(150);
   await waitForTab(tab.id);
   await notifyAiStatus(portalTabId, payload, 'filling', '网站已打开，正在定位输入框并填写消息…');
   let lastError = null;
@@ -405,7 +415,7 @@ async function syncNow() {
 async function getStatus() {
   const [stored, current, device, prefs] = await Promise.all([local.get(['activity', 'lastSyncAt', 'lastSyncError', 'refreshToken', 'focus']), session.get(['accessToken']), getDevice(), preferences()]);
   const todayRows = Object.values(stored.activity || {}).filter((item) => item.activityDate === day());
-  return { signedIn: Boolean(stored.refreshToken || current.accessToken), device, preferences: prefs, todaySeconds: todayRows.reduce((sum, item) => sum + Number(item.activeSeconds || 0), 0), sites: todayRows.sort((a, b) => b.activeSeconds - a.activeSeconds), lastSyncAt: stored.lastSyncAt || 0, lastSyncError: stored.lastSyncError || '', focus: stored.focus || null };
+  return { signedIn: Boolean(stored.refreshToken || current.accessToken), device, preferences: prefs, todaySeconds: todayRows.reduce((sum, item) => sum + Number(item.activeSeconds || 0), 0), sites: todayRows.sort((a, b) => b.activeSeconds - a.activeSeconds), lastSyncAt: stored.lastSyncAt || 0, lastSyncError: stored.lastSyncError || '', focus: stored.focus || null, automation: { available: true, version: VERSION, providers: Object.keys(AI_PROVIDER_URLS) } };
 }
 
 async function startFocus(minutes) {
@@ -449,7 +459,7 @@ async function importLiteData(payload) {
 
 chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create('companion-sync', { periodInMinutes: 5 });
-  getDevice();
+  getDevice().then(() => syncNow()).catch((error) => local.set({ lastSyncError: error.message || String(error) }));
   adblockConfig().then(async (config) => {
     await local.set({ adblock: config });
     await applyAdblockRules(config);

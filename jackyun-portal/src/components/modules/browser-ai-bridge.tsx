@@ -11,23 +11,34 @@ export default function BrowserAiBridge() {
   const [reply, setReply] = useState('');
   const [notice, setNotice] = useState('');
   const [automationStage, setAutomationStage] = useState<'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error'>('idle');
+  const [companionState, setCompanionState] = useState<'checking' | 'ready' | 'outdated' | 'missing'>('checking');
+  const [companionVersion, setCompanionVersion] = useState('');
   const requestRef = useRef<BrowserAiRequest | null>(null);
   const connectionTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const dispatched = new Set<string>();
+    const dispatchAutomation = (next: BrowserAiRequest) => {
+      if (dispatched.has(next.id)) return;
+      dispatched.add(next.id);
+      window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt }, window.location.origin);
+    };
     const activateRequest = (next: BrowserAiRequest) => {
       setReply('');
       setNotice('');
       setRequest(next);
       requestRef.current = next;
       setAutomationStage(next.automation ? 'opening' : 'idle');
-      console.info('[BETA/BrowserAI] Manual request created', { requestId: next.id, provider: next.provider, automation: next.automation, promptLength: next.prompt.length });
+      console.info('[BETA/BrowserAI] Request created', { requestId: next.id, provider: next.provider, automation: next.automation, promptLength: next.prompt.length });
       if (next.automation) {
-        window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt }, window.location.origin);
-        setNotice('正在连接 JackYun Companion…');
+        setCompanionState('checking');
+        setCompanionVersion('');
+        window.postMessage({ type: 'JACKYUN_COMPANION_PING' }, window.location.origin);
+        setNotice(`正在检查 Companion ${COMPANION_BETA_VERSION} 连接…`);
         if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current);
         connectionTimerRef.current = window.setTimeout(() => {
           if (requestRef.current?.id !== next.id) return;
+          setCompanionState('missing');
           setAutomationStage('error');
           setNotice(`未检测到 Companion ${COMPANION_BETA_VERSION}。请安装或重新加载最新 BETA 扩展，也可以直接使用下方手动复制模式。`);
         }, 4000);
@@ -57,11 +68,30 @@ export default function BrowserAiBridge() {
       activateRequest(next);
     };
     window.addEventListener('message', legacyListener);
+    const readyListener = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_READY') return;
+      const version = String(event.data.version || '未知');
+      setCompanionVersion(version);
+      const active = requestRef.current;
+      if (!active?.automation) return;
+      if (version !== COMPANION_BETA_VERSION) {
+        if (connectionTimerRef.current) { window.clearTimeout(connectionTimerRef.current); connectionTimerRef.current = null; }
+        setCompanionState('outdated');
+        setAutomationStage('error');
+        setNotice(`已连接 Companion ${version}，但自动处理需要 ${COMPANION_BETA_VERSION}。请重新加载最新扩展。`);
+        return;
+      }
+      setCompanionState('ready');
+      setNotice(`Companion ${version} 已连接，正在发送任务…`);
+      dispatchAutomation(active);
+    };
+    window.addEventListener('message', readyListener);
     const statusListener = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_AI_STATUS') return;
       const active = requestRef.current;
       if (!active || event.data.requestId !== active.id) return;
       if (connectionTimerRef.current) { window.clearTimeout(connectionTimerRef.current); connectionTimerRef.current = null; }
+      setCompanionState('ready');
       const stage = event.data.stage as typeof automationStage;
       if (['opening', 'filling', 'waiting', 'receiving', 'complete', 'error'].includes(stage)) setAutomationStage(stage);
       setNotice(event.data.error || event.data.detail || '');
@@ -74,7 +104,8 @@ export default function BrowserAiBridge() {
       }
     };
     window.addEventListener('message', statusListener);
-    return () => { if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current); window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', statusListener); };
+    window.postMessage({ type: 'JACKYUN_COMPANION_PING' }, window.location.origin);
+    return () => { if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current); window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', readyListener); window.removeEventListener('message', statusListener); };
   }, []);
 
   useEffect(() => {
@@ -133,7 +164,7 @@ export default function BrowserAiBridge() {
       </header>
 
       <div className="overflow-y-auto p-5 sm:p-6" data-scroll-region>
-        {request.automation ? <AutomationProgress stage={automationStage} /> : <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>}
+        {request.automation ? <><CompanionConnection state={companionState} version={companionVersion} /><AutomationProgress stage={automationStage} /></> : <ol className="mb-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold text-[var(--muted-foreground)]"><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">1</span><span className="mt-1.5 block">复制</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">2</span><span className="mt-1.5 block">发送</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-[#0891b2] text-white">3</span><span className="mt-1.5 block">粘贴</span></li><li><span className="mx-auto grid h-7 w-7 place-items-center rounded-full border-2 border-[#0891b2] bg-[var(--card)] text-[#0e7490]">4</span><span className="mt-1.5 block">导入</span></li></ol>}
 
         <button type="button" onClick={copy} className="min-h-12 w-full rounded-xl bg-[#0891b2] px-4 text-sm font-bold text-white shadow-md shadow-cyan-950/15"><span className="material-icons-round mr-2 align-middle text-lg">content_copy</span>复制完整 Prompt 和数据</button>
         <details className="mt-3 overflow-hidden rounded-xl border border-[var(--card-border)]"><summary className="cursor-pointer px-3 py-3 text-xs font-bold text-[var(--muted-foreground)]">查看完整 Prompt</summary><textarea readOnly value={request.prompt} rows={9} onFocus={(event) => event.currentTarget.select()} className="w-full resize-y border-t border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none" /></details>
@@ -147,6 +178,15 @@ export default function BrowserAiBridge() {
       <footer className="mt-auto grid grid-cols-[auto_1fr] gap-2 border-t border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5"><button type="button" onClick={close} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-bold">取消</button><button type="button" disabled={!reply.trim()} onClick={submit} className="min-h-11 rounded-xl border-2 border-[#0891b2] px-4 text-sm font-bold text-[#0e7490] disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#67e8f9]"><span className="material-icons-round mr-2 align-middle text-lg">download_done</span>导入回复并继续</button></footer>
     </aside>
   </div>;
+}
+
+function CompanionConnection({ state, version }: { state: 'checking' | 'ready' | 'outdated' | 'missing'; version: string }) {
+  const view = state === 'ready'
+    ? { icon: 'extension', title: `Companion ${version} 已连接`, detail: '任务进度会实时显示在这里。', tone: 'border-[#86efac] bg-[#f0fdf4] text-[#166534] dark:border-[#166534] dark:bg-[#052e16] dark:text-[#86efac]' }
+    : state === 'checking'
+      ? { icon: 'sensors', title: '正在检测 Companion', detail: '请保持此页面打开，稍后会自动切换到 AI 网站。', tone: 'border-[#bae6fd] bg-[#f0f9ff] text-[#075985] dark:border-[#24516a] dark:bg-[#0b2639] dark:text-[#7dd3fc]' }
+      : { icon: 'extension_off', title: state === 'outdated' ? `扩展版本过旧：${version || '未知'}` : '没有检测到 Companion', detail: `自动处理需要 Companion ${COMPANION_BETA_VERSION}；下方仍可手动复制。`, tone: 'border-[#fbbf24] bg-[#fffbeb] text-[#92400e] dark:border-[#92400e] dark:bg-[#451a03] dark:text-[#fde68a]' };
+  return <div className={`mb-3 flex items-start gap-3 rounded-2xl border p-3 ${view.tone}`}><span className={`material-icons-round mt-0.5 ${state === 'checking' ? 'animate-pulse' : ''}`}>{view.icon}</span><div><p className="text-sm font-bold">{view.title}</p><p className="mt-0.5 text-xs leading-5 opacity-80">{view.detail}</p></div></div>;
 }
 
 function AutomationProgress({ stage }: { stage: 'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error' }) {

@@ -8,6 +8,9 @@ const manifestPath = 'companion-extension/manifest.json';
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const popupHtml = readFileSync('companion-extension/popup.html', 'utf8');
 const popupSource = readFileSync('companion-extension/popup.js', 'utf8');
+for (const file of sourceFiles('companion-extension').filter((name) => name.endsWith('.js'))) {
+  execFileSync(process.execPath, ['--check', join('companion-extension', file)], { stdio: 'pipe' });
+}
 for (const [, id] of popupSource.matchAll(/\$\('#([^']+)'\)/g)) {
   if (!popupHtml.includes(`id="${id}"`)) throw new Error(`Popup script references missing element #${id}`);
 }

@@ -34,6 +34,9 @@ async function render() {
   $('#tool-timezone').checked = tools.timezoneBadges;
   renderAdblock();
   renderSafeguardSites();
+  $('#automation-version').textContent = `v${status.automation?.version || status.device?.extensionVersion || chrome.runtime.getManifest().version}`;
+  $('#automation-status').classList.add('active');
+  $('#automation-status').querySelector('span').textContent = status.signedIn ? '自动化引擎已就绪 · Portal 开启后即可使用' : '引擎已就绪 · 登录后可验证 BETA 资格';
   try {
     const betaLogs = await send({ type: 'BETA_AI_LOGS' });
     $('#beta-ai-logs').textContent = betaLogs.length ? betaLogs.slice(-8).reverse().map((entry) => `${entry.at} · ${entry.type}${entry.provider ? ` · ${entry.provider}` : ''}${entry.error ? ` · ${entry.error}` : ''}`).join('\n') : '尚无日志';
@@ -177,6 +180,7 @@ $('#adblock-current-site').addEventListener('click', async () => {
   try { await saveAdblock(true); } catch (error) { notice(error.message, true); }
 });
 $('#open-adblock').addEventListener('click', () => document.querySelector('[data-tab="adblock"]').click());
+$('#open-ai-settings').addEventListener('click', async () => { await chrome.tabs.create({ url: 'https://jackyun.top/settings?section=ai' }); window.close(); });
 $('#show-guide').addEventListener('click', async () => {
   try { await send({ type: 'OPEN_ONBOARDING' }); window.close(); } catch (error) { notice(error.message, true); }
 });

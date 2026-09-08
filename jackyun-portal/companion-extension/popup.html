@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JackYun Companion</title><link rel="stylesheet" href="popup.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JackYun Companion</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="popup-ai.css"></head>
 <body><main>
   <header class="app-header"><div class="logo">JY</div><div class="app-title"><h1>JackYun Companion</h1><p id="sync-state">正在读取状态…</p></div><button id="sync" class="icon" title="立即同步" aria-label="立即同步">↻</button></header>
   <section class="protection-bar"><div class="shield-mark" aria-hidden="true">◆</div><button id="open-adblock" class="protection-copy" type="button"><strong id="adblock-state">净网保护正在启动</strong><small id="adblock-site-state">广告与追踪拦截默认开启</small></button><label class="switch shield-switch" title="开启或关闭全部净网保护"><input id="adblock-master" type="checkbox"><span></span></label></section>
-  <div class="tabs" role="tablist"><button class="tab active" data-tab="home" role="tab">概览</button><button class="tab" data-tab="adblock" role="tab">净网</button><button class="tab" data-tab="tools" role="tab">工具</button><button class="tab" data-tab="safety" role="tab">SafeGuard</button></div>
+  <div class="tabs" role="tablist"><button class="tab active" data-tab="home" role="tab">概览</button><button class="tab" data-tab="ai" role="tab">AI 自动</button><button class="tab" data-tab="adblock" role="tab">净网</button><button class="tab" data-tab="tools" role="tab">工具</button><button class="tab" data-tab="safety" role="tab">SafeGuard</button></div>
 
   <section class="panel active" data-panel="home">
     <section id="signed-out" hidden><div class="hero"><span class="eyebrow">隐私优先学习助手</span><h2>把学习记录带回 JackYun</h2><p>登录后同步有效学习时间、专注记录、稍后学习和设备设置。</p><button id="sign-in" class="primary wide">登录 JackYun 账号</button></div></section>
@@ -41,9 +41,12 @@
     </section>
   </section>
 
+  <section class="panel" data-panel="ai">
+    <section class="ai-automation-hero"><div class="ai-automation-heading"><div><span class="eyebrow">BETA AUTOMATION</span><h2>网页 AI 全自动处理</h2></div><span id="automation-version" class="automation-version">v—</span></div><div id="automation-status" class="automation-ready"><i></i><span>正在检查自动化引擎…</span></div><ol class="automation-flow"><li><b>1</b><span>打开</span></li><li><b>2</b><span>填写</span></li><li><b>3</b><span>读取</span></li><li><b>4</b><span>返回</span></li></ol><p>在 Portal 的 AI 设置里开启后，Companion 会执行完整闭环；失败原因和进度都会明确显示。</p><button id="open-ai-settings" class="wide ai-primary" type="button">打开 JackYun AI 自动化设置</button><details class="advanced"><summary>BETA 自动化日志</summary><div id="beta-ai-logs" class="module-list">尚无日志</div></details></section>
+  </section>
+
   <section class="panel" data-panel="tools">
     <section class="intro"><span class="eyebrow">Hosted source included</span><h2>网站工具已合并</h2><p>Companion 随包保留本站托管脚本源码，并把适合长期启用的功能原生整合为可独立关闭的模块。</p></section>
-    <section class="card"><span class="eyebrow">BETA 1.5.1</span><h2>网页 AI 自动打开、填写与回传</h2><p class="muted">在 Portal 中明确开启后，扩展会验证当前登录账户的 BETA 资格，再打开所选 AI 网页、填写并发送 Prompt，等待回复完成后回传 Portal。默认关闭；自动化失败时可回到手动复制模式。</p><details class="advanced"><summary>BETA 错误日志</summary><div id="beta-ai-logs" class="module-list">尚无日志</div></details></section>
     <section class="card tool-settings">
       <div class="setting-row"><div><strong>清理跟踪链接</strong><small>移除常见广告与分享追踪参数</small></div><label class="switch"><input id="tool-clean-links" type="checkbox"><span></span></label></div>
       <div class="setting-row"><div><strong>ZNotes 键盘刷题</strong><small>1–4 选项，Enter 下一题</small></div><label class="switch"><input id="tool-znotes" type="checkbox"><span></span></label></div>

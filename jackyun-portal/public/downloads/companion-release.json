@@ -1,9 +1,9 @@
 {
   "product": "JackYun Companion",
   "version": "1.1.0",
-  "previewVersion": "1.5.1",
-  "previewZip": "/downloads/jackyun-companion-v1.5.1.zip",
-  "previewZipSha256": "0ed8d7ddbf406293967c2388753cf27cecf45051cf4a8daa6c85e956ee3e0bdd",
+  "previewVersion": "1.5.2",
+  "previewZip": "/downloads/jackyun-companion-v1.5.2.zip",
+  "previewZipSha256": "a2f76f38636942a7b41c71e473caf83ff480907e30a2ba6b36e287cb08286a9b",
   "status": "beta-published",
   "updatedAt": "2026-09-08",
   "chromeWebStoreUrl": null,
@@ -19,6 +19,7 @@
   "crxSha256": "48854fea74fa5c340574ab99a85f3d025314812221490bf89052255dad5fbf30",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
+    "1.5.2 BETA 修复扩展升级后设备版本仍显示旧版、旧 AI 标签页缺少新版内容脚本、Portal 无在线握手和 DeepSeek 填写发送回退不足的问题，并强化扩展内自动化入口。",
     "1.5.1 BETA 修复 Portal 子域名注入范围，增加 Companion 请求握手与明确失败回传；Portal 在未安装或仍使用旧扩展时不再无限等待。",
     "1.5.0 BETA 新增网页 AI 完整自动闭环：打开、填写、发送、等待稳定回复、回传并恢复 JackYun 标签页；AI 网站改版时自动选择器可能需要更新，界面会明确提示并保留手动粘贴方式。",
     "1.4.0 BETA 新增网页登录资格校验、Prompt 自动填写/发送和细分错误日志；AI 网站改版时自动选择器可能需要更新，手动复制粘贴始终可用。",
