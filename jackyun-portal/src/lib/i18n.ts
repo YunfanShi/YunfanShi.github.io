@@ -28,6 +28,7 @@ const translations: TranslationMap = {
   'nav.learning-resources':   { zh: '学习网站收录',         en: 'Learning Resources' },
   'nav.userscripts':          { zh: '网站插件大全',         en: 'Userscript Library' },
   'nav.vocab':                { zh: '词汇宝库',             en: 'Vocab Treasury' },
+  'nav.definitions':          { zh: '定义卡片',             en: 'Definition Cards' },
   'nav.music-player':         { zh: '音乐播放器',           en: 'Music Player' },
   'nav.music-sync':           { zh: '同步音乐',             en: 'Sync Music' },
   'nav.bilibili-sync':        { zh: 'B站同步',              en: 'Bilibili Sync' },

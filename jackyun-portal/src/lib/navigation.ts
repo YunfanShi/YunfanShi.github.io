@@ -32,6 +32,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'ielts-reading', labelKey: 'nav.ielts-reading', icon: 'auto_stories', href: '/ielts-reading', group: 'learning' },
   { id: 'learning-resources', labelKey: 'nav.learning-resources', icon: 'travel_explore', href: '/resources', group: 'learning' },
   { id: 'vocab', labelKey: 'nav.vocab', icon: 'menu_book', href: '/vocab', group: 'learning' },
+  { id: 'definitions', labelKey: 'nav.definitions', icon: 'style', href: '/definitions', group: 'learning' },
   { id: 'answer-sheet', labelKey: 'nav.answer-sheet', icon: 'content_paste', href: '/answer-sheet', group: 'practice', variantGroup: 'answerSheet', variant: 'standard' },
   { id: 'answer-sheet-sync', labelKey: 'nav.answer-sheet-sync', icon: 'sync', href: '/answer-sheet-sync', group: 'practice', variantGroup: 'answerSheet', variant: 'sync' },
   { id: 'mock', labelKey: 'nav.mock', icon: 'quiz', href: '/mock-portal', group: 'practice' },
