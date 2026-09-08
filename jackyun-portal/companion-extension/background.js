@@ -32,6 +32,7 @@ const AI_PROVIDER_URLS = {
   chatgpt: 'https://chatgpt.com/', deepseek: 'https://chat.deepseek.com/', claude: 'https://claude.ai/new',
   gemini: 'https://gemini.google.com/app', qwen: 'https://chat.qwen.ai/', perplexity: 'https://www.perplexity.ai/',
 };
+const COMPANION_BRIDGE_HOSTS = new Set(['jackyun.top', 'jackyun.cn', 'yunfanshi.github.io', ...Object.values(AI_PROVIDER_URLS).map((value) => new URL(value).hostname.replace(/^www\./, ''))]);
 const ADBLOCK_ALLOW_RULE_START = 200000;
 const ADBLOCK_RESOURCE_TYPES = ['sub_frame', 'script', 'image', 'stylesheet', 'object', 'xmlhttprequest', 'ping', 'media', 'font', 'websocket', 'other'];
 const DEFAULT_CONFIG = Object.freeze({
@@ -58,6 +59,18 @@ function base64url(bytes) { return btoa(String.fromCharCode(...bytes)).replace(/
 async function sha256(value) { return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))); }
 
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+
+function supportsCompanionBridge(rawUrl) {
+  try {
+    const host = new URL(String(rawUrl || '')).hostname.toLowerCase().replace(/^www\./, '');
+    return [...COMPANION_BRIDGE_HOSTS].some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+  } catch { return false; }
+}
+
+async function reinjectCompanionBridge() {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.filter((tab) => tab.id && supportsCompanionBridge(tab.url)).map((tab) => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] }).catch(() => null)));
+}
 
 async function fetchWithRetry(input, options = {}, attempts = 3) {
   let lastError = null;
@@ -546,6 +559,7 @@ async function importLiteData(payload) {
 
 chrome.runtime.onInstalled.addListener((details) => {
   chrome.alarms.create('companion-sync', { periodInMinutes: 5 });
+  reinjectCompanionBridge().catch((error) => local.set({ bridgeInjectionError: error.message || String(error) }));
   getDevice().then(() => syncNow()).catch((error) => local.set({ lastSyncError: error.message || String(error) }));
   adblockConfig().then(async (config) => {
     await local.set({ adblock: config });

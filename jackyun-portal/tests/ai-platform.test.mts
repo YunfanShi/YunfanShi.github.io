@@ -181,6 +181,9 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(content, /jackyunAiBaseline/);
   assert.match(extension, /response\.baselineText/);
   assert.match(extension, /hasNewAiResponse/);
+  assert.match(extension, /reinjectCompanionBridge/);
+  assert.match(extension, /chrome\.scripting\.executeScript/);
+  assert.match(content, /__jackyunCompanionContentLoaded/);
   assert.match(bridge, /Automation heartbeat timeout/);
   assert.doesNotMatch(bridge, />progress_activity</);
   const workspace = readFileSync(new URL('../src/components/ai/ai-workspace.tsx', import.meta.url), 'utf8');

@@ -1,5 +1,5 @@
 export const BETA_AGREEMENT_VERSION = '2026-09-03';
-export const COMPANION_BETA_VERSION = '1.7.1';
+export const COMPANION_BETA_VERSION = '1.7.2';
 
 export const BETA_FEATURES = [
   {

@@ -1,12 +1,12 @@
 # JackYun Companion 安装与发布说明
 
-当前 BETA 预览版为 `1.7.1`，稳定签名候选版为 `1.1.0`。扩展 ID 固定为 `nlckikhapgbekdclakobfopdihiibafl`。1.7.1 修复 DeepSeek 虚拟消息列表导致已生成回复却无法回传，并保留账号模型切换、最近/指定对话续聊和逐步心跳。
+当前 BETA 预览版为 `1.7.2`，稳定签名候选版为 `1.1.0`。扩展 ID 固定为 `nlckikhapgbekdclakobfopdihiibafl`。1.7.2 会在安装或更新后自动重新连接已打开的 JackYun 与 AI 标签页，并保留 DeepSeek 回复回传、账号模型切换、上下文续聊和逐步心跳修复。
 
 ## 本地安装（Windows / macOS Chrome）
 
 Chrome 的安全策略不允许在 Windows 或 macOS 上通过拖放安装商店外 CRX，ZIP 也不能直接拖入安装。审核通过前请使用：
 
-1. BETA 用户下载 `jackyun-companion-v1.7.1.zip` 并解压到固定目录。
+1. BETA 用户下载 `jackyun-companion-v1.7.2.zip` 并解压到固定目录。
 2. 打开 `chrome://extensions` 或 `edge://extensions`。
 3. 开启开发者模式。
 4. 选择“加载已解压的扩展程序”，选中包含 `manifest.json` 的目录。
@@ -14,6 +14,6 @@ Chrome 的安全策略不允许在 Windows 或 macOS 上通过拖放安装商店
 
 ## Chrome Web Store 正式发布
 
-`1.7.1` 当前只作为站内 BETA ZIP 发布，不应直接替换商店 Stable 版本。完成 BETA 验证后，可在 Chrome Developer Dashboard 上传同一来源生成的发布 ZIP，填写隐私与权限说明并提交审核。扩展使用 `<all_urls>` 运行 SafeGuard、页面净网与可选工具，并使用 `declarativeNetRequest` 在浏览器本地拦截广告请求。商店隐私说明需要明确解释：页面只在本地分类和清理；普通学习统计仍只同步域名、类别和有效秒数；对话与模型识别只读取本机已打开标签页里的可见信息；只有用户在 Portal 明确开启网页 AI 自动化时，Prompt 才会填写到所选第三方 AI 网站。
+`1.7.2` 当前只作为站内 BETA ZIP 发布，不应直接替换商店 Stable 版本。完成 BETA 验证后，可在 Chrome Developer Dashboard 上传同一来源生成的发布 ZIP，填写隐私与权限说明并提交审核。扩展使用 `<all_urls>` 运行 SafeGuard、页面净网与可选工具，并使用 `scripting` 在扩展更新后恢复已打开页面的 Companion 桥接。商店隐私说明需要明确解释：页面只在本地分类和清理；普通学习统计仍只同步域名、类别和有效秒数；对话与模型识别只读取本机已打开标签页里的可见信息；只有用户在 Portal 明确开启网页 AI 自动化时，Prompt 才会填写到所选第三方 AI 网站。
 
 `jackyun-companion-v1.1.0.crx` 是由同一固定私钥生成的 CRX3 签名包，可用于签名核验、Chrome Web Store 的 Verified CRX Uploads 或允许侧载的 Linux/企业环境；它不能绕过 Windows/macOS Chrome 的商店限制。

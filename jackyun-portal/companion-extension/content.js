@@ -1,5 +1,7 @@
 (function () {
   'use strict';
+  if (globalThis.__jackyunCompanionContentLoaded) return;
+  globalThis.__jackyunCompanionContentLoaded = true;
   const host = location.hostname.toLowerCase().replace(/^www\./, '');
   const rules = [
     ['AI 助手', ['chatgpt.com', 'claude.ai', 'gemini.google.com', 'chat.deepseek.com', 'chat.qwen.ai', 'perplexity.ai', 'notebooklm.google.com']],
@@ -16,7 +18,9 @@
   let visitSent = false;
   function active() { return !document.hidden && document.hasFocus(); }
   function send(seconds, visits = 0) {
-    chrome.runtime.sendMessage({ type: 'ACTIVITY', payload: { hostname: host, category, seconds, visits } }).catch(() => {});
+    try {
+      chrome.runtime.sendMessage({ type: 'ACTIVITY', payload: { hostname: host, category, seconds, visits } })?.catch?.(() => {});
+    } catch { /* A bridge update must not fail because activity tracking is temporarily unavailable. */ }
   }
   window.addEventListener('focus', () => {
     if (!visitSent) { send(0, 1); visitSent = true; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDefinitionCard, dueDefinitionCards, parseDefinitionCards, scheduleDefinitionCard } from '../src/lib/definition-cards.ts';
+import { createDefinitionCard, dueDefinitionCards, normalizeDefinitionCard, parseDefinitionBundle, parseDefinitionCards, scheduleDefinitionCard } from '../src/lib/definition-cards.ts';
 
 test('parses the preferred colon and dash definition formats', () => {
   assert.deepEqual(parseDefinitionCards('Drawing object: Contains XXX\nCanvas - Contains shapes\nLayer — Groups objects'), [
@@ -28,6 +28,20 @@ test('keeps commas inside line-based definitions', () => {
   assert.deepEqual(parseDefinitionCards('Drawing object: Contains shapes, text and images'), [
     { term: 'Drawing object', definition: 'Contains shapes, text and images', note: '' },
   ]);
+});
+
+test('parses subject, unit, subunit, and deck directives', () => {
+  const result = parseDefinitionBundle('@subject: Computer Science\n@unit: Graphics\n@subunit: Objects\n@set: Drawing definitions\nCanvas: Contains objects');
+  assert.deepEqual(result.placement, { subject: 'Computer Science', unit: 'Graphics', subunit: 'Objects', deckTitle: 'Drawing definitions' });
+  assert.equal(result.cards[0].term, 'Canvas');
+});
+
+test('migrates legacy cards into a visible default deck', () => {
+  const oldCard = createDefinitionCard({ term: 'Object', definition: 'A thing', note: '' });
+  const { deckId: _deckId, deckTitle: _deckTitle, subject: _subject, unit: _unit, subunit: _subunit, ...legacy } = oldCard;
+  const migrated = normalizeDefinitionCard(legacy);
+  assert.equal(migrated?.deckTitle, '未分类定义');
+  assert.equal(migrated?.subject, '未分类');
 });
 
 test('review ratings schedule due dates and reset forgotten cards', () => {

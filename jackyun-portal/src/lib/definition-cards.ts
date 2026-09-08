@@ -9,10 +9,25 @@ export type DefinitionCard = {
   easeFactor: number;
   repetitions: number;
   lapses: number;
+  deckId: string;
+  deckTitle: string;
+  subject: string;
+  unit: string;
+  subunit: string;
 };
 
 export type DefinitionCardDraft = Pick<DefinitionCard, 'term' | 'definition' | 'note'>;
 export type ReviewRating = 'again' | 'hard' | 'good' | 'easy';
+export type DefinitionPlacement = Pick<DefinitionCard, 'deckId' | 'deckTitle' | 'subject' | 'unit' | 'subunit'>;
+export type DefinitionImportBundle = { cards: DefinitionCardDraft[]; placement: Partial<Omit<DefinitionPlacement, 'deckId'>> };
+
+export const DEFAULT_DEFINITION_PLACEMENT: DefinitionPlacement = {
+  deckId: 'default-deck',
+  deckTitle: '未分类定义',
+  subject: '未分类',
+  unit: '默认单元',
+  subunit: '',
+};
 
 const TERM_KEYS = ['term', 'front', 'name', 'concept', 'object', '术语', '概念'];
 const DEFINITION_KEYS = ['definition', 'back', 'meaning', 'description', 'contains', '定义', '释义'];
@@ -112,7 +127,45 @@ export function parseDefinitionCards(input: string): DefinitionCardDraft[] {
   return deduplicate(cards);
 }
 
-export function createDefinitionCard(draft: DefinitionCardDraft, now = new Date()): DefinitionCard {
+/** Parse optional hierarchy directives followed by ordinary card rows.
+ * Example: @subject: CS, @unit: Graphics, @subunit: Objects, @set: Definitions 01.
+ */
+export function parseDefinitionBundle(input: string): DefinitionImportBundle {
+  const text = input.replace(/^\uFEFF/u, '').trim();
+  if (!text) return { cards: [], placement: {} };
+  if (/^[\[{]/u.test(text)) {
+    try {
+      const value = JSON.parse(text) as unknown;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const record = value as Record<string, unknown>;
+        const placement = {
+          subject: clean(record.subject ?? record['科目']),
+          unit: clean(record.unit ?? record['单元']),
+          subunit: clean(record.subunit ?? record['小单元']),
+          deckTitle: clean(record.deckTitle ?? record.set ?? record.project ?? record['卡组']),
+        };
+        return { cards: fromRecords(value), placement };
+      }
+    } catch { /* Fall through to directive parsing. */ }
+  }
+
+  const placement: DefinitionImportBundle['placement'] = {};
+  const content: string[] = [];
+  const directiveKeys: Record<string, keyof DefinitionImportBundle['placement']> = {
+    subject: 'subject', '科目': 'subject', unit: 'unit', '单元': 'unit', subunit: 'subunit', '小单元': 'subunit', set: 'deckTitle', deck: 'deckTitle', project: 'deckTitle', '卡组': 'deckTitle', '项目': 'deckTitle',
+  };
+  for (const line of text.split(/\r?\n/u)) {
+    const directive = line.match(/^@([^:：]+)[:：]\s*(.+)$/u);
+    const key = directive ? directiveKeys[directive[1].trim().toLocaleLowerCase()] : undefined;
+    if (directive && key) placement[key] = clean(directive[2]);
+    else content.push(line);
+  }
+  return { cards: parseDefinitionCards(content.join('\n')), placement };
+}
+
+export function createDefinitionCard(draft: DefinitionCardDraft, placementOrNow: DefinitionPlacement | Date = DEFAULT_DEFINITION_PLACEMENT, explicitNow?: Date): DefinitionCard {
+  const placement = placementOrNow instanceof Date ? DEFAULT_DEFINITION_PLACEMENT : placementOrNow;
+  const now = placementOrNow instanceof Date ? placementOrNow : explicitNow ?? new Date();
   const timestamp = now.toISOString();
   return {
     id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `card-${now.getTime()}-${Math.random().toString(36).slice(2)}`,
@@ -123,6 +176,7 @@ export function createDefinitionCard(draft: DefinitionCardDraft, now = new Date(
     easeFactor: 2.5,
     repetitions: 0,
     lapses: 0,
+    ...placement,
   };
 }
 
@@ -130,6 +184,22 @@ export function isDefinitionCard(value: unknown): value is DefinitionCard {
   if (!value || typeof value !== 'object') return false;
   const card = value as Partial<DefinitionCard>;
   return typeof card.id === 'string' && typeof card.term === 'string' && typeof card.definition === 'string' && typeof card.dueAt === 'string' && Number.isFinite(card.intervalDays);
+}
+
+export function normalizeDefinitionCard(value: unknown): DefinitionCard | null {
+  if (!isDefinitionCard(value)) return null;
+  return {
+    ...value,
+    note: typeof value.note === 'string' ? value.note : '',
+    deckId: typeof value.deckId === 'string' && value.deckId ? value.deckId : DEFAULT_DEFINITION_PLACEMENT.deckId,
+    deckTitle: typeof value.deckTitle === 'string' && value.deckTitle ? value.deckTitle : DEFAULT_DEFINITION_PLACEMENT.deckTitle,
+    subject: typeof value.subject === 'string' && value.subject ? value.subject : DEFAULT_DEFINITION_PLACEMENT.subject,
+    unit: typeof value.unit === 'string' && value.unit ? value.unit : DEFAULT_DEFINITION_PLACEMENT.unit,
+    subunit: typeof value.subunit === 'string' ? value.subunit : '',
+    easeFactor: Number.isFinite(value.easeFactor) ? value.easeFactor : 2.5,
+    repetitions: Number.isFinite(value.repetitions) ? value.repetitions : 0,
+    lapses: Number.isFinite(value.lapses) ? value.lapses : 0,
+  };
 }
 
 export function scheduleDefinitionCard(card: DefinitionCard, rating: ReviewRating, now = new Date()): DefinitionCard {
