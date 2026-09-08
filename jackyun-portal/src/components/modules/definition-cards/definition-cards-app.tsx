@@ -3,206 +3,83 @@
 import { useEffect, useMemo, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
-import {
-  createDefinitionCard,
-  dueDefinitionCards,
-  isDefinitionCard,
-  parseDefinitionCards,
-  scheduleDefinitionCard,
-  type DefinitionCard,
-  type DefinitionCardDraft,
-  type ReviewRating,
-} from '@/lib/definition-cards';
+import { createDefinitionCard, dueDefinitionCards, normalizeDefinitionCard, parseDefinitionBundle, scheduleDefinitionCard, type DefinitionCard, type DefinitionCardDraft, type DefinitionPlacement, type ReviewRating } from '@/lib/definition-cards';
 
-type View = 'home' | 'review' | 'library' | 'import';
-type ImportMode = 'standard' | 'ai';
-
+type View = 'home' | 'study' | 'test' | 'review' | 'library' | 'import';
+type Scope = { subject: string; unit: string; subunit: string; deckId: string };
+type Placement = Omit<DefinitionPlacement, 'deckId'>;
 const STORAGE_KEY = 'jackyun_definition_cards_v1';
-const EXAMPLE = `Drawing object: Contains shapes, text and images
-Canvas - Contains drawing objects
-Layer — Groups related drawing objects`;
-
-const RATINGS: Array<{ id: ReviewRating; label: string; hint: string; tone: string }> = [
-  { id: 'again', label: '忘了', hint: '10 分钟', tone: 'border-[#fca5a5] text-[#b42318] hover:bg-[#fef2f2]' },
-  { id: 'hard', label: '困难', hint: '约 1 天', tone: 'border-[#fdba74] text-[#b54708] hover:bg-[#fff7ed]' },
-  { id: 'good', label: '记得', hint: '正常间隔', tone: 'border-[#86efac] text-[#15803d] hover:bg-[#f0fdf4]' },
-  { id: 'easy', label: '简单', hint: '更长间隔', tone: 'border-[#93c5fd] text-[#175cd3] hover:bg-[#eff8ff]' },
+const EMPTY_SCOPE: Scope = { subject: '', unit: '', subunit: '', deckId: '' };
+const EMPTY_PLACEMENT: Placement = { subject: '', unit: '', subunit: '', deckTitle: '' };
+const EXAMPLE = '@subject: Computer Science\n@unit: Graphics\n@subunit: Drawing objects\n@set: DEF 01\nDrawing object: Contains shapes, text and images\nCanvas - Contains drawing objects';
+const ratings: Array<{ id: ReviewRating; label: string; hint: string; color: string }> = [
+  { id: 'again', label: '忘了', hint: '10 分钟', color: 'border-[#fca5a5] text-[#b42318]' }, { id: 'hard', label: '困难', hint: '约 1 天', color: 'border-[#fdba74] text-[#b54708]' }, { id: 'good', label: '记得', hint: '正常间隔', color: 'border-[#86efac] text-[#15803d]' }, { id: 'easy', label: '简单', hint: '更长间隔', color: 'border-[#93c5fd] text-[#175cd3]' },
 ];
 
-function readStoredCards(): DefinitionCard[] {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as unknown;
-    return Array.isArray(value) ? value.filter(isDefinitionCard) : [];
-  } catch { return []; }
-}
-
-function dateLabel(value: string): string {
-  const date = new Date(value);
-  const today = new Date();
-  if (date.getTime() <= today.getTime()) return '现在';
-  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-}
+function readCards(): DefinitionCard[] { try { const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as unknown; return Array.isArray(value) ? value.flatMap((entry) => { const card = normalizeDefinitionCard(entry); return card ? [card] : []; }) : []; } catch { return []; } }
+function inScope(card: DefinitionCard, scope: Scope) { return (!scope.subject || card.subject === scope.subject) && (!scope.unit || card.unit === scope.unit) && (!scope.subunit || card.subunit === scope.subunit) && (!scope.deckId || card.deckId === scope.deckId); }
+function unique(values: string[]) { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN')); }
+function shuffle<T>(items: T[]) { const result = [...items]; for (let index = result.length - 1; index > 0; index -= 1) { const target = Math.floor(Math.random() * (index + 1)); [result[index], result[target]] = [result[target], result[index]]; } return result; }
+function deckId() { return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `deck-${Date.now()}`; }
 
 export default function DefinitionCardsApp() {
-  const [cards, setCards] = useState<DefinitionCard[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const [view, setView] = useState<View>('home');
-  const [importMode, setImportMode] = useState<ImportMode>('standard');
-  const [source, setSource] = useState('');
-  const [preview, setPreview] = useState<DefinitionCardDraft[]>([]);
-  const [message, setMessage] = useState('');
-  const [aiBusy, setAiBusy] = useState(false);
-  const [query, setQuery] = useState('');
-  const [reviewQueue, setReviewQueue] = useState<DefinitionCard[]>([]);
-  const [revealed, setRevealed] = useState(false);
-  const [sessionDone, setSessionDone] = useState(0);
+  const [cards, setCards] = useState<DefinitionCard[]>([]); const [ready, setReady] = useState(false); const [view, setView] = useState<View>('home'); const [scope, setScope] = useState<Scope>(EMPTY_SCOPE); const [message, setMessage] = useState(''); const [query, setQuery] = useState('');
+  const [study, setStudy] = useState<DefinitionCard[]>([]); const [studyIndex, setStudyIndex] = useState(0); const [flipped, setFlipped] = useState(false); const [randomOrder, setRandomOrder] = useState(false);
+  const [test, setTest] = useState<DefinitionCard[]>([]); const [testIndex, setTestIndex] = useState(0); const [answer, setAnswer] = useState(''); const [score, setScore] = useState(0);
+  const [review, setReview] = useState<DefinitionCard[]>([]); const [reviewDone, setReviewDone] = useState(0); const [reviewFlipped, setReviewFlipped] = useState(false);
+  const [importMode, setImportMode] = useState<'standard' | 'ai'>('standard'); const [source, setSource] = useState(''); const [preview, setPreview] = useState<DefinitionCardDraft[]>([]); const [placement, setPlacement] = useState<Placement>(EMPTY_PLACEMENT); const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    queueMicrotask(() => { setCards(readStoredCards()); setHydrated(true); });
-  }, []);
-  useEffect(() => {
-    if (!hydrated) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cards)); }
-    catch (error) { console.error('[definition-cards] Unable to persist local deck', error); }
-  }, [cards, hydrated]);
+  useEffect(() => { queueMicrotask(() => { setCards(readCards()); setReady(true); }); }, []);
+  useEffect(() => { if (!ready) return; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cards)); } catch (error) { console.error('[definition-cards] save failed', error); } }, [cards, ready]);
+  useEffect(() => { if (view !== 'study') return; const key = (event: KeyboardEvent) => { if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return; if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); setFlipped((value) => !value); } if (event.key === 'ArrowRight') { setStudyIndex((index) => study.length ? (index + 1) % study.length : 0); setFlipped(false); } if (event.key === 'ArrowLeft') { setStudyIndex((index) => study.length ? (index - 1 + study.length) % study.length : 0); setFlipped(false); } }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [study.length, view]);
 
-  const dueCards = useMemo(() => dueDefinitionCards(cards), [cards]);
-  const mastered = cards.filter((card) => card.intervalDays >= 21).length;
-  const filteredCards = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    if (!needle) return cards;
-    return cards.filter((card) => `${card.term}\n${card.definition}\n${card.note}`.toLocaleLowerCase().includes(needle));
-  }, [cards, query]);
-  const current = reviewQueue[0];
+  const scoped = useMemo(() => cards.filter((card) => inScope(card, scope)), [cards, scope]);
+  const due = useMemo(() => dueDefinitionCards(scoped), [scoped]);
+  const decks = useMemo(() => { const groups = new Map<string, DefinitionCard[]>(); for (const card of cards) groups.set(card.deckId, [...(groups.get(card.deckId) ?? []), card]); return [...groups.values()].sort((a, b) => b[0].createdAt.localeCompare(a[0].createdAt)); }, [cards]);
+  const library = useMemo(() => { const needle = query.trim().toLowerCase(); return scoped.filter((card) => !needle || `${card.term}\n${card.definition}`.toLowerCase().includes(needle)); }, [query, scoped]);
+  const currentStudy = study[studyIndex]; const currentTest = test[testIndex]; const currentReview = review[0];
+  const options = useMemo(() => currentTest ? shuffle([currentTest, ...shuffle(test.filter((card) => card.id !== currentTest.id && card.definition !== currentTest.definition)).slice(0, 3)]) : [], [currentTest, test]);
 
-  function openImport(mode: ImportMode) {
-    setImportMode(mode);
-    setSource('');
-    setPreview([]);
-    setMessage('');
-    setView('import');
-  }
+  function changeScope(patch: Partial<Scope>) { setScope((current) => 'subject' in patch ? { subject: patch.subject || '', unit: '', subunit: '', deckId: '' } : 'unit' in patch ? { ...current, unit: patch.unit || '', subunit: '', deckId: '' } : 'subunit' in patch ? { ...current, subunit: patch.subunit || '', deckId: '' } : { ...current, ...patch }); }
+  function openImport(mode: 'standard' | 'ai') { setImportMode(mode); setSource(''); setPreview([]); setPlacement(EMPTY_PLACEMENT); setMessage(''); setView('import'); }
+  function parseImport(text = source) { const result = parseDefinitionBundle(text); setPreview(result.cards); setPlacement((current) => ({ ...current, ...Object.fromEntries(Object.entries(result.placement).filter(([, value]) => value)) })); setMessage(result.cards.length ? `识别到 ${result.cards.length} 张卡片，请确认分类。` : '没有识别到完整卡片。'); }
+  async function aiImport() { if (!source.trim()) return; setBusy(true); setMessage('AI 正在整理层级并提取定义…'); try { const response = await callAiApi([{ role: 'system', content: 'Return only valid JSON: {"subject":"...","unit":"...","subunit":"...","deckTitle":"...","cards":[{"term":"...","definition":"...","note":"..."}]}. Create atomic definition cards without inventing facts.' }, { role: 'user', content: `从材料生成一个定义卡组并推断分类：\n\n${source}` }], { temperature: 0.1, maxTokens: 2600, noThinking: true }); const content = await readAiResponseContent(response); const result = parseDefinitionBundle(JSON.stringify(parseAiJson(content))); if (!result.cards.length) throw new Error('AI 没有返回有效卡片。'); setPreview(result.cards); setPlacement((current) => ({ ...current, ...Object.fromEntries(Object.entries(result.placement).filter(([, value]) => value)) })); setMessage(`AI 生成了 ${result.cards.length} 张卡片，请确认分类。`); } catch (error) { setMessage(error instanceof Error ? error.message : 'AI 导入失败。'); } finally { setBusy(false); } }
+  function confirmImport() { if (!preview.length || !placement.subject.trim() || !placement.unit.trim() || !placement.deckTitle.trim()) { setMessage('请至少填写科目、单元和卡组项目名称。'); return; } const id = deckId(); const clean: DefinitionPlacement = { deckId: id, subject: placement.subject.trim(), unit: placement.unit.trim(), subunit: placement.subunit.trim(), deckTitle: placement.deckTitle.trim() }; const existing = new Set(cards.map((card) => `${card.term.toLowerCase()}\0${card.definition.toLowerCase()}`)); const imported = preview.filter((card) => !existing.has(`${card.term.toLowerCase()}\0${card.definition.toLowerCase()}`)).map((draft, index) => createDefinitionCard(draft, clean, new Date(Date.now() + index))); setCards((value) => [...imported, ...value]); setScope({ subject: clean.subject, unit: clean.unit, subunit: clean.subunit, deckId: id }); setMessage(`已建立「${clean.deckTitle}」，导入 ${imported.length} 张卡片。`); setView('home'); }
+  function startStudy(items = scoped) { if (!items.length) { setMessage('当前范围没有卡片。'); return; } setStudy(randomOrder ? shuffle(items) : [...items]); setStudyIndex(0); setFlipped(false); setView('study'); }
+  function startTest(items = scoped) { if (!items.length) { setMessage('当前范围没有卡片。'); return; } setTest(shuffle(items)); setTestIndex(0); setAnswer(''); setScore(0); setView('test'); }
+  function startReview() { if (!due.length) { setMessage('当前范围没有到期卡片。'); return; } setReview(due); setReviewDone(0); setReviewFlipped(false); setView('review'); }
+  function chooseAnswer(id: string) { if (answer || !currentTest) return; const correct = id === currentTest.id; setAnswer(id); if (correct) setScore((value) => value + 1); setCards((items) => items.map((card) => card.id === currentTest.id ? scheduleDefinitionCard(card, correct ? 'good' : 'again') : card)); }
+  function rate(id: ReviewRating) { if (!currentReview) return; setCards((items) => items.map((card) => card.id === currentReview.id ? scheduleDefinitionCard(card, id) : card)); setReview((items) => items.slice(1)); setReviewDone((value) => value + 1); setReviewFlipped(false); }
+  function fileInput(file?: File) { if (!file) return; if (file.size > 1_000_000) { setMessage('文件不能超过 1 MB。'); return; } const reader = new FileReader(); reader.onload = () => { const text = typeof reader.result === 'string' ? reader.result : ''; setSource(text); parseImport(text); }; reader.readAsText(file); }
 
-  function previewStandard(text = source) {
-    const parsed = parseDefinitionCards(text);
-    setPreview(parsed);
-    setMessage(parsed.length ? `识别到 ${parsed.length} 张卡片，请确认后导入。` : '没有识别到完整卡片。请检查每行是否包含术语和定义。');
-  }
-
-  async function generateWithAi() {
-    if (!source.trim()) { setMessage('请先粘贴讲义、笔记或概念列表。'); return; }
-    setAiBusy(true);
-    setMessage('AI 正在提取适合背诵的定义…');
-    try {
-      const response = await callAiApi([
-        { role: 'system', content: 'You convert study notes into concise definition flashcards. Return only valid JSON in the form {"cards":[{"term":"...","definition":"...","note":"..."}]}. Keep important qualifiers. Split compound ideas into atomic cards. Do not invent facts.' },
-        { role: 'user', content: `从以下材料提取定义卡片。术语放 term，必须背出的定义放 definition，可选例子放 note。\n\n${source}` },
-      ], { temperature: 0.1, maxTokens: 2400, noThinking: true, feature: 'chat' });
-      const content = await readAiResponseContent(response);
-      const parsed = parseDefinitionCards(JSON.stringify(parseAiJson(content)));
-      if (!parsed.length) throw new Error('AI 没有返回有效卡片。');
-      setPreview(parsed);
-      setMessage(`AI 生成了 ${parsed.length} 张卡片，请确认后导入。`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'AI 导入失败，请稍后重试。');
-    } finally { setAiBusy(false); }
-  }
-
-  function importPreview() {
-    if (!preview.length) return;
-    const existing = new Set(cards.map((card) => `${card.term.toLocaleLowerCase()}\u0000${card.definition.toLocaleLowerCase()}`));
-    const unique = preview.filter((card) => !existing.has(`${card.term.toLocaleLowerCase()}\u0000${card.definition.toLocaleLowerCase()}`));
-    const now = new Date();
-    setCards((currentCards) => [...unique.map((draft, index) => createDefinitionCard(draft, new Date(now.getTime() + index))), ...currentCards]);
-    setSource('');
-    setPreview([]);
-    setMessage(unique.length ? `已导入 ${unique.length} 张卡片，重复项已自动跳过。` : '这些卡片已经在卡组中。');
-    setView('home');
-  }
-
-  function handleFile(file: File | undefined) {
-    if (!file) return;
-    if (file.size > 1_000_000) { setMessage('文件不能超过 1 MB。'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === 'string' ? reader.result : '';
-      setSource(text);
-      previewStandard(text);
-    };
-    reader.onerror = () => setMessage('无法读取该文件。');
-    reader.readAsText(file);
-  }
-
-  function startReview() {
-    const queue = dueDefinitionCards(cards);
-    setReviewQueue(queue);
-    setSessionDone(0);
-    setRevealed(false);
-    setView('review');
-  }
-
-  function rate(rating: ReviewRating) {
-    if (!current) return;
-    const updated = scheduleDefinitionCard(current, rating);
-    setCards((items) => items.map((card) => card.id === current.id ? updated : card));
-    setReviewQueue((queue) => queue.slice(1));
-    setSessionDone((count) => count + 1);
-    setRevealed(false);
-  }
-
-  function removeCard(id: string) {
-    setCards((items) => items.filter((card) => card.id !== id));
-  }
-
-  if (!hydrated) return <div className="grid min-h-[55vh] place-items-center text-sm text-[var(--muted-foreground)]"><span className="material-icons-round animate-spin">progress_activity</span></div>;
-
+  if (!ready) return <div className="grid min-h-[55vh] place-items-center"><span className="material-icons-round animate-spin">progress_activity</span></div>;
   return <div className="mx-auto w-full max-w-6xl pb-12">
-    <header className="overflow-hidden rounded-[28px] border border-[#d7e3f0] bg-[linear-gradient(125deg,#f0f9ff_0%,#f8fafc_55%,#fff7ed_100%)] p-5 shadow-sm dark:border-[#344054] dark:bg-[linear-gradient(125deg,#102a43_0%,#172033_55%,#322417_100%)] sm:p-8">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div><div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[.16em] text-[#026aa2] dark:text-[#7dd3fc]"><span className="material-icons-round text-lg">style</span>Definition Deck</div><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">把定义背牢，而不是只看熟</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">像 Anki 一样主动回忆，支持你的自然格式、CSV / TSV / JSON 文件，也能让 AI 从笔记里自动拆卡。</p></div>
-        <button type="button" onClick={() => openImport('standard')} className="min-h-12 shrink-0 rounded-2xl bg-[#1570ef] px-5 text-sm font-bold text-white shadow-lg shadow-blue-900/15 hover:bg-[#175cd3]"><span className="material-icons-round mr-2 align-middle text-xl">add</span>导入卡片</button>
-      </div>
-    </header>
-
-    <nav className="my-5 flex gap-1 overflow-x-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-1.5" aria-label="定义卡片页面">
-      {([['home', 'space_dashboard', '总览'], ['review', 'school', '开始背诵'], ['library', 'view_list', '卡片库'], ['import', 'upload_file', '导入']] as const).map(([id, icon, label]) => <button key={id} type="button" onClick={() => id === 'review' ? startReview() : id === 'import' ? openImport('standard') : setView(id)} className={`flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold ${view === id ? 'bg-[#eaf2ff] text-[#175cd3] dark:bg-[#17345b] dark:text-[#84adff]' : 'text-[var(--muted-foreground)] hover:bg-black/5 dark:hover:bg-white/5'}`}><span className="material-icons-round text-lg">{icon}</span>{label}</button>)}
-    </nav>
-
-    {message && view !== 'import' && <p role="status" className="mb-5 rounded-2xl border border-[#b2ddff] bg-[#eff8ff] px-4 py-3 text-sm text-[#175cd3] dark:border-[#184a7a] dark:bg-[#102a43] dark:text-[#84caff]">{message}</p>}
-
-    {view === 'home' && <HomeView cards={cards.length} due={dueCards.length} mastered={mastered} onReview={startReview} onStandard={() => openImport('standard')} onAi={() => openImport('ai')} />}
-    {view === 'review' && <ReviewView card={current} revealed={revealed} completed={sessionDone} total={sessionDone + reviewQueue.length} onReveal={() => setRevealed(true)} onRate={rate} onFinish={() => setView('home')} />}
-    {view === 'library' && <LibraryView cards={filteredCards} query={query} onQuery={setQuery} onDelete={removeCard} />}
-    {view === 'import' && <ImportView mode={importMode} source={source} preview={preview} message={message} busy={aiBusy} onMode={(mode) => { setImportMode(mode); setPreview([]); setMessage(''); }} onSource={setSource} onPreview={() => previewStandard()} onAi={() => void generateWithAi()} onFile={handleFile} onConfirm={importPreview} />}
+    <header className="rounded-[28px] border border-[#d7e3f0] bg-[linear-gradient(125deg,#f0f9ff,#f8fafc_55%,#fff7ed)] p-5 shadow-sm dark:border-[#344054] dark:bg-[linear-gradient(125deg,#102a43,#172033_55%,#322417)] sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#026aa2]">Definition Deck</p><h1 className="mt-3 text-3xl font-bold sm:text-4xl">按卡组学习，按记忆复习</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">科目 → 单元 → 小单元 → 卡组项目。学习时自由翻页，测试时检验掌握，复习时按间隔计划重现。</p></div><button type="button" onClick={() => openImport('standard')} className="min-h-12 rounded-2xl bg-[#1570ef] px-5 text-sm font-bold text-white">+ 新建卡组</button></div></header>
+    <nav className="my-5 flex gap-1 overflow-x-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-1.5">{([['home', 'folder', '卡组'], ['study', 'style', '学习'], ['test', 'quiz', '测试'], ['review', 'history', '复习'], ['library', 'view_list', '卡片库'], ['import', 'upload_file', '导入']] as const).map(([id, icon, label]) => <button key={id} type="button" onClick={() => id === 'study' ? startStudy() : id === 'test' ? startTest() : id === 'review' ? startReview() : id === 'import' ? openImport('standard') : setView(id)} className={`flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold ${view === id ? 'bg-[#eaf2ff] text-[#175cd3] dark:bg-[#17345b]' : 'text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">{icon}</span>{label}</button>)}</nav>
+    {message && view !== 'import' && <p role="status" className="mb-5 rounded-2xl border border-[#b2ddff] bg-[#eff8ff] px-4 py-3 text-sm text-[#175cd3] dark:bg-[#102a43]">{message}</p>}
+    {(view === 'home' || view === 'library') && <ScopePicker cards={cards} scope={scope} count={scoped.length} onChange={changeScope} />}
+    {view === 'home' && <Home cards={cards} scoped={scoped} due={due.length} decks={decks} random={randomOrder} onRandom={setRandomOrder} onStudy={startStudy} onTest={startTest} onReview={startReview} onImport={() => openImport('standard')} onDeleteDeck={(id) => setCards((items) => items.filter((card) => card.deckId !== id))} />}
+    {view === 'study' && <Study card={currentStudy} index={studyIndex} total={study.length} flipped={flipped} onFlip={() => setFlipped((value) => !value)} onPrevious={() => { setStudyIndex((value) => (value - 1 + study.length) % study.length); setFlipped(false); }} onNext={() => { setStudyIndex((value) => (value + 1) % study.length); setFlipped(false); }} onShuffle={() => { setStudy(shuffle(study)); setStudyIndex(0); setFlipped(false); }} />}
+    {view === 'test' && <Test card={currentTest} pool={test} index={testIndex} score={score} options={options} answer={answer} onAnswer={chooseAnswer} onNext={() => { setTestIndex((value) => value + 1); setAnswer(''); }} onFinish={() => setView('home')} />}
+    {view === 'review' && <Review card={currentReview} flipped={reviewFlipped} done={reviewDone} total={reviewDone + review.length} onFlip={() => setReviewFlipped(true)} onRate={rate} onFinish={() => setView('home')} />}
+    {view === 'library' && <Library cards={library} query={query} onQuery={setQuery} onDelete={(id) => setCards((items) => items.filter((card) => card.id !== id))} />}
+    {view === 'import' && <Importer mode={importMode} source={source} preview={preview} placement={placement} message={message} busy={busy} onMode={(mode) => { setImportMode(mode); setPreview([]); }} onSource={setSource} onPlacement={(patch) => setPlacement((value) => ({ ...value, ...patch }))} onParse={() => parseImport()} onAi={() => void aiImport()} onFile={fileInput} onConfirm={confirmImport} />}
   </div>;
 }
 
-function HomeView({ cards, due, mastered, onReview, onStandard, onAi }: { cards: number; due: number; mastered: number; onReview: () => void; onStandard: () => void; onAi: () => void }) {
-  const stats = [{ label: '全部卡片', value: cards, icon: 'library_books', color: '#1570ef' }, { label: '今天待复习', value: due, icon: 'notifications_active', color: '#f79009' }, { label: '长期记忆', value: mastered, icon: 'verified', color: '#12b76a' }];
-  return <div className="space-y-5">
-    <section className="grid gap-3 sm:grid-cols-3">{stats.map((stat) => <article key={stat.label} className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><span className="material-icons-round" style={{ color: stat.color }}>{stat.icon}</span><p className="mt-4 text-3xl font-bold">{stat.value}</p><p className="mt-1 text-sm text-[var(--muted-foreground)]">{stat.label}</p></article>)}</section>
-    <section className="grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
-      <article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#f79009]">Today</p><h2 className="mt-2 text-2xl font-bold">{due ? `${due} 张卡片在等你` : cards ? '今天的复习完成了' : '先建立第一副卡组'}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">先看术语，在脑中说出完整定义，再翻面评分。系统会根据记忆强度安排下一次出现。</p><button type="button" disabled={!due} onClick={onReview} className="mt-6 min-h-12 rounded-2xl bg-[#f79009] px-6 text-sm font-bold text-white shadow-lg shadow-orange-900/15 disabled:cursor-not-allowed disabled:opacity-40"><span className="material-icons-round mr-2 align-middle">play_arrow</span>{due ? '开始本轮背诵' : '暂无待复习'}</button></article>
-      <article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7"><h2 className="text-lg font-bold">两种快速导入</h2><button type="button" onClick={onStandard} className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-[var(--card-border)] p-4 text-left hover:border-[#84adff]"><span className="material-icons-round text-[#1570ef]">data_object</span><span><b className="block text-sm">标准格式</b><small className="text-[var(--muted-foreground)]">冒号、横线、CSV、JSON</small></span></button><button type="button" onClick={onAi} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-[var(--card-border)] p-4 text-left hover:border-[#c3b5fd]"><span className="material-icons-round text-[#7f56d9]">auto_awesome</span><span><b className="block text-sm">AI 从笔记生成</b><small className="text-[var(--muted-foreground)]">自动拆分为原子定义</small></span></button></article>
-    </section>
-  </div>;
-}
+const selectClass = 'min-h-11 min-w-0 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 text-sm outline-none';
+function ScopePicker({ cards, scope, count, onChange }: { cards: DefinitionCard[]; scope: Scope; count: number; onChange: (patch: Partial<Scope>) => void }) { const subjects = unique(cards.map((card) => card.subject)); const units = unique(cards.filter((card) => !scope.subject || card.subject === scope.subject).map((card) => card.unit)); const subs = unique(cards.filter((card) => (!scope.subject || card.subject === scope.subject) && (!scope.unit || card.unit === scope.unit)).map((card) => card.subunit)); const decks = [...new Map(cards.filter((card) => inScope(card, { ...scope, deckId: '' })).map((card) => [card.deckId, card])).values()]; return <section className="mb-5 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><div className="mb-3 flex justify-between"><b className="text-sm">学习范围</b><span className="text-xs text-[var(--muted-foreground)]">{count} 张</span></div><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><Select label="科目" value={scope.subject} all="全部科目" options={subjects} onChange={(value) => onChange({ subject: value })} /><Select label="单元" value={scope.unit} all="全部单元" options={units} onChange={(value) => onChange({ unit: value })} /><Select label="小单元" value={scope.subunit} all="全部小单元" options={subs} onChange={(value) => onChange({ subunit: value })} /><select aria-label="卡组项目" value={scope.deckId} onChange={(event) => onChange({ deckId: event.target.value })} className={selectClass}><option value="">全部卡组项目</option>{decks.map((card) => <option key={card.deckId} value={card.deckId}>{card.deckTitle}</option>)}</select></div></section>; }
+function Select({ label, value, all, options, onChange }: { label: string; value: string; all: string; options: string[]; onChange: (value: string) => void }) { return <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={selectClass}><option value="">{all}</option>{options.map((option) => <option key={option}>{option}</option>)}</select>; }
 
-function ReviewView({ card, revealed, completed, total, onReveal, onRate, onFinish }: { card?: DefinitionCard; revealed: boolean; completed: number; total: number; onReveal: () => void; onRate: (rating: ReviewRating) => void; onFinish: () => void }) {
-  if (!card) return <section className="mx-auto max-w-2xl rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center sm:p-12"><span className="material-icons-round text-5xl text-[#12b76a]">task_alt</span><h2 className="mt-4 text-2xl font-bold">本轮完成</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">完成 {completed} 张。间隔会随着你每次的真实反馈调整。</p><button type="button" onClick={onFinish} className="mt-6 min-h-11 rounded-xl bg-[#1570ef] px-5 text-sm font-bold text-white">返回总览</button></section>;
-  return <section className="mx-auto max-w-3xl"><div className="mb-3 flex items-center justify-between text-xs font-semibold text-[var(--muted-foreground)]"><span>本轮 {completed + 1} / {total}</span><span>先回忆，再翻面</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#e4e7ec]"><div className="h-full rounded-full bg-[#1570ef] transition-all" style={{ width: `${total ? (completed / total) * 100 : 0}%` }} /></div>
-    <article className="mt-5 flex min-h-[360px] flex-col rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-[0_18px_50px_rgba(16,24,40,.08)] sm:min-h-[430px] sm:p-10"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#667085]">术语</p><h2 className="mt-5 text-center text-3xl font-bold leading-tight sm:text-5xl">{card.term}</h2><div className="my-8 flex-1 border-t border-dashed border-[var(--card-border)] pt-8">{revealed ? <div className="animate-[fadeIn_.2s_ease-out]"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#1570ef]">定义</p><p className="mt-4 text-xl leading-8 sm:text-2xl">{card.definition}</p>{card.note && <p className="mt-5 rounded-2xl bg-[var(--background)] p-4 text-sm leading-6 text-[var(--muted-foreground)]">{card.note}</p>}</div> : <button type="button" onClick={onReveal} className="grid min-h-36 w-full place-items-center rounded-2xl border-2 border-dashed border-[#b2ccff] text-sm font-bold text-[#175cd3] hover:bg-[#eff8ff] dark:border-[#28598a] dark:hover:bg-[#102a43]"><span><span className="material-icons-round mr-2 align-middle">visibility</span>显示定义</span></button>}</div>
-      {revealed && <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{RATINGS.map((rating) => <button key={rating.id} type="button" onClick={() => onRate(rating.id)} className={`min-h-14 rounded-xl border-2 text-sm font-bold ${rating.tone}`}><span className="block">{rating.label}</span><small className="font-normal opacity-75">{rating.hint}</small></button>)}</div>}
-    </article></section>;
-}
+function Home({ cards, scoped, due, decks, random, onRandom, onStudy, onTest, onReview, onImport, onDeleteDeck }: { cards: DefinitionCard[]; scoped: DefinitionCard[]; due: number; decks: DefinitionCard[][]; random: boolean; onRandom: (value: boolean) => void; onStudy: (items?: DefinitionCard[]) => void; onTest: (items?: DefinitionCard[]) => void; onReview: () => void; onImport: () => void; onDeleteDeck: (id: string) => void }) { return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-3"><Stat label="全部卡片" value={cards.length} /><Stat label="当前范围" value={scoped.length} /><Stat label="待复习" value={due} /></div><section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5"><div className="flex justify-between"><h2 className="text-lg font-bold">选择一种模式</h2><label className="text-sm text-[var(--muted-foreground)]"><input type="checkbox" checked={random} onChange={(event) => onRandom(event.target.checked)} className="mr-2" />随机顺序</label></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><Mode label="学习抽认卡" detail="无限翻面、前后翻页" icon="style" disabled={!scoped.length} onClick={() => onStudy()} /><Mode label="测试" detail="选择题、自动评分" icon="quiz" disabled={!scoped.length} onClick={() => onTest()} /><Mode label="今日复习" detail={`${due} 张已到期`} icon="history" disabled={!due} onClick={onReview} /></div></section><section><div className="mb-3 flex justify-between"><h2 className="text-xl font-bold">卡组项目</h2><button type="button" onClick={onImport} className="font-bold text-[#175cd3]">+ 新建</button></div><div className="grid gap-4 md:grid-cols-2">{decks.map((deck) => { const first = deck[0]; return <article key={first.deckId} className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><p className="text-xs text-[#667085]">{[first.subject, first.unit, first.subunit].filter(Boolean).join(' / ')}</p><h3 className="mt-2 text-lg font-bold">{first.deckTitle}</h3><p className="text-sm text-[var(--muted-foreground)]">{deck.length} 个 definitions</p><div className="mt-4 flex gap-2"><button type="button" onClick={() => onStudy(deck)} className="min-h-10 flex-1 rounded-xl bg-[#eaf2ff] font-bold text-[#175cd3]">学习</button><button type="button" onClick={() => onTest(deck)} className="min-h-10 flex-1 rounded-xl bg-[#f4f3ff] font-bold text-[#6941c6]">测试</button><button type="button" onClick={() => onDeleteDeck(first.deckId)} aria-label={`删除卡组 ${first.deckTitle}`} className="w-10 text-[#98a2b3]"><span className="material-icons-round">delete_outline</span></button></div></article>; })}{!decks.length && <Empty />}</div></section></div>; }
+function Stat({ label, value }: { label: string; value: number }) { return <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><p className="text-3xl font-bold">{value}</p><p className="text-sm text-[var(--muted-foreground)]">{label}</p></div>; }
+function Mode({ label, detail, icon, disabled, onClick }: { label: string; detail: string; icon: string; disabled: boolean; onClick: () => void }) { return <button type="button" disabled={disabled} onClick={onClick} className="rounded-2xl border-2 border-[#b2ccff] p-4 text-left text-[#175cd3] disabled:opacity-40"><span className="material-icons-round">{icon}</span><b className="mt-2 block">{label}</b><small className="text-[var(--muted-foreground)]">{detail}</small></button>; }
 
-function LibraryView({ cards, query, onQuery, onDelete }: { cards: DefinitionCard[]; query: string; onQuery: (value: string) => void; onDelete: (id: string) => void }) {
-  return <section><label className="relative block"><span className="material-icons-round absolute left-4 top-3.5 text-[var(--muted-foreground)]">search</span><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="搜索术语或定义…" className="min-h-12 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] pl-12 pr-4 outline-none focus:border-[#1570ef] focus:ring-4 focus:ring-[#1570ef]/10" /></label><div className="mt-4 space-y-3">{cards.map((card) => <article key={card.id} className="group flex items-start gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5"><div className="min-w-0 flex-1"><h3 className="font-bold">{card.term}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">{card.definition}</p>{card.note && <p className="mt-2 text-xs text-[var(--muted-foreground)]">备注：{card.note}</p>}<p className="mt-3 text-[11px] font-semibold text-[#667085]">下次：{dateLabel(card.dueAt)} · 间隔 {card.intervalDays || 0} 天 · 复习 {card.repetitions} 次</p></div><button type="button" onClick={() => onDelete(card.id)} aria-label={`删除 ${card.term}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[#98a2b3] hover:bg-[#fef3f2] hover:text-[#d92d20]"><span className="material-icons-round">delete_outline</span></button></article>)}{!cards.length && <div className="rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center text-sm text-[var(--muted-foreground)]">没有找到卡片。</div>}</div></section>;
-}
+function Study({ card, index, total, flipped, onFlip, onPrevious, onNext, onShuffle }: { card?: DefinitionCard; index: number; total: number; flipped: boolean; onFlip: () => void; onPrevious: () => void; onNext: () => void; onShuffle: () => void }) { if (!card) return <Empty />; return <section className="mx-auto max-w-4xl"><div className="mb-4 flex justify-between text-sm text-[var(--muted-foreground)]"><span>{index + 1} / {total} · {card.deckTitle}</span><button type="button" onClick={onShuffle} className="rounded-xl border px-3 py-2"><span className="material-icons-round mr-1 align-middle text-lg">shuffle</span>随机</button></div><button type="button" onClick={onFlip} className="flex min-h-[430px] w-full flex-col items-center justify-center rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-8 text-center shadow-xl"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#667085]">{flipped ? '定义' : '术语'}</p><p className={`mt-8 font-bold leading-tight ${flipped ? 'text-2xl sm:text-4xl' : 'text-4xl sm:text-6xl'}`}>{flipped ? card.definition : card.term}</p>{flipped && card.note && <p className="mt-8 rounded-xl bg-[var(--background)] p-4 text-sm">{card.note}</p>}<p className="mt-auto pt-8 text-xs text-[var(--muted-foreground)]">点击卡片或按空格，可无限翻面</p></button><div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={onPrevious} className="min-h-12 rounded-xl border font-bold">← 上一张</button><button type="button" onClick={onNext} className="min-h-12 rounded-xl bg-[#1570ef] font-bold text-white">下一张 →</button></div></section>; }
+function Test({ card, pool, index, score, options, answer, onAnswer, onNext, onFinish }: { card?: DefinitionCard; pool: DefinitionCard[]; index: number; score: number; options: DefinitionCard[]; answer: string; onAnswer: (id: string) => void; onNext: () => void; onFinish: () => void }) { if (!card) return <Finish title="测试完成" detail={`答对 ${score} / ${pool.length}，正确率 ${pool.length ? Math.round(score / pool.length * 100) : 0}%`} onFinish={onFinish} />; return <section className="mx-auto max-w-3xl"><p className="mb-3 text-sm text-[var(--muted-foreground)]">问题 {index + 1} / {pool.length} · 已答对 {score}</p><article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-7"><p className="text-xs font-bold text-[#6941c6]">选择正确的定义</p><h2 className="my-8 text-center text-4xl font-bold">{card.term}</h2><div className="space-y-3">{options.map((option) => { const correct = option.id === card.id; const chosen = option.id === answer; return <button key={option.id} type="button" disabled={Boolean(answer)} onClick={() => onAnswer(option.id)} className={`w-full rounded-2xl border-2 p-4 text-left text-sm ${answer && correct ? 'border-[#12b76a] bg-[#ecfdf3] text-[#067647]' : answer && chosen ? 'border-[#f04438] bg-[#fef3f2] text-[#b42318]' : 'border-[var(--card-border)]'}`}>{option.definition}</button>; })}</div>{answer && <div className="mt-5 flex justify-end"><button type="button" onClick={onNext} className="min-h-11 rounded-xl bg-[#7f56d9] px-5 font-bold text-white">{index + 1 === pool.length ? '查看结果' : '下一题'}</button></div>}</article></section>; }
+function Review({ card, flipped, done, total, onFlip, onRate, onFinish }: { card?: DefinitionCard; flipped: boolean; done: number; total: number; onFlip: () => void; onRate: (id: ReviewRating) => void; onFinish: () => void }) { if (!card) return <Finish title="复习完成" detail={`本轮完成 ${done} 张，间隔已更新。`} onFinish={onFinish} />; return <section className="mx-auto max-w-3xl"><p className="mb-3 text-sm text-[var(--muted-foreground)]">复习 {done + 1} / {total}</p><article className="flex min-h-[420px] flex-col rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-8"><h2 className="mt-8 text-center text-4xl font-bold">{card.term}</h2><div className="my-8 flex-1 border-t border-dashed pt-8">{flipped ? <p className="text-2xl leading-9">{card.definition}</p> : <button type="button" onClick={onFlip} className="min-h-36 w-full rounded-xl border-2 border-dashed font-bold text-[#175cd3]">显示定义</button>}</div>{flipped && <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{ratings.map((item) => <button key={item.id} type="button" onClick={() => onRate(item.id)} className={`min-h-14 rounded-xl border-2 font-bold ${item.color}`}>{item.label}<small className="block font-normal">{item.hint}</small></button>)}</div>}</article></section>; }
+function Finish({ title, detail, onFinish }: { title: string; detail: string; onFinish: () => void }) { return <section className="mx-auto max-w-2xl rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center"><span className="material-icons-round text-5xl text-[#12b76a]">task_alt</span><h2 className="mt-4 text-2xl font-bold">{title}</h2><p className="mt-2 text-[var(--muted-foreground)]">{detail}</p><button type="button" onClick={onFinish} className="mt-6 min-h-11 rounded-xl bg-[#1570ef] px-5 font-bold text-white">返回卡组</button></section>; }
+function Library({ cards, query, onQuery, onDelete }: { cards: DefinitionCard[]; query: string; onQuery: (value: string) => void; onDelete: (id: string) => void }) { return <section><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="搜索当前范围的术语或定义…" className="min-h-12 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-4" /><div className="mt-4 space-y-3">{cards.map((card) => <article key={card.id} className="flex gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><div className="flex-1"><small className="text-[#667085]">{card.deckTitle}</small><h3 className="font-bold">{card.term}</h3><p className="text-sm text-[var(--muted-foreground)]">{card.definition}</p></div><button type="button" onClick={() => onDelete(card.id)} aria-label={`删除 ${card.term}`}><span className="material-icons-round">delete_outline</span></button></article>)}{!cards.length && <Empty />}</div></section>; }
 
-function ImportView({ mode, source, preview, message, busy, onMode, onSource, onPreview, onAi, onFile, onConfirm }: { mode: ImportMode; source: string; preview: DefinitionCardDraft[]; message: string; busy: boolean; onMode: (mode: ImportMode) => void; onSource: (value: string) => void; onPreview: () => void; onAi: () => void; onFile: (file?: File) => void; onConfirm: () => void }) {
-  return <section className="grid gap-5 lg:grid-cols-[1fr_.9fr]"><article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7"><div className="flex rounded-xl bg-[var(--background)] p-1"><button type="button" onClick={() => onMode('standard')} className={`min-h-10 flex-1 rounded-lg text-sm font-bold ${mode === 'standard' ? 'bg-[var(--card)] text-[#175cd3] shadow-sm' : 'text-[var(--muted-foreground)]'}`}>标准格式</button><button type="button" onClick={() => onMode('ai')} className={`min-h-10 flex-1 rounded-lg text-sm font-bold ${mode === 'ai' ? 'bg-[var(--card)] text-[#6941c6] shadow-sm' : 'text-[var(--muted-foreground)]'}`}>AI 导入</button></div><h2 className="mt-6 text-xl font-bold">{mode === 'standard' ? '粘贴或上传卡片' : '粘贴原始学习材料'}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{mode === 'standard' ? '每行一张卡。支持冒号、两侧带空格的横线、双冒号、CSV、TSV 和 JSON。' : 'AI 会保留限定条件，把长笔记拆成适合主动回忆的短卡片。生成后仍由你确认。'}</p><textarea value={source} onChange={(event) => onSource(event.target.value)} rows={12} placeholder={mode === 'standard' ? EXAMPLE : '粘贴课堂笔记、讲义或一段需要记忆的文本…'} className="mt-5 w-full resize-y rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 text-sm leading-6 outline-none focus:border-[#1570ef] focus:ring-4 focus:ring-[#1570ef]/10" />
-    <div className="mt-3 flex flex-wrap gap-2">{mode === 'standard' && <label className="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[var(--card-border)] px-4 text-sm font-bold hover:bg-black/5"><span className="material-icons-round mr-2 text-lg">attach_file</span>选择文件<input type="file" accept=".txt,.md,.csv,.tsv,.json,text/plain,text/csv,application/json" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}<button type="button" disabled={busy || !source.trim()} onClick={mode === 'standard' ? onPreview : onAi} className={`min-h-11 flex-1 rounded-xl px-5 text-sm font-bold text-white disabled:opacity-40 ${mode === 'standard' ? 'bg-[#1570ef]' : 'bg-[#7f56d9]'}`}>{busy ? <><span className="material-icons-round mr-2 animate-spin align-middle text-lg">progress_activity</span>正在生成</> : mode === 'standard' ? '解析并预览' : <><span className="material-icons-round mr-2 align-middle text-lg">auto_awesome</span>生成定义卡</>}</button></div>
-    <details className="mt-5 rounded-2xl border border-[var(--card-border)] p-4"><summary className="cursor-pointer text-sm font-bold">查看标准格式示例</summary><pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-xl bg-[var(--background)] p-3 text-xs leading-6">{EXAMPLE}{'\n'}Term,Definition,Note{'\n'}Object,A thing that can be seen or touched,Optional note</pre></details></article>
-    <aside className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">导入预览</h2><span className="rounded-full bg-[#eff8ff] px-3 py-1 text-xs font-bold text-[#175cd3] dark:bg-[#102a43] dark:text-[#84caff]">{preview.length} 张</span></div>{message && <p role="status" className="mt-4 rounded-xl bg-[var(--background)] px-3 py-2.5 text-sm text-[var(--muted-foreground)]">{message}</p>}<div className="mt-4 max-h-[440px] space-y-2 overflow-y-auto">{preview.map((card, index) => <div key={`${card.term}-${index}`} className="rounded-2xl border border-[var(--card-border)] p-4"><p className="text-sm font-bold">{card.term}</p><p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">{card.definition}</p>{card.note && <p className="mt-2 text-xs text-[#667085]">{card.note}</p>}</div>)}{!preview.length && <div className="grid min-h-52 place-items-center rounded-2xl border border-dashed border-[var(--card-border)] text-center text-sm leading-6 text-[var(--muted-foreground)]"><span><span className="material-icons-round mb-2 block text-3xl">preview</span>解析后的卡片会显示在这里</span></div>}</div><button type="button" disabled={!preview.length} onClick={onConfirm} className="mt-5 min-h-12 w-full rounded-xl bg-[#12b76a] px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"><span className="material-icons-round mr-2 align-middle text-lg">library_add</span>确认导入 {preview.length || ''}</button></aside></section>;
-}
+function Importer({ mode, source, preview, placement, message, busy, onMode, onSource, onPlacement, onParse, onAi, onFile, onConfirm }: { mode: 'standard' | 'ai'; source: string; preview: DefinitionCardDraft[]; placement: Placement; message: string; busy: boolean; onMode: (value: 'standard' | 'ai') => void; onSource: (value: string) => void; onPlacement: (value: Partial<Placement>) => void; onParse: () => void; onAi: () => void; onFile: (file?: File) => void; onConfirm: () => void }) { const input = 'min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm'; return <section className="grid gap-5 lg:grid-cols-2"><article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><div className="flex rounded-xl bg-[var(--background)] p-1"><button type="button" onClick={() => onMode('standard')} className={`min-h-10 flex-1 rounded-lg font-bold ${mode === 'standard' ? 'bg-[var(--card)] text-[#175cd3]' : ''}`}>标准格式</button><button type="button" onClick={() => onMode('ai')} className={`min-h-10 flex-1 rounded-lg font-bold ${mode === 'ai' ? 'bg-[var(--card)] text-[#6941c6]' : ''}`}>AI 导入</button></div><p className="mt-5 text-sm leading-6 text-[var(--muted-foreground)]">顶部可用 @subject、@unit、@subunit、@set 指定分类。</p><textarea value={source} onChange={(event) => onSource(event.target.value)} rows={14} placeholder={mode === 'standard' ? EXAMPLE : '粘贴讲义或笔记…'} className="mt-3 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 text-sm" /><div className="mt-3 flex gap-2">{mode === 'standard' && <label className="cursor-pointer rounded-xl border px-4 py-3 text-sm font-bold">选择文件<input type="file" className="sr-only" onChange={(event) => onFile(event.target.files?.[0])} /></label>}<button type="button" disabled={busy || !source.trim()} onClick={mode === 'standard' ? onParse : onAi} className="flex-1 rounded-xl bg-[#1570ef] font-bold text-white disabled:opacity-40">{busy ? '正在生成…' : mode === 'standard' ? '解析卡组' : 'AI 生成卡组'}</button></div><details className="mt-4 rounded-xl border p-3"><summary className="cursor-pointer font-bold">格式示例</summary><pre className="mt-2 whitespace-pre-wrap text-xs">{EXAMPLE}</pre></details></article><aside className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><h2 className="text-xl font-bold">分类与预览</h2><div className="mt-4 grid grid-cols-2 gap-2"><input aria-label="科目" value={placement.subject} onChange={(event) => onPlacement({ subject: event.target.value })} placeholder="科目，例如 CS *" className={input} /><input aria-label="单元" value={placement.unit} onChange={(event) => onPlacement({ unit: event.target.value })} placeholder="单元，例如 Graphics *" className={input} /><input aria-label="小单元" value={placement.subunit} onChange={(event) => onPlacement({ subunit: event.target.value })} placeholder="小单元（可选）" className={input} /><input aria-label="卡组项目" value={placement.deckTitle} onChange={(event) => onPlacement({ deckTitle: event.target.value })} placeholder="卡组项目，例如 DEF 01 *" className={input} /></div>{message && <p role="status" className="mt-4 rounded-xl bg-[var(--background)] p-3 text-sm">{message}</p>}<div className="mt-4 max-h-80 space-y-2 overflow-y-auto">{preview.map((card, index) => <div key={`${card.term}-${index}`} className="rounded-xl border p-3"><b>{card.term}</b><p className="text-sm text-[var(--muted-foreground)]">{card.definition}</p></div>)}{!preview.length && <Empty />}</div><button type="button" disabled={!preview.length} onClick={onConfirm} className="mt-5 min-h-12 w-full rounded-xl bg-[#12b76a] font-bold text-white disabled:opacity-40">建立卡组并导入 {preview.length || ''}</button></aside></section>; }
+function Empty() { return <div className="col-span-full rounded-2xl border border-dashed border-[var(--card-border)] p-10 text-center text-sm text-[var(--muted-foreground)]">当前范围没有卡片。</div>; }

@@ -201,9 +201,12 @@ export default async function DashboardPage() {
               <button type="submit" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#101828] transition hover:scale-105"><span className="material-icons-round">arrow_upward</span></button>
             </form>
           </div>
-          <div className="relative flex gap-2">
-            <Link href="/ai?mode=chat" className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
-            <Link href="/ai?mode=agent" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"><span className="material-icons-round text-lg">neurology</span>Agent</Link>
+          <div className="relative grid w-full grid-cols-2 gap-2 sm:w-auto">
+            <Link href="/ai?mode=chat" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
+            <Link href="/ai?mode=agent" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v3" /><circle cx="12" cy="2" r="1" /><rect x="4" y="6" width="16" height="14" rx="4" /><path d="M8 11h.01M16 11h.01M8 16h8" /></svg>
+              Agent
+            </Link>
           </div>
         </div>
       </section>
