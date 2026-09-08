@@ -26,12 +26,20 @@
 
   // Portal → Companion bridge. The background verifies the signed-in account's
   // BETA enrollment before it opens or changes any third-party AI page.
-  if (host === 'jackyun.top' || host === 'jackyun.cn') {
+  if (host === 'jackyun.top' || host === 'jackyun.cn' || host === 'yunfanshi.github.io') {
+    const portalStatus = (payload) => window.postMessage({
+      type: 'JACKYUN_COMPANION_AI_STATUS', ...payload,
+    }, location.origin);
     window.addEventListener('message', (event) => {
       if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'JACKYUN_COMPANION_AI_PROMPT') return;
+      const requestId = String(event.data.requestId || '');
+      portalStatus({ requestId, stage: 'opening', detail: 'Companion 已接收请求，正在验证 BETA 资格…' });
       chrome.runtime.sendMessage({ type: 'AI_WEB_PROMPT', payload: {
-        requestId: String(event.data.requestId || ''), provider: String(event.data.provider || ''), prompt: String(event.data.prompt || ''),
-      } }).catch((error) => console.error('[BETA/BrowserAI] Companion automation failed', error));
+        requestId, provider: String(event.data.provider || ''), prompt: String(event.data.prompt || ''),
+      } }).catch((error) => {
+        console.error('[BETA/BrowserAI] Companion automation failed', error);
+        portalStatus({ requestId, stage: 'error', detail: 'Companion 后台未能处理请求。', error: error?.message || String(error) });
+      });
     });
     chrome.runtime.onMessage.addListener((message) => {
       if (message.type !== 'AI_AUTOMATION_STATUS') return false;
@@ -43,6 +51,7 @@
       }, location.origin);
       return false;
     });
+    window.postMessage({ type: 'JACKYUN_COMPANION_READY', version: chrome.runtime.getManifest().version }, location.origin);
   }
 
   function setNativeValue(element, value) {

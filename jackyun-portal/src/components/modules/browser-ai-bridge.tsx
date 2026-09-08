@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BROWSER_AI_CANCELLED, BROWSER_AI_REQUEST_EVENT, browserAiResponse, type BrowserAiRequest } from '@/lib/browser-ai';
 import { getAiConfig } from '@/lib/ai-config';
 import { formatBrowserAiPrompt } from '@/lib/browser-ai';
+import { COMPANION_BETA_VERSION } from '@/lib/beta';
 
 export default function BrowserAiBridge() {
   const [request, setRequest] = useState<BrowserAiRequest | null>(null);
@@ -11,6 +12,7 @@ export default function BrowserAiBridge() {
   const [notice, setNotice] = useState('');
   const [automationStage, setAutomationStage] = useState<'idle' | 'opening' | 'filling' | 'waiting' | 'receiving' | 'complete' | 'error'>('idle');
   const requestRef = useRef<BrowserAiRequest | null>(null);
+  const connectionTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const activateRequest = (next: BrowserAiRequest) => {
@@ -22,7 +24,13 @@ export default function BrowserAiBridge() {
       console.info('[BETA/BrowserAI] Manual request created', { requestId: next.id, provider: next.provider, automation: next.automation, promptLength: next.prompt.length });
       if (next.automation) {
         window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt }, window.location.origin);
-        setNotice('已请求 Jack Companion 打开所选 AI 并填写 Prompt；生成完成后请把回复粘贴到下方。');
+        setNotice('正在连接 JackYun Companion…');
+        if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current);
+        connectionTimerRef.current = window.setTimeout(() => {
+          if (requestRef.current?.id !== next.id) return;
+          setAutomationStage('error');
+          setNotice(`未检测到 Companion ${COMPANION_BETA_VERSION}。请安装或重新加载最新 BETA 扩展，也可以直接使用下方手动复制模式。`);
+        }, 4000);
       }
     };
     const listener = (event: Event) => {
@@ -53,6 +61,7 @@ export default function BrowserAiBridge() {
       if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_AI_STATUS') return;
       const active = requestRef.current;
       if (!active || event.data.requestId !== active.id) return;
+      if (connectionTimerRef.current) { window.clearTimeout(connectionTimerRef.current); connectionTimerRef.current = null; }
       const stage = event.data.stage as typeof automationStage;
       if (['opening', 'filling', 'waiting', 'receiving', 'complete', 'error'].includes(stage)) setAutomationStage(stage);
       setNotice(event.data.error || event.data.detail || '');
@@ -65,7 +74,7 @@ export default function BrowserAiBridge() {
       }
     };
     window.addEventListener('message', statusListener);
-    return () => { window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', statusListener); };
+    return () => { if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current); window.removeEventListener(BROWSER_AI_REQUEST_EVENT, listener); window.removeEventListener('message', legacyListener); window.removeEventListener('message', statusListener); };
   }, []);
 
   useEffect(() => {
@@ -74,6 +83,7 @@ export default function BrowserAiBridge() {
       if (event.key !== 'Escape') return;
       console.warn('[BETA/BrowserAI] Request cancelled with Escape', { requestId: request.id });
       request.reject(new Error(BROWSER_AI_CANCELLED));
+      if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current);
       requestRef.current = null;
       setRequest(null);
     };
@@ -85,6 +95,7 @@ export default function BrowserAiBridge() {
   const close = () => {
     console.warn('[BETA/BrowserAI] Request cancelled', { requestId: request.id });
     request.reject(new Error(BROWSER_AI_CANCELLED));
+    if (connectionTimerRef.current) window.clearTimeout(connectionTimerRef.current);
     requestRef.current = null;
     setRequest(null);
   };

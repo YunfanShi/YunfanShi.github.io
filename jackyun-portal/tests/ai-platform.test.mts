@@ -4,6 +4,7 @@ import test from 'node:test';
 import { validatePersonalSite } from '../src/lib/personal-site.ts';
 import { isAdminIdentity } from '../src/lib/admin-auth.ts';
 import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.ts';
+import { readAiStream } from '../src/lib/ai-stream.ts';
 
 test('personal site validator keeps only safe component types and web links', () => {
   const site = validatePersonalSite({ name: '学习主页', theme: 'purple', blocks: [
@@ -35,6 +36,8 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   assert.match(route, /delete upstreamFields\.interfaceLanguage/);
   assert.match(route, /delete upstreamFields\._connection_test/);
   assert.match(route, /delete upstreamFields\._no_thinking/);
+  assert.match(route, /delete upstreamFields\.catalogModelId/);
+  assert.match(route, /resolveManagedAiModel/);
   assert.match(route, /isGlm53[\s\S]*delete upstreamFields\.thinking[\s\S]*reasoning_effort = 'low'/);
   assert.match(route, /else if \(\(connectionTest \|\| noThinking\) && isBigModel\)[\s\S]*thinking = \{ type: 'disabled' \}/);
   assert.match(route, /reserve_ai_usage/);
@@ -45,6 +48,30 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   assert.match(route, /if \(!adminClient\)[\s\S]*服务端配额配置/);
   assert.match(route, /supabase\.auth\.getClaims\(\)/);
   assert.match(route, /forceCloudRequest[\s\S]*\? \[\{ data: null \}, \{ data: null \}\]/);
+});
+
+test('AI stream parser preserves SSE JSON split across network chunks', async () => {
+  const encoder = new TextEncoder();
+  const chunks = [
+    'data: {"choices":[{"delta":{"content":"你',
+    '好"}}]}\n',
+    'data: {"choices":[{"delta":{"content":"！"}}]}\n\ndata: [DONE]\n',
+  ];
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) { chunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk))); controller.close(); },
+  });
+  const result = await readAiStream(new Response(stream), () => {});
+  assert.equal(result.content, '你好！');
+});
+
+test('model catalog migration enforces per-plan access and keeps tables server-only', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260908033130_ai_model_catalog_and_plan_access.sql', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE public\.ai_model_catalog/);
+  assert.match(sql, /CREATE TABLE public\.plan_ai_model_access/);
+  assert.match(sql, /PRIMARY KEY \(plan_code, model_id\)/);
+  assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql, /REVOKE ALL ON TABLE public\.ai_model_catalog, public\.plan_ai_model_access FROM anon, authenticated/);
+  assert.match(sql, /admin_ai_usage_summary/);
 });
 
 test('streaming chat keeps one assistant bubble and repairs old partial duplicates', () => {

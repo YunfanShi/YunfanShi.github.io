@@ -187,6 +187,27 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      <section className="relative mb-10 overflow-hidden rounded-[28px] border border-[#c7d7fe] bg-[#0b1220] p-5 text-white shadow-[0_20px_60px_rgba(21,94,239,.16)] sm:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-[#7f56d9]/35 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#155eef]/35 blur-3xl" />
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-[#b2ccff]"><span className="material-icons-round text-base">auto_awesome</span>JackYun AI</div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">聊天和 Agent，各做各擅长的事。</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#cbd5e1]">快速问答用聊天；需要拆解任务、读取工作区信息或执行多步骤操作时切换 Agent。</p>
+            <form action="/ai" className="mt-5 flex max-w-2xl items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur">
+              <input type="hidden" name="mode" value="chat" />
+              <input name="prompt" maxLength={4000} aria-label="给 JackYun AI 发消息" placeholder="今天想解决什么？" className="h-11 min-w-0 flex-1 bg-transparent px-3 text-base text-white outline-none placeholder:text-[#98a2b3]" />
+              <button type="submit" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#101828] transition hover:scale-105"><span className="material-icons-round">arrow_upward</span></button>
+            </form>
+          </div>
+          <div className="relative flex gap-2">
+            <Link href="/ai?mode=chat" className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
+            <Link href="/ai?mode=agent" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"><span className="material-icons-round text-lg">neurology</span>Agent</Link>
+          </div>
+        </div>
+      </section>
+
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Progress overview</p>

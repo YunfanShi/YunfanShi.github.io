@@ -198,6 +198,10 @@ export async function callAiApi(
     feature?: 'chat' | 'reasoning' | 'personal_site' | 'ui_customization';
     /** 允许调用方为轻量探针设置更短的超时。 */
     signal?: AbortSignal;
+    /** 管理员模型目录中的安全 ID；云端模式下由服务端校验套餐权限。 */
+    catalogModelId?: number;
+    /** 独立 AI 工作台模式，用于校验模型能力。 */
+    workspaceMode?: 'chat' | 'agent';
   } = {},
 ): Promise<Response> {
   const config = getAiConfig();
@@ -236,7 +240,15 @@ export async function callAiApi(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...body, feature: options.feature ?? 'chat', providerMode: config.providerMode ?? 'cloud', baseUrl, ...(apiKey ? { apiKey } : {}) }),
+    body: JSON.stringify({
+      ...body,
+      feature: options.feature ?? 'chat',
+      providerMode: config.providerMode ?? 'cloud',
+      baseUrl,
+      ...(apiKey ? { apiKey } : {}),
+      ...(options.catalogModelId ? { catalogModelId: options.catalogModelId } : {}),
+      ...(options.workspaceMode ? { workspaceMode: options.workspaceMode } : {}),
+    }),
     signal: options.signal,
   });
 }

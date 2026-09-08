@@ -21,6 +21,7 @@ type TranslationMap = Record<string, { zh: string; en: string }>;
 const translations: TranslationMap = {
   // ── Sidebar nav items ──
   'nav.dashboard':            { zh: 'Dashboard',            en: 'Dashboard' },
+  'nav.ai':                   { zh: 'JackYun AI',           en: 'JackYun AI' },
   'nav.study-plan':           { zh: '学习计划',             en: 'Study Plan' },
   'nav.study-guide':          { zh: 'StudyGuide',           en: 'StudyGuide' },
   'nav.ielts-writing':        { zh: '雅思写作工具',         en: 'IELTS Writing Lab' },
@@ -49,6 +50,7 @@ const translations: TranslationMap = {
   'nav.review':               { zh: '错题复习',             en: 'Mistake Review' },
   'nav.md2word':              { zh: 'Markdown → Word',      en: 'Markdown → Word' },
   'nav.tools':                { zh: '工具箱',               en: 'Tools' },
+  'nav.beta':                 { zh: 'BETA 测试中心',        en: 'BETA Test Center' },
   'nav.studio':               { zh: 'AI 网站工作室 BETA',  en: 'AI Site Studio BETA' },
   'nav.settings':             { zh: '设置',                 en: 'Settings' },
   'nav.update':               { zh: '更新',                 en: 'Update' },

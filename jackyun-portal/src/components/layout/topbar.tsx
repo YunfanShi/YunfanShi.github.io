@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import UserAvatar from '@/components/auth/user-avatar';
 import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
@@ -129,9 +130,9 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
       </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         {betaActive && (
-          <span className="rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm sm:text-xs" title="你正在使用测试版本">
+          <Link href="/beta" className="rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] sm:text-xs" title="打开 BETA 测试中心">
             BETA v{APP_VERSION}
-          </span>
+          </Link>
         )}
         <SyncStatusIndicator signedIn={Boolean(user)} />
         <button

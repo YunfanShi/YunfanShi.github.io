@@ -60,6 +60,8 @@ interface AiChatFabProps {
   embeddedTitle?: string;
   /** 当前页面路径（用于 source 标记） */
   currentPath?: string;
+  /** 独立工作台选择的管理员模型目录 ID。 */
+  catalogModelId?: number;
 }
 
 // ── Consent Dialog 类型 ─────────────────────────────────────────────────────
@@ -647,6 +649,7 @@ export default function AiChatFab({
   embedded = false,
   embeddedTitle = 'AI 助手',
   currentPath: propPath,
+  catalogModelId,
 }: AiChatFabProps) {
   const pathname = usePathname();
   const currentPath = propPath || pathname || '';
@@ -1203,6 +1206,8 @@ export default function AiChatFab({
       model: options.model,
       maxTokens: options.maxTokens,
       feature: thinkingLevel === 'high' ? 'reasoning' : 'chat',
+      catalogModelId,
+      workspaceMode: 'agent',
       signal: abortControllerRef.current.signal,
     });
     if (!res.ok) {

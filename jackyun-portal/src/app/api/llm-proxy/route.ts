@@ -5,6 +5,7 @@ import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
 import { normalizeLlmBaseUrl } from '@/lib/llm-endpoint';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
+import { resolveManagedAiModel, type AiWorkspaceMode } from '@/lib/ai-model-catalog';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -160,6 +161,8 @@ export async function POST(req: NextRequest) {
   const clientBaseUrl = requestedClientBaseUrl ? normalizeLlmBaseUrl(requestedClientBaseUrl) : '';
   const clientApiKey = (body.apiKey as string)?.trim() || '';
   const clientModel = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
+  const catalogModelId = Number(body.catalogModelId);
+  const requestedWorkspaceMode: AiWorkspaceMode = body.workspaceMode === 'agent' ? 'agent' : 'chat';
   if (body.providerMode === 'browser') {
     return NextResponse.json({ error: { code: 'BROWSER_AI_CLIENT_REQUIRED', message: '本地网页 AI 请求必须在浏览器交互窗口中完成。' } }, { status: 409 });
   }
@@ -246,22 +249,34 @@ export async function POST(req: NextRequest) {
       if (!adminClient) {
         return NextResponse.json({ error: { message: '平台云端 AI 尚未完成服务端配额配置，请联系管理员。' } }, { status: 503 });
       }
-      // Prefer the administrator-managed encrypted provider. Environment
-      // variables remain an emergency fallback for existing deployments.
-      const { data: managedProvider } = adminClient
-        ? await adminClient.from('ai_provider_configs').select('*').eq('enabled', true).order('is_default', { ascending: false }).order('created_at').limit(1).maybeSingle()
-        : { data: null };
+      // A catalog selection is resolved server-side so clients cannot bypass
+      // plan access by submitting an arbitrary upstream model identifier.
+      const selected = Number.isSafeInteger(catalogModelId) && catalogModelId > 0
+        ? await resolveManagedAiModel(authenticatedUserId, catalogModelId, requestedWorkspaceMode)
+        : null;
+      if (catalogModelId > 0 && !selected) {
+        return NextResponse.json(
+          { error: { code: 'model_not_available', message: '当前套餐不能使用这个模型，请切换模型或联系管理员。' } },
+          { status: 403 },
+        );
+      }
+      // Preserve the legacy default-provider path for existing AI modules that
+      // have not opted into the selectable catalog yet.
+      const { data: fallbackProvider } = selected
+        ? { data: null }
+        : await adminClient.from('ai_provider_configs').select('*').eq('enabled', true).order('is_default', { ascending: false }).order('created_at').limit(1).maybeSingle();
+      const managedProvider = selected?.provider ?? fallbackProvider;
       if (managedProvider?.encrypted_api_key) {
         baseUrl = managedProvider.base_url;
         try { apiKey = decryptSecret(managedProvider.encrypted_api_key); } catch { apiKey = ''; }
         const feature = typeof body.feature === 'string' ? body.feature : 'chat';
-        model = feature === 'personal_site' && managedProvider.site_model
+        model = selected?.model.model_id ?? (feature === 'personal_site' && managedProvider.site_model
           ? managedProvider.site_model
           : feature === 'reasoning' && managedProvider.reasoning_model
             ? managedProvider.reasoning_model
-            : managedProvider.chat_model;
-        inputCostPerMillion = Number(managedProvider.input_cost_per_million) || 0;
-        outputCostPerMillion = Number(managedProvider.output_cost_per_million) || 0;
+            : managedProvider.chat_model);
+        inputCostPerMillion = Number(selected?.model.input_cost_per_million ?? managedProvider.input_cost_per_million) || 0;
+        outputCostPerMillion = Number(selected?.model.output_cost_per_million ?? managedProvider.output_cost_per_million) || 0;
       } else {
         baseUrl = CLOUD_API_URL;
         apiKey = CLOUD_API_KEY;
@@ -311,6 +326,8 @@ export async function POST(req: NextRequest) {
   delete upstreamFields.interfaceLanguage;
   delete upstreamFields._connection_test;
   delete upstreamFields._no_thinking;
+  delete upstreamFields.catalogModelId;
+  delete upstreamFields.workspaceMode;
   // GLM 5.3 is an always-thinking model: sending thinking.type=disabled makes
   // BigModel reject the request with code 1210. Translate the app's fast-mode
   // hint to the lowest supported reasoning level for that model family.
