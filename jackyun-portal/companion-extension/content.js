@@ -227,20 +227,24 @@
     }
     if (message.type === 'AI_READ_RESPONSE') {
       const responses = assistantResponses();
-      const latest = responses.at(-1);
-      sendResponse({ ok: true, count: responses.length, text: latest?.textContent?.trim() || '', busy: generationBusy() });
+      const newResponses = responses.filter((element) => element.dataset.jackyunAiBaseline !== 'true');
+      const latest = newResponses.at(-1) || responses.at(-1);
+      sendResponse({ ok: true, count: responses.length, newCount: newResponses.length, text: latest?.textContent?.trim() || '', busy: generationBusy() });
       return true;
     }
     if (message.type !== 'AI_FILL_PROMPT') return false;
     try {
-      const baselineCount = assistantResponses().length;
+      const baselineResponses = assistantResponses();
+      const baselineCount = baselineResponses.length;
+      const baselineText = baselineResponses.at(-1)?.textContent?.trim() || '';
+      baselineResponses.forEach((element) => { element.dataset.jackyunAiBaseline = 'true'; });
       const composer = aiComposer();
       if (!composer) throw new Error('找不到 AI 输入框，网页结构可能已更新');
       setNativeValue(composer, String(message.prompt || ''));
       composer.focus();
       if (!composerValue(composer).trim()) throw new Error('已找到输入框，但网页没有接受 Prompt');
       const submittedBy = message.submit ? submitPrompt(composer) : 'none';
-      sendResponse({ ok: true, baselineCount, submittedBy });
+      sendResponse({ ok: true, baselineCount, baselineText, submittedBy });
     } catch (error) { sendResponse({ ok: false, error: error.message || String(error) }); }
     return true;
   });

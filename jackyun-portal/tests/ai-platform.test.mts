@@ -5,6 +5,7 @@ import { validatePersonalSite } from '../src/lib/personal-site.ts';
 import { isAdminIdentity } from '../src/lib/admin-auth.ts';
 import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.ts';
 import { readAiStream } from '../src/lib/ai-stream.ts';
+import { hasNewAiResponse } from '../companion-extension/ai-response-detection.mjs';
 
 test('personal site validator keeps only safe component types and web links', () => {
   const site = validatePersonalSite({ name: '学习主页', theme: 'purple', blocks: [
@@ -173,15 +174,25 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(extension, /ensureAiPageReady/);
   assert.match(extension, /AI_LIST_MODELS/);
   assert.match(extension, /AI_SELECT_MODEL/);
-  assert.match(extension, /消息已发送，已等待/);
+  assert.match(extension, /页面可见.*条回复/);
   assert.match(content, /bard-mode-menu-button/);
   assert.match(content, /menuitemradio/);
   assert.match(content, /AI_SELECT_MODEL/);
+  assert.match(content, /jackyunAiBaseline/);
+  assert.match(extension, /response\.baselineText/);
+  assert.match(extension, /hasNewAiResponse/);
   assert.match(bridge, /Automation heartbeat timeout/);
   assert.doesNotMatch(bridge, />progress_activity</);
   const workspace = readFileSync(new URL('../src/components/ai/ai-workspace.tsx', import.meta.url), 'utf8');
   assert.match(workspace, /JACKYUN_COMPANION_LIST_MODELS/);
   assert.match(workspace, /browserModel=\{selectedModel\.id < 0/);
+});
+
+test('browser AI detects replies when a virtualized message list keeps the same node count', () => {
+  assert.equal(hasNewAiResponse({ count: 3, newCount: 0, text: '新的回复' }, 3, '旧的回复'), true);
+  assert.equal(hasNewAiResponse({ count: 3, newCount: 1, text: '相同回复' }, 3, '相同回复'), true);
+  assert.equal(hasNewAiResponse({ count: 3, newCount: 0, text: '相同回复' }, 3, '相同回复'), false);
+  assert.equal(hasNewAiResponse({ count: 4, newCount: 0, text: '回复' }, 3, '回复'), true);
 });
 
 test('admin operations protect the owner, reset quota windows, notify users, and start chats', () => {

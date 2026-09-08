@@ -1,3 +1,5 @@
+import { hasNewAiResponse } from './ai-response-detection.mjs';
+
 const PORTAL = 'https://jackyun.top';
 const VERSION = chrome.runtime.getManifest().version;
 const DEFAULT_PREFERENCES = { enabled: true, countAI: true, idleSeconds: 60, goalMinutes: 120, retentionDays: 365, savePageTitles: false };
@@ -399,7 +401,7 @@ async function notifyAiStatus(portalTabId, payload, stage, detail, extra = {}) {
   await chrome.tabs.sendMessage(portalTabId, { type: 'AI_AUTOMATION_STATUS', requestId: payload.requestId, stage, detail, ...extra }).catch(() => {});
 }
 
-async function waitForAiReply(tabId, baselineCount, payload, portalTabId) {
+async function waitForAiReply(tabId, baselineCount, baselineText, payload, portalTabId) {
   let previous = '';
   let stablePolls = 0;
   for (let attempt = 0; attempt < 300; attempt += 1) {
@@ -410,9 +412,9 @@ async function waitForAiReply(tabId, baselineCount, payload, portalTabId) {
       continue;
     }
     const text = String(state.text || '').trim();
-    const hasNewResponse = Number(state.count || 0) > Number(baselineCount || 0) && text.length > 0;
+    const hasNewResponse = hasNewAiResponse(state, baselineCount, baselineText);
     if (!hasNewResponse) {
-      if (attempt % 5 === 4) await notifyAiStatus(portalTabId, payload, 'waiting', `消息已发送，已等待 ${attempt + 1} 秒；AI 网页尚未返回内容…`);
+      if (attempt % 5 === 4) await notifyAiStatus(portalTabId, payload, 'waiting', `已等待 ${attempt + 1} 秒；页面可见 ${Number(state.count || 0)} 条回复，最新 ${text.length} 个字符，正在识别新增内容…`);
       continue;
     }
     stablePolls = text === previous && !state.busy ? stablePolls + 1 : 0;
@@ -468,7 +470,7 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
       if (response?.ok) {
         await betaAiLog('prompt_submitted', { provider, conversationMode, requestId: payload.requestId, tabId: tab.id });
         await notifyAiStatus(portalTabId, payload, 'waiting', '消息已发送，正在等待 AI 完成回复…');
-        const reply = await waitForAiReply(tab.id, response.baselineCount, payload, portalTabId);
+        const reply = await waitForAiReply(tab.id, response.baselineCount, response.baselineText, payload, portalTabId);
         await betaAiLog('reply_received', { provider, requestId: payload.requestId, tabId: tab.id, replyLength: reply.length });
         await notifyAiStatus(portalTabId, payload, 'complete', '回复已完整收到，正在返回 JackYun…', { reply });
         await chrome.tabs.update(portalTabId, { active: true }).catch(() => {});

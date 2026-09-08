@@ -1,9 +1,9 @@
 {
   "product": "JackYun Companion",
   "version": "1.1.0",
-  "previewVersion": "1.7.0",
-  "previewZip": "/downloads/jackyun-companion-v1.7.0.zip",
-  "previewZipSha256": "36a57bf41190be1f0ef8eeb10e7bf86703a6f7cb5600c6a7bd9175648f0bf039",
+  "previewVersion": "1.7.1",
+  "previewZip": "/downloads/jackyun-companion-v1.7.1.zip",
+  "previewZipSha256": "7104aaea92f93ef9520df851547fe707dae725acad82827abf8759bd45a65be4",
   "status": "beta-published",
   "updatedAt": "2026-09-08",
   "chromeWebStoreUrl": null,
@@ -19,6 +19,7 @@
   "crxSha256": "48854fea74fa5c340574ab99a85f3d025314812221490bf89052255dad5fbf30",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
+    "1.7.1 BETA 修复 DeepSeek 虚拟消息列表保持相同节点数时无法识别和回传新回复的问题，并在等待状态显示页面实际读到的回复数与字符数。",
     "1.7.0 BETA 可从 ChatGPT、Gemini 和 DeepSeek 当前登录账号实时读取并切换模型；修复最近/指定对话续聊、旧标签页强制刷新和无心跳卡死，并重做 Portal 逐步进度显示。",
     "1.6.0 BETA 新增新建、最近和指定对话三种上下文策略，可从本机已打开标签页识别对话，并按当前网页结构加强 ChatGPT、DeepSeek 与 Qwen 输入和发送适配。",
     "1.5.2 BETA 修复扩展升级后设备版本仍显示旧版、旧 AI 标签页缺少新版内容脚本、Portal 无在线握手和 DeepSeek 填写发送回退不足的问题，并强化扩展内自动化入口。",
