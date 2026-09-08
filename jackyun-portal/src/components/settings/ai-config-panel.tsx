@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { callAiApi, saveAiConfig, syncAiConfigToServer } from '@/lib/ai-config';
 import { explainAiError } from '@/lib/ai-error';
-import type { BrowserAiProvider } from '@/lib/browser-ai';
+import { getBrowserAiConversationTarget, saveBrowserAiConversationTarget, type BrowserAiConversation, type BrowserAiConversationMode, type BrowserAiProvider } from '@/lib/browser-ai';
 
 interface AiConfigPanelProps {
   initialBaseUrl: string;
@@ -34,16 +34,23 @@ function detectProvider(url: string) {
   return PROVIDERS.find((p) => p.url && p.url === url) ?? PROVIDERS[PROVIDERS.length - 1];
 }
 
-const BROWSER_PROVIDERS: Array<{ value: BrowserAiProvider; label: string }> = [
-  { value: 'chatgpt', label: 'ChatGPT' }, { value: 'deepseek', label: 'DeepSeek 网页版' },
-  { value: 'claude', label: 'Claude' }, { value: 'gemini', label: 'Gemini' },
-  { value: 'qwen', label: '通义千问' }, { value: 'perplexity', label: 'Perplexity' },
+const BROWSER_PROVIDERS: Array<{ value: BrowserAiProvider; label: string; status: 'verified' | 'compatible' }> = [
+  { value: 'chatgpt', label: 'ChatGPT', status: 'verified' }, { value: 'deepseek', label: 'DeepSeek 网页版', status: 'verified' },
+  { value: 'claude', label: 'Claude', status: 'compatible' }, { value: 'gemini', label: 'Gemini', status: 'compatible' },
+  { value: 'qwen', label: '通义千问 Qwen', status: 'verified' }, { value: 'perplexity', label: 'Perplexity', status: 'compatible' },
 ];
 
 export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialModel, initialProviderMode, initialBrowserProvider, initialCompanionAutomation, betaActive }: AiConfigPanelProps) {
   const [providerMode, setProviderMode] = useState(initialProviderMode);
   const [browserProvider, setBrowserProvider] = useState(initialBrowserProvider);
   const [companionAutomation, setCompanionAutomation] = useState(initialCompanionAutomation);
+  const [conversationMode, setConversationMode] = useState<BrowserAiConversationMode>(() => getBrowserAiConversationTarget().mode);
+  const [conversationUrl, setConversationUrl] = useState(() => getBrowserAiConversationTarget().url);
+  const [conversations, setConversations] = useState<BrowserAiConversation[]>([]);
+  const [detectingConversations, setDetectingConversations] = useState(false);
+  const [conversationNotice, setConversationNotice] = useState('');
+  const detectionIdRef = useRef('');
+  const detectionTimerRef = useRef<number | null>(null);
   const [provider, setProvider] = useState(() => detectProvider(initialBaseUrl));
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
   const [apiKey, setApiKey] = useState(initialApiKey === '__stored__' ? '' : initialApiKey);
@@ -63,6 +70,37 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
   const [testResponseRaw, setTestResponseRaw] = useState<string>('');
 
   const isCustom = provider.label === '自定义';
+
+  useEffect(() => {
+    const listener = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_CONVERSATIONS' || event.data.requestId !== detectionIdRef.current) return;
+      if (detectionTimerRef.current) window.clearTimeout(detectionTimerRef.current);
+      const items = Array.isArray(event.data.conversations) ? event.data.conversations.filter((item: unknown): item is BrowserAiConversation => Boolean(item && typeof item === 'object' && typeof (item as BrowserAiConversation).url === 'string' && typeof (item as BrowserAiConversation).title === 'string')) : [];
+      setConversations(items);
+      setDetectingConversations(false);
+      setConversationNotice(items.length ? `已识别 ${items.length} 个已打开的对话` : '没有找到该提供方已打开的对话');
+    };
+    window.addEventListener('message', listener);
+    return () => { if (detectionTimerRef.current) window.clearTimeout(detectionTimerRef.current); window.removeEventListener('message', listener); };
+  }, []);
+
+  function detectConversations() {
+    const requestId = crypto.randomUUID();
+    detectionIdRef.current = requestId;
+    setDetectingConversations(true);
+    setConversationNotice('正在让 Companion 识别已打开的对话…');
+    window.postMessage({ type: 'JACKYUN_COMPANION_LIST_CONVERSATIONS', requestId, provider: browserProvider }, window.location.origin);
+    if (detectionTimerRef.current) window.clearTimeout(detectionTimerRef.current);
+    detectionTimerRef.current = window.setTimeout(() => {
+      if (detectionIdRef.current !== requestId) return;
+      setDetectingConversations(false);
+      setConversationNotice('未检测到最新版 Companion，请安装或重新加载扩展');
+    }, 4000);
+  }
+
+  function persistConversationTarget() {
+    saveBrowserAiConversationTarget({ mode: conversationMode, url: conversationUrl.trim() });
+  }
 
   function handleProviderChange(label: string) {
     const selected = PROVIDERS.find((p) => p.label === label) ?? PROVIDERS[PROVIDERS.length - 1];
@@ -109,6 +147,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setTestRequest(JSON.stringify(reqBody, null, 2));
 
     try {
+      persistConversationTarget();
       saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode, browserProvider, companionAutomation });
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 20_000);
@@ -167,6 +206,7 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
     setMessage(null);
 
     try {
+      persistConversationTarget();
       saveAiConfig({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || (hasStoredKey ? '__stored__' : ''), model: model.trim(), providerMode, browserProvider, companionAutomation });
       // 同步到服务器（跨设备持久化）
       const result = await syncAiConfigToServer();
@@ -193,7 +233,13 @@ export default function AiConfigPanel({ initialBaseUrl, initialApiKey, initialMo
       <div><label className="block text-sm font-medium text-[var(--foreground)] mb-1">调用来源</label><select value={providerMode} onChange={(e) => setProviderMode(e.target.value as 'cloud' | 'personal' | 'browser')} className={selectClass}><option value="cloud">平台云端 API（消耗套餐额度）</option><option value="personal">我的本地 API 配置（不消耗平台额度）</option>{betaActive && <option value="browser">本地网页 AI（手动中转） · BETA</option>}</select><p className="mt-1 text-xs text-[var(--muted-foreground)]">云端模型由管理员配置；个人 API 密钥会加密保存。网页 AI 不需要 API Key，默认关闭。</p></div>
       {providerMode === 'browser' && betaActive && <div className="space-y-3 rounded-xl border border-[#7f56d9]/30 bg-[#7f56d9]/5 p-4">
         <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">本地网页 AI <span className="ml-1 rounded bg-[#7f56d9] px-1.5 py-0.5 text-[10px] text-white">BETA</span></p><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">手动模式可复制粘贴；开启 Companion 后会自动完成打开、填写、发送、读取回复和返回。</p></div></div>
-        <label className="block text-sm font-medium">首选 AI 网页<select value={browserProvider} onChange={(event) => setBrowserProvider(event.target.value as BrowserAiProvider)} className={`${selectClass} mt-1`}>{BROWSER_PROVIDERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        <label className="block text-sm font-medium">首选 AI 网页<select value={browserProvider} onChange={(event) => { setBrowserProvider(event.target.value as BrowserAiProvider); setConversationUrl(''); setConversations([]); }} className={`${selectClass} mt-1`}>{BROWSER_PROVIDERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        <div className="flex flex-wrap gap-1.5">{BROWSER_PROVIDERS.map((item) => <span key={item.value} className={`rounded-full border px-2 py-1 text-[10px] font-semibold ${item.status === 'verified' ? 'border-[#86efac] bg-[#f0fdf4] text-[#166534] dark:border-[#166534] dark:bg-[#052e16] dark:text-[#86efac]' : 'border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{item.label} · {item.status === 'verified' ? '已检查' : '通用适配'}</span>)}</div>
+        <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3">
+          <label className="block text-sm font-semibold">对话上下文<select value={conversationMode} onChange={(event) => setConversationMode(event.target.value as BrowserAiConversationMode)} className={`${selectClass} mt-1`}><option value="new">每次新建对话</option><option value="recent">继续最近打开的对话</option><option value="selected">选择指定对话继续</option></select></label>
+          <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">“继续”会保留该 AI 网站原有上下文。对话标题与链接只在本机识别和保存，不同步到 JackYun 服务器。</p>
+          {conversationMode === 'selected' && <div className="mt-3 space-y-2"><button type="button" onClick={detectConversations} disabled={detectingConversations} className="min-h-10 w-full rounded-lg border border-[#7f56d9]/30 px-3 text-xs font-bold text-[#6941c6] disabled:opacity-50"><span className="material-icons-round mr-1 align-middle text-base">manage_search</span>{detectingConversations ? '正在识别…' : '识别已打开的对话'}</button>{conversations.length > 0 ? <select value={conversationUrl} onChange={(event) => setConversationUrl(event.target.value)} className={selectClass}><option value="">请选择对话</option>{conversations.map((item) => <option key={item.url} value={item.url}>{item.active ? '● ' : ''}{item.title}</option>)}</select> : <input type="url" value={conversationUrl} onChange={(event) => setConversationUrl(event.target.value)} placeholder="也可以粘贴该 AI 对话链接" className={inputClass} />}{conversationNotice && <p role="status" className="text-xs text-[var(--muted-foreground)]">{conversationNotice}</p>}</div>}
+        </div>
         <div className={`overflow-hidden rounded-2xl border-2 transition ${companionAutomation ? 'border-[#7f56d9] bg-[#7f56d9]/10 shadow-[0_10px_30px_rgba(127,86,217,.15)]' : 'border-[var(--card-border)] bg-[var(--card)]'}`}>
           <label className="flex cursor-pointer items-start gap-3 p-4"><input type="checkbox" checked={companionAutomation} onChange={(event) => setCompanionAutomation(event.target.checked)} className="mt-1 h-5 w-5 accent-[#7f56d9]" /><span className="min-w-0"><span className="flex flex-wrap items-center gap-2 text-sm font-bold"><span className="material-icons-round text-xl text-[#7f56d9]">auto_awesome</span>Companion 全自动处理<span className={`rounded-full px-2 py-0.5 text-[10px] ${companionAutomation ? 'bg-[#12b76a] text-white' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{companionAutomation ? '已开启' : '未开启'}</span></span><span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">需要最新版扩展、同一账号登录和 BETA 资格。失败时会明确显示原因，并保留手动复制入口。</span></span></label>
           <ol className="grid grid-cols-4 border-t border-[#7f56d9]/20 bg-[var(--background)]/60 px-3 py-3 text-center text-[10px] font-semibold text-[var(--muted-foreground)]"><li>① 打开网页</li><li>② 填写发送</li><li>③ 等待回复</li><li>④ 自动返回</li></ol>

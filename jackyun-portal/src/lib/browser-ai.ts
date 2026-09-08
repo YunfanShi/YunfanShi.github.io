@@ -4,15 +4,44 @@ export const BROWSER_AI_REQUEST_EVENT = 'jackyun-browser-ai-request';
 export const BROWSER_AI_CANCELLED = 'BROWSER_AI_CANCELLED';
 
 export type BrowserAiProvider = 'chatgpt' | 'deepseek' | 'claude' | 'gemini' | 'qwen' | 'perplexity';
+export type BrowserAiConversationMode = 'new' | 'recent' | 'selected';
+
+export interface BrowserAiConversationTarget {
+  mode: BrowserAiConversationMode;
+  url: string;
+}
+
+export interface BrowserAiConversation {
+  title: string;
+  url: string;
+  active: boolean;
+}
+
+const CONVERSATION_TARGET_KEY = 'jackyun-browser-ai-conversation-target';
 
 export interface BrowserAiRequest {
   id: string;
   prompt: string;
   provider: BrowserAiProvider;
+  conversationMode: BrowserAiConversationMode;
+  conversationUrl: string;
   automation: boolean;
   stream: boolean;
   resolve: (response: Response) => void;
   reject: (error: Error) => void;
+}
+
+export function getBrowserAiConversationTarget(): BrowserAiConversationTarget {
+  if (typeof window === 'undefined') return { mode: 'new', url: '' };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONVERSATION_TARGET_KEY) || '{}') as Partial<BrowserAiConversationTarget>;
+    return { mode: parsed.mode === 'recent' || parsed.mode === 'selected' ? parsed.mode : 'new', url: typeof parsed.url === 'string' ? parsed.url : '' };
+  } catch { return { mode: 'new', url: '' }; }
+}
+
+export function saveBrowserAiConversationTarget(target: BrowserAiConversationTarget): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(CONVERSATION_TARGET_KEY, JSON.stringify({ mode: target.mode, url: target.mode === 'selected' ? target.url : '' }));
 }
 
 export function formatBrowserAiPrompt(messages: Array<{ role: string; content: string }>): string {
@@ -40,9 +69,10 @@ export function requestBrowserAi(
   automation: boolean,
   stream: boolean,
 ): Promise<Response> {
+  const conversation = getBrowserAiConversationTarget();
   return new Promise((resolve, reject) => {
     window.dispatchEvent(new CustomEvent<BrowserAiRequest>(BROWSER_AI_REQUEST_EVENT, {
-      detail: { id: crypto.randomUUID(), prompt: formatBrowserAiPrompt(messages), provider, automation, stream, resolve, reject },
+      detail: { id: crypto.randomUUID(), prompt: formatBrowserAiPrompt(messages), provider, conversationMode: conversation.mode, conversationUrl: conversation.url, automation, stream, resolve, reject },
     }));
   });
 }

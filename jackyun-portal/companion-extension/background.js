@@ -333,6 +333,27 @@ async function waitForTab(tabId) {
   throw new Error('AI 网页加载超时');
 }
 
+function providerConversationUrl(provider, rawUrl) {
+  const base = AI_PROVIDER_URLS[provider];
+  if (!base) throw new Error('不支持的 AI 提供方');
+  if (!String(rawUrl || '').trim()) throw new Error('请先选择要继续的对话');
+  const expected = new URL(base);
+  const candidate = new URL(String(rawUrl || ''), expected);
+  if (candidate.protocol !== 'https:' || candidate.origin !== expected.origin) throw new Error('所选对话链接不属于当前 AI 提供方');
+  return candidate.href;
+}
+
+async function listAiConversations(provider) {
+  const base = AI_PROVIDER_URLS[String(provider || '')];
+  if (!base) return [];
+  const target = new URL(base);
+  const tabs = await chrome.tabs.query({ url: `${target.origin}/*` });
+  return tabs
+    .filter((tab) => tab.id && tab.url)
+    .sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))
+    .map((tab) => ({ title: String(tab.title || `${target.hostname} 对话`).slice(0, 160), url: providerConversationUrl(provider, tab.url), active: Boolean(tab.active) }));
+}
+
 async function notifyAiStatus(portalTabId, payload, stage, detail, extra = {}) {
   if (!portalTabId) return;
   await chrome.tabs.sendMessage(portalTabId, { type: 'AI_AUTOMATION_STATUS', requestId: payload.requestId, stage, detail, ...extra }).catch(() => {});
@@ -368,20 +389,31 @@ async function sendPromptToAiWebsite(payload, portalTabId) {
   await notifyAiStatus(portalTabId, payload, 'opening', '正在打开所选 AI 网站…');
   const target = new URL(AI_PROVIDER_URLS[provider]);
   const matches = await chrome.tabs.query({ url: `${target.origin}/*` });
-  const tab = matches[0] || await chrome.tabs.create({ url: target.href, active: true });
+  const conversationMode = ['recent', 'selected'].includes(payload?.conversationMode) ? payload.conversationMode : 'new';
+  let destination = target.href;
+  let tab = null;
+  if (conversationMode === 'selected') {
+    destination = providerConversationUrl(provider, payload?.conversationUrl);
+    tab = matches.find((item) => item.url === destination) || null;
+  } else if (conversationMode === 'recent') {
+    tab = [...matches].sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))[0] || null;
+    if (tab?.url) destination = providerConversationUrl(provider, tab.url);
+  }
+  tab = tab || await chrome.tabs.create({ url: destination, active: true });
   if (!tab.id) throw new Error('无法打开 AI 网页');
-  // Reload an existing AI tab through its canonical URL. Content scripts added by
-  // an extension update are not injected into pages that were already open.
-  await chrome.tabs.update(tab.id, { active: true, url: target.href });
+  // Reload a reused conversation so the latest content script is present while
+  // preserving its URL and context. New mode always opens a fresh tab.
+  await chrome.tabs.update(tab.id, { active: true });
+  if (matches.some((item) => item.id === tab.id)) await chrome.tabs.reload(tab.id);
   await delay(150);
   await waitForTab(tab.id);
-  await notifyAiStatus(portalTabId, payload, 'filling', '网站已打开，正在定位输入框并填写消息…');
+  await notifyAiStatus(portalTabId, payload, 'filling', conversationMode === 'new' ? '新对话已打开，正在填写消息…' : `已进入对话“${String(tab.title || provider).slice(0, 60)}”，正在继续上下文…`);
   let lastError = null;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'AI_FILL_PROMPT', prompt, provider, submit: true });
       if (response?.ok) {
-        await betaAiLog('prompt_submitted', { provider, requestId: payload.requestId, tabId: tab.id });
+        await betaAiLog('prompt_submitted', { provider, conversationMode, requestId: payload.requestId, tabId: tab.id });
         await notifyAiStatus(portalTabId, payload, 'waiting', '消息已发送，正在等待 AI 完成回复…');
         const reply = await waitForAiReply(tab.id, response.baselineCount, payload, portalTabId);
         await betaAiLog('reply_received', { provider, requestId: payload.requestId, tabId: tab.id, replyLength: reply.length });
@@ -509,6 +541,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'TOOLS_SAVE_CONFIG') return saveToolsConfig(message.payload);
     if (message.type === 'ADBLOCK_GET_CONFIG') return adblockConfig();
     if (message.type === 'ADBLOCK_SAVE_CONFIG') return saveAdblockConfig(message.payload);
+    if (message.type === 'AI_LIST_CONVERSATIONS') return listAiConversations(message.provider);
     if (message.type === 'AI_WEB_PROMPT') {
       try { return await sendPromptToAiWebsite(message.payload, sender.tab?.id); }
       catch (error) {

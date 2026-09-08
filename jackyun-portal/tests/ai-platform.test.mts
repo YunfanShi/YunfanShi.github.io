@@ -158,9 +158,17 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(extension, /AI_AUTOMATION_STATUS/);
   assert.match(extension, /reply_received/);
   const content = readFileSync(new URL('../companion-extension/content.js', import.meta.url), 'utf8');
+  const browserAi = readFileSync(new URL('../src/lib/browser-ai.ts', import.meta.url), 'utf8');
   assert.match(content, /AI_READ_RESPONSE/);
   assert.match(content, /JACKYUN_COMPANION_AI_STATUS/);
   assert.match(bridge, /AutomationProgress/);
+  assert.match(browserAi, /getBrowserAiConversationTarget/);
+  assert.match(bridge, /conversationMode: next\.conversationMode/);
+  assert.match(extension, /AI_LIST_CONVERSATIONS/);
+  assert.match(extension, /providerConversationUrl/);
+  assert.match(extension, /conversationMode === 'selected'/);
+  assert.match(content, /message-input-right-button-send/);
+  assert.match(content, /JACKYUN_COMPANION_CONVERSATIONS/);
 });
 
 test('admin operations protect the owner, reset quota windows, notify users, and start chats', () => {

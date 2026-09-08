@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { BROWSER_AI_CANCELLED, BROWSER_AI_REQUEST_EVENT, browserAiResponse, type BrowserAiRequest } from '@/lib/browser-ai';
+import { BROWSER_AI_CANCELLED, BROWSER_AI_REQUEST_EVENT, browserAiResponse, getBrowserAiConversationTarget, type BrowserAiRequest } from '@/lib/browser-ai';
 import { getAiConfig } from '@/lib/ai-config';
 import { formatBrowserAiPrompt } from '@/lib/browser-ai';
 import { COMPANION_BETA_VERSION } from '@/lib/beta';
@@ -21,7 +21,7 @@ export default function BrowserAiBridge() {
     const dispatchAutomation = (next: BrowserAiRequest) => {
       if (dispatched.has(next.id)) return;
       dispatched.add(next.id);
-      window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt }, window.location.origin);
+      window.postMessage({ type: 'JACKYUN_COMPANION_AI_PROMPT', requestId: next.id, provider: next.provider, prompt: next.prompt, conversationMode: next.conversationMode, conversationUrl: next.conversationUrl }, window.location.origin);
     };
     const activateRequest = (next: BrowserAiRequest) => {
       setReply('');
@@ -56,10 +56,13 @@ export default function BrowserAiBridge() {
       const messages = Array.isArray(event.data.messages) ? event.data.messages.filter((item: unknown) => item && typeof item === 'object' && typeof (item as { content?: unknown }).content === 'string') : [];
       const requestId = String(event.data.requestId || crypto.randomUUID());
       const source = event.source;
+      const conversation = getBrowserAiConversationTarget();
       const next: BrowserAiRequest = {
         id: requestId,
         prompt: formatBrowserAiPrompt(messages),
         provider: config.browserProvider ?? 'chatgpt',
+        conversationMode: conversation.mode,
+        conversationUrl: conversation.url,
         automation: config.companionAutomation === true,
         stream: event.data.stream === true,
         resolve: async (response) => source?.postMessage({ type: 'JACKYUN_BROWSER_AI_RESPONSE', requestId, ok: true, body: await response.text(), stream: event.data.stream === true }, { targetOrigin: event.origin }),
@@ -160,7 +163,7 @@ export default function BrowserAiBridge() {
           <button type="button" onClick={close} aria-label="取消" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[var(--muted-foreground)] hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">close</span></button>
         </div>
         <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">API 不可用或没有 API Key 时，可将完整任务交给你已登录的 AI。JackYun 不会把这些数据发送到自己的模型。</p>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-white/75 px-3 py-1.5 text-[#0e7490] dark:bg-white/10 dark:text-[#67e8f9]">目标：{providerName}</span><span className="rounded-full bg-white/75 px-3 py-1.5 text-[var(--muted-foreground)] dark:bg-white/10">{request.automation ? 'Companion 自动填写' : '手动复制模式'}</span></div>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-white/75 px-3 py-1.5 text-[#0e7490] dark:bg-white/10 dark:text-[#67e8f9]">目标：{providerName}</span><span className="rounded-full bg-white/75 px-3 py-1.5 text-[var(--muted-foreground)] dark:bg-white/10">{request.automation ? 'Companion 自动填写' : '手动复制模式'}</span><span className="rounded-full bg-white/75 px-3 py-1.5 text-[var(--muted-foreground)] dark:bg-white/10">{request.conversationMode === 'new' ? '新建对话' : request.conversationMode === 'selected' ? '指定上下文' : '继续最近对话'}</span></div>
       </header>
 
       <div className="overflow-y-auto p-5 sm:p-6" data-scroll-region>

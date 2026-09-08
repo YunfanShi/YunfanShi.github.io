@@ -36,11 +36,19 @@
         window.postMessage({ type: 'JACKYUN_COMPANION_READY', version: chrome.runtime.getManifest().version }, location.origin);
         return;
       }
+      if (event.data?.type === 'JACKYUN_COMPANION_LIST_CONVERSATIONS') {
+        const requestId = String(event.data.requestId || '');
+        chrome.runtime.sendMessage({ type: 'AI_LIST_CONVERSATIONS', provider: String(event.data.provider || '') }).then((response) => {
+          window.postMessage({ type: 'JACKYUN_COMPANION_CONVERSATIONS', requestId, conversations: response?.ok && Array.isArray(response.result) ? response.result : [] }, location.origin);
+        }).catch(() => window.postMessage({ type: 'JACKYUN_COMPANION_CONVERSATIONS', requestId, conversations: [] }, location.origin));
+        return;
+      }
       if (event.data?.type !== 'JACKYUN_COMPANION_AI_PROMPT') return;
       const requestId = String(event.data.requestId || '');
       portalStatus({ requestId, stage: 'opening', detail: 'Companion 已接收请求，正在验证 BETA 资格…' });
       chrome.runtime.sendMessage({ type: 'AI_WEB_PROMPT', payload: {
         requestId, provider: String(event.data.provider || ''), prompt: String(event.data.prompt || ''),
+        conversationMode: String(event.data.conversationMode || 'new'), conversationUrl: String(event.data.conversationUrl || ''),
       } }).catch((error) => {
         console.error('[BETA/BrowserAI] Companion automation failed', error);
         portalStatus({ requestId, stage: 'error', detail: 'Companion 后台未能处理请求。', error: error?.message || String(error) });
@@ -88,6 +96,10 @@
     if (host === 'chat.deepseek.com') {
       const deepseekSend = controls.filter((control) => enabled(control) && control.matches('.ds-button--primary[role="button"]')).at(-1);
       if (deepseekSend) { deepseekSend.click(); return 'deepseek-button'; }
+    }
+    if (host === 'chat.qwen.ai') {
+      const qwenSend = [...document.querySelectorAll('.message-input-right-button-send')].filter((control) => enabled(control)).at(-1);
+      if (qwenSend) { qwenSend.click(); return 'qwen-button'; }
     }
     const submit = controls.find((button) => {
       const label = `${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''} ${button.getAttribute('title') || ''} ${button.textContent || ''}`.toLowerCase();
