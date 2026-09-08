@@ -38,7 +38,8 @@ test('parses subject, unit, subunit, and deck directives', () => {
 
 test('migrates legacy cards into a visible default deck', () => {
   const oldCard = createDefinitionCard({ term: 'Object', definition: 'A thing', note: '' });
-  const { deckId: _deckId, deckTitle: _deckTitle, subject: _subject, unit: _unit, subunit: _subunit, ...legacy } = oldCard;
+  const legacy: Record<string, unknown> = { ...oldCard };
+  delete legacy.deckId; delete legacy.deckTitle; delete legacy.subject; delete legacy.unit; delete legacy.subunit;
   const migrated = normalizeDefinitionCard(legacy);
   assert.equal(migrated?.deckTitle, '未分类定义');
   assert.equal(migrated?.subject, '未分类');
