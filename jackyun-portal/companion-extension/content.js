@@ -411,7 +411,9 @@
       const responses = assistantResponses();
       const newResponses = responses.filter((element) => element.dataset.jackyunAiBaseline !== 'true');
       const latest = newResponses.at(-1) || responses.at(-1);
-      sendResponse({ ok: true, count: responses.length, newCount: newResponses.length, text: latest ? responseMarkdown(latest) : '', busy: generationBusy() });
+      const codeBlocks = latest ? [...latest.querySelectorAll('pre')].map((element) => String(element.querySelector('code')?.textContent || element.textContent || '').trim()).filter(Boolean) : [];
+      const rawText = latest ? String(latest.innerText || latest.textContent || '').trim() : '';
+      sendResponse({ ok: true, count: responses.length, newCount: newResponses.length, text: latest ? responseMarkdown(latest) : '', rawText, codeBlocks, busy: generationBusy() });
       return true;
     }
     if (message.type !== 'AI_FILL_PROMPT') return false;

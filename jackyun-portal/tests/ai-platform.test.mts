@@ -5,7 +5,7 @@ import { validatePersonalSite } from '../src/lib/personal-site.ts';
 import { isAdminIdentity } from '../src/lib/admin-auth.ts';
 import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.ts';
 import { readAiStream } from '../src/lib/ai-stream.ts';
-import { hasNewAiResponse } from '../companion-extension/ai-response-detection.mjs';
+import { expectsStructuredAiResponse, hasNewAiResponse, selectAiResponseText } from '../companion-extension/ai-response-detection.mjs';
 import { extractTtsText, stripTtsAnnotations } from '../src/lib/tts-config.ts';
 
 test('TTS annotations stay hidden and subtitles use only the selected language', () => {
@@ -71,6 +71,19 @@ test('AI stream parser preserves SSE JSON split across network chunks', async ()
   });
   const result = await readAiStream(new Response(stream), () => {});
   assert.equal(result.content, '你好！');
+});
+
+test('Companion preserves structured AI responses instead of Markdown-escaping them', () => {
+  const json = '{"summary":"ok","issues":[]}';
+  const escapedMarkdown = '\\{"summary":"ok","issues":\\[\\]\\}';
+  assert.equal(expectsStructuredAiResponse('Return only valid JSON.\n\n[RESPONSE FORMAT]\nPreserve JSON or NDJSON exactly when requested.'), true);
+  assert.equal(expectsStructuredAiResponse('Explain why JSON parsing can fail.\n\n[RESPONSE FORMAT]\nPreserve JSON or NDJSON exactly when requested.'), false);
+  assert.equal(selectAiResponseText({ rawText: json, text: escapedMarkdown }, true), json);
+  assert.equal(selectAiResponseText({ rawText: `Copy code\n${json}`, codeBlocks: [json], text: `Copy code\n${escapedMarkdown}` }, true), json);
+
+  const ndjson = '{"kind":"start"}\n{"kind":"done"}';
+  assert.equal(selectAiResponseText({ rawText: ndjson, text: ndjson.replace(/[{}]/g, (character) => `\\${character}`) }, true), ndjson);
+  assert.equal(selectAiResponseText({ rawText: json, text: escapedMarkdown }, false), escapedMarkdown);
 });
 
 test('model catalog migration enforces per-plan access and keeps tables server-only', () => {

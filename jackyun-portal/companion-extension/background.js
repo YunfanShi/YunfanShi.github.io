@@ -1,4 +1,4 @@
-import { hasNewAiResponse } from './ai-response-detection.mjs';
+import { expectsStructuredAiResponse, hasNewAiResponse, selectAiResponseText } from './ai-response-detection.mjs';
 
 const PORTAL = 'https://jackyun.top';
 const VERSION = chrome.runtime.getManifest().version;
@@ -451,6 +451,7 @@ async function notifyAiStatus(portalTabId, payload, stage, detail, extra = {}) {
 async function waitForAiReply(tabId, baselineCount, baselineText, payload, portalTabId) {
   let previous = '';
   let stablePolls = 0;
+  const preserveStructured = expectsStructuredAiResponse(payload.prompt);
   for (let attempt = 0; attempt < 300; attempt += 1) {
     await delay(1000);
     const state = await chrome.tabs.sendMessage(tabId, { type: 'AI_READ_RESPONSE', provider: payload.provider }).catch(() => null);
@@ -458,7 +459,7 @@ async function waitForAiReply(tabId, baselineCount, baselineText, payload, porta
       if (attempt % 5 === 4) await notifyAiStatus(portalTabId, payload, 'waiting', `已等待 ${attempt + 1} 秒，正在重新连接 AI 页面…`);
       continue;
     }
-    const text = String(state.text || '').trim();
+    const text = selectAiResponseText(state, preserveStructured);
     const hasNewResponse = hasNewAiResponse(state, baselineCount, baselineText);
     if (!hasNewResponse) {
       if (attempt % 5 === 4) await notifyAiStatus(portalTabId, payload, 'waiting', `已等待 ${attempt + 1} 秒；页面可见 ${Number(state.count || 0)} 条回复，最新 ${text.length} 个字符，正在识别新增内容…`);

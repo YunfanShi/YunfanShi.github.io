@@ -1,11 +1,11 @@
 {
   "product": "JackYun Companion",
   "version": "1.1.0",
-  "previewVersion": "1.7.6",
-  "previewZip": "/downloads/jackyun-companion-v1.7.6.zip",
-  "previewZipSha256": "c29a0cf6eee8d78fab2d62e644549a467dd4b2c92107306c650cc6db896943ac",
+  "previewVersion": "1.7.7",
+  "previewZip": "/downloads/jackyun-companion-v1.7.7.zip",
+  "previewZipSha256": "c770ce90aaecb82849e007ea125f658e28aac68cea13a7f88fd03b4c64ab0b10",
   "status": "beta-published",
-  "updatedAt": "2026-09-08",
+  "updatedAt": "2026-09-09",
   "chromeWebStoreUrl": null,
   "edgeAddonsUrl": null,
   "extensionId": "nlckikhapgbekdclakobfopdihiibafl",
@@ -19,6 +19,7 @@
   "crxSha256": "48854fea74fa5c340574ab99a85f3d025314812221490bf89052255dad5fbf30",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
+    "1.7.7 BETA 修复结构化网页 AI 回复被 Markdown 转义破坏的问题：自动识别请求中的 JSON、NDJSON、JSONL 和 JSON Schema 输出要求，并从网页 DOM 原样回传正文或代码块内容。",
     "1.7.6 BETA 在目标 AI 页面增加英文全屏执行遮罩，实时显示打开、发送、等待、接收、返回步骤与已用时间，并隐藏自动填写的 Prompt 和页面控件。",
     "1.7.5 BETA 在全部支持的 AI 页面禁用中文 SafeGuard，强化模型菜单等待与选择器，把实时自动化步骤同步到扩展弹窗，并将网页回复转换为 Markdown 后返回。",
     "1.7.4 BETA 新增按提供方与模型的一次性续聊选择、JackYun 专属对话和首次打开慢速提醒；进度错误改为短错误码，完整详情折叠且不再重复显示。",
