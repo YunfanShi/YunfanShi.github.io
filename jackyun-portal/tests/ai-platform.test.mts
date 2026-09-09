@@ -213,6 +213,11 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(content, /await submitPrompt\(composer\)/);
   assert.match(content, /Date\.now\(\) \+ \(host === 'chatgpt\.com' \? 3000 : 1200\)/);
   assert.match(content, /function responseMarkdown/);
+  assert.match(content, /function chatGptModelTrigger/);
+  assert.match(content, /Instant\|Auto\|Fast\|Thinking/);
+  assert.match(content, /Light\|Standard\|Medium\|Heavy\|Extended/);
+  assert.match(content, /switch model\|切换模型/);
+  assert.match(content, /data-radix-collection-item/);
   assert.match(content, /AI IN PROGRESS/);
   assert.match(content, /renderAutomationOverlay/);
   assert.match(content, /Keep this tab open/);

@@ -334,23 +334,62 @@
     return useful.replace(/^Selected\s+/i, '').trim();
   }
 
+  function pickerOpen(trigger) {
+    return trigger?.getAttribute('aria-expanded') === 'true' || trigger?.getAttribute('data-state') === 'open';
+  }
+
+  function isChatGptModelLabel(value) {
+    return /^(?:Instant|Auto|Fast|Thinking(?: effort)?|Light|Standard|Medium|Heavy|Extended|Pro|ChatGPT|GPT[-\s]?\d|o\d)\b/i.test(String(value || '').replace(/\s+/g, ' ').trim());
+  }
+
+  function chatGptModelTrigger() {
+    const composer = aiComposer();
+    const form = composer?.closest('form');
+    const scope = form || composer?.parentElement?.parentElement || document;
+    const candidates = [...scope.querySelectorAll('button, [role="button"]')].filter((element) => {
+      if (!visible(element)) return false;
+      const label = `${element.getAttribute('aria-label') || ''} ${element.textContent || ''}`.replace(/\s+/g, ' ').trim();
+      if (/switch model|切换模型/i.test(label)) return false;
+      return isChatGptModelLabel(label)
+        || /(?:select|choose) model|model selector|选择模型/i.test(label);
+    });
+    if (!candidates.length) return null;
+    if (!composer) return candidates.at(-1);
+    const composerBox = composer.getBoundingClientRect();
+    return candidates.sort((left, right) => {
+      const leftBox = left.getBoundingClientRect();
+      const rightBox = right.getBoundingClientRect();
+      return Math.abs(leftBox.top - composerBox.top) + Math.abs(leftBox.left - composerBox.right)
+        - Math.abs(rightBox.top - composerBox.top) - Math.abs(rightBox.left - composerBox.right);
+    })[0];
+  }
+
+  function visibleModelOptions() {
+    const selectors = '[role="menuitemradio"], [role="menuitem"], [role="option"], [role="radio"], [data-radix-collection-item], [data-testid*="model-option" i]';
+    const semantic = [...document.querySelectorAll(selectors)].filter(visible);
+    const filtered = host === 'chatgpt.com'
+      ? semantic.filter((element) => !element.hasAttribute('aria-haspopup') && isChatGptModelLabel(modelLabel(element)))
+      : semantic;
+    if (filtered.length) return filtered;
+    const openContainers = [...document.querySelectorAll('[role="menu"], [role="listbox"], [data-state="open"]')].filter(visible);
+    return openContainers.flatMap((container) => [...container.querySelectorAll('button, [role="button"]')].filter((element) => visible(element) && (host !== 'chatgpt.com' || isChatGptModelLabel(modelLabel(element)))));
+  }
+
   async function openModelPicker() {
     let trigger = null;
     if (host === 'chatgpt.com') {
-      trigger = [...document.querySelectorAll('button[data-testid*="model" i], button[aria-label*="model" i]')].find(visible)
-        || [...document.querySelectorAll('button')].find((button) => visible(button) && /^(Instant|Thinking effort|Auto|Fast|ChatGPT|GPT[-\s]?\d|o\d)/i.test(button.textContent?.trim() || '')) || null;
+      trigger = chatGptModelTrigger();
     } else if (host === 'gemini.google.com') {
       trigger = document.querySelector('[data-test-id="bard-mode-menu-button"], button[aria-label^="Open mode picker"]');
     } else {
       trigger = [...document.querySelectorAll('button, [role="button"]')].find((button) => visible(button) && /(model|模型|模式)/i.test(`${button.getAttribute('aria-label') || ''} ${button.textContent || ''}`)) || null;
     }
     if (!trigger) throw new Error('找不到模型选择按钮；请确认已登录，或让网站使用默认模型');
-    if (trigger && trigger.getAttribute('aria-expanded') !== 'true') {
+    if (trigger && !pickerOpen(trigger)) {
       trigger.click();
     }
     for (let attempt = 0; attempt < 25; attempt += 1) {
-      const options = document.querySelectorAll('[role="menuitemradio"], [role="menuitem"], [role="option"], [role="radio"]');
-      if ([...options].some(visible)) break;
+      if (visibleModelOptions().length) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     return trigger;
@@ -359,7 +398,7 @@
   async function listWebModels(keepOpen = false) {
     const trigger = await openModelPicker();
     let options = [];
-    if (host === 'chatgpt.com') options = [...document.querySelectorAll('[role="menuitemradio"], [role="menu"] [role="menuitem"], [role="listbox"] [role="option"]')];
+    if (host === 'chatgpt.com') options = visibleModelOptions();
     else if (host === 'gemini.google.com') options = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')];
     else if (host === 'chat.deepseek.com') options = [...document.querySelectorAll('[role="radio"], input[type="radio"]')];
     else options = [...document.querySelectorAll('[role="menuitemradio"], [role="menu"] [role="menuitem"], [role="option"], [role="radio"]')];
@@ -369,7 +408,7 @@
       return { id: label, label, selected };
     }).filter((model) => model.label && model.label.length <= 100);
     const uniqueModels = [...new Map(models.map((model) => [model.id, model])).values()];
-    if (!keepOpen && trigger?.getAttribute('aria-expanded') === 'true') trigger.click();
+    if (!keepOpen && pickerOpen(trigger)) trigger.click();
     if (!uniqueModels.length) throw new Error('模型菜单已打开，但没有读取到可选模型；请确认账号已登录');
     return { models: uniqueModels, trigger, options };
   }
@@ -378,13 +417,14 @@
     const model = String(requested || '').trim();
     if (!model) return { ok: true, selected: '' };
     const result = await listWebModels(true);
-    const option = result.options.find((element) => modelLabel(element) === model);
+    const normalizedModel = model.toLocaleLowerCase().replace(/\s+/g, ' ');
+    const option = result.options.find((element) => modelLabel(element).toLocaleLowerCase().replace(/\s+/g, ' ') === normalizedModel);
     if (!option) {
-      if (result.trigger?.getAttribute('aria-expanded') === 'true') result.trigger.click();
+      if (pickerOpen(result.trigger)) result.trigger.click();
       throw new Error(`当前账号没有模型“${model}”`);
     }
-    if (option.getAttribute('aria-checked') !== 'true' && option.getAttribute('aria-selected') !== 'true' && option.checked !== true) option.click();
-    else if (result.trigger?.getAttribute('aria-expanded') === 'true') result.trigger.click();
+    if (option.getAttribute('aria-checked') !== 'true' && option.getAttribute('aria-selected') !== 'true' && option.getAttribute('data-state') !== 'checked' && option.checked !== true) option.click();
+    else if (pickerOpen(result.trigger)) result.trigger.click();
     await new Promise((resolve) => setTimeout(resolve, 180));
     return { ok: true, selected: model };
   }

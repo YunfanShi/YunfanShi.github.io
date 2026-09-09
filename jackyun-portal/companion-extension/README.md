@@ -11,7 +11,7 @@ English SafeGuard pauses non-learning Chinese-language websites before use. A us
 - Native optional modules: tracking-link cleanup, ZNotes keyboard quiz controls, BestExam PDF link preparation, Discord image protection, and a China/UTC−6 time badge.
 - Built-in core ad blocking, optional strict tracker blocking, cosmetic cleanup, per-site allowlisting, and a first-install onboarding page.
 - Existing learning statistics, 25/50 minute focus sessions, later-learning queue, local backup import, and account sync.
-- BETA 1.7.7 browser-AI automation: detects JSON, NDJSON, JSONL, and JSON Schema output requests and returns the untouched DOM/code-block text so Markdown escaping cannot corrupt structured responses; keeps the 1.7.6 target-page progress shield.
+- BETA 1.7.8 browser-AI automation: adds a Portal-side compatibility repair for legacy Markdown-escaped JSON and scopes ChatGPT model discovery to the active composer, including current Instant, Thinking, Medium, and Pro controls while excluding per-response Switch model actions; keeps the 1.7.7 raw structured-response path.
 - Exact snapshots of every first-party userscript hosted under `/userscripts` are packaged in `hosted-sources/` with `catalog.json`. High-impact TR3000 and Save My Exams developer tools are source-only and never run automatically.
 
 ## Portal configuration
@@ -30,7 +30,7 @@ For development and production, use separate OAuth clients and exact redirect UR
 
 The signed release artifacts are:
 
-- `public/downloads/jackyun-companion-v1.7.7.zip` for BETA unpacked developer-mode installation.
-- `public/downloads/jackyun-companion-v1.1.0.crx` remains the latest Stable signed candidate for signature verification, Verified CRX Uploads, Linux, or managed enterprise environments. A 1.7.7 CRX requires the local-only signing key and is intentionally not fabricated in this repository.
+- `public/downloads/jackyun-companion-v1.7.8.zip` for BETA unpacked developer-mode installation.
+- `public/downloads/jackyun-companion-v1.1.0.crx` remains the latest Stable signed candidate for signature verification, Verified CRX Uploads, Linux, or managed enterprise environments. A 1.7.8 CRX requires the local-only signing key and is intentionally not fabricated in this repository.
 
 On Windows and macOS, Chrome blocks direct installation of local CRX files that are not delivered by the Chrome Web Store. Until store review is complete, extract the ZIP, open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose “Load unpacked,” and select the extracted directory containing `manifest.json`.

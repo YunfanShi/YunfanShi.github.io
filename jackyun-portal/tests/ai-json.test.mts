@@ -15,6 +15,15 @@ test('repairs common meaning-preserving model JSON defects', () => {
   assert.equal(parsed.ruleKey, 'subject_verb');
 });
 
+test('repairs JSON corrupted by the legacy Companion Markdown serializer', () => {
+  const escaped = '\\{\\\n"bandEstimate":"6.5–7.0",\\\n"priorities":\\["Fix grammar"\\],\\\n"issues":\\[{"ruleKey":"verb\\_pattern"}\\]\\\n\\}';
+  assert.deepEqual(parseAiJson(escaped), {
+    bandEstimate: '6.5–7.0',
+    priorities: ['Fix grammar'],
+    issues: [{ ruleKey: 'verb_pattern' }],
+  });
+});
+
 test('rejects truncated JSON instead of inventing missing content', () => {
   assert.throws(() => parseAiJson('{"content":"unfinished"'), /不完整/);
 });
