@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReadingPrompt, calculateReadingStats, countReadingWords, parseReadingArticle, parseReadingQuiz, type ReadingSettings } from '../src/lib/ielts-reading.ts';
+import { buildReadingPrompt, calculateReadingProgress, calculateReadingStats, countReadingWords, parseReadingArticle, parseReadingQuiz, restoreReadingScroll, type ReadingSettings } from '../src/lib/ielts-reading.ts';
 
 const settings: ReadingSettings = { level: 'B2', wordCount: 800, vocabularyDensity: 3, sentenceComplexity: 3, style: 'science-fiction', tone: 'thoughtful', perspective: 'third person limited', pacing: 3, dialogueRatio: 25, ending: 'hopeful', learningFocus: 'inference', premise: 'an explorer finds a signal', characters: 'Mira', setting: 'a distant moon', mustInclude: 'a difficult choice', avoid: 'graphic violence' };
 
@@ -10,6 +10,14 @@ test('builds a complete preset prompt from reading controls', () => {
   assert.match(prompt, /about 800 English words/);
   assert.match(prompt, /Mira/);
   assert.match(prompt, /valid JSON only/);
+});
+
+test('keeps prose concrete and grounds news generation in retrieved sources', () => {
+  const prompt = buildReadingPrompt({ ...settings, sourceMode: 'news', newsQuery: 'space exploration' }, [{ title: 'A new mission launches', url: 'https://example.com/news', source: 'Example News', publishedAt: '2026-09-08', snippet: 'Scientists launched a new research mission.' }]);
+  assert.match(prompt, /Avoid purple prose/);
+  assert.match(prompt, /SOURCE MATERIAL/);
+  assert.match(prompt, /A new mission launches/);
+  assert.match(prompt, /only factual basis/);
 });
 
 test('parses an article and derives its reading metadata', () => {
@@ -34,4 +42,11 @@ test('calculates persisted reading and quiz totals', () => {
   assert.equal(stats.wordsRead, countReadingWords(content.repeat(60)) * 2);
   assert.equal(stats.quizAccuracy, 80);
   assert.equal(stats.vocabularySaved, 1);
+});
+
+test('saves and restores approximate reading position across layout changes', () => {
+  assert.equal(calculateReadingProgress(900, 2000, 500), 0.6);
+  assert.equal(restoreReadingScroll(0.6, 2500, 500), 1200);
+  assert.equal(calculateReadingProgress(-20, 2000, 500), 0);
+  assert.equal(restoreReadingScroll(2, 2000, 500), 1500);
 });

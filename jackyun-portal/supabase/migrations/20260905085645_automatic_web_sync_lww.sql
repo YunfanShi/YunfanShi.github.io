@@ -43,7 +43,7 @@ where jsonb_typeof(storage_value) = 'string';
 
 drop function if exists public.apply_web_sync_operation(uuid, uuid, text, bigint, text, jsonb, jsonb, text, boolean);
 
-create function public.apply_web_sync_operation(
+create or replace function public.apply_web_sync_operation(
   p_operation_id uuid,
   p_device_id uuid,
   p_storage_key text,

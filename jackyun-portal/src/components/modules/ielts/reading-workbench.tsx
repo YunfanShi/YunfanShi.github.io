@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent, readAiStreamingResponseContent } from '@/lib/ai-json';
 import {
-  buildReadingPrompt, buildReadingQuizPrompt, buildWordPrompt, calculateReadingStats, parseReadingArticle, parseReadingQuiz, parseWordNote,
-  type ReadingArticle, type ReadingLevel, type ReadingSettings, type ReadingStyle, type WordNote,
+  buildReadingPrompt, buildReadingQuizPrompt, buildWordPrompt, calculateReadingProgress, calculateReadingStats, parseReadingArticle, parseReadingQuiz, parseWordNote, restoreReadingScroll,
+  type ReadingArticle, type ReadingLevel, type ReadingNewsSource, type ReadingSettings, type ReadingStyle, type WordNote,
 } from '@/lib/ielts-reading';
 
 const LIBRARY_KEY = 'jackyun_ielts_reading_library_v1';
@@ -15,7 +15,7 @@ type ReaderTheme = 'paper' | 'night' | 'mint';
 type ArticleGenerationProgress = { phase: string; preview: string; receivedCharacters: number; reasoningCharacters: number };
 
 const defaultSettings: ReadingSettings = {
-  level: 'B2', wordCount: 900, vocabularyDensity: 3, sentenceComplexity: 3, style: 'science-fiction', tone: 'thoughtful', perspective: 'third person limited', pacing: 3, dialogueRatio: 25, ending: 'hopeful', learningFocus: 'inference and vocabulary in context', premise: '', characters: '', setting: '', mustInclude: '', avoid: '',
+  level: 'B2', wordCount: 900, vocabularyDensity: 3, sentenceComplexity: 3, style: 'science-fiction', tone: 'thoughtful', perspective: 'third person limited', pacing: 3, dialogueRatio: 25, ending: 'hopeful', learningFocus: 'inference and vocabulary in context', premise: '', characters: '', setting: '', mustInclude: '', avoid: '', sourceMode: 'creative', newsQuery: '',
 };
 
 const styles: Array<{ value: ReadingStyle; label: string }> = [
@@ -61,12 +61,15 @@ export default function ReadingWorkbench() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizCount, setQuizCount] = useState(5);
   const [query, setQuery] = useState('');
+  const libraryRef = useRef<ReadingArticle[]>([]);
+  const restoredArticleIdRef = useRef<string | null>(null);
   const current = library.find((article) => article.id === currentId) ?? null;
   const stats = useMemo(() => calculateReadingStats(library), [library]);
 
+  useEffect(() => { libraryRef.current = library; }, [library]);
   useEffect(() => {
     let stored: ReadingArticle[] = [];
-    try { const parsed = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]') as unknown; if (Array.isArray(parsed)) stored = parsed.filter(isArticle).map((article) => ({ ...article, quiz: article.quiz ?? null, vocabulary: article.vocabulary ?? {}, quizAttempts: article.quizAttempts ?? 0, quizCorrect: article.quizCorrect ?? 0, quizAnswered: article.quizAnswered ?? 0, lastReadAt: article.lastReadAt ?? null })); } catch { /* Start with an empty local shelf. */ }
+    try { const parsed = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]') as unknown; if (Array.isArray(parsed)) stored = parsed.filter(isArticle).map((article) => ({ ...article, quiz: article.quiz ?? null, vocabulary: article.vocabulary ?? {}, quizAttempts: article.quizAttempts ?? 0, quizCorrect: article.quizCorrect ?? 0, quizAnswered: article.quizAnswered ?? 0, lastReadAt: article.lastReadAt ?? null, sourceMode: article.sourceMode ?? 'creative', sources: Array.isArray(article.sources) ? article.sources : [], progressRatio: Number.isFinite(article.progressRatio) ? Math.min(1, Math.max(0, Number(article.progressRatio))) : 0, progressScrollY: Number.isFinite(article.progressScrollY) ? Math.max(0, Number(article.progressScrollY)) : 0, progressUpdatedAt: article.progressUpdatedAt ?? null })); } catch { /* Start with an empty local shelf. */ }
     queueMicrotask(() => { setLibrary(stored); setHydrated(true); });
   }, []);
   useEffect(() => { if (!hydrated) return; try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(library)); } catch { /* Storage failures do not interrupt the active reading session. */ } }, [hydrated, library]);
@@ -81,16 +84,58 @@ export default function ReadingWorkbench() {
     const interval = window.setInterval(() => setGenerationElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
     return () => window.clearInterval(interval);
   }, [loading]);
+  useEffect(() => {
+    if (view !== 'reader' || !currentId || restoredArticleIdRef.current === currentId) return;
+    restoredArticleIdRef.current = currentId;
+    const timeout = window.setTimeout(() => {
+      const article = libraryRef.current.find((item) => item.id === currentId);
+      if (!article?.progressRatio) return;
+      window.scrollTo({ top: restoreReadingScroll(article.progressRatio, document.documentElement.scrollHeight, window.innerHeight), behavior: 'auto' });
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [currentId, view]);
+  useEffect(() => {
+    if (view !== 'reader' || !currentId) return;
+    let timeout: number | null = null;
+    const persistPosition = () => {
+      const scrollY = Math.max(0, window.scrollY);
+      const progressRatio = calculateReadingProgress(scrollY, document.documentElement.scrollHeight, window.innerHeight);
+      setLibrary((items) => items.map((article) => article.id === currentId ? { ...article, progressRatio, progressScrollY: scrollY, progressUpdatedAt: new Date().toISOString() } : article));
+    };
+    const scheduleSave = () => {
+      if (timeout !== null) window.clearTimeout(timeout);
+      timeout = window.setTimeout(persistPosition, 500);
+    };
+    window.addEventListener('scroll', scheduleSave, { passive: true });
+    window.addEventListener('pagehide', persistPosition);
+    return () => { window.removeEventListener('scroll', scheduleSave); window.removeEventListener('pagehide', persistPosition); if (timeout !== null) window.clearTimeout(timeout); };
+  }, [currentId, view]);
 
   function updateSetting<K extends keyof ReadingSettings>(key: K, value: ReadingSettings[K]) { setSettings((currentSettings) => ({ ...currentSettings, [key]: value })); }
   function updateArticle(articleId: string, updater: (article: ReadingArticle) => ReadingArticle) { setLibrary((items) => items.map((article) => article.id === articleId ? updater(article) : article)); }
-  function openArticle(articleId: string) { setCurrentId(articleId); setView('reader'); setSelectedWord(null); setAnswers({}); setQuizSubmitted(false); updateArticle(articleId, (article) => ({ ...article, lastReadAt: new Date().toISOString() })); }
+  function openArticle(articleId: string) { restoredArticleIdRef.current = null; setCurrentId(articleId); setView('reader'); setSelectedWord(null); setAnswers({}); setQuizSubmitted(false); updateArticle(articleId, (article) => ({ ...article, lastReadAt: new Date().toISOString() })); }
+  function saveReadingPosition() {
+    if (!current) return;
+    const scrollY = Math.max(0, window.scrollY);
+    const progressRatio = calculateReadingProgress(scrollY, document.documentElement.scrollHeight, window.innerHeight);
+    updateArticle(current.id, (article) => ({ ...article, progressRatio, progressScrollY: scrollY, progressUpdatedAt: new Date().toISOString() }));
+    setMessage(`阅读进度已保存：约 ${Math.round(progressRatio * 100)}%。下次打开会自动回到这里。`);
+  }
 
   async function generateArticle() {
+    if (settings.sourceMode === 'news' && !settings.newsQuery?.trim()) { setMessage('请先输入要检索的新闻主题。'); return; }
     setLoading('article'); setMessage(''); setGenerationElapsed(0);
-    setGenerationProgress({ phase: '正在连接 AI…', preview: '', receivedCharacters: 0, reasoningCharacters: 0 });
+    setGenerationProgress({ phase: settings.sourceMode === 'news' ? '正在联网检索新闻…' : '正在连接 AI…', preview: '', receivedCharacters: 0, reasoningCharacters: 0 });
     try {
-      const response = await callAiApi([{ role: 'system', content: 'You create level-controlled English reading material and return only valid JSON.' }, { role: 'user', content: buildReadingPrompt(settings) }], { temperature: 0.85, maxTokens: Math.max(3000, settings.wordCount * 3), noThinking: true, stream: true, feature: 'reasoning' });
+      let newsSources: ReadingNewsSource[] = [];
+      if (settings.sourceMode === 'news') {
+        const searchResponse = await fetch(`/api/ielts-reading/news?q=${encodeURIComponent(settings.newsQuery?.trim() ?? '')}`, { cache: 'no-store' });
+        const searchResult = await searchResponse.json().catch(() => ({})) as { sources?: ReadingNewsSource[]; error?: string };
+        if (!searchResponse.ok || !Array.isArray(searchResult.sources) || !searchResult.sources.length) throw new Error(searchResult.error || '没有找到可用的新闻来源。');
+        newsSources = searchResult.sources;
+        setGenerationProgress({ phase: `已找到 ${newsSources.length} 条来源，正在生成阅读文章…`, preview: newsSources.map((item) => `• ${item.title}`).join('\n'), receivedCharacters: 0, reasoningCharacters: 0 });
+      }
+      const response = await callAiApi([{ role: 'system', content: settings.sourceMode === 'news' ? 'You create factual, source-grounded English news explainers for learners and return only valid JSON.' : 'You create clear, natural, level-controlled English reading material and return only valid JSON.' }, { role: 'user', content: buildReadingPrompt(settings, newsSources) }], { temperature: settings.sourceMode === 'news' ? 0.25 : 0.72, maxTokens: Math.max(3000, settings.wordCount * 3), noThinking: true, stream: true, feature: 'reasoning' });
       let lastUiUpdate = 0;
       const raw = await readAiStreamingResponseContent(response, ({ content, reasoningCharacters }) => {
         const now = Date.now();
@@ -104,7 +149,7 @@ export default function ReadingWorkbench() {
         });
       });
       setGenerationProgress((progress) => progress ? { ...progress, phase: '正在校验文章并保存…', preview: raw.slice(-1200), receivedCharacters: raw.length } : progress);
-      const article = parseReadingArticle(raw, settings, id('reading'), new Date().toISOString());
+      const article = parseReadingArticle(raw, settings, id('reading'), new Date().toISOString(), newsSources);
       setLibrary((items) => [article, ...items]); setCurrentId(article.id); setView('reader'); setMessage('文章已生成并保存到书架。');
     } catch (error) { setMessage(error instanceof Error ? error.message : '文章生成失败，请重试。'); } finally { setLoading(null); setGenerationProgress(null); }
   }
@@ -159,9 +204,13 @@ export default function ReadingWorkbench() {
   const themeClass = readerTheme === 'night' ? 'bg-[#111827] text-[#e5e7eb]' : readerTheme === 'mint' ? 'bg-[#effaf5] text-[#16372d]' : 'bg-[#fffdf7] text-[#29251f]';
 
   return <div className="mx-auto max-w-[1500px] space-y-5 text-[var(--foreground)]">
-    <header className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(118deg,#102c3c_0%,#155e75_55%,#0f766e_100%)] px-5 py-6 text-white shadow-[0_24px_70px_rgba(8,51,68,.25)] sm:px-8 sm:py-8"><div className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 rounded-full bg-[#5eead4]/20 blur-3xl" /><p className="text-xs font-bold uppercase tracking-[.2em] text-[#99f6e4]">IELTS Reading Studio</p><div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">英文阅读 · 故事生成器与阅读器</h1><p className="mt-3 max-w-3xl leading-7 text-[#ccfbf1]">按你的世界观、人物与英语水平生成文章；点词查义、朗读、做可选测验，并把阅读轨迹留在自己的书架里。</p></div><Link href="/ielts-writing" className="inline-flex min-h-11 items-center rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-bold hover:bg-white/15"><span className="material-icons-round mr-2">edit_note</span>切换到写作工具</Link></div></header>
-    <nav className="grid grid-cols-4 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2" aria-label="阅读工具视图">{nav.map((item) => <button key={item.id} type="button" onClick={() => item.id === 'reader' && !current ? setView('library') : setView(item.id)} className={`min-h-12 rounded-xl px-2 text-sm font-bold transition ${view === item.id ? 'bg-[#0f766e] text-white shadow-md' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round mr-1.5 align-middle text-lg">{item.icon}</span>{item.label}</button>)}</nav>
+    <header className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(118deg,#102c3c_0%,#155e75_55%,#0f766e_100%)] px-5 py-6 text-white shadow-[0_24px_70px_rgba(8,51,68,.25)] sm:px-8 sm:py-8"><div className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 rounded-full bg-[#5eead4]/20 blur-3xl" /><p className="text-xs font-bold uppercase tracking-[.2em] text-[#99f6e4]">IELTS Reading Studio</p><div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">英文阅读 · 文章生成器与阅读器</h1><p className="mt-3 max-w-3xl leading-7 text-[#ccfbf1]">生成自然的原创文章，或联网检索新闻后制作分级阅读；点词查义、朗读、做可选测验，并把阅读轨迹留在自己的书架里。</p></div><Link href="/ielts-writing" className="inline-flex min-h-11 items-center rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-bold hover:bg-white/15"><span className="material-icons-round mr-2">edit_note</span>切换到写作工具</Link></div></header>
+    <nav className="grid grid-cols-4 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2" aria-label="阅读工具视图">{nav.map((item) => <button key={item.id} type="button" onClick={() => { if (view === 'reader' && item.id !== 'reader' && current) saveReadingPosition(); if (item.id === 'reader' && !current) setView('library'); else setView(item.id); }} className={`min-h-12 rounded-xl px-2 text-sm font-bold transition ${view === item.id ? 'bg-[#0f766e] text-white shadow-md' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round mr-1.5 align-middle text-lg">{item.icon}</span>{item.label}</button>)}</nav>
     {message && <p role="status" className="rounded-2xl border border-[#99d9d1] bg-[#ecfdf5] px-4 py-3 text-sm text-[#115e59] dark:border-[#285e57] dark:bg-[#123b36] dark:text-[#99f6e4]">{message} {/配置|API|Key/i.test(message) && <Link href="/settings" className="ml-2 font-bold underline">打开设置</Link>}</p>}
+    {view === 'reader' && current && <section className="flex flex-col gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3 text-sm"><span className="font-bold">阅读进度</span><span className="tabular-nums text-[var(--muted-foreground)]">约 {Math.round((current.progressRatio ?? 0) * 100)}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--background)]"><div className="h-full rounded-full bg-[linear-gradient(90deg,#0f766e,#06b6d4)] transition-[width]" style={{ width: `${Math.round((current.progressRatio ?? 0) * 100)}%` }} /></div><p className="mt-2 text-xs text-[var(--muted-foreground)]">滚动时自动保存；也可以手动保存。再次打开文章时会按页面比例恢复到大致位置。</p></div><button type="button" onClick={saveReadingPosition} className="min-h-11 shrink-0 rounded-xl border border-[#0f766e] px-4 text-sm font-bold text-[#0f766e] hover:bg-[#ecfdf5] dark:hover:bg-[#123b36]"><span className="material-icons-round mr-1.5 align-middle text-lg">bookmark</span>保存当前位置</button></section>}
+    {view === 'reader' && current?.sourceMode === 'news' && Boolean(current.sources?.length) && <section className="rounded-3xl border border-[#a7e2ca] bg-[#effcf7] p-5 dark:border-[#24634d] dark:bg-[#123a2d]"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#0f766e] text-white"><span className="material-icons-round">fact_check</span></span><div><h2 className="font-bold text-[#115e59] dark:text-[#99f6e4]">本篇新闻的检索来源</h2><p className="text-xs text-[var(--muted-foreground)]">文章依据下列实时检索结果生成；点击可核对原始报道。</p></div></div><div className="mt-4 grid gap-2 md:grid-cols-2">{current.sources?.map((source) => <a key={`${source.url}-${source.title}`} href={source.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#8bd0c4] bg-white/70 p-3 text-sm transition hover:border-[#0f766e] hover:bg-white dark:bg-black/10"><strong className="line-clamp-2 leading-5">{source.title}</strong><span className="mt-2 block text-xs text-[var(--muted-foreground)]">{source.source || 'News source'}{source.publishedAt ? ` · ${source.publishedAt}` : ''}</span></a>)}</div></section>}
+
+    {view === 'generate' && <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm sm:p-5"><div className="grid gap-3 sm:grid-cols-2"><button type="button" aria-pressed={settings.sourceMode !== 'news'} onClick={() => updateSetting('sourceMode', 'creative')} className={`rounded-2xl border p-4 text-left transition ${settings.sourceMode !== 'news' ? 'border-[#0f766e] bg-[#ecfdf5] text-[#115e59] ring-2 ring-[#0f766e]/15 dark:bg-[#123b36] dark:text-[#99f6e4]' : 'border-[var(--card-border)]'}`}><span className="material-icons-round mr-2 align-middle">auto_stories</span><strong>原创阅读</strong><span className="mt-1 block text-xs opacity-75">故事、科普或自定义题材</span></button><button type="button" aria-pressed={settings.sourceMode === 'news'} onClick={() => { updateSetting('sourceMode', 'news'); updateSetting('style', 'journalistic'); updateSetting('tone', '理性客观'); }} className={`rounded-2xl border p-4 text-left transition ${settings.sourceMode === 'news' ? 'border-[#0f766e] bg-[#ecfdf5] text-[#115e59] ring-2 ring-[#0f766e]/15 dark:bg-[#123b36] dark:text-[#99f6e4]' : 'border-[var(--card-border)]'}`}><span className="material-icons-round mr-2 align-middle">newspaper</span><strong>实时新闻</strong><span className="mt-1 block text-xs opacity-75">联网检索英文来源，再生成分级新闻阅读</span></button></div>{settings.sourceMode === 'news' && <label className="mt-4 block text-sm font-semibold">新闻主题 / 搜索词<input value={settings.newsQuery ?? ''} onChange={(event) => updateSetting('newsQuery', event.target.value)} className={inputClass} placeholder="例如：AI regulation, climate science, space exploration" /><span className="mt-2 block text-xs font-normal leading-5 text-[var(--muted-foreground)]">生成前会检索最新英文新闻；文章只依据检索到的标题、摘要、时间和来源，并在阅读器中保留原始链接。</span></label>}</section>}
 
     {view === 'generate' && <section className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,.95fr)]"><article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm sm:p-6"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0f766e] text-white"><span className="material-icons-round">tune</span></span><div><h2 className="text-xl font-bold">语言难度与阅读手感</h2><p className="text-sm text-[var(--muted-foreground)]">先决定“读起来有多难”。</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-3.5 text-sm font-semibold">CEFR 难度<select value={settings.level} onChange={(event) => updateSetting('level', event.target.value as ReadingLevel)} className={inputClass}>{(['A2', 'B1', 'B2', 'C1', 'C2'] as ReadingLevel[]).map((level) => <option key={level}>{level}</option>)}</select></label><RangeControl label="文章长度" value={settings.wordCount} min={350} max={2400} step={50} suffix=" 词" onChange={(value) => updateSetting('wordCount', value)} /><RangeControl label="生词密度" value={settings.vocabularyDensity} min={1} max={5} onChange={(value) => updateSetting('vocabularyDensity', value)} /><RangeControl label="句式复杂度" value={settings.sentenceComplexity} min={1} max={5} onChange={(value) => updateSetting('sentenceComplexity', value)} /><RangeControl label="节奏速度" value={settings.pacing} min={1} max={5} onChange={(value) => updateSetting('pacing', value)} /><RangeControl label="对话比例" value={settings.dialogueRatio} min={0} max={70} step={5} suffix="%" onChange={(value) => updateSetting('dialogueRatio', value)} /></div></article>
       <article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm sm:p-6"><h2 className="text-xl font-bold">小说调音台</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">风格只控制写法，题材和人物由你自由填写。</p><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">风格 / 类型<select value={settings.style} onChange={(event) => updateSetting('style', event.target.value as ReadingStyle)} className={inputClass}>{styles.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}</select></label><label className="text-sm font-semibold">情绪<select value={settings.tone} onChange={(event) => updateSetting('tone', event.target.value)} className={inputClass}>{tones.map((tone) => <option key={tone}>{tone}</option>)}</select></label><label className="text-sm font-semibold">叙事视角<select value={settings.perspective} onChange={(event) => updateSetting('perspective', event.target.value)} className={inputClass}>{perspectives.map((item) => <option key={item}>{item}</option>)}</select></label><label className="text-sm font-semibold">结局<select value={settings.ending} onChange={(event) => updateSetting('ending', event.target.value)} className={inputClass}>{endings.map((item) => <option key={item}>{item}</option>)}</select></label></div><label className="mt-4 block text-sm font-semibold">语言学习重点<input value={settings.learningFocus} onChange={(event) => updateSetting('learningFocus', event.target.value)} className={inputClass} placeholder="例如：推断、环境描写、C1 学术词汇" /></label></article>

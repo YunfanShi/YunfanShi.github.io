@@ -5,8 +5,8 @@ import { readAiResponseContent } from '@/lib/ai-json';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import {
-  buildWritingReviewPrompt, coerceWritingStage, countWords, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, taskLabel, updateErrorHistory, writeRedundantJson,
-  type ErrorHistoryEntry, type ReviewMode, type WritingFeedback, type WritingGuidanceMode, type WritingStage, type WritingTask,
+  buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, isWritingArchiveEntry, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, taskLabel, updateErrorHistory, upsertWritingArchive, writeRedundantJson,
+  type ErrorHistoryEntry, type ReviewMode, type WritingArchiveEntry, type WritingFeedback, type WritingGuidanceMode, type WritingStage, type WritingTask,
 } from '@/lib/ielts-writing';
 
 const DRAFT_KEY = 'jackyun_ielts_writing_draft_v1';
@@ -18,9 +18,12 @@ const LAYOUT_KEY = 'jackyun_ielts_writing_layout';
 const HIGHLIGHT_KEY = 'jackyun_ielts_writing_highlights';
 const STAGE_KEY = 'jackyun_ielts_writing_stage_v1';
 const GUIDANCE_KEY = 'jackyun_ielts_writing_guidance_v1';
+const ARCHIVE_KEY = 'jackyun_ielts_writing_archive_v1';
 type UiLanguage = 'en' | 'zh';
 type SaveState = 'saved' | 'error';
 type WorkspaceLayout = 'split' | 'stacked';
+type WritingView = 'workbench' | 'library' | 'reader';
+type ReaderTheme = 'paper' | 'mint' | 'night';
 
 interface DraftState { essayId: string; task: WritingTask; question: string; essay: string; originalEssay: string; secondsLeft: number; timerStarted: boolean; }
 interface DraftSnapshot { savedAt: string; draft: DraftState; }
@@ -73,6 +76,7 @@ function readStoredDraft(): DraftState | null {
 }
 
 export default function WritingWorkbench() {
+  const [view, setView] = useState<WritingView>('workbench');
   const [draft, setDraft] = useState<DraftState>(defaultDraft);
   const [hydrated, setHydrated] = useState(false);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>('en');
@@ -92,6 +96,12 @@ export default function WritingWorkbench() {
   const [externalReply, setExternalReply] = useState('');
   const [promptCopied, setPromptCopied] = useState(false);
   const [externalFallbackMode, setExternalFallbackMode] = useState<ReviewMode | null>(null);
+  const [archive, setArchive] = useState<WritingArchiveEntry[]>([]);
+  const [currentArchiveId, setCurrentArchiveId] = useState<string | null>(null);
+  const [archiveQuery, setArchiveQuery] = useState('');
+  const [readerFontSize, setReaderFontSize] = useState(19);
+  const [readerLineHeight, setReaderLineHeight] = useState(1.9);
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>('paper');
   const editCount = useRef(0);
   const originalRef = useRef<HTMLDivElement>(null);
   const essayRef = useRef<HTMLTextAreaElement>(null);
@@ -113,9 +123,9 @@ export default function WritingWorkbench() {
   function editField(field: 'question' | 'essay', value: string) { editCount.current += 1; commitDraft({ ...draft, [field]: value }, editCount.current % 25 === 0); }
 
   useEffect(() => {
-    let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
-    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; } catch { /* Start clean when all local copies are unavailable. */ }
-    queueMicrotask(() => { if (storedDraft) setDraft(storedDraft); if (Array.isArray(storedHistory)) setHistory(storedHistory); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(storedStage ?? (storedDraft?.originalEssay ? 1 : 0)); setGuidanceMode(storedGuidance); setHydrated(true); });
+    let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
+    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; } catch { /* Start clean when all local copies are unavailable. */ }
+    queueMicrotask(() => { if (storedDraft) setDraft(storedDraft); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(storedStage ?? (storedDraft?.originalEssay ? 1 : 0)); setGuidanceMode(storedGuidance); setHydrated(true); });
   }, []);
   useEffect(() => {
     if (!hydrated) return;
@@ -125,6 +135,7 @@ export default function WritingWorkbench() {
     // Immediate event handlers are primary; this covers timer and programmatic updates.
   }, [draft, hydrated]);
   useEffect(() => { if (!hydrated) return; try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch { /* Draft copies remain available. */ } }, [history, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive)); } catch { /* The active draft remains protected by its redundant copies. */ } }, [archive, hydrated]);
   useEffect(() => {
     if (!draft.timerStarted || draft.secondsLeft <= 0) return;
     const interval = window.setInterval(() => setDraft((current) => ({ ...current, secondsLeft: Math.max(0, current.secondsLeft - 1), timerStarted: current.secondsLeft > 1 })), 1000);
@@ -143,6 +154,9 @@ export default function WritingWorkbench() {
     ...(feedback?.upgrades.map((upgrade, index) => ({ id: `upgrade-${index}`, quote: upgrade.original })) ?? []),
   ]), [draft.essay, feedback, resolved]);
   const activeExternalMode = externalFallbackMode ?? (!feedback ? 'diagnose' : hasChanged ? 'recheck' : 'upgrade');
+  const currentArchive = archive.find((entry) => entry.id === currentArchiveId) ?? null;
+  const archiveResults = archive.filter((entry) => `${entry.title} ${entry.question} ${entry.content}`.toLocaleLowerCase().includes(archiveQuery.toLocaleLowerCase()));
+  const readerThemeClass = readerTheme === 'night' ? 'bg-[#111827] text-[#e5e7eb]' : readerTheme === 'mint' ? 'bg-[#effaf5] text-[#16372d]' : 'bg-[#fffdf7] text-[#29251f]';
   const externalPrompt = useMemo(() => buildWritingReviewPrompt({ ...draft, mode: activeExternalMode, previousRuleKeys, outputLanguage: uiLanguage, responseFormat: 'json', guidanceMode }), [activeExternalMode, draft, guidanceMode, previousRuleKeys, uiLanguage]);
   function toggleLanguage() { const next = uiLanguage === 'en' ? 'zh' : 'en'; setUiLanguage(next); try { localStorage.setItem(LANGUAGE_KEY, next); } catch { setSaveState('error'); } }
   function changeLayout(next: WorkspaceLayout) { setWorkspaceLayout(next); try { localStorage.setItem(LAYOUT_KEY, next); } catch { setSaveState('error'); } }
@@ -183,6 +197,16 @@ export default function WritingWorkbench() {
     try { await navigator.clipboard.writeText(prompt); setPromptCopied(true); } catch { /* Prompt remains available in the preview. */ }
   }
 
+  async function parseFeedbackWithRepair(raw: string): Promise<WritingFeedback> {
+    try { return parseWritingFeedback(raw); }
+    catch {
+      setMessage(uiLanguage === 'en' ? 'The model returned malformed JSON. Repairing the response automatically…' : '模型返回的 JSON 格式不规范，正在自动修复…');
+      const repairPrompt = buildWritingFeedbackRepairPrompt(raw.slice(0, 40_000), guidanceMode, uiLanguage);
+      const repairResponse = await callAiApi([{ role: 'system', content: 'You repair malformed structured data. Return one valid JSON object only.' }, { role: 'user', content: repairPrompt }], { temperature: 0, maxTokens: 4200, noThinking: true, feature: 'chat' });
+      return parseWritingFeedback(await readAiResponseContent(repairResponse));
+    }
+  }
+
   async function review(mode: ReviewMode) {
     if (draft.essay.trim().length < 80) { setMessage(c.tooShort); return; }
     if (mode === 'recheck' && !hasChanged) { setMessage(c.reviseFirst); return; }
@@ -192,7 +216,7 @@ export default function WritingWorkbench() {
     try {
       const prompt = buildWritingReviewPrompt({ ...draft, originalEssay, mode, previousRuleKeys, outputLanguage: uiLanguage, guidanceMode });
       const response = await callAiApi([{ role: 'system', content: 'You diagnose IELTS Writing. Return only the requested JSON and never write a complete replacement essay.' }, { role: 'user', content: prompt }], { temperature: 0.15, maxTokens: 4200, feature: 'reasoning' });
-      const result = parseWritingFeedback(await readAiResponseContent(response));
+      const result = await parseFeedbackWithRepair(await readAiResponseContent(response));
       const keys = result.issues.map((issue) => issue.ruleKey);
       setFeedbackHistory((current) => [...current, { feedback, previousRuleKeys, resolved, stage }].slice(-10)); setFeedback(result); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); changeStage(mode === 'upgrade' || result.readyForUpgrade ? 2 : 1); setExternalFallbackMode(null); setMessage(mode === 'upgrade' ? c.upgradeDone : c.feedbackDone);
     } catch (error) { setMessage(error instanceof Error ? error.message : c.failed); void showExternalFallback(mode); } finally { setLoadingMode(null); }
@@ -216,6 +240,22 @@ export default function WritingWorkbench() {
       if (!draft.originalEssay) commitDraft({ ...draft, originalEssay: draft.essay }, true);
     } catch { setMessage(c.invalidReply); }
   }
+  function archiveCurrentEssay() {
+    if (draft.essay.trim().length < 80) { setMessage(uiLanguage === 'en' ? 'Write at least 80 characters before saving a final version.' : '至少写满 80 个字符后再保存最终稿。'); return; }
+    const entry = createWritingArchiveEntry({ essayId: draft.essayId, task: draft.task, question: draft.question, content: draft.essay, savedAt: new Date().toISOString(), bandEstimate: feedback?.bandEstimate });
+    setArchive((entries) => upsertWritingArchive(entries, entry)); setCurrentArchiveId(entry.id); setView('reader'); setMessage(uiLanguage === 'en' ? 'Final version saved to your library.' : '最终稿已保存到文库。');
+  }
+  function openArchivedEssay(entryId: string) { setCurrentArchiveId(entryId); setView('reader'); }
+  function deleteArchivedEssay(entry: WritingArchiveEntry) {
+    const prompt = uiLanguage === 'en' ? `Delete “${entry.title}” from the local library?` : `确定从本地文库删除《${entry.title}》吗？`;
+    if (!window.confirm(prompt)) return;
+    setArchive((entries) => entries.filter((item) => item.id !== entry.id));
+    if (currentArchiveId === entry.id) { setCurrentArchiveId(null); setView('library'); }
+  }
+  function speakArchivedEssay(text: string) {
+    if (!('speechSynthesis' in window)) { setMessage(uiLanguage === 'en' ? 'Text-to-speech is not supported in this browser.' : '当前浏览器不支持朗读。'); return; }
+    window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'en-US'; utterance.rate = 0.9; window.speechSynthesis.speak(utterance);
+  }
   return <div data-ielts-writing-workbench className="relative mx-auto max-w-[1540px] space-y-5 text-[var(--foreground)]">
     <header className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(118deg,#071b33_0%,#0b3150_56%,#075985_100%)] px-5 py-6 text-white shadow-[0_24px_70px_rgba(7,27,51,.28)] sm:px-8 sm:py-7">
       <div className="pointer-events-none absolute -right-20 -top-32 -z-10 h-80 w-80 rounded-full bg-[#38bdf8]/20 blur-3xl" /><div className="pointer-events-none absolute bottom-0 left-1/3 -z-10 h-24 w-80 bg-[#f59e0b]/10 blur-3xl" />
@@ -223,7 +263,10 @@ export default function WritingWorkbench() {
         <div className="flex flex-wrap items-center gap-3"><button type="button" onClick={toggleLanguage} className="min-h-11 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-bold backdrop-blur hover:bg-white/15"><span className="material-icons-round mr-2 align-middle text-lg">translate</span>{c.language}</button><div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur"><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: !draft.timerStarted })} className="grid h-11 w-11 place-items-center rounded-xl bg-[#fbbf24] text-[#071b33] shadow-lg shadow-amber-950/20" aria-label={draft.timerStarted ? c.pause : c.start}><span className="material-icons-round">{draft.timerStarted ? 'pause' : 'play_arrow'}</span></button><div className="min-w-20"><p className="font-mono text-2xl font-bold tabular-nums">{formatTime(draft.secondsLeft)}</p><p className="text-[11px] uppercase tracking-wider text-[#a9cce1]">{c.timer}</p></div><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: false, secondsLeft: draft.task === 'task2' ? 2400 : 1200 })} className="grid h-10 w-10 place-items-center rounded-xl text-[#d5e9f5] hover:bg-white/10" aria-label={c.reset}><span className="material-icons-round text-xl">restart_alt</span></button></div></div></div>
     </header>
 
-    <section className={`grid gap-5 ${workspaceLayout === 'split' ? 'xl:h-[calc(100dvh-24rem)] xl:min-h-[360px] xl:grid-cols-[minmax(0,1.3fr)_minmax(440px,1fr)] xl:overflow-hidden' : 'grid-cols-1'}`}><div className={`min-w-0 space-y-5 ${workspaceLayout === 'split' ? 'xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-1 xl:pb-6' : ''}`} data-scroll-region={workspaceLayout === 'split' ? true : undefined}>
+    <nav className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2" aria-label={uiLanguage === 'en' ? 'Writing tool views' : '写作工具视图'}>{([{ id: 'workbench', icon: 'edit_note', en: 'Workbench', zh: '写作工作台' }, { id: 'library', icon: 'local_library', en: `Final library ${archive.length}`, zh: `最终稿文库 ${archive.length}` }, { id: 'reader', icon: 'menu_book', en: 'Reader', zh: '阅读器' }] as const).map((item) => <button key={item.id} type="button" onClick={() => item.id === 'reader' && !currentArchive ? setView('library') : setView(item.id)} className={`min-h-12 rounded-xl px-2 text-sm font-bold transition ${view === item.id ? 'bg-[#0e7490] text-white shadow-md' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round mr-1.5 align-middle text-lg">{item.icon}</span>{uiLanguage === 'en' ? item.en : item.zh}</button>)}</nav>
+    {view === 'workbench' && <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#a7e2ca] bg-[#effcf7] p-4 dark:border-[#24634d] dark:bg-[#123a2d]"><div><p className="font-bold text-[#147352] dark:text-[#86efac]">{uiLanguage === 'en' ? 'Finished revising?' : '修改完成了吗？'}</p><p className="mt-1 text-sm text-[var(--muted-foreground)]">{uiLanguage === 'en' ? 'Save the current text as this essay’s final version, then read it without editing distractions.' : '把当前内容保存为这篇作文的最终稿，并在无编辑干扰的阅读器中重读。'}</p></div><button type="button" onClick={archiveCurrentEssay} className="min-h-11 rounded-xl bg-[#147352] px-4 text-sm font-bold text-white"><span className="material-icons-round mr-2 align-middle text-lg">bookmark_add</span>{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button></div>}
+
+    {view === 'workbench' && <section className={`grid gap-5 ${workspaceLayout === 'split' ? 'xl:h-[calc(100dvh-24rem)] xl:min-h-[360px] xl:grid-cols-[minmax(0,1.3fr)_minmax(440px,1fr)] xl:overflow-hidden' : 'grid-cols-1'}`}><div className={`min-w-0 space-y-5 ${workspaceLayout === 'split' ? 'xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-1 xl:pb-6' : ''}`} data-scroll-region={workspaceLayout === 'split' ? true : undefined}>
       <article className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none"><div className="flex flex-col gap-4 border-b border-[var(--card-border)] bg-[linear-gradient(90deg,rgba(14,116,144,.06),transparent)] p-4 sm:px-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="flex flex-wrap gap-2" role="group" aria-label={c.taskGroup}>{(['task1-academic', 'task1-general', 'task2'] as WritingTask[]).map((task) => <button type="button" key={task} onClick={() => updateTask(task)} className={`min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${draft.task === task ? 'bg-[#0e7490] text-white shadow-md shadow-cyan-950/15' : 'border border-transparent bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[#67b9cc]'}`}>{taskLabel(task)}</button>)}</div><div className="flex items-center gap-3 text-sm"><span className={`rounded-full px-3 py-1.5 font-bold ${words >= target ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#143f2a] dark:text-[#86efac]' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{words} / {target}+ {c.words}</span><span className={`flex items-center gap-1.5 text-xs font-semibold ${saveState === 'error' ? 'text-[#dc2626]' : 'text-[#16845b]'}`}><span className="material-icons-round text-base">{saveState === 'error' ? 'cloud_off' : 'verified'}</span>{saveState === 'error' ? c.saveError : c.saved}</span></div></div><div className="flex items-center gap-2"><span className="mr-1 text-xs font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.layout}</span><button type="button" aria-pressed={workspaceLayout === 'split'} onClick={() => changeLayout('split')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'split' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_sidebar</span>{c.split}</button><button type="button" aria-pressed={workspaceLayout === 'stacked'} onClick={() => changeLayout('stacked')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'stacked' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_agenda</span>{c.stacked}</button></div></div>
         <div className="space-y-5 p-4 sm:p-6">
           <label className="block"><span className="mb-2 block text-sm font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.question}</span><textarea value={draft.question} onChange={(event) => editField('question', event.target.value)} rows={3} placeholder={c.questionPlaceholder} className="w-full resize-y rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3.5 text-base leading-7 outline-none transition focus:border-[#0e7490] focus:ring-4 focus:ring-[#0e7490]/10" /></label>
@@ -254,6 +297,10 @@ export default function WritingWorkbench() {
 
       <article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#7c3aed]">{c.transfer}</p><h2 className="mt-1.5 font-semibold">{c.transferTitle}</h2></div><span className="material-icons-round text-[#7c3aed]">north_east</span></div>{recurring.length > 0 ? <div className="mt-3"><p className="text-xs text-[var(--muted-foreground)]">{c.recurring}</p><div className="mt-2 flex flex-wrap gap-2">{recurring.map((key) => <span key={key} className="rounded-full bg-[#f2eafb] px-2.5 py-1 text-xs font-semibold text-[#6b3fa0] dark:bg-[#342347] dark:text-[#d7b8ff]">{key.replaceAll('_', ' ')}</span>)}</div></div> : <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">{c.recurringEmpty}</p>}<button type="button" onClick={startTransferEssay} className="mt-4 min-h-11 w-full rounded-xl bg-[#7c3aed] px-4 text-sm font-bold text-white shadow-md shadow-violet-950/15">{c.transferButton}</button></article>
       <article className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e0f2fe] text-[#0369a1] dark:bg-[#16384c] dark:text-[#7dd3fc]"><span className="material-icons-round">shield</span></span><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#0369a1] dark:text-[#7dd3fc]">{c.safety}</p><h2 className="font-semibold">{c.safetyTitle}</h2></div></div><p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">{c.safetyBody}</p><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={restoreSnapshot} className="min-h-11 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold hover:border-[#0e7490]">{c.restore}</button><button type="button" onClick={exportBackup} className="min-h-11 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold hover:border-[#0e7490]">{c.export}</button></div></article>
-    </aside></section>
+    </aside></section>}
+
+    {view === 'library' && <section><div className="mb-4 flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><span className="material-icons-round absolute left-3 top-3 text-[var(--muted-foreground)]">search</span><input value={archiveQuery} onChange={(event) => setArchiveQuery(event.target.value)} className="min-h-12 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] pl-11 pr-4 outline-none focus:border-[#0e7490]" placeholder={uiLanguage === 'en' ? 'Search title, question, or essay' : '搜索标题、题目或正文'} /></label><button type="button" onClick={() => setView('workbench')} className="min-h-12 rounded-xl bg-[#0e7490] px-4 text-sm font-bold text-white"><span className="material-icons-round mr-2 align-middle">edit_note</span>{uiLanguage === 'en' ? 'Back to writing' : '返回写作'}</button></div>{archiveResults.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{archiveResults.map((entry) => <article key={entry.id} className="group rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-[#e0f2fe] px-2.5 py-1 text-xs font-bold text-[#075985] dark:bg-[#16384c] dark:text-[#7dd3fc]">{taskLabel(entry.task)}</span><button type="button" onClick={() => deleteArchivedEssay(entry)} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] opacity-60 hover:bg-[#fee2e2] hover:text-[#b91c1c] group-hover:opacity-100" aria-label={`${uiLanguage === 'en' ? 'Delete' : '删除'} ${entry.title}`}><span className="material-icons-round text-lg">delete</span></button></div><h2 className="mt-4 line-clamp-3 font-serif text-xl font-bold leading-snug">{entry.title}</h2><p className="mt-3 line-clamp-3 text-sm leading-6 text-[var(--muted-foreground)]">{entry.content}</p><div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--muted-foreground)]"><span>{entry.wordCount} {uiLanguage === 'en' ? 'words' : '词'}</span>{entry.bandEstimate && <><span>·</span><span>Band {entry.bandEstimate}</span></>}<span>·</span><span>{new Date(entry.savedAt).toLocaleDateString(uiLanguage === 'en' ? 'en-GB' : 'zh-CN')}</span></div><button type="button" onClick={() => openArchivedEssay(entry.id)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0e7490] px-4 text-sm font-bold text-white">{uiLanguage === 'en' ? 'Open in reader' : '打开阅读器'}</button></article>)}</div> : <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] p-12 text-center"><span className="material-icons-round text-5xl text-[#5ea9a0]">library_books</span><h2 className="mt-3 text-xl font-bold">{archive.length ? (uiLanguage === 'en' ? 'No matching essays' : '没有匹配的作文') : (uiLanguage === 'en' ? 'Your final library is empty' : '最终稿文库还是空的')}</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--muted-foreground)]">{uiLanguage === 'en' ? 'Return to the workbench and save a finished revision. Saving the same essay again replaces its previous final version.' : '回到写作工作台，完成修改后保存最终稿。同一篇作文再次保存会更新原有最终版本。'}</p></div>}</section>}
+
+    {view === 'reader' && currentArchive && <section className={`overflow-hidden rounded-3xl border border-[var(--card-border)] shadow-sm ${readerThemeClass}`}><div className="flex flex-wrap items-center gap-2 border-b border-black/10 px-4 py-3"><button type="button" onClick={() => setView('library')} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-black/5" aria-label={uiLanguage === 'en' ? 'Back to library' : '返回文库'}><span className="material-icons-round">arrow_back</span></button><button type="button" onClick={() => setReaderFontSize((size) => Math.max(15, size - 1))} className="grid h-10 w-10 place-items-center rounded-xl border border-black/10 font-serif">A−</button><button type="button" onClick={() => setReaderFontSize((size) => Math.min(28, size + 1))} className="grid h-10 w-10 place-items-center rounded-xl border border-black/10 font-serif">A+</button><button type="button" onClick={() => setReaderLineHeight((value) => value >= 2.2 ? 1.5 : Number((value + .2).toFixed(1)))} className="min-h-10 rounded-xl border border-black/10 px-3 text-xs font-bold">{uiLanguage === 'en' ? 'Spacing' : '行距'} {readerLineHeight}</button>{(['paper', 'mint', 'night'] as ReaderTheme[]).map((theme) => <button key={theme} type="button" onClick={() => setReaderTheme(theme)} aria-label={`${theme} theme`} className={`h-8 w-8 rounded-full border-2 ${theme === 'paper' ? 'bg-[#fffdf7]' : theme === 'mint' ? 'bg-[#dff7ed]' : 'bg-[#111827]'} ${readerTheme === theme ? 'border-[#06b6d4]' : 'border-black/15'}`} />)}<button type="button" onClick={() => speakArchivedEssay(currentArchive.content)} className="ml-auto grid h-10 w-10 place-items-center rounded-xl hover:bg-black/5" aria-label={uiLanguage === 'en' ? 'Read aloud' : '朗读全文'}><span className="material-icons-round">volume_up</span></button></div><article className="mx-auto max-w-3xl px-5 py-9 sm:px-10 sm:py-12"><header className="mb-9 text-center"><span className="text-xs font-bold uppercase tracking-[.16em] opacity-60">{taskLabel(currentArchive.task)} · {currentArchive.wordCount} words{currentArchive.bandEstimate ? ` · Band ${currentArchive.bandEstimate}` : ''}</span><h1 className="mt-3 font-serif text-3xl font-bold leading-tight sm:text-5xl">{currentArchive.title}</h1><p className="mt-3 text-xs opacity-55">{uiLanguage === 'en' ? 'Final version saved' : '最终稿保存于'} {new Date(currentArchive.savedAt).toLocaleString(uiLanguage === 'en' ? 'en-GB' : 'zh-CN')}</p></header>{currentArchive.question && <aside className="mb-8 rounded-2xl border border-black/10 bg-black/[.035] p-4"><p className="text-xs font-bold uppercase tracking-[.12em] opacity-55">{uiLanguage === 'en' ? 'Question' : '题目'}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 opacity-75">{currentArchive.question}</p></aside>}<div className="whitespace-pre-wrap font-serif" style={{ fontSize: readerFontSize, lineHeight: readerLineHeight }}>{currentArchive.content}</div></article></section>}
   </div>;
 }

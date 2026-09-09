@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWritingReviewPrompt, coerceWritingStage, countWords, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, upsertWritingArchive, writeRedundantJson } from '../src/lib/ielts-writing.ts';
 import { readFileSync } from 'node:fs';
 
 test('counts IELTS words and returns task targets deterministically', () => {
@@ -46,6 +46,14 @@ test('writes every draft to two copies and recovers from a corrupt primary copy'
   assert.deepEqual(recovered, draft);
 });
 
+test('archives one replaceable final version per essay', () => {
+  const first = createWritingArchiveEntry({ essayId: 'essay-a', task: 'task2', question: 'Discuss both views.\nGive reasons.', content: 'One two three.', savedAt: '2026-09-09T10:00:00.000Z', bandEstimate: '6.0–6.5' });
+  assert.equal(first.title, 'Discuss both views.');
+  assert.equal(first.wordCount, 3);
+  const replacement = createWritingArchiveEntry({ essayId: 'essay-a', task: 'task2', question: 'Discuss both views.', content: 'One two three four.', savedAt: '2026-09-09T11:00:00.000Z' });
+  assert.deepEqual(upsertWritingArchive([first], replacement), [replacement]);
+});
+
 test('highlights additions and deletions without changing either reconstructed text', () => {
   const original = 'Public transport is very important.';
   const current = 'Reliable public transport is important.';
@@ -68,6 +76,14 @@ test('correction response mode requests a corrected local answer instead of a hi
   assert.match(prompt, /"correction": "the corrected version of quote only/);
   assert.match(prompt, /omit selfRevisionPrompt/);
   assert.doesNotMatch(prompt, /"selfRevisionPrompt":/);
+});
+
+test('builds a constrained repair request for malformed model JSON', () => {
+  const prompt = buildWritingFeedbackRepairPrompt('{"summary":"broken', 'hint', 'zh');
+  assert.match(prompt, /formatting repair, not a new review/);
+  assert.match(prompt, /selfRevisionPrompt/);
+  assert.match(prompt, /Simplified Chinese/);
+  assert.match(prompt, /MALFORMED RESPONSE/);
 });
 
 test('accepts correction-mode feedback without a self-revision prompt', () => {
