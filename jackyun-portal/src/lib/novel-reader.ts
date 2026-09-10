@@ -18,6 +18,10 @@ export interface NovelBook {
   lastReadAt: string | null;
   currentChapter: number;
   chapterProgress: number;
+  chapterScrollTop?: number;
+  anchorParagraph?: number;
+  anchorOffsetRatio?: number;
+  positionUpdatedAt?: string | null;
   overallProgress: number;
   readingSeconds: number;
   sourceFileName: string;
@@ -116,6 +120,16 @@ export function calculateNovelProgress(chapterIndex: number, chapterProgress: nu
   const safeChapter = Math.min(chapterCount - 1, Math.max(0, chapterIndex));
   const safeProgress = Number.isFinite(chapterProgress) ? Math.min(1, Math.max(0, chapterProgress)) : 0;
   return Math.min(1, Math.max(0, (safeChapter + safeProgress) / chapterCount));
+}
+
+export function calculateNovelProgressByCharacters(chapterIndex: number, chapterProgress: number, chapterLengths: number[]): number {
+  if (!chapterLengths.length) return 0;
+  const safeChapter = Math.min(chapterLengths.length - 1, Math.max(0, chapterIndex));
+  const safeProgress = Number.isFinite(chapterProgress) ? Math.min(1, Math.max(0, chapterProgress)) : 0;
+  const total = chapterLengths.reduce((sum, length) => sum + Math.max(0, length), 0);
+  if (!total) return calculateNovelProgress(safeChapter, safeProgress, chapterLengths.length);
+  const completed = chapterLengths.slice(0, safeChapter).reduce((sum, length) => sum + Math.max(0, length), 0);
+  return Math.min(1, Math.max(0, (completed + Math.max(0, chapterLengths[safeChapter]) * safeProgress) / total));
 }
 
 export function inferNovelTitle(fileName: string): string {

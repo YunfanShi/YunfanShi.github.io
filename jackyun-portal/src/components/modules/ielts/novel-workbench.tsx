@@ -5,7 +5,7 @@ import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { buildWordPrompt, parseWordNote, type WordNote } from '@/lib/ielts-reading';
 import {
-  calculateNovelProgress,
+  calculateNovelProgressByCharacters,
   detectNovelLanguage,
   inferNovelTitle,
   splitNovelIntoChapters,
@@ -20,6 +20,9 @@ type ShelfFilter = 'all' | NovelLanguage;
 type Theme = 'paper' | 'sepia' | 'mint' | 'night';
 type Width = 'narrow' | 'medium' | 'wide';
 type Heading = Pick<NovelChapter, 'index' | 'title' | 'characterCount'>;
+type ReadingPosition = { chapterIndex: number; chapterProgress: number; scrollTop: number; anchorParagraph: number; anchorOffsetRatio: number; updatedAt: string };
+
+const POSITION_KEY_PREFIX = 'jackyun_novel_position_v2:';
 
 const themeClasses: Record<Theme, string> = {
   paper: 'bg-[#fffefa] text-[#26231e]',
@@ -40,6 +43,10 @@ function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   return hours ? `${hours} 小时 ${minutes} 分` : `${Math.max(1, minutes)} 分钟`;
+}
+
+function formatProgress(progress: number): string {
+  return `${(Math.min(1, Math.max(0, progress)) * 100).toFixed(1)}%`;
 }
 
 function tokens(text: string): string[] {
@@ -80,7 +87,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
   const [wordLoading, setWordLoading] = useState(false);
   const readerRef = useRef<HTMLDivElement>(null);
   const saveTimerRef = useRef<number | null>(null);
-  const restoreRatioRef = useRef(0);
+  const restorePositionRef = useRef<ReadingPosition | null>(null);
   const activeBook = books.find((book) => book.id === activeId) ?? null;
 
   useEffect(() => {
@@ -113,22 +120,59 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     ? [{ language: 'zh' as const, title: '中文书架', books: visibleBooks.filter((book) => book.language === 'zh') }, { language: 'en' as const, title: '英文书架', books: visibleBooks.filter((book) => book.language === 'en') }]
     : [{ language: filter, title: filter === 'zh' ? '中文书架' : '英文书架', books: visibleBooks }];
 
+  function readEmergencyPosition(book: NovelBook): ReadingPosition {
+    try {
+      const value = JSON.parse(localStorage.getItem(`${POSITION_KEY_PREFIX}${book.id}`) || 'null') as Partial<ReadingPosition> | null;
+      if (value && Number.isInteger(value.chapterIndex) && Number(value.chapterIndex) >= 0 && Number(value.chapterIndex) < book.chapterCount) {
+        return {
+          chapterIndex: Number(value.chapterIndex),
+          chapterProgress: Number.isFinite(value.chapterProgress) ? Math.min(1, Math.max(0, Number(value.chapterProgress))) : book.chapterProgress,
+          scrollTop: Number.isFinite(value.scrollTop) ? Math.max(0, Number(value.scrollTop)) : (book.chapterScrollTop ?? 0),
+          anchorParagraph: Number.isInteger(value.anchorParagraph) ? Number(value.anchorParagraph) : (book.anchorParagraph ?? -1),
+          anchorOffsetRatio: Number.isFinite(value.anchorOffsetRatio) ? Math.min(1, Math.max(0, Number(value.anchorOffsetRatio))) : (book.anchorOffsetRatio ?? 0),
+          updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : (book.positionUpdatedAt ?? book.lastReadAt ?? book.importedAt),
+        };
+      }
+    } catch { /* Fall back to the IndexedDB metadata. */ }
+    return { chapterIndex: book.currentChapter, chapterProgress: book.chapterProgress, scrollTop: book.chapterScrollTop ?? 0, anchorParagraph: book.anchorParagraph ?? -1, anchorOffsetRatio: book.anchorOffsetRatio ?? 0, updatedAt: book.positionUpdatedAt ?? book.lastReadAt ?? book.importedAt };
+  }
+
+  function restoreReaderPosition() {
+    const reader = readerRef.current;
+    const position = restorePositionRef.current;
+    if (!reader || !position) return;
+    const anchor = position.anchorParagraph >= 0 ? reader.querySelector<HTMLElement>(`[data-reader-paragraph="${position.anchorParagraph}"]`) : null;
+    if (anchor) {
+      const readerTop = reader.getBoundingClientRect().top;
+      const anchorTop = anchor.getBoundingClientRect().top - readerTop + reader.scrollTop;
+      reader.scrollTop = Math.max(0, anchorTop + anchor.offsetHeight * position.anchorOffsetRatio);
+    } else if (position.scrollTop > 0) {
+      reader.scrollTop = Math.min(position.scrollTop, Math.max(0, reader.scrollHeight - reader.clientHeight));
+    } else {
+      reader.scrollTop = position.chapterProgress * Math.max(0, reader.scrollHeight - reader.clientHeight);
+    }
+  }
+
+  function overallProgress(chapterIndex: number, chapterProgress: number): number {
+    return calculateNovelProgressByCharacters(chapterIndex, chapterProgress, headings.map((item) => item.characterCount));
+  }
+
   async function openBook(book: NovelBook) {
     setMessage('');
     try {
       const chapterHeadings = await listNovelChapterHeadings(book.id);
-      const target = await getNovelChapter(book.id, book.currentChapter);
+      const position = readEmergencyPosition(book);
+      const target = await getNovelChapter(book.id, position.chapterIndex);
       if (!target) throw new Error('没有找到保存的章节正文。');
-      restoreRatioRef.current = book.chapterProgress;
+      const resumedBook = { ...book, currentChapter: position.chapterIndex, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: position.updatedAt, overallProgress: calculateNovelProgressByCharacters(position.chapterIndex, position.chapterProgress, chapterHeadings.map((item) => item.characterCount)) };
+      restorePositionRef.current = position;
       setActiveId(book.id);
+      setBooks((items) => items.map((item) => item.id === book.id ? resumedBook : item));
       setHeadings(chapterHeadings);
       setChapter(target);
       setSelectedWord(null);
       setView('reader');
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const reader = readerRef.current;
-        if (reader) reader.scrollTop = restoreRatioRef.current * Math.max(0, reader.scrollHeight - reader.clientHeight);
-      }));
+      requestAnimationFrame(() => requestAnimationFrame(restoreReaderPosition));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '打开小说失败。');
     }
@@ -139,16 +183,15 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     saveCurrentPosition();
     const nextChapter = await getNovelChapter(activeBook.id, index);
     if (!nextChapter) return;
-    restoreRatioRef.current = restoreRatio;
+    const now = new Date().toISOString();
+    restorePositionRef.current = { chapterIndex: index, chapterProgress: restoreRatio, scrollTop: 0, anchorParagraph: -1, anchorOffsetRatio: 0, updatedAt: now };
     setChapter(nextChapter);
     setSelectedWord(null);
-    const nextBook = { ...activeBook, currentChapter: index, chapterProgress: restoreRatio, overallProgress: calculateNovelProgress(index, restoreRatio, activeBook.chapterCount), lastReadAt: new Date().toISOString() };
+    const nextBook = { ...activeBook, currentChapter: index, chapterProgress: restoreRatio, chapterScrollTop: 0, anchorParagraph: -1, anchorOffsetRatio: 0, positionUpdatedAt: now, overallProgress: overallProgress(index, restoreRatio), lastReadAt: now };
     setBooks((items) => items.map((book) => book.id === nextBook.id ? nextBook : book));
     await updateNovelBook(nextBook);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const reader = readerRef.current;
-      if (reader) reader.scrollTop = restoreRatio * Math.max(0, reader.scrollHeight - reader.clientHeight);
-    }));
+    try { localStorage.setItem(`${POSITION_KEY_PREFIX}${nextBook.id}`, JSON.stringify(restorePositionRef.current)); } catch { /* IndexedDB remains the durable fallback. */ }
+    requestAnimationFrame(() => requestAnimationFrame(restoreReaderPosition));
   }
 
   async function moveChapter(offset: number) {
@@ -169,20 +212,30 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  function currentScrollRatio(): number {
+  function captureReadingPosition(): ReadingPosition | null {
     const reader = readerRef.current;
-    if (!reader) return 0;
+    if (!reader || !chapter) return null;
     const maximum = Math.max(0, reader.scrollHeight - reader.clientHeight);
-    return maximum ? Math.min(1, Math.max(0, reader.scrollTop / maximum)) : 1;
+    const chapterProgress = maximum ? Math.min(1, Math.max(0, reader.scrollTop / maximum)) : 1;
+    const readerTop = reader.getBoundingClientRect().top;
+    const paragraphs = Array.from(reader.querySelectorAll<HTMLElement>('[data-reader-paragraph]'));
+    const firstParagraph = paragraphs[0];
+    const firstParagraphTop = firstParagraph ? firstParagraph.getBoundingClientRect().top - readerTop + reader.scrollTop : Number.POSITIVE_INFINITY;
+    const anchor = reader.scrollTop + 2 >= firstParagraphTop ? paragraphs.find((item) => item.getBoundingClientRect().bottom > readerTop + 1) : null;
+    const anchorParagraph = anchor ? Number(anchor.dataset.readerParagraph) : -1;
+    const anchorOffsetRatio = anchor?.offsetHeight ? Math.min(1, Math.max(0, (readerTop - anchor.getBoundingClientRect().top) / anchor.offsetHeight)) : 0;
+    return { chapterIndex: chapter.index, chapterProgress, scrollTop: reader.scrollTop, anchorParagraph, anchorOffsetRatio, updatedAt: new Date().toISOString() };
   }
 
   function persistPosition(showMessage = false) {
     if (!activeBook || !chapter) return;
-    const ratio = currentScrollRatio();
-    const next = { ...activeBook, currentChapter: chapter.index, chapterProgress: ratio, overallProgress: calculateNovelProgress(chapter.index, ratio, activeBook.chapterCount), lastReadAt: new Date().toISOString() };
+    const position = captureReadingPosition();
+    if (!position) return;
+    const next = { ...activeBook, currentChapter: chapter.index, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: position.updatedAt, overallProgress: overallProgress(chapter.index, position.chapterProgress), lastReadAt: position.updatedAt };
     setBooks((items) => items.map((book) => book.id === next.id ? next : book));
     void updateNovelBook(next);
-    if (showMessage) setMessage(`书签已保存：第 ${chapter.index + 1} 章，整本约 ${Math.round(next.overallProgress * 100)}%。`);
+    try { localStorage.setItem(`${POSITION_KEY_PREFIX}${next.id}`, JSON.stringify(position)); } catch { /* IndexedDB remains the durable fallback. */ }
+    if (showMessage) setMessage(`书签已精确保存：第 ${chapter.index + 1} 章，${position.anchorParagraph >= 0 ? `第 ${position.anchorParagraph + 1} 段` : '章节开头'}，整本 ${formatProgress(next.overallProgress)}。`);
   }
 
   function saveCurrentPosition() {
@@ -192,6 +245,10 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
   }
 
   function schedulePositionSave() {
+    if (activeBook) {
+      const position = captureReadingPosition();
+      if (position) try { localStorage.setItem(`${POSITION_KEY_PREFIX}${activeBook.id}`, JSON.stringify(position)); } catch { /* Ignore emergency bookmark failures. */ }
+    }
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => persistPosition(), 450);
   }
@@ -216,6 +273,10 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
         lastReadAt: null,
         currentChapter: 0,
         chapterProgress: 0,
+        chapterScrollTop: 0,
+        anchorParagraph: -1,
+        anchorOffsetRatio: 0,
+        positionUpdatedAt: null,
         overallProgress: 0,
         readingSeconds: 0,
         sourceFileName: file.name,
@@ -235,6 +296,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
   async function removeBook(book: NovelBook) {
     if (!window.confirm(`确定删除《${book.title}》及全部章节吗？此操作无法撤销。`)) return;
     await deleteNovelBook(book.id);
+    try { localStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* The IndexedDB deletion already succeeded. */ }
     setBooks((items) => items.filter((item) => item.id !== book.id));
     setMessage(`已删除《${book.title}》。`);
   }
@@ -271,7 +333,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => { saveCurrentPosition(); setView('library'); }} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-black/5" aria-label="返回书架"><span className="material-icons-round">arrow_back</span></button>
           <button type="button" onClick={() => setTocOpen((value) => !value)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-black/5" aria-label="章节目录"><span className="material-icons-round">toc</span></button>
-          <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{activeBook.title}</p><p className="truncate text-xs opacity-60">{chapter.title} · {Math.round(activeBook.overallProgress * 100)}%</p></div>
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{activeBook.title}</p><p className="truncate text-xs opacity-60">{chapter.title} · {formatProgress(activeBook.overallProgress)}</p></div>
           <button type="button" onClick={() => persistPosition(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-black/5" aria-label="保存书签"><span className="material-icons-round">bookmark</span></button>
           <button type="button" onClick={() => document.fullscreenElement ? void document.exitFullscreen() : void document.documentElement.requestFullscreen()} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-black/5" aria-label="全屏"><span className="material-icons-round">fullscreen</span></button>
         </div>
@@ -293,7 +355,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
           <article className={`mx-auto px-6 py-12 sm:px-10 sm:py-16 ${widthClasses[contentWidth]}`}>
             <p className="text-center text-xs font-bold uppercase tracking-[.16em] opacity-50">第 {chapter.index + 1} / {activeBook.chapterCount} 章</p>
             <h1 className="mt-3 text-center font-serif text-3xl font-bold leading-tight sm:text-4xl">{chapter.title}</h1>
-            <div className="mt-10 font-serif" style={{ fontSize, lineHeight }} lang={activeBook.language === 'zh' ? 'zh-CN' : 'en'}>{chapter.content.split(/\n\s*\n/u).map((paragraph, index) => <p key={index} className={`mb-[1.25em] ${activeBook.language === 'zh' ? 'text-justify indent-[2em]' : ''}`}>{activeBook.language === 'en' ? tokens(paragraph).map((token, tokenIndex) => /^[A-Za-z]/.test(token) ? <button type="button" key={tokenIndex} onClick={() => void lookupWord(token, paragraph)} className="rounded px-px text-inherit underline-offset-4 hover:bg-[#facc15]/35 hover:underline">{token}</button> : <span key={tokenIndex}>{token}</span>) : paragraph}</p>)}</div>
+            <div className="mt-10 font-serif" style={{ fontSize, lineHeight }} lang={activeBook.language === 'zh' ? 'zh-CN' : 'en'}>{chapter.content.split(/\n\s*\n/u).map((paragraph, index) => <p key={index} data-reader-paragraph={index} className={`mb-[1.25em] ${activeBook.language === 'zh' ? 'text-justify indent-[2em]' : ''}`}>{activeBook.language === 'en' ? tokens(paragraph).map((token, tokenIndex) => /^[A-Za-z]/.test(token) ? <button type="button" key={tokenIndex} onClick={() => void lookupWord(token, paragraph)} className="rounded px-px text-inherit underline-offset-4 hover:bg-[#facc15]/35 hover:underline">{token}</button> : <span key={tokenIndex}>{token}</span>) : paragraph}</p>)}</div>
             <nav className="mt-16 grid grid-cols-2 gap-3 border-t border-black/10 pt-8"><button type="button" disabled={chapter.index === 0} onClick={() => void moveChapter(-1)} className="min-h-12 rounded-xl border border-black/15 font-bold disabled:opacity-30">← 上一章</button><button type="button" disabled={chapter.index >= activeBook.chapterCount - 1} onClick={() => void moveChapter(1)} className="min-h-12 rounded-xl bg-[#0f766e] font-bold text-white disabled:opacity-30">下一章 →</button></nav>
           </article>
         </main>

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildReadingPrompt, calculateReadingProgress, calculateReadingStats, countReadingWords, parseReadingArticle, parseReadingQuiz, restoreReadingScroll, type ReadingSettings } from '../src/lib/ielts-reading.ts';
-import { calculateNovelProgress, detectChapterHeading, detectNovelLanguage, inferNovelTitle, splitNovelIntoChapters } from '../src/lib/novel-reader.ts';
+import { calculateNovelProgress, calculateNovelProgressByCharacters, detectChapterHeading, detectNovelLanguage, inferNovelTitle, splitNovelIntoChapters } from '../src/lib/novel-reader.ts';
 
 const settings: ReadingSettings = { level: 'B2', wordCount: 800, vocabularyDensity: 3, sentenceComplexity: 3, style: 'science-fiction', tone: 'thoughtful', perspective: 'third person limited', pacing: 3, dialogueRatio: 25, ending: 'hopeful', learningFocus: 'inference', premise: 'an explorer finds a signal', characters: 'Mira', setting: 'a distant moon', mustInclude: 'a difficult choice', avoid: 'graphic violence' };
 
@@ -96,5 +96,7 @@ test('detects book language and calculates whole-book progress', () => {
   assert.equal(detectNovelLanguage('这是一本中文小说。'.repeat(20)), 'zh');
   assert.equal(detectNovelLanguage('This is a long English novel. '.repeat(20)), 'en');
   assert.equal(calculateNovelProgress(4, 0.5, 10), 0.45);
+  assert.equal(calculateNovelProgressByCharacters(1, 0.5, [100, 400, 500]), 0.3);
+  assert.equal(calculateNovelProgressByCharacters(2, 1, [100, 400, 500]), 1);
   assert.equal(inferNovelTitle('The_Three-Body_Problem.txt'), 'The Three Body Problem');
 });
