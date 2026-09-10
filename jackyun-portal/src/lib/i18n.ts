@@ -25,7 +25,7 @@ const translations: TranslationMap = {
   'nav.study-plan':           { zh: '学习计划',             en: 'Study Plan' },
   'nav.study-guide':          { zh: 'StudyGuide',           en: 'StudyGuide' },
   'nav.ielts-writing':        { zh: '雅思写作工具',         en: 'IELTS Writing Lab' },
-  'nav.ielts-reading':        { zh: '英文阅读工具',         en: 'English Reading Studio' },
+  'nav.ielts-reading':        { zh: '中英文小说阅读器',     en: 'Chinese & English Reader' },
   'nav.learning-resources':   { zh: '学习网站收录',         en: 'Learning Resources' },
   'nav.userscripts':          { zh: '网站插件大全',         en: 'Userscript Library' },
   'nav.vocab':                { zh: '词汇宝库',             en: 'Vocab Treasury' },

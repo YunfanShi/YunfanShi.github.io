@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildReadingPrompt, calculateReadingProgress, calculateReadingStats, countReadingWords, parseReadingArticle, parseReadingQuiz, restoreReadingScroll, type ReadingSettings } from '../src/lib/ielts-reading.ts';
+import { calculateNovelProgress, detectChapterHeading, detectNovelLanguage, inferNovelTitle, splitNovelIntoChapters } from '../src/lib/novel-reader.ts';
 
 const settings: ReadingSettings = { level: 'B2', wordCount: 800, vocabularyDensity: 3, sentenceComplexity: 3, style: 'science-fiction', tone: 'thoughtful', perspective: 'third person limited', pacing: 3, dialogueRatio: 25, ending: 'hopeful', learningFocus: 'inference', premise: 'an explorer finds a signal', characters: 'Mira', setting: 'a distant moon', mustInclude: 'a difficult choice', avoid: 'graphic violence' };
 
@@ -49,4 +50,33 @@ test('saves and restores approximate reading position across layout changes', ()
   assert.equal(restoreReadingScroll(0.6, 2500, 500), 1200);
   assert.equal(calculateReadingProgress(-20, 2000, 500), 0);
   assert.equal(restoreReadingScroll(2, 2000, 500), 1500);
+});
+
+test('recognizes common Chinese and English novel chapter headings', () => {
+  for (const heading of ['第一章 斗罗大陆', '第 120 回 真相', '正文卷 第三章 重逢', '卷二 风雪', '楔子', '番外篇 旧日', '一、启程', '001 无名小镇', 'Chapter 42: The Answer', 'BOOK IV — Winter', 'Prologue']) {
+    assert.equal(detectChapterHeading(heading), heading);
+  }
+  assert.equal(detectChapterHeading('【第九章 风暴】'), '第九章 风暴');
+  assert.equal(detectChapterHeading('This is an ordinary sentence in the story.'), null);
+  assert.equal(detectChapterHeading('这是正文里的一句普通话。'), null);
+});
+
+test('splits very long novels by detected headings and keeps front matter', () => {
+  const source = ['作者：测试', '', '序章', '故事开始。', '', '第一章 初见', '第一章正文。', '', 'Chapter 2: Across the Sea', 'The second chapter.'].join('\n');
+  const chapters = splitNovelIntoChapters(source);
+  assert.deepEqual(chapters.map((chapter) => chapter.title), ['卷首', '序章', '第一章 初见', 'Chapter 2: Across the Sea']);
+  assert.match(chapters[2].content, /第一章正文/);
+});
+
+test('falls back to bounded sections when a text has no chapter headings', () => {
+  const chapters = splitNovelIntoChapters(`${'甲'.repeat(80)}\n\n${'乙'.repeat(80)}\n\n${'丙'.repeat(80)}`, 100);
+  assert.equal(chapters.length, 3);
+  assert.equal(chapters[0].title, '第 1 节');
+});
+
+test('detects book language and calculates whole-book progress', () => {
+  assert.equal(detectNovelLanguage('这是一本中文小说。'.repeat(20)), 'zh');
+  assert.equal(detectNovelLanguage('This is a long English novel. '.repeat(20)), 'en');
+  assert.equal(calculateNovelProgress(4, 0.5, 10), 0.45);
+  assert.equal(inferNovelTitle('The_Three-Body_Problem.txt'), 'The Three Body Problem');
 });

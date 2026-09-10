@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import NovelWorkbench from '@/components/modules/ielts/novel-workbench';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent, readAiStreamingResponseContent } from '@/lib/ai-json';
 import {
@@ -43,6 +44,12 @@ function RangeControl({ label, value, min, max, step = 1, suffix = '', onChange 
 }
 
 export default function ReadingWorkbench() {
+  const [experience, setExperience] = useState<'novels' | 'ai'>('novels');
+  if (experience === 'novels') return <NovelWorkbench onOpenAiStudio={() => setExperience('ai')} />;
+  return <div className="space-y-4"><button type="button" onClick={() => setExperience('novels')} className="min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 text-sm font-bold text-[#0f766e]"><span className="material-icons-round mr-2 align-middle">arrow_back</span>返回小说书架</button><AiReadingStudio /></div>;
+}
+
+function AiReadingStudio() {
   const [view, setView] = useState<View>('generate');
   const [settings, setSettings] = useState<ReadingSettings>(defaultSettings);
   const [library, setLibrary] = useState<ReadingArticle[]>([]);
