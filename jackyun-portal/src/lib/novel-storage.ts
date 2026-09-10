@@ -92,6 +92,31 @@ export async function listNovelChapterHeadings(bookId: string): Promise<Array<Pi
   }
 }
 
+export async function listNovelChapters(bookId: string): Promise<NovelChapter[]> {
+  const database = await openDatabase();
+  try {
+    const store = database.transaction(CHAPTERS_STORE, 'readonly').objectStore(CHAPTERS_STORE).index('bookId');
+    const chapters = await requestResult(store.getAll(IDBKeyRange.only(bookId))) as StoredChapter[];
+    return chapters.sort((left, right) => left.index - right.index).map(({ index, title, content, characterCount }) => ({ index, title, content, characterCount }));
+  } finally {
+    database.close();
+  }
+}
+
+export async function replaceNovelChapters(bookId: string, chapters: NovelChapter[]): Promise<void> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(CHAPTERS_STORE, 'readwrite');
+    const store = transaction.objectStore(CHAPTERS_STORE);
+    const keys = await requestResult(store.index('bookId').getAllKeys(IDBKeyRange.only(bookId)));
+    keys.forEach((key) => store.delete(key));
+    chapters.forEach((chapter, index) => store.put({ ...chapter, index, bookId, key: `${bookId}:${index}` } satisfies StoredChapter));
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
+}
+
 export async function deleteNovelBook(bookId: string): Promise<void> {
   const database = await openDatabase();
   try {
