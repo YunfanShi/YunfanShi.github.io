@@ -32,13 +32,8 @@ function renderAutomation(automation) {
   });
 }
 async function render() {
-  [status, safeguard, tools, adblock, [currentTab]] = await Promise.all([
-    send({ type: 'STATUS' }),
-    send({ type: 'SAFEGUARD_GET_CONFIG' }),
-    send({ type: 'TOOLS_GET_CONFIG' }),
-    send({ type: 'ADBLOCK_GET_CONFIG' }),
-    chrome.tabs.query({ active: true, currentWindow: true }),
-  ]);
+  const bootstrap = await send({ type: 'POPUP_BOOTSTRAP' });
+  ({ status, safeguard, tools, adblock, currentTab } = bootstrap);
   $('#sg-enabled').checked = safeguard.enabled;
   $('#sg-chinese').checked = safeguard.blockChinese;
   $('#sg-education-exempt').checked = safeguard.excludeEducation !== false;
@@ -60,10 +55,8 @@ async function render() {
   renderSafeguardSites();
   $('#automation-version').textContent = `v${status.automation?.version || status.device?.extensionVersion || chrome.runtime.getManifest().version}`;
   renderAutomation(status.automation);
-  try {
-    const betaLogs = await send({ type: 'BETA_AI_LOGS' });
-    $('#beta-ai-logs').textContent = betaLogs.length ? betaLogs.slice(-8).reverse().map((entry) => `${entry.at} · ${entry.type}${entry.provider ? ` · ${entry.provider}` : ''}${entry.error ? ` · ${entry.error}` : ''}`).join('\n') : '尚无日志';
-  } catch { $('#beta-ai-logs').textContent = '日志读取失败'; }
+  const betaLogs = bootstrap.betaAiLogs;
+  $('#beta-ai-logs').textContent = betaLogs.length ? betaLogs.slice(-8).reverse().map((entry) => `${entry.at} · ${entry.type}${entry.provider ? ` · ${entry.provider}` : ''}${entry.error ? ` · ${entry.error}` : ''}`).join('\n') : '尚无日志';
   $('#signed-in').hidden = !status.signedIn;
   $('#signed-out').hidden = status.signedIn;
   $('#sync-state').textContent = status.signedIn ? (status.lastSyncAt ? `已同步 · ${new Date(status.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '等待首次同步') : '尚未登录';

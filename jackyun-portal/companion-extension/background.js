@@ -114,11 +114,10 @@ async function getConfig() {
   return config;
 }
 
-async function getDevice() {
-  const stored = await local.get(['device']);
+function buildDevice(storedDevice) {
   const platform = /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
-  const previous = stored.device && typeof stored.device === 'object' ? stored.device : {};
-  const device = {
+  const previous = storedDevice && typeof storedDevice === 'object' ? storedDevice : {};
+  return {
     ...previous,
     id: previous.id || uuid(),
     name: previous.name || `${platform === 'edge' ? 'Edge' : 'Chrome'} · ${navigator.platform || 'Computer'}`,
@@ -126,6 +125,12 @@ async function getDevice() {
     browserVersion: navigator.userAgent.slice(0, 80),
     extensionVersion: VERSION,
   };
+}
+
+async function getDevice() {
+  const stored = await local.get(['device']);
+  const previous = stored.device && typeof stored.device === 'object' ? stored.device : {};
+  const device = buildDevice(previous);
   if (JSON.stringify(device) !== JSON.stringify(previous)) await local.set({ device });
   return device;
 }
@@ -563,6 +568,40 @@ async function getStatus() {
   return { signedIn: Boolean(stored.refreshToken || current.accessToken), device, preferences: prefs, todaySeconds: todayRows.reduce((sum, item) => sum + Number(item.activeSeconds || 0), 0), sites: todayRows.sort((a, b) => b.activeSeconds - a.activeSeconds), lastSyncAt: stored.lastSyncAt || 0, lastSyncError: stored.lastSyncError || '', focus: stored.focus || null, automation: { available: true, version: VERSION, providers: Object.keys(AI_PROVIDER_URLS), current: stored.currentAiAutomation || null } };
 }
 
+async function getPopupBootstrap() {
+  const [stored, current, [currentTab]] = await Promise.all([
+    local.get(['activity', 'lastSyncAt', 'lastSyncError', 'refreshToken', 'focus', 'currentAiAutomation', 'device', 'preferences', 'safeguard', 'tools', 'adblock', 'betaAiLogs']),
+    session.get(['accessToken']),
+    chrome.tabs.query({ active: true, currentWindow: true }),
+  ]);
+  const previousDevice = stored.device && typeof stored.device === 'object' ? stored.device : {};
+  const device = buildDevice(previousDevice);
+  if (JSON.stringify(device) !== JSON.stringify(previousDevice)) await local.set({ device });
+  const prefs = { ...DEFAULT_PREFERENCES, ...(stored.preferences || {}) };
+  const todayRows = Object.values(stored.activity || {}).filter((item) => item.activityDate === day());
+  const safeguardRaw = stored.safeguard && typeof stored.safeguard === 'object' ? stored.safeguard : {};
+  return {
+    status: {
+      signedIn: Boolean(stored.refreshToken || current.accessToken), device, preferences: prefs,
+      todaySeconds: todayRows.reduce((sum, item) => sum + Number(item.activeSeconds || 0), 0),
+      sites: todayRows.sort((a, b) => b.activeSeconds - a.activeSeconds),
+      lastSyncAt: stored.lastSyncAt || 0, lastSyncError: stored.lastSyncError || '', focus: stored.focus || null,
+      automation: { available: true, version: VERSION, providers: Object.keys(AI_PROVIDER_URLS), current: stored.currentAiAutomation || null },
+    },
+    safeguard: {
+      ...DEFAULT_SAFEGUARD, ...safeguardRaw,
+      activeCategories: { ...DEFAULT_SAFEGUARD.activeCategories, ...(safeguardRaw.activeCategories || {}) },
+      customSites: Array.isArray(safeguardRaw.customSites) ? safeguardRaw.customSites.slice(0, 1000) : [],
+      customEducationHosts: normalizeHostList(safeguardRaw.customEducationHosts),
+      customEntertainmentHosts: normalizeHostList(safeguardRaw.customEntertainmentHosts),
+    },
+    tools: { ...DEFAULT_TOOLS, ...(stored.tools || {}) },
+    adblock: normalizeAdblockConfig({ ...DEFAULT_ADBLOCK, ...(stored.adblock || {}) }),
+    betaAiLogs: Array.isArray(stored.betaAiLogs) ? stored.betaAiLogs : [],
+    currentTab: currentTab || null,
+  };
+}
+
 async function startFocus(minutes) {
   const focus = { id: uuid(), minutes, startedAt: new Date().toISOString(), endsAt: Date.now() + minutes * 60000 };
   await local.set({ focus });
@@ -639,6 +678,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'ACTIVITY') return recordActivity(message.payload);
     if (message.type === 'SIGN_IN') return signIn();
     if (message.type === 'SIGN_OUT') return signOut();
+    if (message.type === 'POPUP_BOOTSTRAP') return getPopupBootstrap();
     if (message.type === 'STATUS') return getStatus();
     if (message.type === 'SYNC') return syncNow();
     if (message.type === 'START_FOCUS') return startFocus(Number(message.minutes) === 50 ? 50 : 25);

@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "previewVersion": "1.7.8",
   "previewZip": "/downloads/jackyun-companion-v1.7.8.zip",
-  "previewZipSha256": "f4eeadf1cbab8f3a0d145bf80ab56f80e7371f5f2b7163445b3364c5f70e2e50",
+  "previewZipSha256": "f6fc623448999fa76f2ab05871d2d55ccecac7a0c5bd1f887530d9e403dde339",
   "status": "beta-published",
   "updatedAt": "2026-09-09",
   "chromeWebStoreUrl": null,
@@ -19,6 +19,7 @@
   "crxSha256": "48854fea74fa5c340574ab99a85f3d025314812221490bf89052255dad5fbf30",
   "minimumBrowser": "Chrome/Edge with Manifest V3 and developer mode",
   "knownIssues": [
+    "1.7.8 BETA 优化 Companion 弹窗冷启动：状态、设置、日志与当前标签页由五次后台请求合并为一次本地快照，减少 Service Worker 唤醒后的消息往返和存储读取。",
     "1.7.8 BETA 为结构化回复增加 Portal 端兼容修复，可恢复旧版 Markdown 序列化产生的结构符号、行尾和下划线反斜杠；ChatGPT 模型识别改为锁定输入框附近的 Instant、Thinking、Medium、Pro 等当前菜单，并排除历史回复中的 Switch model。",
     "1.7.7 BETA 修复结构化网页 AI 回复被 Markdown 转义破坏的问题：自动识别请求中的 JSON、NDJSON、JSONL 和 JSON Schema 输出要求，并从网页 DOM 原样回传正文或代码块内容。",
     "1.7.6 BETA 在目标 AI 页面增加英文全屏执行遮罩，实时显示打开、发送、等待、接收、返回步骤与已用时间，并隐藏自动填写的 Prompt 和页面控件。",
