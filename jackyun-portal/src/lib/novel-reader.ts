@@ -57,7 +57,7 @@ const bracketedNumberHeading = new RegExp(`^[（(【\\[]\\s*(?:${chineseNumber}|
 const circledNumberHeading = new RegExp(`^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㊀㊁㊂㊃㊄㊅㊆㊇㊈㊉]\\s*${headingText}$`, 'u');
 const spacedNumberHeading = new RegExp(`^(?:[0-9０-９]{1,3}|${romanNumber}|${englishWordNumber})\\s+${headingText}$`, 'iu');
 const numberOnlyHeading = new RegExp(`^(?:[0-9０-９]{1,5}|${romanNumber}|${englishWordNumber})$`, 'iu');
-const specialHeading = /^(?:内容简介|简介|作者序|译者序|出版说明|人物介绍|作品相关|序章|序幕|序言|前言|楔子|引子|正文|终章|终幕|终曲|尾声|大结局|后记|后日谈|间章|幕间|番外(?:篇|章)?(?:\s*[0-9０-９一二三四五六七八九十]+)?|外传(?:\s*[0-9０-９一二三四五六七八九十]+)?|附录(?:\s*[0-9０-９一二三四五六七八九十]+)?|致谢|鸣谢|prologue|epilogue|preface|foreword|introduction|interlude|afterword|appendix|acknowledgements?)(?:\s*[-—–:：.]?\s*[^。！？.!?]{0,70})?$/iu;
+const specialHeading = /^(?:内容简介|简介|作者序|译者序|出版说明|人物介绍|作品相关|序章|序幕|序言|前言|楔子|引子|正文|终章|终幕|终曲|尾声|大结局|后记|后日谈|间章|幕间|番外(?:篇|章)?(?:\s*[0-9０-９一二三四五六七八九十]+)?|外传(?:\s*[0-9０-９一二三四五六七八九十]+)?|附录(?:\s*[0-9０-９一二三四五六七八九十]+)?|致谢|鸣谢|prologue|epilogue|preface|foreword|introduction|interlude|afterword|appendix|acknowledgements?)(?:(?:\s*[-—–:：.]\s*|\s+)[^。！？.!?]{1,70})?$/iu;
 
 export function detectNovelLanguage(text: string): NovelLanguage {
   const sample = text.slice(0, 100_000);

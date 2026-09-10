@@ -246,7 +246,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     return { chapterIndex: chapter.index, chapterProgress, scrollTop: reader.scrollTop, anchorParagraph, anchorOffsetRatio, updatedAt: new Date().toISOString() };
   }
 
-  function persistPosition(showMessage = false) {
+  function persistPosition() {
     if (!activeBook || !chapter) return;
     const position = captureReadingPosition();
     if (!position) return;
@@ -254,7 +254,6 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     setBooks((items) => items.map((book) => book.id === next.id ? next : book));
     void updateNovelBook(next);
     try { localStorage.setItem(`${POSITION_KEY_PREFIX}${next.id}`, JSON.stringify(position)); } catch { /* IndexedDB remains the durable fallback. */ }
-    if (showMessage) setMessage(`书签已精确保存：第 ${chapter.index + 1} 章，${position.anchorParagraph >= 0 ? `第 ${position.anchorParagraph + 1} 段` : '章节开头'}，整本 ${formatProgress(next.overallProgress)}。`);
   }
 
   function saveCurrentPosition() {
@@ -391,7 +390,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     setChapterDraftContent(chapterToEdit.content);
   }
 
-  async function commitChapterCollection(nextChapters: NovelChapter[], status: string, resetPosition = false) {
+  async function commitChapterCollection(nextChapters: NovelChapter[], status: string, resetPosition = false, bookmarks?: NovelBookmark[]) {
     const book = books.find((item) => item.id === editingBookId);
     if (!book || !nextChapters.length) return;
     const normalized = nextChapters.map((item, index) => ({ ...item, index, title: item.title.trim() || `第 ${index + 1} 章`, content: item.content.trim(), characterCount: item.content.trim().length }));
@@ -406,7 +405,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
       overallProgress: resetPosition ? 0 : Math.min(book.overallProgress, 1),
       chapterScrollTop: resetPosition ? 0 : book.chapterScrollTop,
       anchorParagraph: resetPosition ? -1 : book.anchorParagraph,
-      bookmarks: (book.bookmarks ?? []).filter((bookmark) => bookmark.chapterIndex < normalized.length),
+      bookmarks: bookmarks ?? (book.bookmarks ?? []).filter((bookmark) => bookmark.chapterIndex < normalized.length),
     };
     await updateNovelBook(nextBook);
     if (resetPosition) try { localStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* IndexedDB has already been reset. */ }
@@ -433,7 +432,9 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     if (editorChapters.length <= 1) { setMessage('一本书至少需要保留一个章节。'); return; }
     const target = editorChapters[chapterIndex];
     if (!window.confirm(`确定删除章节“${target.title}”吗？`)) return;
-    await commitChapterCollection(editorChapters.filter((item) => item.index !== chapterIndex), `已删除章节“${target.title}”。`, true);
+    const book = books.find((item) => item.id === editingBookId);
+    const nextBookmarks = (book?.bookmarks ?? []).flatMap((bookmark) => bookmark.chapterIndex === chapterIndex ? [] : [{ ...bookmark, chapterIndex: bookmark.chapterIndex > chapterIndex ? bookmark.chapterIndex - 1 : bookmark.chapterIndex }]);
+    await commitChapterCollection(editorChapters.filter((item) => item.index !== chapterIndex), `已删除章节“${target.title}”。`, true, nextBookmarks);
     setEditingChapterIndex(null);
   }
 
@@ -445,7 +446,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     const source = editorChapters.map((item) => item.title === '卷首' ? item.content : `${item.title}\n${item.content}`).join('\n\n');
     const rescanned = splitNovelIntoChapters(source);
     if (!rescanned.length) { setMessage('重新扫描后没有找到可读取的正文。'); return; }
-    await commitChapterCollection(rescanned, `重新扫描完成：${editorChapters.length} 章 → ${rescanned.length} 章。`, true);
+    await commitChapterCollection(rescanned, `重新扫描完成：${editorChapters.length} 章 → ${rescanned.length} 章。`, true, []);
   }
 
   async function moveShelfBook(book: NovelBook, offset: -1 | 1) {

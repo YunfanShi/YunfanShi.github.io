@@ -76,6 +76,7 @@ test('recognizes common Chinese and English novel chapter headings', () => {
   assert.equal(detectChapterHeading('1186:34:13、1186:34:02、1186:33:46……'), null);
   assert.equal(detectChapterHeading('1975 年，那时内蒙古建设兵团撤销，他调到一个东北城市工作'), null);
   assert.equal(detectChapterHeading('2\\. 生物学：【略】'), null);
+  assert.equal(detectChapterHeading('正文一'), null);
 });
 
 test('splits very long novels by detected headings and keeps front matter', () => {
