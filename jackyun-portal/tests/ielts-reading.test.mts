@@ -53,12 +53,24 @@ test('saves and restores approximate reading position across layout changes', ()
 });
 
 test('recognizes common Chinese and English novel chapter headings', () => {
-  for (const heading of ['第一章 斗罗大陆', '第 120 回 真相', '正文卷 第三章 重逢', '卷二 风雪', '楔子', '番外篇 旧日', '一、启程', '001 无名小镇', 'Chapter 42: The Answer', 'BOOK IV — Winter', 'Prologue']) {
+  for (const heading of [
+    '第一章 斗罗大陆', '第 120 回 真相', '第001话 冬日', '第七夜 来客',
+    '正文卷 第三章 重逢', '第一卷 第三章 风暴', '卷二 风雪', '上篇 地球往事',
+    '楔子', '序幕', '间章 梦', '番外篇 旧日', '后日谈', '大结局', '作品相关',
+    '1.科学边界', '2．射手和农场主', '3、宇宙闪烁', '四、疯狂年代', '甲：启程',
+    '(5) 沉默的春天', '（六）红岸往事', '【7】没有空格', '① 倒计时', '001 无名小镇',
+    'Chapter 42: The Answer', 'CH. 7 Signals', 'Section 3 — Evidence', 'Act II: The Storm',
+    'Scene 4 The Library', 'BOOK IV — Winter', 'Volume Two: Return', 'Prologue', 'Afterword',
+  ]) {
     assert.equal(detectChapterHeading(heading), heading);
   }
   assert.equal(detectChapterHeading('【第九章 风暴】'), '第九章 风暴');
+  assert.equal(detectChapterHeading('## Chapter 8: Markdown heading'), 'Chapter 8: Markdown heading');
+  assert.equal(detectChapterHeading('- Chapter 9 List-style heading'), 'Chapter 9 List-style heading');
   assert.equal(detectChapterHeading('This is an ordinary sentence in the story.'), null);
   assert.equal(detectChapterHeading('这是正文里的一句普通话。'), null);
+  assert.equal(detectChapterHeading('2026 was a difficult year.'), null);
+  assert.equal(detectChapterHeading('1. This is a complete sentence.'), null);
 });
 
 test('splits very long novels by detected headings and keeps front matter', () => {
@@ -66,6 +78,12 @@ test('splits very long novels by detected headings and keeps front matter', () =
   const chapters = splitNovelIntoChapters(source);
   assert.deepEqual(chapters.map((chapter) => chapter.title), ['卷首', '序章', '第一章 初见', 'Chapter 2: Across the Sea']);
   assert.match(chapters[2].content, /第一章正文/);
+});
+
+test('splits Three-Body-style compact numbered chapter titles', () => {
+  const source = ['三体', '', '1.科学边界', '汪淼走进会议室。', '', '2．射手和农场主', '他想起了那个假说。', '', '3、宇宙闪烁', '夜空开始闪烁。'].join('\n');
+  const chapters = splitNovelIntoChapters(source);
+  assert.deepEqual(chapters.map((chapter) => chapter.title), ['卷首', '1.科学边界', '2．射手和农场主', '3、宇宙闪烁']);
 });
 
 test('falls back to bounded sections when a text has no chapter headings', () => {

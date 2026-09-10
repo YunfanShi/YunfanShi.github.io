@@ -24,12 +24,22 @@ export interface NovelBook {
 }
 
 const chineseNumber = '[0-9０-９零〇○一二三四五六七八九十百千万两壹贰叁肆伍陆柒捌玖拾佰仟]+';
-const englishNumber = '(?:[0-9]{1,6}|[ivxlcdm]{1,12}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)';
-const chineseChapter = new RegExp(`^(?:正文(?:卷)?\\s*)?第\\s*${chineseNumber}\\s*[章节卷部篇回集幕](?:\\s*[-—–:：·、.]?\\s*[^。！？!?]{0,80})?$`, 'iu');
-const chineseVolume = new RegExp(`^(?:卷|部|篇)\\s*${chineseNumber}(?:\\s*[-—–:：·、.]?\\s*[^。！？!?]{0,80})?$`, 'iu');
-const englishChapter = new RegExp(`^(?:chapter|chap\\.?|book|part|volume)\\s+${englishNumber}(?:\\s*[-—–:：.]?\\s*[^.!?]{0,80})?$`, 'iu');
-const numberedHeading = new RegExp(`^(?:${chineseNumber}|[IVXLCDM]{1,12})\\s*[.、:：-]\\s*\\S.{0,70}$|^[0-9０-９]{1,5}\\s+\\S.{0,70}$`, 'iu');
-const specialHeading = /^(?:序章|序言|前言|楔子|引子|正文|终章|尾声|后记|番外(?:篇|章)?(?:\s*\d+)?|外传(?:\s*\d+)?|附录(?:\s*\d+)?|prologue|epilogue|preface|foreword|introduction|interlude|afterword|appendix)(?:\s*[-—–:：.]?\s*[^。！？.!?]{0,70})?$/iu;
+const romanNumber = '[ivxlcdm]{1,12}';
+const englishWordNumber = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)';
+const englishNumber = `(?:[0-9]{1,6}|${romanNumber}|${englishWordNumber})`;
+const titleSuffix = '(?:\\s*[-—–:：·、.．|｜_~]?\\s*[^。！？!?]{0,80})?';
+const englishTitleSuffix = '(?:\\s*[-—–:：.．|_~]?\\s*[^.!?]{0,80})?';
+const chineseChapter = new RegExp(`^(?:正文(?:卷)?\\s*)?第\\s*${chineseNumber}\\s*[章节卷部篇回集幕话夜日册辑季期]${titleSuffix}$`, 'iu');
+const compoundChineseChapter = new RegExp(`^(?:(?:第\\s*${chineseNumber}\\s*卷|卷\\s*${chineseNumber})\\s*)?(?:正文(?:卷)?\\s*)?第\\s*${chineseNumber}\\s*[章节回话幕]${titleSuffix}$`, 'iu');
+const chineseVolume = new RegExp(`^(?:卷|部|篇|册|辑|幕)\\s*${chineseNumber}${titleSuffix}$|^(?:上|中|下)[篇部卷册]${titleSuffix}$`, 'iu');
+const englishChapter = new RegExp(`^(?:chapter|chap\\.?|ch\\.?|book|part|volume|vol\\.?|section|act|scene|episode|story)\\s*(?:no\\.?|number|#)?\\s*${englishNumber}${englishTitleSuffix}$`, 'iu');
+const headingText = '\\S[^。！？.!?]{0,78}';
+const punctuatedNumberHeading = new RegExp(`^(?:${chineseNumber}|${romanNumber}|[甲乙丙丁戊己庚辛壬癸])\\s*[.．、,:：;；|｜_~—–-]\\s*${headingText}$`, 'iu');
+const bracketedNumberHeading = new RegExp(`^[（(【\\[]\\s*(?:${chineseNumber}|${romanNumber}|${englishWordNumber})\\s*[）)】\\]]\\s*(?:[.．、,:：;；|｜_~—–-]\\s*)?${headingText}$`, 'iu');
+const circledNumberHeading = new RegExp(`^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㊀㊁㊂㊃㊄㊅㊆㊇㊈㊉]\\s*${headingText}$`, 'u');
+const spacedNumberHeading = new RegExp(`^(?:[0-9０-９]{1,5}|${romanNumber}|${englishWordNumber})\\s+${headingText}$`, 'iu');
+const numberOnlyHeading = new RegExp(`^(?:[0-9０-９]{1,5}|${romanNumber}|${englishWordNumber})$`, 'iu');
+const specialHeading = /^(?:内容简介|简介|作者序|译者序|出版说明|人物介绍|作品相关|序章|序幕|序言|前言|楔子|引子|正文|终章|终幕|终曲|尾声|大结局|后记|后日谈|间章|幕间|番外(?:篇|章)?(?:\s*[0-9０-９一二三四五六七八九十]+)?|外传(?:\s*[0-9０-９一二三四五六七八九十]+)?|附录(?:\s*[0-9０-９一二三四五六七八九十]+)?|致谢|鸣谢|prologue|epilogue|preface|foreword|introduction|interlude|afterword|appendix|acknowledgements?)(?:\s*[-—–:：.]?\s*[^。！？.!?]{0,70})?$/iu;
 
 export function detectNovelLanguage(text: string): NovelLanguage {
   const sample = text.slice(0, 100_000);
@@ -39,9 +49,19 @@ export function detectNovelLanguage(text: string): NovelLanguage {
 }
 
 export function detectChapterHeading(line: string): string | null {
-  const title = line.trim().replace(/^#{1,6}\s+/u, '').replace(/^[-=*]{3,}\s*/u, '').replace(/^[【\[「『](.*)[】\]」』]$/u, '$1').trim();
+  const title = line.trim()
+    .replace(/^#{1,6}\s*/u, '')
+    .replace(/^[-=*]{3,}\s*/u, '')
+    .replace(/^[-*+]\s+(?=(?:第|卷|部|篇|chapter|book|part|section|act|scene|prologue|epilogue))/iu, '')
+    .replace(/^[【\[「『](.*)[】\]」』]$/u, '$1')
+    .trim();
   if (!title || title.length > 100) return null;
-  if (chineseChapter.test(title) || chineseVolume.test(title) || englishChapter.test(title) || specialHeading.test(title) || numberedHeading.test(title)) return title;
+  if (
+    chineseChapter.test(title) || compoundChineseChapter.test(title) || chineseVolume.test(title) ||
+    englishChapter.test(title) || specialHeading.test(title) || punctuatedNumberHeading.test(title) ||
+    bracketedNumberHeading.test(title) || circledNumberHeading.test(title) || spacedNumberHeading.test(title) ||
+    numberOnlyHeading.test(title)
+  ) return title;
   return null;
 }
 
