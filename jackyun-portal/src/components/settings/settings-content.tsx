@@ -20,10 +20,13 @@ import type { SidebarPreferences } from '@/actions/settings';
 import { APP_VERSION } from '@/lib/utils';
 import AiQuotaCard, { type AiQuotaSummary } from '@/components/settings/ai-quota-card';
 import AiVisibilityControl from '@/components/settings/ai-visibility-control';
+import RedemptionCenter from '@/components/settings/redemption-center';
+import type { FeatureAccess } from '@/actions/reader';
 
 const categories = [
   { id: 'general', label: '常规', icon: 'tune', keywords: '语言 时区 启动 通知' },
   { id: 'account', label: '账户与安全', icon: 'manage_accounts', keywords: '头像 密码 个人资料 登录' },
+  { id: 'redemption', label: '兑换码', icon: 'redeem', keywords: '兑换码 图书 会员 Plus Pro Ultra' },
   { id: 'appearance', label: '外观', icon: 'palette', keywords: '主题 动画 密度 全屏' },
   { id: 'navigation', label: '侧边栏与导航', icon: 'view_sidebar', keywords: '拖拽 顺序 隐藏 固定 自适应' },
   { id: 'companion', label: 'Companion 与同步', icon: 'devices', keywords: '扩展 设备 时间 同步 隐私' },
@@ -51,14 +54,16 @@ interface Props {
   initialSection?: string;
   aiQuota: AiQuotaSummary;
   betaActive: boolean;
+  redemptionAccess: FeatureAccess | null;
 }
 
 export default function SettingsContent(props: Props) {
   const isGuest = !props.userId;
-  const [active, setActive] = useState<CategoryId>(() => categories.some((item) => item.id === props.initialSection) ? props.initialSection as CategoryId : 'general');
+  const redemptionVisible = props.redemptionAccess?.allowed === true;
+  const [active, setActive] = useState<CategoryId>(() => categories.some((item) => item.id === props.initialSection) && (props.initialSection !== 'redemption' || redemptionVisible) ? props.initialSection as CategoryId : 'general');
   const [query, setQuery] = useState('');
   function choose(id: CategoryId) { setActive(id); const url = new URL(location.href); url.searchParams.set('section', id); history.replaceState({}, '', url); }
-  const visibleCategories = useMemo(() => { const needle = query.trim().toLowerCase(); return needle ? categories.filter((item) => `${item.label} ${item.keywords}`.toLowerCase().includes(needle)) : categories; }, [query]);
+  const visibleCategories = useMemo(() => { const needle = query.trim().toLowerCase(); return categories.filter((item) => (item.id !== 'redemption' || redemptionVisible) && (!needle || `${item.label} ${item.keywords}`.toLowerCase().includes(needle))); }, [query, redemptionVisible]);
   const settings = props.cloudSettings;
 
   return <div className="page-enter mx-auto max-w-7xl">
@@ -73,6 +78,7 @@ export default function SettingsContent(props: Props) {
       <main className="min-w-0 space-y-5">
         {active === 'general' && <><Panel title="语言"><LanguageSwitcher /></Panel><Panel title="常规" description="控制启动、通知和时间显示。"><CloudPreferencesPanel sectionKey="general_preferences" initialValue={{ startPage: 'dashboard', timezone: 'auto', notifications: true, ...(settings.general_preferences || {}) }} fields={[{ key: 'startPage', label: '登录后的启动页面', description: '完成登录后默认打开的模块', type: 'select', options: [{ value: 'dashboard', label: 'Dashboard' }, { value: 'study', label: '学习计划' }, { value: 'time-management', label: '时间管理' }] }, { key: 'timezone', label: '时区', description: '自动跟随浏览器，或固定使用中国标准时间', type: 'select', options: [{ value: 'auto', label: '自动' }, { value: 'Asia/Shanghai', label: 'Asia/Shanghai' }] }, { key: 'notifications', label: '网站通知', description: '允许任务、专注和同步状态提醒', type: 'boolean' }]} /></Panel></>}
         {active === 'account' && (isGuest ? <Panel title="账户与安全" description="游客没有云端账户资料。"><Link href="/login?next=/settings" className="inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white"><span className="material-icons-round text-lg">login</span>登录或注册</Link></Panel> : <><Panel title="个人资料"><ProfileEditor initialName={props.displayName} initialAvatar={props.avatarUrl} userId={props.userId} /></Panel><Panel title="账户安全"><ChangePasswordPanel hasPassword={props.hasPassword} /><Link href="/reset-password" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#1a73e8]"><span className="material-icons-round text-lg">email</span>通过邮件重置密码</Link></Panel></>)}
+        {active === 'redemption' && redemptionVisible && <Panel title="兑换码" description="兑换图书或会员权益；成功后会自动同步到同一账号的所有设备。"><RedemptionCenter signedIn={!isGuest} /></Panel>}
         {active === 'appearance' && <><Panel title="外观" description="修改会先保留为草稿，点击保存后才应用并同步。"><CloudPreferencesPanel sectionKey="appearance_preferences" initialValue={{ theme: 'light', density: 'comfortable', reducedMotion: false, showFullscreen: true, ...(settings.appearance_preferences || {}) }} fields={[{ key: 'theme', label: '主题', description: '选择亮色、灰色或深色界面', type: 'select', options: [{ value: 'light', label: '亮色' }, { value: 'gray', label: '灰色' }, { value: 'dark', label: '深色' }] }, { key: 'density', label: '界面密度', description: '调整列表和卡片的间距', type: 'select', options: [{ value: 'comfortable', label: '舒适' }, { value: 'compact', label: '紧凑' }] }, { key: 'reducedMotion', label: '减少动态效果', description: '减少页面转场和悬浮动画；默认关闭', type: 'boolean' }, { key: 'showFullscreen', label: '全屏按钮', description: '在顶栏显示全屏切换按钮；新设备默认开启', type: 'boolean' }]} /></Panel><Panel title="AI 界面微调" description="让 AI 输出安全的界面状态来改变外观，不控制 AI 助手的显示。"><AiVisibilityControl /></Panel></>}
         {active === 'navigation' && <Panel title="侧边栏与导航" description="拖拽调整分组和项目；固定项目优先，自适应只在组内排序。"><SidebarPrefsPanel initialPrefs={props.sidebarPrefs} /></Panel>}
         {active === 'companion' && (isGuest ? <Panel title="Companion 与同步" description="登录后才能使用跨设备同步。"><Link href="/login?next=/settings?section=companion" className="inline-flex rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">登录后管理同步</Link></Panel> : <><Panel title="网页与 PWA 同步" description="修改会先持久保存在本机；断线恢复后自动上传，冲突不会被静默覆盖。"><SyncCenterPanel /></Panel><Panel title="Companion 扩展" description="管理扩展设备、有效时间统计和同步隐私。"><CompanionSettingsPanel initialPreferences={settings.companion_preferences || {}} devices={props.companionDevices} betaActive={props.betaActive} /></Panel></>)}
