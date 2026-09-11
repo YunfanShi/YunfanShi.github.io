@@ -6,6 +6,7 @@ import type { CompanionDeviceView } from '@/components/settings/companion-settin
 import { DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
 import type { AiQuotaSummary } from '@/components/settings/ai-quota-card';
 import type { BrowserAiProvider } from '@/lib/browser-ai';
+import { getFeatureAccessSnapshot } from '@/actions/reader';
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   // Wrap ALL async calls in try/catch to prevent page crash
@@ -20,17 +21,20 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   let section: string | undefined;
   let aiQuota: AiQuotaSummary = { plan: 'free', dailyLimit: 20000, monthlyLimit: 300000, dailyUsed: 0, monthlyUsed: 0, maxOutput: 8000, siteGenerations: 0, siteGenerationLimit: 5 };
   let betaActive = false;
+  let redemptionAccess: import('@/actions/reader').FeatureAccess | null = null;
 
-  const [searchResult, passwordResult, aiResult, sidebarResult] = await Promise.allSettled([
+  const [searchResult, passwordResult, aiResult, sidebarResult, readerResult] = await Promise.allSettled([
     searchParams,
     checkHasPassword(),
     getAiConfig(),
     getSidebarPreferences(),
+    getFeatureAccessSnapshot(),
   ]);
   if (searchResult.status === 'fulfilled') section = searchResult.value.section;
   if (passwordResult.status === 'fulfilled') hasPassword = passwordResult.value;
   if (aiResult.status === 'fulfilled') aiConfig = aiResult.value;
   if (sidebarResult.status === 'fulfilled') sidebarPrefs = sidebarResult.value;
+  if (readerResult.status === 'fulfilled') redemptionAccess = readerResult.value.features.redemption_center ?? null;
 
   try {
     const supabase = await createClient();
@@ -70,6 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       initialSection={section}
       aiQuota={aiQuota}
       betaActive={betaActive}
+      redemptionAccess={redemptionAccess}
     />
   );
 }

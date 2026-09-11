@@ -11,6 +11,7 @@ export interface NavigationItem {
   protected?: boolean;
   adminOnly?: boolean;
   betaOnly?: boolean;
+  featureKey?: string;
 }
 
 export const NAVIGATION_GROUPS: Array<{ id: NavigationGroupId; label: string; icon: string }> = [
