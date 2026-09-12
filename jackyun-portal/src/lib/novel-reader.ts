@@ -38,6 +38,8 @@ export interface NovelBook {
   coverDataUrl?: string;
   shelfOrder?: number;
   bookmarks?: NovelBookmark[];
+  source?: 'local' | 'store';
+  catalogNovelId?: string;
 }
 
 const chineseNumber = '[0-9０-９零〇○一二三四五六七八九十百千万两壹贰叁肆伍陆柒捌玖拾佰仟]+';

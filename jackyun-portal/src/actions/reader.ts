@@ -26,6 +26,8 @@ export interface CatalogNovel {
   fileSize: number;
   featured: boolean;
   publishedAt: string;
+  owned: boolean;
+  needsReaderImport: boolean;
   unlocked: boolean;
   downloadUrl: string | null;
   coverUrl: string | null;
@@ -82,14 +84,17 @@ export async function getFeatureAccessSnapshot(): Promise<FeatureAccessSnapshot>
 export async function getReaderBootstrap(): Promise<ReaderBootstrap> {
   const { snapshot, admin } = await loadFeatureAccess();
   const { signedIn, userId, plan, betaActive, features } = snapshot;
-  if (!admin || !features.novel_store?.allowed) return { ...snapshot, catalog: [] };
+  if (!admin) return { ...snapshot, catalog: [] };
   const [catalogResult, unlockedResult] = await Promise.all([
     admin.from('novel_catalog').select('*').eq('enabled', true).order('featured', { ascending: false }).order('published_at', { ascending: false }),
-    userId ? admin.from('user_novel_entitlements').select('novel_id').eq('user_id', userId) : Promise.resolve({ data: [], error: null }),
+    userId ? admin.from('user_novel_entitlements').select('novel_id, reader_added_at').eq('user_id', userId) : Promise.resolve({ data: [], error: null }),
   ]);
-  const unlockedIds = new Set((unlockedResult.data ?? []).map((row: { novel_id: string }) => row.novel_id));
-  const catalog = await Promise.all((catalogResult.data ?? []).map(async (row) => {
-    const unlocked = hasPlanAccess(plan, row.minimum_plan) || unlockedIds.has(row.id);
+  const entitlementImportState = new Map((unlockedResult.data ?? []).map((row: { novel_id: string; reader_added_at: string | null }) => [row.novel_id, row.reader_added_at]));
+  const unlockedIds = new Set(entitlementImportState.keys());
+  const visibleRows = features.novel_store?.allowed ? (catalogResult.data ?? []) : (catalogResult.data ?? []).filter((row) => unlockedIds.has(row.id));
+  const catalog = await Promise.all(visibleRows.map(async (row) => {
+    const owned = unlockedIds.has(row.id);
+    const unlocked = hasPlanAccess(plan, row.minimum_plan) || owned;
     const [fileResult, coverResult] = await Promise.all([
       unlocked ? admin.storage.from('novel-files').createSignedUrl(row.storage_path, 3600) : Promise.resolve({ data: null }),
       row.cover_path ? admin.storage.from('novel-files').createSignedUrl(row.cover_path, 3600) : Promise.resolve({ data: null }),
@@ -98,7 +103,7 @@ export async function getReaderBootstrap(): Promise<ReaderBootstrap> {
       id: row.id, title: row.title, author: row.author, description: row.description,
       language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name,
       fileSize: Number(row.file_size), featured: row.featured, publishedAt: row.published_at,
-      unlocked, downloadUrl: fileResult.data?.signedUrl ?? null, coverUrl: coverResult.data?.signedUrl ?? null,
+      owned, needsReaderImport: owned && !entitlementImportState.get(row.id), unlocked, downloadUrl: fileResult.data?.signedUrl ?? null, coverUrl: coverResult.data?.signedUrl ?? null,
     } satisfies CatalogNovel;
   }));
   return { signedIn, userId, plan, betaActive, features, catalog };
@@ -129,6 +134,16 @@ export async function redeemCode(code: string): Promise<{ success: boolean; rewa
     return { success: false, error: key ? redemptionErrors[key] : '兑换失败，请稍后重试。' };
   }
   return { success: true, reward: data as Record<string, unknown> };
+}
+
+export async function acknowledgeCatalogNovelImport(novelId: string): Promise<void> {
+  if (!/^[0-9a-f-]{36}$/iu.test(novelId)) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const admin = createAdminClient();
+  if (!admin) return;
+  await admin.from('user_novel_entitlements').update({ reader_added_at: new Date().toISOString() }).eq('user_id', user.id).eq('novel_id', novelId).is('reader_added_at', null);
 }
 
 export async function getRedemptionHistory(): Promise<Array<{ id: string; reward: Record<string, unknown>; redeemedAt: string }>> {

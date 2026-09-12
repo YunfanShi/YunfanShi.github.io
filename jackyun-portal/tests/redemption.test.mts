@@ -30,3 +30,13 @@ test('redemption migration keeps codes private and redemption atomic', async () 
   assert.match(sql, /PERFORM pg_advisory_xact_lock/);
   assert.match(sql, /UNIQUE \(code_id, user_id\)/);
 });
+
+test('multi-book redemption uses a secured join table and grants every selected novel atomically', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260912031048_multi_novel_redemption_codes.sql', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE public\.redemption_code_novels/u);
+  assert.match(sql, /PRIMARY KEY \(code_id, novel_id\)/u);
+  assert.match(sql, /ALTER TABLE public\.redemption_code_novels ENABLE ROW LEVEL SECURITY/u);
+  assert.match(sql, /REVOKE ALL ON TABLE public\.redemption_code_novels FROM anon, authenticated/u);
+  assert.match(sql, /INSERT INTO public\.user_novel_entitlements[\s\S]*FROM public\.redemption_code_novels/u);
+  assert.match(sql, /jsonb_agg\([\s\S]*ORDER BY r\.sort_order/u);
+});

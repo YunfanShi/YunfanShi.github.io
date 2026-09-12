@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CatalogNovel, ReaderBootstrap } from '@/actions/reader';
+import { acknowledgeCatalogNovelImport, type CatalogNovel, type ReaderBootstrap } from '@/actions/reader';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { buildWordPrompt, parseWordNote, type WordNote } from '@/lib/ielts-reading';
@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/client';
 
 type View = 'library' | 'store' | 'import' | 'reader' | 'edit';
 type ShelfFilter = 'all' | NovelLanguage;
+type SourceFilter = 'all' | 'local' | 'store';
 type Theme = 'paper' | 'sepia' | 'mint' | 'night';
 type Width = 'narrow' | 'medium' | 'wide';
 type Heading = Pick<NovelChapter, 'index' | 'title' | 'characterCount'>;
@@ -103,6 +104,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   const [books, setBooks] = useState<NovelBook[]>([]);
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<ShelfFilter>('all');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'recent' | 'title' | 'progress' | 'custom'>('recent');
   const [message, setMessage] = useState('');
@@ -140,7 +142,29 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   const restorePositionRef = useRef<ReadingPosition | null>(null);
   const activeBook = books.find((book) => book.id === activeId) ?? null;
   const storeEnabled = bootstrap.features.novel_store?.allowed === true;
-  const storeIds = useMemo(() => new Set(books.map((book) => book.id.replace(/^catalog-/u, ''))), [books]);
+  const storeIds = useMemo(() => new Set(books.filter((book) => book.source === 'store' || book.id.startsWith('catalog-')).map((book) => book.catalogNovelId ?? book.id.replace(/^catalog-/u, ''))), [books]);
+
+  const materializeCatalogNovel = useCallback(async (novel: CatalogNovel) => {
+    if (!novel.downloadUrl) throw new Error('小说下载链接不可用。');
+    const response = await fetch(novel.downloadUrl);
+    if (!response.ok) throw new Error('下载链接已失效，请刷新页面后重试。');
+    const file = new File([await response.blob()], novel.originalFileName);
+    const parsed = await parseNovelFile(file, 'auto');
+    const chapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+    if (!chapters.length) throw new Error('没有识别到可阅读的正文。');
+    const now = new Date().toISOString();
+    const book: NovelBook = {
+      id: `catalog-${novel.id}`, title: novel.title, author: novel.author, language: novel.language,
+      chapterCount: chapters.length, characterCount: chapters.reduce((total, item) => total + item.characterCount, 0),
+      importedAt: now, lastReadAt: null, currentChapter: 0, chapterProgress: 0, chapterScrollTop: 0,
+      anchorParagraph: -1, anchorOffsetRatio: 0, positionUpdatedAt: null, overallProgress: 0, readingSeconds: 0,
+      sourceFileName: novel.originalFileName, description: novel.description, shelfOrder: -Date.now(), bookmarks: [],
+      source: 'store', catalogNovelId: novel.id,
+    };
+    await saveNovelBook(book, chapters);
+    if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, book, chapters).catch(() => undefined);
+    return book;
+  }, [bootstrap.userId]);
 
   const syncLibrary = useCallback(async (localBooks: NovelBook[]) => {
     if (!bootstrap.userId) return localBooks;
@@ -168,8 +192,15 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     }
     const cloudIds = new Set(rows.map((row) => row.book_id));
     for (const book of localBooks) if (!cloudIds.has(book.id)) await uploadCloudBook(bootstrap.userId, book, await listNovelChapters(book.id));
+    const presentCatalogIds = new Set(merged.filter((book) => book.source === 'store' || book.id.startsWith('catalog-')).map((book) => book.catalogNovelId ?? book.id.replace(/^catalog-/u, '')));
+    for (const novel of bootstrap.catalog) {
+      if (!novel.needsReaderImport) continue;
+      if (presentCatalogIds.has(novel.id)) { await acknowledgeCatalogNovelImport(novel.id); continue; }
+      if (!novel.downloadUrl) continue;
+      try { const book = await materializeCatalogNovel(novel); merged.unshift(book); presentCatalogIds.add(novel.id); await acknowledgeCatalogNovelImport(novel.id); } catch { /* A later sync can retry an unavailable signed URL. */ }
+    }
     return merged;
-  }, [bootstrap.userId]);
+  }, [bootstrap.catalog, bootstrap.userId, materializeCatalogNovel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,9 +237,11 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
 
   const visibleBooks = useMemo(() => books.filter((book) => {
     const matchesFilter = filter === 'all' || book.language === filter;
+    const source = book.source ?? (book.id.startsWith('catalog-') ? 'store' : 'local');
+    const matchesSource = sourceFilter === 'all' || source === sourceFilter;
     const matchesQuery = `${book.title} ${book.author}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
-    return matchesFilter && matchesQuery;
-  }).sort((left, right) => sort === 'title' ? left.title.localeCompare(right.title) : sort === 'progress' ? right.overallProgress - left.overallProgress : sort === 'custom' ? (left.shelfOrder ?? -new Date(left.importedAt).getTime()) - (right.shelfOrder ?? -new Date(right.importedAt).getTime()) : (right.lastReadAt ?? right.importedAt).localeCompare(left.lastReadAt ?? left.importedAt)), [books, filter, query, sort]);
+    return matchesFilter && matchesSource && matchesQuery;
+  }).sort((left, right) => sort === 'title' ? left.title.localeCompare(right.title) : sort === 'progress' ? right.overallProgress - left.overallProgress : sort === 'custom' ? (left.shelfOrder ?? -new Date(left.importedAt).getTime()) - (right.shelfOrder ?? -new Date(right.importedAt).getTime()) : (right.lastReadAt ?? right.importedAt).localeCompare(left.lastReadAt ?? left.importedAt)), [books, filter, query, sort, sourceFilter]);
 
   const shelves = filter === 'all'
     ? [{ language: 'zh' as const, title: '中文书架', books: visibleBooks.filter((book) => book.language === 'zh') }, { language: 'en' as const, title: '英文书架', books: visibleBooks.filter((book) => book.language === 'en') }]
@@ -411,6 +444,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
           description: '',
           shelfOrder: -Date.now() - index,
           bookmarks: [],
+          source: 'local',
         };
         await saveNovelBook(book, chapters);
         if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, book, chapters).catch(() => undefined);
@@ -434,22 +468,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     setImporting(true);
     setMessage(`正在领取《${novel.title}》…`);
     try {
-      const response = await fetch(novel.downloadUrl);
-      if (!response.ok) throw new Error('下载链接已失效，请刷新页面后重试。');
-      const file = new File([await response.blob()], novel.originalFileName);
-      const parsed = await parseNovelFile(file, 'auto');
-      const chapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
-      if (!chapters.length) throw new Error('没有识别到可阅读的正文。');
-      const now = new Date().toISOString();
-      const book: NovelBook = {
-        id: `catalog-${novel.id}`, title: novel.title, author: novel.author, language: novel.language,
-        chapterCount: chapters.length, characterCount: chapters.reduce((total, item) => total + item.characterCount, 0),
-        importedAt: now, lastReadAt: null, currentChapter: 0, chapterProgress: 0, chapterScrollTop: 0,
-        anchorParagraph: -1, anchorOffsetRatio: 0, positionUpdatedAt: null, overallProgress: 0, readingSeconds: 0,
-        sourceFileName: novel.originalFileName, description: novel.description, shelfOrder: -Date.now(), bookmarks: [],
-      };
-      await saveNovelBook(book, chapters);
-      if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, book, chapters).catch(() => undefined);
+      const book = await materializeCatalogNovel(novel);
       setBooks((items) => [book, ...items.filter((item) => item.id !== book.id)]);
       setMessage(`《${book.title}》已加入你的书架。`);
       setView('library');
@@ -660,7 +679,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       <div className="rounded-3xl bg-[linear-gradient(120deg,#0f766e,#155e75)] p-6 text-white shadow-lg"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#99f6e4]">NOVEL STORE</p><h2 className="mt-2 text-3xl font-bold">精选小说商店</h2><p className="mt-2 text-sm text-[#ccfbf1]">当前账号：{bootstrap.plan.toUpperCase()}，已解锁书籍可直接加入云书架。</p></div>
       {!bootstrap.catalog.length ? <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] p-12 text-center text-[var(--muted-foreground)]">商店暂无小说，管理员上传后会显示在这里。</div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{bootstrap.catalog.map((novel) => {
         const added = storeIds.has(novel.id);
-        return <article key={novel.id} className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="h-44 bg-[linear-gradient(135deg,#134e4a,#0e7490)] bg-cover bg-center" style={novel.coverUrl ? { backgroundImage: `url(${novel.coverUrl})` } : undefined} /><div className="p-5"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">{novel.minimumPlan.toUpperCase()}+</span>{novel.featured && <span className="text-xs font-bold text-[#b45309]">精选</span>}</div><h3 className="mt-4 font-serif text-xl font-bold">{novel.title}</h3><p className="mt-1 text-sm text-[var(--muted-foreground)]">{novel.author || '未知作者'}</p><p className="mt-3 line-clamp-3 min-h-15 text-sm leading-5 text-[var(--muted-foreground)]">{novel.description || '暂无简介'}</p><button type="button" disabled={!novel.unlocked || added || importing} onClick={() => void addFromStore(novel)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white disabled:bg-[#98a2b3]">{added ? '已在书架' : novel.unlocked ? '加入书架' : `需要 ${novel.minimumPlan.toUpperCase()} 会员`}</button></div></article>;
+        return <article key={novel.id} className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="h-44 bg-[linear-gradient(135deg,#134e4a,#0e7490)] bg-cover bg-center" style={novel.coverUrl ? { backgroundImage: `url(${novel.coverUrl})` } : undefined} /><div className="p-5"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">{novel.minimumPlan.toUpperCase()}+</span><div className="flex gap-2">{novel.owned && <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-xs font-bold text-[#155eef]">已拥有</span>}{novel.featured && <span className="rounded-full bg-[#fffaeb] px-2.5 py-1 text-xs font-bold text-[#b45309]">精选</span>}</div></div><h3 className="mt-4 font-serif text-xl font-bold">{novel.title}</h3><p className="mt-1 text-sm text-[var(--muted-foreground)]">{novel.author || '未知作者'}</p><p className="mt-3 line-clamp-3 min-h-15 text-sm leading-5 text-[var(--muted-foreground)]">{novel.description || '暂无简介'}</p><button type="button" disabled={!novel.unlocked || added || importing} onClick={() => void addFromStore(novel)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white disabled:bg-[#98a2b3]">{added ? '已在阅读器' : novel.owned ? '已拥有 · 加入阅读器' : novel.unlocked ? '加入阅读器' : `需要 ${novel.minimumPlan.toUpperCase()} 会员`}</button></div></article>;
       })}</div>}
     </section>}
 
@@ -695,6 +714,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       <button type="button" onClick={() => void importBooks()} disabled={!files.length || importing} className="mt-6 min-h-13 w-full rounded-2xl bg-[#0f766e] px-5 font-bold text-white disabled:opacity-40">{importing ? `正在逐本导入，共 ${files.length} 本…` : `导入 ${files.length || ''} 本并建立目录`}</button>
     </section>}
 
-    {view === 'library' && <section className="space-y-6"><div className="flex flex-col gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 lg:flex-row"><div className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--background)] p-1">{([{ id: 'all', label: `全部 ${books.length}` }, { id: 'zh', label: `中文 ${books.filter((book) => book.language === 'zh').length}` }, { id: 'en', label: `英文 ${books.filter((book) => book.language === 'en').length}` }] as Array<{ id: ShelfFilter; label: string }>).map((item) => <button type="button" key={item.id} onClick={() => setFilter(item.id)} className={`min-h-10 rounded-lg px-4 text-sm font-bold ${filter === item.id ? 'bg-[#0f766e] text-white shadow-sm' : ''}`}>{item.label}</button>)}</div><label className="relative flex-1"><span className="material-icons-round absolute left-3 top-2.5 text-[var(--muted-foreground)]">search</span><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] pl-10 pr-3 outline-none" placeholder="搜索书名或作者" /></label><select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm font-bold"><option value="recent">最近阅读</option><option value="custom">自定义顺序</option><option value="title">书名排序</option><option value="progress">阅读进度</option></select></div>{ready && !books.length ? <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] px-6 py-16 text-center"><span className="material-icons-round text-6xl text-[#70a99e]">auto_stories</span><h2 className="mt-4 text-2xl font-bold">把第一部长篇放进书架</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">小说正文存入 IndexedDB，不受普通 localStorage 容量限制。无论几十章还是上千章，阅读器每次只加载当前章节。</p><button type="button" onClick={() => setView('import')} className="mt-6 rounded-xl bg-[#0f766e] px-5 py-3 font-bold text-white">导入小说</button></div> : shelves.map((shelf) => shelf.books.length ? <div key={shelf.language}><div className="mb-3 flex items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-xl ${shelf.language === 'zh' ? 'bg-[#f5e6d3] text-[#8b5e3c]' : 'bg-[#dff4ef] text-[#0f766e]'}`}><span className="material-icons-round">{shelf.language === 'zh' ? 'history_edu' : 'translate'}</span></span><div><h2 className="text-xl font-bold">{shelf.title}</h2><p className="text-xs text-[var(--muted-foreground)]">{shelf.books.length} 本 · {sort === 'custom' ? '使用箭头自由排序' : shelf.language === 'en' ? '支持点词翻译' : '纯净中文阅读'}</p></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{shelf.books.map((book, index) => <article key={book.id} className="group overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"><div className={`h-2 ${shelf.language === 'zh' ? 'bg-[linear-gradient(90deg,#8b5e3c,#d2a679)]' : 'bg-[linear-gradient(90deg,#0f766e,#06b6d4)]'}`} /><div className="p-5"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-xs font-bold">{book.language === 'zh' ? '中文' : 'English'} · {book.chapterCount} 章</span><div className="flex gap-1">{sort === 'custom' && <><button type="button" disabled={index === 0} onClick={() => void moveShelfBook(book, -1)} aria-label={`前移 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg disabled:opacity-25"><span className="material-icons-round text-lg">arrow_back</span></button><button type="button" disabled={index === shelf.books.length - 1} onClick={() => void moveShelfBook(book, 1)} aria-label={`后移 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg disabled:opacity-25"><span className="material-icons-round text-lg">arrow_forward</span></button></>}<button type="button" disabled={editorBusy} onClick={() => void beginEditingBook(book)} aria-label={`编辑 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-black/5"><span className="material-icons-round text-lg">edit</span></button><button type="button" onClick={() => void removeBook(book)} aria-label={`删除 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] opacity-60 hover:bg-[#fee2e2] hover:text-[#b91c1c] group-hover:opacity-100"><span className="material-icons-round text-lg">delete</span></button></div></div><div className="mt-5 flex gap-4">{book.coverDataUrl ? <span role="img" aria-label={`${book.title} 封面`} className="h-28 w-20 shrink-0 rounded-r-xl rounded-l-sm bg-cover bg-center shadow-md" style={{ backgroundImage: `url(${book.coverDataUrl})` }} /> : <div className={`grid h-28 w-20 shrink-0 place-items-center rounded-r-xl rounded-l-sm px-2 text-center text-white shadow-md ${index % 3 === 0 ? 'bg-[#365f57]' : index % 3 === 1 ? 'bg-[#6f4e37]' : 'bg-[#334155]'}`}><span className="line-clamp-4 font-serif text-sm font-bold leading-5">{book.title}</span></div>}<div className="min-w-0"><h3 className="line-clamp-2 font-serif text-xl font-bold leading-snug">{book.title}</h3><p className="mt-1 truncate text-sm text-[var(--muted-foreground)]">{book.author || '未知作者'}</p>{book.description && <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{book.description}</p>}<p className="mt-3 text-xs text-[var(--muted-foreground)]">{formatSize(book.characterCount)} · 已读 {formatTime(book.readingSeconds)}</p></div></div><div className="mt-5 flex items-center justify-between text-xs"><span className="font-bold text-[#0f766e]">{book.overallProgress ? `继续阅读 · ${Math.round(book.overallProgress * 100)}%` : '尚未开始'}</span><span className="text-[var(--muted-foreground)]">第 {book.currentChapter + 1} 章 · {(book.bookmarks ?? []).length} 个书签</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]"><div className="h-full rounded-full bg-[#0f766e]" style={{ width: `${Math.round(book.overallProgress * 100)}%` }} /></div><button type="button" onClick={() => void openBook(book)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white">{book.overallProgress ? '继续阅读' : '开始阅读'}</button></div></article>)}</div></div> : null)}</section>}
+    {view === 'library' && <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2">{([{ id: 'all', label: `全部图书 ${books.length}`, icon: 'library_books' }, { id: 'local', label: `本地导入 ${books.filter((book) => book.source !== 'store' && !book.id.startsWith('catalog-')).length}`, icon: 'upload_file' }, { id: 'store', label: `商店图书 ${books.filter((book) => book.source === 'store' || book.id.startsWith('catalog-')).length}`, icon: 'storefront' }] as Array<{ id: SourceFilter; label: string; icon: string }>).map((item) => <button type="button" key={item.id} onClick={() => setSourceFilter(item.id)} className={`min-h-11 rounded-xl px-3 text-sm font-bold ${sourceFilter === item.id ? 'bg-[#155eef] text-white' : 'text-[var(--muted-foreground)]'}`}><span className="material-icons-round mr-1 align-middle text-base">{item.icon}</span>{item.label}</button>)}</div>}
+    {view === 'library' && <section className="space-y-6"><div className="flex flex-col gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 lg:flex-row"><div className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--background)] p-1">{([{ id: 'all', label: `全部 ${books.length}` }, { id: 'zh', label: `中文 ${books.filter((book) => book.language === 'zh').length}` }, { id: 'en', label: `英文 ${books.filter((book) => book.language === 'en').length}` }] as Array<{ id: ShelfFilter; label: string }>).map((item) => <button type="button" key={item.id} onClick={() => setFilter(item.id)} className={`min-h-10 rounded-lg px-4 text-sm font-bold ${filter === item.id ? 'bg-[#0f766e] text-white shadow-sm' : ''}`}>{item.label}</button>)}</div><label className="relative flex-1"><span className="material-icons-round absolute left-3 top-2.5 text-[var(--muted-foreground)]">search</span><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] pl-10 pr-3 outline-none" placeholder="搜索书名或作者" /></label><select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm font-bold"><option value="recent">最近阅读</option><option value="custom">自定义顺序</option><option value="title">书名排序</option><option value="progress">阅读进度</option></select></div>{ready && !books.length ? <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] px-6 py-16 text-center"><span className="material-icons-round text-6xl text-[#70a99e]">auto_stories</span><h2 className="mt-4 text-2xl font-bold">把第一部长篇放进书架</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">小说正文存入 IndexedDB，不受普通 localStorage 容量限制。无论几十章还是上千章，阅读器每次只加载当前章节。</p><button type="button" onClick={() => setView('import')} className="mt-6 rounded-xl bg-[#0f766e] px-5 py-3 font-bold text-white">导入小说</button></div> : shelves.map((shelf) => shelf.books.length ? <div key={shelf.language}><div className="mb-3 flex items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-xl ${shelf.language === 'zh' ? 'bg-[#f5e6d3] text-[#8b5e3c]' : 'bg-[#dff4ef] text-[#0f766e]'}`}><span className="material-icons-round">{shelf.language === 'zh' ? 'history_edu' : 'translate'}</span></span><div><h2 className="text-xl font-bold">{shelf.title}</h2><p className="text-xs text-[var(--muted-foreground)]">{shelf.books.length} 本 · {sort === 'custom' ? '使用箭头自由排序' : shelf.language === 'en' ? '支持点词翻译' : '纯净中文阅读'}</p></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{shelf.books.map((book, index) => <article key={book.id} className="group overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"><div className={`h-2 ${shelf.language === 'zh' ? 'bg-[linear-gradient(90deg,#8b5e3c,#d2a679)]' : 'bg-[linear-gradient(90deg,#0f766e,#06b6d4)]'}`} /><div className="p-5"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-xs font-bold">{book.source === 'store' || book.id.startsWith('catalog-') ? '商店图书' : '本地导入'} · {book.language === 'zh' ? '中文' : 'English'} · {book.chapterCount} 章</span><div className="flex gap-1">{sort === 'custom' && <><button type="button" disabled={index === 0} onClick={() => void moveShelfBook(book, -1)} aria-label={`前移 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg disabled:opacity-25"><span className="material-icons-round text-lg">arrow_back</span></button><button type="button" disabled={index === shelf.books.length - 1} onClick={() => void moveShelfBook(book, 1)} aria-label={`后移 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg disabled:opacity-25"><span className="material-icons-round text-lg">arrow_forward</span></button></>}<button type="button" disabled={editorBusy} onClick={() => void beginEditingBook(book)} aria-label={`编辑 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-black/5"><span className="material-icons-round text-lg">edit</span></button><button type="button" onClick={() => void removeBook(book)} aria-label={`删除 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] opacity-60 hover:bg-[#fee2e2] hover:text-[#b91c1c] group-hover:opacity-100"><span className="material-icons-round text-lg">delete</span></button></div></div><div className="mt-5 flex gap-4">{book.coverDataUrl ? <span role="img" aria-label={`${book.title} 封面`} className="h-28 w-20 shrink-0 rounded-r-xl rounded-l-sm bg-cover bg-center shadow-md" style={{ backgroundImage: `url(${book.coverDataUrl})` }} /> : <div className={`grid h-28 w-20 shrink-0 place-items-center rounded-r-xl rounded-l-sm px-2 text-center text-white shadow-md ${index % 3 === 0 ? 'bg-[#365f57]' : index % 3 === 1 ? 'bg-[#6f4e37]' : 'bg-[#334155]'}`}><span className="line-clamp-4 font-serif text-sm font-bold leading-5">{book.title}</span></div>}<div className="min-w-0"><h3 className="line-clamp-2 font-serif text-xl font-bold leading-snug">{book.title}</h3><p className="mt-1 truncate text-sm text-[var(--muted-foreground)]">{book.author || '未知作者'}</p>{book.description && <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{book.description}</p>}<p className="mt-3 text-xs text-[var(--muted-foreground)]">{formatSize(book.characterCount)} · 已读 {formatTime(book.readingSeconds)}</p></div></div><div className="mt-5 flex items-center justify-between text-xs"><span className="font-bold text-[#0f766e]">{book.overallProgress ? `继续阅读 · ${Math.round(book.overallProgress * 100)}%` : '尚未开始'}</span><span className="text-[var(--muted-foreground)]">第 {book.currentChapter + 1} 章 · {(book.bookmarks ?? []).length} 个书签</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]"><div className="h-full rounded-full bg-[#0f766e]" style={{ width: `${Math.round(book.overallProgress * 100)}%` }} /></div><button type="button" onClick={() => void openBook(book)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white">{book.overallProgress ? '继续阅读' : '开始阅读'}</button></div></article>)}</div></div> : null)}</section>}
   </div>;
 }

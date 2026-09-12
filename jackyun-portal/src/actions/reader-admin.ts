@@ -1,6 +1,6 @@
 'use server';
 
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -24,27 +24,34 @@ export interface AdminFeature {
 
 export interface AdminNovel {
   id: string; title: string; author: string; description: string; language: 'zh' | 'en'; minimumPlan: PlanCode;
-  originalFileName: string; fileSize: number; enabled: boolean; featured: boolean; publishedAt: string;
+  originalFileName: string; fileSize: number; enabled: boolean; featured: boolean; publishedAt: string; ownerCount: number;
 }
 
 export interface AdminCode {
-  id: string; codePrefix: string; label: string; rewardType: 'novel' | 'membership'; novelId: string | null;
+  id: string; codePrefix: string; label: string; rewardType: 'novel' | 'membership'; novelId: string | null; novelIds: string[]; novelTitles: string[];
   planCode: PlanCode | null; membershipDays: number | null; notBefore: string | null; expiresAt: string | null;
   usageLimit: number; redeemedCount: number; enabled: boolean; createdAt: string;
 }
 
 export async function getReaderAdminDashboard(): Promise<{ features: AdminFeature[]; novels: AdminNovel[]; codes: AdminCode[] }> {
   const { admin } = await requireAdmin();
-  const [features, novels, codes] = await Promise.all([
+  const [features, novels, codes, codeNovels, entitlements] = await Promise.all([
     admin.from('app_features').select('*').order('key'),
     admin.from('novel_catalog').select('*').order('published_at', { ascending: false }),
     admin.from('redemption_codes').select('*').order('created_at', { ascending: false }).limit(300),
+    admin.from('redemption_code_novels').select('code_id, novel_id, sort_order').order('sort_order'),
+    admin.from('user_novel_entitlements').select('novel_id'),
   ]);
-  if (features.error || novels.error || codes.error) throw new Error(features.error?.message ?? novels.error?.message ?? codes.error?.message ?? '读取管理数据失败。');
+  if (features.error || novels.error || codes.error || codeNovels.error || entitlements.error) throw new Error(features.error?.message ?? novels.error?.message ?? codes.error?.message ?? codeNovels.error?.message ?? entitlements.error?.message ?? '读取管理数据失败。');
+  const novelTitles = new Map((novels.data ?? []).map((row) => [row.id, row.title]));
+  const ownerCounts = new Map<string, number>();
+  for (const row of entitlements.data ?? []) ownerCounts.set(row.novel_id, (ownerCounts.get(row.novel_id) ?? 0) + 1);
+  const novelsByCode = new Map<string, string[]>();
+  for (const row of codeNovels.data ?? []) novelsByCode.set(row.code_id, [...(novelsByCode.get(row.code_id) ?? []), row.novel_id]);
   return {
     features: (features.data ?? []).map((row) => ({ key: row.key, displayName: row.display_name, description: row.description, enabled: row.enabled, betaOnly: row.beta_only, minimumPlan: row.minimum_plan })),
-    novels: (novels.data ?? []).map((row) => ({ id: row.id, title: row.title, author: row.author, description: row.description, language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name, fileSize: Number(row.file_size), enabled: row.enabled, featured: row.featured, publishedAt: row.published_at })),
-    codes: (codes.data ?? []).map((row) => ({ id: row.id, codePrefix: row.code_prefix, label: row.label, rewardType: row.reward_type, novelId: row.novel_id, planCode: row.plan_code, membershipDays: row.membership_days, notBefore: row.not_before, expiresAt: row.expires_at, usageLimit: row.usage_limit, redeemedCount: row.redeemed_count, enabled: row.enabled, createdAt: row.created_at })),
+    novels: (novels.data ?? []).map((row) => ({ id: row.id, title: row.title, author: row.author, description: row.description, language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name, fileSize: Number(row.file_size), enabled: row.enabled, featured: row.featured, publishedAt: row.published_at, ownerCount: ownerCounts.get(row.id) ?? 0 })),
+    codes: (codes.data ?? []).map((row) => { const novelIds = novelsByCode.get(row.id) ?? (row.novel_id ? [row.novel_id] : []); return { id: row.id, codePrefix: row.code_prefix, label: row.label, rewardType: row.reward_type, novelId: row.novel_id, novelIds, novelTitles: novelIds.map((id) => novelTitles.get(id) ?? '已删除小说'), planCode: row.plan_code, membershipDays: row.membership_days, notBefore: row.not_before, expiresAt: row.expires_at, usageLimit: row.usage_limit, redeemedCount: row.redeemed_count, enabled: row.enabled, createdAt: row.created_at }; }),
   };
 }
 
@@ -84,7 +91,7 @@ export async function deleteCatalogNovel(id: string) {
 }
 
 export async function createRedemptionCodes(input: {
-  customCode?: string; quantity: number; label: string; rewardType: 'novel' | 'membership'; novelId?: string;
+  customCode?: string; quantity: number; label: string; rewardType: 'novel' | 'membership'; novelIds?: string[];
   planCode?: string; membershipDays?: number; notBefore?: string | null; expiresAt?: string | null; validDays?: number; usageLimit: number;
 }): Promise<{ success: boolean; codes?: string[]; error?: string }> {
   const { admin, user } = await requireAdmin();
@@ -93,7 +100,8 @@ export async function createRedemptionCodes(input: {
   if (quantity < 1 || quantity > 200 || usageLimit < 1 || usageLimit > 1_000_000) return { success: false, error: '批量数量须为 1–200，单码人数须为 1–1,000,000。' };
   if (input.customCode && quantity !== 1) return { success: false, error: '自定义兑换码只能单个创建。' };
   if (input.customCode && !isValidCustomCode(input.customCode)) return { success: false, error: '自定义码须为 6–32 位字母或数字。' };
-  if (input.rewardType === 'novel' && !input.novelId) return { success: false, error: '请选择要兑换的小说。' };
+  const novelIds = [...new Set(input.novelIds ?? [])];
+  if (input.rewardType === 'novel' && (novelIds.length < 1 || novelIds.length > 50 || novelIds.some((id) => !/^[0-9a-f-]{36}$/iu.test(id)))) return { success: false, error: '请选择 1–50 本要兑换的小说。' };
   if (input.rewardType === 'membership' && (!input.planCode || !isPlanCode(input.planCode) || !Number.isInteger(input.membershipDays) || input.membershipDays! < 1 || input.membershipDays! > 3650)) return { success: false, error: '会员等级或有效天数无效。' };
   const notBefore = parseShanghaiDateTime(input.notBefore);
   let expiresAt = parseShanghaiDateTime(input.expiresAt);
@@ -102,16 +110,27 @@ export async function createRedemptionCodes(input: {
   if (!expiresAt && input.validDays) expiresAt = new Date((notBefore?.getTime() ?? Date.now()) + input.validDays * 86_400_000);
   if (notBefore && expiresAt && expiresAt <= notBefore) return { success: false, error: '结束时间必须晚于开始时间。' };
 
+  if (input.rewardType === 'novel') {
+    const { data: selectedNovels, error: novelError } = await admin.from('novel_catalog').select('id, enabled').in('id', novelIds);
+    if (novelError || selectedNovels?.length !== novelIds.length || selectedNovels.some((novel) => !novel.enabled)) return { success: false, error: '选中的小说中包含已删除或未上架的书目。' };
+  }
+
   const rawCodes = Array.from({ length: quantity }, (_, index) => input.customCode && index === 0 ? normalizeRedemptionCode(input.customCode) : randomBytes(6).toString('hex').toUpperCase());
   const rows = rawCodes.map((code) => ({
+    id: randomUUID(),
     code_hash: createHash('sha256').update(code).digest('hex'), code_prefix: code.slice(0, 4), label: input.label.trim(), reward_type: input.rewardType,
-    novel_id: input.rewardType === 'novel' ? input.novelId : null, plan_code: input.rewardType === 'membership' ? input.planCode : null,
+    novel_id: input.rewardType === 'novel' ? novelIds[0] : null, plan_code: input.rewardType === 'membership' ? input.planCode : null,
     membership_days: input.rewardType === 'membership' ? input.membershipDays : null,
     not_before: notBefore?.toISOString() ?? null, expires_at: expiresAt?.toISOString() ?? null,
     usage_limit: usageLimit, created_by: user.id,
   }));
   const { error } = await admin.from('redemption_codes').insert(rows);
   if (error) return { success: false, error: error.code === '23505' ? '兑换码已存在，请更换后重试。' : error.message };
+  if (input.rewardType === 'novel') {
+    const bundleRows = rows.flatMap((row) => novelIds.map((novelId, sortOrder) => ({ code_id: row.id, novel_id: novelId, sort_order: sortOrder })));
+    const { error: bundleError } = await admin.from('redemption_code_novels').insert(bundleRows);
+    if (bundleError) { await admin.from('redemption_codes').delete().in('id', rows.map((row) => row.id)); return { success: false, error: `创建图书组合失败：${bundleError.message}` }; }
+  }
   revalidatePath('/admin/content');
   return { success: true, codes: rawCodes.map(formatRedemptionCode) };
 }
