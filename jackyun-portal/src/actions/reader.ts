@@ -9,8 +9,6 @@ export interface FeatureAccess {
   key: string;
   displayName: string;
   description: string;
-  category: string;
-  tags: string[];
   enabled: boolean;
   betaOnly: boolean;
   minimumPlan: string;
@@ -22,6 +20,8 @@ export interface CatalogNovel {
   title: string;
   author: string;
   description: string;
+  category: string;
+  tags: string[];
   language: 'zh' | 'en';
   minimumPlan: string;
   originalFileName: string;
