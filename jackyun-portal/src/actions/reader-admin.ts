@@ -57,13 +57,30 @@ export async function updateFeatureAccess(input: { key: string; enabled: boolean
   return { success: true };
 }
 
-export async function updateCatalogNovel(input: { id: string; enabled: boolean; featured: boolean; minimumPlan: string }) {
+export async function updateCatalogNovel(input: { id: string; title: string; author: string; description: string; language: string; enabled: boolean; featured: boolean; minimumPlan: string }) {
   const { admin } = await requireAdmin();
-  if (!/^[0-9a-f-]{36}$/iu.test(input.id) || !isPlanCode(input.minimumPlan)) return { success: false, error: '小说或套餐参数无效。' };
-  const { error } = await admin.from('novel_catalog').update({ enabled: input.enabled, featured: input.featured, minimum_plan: input.minimumPlan, updated_at: new Date().toISOString() }).eq('id', input.id);
+  const title = input.title.trim();
+  const author = input.author.trim();
+  const description = input.description.trim();
+  if (!/^[0-9a-f-]{36}$/iu.test(input.id) || !title || title.length > 160 || author.length > 120 || description.length > 1000 || !['zh', 'en'].includes(input.language) || !isPlanCode(input.minimumPlan)) return { success: false, error: '请检查书名、作者、简介、语言和套餐设置。' };
+  const { error } = await admin.from('novel_catalog').update({ title, author, description, language: input.language, enabled: input.enabled, featured: input.featured, minimum_plan: input.minimumPlan, updated_at: new Date().toISOString() }).eq('id', input.id);
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin/content'); revalidatePath('/reading');
   return { success: true };
+}
+
+export async function deleteCatalogNovel(id: string) {
+  const { admin } = await requireAdmin();
+  if (!/^[0-9a-f-]{36}$/iu.test(id)) return { success: false, error: '小说参数无效。' };
+  const { data: novel, error: readError } = await admin.from('novel_catalog').select('storage_path, cover_path').eq('id', id).maybeSingle();
+  if (readError) return { success: false, error: readError.message };
+  if (!novel) return { success: false, error: '小说不存在或已删除。' };
+  const { error: deleteError } = await admin.from('novel_catalog').delete().eq('id', id);
+  if (deleteError) return { success: false, error: deleteError.message };
+  const paths = [novel.storage_path, novel.cover_path].filter((path): path is string => Boolean(path));
+  const storageResult = paths.length ? await admin.storage.from('novel-files').remove(paths) : { error: null };
+  revalidatePath('/admin/content'); revalidatePath('/reading');
+  return { success: true, warning: storageResult.error ? `书目已删除，但存储文件清理失败：${storageResult.error.message}` : undefined };
 }
 
 export async function createRedemptionCodes(input: {
