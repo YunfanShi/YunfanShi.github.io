@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
 import { isPlanCode } from '@/lib/redemption';
+import { parseNovelFile } from '@/lib/novel-import';
+import { splitNovelIntoChapters } from '@/lib/novel-reader';
 
 const allowedNovelExtensions = new Set(['txt', 'text', 'md', 'markdown', 'html', 'htm', 'epub']);
 const allowedCoverTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -58,8 +60,15 @@ export async function POST(request: NextRequest) {
       if (coverUpload.error) { await admin.storage.from('novel-files').remove([storagePath]); failures.push(`${file.name}：${coverUpload.error.message}`); continue; }
     }
 
-    const { error } = await admin.from('novel_catalog').insert({ id: novelId, title, author, description, category, tags, language, minimum_plan: minimumPlan, storage_path: storagePath, original_file_name: file.name.slice(0, 240), file_size: file.size, cover_path: coverPath, created_by: user.id });
+    const { error } = await admin.from('novel_catalog').insert({ id: novelId, title, author, description, category, tags, language, minimum_plan: minimumPlan, storage_path: storagePath, original_file_name: file.name.slice(0, 240), file_size: file.size, cover_path: coverPath, cover_updated_at: coverPath ? new Date().toISOString() : null, created_by: user.id });
     if (error) { await admin.storage.from('novel-files').remove([storagePath, ...(coverPath ? [coverPath] : [])]); failures.push(`${file.name}：${error.message}`); continue; }
+    const { error: tagError } = await admin.rpc('replace_novel_catalog_tags', { p_novel_id: novelId, p_tags: tags });
+    if (tagError) { await admin.from('novel_catalog').delete().eq('id', novelId); await admin.storage.from('novel-files').remove([storagePath, ...(coverPath ? [coverPath] : [])]); failures.push(`${file.name}：${tagError.message}`); continue; }
+    try {
+      const parsed = await parseNovelFile(file, 'auto');
+      const chapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+      if (chapters.length) await admin.rpc('replace_novel_catalog_chapters', { p_novel_id: novelId, p_chapters: chapters });
+    } catch { /* Keep the uploaded book available for manual chapter scanning. */ }
     uploadedIds.push(novelId);
   }
 
@@ -88,16 +97,24 @@ export async function PATCH(request: NextRequest) {
   if (!title || title.length > 160 || author.length > 120 || description.length > 1000 || category.length > 40) return NextResponse.json({ error: '书名、作者、简介或分类长度无效。' }, { status: 400 });
   const file = form.get('file');
   const cover = form.get('cover');
-  const updates: Record<string, unknown> = { title, author, description, category, tags, updated_at: new Date().toISOString() };
+  const updates: Record<string, unknown> = { title, author, description, category, updated_at: new Date().toISOString() };
   const removePaths: string[] = [];
+  let replacementChapters: ReturnType<typeof splitNovelIntoChapters> | null = null;
   if (file instanceof File && file.size > 0) {
     const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!allowedNovelExtensions.has(extension) || file.size > 50 * 1024 * 1024) return NextResponse.json({ error: '正文格式或大小无效。' }, { status: 400 });
+    try {
+      const parsed = await parseNovelFile(file, 'auto');
+      replacementChapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+      if (!replacementChapters.length) return NextResponse.json({ error: '替换正文后没有识别到可阅读章节。' }, { status: 400 });
+    } catch (parseError) {
+      return NextResponse.json({ error: parseError instanceof Error ? parseError.message : '替换正文的章节识别失败。' }, { status: 400 });
+    }
     const path = `catalog/${id}/book.${extension}`;
     const upload = await admin.storage.from('novel-files').upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: true });
     if (upload.error) return NextResponse.json({ error: upload.error.message }, { status: 400 });
     if (novel.storage_path !== path) removePaths.push(novel.storage_path);
-    Object.assign(updates, { storage_path: path, original_file_name: file.name.slice(0, 240), file_size: file.size });
+    Object.assign(updates, { storage_path: path, original_file_name: file.name.slice(0, 240), file_size: file.size, content_updated_at: new Date().toISOString() });
   }
   if (cover instanceof File && cover.size > 0) {
     if (!allowedCoverTypes.has(cover.type) || cover.size > 5 * 1024 * 1024) return NextResponse.json({ error: '封面格式或大小无效。' }, { status: 400 });
@@ -107,9 +124,16 @@ export async function PATCH(request: NextRequest) {
     if (upload.error) return NextResponse.json({ error: upload.error.message }, { status: 400 });
     if (novel.cover_path && novel.cover_path !== path) removePaths.push(novel.cover_path);
     updates.cover_path = path;
+    updates.cover_updated_at = new Date().toISOString();
   }
   const { error } = await admin.from('novel_catalog').update(updates).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { error: tagError } = await admin.rpc('replace_novel_catalog_tags', { p_novel_id: id, p_tags: tags });
+  if (tagError) return NextResponse.json({ error: tagError.message }, { status: 400 });
+  if (replacementChapters) {
+    const { error: chapterError } = await admin.rpc('replace_novel_catalog_chapters', { p_novel_id: id, p_chapters: replacementChapters });
+    if (chapterError) return NextResponse.json({ error: chapterError.message }, { status: 400 });
+  }
   if (removePaths.length) await admin.storage.from('novel-files').remove(removePaths);
   return NextResponse.json({ ok: true });
 }

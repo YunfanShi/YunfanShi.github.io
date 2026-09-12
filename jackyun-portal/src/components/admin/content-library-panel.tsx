@@ -1,11 +1,35 @@
 'use client';
 
 import { useMemo, useRef, useState, useTransition } from 'react';
-import { createRedemptionCodes, deleteCatalogNovel, setRedemptionCodeEnabled, updateCatalogNovel, updateFeatureAccess, type AdminCode, type AdminFeature, type AdminNovel } from '@/actions/reader-admin';
+import { createNovelTag, createRedemptionCodes, deleteCatalogNovel, deleteNovelTag, getAdminNovelChapters, saveAdminNovelChapters, setRedemptionCodeEnabled, updateCatalogNovel, updateFeatureAccess, type AdminCode, type AdminFeature, type AdminNovel, type AdminTag } from '@/actions/reader-admin';
 import { PLAN_ORDER, type PlanCode } from '@/lib/redemption';
+import { splitNovelIntoChapters, type NovelChapter } from '@/lib/novel-reader';
 
 const planLabel: Record<PlanCode, string> = { free: 'Free', plus: 'Plus', pro: 'Pro', ultra: 'Ultra' };
 const field = 'min-h-11 w-full rounded-xl border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] focus:ring-4 focus:ring-[#155eef]/10 dark:border-white/15 dark:bg-[#172033]';
+
+type UploadJob = { file: File; cover: File | null; progress: number; status: 'queued' | 'uploading' | 'done' | 'failed'; error?: string };
+
+function uploadWithProgress(form: FormData, onProgress: (progress: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', '/api/admin/novels');
+    request.upload.addEventListener('progress', (event) => { if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100)); });
+    request.addEventListener('load', () => {
+      let response: { error?: string } = {};
+      try { response = JSON.parse(request.responseText) as { error?: string }; } catch { /* Use the generic status error. */ }
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new Error(response.error ?? `上传失败（HTTP ${request.status}）`));
+    });
+    request.addEventListener('error', () => reject(new Error('网络连接中断。')));
+    request.addEventListener('abort', () => reject(new Error('上传已取消。')));
+    request.send(form);
+  });
+}
+
+function TagPicker({ tags, selected, onChange }: { tags: AdminTag[]; selected: string[]; onChange: (tags: string[]) => void }) {
+  return <fieldset className="rounded-xl border border-[#d0d5dd] p-3 dark:border-white/15"><legend className="px-1 text-sm font-medium">标签</legend><div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">{tags.map((tag) => <label key={tag.id} className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold ${selected.includes(tag.name) ? 'border-[#155eef] bg-[#eff4ff] text-[#155eef]' : 'border-[#d0d5dd]'}`}><input type="checkbox" className="sr-only" checked={selected.includes(tag.name)} onChange={(event) => onChange(event.target.checked ? [...selected, tag.name].slice(0, 20) : selected.filter((name) => name !== tag.name))} />{tag.name}</label>)}{!tags.length && <span className="text-xs text-[#667085]">请先在下方建立可复用标签。</span>}</div></fieldset>;
+}
 
 function FeatureCard({ feature }: { feature: AdminFeature }) {
   const [value, setValue] = useState(feature); const [pending, start] = useTransition(); const [message, setMessage] = useState('');
@@ -13,15 +37,51 @@ function FeatureCard({ feature }: { feature: AdminFeature }) {
   return <article className="rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#172033]"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{value.displayName}</h3><p className="mt-1 text-sm text-[#667085] dark:text-[#98a2b3]">{value.description}</p></div><label className="flex shrink-0 items-center gap-2 text-sm font-medium"><input type="checkbox" checked={value.enabled} onChange={(event) => setValue({ ...value, enabled: event.target.checked })} />开启</label></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">最低会员<select className={`${field} mt-1.5`} value={value.minimumPlan} onChange={(event) => setValue({ ...value, minimumPlan: event.target.value as PlanCode })}>{PLAN_ORDER.map((plan) => <option key={plan} value={plan}>{planLabel[plan]}</option>)}</select></label><label className="flex items-end gap-2 rounded-xl border border-[#e4e7ec] px-3 pb-3 text-sm font-medium dark:border-white/10"><input type="checkbox" checked={value.betaOnly} onChange={(event) => setValue({ ...value, betaOnly: event.target.checked })} />仅 BETA 用户</label></div><div className="mt-4 flex items-center gap-3"><button type="button" disabled={pending} onClick={save} className="rounded-xl bg-[#155eef] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">保存规则</button><span className="text-xs text-[#667085]">{message}</span></div></article>;
 }
 
-function NovelRow({ novel, onUpdated, onDeleted }: { novel: AdminNovel; onUpdated: (novel: AdminNovel) => void; onDeleted: (id: string) => void }) {
+function NovelRow({ novel, tags, onUpdated, onDeleted }: { novel: AdminNovel; tags: AdminTag[]; onUpdated: (novel: AdminNovel) => void; onDeleted: (id: string) => void }) {
   const [value, setValue] = useState(novel);
   const [expanded, setExpanded] = useState(false);
   const [pending, start] = useTransition();
   const [message, setMessage] = useState('');
   const [editingFile, setEditingFile] = useState<File | null>(null); const [editingCover, setEditingCover] = useState<File | null>(null);
+  const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [chapters, setChapters] = useState<NovelChapter[]>([]);
+  const [chapterIndex, setChapterIndex] = useState(0);
+  const activeChapter = chapters[chapterIndex];
+  async function openChapters() {
+    if (chaptersOpen) { setChaptersOpen(false); return; }
+    setMessage('正在读取并扫描章节…');
+    const result = await getAdminNovelChapters(value.id);
+    if (!result.success || !result.chapters) { setMessage(result.error ?? '章节读取失败。'); return; }
+    setChapters(result.chapters); setChapterIndex(0); setChaptersOpen(true); setMessage(`已识别 ${result.chapters.length} 章；保存后读者会自动同步新版。`);
+  }
+  function changeChapter(changes: Partial<NovelChapter>) {
+    setChapters((items) => items.map((item, index) => index === chapterIndex ? { ...item, ...changes, characterCount: changes.content === undefined ? item.characterCount : changes.content.length } : item));
+  }
+  function addChapter() {
+    setChapters((items) => [...items, { index: items.length, title: `第 ${items.length + 1} 章`, content: '', characterCount: 0 }]);
+    setChapterIndex(chapters.length);
+  }
+  function removeChapter() {
+    if (chapters.length <= 1) { setMessage('一本书至少需要保留一个章节。'); return; }
+    setChapters((items) => items.filter((_, index) => index !== chapterIndex).map((item, index) => ({ ...item, index })));
+    setChapterIndex((index) => Math.max(0, Math.min(index, chapters.length - 2)));
+  }
+  function rescanChapters() {
+    const rescanned = splitNovelIntoChapters(chapters.map((item) => `${item.title}\n${item.content}`).join('\n\n'));
+    if (!rescanned.length) { setMessage('当前正文无法重新识别章节。'); return; }
+    setChapters(rescanned); setChapterIndex(0); setMessage(`重新扫描得到 ${rescanned.length} 章，请检查后保存。`);
+  }
+  function saveChapters() {
+    start(async () => {
+      const result = await saveAdminNovelChapters(value.id, chapters);
+      if (!result.success) { setMessage(result.error ?? '章节保存失败。'); return; }
+      const updated = { ...value, chaptersReady: true, contentRevision: result.revision ?? value.contentRevision + 1 };
+      setValue(updated); onUpdated(updated); setMessage(`章节已保存为第 ${updated.contentRevision} 版，读者书架将在同步时更新。`);
+    });
+  }
   function save() {
     start(async () => {
-      if (editingFile || editingCover) { const form = new FormData(); form.set('id', value.id); form.set('title', value.title); form.set('author', value.author); form.set('description', value.description); form.set('category', value.category); form.set('tags', value.tags.join(',')); if (editingFile) form.set('file', editingFile); if (editingCover) form.set('cover', editingCover); const response = await fetch('/api/admin/novels', { method: 'PATCH', body: form }); if (!response.ok) { setMessage((await response.json() as { error?: string }).error ?? '保存失败'); return; } setEditingFile(null); setEditingCover(null); onUpdated(value); setMessage('书籍内容、封面和资料已保存。'); return; }
+      if (editingFile || editingCover) { const form = new FormData(); form.set('id', value.id); form.set('title', value.title); form.set('author', value.author); form.set('description', value.description); form.set('category', value.category); form.set('tags', value.tags.join(',')); if (editingFile) form.set('file', editingFile); if (editingCover) form.set('cover', editingCover); const response = await fetch('/api/admin/novels', { method: 'PATCH', body: form }); if (!response.ok) { setMessage((await response.json() as { error?: string }).error ?? '保存失败'); return; } const metadataResult = await updateCatalogNovel({ id: value.id, title: value.title, author: value.author, description: value.description, category: value.category, tags: value.tags, language: value.language, enabled: value.enabled, featured: value.featured, minimumPlan: value.minimumPlan }); if (!metadataResult.success) { setMessage(metadataResult.error ?? '文件已替换，但其他资料保存失败。'); return; } setEditingFile(null); setEditingCover(null); onUpdated(value); setMessage('书籍内容、封面和资料已保存。'); return; }
       const result = await updateCatalogNovel({ id: value.id, title: value.title, author: value.author, description: value.description, category: value.category, tags: value.tags, language: value.language, enabled: value.enabled, featured: value.featured, minimumPlan: value.minimumPlan });
       if (result.success) { onUpdated(value); setMessage('已保存，商店内容已更新。'); } else setMessage(result.error ?? '保存失败');
     });
@@ -36,36 +96,79 @@ function NovelRow({ novel, onUpdated, onDeleted }: { novel: AdminNovel; onUpdate
     });
   }
   return <article className="rounded-2xl border border-[#e4e7ec] bg-white p-4 dark:border-white/10 dark:bg-[#172033]">
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center"><div className="min-w-0 flex-1"><h3 className="truncate font-semibold">{value.title}</h3><p className="mt-1 truncate text-sm text-[#667085] dark:text-[#98a2b3]">{value.author || '未填写作者'} · {(value.fileSize / 1024 / 1024).toFixed(2)} MB · {value.originalFileName}</p><p className="mt-1 text-xs font-semibold text-[#155eef]">{value.ownerCount} 人已通过兑换获得</p></div><select aria-label={`${value.title} 最低会员`} disabled={pending} className="min-h-10 rounded-xl border border-[#d0d5dd] bg-white px-3 text-sm dark:border-white/15 dark:bg-[#111827]" value={value.minimumPlan} onChange={(event) => setValue({ ...value, minimumPlan: event.target.value as PlanCode })}>{PLAN_ORDER.map((plan) => <option key={plan} value={plan}>{planLabel[plan]}</option>)}</select><label className="text-sm"><input type="checkbox" disabled={pending} checked={value.featured} onChange={(event) => setValue({ ...value, featured: event.target.checked })} /> 精选</label><label className="text-sm"><input type="checkbox" disabled={pending} checked={value.enabled} onChange={(event) => setValue({ ...value, enabled: event.target.checked })} /> 上架</label><button type="button" disabled={pending} onClick={() => setExpanded((current) => !current)} className="min-h-10 rounded-xl border border-[#d0d5dd] px-3 text-sm font-semibold">{expanded ? '收起' : '编辑资料'}</button><button type="button" disabled={pending} onClick={save} className="min-h-10 rounded-xl border border-[#155eef] px-3 text-sm font-semibold text-[#155eef] disabled:opacity-50">{pending ? '处理中…' : '保存'}</button><button type="button" disabled={pending} onClick={remove} className="min-h-10 rounded-xl border border-[#fda29b] px-3 text-sm font-semibold text-[#b42318] disabled:opacity-50">删除</button></div>
-    {expanded && <div className="mt-4 grid gap-3 border-t border-[#e4e7ec] pt-4 sm:grid-cols-2 dark:border-white/10"><label className="text-sm font-medium">书名<input value={value.title} maxLength={160} onChange={(event) => setValue({ ...value, title: event.target.value })} className={`${field} mt-1.5`} /></label><label className="text-sm font-medium">作者<input value={value.author} maxLength={120} onChange={(event) => setValue({ ...value, author: event.target.value })} className={`${field} mt-1.5`} /></label><label className="text-sm font-medium">语言<select value={value.language} onChange={(event) => setValue({ ...value, language: event.target.value as AdminNovel['language'] })} className={`${field} mt-1.5`}><option value="zh">中文</option><option value="en">英文</option></select></label><label className="text-sm font-medium sm:col-span-2">简介<textarea value={value.description} maxLength={1000} rows={4} onChange={(event) => setValue({ ...value, description: event.target.value })} className={`${field} mt-1.5 py-3`} /></label><label className="text-sm font-medium">分类<input value={value.category} maxLength={40} onChange={(event) => setValue({ ...value, category: event.target.value })} className={`${field} mt-1.5`} placeholder="传统文学 / 科幻小说" /></label><label className="text-sm font-medium">标签（逗号分隔）<input value={value.tags.join(", ")} maxLength={300} onChange={(event) => setValue({ ...value, tags: event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 20) })} className={`${field} mt-1.5`} placeholder="言情，成长" /></label><label className="text-sm font-medium">替换正文<input type="file" accept=".txt,.text,.md,.markdown,.html,.htm,.epub" onChange={(event) => setEditingFile(event.target.files?.[0] ?? null)} className="mt-1.5 block w-full text-sm" /></label><label className="text-sm font-medium">替换封面<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setEditingCover(event.target.files?.[0] ?? null)} className="mt-1.5 block w-full text-sm" /></label></div>}
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center"><div className="min-w-0 flex-1"><h3 className="truncate font-semibold">{value.title}</h3><p className="mt-1 truncate text-sm text-[#667085] dark:text-[#98a2b3]">{value.author || '未填写作者'} · {(value.fileSize / 1024 / 1024).toFixed(2)} MB · {value.originalFileName}</p><p className="mt-1 text-xs font-semibold text-[#155eef]">{value.ownerCount} 人已通过兑换获得 · 内容第 {value.contentRevision} 版 · {value.chaptersReady ? '章节已托管' : '待检查章节'}</p></div><select aria-label={`${value.title} 最低会员`} disabled={pending} className="min-h-10 rounded-xl border border-[#d0d5dd] bg-white px-3 text-sm dark:border-white/15 dark:bg-[#111827]" value={value.minimumPlan} onChange={(event) => setValue({ ...value, minimumPlan: event.target.value as PlanCode })}>{PLAN_ORDER.map((plan) => <option key={plan} value={plan}>{planLabel[plan]}</option>)}</select><label className="text-sm"><input type="checkbox" disabled={pending} checked={value.featured} onChange={(event) => setValue({ ...value, featured: event.target.checked })} /> 精选</label><label className="text-sm"><input type="checkbox" disabled={pending} checked={value.enabled} onChange={(event) => setValue({ ...value, enabled: event.target.checked })} /> 上架</label><button type="button" disabled={pending} onClick={() => setExpanded((current) => !current)} className="min-h-10 rounded-xl border border-[#d0d5dd] px-3 text-sm font-semibold">{expanded ? '收起资料' : '编辑资料'}</button><button type="button" disabled={pending} onClick={() => void openChapters()} className="min-h-10 rounded-xl border border-[#d0d5dd] px-3 text-sm font-semibold">{chaptersOpen ? '收起章节' : '章节管理'}</button><button type="button" disabled={pending} onClick={save} className="min-h-10 rounded-xl border border-[#155eef] px-3 text-sm font-semibold text-[#155eef] disabled:opacity-50">{pending ? '处理中…' : '保存'}</button><button type="button" disabled={pending} onClick={remove} className="min-h-10 rounded-xl border border-[#fda29b] px-3 text-sm font-semibold text-[#b42318] disabled:opacity-50">删除</button></div>
+    {expanded && <div className="mt-4 grid gap-3 border-t border-[#e4e7ec] pt-4 sm:grid-cols-2 dark:border-white/10"><label className="text-sm font-medium">书名<input value={value.title} maxLength={160} onChange={(event) => setValue({ ...value, title: event.target.value })} className={`${field} mt-1.5`} /></label><label className="text-sm font-medium">作者<input value={value.author} maxLength={120} onChange={(event) => setValue({ ...value, author: event.target.value })} className={`${field} mt-1.5`} /></label><label className="text-sm font-medium">语言<select value={value.language} onChange={(event) => setValue({ ...value, language: event.target.value as AdminNovel['language'] })} className={`${field} mt-1.5`}><option value="zh">中文</option><option value="en">英文</option></select></label><label className="text-sm font-medium sm:col-span-2">简介<textarea value={value.description} maxLength={1000} rows={4} onChange={(event) => setValue({ ...value, description: event.target.value })} className={`${field} mt-1.5 py-3`} /></label><label className="text-sm font-medium">分类<input value={value.category} maxLength={40} onChange={(event) => setValue({ ...value, category: event.target.value })} className={`${field} mt-1.5`} placeholder="传统文学 / 科幻小说" /></label><div className="sm:col-span-2"><TagPicker tags={tags} selected={value.tags} onChange={(selected) => setValue({ ...value, tags: selected })} /></div><label className="text-sm font-medium">替换正文<input type="file" accept=".txt,.text,.md,.markdown,.html,.htm,.epub" onChange={(event) => setEditingFile(event.target.files?.[0] ?? null)} className="mt-1.5 block w-full text-sm" /></label><label className="text-sm font-medium">替换封面<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setEditingCover(event.target.files?.[0] ?? null)} className="mt-1.5 block w-full text-sm" /></label></div>}
+    {chaptersOpen && activeChapter && <section className="mt-4 grid gap-4 border-t border-[#e4e7ec] pt-4 lg:grid-cols-[280px_minmax(0,1fr)] dark:border-white/10"><div><div className="mb-3 flex gap-2"><button type="button" onClick={rescanChapters} className="min-h-10 flex-1 rounded-xl border border-[#d0d5dd] px-3 text-xs font-semibold">重新扫描</button><button type="button" onClick={addChapter} className="min-h-10 flex-1 rounded-xl border border-[#d0d5dd] px-3 text-xs font-semibold">添加章节</button></div><div className="max-h-96 space-y-1 overflow-y-auto">{chapters.map((item, index) => <button type="button" key={`${item.index}-${index}`} onClick={() => setChapterIndex(index)} className={`w-full rounded-lg px-3 py-2 text-left text-sm ${index === chapterIndex ? 'bg-[#155eef] font-semibold text-white' : 'hover:bg-[#f2f4f7] dark:hover:bg-white/10'}`}>{index + 1}. {item.title}</button>)}</div></div><div><label className="text-sm font-medium">章节标题<input value={activeChapter.title} maxLength={200} onChange={(event) => changeChapter({ title: event.target.value })} className={`${field} mt-1.5`} /></label><label className="mt-3 block text-sm font-medium">章节正文<textarea value={activeChapter.content} onChange={(event) => changeChapter({ content: event.target.value })} rows={14} className={`${field} mt-1.5 py-3 font-serif leading-7`} /></label><div className="mt-3 flex gap-2"><button type="button" disabled={pending} onClick={saveChapters} className="min-h-11 flex-1 rounded-xl bg-[#155eef] px-4 text-sm font-semibold text-white disabled:opacity-50">保存全部章节并发布新版</button><button type="button" disabled={pending} onClick={removeChapter} className="min-h-11 rounded-xl border border-[#fda29b] px-4 text-sm font-semibold text-[#b42318]">删除本章</button></div></div></section>}
     {message && <p className="mt-3 text-xs text-[#667085]">{message}</p>}
   </article>;
 }
 
-export default function ContentLibraryPanel({ initialFeatures, initialNovels, initialCodes }: { initialFeatures: AdminFeature[]; initialNovels: AdminNovel[]; initialCodes: AdminCode[] }) {
+export default function ContentLibraryPanel({ initialFeatures, initialNovels, initialCodes, initialTags }: { initialFeatures: AdminFeature[]; initialNovels: AdminNovel[]; initialCodes: AdminCode[]; initialTags: AdminTag[] }) {
   const [tab, setTab] = useState<'novels' | 'codes' | 'features'>('novels');
   const [novels, setNovels] = useState(initialNovels); const [codes, setCodes] = useState(initialCodes);
+  const [tags, setTags] = useState(initialTags); const [newTagName, setNewTagName] = useState('');
   const [uploading, setUploading] = useState(false); const uploadLock = useRef(false);
+  const uploadFormRef = useRef<HTMLFormElement>(null);
   const [pending, start] = useTransition(); const [message, setMessage] = useState(''); const [createdCodes, setCreatedCodes] = useState<string[]>([]);
   const [rewardType, setRewardType] = useState<'novel' | 'membership'>('novel');
   const [selectedNovelIds, setSelectedNovelIds] = useState<string[]>(() => {
     const firstEnabledNovel = initialNovels.find((novel) => novel.enabled);
     return firstEnabledNovel ? [firstEnabledNovel.id] : [];
   });
-  const [uploadFileCount, setUploadFileCount] = useState(0);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]); const [uploadCovers, setUploadCovers] = useState<File[]>([]);
+  const [uploadTags, setUploadTags] = useState<string[]>([]); const [uploadJobs, setUploadJobs] = useState<UploadJob[]>([]);
   const [planCode, setPlanCode] = useState<PlanCode>('plus');
   const activeCodes = useMemo(() => codes.filter((code) => code.enabled).length, [codes]);
 
-  async function uploadNovel(formData: FormData) {
+  async function runUploads(formData: FormData, jobs: UploadJob[], indexes: number[]) {
     if (uploadLock.current) return;
-    uploadLock.current = true; setUploading(true); setMessage('正在上传并上架，请勿重复提交…');
+    uploadLock.current = true; setUploading(true); setMessage(`正在上传 ${indexes.length} 本；可查看每本进度。`);
     try {
-      const response = await fetch('/api/admin/novels', { method: 'POST', body: formData }); const result = await response.json() as { error?: string; uploaded?: number; failures?: string[] };
-      if (!response.ok) { setMessage(result.error ?? '上传失败'); return; }
-      if (result.failures?.length) window.alert(`已上传 ${result.uploaded ?? 0} 本，以下文件失败：\n${result.failures.join('\n')}`);
-      setMessage(`已成功上传 ${result.uploaded ?? uploadFileCount} 本小说，正在刷新管理列表…`); location.reload();
-    } catch { setMessage('上传失败，请检查网络后重试。'); }
+      let cursor = 0;
+      let failedCount = 0;
+      const worker = async () => {
+        while (cursor < indexes.length) {
+          const index = indexes[cursor++];
+          const job = jobs[index];
+          setUploadJobs((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, status: 'uploading', progress: 0, error: undefined } : item));
+          const single = new FormData();
+          for (const [key, value] of formData.entries()) if (key !== 'files' && key !== 'covers' && !(key === 'title' && uploadFiles.length > 1)) single.append(key, value);
+          single.set('tags', uploadTags.join(',')); single.set('file', job.file); if (job.cover) single.set('cover', job.cover);
+          try {
+            await uploadWithProgress(single, (progress) => setUploadJobs((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, progress } : item)));
+            setUploadJobs((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, status: 'done', progress: 100 } : item));
+          } catch (error) {
+            failedCount += 1;
+            setUploadJobs((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, status: 'failed', error: error instanceof Error ? error.message : '上传失败' } : item));
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(2, indexes.length) }, () => worker()));
+      setMessage(failedCount ? '部分文件上传失败，可直接重试失败项。' : '全部上传成功，正在刷新管理列表…');
+      if (!failedCount) window.setTimeout(() => location.reload(), 500);
+    } catch { setMessage('上传队列异常中断，请重试失败项。'); }
     finally { uploadLock.current = false; setUploading(false); }
+  }
+  async function uploadNovel(formData: FormData) {
+    const nextJobs = uploadFiles.map((file, index) => ({ file, cover: uploadCovers[index] ?? null, progress: 0, status: 'queued' as const }));
+    setUploadJobs(nextJobs);
+    await runUploads(formData, nextJobs, nextJobs.map((_, index) => index));
+  }
+  function retryFailedUploads() {
+    const form = uploadFormRef.current;
+    const failedIndexes = uploadJobs.map((job, index) => job.status === 'failed' ? index : -1).filter((index) => index >= 0);
+    if (form && failedIndexes.length) void runUploads(new FormData(form), uploadJobs, failedIndexes);
+  }
+  function addTag() {
+    start(async () => {
+      const result = await createNovelTag(newTagName);
+      if (!result.success || !result.tag) { setMessage(result.error ?? '创建标签失败。'); return; }
+      setTags((items) => [...items, result.tag!].sort((left, right) => left.name.localeCompare(right.name))); setNewTagName(''); setMessage(`已创建标签“${result.tag.name}”。`);
+    });
+  }
+  function removeTag(tag: AdminTag) {
+    if (tag.usageCount > 0 && !window.confirm(`“${tag.name}”正在被 ${tag.usageCount} 本书使用，仍要删除吗？`)) return;
+    start(async () => { const result = await deleteNovelTag(tag.id); if (result.success) { setTags((items) => items.filter((item) => item.id !== tag.id)); setUploadTags((items) => items.filter((name) => name !== tag.name)); } else setMessage(result.error ?? '删除标签失败。'); });
   }
   function createCodes(formData: FormData) {
     start(async () => {
@@ -89,11 +192,23 @@ export default function ContentLibraryPanel({ initialFeatures, initialNovels, in
     {message && <p role="status" className="rounded-xl border border-[#b2ddff] bg-[#eff8ff] px-4 py-3 text-sm text-[#175cd3] dark:bg-[#102a43] dark:text-[#b2ddff]">{message}</p>}
 
     {tab === 'novels' && <div className="grid gap-6 xl:grid-cols-[400px_minmax(0,1fr)]">
-      <form action={uploadNovel} className="self-start rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#172033]">
+      <form ref={uploadFormRef} action={uploadNovel} className="self-start rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#172033]">
         <h2 className="text-lg font-semibold">批量上传商店小说</h2><p className="mt-1 text-xs text-[#667085]">可像本地导入一样一次选择多本；批量时书名自动取文件名，上传后可单独编辑。</p>
-        <fieldset disabled={uploading} className="mt-4 space-y-4 disabled:opacity-60"><label className="block text-sm font-medium">分类<input name="category" maxLength={40} defaultValue="未分类" className={`${field} mt-1.5`} /></label><label className="block text-sm font-medium">标签（逗号分隔）<input name="tags" maxLength={300} placeholder="言情，成长" className={`${field} mt-1.5`} /></label><label className="block text-sm font-medium">单本书名（可选）<input name="title" maxLength={160} placeholder="批量上传时留空" className={`${field} mt-1.5`} /></label><label className="block text-sm font-medium">统一作者（可选）<input name="author" maxLength={120} className={`${field} mt-1.5`} /></label><label className="block text-sm font-medium">统一简介（可选）<textarea name="description" maxLength={1000} rows={3} className={`${field} mt-1.5 py-3`} /></label><div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">语言<select name="language" className={`${field} mt-1.5`}><option value="zh">中文</option><option value="en">英文</option></select></label><label className="text-sm font-medium">最低会员<select name="minimumPlan" className={`${field} mt-1.5`}>{PLAN_ORDER.map((plan) => <option key={plan} value={plan}>{planLabel[plan]}</option>)}</select></label></div><label className="block text-sm font-medium">小说文件（最多 20 本）<input name="files" required multiple type="file" accept=".txt,.text,.md,.markdown,.html,.htm,.epub" onChange={(event) => setUploadFileCount(event.target.files?.length ?? 0)} className="mt-1.5 block w-full text-sm" /></label><label className="block text-sm font-medium">封面（可选，可按小说顺序多选）<input name="covers" multiple type="file" accept="image/jpeg,image/png,image/webp" className="mt-1.5 block w-full text-sm" /></label><button type="submit" disabled={uploading || uploadFileCount < 1} className="min-h-11 w-full rounded-xl bg-[#155eef] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#98a2b3]">{uploading ? `正在上传 ${uploadFileCount} 本…` : `上传并上架${uploadFileCount ? ` ${uploadFileCount} 本` : ''}`}</button></fieldset>
+        <fieldset disabled={uploading} className="mt-4 space-y-4 disabled:opacity-60">
+          <label className="block text-sm font-medium">分类<input name="category" maxLength={40} defaultValue="未分类" className={`${field} mt-1.5`} /></label>
+          <TagPicker tags={tags} selected={uploadTags} onChange={setUploadTags} />
+          <label className="block text-sm font-medium">单本书名（可选）<input name="title" maxLength={160} placeholder="批量上传时留空" className={`${field} mt-1.5`} /></label>
+          <label className="block text-sm font-medium">统一作者（可选）<input name="author" maxLength={120} className={`${field} mt-1.5`} /></label>
+          <label className="block text-sm font-medium">统一简介（可选）<textarea name="description" maxLength={1000} rows={3} className={`${field} mt-1.5 py-3`} /></label>
+          <div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">语言<select name="language" className={`${field} mt-1.5`}><option value="zh">中文</option><option value="en">英文</option></select></label><label className="text-sm font-medium">最低会员<select name="minimumPlan" className={`${field} mt-1.5`}>{PLAN_ORDER.map((plan) => <option key={plan} value={plan}>{planLabel[plan]}</option>)}</select></label></div>
+          <label className="block text-sm font-medium">小说文件（最多 20 本）<input name="files" required multiple type="file" accept=".txt,.text,.md,.markdown,.html,.htm,.epub" onChange={(event) => setUploadFiles(Array.from(event.target.files ?? []).slice(0, 20))} className="mt-1.5 block w-full text-sm" /></label>
+          <label className="block text-sm font-medium">封面（可选，可按小说顺序多选）<input name="covers" multiple type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setUploadCovers(Array.from(event.target.files ?? []).slice(0, 20))} className="mt-1.5 block w-full text-sm" /></label>
+          <button type="submit" disabled={uploading || uploadFiles.length < 1} className="min-h-11 w-full rounded-xl bg-[#155eef] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#98a2b3]">{uploading ? `正在上传 ${uploadJobs.filter((job) => job.status === 'done').length}/${uploadJobs.length} 本…` : `上传并上架${uploadFiles.length ? ` ${uploadFiles.length} 本` : ''}`}</button>
+        </fieldset>
+        {uploadJobs.length > 0 && <div className="mt-4 space-y-2" aria-live="polite">{uploadJobs.map((job, index) => <div key={`${job.file.name}-${index}`} data-upload-status={job.status} className="rounded-xl border border-[#e4e7ec] p-3 dark:border-white/10"><div className="flex items-center justify-between gap-3 text-xs"><span className="min-w-0 truncate font-semibold">{job.file.name}</span><span className={job.status === 'failed' ? 'text-[#b42318]' : 'text-[#667085]'}>{job.status === 'queued' ? '等待中' : job.status === 'uploading' ? `${job.progress}%` : job.status === 'done' ? '已完成' : '失败'}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eaecf0]"><div className={`h-full transition-[width] ${job.status === 'failed' ? 'bg-[#d92d20]' : 'bg-[#155eef]'}`} style={{ width: `${job.progress}%` }} /></div>{job.error && <p className="mt-1 text-xs text-[#b42318]">{job.error}</p>}</div>)}{uploadJobs.some((job) => job.status === 'failed') && <button type="button" disabled={uploading} onClick={retryFailedUploads} className="min-h-10 w-full rounded-xl border border-[#155eef] text-sm font-semibold text-[#155eef] disabled:opacity-50">重试失败项</button>}</div>}
+        <section className="mt-5 border-t border-[#e4e7ec] pt-4 dark:border-white/10"><h3 className="text-sm font-semibold">可复用标签</h3><div className="mt-2 flex gap-2"><input value={newTagName} maxLength={40} onChange={(event) => setNewTagName(event.target.value)} className={field} placeholder="例如：科幻小说" /><button type="button" disabled={pending || !newTagName.trim()} onClick={addTag} className="shrink-0 rounded-xl bg-[#101828] px-4 text-sm font-semibold text-white disabled:opacity-40">创建</button></div><div className="mt-3 flex flex-wrap gap-2">{tags.map((tag) => <span key={tag.id} className="inline-flex items-center gap-1 rounded-full bg-[#f2f4f7] px-3 py-1.5 text-xs dark:bg-white/10">{tag.name} · {tag.usageCount}<button type="button" onClick={() => removeTag(tag)} aria-label={`删除标签 ${tag.name}`} className="ml-1 text-[#b42318]">×</button></span>)}</div></section>
       </form>
-      <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">商店书目</h2><span className="text-xs text-[#667085]">{novels.reduce((total, novel) => total + novel.ownerCount, 0)} 份已兑换拥有</span></div>{novels.map((novel) => <NovelRow key={novel.id} novel={novel} onUpdated={(updated) => setNovels((items) => items.map((item) => item.id === updated.id ? updated : item))} onDeleted={(id) => setNovels((items) => items.filter((item) => item.id !== id))} />)}{!novels.length && <p className="rounded-2xl border border-dashed border-[#d0d5dd] p-10 text-center text-sm text-[#667085]">还没有上传小说。</p>}</section>
+      <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">商店书目</h2><span className="text-xs text-[#667085]">{novels.reduce((total, novel) => total + novel.ownerCount, 0)} 份已兑换拥有</span></div>{novels.map((novel) => <NovelRow key={novel.id} novel={novel} tags={tags} onUpdated={(updated) => setNovels((items) => items.map((item) => item.id === updated.id ? updated : item))} onDeleted={(id) => setNovels((items) => items.filter((item) => item.id !== id))} />)}{!novels.length && <p className="rounded-2xl border border-dashed border-[#d0d5dd] p-10 text-center text-sm text-[#667085]">还没有上传小说。</p>}</section>
     </div>}
 
     {tab === 'codes' && <div className="grid gap-6 xl:grid-cols-[440px_minmax(0,1fr)]"><form action={createCodes} className="self-start rounded-2xl border border-[#e4e7ec] bg-white p-5 dark:border-white/10 dark:bg-[#172033]"><h2 className="text-lg font-semibold">创建兑换码</h2><div className="mt-4 space-y-4"><label className="block text-sm font-medium">名称<input name="label" maxLength={120} placeholder="例如：秋季阅读礼包" className={`${field} mt-1.5`} /></label><div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setRewardType('novel')} className={`min-h-11 rounded-xl border font-semibold ${rewardType === 'novel' ? 'border-[#155eef] bg-[#eff4ff] text-[#155eef]' : 'border-[#d0d5dd]'}`}>图书组合</button><button type="button" onClick={() => setRewardType('membership')} className={`min-h-11 rounded-xl border font-semibold ${rewardType === 'membership' ? 'border-[#7f56d9] bg-[#f4f3ff] text-[#6941c6]' : 'border-[#d0d5dd]'}`}>会员</button></div>{rewardType === 'novel' ? <fieldset className="rounded-2xl border border-[#d0d5dd] p-3 dark:border-white/15"><div className="flex items-center justify-between"><legend className="text-sm font-semibold">兑换后直接加入阅读器</legend><span className="text-xs text-[#667085]">已选 {selectedNovelIds.length} 本</span></div><div className="mt-3 max-h-56 space-y-2 overflow-y-auto">{novels.filter((novel) => novel.enabled).map((novel) => <label key={novel.id} className="flex cursor-pointer items-center gap-3 rounded-xl bg-[#f9fafb] p-3 text-sm dark:bg-[#101828]"><input type="checkbox" checked={selectedNovelIds.includes(novel.id)} onChange={(event) => setSelectedNovelIds((ids) => event.target.checked ? [...ids, novel.id] : ids.filter((id) => id !== novel.id))} /><span className="min-w-0 flex-1 truncate font-medium">{novel.title}</span><span className="shrink-0 text-xs text-[#667085]">{novel.minimumPlan.toUpperCase()}+</span></label>)}</div><div className="mt-3 flex gap-2"><button type="button" onClick={() => setSelectedNovelIds(novels.filter((novel) => novel.enabled).slice(0, 50).map((novel) => novel.id))} className="text-xs font-semibold text-[#155eef]">全选上架图书</button><button type="button" onClick={() => setSelectedNovelIds([])} className="text-xs text-[#667085]">清空</button></div></fieldset> : <div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">会员等级<select value={planCode} onChange={(event) => setPlanCode(event.target.value as PlanCode)} className={`${field} mt-1.5`}>{PLAN_ORDER.slice(1).map((plan) => <option key={plan} value={plan}>{planLabel[plan]}</option>)}</select></label><label className="text-sm font-medium">有效天数<input name="membershipDays" type="number" min={1} max={3650} defaultValue={30} className={`${field} mt-1.5`} /></label></div>}<div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">生成数量<input name="quantity" type="number" min={1} max={200} defaultValue={1} className={`${field} mt-1.5`} /></label><label className="text-sm font-medium">每码人数<input name="usageLimit" type="number" min={1} max={1000000} defaultValue={1} className={`${field} mt-1.5`} /></label></div><label className="block text-sm font-medium">自定义码（可选，仅单个）<input name="customCode" maxLength={32} placeholder="留空则生成 12 位十六进制码" className={`${field} mt-1.5 font-mono uppercase`} /></label><div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">开始时间<input name="notBefore" type="datetime-local" className={`${field} mt-1.5`} /></label><label className="text-sm font-medium">结束时间<input name="expiresAt" type="datetime-local" className={`${field} mt-1.5`} /></label></div><button type="submit" disabled={pending || (rewardType === 'novel' && selectedNovelIds.length < 1)} className="min-h-11 w-full rounded-xl bg-[#7f56d9] px-4 text-sm font-semibold text-white disabled:opacity-50">{pending ? '正在创建…' : '创建兑换码'}</button></div>{createdCodes.length > 0 && <div id="created-codes" className="mt-5 rounded-2xl bg-[#101828] p-4 text-white"><div className="flex items-center justify-between"><strong className="text-sm">仅本次显示</strong><button type="button" onClick={() => navigator.clipboard.writeText(createdCodes.join('\n'))} className="text-xs text-[#84adff]">复制全部</button></div><pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap font-mono text-sm leading-7 text-[#d1e0ff]">{createdCodes.join('\n')}</pre></div>}</form><section className="space-y-3"><h2 className="text-lg font-semibold">最近兑换码</h2>{codes.map((code) => <article key={code.id} className="flex flex-col gap-3 rounded-2xl border border-[#e4e7ec] bg-white p-4 dark:border-white/10 dark:bg-[#172033] sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><strong className="font-mono">{code.codePrefix}••••••••</strong><p className="mt-1 text-sm text-[#667085]">{code.label || (code.rewardType === 'novel' ? '图书兑换码' : `${code.planCode?.toUpperCase()} 会员`)} · {code.redeemedCount}/{code.usageLimit} 人</p>{code.rewardType === 'novel' && <p className="mt-1 line-clamp-2 text-xs text-[#475467] dark:text-[#cbd5e1]">{code.novelTitles.join('、')}</p>}</div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${code.enabled ? 'bg-[#ecfdf3] text-[#027a48]' : 'bg-[#f2f4f7] text-[#667085]'}`}>{code.enabled ? '使用中' : '已停用'}</span><button type="button" onClick={() => toggleCode(code)} className="min-h-10 rounded-xl border border-[#d0d5dd] px-3 text-sm font-semibold">{code.enabled ? '停用' : '启用'}</button></article>)}</section></div>}

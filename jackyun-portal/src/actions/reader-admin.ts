@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
 import { formatRedemptionCode, isPlanCode, isValidCustomCode, normalizeRedemptionCode, parseShanghaiDateTime, type PlanCode } from '@/lib/redemption';
+import { parseNovelFile } from '@/lib/novel-import';
+import { splitNovelIntoChapters, type NovelChapter } from '@/lib/novel-reader';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -25,7 +27,10 @@ export interface AdminFeature {
 export interface AdminNovel {
   id: string; title: string; author: string; description: string; language: 'zh' | 'en'; minimumPlan: PlanCode;
   category: string; tags: string[]; originalFileName: string; fileSize: number; enabled: boolean; featured: boolean; publishedAt: string; ownerCount: number;
+  contentRevision: number; chaptersReady: boolean;
 }
+
+export interface AdminTag { id: string; name: string; usageCount: number; }
 
 export interface AdminCode {
   id: string; codePrefix: string; label: string; rewardType: 'novel' | 'membership'; novelId: string | null; novelIds: string[]; novelTitles: string[];
@@ -33,26 +38,79 @@ export interface AdminCode {
   usageLimit: number; redeemedCount: number; enabled: boolean; createdAt: string;
 }
 
-export async function getReaderAdminDashboard(): Promise<{ features: AdminFeature[]; novels: AdminNovel[]; codes: AdminCode[] }> {
+export async function getReaderAdminDashboard(): Promise<{ features: AdminFeature[]; novels: AdminNovel[]; codes: AdminCode[]; tags: AdminTag[] }> {
   const { admin } = await requireAdmin();
-  const [features, novels, codes, codeNovels, entitlements] = await Promise.all([
+  const [features, novels, codes, codeNovels, entitlements, tags, catalogTags] = await Promise.all([
     admin.from('app_features').select('*').order('key'),
     admin.from('novel_catalog').select('*').order('published_at', { ascending: false }),
     admin.from('redemption_codes').select('*').order('created_at', { ascending: false }).limit(300),
     admin.from('redemption_code_novels').select('code_id, novel_id, sort_order').order('sort_order'),
     admin.from('user_novel_entitlements').select('novel_id'),
+    admin.from('novel_tags').select('id, name').order('name'),
+    admin.from('novel_catalog_tags').select('tag_id'),
   ]);
-  if (features.error || novels.error || codes.error || codeNovels.error || entitlements.error) throw new Error(features.error?.message ?? novels.error?.message ?? codes.error?.message ?? codeNovels.error?.message ?? entitlements.error?.message ?? '读取管理数据失败。');
+  if (features.error || novels.error || codes.error || codeNovels.error || entitlements.error || tags.error || catalogTags.error) throw new Error(features.error?.message ?? novels.error?.message ?? codes.error?.message ?? codeNovels.error?.message ?? entitlements.error?.message ?? tags.error?.message ?? catalogTags.error?.message ?? '读取管理数据失败。');
   const novelTitles = new Map((novels.data ?? []).map((row) => [row.id, row.title]));
   const ownerCounts = new Map<string, number>();
   for (const row of entitlements.data ?? []) ownerCounts.set(row.novel_id, (ownerCounts.get(row.novel_id) ?? 0) + 1);
   const novelsByCode = new Map<string, string[]>();
   for (const row of codeNovels.data ?? []) novelsByCode.set(row.code_id, [...(novelsByCode.get(row.code_id) ?? []), row.novel_id]);
+  const tagUsage = new Map<string, number>();
+  for (const row of catalogTags.data ?? []) tagUsage.set(row.tag_id, (tagUsage.get(row.tag_id) ?? 0) + 1);
   return {
     features: (features.data ?? []).map((row) => ({ key: row.key, displayName: row.display_name, description: row.description, enabled: row.enabled, betaOnly: row.beta_only, minimumPlan: row.minimum_plan })),
-    novels: (novels.data ?? []).map((row) => ({ id: row.id, title: row.title, author: row.author, description: row.description, language: row.language, minimumPlan: row.minimum_plan, category: row.category ?? '未分类', tags: Array.isArray(row.tags) ? row.tags : [], originalFileName: row.original_file_name, fileSize: Number(row.file_size), enabled: row.enabled, featured: row.featured, publishedAt: row.published_at, ownerCount: ownerCounts.get(row.id) ?? 0 })),
+    novels: (novels.data ?? []).map((row) => ({ id: row.id, title: row.title, author: row.author, description: row.description, language: row.language, minimumPlan: row.minimum_plan, category: row.category ?? '未分类', tags: Array.isArray(row.tags) ? row.tags : [], originalFileName: row.original_file_name, fileSize: Number(row.file_size), enabled: row.enabled, featured: row.featured, publishedAt: row.published_at, ownerCount: ownerCounts.get(row.id) ?? 0, contentRevision: Number(row.content_revision ?? 1), chaptersReady: Boolean(row.chapters_ready) })),
     codes: (codes.data ?? []).map((row) => { const novelIds = novelsByCode.get(row.id) ?? (row.novel_id ? [row.novel_id] : []); return { id: row.id, codePrefix: row.code_prefix, label: row.label, rewardType: row.reward_type, novelId: row.novel_id, novelIds, novelTitles: novelIds.map((id) => novelTitles.get(id) ?? '已删除小说'), planCode: row.plan_code, membershipDays: row.membership_days, notBefore: row.not_before, expiresAt: row.expires_at, usageLimit: row.usage_limit, redeemedCount: row.redeemed_count, enabled: row.enabled, createdAt: row.created_at }; }),
+    tags: (tags.data ?? []).map((row) => ({ id: row.id, name: row.name, usageCount: tagUsage.get(row.id) ?? 0 })),
   };
+}
+
+export async function createNovelTag(name: string) {
+  const { admin } = await requireAdmin();
+  const cleanName = name.trim();
+  if (!cleanName || cleanName.length > 40) return { success: false, error: '标签名称须为 1–40 个字符。' };
+  const { data, error } = await admin.from('novel_tags').insert({ name: cleanName }).select('id, name').single();
+  if (error) return { success: false, error: error.code === '23505' ? '这个标签已经存在。' : error.message };
+  revalidatePath('/admin/content');
+  return { success: true, tag: { id: data.id, name: data.name, usageCount: 0 } satisfies AdminTag };
+}
+
+export async function deleteNovelTag(id: string) {
+  const { admin } = await requireAdmin();
+  if (!/^[0-9a-f-]{36}$/iu.test(id)) return { success: false, error: '标签参数无效。' };
+  const { error } = await admin.from('novel_tags').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin/content');
+  return { success: true };
+}
+
+export async function getAdminNovelChapters(id: string): Promise<{ success: boolean; chapters?: NovelChapter[]; error?: string }> {
+  const { admin } = await requireAdmin();
+  if (!/^[0-9a-f-]{36}$/iu.test(id)) return { success: false, error: '小说参数无效。' };
+  const { data: stored, error: storedError } = await admin.from('novel_catalog_chapters').select('chapter_index, title, content, character_count').eq('novel_id', id).order('chapter_index');
+  if (storedError) return { success: false, error: storedError.message };
+  if (stored?.length) return { success: true, chapters: stored.map((row) => ({ index: row.chapter_index, title: row.title, content: row.content, characterCount: row.character_count })) };
+  const { data: novel, error: novelError } = await admin.from('novel_catalog').select('storage_path, original_file_name').eq('id', id).maybeSingle();
+  if (novelError || !novel) return { success: false, error: novelError?.message ?? '小说不存在。' };
+  const { data: blob, error: downloadError } = await admin.storage.from('novel-files').download(novel.storage_path);
+  if (downloadError || !blob) return { success: false, error: downloadError?.message ?? '无法读取小说正文。' };
+  try {
+    const parsed = await parseNovelFile(new File([blob], novel.original_file_name), 'auto');
+    const chapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+    return chapters.length ? { success: true, chapters } : { success: false, error: '没有识别到可管理的章节。' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '章节识别失败。' };
+  }
+}
+
+export async function saveAdminNovelChapters(id: string, chapters: NovelChapter[]) {
+  const { admin } = await requireAdmin();
+  const normalized = chapters.map((chapter, index) => ({ index, title: chapter.title.trim(), content: chapter.content, characterCount: chapter.content.length }));
+  if (!/^[0-9a-f-]{36}$/iu.test(id) || normalized.length < 1 || normalized.length > 5000 || normalized.some((chapter) => !chapter.title || chapter.title.length > 200)) return { success: false, error: '章节须为 1–5000 个，标题须为 1–200 个字符。' };
+  const { data, error } = await admin.rpc('replace_novel_catalog_chapters', { p_novel_id: id, p_chapters: normalized });
+  if (error) return { success: false, error: error.message };
+  revalidatePath('/admin/content'); revalidatePath('/reading');
+  return { success: true, revision: Number(data) };
 }
 
 export async function updateFeatureAccess(input: { key: string; enabled: boolean; betaOnly: boolean; minimumPlan: string }) {
@@ -72,8 +130,10 @@ export async function updateCatalogNovel(input: { id: string; title: string; aut
   const category = input.category.trim() || '未分类';
   const tags = [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
   if (!/^[0-9a-f-]{36}$/iu.test(input.id) || !title || title.length > 160 || author.length > 120 || description.length > 1000 || category.length > 40 || !['zh', 'en'].includes(input.language) || !isPlanCode(input.minimumPlan)) return { success: false, error: '请检查书名、作者、简介、分类、标签、语言和套餐设置。' };
-  const { error } = await admin.from('novel_catalog').update({ title, author, description, category, tags, language: input.language, enabled: input.enabled, featured: input.featured, minimum_plan: input.minimumPlan, updated_at: new Date().toISOString() }).eq('id', input.id);
+  const { error } = await admin.from('novel_catalog').update({ title, author, description, category, language: input.language, enabled: input.enabled, featured: input.featured, minimum_plan: input.minimumPlan, updated_at: new Date().toISOString() }).eq('id', input.id);
   if (error) return { success: false, error: error.message };
+  const { error: tagError } = await admin.rpc('replace_novel_catalog_tags', { p_novel_id: input.id, p_tags: tags });
+  if (tagError) return { success: false, error: tagError.message };
   revalidatePath('/admin/content'); revalidatePath('/reading');
   return { success: true };
 }

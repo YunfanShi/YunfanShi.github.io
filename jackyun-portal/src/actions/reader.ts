@@ -33,6 +33,10 @@ export interface CatalogNovel {
   unlocked: boolean;
   downloadUrl: string | null;
   coverUrl: string | null;
+  contentRevision: number;
+  chaptersReady: boolean;
+  contentUpdatedAt: string;
+  coverUpdatedAt: string | null;
 }
 
 export interface ReaderBootstrap {
@@ -106,6 +110,8 @@ export async function getReaderBootstrap(): Promise<ReaderBootstrap> {
       language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name,
       fileSize: Number(row.file_size), featured: row.featured, publishedAt: row.published_at,
       owned, needsReaderImport: owned && !entitlementImportState.get(row.id), unlocked, downloadUrl: fileResult.data?.signedUrl ?? null, coverUrl: coverResult.data?.signedUrl ?? null,
+      contentRevision: Number(row.content_revision ?? 1), chaptersReady: Boolean(row.chapters_ready), contentUpdatedAt: row.content_updated_at ?? row.updated_at,
+      coverUpdatedAt: row.cover_updated_at ?? null,
     } satisfies CatalogNovel;
   }));
   return { signedIn, userId, plan, betaActive, features, catalog };

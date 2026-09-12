@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { acknowledgeCatalogNovelImport, type CatalogNovel, type ReaderBootstrap } from '@/actions/reader';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent } from '@/lib/ai-json';
@@ -15,6 +15,7 @@ import {
   type NovelBookmark,
   type NovelChapter,
   type NovelLanguage,
+  type NovelReadingMode,
 } from '@/lib/novel-reader';
 import { deleteNovelBook, getNovelChapter, listNovelBooks, listNovelChapterHeadings, listNovelChapters, replaceNovelChapters, saveNovelBook, updateNovelBook } from '@/lib/novel-storage';
 import { createClient } from '@/lib/supabase/client';
@@ -25,7 +26,7 @@ type SourceFilter = 'all' | 'local' | 'store';
 type Theme = 'paper' | 'sepia' | 'mint' | 'night';
 type Width = 'narrow' | 'medium' | 'wide';
 type Heading = Pick<NovelChapter, 'index' | 'title' | 'characterCount'>;
-type ReadingPosition = { chapterIndex: number; chapterProgress: number; scrollTop: number; anchorParagraph: number; anchorOffsetRatio: number; updatedAt: string };
+type ReadingPosition = { chapterIndex: number; chapterProgress: number; scrollTop: number; anchorParagraph: number; anchorOffsetRatio: number; updatedAt: string; readingMode?: NovelReadingMode };
 type CloudRow = { book_id: string; metadata: NovelBook; storage_path: string; content_hash: string; updated_at: string };
 
 const POSITION_KEY_PREFIX = 'jackyun_novel_position_v2:';
@@ -70,22 +71,38 @@ function coverFileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('无法缓存商店封面。'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function cloudSafeBook(book: NovelBook): NovelBook {
+  const metadata = { ...book };
+  delete metadata.coverDataUrl;
+  return metadata;
+}
+
 function cloudPath(userId: string, bookId: string): string { return `users/${userId}/${bookId}.json`; }
 
 async function uploadCloudBook(userId: string, book: NovelBook, chapters: NovelChapter[]) {
   const supabase = createClient();
   const path = cloudPath(userId, book.id);
-  const blob = new Blob([JSON.stringify({ version: 1, book, chapters })], { type: 'application/json' });
+  const metadata = cloudSafeBook(book);
+  const blob = new Blob([JSON.stringify({ version: 1, book: metadata, chapters })], { type: 'application/json' });
   const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   const contentHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   const upload = await supabase.storage.from('novel-files').upload(path, blob, { contentType: 'application/json', upsert: true });
   if (upload.error) throw upload.error;
-  const { error } = await supabase.from('reader_books').upsert({ user_id: userId, book_id: book.id, metadata: book, storage_path: path, content_hash: contentHash, updated_at: new Date().toISOString() }, { onConflict: 'user_id,book_id' });
+  const { error } = await supabase.from('reader_books').upsert({ user_id: userId, book_id: book.id, metadata, storage_path: path, content_hash: contentHash, updated_at: new Date().toISOString() }, { onConflict: 'user_id,book_id' });
   if (error) throw error;
 }
 
 async function updateCloudMetadata(userId: string, book: NovelBook) {
-  const { error } = await createClient().from('reader_books').update({ metadata: book, updated_at: new Date().toISOString() }).eq('user_id', userId).eq('book_id', book.id);
+  const { error } = await createClient().from('reader_books').update({ metadata: cloudSafeBook(book), updated_at: new Date().toISOString() }).eq('user_id', userId).eq('book_id', book.id);
   if (error) throw error;
 }
 
@@ -99,12 +116,34 @@ async function downloadCloudBook(row: CloudRow): Promise<NovelBook | null> {
   return book;
 }
 
+async function downloadCatalogChapters(novel: CatalogNovel): Promise<NovelChapter[]> {
+  if (novel.chaptersReady) {
+    const response = await fetch(`/api/reader/novels/${novel.id}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error((await response.json() as { error?: string }).error ?? '托管章节下载失败。');
+    const payload = await response.json() as { chapters?: NovelChapter[] };
+    if (payload.chapters?.length) return payload.chapters;
+  }
+  if (!novel.downloadUrl) throw new Error('小说下载链接不可用。');
+  const response = await fetch(novel.downloadUrl);
+  if (!response.ok) throw new Error('下载链接已失效，请刷新页面后重试。');
+  const parsed = await parseNovelFile(new File([await response.blob()], novel.originalFileName), 'auto');
+  return parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+}
+
+async function downloadCatalogCover(novel: CatalogNovel): Promise<string | undefined> {
+  if (!novel.coverUrl) return undefined;
+  const response = await fetch(novel.coverUrl);
+  if (!response.ok) throw new Error('封面下载失败。');
+  return blobToDataUrl(await response.blob());
+}
+
 export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAiStudio: () => void; bootstrap: ReaderBootstrap }) {
   const [view, setView] = useState<View>('library');
   const [books, setBooks] = useState<NovelBook[]>([]);
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<ShelfFilter>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [tagFilter, setTagFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'recent' | 'title' | 'progress' | 'custom'>('recent');
   const [message, setMessage] = useState('');
@@ -123,6 +162,10 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   const [fontSize, setFontSize] = useState(20);
   const [lineHeight, setLineHeight] = useState(1.95);
   const [contentWidth, setContentWidth] = useState<Width>('medium');
+  const [readingMode, setReadingMode] = useState<NovelReadingMode>('scroll');
+  const [readerWidth, setReaderWidth] = useState(720);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
   const [selectedWord, setSelectedWord] = useState<WordNote | null>(null);
   const [wordLoading, setWordLoading] = useState(false);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
@@ -142,26 +185,26 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   const readerRef = useRef<HTMLDivElement>(null);
   const saveTimerRef = useRef<number | null>(null);
   const restorePositionRef = useRef<ReadingPosition | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const moveChapterRef = useRef<(offset: number) => void>(() => undefined);
+  const movePageRef = useRef<(offset: number) => void>(() => undefined);
   const activeBook = books.find((book) => book.id === activeId) ?? null;
   const storeEnabled = bootstrap.features.novel_store?.allowed === true;
   const storeIds = useMemo(() => new Set(books.filter((book) => book.source === 'store' || book.id.startsWith('catalog-')).map((book) => book.catalogNovelId ?? book.id.replace(/^catalog-/u, ''))), [books]);
 
   const materializeCatalogNovel = useCallback(async (novel: CatalogNovel) => {
-    if (!novel.downloadUrl) throw new Error('小说下载链接不可用。');
-    const response = await fetch(novel.downloadUrl);
-    if (!response.ok) throw new Error('下载链接已失效，请刷新页面后重试。');
-    const file = new File([await response.blob()], novel.originalFileName);
-    const parsed = await parseNovelFile(file, 'auto');
-    const chapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+    const chapters = await downloadCatalogChapters(novel);
     if (!chapters.length) throw new Error('没有识别到可阅读的正文。');
+    const coverDataUrl = await downloadCatalogCover(novel).catch(() => undefined);
     const now = new Date().toISOString();
     const book: NovelBook = {
       id: `catalog-${novel.id}`, title: novel.title, author: novel.author, language: novel.language,
       chapterCount: chapters.length, characterCount: chapters.reduce((total, item) => total + item.characterCount, 0),
       importedAt: now, lastReadAt: null, currentChapter: 0, chapterProgress: 0, chapterScrollTop: 0,
       anchorParagraph: -1, anchorOffsetRatio: 0, positionUpdatedAt: null, overallProgress: 0, readingSeconds: 0,
-      sourceFileName: novel.originalFileName, description: novel.description, shelfOrder: -Date.now(), bookmarks: [],
-      source: 'store', catalogNovelId: novel.id,
+      sourceFileName: novel.originalFileName, description: novel.description, category: novel.category, tags: novel.tags, coverDataUrl, shelfOrder: -Date.now(), bookmarks: [],
+      source: 'store', catalogNovelId: novel.id, catalogRevision: novel.contentRevision, catalogUpdatedAt: novel.contentUpdatedAt,
+      catalogCoverUpdatedAt: novel.coverUpdatedAt, readingMode: 'scroll',
     };
     await saveNovelBook(book, chapters);
     if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, book, chapters).catch(() => undefined);
@@ -194,11 +237,48 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     }
     const cloudIds = new Set(rows.map((row) => row.book_id));
     for (const book of localBooks) if (!cloudIds.has(book.id)) await uploadCloudBook(bootstrap.userId, book, await listNovelChapters(book.id));
+    const catalogById = new Map(bootstrap.catalog.map((novel) => [novel.id, novel]));
+    for (let index = 0; index < merged.length; index += 1) {
+      const book = merged[index];
+      const catalogId = book.catalogNovelId ?? (book.id.startsWith('catalog-') ? book.id.replace(/^catalog-/u, '') : null);
+      const novel = catalogId ? catalogById.get(catalogId) : undefined;
+      if (!novel) continue;
+      let metadataChanged = book.title !== novel.title || book.author !== novel.author || book.description !== novel.description || book.language !== novel.language || book.category !== novel.category || JSON.stringify(book.tags ?? []) !== JSON.stringify(novel.tags);
+      let updated: NovelBook = {
+        ...book, title: novel.title, author: novel.author, description: novel.description, language: novel.language,
+        category: novel.category, tags: novel.tags, catalogUpdatedAt: novel.contentUpdatedAt,
+      };
+      let contentChanged = false;
+      if (novel.contentRevision > (book.catalogRevision ?? 0)) {
+        const previousHeadings = await listNovelChapterHeadings(book.id);
+        const previousTitle = previousHeadings.find((heading) => heading.index === book.currentChapter)?.title;
+        const nextChapters = await downloadCatalogChapters(novel);
+        if (nextChapters.length) {
+          await replaceNovelChapters(book.id, nextChapters);
+          const matchedIndex = previousTitle ? nextChapters.findIndex((item) => item.title === previousTitle) : -1;
+          const currentChapter = matchedIndex >= 0 ? matchedIndex : Math.min(book.currentChapter, nextChapters.length - 1);
+          updated = { ...updated, currentChapter, chapterCount: nextChapters.length, characterCount: nextChapters.reduce((total, item) => total + item.characterCount, 0), catalogRevision: novel.contentRevision };
+          contentChanged = true;
+        }
+      }
+      if (novel.coverUpdatedAt !== book.catalogCoverUpdatedAt) {
+        try {
+          updated.coverDataUrl = await downloadCatalogCover(novel);
+          updated.catalogCoverUpdatedAt = novel.coverUpdatedAt;
+          metadataChanged = true;
+        } catch { /* Keep the previous cover timestamp so a later sync retries. */ }
+      }
+      if (contentChanged || metadataChanged) {
+        await updateNovelBook(updated);
+        if (contentChanged) await uploadCloudBook(bootstrap.userId, updated, await listNovelChapters(updated.id)).catch(() => undefined);
+        else await updateCloudMetadata(bootstrap.userId, updated).catch(() => undefined);
+        merged[index] = updated;
+      }
+    }
     const presentCatalogIds = new Set(merged.filter((book) => book.source === 'store' || book.id.startsWith('catalog-')).map((book) => book.catalogNovelId ?? book.id.replace(/^catalog-/u, '')));
     for (const novel of bootstrap.catalog) {
       if (!novel.needsReaderImport) continue;
       if (presentCatalogIds.has(novel.id)) { await acknowledgeCatalogNovelImport(novel.id); continue; }
-      if (!novel.downloadUrl) continue;
       try { const book = await materializeCatalogNovel(novel); merged.unshift(book); presentCatalogIds.add(novel.id); await acknowledgeCatalogNovelImport(novel.id); } catch { /* A later sync can retry an unavailable signed URL. */ }
     }
     return merged;
@@ -219,10 +299,10 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     return () => { cancelled = true; };
   }, [bootstrap.userId, syncLibrary]);
 
-  async function persistBook(book: NovelBook) {
+  const persistBook = useCallback(async (book: NovelBook) => {
     await updateNovelBook(book);
     if (bootstrap.userId) await updateCloudMetadata(bootstrap.userId, book).catch(() => undefined);
-  }
+  }, [bootstrap.userId]);
 
   useEffect(() => {
     if (view !== 'reader' || !activeId) return;
@@ -235,15 +315,18 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       }));
     }, 10_000);
     return () => window.clearInterval(interval);
-  }, [activeId, view]);
+  }, [activeId, persistBook, view]);
 
   const visibleBooks = useMemo(() => books.filter((book) => {
     const matchesFilter = filter === 'all' || book.language === filter;
     const source = book.source ?? (book.id.startsWith('catalog-') ? 'store' : 'local');
     const matchesSource = sourceFilter === 'all' || source === sourceFilter;
-    const matchesQuery = `${book.title} ${book.author}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
-    return matchesFilter && matchesSource && matchesQuery;
-  }).sort((left, right) => sort === 'title' ? left.title.localeCompare(right.title) : sort === 'progress' ? right.overallProgress - left.overallProgress : sort === 'custom' ? (left.shelfOrder ?? -new Date(left.importedAt).getTime()) - (right.shelfOrder ?? -new Date(right.importedAt).getTime()) : (right.lastReadAt ?? right.importedAt).localeCompare(left.lastReadAt ?? left.importedAt)), [books, filter, query, sort, sourceFilter]);
+    const matchesTag = tagFilter === 'all' || book.category === tagFilter || book.tags?.includes(tagFilter);
+    const matchesQuery = `${book.title} ${book.author} ${book.description ?? ''} ${book.category ?? ''} ${(book.tags ?? []).join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+    return matchesFilter && matchesSource && matchesTag && matchesQuery;
+  }).sort((left, right) => sort === 'title' ? left.title.localeCompare(right.title) : sort === 'progress' ? right.overallProgress - left.overallProgress : sort === 'custom' ? (left.shelfOrder ?? -new Date(left.importedAt).getTime()) - (right.shelfOrder ?? -new Date(right.importedAt).getTime()) : (right.lastReadAt ?? right.importedAt).localeCompare(left.lastReadAt ?? left.importedAt)), [books, filter, query, sort, sourceFilter, tagFilter]);
+
+  const shelfTags = useMemo(() => Array.from(new Set(books.filter((book) => filter === 'all' || book.language === filter).flatMap((book) => [book.category, ...(book.tags ?? [])].filter((value): value is string => Boolean(value))))).sort((left, right) => left.localeCompare(right)), [books, filter]);
 
   const shelves = filter === 'all'
     ? [{ language: 'zh' as const, title: '中文书架', books: visibleBooks.filter((book) => book.language === 'zh') }, { language: 'en' as const, title: '英文书架', books: visibleBooks.filter((book) => book.language === 'en') }]
@@ -260,16 +343,22 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
           anchorParagraph: Number.isInteger(value.anchorParagraph) ? Number(value.anchorParagraph) : (book.anchorParagraph ?? -1),
           anchorOffsetRatio: Number.isFinite(value.anchorOffsetRatio) ? Math.min(1, Math.max(0, Number(value.anchorOffsetRatio))) : (book.anchorOffsetRatio ?? 0),
           updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : (book.positionUpdatedAt ?? book.lastReadAt ?? book.importedAt),
+          readingMode: value.readingMode === 'paged' ? 'paged' : (book.readingMode ?? 'scroll'),
         };
       }
     } catch { /* Fall back to the IndexedDB metadata. */ }
-    return { chapterIndex: book.currentChapter, chapterProgress: book.chapterProgress, scrollTop: book.chapterScrollTop ?? 0, anchorParagraph: book.anchorParagraph ?? -1, anchorOffsetRatio: book.anchorOffsetRatio ?? 0, updatedAt: book.positionUpdatedAt ?? book.lastReadAt ?? book.importedAt };
+    return { chapterIndex: book.currentChapter, chapterProgress: book.chapterProgress, scrollTop: book.chapterScrollTop ?? 0, anchorParagraph: book.anchorParagraph ?? -1, anchorOffsetRatio: book.anchorOffsetRatio ?? 0, updatedAt: book.positionUpdatedAt ?? book.lastReadAt ?? book.importedAt, readingMode: book.readingMode ?? 'scroll' };
   }
 
   function restoreReaderPosition() {
     const reader = readerRef.current;
     const position = restorePositionRef.current;
     if (!reader || !position) return;
+    if ((position.readingMode ?? readingMode) === 'paged') {
+      reader.scrollLeft = position.chapterProgress * Math.max(0, reader.scrollWidth - reader.clientWidth);
+      updatePageStatus(reader);
+      return;
+    }
     const anchor = position.anchorParagraph >= 0 ? reader.querySelector<HTMLElement>(`[data-reader-paragraph="${position.anchorParagraph}"]`) : null;
     if (anchor) {
       const readerTop = reader.getBoundingClientRect().top;
@@ -295,6 +384,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       if (!target) throw new Error('没有找到保存的章节正文。');
       const resumedBook = { ...book, currentChapter: position.chapterIndex, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: position.updatedAt, overallProgress: calculateNovelProgressByCharacters(position.chapterIndex, position.chapterProgress, chapterHeadings.map((item) => item.characterCount)) };
       restorePositionRef.current = position;
+      setReadingMode(position.readingMode ?? book.readingMode ?? 'scroll');
       setActiveId(book.id);
       setBooks((items) => items.map((item) => item.id === book.id ? resumedBook : item));
       setHeadings(chapterHeadings);
@@ -313,7 +403,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     const nextChapter = await getNovelChapter(activeBook.id, index);
     if (!nextChapter) return;
     const now = new Date().toISOString();
-    const position = requestedPosition ?? { chapterIndex: index, chapterProgress: restoreRatio, scrollTop: 0, anchorParagraph: -1, anchorOffsetRatio: 0, updatedAt: now };
+    const position = requestedPosition ?? { chapterIndex: index, chapterProgress: restoreRatio, scrollTop: 0, anchorParagraph: -1, anchorOffsetRatio: 0, updatedAt: now, readingMode };
     restorePositionRef.current = position;
     setChapter(nextChapter);
     setSelectedWord(null);
@@ -329,24 +419,71 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     await loadChapter(chapter.index + offset, offset < 0 ? 1 : 0);
   }
 
+  function updatePageStatus(reader = readerRef.current) {
+    if (!reader || readingMode !== 'paged') { setPageIndex(0); setPageCount(1); return; }
+    const count = Math.max(1, Math.ceil(reader.scrollWidth / Math.max(1, reader.clientWidth)));
+    setPageCount(count);
+    setPageIndex(Math.min(count - 1, Math.round(reader.scrollLeft / Math.max(1, reader.clientWidth))));
+  }
+
+  async function movePage(offset: number) {
+    const reader = readerRef.current;
+    if (!reader || !chapter) return;
+    const current = Math.round(reader.scrollLeft / Math.max(1, reader.clientWidth));
+    const count = Math.max(1, Math.ceil(reader.scrollWidth / Math.max(1, reader.clientWidth)));
+    const target = current + offset;
+    if (target < 0) { await moveChapter(-1); return; }
+    if (target >= count) { await moveChapter(1); return; }
+    reader.scrollTo({ left: target * reader.clientWidth, behavior: 'smooth' });
+  }
+  useEffect(() => {
+    moveChapterRef.current = (offset) => { void moveChapter(offset); };
+    movePageRef.current = (offset) => { void movePage(offset); };
+  });
+
+  function changeReadingMode(mode: NovelReadingMode) {
+    if (!activeBook || mode === readingMode) return;
+    const currentProgress = captureReadingPosition()?.chapterProgress ?? activeBook.chapterProgress;
+    const now = new Date().toISOString();
+    const next = { ...activeBook, readingMode: mode, chapterProgress: currentProgress, positionUpdatedAt: now };
+    restorePositionRef.current = { chapterIndex: chapter?.index ?? next.currentChapter, chapterProgress: currentProgress, scrollTop: 0, anchorParagraph: -1, anchorOffsetRatio: 0, updatedAt: now, readingMode: mode };
+    setReadingMode(mode); setBooks((items) => items.map((book) => book.id === next.id ? next : book)); void persistBook(next);
+    requestAnimationFrame(() => requestAnimationFrame(restoreReaderPosition));
+  }
+
+  useEffect(() => {
+    const reader = readerRef.current;
+    if (view !== 'reader' || !reader) return;
+    const refresh = () => {
+      setReaderWidth(reader.clientWidth);
+      if (readingMode !== 'paged') { setPageIndex(0); setPageCount(1); return; }
+      const count = Math.max(1, Math.ceil(reader.scrollWidth / Math.max(1, reader.clientWidth)));
+      setPageCount(count); setPageIndex(Math.min(count - 1, Math.round(reader.scrollLeft / Math.max(1, reader.clientWidth))));
+    };
+    const observer = new ResizeObserver(() => requestAnimationFrame(refresh));
+    observer.observe(reader); refresh();
+    return () => observer.disconnect();
+  }, [readingMode, view]);
+
   // Alt + ← / → mirrors the chapter navigation used by mature desktop readers.
   useEffect(() => {
     if (view !== 'reader') return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select')) return;
-      if (event.key === 'ArrowLeft' && event.altKey) void moveChapter(-1);
-      if (event.key === 'ArrowRight' && event.altKey) void moveChapter(1);
+      if (event.key === 'ArrowLeft' && (event.altKey || readingMode === 'paged')) { event.preventDefault(); (readingMode === 'paged' ? movePageRef : moveChapterRef).current(-1); }
+      if (event.key === 'ArrowRight' && (event.altKey || readingMode === 'paged')) { event.preventDefault(); (readingMode === 'paged' ? movePageRef : moveChapterRef).current(1); }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }, [readingMode, view]);
 
   function captureReadingPosition(): ReadingPosition | null {
     const reader = readerRef.current;
     if (!reader || !chapter) return null;
-    const maximum = Math.max(0, reader.scrollHeight - reader.clientHeight);
-    const chapterProgress = maximum ? Math.min(1, Math.max(0, reader.scrollTop / maximum)) : 1;
+    const maximum = readingMode === 'paged' ? Math.max(0, reader.scrollWidth - reader.clientWidth) : Math.max(0, reader.scrollHeight - reader.clientHeight);
+    const chapterProgress = maximum ? Math.min(1, Math.max(0, (readingMode === 'paged' ? reader.scrollLeft : reader.scrollTop) / maximum)) : 1;
+    if (readingMode === 'paged') return { chapterIndex: chapter.index, chapterProgress, scrollTop: 0, anchorParagraph: -1, anchorOffsetRatio: 0, updatedAt: new Date().toISOString(), readingMode };
     const readerTop = reader.getBoundingClientRect().top;
     const paragraphs = Array.from(reader.querySelectorAll<HTMLElement>('[data-reader-paragraph]'));
     const firstParagraph = paragraphs[0];
@@ -354,7 +491,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     const anchor = reader.scrollTop + 2 >= firstParagraphTop ? paragraphs.find((item) => item.getBoundingClientRect().bottom > readerTop + 1) : null;
     const anchorParagraph = anchor ? Number(anchor.dataset.readerParagraph) : -1;
     const anchorOffsetRatio = anchor?.offsetHeight ? Math.min(1, Math.max(0, (readerTop - anchor.getBoundingClientRect().top) / anchor.offsetHeight)) : 0;
-    return { chapterIndex: chapter.index, chapterProgress, scrollTop: reader.scrollTop, anchorParagraph, anchorOffsetRatio, updatedAt: new Date().toISOString() };
+    return { chapterIndex: chapter.index, chapterProgress, scrollTop: reader.scrollTop, anchorParagraph, anchorOffsetRatio, updatedAt: new Date().toISOString(), readingMode };
   }
 
   function persistPosition() {
@@ -374,6 +511,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   }
 
   function schedulePositionSave() {
+    updatePageStatus();
     if (activeBook) {
       const position = captureReadingPosition();
       if (position) try { localStorage.setItem(`${POSITION_KEY_PREFIX}${activeBook.id}`, JSON.stringify(position)); } catch { /* Ignore emergency bookmark failures. */ }
@@ -382,12 +520,22 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     saveTimerRef.current = window.setTimeout(() => persistPosition(), 450);
   }
 
+  function onReaderTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || readingMode !== 'paged' || window.getSelection()?.toString()) return;
+    const touch = event.changedTouches[0];
+    const horizontal = touch.clientX - start.x;
+    const vertical = touch.clientY - start.y;
+    if (Math.abs(horizontal) >= 56 && Math.abs(horizontal) > Math.abs(vertical) * 1.35) void movePage(horizontal < 0 ? 1 : -1);
+  }
+
   function addBookmark() {
     if (!activeBook || !chapter) return;
     const position = captureReadingPosition();
     if (!position) return;
     const bookmark: NovelBookmark = {
-      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `bookmark-${Date.now()}`,
+      id: crypto.randomUUID(),
       chapterIndex: chapter.index,
       paragraphIndex: position.anchorParagraph,
       offsetRatio: position.anchorOffsetRatio,
@@ -644,6 +792,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
         <button type="button" onClick={() => setFontSize((size) => Math.min(34, size + 1))} className="grid h-9 w-9 place-items-center rounded-lg border border-black/10 font-serif">A+</button>
         <button type="button" onClick={() => setLineHeight((value) => value >= 2.4 ? 1.5 : Number((value + 0.15).toFixed(2)))} className="min-h-9 rounded-lg border border-black/10 px-2 text-xs font-bold">行距 {lineHeight}</button>
         <select value={contentWidth} onChange={(event) => setContentWidth(event.target.value as Width)} aria-label="正文宽度" className="h-9 rounded-lg border border-black/10 bg-transparent px-2 text-xs font-bold"><option value="narrow">窄栏</option><option value="medium">标准</option><option value="wide">宽栏</option></select>
+        <div className="flex rounded-lg border border-black/10 p-0.5"><button type="button" onClick={() => changeReadingMode('scroll')} className={`min-h-8 rounded-md px-2 text-xs font-bold ${readingMode === 'scroll' ? 'bg-[#0f766e] text-white' : ''}`}>滚动</button><button type="button" onClick={() => changeReadingMode('paged')} className={`min-h-8 rounded-md px-2 text-xs font-bold ${readingMode === 'paged' ? 'bg-[#0f766e] text-white' : ''}`}>翻页</button></div>
         <div className="flex gap-1">{(['paper', 'sepia', 'mint', 'night'] as Theme[]).map((item) => <button key={item} type="button" onClick={() => setTheme(item)} aria-label={`${item} 主题`} className={`h-7 w-7 rounded-full border-2 ${themeClasses[item].split(' ')[0]} ${theme === item ? 'border-[#06b6d4]' : 'border-black/20'}`} />)}</div>
         <button type="button" onClick={speakCurrentChapter} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-black/5" aria-label="朗读本章"><span className="material-icons-round">volume_up</span></button>
         </div>
@@ -654,13 +803,14 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
           {(activeBook.bookmarks ?? []).length > 0 && <section className="mb-4 border-b border-black/10 pb-3"><p className="mb-2 text-xs font-bold uppercase tracking-wider opacity-60">书签 · {activeBook.bookmarks?.length}</p><div className="space-y-1">{activeBook.bookmarks?.map((bookmark) => <div key={bookmark.id} className="flex items-center gap-1"><button type="button" onClick={() => void openBookmark(bookmark)} className="min-w-0 flex-1 rounded-lg px-2 py-2 text-left text-xs hover:bg-black/5"><span className="line-clamp-2">{bookmark.label}</span></button><button type="button" onClick={() => removeBookmark(bookmark.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg hover:bg-black/5" aria-label={`删除书签 ${bookmark.label}`}><span className="material-icons-round text-base">close</span></button></div>)}</div></section>}
           <div className="space-y-1">{filteredHeadings.map((item) => <button type="button" key={item.index} onClick={() => void loadChapter(item.index)} className={`w-full rounded-xl px-3 py-2.5 text-left text-sm leading-5 ${item.index === chapter.index ? 'bg-[#0f766e] font-bold text-white' : 'hover:bg-black/5'}`}><span className="line-clamp-2">{item.title}</span></button>)}</div>
         </aside>}
-        <main ref={readerRef} onScroll={schedulePositionSave} className="min-w-0 flex-1 overflow-y-auto scroll-smooth">
-          <article className={`mx-auto px-6 py-12 sm:px-10 sm:py-16 ${widthClasses[contentWidth]}`}>
+        <main ref={readerRef} onScroll={schedulePositionSave} onTouchStart={(event) => { const touch = event.touches[0]; touchStartRef.current = { x: touch.clientX, y: touch.clientY }; }} onTouchEnd={onReaderTouchEnd} className={`min-w-0 flex-1 scroll-smooth ${readingMode === 'paged' ? 'overflow-x-auto overflow-y-hidden snap-x' : 'overflow-y-auto'}`}>
+          <article className={readingMode === 'paged' ? 'h-full max-w-none overflow-visible px-10 py-10' : `mx-auto px-6 py-12 sm:px-10 sm:py-16 ${widthClasses[contentWidth]}`} style={readingMode === 'paged' ? { columnWidth: `${Math.max(280, readerWidth - 80)}px`, columnGap: '80px', columnFill: 'auto' } : undefined}>
             <p className="text-center text-xs font-bold uppercase tracking-[.16em] opacity-50">第 {chapter.index + 1} / {activeBook.chapterCount} 章</p>
             <h1 className="mt-3 text-center font-serif text-3xl font-bold leading-tight sm:text-4xl">{chapter.title}</h1>
             <div className="mt-10 font-serif" style={{ fontSize, lineHeight }} lang={activeBook.language === 'zh' ? 'zh-CN' : 'en'}>{chapter.content.split(/\n\s*\n/u).map((paragraph, index) => <p key={index} data-reader-paragraph={index} className={`mb-[1.25em] ${activeBook.language === 'zh' ? 'text-justify indent-[2em]' : ''}`}>{activeBook.language === 'en' ? tokens(paragraph).map((token, tokenIndex) => /^[A-Za-z]/.test(token) ? <button type="button" key={tokenIndex} onClick={() => void lookupWord(token, paragraph)} className="rounded px-px text-inherit underline-offset-4 hover:bg-[#facc15]/35 hover:underline">{token}</button> : <span key={tokenIndex}>{token}</span>) : paragraph}</p>)}</div>
             <nav className="mt-16 grid grid-cols-2 gap-3 border-t border-black/10 pt-8"><button type="button" disabled={chapter.index === 0} onClick={() => void moveChapter(-1)} className="min-h-12 rounded-xl border border-black/15 font-bold disabled:opacity-30">← 上一章</button><button type="button" disabled={chapter.index >= activeBook.chapterCount - 1} onClick={() => void moveChapter(1)} className="min-h-12 rounded-xl bg-[#0f766e] font-bold text-white disabled:opacity-30">下一章 →</button></nav>
           </article>
+          {readingMode === 'paged' && <div className="pointer-events-none sticky bottom-3 left-0 flex w-[calc(100vw-2rem)] max-w-full items-center justify-center gap-3"><button type="button" onClick={() => void movePage(-1)} className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-black/10 bg-white/85 text-[#101828] shadow-lg backdrop-blur" aria-label="上一页"><span className="material-icons-round">chevron_left</span></button><span className="rounded-full bg-black/65 px-3 py-1 text-xs font-bold text-white">{pageIndex + 1} / {pageCount}</span><button type="button" onClick={() => void movePage(1)} className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-black/10 bg-white/85 text-[#101828] shadow-lg backdrop-blur" aria-label="下一页"><span className="material-icons-round">chevron_right</span></button></div>}
         </main>
         {activeBook.language === 'en' && selectedWord && <aside className="w-72 shrink-0 overflow-y-auto border-l border-black/10 p-5 max-xl:absolute max-xl:right-4 max-xl:top-20 max-xl:z-20 max-xl:rounded-2xl max-xl:border max-xl:bg-inherit max-xl:shadow-2xl"><div className="flex items-start justify-between"><strong className="font-serif text-2xl">{selectedWord.word}</strong><button type="button" onClick={() => setSelectedWord(null)} aria-label="关闭释义"><span className="material-icons-round">close</span></button></div><p className="mt-1 text-xs font-bold uppercase text-[#0f766e]">{selectedWord.phonetic} · {selectedWord.partOfSpeech}</p><p className="mt-4 text-xl font-bold">{selectedWord.translation}</p><p className="mt-3 text-sm leading-6 opacity-75">{selectedWord.definition}</p><p className="mt-4 rounded-xl bg-black/5 p-3 text-sm italic leading-6">{selectedWord.example}</p>{wordLoading && <p className="mt-3 text-xs">查询中…</p>}</aside>}
       </div>
@@ -684,6 +834,8 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
         return <article key={novel.id} className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="h-44 bg-[linear-gradient(135deg,#134e4a,#0e7490)] bg-cover bg-center" style={novel.coverUrl ? { backgroundImage: `url(${novel.coverUrl})` } : undefined} /><div className="p-5"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">{novel.minimumPlan.toUpperCase()}+</span><div className="flex gap-2">{novel.owned && <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-xs font-bold text-[#155eef]">已拥有</span>}{novel.featured && <span className="rounded-full bg-[#fffaeb] px-2.5 py-1 text-xs font-bold text-[#b45309]">精选</span>}</div></div><h3 className="mt-4 font-serif text-xl font-bold">{novel.title}</h3><p className="mt-1 text-sm text-[var(--muted-foreground)]">{novel.author || '未知作者'} · {novel.category} · {novel.tags.join('、') || '无标签'}</p><button type="button" onClick={() => setDetailNovel(novel)} className="mt-2 text-left text-xs font-bold text-[#0f766e]">查看详细介绍</button><p className="mt-3 line-clamp-3 min-h-15 text-sm leading-5 text-[var(--muted-foreground)]">{novel.description || '暂无简介'}</p><button type="button" disabled={!novel.unlocked || added || importing} onClick={() => void addFromStore(novel)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white disabled:bg-[#98a2b3]">{added ? '已在阅读器' : novel.owned ? '已拥有 · 加入阅读器' : novel.unlocked ? '加入阅读器' : `需要 ${novel.minimumPlan.toUpperCase()} 会员`}</button></div></article>;
       })}</div>}
     </section>}
+
+    {view === 'library' && <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3"><select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} aria-label="分类或标签" className="min-h-11 min-w-44 flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm font-bold"><option value="all">全部分类与标签</option>{shelfTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}</select><select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as SourceFilter)} aria-label="图书来源" className="min-h-11 min-w-36 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm font-bold"><option value="all">全部来源</option><option value="local">本地导入</option><option value="store">商店图书</option></select></div>}
 
     {detailNovel && <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"><div role="dialog" aria-modal="true" className="max-h-[80vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold">{detailNovel.title}</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">{detailNovel.author || '未知作者'} · {detailNovel.category}</p></div><button type="button" onClick={() => setDetailNovel(null)} aria-label="关闭详细介绍"><span className="material-icons-round">close</span></button></div><div className="mt-4 flex flex-wrap gap-2">{detailNovel.tags.map((tag) => <span key={tag} className="rounded-full bg-[#ecfdf5] px-3 py-1 text-xs font-bold text-[#047857]">{tag}</span>)}</div><p className="mt-5 whitespace-pre-wrap text-sm leading-7">{detailNovel.description || '暂无简介'}</p></div></div>}
     {view === 'edit' && <section className="space-y-5">
@@ -717,7 +869,6 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       <button type="button" onClick={() => void importBooks()} disabled={!files.length || importing} className="mt-6 min-h-13 w-full rounded-2xl bg-[#0f766e] px-5 font-bold text-white disabled:opacity-40">{importing ? `正在逐本导入，共 ${files.length} 本…` : `导入 ${files.length || ''} 本并建立目录`}</button>
     </section>}
 
-    {view === 'library' && <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2">{([{ id: 'all', label: `全部图书 ${books.length}`, icon: 'library_books' }, { id: 'local', label: `本地导入 ${books.filter((book) => book.source !== 'store' && !book.id.startsWith('catalog-')).length}`, icon: 'upload_file' }, { id: 'store', label: `商店图书 ${books.filter((book) => book.source === 'store' || book.id.startsWith('catalog-')).length}`, icon: 'storefront' }] as Array<{ id: SourceFilter; label: string; icon: string }>).map((item) => <button type="button" key={item.id} onClick={() => setSourceFilter(item.id)} className={`min-h-11 rounded-xl px-3 text-sm font-bold ${sourceFilter === item.id ? 'bg-[#155eef] text-white' : 'text-[var(--muted-foreground)]'}`}><span className="material-icons-round mr-1 align-middle text-base">{item.icon}</span>{item.label}</button>)}</div>}
     {view === 'library' && <section className="space-y-6"><div className="flex flex-col gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 lg:flex-row"><div className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--background)] p-1">{([{ id: 'all', label: `全部 ${books.length}` }, { id: 'zh', label: `中文 ${books.filter((book) => book.language === 'zh').length}` }, { id: 'en', label: `英文 ${books.filter((book) => book.language === 'en').length}` }] as Array<{ id: ShelfFilter; label: string }>).map((item) => <button type="button" key={item.id} onClick={() => setFilter(item.id)} className={`min-h-10 rounded-lg px-4 text-sm font-bold ${filter === item.id ? 'bg-[#0f766e] text-white shadow-sm' : ''}`}>{item.label}</button>)}</div><label className="relative flex-1"><span className="material-icons-round absolute left-3 top-2.5 text-[var(--muted-foreground)]">search</span><input value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] pl-10 pr-3 outline-none" placeholder="搜索书名或作者" /></label><select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm font-bold"><option value="recent">最近阅读</option><option value="custom">自定义顺序</option><option value="title">书名排序</option><option value="progress">阅读进度</option></select></div>{ready && !books.length ? <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] px-6 py-16 text-center"><span className="material-icons-round text-6xl text-[#70a99e]">auto_stories</span><h2 className="mt-4 text-2xl font-bold">把第一部长篇放进书架</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">小说正文存入 IndexedDB，不受普通 localStorage 容量限制。无论几十章还是上千章，阅读器每次只加载当前章节。</p><button type="button" onClick={() => setView('import')} className="mt-6 rounded-xl bg-[#0f766e] px-5 py-3 font-bold text-white">导入小说</button></div> : shelves.map((shelf) => shelf.books.length ? <div key={shelf.language}><div className="mb-3 flex items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-xl ${shelf.language === 'zh' ? 'bg-[#f5e6d3] text-[#8b5e3c]' : 'bg-[#dff4ef] text-[#0f766e]'}`}><span className="material-icons-round">{shelf.language === 'zh' ? 'history_edu' : 'translate'}</span></span><div><h2 className="text-xl font-bold">{shelf.title}</h2><p className="text-xs text-[var(--muted-foreground)]">{shelf.books.length} 本 · {sort === 'custom' ? '使用箭头自由排序' : shelf.language === 'en' ? '支持点词翻译' : '纯净中文阅读'}</p></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{shelf.books.map((book, index) => <article key={book.id} className="group overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"><div className={`h-2 ${shelf.language === 'zh' ? 'bg-[linear-gradient(90deg,#8b5e3c,#d2a679)]' : 'bg-[linear-gradient(90deg,#0f766e,#06b6d4)]'}`} /><div className="p-5"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-xs font-bold">{book.source === 'store' || book.id.startsWith('catalog-') ? '商店图书' : '本地导入'} · {book.language === 'zh' ? '中文' : 'English'} · {book.chapterCount} 章</span><div className="flex gap-1">{sort === 'custom' && <><button type="button" disabled={index === 0} onClick={() => void moveShelfBook(book, -1)} aria-label={`前移 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg disabled:opacity-25"><span className="material-icons-round text-lg">arrow_back</span></button><button type="button" disabled={index === shelf.books.length - 1} onClick={() => void moveShelfBook(book, 1)} aria-label={`后移 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg disabled:opacity-25"><span className="material-icons-round text-lg">arrow_forward</span></button></>}<button type="button" disabled={editorBusy} onClick={() => void beginEditingBook(book)} aria-label={`编辑 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-black/5"><span className="material-icons-round text-lg">edit</span></button><button type="button" onClick={() => void removeBook(book)} aria-label={`删除 ${book.title}`} className="grid h-9 w-9 place-items-center rounded-lg text-[var(--muted-foreground)] opacity-60 hover:bg-[#fee2e2] hover:text-[#b91c1c] group-hover:opacity-100"><span className="material-icons-round text-lg">delete</span></button></div></div><div className="mt-5 flex gap-4">{book.coverDataUrl ? <span role="img" aria-label={`${book.title} 封面`} className="h-28 w-20 shrink-0 rounded-r-xl rounded-l-sm bg-cover bg-center shadow-md" style={{ backgroundImage: `url(${book.coverDataUrl})` }} /> : <div className={`grid h-28 w-20 shrink-0 place-items-center rounded-r-xl rounded-l-sm px-2 text-center text-white shadow-md ${index % 3 === 0 ? 'bg-[#365f57]' : index % 3 === 1 ? 'bg-[#6f4e37]' : 'bg-[#334155]'}`}><span className="line-clamp-4 font-serif text-sm font-bold leading-5">{book.title}</span></div>}<div className="min-w-0"><h3 className="line-clamp-2 font-serif text-xl font-bold leading-snug">{book.title}</h3><p className="mt-1 truncate text-sm text-[var(--muted-foreground)]">{book.author || '未知作者'}</p>{book.description && <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{book.description}</p>}<p className="mt-3 text-xs text-[var(--muted-foreground)]">{formatSize(book.characterCount)} · 已读 {formatTime(book.readingSeconds)}</p></div></div><div className="mt-5 flex items-center justify-between text-xs"><span className="font-bold text-[#0f766e]">{book.overallProgress ? `继续阅读 · ${Math.round(book.overallProgress * 100)}%` : '尚未开始'}</span><span className="text-[var(--muted-foreground)]">第 {book.currentChapter + 1} 章 · {(book.bookmarks ?? []).length} 个书签</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]"><div className="h-full rounded-full bg-[#0f766e]" style={{ width: `${Math.round(book.overallProgress * 100)}%` }} /></div><button type="button" onClick={() => void openBook(book)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white">{book.overallProgress ? '继续阅读' : '开始阅读'}</button></div></article>)}</div></div> : null)}</section>}
   </div>;
 }

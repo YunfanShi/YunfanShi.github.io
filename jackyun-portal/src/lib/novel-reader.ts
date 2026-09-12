@@ -1,4 +1,5 @@
 export type NovelLanguage = 'zh' | 'en';
+export type NovelReadingMode = 'scroll' | 'paged';
 
 export interface NovelChapter {
   index: number;
@@ -35,11 +36,17 @@ export interface NovelBook {
   readingSeconds: number;
   sourceFileName: string;
   description?: string;
+  category?: string;
+  tags?: string[];
   coverDataUrl?: string;
   shelfOrder?: number;
   bookmarks?: NovelBookmark[];
   source?: 'local' | 'store';
   catalogNovelId?: string;
+  catalogRevision?: number;
+  catalogUpdatedAt?: string;
+  catalogCoverUpdatedAt?: string | null;
+  readingMode?: NovelReadingMode;
 }
 
 const chineseNumber = '[0-9０-９零〇○一二三四五六七八九十百千万两壹贰叁肆伍陆柒捌玖拾佰仟]+';
