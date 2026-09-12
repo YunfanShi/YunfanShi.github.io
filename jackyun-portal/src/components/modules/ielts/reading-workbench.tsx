@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReaderBootstrap } from '@/actions/reader';
 import NovelWorkbench from '@/components/modules/ielts/novel-workbench';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent, readAiStreamingResponseContent } from '@/lib/ai-json';
@@ -43,9 +44,9 @@ function RangeControl({ label, value, min, max, step = 1, suffix = '', onChange 
   return <label className="block rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-3.5"><span className="flex items-center justify-between text-sm font-semibold"><span>{label}</span><span className="rounded-lg bg-[#e0f2fe] px-2 py-1 text-xs font-bold text-[#075985] dark:bg-[#16384c] dark:text-[#7dd3fc]">{value}{suffix}</span></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="mt-3 w-full accent-[#0e7490]" /></label>;
 }
 
-export default function ReadingWorkbench() {
+export default function ReadingWorkbench({ bootstrap }: { bootstrap: ReaderBootstrap }) {
   const [experience, setExperience] = useState<'novels' | 'ai'>('novels');
-  if (experience === 'novels') return <NovelWorkbench onOpenAiStudio={() => setExperience('ai')} />;
+  if (experience === 'novels') return <NovelWorkbench bootstrap={bootstrap} onOpenAiStudio={() => setExperience('ai')} />;
   return <div className="space-y-4"><button type="button" onClick={() => setExperience('novels')} className="min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-4 text-sm font-bold text-[#0f766e]"><span className="material-icons-round mr-2 align-middle">arrow_back</span>返回小说书架</button><AiReadingStudio /></div>;
 }
 

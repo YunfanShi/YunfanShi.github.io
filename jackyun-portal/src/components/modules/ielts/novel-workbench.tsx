@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CatalogNovel, ReaderBootstrap } from '@/actions/reader';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { buildWordPrompt, parseWordNote, type WordNote } from '@/lib/ielts-reading';
@@ -16,13 +17,15 @@ import {
   type NovelLanguage,
 } from '@/lib/novel-reader';
 import { deleteNovelBook, getNovelChapter, listNovelBooks, listNovelChapterHeadings, listNovelChapters, replaceNovelChapters, saveNovelBook, updateNovelBook } from '@/lib/novel-storage';
+import { createClient } from '@/lib/supabase/client';
 
-type View = 'library' | 'import' | 'reader' | 'edit';
+type View = 'library' | 'store' | 'import' | 'reader' | 'edit';
 type ShelfFilter = 'all' | NovelLanguage;
 type Theme = 'paper' | 'sepia' | 'mint' | 'night';
 type Width = 'narrow' | 'medium' | 'wide';
 type Heading = Pick<NovelChapter, 'index' | 'title' | 'characterCount'>;
 type ReadingPosition = { chapterIndex: number; chapterProgress: number; scrollTop: number; anchorParagraph: number; anchorOffsetRatio: number; updatedAt: string };
+type CloudRow = { book_id: string; metadata: NovelBook; storage_path: string; content_hash: string; updated_at: string };
 
 const POSITION_KEY_PREFIX = 'jackyun_novel_position_v2:';
 
@@ -66,7 +69,36 @@ function coverFileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () => void }) {
+function cloudPath(userId: string, bookId: string): string { return `users/${userId}/${bookId}.json`; }
+
+async function uploadCloudBook(userId: string, book: NovelBook, chapters: NovelChapter[]) {
+  const supabase = createClient();
+  const path = cloudPath(userId, book.id);
+  const blob = new Blob([JSON.stringify({ version: 1, book, chapters })], { type: 'application/json' });
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const contentHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const upload = await supabase.storage.from('novel-files').upload(path, blob, { contentType: 'application/json', upsert: true });
+  if (upload.error) throw upload.error;
+  const { error } = await supabase.from('reader_books').upsert({ user_id: userId, book_id: book.id, metadata: book, storage_path: path, content_hash: contentHash, updated_at: new Date().toISOString() }, { onConflict: 'user_id,book_id' });
+  if (error) throw error;
+}
+
+async function updateCloudMetadata(userId: string, book: NovelBook) {
+  const { error } = await createClient().from('reader_books').update({ metadata: book, updated_at: new Date().toISOString() }).eq('user_id', userId).eq('book_id', book.id);
+  if (error) throw error;
+}
+
+async function downloadCloudBook(row: CloudRow): Promise<NovelBook | null> {
+  const { data, error } = await createClient().storage.from('novel-files').download(row.storage_path);
+  if (error || !data) return null;
+  const payload = JSON.parse(await data.text()) as { book?: NovelBook; chapters?: NovelChapter[] };
+  if (!payload.book || !Array.isArray(payload.chapters)) return null;
+  const book = { ...payload.book, ...row.metadata };
+  await saveNovelBook(book, payload.chapters);
+  return book;
+}
+
+export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAiStudio: () => void; bootstrap: ReaderBootstrap }) {
   const [view, setView] = useState<View>('library');
   const [books, setBooks] = useState<NovelBook[]>([]);
   const [ready, setReady] = useState(false);
@@ -107,13 +139,57 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
   const saveTimerRef = useRef<number | null>(null);
   const restorePositionRef = useRef<ReadingPosition | null>(null);
   const activeBook = books.find((book) => book.id === activeId) ?? null;
+  const storeEnabled = bootstrap.features.novel_store?.allowed === true;
+  const storeIds = useMemo(() => new Set(books.map((book) => book.id.replace(/^catalog-/u, ''))), [books]);
+
+  const syncLibrary = useCallback(async (localBooks: NovelBook[]) => {
+    if (!bootstrap.userId) return localBooks;
+    const supabase = createClient();
+    const { data, error } = await supabase.from('reader_books').select('book_id, metadata, storage_path, content_hash, updated_at').eq('user_id', bootstrap.userId);
+    if (error) throw error;
+    const rows = (data ?? []) as CloudRow[];
+    const localMap = new Map(localBooks.map((book) => [book.id, book]));
+    const merged = [...localBooks];
+    for (const row of rows) {
+      const local = localMap.get(row.book_id);
+      if (!local) {
+        const downloaded = await downloadCloudBook(row);
+        if (downloaded) { merged.push(downloaded); localMap.set(downloaded.id, downloaded); }
+        continue;
+      }
+      const localPosition = local.positionUpdatedAt ?? '';
+      const cloudPosition = row.metadata.positionUpdatedAt ?? '';
+      if (cloudPosition > localPosition) {
+        const updated = { ...local, ...row.metadata };
+        await updateNovelBook(updated);
+        const index = merged.findIndex((book) => book.id === updated.id);
+        merged[index] = updated;
+      } else if (localPosition > cloudPosition) await updateCloudMetadata(bootstrap.userId, local);
+    }
+    const cloudIds = new Set(rows.map((row) => row.book_id));
+    for (const book of localBooks) if (!cloudIds.has(book.id)) await uploadCloudBook(bootstrap.userId, book, await listNovelChapters(book.id));
+    return merged;
+  }, [bootstrap.userId]);
 
   useEffect(() => {
-    listNovelBooks()
-      .then((items) => setBooks(items.sort((left, right) => (right.lastReadAt ?? right.importedAt).localeCompare(left.lastReadAt ?? left.importedAt))))
-      .catch(() => setMessage('无法读取本地书架；浏览器可能禁用了 IndexedDB。'))
-      .finally(() => setReady(true));
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const local = (await listNovelBooks()).sort((left, right) => (right.lastReadAt ?? right.importedAt).localeCompare(left.lastReadAt ?? left.importedAt));
+        const merged = await syncLibrary(local);
+        if (!cancelled) setBooks(merged);
+        if (bootstrap.userId && !cancelled) setMessage('云书架与阅读进度已同步。');
+      } catch {
+        if (!cancelled) { setBooks(await listNovelBooks().catch(() => [])); setMessage('当前离线，已打开本地书架；联网后会自动同步。'); }
+      } finally { if (!cancelled) setReady(true); }
+    })();
+    return () => { cancelled = true; };
+  }, [bootstrap.userId, syncLibrary]);
+
+  async function persistBook(book: NovelBook) {
+    await updateNovelBook(book);
+    if (bootstrap.userId) await updateCloudMetadata(bootstrap.userId, book).catch(() => undefined);
+  }
 
   useEffect(() => {
     if (view !== 'reader' || !activeId) return;
@@ -121,7 +197,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
       setBooks((items) => items.map((book) => {
         if (book.id !== activeId) return book;
         const next = { ...book, readingSeconds: book.readingSeconds + 10, lastReadAt: new Date().toISOString() };
-        void updateNovelBook(next);
+        void persistBook(next);
         return next;
       }));
     }, 10_000);
@@ -208,7 +284,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     setSelectedWord(null);
     const nextBook = { ...activeBook, currentChapter: index, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: now, overallProgress: overallProgress(index, position.chapterProgress), lastReadAt: now };
     setBooks((items) => items.map((book) => book.id === nextBook.id ? nextBook : book));
-    await updateNovelBook(nextBook);
+    await persistBook(nextBook);
     try { localStorage.setItem(`${POSITION_KEY_PREFIX}${nextBook.id}`, JSON.stringify(restorePositionRef.current)); } catch { /* IndexedDB remains the durable fallback. */ }
     requestAnimationFrame(() => requestAnimationFrame(restoreReaderPosition));
   }
@@ -252,7 +328,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     if (!position) return;
     const next = { ...activeBook, currentChapter: chapter.index, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: position.updatedAt, overallProgress: overallProgress(chapter.index, position.chapterProgress), lastReadAt: position.updatedAt };
     setBooks((items) => items.map((book) => book.id === next.id ? next : book));
-    void updateNovelBook(next);
+    void persistBook(next);
     try { localStorage.setItem(`${POSITION_KEY_PREFIX}${next.id}`, JSON.stringify(position)); } catch { /* IndexedDB remains the durable fallback. */ }
   }
 
@@ -285,7 +361,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     };
     const next = { ...activeBook, bookmarks: [...(activeBook.bookmarks ?? []), bookmark] };
     setBooks((items) => items.map((book) => book.id === next.id ? next : book));
-    void updateNovelBook(next);
+    void persistBook(next);
     setMessage(`已添加书签：${bookmark.label}`);
   }
 
@@ -298,7 +374,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     if (!activeBook) return;
     const next = { ...activeBook, bookmarks: (activeBook.bookmarks ?? []).filter((bookmark) => bookmark.id !== bookmarkId) };
     setBooks((items) => items.map((book) => book.id === next.id ? next : book));
-    void updateNovelBook(next);
+    void persistBook(next);
   }
 
   async function importBooks() {
@@ -337,6 +413,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
           bookmarks: [],
         };
         await saveNovelBook(book, chapters);
+        if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, book, chapters).catch(() => undefined);
         imported.push(book);
       } catch (error) {
         failures.push(`${selectedFile.name}（${error instanceof Error ? error.message : '导入失败'}）`);
@@ -350,6 +427,34 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
       setFiles([]); setBookTitle(''); setAuthor(''); setLanguage('auto');
       setView('library');
     }
+  }
+
+  async function addFromStore(novel: CatalogNovel) {
+    if (!novel.unlocked || !novel.downloadUrl || importing) return;
+    setImporting(true);
+    setMessage(`正在领取《${novel.title}》…`);
+    try {
+      const response = await fetch(novel.downloadUrl);
+      if (!response.ok) throw new Error('下载链接已失效，请刷新页面后重试。');
+      const file = new File([await response.blob()], novel.originalFileName);
+      const parsed = await parseNovelFile(file, 'auto');
+      const chapters = parsed.chapters ?? splitNovelIntoChapters(parsed.text);
+      if (!chapters.length) throw new Error('没有识别到可阅读的正文。');
+      const now = new Date().toISOString();
+      const book: NovelBook = {
+        id: `catalog-${novel.id}`, title: novel.title, author: novel.author, language: novel.language,
+        chapterCount: chapters.length, characterCount: chapters.reduce((total, item) => total + item.characterCount, 0),
+        importedAt: now, lastReadAt: null, currentChapter: 0, chapterProgress: 0, chapterScrollTop: 0,
+        anchorParagraph: -1, anchorOffsetRatio: 0, positionUpdatedAt: null, overallProgress: 0, readingSeconds: 0,
+        sourceFileName: novel.originalFileName, description: novel.description, shelfOrder: -Date.now(), bookmarks: [],
+      };
+      await saveNovelBook(book, chapters);
+      if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, book, chapters).catch(() => undefined);
+      setBooks((items) => [book, ...items.filter((item) => item.id !== book.id)]);
+      setMessage(`《${book.title}》已加入你的书架。`);
+      setView('library');
+    } catch (error) { setMessage(error instanceof Error ? error.message : '领取小说失败。'); }
+    finally { setImporting(false); }
   }
 
   async function beginEditingBook(book: NovelBook) {
@@ -379,7 +484,7 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     const book = books.find((item) => item.id === editingBookId);
     if (!book || !editingTitle.trim()) { setMessage('书名不能为空。'); return; }
     const next = { ...book, title: editingTitle.trim(), author: editingAuthor.trim(), description: editingDescription.trim(), coverDataUrl: editingCover || undefined };
-    await updateNovelBook(next);
+    await persistBook(next);
     setBooks((items) => items.map((item) => item.id === next.id ? next : item));
     setMessage('图书信息已保存。');
   }
@@ -407,7 +512,8 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
       anchorParagraph: resetPosition ? -1 : book.anchorParagraph,
       bookmarks: bookmarks ?? (book.bookmarks ?? []).filter((bookmark) => bookmark.chapterIndex < normalized.length),
     };
-    await updateNovelBook(nextBook);
+    await persistBook(nextBook);
+    if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, nextBook, normalized).catch(() => undefined);
     if (resetPosition) try { localStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* IndexedDB has already been reset. */ }
     setBooks((items) => items.map((item) => item.id === nextBook.id ? nextBook : item));
     setEditorChapters(normalized);
@@ -458,12 +564,19 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
     const updates = ordered.map((item, index) => ({ ...item, shelfOrder: index }));
     const byId = new Map(updates.map((item) => [item.id, item]));
     setBooks((items) => items.map((item) => byId.get(item.id) ?? item));
-    await Promise.all(updates.map(updateNovelBook));
+    await Promise.all(updates.map(persistBook));
   }
 
   async function removeBook(book: NovelBook) {
     if (!window.confirm(`确定删除《${book.title}》及全部章节吗？此操作无法撤销。`)) return;
     await deleteNovelBook(book.id);
+    if (bootstrap.userId) {
+      const supabase = createClient();
+      await Promise.all([
+        supabase.from('reader_books').delete().eq('user_id', bootstrap.userId).eq('book_id', book.id),
+        supabase.storage.from('novel-files').remove([cloudPath(bootstrap.userId, book.id)]),
+      ]);
+    }
     try { localStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* The IndexedDB deletion already succeeded. */ }
     setBooks((items) => items.filter((item) => item.id !== book.id));
     setMessage(`已删除《${book.title}》。`);
@@ -535,9 +648,21 @@ export default function NovelWorkbench({ onOpenAiStudio }: { onOpenAiStudio: () 
   }
 
   return <div className="mx-auto max-w-[1500px] space-y-5 text-[var(--foreground)]">
-    <header className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(118deg,#211c18_0%,#5c3d2e_52%,#0f766e_100%)] px-5 py-7 text-white shadow-[0_24px_70px_rgba(28,23,18,.22)] sm:px-8"><div className="pointer-events-none absolute -right-16 -top-20 -z-10 h-72 w-72 rounded-full bg-[#f5d0a9]/20 blur-3xl"/><p className="text-xs font-bold uppercase tracking-[.2em] text-[#fde7cf]">JACKYUN READER</p><div className="mt-2 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">我的小说书架</h1><p className="mt-3 max-w-3xl leading-7 text-[#f6e8db]">中文与英文长篇小说分章阅读。书籍保存在浏览器本地，只加载当前章节，并自动保存阅读位置。</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setView('import')} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-[#493225]"><span className="material-icons-round mr-2 align-middle">upload_file</span>导入小说</button><button type="button" onClick={onOpenAiStudio} className="min-h-11 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-bold hover:bg-white/15"><span className="material-icons-round mr-2 align-middle">auto_awesome</span>AI 阅读工坊</button></div></div></header>
-    <nav className="grid grid-cols-2 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2"><button type="button" onClick={() => setView('library')} className={`min-h-12 rounded-xl text-sm font-bold ${view === 'library' ? 'bg-[#0f766e] text-white' : ''}`}><span className="material-icons-round mr-2 align-middle">local_library</span>书架</button><button type="button" onClick={() => setView('import')} className={`min-h-12 rounded-xl text-sm font-bold ${view === 'import' ? 'bg-[#0f766e] text-white' : ''}`}><span className="material-icons-round mr-2 align-middle">add_circle</span>导入</button></nav>
+    <header className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(118deg,#211c18_0%,#5c3d2e_52%,#0f766e_100%)] px-5 py-7 text-white shadow-[0_24px_70px_rgba(28,23,18,.22)] sm:px-8"><div className="pointer-events-none absolute -right-16 -top-20 -z-10 h-72 w-72 rounded-full bg-[#f5d0a9]/20 blur-3xl"/><p className="text-xs font-bold uppercase tracking-[.2em] text-[#fde7cf]">JACKYUN READER</p><div className="mt-2 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">我的小说书架</h1><p className="mt-3 max-w-3xl leading-7 text-[#f6e8db]">中英文长篇小说分章阅读，登录后自动同步全部书籍、书签和阅读进度。</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setView('import')} className="min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-[#493225]"><span className="material-icons-round mr-2 align-middle">upload_file</span>导入小说</button><button type="button" onClick={onOpenAiStudio} className="min-h-11 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-bold hover:bg-white/15"><span className="material-icons-round mr-2 align-middle">auto_awesome</span>AI 阅读工坊</button></div></div></header>
+    <nav className={`grid gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2 ${storeEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      <button type="button" onClick={() => setView('library')} className={`min-h-12 rounded-xl text-sm font-bold ${view === 'library' ? 'bg-[#0f766e] text-white' : ''}`}><span className="material-icons-round mr-2 align-middle">local_library</span>书架</button>
+      {storeEnabled && <button type="button" onClick={() => setView('store')} className={`min-h-12 rounded-xl text-sm font-bold ${view === 'store' ? 'bg-[#0f766e] text-white' : ''}`}><span className="material-icons-round mr-2 align-middle">storefront</span>小说商店</button>}
+      <button type="button" onClick={() => setView('import')} className={`min-h-12 rounded-xl text-sm font-bold ${view === 'import' ? 'bg-[#0f766e] text-white' : ''}`}><span className="material-icons-round mr-2 align-middle">add_circle</span>导入</button>
+    </nav>
     {message && <p role="status" className="rounded-2xl border border-[#99d9d1] bg-[#ecfdf5] px-4 py-3 text-sm text-[#115e59] dark:border-[#285e57] dark:bg-[#123b36] dark:text-[#99f6e4]">{message}</p>}
+
+    {view === 'store' && <section className="space-y-5">
+      <div className="rounded-3xl bg-[linear-gradient(120deg,#0f766e,#155e75)] p-6 text-white shadow-lg"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#99f6e4]">NOVEL STORE</p><h2 className="mt-2 text-3xl font-bold">精选小说商店</h2><p className="mt-2 text-sm text-[#ccfbf1]">当前账号：{bootstrap.plan.toUpperCase()}，已解锁书籍可直接加入云书架。</p></div>
+      {!bootstrap.catalog.length ? <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] p-12 text-center text-[var(--muted-foreground)]">商店暂无小说，管理员上传后会显示在这里。</div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{bootstrap.catalog.map((novel) => {
+        const added = storeIds.has(novel.id);
+        return <article key={novel.id} className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="h-44 bg-[linear-gradient(135deg,#134e4a,#0e7490)] bg-cover bg-center" style={novel.coverUrl ? { backgroundImage: `url(${novel.coverUrl})` } : undefined} /><div className="p-5"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">{novel.minimumPlan.toUpperCase()}+</span>{novel.featured && <span className="text-xs font-bold text-[#b45309]">精选</span>}</div><h3 className="mt-4 font-serif text-xl font-bold">{novel.title}</h3><p className="mt-1 text-sm text-[var(--muted-foreground)]">{novel.author || '未知作者'}</p><p className="mt-3 line-clamp-3 min-h-15 text-sm leading-5 text-[var(--muted-foreground)]">{novel.description || '暂无简介'}</p><button type="button" disabled={!novel.unlocked || added || importing} onClick={() => void addFromStore(novel)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white disabled:bg-[#98a2b3]">{added ? '已在书架' : novel.unlocked ? '加入书架' : `需要 ${novel.minimumPlan.toUpperCase()} 会员`}</button></div></article>;
+      })}</div>}
+    </section>}
 
     {view === 'edit' && <section className="space-y-5">
       <div className="flex flex-col gap-3 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#0f766e]">BOOK EDITOR</p><h2 className="mt-1 text-2xl font-bold">编辑图书与章节</h2></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void rescanBookChapters()} disabled={editorBusy} className="min-h-11 rounded-xl border border-[#0f766e] px-4 text-sm font-bold text-[#0f766e] disabled:opacity-40"><span className="material-icons-round mr-2 align-middle text-base">restart_alt</span>重新扫描章节</button><button type="button" onClick={() => setView('library')} className="min-h-11 rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white">返回书架</button></div></div>
