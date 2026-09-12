@@ -9,6 +9,8 @@ export interface FeatureAccess {
   key: string;
   displayName: string;
   description: string;
+  category: string;
+  tags: string[];
   enabled: boolean;
   betaOnly: boolean;
   minimumPlan: string;
@@ -100,7 +102,7 @@ export async function getReaderBootstrap(): Promise<ReaderBootstrap> {
       row.cover_path ? admin.storage.from('novel-files').createSignedUrl(row.cover_path, 3600) : Promise.resolve({ data: null }),
     ]);
     return {
-      id: row.id, title: row.title, author: row.author, description: row.description,
+      id: row.id, title: row.title, author: row.author, description: row.description, category: row.category ?? '未分类', tags: Array.isArray(row.tags) ? row.tags : [],
       language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name,
       fileSize: Number(row.file_size), featured: row.featured, publishedAt: row.published_at,
       owned, needsReaderImport: owned && !entitlementImportState.get(row.id), unlocked, downloadUrl: fileResult.data?.signedUrl ?? null, coverUrl: coverResult.data?.signedUrl ?? null,

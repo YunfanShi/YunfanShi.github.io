@@ -24,7 +24,7 @@ export interface AdminFeature {
 
 export interface AdminNovel {
   id: string; title: string; author: string; description: string; language: 'zh' | 'en'; minimumPlan: PlanCode;
-  originalFileName: string; fileSize: number; enabled: boolean; featured: boolean; publishedAt: string; ownerCount: number;
+  category: string; tags: string[]; originalFileName: string; fileSize: number; enabled: boolean; featured: boolean; publishedAt: string; ownerCount: number;
 }
 
 export interface AdminCode {
@@ -50,7 +50,7 @@ export async function getReaderAdminDashboard(): Promise<{ features: AdminFeatur
   for (const row of codeNovels.data ?? []) novelsByCode.set(row.code_id, [...(novelsByCode.get(row.code_id) ?? []), row.novel_id]);
   return {
     features: (features.data ?? []).map((row) => ({ key: row.key, displayName: row.display_name, description: row.description, enabled: row.enabled, betaOnly: row.beta_only, minimumPlan: row.minimum_plan })),
-    novels: (novels.data ?? []).map((row) => ({ id: row.id, title: row.title, author: row.author, description: row.description, language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name, fileSize: Number(row.file_size), enabled: row.enabled, featured: row.featured, publishedAt: row.published_at, ownerCount: ownerCounts.get(row.id) ?? 0 })),
+    novels: (novels.data ?? []).map((row) => ({ id: row.id, title: row.title, author: row.author, description: row.description, language: row.language, minimumPlan: row.minimum_plan, category: row.category ?? '未分类', tags: Array.isArray(row.tags) ? row.tags : [], originalFileName: row.original_file_name, fileSize: Number(row.file_size), enabled: row.enabled, featured: row.featured, publishedAt: row.published_at, ownerCount: ownerCounts.get(row.id) ?? 0 })),
     codes: (codes.data ?? []).map((row) => { const novelIds = novelsByCode.get(row.id) ?? (row.novel_id ? [row.novel_id] : []); return { id: row.id, codePrefix: row.code_prefix, label: row.label, rewardType: row.reward_type, novelId: row.novel_id, novelIds, novelTitles: novelIds.map((id) => novelTitles.get(id) ?? '已删除小说'), planCode: row.plan_code, membershipDays: row.membership_days, notBefore: row.not_before, expiresAt: row.expires_at, usageLimit: row.usage_limit, redeemedCount: row.redeemed_count, enabled: row.enabled, createdAt: row.created_at }; }),
   };
 }
@@ -64,13 +64,15 @@ export async function updateFeatureAccess(input: { key: string; enabled: boolean
   return { success: true };
 }
 
-export async function updateCatalogNovel(input: { id: string; title: string; author: string; description: string; language: string; enabled: boolean; featured: boolean; minimumPlan: string }) {
+export async function updateCatalogNovel(input: { id: string; title: string; author: string; description: string; category: string; tags: string[]; language: string; enabled: boolean; featured: boolean; minimumPlan: string }) {
   const { admin } = await requireAdmin();
   const title = input.title.trim();
   const author = input.author.trim();
   const description = input.description.trim();
-  if (!/^[0-9a-f-]{36}$/iu.test(input.id) || !title || title.length > 160 || author.length > 120 || description.length > 1000 || !['zh', 'en'].includes(input.language) || !isPlanCode(input.minimumPlan)) return { success: false, error: '请检查书名、作者、简介、语言和套餐设置。' };
-  const { error } = await admin.from('novel_catalog').update({ title, author, description, language: input.language, enabled: input.enabled, featured: input.featured, minimum_plan: input.minimumPlan, updated_at: new Date().toISOString() }).eq('id', input.id);
+  const category = input.category.trim() || '未分类';
+  const tags = [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
+  if (!/^[0-9a-f-]{36}$/iu.test(input.id) || !title || title.length > 160 || author.length > 120 || description.length > 1000 || category.length > 40 || !['zh', 'en'].includes(input.language) || !isPlanCode(input.minimumPlan)) return { success: false, error: '请检查书名、作者、简介、分类、标签、语言和套餐设置。' };
+  const { error } = await admin.from('novel_catalog').update({ title, author, description, category, tags, language: input.language, enabled: input.enabled, featured: input.featured, minimum_plan: input.minimumPlan, updated_at: new Date().toISOString() }).eq('id', input.id);
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin/content'); revalidatePath('/reading');
   return { success: true };
