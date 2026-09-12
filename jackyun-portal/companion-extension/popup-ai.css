@@ -11,12 +11,20 @@
 .ai-automation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ai-automation-heading h2 { margin: 4px 0 0; font-size: 19px; letter-spacing: -.03em; }
 .automation-version { padding: 5px 8px; border-radius: 999px; background: #6941c6; color: #fff; font-size: 10px; font-weight: 800; }
-.automation-ready { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 9px 10px; border-radius: 11px; background: #ffffff88; color: #526176; font-size: 11px; font-weight: 750; }
+.automation-ready { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 10px; border-radius: 11px; background: #ffffff88; color: #526176; font-size: 11px; }
+.automation-ready div { min-width: 0; flex: 1; }
+.automation-ready strong, .automation-ready span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.automation-ready strong { font-weight: 800; }
+.automation-ready span { margin-top: 2px; color: #758195; font-size: 10px; }
+.automation-ready time { color: #758195; font: 700 10px/1 ui-monospace, monospace; }
 .automation-ready i { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 4px #f59e0b20; }
 .automation-ready.active i { background: #12b76a; box-shadow: 0 0 0 4px #12b76a20; }
-.automation-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 13px 0 10px; padding: 0; list-style: none; text-align: center; }
+.automation-ready.error i { background: #ef4444; box-shadow: 0 0 0 4px #ef444420; }
+.automation-flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 13px 0 10px; padding: 0; list-style: none; text-align: center; }
 .automation-flow li { display: grid; gap: 4px; color: #5f6c80; font-size: 10px; font-weight: 700; }
 .automation-flow b { display: grid; width: 25px; height: 25px; margin: auto; place-items: center; border-radius: 50%; background: #6941c6; color: #fff; font-size: 10px; }
+.automation-flow li:not(.done):not(.current) b { background: #d8dce5; color: #6b7280; }
+.automation-flow li.current b { box-shadow: 0 0 0 4px #6941c626; }
 .ai-automation-hero > p { margin: 0; color: #5f6c80; font-size: 11px; line-height: 1.55; }
 .ai-primary { border-color: #6941c6 !important; background: linear-gradient(135deg, #6941c6, #3b82f6) !important; color: #fff !important; }
 @media (prefers-color-scheme: dark) {

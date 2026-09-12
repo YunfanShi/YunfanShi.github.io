@@ -4,6 +4,7 @@
 
   const rules = globalThis.JackYunSafeGuardRules;
   const hostname = rules.normalizeHost(location.hostname);
+  const aiHosts = new Set(['chatgpt.com', 'chat.deepseek.com', 'claude.ai', 'gemini.google.com', 'chat.qwen.ai', 'perplexity.ai', 'notebooklm.google.com']);
   let config = rules.normalizeConfig();
   let overlayHost = null;
   let statusHost = null;
@@ -148,6 +149,9 @@
   }
 
   async function inspect() {
+    // AI chat pages routinely contain Chinese prompts and answers. Blocking or
+    // translating them can break the Companion composer and response reader.
+    if ([...aiHosts].some((host) => hostname === host || hostname.endsWith(`.${host}`))) return;
     const [savedConfig, session] = await Promise.all([
       send({ type: 'SAFEGUARD_GET_CONFIG' }),
       send({ type: 'SAFEGUARD_GET_SESSION', hostname }),

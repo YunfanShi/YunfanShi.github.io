@@ -1,6 +1,15 @@
 export type ReadingLevel = 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 import { parseAiJson } from './ai-json.ts';
 export type ReadingStyle = 'cinematic' | 'literary' | 'mystery' | 'adventure' | 'science-fiction' | 'fantasy' | 'slice-of-life' | 'historical' | 'academic' | 'journalistic';
+export type ReadingSourceMode = 'creative' | 'news';
+
+export interface ReadingNewsSource {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  snippet: string;
+}
 
 export interface ReadingSettings {
   level: ReadingLevel;
@@ -19,6 +28,8 @@ export interface ReadingSettings {
   setting: string;
   mustInclude: string;
   avoid: string;
+  sourceMode?: ReadingSourceMode;
+  newsQuery?: string;
 }
 
 export interface WordNote {
@@ -61,6 +72,11 @@ export interface ReadingArticle {
   quizCorrect: number;
   quizAnswered: number;
   vocabulary: Record<string, WordNote>;
+  sourceMode?: ReadingSourceMode;
+  sources?: ReadingNewsSource[];
+  progressRatio?: number;
+  progressScrollY?: number;
+  progressUpdatedAt?: string | null;
 }
 
 export interface ReadingStats {
@@ -81,7 +97,20 @@ export function countReadingWords(text: string): number {
   return text.match(/[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
 }
 
-export function buildReadingPrompt(settings: ReadingSettings): string {
+export function calculateReadingProgress(scrollY: number, scrollHeight: number, viewportHeight: number): number {
+  const maximum = Math.max(0, scrollHeight - viewportHeight);
+  if (!maximum) return 0;
+  return Math.min(1, Math.max(0, scrollY / maximum));
+}
+
+export function restoreReadingScroll(progressRatio: number, scrollHeight: number, viewportHeight: number): number {
+  const safeProgress = Number.isFinite(progressRatio) ? Math.min(1, Math.max(0, progressRatio)) : 0;
+  return safeProgress * Math.max(0, scrollHeight - viewportHeight);
+}
+
+export function buildReadingPrompt(settings: ReadingSettings, newsSources: ReadingNewsSource[] = []): string {
+  const isNews = settings.sourceMode === 'news';
+  const sourceMaterial = newsSources.map((item, index) => `${index + 1}. ${item.title}\nPublisher: ${item.source || 'Unknown'}\nPublished: ${item.publishedAt || 'Unknown'}\nSummary: ${item.snippet || 'No summary available'}\nURL: ${item.url}`).join('\n\n');
   return `You are an English reading-material author. Create one original, engaging text for a language learner.
 
 Reader level: CEFR ${settings.level}
@@ -100,17 +129,23 @@ Characters: ${settings.characters || 'Invent suitable characters.'}
 Setting/world: ${settings.setting || 'Choose a suitable setting.'}
 Must include: ${settings.mustInclude || 'none'}
 Avoid: ${settings.avoid || 'none'}
+Content mode: ${isNews ? 'current-news explainer grounded in supplied sources' : 'original creative or educational reading'}
+${isNews ? `News topic: ${settings.newsQuery || 'today\'s important news'}\n\nSOURCE MATERIAL:\n${sourceMaterial || 'No source material was supplied. Do not claim that the article is current.'}` : ''}
 
 Requirements:
 - Write the article/story in English. Respect the requested CEFR level while keeping it natural, not childish.
+- Prefer clear, concrete nouns and strong verbs. Use adjectives and adverbs only when they add necessary information.
+- Avoid purple prose, adjective stacking, ornate metaphors, repetitive atmosphere, inflated introductions, and strings of decorative modifiers.
+- Vary sentence length naturally, but make every sentence advance the event, explanation, evidence, or idea.
 - If the premise refers to an existing fictional universe, write a new, non-canonical fan story; do not reproduce source text.
 - Use paragraphs and a satisfying narrative or expository structure.
+- ${isNews ? 'Treat SOURCE MATERIAL as the only factual basis. Synthesize it into a neutral news explainer; preserve dates and named entities, distinguish reported facts from uncertainty, do not invent quotes or details, and do not mention facts absent from the sources.' : 'Do not present invented events as real news.'}
 - Do not include comprehension questions yet.
 - Return valid JSON only with this exact shape:
 {"title":"English title","subtitle":"one short English hook","content":"full English text with \\n\\n between paragraphs","summary":"one concise Chinese summary"}`;
 }
 
-export function parseReadingArticle(raw: string, settings: ReadingSettings, id: string, now: string): ReadingArticle {
+export function parseReadingArticle(raw: string, settings: ReadingSettings, id: string, now: string, sources: ReadingNewsSource[] = []): ReadingArticle {
   const value = extractJson(raw) as Record<string, unknown>;
   if (typeof value.title !== 'string' || typeof value.content !== 'string' || value.content.trim().length < 200) {
     throw new Error('AI 返回的文章格式不完整，请重试。');
@@ -135,6 +170,11 @@ export function parseReadingArticle(raw: string, settings: ReadingSettings, id: 
     quizCorrect: 0,
     quizAnswered: 0,
     vocabulary: {},
+    sourceMode: settings.sourceMode ?? 'creative',
+    sources: sources.slice(0, 8),
+    progressRatio: 0,
+    progressScrollY: 0,
+    progressUpdatedAt: null,
   };
 }
 

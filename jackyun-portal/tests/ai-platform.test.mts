@@ -5,7 +5,15 @@ import { validatePersonalSite } from '../src/lib/personal-site.ts';
 import { isAdminIdentity } from '../src/lib/admin-auth.ts';
 import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.ts';
 import { readAiStream } from '../src/lib/ai-stream.ts';
-import { hasNewAiResponse } from '../companion-extension/ai-response-detection.mjs';
+import { expectsStructuredAiResponse, hasNewAiResponse, selectAiResponseText } from '../companion-extension/ai-response-detection.mjs';
+import { extractTtsText, stripTtsAnnotations } from '../src/lib/tts-config.ts';
+
+test('TTS annotations stay hidden and subtitles use only the selected language', () => {
+  const escaped = '正文内容\n\n[TTS\\_LANG:zh-CN]中文朗读摘要。[/TTS\\_LANG]\n[TTS_LANG:en-US]English subtitle.[/TTS_LANG]';
+  assert.equal(stripTtsAnnotations(escaped), '正文内容');
+  assert.equal(extractTtsText(escaped), '中文朗读摘要。');
+  assert.equal(stripTtsAnnotations('正文内容\n[TTS\\_LANG:zh-CN]正在流式生成'), '正文内容');
+});
 
 test('personal site validator keeps only safe component types and web links', () => {
   const site = validatePersonalSite({ name: '学习主页', theme: 'purple', blocks: [
@@ -63,6 +71,19 @@ test('AI stream parser preserves SSE JSON split across network chunks', async ()
   });
   const result = await readAiStream(new Response(stream), () => {});
   assert.equal(result.content, '你好！');
+});
+
+test('Companion preserves structured AI responses instead of Markdown-escaping them', () => {
+  const json = '{"summary":"ok","issues":[]}';
+  const escapedMarkdown = '\\{"summary":"ok","issues":\\[\\]\\}';
+  assert.equal(expectsStructuredAiResponse('Return only valid JSON.\n\n[RESPONSE FORMAT]\nPreserve JSON or NDJSON exactly when requested.'), true);
+  assert.equal(expectsStructuredAiResponse('Explain why JSON parsing can fail.\n\n[RESPONSE FORMAT]\nPreserve JSON or NDJSON exactly when requested.'), false);
+  assert.equal(selectAiResponseText({ rawText: json, text: escapedMarkdown }, true), json);
+  assert.equal(selectAiResponseText({ rawText: `Copy code\n${json}`, codeBlocks: [json], text: `Copy code\n${escapedMarkdown}` }, true), json);
+
+  const ndjson = '{"kind":"start"}\n{"kind":"done"}';
+  assert.equal(selectAiResponseText({ rawText: ndjson, text: ndjson.replace(/[{}]/g, (character) => `\\${character}`) }, true), ndjson);
+  assert.equal(selectAiResponseText({ rawText: json, text: escapedMarkdown }, false), escapedMarkdown);
 });
 
 test('model catalog migration enforces per-plan access and keeps tables server-only', () => {
@@ -168,6 +189,9 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(extension, /AI_LIST_CONVERSATIONS/);
   assert.match(extension, /providerConversationUrl/);
   assert.match(extension, /conversationMode === 'selected'/);
+  assert.match(extension, /conversationMode === 'jackyun'/);
+  assert.match(extension, /browserAiJackYunConversations/);
+  assert.match(extension, /首次启动：正在打开 AI 网站/);
   assert.match(content, /message-input-right-button-send/);
   assert.match(content, /JACKYUN_COMPANION_CONVERSATIONS/);
   assert.match(extension, /isConversationUrl/);
@@ -184,11 +208,48 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(extension, /reinjectCompanionBridge/);
   assert.match(extension, /chrome\.scripting\.executeScript/);
   assert.match(content, /__jackyunCompanionContentLoaded/);
+  assert.match(content, /data-testid="send-button"/);
+  assert.match(content, /composer-submit-button/);
+  assert.match(content, /await submitPrompt\(composer\)/);
+  assert.match(content, /Date\.now\(\) \+ \(host === 'chatgpt\.com' \? 3000 : 1200\)/);
+  assert.match(content, /function responseMarkdown/);
+  assert.match(content, /function chatGptModelTrigger/);
+  assert.match(content, /Instant\|Auto\|Fast\|Thinking/);
+  assert.match(content, /Light\|Standard\|Medium\|Heavy\|Extended/);
+  assert.match(content, /switch model\|切换模型/);
+  assert.match(content, /data-radix-collection-item/);
+  assert.match(content, /AI IN PROGRESS/);
+  assert.match(content, /renderAutomationOverlay/);
+  assert.match(content, /Keep this tab open/);
+  assert.match(content, /prefers-reduced-motion/);
+  assert.match(content, /模型菜单已打开，但没有读取到可选模型/);
+  assert.match(content, /menuitemradio.*menuitem.*option/);
+  const safeguard = readFileSync(new URL('../companion-extension/safeguard.js', import.meta.url), 'utf8');
+  assert.match(safeguard, /const aiHosts = new Set/);
+  assert.match(safeguard, /hostname\.endsWith\(`\.\$\{host\}`\)/);
+  const popup = readFileSync(new URL('../companion-extension/popup.js', import.meta.url), 'utf8');
+  assert.match(popup, /currentAiAutomation/);
+  assert.match(extension, /currentAiAutomation/);
+  assert.match(extension, /payload\.aiTabId = tab\.id/);
+  assert.match(extension, /chrome\.tabs\.sendMessage\(aiTabId/);
   assert.match(bridge, /Automation heartbeat timeout/);
+  assert.match(bridge, /jackyun-browser-ai-recent-choice/);
+  assert.match(bridge, /第一次使用 \{providerName\}/);
+  assert.match(bridge, /E-HEARTBEAT/);
+  assert.match(bridge, /查看错误详情/);
+  assert.doesNotMatch(bridge, /AutomationProgress stage=\{automationStage\} detail=\{notice\} elapsedSeconds=\{elapsedSeconds\} \/>\{notice &&/);
   assert.doesNotMatch(bridge, />progress_activity</);
   const workspace = readFileSync(new URL('../src/components/ai/ai-workspace.tsx', import.meta.url), 'utf8');
   assert.match(workspace, /JACKYUN_COMPANION_LIST_MODELS/);
   assert.match(workspace, /browserModel=\{selectedModel\.id < 0/);
+  assert.match(workspace, /modelRefreshKey/);
+  const settings = readFileSync(new URL('../src/components/settings/ai-config-panel.tsx', import.meta.url), 'utf8');
+  assert.match(settings, /使用 JackYun AI 专属对话/);
+  const floatingAi = readFileSync(new URL('../src/components/modules/deferred-ai-chat.tsx', import.meta.url), 'utf8');
+  const agent = readFileSync(new URL('../src/components/modules/ai-chat-fab.tsx', import.meta.url), 'utf8');
+  assert.match(floatingAi, /<AiChatFab initiallyOpen/);
+  assert.match(agent, /assistantMode === 'chat'/);
+  assert.match(agent, /workspaceMode: assistantMode/);
 });
 
 test('browser AI detects replies when a virtualized message list keeps the same node count', () => {

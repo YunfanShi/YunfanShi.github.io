@@ -42,6 +42,7 @@ function repairJson(candidate: string): string {
     const character = candidate[index];
     if (!inString) {
       if (character === '"') inString = true;
+      if (character === '\\' && ('{}[]'.includes(candidate[index + 1] ?? '') || candidate[index + 1] === '\n' || candidate[index + 1] === '\r')) continue;
       repaired += character;
       continue;
     }

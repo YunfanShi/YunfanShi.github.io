@@ -37,6 +37,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/ielts-reading',
+        destination: '/reading',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

@@ -58,6 +58,54 @@ export interface KeyValueStorage {
   setItem(key: string, value: string): void;
 }
 
+export interface WritingArchiveEntry {
+  id: string;
+  essayId: string;
+  title: string;
+  task: WritingTask;
+  question: string;
+  content: string;
+  savedAt: string;
+  wordCount: number;
+  bandEstimate: string | null;
+}
+
+export function isWritingArchiveEntry(value: unknown): value is WritingArchiveEntry {
+  if (!value || typeof value !== 'object') return false;
+  const entry = value as Partial<WritingArchiveEntry>;
+  return typeof entry.id === 'string' && typeof entry.essayId === 'string' && typeof entry.title === 'string' &&
+    ['task1-academic', 'task1-general', 'task2'].includes(entry.task ?? '') && typeof entry.question === 'string' &&
+    typeof entry.content === 'string' && typeof entry.savedAt === 'string' && typeof entry.wordCount === 'number' &&
+    (entry.bandEstimate === null || typeof entry.bandEstimate === 'string');
+}
+
+export function createWritingArchiveEntry(input: {
+  essayId: string;
+  task: WritingTask;
+  question: string;
+  content: string;
+  savedAt: string;
+  bandEstimate?: string | null;
+}): WritingArchiveEntry {
+  const firstQuestionLine = input.question.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) ?? '';
+  const fallbackTitle = `${taskLabel(input.task)} · ${input.savedAt.slice(0, 10)}`;
+  return {
+    id: input.essayId,
+    essayId: input.essayId,
+    title: firstQuestionLine.slice(0, 100) || fallbackTitle,
+    task: input.task,
+    question: input.question.trim(),
+    content: input.content.trim(),
+    savedAt: input.savedAt,
+    wordCount: countWords(input.content),
+    bandEstimate: input.bandEstimate ?? null,
+  };
+}
+
+export function upsertWritingArchive(entries: WritingArchiveEntry[], entry: WritingArchiveEntry): WritingArchiveEntry[] {
+  return [entry, ...entries.filter((item) => item.essayId !== entry.essayId)];
+}
+
 export function coerceWritingStage(value: string | null): WritingStage | null {
   if (value === null || value.trim() === '') return null;
   const stage = Number(value);
@@ -259,6 +307,29 @@ export function buildWritingReviewPrompt(input: {
     : `Return valid JSON only, with no Markdown.\n\nJSON shape:\n{\n  "bandEstimate": "5.5–6.0",\n  "summary": "short summary",\n  "priorities": ["what to fix first"],\n  "issues": [{\n    "id": "issue-1",\n    "category": "Grammar|Vocabulary / Collocation|Sentence Structure|Cohesion|Logic / Development|Task Response / Achievement",\n    "severity": "high|medium|low",\n    "quote": "short exact fragment",\n    "explanation": "why this is a problem",\n${issueResponseField}\n    "ruleKey": "stable_error_key"\n  }],\n  "upgrades": [{\n    "original": "short verbatim fragment copied from Current draft",\n    "suggestion": "a better local expression, not a full rewrite",\n    "why": "why it is better",\n    "type": "necessary|natural|optional"\n  }],\n  "readyForUpgrade": false\n}`;
 
   return `You are a rigorous but restrained IELTS Writing coach. Follow the Correction → Transfer method.\n\n${modeInstruction}\n\n${responseLanguage}\n\nRules:\n- Never generate a complete model answer or rewrite the whole essay.\n- Every issue.quote and every upgrades.original MUST be a short, verbatim substring copied from Current draft. Never translate, correct, normalize, paraphrase, or add quotation marks to these source fields.\n${guidanceRule}\n- Return only the 3–8 issues with the greatest score impact. Do not invent minor problems to fill a quota.\n- Use stable, short English ruleKey values such as article_usage, subject_verb_agreement, or unclear_causal_chain. Never escape underscores in JSON strings.\n- bandEstimate must be a range such as 5.5–6.0, never a promised exam score.\n- readyForUpgrade is true only after the main grammar, logic, and task-response problems have clearly converged.\n- Return upgrades only in upgrade mode. Label each necessary, natural, or optional. Otherwise return an empty array.\n- For Task 1, also check overview, comparison objects, tense, and data language. For Task 2, also check position, topic sentences, explanation, examples, causal chains, relevance, and conclusion.\n\n${formatInstruction}\n\nTask: ${taskLabel(input.task)}\nQuestion: ${input.question || 'No question supplied. Do not judge Task Response; analyse only the visible language and structure.'}\nPrevious issue keys: ${input.previousRuleKeys?.join(', ') || 'none'}\nOriginal attempt:\n${input.originalEssay || input.essay}\n\nCurrent draft:\n${input.essay}`;
+}
+
+export function buildWritingFeedbackRepairPrompt(raw: string, guidanceMode: WritingGuidanceMode, outputLanguage: 'en' | 'zh'): string {
+  const guidanceField = guidanceMode === 'hint'
+    ? 'Use selfRevisionPrompt for every issue and omit correction.'
+    : 'Use correction for every issue and omit selfRevisionPrompt.';
+  const guidanceLanguage = outputLanguage === 'zh' ? 'Use Simplified Chinese for explanations and guidance, but preserve English quote fields.' : 'Use clear English throughout.';
+  return `Repair the malformed IELTS feedback below into valid JSON. This is a formatting repair, not a new review.
+
+Rules:
+- Preserve the original meaning, band estimate, priorities, issues, quotes, explanations, upgrades, and readyForUpgrade decision.
+- Do not add new issues, rewrite the essay, or include commentary.
+- Escape quotation marks and line breaks correctly so JSON.parse succeeds.
+- Always include bandEstimate, summary, priorities, issues, upgrades, and readyForUpgrade.
+- Every issue must include id, category, severity, quote, explanation, ruleKey, and the requested guidance field.
+- Allowed categories: Grammar; Vocabulary / Collocation; Sentence Structure; Cohesion; Logic / Development; Task Response / Achievement.
+- Allowed severity values: high, medium, low. Allowed upgrade types: necessary, natural, optional.
+- ${guidanceField}
+- ${guidanceLanguage}
+- Return one JSON object only, with double-quoted keys and strings. No Markdown fences.
+
+MALFORMED RESPONSE:
+${raw}`;
 }
 
 function isStringArray(value: unknown): value is string[] {
