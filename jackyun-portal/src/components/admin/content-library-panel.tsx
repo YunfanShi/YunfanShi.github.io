@@ -4,27 +4,53 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { createNovelTag, createRedemptionCodes, deleteCatalogNovel, deleteNovelTag, getAdminNovelChapters, saveAdminNovelChapters, setRedemptionCodeEnabled, updateCatalogNovel, updateFeatureAccess, type AdminCode, type AdminFeature, type AdminNovel, type AdminTag } from '@/actions/reader-admin';
 import { PLAN_ORDER, type PlanCode } from '@/lib/redemption';
 import { splitNovelIntoChapters, type NovelChapter } from '@/lib/novel-reader';
+import { createClient } from '@/lib/supabase/client';
 
 const planLabel: Record<PlanCode, string> = { free: 'Free', plus: 'Plus', pro: 'Pro', ultra: 'Ultra' };
 const field = 'min-h-11 w-full rounded-xl border border-[#d0d5dd] bg-white px-3 text-sm outline-none focus:border-[#155eef] focus:ring-4 focus:ring-[#155eef]/10 dark:border-white/15 dark:bg-[#172033]';
 
 type UploadJob = { file: File; cover: File | null; progress: number; status: 'queued' | 'uploading' | 'done' | 'failed'; error?: string };
 
-function uploadWithProgress(form: FormData, onProgress: (progress: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open('POST', '/api/admin/novels');
-    request.upload.addEventListener('progress', (event) => { if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100)); });
-    request.addEventListener('load', () => {
-      let response: { error?: string } = {};
-      try { response = JSON.parse(request.responseText) as { error?: string }; } catch { /* Use the generic status error. */ }
-      if (request.status >= 200 && request.status < 300) resolve();
-      else reject(new Error(response.error ?? `上传失败（HTTP ${request.status}）`));
-    });
-    request.addEventListener('error', () => reject(new Error('网络连接中断。')));
-    request.addEventListener('abort', () => reject(new Error('上传已取消。')));
-    request.send(form);
+async function uploadWithProgress(form: FormData, onProgress: (progress: number) => void): Promise<void> {
+  const file = form.get('file');
+  const cover = form.get('cover');
+  if (!(file instanceof File)) throw new Error('请选择小说文件。');
+  const ticketResponse = await fetch('/api/admin/novels/upload-ticket', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file: { name: file.name, size: file.size, type: file.type }, cover: cover instanceof File ? { name: cover.name, size: cover.size, type: cover.type } : undefined }),
   });
+  const ticket = await ticketResponse.json() as { novelId?: string; file?: { path: string; token: string; name: string; type: string }; cover?: { path: string; token: string; name: string; type: string } | null; error?: string };
+  if (!ticketResponse.ok || !ticket.novelId || !ticket.file) throw new Error(ticket.error ?? `准备上传失败（HTTP ${ticketResponse.status}）`);
+  const paths = [ticket.file.path, ...(ticket.cover ? [ticket.cover.path] : [])];
+  try {
+    const storage = createClient().storage.from('novel-files');
+    onProgress(10);
+    const fileUpload = await storage.uploadToSignedUrl(ticket.file.path, ticket.file.token, file, { contentType: file.type || 'application/octet-stream' });
+    if (fileUpload.error) throw fileUpload.error;
+    onProgress(ticket.cover ? 70 : 85);
+    if (ticket.cover && cover instanceof File) {
+      const coverUpload = await storage.uploadToSignedUrl(ticket.cover.path, ticket.cover.token, cover, { contentType: cover.type });
+      if (coverUpload.error) throw coverUpload.error;
+      onProgress(85);
+    }
+    const metadata = Object.fromEntries(Array.from(form.entries()).filter(([key, value]) => key !== 'file' && key !== 'cover' && typeof value === 'string'));
+    const finalizeResponse = await fetch('/api/admin/novels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'finalize', upload: ticket, metadata }),
+    });
+    const result = await finalizeResponse.json().catch(() => ({})) as { error?: string };
+    if (!finalizeResponse.ok) throw new Error(result.error ?? `上架失败（HTTP ${finalizeResponse.status}）`);
+    onProgress(100);
+  } catch (error) {
+    await fetch('/api/admin/novels/upload-ticket', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths }),
+    }).catch(() => undefined);
+    throw error;
+  }
 }
 
 function TagPicker({ tags, selected, onChange }: { tags: AdminTag[]; selected: string[]; onChange: (tags: string[]) => void }) {
