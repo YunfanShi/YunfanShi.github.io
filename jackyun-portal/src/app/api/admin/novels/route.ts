@@ -21,7 +21,34 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: 'Storage service is unavailable' }, { status: 503 });
 
-  const form = await request.formData();
+  let form: FormData;
+  if (request.headers.get('content-type')?.includes('application/json')) {
+    let body: { mode?: unknown; upload?: { novelId?: unknown; file?: { path?: unknown; name?: unknown; type?: unknown }; cover?: { path?: unknown; name?: unknown; type?: unknown } | null }; metadata?: Record<string, unknown> };
+    try { body = await request.json() as typeof body; } catch { return NextResponse.json({ error: '上传确认参数无效。' }, { status: 400 }); }
+    const upload = body.upload;
+    const novelId = typeof upload?.novelId === 'string' ? upload.novelId : '';
+    const filePath = typeof upload?.file?.path === 'string' ? upload.file.path : '';
+    const fileName = typeof upload?.file?.name === 'string' ? upload.file.name : '';
+    const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+    if (body.mode !== 'finalize' || !upload || !/^[0-9a-f-]{36}$/iu.test(novelId) || !allowedNovelExtensions.has(extension) || filePath !== `catalog/${novelId}/book.${extension}`) return NextResponse.json({ error: '上传确认参数无效。' }, { status: 400 });
+    const fileDownload = await admin.storage.from('novel-files').download(filePath);
+    if (fileDownload.error || !fileDownload.data) return NextResponse.json({ error: fileDownload.error?.message ?? '未找到已上传的小说文件。' }, { status: 400 });
+    form = new FormData();
+    form.set('file', new File([fileDownload.data], fileName, { type: typeof upload.file?.type === 'string' ? upload.file.type : 'application/octet-stream' }));
+    form.set('preparedId', novelId);
+    form.set('preparedStoragePath', filePath);
+    if (upload.cover) {
+      const coverPath = typeof upload.cover.path === 'string' ? upload.cover.path : '';
+      const coverName = typeof upload.cover.name === 'string' ? upload.cover.name : '';
+      const coverType = typeof upload.cover.type === 'string' ? upload.cover.type : '';
+      if (!allowedCoverTypes.has(coverType) || !coverPath.startsWith(`catalog/${novelId}/cover.`)) return NextResponse.json({ error: '封面确认参数无效。' }, { status: 400 });
+      const coverDownload = await admin.storage.from('novel-files').download(coverPath);
+      if (coverDownload.error || !coverDownload.data) return NextResponse.json({ error: coverDownload.error?.message ?? '未找到已上传的封面。' }, { status: 400 });
+      form.set('cover', new File([coverDownload.data], coverName, { type: coverType }));
+      form.set('preparedCoverPath', coverPath);
+    }
+    for (const key of ['title', 'author', 'description', 'category', 'tags', 'language', 'minimumPlan']) form.set(key, String(body.metadata?.[key] ?? ''));
+  } else form = await request.formData();
   const legacyFile = form.get('file');
   const files = form.getAll('files').filter((value): value is File => value instanceof File && value.size > 0);
   if (!files.length && legacyFile instanceof File && legacyFile.size > 0) files.push(legacyFile);
@@ -36,6 +63,9 @@ export async function POST(request: NextRequest) {
   const language = String(form.get('language') ?? 'zh');
   const minimumPlan = String(form.get('minimumPlan') ?? 'free');
   if (files.length < 1 || files.length > 20 || covers.length > files.length || customTitle.length > 160 || (files.length > 1 && customTitle.length > 0) || author.length > 120 || description.length > 1000 || category.length > 40 || tags.length > 20 || !['zh', 'en'].includes(language) || !isPlanCode(minimumPlan)) return NextResponse.json({ error: '请选择 1–20 本小说；批量时书名留空，封面数量不能超过小说数量。' }, { status: 400 });
+  const preparedId = String(form.get('preparedId') ?? '');
+  const preparedStoragePath = String(form.get('preparedStoragePath') ?? '');
+  const preparedCoverPath = String(form.get('preparedCoverPath') ?? '');
 
   const failures: string[] = [];
   const uploadedIds: string[] = [];
@@ -46,18 +76,26 @@ export async function POST(request: NextRequest) {
     const cover = covers[index];
     if (cover && (!allowedCoverTypes.has(cover.type) || cover.size > 5 * 1024 * 1024)) { failures.push(`${file.name}：封面须为 5 MB 内的 JPG、PNG 或 WebP`); continue; }
 
-    const novelId = randomUUID();
-    const storagePath = `catalog/${novelId}/book.${extension}`;
+    const novelId = preparedId || randomUUID();
+    const expectedStoragePath = `catalog/${novelId}/book.${extension}`;
+    const storagePath = preparedStoragePath || expectedStoragePath;
+    if (!/^[0-9a-f-]{36}$/iu.test(novelId) || storagePath !== expectedStoragePath) { failures.push(`${file.name}：上传路径无效`); continue; }
     const title = (files.length === 1 && customTitle ? customTitle : file.name.replace(/\.[^.]+$/u, '').trim() || '未命名小说').slice(0, 160);
-    const upload = await admin.storage.from('novel-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
-    if (upload.error) { failures.push(`${file.name}：${upload.error.message}`); continue; }
+    if (!preparedStoragePath) {
+      const upload = await admin.storage.from('novel-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      if (upload.error) { failures.push(`${file.name}：${upload.error.message}`); continue; }
+    }
 
     let coverPath: string | null = null;
     if (cover) {
       const coverExtension = cover.type === 'image/png' ? 'png' : cover.type === 'image/webp' ? 'webp' : 'jpg';
-      coverPath = `catalog/${novelId}/cover.${coverExtension}`;
-      const coverUpload = await admin.storage.from('novel-files').upload(coverPath, cover, { contentType: cover.type, upsert: false });
-      if (coverUpload.error) { await admin.storage.from('novel-files').remove([storagePath]); failures.push(`${file.name}：${coverUpload.error.message}`); continue; }
+      const expectedCoverPath = `catalog/${novelId}/cover.${coverExtension}`;
+      coverPath = preparedCoverPath || expectedCoverPath;
+      if (coverPath !== expectedCoverPath) { await admin.storage.from('novel-files').remove([storagePath]); failures.push(`${file.name}：封面上传路径无效`); continue; }
+      if (!preparedCoverPath) {
+        const coverUpload = await admin.storage.from('novel-files').upload(coverPath, cover, { contentType: cover.type, upsert: false });
+        if (coverUpload.error) { await admin.storage.from('novel-files').remove([storagePath]); failures.push(`${file.name}：${coverUpload.error.message}`); continue; }
+      }
     }
 
     const { error } = await admin.from('novel_catalog').insert({ id: novelId, title, author, description, category, tags, language, minimum_plan: minimumPlan, storage_path: storagePath, original_file_name: file.name.slice(0, 240), file_size: file.size, cover_path: coverPath, cover_updated_at: coverPath ? new Date().toISOString() : null, created_by: user.id });

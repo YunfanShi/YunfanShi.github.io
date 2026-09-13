@@ -5,16 +5,28 @@ import test from 'node:test';
 const panelSource = await readFile(new URL('../src/components/admin/content-library-panel.tsx', import.meta.url), 'utf8');
 const actionSource = await readFile(new URL('../src/actions/reader-admin.ts', import.meta.url), 'utf8');
 const uploadRouteSource = await readFile(new URL('../src/app/api/admin/novels/route.ts', import.meta.url), 'utf8');
+const uploadTicketSource = await readFile(new URL('../src/app/api/admin/novels/upload-ticket/route.ts', import.meta.url), 'utf8');
 const readerSource = await readFile(new URL('../src/components/modules/ielts/novel-workbench.tsx', import.meta.url), 'utf8');
 const migrationSource = await readFile(new URL('../supabase/migrations/20260912090245_reader_catalog_sync_tags_and_chapters.sql', import.meta.url), 'utf8');
+const syncMigrationSource = await readFile(new URL('../supabase/migrations/20260912160245_optimize_novel_sync.sql', import.meta.url), 'utf8');
 
 test('admin novel upload is guarded against duplicate submissions', () => {
   assert.match(panelSource, /if \(uploadLock\.current\) return;/u);
   assert.match(panelSource, /uploadLock\.current = true; setUploading\(true\)/u);
   assert.match(panelSource, /type="submit" disabled=\{uploading \|\| uploadFiles\.length < 1\}/u);
-  assert.match(panelSource, /request\.upload\.addEventListener\('progress'/u);
   assert.match(panelSource, /Math\.min\(2, indexes\.length\)/u);
   assert.match(panelSource, /retryFailedUploads/u);
+});
+
+test('admin uploads bypass the Vercel request-body limit with signed Storage uploads', () => {
+  assert.match(panelSource, /uploadToSignedUrl/u);
+  assert.match(panelSource, /\/api\/admin\/novels\/upload-ticket/u);
+  assert.match(uploadTicketSource, /createSignedUploadUrl/u);
+  assert.match(uploadRouteSource, /body\.mode !== 'finalize'/u);
+  assert.match(uploadRouteSource, /preparedStoragePath/u);
+  assert.doesNotMatch(panelSource, /new XMLHttpRequest/u);
+  assert.ok(uploadRouteSource.includes('file.size > 50 * 1024 * 1024'));
+  assert.ok(uploadRouteSource.includes('cover.size > 5 * 1024 * 1024'));
 });
 
 test('admin supports batch novel uploads and multi-book redemption bundles', () => {
@@ -31,6 +43,18 @@ test('reader distinguishes local and store books and imports redeemed books into
   assert.match(readerSource, /商店图书/u);
   assert.match(readerSource, /novel\.needsReaderImport/u);
   assert.match(readerSource, /acknowledgeCatalogNovelImport/u);
+});
+
+test('reader caches bodies locally and syncs store metadata without duplicate book uploads', () => {
+  assert.match(readerSource, /if \(isStoreBook\(book\)\) \{ await updateCloudMetadata/u);
+  assert.match(readerSource, /storage_path: null, content_hash: null, content_source: 'store'/u);
+  assert.match(readerSource, /CLOUD_PROGRESS_INTERVAL_MS = 15_000/u);
+  assert.match(readerSource, /getReaderBootstrap/u);
+  assert.match(readerSource, /catalogFingerprint/u);
+  assert.match(readerSource, /updateCloudMetadata\(bootstrap\.userId, book, false\)/u);
+  assert.match(syncMigrationSource, /ADD COLUMN content_source/u);
+  assert.match(syncMigrationSource, /ADD COLUMN on_shelf/u);
+  assert.match(syncMigrationSource, /ALTER COLUMN storage_path DROP NOT NULL/u);
 });
 
 test('admin novel deletion removes catalog data and uploaded storage objects', () => {
