@@ -39,6 +39,8 @@ interface Message {
   tokenUsage?: { input?: number; output?: number };
   /** 实际生成此消息的模型（智能选择时可能每条不同）。 */
   modelName?: string;
+  /** Generated after the Nex AGI smart router selected the model. */
+  routed?: boolean;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -66,6 +68,8 @@ interface AiChatFabProps {
   catalogModelId?: number;
   /** 从当前套餐可用模型中自动选择。 */
   smartSelect?: boolean;
+  /** Whether the selected catalog model accepts reasoning controls. */
+  supportsReasoning?: boolean;
   /** 本地网页 AI 当前选择的账号模型。 */
   browserModel?: string;
   initiallyOpen?: boolean;
@@ -675,6 +679,7 @@ export default function AiChatFab({
   currentPath: propPath,
   catalogModelId,
   smartSelect,
+  supportsReasoning = true,
   browserModel,
   initiallyOpen = false,
   initialAssistantMode,
@@ -706,6 +711,7 @@ export default function AiChatFab({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   // 思考深度级别（默认中）
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>(() => getThinkingLevel());
+  const effectiveThinkingLevel: ThinkingLevel = supportsReasoning ? thinkingLevel : 'low';
   // 操作模式（YOLO / 安全）
   const [safetyMode, setSafetyMode] = useState<SafetyMode>(() => getSafetyMode());
   // token 价格（元/1M）
@@ -1238,14 +1244,17 @@ export default function AiChatFab({
 
     const res = await callAiApi(apiMessages, {
       stream: true,
-      temperature: options.temperature ?? getThinkingTemperature(thinkingLevel),
+      temperature: options.temperature ?? getThinkingTemperature(effectiveThinkingLevel),
       model: options.model || browserModel,
       maxTokens: options.maxTokens,
-      feature: thinkingLevel === 'high' ? 'reasoning' : 'chat',
+      feature: effectiveThinkingLevel === 'high' ? 'reasoning' : 'chat',
+      noThinking: effectiveThinkingLevel === 'low',
+      thinkingLevel: effectiveThinkingLevel,
       catalogModelId,
       smartSelect,
       workspaceMode: assistantMode,
       signal: abortControllerRef.current.signal,
+      onModelSelected: (modelName) => setStatusText(`Nex AGI: ${modelName} · 正在连接模型...`),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -1261,6 +1270,7 @@ export default function AiChatFab({
     const encodedModelName = res.headers.get('x-jackyun-model');
     let responseModelName = options.model || browserModel || config.model || 'AI';
     if (encodedModelName) { try { responseModelName = decodeURIComponent(encodedModelName); } catch { responseModelName = encodedModelName; } }
+    if (smartSelect) setStatusText(`Nex AGI: ${responseModelName} · 正在等待回复...`);
 
     const reader = res.body?.getReader();
     if (!reader) throw new Error('无法读取 AI 响应流');
@@ -1282,7 +1292,7 @@ export default function AiChatFab({
     const inputChars = apiMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
     const estimatedInputTokens = Math.ceil(inputChars / 4);
 
-    setStatusText('AI 正在思考...');
+    setStatusText(smartSelect ? `Nex AGI: ${responseModelName} · AI 正在思考...` : 'AI 正在思考...');
 
     // ═══ P1-4 性能优化：节流 UI 更新 ═══
     // 流式 chunk 可能每秒几十个，逐个更新 React state + 写 localStorage 会造成频繁
@@ -1307,6 +1317,7 @@ export default function AiChatFab({
           reasoningContent: reasoningContent || undefined,
           tokenUsage: tokenUsage || (assistantContent ? { input: estimatedInputTokens, output: Math.ceil(assistantContent.length / 4) } : undefined),
           modelName: responseModelName,
+          routed: smartSelect,
         };
         if (targetIndex >= 0) {
           updated[targetIndex] = newMsg;
@@ -1315,7 +1326,7 @@ export default function AiChatFab({
         }
         return { ...conv, messages: updated, updatedAt: new Date().toISOString() };
       }, convId);
-      setStatusText(assistantContent ? 'AI 正在回复...' : 'AI 正在思考...');
+      setStatusText(`${smartSelect ? `Nex AGI: ${responseModelName} · ` : ''}${assistantContent ? 'AI 正在回复...' : 'AI 正在思考...'}`);
     };
 
     while (true) {
@@ -2138,7 +2149,7 @@ export default function AiChatFab({
                   >
                     {msg.role === 'assistant' ? (
                       <>
-                        {msg.modelName && <p className="mb-1.5 text-[10px] font-medium text-[var(--muted-foreground)]">来自 {msg.modelName}</p>}
+                        {msg.modelName && <p className="mb-1.5 text-[10px] font-medium text-[var(--muted-foreground)]">{msg.routed ? 'Nex AGI: ' : '来自 '}{msg.modelName}</p>}
                         {/* AI 思考过程 — 折叠显示，不用于 TTS */}
                         {thinkingLevel !== 'low' && (msg as Message).reasoningContent && (
                           <div
@@ -2440,13 +2451,15 @@ export default function AiChatFab({
               <div>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted-foreground)', marginBottom: '6px' }}>🧠 思考深度</div>
                 <select
-                  value={thinkingLevel}
+                  value={supportsReasoning ? thinkingLevel : 'low'}
+                  disabled={!supportsReasoning}
                   onChange={(e) => {
                     const level = e.target.value as ThinkingLevel;
                     setThinkingLevel(level);
                     saveThinkingLevel(level);
                   }}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '13px', outline: 'none' }}
+                  title={supportsReasoning ? '调整模型思考深度' : '当前模型不支持思考'}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--background)', color: 'var(--foreground)', fontSize: '13px', outline: 'none', opacity: supportsReasoning ? 1 : 0.5 }}
                 >
                   <option value="low">低 · 快速（4轮推理，隐藏思考过程）</option>
                   <option value="medium">中 · 平衡（10轮推理，折叠思考）</option>

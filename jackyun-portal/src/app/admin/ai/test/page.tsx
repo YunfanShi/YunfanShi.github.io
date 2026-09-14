@@ -16,6 +16,14 @@ export default async function AdminAiTestPage() {
     sortOrder: model.sort_order,
     consecutiveFailures: model.consecutive_failures,
     lastFailureDetail: model.last_failure_detail,
+    totalErrorCount: model.total_error_count,
+    lastErrorAt: model.last_error_at,
+    testRunCount: model.test_run_count,
+    testAttemptCount: model.test_attempt_count,
+    lastTestAt: model.last_test_at,
+    lastTestAttemptCount: model.last_test_attempt_count,
+    lastTestAvailable: model.last_test_available,
+    lastTestLog: model.last_test_log,
   }));
-  return <div className="mx-auto max-w-[1440px] space-y-6 pb-10"><AdminPageHeader title="AI 模型测试" description="顺序检测平台模型的连接、首字延迟、总耗时、生成速度与实际可用性。" /><AiModelTestPanel initialModels={models} /></div>;
+  return <div className="mx-auto max-w-[1440px] space-y-6 pb-10"><AdminPageHeader title="AI 模型测试" description="双并发检测平台模型；失败最多重试 2 次，并保存延迟、速度与每次尝试日志。" /><AiModelTestPanel initialModels={models} /></div>;
 }

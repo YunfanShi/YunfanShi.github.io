@@ -16,9 +16,10 @@ const PLAN_CODES: PlanCode[] = ['free', 'plus', 'pro', 'ultra'];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export interface AdminAiProvider { id: string; display_name: string; base_url: string; chat_model: string; reasoning_model: string | null; site_model: string | null; input_cost_per_million: number; output_cost_per_million: number; enabled: boolean; is_default: boolean; has_api_key: boolean; }
 export interface SubscriptionPlanAdmin { code: PlanCode; display_name: string; daily_token_limit: number; monthly_token_limit: number; max_output_tokens: number; monthly_site_generations: number; }
-export interface AdminAiModel { id: number; provider_id: string; display_name: string; model_id: string; description: string; routing_description: string; capabilities: AiModelCapability[]; supports_chat: boolean; supports_agent: boolean; input_cost_per_million: number; output_cost_per_million: number; context_window: number; enabled: boolean; sort_order: number; consecutive_failures: number; last_failure_detail: string | null; last_failure_at: string | null; auto_disabled_at: string | null; auto_disabled_reason: string | null; }
+export interface AdminAiModel { id: number; provider_id: string; display_name: string; model_id: string; description: string; routing_description: string; capabilities: AiModelCapability[]; supports_chat: boolean; supports_agent: boolean; input_cost_per_million: number; output_cost_per_million: number; context_window: number; enabled: boolean; sort_order: number; consecutive_failures: number; last_failure_detail: string | null; last_failure_at: string | null; auto_disabled_at: string | null; auto_disabled_reason: string | null; total_error_count: number; last_error_detail: string | null; last_error_at: string | null; test_run_count: number; test_attempt_count: number; last_test_at: string | null; last_test_available: boolean | null; last_test_attempt_count: number | null; last_test_connection_ms: number | null; last_test_first_token_ms: number | null; last_test_total_ms: number | null; last_test_tokens_per_second: number | null; last_test_log: AiModelTestAttempt[]; }
 export interface AdminAiProviderUsage { providerId: string | null; providerName: string; requests: number; inputTokens: number; outputTokens: number; billedTokens: number; estimatedCost: number; }
-export interface AiModelTestResult { modelId: number; testedAt: string; available: boolean; httpStatus: number | null; connectionMs: number | null; firstTokenMs: number | null; totalMs: number; outputTokens: number; tokensPerSecond: number | null; responsePreview: string; error: string | null; }
+export interface AiModelTestAttempt { attempt: number; testedAt: string; available: boolean; httpStatus: number | null; connectionMs: number | null; firstTokenMs: number | null; totalMs: number; outputTokens: number; tokensPerSecond: number | null; responsePreview: string; error: string | null; }
+export interface AiModelTestResult extends Omit<AiModelTestAttempt, 'attempt'> { modelId: number; attemptCount: number; attempts: AiModelTestAttempt[]; }
 
 async function adminContext() {
   const supabase = await createClient();
@@ -50,7 +51,7 @@ export async function getAiAdminData() {
   const providerUsageRows = (providerUsageResult.data ?? []) as Array<{ provider_id: string | null; provider_name: string; requests: number | string; input_tokens: number | string; output_tokens: number | string; billed_tokens: number | string; estimated_cost: number | string }>;
   return {
     providers,
-    models: (modelResult.data ?? []).map((row) => ({ ...row, id: Number(row.id), capabilities: normalizeAiModelCapabilities(row.capabilities), input_cost_per_million: Number(row.input_cost_per_million), output_cost_per_million: Number(row.output_cost_per_million), context_window: Number(row.context_window), sort_order: Number(row.sort_order), consecutive_failures: Number(row.consecutive_failures) })) as AdminAiModel[],
+    models: (modelResult.data ?? []).map((row) => ({ ...row, id: Number(row.id), capabilities: normalizeAiModelCapabilities(row.capabilities), input_cost_per_million: Number(row.input_cost_per_million), output_cost_per_million: Number(row.output_cost_per_million), context_window: Number(row.context_window), sort_order: Number(row.sort_order), consecutive_failures: Number(row.consecutive_failures), total_error_count: Number(row.total_error_count ?? 0), test_run_count: Number(row.test_run_count ?? 0), test_attempt_count: Number(row.test_attempt_count ?? 0), last_test_tokens_per_second: row.last_test_tokens_per_second === null ? null : Number(row.last_test_tokens_per_second), last_test_log: Array.isArray(row.last_test_log) ? row.last_test_log : [] })) as AdminAiModel[],
     modelAccess: (accessResult.data ?? []).reduce<Record<number, PlanCode[]>>((all, row) => {
       const modelId = Number(row.model_id);
       const planCode = row.plan_code as PlanCode;
@@ -96,34 +97,60 @@ export async function saveDefaultAiModel(modelId: number | null): Promise<{ succ
 }
 
 export async function testAiCatalogModel(modelId: number): Promise<AiModelTestResult> {
-  const started = performance.now();
-  const failed = (error: string, httpStatus: number | null = null, connectionMs: number | null = null): AiModelTestResult => ({ modelId, testedAt: new Date().toISOString(), available: false, httpStatus, connectionMs, firstTokenMs: null, totalMs: Math.round(performance.now() - started), outputTokens: 0, tokensPerSecond: null, responsePreview: '', error });
+  const attempts: AiModelTestAttempt[] = [];
+  const failedAttempt = (attempt: number, started: number, error: string, httpStatus: number | null = null, connectionMs: number | null = null): AiModelTestAttempt => ({ attempt, testedAt: new Date().toISOString(), available: false, httpStatus, connectionMs, firstTokenMs: null, totalMs: Math.round(performance.now() - started), outputTokens: 0, tokensPerSecond: null, responsePreview: '', error });
+  const resultFrom = (attempt: AiModelTestAttempt): AiModelTestResult => ({ ...attempt, modelId, attemptCount: attempts.length, attempts });
   try {
-    if (!Number.isSafeInteger(modelId) || modelId < 1) return failed('模型 ID 无效。');
+    if (!Number.isSafeInteger(modelId) || modelId < 1) {
+      attempts.push(failedAttempt(1, performance.now(), '模型 ID 无效。'));
+      return resultFrom(attempts[0]);
+    }
     const { admin } = await adminContext();
     const { data: model, error: modelError } = await admin.from('ai_model_catalog').select('id, provider_id, model_id').eq('id', modelId).maybeSingle();
-    if (modelError || !model) return failed(modelError?.message ?? '模型不存在。');
+    if (modelError || !model) {
+      attempts.push(failedAttempt(1, performance.now(), modelError?.message ?? '模型不存在。'));
+      return resultFrom(attempts[0]);
+    }
     const { data: provider, error: providerError } = await admin.from('ai_provider_configs').select('base_url, encrypted_api_key, enabled').eq('id', model.provider_id).maybeSingle();
-    if (providerError || !provider) return failed(providerError?.message ?? '模型连接不存在。');
-    if (!provider.enabled) return failed('服务连接已停用。');
+    if (providerError || !provider) {
+      attempts.push(failedAttempt(1, performance.now(), providerError?.message ?? '模型连接不存在。'));
+      return resultFrom(attempts[0]);
+    }
+    if (!provider.enabled) {
+      attempts.push(failedAttempt(1, performance.now(), '服务连接已停用。'));
+      return resultFrom(attempts[0]);
+    }
     let apiKey = '';
-    try { apiKey = decryptSecret(provider.encrypted_api_key); } catch { return failed('API Key 无法解密。'); }
-    const response = await fetch(`${provider.base_url}/chat/completions`, {
+    try { apiKey = decryptSecret(provider.encrypted_api_key); } catch {
+      attempts.push(failedAttempt(1, performance.now(), 'API Key 无法解密。'));
+      return resultFrom(attempts[0]);
+    }
+
+    for (let attemptNumber = 1; attemptNumber <= 3; attemptNumber += 1) {
+      const started = performance.now();
+      try {
+        const response = await fetch(`${provider.base_url}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model: model.model_id, messages: [{ role: 'user', content: 'Reply with the numbers 1 through 20, separated by single spaces, and nothing else.' }], temperature: 0, max_tokens: 64, stream: true }),
       signal: AbortSignal.timeout(45_000),
       cache: 'no-store',
-    });
-    const connectionMs = Math.round(performance.now() - started);
-    if (!response.ok) {
-      const rawError = (await response.text()).slice(0, 4000);
-      await recordAiModelResult(admin, modelId, { success: false, status: response.status, detail: rawError });
-      return failed(explainAiError(response.status, rawError).reason, response.status, connectionMs);
-    }
-    if (!response.body) return failed('上游返回成功状态，但没有响应内容。', response.status, connectionMs);
+        });
+        const connectionMs = Math.round(performance.now() - started);
+        if (!response.ok) {
+          const rawError = (await response.text()).slice(0, 4000);
+          await recordAiModelResult(admin, modelId, { success: false, status: response.status, detail: rawError });
+          attempts.push(failedAttempt(attemptNumber, started, explainAiError(response.status, rawError).reason, response.status, connectionMs));
+          continue;
+        }
+        if (!response.body) {
+          const detail = '上游返回成功状态，但没有响应内容。';
+          await recordAiModelResult(admin, modelId, { success: false, status: response.status, detail });
+          attempts.push(failedAttempt(attemptNumber, started, detail, response.status, connectionMs));
+          continue;
+        }
 
-    const reader = response.body.getReader();
+        const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let raw = '';
     let firstByteMs: number | null = null;
@@ -145,17 +172,44 @@ export async function testAiCatalogModel(modelId: number): Promise<AiModelTestRe
         try { content += JSON.parse(`"${match[1]}"`) as string; } catch { content += match[1]; }
       }
     }
-    content = content.trim();
-    if (!content) return { ...failed('已连接，但模型没有返回可读取的文本。', response.status, connectionMs), firstTokenMs: firstTokenMs ?? firstByteMs, totalMs };
+        content = content.trim();
+        if (!content) {
+          const detail = '已连接，但模型没有返回可读取的文本。';
+          await recordAiModelResult(admin, modelId, { success: false, status: response.status, detail });
+          attempts.push({ ...failedAttempt(attemptNumber, started, detail, response.status, connectionMs), firstTokenMs: firstTokenMs ?? firstByteMs, totalMs });
+          continue;
+        }
     const usageOutput = Number([...raw.matchAll(/"(?:completion_tokens|output_tokens)"\s*:\s*(\d+)/g)].at(-1)?.[1]);
     const outputTokens = usageOutput || Math.max(1, Math.ceil(content.length / 4));
     const effectiveFirstToken = firstTokenMs ?? firstByteMs ?? connectionMs;
     const generationSeconds = Math.max(0.001, (totalMs - effectiveFirstToken) / 1000);
-    await recordAiModelResult(admin, modelId, { success: true });
-    return { modelId, testedAt: new Date().toISOString(), available: true, httpStatus: response.status, connectionMs, firstTokenMs: effectiveFirstToken, totalMs, outputTokens, tokensPerSecond: Math.round(outputTokens / generationSeconds * 10) / 10, responsePreview: content.slice(0, 300), error: null };
+        await recordAiModelResult(admin, modelId, { success: true });
+        attempts.push({ attempt: attemptNumber, testedAt: new Date().toISOString(), available: true, httpStatus: response.status, connectionMs, firstTokenMs: effectiveFirstToken, totalMs, outputTokens, tokensPerSecond: Math.round(outputTokens / generationSeconds * 10) / 10, responsePreview: content.slice(0, 300), error: null });
+        break;
+      } catch (error) {
+        const message = error instanceof Error && error.name === 'TimeoutError' ? '测试超过 45 秒，已超时。' : error instanceof Error ? error.message : '模型测试失败。';
+        await recordAiModelResult(admin, modelId, { success: false, status: 0, detail: message });
+        attempts.push(failedAttempt(attemptNumber, started, message));
+      }
+    }
+
+    const finalAttempt = attempts.at(-1)!;
+    const { error: saveError } = await admin.rpc('record_ai_model_test', {
+      p_model_id: modelId,
+      p_available: finalAttempt.available,
+      p_attempt_count: attempts.length,
+      p_connection_ms: finalAttempt.connectionMs,
+      p_first_token_ms: finalAttempt.firstTokenMs,
+      p_total_ms: finalAttempt.totalMs,
+      p_tokens_per_second: finalAttempt.tokensPerSecond,
+      p_test_log: attempts,
+    });
+    if (saveError) console.error('[ai-model-test] Unable to save latest test log', saveError.message);
+    return resultFrom(finalAttempt);
   } catch (error) {
-    const message = error instanceof Error && error.name === 'TimeoutError' ? '测试超过 45 秒，已超时。' : error instanceof Error ? error.message : '模型测试失败。';
-    return failed(message);
+    const attempt = failedAttempt(attempts.length + 1, performance.now(), error instanceof Error ? error.message : '模型测试失败。');
+    attempts.push(attempt);
+    return resultFrom(attempt);
   }
 }
 

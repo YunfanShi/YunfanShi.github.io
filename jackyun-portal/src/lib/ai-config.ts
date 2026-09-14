@@ -206,6 +206,10 @@ export async function callAiApi(
     workspaceMode?: 'chat' | 'agent';
     /** 要求平台模型使用联网搜索能力。 */
     webSearch?: boolean;
+    /** Provider-neutral reasoning depth. Unsupported catalog models ignore it. */
+    thinkingLevel?: ThinkingLevel;
+    /** Called after smart routing chooses a model, before generation starts. */
+    onModelSelected?: (modelName: string) => void;
   } = {},
 ): Promise<Response> {
   const config = getAiConfig();
@@ -239,22 +243,38 @@ export async function callAiApi(
   // Route all providers through the server proxy: it normalizes provider
   // errors, applies the selected response language, and keeps provider logic
   // out of individual UI modules.
+  const requestBody: Record<string, unknown> = {
+    ...body,
+    feature: options.feature ?? 'chat',
+    providerMode: config.providerMode ?? 'cloud',
+    baseUrl,
+    ...(apiKey ? { apiKey } : {}),
+    ...(options.catalogModelId ? { catalogModelId: options.catalogModelId } : {}),
+    ...(options.smartSelect ? { smartSelect: true } : {}),
+    ...(options.workspaceMode ? { workspaceMode: options.workspaceMode } : {}),
+    ...(options.webSearch ? { webSearch: true } : {}),
+    ...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}),
+  };
+  if (options.smartSelect && (config.providerMode ?? 'cloud') === 'cloud') {
+    const routingResponse = await fetch('/api/llm-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...requestBody, routingOnly: true }),
+      signal: options.signal,
+    });
+    if (!routingResponse.ok) return routingResponse;
+    const routing = await routingResponse.json() as { modelId?: number; modelName?: string };
+    if (!Number.isSafeInteger(routing.modelId) || !routing.modelName) return new Response(JSON.stringify({ error: { message: '智能路由没有返回有效模型。' } }), { status: 502, headers: { 'Content-Type': 'application/json' } });
+    options.onModelSelected?.(routing.modelName);
+    delete requestBody.smartSelect;
+    requestBody.catalogModelId = routing.modelId;
+  }
   return fetch('/api/llm-proxy', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      ...body,
-      feature: options.feature ?? 'chat',
-      providerMode: config.providerMode ?? 'cloud',
-      baseUrl,
-      ...(apiKey ? { apiKey } : {}),
-      ...(options.catalogModelId ? { catalogModelId: options.catalogModelId } : {}),
-      ...(options.smartSelect ? { smartSelect: true } : {}),
-      ...(options.workspaceMode ? { workspaceMode: options.workspaceMode } : {}),
-      ...(options.webSearch ? { webSearch: true } : {}),
-    }),
+    body: JSON.stringify(requestBody),
     signal: options.signal,
   });
 }

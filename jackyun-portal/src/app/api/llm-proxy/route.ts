@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
 import { resolveManagedAiModel, resolveSmartAiRouting, type AiWorkspaceMode } from '@/lib/ai-model-catalog';
 import { buildSmartSelectionMessages, extractCompletionText, parseSmartSelection } from '@/lib/ai-smart-selection';
-import { normalizeAiModelCapabilities } from '@/lib/ai-model-capabilities';
+import { normalizeAiModelCapabilities, type AiModelCapability } from '@/lib/ai-model-capabilities';
 import { recordAiModelResult } from '@/lib/ai-model-health';
 
 // Cloud configuration — only accessible server-side
@@ -175,8 +175,10 @@ export async function POST(req: NextRequest) {
   const catalogModelId = Number(body.catalogModelId);
   const smartSelect = body.smartSelect === true;
   const webSearch = body.webSearch === true;
+  const thinkingLevel = body.thinkingLevel === 'low' || body.thinkingLevel === 'medium' || body.thinkingLevel === 'high' ? body.thinkingLevel : null;
   const requestedWorkspaceMode: AiWorkspaceMode = body.workspaceMode === 'agent' ? 'agent' : 'chat';
-  const requiredCapabilities = webSearch ? ['web_search' as const] : [];
+  const requiredCapabilities: AiModelCapability[] = webSearch ? ['web_search'] : [];
+  if (smartSelect && thinkingLevel === 'high') requiredCapabilities.push('reasoning');
   if (smartSelect && Number.isSafeInteger(catalogModelId) && catalogModelId > 0) {
     return NextResponse.json({ error: { message: '不能同时指定模型和智能选择。' } }, { status: 400 });
   }
@@ -299,6 +301,20 @@ export async function POST(req: NextRequest) {
           inputCostPerMillion: Number(candidate.input_cost_per_million) || 0,
           outputCostPerMillion: Number(candidate.output_cost_per_million) || 0,
           contextWindow: Number(candidate.context_window) || 0,
+          health: {
+            totalErrors: Number(candidate.total_error_count) || 0,
+            testRuns: Number(candidate.test_run_count) || 0,
+            testAttempts: Number(candidate.test_attempt_count) || 0,
+            lastErrorAt: candidate.last_error_at,
+            lastTestAt: candidate.last_test_at,
+            lastTestAvailable: candidate.last_test_available,
+            attemptsToConnect: candidate.last_test_attempt_count === null ? null : Number(candidate.last_test_attempt_count),
+            connectionMs: candidate.last_test_connection_ms === null ? null : Number(candidate.last_test_connection_ms),
+            firstTokenMs: candidate.last_test_first_token_ms === null ? null : Number(candidate.last_test_first_token_ms),
+            totalMs: candidate.last_test_total_ms === null ? null : Number(candidate.last_test_total_ms),
+            tokensPerSecond: candidate.last_test_tokens_per_second === null ? null : Number(candidate.last_test_tokens_per_second),
+            recentAttempts: (Array.isArray(candidate.last_test_log) ? candidate.last_test_log : []).slice(-3).map((attempt: Record<string, unknown>) => ({ attempt: Number(attempt.attempt) || 0, available: attempt.available === true, httpStatus: attempt.httpStatus === null ? null : Number(attempt.httpStatus), connectionMs: attempt.connectionMs === null ? null : Number(attempt.connectionMs), firstTokenMs: attempt.firstTokenMs === null ? null : Number(attempt.firstTokenMs), totalMs: Number(attempt.totalMs) || 0, tokensPerSecond: attempt.tokensPerSecond === null ? null : Number(attempt.tokensPerSecond), error: typeof attempt.error === 'string' ? attempt.error.slice(0, 300) : null })),
+          },
         }));
         const routerMessages = buildSmartSelectionMessages(body.messages, candidates, requestedWorkspaceMode);
         const routingInputTokens = Math.max(1, Math.ceil(JSON.stringify(routerMessages).length / 4));
@@ -339,12 +355,16 @@ export async function POST(req: NextRequest) {
             routingSucceeded = true;
           }
         } catch (error) {
+          await recordAiModelResult(adminClient, Number(routing.router.model.id), { success: false, status: 0, detail: error instanceof Error ? error.message : 'Smart routing request failed' });
           console.warn('[llm-proxy] Smart model routing failed; using the first allowed candidate', error instanceof Error ? error.message : error);
         } finally {
           await adminClient.rpc('finalize_ai_usage', { p_reservation_id: routingReservationRow.reservation_id, p_input_tokens: routingActualInputTokens, p_output_tokens: routingOutputTokens, p_success: routingSucceeded, p_estimated_cost: routingEstimatedCost });
         }
         const chosen = routing.candidates.find(({ model: candidate }) => Number(candidate.id) === chosenId) ?? routing.candidates[0];
         selected = { model: chosen.model, provider: chosen.provider, planCode: routing.planCode };
+        if (body.routingOnly === true) {
+          return NextResponse.json({ modelId: Number(chosen.model.id), modelName: chosen.model.display_name });
+        }
       }
       // Existing AI modules that do not explicitly choose a catalog entry use
       // the administrator-selected default model. Provider defaults remain a
@@ -443,6 +463,8 @@ export async function POST(req: NextRequest) {
   delete upstreamFields.smartSelect;
   delete upstreamFields.workspaceMode;
   delete upstreamFields.webSearch;
+  delete upstreamFields.thinkingLevel;
+  delete upstreamFields.routingOnly;
   // GLM 5.3 is an always-thinking model: sending thinking.type=disabled makes
   // BigModel reject the request with code 1210. Translate the app's fast-mode
   // hint to the lowest supported reasoning level for that model family.
@@ -489,6 +511,11 @@ export async function POST(req: NextRequest) {
     model: keySource === 'cloud' ? model : (upstreamFields.model as string) || model,
     messages: withLanguageInstruction(upstreamFields.messages, interfaceLanguage),
   };
+  if (keySource === 'cloud' && managedCatalogModelId && thinkingLevel) {
+    const { data: reasoningModel } = await adminClient?.from('ai_model_catalog').select('capabilities').eq('id', managedCatalogModelId).maybeSingle() ?? { data: null };
+    const supportsReasoning = normalizeAiModelCapabilities(reasoningModel?.capabilities).includes('reasoning');
+    if (supportsReasoning) upstreamBody.reasoning_effort = thinkingLevel;
+  }
   if (webSearch && upstreamHostname === 'api.groq.com' && /^groq\/compound(?:-mini)?$/i.test(model)) {
     upstreamBody.compound_custom = { tools: { enabled_tools: ['web_search', 'visit_website'] } };
   }
@@ -509,6 +536,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : '网络错误';
+    if (adminClient) await recordAiModelResult(adminClient, managedCatalogModelId, { success: false, status: 0, detail: errorMsg });
     auditLog({
       userId,
       ip: clientIp,

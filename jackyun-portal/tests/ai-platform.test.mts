@@ -145,9 +145,11 @@ test('smart selection accepts only server-approved catalog IDs', () => {
   assert.equal(parseSmartSelection('```json\n{"model_id":41}\n```', [41, 42]), 41);
   assert.equal(parseSmartSelection('{"modelId":999}', [41, 42]), null);
   assert.equal(parseSmartSelection('Use model 42 because it is stronger', [41, 42]), null);
-  const messages = buildSmartSelectionMessages([{ role: 'user', content: '分析这段复杂代码' }], [{ id: 42, displayName: 'Strong', modelId: 'strong', description: 'coding', routingDescription: 'best for code review', capabilities: ['code', 'reasoning'], supportsAgent: true, inputCostPerMillion: 1, outputCostPerMillion: 2, contextWindow: 128000 }], 'agent');
+  const messages = buildSmartSelectionMessages([{ role: 'user', content: '分析这段复杂代码' }], [{ id: 42, displayName: 'Strong', modelId: 'strong', description: 'coding', routingDescription: 'best for code review', capabilities: ['code', 'reasoning'], supportsAgent: true, inputCostPerMillion: 1, outputCostPerMillion: 2, contextWindow: 128000, health: { totalErrors: 2, testRuns: 8, testAttempts: 10, lastErrorAt: null, lastTestAt: '2026-09-14T12:00:00Z', lastTestAvailable: true, attemptsToConnect: 2, connectionMs: 320, firstTokenMs: 810, totalMs: 1700, tokensPerSecond: 24, recentAttempts: [{ attempt: 1, available: false, httpStatus: 503, connectionMs: 200, firstTokenMs: null, totalMs: 500, tokensPerSecond: null, error: 'temporary failure' }, { attempt: 2, available: true, httpStatus: 200, connectionMs: 320, firstTokenMs: 810, totalMs: 1700, tokensPerSecond: 24, error: null }] } }], 'agent');
   assert.match(messages[0].content, /untrusted data/);
+  assert.match(messages[0].content, /high latency/);
   assert.match(messages[1].content, /"id":42/);
+  assert.match(messages[1].content, /"attemptsToConnect":2/);
 });
 
 test('smart selection is configured server-side and restricted to plan models', () => {
@@ -163,6 +165,8 @@ test('smart selection is configured server-side and restricted to plan models', 
   assert.match(catalog, /plan_ai_model_access/);
   assert.match(route, /parseSmartSelection\(completionText, candidates\.map/);
   assert.match(route, /routing\.candidates\.find/);
+  assert.match(route, /body\.routingOnly === true/);
+  assert.match(route, /modelName: chosen\.model\.display_name/);
   assert.match(route, /p_feature: 'smart_routing'/);
   assert.match(route, /catalog_model_id: Number\(routing\.router\.model\.id\)/);
   assert.match(route, /delete upstreamFields\.smartSelect/);
@@ -170,6 +174,7 @@ test('smart selection is configured server-side and restricted to plan models', 
   assert.match(panel, /saveSmartRouterModel/);
   assert.match(workspace, /displayName: '智能选择'/);
   assert.match(workspace, /smartSelect: model\.isSmartSelection/);
+  assert.match(workspace, /Nex AGI:/);
 });
 
 test('model operations include rich capabilities, web search, attribution, and safe auto-unlisting', () => {
@@ -190,7 +195,7 @@ test('model operations include rich capabilities, web search, attribution, and s
   assert.match(actions, /deleteAiModel/);
   assert.match(panel, /给智能选择 AI 的详细说明/);
   assert.match(panel, /永久删除/);
-  assert.match(workspace, /来自 \{message\.modelName\}/);
+  assert.match(workspace, /message\.routed \? 'Nex AGI: ' : '来自 '/);
   assert.match(workspace, />联网<\/button>/);
 
   assert.equal(classifyAiModelFailure(402, 'Payment required'), 'billing');
@@ -201,12 +206,13 @@ test('model operations include rich capabilities, web search, attribution, and s
   assert.deepEqual(inferAiModelCapabilities({ modelId: 'groq/compound' }), ['web_search', 'code', 'reasoning', 'tools']);
 });
 
-test('admin model testing is sequential and default routing targets a catalog model', () => {
+test('admin model testing retries failures, uses two workers, and default routing targets a catalog model', () => {
   const sql = readFileSync(new URL('../supabase/migrations/20260914125537_ai_default_model_and_ordering.sql', import.meta.url), 'utf8');
   const actions = readFileSync(new URL('../src/actions/ai-admin.ts', import.meta.url), 'utf8');
   const proxy = readFileSync(new URL('../src/app/api/llm-proxy/route.ts', import.meta.url), 'utf8');
   const adminPanel = readFileSync(new URL('../src/components/admin/ai-platform-panel.tsx', import.meta.url), 'utf8');
   const testPanel = readFileSync(new URL('../src/components/admin/ai-model-test-panel.tsx', import.meta.url), 'utf8');
+  const healthSql = readFileSync(new URL('../supabase/migrations/20260914235059_ai_model_test_history_and_routing_health.sql', import.meta.url), 'utf8');
   assert.match(sql, /default_model_id bigint REFERENCES public\.ai_model_catalog\(id\) ON DELETE SET NULL/);
   assert.match(sql, /default_model_id = p_model_id/);
   assert.match(actions, /export async function saveDefaultAiModel/);
@@ -219,10 +225,14 @@ test('admin model testing is sequential and default routing targets a catalog mo
   assert.match(adminPanel, /平台默认模型/);
   assert.match(adminPanel, /模型列表顺序/);
   assert.match(adminPanel, /max-h-16 overflow-y-auto/);
-  assert.match(testPanel, /for \(const model of enabledModels\)/);
-  assert.match(testPanel, /await runOne\(model\.id\)/);
-  assert.match(testPanel, /严格顺序测试/);
-  assert.doesNotMatch(testPanel, /Promise\.all/);
+  assert.match(actions, /attemptNumber <= 3/);
+  assert.match(actions, /record_ai_model_test/);
+  assert.match(testPanel, /Promise\.all\(\[worker\(\), worker\(\)\]\)/);
+  assert.match(testPanel, /失败自动重试 2 次/);
+  assert.match(healthSql, /total_error_count bigint/);
+  assert.match(healthSql, /last_test_log jsonb/);
+  assert.match(healthSql, /record_ai_model_test/);
+  assert.match(healthSql, /REVOKE ALL ON FUNCTION public\.record_ai_model_test[\s\S]*authenticated/);
 });
 
 test('managed usage is attributed to the actual API source for cost breakdowns', () => {
