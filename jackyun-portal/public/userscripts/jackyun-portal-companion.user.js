@@ -162,6 +162,9 @@
 
   const root = document.createElement('div');
   root.id = 'jyc-root';
+  // The Portal has native AI and study controls. Keep background tracking and
+  // link annotations active there without stacking another floating window.
+  root.hidden = isPortal;
   root.innerHTML = `
     <button id="jyc-fab" type="button" aria-label="打开 JackYun 学习助手"><span>JY</span><b id="jyc-fab-time">0m</b></button>
     <section id="jyc-panel" role="dialog" aria-modal="false" aria-label="JackYun 学习助手">

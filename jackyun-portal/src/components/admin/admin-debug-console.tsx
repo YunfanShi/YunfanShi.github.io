@@ -41,7 +41,6 @@ export default function AdminDebugConsole({ isAdmin }: { isAdmin: boolean }) {
   };
 
   return <>
-    <button type="button" onClick={() => setOpen((value) => !value)} aria-label="打开管理员调试窗口" title="管理员调试（`）" className="fixed bottom-4 right-4 z-[140] grid h-9 w-9 place-items-center rounded-full border border-[#155eef]/30 bg-[#155eef] font-mono text-lg font-bold text-white shadow-lg hover:bg-[#004eeb]">~</button>
     {open && <aside className="fixed bottom-16 right-4 z-[140] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-[#344054] bg-[#101828] p-4 text-white shadow-2xl">
       <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-[#84adff]">管理员调试</p><p className="mt-1 text-sm text-slate-300">快捷键：`（~）</p></div><button type="button" onClick={() => setOpen(false)} className="rounded p-1 text-slate-300 hover:bg-white/10"><span className="material-icons-round">close</span></button></div>
       <div className="mt-4 rounded-xl bg-white/5 p-3 text-xs text-slate-300"><p>路径：{pathname}</p><p className="mt-1">视口：{typeof window === 'undefined' ? '—' : `${window.innerWidth} × ${window.innerHeight}`}</p><p className="mt-1">日志：{logger.getDiagnosticSnapshot().logs.length} 条</p></div>

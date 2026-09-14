@@ -220,15 +220,11 @@ const AGENT_STARTER_SUGGESTIONS = [
 ] as const;
 
 function AgentEmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
-  return <div className="mx-auto flex min-h-full max-w-4xl flex-col justify-center py-8">
-    <div className="max-w-2xl">
-      <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#155eef] to-[#6941c6] text-white shadow-[0_12px_30px_rgba(21,94,239,.22)]"><span className="material-icons-round text-2xl">smart_toy</span></div>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#155eef]">Agent workspace</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">告诉我目标，剩下的交给 Agent</h2>
-      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">Agent 会先理解上下文，再规划和执行；涉及重要操作时仍会征求你的确认。</p>
-    </div>
-    <div className="mt-8 grid gap-3 md:grid-cols-3">
-      {AGENT_STARTER_SUGGESTIONS.map((suggestion) => <button key={suggestion.title} type="button" onClick={() => onPrompt(suggestion.prompt)} className="group rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#155eef]/50 hover:shadow-md"><span className="material-icons-round text-xl text-[#155eef]">{suggestion.icon}</span><span className="mt-3 block text-sm font-semibold">{suggestion.title}</span><span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{suggestion.description}</span><span className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#155eef] opacity-0 transition group-hover:opacity-100">使用建议 <span className="material-icons-round text-sm">arrow_forward</span></span></button>)}
+  return <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center py-8 text-center">
+    <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">准备开始一项工作？</h2>
+    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">描述目标，Work 会读取当前页面、规划步骤并调用工具；重要操作仍由你确认。</p>
+    <div className="mt-8 grid w-full gap-2 md:grid-cols-3">
+      {AGENT_STARTER_SUGGESTIONS.map((suggestion) => <button key={suggestion.title} type="button" onClick={() => onPrompt(suggestion.prompt)} className="group rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-left transition hover:bg-[var(--background)]"><span className="material-icons-round text-lg text-[var(--muted-foreground)]">{suggestion.icon}</span><span className="mt-3 block text-sm font-semibold">{suggestion.title}</span><span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{suggestion.description}</span></button>)}
     </div>
   </div>;
 }
@@ -691,7 +687,7 @@ export default function AiChatFab({
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(embedded);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvIdState] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -1945,7 +1941,7 @@ export default function AiChatFab({
   }, [loading, activeConv]);
 
   const containerClass = embedded
-    ? 'w-full border-0 bg-[var(--background)] shadow-none flex flex-col overflow-hidden'
+    ? `grid h-full w-full grid-rows-[auto_minmax(0,1fr)_auto_auto] overflow-hidden border-0 bg-[var(--background)] shadow-none transition-[grid-template-columns] ${sidebarOpen ? 'grid-cols-[16rem_minmax(0,1fr)]' : 'grid-cols-[0_minmax(0,1fr)]'}`
     : 'fixed left-0 top-0 z-50 flex flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl will-change-transform';
   const panelPosition = fabPosition ? getPanelPosition(fabPosition) : null;
 
@@ -2017,7 +2013,7 @@ export default function AiChatFab({
         >
           {/* Header */}
           <div
-            className={`flex touch-none items-center justify-between gap-3 border-b px-4 ${embedded ? 'min-h-16 border-[var(--card-border)] bg-[var(--card)] sm:px-6' : 'border-[var(--card-border)] bg-[var(--card)] py-3 cursor-grab active:cursor-grabbing'}`}
+            className={`flex touch-none items-center justify-between gap-3 px-4 ${embedded ? 'col-start-2 row-start-1 min-h-12 bg-[var(--background)] sm:px-5' : 'border-b border-[var(--card-border)] bg-[var(--card)] py-3 cursor-grab active:cursor-grabbing'}`}
             onPointerDown={startFabDrag}
             title={embedded ? undefined : '拖动可移动并贴边收起'}
           >
@@ -2029,10 +2025,9 @@ export default function AiChatFab({
               >
                 <span className="material-icons-round text-base">menu</span>
               </button>
-              <span className={`grid flex-shrink-0 place-items-center ${embedded ? 'h-9 w-9 rounded-xl bg-[#eef4ff] text-[#155eef] dark:bg-[#155eef]/20' : ''}`}><span className="material-icons-round text-lg">{assistantMode === 'agent' ? 'smart_toy' : 'chat_bubble'}</span></span>
+              {!embedded && <span className="grid flex-shrink-0 place-items-center"><span className="material-icons-round text-lg">{assistantMode === 'agent' ? 'smart_toy' : 'chat_bubble'}</span></span>}
               <div className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{activeConv?.title || embeddedTitle}</span>
-                {embedded && <span className="hidden text-[11px] text-[var(--muted-foreground)] sm:block">可规划步骤、读取页面并调用工具</span>}
               </div>
               {activeConv && (
                 <span className="text-[10px] text-[var(--muted-foreground)] bg-[var(--background)] rounded px-1.5 py-0.5 flex-shrink-0">
@@ -2053,13 +2048,13 @@ export default function AiChatFab({
               >
                 <span className="material-icons-round text-base">settings</span>
               </button>
-              <button
+              {!embedded && <button
                 onClick={createNewConversation}
                 title="新建对话"
                 className={`${embedded ? 'grid h-9 w-9 place-items-center rounded-xl bg-[#155eef] text-white hover:bg-[#004eeb]' : 'p-1 rounded text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'} transition-colors`}
               >
                 <span className="material-icons-round text-base">add</span>
-              </button>
+              </button>}
               {!embedded && (
                 <button
                   onClick={() => setOpen(false)}
@@ -2073,21 +2068,23 @@ export default function AiChatFab({
 
           {/* Conversation list sidebar */}
           {sidebarOpen && (
-            <div className={`border-b border-[var(--card-border)] overflow-y-auto ${embedded ? 'max-h-56 bg-[var(--card)] px-3 py-2 sm:px-6' : 'max-h-48 bg-[var(--background)]'}`}>
-              {conversations.length === 0 ? (
-                <p className="text-center text-xs text-[var(--muted-foreground)] py-4">暂无对话记录</p>
-              ) : (
-                conversations.map(conv => (
+            <div className={embedded ? 'col-start-1 row-start-1 row-end-5 h-full w-64 overflow-hidden border-r border-[var(--card-border)] bg-[var(--card)] p-3' : 'max-h-48 overflow-y-auto border-b border-[var(--card-border)] bg-[var(--background)]'}>
+              <div className={embedded ? 'flex h-full flex-col' : ''}>
+                {embedded && <><div className="flex h-11 items-center justify-between px-3"><span className="text-sm font-semibold">Work</span><button type="button" onClick={() => setSidebarOpen(false)} aria-label="收起 Work 对话记录" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--background)]"><span className="material-icons-round text-lg">chevron_left</span></button></div><button type="button" onClick={createNewConversation} className="mt-2 flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium hover:bg-[var(--background)]"><span className="material-icons-round text-lg">edit_square</span>新建任务</button><p className="mb-2 mt-6 px-3 text-[11px] font-semibold text-[var(--muted-foreground)]">最近</p></>}
+                <div className={embedded ? 'min-h-0 flex-1 overflow-y-auto' : ''}>
+                {conversations.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-[var(--muted-foreground)]">暂无对话记录</p>
+                ) : conversations.map(conv => (
                   <div
                     key={conv.id}
                     onClick={() => switchConversation(conv.id)}
-                    className={`flex items-center gap-2 cursor-pointer text-sm transition-colors ${embedded ? 'my-1 rounded-xl px-3 py-2.5' : 'px-4 py-2'} ${
+                    className={`group flex cursor-pointer items-center gap-2 text-sm transition-colors ${embedded ? 'my-1 rounded-xl px-3 py-2.5' : 'px-4 py-2'} ${
                       conv.id === activeConvId
-                        ? 'bg-[#eef4ff] text-[#155eef] dark:bg-[#155eef]/20'
-                        : 'text-[var(--foreground)] hover:bg-[var(--card)]'
+                        ? 'bg-[var(--background)] text-[var(--foreground)]'
+                        : 'text-[var(--foreground)] hover:bg-[var(--background)]'
                     }`}
                   >
-                    <span className="material-icons-round text-sm flex-shrink-0">chat</span>
+                    <span className="material-icons-round flex-shrink-0 text-sm text-[var(--muted-foreground)]">account_tree</span>
                     <div className="flex-1 min-w-0">
                       <p className="truncate text-xs">{conv.title}</p>
                       <p className="text-[10px] text-[var(--muted-foreground)]">
@@ -2096,19 +2093,20 @@ export default function AiChatFab({
                     </div>
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
-                      className="p-1 rounded hover:bg-[#EA4335]/10 text-[var(--muted-foreground)] hover:text-[#EA4335] transition-colors flex-shrink-0"
+                      className="invisible flex-shrink-0 rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[#EA4335]/10 hover:text-[#EA4335] group-hover:visible"
                       title="删除"
                     >
                       <span className="material-icons-round text-sm">delete</span>
                     </button>
                   </div>
-                ))
-              )}
+                ))}
+                </div>
+              </div>
             </div>
           )}
 
           {/* Messages */}
-          <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto ${embedded ? 'bg-[radial-gradient(circle_at_top,rgba(21,94,239,.07),transparent_38%)] px-4 py-6 sm:px-8' : 'space-y-4 p-3'}`}>
+          <div ref={messagesContainerRef} className={`overflow-y-auto ${embedded ? 'col-start-2 row-start-2 px-4 py-4 sm:px-8' : 'flex-1 space-y-4 p-3'}`}>
             {messages.length === 0 && (
               embedded ? <AgentEmptyState onPrompt={setInput} /> : <div className="mx-auto mt-8 max-w-xl rounded-3xl border border-[var(--card-border)] p-7 text-center"><span className="material-icons-round text-3xl text-[#0284c7]">{assistantMode === 'agent' ? 'account_tree' : 'forum'}</span><h3 className="mt-3 text-lg font-semibold">{assistantMode === 'agent' ? '把目标交给 Agent' : '开始一段对话'}</h3><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{assistantMode === 'agent' ? 'Agent 会读取当前页面、规划步骤，并在需要时调用工具。重要操作仍会先征求确认。' : '适合快速问答、解释、整理和 Markdown 内容生成。'}</p></div>
             )}
@@ -2120,7 +2118,7 @@ export default function AiChatFab({
                   <div
                     className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm break-words ${
                       msg.role === 'user'
-                        ? 'bg-[#155eef] text-white rounded-br-sm shadow-sm'
+                        ? embedded ? 'bg-[var(--card)] text-[var(--foreground)] shadow-sm' : 'bg-[#155eef] text-white rounded-br-sm shadow-sm'
                         : msg.role === 'system'
                         ? 'bg-[#FFF8E1] text-[#795548] border border-[#FFE082] rounded text-xs w-full'
                         : embedded
@@ -2306,7 +2304,7 @@ export default function AiChatFab({
             const actions = PAGE_QUICK_ACTIONS[currentSource] || [];
             if (actions.length === 0) return null;
             return (
-              <div className="px-3 pt-2 flex flex-wrap gap-1.5 border-t border-[var(--card-border)]">
+              <div className={`flex flex-wrap gap-1.5 ${embedded ? 'col-start-2 row-start-3 px-8 pt-2' : 'border-t border-[var(--card-border)] px-3 pt-2'}`}>
                 {actions.map(action => (
                   <button
                     key={action.label}
@@ -2327,7 +2325,7 @@ export default function AiChatFab({
           })()}
 
           {/* Input */}
-          <div className={`flex items-end gap-2 border-t ${embedded ? 'border-[var(--card-border)] bg-[var(--card)] py-4 pl-4 pr-20 sm:pl-8 sm:pr-20' : 'border-[var(--card-border)] p-3'}`}>
+          <div className={`flex items-end gap-2 ${embedded ? 'col-start-2 row-start-4 bg-[var(--background)] pb-4 pl-4 pr-20 pt-2 sm:pl-8 sm:pr-20' : 'border-t border-[var(--card-border)] p-3'}`}>
             {loading && (
               <button
                 onClick={() => {
@@ -2347,15 +2345,15 @@ export default function AiChatFab({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={assistantMode === 'agent' ? '描述目标，Agent 会规划并执行…' : '输入消息，支持 Markdown…'}
+              placeholder={assistantMode === 'agent' ? (embedded ? '描述目标，Work 会规划并执行…' : '描述目标，Agent 会规划并执行…') : '输入消息，支持 Markdown…'}
               disabled={loading}
               rows={1}
-              className={`flex-1 resize-none border px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none disabled:opacity-60 transition-colors ${embedded ? 'mx-auto max-w-4xl rounded-2xl border-[var(--card-border)] bg-[var(--background)] shadow-sm focus:border-[#155eef] focus:ring-4 focus:ring-[#155eef]/10' : 'rounded-xl border-[var(--card-border)] bg-[var(--background)] focus:border-[#4285F4]'}`}
+              className={`flex-1 resize-none border px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none disabled:opacity-60 transition-colors ${embedded ? 'mx-auto max-w-4xl rounded-[26px] border-[var(--card-border)] bg-[var(--card)] shadow-sm focus:border-[var(--muted-foreground)]' : 'rounded-xl border-[var(--card-border)] bg-[var(--background)] focus:border-[#4285F4]'}`}
             />
             <button
               onClick={() => handleSend()}
               disabled={!input.trim() || loading}
-              className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl bg-[#155eef] text-white transition-colors hover:bg-[#004eeb] disabled:cursor-not-allowed disabled:opacity-40"
+              className={`grid h-11 w-11 flex-shrink-0 place-items-center text-white transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${embedded ? 'rounded-full bg-[var(--foreground)] text-[var(--background)]' : 'rounded-xl bg-[#155eef] hover:bg-[#004eeb]'}`}
             >
               <span className="material-icons-round text-base">send</span>
             </button>

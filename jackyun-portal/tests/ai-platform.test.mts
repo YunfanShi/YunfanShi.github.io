@@ -243,6 +243,8 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(workspace, /JACKYUN_COMPANION_LIST_MODELS/);
   assert.match(workspace, /browserModel=\{selectedModel\.id < 0/);
   assert.match(workspace, /modelRefreshKey/);
+  assert.match(workspace, /label="Chat"/);
+  assert.match(workspace, /label="Work"/);
   const settings = readFileSync(new URL('../src/components/settings/ai-config-panel.tsx', import.meta.url), 'utf8');
   assert.match(settings, /使用 JackYun AI 专属对话/);
   const floatingAi = readFileSync(new URL('../src/components/modules/deferred-ai-chat.tsx', import.meta.url), 'utf8');
@@ -254,6 +256,12 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   assert.match(agent, /workspaceMode: assistantMode/);
   assert.match(agent, /!embedded && <div className="grid shrink-0 grid-cols-2/);
   assert.match(agent, /function AgentEmptyState/);
+  assert.match(agent, /grid-cols-\[16rem_minmax\(0,1fr\)\]/);
+  assert.match(agent, /row-start-1 row-end-5/);
+  const adminDebug = readFileSync(new URL('../src/components/admin/admin-debug-console.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(adminDebug, /aria-label="打开管理员调试窗口"/);
+  const companionLite = readFileSync(new URL('../public/userscripts/jackyun-portal-companion.user.js', import.meta.url), 'utf8');
+  assert.match(companionLite, /root\.hidden = isPortal/);
 });
 
 test('browser AI detects replies when a virtualized message list keeps the same node count', () => {
