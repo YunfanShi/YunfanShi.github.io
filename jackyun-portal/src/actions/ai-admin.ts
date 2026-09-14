@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { encryptSecret } from '@/lib/secret-crypto';
+import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
 import { normalizeLlmBaseUrl } from '@/lib/llm-endpoint';
+import { parseProviderModels, type DiscoveredAiModel } from '@/lib/ai-provider-models';
 
 export type PlanCode = 'free' | 'plus' | 'pro' | 'ultra';
 const PLAN_CODES: PlanCode[] = ['free', 'plus', 'pro', 'ultra'];
@@ -26,12 +27,14 @@ async function adminContext() {
 
 export async function getAiAdminData() {
   const { admin } = await adminContext();
-  const [providerResult, planResult, modelResult, accessResult, usageResult] = await Promise.all([
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
+  const [providerResult, planResult, modelResult, accessResult, usageResult, providerUsageResult] = await Promise.all([
     admin.from('ai_provider_configs').select('*').order('created_at'),
     admin.from('subscription_plans').select('*').order('monthly_token_limit'),
     admin.from('ai_model_catalog').select('*').order('sort_order').order('id'),
     admin.from('plan_ai_model_access').select('plan_code, model_id'),
-    admin.rpc('admin_ai_usage_summary', { p_since: new Date(Date.now() - 30 * 86400000).toISOString() }).single(),
+    admin.rpc('admin_ai_usage_summary', { p_since: since }).single(),
+    admin.rpc('admin_ai_usage_by_provider', { p_since: since }),
   ]);
   const error = providerResult.error || planResult.error || modelResult.error || accessResult.error || usageResult.error;
   if (error) throw new Error(error.message);
@@ -48,6 +51,7 @@ export async function getAiAdminData() {
     }, {}),
     plans: (planResult.data ?? []).map((row) => ({ ...row, daily_token_limit: Number(row.daily_token_limit), monthly_token_limit: Number(row.monthly_token_limit), max_output_tokens: Number(row.max_output_tokens), monthly_site_generations: Number(row.monthly_site_generations) })) as SubscriptionPlanAdmin[],
     usage: { requests: Number(usage?.requests ?? 0), inputTokens: Number(usage?.input_tokens ?? 0), outputTokens: Number(usage?.output_tokens ?? 0), billedTokens: Number(usage?.billed_tokens ?? 0), estimatedCost: Number(usage?.estimated_cost ?? 0) },
+    usageByProvider: (providerUsageResult.data ?? []).map((row) => ({ providerId: row.provider_id as string | null, providerName: String(row.provider_name), requests: Number(row.requests), inputTokens: Number(row.input_tokens), outputTokens: Number(row.output_tokens), billedTokens: Number(row.billed_tokens), estimatedCost: Number(row.estimated_cost) })),
   };
 }
 
@@ -111,6 +115,118 @@ export async function saveAiModel(input: AdminAiModel, plans: PlanCode[]): Promi
     revalidatePath('/admin/ai'); revalidatePath('/ai');
     return { success: true, model: { ...input, ...payload, id: modelId } };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : '模型保存失败' }; }
+}
+
+export async function discoverAiProviderModels(input: { providerId?: string; baseUrl: string; apiKey?: string }): Promise<{ success: boolean; models?: DiscoveredAiModel[]; error?: string }> {
+  try {
+    const { admin } = await adminContext();
+    const saved = input.providerId && UUID_PATTERN.test(input.providerId)
+      ? await admin.from('ai_provider_configs').select('base_url, encrypted_api_key').eq('id', input.providerId).maybeSingle()
+      : { data: null, error: null };
+    if (saved.error) return { success: false, error: saved.error.message };
+    const baseUrl = normalizeLlmBaseUrl(input.baseUrl || saved.data?.base_url || '');
+    if (!baseUrl) return { success: false, error: '服务地址无效或不在允许列表中。' };
+    let apiKey = input.apiKey?.trim() ?? '';
+    if (!apiKey && saved.data?.encrypted_api_key) {
+      try { apiKey = decryptSecret(saved.data.encrypted_api_key); } catch { return { success: false, error: 'API Key 无法解密，请重新保存连接。' }; }
+    }
+    if (!apiKey) return { success: false, error: '请输入 API Key，或选择一个已保存密钥的连接。' };
+    const response = await fetch(`${baseUrl}/models`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) return { success: false, error: `读取模型失败（HTTP ${response.status}）。请检查地址、密钥和模型读取权限。` };
+    const contentLength = Number(response.headers.get('content-length') ?? 0);
+    if (contentLength > 5_000_000) return { success: false, error: '模型列表过大，已停止读取。' };
+    const text = await response.text();
+    if (text.length > 5_000_000) return { success: false, error: '模型列表过大，已停止读取。' };
+    const models = parseProviderModels(JSON.parse(text));
+    return models.length ? { success: true, models } : { success: false, error: '上游没有返回兼容的文本模型。' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '读取模型失败。' };
+  }
+}
+
+export async function importAiProviderModels(providerId: string, inputs: DiscoveredAiModel[], plans: PlanCode[]): Promise<{ success: boolean; models?: AdminAiModel[]; error?: string }> {
+  try {
+    if (!UUID_PATTERN.test(providerId) || !inputs.length || inputs.length > 1000) return { success: false, error: '请选择 1–1000 个模型。' };
+    if (plans.some((plan) => !PLAN_CODES.includes(plan))) return { success: false, error: '套餐授权无效。' };
+    const { admin } = await adminContext();
+    const normalized = parseProviderModels({ data: inputs.map((input) => ({
+      id: input.modelId,
+      name: input.displayName,
+      description: input.description,
+      context_length: input.contextWindow,
+      pricing: { prompt: Number(input.inputCostPerMillion) / 1_000_000, completion: Number(input.outputCostPerMillion) / 1_000_000 },
+      supported_parameters: input.supportsAgent ? ['tools'] : [],
+    })) });
+    if (normalized.length !== inputs.length) return { success: false, error: '模型列表包含重复或无效项目。' };
+    const { data, error } = await admin.from('ai_model_catalog').upsert(normalized.map((model, index) => ({
+      provider_id: providerId,
+      display_name: model.displayName,
+      model_id: model.modelId,
+      description: model.description,
+      supports_chat: true,
+      supports_agent: model.supportsAgent,
+      input_cost_per_million: model.inputCostPerMillion,
+      output_cost_per_million: model.outputCostPerMillion,
+      context_window: model.contextWindow,
+      enabled: true,
+      sort_order: 100 + index,
+      updated_at: new Date().toISOString(),
+    })), { onConflict: 'provider_id,model_id' }).select('*');
+    if (error || !data) return { success: false, error: error?.message ?? '导入模型失败。' };
+    const ids = data.map((row) => Number(row.id));
+    if (plans.length) {
+      const { error: accessError } = await admin.from('plan_ai_model_access').upsert(ids.flatMap((model_id) => plans.map((plan_code) => ({ plan_code, model_id }))), { onConflict: 'plan_code,model_id' });
+      if (accessError) return { success: false, error: accessError.message };
+    }
+    revalidatePath('/admin/ai'); revalidatePath('/ai');
+    return { success: true, models: data.map((row) => ({ ...row, id: Number(row.id), input_cost_per_million: Number(row.input_cost_per_million), output_cost_per_million: Number(row.output_cost_per_million), context_window: Number(row.context_window), sort_order: Number(row.sort_order) })) as AdminAiModel[] };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : '导入模型失败。' }; }
+}
+
+export async function saveEnabledAiModels(modelIds: number[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (modelIds.some((id) => !Number.isSafeInteger(id) || id < 1)) return { success: false, error: '模型选择无效。' };
+    const { admin } = await adminContext();
+    const { data, error } = await admin.from('ai_model_catalog').select('*').order('id');
+    if (error) return { success: false, error: error.message };
+    const selected = new Set(modelIds);
+    if (selected.size !== modelIds.length || modelIds.some((id) => !(data ?? []).some((row) => Number(row.id) === id))) return { success: false, error: '模型选择包含不存在的项目。' };
+    const enabledIds = (data ?? []).map((row) => Number(row.id)).filter((id) => selected.has(id));
+    const disabledIds = (data ?? []).map((row) => Number(row.id)).filter((id) => !selected.has(id));
+    if (enabledIds.length) {
+      const { error: enableError } = await admin.from('ai_model_catalog').update({ enabled: true, updated_at: new Date().toISOString() }).in('id', enabledIds);
+      if (enableError) return { success: false, error: enableError.message };
+    }
+    if (disabledIds.length) {
+      const { error: disableError } = await admin.from('ai_model_catalog').update({ enabled: false, updated_at: new Date().toISOString() }).in('id', disabledIds);
+      if (disableError) return { success: false, error: disableError.message };
+    }
+    revalidatePath('/admin/ai'); revalidatePath('/ai');
+    return { success: true };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : '保存可用模型失败。' }; }
+}
+
+export async function savePlanAiModelAccess(planCode: PlanCode, modelIds: number[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!PLAN_CODES.includes(planCode) || modelIds.some((id) => !Number.isSafeInteger(id) || id < 1)) return { success: false, error: '套餐或模型选择无效。' };
+    const { admin } = await adminContext();
+    const { data: models, error: modelError } = await admin.from('ai_model_catalog').select('id').eq('enabled', true);
+    if (modelError) return { success: false, error: modelError.message };
+    const available = new Set((models ?? []).map((row) => Number(row.id)));
+    if (new Set(modelIds).size !== modelIds.length || modelIds.some((id) => !available.has(id))) return { success: false, error: '套餐只能选择全局已启用模型。' };
+    const { error: deleteError } = await admin.from('plan_ai_model_access').delete().eq('plan_code', planCode);
+    if (deleteError) return { success: false, error: deleteError.message };
+    if (modelIds.length) {
+      const { error: insertError } = await admin.from('plan_ai_model_access').insert(modelIds.map((model_id) => ({ plan_code: planCode, model_id })));
+      if (insertError) return { success: false, error: insertError.message };
+    }
+    revalidatePath('/admin/ai'); revalidatePath('/ai');
+    return { success: true };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : '保存套餐模型失败。' }; }
 }
 
 export async function saveSubscriptionPlan(plan: SubscriptionPlanAdmin): Promise<{ success: boolean; error?: string }> {

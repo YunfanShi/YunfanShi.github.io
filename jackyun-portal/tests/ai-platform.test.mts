@@ -7,6 +7,8 @@ import { collapseStreamingMessageDuplicates } from '../src/lib/ai-conversations.
 import { readAiStream } from '../src/lib/ai-stream.ts';
 import { expectsStructuredAiResponse, hasNewAiResponse, selectAiResponseText } from '../companion-extension/ai-response-detection.mjs';
 import { extractTtsText, stripTtsAnnotations } from '../src/lib/tts-config.ts';
+import { parseProviderModels } from '../src/lib/ai-provider-models.ts';
+import { AI_PROVIDER_PRESETS } from '../src/lib/ai-provider-presets.ts';
 
 test('TTS annotations stay hidden and subtitles use only the selected language', () => {
   const escaped = '正文内容\n\n[TTS\\_LANG:zh-CN]中文朗读摘要。[/TTS\\_LANG]\n[TTS_LANG:en-US]English subtitle.[/TTS_LANG]';
@@ -94,6 +96,56 @@ test('model catalog migration enforces per-plan access and keeps tables server-o
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
   assert.match(sql, /REVOKE ALL ON TABLE public\.ai_model_catalog, public\.plan_ai_model_access FROM anon, authenticated/);
   assert.match(sql, /admin_ai_usage_summary/);
+});
+
+test('aggregator model discovery normalizes OpenRouter metadata and ignores invalid duplicates', () => {
+  const models = parseProviderModels({ data: [
+    { id: 'openai/gpt-4.1', name: 'GPT-4.1', description: 'General model', context_length: 1048576, pricing: { prompt: '0.000002', completion: '0.000008' }, supported_parameters: ['tools'] },
+    { id: 'openai/gpt-4.1', name: 'Duplicate' },
+    { id: '', name: 'Invalid' },
+  ] });
+  assert.equal(models.length, 1);
+  assert.deepEqual(models[0], { modelId: 'openai/gpt-4.1', displayName: 'GPT-4.1', description: 'General model', contextWindow: 1048576, inputCostPerMillion: 2, outputCostPerMillion: 8, supportsAgent: true });
+});
+
+test('provider presets cover aggregators and direct model vendors while remaining editable data', () => {
+  assert.ok(AI_PROVIDER_PRESETS.length >= 8);
+  assert.equal(AI_PROVIDER_PRESETS.find((item) => item.id === 'openrouter')?.baseUrl, 'https://openrouter.ai/api/v1');
+  assert.equal(AI_PROVIDER_PRESETS.find((item) => item.id === 'deepseek')?.baseUrl, 'https://api.deepseek.com/v1');
+  assert.ok(AI_PROVIDER_PRESETS.some((item) => item.kind === '聚合平台'));
+  assert.ok(AI_PROVIDER_PRESETS.some((item) => item.kind === '模型厂商'));
+  const directModels = parseProviderModels({ data: [{ id: 'deepseek-v4-flash' }, { id: 'deepseek-v4-pro' }, { id: 'deepseek-v4-flash-vision-exp' }] });
+  assert.equal(directModels.length, 3);
+  assert.equal(directModels[0].inputCostPerMillion, 0);
+});
+
+test('Admin supports aggregator discovery plus global and per-plan multi-selection', () => {
+  const actions = readFileSync(new URL('../src/actions/ai-admin.ts', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../src/components/admin/ai-platform-panel.tsx', import.meta.url), 'utf8');
+  const endpoints = readFileSync(new URL('../src/lib/llm-endpoint.ts', import.meta.url), 'utf8');
+  assert.match(actions, /discoverAiProviderModels/);
+  assert.match(actions, /fetch\(`\$\{baseUrl\}\/models`/);
+  assert.match(actions, /importAiProviderModels/);
+  assert.match(actions, /saveEnabledAiModels/);
+  assert.match(actions, /savePlanAiModelAccess/);
+  assert.match(panel, /读取聚合平台全部模型/);
+  assert.match(panel, /全选全部模型/);
+  assert.match(panel, /套餐可用模型/);
+  assert.match(panel, /常用 API 预设/);
+  assert.match(panel, /未知 API/);
+  assert.match(endpoints, /'openrouter\.ai'/);
+});
+
+test('managed usage is attributed to the actual API source for cost breakdowns', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260914094935_ai_provider_usage_breakdown.sql', import.meta.url), 'utf8');
+  const proxy = readFileSync(new URL('../src/app/api/llm-proxy/route.ts', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../src/components/admin/ai-platform-panel.tsx', import.meta.url), 'utf8');
+  assert.match(sql, /ADD COLUMN provider_id uuid REFERENCES public\.ai_provider_configs/);
+  assert.match(sql, /admin_ai_usage_by_provider/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.admin_ai_usage_by_provider/);
+  assert.match(proxy, /provider_id: managedProviderId, catalog_model_id: managedCatalogModelId/);
+  assert.match(panel, /按 API 来源计费/);
+  assert.match(panel, /估算总费用/);
 });
 
 test('streaming chat keeps one assistant bubble and repairs old partial duplicates', () => {

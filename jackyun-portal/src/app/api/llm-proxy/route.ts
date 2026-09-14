@@ -178,6 +178,8 @@ export async function POST(req: NextRequest) {
   let inputCostPerMillion = 0;
   let outputCostPerMillion = 0;
   let reservationId: string | undefined;
+  let managedProviderId: string | null = null;
+  let managedCatalogModelId: number | null = null;
   const adminClient = createAdminClient();
 
   if (clientBaseUrl && clientApiKey) {
@@ -267,6 +269,8 @@ export async function POST(req: NextRequest) {
         : await adminClient.from('ai_provider_configs').select('*').eq('enabled', true).order('is_default', { ascending: false }).order('created_at').limit(1).maybeSingle();
       const managedProvider = selected?.provider ?? fallbackProvider;
       if (managedProvider?.encrypted_api_key) {
+        managedProviderId = managedProvider.id;
+        managedCatalogModelId = selected ? Number(selected.model.id) : null;
         baseUrl = managedProvider.base_url;
         try { apiKey = decryptSecret(managedProvider.encrypted_api_key); } catch { apiKey = ''; }
         const feature = typeof body.feature === 'string' ? body.feature : 'chat';
@@ -366,6 +370,10 @@ export async function POST(req: NextRequest) {
     const reservationRow = reservation as { reservation_id: string; allowed_output_tokens: number };
     reservationId = reservationRow.reservation_id;
     upstreamFields.max_tokens = reservationRow.allowed_output_tokens;
+    if (managedProviderId) {
+      const { error: attributionError } = await adminClient.from('ai_usage_ledger').update({ provider_id: managedProviderId, catalog_model_id: managedCatalogModelId }).eq('id', reservationId);
+      if (attributionError) console.error('[llm-proxy] Unable to attribute managed AI usage', attributionError.message);
+    }
   }
   const upstreamBody: Record<string, unknown> = {
     ...upstreamFields,

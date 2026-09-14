@@ -10,6 +10,9 @@ const DEFAULT_LLM_HOSTS = new Set([
   'api.mistral.ai',
   'api.groq.com',
   'api.together.xyz',
+  'api.together.ai',
+  'openrouter.ai',
+  'eu.openrouter.ai',
 ]);
 
 function configuredHosts(value: string | undefined): Set<string> {
