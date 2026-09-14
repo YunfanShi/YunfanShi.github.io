@@ -13,6 +13,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 export interface AdminAiProvider { id: string; display_name: string; base_url: string; chat_model: string; reasoning_model: string | null; site_model: string | null; input_cost_per_million: number; output_cost_per_million: number; enabled: boolean; is_default: boolean; has_api_key: boolean; }
 export interface SubscriptionPlanAdmin { code: PlanCode; display_name: string; daily_token_limit: number; monthly_token_limit: number; max_output_tokens: number; monthly_site_generations: number; }
 export interface AdminAiModel { id: number; provider_id: string; display_name: string; model_id: string; description: string; supports_chat: boolean; supports_agent: boolean; input_cost_per_million: number; output_cost_per_million: number; context_window: number; enabled: boolean; sort_order: number; }
+export interface AdminAiProviderUsage { providerId: string | null; providerName: string; requests: number; inputTokens: number; outputTokens: number; billedTokens: number; estimatedCost: number; }
 
 async function adminContext() {
   const supabase = await createClient();
@@ -40,6 +41,7 @@ export async function getAiAdminData() {
   if (error) throw new Error(error.message);
   const providers: AdminAiProvider[] = (providerResult.data ?? []).map((row) => ({ id: row.id, display_name: row.display_name, base_url: row.base_url, chat_model: row.chat_model, reasoning_model: row.reasoning_model, site_model: row.site_model, input_cost_per_million: Number(row.input_cost_per_million), output_cost_per_million: Number(row.output_cost_per_million), enabled: row.enabled, is_default: row.is_default, has_api_key: Boolean(row.encrypted_api_key) }));
   const usage = usageResult.data as { requests?: number; input_tokens?: number; output_tokens?: number; billed_tokens?: number; estimated_cost?: number } | null;
+  const providerUsageRows = (providerUsageResult.data ?? []) as Array<{ provider_id: string | null; provider_name: string; requests: number | string; input_tokens: number | string; output_tokens: number | string; billed_tokens: number | string; estimated_cost: number | string }>;
   return {
     providers,
     models: (modelResult.data ?? []).map((row) => ({ ...row, id: Number(row.id), input_cost_per_million: Number(row.input_cost_per_million), output_cost_per_million: Number(row.output_cost_per_million), context_window: Number(row.context_window), sort_order: Number(row.sort_order) })) as AdminAiModel[],
@@ -51,7 +53,7 @@ export async function getAiAdminData() {
     }, {}),
     plans: (planResult.data ?? []).map((row) => ({ ...row, daily_token_limit: Number(row.daily_token_limit), monthly_token_limit: Number(row.monthly_token_limit), max_output_tokens: Number(row.max_output_tokens), monthly_site_generations: Number(row.monthly_site_generations) })) as SubscriptionPlanAdmin[],
     usage: { requests: Number(usage?.requests ?? 0), inputTokens: Number(usage?.input_tokens ?? 0), outputTokens: Number(usage?.output_tokens ?? 0), billedTokens: Number(usage?.billed_tokens ?? 0), estimatedCost: Number(usage?.estimated_cost ?? 0) },
-    usageByProvider: (providerUsageResult.data ?? []).map((row) => ({ providerId: row.provider_id as string | null, providerName: String(row.provider_name), requests: Number(row.requests), inputTokens: Number(row.input_tokens), outputTokens: Number(row.output_tokens), billedTokens: Number(row.billed_tokens), estimatedCost: Number(row.estimated_cost) })),
+    usageByProvider: providerUsageRows.map((row): AdminAiProviderUsage => ({ providerId: row.provider_id, providerName: String(row.provider_name), requests: Number(row.requests), inputTokens: Number(row.input_tokens), outputTokens: Number(row.output_tokens), billedTokens: Number(row.billed_tokens), estimatedCost: Number(row.estimated_cost) })),
   };
 }
 
