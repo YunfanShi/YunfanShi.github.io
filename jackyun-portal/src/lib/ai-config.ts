@@ -200,8 +200,12 @@ export async function callAiApi(
     signal?: AbortSignal;
     /** 管理员模型目录中的安全 ID；云端模式下由服务端校验套餐权限。 */
     catalogModelId?: number;
+    /** 让服务端从当前套餐允许的模型中自动选择。 */
+    smartSelect?: boolean;
     /** 独立 AI 工作台模式，用于校验模型能力。 */
     workspaceMode?: 'chat' | 'agent';
+    /** 要求平台模型使用联网搜索能力。 */
+    webSearch?: boolean;
   } = {},
 ): Promise<Response> {
   const config = getAiConfig();
@@ -247,7 +251,9 @@ export async function callAiApi(
       baseUrl,
       ...(apiKey ? { apiKey } : {}),
       ...(options.catalogModelId ? { catalogModelId: options.catalogModelId } : {}),
+      ...(options.smartSelect ? { smartSelect: true } : {}),
       ...(options.workspaceMode ? { workspaceMode: options.workspaceMode } : {}),
+      ...(options.webSearch ? { webSearch: true } : {}),
     }),
     signal: options.signal,
   });

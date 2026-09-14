@@ -9,6 +9,9 @@ import { expectsStructuredAiResponse, hasNewAiResponse, selectAiResponseText } f
 import { extractTtsText, stripTtsAnnotations } from '../src/lib/tts-config.ts';
 import { parseProviderModels } from '../src/lib/ai-provider-models.ts';
 import { AI_PROVIDER_PRESETS } from '../src/lib/ai-provider-presets.ts';
+import { buildSmartSelectionMessages, parseSmartSelection } from '../src/lib/ai-smart-selection.ts';
+import { classifyAiModelFailure } from '../src/lib/ai-model-health.ts';
+import { inferAiModelCapabilities } from '../src/lib/ai-model-capabilities.ts';
 
 test('TTS annotations stay hidden and subtitles use only the selected language', () => {
   const escaped = '正文内容\n\n[TTS\\_LANG:zh-CN]中文朗读摘要。[/TTS\\_LANG]\n[TTS_LANG:en-US]English subtitle.[/TTS_LANG]';
@@ -48,6 +51,7 @@ test('LLM proxy strips internal metering controls before forwarding', () => {
   assert.match(route, /delete upstreamFields\._connection_test/);
   assert.match(route, /delete upstreamFields\._no_thinking/);
   assert.match(route, /delete upstreamFields\.catalogModelId/);
+  assert.match(route, /delete upstreamFields\.webSearch/);
   assert.match(route, /resolveManagedAiModel/);
   assert.match(route, /isGlm53[\s\S]*delete upstreamFields\.thinking[\s\S]*reasoning_effort = 'low'/);
   assert.match(route, /else if \(\(connectionTest \|\| noThinking\) && isBigModel\)[\s\S]*thinking = \{ type: 'disabled' \}/);
@@ -105,7 +109,7 @@ test('aggregator model discovery normalizes OpenRouter metadata and ignores inva
     { id: '', name: 'Invalid' },
   ] });
   assert.equal(models.length, 1);
-  assert.deepEqual(models[0], { modelId: 'openai/gpt-4.1', displayName: 'GPT-4.1', description: 'General model', contextWindow: 1048576, inputCostPerMillion: 2, outputCostPerMillion: 8, supportsAgent: true });
+  assert.deepEqual(models[0], { modelId: 'openai/gpt-4.1', displayName: 'GPT-4.1', description: 'General model', contextWindow: 1048576, inputCostPerMillion: 2, outputCostPerMillion: 8, supportsAgent: true, capabilities: ['agent', 'tools', 'long_context'] });
 });
 
 test('provider presets cover aggregators and direct model vendors while remaining editable data', () => {
@@ -134,6 +138,91 @@ test('Admin supports aggregator discovery plus global and per-plan multi-selecti
   assert.match(panel, /常用 API 预设/);
   assert.match(panel, /未知 API/);
   assert.match(endpoints, /'openrouter\.ai'/);
+});
+
+test('smart selection accepts only server-approved catalog IDs', () => {
+  assert.equal(parseSmartSelection('{"modelId":42}', [41, 42]), 42);
+  assert.equal(parseSmartSelection('```json\n{"model_id":41}\n```', [41, 42]), 41);
+  assert.equal(parseSmartSelection('{"modelId":999}', [41, 42]), null);
+  assert.equal(parseSmartSelection('Use model 42 because it is stronger', [41, 42]), null);
+  const messages = buildSmartSelectionMessages([{ role: 'user', content: '分析这段复杂代码' }], [{ id: 42, displayName: 'Strong', modelId: 'strong', description: 'coding', routingDescription: 'best for code review', capabilities: ['code', 'reasoning'], supportsAgent: true, inputCostPerMillion: 1, outputCostPerMillion: 2, contextWindow: 128000 }], 'agent');
+  assert.match(messages[0].content, /untrusted data/);
+  assert.match(messages[1].content, /"id":42/);
+});
+
+test('smart selection is configured server-side and restricted to plan models', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260914120816_ai_smart_model_selection.sql', import.meta.url), 'utf8');
+  const catalog = readFileSync(new URL('../src/lib/ai-model-catalog.ts', import.meta.url), 'utf8');
+  const route = readFileSync(new URL('../src/app/api/llm-proxy/route.ts', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../src/components/admin/ai-platform-panel.tsx', import.meta.url), 'utf8');
+  const workspace = readFileSync(new URL('../src/components/ai/ai-workspace.tsx', import.meta.url), 'utf8');
+  assert.match(sql, /CREATE TABLE public\.ai_platform_settings/);
+  assert.match(sql, /smart_router_model_id bigint REFERENCES public\.ai_model_catalog/);
+  assert.match(sql, /REVOKE ALL ON TABLE public\.ai_platform_settings FROM PUBLIC, anon, authenticated/);
+  assert.match(catalog, /resolveSmartAiRouting/);
+  assert.match(catalog, /plan_ai_model_access/);
+  assert.match(route, /parseSmartSelection\(completionText, candidates\.map/);
+  assert.match(route, /routing\.candidates\.find/);
+  assert.match(route, /p_feature: 'smart_routing'/);
+  assert.match(route, /catalog_model_id: Number\(routing\.router\.model\.id\)/);
+  assert.match(route, /delete upstreamFields\.smartSelect/);
+  assert.match(panel, /智能选择判断模型/);
+  assert.match(panel, /saveSmartRouterModel/);
+  assert.match(workspace, /displayName: '智能选择'/);
+  assert.match(workspace, /smartSelect: model\.isSmartSelection/);
+});
+
+test('model operations include rich capabilities, web search, attribution, and safe auto-unlisting', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260914122645_ai_model_operations_and_health.sql', import.meta.url), 'utf8');
+  const route = readFileSync(new URL('../src/app/api/llm-proxy/route.ts', import.meta.url), 'utf8');
+  const actions = readFileSync(new URL('../src/actions/ai-admin.ts', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../src/components/admin/ai-platform-panel.tsx', import.meta.url), 'utf8');
+  const workspace = readFileSync(new URL('../src/components/ai/ai-workspace.tsx', import.meta.url), 'utf8');
+  assert.match(sql, /model_failure_threshold/);
+  assert.match(sql, /record_ai_model_result/);
+  assert.match(sql, /billing.*authentication.*permission.*model_unavailable/s);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.record_ai_model_result[\s\S]*authenticated/);
+  assert.match(route, /compound_custom/);
+  assert.match(route, /requiredCapabilities/);
+  assert.match(route, /X-JackYun-Model/);
+  assert.match(route, /recordAiModelResult/);
+  assert.match(actions, /setAiModelEnabled/);
+  assert.match(actions, /deleteAiModel/);
+  assert.match(panel, /给智能选择 AI 的详细说明/);
+  assert.match(panel, /永久删除/);
+  assert.match(workspace, /来自 \{message\.modelName\}/);
+  assert.match(workspace, />联网<\/button>/);
+
+  assert.equal(classifyAiModelFailure(402, 'Payment required'), 'billing');
+  assert.equal(classifyAiModelFailure(401, 'invalid API key'), 'authentication');
+  assert.equal(classifyAiModelFailure(404, 'model not found'), 'model_unavailable');
+  assert.equal(classifyAiModelFailure(429, 'rate limit exceeded'), null);
+  assert.equal(classifyAiModelFailure(503, 'upstream timeout'), null);
+  assert.deepEqual(inferAiModelCapabilities({ modelId: 'groq/compound' }), ['web_search', 'code', 'reasoning', 'tools']);
+});
+
+test('admin model testing is sequential and default routing targets a catalog model', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260914125537_ai_default_model_and_ordering.sql', import.meta.url), 'utf8');
+  const actions = readFileSync(new URL('../src/actions/ai-admin.ts', import.meta.url), 'utf8');
+  const proxy = readFileSync(new URL('../src/app/api/llm-proxy/route.ts', import.meta.url), 'utf8');
+  const adminPanel = readFileSync(new URL('../src/components/admin/ai-platform-panel.tsx', import.meta.url), 'utf8');
+  const testPanel = readFileSync(new URL('../src/components/admin/ai-model-test-panel.tsx', import.meta.url), 'utf8');
+  assert.match(sql, /default_model_id bigint REFERENCES public\.ai_model_catalog\(id\) ON DELETE SET NULL/);
+  assert.match(sql, /default_model_id = p_model_id/);
+  assert.match(actions, /export async function saveDefaultAiModel/);
+  assert.match(actions, /export async function testAiCatalogModel/);
+  assert.match(actions, /firstTokenMs/);
+  assert.match(actions, /tokensPerSecond/);
+  assert.match(proxy, /select\('default_model_id'\)/);
+  assert.match(proxy, /defaultModel\?\.model_id/);
+  assert.match(adminPanel, /href="\/admin\/ai\/test"/);
+  assert.match(adminPanel, /平台默认模型/);
+  assert.match(adminPanel, /模型列表顺序/);
+  assert.match(adminPanel, /max-h-16 overflow-y-auto/);
+  assert.match(testPanel, /for \(const model of enabledModels\)/);
+  assert.match(testPanel, /await runOne\(model\.id\)/);
+  assert.match(testPanel, /严格顺序测试/);
+  assert.doesNotMatch(testPanel, /Promise\.all/);
 });
 
 test('managed usage is attributed to the actual API source for cost breakdowns', () => {

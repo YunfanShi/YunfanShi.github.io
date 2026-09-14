@@ -37,6 +37,8 @@ interface Message {
   reasoningContent?: string;
   /** token 消耗统计（输入+输出） */
   tokenUsage?: { input?: number; output?: number };
+  /** 实际生成此消息的模型（智能选择时可能每条不同）。 */
+  modelName?: string;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -62,6 +64,8 @@ interface AiChatFabProps {
   currentPath?: string;
   /** 独立工作台选择的管理员模型目录 ID。 */
   catalogModelId?: number;
+  /** 从当前套餐可用模型中自动选择。 */
+  smartSelect?: boolean;
   /** 本地网页 AI 当前选择的账号模型。 */
   browserModel?: string;
   initiallyOpen?: boolean;
@@ -670,6 +674,7 @@ export default function AiChatFab({
   embeddedTitle = 'AI 助手',
   currentPath: propPath,
   catalogModelId,
+  smartSelect,
   browserModel,
   initiallyOpen = false,
   initialAssistantMode,
@@ -1238,6 +1243,7 @@ export default function AiChatFab({
       maxTokens: options.maxTokens,
       feature: thinkingLevel === 'high' ? 'reasoning' : 'chat',
       catalogModelId,
+      smartSelect,
       workspaceMode: assistantMode,
       signal: abortControllerRef.current.signal,
     });
@@ -1252,6 +1258,9 @@ export default function AiChatFab({
       }
       throw new Error(errMsg);
     }
+    const encodedModelName = res.headers.get('x-jackyun-model');
+    let responseModelName = options.model || browserModel || config.model || 'AI';
+    if (encodedModelName) { try { responseModelName = decodeURIComponent(encodedModelName); } catch { responseModelName = encodedModelName; } }
 
     const reader = res.body?.getReader();
     if (!reader) throw new Error('无法读取 AI 响应流');
@@ -1297,6 +1306,7 @@ export default function AiChatFab({
           content: assistantContent,
           reasoningContent: reasoningContent || undefined,
           tokenUsage: tokenUsage || (assistantContent ? { input: estimatedInputTokens, output: Math.ceil(assistantContent.length / 4) } : undefined),
+          modelName: responseModelName,
         };
         if (targetIndex >= 0) {
           updated[targetIndex] = newMsg;
@@ -2128,6 +2138,7 @@ export default function AiChatFab({
                   >
                     {msg.role === 'assistant' ? (
                       <>
+                        {msg.modelName && <p className="mb-1.5 text-[10px] font-medium text-[var(--muted-foreground)]">来自 {msg.modelName}</p>}
                         {/* AI 思考过程 — 折叠显示，不用于 TTS */}
                         {thinkingLevel !== 'low' && (msg as Message).reasoningContent && (
                           <div

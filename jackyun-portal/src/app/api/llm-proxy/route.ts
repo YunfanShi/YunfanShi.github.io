@@ -5,7 +5,10 @@ import { decryptSecret, encryptSecret } from '@/lib/secret-crypto';
 import { normalizeLlmBaseUrl } from '@/lib/llm-endpoint';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
-import { resolveManagedAiModel, type AiWorkspaceMode } from '@/lib/ai-model-catalog';
+import { resolveManagedAiModel, resolveSmartAiRouting, type AiWorkspaceMode } from '@/lib/ai-model-catalog';
+import { buildSmartSelectionMessages, extractCompletionText, parseSmartSelection } from '@/lib/ai-smart-selection';
+import { normalizeAiModelCapabilities } from '@/lib/ai-model-capabilities';
+import { recordAiModelResult } from '@/lib/ai-model-health';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -63,6 +66,14 @@ function withLanguageInstruction(messages: unknown, language: unknown): unknown 
     ? 'Respond in English. Keep any user-provided proper nouns, code, formulas, and quoted text unchanged unless the user asks for translation.'
     : '请使用简体中文回答。除非用户要求翻译，否则保留用户提供的专有名词、代码、公式和引用文本。';
   return [{ role: 'system', content: instruction }, ...messages];
+}
+
+function quotaExceededResponse(message = '') {
+  const monthly = message.includes('MONTHLY_QUOTA_EXCEEDED');
+  const daily = message.includes('DAILY_QUOTA_EXCEEDED');
+  const site = message.includes('SITE_GENERATION_QUOTA_EXCEEDED');
+  const rate = message.includes('RATE_LIMIT_EXCEEDED') || message.includes('CONCURRENT_LIMIT_EXCEEDED');
+  return NextResponse.json({ error: { code: 'quota_exceeded', message: site ? '本月个性化网站生成次数已用完。' : monthly ? '本月 AI Token 额度已用完。' : daily ? '今日 AI Token 额度已用完。' : rate ? '请求过于频繁，请稍后再试。' : '暂时无法预留 AI 使用额度。' } }, { status: 429 });
 }
 
 export async function POST(req: NextRequest) {
@@ -162,7 +173,13 @@ export async function POST(req: NextRequest) {
   const clientApiKey = (body.apiKey as string)?.trim() || '';
   const clientModel = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
   const catalogModelId = Number(body.catalogModelId);
+  const smartSelect = body.smartSelect === true;
+  const webSearch = body.webSearch === true;
   const requestedWorkspaceMode: AiWorkspaceMode = body.workspaceMode === 'agent' ? 'agent' : 'chat';
+  const requiredCapabilities = webSearch ? ['web_search' as const] : [];
+  if (smartSelect && Number.isSafeInteger(catalogModelId) && catalogModelId > 0) {
+    return NextResponse.json({ error: { message: '不能同时指定模型和智能选择。' } }, { status: 400 });
+  }
   if (body.providerMode === 'browser') {
     return NextResponse.json({ error: { code: 'BROWSER_AI_CLIENT_REQUIRED', message: '本地网页 AI 请求必须在浏览器交互窗口中完成。' } }, { status: 409 });
   }
@@ -180,6 +197,7 @@ export async function POST(req: NextRequest) {
   let reservationId: string | undefined;
   let managedProviderId: string | null = null;
   let managedCatalogModelId: number | null = null;
+  let managedModelDisplayName = '';
   const adminClient = createAdminClient();
 
   if (clientBaseUrl && clientApiKey) {
@@ -253,8 +271,8 @@ export async function POST(req: NextRequest) {
       }
       // A catalog selection is resolved server-side so clients cannot bypass
       // plan access by submitting an arbitrary upstream model identifier.
-      const selected = Number.isSafeInteger(catalogModelId) && catalogModelId > 0
-        ? await resolveManagedAiModel(authenticatedUserId, catalogModelId, requestedWorkspaceMode)
+      let selected = Number.isSafeInteger(catalogModelId) && catalogModelId > 0
+        ? await resolveManagedAiModel(authenticatedUserId, catalogModelId, requestedWorkspaceMode, requiredCapabilities)
         : null;
       if (catalogModelId > 0 && !selected) {
         return NextResponse.json(
@@ -262,25 +280,116 @@ export async function POST(req: NextRequest) {
           { status: 403 },
         );
       }
-      // Preserve the legacy default-provider path for existing AI modules that
-      // have not opted into the selectable catalog yet.
-      const { data: fallbackProvider } = selected
-        ? { data: null }
-        : await adminClient.from('ai_provider_configs').select('*').eq('enabled', true).order('is_default', { ascending: false }).order('created_at').limit(1).maybeSingle();
+      if (smartSelect) {
+        const routing = await resolveSmartAiRouting(authenticatedUserId, requestedWorkspaceMode, requiredCapabilities);
+        if (!routing) {
+          return NextResponse.json(
+            { error: { code: 'smart_selection_unavailable', message: '智能选择暂不可用，请手动选择套餐内模型或联系管理员。' } },
+            { status: 409 },
+          );
+        }
+        const candidates = routing.candidates.map(({ model: candidate }) => ({
+          id: Number(candidate.id),
+          displayName: candidate.display_name,
+          modelId: candidate.model_id,
+          description: candidate.description,
+          routingDescription: candidate.routing_description,
+          capabilities: normalizeAiModelCapabilities(candidate.capabilities),
+          supportsAgent: Boolean(candidate.supports_agent),
+          inputCostPerMillion: Number(candidate.input_cost_per_million) || 0,
+          outputCostPerMillion: Number(candidate.output_cost_per_million) || 0,
+          contextWindow: Number(candidate.context_window) || 0,
+        }));
+        const routerMessages = buildSmartSelectionMessages(body.messages, candidates, requestedWorkspaceMode);
+        const routingInputTokens = Math.max(1, Math.ceil(JSON.stringify(routerMessages).length / 4));
+        const { data: routingReservation, error: routingReserveError } = await adminClient.rpc('reserve_ai_usage', {
+          p_user_id: authenticatedUserId,
+          p_feature: 'smart_routing',
+          p_input_tokens: routingInputTokens,
+          p_requested_output: 256,
+          p_model: routing.router.model.model_id,
+        }).single();
+        if (routingReserveError || !routingReservation) return quotaExceededResponse(routingReserveError?.message);
+        const routingReservationRow = routingReservation as { reservation_id: string; allowed_output_tokens: number };
+        await adminClient.from('ai_usage_ledger').update({ provider_id: routing.router.provider.id, catalog_model_id: Number(routing.router.model.id) }).eq('id', routingReservationRow.reservation_id);
+        let chosenId: number | null = null;
+        let routingActualInputTokens = routingInputTokens;
+        let routingOutputTokens = 0;
+        let routingEstimatedCost = 0;
+        let routingSucceeded = false;
+        try {
+          const routerResponse = await fetch(`${routing.router.provider.base_url}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${decryptSecret(routing.router.provider.encrypted_api_key)}` },
+            body: JSON.stringify({ model: routing.router.model.model_id, messages: routerMessages, temperature: 0, max_tokens: routingReservationRow.allowed_output_tokens, stream: false }),
+            signal: AbortSignal.timeout(15_000),
+          });
+          const routerText = await routerResponse.text();
+          await recordAiModelResult(adminClient, Number(routing.router.model.id), routerResponse.ok
+            ? { success: true }
+            : { success: false, status: routerResponse.status, detail: routerText });
+          if (routerResponse.ok && routerText.length <= 100_000) {
+            const routerPayload = JSON.parse(routerText) as { usage?: Record<string, number> };
+            const completionText = extractCompletionText(routerPayload);
+            chosenId = parseSmartSelection(completionText, candidates.map((candidate) => candidate.id));
+            routingActualInputTokens = routerPayload.usage?.prompt_tokens ?? routerPayload.usage?.input_tokens ?? routingInputTokens;
+            routingOutputTokens = routerPayload.usage?.completion_tokens ?? routerPayload.usage?.output_tokens ?? Math.max(1, Math.ceil(completionText.length / 4));
+            routingEstimatedCost = routingActualInputTokens / 1_000_000 * (Number(routing.router.model.input_cost_per_million) || 0)
+              + routingOutputTokens / 1_000_000 * (Number(routing.router.model.output_cost_per_million) || 0);
+            routingSucceeded = true;
+          }
+        } catch (error) {
+          console.warn('[llm-proxy] Smart model routing failed; using the first allowed candidate', error instanceof Error ? error.message : error);
+        } finally {
+          await adminClient.rpc('finalize_ai_usage', { p_reservation_id: routingReservationRow.reservation_id, p_input_tokens: routingActualInputTokens, p_output_tokens: routingOutputTokens, p_success: routingSucceeded, p_estimated_cost: routingEstimatedCost });
+        }
+        const chosen = routing.candidates.find(({ model: candidate }) => Number(candidate.id) === chosenId) ?? routing.candidates[0];
+        selected = { model: chosen.model, provider: chosen.provider, planCode: routing.planCode };
+      }
+      // Existing AI modules that do not explicitly choose a catalog entry use
+      // the administrator-selected default model. Provider defaults remain a
+      // compatibility fallback until that setting is configured.
+      let defaultModel = null;
+      let fallbackProvider = null;
+      if (!selected) {
+        const { data: platformSettings } = await adminClient.from('ai_platform_settings').select('default_model_id').eq('singleton', true).maybeSingle();
+        if (platformSettings?.default_model_id) {
+          const { data: configuredModel } = await adminClient.from('ai_model_catalog').select('*').eq('id', platformSettings.default_model_id).eq('enabled', true).eq('supports_chat', true).maybeSingle();
+          if (configuredModel) {
+            const { data: configuredProvider } = await adminClient.from('ai_provider_configs').select('*').eq('id', configuredModel.provider_id).eq('enabled', true).maybeSingle();
+            if (configuredProvider?.encrypted_api_key) {
+              defaultModel = configuredModel;
+              fallbackProvider = configuredProvider;
+            }
+          }
+        }
+        if (!fallbackProvider) {
+          const { data: legacyProvider } = await adminClient.from('ai_provider_configs').select('*').eq('enabled', true).order('is_default', { ascending: false }).order('created_at').limit(1).maybeSingle();
+          fallbackProvider = legacyProvider;
+        }
+      }
       const managedProvider = selected?.provider ?? fallbackProvider;
       if (managedProvider?.encrypted_api_key) {
         managedProviderId = managedProvider.id;
-        managedCatalogModelId = selected ? Number(selected.model.id) : null;
+        managedCatalogModelId = selected ? Number(selected.model.id) : defaultModel ? Number(defaultModel.id) : null;
+        managedModelDisplayName = selected?.model.display_name ?? defaultModel?.display_name ?? '';
         baseUrl = managedProvider.base_url;
         try { apiKey = decryptSecret(managedProvider.encrypted_api_key); } catch { apiKey = ''; }
         const feature = typeof body.feature === 'string' ? body.feature : 'chat';
-        model = selected?.model.model_id ?? (feature === 'personal_site' && managedProvider.site_model
+        model = selected?.model.model_id ?? defaultModel?.model_id ?? (feature === 'personal_site' && managedProvider.site_model
           ? managedProvider.site_model
           : feature === 'reasoning' && managedProvider.reasoning_model
             ? managedProvider.reasoning_model
             : managedProvider.chat_model);
-        inputCostPerMillion = Number(selected?.model.input_cost_per_million ?? managedProvider.input_cost_per_million) || 0;
-        outputCostPerMillion = Number(selected?.model.output_cost_per_million ?? managedProvider.output_cost_per_million) || 0;
+        inputCostPerMillion = Number(selected?.model.input_cost_per_million ?? defaultModel?.input_cost_per_million ?? managedProvider.input_cost_per_million) || 0;
+        outputCostPerMillion = Number(selected?.model.output_cost_per_million ?? defaultModel?.output_cost_per_million ?? managedProvider.output_cost_per_million) || 0;
+        if (!selected && !defaultModel && model) {
+          const { data: catalogMatch } = await adminClient.from('ai_model_catalog').select('id, display_name').eq('provider_id', managedProvider.id).eq('model_id', model).eq('enabled', true).maybeSingle();
+          if (catalogMatch) {
+            managedCatalogModelId = Number(catalogMatch.id);
+            managedModelDisplayName = catalogMatch.display_name;
+          }
+        }
       } else {
         baseUrl = CLOUD_API_URL;
         apiKey = CLOUD_API_KEY;
@@ -331,7 +440,9 @@ export async function POST(req: NextRequest) {
   delete upstreamFields._connection_test;
   delete upstreamFields._no_thinking;
   delete upstreamFields.catalogModelId;
+  delete upstreamFields.smartSelect;
   delete upstreamFields.workspaceMode;
+  delete upstreamFields.webSearch;
   // GLM 5.3 is an always-thinking model: sending thinking.type=disabled makes
   // BigModel reject the request with code 1210. Translate the app's fast-mode
   // hint to the lowest supported reasoning level for that model family.
@@ -361,11 +472,7 @@ export async function POST(req: NextRequest) {
       p_model: model,
     }).single();
     if (reserveError || !reservation) {
-      const monthly = reserveError?.message.includes('MONTHLY_QUOTA_EXCEEDED');
-      const daily = reserveError?.message.includes('DAILY_QUOTA_EXCEEDED');
-      const site = reserveError?.message.includes('SITE_GENERATION_QUOTA_EXCEEDED');
-      const rate = reserveError?.message.includes('RATE_LIMIT_EXCEEDED') || reserveError?.message.includes('CONCURRENT_LIMIT_EXCEEDED');
-      return NextResponse.json({ error: { code: 'quota_exceeded', message: site ? '本月个性化网站生成次数已用完。' : monthly ? '本月 AI Token 额度已用完。' : daily ? '今日 AI Token 额度已用完。' : rate ? '请求过于频繁，请稍后再试。' : '暂时无法预留 AI 使用额度。' } }, { status: 429 });
+      return quotaExceededResponse(reserveError?.message);
     }
     const reservationRow = reservation as { reservation_id: string; allowed_output_tokens: number };
     reservationId = reservationRow.reservation_id;
@@ -382,6 +489,11 @@ export async function POST(req: NextRequest) {
     model: keySource === 'cloud' ? model : (upstreamFields.model as string) || model,
     messages: withLanguageInstruction(upstreamFields.messages, interfaceLanguage),
   };
+  if (webSearch && upstreamHostname === 'api.groq.com' && /^groq\/compound(?:-mini)?$/i.test(model)) {
+    upstreamBody.compound_custom = { tools: { enabled_tools: ['web_search', 'visit_website'] } };
+  }
+  const responseModelName = managedModelDisplayName || model;
+  const responseModelHeaders = { 'X-JackYun-Model': encodeURIComponent(responseModelName) };
 
   // 转发到上游 LLM API
   let upstream: Response;
@@ -416,6 +528,7 @@ export async function POST(req: NextRequest) {
 
   if (!upstream.ok) {
     const text = await upstream.text();
+    if (adminClient) await recordAiModelResult(adminClient, managedCatalogModelId, { success: false, status: upstream.status, detail: text });
     const explained = explainAiError(upstream.status, text);
     auditLog({
       userId,
@@ -449,13 +562,17 @@ export async function POST(req: NextRequest) {
       status: 200,
       durationMs: Date.now() - startTime,
     });
-    if (!reservationId || !adminClient || !upstream.body) return new NextResponse(upstream.body, {
+    if (!reservationId || !adminClient || !upstream.body) {
+      if (adminClient) await recordAiModelResult(adminClient, managedCatalogModelId, { success: true });
+      return new NextResponse(upstream.body, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
+        ...responseModelHeaders,
       },
-    });
+      });
+    }
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
     let transcript = '';
@@ -474,6 +591,7 @@ export async function POST(req: NextRequest) {
           const output = Number(lastUsage.match(/"(?:completion_tokens|output_tokens)"\s*:\s*(\d+)/)?.[1]) || Math.max(1, Math.ceil(streamedBytes / 8));
           const cost = input / 1_000_000 * inputCostPerMillion + output / 1_000_000 * outputCostPerMillion;
           await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservation, p_input_tokens: input, p_output_tokens: output, p_success: true, p_estimated_cost: cost });
+          await recordAiModelResult(adminClient, managedCatalogModelId, { success: true });
           controller.close(); return;
         }
         streamedBytes += value.byteLength;
@@ -485,7 +603,7 @@ export async function POST(req: NextRequest) {
         await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservation, p_input_tokens: estimatedInputTokens, p_output_tokens: 0, p_success: true, p_estimated_cost: estimatedInputTokens / 1_000_000 * inputCostPerMillion });
       },
     });
-    return new NextResponse(meteredStream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
+    return new NextResponse(meteredStream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', ...responseModelHeaders } });
   }
 
   // 非流式：先读文本，避免兼容服务偶发返回 HTML/空响应时让路由自身抛出 500。
@@ -508,6 +626,7 @@ export async function POST(req: NextRequest) {
     const cost = actualInputTokens / 1_000_000 * inputCostPerMillion + actualOutputTokens / 1_000_000 * outputCostPerMillion;
     await adminClient.rpc('finalize_ai_usage', { p_reservation_id: reservationId, p_input_tokens: actualInputTokens, p_output_tokens: actualOutputTokens, p_success: true, p_estimated_cost: cost });
   }
+  if (adminClient) await recordAiModelResult(adminClient, managedCatalogModelId, { success: true });
 
   auditLog({
     userId,
@@ -520,5 +639,5 @@ export async function POST(req: NextRequest) {
     durationMs: Date.now() - startTime,
   });
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, { headers: responseModelHeaders });
 }

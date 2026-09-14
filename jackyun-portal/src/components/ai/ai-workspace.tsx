@@ -22,6 +22,8 @@ interface ModelOption {
   inputCostPerMillion: number;
   outputCostPerMillion: number;
   contextWindow: number;
+  capabilities: string[];
+  isSmartSelection?: boolean;
 }
 
 interface Message {
@@ -30,6 +32,7 @@ interface Message {
   content: string;
   reasoning?: string;
   failed?: boolean;
+  modelName?: string;
 }
 
 interface Conversation {
@@ -42,7 +45,7 @@ interface Conversation {
 function id() { return crypto.randomUUID(); }
 function newConversation(): Conversation { return { id: id(), title: '新对话', messages: [], updatedAt: new Date().toISOString() }; }
 
-export default function AiWorkspace({ models, planCode, initialMode = 'chat', initialPrompt = '' }: { models: ModelOption[]; planCode: string; initialMode?: 'chat' | 'agent'; initialPrompt?: string }) {
+export default function AiWorkspace({ models, planCode, smartSelectionEnabled = false, initialMode = 'chat', initialPrompt = '' }: { models: ModelOption[]; planCode: string; smartSelectionEnabled?: boolean; initialMode?: 'chat' | 'agent'; initialPrompt?: string }) {
   const [mode, setMode] = useState<'chat' | 'agent'>(initialMode);
   const [personalModel, setPersonalModel] = useState<ModelOption | null>(null);
   const [browserModels, setBrowserModels] = useState<ModelOption[]>([]);
@@ -54,7 +57,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
     const config = getAiConfig();
     if (config.providerMode !== 'personal' && config.providerMode !== 'browser') return;
     const label = config.providerMode === 'browser' ? `${config.browserProvider ?? 'Browser'} 网页版` : config.model || '个人 API 模型';
-    queueMicrotask(() => setPersonalModel({ id: -1, displayName: label, modelId: config.providerMode === 'browser' ? '' : config.model || label, providerName: config.providerMode === 'browser' ? '本地网页 AI' : '个人 API', description: '使用你的个人配置，不消耗平台套餐额度', supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0 }));
+    queueMicrotask(() => setPersonalModel({ id: -1, displayName: label, modelId: config.providerMode === 'browser' ? '' : config.model || label, providerName: config.providerMode === 'browser' ? '本地网页 AI' : '个人 API', description: '使用你的个人配置，不消耗平台套餐额度', supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0, capabilities: config.providerMode === 'browser' ? ['web_search'] : [] }));
   }, []);
   useEffect(() => {
     if (providerMode !== 'browser') return;
@@ -62,7 +65,7 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
     const listener = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_COMPANION_MODELS' || event.data.requestId !== requestId) return;
       const detected = (Array.isArray(event.data.models) ? event.data.models : []) as BrowserAiWebModel[];
-      setBrowserModels(detected.map((item, index) => ({ id: -1000 - index, displayName: item.label, modelId: item.id, providerName: '本地网页 AI', description: `${browserProvider} 当前登录账号可用${item.selected ? ' · 当前已选择' : ''}`, supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0 })));
+      setBrowserModels(detected.map((item, index) => ({ id: -1000 - index, displayName: item.label, modelId: item.id, providerName: '本地网页 AI', description: `${browserProvider} 当前登录账号可用${item.selected ? ' · 当前已选择' : ''}`, supportsChat: true, supportsAgent: true, inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0, capabilities: ['web_search'] })));
       setBrowserModelStatus(detected.length ? `已从 ${browserProvider} 读取 ${detected.length} 个模型` : event.data.error || '未读取到模型，将使用网站默认模型');
     };
     window.addEventListener('message', listener);
@@ -70,7 +73,8 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
     const timeout = window.setTimeout(() => setBrowserModelStatus((value) => value.startsWith('正在') ? '读取超时，请确认 AI 网站已登录后重试' : value), 20_000);
     return () => { window.clearTimeout(timeout); window.removeEventListener('message', listener); };
   }, [browserProvider, providerMode, modelRefreshKey]);
-  const allModels = useMemo(() => providerMode === 'browser' ? (browserModels.length ? browserModels : personalModel ? [personalModel] : []) : personalModel ? [personalModel, ...models] : models, [browserModels, models, personalModel, providerMode]);
+  const smartModel = useMemo<ModelOption | null>(() => smartSelectionEnabled && providerMode === 'cloud' ? { id: -2, displayName: '智能选择', modelId: 'smart', providerName: '自动路由', description: '先判断任务，再从当前套餐内选择最合适的可用模型', supportsChat: models.some((model) => model.supportsChat), supportsAgent: models.some((model) => model.supportsAgent), inputCostPerMillion: 0, outputCostPerMillion: 0, contextWindow: 0, capabilities: [...new Set(models.flatMap((model) => model.capabilities))], isSmartSelection: true } : null, [models, providerMode, smartSelectionEnabled]);
+  const allModels = useMemo(() => providerMode === 'browser' ? (browserModels.length ? browserModels : personalModel ? [personalModel] : []) : personalModel ? [personalModel, ...models] : smartModel ? [smartModel, ...models] : models, [browserModels, models, personalModel, providerMode, smartModel]);
   const availableModels = useMemo(() => allModels.filter((model) => mode === 'agent' ? model.supportsAgent : model.supportsChat), [mode, allModels]);
   const [modelId, setModelId] = useState<number>(() => (initialMode === 'agent' ? models.find((model) => model.supportsAgent) : models.find((model) => model.supportsChat))?.id ?? 0);
   const selectedModel = availableModels.find((model) => model.id === modelId) ?? availableModels[0];
@@ -89,10 +93,10 @@ export default function AiWorkspace({ models, planCode, initialMode = 'chat', in
       </div>
     </header>
 
-    {selectedModel && <div className="flex min-h-10 items-center gap-2 border-b border-[var(--card-border)] bg-[var(--background)]/70 px-4 text-xs text-[var(--muted-foreground)] sm:px-6"><span className={`h-2 w-2 rounded-full ${selectedModel.supportsAgent ? 'bg-[#7f56d9]' : 'bg-[#17b26a]'}`} /><span className="truncate">{selectedModel.description || selectedModel.modelId}</span><span className="ml-auto hidden shrink-0 sm:inline">输入 ¥{selectedModel.inputCostPerMillion}/M · 输出 ¥{selectedModel.outputCostPerMillion}/M{selectedModel.contextWindow ? ` · ${Math.round(selectedModel.contextWindow / 1000)}K 上下文` : ''}</span></div>}
+    {selectedModel && <div className="flex min-h-10 flex-wrap items-center gap-2 border-b border-[var(--card-border)] bg-[var(--background)]/70 px-4 py-2 text-xs text-[var(--muted-foreground)] sm:px-6"><span className={`h-2 w-2 rounded-full ${selectedModel.supportsAgent ? 'bg-[#7f56d9]' : 'bg-[#17b26a]'}`} /><span className="min-w-0 flex-1"><span className="block max-h-14 overflow-y-auto whitespace-normal break-words pr-2 leading-5">{selectedModel.description || selectedModel.modelId}</span></span><div className="flex flex-wrap gap-1">{selectedModel.capabilities.map((capability) => <span key={capability} className="rounded-full bg-[var(--card)] px-2 py-0.5">{{ agent: 'Agent', web_search: '联网', code: '代码', vision: '视觉', reasoning: '推理', long_context: '长上下文', tools: '工具', files: '文件' }[capability] ?? capability}</span>)}</div><span className="hidden shrink-0 sm:inline">{selectedModel.isSmartSelection ? '判断与执行分别计入套餐额度' : <>输入 ¥{selectedModel.inputCostPerMillion}/M · 输出 ¥{selectedModel.outputCostPerMillion}/M{selectedModel.contextWindow ? ` · ${Math.round(selectedModel.contextWindow / 1000)}K 上下文` : ''}</>}</span></div>}
 
     <div className="min-h-0 flex-1">
-      {!selectedModel ? <NoModels planCode={planCode} /> : mode === 'chat' ? <ChatWorkspace model={selectedModel} initialPrompt={initialPrompt} /> : <div className="h-full min-h-0 bg-[var(--background)]"><AgentWorkspace embedded initialAssistantMode="agent" embeddedTitle="Work" currentPath="/ai" catalogModelId={selectedModel.id > 0 ? selectedModel.id : undefined} browserModel={selectedModel.id < 0 ? selectedModel.modelId : undefined} /></div>}
+      {!selectedModel ? <NoModels planCode={planCode} /> : mode === 'chat' ? <ChatWorkspace model={selectedModel} initialPrompt={initialPrompt} /> : <div className="h-full min-h-0 bg-[var(--background)]"><AgentWorkspace embedded initialAssistantMode="agent" embeddedTitle="Work" currentPath="/ai" catalogModelId={selectedModel.id > 0 ? selectedModel.id : undefined} smartSelect={selectedModel.isSmartSelection} browserModel={selectedModel.id < 0 && !selectedModel.isSmartSelection ? selectedModel.modelId : undefined} /></div>}
     </div>
   </div>;
 }
@@ -109,11 +113,13 @@ function ChatWorkspace({ model, initialPrompt }: { model: ModelOption; initialPr
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [status, setStatus] = useState('');
+  const [webSearch, setWebSearch] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const abortReasonRef = useRef<'user' | 'timeout' | null>(null);
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const active = conversations.find((conversation) => conversation.id === activeId) ?? conversations[0];
+  const effectiveWebSearch = webSearch && model.capabilities.includes('web_search');
 
   useEffect(() => {
     try {
@@ -141,11 +147,14 @@ function ChatWorkspace({ model, initialPrompt }: { model: ModelOption; initialPr
       const response = await callAiApi([
         { role: 'system', content: '你是 JackYun AI 的聊天助手。直接、清晰地回答用户，不要声称执行了未实际执行的操作。' },
         ...messages.filter((message) => !message.failed).map(({ role, content }) => ({ role, content })),
-      ], { stream: true, maxTokens: 4000, model: model.id < 0 ? model.modelId : undefined, feature: 'chat', catalogModelId: model.id > 0 ? model.id : undefined, workspaceMode: 'chat', signal: controller.signal });
+      ], { stream: true, maxTokens: 4000, model: model.id < 0 && !model.isSmartSelection ? model.modelId : undefined, feature: 'chat', catalogModelId: model.id > 0 ? model.id : undefined, smartSelect: model.isSmartSelection, workspaceMode: 'chat', webSearch: effectiveWebSearch, signal: controller.signal });
       if (!response.ok) throw new Error(await responseError(response));
+      const encodedModelName = response.headers.get('x-jackyun-model');
+      let responseModelName = model.displayName;
+      if (encodedModelName) { try { responseModelName = decodeURIComponent(encodedModelName); } catch { responseModelName = encodedModelName; } }
       await readAiStream(response, (result) => {
         setStatus(result.content ? '正在生成…' : '正在思考…');
-        updateConversation(conversationId, (conversation) => ({ ...conversation, updatedAt: new Date().toISOString(), messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: result.content, reasoning: result.reasoning, failed: false } : message) }));
+        updateConversation(conversationId, (conversation) => ({ ...conversation, updatedAt: new Date().toISOString(), messages: conversation.messages.map((message) => message.id === assistantId ? { ...message, content: result.content, reasoning: result.reasoning, failed: false, modelName: responseModelName } : message) }));
       }, resetWatchdog);
       setStatus('');
     } catch (error) {
@@ -195,14 +204,14 @@ function ChatWorkspace({ model, initialPrompt }: { model: ModelOption; initialPr
     <section className="flex min-w-0 flex-1 flex-col">
       <div className="flex h-12 shrink-0 items-center px-3"><button type="button" onClick={() => setSidebarOpen((value) => !value)} aria-label="切换对话列表" className="grid h-9 w-9 place-items-center rounded-lg hover:bg-[var(--card)]"><span className="material-icons-round text-xl">menu</span></button><span className="ml-2 truncate text-sm font-medium">{active?.title}</span><button type="button" onClick={createChat} className="ml-auto grid h-9 w-9 place-items-center rounded-lg hover:bg-[var(--card)] md:hidden"><span className="material-icons-round text-xl">edit_square</span></button></div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">{!active?.messages.length ? <EmptyChat onPrompt={(value) => setInput(value)} /> : <div className="mx-auto max-w-3xl space-y-7">{active.messages.map((message) => <MessageBubble key={message.id} message={message} onRetry={retry} />)}{status && <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]"><span className="flex gap-1"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" /><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]" /><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:300ms]" /></span>{status}</div>}<div ref={endRef} /></div>}</div>
-      <div className="shrink-0 pb-3 pl-3 pr-20 sm:pb-5 sm:pl-6 sm:pr-20"><div className="mx-auto max-w-3xl rounded-[26px] border border-[var(--card-border)] bg-[var(--card)] p-2 shadow-[0_8px_30px_rgba(15,23,42,.08)] focus-within:border-[var(--muted-foreground)]"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(); } }} rows={2} placeholder={`询问 ${model.displayName}`} className="max-h-36 w-full resize-none bg-transparent px-3 py-2 text-base outline-none placeholder:text-[var(--muted-foreground)]" /><div className="flex items-center justify-between gap-2 px-1"><span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]"><span className="material-icons-round text-lg">add</span>Enter 发送</span>{loading ? <button type="button" onClick={() => { abortReasonRef.current = 'user'; abortRef.current?.abort(); }} className="grid h-9 w-9 place-items-center rounded-full bg-[var(--foreground)] text-[var(--background)]"><span className="material-icons-round text-lg">stop</span></button> : <button type="button" onClick={send} disabled={!input.trim()} className="grid h-9 w-9 place-items-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition disabled:opacity-30"><span className="material-icons-round text-lg">arrow_upward</span></button>}</div></div></div>
+      <div className="shrink-0 pb-3 pl-3 pr-20 sm:pb-5 sm:pl-6 sm:pr-20"><div className="mx-auto max-w-3xl rounded-[26px] border border-[var(--card-border)] bg-[var(--card)] p-2 shadow-[0_8px_30px_rgba(15,23,42,.08)] focus-within:border-[var(--muted-foreground)]"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(); } }} rows={2} placeholder={`询问 ${model.displayName}`} className="max-h-36 w-full resize-none bg-transparent px-3 py-2 text-base outline-none placeholder:text-[var(--muted-foreground)]" /><div className="flex items-center justify-between gap-2 px-1"><div className="flex items-center gap-2"><span className="hidden items-center gap-1 text-xs text-[var(--muted-foreground)] sm:flex"><span className="material-icons-round text-lg">add</span>Enter 发送</span><button type="button" disabled={!model.capabilities.includes('web_search')} onClick={() => setWebSearch((value) => !value)} aria-pressed={webSearch} title={model.capabilities.includes('web_search') ? '要求本次对话使用联网搜索模型' : '当前模型不支持联网搜索'} className={`flex h-8 items-center gap-1 rounded-full px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${webSearch ? 'bg-[#d1e9ff] text-[#175cd3]' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-base">language</span>联网</button></div>{loading ? <button type="button" onClick={() => { abortReasonRef.current = 'user'; abortRef.current?.abort(); }} className="grid h-9 w-9 place-items-center rounded-full bg-[var(--foreground)] text-[var(--background)]"><span className="material-icons-round text-lg">stop</span></button> : <button type="button" onClick={send} disabled={!input.trim()} className="grid h-9 w-9 place-items-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition disabled:opacity-30"><span className="material-icons-round text-lg">arrow_upward</span></button>}</div></div></div>
     </section>
   </div>;
 }
 
 function MessageBubble({ message, onRetry }: { message: Message; onRetry: () => void }) {
   if (message.role === 'user') return <div className="flex justify-end"><div className="max-w-[85%] rounded-[22px] bg-[var(--card)] px-4 py-3 text-sm leading-6 shadow-sm">{message.content}</div></div>;
-  return <div className="group flex gap-3"><div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--foreground)] text-[var(--background)]"><span className="material-icons-round text-base">auto_awesome</span></div><div className="min-w-0 flex-1">{message.reasoning && <details className="mb-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]"><summary className="cursor-pointer font-medium">查看思考过程</summary><p className="mt-2 whitespace-pre-wrap leading-5">{message.reasoning}</p></details>}{message.content ? <div className={message.failed ? 'text-sm text-[#b42318]' : 'text-sm leading-7'}>{message.failed ? message.content : <MarkdownRenderer content={message.content} />}</div> : <div className="h-5 w-32 animate-pulse rounded bg-[var(--card-border)]" />}{message.failed && <button type="button" onClick={onRetry} className="mt-2 flex items-center gap-1 text-xs font-medium text-[#155eef]"><span className="material-icons-round text-base">refresh</span>重试</button>}</div></div>;
+  return <div className="group flex gap-3"><div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--foreground)] text-[var(--background)]"><span className="material-icons-round text-base">auto_awesome</span></div><div className="min-w-0 flex-1">{message.modelName && <p className="mb-1 text-[11px] font-medium text-[var(--muted-foreground)]">来自 {message.modelName}</p>}{message.reasoning && <details className="mb-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted-foreground)]"><summary className="cursor-pointer font-medium">查看思考过程</summary><p className="mt-2 whitespace-pre-wrap leading-5">{message.reasoning}</p></details>}{message.content ? <div className={message.failed ? 'text-sm text-[#b42318]' : 'text-sm leading-7'}>{message.failed ? message.content : <MarkdownRenderer content={message.content} />}</div> : <div className="h-5 w-32 animate-pulse rounded bg-[var(--card-border)]" />}{message.failed && <button type="button" onClick={onRetry} className="mt-2 flex items-center gap-1 text-xs font-medium text-[#155eef]"><span className="material-icons-round text-base">refresh</span>重试</button>}</div></div>;
 }
 
 function EmptyChat({ onPrompt }: { onPrompt: (value: string) => void }) {

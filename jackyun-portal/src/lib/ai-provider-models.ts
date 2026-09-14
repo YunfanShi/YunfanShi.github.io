@@ -1,3 +1,5 @@
+import { inferAiModelCapabilities, type AiModelCapability } from './ai-model-capabilities.ts';
+
 export interface DiscoveredAiModel {
   modelId: string;
   displayName: string;
@@ -6,6 +8,7 @@ export interface DiscoveredAiModel {
   inputCostPerMillion: number;
   outputCostPerMillion: number;
   supportsAgent: boolean;
+  capabilities: AiModelCapability[];
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -42,14 +45,18 @@ export function parseProviderModels(payload: unknown): DiscoveredAiModel[] {
     const supportedParameters = Array.isArray(row.supported_parameters)
       ? row.supported_parameters.filter((item): item is string => typeof item === 'string')
       : null;
+    const description = limitedText(row.description, 240);
+    const contextWindow = nonNegativeInteger(row.context_length ?? row.context_window);
+    const supportsAgent = supportedParameters ? supportedParameters.includes('tools') : true;
     unique.set(modelId, {
       modelId,
       displayName: limitedText(row.name, 80) || modelId.slice(0, 80),
-      description: limitedText(row.description, 240),
-      contextWindow: nonNegativeInteger(row.context_length ?? row.context_window),
+      description,
+      contextWindow,
       inputCostPerMillion: pricePerMillion(pricing?.prompt ?? row.input_cost_per_token),
       outputCostPerMillion: pricePerMillion(pricing?.completion ?? row.output_cost_per_token),
-      supportsAgent: supportedParameters ? supportedParameters.includes('tools') : true,
+      supportsAgent,
+      capabilities: inferAiModelCapabilities({ modelId, description, contextWindow, supportsAgent }),
     });
   }
 

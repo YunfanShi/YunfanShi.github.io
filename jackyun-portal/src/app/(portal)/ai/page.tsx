@@ -12,6 +12,6 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
   const [{ mode, prompt }, supabase] = await Promise.all([searchParams, createClient()]);
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = typeof claimsData?.claims.sub === 'string' ? claimsData.claims.sub : null;
-  const { models, planCode } = await getAvailableAiModels(userId);
-  return <AiWorkspace models={models} planCode={planCode} initialMode={mode === 'agent' ? 'agent' : 'chat'} initialPrompt={typeof prompt === 'string' ? prompt.slice(0, 4000) : ''} />;
+  const { models, planCode, smartSelectionEnabled } = await getAvailableAiModels(userId);
+  return <AiWorkspace models={models} planCode={planCode} smartSelectionEnabled={smartSelectionEnabled} initialMode={mode === 'agent' ? 'agent' : 'chat'} initialPrompt={typeof prompt === 'string' ? prompt.slice(0, 4000) : ''} />;
 }
