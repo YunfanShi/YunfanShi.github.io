@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const AiChatFab = dynamic(() => import('./ai-chat-fab'), { ssr: false, loading: () => null });
@@ -11,7 +10,6 @@ const AiChatFab = dynamic(() => import('./ai-chat-fab'), { ssr: false, loading: 
  * full Agent runtime, Markdown, highlighting and KaTeX on every portal route.
  */
 export default function DeferredAiChat() {
-  const pathname = usePathname();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -22,7 +20,6 @@ export default function DeferredAiChat() {
     return () => window.removeEventListener('message', openWorkspace);
   }, []);
 
-  if (pathname === '/ai') return null;
   if (ready) return <AiChatFab initiallyOpen />;
-  return <button type="button" onClick={() => setReady(true)} aria-label="打开 JackYun AI 悬浮窗" title="打开聊天 / Agent" className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-30 grid h-13 w-13 place-items-center rounded-2xl bg-[#0f172a] text-white shadow-[0_12px_30px_rgba(15,23,42,.3)] transition duration-200 hover:-translate-y-1 hover:bg-[#1e293b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#38bdf8]/30"><span className="material-icons-round text-2xl">auto_awesome</span></button>;
+  return <button type="button" onClick={() => setReady(true)} aria-label="打开 JackYun AI 悬浮窗" title="打开聊天 / Agent" className="group fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-50 flex h-14 items-center gap-2 overflow-hidden rounded-full border border-white/20 bg-gradient-to-br from-[#155eef] to-[#6941c6] px-4 text-white shadow-[0_16px_40px_rgba(21,94,239,.32)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(21,94,239,.4)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#155eef]/25"><span className="material-icons-round text-2xl">auto_awesome</span><span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-semibold opacity-0 transition-all duration-200 group-hover:max-w-24 group-hover:opacity-100">JackYun AI</span></button>;
 }

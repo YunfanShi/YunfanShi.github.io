@@ -248,8 +248,12 @@ test('BETA browser AI bridge covers modern and legacy AI request paths', () => {
   const floatingAi = readFileSync(new URL('../src/components/modules/deferred-ai-chat.tsx', import.meta.url), 'utf8');
   const agent = readFileSync(new URL('../src/components/modules/ai-chat-fab.tsx', import.meta.url), 'utf8');
   assert.match(floatingAi, /<AiChatFab initiallyOpen/);
+  assert.doesNotMatch(floatingAi, /pathname === ['"]\/ai['"]/);
+  assert.match(floatingAi, /打开聊天 \/ Agent/);
   assert.match(agent, /assistantMode === 'chat'/);
   assert.match(agent, /workspaceMode: assistantMode/);
+  assert.match(agent, /!embedded && <div className="grid shrink-0 grid-cols-2/);
+  assert.match(agent, /function AgentEmptyState/);
 });
 
 test('browser AI detects replies when a virtualized message list keeps the same node count', () => {

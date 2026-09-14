@@ -213,6 +213,26 @@ interface QuickAction {
   prompt: string;
 }
 
+const AGENT_STARTER_SUGGESTIONS = [
+  { icon: 'pageview', title: '分析当前页面', description: '读取页面内容并给出重点与下一步', prompt: '请分析当前页面，提炼重点并建议下一步行动。' },
+  { icon: 'checklist', title: '规划一项任务', description: '拆解目标，生成可执行的步骤', prompt: '帮我把目标拆解成清晰、可执行的步骤。' },
+  { icon: 'school', title: '辅助学习', description: '结合当前内容讲解并制定练习', prompt: '请结合当前页面内容讲解知识点，并给我安排练习。' },
+] as const;
+
+function AgentEmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
+  return <div className="mx-auto flex min-h-full max-w-4xl flex-col justify-center py-8">
+    <div className="max-w-2xl">
+      <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#155eef] to-[#6941c6] text-white shadow-[0_12px_30px_rgba(21,94,239,.22)]"><span className="material-icons-round text-2xl">smart_toy</span></div>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#155eef]">Agent workspace</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">告诉我目标，剩下的交给 Agent</h2>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">Agent 会先理解上下文，再规划和执行；涉及重要操作时仍会征求你的确认。</p>
+    </div>
+    <div className="mt-8 grid gap-3 md:grid-cols-3">
+      {AGENT_STARTER_SUGGESTIONS.map((suggestion) => <button key={suggestion.title} type="button" onClick={() => onPrompt(suggestion.prompt)} className="group rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#155eef]/50 hover:shadow-md"><span className="material-icons-round text-xl text-[#155eef]">{suggestion.icon}</span><span className="mt-3 block text-sm font-semibold">{suggestion.title}</span><span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{suggestion.description}</span><span className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#155eef] opacity-0 transition group-hover:opacity-100">使用建议 <span className="material-icons-round text-sm">arrow_forward</span></span></button>)}
+    </div>
+  </div>;
+}
+
   const PAGE_QUICK_ACTIONS: Partial<Record<ConversationSource, QuickAction[]>> = {
     goal: [
       { label: '📊 总体分析', prompt: '请分析我当前所有目标的完成情况和进度，给出整体评估。' },
@@ -1925,7 +1945,7 @@ export default function AiChatFab({
   }, [loading, activeConv]);
 
   const containerClass = embedded
-    ? 'w-full border-0 bg-[#f8fafc] dark:bg-[#07111f] shadow-none flex flex-col overflow-hidden'
+    ? 'w-full border-0 bg-[var(--background)] shadow-none flex flex-col overflow-hidden'
     : 'fixed left-0 top-0 z-50 flex flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl will-change-transform';
   const panelPosition = fabPosition ? getPanelPosition(fabPosition) : null;
 
@@ -1997,45 +2017,46 @@ export default function AiChatFab({
         >
           {/* Header */}
           <div
-            className={`flex touch-none items-center justify-between gap-3 border-b px-4 py-3 ${embedded ? 'border-white/10 bg-[#0f172a] text-white sm:px-5' : 'border-[var(--card-border)] bg-[var(--card)] cursor-grab active:cursor-grabbing'}`}
+            className={`flex touch-none items-center justify-between gap-3 border-b px-4 ${embedded ? 'min-h-16 border-[var(--card-border)] bg-[var(--card)] sm:px-6' : 'border-[var(--card-border)] bg-[var(--card)] py-3 cursor-grab active:cursor-grabbing'}`}
             onPointerDown={startFabDrag}
             title={embedded ? undefined : '拖动可移动并贴边收起'}
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <button
                 onClick={() => setSidebarOpen(v => !v)}
-                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors flex-shrink-0"
+                className={`${embedded ? 'grid h-9 w-9 place-items-center rounded-xl border border-[var(--card-border)]' : 'p-1 rounded'} hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors flex-shrink-0`}
                 title="对话列表"
               >
                 <span className="material-icons-round text-base">menu</span>
               </button>
-              <span className="material-icons-round text-[#38bdf8] text-lg flex-shrink-0">{assistantMode === 'agent' ? 'smart_toy' : 'chat_bubble'}</span>
-              <span className={`text-sm font-semibold truncate ${embedded ? 'text-white' : 'text-[var(--foreground)]'}`}>
-                {activeConv?.title || embeddedTitle}
-              </span>
+              <span className={`grid flex-shrink-0 place-items-center ${embedded ? 'h-9 w-9 rounded-xl bg-[#eef4ff] text-[#155eef] dark:bg-[#155eef]/20' : ''}`}><span className="material-icons-round text-lg">{assistantMode === 'agent' ? 'smart_toy' : 'chat_bubble'}</span></span>
+              <div className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-[var(--foreground)]">{activeConv?.title || embeddedTitle}</span>
+                {embedded && <span className="hidden text-[11px] text-[var(--muted-foreground)] sm:block">可规划步骤、读取页面并调用工具</span>}
+              </div>
               {activeConv && (
                 <span className="text-[10px] text-[var(--muted-foreground)] bg-[var(--background)] rounded px-1.5 py-0.5 flex-shrink-0">
                   {getSourceLabel(activeConv.source)}
                 </span>
               )}
-              {statusText && <span className={`truncate rounded-full px-2 py-1 text-xs ${embedded ? 'bg-[#38bdf8]/15 text-[#7dd3fc]' : 'text-[var(--muted-foreground)]'}`}>{statusText}</span>}
+              {statusText && <span className={`truncate rounded-full px-2 py-1 text-xs ${embedded ? 'bg-[#eef4ff] text-[#155eef] dark:bg-[#155eef]/20' : 'text-[var(--muted-foreground)]'}`}>{statusText}</span>}
             </div>
-            <div className={`grid shrink-0 grid-cols-2 rounded-xl p-1 ${embedded ? 'bg-white/10' : 'bg-[var(--background)]'}`}>
-              {(['chat', 'agent'] as const).map((mode) => <button key={mode} type="button" onClick={() => setAssistantMode(mode)} className={`min-h-8 rounded-lg px-3 text-xs font-bold transition ${assistantMode === mode ? embedded ? 'bg-white text-[#0f172a]' : 'bg-[var(--card)] text-[#155eef] shadow-sm' : embedded ? 'text-white/60 hover:text-white' : 'text-[var(--muted-foreground)]'}`}>{mode === 'chat' ? '聊天' : 'Agent'}</button>)}
-            </div>
+            {!embedded && <div className="grid shrink-0 grid-cols-2 rounded-xl bg-[var(--background)] p-1">
+              {(['chat', 'agent'] as const).map((mode) => <button key={mode} type="button" onClick={() => setAssistantMode(mode)} className={`min-h-8 rounded-lg px-3 text-xs font-bold transition ${assistantMode === mode ? 'bg-[var(--card)] text-[#155eef] shadow-sm' : 'text-[var(--muted-foreground)]'}`}>{mode === 'chat' ? '聊天' : 'Agent'}</button>)}
+            </div>}
             <div className="flex items-center gap-1 flex-shrink-0">
               {/* 设置按钮 */}
               <button
                 onClick={() => setSettingsOpen(true)}
                 title="AI 设置"
-                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                className={`${embedded ? 'grid h-9 w-9 place-items-center rounded-xl' : 'p-1 rounded'} hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors`}
               >
                 <span className="material-icons-round text-base">settings</span>
               </button>
               <button
                 onClick={createNewConversation}
                 title="新建对话"
-                className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                className={`${embedded ? 'grid h-9 w-9 place-items-center rounded-xl bg-[#155eef] text-white hover:bg-[#004eeb]' : 'p-1 rounded text-[var(--muted-foreground)] hover:bg-[var(--background)] hover:text-[var(--foreground)]'} transition-colors`}
               >
                 <span className="material-icons-round text-base">add</span>
               </button>
@@ -2052,7 +2073,7 @@ export default function AiChatFab({
 
           {/* Conversation list sidebar */}
           {sidebarOpen && (
-            <div className="border-b border-[var(--card-border)] max-h-48 overflow-y-auto bg-[var(--background)]">
+            <div className={`border-b border-[var(--card-border)] overflow-y-auto ${embedded ? 'max-h-56 bg-[var(--card)] px-3 py-2 sm:px-6' : 'max-h-48 bg-[var(--background)]'}`}>
               {conversations.length === 0 ? (
                 <p className="text-center text-xs text-[var(--muted-foreground)] py-4">暂无对话记录</p>
               ) : (
@@ -2060,9 +2081,9 @@ export default function AiChatFab({
                   <div
                     key={conv.id}
                     onClick={() => switchConversation(conv.id)}
-                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer text-sm transition-colors ${
+                    className={`flex items-center gap-2 cursor-pointer text-sm transition-colors ${embedded ? 'my-1 rounded-xl px-3 py-2.5' : 'px-4 py-2'} ${
                       conv.id === activeConvId
-                        ? 'bg-[#4285F4]/10 text-[#4285F4]'
+                        ? 'bg-[#eef4ff] text-[#155eef] dark:bg-[#155eef]/20'
                         : 'text-[var(--foreground)] hover:bg-[var(--card)]'
                     }`}
                   >
@@ -2087,11 +2108,11 @@ export default function AiChatFab({
           )}
 
           {/* Messages */}
-          <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto space-y-4 ${embedded ? 'p-5 sm:p-7' : 'p-3'}`}>
+          <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto ${embedded ? 'bg-[radial-gradient(circle_at_top,rgba(21,94,239,.07),transparent_38%)] px-4 py-6 sm:px-8' : 'space-y-4 p-3'}`}>
             {messages.length === 0 && (
-              <div className={`mx-auto mt-8 max-w-xl rounded-3xl border p-7 text-center ${embedded ? 'border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-3xl text-[#0284c7]">{assistantMode === 'agent' ? 'account_tree' : 'forum'}</span><h3 className="mt-3 text-lg font-semibold">{assistantMode === 'agent' ? '把目标交给 Agent' : '开始一段对话'}</h3><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{assistantMode === 'agent' ? 'Agent 会读取当前页面、规划步骤，并在需要时调用工具。重要操作仍会先征求确认。' : '适合快速问答、解释、整理和 Markdown 内容生成。'}</p></div>
+              embedded ? <AgentEmptyState onPrompt={setInput} /> : <div className="mx-auto mt-8 max-w-xl rounded-3xl border border-[var(--card-border)] p-7 text-center"><span className="material-icons-round text-3xl text-[#0284c7]">{assistantMode === 'agent' ? 'account_tree' : 'forum'}</span><h3 className="mt-3 text-lg font-semibold">{assistantMode === 'agent' ? '把目标交给 Agent' : '开始一段对话'}</h3><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{assistantMode === 'agent' ? 'Agent 会读取当前页面、规划步骤，并在需要时调用工具。重要操作仍会先征求确认。' : '适合快速问答、解释、整理和 Markdown 内容生成。'}</p></div>
             )}
-            {messages.map((msg, i) => (
+            <div className={embedded ? 'mx-auto max-w-4xl space-y-6' : 'space-y-4'}>{messages.map((msg, i) => (
               <div key={msg.id ?? i}>
                 <div
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -2099,9 +2120,11 @@ export default function AiChatFab({
                   <div
                     className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm break-words ${
                       msg.role === 'user'
-                        ? 'bg-[#4285F4] text-white rounded-br-sm'
+                        ? 'bg-[#155eef] text-white rounded-br-sm shadow-sm'
                         : msg.role === 'system'
                         ? 'bg-[#FFF8E1] text-[#795548] border border-[#FFE082] rounded text-xs w-full'
+                        : embedded
+                        ? 'bg-[var(--card)] text-[var(--foreground)] border border-[var(--card-border)] rounded-bl-sm shadow-sm'
                         : 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--card-border)] rounded-bl-sm'
                     }`}
                   >
@@ -2274,7 +2297,7 @@ export default function AiChatFab({
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
+            <div ref={bottomRef} /></div>
           </div>
 
           {/* Page Quick Actions */}
@@ -2304,7 +2327,7 @@ export default function AiChatFab({
           })()}
 
           {/* Input */}
-          <div className={`flex items-end gap-2 border-t ${embedded ? 'border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0b1626]' : 'border-[var(--card-border)] p-3'}`}>
+          <div className={`flex items-end gap-2 border-t ${embedded ? 'border-[var(--card-border)] bg-[var(--card)] py-4 pl-4 pr-20 sm:pl-8 sm:pr-20' : 'border-[var(--card-border)] p-3'}`}>
             {loading && (
               <button
                 onClick={() => {
@@ -2327,12 +2350,12 @@ export default function AiChatFab({
               placeholder={assistantMode === 'agent' ? '描述目标，Agent 会规划并执行…' : '输入消息，支持 Markdown…'}
               disabled={loading}
               rows={1}
-              className={`flex-1 resize-none border px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none disabled:opacity-60 transition-colors ${embedded ? 'rounded-2xl border-slate-200 bg-slate-50 focus:border-[#0284c7] focus:ring-4 focus:ring-[#0284c7]/10 dark:border-white/10 dark:bg-white/5' : 'rounded-xl border-[var(--card-border)] bg-[var(--background)] focus:border-[#4285F4]'}`}
+              className={`flex-1 resize-none border px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none disabled:opacity-60 transition-colors ${embedded ? 'mx-auto max-w-4xl rounded-2xl border-[var(--card-border)] bg-[var(--background)] shadow-sm focus:border-[#155eef] focus:ring-4 focus:ring-[#155eef]/10' : 'rounded-xl border-[var(--card-border)] bg-[var(--background)] focus:border-[#4285F4]'}`}
             />
             <button
               onClick={() => handleSend()}
               disabled={!input.trim() || loading}
-              className="p-2 rounded-xl bg-[#4285F4] text-white hover:bg-[#3367d6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl bg-[#155eef] text-white transition-colors hover:bg-[#004eeb] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span className="material-icons-round text-base">send</span>
             </button>
