@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDefinitionCard, dueDefinitionCards, normalizeDefinitionCard, parseDefinitionBundle, parseDefinitionCards, scheduleDefinitionCard } from '../src/lib/definition-cards.ts';
+import { createDefinitionCard, dueDefinitionCards, normalizeDefinitionCard, parseDefinitionBundle, parseDefinitionCards, scheduleDefinitionCard, updateDefinitionDeck } from '../src/lib/definition-cards.ts';
 
 test('parses the preferred colon and dash definition formats', () => {
   assert.deepEqual(parseDefinitionCards('Drawing object: Contains XXX\nCanvas - Contains shapes\nLayer — Groups objects'), [
@@ -34,6 +34,24 @@ test('parses subject, unit, subunit, and deck directives', () => {
   const result = parseDefinitionBundle('@subject: Computer Science\n@unit: Graphics\n@subunit: Objects\n@set: Drawing definitions\nCanvas: Contains objects');
   assert.deepEqual(result.placement, { subject: 'Computer Science', unit: 'Graphics', subunit: 'Objects', deckTitle: 'Drawing definitions' });
   assert.equal(result.cards[0].term, 'Canvas');
+});
+
+test('parses pasted directives with common separators and spacing', () => {
+  const result = parseDefinitionBundle('  ＠subject = Computer Science, @unit Graphics  @subunit：Objects； @set: Drawing definitions\nCanvas: Contains objects');
+  assert.deepEqual(result.placement, { subject: 'Computer Science', unit: 'Graphics', subunit: 'Objects', deckTitle: 'Drawing definitions' });
+  assert.equal(result.cards[0].term, 'Canvas');
+});
+
+test('updates every card in a deck without changing other decks', () => {
+  const first = createDefinitionCard({ term: 'Canvas', definition: 'Contains objects', note: '' }, { deckId: 'drawing', deckTitle: 'Old', subject: 'CS', unit: 'Graphics', subunit: '' });
+  const second = createDefinitionCard({ term: 'Layer', definition: 'Groups objects', note: '' }, { deckId: 'drawing', deckTitle: 'Old', subject: 'CS', unit: 'Graphics', subunit: '' });
+  const untouched = createDefinitionCard({ term: 'Atom', definition: 'Matter unit', note: '' }, { deckId: 'science', deckTitle: 'Science', subject: 'Science', unit: 'Chemistry', subunit: '' });
+  const updated = updateDefinitionDeck([first, second, untouched], 'drawing', { deckTitle: 'Drawing basics', subject: 'Computing', unit: 'Visuals', subunit: 'Objects' });
+  assert.deepEqual(updated.slice(0, 2).map(({ deckTitle, subject, unit, subunit }) => ({ deckTitle, subject, unit, subunit })), [
+    { deckTitle: 'Drawing basics', subject: 'Computing', unit: 'Visuals', subunit: 'Objects' },
+    { deckTitle: 'Drawing basics', subject: 'Computing', unit: 'Visuals', subunit: 'Objects' },
+  ]);
+  assert.equal(updated[2], untouched);
 });
 
 test('migrates legacy cards into a visible default deck', () => {

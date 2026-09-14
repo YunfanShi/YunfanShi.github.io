@@ -155,12 +155,40 @@ export function parseDefinitionBundle(input: string): DefinitionImportBundle {
     subject: 'subject', '科目': 'subject', unit: 'unit', '单元': 'unit', subunit: 'subunit', '小单元': 'subunit', set: 'deckTitle', deck: 'deckTitle', project: 'deckTitle', '卡组': 'deckTitle', '项目': 'deckTitle',
   };
   for (const line of text.split(/\r?\n/u)) {
-    const directive = line.match(/^@([^:：]+)[:：]\s*(.+)$/u);
-    const key = directive ? directiveKeys[directive[1].trim().toLocaleLowerCase()] : undefined;
-    if (directive && key) placement[key] = clean(directive[2]);
-    else content.push(line);
+    const candidate = line.trim().replace(/^[-*]\s+/u, '');
+    const starts = [...candidate.matchAll(/[@＠]\s*(subunit|小单元|subject|科目|unit|单元|set|deck|project|卡组|项目)\s*(?:[:：=＝]\s*|\s+)/giu)];
+    if (!starts.length || starts[0].index !== 0) {
+      content.push(line);
+      continue;
+    }
+
+    let recognized = false;
+    starts.forEach((directive, index) => {
+      const key = directiveKeys[directive[1].toLocaleLowerCase()];
+      const valueEnd = starts[index + 1]?.index ?? candidate.length;
+      const value = clean(candidate.slice((directive.index ?? 0) + directive[0].length, valueEnd).replace(/[,，;；]\s*$/u, ''));
+      if (key && value) {
+        placement[key] = value;
+        recognized = true;
+      }
+    });
+    if (!recognized) content.push(line);
   }
   return { cards: parseDefinitionCards(content.join('\n')), placement };
+}
+
+export function updateDefinitionDeck(
+  cards: DefinitionCard[],
+  deckId: string,
+  placement: Omit<DefinitionPlacement, 'deckId'>,
+): DefinitionCard[] {
+  const nextPlacement = {
+    deckTitle: clean(placement.deckTitle),
+    subject: clean(placement.subject),
+    unit: clean(placement.unit),
+    subunit: clean(placement.subunit),
+  };
+  return cards.map((card) => card.deckId === deckId ? { ...card, ...nextPlacement } : card);
 }
 
 export function createDefinitionCard(draft: DefinitionCardDraft, placementOrNow: DefinitionPlacement | Date = DEFAULT_DEFINITION_PLACEMENT, explicitNow?: Date): DefinitionCard {
