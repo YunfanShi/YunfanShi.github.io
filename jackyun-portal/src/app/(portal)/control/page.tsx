@@ -1,18 +1,10 @@
-import LegacyFrame from '@/components/modules/legacy-frame';
-import { createClient } from '@/lib/supabase/server';
+import ScheduleControl from '@/components/modules/schedule/schedule-control';
 
-export default async function ControlPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export const metadata = {
+  title: '学习日程 · JackYun Portal',
+  description: '课表、待办、预习与间隔复习的个人学习控制台。',
+};
 
-  const userName =
-    (user?.user_metadata?.full_name as string | undefined) ??
-    (user?.user_metadata?.user_name as string | undefined) ??
-    (user?.user_metadata?.name as string | undefined) ??
-    (user?.email?.split('@')[0] as string | undefined) ??
-    'User';
-
-  return <LegacyFrame src="/Control.html" title="日程中心" userName={userName} />;
+export default function ControlPage() {
+  return <ScheduleControl />;
 }

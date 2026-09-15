@@ -4,13 +4,22 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
-import { EMPTY_PROPERTY_VALUE, EXAMPLE_PROPERTY_DECK, normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions, PROPERTY_IMPORT_REQUIREMENTS, type PropertyDeck, type PropertyDeckDraft, type PropertyPrompt } from '@/lib/property-decks';
+import { EMPTY_PROPERTY_VALUE, EXAMPLE_PROPERTY_DECK, normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions, PROPERTY_IMPORT_REQUIREMENTS, shuffledPropertyPrompts, type PropertyDeck, type PropertyDeckDraft, type PropertyPrompt } from '@/lib/property-decks';
 
 const STORAGE_KEY = 'jackyun_property_decks_v1';
 type StudyStage = 'recall' | 'checkpoint' | 'choice' | 'complete';
 
 function makeId(prefix: string) {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}`;
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
+  }
+  return result;
 }
 
 function readDecks(): PropertyDeck[] {
@@ -64,7 +73,7 @@ export default function PropertyDecksApp() {
   const deck = decks.find((entry) => entry.id === selectedId) ?? decks[0];
   const prompts = useMemo(() => deck ? propertyPrompts(deck) : [], [deck]);
   const prompt = studyStage === 'recall' ? studyQueue[0] : studySource[cursor];
-  const choiceOptions = useMemo(() => deck && prompt ? propertyRowOptions(deck, prompt.rowIndex) : [], [deck, prompt]);
+  const choiceOptions = useMemo(() => deck && prompt ? shuffle(propertyRowOptions(deck, prompt.rowIndex)) : [], [deck, prompt]);
 
   useEffect(() => {
     if (!studying || studyStage !== 'recall' || !studyQueue.length) return;
@@ -117,8 +126,9 @@ export default function PropertyDecksApp() {
 
   function startStudy() {
     if (!prompts.length) return;
-    setStudyQueue([...prompts]);
-    setStudySource([...prompts]);
+    const randomized = deck ? shuffledPropertyPrompts(deck) : [];
+    setStudyQueue(randomized);
+    setStudySource(randomized);
     setStudyDone(0);
     setStudyStage('recall');
     setCursor(0);
@@ -132,7 +142,13 @@ export default function PropertyDecksApp() {
     if (!studyQueue.length) return;
     setRevealed(false);
     if (!known) {
-      setStudyQueue((current) => current.length > 1 ? [...current.slice(1), current[0]] : current);
+      setStudyQueue((current) => {
+        if (current.length <= 1) return current;
+        const [retry, ...rest] = current;
+        const lastSameRow = rest.findLastIndex((entry) => entry.rowIndex === retry.rowIndex);
+        const insertAt = lastSameRow >= 0 ? lastSameRow + 1 : rest.length;
+        return [...rest.slice(0, insertAt), retry, ...rest.slice(insertAt)];
+      });
       return;
     }
     const next = studyQueue.slice(1);
@@ -142,6 +158,7 @@ export default function PropertyDecksApp() {
   }
 
   function startChoice() {
+    if (deck) setStudySource(shuffledPropertyPrompts(deck));
     setCursor(0);
     setChoiceAnswer(null);
     setChoiceScore(0);

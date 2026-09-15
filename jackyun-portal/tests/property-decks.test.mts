@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions } from '../src/lib/property-decks.ts';
+import { normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions, shuffledPropertyPrompts } from '../src/lib/property-decks.ts';
 
 test('normalizes table rows to the item column count', () => {
   const deck = normalizePropertyDeck({ id: 'one', title: 'Waves', items: ['Radio', 'Microwave'], properties: [{ id: 'frequency', label: 'Frequency', values: ['Low'] }] });
@@ -24,6 +24,16 @@ test('creates second-stage choices from the current row only', () => {
   assert.ok(deck);
   assert.deepEqual(propertyRowOptions(deck, 0), ['Low', 'High']);
   assert.deepEqual(propertyRowOptions(deck, 1), ['Long', 'Line of sight', 'Short']);
+});
+
+test('shuffles rows and objects while keeping every row together', () => {
+  const deck = normalizePropertyDeck({ id: 'one', title: 'Waves', items: ['Radio', 'Microwave', 'Infrared'], properties: [{ id: 'frequency', label: 'Frequency', values: ['Low', 'Medium', 'High'] }, { id: 'range', label: 'Range', values: ['Long', 'Line of sight', 'Short'] }] });
+  assert.ok(deck);
+  const shuffled = shuffledPropertyPrompts(deck, () => 0);
+  assert.deepEqual(shuffled.map(({ rowIndex, itemIndex }) => [rowIndex, itemIndex]), [
+    [1, 1], [1, 2], [1, 0],
+    [0, 1], [0, 2], [0, 0],
+  ]);
 });
 
 test('parses the documented property table format', () => {

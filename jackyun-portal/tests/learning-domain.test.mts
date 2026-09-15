@@ -5,6 +5,15 @@ import { completionRate, elapsedSeconds, totalMinutes } from '../src/lib/learnin
 import { rankLearningCandidates } from '../src/lib/learning/prioritization.ts';
 import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
+import {
+  completeReview,
+  createEmptyScheduleState,
+  parseTimetableImport,
+  sessionsForDate,
+  tasksForDate,
+  timetableImportTemplate,
+  withReviewCourseSelection,
+} from '../src/lib/learning/schedule-control.ts';
 
 test('date keys respect the user time zone around UTC midnight', () => {
   const instant = new Date('2026-09-05T17:30:00.000Z');
@@ -39,6 +48,66 @@ test('review scheduling grows after success and resets after failure', () => {
   const failed = scheduleReview(successful, 1, reviewedAt);
   assert.equal(failed.streak, 0);
   assert.equal(failed.intervalDays, 1);
+});
+
+test('timetable imports are validated without relying on private sample data', () => {
+  const timetable = parseTimetableImport({
+    version: 1,
+    name: 'Test term',
+    termStart: '2026-09-07',
+    termEnd: '2026-12-20',
+    courses: [{
+      name: 'Example subject',
+      color: '#3367d6',
+      review: true,
+      sessions: [{ day: 2, start: '08:00', end: '08:45', weeks: [1, 3] }],
+    }],
+  });
+  assert.equal(timetable.courses[0].id, 'example-subject-1');
+  assert.equal(sessionsForDate(timetable, new Date(2026, 8, 8, 12)).length, 1);
+  assert.equal(sessionsForDate(timetable, new Date(2026, 8, 15, 12)).length, 0);
+  assert.throws(() => parseTimetableImport({ name: 'Bad', courses: [{ name: 'X', sessions: [{ day: 8, start: '08:00', end: '08:45' }] }] }), /day/);
+});
+
+test('review subjects are saved only from the user selection', () => {
+  const timetable = parseTimetableImport({
+    version: 1,
+    name: 'Selection test',
+    courses: [
+      { id: 'first', name: 'First', review: true, sessions: [{ day: 1, start: '08:00', end: '08:45' }] },
+      { id: 'second', name: 'Second', review: false, sessions: [{ day: 2, start: '09:00', end: '09:45' }] },
+    ],
+  });
+  const selected = withReviewCourseSelection(timetable, ['second']);
+  assert.deepEqual(selected.courses.map((course) => [course.id, course.review]), [['first', false], ['second', true]]);
+  assert.equal(timetableImportTemplate().courses[0].review, false);
+});
+
+test('course reviews, previews, holiday mode, and review follow-ups are deterministic', () => {
+  const timetable = parseTimetableImport({
+    version: 1,
+    name: 'Test term',
+    courses: [
+      { id: 'math', name: 'Mathematics', review: true, sessions: [{ day: 2, start: '08:00', end: '08:45' }] },
+      { id: 'art', name: 'Art', review: false, sessions: [{ day: 3, start: '10:00', end: '10:45' }] },
+    ],
+  });
+  const state = { ...createEmptyScheduleState(), timetable };
+  const tuesday = new Date(2026, 8, 15, 12);
+  const tasks = tasksForDate(state, tuesday);
+  assert.ok(tasks.some((task) => task.key === 'course-review:2026-09-15:math'));
+  assert.ok(tasks.some((task) => task.type === 'preview' && task.subjectId === 'art'));
+
+  const review = tasks.find((task) => task.type === 'course-review')!;
+  const completed = completeReview(state, review, 'stable', 'Recall was complete.', tuesday);
+  assert.equal(completed.reviewProgress.math.nextReviewDate, '2026-09-16');
+  const wednesdayTasks = tasksForDate(completed, new Date(2026, 8, 16, 12));
+  assert.ok(wednesdayTasks.some((task) => task.type === 'interval-review' && task.subjectId === 'math'));
+
+  const holiday = { ...completed, settings: { ...completed.settings, mode: 'holiday' as const } };
+  const holidayTasks = tasksForDate(holiday, new Date(2026, 8, 16, 12));
+  assert.ok(holidayTasks.some((task) => task.type === 'interval-review'));
+  assert.ok(!holidayTasks.some((task) => task.type === 'course-review' || task.type === 'preview' || task.type === 'weekly-review'));
 });
 
 test('learning-session migration enforces ownership and idempotency', () => {

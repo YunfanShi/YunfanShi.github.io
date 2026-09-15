@@ -160,6 +160,21 @@ export function propertyPrompts(deck: PropertyDeck): PropertyPrompt[] {
   })));
 }
 
+function shuffled<T>(items: T[], random: () => number): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
+  }
+  return result;
+}
+
+/** Shuffle row groups and the objects inside each row without interleaving rows. */
+export function shuffledPropertyPrompts(deck: PropertyDeck, random: () => number = Math.random): PropertyPrompt[] {
+  const grouped = deck.properties.map((_, rowIndex) => propertyPrompts(deck).filter((prompt) => prompt.rowIndex === rowIndex));
+  return shuffled(grouped, random).flatMap((group) => shuffled(group, random));
+}
+
 /** Return only the distinct answer choices from the prompt's table row. */
 export function propertyRowOptions(deck: PropertyDeck, rowIndex: number): string[] {
   const values = deck.properties[rowIndex]?.values ?? [];
