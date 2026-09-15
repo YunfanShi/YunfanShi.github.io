@@ -96,13 +96,27 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   const tuesday = new Date(2026, 8, 15, 12);
   const tasks = tasksForDate(state, tuesday);
   assert.ok(tasks.some((task) => task.key === 'course-review:2026-09-15:math'));
-  assert.ok(tasks.some((task) => task.type === 'preview' && task.subjectId === 'art'));
+  assert.ok(!tasks.some((task) => task.type === 'preview'));
+
+  const previewEnabled = {
+    ...state,
+    settings: { ...state.settings, previewEnabled: true, previewPreferenceSet: true },
+  };
+  assert.ok(tasksForDate(previewEnabled, tuesday).some((task) => task.type === 'preview' && task.subjectId === 'art'));
 
   const review = tasks.find((task) => task.type === 'course-review')!;
-  const completed = completeReview(state, review, 'stable', 'Recall was complete.', tuesday);
+  assert.throws(() => completeReview(state, review, 'partial', '   ', tuesday), /备注/);
+  const completedAt = new Date('2026-09-15T11:23:00.000Z');
+  const completed = completeReview(state, review, 'partial', '会计算，但还说不清公式原理。', completedAt);
   assert.equal(completed.reviewProgress.math.nextReviewDate, '2026-09-16');
   const wednesdayTasks = tasksForDate(completed, new Date(2026, 8, 16, 12));
-  assert.ok(wednesdayTasks.some((task) => task.type === 'interval-review' && task.subjectId === 'math'));
+  const followUp = wednesdayTasks.find((task) => task.type === 'interval-review' && task.subjectId === 'math');
+  assert.ok(followUp);
+  assert.equal(followUp.lastStatus, 'partial');
+  assert.equal(followUp.lastReviewedAt, completedAt.toISOString());
+  assert.equal(followUp.note, '会计算，但还说不清公式原理。');
+  assert.match(followUp.title, /Mathematics · △/);
+  assert.match(followUp.detail, /原因：Mathematics 上次记录为 △/);
 
   const holiday = { ...completed, settings: { ...completed.settings, mode: 'holiday' as const } };
   const holidayTasks = tasksForDate(holiday, new Date(2026, 8, 16, 12));

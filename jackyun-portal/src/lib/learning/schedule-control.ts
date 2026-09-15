@@ -33,13 +33,14 @@ export interface TimetableImport {
 export interface ScheduleSettings {
   mode: ScheduleMode;
   previewEnabled: boolean;
+  previewPreferenceSet: boolean;
   weekendReviewDay: 6 | 7;
 }
 
 export interface ManualLearningTask {
   id: string;
   title: string;
-  type: 'special' | 'exam' | 'custom';
+  type: 'preview' | 'special' | 'exam' | 'custom';
   date: string;
   start?: string;
   durationMinutes: number;
@@ -86,12 +87,15 @@ export interface LearningTask {
   subjectId?: string;
   subjectName?: string;
   note?: string;
+  lastStatus?: LearningStatus;
+  lastReviewedAt?: string;
   overdue?: boolean;
 }
 
 export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
   mode: 'term',
-  previewEnabled: true,
+  previewEnabled: false,
+  previewPreferenceSet: false,
   weekendReviewDay: 6,
 };
 
@@ -292,16 +296,19 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date, existingSu
     if (progress.nextReviewDate > key || existingSubjectIds.has(progress.subjectId)) return [];
     const taskKey = `interval-review:${progress.nextReviewDate}:${progress.subjectId}`;
     if (state.completions[taskKey]) return [];
+    const statusMark = progress.lastStatus === 'stable' ? '√' : progress.lastStatus === 'partial' ? '△' : '○';
     return [{
       key: taskKey,
-      title: `间隔复习 ${progress.subjectName}`,
-      detail: reviewDetail('interval'),
+      title: `${progress.subjectName} · ${statusMark} 后续复习`,
+      detail: `原因：${progress.subjectName} 上次记录为 ${statusMark}，需要按复习间隔再次检索。${reviewDetail('interval')}`,
       type: 'interval-review' as const,
       date: progress.nextReviewDate,
       durationMinutes: 25,
       subjectId: progress.subjectId,
       subjectName: progress.subjectName,
       note: progress.lastNote,
+      lastStatus: progress.lastStatus,
+      lastReviewedAt: progress.updatedAt,
       overdue: progress.nextReviewDate < key,
     }];
   });
@@ -389,6 +396,7 @@ export function completeReview(
   completedAt: Date,
 ): ScheduleControlState {
   if (!task.subjectId || !task.subjectName) throw new Error('复习任务缺少科目信息。');
+  if (!note.trim()) throw new Error('请填写本次复习的判定原因和备注。');
   const previous = state.reviewProgress[task.subjectId];
   const scheduled = scheduleReview({
     intervalDays: previous?.intervalDays ?? 0,
