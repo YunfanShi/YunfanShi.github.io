@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: '记忆 Memory · JackYun',
-  description: '把定义、语文背诵与性质对比集中在一个记忆空间。',
+  description: '把定义、语文背诵与对比记忆集中在一个记忆空间。',
 };
 
 const TOOLS = [
@@ -27,8 +27,8 @@ const TOOLS = [
   },
   {
     id: 'properties',
-    title: '性质对比',
-    description: '用横向对象、纵向性质的表格，逐项翻页记忆差异。',
+    title: '对比记忆',
+    description: '先逐项确认掌握，再用同一横行的内容完成选择。',
     icon: 'table_view',
     color: '#b06000',
     background: '#fef3c7',
@@ -42,7 +42,7 @@ export default function MemoryPage() {
       <section className="mb-10 border-b border-[var(--card-border)] pb-8">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Learn · Recall · Compare</p>
         <h1 className="mt-3 text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">记忆 Memory</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">把需要记住的内容放在一起：定义用卡片，语文用遮挡，容易混淆的性质用对比表格。</p>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">把需要记住的内容放在一起：定义用卡片，语文用遮挡，容易混淆的内容用对比表格。</p>
       </section>
 
       <div className="mb-5 flex items-end justify-between gap-4">

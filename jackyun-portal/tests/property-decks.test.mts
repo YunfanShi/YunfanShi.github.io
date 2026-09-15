@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts } from '../src/lib/property-decks.ts';
+import { normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions } from '../src/lib/property-decks.ts';
 
 test('normalizes table rows to the item column count', () => {
   const deck = normalizePropertyDeck({ id: 'one', title: 'Waves', items: ['Radio', 'Microwave'], properties: [{ id: 'frequency', label: 'Frequency', values: ['Low'] }] });
@@ -17,6 +17,13 @@ test('creates row-major study prompts and keeps table coordinates', () => {
     ['Range', 'Radio', 'Long'],
     ['Range', 'Microwave', 'Line of sight'],
   ]);
+});
+
+test('creates second-stage choices from the current row only', () => {
+  const deck = normalizePropertyDeck({ id: 'one', title: 'Waves', items: ['Radio', 'Microwave', 'Infrared'], properties: [{ id: 'frequency', label: 'Frequency', values: ['Low', 'High', 'High'] }, { id: 'range', label: 'Range', values: ['Long', 'Line of sight', 'Short'] }] });
+  assert.ok(deck);
+  assert.deepEqual(propertyRowOptions(deck, 0), ['Low', 'High']);
+  assert.deepEqual(propertyRowOptions(deck, 1), ['Long', 'Line of sight', 'Short']);
 });
 
 test('parses the documented property table format', () => {

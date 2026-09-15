@@ -31,7 +31,9 @@ export interface PropertyDeckImportResult {
   errors: string[];
 }
 
-export const PROPERTY_IMPORT_REQUIREMENTS = `性质对比自定义格式要求
+export const EMPTY_PROPERTY_VALUE = '（未填写）';
+
+export const PROPERTY_IMPORT_REQUIREMENTS = `对比记忆自定义格式要求
 
 1. 第一行填写 @title: 表格名称
 2. 第二行填写 @items: 对象1 | 对象2 | 对象3
@@ -156,4 +158,10 @@ export function propertyPrompts(deck: PropertyDeck): PropertyPrompt[] {
     item,
     answer: row.values[itemIndex] ?? '',
   })));
+}
+
+/** Return only the distinct answer choices from the prompt's table row. */
+export function propertyRowOptions(deck: PropertyDeck, rowIndex: number): string[] {
+  const values = deck.properties[rowIndex]?.values ?? [];
+  return [...new Set(values.map((value) => value.trim() || EMPTY_PROPERTY_VALUE))];
 }

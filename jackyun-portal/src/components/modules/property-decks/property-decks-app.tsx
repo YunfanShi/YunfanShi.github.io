@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
-import { EXAMPLE_PROPERTY_DECK, normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, PROPERTY_IMPORT_REQUIREMENTS, type PropertyDeck, type PropertyDeckDraft } from '@/lib/property-decks';
+import { EMPTY_PROPERTY_VALUE, EXAMPLE_PROPERTY_DECK, normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions, PROPERTY_IMPORT_REQUIREMENTS, type PropertyDeck, type PropertyDeckDraft, type PropertyPrompt } from '@/lib/property-decks';
 
 const STORAGE_KEY = 'jackyun_property_decks_v1';
+type StudyStage = 'recall' | 'checkpoint' | 'choice' | 'complete';
 
 function makeId(prefix: string) {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}`;
@@ -31,8 +32,14 @@ export default function PropertyDecksApp() {
   const [selectedId, setSelectedId] = useState('');
   const [ready, setReady] = useState(false);
   const [studying, setStudying] = useState(false);
+  const [studyStage, setStudyStage] = useState<StudyStage>('recall');
+  const [studyQueue, setStudyQueue] = useState<PropertyPrompt[]>([]);
+  const [studySource, setStudySource] = useState<PropertyPrompt[]>([]);
+  const [studyDone, setStudyDone] = useState(0);
   const [cursor, setCursor] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [choiceAnswer, setChoiceAnswer] = useState<string | null>(null);
+  const [choiceScore, setChoiceScore] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
   const [importMode, setImportMode] = useState<'custom' | 'ai'>('custom');
   const [source, setSource] = useState('');
@@ -56,19 +63,18 @@ export default function PropertyDecksApp() {
 
   const deck = decks.find((entry) => entry.id === selectedId) ?? decks[0];
   const prompts = useMemo(() => deck ? propertyPrompts(deck) : [], [deck]);
-  const prompt = prompts[cursor];
+  const prompt = studyStage === 'recall' ? studyQueue[0] : studySource[cursor];
+  const choiceOptions = useMemo(() => deck && prompt ? propertyRowOptions(deck, prompt.rowIndex) : [], [deck, prompt]);
 
   useEffect(() => {
-    if (!studying) return;
+    if (!studying || studyStage !== 'recall' || !studyQueue.length) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement) return;
       if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); setRevealed((value) => !value); }
-      if (event.key === 'ArrowLeft') { setCursor((value) => Math.max(0, value - 1)); setRevealed(false); }
-      if (event.key === 'ArrowRight') { setCursor((value) => Math.min(prompts.length - 1, value + 1)); setRevealed(false); }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [prompts.length, studying]);
+  }, [studyQueue.length, studyStage, studying]);
 
   function updateDeck(change: (current: PropertyDeck) => PropertyDeck) {
     if (!deck) return;
@@ -79,7 +85,7 @@ export default function PropertyDecksApp() {
     const id = makeId('deck');
     const next: PropertyDeck = {
       id,
-      title: '新的性质对比',
+      title: '新的对比记忆表',
       items: ['对象 A', '对象 B', '对象 C'],
       properties: [{ id: makeId('row'), label: '性质 1', values: ['', '', ''] }],
       createdAt: new Date().toISOString(),
@@ -110,9 +116,51 @@ export default function PropertyDecksApp() {
   }
 
   function startStudy() {
+    if (!prompts.length) return;
+    setStudyQueue([...prompts]);
+    setStudySource([...prompts]);
+    setStudyDone(0);
+    setStudyStage('recall');
     setCursor(0);
     setRevealed(false);
+    setChoiceAnswer(null);
+    setChoiceScore(0);
     setStudying(true);
+  }
+
+  function markRecall(known: boolean) {
+    if (!studyQueue.length) return;
+    setRevealed(false);
+    if (!known) {
+      setStudyQueue((current) => current.length > 1 ? [...current.slice(1), current[0]] : current);
+      return;
+    }
+    const next = studyQueue.slice(1);
+    setStudyQueue(next);
+    setStudyDone((value) => value + 1);
+    if (!next.length) setStudyStage('checkpoint');
+  }
+
+  function startChoice() {
+    setCursor(0);
+    setChoiceAnswer(null);
+    setChoiceScore(0);
+    setStudyStage('choice');
+  }
+
+  function chooseContent(value: string) {
+    if (!prompt || choiceAnswer !== null) return;
+    setChoiceAnswer(value);
+    if (value === (prompt.answer.trim() || EMPTY_PROPERTY_VALUE)) setChoiceScore((score) => score + 1);
+  }
+
+  function nextChoice() {
+    if (cursor + 1 >= studySource.length) {
+      setStudyStage('complete');
+      return;
+    }
+    setCursor((value) => value + 1);
+    setChoiceAnswer(null);
   }
 
   function openImport() {
@@ -187,14 +235,14 @@ export default function PropertyDecksApp() {
         <div>
           <Link href="/memory" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"><span className="material-icons-round text-lg">arrow_back</span>记忆 Memory</Link>
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#b06000]">Compare to remember</p>
-          <h1 className="mt-2 text-3xl font-medium tracking-[-0.04em]">性质对比</h1>
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">横向放对象，纵向放性质；编辑好表格后逐格翻页背诵。</p>
+          <h1 className="mt-2 text-3xl font-medium tracking-[-0.04em]">对比记忆</h1>
+          <p className="mt-2 text-sm text-[var(--muted-foreground)]">第一关逐格确认会了，第二关只从当前横行选择答案。</p>
         </div>
         <div className="flex gap-2"><button type="button" onClick={openImport} className="min-h-11 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-5 font-medium"><span className="material-icons-round mr-1 align-middle text-lg">upload_file</span>导入</button><button type="button" onClick={createDeck} className="min-h-11 rounded-xl bg-[#175cd3] px-5 font-medium text-white">+ 新建表格</button></div>
       </div>
 
-      {studying && deck && prompt ? (
-        <StudyView deck={deck} prompt={prompt} cursor={cursor} total={prompts.length} revealed={revealed} onReveal={() => setRevealed((value) => !value)} onPrevious={() => { setCursor((value) => Math.max(0, value - 1)); setRevealed(false); }} onNext={() => { setCursor((value) => Math.min(prompts.length - 1, value + 1)); setRevealed(false); }} onRetry={() => setRevealed(false)} onClose={() => setStudying(false)} />
+      {studying && deck ? (
+        <StudyView deck={deck} stage={studyStage} prompt={prompt} remaining={studyQueue.length} done={studyDone} total={studySource.length} cursor={cursor} revealed={revealed} choiceOptions={choiceOptions} choiceAnswer={choiceAnswer} score={choiceScore} onReveal={() => setRevealed((value) => !value)} onKnown={() => markRecall(true)} onUnknown={() => markRecall(false)} onStartChoice={startChoice} onChoose={chooseContent} onNextChoice={nextChoice} onClose={() => setStudying(false)} />
       ) : importOpen ? (
         <ImportPanel mode={importMode} source={source} preview={preview} message={importMessage} busy={busy} onMode={(mode) => { setImportMode(mode); setPreview(null); setImportMessage(''); }} onSource={setSource} onParse={() => parseImport()} onAi={() => void aiImport()} onFile={fileInput} onConfirm={confirmImport} onClose={() => setImportOpen(false)} />
       ) : deck ? (
@@ -205,7 +253,7 @@ export default function PropertyDecksApp() {
           <Editor deck={deck} onUpdate={updateDeck} onAddItem={addItem} onRemoveItem={removeItem} onAddProperty={addProperty} onDelete={deleteDeck} onStudy={startStudy} />
         </>
       ) : (
-        <button type="button" onClick={createDeck} className="min-h-56 w-full rounded-3xl border-2 border-dashed border-[var(--card-border)] text-[var(--muted-foreground)]">建立第一张性质对比表</button>
+        <button type="button" onClick={createDeck} className="min-h-56 w-full rounded-3xl border-2 border-dashed border-[var(--card-border)] text-[var(--muted-foreground)]">建立第一张对比记忆表</button>
       )}
     </div>
   );
@@ -285,15 +333,43 @@ function Editor({ deck, onUpdate, onAddItem, onRemoveItem, onAddProperty, onDele
   </section>;
 }
 
-function StudyView({ deck, prompt, cursor, total, revealed, onReveal, onPrevious, onNext, onRetry, onClose }: { deck: PropertyDeck; prompt: ReturnType<typeof propertyPrompts>[number]; cursor: number; total: number; revealed: boolean; onReveal: () => void; onPrevious: () => void; onNext: () => void; onRetry: () => void; onClose: () => void }) {
-  const atEnd = cursor === total - 1;
+function StudyView({ deck, stage, prompt, remaining, done, total, cursor, revealed, choiceOptions, choiceAnswer, score, onReveal, onKnown, onUnknown, onStartChoice, onChoose, onNextChoice, onClose }: {
+  deck: PropertyDeck;
+  stage: StudyStage;
+  prompt?: PropertyPrompt;
+  remaining: number;
+  done: number;
+  total: number;
+  cursor: number;
+  revealed: boolean;
+  choiceOptions: string[];
+  choiceAnswer: string | null;
+  score: number;
+  onReveal: () => void;
+  onKnown: () => void;
+  onUnknown: () => void;
+  onStartChoice: () => void;
+  onChoose: (value: string) => void;
+  onNextChoice: () => void;
+  onClose: () => void;
+}) {
+  if (stage === 'checkpoint') return <StageResult title="第一关完成" detail={`全部 ${done} 项都已标记为会了。第二关将只显示当前横行的内容供选择。`} action="进入第二关" onAction={onStartChoice} onClose={onClose} />;
+  if (stage === 'complete') return <StageResult title="第二关完成" detail={`答对 ${score} / ${total}，正确率 ${total ? Math.round(score / total * 100) : 0}%。`} action="返回表格" onAction={onClose} />;
+  if (!prompt) return <StageResult title="没有可学习的内容" detail="请先返回表格填写内容。" action="返回表格" onAction={onClose} />;
+
+  const correctAnswer = prompt.answer.trim() || EMPTY_PROPERTY_VALUE;
+  const answered = choiceAnswer !== null;
   return <section className="mx-auto max-w-4xl">
-    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-[var(--muted-foreground)]"><span>{cursor + 1} / {total} · {deck.title}</span><button type="button" onClick={onClose} className="rounded-xl border border-[var(--card-border)] px-4 py-2">返回表格</button></div>
-    <button type="button" onClick={onReveal} aria-pressed={revealed} className="flex min-h-[420px] w-full flex-col items-center justify-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] p-7 text-center shadow-lg transition-transform active:scale-[.995]">
+    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-[var(--muted-foreground)]"><span>{stage === 'recall' ? `第一关 · 剩余 ${remaining} / ${total} · 已会 ${done}` : `第二关 · ${cursor + 1} / ${total} · 已答对 ${score}`} · {deck.title}</span><button type="button" onClick={onClose} className="rounded-xl border border-[var(--card-border)] px-4 py-2">返回表格</button></div>
+    <article className="flex min-h-[420px] w-full flex-col items-center justify-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] p-7 text-center shadow-lg">
       <span className="rounded-full bg-[#fef3c7] px-4 py-2 text-xs font-bold uppercase tracking-[.14em] text-[#92400e]">{prompt.property}</span>
       <h2 className="mt-7 text-4xl font-bold uppercase tracking-tight sm:text-6xl">{prompt.item}</h2>
-      {revealed ? <div className="mt-9 w-full max-w-2xl border-t border-dashed border-[var(--card-border)] pt-9"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--muted-foreground)]">答案</p><p className="mt-3 text-2xl font-medium leading-relaxed sm:text-4xl">{prompt.answer || '（未填写）'}</p></div> : <p className="mt-10 text-sm text-[var(--muted-foreground)]">先在心里回答，然后点击卡片或按空格揭示</p>}
-    </button>
-    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" disabled={cursor === 0} onClick={onPrevious} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium disabled:opacity-30">← 上一项</button>{revealed ? <button type="button" onClick={onRetry} className="min-h-12 rounded-xl border border-[#f59e0b] font-medium text-[#b06000]">没记住，再背一次</button> : <button type="button" onClick={onReveal} className="min-h-12 rounded-xl border border-[#175cd3] font-medium text-[#175cd3]">显示答案</button>}<button type="button" disabled={atEnd} onClick={onNext} className="col-span-2 min-h-12 rounded-xl bg-[#175cd3] font-medium text-white disabled:opacity-30">{atEnd ? '已经是最后一项' : '下一项 →'}</button></div>
+      {stage === 'recall' ? (revealed ? <div className="mt-9 w-full max-w-2xl border-t border-dashed border-[var(--card-border)] pt-9"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--muted-foreground)]">答案</p><p className="mt-3 text-2xl font-medium leading-relaxed sm:text-4xl">{prompt.answer || '（未填写）'}</p></div> : <button type="button" onClick={onReveal} className="mt-10 min-h-28 w-full max-w-2xl rounded-2xl border-2 border-dashed border-[#b2ccff] font-bold text-[#175cd3]">先在心里回答，再显示答案</button>) : <div className="mt-9 grid w-full max-w-2xl gap-3 sm:grid-cols-2">{choiceOptions.map((option) => { const correct = option === correctAnswer; const selected = option === choiceAnswer; return <button key={option} type="button" disabled={answered} onClick={() => onChoose(option)} className={`min-h-14 rounded-xl border-2 p-3 text-left font-medium ${answered && correct ? 'border-[#12b76a] bg-[#ecfdf3] text-[#067647]' : answered && selected ? 'border-[#f04438] bg-[#fef3f2] text-[#b42318]' : 'border-[var(--card-border)]'}`}>{option}</button>; })}</div>}
+    </article>
+    {stage === 'recall' ? (revealed ? <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={onUnknown} className="min-h-12 rounded-xl border-2 border-[#f59e0b] font-medium text-[#b06000]">不会 · 稍后再出现</button><button type="button" onClick={onKnown} className="min-h-12 rounded-xl bg-[#188038] font-medium text-white">会了 · 剩余减 1</button></div> : <button type="button" onClick={onReveal} className="mt-5 min-h-12 w-full rounded-xl bg-[#175cd3] font-medium text-white">显示答案</button>) : answered && <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p role="status" className={`font-bold ${choiceAnswer === correctAnswer ? 'text-[#15803d]' : 'text-[#b42318]'}`}>{choiceAnswer === correctAnswer ? '回答正确' : '回答错误，正确答案已标绿。'}</p><button type="button" onClick={onNextChoice} className="min-h-12 rounded-xl bg-[#175cd3] px-6 font-medium text-white">{cursor + 1 === total ? '查看结果' : '下一题 →'}</button></div>}
   </section>;
+}
+
+function StageResult({ title, detail, action, onAction, onClose }: { title: string; detail: string; action: string; onAction: () => void; onClose?: () => void }) {
+  return <section className="mx-auto max-w-2xl rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center"><span className="material-icons-round text-5xl text-[#12b76a]">task_alt</span><h2 className="mt-4 text-2xl font-bold">{title}</h2><p className="mt-2 text-[var(--muted-foreground)]">{detail}</p><div className="mt-6 flex justify-center gap-3">{onClose && <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-[var(--card-border)] px-5 font-medium">返回表格</button>}<button type="button" onClick={onAction} className="min-h-11 rounded-xl bg-[#175cd3] px-5 font-medium text-white">{action}</button></div></section>;
 }

@@ -35,7 +35,7 @@ const MODULES = [
   {
     id: 'memory',
     title: '记忆 Memory',
-    description: '定义、语文与性质对比背诵',
+    description: '定义、语文与对比记忆',
     icon: 'psychology_alt',
     color: '#34A853',
     href: '/memory',
