@@ -1,5 +1,6 @@
 export const LOCAL_SYNC_META_KEY = 'jackyun_local_sync_meta_v1';
 export const LOCAL_SYNC_STATUS_EVENT = 'jackyun-local-sync-status';
+export const CLOUD_STATE_APPLIED_EVENT = 'jackyun-cloud-state-applied';
 
 const BLOCKED_KEY = /(password|passwd|secret|token|auth|supabase|api[_-]?key|(^|[_-])key($|[_-])|(^|[_-])sk([_-]|$)|deviceid|broadcast|session|cookie|guest_mode|enforcer_pin|debug|log)/i;
 

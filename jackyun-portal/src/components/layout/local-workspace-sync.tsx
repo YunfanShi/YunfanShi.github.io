@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
+import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
 import { clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
@@ -113,6 +113,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       };
       const byId = new Map(request.operations.map((operation) => [operation.id, operation]));
       const byKey = new Map(request.operations.map((operation) => [operation.key, operation]));
+      const appliedRemoteKeys: string[] = [];
       for (const applied of payload.applied) {
         const operation = byId.get(applied.operationId);
         if (!operation) continue;
@@ -129,6 +130,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         if (localHasNotChanged) {
           if (record.deleted) localStorage.removeItem(record.key);
           else localStorage.setItem(record.key, storageValueToString(record.value));
+          appliedRemoteKeys.push(record.key);
         }
         await saveMetadata(record);
         await removeOperation(matchingOperation.id);
@@ -142,11 +144,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         if (remoteIsNewer) {
           if (conflict.remoteDeleted) localStorage.removeItem(operation.key);
           else localStorage.setItem(operation.key, storageValueToString(conflict.remoteValue));
+          appliedRemoteKeys.push(operation.key);
           await saveMetadata({ key: operation.key, value: conflict.remoteValue, revision: conflict.remoteRevision, contentHash: conflict.remoteHash, deleted: conflict.remoteDeleted, updatedAt: conflict.remoteUpdatedAt! });
         } else {
           await queueOperation({ ...operation, id: crypto.randomUUID(), baseRevision: conflict.remoteRevision, baseHash: conflict.remoteHash, baseValue: conflict.remoteValue, resolvesOperationId: conflict.operationId });
         }
       }
+      if (appliedRemoteKeys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: appliedRemoteKeys } }));
     }
 
     async function pull() {
@@ -162,15 +166,18 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         throw new Error(detail);
       }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
+      const appliedRemoteKeys: string[] = [];
       for (const record of payload.records) {
         if (pendingKeys.has(record.key)) continue;
         const current = localStorage.getItem(record.key) ?? undefined;
         if (current === lastSnapshot[record.key]) {
           if (record.deleted) localStorage.removeItem(record.key);
           else localStorage.setItem(record.key, storageValueToString(record.value));
+          appliedRemoteKeys.push(record.key);
         }
         await saveMetadata(record);
       }
+      if (appliedRemoteKeys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: appliedRemoteKeys } }));
       await setSetting('cursor', payload.cursor);
       await queueChanges();
     }

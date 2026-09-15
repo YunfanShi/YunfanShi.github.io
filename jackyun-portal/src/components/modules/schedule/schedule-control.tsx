@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
+import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 import {
   completeReview,
   createEmptyScheduleState,
@@ -17,6 +19,7 @@ import {
   type LearningStatus,
   type LearningTask,
   type ManualLearningTask,
+  type ReviewDetails,
   type ScheduleControlState,
   type TimetableImport,
 } from '@/lib/learning/schedule-control';
@@ -101,34 +104,42 @@ function EmptyState({ onImport }: { onImport: () => void }) {
     <div className="flex min-h-56 flex-col items-center justify-center rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] px-6 text-center">
       <span className="material-icons-round text-4xl text-[var(--brand)]">calendar_month</span>
       <h3 className="mt-3 text-base font-semibold">先导入一份课表</h3>
-      <p className="mt-1 max-w-md text-sm leading-6 text-[var(--muted-foreground)]">支持规则 JSON 和 AI 文本识别。课表不会被写进网站代码；普通 JSON 导入只在这台设备的浏览器里处理。</p>
+      <p className="mt-1 max-w-md text-sm leading-6 text-[var(--muted-foreground)]">支持规则 JSON 和 AI 文本识别。课表不会被写进网站代码；普通 JSON 在本机解析，登录后学习状态会随账号同步。</p>
       <button type="button" onClick={onImport} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">导入课表</button>
     </div>
   );
 }
 
-function ReviewDialog({ task, onClose, onComplete }: { task: LearningTask; onClose: () => void; onComplete: (status: LearningStatus, note: string) => void }) {
-  const [status, setStatus] = useState<LearningStatus>('stable');
+function ReviewDialog({ task, signedIn, onClose, onComplete }: { task: LearningTask; signedIn: boolean; onClose: () => void; onComplete: (status: LearningStatus, details: ReviewDetails) => void }) {
+  const [status, setStatus] = useState<LearningStatus>(task.lastStatus ?? 'stable');
+  const [studiedContent, setStudiedContent] = useState(task.studiedContent ?? '');
+  const [issue, setIssue] = useState(task.issue ?? '');
   const [note, setNote] = useState(task.note ?? '');
+  const issueRequired = status !== 'stable';
+  const canSubmit = Boolean(studiedContent.trim()) && (!issueRequired || Boolean(issue.trim()));
   const options: Array<{ value: LearningStatus; mark: string; title: string; hint: string; className: string }> = [
-    { value: 'stable', mark: '√', title: '稳定', hint: '闭卷能讲清并能应用', className: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' },
-    { value: 'partial', mark: '△', title: '不完整', hint: '有缺口，明天重测', className: 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200' },
-    { value: 'unclear', mark: '○', title: '陌生', hint: '先修复知识节点', className: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200' },
+    { value: 'stable', mark: '√', title: '通过', hint: '至少 3 天后再复习，之后逐步延长', className: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' },
+    { value: 'partial', mark: '△', title: '部分通过', hint: '记录问题，次日重测', className: 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200' },
+    { value: 'unclear', mark: '○', title: '未通过', hint: '任务不完成，修复后重新判定', className: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200' },
   ];
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="review-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="w-full max-w-xl rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl">
         <div className="flex items-start gap-4">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-blue-50 text-[var(--brand)] dark:bg-blue-950/50"><span className="material-icons-round">fact_check</span></div>
-          <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-[var(--brand)]">完成复习</p><h2 id="review-dialog-title" className="mt-1 text-xl font-semibold">{task.title}</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">学习状态决定下次复习间隔；备注会在下次复习时带回。</p></div>
+          <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-[var(--brand)]">提交复习状态</p><h2 id="review-dialog-title" className="mt-1 text-xl font-semibold">{task.title}</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">状态决定任务能否通过和下次复习时间；记录会{signedIn ? '同步到当前账号' : '先保存在本机，登录后可同步'}。</p></div>
           <button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">close</span></button>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {options.map((option) => <button key={option.value} type="button" onClick={() => setStatus(option.value)} aria-pressed={status === option.value} className={`rounded-2xl border p-4 text-left transition ${option.className} ${status === option.value ? 'ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-[var(--card)]' : 'opacity-75 hover:opacity-100'}`}><span className="text-2xl font-bold">{option.mark}</span><strong className="ml-2">{option.title}</strong><span className="mt-2 block text-xs leading-5 opacity-80">{option.hint}</span></button>)}
         </div>
-        <label className="mt-5 block text-sm font-medium">备注与判定原因 <span className="text-rose-600">（必填）</span><textarea required value={note} onChange={(event) => setNote(event.target.value)} rows={4} maxLength={1000} placeholder="请写明为什么是 √ / △ / ○，以及下次要重测什么。例如：会套公式，但还说不清原理。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>
-        {!note.trim() && <p className="mt-2 text-xs text-rose-600">选择任何状态后都要写备注，下次复习会显示这个原因。</p>}
-        <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={!note.trim()} onClick={() => onComplete(status, note)} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#202124]">完成并安排下次复习</button></div>
+        <div className="mt-5 space-y-4">
+          <label className="block text-sm font-medium">这次复习了什么 <span className="text-rose-600">（必填）</span><textarea required value={studiedContent} onChange={(event) => setStudiedContent(event.target.value)} rows={2} maxLength={1000} placeholder="例如：纯数三角函数恒等变换，第 2–4 题。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>
+          {issueRequired && <label className="block text-sm font-medium">发现的问题 <span className="text-rose-600">（△ / ○ 必填）</span><textarea required value={issue} onChange={(event) => setIssue(event.target.value)} rows={2} maxLength={1000} placeholder="例如：会代公式，但无法解释为什么要这样变形。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>}
+          <label className="block text-sm font-medium">其他备注 <span className="text-[var(--muted-foreground)]">（可选）</span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={1000} placeholder="例如：下次换一道综合题，或记录使用的资料页码。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>
+        </div>
+        {!canSubmit && <p className="mt-2 text-xs text-rose-600">请填写复习内容{issueRequired ? '和发现的问题' : ''}。</p>}
+        <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={!canSubmit} onClick={() => onComplete(status, { studiedContent, issue, note })} className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 ${status === 'unclear' ? 'bg-rose-600' : 'bg-[var(--brand)] dark:text-[#202124]'}`}>{status === 'unclear' ? '记录问题，继续修复' : '提交并安排下次复习'}</button></div>
       </div>
     </div>
   );
@@ -203,7 +214,7 @@ function ImportDialog({ onClose, onApply }: { onClose: () => void; onApply: (tim
           {message && <p role="status" className="mt-4 rounded-xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">{message}</p>}
           {preview && <div className="mt-4 overflow-hidden rounded-3xl border border-[var(--card-border)]"><div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:from-blue-950/40 dark:to-indigo-950/30"><div><p className="font-semibold">{preview.name}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{preview.courses.length} 门课程 · 已选择 {reviewCourseIds.length} 门复习</p></div><div className="flex gap-2"><button type="button" onClick={() => setReviewCourseIds(preview.courses.map((course) => course.id))} className="rounded-full bg-[var(--card)] px-3 py-1.5 text-xs font-semibold shadow-sm">全选</button><button type="button" onClick={() => setReviewCourseIds([])} className="rounded-full bg-[var(--card)] px-3 py-1.5 text-xs font-semibold shadow-sm">清空</button></div></div><div className="grid max-h-72 gap-2 overflow-y-auto p-3 sm:grid-cols-2">{preview.courses.map((course) => { const checked = reviewCourseIds.includes(course.id); return <label key={course.id} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition ${checked ? 'border-[var(--brand)] bg-blue-50/80 shadow-sm dark:bg-blue-950/30' : 'border-[var(--card-border)] hover:bg-black/[.025] dark:hover:bg-white/[.04]'}`}><span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: course.color }} /><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{course.shortName ?? course.name}</strong><span className="mt-0.5 block text-xs text-[var(--muted-foreground)]">{course.sessions.length} 个上课时段</span></span><input type="checkbox" checked={checked} onChange={() => toggleReviewCourse(course.id)} className="h-5 w-5 shrink-0 accent-[var(--brand)]" aria-label={`${course.name}需要复习`} /></label>; })}</div></div>}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--card-border)] p-5"><p className="text-xs text-[var(--muted-foreground)]">复习科目选择会随课表一起保存在本机。</p><div className="flex gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={!preview} onClick={applyPreview} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-40 dark:text-[#202124]">保存课表与复习科目</button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--card-border)] p-5"><p className="text-xs text-[var(--muted-foreground)]">复习科目选择会保存在本机；登录后随账号同步。</p><div className="flex gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={!preview} onClick={applyPreview} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-40 dark:text-[#202124]">保存课表与复习科目</button></div></div>
       </div>
     </div>
   );
@@ -230,9 +241,12 @@ function TaskList({ tasks, onComplete, onDelete }: { tasks: LearningTask[]; onCo
                 <h3 className="mt-2 font-semibold">{task.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">{task.detail}</p>
                 {task.lastStatus && task.lastReviewedAt && (
-                  <div className="mt-3 rounded-2xl border border-violet-100 bg-violet-50/80 px-3.5 py-3 text-xs leading-5 text-violet-950 dark:border-violet-900 dark:bg-violet-950/35 dark:text-violet-100">
+                  <div className={`mt-3 rounded-2xl border px-3.5 py-3 text-xs leading-5 ${task.lastStatus === 'stable' ? 'border-emerald-100 bg-emerald-50/80 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-100' : task.lastStatus === 'partial' ? 'border-amber-100 bg-amber-50/80 text-amber-950 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-100' : 'border-rose-100 bg-rose-50/80 text-rose-950 dark:border-rose-900 dark:bg-rose-950/35 dark:text-rose-100'}`}>
                     <p className="font-semibold">上次记录：{statusMark(task.lastStatus)} · {formatReviewTimestamp(task.lastReviewedAt)}</p>
-                    <p className="mt-1">原因：{task.note}</p>
+                    {task.studiedContent && <p className="mt-1">复习内容：{task.studiedContent}</p>}
+                    {task.issue && <p className="mt-1">发现问题：{task.issue}</p>}
+                    {task.note && task.note !== task.issue && <p className="mt-1">备注：{task.note}</p>}
+                    {task.lastStatus === 'unclear' && <p className="mt-1 font-semibold">当前未通过：修复问题后请重新提交判定。</p>}
                   </div>
                 )}
                 {task.note && !task.lastStatus && task.note !== task.detail && <p className="mt-2 rounded-xl bg-black/[.035] px-3 py-2 text-xs leading-5 dark:bg-white/[.06]">备注：{task.note}</p>}
@@ -247,6 +261,7 @@ function TaskList({ tasks, onComplete, onDelete }: { tasks: LearningTask[]; onCo
 }
 
 export default function ScheduleControl() {
+  const { signedIn } = useAuthMode();
   const [state, setState] = useState<ScheduleControlState>(() => createEmptyScheduleState());
   const [ready, setReady] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
@@ -266,7 +281,19 @@ export default function ScheduleControl() {
       setReady(true);
     });
   }, []);
-  useEffect(() => { if (!ready) return; localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }, [ready, state]);
+  useEffect(() => {
+    if (!ready) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (signedIn) window.dispatchEvent(new Event('jackyun-sync-retry'));
+  }, [ready, signedIn, state]);
+  useEffect(() => {
+    const reloadCloudState = (event: Event) => {
+      const keys = (event as CustomEvent<{ keys?: string[] }>).detail?.keys;
+      if (keys?.includes(STORAGE_KEY)) setState(loadState());
+    };
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, reloadCloudState);
+    return () => window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, reloadCloudState);
+  }, []);
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => window.clearInterval(timer); }, []);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 2800); return () => window.clearTimeout(timer); }, [notice]);
 
@@ -287,6 +314,21 @@ export default function ScheduleControl() {
   };
   const deleteTask = (task: LearningTask) => setState((current) => ({ ...current, manualTasks: current.manualTasks.filter((item) => item.id !== task.key) }));
   const navigateDate = (offset: number) => { const date = new Date(selected); date.setDate(date.getDate() + offset); setSelectedDate(dateKey(date)); };
+  const submitReview = (task: LearningTask, status: LearningStatus, details: ReviewDetails) => {
+    const completedAt = new Date();
+    const updated = completeReview(state, task, status, details, completedAt);
+    const progress = task.subjectId ? updated.reviewProgress[task.subjectId] : undefined;
+    setState(updated);
+    setReviewTask(null);
+    const syncMessage = signedIn ? ' · 正在同步到账号' : ' · 当前保存在本机';
+    if (status === 'unclear') {
+      setNotice(`○ 未通过，问题已记录；修复后请重新判定${syncMessage}`);
+      return;
+    }
+    const intervalLabel = status === 'partial' ? '次日' : `${progress?.intervalDays ?? 3} 天后`;
+    const nextDate = progress ? formatLongDate(dateFromKey(progress.nextReviewDate)) : '待安排';
+    setNotice(`${statusMark(status)} 已提交 · 下次复习：${nextDate}（${intervalLabel}）${syncMessage}`);
+  };
 
   if (!ready || !now || !selectedDate) return <div className="mx-auto max-w-[1500px] animate-pulse"><div className="h-28 rounded-3xl bg-black/5 dark:bg-white/5" /><div className="mt-5 grid gap-5 lg:grid-cols-3"><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5 lg:col-span-2" /><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5" /></div></div>;
 
@@ -313,12 +355,12 @@ export default function ScheduleControl() {
       {view === 'week' && <section className="mt-5 overflow-x-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--card-border)] p-5"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Week</p><h2 className="mt-1 text-xl font-semibold">{formatShortDate(week[0])} — {formatShortDate(week[6])}</h2></div><p className="text-sm text-[var(--muted-foreground)]">点击日期查看当天任务</p></div>{!state.timetable ? <div className="p-5"><EmptyState onImport={() => setImportDialog(true)} /></div> : <div className="grid min-w-[840px] grid-cols-7 divide-x divide-[var(--card-border)] overflow-x-auto">{week.map((day, index) => { const daySessions = state.settings.mode === 'term' ? sessionsForDate(state.timetable, day) : []; const key = dateKey(day); return <button key={key} type="button" onClick={() => { setSelectedDate(key); setView('today'); }} className={`min-h-[520px] p-3 text-left hover:bg-black/[.02] dark:hover:bg-white/[.03] ${key === todayKey ? 'bg-blue-50/70 dark:bg-blue-950/20' : ''}`}><div className="text-center"><p className={`text-xs font-semibold ${key === todayKey ? 'text-[var(--brand)]' : 'text-[var(--muted-foreground)]'}`}>周{WEEKDAY_LABELS[index]}</p><span className={`mt-1 inline-grid h-8 w-8 place-items-center rounded-full text-sm font-semibold ${key === todayKey ? 'bg-[var(--brand)] text-white dark:text-[#202124]' : ''}`}>{day.getDate()}</span></div><div className="mt-4 space-y-2">{daySessions.map((session, sessionIndex) => <div key={`${session.course.id}-${session.start}-${sessionIndex}`} className="rounded-xl border-l-4 bg-black/[.035] p-2.5 dark:bg-white/[.06]" style={{ borderLeftColor: session.course.color }}><p className="text-[11px] font-semibold">{session.start}–{session.end}</p><p className="mt-1 line-clamp-2 text-xs font-medium leading-5">{session.course.shortName ?? session.course.name}</p>{session.location && <p className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">{session.location}</p>}</div>)}{!daySessions.length && <p className="pt-8 text-center text-xs text-[var(--muted-foreground)]">{state.settings.mode === 'holiday' ? '假日模式' : '无课程'}</p>}</div></button>; })}</div>}</section>}
 
       {view === 'settings' && <div className="mt-5 grid gap-5 lg:grid-cols-2"><section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Mode</p><h2 className="mt-1 text-xl font-semibold">运行模式</h2><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setState((current) => ({ ...current, settings: { ...current.settings, mode: 'term' } }))} aria-pressed={state.settings.mode === 'term'} className={`rounded-2xl border p-4 text-left ${state.settings.mode === 'term' ? 'border-[var(--brand)] bg-blue-50 dark:bg-blue-950/30' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-[var(--brand)]">school</span><strong className="ml-2">学期模式</strong><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">显示课程，并生成已选科目的每日复习和周末集中复习。</p></button><button type="button" onClick={() => setState((current) => ({ ...current, settings: { ...current.settings, mode: 'holiday' } }))} aria-pressed={state.settings.mode === 'holiday'} className={`rounded-2xl border p-4 text-left ${state.settings.mode === 'holiday' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-amber-600">beach_access</span><strong className="ml-2">假日模式</strong><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">暂停课程相关自动任务，保留到期复习、专项、考试和待办。</p></button></div><div className="mt-5 space-y-4 border-t border-[var(--card-border)] pt-5"><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">可选预习提示（默认关闭）</strong><span className="mt-1 block text-xs text-[var(--muted-foreground)]">只有你主动开启时才会自动生成；也可在“添加任务”中单独添加预习。</span></span><input type="checkbox" checked={state.settings.previewEnabled} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, previewEnabled: event.target.checked, previewPreferenceSet: true } }))} className="h-5 w-5 accent-[var(--brand)]" /></label><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">周末集中复习日</strong><span className="mt-1 block text-xs text-[var(--muted-foreground)]">每周只生成一次集中复习。</span></span><select value={state.settings.weekendReviewDay} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, weekendReviewDay: Number(event.target.value) as 6 | 7 } }))} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value={6}>周六</option><option value={7}>周日</option></select></label></div></section>
-        <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Timetable</p><div className="flex items-start justify-between gap-3"><div><h2 className="mt-1 text-xl font-semibold">课表与隐私</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">当前控制台数据保存在浏览器 localStorage。代码库中不包含你的姓名、学校、教师、教室或真实课程。</p></div><span className="material-icons-round text-emerald-600">lock</span></div><div className="mt-5 rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="font-semibold">{state.timetable?.name ?? '尚未导入课表'}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{state.timetable ? `${state.timetable.courses.length} 门课程 · ${state.timetable.courses.reduce((total, course) => total + course.sessions.length, 0)} 个时段` : '导入后可单独选择哪些科目需要课程复习。'}</p></div><div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => setImportDialog(true)} className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white dark:text-[#202124]">导入或替换</button><Link href="/timetable-hub" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">高级排程编辑器</Link><Link href="/control/focus" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">旧版专注执行</Link></div>{state.timetable && <div className="mt-5 border-t border-[var(--card-border)] pt-5"><p className="text-sm font-semibold">生成每日复习的科目</p><div className="mt-3 space-y-2">{state.timetable.courses.map((course) => <label key={course.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-black/[.025] dark:hover:bg-white/[.04]"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: course.color }} /><span className="min-w-0 flex-1 truncate text-sm">{course.name}</span><input type="checkbox" checked={course.review} onChange={(event) => setState((current) => current.timetable ? { ...current, timetable: { ...current.timetable, courses: current.timetable.courses.map((item) => item.id === course.id ? { ...item, review: event.target.checked } : item) } } : current)} className="h-5 w-5 accent-[var(--brand)]" /></label>)}</div></div>}</section>
+        <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Timetable</p><div className="flex items-start justify-between gap-3"><div><h2 className="mt-1 text-xl font-semibold">课表、同步与隐私</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">数据优先保存在浏览器；登录后，课表、复习状态、内容、问题、备注和下次复习日期会同步到你的账号。每位用户只能读取自己的数据。</p></div><span className="material-icons-round text-emerald-600">lock</span></div><div className="mt-5 rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="font-semibold">{state.timetable?.name ?? '尚未导入课表'}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{state.timetable ? `${state.timetable.courses.length} 门课程 · ${state.timetable.courses.reduce((total, course) => total + course.sessions.length, 0)} 个时段` : '导入后可单独选择哪些科目需要课程复习。'}</p></div><div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => setImportDialog(true)} className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white dark:text-[#202124]">导入或替换</button><Link href="/timetable-hub" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">高级排程编辑器</Link><Link href="/control/focus" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">旧版专注执行</Link></div>{state.timetable && <div className="mt-5 border-t border-[var(--card-border)] pt-5"><p className="text-sm font-semibold">生成每日复习的科目</p><div className="mt-3 space-y-2">{state.timetable.courses.map((course) => <label key={course.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-black/[.025] dark:hover:bg-white/[.04]"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: course.color }} /><span className="min-w-0 flex-1 truncate text-sm">{course.name}</span><input type="checkbox" checked={course.review} onChange={(event) => setState((current) => current.timetable ? { ...current, timetable: { ...current.timetable, courses: current.timetable.courses.map((item) => item.id === course.id ? { ...item, review: event.target.checked } : item) } } : current)} className="h-5 w-5 accent-[var(--brand)]" /></label>)}</div></div>}</section>
       </div>}
 
-      {reviewTask && <ReviewDialog task={reviewTask} onClose={() => setReviewTask(null)} onComplete={(status, note) => { setState((current) => completeReview(current, reviewTask, status, note, new Date())); setReviewTask(null); setNotice(status === 'stable' ? '已记录为 √，并安排下一次复习。' : '已记录状态，明天会再次提醒。'); }} />}
+      {reviewTask && <ReviewDialog task={reviewTask} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={(status, details) => submitReview(reviewTask, status, details)} />}
       {taskDialog && <TaskDialog date={selectedDate} onClose={() => setTaskDialog(false)} onSave={(task) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, task] })); setTaskDialog(false); setNotice('任务已添加。'); }} />}
-      {importDialog && <ImportDialog onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => ({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice('课表已导入，只保存在你的浏览器中。'); }} />}
+      {importDialog && <ImportDialog onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => ({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice(signedIn ? '课表已导入，正在同步到你的账号。' : '课表已导入，当前保存在这台设备。'); }} />}
       <Notice message={notice} />
     </div>
   );

@@ -4,6 +4,12 @@ export type ScheduleMode = 'term' | 'holiday';
 export type LearningTaskType = 'course-review' | 'interval-review' | 'weekly-review' | 'preview' | 'special' | 'exam' | 'custom';
 export type LearningStatus = 'stable' | 'partial' | 'unclear';
 
+export interface ReviewDetails {
+  studiedContent: string;
+  issue: string;
+  note: string;
+}
+
 export interface CourseSession {
   day: number;
   start: string;
@@ -56,6 +62,8 @@ export interface ReviewProgress {
   streak: number;
   nextReviewDate: string;
   lastStatus: LearningStatus;
+  lastStudiedContent?: string;
+  lastIssue?: string;
   lastNote: string;
   updatedAt: string;
 }
@@ -63,6 +71,8 @@ export interface ReviewProgress {
 export interface TaskCompletion {
   completedAt: string;
   status?: LearningStatus;
+  studiedContent?: string;
+  issue?: string;
   note?: string;
 }
 
@@ -86,6 +96,8 @@ export interface LearningTask {
   durationMinutes: number;
   subjectId?: string;
   subjectName?: string;
+  studiedContent?: string;
+  issue?: string;
   note?: string;
   lastStatus?: LearningStatus;
   lastReviewedAt?: string;
@@ -278,16 +290,27 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
   const key = dateKey(date);
   const courses = new Map<string, ScheduleCourse>();
   for (const session of sessionsForDate(state.timetable, date)) if (session.course.review) courses.set(session.course.id, session.course);
-  return [...courses.values()].map((course) => ({
-    key: `course-review:${key}:${course.id}`,
-    title: `复习 ${course.shortName ?? course.name}`,
-    detail: reviewDetail('daily'),
-    type: 'course-review',
-    date: key,
-    durationMinutes: 25,
-    subjectId: course.id,
-    subjectName: course.name,
-  }));
+  return [...courses.values()].map((course) => {
+    const progress = state.reviewProgress[course.id];
+    const failedToday = progress?.lastStatus === 'unclear' && dateKey(new Date(progress.updatedAt)) === key;
+    return {
+      key: `course-review:${key}:${course.id}`,
+      title: `复习 ${course.shortName ?? course.name}`,
+      detail: reviewDetail('daily'),
+      type: 'course-review',
+      date: key,
+      durationMinutes: 25,
+      subjectId: course.id,
+      subjectName: course.name,
+      ...(failedToday ? {
+        studiedContent: progress.lastStudiedContent,
+        issue: progress.lastIssue ?? progress.lastNote,
+        note: progress.lastNote,
+        lastStatus: progress.lastStatus,
+        lastReviewedAt: progress.updatedAt,
+      } : {}),
+    } satisfies LearningTask;
+  });
 }
 
 function intervalReviewTasks(state: ScheduleControlState, date: Date, existingSubjectIds: Set<string>): LearningTask[] {
@@ -306,6 +329,8 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date, existingSu
       durationMinutes: 25,
       subjectId: progress.subjectId,
       subjectName: progress.subjectName,
+      studiedContent: progress.lastStudiedContent,
+      issue: progress.lastIssue ?? (progress.lastStatus === 'stable' ? undefined : progress.lastNote),
       note: progress.lastNote,
       lastStatus: progress.lastStatus,
       lastReviewedAt: progress.updatedAt,
@@ -392,11 +417,15 @@ export function completeReview(
   state: ScheduleControlState,
   task: LearningTask,
   status: LearningStatus,
-  note: string,
+  details: ReviewDetails,
   completedAt: Date,
 ): ScheduleControlState {
   if (!task.subjectId || !task.subjectName) throw new Error('复习任务缺少科目信息。');
-  if (!note.trim()) throw new Error('请填写本次复习的判定原因和备注。');
+  const studiedContent = details.studiedContent.trim().slice(0, 1000);
+  const issue = status === 'stable' ? '' : details.issue.trim().slice(0, 1000);
+  const note = details.note.trim().slice(0, 1000);
+  if (!studiedContent) throw new Error('请填写本次复习了什么。');
+  if (status !== 'stable' && !issue) throw new Error('△ 和 ○ 必须填写发现的问题。');
   const previous = state.reviewProgress[task.subjectId];
   const scheduled = scheduleReview({
     intervalDays: previous?.intervalDays ?? 0,
@@ -404,23 +433,28 @@ export function completeReview(
     streak: previous?.streak ?? 0,
   }, status === 'stable' ? 5 : status === 'partial' ? 2 : 1, completedAt);
   const reviewedDate = dateKey(completedAt);
+  const passed = status !== 'unclear';
+  const intervalDays = status === 'stable' ? Math.max(3, scheduled.intervalDays) : status === 'partial' ? 1 : 0;
+  const nextReviewDate = passed ? addCalendarDays(reviewedDate, intervalDays) : reviewedDate;
   return {
     ...state,
-    completions: {
+    completions: passed ? {
       ...state.completions,
-      [task.key]: { completedAt: completedAt.toISOString(), status, note: note.trim().slice(0, 1000) },
-    },
+      [task.key]: { completedAt: completedAt.toISOString(), status, studiedContent, issue, note },
+    } : state.completions,
     reviewProgress: {
       ...state.reviewProgress,
       [task.subjectId]: {
         subjectId: task.subjectId,
         subjectName: task.subjectName,
-        intervalDays: scheduled.intervalDays,
+        intervalDays,
         easeFactor: scheduled.easeFactor,
-        streak: scheduled.streak,
-        nextReviewDate: addCalendarDays(reviewedDate, scheduled.intervalDays),
+        streak: status === 'unclear' ? 0 : scheduled.streak,
+        nextReviewDate,
         lastStatus: status,
-        lastNote: note.trim().slice(0, 1000),
+        lastStudiedContent: studiedContent,
+        lastIssue: issue,
+        lastNote: note,
         updatedAt: completedAt.toISOString(),
       },
     },

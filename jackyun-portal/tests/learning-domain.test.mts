@@ -105,16 +105,24 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   assert.ok(tasksForDate(previewEnabled, tuesday).some((task) => task.type === 'preview' && task.subjectId === 'art'));
 
   const review = tasks.find((task) => task.type === 'course-review')!;
-  assert.throws(() => completeReview(state, review, 'partial', '   ', tuesday), /备注/);
+  assert.throws(() => completeReview(state, review, 'partial', { studiedContent: '', issue: '', note: '' }, tuesday), /复习了什么/);
+  assert.throws(() => completeReview(state, review, 'partial', { studiedContent: '三角函数', issue: '', note: '' }, tuesday), /发现的问题/);
   const completedAt = new Date('2026-09-15T11:23:00.000Z');
-  const completed = completeReview(state, review, 'partial', '会计算，但还说不清公式原理。', completedAt);
+  const completed = completeReview(state, review, 'partial', {
+    studiedContent: '三角函数恒等变换第 2–4 题',
+    issue: '会计算，但还说不清公式原理。',
+    note: '次日换一道题闭卷重测。',
+  }, completedAt);
   assert.equal(completed.reviewProgress.math.nextReviewDate, '2026-09-16');
+  assert.equal(completed.reviewProgress.math.intervalDays, 1);
   const wednesdayTasks = tasksForDate(completed, new Date(2026, 8, 16, 12));
   const followUp = wednesdayTasks.find((task) => task.type === 'interval-review' && task.subjectId === 'math');
   assert.ok(followUp);
   assert.equal(followUp.lastStatus, 'partial');
   assert.equal(followUp.lastReviewedAt, completedAt.toISOString());
-  assert.equal(followUp.note, '会计算，但还说不清公式原理。');
+  assert.equal(followUp.studiedContent, '三角函数恒等变换第 2–4 题');
+  assert.equal(followUp.issue, '会计算，但还说不清公式原理。');
+  assert.equal(followUp.note, '次日换一道题闭卷重测。');
   assert.match(followUp.title, /Mathematics · △/);
   assert.match(followUp.detail, /原因：Mathematics 上次记录为 △/);
 
@@ -122,6 +130,31 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   const holidayTasks = tasksForDate(holiday, new Date(2026, 8, 16, 12));
   assert.ok(holidayTasks.some((task) => task.type === 'interval-review'));
   assert.ok(!holidayTasks.some((task) => task.type === 'course-review' || task.type === 'preview' || task.type === 'weekly-review'));
+});
+
+test('green reviews wait several days while red reviews cannot complete the task', () => {
+  const timetable = parseTimetableImport({
+    version: 1,
+    name: 'Review rules',
+    courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 2, start: '08:00', end: '08:45' }] }],
+  });
+  const state = { ...createEmptyScheduleState(), timetable };
+  const reviewedAt = new Date(2026, 8, 15, 12);
+  const task = tasksForDate(state, reviewedAt).find((item) => item.type === 'course-review')!;
+
+  const green = completeReview(state, task, 'stable', { studiedContent: 'Forces and moments', issue: 'Old resolved issue', note: '' }, reviewedAt);
+  assert.equal(green.reviewProgress.physics.intervalDays, 3);
+  assert.equal(green.reviewProgress.physics.nextReviewDate, '2026-09-18');
+  assert.equal(green.reviewProgress.physics.lastIssue, '');
+  assert.ok(green.completions[task.key]);
+
+  const red = completeReview(state, task, 'unclear', { studiedContent: 'Forces and moments', issue: 'Cannot draw the force diagram.', note: 'Review the worked example.' }, reviewedAt);
+  assert.equal(red.reviewProgress.physics.intervalDays, 0);
+  assert.equal(red.reviewProgress.physics.nextReviewDate, '2026-09-15');
+  assert.equal(red.completions[task.key], undefined);
+  const stillDue = tasksForDate(red, reviewedAt).find((item) => item.key === task.key);
+  assert.equal(stillDue?.lastStatus, 'unclear');
+  assert.equal(stillDue?.issue, 'Cannot draw the force diagram.');
 });
 
 test('learning-session migration enforces ownership and idempotency', () => {
