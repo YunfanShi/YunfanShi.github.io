@@ -34,7 +34,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'reading', labelKey: 'nav.reading', icon: 'auto_stories', href: '/reading', group: 'learning', featureKey: 'reading' },
   { id: 'learning-resources', labelKey: 'nav.learning-resources', icon: 'travel_explore', href: '/resources', group: 'learning' },
   { id: 'vocab', labelKey: 'nav.vocab', icon: 'menu_book', href: '/vocab', group: 'learning' },
-  { id: 'definitions', labelKey: 'nav.definitions', icon: 'style', href: '/definitions', group: 'learning' },
+  { id: 'memory', labelKey: 'nav.memory', icon: 'psychology_alt', href: '/memory', group: 'learning' },
   { id: 'answer-sheet', labelKey: 'nav.answer-sheet', icon: 'content_paste', href: '/answer-sheet', group: 'practice', variantGroup: 'answerSheet', variant: 'standard' },
   { id: 'answer-sheet-sync', labelKey: 'nav.answer-sheet-sync', icon: 'sync', href: '/answer-sheet-sync', group: 'practice', variantGroup: 'answerSheet', variant: 'sync' },
   { id: 'mock', labelKey: 'nav.mock', icon: 'quiz', href: '/mock-portal', group: 'practice' },
@@ -50,7 +50,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'music-player', labelKey: 'nav.music-player', icon: 'music_note', href: '/music', group: 'relax', variantGroup: 'music', variant: 'player' },
   { id: 'music-sync', labelKey: 'nav.music-sync', icon: 'sync_alt', href: '/music-sync', group: 'relax', variantGroup: 'music', variant: 'sync' },
   { id: 'bilibili-sync', labelKey: 'nav.bilibili-sync', icon: 'smart_display', href: '/bilibili-sync', group: 'relax' },
-  { id: 'poem', labelKey: 'nav.poem', icon: 'auto_stories', href: '/poem', group: 'relax' },
   { id: 'relax', labelKey: 'nav.relax', icon: 'sports_esports', href: '/relax', group: 'relax' },
   { id: 'settings', labelKey: 'nav.settings', icon: 'settings', href: '/settings', group: 'system', protected: true },
   { id: 'update', labelKey: 'nav.update', icon: 'history', href: '/update', group: 'system' },
@@ -59,5 +58,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
 ];
 
 export function navigationIdFromPath(pathname: string): string | null {
+  if (pathname === '/definitions' || pathname.startsWith('/definitions/') || pathname === '/poem' || pathname.startsWith('/poem/') || pathname === '/properties' || pathname.startsWith('/properties/')) return 'memory';
   return NAVIGATION_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.id ?? null;
 }

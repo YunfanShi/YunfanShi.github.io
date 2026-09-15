@@ -33,12 +33,12 @@ const MODULES = [
     href: '/music',
   },
   {
-    id: 'poem',
-    title: '诗词天地',
-    description: '收录与背诵经典诗词',
-    icon: 'auto_stories',
+    id: 'memory',
+    title: '记忆 Memory',
+    description: '定义、语文与性质对比背诵',
+    icon: 'psychology_alt',
     color: '#34A853',
-    href: '/poem',
+    href: '/memory',
   },
   {
     id: 'countdown',
