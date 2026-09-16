@@ -7,7 +7,10 @@ import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
 import { EMPTY_PROPERTY_VALUE, EXAMPLE_PROPERTY_DECK, normalizePropertyDeck, parsePropertyDeckImport, propertyPrompts, propertyRowOptions, PROPERTY_IMPORT_REQUIREMENTS, shuffledPropertyPrompts, type PropertyDeck, type PropertyDeckDraft, type PropertyPrompt } from '@/lib/property-decks';
 
 const STORAGE_KEY = 'jackyun_property_decks_v1';
+const SESSION_KEY = 'jackyun_property_learning_session_v1';
 type StudyStage = 'recall' | 'checkpoint' | 'choice' | 'complete';
+type PromptCoordinate = { rowIndex: number; itemIndex: number };
+type PropertyLearningSession = { deckId: string; stage: StudyStage; queue: PromptCoordinate[]; source: PromptCoordinate[]; recallIndex: number; studyDone: number; cursor: number; revealed: boolean; choiceAnswer: string | null; choiceScore: number };
 
 function makeId(prefix: string) {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}`;
@@ -36,6 +39,21 @@ function readDecks(): PropertyDeck[] {
   }
 }
 
+function readLearningSession(): PropertyLearningSession | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') as Partial<PropertyLearningSession> | null;
+    const stages: StudyStage[] = ['recall', 'checkpoint', 'choice', 'complete'];
+    if (!value || typeof value.deckId !== 'string' || !stages.includes(value.stage as StudyStage) || !Array.isArray(value.queue) || !Array.isArray(value.source)) return null;
+    const coordinates = (items: PromptCoordinate[]) => items.flatMap((item) => Number.isInteger(item?.rowIndex) && Number.isInteger(item?.itemIndex) ? [{ rowIndex: item.rowIndex, itemIndex: item.itemIndex }] : []);
+    return { deckId: value.deckId, stage: value.stage as StudyStage, queue: coordinates(value.queue), source: coordinates(value.source), recallIndex: Number(value.recallIndex) || 0, studyDone: Number(value.studyDone) || 0, cursor: Number(value.cursor) || 0, revealed: Boolean(value.revealed), choiceAnswer: typeof value.choiceAnswer === 'string' ? value.choiceAnswer : null, choiceScore: Number(value.choiceScore) || 0 };
+  } catch { return null; }
+}
+
+function restorePrompts(deck: PropertyDeck, coordinates: PromptCoordinate[]): PropertyPrompt[] {
+  const prompts = propertyPrompts(deck);
+  return coordinates.flatMap((coordinate) => { const prompt = prompts.find((item) => item.rowIndex === coordinate.rowIndex && item.itemIndex === coordinate.itemIndex); return prompt ? [prompt] : []; });
+}
+
 export default function PropertyDecksApp() {
   const [decks, setDecks] = useState<PropertyDeck[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -44,6 +62,7 @@ export default function PropertyDecksApp() {
   const [studyStage, setStudyStage] = useState<StudyStage>('recall');
   const [studyQueue, setStudyQueue] = useState<PropertyPrompt[]>([]);
   const [studySource, setStudySource] = useState<PropertyPrompt[]>([]);
+  const [recallIndex, setRecallIndex] = useState(0);
   const [studyDone, setStudyDone] = useState(0);
   const [cursor, setCursor] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -59,8 +78,26 @@ export default function PropertyDecksApp() {
   useEffect(() => {
     queueMicrotask(() => {
       const saved = readDecks();
+      const session = readLearningSession();
       setDecks(saved);
-      setSelectedId(saved[0]?.id ?? '');
+      const sessionDeck = session ? saved.find((entry) => entry.id === session.deckId) : undefined;
+      setSelectedId(sessionDeck?.id ?? saved[0]?.id ?? '');
+      if (session && sessionDeck) {
+        const sourcePrompts = restorePrompts(sessionDeck, session.source);
+        const queuePrompts = restorePrompts(sessionDeck, session.queue);
+        if (sourcePrompts.length) {
+          setStudySource(sourcePrompts);
+          setStudyQueue(queuePrompts);
+          setRecallIndex(queuePrompts.length ? Math.min(session.recallIndex, queuePrompts.length - 1) : 0);
+          setStudyDone(Math.min(session.studyDone, sourcePrompts.length));
+          setStudyStage(session.stage);
+          setCursor(Math.min(session.cursor, sourcePrompts.length - 1));
+          setRevealed(session.revealed);
+          setChoiceAnswer(session.choiceAnswer);
+          setChoiceScore(session.choiceScore);
+          setStudying(true);
+        }
+      }
       setReady(true);
     });
   }, []);
@@ -72,18 +109,15 @@ export default function PropertyDecksApp() {
 
   const deck = decks.find((entry) => entry.id === selectedId) ?? decks[0];
   const prompts = useMemo(() => deck ? propertyPrompts(deck) : [], [deck]);
-  const prompt = studyStage === 'recall' ? studyQueue[0] : studySource[cursor];
+  const prompt = studyStage === 'recall' ? studyQueue[recallIndex] : studySource[cursor];
   const choiceOptions = useMemo(() => deck && prompt ? shuffle(propertyRowOptions(deck, prompt.rowIndex)) : [], [deck, prompt]);
 
   useEffect(() => {
-    if (!studying || studyStage !== 'recall' || !studyQueue.length) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement) return;
-      if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); setRevealed((value) => !value); }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [studyQueue.length, studyStage, studying]);
+    if (!ready || !studying || !deck || !studySource.length) return;
+    const coordinate = ({ rowIndex, itemIndex }: PropertyPrompt): PromptCoordinate => ({ rowIndex, itemIndex });
+    const session: PropertyLearningSession = { deckId: deck.id, stage: studyStage, queue: studyQueue.map(coordinate), source: studySource.map(coordinate), recallIndex, studyDone, cursor, revealed, choiceAnswer, choiceScore };
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (error) { console.error('[property-decks] session save failed', error); }
+  }, [choiceAnswer, choiceScore, cursor, deck, ready, recallIndex, revealed, studyDone, studyQueue, studySource, studyStage, studying]);
 
   function updateDeck(change: (current: PropertyDeck) => PropertyDeck) {
     if (!deck) return;
@@ -109,6 +143,7 @@ export default function PropertyDecksApp() {
     setDecks(next);
     setSelectedId(next[0]?.id ?? '');
     setStudying(false);
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* The next session will replace stale data. */ }
   }
 
   function addItem() {
@@ -129,6 +164,7 @@ export default function PropertyDecksApp() {
     const randomized = deck ? shuffledPropertyPrompts(deck) : [];
     setStudyQueue(randomized);
     setStudySource(randomized);
+    setRecallIndex(0);
     setStudyDone(0);
     setStudyStage('recall');
     setCursor(0);
@@ -139,22 +175,22 @@ export default function PropertyDecksApp() {
   }
 
   function markRecall(known: boolean) {
-    if (!studyQueue.length) return;
+    if (!studyQueue[recallIndex]) return;
     setRevealed(false);
     if (!known) {
-      setStudyQueue((current) => {
-        if (current.length <= 1) return current;
-        const [retry, ...rest] = current;
-        const lastSameRow = rest.findLastIndex((entry) => entry.rowIndex === retry.rowIndex);
-        const insertAt = lastSameRow >= 0 ? lastSameRow + 1 : rest.length;
-        return [...rest.slice(0, insertAt), retry, ...rest.slice(insertAt)];
-      });
+      setRecallIndex((index) => studyQueue.length > 1 ? (index + 1) % studyQueue.length : index);
       return;
     }
-    const next = studyQueue.slice(1);
+    const next = studyQueue.filter((_, index) => index !== recallIndex);
     setStudyQueue(next);
+    setRecallIndex(next.length ? Math.min(recallIndex, next.length - 1) : 0);
     setStudyDone((value) => value + 1);
     if (!next.length) setStudyStage('checkpoint');
+  }
+
+  function moveRecall(delta: number) {
+    setRecallIndex((index) => studyQueue.length ? (index + delta + studyQueue.length) % studyQueue.length : 0);
+    setRevealed(false);
   }
 
   function startChoice() {
@@ -178,6 +214,11 @@ export default function PropertyDecksApp() {
     }
     setCursor((value) => value + 1);
     setChoiceAnswer(null);
+  }
+
+  function finishLearning() {
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* The next session will replace stale data. */ }
+    setStudying(false);
   }
 
   function openImport() {
@@ -259,7 +300,7 @@ export default function PropertyDecksApp() {
       </div>
 
       {studying && deck ? (
-        <StudyView deck={deck} stage={studyStage} prompt={prompt} remaining={studyQueue.length} done={studyDone} total={studySource.length} cursor={cursor} revealed={revealed} choiceOptions={choiceOptions} choiceAnswer={choiceAnswer} score={choiceScore} onReveal={() => setRevealed((value) => !value)} onKnown={() => markRecall(true)} onUnknown={() => markRecall(false)} onStartChoice={startChoice} onChoose={chooseContent} onNextChoice={nextChoice} onClose={() => setStudying(false)} />
+        <StudyView deck={deck} stage={studyStage} prompt={prompt} position={recallIndex + 1} remaining={studyQueue.length} done={studyDone} total={studySource.length} cursor={cursor} revealed={revealed} choiceOptions={choiceOptions} choiceAnswer={choiceAnswer} score={choiceScore} onReveal={() => setRevealed((value) => !value)} onPrevious={() => moveRecall(-1)} onNext={() => moveRecall(1)} onKnown={() => markRecall(true)} onUnknown={() => markRecall(false)} onStartChoice={startChoice} onChoose={chooseContent} onNextChoice={nextChoice} onClose={finishLearning} />
       ) : importOpen ? (
         <ImportPanel mode={importMode} source={source} preview={preview} message={importMessage} busy={busy} onMode={(mode) => { setImportMode(mode); setPreview(null); setImportMessage(''); }} onSource={setSource} onParse={() => parseImport()} onAi={() => void aiImport()} onFile={fileInput} onConfirm={confirmImport} onClose={() => setImportOpen(false)} />
       ) : deck ? (
@@ -350,10 +391,11 @@ function Editor({ deck, onUpdate, onAddItem, onRemoveItem, onAddProperty, onDele
   </section>;
 }
 
-function StudyView({ deck, stage, prompt, remaining, done, total, cursor, revealed, choiceOptions, choiceAnswer, score, onReveal, onKnown, onUnknown, onStartChoice, onChoose, onNextChoice, onClose }: {
+function StudyView({ deck, stage, prompt, position, remaining, done, total, cursor, revealed, choiceOptions, choiceAnswer, score, onReveal, onPrevious, onNext, onKnown, onUnknown, onStartChoice, onChoose, onNextChoice, onClose }: {
   deck: PropertyDeck;
   stage: StudyStage;
   prompt?: PropertyPrompt;
+  position: number;
   remaining: number;
   done: number;
   total: number;
@@ -363,6 +405,8 @@ function StudyView({ deck, stage, prompt, remaining, done, total, cursor, reveal
   choiceAnswer: string | null;
   score: number;
   onReveal: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
   onKnown: () => void;
   onUnknown: () => void;
   onStartChoice: () => void;
@@ -370,6 +414,28 @@ function StudyView({ deck, stage, prompt, remaining, done, total, cursor, reveal
   onNextChoice: () => void;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
+      if (stage === 'recall') {
+        if (event.key === 'ArrowLeft') { event.preventDefault(); onPrevious(); }
+        else if (event.key === 'ArrowRight') { event.preventDefault(); onNext(); }
+        else if ((event.key === ' ' || event.key === 'Enter') && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); onReveal(); }
+        else if (revealed && (event.code === 'Digit1' || event.key.toLowerCase() === 'n' || event.key === 'ArrowDown')) { event.preventDefault(); onUnknown(); }
+        else if (revealed && (event.code === 'Digit2' || event.key.toLowerCase() === 'k' || event.key === 'ArrowUp')) { event.preventDefault(); onKnown(); }
+        return;
+      }
+      if (stage === 'choice') {
+        const optionIndex = Number(event.key) - 1;
+        if (choiceAnswer === null && optionIndex >= 0 && optionIndex < choiceOptions.length) { event.preventDefault(); onChoose(choiceOptions[optionIndex]); }
+        else if (choiceAnswer !== null && (event.key === 'Enter' || event.key === 'ArrowRight')) { event.preventDefault(); onNextChoice(); }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [choiceAnswer, choiceOptions, onChoose, onClose, onKnown, onNext, onNextChoice, onPrevious, onReveal, onUnknown, revealed, stage]);
+
   if (stage === 'checkpoint') return <StageResult title="第一关完成" detail={`全部 ${done} 项都已标记为会了。第二关将只显示当前横行的内容供选择。`} action="进入第二关" onAction={onStartChoice} onClose={onClose} />;
   if (stage === 'complete') return <StageResult title="第二关完成" detail={`答对 ${score} / ${total}，正确率 ${total ? Math.round(score / total * 100) : 0}%。`} action="返回表格" onAction={onClose} />;
   if (!prompt) return <StageResult title="没有可学习的内容" detail="请先返回表格填写内容。" action="返回表格" onAction={onClose} />;
@@ -377,13 +443,13 @@ function StudyView({ deck, stage, prompt, remaining, done, total, cursor, reveal
   const correctAnswer = prompt.answer.trim() || EMPTY_PROPERTY_VALUE;
   const answered = choiceAnswer !== null;
   return <section className="mx-auto max-w-4xl">
-    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-[var(--muted-foreground)]"><span>{stage === 'recall' ? `第一关 · 剩余 ${remaining} / ${total} · 已会 ${done}` : `第二关 · ${cursor + 1} / ${total} · 已答对 ${score}`} · {deck.title}</span><button type="button" onClick={onClose} className="rounded-xl border border-[var(--card-border)] px-4 py-2">返回表格</button></div>
+    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-[var(--muted-foreground)]"><span>{stage === 'recall' ? `第一关 · 当前 ${position} / ${remaining} · 总剩余 ${remaining} / ${total} · 已会 ${done}` : `第二关 · ${cursor + 1} / ${total} · 已答对 ${score}`} · {deck.title}</span><button type="button" onClick={onClose} className="rounded-xl border border-[var(--card-border)] px-4 py-2">Esc 返回表格</button></div>
     <article className="flex min-h-[420px] w-full flex-col items-center justify-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] p-7 text-center shadow-lg">
       <span className="rounded-full bg-[#fef3c7] px-4 py-2 text-xs font-bold uppercase tracking-[.14em] text-[#92400e]">{prompt.property}</span>
       <h2 className="mt-7 text-4xl font-bold uppercase tracking-tight sm:text-6xl">{prompt.item}</h2>
-      {stage === 'recall' ? (revealed ? <div className="mt-9 w-full max-w-2xl border-t border-dashed border-[var(--card-border)] pt-9"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--muted-foreground)]">答案</p><p className="mt-3 text-2xl font-medium leading-relaxed sm:text-4xl">{prompt.answer || '（未填写）'}</p></div> : <button type="button" onClick={onReveal} className="mt-10 min-h-28 w-full max-w-2xl rounded-2xl border-2 border-dashed border-[#b2ccff] font-bold text-[#175cd3]">先在心里回答，再显示答案</button>) : <div className="mt-9 grid w-full max-w-2xl gap-3 sm:grid-cols-2">{choiceOptions.map((option) => { const correct = option === correctAnswer; const selected = option === choiceAnswer; return <button key={option} type="button" disabled={answered} onClick={() => onChoose(option)} className={`min-h-14 rounded-xl border-2 p-3 text-left font-medium ${answered && correct ? 'border-[#12b76a] bg-[#ecfdf3] text-[#067647]' : answered && selected ? 'border-[#f04438] bg-[#fef3f2] text-[#b42318]' : 'border-[var(--card-border)]'}`}>{option}</button>; })}</div>}
+      {stage === 'recall' ? (revealed ? <div className="mt-9 w-full max-w-2xl border-t border-dashed border-[var(--card-border)] pt-9"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--muted-foreground)]">答案</p><p className="mt-3 text-2xl font-medium leading-relaxed sm:text-4xl">{prompt.answer || '（未填写）'}</p></div> : <button type="button" onClick={onReveal} className="mt-10 min-h-28 w-full max-w-2xl rounded-2xl border-2 border-dashed border-[#b2ccff] font-bold text-[#175cd3]">空格 / Enter 显示答案</button>) : <div className="mt-9 grid w-full max-w-2xl gap-3 sm:grid-cols-2">{choiceOptions.map((option, optionIndex) => { const correct = option === correctAnswer; const selected = option === choiceAnswer; return <button key={option} type="button" disabled={answered} onClick={() => onChoose(option)} className={`min-h-14 rounded-xl border-2 p-3 text-left font-medium ${answered && correct ? 'border-[#12b76a] bg-[#ecfdf3] text-[#067647]' : answered && selected ? 'border-[#f04438] bg-[#fef3f2] text-[#b42318]' : 'border-[var(--card-border)]'}`}><kbd className="mr-3 rounded bg-[var(--background)] px-2 py-1 text-xs">{optionIndex + 1}</kbd>{option}</button>; })}</div>}
     </article>
-    {stage === 'recall' ? (revealed ? <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={onUnknown} className="min-h-12 rounded-xl border-2 border-[#f59e0b] font-medium text-[#b06000]">不会 · 稍后再出现</button><button type="button" onClick={onKnown} className="min-h-12 rounded-xl bg-[#188038] font-medium text-white">会了 · 剩余减 1</button></div> : <button type="button" onClick={onReveal} className="mt-5 min-h-12 w-full rounded-xl bg-[#175cd3] font-medium text-white">显示答案</button>) : answered && <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p role="status" className={`font-bold ${choiceAnswer === correctAnswer ? 'text-[#15803d]' : 'text-[#b42318]'}`}>{choiceAnswer === correctAnswer ? '回答正确' : '回答错误，正确答案已标绿。'}</p><button type="button" onClick={onNextChoice} className="min-h-12 rounded-xl bg-[#175cd3] px-6 font-medium text-white">{cursor + 1 === total ? '查看结果' : '下一题 →'}</button></div>}
+    {stage === 'recall' ? <><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" onClick={onPrevious} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium">← 上一项</button>{revealed ? <><button type="button" onClick={onUnknown} className="min-h-12 rounded-xl border-2 border-[#f59e0b] font-medium text-[#b06000]">1 / N / ↓ 不会</button><button type="button" onClick={onKnown} className="min-h-12 rounded-xl bg-[#188038] font-medium text-white">2 / K / ↑ 会了</button></> : <button type="button" onClick={onReveal} className="col-span-2 min-h-12 rounded-xl bg-[#175cd3] font-medium text-white">空格 / Enter 显示答案</button>}<button type="button" onClick={onNext} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium">下一项 →</button></div><p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">快捷键：←/→ 切换，空格/Enter 显示答案；1/N/↓ 不会，2/K/↑ 会了，Esc 返回</p></> : answered && <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p role="status" className={`font-bold ${choiceAnswer === correctAnswer ? 'text-[#15803d]' : 'text-[#b42318]'}`}>{choiceAnswer === correctAnswer ? '回答正确' : '回答错误，正确答案已标绿。'}</p><button type="button" onClick={onNextChoice} className="min-h-12 rounded-xl bg-[#175cd3] px-6 font-medium text-white">{cursor + 1 === total ? 'Enter / → 查看结果' : 'Enter / → 下一题'}</button></div>}
   </section>;
 }
 
