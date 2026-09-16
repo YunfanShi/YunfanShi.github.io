@@ -10,7 +10,7 @@ const STORAGE_KEY = 'jackyun_property_decks_v1';
 const SESSION_KEY = 'jackyun_property_learning_session_v1';
 type StudyStage = 'recall' | 'checkpoint' | 'choice' | 'complete';
 type PromptCoordinate = { rowIndex: number; itemIndex: number };
-type PropertyLearningSession = { deckId: string; stage: StudyStage; queue: PromptCoordinate[]; source: PromptCoordinate[]; recallIndex: number; studyDone: number; cursor: number; revealed: boolean; choiceAnswer: string | null; choiceScore: number };
+type PropertyLearningSession = { deckId: string; stage: StudyStage; queue: PromptCoordinate[]; source: PromptCoordinate[]; recallIndex: number; studyDone: number; cursor: number; revealed: boolean; choiceAnswer: string | null; choiceScore: number; choiceMistakes: number };
 
 function makeId(prefix: string) {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${prefix}-${Date.now()}`;
@@ -45,7 +45,7 @@ function readLearningSession(): PropertyLearningSession | null {
     const stages: StudyStage[] = ['recall', 'checkpoint', 'choice', 'complete'];
     if (!value || typeof value.deckId !== 'string' || !stages.includes(value.stage as StudyStage) || !Array.isArray(value.queue) || !Array.isArray(value.source)) return null;
     const coordinates = (items: PromptCoordinate[]) => items.flatMap((item) => Number.isInteger(item?.rowIndex) && Number.isInteger(item?.itemIndex) ? [{ rowIndex: item.rowIndex, itemIndex: item.itemIndex }] : []);
-    return { deckId: value.deckId, stage: value.stage as StudyStage, queue: coordinates(value.queue), source: coordinates(value.source), recallIndex: Number(value.recallIndex) || 0, studyDone: Number(value.studyDone) || 0, cursor: Number(value.cursor) || 0, revealed: Boolean(value.revealed), choiceAnswer: typeof value.choiceAnswer === 'string' ? value.choiceAnswer : null, choiceScore: Number(value.choiceScore) || 0 };
+    return { deckId: value.deckId, stage: value.stage as StudyStage, queue: coordinates(value.queue), source: coordinates(value.source), recallIndex: Number(value.recallIndex) || 0, studyDone: Number(value.studyDone) || 0, cursor: Number(value.cursor) || 0, revealed: Boolean(value.revealed), choiceAnswer: typeof value.choiceAnswer === 'string' ? value.choiceAnswer : null, choiceScore: Number(value.choiceScore) || 0, choiceMistakes: Number(value.choiceMistakes) || 0 };
   } catch { return null; }
 }
 
@@ -68,6 +68,7 @@ export default function PropertyDecksApp() {
   const [revealed, setRevealed] = useState(false);
   const [choiceAnswer, setChoiceAnswer] = useState<string | null>(null);
   const [choiceScore, setChoiceScore] = useState(0);
+  const [choiceMistakes, setChoiceMistakes] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
   const [importMode, setImportMode] = useState<'custom' | 'ai'>('custom');
   const [source, setSource] = useState('');
@@ -95,6 +96,7 @@ export default function PropertyDecksApp() {
           setRevealed(session.revealed);
           setChoiceAnswer(session.choiceAnswer);
           setChoiceScore(session.choiceScore);
+          setChoiceMistakes(session.choiceMistakes);
           setStudying(true);
         }
       }
@@ -115,9 +117,9 @@ export default function PropertyDecksApp() {
   useEffect(() => {
     if (!ready || !studying || !deck || !studySource.length) return;
     const coordinate = ({ rowIndex, itemIndex }: PropertyPrompt): PromptCoordinate => ({ rowIndex, itemIndex });
-    const session: PropertyLearningSession = { deckId: deck.id, stage: studyStage, queue: studyQueue.map(coordinate), source: studySource.map(coordinate), recallIndex, studyDone, cursor, revealed, choiceAnswer, choiceScore };
+    const session: PropertyLearningSession = { deckId: deck.id, stage: studyStage, queue: studyQueue.map(coordinate), source: studySource.map(coordinate), recallIndex, studyDone, cursor, revealed, choiceAnswer, choiceScore, choiceMistakes };
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (error) { console.error('[property-decks] session save failed', error); }
-  }, [choiceAnswer, choiceScore, cursor, deck, ready, recallIndex, revealed, studyDone, studyQueue, studySource, studyStage, studying]);
+  }, [choiceAnswer, choiceMistakes, choiceScore, cursor, deck, ready, recallIndex, revealed, studyDone, studyQueue, studySource, studyStage, studying]);
 
   function updateDeck(change: (current: PropertyDeck) => PropertyDeck) {
     if (!deck) return;
@@ -171,6 +173,7 @@ export default function PropertyDecksApp() {
     setRevealed(false);
     setChoiceAnswer(null);
     setChoiceScore(0);
+    setChoiceMistakes(0);
     setStudying(true);
   }
 
@@ -198,6 +201,7 @@ export default function PropertyDecksApp() {
     setCursor(0);
     setChoiceAnswer(null);
     setChoiceScore(0);
+    setChoiceMistakes(0);
     setStudyStage('choice');
   }
 
@@ -205,6 +209,7 @@ export default function PropertyDecksApp() {
     if (!prompt || choiceAnswer !== null) return;
     setChoiceAnswer(value);
     if (value === (prompt.answer.trim() || EMPTY_PROPERTY_VALUE)) setChoiceScore((score) => score + 1);
+    else { setStudySource((items) => [...items, prompt]); setChoiceMistakes((count) => count + 1); }
   }
 
   function nextChoice() {
@@ -300,7 +305,7 @@ export default function PropertyDecksApp() {
       </div>
 
       {studying && deck ? (
-        <StudyView deck={deck} stage={studyStage} prompt={prompt} position={recallIndex + 1} remaining={studyQueue.length} done={studyDone} total={studySource.length} cursor={cursor} revealed={revealed} choiceOptions={choiceOptions} choiceAnswer={choiceAnswer} score={choiceScore} onReveal={() => setRevealed((value) => !value)} onPrevious={() => moveRecall(-1)} onNext={() => moveRecall(1)} onKnown={() => markRecall(true)} onUnknown={() => markRecall(false)} onStartChoice={startChoice} onChoose={chooseContent} onNextChoice={nextChoice} onClose={finishLearning} />
+        <StudyView deck={deck} stage={studyStage} prompt={prompt} position={recallIndex + 1} remaining={studyQueue.length} done={studyDone} total={studySource.length} masteryTotal={studyDone} cursor={cursor} revealed={revealed} choiceOptions={choiceOptions} choiceAnswer={choiceAnswer} score={choiceScore} mistakes={choiceMistakes} onReveal={() => setRevealed((value) => !value)} onPrevious={() => moveRecall(-1)} onNext={() => moveRecall(1)} onKnown={() => markRecall(true)} onUnknown={() => markRecall(false)} onStartChoice={startChoice} onChoose={chooseContent} onNextChoice={nextChoice} onClose={finishLearning} />
       ) : importOpen ? (
         <ImportPanel mode={importMode} source={source} preview={preview} message={importMessage} busy={busy} onMode={(mode) => { setImportMode(mode); setPreview(null); setImportMessage(''); }} onSource={setSource} onParse={() => parseImport()} onAi={() => void aiImport()} onFile={fileInput} onConfirm={confirmImport} onClose={() => setImportOpen(false)} />
       ) : deck ? (
@@ -391,7 +396,7 @@ function Editor({ deck, onUpdate, onAddItem, onRemoveItem, onAddProperty, onDele
   </section>;
 }
 
-function StudyView({ deck, stage, prompt, position, remaining, done, total, cursor, revealed, choiceOptions, choiceAnswer, score, onReveal, onPrevious, onNext, onKnown, onUnknown, onStartChoice, onChoose, onNextChoice, onClose }: {
+function StudyView({ deck, stage, prompt, position, remaining, done, total, masteryTotal, cursor, revealed, choiceOptions, choiceAnswer, score, mistakes, onReveal, onPrevious, onNext, onKnown, onUnknown, onStartChoice, onChoose, onNextChoice, onClose }: {
   deck: PropertyDeck;
   stage: StudyStage;
   prompt?: PropertyPrompt;
@@ -399,11 +404,13 @@ function StudyView({ deck, stage, prompt, position, remaining, done, total, curs
   remaining: number;
   done: number;
   total: number;
+  masteryTotal: number;
   cursor: number;
   revealed: boolean;
   choiceOptions: string[];
   choiceAnswer: string | null;
   score: number;
+  mistakes: number;
   onReveal: () => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -417,13 +424,14 @@ function StudyView({ deck, stage, prompt, position, remaining, done, total, curs
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
       if (stage === 'recall') {
         if (event.key === 'ArrowLeft') { event.preventDefault(); onPrevious(); }
         else if (event.key === 'ArrowRight') { event.preventDefault(); onNext(); }
         else if ((event.key === ' ' || event.key === 'Enter') && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); onReveal(); }
-        else if (revealed && (event.code === 'Digit1' || event.key.toLowerCase() === 'n' || event.key === 'ArrowDown')) { event.preventDefault(); onUnknown(); }
-        else if (revealed && (event.code === 'Digit2' || event.key.toLowerCase() === 'k' || event.key === 'ArrowUp')) { event.preventDefault(); onKnown(); }
+        else if (revealed && event.key.toLowerCase() === 'x') { event.preventDefault(); onUnknown(); }
+        else if (revealed && event.key.toLowerCase() === 'c') { event.preventDefault(); onKnown(); }
         return;
       }
       if (stage === 'choice') {
@@ -437,19 +445,19 @@ function StudyView({ deck, stage, prompt, position, remaining, done, total, curs
   }, [choiceAnswer, choiceOptions, onChoose, onClose, onKnown, onNext, onNextChoice, onPrevious, onReveal, onUnknown, revealed, stage]);
 
   if (stage === 'checkpoint') return <StageResult title="第一关完成" detail={`全部 ${done} 项都已标记为会了。第二关将只显示当前横行的内容供选择。`} action="进入第二关" onAction={onStartChoice} onClose={onClose} />;
-  if (stage === 'complete') return <StageResult title="第二关完成" detail={`答对 ${score} / ${total}，正确率 ${total ? Math.round(score / total * 100) : 0}%。`} action="返回表格" onAction={onClose} />;
+  if (stage === 'complete') return <StageResult title="第二关完成" detail={`已全部答对 ${masteryTotal} 项；本轮错题重做 ${mistakes} 次。`} action="返回表格" onAction={onClose} />;
   if (!prompt) return <StageResult title="没有可学习的内容" detail="请先返回表格填写内容。" action="返回表格" onAction={onClose} />;
 
   const correctAnswer = prompt.answer.trim() || EMPTY_PROPERTY_VALUE;
   const answered = choiceAnswer !== null;
   return <section className="mx-auto max-w-4xl">
-    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-[var(--muted-foreground)]"><span>{stage === 'recall' ? `第一关 · 当前 ${position} / ${remaining} · 总剩余 ${remaining} / ${total} · 已会 ${done}` : `第二关 · ${cursor + 1} / ${total} · 已答对 ${score}`} · {deck.title}</span><button type="button" onClick={onClose} className="rounded-xl border border-[var(--card-border)] px-4 py-2">Esc 返回表格</button></div>
+    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-[var(--muted-foreground)]"><span>{stage === 'recall' ? `第一关 · 当前 ${position} / ${remaining} · 总剩余 ${remaining} / ${total} · 已会 ${done}` : `第二关 · 队列 ${cursor + 1} / ${total} · 已掌握 ${score} / ${masteryTotal} · 重做 ${mistakes}`} · 自动保存 · {deck.title}</span><button type="button" onClick={onClose} className="rounded-xl border border-[var(--card-border)] px-4 py-2">Esc 返回表格</button></div>
     <article className="flex min-h-[420px] w-full flex-col items-center justify-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] p-7 text-center shadow-lg">
       <span className="rounded-full bg-[#fef3c7] px-4 py-2 text-xs font-bold uppercase tracking-[.14em] text-[#92400e]">{prompt.property}</span>
       <h2 className="mt-7 text-4xl font-bold uppercase tracking-tight sm:text-6xl">{prompt.item}</h2>
       {stage === 'recall' ? (revealed ? <div className="mt-9 w-full max-w-2xl border-t border-dashed border-[var(--card-border)] pt-9"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--muted-foreground)]">答案</p><p className="mt-3 text-2xl font-medium leading-relaxed sm:text-4xl">{prompt.answer || '（未填写）'}</p></div> : <button type="button" onClick={onReveal} className="mt-10 min-h-28 w-full max-w-2xl rounded-2xl border-2 border-dashed border-[#b2ccff] font-bold text-[#175cd3]">空格 / Enter 显示答案</button>) : <div className="mt-9 grid w-full max-w-2xl gap-3 sm:grid-cols-2">{choiceOptions.map((option, optionIndex) => { const correct = option === correctAnswer; const selected = option === choiceAnswer; return <button key={option} type="button" disabled={answered} onClick={() => onChoose(option)} className={`min-h-14 rounded-xl border-2 p-3 text-left font-medium ${answered && correct ? 'border-[#12b76a] bg-[#ecfdf3] text-[#067647]' : answered && selected ? 'border-[#f04438] bg-[#fef3f2] text-[#b42318]' : 'border-[var(--card-border)]'}`}><kbd className="mr-3 rounded bg-[var(--background)] px-2 py-1 text-xs">{optionIndex + 1}</kbd>{option}</button>; })}</div>}
     </article>
-    {stage === 'recall' ? <><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" onClick={onPrevious} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium">← 上一项</button>{revealed ? <><button type="button" onClick={onUnknown} className="min-h-12 rounded-xl border-2 border-[#f59e0b] font-medium text-[#b06000]">1 / N / ↓ 不会</button><button type="button" onClick={onKnown} className="min-h-12 rounded-xl bg-[#188038] font-medium text-white">2 / K / ↑ 会了</button></> : <button type="button" onClick={onReveal} className="col-span-2 min-h-12 rounded-xl bg-[#175cd3] font-medium text-white">空格 / Enter 显示答案</button>}<button type="button" onClick={onNext} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium">下一项 →</button></div><p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">快捷键：←/→ 切换，空格/Enter 显示答案；1/N/↓ 不会，2/K/↑ 会了，Esc 返回</p></> : answered && <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p role="status" className={`font-bold ${choiceAnswer === correctAnswer ? 'text-[#15803d]' : 'text-[#b42318]'}`}>{choiceAnswer === correctAnswer ? '回答正确' : '回答错误，正确答案已标绿。'}</p><button type="button" onClick={onNextChoice} className="min-h-12 rounded-xl bg-[#175cd3] px-6 font-medium text-white">{cursor + 1 === total ? 'Enter / → 查看结果' : 'Enter / → 下一题'}</button></div>}
+    {stage === 'recall' ? <><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" onClick={onPrevious} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium">← 上一项</button>{revealed ? <><button type="button" onClick={onUnknown} className="min-h-12 rounded-xl border-2 border-[#f59e0b] font-medium text-[#b06000]">X · 不会</button><button type="button" onClick={onKnown} className="min-h-12 rounded-xl bg-[#188038] font-medium text-white">C · 会了</button></> : <button type="button" onClick={onReveal} className="col-span-2 min-h-12 rounded-xl bg-[#175cd3] font-medium text-white">空格 / Enter 显示答案</button>}<button type="button" onClick={onNext} className="min-h-12 rounded-xl border border-[var(--card-border)] font-medium">下一项 →</button></div><p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">快捷键：←/→ 切换，空格/Enter 显示答案；X 不会、C 会了，Esc 返回</p></> : answered && <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p role="status" className={`font-bold ${choiceAnswer === correctAnswer ? 'text-[#15803d]' : 'text-[#b42318]'}`}>{choiceAnswer === correctAnswer ? '回答正确' : '回答错误；这一题已放到队列后面，稍后必须重新答对。'}</p><button type="button" onClick={onNextChoice} className="min-h-12 rounded-xl bg-[#175cd3] px-6 font-medium text-white">Enter / → 下一题</button></div>}
   </section>;
 }
 
