@@ -10,6 +10,7 @@ interface LegacyFrameProps {
   title?: string;
   /** Display name of the signed-in user (used to replace hardcoded names in legacy HTML). */
   userName?: string;
+  runtimeContext?: Record<string, string | boolean | null>;
 }
 
 const legacyHtmlCache = new Map<string, Promise<string>>();
@@ -28,7 +29,7 @@ function loadLegacyHtml(src: string): Promise<string> {
   return request;
 }
 
-export default function LegacyFrame({ src, title = 'Legacy Page', userName }: LegacyFrameProps) {
+export default function LegacyFrame({ src, title = 'Legacy Page', userName, runtimeContext }: LegacyFrameProps) {
   const { lang } = useLanguage();
   const { signedIn } = useAuthMode();
   const [srcdoc, setSrcdoc] = useState<string | null>(null);
@@ -68,6 +69,11 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
         // Inject a language bridge before page scripts so every legacy page uses
         // the same persisted language preference as the React portal.
         html = html.replace(/<\/head>/i, `${legacyLanguageBridge(lang)}</head>`);
+
+        if (runtimeContext) {
+          const contextScript = `<script>window.__JACKYUN_LEGACY_CONTEXT__=${JSON.stringify(runtimeContext).replace(/</g, '\\u003c')};</script>`;
+          html = html.replace(/<\/head>/i, `${contextScript}</head>`);
+        }
 
         // Inject aggressive CSS to hide legacy API key inputs + save buttons
         const hideCss = `
@@ -624,7 +630,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName }: Le
 
     load();
     return () => { cancelled = true; };
-  }, [src, userName, lang, signedIn]);
+  }, [src, userName, lang, signedIn, runtimeContext]);
 
   if (error) {
     return (

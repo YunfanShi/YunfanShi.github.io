@@ -5,18 +5,18 @@ const html = readFileSync('public/StudyGuide.html', 'utf8');
 
 const required = [
   '执行中心', '学习', '习题', '考试', '学习闭环', '执行与专注', 'IELTS 专项',
-  '内容版本 2026-09-04', 'studyguide_progress',
+  '内容版本 2026-09-19', 'studyguide_progress',
   '今日', '本周', '每两周', '当前没有考试叠加计划',
   'Preview Once', 'Class Learning → Write Cue → Textbook Check', 'Need Extra Verification?', 'Homework → Update from Evidence', 'Cue Recall → √ / △ / ○',
-  '汇总本周验证证据', '遮住答案回忆 Cue', '检查重复错误模式', '重做精选 Problematic Questions', '决定下周仍需处理什么',
+  '检查本周 Notes', '对照资料补 Notes 与 Cue', '逐条 Cue Retrieval', 'Evidence Review → Targeted Repair', '安排后续复习范围',
   '随机抽10个已掌握知识点', '按知识类型完全闭卷测试', '查看两周留存趋势',
   '√＝独立、准确、完整', '△＝有印象但遗漏或需要轻提示', '○＝无法独立回忆或看答案才想起',
   'Syllabus Check', '红绿灯看长期主题，√ / △ / ○只记录一次检索结果', 'Anki', '可选工具',
   'Structure · 扫结构', 'Logic · 猜连接', 'Connection · 接旧知', 'Questions · 自然产生才记录',
   '优先当天，最迟隔天', 'Cue 必须触发主动回忆，而不是标题',
   'Locate → Compare → Fill Gaps → Leave', 'Skip textbook questions', 'Use questions for verification, not for ceremonial extra workload',
-  'Homework · Application + Verification', '红笔易错点', 'Problematic Questions', 'Next-day Cue Recall', 'Unit Summary · 只写一次',
-  'Teacher ≠ Textbook ≠ Syllabus', 'Unit 完成并写完 Summary 后', 'Summary 不按每节课写',
+  'Homework · Application + Verification', '红笔易错点', 'Problematic Questions', 'Next-day Cue Recall', 'Unit Summary / Conclusion · Optional Compression',
+  'Teacher ≠ Textbook ≠ Syllabus', 'Unit Summary 是可选压缩', 'Summary is for integration, not completion', 'Blank-page Reconstruction',
   '难题怎么拆', '学科 / 题型怎么做', '错题诊断', '卡题怎么办',
   '普通题直接做；陌生题、综合题或做到一半断掉时，再打开这一页',
   '目标 → 缺口 → 连接', '从目标往回推', '只做必要检查',
@@ -27,7 +27,8 @@ const required = [
   'Long Answer / Process', 'Boolean Logic', 'Database', 'Source Analysis', 'Writing Task 2',
   '实际在考：', '先看：', '答案怎样组织：', '最常见错误：', '简短例子：',
   'Knowledge Node', 'Root Cause', 'Retest',
-  'Knowledge、Recall、Condition/Rule、Interpretation、Selection、Reasoning、Execution、Response Structure、Time/Strategy',
+  'Knowledge、Recall、Condition/Rule、Interpretation、Selection、Reasoning、Execution、Response Structure、Expression/Marking-point、Time/Strategy',
+  '[EXPLAIN-3] Explain', '[DEF] Definition / [STATE-2] State', 'mark-scheme-ready answer',
   '学校考试', 'IGCSE / AS / A-Level', '考场策略',
   'Map · 圈真实范围', 'Diagnose · 用已有证据找弱点', 'Repair + Verify · 修完立刻换题验证', '按考试规模决定模拟程度',
   '考试计划生成器', '考试范围（可选）', '建立考试计划',
@@ -63,7 +64,7 @@ const missing = required.filter((text) => !html.includes(text));
 if (missing.length) throw new Error(`Study Guide checks failed; missing: ${missing.join(', ')}`);
 
 const forbidden = [
-  'Conclusion', '今日闭环与三句总结', '错题费曼大扫荡',
+  '今日闭环与三句总结', '错题费曼大扫荡',
   '每周2次高保真模拟考', '弱科多15%', '3分钟熔断机制',
   'STATE.timeGranule', 'examMode', 'studyguide_last_biweekly',
   '通用做题流程', '卡住与再训练',
@@ -103,6 +104,7 @@ const sandbox = {
   },
   document: { addEventListener() {} },
 };
+sandbox.window = { __JACKYUN_LEGACY_CONTEXT__: {} };
 vm.runInNewContext(`${script};globalThis.__studyGuideTest = {
   getTimelineItems,
   getISOWeekKey,
@@ -162,7 +164,7 @@ for (const text of ['一个 Unit 只做一次', 'Questions · 自然产生才记
 }
 const cornell = runtime.renderModuleFor('learn', 'cornell');
 for (const text of [
-  'Cue 跟 subsection 走', 'Summary 跟 Unit 走', 'Textbook Check',
+  'Cue 跟 subsection 走', 'Unit Summary 只有能压缩整体逻辑时才写', 'Textbook Check',
   'Locate → Compare → Fill Gaps → Leave', 'Skip textbook questions',
   'Homework · Application + Verification', 'Update from Evidence',
   '红笔易错点', 'Problematic Questions', 'Next-day Cue Recall',
@@ -170,11 +172,11 @@ for (const text of [
   if (!cornell.includes(text)) throw new Error(`Cornell Learning is missing: ${text}`);
 }
 const review = runtime.renderModuleFor('learn', 'review');
-for (const text of ['第一次正式 Cue Recall 可以放到第二天', '√ / △ / ○', 'Weekly Verification', '不要重新复习全部 √ 内容']) {
+for (const text of ['第一次正式 Cue Recall 可以放到第二天', '√ / △ / ○', 'Completeness Audit', 'Definitions / Properties']) {
   if (!review.includes(text)) throw new Error(`Active Recall & Spacing is missing: ${text}`);
 }
 const syllabus = runtime.renderModuleFor('learn', 'traffic');
-for (const text of ['Teacher ≠ Textbook ≠ Syllabus', 'Unit 完成并写完 Summary 后', 'coverage check', '不是每天的学习步骤']) {
+for (const text of ['Teacher ≠ Textbook ≠ Syllabus', 'Unit Summary 是可选压缩', 'coverage check', 'Blank-page Reconstruction']) {
   if (!syllabus.includes(text)) throw new Error(`Syllabus Check is missing: ${text}`);
 }
 const selfStudy = runtime.renderModuleFor('learn', 'selfstudy');

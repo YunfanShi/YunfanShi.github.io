@@ -7,13 +7,46 @@ import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
 import {
   completeReview,
+  completeCueReviews,
   createEmptyScheduleState,
+  LEARNING_TASK_PRESETS,
   parseTimetableImport,
   sessionsForDate,
   tasksForDate,
   timetableImportTemplate,
   withReviewCourseSelection,
 } from '../src/lib/learning/schedule-control.ts';
+
+test('task presets cover audits, self-study, cue review, and IELTS without fixing weekdays', () => {
+  const ids = new Set(LEARNING_TASK_PRESETS.map((preset) => preset.id));
+  for (const id of ['self-study', 'friday-audit', 'weekend-retrieval', 'unit-review', 'cumulative-review', 'ielts-listening', 'ielts-weekly-review']) {
+    assert.ok(ids.has(id), `missing preset ${id}`);
+  }
+  assert.ok(LEARNING_TASK_PRESETS.filter((preset) => preset.group === 'IELTS').every((preset) => preset.durationMinutes <= 60));
+});
+
+test('cues keep independent review states and due dates', () => {
+  const createdAt = '2026-09-15T08:00:00.000Z';
+  const state = {
+    ...createEmptyScheduleState(),
+    cues: [
+      { id: 'cue-def', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Motion', prompt: 'Define acceleration.', type: 'definition' as const, markingPoints: ['change in velocity', 'per unit time'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt },
+      { id: 'cue-explain', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Motion', prompt: 'Explain why the object slows down.', type: 'explain' as const, markingPoints: ['force decreases', 'acceleration decreases'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt },
+    ],
+  };
+  const reviewedAt = new Date(2026, 8, 19, 12);
+  const reviewed = completeCueReviews(state, [
+    { cueId: 'cue-def', status: 'stable' },
+    { cueId: 'cue-explain', status: 'partial', note: 'Missing the middle marking point.' },
+  ], reviewedAt, 'weekly-review');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.status, 'stable');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.nextReviewDate, '2026-09-22');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.status, 'partial');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.nextReviewDate, '2026-09-20');
+  assert.equal(reviewed.cueReviews.length, 2);
+  const due = tasksForDate(reviewed, new Date(2026, 8, 20, 12));
+  assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
+});
 
 test('date keys respect the user time zone around UTC midnight', () => {
   const instant = new Date('2026-09-05T17:30:00.000Z');
