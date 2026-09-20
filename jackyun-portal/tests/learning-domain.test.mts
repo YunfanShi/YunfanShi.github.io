@@ -11,10 +11,12 @@ import {
   completeLearningSession,
   createEmptyScheduleState,
   createIeltsWeekTasks,
+  deriveLearningStatus,
   LEARNING_TASK_PRESETS,
   migrateIeltsWeekTaskDates,
   parseTimetableImport,
   rescheduleManualTask,
+  rollOverManualTasks,
   sessionsForDate,
   tasksForDate,
   timetableImportTemplate,
@@ -58,6 +60,28 @@ test('manual tasks can be rescheduled to tomorrow without retaining a stale star
   assert.equal(tasks[0].date, '2026-09-14');
 });
 
+test('overdue manual tasks roll into today and merge with an equivalent task already due today', () => {
+  const state = createEmptyScheduleState();
+  state.manualTasks = [
+    { id: 'old-review', title: '常规复习', type: 'unit-review', date: '2026-09-13', start: '18:00', durationMinutes: 45, presetId: 'unit-review' },
+    { id: 'today-review', title: '常规复习', type: 'unit-review', date: '2026-09-14', start: '19:00', durationMinutes: 45, presetId: 'unit-review' },
+    { id: 'physics-review', title: '常规复习', type: 'unit-review', date: '2026-09-13', durationMinutes: 45, presetId: 'unit-review', subject: 'Physics' },
+    { id: 'old-reading', title: 'IELTS Reading', type: 'practice', date: '2026-09-12', start: '17:00', durationMinutes: 60, presetId: 'ielts-reading' },
+  ];
+
+  const rolled = rollOverManualTasks(state, '2026-09-14', '2026-09-14T00:00:00.000Z');
+  assert.equal(rolled.manualTasks.find((task) => task.id === 'old-reading')?.date, '2026-09-14');
+  assert.equal(rolled.manualTasks.find((task) => task.id === 'old-reading')?.start, undefined);
+  assert.equal(rolled.manualTasks.find((task) => task.id === 'today-review')?.start, '19:00');
+  assert.equal(rolled.manualTasks.find((task) => task.id === 'physics-review')?.date, '2026-09-14');
+  assert.deepEqual(rolled.cancellations['old-review'], {
+    cancelledAt: '2026-09-14T00:00:00.000Z',
+    reason: 'merged',
+    mergedInto: 'today-review',
+  });
+  assert.deepEqual(tasksForDate(rolled, new Date(2026, 8, 14, 12)).map((task) => task.key).sort(), ['old-reading', 'physics-review', 'today-review']);
+});
+
 test('cues keep independent review states and due dates', () => {
   const createdAt = '2026-09-15T08:00:00.000Z';
   const state = {
@@ -81,13 +105,26 @@ test('cues keep independent review states and due dates', () => {
   assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
 });
 
+test('due Cue reviews are generated as detailed tasks per subsection', () => {
+  const createdAt = '2026-09-19T08:00:00.000Z';
+  const state = createEmptyScheduleState();
+  state.cues = [
+    { id: 'motion', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Motion', prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'], intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', createdAt, updatedAt: createdAt },
+    { id: 'forces', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Forces', prompt: 'Explain terminal velocity.', type: 'explain', markingPoints: ['drag increases', 'resultant force becomes zero'], intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', createdAt, updatedAt: createdAt },
+  ];
+  const reviews = tasksForDate(state, new Date(2026, 8, 20, 12)).filter((task) => task.type === 'cue-review');
+  assert.equal(reviews.length, 2);
+  assert.deepEqual(reviews.map((task) => task.scope?.subsection).sort(), ['Forces', 'Motion']);
+  assert.match(reviews.find((task) => task.scope?.subsection === 'Forces')?.detail ?? '', /Explain terminal velocity/);
+});
+
 test('every learning task can record actual materials, scope, linked cues, and reviewed cues', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const existingCue = { id: 'cue-existing', subjectId: 'biology', subjectName: 'Biology', unit: 'Cells', subsection: 'Transport', prompt: 'Define osmosis.', type: 'definition' as const, markingPoints: ['net movement', 'water molecules', 'partially permeable membrane'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt };
   const newCue = { id: 'cue-new', subjectId: 'biology', subjectName: 'Biology', unit: 'Cells', subsection: 'Transport', prompt: 'State two factors affecting diffusion rate.', type: 'state' as const, markingPoints: ['temperature', 'concentration gradient'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt };
   const state = { ...createEmptyScheduleState(), cues: [existingCue] };
   const task = { key: 'study-1', title: 'Study cell transport', detail: '', type: 'study' as const, date: '2026-09-20', durationMinutes: 45, manual: true };
-  const completed = completeLearningSession(state, task, 'stable', { studiedContent: 'Cell transport 1.1–1.2', issue: '', note: '' }, {
+  const completed = completeLearningSession(state, task, { studiedContent: 'Cell transport 1.1–1.2', issue: '', note: '' }, {
     subjectName: 'Biology',
     scope: { unit: 'Cells', subsection: 'Transport', cueIds: ['cue-existing', 'cue-new'] },
     materials: [{ code: 'B', progress: '1.1–1.2' }, { code: 'N', progress: 'P8–10' }],
@@ -101,6 +138,17 @@ test('every learning task can record actual materials, scope, linked cues, and r
   assert.equal(completed.cues.find((cue) => cue.id === 'cue-existing')?.nextReviewDate, '2026-09-21');
   assert.equal(completed.cues.find((cue) => cue.id === 'cue-new')?.nextReviewDate, '2026-09-21');
   assert.equal(completed.cueReviews.length, 1);
+  assert.equal(completed.learningRecords[0].status, 'partial');
+  assert.equal(completed.learningRecords[0].systemReport.passRate, 0);
+  assert.match(completed.learningRecords[0].systemReport.summary, /2 条 Cue/);
+});
+
+test('learning status is derived only from selected Cue evidence', () => {
+  assert.equal(deriveLearningStatus(['a', 'b'], [{ cueId: 'a', status: 'stable' }, { cueId: 'b', status: 'stable' }]), 'stable');
+  assert.equal(deriveLearningStatus(['a', 'b'], [{ cueId: 'a', status: 'stable' }, { cueId: 'b', status: 'partial' }]), 'partial');
+  assert.equal(deriveLearningStatus(['a', 'b'], [{ cueId: 'a', status: 'stable' }, { cueId: 'b', status: 'unclear' }]), 'unclear');
+  assert.equal(deriveLearningStatus(['a'], []), 'partial');
+  assert.equal(deriveLearningStatus([], []), 'partial');
 });
 
 test('date keys respect the user time zone around UTC midnight', () => {

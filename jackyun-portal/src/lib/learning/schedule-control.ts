@@ -158,8 +158,51 @@ export interface LearningSessionEvidence {
   assessments: CueAssessment[];
 }
 
+export interface LearningRecordCue {
+  cueId: string;
+  subjectName: string;
+  unit: string;
+  subsection: string;
+  prompt: string;
+  type: CueType;
+  markingPoints: string[];
+  status: LearningStatus | 'linked';
+}
+
+export interface LearningSystemReport {
+  cueTotal: number;
+  stableCount: number;
+  partialCount: number;
+  unclearCount: number;
+  linkedCount: number;
+  passRate: number;
+  summary: string;
+  nextActions: string[];
+}
+
+export interface LearningRecord {
+  id: string;
+  taskKey: string;
+  taskTitle: string;
+  taskType: LearningTaskType;
+  completedAt: string;
+  status: LearningStatus;
+  studiedContent: string;
+  issue: string;
+  note: string;
+  subjectName?: string;
+  scope?: LearningScope;
+  materials: LearningMaterialProgress[];
+  cues: LearningRecordCue[];
+  guide?: StudyGuideTarget;
+  systemReport: LearningSystemReport;
+  aiReport?: { content: string; generatedAt: string };
+}
+
 export interface TaskCancellation {
   cancelledAt: string;
+  reason?: 'cancelled' | 'merged';
+  mergedInto?: string;
 }
 
 export interface ScheduleControlState {
@@ -172,6 +215,7 @@ export interface ScheduleControlState {
   reviewProgress: Record<string, ReviewProgress>;
   cues: StudyCue[];
   cueReviews: CueReview[];
+  learningRecords: LearningRecord[];
   importedAt?: string;
 }
 
@@ -246,6 +290,7 @@ export function createEmptyScheduleState(): ScheduleControlState {
     reviewProgress: {},
     cues: [],
     cueReviews: [],
+    learningRecords: [],
   };
 }
 
@@ -402,6 +447,54 @@ export function rescheduleManualTask(tasks: ManualLearningTask[], taskId: string
   return tasks.map((task) => task.id === taskId ? { ...task, date: targetDate, start: undefined } : task);
 }
 
+function manualTaskMergeKey(task: ManualLearningTask): string {
+  return JSON.stringify([
+    task.presetId ?? '',
+    task.type,
+    task.title.trim().replace(/\s+/gu, ' ').toLocaleLowerCase(),
+    task.subject?.trim().replace(/\s+/gu, ' ').toLocaleLowerCase() ?? '',
+    task.scope?.unit?.trim().replace(/\s+/gu, ' ').toLocaleLowerCase() ?? '',
+    task.scope?.subsection?.trim().replace(/\s+/gu, ' ').toLocaleLowerCase() ?? '',
+  ]);
+}
+
+/** Rolls unfinished overdue work into today and merges equivalent due tasks. */
+export function rollOverManualTasks(
+  state: ScheduleControlState,
+  today: string,
+  rolledAt = new Date().toISOString(),
+): ScheduleControlState {
+  const dueGroups = new Map<string, ManualLearningTask[]>();
+  for (const task of state.manualTasks) {
+    if (task.date > today || state.completions[task.id] || state.cancellations[task.id]) continue;
+    const key = manualTaskMergeKey(task);
+    dueGroups.set(key, [...(dueGroups.get(key) ?? []), task]);
+  }
+
+  const updatedDates = new Map<string, ManualLearningTask>();
+  const cancellations = { ...state.cancellations };
+  let changed = false;
+  for (const tasks of dueGroups.values()) {
+    const survivor = tasks.find((task) => task.date === today) ?? tasks[0];
+    if (survivor.date < today) {
+      updatedDates.set(survivor.id, { ...survivor, date: today, start: undefined });
+      changed = true;
+    }
+    for (const duplicate of tasks) {
+      if (duplicate.id === survivor.id) continue;
+      cancellations[duplicate.id] = { cancelledAt: rolledAt, reason: 'merged', mergedInto: survivor.id };
+      changed = true;
+    }
+  }
+
+  if (!changed) return state;
+  return {
+    ...state,
+    manualTasks: state.manualTasks.map((task) => updatedDates.get(task.id) ?? task),
+    cancellations,
+  };
+}
+
 export function isoDay(date: Date): number {
   return date.getDay() === 0 ? 7 : date.getDay();
 }
@@ -530,11 +623,14 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
   const key = dateKey(date);
   const due = state.cues.filter((cue) => cue.nextReviewDate && cue.nextReviewDate <= key);
   const groups = new Map<string, StudyCue[]>();
-  for (const cue of due) groups.set(cue.subjectId, [...(groups.get(cue.subjectId) ?? []), cue]);
+  for (const cue of due) {
+    const groupKey = JSON.stringify([cue.subjectId, cue.unit, cue.subsection]);
+    groups.set(groupKey, [...(groups.get(groupKey) ?? []), cue]);
+  }
   return [...groups.values()].map((cues) => ({
-    key: `cue-review:${key}:${cues[0].subjectId}`,
-    title: `${cues[0].subjectName} · ${cues.length} 条 Cue 到期`,
-    detail: '遮住 Notes，逐条回答；每条 Cue 独立记录 √ / △ / ○。Definition 必须包含必要关键词，Explain 必须保持 marking-point chain。',
+    key: `cue-review:${key}:${cues[0].subjectId}:${encodeURIComponent(cues[0].unit)}:${encodeURIComponent(cues[0].subsection)}`,
+    title: `${cues[0].subjectName} · ${cues[0].unit} / ${cues[0].subsection}`,
+    detail: `按 StudyGuide 先遮住 Notes，再逐条检索：${cues.map((cue) => cue.prompt).join('；')}。Definition / State 按必要得分点判定，Explain 保持完整 marking-point chain。`,
     type: 'cue-review',
     date: key,
     durationMinutes: Math.min(60, Math.max(15, cues.length * 5)),
@@ -542,8 +638,8 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
     subjectName: cues[0].subjectName,
     cueIds: cues.map((cue) => cue.id),
     scope: {
-      unit: [...new Set(cues.map((cue) => cue.unit))].join('、'),
-      subsection: [...new Set(cues.map((cue) => cue.subsection))].join('、'),
+      unit: cues[0].unit,
+      subsection: cues[0].subsection,
       cueIds: cues.map((cue) => cue.id),
     },
     guide: { tab: 'learn', subTab: 'review' },
@@ -664,20 +760,42 @@ export function completeCueReviews(
   };
 }
 
+export function deriveLearningStatus(cueIds: string[], assessments: CueAssessment[]): LearningStatus {
+  const assessed = new Map(assessments.map((assessment) => [assessment.cueId, assessment.status]));
+  if (cueIds.some((cueId) => assessed.get(cueId) === 'unclear')) return 'unclear';
+  if (cueIds.length > 0 && cueIds.every((cueId) => assessed.get(cueId) === 'stable')) return 'stable';
+  return 'partial';
+}
+
+function createSystemReport(cues: LearningRecordCue[], status: LearningStatus): LearningSystemReport {
+  const stableCount = cues.filter((cue) => cue.status === 'stable').length;
+  const partialCount = cues.filter((cue) => cue.status === 'partial').length;
+  const unclearCount = cues.filter((cue) => cue.status === 'unclear').length;
+  const linkedCount = cues.filter((cue) => cue.status === 'linked').length;
+  const passRate = cues.length ? Math.round((stableCount / cues.length) * 100) : 0;
+  const nextActions = status === 'unclear'
+    ? ['按 StudyGuide 重开 Notes / Textbook，只修复红色 Cue 的最小缺口。', '关闭资料重新检索；需要应用时补一道代表题。']
+    : status === 'partial'
+      ? ['定位黄色或未验证 Cue 缺失的关键词、限定条件或中间因果。', '完成 minimal repair，并在次日闭卷重测。']
+      : ['保持间隔复习，不机械重做已经稳定的 Cue。', '到期时先闭卷检索，再用证据核对。'];
+  const summary = cues.length
+    ? `本次关联 ${cues.length} 条 Cue：√ ${stableCount}、△ ${partialCount}、○ ${unclearCount}、未验证 ${linkedCount}；完全通过率 ${passRate}%。`
+    : '本次没有关联 Cue，因此缺少可验证的主动检索证据，状态记为部分通过。';
+  return { cueTotal: cues.length, stableCount, partialCount, unclearCount, linkedCount, passRate, summary, nextActions };
+}
+
 /** Records what actually happened when any learning task is finished. */
 export function completeLearningSession(
   state: ScheduleControlState,
   task: LearningTask,
-  status: LearningStatus,
   details: ReviewDetails,
   evidence: LearningSessionEvidence,
   completedAt: Date,
 ): ScheduleControlState {
+  const status = deriveLearningStatus(evidence.cueIds, evidence.assessments);
   const studiedContent = details.studiedContent.trim().slice(0, 1000);
-  const issue = status === 'stable' ? '' : details.issue.trim().slice(0, 1000);
   const note = details.note.trim().slice(0, 1000);
   if (!studiedContent) throw new Error('请填写本次学习或复习了什么。');
-  if (status !== 'stable' && !issue) throw new Error('△ 和 ○ 必须填写发现的问题。');
 
   const reviewedDate = dateKey(completedAt);
   const scheduledNewCues = evidence.newCues.map((cue) => ({
@@ -693,6 +811,25 @@ export function completeLearningSession(
   if (cueIds.some((cueId) => !existingCueIds.has(cueId))) throw new Error('学习记录包含不存在的 Cue。');
   const assessmentIds = new Set(evidence.assessments.map((assessment) => assessment.cueId));
   if ([...assessmentIds].some((cueId) => !cueIds.includes(cueId))) throw new Error('只有本次关联的 Cue 才能评分。');
+  const assessmentByCueId = new Map(evidence.assessments.map((assessment) => [assessment.cueId, assessment.status]));
+  const allCues = [...state.cues, ...scheduledNewCues];
+  const recordCues = cueIds.map((cueId): LearningRecordCue => {
+    const cue = allCues.find((item) => item.id === cueId)!;
+    return {
+      cueId,
+      subjectName: cue.subjectName,
+      unit: cue.unit,
+      subsection: cue.subsection,
+      prompt: cue.prompt,
+      type: cue.type,
+      markingPoints: [...cue.markingPoints],
+      status: assessmentByCueId.get(cueId) ?? 'linked',
+    };
+  });
+  const weakCueLabels = recordCues.filter((cue) => cue.status !== 'stable').map((cue) => `${cue.unit} / ${cue.subsection}：${cue.prompt}`);
+  const issue = status === 'stable'
+    ? ''
+    : (details.issue.trim().slice(0, 1000) || (weakCueLabels.length ? `需要继续处理：${weakCueLabels.join('；')}`.slice(0, 1000) : '本次没有提供全部通过的 Cue 证据。'));
 
   const withCues = { ...state, cues: [...state.cues, ...scheduledNewCues] };
   const isSubjectReview = Boolean(task.subjectId && task.subjectName && ['course-review', 'interval-review', 'weekly-review'].includes(task.type));
@@ -722,9 +859,28 @@ export function completeLearningSession(
       },
     };
   }
-  return evidence.assessments.length
+  updated = evidence.assessments.length
     ? completeCueReviews(updated, evidence.assessments, completedAt, task.key)
     : updated;
+  const completedAtIso = completedAt.toISOString();
+  const record: LearningRecord = {
+    id: `${task.key}:${completedAtIso}`,
+    taskKey: task.key,
+    taskTitle: task.title,
+    taskType: task.type,
+    completedAt: completedAtIso,
+    status,
+    studiedContent,
+    issue,
+    note,
+    ...(evidence.subjectName?.trim() || task.subjectName ? { subjectName: evidence.subjectName?.trim().slice(0, 80) || task.subjectName } : {}),
+    ...(evidence.scope ? { scope: evidence.scope } : task.scope ? { scope: task.scope } : {}),
+    materials: evidence.materials,
+    cues: recordCues,
+    ...(task.guide ? { guide: task.guide } : {}),
+    systemReport: createSystemReport(recordCues, status),
+  };
+  return { ...updated, learningRecords: [record, ...updated.learningRecords] };
 }
 
 export function isCueReviewTask(type: LearningTaskType): boolean {

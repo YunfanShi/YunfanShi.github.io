@@ -12,11 +12,13 @@ import {
   addCalendarDays,
   dateFromKey,
   dateKey,
+  deriveLearningStatus,
   LEARNING_MATERIALS,
   LEARNING_TASK_PRESETS,
   migrateIeltsWeekTaskDates,
   parseTimetableImport,
   rescheduleManualTask,
+  rollOverManualTasks,
   sessionsForDate,
   tasksForDate,
   timetableImportTemplate,
@@ -27,6 +29,7 @@ import {
   type CueType,
   type LearningTask,
   type LearningSessionEvidence,
+  type LearningRecord,
   type ManualLearningTask,
   type ReviewDetails,
   type ScheduleControlState,
@@ -55,14 +58,14 @@ const TYPE_META: Record<LearningTask['type'], { label: string; icon: string; ton
   custom: { label: '待办', icon: 'check_circle', tone: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' },
 };
 
-function loadState(): ScheduleControlState {
+function loadState(now = new Date()): ScheduleControlState {
   const empty = createEmptyScheduleState();
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<ScheduleControlState> | null;
     if (!parsed || parsed.schemaVersion !== 1) return empty;
     const storedSettings = parsed.settings as Partial<ScheduleControlState['settings']> | undefined;
     const previewPreferenceSet = storedSettings?.previewPreferenceSet === true;
-    return {
+    const loaded: ScheduleControlState = {
       ...empty,
       ...parsed,
       settings: {
@@ -77,8 +80,10 @@ function loadState(): ScheduleControlState {
       reviewProgress: parsed.reviewProgress && typeof parsed.reviewProgress === 'object' ? parsed.reviewProgress : {},
       cues: Array.isArray(parsed.cues) ? parsed.cues : [],
       cueReviews: Array.isArray(parsed.cueReviews) ? parsed.cueReviews : [],
+      learningRecords: Array.isArray(parsed.learningRecords) ? parsed.learningRecords : [],
       timetable: parsed.timetable ? parseTimetableImport(parsed.timetable) : null,
     };
+    return rollOverManualTasks(loaded, dateKey(now), now.toISOString());
   } catch {
     return empty;
   }
@@ -153,8 +158,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
   );
 }
 
-function ReviewDialog({ task, cues, signedIn, onClose, onComplete }: { task: LearningTask; cues: StudyCue[]; signedIn: boolean; onClose: () => void; onComplete: (status: LearningStatus, details: ReviewDetails, evidence: LearningSessionEvidence) => void }) {
-  const [status, setStatus] = useState<LearningStatus>(task.lastStatus ?? 'stable');
+function ReviewDialog({ task, cues, signedIn, onClose, onComplete }: { task: LearningTask; cues: StudyCue[]; signedIn: boolean; onClose: () => void; onComplete: (details: ReviewDetails, evidence: LearningSessionEvidence) => void }) {
   const [studiedContent, setStudiedContent] = useState(task.studiedContent ?? '');
   const [issue, setIssue] = useState(task.issue ?? '');
   const [note, setNote] = useState(task.note ?? '');
@@ -172,8 +176,9 @@ function ReviewDialog({ task, cues, signedIn, onClose, onComplete }: { task: Lea
   const [newCueMarkingPoints, setNewCueMarkingPoints] = useState('');
   const allCues = [...cues, ...newCues];
   const visibleCues = groupCues(allCues.filter((cue) => `${cue.subjectName} ${cue.unit} ${cue.subsection} ${cue.prompt}`.toLowerCase().includes(cueQuery.trim().toLowerCase())));
-  const issueRequired = status !== 'stable';
-  const canSubmit = Boolean(studiedContent.trim()) && (!issueRequired || Boolean(issue.trim()));
+  const assessments = selectedCueIds.flatMap((cueId): CueAssessment[] => { const cueStatus = cueStatuses[cueId]; return cueStatus && cueStatus !== 'linked' ? [{ cueId, status: cueStatus }] : []; });
+  const status = deriveLearningStatus(selectedCueIds, assessments);
+  const canSubmit = Boolean(studiedContent.trim());
   const missingCueState = selectedCueIds.some((id) => !cueStatuses[id]);
   const toggleMaterial = (code: string) => setMaterials((current) => {
     const next = { ...current };
@@ -202,11 +207,6 @@ function ReviewDialog({ task, cues, signedIn, onClose, onComplete }: { task: Lea
     setCueStatuses((current) => ({ ...current, [cue.id]: 'linked' }));
     setNewCuePrompt(''); setNewCueMarkingPoints(''); setShowCueForm(false);
   };
-  const options: Array<{ value: LearningStatus; mark: string; title: string; hint: string; className: string }> = [
-    { value: 'stable', mark: '√', title: '通过', hint: '至少 3 天后再复习，之后逐步延长', className: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' },
-    { value: 'partial', mark: '△', title: '部分通过', hint: '记录问题，次日重测', className: 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200' },
-    { value: 'unclear', mark: '○', title: '未通过', hint: '任务不完成，修复后重新判定', className: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200' },
-  ];
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="review-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="max-h-[92dvh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl">
@@ -215,12 +215,10 @@ function ReviewDialog({ task, cues, signedIn, onClose, onComplete }: { task: Lea
           <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-[var(--brand)]">完成学习记录</p><h2 id="review-dialog-title" className="mt-1 text-xl font-semibold">{task.title}</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">填写实际范围、资料和 Cue；只有评分过的 Cue 才会更新复习时间。记录会{signedIn ? '同步到当前账号' : '先保存在本机，登录后可同步'}。</p></div>
           <button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">close</span></button>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {options.map((option) => <button key={option.value} type="button" onClick={() => setStatus(option.value)} aria-pressed={status === option.value} className={`rounded-2xl border p-4 text-left transition ${option.className} ${status === option.value ? 'ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-[var(--card)]' : 'opacity-75 hover:opacity-100'}`}><span className="text-2xl font-bold">{option.mark}</span><strong className="ml-2">{option.title}</strong><span className="mt-2 block text-xs leading-5 opacity-80">{option.hint}</span></button>)}
-        </div>
+        <div className={`mt-5 rounded-2xl border p-4 ${status === 'stable' ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : status === 'partial' ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200'}`}><div className="flex items-center gap-3"><span className="text-2xl font-bold">{statusMark(status)}</span><div><strong>系统自动判定：{status === 'stable' ? '全部通过' : status === 'partial' ? '部分通过' : '未通过'}</strong><p className="mt-1 text-xs leading-5 opacity-80">{status === 'stable' ? '所有所选 Cue 都是 √。' : status === 'unclear' ? '至少一条所选 Cue 是 ○。' : '没有红色 Cue，但存在 △、仅关联或尚无 Cue 证据。'}</p></div></div></div>
         <div className="mt-5 space-y-4">
           <label className="block text-sm font-medium">这次实际学习 / 复习了什么 <span className="text-rose-600">（必填）</span><textarea required value={studiedContent} onChange={(event) => setStudiedContent(event.target.value)} rows={2} maxLength={1000} placeholder="例如：纯数三角函数恒等变换，第 2–4 题。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>
-          {issueRequired && <label className="block text-sm font-medium">发现的问题 <span className="text-rose-600">（△ / ○ 必填）</span><textarea required value={issue} onChange={(event) => setIssue(event.target.value)} rows={2} maxLength={1000} placeholder="例如：会代公式，但无法解释为什么要这样变形。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>}
+          {status !== 'stable' && <label className="block text-sm font-medium">发现的问题 <span className="text-[var(--muted-foreground)]">（可选；留空时系统会根据 Cue 自动生成）</span><textarea value={issue} onChange={(event) => setIssue(event.target.value)} rows={2} maxLength={1000} placeholder="例如：会代公式，但无法解释为什么要这样变形。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>}
           <label className="block text-sm font-medium">其他备注 <span className="text-[var(--muted-foreground)]">（可选）</span><textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={1000} placeholder="例如：下次换一道综合题，或记录使用的资料页码。" className="mt-2 w-full resize-none rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 outline-none focus:border-[var(--brand)]" /></label>
           <fieldset className="rounded-2xl border border-[var(--card-border)] p-4"><legend className="px-2 text-sm font-semibold">实际范围</legend><div className="grid gap-3 sm:grid-cols-3"><label className="text-xs font-medium">学科<input value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="Physics" className="mt-1.5 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-2 text-sm" /></label><label className="text-xs font-medium">大单元<input value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="Mechanics" className="mt-1.5 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-2 text-sm" /></label><label className="text-xs font-medium">小单元<input value={subsection} onChange={(event) => setSubsection(event.target.value)} placeholder="Projectile Motion" className="mt-1.5 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-2 text-sm" /></label></div></fieldset>
           <fieldset className="rounded-2xl border border-[var(--card-border)] p-4"><legend className="px-2 text-sm font-semibold">本次实际使用资料</legend><div className="grid gap-2 sm:grid-cols-2">{LEARNING_MATERIALS.map((material) => { const checked = material.code in materials; return <div key={material.code} className={`rounded-xl border p-3 ${checked ? 'border-[var(--brand)] bg-blue-50/60 dark:bg-blue-950/25' : 'border-[var(--card-border)]'}`}><label className="flex cursor-pointer items-center gap-2 text-xs font-medium"><input type="checkbox" checked={checked} onChange={() => toggleMaterial(material.code)} className="h-4 w-4 accent-[var(--brand)]" /><strong className="font-mono">{material.code}</strong>{material.label}</label>{checked && <input value={materials[material.code]} onChange={(event) => setMaterials((current) => ({ ...current, [material.code]: event.target.value }))} placeholder="例如：1.1–1.2 / P12–18" className="mt-2 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-2 text-xs" />}</div>; })}</div></fieldset>
@@ -229,14 +227,14 @@ function ReviewDialog({ task, cues, signedIn, onClose, onComplete }: { task: Lea
           <input value={cueQuery} onChange={(event) => setCueQuery(event.target.value)} placeholder="搜索学科、单元或 Cue…" className="mt-3 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" />
           <div className="mt-3 max-h-80 space-y-4 overflow-y-auto">{visibleCues.map((subject) => <section key={subject.subject}><h3 className="sticky top-0 z-10 rounded-lg bg-[var(--background)] px-2 py-1.5 text-sm font-semibold">{subject.subject}</h3>{subject.units.map((unitGroup) => <div key={unitGroup.unit} className="ml-2 mt-2 border-l-2 border-[var(--card-border)] pl-3"><p className="text-xs font-semibold text-[var(--brand)]">{unitGroup.unit}</p>{unitGroup.subsections.map((subsectionGroup) => <div key={subsectionGroup.subsection} className="mt-2"><p className="text-[11px] font-medium text-[var(--muted-foreground)]">{subsectionGroup.subsection}</p><div className="mt-1 space-y-2">{subsectionGroup.cues.map((cue) => { const checked = selectedCueIds.includes(cue.id); return <div key={cue.id} className={`rounded-xl border p-3 ${checked ? 'border-[var(--brand)] bg-blue-50/60 dark:bg-blue-950/25' : 'border-[var(--card-border)]'}`}><label className="flex cursor-pointer items-start gap-2"><input type="checkbox" checked={checked} onChange={() => toggleCue(cue.id)} className="mt-1 h-4 w-4 accent-[var(--brand)]" /><span className="min-w-0 flex-1"><span className="text-[10px] font-semibold uppercase text-[var(--muted-foreground)]">[{cue.type}]</span><strong className="block text-sm">{cue.prompt}</strong>{cue.markingPoints.length > 0 && <span className="mt-1 block text-xs text-[var(--muted-foreground)]">Marking points：{cue.markingPoints.join(' · ')}</span>}</span></label>{checked && <div className="mt-3 grid grid-cols-4 gap-1.5">{([['linked', '仅关联'], ['stable', '√'], ['partial', '△'], ['unclear', '○']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setCueStatuses((current) => ({ ...current, [cue.id]: value }))} className={`h-9 rounded-lg border text-xs font-bold ${cueStatuses[cue.id] === value ? 'border-[var(--brand)] bg-[var(--brand)] text-white dark:text-[#202124]' : 'border-[var(--card-border)]'}`}>{label}</button>)}</div>}</div>; })}</div></div>)}</div>)}</section>)}{!allCues.length && <p className="rounded-xl border border-dashed border-[var(--card-border)] py-8 text-center text-xs text-[var(--muted-foreground)]">还没有 Cue，可以直接在上方新增。</p>}</div></fieldset>
         </div>
-        {(!canSubmit || missingCueState) && <p className="mt-2 text-xs text-rose-600">请填写学习内容{issueRequired ? '和发现的问题' : ''}{missingCueState ? '，并为所有选中的 Cue 选择“仅关联”或状态' : ''}。</p>}
-        <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={!canSubmit || missingCueState} onClick={() => onComplete(status, { studiedContent, issue, note }, { subjectName: subjectName.trim() || undefined, scope: unit.trim() || subsection.trim() ? { ...(unit.trim() ? { unit: unit.trim() } : {}), ...(subsection.trim() ? { subsection: subsection.trim() } : {}), cueIds: selectedCueIds } : { cueIds: selectedCueIds }, materials: Object.entries(materials).map(([code, progress]) => ({ code: code as LearningSessionEvidence['materials'][number]['code'], ...(progress.trim() ? { progress: progress.trim() } : {}) })), cueIds: selectedCueIds, newCues, assessments: selectedCueIds.flatMap((cueId): CueAssessment[] => { const cueStatus = cueStatuses[cueId]; return cueStatus && cueStatus !== 'linked' ? [{ cueId, status: cueStatus }] : []; }) })} className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 ${status === 'unclear' ? 'bg-rose-600' : 'bg-[var(--brand)] dark:text-[#202124]'}`}>{status === 'unclear' ? '保存记录，继续修复' : '保存完成记录'}</button></div>
+        {(!canSubmit || missingCueState) && <p className="mt-2 text-xs text-rose-600">请填写学习内容{missingCueState ? '，并为所有选中的 Cue 选择“仅关联”或状态' : ''}。</p>}
+        <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={!canSubmit || missingCueState} onClick={() => onComplete({ studiedContent, issue, note }, { subjectName: subjectName.trim() || undefined, scope: unit.trim() || subsection.trim() ? { ...(unit.trim() ? { unit: unit.trim() } : {}), ...(subsection.trim() ? { subsection: subsection.trim() } : {}), cueIds: selectedCueIds } : { cueIds: selectedCueIds }, materials: Object.entries(materials).map(([code, progress]) => ({ code: code as LearningSessionEvidence['materials'][number]['code'], ...(progress.trim() ? { progress: progress.trim() } : {}) })), cueIds: selectedCueIds, newCues, assessments })} className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 ${status === 'unclear' ? 'bg-rose-600' : 'bg-[var(--brand)] dark:text-[#202124]'}`}>{status === 'unclear' ? '保存记录，继续修复' : '保存学习记录'}</button></div>
       </div>
     </div>
   );
 }
 
-function TaskDialog({ date, onClose, onSave }: { date: string; onClose: () => void; onSave: (task: ManualLearningTask) => void }) {
+function TaskDialog({ date, cues, onClose, onSave }: { date: string; cues: StudyCue[]; onClose: () => void; onSave: (task: ManualLearningTask) => void }) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<ManualLearningTask['type']>('custom');
   const [presetId, setPresetId] = useState('');
@@ -246,9 +244,11 @@ function TaskDialog({ date, onClose, onSave }: { date: string; onClose: () => vo
   const [subject, setSubject] = useState('');
   const [unit, setUnit] = useState('');
   const [subsection, setSubsection] = useState('');
+  const [selectedCueIds, setSelectedCueIds] = useState<string[]>([]);
   const [materials, setMaterials] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
   const selectedPreset = LEARNING_TASK_PRESETS.find((preset) => preset.id === presetId);
+  const groupedCues = groupCues(cues);
   const applyPreset = (id: string) => {
     setPresetId(id);
     const preset = LEARNING_TASK_PRESETS.find((item) => item.id === id);
@@ -266,13 +266,14 @@ function TaskDialog({ date, onClose, onSave }: { date: string; onClose: () => vo
   });
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="task-dialog-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <form className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onSubmit={(event) => { event.preventDefault(); if (!title.trim()) return; onSave({ id: taskId(), title: title.trim().slice(0, 120), type, date: taskDate, ...(start ? { start } : {}), durationMinutes: Math.max(5, Math.min(600, duration || 30)), ...(subject.trim() ? { subject: subject.trim().slice(0, 80) } : {}), ...(presetId ? { presetId } : {}), ...((unit.trim() || subsection.trim()) ? { scope: { ...(unit.trim() ? { unit: unit.trim().slice(0, 120) } : {}), ...(subsection.trim() ? { subsection: subsection.trim().slice(0, 120) } : {}) } } : {}), ...(Object.keys(materials).length ? { materials: Object.entries(materials).map(([code, progress]) => ({ code: code as keyof typeof materials, ...(progress.trim() ? { progress: progress.trim().slice(0, 200) } : {}) })) as ManualLearningTask['materials'] } : {}), ...(selectedPreset?.guide ? { guide: selectedPreset.guide } : {}), ...(note.trim() ? { note: note.trim().slice(0, 1000) } : {}) }); }}>
+      <form className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onSubmit={(event) => { event.preventDefault(); if (!title.trim()) return; onSave({ id: taskId(), title: title.trim().slice(0, 120), type, date: taskDate, ...(start ? { start } : {}), durationMinutes: Math.max(5, Math.min(600, duration || 30)), ...(subject.trim() ? { subject: subject.trim().slice(0, 80) } : {}), ...(presetId ? { presetId } : {}), ...((unit.trim() || subsection.trim() || selectedCueIds.length) ? { scope: { ...(unit.trim() ? { unit: unit.trim().slice(0, 120) } : {}), ...(subsection.trim() ? { subsection: subsection.trim().slice(0, 120) } : {}), ...(selectedCueIds.length ? { cueIds: selectedCueIds } : {}) } } : {}), ...(Object.keys(materials).length ? { materials: Object.entries(materials).map(([code, progress]) => ({ code: code as keyof typeof materials, ...(progress.trim() ? { progress: progress.trim().slice(0, 200) } : {}) })) as ManualLearningTask['materials'] } : {}), ...(selectedPreset?.guide ? { guide: selectedPreset.guide } : {}), ...(note.trim() ? { note: note.trim().slice(0, 1000) } : {}) }); }}>
         <div className="flex items-center justify-between"><h2 id="task-dialog-title" className="text-xl font-semibold">添加学习任务</h2><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">close</span></button></div>
         <div className="mt-5 space-y-4">
           <label className="block text-sm font-medium">任务预设<select value={presetId} onChange={(event) => applyPreset(event.target.value)} className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5"><option value="">不使用预设</option>{(['常规学习', '复习与检查', '练习与修复', 'IELTS'] as const).map((group) => <optgroup key={group} label={group}>{LEARNING_TASK_PRESETS.filter((preset) => preset.group === group).map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}</optgroup>)}</select></label>
           <label className="block text-sm font-medium">任务名称<input autoFocus required value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="例如：力学专题训练" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5 outline-none focus:border-[var(--brand)]" /></label>
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-medium">类型<select value={type} onChange={(event) => setType(event.target.value as ManualLearningTask['type'])} className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5"><option value="study">学习</option><option value="self-study">自学</option><option value="completeness-audit">完整性检查</option><option value="unit-review">单元复习</option><option value="cumulative-review">总复习</option><option value="practice">练习</option><option value="repair">修复</option><option value="preview">预习（可选）</option><option value="special">专项学习</option><option value="exam">考试</option><option value="custom">待办</option></select></label><label className="text-sm font-medium">科目（可选）<input value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={80} placeholder="Physics" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5" /></label></div>
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-medium">大单元（可选）<input value={unit} onChange={(event) => setUnit(event.target.value)} maxLength={120} placeholder="Mechanics" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5" /></label><label className="text-sm font-medium">小单元（可选）<input value={subsection} onChange={(event) => setSubsection(event.target.value)} maxLength={120} placeholder="Projectile Motion" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5" /></label></div>
+          {groupedCues.length > 0 && <fieldset className="rounded-2xl border border-[var(--card-border)] p-4"><legend className="px-2 text-sm font-semibold">按大单元 / 小单元选择 Cue</legend><p className="mb-3 text-xs text-[var(--muted-foreground)]">选中的 Cue 会成为任务的具体学习或复习内容。</p><div className="max-h-64 space-y-3 overflow-y-auto">{groupedCues.map((subjectGroup) => <section key={subjectGroup.subject}><h3 className="text-xs font-semibold">{subjectGroup.subject}</h3>{subjectGroup.units.map((unitGroup) => <div key={unitGroup.unit} className="ml-2 mt-2 border-l-2 border-[var(--card-border)] pl-3"><p className="text-xs font-semibold text-[var(--brand)]">{unitGroup.unit}</p>{unitGroup.subsections.map((subsectionGroup) => <div key={subsectionGroup.subsection} className="mt-2"><p className="text-[11px] text-[var(--muted-foreground)]">{subsectionGroup.subsection}</p>{subsectionGroup.cues.map((cue) => <label key={cue.id} className="mt-1 flex cursor-pointer items-start gap-2 rounded-lg p-2 hover:bg-black/[.035] dark:hover:bg-white/[.06]"><input type="checkbox" checked={selectedCueIds.includes(cue.id)} onChange={() => setSelectedCueIds((current) => current.includes(cue.id) ? current.filter((id) => id !== cue.id) : [...current, cue.id])} className="mt-0.5 h-4 w-4 accent-[var(--brand)]" /><span className="text-xs">[{cue.type.toUpperCase()}] {cue.prompt}</span></label>)}</div>)}</div>)}</section>)}</div></fieldset>}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><label className="text-sm font-medium">日期<input required type="date" value={taskDate} onChange={(event) => setTaskDate(event.target.value)} className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="text-sm font-medium">开始（可选）<input type="time" value={start} onChange={(event) => setStart(event.target.value)} className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="col-span-2 text-sm font-medium sm:col-span-1">分钟<input type="number" min={5} max={600} value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label></div>
           <label className="block text-sm font-medium">备注<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={1000} className="mt-2 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3.5 py-2.5" /></label>
           <fieldset><legend className="text-sm font-medium">使用资料与计划范围（可多选）</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{LEARNING_MATERIALS.map((material) => { const checked = material.code in materials; return <div key={material.code} className={`rounded-xl border p-3 ${checked ? 'border-[var(--brand)] bg-blue-50/60 dark:bg-blue-950/25' : 'border-[var(--card-border)]'}`}><label className="flex cursor-pointer items-center gap-2 text-sm font-medium"><input type="checkbox" checked={checked} onChange={() => toggleMaterial(material.code)} className="h-4 w-4 accent-[var(--brand)]" /><span className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">{material.code}</span>{material.label}</label>{checked && <input value={materials[material.code]} onChange={(event) => setMaterials((current) => ({ ...current, [material.code]: event.target.value }))} maxLength={200} placeholder="例如：1.1–1.2 / P12–18 / Q1–8" className="mt-2 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-2 text-xs" />}</div>; })}</div></fieldset>
@@ -411,25 +412,33 @@ function TaskList({ tasks, onComplete, onPostpone, onCancel }: { tasks: Learning
   );
 }
 
+function LearningRecordsView({ records, aiBusyId, onGenerateAi }: { records: LearningRecord[]; aiBusyId: string; onGenerateAi: (record: LearningRecord) => void }) {
+  if (!records.length) return <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] px-6 py-16 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">history_edu</span><h2 className="mt-3 font-semibold">还没有学习记录</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">完成任意学习或复习任务后，系统报告会自动出现在这里。</p></div>;
+  return <section className="space-y-4">{records.map((record) => { const report = record.systemReport; return <article key={record.id} className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${record.status === 'stable' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200' : record.status === 'partial' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-200'}`}>{statusMark(record.status)} {record.status === 'stable' ? '全部通过' : record.status === 'partial' ? '部分通过' : '未通过'}</span><span className="text-xs text-[var(--muted-foreground)]">{formatReviewTimestamp(record.completedAt)}</span></div><h2 className="mt-2 text-lg font-semibold">{record.taskTitle}</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">{[record.subjectName, record.scope?.unit, record.scope?.subsection].filter(Boolean).join(' → ') || '未指定分类'}</p></div>{record.guide && <Link href={`/study-guide?tab=${encodeURIComponent(record.guide.tab)}&subTab=${encodeURIComponent(record.guide.subTab)}`} className="rounded-full border border-[var(--card-border)] px-3 py-2 text-xs font-semibold text-[var(--brand)]">查看对应 StudyGuide</Link>}</div><div className="mt-4 rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><h3 className="text-sm font-semibold">系统学习报告</h3><p className="mt-2 text-sm leading-6">{report.summary}</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{[['通过率', `${report.passRate}%`], ['√', report.stableCount], ['△', report.partialCount], ['○', report.unclearCount], ['未验证', report.linkedCount]].map(([label, value]) => <div key={label} className="rounded-xl bg-[var(--card)] px-3 py-2 text-center"><p className="text-[10px] text-[var(--muted-foreground)]">{label}</p><strong className="mt-1 block text-sm">{value}</strong></div>)}</div><ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5 text-[var(--muted-foreground)]">{report.nextActions.map((action) => <li key={action}>{action}</li>)}</ul></div><div className="mt-4 grid gap-4 lg:grid-cols-2"><div><h3 className="text-sm font-semibold">本次内容与证据</h3><p className="mt-2 text-sm leading-6">{record.studiedContent}</p>{record.issue && <p className="mt-2 text-xs leading-5 text-rose-700 dark:text-rose-200"><strong>问题：</strong>{record.issue}</p>}{record.materials.length > 0 && <p className="mt-2 text-xs text-[var(--muted-foreground)]"><strong>资料：</strong>{record.materials.map((material) => `${material.code}${material.progress ? `（${material.progress}）` : ''}`).join(' · ')}</p>}</div><div><h3 className="text-sm font-semibold">Cue 明细</h3><div className="mt-2 max-h-56 space-y-2 overflow-y-auto">{record.cues.map((cue) => <div key={cue.cueId} className="rounded-xl border border-[var(--card-border)] p-2.5"><p className="text-[10px] text-[var(--muted-foreground)]">{cue.unit} / {cue.subsection} · [{cue.type.toUpperCase()}]</p><div className="mt-1 flex gap-2"><strong className="text-sm">{cue.status === 'linked' ? '—' : statusMark(cue.status)}</strong><p className="text-xs leading-5">{cue.prompt}</p></div></div>)}{!record.cues.length && <p className="text-xs text-[var(--muted-foreground)]">本次没有关联 Cue。</p>}</div></div></div><div className="mt-4 rounded-2xl border border-[var(--card-border)] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-semibold">AI 学习报告</h3><p className="mt-1 text-xs text-[var(--muted-foreground)]">基于本条记录和 Cue 证据生成，不替代系统统计。</p></div><button type="button" disabled={aiBusyId === record.id} onClick={() => onGenerateAi(record)} className="rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 dark:text-[#202124]">{aiBusyId === record.id ? '生成中…' : record.aiReport ? '重新生成' : '生成 AI 报告'}</button></div>{record.aiReport && <div className="mt-3 whitespace-pre-wrap text-sm leading-6">{record.aiReport.content}</div>}</div></article>; })}</section>;
+}
+
 export default function ScheduleControl({ personalIeltsPlan = false }: { personalIeltsPlan?: boolean }) {
   const { signedIn } = useAuthMode();
   const [state, setState] = useState<ScheduleControlState>(() => createEmptyScheduleState());
   const [ready, setReady] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
-  const [view, setView] = useState<'today' | 'week' | 'settings'>('today');
+  const [view, setView] = useState<'today' | 'week' | 'records' | 'settings'>('today');
   const [reviewTask, setReviewTask] = useState<LearningTask | null>(null);
   const [taskDialog, setTaskDialog] = useState(false);
   const [cueManager, setCueManager] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
   const [notice, setNotice] = useState('');
+  const [aiReportBusyId, setAiReportBusyId] = useState('');
+  const selected = useMemo(() => selectedDate ? dateFromKey(selectedDate) : new Date(2000, 0, 1), [selectedDate]);
+  const todayKey = now ? dateKey(now) : '';
 
   useEffect(() => {
     queueMicrotask(() => {
       const current = new Date();
       setNow(current);
       setSelectedDate(dateKey(current));
-      setState(loadState());
+      setState(loadState(current));
       setReady(true);
     });
   }, []);
@@ -446,11 +455,16 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     window.addEventListener(CLOUD_STATE_APPLIED_EVENT, reloadCloudState);
     return () => window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, reloadCloudState);
   }, []);
-  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const current = new Date();
+      setNow(current);
+      setState((state) => rollOverManualTasks(state, dateKey(current), current.toISOString()));
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 2800); return () => window.clearTimeout(timer); }, [notice]);
 
-  const selected = useMemo(() => selectedDate ? dateFromKey(selectedDate) : new Date(2000, 0, 1), [selectedDate]);
-  const todayKey = now ? dateKey(now) : '';
   const todaySessions = useMemo(() => sessionsForDate(state.timetable, selected), [selected, state.timetable]);
   const tasks = useMemo(() => tasksForDate(state, selected), [selected, state]);
   const week = useMemo(() => weekDates(selected), [selected]);
@@ -483,9 +497,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     setNotice('本周 IELTS 五个弹性模块已分散到周一至周五；可按需延至明天。');
   };
   const navigateDate = (offset: number) => { const date = new Date(selected); date.setDate(date.getDate() + offset); setSelectedDate(dateKey(date)); };
-  const submitReview = (task: LearningTask, status: LearningStatus, details: ReviewDetails, evidence: LearningSessionEvidence) => {
+  const submitReview = (task: LearningTask, details: ReviewDetails, evidence: LearningSessionEvidence) => {
     const completedAt = new Date();
-    const updated = completeLearningSession(state, task, status, details, evidence, completedAt);
+    const updated = completeLearningSession(state, task, details, evidence, completedAt);
+    const status = updated.learningRecords[0].status;
     const progress = task.subjectId ? updated.reviewProgress[task.subjectId] : undefined;
     setState(updated);
     setReviewTask(null);
@@ -503,6 +518,31 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const nextDate = progress ? formatLongDate(dateFromKey(progress.nextReviewDate)) : '待安排';
     setNotice(`${statusMark(status)} 已提交 · 下次复习：${nextDate}（${intervalLabel}）${syncMessage}`);
   };
+  const generateAiReport = async (record: LearningRecord) => {
+    setAiReportBusyId(record.id);
+    try {
+      const response = await fetch('/api/llm-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feature: 'chat', stream: false, temperature: 0.2, _no_thinking: true,
+          messages: [
+            { role: 'system', content: '你是严格遵循 JackYun StudyGuide 的学习报告教练。只根据提供的学习记录和 Cue 证据分析，不虚构表现。用中文输出：1. 本次证据概览；2. 按大单元/小单元分析；3. 根据 √/△/○ 识别最小缺口；4. 下一次可执行动作。遵循：先闭卷检索再看证据；Definition/State 检查必要得分点；Explain 检查完整 marking-point chain；只做 minimal repair；稳定的 Cue 不机械重做。' },
+            { role: 'user', content: JSON.stringify({ task: record.taskTitle, content: record.studiedContent, issue: record.issue, scope: record.scope, materials: record.materials, cues: record.cues, systemReport: record.systemReport }) },
+          ],
+        }),
+      });
+      const content = (await readAiResponseContent(response)).trim();
+      if (!content) throw new Error('AI 没有返回报告内容。');
+      const generatedAt = new Date().toISOString();
+      setState((current) => ({ ...current, learningRecords: current.learningRecords.map((item) => item.id === record.id ? { ...item, aiReport: { content: content.slice(0, 12_000), generatedAt } } : item) }));
+      setNotice('AI 学习报告已生成。');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'AI 学习报告生成失败。');
+    } finally {
+      setAiReportBusyId('');
+    }
+  };
 
   if (!ready || !now || !selectedDate) return <div className="mx-auto max-w-[1500px] animate-pulse"><div className="h-28 rounded-3xl bg-black/5 dark:bg-white/5" /><div className="mt-5 grid gap-5 lg:grid-cols-3"><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5 lg:col-span-2" /><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5" /></div></div>;
 
@@ -514,10 +554,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
           <div className="relative flex flex-wrap items-start justify-between gap-5"><div><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.12em] text-[var(--brand)]"><span className="h-2 w-2 rounded-full bg-emerald-500" />Personal learning control</div><h1 className="mt-2 text-2xl font-semibold tracking-[-.035em] sm:text-3xl">{state.settings.mode === 'holiday' ? '假日学习控制台' : '今日学习与课表'}</h1><p className="mt-2 text-sm text-[var(--muted-foreground)]">{formatLongDate(selected)}{selectedDate !== todayKey ? ' · 正在查看其他日期' : ''}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setCueManager(true)} className="rounded-full border border-[var(--card-border)] bg-[var(--card)] px-4 py-2.5 text-sm font-semibold hover:bg-black/[.035] dark:hover:bg-white/[.06]"><span className="material-icons-round mr-1 align-middle text-lg">quiz</span>Cue 管理</button><button type="button" onClick={() => setTaskDialog(true)} className="rounded-full border border-[var(--card-border)] bg-[var(--card)] px-4 py-2.5 text-sm font-semibold hover:bg-black/[.035] dark:hover:bg-white/[.06]"><span className="material-icons-round mr-1 align-middle text-lg">add</span>添加任务</button><button type="button" onClick={() => setImportDialog(true)} className="rounded-full bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white dark:text-[#202124]"><span className="material-icons-round mr-1 align-middle text-lg">upload_file</span>导入课表</button></div></div>
           <div className="relative mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"><div className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">今日课程</p><strong className="mt-1 block text-2xl">{state.settings.mode === 'holiday' ? '—' : todaySessions.length}</strong></div><div className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">待复习</p><strong className="mt-1 block text-2xl">{reviewDue}</strong></div><div className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">今日完成</p><strong className="mt-1 block text-2xl">{completedToday}</strong></div><div className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">当前模式</p><strong className="mt-1 block text-lg">{state.settings.mode === 'term' ? '学期' : '假日'}</strong></div></div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto border-t border-[var(--card-border)] px-4 pt-2 sm:px-6" aria-label="日程视图">{([['today', 'today', '今日'], ['week', 'calendar_view_week', '周课表'], ['settings', 'tune', '设置']] as const).map(([key, icon, label]) => <button key={key} type="button" onClick={() => setView(key)} className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold ${view === key ? 'border-[var(--brand)] text-[var(--brand)]' : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}><span className="material-icons-round text-lg">{icon}</span>{label}</button>)}</nav>
+        <nav className="flex gap-1 overflow-x-auto border-t border-[var(--card-border)] px-4 pt-2 sm:px-6" aria-label="日程视图">{([['today', 'today', '今日'], ['week', 'calendar_view_week', '周课表'], ['records', 'history_edu', '学习记录'], ['settings', 'tune', '设置']] as const).map(([key, icon, label]) => <button key={key} type="button" onClick={() => setView(key)} className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold ${view === key ? 'border-[var(--brand)] text-[var(--brand)]' : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'}`}><span className="material-icons-round text-lg">{icon}</span>{label}</button>)}</nav>
       </header>
 
-      {view !== 'settings' && <div className="mt-5 flex items-center justify-between rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><button type="button" onClick={() => navigateDate(view === 'week' ? -7 : -1)} aria-label="上一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_left</span></button><button type="button" onClick={() => setSelectedDate(todayKey)} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">{selectedDate === todayKey ? formatShortDate(selected) : '回到今天'}</button><button type="button" onClick={() => navigateDate(view === 'week' ? 7 : 1)} aria-label="下一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_right</span></button></div>}
+      {(view === 'today' || view === 'week') && <div className="mt-5 flex items-center justify-between rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><button type="button" onClick={() => navigateDate(view === 'week' ? -7 : -1)} aria-label="上一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_left</span></button><button type="button" onClick={() => setSelectedDate(todayKey)} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">{selectedDate === todayKey ? formatShortDate(selected) : '回到今天'}</button><button type="button" onClick={() => navigateDate(view === 'week' ? 7 : 1)} aria-label="下一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_right</span></button></div>}
 
       {view === 'today' && <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
         <section className="min-w-0"><div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Today</p><h2 className="mt-1 text-xl font-semibold">今天要完成</h2></div><span className="text-sm text-[var(--muted-foreground)]">{tasks.length} 项</span></div>{!state.timetable && !state.manualTasks.length && !state.cues.length ? <EmptyState onImport={() => setImportDialog(true)} /> : <TaskList tasks={tasks} onComplete={completeTask} onPostpone={postponeTask} onCancel={cancelTask} />}</section>
@@ -529,12 +569,14 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
       {view === 'week' && <section className="mt-5 overflow-x-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--card-border)] p-5"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Week</p><h2 className="mt-1 text-xl font-semibold">{formatShortDate(week[0])} — {formatShortDate(week[6])}</h2></div><p className="text-sm text-[var(--muted-foreground)]">课程和学习任务会一起显示</p></div>{!state.timetable && !state.manualTasks.length && !state.cues.length ? <div className="p-5"><EmptyState onImport={() => setImportDialog(true)} /></div> : <div className="grid min-w-[980px] grid-cols-7 divide-x divide-[var(--card-border)] overflow-x-auto">{week.map((day, index) => { const daySessions = state.settings.mode === 'term' ? sessionsForDate(state.timetable, day) : []; const dayTasks = tasksForDate(state, day); const key = dateKey(day); return <button key={key} type="button" onClick={() => { setSelectedDate(key); setView('today'); }} className={`min-h-[520px] p-3 text-left hover:bg-black/[.02] dark:hover:bg-white/[.03] ${key === todayKey ? 'bg-blue-50/70 dark:bg-blue-950/20' : ''}`}><div className="text-center"><p className={`text-xs font-semibold ${key === todayKey ? 'text-[var(--brand)]' : 'text-[var(--muted-foreground)]'}`}>周{WEEKDAY_LABELS[index]}</p><span className={`mt-1 inline-grid h-8 w-8 place-items-center rounded-full text-sm font-semibold ${key === todayKey ? 'bg-[var(--brand)] text-white dark:text-[#202124]' : ''}`}>{day.getDate()}</span></div><div className="mt-4 space-y-2">{daySessions.map((session, sessionIndex) => <div key={`${session.course.id}-${session.start}-${sessionIndex}`} className="rounded-xl border-l-4 bg-black/[.035] p-2.5 dark:bg-white/[.06]" style={{ borderLeftColor: session.course.color }}><p className="text-[11px] font-semibold">{session.start}–{session.end}</p><p className="mt-1 line-clamp-2 text-xs font-medium leading-5">{session.course.shortName ?? session.course.name}</p>{session.location && <p className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">{session.location}</p>}</div>)}{dayTasks.slice(0, 5).map((task) => <div key={task.key} className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-2.5"><span className="text-[10px] font-semibold text-[var(--brand)]">{TYPE_META[task.type].label}</span><p className="mt-1 line-clamp-2 text-xs font-medium leading-5">{task.title}</p></div>)}{!daySessions.length && !dayTasks.length && <p className="pt-8 text-center text-xs text-[var(--muted-foreground)]">{state.settings.mode === 'holiday' ? '假日模式' : '无安排'}</p>}{dayTasks.length > 5 && <p className="text-center text-[10px] text-[var(--muted-foreground)]">另有 {dayTasks.length - 5} 项</p>}</div></button>; })}</div>}</section>}
 
+      {view === 'records' && <div className="mt-5"><LearningRecordsView records={state.learningRecords} aiBusyId={aiReportBusyId} onGenerateAi={generateAiReport} /></div>}
+
       {view === 'settings' && <div className="mt-5 grid gap-5 lg:grid-cols-2"><section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Mode</p><h2 className="mt-1 text-xl font-semibold">运行模式</h2><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setState((current) => ({ ...current, settings: { ...current.settings, mode: 'term' } }))} aria-pressed={state.settings.mode === 'term'} className={`rounded-2xl border p-4 text-left ${state.settings.mode === 'term' ? 'border-[var(--brand)] bg-blue-50 dark:bg-blue-950/30' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-[var(--brand)]">school</span><strong className="ml-2">学期模式</strong><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">显示课程，并生成已选科目的每日复习和周末集中复习。</p></button><button type="button" onClick={() => setState((current) => ({ ...current, settings: { ...current.settings, mode: 'holiday' } }))} aria-pressed={state.settings.mode === 'holiday'} className={`rounded-2xl border p-4 text-left ${state.settings.mode === 'holiday' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-amber-600">beach_access</span><strong className="ml-2">假日模式</strong><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">暂停课程相关自动任务，保留到期复习、专项、考试和待办。</p></button></div><div className="mt-5 space-y-4 border-t border-[var(--card-border)] pt-5"><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">可选预习提示（默认关闭）</strong><span className="mt-1 block text-xs text-[var(--muted-foreground)]">只有你主动开启时才会自动生成；也可在“添加任务”中单独添加预习。</span></span><input type="checkbox" checked={state.settings.previewEnabled} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, previewEnabled: event.target.checked, previewPreferenceSet: true } }))} className="h-5 w-5 accent-[var(--brand)]" /></label><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">周末集中复习日</strong><span className="mt-1 block text-xs text-[var(--muted-foreground)]">每周只生成一次集中复习。</span></span><select value={state.settings.weekendReviewDay} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, weekendReviewDay: Number(event.target.value) as 6 | 7 } }))} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value={6}>周六</option><option value={7}>周日</option></select></label></div></section>
         <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Timetable</p><div className="flex items-start justify-between gap-3"><div><h2 className="mt-1 text-xl font-semibold">课表、同步与隐私</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">数据优先保存在浏览器；登录后，课表、复习状态、内容、问题、备注和下次复习日期会同步到你的账号。每位用户只能读取自己的数据。</p></div><span className="material-icons-round text-emerald-600">lock</span></div><div className="mt-5 rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="font-semibold">{state.timetable?.name ?? '尚未导入课表'}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{state.timetable ? `${state.timetable.courses.length} 门课程 · ${state.timetable.courses.reduce((total, course) => total + course.sessions.length, 0)} 个时段` : '导入后可单独选择哪些科目需要课程复习。'}</p></div><div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => setImportDialog(true)} className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white dark:text-[#202124]">导入或替换</button><Link href="/timetable-hub" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">高级排程编辑器</Link><Link href="/control/focus" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">旧版专注执行</Link></div>{state.timetable && <div className="mt-5 border-t border-[var(--card-border)] pt-5"><p className="text-sm font-semibold">生成每日复习的科目</p><div className="mt-3 space-y-2">{state.timetable.courses.map((course) => <label key={course.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-black/[.025] dark:hover:bg-white/[.04]"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: course.color }} /><span className="min-w-0 flex-1 truncate text-sm">{course.name}</span><input type="checkbox" checked={course.review} onChange={(event) => setState((current) => current.timetable ? { ...current, timetable: { ...current.timetable, courses: current.timetable.courses.map((item) => item.id === course.id ? { ...item, review: event.target.checked } : item) } } : current)} className="h-5 w-5 accent-[var(--brand)]" /></label>)}</div></div>}</section>
       </div>}
 
-      {reviewTask && <ReviewDialog task={reviewTask} cues={reviewCues} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={(status, details, evidence) => submitReview(reviewTask, status, details, evidence)} />}
-      {taskDialog && <TaskDialog date={selectedDate} onClose={() => setTaskDialog(false)} onSave={(task) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, task] })); setTaskDialog(false); setNotice('任务已添加。'); }} />}
+      {reviewTask && <ReviewDialog task={reviewTask} cues={reviewCues} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={(details, evidence) => submitReview(reviewTask, details, evidence)} />}
+      {taskDialog && <TaskDialog date={selectedDate} cues={state.cues} onClose={() => setTaskDialog(false)} onSave={(task) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, task] })); setTaskDialog(false); setNotice('任务已添加。'); }} />}
       {cueManager && <CueManagerDialog cues={state.cues} onClose={() => setCueManager(false)} onChange={(cues) => setState((current) => ({ ...current, cues }))} />}
       {importDialog && <ImportDialog onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => ({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice(signedIn ? '课表已导入，正在同步到你的账号。' : '课表已导入，当前保存在这台设备。'); }} />}
       <Notice message={notice} />
