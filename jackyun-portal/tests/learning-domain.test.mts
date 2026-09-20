@@ -281,10 +281,12 @@ test('timetable course names reconcile with learning subjects by meaningful keyw
 });
 
 test('Cue batch imports validate reusable unit-level Cue data', () => {
-  const parsed = parseCueBatchImport({ cues: [{ prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] }, { prompt: 'Recall the example.' }] });
+  const parsed = parseCueBatchImport({ cues: [{ unit: 'Kinematics', prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] }, { unit: 'Forces', prompt: 'Recall the example.' }] });
   assert.equal(parsed.cues.length, 2);
+  assert.deepEqual(parsed.cues.map((cue) => cue.unit), ['Kinematics', 'Forces']);
   assert.equal(parsed.cues[1].type, 'general');
   assert.throws(() => parseCueBatchImport({ cues: [] }), /至少需要一条/);
+  assert.throws(() => parseCueBatchImport({ cues: [{ prompt: 'Missing unit.' }] }), /大单元/);
 });
 
 test('review subjects are saved only from the user selection', () => {

@@ -238,6 +238,7 @@ export interface TaskCancellation {
 }
 
 export interface CueBatchImportItem {
+  unit: string;
   prompt: string;
   answer?: string;
   type: CueType;
@@ -600,8 +601,8 @@ export function cueBatchImportTemplate(): CueBatchImport {
   return {
     version: 1,
     cues: [
-      { prompt: 'Define acceleration.', answer: 'Change in velocity per unit time.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] },
-      { prompt: 'Explain why the object slows down.', type: 'explain', markingPoints: ['resultant force opposes motion', 'acceleration is opposite to velocity'] },
+      { unit: 'Kinematics', prompt: 'Define acceleration.', answer: 'Change in velocity per unit time.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] },
+      { unit: 'Forces', prompt: 'Explain why the object slows down.', type: 'explain', markingPoints: ['resultant force opposes motion', 'acceleration is opposite to velocity'] },
     ],
   };
 }
@@ -615,13 +616,14 @@ export function parseCueBatchImport(value: unknown): CueBatchImport {
   const cues = source.cues.map((rawCue, index): CueBatchImportItem => {
     const cue = record(rawCue);
     if (!cue) throw new Error(`第 ${index + 1} 条 Cue 格式错误。`);
+    const unit = requiredText(cue.unit, `第 ${index + 1} 条 Cue 的大单元`, 120);
     const prompt = requiredText(cue.prompt, `第 ${index + 1} 条 Cue`, 500);
     const type = typeof cue.type === 'string' && allowedTypes.has(cue.type as CueType) ? cue.type as CueType : 'general';
     const answer = optionalText(cue.answer, 2000);
     const markingPoints = Array.isArray(cue.markingPoints)
       ? cue.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条 Cue 的 marking point`, 300)).slice(0, 12)
       : [];
-    return { prompt, ...(answer ? { answer } : {}), type, markingPoints };
+    return { unit, prompt, ...(answer ? { answer } : {}), type, markingPoints };
   });
   return { version: 1, cues };
 }
