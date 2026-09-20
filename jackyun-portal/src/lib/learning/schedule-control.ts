@@ -145,12 +145,17 @@ export interface TaskCompletion {
   note?: string;
 }
 
+export interface TaskCancellation {
+  cancelledAt: string;
+}
+
 export interface ScheduleControlState {
   schemaVersion: 1;
   timetable: TimetableImport | null;
   settings: ScheduleSettings;
   manualTasks: ManualLearningTask[];
   completions: Record<string, TaskCompletion>;
+  cancellations: Record<string, TaskCancellation>;
   reviewProgress: Record<string, ReviewProgress>;
   cues: StudyCue[];
   cueReviews: CueReview[];
@@ -224,6 +229,7 @@ export function createEmptyScheduleState(): ScheduleControlState {
     settings: { ...DEFAULT_SCHEDULE_SETTINGS },
     manualTasks: [],
     completions: {},
+    cancellations: {},
     reviewProgress: {},
     cues: [],
     cueReviews: [],
@@ -340,6 +346,47 @@ export function addCalendarDays(key: string, days: number): string {
   const date = dateFromKey(key);
   date.setDate(date.getDate() + days);
   return dateKey(date);
+}
+
+const IELTS_WEEK_PRESET_IDS = [
+  'ielts-listening',
+  'ielts-reading',
+  'ielts-writing-draft',
+  'ielts-speaking',
+  'ielts-weekly-review',
+] as const;
+
+/** Creates one IELTS module per weekday instead of placing the whole week on Monday. */
+export function createIeltsWeekTasks(weekStart: string): ManualLearningTask[] {
+  return IELTS_WEEK_PRESET_IDS.flatMap((presetId, index) => {
+    const preset = LEARNING_TASK_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return [];
+    return [{
+      id: `ielts:${weekStart}:${presetId}`,
+      title: preset.title,
+      type: preset.type,
+      date: addCalendarDays(weekStart, index),
+      durationMinutes: preset.durationMinutes,
+      subject: 'IELTS',
+      presetId,
+      note: preset.note,
+      guide: preset.guide,
+    } satisfies ManualLearningTask];
+  });
+}
+
+/** Repairs IELTS weeks created by older clients that assigned every module to Monday. */
+export function migrateIeltsWeekTaskDates(tasks: ManualLearningTask[]): ManualLearningTask[] {
+  return tasks.map((task) => {
+    const match = /^ielts:(\d{4}-\d{2}-\d{2}):(ielts-[a-z-]+)$/u.exec(task.id);
+    if (!match || task.date !== match[1]) return task;
+    const offset = IELTS_WEEK_PRESET_IDS.indexOf(match[2] as typeof IELTS_WEEK_PRESET_IDS[number]);
+    return offset > 0 ? { ...task, date: addCalendarDays(match[1], offset) } : task;
+  });
+}
+
+export function rescheduleManualTask(tasks: ManualLearningTask[], taskId: string, targetDate: string): ManualLearningTask[] {
+  return tasks.map((task) => task.id === taskId ? { ...task, date: targetDate, start: undefined } : task);
 }
 
 export function isoDay(date: Date): number {
@@ -529,7 +576,7 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
     ...previewTasks(state, date),
   ];
   const manual = state.manualTasks
-    .filter((task) => task.date <= key && !state.completions[task.id])
+    .filter((task) => task.date <= key && !state.completions[task.id] && !state.cancellations[task.id])
     .map((task): LearningTask => ({
       key: task.id,
       title: task.title,

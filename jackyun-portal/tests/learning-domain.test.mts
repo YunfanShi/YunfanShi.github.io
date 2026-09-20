@@ -9,8 +9,11 @@ import {
   completeReview,
   completeCueReviews,
   createEmptyScheduleState,
+  createIeltsWeekTasks,
   LEARNING_TASK_PRESETS,
+  migrateIeltsWeekTaskDates,
   parseTimetableImport,
+  rescheduleManualTask,
   sessionsForDate,
   tasksForDate,
   timetableImportTemplate,
@@ -23,6 +26,35 @@ test('task presets cover audits, self-study, cue review, and IELTS without fixin
     assert.ok(ids.has(id), `missing preset ${id}`);
   }
   assert.ok(LEARNING_TASK_PRESETS.filter((preset) => preset.group === 'IELTS').every((preset) => preset.durationMinutes <= 60));
+});
+
+test('IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired', () => {
+  const tasks = createIeltsWeekTasks('2026-09-14');
+  assert.deepEqual(tasks.map((task) => task.date), [
+    '2026-09-14',
+    '2026-09-15',
+    '2026-09-16',
+    '2026-09-17',
+    '2026-09-18',
+  ]);
+
+  const legacy = tasks.map((task) => ({ ...task, date: '2026-09-14' }));
+  assert.deepEqual(migrateIeltsWeekTaskDates(legacy).map((task) => task.date), tasks.map((task) => task.date));
+});
+
+test('cancelled manual tasks stay out of the due task list', () => {
+  const state = createEmptyScheduleState();
+  state.manualTasks = [{ id: 'manual-1', title: 'IELTS Reading', type: 'practice', date: '2026-09-14', durationMinutes: 60 }];
+  state.cancellations['manual-1'] = { cancelledAt: '2026-09-14T08:00:00.000Z' };
+  assert.equal(tasksForDate(state, new Date(2026, 8, 14, 12)).length, 0);
+});
+
+test('manual tasks can be rescheduled to tomorrow without retaining a stale start time', () => {
+  const tasks = [{ id: 'manual-1', title: 'IELTS Reading', type: 'practice' as const, date: '2026-09-14', start: '18:00', durationMinutes: 60 }];
+  const postponed = rescheduleManualTask(tasks, 'manual-1', '2026-09-15');
+  assert.equal(postponed[0].date, '2026-09-15');
+  assert.equal(postponed[0].start, undefined);
+  assert.equal(tasks[0].date, '2026-09-14');
 });
 
 test('cues keep independent review states and due dates', () => {

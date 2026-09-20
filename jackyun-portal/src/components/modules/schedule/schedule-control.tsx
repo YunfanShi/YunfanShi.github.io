@@ -9,12 +9,16 @@ import {
   completeReview,
   completeCueReviews,
   createEmptyScheduleState,
+  createIeltsWeekTasks,
+  addCalendarDays,
   dateFromKey,
   dateKey,
   isCueReviewTask,
   LEARNING_MATERIALS,
   LEARNING_TASK_PRESETS,
+  migrateIeltsWeekTaskDates,
   parseTimetableImport,
+  rescheduleManualTask,
   sessionsForDate,
   tasksForDate,
   timetableImportTemplate,
@@ -68,8 +72,9 @@ function loadState(): ScheduleControlState {
         previewEnabled: previewPreferenceSet && storedSettings?.previewEnabled === true,
         previewPreferenceSet,
       },
-      manualTasks: Array.isArray(parsed.manualTasks) ? parsed.manualTasks : [],
+      manualTasks: Array.isArray(parsed.manualTasks) ? migrateIeltsWeekTaskDates(parsed.manualTasks) : [],
       completions: parsed.completions && typeof parsed.completions === 'object' ? parsed.completions : {},
+      cancellations: parsed.cancellations && typeof parsed.cancellations === 'object' ? parsed.cancellations : {},
       reviewProgress: parsed.reviewProgress && typeof parsed.reviewProgress === 'object' ? parsed.reviewProgress : {},
       cues: Array.isArray(parsed.cues) ? parsed.cues : [],
       cueReviews: Array.isArray(parsed.cueReviews) ? parsed.cueReviews : [],
@@ -293,7 +298,7 @@ function ImportDialog({ onClose, onApply }: { onClose: () => void; onApply: (tim
   );
 }
 
-function TaskList({ tasks, onComplete, onDelete }: { tasks: LearningTask[]; onComplete: (task: LearningTask) => void; onDelete: (task: LearningTask) => void }) {
+function TaskList({ tasks, onComplete, onPostpone, onCancel }: { tasks: LearningTask[]; onComplete: (task: LearningTask) => void; onPostpone: (task: LearningTask) => void; onCancel: (task: LearningTask) => void }) {
   if (!tasks.length) {
     return <div className="rounded-2xl border border-dashed border-[var(--card-border)] px-5 py-10 text-center"><span className="material-icons-round text-3xl text-emerald-500">task_alt</span><p className="mt-2 font-medium">今天的任务已经清空</p><p className="mt-1 text-sm text-[var(--muted-foreground)]">可以自己添加预习、专项学习、考试或普通待办。</p></div>;
   }
@@ -327,7 +332,7 @@ function TaskList({ tasks, onComplete, onDelete }: { tasks: LearningTask[]; onCo
                 )}
                 {task.note && !task.lastStatus && task.note !== task.detail && <p className="mt-2 rounded-xl bg-black/[.035] px-3 py-2 text-xs leading-5 dark:bg-white/[.06]">备注：{task.note}</p>}
               </div>
-              {task.manual && <button type="button" onClick={() => onDelete(task)} aria-label={`删除 ${task.title}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--muted-foreground)] opacity-0 hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 dark:hover:bg-rose-950/40"><span className="material-icons-round text-lg">delete</span></button>}
+              {task.manual && <div className="flex shrink-0 flex-col gap-1"><button type="button" onClick={() => onPostpone(task)} aria-label={`将 ${task.title} 延至明天`} title="延至明天" className="inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40"><span className="material-icons-round text-lg">next_plan</span>明天</button><button type="button" onClick={() => onCancel(task)} aria-label={`取消 ${task.title}`} title="取消任务" className="inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"><span className="material-icons-round text-lg">cancel</span>取消</button></div>}
             </div>
           </article>
         );
@@ -401,21 +406,24 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     setState((current) => ({ ...current, completions: { ...current.completions, [task.key]: { completedAt: new Date().toISOString() } } }));
     setNotice('任务已完成。');
   };
-  const deleteTask = (task: LearningTask) => setState((current) => ({ ...current, manualTasks: current.manualTasks.filter((item) => item.id !== task.key) }));
+  const postponeTask = (task: LearningTask) => {
+    const tomorrow = addCalendarDays(selectedDate, 1);
+    setState((current) => ({ ...current, manualTasks: rescheduleManualTask(current.manualTasks, task.key, tomorrow) }));
+    setNotice(`任务已延至${formatLongDate(dateFromKey(tomorrow))}。`);
+  };
+  const cancelTask = (task: LearningTask) => {
+    if (!window.confirm(`确定取消任务「${task.title}」吗？`)) return;
+    setState((current) => ({ ...current, cancellations: { ...current.cancellations, [task.key]: { cancelledAt: new Date().toISOString() } } }));
+    setNotice('任务已取消。');
+  };
   const addIeltsWeek = () => {
     const weekStart = dateKey(weekDates(selected)[0]);
-    const presetIds = ['ielts-listening', 'ielts-reading', 'ielts-writing-draft', 'ielts-speaking', 'ielts-weekly-review'];
     setState((current) => {
       const existing = new Set(current.manualTasks.map((task) => task.id));
-      const additions = presetIds.flatMap((presetId) => {
-        const preset = LEARNING_TASK_PRESETS.find((item) => item.id === presetId);
-        const id = `ielts:${weekStart}:${presetId}`;
-        if (!preset || existing.has(id)) return [];
-        return [{ id, title: preset.title, type: preset.type, date: weekStart, durationMinutes: preset.durationMinutes, subject: 'IELTS', presetId, note: preset.note, guide: preset.guide } satisfies ManualLearningTask];
-      });
+      const additions = createIeltsWeekTasks(weekStart).filter((task) => !existing.has(task.id));
       return { ...current, manualTasks: [...current.manualTasks, ...additions] };
     });
-    setNotice('本周 IELTS 五个弹性模块已加入；未完成内容会自然顺延。');
+    setNotice('本周 IELTS 五个弹性模块已分散到周一至周五；可按需延至明天。');
   };
   const navigateDate = (offset: number) => { const date = new Date(selected); date.setDate(date.getDate() + offset); setSelectedDate(dateKey(date)); };
   const submitReview = (task: LearningTask, status: LearningStatus, details: ReviewDetails, assessments: CueAssessment[]) => {
@@ -453,10 +461,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {view !== 'settings' && <div className="mt-5 flex items-center justify-between rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><button type="button" onClick={() => navigateDate(view === 'week' ? -7 : -1)} aria-label="上一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_left</span></button><button type="button" onClick={() => setSelectedDate(todayKey)} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">{selectedDate === todayKey ? formatShortDate(selected) : '回到今天'}</button><button type="button" onClick={() => navigateDate(view === 'week' ? 7 : 1)} aria-label="下一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_right</span></button></div>}
 
       {view === 'today' && <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
-        <section className="min-w-0"><div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Today</p><h2 className="mt-1 text-xl font-semibold">今天要完成</h2></div><span className="text-sm text-[var(--muted-foreground)]">{tasks.length} 项</span></div>{!state.timetable && !state.manualTasks.length && !state.cues.length ? <EmptyState onImport={() => setImportDialog(true)} /> : <TaskList tasks={tasks} onComplete={completeTask} onDelete={deleteTask} />}</section>
+        <section className="min-w-0"><div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Today</p><h2 className="mt-1 text-xl font-semibold">今天要完成</h2></div><span className="text-sm text-[var(--muted-foreground)]">{tasks.length} 项</span></div>{!state.timetable && !state.manualTasks.length && !state.cues.length ? <EmptyState onImport={() => setImportDialog(true)} /> : <TaskList tasks={tasks} onComplete={completeTask} onPostpone={postponeTask} onCancel={cancelTask} />}</section>
         <aside className="min-w-0"><div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Timeline</p><h2 className="mt-1 text-xl font-semibold">今日课表</h2></div>{state.timetable && <span className="max-w-40 truncate rounded-full bg-black/5 px-3 py-1.5 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{state.timetable.name}</span>}</div>{state.settings.mode === 'holiday' ? <div className="mt-6 rounded-2xl bg-amber-50 p-5 text-sm leading-6 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"><span className="material-icons-round mr-2 align-middle">beach_access</span>假日模式已暂停课程表、每日课程复习和自动预习。已到期的间隔复习与手动任务仍会保留。</div> : todaySessions.length ? <div className="relative mt-6 space-y-1 before:absolute before:bottom-3 before:left-[4.4rem] before:top-3 before:w-px before:bg-[var(--card-border)]">{todaySessions.map((session, index) => { const active = activeSession === session; return <div key={`${session.course.id}-${session.day}-${session.start}-${index}`} className={`relative grid grid-cols-[3.4rem_1.5rem_minmax(0,1fr)] items-start gap-2 rounded-2xl p-2.5 ${active ? 'bg-blue-50 dark:bg-blue-950/40' : ''}`}><div className="pt-1 text-right font-mono text-xs font-semibold"><span>{session.start}</span><span className="mt-1 block text-[10px] font-normal text-[var(--muted-foreground)]">{session.end}</span></div><div className="relative z-10 mt-1.5 grid h-4 w-4 place-items-center rounded-full border-4 border-[var(--card)]" style={{ backgroundColor: session.course.color }}>{active && <span className="absolute h-6 w-6 animate-ping rounded-full opacity-20" style={{ backgroundColor: session.course.color }} />}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-semibold">{session.course.shortName ?? session.course.name}</p>{active && <span className="rounded-full bg-[var(--brand)] px-2 py-0.5 text-[10px] font-semibold text-white dark:text-[#202124]">正在上课</span>}</div>{(session.location || session.teacher) && <p className="mt-1 truncate text-xs text-[var(--muted-foreground)]">{[session.location, session.teacher].filter(Boolean).join(' · ')}</p>}</div></div>; })}</div> : <div className="mt-6 rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-10 text-center text-sm text-[var(--muted-foreground)]">这一天没有课程。</div>}{(activeSession || nextSession) && state.settings.mode === 'term' && <div className="mt-5 rounded-2xl bg-[#202124] p-4 text-white"><p className="text-[11px] uppercase tracking-[.12em] text-white/60">{activeSession ? 'Now' : 'Next'}</p><p className="mt-1 font-semibold">{(activeSession ?? nextSession)?.course.shortName ?? (activeSession ?? nextSession)?.course.name}</p><p className="mt-1 text-xs text-white/65">{activeSession ? `${activeSession.end} 下课` : `${nextSession?.start} 开始`}</p></div>}</div>
           <div className="mt-5 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5"><h2 className="font-semibold">StudyGuide 提醒</h2><div className="mt-3 space-y-3 text-sm leading-6 text-[var(--muted-foreground)]"><p><span className="mr-2 font-semibold text-[var(--brand)]">每日</span>下一日 Cue Recall；每条 Cue 独立记录 √ / △ / ○。</p><p><span className="mr-2 font-semibold text-teal-600">Friday</span>检查 Notes → 对照资料补缺口 → 补 Cue。</p><p><span className="mr-2 font-semibold text-amber-600">Weekend</span>闭卷 Retrieval → Evidence Review → Targeted Repair。</p></div><Link href="/study-guide?tab=learn&subTab=review" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)]">打开完整方法<span className="material-icons-round text-base">arrow_forward</span></Link></div>
-          {personalIeltsPlan && <div className="mt-5 rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 dark:border-blue-900 dark:from-blue-950/40 dark:to-indigo-950/30"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-200">Private · Admin</p><h2 className="mt-1 font-semibold">IELTS 备考计划 v5</h2></div><span className="material-icons-round text-blue-600">lock</span></div><p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">每周 Listening、Reading、Writing、Speaking、Weekly Review 五个弹性模块；不固定星期，每次最多 60 分钟。</p><button type="button" onClick={addIeltsWeek} className="mt-4 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white">加入本周五个模块</button></div>}
+          {personalIeltsPlan && <div className="mt-5 rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 dark:border-blue-900 dark:from-blue-950/40 dark:to-indigo-950/30"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-200">Private · Admin</p><h2 className="mt-1 font-semibold">IELTS 备考计划 v5</h2></div><span className="material-icons-round text-blue-600">lock</span></div><p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">每周 Listening、Reading、Writing、Speaking、Weekly Review 五个弹性模块；默认分散到周一至周五，也可按需顺延，每次最多 60 分钟。</p><button type="button" onClick={addIeltsWeek} className="mt-4 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white">加入本周五个模块</button></div>}
         </aside>
       </div>}
 
