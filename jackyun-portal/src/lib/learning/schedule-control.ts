@@ -301,7 +301,7 @@ export const LEARNING_MATERIALS: ReadonlyArray<{ code: LearningMaterialCode; lab
 
 export const LEARNING_TASK_PRESETS: ReadonlyArray<LearningTaskPreset> = [
   { id: 'learn-content', label: '学习新内容', group: '常规学习', type: 'study', durationMinutes: 45, title: '学习新内容', note: '记录实际学到的范围，并为需要检索的内容建立 Cue。', guide: { tab: 'learn', subTab: 'cornell' } },
-  { id: 'after-class-cues', label: '课后整理 Notes + Cue', group: '常规学习', type: 'study', durationMinutes: 30, title: '整理 Notes 并创建 Cue', note: '只补课堂留下的缺口；Cue 跟 subsection 走。', guide: { tab: 'learn', subTab: 'cornell' } },
+  { id: 'after-class-cues', label: '课后整理 Notes + Cue', group: '常规学习', type: 'study', durationMinutes: 30, title: '整理 Notes 并创建 Cue', note: '只补课堂留下的缺口；Cue 按大单元整理。', guide: { tab: 'learn', subTab: 'cornell' } },
   { id: 'self-study', label: '自学未理解内容', group: '常规学习', type: 'self-study', durationMinutes: 50, title: '自学未理解内容', note: '定位最小知识缺口，学习后用一个 Cue 或代表任务验证。', guide: { tab: 'learn', subTab: 'selfstudy' } },
   { id: 'cue-recall', label: 'Cue Recall', group: '复习与检查', type: 'unit-review', durationMinutes: 25, title: 'Cue Recall', note: '遮住 Notes，逐条回答 Cue，并分别记录 √ / △ / ○。', guide: { tab: 'learn', subTab: 'review' } },
   { id: 'friday-audit', label: 'Friday Completeness Audit', group: '复习与检查', type: 'completeness-audit', durationMinutes: 35, title: 'Friday Completeness Audit', note: '检查 Notes → 对照 Textbook / PPT → Fill Gaps → 补 Cue → 检查 Cue 是否可用于检索。', guide: { tab: 'learn', subTab: 'cornell' } },
@@ -446,7 +446,7 @@ export function learningCatalogImportTemplate(): LearningCatalogImport {
     subjects: [{
       id: 'physics',
       name: 'Physics',
-      units: [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }],
+      units: [{ name: 'Mechanics', subsections: [] }],
       materialProgress: { B: '1.2', N: 'P18' },
     }],
   };
@@ -528,7 +528,7 @@ export function mergeLearningCatalog(
   return result;
 }
 
-/** Parses quick manual input such as `Mechanics | Motion, Forces`, one unit per line. */
+/** Parses one learning unit per line. Legacy subsection syntax remains readable for old imports. */
 export function parseLearningUnitOutline(value: string): LearningCatalogUnit[] {
   return value.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).map((line, index) => {
     const separator = line.search(/[|｜:：]/u);
@@ -1143,7 +1143,7 @@ export function completeLearningSession(
   const materialLabel = evidence.materials.filter((material) => material.progress?.trim()).map((material) => `${material.code} 到 ${material.progress?.trim()}`).join('、');
   const cueLabel = recordCues.slice(0, 6).map((cue) => cue.prompt).join('；');
   const studiedContent = suppliedContent || [scopeLabel || task.title, materialLabel ? `资料：${materialLabel}` : '', cueLabel ? `完成 Cue：${cueLabel}` : ''].filter(Boolean).join('；').slice(0, 1000);
-  const weakCueLabels = recordCues.filter((cue) => cue.status !== 'stable').map((cue) => `${cue.unit} / ${cue.subsection}：${cue.prompt}`);
+  const weakCueLabels = recordCues.filter((cue) => cue.status !== 'stable').map((cue) => `${[cue.unit, cue.subsection].filter(Boolean).join(' / ')}：${cue.prompt}`);
   const issue = status === 'stable'
     ? ''
     : (details.issue.trim().slice(0, 1000) || (weakCueLabels.length ? `需要继续处理：${weakCueLabels.join('；')}`.slice(0, 1000) : '本次没有提供全部通过的 Cue 证据。'));

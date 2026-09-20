@@ -242,6 +242,11 @@ test('learning catalog imports preserve free-text material positions and validat
   assert.throws(() => parseLearningCatalogImport({ subjects: [{ name: 'Physics', units: [{ name: '', subsections: [] }] }] }), /大单元名称/);
 });
 
+test('learning catalog imports accept units without subsections', () => {
+  const catalog = parseLearningCatalogImport({ version: 1, subjects: [{ name: 'Physics', units: [{ name: 'Mechanics' }, { name: 'Waves' }], materialProgress: { B: '1.2' } }] });
+  assert.deepEqual(catalog.subjects[0].units, [{ name: 'Mechanics', subsections: [] }, { name: 'Waves', subsections: [] }]);
+});
+
 test('partial catalog imports merge existing data without deleting untouched content', () => {
   const existing = parseLearningCatalogImport({ subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Mechanics', subsections: ['Motion'] }], materialProgress: { B: '1.2', N: 'P18' } }] }).subjects;
   const partial = parseLearningCatalogImport({ subjects: [{ id: 'other-id', name: 'physics', units: [{ name: 'mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction'] }], materialProgress: { B: '1.3' } }, { id: 'chemistry', name: 'Chemistry', units: [], materialProgress: {} }] }).subjects;
