@@ -481,6 +481,64 @@ export function parseLearningCatalogImport(value: unknown): LearningCatalogImpor
   return { version: 1, subjects };
 }
 
+/** Merges a partial catalog import without removing existing subjects, units, subsections, or material positions. */
+export function mergeLearningCatalog(
+  existing: LearningCatalogSubject[],
+  incoming: LearningCatalogSubject[],
+): LearningCatalogSubject[] {
+  const result = existing.map((subject) => ({
+    ...subject,
+    units: subject.units.map((unit) => ({ ...unit, subsections: [...unit.subsections] })),
+    materialProgress: { ...subject.materialProgress },
+  }));
+  const normalize = (value: string) => value.trim().toLocaleLowerCase();
+  for (const importedSubject of incoming) {
+    const subjectIndex = result.findIndex((subject) => subject.id === importedSubject.id || normalize(subject.name) === normalize(importedSubject.name));
+    if (subjectIndex < 0) {
+      result.push({ ...importedSubject, units: importedSubject.units.map((unit) => ({ ...unit, subsections: [...unit.subsections] })), materialProgress: { ...importedSubject.materialProgress } });
+      continue;
+    }
+    const current = result[subjectIndex];
+    const units = current.units.map((unit) => ({ ...unit, subsections: [...unit.subsections] }));
+    for (const importedUnit of importedSubject.units) {
+      const unitIndex = units.findIndex((unit) => normalize(unit.name) === normalize(importedUnit.name));
+      if (unitIndex < 0) {
+        units.push({ ...importedUnit, subsections: [...importedUnit.subsections] });
+        continue;
+      }
+      const seen = new Set(units[unitIndex].subsections.map(normalize));
+      const subsections = [...units[unitIndex].subsections];
+      for (const subsection of importedUnit.subsections) {
+        const key = normalize(subsection);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        subsections.push(subsection);
+      }
+      units[unitIndex] = {
+        ...units[unitIndex],
+        subsections,
+      };
+    }
+    result[subjectIndex] = {
+      ...current,
+      units,
+      materialProgress: { ...current.materialProgress, ...importedSubject.materialProgress },
+    };
+  }
+  return result;
+}
+
+/** Parses quick manual input such as `Mechanics | Motion, Forces`, one unit per line. */
+export function parseLearningUnitOutline(value: string): LearningCatalogUnit[] {
+  return value.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).map((line, index) => {
+    const separator = line.search(/[|｜:：]/u);
+    const name = (separator < 0 ? line : line.slice(0, separator)).trim().slice(0, 120);
+    if (!name) throw new Error(`第 ${index + 1} 行缺少大单元名称。`);
+    const subsections = separator < 0 ? [] : [...new Set(line.slice(separator + 1).split(/[,，;；]/u).map((item) => item.trim().slice(0, 120)).filter(Boolean))];
+    return { name, subsections };
+  });
+}
+
 export function cueBatchImportTemplate(): CueBatchImport {
   return {
     version: 1,

@@ -13,9 +13,11 @@ import {
   createIeltsWeekTasks,
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
+  mergeLearningCatalog,
   migrateIeltsWeekTaskDates,
   parseCueBatchImport,
   parseLearningCatalogImport,
+  parseLearningUnitOutline,
   parseTimetableImport,
   postponeLearningTask,
   rescheduleManualTask,
@@ -232,6 +234,17 @@ test('learning catalog imports preserve free-text material positions and validat
   const updated = updateSubjectMaterialProgress(catalog.subjects, 'Physics', [{ code: 'B', progress: '1.3' }, { code: 'HW', progress: 'Q1–8' }]);
   assert.deepEqual(updated[0].materialProgress, { B: '1.3', N: 'P18', HW: 'Q1–8' });
   assert.throws(() => parseLearningCatalogImport({ subjects: [{ name: 'Physics', units: [{ name: '', subsections: [] }] }] }), /大单元名称/);
+});
+
+test('partial catalog imports merge existing data without deleting untouched content', () => {
+  const existing = parseLearningCatalogImport({ subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Mechanics', subsections: ['Motion'] }], materialProgress: { B: '1.2', N: 'P18' } }] }).subjects;
+  const partial = parseLearningCatalogImport({ subjects: [{ id: 'other-id', name: 'physics', units: [{ name: 'mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction'] }], materialProgress: { B: '1.3' } }, { id: 'chemistry', name: 'Chemistry', units: [], materialProgress: {} }] }).subjects;
+  const merged = mergeLearningCatalog(existing, partial);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].id, 'physics');
+  assert.deepEqual(merged[0].units, [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction'] }]);
+  assert.deepEqual(merged[0].materialProgress, { B: '1.3', N: 'P18' });
+  assert.deepEqual(parseLearningUnitOutline('Mechanics | Motion, Forces\nWaves：Refraction；Diffraction'), [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction', 'Diffraction'] }]);
 });
 
 test('Cue batch imports validate reusable unit-level Cue data', () => {
