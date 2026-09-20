@@ -25,6 +25,7 @@ import {
   parseCueBatchImport,
   parseTimetableImport,
   postponeLearningTask,
+  reconcileScheduleSubjects,
   rollOverManualTasks,
   sessionsForDate,
   tasksForDate,
@@ -96,7 +97,7 @@ function loadState(now = new Date()): ScheduleControlState {
       learningReminders: Array.isArray(parsed.learningReminders) ? parsed.learningReminders : [],
       timetable: parsed.timetable ? parseTimetableImport(parsed.timetable) : null,
     };
-    return rollOverManualTasks(loaded, dateKey(now), now.toISOString());
+    return reconcileScheduleSubjects(rollOverManualTasks(loaded, dateKey(now), now.toISOString()));
   } catch {
     return empty;
   }
@@ -751,8 +752,8 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {reviewTask && <ReviewDialog task={reviewTask} cues={reviewCues} catalog={state.learningCatalog} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={(details, evidence) => submitReview(reviewTask, details, evidence)} />}
       {taskDialog && <TaskDialog date={selectedDate} cues={state.cues} catalog={state.learningCatalog} onClose={() => setTaskDialog(false)} onSave={(task) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, task] })); setTaskDialog(false); setNotice('任务已添加。'); }} />}
       {cueManager && <CueManagerDialog cues={state.cues} reviews={state.cueReviews} catalog={state.learningCatalog} showMastered={state.settings.cueShowMastered} onClose={() => setCueManager(false)} onChange={(cues) => setState((current) => ({ ...current, cues }))} />}
-      {importDialog && <ImportDialog onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => ({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice(signedIn ? '课表已导入，正在同步到你的账号。' : '课表已导入，当前保存在这台设备。'); }} />}
-      {catalogDialog && <LearningCatalogDialog current={state.learningCatalog} onClose={() => setCatalogDialog(false)} onApply={(subjects) => { if (!window.confirm('保存新的学科分类配置吗？同 id 科目会以导入内容为准；现有学习记录和 Cue 不会删除。')) return; setState((current) => ({ ...current, learningCatalog: subjects })); setCatalogDialog(false); setNotice('学科分类配置已保存。'); }} />}
+      {importDialog && <ImportDialog onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => reconcileScheduleSubjects({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice(signedIn ? '课表已导入；匹配的学习科目已自动合并，正在同步到账号。' : '课表已导入；匹配的学习科目已自动合并。'); }} />}
+      {catalogDialog && <LearningCatalogDialog current={state.learningCatalog} onClose={() => setCatalogDialog(false)} onApply={(subjects) => { if (!window.confirm('保存新的学科分类配置吗？系统会按关键词合并课表科目引用；现有学习记录和 Cue 不会删除。')) return; setState((current) => reconcileScheduleSubjects({ ...current, learningCatalog: subjects })); setCatalogDialog(false); setNotice('学科分类已保存；课表科目、复习进度和记录已自动归并。'); }} />}
       <Notice message={notice} />
     </div>
   );

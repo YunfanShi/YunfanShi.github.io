@@ -539,6 +539,63 @@ export function parseLearningUnitOutline(value: string): LearningCatalogUnit[] {
   });
 }
 
+const SUBJECT_TOKEN_ALIASES: Record<string, string> = {
+  math: 'mathematics', maths: 'mathematics', stats: 'statistics', comp: 'computer', cs: 'computerscience',
+};
+const SUBJECT_NOISE_TOKENS = new Set(['al', 'a', 'as', 'level', 'course', 'class', 'paper']);
+
+function subjectKeywords(value: string): string[] {
+  const tokens = value.normalize('NFKC').toLocaleLowerCase().match(/[a-z]+|\p{Script=Han}+|\d+/gu) ?? [];
+  return [...new Set(tokens.map((token) => SUBJECT_TOKEN_ALIASES[token] ?? token).filter((token) => !SUBJECT_NOISE_TOKENS.has(token) && !/^\d+$/u.test(token)))];
+}
+
+/** Finds one unambiguous learning subject whose meaningful keywords occur in a timetable course name. */
+export function matchLearningCatalogSubject(catalog: LearningCatalogSubject[], courseName: string): LearningCatalogSubject | undefined {
+  const courseKeywords = new Set(subjectKeywords(courseName));
+  if (!courseKeywords.size) return undefined;
+  const matches = catalog.flatMap((subject) => {
+    const keywords = subjectKeywords(subject.name);
+    if (!keywords.length || !keywords.every((keyword) => courseKeywords.has(keyword))) return [];
+    return [{ subject, score: keywords.length }];
+  }).sort((left, right) => right.score - left.score);
+  if (!matches.length || (matches[1] && matches[1].score === matches[0].score)) return undefined;
+  return matches[0].subject;
+}
+
+/** Rewrites current subject references to catalog identities while leaving historical task titles intact. */
+export function reconcileScheduleSubjects(state: ScheduleControlState): ScheduleControlState {
+  if (!state.learningCatalog.length) return state;
+  const resolve = (name?: string, id?: string) => {
+    if (id) {
+      const exact = state.learningCatalog.find((subject) => subject.id === id);
+      if (exact) return exact;
+    }
+    return name ? matchLearningCatalogSubject(state.learningCatalog, name) : undefined;
+  };
+  const reviewProgress: Record<string, ReviewProgress> = {};
+  for (const progress of Object.values(state.reviewProgress)) {
+    const subject = resolve(progress.subjectName, progress.subjectId);
+    const normalized = subject ? { ...progress, subjectId: subject.id, subjectName: subject.name } : progress;
+    const previous = reviewProgress[normalized.subjectId];
+    if (!previous || normalized.updatedAt > previous.updatedAt) reviewProgress[normalized.subjectId] = normalized;
+  }
+  return {
+    ...state,
+    manualTasks: state.manualTasks.map((task) => { const subject = resolve(task.subject, task.subjectId); return subject ? { ...task, subjectId: subject.id, subject: subject.name } : task; }),
+    completions: Object.fromEntries(Object.entries(state.completions).map(([key, completion]) => { const subject = resolve(completion.subjectName); return [key, subject ? { ...completion, subjectName: subject.name } : completion]; })),
+    reviewProgress,
+    cues: state.cues.map((cue) => { const subject = resolve(cue.subjectName, cue.subjectId); return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name } : cue; }),
+    learningRecords: state.learningRecords.map((record) => {
+      const subject = resolve(record.subjectName);
+      return {
+        ...record,
+        ...(subject ? { subjectName: subject.name } : {}),
+        cues: record.cues.map((cue) => { const cueSubject = resolve(cue.subjectName); return cueSubject ? { ...cue, subjectName: cueSubject.name } : cue; }),
+      };
+    }),
+  };
+}
+
 export function cueBatchImportTemplate(): CueBatchImport {
   return {
     version: 1,
@@ -794,7 +851,8 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
   const courses = new Map<string, ScheduleCourse>();
   for (const session of sessionsForDate(state.timetable, date)) if (session.course.review) courses.set(session.course.id, session.course);
   return [...courses.values()].map((course) => {
-    const progress = state.reviewProgress[course.id];
+    const catalogSubject = matchLearningCatalogSubject(state.learningCatalog, `${course.name} ${course.shortName ?? ''}`);
+    const progress = state.reviewProgress[catalogSubject?.id ?? course.id];
     const failedToday = progress?.lastStatus === 'unclear' && dateKey(new Date(progress.updatedAt)) === key;
     return {
       key: `course-review:${key}:${course.id}`,
@@ -803,8 +861,8 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
       type: 'course-review',
       date: key,
       durationMinutes: 25,
-      subjectId: course.id,
-      subjectName: course.name,
+      subjectId: catalogSubject?.id ?? course.id,
+      subjectName: catalogSubject?.name ?? course.name,
       ...(failedToday ? {
         studiedContent: progress.lastStudiedContent,
         issue: progress.lastIssue ?? progress.lastNote,
@@ -849,16 +907,19 @@ function weeklyReviewTasks(state: ScheduleControlState, date: Date): LearningTas
   for (const day of weekDates(date)) {
     for (const session of sessionsForDate(state.timetable, day)) if (session.course.review) courses.set(session.course.id, session.course);
   }
-  return [...courses.values()].map((course) => ({
-    key: `weekly-review:${key}:${course.id}`,
-    title: `本周集中复习 · ${course.shortName ?? course.name}`,
-    detail: reviewDetail('weekly'),
-    type: 'weekly-review',
-    date: key,
-    durationMinutes: 35,
-    subjectId: course.id,
-    subjectName: course.name,
-  }));
+  return [...courses.values()].map((course) => {
+    const catalogSubject = matchLearningCatalogSubject(state.learningCatalog, `${course.name} ${course.shortName ?? ''}`);
+    return {
+      key: `weekly-review:${key}:${course.id}`,
+      title: `本周集中复习 · ${course.shortName ?? course.name}`,
+      detail: reviewDetail('weekly'),
+      type: 'weekly-review' as const,
+      date: key,
+      durationMinutes: 35,
+      subjectId: catalogSubject?.id ?? course.id,
+      subjectName: catalogSubject?.name ?? course.name,
+    };
+  });
 }
 
 function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {

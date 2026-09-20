@@ -14,12 +14,14 @@ import {
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
   mergeLearningCatalog,
+  matchLearningCatalogSubject,
   migrateIeltsWeekTaskDates,
   parseCueBatchImport,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
   parseTimetableImport,
   postponeLearningTask,
+  reconcileScheduleSubjects,
   rescheduleManualTask,
   rollOverManualTasks,
   sessionsForDate,
@@ -245,6 +247,28 @@ test('partial catalog imports merge existing data without deleting untouched con
   assert.deepEqual(merged[0].units, [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction'] }]);
   assert.deepEqual(merged[0].materialProgress, { B: '1.3', N: 'P18' });
   assert.deepEqual(parseLearningUnitOutline('Mechanics | Motion, Forces\nWaves：Refraction；Diffraction'), [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction', 'Diffraction'] }]);
+});
+
+test('timetable course names reconcile with learning subjects by meaningful keywords', () => {
+  const catalog = parseLearningCatalogImport({ subjects: [
+    { id: 'statistics', name: 'Statistics', units: [], materialProgress: {} },
+    { id: 'mechanics', name: 'Mechanics', units: [], materialProgress: {} },
+    { id: 'pure-math', name: 'Pure Math', units: [], materialProgress: {} },
+  ] }).subjects;
+  assert.equal(matchLearningCatalogSubject(catalog, 'AL统计 1 AL Statistics 1')?.id, 'statistics');
+  assert.equal(matchLearningCatalogSubject(catalog, 'AL力学 1 AL Mechanics 1')?.id, 'mechanics');
+  assert.equal(matchLearningCatalogSubject(catalog, 'AL纯数 1 AL Pure Mathematics 1')?.id, 'pure-math');
+
+  const state = createEmptyScheduleState();
+  state.learningCatalog = catalog;
+  state.timetable = { version: 1, name: 'AL', courses: [{ id: 'course-statistics', name: 'AL统计 1 AL Statistics 1', color: '#123456', review: true, sessions: [{ day: 7, start: '09:00', end: '10:00' }] }] };
+  state.reviewProgress['course-statistics'] = { subjectId: 'course-statistics', subjectName: 'AL统计 1 AL Statistics 1', intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', lastStatus: 'partial', lastNote: '', updatedAt: '2026-09-19T08:00:00.000Z' };
+  const reconciled = reconcileScheduleSubjects(state);
+  assert.equal(reconciled.reviewProgress.statistics?.subjectName, 'Statistics');
+  assert.equal(reconciled.reviewProgress['course-statistics'], undefined);
+  const daily = tasksForDate(reconciled, new Date(2026, 8, 20, 12)).find((task) => task.type === 'course-review');
+  assert.equal(daily?.subjectId, 'statistics');
+  assert.equal(daily?.subjectName, 'Statistics');
 });
 
 test('Cue batch imports validate reusable unit-level Cue data', () => {
