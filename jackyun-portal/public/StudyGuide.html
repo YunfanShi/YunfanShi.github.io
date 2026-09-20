@@ -750,6 +750,25 @@
         }
         .tool-card h3 { margin: 0 0 6px; font-size: 16px; }
         .tool-card > p { margin: 0 0 14px; color: var(--md-on-surface-variant); font-size: 13px; line-height: 1.55; }
+        .personal-ielts-plan {
+            border-color: var(--md-outline-variant);
+            background: linear-gradient(135deg, var(--md-surface), var(--md-surface-container-high));
+            color: var(--md-on-surface);
+        }
+        .personal-ielts-plan .eyebrow,
+        .personal-ielts-plan .lock-icon { color: var(--md-primary); }
+        .personal-ielts-plan .principle-card {
+            display: grid;
+            gap: 4px;
+            padding: 13px 14px;
+            border: 1px solid var(--md-outline-variant);
+            border-radius: var(--radius-md);
+            background: var(--md-surface);
+            color: var(--md-on-surface-variant);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .personal-ielts-plan .principle-card b { color: var(--md-on-surface); }
         .tool-form {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1274,6 +1293,7 @@
                 ], 'SUBSECTION：Class Learning → Write Cue → Textbook Check → Update Notes / Cue → Need Extra Verification? → Homework → Update from Evidence → Next-day Cue Recall → √ / △ / ○。'),
                 review: methodPage('Active Recall & Spacing：先保证材料完整，再闭卷检索', 'sync_alt', '第一次正式 Cue Recall 可以放到第二天。复习以单条 Cue 为最小单位；周五先做 Completeness Audit，周末再做 Retrieval & Repair。', '次日处理新 Cue；Friday 检查 Notes / Textbook / PPT 并补 Cue；Weekend 逐条检索、查看证据并修复。', '每条 Cue 独立得到 √、△或○；材料不完整先补输入，检索失败只修最小缺口。', [
                     step('①', 'Next-day Recall · 先遮 Notes', 'Cover Notes → read Cue → answer from memory；按知识类型解释、写公式并应用、画过程、比较、trace 或列提纲。', '<b>先输出再看资料。</b>不要求所有知识点在写 Cue 当晚立刻完成 Recall。Anki 可以承载短问答，但只是可选工具。'),
+                    step('通用标准', 'Mark-scheme Precision · 所有学科', '任何学科的 Definition、State、Describe、Explain 都不能只凭“意思差不多”判为 √。', '<b>[DEF]</b> required term + required relationship + necessary condition / qualifier。<p><b>[STATE-n]</b>按分值给足 n 个独立有效点。</p><p><b>[EXPLAIN-n]</b>保持 marking-point chain：原因 / 变化 → 中间机制 → 结果。缺必要关键词、限定条件或中间因果就是 △。</p><p>Physics、CS、Biology、Chemistry、Economics 等都适用；具体关键词由对应教材、syllabus 和 mark scheme 决定。</p>'),
                     step('②', '√ / △ / ○ · 记录这一次检索', '√＝独立、准确、完整；△＝有印象但遗漏或需要轻提示；○＝无法独立回忆或看答案才想起。', '<b>√：</b>leave it，之后做 spaced review。<p><b>△：</b>找出缺失部分，做 minimal repair，稍后重试。</p><p><b>○：</b>重开 Notes / Textbook，只重学最小缺口；关闭资料再 recall，需要应用时加一道代表题。</p>'),
                     step('③', 'Spacing · 由证据决定', '√可延长间隔；△保持或略缩短；○尽快重测。1 / 3 / 5 / 7 / 14 天只是参考，不是仪式。', '<b>不要重复劳动：</b>稳定的 √ 不必每周全部重做；失败内容也不要只改日期而不修缺口。间隔由连续表现、难度和使用频率决定。'),
                     step('Friday', 'Completeness Audit · 先检查输入', '检查本周 Notes → 对照 Textbook / PPT / Blackboard Writing → Fill Gaps → 为新补内容创建 Cue。', '<b>目的不是复习，而是确保检索材料完整。</b>刚写完的新 Cue 只检查问题是否清晰、答案范围是否正确；不要利用短期记忆直接判为 √。'),
@@ -1999,10 +2019,10 @@
     }
 
     function renderPersonalIeltsPlan() {
-        return `<section class="tool-card" aria-label="私人 IELTS 备考计划" style="border-color:#bfdbfe;background:linear-gradient(135deg,#eff6ff,#eef2ff);">
+        return `<section class="tool-card personal-ielts-plan" aria-label="私人 IELTS 备考计划">
             <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;">
-                <div><div style="font-size:12px;font-weight:700;color:#1d4ed8;letter-spacing:.08em;text-transform:uppercase;">Private · Admin</div><h3 style="margin-top:5px;">IELTS 备考计划 v5 · 2026.09.16–11.30</h3></div>
-                <span class="material-icons-round" style="color:#2563eb;">lock</span>
+                <div><div class="eyebrow" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Private · Admin</div><h3 style="margin-top:5px;">IELTS 备考计划 v5 · 2026.09.16–11.30</h3></div>
+                <span class="material-icons-round lock-icon">lock</span>
             </div>
             <p style="margin-top:10px;line-height:1.7;">每周五个弹性模块：Listening、Reading、Writing、Speaking、Weekly Review。每次最多 60 分钟，只推进一个模块；不固定星期，未完成内容正常顺延。</p>
             <div class="principle-grid" style="margin-top:12px;">

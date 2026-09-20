@@ -8,6 +8,7 @@ import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts'
 import {
   completeReview,
   completeCueReviews,
+  completeLearningSession,
   createEmptyScheduleState,
   createIeltsWeekTasks,
   LEARNING_TASK_PRESETS,
@@ -78,6 +79,28 @@ test('cues keep independent review states and due dates', () => {
   assert.equal(reviewed.cueReviews.length, 2);
   const due = tasksForDate(reviewed, new Date(2026, 8, 20, 12));
   assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
+});
+
+test('every learning task can record actual materials, scope, linked cues, and reviewed cues', () => {
+  const createdAt = '2026-09-19T08:00:00.000Z';
+  const existingCue = { id: 'cue-existing', subjectId: 'biology', subjectName: 'Biology', unit: 'Cells', subsection: 'Transport', prompt: 'Define osmosis.', type: 'definition' as const, markingPoints: ['net movement', 'water molecules', 'partially permeable membrane'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt };
+  const newCue = { id: 'cue-new', subjectId: 'biology', subjectName: 'Biology', unit: 'Cells', subsection: 'Transport', prompt: 'State two factors affecting diffusion rate.', type: 'state' as const, markingPoints: ['temperature', 'concentration gradient'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt };
+  const state = { ...createEmptyScheduleState(), cues: [existingCue] };
+  const task = { key: 'study-1', title: 'Study cell transport', detail: '', type: 'study' as const, date: '2026-09-20', durationMinutes: 45, manual: true };
+  const completed = completeLearningSession(state, task, 'stable', { studiedContent: 'Cell transport 1.1–1.2', issue: '', note: '' }, {
+    subjectName: 'Biology',
+    scope: { unit: 'Cells', subsection: 'Transport', cueIds: ['cue-existing', 'cue-new'] },
+    materials: [{ code: 'B', progress: '1.1–1.2' }, { code: 'N', progress: 'P8–10' }],
+    cueIds: ['cue-existing', 'cue-new'],
+    newCues: [newCue],
+    assessments: [{ cueId: 'cue-existing', status: 'partial' }],
+  }, new Date(2026, 8, 20, 12));
+
+  assert.deepEqual(completed.completions['study-1'].cueIds, ['cue-existing', 'cue-new']);
+  assert.deepEqual(completed.completions['study-1'].materials, [{ code: 'B', progress: '1.1–1.2' }, { code: 'N', progress: 'P8–10' }]);
+  assert.equal(completed.cues.find((cue) => cue.id === 'cue-existing')?.nextReviewDate, '2026-09-21');
+  assert.equal(completed.cues.find((cue) => cue.id === 'cue-new')?.nextReviewDate, '2026-09-21');
+  assert.equal(completed.cueReviews.length, 1);
 });
 
 test('date keys respect the user time zone around UTC midnight', () => {

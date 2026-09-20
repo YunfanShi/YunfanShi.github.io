@@ -28,6 +28,7 @@ const required = [
   '实际在考：', '先看：', '答案怎样组织：', '最常见错误：', '简短例子：',
   'Knowledge Node', 'Root Cause', 'Retest',
   'Knowledge、Recall、Condition/Rule、Interpretation、Selection、Reasoning、Execution、Response Structure、Expression/Marking-point、Time/Strategy',
+  'Mark-scheme Precision · 所有学科', 'Physics、CS、Biology、Chemistry、Economics 等都适用',
   '[EXPLAIN-3] Explain', '[DEF] Definition / [STATE-2] State', 'mark-scheme-ready answer',
   '学校考试', 'IGCSE / AS / A-Level', '考场策略',
   'Map · 圈真实范围', 'Diagnose · 用已有证据找弱点', 'Repair + Verify · 修完立刻换题验证', '按考试规模决定模拟程度',
@@ -172,7 +173,7 @@ for (const text of [
   if (!cornell.includes(text)) throw new Error(`Cornell Learning is missing: ${text}`);
 }
 const review = runtime.renderModuleFor('learn', 'review');
-for (const text of ['第一次正式 Cue Recall 可以放到第二天', '√ / △ / ○', 'Completeness Audit', 'Definitions / Properties']) {
+for (const text of ['第一次正式 Cue Recall 可以放到第二天', '√ / △ / ○', 'Completeness Audit', 'Definitions / Properties', 'Mark-scheme Precision · 所有学科']) {
   if (!review.includes(text)) throw new Error(`Active Recall & Spacing is missing: ${text}`);
 }
 const syllabus = runtime.renderModuleFor('learn', 'traffic');

@@ -143,6 +143,19 @@ export interface TaskCompletion {
   studiedContent?: string;
   issue?: string;
   note?: string;
+  subjectName?: string;
+  scope?: LearningScope;
+  materials?: LearningMaterialProgress[];
+  cueIds?: string[];
+}
+
+export interface LearningSessionEvidence {
+  subjectName?: string;
+  scope?: LearningScope;
+  materials: LearningMaterialProgress[];
+  cueIds: string[];
+  newCues: StudyCue[];
+  assessments: CueAssessment[];
 }
 
 export interface TaskCancellation {
@@ -649,6 +662,69 @@ export function completeCueReviews(
     cues,
     cueReviews: [...state.cueReviews, ...reviews],
   };
+}
+
+/** Records what actually happened when any learning task is finished. */
+export function completeLearningSession(
+  state: ScheduleControlState,
+  task: LearningTask,
+  status: LearningStatus,
+  details: ReviewDetails,
+  evidence: LearningSessionEvidence,
+  completedAt: Date,
+): ScheduleControlState {
+  const studiedContent = details.studiedContent.trim().slice(0, 1000);
+  const issue = status === 'stable' ? '' : details.issue.trim().slice(0, 1000);
+  const note = details.note.trim().slice(0, 1000);
+  if (!studiedContent) throw new Error('请填写本次学习或复习了什么。');
+  if (status !== 'stable' && !issue) throw new Error('△ 和 ○ 必须填写发现的问题。');
+
+  const reviewedDate = dateKey(completedAt);
+  const scheduledNewCues = evidence.newCues.map((cue) => ({
+    ...cue,
+    nextReviewDate: cue.nextReviewDate ?? addCalendarDays(reviewedDate, 1),
+  }));
+  const existingCueIds = new Set(state.cues.map((cue) => cue.id));
+  for (const cue of scheduledNewCues) {
+    if (existingCueIds.has(cue.id)) throw new Error('新建 Cue 的 id 不能重复。');
+    existingCueIds.add(cue.id);
+  }
+  const cueIds = [...new Set(evidence.cueIds)];
+  if (cueIds.some((cueId) => !existingCueIds.has(cueId))) throw new Error('学习记录包含不存在的 Cue。');
+  const assessmentIds = new Set(evidence.assessments.map((assessment) => assessment.cueId));
+  if ([...assessmentIds].some((cueId) => !cueIds.includes(cueId))) throw new Error('只有本次关联的 Cue 才能评分。');
+
+  const withCues = { ...state, cues: [...state.cues, ...scheduledNewCues] };
+  const isSubjectReview = Boolean(task.subjectId && task.subjectName && ['course-review', 'interval-review', 'weekly-review'].includes(task.type));
+  let updated = isSubjectReview
+    ? completeReview(withCues, task, status, { studiedContent, issue, note }, completedAt)
+    : {
+        ...withCues,
+        completions: status === 'unclear' ? withCues.completions : {
+          ...withCues.completions,
+          [task.key]: { completedAt: completedAt.toISOString(), status, studiedContent, issue, note },
+        },
+      };
+
+  const completion = updated.completions[task.key];
+  if (completion) {
+    updated = {
+      ...updated,
+      completions: {
+        ...updated.completions,
+        [task.key]: {
+          ...completion,
+          ...(evidence.subjectName?.trim() ? { subjectName: evidence.subjectName.trim().slice(0, 80) } : {}),
+          ...(evidence.scope ? { scope: evidence.scope } : {}),
+          materials: evidence.materials,
+          cueIds,
+        },
+      },
+    };
+  }
+  return evidence.assessments.length
+    ? completeCueReviews(updated, evidence.assessments, completedAt, task.key)
+    : updated;
 }
 
 export function isCueReviewTask(type: LearningTaskType): boolean {
