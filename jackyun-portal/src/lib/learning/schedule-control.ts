@@ -59,18 +59,50 @@ export interface ScheduleSettings {
   previewEnabled: boolean;
   previewPreferenceSet: boolean;
   weekendReviewDay: 6 | 7;
+  defaultRecordView: 'calendar' | 'subjects';
+  recordReminderEnabled: boolean;
+  recordReminderTime: string;
+  cueShowMastered: boolean;
+}
+
+export interface LearningCatalogUnit {
+  name: string;
+  subsections: string[];
+}
+
+export interface LearningCatalogSubject {
+  id: string;
+  name: string;
+  units: LearningCatalogUnit[];
+  materialProgress: Partial<Record<LearningMaterialCode, string>>;
+}
+
+export interface LearningCatalogImport {
+  version: 1;
+  subjects: LearningCatalogSubject[];
+}
+
+export interface LearningReminder {
+  id: string;
+  title: string;
+  date: string;
+  subjectId?: string;
+  completed: boolean;
 }
 
 export interface ManualLearningTask {
   id: string;
   title: string;
-  type: Exclude<LearningTaskType, 'course-review' | 'interval-review' | 'weekly-review' | 'cue-review'>;
+  type: LearningTaskType;
   date: string;
   start?: string;
   durationMinutes: number;
+  subjectId?: string;
   subject?: string;
   note?: string;
   presetId?: string;
+  sourceTaskKey?: string;
+  overdueSince?: string;
   scope?: LearningScope;
   materials?: LearningMaterialProgress[];
   guide?: StudyGuideTarget;
@@ -201,8 +233,20 @@ export interface LearningRecord {
 
 export interface TaskCancellation {
   cancelledAt: string;
-  reason?: 'cancelled' | 'merged';
+  reason?: 'cancelled' | 'merged' | 'postponed';
   mergedInto?: string;
+}
+
+export interface CueBatchImportItem {
+  prompt: string;
+  answer?: string;
+  type: CueType;
+  markingPoints: string[];
+}
+
+export interface CueBatchImport {
+  version: 1;
+  cues: CueBatchImportItem[];
 }
 
 export interface ScheduleControlState {
@@ -216,6 +260,8 @@ export interface ScheduleControlState {
   cues: StudyCue[];
   cueReviews: CueReview[];
   learningRecords: LearningRecord[];
+  learningCatalog: LearningCatalogSubject[];
+  learningReminders: LearningReminder[];
   importedAt?: string;
 }
 
@@ -277,6 +323,10 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
   previewEnabled: false,
   previewPreferenceSet: false,
   weekendReviewDay: 6,
+  defaultRecordView: 'calendar',
+  recordReminderEnabled: true,
+  recordReminderTime: '20:00',
+  cueShowMastered: true,
 };
 
 export function createEmptyScheduleState(): ScheduleControlState {
@@ -291,6 +341,8 @@ export function createEmptyScheduleState(): ScheduleControlState {
     cues: [],
     cueReviews: [],
     learningRecords: [],
+    learningCatalog: [],
+    learningReminders: [],
   };
 }
 
@@ -388,6 +440,93 @@ export function parseTimetableImport(value: unknown): TimetableImport {
   };
 }
 
+export function learningCatalogImportTemplate(): LearningCatalogImport {
+  return {
+    version: 1,
+    subjects: [{
+      id: 'physics',
+      name: 'Physics',
+      units: [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }],
+      materialProgress: { B: '1.2', N: 'P18' },
+    }],
+  };
+}
+
+export function parseLearningCatalogImport(value: unknown): LearningCatalogImport {
+  const source = record(value);
+  if (!source || !Array.isArray(source.subjects)) throw new Error('分类配置必须包含 subjects 数组。');
+  if (source.subjects.length > 100) throw new Error('一次最多导入 100 个科目。');
+  const materialCodes = new Set(LEARNING_MATERIALS.map((material) => material.code));
+  const subjects = source.subjects.map((rawSubject, subjectIndex): LearningCatalogSubject => {
+    const subject = record(rawSubject);
+    if (!subject) throw new Error(`第 ${subjectIndex + 1} 个科目格式错误。`);
+    const name = requiredText(subject.name, `第 ${subjectIndex + 1} 个科目名称`, 80);
+    const requestedId = optionalText(subject.id, 80);
+    const id = requestedId?.replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-|-$/gu, '') || makeCourseId(name, subjectIndex);
+    const rawUnits = Array.isArray(subject.units) ? subject.units : [];
+    const units = rawUnits.map((rawUnit, unitIndex): LearningCatalogUnit => {
+      const unit = record(rawUnit);
+      if (!unit) throw new Error(`${name} 第 ${unitIndex + 1} 个大单元格式错误。`);
+      const unitName = requiredText(unit.name, `${name} 第 ${unitIndex + 1} 个大单元名称`, 120);
+      const subsections = Array.isArray(unit.subsections)
+        ? [...new Set(unit.subsections.map((item) => requiredText(item, `${unitName} 小单元`, 120)))]
+        : [];
+      return { name: unitName, subsections };
+    });
+    const rawProgress = record(subject.materialProgress) ?? {};
+    const materialProgress = Object.fromEntries(Object.entries(rawProgress).flatMap(([code, progress]) => materialCodes.has(code as LearningMaterialCode) && typeof progress === 'string' && progress.trim() ? [[code, progress.trim().slice(0, 200)]] : [])) as Partial<Record<LearningMaterialCode, string>>;
+    return { id, name, units, materialProgress };
+  });
+  if (new Set(subjects.map((subject) => subject.id)).size !== subjects.length) throw new Error('科目 id 不能重复。');
+  return { version: 1, subjects };
+}
+
+export function cueBatchImportTemplate(): CueBatchImport {
+  return {
+    version: 1,
+    cues: [
+      { prompt: 'Define acceleration.', answer: 'Change in velocity per unit time.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] },
+      { prompt: 'Explain why the object slows down.', type: 'explain', markingPoints: ['resultant force opposes motion', 'acceleration is opposite to velocity'] },
+    ],
+  };
+}
+
+export function parseCueBatchImport(value: unknown): CueBatchImport {
+  const source = record(value);
+  if (!source || !Array.isArray(source.cues)) throw new Error('Cue 配置必须包含 cues 数组。');
+  if (!source.cues.length) throw new Error('至少需要一条 Cue。');
+  if (source.cues.length > 200) throw new Error('一次最多导入 200 条 Cue。');
+  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate']);
+  const cues = source.cues.map((rawCue, index): CueBatchImportItem => {
+    const cue = record(rawCue);
+    if (!cue) throw new Error(`第 ${index + 1} 条 Cue 格式错误。`);
+    const prompt = requiredText(cue.prompt, `第 ${index + 1} 条 Cue`, 500);
+    const type = typeof cue.type === 'string' && allowedTypes.has(cue.type as CueType) ? cue.type as CueType : 'general';
+    const answer = optionalText(cue.answer, 2000);
+    const markingPoints = Array.isArray(cue.markingPoints)
+      ? cue.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条 Cue 的 marking point`, 300)).slice(0, 12)
+      : [];
+    return { prompt, ...(answer ? { answer } : {}), type, markingPoints };
+  });
+  return { version: 1, cues };
+}
+
+export function updateSubjectMaterialProgress(
+  subjects: LearningCatalogSubject[],
+  subjectName: string,
+  materials: LearningMaterialProgress[],
+): LearningCatalogSubject[] {
+  const normalized = subjectName.trim().toLocaleLowerCase();
+  if (!normalized || !materials.some((material) => material.progress?.trim())) return subjects;
+  return subjects.map((subject) => subject.name.trim().toLocaleLowerCase() !== normalized ? subject : {
+    ...subject,
+    materialProgress: {
+      ...subject.materialProgress,
+      ...Object.fromEntries(materials.flatMap((material) => material.progress?.trim() ? [[material.code, material.progress.trim().slice(0, 200)]] : [])),
+    },
+  });
+}
+
 export function dateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -447,6 +586,50 @@ export function rescheduleManualTask(tasks: ManualLearningTask[], taskId: string
   return tasks.map((task) => task.id === taskId ? { ...task, date: targetDate, start: undefined } : task);
 }
 
+/** Moves either a stored task or a generated task while preserving its learning context. */
+export function postponeLearningTask(
+  state: ScheduleControlState,
+  task: LearningTask,
+  targetDate: string,
+  postponedAt = new Date().toISOString(),
+): ScheduleControlState {
+  if (task.manual) {
+    return {
+      ...state,
+      manualTasks: state.manualTasks.map((item) => item.id === task.key ? {
+        ...item,
+        date: targetDate,
+        start: undefined,
+        ...(task.overdue ? { overdueSince: item.overdueSince ?? task.date } : {}),
+      } : item),
+    };
+  }
+  const id = `postponed:${task.key}`;
+  const copy: ManualLearningTask = {
+    id,
+    title: task.title,
+    type: task.type,
+    date: targetDate,
+    durationMinutes: task.durationMinutes,
+    ...(task.subjectId ? { subjectId: task.subjectId } : {}),
+    ...(task.subjectName ? { subject: task.subjectName } : {}),
+    ...(task.detail ? { note: task.detail } : {}),
+    ...(task.scope ? { scope: task.scope } : {}),
+    ...(task.materials ? { materials: task.materials } : {}),
+    ...(task.guide ? { guide: task.guide } : {}),
+    sourceTaskKey: task.key,
+    ...(task.overdue ? { overdueSince: task.date } : {}),
+  };
+  return {
+    ...state,
+    manualTasks: [...state.manualTasks.filter((item) => item.id !== id), copy],
+    cancellations: {
+      ...state.cancellations,
+      [task.key]: { cancelledAt: postponedAt, reason: 'postponed', mergedInto: id },
+    },
+  };
+}
+
 function manualTaskMergeKey(task: ManualLearningTask): string {
   return JSON.stringify([
     task.presetId ?? '',
@@ -476,8 +659,9 @@ export function rollOverManualTasks(
   let changed = false;
   for (const tasks of dueGroups.values()) {
     const survivor = tasks.find((task) => task.date === today) ?? tasks[0];
-    if (survivor.date < today) {
-      updatedDates.set(survivor.id, { ...survivor, date: today, start: undefined });
+    const overdueSince = tasks.map((task) => task.overdueSince ?? task.date).filter((date) => date < today).sort()[0];
+    if (survivor.date < today || overdueSince) {
+      updatedDates.set(survivor.id, { ...survivor, date: today, start: survivor.date < today ? undefined : survivor.start, ...(overdueSince ? { overdueSince } : {}) });
       changed = true;
     }
     for (const duplicate of tasks) {
@@ -586,7 +770,7 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date, existingSu
       title: `${progress.subjectName} · ${statusMark} 后续复习`,
       detail: `原因：${progress.subjectName} 上次记录为 ${statusMark}，需要按复习间隔再次检索。${reviewDetail('interval')}`,
       type: 'interval-review' as const,
-      date: progress.nextReviewDate,
+      date: key,
       durationMinutes: 25,
       subjectId: progress.subjectId,
       subjectName: progress.subjectName,
@@ -694,6 +878,7 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
       date: task.date,
       start: task.start,
       durationMinutes: task.durationMinutes,
+      subjectId: task.subjectId,
       subjectName: task.subject,
       note: task.note,
       scope: task.scope,
@@ -701,10 +886,17 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
       guide: task.guide,
       cueIds: task.scope?.cueIds,
       manual: true,
-      overdue: task.presetId?.startsWith('ielts-') ? false : task.date < key,
+      overdue: Boolean(task.overdueSince || task.date < key),
     }));
+  const seen = new Set<string>();
   return [...manual, ...automatic]
-    .filter((task) => !state.completions[task.key])
+    .filter((task) => !state.completions[task.key] && !state.cancellations[task.key])
+    .filter((task) => {
+      const signature = JSON.stringify([task.type, task.title, task.subjectId ?? task.subjectName ?? '', task.scope?.unit ?? '', task.scope?.subsection ?? '']);
+      if (seen.has(signature)) return false;
+      seen.add(signature);
+      return true;
+    })
     .sort((a, b) => Number(Boolean(b.overdue)) - Number(Boolean(a.overdue)) || (a.start ?? '99:99').localeCompare(b.start ?? '99:99') || a.type.localeCompare(b.type));
 }
 
@@ -793,9 +985,8 @@ export function completeLearningSession(
   completedAt: Date,
 ): ScheduleControlState {
   const status = deriveLearningStatus(evidence.cueIds, evidence.assessments);
-  const studiedContent = details.studiedContent.trim().slice(0, 1000);
+  const suppliedContent = details.studiedContent.trim().slice(0, 1000);
   const note = details.note.trim().slice(0, 1000);
-  if (!studiedContent) throw new Error('请填写本次学习或复习了什么。');
 
   const reviewedDate = dateKey(completedAt);
   const scheduledNewCues = evidence.newCues.map((cue) => ({
@@ -826,6 +1017,10 @@ export function completeLearningSession(
       status: assessmentByCueId.get(cueId) ?? 'linked',
     };
   });
+  const scopeLabel = [evidence.subjectName?.trim() || task.subjectName, evidence.scope?.unit || task.scope?.unit, evidence.scope?.subsection || task.scope?.subsection].filter(Boolean).join(' → ');
+  const materialLabel = evidence.materials.filter((material) => material.progress?.trim()).map((material) => `${material.code} 到 ${material.progress?.trim()}`).join('、');
+  const cueLabel = recordCues.slice(0, 6).map((cue) => cue.prompt).join('；');
+  const studiedContent = suppliedContent || [scopeLabel || task.title, materialLabel ? `资料：${materialLabel}` : '', cueLabel ? `完成 Cue：${cueLabel}` : ''].filter(Boolean).join('；').slice(0, 1000);
   const weakCueLabels = recordCues.filter((cue) => cue.status !== 'stable').map((cue) => `${cue.unit} / ${cue.subsection}：${cue.prompt}`);
   const issue = status === 'stable'
     ? ''

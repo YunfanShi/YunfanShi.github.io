@@ -14,12 +14,16 @@ import {
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
   migrateIeltsWeekTaskDates,
+  parseCueBatchImport,
+  parseLearningCatalogImport,
   parseTimetableImport,
+  postponeLearningTask,
   rescheduleManualTask,
   rollOverManualTasks,
   sessionsForDate,
   tasksForDate,
   timetableImportTemplate,
+  updateSubjectMaterialProgress,
   withReviewCourseSelection,
 } from '../src/lib/learning/schedule-control.ts';
 
@@ -72,7 +76,9 @@ test('overdue manual tasks roll into today and merge with an equivalent task alr
   const rolled = rollOverManualTasks(state, '2026-09-14', '2026-09-14T00:00:00.000Z');
   assert.equal(rolled.manualTasks.find((task) => task.id === 'old-reading')?.date, '2026-09-14');
   assert.equal(rolled.manualTasks.find((task) => task.id === 'old-reading')?.start, undefined);
+  assert.equal(rolled.manualTasks.find((task) => task.id === 'old-reading')?.overdueSince, '2026-09-12');
   assert.equal(rolled.manualTasks.find((task) => task.id === 'today-review')?.start, '19:00');
+  assert.equal(rolled.manualTasks.find((task) => task.id === 'today-review')?.overdueSince, '2026-09-13');
   assert.equal(rolled.manualTasks.find((task) => task.id === 'physics-review')?.date, '2026-09-14');
   assert.deepEqual(rolled.cancellations['old-review'], {
     cancelledAt: '2026-09-14T00:00:00.000Z',
@@ -80,6 +86,17 @@ test('overdue manual tasks roll into today and merge with an equivalent task alr
     mergedInto: 'today-review',
   });
   assert.deepEqual(tasksForDate(rolled, new Date(2026, 8, 14, 12)).map((task) => task.key).sort(), ['old-reading', 'physics-review', 'today-review']);
+  assert.ok(tasksForDate(rolled, new Date(2026, 8, 14, 12)).every((task) => task.overdue));
+});
+
+test('generated tasks can be postponed and keep their context', () => {
+  const state = createEmptyScheduleState();
+  const task = { key: 'course-review:2026-09-14:physics', title: '复习 Physics', detail: '闭卷检索', type: 'course-review' as const, date: '2026-09-14', durationMinutes: 25, subjectId: 'physics', subjectName: 'Physics' };
+  const postponed = postponeLearningTask(state, task, '2026-09-15', '2026-09-14T10:00:00.000Z');
+  assert.equal(postponed.cancellations[task.key]?.reason, 'postponed');
+  assert.equal(postponed.manualTasks[0].date, '2026-09-15');
+  assert.equal(postponed.manualTasks[0].subjectId, 'physics');
+  assert.equal(tasksForDate(postponed, new Date(2026, 8, 15, 12))[0]?.title, '复习 Physics');
 });
 
 test('cues keep independent review states and due dates', () => {
@@ -124,7 +141,7 @@ test('every learning task can record actual materials, scope, linked cues, and r
   const newCue = { id: 'cue-new', subjectId: 'biology', subjectName: 'Biology', unit: 'Cells', subsection: 'Transport', prompt: 'State two factors affecting diffusion rate.', type: 'state' as const, markingPoints: ['temperature', 'concentration gradient'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt };
   const state = { ...createEmptyScheduleState(), cues: [existingCue] };
   const task = { key: 'study-1', title: 'Study cell transport', detail: '', type: 'study' as const, date: '2026-09-20', durationMinutes: 45, manual: true };
-  const completed = completeLearningSession(state, task, { studiedContent: 'Cell transport 1.1–1.2', issue: '', note: '' }, {
+  const completed = completeLearningSession(state, task, { studiedContent: '', issue: '', note: '' }, {
     subjectName: 'Biology',
     scope: { unit: 'Cells', subsection: 'Transport', cueIds: ['cue-existing', 'cue-new'] },
     materials: [{ code: 'B', progress: '1.1–1.2' }, { code: 'N', progress: 'P8–10' }],
@@ -139,6 +156,9 @@ test('every learning task can record actual materials, scope, linked cues, and r
   assert.equal(completed.cues.find((cue) => cue.id === 'cue-new')?.nextReviewDate, '2026-09-21');
   assert.equal(completed.cueReviews.length, 1);
   assert.equal(completed.learningRecords[0].status, 'partial');
+  assert.match(completed.learningRecords[0].studiedContent, /Biology → Cells → Transport/);
+  assert.match(completed.learningRecords[0].studiedContent, /B 到 1.1–1.2/);
+  assert.match(completed.learningRecords[0].studiedContent, /Define osmosis/);
   assert.equal(completed.learningRecords[0].systemReport.passRate, 0);
   assert.match(completed.learningRecords[0].systemReport.summary, /2 条 Cue/);
 });
@@ -203,6 +223,22 @@ test('timetable imports are validated without relying on private sample data', (
   assert.equal(sessionsForDate(timetable, new Date(2026, 8, 8, 12)).length, 1);
   assert.equal(sessionsForDate(timetable, new Date(2026, 8, 15, 12)).length, 0);
   assert.throws(() => parseTimetableImport({ name: 'Bad', courses: [{ name: 'X', sessions: [{ day: 8, start: '08:00', end: '08:45' }] }] }), /day/);
+});
+
+test('learning catalog imports preserve free-text material positions and validate hierarchy', () => {
+  const catalog = parseLearningCatalogImport({ version: 1, subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }], materialProgress: { B: '1.2', N: 'P18', BAD: 'ignored' } }] });
+  assert.deepEqual(catalog.subjects[0].units[0].subsections, ['Motion', 'Forces']);
+  assert.deepEqual(catalog.subjects[0].materialProgress, { B: '1.2', N: 'P18' });
+  const updated = updateSubjectMaterialProgress(catalog.subjects, 'Physics', [{ code: 'B', progress: '1.3' }, { code: 'HW', progress: 'Q1–8' }]);
+  assert.deepEqual(updated[0].materialProgress, { B: '1.3', N: 'P18', HW: 'Q1–8' });
+  assert.throws(() => parseLearningCatalogImport({ subjects: [{ name: 'Physics', units: [{ name: '', subsections: [] }] }] }), /大单元名称/);
+});
+
+test('Cue batch imports validate reusable unit-level Cue data', () => {
+  const parsed = parseCueBatchImport({ cues: [{ prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] }, { prompt: 'Recall the example.' }] });
+  assert.equal(parsed.cues.length, 2);
+  assert.equal(parsed.cues[1].type, 'general');
+  assert.throws(() => parseCueBatchImport({ cues: [] }), /至少需要一条/);
 });
 
 test('review subjects are saved only from the user selection', () => {
