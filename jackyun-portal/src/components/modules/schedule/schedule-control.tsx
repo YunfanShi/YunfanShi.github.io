@@ -950,7 +950,8 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   };
   const cancelTask = (task: LearningTask) => {
     if (!window.confirm(`确定取消任务「${task.title}」吗？`)) return;
-    setState((current) => ({ ...current, cancellations: { ...current.cancellations, [task.key]: { cancelledAt: new Date().toISOString() } } }));
+    const cancelledAt = new Date().toISOString();
+    setState((current) => ({ ...current, cancellations: { ...current.cancellations, ...Object.fromEntries((task.mergedTaskKeys ?? [task.key]).map((key) => [key, { cancelledAt, reason: 'cancelled' as const }])) } }));
     setNotice('任务已取消。');
   };
   const addIeltsWeek = () => {

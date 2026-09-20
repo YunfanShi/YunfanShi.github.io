@@ -160,6 +160,21 @@ test('due Cues are consolidated into one subject review and replace duplicate re
   assert.ok(!reviews.some((task) => ['course-review', 'interval-review', 'weekly-review'].includes(task.type) && task.subjectId === 'physics'));
 });
 
+test('same-subject review tasks merge across carried and newly generated Cue reviews', () => {
+  const createdAt = '2026-09-19T08:00:00.000Z';
+  const state = createEmptyScheduleState();
+  state.cues = ['a', 'b', 'c'].map((id, index) => ({ id, subjectId: 'computer', subjectName: 'Computer Science', unit: index < 2 ? 'Information Representation' : 'Networks', subsection: '', prompt: `Cue ${id}`, type: 'general' as const, markingPoints: [], intervalDays: 1, easeFactor: 2.5, streak: 1, ...(index < 2 ? { nextReviewDate: '2026-09-21' } : {}), createdAt, updatedAt: createdAt }));
+  state.manualTasks = [{ id: 'carried-computer-review', title: 'Computer Science · 3 条 Cue', type: 'cue-review', date: '2026-09-20', durationMinutes: 25, subjectId: 'computer', subject: 'Computer Science', scope: { cueIds: ['a', 'b', 'c'] }, overdueSince: '2026-09-20' }];
+  const tasks = tasksForDate(state, new Date(2026, 8, 21, 12));
+  const reviews = tasks.filter((task) => task.subjectId === 'computer' && task.type === 'cue-review');
+  assert.equal(reviews.length, 1);
+  assert.deepEqual(reviews[0].cueIds, ['a', 'b', 'c']);
+  assert.deepEqual(new Set(reviews[0].mergedTaskKeys), new Set(['carried-computer-review', 'cue-review:2026-09-21:computer']));
+  const completed = completeLearningSession(state, reviews[0], { studiedContent: '', issue: '', note: '' }, { subjectName: 'Computer Science', scope: { cueIds: ['a', 'b', 'c'] }, materials: [], cueIds: ['a', 'b', 'c'], newCues: [], assessments: ['a', 'b', 'c'].map((cueId) => ({ cueId, status: 'stable' as const })) }, new Date('2026-09-21T08:00:00.000Z'));
+  assert.ok(completed.completions['carried-computer-review']);
+  assert.ok(completed.completions['cue-review:2026-09-21:computer']);
+});
+
 test('every learning task can record actual materials, scope, linked cues, and reviewed cues', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const existingCue = { id: 'cue-existing', subjectId: 'biology', subjectName: 'Biology', unit: 'Cells', subsection: 'Transport', prompt: 'Define osmosis.', type: 'definition' as const, markingPoints: ['net movement', 'water molecules', 'partially permeable membrane'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt };

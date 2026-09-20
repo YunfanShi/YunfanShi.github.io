@@ -322,6 +322,7 @@ export interface LearningTask {
   materials?: LearningMaterialProgress[];
   guide?: StudyGuideTarget;
   cueIds?: string[];
+  mergedTaskKeys?: string[];
   manual?: boolean;
 }
 
@@ -793,7 +794,7 @@ export function postponeLearningTask(
   targetDate: string,
   postponedAt = new Date().toISOString(),
 ): ScheduleControlState {
-  if (task.manual) {
+  if (task.manual && !task.mergedTaskKeys?.length) {
     return {
       ...state,
       manualTasks: state.manualTasks.map((item) => item.id === task.key ? {
@@ -825,7 +826,7 @@ export function postponeLearningTask(
     manualTasks: [...state.manualTasks.filter((item) => item.id !== id), copy],
     cancellations: {
       ...state.cancellations,
-      [task.key]: { cancelledAt: postponedAt, reason: 'postponed', mergedInto: id },
+      ...Object.fromEntries((task.mergedTaskKeys ?? [task.key]).map((key) => [key, { cancelledAt: postponedAt, reason: 'postponed' as const, mergedInto: id }])),
     },
   };
 }
@@ -1061,6 +1062,45 @@ function previewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
   }));
 }
 
+function taskAction(type: LearningTaskType): string {
+  return ['course-review', 'interval-review', 'weekly-review', 'cue-review', 'unit-review', 'cumulative-review'].includes(type) ? 'review' : type;
+}
+
+function mergeSameSubjectActions(tasks: LearningTask[], cues: StudyCue[]): LearningTask[] {
+  const groups = new Map<string, LearningTask[]>();
+  for (const task of tasks) {
+    const subject = task.subjectId ?? task.subjectName?.trim().toLocaleLowerCase();
+    const signature = subject
+      ? `${taskAction(task.type)}:${subject}`
+      : JSON.stringify([task.type, task.title, task.scope?.unit ?? '', task.scope?.subsection ?? '']);
+    groups.set(signature, [...(groups.get(signature) ?? []), task]);
+  }
+  return [...groups.values()].map((group) => {
+    if (group.length === 1) return group[0];
+    const primary = group.toSorted((left, right) => (right.cueIds?.length ?? 0) - (left.cueIds?.length ?? 0))[0];
+    const cueIds = [...new Set(group.flatMap((task) => task.cueIds ?? task.scope?.cueIds ?? []))];
+    const mergedCues = cueIds.flatMap((cueId) => { const cue = cues.find((item) => item.id === cueId); return cue ? [cue] : []; });
+    const sameUnit = mergedCues.length > 0 && mergedCues.every((cue) => cue.unit === mergedCues[0].unit);
+    const sameSubsection = sameUnit && mergedCues.every((cue) => cue.subsection === mergedCues[0].subsection);
+    const review = taskAction(primary.type) === 'review';
+    const subjectName = primary.subjectName ?? group.find((task) => task.subjectName)?.subjectName;
+    const detail = mergedCues.length
+      ? `复习：${mergedCues.map((cue) => cue.prompt).join('；')}`
+      : [...new Set(group.map((task) => task.detail).filter(Boolean))].join('\n');
+    return {
+      ...primary,
+      title: review ? (cueIds.length ? `${subjectName ?? primary.title} · ${cueIds.length} 条 Cue` : `复习 ${subjectName ?? primary.title}`) : primary.title,
+      detail,
+      type: review && cueIds.length ? 'cue-review' : primary.type,
+      durationMinutes: cueIds.length ? Math.min(60, Math.max(15, cueIds.length * 5)) : Math.min(120, Math.max(...group.map((task) => task.durationMinutes))),
+      ...(cueIds.length ? { cueIds, scope: { ...(sameUnit ? { unit: mergedCues[0].unit } : {}), ...(sameSubsection && mergedCues[0].subsection ? { subsection: mergedCues[0].subsection } : {}), cueIds } } : {}),
+      mergedTaskKeys: [...new Set(group.flatMap((task) => task.mergedTaskKeys ?? [task.key]))],
+      manual: group.every((task) => task.manual),
+      overdue: group.some((task) => task.overdue),
+    };
+  });
+}
+
 export function tasksForDate(state: ScheduleControlState, date: Date): LearningTask[] {
   const key = dateKey(date);
   const daily = courseReviewTasks(state, date);
@@ -1095,15 +1135,10 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
   const available = [...manual, ...automatic].filter((task) => !state.completions[task.key] && !state.cancellations[task.key]);
   const subjectsWithCueReview = new Set(available.filter((task) => task.type === 'cue-review').map((task) => task.subjectId ?? task.subjectName).filter((subject): subject is string => Boolean(subject)));
   const supersededByCue = new Set<LearningTaskType>(['course-review', 'interval-review', 'weekly-review']);
-  const seen = new Set<string>();
-  return available
-    .filter((task) => !supersededByCue.has(task.type) || !subjectsWithCueReview.has(task.subjectId ?? task.subjectName ?? ''))
-    .filter((task) => {
-      const signature = JSON.stringify([task.type, task.title, task.subjectId ?? task.subjectName ?? '', task.scope?.unit ?? '', task.scope?.subsection ?? '']);
-      if (seen.has(signature)) return false;
-      seen.add(signature);
-      return true;
-    })
+  return mergeSameSubjectActions(
+    available.filter((task) => !supersededByCue.has(task.type) || !subjectsWithCueReview.has(task.subjectId ?? task.subjectName ?? '')),
+    state.cues,
+  )
     .sort((a, b) => Number(Boolean(b.overdue)) - Number(Boolean(a.overdue)) || (a.start ?? '99:99').localeCompare(b.start ?? '99:99') || a.type.localeCompare(b.type));
 }
 
@@ -1265,17 +1300,18 @@ export function completeLearningSession(
 
   const completion = updated.completions[task.key];
   if (completion) {
+    const detailedCompletion = {
+      ...completion,
+      ...(evidence.subjectName?.trim() ? { subjectName: evidence.subjectName.trim().slice(0, 80) } : {}),
+      ...(evidence.scope ? { scope: evidence.scope } : {}),
+      materials: evidence.materials,
+      cueIds,
+    };
     updated = {
       ...updated,
       completions: {
         ...updated.completions,
-        [task.key]: {
-          ...completion,
-          ...(evidence.subjectName?.trim() ? { subjectName: evidence.subjectName.trim().slice(0, 80) } : {}),
-          ...(evidence.scope ? { scope: evidence.scope } : {}),
-          materials: evidence.materials,
-          cueIds,
-        },
+        ...Object.fromEntries((task.mergedTaskKeys ?? [task.key]).map((key) => [key, detailedCompletion])),
       },
     };
   }
