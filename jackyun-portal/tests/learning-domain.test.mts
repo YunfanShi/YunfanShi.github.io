@@ -11,6 +11,7 @@ import {
   completeLearningSession,
   createEmptyScheduleState,
   createIeltsWeekTasks,
+  cuesForLearningTask,
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
   mergeLearningCatalog,
@@ -124,6 +125,18 @@ test('cues keep independent review states and due dates', () => {
   assert.equal(reviewed.cueReviews.length, 2);
   const due = tasksForDate(reviewed, new Date(2026, 8, 20, 12));
   assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
+});
+
+test('Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope', () => {
+  const createdAt = '2026-09-19T08:00:00.000Z';
+  const cues = [
+    { id: 'chapter-4-a', subjectId: 'physics', subjectName: 'Physics', unit: 'Chapter 4', subsection: '', prompt: 'A', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt },
+    { id: 'chapter-4-b', subjectId: 'physics', subjectName: 'Physics', unit: 'Chapter 4', subsection: '', prompt: 'B', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt },
+    { id: 'chapter-5', subjectId: 'physics', subjectName: 'Physics', unit: 'Chapter 5', subsection: '', prompt: 'C', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt },
+  ];
+  const scopedTask = { key: 'physics-ch4', title: 'Review Chapter 4', detail: '', type: 'unit-review' as const, date: '2026-09-20', durationMinutes: 30, subjectId: 'physics', subjectName: 'Physics', scope: { unit: 'Chapter 4' } };
+  assert.deepEqual(cuesForLearningTask(cues, scopedTask).map((cue) => cue.id), ['chapter-4-a', 'chapter-4-b']);
+  assert.deepEqual(cuesForLearningTask(cues, { ...scopedTask, cueIds: ['chapter-5', 'chapter-4-a'] }).map((cue) => cue.id), ['chapter-5', 'chapter-4-a']);
 });
 
 test('due Cues are consolidated into one subject review and replace duplicate review tasks', () => {

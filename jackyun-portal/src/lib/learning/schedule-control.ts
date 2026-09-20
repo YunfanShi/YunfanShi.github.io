@@ -1083,6 +1083,21 @@ export function deriveLearningStatus(cueIds: string[], assessments: CueAssessmen
   return 'partial';
 }
 
+/** Resolves the Cue deck for a scheduled task, preferring explicit Cue ids over its subject/unit scope. */
+export function cuesForLearningTask(cues: StudyCue[], task: LearningTask): StudyCue[] {
+  const explicitIds = task.cueIds?.length ? task.cueIds : task.scope?.cueIds;
+  if (explicitIds?.length) {
+    const order = new Map(explicitIds.map((id, index) => [id, index]));
+    return cues
+      .filter((cue) => order.has(cue.id))
+      .toSorted((left, right) => order.get(left.id)! - order.get(right.id)!);
+  }
+  return cues.filter((cue) => {
+    const sameSubject = task.subjectId ? cue.subjectId === task.subjectId : !task.subjectName || cue.subjectName === task.subjectName;
+    return sameSubject && (!task.scope?.unit || cue.unit === task.scope.unit);
+  });
+}
+
 function createSystemReport(cues: LearningRecordCue[], status: LearningStatus): LearningSystemReport {
   const stableCount = cues.filter((cue) => cue.status === 'stable').length;
   const partialCount = cues.filter((cue) => cue.status === 'partial').length;
