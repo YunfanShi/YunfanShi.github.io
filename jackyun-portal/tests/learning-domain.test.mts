@@ -5,7 +5,9 @@ import { completionRate, elapsedSeconds, totalMinutes } from '../src/lib/learnin
 import { rankLearningCandidates } from '../src/lib/learning/prioritization.ts';
 import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
+import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
 import {
+  applyCueUnitMappings,
   completeReview,
   completeCueReviews,
   completeLearningSession,
@@ -300,6 +302,23 @@ test('Cue batch imports validate reusable unit-level Cue data', () => {
   assert.equal(parsed.cues[1].type, 'general');
   assert.throws(() => parseCueBatchImport({ cues: [] }), /至少需要一条/);
   assert.throws(() => parseCueBatchImport({ cues: [{ prompt: 'Missing unit.' }] }), /大单元/);
+});
+
+test('Cue unit reconciliation applies one user choice to every matching imported Cue', () => {
+  const cues = parseCueBatchImport({ cues: [
+    { unit: 'Unit 4', prompt: 'First Cue' },
+    { unit: 'Unit 4', prompt: 'Second Cue' },
+    { unit: 'Forces', prompt: 'Third Cue' },
+  ] }).cues;
+  const reconciled = applyCueUnitMappings(cues, { 'Unit 4': 'Chapter 4 Motion' });
+  assert.deepEqual(reconciled.map((cue) => cue.unit), ['Chapter 4 Motion', 'Chapter 4 Motion', 'Forces']);
+  assert.deepEqual(cues.map((cue) => cue.unit), ['Unit 4', 'Unit 4', 'Forces']);
+});
+
+test('Cue LaTeX accepts commonly escaped comparison symbols', () => {
+  assert.equal(normalizeLatexRelations(String.raw`f(x)\<g(x)`), 'f(x)<g(x)');
+  assert.equal(normalizeLatexRelations(String.raw`f(x)\>g(x)`), 'f(x)>g(x)');
+  assert.equal(normalizeLatexRelations(String.raw`ax^2+bx+c`), 'ax^2+bx+c');
 });
 
 test('review subjects are saved only from the user selection', () => {

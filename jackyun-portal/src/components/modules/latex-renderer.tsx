@@ -2,6 +2,8 @@
 
 import { memo } from 'react';
 import katex from 'katex';
+import { normalizeLatexRelations } from '@/lib/latex-text';
+import 'katex/dist/katex.min.css';
 
 interface LatexRendererProps {
   content: string;
@@ -74,7 +76,7 @@ const LatexRenderer = memo(function LatexRenderer({ content, className }: LatexR
 
         // Render LaTeX
         try {
-          const html = katex.renderToString(part.value, {
+          const html = katex.renderToString(normalizeLatexRelations(part.value), {
             displayMode: part.type === 'latex-block',
             throwOnError: false,
             output: 'html',

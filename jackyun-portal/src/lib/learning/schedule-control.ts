@@ -250,6 +250,16 @@ export interface CueBatchImport {
   cues: CueBatchImportItem[];
 }
 
+export interface CueStudyDraft {
+  id: string;
+  task: LearningTask;
+  cueIds: string[];
+  index: number;
+  revealed: boolean;
+  assessments: Record<string, LearningStatus>;
+  updatedAt: string;
+}
+
 export interface ScheduleControlState {
   schemaVersion: 1;
   timetable: TimetableImport | null;
@@ -263,6 +273,7 @@ export interface ScheduleControlState {
   learningRecords: LearningRecord[];
   learningCatalog: LearningCatalogSubject[];
   learningReminders: LearningReminder[];
+  cueStudyDraft?: CueStudyDraft;
   importedAt?: string;
 }
 
@@ -626,6 +637,16 @@ export function parseCueBatchImport(value: unknown): CueBatchImport {
     return { unit, prompt, ...(answer ? { answer } : {}), type, markingPoints };
   });
   return { version: 1, cues };
+}
+
+export function applyCueUnitMappings(
+  cues: CueBatchImportItem[],
+  mappings: Record<string, string>,
+): CueBatchImportItem[] {
+  return cues.map((cue) => ({
+    ...cue,
+    unit: mappings[cue.unit]?.trim() || cue.unit,
+  }));
 }
 
 export function updateSubjectMaterialProgress(
