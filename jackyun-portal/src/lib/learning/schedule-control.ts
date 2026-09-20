@@ -3,7 +3,8 @@ import { scheduleReview } from './review-schedule.ts';
 export type ScheduleMode = 'term' | 'holiday';
 export type LearningTaskType = 'course-review' | 'interval-review' | 'weekly-review' | 'cue-review' | 'completeness-audit' | 'unit-review' | 'cumulative-review' | 'study' | 'self-study' | 'practice' | 'repair' | 'preview' | 'special' | 'exam' | 'custom';
 export type LearningStatus = 'stable' | 'partial' | 'unclear';
-export type CueType = 'general' | 'definition' | 'explain' | 'state' | 'calculate';
+export type CueType = 'general' | 'definition' | 'explain' | 'state' | 'calculate' | 'formula' | 'derivation' | 'proof' | 'compare' | 'process' | 'application' | 'diagram' | 'multiple-choice';
+export type CueDisplayPreset = 'standard' | 'headline' | 'formula' | 'steps' | 'comparison' | 'scenario' | 'definition-card' | 'multiple-choice';
 export type LearningMaterialCode = 'B' | 'PQ' | 'BW' | 'N' | 'BQ' | 'PPT' | 'HW' | 'OTHER';
 
 export interface LearningMaterialProgress {
@@ -115,8 +116,12 @@ export interface StudyCue {
   unit: string;
   subsection: string;
   prompt: string;
+  subtitle?: string;
   answer?: string;
   type: CueType;
+  display?: CueDisplayPreset;
+  choices?: string[];
+  correctChoice?: number;
   markingPoints: string[];
   status?: LearningStatus;
   intervalDays: number;
@@ -196,7 +201,11 @@ export interface LearningRecordCue {
   unit: string;
   subsection: string;
   prompt: string;
+  subtitle?: string;
   type: CueType;
+  display?: CueDisplayPreset;
+  choices?: string[];
+  correctChoice?: number;
   markingPoints: string[];
   status: LearningStatus | 'linked';
 }
@@ -240,8 +249,12 @@ export interface TaskCancellation {
 export interface CueBatchImportItem {
   unit: string;
   prompt: string;
+  subtitle?: string;
   answer?: string;
   type: CueType;
+  display: CueDisplayPreset;
+  choices?: string[];
+  correctChoice?: number;
   markingPoints: string[];
 }
 
@@ -250,12 +263,24 @@ export interface CueBatchImport {
   cues: CueBatchImportItem[];
 }
 
+export interface CueEnrichmentItem {
+  id: string;
+  subtitle?: string;
+  answer?: string;
+  type?: CueType;
+  display?: CueDisplayPreset;
+  choices?: string[];
+  correctChoice?: number;
+  markingPoints?: string[];
+}
+
 export interface CueStudyDraft {
   id: string;
   task: LearningTask;
   cueIds: string[];
   index: number;
   revealed: boolean;
+  selectedChoice?: number;
   assessments: Record<string, LearningStatus>;
   updatedAt: string;
 }
@@ -612,8 +637,9 @@ export function cueBatchImportTemplate(): CueBatchImport {
   return {
     version: 1,
     cues: [
-      { unit: 'Kinematics', prompt: 'Define acceleration.', answer: 'Change in velocity per unit time.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] },
-      { unit: 'Forces', prompt: 'Explain why the object slows down.', type: 'explain', markingPoints: ['resultant force opposes motion', 'acceleration is opposite to velocity'] },
+      { unit: 'Kinematics', prompt: 'Acceleration', subtitle: 'Recall the precise physical definition and include the time relationship.', answer: 'Change in velocity per unit time.', type: 'definition', display: 'definition-card', markingPoints: ['change in velocity', 'per unit time'] },
+      { unit: 'Algebra', prompt: 'Solve \\(ax^2+bx+c=0\\).', subtitle: 'Assume \\(a\\ne0\\); state the condition for real roots.', answer: '\\(x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\), with \\(b^2-4ac\\ge0\\) for real roots.', type: 'formula', display: 'formula', markingPoints: ['correct quadratic formula', '\\(b^2-4ac\\ge0\\)'] },
+      { unit: 'Forces', prompt: 'Which quantity is a vector?', type: 'multiple-choice', display: 'multiple-choice', choices: ['speed', 'distance', 'velocity', 'energy'], correctChoice: 2, markingPoints: ['velocity has magnitude and direction'] },
     ],
   };
 }
@@ -623,18 +649,24 @@ export function parseCueBatchImport(value: unknown): CueBatchImport {
   if (!source || !Array.isArray(source.cues)) throw new Error('Cue 配置必须包含 cues 数组。');
   if (!source.cues.length) throw new Error('至少需要一条 Cue。');
   if (source.cues.length > 200) throw new Error('一次最多导入 200 条 Cue。');
-  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate']);
+  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice']);
+  const allowedDisplays = new Set<CueDisplayPreset>(['standard', 'headline', 'formula', 'steps', 'comparison', 'scenario', 'definition-card', 'multiple-choice']);
   const cues = source.cues.map((rawCue, index): CueBatchImportItem => {
     const cue = record(rawCue);
     if (!cue) throw new Error(`第 ${index + 1} 条 Cue 格式错误。`);
     const unit = requiredText(cue.unit, `第 ${index + 1} 条 Cue 的大单元`, 120);
     const prompt = requiredText(cue.prompt, `第 ${index + 1} 条 Cue`, 500);
+    const subtitle = optionalText(cue.subtitle, 500);
     const type = typeof cue.type === 'string' && allowedTypes.has(cue.type as CueType) ? cue.type as CueType : 'general';
+    const display = typeof cue.display === 'string' && allowedDisplays.has(cue.display as CueDisplayPreset) ? cue.display as CueDisplayPreset : 'standard';
     const answer = optionalText(cue.answer, 2000);
+    const choices = Array.isArray(cue.choices) ? cue.choices.map((item) => requiredText(item, `第 ${index + 1} 条 Cue 的选项`, 500)).slice(0, 6) : [];
+    const correctChoice = Number.isInteger(cue.correctChoice) ? Number(cue.correctChoice) : undefined;
+    if (type === 'multiple-choice' && (choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题必须有 2–6 个选项和有效的 correctChoice（从 0 开始）。`);
     const markingPoints = Array.isArray(cue.markingPoints)
       ? cue.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条 Cue 的 marking point`, 300)).slice(0, 12)
       : [];
-    return { unit, prompt, ...(answer ? { answer } : {}), type, markingPoints };
+    return { unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
   });
   return { version: 1, cues };
 }
@@ -647,6 +679,36 @@ export function applyCueUnitMappings(
     ...cue,
     unit: mappings[cue.unit]?.trim() || cue.unit,
   }));
+}
+
+export function parseCueEnrichments(value: unknown): CueEnrichmentItem[] {
+  const source = record(value);
+  if (!source || !Array.isArray(source.updates) || !source.updates.length) throw new Error('补充配置必须包含非空 updates 数组。');
+  if (source.updates.length > 200) throw new Error('一次最多补充 200 条 Cue。');
+  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice']);
+  const allowedDisplays = new Set<CueDisplayPreset>(['standard', 'headline', 'formula', 'steps', 'comparison', 'scenario', 'definition-card', 'multiple-choice']);
+  return source.updates.map((rawUpdate, index) => {
+    const update = record(rawUpdate);
+    if (!update) throw new Error(`第 ${index + 1} 条补充格式错误。`);
+    const id = requiredText(update.id, `第 ${index + 1} 条补充的 id`, 120);
+    const type = typeof update.type === 'string' && allowedTypes.has(update.type as CueType) ? update.type as CueType : undefined;
+    const display = typeof update.display === 'string' && allowedDisplays.has(update.display as CueDisplayPreset) ? update.display as CueDisplayPreset : undefined;
+    const subtitle = optionalText(update.subtitle, 500);
+    const answer = optionalText(update.answer, 2000);
+    const markingPoints = Array.isArray(update.markingPoints) ? update.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条补充的 marking point`, 300)).slice(0, 12) : undefined;
+    const choices = Array.isArray(update.choices) ? update.choices.map((item) => requiredText(item, `第 ${index + 1} 条补充的选项`, 500)).slice(0, 6) : undefined;
+    const correctChoice = Number.isInteger(update.correctChoice) ? Number(update.correctChoice) : undefined;
+    if ((type === 'multiple-choice' || choices) && (!choices || choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题补充必须有 2–6 个选项和有效的 correctChoice。`);
+    return { id, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
+  });
+}
+
+export function applyCueEnrichments(cues: StudyCue[], updates: CueEnrichmentItem[], updatedAt: string): StudyCue[] {
+  const byId = new Map(updates.map((update) => [update.id, update]));
+  return cues.map((cue) => {
+    const update = byId.get(cue.id);
+    return update ? { ...cue, ...update, id: cue.id, updatedAt } : cue;
+  });
 }
 
 export function updateSubjectMaterialProgress(
@@ -1172,7 +1234,10 @@ export function completeLearningSession(
       unit: cue.unit,
       subsection: cue.subsection,
       prompt: cue.prompt,
+      ...(cue.subtitle ? { subtitle: cue.subtitle } : {}),
       type: cue.type,
+      ...(cue.display ? { display: cue.display } : {}),
+      ...(cue.choices ? { choices: [...cue.choices], correctChoice: cue.correctChoice } : {}),
       markingPoints: [...cue.markingPoints],
       status: assessmentByCueId.get(cueId) ?? 'linked',
     };

@@ -7,6 +7,7 @@ import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
 import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
 import {
+  applyCueEnrichments,
   applyCueUnitMappings,
   completeReview,
   completeCueReviews,
@@ -20,6 +21,7 @@ import {
   matchLearningCatalogSubject,
   migrateIeltsWeekTaskDates,
   parseCueBatchImport,
+  parseCueEnrichments,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
   parseTimetableImport,
@@ -295,11 +297,14 @@ test('timetable course names reconcile with learning subjects by meaningful keyw
   assert.equal(daily?.subjectName, 'Statistics');
 });
 
-test('Cue batch imports validate reusable unit-level Cue data', () => {
-  const parsed = parseCueBatchImport({ cues: [{ unit: 'Kinematics', prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'] }, { unit: 'Forces', prompt: 'Recall the example.' }] });
+test('Cue batch imports validate reusable unit-level Cue data and rich display presets', () => {
+  const parsed = parseCueBatchImport({ cues: [{ unit: 'Kinematics', prompt: 'Define acceleration.', subtitle: 'Include the time relationship.', type: 'definition', display: 'headline', markingPoints: ['change in velocity', 'per unit time'] }, { unit: 'Forces', prompt: 'Recall the example.' }] });
   assert.equal(parsed.cues.length, 2);
   assert.deepEqual(parsed.cues.map((cue) => cue.unit), ['Kinematics', 'Forces']);
+  assert.equal(parsed.cues[0].subtitle, 'Include the time relationship.');
+  assert.equal(parsed.cues[0].display, 'headline');
   assert.equal(parsed.cues[1].type, 'general');
+  assert.equal(parsed.cues[1].display, 'standard');
   assert.throws(() => parseCueBatchImport({ cues: [] }), /至少需要一条/);
   assert.throws(() => parseCueBatchImport({ cues: [{ prompt: 'Missing unit.' }] }), /大单元/);
 });
@@ -313,6 +318,18 @@ test('Cue unit reconciliation applies one user choice to every matching imported
   const reconciled = applyCueUnitMappings(cues, { 'Unit 4': 'Chapter 4 Motion' });
   assert.deepEqual(reconciled.map((cue) => cue.unit), ['Chapter 4 Motion', 'Chapter 4 Motion', 'Forces']);
   assert.deepEqual(cues.map((cue) => cue.unit), ['Unit 4', 'Unit 4', 'Forces']);
+});
+
+test('AI Cue enrichment updates only returned fields and keeps Cue identity', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const cues = [{ id: 'cue-1', subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Choose the vector.', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  const updates = parseCueEnrichments({ updates: [{ id: 'cue-1', type: 'multiple-choice', display: 'multiple-choice', choices: ['speed', 'velocity'], correctChoice: 1, markingPoints: ['has direction'] }] });
+  const enriched = applyCueEnrichments(cues, updates, '2026-09-20T09:00:00.000Z');
+  assert.equal(enriched[0].id, 'cue-1');
+  assert.equal(enriched[0].prompt, 'Choose the vector.');
+  assert.equal(enriched[0].type, 'multiple-choice');
+  assert.deepEqual(enriched[0].choices, ['speed', 'velocity']);
+  assert.throws(() => parseCueEnrichments({ updates: [{ id: 'cue-1', type: 'multiple-choice', choices: ['only one'], correctChoice: 0 }] }), /2–6/);
 });
 
 test('Cue LaTeX accepts commonly escaped comparison symbols', () => {
