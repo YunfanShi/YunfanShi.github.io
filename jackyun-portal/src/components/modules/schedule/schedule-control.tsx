@@ -195,7 +195,8 @@ function ReviewDialog({ task, cues, catalog, signedIn, onClose, onComplete }: { 
   const [cueUnitFilter, setCueUnitFilter] = useState(task.scope?.unit ?? '');
   const [cueSubsectionFilter, setCueSubsectionFilter] = useState(task.scope?.subsection ?? '');
   const allCues = [...cues, ...newCues];
-  const visibleCues = groupCues(allCues.filter((cue) => (!cueSubjectFilter || cue.subjectName === cueSubjectFilter) && (!cueUnitFilter || cue.unit === cueUnitFilter) && (!cueSubsectionFilter || cue.subsection === cueSubsectionFilter) && `${cue.subjectName} ${cue.unit} ${cue.subsection} ${cue.prompt}`.toLowerCase().includes(cueQuery.trim().toLowerCase())));
+  const selectedCueSet = new Set(selectedCueIds);
+  const visibleCues = groupCues(allCues.filter((cue) => (!cueSubjectFilter || cue.subjectName === cueSubjectFilter) && (!cueUnitFilter || cue.unit === cueUnitFilter) && (!cueSubsectionFilter || cue.subsection === cueSubsectionFilter) && `${cue.subjectName} ${cue.unit} ${cue.subsection} ${cue.prompt}`.toLowerCase().includes(cueQuery.trim().toLowerCase())).sort((left, right) => Number(selectedCueSet.has(right.id)) - Number(selectedCueSet.has(left.id))));
   const assessments = selectedCueIds.flatMap((cueId): CueAssessment[] => { const cueStatus = cueStatuses[cueId]; return cueStatus && cueStatus !== 'linked' ? [{ cueId, status: cueStatus }] : []; });
   const status = deriveLearningStatus(selectedCueIds, assessments);
   const selectedSubjectConfig = catalog.find((subject) => subject.name === subjectName);

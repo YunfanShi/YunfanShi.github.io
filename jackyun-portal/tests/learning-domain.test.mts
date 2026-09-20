@@ -126,17 +126,21 @@ test('cues keep independent review states and due dates', () => {
   assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
 });
 
-test('due Cue reviews are generated as detailed tasks per subsection', () => {
+test('due Cues are consolidated into one subject review and replace duplicate review tasks', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const state = createEmptyScheduleState();
+  state.timetable = parseTimetableImport({ version: 1, name: 'Term', courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 7, start: '09:00', end: '10:00' }] }] });
+  state.reviewProgress.physics = { subjectId: 'physics', subjectName: 'Physics', intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', lastStatus: 'partial', lastStudiedContent: 'Mechanics', lastNote: '', updatedAt: createdAt };
   state.cues = [
     { id: 'motion', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Motion', prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'], intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', createdAt, updatedAt: createdAt },
     { id: 'forces', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Forces', prompt: 'Explain terminal velocity.', type: 'explain', markingPoints: ['drag increases', 'resultant force becomes zero'], intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', createdAt, updatedAt: createdAt },
   ];
-  const reviews = tasksForDate(state, new Date(2026, 8, 20, 12)).filter((task) => task.type === 'cue-review');
-  assert.equal(reviews.length, 2);
-  assert.deepEqual(reviews.map((task) => task.scope?.subsection).sort(), ['Forces', 'Motion']);
-  assert.match(reviews.find((task) => task.scope?.subsection === 'Forces')?.detail ?? '', /Explain terminal velocity/);
+  const reviews = tasksForDate(state, new Date(2026, 8, 20, 12));
+  const cueReview = reviews.find((task) => task.type === 'cue-review');
+  assert.deepEqual(cueReview?.cueIds, ['motion', 'forces']);
+  assert.equal(cueReview?.scope?.subsection, undefined);
+  assert.match(cueReview?.detail ?? '', /Define acceleration.*Explain terminal velocity/);
+  assert.ok(!reviews.some((task) => ['course-review', 'interval-review', 'weekly-review'].includes(task.type) && task.subjectId === 'physics'));
 });
 
 test('every learning task can record actual materials, scope, linked cues, and reviewed cues', () => {
@@ -327,13 +331,12 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   const wednesdayTasks = tasksForDate(completed, new Date(2026, 8, 16, 12));
   const followUp = wednesdayTasks.find((task) => task.type === 'interval-review' && task.subjectId === 'math');
   assert.ok(followUp);
-  assert.equal(followUp.lastStatus, 'partial');
-  assert.equal(followUp.lastReviewedAt, completedAt.toISOString());
-  assert.equal(followUp.studiedContent, '三角函数恒等变换第 2–4 题');
-  assert.equal(followUp.issue, '会计算，但还说不清公式原理。');
-  assert.equal(followUp.note, '次日换一道题闭卷重测。');
-  assert.match(followUp.title, /Mathematics · △/);
-  assert.match(followUp.detail, /原因：Mathematics 上次记录为 △/);
+  assert.equal(followUp.lastStatus, undefined);
+  assert.equal(followUp.studiedContent, undefined);
+  assert.equal(followUp.issue, undefined);
+  assert.equal(followUp.note, undefined);
+  assert.equal(followUp.title, 'Mathematics · 间隔复习');
+  assert.equal(followUp.detail, '复习：三角函数恒等变换第 2–4 题');
 
   const holiday = { ...completed, settings: { ...completed.settings, mode: 'holiday' as const } };
   const holidayTasks = tasksForDate(holiday, new Date(2026, 8, 16, 12));

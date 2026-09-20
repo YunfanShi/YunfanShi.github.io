@@ -880,21 +880,22 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date, existingSu
     if (progress.nextReviewDate > key || existingSubjectIds.has(progress.subjectId)) return [];
     const taskKey = `interval-review:${progress.nextReviewDate}:${progress.subjectId}`;
     if (state.completions[taskKey]) return [];
-    const statusMark = progress.lastStatus === 'stable' ? '√' : progress.lastStatus === 'partial' ? '△' : '○';
+    const reviewCues = state.cues.filter((cue) => cue.subjectId === progress.subjectId && cue.status !== 'stable');
+    const cueIds = reviewCues.map((cue) => cue.id);
+    const sameScope = reviewCues.length > 0 && reviewCues.every((cue) => cue.unit === reviewCues[0].unit && cue.subsection === reviewCues[0].subsection);
+    const detail = reviewCues.length
+      ? `复习 ${reviewCues.length} 条 Cue：${reviewCues.map((cue) => cue.prompt).join('；')}`
+      : `复习：${progress.lastStudiedContent || progress.subjectName}`;
     return [{
       key: taskKey,
-      title: `${progress.subjectName} · ${statusMark} 后续复习`,
-      detail: `原因：${progress.subjectName} 上次记录为 ${statusMark}，需要按复习间隔再次检索。${reviewDetail('interval')}`,
+      title: `${progress.subjectName} · 间隔复习`,
+      detail,
       type: 'interval-review' as const,
       date: key,
       durationMinutes: 25,
       subjectId: progress.subjectId,
       subjectName: progress.subjectName,
-      studiedContent: progress.lastStudiedContent,
-      issue: progress.lastIssue ?? (progress.lastStatus === 'stable' ? undefined : progress.lastNote),
-      note: progress.lastNote,
-      lastStatus: progress.lastStatus,
-      lastReviewedAt: progress.updatedAt,
+      ...(cueIds.length ? { cueIds, scope: { ...(sameScope ? { unit: reviewCues[0].unit, subsection: reviewCues[0].subsection } : {}), cueIds } } : {}),
       overdue: progress.nextReviewDate < key,
     }];
   });
@@ -927,27 +928,26 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
   const due = state.cues.filter((cue) => cue.nextReviewDate && cue.nextReviewDate <= key);
   const groups = new Map<string, StudyCue[]>();
   for (const cue of due) {
-    const groupKey = JSON.stringify([cue.subjectId, cue.unit, cue.subsection]);
-    groups.set(groupKey, [...(groups.get(groupKey) ?? []), cue]);
+    groups.set(cue.subjectId, [...(groups.get(cue.subjectId) ?? []), cue]);
   }
-  return [...groups.values()].map((cues) => ({
-    key: `cue-review:${key}:${cues[0].subjectId}:${encodeURIComponent(cues[0].unit)}:${encodeURIComponent(cues[0].subsection)}`,
-    title: `${cues[0].subjectName} · ${cues[0].unit} / ${cues[0].subsection}`,
-    detail: `按 StudyGuide 先遮住 Notes，再逐条检索：${cues.map((cue) => cue.prompt).join('；')}。Definition / State 按必要得分点判定，Explain 保持完整 marking-point chain。`,
-    type: 'cue-review',
-    date: key,
-    durationMinutes: Math.min(60, Math.max(15, cues.length * 5)),
-    subjectId: cues[0].subjectId,
-    subjectName: cues[0].subjectName,
-    cueIds: cues.map((cue) => cue.id),
-    scope: {
-      unit: cues[0].unit,
-      subsection: cues[0].subsection,
-      cueIds: cues.map((cue) => cue.id),
-    },
-    guide: { tab: 'learn', subTab: 'review' },
-    overdue: cues.some((cue) => Boolean(cue.nextReviewDate && cue.nextReviewDate < key)),
-  }));
+  return [...groups.values()].map((cues) => {
+    const cueIds = cues.map((cue) => cue.id);
+    const sameScope = cues.every((cue) => cue.unit === cues[0].unit && cue.subsection === cues[0].subsection);
+    return {
+      key: `cue-review:${key}:${cues[0].subjectId}`,
+      title: `${cues[0].subjectName} · ${cues.length} 条 Cue`,
+      detail: `复习：${cues.map((cue) => cue.prompt).join('；')}`,
+      type: 'cue-review' as const,
+      date: key,
+      durationMinutes: Math.min(60, Math.max(15, cues.length * 5)),
+      subjectId: cues[0].subjectId,
+      subjectName: cues[0].subjectName,
+      cueIds,
+      scope: { ...(sameScope ? { unit: cues[0].unit, subsection: cues[0].subsection } : {}), cueIds },
+      guide: { tab: 'learn' as const, subTab: 'review' },
+      overdue: cues.some((cue) => Boolean(cue.nextReviewDate && cue.nextReviewDate < key)),
+    };
+  });
 }
 
 function previewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
@@ -1007,9 +1007,12 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
       manual: true,
       overdue: Boolean(task.overdueSince || task.date < key),
     }));
+  const available = [...manual, ...automatic].filter((task) => !state.completions[task.key] && !state.cancellations[task.key]);
+  const subjectsWithCueReview = new Set(available.filter((task) => task.type === 'cue-review').map((task) => task.subjectId ?? task.subjectName).filter((subject): subject is string => Boolean(subject)));
+  const supersededByCue = new Set<LearningTaskType>(['course-review', 'interval-review', 'weekly-review']);
   const seen = new Set<string>();
-  return [...manual, ...automatic]
-    .filter((task) => !state.completions[task.key] && !state.cancellations[task.key])
+  return available
+    .filter((task) => !supersededByCue.has(task.type) || !subjectsWithCueReview.has(task.subjectId ?? task.subjectName ?? ''))
     .filter((task) => {
       const signature = JSON.stringify([task.type, task.title, task.subjectId ?? task.subjectName ?? '', task.scope?.unit ?? '', task.scope?.subsection ?? '']);
       if (seen.has(signature)) return false;
