@@ -10,6 +10,7 @@ import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
 import SyncStatusIndicator from '@/components/layout/sync-status-indicator';
 import { APP_VERSION } from '@/lib/utils';
+import PwaInstallButton from '@/components/layout/pwa-install-button';
 
 interface TopbarProps {
   user: {
@@ -134,6 +135,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
             BETA v{APP_VERSION}
           </Link>
         )}
+        <PwaInstallButton />
         <SyncStatusIndicator signedIn={Boolean(user)} />
         <button
           type="button"

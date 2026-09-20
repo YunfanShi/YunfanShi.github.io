@@ -314,6 +314,14 @@ npm run start
 - 自定义域名: `jackyun.top`
 - 远程图片白名单：Google 头像 + GitHub 头像（在 `next.config.ts` 中）
 
+### PWA 安装与离线行为
+
+- 支持从 Chromium 浏览器的顶栏“安装应用”按钮安装；iPhone/iPad 会显示 Safari“添加到主屏幕”指引。
+- Service Worker 仅缓存版本化的 Next.js 静态资源、图标和离线页；动态页面与 `/api` 请求保持网络优先且不持久缓存，避免缓存账户数据。
+- 断网重新打开应用时显示离线恢复页；已经打开的页面仍可使用现有的本地存储与待同步队列。
+- 新 Service Worker 就绪后会提示用户刷新，不会在用户操作过程中静默重载页面。
+- Service Worker 仅在生产构建中注册；本地验证请先运行 `npm run build`，再启动生产服务器。
+
 ---
 
 ## 全局 CSS 主题系统
