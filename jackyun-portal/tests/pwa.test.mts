@@ -28,11 +28,21 @@ test('service worker is served with update-safe security headers', async () => {
   assert.match(config, /Service-Worker-Allowed/);
 });
 
-test('portal exposes a PWA install action and root layout registers lifecycle handling', async () => {
+test('products page owns PWA installation and root layout registers lifecycle handling', async () => {
   const topbar = await readFile(new URL('src/components/layout/topbar.tsx', projectDir), 'utf8');
   const layout = await readFile(new URL('src/app/layout.tsx', projectDir), 'utf8');
   const lifecycle = await readFile(new URL('src/components/layout/pwa-lifecycle.tsx', projectDir), 'utf8');
-  assert.match(topbar, /<PwaInstallButton \/>/);
+  const products = await readFile(new URL('public/products.html', projectDir), 'utf8');
+  assert.doesNotMatch(topbar, /PwaInstallButton/);
+  assert.match(products, /beforeinstallprompt/);
+  assert.match(products, /jackyun-companion-v1\.7\.8\.zip/);
   assert.match(layout, /<PwaLifecycle \/>/);
   assert.match(lifecycle, /if \(!reloadRequested\.current\) return/);
+});
+
+test('settings links to the standalone Products experience', async () => {
+  const settings = await readFile(new URL('src/components/settings/settings-content.tsx', projectDir), 'utf8');
+  const config = await readFile(new URL('next.config.ts', projectDir), 'utf8');
+  assert.match(settings, /href="\/products"/);
+  assert.match(config, /source:\s*'\/products'[\s\S]*destination:\s*'\/products\.html'/);
 });

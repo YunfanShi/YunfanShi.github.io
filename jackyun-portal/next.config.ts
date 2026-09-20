@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/products',
+        destination: '/products.html',
+      },
+      {
         source: '/temp/:slug*',
         destination: '/:slug*.html',
       },

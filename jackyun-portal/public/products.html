@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#050506">
+  <meta name="description" content="探索 JackYun PWA 与 JackYun Companion。把学习工作区带到桌面，让浏览器成为专注搭档。">
+  <title>JackYun Products</title>
+  <link rel="icon" href="/jackyun-icon.svg" type="image/svg+xml">
+  <style>
+    :root{--ink:#f5f5f7;--muted:#9a9aa2;--line:rgba(255,255,255,.12);--blue:#7db4ff;--amber:#e8a94c;--green:#7ee2b8;--ease:cubic-bezier(.2,.8,.2,1);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","PingFang SC",sans-serif;color-scheme:dark}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;background:#050506}
+    body{margin:0;background:#050506;color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    button{font:inherit}
+    .ambient{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+    .ambient::before,.ambient::after{content:"";position:absolute;border-radius:50%;filter:blur(110px);opacity:.18}
+    .ambient::before{width:46vw;height:46vw;right:-16vw;top:5vh;background:#246cff}
+    .ambient::after{width:34vw;height:34vw;left:-16vw;top:58vh;background:#d8932e}
+    .nav{position:fixed;z-index:50;left:50%;top:max(16px,env(safe-area-inset-top));width:min(92%,980px);transform:translateX(-50%);display:flex;align-items:center;gap:18px;padding:10px 12px 10px 14px;border:1px solid rgba(255,255,255,.11);border-radius:18px;background:rgba(18,18,20,.68);box-shadow:0 16px 50px rgba(0,0,0,.35);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%)}
+    .brand{display:flex;align-items:center;gap:10px;margin-right:auto;font-size:14px;font-weight:700;letter-spacing:-.01em}
+    .brand img{width:30px;height:30px;border-radius:9px}
+    .nav-links{display:flex;align-items:center;gap:18px;color:#b8b8bf;font-size:13px}
+    .nav-links a:hover{color:white}
+    .nav-home{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border-radius:11px;background:#f5f5f7;color:#111114;font-size:13px;font-weight:700;transition:transform .25s var(--ease)}
+    .nav-home:hover{transform:scale(1.03)}
+    .hero{position:relative;z-index:1;min-height:100svh;display:grid;place-items:center;padding:150px 24px 90px;text-align:center}
+    .hero-inner{width:min(1180px,100%)}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;color:#b9bac2;font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+    .eyebrow::before{content:"";width:28px;height:1px;background:currentColor}
+    h1{max-width:1050px;margin:28px auto 0;font-size:clamp(62px,10.5vw,150px);line-height:.88;letter-spacing:-.075em;font-weight:760}
+    h1 span{display:block;background:linear-gradient(105deg,#fff 15%,#b9c8de 48%,#fff 80%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero-copy{max-width:680px;margin:34px auto 0;color:#a9aab2;font-size:clamp(18px,2vw,24px);line-height:1.55;letter-spacing:-.02em}
+    .hero-products{position:relative;height:340px;margin:72px auto 0;perspective:1200px}
+    .hero-tile{position:absolute;left:50%;top:15px;width:min(330px,70vw);aspect-ratio:1;border:1px solid rgba(255,255,255,.15);border-radius:38px;background:linear-gradient(145deg,rgba(39,40,45,.94),rgba(12,12,14,.96));box-shadow:0 55px 110px rgba(0,0,0,.65),inset 0 1px rgba(255,255,255,.13);display:grid;place-items:center;transition:transform .8s var(--ease)}
+    .hero-tile:first-child{transform:translateX(-86%) rotateY(14deg) rotateZ(-5deg)}
+    .hero-tile:last-child{transform:translateX(-14%) rotateY(-14deg) rotateZ(5deg)}
+    .hero-products:hover .hero-tile:first-child{transform:translateX(-91%) rotateY(8deg) rotateZ(-7deg)}
+    .hero-products:hover .hero-tile:last-child{transform:translateX(-9%) rotateY(-8deg) rotateZ(7deg)}
+    .app-mark{width:150px;height:150px;filter:drop-shadow(0 30px 30px rgba(0,0,0,.45))}
+    .companion-mark{width:150px;height:150px;border-radius:40px;background:linear-gradient(135deg,#205ce4,#6537d9);box-shadow:0 25px 60px rgba(45,87,220,.38);display:grid;place-items:center;font-size:48px;font-weight:850;letter-spacing:-.08em}
+    .tile-label{position:absolute;bottom:30px;left:0;right:0;color:#c6c7ce;font-size:14px;font-weight:650}
+    .scroll-cue{display:inline-flex;align-items:center;gap:10px;margin-top:12px;color:#74757d;font-size:12px;text-transform:uppercase;letter-spacing:.14em}
+    .scroll-cue i{display:block;width:1px;height:34px;background:linear-gradient(transparent,#777)}
+    .chapter{position:relative;z-index:1;padding:150px 24px}
+    .chapter-inner{width:min(1280px,100%);margin:auto}
+    .chapter-head{max-width:900px;margin-bottom:70px}
+    .kicker{color:var(--blue);font-size:13px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+    h2{margin:15px 0 0;font-size:clamp(48px,7vw,96px);line-height:.98;letter-spacing:-.065em;font-weight:740}
+    .chapter-lead{max-width:700px;margin:24px 0 0;color:#a6a7ae;font-size:clamp(18px,2vw,24px);line-height:1.55}
+    .stage{position:relative;min-height:720px;border:1px solid var(--line);border-radius:42px;overflow:hidden;background:#0b0b0d;box-shadow:0 50px 130px rgba(0,0,0,.4)}
+    .stage::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 10%,rgba(43,111,255,.2),transparent 40%),linear-gradient(135deg,rgba(255,255,255,.035),transparent 40%);pointer-events:none}
+    .pwa-stage{display:grid;grid-template-columns:.72fr 1.28fr;align-items:center;padding:clamp(30px,6vw,86px);gap:42px}
+    .product-copy{position:relative;z-index:2}
+    .product-number{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#696a72;letter-spacing:.16em}
+    h3{margin:22px 0 0;font-size:clamp(38px,5vw,68px);line-height:1;letter-spacing:-.055em}
+    .product-copy p{margin:22px 0 0;color:#a4a5ad;font-size:17px;line-height:1.7}
+    .actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:30px}
+    .button{appearance:none;border:0;min-height:50px;padding:0 21px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#f5f5f7;color:#111114;font-size:14px;font-weight:750;cursor:pointer;transition:transform .25s var(--ease),background .25s,color .25s}
+    .button:hover{transform:translateY(-2px)}
+    .button.secondary{border:1px solid rgba(255,255,255,.17);background:rgba(255,255,255,.055);color:#f5f5f7}
+    .button.blue{background:#2f73ff;color:white}
+    .button.amber{background:#e2a247;color:#18120a}
+    .microcopy{min-height:20px;margin-top:13px;color:#777982;font-size:12px;line-height:1.5}
+    .desktop-scene{position:relative;min-height:520px;display:grid;place-items:center;perspective:1200px}
+    .desktop-window{position:relative;width:min(720px,110%);aspect-ratio:1.35;border:1px solid rgba(255,255,255,.18);border-radius:24px;background:#f5f7fb;box-shadow:0 80px 120px rgba(0,0,0,.65),inset 0 1px white;overflow:hidden;transform:rotateY(-8deg) rotateX(3deg)}
+    .window-bar{height:38px;display:flex;align-items:center;gap:7px;padding:0 14px;background:#e7e9ee;border-bottom:1px solid #d3d6dc}
+    .window-bar i{width:10px;height:10px;border-radius:50%;background:#b9bdc7}.window-bar i:first-child{background:#ff635d}.window-bar i:nth-child(2){background:#ffc043}.window-bar i:nth-child(3){background:#34c759}
+    .portal-ui{height:calc(100% - 38px);display:grid;grid-template-columns:92px 1fr;color:#15171b;background:#fff}
+    .portal-side{padding:18px 10px;background:#f1f3f7;border-right:1px solid #e1e4e9}
+    .portal-logo{width:32px;height:32px;margin-bottom:22px;border-radius:10px;background:#161719;color:white;display:grid;place-items:center;font-size:10px;font-weight:800}
+    .side-line{height:8px;margin:11px 0;border-radius:10px;background:#d7dbe4}.side-line.active{background:#4788ff}.side-line.short{width:65%}
+    .portal-main{padding:22px;background:linear-gradient(#fff,#f8f9fb)}
+    .portal-main small{font-size:8px;color:#7f8490;text-transform:uppercase;letter-spacing:.12em}.portal-main h4{margin:6px 0 15px;font-size:21px;letter-spacing:-.05em}
+    .ai-strip{height:86px;padding:16px;border-radius:16px;background:linear-gradient(120deg,#0f172a,#203c72);color:white}.ai-strip b{font-size:12px}.ai-strip div{width:70%;height:9px;margin-top:10px;border-radius:9px;background:rgba(255,255,255,.22)}
+    .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.stat{height:67px;padding:11px;border:1px solid #e4e6eb;border-radius:13px}.stat i{display:block;width:17px;height:17px;border-radius:6px;background:#dce8ff}.stat b{display:block;margin-top:8px;font-size:11px}
+    .task-list{margin-top:12px;display:grid;gap:7px}.task{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid #e7e9ed;border-radius:10px}.task i{width:11px;height:11px;border:1px solid #9ba3b3;border-radius:4px}.task span{width:45%;height:6px;border-radius:9px;background:#d8dce4}
+    .float-badge{position:absolute;right:-4%;bottom:4%;display:flex;align-items:center;gap:12px;padding:14px 18px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:rgba(18,19,23,.86);box-shadow:0 25px 60px rgba(0,0,0,.45);backdrop-filter:blur(18px)}
+    .float-badge img{width:40px;height:40px}.float-badge strong,.float-badge small{display:block}.float-badge small{margin-top:3px;color:#8d8f97;font-size:11px}
+    .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:18px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--line)}
+    .fact{padding:24px;background:#0c0c0e}.fact b{display:block;font-size:25px;letter-spacing:-.04em}.fact span{display:block;margin-top:7px;color:#85868e;font-size:12px}
+    .companion-chapter{padding-top:190px}
+    .companion-stage{padding:clamp(30px,6vw,82px);background:radial-gradient(circle at 15% 25%,rgba(103,63,220,.24),transparent 34%),#0b0b0d}
+    .companion-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:70px;align-items:center}
+    .browser-scene{position:relative;min-height:630px;display:grid;place-items:center;perspective:1200px}
+    .browser-page{position:absolute;width:95%;height:76%;border:1px solid rgba(255,255,255,.13);border-radius:24px;background:linear-gradient(155deg,#20222a,#101116);transform:rotateY(8deg) rotateX(2deg);box-shadow:0 70px 120px rgba(0,0,0,.55);overflow:hidden}
+    .browser-top{height:42px;display:flex;align-items:center;gap:7px;padding:0 15px;border-bottom:1px solid rgba(255,255,255,.08);background:#25262c}.browser-top i{width:9px;height:9px;border-radius:50%;background:#5c5f68}.url{width:58%;height:20px;margin-left:16px;border-radius:8px;background:#17181c}
+    .browser-content{padding:38px}.browser-content .line{height:11px;margin:15px 0;border-radius:10px;background:#32353e}.browser-content .line:first-child{width:62%;height:28px;background:#f0f1f3}.browser-content .line:nth-child(2){width:82%}.browser-content .line:nth-child(3){width:72%}.browser-content .line:nth-child(4){width:88%}.browser-card{height:140px;margin-top:34px;border-radius:18px;background:linear-gradient(120deg,#172b48,#25204a)}
+    .extension{position:absolute;z-index:3;right:-2%;top:3%;width:min(350px,82%);padding:16px;border:1px solid rgba(255,255,255,.18);border-radius:24px;background:#f4f7fb;color:#172033;box-shadow:0 55px 110px rgba(0,0,0,.7);transform:rotateY(-5deg) translateZ(40px)}
+    .ext-head{display:flex;align-items:center;gap:10px}.ext-logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#2563eb,#5b3fd2);color:white;display:grid;place-items:center;font-size:12px;font-weight:850}.ext-head strong{display:block;font-size:14px}.ext-head small{display:block;margin-top:2px;color:#768196;font-size:9px}
+    .protection{display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px;border:1px solid #a6e2c0;border-radius:14px;background:linear-gradient(135deg,#edfff5,#f4fbff)}.shield{width:30px;height:30px;border-radius:10px;background:#16a765;color:white;display:grid;place-items:center;font-size:12px}.protection b{display:block;font-size:11px}.protection span{display:block;margin-top:2px;color:#607186;font-size:8px}.toggle{margin-left:auto;width:36px;height:21px;padding:3px;border-radius:20px;background:#16a765}.toggle::after{content:"";display:block;width:15px;height:15px;margin-left:auto;border-radius:50%;background:white}
+    .ext-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:10px 0;padding:4px;border-radius:12px;background:#e9eef6}.ext-tabs span{padding:7px 2px;border-radius:8px;color:#657186;font-size:8px;text-align:center}.ext-tabs span:first-child{background:white;color:#2458d3;box-shadow:0 2px 7px rgba(0,0,0,.06)}
+    .ext-stats{display:grid;grid-template-columns:1.2fr 1fr;gap:8px}.ext-stat{padding:11px;border:1px solid #dfe6f0;border-radius:13px;background:white}.ext-stat small{color:#68758a;font-size:8px}.ext-stat b{display:block;margin-top:4px;font-size:14px}.ext-progress{height:5px;margin-top:8px;border-radius:6px;background:#e7ecf3;overflow:hidden}.ext-progress i{display:block;width:68%;height:100%;background:#20b77a}
+    .ext-card{margin-top:8px;padding:11px;border:1px solid #dfe6f0;border-radius:13px;background:white}.ext-card strong{font-size:10px}.ext-buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.ext-buttons span{padding:8px;border-radius:8px;background:#285ad6;color:white;font-size:8px;text-align:center}
+    .feature-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:52px}.feature{min-height:170px;padding:22px;border-top:1px solid var(--line)}.feature-index{color:#65666e;font:600 11px ui-monospace,monospace}.feature h4{margin:22px 0 8px;font-size:19px}.feature p{margin:0;color:#898a92;font-size:14px;line-height:1.6}
+    .ecosystem{position:relative;z-index:1;padding:200px 24px 120px;text-align:center}
+    .ecosystem-inner{width:min(1150px,100%);margin:auto}
+    .ecosystem h2{max-width:1000px;margin:0 auto}
+    .ecosystem p{max-width:650px;margin:26px auto 0;color:#9798a1;font-size:20px;line-height:1.65}
+    .orbit{position:relative;height:430px;margin:80px auto 20px;display:grid;place-items:center}
+    .orbit::before,.orbit::after{content:"";position:absolute;border:1px solid rgba(255,255,255,.1);border-radius:50%}.orbit::before{width:620px;height:260px;transform:rotate(-8deg)}.orbit::after{width:810px;height:350px;transform:rotate(12deg)}
+    .orbit-core{position:relative;z-index:2;width:156px;height:156px;border-radius:44px;background:#fff;box-shadow:0 0 90px rgba(255,255,255,.18);display:grid;place-items:center}.orbit-core img{width:130px;height:130px}
+    .orbit-product{position:absolute;z-index:3;padding:13px 17px;border:1px solid rgba(255,255,255,.15);border-radius:17px;background:rgba(17,17,19,.82);box-shadow:0 18px 45px rgba(0,0,0,.3);backdrop-filter:blur(18px);font-size:13px;font-weight:700}.orbit-product.pwa{left:12%;top:26%;color:var(--blue)}.orbit-product.companion{right:10%;bottom:27%;color:#cbb3ff}.orbit-product.cloud{left:18%;bottom:17%;color:var(--green)}
+    .closing-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:42px}
+    footer{position:relative;z-index:1;width:min(1280px,calc(100% - 48px));margin:auto;padding:30px 0 max(38px,env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;color:#6f7078;font-size:12px}
+    .reveal{opacity:0;transform:translateY(32px);transition:opacity .9s var(--ease),transform .9s var(--ease)}.reveal.visible{opacity:1;transform:none}
+    .modal{position:fixed;z-index:100;inset:0;display:none;place-items:center;padding:20px;background:rgba(0,0,0,.72);backdrop-filter:blur(18px)}.modal.open{display:grid}.modal-card{width:min(100%,500px);padding:28px;border:1px solid rgba(255,255,255,.14);border-radius:26px;background:#171719;box-shadow:0 40px 100px rgba(0,0,0,.6)}.modal-card h4{margin:0;font-size:24px}.modal-card p{color:#9c9da5;line-height:1.7}.modal-card ol{padding-left:22px;color:#d2d2d7;line-height:1.9}.modal-card .button{width:100%;margin-top:8px}
+    @media(max-width:900px){.nav-links{display:none}.hero-products{height:290px}.hero-tile{width:min(285px,68vw)}.pwa-stage,.companion-grid{grid-template-columns:1fr}.stage{min-height:0}.desktop-scene,.browser-scene{min-height:520px}.product-copy{max-width:680px}.companion-grid .product-copy{order:-1}.feature-row{grid-template-columns:1fr 1fr}.facts{grid-template-columns:1fr}.orbit{transform:scale(.78);margin-left:-14%;margin-right:-14%}}
+    @media(max-width:600px){.nav{width:calc(100% - 24px)}.nav-home span{display:none}.hero{padding-top:130px}.hero-products{height:235px;margin-top:55px}.hero-tile{border-radius:26px}.app-mark,.companion-mark{width:105px;height:105px}.companion-mark{border-radius:28px;font-size:34px}.tile-label{bottom:20px;font-size:12px}.chapter{padding:110px 16px}.chapter-head{margin-bottom:45px}.stage{border-radius:28px}.pwa-stage,.companion-stage{padding:25px}.desktop-scene{min-height:360px;margin:20px -8px 0}.desktop-window{width:110%;transform:rotateY(-5deg) rotateX(2deg)}.float-badge{right:-8%;padding:9px 11px}.float-badge img{width:30px;height:30px}.browser-scene{min-height:455px;margin:12px -12px 0}.browser-page{left:0;width:90%}.extension{right:-4%;width:82%;padding:12px}.feature-row{grid-template-columns:1fr}.feature{min-height:0}.ecosystem{padding:130px 18px 90px}.orbit{height:310px;transform:scale(.58);margin:-5px -45%}.ecosystem p{font-size:17px}footer{align-items:flex-start;gap:20px;flex-direction:column}.actions .button{flex:1 1 auto}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.hero-tile,.button{transition:none}}
+  </style>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <nav class="nav" aria-label="Products 导航">
+    <a class="brand" href="#top"><img src="/jackyun-icon.svg" alt=""><span>JackYun Products</span></a>
+    <div class="nav-links"><a href="#pwa">PWA</a><a href="#companion">Companion</a><a href="#together">协同</a></div>
+    <a class="nav-home" href="/settings"><span>返回设置</span><b aria-hidden="true">↗</b></a>
+  </nav>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-inner">
+        <span class="eyebrow">JackYun Product Family</span>
+        <h1><span>让专注，拥有自己的形态。</span></h1>
+        <p class="hero-copy">一个住进你的设备，一个守在你的浏览器。学习、专注与灵感，从此不再局限于某一个标签页。</p>
+        <div class="hero-products" aria-label="JackYun 两款产品">
+          <a class="hero-tile" href="#pwa"><img class="app-mark" src="/jackyun-icon.svg" alt="JackYun PWA"><span class="tile-label">JackYun PWA</span></a>
+          <a class="hero-tile" href="#companion"><span class="companion-mark" aria-hidden="true">JY</span><span class="tile-label">JackYun Companion</span></a>
+        </div>
+        <span class="scroll-cue"><i></i> Explore the family</span>
+      </div>
+    </section>
+
+    <section class="chapter" id="pwa">
+      <div class="chapter-inner">
+        <header class="chapter-head reveal"><span class="kicker">JackYun PWA</span><h2>整个学习空间。<br>现在，它像一个 App。</h2><p class="chapter-lead">独立窗口、主屏幕图标、离线恢复与无缝更新。保留完整 Portal 能力，却少了浏览器的边界感。</p></header>
+        <div class="stage pwa-stage reveal">
+          <div class="product-copy">
+            <span class="product-number">PRODUCT 01 / WEB APP</span>
+            <h3>打开，直接进入状态。</h3>
+            <p>从桌面或主屏幕启动 JackYun。你的任务、复习、阅读与专注工具仍在熟悉的位置，并继续使用本地优先的同步方式。</p>
+            <div class="actions"><button class="button blue" id="install-pwa" type="button"><span>安装 JackYun</span><b aria-hidden="true">↓</b></button><a class="button secondary" href="/dashboard">打开网页版 <b aria-hidden="true">↗</b></a></div>
+            <p class="microcopy" id="install-status" role="status">支持 Chrome、Edge，以及 Safari 添加到主屏幕。</p>
+            <div class="facts"><div class="fact"><b>全屏</b><span>独立应用窗口</span></div><div class="fact"><b>离线</b><span>断网恢复与本地队列</span></div><div class="fact"><b>自动</b><span>安全更新提醒</span></div></div>
+          </div>
+          <div class="desktop-scene" aria-label="JackYun PWA 工作区预览">
+            <div class="desktop-window"><div class="window-bar"><i></i><i></i><i></i></div><div class="portal-ui"><aside class="portal-side"><div class="portal-logo">JY</div><div class="side-line active"></div><div class="side-line"></div><div class="side-line short"></div><div class="side-line"></div><div class="side-line short"></div></aside><div class="portal-main"><small>Your learning space</small><h4>把今天，变成长期能力。</h4><div class="ai-strip"><b>JackYun AI</b><div></div><div style="width:48%"></div></div><div class="stat-grid"><div class="stat"><i></i><b>今日任务</b></div><div class="stat"><i></i><b>专注时间</b></div><div class="stat"><i></i><b>复习队列</b></div></div><div class="task-list"><div class="task"><i></i><span></span></div><div class="task"><i></i><span style="width:62%"></span></div><div class="task"><i></i><span style="width:38%"></span></div></div></div></div></div>
+            <div class="float-badge"><img src="/jackyun-icon.svg" alt=""><span><strong>Installed</strong><small>JackYun is ready</small></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter companion-chapter" id="companion">
+      <div class="chapter-inner">
+        <header class="chapter-head reveal"><span class="kicker" style="color:#c4a7ff">JackYun Companion</span><h2>你的浏览器，<br>也懂得何时该专注。</h2><p class="chapter-lead">学习时间、净网保护、English SafeGuard 与网页 AI 自动化，被收进一个安静而有力量的浏览器搭档。</p></header>
+        <div class="stage companion-stage reveal">
+          <div class="companion-grid">
+            <div class="browser-scene" aria-label="JackYun Companion 扩展预览">
+              <div class="browser-page"><div class="browser-top"><i></i><i></i><i></i><span class="url"></span></div><div class="browser-content"><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div><div class="browser-card"></div></div></div>
+              <div class="extension"><div class="ext-head"><div class="ext-logo">JY</div><span><strong>JackYun Companion</strong><small>同步完成 · 本地优先</small></span></div><div class="protection"><div class="shield">◆</div><span><b>净网保护已开启</b><span>广告与追踪拦截正在运行</span></span><div class="toggle"></div></div><div class="ext-tabs"><span>概览</span><span>AI 自动</span><span>净网</span><span>工具</span></div><div class="ext-stats"><div class="ext-stat"><small>今日有效学习</small><b>82 分钟</b><div class="ext-progress"><i></i></div></div><div class="ext-stat"><small>每日目标</small><b>120 分钟</b></div></div><div class="ext-card"><strong>专注计时</strong><div class="ext-buttons"><span>25 分钟</span><span>50 分钟</span></div></div></div>
+            </div>
+            <div class="product-copy">
+              <span class="product-number">PRODUCT 02 / BROWSER EXTENSION</span>
+              <h3>守护每一次浏览。</h3>
+              <p>在 Chrome 与 Edge 中记录真正有效的学习时间，过滤广告与追踪，联动 Portal 任务和专注记录。页面正文默认留在本机。</p>
+              <div class="actions"><a class="button amber" id="companion-download" href="/downloads/jackyun-companion-v1.7.8.zip" download>下载 Companion <span id="companion-version">1.7.8</span> <b aria-hidden="true">↓</b></a><a class="button secondary" href="/downloads/companion-install.md" target="_blank" rel="noopener">安装指南 <b aria-hidden="true">↗</b></a></div>
+              <p class="microcopy">BETA ZIP · Chrome / Edge · Manifest V3 · 需加载已解压扩展</p>
+              <div class="actions" style="margin-top:18px"><a class="button secondary" id="stable-download" href="/downloads/jackyun-companion-v1.1.0.crx" download>Stable CRX 1.1.0</a><a class="button secondary" href="/downloads/companion-release.json" target="_blank" rel="noopener">发布清单</a></div>
+            </div>
+          </div>
+          <div class="feature-row"><article class="feature"><span class="feature-index">01</span><h4>专注统计</h4><p>失焦、后台和空闲时自动暂停，只记录真正投入的时间。</p></article><article class="feature"><span class="feature-index">02</span><h4>净网保护</h4><p>本地拦截广告与追踪请求，同时清理页面残留广告位。</p></article><article class="feature"><span class="feature-index">03</span><h4>SafeGuard</h4><p>在需要时暂停非学习中文页面，守住英语沉浸环境。</p></article><article class="feature"><span class="feature-index">04</span><h4>网页 AI</h4><p>在支持的网站自动发送请求，并把完整结果带回 Portal。</p></article></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ecosystem" id="together">
+      <div class="ecosystem-inner reveal"><span class="kicker">Better together</span><h2>不是两个工具。<br>是同一个学习系统的两种存在。</h2><p>PWA 负责你的学习空间，Companion 连接浏览器里的每一次行动。账号、专注与进度在它们之间自然流动。</p><div class="orbit" aria-hidden="true"><div class="orbit-core"><img src="/jackyun-icon.svg" alt=""></div><span class="orbit-product pwa">PWA · Your workspace</span><span class="orbit-product companion">Companion · Your browser</span><span class="orbit-product cloud">Sync · Your progress</span></div><div class="closing-actions"><button class="button blue" type="button" data-install-pwa>安装 PWA</button><a class="button amber" href="/downloads/jackyun-companion-v1.7.8.zip" download>下载 Companion</a></div></div>
+    </section>
+  </main>
+
+  <footer><span>© 2026 JackYun</span><span>Designed for focus. Built for your own pace.</span><a href="/settings">返回设置 ↗</a></footer>
+
+  <div class="modal" id="install-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-card"><h4 id="modal-title">安装 JackYun PWA</h4><div id="modal-content"></div><button class="button secondary" id="close-modal" type="button">关闭</button></div></div>
+
+  <script>
+    let deferredInstallPrompt = null;
+    const installButtons = [document.getElementById('install-pwa'), ...document.querySelectorAll('[data-install-pwa]')];
+    const installStatus = document.getElementById('install-status');
+    const modal = document.getElementById('install-modal');
+    const modalContent = document.getElementById('modal-content');
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function openInstructions() {
+      const copy = isIos
+        ? '<p>Safari 会通过系统菜单安装网页应用：</p><ol><li>点击底部工具栏的“分享”按钮</li><li>选择“添加到主屏幕”</li><li>确认名称并点击“添加”</li></ol>'
+        : '<p>当前浏览器没有开放一键安装。你仍可以通过浏览器菜单安装：</p><ol><li>打开浏览器主菜单</li><li>选择“安装 JackYun”或“将页面安装为应用”</li><li>确认安装</li></ol>';
+      modalContent.innerHTML = copy;
+      modal.classList.add('open');
+    }
+
+    async function installPwa() {
+      if (standalone) { installStatus.textContent = 'JackYun 已经安装在这台设备上。'; return; }
+      if (!deferredInstallPrompt) { openInstructions(); return; }
+      await deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      installStatus.textContent = choice.outcome === 'accepted' ? '安装已开始。欢迎使用 JackYun。' : '安装已取消，你可以随时回来。';
+      deferredInstallPrompt = null;
+    }
+
+    addEventListener('beforeinstallprompt', function (event) { event.preventDefault(); deferredInstallPrompt = event; installStatus.textContent = '已经准备好安装到这台设备。'; });
+    addEventListener('appinstalled', function () { installStatus.textContent = '安装完成。你现在可以从桌面启动 JackYun。'; });
+    installButtons.forEach(function (button) { button.addEventListener('click', installPwa); });
+    document.getElementById('close-modal').addEventListener('click', function () { modal.classList.remove('open'); });
+    modal.addEventListener('click', function (event) { if (event.target === modal) modal.classList.remove('open'); });
+    addEventListener('keydown', function (event) { if (event.key === 'Escape') modal.classList.remove('open'); });
+
+    if (standalone) { installStatus.textContent = '已安装 · 当前正在独立应用中运行'; installButtons.forEach(function (button) { button.textContent = '已安装'; button.disabled = true; }); }
+
+    fetch('/downloads/companion-release.json').then(function (response) { return response.ok ? response.json() : null; }).then(function (release) {
+      if (!release) return;
+      const version = String(release.previewVersion || release.version || '');
+      if (version) document.getElementById('companion-version').textContent = version;
+      if (release.previewZip) document.getElementById('companion-download').href = release.previewZip;
+      if (release.signedCrx) document.getElementById('stable-download').href = release.signedCrx;
+    }).catch(function () {});
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(function (entries) { entries.forEach(function (entry) { if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target); } }); }, { threshold: .02, rootMargin: '0px 0px 12% 0px' });
+      document.querySelectorAll('.reveal').forEach(function (element) { observer.observe(element); });
+    } else {
+      document.querySelectorAll('.reveal').forEach(function (element) { element.classList.add('visible'); });
+    }
+  </script>
+</body>
+</html>

@@ -316,7 +316,8 @@ npm run start
 
 ### PWA 安装与离线行为
 
-- 支持从 Chromium 浏览器的顶栏“安装应用”按钮安装；iPhone/iPad 会显示 Safari“添加到主屏幕”指引。
+- 设置页可跳转到独立的 `/products` 产品展示页；PWA 安装和 Companion 下载统一从该页面完成。
+- Chromium 支持一键安装；iPhone/iPad 会显示 Safari“添加到主屏幕”指引。
 - Service Worker 仅缓存版本化的 Next.js 静态资源、图标和离线页；动态页面与 `/api` 请求保持网络优先且不持久缓存，避免缓存账户数据。
 - 断网重新打开应用时显示离线恢复页；已经打开的页面仍可使用现有的本地存储与待同步队列。
 - 新 Service Worker 就绪后会提示用户刷新，不会在用户操作过程中静默重载页面。
