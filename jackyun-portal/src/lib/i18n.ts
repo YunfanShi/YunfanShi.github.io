@@ -42,6 +42,7 @@ const translations: TranslationMap = {
   'nav.answer-sheet-sync':    { zh: '同步答题卡',           en: 'Sync Answer Sheet' },
   'nav.goal':                 { zh: '计划显示器',           en: 'Goal Display' },
   'nav.time-management':      { zh: '时间管理',             en: 'Time Management' },
+  'nav.sleep':                { zh: '睡眠逆推',             en: 'Sleep Optimizer' },
   'nav.activity':             { zh: '学习活动',             en: 'Learning Activity' },
   'nav.countdown-old':        { zh: '倒计日',               en: 'Countdown' },
   'nav.exam-countdown':       { zh: '倒计时',               en: 'Countdown' },

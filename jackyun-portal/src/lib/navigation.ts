@@ -41,6 +41,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'quizwise', labelKey: 'nav.quizwise', icon: 'psychology', href: '/quiz', group: 'practice' },
   { id: 'review', labelKey: 'nav.review', icon: 'history_edu', href: '/review', group: 'practice', protected: true },
   { id: 'time-management', labelKey: 'nav.time-management', icon: 'timer', href: '/time-management', group: 'time' },
+  { id: 'sleep', labelKey: 'nav.sleep', icon: 'bedtime', href: '/sleep', group: 'time' },
   { id: 'activity', labelKey: 'nav.activity', icon: 'insights', href: '/activity', group: 'time' },
   { id: 'schedule', labelKey: 'nav.schedule', icon: 'calendar_month', href: '/control', group: 'time' },
   { id: 'tools', labelKey: 'nav.tools', icon: 'build', href: '/tools', group: 'tools' },

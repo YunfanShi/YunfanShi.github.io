@@ -25,6 +25,16 @@ const TOOLS: ToolCard[] = [
     href: '/pomodoro',
   },
   {
+    id: 'sleep',
+    title: '睡眠逆推',
+    description: '起床时间 · 入睡耗时 · 上床建议',
+    icon: 'bedtime',
+    emoji: '🌙',
+    color: '#4f46e5',
+    bgColor: '#eef2ff',
+    href: '/sleep',
+  },
+  {
     id: 'exam-countdown',
     title: '倒计时',
     description: '考试倒计时 · 备考冲刺',
@@ -63,7 +73,7 @@ export default function TimeManagementPage() {
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Choose your rhythm</p>
           <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">选择计时方式</h2>
         </div>
-        <span className="text-sm text-[var(--muted-foreground)]">3 个工具 · 已同步</span>
+        <span className="text-sm text-[var(--muted-foreground)]">4 个工具 · 随开随用</span>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map((tool) => (

@@ -27,6 +27,7 @@
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
     "test:learning": "node --test tests/learning-domain.test.mts",
+    "test:sleep": "node --test tests/sleep-calculator.test.mts",
     "test:property-decks": "node --test tests/property-decks.test.mts",
     "test:ielts-writing": "node --test tests/ielts-writing.test.mts",
     "test:resilience": "node --test tests/ai-json.test.mts tests/auth-resilience.test.mts tests/ielts-reading.test.mts",

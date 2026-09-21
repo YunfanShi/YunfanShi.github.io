@@ -78,7 +78,7 @@ export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferencesV2 = {
     home: ['dashboard'],
     learning: ['study-plan', 'goal', 'study-guide', 'ielts-writing', 'reading', 'learning-resources', 'vocab'],
     practice: ['answer-sheet', 'answer-sheet-sync', 'mock', 'quizwise'],
-    time: ['time-management', 'activity', 'schedule'],
+    time: ['time-management', 'sleep', 'activity', 'schedule'],
     tools: ['tools', 'userscripts'],
     relax: ['music-player', 'music-sync', 'bilibili-sync', 'poem', 'relax'],
     system: ['settings', 'update', 'help-center', 'admin'],
