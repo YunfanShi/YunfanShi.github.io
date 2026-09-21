@@ -69,6 +69,8 @@ export interface ScheduleSettings {
 export interface LearningCatalogUnit {
   name: string;
   subsections: string[];
+  /** Import-only hint used to rename an existing unit without replacing the whole catalog. */
+  renameFrom?: string;
 }
 
 export interface LearningCatalogSubject {
@@ -193,6 +195,7 @@ export interface LearningSessionEvidence {
   cueIds: string[];
   newCues: StudyCue[];
   assessments: CueAssessment[];
+  cueReviewsAlreadyRecorded?: boolean;
 }
 
 export interface LearningRecordCue {
@@ -265,6 +268,10 @@ export interface CueBatchImport {
 
 export interface CueEnrichmentItem {
   id: string;
+  subjectName?: string;
+  unit?: string;
+  subsection?: string;
+  prompt?: string;
   subtitle?: string;
   answer?: string;
   type?: CueType;
@@ -515,7 +522,8 @@ export function parseLearningCatalogImport(value: unknown): LearningCatalogImpor
       const subsections = Array.isArray(unit.subsections)
         ? [...new Set(unit.subsections.map((item) => requiredText(item, `${unitName} 小单元`, 120)))]
         : [];
-      return { name: unitName, subsections };
+      const renameFrom = optionalText(unit.renameFrom, 120);
+      return { name: unitName, subsections, ...(renameFrom ? { renameFrom } : {}) };
     });
     const rawProgress = record(subject.materialProgress) ?? {};
     const materialProgress = Object.fromEntries(Object.entries(rawProgress).flatMap(([code, progress]) => materialCodes.has(code as LearningMaterialCode) && typeof progress === 'string' && progress.trim() ? [[code, progress.trim().slice(0, 200)]] : [])) as Partial<Record<LearningMaterialCode, string>>;
@@ -545,9 +553,9 @@ export function mergeLearningCatalog(
     const current = result[subjectIndex];
     const units = current.units.map((unit) => ({ ...unit, subsections: [...unit.subsections] }));
     for (const importedUnit of importedSubject.units) {
-      const unitIndex = units.findIndex((unit) => normalize(unit.name) === normalize(importedUnit.name));
+      const unitIndex = units.findIndex((unit) => normalize(unit.name) === normalize(importedUnit.renameFrom ?? importedUnit.name));
       if (unitIndex < 0) {
-        units.push({ ...importedUnit, subsections: [...importedUnit.subsections] });
+        units.push({ name: importedUnit.name, subsections: [...importedUnit.subsections] });
         continue;
       }
       const seen = new Set(units[unitIndex].subsections.map(normalize));
@@ -560,7 +568,9 @@ export function mergeLearningCatalog(
       }
       units[unitIndex] = {
         ...units[unitIndex],
+        ...(importedUnit.renameFrom ? { name: importedUnit.name } : {}),
         subsections,
+        ...(importedUnit.renameFrom ? { renameFrom: importedUnit.renameFrom } : {}),
       };
     }
     result[subjectIndex] = {
@@ -575,6 +585,13 @@ export function mergeLearningCatalog(
 /** Parses one learning unit per line. Legacy subsection syntax remains readable for old imports. */
 export function parseLearningUnitOutline(value: string): LearningCatalogUnit[] {
   return value.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).map((line, index) => {
+    const rename = line.match(/^(.+?)\s*(?:->|→)\s*(.+)$/u);
+    if (rename) {
+      const renameFrom = rename[1].trim().slice(0, 120);
+      const name = rename[2].trim().slice(0, 120);
+      if (!renameFrom || !name) throw new Error(`第 ${index + 1} 行的重命名格式应为“旧名称 -> 新名称”。`);
+      return { name, subsections: [], renameFrom };
+    }
     const separator = line.search(/[|｜:：]/u);
     const name = (separator < 0 ? line : line.slice(0, separator)).trim().slice(0, 120);
     if (!name) throw new Error(`第 ${index + 1} 行缺少大单元名称。`);
@@ -616,6 +633,11 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
     }
     return name ? matchLearningCatalogSubject(state.learningCatalog, name) : undefined;
   };
+  const resolveUnit = (subject: LearningCatalogSubject | undefined, unit?: string) => {
+    if (!subject || !unit) return unit;
+    const normalized = unit.trim().toLocaleLowerCase();
+    return subject.units.find((item) => item.renameFrom?.trim().toLocaleLowerCase() === normalized)?.name ?? unit;
+  };
   const reviewProgress: Record<string, ReviewProgress> = {};
   for (const progress of Object.values(state.reviewProgress)) {
     const subject = resolve(progress.subjectName, progress.subjectId);
@@ -625,16 +647,17 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
   }
   return {
     ...state,
-    manualTasks: state.manualTasks.map((task) => { const subject = resolve(task.subject, task.subjectId); return subject ? { ...task, subjectId: subject.id, subject: subject.name } : task; }),
-    completions: Object.fromEntries(Object.entries(state.completions).map(([key, completion]) => { const subject = resolve(completion.subjectName); return [key, subject ? { ...completion, subjectName: subject.name } : completion]; })),
+    learningCatalog: state.learningCatalog.map((subject) => ({ ...subject, units: subject.units.map((unit) => ({ name: unit.name, subsections: [...unit.subsections] })) })),
+    manualTasks: state.manualTasks.map((task) => { const subject = resolve(task.subject, task.subjectId); return subject ? { ...task, subjectId: subject.id, subject: subject.name, ...(task.scope ? { scope: { ...task.scope, ...(task.scope.unit ? { unit: resolveUnit(subject, task.scope.unit) } : {}) } } : {}) } : task; }),
+    completions: Object.fromEntries(Object.entries(state.completions).map(([key, completion]) => { const subject = resolve(completion.subjectName); return [key, subject ? { ...completion, subjectName: subject.name, ...(completion.scope ? { scope: { ...completion.scope, ...(completion.scope.unit ? { unit: resolveUnit(subject, completion.scope.unit) } : {}) } } : {}) } : completion]; })),
     reviewProgress,
-    cues: state.cues.map((cue) => { const subject = resolve(cue.subjectName, cue.subjectId); return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name } : cue; }),
+    cues: state.cues.map((cue) => { const subject = resolve(cue.subjectName, cue.subjectId); return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name, unit: resolveUnit(subject, cue.unit) ?? cue.unit } : cue; }),
     learningRecords: state.learningRecords.map((record) => {
       const subject = resolve(record.subjectName);
       return {
         ...record,
-        ...(subject ? { subjectName: subject.name } : {}),
-        cues: record.cues.map((cue) => { const cueSubject = resolve(cue.subjectName); return cueSubject ? { ...cue, subjectName: cueSubject.name } : cue; }),
+        ...(subject ? { subjectName: subject.name, ...(record.scope?.unit ? { scope: { ...record.scope, unit: resolveUnit(subject, record.scope.unit) } } : {}) } : {}),
+        cues: record.cues.map((cue) => { const cueSubject = resolve(cue.subjectName); return cueSubject ? { ...cue, subjectName: cueSubject.name, unit: resolveUnit(cueSubject, cue.unit) ?? cue.unit } : cue; }),
       };
     }),
   };
@@ -698,15 +721,25 @@ export function parseCueEnrichments(value: unknown): CueEnrichmentItem[] {
     const update = record(rawUpdate);
     if (!update) throw new Error(`第 ${index + 1} 条补充格式错误。`);
     const id = requiredText(update.id, `第 ${index + 1} 条补充的 id`, 120);
+    const subjectName = optionalText(update.subjectName, 80);
+    const unit = optionalText(update.unit, 120);
+    const subsection = Object.hasOwn(update, 'subsection')
+      ? typeof update.subsection === 'string' ? update.subsection.trim().slice(0, 120) : (() => { throw new Error(`第 ${index + 1} 条补充的 subsection 必须是文字。`); })()
+      : undefined;
+    const prompt = optionalText(update.prompt, 500);
     const type = typeof update.type === 'string' && allowedTypes.has(update.type as CueType) ? update.type as CueType : undefined;
     const display = typeof update.display === 'string' && allowedDisplays.has(update.display as CueDisplayPreset) ? update.display as CueDisplayPreset : undefined;
-    const subtitle = optionalText(update.subtitle, 500);
-    const answer = optionalText(update.answer, 2000);
+    const subtitle = Object.hasOwn(update, 'subtitle')
+      ? typeof update.subtitle === 'string' ? update.subtitle.trim().slice(0, 500) : (() => { throw new Error(`第 ${index + 1} 条补充的 subtitle 必须是文字。`); })()
+      : undefined;
+    const answer = Object.hasOwn(update, 'answer')
+      ? typeof update.answer === 'string' ? update.answer.trim().slice(0, 2000) : (() => { throw new Error(`第 ${index + 1} 条补充的 answer 必须是文字。`); })()
+      : undefined;
     const markingPoints = Array.isArray(update.markingPoints) ? update.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条补充的 marking point`, 300)).slice(0, 12) : undefined;
     const choices = Array.isArray(update.choices) ? update.choices.map((item) => requiredText(item, `第 ${index + 1} 条补充的选项`, 500)).slice(0, 6) : undefined;
     const correctChoice = Number.isInteger(update.correctChoice) ? Number(update.correctChoice) : undefined;
     if ((type === 'multiple-choice' || choices) && (!choices || choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题补充必须有 2–6 个选项和有效的 correctChoice。`);
-    return { id, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
+    return { id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
   });
 }
 
@@ -1204,6 +1237,25 @@ export function completeCueReviews(
   };
 }
 
+/** Saves one Cue rating immediately; repeating it in the same study session corrects the saved rating instead of creating another review. */
+export function recordCueStudyAssessment(
+  state: ScheduleControlState,
+  assessment: CueAssessment,
+  reviewedAt: Date,
+  sessionKey: string,
+): ScheduleControlState {
+  const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey);
+  if (!existing) return completeCueReviews(state, [assessment], reviewedAt, sessionKey);
+  const reviewedDate = dateKey(new Date(existing.reviewedAt));
+  const intervalDays = assessment.status === 'stable' ? Math.max(3, state.cues.find((cue) => cue.id === assessment.cueId)?.intervalDays ?? 3) : assessment.status === 'partial' ? 1 : 0;
+  const nextReviewDate = addCalendarDays(reviewedDate, intervalDays);
+  return {
+    ...state,
+    cues: state.cues.map((cue) => cue.id === assessment.cueId ? { ...cue, status: assessment.status, intervalDays, streak: assessment.status === 'unclear' ? 0 : cue.streak, nextReviewDate, lastReviewedAt: existing.reviewedAt, updatedAt: reviewedAt.toISOString() } : cue),
+    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, status: assessment.status, nextReviewDate, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : {}) } : review),
+  };
+}
+
 export function deriveLearningStatus(cueIds: string[], assessments: CueAssessment[]): LearningStatus {
   const assessed = new Map(assessments.map((assessment) => [assessment.cueId, assessment.status]));
   if (cueIds.some((cueId) => assessed.get(cueId) === 'unclear')) return 'unclear';
@@ -1328,7 +1380,7 @@ export function completeLearningSession(
       },
     };
   }
-  updated = evidence.assessments.length
+  updated = evidence.assessments.length && !evidence.cueReviewsAlreadyRecorded
     ? completeCueReviews(updated, evidence.assessments, completedAt, task.key)
     : updated;
   const completedAtIso = completedAt.toISOString();

@@ -5,6 +5,17 @@ import { DidaApiError, didaRequest } from '@/lib/integrations/dida365-server';
 
 export const runtime = 'nodejs';
 
+export async function GET(request: Request) {
+  const accountId = new URL(request.url).searchParams.get('accountId') ?? '';
+  if (!/^[0-9a-f-]{36}$/i.test(accountId)) return Response.json({ error: '账户数据无效。' }, { status: 400 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: '请先登录。' }, { status: 401 });
+  const { data, error } = await supabase.from('external_task_links').select('source_key').eq('user_id', user.id).eq('account_id', accountId).order('updated_at', { ascending: false }).limit(1000);
+  if (error) return Response.json({ error: '读取滴答任务关联失败。' }, { status: 500 });
+  return Response.json({ sourceKeys: (data ?? []).map((row) => row.source_key) });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json() as Record<string, unknown>;

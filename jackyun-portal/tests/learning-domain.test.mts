@@ -26,6 +26,7 @@ import {
   parseLearningUnitOutline,
   parseTimetableImport,
   postponeLearningTask,
+  recordCueStudyAssessment,
   reconcileScheduleSubjects,
   rescheduleManualTask,
   rollOverManualTasks,
@@ -311,6 +312,23 @@ test('partial catalog imports merge existing data without deleting untouched con
   assert.deepEqual(parseLearningUnitOutline('Mechanics | Motion, Forces\nWaves：Refraction；Diffraction'), [{ name: 'Mechanics', subsections: ['Motion', 'Forces'] }, { name: 'Waves', subsections: ['Refraction', 'Diffraction'] }]);
 });
 
+test('a partial unit rename preserves the rest of the catalog and updates existing Cue references', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const state = createEmptyScheduleState();
+  state.learningCatalog = parseLearningCatalogImport({ subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Wave Moton' }, { name: 'Mechanics' }], materialProgress: { B: '2.1' } }] }).subjects;
+  state.cues = [{ id: 'wave-cue', subjectId: 'physics', subjectName: 'Physics', unit: 'Wave Moton', subsection: '', prompt: 'Define diffraction.', type: 'definition', markingPoints: ['spreading'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  const partial = parseLearningCatalogImport({ subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Wave Motion', renameFrom: 'Wave Moton' }] }] }).subjects;
+
+  state.learningCatalog = mergeLearningCatalog(state.learningCatalog, partial);
+  const reconciled = reconcileScheduleSubjects(state);
+
+  assert.deepEqual(reconciled.learningCatalog[0].units.map((unit) => unit.name), ['Wave Motion', 'Mechanics']);
+  assert.equal(reconciled.learningCatalog[0].materialProgress.B, '2.1');
+  assert.equal(reconciled.cues[0].unit, 'Wave Motion');
+  assert.equal('renameFrom' in reconciled.learningCatalog[0].units[0], false);
+  assert.deepEqual(parseLearningUnitOutline('Wave Moton -> Wave Motion'), [{ name: 'Wave Motion', subsections: [], renameFrom: 'Wave Moton' }]);
+});
+
 test('timetable course names reconcile with learning subjects by meaningful keywords', () => {
   const catalog = parseLearningCatalogImport({ subjects: [
     { id: 'statistics', name: 'Statistics', units: [], materialProgress: {} },
@@ -366,6 +384,43 @@ test('AI Cue enrichment updates only returned fields and keeps Cue identity', ()
   assert.equal(enriched[0].type, 'multiple-choice');
   assert.deepEqual(enriched[0].choices, ['speed', 'velocity']);
   assert.throws(() => parseCueEnrichments({ updates: [{ id: 'cue-1', type: 'multiple-choice', choices: ['only one'], correctChoice: 0 }] }), /2–6/);
+});
+
+test('full Cue editing can change subject, unit, prompt, answer, formula, and display properties', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const cues = [{ id: 'cue-1', subjectId: 'pure-math', subjectName: 'Pure Math', unit: 'Algebra', subsection: '', prompt: 'Old prompt', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  const updates = parseCueEnrichments({ updates: [{ id: 'cue-1', subjectName: 'Pure Mathematics', unit: 'Quadratics', subsection: 'Completing the square', prompt: 'Solve \\(ax^2+bx+c=0\\).', subtitle: '', answer: '\\[x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\]', type: 'formula', display: 'formula', markingPoints: ['\\(b^2-4ac\\ge0\\) for real roots'] }] });
+  const enriched = applyCueEnrichments(cues, updates, '2026-09-20T09:00:00.000Z');
+
+  assert.equal(enriched[0].subjectName, 'Pure Mathematics');
+  assert.equal(enriched[0].unit, 'Quadratics');
+  assert.equal(enriched[0].subsection, 'Completing the square');
+  assert.equal(enriched[0].subtitle, '');
+  assert.match(enriched[0].prompt, /ax\^2/);
+  assert.equal(enriched[0].type, 'formula');
+  assert.equal(enriched[0].display, 'formula');
+  assert.match(enriched[0].answer ?? '', /\\frac/);
+});
+
+test('Cue study ratings save immediately, can be corrected, and are not duplicated at completion', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const task = { key: 'cue-special-session', title: 'Cue 专项学习', detail: '', type: 'special' as const, date: '2026-09-21', durationMinutes: 30, subjectId: 'physics', subjectName: 'Physics', scope: { cueIds: ['cue-1'] } };
+  const state = createEmptyScheduleState();
+  state.cues = [{ id: 'cue-1', subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Define diffraction.', type: 'definition', markingPoints: ['spreading'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  const reviewedAt = new Date('2026-09-21T08:00:00.000Z');
+
+  const first = recordCueStudyAssessment(state, { cueId: 'cue-1', status: 'stable' }, reviewedAt, task.key);
+  assert.equal(first.cues[0].status, 'stable');
+  assert.equal(first.cueReviews.length, 1);
+
+  const corrected = recordCueStudyAssessment(first, { cueId: 'cue-1', status: 'partial' }, new Date('2026-09-21T08:01:00.000Z'), task.key);
+  assert.equal(corrected.cues[0].status, 'partial');
+  assert.equal(corrected.cueReviews.length, 1);
+  assert.equal(corrected.cueReviews[0].status, 'partial');
+
+  const completed = completeLearningSession(corrected, task, { studiedContent: '', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['cue-1'] }, materials: [], cueIds: ['cue-1'], newCues: [], assessments: [{ cueId: 'cue-1', status: 'partial' }], cueReviewsAlreadyRecorded: true }, new Date('2026-09-21T08:02:00.000Z'));
+  assert.equal(completed.cueReviews.length, 1);
+  assert.equal(completed.learningRecords[0].cues[0].status, 'partial');
 });
 
 test('Cue LaTeX accepts commonly escaped comparison symbols', () => {

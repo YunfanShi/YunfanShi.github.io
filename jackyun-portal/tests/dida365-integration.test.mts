@@ -35,6 +35,7 @@ test('只接受边界明确的 Schedule 任务数据', () => {
 
 test('账户令牌加密保存，关联表启用按用户隔离的 RLS', () => {
   const accountRoute = readFileSync(new URL('../src/app/api/integrations/dida365/accounts/route.ts', import.meta.url), 'utf8');
+  const taskRoute = readFileSync(new URL('../src/app/api/integrations/dida365/tasks/route.ts', import.meta.url), 'utf8');
   const scheduleUi = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
   const migration = readFileSync(new URL('../supabase/migrations/20260921025242_external_account_connections.sql', import.meta.url), 'utf8');
   assert.match(accountRoute, /encryptSecret\(token\)/);
@@ -42,6 +43,10 @@ test('账户令牌加密保存，关联表启用按用户隔离的 RLS', () => {
   assert.match(accountRoute, /账户关联数据库尚未升级/);
   assert.doesNotMatch(accountRoute, /access_token:\s*token/);
   assert.ok(scheduleUi.indexOf('playlist_add') < scheduleUi.indexOf('onPostpone(task)'), 'Dida action must appear above postpone');
+  assert.match(taskRoute, /export async function GET/);
+  assert.match(taskRoute, /select\('source_key'\)/);
+  assert.match(scheduleUi, /didaAddedTaskKeys\.has\(didaSourceKey\(task\)\)/);
+  assert.match(scheduleUi, /'已添加'/);
   for (const table of ['external_accounts', 'external_account_secrets', 'external_task_links']) {
     assert.match(migration, new RegExp(`alter table public\\.${table} enable row level security`));
   }
