@@ -8,7 +8,6 @@ import FlyingTimer from '@/components/modules/floating-timer';
 import SiteNotificationModal from '@/components/modules/site-notification-modal';
 import LanguageProvider from '@/components/language-provider';
 import ClientLoggerBoot from '@/components/layout/client-logger-boot';
-import AdminDebugConsole from '@/components/admin/admin-debug-console';
 import { createClient } from '@/lib/supabase/server';
 import type { SidebarPreferences } from '@/actions/settings';
 import type { Language } from '@/lib/i18n';
@@ -126,7 +125,6 @@ export default async function PortalLayout({
         <SiteNotificationModal />
         <BetaExperience status={(betaEnrollment?.status as BetaEnrollmentStatus | undefined) ?? null} />
         <BrowserAiBridge />
-        <AdminDebugConsole isAdmin={isAdmin} />
       </div>
     </LanguageProvider>
     </AuthModeProvider>
