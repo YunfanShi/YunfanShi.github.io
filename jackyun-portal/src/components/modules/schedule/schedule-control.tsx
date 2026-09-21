@@ -9,7 +9,7 @@ import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 import { didaSourceKey, type DidaAccountView } from '@/lib/integrations/dida365';
 import {
-  applyCueEnrichments,
+  applyCueBulkOperations,
   applyCueUnitMappings,
   completeLearningSession,
   cuesForLearningTask,
@@ -19,7 +19,7 @@ import {
   dateFromKey,
   dateKey,
   deriveLearningStatus,
-  cueBatchImportTemplate,
+  cueBulkImportTemplate,
   learningCatalogImportTemplate,
   LEARNING_MATERIALS,
   LEARNING_TASK_PRESETS,
@@ -27,8 +27,7 @@ import {
   migrateIeltsWeekTaskDates,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
-  parseCueBatchImport,
-  parseCueEnrichments,
+  parseCueBulkImport,
   recordCueStudyAssessment,
   parseTimetableImport,
   postponeLearningTask,
@@ -42,9 +41,9 @@ import {
   withReviewCourseSelection,
   type LearningStatus,
   type CueAssessment,
-  type CueBatchImportItem,
+  type CueBulkOperation,
+  type CueCreateOperation,
   type CueDisplayPreset,
-  type CueEnrichmentItem,
   type CueType,
   type CueReview,
   type CueStudyDraft,
@@ -387,16 +386,18 @@ function ReviewDialog({ task, cues, catalog, signedIn, onClose, onComplete }: { 
     setCueStatuses((current) => ({ ...current, [cue.id]: 'linked' }));
     setNewCuePrompt(''); setNewCueSubtitle(''); setNewCueAnswer(''); setNewCueChoices(''); setNewCueCorrectChoice(0); setNewCueMarkingPoints(''); setShowCueForm(false);
   };
-  const importLessonCues = (items: CueBatchImportItem[]) => {
+  const importLessonCues = (items: CueCreateOperation[]) => {
     const now = new Date().toISOString();
-    const normalizedSubject = subjectName.trim().slice(0, 80);
-    const subjectId = selectedSubjectConfig?.id ?? subjectIdFromName(normalizedSubject);
-    const imported = items.map((item): StudyCue => ({
-      id: taskId(), subjectId, subjectName: normalizedSubject, unit: item.unit, subsection: '', prompt: item.prompt,
-      ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display,
-      ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}),
-      markingPoints: item.markingPoints, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
-    }));
+    const imported = items.map((item): StudyCue => {
+      const normalizedSubject = item.subjectName?.trim().slice(0, 80) || subjectName.trim().slice(0, 80);
+      const subjectId = catalog.find((subject) => subject.name.trim().toLocaleLowerCase() === normalizedSubject.toLocaleLowerCase())?.id ?? subjectIdFromName(normalizedSubject);
+      return {
+        id: taskId(), subjectId, subjectName: normalizedSubject, unit: item.unit, subsection: '', prompt: item.prompt,
+        ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display,
+        ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}),
+        markingPoints: item.markingPoints, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
+      };
+    });
     setNewCues((current) => [...current, ...imported]);
     setSelectedCueIds((current) => [...current, ...imported.map((cue) => cue.id)]);
     setCueStatuses((current) => ({ ...current, ...Object.fromEntries(imported.map((cue) => [cue.id, 'linked' as const])) }));
@@ -426,7 +427,7 @@ function ReviewDialog({ task, cues, catalog, signedIn, onClose, onComplete }: { 
         {missingCueState && <p className="mt-2 text-xs text-rose-600">请为所有选中的 Cue 选择“仅关联”或状态。</p>}
         <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm font-medium">取消</button><button type="button" disabled={missingCueState} onClick={() => onComplete({ studiedContent, issue, note }, { subjectName: subjectName.trim() || undefined, scope: unit.trim() || subsection.trim() ? { ...(unit.trim() ? { unit: unit.trim() } : {}), ...(subsection.trim() ? { subsection: subsection.trim() } : {}), cueIds: selectedCueIds } : { cueIds: selectedCueIds }, materials: Object.entries(materials).map(([code, progress]) => ({ code: code as LearningSessionEvidence['materials'][number]['code'], ...(progress.trim() ? { progress: progress.trim() } : {}) })), cueIds: selectedCueIds, newCues, assessments })} className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 ${status === 'unclear' ? 'bg-rose-600' : 'bg-[var(--brand)] dark:text-[#202124]'}`}>{status === 'unclear' ? '保存记录，继续修复' : '保存学习记录'}</button></div>
       </div>
-      {showCueBatchImport && <CueBatchImportDialog subjectName={subjectName.trim()} unit={unit} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} onClose={() => setShowCueBatchImport(false)} onImport={importLessonCues} />}
+      {showCueBatchImport && <CueBulkImportDialog subjectName={subjectName.trim()} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} cues={[]} onClose={() => setShowCueBatchImport(false)} onApply={(operations) => importLessonCues(operations.filter((operation): operation is CueCreateOperation => operation.action === 'create'))} />}
     </div>
   );
 }
@@ -489,91 +490,97 @@ function CueHierarchy({ cues, reviews, onDelete }: { cues: StudyCue[]; reviews: 
   return <div className="mt-4 space-y-5 pb-6">{grouped.map((subject) => <section key={subject.subject} className="rounded-3xl border border-[var(--card-border)] p-5"><h4 className="flex items-center gap-2 text-lg font-semibold"><span className="material-icons-round text-xl text-[var(--brand)]">school</span>{subject.subject}</h4>{subject.units.map((unitGroup) => <div key={unitGroup.unit} className="ml-2 mt-4 border-l-2 border-[var(--card-border)] pl-5"><h5 className="font-semibold text-[var(--brand)]">{unitGroup.unit}</h5>{unitGroup.subsections.map((subsectionGroup) => <div key={subsectionGroup.subsection || unitGroup.unit} className="mt-4"><div className="mt-2 grid gap-3 xl:grid-cols-2">{subsectionGroup.cues.map((cue) => { const reviewCount = reviewCounts.get(cue.id) ?? 0; return <article key={cue.id} className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="font-semibold"><span className="mr-1 text-xs text-[var(--muted-foreground)]">[{cue.type.toUpperCase()}]</span><LatexRenderer content={cue.prompt} /></div>{cue.subtitle && <div className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></div>}{cue.answer && <div className="mt-2 text-sm leading-6"><span className="mr-1 font-medium">参考：</span><LatexRenderer content={cue.answer} /></div>}{cue.markingPoints.length > 0 && <div className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-medium">Marking points：</span>{cue.markingPoints.map((point) => <div key={point} className="pl-2"><LatexRenderer content={point} /></div>)}</div>}<div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className={`rounded-full px-2 py-1 font-bold ${cue.status === 'stable' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200' : cue.status === 'partial' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200' : cue.status === 'unclear' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200'}`}>{cue.status ? statusMark(cue.status) : '未验证'}</span><span className="text-[var(--muted-foreground)]">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (cue.display ?? 'standard'))?.label}</span><span className="text-[var(--muted-foreground)]">检索 {reviewCount} 次</span><span className="text-[var(--muted-foreground)]">连续通过 {cue.streak}</span><span className="text-[var(--muted-foreground)]">间隔 {cue.intervalDays} 天</span>{cue.nextReviewDate && <span className="text-[var(--muted-foreground)]">下次 {cue.nextReviewDate}</span>}</div></div><button type="button" onClick={() => onDelete(cue)} aria-label={`删除 ${cue.prompt}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"><span className="material-icons-round text-lg">delete</span></button></div></article>; })}</div></div>)}</div>)}</section>)}</div>;
 }
 
-function CueBatchImportDialog({ subjectName, unit, knownUnits, onClose, onImport }: { subjectName: string; unit: string; knownUnits: string[]; onClose: () => void; onImport: (items: CueBatchImportItem[]) => void }) {
-  const subsection = '';
+function CueBulkImportDialog({ subjectName, knownUnits, cues, onClose, onApply }: { subjectName: string; knownUnits: string[]; cues: StudyCue[]; onClose: () => void; onApply: (operations: CueBulkOperation[]) => void }) {
   const [mode, setMode] = useState<'json' | 'ai'>('json');
   const [source, setSource] = useState('');
-  const [preview, setPreview] = useState<CueBatchImportItem[] | null>(null);
+  const [preview, setPreview] = useState<CueBulkOperation[] | null>(null);
   const [unitMappings, setUnitMappings] = useState<Record<string, string>>({});
   const [unitsConfirmed, setUnitsConfirmed] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const normalizeUnit = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-  const preparePreview = (items: CueBatchImportItem[], nextMessage: string) => {
-    const mappings = Object.fromEntries([...new Set(items.map((item) => item.unit))].map((sourceUnit) => [
+  const currentOperations = useMemo<CueBulkOperation[]>(() => cues.map((cue) => ({
+    action: 'update',
+    id: cue.id,
+    subjectName: cue.subjectName,
+    unit: cue.unit,
+    subsection: cue.subsection,
+    prompt: cue.prompt,
+    subtitle: cue.subtitle ?? '',
+    answer: cue.answer ?? '',
+    type: cue.type,
+    display: cue.display ?? 'standard',
+    ...(cue.choices ? { choices: cue.choices, correctChoice: cue.correctChoice } : {}),
+    markingPoints: cue.markingPoints,
+  })), [cues]);
+  const cueById = useMemo(() => new Map(cues.map((cue) => [cue.id, cue])), [cues]);
+  const exportJson = useMemo(() => JSON.stringify({ version: 1, operations: currentOperations }, null, 2), [currentOperations]);
+  const templateJson = useMemo(() => JSON.stringify(cueBulkImportTemplate(cues[0]?.id), null, 2), [cues]);
+  const aiPrompt = useMemo(() => [
+    '你把用户要求转换为 JackYun 网站支持的 Cue 批量操作。只输出严格 JSON，不要 Markdown 或解释。',
+    '根对象格式为 {"version":1,"operations":[...]}。每个 Cue 前必须写 action："create" 表示创建，"update" 表示修改；修改必须写当前数据中的 id。一次可以同时创建和修改。',
+    '网站支持的 Cue 字段：subjectName、unit、subsection、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints。',
+    'create 必须写 unit 和 prompt；subjectName 省略时使用当前学科。update 只写需要改变的字段，省略字段保持不变；subsection、subtitle、answer 可用空字符串清空。',
+    'type 支持 general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice。',
+    'display 支持 standard、headline、formula、steps、comparison、scenario、definition-card、multiple-choice。multiple-choice 需要 2–6 个 choices，correctChoice 从 0 开始。',
+    '网站文字支持换行和 KaTeX：行内 \\( ... \\) 或 $...$，独立公式 \\[ ... \\] 或 $$...$$。',
+    'status、复习间隔、评分和复习日期不支持在这里修改。',
+    '具体要创建或修改什么，只按用户给你的要求决定。',
+    '当前学科：' + subjectName,
+    '当前范围内可修改的 Cue：' + JSON.stringify(currentOperations),
+    '格式示例：' + JSON.stringify(cueBulkImportTemplate(cues[0]?.id)),
+  ].join('\n'), [currentOperations, cues, subjectName]);
+  const validate = (value: unknown) => {
+    const operations = parseCueBulkImport(value).operations;
+    const ids = new Set(cues.map((cue) => cue.id));
+    const unknown = operations.find((operation) => operation.action === 'update' && !ids.has(operation.id));
+    if (unknown?.action === 'update') throw new Error('修改操作包含当前范围之外的 Cue id：' + unknown.id);
+    return operations;
+  };
+  const preparePreview = (operations: CueBulkOperation[], nextMessage: string) => {
+    const returnedUnits = [...new Set(operations.flatMap((operation) => operation.unit ? [operation.unit] : []))];
+    setUnitMappings(Object.fromEntries(returnedUnits.map((sourceUnit) => [
       sourceUnit,
       knownUnits.find((knownUnit) => normalizeUnit(knownUnit) === normalizeUnit(sourceUnit)) ?? sourceUnit,
-    ]));
-    setPreview(items);
-    setUnitMappings(mappings);
-    setUnitsConfirmed(false);
+    ])));
+    setPreview(operations);
+    setUnitsConfirmed(returnedUnits.length === 0);
     setMessage(nextMessage);
   };
   const parseSource = (value: string) => {
-    try { const parsed = parseCueBatchImport(parseAiJson(value)); preparePreview(parsed.cues, `识别到 ${parsed.cues.length} 条 Cue，请先核对单元。`); }
-    catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : 'Cue 配置无法读取。'); }
+    try {
+      const operations = validate(parseAiJson(value));
+      const creates = operations.filter((operation) => operation.action === 'create').length;
+      preparePreview(operations, '已读取 ' + creates + ' 条创建、' + (operations.length - creates) + ' 条修改。');
+    } catch (error) {
+      setPreview(null);
+      setMessage(error instanceof Error ? error.message : 'Cue 配置无法读取。');
+    }
   };
-  const aiPrompt = `请根据我提供的课堂笔记、教材内容或题目生成主动检索 Cue。只输出严格 JSON，不要 Markdown。JSON 格式示例：${JSON.stringify(cueBatchImportTemplate())}。
-字段用途必须严格遵守：
-- unit：这条 Cue 所属的大单元。根据输入中的标题或上下文填写；不清楚时写“待分类”，不要猜测，也不要输出小章节。
-- prompt：学习时最大字号显示的题目大标题。每条只问一个可闭卷检索的问题。
-- subtitle：显示在大标题下方的小字，只写背景、已知条件、范围、作答限制或必要提示；不得泄露答案。没有需要时省略。
-- answer：揭示后显示的完整参考答案。可以省略，但不要把答案塞进 subtitle。
-- type：题型。general=通用检索，definition=定义，state=陈述要点，explain=解释因果，calculate=计算，formula=公式回忆，derivation=推导，proof=证明，compare=比较异同，process=过程或步骤，application=情境应用，diagram=图像或示意图，multiple-choice=类型选择题。
-- display：显示预设。standard=普通问答，headline=大标题加小字说明，formula=公式重点，steps=步骤或推导，comparison=对比，scenario=情境题，definition-card=Definition 翻卡，multiple-choice=选项界面。Definition 优先使用 definition-card，选择题必须使用 multiple-choice。
-- choices / correctChoice：只用于选择题；choices 写 2–6 个选项，correctChoice 是从 0 开始的正确选项序号。
-- markingPoints：独立字符串数组，只写判分必需的关键词、公式、关系、限定条件或完整 reasoning chain，不要重复 prompt。
-数学与科学符号使用 LaTeX：行内写 \\( ... \\)，独立公式写 \\[ ... \\]；不要使用无法解析的 HTML 实体。不要编造原文没有的知识。学科统一为：${subjectName}。`;
-  const copyPrompt = async () => { await navigator.clipboard.writeText(aiPrompt); setMessage('AI 导入提示词已复制。'); };
   const runAi = async () => {
     if (!source.trim()) return;
-    setBusy(true); setMessage('AI 正在整理 Cue…');
+    setBusy(true);
+    setMessage('AI 正在按你的要求生成操作预览…');
+    setPreview(null);
     try {
       const response = await fetch('/api/llm-proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'chat', stream: false, temperature: 0.1, _no_thinking: true, messages: [{ role: 'system', content: aiPrompt }, { role: 'user', content: source.slice(0, 40_000) }] }) });
-      const parsed = parseCueBatchImport(parseAiJson(await readAiResponseContent(response)));
-      preparePreview(parsed.cues, `AI 整理出 ${parsed.cues.length} 条 Cue，请先核对单元。`);
-    } catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : 'AI 导入失败。'); }
-    finally { setBusy(false); }
+      const operations = validate(parseAiJson(await readAiResponseContent(response)));
+      const creates = operations.filter((operation) => operation.action === 'create').length;
+      preparePreview(operations, 'AI 返回 ' + creates + ' 条创建、' + (operations.length - creates) + ' 条修改。');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'AI 操作生成失败。');
+    } finally {
+      setBusy(false);
+    }
   };
   if (preview && !unitsConfirmed) {
-    const importedUnits = [...new Set(preview.map((item) => item.unit))];
-    return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-unit-review-title"><div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><h2 id="cue-unit-review-title" className="text-xl font-semibold">核对并合并单元</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">AI 的单元可能识别错误。请为每个返回单元选择实际归属；同名的全部 Cue 会一起修改。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div><div className="mt-5 space-y-3">{importedUnits.map((sourceUnit) => { const isKnown = knownUnits.some((knownUnit) => normalizeUnit(knownUnit) === normalizeUnit(sourceUnit)); return <div key={sourceUnit} className="rounded-2xl border border-[var(--card-border)] p-4"><p className="text-xs text-[var(--muted-foreground)]">AI 返回</p><p className="mt-1 font-semibold">{sourceUnit}</p><label className="mt-3 block text-sm font-medium">实际导入到<select value={unitMappings[sourceUnit] ?? sourceUnit} onChange={(event) => setUnitMappings((current) => ({ ...current, [sourceUnit]: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{!isKnown && <option value={sourceUnit}>保留并新建“{sourceUnit}”</option>}{knownUnits.map((knownUnit) => <option key={knownUnit} value={knownUnit}>{knownUnit}</option>)}</select></label></div>; })}</div><div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => { setPreview(null); setUnitsConfirmed(false); }} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm">返回修改内容</button><button type="button" onClick={() => { setPreview((current) => current ? applyCueUnitMappings(current, unitMappings) : current); setUnitsConfirmed(true); setMessage(`单元已核对，准备导入 ${preview.length} 条 Cue。`); }} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">确认单元并预览 Cue</button></div></div></div>;
+    const returnedUnits = [...new Set(preview.flatMap((operation) => operation.unit ? [operation.unit] : []))];
+    return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-unit-review-title"><div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><h2 id="cue-unit-review-title" className="text-xl font-semibold">核对操作中的单元</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">创建和修改会一起执行。请先确认操作中出现的大单元；相同名称会统一映射。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div><div className="mt-5 space-y-3">{returnedUnits.map((sourceUnit) => { const isKnown = knownUnits.some((knownUnit) => normalizeUnit(knownUnit) === normalizeUnit(sourceUnit)); return <div key={sourceUnit} className="rounded-2xl border border-[var(--card-border)] p-4"><p className="text-xs text-[var(--muted-foreground)]">操作中填写</p><p className="mt-1 font-semibold">{sourceUnit}</p><label className="mt-3 block text-sm font-medium">实际使用<select value={unitMappings[sourceUnit] ?? sourceUnit} onChange={(event) => setUnitMappings((current) => ({ ...current, [sourceUnit]: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{!isKnown && <option value={sourceUnit}>保留并新建“{sourceUnit}”</option>}{knownUnits.map((knownUnit) => <option key={knownUnit} value={knownUnit}>{knownUnit}</option>)}</select></label></div>; })}</div><div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setPreview(null)} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm">返回修改内容</button><button type="button" onClick={() => { setPreview((current) => current ? applyCueUnitMappings(current, unitMappings) : current); setUnitsConfirmed(true); }} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">确认单元并查看操作</button></div></div></div>;
   }
-  if (mode === 'json' || mode === 'ai') return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-import-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><h2 id="cue-import-title" className="text-xl font-semibold">批量导入 Cue</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">学科：{subjectName}。每条 Cue 在输入或 JSON 中单独填写大单元，不使用工作台当前所选大单元。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div><div className="mt-4 inline-flex rounded-full bg-black/5 p-1 dark:bg-white/10"><button type="button" onClick={() => { setMode('json'); setPreview(null); }} className={`rounded-full px-4 py-2 text-sm ${mode === 'json' ? 'bg-[var(--card)] font-semibold shadow-sm' : ''}`}>JSON 批量导入</button><button type="button" onClick={() => { setMode('ai'); setPreview(null); }} className={`rounded-full px-4 py-2 text-sm ${mode === 'ai' ? 'bg-[var(--card)] font-semibold shadow-sm' : ''}`}>AI 整理导入</button></div><div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-3 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">{mode === 'ai' ? '请在内容里写明单元，例如“Unit 2 Kinematics”后列出相关知识。AI 会把 unit 写入每一条 Cue；未写清的会标记为“待分类”，不会擅自猜测。' : 'JSON 中每条 Cue 都必须包含 unit 字段，因此一次可以导入多个大单元。'}</div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={async () => { await navigator.clipboard.writeText(JSON.stringify(cueBatchImportTemplate(), null, 2)); setMessage('Cue JSON 格式已复制。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制 JSON 格式</button><button type="button" onClick={copyPrompt} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制 AI 提示词</button>{mode === 'json' && <label className="cursor-pointer rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">选择 JSON<input type="file" accept="application/json,.json" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; const text = await file.text(); setSource(text); parseSource(text); }} /></label>}</div><textarea value={source} onChange={(event) => setSource(event.target.value)} rows={10} placeholder={mode === 'ai' ? '例如：Unit 2 Kinematics\n- acceleration 的定义\n- SUVAT 公式的适用条件\n\nUnit 3 Forces\n- terminal velocity 的解释' : '粘贴包含 unit 的 cues JSON…'} className="mt-4 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 font-mono text-xs leading-5" /><button type="button" disabled={busy || !source.trim()} onClick={() => mode === 'json' ? parseSource(source) : runAi()} className="mt-3 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:text-[#202124]">{busy ? '处理中…' : mode === 'json' ? '检查并预览' : 'AI 按单元整理并预览'}</button>{message && <p role="status" className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">{message}</p>}{preview && <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">{preview.map((cue, index) => <div key={`${cue.unit}-${cue.prompt}-${index}`} className="rounded-xl border border-[var(--card-border)] p-3"><p className="text-xs font-semibold text-[var(--brand)]">{cue.unit} · [{cue.type.toUpperCase()}]</p><p className="mt-1 text-sm font-medium">{cue.prompt}</p>{cue.markingPoints.length > 0 && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{cue.markingPoints.join(' · ')}</p>}</div>)}</div>}<div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm">取消</button><button type="button" disabled={!preview} onClick={() => preview && onImport(preview)} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">导入 {preview?.length ?? 0} 条 Cue</button></div></div></div>;
-  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-import-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><h2 id="cue-import-title" className="text-xl font-semibold">批量导入 Cue</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">共同分类：{subjectName} → {unit} → {subsection}</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div><div className="mt-4 inline-flex rounded-full bg-black/5 p-1 dark:bg-white/10"><button type="button" onClick={() => setMode('json')} className={`rounded-full px-4 py-2 text-sm ${mode === 'json' ? 'bg-[var(--card)] font-semibold shadow-sm' : ''}`}>JSON 批量导入</button><button type="button" onClick={() => setMode('ai')} className={`rounded-full px-4 py-2 text-sm ${mode === 'ai' ? 'bg-[var(--card)] font-semibold shadow-sm' : ''}`}>AI 整理导入</button></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={async () => { await navigator.clipboard.writeText(JSON.stringify(cueBatchImportTemplate(), null, 2)); setMessage('Cue JSON 格式已复制。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制 JSON 格式</button><button type="button" onClick={copyPrompt} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制 AI 提示词</button>{mode === 'json' && <label className="cursor-pointer rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">选择 JSON<input type="file" accept="application/json,.json" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; const text = await file.text(); setSource(text); parseSource(text); }} /></label>}</div><textarea value={source} onChange={(event) => setSource(event.target.value)} rows={10} placeholder={mode === 'ai' ? '粘贴课本内容、笔记或现有问题，AI 会整理成 Cue…' : '粘贴 cues JSON…'} className="mt-4 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 font-mono text-xs leading-5" /><button type="button" disabled={busy || !source.trim()} onClick={() => mode === 'json' ? parseSource(source) : runAi()} className="mt-3 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:text-[#202124]">{busy ? '处理中…' : mode === 'json' ? '检查并预览' : 'AI 整理并预览'}</button>{message && <p className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">{message}</p>}{preview && <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">{preview.map((cue, index) => <div key={`${cue.prompt}-${index}`} className="rounded-xl border border-[var(--card-border)] p-3"><p className="text-xs font-semibold text-[var(--brand)]">[{cue.type.toUpperCase()}]</p><p className="mt-1 text-sm font-medium">{cue.prompt}</p>{cue.markingPoints.length > 0 && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{cue.markingPoints.join(' · ')}</p>}</div>)}</div>}<div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm">取消</button><button type="button" disabled={!preview} onClick={() => preview && onImport(preview)} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">导入 {preview?.length ?? 0} 条 Cue</button></div></div></div>;
+  const createCount = preview?.filter((operation) => operation.action === 'create').length ?? 0;
+  const updateCount = (preview?.length ?? 0) - createCount;
+  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-import-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className="max-h-[90dvh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><h2 id="cue-import-title" className="text-xl font-semibold">批量创建 / 修改 Cue</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">学科：{subjectName} · 当前范围 {cues.length} 条。一个 JSON 可以同时创建新 Cue 和修改旧 Cue。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div><div className="mt-4 inline-flex rounded-full bg-black/5 p-1 dark:bg-white/10"><button type="button" onClick={() => { setMode('json'); setPreview(null); }} className={mode === 'json' ? 'rounded-full bg-[var(--card)] px-4 py-2 text-sm font-semibold shadow-sm' : 'rounded-full px-4 py-2 text-sm'}>JSON 导入 / 编辑</button><button type="button" onClick={() => { setMode('ai'); setPreview(null); }} className={mode === 'ai' ? 'rounded-full bg-[var(--card)] px-4 py-2 text-sm font-semibold shadow-sm' : 'rounded-full px-4 py-2 text-sm'}>AI 按要求处理</button></div><div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-3 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">每项先写 <code>action</code>：<code>create</code>（创建）或 <code>update</code>（修改）。修改必须使用已导出的原 Cue ID；未写的字段保持不变。</div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={async () => { await navigator.clipboard.writeText(templateJson); setMessage('创建 / 修改 JSON 格式已复制。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制 JSON 格式</button><button type="button" onClick={async () => { await navigator.clipboard.writeText(exportJson); setSource(exportJson); setMode('json'); setPreview(null); setMessage('当前范围的 Cue 已按修改格式复制并载入。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">提取当前 Cue JSON</button><button type="button" onClick={async () => { await navigator.clipboard.writeText(aiPrompt); setMessage('网站能力、格式和当前 Cue ID 已复制；请另行告诉 AI 你要改什么。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制网站能力提示词</button>{mode === 'json' && <label className="cursor-pointer rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">选择 JSON<input type="file" accept="application/json,.json" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; const textValue = await file.text(); setSource(textValue); parseSource(textValue); }} /></label>}</div><textarea value={source} onChange={(event) => setSource(event.target.value)} rows={14} placeholder={mode === 'ai' ? '在这里写你的要求并粘贴笔记，例如：根据下面的新笔记更新已有 Cue，同时补充缺少的 Cue……' : '粘贴 operations JSON；每项写 action，修改项还要写 id。'} className="mt-4 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 font-mono text-xs leading-5" /><button type="button" disabled={busy || !source.trim()} onClick={() => mode === 'json' ? parseSource(source) : runAi()} className="mt-3 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">{busy ? '处理中…' : mode === 'json' ? '检查并预览' : '让 AI 按我的要求处理'}</button>{message && <p role="status" className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">{message}</p>}{preview && <div className="mt-4 max-h-80 space-y-2 overflow-y-auto">{preview.map((operation, index) => { const existing = operation.action === 'update' ? cueById.get(operation.id) : undefined; return <article key={operation.action === 'update' ? operation.id : 'create-' + index} className="rounded-xl border border-[var(--card-border)] p-3"><p className="text-xs font-semibold text-[var(--brand)]">{operation.action === 'create' ? '创建' : '修改 · ' + operation.id}{operation.unit ? ' · ' + operation.unit : ''}</p><p className="mt-1 text-sm font-medium">{operation.prompt ?? existing?.prompt}</p>{operation.action === 'update' && <p className="mt-1 text-xs text-[var(--muted-foreground)]">修改字段：{Object.keys(operation).filter((key) => key !== 'action' && key !== 'id').join('、')}</p>}</article>; })}</div>}<div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm">取消</button><button type="button" disabled={!preview} onClick={() => preview && onApply(preview)} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">执行：创建 {createCount} · 修改 {updateCount}</button></div></div></div>;
 }
-
-function CueEnrichmentDialog({ cues, onClose, onApply }: { cues: StudyCue[]; onClose: () => void; onApply: (updates: CueEnrichmentItem[]) => void }) {
-  const [mode, setMode] = useState<'json' | 'ai'>('json');
-  const [source, setSource] = useState('');
-  const [preview, setPreview] = useState<CueEnrichmentItem[] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const cueData = cues.map((cue) => ({ id: cue.id, subjectName: cue.subjectName, unit: cue.unit, subsection: cue.subsection, prompt: cue.prompt, subtitle: cue.subtitle, answer: cue.answer, type: cue.type, display: cue.display, choices: cue.choices, correctChoice: cue.correctChoice, markingPoints: cue.markingPoints }));
-  const exportJson = JSON.stringify({ updates: cueData }, null, 2);
-  const prompt = `你正在批量修订 JackYun 的现有 Cue。只输出严格 JSON，不要 Markdown 代码围栏或解释。根对象格式为 {"updates":[...]}，每项必须保留现有 id，可以修改 subjectName、unit、subsection、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints；不得创建新 id，也不得漏掉用户没有要求删除的 Cue。若要清空 subsection、subtitle 或 answer，请把字段写成空字符串。status、复习间隔和复习日期由用户学习评分自动维护，不要输出或修改。type 支持 general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice。display 支持 standard、headline、formula、steps、comparison、scenario、definition-card、multiple-choice。multiple-choice 必须有 2–6 个 choices，correctChoice 从 0 开始。网站文字支持换行和 KaTeX：行内可用 \\( ... \\) 或 $...$，独立公式可用 \\[ ... \\] 或 $$...$$；支持 frac、sqrt、sum、int、lim、向量、矩阵、cases、aligned、上下标及常见关系符号。prompt 一次只问一个清晰问题；subtitle 只放背景、条件和作答限制，不能泄露答案；answer 给完整答案；markingPoints 拆成可独立核对的必要得分点。当前数据：${JSON.stringify(cueData)}`;
-  const validateUpdates = (value: unknown) => {
-    const updates = parseCueEnrichments(value);
-    const ids = new Set(cues.map((cue) => cue.id));
-    if (updates.some((update) => !ids.has(update.id))) throw new Error('返回内容包含当前范围之外的 Cue id。');
-    return updates;
-  };
-  const parseJson = () => {
-    try { const updates = validateUpdates(parseAiJson(source)); setPreview(updates); setMessage(`已读取 ${updates.length} 条修改，请核对后应用。`); }
-    catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : 'JSON 无法读取。'); }
-  };
-  const run = async () => {
-    setBusy(true); setMessage('AI 正在检查现有 Cue…'); setPreview(null);
-    try {
-      const response = await fetch('/api/llm-proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'chat', stream: false, temperature: 0.1, _no_thinking: true, messages: [{ role: 'system', content: prompt }, { role: 'user', content: source.trim() || '逐条检查清晰度，补全答案、公式、必要条件和 marking points；保留原意。' }] }) });
-      const updates = validateUpdates(parseAiJson(await readAiResponseContent(response)));
-      setPreview(updates); setMessage(`AI 返回 ${updates.length} 条修改，请核对后应用。`);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'AI 补充失败。'); }
-    finally { setBusy(false); }
-  };
-  return <div className="fixed inset-0 z-[85] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-enrichment-title"><div className="max-h-[90dvh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><h2 id="cue-enrichment-title" className="text-xl font-semibold">批量提取与修改现有 Cue</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">当前范围 {cues.length} 条。可以复制全部 JSON 手动修改，也可以让 AI 修改题目、学科、单元、小章节、答案、题型、显示方式、选项和得分点。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div><div className="mt-4 inline-flex rounded-full bg-black/5 p-1 dark:bg-white/10"><button type="button" onClick={() => { setMode('json'); setSource(exportJson); setPreview(null); }} className={`rounded-full px-4 py-2 text-sm ${mode === 'json' ? 'bg-[var(--card)] font-semibold shadow-sm' : ''}`}>JSON 全量编辑</button><button type="button" onClick={() => { setMode('ai'); setSource(''); setPreview(null); }} className={`rounded-full px-4 py-2 text-sm ${mode === 'ai' ? 'bg-[var(--card)] font-semibold shadow-sm' : ''}`}>AI 批量改进</button></div><div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-3 text-xs leading-5 text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">支持普通换行，以及 <code>\(...\)</code> / <code>$...$</code> 行内公式、<code>\[...\]</code> / <code>$$...$$</code> 独立公式；KaTeX 支持分式、根号、求和、积分、极限、向量、矩阵、cases 和 aligned。用空字符串可清空小章节、说明或答案；状态与复习间隔仍由学习评分维护。</div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={async () => { await navigator.clipboard.writeText(exportJson); setSource(exportJson); setMode('json'); setMessage('当前范围的全部 Cue JSON 已复制并载入编辑框。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">提取并复制全部 Cue JSON</button><button type="button" onClick={async () => { await navigator.clipboard.writeText(`${prompt}\n\n输出数据：\n${exportJson}`); setMessage('完整提示词、格式规则和当前 Cue 已复制。'); }} className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">复制 AI 提示词＋JSON</button></div><textarea value={source} onChange={(event) => setSource(event.target.value)} rows={14} placeholder={mode === 'json' ? '点击“提取并复制全部 Cue JSON”，修改后在这里预览。' : '例如：逐条改善 Pure Math 的问题表述；补全公式、必要条件、完整答案和 marking points；把错误单元改正确。'} className="mt-4 w-full rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 font-mono text-xs leading-5" /><button type="button" disabled={busy || (mode === 'json' && !source.trim()) || !cues.length} onClick={mode === 'json' ? parseJson : run} className="mt-3 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">{busy ? '处理中…' : mode === 'json' ? '检查 JSON 并预览' : 'AI 修改并预览'}</button>{message && <p role="status" className="mt-3 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10">{message}</p>}{preview && <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">{preview.map((update) => <article key={update.id} className="rounded-xl border border-[var(--card-border)] p-3"><p className="text-xs font-semibold text-[var(--brand)]">{update.prompt ?? cues.find((cue) => cue.id === update.id)?.prompt}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">修改字段：{Object.keys(update).filter((key) => key !== 'id').join('、')}</p></article>)}</div>}<div className="mt-5 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-full border border-[var(--card-border)] px-5 py-2.5 text-sm">取消</button><button type="button" disabled={!preview} onClick={() => preview && onApply(preview)} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">应用 {preview?.length ?? 0} 条修改</button></div></div></div>;
-}
-
 function CueManagerDialog({ cues, reviews, catalog, showMastered, onClose, onChange }: { cues: StudyCue[]; reviews: CueReview[]; catalog: LearningCatalogSubject[]; showMastered: boolean; onClose: () => void; onChange: (cues: StudyCue[], catalog?: LearningCatalogSubject[]) => void }) {
   const [subjectName, setSubjectName] = useState('');
   const [unit, setUnit] = useState('');
@@ -588,38 +595,44 @@ function CueManagerDialog({ cues, reviews, catalog, showMastered, onClose, onCha
   const [query, setQuery] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterUnit, setFilterUnit] = useState('');
-  const [batchImport, setBatchImport] = useState(false);
-  const [enrichExisting, setEnrichExisting] = useState(false);
+  const [bulkImport, setBulkImport] = useState(false);
   const selectedSubjectConfig = catalog.find((item) => item.name === subjectName);
   const enrichmentCues = cues.filter((cue) => cue.subjectName === subjectName && (!unit || cue.unit === unit));
   const filterSubjects = [...new Set(cues.map((cue) => cue.subjectName))];
   const filterUnits = [...new Set(cues.filter((cue) => !filterSubject || cue.subjectName === filterSubject).map((cue) => cue.unit))];
   const filtered = cues.filter((cue) => (showMastered || cue.status !== 'stable') && (!filterSubject || cue.subjectName === filterSubject) && (!filterUnit || cue.unit === filterUnit) && `${cue.subjectName} ${cue.unit} ${cue.subsection} ${cue.prompt} ${cue.subtitle ?? ''} ${cue.answer ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const makeCue = (item: CueBatchImportItem, now: string): StudyCue => ({
-    id: taskId(), subjectId: selectedSubjectConfig?.id ?? subjectIdFromName(subjectName), subjectName, unit: item.unit, subsection: '',
-    prompt: item.prompt, ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display, ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}), markingPoints: item.markingPoints,
-    intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
-  });
+  const makeCue = (item: CueCreateOperation, now: string): StudyCue => {
+    const resolvedSubjectName = item.subjectName?.trim() || subjectName;
+    const resolvedSubject = catalog.find((subject) => subject.name.trim().toLocaleLowerCase() === resolvedSubjectName.toLocaleLowerCase());
+    return {
+      id: taskId(), subjectId: resolvedSubject?.id ?? subjectIdFromName(resolvedSubjectName), subjectName: resolvedSubject?.name ?? resolvedSubjectName, unit: item.unit, subsection: '',
+      prompt: item.prompt, ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display, ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}), markingPoints: item.markingPoints,
+      intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
+    };
+  };
   const createCue = (event: React.FormEvent) => {
     event.preventDefault();
     if (!subjectName || !unit || !prompt.trim()) return;
     const cueChoices = choices.split('\n').map((value) => value.trim()).filter(Boolean).slice(0, 6);
     if (type === 'multiple-choice' && (cueChoices.length < 2 || correctChoice >= cueChoices.length)) return;
-    const item: CueBatchImportItem = { unit, prompt: prompt.trim().slice(0, 500), ...(subtitle.trim() ? { subtitle: subtitle.trim().slice(0, 500) } : {}), ...(answer.trim() ? { answer: answer.trim().slice(0, 2000) } : {}), type, display, ...(type === 'multiple-choice' ? { choices: cueChoices, correctChoice } : {}), markingPoints: markingPoints.split('\n').map((value) => value.trim()).filter(Boolean).slice(0, 12) };
+    const item: CueCreateOperation = { action: 'create', unit, prompt: prompt.trim().slice(0, 500), ...(subtitle.trim() ? { subtitle: subtitle.trim().slice(0, 500) } : {}), ...(answer.trim() ? { answer: answer.trim().slice(0, 2000) } : {}), type, display, ...(type === 'multiple-choice' ? { choices: cueChoices, correctChoice } : {}), markingPoints: markingPoints.split('\n').map((value) => value.trim()).filter(Boolean).slice(0, 12) };
     onChange([...cues, makeCue(item, new Date().toISOString())]);
     setPrompt(''); setSubtitle(''); setAnswer(''); setChoices(''); setCorrectChoice(0); setMarkingPoints('');
   };
-  const importBatch = (items: CueBatchImportItem[]) => {
+  const applyBulkOperations = (operations: CueBulkOperation[]) => {
     const now = new Date().toISOString();
-    const normalizeUnit = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-    const existingUnitKeys = new Set((selectedSubjectConfig?.units ?? []).map((item) => normalizeUnit(item.name)));
-    const newUnitNames = [...new Set(items.map((item) => item.unit.trim()).filter((name) => name && !existingUnitKeys.has(normalizeUnit(name))))];
-    const nextCatalog = newUnitNames.length && selectedSubjectConfig ? catalog.map((subject) => subject.id === selectedSubjectConfig.id ? {
-      ...subject,
-      units: [...subject.units, ...newUnitNames.map((name) => ({ name, subsections: [] }))],
-    } : subject) : catalog;
-    onChange([...cues, ...items.map((item) => makeCue(item, now))], nextCatalog);
-    setBatchImport(false);
+    const updatedCues = applyCueBulkOperations(cues, operations, (item) => makeCue(item, now), now).map((cue) => {
+      const subject = catalog.find((item) => item.name.trim().toLocaleLowerCase() === cue.subjectName.trim().toLocaleLowerCase());
+      return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name } : cue;
+    });
+    const nextCatalog = catalog.map((subject) => {
+      const importedUnits = updatedCues.filter((cue) => cue.subjectId === subject.id).map((cue) => cue.unit);
+      const known = new Set(subject.units.map((item) => item.name.trim().toLocaleLowerCase()));
+      const additions = [...new Set(importedUnits.filter((name) => !known.has(name.trim().toLocaleLowerCase())))];
+      return additions.length ? { ...subject, units: [...subject.units, ...additions.map((name) => ({ name, subsections: [] }))] } : subject;
+    });
+    onChange(updatedCues, nextCatalog);
+    setBulkImport(false);
   };
   return <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-manager-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="grid h-[94dvh] min-h-0 w-full max-w-[1500px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl xl:grid-cols-[400px_minmax(0,1fr)] xl:grid-rows-1">
@@ -627,24 +640,11 @@ function CueManagerDialog({ cues, reviews, catalog, showMastered, onClose, onCha
         <div className="flex items-center justify-between"><div><h2 id="cue-manager-title" className="text-xl font-semibold">Cue 学习工作台</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">单条添加时选择大单元；批量 / AI 导入只需先选择学科，每条 Cue 可使用不同大单元。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div>
         <div className="mt-5 space-y-3"><label className="block text-sm font-medium">学科<select required value={subjectName} onChange={(event) => { setSubjectName(event.target.value); setUnit(''); }} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5"><option value="">请选择</option>{catalog.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label><label className="block text-sm font-medium">大单元<select required value={unit} disabled={!selectedSubjectConfig} onChange={(event) => setUnit(event.target.value)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 disabled:opacity-50"><option value="">请选择</option>{selectedSubjectConfig?.units.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label><div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Cue 类型<select value={type} onChange={(event) => setType(event.target.value as CueType)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{CUE_TYPE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="block text-sm font-medium">显示预设<select value={display} onChange={(event) => setDisplay(event.target.value as CueDisplayPreset)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{CUE_DISPLAY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><label className="block text-sm font-medium">题目大标题<input required value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={500} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">题目说明小字（可选）<textarea value={subtitle} onChange={(event) => setSubtitle(event.target.value)} rows={2} placeholder="背景、已知条件或作答限制；不要提前泄露答案" className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">参考答案（可选）<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">Marking points（每行一个）<textarea value={markingPoints} onChange={(event) => setMarkingPoints(event.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><p className="text-xs leading-5 text-[var(--muted-foreground)]">所有文字字段均支持 LaTeX：<code>\(...\)</code> 行内公式，<code>\[...\]</code> 独立公式。</p></div>
         {type === 'multiple-choice' && <div className="mt-3 rounded-2xl border border-[var(--card-border)] p-3"><label className="block text-sm font-medium">选择题选项（每行一个）<textarea value={choices} onChange={(event) => setChoices(event.target.value)} rows={4} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="mt-3 block text-sm font-medium">正确选项<select value={correctChoice} onChange={(event) => setCorrectChoice(Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{choices.split('\n').map((item) => item.trim()).filter(Boolean).slice(0, 6).map((item, itemIndex) => <option key={`${itemIndex}-${item}`} value={itemIndex}>{itemIndex + 1} · {item}</option>)}</select></label></div>}
-        <div className="mt-5 flex flex-wrap gap-2"><button type="submit" disabled={!subjectName || !unit || type === 'multiple-choice' && choices.split('\n').filter((item) => item.trim()).length < 2} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">添加 Cue</button><button type="button" disabled={!subjectName} onClick={() => setBatchImport(true)} className="rounded-full border border-[var(--card-border)] px-4 py-2.5 text-sm font-semibold disabled:opacity-40"><span className="material-icons-round mr-1 align-middle text-base">playlist_add</span>批量 / AI 导入</button><button type="button" disabled={!enrichmentCues.length} onClick={() => setEnrichExisting(true)} className="rounded-full border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-700 disabled:opacity-40 dark:border-violet-800 dark:text-violet-200"><span className="material-icons-round mr-1 align-middle text-base">edit_note</span>提取 / 批量修改现有 Cue · {enrichmentCues.length}</button></div>
+        <div className="mt-5 flex flex-wrap gap-2"><button type="submit" disabled={!subjectName || !unit || type === 'multiple-choice' && choices.split('\n').filter((item) => item.trim()).length < 2} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">添加 Cue</button><button type="button" disabled={!subjectName} onClick={() => setBulkImport(true)} className="rounded-full border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-700 disabled:opacity-40 dark:border-violet-800 dark:text-violet-200"><span className="material-icons-round mr-1 align-middle text-base">playlist_add</span>批量创建 / 修改 Cue · {enrichmentCues.length} 条现有</button></div>
       </form>
       <section className="min-h-0 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['全部', cues.length], ['√', cues.filter((cue) => cue.status === 'stable').length], ['△', cues.filter((cue) => cue.status === 'partial').length], ['○', cues.filter((cue) => cue.status === 'unclear').length]].map(([label, value]) => <div key={label} className="rounded-2xl bg-black/[.035] p-3 text-center dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">{label}</p><strong className="mt-1 block text-xl">{value}</strong></div>)}</div><div className="mt-4 grid gap-2 sm:grid-cols-2"><select value={filterSubject} onChange={(event) => { setFilterSubject(event.target.value); setFilterUnit(''); }} aria-label="按学科筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部学科</option>{filterSubjects.map((value) => <option key={value}>{value}</option>)}</select><select value={filterUnit} onChange={(event) => setFilterUnit(event.target.value)} aria-label="按大单元筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部大单元</option>{filterUnits.map((value) => <option key={value}>{value}</option>)}</select></div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="快速搜索 Cue、答案、学科或单元…" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><CueHierarchy cues={filtered} reviews={reviews} onDelete={(cue) => onChange(cues.filter((item) => item.id !== cue.id))} /></section>
     </div>
-    {batchImport && <CueBatchImportDialog subjectName={subjectName} unit={unit} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} onClose={() => setBatchImport(false)} onImport={importBatch} />}
-    {enrichExisting && <CueEnrichmentDialog cues={enrichmentCues} onClose={() => setEnrichExisting(false)} onApply={(updates) => {
-      const updatedCues = applyCueEnrichments(cues, updates, new Date().toISOString()).map((cue) => {
-        const subject = catalog.find((item) => item.name.trim().toLocaleLowerCase() === cue.subjectName.trim().toLocaleLowerCase());
-        return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name } : cue;
-      });
-      const nextCatalog = catalog.map((subject) => {
-        const importedUnits = updatedCues.filter((cue) => cue.subjectId === subject.id).map((cue) => cue.unit);
-        const known = new Set(subject.units.map((item) => item.name.trim().toLocaleLowerCase()));
-        const additions = [...new Set(importedUnits.filter((name) => !known.has(name.trim().toLocaleLowerCase())))];
-        return additions.length ? { ...subject, units: [...subject.units, ...additions.map((name) => ({ name, subsections: [] }))] } : subject;
-      });
-      onChange(updatedCues, nextCatalog); setEnrichExisting(false);
-    }} />}
+    {bulkImport && <CueBulkImportDialog subjectName={subjectName} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} cues={enrichmentCues} onClose={() => setBulkImport(false)} onApply={applyBulkOperations} />}
   </div>;
 }
 
@@ -899,6 +899,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const [selectedDidaAccountId, setSelectedDidaAccountId] = useState('');
   const [didaAddedTaskKeys, setDidaAddedTaskKeys] = useState<Set<string>>(() => new Set());
   const [sendingTaskKey, setSendingTaskKey] = useState('');
+  const autoDidaAttemptedRef = useRef(new Set<string>());
   const [aiReportBusyId, setAiReportBusyId] = useState('');
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderDate, setReminderDate] = useState('');
@@ -986,6 +987,26 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     } catch (error) { setNotice(error instanceof Error ? error.message : '添加到滴答清单失败。'); }
     finally { setSendingTaskKey(''); }
   };
+  useEffect(() => {
+    if (!ready || !signedIn || !now || !selectedDidaAccount || !state.settings.didaAutoSyncPostClass) return;
+    const postClassTasks = tasksForDate(state, now).filter((task) => (task.mergedTaskKeys ?? [task.key]).some((key) => key.startsWith('course-review:')));
+    const pending = postClassTasks.filter((task) => {
+      const sourceKey = didaSourceKey(task);
+      const attemptKey = `${selectedDidaAccount.id}:${sourceKey}`;
+      return !didaAddedTaskKeys.has(sourceKey) && !autoDidaAttemptedRef.current.has(attemptKey);
+    });
+    if (!pending.length) return;
+    for (const task of pending) autoDidaAttemptedRef.current.add(`${selectedDidaAccount.id}:${didaSourceKey(task)}`);
+    void Promise.all(pending.map(async (task) => {
+      const response = await fetch('/api/integrations/dida365/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: selectedDidaAccount.id, task }) });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(data.error || '自动同步失败。');
+      return didaSourceKey(task);
+    })).then((sourceKeys) => {
+      setDidaAddedTaskKeys((current) => new Set([...current, ...sourceKeys]));
+      setNotice(`已自动把 ${sourceKeys.length} 项课后学习闭环同步到 ${selectedDidaAccount.displayName}。`);
+    }).catch((error) => setNotice(error instanceof Error ? `滴答清单自动同步：${error.message}` : '滴答清单自动同步失败。'));
+  }, [didaAddedTaskKeys, now, ready, selectedDidaAccount, signedIn, state]);
   const saveCueStudyProgress = useCallback((draft: CueStudyDraft) => {
     setState((current) => ({ ...current, cueStudyDraft: draft }));
   }, []);
@@ -1126,6 +1147,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {view === 'settings' && <div className="mt-5 grid gap-5 lg:grid-cols-2"><section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Mode</p><h2 className="mt-1 text-xl font-semibold">运行模式</h2><div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setState((current) => ({ ...current, settings: { ...current.settings, mode: 'term' } }))} aria-pressed={state.settings.mode === 'term'} className={`rounded-2xl border p-4 text-left ${state.settings.mode === 'term' ? 'border-[var(--brand)] bg-blue-50 dark:bg-blue-950/30' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-[var(--brand)]">school</span><strong className="ml-2">学期模式</strong><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">显示课程，并生成已选科目的每日复习和周末集中复习。</p></button><button type="button" onClick={() => setState((current) => ({ ...current, settings: { ...current.settings, mode: 'holiday' } }))} aria-pressed={state.settings.mode === 'holiday'} className={`rounded-2xl border p-4 text-left ${state.settings.mode === 'holiday' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-[var(--card-border)]'}`}><span className="material-icons-round text-amber-600">beach_access</span><strong className="ml-2">假日模式</strong><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">暂停课程相关自动任务，保留到期复习、专项、考试和待办。</p></button></div><div className="mt-5 space-y-4 border-t border-[var(--card-border)] pt-5"><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">可选预习提示（默认关闭）</strong><span className="mt-1 block text-xs text-[var(--muted-foreground)]">只有你主动开启时才会自动生成；也可在“添加任务”中单独添加预习。</span></span><input type="checkbox" checked={state.settings.previewEnabled} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, previewEnabled: event.target.checked, previewPreferenceSet: true } }))} className="h-5 w-5 accent-[var(--brand)]" /></label><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">周末集中复习日</strong><span className="mt-1 block text-xs text-[var(--muted-foreground)]">每周只生成一次集中复习。</span></span><select value={state.settings.weekendReviewDay} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, weekendReviewDay: Number(event.target.value) as 6 | 7 } }))} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value={6}>周六</option><option value={7}>周日</option></select></label></div></section>
         <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Timetable</p><div className="flex items-start justify-between gap-3"><div><h2 className="mt-1 text-xl font-semibold">课表、同步与隐私</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">数据优先保存在浏览器；登录后，课表、复习状态、内容、问题、备注和下次复习日期会同步到你的账号。每位用户只能读取自己的数据。</p></div><span className="material-icons-round text-emerald-600">lock</span></div><div className="mt-5 rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><p className="font-semibold">{state.timetable?.name ?? '尚未导入课表'}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{state.timetable ? `${state.timetable.courses.length} 门课程 · ${state.timetable.courses.reduce((total, course) => total + course.sessions.length, 0)} 个时段` : '导入后可单独选择哪些科目需要课程复习。'}</p></div><div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => setImportDialog(true)} className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white dark:text-[#202124]">导入或替换</button><Link href="/timetable-hub" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">高级排程编辑器</Link><Link href="/control/focus" className="rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-medium">旧版专注执行</Link></div>{state.timetable && <div className="mt-5 border-t border-[var(--card-border)] pt-5"><p className="text-sm font-semibold">生成每日复习的科目</p><div className="mt-3 space-y-2">{state.timetable.courses.map((course) => <label key={course.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-black/[.025] dark:hover:bg-white/[.04]"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: course.color }} /><span className="min-w-0 flex-1 truncate text-sm">{course.name}</span><input type="checkbox" checked={course.review} onChange={(event) => setState((current) => current.timetable ? { ...current, timetable: { ...current.timetable, courses: current.timetable.courses.map((item) => item.id === course.id ? { ...item, review: event.target.checked } : item) } } : current)} className="h-5 w-5 accent-[var(--brand)]" /></label>)}</div></div>}</section>
         <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Learning taxonomy</p><h2 className="mt-1 text-xl font-semibold">学科、大单元与资料位置</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">统一配置学科 → 大单元，不再要求填写小章节。可随时手动增删改，也可导出当前 JSON 后一次批量修改；资料位置是自由文本，例如 Textbook 1.2、Notebook P18。</p><button type="button" onClick={() => setCatalogDialog(true)} className="mt-4 rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white dark:text-[#202124]">手动编辑 / AI 批量修改 / JSON 导入</button><div className="mt-4 space-y-3">{state.learningCatalog.map((subject) => <div key={subject.id} className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><div className="flex justify-between gap-3"><strong>{subject.name}</strong><span className="text-xs text-[var(--muted-foreground)]">{subject.units.length} 个大单元</span></div><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(subject.materialProgress).map(([code, progress]) => <span key={code} className="rounded-full bg-[var(--card)] px-2.5 py-1 text-xs"><strong>{code}</strong> · {progress}</span>)}{!Object.keys(subject.materialProgress).length && <span className="text-xs text-[var(--muted-foreground)]">暂无资料位置</span>}</div></div>)}</div></section>
+        <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Post-class workflow</p><h2 className="mt-1 text-xl font-semibold">课后学习闭环与滴答清单</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">每门已开启复习的课程会在下课时间生成一项联合任务：补全并上传笔记 → 阅读笔记并生成 / 修订 Cue → 闭卷复习 Cue → 记录证据和资料位置。</p><div className="mt-5 space-y-4"><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">自动生成课后学习闭环</strong><small className="mt-1 block text-[var(--muted-foreground)]">关闭后不再根据当天课表生成课后任务。</small></span><input type="checkbox" checked={state.settings.postClassTasksEnabled} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, postClassTasksEnabled: event.target.checked } }))} className="h-5 w-5 accent-[var(--brand)]" /></label><label className="flex items-center justify-between gap-4"><span><strong className="text-sm">自动同步到滴答清单</strong><small className="mt-1 block text-[var(--muted-foreground)]">关联账户后，打开 Schedule 时自动创建或更新；即使上课前同步，任务也会安排在下课时间。</small></span><input type="checkbox" disabled={!selectedDidaAccount || !state.settings.postClassTasksEnabled} checked={state.settings.didaAutoSyncPostClass} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, didaAutoSyncPostClass: event.target.checked } }))} className="h-5 w-5 accent-[var(--brand)] disabled:opacity-40" /></label></div>{selectedDidaAccount ? <p className="mt-4 rounded-2xl bg-emerald-50 p-3 text-xs leading-5 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">当前同步到：{selectedDidaAccount.displayName}。相同课程任务会更新，不会重复创建。</p> : <Link href="/settings?section=connections" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)]">先关联滴答清单<span className="material-icons-round text-base">arrow_forward</span></Link>}</section>
         <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Records & reminders</p><h2 className="mt-1 text-xl font-semibold">记录、Cue 与提醒偏好</h2><div className="mt-5 space-y-4"><label className="flex items-center justify-between gap-3 text-sm"><span><strong>默认学习记录视图</strong><small className="mt-1 block text-[var(--muted-foreground)]">打开学习记录时优先显示的方式</small></span><select value={state.settings.defaultRecordView} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, defaultRecordView: event.target.value as 'calendar' | 'subjects' } }))} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2"><option value="calendar">日历记录</option><option value="subjects">各科记录</option></select></label><label className="flex items-center justify-between gap-3 text-sm"><span><strong>显示已稳定 Cue</strong><small className="mt-1 block text-[var(--muted-foreground)]">关闭后 Cue 工作台只聚焦未验证、△和○</small></span><input type="checkbox" checked={state.settings.cueShowMastered} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, cueShowMastered: event.target.checked } }))} className="h-5 w-5 accent-[var(--brand)]" /></label><label className="flex items-center justify-between gap-3 text-sm"><span><strong>学习记录提醒</strong><small className="mt-1 block text-[var(--muted-foreground)]">在记录页显示到期提醒</small></span><input type="checkbox" checked={state.settings.recordReminderEnabled} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, recordReminderEnabled: event.target.checked } }))} className="h-5 w-5 accent-[var(--brand)]" /></label><label className="flex items-center justify-between gap-3 text-sm"><span><strong>默认提醒时间</strong></span><input type="time" value={state.settings.recordReminderTime} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, recordReminderTime: event.target.value } }))} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2" /></label></div><div className="mt-5 border-t border-[var(--card-border)] pt-5"><h3 className="text-sm font-semibold">新增提醒</h3><div className="mt-3 grid gap-2 sm:grid-cols-3"><input value={reminderTitle} onChange={(event) => setReminderTitle(event.target.value)} placeholder="例如：复查 Mechanics Cue" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><input type="date" value={reminderDate} onChange={(event) => setReminderDate(event.target.value)} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><select value={reminderSubjectId} onChange={(event) => setReminderSubjectId(event.target.value)} className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">不限定科目</option>{state.learningCatalog.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div><button type="button" disabled={!reminderTitle.trim() || !reminderDate} onClick={() => { setState((current) => ({ ...current, learningReminders: [...current.learningReminders, { id: taskId(), title: reminderTitle.trim().slice(0, 160), date: reminderDate, ...(reminderSubjectId ? { subjectId: reminderSubjectId } : {}), completed: false }] })); setReminderTitle(''); setReminderDate(''); setReminderSubjectId(''); }} className="mt-3 rounded-full border border-[var(--card-border)] px-4 py-2 text-sm font-semibold disabled:opacity-40">添加提醒</button><div className="mt-3 space-y-2">{state.learningReminders.map((reminder) => <div key={reminder.id} className="flex items-center gap-2 rounded-xl bg-black/[.035] px-3 py-2 text-sm dark:bg-white/[.06]"><input type="checkbox" checked={reminder.completed} onChange={(event) => setState((current) => ({ ...current, learningReminders: current.learningReminders.map((item) => item.id === reminder.id ? { ...item, completed: event.target.checked } : item) }))} className="h-4 w-4 accent-[var(--brand)]" /><span className={`min-w-0 flex-1 ${reminder.completed ? 'line-through opacity-60' : ''}`}>{reminder.title}</span><span className="text-xs text-[var(--muted-foreground)]">{reminder.date} · {state.settings.recordReminderTime}</span><button type="button" onClick={() => setState((current) => ({ ...current, learningReminders: current.learningReminders.filter((item) => item.id !== reminder.id) }))} className="text-[var(--muted-foreground)] hover:text-rose-600"><span className="material-icons-round text-lg">delete</span></button></div>)}</div></div></section>
       </div>}
 

@@ -7,7 +7,7 @@ import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
 import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
 import {
-  applyCueEnrichments,
+  applyCueBulkOperations,
   applyCueUnitMappings,
   completeReview,
   completeCueReviews,
@@ -20,8 +20,7 @@ import {
   mergeLearningCatalog,
   matchLearningCatalogSubject,
   migrateIeltsWeekTaskDates,
-  parseCueBatchImport,
-  parseCueEnrichments,
+  parseCueBulkImport,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
   parseTimetableImport,
@@ -157,10 +156,11 @@ test('due subject review work is merged with a visible description of every task
   const jointReview = reviews.find((task) => task.subjectId === 'physics');
   assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
   assert.equal(jointReview?.title, '联合复习 · Physics · 2 条 Cue');
+  assert.equal(jointReview?.start, '10:00');
   assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
   assert.equal(jointReview?.scope?.subsection, undefined);
   assert.match(jointReview?.detail ?? '', /Define acceleration.*Explain terminal velocity/);
-  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['course-review', 'interval-review', 'cue-review']));
+  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['course-review', 'interval-review', 'cue-review', 'completeness-audit', 'study']));
   assert.ok(jointReview?.mergedTasks?.every((task) => task.title && task.detail));
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
@@ -351,46 +351,58 @@ test('timetable course names reconcile with learning subjects by meaningful keyw
   assert.equal(daily?.subjectName, 'Statistics');
 });
 
-test('Cue batch imports validate reusable unit-level Cue data and rich display presets', () => {
-  const parsed = parseCueBatchImport({ cues: [{ unit: 'Kinematics', prompt: 'Define acceleration.', subtitle: 'Include the time relationship.', type: 'definition', display: 'headline', markingPoints: ['change in velocity', 'per unit time'] }, { unit: 'Forces', prompt: 'Recall the example.' }] });
-  assert.equal(parsed.cues.length, 2);
-  assert.deepEqual(parsed.cues.map((cue) => cue.unit), ['Kinematics', 'Forces']);
-  assert.equal(parsed.cues[0].subtitle, 'Include the time relationship.');
-  assert.equal(parsed.cues[0].display, 'headline');
-  assert.equal(parsed.cues[1].type, 'general');
-  assert.equal(parsed.cues[1].display, 'standard');
-  assert.throws(() => parseCueBatchImport({ cues: [] }), /至少需要一条/);
-  assert.throws(() => parseCueBatchImport({ cues: [{ prompt: 'Missing unit.' }] }), /大单元/);
+test('Cue bulk import accepts mixed create and update operations with explicit actions', () => {
+  const parsed = parseCueBulkImport({ operations: [
+    { action: 'create', unit: 'Kinematics', prompt: 'Define acceleration.', subtitle: 'Include the time relationship.', type: 'definition', display: 'headline', markingPoints: ['change in velocity', 'per unit time'] },
+    { action: 'update', id: 'cue-1', answer: 'Change in velocity per unit time.' },
+  ] });
+  assert.equal(parsed.operations.length, 2);
+  const created = parsed.operations[0];
+  assert.equal(created.action, 'create');
+  if (created.action !== 'create') throw new Error('Expected create operation.');
+  assert.equal(created.subtitle, 'Include the time relationship.');
+  assert.equal(created.display, 'headline');
+  assert.equal(created.type, 'definition');
+  assert.throws(() => parseCueBulkImport({ operations: [] }), /至少需要一条/);
+  assert.throws(() => parseCueBulkImport({ operations: [{ unit: 'Forces', prompt: 'Missing action.' }] }), /action/);
+  assert.throws(() => parseCueBulkImport({ operations: [{ action: 'update', answer: 'Missing id.' }] }), /id/);
 });
 
-test('Cue unit reconciliation applies one user choice to every matching imported Cue', () => {
-  const cues = parseCueBatchImport({ cues: [
-    { unit: 'Unit 4', prompt: 'First Cue' },
-    { unit: 'Unit 4', prompt: 'Second Cue' },
-    { unit: 'Forces', prompt: 'Third Cue' },
-  ] }).cues;
-  const reconciled = applyCueUnitMappings(cues, { 'Unit 4': 'Chapter 4 Motion' });
-  assert.deepEqual(reconciled.map((cue) => cue.unit), ['Chapter 4 Motion', 'Chapter 4 Motion', 'Forces']);
-  assert.deepEqual(cues.map((cue) => cue.unit), ['Unit 4', 'Unit 4', 'Forces']);
+test('Cue unit reconciliation applies one user choice to create and update operations', () => {
+  const operations = parseCueBulkImport({ operations: [
+    { action: 'create', unit: 'Unit 4', prompt: 'First Cue' },
+    { action: 'update', id: 'cue-1', unit: 'Unit 4' },
+    { action: 'create', unit: 'Forces', prompt: 'Third Cue' },
+  ] }).operations;
+  const reconciled = applyCueUnitMappings(operations, { 'Unit 4': 'Chapter 4 Motion' });
+  assert.deepEqual(reconciled.map((operation) => operation.unit), ['Chapter 4 Motion', 'Chapter 4 Motion', 'Forces']);
+  assert.deepEqual(operations.map((operation) => operation.unit), ['Unit 4', 'Unit 4', 'Forces']);
 });
 
-test('AI Cue enrichment updates only returned fields and keeps Cue identity', () => {
+test('Cue bulk operations can update an existing Cue and create a new Cue together', () => {
   const createdAt = '2026-09-20T08:00:00.000Z';
   const cues = [{ id: 'cue-1', subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Choose the vector.', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
-  const updates = parseCueEnrichments({ updates: [{ id: 'cue-1', type: 'multiple-choice', display: 'multiple-choice', choices: ['speed', 'velocity'], correctChoice: 1, markingPoints: ['has direction'] }] });
-  const enriched = applyCueEnrichments(cues, updates, '2026-09-20T09:00:00.000Z');
-  assert.equal(enriched[0].id, 'cue-1');
-  assert.equal(enriched[0].prompt, 'Choose the vector.');
-  assert.equal(enriched[0].type, 'multiple-choice');
-  assert.deepEqual(enriched[0].choices, ['speed', 'velocity']);
-  assert.throws(() => parseCueEnrichments({ updates: [{ id: 'cue-1', type: 'multiple-choice', choices: ['only one'], correctChoice: 0 }] }), /2–6/);
+  const operations = parseCueBulkImport({ operations: [
+    { action: 'update', id: 'cue-1', type: 'multiple-choice', display: 'multiple-choice', choices: ['speed', 'velocity'], correctChoice: 1, markingPoints: ['has direction'] },
+    { action: 'create', unit: 'Waves', prompt: 'Define diffraction.', type: 'definition', display: 'definition-card', markingPoints: ['spreading'] },
+  ] }).operations;
+  const merged = applyCueBulkOperations(cues, operations, (operation) => ({ id: 'cue-2', subjectId: 'physics', subjectName: 'Physics', unit: operation.unit, subsection: '', prompt: operation.prompt, type: operation.type, display: operation.display, markingPoints: operation.markingPoints, intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }), '2026-09-20T09:00:00.000Z');
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].id, 'cue-1');
+  assert.equal(merged[0].prompt, 'Choose the vector.');
+  assert.equal(merged[0].type, 'multiple-choice');
+  assert.deepEqual(merged[0].choices, ['speed', 'velocity']);
+  assert.equal(merged[1].id, 'cue-2');
+  assert.equal(merged[1].prompt, 'Define diffraction.');
+  assert.throws(() => parseCueBulkImport({ operations: [{ action: 'update', id: 'cue-1', type: 'multiple-choice', choices: ['only one'], correctChoice: 0 }] }), /2–6/);
+  assert.throws(() => parseCueBulkImport({ operations: [{ action: 'update', id: 'cue-1', answer: 'A' }, { action: 'update', id: 'cue-1', answer: 'B' }] }), /重复修改/);
 });
 
-test('full Cue editing can change subject, unit, prompt, answer, formula, and display properties', () => {
+test('full Cue update can change subject, unit, prompt, answer, formula, and display properties', () => {
   const createdAt = '2026-09-20T08:00:00.000Z';
   const cues = [{ id: 'cue-1', subjectId: 'pure-math', subjectName: 'Pure Math', unit: 'Algebra', subsection: '', prompt: 'Old prompt', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
-  const updates = parseCueEnrichments({ updates: [{ id: 'cue-1', subjectName: 'Pure Mathematics', unit: 'Quadratics', subsection: 'Completing the square', prompt: 'Solve \\(ax^2+bx+c=0\\).', subtitle: '', answer: '\\[x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\]', type: 'formula', display: 'formula', markingPoints: ['\\(b^2-4ac\\ge0\\) for real roots'] }] });
-  const enriched = applyCueEnrichments(cues, updates, '2026-09-20T09:00:00.000Z');
+  const operations = parseCueBulkImport({ operations: [{ action: 'update', id: 'cue-1', subjectName: 'Pure Mathematics', unit: 'Quadratics', subsection: 'Completing the square', prompt: 'Solve \\(ax^2+bx+c=0\\).', subtitle: '', answer: '\\[x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\]', type: 'formula', display: 'formula', markingPoints: ['\\(b^2-4ac\\ge0\\) for real roots'] }] }).operations;
+  const enriched = applyCueBulkOperations(cues, operations, () => { throw new Error('No create expected.'); }, '2026-09-20T09:00:00.000Z');
 
   assert.equal(enriched[0].subjectName, 'Pure Mathematics');
   assert.equal(enriched[0].unit, 'Quadratics');
@@ -457,6 +469,16 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   const tasks = tasksForDate(state, tuesday);
   assert.ok(tasks.some((task) => task.key === 'course-review:2026-09-15:math'));
   assert.ok(!tasks.some((task) => task.type === 'preview'));
+  const postClass = tasks.find((task) => task.key === 'course-review:2026-09-15:math')!;
+  assert.equal(postClass.title, '课后学习闭环 · Mathematics');
+  assert.equal(postClass.start, '08:45');
+  assert.deepEqual(postClass.mergedTasks?.map((item) => item.title), [
+    '补全并上传 Mathematics 课堂笔记',
+    '阅读笔记并生成 / 修订 Cue',
+    '闭卷复习 Mathematics Cue',
+    '记录证据、问题与资料位置',
+  ]);
+  assert.equal(tasksForDate({ ...state, settings: { ...state.settings, postClassTasksEnabled: false } }, tuesday).some((task) => task.type === 'course-review'), false);
 
   const previewEnabled = {
     ...state,

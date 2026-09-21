@@ -23,6 +23,29 @@ test('联合任务映射为一个滴答任务，并保留各子任务提示', ()
   assert.match(payload.content, /√ \/ △ \/ ○/);
 });
 
+test('课后学习闭环在滴答清单使用下课时间，并生成可勾选子任务', () => {
+  const payload = buildDidaTask({
+    key: 'course-review:2026-09-21:physics',
+    title: '课后学习闭环 · Physics',
+    detail: 'Notes → Cue → Recall → Evidence',
+    type: 'course-review',
+    date: '2026-09-21',
+    start: '18:30',
+    durationMinutes: 45,
+    subjectName: 'Physics',
+    mergedTasks: [
+      { key: 'notes', type: 'completeness-audit', title: '补全并上传课堂笔记', detail: '检查缺口。' },
+      { key: 'cues', type: 'study', title: '阅读笔记并生成 Cue', detail: '生成清晰 Cue。' },
+      { key: 'recall', type: 'cue-review', title: '闭卷复习 Cue', detail: '记录状态。' },
+    ],
+  }, 'project-1');
+
+  assert.equal(payload.isAllDay, false);
+  assert.equal(payload.startDate, '2026-09-21T18:30:00+0800');
+  assert.equal(payload.dueDate, '2026-09-21T19:15:00+0800');
+  assert.deepEqual(payload.items?.map((item) => item.title), ['[完整性检查] 补全并上传课堂笔记', '[学习] 阅读笔记并生成 Cue', '[Cue 复习] 闭卷复习 Cue']);
+});
+
 test('来源键与合并顺序无关，避免重复创建任务', () => {
   assert.equal(didaSourceKey(task), didaSourceKey({ ...task, mergedTaskKeys: [...task.mergedTaskKeys].reverse() }));
 });

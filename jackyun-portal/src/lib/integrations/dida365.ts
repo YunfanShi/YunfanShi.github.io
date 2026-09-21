@@ -23,10 +23,23 @@ export function didaSourceKey(task: Pick<LearningTask, 'key' | 'mergedTaskKeys'>
   return [...new Set(task.mergedTaskKeys?.length ? task.mergedTaskKeys : [task.key])].sort().join('|').slice(0, 2000);
 }
 
+function timedTaskRange(date: string, start: string, durationMinutes: number, offset: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = start.split(':').map(Number);
+  const startValue = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const dueValue = new Date(startValue.getTime() + Math.max(1, Math.round(durationMinutes)) * 60_000);
+  const format = (value: Date) => `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}T${String(value.getUTCHours()).padStart(2, '0')}:${String(value.getUTCMinutes()).padStart(2, '0')}:00${offset}`;
+  return { startDate: format(startValue), dueDate: format(dueValue) };
+}
+
 export function buildDidaTask(task: LearningTask, projectId: string, timeZone = 'Asia/Shanghai') {
   const parts = task.mergedTasks?.length ? task.mergedTasks : [{ key: task.key, type: task.type, title: task.title, detail: task.detail }];
   const date = /^\d{4}-\d{2}-\d{2}$/.test(task.date) ? task.date : new Date().toISOString().slice(0, 10);
   const offset = timeZone === 'Asia/Shanghai' ? '+0800' : '+0000';
+  const timed = typeof task.start === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(task.start);
+  const range = timed
+    ? timedTaskRange(date, task.start!, task.durationMinutes, offset)
+    : { startDate: `${date}T00:00:00${offset}`, dueDate: `${date}T23:59:00${offset}` };
   const content = [
     '来自 JackYun Schedule',
     task.subjectName ? `科目：${task.subjectName}` : '',
@@ -40,9 +53,8 @@ export function buildDidaTask(task: LearningTask, projectId: string, timeZone = 
     title: `[JackYun] ${task.title}`.slice(0, 500),
     projectId,
     content,
-    isAllDay: true,
-    startDate: `${date}T00:00:00${offset}`,
-    dueDate: `${date}T23:59:00${offset}`,
+    isAllDay: !timed,
+    ...range,
     timeZone,
     tags: ['jackyun'],
     ...(parts.length > 1 ? { items: parts.slice(0, 20).map((item) => ({ title: `[${TYPE_LABELS[item.type]}] ${item.title}`.slice(0, 500), status: 0 })) } : {}),

@@ -59,6 +59,8 @@ export interface ScheduleSettings {
   mode: ScheduleMode;
   previewEnabled: boolean;
   previewPreferenceSet: boolean;
+  postClassTasksEnabled: boolean;
+  didaAutoSyncPostClass: boolean;
   weekendReviewDay: 6 | 7;
   defaultRecordView: 'calendar' | 'subjects';
   recordReminderEnabled: boolean;
@@ -249,7 +251,9 @@ export interface TaskCancellation {
   mergedInto?: string;
 }
 
-export interface CueBatchImportItem {
+export interface CueCreateOperation {
+  action: 'create';
+  subjectName?: string;
   unit: string;
   prompt: string;
   subtitle?: string;
@@ -261,12 +265,8 @@ export interface CueBatchImportItem {
   markingPoints: string[];
 }
 
-export interface CueBatchImport {
-  version: 1;
-  cues: CueBatchImportItem[];
-}
-
-export interface CueEnrichmentItem {
+export interface CueUpdateOperation {
+  action: 'update';
   id: string;
   subjectName?: string;
   unit?: string;
@@ -279,6 +279,13 @@ export interface CueEnrichmentItem {
   choices?: string[];
   correctChoice?: number;
   markingPoints?: string[];
+}
+
+export type CueBulkOperation = CueCreateOperation | CueUpdateOperation;
+
+export interface CueBulkImport {
+  version: 1;
+  operations: CueBulkOperation[];
 }
 
 export interface CueStudyDraft {
@@ -373,6 +380,8 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
   mode: 'term',
   previewEnabled: false,
   previewPreferenceSet: false,
+  postClassTasksEnabled: true,
+  didaAutoSyncPostClass: false,
   weekendReviewDay: 6,
   defaultRecordView: 'calendar',
   recordReminderEnabled: true,
@@ -663,63 +672,44 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
   };
 }
 
-export function cueBatchImportTemplate(): CueBatchImport {
+export function cueBulkImportTemplate(existingCueId?: string): CueBulkImport {
   return {
     version: 1,
-    cues: [
-      { unit: 'Kinematics', prompt: 'Acceleration', subtitle: 'Recall the precise physical definition and include the time relationship.', answer: 'Change in velocity per unit time.', type: 'definition', display: 'definition-card', markingPoints: ['change in velocity', 'per unit time'] },
-      { unit: 'Algebra', prompt: 'Solve \\(ax^2+bx+c=0\\).', subtitle: 'Assume \\(a\\ne0\\); state the condition for real roots.', answer: '\\(x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}\\), with \\(b^2-4ac\\ge0\\) for real roots.', type: 'formula', display: 'formula', markingPoints: ['correct quadratic formula', '\\(b^2-4ac\\ge0\\)'] },
-      { unit: 'Forces', prompt: 'Which quantity is a vector?', type: 'multiple-choice', display: 'multiple-choice', choices: ['speed', 'distance', 'velocity', 'energy'], correctChoice: 2, markingPoints: ['velocity has magnitude and direction'] },
+    operations: [
+      { action: 'create', unit: 'Kinematics', prompt: 'Acceleration', subtitle: 'Recall the precise physical definition and include the time relationship.', answer: 'Change in velocity per unit time.', type: 'definition', display: 'definition-card', markingPoints: ['change in velocity', 'per unit time'] },
+      ...(existingCueId ? [{ action: 'update' as const, id: existingCueId, answer: 'Updated answer.', markingPoints: ['updated marking point'] }] : []),
     ],
   };
 }
 
-export function parseCueBatchImport(value: unknown): CueBatchImport {
+export function parseCueBulkImport(value: unknown): CueBulkImport {
   const source = record(value);
-  if (!source || !Array.isArray(source.cues)) throw new Error('Cue 配置必须包含 cues 数组。');
-  if (!source.cues.length) throw new Error('至少需要一条 Cue。');
-  if (source.cues.length > 200) throw new Error('一次最多导入 200 条 Cue。');
+  if (!source || !Array.isArray(source.operations)) throw new Error('Cue 配置必须包含 operations 数组。');
+  if (!source.operations.length) throw new Error('至少需要一条创建或修改操作。');
+  if (source.operations.length > 200) throw new Error('一次最多处理 200 条 Cue。');
   const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice']);
   const allowedDisplays = new Set<CueDisplayPreset>(['standard', 'headline', 'formula', 'steps', 'comparison', 'scenario', 'definition-card', 'multiple-choice']);
-  const cues = source.cues.map((rawCue, index): CueBatchImportItem => {
-    const cue = record(rawCue);
-    if (!cue) throw new Error(`第 ${index + 1} 条 Cue 格式错误。`);
-    const unit = requiredText(cue.unit, `第 ${index + 1} 条 Cue 的大单元`, 120);
-    const prompt = requiredText(cue.prompt, `第 ${index + 1} 条 Cue`, 500);
-    const subtitle = optionalText(cue.subtitle, 500);
-    const type = typeof cue.type === 'string' && allowedTypes.has(cue.type as CueType) ? cue.type as CueType : 'general';
-    const display = typeof cue.display === 'string' && allowedDisplays.has(cue.display as CueDisplayPreset) ? cue.display as CueDisplayPreset : 'standard';
-    const answer = optionalText(cue.answer, 2000);
-    const choices = Array.isArray(cue.choices) ? cue.choices.map((item) => requiredText(item, `第 ${index + 1} 条 Cue 的选项`, 500)).slice(0, 6) : [];
-    const correctChoice = Number.isInteger(cue.correctChoice) ? Number(cue.correctChoice) : undefined;
-    if (type === 'multiple-choice' && (choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题必须有 2–6 个选项和有效的 correctChoice（从 0 开始）。`);
-    const markingPoints = Array.isArray(cue.markingPoints)
-      ? cue.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条 Cue 的 marking point`, 300)).slice(0, 12)
-      : [];
-    return { unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
-  });
-  return { version: 1, cues };
-}
-
-export function applyCueUnitMappings(
-  cues: CueBatchImportItem[],
-  mappings: Record<string, string>,
-): CueBatchImportItem[] {
-  return cues.map((cue) => ({
-    ...cue,
-    unit: mappings[cue.unit]?.trim() || cue.unit,
-  }));
-}
-
-export function parseCueEnrichments(value: unknown): CueEnrichmentItem[] {
-  const source = record(value);
-  if (!source || !Array.isArray(source.updates) || !source.updates.length) throw new Error('补充配置必须包含非空 updates 数组。');
-  if (source.updates.length > 200) throw new Error('一次最多补充 200 条 Cue。');
-  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice']);
-  const allowedDisplays = new Set<CueDisplayPreset>(['standard', 'headline', 'formula', 'steps', 'comparison', 'scenario', 'definition-card', 'multiple-choice']);
-  return source.updates.map((rawUpdate, index) => {
-    const update = record(rawUpdate);
-    if (!update) throw new Error(`第 ${index + 1} 条补充格式错误。`);
+  const operations = source.operations.map((rawOperation, index): CueBulkOperation => {
+    const operation = record(rawOperation);
+    if (!operation) throw new Error(`第 ${index + 1} 条 Cue 操作格式错误。`);
+    if (operation.action !== 'create' && operation.action !== 'update') throw new Error(`第 ${index + 1} 条 Cue 必须写 action: "create" 或 "update"。`);
+    if (operation.action === 'create') {
+      const subjectName = optionalText(operation.subjectName, 80);
+      const unit = requiredText(operation.unit, `第 ${index + 1} 条创建操作的大单元`, 120);
+      const prompt = requiredText(operation.prompt, `第 ${index + 1} 条创建操作的题目`, 500);
+      const subtitle = optionalText(operation.subtitle, 500);
+      const type = typeof operation.type === 'string' && allowedTypes.has(operation.type as CueType) ? operation.type as CueType : 'general';
+      const display = typeof operation.display === 'string' && allowedDisplays.has(operation.display as CueDisplayPreset) ? operation.display as CueDisplayPreset : 'standard';
+      const answer = optionalText(operation.answer, 2000);
+      const choices = Array.isArray(operation.choices) ? operation.choices.map((item) => requiredText(item, `第 ${index + 1} 条创建操作的选项`, 500)).slice(0, 6) : [];
+      const correctChoice = Number.isInteger(operation.correctChoice) ? Number(operation.correctChoice) : undefined;
+      if (type === 'multiple-choice' && (choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条创建的选择题必须有 2–6 个选项和有效的 correctChoice（从 0 开始）。`);
+      const markingPoints = Array.isArray(operation.markingPoints)
+        ? operation.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条创建操作的 marking point`, 300)).slice(0, 12)
+        : [];
+      return { action: 'create', ...(subjectName ? { subjectName } : {}), unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
+    }
+    const update = operation;
     const id = requiredText(update.id, `第 ${index + 1} 条补充的 id`, 120);
     const subjectName = optionalText(update.subjectName, 80);
     const unit = optionalText(update.unit, 120);
@@ -739,16 +729,35 @@ export function parseCueEnrichments(value: unknown): CueEnrichmentItem[] {
     const choices = Array.isArray(update.choices) ? update.choices.map((item) => requiredText(item, `第 ${index + 1} 条补充的选项`, 500)).slice(0, 6) : undefined;
     const correctChoice = Number.isInteger(update.correctChoice) ? Number(update.correctChoice) : undefined;
     if ((type === 'multiple-choice' || choices) && (!choices || choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题补充必须有 2–6 个选项和有效的 correctChoice。`);
-    return { id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
+    const parsed: CueUpdateOperation = { action: 'update', id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
+    if (Object.keys(parsed).length === 2) throw new Error(`第 ${index + 1} 条修改操作没有要修改的字段。`);
+    return parsed;
+  });
+  const updatedIds = operations.flatMap((operation) => operation.action === 'update' ? [operation.id] : []);
+  if (new Set(updatedIds).size !== updatedIds.length) throw new Error('同一个 Cue id 不能在一次导入中重复修改。');
+  return { version: 1, operations };
+}
+
+export function applyCueUnitMappings(operations: CueBulkOperation[], mappings: Record<string, string>): CueBulkOperation[] {
+  return operations.map((operation) => !operation.unit ? operation : {
+    ...operation,
+    unit: mappings[operation.unit]?.trim() || operation.unit,
   });
 }
 
-export function applyCueEnrichments(cues: StudyCue[], updates: CueEnrichmentItem[], updatedAt: string): StudyCue[] {
-  const byId = new Map(updates.map((update) => [update.id, update]));
+export function applyCueBulkOperations(
+  cues: StudyCue[],
+  operations: CueBulkOperation[],
+  createCue: (operation: CueCreateOperation) => StudyCue,
+  updatedAt: string,
+): StudyCue[] {
+  const updates = operations.filter((operation): operation is CueUpdateOperation => operation.action === 'update');
+  const byId = new Map(updates.map((update) => [update.id, Object.fromEntries(Object.entries(update).filter(([key]) => key !== 'action')) as Omit<CueUpdateOperation, 'action'>]));
+  const created = operations.filter((operation): operation is CueCreateOperation => operation.action === 'create').map(createCue);
   return cues.map((cue) => {
     const update = byId.get(cue.id);
     return update ? { ...cue, ...update, id: cue.id, updatedAt } : cue;
-  });
+  }).concat(created);
 }
 
 export function updateSubjectMaterialProgress(
@@ -971,23 +980,63 @@ function reviewDetail(type: 'daily' | 'interval' | 'weekly'): string {
 }
 
 function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
-  if (state.settings.mode !== 'term' || !state.timetable) return [];
+  if (state.settings.mode !== 'term' || !state.settings.postClassTasksEnabled || !state.timetable) return [];
   const key = dateKey(date);
-  const courses = new Map<string, ScheduleCourse>();
-  for (const session of sessionsForDate(state.timetable, date)) if (session.course.review) courses.set(session.course.id, session.course);
-  return [...courses.values()].map((course) => {
+  const courses = new Map<string, { course: ScheduleCourse; end: string }>();
+  for (const session of sessionsForDate(state.timetable, date)) {
+    if (!session.course.review) continue;
+    const previous = courses.get(session.course.id);
+    if (!previous || session.end > previous.end) courses.set(session.course.id, { course: session.course, end: session.end });
+  }
+  return [...courses.values()].map(({ course, end }) => {
     const catalogSubject = matchLearningCatalogSubject(state.learningCatalog, `${course.name} ${course.shortName ?? ''}`);
     const progress = state.reviewProgress[catalogSubject?.id ?? course.id];
     const failedToday = progress?.lastStatus === 'unclear' && dateKey(new Date(progress.updatedAt)) === key;
+    const subjectId = catalogSubject?.id ?? course.id;
+    const subjectName = catalogSubject?.name ?? course.name;
+    const subjectCues = state.cues.filter((cue) => cue.subjectId === subjectId);
+    const priorityCues = subjectCues.filter((cue) => !cue.lastReviewedAt || cue.status !== 'stable');
+    const materialPositions = Object.entries(catalogSubject?.materialProgress ?? {}).map(([code, value]) => `${code} ${value}`).join('、');
+    const workflow = [
+      {
+        key: `post-class-notes:${key}:${course.id}`,
+        type: 'completeness-audit' as const,
+        title: `补全并上传 ${course.shortName ?? course.name} 课堂笔记`,
+        detail: '补齐课堂留下的空白；对照 Blackboard、PPT 或 Textbook 检查缺口，并上传或更新 Notebook。',
+      },
+      {
+        key: `post-class-cues:${key}:${course.id}`,
+        type: 'study' as const,
+        title: '阅读笔记并生成 / 修订 Cue',
+        detail: `把本节需要主动检索的定义、公式、解释链和易错点写成清晰 Cue；已有 ${subjectCues.length} 条。`,
+      },
+      {
+        key: `post-class-recall:${key}:${course.id}`,
+        type: 'cue-review' as const,
+        title: `闭卷复习 ${course.shortName ?? course.name} Cue`,
+        detail: priorityCues.length ? `优先完成 ${priorityCues.length} 条未标记、△ 或 ○ Cue，并分别记录 √ / △ / ○。` : '闭卷复述本节新 Cue；揭示答案后按证据分别记录 √ / △ / ○。',
+      },
+      {
+        key: `post-class-record:${key}:${course.id}`,
+        type: 'course-review' as const,
+        title: '记录证据、问题与资料位置',
+        detail: materialPositions ? `保存本节实际范围、最小知识缺口，并确认资料位置：${materialPositions}。` : '保存本节实际范围、最小知识缺口，并更新 Book、Notebook、PPT 或 Homework 的最新位置。',
+      },
+    ];
     return {
       key: `course-review:${key}:${course.id}`,
-      title: `复习 ${course.shortName ?? course.name}`,
-      detail: reviewDetail('daily'),
+      title: `课后学习闭环 · ${course.shortName ?? course.name}`,
+      detail: '按 StudyGuide 完成 Notes → Cue → Recall → Evidence，不把“复习”留成一个模糊动作。',
       type: 'course-review',
       date: key,
-      durationMinutes: 25,
-      subjectId: catalogSubject?.id ?? course.id,
-      subjectName: catalogSubject?.name ?? course.name,
+      start: end,
+      durationMinutes: Math.min(60, Math.max(35, 25 + priorityCues.length * 5)),
+      subjectId,
+      subjectName,
+      guide: { tab: 'learn', subTab: 'cornell' },
+      ...(priorityCues.length ? { cueIds: priorityCues.map((cue) => cue.id), scope: { cueIds: priorityCues.map((cue) => cue.id) } } : {}),
+      mergedTaskKeys: [`course-review:${key}:${course.id}`],
+      mergedTasks: workflow,
       ...(failedToday ? {
         studiedContent: progress.lastStudiedContent,
         issue: progress.lastIssue ?? progress.lastNote,
@@ -1130,6 +1179,7 @@ function mergeSameSubjectActions(tasks: LearningTask[], cues: StudyCue[]): Learn
     const sameUnit = mergedCues.length > 0 && mergedCues.every((cue) => cue.unit === mergedCues[0].unit);
     const sameSubsection = sameUnit && mergedCues.every((cue) => cue.subsection === mergedCues[0].subsection);
     const review = taskAction(primary.type) === 'review';
+    const timedCourseReview = group.find((task) => task.type === 'course-review' && task.start);
     const subjectName = primary.subjectName ?? group.find((task) => task.subjectName)?.subjectName;
     const mergedTasks = group.flatMap((task) => task.mergedTasks ?? [{ key: task.key, type: task.type, title: task.title, detail: task.detail }]);
     const detail = mergedCues.length
@@ -1140,7 +1190,8 @@ function mergeSameSubjectActions(tasks: LearningTask[], cues: StudyCue[]): Learn
       title: review ? `联合复习 · ${subjectName ?? primary.title}${cueIds.length ? ` · ${cueIds.length} 条 Cue` : ''}` : primary.title,
       detail,
       type: review && cueIds.length ? 'cue-review' : primary.type,
-      durationMinutes: cueIds.length ? Math.min(60, Math.max(15, cueIds.length * 5)) : Math.min(120, Math.max(...group.map((task) => task.durationMinutes))),
+      durationMinutes: cueIds.length ? Math.min(60, Math.max(15, cueIds.length * 5, ...group.map((task) => task.durationMinutes))) : Math.min(120, Math.max(...group.map((task) => task.durationMinutes))),
+      ...(timedCourseReview?.start ? { start: timedCourseReview.start } : {}),
       ...(cueIds.length ? { cueIds, scope: { ...(sameUnit ? { unit: mergedCues[0].unit } : {}), ...(sameSubsection && mergedCues[0].subsection ? { subsection: mergedCues[0].subsection } : {}), cueIds } } : {}),
       mergedTaskKeys: [...new Set(group.flatMap((task) => task.mergedTaskKeys ?? [task.key]))],
       mergedTasks,
