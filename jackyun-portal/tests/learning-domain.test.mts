@@ -20,6 +20,7 @@ import {
   mergeLearningCatalog,
   matchLearningCatalogSubject,
   migrateIeltsWeekTaskDates,
+  normalizeCueMetadata,
   parseCueBulkImport,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
@@ -381,7 +382,7 @@ test('Cue unit reconciliation applies one user choice to create and update opera
 
 test('Cue bulk operations can update an existing Cue and create a new Cue together', () => {
   const createdAt = '2026-09-20T08:00:00.000Z';
-  const cues = [{ id: 'cue-1', subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Choose the vector.', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  const cues = [{ id: 'cue-1', version: 3, subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Choose the vector.', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
   const operations = parseCueBulkImport({ operations: [
     { action: 'update', id: 'cue-1', type: 'multiple-choice', display: 'multiple-choice', choices: ['speed', 'velocity'], correctChoice: 1, markingPoints: ['has direction'] },
     { action: 'create', unit: 'Waves', prompt: 'Define diffraction.', type: 'definition', display: 'definition-card', markingPoints: ['spreading'] },
@@ -392,10 +393,23 @@ test('Cue bulk operations can update an existing Cue and create a new Cue togeth
   assert.equal(merged[0].prompt, 'Choose the vector.');
   assert.equal(merged[0].type, 'multiple-choice');
   assert.deepEqual(merged[0].choices, ['speed', 'velocity']);
+  assert.equal(merged[0].version, 4);
+  assert.equal(merged[0].updatedAt, '2026-09-20T09:00:00.000Z');
   assert.equal(merged[1].id, 'cue-2');
   assert.equal(merged[1].prompt, 'Define diffraction.');
+  const unchanged = applyCueBulkOperations([merged[0]], [operations[0]], () => { throw new Error('No create expected.'); }, '2026-09-20T10:00:00.000Z');
+  assert.equal(unchanged[0].version, 4);
+  assert.equal(unchanged[0].updatedAt, '2026-09-20T09:00:00.000Z');
   assert.throws(() => parseCueBulkImport({ operations: [{ action: 'update', id: 'cue-1', type: 'multiple-choice', choices: ['only one'], correctChoice: 0 }] }), /2–6/);
   assert.throws(() => parseCueBulkImport({ operations: [{ action: 'update', id: 'cue-1', answer: 'A' }, { action: 'update', id: 'cue-1', answer: 'B' }] }), /重复修改/);
+});
+
+test('legacy Cue metadata defaults to version 1 and the supplied current time', () => {
+  const fallback = '2026-09-21T04:00:00.000Z';
+  const legacy = { id: 'legacy', subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Define diffraction.', type: 'definition' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '' };
+  const normalized = normalizeCueMetadata(legacy, fallback);
+  assert.equal(normalized.version, 1);
+  assert.equal(normalized.updatedAt, fallback);
 });
 
 test('full Cue update can change subject, unit, prompt, answer, formula, and display properties', () => {
@@ -418,17 +432,21 @@ test('Cue study ratings save immediately, can be corrected, and are not duplicat
   const createdAt = '2026-09-20T08:00:00.000Z';
   const task = { key: 'cue-special-session', title: 'Cue 专项学习', detail: '', type: 'special' as const, date: '2026-09-21', durationMinutes: 30, subjectId: 'physics', subjectName: 'Physics', scope: { cueIds: ['cue-1'] } };
   const state = createEmptyScheduleState();
-  state.cues = [{ id: 'cue-1', subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Define diffraction.', type: 'definition', markingPoints: ['spreading'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  state.cues = [{ id: 'cue-1', version: 2, subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Define diffraction.', type: 'definition', markingPoints: ['spreading'], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
   const reviewedAt = new Date('2026-09-21T08:00:00.000Z');
 
   const first = recordCueStudyAssessment(state, { cueId: 'cue-1', status: 'stable' }, reviewedAt, task.key);
   assert.equal(first.cues[0].status, 'stable');
+  assert.equal(first.cues[0].version, 2);
+  assert.equal(first.cues[0].updatedAt, createdAt);
   assert.equal(first.cueReviews.length, 1);
 
   const corrected = recordCueStudyAssessment(first, { cueId: 'cue-1', status: 'partial' }, new Date('2026-09-21T08:01:00.000Z'), task.key);
   assert.equal(corrected.cues[0].status, 'partial');
   assert.equal(corrected.cueReviews.length, 1);
   assert.equal(corrected.cueReviews[0].status, 'partial');
+  assert.equal(corrected.cues[0].version, 2);
+  assert.equal(corrected.cues[0].updatedAt, createdAt);
 
   const completed = completeLearningSession(corrected, task, { studiedContent: '', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['cue-1'] }, materials: [], cueIds: ['cue-1'], newCues: [], assessments: [{ cueId: 'cue-1', status: 'partial' }], cueReviewsAlreadyRecorded: true }, new Date('2026-09-21T08:02:00.000Z'));
   assert.equal(completed.cueReviews.length, 1);

@@ -115,6 +115,8 @@ export interface ManualLearningTask {
 
 export interface StudyCue {
   id: string;
+  /** Content revision. Legacy Cues without this field are normalized to version 1 when loaded. */
+  version?: number;
   subjectId: string;
   subjectName: string;
   unit: string;
@@ -745,6 +747,19 @@ export function applyCueUnitMappings(operations: CueBulkOperation[], mappings: R
   });
 }
 
+export function normalizeCueMetadata(cue: StudyCue, defaultUpdatedAt: string): StudyCue {
+  const version = Number.isInteger(cue.version) && Number(cue.version) >= 1 ? Number(cue.version) : 1;
+  const updatedAt = typeof cue.updatedAt === 'string' && !Number.isNaN(Date.parse(cue.updatedAt)) ? cue.updatedAt : defaultUpdatedAt;
+  return { ...cue, version, updatedAt };
+}
+
+function cueUpdateChanges(cue: StudyCue, update: Omit<CueUpdateOperation, 'action' | 'id'>): boolean {
+  return Object.entries(update).some(([key, value]) => {
+    const current = cue[key as keyof StudyCue];
+    return Array.isArray(value) ? !Array.isArray(current) || value.length !== current.length || value.some((item, index) => item !== current[index]) : value !== current;
+  });
+}
+
 export function applyCueBulkOperations(
   cues: StudyCue[],
   operations: CueBulkOperation[],
@@ -752,11 +767,12 @@ export function applyCueBulkOperations(
   updatedAt: string,
 ): StudyCue[] {
   const updates = operations.filter((operation): operation is CueUpdateOperation => operation.action === 'update');
-  const byId = new Map(updates.map((update) => [update.id, Object.fromEntries(Object.entries(update).filter(([key]) => key !== 'action')) as Omit<CueUpdateOperation, 'action'>]));
+  const byId = new Map(updates.map((update) => [update.id, Object.fromEntries(Object.entries(update).filter(([key]) => key !== 'action' && key !== 'id')) as Omit<CueUpdateOperation, 'action' | 'id'>]));
   const created = operations.filter((operation): operation is CueCreateOperation => operation.action === 'create').map(createCue);
   return cues.map((cue) => {
     const update = byId.get(cue.id);
-    return update ? { ...cue, ...update, id: cue.id, updatedAt } : cue;
+    if (!update || !cueUpdateChanges(cue, update)) return cue;
+    return { ...cue, ...update, id: cue.id, version: Math.max(1, Math.floor(cue.version ?? 1)) + 1, updatedAt };
   }).concat(created);
 }
 
@@ -1277,7 +1293,6 @@ export function completeCueReviews(
       streak: assessment.status === 'unclear' ? 0 : scheduled.streak,
       nextReviewDate,
       lastReviewedAt: reviewedAt,
-      updatedAt: reviewedAt,
     };
   });
   if (found.size !== byCueId.size) throw new Error('评估中包含不存在的 Cue。');
@@ -1302,7 +1317,7 @@ export function recordCueStudyAssessment(
   const nextReviewDate = addCalendarDays(reviewedDate, intervalDays);
   return {
     ...state,
-    cues: state.cues.map((cue) => cue.id === assessment.cueId ? { ...cue, status: assessment.status, intervalDays, streak: assessment.status === 'unclear' ? 0 : cue.streak, nextReviewDate, lastReviewedAt: existing.reviewedAt, updatedAt: reviewedAt.toISOString() } : cue),
+    cues: state.cues.map((cue) => cue.id === assessment.cueId ? { ...cue, status: assessment.status, intervalDays, streak: assessment.status === 'unclear' ? 0 : cue.streak, nextReviewDate, lastReviewedAt: existing.reviewedAt } : cue),
     cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, status: assessment.status, nextReviewDate, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : {}) } : review),
   };
 }
@@ -1359,10 +1374,10 @@ export function completeLearningSession(
   const note = details.note.trim().slice(0, 1000);
 
   const reviewedDate = dateKey(completedAt);
-  const scheduledNewCues = evidence.newCues.map((cue) => ({
+  const scheduledNewCues = evidence.newCues.map((cue) => normalizeCueMetadata({
     ...cue,
     nextReviewDate: cue.nextReviewDate ?? addCalendarDays(reviewedDate, 1),
-  }));
+  }, completedAt.toISOString()));
   const existingCueIds = new Set(state.cues.map((cue) => cue.id));
   for (const cue of scheduledNewCues) {
     if (existingCueIds.has(cue.id)) throw new Error('新建 Cue 的 id 不能重复。');

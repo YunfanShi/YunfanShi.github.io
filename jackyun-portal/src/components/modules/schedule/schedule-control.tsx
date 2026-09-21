@@ -25,6 +25,7 @@ import {
   LEARNING_TASK_PRESETS,
   mergeLearningCatalog,
   migrateIeltsWeekTaskDates,
+  normalizeCueMetadata,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
   parseCueBulkImport,
@@ -112,7 +113,7 @@ function loadState(now = new Date()): ScheduleControlState {
       completions: parsed.completions && typeof parsed.completions === 'object' ? parsed.completions : {},
       cancellations: parsed.cancellations && typeof parsed.cancellations === 'object' ? parsed.cancellations : {},
       reviewProgress: parsed.reviewProgress && typeof parsed.reviewProgress === 'object' ? parsed.reviewProgress : {},
-      cues: Array.isArray(parsed.cues) ? parsed.cues : [],
+      cues: Array.isArray(parsed.cues) ? parsed.cues.map((cue) => normalizeCueMetadata(cue, now.toISOString())) : [],
       cueReviews: Array.isArray(parsed.cueReviews) ? parsed.cueReviews : [],
       learningRecords: Array.isArray(parsed.learningRecords) ? parsed.learningRecords : [],
       learningCatalog: Array.isArray(parsed.learningCatalog) ? parsed.learningCatalog : [],
@@ -201,6 +202,12 @@ function CueEvidence({ cue }: { cue: StudyCue }) {
   return <><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--brand)]">Evidence</p>{cue.answer && <div className="mt-3 text-base leading-7"><LatexRenderer content={cue.answer} /></div>}{cue.markingPoints.length > 0 && <ul className="mt-4 space-y-2 text-sm leading-6 text-[var(--muted-foreground)]">{cue.markingPoints.map((point) => <li key={point} className="flex gap-2"><span className="text-[var(--brand)]">•</span><LatexRenderer content={point} /></li>)}</ul>}{!cue.answer && !cue.markingPoints.length && <p className="mt-3 text-sm text-[var(--muted-foreground)]">这条 Cue 暂无参考答案或 marking points，请按自己的笔记核对。</p>}</>;
 }
 
+function cueRevisionLabel(cue: StudyCue): string {
+  const updated = new Date(cue.updatedAt);
+  const updatedDate = Number.isNaN(updated.getTime()) ? dateKey(new Date()) : dateKey(updated);
+  return `v${Math.max(1, Math.floor(cue.version ?? 1))} · ${updatedDate.slice(2)}`;
+}
+
 function CuePromptContent({ cue, revealed, selectedChoice, onReveal, onChoice }: { cue: StudyCue; revealed: boolean; selectedChoice?: number; onReveal: () => void; onChoice: (index: number) => void }) {
   const definitionCard = cue.type === 'definition' || cue.display === 'definition-card';
   const multipleChoice = cue.type === 'multiple-choice' || cue.display === 'multiple-choice';
@@ -285,7 +292,7 @@ function CueStudyPage({ task, cues, draft, onProgress, onAssessment, onClose, on
       <main className="mx-auto flex min-h-[calc(100dvh-110px)] max-w-5xl flex-col px-4 py-8 sm:px-8">
         {!current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">这个任务暂时没有 Cue</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">请先在 Cue 工作台为“{[task.subjectName, task.scope?.unit].filter(Boolean).join(' → ') || task.title}”添加 Cue，再回来验证。</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">返回 Schedule</button></div> : <>
           <div className="mb-6 flex flex-wrap gap-2" aria-label="Cue 学习进度">{cues.map((cue, cueIndex) => { const saved = assessments[cue.id]; return <button key={cue.id} type="button" onClick={() => { setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} aria-label={`第 ${cueIndex + 1} 条${saved ? `，已标记 ${statusMark(saved)}` : '，未标记'}`} className={`grid h-9 min-w-9 place-items-center rounded-full border px-2 text-xs font-bold ${cueIndex === index ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20' : 'border-[var(--card-border)]'} ${saved === 'stable' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : saved === 'partial' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : saved === 'unclear' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{saved ? statusMark(saved) : cueIndex + 1}</button>; })}</div>
-          <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span></div><p className="text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span></div><div className="text-right"><p className="text-xs font-semibold text-[var(--foreground)]">{cueRevisionLabel(current)}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div></div>
           <CuePromptContent cue={current} revealed={revealed} selectedChoice={selectedChoice} onReveal={() => setRevealed((value) => !value)} onChoice={(choiceIndex) => { setSelectedChoice(choiceIndex); setRevealed(true); }} />
           <div className="border-t border-[var(--card-border)] pt-5"><p className="mb-3 text-center text-sm font-semibold">这次闭卷检索的状态{assessments[current.id] ? ` · 已保存 ${statusMark(assessments[current.id])}` : ''}</p>{revealed ? <div className="grid gap-3 sm:grid-cols-3"><button type="button" onClick={() => rate('stable')} className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-left text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><strong className="text-xl">C / 1 · √ 通过</strong><span className="mt-1 block text-xs">完整、准确；点击后立即保存</span></button><button type="button" onClick={() => rate('partial')} className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-left text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><strong className="text-xl">P / 2 · △ 部分通过</strong><span className="mt-1 block text-xs">有缺漏；点击后立即保存</span></button><button type="button" onClick={() => rate('unclear')} className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-left text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"><strong className="text-xl">X / 3 · ○ 未通过</strong><span className="mt-1 block text-xs">核心错误；点击后立即保存</span></button></div> : <p className="rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-4 text-center text-sm text-[var(--muted-foreground)]">{current.type === 'multiple-choice' ? `先选择 1–${current.choices?.length ?? 0}，系统核对后再判定状态。` : '空格 / Enter 可反复显示、隐藏答案。'}</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={index === 0} onClick={() => move(-1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">← 上一条</button><span className="text-center text-xs leading-5 text-[var(--muted-foreground)]">{current.type === 'multiple-choice' && !revealed ? `1–${current.choices?.length ?? 0} 选择答案` : '空格 / Enter 显示或隐藏答案'} · ←/→ 切换 · {revealed ? 'C/P/X 或 1/2/3 判定并立即保存 · ' : ''}Esc 退出</span><button type="button" disabled={index >= cues.length - 1} onClick={() => move(1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">下一条 →</button></div></div>
         </>}
@@ -379,7 +386,7 @@ function ReviewDialog({ task, cues, catalog, signedIn, onClose, onComplete }: { 
       unit: unit.trim().slice(0, 120), subsection: subsection.trim().slice(0, 120), prompt: newCuePrompt.trim().slice(0, 500),
       ...(newCueSubtitle.trim() ? { subtitle: newCueSubtitle.trim().slice(0, 500) } : {}), ...(newCueAnswer.trim() ? { answer: newCueAnswer.trim().slice(0, 2000) } : {}),
       type: newCueType, display: newCueDisplay, ...(newCueType === 'multiple-choice' ? { choices, correctChoice: newCueCorrectChoice } : {}), markingPoints: newCueMarkingPoints.split('\n').map((item) => item.trim()).filter(Boolean).slice(0, 12),
-      intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
+      version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
     };
     setNewCues((current) => [...current, cue]);
     setSelectedCueIds((current) => [...current, cue.id]);
@@ -395,7 +402,7 @@ function ReviewDialog({ task, cues, catalog, signedIn, onClose, onComplete }: { 
         id: taskId(), subjectId, subjectName: normalizedSubject, unit: item.unit, subsection: '', prompt: item.prompt,
         ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display,
         ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}),
-        markingPoints: item.markingPoints, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
+        markingPoints: item.markingPoints, version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
       };
     });
     setNewCues((current) => [...current, ...imported]);
@@ -499,22 +506,24 @@ function CueBulkImportDialog({ subjectName, knownUnits, cues, onClose, onApply }
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const normalizeUnit = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-  const currentOperations = useMemo<CueBulkOperation[]>(() => cues.map((cue) => ({
+  const currentExportOperations = useMemo(() => cues.map((cue) => ({
     action: 'update',
     id: cue.id,
+    version: Math.max(1, Math.floor(cue.version ?? 1)),
+    updatedAt: cue.updatedAt,
     subjectName: cue.subjectName,
     unit: cue.unit,
     subsection: cue.subsection,
     prompt: cue.prompt,
-    subtitle: cue.subtitle ?? '',
-    answer: cue.answer ?? '',
+    subtitle: cue.subtitle,
+    answer: cue.answer,
     type: cue.type,
-    display: cue.display ?? 'standard',
+    display: cue.display,
     ...(cue.choices ? { choices: cue.choices, correctChoice: cue.correctChoice } : {}),
     markingPoints: cue.markingPoints,
   })), [cues]);
   const cueById = useMemo(() => new Map(cues.map((cue) => [cue.id, cue])), [cues]);
-  const exportJson = useMemo(() => JSON.stringify({ version: 1, operations: currentOperations }, null, 2), [currentOperations]);
+  const exportJson = useMemo(() => JSON.stringify({ version: 1, operations: currentExportOperations }, null, 2), [currentExportOperations]);
   const templateJson = useMemo(() => JSON.stringify(cueBulkImportTemplate(cues[0]?.id), null, 2), [cues]);
   const aiPrompt = useMemo(() => [
     '你把用户要求转换为 JackYun 网站支持的 Cue 批量操作。只输出严格 JSON，不要 Markdown 或解释。',
@@ -524,12 +533,12 @@ function CueBulkImportDialog({ subjectName, knownUnits, cues, onClose, onApply }
     'type 支持 general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice。',
     'display 支持 standard、headline、formula、steps、comparison、scenario、definition-card、multiple-choice。multiple-choice 需要 2–6 个 choices，correctChoice 从 0 开始。',
     '网站文字支持换行和 KaTeX：行内 \\( ... \\) 或 $...$，独立公式 \\[ ... \\] 或 $$...$$。',
-    'status、复习间隔、评分和复习日期不支持在这里修改。',
+    'version 和 updatedAt 是网站只读字段：内容实际改变时网站自动升版并更新时间；AI 返回的这两个值不会被采用。status、复习间隔、评分和复习日期也不支持在这里修改。',
     '具体要创建或修改什么，只按用户给你的要求决定。',
     '当前学科：' + subjectName,
-    '当前范围内可修改的 Cue：' + JSON.stringify(currentOperations),
+    '当前范围内可修改的 Cue：' + JSON.stringify(currentExportOperations),
     '格式示例：' + JSON.stringify(cueBulkImportTemplate(cues[0]?.id)),
-  ].join('\n'), [currentOperations, cues, subjectName]);
+  ].join('\n'), [currentExportOperations, cues, subjectName]);
   const validate = (value: unknown) => {
     const operations = parseCueBulkImport(value).operations;
     const ids = new Set(cues.map((cue) => cue.id));
@@ -607,7 +616,7 @@ function CueManagerDialog({ cues, reviews, catalog, showMastered, onClose, onCha
     return {
       id: taskId(), subjectId: resolvedSubject?.id ?? subjectIdFromName(resolvedSubjectName), subjectName: resolvedSubject?.name ?? resolvedSubjectName, unit: item.unit, subsection: '',
       prompt: item.prompt, ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display, ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}), markingPoints: item.markingPoints,
-      intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
+      version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
     };
   };
   const createCue = (event: React.FormEvent) => {
