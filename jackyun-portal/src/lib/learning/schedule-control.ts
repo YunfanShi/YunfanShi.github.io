@@ -73,6 +73,8 @@ export interface LearningCatalogUnit {
   subsections: string[];
   /** Import-only hint used to rename an existing unit without replacing the whole catalog. */
   renameFrom?: string;
+  /** Transient aliases accumulated while several duplicate units are merged before saving. */
+  mergeFrom?: string[];
 }
 
 export interface LearningCatalogSubject {
@@ -536,7 +538,10 @@ export function parseLearningCatalogImport(value: unknown): LearningCatalogImpor
         ? [...new Set(unit.subsections.map((item) => requiredText(item, `${unitName} 小单元`, 120)))]
         : [];
       const renameFrom = optionalText(unit.renameFrom, 120);
-      return { name: unitName, subsections, ...(renameFrom ? { renameFrom } : {}) };
+      const mergeFrom = Array.isArray(unit.mergeFrom)
+        ? [...new Set(unit.mergeFrom.slice(0, 100).map((item) => requiredText(item, `${unitName} 合并来源`, 120)))].filter((name) => name.trim().toLocaleLowerCase() !== unitName.trim().toLocaleLowerCase())
+        : [];
+      return { name: unitName, subsections, ...(renameFrom ? { renameFrom } : {}), ...(mergeFrom.length ? { mergeFrom } : {}) };
     });
     const rawProgress = record(subject.materialProgress) ?? {};
     const materialProgress = Object.fromEntries(Object.entries(rawProgress).flatMap(([code, progress]) => materialCodes.has(code as LearningMaterialCode) && typeof progress === 'string' && progress.trim() ? [[code, progress.trim().slice(0, 200)]] : [])) as Partial<Record<LearningMaterialCode, string>>;
@@ -566,9 +571,20 @@ export function mergeLearningCatalog(
     const current = result[subjectIndex];
     const units = current.units.map((unit) => ({ ...unit, subsections: [...unit.subsections] }));
     for (const importedUnit of importedSubject.units) {
-      const unitIndex = units.findIndex((unit) => normalize(unit.name) === normalize(importedUnit.renameFrom ?? importedUnit.name));
+      const sourceIndex = importedUnit.renameFrom ? units.findIndex((unit) => normalize(unit.name) === normalize(importedUnit.renameFrom!)) : -1;
+      const targetIndex = units.findIndex((unit) => normalize(unit.name) === normalize(importedUnit.name));
+      if (importedUnit.renameFrom && sourceIndex >= 0 && targetIndex >= 0 && sourceIndex !== targetIndex) {
+        const source = units[sourceIndex];
+        const target = units[targetIndex];
+        const subsections = [...new Set([...target.subsections, ...source.subsections, ...importedUnit.subsections])];
+        const mergeFrom = [...new Set([...(target.mergeFrom ?? []), target.renameFrom, ...(source.mergeFrom ?? []), source.renameFrom, source.name, importedUnit.renameFrom].filter((value): value is string => Boolean(value?.trim())).filter((value) => normalize(value) !== normalize(importedUnit.name)))];
+        units[targetIndex] = { name: importedUnit.name, subsections, ...(mergeFrom.length ? { mergeFrom } : {}) };
+        units.splice(sourceIndex, 1);
+        continue;
+      }
+      const unitIndex = sourceIndex >= 0 ? sourceIndex : targetIndex;
       if (unitIndex < 0) {
-        units.push({ name: importedUnit.name, subsections: [...importedUnit.subsections] });
+        units.push({ name: importedUnit.name, subsections: [...importedUnit.subsections], ...(importedUnit.renameFrom ? { mergeFrom: [importedUnit.renameFrom] } : {}) });
         continue;
       }
       const seen = new Set(units[unitIndex].subsections.map(normalize));
@@ -583,8 +599,9 @@ export function mergeLearningCatalog(
         ...units[unitIndex],
         ...(importedUnit.renameFrom ? { name: importedUnit.name } : {}),
         subsections,
-        ...(importedUnit.renameFrom ? { renameFrom: importedUnit.renameFrom } : {}),
+        ...(importedUnit.renameFrom ? { mergeFrom: [...new Set([...(units[unitIndex].mergeFrom ?? []), units[unitIndex].renameFrom, importedUnit.renameFrom].filter((value): value is string => Boolean(value?.trim())).filter((value) => normalize(value) !== normalize(importedUnit.name)))] } : {}),
       };
+      if (importedUnit.renameFrom) delete units[unitIndex].renameFrom;
     }
     result[subjectIndex] = {
       ...current,
@@ -593,6 +610,30 @@ export function mergeLearningCatalog(
     };
   }
   return result;
+}
+
+/** Merges one catalog unit into another chosen survivor without losing Cue migration aliases. */
+export function mergeLearningCatalogUnits(
+  catalog: LearningCatalogSubject[],
+  subjectId: string,
+  sourceIndex: number,
+  targetIndex: number,
+): LearningCatalogSubject[] {
+  return catalog.map((subject) => {
+    if (subject.id !== subjectId) return subject;
+    if (sourceIndex === targetIndex || !subject.units[sourceIndex] || !subject.units[targetIndex]) throw new Error('请选择两个不同且存在的大单元。');
+    const source = subject.units[sourceIndex];
+    const target = subject.units[targetIndex];
+    const normalize = (value: string) => value.trim().toLocaleLowerCase();
+    const subsections = [...new Set([...target.subsections, ...source.subsections])];
+    const mergeFrom = [...new Set([...(target.mergeFrom ?? []), target.renameFrom, ...(source.mergeFrom ?? []), source.renameFrom, source.name].filter((value): value is string => Boolean(value?.trim())).filter((value) => normalize(value) !== normalize(target.name)))];
+    const units = subject.units.flatMap((unit, index) => {
+      if (index === sourceIndex) return [];
+      if (index !== targetIndex) return [{ ...unit, subsections: [...unit.subsections] }];
+      return [{ name: target.name, subsections, ...(mergeFrom.length ? { mergeFrom } : {}) }];
+    });
+    return { ...subject, units };
+  });
 }
 
 /** Parses one learning unit per line. Legacy subsection syntax remains readable for old imports. */
@@ -649,7 +690,7 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
   const resolveUnit = (subject: LearningCatalogSubject | undefined, unit?: string) => {
     if (!subject || !unit) return unit;
     const normalized = unit.trim().toLocaleLowerCase();
-    return subject.units.find((item) => item.renameFrom?.trim().toLocaleLowerCase() === normalized)?.name ?? unit;
+    return subject.units.find((item) => [item.renameFrom, ...(item.mergeFrom ?? [])].some((alias) => alias?.trim().toLocaleLowerCase() === normalized))?.name ?? unit;
   };
   const reviewProgress: Record<string, ReviewProgress> = {};
   for (const progress of Object.values(state.reviewProgress)) {
@@ -673,6 +714,7 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
         cues: record.cues.map((cue) => { const cueSubject = resolve(cue.subjectName); return cueSubject ? { ...cue, subjectName: cueSubject.name, unit: resolveUnit(cueSubject, cue.unit) ?? cue.unit } : cue; }),
       };
     }),
+    ...(state.cueStudyDraft ? { cueStudyDraft: { ...state.cueStudyDraft, task: { ...state.cueStudyDraft.task, ...(state.cueStudyDraft.task.scope?.unit ? { scope: { ...state.cueStudyDraft.task.scope, unit: resolveUnit(resolve(state.cueStudyDraft.task.subjectName, state.cueStudyDraft.task.subjectId), state.cueStudyDraft.task.scope.unit) } } : {}) } } } : {}),
   };
 }
 

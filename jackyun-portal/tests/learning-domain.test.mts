@@ -20,6 +20,7 @@ import {
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
   mergeLearningCatalog,
+  mergeLearningCatalogUnits,
   matchLearningCatalogSubject,
   migrateIeltsWeekTaskDates,
   normalizeCueMetadata,
@@ -330,6 +331,32 @@ test('a partial unit rename preserves the rest of the catalog and updates existi
   assert.equal(reconciled.cues[0].unit, 'Wave Motion');
   assert.equal('renameFrom' in reconciled.learningCatalog[0].units[0], false);
   assert.deepEqual(parseLearningUnitOutline('Wave Moton -> Wave Motion'), [{ name: 'Wave Motion', subsections: [], renameFrom: 'Wave Moton' }]);
+});
+
+test('merging duplicate units keeps the chosen target and migrates every Cue alias', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const state = createEmptyScheduleState();
+  state.learningCatalog = parseLearningCatalogImport({ subjects: [{ id: 'pure-math', name: 'Pure Math', units: [{ name: 'Unit2 Quadratics', subsections: ['Legacy'] }, { name: 'Quadratics', subsections: ['Current'] }, { name: 'Quadratic Equations', subsections: [] }] }] }).subjects;
+  state.cues = ['Unit2 Quadratics', 'Quadratics', 'Quadratic Equations'].map((unit, index) => ({ id: `cue-${index}`, subjectId: 'pure-math', subjectName: 'Pure Math', unit, subsection: '', prompt: unit, type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }));
+
+  state.learningCatalog = mergeLearningCatalogUnits(state.learningCatalog, 'pure-math', 0, 1);
+  state.learningCatalog = mergeLearningCatalogUnits(state.learningCatalog, 'pure-math', 1, 0);
+  state.learningCatalog = parseLearningCatalogImport({ version: 1, subjects: state.learningCatalog }).subjects;
+  const reconciled = reconcileScheduleSubjects(state);
+
+  assert.deepEqual(reconciled.learningCatalog[0].units, [{ name: 'Quadratics', subsections: ['Current', 'Legacy'] }]);
+  assert.deepEqual(reconciled.cues.map((cue) => cue.unit), ['Quadratics', 'Quadratics', 'Quadratics']);
+});
+
+test('rename import coalesces an existing source and target unit instead of creating duplicates', () => {
+  const existing = parseLearningCatalogImport({ subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Wave Moton', subsections: ['Typo data'] }, { name: 'Wave Motion', subsections: ['Correct data'] }] }] }).subjects;
+  const incoming = parseLearningCatalogImport({ subjects: [{ id: 'physics', name: 'Physics', units: [{ name: 'Wave Motion', renameFrom: 'Wave Moton' }] }] }).subjects;
+  const merged = mergeLearningCatalog(existing, incoming);
+
+  assert.equal(merged[0].units.length, 1);
+  assert.equal(merged[0].units[0].name, 'Wave Motion');
+  assert.deepEqual(merged[0].units[0].subsections, ['Correct data', 'Typo data']);
+  assert.deepEqual(merged[0].units[0].mergeFrom, ['Wave Moton']);
 });
 
 test('timetable course names reconcile with learning subjects by meaningful keywords', () => {
