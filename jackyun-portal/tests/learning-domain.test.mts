@@ -13,6 +13,7 @@ import {
   completeReview,
   completeCueReviews,
   completeLearningSession,
+  completeLearningSubtask,
   createEmptyScheduleState,
   createIeltsWeekTasks,
   cueActivityTag,
@@ -164,15 +165,16 @@ test('due subject review work is merged with a visible description of every task
   assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
   assert.equal(jointReview?.scope?.subsection, undefined);
   assert.match(jointReview?.detail ?? '', /Define acceleration.*Explain terminal velocity/);
-  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['course-review', 'interval-review', 'cue-review', 'completeness-audit', 'study']));
+  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['course-review', 'cue-review', 'completeness-audit', 'study']));
   assert.ok(jointReview?.mergedTasks?.every((task) => task.title && task.detail));
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
   assert.equal(completed.reviewProgress.physics.nextReviewDate, '2026-09-23');
   assert.ok(jointReview?.mergedTaskKeys?.every((key) => completed.completions[key]));
+  assert.ok(jointReview?.mergedTasks?.every((item) => completed.completions[item.key]));
 });
 
-test('an interval review is called out when it is merged with due Cues', () => {
+test('subject-level interval review yields to Cue-level scheduling', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const state = createEmptyScheduleState();
   state.reviewProgress.physics = { subjectId: 'physics', subjectName: 'Physics', intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-21', lastStatus: 'partial', lastStudiedContent: 'Mechanics', lastNote: '', updatedAt: createdAt };
@@ -182,8 +184,8 @@ test('an interval review is called out when it is merged with due Cues', () => {
 
   const jointReview = reviews.find((task) => task.subjectId === 'physics');
   assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
-  assert.deepEqual(new Set(jointReview?.mergedTaskKeys), new Set(['interval-review:2026-09-21:physics', 'cue-review:2026-09-21:physics']));
-  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['interval-review', 'cue-review']));
+  assert.equal(jointReview?.key, 'cue-review:2026-09-21:physics');
+  assert.equal(jointReview?.type, 'cue-review');
 });
 
 test('same-subject review tasks merge across carried and newly generated Cue reviews', () => {
@@ -478,6 +480,55 @@ test('daily Cue review creates separate numbered tasks for a large due unit', ()
   assert.ok(reviews.every((task) => task.scope?.unit === 'Mechanics'));
 });
 
+test('a heavy class day schedules only the highest-priority Cue batch and keeps the backlog queued', () => {
+  const state = createEmptyScheduleState();
+  state.timetable = parseTimetableImport({
+    version: 1,
+    name: 'Heavy Monday',
+    courses: [{
+      id: 'school-day',
+      name: 'School day',
+      review: false,
+      sessions: [
+        { day: 1, start: '08:00', end: '09:00' },
+        { day: 1, start: '09:00', end: '10:00' },
+        { day: 1, start: '10:00', end: '11:00' },
+        { day: 1, start: '11:00', end: '12:00' },
+      ],
+    }],
+  });
+  const makeCues = (subjectId: string, status: 'unclear' | 'partial' | undefined, count: number) => Array.from({ length: count }, (_, index) => ({
+    id: `${subjectId}-${index}`,
+    subjectId,
+    subjectName: subjectId,
+    unit: 'Unit 1',
+    subsection: '',
+    prompt: `${subjectId} Cue ${index}`,
+    type: 'general' as const,
+    markingPoints: [],
+    ...(status ? { status } : {}),
+    intervalDays: 0,
+    easeFactor: 2.5,
+    streak: 0,
+    nextReviewDate: '2026-09-20',
+    lastReviewedAt: '2026-09-19T08:00:00.000Z',
+    createdAt: '2026-09-18T08:00:00.000Z',
+    updatedAt: '2026-09-19T08:00:00.000Z',
+  }));
+  state.cues = [
+    ...makeCues('stable-backlog', undefined, 15),
+    ...makeCues('partial-backlog', 'partial', 15),
+    ...makeCues('unclear-backlog', 'unclear', 15),
+  ];
+
+  const reviews = tasksForDate(state, new Date(2026, 8, 21, 12)).filter((task) => task.type === 'cue-review');
+
+  assert.equal(reviews.length, 1);
+  assert.equal(reviews[0].subjectId, 'unclear-backlog');
+  assert.equal(reviews[0].cueIds?.length, 15);
+  assert.match(reviews[0].detail, /只安排 1 个常规复习批次.*其余到期 Cue 自动留在队列/);
+});
+
 test('a changed Cue is reviewed again even when its old interval date is still in the future', () => {
   const state = createEmptyScheduleState();
   state.cues = [{ id: 'updated-cue', version: 2, subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Updated explanation', type: 'explain', markingPoints: [], status: 'stable', intervalDays: 7, easeFactor: 2.5, streak: 3, nextReviewDate: '2026-09-28', lastReviewedAt: '2026-09-20T08:00:00.000Z', createdAt: '2026-09-18T08:00:00.000Z', updatedAt: '2026-09-21T08:00:00.000Z' }];
@@ -570,6 +621,12 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
     '闭卷复习 Mathematics Cue',
     '记录证据、问题与资料位置',
   ]);
+  const firstStep = postClass.mergedTasks![0];
+  const withFirstStep = completeLearningSubtask(state, postClass, firstStep.key, new Date('2026-09-15T09:00:00.000Z'));
+  assert.equal(withFirstStep.completions[firstStep.key].studiedContent, firstStep.title);
+  assert.ok(tasksForDate(withFirstStep, tuesday).some((task) => task.key === postClass.key));
+  const withAllSteps = postClass.mergedTasks!.reduce((current, item, index) => completeLearningSubtask(current, postClass, item.key, new Date(`2026-09-15T09:0${index}:00.000Z`)), state);
+  assert.ok(!tasksForDate(withAllSteps, tuesday).some((task) => task.key === postClass.key));
   assert.equal(tasksForDate({ ...state, settings: { ...state.settings, postClassTasksEnabled: false } }, tuesday).some((task) => task.type === 'course-review'), false);
 
   const previewEnabled = {

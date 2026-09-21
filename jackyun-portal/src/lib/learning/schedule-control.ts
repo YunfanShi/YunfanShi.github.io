@@ -1053,6 +1053,9 @@ function reviewDetail(type: 'daily' | 'interval' | 'weekly'): string {
 
 const CUE_REVIEW_TARGET = 15;
 const CUE_REVIEW_MAX = 20;
+const LIGHT_DAY_CUE_BATCH_LIMIT = 2;
+const HEAVY_DAY_CUE_BATCH_LIMIT = 1;
+const HEAVY_DAY_SESSION_COUNT = 4;
 
 /** Keeps normal units whole, combines small units, and splits units that are too large for one review. */
 export function buildCueReviewBatches(cues: StudyCue[]): StudyCue[][] {
@@ -1097,6 +1100,26 @@ function cueNeedsReview(cue: StudyCue, date: string): boolean {
     || cue.nextReviewDate <= date;
 }
 
+function compareCueReviewPriority(left: StudyCue, right: StudyCue): number {
+  const rank = (cue: StudyCue) => {
+    if (cue.lastReviewedAt && Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)) return 0;
+    if (cue.status === 'unclear') return 1;
+    if (cue.status === 'partial') return 2;
+    if (!cue.lastReviewedAt) return 3;
+    return 4;
+  };
+  const leftDate = left.nextReviewDate ?? left.createdAt.slice(0, 10);
+  const rightDate = right.nextReviewDate ?? right.createdAt.slice(0, 10);
+  return rank(left) - rank(right) || leftDate.localeCompare(rightDate);
+}
+
+function dailyCueReviewBatchLimit(state: ScheduleControlState, date: Date): number {
+  if (state.settings.mode !== 'term' || !state.timetable) return LIGHT_DAY_CUE_BATCH_LIMIT;
+  return sessionsForDate(state.timetable, date).length >= HEAVY_DAY_SESSION_COUNT
+    ? HEAVY_DAY_CUE_BATCH_LIMIT
+    : LIGHT_DAY_CUE_BATCH_LIMIT;
+}
+
 function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
   if (state.settings.mode !== 'term' || !state.settings.postClassTasksEnabled || !state.timetable) return [];
   const key = dateKey(date);
@@ -1113,7 +1136,6 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
     const subjectId = catalogSubject?.id ?? course.id;
     const subjectName = catalogSubject?.name ?? course.name;
     const subjectCues = state.cues.filter((cue) => cue.subjectId === subjectId);
-    const priorityCues = subjectCues.filter((cue) => dateKey(new Date(cue.updatedAt)) === key && (!cue.lastReviewedAt || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)));
     const materialPositions = Object.entries(catalogSubject?.materialProgress ?? {}).map(([code, value]) => `${code} ${value}`).join('、');
     const workflow = [
       {
@@ -1132,7 +1154,7 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
         key: `post-class-recall:${key}:${course.id}`,
         type: 'cue-review' as const,
         title: `闭卷复习 ${course.shortName ?? course.name} Cue`,
-        detail: priorityCues.length ? `优先完成 ${priorityCues.length} 条未标记、△ 或 ○ Cue，并分别记录 √ / △ / ○。` : '闭卷复述本节新 Cue；揭示答案后按证据分别记录 √ / △ / ○。',
+        detail: '只复述本节新建或修订的 Cue；揭示答案后按证据分别记录 √ / △ / ○。常规旧 Cue 由每日限额队列另行安排。',
       },
       {
         key: `post-class-record:${key}:${course.id}`,
@@ -1148,7 +1170,7 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
       type: 'course-review',
       date: key,
       start: end,
-      durationMinutes: Math.min(60, Math.max(35, 25 + priorityCues.length * 5)),
+      durationMinutes: 35,
       subjectId,
       subjectName,
       guide: { tab: 'learn', subTab: 'cornell' },
@@ -1171,14 +1193,13 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date): LearningT
     if (progress.nextReviewDate > key) return [];
     const taskKey = `interval-review:${progress.nextReviewDate}:${progress.subjectId}`;
     if (state.completions[taskKey]) return [];
-    const reviewCues = state.cues.filter((cue) => cue.subjectId === progress.subjectId && cueNeedsReview(cue, key));
-    const detail = reviewCues.length
-      ? `复习 ${reviewCues.length} 条 Cue：${reviewCues.map((cue) => cue.prompt).join('；')}`
-      : `复习：${progress.lastStudiedContent || progress.subjectName}`;
+    // Once a subject has Cue-level scheduling, the older subject-level progress
+    // record is only metadata. Emitting both would count the same review twice.
+    if (state.cues.some((cue) => cue.subjectId === progress.subjectId)) return [];
     return [{
       key: taskKey,
       title: `${progress.subjectName} · 间隔复习`,
-      detail,
+      detail: `复习：${progress.lastStudiedContent || progress.subjectName}`,
       type: 'interval-review' as const,
       date: key,
       durationMinutes: 25,
@@ -1213,32 +1234,40 @@ function weeklyReviewTasks(state: ScheduleControlState, date: Date): LearningTas
 
 function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
   const key = dateKey(date);
-  const due = state.cues.filter((cue) => cueNeedsReview(cue, key));
+  const due = state.cues.filter((cue) => cueNeedsReview(cue, key)).toSorted(compareCueReviewPriority);
   const groups = new Map<string, StudyCue[]>();
   for (const cue of due) {
     groups.set(cue.subjectId, [...(groups.get(cue.subjectId) ?? []), cue]);
   }
-  return [...groups.values()].flatMap((subjectCues) => buildCueReviewBatches(subjectCues).map((cues, batchIndex) => {
-    const cueIds = cues.map((cue) => cue.id);
-    const unitNames = [...new Set(cues.map((cue) => cue.unit || '未分单元'))];
-    const sameScope = unitNames.length === 1;
-    const batchSuffix = batchIndex ? `:batch-${batchIndex + 1}` : '';
-    const reviewMode = sameScope ? `单元复习 · ${unitNames[0]}` : `组合复习 · ${unitNames.join(' + ')}`;
-    return {
-      key: `cue-review:${key}:${cues[0].subjectId}${batchSuffix}`,
-      title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
-      detail: `${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成本批 Cue；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。`,
-      type: 'cue-review' as const,
-      date: key,
-      durationMinutes: Math.min(60, Math.max(20, cues.length * 4)),
-      subjectId: cues[0].subjectId,
-      subjectName: cues[0].subjectName,
-      cueIds,
-      scope: { ...(sameScope && cues[0].unit ? { unit: cues[0].unit } : {}), cueIds },
-      guide: { tab: 'learn' as const, subTab: 'review' },
-      overdue: cues.some((cue) => Boolean(cue.nextReviewDate && cue.nextReviewDate < key)),
-    };
-  }));
+  const candidates = [...groups.values()].flatMap((subjectCues) => buildCueReviewBatches(subjectCues).map((cues, batchIndex) => ({ cues, batchIndex })));
+  const batchLimit = dailyCueReviewBatchLimit(state, date);
+  const capacityNote = batchLimit === HEAVY_DAY_CUE_BATCH_LIMIT
+    ? '今天课程较多，只安排 1 个常规复习批次；其余到期 Cue 自动留在队列。'
+    : `今天最多安排 ${batchLimit} 个常规复习批次；其余到期 Cue 自动留在队列。`;
+  return candidates
+    .toSorted((left, right) => compareCueReviewPriority(left.cues[0], right.cues[0]))
+    .slice(0, batchLimit)
+    .map(({ cues, batchIndex }) => {
+      const cueIds = cues.map((cue) => cue.id);
+      const unitNames = [...new Set(cues.map((cue) => cue.unit || '未分单元'))];
+      const sameScope = unitNames.length === 1;
+      const batchSuffix = batchIndex ? `:batch-${batchIndex + 1}` : '';
+      const reviewMode = sameScope ? `单元复习 · ${unitNames[0]}` : `组合复习 · ${unitNames.join(' + ')}`;
+      return {
+        key: `cue-review:${key}:${cues[0].subjectId}${batchSuffix}`,
+        title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
+        detail: `${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成本批 Cue；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。${capacityNote}`,
+        type: 'cue-review' as const,
+        date: key,
+        durationMinutes: Math.min(60, Math.max(20, cues.length * 4)),
+        subjectId: cues[0].subjectId,
+        subjectName: cues[0].subjectName,
+        cueIds,
+        scope: { ...(sameScope && cues[0].unit ? { unit: cues[0].unit } : {}), cueIds },
+        guide: { tab: 'learn' as const, subTab: 'review' },
+        overdue: cues.some((cue) => Boolean(cue.nextReviewDate && cue.nextReviewDate < key)),
+      };
+    });
 }
 
 function previewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
@@ -1349,9 +1378,36 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
       manual: true,
       overdue: Boolean(task.overdueSince || task.date < key),
     }));
-  const available = [...manual, ...automatic].filter((task) => !state.completions[task.key] && !state.cancellations[task.key]);
+  const available = [...manual, ...automatic].filter((task) => {
+    const allSubtasksComplete = Boolean(task.mergedTasks?.length && task.mergedTasks.every((item) => state.completions[item.key]));
+    return !state.completions[task.key] && !state.cancellations[task.key] && !allSubtasksComplete;
+  });
   return mergeSameSubjectActions(available, state.cues)
     .sort((a, b) => Number(Boolean(b.overdue)) - Number(Boolean(a.overdue)) || (a.start ?? '99:99').localeCompare(b.start ?? '99:99') || a.type.localeCompare(b.type));
+}
+
+/** Marks a checklist-style child of a merged task complete without fabricating Cue evidence. */
+export function completeLearningSubtask(
+  state: ScheduleControlState,
+  task: LearningTask,
+  subtaskKey: string,
+  completedAt: Date,
+): ScheduleControlState {
+  const subtask = task.mergedTasks?.find((item) => item.key === subtaskKey);
+  if (!subtask) throw new Error('联合任务中不存在这个小任务。');
+  if (state.completions[subtaskKey]) return state;
+  return {
+    ...state,
+    completions: {
+      ...state.completions,
+      [subtaskKey]: {
+        completedAt: completedAt.toISOString(),
+        studiedContent: subtask.title,
+        ...(task.subjectName ? { subjectName: task.subjectName } : {}),
+        ...(task.scope ? { scope: task.scope } : {}),
+      },
+    },
+  };
 }
 
 export function completeCueReviews(
@@ -1544,7 +1600,7 @@ export function completeLearningSession(
       ...updated,
       completions: {
         ...updated.completions,
-        ...Object.fromEntries((task.mergedTaskKeys ?? [task.key]).map((key) => [key, detailedCompletion])),
+        ...Object.fromEntries([...new Set([...(task.mergedTaskKeys ?? [task.key]), ...(task.mergedTasks?.map((item) => item.key) ?? [])])].map((key) => [key, detailedCompletion])),
       },
     };
   }
