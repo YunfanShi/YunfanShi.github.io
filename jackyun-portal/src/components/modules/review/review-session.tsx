@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { recordReviewAttempt, setReviewStatus } from '@/actions/review';
+import { runOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
+import { useOfflineSnapshot } from '@/hooks/use-offline-snapshot';
 import type { ReviewItem } from '@/types/review';
 
 const QUALITY_ACTIONS = [
@@ -11,9 +11,15 @@ const QUALITY_ACTIONS = [
   { quality: 5, label: '记得很牢', color: '#188038' },
 ] as const;
 
-export default function ReviewSession({ initialItems }: { initialItems: ReviewItem[] }) {
-  const router = useRouter();
-  const [items, setItems] = useState(initialItems);
+interface ReviewSnapshot {
+  dueItems: ReviewItem[];
+  activeCount: number;
+  masteredCount: number;
+}
+
+export default function ReviewSession({ userId, initialSnapshot }: { userId: string; initialSnapshot: ReviewSnapshot }) {
+  const [snapshot, setSnapshot] = useOfflineSnapshot(userId, 'review', initialSnapshot);
+  const items = snapshot.dueItems;
   const [answer, setAnswer] = useState('');
   const [revealed, setRevealed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +35,9 @@ export default function ReviewSession({ initialItems }: { initialItems: ReviewIt
     startedAtRef.current = null;
     setAnswer('');
     setRevealed(false);
-    setItems((existing) => existing.slice(1));
+    const next = { ...snapshot, dueItems: snapshot.dueItems.slice(1) };
+    setSnapshot(next);
+    void saveOfflineSnapshot(userId, 'review', next);
   }
 
   function finishCurrent(quality: number) {
@@ -37,14 +45,12 @@ export default function ReviewSession({ initialItems }: { initialItems: ReviewIt
     setError(null);
     startTransition(async () => {
       try {
-        await recordReviewAttempt(
-          current.id,
-          quality,
-          answer,
-          startedAtRef.current === null ? 0 : Math.floor((Date.now() - startedAtRef.current) / 1000),
-        );
+        const result = await runOfflineMutation(userId, 'review.attempt', {
+          reviewItemId: current.id, quality, answer,
+          durationSeconds: startedAtRef.current === null ? 0 : Math.floor((Date.now() - startedAtRef.current) / 1000),
+        });
         advance();
-        router.refresh();
+        if (result === 'queued') setError('已记录，联网后同步');
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : '保存复习结果失败');
       }
@@ -55,9 +61,9 @@ export default function ReviewSession({ initialItems }: { initialItems: ReviewIt
     if (!current) return;
     startTransition(async () => {
       try {
-        await setReviewStatus(current.id, 'archived');
+        const result = await runOfflineMutation(userId, 'review.archive', { reviewItemId: current.id });
         advance();
-        router.refresh();
+        if (result === 'queued') setError('已记录，联网后同步');
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : '归档失败');
       }

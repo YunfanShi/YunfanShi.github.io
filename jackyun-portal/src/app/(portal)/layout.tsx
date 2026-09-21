@@ -15,6 +15,7 @@ import type { Language } from '@/lib/i18n';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
 import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
+import OfflineWorkspaceSync from '@/components/layout/offline-workspace-sync';
 import AuthModeProvider from '@/components/auth/auth-mode-provider';
 import BetaExperience from '@/components/modules/beta-experience';
 import type { BetaEnrollmentStatus } from '@/lib/beta';
@@ -105,11 +106,12 @@ export default async function PortalLayout({
   const isAdmin = Boolean(user && isAdminIdentity(user, profile?.role));
 
   return (
-    <AuthModeProvider signedIn={Boolean(user)}>
+    <AuthModeProvider signedIn={Boolean(user)} userId={user?.id ?? null}>
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
       <CloudSettingsHydrator appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
+      <OfflineWorkspaceSync userId={user?.id ?? null} />
       <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} betaActive={betaEnrollment?.status === 'accepted'} allowedFeatureKeys={featureSnapshot && Object.keys(featureSnapshot.features).length ? Object.values(featureSnapshot.features).filter((feature) => feature.allowed).map((feature) => feature.key) : ['reading']} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

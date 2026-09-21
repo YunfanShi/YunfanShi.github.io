@@ -39,7 +39,7 @@ export default async function ReviewPage() {
         <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><p className="text-xs text-[var(--muted-foreground)]">学习中</p><strong className="mt-2 block text-2xl">{activeCount ?? 0}</strong></div>
         <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><p className="text-xs text-[var(--muted-foreground)]">已掌握</p><strong className="mt-2 block text-2xl">{masteredCount ?? 0}</strong></div>
       </section>
-      <ReviewSession initialItems={(dueItems ?? []) as ReviewItem[]} />
+      <ReviewSession userId={user.id} initialSnapshot={{ dueItems: (dueItems ?? []) as ReviewItem[], activeCount: activeCount ?? 0, masteredCount: masteredCount ?? 0 }} />
     </div>
   );
 }

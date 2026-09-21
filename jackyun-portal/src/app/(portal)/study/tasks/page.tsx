@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import CreatePlanDialog from '@/components/modules/study/create-plan-dialog';
-import PlanList from '@/components/modules/study/plan-list';
-import TaskInbox from '@/components/modules/study/task-inbox';
+import OfflineTaskWorkspace from '@/components/modules/study/offline-task-workspace';
 import type { StudyPlanWithTasks } from '@/types';
 
 export const metadata = { title: '学习任务 · JackYun Portal' };
@@ -53,8 +52,7 @@ export default async function StudyTasksPage() {
         <CreatePlanDialog />
       </header>
       <div className="mt-7">
-        <TaskInbox tasks={inboxTasks ?? []} />
-        <PlanList plans={plans} />
+        <OfflineTaskWorkspace userId={user.id} initial={{ plans, inboxTasks: inboxTasks ?? [] }} />
       </div>
     </div>
   );

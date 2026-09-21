@@ -22,9 +22,13 @@ interface StudyPlanWithTasks {
 
 interface PlanListProps {
   plans: StudyPlanWithTasks[];
+  onToggleTask: (taskId: string, completed: boolean) => void;
+  onDeleteTask: (taskId: string) => void;
+  onCreateTask: (planId: string, title: string) => void;
+  onDeletePlan: (planId: string) => void;
 }
 
-export default function PlanList({ plans }: PlanListProps) {
+export default function PlanList({ plans, onToggleTask, onDeleteTask, onCreateTask, onDeletePlan }: PlanListProps) {
   if (plans.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-[16px] border border-dashed border-[var(--card-border)] py-20 text-center">
@@ -42,7 +46,7 @@ export default function PlanList({ plans }: PlanListProps) {
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {plans.map((plan) => (
-        <PlanCard key={plan.id} plan={plan} />
+        <PlanCard key={plan.id} plan={plan} onToggleTask={onToggleTask} onDeleteTask={onDeleteTask} onCreateTask={onCreateTask} onDeletePlan={onDeletePlan} />
       ))}
     </div>
   );

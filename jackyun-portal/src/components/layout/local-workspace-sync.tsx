@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
-import { clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
+import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
@@ -48,6 +48,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let lastSnapshot: Record<string, string> = {};
 
     if (!userId) {
+      void bindSyncUser(null);
       localStorage.setItem('jackyun_guest_mode', 'true');
       announce({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
       return;
@@ -184,6 +185,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
 
     async function sync() {
       if (running || cancelled) return;
+      if (!navigator.onLine) {
+        await queueChanges();
+        if (!cancelled) await publishStatus('offline_pending');
+        return;
+      }
       running = true;
       try {
         const deviceId = await getOrCreateDeviceId();
@@ -202,7 +208,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
 
     lastSnapshot = localSnapshot();
-    void sync();
+    void bindSyncUser(userId).then(sync);
     // Changes are durable in IndexedDB immediately; a calmer network cadence
     // avoids continuous RSC/API contention while keeping cross-device sync prompt.
     const timer = window.setInterval(() => void sync(), 30_000);

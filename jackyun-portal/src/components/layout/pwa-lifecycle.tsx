@@ -28,6 +28,7 @@ export default function PwaLifecycle() {
     const register = async () => {
       try {
         registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        (registration.active ?? registration.waiting)?.postMessage({ type: 'WARM_OFFLINE_ROUTES' });
         if (registration.waiting && navigator.serviceWorker.controller) setWaitingWorker(registration.waiting);
         registration.addEventListener('updatefound', () => observeWorker(registration?.installing ?? null));
       } catch (error) {
@@ -44,6 +45,18 @@ export default function PwaLifecycle() {
       window.removeEventListener('load', register);
       registration = null;
     };
+  }, []);
+
+  useEffect(() => {
+    const followCachedRoute = (event: MouseEvent) => {
+      if (navigator.onLine || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null;
+      if (!anchor || anchor.origin !== window.location.origin || !['/dashboard', '/study/tasks', '/reading', '/review'].includes(anchor.pathname)) return;
+      event.preventDefault();
+      window.location.assign(anchor.href);
+    };
+    document.addEventListener('click', followCachedRoute, true);
+    return () => document.removeEventListener('click', followCachedRoute, true);
   }, []);
 
   if (!waitingWorker || dismissed) return null;

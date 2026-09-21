@@ -1,7 +1,5 @@
 'use client';
 
-import { useTransition } from 'react';
-import { deleteTask, toggleTask } from '@/actions/study';
 import StartStudyButton from './start-study-button';
 
 interface InboxTask {
@@ -12,8 +10,7 @@ interface InboxTask {
   estimated_minutes: number;
 }
 
-export default function TaskInbox({ tasks }: { tasks: InboxTask[] }) {
-  const [isPending, startTransition] = useTransition();
+export default function TaskInbox({ tasks, onToggle, onDelete }: { tasks: InboxTask[]; onToggle: (taskId: string, completed: boolean) => void; onDelete: (taskId: string) => void }) {
   if (!tasks.length) return null;
 
   return (
@@ -25,7 +22,7 @@ export default function TaskInbox({ tasks }: { tasks: InboxTask[] }) {
       <ul className="divide-y divide-[var(--card-border)]">
         {tasks.map((task) => (
           <li key={task.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-            <button type="button" disabled={isPending} onClick={() => startTransition(() => toggleTask(task.id))} className="text-[var(--muted-foreground)] hover:text-[#1a73e8]">
+            <button type="button" onClick={() => onToggle(task.id, !task.completed)} className="text-[var(--muted-foreground)] hover:text-[#1a73e8]">
               <span className="material-icons-round text-xl">{task.completed ? 'check_circle' : 'radio_button_unchecked'}</span>
             </button>
             <div className="min-w-48 flex-1">
@@ -33,7 +30,7 @@ export default function TaskInbox({ tasks }: { tasks: InboxTask[] }) {
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{task.due_date ? `${task.due_date} · ` : ''}预计 {task.estimated_minutes} 分钟</p>
             </div>
             {!task.completed && <StartStudyButton taskId={task.id} durationMinutes={task.estimated_minutes} />}
-            <button type="button" disabled={isPending} onClick={() => startTransition(() => deleteTask(task.id))} className="text-[var(--muted-foreground)] hover:text-[#d93025]" aria-label={`删除 ${task.title}`}>
+            <button type="button" onClick={() => onDelete(task.id)} className="text-[var(--muted-foreground)] hover:text-[#d93025]" aria-label={`删除 ${task.title}`}>
               <span className="material-icons-round text-lg">delete_outline</span>
             </button>
           </li>

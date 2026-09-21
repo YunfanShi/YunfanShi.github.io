@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import UserAvatar from '@/components/auth/user-avatar';
-import { signOut } from '@/actions/auth';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/language-provider';
 import { saveSettingsField } from '@/actions/settings';
@@ -10,6 +9,7 @@ import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
 import SyncStatusIndicator from '@/components/layout/sync-status-indicator';
 import { APP_VERSION } from '@/lib/utils';
+import LogoutButton from '@/components/auth/logout-button';
 
 interface TopbarProps {
   user: {
@@ -159,15 +159,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         {user ? (
           <>
             <UserAvatar user={user} />
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:gap-1 sm:px-3"
-              >
-                <span className="material-icons-round text-lg">logout</span>
-                <span className="hidden sm:inline">{t('topbar.logout', lang)}</span>
-              </button>
-            </form>
+            <LogoutButton />
           </>
         ) : (
           <a

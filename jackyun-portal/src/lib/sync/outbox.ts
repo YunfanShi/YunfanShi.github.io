@@ -123,3 +123,16 @@ export async function getOrCreateDeviceId(): Promise<string> {
   await setSetting('deviceId', id);
   return id;
 }
+
+export async function bindSyncUser(userId: string | null): Promise<void> {
+  const existing = await getSetting<string>('activeUserId');
+  if (!userId || (existing && existing !== userId)) {
+    await Promise.all([
+      storeRequest('outbox', 'readwrite', (store) => store.clear()),
+      storeRequest('metadata', 'readwrite', (store) => store.clear()),
+      storeRequest('conflicts', 'readwrite', (store) => store.clear()),
+      storeRequest('settings', 'readwrite', (store) => store.clear()),
+    ]);
+  }
+  if (userId) await setSetting('activeUserId', userId);
+}

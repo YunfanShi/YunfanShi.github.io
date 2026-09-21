@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
-import { toggleTask, deleteTask, createTask, deletePlan } from '@/actions/study';
+import { useState, useRef } from 'react';
 import StartStudyButton from './start-study-button';
 
 interface Task {
@@ -24,6 +23,10 @@ interface StudyPlanWithTasks {
 
 interface PlanCardProps {
   plan: StudyPlanWithTasks;
+  onToggleTask: (taskId: string, completed: boolean) => void;
+  onDeleteTask: (taskId: string) => void;
+  onCreateTask: (planId: string, title: string) => void;
+  onDeletePlan: (planId: string) => void;
 }
 
 function formatDate(dateStr: string | null) {
@@ -35,9 +38,8 @@ function formatDate(dateStr: string | null) {
   });
 }
 
-export default function PlanCard({ plan }: PlanCardProps) {
+export default function PlanCard({ plan, onToggleTask, onDeleteTask, onCreateTask, onDeletePlan }: PlanCardProps) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [isPending, startTransition] = useTransition();
   const [addingTask, setAddingTask] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,27 +51,26 @@ export default function PlanCard({ plan }: PlanCardProps) {
     progressPct === 100 ? '#34A853' : progressPct >= 50 ? '#FBBC05' : '#4285F4';
 
   function handleToggle(taskId: string) {
-    startTransition(() => toggleTask(taskId));
+    const task = plan.tasks.find((item) => item.id === taskId);
+    if (task) onToggleTask(taskId, !task.completed);
   }
 
   function handleDeleteTask(taskId: string) {
-    startTransition(() => deleteTask(taskId));
+    onDeleteTask(taskId);
   }
 
   function handleDeletePlan() {
     if (!confirm(`确定删除计划「${plan.title}」及其所有任务吗？`)) return;
-    startTransition(() => deletePlan(plan.id));
+    onDeletePlan(plan.id);
   }
 
   function handleAddTask(e: React.FormEvent) {
     e.preventDefault();
     const title = newTaskTitle.trim();
     if (!title) return;
-    startTransition(async () => {
-      await createTask(plan.id, title);
-      setNewTaskTitle('');
-      setAddingTask(false);
-    });
+    onCreateTask(plan.id, title);
+    setNewTaskTitle('');
+    setAddingTask(false);
   }
 
   return (
@@ -102,7 +103,6 @@ export default function PlanCard({ plan }: PlanCardProps) {
           {/* Delete plan */}
           <button
             onClick={handleDeletePlan}
-            disabled={isPending}
             className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[#EA433520] hover:text-[#EA4335] transition-colors disabled:opacity-40"
             title="删除计划"
           >
@@ -148,7 +148,6 @@ export default function PlanCard({ plan }: PlanCardProps) {
               >
                 <button
                   onClick={() => handleToggle(task.id)}
-                  disabled={isPending}
                   className="shrink-0 text-[var(--muted-foreground)] hover:text-[#4285F4] transition-colors disabled:opacity-40"
                 >
                   <span className="material-icons-round text-[18px]">
@@ -169,7 +168,6 @@ export default function PlanCard({ plan }: PlanCardProps) {
                 )}
                 <button
                   onClick={() => handleDeleteTask(task.id)}
-                  disabled={isPending}
                   className="shrink-0 opacity-0 group-hover:opacity-100 flex h-5 w-5 items-center justify-center rounded-full text-[var(--muted-foreground)] hover:text-[#EA4335] transition-all disabled:opacity-40"
                   title="删除任务"
                 >
@@ -194,7 +192,7 @@ export default function PlanCard({ plan }: PlanCardProps) {
             />
             <button
               type="submit"
-              disabled={isPending || !newTaskTitle.trim()}
+              disabled={!newTaskTitle.trim()}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#4285F4] text-white hover:bg-[#3574e0] disabled:opacity-50 transition-colors"
             >
               <span className="material-icons-round text-base">check</span>
