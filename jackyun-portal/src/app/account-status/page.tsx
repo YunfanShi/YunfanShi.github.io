@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { deletionRecoveryHtml, suspendedAccountHtml } from '@/lib/account-status-templates';
 import AccountAppealPanel from '@/components/account/account-appeal-panel';
+import BrandLogo from '@/components/brand-logo';
 
 export default async function AccountStatusPage() {
   const supabase = await createClient();
@@ -47,7 +48,7 @@ export default async function AccountStatusPage() {
       <div className="mx-auto max-w-3xl">
         <header className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#155eef] font-bold text-white">J</span>
+            <BrandLogo size={40} className="h-10 w-10 shrink-0" priority />
             <div><p className="font-semibold text-[var(--foreground)]">JackYun</p><p className="text-xs text-[var(--muted-foreground)]">账户服务中心</p></div>
           </div>
           <form action={signOut}><button type="submit" className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:bg-white dark:hover:bg-white/10">退出登录</button></form>

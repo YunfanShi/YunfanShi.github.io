@@ -9,6 +9,7 @@ import { useLanguage } from '@/components/language-provider';
 import { t } from '@/lib/i18n';
 import { NAVIGATION_GROUPS, NAVIGATION_ITEMS, navigationIdFromPath, type NavigationGroupId, type NavigationItem } from '@/lib/navigation';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
+import BrandLogo from '@/components/brand-logo';
 
 interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; initialIsAdmin?: boolean; betaActive?: boolean; allowedFeatureKeys?: string[]; }
 const PENDING_USAGE_KEY = 'jackyun_nav_usage_pending';
@@ -131,7 +132,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
   return <>
     <button type="button" aria-label="关闭导航菜单" className={`fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] transition-opacity md:hidden ${mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} onClick={() => setMobileOpen(false)} />
     <aside id="portal-navigation" inert={mobileViewport && !mobileOpen ? true : undefined} className={`fixed inset-y-0 left-0 z-50 flex w-[min(20rem,calc(100vw-3rem))] flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-2xl transition-[transform,width] duration-200 md:static md:z-auto md:translate-x-0 md:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'md:w-16' : 'md:w-64'}`}>
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--sidebar-border)] px-4">{(!collapsed || mobileViewport) && <div className="flex items-center gap-3"><div className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--brand)] text-sm font-bold text-white dark:text-[#202124]">J</div><div><p className="text-sm font-semibold text-[var(--foreground)]">JackYun</p><p className="text-[10px] uppercase tracking-[.12em] text-[var(--muted-foreground)]">Workspace</p></div></div>}<button type="button" onClick={() => setCollapsed(!collapsed)} className="ml-auto hidden h-11 w-11 place-items-center rounded-lg hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] md:grid" aria-label="折叠侧边栏"><span className="material-icons-round text-xl text-[var(--muted-foreground)]">{collapsed ? 'menu_open' : 'menu'}</span></button></div>
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--sidebar-border)] px-4">{(!collapsed || mobileViewport) && <div className="flex items-center gap-3"><BrandLogo size={32} className="h-8 w-8 shrink-0" priority /><div><p className="text-sm font-semibold text-[var(--foreground)]">JackYun</p><p className="text-[10px] uppercase tracking-[.12em] text-[var(--muted-foreground)]">Workspace</p></div></div>}<button type="button" onClick={() => setCollapsed(!collapsed)} className="ml-auto hidden h-11 w-11 place-items-center rounded-lg hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] md:grid" aria-label="折叠侧边栏"><span className="material-icons-round text-xl text-[var(--muted-foreground)]">{collapsed ? 'menu_open' : 'menu'}</span></button></div>
       <nav className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {prefs.layoutMode === 'flat' ? flatItems.map(renderItem) : orderedGroups.map((group) => {
           const groupItems = orderedItems(group.id);

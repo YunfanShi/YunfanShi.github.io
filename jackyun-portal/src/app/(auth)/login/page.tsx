@@ -2,6 +2,7 @@ import LoginButton from '@/components/auth/login-button';
 import GoogleLoginButton from '@/components/auth/google-login-button';
 import EmailLoginForm from '@/components/auth/email-login-form';
 import AppleLoginButton from '@/components/auth/apple-login-button';
+import BrandLogo from '@/components/brand-logo';
 import Link from 'next/link';
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
@@ -12,7 +13,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="w-full max-w-sm py-10">
         {/* Logo / Title */}
         <div className="text-center mb-8">
-          <div className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-lg bg-[var(--brand)] text-lg font-medium text-white dark:text-[#202124]">J</div>
+          <BrandLogo size={48} className="mx-auto mb-5 h-12 w-12" priority />
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">JackYun Workspace</p>
           <h1 className="mt-2 text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)]">欢迎回来</h1>
           <p className="mt-2 text-sm text-[var(--muted-foreground)]">

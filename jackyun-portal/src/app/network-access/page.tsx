@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import NetworkAccessForm from '@/components/network/network-access-form';
 import { NETWORK_PORTAL_COOKIE, verifyNetworkPortalSession } from '@/lib/network-portal-session';
+import BrandLogo from '@/components/brand-logo';
 
 export const metadata: Metadata = {
   title: '网络接入登记 | JackYun',
@@ -23,7 +24,7 @@ export default async function NetworkAccessPage() {
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/30 bg-white/10 shadow-[0_30px_100px_rgba(2,6,23,.5)] backdrop-blur-[2px]">
         <header className="flex items-center justify-between border-b border-white/25 bg-slate-950/55 px-5 py-4 text-white sm:px-8">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-sky-500 font-bold">JY</div>
+            <BrandLogo size={40} className="h-10 w-10 shrink-0" priority />
             <div>
               <p className="text-sm font-semibold tracking-[.16em]">PRIVATE NETWORK</p>
               <p className="text-xs text-sky-100">安全接入门户</p>

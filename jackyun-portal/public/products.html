@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050506">
   <meta name="description" content="探索 JackYun PWA 与 JackYun Companion。把学习工作区带到桌面，让浏览器成为专注搭档。">
   <title>JackYun Products</title>
-  <link rel="icon" href="/jackyun-icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/Webicon.png" type="image/png">
   <style>
     :root{--ink:#f5f5f7;--muted:#9a9aa2;--line:rgba(255,255,255,.12);--blue:#7db4ff;--amber:#e8a94c;--green:#7ee2b8;--ease:cubic-bezier(.2,.8,.2,1);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","PingFang SC",sans-serif;color-scheme:dark}
     *{box-sizing:border-box}
@@ -38,8 +38,7 @@
     .hero-tile:last-child{transform:translateX(-14%) rotateY(-14deg) rotateZ(5deg)}
     .hero-products:hover .hero-tile:first-child{transform:translateX(-91%) rotateY(8deg) rotateZ(-7deg)}
     .hero-products:hover .hero-tile:last-child{transform:translateX(-9%) rotateY(-8deg) rotateZ(7deg)}
-    .app-mark{width:150px;height:150px;filter:drop-shadow(0 30px 30px rgba(0,0,0,.45))}
-    .companion-mark{width:150px;height:150px;border-radius:40px;background:linear-gradient(135deg,#205ce4,#6537d9);box-shadow:0 25px 60px rgba(45,87,220,.38);display:grid;place-items:center;font-size:48px;font-weight:850;letter-spacing:-.08em}
+    .app-mark,.companion-mark{width:150px;height:150px;object-fit:cover;filter:drop-shadow(0 30px 30px rgba(0,0,0,.45))}
     .tile-label{position:absolute;bottom:30px;left:0;right:0;color:#c6c7ce;font-size:14px;font-weight:650}
     .scroll-cue{display:inline-flex;align-items:center;gap:10px;margin-top:12px;color:#74757d;font-size:12px;text-transform:uppercase;letter-spacing:.14em}
     .scroll-cue i{display:block;width:1px;height:34px;background:linear-gradient(transparent,#777)}
@@ -69,7 +68,7 @@
     .window-bar i{width:10px;height:10px;border-radius:50%;background:#b9bdc7}.window-bar i:first-child{background:#ff635d}.window-bar i:nth-child(2){background:#ffc043}.window-bar i:nth-child(3){background:#34c759}
     .portal-ui{height:calc(100% - 38px);display:grid;grid-template-columns:92px 1fr;color:#15171b;background:#fff}
     .portal-side{padding:18px 10px;background:#f1f3f7;border-right:1px solid #e1e4e9}
-    .portal-logo{width:32px;height:32px;margin-bottom:22px;border-radius:10px;background:#161719;color:white;display:grid;place-items:center;font-size:10px;font-weight:800}
+    .portal-logo{display:block;width:32px;height:32px;margin-bottom:22px;object-fit:cover}
     .side-line{height:8px;margin:11px 0;border-radius:10px;background:#d7dbe4}.side-line.active{background:#4788ff}.side-line.short{width:65%}
     .portal-main{padding:22px;background:linear-gradient(#fff,#f8f9fb)}
     .portal-main small{font-size:8px;color:#7f8490;text-transform:uppercase;letter-spacing:.12em}.portal-main h4{margin:6px 0 15px;font-size:21px;letter-spacing:-.05em}
@@ -88,7 +87,7 @@
     .browser-top{height:42px;display:flex;align-items:center;gap:7px;padding:0 15px;border-bottom:1px solid rgba(255,255,255,.08);background:#25262c}.browser-top i{width:9px;height:9px;border-radius:50%;background:#5c5f68}.url{width:58%;height:20px;margin-left:16px;border-radius:8px;background:#17181c}
     .browser-content{padding:38px}.browser-content .line{height:11px;margin:15px 0;border-radius:10px;background:#32353e}.browser-content .line:first-child{width:62%;height:28px;background:#f0f1f3}.browser-content .line:nth-child(2){width:82%}.browser-content .line:nth-child(3){width:72%}.browser-content .line:nth-child(4){width:88%}.browser-card{height:140px;margin-top:34px;border-radius:18px;background:linear-gradient(120deg,#172b48,#25204a)}
     .extension{position:absolute;z-index:3;right:-2%;top:3%;width:min(350px,82%);padding:16px;border:1px solid rgba(255,255,255,.18);border-radius:24px;background:#f4f7fb;color:#172033;box-shadow:0 55px 110px rgba(0,0,0,.7);transform:rotateY(-5deg) translateZ(40px)}
-    .ext-head{display:flex;align-items:center;gap:10px}.ext-logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#2563eb,#5b3fd2);color:white;display:grid;place-items:center;font-size:12px;font-weight:850}.ext-head strong{display:block;font-size:14px}.ext-head small{display:block;margin-top:2px;color:#768196;font-size:9px}
+    .ext-head{display:flex;align-items:center;gap:10px}.ext-logo{display:block;width:40px;height:40px;object-fit:cover}.ext-head strong{display:block;font-size:14px}.ext-head small{display:block;margin-top:2px;color:#768196;font-size:9px}
     .protection{display:flex;align-items:center;gap:10px;margin-top:12px;padding:11px;border:1px solid #a6e2c0;border-radius:14px;background:linear-gradient(135deg,#edfff5,#f4fbff)}.shield{width:30px;height:30px;border-radius:10px;background:#16a765;color:white;display:grid;place-items:center;font-size:12px}.protection b{display:block;font-size:11px}.protection span{display:block;margin-top:2px;color:#607186;font-size:8px}.toggle{margin-left:auto;width:36px;height:21px;padding:3px;border-radius:20px;background:#16a765}.toggle::after{content:"";display:block;width:15px;height:15px;margin-left:auto;border-radius:50%;background:white}
     .ext-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:10px 0;padding:4px;border-radius:12px;background:#e9eef6}.ext-tabs span{padding:7px 2px;border-radius:8px;color:#657186;font-size:8px;text-align:center}.ext-tabs span:first-child{background:white;color:#2458d3;box-shadow:0 2px 7px rgba(0,0,0,.06)}
     .ext-stats{display:grid;grid-template-columns:1.2fr 1fr;gap:8px}.ext-stat{padding:11px;border:1px solid #dfe6f0;border-radius:13px;background:white}.ext-stat small{color:#68758a;font-size:8px}.ext-stat b{display:block;margin-top:4px;font-size:14px}.ext-progress{height:5px;margin-top:8px;border-radius:6px;background:#e7ecf3;overflow:hidden}.ext-progress i{display:block;width:68%;height:100%;background:#20b77a}
@@ -114,7 +113,7 @@
 <body>
   <div class="ambient" aria-hidden="true"></div>
   <nav class="nav" aria-label="Products 导航">
-    <a class="brand" href="#top"><img src="/jackyun-icon.svg" alt=""><span>JackYun Products</span></a>
+    <a class="brand" href="#top"><img src="/jackyun-logo.png" alt=""><span>JackYun Products</span></a>
     <div class="nav-links"><a href="#pwa">PWA</a><a href="#companion">Companion</a><a href="#together">协同</a></div>
     <a class="nav-home" href="/settings"><span>返回设置</span><b aria-hidden="true">↗</b></a>
   </nav>
@@ -126,8 +125,8 @@
         <h1><span>让专注，拥有自己的形态。</span></h1>
         <p class="hero-copy">一个住进你的设备，一个守在你的浏览器。学习、专注与灵感，从此不再局限于某一个标签页。</p>
         <div class="hero-products" aria-label="JackYun 两款产品">
-          <a class="hero-tile" href="#pwa"><img class="app-mark" src="/jackyun-icon.svg" alt="JackYun PWA"><span class="tile-label">JackYun PWA</span></a>
-          <a class="hero-tile" href="#companion"><span class="companion-mark" aria-hidden="true">JY</span><span class="tile-label">JackYun Companion</span></a>
+          <a class="hero-tile" href="#pwa"><img class="app-mark" src="/jackyun-logo.png" alt="JackYun PWA"><span class="tile-label">JackYun PWA</span></a>
+          <a class="hero-tile" href="#companion"><img class="companion-mark" src="/jackyun-logo.png" alt="JackYun Companion"><span class="tile-label">JackYun Companion</span></a>
         </div>
         <span class="scroll-cue"><i></i> Explore the family</span>
       </div>
@@ -146,8 +145,8 @@
             <div class="facts"><div class="fact"><b>全屏</b><span>独立应用窗口</span></div><div class="fact"><b>离线</b><span>断网恢复与本地队列</span></div><div class="fact"><b>自动</b><span>安全更新提醒</span></div></div>
           </div>
           <div class="desktop-scene" aria-label="JackYun PWA 工作区预览">
-            <div class="desktop-window"><div class="window-bar"><i></i><i></i><i></i></div><div class="portal-ui"><aside class="portal-side"><div class="portal-logo">JY</div><div class="side-line active"></div><div class="side-line"></div><div class="side-line short"></div><div class="side-line"></div><div class="side-line short"></div></aside><div class="portal-main"><small>Your learning space</small><h4>把今天，变成长期能力。</h4><div class="ai-strip"><b>JackYun AI</b><div></div><div style="width:48%"></div></div><div class="stat-grid"><div class="stat"><i></i><b>今日任务</b></div><div class="stat"><i></i><b>专注时间</b></div><div class="stat"><i></i><b>复习队列</b></div></div><div class="task-list"><div class="task"><i></i><span></span></div><div class="task"><i></i><span style="width:62%"></span></div><div class="task"><i></i><span style="width:38%"></span></div></div></div></div></div>
-            <div class="float-badge"><img src="/jackyun-icon.svg" alt=""><span><strong>Installed</strong><small>JackYun is ready</small></span></div>
+            <div class="desktop-window"><div class="window-bar"><i></i><i></i><i></i></div><div class="portal-ui"><aside class="portal-side"><img class="portal-logo" src="/jackyun-logo.png" alt=""><div class="side-line active"></div><div class="side-line"></div><div class="side-line short"></div><div class="side-line"></div><div class="side-line short"></div></aside><div class="portal-main"><small>Your learning space</small><h4>把今天，变成长期能力。</h4><div class="ai-strip"><b>JackYun AI</b><div></div><div style="width:48%"></div></div><div class="stat-grid"><div class="stat"><i></i><b>今日任务</b></div><div class="stat"><i></i><b>专注时间</b></div><div class="stat"><i></i><b>复习队列</b></div></div><div class="task-list"><div class="task"><i></i><span></span></div><div class="task"><i></i><span style="width:62%"></span></div><div class="task"><i></i><span style="width:38%"></span></div></div></div></div></div>
+            <div class="float-badge"><img src="/jackyun-logo.png" alt=""><span><strong>Installed</strong><small>JackYun is ready</small></span></div>
           </div>
         </div>
       </div>
@@ -160,7 +159,7 @@
           <div class="companion-grid">
             <div class="browser-scene" aria-label="JackYun Companion 扩展预览">
               <div class="browser-page"><div class="browser-top"><i></i><i></i><i></i><span class="url"></span></div><div class="browser-content"><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div><div class="browser-card"></div></div></div>
-              <div class="extension"><div class="ext-head"><div class="ext-logo">JY</div><span><strong>JackYun Companion</strong><small>同步完成 · 本地优先</small></span></div><div class="protection"><div class="shield">◆</div><span><b>净网保护已开启</b><span>广告与追踪拦截正在运行</span></span><div class="toggle"></div></div><div class="ext-tabs"><span>概览</span><span>AI 自动</span><span>净网</span><span>工具</span></div><div class="ext-stats"><div class="ext-stat"><small>今日有效学习</small><b>82 分钟</b><div class="ext-progress"><i></i></div></div><div class="ext-stat"><small>每日目标</small><b>120 分钟</b></div></div><div class="ext-card"><strong>专注计时</strong><div class="ext-buttons"><span>25 分钟</span><span>50 分钟</span></div></div></div>
+              <div class="extension"><div class="ext-head"><img class="ext-logo" src="/jackyun-logo.png" alt=""><span><strong>JackYun Companion</strong><small>同步完成 · 本地优先</small></span></div><div class="protection"><div class="shield">◆</div><span><b>净网保护已开启</b><span>广告与追踪拦截正在运行</span></span><div class="toggle"></div></div><div class="ext-tabs"><span>概览</span><span>AI 自动</span><span>净网</span><span>工具</span></div><div class="ext-stats"><div class="ext-stat"><small>今日有效学习</small><b>82 分钟</b><div class="ext-progress"><i></i></div></div><div class="ext-stat"><small>每日目标</small><b>120 分钟</b></div></div><div class="ext-card"><strong>专注计时</strong><div class="ext-buttons"><span>25 分钟</span><span>50 分钟</span></div></div></div>
             </div>
             <div class="product-copy">
               <span class="product-number">PRODUCT 02 / BROWSER EXTENSION</span>
@@ -177,7 +176,7 @@
     </section>
 
     <section class="ecosystem" id="together">
-      <div class="ecosystem-inner reveal"><span class="kicker">Better together</span><h2>不是两个工具。<br>是同一个学习系统的两种存在。</h2><p>PWA 负责你的学习空间，Companion 连接浏览器里的每一次行动。账号、专注与进度在它们之间自然流动。</p><div class="orbit" aria-hidden="true"><div class="orbit-core"><img src="/jackyun-icon.svg" alt=""></div><span class="orbit-product pwa">PWA · Your workspace</span><span class="orbit-product companion">Companion · Your browser</span><span class="orbit-product cloud">Sync · Your progress</span></div><div class="closing-actions"><button class="button blue" type="button" data-install-pwa>安装 PWA</button><a class="button amber" href="/downloads/jackyun-companion-v1.7.8.zip" download>下载 Companion</a></div></div>
+      <div class="ecosystem-inner reveal"><span class="kicker">Better together</span><h2>不是两个工具。<br>是同一个学习系统的两种存在。</h2><p>PWA 负责你的学习空间，Companion 连接浏览器里的每一次行动。账号、专注与进度在它们之间自然流动。</p><div class="orbit" aria-hidden="true"><div class="orbit-core"><img src="/jackyun-logo.png" alt=""></div><span class="orbit-product pwa">PWA · Your workspace</span><span class="orbit-product companion">Companion · Your browser</span><span class="orbit-product cloud">Sync · Your progress</span></div><div class="closing-actions"><button class="button blue" type="button" data-install-pwa>安装 PWA</button><a class="button amber" href="/downloads/jackyun-companion-v1.7.8.zip" download>下载 Companion</a></div></div>
     </section>
   </main>
 

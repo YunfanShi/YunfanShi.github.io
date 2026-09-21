@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import BrandLogo from '@/components/brand-logo';
 
 interface Details {
   authorization_id: string;
@@ -47,7 +48,7 @@ export default function OAuthConsentPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-5 py-10">
       <section className="w-full max-w-md rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-7 shadow-xl">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#e8f0fe] text-lg font-bold text-[#1967d2]">JY</div>
+        <BrandLogo size={48} className="h-12 w-12" priority />
         <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--foreground)]">连接 JackYun Companion</h1>
         {error ? <p className="mt-4 rounded-xl bg-[#fce8e6] p-3 text-sm text-[#b3261e]">{error}</p> : !details ? <p className="mt-4 text-sm text-[var(--muted-foreground)]">正在验证授权请求…</p> : <>
           <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"><strong className="text-[var(--foreground)]">{details.client.name}</strong> 希望连接账号 {details.user.email}。</p>

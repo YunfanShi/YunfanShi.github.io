@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -10,6 +11,19 @@ test('PWA manifest exposes installable identity, shortcuts, and required icons',
   assert.match(manifest, /jackyun-icon-192\.png/);
   assert.match(manifest, /sizes:\s*'512x512'/);
   assert.match(manifest, /shortcuts:/);
+});
+
+test('website branding uses the supplied JackYun logo everywhere', async () => {
+  const logo = await readFile(new URL('public/jackyun-logo.png', projectDir));
+  assert.equal(createHash('sha256').update(logo).digest('hex'), '844210f193d8be99ba8e2cb67562bd2c57d844f2e3394f6cd1f9d26713a0224e');
+
+  const brandComponent = await readFile(new URL('src/components/brand-logo.tsx', projectDir), 'utf8');
+  const products = await readFile(new URL('public/products.html', projectDir), 'utf8');
+  const offlineIndex = await readFile(new URL('public/index.html', projectDir), 'utf8');
+  assert.match(brandComponent, /src="\/jackyun-logo\.png"/);
+  assert.match(products, /src="\/jackyun-logo\.png"/);
+  assert.match(offlineIndex, /src="jackyun-logo\.png"/);
+  assert.doesNotMatch(products, /jackyun-icon\.svg|>JY</);
 });
 
 test('service worker keeps APIs network-only and serves cached React routes before the static fallback', async () => {

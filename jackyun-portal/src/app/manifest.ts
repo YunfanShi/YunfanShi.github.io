@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: '/jackyun-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/Webicon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/jackyun-icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+      { src: '/Webicon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     shortcuts: [
       { name: '今日学习', short_name: '今日学习', url: '/dashboard', icons: [{ src: '/jackyun-icon-192.png', sizes: '192x192' }] },
