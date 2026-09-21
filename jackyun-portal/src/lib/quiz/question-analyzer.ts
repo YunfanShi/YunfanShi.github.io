@@ -2,94 +2,7 @@
 
 import { AnalyzedQuestion, QuestionType } from '@/types/quiz';
 import { callAiApi } from '@/lib/ai-config';
-
-/**
- * Attempt to repair broken JSON from AI responses.
- * Handles: unterminated strings, trailing commas, missing closing brackets.
- */
-function repairJSON(raw: string): string {
-  let text = raw.trim();
-
-  // Remove markdown code fences
-  if (text.startsWith('```')) {
-    text = text.replace(/```(?:json)?\n?/g, '').trim();
-  }
-
-  // Try to find the outermost { ... }
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    text = text.slice(firstBrace, lastBrace + 1);
-  }
-
-  // Repair: unclosed strings (AI got truncated mid-string)
-  // Count quotes - if odd number, we have an unterminated string
-  let inString = false;
-  let escaped = false;
-  let fixed = '';
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (escaped) {
-      fixed += ch;
-      escaped = false;
-      continue;
-    }
-    if (ch === '\\') {
-      escaped = true;
-      fixed += ch;
-      continue;
-    }
-    if (ch === '"') {
-      if (!inString) {
-        inString = true;
-      } else {
-        // Check if next non-whitespace is a structural character
-        const remaining = text.slice(i + 1).trimStart();
-        if (remaining.length === 0 || /^[,:}\]\s]/.test(remaining)) {
-          inString = false;
-        }
-        // If remaining starts with a new key or value start, close the string
-        else if (remaining.startsWith('"') || remaining.startsWith('{') || remaining.startsWith('[') || /^\d/.test(remaining) || remaining.startsWith('true') || remaining.startsWith('false') || remaining.startsWith('null')) {
-          // Unterminated string - close it
-          fixed += '"';
-          inString = false;
-          // Add comma if needed
-          fixed += ',';
-          // Skip ahead to the next quote
-          continue;
-        }
-        // If we hit end of text with an open string, close it
-        else if (i === text.length - 1 || text.slice(i + 1).trim().length === 0) {
-          fixed += '"';
-          inString = false;
-        }
-      }
-    }
-    fixed += ch;
-  }
-
-  // If still in string at end, close it
-  if (inString) {
-    fixed += '"';
-  }
-
-  // Repair: trailing commas before ] or }
-  fixed = fixed.replace(/,\s*([}\]])/g, '$1');
-
-  // Repair: missing closing brackets
-  let openBraces = 0, closeBraces = 0;
-  let openBrackets = 0, closeBrackets = 0;
-  for (const ch of fixed) {
-    if (ch === '{') openBraces++;
-    if (ch === '}') closeBraces++;
-    if (ch === '[') openBrackets++;
-    if (ch === ']') closeBrackets++;
-  }
-  for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
-  for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
-
-  return fixed;
-}
+import { parseAiJson } from '@/lib/ai-json';
 
 function getLangPreference(): string {
   if (typeof window !== 'undefined') {
@@ -326,24 +239,7 @@ export async function analyzeQuestions(
       { role: 'user', content: prompt },
     ], { temperature: 0.1, max_tokens: 10000 });
 
-    // Try to extract and repair JSON from the response
-    const jsonStr = repairJSON(content);
-    let parsed: { questions?: AnalyzedQuestion[] };
-    try {
-      parsed = JSON.parse(jsonStr) as { questions?: AnalyzedQuestion[] };
-    } catch (parseErr) {
-      // Retry with simple regex extraction
-      const match = jsonStr.match(/"questions"\s*:\s*(\[[\s\S]*\])/);
-      if (match) {
-        try {
-          parsed = JSON.parse(`{ "questions": ${match[1]} }`) as { questions?: AnalyzedQuestion[] };
-        } catch {
-          throw parseErr;
-        }
-      } else {
-        throw parseErr;
-      }
-    }
+    const parsed = parseAiJson(content) as { questions?: AnalyzedQuestion[] };
 
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
       throw new Error('Invalid response format from AI');
@@ -393,10 +289,7 @@ export async function gradeAnswer(
       { role: 'user', content: prompt },
     ], { temperature: 0.1, max_tokens: 1000 });
 
-    let jsonStr = content.trim();
-    if (jsonStr.startsWith('```')) jsonStr = jsonStr.replace(/```(?:json)?\n?/g, '').trim();
-
-    return JSON.parse(jsonStr) as GradeResult;
+    return parseAiJson(content) as GradeResult;
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Grading failed' };
   }

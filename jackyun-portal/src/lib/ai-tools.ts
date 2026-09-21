@@ -8,6 +8,8 @@
  * - control (Control)：仅控制和查询
  */
 
+import { parseAiJson } from './ai-json';
+
 export type ToolScope = 'global' | 'dashboard' | 'quiz' | 'plan' | 'control' | 'study_guide' | 'goal' | 'study' | 'vocab' | 'music' | 'poem' | 'relax' | 'countdown' | 'settings' | 'tools' | 'help';
 
 export interface ConsentInfo {
@@ -2437,8 +2439,8 @@ export function parseToolCalls(
   let match;
   while ((match = toolCallRegex.exec(content)) !== null) {
     try {
-      const obj = JSON.parse(match[1].trim());
-      results.push({ tool: obj.tool, params: obj.params || {} });
+      const obj = parseAiJson(match[1]) as { tool?: unknown; params?: unknown };
+      if (typeof obj.tool === 'string' && (!obj.params || typeof obj.params === 'object')) results.push({ tool: obj.tool, params: (obj.params ?? {}) as Record<string, string> });
     } catch {
       // skip invalid
     }
@@ -2449,11 +2451,17 @@ export function parseToolCalls(
     const bareJsonRegex = /\{\s*"tool"\s*:\s*"(.*?)"\s*,\s*"params"\s*:\s*\{([\s\S]*?)\}\s*\}/g;
     while ((match = bareJsonRegex.exec(content)) !== null) {
       try {
-        const obj = JSON.parse(match[0]);
-        results.push({ tool: obj.tool, params: obj.params || {} });
+        const obj = parseAiJson(match[0]) as { tool?: unknown; params?: unknown };
+        if (typeof obj.tool === 'string' && (!obj.params || typeof obj.params === 'object')) results.push({ tool: obj.tool, params: (obj.params ?? {}) as Record<string, string> });
       } catch {
         // skip invalid
       }
+    }
+    if (results.length === 0) {
+      try {
+        const obj = parseAiJson(content) as { tool?: unknown; params?: unknown };
+        if (typeof obj.tool === 'string' && (!obj.params || typeof obj.params === 'object')) results.push({ tool: obj.tool, params: (obj.params ?? {}) as Record<string, string> });
+      } catch { /* The response did not contain a recoverable tool call. */ }
     }
   }
 

@@ -49,6 +49,13 @@ test('parses the documented property table format', () => {
   });
 });
 
+test('repairs common AI JSON mistakes before importing a property deck', () => {
+  const result = parsePropertyDeckImport("Result: {title：'Waves', items: ['Radio', 'Microwave'] properties: [{label: 'Frequency', values: ['Low', 'High',],}],}");
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.draft?.title, 'Waves');
+  assert.deepEqual(result.draft?.properties[0].values, ['Low', 'High']);
+});
+
 test('rejects property rows with the wrong number of values', () => {
   const result = parsePropertyDeckImport('@title: Waves\n@items: Radio | Microwave | Infrared\nFrequency: Low | High');
   assert.equal(result.draft, null);

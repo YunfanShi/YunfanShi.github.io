@@ -1,3 +1,54 @@
+import { jsonrepair } from 'jsonrepair';
+
+function isLikelyLatexEscape(raw: string, slashIndex: number): boolean {
+  const rest = raw.slice(slashIndex + 1);
+  const command = rest.match(/^[A-Za-z]+/u)?.[0] ?? '';
+  return command.length > 1 || /^[()[\]{} ,;!:|<>]/u.test(rest);
+}
+
+function repairStringEscapes(raw: string): string {
+  let cleaned = '';
+  let inDoubleQuotedString = false;
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index];
+    const next = raw[index + 1] ?? '';
+    if (character === '"' && (index === 0 || raw[index - 1] !== '\\')) inDoubleQuotedString = !inDoubleQuotedString;
+    if (character === '\\') {
+      if (!inDoubleQuotedString && ('{}[]\n\r'.includes(next))) continue;
+      if (inDoubleQuotedString && isLikelyLatexEscape(raw, index)) {
+        cleaned += '\\\\';
+        continue;
+      }
+      if (inDoubleQuotedString && next && !'"\\/bfnrtu'.includes(next)) continue;
+    }
+    cleaned += character;
+  }
+  return cleaned;
+}
+
+function normalizeStructuralPunctuation(raw: string): string {
+  let normalized = '';
+  let quote: '"' | "'" | '“' | '‘' | null = null;
+  let escaped = false;
+
+  for (const character of raw) {
+    if (quote) {
+      normalized += character;
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if ((quote === '“' && character === '”') || (quote === '‘' && character === '’') || character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === '“' || character === '‘') {
+      quote = character;
+      normalized += character;
+    } else if (character === '：') normalized += ':';
+    else if (character === '，' || character === '；' || character === ';') normalized += ',';
+    else normalized += character;
+  }
+  return normalized;
+}
+
 function jsonCandidate(raw: string): string {
   const text = raw
     .trim()
@@ -8,82 +59,46 @@ function jsonCandidate(raw: string): string {
   const start = text.search(/[\[{]/u);
   if (start < 0) throw new Error('AI 没有返回可读取的 JSON。');
 
-  const opening = text[start];
-  const closing = opening === '{' ? '}' : ']';
-  let depth = 0;
-  let inString = false;
+  const stack: string[] = [];
+  let quote: '"' | "'" | '“' | '‘' | null = null;
   let escaped = false;
 
   for (let index = start; index < text.length; index += 1) {
     const character = text[index];
-    if (inString) {
+    if (quote) {
       if (escaped) escaped = false;
       else if (character === '\\') escaped = true;
-      else if (character === '"') inString = false;
+      else if ((quote === '“' && character === '”') || (quote === '‘' && character === '’') || character === quote) quote = null;
       continue;
     }
-    if (character === '"') inString = true;
-    else if (character === opening) depth += 1;
-    else if (character === closing) {
-      depth -= 1;
-      if (depth === 0) return text.slice(start, index + 1);
+    if (character === '"' || character === "'" || character === '“' || character === '‘') quote = character;
+    else if (character === '{') stack.push('}');
+    else if (character === '[') stack.push(']');
+    else if (character === '}' || character === ']') {
+      if (stack.at(-1) === character) stack.pop();
+      if (stack.length === 0) return text.slice(start, index + 1);
     }
   }
 
-  throw new Error('AI 返回的 JSON 不完整，请重试。');
-}
-
-function repairJson(candidate: string): string {
-  let repaired = '';
-  let inString = false;
-  let escaped = false;
-
-  for (let index = 0; index < candidate.length; index += 1) {
-    const character = candidate[index];
-    if (!inString) {
-      if (character === '"') inString = true;
-      if (character === '\\' && ('{}[]'.includes(candidate[index + 1] ?? '') || candidate[index + 1] === '\n' || candidate[index + 1] === '\r')) continue;
-      repaired += character;
-      continue;
-    }
-
-    if (escaped) {
-      if ('"\\/bfnrtu'.includes(character)) repaired += `\\${character}`;
-      else repaired += character;
-      escaped = false;
-      continue;
-    }
-    if (character === '\\') {
-      escaped = true;
-    } else if (character === '"') {
-      repaired += character;
-      inString = false;
-    } else if (character === '\n') repaired += '\\n';
-    else if (character === '\r') repaired += '\\r';
-    else if (character === '\t') repaired += '\\t';
-    else if (character.charCodeAt(0) < 0x20) repaired += `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
-    else repaired += character;
-  }
-
-  if (escaped) repaired += '\\';
-
-  return repaired.replace(/,\s*([}\]])/gu, '$1');
+  return text.slice(start);
 }
 
 /** Parse the small, structured objects requested from an LLM.
  *
- * The first pass remains strict. The fallback only repairs defects that do not
- * change meaning: raw control characters, invalid escaped punctuation, and
- * trailing commas. It deliberately refuses truncated or structurally ambiguous
- * output instead of guessing missing content.
+ * The first pass remains strict. The fallback repairs common LLM formatting
+ * defects such as smart/single quotes, missing or trailing commas, unquoted
+ * keys, Python constants, code fences, and truncated closing brackets. Feature
+ * parsers must still validate the returned shape before using it.
  */
 export function parseAiJson(raw: string): unknown {
   const candidate = jsonCandidate(raw);
+  const repairable = normalizeStructuralPunctuation(repairStringEscapes(candidate));
   try {
+    if (repairable !== candidate) throw new SyntaxError('AI JSON needs escape repair.');
     return JSON.parse(candidate) as unknown;
   } catch (firstError) {
     try {
-      return JSON.parse(repairJson(candidate)) as unknown;
+      return JSON.parse(jsonrepair(repairable)) as unknown;
     } catch {
       throw new Error(firstError instanceof SyntaxError ? 'AI 返回的 JSON 格式有误，请重试。' : 'AI 返回内容无法读取，请重试。');
     }

@@ -1,3 +1,5 @@
+import { parseAiJson } from './ai-json.ts';
+
 export interface SmartSelectionCandidate {
   id: number;
   displayName: string;
@@ -76,13 +78,12 @@ export function buildSmartSelectionMessages(
 
 export function parseSmartSelection(text: string, allowedIds: Iterable<number>): number | null {
   const allowed = new Set(allowedIds);
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
-    const parsed = JSON.parse(cleaned) as { modelId?: unknown; model_id?: unknown; id?: unknown };
+    const parsed = parseAiJson(text) as { modelId?: unknown; model_id?: unknown; id?: unknown };
     const value = Number(parsed.modelId ?? parsed.model_id ?? parsed.id);
     return Number.isSafeInteger(value) && allowed.has(value) ? value : null;
   } catch {
-    const match = cleaned.match(/^\s*(\d+)\s*$/);
+    const match = text.match(/^\s*(\d+)\s*$/);
     const value = Number(match?.[1]);
     return Number.isSafeInteger(value) && allowed.has(value) ? value : null;
   }

@@ -1,3 +1,5 @@
+import { parseAiJson } from './ai-json.ts';
+
 export interface PropertyRow {
   id: string;
   label: string;
@@ -90,9 +92,9 @@ function draftFromObject(value: unknown): PropertyDeckDraft | null {
 export function parsePropertyDeckImport(input: string): PropertyDeckImportResult {
   const text = input.replace(/^\uFEFF/u, '').trim();
   if (!text) return { draft: null, errors: ['请先粘贴要导入的内容。'] };
-  if (/^[{[]/u.test(text)) {
+  if (/[{[]/u.test(text)) {
     try {
-      const draft = draftFromObject(JSON.parse(text) as unknown);
+      const draft = draftFromObject(parseAiJson(text));
       if (!draft) return { draft: null, errors: ['JSON 缺少 title、items 或 properties。'] };
       const errors = draft.properties.flatMap((row) => row.values.length === draft.items.length ? [] : [`「${row.label}」有 ${row.values.length} 个值，但需要 ${draft.items.length} 个。`]);
       return { draft: errors.length ? null : draft, errors };

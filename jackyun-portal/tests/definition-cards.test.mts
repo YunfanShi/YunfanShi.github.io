@@ -18,6 +18,12 @@ test('parses header-based CSV, TSV, and JSON aliases', () => {
   assert.equal(parseDefinitionCards('[{"concept":"Layer","meaning":"Groups objects"}]')[0].definition, 'Groups objects');
 });
 
+test('repairs common AI JSON mistakes before importing definitions', () => {
+  assert.deepEqual(parseDefinitionCards("AI result: [{concept：'Layer', meaning: 'Groups objects',}]"), [
+    { term: 'Layer', definition: 'Groups objects', note: '' },
+  ]);
+});
+
 test('skips malformed rows and removes exact duplicates', () => {
   assert.deepEqual(parseDefinitionCards('No separator\nTerm: Definition\nterm: definition'), [
     { term: 'Term', definition: 'Definition', note: '' },

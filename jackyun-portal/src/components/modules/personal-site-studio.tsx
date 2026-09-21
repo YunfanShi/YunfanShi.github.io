@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
+import { parseAiJson } from '@/lib/ai-json';
 import { deleteLocalSite, listLocalSites, saveLocalSite } from '@/lib/personal-site-storage';
 import { validatePersonalSite, type PersonalSiteBlock, type PersonalSiteDefinition } from '@/lib/personal-site';
 
@@ -103,7 +104,7 @@ export default function PersonalSiteStudio() {
           const line = rawLine.trim();
           if (!line || line.startsWith('```')) continue;
           try {
-            const event = JSON.parse(line) as { kind?: string; name?: string; theme?: PersonalSiteDefinition['theme']; block?: unknown };
+            const event = parseAiJson(line) as { kind?: string; name?: string; theme?: PersonalSiteDefinition['theme']; block?: unknown };
             if (event.kind === 'meta') { if (event.name) name = event.name; if (event.theme) theme = event.theme; }
             if (event.kind === 'block' && event.block && blocks.length < 12) blocks.push(event.block);
             const preview = validatePersonalSite({ id: siteId, name, theme, blocks });

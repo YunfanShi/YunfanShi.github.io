@@ -510,7 +510,7 @@ function CueBatchImportDialog({ subjectName, unit, knownUnits, onClose, onImport
     setMessage(nextMessage);
   };
   const parseSource = (value: string) => {
-    try { const parsed = parseCueBatchImport(JSON.parse(value)); preparePreview(parsed.cues, `识别到 ${parsed.cues.length} 条 Cue，请先核对单元。`); }
+    try { const parsed = parseCueBatchImport(parseAiJson(value)); preparePreview(parsed.cues, `识别到 ${parsed.cues.length} 条 Cue，请先核对单元。`); }
     catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : 'Cue 配置无法读取。'); }
   };
   const aiPrompt = `请根据我提供的课堂笔记、教材内容或题目生成主动检索 Cue。只输出严格 JSON，不要 Markdown。JSON 格式示例：${JSON.stringify(cueBatchImportTemplate())}。
@@ -559,7 +559,7 @@ function CueEnrichmentDialog({ cues, onClose, onApply }: { cues: StudyCue[]; onC
     return updates;
   };
   const parseJson = () => {
-    try { const updates = validateUpdates(JSON.parse(source)); setPreview(updates); setMessage(`已读取 ${updates.length} 条修改，请核对后应用。`); }
+    try { const updates = validateUpdates(parseAiJson(source)); setPreview(updates); setMessage(`已读取 ${updates.length} 条修改，请核对后应用。`); }
     catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : 'JSON 无法读取。'); }
   };
   const run = async () => {
@@ -717,7 +717,7 @@ function LearningCatalogDialog({ current, onClose, onApply }: { current: Learnin
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [aiUseCurrent, setAiUseCurrent] = useState(true);
-  const parseSource = (value: string) => { try { const parsed = parseLearningCatalogImport(JSON.parse(value)); setPreview(parsed.subjects); setMessage(`识别到 ${parsed.subjects.length} 个科目。加载后仍可手动修改。`); } catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : '分类配置无法读取。'); } };
+  const parseSource = (value: string) => { try { const parsed = parseLearningCatalogImport(parseAiJson(value)); setPreview(parsed.subjects); setMessage(`识别到 ${parsed.subjects.length} 个科目。加载后仍可手动修改。`); } catch (error) { setPreview(null); setMessage(error instanceof Error ? error.message : '分类配置无法读取。'); } };
   const copyFormat = async () => {
     const instructions = [
       'JackYun 学科配置填写说明',
@@ -799,7 +799,7 @@ function ImportDialog({ onClose, onApply }: { onClose: () => void; onApply: (tim
     setMessage(`${prefix}${parsed.courses.length} 门课程、${parsed.courses.reduce((total, course) => total + course.sessions.length, 0)} 个时段。请在下方选择需要复习的科目。`);
   };
   const parseJson = (text: string) => {
-    try { showPreview(parseTimetableImport(JSON.parse(text) as unknown), '识别到 '); }
+    try { showPreview(parseTimetableImport(parseAiJson(text)), '识别到 '); }
     catch (error) { setPreview(null); setReviewCourseIds([]); setMessage(error instanceof Error ? error.message : 'JSON 无法读取。'); }
   };
   const runAiImport = async () => {

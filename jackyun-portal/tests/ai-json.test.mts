@@ -24,8 +24,26 @@ test('repairs JSON corrupted by the legacy Companion Markdown serializer', () =>
   });
 });
 
-test('rejects truncated JSON instead of inventing missing content', () => {
-  assert.throws(() => parseAiJson('{"content":"unfinished"'), /不完整/);
+test('repairs truncated closing quotes and brackets without adding content', () => {
+  assert.deepEqual(parseAiJson('{"content":"unfinished'), { content: 'unfinished' });
+});
+
+test('repairs punctuation, quotes, keys, constants, and missing commas from model output', () => {
+  assert.deepEqual(parseAiJson("结果：{name：‘Ada’， active: True skills: ['math', 'code',],}"), {
+    name: 'Ada',
+    active: true,
+    skills: ['math', 'code'],
+  });
+});
+
+test('preserves LaTeX commands when an AI forgets to JSON-escape backslashes', () => {
+  const parsed = parseAiJson(String.raw`{"answer":"Use \(a^{-m}=\frac1{a^m}\) and \(a^{1/n}=\sqrt[n]{a}\).","markingPoints":["\(\frac{a^m}{a^n}=a^{m-n}\)"]}`) as {
+    answer: string;
+    markingPoints: string[];
+  };
+  assert.equal(parsed.answer, String.raw`Use \(a^{-m}=\frac1{a^m}\) and \(a^{1/n}=\sqrt[n]{a}\).`);
+  assert.deepEqual(parsed.markingPoints, [String.raw`\(\frac{a^m}{a^n}=a^{m-n}\)`]);
+  assert.equal(/[\b\f]/u.test(parsed.answer), false);
 });
 
 test('reads text from common OpenAI-compatible response shapes', () => {

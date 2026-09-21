@@ -143,6 +143,7 @@ test('Admin supports aggregator discovery plus global and per-plan multi-selecti
 test('smart selection accepts only server-approved catalog IDs', () => {
   assert.equal(parseSmartSelection('{"modelId":42}', [41, 42]), 42);
   assert.equal(parseSmartSelection('```json\n{"model_id":41}\n```', [41, 42]), 41);
+  assert.equal(parseSmartSelection("推荐：{modelId：'42',}" , [41, 42]), 42);
   assert.equal(parseSmartSelection('{"modelId":999}', [41, 42]), null);
   assert.equal(parseSmartSelection('Use model 42 because it is stronger', [41, 42]), null);
   const messages = buildSmartSelectionMessages([{ role: 'user', content: '分析这段复杂代码' }], [{ id: 42, displayName: 'Strong', modelId: 'strong', description: 'coding', routingDescription: 'best for code review', capabilities: ['code', 'reasoning'], supportsAgent: true, inputCostPerMillion: 1, outputCostPerMillion: 2, contextWindow: 128000, health: { totalErrors: 2, testRuns: 8, testAttempts: 10, lastErrorAt: null, lastTestAt: '2026-09-14T12:00:00Z', lastTestAvailable: true, attemptsToConnect: 2, connectionMs: 320, firstTokenMs: 810, totalMs: 1700, tokensPerSecond: 24, recentAttempts: [{ attempt: 1, available: false, httpStatus: 503, connectionMs: 200, firstTokenMs: null, totalMs: 500, tokensPerSecond: null, error: 'temporary failure' }, { attempt: 2, available: true, httpStatus: 200, connectionMs: 320, firstTokenMs: 810, totalMs: 1700, tokensPerSecond: 24, error: null }] } }], 'agent');

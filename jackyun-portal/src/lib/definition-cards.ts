@@ -1,3 +1,5 @@
+import { parseAiJson } from './ai-json.ts';
+
 export type DefinitionCard = {
   id: string;
   term: string;
@@ -101,9 +103,9 @@ export function parseDefinitionCards(input: string): DefinitionCardDraft[] {
   const text = input.replace(/^\uFEFF/u, '').trim();
   if (!text) return [];
 
-  if (/^[\[{]/u.test(text)) {
+  if (/[\[{]/u.test(text)) {
     try {
-      const parsed = fromRecords(JSON.parse(text) as unknown);
+      const parsed = fromRecords(parseAiJson(text));
       if (parsed.length) return deduplicate(parsed);
     } catch { /* Continue with deterministic text parsing. */ }
   }
@@ -133,9 +135,9 @@ export function parseDefinitionCards(input: string): DefinitionCardDraft[] {
 export function parseDefinitionBundle(input: string): DefinitionImportBundle {
   const text = input.replace(/^\uFEFF/u, '').trim();
   if (!text) return { cards: [], placement: {} };
-  if (/^[\[{]/u.test(text)) {
+  if (/[\[{]/u.test(text)) {
     try {
-      const value = JSON.parse(text) as unknown;
+      const value = parseAiJson(text);
       if (value && typeof value === 'object' && !Array.isArray(value)) {
         const record = value as Record<string, unknown>;
         const placement = {
