@@ -298,6 +298,8 @@ export interface CueStudyDraft {
   revealed: boolean;
   selectedChoice?: number;
   assessments: Record<string, LearningStatus>;
+  /** Experimental per-Cue written recall drafts. These are private scratch notes, not review evidence. */
+  writtenResponses?: Record<string, string>;
   updatedAt: string;
 }
 
@@ -753,6 +755,18 @@ export function normalizeCueMetadata(cue: StudyCue, defaultUpdatedAt: string): S
   return { ...cue, version, updatedAt };
 }
 
+export type CueActivityTag = 'new' | 'updated' | 'due' | 'focus' | 'building' | 'streak' | 'reviewed';
+
+export function cueActivityTag(cue: StudyCue, today: string): CueActivityTag {
+  if (!cue.lastReviewedAt) return 'new';
+  if (Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)) return 'updated';
+  if (cue.nextReviewDate && cue.nextReviewDate <= today) return 'due';
+  if (cue.status === 'unclear') return 'focus';
+  if (cue.status === 'partial') return 'building';
+  if (cue.status === 'stable' && cue.streak >= 2) return 'streak';
+  return 'reviewed';
+}
+
 function cueUpdateChanges(cue: StudyCue, update: Omit<CueUpdateOperation, 'action' | 'id'>): boolean {
   return Object.entries(update).some(([key, value]) => {
     const current = cue[key as keyof StudyCue];
@@ -995,6 +1009,52 @@ function reviewDetail(type: 'daily' | 'interval' | 'weekly'): string {
   return '闭卷回忆 Cue → 对照笔记或教材 → 按需做 1–2 道代表题 → 用 √ / △ / ○ 记录状态。';
 }
 
+const CUE_REVIEW_TARGET = 15;
+const CUE_REVIEW_MAX = 20;
+
+/** Keeps normal units whole, combines small units, and splits units that are too large for one review. */
+export function buildCueReviewBatches(cues: StudyCue[]): StudyCue[][] {
+  const cueOrder = new Map(cues.map((cue, index) => [cue.id, index]));
+  const units = new Map<string, StudyCue[]>();
+  for (const cue of cues) units.set(cue.unit || '未分单元', [...(units.get(cue.unit || '未分单元') ?? []), cue]);
+
+  const batches: StudyCue[][] = [];
+  const wholeUnits: StudyCue[][] = [];
+  for (const unitCues of units.values()) {
+    if (unitCues.length <= CUE_REVIEW_MAX) {
+      wholeUnits.push(unitCues);
+      continue;
+    }
+    const batchCount = Math.ceil(unitCues.length / CUE_REVIEW_MAX);
+    const baseSize = Math.floor(unitCues.length / batchCount);
+    let cursor = 0;
+    for (let index = 0; index < batchCount; index += 1) {
+      const size = baseSize + (index < unitCues.length % batchCount ? 1 : 0);
+      batches.push(unitCues.slice(cursor, cursor + size));
+      cursor += size;
+    }
+  }
+
+  const bins: StudyCue[][] = [];
+  for (const unitCues of wholeUnits.toSorted((left, right) => right.length - left.length)) {
+    const candidates = bins
+      .map((batch, index) => ({ index, size: batch.length + unitCues.length }))
+      .filter((candidate) => candidate.size <= CUE_REVIEW_MAX)
+      .toSorted((left, right) => Math.abs(CUE_REVIEW_TARGET - left.size) - Math.abs(CUE_REVIEW_TARGET - right.size));
+    if (candidates[0]) bins[candidates[0].index].push(...unitCues);
+    else bins.push([...unitCues]);
+  }
+  batches.push(...bins);
+  return batches.toSorted((left, right) => (cueOrder.get(left[0].id) ?? 0) - (cueOrder.get(right[0].id) ?? 0));
+}
+
+function cueNeedsReview(cue: StudyCue, date: string): boolean {
+  return !cue.lastReviewedAt
+    || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)
+    || !cue.nextReviewDate
+    || cue.nextReviewDate <= date;
+}
+
 function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
   if (state.settings.mode !== 'term' || !state.settings.postClassTasksEnabled || !state.timetable) return [];
   const key = dateKey(date);
@@ -1011,7 +1071,7 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
     const subjectId = catalogSubject?.id ?? course.id;
     const subjectName = catalogSubject?.name ?? course.name;
     const subjectCues = state.cues.filter((cue) => cue.subjectId === subjectId);
-    const priorityCues = subjectCues.filter((cue) => !cue.lastReviewedAt || cue.status !== 'stable');
+    const priorityCues = subjectCues.filter((cue) => dateKey(new Date(cue.updatedAt)) === key && (!cue.lastReviewedAt || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)));
     const materialPositions = Object.entries(catalogSubject?.materialProgress ?? {}).map(([code, value]) => `${code} ${value}`).join('、');
     const workflow = [
       {
@@ -1050,7 +1110,6 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
       subjectId,
       subjectName,
       guide: { tab: 'learn', subTab: 'cornell' },
-      ...(priorityCues.length ? { cueIds: priorityCues.map((cue) => cue.id), scope: { cueIds: priorityCues.map((cue) => cue.id) } } : {}),
       mergedTaskKeys: [`course-review:${key}:${course.id}`],
       mergedTasks: workflow,
       ...(failedToday ? {
@@ -1070,9 +1129,7 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date): LearningT
     if (progress.nextReviewDate > key) return [];
     const taskKey = `interval-review:${progress.nextReviewDate}:${progress.subjectId}`;
     if (state.completions[taskKey]) return [];
-    const reviewCues = state.cues.filter((cue) => cue.subjectId === progress.subjectId && cue.status !== 'stable');
-    const cueIds = reviewCues.map((cue) => cue.id);
-    const sameScope = reviewCues.length > 0 && reviewCues.every((cue) => cue.unit === reviewCues[0].unit && cue.subsection === reviewCues[0].subsection);
+    const reviewCues = state.cues.filter((cue) => cue.subjectId === progress.subjectId && cueNeedsReview(cue, key));
     const detail = reviewCues.length
       ? `复习 ${reviewCues.length} 条 Cue：${reviewCues.map((cue) => cue.prompt).join('；')}`
       : `复习：${progress.lastStudiedContent || progress.subjectName}`;
@@ -1085,7 +1142,6 @@ function intervalReviewTasks(state: ScheduleControlState, date: Date): LearningT
       durationMinutes: 25,
       subjectId: progress.subjectId,
       subjectName: progress.subjectName,
-      ...(cueIds.length ? { cueIds, scope: { ...(sameScope ? { unit: reviewCues[0].unit, subsection: reviewCues[0].subsection } : {}), cueIds } } : {}),
       overdue: progress.nextReviewDate < key,
     }];
   });
@@ -1115,29 +1171,32 @@ function weeklyReviewTasks(state: ScheduleControlState, date: Date): LearningTas
 
 function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
   const key = dateKey(date);
-  const due = state.cues.filter((cue) => cue.nextReviewDate && cue.nextReviewDate <= key);
+  const due = state.cues.filter((cue) => cueNeedsReview(cue, key));
   const groups = new Map<string, StudyCue[]>();
   for (const cue of due) {
     groups.set(cue.subjectId, [...(groups.get(cue.subjectId) ?? []), cue]);
   }
-  return [...groups.values()].map((cues) => {
+  return [...groups.values()].flatMap((subjectCues) => buildCueReviewBatches(subjectCues).map((cues, batchIndex) => {
     const cueIds = cues.map((cue) => cue.id);
-    const sameScope = cues.every((cue) => cue.unit === cues[0].unit && cue.subsection === cues[0].subsection);
+    const unitNames = [...new Set(cues.map((cue) => cue.unit || '未分单元'))];
+    const sameScope = unitNames.length === 1;
+    const batchSuffix = batchIndex ? `:batch-${batchIndex + 1}` : '';
+    const reviewMode = sameScope ? `单元复习 · ${unitNames[0]}` : `组合复习 · ${unitNames.join(' + ')}`;
     return {
-      key: `cue-review:${key}:${cues[0].subjectId}`,
-      title: `${cues[0].subjectName} · ${cues.length} 条 Cue`,
-      detail: `复习：${cues.map((cue) => cue.prompt).join('；')}`,
+      key: `cue-review:${key}:${cues[0].subjectId}${batchSuffix}`,
+      title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
+      detail: `${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成本批 Cue；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。`,
       type: 'cue-review' as const,
       date: key,
-      durationMinutes: Math.min(60, Math.max(15, cues.length * 5)),
+      durationMinutes: Math.min(60, Math.max(20, cues.length * 4)),
       subjectId: cues[0].subjectId,
       subjectName: cues[0].subjectName,
       cueIds,
-      scope: { ...(sameScope ? { unit: cues[0].unit, subsection: cues[0].subsection } : {}), cueIds },
+      scope: { ...(sameScope && cues[0].unit ? { unit: cues[0].unit } : {}), cueIds },
       guide: { tab: 'learn' as const, subTab: 'review' },
       overdue: cues.some((cue) => Boolean(cue.nextReviewDate && cue.nextReviewDate < key)),
     };
-  });
+  }));
 }
 
 function previewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
@@ -1179,8 +1238,9 @@ function mergeSameSubjectActions(tasks: LearningTask[], cues: StudyCue[]): Learn
   const groups = new Map<string, LearningTask[]>();
   for (const task of tasks) {
     const subject = task.subjectId ?? task.subjectName?.trim().toLocaleLowerCase();
+    const batch = task.key.match(/:batch-(\d+)$/)?.[1];
     const signature = subject
-      ? `${taskAction(task.type)}:${subject}`
+      ? `${taskAction(task.type)}:${subject}${batch ? `:batch-${batch}` : ''}`
       : JSON.stringify([task.type, task.title, task.scope?.unit ?? '', task.scope?.subsection ?? '']);
     groups.set(signature, [...(groups.get(signature) ?? []), task]);
   }

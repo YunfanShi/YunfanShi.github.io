@@ -19,6 +19,7 @@ import {
   dateFromKey,
   dateKey,
   deriveLearningStatus,
+  cueActivityTag,
   cueBulkImportTemplate,
   learningCatalogImportTemplate,
   LEARNING_MATERIALS,
@@ -118,7 +119,12 @@ function loadState(now = new Date()): ScheduleControlState {
       learningRecords: Array.isArray(parsed.learningRecords) ? parsed.learningRecords : [],
       learningCatalog: Array.isArray(parsed.learningCatalog) ? parsed.learningCatalog : [],
       learningReminders: Array.isArray(parsed.learningReminders) ? parsed.learningReminders : [],
-      cueStudyDraft: parsed.cueStudyDraft && Array.isArray(parsed.cueStudyDraft.cueIds) && parsed.cueStudyDraft.task ? parsed.cueStudyDraft : undefined,
+      cueStudyDraft: parsed.cueStudyDraft && Array.isArray(parsed.cueStudyDraft.cueIds) && parsed.cueStudyDraft.task ? {
+        ...parsed.cueStudyDraft,
+        writtenResponses: parsed.cueStudyDraft.writtenResponses && typeof parsed.cueStudyDraft.writtenResponses === 'object'
+          ? Object.fromEntries(Object.entries(parsed.cueStudyDraft.writtenResponses).flatMap(([cueId, value]) => typeof value === 'string' ? [[cueId, value.slice(0, 10_000)]] : []))
+          : {},
+      } : undefined,
       timetable: parsed.timetable ? parseTimetableImport(parsed.timetable) : null,
     };
     return reconcileScheduleSubjects(rollOverManualTasks(loaded, dateKey(now), now.toISOString()));
@@ -208,6 +214,23 @@ function cueRevisionLabel(cue: StudyCue): string {
   return `v${Math.max(1, Math.floor(cue.version ?? 1))} · ${updatedDate.slice(2)}`;
 }
 
+const CUE_ACTIVITY_META = {
+  new: { label: '✨ 新 CUE', tone: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-200' },
+  updated: { label: '🆕 有更新', tone: 'bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-200' },
+  due: { label: '⏰ 待复习', tone: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200' },
+  focus: { label: '🎯 重点练', tone: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-200' },
+  building: { label: '🌱 巩固中', tone: 'bg-lime-100 text-lime-800 dark:bg-lime-950/60 dark:text-lime-200' },
+  streak: { label: '🔥 连续通过', tone: 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-200' },
+  reviewed: { label: '✓ 已学习', tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200' },
+} satisfies Record<ReturnType<typeof cueActivityTag>, { label: string; tone: string }>;
+
+function CueActivityBadge({ cue }: { cue: StudyCue }) {
+  const tag = cueActivityTag(cue, dateKey(new Date()));
+  const meta = CUE_ACTIVITY_META[tag];
+  const label = tag === 'streak' ? `${meta.label} ${cue.streak}` : meta.label;
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${meta.tone}`}>{label}</span>;
+}
+
 function CuePromptContent({ cue, revealed, selectedChoice, onReveal, onChoice }: { cue: StudyCue; revealed: boolean; selectedChoice?: number; onReveal: () => void; onChoice: (index: number) => void }) {
   const definitionCard = cue.type === 'definition' || cue.display === 'definition-card';
   const multipleChoice = cue.type === 'multiple-choice' || cue.display === 'multiple-choice';
@@ -223,10 +246,13 @@ function CuePromptContent({ cue, revealed, selectedChoice, onReveal, onChoice }:
 
 function CueStudyPage({ task, cues, draft, onProgress, onAssessment, onClose, onComplete }: { task: LearningTask; cues: StudyCue[]; draft: CueStudyDraft; onProgress: (draft: CueStudyDraft) => void; onAssessment: (cueId: string, status: LearningStatus) => void; onClose: () => void; onComplete: (details: ReviewDetails, evidence: LearningSessionEvidence) => void }) {
   const studyRef = useRef<HTMLDivElement>(null);
+  const scratchpadRef = useRef<HTMLTextAreaElement>(null);
   const [index, setIndex] = useState(() => Math.min(Math.max(0, draft.index), Math.max(0, cues.length - 1)));
   const [revealed, setRevealed] = useState(draft.revealed);
   const [selectedChoice, setSelectedChoice] = useState<number | undefined>(draft.selectedChoice);
   const [assessments, setAssessments] = useState<Record<string, LearningStatus>>(draft.assessments);
+  const [scratchpadOpen, setScratchpadOpen] = useState(false);
+  const [writtenResponses, setWrittenResponses] = useState<Record<string, string>>(draft.writtenResponses ?? {});
   const current = cues[index];
   const assessedCount = Object.keys(assessments).length;
   const submit = useCallback((nextAssessments: Record<string, LearningStatus>) => onComplete(
@@ -264,13 +290,16 @@ function CueStudyPage({ task, cues, draft, onProgress, onAssessment, onClose, on
     queueMicrotask(() => studyRef.current?.focus());
   }, [cues.length]);
   useEffect(() => { queueMicrotask(() => studyRef.current?.focus()); }, []);
+  useEffect(() => { if (scratchpadOpen) queueMicrotask(() => scratchpadRef.current?.focus()); }, [index, scratchpadOpen]);
   useEffect(() => {
-    onProgress({ id: draft.id, task, cueIds: cues.map((cue) => cue.id), index, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments, updatedAt: new Date().toISOString() });
-  }, [assessments, cues, draft.id, index, onProgress, revealed, selectedChoice, task]);
+    onProgress({ id: draft.id, task, cueIds: cues.map((cue) => cue.id), index, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments, writtenResponses, updatedAt: new Date().toISOString() });
+  }, [assessments, cues, draft.id, index, onProgress, revealed, selectedChoice, task, writtenResponses]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === '`' || event.key === '~' || event.key === '～') { event.preventDefault(); setScratchpadOpen((open) => !open); return; }
+      if (event.key === 'Escape' && scratchpadOpen) { event.preventDefault(); setScratchpadOpen(false); queueMicrotask(() => studyRef.current?.focus()); return; }
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
       if (event.key === 'Escape') { event.preventDefault(); onClose(); }
       else if (event.key === 'ArrowLeft') { event.preventDefault(); move(-1); }
       else if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
@@ -282,7 +311,7 @@ function CueStudyPage({ task, cues, draft, onProgress, onAssessment, onClose, on
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [current, move, onClose, rate, revealed]);
+  }, [current, move, onClose, rate, revealed, scratchpadOpen]);
   return (
     <div ref={studyRef} tabIndex={-1} className="fixed inset-0 z-[75] overflow-y-auto bg-[var(--background)] outline-none" role="dialog" aria-modal="true" aria-labelledby="cue-study-title">
       <header className="sticky top-0 z-10 border-b border-[var(--card-border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-4 backdrop-blur-xl sm:px-8">
@@ -292,11 +321,16 @@ function CueStudyPage({ task, cues, draft, onProgress, onAssessment, onClose, on
       <main className="mx-auto flex min-h-[calc(100dvh-110px)] max-w-5xl flex-col px-4 py-8 sm:px-8">
         {!current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">这个任务暂时没有 Cue</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">请先在 Cue 工作台为“{[task.subjectName, task.scope?.unit].filter(Boolean).join(' → ') || task.title}”添加 Cue，再回来验证。</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">返回 Schedule</button></div> : <>
           <div className="mb-6 flex flex-wrap gap-2" aria-label="Cue 学习进度">{cues.map((cue, cueIndex) => { const saved = assessments[cue.id]; return <button key={cue.id} type="button" onClick={() => { setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} aria-label={`第 ${cueIndex + 1} 条${saved ? `，已标记 ${statusMark(saved)}` : '，未标记'}`} className={`grid h-9 min-w-9 place-items-center rounded-full border px-2 text-xs font-bold ${cueIndex === index ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20' : 'border-[var(--card-border)]'} ${saved === 'stable' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : saved === 'partial' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : saved === 'unclear' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{saved ? statusMark(saved) : cueIndex + 1}</button>; })}</div>
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span></div><div className="text-right"><p className="text-xs font-semibold text-[var(--foreground)]">{cueRevisionLabel(current)}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span></div><div className="text-right"><div className="flex items-center justify-end gap-2"><CueActivityBadge cue={current} /><span className="text-xs font-semibold text-[var(--foreground)]">{cueRevisionLabel(current)}</span></div><p className="mt-1 text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div></div>
           <CuePromptContent cue={current} revealed={revealed} selectedChoice={selectedChoice} onReveal={() => setRevealed((value) => !value)} onChoice={(choiceIndex) => { setSelectedChoice(choiceIndex); setRevealed(true); }} />
-          <div className="border-t border-[var(--card-border)] pt-5"><p className="mb-3 text-center text-sm font-semibold">这次闭卷检索的状态{assessments[current.id] ? ` · 已保存 ${statusMark(assessments[current.id])}` : ''}</p>{revealed ? <div className="grid gap-3 sm:grid-cols-3"><button type="button" onClick={() => rate('stable')} className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-left text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><strong className="text-xl">C / 1 · √ 通过</strong><span className="mt-1 block text-xs">完整、准确；点击后立即保存</span></button><button type="button" onClick={() => rate('partial')} className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-left text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><strong className="text-xl">P / 2 · △ 部分通过</strong><span className="mt-1 block text-xs">有缺漏；点击后立即保存</span></button><button type="button" onClick={() => rate('unclear')} className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-left text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"><strong className="text-xl">X / 3 · ○ 未通过</strong><span className="mt-1 block text-xs">核心错误；点击后立即保存</span></button></div> : <p className="rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-4 text-center text-sm text-[var(--muted-foreground)]">{current.type === 'multiple-choice' ? `先选择 1–${current.choices?.length ?? 0}，系统核对后再判定状态。` : '空格 / Enter 可反复显示、隐藏答案。'}</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={index === 0} onClick={() => move(-1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">← 上一条</button><span className="text-center text-xs leading-5 text-[var(--muted-foreground)]">{current.type === 'multiple-choice' && !revealed ? `1–${current.choices?.length ?? 0} 选择答案` : '空格 / Enter 显示或隐藏答案'} · ←/→ 切换 · {revealed ? 'C/P/X 或 1/2/3 判定并立即保存 · ' : ''}Esc 退出</span><button type="button" disabled={index >= cues.length - 1} onClick={() => move(1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">下一条 →</button></div></div>
+          <div className="border-t border-[var(--card-border)] pt-5"><p className="mb-3 text-center text-sm font-semibold">这次闭卷检索的状态{assessments[current.id] ? ` · 已保存 ${statusMark(assessments[current.id])}` : ''}</p>{revealed ? <div className="grid gap-3 sm:grid-cols-3"><button type="button" onClick={() => rate('stable')} className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-left text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><strong className="text-xl">C / 1 · √ 通过</strong><span className="mt-1 block text-xs">完整、准确；点击后立即保存</span></button><button type="button" onClick={() => rate('partial')} className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-left text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><strong className="text-xl">P / 2 · △ 部分通过</strong><span className="mt-1 block text-xs">有缺漏；点击后立即保存</span></button><button type="button" onClick={() => rate('unclear')} className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-left text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"><strong className="text-xl">X / 3 · ○ 未通过</strong><span className="mt-1 block text-xs">核心错误；点击后立即保存</span></button></div> : <p className="rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-4 text-center text-sm text-[var(--muted-foreground)]">{current.type === 'multiple-choice' ? `先选择 1–${current.choices?.length ?? 0}，系统核对后再判定状态。` : '空格 / Enter 可反复显示、隐藏答案。'}</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={index === 0} onClick={() => move(-1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">← 上一条</button><span className="text-center text-xs leading-5 text-[var(--muted-foreground)]">{current.type === 'multiple-choice' && !revealed ? `1–${current.choices?.length ?? 0} 选择答案` : '空格 / Enter 显示或隐藏答案'} · <kbd className="rounded bg-black/5 px-1.5 py-0.5 dark:bg-white/10">~</kbd> 书写草稿 · ←/→ 切换 · {revealed ? 'C/P/X 或 1/2/3 判定并立即保存 · ' : ''}Esc 退出</span><button type="button" disabled={index >= cues.length - 1} onClick={() => move(1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">下一条 →</button></div></div>
         </>}
       </main>
+      {scratchpadOpen && current && <aside className="fixed inset-x-3 bottom-3 z-30 mx-auto w-auto max-w-xl overflow-hidden rounded-3xl border border-amber-300/70 bg-[#fffdf4] shadow-2xl dark:border-amber-700/70 dark:bg-[#27251d] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[min(32rem,calc(100vw-3rem))]" aria-label="CUE 书写草稿">
+        <div className="flex items-start gap-3 border-b border-amber-200/80 px-4 py-3 dark:border-amber-800/70"><span className="material-icons-round mt-0.5 text-amber-600">edit_note</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">书写草稿</p><span className="rounded-full bg-amber-200/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">实验性</span></div><p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">CUE {index + 1} · 自动保存，仅用于闭卷作答</p></div><button type="button" onClick={() => { setScratchpadOpen(false); queueMicrotask(() => studyRef.current?.focus()); }} aria-label="关闭书写草稿" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-amber-200/60 dark:hover:bg-amber-900/50"><span className="material-icons-round text-lg">close</span></button></div>
+        <textarea ref={scratchpadRef} value={writtenResponses[current.id] ?? ''} onChange={(event) => { const value = event.target.value.slice(0, 10_000); setWrittenResponses((responses) => ({ ...responses, [current.id]: value })); }} placeholder="先不看答案，把定义、公式、步骤或解释完整写下来……" className="block min-h-52 w-full resize-y bg-transparent px-5 py-4 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)]/60" />
+        <div className="flex items-center justify-between border-t border-amber-200/80 px-4 py-2.5 text-xs text-[var(--muted-foreground)] dark:border-amber-800/70"><span>{(writtenResponses[current.id] ?? '').length} 字符</span><button type="button" disabled={!writtenResponses[current.id]} onClick={() => setWrittenResponses((responses) => ({ ...responses, [current.id]: '' }))} className="rounded-full px-3 py-1.5 font-medium hover:bg-amber-200/60 disabled:opacity-40 dark:hover:bg-amber-900/50">清空本条</button></div>
+      </aside>}
     </div>
   );
 }

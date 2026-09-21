@@ -9,11 +9,13 @@ import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
 import {
   applyCueBulkOperations,
   applyCueUnitMappings,
+  buildCueReviewBatches,
   completeReview,
   completeCueReviews,
   completeLearningSession,
   createEmptyScheduleState,
   createIeltsWeekTasks,
+  cueActivityTag,
   cuesForLearningTask,
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
@@ -410,6 +412,51 @@ test('legacy Cue metadata defaults to version 1 and the supplied current time', 
   const normalized = normalizeCueMetadata(legacy, fallback);
   assert.equal(normalized.version, 1);
   assert.equal(normalized.updatedAt, fallback);
+});
+
+test('Cue activity tags prioritize unseen and changed content before review state', () => {
+  const base = { id: 'cue-1', version: 1, subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Define diffraction.', type: 'definition' as const, markingPoints: [], intervalDays: 1, easeFactor: 2.5, streak: 0, createdAt: '2026-09-18T08:00:00.000Z', updatedAt: '2026-09-18T08:00:00.000Z' };
+  assert.equal(cueActivityTag(base, '2026-09-21'), 'new');
+  assert.equal(cueActivityTag({ ...base, version: 2, lastReviewedAt: '2026-09-19T08:00:00.000Z', updatedAt: '2026-09-20T08:00:00.000Z' }, '2026-09-21'), 'updated');
+  assert.equal(cueActivityTag({ ...base, lastReviewedAt: '2026-09-19T08:00:00.000Z', nextReviewDate: '2026-09-21' }, '2026-09-21'), 'due');
+  assert.equal(cueActivityTag({ ...base, lastReviewedAt: '2026-09-19T08:00:00.000Z', status: 'unclear' }, '2026-09-21'), 'focus');
+  assert.equal(cueActivityTag({ ...base, lastReviewedAt: '2026-09-19T08:00:00.000Z', status: 'partial' }, '2026-09-21'), 'building');
+  assert.equal(cueActivityTag({ ...base, lastReviewedAt: '2026-09-19T08:00:00.000Z', status: 'stable', streak: 3 }, '2026-09-21'), 'streak');
+});
+
+test('Cue review batching combines small units and splits large units into manageable sessions', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const makeCues = (unit: string, count: number, offset = 0) => Array.from({ length: count }, (_, index) => ({ id: `${unit}-${index}`, subjectId: 'physics', subjectName: 'Physics', unit, subsection: '', prompt: `Cue ${offset + index}`, type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }));
+
+  const combined = buildCueReviewBatches([...makeCues('Waves', 10), ...makeCues('Forces', 8, 10)]);
+  assert.equal(combined.length, 1);
+  assert.equal(combined[0].length, 18);
+  assert.deepEqual(new Set(combined[0].map((cue) => cue.unit)), new Set(['Waves', 'Forces']));
+
+  const split = buildCueReviewBatches(makeCues('Mechanics', 25));
+  assert.deepEqual(split.map((batch) => batch.length), [13, 12]);
+  assert.ok(split.every((batch) => new Set(batch.map((cue) => cue.unit)).size === 1));
+});
+
+test('daily Cue review creates separate numbered tasks for a large due unit', () => {
+  const createdAt = '2026-09-20T08:00:00.000Z';
+  const state = createEmptyScheduleState();
+  state.cues = Array.from({ length: 25 }, (_, index) => ({ id: `mechanics-${index}`, subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: '', prompt: `Cue ${index}`, type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }));
+  state.reviewProgress.physics = { subjectId: 'physics', subjectName: 'Physics', intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-21', lastStatus: 'partial', lastNote: '', updatedAt: createdAt };
+
+  const reviews = tasksForDate(state, new Date(2026, 8, 21, 12)).filter((task) => task.type === 'cue-review');
+  assert.equal(reviews.length, 2);
+  assert.deepEqual(reviews.map((task) => task.cueIds?.length), [13, 12]);
+  assert.deepEqual(reviews.map((task) => task.key), ['cue-review:2026-09-21:physics', 'cue-review:2026-09-21:physics:batch-2']);
+  assert.ok(reviews.every((task) => task.scope?.unit === 'Mechanics'));
+});
+
+test('a changed Cue is reviewed again even when its old interval date is still in the future', () => {
+  const state = createEmptyScheduleState();
+  state.cues = [{ id: 'updated-cue', version: 2, subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Updated explanation', type: 'explain', markingPoints: [], status: 'stable', intervalDays: 7, easeFactor: 2.5, streak: 3, nextReviewDate: '2026-09-28', lastReviewedAt: '2026-09-20T08:00:00.000Z', createdAt: '2026-09-18T08:00:00.000Z', updatedAt: '2026-09-21T08:00:00.000Z' }];
+
+  const review = tasksForDate(state, new Date(2026, 8, 21, 12)).find((task) => task.type === 'cue-review');
+  assert.deepEqual(review?.cueIds, ['updated-cue']);
 });
 
 test('full Cue update can change subject, unit, prompt, answer, formula, and display properties', () => {
