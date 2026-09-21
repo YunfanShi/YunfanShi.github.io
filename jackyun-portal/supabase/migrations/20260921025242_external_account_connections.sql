@@ -40,10 +40,13 @@ alter table public.external_accounts enable row level security;
 alter table public.external_account_secrets enable row level security;
 alter table public.external_task_links enable row level security;
 
+drop policy if exists "external_accounts_owner_all" on public.external_accounts;
 create policy "external_accounts_owner_all" on public.external_accounts
   for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "external_account_secrets_owner_all" on public.external_account_secrets;
 create policy "external_account_secrets_owner_all" on public.external_account_secrets
   for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "external_task_links_owner_all" on public.external_task_links;
 create policy "external_task_links_owner_all" on public.external_task_links
   for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 

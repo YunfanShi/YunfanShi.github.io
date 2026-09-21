@@ -5,7 +5,10 @@ import { DidaApiError, getDidaProjects } from '@/lib/integrations/dida365-server
 export const runtime = 'nodejs';
 
 function errorResponse(error: unknown) {
-  const message = error instanceof DidaApiError ? error.message : '账户关联失败，请稍后重试。';
+  const raw = error instanceof Error ? error.message : '';
+  const message = error instanceof DidaApiError ? error.message
+    : raw.includes('AI_CONFIG_ENCRYPTION_KEY') ? '服务器尚未配置账户令牌加密密钥，请配置 AI_CONFIG_ENCRYPTION_KEY 后重启服务。'
+    : '账户关联失败，请稍后重试。';
   const status = error instanceof DidaApiError ? error.status : 500;
   return Response.json({ error: message }, { status });
 }
@@ -19,8 +22,11 @@ async function currentUser() {
 export async function GET() {
   const { supabase, user } = await currentUser();
   if (!user) return Response.json({ error: '请先登录。' }, { status: 401 });
-  const { data, error } = await supabase.from('external_accounts').select('id, provider, display_name, status, settings, last_verified_at').eq('user_id', user.id).eq('provider', 'dida365').order('created_at');
-  if (error) return Response.json({ error: '读取关联账户失败。' }, { status: 500 });
+  const { data, error } = await supabase.from('external_accounts').select('id, provider, display_name, status, settings, last_verified_at, external_account_secrets!inner(account_id)').eq('user_id', user.id).eq('provider', 'dida365').order('created_at');
+  if (error) {
+    const unavailable = error.code === 'PGRST205' || error.code === '42P01';
+    return Response.json({ error: unavailable ? '账户关联数据库尚未升级，请先应用最新迁移。' : '读取关联账户失败。' }, { status: 500 });
+  }
   return Response.json({ accounts: (data ?? []).map((row) => {
     const settings = row.settings && typeof row.settings === 'object' ? row.settings as Record<string, unknown> : {};
     return { id: row.id, provider: 'dida365', displayName: row.display_name, status: row.status, projectId: String(settings.projectId ?? ''), projectName: String(settings.projectName ?? ''), lastVerifiedAt: row.last_verified_at ?? undefined };
@@ -44,12 +50,16 @@ export async function POST(request: Request) {
     const displayName = (typeof body.displayName === 'string' ? body.displayName.trim() : '') || '我的滴答清单';
     if (displayName.length > 80) return Response.json({ error: '账户名称不能超过 80 个字符。' }, { status: 400 });
     const now = new Date().toISOString();
+    const encryptedToken = encryptSecret(token);
     const { data: account, error: accountError } = await supabase.from('external_accounts').insert({
       user_id: user.id, provider: 'dida365', display_name: displayName, status: 'active',
       settings: { projectId: project.id, projectName: project.name, timeZone: 'Asia/Shanghai' }, last_verified_at: now, updated_at: now,
     }).select('id').single();
-    if (accountError || !account) throw new Error('account insert failed');
-    const { error: secretError } = await supabase.from('external_account_secrets').insert({ account_id: account.id, user_id: user.id, encrypted_access_token: encryptSecret(token), updated_at: now });
+    if (accountError || !account) {
+      if (accountError?.code === 'PGRST205' || accountError?.code === '42P01') throw new DidaApiError('账户关联数据库尚未升级，请先应用最新迁移。', 503);
+      throw new Error('account insert failed');
+    }
+    const { error: secretError } = await supabase.from('external_account_secrets').insert({ account_id: account.id, user_id: user.id, encrypted_access_token: encryptedToken, updated_at: now });
     if (secretError) {
       await supabase.from('external_accounts').delete().eq('id', account.id).eq('user_id', user.id);
       throw new Error('secret insert failed');
