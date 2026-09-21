@@ -7,6 +7,7 @@ import LearningRecordsView from '@/components/modules/schedule/learning-records-
 import LatexRenderer from '@/components/modules/latex-renderer';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
+import type { DidaAccountView } from '@/lib/integrations/dida365';
 import {
   applyCueEnrichments,
   applyCueUnitMappings,
@@ -805,7 +806,7 @@ function ImportDialog({ onClose, onApply }: { onClose: () => void; onApply: (tim
   );
 }
 
-function TaskList({ tasks, cueCount, onStudyCue, onComplete, onPostpone, onCancel }: { tasks: LearningTask[]; cueCount: (task: LearningTask) => number; onStudyCue: (task: LearningTask) => void; onComplete: (task: LearningTask) => void; onPostpone: (task: LearningTask) => void; onCancel: (task: LearningTask) => void }) {
+function TaskList({ tasks, cueCount, onStudyCue, onComplete, onPostpone, onCancel, didaAccount, sendingTaskKey, onSendToDida }: { tasks: LearningTask[]; cueCount: (task: LearningTask) => number; onStudyCue: (task: LearningTask) => void; onComplete: (task: LearningTask) => void; onPostpone: (task: LearningTask) => void; onCancel: (task: LearningTask) => void; didaAccount?: DidaAccountView; sendingTaskKey: string; onSendToDida: (task: LearningTask) => void }) {
   if (!tasks.length) {
     return <div className="rounded-2xl border border-dashed border-[var(--card-border)] px-5 py-10 text-center"><span className="material-icons-round text-3xl text-emerald-500">task_alt</span><p className="mt-2 font-medium">今天的任务已经清空</p><p className="mt-1 text-sm text-[var(--muted-foreground)]">可以自己添加预习、专项学习、考试或普通待办。</p></div>;
   }
@@ -827,7 +828,7 @@ function TaskList({ tasks, cueCount, onStudyCue, onComplete, onPostpone, onCance
                 {task.mergedTasks?.length ? <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900 dark:bg-blue-950/25"><p className="text-xs font-semibold text-[var(--brand)]">联合任务 · 共 {task.mergedTasks.length} 项</p><div className="mt-2 space-y-2">{task.mergedTasks.map((item) => { const itemMeta = TYPE_META[item.type]; return <div key={item.key} className="rounded-xl bg-[var(--card)] px-3 py-2"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${itemMeta.tone}`}>{itemMeta.label}</span><strong className="text-xs">{item.title}</strong></div><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{item.detail}</p></div>; })}</div></div> : <p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">{task.detail}</p>}
                 {task.scope && <p className="mt-2 text-xs text-[var(--muted-foreground)]"><strong className="text-[var(--foreground)]">范围：</strong>{[task.subjectName, task.scope.unit, task.scope.subsection].filter(Boolean).join(' → ') || `${task.cueIds?.length ?? 0} 条 Cue`}</p>}
                 {task.materials?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{task.materials.map((material) => <span key={material.code} className="rounded-full bg-black/5 px-2.5 py-1 text-[11px] dark:bg-white/10"><strong className="font-mono">{material.code}</strong>{material.progress ? ` · ${material.progress}` : ''}</span>)}</div> : null}
-                <div className="mt-3 flex flex-wrap gap-2">{cueCount(task) > 0 && <button type="button" onClick={() => onStudyCue(task)} className="inline-flex items-center gap-1 rounded-full bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white dark:text-[#202124]"><span className="material-icons-round text-base">psychology_alt</span>开始 Cue 学习 · {cueCount(task)} 条</button>}{task.guide && <Link href={`/study-guide?tab=${encodeURIComponent(task.guide.tab)}&subTab=${encodeURIComponent(task.guide.subTab)}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--card-border)] px-3 py-1.5 text-xs font-semibold text-[var(--brand)]"><span className="material-icons-round text-base">menu_book</span>查看怎么做</Link>}</div>
+                <div className="mt-3 flex flex-wrap gap-2">{cueCount(task) > 0 && <button type="button" onClick={() => onStudyCue(task)} className="inline-flex items-center gap-1 rounded-full bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white dark:text-[#202124]"><span className="material-icons-round text-base">psychology_alt</span>开始 Cue 学习 · {cueCount(task)} 条</button>}{task.guide && <Link href={`/study-guide?tab=${encodeURIComponent(task.guide.tab)}&subTab=${encodeURIComponent(task.guide.subTab)}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--card-border)] px-3 py-1.5 text-xs font-semibold text-[var(--brand)]"><span className="material-icons-round text-base">menu_book</span>查看怎么做</Link>}{didaAccount && <button type="button" disabled={sendingTaskKey === task.key} onClick={() => onSendToDida(task)} className="inline-flex items-center gap-1 rounded-full border border-[#1a73e8]/35 px-3 py-1.5 text-xs font-semibold text-[#1a73e8] disabled:opacity-50"><span className="material-icons-round text-base">playlist_add</span>{sendingTaskKey === task.key ? '添加中…' : `添加到 ${didaAccount.displayName}`}</button>}</div>
                 {task.lastStatus && task.lastReviewedAt && (
                   <div className={`mt-3 rounded-2xl border px-3.5 py-3 text-xs leading-5 ${task.lastStatus === 'stable' ? 'border-emerald-100 bg-emerald-50/80 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-100' : task.lastStatus === 'partial' ? 'border-amber-100 bg-amber-50/80 text-amber-950 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-100' : 'border-rose-100 bg-rose-50/80 text-rose-950 dark:border-rose-900 dark:bg-rose-950/35 dark:text-rose-100'}`}>
                     <p className="font-semibold">上次记录：{statusMark(task.lastStatus)} · {formatReviewTimestamp(task.lastReviewedAt)}</p>
@@ -863,6 +864,9 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const [importDialog, setImportDialog] = useState(false);
   const [catalogDialog, setCatalogDialog] = useState(false);
   const [notice, setNotice] = useState('');
+  const [didaAccounts, setDidaAccounts] = useState<DidaAccountView[]>([]);
+  const [selectedDidaAccountId, setSelectedDidaAccountId] = useState('');
+  const [sendingTaskKey, setSendingTaskKey] = useState('');
   const [aiReportBusyId, setAiReportBusyId] = useState('');
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderDate, setReminderDate] = useState('');
@@ -901,6 +905,22 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 2800); return () => window.clearTimeout(timer); }, [notice]);
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (!signedIn) { setDidaAccounts([]); setSelectedDidaAccountId(''); return; }
+      fetch('/api/integrations/dida365/accounts', { cache: 'no-store' }).then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json() as { accounts?: DidaAccountView[] };
+        if (cancelled) return;
+        const next = data.accounts ?? [];
+        setDidaAccounts(next);
+        setSelectedDidaAccountId((current) => next.some((item) => item.id === current) ? current : (next[0]?.id ?? ''));
+      }).catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [signedIn]);
 
   const todaySessions = useMemo(() => sessionsForDate(state.timetable, selected), [selected, state.timetable]);
   const tasks = useMemo(() => tasksForDate(state, selected), [selected, state]);
@@ -911,6 +931,18 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const reviewDue = tasks.filter((task) => REVIEW_TYPES.has(task.type)).length;
   const reviewCues = state.cues;
   const cueStudyCues = useMemo(() => cueStudyTask ? cuesForLearningTask(state.cues, cueStudyTask) : [], [cueStudyTask, state.cues]);
+  const selectedDidaAccount = didaAccounts.find((account) => account.id === selectedDidaAccountId);
+  const sendToDida = async (task: LearningTask) => {
+    if (!selectedDidaAccount) return;
+    setSendingTaskKey(task.key);
+    try {
+      const response = await fetch('/api/integrations/dida365/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: selectedDidaAccount.id, task }) });
+      const data = await response.json().catch(() => ({})) as { error?: string; created?: boolean };
+      if (!response.ok) throw new Error(data.error || '添加失败。');
+      setNotice(data.created ? `已添加到 ${selectedDidaAccount.displayName}。` : `已更新 ${selectedDidaAccount.displayName} 中的同一任务。`);
+    } catch (error) { setNotice(error instanceof Error ? error.message : '添加到滴答清单失败。'); }
+    finally { setSendingTaskKey(''); }
+  };
   const saveCueStudyProgress = useCallback((draft: CueStudyDraft) => {
     setState((current) => ({ ...current, cueStudyDraft: draft }));
   }, []);
@@ -1034,7 +1066,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {(view === 'today' || view === 'week') && <div className="mt-5 flex items-center justify-between rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><button type="button" onClick={() => navigateDate(view === 'week' ? -7 : -1)} aria-label="上一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_left</span></button><button type="button" onClick={() => setSelectedDate(todayKey)} className="rounded-full px-4 py-2 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">{selectedDate === todayKey ? formatShortDate(selected) : '回到今天'}</button><button type="button" onClick={() => navigateDate(view === 'week' ? 7 : 1)} aria-label="下一日期" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">chevron_right</span></button></div>}
 
       {view === 'today' && <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
-        <section className="min-w-0"><div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Today</p><h2 className="mt-1 text-xl font-semibold">今天要完成</h2></div><span className="text-sm text-[var(--muted-foreground)]">{tasks.length} 项</span></div>{!state.timetable && !state.manualTasks.length && !state.cues.length ? <EmptyState onImport={() => setImportDialog(true)} /> : <TaskList tasks={tasks} cueCount={(task) => cuesForLearningTask(state.cues, task).length} onStudyCue={startCueStudy} onComplete={completeTask} onPostpone={postponeTask} onCancel={cancelTask} />}</section>
+        <section className="min-w-0"><div className="mb-3 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Today</p><h2 className="mt-1 text-xl font-semibold">今天要完成</h2></div><div className="flex items-center gap-2">{didaAccounts.length > 1 && <label className="text-xs text-[var(--muted-foreground)]">发送到 <select value={selectedDidaAccountId} onChange={(event) => setSelectedDidaAccountId(event.target.value)} className="ml-1 rounded-full border border-[var(--card-border)] bg-[var(--card)] px-2.5 py-1.5 text-xs text-[var(--foreground)]">{didaAccounts.map((account) => <option key={account.id} value={account.id}>{account.displayName}</option>)}</select></label>}{signedIn && !didaAccounts.length && <Link href="/settings?section=connections" className="text-xs font-semibold text-[var(--brand)]">关联滴答清单</Link>}<span className="text-sm text-[var(--muted-foreground)]">{tasks.length} 项</span></div></div>{!state.timetable && !state.manualTasks.length && !state.cues.length ? <EmptyState onImport={() => setImportDialog(true)} /> : <TaskList tasks={tasks} cueCount={(task) => cuesForLearningTask(state.cues, task).length} onStudyCue={startCueStudy} onComplete={completeTask} onPostpone={postponeTask} onCancel={cancelTask} didaAccount={selectedDidaAccount} sendingTaskKey={sendingTaskKey} onSendToDida={sendToDida} />}</section>
         <aside className="min-w-0"><div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--muted-foreground)]">Timeline</p><h2 className="mt-1 text-xl font-semibold">今日课表</h2></div>{state.timetable && <span className="max-w-40 truncate rounded-full bg-black/5 px-3 py-1.5 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{state.timetable.name}</span>}</div>{state.settings.mode === 'holiday' ? <div className="mt-6 rounded-2xl bg-amber-50 p-5 text-sm leading-6 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"><span className="material-icons-round mr-2 align-middle">beach_access</span>假日模式已暂停课程表、每日课程复习和自动预习。已到期的间隔复习与手动任务仍会保留。</div> : todaySessions.length ? <div className="relative mt-6 space-y-1 before:absolute before:bottom-3 before:left-[4.4rem] before:top-3 before:w-px before:bg-[var(--card-border)]">{todaySessions.map((session, index) => { const active = activeSession === session; return <div key={`${session.course.id}-${session.day}-${session.start}-${index}`} className={`relative grid grid-cols-[3.4rem_1.5rem_minmax(0,1fr)] items-start gap-2 rounded-2xl p-2.5 ${active ? 'bg-blue-50 dark:bg-blue-950/40' : ''}`}><div className="pt-1 text-right font-mono text-xs font-semibold"><span>{session.start}</span><span className="mt-1 block text-[10px] font-normal text-[var(--muted-foreground)]">{session.end}</span></div><div className="relative z-10 mt-1.5 grid h-4 w-4 place-items-center rounded-full border-4 border-[var(--card)]" style={{ backgroundColor: session.course.color }}>{active && <span className="absolute h-6 w-6 animate-ping rounded-full opacity-20" style={{ backgroundColor: session.course.color }} />}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-semibold">{session.course.shortName ?? session.course.name}</p>{active && <span className="rounded-full bg-[var(--brand)] px-2 py-0.5 text-[10px] font-semibold text-white dark:text-[#202124]">正在上课</span>}</div>{(session.location || session.teacher) && <p className="mt-1 truncate text-xs text-[var(--muted-foreground)]">{[session.location, session.teacher].filter(Boolean).join(' · ')}</p>}</div></div>; })}</div> : <div className="mt-6 rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-10 text-center text-sm text-[var(--muted-foreground)]">这一天没有课程。</div>}{(activeSession || nextSession) && state.settings.mode === 'term' && <div className="mt-5 rounded-2xl bg-[#202124] p-4 text-white"><p className="text-[11px] uppercase tracking-[.12em] text-white/60">{activeSession ? 'Now' : 'Next'}</p><p className="mt-1 font-semibold">{(activeSession ?? nextSession)?.course.shortName ?? (activeSession ?? nextSession)?.course.name}</p><p className="mt-1 text-xs text-white/65">{activeSession ? `${activeSession.end} 下课` : `${nextSession?.start} 开始`}</p></div>}</div>
           <div className="mt-5 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5"><h2 className="font-semibold">StudyGuide 提醒</h2><div className="mt-3 space-y-3 text-sm leading-6 text-[var(--muted-foreground)]"><p><span className="mr-2 font-semibold text-[var(--brand)]">每日</span>下一日 Cue Recall；每条 Cue 独立记录 √ / △ / ○。</p><p><span className="mr-2 font-semibold text-teal-600">Friday</span>检查 Notes → 对照资料补缺口 → 补 Cue。</p><p><span className="mr-2 font-semibold text-amber-600">Weekend</span>闭卷 Retrieval → Evidence Review → Targeted Repair。</p></div><Link href="/study-guide?tab=learn&subTab=review" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--brand)]">打开完整方法<span className="material-icons-round text-base">arrow_forward</span></Link></div>
           {personalIeltsPlan && <div className="mt-5 rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 dark:border-blue-900 dark:from-blue-950/40 dark:to-indigo-950/30"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-200">Private · Admin</p><h2 className="mt-1 font-semibold">IELTS 备考计划 v5</h2></div><span className="material-icons-round text-blue-600">lock</span></div><p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">每周 Listening、Reading、Writing、Speaking、Weekly Review 五个弹性模块；默认分散到周一至周五，也可按需顺延，每次最多 60 分钟。</p><button type="button" onClick={addIeltsWeek} className="mt-4 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white">加入本周五个模块</button></div>}
