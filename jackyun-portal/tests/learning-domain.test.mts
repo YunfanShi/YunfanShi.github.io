@@ -143,7 +143,7 @@ test('Cue study resolves explicit task Cues first and otherwise uses subject plu
   assert.deepEqual(cuesForLearningTask(cues, { ...scopedTask, cueIds: ['chapter-5', 'chapter-4-a'] }).map((cue) => cue.id), ['chapter-5', 'chapter-4-a']);
 });
 
-test('due Cues are consolidated into one subject review and replace duplicate review tasks', () => {
+test('due subject review work is merged with a visible description of every task', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const state = createEmptyScheduleState();
   state.timetable = parseTimetableImport({ version: 1, name: 'Term', courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 7, start: '09:00', end: '10:00' }] }] });
@@ -153,11 +153,32 @@ test('due Cues are consolidated into one subject review and replace duplicate re
     { id: 'forces', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Forces', prompt: 'Explain terminal velocity.', type: 'explain', markingPoints: ['drag increases', 'resultant force becomes zero'], intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', createdAt, updatedAt: createdAt },
   ];
   const reviews = tasksForDate(state, new Date(2026, 8, 20, 12));
-  const cueReview = reviews.find((task) => task.type === 'cue-review');
-  assert.deepEqual(cueReview?.cueIds, ['motion', 'forces']);
-  assert.equal(cueReview?.scope?.subsection, undefined);
-  assert.match(cueReview?.detail ?? '', /Define acceleration.*Explain terminal velocity/);
-  assert.ok(!reviews.some((task) => ['course-review', 'interval-review', 'weekly-review'].includes(task.type) && task.subjectId === 'physics'));
+  const jointReview = reviews.find((task) => task.subjectId === 'physics');
+  assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
+  assert.equal(jointReview?.title, '联合复习 · Physics · 2 条 Cue');
+  assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
+  assert.equal(jointReview?.scope?.subsection, undefined);
+  assert.match(jointReview?.detail ?? '', /Define acceleration.*Explain terminal velocity/);
+  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['course-review', 'interval-review', 'cue-review']));
+  assert.ok(jointReview?.mergedTasks?.every((task) => task.title && task.detail));
+
+  const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
+  assert.equal(completed.reviewProgress.physics.nextReviewDate, '2026-09-23');
+  assert.ok(jointReview?.mergedTaskKeys?.every((key) => completed.completions[key]));
+});
+
+test('an interval review is called out when it is merged with due Cues', () => {
+  const createdAt = '2026-09-19T08:00:00.000Z';
+  const state = createEmptyScheduleState();
+  state.reviewProgress.physics = { subjectId: 'physics', subjectName: 'Physics', intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-21', lastStatus: 'partial', lastStudiedContent: 'Mechanics', lastNote: '', updatedAt: createdAt };
+  state.cues = [{ id: 'motion', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Motion', prompt: 'Define acceleration.', type: 'definition', markingPoints: ['change in velocity', 'per unit time'], intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-21', createdAt, updatedAt: createdAt }];
+
+  const reviews = tasksForDate(state, new Date(2026, 8, 21, 12));
+
+  const jointReview = reviews.find((task) => task.subjectId === 'physics');
+  assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
+  assert.deepEqual(new Set(jointReview?.mergedTaskKeys), new Set(['interval-review:2026-09-21:physics', 'cue-review:2026-09-21:physics']));
+  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['interval-review', 'cue-review']));
 });
 
 test('same-subject review tasks merge across carried and newly generated Cue reviews', () => {
