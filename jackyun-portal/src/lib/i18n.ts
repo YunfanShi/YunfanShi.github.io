@@ -24,6 +24,7 @@ const translations: TranslationMap = {
   'nav.ai':                   { zh: 'JackYun AI',           en: 'JackYun AI' },
   'nav.study-plan':           { zh: '学习计划',             en: 'Study Plan' },
   'nav.study-guide':          { zh: 'StudyGuide',           en: 'StudyGuide' },
+  'nav.ielts':                { zh: '雅思备考',             en: 'IELTS Practice' },
   'nav.ielts-writing':        { zh: '雅思写作工具',         en: 'IELTS Writing Lab' },
   'nav.reading':              { zh: 'Reading 阅读器',      en: 'Reading' },
   'nav.learning-resources':   { zh: '学习网站收录',         en: 'Learning Resources' },
