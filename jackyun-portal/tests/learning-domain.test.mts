@@ -37,6 +37,7 @@ import {
   rollOverManualTasks,
   sessionsForDate,
   tasksForDate,
+  toggleCueIds,
   timetableImportTemplate,
   updateSubjectMaterialProgress,
   withReviewCourseSelection,
@@ -48,6 +49,11 @@ test('task presets cover audits, self-study, cue review, and IELTS without fixin
     assert.ok(ids.has(id), `missing preset ${id}`);
   }
   assert.ok(LEARNING_TASK_PRESETS.filter((preset) => preset.group === 'IELTS').every((preset) => preset.durationMinutes <= 60));
+});
+
+test('selecting and clearing a Cue subgroup preserves selections outside that subgroup', () => {
+  assert.deepEqual(toggleCueIds(['outside', 'cue-1'], ['cue-1', 'cue-2'], true), ['outside', 'cue-1', 'cue-2']);
+  assert.deepEqual(toggleCueIds(['outside', 'cue-1', 'cue-2'], ['cue-1', 'cue-2'], false), ['outside']);
 });
 
 test('IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired', () => {
@@ -671,6 +677,9 @@ test('collective Cue maintenance creates one durable reminder and resets after a
   }];
   assert.equal(tasksForDate(state, new Date(2026, 8, 23, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
   assert.equal(tasksForDate(state, new Date(2026, 9, 20, 12)).some((task) => task.key.startsWith('cue-maintenance:')), true);
+  state.settings.cueCollectionReminderDays = 7;
+  assert.equal(tasksForDate(state, new Date(2026, 8, 26, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
+  assert.equal(tasksForDate(state, new Date(2026, 8, 27, 12)).some((task) => task.key.startsWith('cue-maintenance:')), true);
   assert.equal(tasksForDate({ ...state, settings: { ...state.settings, cueCollectionReminderEnabled: false } }, new Date(2026, 9, 20, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
 });
 

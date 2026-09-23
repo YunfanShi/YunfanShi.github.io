@@ -1334,8 +1334,7 @@ function cueCollectionMaintenanceTasks(state: ScheduleControlState, date: Date):
     const newestCueDate = cues
       .map((cue) => cue.updatedAt || cue.createdAt)
       .toSorted((left, right) => right.localeCompare(left))[0];
-    const nextReminderDate = latest?.nextReminderDate
-      ?? addCalendarDays(dateKey(new Date(newestCueDate)), Math.max(1, state.settings.cueCollectionReminderDays));
+    const nextReminderDate = nextCueCollectionReminderDate(latest?.updatedAt ?? newestCueDate, state.settings.cueCollectionReminderDays);
     if (nextReminderDate > key) return [];
     return [{
       subjectId,
@@ -1356,6 +1355,15 @@ function cueCollectionMaintenanceTasks(state: ScheduleControlState, date: Date):
     overdue: earliest < key,
     guide: { tab: 'learn', subTab: 'cornell' },
   }];
+}
+
+/** Recalculates due dates when the user changes the reminder interval. */
+export function nextCueCollectionReminderDate(updatedAt: string, intervalDays: number): string {
+  return addCalendarDays(dateKey(new Date(updatedAt)), Math.max(1, Math.min(365, Math.trunc(intervalDays) || 30)));
+}
+
+export function toggleCueIds(current: string[], groupIds: string[], checked: boolean): string[] {
+  return checked ? [...new Set([...current, ...groupIds])] : current.filter((id) => !groupIds.includes(id));
 }
 
 function previewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
