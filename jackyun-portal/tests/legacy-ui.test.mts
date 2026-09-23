@@ -72,6 +72,8 @@ test('answer sheet is assessment-neutral, starts blank, and accepts manual answe
   assert.match(html, /jackyun_answer_sheet_draft_v1/);
   assert.doesNotMatch(html, /value="0625"|value="Physics"|value="40"/);
   assert.doesNotMatch(html, /试卷：IGCSE|批改结果 — IGCSE/);
+  assert.match(html, /\.stats-bar\{[^}]*color:#3c4043/);
+  assert.match(html, /\.stat strong\{color:#202124/);
 });
 
 test('timetable hub escapes user-authored labels before rendering HTML', async () => {
@@ -118,7 +120,8 @@ test('Schedule constrains AI Cue units and records collective Cue maintenance', 
   assert.match(component, /本次已检查 · 无需导入/);
   assert.match(component, /课后复习单与滴答清单/);
   assert.match(domain, /cueCollectionUpdates: CueCollectionUpdate\[\]/);
-  assert.match(domain, /recommendedReviewCourseIds/);
+  assert.match(domain, /preservedReviewCourseIds/);
+  assert.match(domain, /cancelLearningTask/);
 });
 
 test('study plan schedule is externally configurable and contains no personal task defaults', async () => {

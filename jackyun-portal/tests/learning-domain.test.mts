@@ -10,6 +10,7 @@ import {
   applyCueBulkOperations,
   applyCueUnitMappings,
   buildCueReviewBatches,
+  cancelLearningTask,
   completeReview,
   completeCueReviews,
   completeLearningSession,
@@ -30,7 +31,7 @@ import {
   parseTimetableImport,
   postponeLearningTask,
   recordCueStudyAssessment,
-  recommendedReviewCourseIds,
+  preservedReviewCourseIds,
   reconcileScheduleSubjects,
   rescheduleManualTask,
   rollOverManualTasks,
@@ -614,7 +615,7 @@ test('review subjects are saved only from the user selection', () => {
   assert.equal(timetableImportTemplate().courses[0].review, false);
 });
 
-test('timetable import recommends previous review choices and matching learning subjects', () => {
+test('timetable import preserves manual choices without auto-selecting matching learning subjects', () => {
   const current = parseTimetableImport({
     version: 1,
     name: 'Current',
@@ -631,7 +632,7 @@ test('timetable import recommends previous review choices and matching learning 
       { id: 'basketball', name: 'Basketball', review: false, sessions: [{ day: 2, start: '10:00', end: '10:45' }] },
     ],
   });
-  assert.deepEqual(recommendedReviewCourseIds(imported, current, ['Statistics']), ['physics-old', 'statistics']);
+  assert.deepEqual(preservedReviewCourseIds(imported, current), ['physics-old']);
 });
 
 test('collective Cue maintenance creates one durable reminder and resets after a recorded batch check', () => {
@@ -671,6 +672,23 @@ test('collective Cue maintenance creates one durable reminder and resets after a
   assert.equal(tasksForDate(state, new Date(2026, 8, 23, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
   assert.equal(tasksForDate(state, new Date(2026, 9, 20, 12)).some((task) => task.key.startsWith('cue-maintenance:')), true);
   assert.equal(tasksForDate({ ...state, settings: { ...state.settings, cueCollectionReminderEnabled: false } }, new Date(2026, 9, 20, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
+});
+
+test('cancelling a generated checklist task removes the visible parent and every folded child', () => {
+  const timetable = parseTimetableImport({
+    version: 1,
+    name: 'Cancel test',
+    courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 2, start: '08:00', end: '08:45' }] }],
+  });
+  const state = { ...createEmptyScheduleState(), timetable };
+  const date = new Date(2026, 8, 15, 12);
+  const task = tasksForDate(state, date).find((item) => item.key === 'course-review:2026-09-15:physics')!;
+  assert.ok(task.mergedTaskKeys?.length);
+
+  const cancelled = cancelLearningTask(state, task, '2026-09-15T12:00:00.000Z');
+  assert.ok(cancelled.cancellations[task.key]);
+  assert.ok(task.mergedTaskKeys?.every((key) => cancelled.cancellations[key]));
+  assert.equal(tasksForDate(cancelled, date).some((item) => item.key === task.key), false);
 });
 
 test('course reviews, previews, holiday mode, and review follow-ups are deterministic', () => {

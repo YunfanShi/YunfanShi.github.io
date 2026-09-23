@@ -934,6 +934,22 @@ export function rescheduleManualTask(tasks: ManualLearningTask[], taskId: string
   return tasks.map((task) => task.id === taskId ? { ...task, date: targetDate, start: undefined } : task);
 }
 
+/** Cancels the visible task and every source/checklist key folded into it. */
+export function cancelLearningTask(
+  state: ScheduleControlState,
+  task: LearningTask,
+  cancelledAt = new Date().toISOString(),
+): ScheduleControlState {
+  const taskKeys = [...new Set([task.key, ...(task.mergedTaskKeys ?? [])])];
+  return {
+    ...state,
+    cancellations: {
+      ...state.cancellations,
+      ...Object.fromEntries(taskKeys.map((key) => [key, { cancelledAt, reason: 'cancelled' as const }])),
+    },
+  };
+}
+
 /** Moves either a stored task or a generated task while preserving its learning context. */
 export function postponeLearningTask(
   state: ScheduleControlState,
@@ -973,7 +989,7 @@ export function postponeLearningTask(
     manualTasks: [...state.manualTasks.filter((item) => item.id !== id), copy],
     cancellations: {
       ...state.cancellations,
-      ...Object.fromEntries((task.mergedTaskKeys ?? [task.key]).map((key) => [key, { cancelledAt: postponedAt, reason: 'postponed' as const, mergedInto: id }])),
+      ...Object.fromEntries([...new Set([task.key, ...(task.mergedTaskKeys ?? [])])].map((key) => [key, { cancelledAt: postponedAt, reason: 'postponed' as const, mergedInto: id }])),
     },
   };
 }
@@ -1763,23 +1779,18 @@ export function withReviewCourseSelection(timetable: TimetableImport, courseIds:
   };
 }
 
-/** Preserves previous choices and recommends courses that unambiguously match an existing learning subject. */
-export function recommendedReviewCourseIds(
+/** Preserves only explicit timetable choices; new courses remain unselected until the user enables them. */
+export function preservedReviewCourseIds(
   timetable: TimetableImport,
   currentTimetable: TimetableImport | null,
-  learningSubjectNames: Iterable<string>,
 ): string[] {
-  const catalog = [...new Set([...learningSubjectNames].map((name) => name.trim()).filter(Boolean))]
-    .map((name) => ({ id: name, name, units: [], materialProgress: {} } satisfies LearningCatalogSubject));
   return timetable.courses.flatMap((course) => {
     const previous = currentTimetable?.courses.find((item) => (
       item.id === course.id
       || item.name === course.name
       || Boolean(item.shortName && course.shortName && item.shortName === course.shortName)
     ));
-    const matchedSubject = matchLearningCatalogSubject(catalog, course.name)
-      ?? (course.shortName ? matchLearningCatalogSubject(catalog, course.shortName) : undefined);
-    return course.review || previous?.review || matchedSubject ? [course.id] : [];
+    return course.review || previous?.review ? [course.id] : [];
   });
 }
 
