@@ -99,6 +99,28 @@ test('appearance sync migrates undated local settings without permanently blocki
   assert.match(source, /localTime > cloudTime/);
 });
 
+test('Cue notes are a durable Schedule memo system rather than an experimental session draft', async () => {
+  const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
+  const domain = await readFile(new URL('src/lib/learning/schedule-control.ts', projectDir), 'utf8');
+  assert.match(component, /Cue 备忘录/);
+  assert.match(component, /长期保存并随 Schedule 云同步/);
+  assert.match(component, /parsed\.cueStudyDraft\?\.writtenResponses/);
+  assert.doesNotMatch(component, />实验性</);
+  assert.match(domain, /cueMemos: CueMemo\[\]/);
+});
+
+test('Schedule constrains AI Cue units and records collective Cue maintenance', async () => {
+  const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
+  const domain = await readFile(new URL('src/lib/learning/schedule-control.ts', projectDir), 'utf8');
+  assert.match(component, /当前学科允许使用的大单元（必须逐字使用）/);
+  assert.match(component, /禁止发明、翻译、缩写或改写单元名/);
+  assert.match(component, /整批 Cue 更新提醒/);
+  assert.match(component, /本次已检查 · 无需导入/);
+  assert.match(component, /课后复习单与滴答清单/);
+  assert.match(domain, /cueCollectionUpdates: CueCollectionUpdate\[\]/);
+  assert.match(domain, /recommendedReviewCourseIds/);
+});
+
 test('study plan schedule is externally configurable and contains no personal task defaults', async () => {
   const html = await readFile(new URL('Studyplan.html', publicDir), 'utf8');
   assert.match(html, /const SCHEDULE_PROFILES =/);

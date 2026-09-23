@@ -66,6 +66,8 @@ export interface ScheduleSettings {
   recordReminderEnabled: boolean;
   recordReminderTime: string;
   cueShowMastered: boolean;
+  cueCollectionReminderEnabled: boolean;
+  cueCollectionReminderDays: number;
 }
 
 export interface LearningCatalogUnit {
@@ -95,6 +97,17 @@ export interface LearningReminder {
   date: string;
   subjectId?: string;
   completed: boolean;
+}
+
+export interface CueCollectionUpdate {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  updatedAt: string;
+  nextReminderDate: string;
+  createdCount: number;
+  modifiedCount: number;
+  totalCueCount: number;
 }
 
 export interface ManualLearningTask {
@@ -300,8 +313,14 @@ export interface CueStudyDraft {
   revealed: boolean;
   selectedChoice?: number;
   assessments: Record<string, LearningStatus>;
-  /** Experimental per-Cue written recall drafts. These are private scratch notes, not review evidence. */
+  /** Legacy per-Cue drafts retained so older saved sessions can be migrated into Cue memos. */
   writtenResponses?: Record<string, string>;
+  updatedAt: string;
+}
+
+export interface CueMemo {
+  cueId: string;
+  content: string;
   updatedAt: string;
 }
 
@@ -318,6 +337,9 @@ export interface ScheduleControlState {
   learningRecords: LearningRecord[];
   learningCatalog: LearningCatalogSubject[];
   learningReminders: LearningReminder[];
+  cueCollectionUpdates: CueCollectionUpdate[];
+  /** Durable per-Cue notes. They are part of Schedule state and therefore account-syncable. */
+  cueMemos: CueMemo[];
   cueStudyDraft?: CueStudyDraft;
   importedAt?: string;
 }
@@ -393,6 +415,8 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
   recordReminderEnabled: true,
   recordReminderTime: '20:00',
   cueShowMastered: true,
+  cueCollectionReminderEnabled: true,
+  cueCollectionReminderDays: 30,
 };
 
 export function createEmptyScheduleState(): ScheduleControlState {
@@ -409,6 +433,8 @@ export function createEmptyScheduleState(): ScheduleControlState {
     learningRecords: [],
     learningCatalog: [],
     learningReminders: [],
+    cueCollectionUpdates: [],
+    cueMemos: [],
   };
 }
 
@@ -706,6 +732,7 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
     completions: Object.fromEntries(Object.entries(state.completions).map(([key, completion]) => { const subject = resolve(completion.subjectName); return [key, subject ? { ...completion, subjectName: subject.name, ...(completion.scope ? { scope: { ...completion.scope, ...(completion.scope.unit ? { unit: resolveUnit(subject, completion.scope.unit) } : {}) } } : {}) } : completion]; })),
     reviewProgress,
     cues: state.cues.map((cue) => { const subject = resolve(cue.subjectName, cue.subjectId); return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name, unit: resolveUnit(subject, cue.unit) ?? cue.unit } : cue; }),
+    cueCollectionUpdates: state.cueCollectionUpdates.map((update) => { const subject = resolve(update.subjectName, update.subjectId); return subject ? { ...update, subjectId: subject.id, subjectName: subject.name } : update; }),
     learningRecords: state.learningRecords.map((record) => {
       const subject = resolve(record.subjectName);
       return {
@@ -1093,11 +1120,20 @@ export function buildCueReviewBatches(cues: StudyCue[]): StudyCue[][] {
   return batches.toSorted((left, right) => (cueOrder.get(left[0].id) ?? 0) - (cueOrder.get(right[0].id) ?? 0));
 }
 
-function cueNeedsReview(cue: StudyCue, date: string): boolean {
-  return !cue.lastReviewedAt
+type CueReviewSource = 'regular' | 'weak' | 'today';
+
+function cueReviewSource(cue: StudyCue, date: string): CueReviewSource | null {
+  if (dateKey(new Date(cue.createdAt)) === date) return 'today';
+  if (cue.status === 'partial' || cue.status === 'unclear') return 'weak';
+  if (!cue.lastReviewedAt
     || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)
     || !cue.nextReviewDate
-    || cue.nextReviewDate <= date;
+    || cue.nextReviewDate <= date) return 'regular';
+  return null;
+}
+
+function cueNeedsReview(cue: StudyCue, date: string): boolean {
+  return cueReviewSource(cue, date) !== null;
 }
 
 function compareCueReviewPriority(left: StudyCue, right: StudyCue): number {
@@ -1135,21 +1171,41 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
     const failedToday = progress?.lastStatus === 'unclear' && dateKey(new Date(progress.updatedAt)) === key;
     const subjectId = catalogSubject?.id ?? course.id;
     const subjectName = catalogSubject?.name ?? course.name;
-    const subjectCues = state.cues.filter((cue) => cue.subjectId === subjectId);
-    // Once a subject has Cues, its due Cue queue is the single review source.
-    // Do not recreate a four-step post-class checklist for every lesson.
-    if (subjectCues.length) return [];
+    const cueIds = state.cues.filter((cue) => cue.subjectId === subjectId && cueNeedsReview(cue, key)).map((cue) => cue.id);
+    const steps = [
+      {
+        key: `post-class-notes:${key}:${course.id}`,
+        type: 'completeness-audit' as const,
+        title: `补全并上传 ${course.shortName ?? course.name} 课堂笔记`,
+        detail: '补齐课堂留下的空白；对照课堂平台、PPT 或教材检查缺口，并上传或更新笔记。',
+      },
+      {
+        key: `post-class-cues:${key}:${course.id}`,
+        type: 'study' as const,
+        title: '阅读笔记并生成 / 修订 Cue',
+        detail: '把本节需要主动检索的定义、公式、解释链和易错点写成清晰 Cue。',
+      },
+      {
+        key: `post-class-recall:${key}:${course.id}`,
+        type: 'cue-review' as const,
+        title: `复习 ${course.shortName ?? course.name} Cue`,
+        detail: '闭卷完成今天的 Cue 复习单：常规到期 + 黄色 / 红色未达标 + 今天新增 Cue；同一条 Cue 只出现一次。',
+      },
+    ];
     return [{
       key: `course-review:${key}:${course.id}`,
-      title: `建立 ${course.shortName ?? course.name} 的第一批 Cue`,
-      detail: '这个科目还没有 Cue。只需把本节最需要主动回忆的内容写成 Cue；建立后，复习将直接进入 Cue 队列，不再生成课后流程清单。',
+      title: `课后复习单 · ${course.shortName ?? course.name}`,
+      detail: '按课堂笔记 → 生成 / 修订 Cue → Cue 闭卷复习完成本节课闭环。',
       type: 'course-review',
       date: key,
       start: end,
-      durationMinutes: 20,
+      durationMinutes: 35,
       subjectId,
       subjectName,
       guide: { tab: 'learn', subTab: 'cornell' },
+      ...(cueIds.length ? { cueIds, scope: { cueIds } } : {}),
+      mergedTaskKeys: steps.map((step) => step.key),
+      mergedTasks: steps,
       ...(failedToday ? {
         studiedContent: progress.lastStudiedContent,
         issue: progress.lastIssue ?? progress.lastNote,
@@ -1216,8 +1272,8 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
   const candidates = [...groups.values()].flatMap((subjectCues) => buildCueReviewBatches(subjectCues).map((cues, batchIndex) => ({ cues, batchIndex })));
   const batchLimit = dailyCueReviewBatchLimit(state, date);
   const capacityNote = batchLimit === HEAVY_DAY_CUE_BATCH_LIMIT
-    ? '今天课程较多，只安排 1 个常规复习批次；其余到期 Cue 自动留在队列。'
-    : `今天最多安排 ${batchLimit} 个常规复习批次；其余到期 Cue 自动留在队列。`;
+    ? '今天课程较多，只安排 1 个 Cue 复习批次；其余 Cue 自动留在队列。'
+    : `今天最多安排 ${batchLimit} 个 Cue 复习批次；其余 Cue 自动留在队列。`;
   return candidates
     .toSorted((left, right) => compareCueReviewPriority(left.cues[0], right.cues[0]))
     .slice(0, batchLimit)
@@ -1227,10 +1283,16 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
       const sameScope = unitNames.length === 1;
       const batchSuffix = batchIndex ? `:batch-${batchIndex + 1}` : '';
       const reviewMode = sameScope ? `单元复习 · ${unitNames[0]}` : `组合复习 · ${unitNames.join(' + ')}`;
+      const sourceCounts = cues.reduce<Record<CueReviewSource, number>>((counts, cue) => {
+        const source = cueReviewSource(cue, key);
+        if (source) counts[source] += 1;
+        return counts;
+      }, { regular: 0, weak: 0, today: 0 });
+      const sourceSummary = `本批来源：常规到期 ${sourceCounts.regular} · 黄色 / 红色 ${sourceCounts.weak} · 今日新增 ${sourceCounts.today}`;
       return {
         key: `cue-review:${key}:${cues[0].subjectId}${batchSuffix}`,
         title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
-        detail: `${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成本批 Cue；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。${capacityNote}`,
+        detail: `${sourceSummary}。${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成且不重复；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。${capacityNote}`,
         type: 'cue-review' as const,
         date: key,
         durationMinutes: Math.min(60, Math.max(20, cues.length * 4)),
@@ -1242,6 +1304,42 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
         overdue: cues.some((cue) => Boolean(cue.nextReviewDate && cue.nextReviewDate < key)),
       };
     });
+}
+
+function cueCollectionMaintenanceTasks(state: ScheduleControlState, date: Date): LearningTask[] {
+  if (!state.settings.cueCollectionReminderEnabled || !state.cues.length) return [];
+  const key = dateKey(date);
+  const subjects = new Map<string, StudyCue[]>();
+  for (const cue of state.cues) subjects.set(cue.subjectId, [...(subjects.get(cue.subjectId) ?? []), cue]);
+  const due = [...subjects.entries()].flatMap(([subjectId, cues]) => {
+    const latest = state.cueCollectionUpdates
+      .filter((update) => update.subjectId === subjectId)
+      .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    const newestCueDate = cues
+      .map((cue) => cue.updatedAt || cue.createdAt)
+      .toSorted((left, right) => right.localeCompare(left))[0];
+    const nextReminderDate = latest?.nextReminderDate
+      ?? addCalendarDays(dateKey(new Date(newestCueDate)), Math.max(1, state.settings.cueCollectionReminderDays));
+    if (nextReminderDate > key) return [];
+    return [{
+      subjectId,
+      subjectName: cues[0].subjectName,
+      nextReminderDate,
+      lastUpdatedAt: latest?.updatedAt,
+    }];
+  });
+  if (!due.length) return [];
+  const earliest = due.map((item) => item.nextReminderDate).toSorted()[0];
+  return [{
+    key: `cue-maintenance:${earliest}:${due.map((item) => item.subjectId).toSorted().join(',')}`,
+    title: `整批检查 Cue 更新 · ${due.length} 科`,
+    detail: `到期科目：${due.map((item) => `${item.subjectName}（${item.lastUpdatedAt ? `上次整批更新 ${dateKey(new Date(item.lastUpdatedAt))}` : '尚未记录整批更新'}）`).join('；')}。把该科全部 Cue 与最新笔记交给 AI，导回新增 / 修改结果；执行批量导入后自动记录本次日期并重排提醒。`,
+    type: 'completeness-audit',
+    date: key,
+    durationMinutes: 20,
+    overdue: earliest < key,
+    guide: { tab: 'learn', subTab: 'cornell' },
+  }];
 }
 
 function previewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
@@ -1302,7 +1400,8 @@ function mergeSameSubjectActions(tasks: LearningTask[], cues: StudyCue[]): Learn
     const review = taskAction(primary.type) === 'review';
     const timedCourseReview = group.find((task) => task.type === 'course-review' && task.start);
     const subjectName = primary.subjectName ?? group.find((task) => task.subjectName)?.subjectName;
-    const mergedTasks = group.flatMap((task) => task.mergedTasks ?? [{ key: task.key, type: task.type, title: task.title, detail: task.detail }]);
+    const hasEmbeddedCueReview = group.some((task) => task.mergedTasks?.some((item) => item.type === 'cue-review'));
+    const mergedTasks = group.flatMap((task) => task.mergedTasks ?? (hasEmbeddedCueReview && task.type === 'cue-review' ? [] : [{ key: task.key, type: task.type, title: task.title, detail: task.detail }]));
     const detail = mergedCues.length
       ? `复习：${mergedCues.map((cue) => cue.prompt).join('；')}`
       : [...new Set(group.map((task) => task.detail).filter(Boolean))].join('\n');
@@ -1327,6 +1426,7 @@ export function tasksForDate(state: ScheduleControlState, date: Date): LearningT
   const daily = courseReviewTasks(state, date);
   const automatic = [
     ...cueReviewTasks(state, date),
+    ...cueCollectionMaintenanceTasks(state, date),
     ...intervalReviewTasks(state, date),
     ...daily,
     ...weeklyReviewTasks(state, date),
@@ -1661,6 +1761,26 @@ export function withReviewCourseSelection(timetable: TimetableImport, courseIds:
     ...timetable,
     courses: timetable.courses.map((course) => ({ ...course, review: selected.has(course.id) })),
   };
+}
+
+/** Preserves previous choices and recommends courses that unambiguously match an existing learning subject. */
+export function recommendedReviewCourseIds(
+  timetable: TimetableImport,
+  currentTimetable: TimetableImport | null,
+  learningSubjectNames: Iterable<string>,
+): string[] {
+  const catalog = [...new Set([...learningSubjectNames].map((name) => name.trim()).filter(Boolean))]
+    .map((name) => ({ id: name, name, units: [], materialProgress: {} } satisfies LearningCatalogSubject));
+  return timetable.courses.flatMap((course) => {
+    const previous = currentTimetable?.courses.find((item) => (
+      item.id === course.id
+      || item.name === course.name
+      || Boolean(item.shortName && course.shortName && item.shortName === course.shortName)
+    ));
+    const matchedSubject = matchLearningCatalogSubject(catalog, course.name)
+      ?? (course.shortName ? matchLearningCatalogSubject(catalog, course.shortName) : undefined);
+    return course.review || previous?.review || matchedSubject ? [course.id] : [];
+  });
 }
 
 export function timetableImportTemplate(): TimetableImport {

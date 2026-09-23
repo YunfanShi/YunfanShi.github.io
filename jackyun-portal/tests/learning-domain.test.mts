@@ -30,6 +30,7 @@ import {
   parseTimetableImport,
   postponeLearningTask,
   recordCueStudyAssessment,
+  recommendedReviewCourseIds,
   reconcileScheduleSubjects,
   rescheduleManualTask,
   rollOverManualTasks,
@@ -147,7 +148,7 @@ test('Cue study resolves explicit task Cues first and otherwise uses subject plu
   assert.deepEqual(cuesForLearningTask(cues, { ...scopedTask, cueIds: ['chapter-5', 'chapter-4-a'] }).map((cue) => cue.id), ['chapter-5', 'chapter-4-a']);
 });
 
-test('subjects with Cues use one direct Cue review instead of a post-class workflow', () => {
+test('a class keeps one three-step review sheet and folds its Cue queue into it', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const state = createEmptyScheduleState();
   state.timetable = parseTimetableImport({ version: 1, name: 'Term', courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 7, start: '09:00', end: '10:00' }] }] });
@@ -159,12 +160,12 @@ test('subjects with Cues use one direct Cue review instead of a post-class workf
   const reviews = tasksForDate(state, new Date(2026, 8, 20, 12));
   const jointReview = reviews.find((task) => task.subjectId === 'physics');
   assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
-  assert.equal(jointReview?.title, 'Physics · 单元复习 · Mechanics · 2 条 Cue');
-  assert.equal(jointReview?.start, undefined);
+  assert.equal(jointReview?.title, '联合复习 · Physics · 2 条 Cue');
+  assert.equal(jointReview?.start, '10:00');
   assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
   assert.equal(jointReview?.scope?.subsection, undefined);
-  assert.match(jointReview?.detail ?? '', /闭卷完成本批 Cue/);
-  assert.equal(jointReview?.mergedTasks, undefined);
+  assert.deepEqual(jointReview?.mergedTasks?.map((item) => item.type), ['completeness-audit', 'study', 'cue-review']);
+  assert.match(jointReview?.mergedTasks?.[2].detail ?? '', /常规到期.*黄色 \/ 红色.*今天新增/);
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
   assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-23', '2026-09-23']);
@@ -372,9 +373,11 @@ test('timetable course names reconcile with learning subjects by meaningful keyw
   state.learningCatalog = catalog;
   state.timetable = { version: 1, name: 'AL', courses: [{ id: 'course-statistics', name: 'AL统计 1 AL Statistics 1', color: '#123456', review: true, sessions: [{ day: 7, start: '09:00', end: '10:00' }] }] };
   state.reviewProgress['course-statistics'] = { subjectId: 'course-statistics', subjectName: 'AL统计 1 AL Statistics 1', intervalDays: 1, easeFactor: 2.5, streak: 1, nextReviewDate: '2026-09-20', lastStatus: 'partial', lastNote: '', updatedAt: '2026-09-19T08:00:00.000Z' };
+  state.cueCollectionUpdates = [{ id: 'batch-statistics', subjectId: 'course-statistics', subjectName: 'AL统计 1 AL Statistics 1', updatedAt: '2026-09-19T08:00:00.000Z', nextReminderDate: '2026-10-19', createdCount: 2, modifiedCount: 1, totalCueCount: 20 }];
   const reconciled = reconcileScheduleSubjects(state);
   assert.equal(reconciled.reviewProgress.statistics?.subjectName, 'Statistics');
   assert.equal(reconciled.reviewProgress['course-statistics'], undefined);
+  assert.equal(reconciled.cueCollectionUpdates[0].subjectId, 'statistics');
   const daily = tasksForDate(reconciled, new Date(2026, 8, 20, 12)).find((task) => task.type === 'course-review');
   assert.equal(daily?.subjectId, 'statistics');
   assert.equal(daily?.subjectName, 'Statistics');
@@ -523,7 +526,23 @@ test('a heavy class day schedules only the highest-priority Cue batch and keeps 
   assert.equal(reviews.length, 1);
   assert.equal(reviews[0].subjectId, 'unclear-backlog');
   assert.equal(reviews[0].cueIds?.length, 15);
-  assert.match(reviews[0].detail, /只安排 1 个常规复习批次.*其余到期 Cue 自动留在队列/);
+  assert.match(reviews[0].detail, /只安排 1 个 Cue 复习批次.*其余 Cue 自动留在队列/);
+});
+
+test('daily Cue review is the deduplicated union of regular, weak, and today-created Cues', () => {
+  const state = createEmptyScheduleState();
+  const common = { subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: '', type: 'general' as const, markingPoints: [], intervalDays: 3, easeFactor: 2.5, streak: 1, lastReviewedAt: '2026-09-20T08:00:00.000Z', updatedAt: '2026-09-20T08:00:00.000Z' };
+  state.cues = [
+    { ...common, id: 'regular', prompt: 'Regular', status: 'stable', nextReviewDate: '2026-09-21', createdAt: '2026-09-18T08:00:00.000Z' },
+    { ...common, id: 'weak', prompt: 'Weak', status: 'partial', nextReviewDate: '2026-09-30', createdAt: '2026-09-18T08:00:00.000Z' },
+    { ...common, id: 'today', prompt: 'Today', status: 'stable', nextReviewDate: '2026-09-30', createdAt: '2026-09-21T03:00:00.000Z' },
+    { ...common, id: 'future', prompt: 'Future', status: 'stable', nextReviewDate: '2026-09-30', createdAt: '2026-09-18T08:00:00.000Z' },
+  ];
+
+  const review = tasksForDate(state, new Date(2026, 8, 21, 12)).find((task) => task.type === 'cue-review');
+
+  assert.deepEqual(new Set(review?.cueIds), new Set(['regular', 'weak', 'today']));
+  assert.match(review?.detail ?? '', /常规到期 1 · 黄色 \/ 红色 1 · 今日新增 1/);
 });
 
 test('a changed Cue is reviewed again even when its old interval date is still in the future', () => {
@@ -595,6 +614,65 @@ test('review subjects are saved only from the user selection', () => {
   assert.equal(timetableImportTemplate().courses[0].review, false);
 });
 
+test('timetable import recommends previous review choices and matching learning subjects', () => {
+  const current = parseTimetableImport({
+    version: 1,
+    name: 'Current',
+    courses: [
+      { id: 'physics-old', name: 'Physics', review: true, sessions: [{ day: 1, start: '08:00', end: '08:45' }] },
+    ],
+  });
+  const imported = parseTimetableImport({
+    version: 1,
+    name: 'New',
+    courses: [
+      { id: 'physics-old', name: 'Physics', review: false, sessions: [{ day: 2, start: '08:00', end: '08:45' }] },
+      { id: 'statistics', name: 'AL Statistics 1', review: false, sessions: [{ day: 2, start: '09:00', end: '09:45' }] },
+      { id: 'basketball', name: 'Basketball', review: false, sessions: [{ day: 2, start: '10:00', end: '10:45' }] },
+    ],
+  });
+  assert.deepEqual(recommendedReviewCourseIds(imported, current, ['Statistics']), ['physics-old', 'statistics']);
+});
+
+test('collective Cue maintenance creates one durable reminder and resets after a recorded batch check', () => {
+  const state = createEmptyScheduleState();
+  state.cues = [{
+    id: 'cue-1',
+    subjectId: 'physics',
+    subjectName: 'Physics',
+    unit: 'Kinematics',
+    subsection: '',
+    prompt: 'Define acceleration',
+    type: 'definition',
+    markingPoints: [],
+    intervalDays: 3,
+    easeFactor: 2.5,
+    streak: 0,
+    createdAt: '2026-08-01T08:00:00.000Z',
+    updatedAt: '2026-08-01T08:00:00.000Z',
+  }];
+
+  const due = tasksForDate(state, new Date(2026, 8, 23, 12));
+  const reminder = due.find((task) => task.key.startsWith('cue-maintenance:'));
+  assert.ok(reminder);
+  assert.equal(reminder.title, '整批检查 Cue 更新 · 1 科');
+  assert.match(reminder.detail, /尚未记录整批更新/);
+
+  state.cueCollectionUpdates = [{
+    id: 'batch-1',
+    subjectId: 'physics',
+    subjectName: 'Physics',
+    updatedAt: '2026-09-20T08:00:00.000Z',
+    nextReminderDate: '2026-10-20',
+    createdCount: 3,
+    modifiedCount: 2,
+    totalCueCount: 44,
+  }];
+  assert.equal(tasksForDate(state, new Date(2026, 8, 23, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
+  assert.equal(tasksForDate(state, new Date(2026, 9, 20, 12)).some((task) => task.key.startsWith('cue-maintenance:')), true);
+  assert.equal(tasksForDate({ ...state, settings: { ...state.settings, cueCollectionReminderEnabled: false } }, new Date(2026, 9, 20, 12)).some((task) => task.key.startsWith('cue-maintenance:')), false);
+});
+
 test('course reviews, previews, holiday mode, and review follow-ups are deterministic', () => {
   const timetable = parseTimetableImport({
     version: 1,
@@ -610,10 +688,10 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   assert.ok(tasks.some((task) => task.key === 'course-review:2026-09-15:math'));
   assert.ok(!tasks.some((task) => task.type === 'preview'));
   const postClass = tasks.find((task) => task.key === 'course-review:2026-09-15:math')!;
-  assert.equal(postClass.title, '建立 Mathematics 的第一批 Cue');
+  assert.equal(postClass.title, '课后复习单 · Mathematics');
   assert.equal(postClass.start, '08:45');
-  assert.equal(postClass.mergedTasks, undefined);
-  assert.match(postClass.detail, /直接进入 Cue 队列/);
+  assert.deepEqual(postClass.mergedTasks?.map((item) => item.type), ['completeness-audit', 'study', 'cue-review']);
+  assert.match(postClass.detail, /课堂笔记.*Cue/);
   assert.equal(tasksForDate({ ...state, settings: { ...state.settings, postClassTasksEnabled: false } }, tuesday).some((task) => task.type === 'course-review'), false);
 
   const previewEnabled = {
