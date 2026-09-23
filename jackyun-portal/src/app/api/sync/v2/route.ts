@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { apiError, requestIdFrom } from '@/lib/api-response';
-import { isSyncableStorageKey } from '@/lib/local-workspace';
+import { MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey } from '@/lib/local-workspace';
 import { canonicalJson } from '@/lib/sync/hash';
 import type { SyncOperation } from '@/types/sync';
 
@@ -58,7 +58,7 @@ function validOperation(value: unknown): value is SyncOperation {
   if (!operation.deleted && !Object.prototype.hasOwnProperty.call(operation, 'value')) return false;
   if (operation.resolvesOperationId && !UUID.test(operation.resolvesOperationId)) return false;
   if (!Number.isFinite(Date.parse(operation.clientUpdatedAt))) return false;
-  return (JSON.stringify(operation.value) ?? 'null').length <= 100_000 && (JSON.stringify(operation.baseValue) ?? 'null').length <= 100_000;
+  return (JSON.stringify(operation.value) ?? 'null').length <= MAX_SYNC_VALUE_CHARACTERS && (JSON.stringify(operation.baseValue) ?? 'null').length <= MAX_SYNC_VALUE_CHARACTERS;
 }
 
 export async function GET(request: NextRequest) {

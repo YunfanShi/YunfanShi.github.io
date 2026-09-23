@@ -13,7 +13,6 @@ import {
   completeReview,
   completeCueReviews,
   completeLearningSession,
-  completeLearningSubtask,
   createEmptyScheduleState,
   createIeltsWeekTasks,
   cueActivityTag,
@@ -148,7 +147,7 @@ test('Cue study resolves explicit task Cues first and otherwise uses subject plu
   assert.deepEqual(cuesForLearningTask(cues, { ...scopedTask, cueIds: ['chapter-5', 'chapter-4-a'] }).map((cue) => cue.id), ['chapter-5', 'chapter-4-a']);
 });
 
-test('due subject review work is merged with a visible description of every task', () => {
+test('subjects with Cues use one direct Cue review instead of a post-class workflow', () => {
   const createdAt = '2026-09-19T08:00:00.000Z';
   const state = createEmptyScheduleState();
   state.timetable = parseTimetableImport({ version: 1, name: 'Term', courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 7, start: '09:00', end: '10:00' }] }] });
@@ -160,18 +159,16 @@ test('due subject review work is merged with a visible description of every task
   const reviews = tasksForDate(state, new Date(2026, 8, 20, 12));
   const jointReview = reviews.find((task) => task.subjectId === 'physics');
   assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
-  assert.equal(jointReview?.title, '联合复习 · Physics · 2 条 Cue');
-  assert.equal(jointReview?.start, '10:00');
+  assert.equal(jointReview?.title, 'Physics · 单元复习 · Mechanics · 2 条 Cue');
+  assert.equal(jointReview?.start, undefined);
   assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
   assert.equal(jointReview?.scope?.subsection, undefined);
-  assert.match(jointReview?.detail ?? '', /Define acceleration.*Explain terminal velocity/);
-  assert.deepEqual(new Set(jointReview?.mergedTasks?.map((task) => task.type)), new Set(['course-review', 'cue-review', 'completeness-audit', 'study']));
-  assert.ok(jointReview?.mergedTasks?.every((task) => task.title && task.detail));
+  assert.match(jointReview?.detail ?? '', /闭卷完成本批 Cue/);
+  assert.equal(jointReview?.mergedTasks, undefined);
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
-  assert.equal(completed.reviewProgress.physics.nextReviewDate, '2026-09-23');
-  assert.ok(jointReview?.mergedTaskKeys?.every((key) => completed.completions[key]));
-  assert.ok(jointReview?.mergedTasks?.every((item) => completed.completions[item.key]));
+  assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-23', '2026-09-23']);
+  assert.ok(completed.completions[jointReview!.key]);
 });
 
 test('subject-level interval review yields to Cue-level scheduling', () => {
@@ -613,20 +610,10 @@ test('course reviews, previews, holiday mode, and review follow-ups are determin
   assert.ok(tasks.some((task) => task.key === 'course-review:2026-09-15:math'));
   assert.ok(!tasks.some((task) => task.type === 'preview'));
   const postClass = tasks.find((task) => task.key === 'course-review:2026-09-15:math')!;
-  assert.equal(postClass.title, '课后学习闭环 · Mathematics');
+  assert.equal(postClass.title, '建立 Mathematics 的第一批 Cue');
   assert.equal(postClass.start, '08:45');
-  assert.deepEqual(postClass.mergedTasks?.map((item) => item.title), [
-    '补全并上传 Mathematics 课堂笔记',
-    '阅读笔记并生成 / 修订 Cue',
-    '闭卷复习 Mathematics Cue',
-    '记录证据、问题与资料位置',
-  ]);
-  const firstStep = postClass.mergedTasks![0];
-  const withFirstStep = completeLearningSubtask(state, postClass, firstStep.key, new Date('2026-09-15T09:00:00.000Z'));
-  assert.equal(withFirstStep.completions[firstStep.key].studiedContent, firstStep.title);
-  assert.ok(tasksForDate(withFirstStep, tuesday).some((task) => task.key === postClass.key));
-  const withAllSteps = postClass.mergedTasks!.reduce((current, item, index) => completeLearningSubtask(current, postClass, item.key, new Date(`2026-09-15T09:0${index}:00.000Z`)), state);
-  assert.ok(!tasksForDate(withAllSteps, tuesday).some((task) => task.key === postClass.key));
+  assert.equal(postClass.mergedTasks, undefined);
+  assert.match(postClass.detail, /直接进入 Cue 队列/);
   assert.equal(tasksForDate({ ...state, settings: { ...state.settings, postClassTasksEnabled: false } }, tuesday).some((task) => task.type === 'course-review'), false);
 
   const previewEnabled = {

@@ -110,6 +110,10 @@ test('repair migration recreates the production sync RPC and preserves invoker s
 
 test('automatic sync excludes its timestamp ledger and removes manual conflict choices', async () => {
   assert.equal(isSyncableStorageKey('jackyun_sync_timestamps'), false);
+  assert.equal(isSyncableStorageKey('jackyun-ai-config'), false);
+  assert.equal(isSyncableStorageKey('jackyun_definition_learning_session_v1'), true);
+  assert.equal(isSyncableStorageKey('jackyun-ai-token-price'), true);
+  assert.equal(isSyncableStorageKey('jackyun_answer_sheet_draft_v1'), true);
   assert.equal(isSyncableStorageKey('jackyun_goal_data'), true);
   assert.equal(isSyncableStorageKey('jackyun_schedule_control_v1'), true);
   const panel = await readFile(new URL('../src/components/settings/sync-center-panel.tsx', import.meta.url), 'utf8');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
+import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
 import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
@@ -17,7 +17,7 @@ function localSnapshot(): Record<string, string> {
     const key = localStorage.key(index);
     if (!key || !isSyncableStorageKey(key)) continue;
     const value = localStorage.getItem(key);
-    if (value !== null && value.length <= 100_000) snapshot[key] = value;
+    if (value !== null && value.length <= MAX_SYNC_VALUE_CHARACTERS) snapshot[key] = value;
   }
   return snapshot;
 }

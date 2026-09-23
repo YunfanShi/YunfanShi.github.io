@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { apiError, requestIdFrom } from '@/lib/api-response';
+import { MAX_SYNC_VALUE_CHARACTERS } from '@/lib/local-workspace';
 import { canonicalJson } from '@/lib/sync/hash';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as { conflictId?: string; deviceId?: string; value?: unknown; deleted?: boolean } | null;
   if (!body?.conflictId || !UUID.test(body.conflictId) || !body.deviceId || !UUID.test(body.deviceId)
       || (body.deleted !== true && !Object.prototype.hasOwnProperty.call(body, 'value'))
-      || (JSON.stringify(body.value) ?? 'null').length > 100_000) {
+      || (JSON.stringify(body.value) ?? 'null').length > MAX_SYNC_VALUE_CHARACTERS) {
     return apiError(requestId, 'Invalid conflict resolution', 400, 'INVALID_RESOLUTION');
   }
   const { data: conflict, error: readError } = await supabase.from('sync_conflicts').select('*')

@@ -1129,53 +1129,27 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
     const previous = courses.get(session.course.id);
     if (!previous || session.end > previous.end) courses.set(session.course.id, { course: session.course, end: session.end });
   }
-  return [...courses.values()].map(({ course, end }) => {
+  return [...courses.values()].flatMap(({ course, end }) => {
     const catalogSubject = matchLearningCatalogSubject(state.learningCatalog, `${course.name} ${course.shortName ?? ''}`);
     const progress = state.reviewProgress[catalogSubject?.id ?? course.id];
     const failedToday = progress?.lastStatus === 'unclear' && dateKey(new Date(progress.updatedAt)) === key;
     const subjectId = catalogSubject?.id ?? course.id;
     const subjectName = catalogSubject?.name ?? course.name;
     const subjectCues = state.cues.filter((cue) => cue.subjectId === subjectId);
-    const materialPositions = Object.entries(catalogSubject?.materialProgress ?? {}).map(([code, value]) => `${code} ${value}`).join('、');
-    const workflow = [
-      {
-        key: `post-class-notes:${key}:${course.id}`,
-        type: 'completeness-audit' as const,
-        title: `补全并上传 ${course.shortName ?? course.name} 课堂笔记`,
-        detail: '补齐课堂留下的空白；对照 Blackboard、PPT 或 Textbook 检查缺口，并上传或更新 Notebook。',
-      },
-      {
-        key: `post-class-cues:${key}:${course.id}`,
-        type: 'study' as const,
-        title: '阅读笔记并生成 / 修订 Cue',
-        detail: `把本节需要主动检索的定义、公式、解释链和易错点写成清晰 Cue；已有 ${subjectCues.length} 条。`,
-      },
-      {
-        key: `post-class-recall:${key}:${course.id}`,
-        type: 'cue-review' as const,
-        title: `闭卷复习 ${course.shortName ?? course.name} Cue`,
-        detail: '只复述本节新建或修订的 Cue；揭示答案后按证据分别记录 √ / △ / ○。常规旧 Cue 由每日限额队列另行安排。',
-      },
-      {
-        key: `post-class-record:${key}:${course.id}`,
-        type: 'course-review' as const,
-        title: '记录证据、问题与资料位置',
-        detail: materialPositions ? `保存本节实际范围、最小知识缺口，并确认资料位置：${materialPositions}。` : '保存本节实际范围、最小知识缺口，并更新 Book、Notebook、PPT 或 Homework 的最新位置。',
-      },
-    ];
-    return {
+    // Once a subject has Cues, its due Cue queue is the single review source.
+    // Do not recreate a four-step post-class checklist for every lesson.
+    if (subjectCues.length) return [];
+    return [{
       key: `course-review:${key}:${course.id}`,
-      title: `课后学习闭环 · ${course.shortName ?? course.name}`,
-      detail: '按 StudyGuide 完成 Notes → Cue → Recall → Evidence，不把“复习”留成一个模糊动作。',
+      title: `建立 ${course.shortName ?? course.name} 的第一批 Cue`,
+      detail: '这个科目还没有 Cue。只需把本节最需要主动回忆的内容写成 Cue；建立后，复习将直接进入 Cue 队列，不再生成课后流程清单。',
       type: 'course-review',
       date: key,
       start: end,
-      durationMinutes: 35,
+      durationMinutes: 20,
       subjectId,
       subjectName,
       guide: { tab: 'learn', subTab: 'cornell' },
-      mergedTaskKeys: [`course-review:${key}:${course.id}`],
-      mergedTasks: workflow,
       ...(failedToday ? {
         studiedContent: progress.lastStudiedContent,
         issue: progress.lastIssue ?? progress.lastNote,
@@ -1183,7 +1157,7 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
         lastStatus: progress.lastStatus,
         lastReviewedAt: progress.updatedAt,
       } : {}),
-    } satisfies LearningTask;
+    } satisfies LearningTask];
   });
 }
 

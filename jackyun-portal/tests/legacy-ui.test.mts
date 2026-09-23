@@ -62,6 +62,18 @@ test('mock portal provides validated external paper libraries and advanced-level
   assert.match(html, /function paperVariantOf/);
 });
 
+test('answer sheet is assessment-neutral, starts blank, and accepts manual answer keys', async () => {
+  const html = await readFile(new URL('AnswerSheet.html', publicDir), 'utf8');
+  assert.match(html, /JackYun Answer Sheet/);
+  assert.match(html, /id="assessmentName"/);
+  assert.match(html, /id="answerKey"[^>]*placeholder="例如：ABCD\/ACD 或 1234\/134"/);
+  assert.doesNotMatch(html, /id="answerKey"[^>]*readonly/);
+  assert.match(html, /copyAnswerRules/);
+  assert.match(html, /jackyun_answer_sheet_draft_v1/);
+  assert.doesNotMatch(html, /value="0625"|value="Physics"|value="40"/);
+  assert.doesNotMatch(html, /试卷：IGCSE|批改结果 — IGCSE/);
+});
+
 test('timetable hub escapes user-authored labels before rendering HTML', async () => {
   const html = await readFile(new URL('TimetableHub.html', publicDir), 'utf8');
   assert.match(html, /'&':'&amp;'/);
