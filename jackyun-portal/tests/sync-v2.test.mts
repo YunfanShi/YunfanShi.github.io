@@ -6,6 +6,38 @@ import { threeWayMerge } from '../src/lib/sync/merge.ts';
 import { canonicalJson } from '../src/lib/sync/hash.ts';
 import { buildSyncRequest, compactSyncOperations } from '../src/lib/sync/batch.ts';
 import { isSyncableStorageKey } from '../src/lib/local-workspace.ts';
+import { scheduleHasContent, shouldQueueLocalValue, unsafeScheduleReplacement } from '../src/lib/sync/schedule-safety.ts';
+
+test('empty or malformed Schedule cannot replace populated cloud state', () => {
+  const populated = { schemaVersion: 1, timetable: null, cues: [{ id: 'cue-1' }], manualTasks: [], completions: {} };
+  const empty = { schemaVersion: 1, timetable: null, cues: [], manualTasks: [], completions: {} };
+  assert.equal(scheduleHasContent(populated), true);
+  assert.equal(scheduleHasContent(empty), false);
+  assert.equal(unsafeScheduleReplacement(populated, empty), true);
+  assert.equal(unsafeScheduleReplacement(populated, null), true);
+  assert.equal(unsafeScheduleReplacement(populated, '{broken json'), true);
+  assert.equal(unsafeScheduleReplacement(populated, { ...empty, manualTasks: [{ id: 'task-1' }] }), false);
+  assert.equal(unsafeScheduleReplacement(empty, empty), false);
+  assert.equal(shouldQueueLocalValue('jackyun_schedule_control_v1', JSON.stringify(empty), undefined), false);
+  assert.equal(shouldQueueLocalValue('jackyun_schedule_control_v1', JSON.stringify(populated), undefined), true);
+  assert.equal(shouldQueueLocalValue('jackyun_schedule_control_v1', undefined, JSON.stringify(populated)), false);
+  assert.equal(shouldQueueLocalValue('jackyun_schedule_control_v1', '{bad json', JSON.stringify(populated)), false);
+  assert.equal(shouldQueueLocalValue('some_other_key', undefined, undefined), false);
+});
+
+test('Schedule safety is enforced at browser sync, API, and database boundary', async () => {
+  const browser = await readFile(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8');
+  const route = await readFile(new URL('../src/app/api/sync/v2/route.ts', import.meta.url), 'utf8');
+  const migration = await readFile(new URL('../supabase/migrations/20260923235541_schedule_version_backups.sql', import.meta.url), 'utf8');
+  assert.match(browser, /shouldQueueLocalValue\(key, current, lastSnapshot\[key\]\)/);
+  assert.match(browser, /emptyScheduleNeedsCloud/);
+  assert.ok(browser.indexOf('await pull();\n        await flush(deviceId);') > 0);
+  assert.match(route, /unsafeScheduleReplacement/);
+  assert.match(migration, /before update on public\.legacy_sync_data/i);
+  assert.match(migration, /insert into public\.schedule_version_backups/i);
+  assert.match(migration, /raise exception 'Empty Schedule cannot replace existing data'/i);
+  assert.match(migration, /using \(\(select auth\.uid\(\)\) = user_id\)/i);
+});
 
 test('canonical JSON is stable across object key order', () => {
   assert.equal(canonicalJson({ b: 2, a: { d: 4, c: 3 } }), canonicalJson({ a: { c: 3, d: 4 }, b: 2 }));

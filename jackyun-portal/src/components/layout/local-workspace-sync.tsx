@@ -5,6 +5,7 @@ import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, MAX_SYNC_VALUE_CHAR
 import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
+import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
 function announce(detail: SyncStatusDetail) {
@@ -69,6 +70,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       for (const key of keys) {
         const current = snapshot[key];
         const base = metadataByKey.get(key);
+        if (!shouldQueueLocalValue(key, current, lastSnapshot[key])) continue;
         if (current === lastSnapshot[key] && base) continue;
         const matchesCloudBase = base
           && base.deleted === (current === undefined)
@@ -167,11 +169,22 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         throw new Error(detail);
       }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
+      const records = [...payload.records];
+      if (!pendingKeys.has(SCHEDULE_STORAGE_KEY)
+          && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
+          && !records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
+        const scheduleResponse = await fetch(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
+        if (!scheduleResponse.ok) throw new Error(`Schedule 云端读取失败 (${scheduleResponse.status})`);
+        const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
+        records.push(...schedulePayload.records);
+      }
       const appliedRemoteKeys: string[] = [];
-      for (const record of payload.records) {
+      for (const record of records) {
         if (pendingKeys.has(record.key)) continue;
         const current = localStorage.getItem(record.key) ?? undefined;
-        if (current === lastSnapshot[record.key]) {
+        const emptyScheduleNeedsCloud = record.key === SCHEDULE_STORAGE_KEY
+          && !scheduleHasContent(parseStorageValue(current)) && scheduleHasContent(record.value);
+        if (current === lastSnapshot[record.key] || emptyScheduleNeedsCloud) {
           if (record.deleted) localStorage.removeItem(record.key);
           else localStorage.setItem(record.key, storageValueToString(record.value));
           appliedRemoteKeys.push(record.key);
@@ -195,8 +208,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const deviceId = await getOrCreateDeviceId();
         await clearConflicts();
         await queueChanges();
-        await flush(deviceId);
-        await queueChanges();
+        for (const operation of await getOutbox()) {
+          if (operation.key === SCHEDULE_STORAGE_KEY && !scheduleHasContent(operation.deleted ? null : operation.value)) {
+            await removeOperation(operation.id);
+          }
+        }
         await pull();
         await flush(deviceId);
         const now = new Date().toISOString();

@@ -7,6 +7,7 @@ import LearningRecordsView from '@/components/modules/schedule/learning-records-
 import LatexRenderer from '@/components/modules/latex-renderer';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
+import { scheduleHasContent } from '@/lib/sync/schedule-safety';
 import { didaSourceKey, type DidaAccountView } from '@/lib/integrations/dida365';
 import {
   applyCueBulkOperations,
@@ -1054,6 +1055,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const [didaAddedTaskKeys, setDidaAddedTaskKeys] = useState<Set<string>>(() => new Set());
   const [sendingTaskKey, setSendingTaskKey] = useState('');
   const autoDidaAttemptedRef = useRef(new Set<string>());
+  const skipInitialEmptySaveRef = useRef(false);
   const [aiReportBusyId, setAiReportBusyId] = useState('');
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderDate, setReminderDate] = useState('');
@@ -1066,12 +1068,18 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       const current = new Date();
       setNow(current);
       setSelectedDate(dateKey(current));
+      skipInitialEmptySaveRef.current = localStorage.getItem(STORAGE_KEY) === null;
       setState(loadState(current));
       setReady(true);
     });
   }, []);
   useEffect(() => {
     if (!ready) return;
+    if (skipInitialEmptySaveRef.current && !scheduleHasContent(state)) {
+      skipInitialEmptySaveRef.current = false;
+      return;
+    }
+    skipInitialEmptySaveRef.current = false;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     if (signedIn) window.dispatchEvent(new Event('jackyun-sync-retry'));
   }, [ready, signedIn, state]);

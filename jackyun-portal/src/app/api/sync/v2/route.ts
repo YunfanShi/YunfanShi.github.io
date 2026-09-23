@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { apiError, requestIdFrom } from '@/lib/api-response';
 import { MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey } from '@/lib/local-workspace';
 import { canonicalJson } from '@/lib/sync/hash';
+import { SCHEDULE_STORAGE_KEY, unsafeScheduleReplacement } from '@/lib/sync/schedule-safety';
 import type { SyncOperation } from '@/types/sync';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -68,6 +69,8 @@ export async function GET(request: NextRequest) {
   if (!user) return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
 
   const rawCursor = request.nextUrl.searchParams.get('cursor');
+  const exactKey = request.nextUrl.searchParams.get('key');
+  if (exactKey && !isSyncableStorageKey(exactKey)) return apiError(requestId, 'Invalid storage key', 400, 'INVALID_KEY');
   const cursor = rawCursor && Number.isFinite(Date.parse(rawCursor)) ? new Date(rawCursor).toISOString() : null;
   let query = supabase
     .from('legacy_sync_data')
@@ -76,7 +79,8 @@ export async function GET(request: NextRequest) {
     .order('updated_at')
     .order('id')
     .limit(500);
-  if (cursor) query = query.gt('updated_at', cursor);
+  if (exactKey) query = query.eq('storage_key', exactKey);
+  else if (cursor) query = query.gt('updated_at', cursor);
   const { data, error } = await query;
   if (error) return apiError(requestId, 'Unable to read sync records', 500, 'SYNC_READ_FAILED');
 
@@ -118,6 +122,15 @@ export async function POST(request: NextRequest) {
   }
   if (new Set(body.operations.map((raw) => (raw as SyncOperation).key)).size !== body.operations.length) {
     return apiError(requestId, 'Only one operation per storage key is allowed', 400, 'DUPLICATE_KEYS');
+  }
+  const scheduleOperation = body.operations.find((raw) => (raw as SyncOperation).key === SCHEDULE_STORAGE_KEY) as SyncOperation | undefined;
+  if (scheduleOperation) {
+    const { data: currentSchedule, error: scheduleError } = await supabase.from('legacy_sync_data')
+      .select('storage_value, deleted_at').eq('user_id', user.id).eq('storage_key', SCHEDULE_STORAGE_KEY).maybeSingle();
+    if (scheduleError) return apiError(requestId, 'Unable to validate Schedule', 500, 'SCHEDULE_CHECK_FAILED');
+    if (!currentSchedule?.deleted_at && unsafeScheduleReplacement(currentSchedule?.storage_value, scheduleOperation.deleted ? null : scheduleOperation.value)) {
+      return apiError(requestId, 'Empty Schedule cannot replace existing data', 409, 'SCHEDULE_EMPTY_REPLACEMENT');
+    }
   }
 
   const platform = ['web', 'pwa', 'mobile-web'].includes(body.device?.platform ?? '') ? body.device!.platform! : 'web';
