@@ -7,6 +7,7 @@ import { CLOUD_STATE_APPLIED_EVENT, storageValueToString } from '@/lib/local-wor
 import { getOutbox, removeOperation, saveMetadata } from '@/lib/sync/outbox';
 import { getLocalBackupLimit, listLocalBackups, localPageValues, pruneLocalBackups, saveLocalBackup, setLocalBackupLimit, type LocalBackup } from '@/lib/backup/local';
 import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
+import { BACKUP_LIMITS, DEFAULT_BACKUP_LIMIT, type BackupLimit } from '@/lib/backup/limits';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -15,7 +16,7 @@ const REASONS: Record<BackupVersion['reason'], string> = {
 export default function BackupCenterPanel({ userId, cloudEnabled = true }: { userId: string; cloudEnabled?: boolean }) {
   const [page, setPage] = useState<BackupPage>('schedule');
   const [versions, setVersions] = useState<BackupVersion[]>([]);
-  const [limit, setLimit] = useState<20 | 50 | 100>(50);
+  const [limit, setLimit] = useState<BackupLimit>(DEFAULT_BACKUP_LIMIT);
   const [localVersions, setLocalVersions] = useState<LocalBackup[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -148,10 +149,10 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       </label>
       <label className="grid gap-1 text-sm">每页最多保留
         <select value={limit} disabled={busy} onChange={(event) => {
-          const value = Number(event.target.value) as 20 | 50 | 100;
+          const value = Number(event.target.value) as BackupLimit;
           void run(async () => { if (cloudEnabled) await setBackupPreferences(value); setLocalBackupLimit(value); await pruneLocalBackups(userId); setLimit(value); await load(); setMessage(`每个页面最多保留 ${value} 个${cloudEnabled ? '本地和云端' : '本地'}版本。`); });
         }} className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2">
-          {[20, 50, 100].map((value) => <option key={value} value={value}>{value} 个版本</option>)}
+          {BACKUP_LIMITS.map((value) => <option key={value} value={value}>{value} 个版本</option>)}
         </select>
       </label>
       {cloudEnabled && <button type="button" disabled={busy} onClick={() => void run(async () => { await createBackupVersion(page); await load(); setMessage('已保存当前页面版本。'); })} className="rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">立即备份此页面</button>}

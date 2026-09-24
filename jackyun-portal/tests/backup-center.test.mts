@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ALL_BACKUP_PAGES, BACKUP_TABLES, isBackupableLegacyKey, isBackupableSettingKey, legacyBackupPage, normalizeBackupPages, tableBackupPage } from '../src/lib/backup/pages.ts';
+import { BACKUP_LIMITS, DEFAULT_BACKUP_LIMIT, isBackupLimit } from '../src/lib/backup/limits.ts';
+
+test('backup retention accepts every value from four through ten', () => {
+  assert.deepEqual(BACKUP_LIMITS, [4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(DEFAULT_BACKUP_LIMIT, 10);
+  for (const value of BACKUP_LIMITS) assert.equal(isBackupLimit(value), true);
+  for (const value of [3, 11, 20, 50, null, '10']) assert.equal(isBackupLimit(value), false);
+});
 
 test('every exported table belongs to a selectable backup page', () => {
   for (const table of BACKUP_TABLES) {

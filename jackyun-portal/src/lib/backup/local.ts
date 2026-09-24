@@ -1,6 +1,7 @@
 'use client';
 
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages';
+import { DEFAULT_BACKUP_LIMIT, isBackupLimit, type BackupLimit } from './limits';
 
 const DB_NAME = 'jackyun-page-backups-v1';
 const LIMIT_KEY = 'jackyun_backup_local_limit';
@@ -36,12 +37,12 @@ function transaction<T>(mode: IDBTransactionMode, operation: (store: IDBObjectSt
   }));
 }
 
-export function getLocalBackupLimit(): 20 | 50 | 100 {
+export function getLocalBackupLimit(): BackupLimit {
   const value = Number(localStorage.getItem(LIMIT_KEY));
-  return value === 20 || value === 100 ? value : 50;
+  return isBackupLimit(value) ? value : DEFAULT_BACKUP_LIMIT;
 }
 
-export function setLocalBackupLimit(value: 20 | 50 | 100) {
+export function setLocalBackupLimit(value: BackupLimit) {
   localStorage.setItem(LIMIT_KEY, String(value));
 }
 
