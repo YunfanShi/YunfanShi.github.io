@@ -6,6 +6,8 @@ import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDe
 import { buildSyncRequest } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
 import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
+import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
+import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
 function announce(detail: SyncStatusDetail) {
@@ -19,6 +21,17 @@ function localSnapshot(): Record<string, string> {
     if (!key || !isSyncableStorageKey(key)) continue;
     const value = localStorage.getItem(key);
     if (value !== null && value.length <= MAX_SYNC_VALUE_CHARACTERS) snapshot[key] = value;
+  }
+  return snapshot;
+}
+
+function backupLocalSnapshot(): Record<string, string> {
+  const snapshot: Record<string, string> = {};
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key || !isBackupableLegacyKey(key)) continue;
+    const value = localStorage.getItem(key);
+    if (value !== null) snapshot[key] = value;
   }
   return snapshot;
 }
@@ -43,6 +56,36 @@ async function publishStatus(state: SyncStatus, error?: string) {
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
+  useEffect(() => {
+    const owner = userId ?? 'guest';
+    let previous = backupLocalSnapshot();
+    let pending = Promise.resolve();
+    const capture = () => {
+      const current = backupLocalSnapshot();
+      const pages = new Set<BackupPage>();
+      for (const key of new Set([...Object.keys(previous), ...Object.keys(current)])) {
+        if (previous[key] !== current[key] && isBackupableLegacyKey(key)) pages.add(legacyBackupPage(key));
+      }
+      const before = previous;
+      previous = current;
+      if (!pages.size) return;
+      pending = pending.then(async () => {
+        for (const page of pages) {
+          await saveLocalBackup(owner, page, localPageValues(before, page));
+          await saveLocalBackup(owner, page, localPageValues(current, page));
+        }
+      }).catch((error) => { console.error('[Backup] Local version write failed', error); });
+    };
+    pending = pending.then(async () => {
+      for (const page of new Set(Object.keys(previous).filter(isBackupableLegacyKey).map(legacyBackupPage))) {
+        await saveLocalBackup(owner, page, localPageValues(previous, page));
+      }
+    }).catch((error) => { console.error('[Backup] Local baseline failed', error); });
+    const timer = window.setInterval(capture, 2_000);
+    window.addEventListener('storage', capture);
+    return () => { window.clearInterval(timer); window.removeEventListener('storage', capture); };
+  }, [userId]);
+
   useEffect(() => {
     let cancelled = false;
     let running = false;
