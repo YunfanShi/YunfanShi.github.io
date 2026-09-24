@@ -1,6 +1,7 @@
 import { scheduleReview } from './review-schedule.ts';
 
 export type ScheduleMode = 'term' | 'holiday';
+export type TimetableRole = 'primary' | 'temporary';
 export type LearningTaskType = 'course-review' | 'interval-review' | 'weekly-review' | 'cue-review' | 'completeness-audit' | 'unit-review' | 'cumulative-review' | 'study' | 'self-study' | 'practice' | 'repair' | 'preview' | 'special' | 'exam' | 'custom';
 export type LearningStatus = 'stable' | 'partial' | 'unclear';
 export type CueType = 'general' | 'definition' | 'explain' | 'state' | 'calculate' | 'formula' | 'derivation' | 'proof' | 'compare' | 'process' | 'application' | 'diagram' | 'multiple-choice';
@@ -50,6 +51,10 @@ export interface ScheduleCourse {
 export interface TimetableImport {
   version: 1;
   name: string;
+  /** Import intent; persisted timetable state is always the primary timetable after applying an update. */
+  scheduleRole?: TimetableRole;
+  /** Required for temporary timetable imports so the affected day is explicit. */
+  temporaryDate?: string;
   termStart?: string;
   termEnd?: string;
   courses: ScheduleCourse[];
@@ -598,11 +603,16 @@ export function parseTimetableImport(value: unknown): TimetableImport {
     return { date, sessions };
   }) : undefined;
   if (dateOverrides && new Set(dateOverrides.map((item) => item.date)).size !== dateOverrides.length) throw new Error('调课日期不能重复。');
+  const scheduleRole = source.scheduleRole === 'temporary' ? 'temporary' : source.scheduleRole === 'primary' ? 'primary' : undefined;
+  const temporaryDate = validDate(source.temporaryDate, 'temporaryDate');
+  if (scheduleRole === 'temporary' && !temporaryDate && !dateOverrides?.length) throw new Error('临时换课需要 temporaryDate 或 dateOverrides。');
   return {
     version: 1,
     name: optionalText(source.name, 100) ?? '我的课表',
     ...(termStart ? { termStart } : {}),
     ...(termEnd ? { termEnd } : {}),
+    ...(scheduleRole ? { scheduleRole } : {}),
+    ...(temporaryDate ? { temporaryDate } : {}),
     courses,
     ...(dateOverrides ? { dateOverrides } : {}),
   };
@@ -648,6 +658,26 @@ export function applyTimetableUpdate(value: unknown, current: TimetableImport | 
     courses: retained,
     dateOverrides: [...overrides.values()],
   });
+}
+
+/** Applies a temporary class change without replacing the primary weekly timetable. */
+export function applyTemporaryTimetableUpdate(value: unknown, current: TimetableImport | null): TimetableImport {
+  if (!current) throw new Error('请先导入主课表，再添加临时换课。');
+  const source = record(value);
+  if (!source) throw new Error('临时换课必须是一个 JSON 对象。');
+  const role = source.scheduleRole;
+  if (role !== 'temporary') throw new Error('该导入内容没有标记为临时换课。');
+  const temporaryDate = validDate(source.temporaryDate, 'temporaryDate');
+  const rawOverrides = Array.isArray(source.dateOverrides) ? source.dateOverrides : [];
+  if (!rawOverrides.length && !temporaryDate) throw new Error('临时换课需要指定日期和课程安排。');
+  const overrides = rawOverrides.length ? rawOverrides : [{ date: temporaryDate, sessions: [] }];
+  const merged = applyTimetableUpdate({
+    version: 1,
+    name: current.name,
+    courses: current.courses,
+    dateOverrides: overrides,
+  }, current);
+  return { ...merged, scheduleRole: 'primary' };
 }
 
 export function learningCatalogImportTemplate(): LearningCatalogImport {
@@ -2011,6 +2041,7 @@ export function timetableImportTemplate(): TimetableImport {
   return {
     version: 1,
     name: '我的课表',
+    scheduleRole: 'primary',
     termStart: '2026-09-01',
     termEnd: '2027-01-31',
     courses: [{
