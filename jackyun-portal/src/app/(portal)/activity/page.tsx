@@ -7,12 +7,16 @@ export default async function ActivityPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const start = new Date(); start.setDate(start.getDate() - 29);
-  const [{ data: rows }, { data: queue }, { data: devices }, { data: setting }] = await Promise.all([
-    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user?.id ?? '').gte('activity_date', start.toISOString().slice(0, 10)).order('activity_date'),
-    supabase.from('companion_learning_queue').select('id, title, url, hostname, category, status, created_at').eq('user_id', user?.id ?? '').neq('status', 'archived').order('created_at', { ascending: false }).limit(8),
-    supabase.from('companion_devices').select('id, name, platform, extension_version, last_seen_at, revoked_at').eq('user_id', user?.id ?? '').order('last_seen_at', { ascending: false }),
-    supabase.from('user_settings').select('value').eq('user_id', user?.id ?? '').eq('key', 'companion_preferences').maybeSingle(),
-  ]);
+  const [activityResult, queueResult, devicesResult, settingResult] = user ? await Promise.all([
+    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user.id).gte('activity_date', start.toISOString().slice(0, 10)).order('activity_date'),
+    supabase.from('companion_learning_queue').select('id, title, url, hostname, category, status, created_at').eq('user_id', user.id).neq('status', 'archived').order('created_at', { ascending: false }).limit(8),
+    supabase.from('companion_devices').select('id, name, platform, extension_version, last_seen_at, revoked_at').eq('user_id', user.id).order('last_seen_at', { ascending: false }),
+    supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', 'companion_preferences').maybeSingle(),
+  ]) : [null, null, null, null];
+  const rows = activityResult?.data;
+  const queue = queueResult?.data;
+  const devices = devicesResult?.data;
+  const setting = settingResult?.data;
   const records = rows ?? [];
   const total = records.reduce((sum, row) => sum + Number(row.active_seconds || 0), 0);
   const today = new Date().toLocaleDateString('en-CA');

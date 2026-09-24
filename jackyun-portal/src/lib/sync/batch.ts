@@ -45,7 +45,10 @@ export function buildSyncRequest(
     const candidate = [...batch, operation];
     const candidateBody = JSON.stringify({ deviceId, device, operations: candidate });
     if (new TextEncoder().encode(candidateBody).byteLength > MAX_BATCH_BYTES) {
-      if (!batch.length) throw new Error(`同步条目“${operation.key}”过大，无法上传`);
+      if (!batch.length) {
+        batch.push(operation);
+        body = candidateBody;
+      }
       break;
     }
     batch.push(operation);
