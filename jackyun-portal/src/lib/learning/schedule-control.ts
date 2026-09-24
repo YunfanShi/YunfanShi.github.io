@@ -1693,13 +1693,7 @@ export function planCueReview(
   }
 
   const streak = priorStableStreak + 1;
-  let intervalDays: number;
-  if (streak === 1) intervalDays = 3;
-  else if (streak === 2) intervalDays = 7;
-  else {
-    const growthLimit = Math.max(previousInterval + 1, Math.round(previousInterval * 2.5));
-    intervalDays = Math.min(180, Math.max(8, Math.round(Math.min(scheduled.intervalDays * 1.15, growthLimit))));
-  }
+  const intervalDays = Math.min(15, 1 + (streak - 1) * 2);
   const recent = [...cueHistory.slice(-2).map((review) => review.status), status];
   const allRecentStable = recent.length === 3 && recent.every((result) => result === 'stable');
   return {
@@ -1708,8 +1702,8 @@ export function planCueReview(
     streak,
     nextReviewDate: addCalendarDays(reviewedDate, intervalDays),
     scheduleReason: allRecentStable
-      ? `最近 3 次均为 √，当前连续通过 ${streak} 次：间隔延长到 ${intervalDays} 天。`
-      : `本次为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天；继续稳定后会进一步延长。`,
+      ? `最近 3 次均为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天（最长 15 天）。`
+      : `本次为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天；继续稳定后按奇数阶梯增加，最长 15 天。`,
   };
 }
 

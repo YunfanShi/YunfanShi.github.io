@@ -141,12 +141,12 @@ test('cues keep independent review states and due dates', () => {
     { cueId: 'cue-explain', status: 'partial', note: 'Missing the middle marking point.' },
   ], reviewedAt, 'weekly-review');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.status, 'stable');
-  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.nextReviewDate, '2026-09-22');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.nextReviewDate, '2026-09-20');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.status, 'partial');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.nextReviewDate, '2026-09-20');
   assert.equal(reviewed.cueReviews.length, 2);
   const due = tasksForDate(reviewed, new Date(2026, 8, 20, 12));
-  assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
+  assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain', 'cue-def']);
 });
 
 test('Cue review intervals expand with repeated green results and contract after unstable results', () => {
@@ -160,6 +160,8 @@ test('Cue review intervals expand with repeated green results and contract after
     '2026-09-29T08:00:00.000Z',
     '2026-11-13T08:00:00.000Z',
     '2027-03-06T08:00:00.000Z',
+    '2027-09-02T08:00:00.000Z',
+    '2027-09-15T08:00:00.000Z',
   ];
   const intervals: number[] = [];
   for (const [index, reviewedAt] of reviewDates.entries()) {
@@ -167,20 +169,20 @@ test('Cue review intervals expand with repeated green results and contract after
     intervals.push(state.cues[0].intervalDays);
   }
 
-  assert.deepEqual(intervals, [3, 7, 18, 45, 113, 180]);
-  assert.equal(state.cues[0].streak, 6);
+  assert.deepEqual(intervals, [1, 3, 5, 7, 9, 11, 13, 15]);
+  assert.equal(state.cues[0].streak, 8);
   assert.match(state.cueReviews[2].scheduleReason ?? '', /最近 3 次均为 √/);
-  assert.equal(state.cueReviews[5].intervalDays, 180);
+  assert.equal(state.cueReviews[7].intervalDays, 15);
 
-  const yellowPlan = planCueReview(state.cues[0], state.cueReviews, 'partial', new Date('2027-09-02T08:00:00.000Z'));
+  const yellowPlan = planCueReview(state.cues[0], state.cueReviews, 'partial', new Date('2027-10-01T08:00:00.000Z'));
   assert.equal(yellowPlan.intervalDays, 1);
   assert.equal(yellowPlan.streak, 0);
-  assert.equal(yellowPlan.nextReviewDate, '2027-09-03');
+  assert.equal(yellowPlan.nextReviewDate, '2027-10-02');
 
-  const redPlan = planCueReview(state.cues[0], state.cueReviews, 'unclear', new Date('2027-09-02T08:00:00.000Z'));
+  const redPlan = planCueReview(state.cues[0], state.cueReviews, 'unclear', new Date('2027-10-01T08:00:00.000Z'));
   assert.equal(redPlan.intervalDays, 0);
   assert.equal(redPlan.streak, 0);
-  assert.equal(redPlan.nextReviewDate, '2027-09-02');
+  assert.equal(redPlan.nextReviewDate, '2027-10-01');
 });
 
 test('Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope', () => {
@@ -215,7 +217,7 @@ test('a class keeps one three-step review sheet and folds its Cue queue into it'
   assert.match(jointReview?.mergedTasks?.[2].detail ?? '', /常规到期.*黄色 \/ 红色.*今天新增/);
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
-  assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-27', '2026-09-27']);
+  assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-23', '2026-09-23']);
   assert.ok(completed.completions[jointReview!.key]);
 });
 
@@ -625,7 +627,7 @@ test('Cue study ratings save immediately, can be corrected, and are not duplicat
 
   const first = recordCueStudyAssessment(state, { cueId: 'cue-1', status: 'stable' }, reviewedAt, task.key);
   assert.equal(first.cues[0].status, 'stable');
-  assert.equal(first.cues[0].intervalDays, 3);
+  assert.equal(first.cues[0].intervalDays, 1);
   assert.equal(first.cues[0].streak, 1);
   assert.equal(first.cues[0].version, 2);
   assert.equal(first.cues[0].updatedAt, createdAt);
