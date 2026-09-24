@@ -5,6 +5,15 @@ export const CLOUD_STATE_APPLIED_EVENT = 'jackyun-cloud-state-applied';
 // that pair inside the 900k client batch and 1MB route limits.
 export const MAX_SYNC_VALUE_CHARACTERS = 400_000;
 
+/** Match the API limit after JSON encoding, including quotes and escapes. */
+export function syncValueFits(value: unknown): boolean {
+  try {
+    return (JSON.stringify(value) ?? 'null').length <= MAX_SYNC_VALUE_CHARACTERS;
+  } catch {
+    return false;
+  }
+}
+
 const SENSITIVE_STORAGE_KEYS = new Set([
   'jackyun-ai-config',
   'enforcer_pin',

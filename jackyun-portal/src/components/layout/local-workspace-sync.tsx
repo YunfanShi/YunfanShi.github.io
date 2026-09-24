@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString } from '@/lib/local-workspace';
+import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
 import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
+import { joinSyncParts, splitSyncBody } from '@/lib/sync/transfer';
 import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
 import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
@@ -14,24 +15,13 @@ function announce(detail: SyncStatusDetail) {
   window.dispatchEvent(new CustomEvent(LOCAL_SYNC_STATUS_EVENT, { detail }));
 }
 
-function localSnapshot(): Record<string, string> {
+function localSnapshot(includeLarge = false): Record<string, string> {
   const snapshot: Record<string, string> = {};
   for (let index = 0; index < localStorage.length; index += 1) {
     const key = localStorage.key(index);
     if (!key || !isSyncableStorageKey(key)) continue;
     const value = localStorage.getItem(key);
-    if (value !== null && value.length <= MAX_SYNC_VALUE_CHARACTERS) snapshot[key] = value;
-  }
-  return snapshot;
-}
-
-function backupLocalSnapshot(): Record<string, string> {
-  const snapshot: Record<string, string> = {};
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index);
-    if (!key || !isBackupableLegacyKey(key)) continue;
-    const value = localStorage.getItem(key);
-    if (value !== null) snapshot[key] = value;
+    if (value !== null && (includeLarge || value.length <= MAX_SYNC_VALUE_CHARACTERS)) snapshot[key] = value;
   }
   return snapshot;
 }
@@ -58,10 +48,10 @@ async function publishStatus(state: SyncStatus, error?: string) {
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
   useEffect(() => {
     const owner = userId ?? 'guest';
-    let previous = backupLocalSnapshot();
+    let previous = localSnapshot(true);
     let pending = Promise.resolve();
     const capture = () => {
-      const current = backupLocalSnapshot();
+      const current = localSnapshot(true);
       const pages = new Set<BackupPage>();
       for (const key of new Set([...Object.keys(previous), ...Object.keys(current)])) {
         if (previous[key] !== current[key] && isBackupableLegacyKey(key)) pages.add(legacyBackupPage(key));
@@ -100,7 +90,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     localStorage.removeItem('jackyun_guest_mode');
 
     async function queueChanges() {
-      const snapshot = localSnapshot();
+      const snapshot = localSnapshot(true);
       const metadata = await getMetadata();
       const metadataByKey = new Map(metadata.map((item) => [item.key, item]));
       let legacyTimestamps: Record<string, string> = {};
@@ -135,15 +125,52 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       lastSnapshot = snapshot;
     }
 
+    async function loadLargeValue(key: string, revision: number): Promise<unknown> {
+      const parts: string[] = [];
+      let count = 1;
+      for (let part = 0; part < count; part += 1) {
+        const response = await fetch(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`同步分片下载失败 (${response.status})`);
+        const chunk = await response.json() as { count: number; data: string };
+        count = chunk.count;
+        parts.push(chunk.data);
+      }
+      return joinSyncParts(parts);
+    }
+
     async function flush(deviceId: string): Promise<void> {
       const operations = await compactOutbox();
       if (!operations.length) return;
       await publishStatus('syncing');
-      const request = buildSyncRequest(deviceId, deviceDescription(), operations);
-      const response = await fetch('/api/sync/v2', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: request.body,
-      });
+      // The current RPC compares revision/hash, not baseValue. Old cloud data
+      // can exceed today's limit; omit that unused field for the upload.
+      const uploadable = operations.map((operation) => syncValueFits(operation.baseValue)
+        ? operation : { ...operation, baseValue: null });
+      const oversized = uploadable.find((operation) => !syncValueFits(operation.value));
+      const request = buildSyncRequest(deviceId, deviceDescription(), oversized ? [oversized] : uploadable);
+      const large = Boolean(oversized)
+        || new TextEncoder().encode(request.body).length > 900_000;
+      let response: Response;
+      if (large) {
+        const operation = request.operations[0];
+        const parts = splitSyncBody(request.body);
+        for (let index = 0; index < parts.length; index += 1) {
+          const partResponse = await fetch('/api/sync/v2/large', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uploadId: operation.id, index, count: parts.length, data: parts[index] }),
+          });
+          if (!partResponse.ok) throw new Error(`同步分片上传失败 (${partResponse.status})`);
+        }
+        response = await fetch('/api/sync/v2/large', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uploadId: operation.id, complete: true }),
+        });
+      } else {
+        response = await fetch('/api/sync/v2', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: request.body,
+        });
+      }
       if (!response.ok) {
         const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
         const detail = failure?.error?.code
@@ -169,6 +196,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       for (const record of payload.remote ?? []) {
         const matchingOperation = byKey.get(record.key);
         if (!matchingOperation) continue;
+        if (record.large) record.value = await loadLargeValue(record.key, record.revision);
         const current = localStorage.getItem(record.key);
         const localHasNotChanged = matchingOperation.deleted
           ? current === null
@@ -184,6 +212,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       for (const conflict of payload.conflicts) {
         const operation = byId.get(conflict.operationId);
         if (!operation) continue;
+        if (conflict.remoteLarge) conflict.remoteValue = await loadLargeValue(conflict.key, conflict.remoteRevision);
         await removeOperation(operation.id);
         const remoteIsNewer = conflict.remoteUpdatedAt
           && Date.parse(conflict.remoteUpdatedAt) > Date.parse(operation.clientUpdatedAt);
@@ -220,6 +249,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         if (!scheduleResponse.ok) throw new Error(`Schedule 云端读取失败 (${scheduleResponse.status})`);
         const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
         records.push(...schedulePayload.records);
+      }
+      for (const record of records) {
+        if (!record.large || pendingKeys.has(record.key)) continue;
+        record.value = await loadLargeValue(record.key, record.revision);
+        record.large = false;
       }
       const appliedRemoteKeys: string[] = [];
       for (const record of records) {
@@ -266,7 +300,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       } finally { running = false; }
     }
 
-    lastSnapshot = localSnapshot();
+    lastSnapshot = localSnapshot(true);
     void bindSyncUser(userId).then(sync);
     // Changes are durable in IndexedDB immediately; a calmer network cadence
     // avoids continuous RSC/API contention while keeping cross-device sync prompt.

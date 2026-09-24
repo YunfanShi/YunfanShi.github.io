@@ -122,30 +122,30 @@ export default async function DashboardPage() {
   const today = dateKey(now, 'Asia/Shanghai');
   const todayStart = new Date(`${today}T00:00:00+08:00`).toISOString();
   const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6);
-  const [vocabResult, masteredResult, studyResult, companionResult, deviceResult, reviewResult, focusResult, countdownResult] = await Promise.all([
+  const [vocabResult, masteredResult, studyResult, companionResult, deviceResult, reviewResult, focusResult, countdownResult] = user ? await Promise.all([
     supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user?.id ?? ''),
+      .eq('user_id', user.id),
     supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user?.id ?? '')
+      .eq('user_id', user.id)
       .eq('mastered', true),
     supabase
       .from('study_tasks')
       .select('id, title, completed, due_date, estimated_minutes, priority, scheduled_at, completed_at', { count: 'exact', head: false })
-      .eq('user_id', user?.id ?? ''),
-    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user?.id ?? '').gte('activity_date', weekStart.toISOString().slice(0, 10)),
-    supabase.from('companion_devices').select('id', { count: 'exact', head: true }).eq('user_id', user?.id ?? '').is('revoked_at', null),
-    supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user?.id ?? '').eq('status', 'active').lte('next_review_at', now.toISOString()),
-    supabase.from('focus_sessions').select('duration_seconds').eq('user_id', user?.id ?? '').gte('completed_at', todayStart),
-    supabase.from('countdowns').select('title, target_date').eq('user_id', user?.id ?? '').gte('target_date', today).order('target_date').limit(1).maybeSingle(),
-  ]);
+      .eq('user_id', user.id),
+    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user.id).gte('activity_date', weekStart.toISOString().slice(0, 10)),
+    supabase.from('companion_devices').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('revoked_at', null),
+    supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active').lte('next_review_at', now.toISOString()),
+    supabase.from('focus_sessions').select('duration_seconds').eq('user_id', user.id).gte('completed_at', todayStart),
+    supabase.from('countdowns').select('title, target_date').eq('user_id', user.id).gte('target_date', today).order('target_date').limit(1).maybeSingle(),
+  ]) : [null, null, null, null, null, null, null, null];
 
-  const totalVocab = vocabResult.count ?? 0;
-  const masteredVocab = masteredResult.count ?? 0;
-  const tasks = studyResult.data ?? [];
+  const totalVocab = vocabResult?.count ?? 0;
+  const masteredVocab = masteredResult?.count ?? 0;
+  const tasks = studyResult?.data ?? [];
   const completedTasks = tasks.filter((t) => t.completed).length;
   const completionRate = calculateCompletionRate(tasks);
   const todayKey = today;
@@ -159,7 +159,7 @@ export default async function DashboardPage() {
       })),
     todayKey,
   ).slice(0, 4);
-  const companionRows = companionResult.data ?? [];
+  const companionRows = companionResult?.data ?? [];
   const companionTodaySeconds = companionRows.filter((row) => row.activity_date === today).reduce((sum, row) => sum + Number(row.active_seconds || 0), 0);
   const companionWeekSeconds = companionRows.reduce((sum, row) => sum + Number(row.active_seconds || 0), 0);
   const todayTasks = tasks.filter((task) => {
@@ -168,8 +168,8 @@ export default async function DashboardPage() {
     return dateKey(new Date(task.scheduled_at), 'Asia/Shanghai') === today;
   });
   const todayCompleted = tasks.filter((task) => task.completed_at && dateKey(new Date(task.completed_at), 'Asia/Shanghai') === today).length;
-  const focusTodayMinutes = Math.round((focusResult.data ?? []).reduce((sum, session) => sum + Number(session.duration_seconds || 0), 0) / 60);
-  const nextCountdown = countdownResult.data;
+  const focusTodayMinutes = Math.round((focusResult?.data ?? []).reduce((sum, session) => sum + Number(session.duration_seconds || 0), 0) / 60);
+  const nextCountdown = countdownResult?.data;
   const countdownDays = nextCountdown ? Math.max(0, Math.ceil((Date.parse(`${nextCountdown.target_date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)) : null;
 
   return (
@@ -234,7 +234,7 @@ export default async function DashboardPage() {
         </Link>
         <Link href="/review" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
           <p className="text-xs text-[var(--muted-foreground)]">到期错题复习</p>
-          <strong className="mt-2 block text-2xl">{reviewResult.count ?? 0}</strong>
+          <strong className="mt-2 block text-2xl">{reviewResult?.count ?? 0}</strong>
           <span className="mt-2 block text-xs text-[#1a73e8]">开始复习 →</span>
         </Link>
         <Link href="/pomodoro" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
@@ -292,7 +292,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mb-10 overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-7"><div><div className="flex items-center gap-3"><span className="material-icons-round grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">JackYun Companion</p><h2 className="text-xl font-semibold">浏览器学习活动</h2></div></div><p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">跨学习网站记录有效时间，只保存域名级聚合。扩展离线时会在恢复网络后继续同步。</p><Link href="/activity" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">查看完整活动报告<span className="material-icons-round text-lg">arrow_forward</span></Link></div><div className="grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日</p><strong className="mt-2 block text-2xl">{Math.round(companionTodaySeconds / 60)}m</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">七日</p><strong className="mt-2 block text-2xl">{Math.round(companionWeekSeconds / 3600 * 10) / 10}h</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">设备</p><strong className="mt-2 block text-2xl">{deviceResult.count ?? 0}</strong></div></div></div>
+        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-7"><div><div className="flex items-center gap-3"><span className="material-icons-round grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">JackYun Companion</p><h2 className="text-xl font-semibold">浏览器学习活动</h2></div></div><p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">跨学习网站记录有效时间，只保存域名级聚合。扩展离线时会在恢复网络后继续同步。</p><Link href="/activity" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">查看完整活动报告<span className="material-icons-round text-lg">arrow_forward</span></Link></div><div className="grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日</p><strong className="mt-2 block text-2xl">{Math.round(companionTodaySeconds / 60)}m</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">七日</p><strong className="mt-2 block text-2xl">{Math.round(companionWeekSeconds / 3600 * 10) / 10}h</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">设备</p><strong className="mt-2 block text-2xl">{deviceResult?.count ?? 0}</strong></div></div></div>
       </section>
 
       <div className="mb-4 flex items-end justify-between gap-4">
