@@ -151,8 +151,11 @@ test('Cue manager compares similar prompts side by side with highlighted evidenc
 
 test('Cue ratings advance to the next unassessed Cue and clear the answer state', async () => {
   const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
-  assert.match(component, /findIndex\(\(cue, cueIndex\) => cueIndex > index && !next\[cue\.id\]\)/);
+  assert.match(component, /findIndex\(\(cue, cueIndex\) => cueIndex > currentIndex && !next\[cue\.id\]\)/);
   assert.match(component, /setRevealed\(false\);\s*setSelectedChoice\(undefined\)/);
+  assert.match(component, /activeAssessments/);
+  assert.match(component, /event\.key === 'Backspace'/);
+  assert.match(component, /确定结束这次 Cue 学习吗/);
 });
 
 test('timetable import distinguishes primary and temporary class-change sources', async () => {
