@@ -314,10 +314,12 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   const [selectedChoice, setSelectedChoice] = useState<number | undefined>(draft.selectedChoice);
   const [assessments, setAssessments] = useState<Record<string, LearningStatus>>(draft.assessments);
   const [memoOpen, setMemoOpen] = useState(false);
-  const current = cues[index];
+  const currentIndex = Math.min(index, Math.max(0, cues.length - 1));
+  const current = cues[currentIndex];
   const currentMemo = current ? memos.find((memo) => memo.cueId === current.id) : undefined;
   const priorStatus = current ? Object.hasOwn(draft.priorStatuses ?? {}, current.id) ? draft.priorStatuses?.[current.id] : assessments[current.id] ? undefined : current.status ?? null : null;
-  const assessedCount = Object.keys(assessments).length;
+  const activeAssessments = useMemo(() => Object.fromEntries(cues.flatMap((cue) => assessments[cue.id] ? [[cue.id, assessments[cue.id]]] : [])) as Record<string, LearningStatus>, [assessments, cues]);
+  const assessedCount = Object.keys(activeAssessments).length;
   const submit = useCallback((nextAssessments: Record<string, LearningStatus>) => onComplete(
     { studiedContent: '', issue: '', note: '' },
     {
@@ -335,7 +337,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
     const next = { ...assessments, [current.id]: status };
     onAssessment(current.id, status);
     setAssessments(next);
-    const nextUnassessed = cues.findIndex((cue, cueIndex) => cueIndex > index && !next[cue.id]);
+    const nextUnassessed = cues.findIndex((cue, cueIndex) => cueIndex > currentIndex && !next[cue.id]);
     const wrappedUnassessed = nextUnassessed >= 0 ? nextUnassessed : cues.findIndex((cue) => !next[cue.id]);
     if (wrappedUnassessed >= 0) {
       setIndex(wrappedUnassessed);
@@ -343,7 +345,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
       setSelectedChoice(undefined);
       queueMicrotask(() => studyRef.current?.focus());
     }
-  }, [assessments, cues, current, index, onAssessment]);
+  }, [assessments, cues, current, currentIndex, onAssessment]);
   const toggleShuffle = () => {
     const next = !shuffled;
     setShuffled(next);
@@ -363,8 +365,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   useEffect(() => { queueMicrotask(() => studyRef.current?.focus()); }, []);
   useEffect(() => { if (memoOpen) queueMicrotask(() => memoRef.current?.focus()); }, [index, memoOpen]);
   useEffect(() => {
-    onProgress({ id: draft.id, task, cueIds: cues.map((cue) => cue.id), index, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments, priorStatuses: draft.priorStatuses, shuffled, updatedAt: new Date().toISOString() });
-  }, [assessments, cues, draft.id, draft.priorStatuses, index, onProgress, revealed, selectedChoice, shuffled, task]);
+    onProgress({ id: draft.id, task, cueIds: cues.map((cue) => cue.id), index: currentIndex, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, shuffled, updatedAt: new Date().toISOString() });
+  }, [activeAssessments, cues, currentIndex, draft.id, draft.priorStatuses, onProgress, revealed, selectedChoice, shuffled, task]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -375,6 +377,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
       }
       if (event.key === '`' || event.key === '~' || event.key === '～' || event.key === '·') { event.preventDefault(); setMemoOpen((open) => !open); return; }
       if (event.key === 'Escape' && memoOpen) { event.preventDefault(); setMemoOpen(false); queueMicrotask(() => studyRef.current?.focus()); return; }
+      if (event.key === 'Backspace') { event.preventDefault(); if (window.confirm('确定结束这次 Cue 学习吗？当前进度已经自动保存。')) onClose(); return; }
       if (event.key === 'Escape') { event.preventDefault(); onClose(); }
       else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); move(-1); }
       else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); move(1); }
