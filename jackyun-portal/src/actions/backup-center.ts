@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { ALL_BACKUP_PAGES, normalizeBackupPages, type BackupPage, type BackupTable } from '@/lib/backup/pages';
+import { DEFAULT_BACKUP_LIMIT, isBackupLimit, type BackupLimit } from '@/lib/backup/limits';
 import { canonicalJson } from '@/lib/sync/hash';
 import type { DataArchiveV2, SyncRecord } from '@/types/sync';
 
@@ -31,16 +32,16 @@ export async function listBackupVersions(page: BackupPage): Promise<BackupVersio
   return (data ?? []) as BackupVersion[];
 }
 
-export async function getBackupPreferences(): Promise<20 | 50 | 100> {
+export async function getBackupPreferences(): Promise<BackupLimit> {
   const { supabase, user } = await context();
   const { data, error } = await supabase.from('backup_center_preferences')
     .select('max_versions').eq('user_id', user.id).maybeSingle();
   if (error) throw new Error(`读取备份设置失败：${error.message}`);
-  return (data?.max_versions ?? 50) as 20 | 50 | 100;
+  return isBackupLimit(data?.max_versions) ? data.max_versions : DEFAULT_BACKUP_LIMIT;
 }
 
-export async function setBackupPreferences(maxVersions: 20 | 50 | 100) {
-  if (![20, 50, 100].includes(maxVersions)) throw new Error('只能保留 20、50 或 100 个版本。');
+export async function setBackupPreferences(maxVersions: BackupLimit) {
+  if (!isBackupLimit(maxVersions)) throw new Error('只能保留 4 到 10 个版本。');
   const { supabase } = await context();
   const { error } = await supabase.rpc('set_backup_limit', { new_limit: maxVersions });
   if (error) throw new Error(`保存备份设置失败：${error.message}`);

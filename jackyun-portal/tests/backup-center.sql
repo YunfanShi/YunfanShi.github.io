@@ -135,16 +135,15 @@ do $$ begin
   end if;
 end $$;
 
-select public.set_backup_limit(100);
 do $$ declare index_number integer; begin
-  for index_number in 1..25 loop
+  for index_number in 1..12 loop
     perform public.create_backup_page('settings');
   end loop;
-  if (select count(*) from public.backup_center_versions where page = 'settings') < 25 then
-    raise exception 'Versions disappeared before hitting the limit';
+  if (select count(*) from public.backup_center_versions where page = 'settings') <> 10 then
+    raise exception 'Default version cap was not enforced';
   end if;
-  perform public.set_backup_limit(20);
-  if (select count(*) from public.backup_center_versions where page = 'settings') <> 20 then
+  perform public.set_backup_limit(4);
+  if (select count(*) from public.backup_center_versions where page = 'settings') <> 4 then
     raise exception 'Lowering the retention limit did not prune immediately';
   end if;
 end $$;
