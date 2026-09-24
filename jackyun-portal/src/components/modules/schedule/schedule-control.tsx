@@ -334,6 +334,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   ), [cues, onComplete, task]);
   const rate = useCallback((status: LearningStatus) => {
     if (!current) return;
+    if (assessments[current.id] === status) return;
     const next = { ...assessments, [current.id]: status };
     onAssessment(current.id, status);
     setAssessments(next);
@@ -363,6 +364,11 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
     queueMicrotask(() => studyRef.current?.focus());
   }, [cues.length]);
   useEffect(() => { queueMicrotask(() => studyRef.current?.focus()); }, []);
+  useEffect(() => {
+    const rail = document.querySelector('[aria-label="Cue 学习进度"]');
+    const item = rail?.children[currentIndex];
+    if (item instanceof HTMLElement) item.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [currentIndex]);
   useEffect(() => { if (memoOpen) queueMicrotask(() => memoRef.current?.focus()); }, [index, memoOpen]);
   useEffect(() => {
     onProgress({ id: draft.id, task, cueIds: cues.map((cue) => cue.id), index: currentIndex, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, shuffled, updatedAt: new Date().toISOString() });
@@ -382,7 +388,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
       else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); move(-1); }
       else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); move(1); }
       else if (!revealed && current?.type === 'multiple-choice' && Number(event.key) >= 1 && Number(event.key) <= (current.choices?.length ?? 0)) { event.preventDefault(); setSelectedChoice(Number(event.key) - 1); setRevealed(true); }
-      else if ((event.key === ' ' || event.key === 'Enter') && current?.type !== 'multiple-choice' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); setRevealed((value) => !value); }
+      else if (event.key === 'Enter') { event.preventDefault(); if (window.confirm('确定退出这次 Cue 学习吗？当前进度已经自动保存。')) onClose(); }
+      else if (event.key === ' ' && current?.type !== 'multiple-choice' && !(event.target instanceof HTMLButtonElement)) { event.preventDefault(); setRevealed((value) => !value); }
       else if (revealed && (event.key === '1' || event.key.toLowerCase() === 'c')) { event.preventDefault(); rate('stable'); }
       else if (revealed && (event.key === '2' || event.key.toLowerCase() === 'p')) { event.preventDefault(); rate('partial'); }
       else if (revealed && (event.key === '3' || event.key.toLowerCase() === 'x')) { event.preventDefault(); rate('unclear'); }
@@ -395,6 +402,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
       <header className="sticky top-0 z-10 border-b border-[var(--card-border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-4 backdrop-blur-xl sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center gap-4"><button type="button" onClick={onClose} aria-label="退出 Cue 学习并保存进度" className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">arrow_back</span></button><div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--brand)]">Cue Study · 自动保存</p><h1 id="cue-study-title" className="truncate text-lg font-semibold">{task.title}</h1></div><button type="button" onClick={toggleShuffle} aria-pressed={shuffled} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${shuffled ? 'border-[var(--brand)] bg-blue-50 text-[var(--brand)] dark:bg-blue-950/40' : 'border-[var(--card-border)]'}`}><span className="material-icons-round mr-1 align-middle text-base">shuffle</span>{shuffled ? "乱序已开启" : "开启乱序"}</button><span className="text-sm font-semibold">{cues.length ? `${Math.min(index + 1, cues.length)} / ${cues.length}` : '0 / 0'}</span></div>
         <div className="mx-auto mt-3 h-1.5 max-w-5xl overflow-hidden rounded-full bg-black/10 dark:bg-white/10"><div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${cues.length ? (assessedCount / cues.length) * 100 : 0}%` }} /></div>
+        <div className="mx-auto mt-3 flex max-w-5xl justify-end"><button type="button" disabled={!assessedCount} onClick={() => submit(activeAssessments)} className="rounded-full border border-[var(--brand)] px-4 py-2 text-xs font-semibold text-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40">结束本轮学习</button></div>
       </header>
       <main className="mx-auto flex min-h-[calc(100dvh-110px)] max-w-5xl flex-col px-4 py-8 sm:px-8">
         {!current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">这个任务暂时没有 Cue</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">请先在 Cue 工作台为“{[task.subjectName, task.scope?.unit].filter(Boolean).join(' → ') || task.title}”添加 Cue，再回来验证。</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">返回 Schedule</button></div> : <>

@@ -159,6 +159,16 @@ test('Cue ratings advance to the next unassessed Cue and clear the answer state'
   assert.match(component, /activeAssessments/);
   assert.match(component, /event\.key === 'Backspace'/);
   assert.match(component, /确定结束这次 Cue 学习吗/);
+  assert.match(component, /event\.key === 'Enter'/);
+  assert.match(component, /结束本轮学习/);
+  assert.match(component, /scrollIntoView/);
+});
+
+test('Cue study progress rail stays horizontal and centers the active Cue', async () => {
+  const styles = await readFile(new URL('src/app/globals.css', projectDir), 'utf8');
+  assert.match(styles, /aria-label="Cue 学习进度"/);
+  assert.match(styles, /flex-wrap: nowrap/);
+  assert.match(styles, /scroll-snap-align: center/);
 });
 
 test('timetable import distinguishes primary and temporary class-change sources', async () => {

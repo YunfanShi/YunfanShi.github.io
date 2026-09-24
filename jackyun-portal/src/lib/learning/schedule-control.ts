@@ -1823,15 +1823,19 @@ export function deriveLearningStatus(cueIds: string[], assessments: CueAssessmen
 /** Resolves the Cue deck for a scheduled task, preferring explicit Cue ids over its subject/unit scope. */
 export function cuesForLearningTask(cues: StudyCue[], task: LearningTask): StudyCue[] {
   const explicitIds = task.cueIds?.length ? task.cueIds : task.scope?.cueIds;
+  const reviewTask = new Set<LearningTask['type']>(['course-review', 'interval-review', 'weekly-review', 'cue-review', 'unit-review', 'cumulative-review']).has(task.type);
+  const reviewDate = task.date;
+  const eligibleForReview = (cue: StudyCue) => !reviewTask || !reviewDate || cue.status === 'partial' || cue.status === 'unclear'
+    || !cue.lastReviewedAt || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt) || !cue.nextReviewDate || cue.nextReviewDate <= reviewDate;
   if (explicitIds?.length) {
     const order = new Map(explicitIds.map((id, index) => [id, index]));
     return cues
-      .filter((cue) => order.has(cue.id))
+      .filter((cue) => order.has(cue.id) && eligibleForReview(cue))
       .toSorted((left, right) => order.get(left.id)! - order.get(right.id)!);
   }
   return cues.filter((cue) => {
     const sameSubject = task.subjectId ? cue.subjectId === task.subjectId : !task.subjectName || cue.subjectName === task.subjectName;
-    return sameSubject && (!task.scope?.unit || cue.unit === task.scope.unit);
+    return sameSubject && (!task.scope?.unit || cue.unit === task.scope.unit) && eligibleForReview(cue);
   });
 }
 

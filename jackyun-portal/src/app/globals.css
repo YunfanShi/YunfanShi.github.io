@@ -3,6 +3,19 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where([data-theme="gray"], [data-theme="gray"] *, [data-theme="dark"], [data-theme="dark"] *));
 
+[aria-label="Cue 学习进度"] {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  padding: 0.25rem 0.5rem 0.5rem;
+}
+
+[aria-label="Cue 学习进度"] > button {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #202124;

@@ -227,6 +227,8 @@ test('Cue study resolves explicit task Cues first and otherwise uses subject plu
   const scopedTask = { key: 'physics-ch4', title: 'Review Chapter 4', detail: '', type: 'unit-review' as const, date: '2026-09-20', durationMinutes: 30, subjectId: 'physics', subjectName: 'Physics', scope: { unit: 'Chapter 4' } };
   assert.deepEqual(cuesForLearningTask(cues, scopedTask).map((cue) => cue.id), ['chapter-4-a', 'chapter-4-b']);
   assert.deepEqual(cuesForLearningTask(cues, { ...scopedTask, cueIds: ['chapter-5', 'chapter-4-a'] }).map((cue) => cue.id), ['chapter-5', 'chapter-4-a']);
+  const stableFuture = { ...cues[0], id: 'stable-future', status: 'stable' as const, lastReviewedAt: '2026-09-19T08:00:00.000Z', nextReviewDate: '2026-09-30' };
+  assert.deepEqual(cuesForLearningTask([stableFuture, ...cues], { ...scopedTask, cueIds: ['stable-future', 'chapter-4-a'] }).map((cue) => cue.id), ['chapter-4-a']);
 });
 
 test('a class keeps one three-step review sheet and folds its Cue queue into it', () => {
