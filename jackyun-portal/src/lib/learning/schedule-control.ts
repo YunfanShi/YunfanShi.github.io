@@ -53,6 +53,8 @@ export interface TimetableImport {
   termStart?: string;
   termEnd?: string;
   courses: ScheduleCourse[];
+  /** Date-specific replacement of the normal weekly lessons, including an empty day. */
+  dateOverrides?: Array<{ date: string; sessions: Array<Omit<CourseSession, 'day' | 'weeks'> & { courseId: string }> }>;
 }
 
 export interface ScheduleSettings {
@@ -162,12 +164,24 @@ export interface CueReview {
   note?: string;
   reviewedAt: string;
   nextReviewDate: string;
+  /** Snapshot of the adaptive plan created by this review. Optional for legacy records. */
+  intervalDays?: number;
+  easeFactor?: number;
+  scheduleReason?: string;
 }
 
 export interface CueAssessment {
   cueId: string;
   status: LearningStatus;
   note?: string;
+}
+
+export interface CueReviewPlan {
+  intervalDays: number;
+  easeFactor: number;
+  streak: number;
+  nextReviewDate: string;
+  scheduleReason: string;
 }
 
 export interface LearningTaskPreset {
@@ -313,9 +327,51 @@ export interface CueStudyDraft {
   revealed: boolean;
   selectedChoice?: number;
   assessments: Record<string, LearningStatus>;
+  priorStatuses?: Record<string, LearningStatus | null>;
+  shuffled?: boolean;
   /** Legacy per-Cue drafts retained so older saved sessions can be migrated into Cue memos. */
   writtenResponses?: Record<string, string>;
   updatedAt: string;
+}
+
+export function shuffleCueIds(ids: string[], random: () => number = Math.random): string[] {
+  const shuffled = [...ids];
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  if (shuffled.length > 1 && shuffled.every((id, index) => id === ids[index])) {
+    shuffled.push(shuffled.shift()!);
+  }
+  return shuffled;
+}
+
+export function cueDraftKey(draft: CueStudyDraft): string {
+  return draft.task.subjectId || draft.task.subjectName || '未分类';
+}
+
+export function allCueStudyDrafts(state: ScheduleControlState): Record<string, CueStudyDraft> {
+  const drafts = { ...state.cueStudyDrafts };
+  if (state.cueStudyDraft) {
+    const key = cueDraftKey(state.cueStudyDraft);
+    if (!drafts[key] || state.cueStudyDraft.updatedAt > drafts[key].updatedAt) drafts[key] = state.cueStudyDraft;
+  }
+  return drafts;
+}
+
+export function saveCueStudyDraft(state: ScheduleControlState, draft: CueStudyDraft): ScheduleControlState {
+  const drafts = allCueStudyDrafts(state);
+  for (const [key, previous] of Object.entries(drafts)) {
+    if (key === cueDraftKey(draft) || (draft.task.subjectName && previous.task.subjectName === draft.task.subjectName)) delete drafts[key];
+  }
+  drafts[cueDraftKey(draft)] = draft;
+  return { ...state, cueStudyDraft: undefined, cueStudyDrafts: drafts };
+}
+
+export function removeCueStudyDraft(state: ScheduleControlState, draft: CueStudyDraft): ScheduleControlState {
+  const drafts = allCueStudyDrafts(state);
+  for (const [key, previous] of Object.entries(drafts)) if (previous.id === draft.id) delete drafts[key];
+  return { ...state, cueStudyDraft: undefined, cueStudyDrafts: drafts };
 }
 
 export interface CueMemo {
@@ -341,6 +397,7 @@ export interface ScheduleControlState {
   /** Durable per-Cue notes. They are part of Schedule state and therefore account-syncable. */
   cueMemos: CueMemo[];
   cueStudyDraft?: CueStudyDraft;
+  cueStudyDrafts?: Record<string, CueStudyDraft>;
   importedAt?: string;
 }
 
@@ -393,7 +450,7 @@ export const LEARNING_TASK_PRESETS: ReadonlyArray<LearningTaskPreset> = [
   { id: 'friday-audit', label: 'Friday Completeness Audit', group: '复习与检查', type: 'completeness-audit', durationMinutes: 35, title: 'Friday Completeness Audit', note: '检查 Notes → 对照 Textbook / PPT → Fill Gaps → 补 Cue → 检查 Cue 是否可用于检索。', guide: { tab: 'learn', subTab: 'cornell' } },
   { id: 'weekend-retrieval', label: 'Weekend Retrieval & Repair', group: '复习与检查', type: 'unit-review', durationMinutes: 60, title: 'Weekend Retrieval & Repair', note: '逐条 Cue 检索 → 证据检查 → 针对性修复；稳定的 √ 不必全部重做。', guide: { tab: 'learn', subTab: 'review' } },
   { id: 'unit-review', label: 'Unit Review', group: '复习与检查', type: 'unit-review', durationMinutes: 50, title: 'Unit Review', note: '检查 Syllabus coverage，优先复习未验证、△、○，并抽查旧 √。', guide: { tab: 'learn', subTab: 'traffic' } },
-  { id: 'cumulative-review', label: 'Cumulative Review', group: '复习与检查', type: 'cumulative-review', durationMinutes: 60, title: 'Cumulative Review', note: '跨 Unit 抽查长期留存，不机械重做全部内容。', guide: { tab: 'learn', subTab: 'review' } },
+  { id: 'cumulative-review', label: '整体复习', group: '复习与检查', type: 'cumulative-review', durationMinutes: 60, title: '整体复习', note: '跨 Unit 抽查长期留存，不机械重做全部内容。', guide: { tab: 'learn', subTab: 'review' } },
   { id: 'problem-repair', label: '错题修复与重测', group: '练习与修复', type: 'repair', durationMinutes: 35, title: '修复 Problematic Questions', note: '定位 Knowledge Node、Root Cause 和 Retest；修完后换题验证。', guide: { tab: 'practice', subTab: 'diagnose' } },
   { id: 'targeted-practice', label: '专项练习', group: '练习与修复', type: 'practice', durationMinutes: 45, title: '专项练习', note: '围绕一个明确能力完成代表任务并记录证据。', guide: { tab: 'practice', subTab: 'types' } },
   { id: 'ielts-listening', label: 'IELTS Listening', group: 'IELTS', type: 'practice', durationMinutes: 60, title: 'IELTS Listening', note: '第一次连续听，不暂停、不回拨；复盘时确定至少一个具体错因。', guide: { tab: 'ielts', subTab: 'listening' } },
@@ -523,13 +580,74 @@ export function parseTimetableImport(value: unknown): TimetableImport {
   const termStart = validDate(source.termStart, 'termStart');
   const termEnd = validDate(source.termEnd, 'termEnd');
   if (termStart && termEnd && termEnd < termStart) throw new Error('termEnd 不能早于 termStart。');
+  const dateOverrides = Array.isArray(source.dateOverrides) ? source.dateOverrides.map((rawOverride, index) => {
+    const override = record(rawOverride);
+    if (!override) throw new Error(`第 ${index + 1} 个调课日期格式错误。`);
+    const date = validDate(override.date, '调课日期');
+    if (!date || !Array.isArray(override.sessions)) throw new Error('调课日期需要 date 和 sessions 数组。');
+    const sessions = override.sessions.map((rawSession, sessionIndex) => {
+      const session = record(rawSession);
+      if (!session) throw new Error(`${date} 第 ${sessionIndex + 1} 节课格式错误。`);
+      const courseId = requiredText(session.courseId, 'courseId', 80);
+      if (!courses.some((course) => course.id === courseId)) throw new Error(`${date} 的 courseId ${courseId} 不在课程列表中。`);
+      const start = validTime(session.start, `${date} 开始时间`);
+      const end = validTime(session.end, `${date} 结束时间`);
+      if (end <= start) throw new Error(`${date} 的结束时间必须晚于开始时间。`);
+      return { courseId, start, end, location: optionalText(session.location, 80), teacher: optionalText(session.teacher, 80) };
+    });
+    return { date, sessions };
+  }) : undefined;
+  if (dateOverrides && new Set(dateOverrides.map((item) => item.date)).size !== dateOverrides.length) throw new Error('调课日期不能重复。');
   return {
     version: 1,
     name: optionalText(source.name, 100) ?? '我的课表',
     ...(termStart ? { termStart } : {}),
     ...(termEnd ? { termEnd } : {}),
     courses,
+    ...(dateOverrides ? { dateOverrides } : {}),
   };
+}
+
+/** Applies a partial JSON timetable update while retaining unspecified courses and settings. */
+export function applyTimetableUpdate(value: unknown, current: TimetableImport | null): TimetableImport {
+  const source = record(value);
+  if (!source) throw new Error('课表更新必须是 JSON 对象。');
+  if (!current) return parseTimetableImport(source);
+  const replace = source.mode === 'replace';
+  const rawCourses = Array.isArray(source.courses) ? source.courses : [];
+  const courses: Record<string, unknown>[] = replace ? [] : current.courses.map((course) => ({ ...course }));
+  for (const raw of rawCourses) {
+    const incoming = record(raw);
+    if (!incoming) throw new Error('课程更新项必须是对象。');
+    const id = optionalText(incoming.id, 80);
+    const name = optionalText(incoming.name);
+    const match = current.courses.find((course) => (id && course.id === id) || (name && course.name === name));
+    const merged = { ...match, ...incoming, id: match?.id ?? id, review: incoming.review === undefined ? match?.review ?? false : incoming.review };
+    if (!merged.name || !merged.sessions) throw new Error('新课程需要 name 和 sessions。');
+    const existingIndex = courses.findIndex((course) => course.id === merged.id || course.name === merged.name);
+    if (existingIndex >= 0) courses[existingIndex] = merged;
+    else courses.push(merged);
+  }
+  const deleted = new Set(Array.isArray(source.deleteCourseIds) ? source.deleteCourseIds.map(String) : []);
+  const retained = courses.filter((course) => !deleted.has(String(course.id)));
+  const overrides = new Map((replace ? [] : current.dateOverrides ?? []).map((item) => [item.date, item]));
+  for (const [date, override] of overrides) {
+    overrides.set(date, { ...override, sessions: override.sessions.filter((session) => !deleted.has(session.courseId)) });
+  }
+  if (Array.isArray(source.dateOverrides)) for (const raw of source.dateOverrides) {
+    const item = record(raw);
+    if (!item || typeof item.date !== 'string') throw new Error('调课更新需要 date。');
+    overrides.set(item.date, item as unknown as NonNullable<TimetableImport['dateOverrides']>[number]);
+  }
+  if (Array.isArray(source.deleteOverrideDates)) for (const date of source.deleteOverrideDates) overrides.delete(String(date));
+  return parseTimetableImport({
+    version: 1,
+    name: source.name ?? current.name,
+    termStart: source.termStart === null ? undefined : source.termStart ?? current.termStart,
+    termEnd: source.termEnd === null ? undefined : source.termEnd ?? current.termEnd,
+    courses: retained,
+    dateOverrides: [...overrides.values()],
+  });
 }
 
 export function learningCatalogImportTemplate(): LearningCatalogImport {
@@ -741,7 +859,12 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
         cues: record.cues.map((cue) => { const cueSubject = resolve(cue.subjectName); return cueSubject ? { ...cue, subjectName: cueSubject.name, unit: resolveUnit(cueSubject, cue.unit) ?? cue.unit } : cue; }),
       };
     }),
-    ...(state.cueStudyDraft ? { cueStudyDraft: { ...state.cueStudyDraft, task: { ...state.cueStudyDraft.task, ...(state.cueStudyDraft.task.scope?.unit ? { scope: { ...state.cueStudyDraft.task.scope, unit: resolveUnit(resolve(state.cueStudyDraft.task.subjectName, state.cueStudyDraft.task.subjectId), state.cueStudyDraft.task.scope.unit) } } : {}) } } } : {}),
+    cueStudyDraft: undefined,
+    cueStudyDrafts: Object.fromEntries(Object.values(allCueStudyDrafts(state)).map((draft) => {
+      const subject = resolve(draft.task.subjectName, draft.task.subjectId);
+      const normalized = { ...draft, task: { ...draft.task, ...(subject ? { subjectId: subject.id, subjectName: subject.name } : {}), ...(draft.task.scope?.unit ? { scope: { ...draft.task.scope, unit: resolveUnit(subject, draft.task.scope.unit) } } : {}) } };
+      return [cueDraftKey(normalized), normalized];
+    })),
   };
 }
 
@@ -1083,6 +1206,11 @@ export function sessionOccurs(timetable: TimetableImport, session: CourseSession
 
 export function sessionsForDate(timetable: TimetableImport | null, date: Date): Array<CourseSession & { course: ScheduleCourse }> {
   if (!timetable) return [];
+  const override = timetable.dateOverrides?.find((item) => item.date === dateKey(date));
+  if (override) return override.sessions.flatMap((session) => {
+    const course = timetable.courses.find((item) => item.id === session.courseId);
+    return course ? [{ ...session, day: isoDay(date), course }] : [];
+  }).sort((a, b) => a.start.localeCompare(b.start));
   return timetable.courses
     .flatMap((course) => course.sessions.filter((session) => sessionOccurs(timetable, session, date)).map((session) => ({ ...session, course })))
     .sort((a, b) => a.start.localeCompare(b.start));
@@ -1508,6 +1636,77 @@ export function completeLearningSubtask(
   };
 }
 
+function trailingStableReviews(reviews: CueReview[]): number {
+  const ordered = [...reviews].toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt));
+  let count = 0;
+  for (const review of ordered) {
+    if (review.status !== 'stable') break;
+    count += 1;
+  }
+  return count;
+}
+
+function reviewIntervalDays(review: CueReview): number {
+  if (Number.isFinite(review.intervalDays)) return Math.max(0, Math.round(review.intervalDays ?? 0));
+  const reviewed = dateKey(new Date(review.reviewedAt)).split('-').map(Number);
+  const next = review.nextReviewDate.split('-').map(Number);
+  return Math.max(0, Math.round((Date.UTC(next[0], next[1] - 1, next[2]) - Date.UTC(reviewed[0], reviewed[1] - 1, reviewed[2])) / 86_400_000));
+}
+
+/** Builds a per-Cue plan: weak results stay close, while repeated green results earn longer gaps. */
+export function planCueReview(
+  cue: StudyCue,
+  previousReviews: CueReview[],
+  status: LearningStatus,
+  reviewedAt: Date,
+): CueReviewPlan {
+  const reviewedDate = dateKey(reviewedAt);
+  const cueHistory = previousReviews
+    .filter((review) => review.cueId === cue.id)
+    .toSorted((left, right) => left.reviewedAt.localeCompare(right.reviewedAt));
+  const priorStableStreak = cueHistory.length ? trailingStableReviews(cueHistory) : Math.max(0, cue.streak);
+  const latestReview = cueHistory.at(-1);
+  const previousInterval = latestReview ? reviewIntervalDays(latestReview) : Math.max(0, cue.intervalDays);
+  const scheduled = scheduleReview({
+    intervalDays: previousInterval,
+    easeFactor: latestReview?.easeFactor ?? cue.easeFactor,
+    streak: priorStableStreak,
+  }, status === 'stable' ? 5 : status === 'partial' ? 2 : 1, reviewedAt);
+
+  if (status === 'unclear') {
+    return {
+      intervalDays: 0,
+      easeFactor: scheduled.easeFactor,
+      streak: 0,
+      nextReviewDate: reviewedDate,
+      scheduleReason: '本次为 ○：当天重新学习并再次检索，连续通过重新开始。',
+    };
+  }
+  if (status === 'partial') {
+    return {
+      intervalDays: 1,
+      easeFactor: scheduled.easeFactor,
+      streak: 0,
+      nextReviewDate: addCalendarDays(reviewedDate, 1),
+      scheduleReason: '本次为 △：仍不稳定，1 天后重新检索，避免把未掌握内容过早拉长。',
+    };
+  }
+
+  const streak = priorStableStreak + 1;
+  const intervalDays = Math.min(15, 1 + (streak - 1) * 2);
+  const recent = [...cueHistory.slice(-2).map((review) => review.status), status];
+  const allRecentStable = recent.length === 3 && recent.every((result) => result === 'stable');
+  return {
+    intervalDays,
+    easeFactor: scheduled.easeFactor,
+    streak,
+    nextReviewDate: addCalendarDays(reviewedDate, intervalDays),
+    scheduleReason: allRecentStable
+      ? `最近 3 次均为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天（最长 15 天）。`
+      : `本次为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天；继续稳定后按奇数阶梯增加，最长 15 天。`,
+  };
+}
+
 export function completeCueReviews(
   state: ScheduleControlState,
   assessments: CueAssessment[],
@@ -1517,7 +1716,6 @@ export function completeCueReviews(
   if (!assessments.length) throw new Error('请至少评估一条 Cue。');
   const byCueId = new Map(assessments.map((assessment) => [assessment.cueId, assessment]));
   if (byCueId.size !== assessments.length) throw new Error('同一条 Cue 不能重复评估。');
-  const reviewedDate = dateKey(completedAt);
   const reviewedAt = completedAt.toISOString();
   const found = new Set<string>();
   const reviews: CueReview[] = [];
@@ -1525,13 +1723,7 @@ export function completeCueReviews(
     const assessment = byCueId.get(cue.id);
     if (!assessment) return cue;
     found.add(cue.id);
-    const scheduled = scheduleReview({
-      intervalDays: cue.intervalDays,
-      easeFactor: cue.easeFactor,
-      streak: cue.streak,
-    }, assessment.status === 'stable' ? 5 : assessment.status === 'partial' ? 2 : 1, completedAt);
-    const intervalDays = assessment.status === 'stable' ? Math.max(3, scheduled.intervalDays) : assessment.status === 'partial' ? 1 : 0;
-    const nextReviewDate = addCalendarDays(reviewedDate, intervalDays);
+    const plan = planCueReview(cue, state.cueReviews, assessment.status, completedAt);
     reviews.push({
       id: `${cue.id}:${reviewedAt}`,
       cueId: cue.id,
@@ -1539,15 +1731,18 @@ export function completeCueReviews(
       status: assessment.status,
       ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : {}),
       reviewedAt,
-      nextReviewDate,
+      nextReviewDate: plan.nextReviewDate,
+      intervalDays: plan.intervalDays,
+      easeFactor: plan.easeFactor,
+      scheduleReason: plan.scheduleReason,
     });
     return {
       ...cue,
       status: assessment.status,
-      intervalDays,
-      easeFactor: scheduled.easeFactor,
-      streak: assessment.status === 'unclear' ? 0 : scheduled.streak,
-      nextReviewDate,
+      intervalDays: plan.intervalDays,
+      easeFactor: plan.easeFactor,
+      streak: plan.streak,
+      nextReviewDate: plan.nextReviewDate,
       lastReviewedAt: reviewedAt,
     };
   });
@@ -1568,13 +1763,23 @@ export function recordCueStudyAssessment(
 ): ScheduleControlState {
   const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey);
   if (!existing) return completeCueReviews(state, [assessment], reviewedAt, sessionKey);
-  const reviewedDate = dateKey(new Date(existing.reviewedAt));
-  const intervalDays = assessment.status === 'stable' ? Math.max(3, state.cues.find((cue) => cue.id === assessment.cueId)?.intervalDays ?? 3) : assessment.status === 'partial' ? 1 : 0;
-  const nextReviewDate = addCalendarDays(reviewedDate, intervalDays);
+  const cue = state.cues.find((item) => item.id === assessment.cueId);
+  if (!cue) throw new Error('评估中包含不存在的 Cue。');
+  const priorReviews = state.cueReviews.filter((review) => review.cueId === cue.id && review.id !== existing.id);
+  const latestPrior = priorReviews.toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt))[0];
+  const baselineCue: StudyCue = {
+    ...cue,
+    intervalDays: latestPrior ? reviewIntervalDays(latestPrior) : 0,
+    easeFactor: latestPrior?.easeFactor ?? 2.5,
+    streak: trailingStableReviews(priorReviews),
+    status: latestPrior?.status,
+    lastReviewedAt: latestPrior?.reviewedAt,
+  };
+  const plan = planCueReview(baselineCue, priorReviews, assessment.status, new Date(existing.reviewedAt));
   return {
     ...state,
-    cues: state.cues.map((cue) => cue.id === assessment.cueId ? { ...cue, status: assessment.status, intervalDays, streak: assessment.status === 'unclear' ? 0 : cue.streak, nextReviewDate, lastReviewedAt: existing.reviewedAt } : cue),
-    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, status: assessment.status, nextReviewDate, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : {}) } : review),
+    cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: assessment.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
+    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, status: assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
   };
 }
 

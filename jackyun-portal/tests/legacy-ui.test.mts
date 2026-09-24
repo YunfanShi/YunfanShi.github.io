@@ -124,6 +124,17 @@ test('Schedule constrains AI Cue units and records collective Cue maintenance', 
   assert.match(domain, /cancelLearningTask/);
 });
 
+test('Cue manager exposes recent results, detailed history, and adaptive review explanations', async () => {
+  const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
+  const domain = await readFile(new URL('src/lib/learning/schedule-control.ts', projectDir), 'utf8');
+  assert.match(component, /最近 3 次测试结果/);
+  assert.match(component, />详细信息</);
+  assert.match(component, /测试历史/);
+  assert.match(component, /本次排期依据/);
+  assert.match(domain, /export function planCueReview/);
+  assert.match(domain, /最近 3 次均为 √/);
+});
+
 test('study plan schedule is externally configurable and contains no personal task defaults', async () => {
   const html = await readFile(new URL('Studyplan.html', publicDir), 'utf8');
   assert.match(html, /const SCHEDULE_PROFILES =/);

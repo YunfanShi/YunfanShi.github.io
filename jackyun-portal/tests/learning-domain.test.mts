@@ -7,6 +7,8 @@ import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
 import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
 import {
+  allCueStudyDrafts,
+  applyTimetableUpdate,
   applyCueBulkOperations,
   applyCueUnitMappings,
   buildCueReviewBatches,
@@ -29,13 +31,17 @@ import {
   parseLearningCatalogImport,
   parseLearningUnitOutline,
   parseTimetableImport,
+  planCueReview,
   postponeLearningTask,
   recordCueStudyAssessment,
+  removeCueStudyDraft,
+  saveCueStudyDraft,
   preservedReviewCourseIds,
   reconcileScheduleSubjects,
   rescheduleManualTask,
   rollOverManualTasks,
   sessionsForDate,
+  shuffleCueIds,
   tasksForDate,
   toggleCueIds,
   timetableImportTemplate,
@@ -135,12 +141,48 @@ test('cues keep independent review states and due dates', () => {
     { cueId: 'cue-explain', status: 'partial', note: 'Missing the middle marking point.' },
   ], reviewedAt, 'weekly-review');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.status, 'stable');
-  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.nextReviewDate, '2026-09-22');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.nextReviewDate, '2026-09-20');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.status, 'partial');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.nextReviewDate, '2026-09-20');
   assert.equal(reviewed.cueReviews.length, 2);
   const due = tasksForDate(reviewed, new Date(2026, 8, 20, 12));
-  assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
+  assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain', 'cue-def']);
+});
+
+test('Cue review intervals expand with repeated green results and contract after unstable results', () => {
+  const createdAt = '2026-09-01T08:00:00.000Z';
+  let state = createEmptyScheduleState();
+  state.cues = [{ id: 'adaptive-cue', subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: 'Forces', prompt: 'Explain terminal velocity.', type: 'explain', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+  const reviewDates = [
+    '2026-09-01T08:00:00.000Z',
+    '2026-09-04T08:00:00.000Z',
+    '2026-09-11T08:00:00.000Z',
+    '2026-09-29T08:00:00.000Z',
+    '2026-11-13T08:00:00.000Z',
+    '2027-03-06T08:00:00.000Z',
+    '2027-09-02T08:00:00.000Z',
+    '2027-09-15T08:00:00.000Z',
+  ];
+  const intervals: number[] = [];
+  for (const [index, reviewedAt] of reviewDates.entries()) {
+    state = completeCueReviews(state, [{ cueId: 'adaptive-cue', status: 'stable' }], new Date(reviewedAt), `adaptive-${index}`);
+    intervals.push(state.cues[0].intervalDays);
+  }
+
+  assert.deepEqual(intervals, [1, 3, 5, 7, 9, 11, 13, 15]);
+  assert.equal(state.cues[0].streak, 8);
+  assert.match(state.cueReviews[2].scheduleReason ?? '', /最近 3 次均为 √/);
+  assert.equal(state.cueReviews[7].intervalDays, 15);
+
+  const yellowPlan = planCueReview(state.cues[0], state.cueReviews, 'partial', new Date('2027-10-01T08:00:00.000Z'));
+  assert.equal(yellowPlan.intervalDays, 1);
+  assert.equal(yellowPlan.streak, 0);
+  assert.equal(yellowPlan.nextReviewDate, '2027-10-02');
+
+  const redPlan = planCueReview(state.cues[0], state.cueReviews, 'unclear', new Date('2027-10-01T08:00:00.000Z'));
+  assert.equal(redPlan.intervalDays, 0);
+  assert.equal(redPlan.streak, 0);
+  assert.equal(redPlan.nextReviewDate, '2027-10-01');
 });
 
 test('Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope', () => {
@@ -585,6 +627,8 @@ test('Cue study ratings save immediately, can be corrected, and are not duplicat
 
   const first = recordCueStudyAssessment(state, { cueId: 'cue-1', status: 'stable' }, reviewedAt, task.key);
   assert.equal(first.cues[0].status, 'stable');
+  assert.equal(first.cues[0].intervalDays, 1);
+  assert.equal(first.cues[0].streak, 1);
   assert.equal(first.cues[0].version, 2);
   assert.equal(first.cues[0].updatedAt, createdAt);
   assert.equal(first.cueReviews.length, 1);
@@ -593,6 +637,9 @@ test('Cue study ratings save immediately, can be corrected, and are not duplicat
   assert.equal(corrected.cues[0].status, 'partial');
   assert.equal(corrected.cueReviews.length, 1);
   assert.equal(corrected.cueReviews[0].status, 'partial');
+  assert.equal(corrected.cues[0].intervalDays, 1);
+  assert.equal(corrected.cues[0].streak, 0);
+  assert.equal(corrected.cueReviews[0].intervalDays, 1);
   assert.equal(corrected.cues[0].version, 2);
   assert.equal(corrected.cues[0].updatedAt, createdAt);
 
@@ -639,6 +686,71 @@ test('timetable import preserves manual choices without auto-selecting matching 
     ],
   });
   assert.deepEqual(preservedReviewCourseIds(imported, current), ['physics-old']);
+});
+
+test('partial timetable update preserves choices and handles a moved class and weekend makeup day', () => {
+  const current = parseTimetableImport({
+    version: 1, name: 'Term', termStart: '2026-09-01',
+    courses: [
+      { id: 'physics', name: 'Physics', review: true, color: '#123456', sessions: [{ day: 1, start: '08:00', end: '08:45' }] },
+      { id: 'math', name: 'Math', review: false, sessions: [{ day: 2, start: '09:00', end: '09:45' }] },
+    ],
+  });
+  const updated = applyTimetableUpdate({
+    version: 1,
+    courses: [{ id: 'physics', sessions: [{ day: 3, start: '10:00', end: '10:45' }] }],
+    dateOverrides: [{ date: '2026-09-26', sessions: [{ courseId: 'physics', start: '08:00', end: '08:45' }] }],
+  }, current);
+  assert.equal(updated.courses.length, 2);
+  assert.equal(updated.courses[0].review, true);
+  assert.equal(updated.courses[0].color, '#123456');
+  assert.equal(updated.termStart, '2026-09-01');
+  assert.equal(sessionsForDate(updated, new Date(2026, 8, 23, 12))[0].course.id, 'physics');
+  assert.equal(sessionsForDate(updated, new Date(2026, 8, 26, 12))[0].course.id, 'physics');
+  assert.equal(sessionsForDate(updated, new Date(2026, 8, 19, 12)).length, 0);
+  const dayOff = applyTimetableUpdate({ dateOverrides: [{ date: '2026-09-26', sessions: [] }] }, updated);
+  assert.equal(sessionsForDate(dayOff, new Date(2026, 8, 26, 12)).length, 0);
+  const deleted = applyTimetableUpdate({ deleteCourseIds: ['physics'] }, updated);
+  assert.equal(deleted.courses.length, 1);
+  assert.equal(sessionsForDate(deleted, new Date(2026, 8, 26, 12)).length, 0);
+  assert.throws(() => applyTimetableUpdate({ dateOverrides: [{ date: '2026-09-26', sessions: [{ courseId: 'unknown', start: '08:00', end: '09:00' }] }] }, current), /courseId/);
+});
+
+test('Cue study drafts survive across subjects and replace only the same subject', () => {
+  const task = (subjectId: string, key: string) => ({ key, title: key, detail: '', type: 'special' as const, date: '2026-09-24', durationMinutes: 30, subjectId, subjectName: subjectId });
+  const draft = (subjectId: string, key: string) => ({ id: key, task: task(subjectId, key), cueIds: [key], index: 0, revealed: false, assessments: {}, updatedAt: '2026-09-24T00:00:00Z' });
+  const physics = draft('physics', 'physics-1');
+  const math = draft('math', 'math-1');
+  let state = saveCueStudyDraft(createEmptyScheduleState(), physics);
+  state = saveCueStudyDraft(state, math);
+  state = saveCueStudyDraft(state, draft('physics', 'physics-2'));
+  assert.deepEqual(Object.keys(allCueStudyDrafts(state)).sort(), ['math', 'physics']);
+  assert.equal(allCueStudyDrafts(state).physics.id, 'physics-2');
+  state = removeCueStudyDraft(state, allCueStudyDrafts(state).physics);
+  assert.equal(allCueStudyDrafts(state).math.id, math.id);
+});
+
+test('shuffle mode changes Cue order without losing or duplicating a Cue', () => {
+  const source = ['a', 'b', 'c', 'd'];
+  const shuffled = shuffleCueIds(source, () => 0);
+  assert.notDeepEqual(shuffled, source);
+  assert.deepEqual([...shuffled].sort(), [...source].sort());
+  assert.deepEqual(source, ['a', 'b', 'c', 'd']);
+  assert.deepEqual(shuffleCueIds(['only'], () => 0), ['only']);
+});
+
+test('per-subject Cue draft keeps shuffled order and prior statuses when another subject saves', () => {
+  const physics = {
+    id: 'physics-1',
+    task: { key: 'physics-1', title: 'Physics', detail: '', type: 'special' as const, date: '2026-09-24', durationMinutes: 30, subjectId: 'physics', subjectName: 'Physics' },
+    cueIds: ['cue-b', 'cue-a'], index: 1, revealed: true, assessments: { 'cue-b': 'partial' as const },
+    priorStatuses: { 'cue-b': 'stable' as const, 'cue-a': null }, shuffled: true, updatedAt: '2026-09-24T00:00:00Z',
+  };
+  const math = { ...physics, id: 'math-1', task: { ...physics.task, key: 'math-1', subjectId: 'math', subjectName: 'Math' }, cueIds: ['cue-m'] };
+  const state = saveCueStudyDraft(saveCueStudyDraft(createEmptyScheduleState(), physics), math);
+  assert.deepEqual(allCueStudyDrafts(state).physics.cueIds, ['cue-b', 'cue-a']);
+  assert.deepEqual(allCueStudyDrafts(state).physics.priorStatuses, physics.priorStatuses);
+  assert.equal(allCueStudyDrafts(state).physics.shuffled, true);
 });
 
 test('collective Cue maintenance creates one durable reminder and resets after a recorded batch check', () => {
