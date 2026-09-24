@@ -139,7 +139,7 @@ do $$ declare index_number integer; begin
   for index_number in 1..12 loop
     perform public.create_backup_page('settings');
   end loop;
-  if (select count(*) from public.backup_center_versions where page = 'settings') <> 10 then
+  if (select count(*) from public.backup_center_versions where page = 'settings') <> 7 then
     raise exception 'Default version cap was not enforced';
   end if;
   perform public.set_backup_limit(4);

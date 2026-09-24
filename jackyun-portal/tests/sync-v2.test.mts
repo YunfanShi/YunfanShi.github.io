@@ -62,6 +62,20 @@ test('three-way merge combines independent object changes', () => {
   assert.deepEqual(threeWayMerge({ a: 1, b: 1 }, { a: 2, b: 1 }, { a: 1, b: 3 }), { merged: { a: 2, b: 3 }, conflicts: [] });
 });
 
+test('Cue progress in separate subjects merges without overwriting another subject', () => {
+  const base = { cueStudyDrafts: {} };
+  const physics = { cueStudyDrafts: { physics: { id: 'physics-review', index: 3 } } };
+  const math = { cueStudyDrafts: { math: { id: 'math-review', index: 1 } } };
+  assert.deepEqual(threeWayMerge(base, physics, math), {
+    merged: { cueStudyDrafts: { physics: physics.cueStudyDrafts.physics, math: math.cueStudyDrafts.math } },
+    conflicts: [],
+  });
+  assert.deepEqual(threeWayMerge(physics,
+    { cueStudyDrafts: { physics: { id: 'physics-review', index: 4 } } },
+    { cueStudyDrafts: { physics: { id: 'physics-review', index: 5 } } }).conflicts,
+  ['$.cueStudyDrafts.physics.index']);
+});
+
 test('three-way merge preserves local data and reports same-field conflicts', () => {
   assert.deepEqual(threeWayMerge({ value: 1 }, { value: 2 }, { value: 3 }), { merged: { value: 2 }, conflicts: ['$.value'] });
 });

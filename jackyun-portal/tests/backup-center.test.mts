@@ -5,7 +5,7 @@ import { BACKUP_LIMITS, DEFAULT_BACKUP_LIMIT, isBackupLimit } from '../src/lib/b
 
 test('backup retention accepts every value from four through ten', () => {
   assert.deepEqual(BACKUP_LIMITS, [4, 5, 6, 7, 8, 9, 10]);
-  assert.equal(DEFAULT_BACKUP_LIMIT, 10);
+  assert.equal(DEFAULT_BACKUP_LIMIT, 7);
   for (const value of BACKUP_LIMITS) assert.equal(isBackupLimit(value), true);
   for (const value of [3, 11, 20, 50, null, '10']) assert.equal(isBackupLimit(value), false);
 });

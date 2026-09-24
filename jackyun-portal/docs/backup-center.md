@@ -2,7 +2,7 @@
 
 Settings → Data & Privacy contains the Backup Center. It groups supported account data into pages. Database writes save the previous page state in `backup_center_versions` in the same transaction as the write. A failed backup aborts the data write. Existing data receives a baseline when the migration runs.
 
-Each account can choose 4 through 10 versions **per page** (10 by default). On each new version, the oldest version beyond the limit is deleted. Lowering the limit prunes extra versions immediately. The existing Schedule-specific 90-day history remains available separately.
+Each account can choose 4 through 10 versions **per page** (7 by default). On each new version, the oldest version beyond the limit is deleted. Lowering the limit prunes extra versions immediately. The existing Schedule-specific 90-day history remains available separately.
 
 The browser also records versions of syncable local page data in IndexedDB, scoped by account (or guest), when it observes a change. It checks every two seconds and on cross-tab storage events. It keeps the same per-page count. A rapid sequence of local changes between checks may appear as one version; each successful cloud write still gets its own database backup.
 
