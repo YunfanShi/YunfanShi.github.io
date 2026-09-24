@@ -87,6 +87,11 @@ test('Cue similarity ignores common words and detects reordered duplicate prompt
   assert.equal(pairs.length, 1);
   assert.equal(pairs[0].left.id, 'left');
   assert.equal(pairs[0].right.id, 'right');
+  const answerMismatch = findSimilarCuePairs([
+    { ...cue('answer-left', 'chemistry', 'Define terminal velocity.'), answer: 'Drag balances weight and acceleration is zero.' },
+    { ...cue('answer-right', 'chemistry', 'What is terminal velocity?'), answer: 'The maximum speed reached by a falling object.' },
+  ]);
+  assert.equal(answerMismatch.length, 0);
 });
 
 test('IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired', () => {

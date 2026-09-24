@@ -12,7 +12,11 @@ export interface SimilarCuePair {
   left: StudyCue;
   right: StudyCue;
   similarity: number;
+  promptSimilarity: number;
+  answerSimilarity?: number;
   sharedTerms: string[];
+  sharedPromptTerms: string[];
+  sharedAnswerTerms: string[];
   leftTermCount: number;
   rightTermCount: number;
 }
@@ -87,9 +91,25 @@ export function findSimilarCuePairs(cues: StudyCue[], threshold = 72): SimilarCu
       const left = cues[leftIndex];
       const right = cues[rightIndex];
       if (left.subjectId !== right.subjectId && left.subjectName !== right.subjectName) continue;
-      const result = cuePromptSimilarity(left.prompt, right.prompt);
-      if (result.similarity < threshold) continue;
-      pairs.push({ left, right, ...result });
+      const promptResult = cuePromptSimilarity(left.prompt, right.prompt);
+      if (promptResult.similarity < threshold) continue;
+      const answerResult = cuePromptSimilarity(left.answer ?? '', right.answer ?? '');
+      const answersComparable = Boolean(left.answer?.trim() && right.answer?.trim() && answerResult.leftTermCount && answerResult.rightTermCount);
+      if (answersComparable && answerResult.similarity < 60) continue;
+      const similarity = answersComparable ? Math.round(promptResult.similarity * 0.6 + answerResult.similarity * 0.4) : promptResult.similarity;
+      if (similarity < threshold) continue;
+      pairs.push({
+        left,
+        right,
+        similarity,
+        promptSimilarity: promptResult.similarity,
+        ...(answersComparable ? { answerSimilarity: answerResult.similarity } : {}),
+        sharedTerms: [...new Set([...promptResult.sharedTerms, ...answerResult.sharedTerms])],
+        sharedPromptTerms: promptResult.sharedTerms,
+        sharedAnswerTerms: answerResult.sharedTerms,
+        leftTermCount: promptResult.leftTermCount,
+        rightTermCount: promptResult.rightTermCount,
+      });
     }
   }
   return pairs.toSorted((left, right) => right.similarity - left.similarity || left.left.createdAt.localeCompare(right.left.createdAt) || left.left.id.localeCompare(right.left.id));
