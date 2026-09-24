@@ -6,8 +6,10 @@ import { rankLearningCandidates } from '../src/lib/learning/prioritization.ts';
 import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
 import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
+import { cuePromptSimilarity, cueSimilarityTerms, findSimilarCuePairs } from '../src/lib/learning/cue-similarity.ts';
 import {
   allCueStudyDrafts,
+  applyTemporaryTimetableUpdate,
   applyTimetableUpdate,
   applyCueBulkOperations,
   applyCueUnitMappings,
@@ -60,6 +62,31 @@ test('task presets cover audits, self-study, cue review, and IELTS without fixin
 test('selecting and clearing a Cue subgroup preserves selections outside that subgroup', () => {
   assert.deepEqual(toggleCueIds(['outside', 'cue-1'], ['cue-1', 'cue-2'], true), ['outside', 'cue-1', 'cue-2']);
   assert.deepEqual(toggleCueIds(['outside', 'cue-1', 'cue-2'], ['cue-1', 'cue-2'], false), ['outside']);
+});
+
+test('Cue similarity ignores common words and detects reordered duplicate prompts', () => {
+  const similar = cuePromptSimilarity(
+    'Explain how increased temperature affects the rate of a chemical reaction.',
+    'How does an increase in temperature affect chemical reaction rate? Explain.',
+  );
+  assert.ok(similar.similarity >= 72, `expected a likely duplicate, got ${similar.similarity}%`);
+  assert.ok(similar.sharedTerms.includes('temperature'));
+  assert.ok(similar.sharedTerms.includes('reaction'));
+  assert.deepEqual(cueSimilarityTerms('The force and a force in the system.'), ['force', 'system']);
+
+  const differentIntent = cuePromptSimilarity('Define velocity.', 'Calculate velocity from distance and time.');
+  assert.ok(differentIntent.similarity < 72);
+
+  const createdAt = '2026-09-24T08:00:00.000Z';
+  const cue = (id: string, subjectId: string, prompt: string) => ({ id, subjectId, subjectName: subjectId, unit: 'Unit', subsection: '', prompt, type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt });
+  const pairs = findSimilarCuePairs([
+    cue('left', 'chemistry', 'Explain how increased temperature affects chemical reaction rate.'),
+    cue('right', 'chemistry', 'Explain how chemical reaction rate is affected by an increase in temperature.'),
+    cue('other-subject', 'physics', 'Explain how chemical reaction rate is affected by an increase in temperature.'),
+  ]);
+  assert.equal(pairs.length, 1);
+  assert.equal(pairs[0].left.id, 'left');
+  assert.equal(pairs[0].right.id, 'right');
 });
 
 test('IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired', () => {
@@ -714,6 +741,14 @@ test('partial timetable update preserves choices and handles a moved class and w
   assert.equal(deleted.courses.length, 1);
   assert.equal(sessionsForDate(deleted, new Date(2026, 8, 26, 12)).length, 0);
   assert.throws(() => applyTimetableUpdate({ dateOverrides: [{ date: '2026-09-26', sessions: [{ courseId: 'unknown', start: '08:00', end: '09:00' }] }] }, current), /courseId/);
+});
+
+test('temporary timetable updates keep the primary timetable and replace only a dated override', () => {
+  const current = parseTimetableImport({ version: 1, name: 'Primary', courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 1, start: '08:00', end: '08:45' }] }] });
+  const updated = applyTemporaryTimetableUpdate({ version: 1, scheduleRole: 'temporary', temporaryDate: '2026-09-26', dateOverrides: [{ date: '2026-09-26', sessions: [{ courseId: 'physics', start: '10:00', end: '10:45' }] }] }, current);
+  assert.equal(updated.courses[0].sessions[0].start, '08:00');
+  assert.equal(sessionsForDate(updated, new Date(2026, 8, 26, 12))[0].start, '10:00');
+  assert.equal(updated.scheduleRole, 'primary');
 });
 
 test('Cue study drafts survive across subjects and replace only the same subject', () => {

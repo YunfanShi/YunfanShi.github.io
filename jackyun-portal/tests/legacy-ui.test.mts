@@ -135,6 +135,36 @@ test('Cue manager exposes recent results, detailed history, and adaptive review 
   assert.match(domain, /最近 3 次均为 √/);
 });
 
+test('Cue manager compares similar prompts side by side with highlighted evidence and deletion choices', async () => {
+  const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
+  const similarity = await readFile(new URL('src/lib/learning/cue-similarity.ts', projectDir), 'utf8');
+  assert.match(component, /相似 CUE 检查/);
+  assert.match(component, /side="左边"/);
+  assert.match(component, /side="右边"/);
+  assert.match(component, /共同内容词/);
+  assert.match(component, /删除左边 · 保留右边/);
+  assert.match(component, /删除右边 · 保留左边/);
+  assert.match(component, /<mark/);
+  assert.match(similarity, /ENGLISH_STOP_WORDS/);
+  assert.match(similarity, /threshold = 72/);
+});
+
+test('Cue ratings advance to the next unassessed Cue and clear the answer state', async () => {
+  const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
+  assert.match(component, /findIndex\(\(cue, cueIndex\) => cueIndex > index && !next\[cue\.id\]\)/);
+  assert.match(component, /setRevealed\(false\);\s*setSelectedChoice\(undefined\)/);
+});
+
+test('timetable import distinguishes primary and temporary class-change sources', async () => {
+  const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
+  const domain = await readFile(new URL('src/lib/learning/schedule-control.ts', projectDir), 'utf8');
+  assert.match(component, /scheduleRole/);
+  assert.match(component, /临时换课/);
+  assert.match(component, /主课表/);
+  assert.match(component, /applyTemporaryTimetableUpdate/);
+  assert.match(domain, /export function applyTemporaryTimetableUpdate/);
+});
+
 test('study plan schedule is externally configurable and contains no personal task defaults', async () => {
   const html = await readFile(new URL('Studyplan.html', publicDir), 'utf8');
   assert.match(html, /const SCHEDULE_PROFILES =/);
