@@ -147,6 +147,9 @@ test('Cue manager compares similar prompts side by side with highlighted evidenc
   assert.match(component, /<mark/);
   assert.match(similarity, /ENGLISH_STOP_WORDS/);
   assert.match(similarity, /threshold = 72/);
+  assert.match(similarity, /answerSimilarity/);
+  assert.match(similarity, /answersComparable/);
+  assert.match(component, /答案相似度低于 60%/);
 });
 
 test('Cue ratings advance to the next unassessed Cue and clear the answer state', async () => {
