@@ -387,6 +387,8 @@ export interface CueMemo {
 
 export interface ScheduleControlState {
   schemaVersion: 1;
+  /** One-time migration marker for existing Cue review plans. */
+  cueScheduleRevision?: number;
   timetable: TimetableImport | null;
   settings: ScheduleSettings;
   manualTasks: ManualLearningTask[];
@@ -484,6 +486,7 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
 export function createEmptyScheduleState(): ScheduleControlState {
   return {
     schemaVersion: 1,
+    cueScheduleRevision: 2,
     timetable: null,
     settings: { ...DEFAULT_SCHEDULE_SETTINGS },
     manualTasks: [],
@@ -1756,6 +1759,56 @@ export function planCueReview(
     streak,
     nextReviewDate: addCalendarDays(reviewedDate, intervalDays),
     scheduleReason: `${resetForUpdate ? 'Cue 内容更新后重新积累检索证据。' : ''}本次 √，连续通过 ${streak} 次；此前近 4 次有 △ ${yellowCount} 次、○ ${redCount} 次。${intervalDays === 0 ? '连续红色后首次通过，今天再检索一次。' : `按近期稳定性和实际复习间隔，${intervalDays} 天后再检索（最长 15 天）。`}`,
+  };
+}
+
+/** Replays old ratings once so existing Cues receive the same plan as newly reviewed Cues. */
+export function recalculateLegacyCueSchedules(state: ScheduleControlState): ScheduleControlState {
+  if ((state.cueScheduleRevision ?? 0) >= 2) return state;
+  const reviewsByCue = new Map<string, CueReview[]>();
+  for (const review of state.cueReviews) {
+    const history = reviewsByCue.get(review.cueId) ?? [];
+    history.push(review);
+    reviewsByCue.set(review.cueId, history);
+  }
+  const replacements = new Map<string, CueReview>();
+  const cues = state.cues.map((cue) => {
+    const history = reviewsByCue.get(cue.id)?.toSorted((left, right) => left.reviewedAt.localeCompare(right.reviewedAt));
+    const latest = history?.at(-1);
+    if (!history || !latest || !cue.lastReviewedAt || cue.lastReviewedAt !== latest.reviewedAt
+      || cue.status !== latest.status || !cue.nextReviewDate || cue.nextReviewDate !== latest.nextReviewDate
+      || (latest.intervalDays !== undefined && cue.intervalDays !== latest.intervalDays)
+      || cue.updatedAt > latest.reviewedAt) return cue;
+
+    const currentVersion = history.filter((review) => review.reviewedAt >= cue.updatedAt);
+    if (!currentVersion.length || currentVersion.some((review) => !Number.isFinite(Date.parse(review.reviewedAt))
+      || !['stable', 'partial', 'unclear'].includes(review.status))) return cue;
+
+    let replayCue: StudyCue = { ...cue, intervalDays: 0, easeFactor: 2.5, streak: 0 };
+    const replayed: CueReview[] = [];
+    let plan: CueReviewPlan | undefined;
+    for (const review of currentVersion) {
+      plan = planCueReview(replayCue, replayed, review.status, new Date(review.reviewedAt));
+      replayed.push({ ...review, ...plan });
+      replayCue = { ...replayCue, status: review.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: review.reviewedAt };
+    }
+    // Recalculation must never postpone a Cue that is already actionable.
+    if (!plan || plan.nextReviewDate > cue.nextReviewDate) return cue;
+    if (plan.nextReviewDate === cue.nextReviewDate && plan.intervalDays === cue.intervalDays
+      && plan.streak === cue.streak && plan.easeFactor === cue.easeFactor) return cue;
+    replacements.set(cue.id, { ...latest, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor,
+      nextReviewDate: plan.nextReviewDate, scheduleReason: `旧 Cue 历史重算：${plan.scheduleReason}` });
+    return { ...cue, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak,
+      nextReviewDate: plan.nextReviewDate };
+  });
+  return {
+    ...state,
+    cueScheduleRevision: 2,
+    cues,
+    cueReviews: state.cueReviews.map((review) => {
+      const replacement = replacements.get(review.cueId);
+      return replacement?.id === review.id ? replacement : review;
+    }),
   };
 }
 

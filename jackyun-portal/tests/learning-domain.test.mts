@@ -37,6 +37,7 @@ import {
   planCueReview,
   postponeLearningTask,
   recordCueStudyAssessment,
+  recalculateLegacyCueSchedules,
   removeCueStudyDraft,
   saveCueStudyDraft,
   preservedReviewCourseIds,
@@ -250,6 +251,48 @@ test('Cue status filters share study semantics for manager views', () => {
   assert.equal(cueMatchesStatusFilter({ ...base, status: 'stable', lastReviewedAt: '2026-09-04T08:00:00.000Z', nextReviewDate: '2026-09-07' }, 'stable', '2026-09-05'), true);
   assert.equal(cueMatchesStatusFilter({ ...base, status: 'partial', lastReviewedAt: '2026-09-04T08:00:00.000Z' }, 'weak', '2026-09-05'), true);
   assert.equal(cueMatchesStatusFilter({ ...base, nextReviewDate: '2026-09-07' }, 'due', '2026-09-05'), false);
+});
+
+test('old Cue plans are recalculated from saved ratings once without changing unrelated Cues', () => {
+  const createdAt = '2026-09-01T08:00:00.000Z';
+  const base = { subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Friction', type: 'general' as const, markingPoints: [], easeFactor: 2.5, createdAt, updatedAt: createdAt };
+  const state = createEmptyScheduleState();
+  state.cueScheduleRevision = 0;
+  state.cues = [
+    { ...base, id: 'yellow', status: 'stable', intervalDays: 3, streak: 2, nextReviewDate: '2026-09-07', lastReviewedAt: '2026-09-04T08:00:00.000Z' },
+    { ...base, id: 'red', status: 'stable', intervalDays: 1, streak: 1, nextReviewDate: '2026-09-04', lastReviewedAt: '2026-09-03T08:00:00.000Z' },
+    { ...base, id: 'edited', status: 'stable', intervalDays: 3, streak: 2, nextReviewDate: '2026-09-07', lastReviewedAt: '2026-09-04T08:00:00.000Z', updatedAt: '2026-09-05T08:00:00.000Z' },
+    { ...base, id: 'manual', status: 'stable', intervalDays: 3, streak: 2, nextReviewDate: '2026-09-10', lastReviewedAt: '2026-09-04T08:00:00.000Z' },
+    { ...base, id: 'new', intervalDays: 0, streak: 0 },
+  ];
+  const review = (cueId: string, day: string, status: 'stable' | 'partial' | 'unclear', intervalDays: number, nextReviewDate: string) => ({
+    id: `${cueId}:${day}`, cueId, status, reviewedAt: `${day}T08:00:00.000Z`, intervalDays, nextReviewDate,
+  });
+  const yellowHistory = [
+    review('yellow', '2026-09-01', 'partial', 1, '2026-09-02'),
+    review('yellow', '2026-09-02', 'partial', 1, '2026-09-03'),
+    review('yellow', '2026-09-03', 'stable', 1, '2026-09-04'),
+    review('yellow', '2026-09-04', 'stable', 3, '2026-09-07'),
+  ];
+  state.cueReviews = [...yellowHistory,
+    review('red', '2026-09-01', 'unclear', 0, '2026-09-01'),
+    review('red', '2026-09-02', 'unclear', 0, '2026-09-02'),
+    review('red', '2026-09-03', 'stable', 1, '2026-09-04'),
+    ...['edited', 'manual'].flatMap((cueId) => yellowHistory.map((item) => ({ ...item, id: item.id.replace('yellow', cueId), cueId }))),
+  ];
+
+  const migrated = recalculateLegacyCueSchedules(state);
+  assert.equal(migrated.cueScheduleRevision, 2);
+  assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.nextReviewDate, '2026-09-05');
+  assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.intervalDays, 1);
+  assert.equal(migrated.cues.find((cue) => cue.id === 'red')?.nextReviewDate, '2026-09-03');
+  assert.equal(migrated.cues.find((cue) => cue.id === 'red')?.intervalDays, 0);
+  assert.match(migrated.cueReviews.find((item) => item.id === 'yellow:2026-09-04')?.scheduleReason ?? '', /旧 Cue 历史重算/);
+  assert.strictEqual(migrated.cueReviews[0], state.cueReviews[0]);
+  assert.strictEqual(migrated.cues[2], state.cues[2]);
+  assert.strictEqual(migrated.cues[3], state.cues[3]);
+  assert.strictEqual(migrated.cues[4], state.cues[4]);
+  assert.strictEqual(recalculateLegacyCueSchedules(migrated), migrated);
 });
 
 test('Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope', () => {

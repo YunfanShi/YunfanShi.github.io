@@ -43,6 +43,7 @@ import {
   parseLearningUnitOutline,
   parseCueBulkImport,
   recordCueStudyAssessment,
+  recalculateLegacyCueSchedules,
   removeCueStudyDraft,
   saveCueStudyDraft,
   shuffleCueIds,
@@ -137,6 +138,7 @@ function loadState(now = new Date()): ScheduleControlState {
     const loaded: ScheduleControlState = {
       ...empty,
       ...parsed,
+      cueScheduleRevision: parsed.cueScheduleRevision ?? 0,
       settings: {
         ...empty.settings,
         ...storedSettings,
@@ -165,7 +167,7 @@ function loadState(now = new Date()): ScheduleControlState {
       })),
       timetable: parsed.timetable ? parseTimetableImport(parsed.timetable) : null,
     };
-    return reconcileScheduleSubjects(rollOverManualTasks(loaded, dateKey(now), now.toISOString()));
+    return reconcileScheduleSubjects(rollOverManualTasks(recalculateLegacyCueSchedules(loaded), dateKey(now), now.toISOString()));
   } catch {
     return empty;
   }
