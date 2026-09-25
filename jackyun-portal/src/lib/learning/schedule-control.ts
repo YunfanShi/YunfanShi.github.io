@@ -486,7 +486,7 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
 export function createEmptyScheduleState(): ScheduleControlState {
   return {
     schemaVersion: 1,
-    cueScheduleRevision: 2,
+    cueScheduleRevision: 3,
     timetable: null,
     settings: { ...DEFAULT_SCHEDULE_SETTINGS },
     manualTasks: [],
@@ -1376,7 +1376,7 @@ function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTas
         key: `post-class-recall:${key}:${course.id}`,
         type: 'cue-review' as const,
         title: `复习 ${course.shortName ?? course.name} Cue`,
-        detail: '闭卷完成今天的 Cue 复习单：常规到期 + 黄色 / 红色未达标 + 今天新增 Cue；同一条 Cue 只出现一次。',
+        detail: '闭卷完成今天选中的 Cue 复习单；同一条 Cue 只出现一次。',
       },
     ];
     return [{
@@ -1475,7 +1475,11 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
         if (source) counts[source] += 1;
         return counts;
       }, { regular: 0, weak: 0, today: 0 });
-      const sourceSummary = `本批来源：常规到期 ${sourceCounts.regular} · 黄色 / 红色 ${sourceCounts.weak} · 今日新增 ${sourceCounts.today}`;
+      const sourceSummary = `本批来源：${[
+        sourceCounts.regular ? `常规到期 ${sourceCounts.regular}` : '',
+        sourceCounts.weak ? `黄色 / 红色 ${sourceCounts.weak}` : '',
+        sourceCounts.today ? `今日新增 ${sourceCounts.today}` : '',
+      ].filter(Boolean).join(' · ')}`;
       return {
         key: `cue-review:${key}:${cues[0].subjectId}${batchSuffix}`,
         title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
@@ -1696,7 +1700,42 @@ function reviewIntervalDays(review: CueReview): number {
   return Math.max(0, Math.round((Date.UTC(next[0], next[1] - 1, next[2]) - Date.UTC(reviewed[0], reviewed[1] - 1, reviewed[2])) / 86_400_000));
 }
 
-/** Builds a per-Cue plan: weak results stay close, while repeated green results earn longer gaps. */
+function calendarDaysBetween(earlier: string, later: string): number {
+  const [startYear, startMonth, startDay] = earlier.slice(0, 10).split('-').map(Number);
+  const [endYear, endMonth, endDay] = later.slice(0, 10).split('-').map(Number);
+  return Math.max(0, Math.round((Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay)) / 86_400_000));
+}
+
+/** A second green on the same day confirms repair, not retention across an interval. */
+function spacedGreenRun(history: CueReview[], reviewedDate: string): number {
+  const days = new Set<string>([reviewedDate]);
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    if (history[index].status !== 'stable') break;
+    days.add(history[index].reviewedAt.slice(0, 10));
+  }
+  return days.size;
+}
+
+/** Earlier failures matter less only after successful recall on later dates. */
+function weightedWeakRisk(history: CueReview[], reviewedDate: string): number {
+  // These are conservative product weights, not fitted FSRS parameters. One red
+  // has more impact than one yellow; each later spaced success retains 70% of it.
+  const decayPerGreenDay = 0.7;
+  const successfulDays = new Set([reviewedDate]);
+  let risk = 0;
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const review = history[index];
+    if (review.status === 'stable') {
+      successfulDays.add(review.reviewedAt.slice(0, 10));
+      continue;
+    }
+    const severity = review.status === 'unclear' ? 1.5 : 0.8;
+    risk += severity * decayPerGreenDay ** successfulDays.size;
+  }
+  return risk;
+}
+
+/** Uses recorded outcomes and elapsed calendar days; no trained model is inferred from sparse ratings. */
 export function planCueReview(
   cue: StudyCue,
   previousReviews: CueReview[],
@@ -1705,16 +1744,15 @@ export function planCueReview(
 ): CueReviewPlan {
   const reviewedDate = dateKey(reviewedAt);
   const cueHistory = previousReviews
-    .filter((review) => review.cueId === cue.id && review.reviewedAt >= cue.updatedAt)
+    .filter((review) => review.cueId === cue.id && review.reviewedAt <= reviewedAt.toISOString())
     .toSorted((left, right) => left.reviewedAt.localeCompare(right.reviewedAt));
-  const hasOlderHistory = previousReviews.some((review) => review.cueId === cue.id);
-  const resetForUpdate = hasOlderHistory && cueHistory.length === 0;
-  const priorStableStreak = cueHistory.length ? trailingStableReviews(cueHistory) : hasOlderHistory ? 0 : Math.max(0, cue.streak);
+  const priorStableStreak = cueHistory.length ? trailingStableReviews(cueHistory) : Math.max(0, cue.streak);
   const latestReview = cueHistory.at(-1);
-  const previousInterval = latestReview ? reviewIntervalDays(latestReview) : hasOlderHistory ? 0 : Math.max(0, cue.intervalDays);
+  const previousInterval = latestReview ? reviewIntervalDays(latestReview) : Math.max(0, cue.intervalDays);
+  const updatedSincePreviousReview = Boolean(latestReview && latestReview.reviewedAt < cue.updatedAt && cue.updatedAt <= reviewedAt.toISOString());
   const scheduled = scheduleReview({
     intervalDays: previousInterval,
-    easeFactor: resetForUpdate ? 2.5 : latestReview?.easeFactor ?? cue.easeFactor,
+    easeFactor: latestReview?.easeFactor ?? cue.easeFactor,
     streak: priorStableStreak,
   }, status === 'stable' ? 5 : status === 'partial' ? 2 : 1, reviewedAt);
 
@@ -1738,33 +1776,37 @@ export function planCueReview(
   }
 
   const streak = priorStableStreak + 1;
-  const recent = cueHistory.slice(-4);
-  const yellowCount = recent.filter((review) => review.status === 'partial').length;
-  const redCount = recent.filter((review) => review.status === 'unclear').length;
-  // A red result costs twice as much confidence as a yellow one. Old weak results
-  // naturally leave the four-review window after sustained successful retrieval.
-  const baseInterval = Math.min(15, 1 + (streak - 1) * 2);
-  let intervalDays = Math.max(1, baseInterval - yellowCount - redCount * 2);
-  if (streak === 1 && recent.slice(-2).every((review) => review.status === 'unclear') && recent.length >= 2) {
-    intervalDays = 0;
-  }
+  // Only successful retrievals on distinct dates grow the interval. All weak
+  // history contributes to risk, decaying after later spaced green retrievals.
+  const spacedGreens = cueHistory.length
+    ? spacedGreenRun(cueHistory, reviewedDate)
+    : Math.max(1, Math.min(8, cue.streak + 1));
+  const baseInterval = Math.min(15, 1 + (spacedGreens - 1) * 2);
+  const risk = weightedWeakRisk(cueHistory, reviewedDate);
+  let intervalDays = Math.max(1, Math.round(baseInterval / (1 + 1.2 * risk)));
+  if (spacedGreens === 1 && risk >= 1.5) intervalDays = 0;
+  // Revising an answer calls for a short confirmation, but does not erase every
+  // previous successful retrieval or turn an all-green history into a failure.
+  if (updatedSincePreviousReview) intervalDays = Math.min(intervalDays, 3);
   // An early extra review does not prove recall across the full previous gap.
   if (latestReview?.status === 'stable') {
-    const elapsedDays = Math.max(0, Math.round((Date.parse(`${reviewedDate}T00:00:00Z`) - Date.parse(`${dateKey(new Date(latestReview.reviewedAt))}T00:00:00Z`)) / 86_400_000));
-    if (elapsedDays < previousInterval) intervalDays = Math.min(intervalDays, Math.max(1, elapsedDays));
+    const elapsedDays = calendarDaysBetween(dateKey(new Date(latestReview.reviewedAt)), reviewedDate);
+    if (elapsedDays < previousInterval) intervalDays = Math.min(intervalDays, Math.max(1, previousInterval));
   }
+  const weakKinds = [cueHistory.some((review) => review.status === 'partial') ? '△' : '',
+    cueHistory.some((review) => review.status === 'unclear') ? '○' : ''].filter(Boolean).join(' / ');
   return {
     intervalDays,
     easeFactor: scheduled.easeFactor,
     streak,
     nextReviewDate: addCalendarDays(reviewedDate, intervalDays),
-    scheduleReason: `${resetForUpdate ? 'Cue 内容更新后重新积累检索证据。' : ''}本次 √，连续通过 ${streak} 次；此前近 4 次有 △ ${yellowCount} 次、○ ${redCount} 次。${intervalDays === 0 ? '连续红色后首次通过，今天再检索一次。' : `按近期稳定性和实际复习间隔，${intervalDays} 天后再检索（最长 15 天）。`}`,
+    scheduleReason: `本次 √，连续通过 ${streak} 次，其中跨天 ${spacedGreens} 次。${risk > 0 ? `历史 ${weakKinds} 的加权风险 ${risk.toFixed(2)}；后续跨天通过会逐步降低影响。` : ''}${updatedSincePreviousReview ? '内容更新后先短间隔确认。' : ''}${intervalDays === 0 ? '近期失误风险仍高，今天再检索一次。' : `结合历史权重和实际复习间隔，${intervalDays} 天后再检索（最长 15 天）。`}`,
   };
 }
 
 /** Replays old ratings once so existing Cues receive the same plan as newly reviewed Cues. */
 export function recalculateLegacyCueSchedules(state: ScheduleControlState): ScheduleControlState {
-  if ((state.cueScheduleRevision ?? 0) >= 2) return state;
+  if ((state.cueScheduleRevision ?? 0) >= 3) return state;
   const reviewsByCue = new Map<string, CueReview[]>();
   for (const review of state.cueReviews) {
     const history = reviewsByCue.get(review.cueId) ?? [];
@@ -1780,30 +1822,30 @@ export function recalculateLegacyCueSchedules(state: ScheduleControlState): Sche
       || (latest.intervalDays !== undefined && cue.intervalDays !== latest.intervalDays)
       || cue.updatedAt > latest.reviewedAt) return cue;
 
-    const currentVersion = history.filter((review) => review.reviewedAt >= cue.updatedAt);
-    if (!currentVersion.length || currentVersion.some((review) => !Number.isFinite(Date.parse(review.reviewedAt))
+    if (history.some((review) => !Number.isFinite(Date.parse(review.reviewedAt))
       || !['stable', 'partial', 'unclear'].includes(review.status))) return cue;
 
     let replayCue: StudyCue = { ...cue, intervalDays: 0, easeFactor: 2.5, streak: 0 };
     const replayed: CueReview[] = [];
     let plan: CueReviewPlan | undefined;
-    for (const review of currentVersion) {
+    for (const review of history) {
       plan = planCueReview(replayCue, replayed, review.status, new Date(review.reviewedAt));
       replayed.push({ ...review, ...plan });
       replayCue = { ...replayCue, status: review.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: review.reviewedAt };
     }
-    // Recalculation must never postpone a Cue that is already actionable.
-    if (!plan || plan.nextReviewDate > cue.nextReviewDate) return cue;
-    if (plan.nextReviewDate === cue.nextReviewDate && plan.intervalDays === cue.intervalDays
-      && plan.streak === cue.streak && plan.easeFactor === cue.easeFactor) return cue;
+    if (!plan) return cue;
+    const samePlan = plan.nextReviewDate === cue.nextReviewDate && plan.intervalDays === cue.intervalDays
+      && plan.streak === cue.streak && plan.easeFactor === cue.easeFactor;
+    const scheduleReason = `旧 Cue 历史重算：${plan.scheduleReason}`;
+    if (samePlan && latest.scheduleReason === scheduleReason) return cue;
     replacements.set(cue.id, { ...latest, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor,
-      nextReviewDate: plan.nextReviewDate, scheduleReason: `旧 Cue 历史重算：${plan.scheduleReason}` });
-    return { ...cue, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak,
+      nextReviewDate: plan.nextReviewDate, scheduleReason });
+    return samePlan ? cue : { ...cue, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak,
       nextReviewDate: plan.nextReviewDate };
   });
   return {
     ...state,
-    cueScheduleRevision: 2,
+    cueScheduleRevision: 3,
     cues,
     cueReviews: state.cueReviews.map((review) => {
       const replacement = replacements.get(review.cueId);

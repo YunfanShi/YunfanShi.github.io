@@ -235,14 +235,53 @@ test('Cue review history distinguishes yellow recovery, red recovery, and early 
   };
   const yellow = run(['partial', 'partial', 'stable', 'stable', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
   const red = run(['unclear', 'unclear', 'stable', 'stable', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
-  assert.deepEqual(yellow.cueReviews.map((review) => review.intervalDays), [1, 1, 1, 1, 3]);
-  assert.deepEqual(red.cueReviews.map((review) => review.intervalDays), [0, 0, 0, 1, 1]);
+  assert.deepEqual(yellow.cueReviews.map((review) => review.intervalDays), [1, 1, 1, 2, 2]);
+  assert.deepEqual(red.cueReviews.map((review) => review.intervalDays), [0, 0, 0, 1, 2]);
   assert.match(red.cueReviews[2].scheduleReason ?? '', /今天再检索/);
   const early = run(['stable', 'stable'], ['2026-09-01', '2026-09-01']);
   assert.equal(early.cues[0].intervalDays, 1);
   const mastered = run(['stable', 'stable', 'stable'], ['2026-09-01', '2026-09-04', '2026-09-11']);
   const revised = { ...mastered.cues[0], updatedAt: '2026-09-12T08:00:00.000Z' };
-  assert.equal(planCueReview(revised, mastered.cueReviews, 'stable', new Date('2026-09-13T08:00:00.000Z')).intervalDays, 1);
+  assert.equal(planCueReview(revised, mastered.cueReviews, 'stable', new Date('2026-09-13T08:00:00.000Z')).intervalDays, 3);
+});
+
+test('an edited Cue with two green reviews retains its evidence without a false red label', () => {
+  const state = createEmptyScheduleState();
+  state.cueScheduleRevision = 2;
+  state.cues = [{ id: 'velocity', subjectId: 'physics', subjectName: 'Physics', unit: 'Kinematics', subsection: '', prompt: 'Average velocity', type: 'general', markingPoints: [], status: 'stable', intervalDays: 1, easeFactor: 2.6, streak: 1, nextReviewDate: '2026-09-25', lastReviewedAt: '2026-09-24T14:02:00.000Z', createdAt: '2026-09-21T12:00:00.000Z', updatedAt: '2026-09-21T15:14:00.000Z' }];
+  state.cueReviews = [
+    { id: 'first', cueId: 'velocity', status: 'stable', reviewedAt: '2026-09-21T12:15:00.000Z', nextReviewDate: '2026-09-24' },
+    { id: 'second', cueId: 'velocity', status: 'stable', reviewedAt: '2026-09-24T14:02:00.000Z', intervalDays: 1, nextReviewDate: '2026-09-25' },
+  ];
+  const migrated = recalculateLegacyCueSchedules(state);
+  assert.equal(migrated.cueScheduleRevision, 3);
+  assert.equal(migrated.cues[0].status, 'stable');
+  assert.equal(migrated.cues[0].streak, 2);
+  assert.equal(migrated.cues[0].intervalDays, 3);
+  assert.equal(migrated.cues[0].nextReviewDate, '2026-09-27');
+  const reason = migrated.cueReviews[1].scheduleReason ?? '';
+  assert.match(reason, /连续通过 2 次/);
+  assert.doesNotMatch(reason, /△|○|红色/);
+  assert.strictEqual(recalculateLegacyCueSchedules(migrated), migrated);
+});
+
+test('green interval needs spaced evidence and recovers gradually from yellow and red history', () => {
+  const cue = { id: 'scenario', subjectId: 'physics', subjectName: 'Physics', unit: 'Waves', subsection: '', prompt: 'Explain diffraction', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: '2026-09-01T08:00:00.000Z', updatedAt: '2026-09-01T08:00:00.000Z' };
+  const history = (statuses: Array<'stable' | 'partial' | 'unclear'>, dates: string[]) => statuses.map((status, index) => ({ id: `${index}`, cueId: cue.id, status, reviewedAt: `${dates[index]}T08:00:00.000Z`, intervalDays: 1, nextReviewDate: dates[index] }));
+  const allGreen = planCueReview(cue, history(['stable'], ['2026-09-01']), 'stable', new Date('2026-09-04T08:00:00.000Z'));
+  const twoYellow = planCueReview(cue, history(['partial', 'partial'], ['2026-09-01', '2026-09-02']), 'stable', new Date('2026-09-03T08:00:00.000Z'));
+  const twoRed = planCueReview(cue, history(['unclear', 'unclear'], ['2026-09-01', '2026-09-02']), 'stable', new Date('2026-09-03T08:00:00.000Z'));
+  const recoveringYellow = planCueReview(cue, history(['partial', 'partial', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03']), 'stable', new Date('2026-09-04T08:00:00.000Z'));
+  const recoveringRed = planCueReview(cue, history(['unclear', 'unclear', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03']), 'stable', new Date('2026-09-04T08:00:00.000Z'));
+  const sameDay = planCueReview(cue, history(['stable'], ['2026-09-01']), 'stable', new Date('2026-09-01T12:00:00.000Z'));
+  assert.equal(allGreen.intervalDays, 3);
+  assert.doesNotMatch(allGreen.scheduleReason, /△|○|红色/);
+  assert.equal(twoYellow.intervalDays, 1);
+  assert.equal(twoRed.intervalDays, 0);
+  assert.match(twoYellow.scheduleReason, /历史 △ 的加权风险/);
+  assert.doesNotMatch(twoYellow.scheduleReason, /○|红色/);
+  assert.ok(recoveringYellow.intervalDays > recoveringRed.intervalDays);
+  assert.equal(sameDay.intervalDays, 1);
 });
 
 test('Cue status filters share study semantics for manager views', () => {
@@ -282,9 +321,9 @@ test('old Cue plans are recalculated from saved ratings once without changing un
   ];
 
   const migrated = recalculateLegacyCueSchedules(state);
-  assert.equal(migrated.cueScheduleRevision, 2);
-  assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.nextReviewDate, '2026-09-05');
-  assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.intervalDays, 1);
+  assert.equal(migrated.cueScheduleRevision, 3);
+  assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.nextReviewDate, '2026-09-06');
+  assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.intervalDays, 2);
   assert.equal(migrated.cues.find((cue) => cue.id === 'red')?.nextReviewDate, '2026-09-03');
   assert.equal(migrated.cues.find((cue) => cue.id === 'red')?.intervalDays, 0);
   assert.match(migrated.cueReviews.find((item) => item.id === 'yellow:2026-09-04')?.scheduleReason ?? '', /旧 Cue 历史重算/);
@@ -326,7 +365,11 @@ test('a class keeps one three-step review sheet and folds its Cue queue into it'
   assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
   assert.equal(jointReview?.scope?.subsection, undefined);
   assert.deepEqual(jointReview?.mergedTasks?.map((item) => item.type), ['completeness-audit', 'study', 'cue-review']);
-  assert.match(jointReview?.mergedTasks?.[2].detail ?? '', /常规到期.*黄色 \/ 红色.*今天新增/);
+  assert.match(jointReview?.mergedTasks?.[2].detail ?? '', /今天选中的 Cue/);
+  assert.doesNotMatch(jointReview?.mergedTasks?.[2].detail ?? '', /黄色 \/ 红色/);
+  const standalone = tasksForDate({ ...state, timetable: null, reviewProgress: {} }, new Date(2026, 8, 20, 12)).find((task) => task.type === 'cue-review');
+  assert.match(standalone?.detail ?? '', /本批来源：常规到期 2/);
+  assert.doesNotMatch(standalone?.detail ?? '', /黄色 \/ 红色/);
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
   assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-23', '2026-09-23']);
