@@ -28,6 +28,7 @@ import {
   dateKey,
   deriveLearningStatus,
   cueActivityTag,
+  cueMatchesStatusFilter,
   cueBulkImportTemplate,
   learningCatalogImportTemplate,
   LEARNING_MATERIALS,
@@ -58,6 +59,7 @@ import {
   weekDates,
   withReviewCourseSelection,
   type LearningStatus,
+  type CueStatusFilter,
   type CueAssessment,
   type CueBulkOperation,
   type CueCreateOperation,
@@ -432,11 +434,11 @@ function CueStudyDashboard({ cues, drafts, onStart, onResume, onDiscard }: { cue
   const subjects = [...new Set(cues.map((cue) => cue.subjectName))];
   const [subjectName, setSubjectName] = useState(subjects[0] ?? '');
   const [unit, setUnit] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'unreviewed' | 'due' | 'weak' | 'stable' | 'partial' | 'unclear'>('unreviewed');
+  const [statusFilter, setStatusFilter] = useState<CueStatusFilter>('unreviewed');
   const [shuffled, setShuffled] = useState(false);
   const units = [...new Set(cues.filter((cue) => cue.subjectName === subjectName).map((cue) => cue.unit))];
   const scopedCues = cues.filter((cue) => cue.subjectName === subjectName && (!unit || cue.unit === unit));
-  const selectedCues = scopedCues.filter((cue) => statusFilter === 'all' || (statusFilter === 'unreviewed' && !cue.lastReviewedAt) || (statusFilter === 'due' && (!cue.nextReviewDate || cue.nextReviewDate <= dateKey(new Date()))) || (statusFilter === 'weak' && (cue.status === 'partial' || cue.status === 'unclear')) || cue.status === statusFilter);
+  const selectedCues = scopedCues.filter((cue) => cueMatchesStatusFilter(cue, statusFilter, dateKey(new Date())));
   const stableCount = scopedCues.filter((cue) => cue.status === 'stable').length;
   const partialCount = scopedCues.filter((cue) => cue.status === 'partial').length;
   const unclearCount = scopedCues.filter((cue) => cue.status === 'unclear').length;
@@ -884,6 +886,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, reminderD
   const [query, setQuery] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterUnit, setFilterUnit] = useState('');
+  const [filterStatus, setFilterStatus] = useState<CueStatusFilter>('all');
   const [bulkImport, setBulkImport] = useState(false);
   const [similarityTool, setSimilarityTool] = useState(false);
   const selectedSubjectConfig = catalog.find((item) => item.name === subjectName);
@@ -891,7 +894,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, reminderD
   const enrichmentCues = cues.filter((cue) => cue.subjectName === subjectName);
   const filterSubjects = [...new Set(cues.map((cue) => cue.subjectName))];
   const filterUnits = [...new Set(cues.filter((cue) => !filterSubject || cue.subjectName === filterSubject).map((cue) => cue.unit))];
-  const filtered = cues.filter((cue) => (showMastered || cue.status !== 'stable') && (!filterSubject || cue.subjectName === filterSubject) && (!filterUnit || cue.unit === filterUnit) && `${cue.subjectName} ${cue.unit} ${cue.subsection} ${cue.prompt} ${cue.subtitle ?? ''} ${cue.answer ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const filtered = cues.filter((cue) => (showMastered || filterStatus !== 'all' || cue.status !== 'stable') && cueMatchesStatusFilter(cue, filterStatus, dateKey(new Date())) && (!filterSubject || cue.subjectName === filterSubject) && (!filterUnit || cue.unit === filterUnit) && `${cue.subjectName} ${cue.unit} ${cue.subsection} ${cue.prompt} ${cue.subtitle ?? ''} ${cue.answer ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()));
   const deleteCue = (cueId: string): boolean => {
     const cue = cues.find((item) => item.id === cueId);
     if (!cue || !window.confirm(`确定删除这条 Cue 吗？\n\n${cue.prompt.slice(0, 100)}\n\n删除后相关备忘录也会移除。`)) return false;
@@ -957,7 +960,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, reminderD
         {type === 'multiple-choice' && <div className="mt-3 rounded-2xl border border-[var(--card-border)] p-3"><label className="block text-sm font-medium">选择题选项（每行一个）<textarea value={choices} onChange={(event) => setChoices(event.target.value)} rows={4} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="mt-3 block text-sm font-medium">正确选项<select value={correctChoice} onChange={(event) => setCorrectChoice(Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{choices.split('\n').map((item) => item.trim()).filter(Boolean).slice(0, 6).map((item, itemIndex) => <option key={`${itemIndex}-${item}`} value={itemIndex}>{itemIndex + 1} · {item}</option>)}</select></label></div>}
         <div className="mt-5 flex flex-wrap gap-2"><button type="submit" disabled={!subjectName || !unit || type === 'multiple-choice' && choices.split('\n').filter((item) => item.trim()).length < 2} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">添加 Cue</button><button type="button" disabled={!subjectName} onClick={() => setBulkImport(true)} className="rounded-full border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-700 disabled:opacity-40 dark:border-violet-800 dark:text-violet-200"><span className="material-icons-round mr-1 align-middle text-base">playlist_add</span>批量创建 / 修改 Cue · {enrichmentCues.length} 条现有</button><button type="button" disabled={!subjectName || enrichmentCues.length < 2} onClick={() => setSimilarityTool(true)} className="rounded-full border border-cyan-300 px-4 py-2.5 text-sm font-semibold text-cyan-700 disabled:opacity-40 dark:border-cyan-800 dark:text-cyan-200"><span className="material-icons-round mr-1 align-middle text-base">difference</span>相似 CUE 检查</button><button type="button" disabled={!subjectName} onClick={() => { if (!window.confirm(`确认已经把「${subjectName}」的全部 Cue 与最新笔记完成整批检查，并且本次没有需要导入的修改吗？`)) return; const now = new Date().toISOString(); onChange(cues, catalog, collectionUpdate(now, 0, 0, enrichmentCues.length)); }} className="rounded-full border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-700 disabled:opacity-40 dark:border-amber-800 dark:text-amber-200"><span className="material-icons-round mr-1 align-middle text-base">event_available</span>本次已检查 · 无需导入</button></div>
       </form>
-      <section className="min-h-0 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['全部', cues.length], ['√', cues.filter((cue) => cue.status === 'stable').length], ['△', cues.filter((cue) => cue.status === 'partial').length], ['○', cues.filter((cue) => cue.status === 'unclear').length]].map(([label, value]) => <div key={label} className="rounded-2xl bg-black/[.035] p-3 text-center dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">{label}</p><strong className="mt-1 block text-xl">{value}</strong></div>)}</div><div className="mt-4 grid gap-2 sm:grid-cols-2"><select value={filterSubject} onChange={(event) => { setFilterSubject(event.target.value); setFilterUnit(''); }} aria-label="按学科筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部学科</option>{filterSubjects.map((value) => <option key={value}>{value}</option>)}</select><select value={filterUnit} onChange={(event) => setFilterUnit(event.target.value)} aria-label="按大单元筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部大单元</option>{filterUnits.map((value) => <option key={value}>{value}</option>)}</select></div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="快速搜索 Cue、答案、学科或单元…" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><CueHierarchy cues={filtered} reviews={reviews} onDelete={(cue) => { deleteCue(cue.id); }} /></section>
+      <section className="min-h-0 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['全部', cues.length], ['√', cues.filter((cue) => cue.status === 'stable').length], ['△', cues.filter((cue) => cue.status === 'partial').length], ['○', cues.filter((cue) => cue.status === 'unclear').length]].map(([label, value]) => <div key={label} className="rounded-2xl bg-black/[.035] p-3 text-center dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">{label}</p><strong className="mt-1 block text-xl">{value}</strong></div>)}</div><div className="mt-4 grid gap-2 sm:grid-cols-3"><select value={filterSubject} onChange={(event) => { setFilterSubject(event.target.value); setFilterUnit(''); }} aria-label="按学科筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部学科</option>{filterSubjects.map((value) => <option key={value}>{value}</option>)}</select><select value={filterUnit} onChange={(event) => setFilterUnit(event.target.value)} aria-label="按大单元筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部大单元</option>{filterUnits.map((value) => <option key={value}>{value}</option>)}</select><select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value as CueStatusFilter)} aria-label="按状态筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="all">全部 Cue</option><option value="unreviewed">没有最新标记</option><option value="due">今天到期或未排期</option><option value="weak">△ 黄色＋○ 红色</option><option value="stable">仅 √ 绿色</option><option value="partial">仅 △ 黄色</option><option value="unclear">仅 ○ 红色</option></select></div><p className="mt-2 text-xs text-[var(--muted-foreground)]">当前显示 {filtered.length} / {cues.length} 条{!showMastered && filterStatus === 'all' ? ' · 设置中已隐藏绿色 Cue，可选“仅 √ 绿色”查看' : ''}</p><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="快速搜索 Cue、答案、学科或单元…" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><CueHierarchy cues={filtered} reviews={reviews} onDelete={(cue) => { deleteCue(cue.id); }} /></section>
     </div>
     {bulkImport && <CueBulkImportDialog subjectName={subjectName} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} cues={enrichmentCues} onClose={() => setBulkImport(false)} onApply={applyBulkOperations} saveOnRead />}
     {similarityTool && <SimilarCueToolDialog subjectName={subjectName} cues={enrichmentCues} onDelete={deleteCue} onClose={() => setSimilarityTool(false)} />}
