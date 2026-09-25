@@ -125,14 +125,12 @@ export async function getOrCreateDeviceId(): Promise<string> {
 }
 
 export async function bindSyncUser(userId: string | null): Promise<void> {
+  // A temporary Auth outage can render the portal without claims. Never erase
+  // pending writes or their cloud base merely because that request failed.
+  if (!userId) return;
   const existing = await getSetting<string>('activeUserId');
-  if (!userId || (existing && existing !== userId)) {
-    await Promise.all([
-      storeRequest('outbox', 'readwrite', (store) => store.clear()),
-      storeRequest('metadata', 'readwrite', (store) => store.clear()),
-      storeRequest('conflicts', 'readwrite', (store) => store.clear()),
-      storeRequest('settings', 'readwrite', (store) => store.clear()),
-    ]);
+  if (existing && existing !== userId) {
+    throw new Error('此设备保留着另一账户的待同步数据；请先切回原账户并完成同步。');
   }
-  if (userId) await setSetting('activeUserId', userId);
+  await setSetting('activeUserId', userId);
 }

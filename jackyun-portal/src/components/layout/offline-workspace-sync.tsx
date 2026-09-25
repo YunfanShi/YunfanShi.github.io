@@ -9,9 +9,10 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
   useEffect(() => {
     let cancelled = false;
     let running = false;
+    let bound = false;
 
     async function refresh() {
-      if (!userId || !navigator.onLine || running) return;
+      if (!userId || !bound || !navigator.onLine || running) return;
       running = true;
       try {
         const queued = await listOfflineMutations(userId);
@@ -39,7 +40,9 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
       }
     }
 
-    void bindOfflineWorkspaceUser(userId).then(refresh);
+    void bindOfflineWorkspaceUser(userId).then(() => { bound = true; return refresh(); }).catch((error) => {
+      console.error('[offline-workspace] account binding failed', error);
+    });
     const onOnline = () => void refresh();
     const onQueued = () => setNotice('已记录，联网后同步');
     window.addEventListener('online', onOnline);

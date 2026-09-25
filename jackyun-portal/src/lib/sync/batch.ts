@@ -1,6 +1,6 @@
 import type { SyncOperation } from '@/types/sync';
 
-const MAX_BATCH_OPERATIONS = 100;
+const MAX_BATCH_OPERATIONS = 25;
 const MAX_BATCH_BYTES = 900_000;
 
 type DeviceDescription = { name: string; platform: string };

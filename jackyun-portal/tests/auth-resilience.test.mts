@@ -31,3 +31,19 @@ test('portal shell failures degrade to defaults and routes expose retry boundari
   assert.match(adminError, /window\.location\.reload\(\)/);
   assert.match(adminNavigation, /prefetch=\{false\}/);
 });
+
+test('temporary Auth and account lookup failures retain offline writes', () => {
+  const syncOutbox = readFileSync(new URL('../src/lib/sync/outbox.ts', import.meta.url), 'utf8');
+  const offlineWorkspace = readFileSync(new URL('../src/lib/offline/workspace.ts', import.meta.url), 'utf8');
+  const proxy = readFileSync(new URL('../src/proxy.ts', import.meta.url), 'utf8');
+  const syncAuthError = readFileSync(new URL('../src/lib/sync/auth-error.ts', import.meta.url), 'utf8');
+  const syncBinder = syncOutbox.slice(syncOutbox.indexOf('export async function bindSyncUser'));
+  const offlineBinder = offlineWorkspace.slice(offlineWorkspace.indexOf('export async function bindOfflineWorkspaceUser'), offlineWorkspace.indexOf('export async function clearOfflineWorkspace'));
+  assert.match(syncBinder, /if \(!userId\) return/);
+  assert.doesNotMatch(syncBinder, /store\.clear\(\)/);
+  assert.match(offlineBinder, /if \(!userId\) return/);
+  assert.doesNotMatch(offlineBinder, /clearStores\(\)/);
+  assert.match(proxy, /if \(lookupFailed\)/);
+  assert.match(proxy, /Account check temporarily unavailable/);
+  assert.match(syncAuthError, /AuthSessionMissingError/);
+});

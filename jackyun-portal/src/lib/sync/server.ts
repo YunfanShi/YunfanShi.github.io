@@ -12,7 +12,7 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 export const MAX_BODY_BYTES = 1_000_000;
 export const MAX_LARGE_BODY_BYTES = MAX_LARGE_SYNC_BYTES;
 const MAX_OPERATIONS = 100;
-const DATABASE_CONCURRENCY = 8;
+const DATABASE_CONCURRENCY = 2;
 
 export type SyncRequestBody = {
   deviceId?: string;

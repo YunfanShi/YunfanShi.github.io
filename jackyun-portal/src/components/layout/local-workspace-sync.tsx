@@ -9,6 +9,7 @@ import { joinSyncParts, splitSyncBody } from '@/lib/sync/transfer';
 import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
 import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
+import { createDueBackupVersions } from '@/actions/backup-center';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
 function announce(detail: SyncStatusDetail) {
@@ -47,43 +48,52 @@ async function publishStatus(state: SyncStatus, error?: string) {
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
   useEffect(() => {
-    const owner = userId ?? 'guest';
+    let owner = userId ?? 'guest';
     let previous = localSnapshot(true);
     let pending = Promise.resolve();
+    const dirtyPages = new Set<BackupPage>();
     const capture = () => {
       const current = localSnapshot(true);
-      const pages = new Set<BackupPage>();
       for (const key of new Set([...Object.keys(previous), ...Object.keys(current)])) {
-        if (previous[key] !== current[key] && isBackupableLegacyKey(key)) pages.add(legacyBackupPage(key));
+        if (previous[key] !== current[key] && isBackupableLegacyKey(key)) dirtyPages.add(legacyBackupPage(key));
       }
-      const before = previous;
       previous = current;
-      if (!pages.size) return;
+    };
+    const checkpoint = () => {
+      capture();
+      const pages = [...dirtyPages];
+      dirtyPages.clear();
+      const snapshot = previous;
+      if (!pages.length) return;
       pending = pending.then(async () => {
         for (const page of pages) {
-          await saveLocalBackup(owner, page, localPageValues(before, page));
-          await saveLocalBackup(owner, page, localPageValues(current, page));
+          await saveLocalBackup(owner, page, localPageValues(snapshot, page));
         }
       }).catch((error) => { console.error('[Backup] Local version write failed', error); });
     };
     pending = pending.then(async () => {
+      owner = userId ?? await getSetting<string>('activeUserId') ?? 'guest';
       for (const page of new Set(Object.keys(previous).filter(isBackupableLegacyKey).map(legacyBackupPage))) {
         await saveLocalBackup(owner, page, localPageValues(previous, page));
       }
     }).catch((error) => { console.error('[Backup] Local baseline failed', error); });
     const timer = window.setInterval(capture, 2_000);
+    const backupTimer = window.setInterval(checkpoint, 5 * 60_000);
     window.addEventListener('storage', capture);
-    return () => { window.clearInterval(timer); window.removeEventListener('storage', capture); };
+    window.addEventListener('pagehide', checkpoint);
+    return () => { checkpoint(); window.clearInterval(timer); window.clearInterval(backupTimer); window.removeEventListener('storage', capture); window.removeEventListener('pagehide', checkpoint); };
   }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
     let running = false;
+    let bound = false;
+    let lastBackupCheck = 0;
     let lastSnapshot: Record<string, string> = {};
 
     if (!userId) {
-      void bindSyncUser(null);
-      localStorage.setItem('jackyun_guest_mode', 'true');
+      // A failed token refresh is not a confirmed sign-out. Retain the local
+      // outbox and account marker until this account is available again.
       announce({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
       return;
     }
@@ -274,7 +284,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
 
     async function sync() {
-      if (running || cancelled) return;
+      if (running || cancelled || !bound) return;
       if (!navigator.onLine) {
         await queueChanges();
         if (!cancelled) await publishStatus('offline_pending');
@@ -294,6 +304,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         await flush(deviceId);
         const now = new Date().toISOString();
         await setSetting('lastSyncedAt', now);
+        if (Date.now() - lastBackupCheck >= 5 * 60_000) {
+          lastBackupCheck = Date.now();
+          try { await createDueBackupVersions(); }
+          catch (error) { console.warn('[Backup] Deferred cloud backup failed', error); }
+        }
         if (!cancelled) await publishStatus('synced');
       } catch (error) {
         if (!cancelled) await publishStatus(navigator.onLine ? 'error' : 'offline_pending', error instanceof Error ? error.message : 'Sync failed');
@@ -301,7 +316,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
 
     lastSnapshot = localSnapshot(true);
-    void bindSyncUser(userId).then(sync);
+    void bindSyncUser(userId).then(() => { bound = true; return sync(); }).catch((error) => {
+      if (!cancelled) void publishStatus('error', error instanceof Error ? error.message : '无法绑定同步账户');
+    });
     // Changes are durable in IndexedDB immediately; a calmer network cadence
     // avoids continuous RSC/API contention while keeping cross-device sync prompt.
     const timer = window.setInterval(() => void sync(), 30_000);
