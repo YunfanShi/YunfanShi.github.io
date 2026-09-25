@@ -982,13 +982,22 @@ export function normalizeCueMetadata(cue: StudyCue, defaultUpdatedAt: string): S
 
 export type CueActivityTag = 'new' | 'updated' | 'due' | 'focus' | 'building' | 'streak' | 'reviewed';
 
-export type CueStatusFilter = 'all' | 'unreviewed' | 'due' | 'weak' | LearningStatus;
+export type CueStatusFilter = 'all' | 'unreviewed' | 'due' | 'weak' | 'unstable' | 'repeated-weak' | 'recovering' | LearningStatus;
 
-export function cueMatchesStatusFilter(cue: StudyCue, filter: CueStatusFilter, today: string): boolean {
+export function cueMatchesStatusFilter(cue: StudyCue, filter: CueStatusFilter, today: string, reviews: CueReview[] = []): boolean {
   if (filter === 'all') return true;
   if (filter === 'unreviewed') return !cue.lastReviewedAt;
   if (filter === 'due') return !cue.nextReviewDate || cue.nextReviewDate <= today;
   if (filter === 'weak') return cue.status === 'partial' || cue.status === 'unclear';
+  if (filter === 'unstable' || filter === 'repeated-weak' || filter === 'recovering') {
+    const history = reviews.filter((review) => review.cueId === cue.id)
+      .toSorted((left, right) => left.reviewedAt.localeCompare(right.reviewedAt));
+    if (filter === 'repeated-weak') return history.slice(-5).filter((review) => review.status !== 'stable').length >= 2;
+    const latest = history.at(-1);
+    const recovering = cue.status === 'stable' && latest !== undefined
+      && weightedWeakRisk(history, latest.reviewedAt.slice(0, 10)) >= 0.5;
+    return filter === 'recovering' ? recovering : cue.status === 'partial' || cue.status === 'unclear' || recovering;
+  }
   return cue.status === filter;
 }
 

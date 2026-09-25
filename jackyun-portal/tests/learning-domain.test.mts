@@ -292,6 +292,21 @@ test('Cue status filters share study semantics for manager views', () => {
   assert.equal(cueMatchesStatusFilter({ ...base, nextReviewDate: '2026-09-07' }, 'due', '2026-09-05'), false);
 });
 
+test('history filters include recovered but unstable Cues and exclude consistently green Cues', () => {
+  const cue = { id: 'history-filter', subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Friction', type: 'general' as const, markingPoints: [], status: 'stable' as const, intervalDays: 2, easeFactor: 2.5, streak: 1, lastReviewedAt: '2026-09-04T08:00:00.000Z', nextReviewDate: '2026-09-06', createdAt: '2026-09-01T08:00:00.000Z', updatedAt: '2026-09-01T08:00:00.000Z' };
+  const review = (day: string, status: 'stable' | 'partial' | 'unclear') => ({ id: `${day}:${status}`, cueId: cue.id, status, reviewedAt: `${day}T08:00:00.000Z`, nextReviewDate: day });
+  const recovered = [review('2026-09-01', 'partial'), review('2026-09-02', 'partial'), review('2026-09-04', 'stable')];
+  const allGreen = [review('2026-09-01', 'stable'), review('2026-09-04', 'stable')];
+  assert.equal(cueMatchesStatusFilter(cue, 'unstable', '2026-09-05', recovered), true);
+  assert.equal(cueMatchesStatusFilter(cue, 'recovering', '2026-09-05', recovered), true);
+  assert.equal(cueMatchesStatusFilter(cue, 'repeated-weak', '2026-09-05', recovered), true);
+  assert.equal(cueMatchesStatusFilter(cue, 'weak', '2026-09-05', recovered), false);
+  assert.equal(cueMatchesStatusFilter(cue, 'unstable', '2026-09-05', allGreen), false);
+  assert.equal(cueMatchesStatusFilter(cue, 'recovering', '2026-09-05', allGreen), false);
+  assert.equal(cueMatchesStatusFilter({ ...cue, status: 'unclear' }, 'unstable', '2026-09-05'), true);
+  assert.equal(cueMatchesStatusFilter(cue, 'unstable', '2026-09-05', [review('2026-09-01', 'partial'), review('2026-09-02', 'stable'), review('2026-09-04', 'stable')]), false);
+});
+
 test('old Cue plans are recalculated from saved ratings once without changing unrelated Cues', () => {
   const createdAt = '2026-09-01T08:00:00.000Z';
   const base = { subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Friction', type: 'general' as const, markingPoints: [], easeFactor: 2.5, createdAt, updatedAt: createdAt };
