@@ -9,7 +9,9 @@ import { joinSyncParts, splitSyncBody } from '@/lib/sync/transfer';
 import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
 import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
+import { backupIsDue, recordBackupChange, type PendingBackup } from '@/lib/backup/cadence';
 import { createDueBackupVersions } from '@/actions/backup-center';
+import { isServerUnavailable, SyncHttpError } from '@/lib/sync/service-error';
 import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
 
 function announce(detail: SyncStatusDetail) {
@@ -51,25 +53,39 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let owner = userId ?? 'guest';
     let previous = localSnapshot(true);
     let pending = Promise.resolve();
-    const dirtyPages = new Set<BackupPage>();
+    const dirtyPages = new Map<BackupPage, PendingBackup>();
     const capture = () => {
       const current = localSnapshot(true);
+      const now = Date.now();
       for (const key of new Set([...Object.keys(previous), ...Object.keys(current)])) {
-        if (previous[key] !== current[key] && isBackupableLegacyKey(key)) dirtyPages.add(legacyBackupPage(key));
+        if (previous[key] !== current[key] && isBackupableLegacyKey(key)) {
+          const page = legacyBackupPage(key);
+          const bytes = new TextEncoder().encode(current[key] ?? previous[key] ?? '').byteLength;
+          dirtyPages.set(page, recordBackupChange(dirtyPages.get(page), bytes, now));
+        }
       }
       previous = current;
     };
-    const checkpoint = () => {
+    const checkpoint = (force = false) => {
       capture();
-      const pages = [...dirtyPages];
-      dirtyPages.clear();
+      const now = Date.now();
+      const pages = [...dirtyPages].filter(([, pendingPage]) => force || backupIsDue(pendingPage, now));
+      for (const [page] of pages) dirtyPages.delete(page);
       const snapshot = previous;
       if (!pages.length) return;
       pending = pending.then(async () => {
-        for (const page of pages) {
-          await saveLocalBackup(owner, page, localPageValues(snapshot, page));
+        for (const [page, pendingPage] of pages) {
+          try { await saveLocalBackup(owner, page, localPageValues(snapshot, page)); }
+          catch (error) {
+            const newer = dirtyPages.get(page);
+            dirtyPages.set(page, {
+              bytes: Math.max(pendingPage.bytes, newer?.bytes ?? 0),
+              firstChangedAt: Math.min(pendingPage.firstChangedAt, newer?.firstChangedAt ?? pendingPage.firstChangedAt),
+            });
+            console.error('[Backup] Local version write failed', error);
+          }
         }
-      }).catch((error) => { console.error('[Backup] Local version write failed', error); });
+      });
     };
     pending = pending.then(async () => {
       owner = userId ?? await getSetting<string>('activeUserId') ?? 'guest';
@@ -77,11 +93,14 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         await saveLocalBackup(owner, page, localPageValues(previous, page));
       }
     }).catch((error) => { console.error('[Backup] Local baseline failed', error); });
-    const timer = window.setInterval(capture, 2_000);
-    const backupTimer = window.setInterval(checkpoint, 5 * 60_000);
-    window.addEventListener('storage', capture);
-    window.addEventListener('pagehide', checkpoint);
-    return () => { checkpoint(); window.clearInterval(timer); window.clearInterval(backupTimer); window.removeEventListener('storage', capture); window.removeEventListener('pagehide', checkpoint); };
+    const timer = window.setInterval(() => checkpoint(), 2_000);
+    const onStorage = () => checkpoint();
+    const onLeave = () => checkpoint(true);
+    const onVisibility = () => { if (document.visibilityState === 'hidden') onLeave(); };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('pagehide', onLeave);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { onLeave(); window.clearInterval(timer); window.removeEventListener('storage', onStorage); window.removeEventListener('pagehide', onLeave); document.removeEventListener('visibilitychange', onVisibility); };
   }, [userId]);
 
   useEffect(() => {
@@ -140,7 +159,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       let count = 1;
       for (let part = 0; part < count; part += 1) {
         const response = await fetch(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`同步分片下载失败 (${response.status})`);
+        if (!response.ok) throw new SyncHttpError(`同步分片下载失败 (${response.status})`, response.status);
         const chunk = await response.json() as { count: number; data: string };
         count = chunk.count;
         parts.push(chunk.data);
@@ -169,7 +188,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ uploadId: operation.id, index, count: parts.length, data: parts[index] }),
           });
-          if (!partResponse.ok) throw new Error(`同步分片上传失败 (${partResponse.status})`);
+          if (!partResponse.ok) throw new SyncHttpError(`同步分片上传失败 (${partResponse.status})`, partResponse.status);
         }
         response = await fetch('/api/sync/v2/large', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -187,7 +206,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           ? `${failure.error.message ?? '同步写入失败'} (${failure.error.code})${failure.requestId ? ` · ${failure.requestId}` : ''}`
           : `同步写入失败 (${response.status})`;
         console.error('[Sync/BETA diagnostics] Write failed', { status: response.status, code: failure?.error?.code, requestId: failure?.requestId, pending: request.operations.length });
-        throw new Error(detail);
+        throw new SyncHttpError(detail, response.status);
       }
       const payload = await response.json() as {
         applied: Array<{ operationId: string; key: string; revision: number; contentHash: string; updatedAt?: string }>;
@@ -248,7 +267,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           ? `${failure.error.message ?? '同步读取失败'} (${failure.error.code})${failure.requestId ? ` · ${failure.requestId}` : ''}`
           : `同步读取失败 (${response.status})`;
         console.error('[Sync/BETA diagnostics] Read failed', { status: response.status, code: failure?.error?.code, requestId: failure?.requestId });
-        throw new Error(detail);
+        throw new SyncHttpError(detail, response.status);
       }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
       const records = [...payload.records];
@@ -256,7 +275,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
           && !records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
         const scheduleResponse = await fetch(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
-        if (!scheduleResponse.ok) throw new Error(`Schedule 云端读取失败 (${scheduleResponse.status})`);
+        if (!scheduleResponse.ok) throw new SyncHttpError(`Schedule 云端读取失败 (${scheduleResponse.status})`, scheduleResponse.status);
         const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
         records.push(...schedulePayload.records);
       }
@@ -311,7 +330,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         }
         if (!cancelled) await publishStatus('synced');
       } catch (error) {
-        if (!cancelled) await publishStatus(navigator.onLine ? 'error' : 'offline_pending', error instanceof Error ? error.message : 'Sync failed');
+        if (!cancelled) await publishStatus(!navigator.onLine ? 'offline_pending' : isServerUnavailable(error, navigator.onLine) ? 'server_unavailable' : 'error', error instanceof Error ? error.message : 'Sync failed');
       } finally { running = false; }
     }
 
@@ -319,22 +338,42 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     void bindSyncUser(userId).then(() => { bound = true; return sync(); }).catch((error) => {
       if (!cancelled) void publishStatus('error', error instanceof Error ? error.message : '无法绑定同步账户');
     });
-    // Changes are durable in IndexedDB immediately; a calmer network cadence
-    // avoids continuous RSC/API contention while keeping cross-device sync prompt.
-    const timer = window.setInterval(() => void sync(), 30_000);
+    // Frequent Schedule edits wait briefly so one burst becomes one sync.
+    // The idle poll still pulls changes from other devices.
+    let editTimer: number | null = null;
+    const onEdit = () => {
+      if (editTimer !== null) window.clearTimeout(editTimer);
+      editTimer = window.setTimeout(() => { editTimer = null; void sync(); }, 8_000);
+    };
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(); }, 120_000);
     const onSync = () => void sync();
-    const onVisibility = () => { if (document.visibilityState === 'visible') void sync(); };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void sync();
+      else void queueChanges();
+    };
+    const onLeave = () => { void queueChanges(); };
+    const onBeforeSignOut = (event: Event) => {
+      const complete = (event as CustomEvent<{ complete: () => void }>).detail?.complete;
+      void queueChanges().then(sync).finally(() => complete?.());
+    };
     window.addEventListener('online', onSync);
     window.addEventListener('focus', onSync);
+    window.addEventListener('pagehide', onLeave);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('jackyun-sync-retry', onSync);
+    window.addEventListener('jackyun-sync-edit', onEdit);
+    window.addEventListener('jackyun-sync-before-signout', onBeforeSignOut);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      if (editTimer !== null) window.clearTimeout(editTimer);
       window.removeEventListener('online', onSync);
       window.removeEventListener('focus', onSync);
+      window.removeEventListener('pagehide', onLeave);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('jackyun-sync-retry', onSync);
+      window.removeEventListener('jackyun-sync-edit', onEdit);
+      window.removeEventListener('jackyun-sync-before-signout', onBeforeSignOut);
     };
   }, [userId]);
 

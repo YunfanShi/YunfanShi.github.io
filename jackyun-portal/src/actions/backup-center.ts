@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { ALL_BACKUP_PAGES, normalizeBackupPages, type BackupPage, type BackupTable } from '@/lib/backup/pages';
 import { canonicalJson } from '@/lib/sync/hash';
+import { inspectCloudBackup, type BackupInspection } from '@/lib/backup/inspection';
 import type { DataArchiveV2, SyncRecord } from '@/types/sync';
 
 async function context() {
@@ -56,6 +57,21 @@ export async function downloadBackupVersion(id: number): Promise<DataArchiveV2<B
   const tables = data.snapshot as DataArchiveV2<BackupTable>['tables'];
   const checksum = createHash('sha256').update(canonicalJson(tables)).digest('hex');
   return { version: 2, schema_version: 'sync-v2', exported_at: data.created_at, checksum, tables };
+}
+
+export async function inspectBackupVersion(id: number): Promise<BackupInspection> {
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('备份编号无效。');
+  const { supabase, user } = await context();
+  const { data, error } = await supabase.from('backup_center_versions')
+    .select('page,snapshot').eq('user_id', user.id).eq('id', id).maybeSingle();
+  if (error || !data) throw new Error(`无法查看这个版本：${error?.message ?? '版本不存在'}`);
+  let currentSchedule: unknown;
+  if (data.page === 'schedule') {
+    const current = await supabase.from('legacy_sync_data').select('storage_value')
+      .eq('user_id', user.id).eq('storage_key', 'jackyun_schedule_control_v1').maybeSingle();
+    if (!current.error) currentSchedule = current.data?.storage_value;
+  }
+  return inspectCloudBackup(data.page, data.snapshot as Record<string, Record<string, unknown>[]>, currentSchedule);
 }
 
 export async function restoreBackupVersion(id: number): Promise<{ page: BackupPage; legacyRecords: SyncRecord[] }> {

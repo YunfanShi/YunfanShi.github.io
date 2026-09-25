@@ -20,6 +20,7 @@ import BetaExperience from '@/components/modules/beta-experience';
 import type { BetaEnrollmentStatus } from '@/lib/beta';
 import { isAdminIdentity } from '@/lib/admin-auth';
 import BrowserAiBridge from '@/components/modules/browser-ai-bridge';
+import ServerFailureNotice from '@/components/layout/server-failure-notice';
 import { getFeatureAccessSnapshot } from '@/actions/reader';
 
 const DEFAULT_SIDEBAR_PREFS: SidebarPreferences = DEFAULT_NAVIGATION_PREFERENCES;
@@ -115,6 +116,7 @@ export default async function PortalLayout({
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} betaActive={betaEnrollment?.status === 'accepted'} allowedFeatureKeys={featureSnapshot && Object.keys(featureSnapshot.features).length ? Object.values(featureSnapshot.features).filter((feature) => feature.allowed).map((feature) => feature.key) : ['reading']} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
+          <ServerFailureNotice />
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
         <LegacyBridge />

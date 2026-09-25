@@ -21,17 +21,46 @@ end $$;
 
 set local role authenticated;
 select pg_catalog.set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000101', true);
-select public.create_due_backup_pages();
+do $$ begin
+  if public.create_due_backup_pages() <> 0 then raise exception 'Small fresh change backed up too early'; end if;
+end $$;
+reset role;
+update jackyun_private.backup_dirty_pages set first_changed_at = now() - interval '16 minutes'
+  where user_id = '00000000-0000-4000-8000-000000000101' and page = 'schedule';
+set local role authenticated;
+do $$ begin
+  if public.create_due_backup_pages() <> 1 then raise exception 'Time trigger did not create backup'; end if;
+end $$;
 do $$ begin
   if not exists (select 1 from public.backup_center_versions where page = 'schedule' and reason = 'automatic') then
     raise exception 'Changed Schedule was not saved by the periodic backup';
   end if;
 end $$;
-select public.create_backup_page('schedule');
-
 reset role;
+do $$ begin
+  if exists (select 1 from jackyun_private.backup_dirty_pages where page = 'schedule') then
+    raise exception 'Backup did not reset both dirty counters';
+  end if;
+end $$;
+
 update public.legacy_sync_data set storage_value = '{"cues":[{"id":"third"}]}'::jsonb,
   revision = 3, content_hash = 'third-hash'
+where user_id = '00000000-0000-4000-8000-000000000101' and storage_key = 'jackyun_schedule_control_v1';
+update jackyun_private.backup_dirty_pages set change_bytes = 4194304
+  where user_id = '00000000-0000-4000-8000-000000000101' and page = 'schedule';
+set local role authenticated;
+do $$ begin
+  if public.create_due_backup_pages() <> 1 then raise exception 'Change-volume trigger did not create backup'; end if;
+end $$;
+select public.create_backup_page('schedule');
+reset role;
+do $$ begin
+  if exists (select 1 from jackyun_private.backup_dirty_pages where page = 'schedule') then
+    raise exception 'Manual backup did not reset pending changes';
+  end if;
+end $$;
+update public.legacy_sync_data set storage_value = '{"cues":[{"id":"fourth"}]}'::jsonb,
+  revision = 4, content_hash = 'fourth-hash'
 where user_id = '00000000-0000-4000-8000-000000000101' and storage_key = 'jackyun_schedule_control_v1';
 set local role authenticated;
 select public.restore_backup_page((
@@ -39,7 +68,7 @@ select public.restore_backup_page((
 ));
 do $$ begin
   if (select storage_value from public.legacy_sync_data where storage_key = 'jackyun_schedule_control_v1')
-     <> '{"cues":[{"id":"second"}]}'::jsonb then
+     <> '{"cues":[{"id":"third"}]}'::jsonb then
     raise exception 'Manual Schedule backup did not restore';
   end if;
   if not exists (select 1 from public.backup_center_versions where page = 'schedule' and reason = 'before_restore') then
