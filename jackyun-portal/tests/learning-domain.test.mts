@@ -21,6 +21,7 @@ import {
   createEmptyScheduleState,
   createIeltsWeekTasks,
   cueActivityTag,
+  cueMatchesStatusFilter,
   cuesForLearningTask,
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
@@ -203,7 +204,7 @@ test('Cue review intervals expand with repeated green results and contract after
 
   assert.deepEqual(intervals, [1, 3, 5, 7, 9, 11, 13, 15]);
   assert.equal(state.cues[0].streak, 8);
-  assert.match(state.cueReviews[2].scheduleReason ?? '', /最近 3 次均为 √/);
+  assert.match(state.cueReviews[2].scheduleReason ?? '', /连续通过 3 次/);
   assert.equal(state.cueReviews[7].intervalDays, 15);
 
   const yellowPlan = planCueReview(state.cues[0], state.cueReviews, 'partial', new Date('2027-10-01T08:00:00.000Z'));
@@ -215,6 +216,40 @@ test('Cue review intervals expand with repeated green results and contract after
   assert.equal(redPlan.intervalDays, 0);
   assert.equal(redPlan.streak, 0);
   assert.equal(redPlan.nextReviewDate, '2027-10-01');
+});
+
+test('Cue review history distinguishes yellow recovery, red recovery, and early repeat reviews', () => {
+  const createdAt = '2026-09-01T08:00:00.000Z';
+  const makeState = () => {
+    const state = createEmptyScheduleState();
+    state.cues = [{ id: 'history-cue', subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Explain friction.', type: 'explain', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt, updatedAt: createdAt }];
+    return state;
+  };
+  const run = (statuses: Array<'stable' | 'partial' | 'unclear'>, dates: string[]) => {
+    let state = makeState();
+    statuses.forEach((status, index) => {
+      state = completeCueReviews(state, [{ cueId: 'history-cue', status }], new Date(`${dates[index]}T08:00:00.000Z`), `review-${index}`);
+    });
+    return state;
+  };
+  const yellow = run(['partial', 'partial', 'stable', 'stable', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
+  const red = run(['unclear', 'unclear', 'stable', 'stable', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
+  assert.deepEqual(yellow.cueReviews.map((review) => review.intervalDays), [1, 1, 1, 1, 3]);
+  assert.deepEqual(red.cueReviews.map((review) => review.intervalDays), [0, 0, 0, 1, 1]);
+  assert.match(red.cueReviews[2].scheduleReason ?? '', /今天再检索/);
+  const early = run(['stable', 'stable'], ['2026-09-01', '2026-09-01']);
+  assert.equal(early.cues[0].intervalDays, 1);
+  const mastered = run(['stable', 'stable', 'stable'], ['2026-09-01', '2026-09-04', '2026-09-11']);
+  const revised = { ...mastered.cues[0], updatedAt: '2026-09-12T08:00:00.000Z' };
+  assert.equal(planCueReview(revised, mastered.cueReviews, 'stable', new Date('2026-09-13T08:00:00.000Z')).intervalDays, 1);
+});
+
+test('Cue status filters share study semantics for manager views', () => {
+  const base = { id: 'cue', subjectId: 'physics', subjectName: 'Physics', unit: 'Forces', subsection: '', prompt: 'Friction', type: 'general' as const, markingPoints: [], intervalDays: 1, easeFactor: 2.5, streak: 0, createdAt: '2026-09-01T08:00:00.000Z', updatedAt: '2026-09-01T08:00:00.000Z' };
+  assert.equal(cueMatchesStatusFilter(base, 'unreviewed', '2026-09-05'), true);
+  assert.equal(cueMatchesStatusFilter({ ...base, status: 'stable', lastReviewedAt: '2026-09-04T08:00:00.000Z', nextReviewDate: '2026-09-07' }, 'stable', '2026-09-05'), true);
+  assert.equal(cueMatchesStatusFilter({ ...base, status: 'partial', lastReviewedAt: '2026-09-04T08:00:00.000Z' }, 'weak', '2026-09-05'), true);
+  assert.equal(cueMatchesStatusFilter({ ...base, nextReviewDate: '2026-09-07' }, 'due', '2026-09-05'), false);
 });
 
 test('Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope', () => {

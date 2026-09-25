@@ -979,6 +979,16 @@ export function normalizeCueMetadata(cue: StudyCue, defaultUpdatedAt: string): S
 
 export type CueActivityTag = 'new' | 'updated' | 'due' | 'focus' | 'building' | 'streak' | 'reviewed';
 
+export type CueStatusFilter = 'all' | 'unreviewed' | 'due' | 'weak' | LearningStatus;
+
+export function cueMatchesStatusFilter(cue: StudyCue, filter: CueStatusFilter, today: string): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'unreviewed') return !cue.lastReviewedAt;
+  if (filter === 'due') return !cue.nextReviewDate || cue.nextReviewDate <= today;
+  if (filter === 'weak') return cue.status === 'partial' || cue.status === 'unclear';
+  return cue.status === filter;
+}
+
 export function cueActivityTag(cue: StudyCue, today: string): CueActivityTag {
   if (!cue.lastReviewedAt) return 'new';
   if (Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)) return 'updated';
@@ -1692,14 +1702,16 @@ export function planCueReview(
 ): CueReviewPlan {
   const reviewedDate = dateKey(reviewedAt);
   const cueHistory = previousReviews
-    .filter((review) => review.cueId === cue.id)
+    .filter((review) => review.cueId === cue.id && review.reviewedAt >= cue.updatedAt)
     .toSorted((left, right) => left.reviewedAt.localeCompare(right.reviewedAt));
-  const priorStableStreak = cueHistory.length ? trailingStableReviews(cueHistory) : Math.max(0, cue.streak);
+  const hasOlderHistory = previousReviews.some((review) => review.cueId === cue.id);
+  const resetForUpdate = hasOlderHistory && cueHistory.length === 0;
+  const priorStableStreak = cueHistory.length ? trailingStableReviews(cueHistory) : hasOlderHistory ? 0 : Math.max(0, cue.streak);
   const latestReview = cueHistory.at(-1);
-  const previousInterval = latestReview ? reviewIntervalDays(latestReview) : Math.max(0, cue.intervalDays);
+  const previousInterval = latestReview ? reviewIntervalDays(latestReview) : hasOlderHistory ? 0 : Math.max(0, cue.intervalDays);
   const scheduled = scheduleReview({
     intervalDays: previousInterval,
-    easeFactor: latestReview?.easeFactor ?? cue.easeFactor,
+    easeFactor: resetForUpdate ? 2.5 : latestReview?.easeFactor ?? cue.easeFactor,
     streak: priorStableStreak,
   }, status === 'stable' ? 5 : status === 'partial' ? 2 : 1, reviewedAt);
 
@@ -1723,17 +1735,27 @@ export function planCueReview(
   }
 
   const streak = priorStableStreak + 1;
-  const intervalDays = Math.min(15, 1 + (streak - 1) * 2);
-  const recent = [...cueHistory.slice(-2).map((review) => review.status), status];
-  const allRecentStable = recent.length === 3 && recent.every((result) => result === 'stable');
+  const recent = cueHistory.slice(-4);
+  const yellowCount = recent.filter((review) => review.status === 'partial').length;
+  const redCount = recent.filter((review) => review.status === 'unclear').length;
+  // A red result costs twice as much confidence as a yellow one. Old weak results
+  // naturally leave the four-review window after sustained successful retrieval.
+  const baseInterval = Math.min(15, 1 + (streak - 1) * 2);
+  let intervalDays = Math.max(1, baseInterval - yellowCount - redCount * 2);
+  if (streak === 1 && recent.slice(-2).every((review) => review.status === 'unclear') && recent.length >= 2) {
+    intervalDays = 0;
+  }
+  // An early extra review does not prove recall across the full previous gap.
+  if (latestReview?.status === 'stable') {
+    const elapsedDays = Math.max(0, Math.round((Date.parse(`${reviewedDate}T00:00:00Z`) - Date.parse(`${dateKey(new Date(latestReview.reviewedAt))}T00:00:00Z`)) / 86_400_000));
+    if (elapsedDays < previousInterval) intervalDays = Math.min(intervalDays, Math.max(1, elapsedDays));
+  }
   return {
     intervalDays,
     easeFactor: scheduled.easeFactor,
     streak,
     nextReviewDate: addCalendarDays(reviewedDate, intervalDays),
-    scheduleReason: allRecentStable
-      ? `最近 3 次均为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天（最长 15 天）。`
-      : `本次为 √，当前连续通过 ${streak} 次：间隔调整为 ${intervalDays} 天；继续稳定后按奇数阶梯增加，最长 15 天。`,
+    scheduleReason: `${resetForUpdate ? 'Cue 内容更新后重新积累检索证据。' : ''}本次 √，连续通过 ${streak} 次；此前近 4 次有 △ ${yellowCount} 次、○ ${redCount} 次。${intervalDays === 0 ? '连续红色后首次通过，今天再检索一次。' : `按近期稳定性和实际复习间隔，${intervalDays} 天后再检索（最长 15 天）。`}`,
   };
 }
 
