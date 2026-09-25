@@ -3,8 +3,8 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { ALL_BACKUP_PAGES, normalizeBackupPages, type BackupPage, type BackupTable } from '@/lib/backup/pages';
-import { DEFAULT_BACKUP_LIMIT, isBackupLimit, type BackupLimit } from '@/lib/backup/limits';
 import { canonicalJson } from '@/lib/sync/hash';
+import { inspectCloudBackup, type BackupInspection } from '@/lib/backup/inspection';
 import type { DataArchiveV2, SyncRecord } from '@/types/sync';
 
 async function context() {
@@ -20,31 +20,17 @@ export type BackupVersion = {
   reason: 'automatic' | 'baseline' | 'before_restore' | 'manual';
   source_table: string | null;
   created_at: string;
+  retention_exempt: boolean;
 };
 
 export async function listBackupVersions(page: BackupPage): Promise<BackupVersion[]> {
   normalizeBackupPages([page]);
   const { supabase, user } = await context();
   const { data, error } = await supabase.from('backup_center_versions')
-    .select('id,page,reason,source_table,created_at')
+    .select('id,page,reason,source_table,created_at,retention_exempt')
     .eq('user_id', user.id).eq('page', page).order('id', { ascending: false }).limit(100);
   if (error) throw new Error(`读取备份失败：${error.message}`);
   return (data ?? []) as BackupVersion[];
-}
-
-export async function getBackupPreferences(): Promise<BackupLimit> {
-  const { supabase, user } = await context();
-  const { data, error } = await supabase.from('backup_center_preferences')
-    .select('max_versions').eq('user_id', user.id).maybeSingle();
-  if (error) throw new Error(`读取备份设置失败：${error.message}`);
-  return isBackupLimit(data?.max_versions) ? data.max_versions : DEFAULT_BACKUP_LIMIT;
-}
-
-export async function setBackupPreferences(maxVersions: BackupLimit) {
-  if (!isBackupLimit(maxVersions)) throw new Error('只能保留 4 到 10 个版本。');
-  const { supabase } = await context();
-  const { error } = await supabase.rpc('set_backup_limit', { new_limit: maxVersions });
-  if (error) throw new Error(`保存备份设置失败：${error.message}`);
 }
 
 export async function createBackupVersion(page: BackupPage): Promise<number> {
@@ -53,6 +39,13 @@ export async function createBackupVersion(page: BackupPage): Promise<number> {
   const { data, error } = await supabase.rpc('create_backup_page', { target_page: page });
   if (error || typeof data !== 'number') throw new Error(`创建备份失败：${error?.message ?? '未返回版本编号'}`);
   return data;
+}
+
+export async function createDueBackupVersions(): Promise<number> {
+  const { supabase } = await context();
+  const { data, error } = await supabase.rpc('create_due_backup_pages');
+  if (error) throw new Error(`自动备份失败：${error.message}`);
+  return Number(data ?? 0);
 }
 
 export async function downloadBackupVersion(id: number): Promise<DataArchiveV2<BackupTable>> {
@@ -64,6 +57,21 @@ export async function downloadBackupVersion(id: number): Promise<DataArchiveV2<B
   const tables = data.snapshot as DataArchiveV2<BackupTable>['tables'];
   const checksum = createHash('sha256').update(canonicalJson(tables)).digest('hex');
   return { version: 2, schema_version: 'sync-v2', exported_at: data.created_at, checksum, tables };
+}
+
+export async function inspectBackupVersion(id: number): Promise<BackupInspection> {
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('备份编号无效。');
+  const { supabase, user } = await context();
+  const { data, error } = await supabase.from('backup_center_versions')
+    .select('page,snapshot').eq('user_id', user.id).eq('id', id).maybeSingle();
+  if (error || !data) throw new Error(`无法查看这个版本：${error?.message ?? '版本不存在'}`);
+  let currentSchedule: unknown;
+  if (data.page === 'schedule') {
+    const current = await supabase.from('legacy_sync_data').select('storage_value')
+      .eq('user_id', user.id).eq('storage_key', 'jackyun_schedule_control_v1').maybeSingle();
+    if (!current.error) currentSchedule = current.data?.storage_value;
+  }
+  return inspectCloudBackup(data.page, data.snapshot as Record<string, Record<string, unknown>[]>, currentSchedule);
 }
 
 export async function restoreBackupVersion(id: number): Promise<{ page: BackupPage; legacyRecords: SyncRecord[] }> {

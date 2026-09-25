@@ -43,6 +43,8 @@ export async function restoreScheduleBackup(id: number) {
   const { data: current, error: readError } = await supabase.from('legacy_sync_data')
     .select('revision').eq('user_id', user.id).eq('storage_key', SCHEDULE_STORAGE_KEY).maybeSingle();
   if (readError || !current) throw new Error('无法读取当前云端 Schedule。');
+  const { error: backupError } = await supabase.rpc('create_backup_page', { target_page: 'schedule' });
+  if (backupError) throw new Error(`恢复前备份失败：${backupError.message}`);
   const { data, error } = await supabase.from('legacy_sync_data').update({
     storage_value: backup.storage_value,
     revision: Number(current.revision) + 1,

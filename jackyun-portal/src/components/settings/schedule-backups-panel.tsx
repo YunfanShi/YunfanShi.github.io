@@ -51,7 +51,7 @@ export default function ScheduleBackupsPanel() {
   }
 
   return <div className="space-y-3">
-    <p className="text-sm leading-6 text-[var(--muted-foreground)]">Schedule 每次云端修改前都会保存旧版本，并保留最近 90 天的历史。恢复时会先备份当前版本。此功能需要数据库迁移生效。</p>
+    <p className="text-sm leading-6 text-[var(--muted-foreground)]">这里保留此前的 Schedule 专项历史。恢复时会先手动备份当前云端页面；新修改由本地备份中心自动保存。</p>
     <button type="button" disabled={busy} onClick={() => void load()} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50">刷新备份</button>
     {backups.length === 0 && !error ? <p className="text-sm text-[var(--muted-foreground)]">暂无可恢复的 Schedule 版本。</p> : null}
     {backups.length > 0 ? <div className="max-h-80 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">{backups.map((backup) => <div key={backup.id} className="flex flex-wrap items-center gap-3 p-3 text-sm"><span className="min-w-0 flex-1">{new Date(backup.created_at).toLocaleString()} · 修订 {backup.revision}</span><button type="button" disabled={busy} onClick={() => void download(backup.id)} className="text-[var(--brand)] disabled:opacity-50">下载</button><button type="button" disabled={busy} onClick={() => void restore(backup.id)} className="text-[var(--brand)] disabled:opacity-50">恢复</button></div>)}</div> : null}

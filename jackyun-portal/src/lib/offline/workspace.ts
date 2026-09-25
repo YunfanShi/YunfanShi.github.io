@@ -72,12 +72,12 @@ async function clearStores(): Promise<void> {
 }
 
 export async function bindOfflineWorkspaceUser(userId: string | null): Promise<void> {
+  // A temporary Auth failure is not a sign-out. Keep unsent mutations intact.
+  if (!userId) return;
   const existing = await transact<{ key: string; value: string } | undefined>('settings', 'readonly', (transaction) => transaction.objectStore('settings').get(USER_KEY));
-  if (!userId) {
-    if (existing) await clearStores();
-    return;
+  if (existing?.value && existing.value !== userId) {
+    throw new Error('此设备保留着另一账户的离线操作；请先切回原账户完成同步。');
   }
-  if (existing?.value && existing.value !== userId) await clearStores();
   await transact('settings', 'readwrite', (transaction) => transaction.objectStore('settings').put({ key: USER_KEY, value: userId }));
 }
 

@@ -53,14 +53,18 @@ export async function proxy(request: NextRequest) {
   // Verify the JWT locally when the project uses asymmetric signing keys.
   // Unlike getUser(), getClaims() does not make an Auth API request on every
   // client-side navigation (the JWKS response is cached by the SDK).
-  const { data: claimsData } = await supabase.auth.getClaims().catch((error) => {
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims().catch((error) => {
     console.error('[proxy] Auth claims request failed', error);
-    return { data: null };
+    return { data: null, error };
   });
   const claims = claimsData?.claims;
 
   // If not authenticated, redirect to login
   if (!claims && requiresAuth) {
+    if (claimsError && claimsError.name !== 'AuthSessionMissingError'
+      && claimsError.status !== 401 && claimsError.status !== 403) {
+      return new NextResponse('Authentication temporarily unavailable', { status: 503 });
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
@@ -92,10 +96,14 @@ export async function proxy(request: NextRequest) {
     profilePromise,
     whitelistPromise,
   ]);
+  const lookupFailed = profileResult.status === 'rejected' || whitelistResult.status === 'rejected'
+    || (profileResult.status === 'fulfilled' && Boolean(profileResult.value.error))
+    || (whitelistResult.status === 'fulfilled' && Boolean('error' in whitelistResult.value && whitelistResult.value.error));
   const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null;
   const dbMatch = whitelistResult.status === 'fulfilled' ? whitelistResult.value.data : null;
-  if (profileResult.status === 'rejected' || whitelistResult.status === 'rejected') {
+  if (lookupFailed) {
     console.error('[proxy] Authorization lookup failed');
+    return requiresAuth ? new NextResponse('Account check temporarily unavailable', { status: 503 }) : response;
   }
 
   // Restricted users retain one authenticated surface for reviewing the

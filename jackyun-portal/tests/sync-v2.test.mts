@@ -154,7 +154,7 @@ test('answer-sheet sync has no service-role fallback and authenticates every met
 
 test('web sync writes use bounded concurrency instead of a serial database waterfall', async () => {
   const source = await readFile(new URL('../src/lib/sync/server.ts', import.meta.url), 'utf8');
-  assert.match(source, /const DATABASE_CONCURRENCY = 8/);
+  assert.match(source, /const DATABASE_CONCURRENCY = 2/);
   assert.match(source, /mapWithConcurrency\(body\.operations/);
   assert.match(source, /DUPLICATE_KEYS/);
   assert.match(source, /error\?\.code === 'PGRST202'/);

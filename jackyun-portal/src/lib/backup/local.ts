@@ -1,10 +1,8 @@
 'use client';
 
-import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages';
-import { DEFAULT_BACKUP_LIMIT, isBackupLimit, type BackupLimit } from './limits';
+import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
 
 const DB_NAME = 'jackyun-page-backups-v1';
-const LIMIT_KEY = 'jackyun_backup_local_limit';
 
 export type LocalBackup = {
   id: number;
@@ -37,13 +35,8 @@ function transaction<T>(mode: IDBTransactionMode, operation: (store: IDBObjectSt
   }));
 }
 
-export function getLocalBackupLimit(): BackupLimit {
-  const value = Number(localStorage.getItem(LIMIT_KEY));
-  return isBackupLimit(value) ? value : DEFAULT_BACKUP_LIMIT;
-}
-
-export function setLocalBackupLimit(value: BackupLimit) {
-  localStorage.setItem(LIMIT_KEY, String(value));
+export function getLocalBackupLimit(): number {
+  return 10;
 }
 
 export function pruneLocalBackups(userId: string): Promise<void> {
@@ -89,4 +82,17 @@ export async function saveLocalBackup(userId: string, page: BackupPage, values: 
       finish();
     };
   });
+}
+
+/** Await this before an intentional sign-out; pagehide cannot await IndexedDB. */
+export async function saveCurrentLocalBackups(userId: string): Promise<void> {
+  const snapshot: Record<string, string> = {};
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key || !isBackupableLegacyKey(key)) continue;
+    const value = localStorage.getItem(key);
+    if (value !== null) snapshot[key] = value;
+  }
+  const pages = new Set(Object.keys(snapshot).map(legacyBackupPage));
+  for (const page of pages) await saveLocalBackup(userId, page, localPageValues(snapshot, page));
 }

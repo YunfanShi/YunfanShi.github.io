@@ -1,4 +1,4 @@
-export type SyncStatus = 'guest' | 'synced' | 'syncing' | 'offline_pending' | 'conflict' | 'error';
+export type SyncStatus = 'guest' | 'synced' | 'syncing' | 'offline_pending' | 'server_unavailable' | 'conflict' | 'error';
 
 export interface SyncDevice {
   id: string;

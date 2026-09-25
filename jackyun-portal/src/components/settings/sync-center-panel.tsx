@@ -51,6 +51,8 @@ export default function SyncCenterPanel() {
 
   const status = detail.state === 'synced'
     ? '数据已自动同步'
+    : detail.state === 'server_unavailable'
+      ? '服务器或数据库暂时无法连接；修改仍保存在本机'
     : detail.state === 'offline_pending'
       ? '修改已保存在本机，联网后自动同步'
       : detail.state === 'error'

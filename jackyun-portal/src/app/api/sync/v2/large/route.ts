@@ -4,6 +4,7 @@ import { apiError, requestIdFrom } from '@/lib/api-response';
 import { isSyncableStorageKey } from '@/lib/local-workspace';
 import { applySyncBody, UUID, type SyncRequestBody } from '@/lib/sync/server';
 import { MAX_LARGE_SYNC_BYTES, SYNC_PART_BYTES } from '@/lib/sync/transfer';
+import { syncAuthError } from '@/lib/sync/auth-error';
 
 const MAX_PARTS = 200;
 const MAX_PART_BODY_BYTES = 250_000;
@@ -15,8 +16,8 @@ export async function POST(request: NextRequest) {
     return apiError(requestId, 'Upload part too large', 413, 'PAYLOAD_TOO_LARGE');
   }
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user) return syncAuthError(requestId, authError);
   const input = await request.json().catch(() => null) as {
     uploadId?: string; index?: number; count?: number; data?: string; complete?: boolean;
   } | null;
@@ -85,8 +86,8 @@ export async function GET(request: NextRequest) {
     return apiError(requestId, 'Invalid download request', 400, 'INVALID_BODY');
   }
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user) return syncAuthError(requestId, authError);
   const { data: row, error } = await supabase.from('legacy_sync_data')
     .select('storage_value, revision, deleted_at').eq('user_id', user.id).eq('storage_key', key).maybeSingle();
   if (error) return apiError(requestId, 'Unable to read sync record', 500, 'SYNC_READ_FAILED');
