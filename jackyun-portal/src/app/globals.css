@@ -301,3 +301,39 @@ main, nav, [data-scroll-region], .quiz-scroll {
   [role="dialog"] textarea, [role="dialog"] select { font-size: 16px; max-width: 100%; min-width: 0; }
   [data-portal-shell] button, [data-portal-shell] a[role="button"] { min-height: 44px; }
 }
+
+@font-face {
+  font-family: 'Material Icons Round';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/material-icons-round.otf) format('opentype');
+}
+
+.material-icons-round {
+  font-family: 'Material Icons Round';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+}
+
+/* The administration surface has an independent neutral palette. */
+.admin-shell { color-scheme: dark; }
+.admin-shell [class*="bg-white"]:not(nav a):not(button):not(a) { background-color: #19191d; }
+.admin-shell [class*="bg-[#f9fafb]"], .admin-shell [class*="bg-[#f2f4f7]"], .admin-shell [class*="bg-[#eff4ff]"] { background-color: #202024; }
+.admin-shell [class*="text-[#182230]"], .admin-shell [class*="text-[#101828]"], .admin-shell [class*="text-[#344054]"] { color: #f4f4f5; }
+.admin-shell [class*="text-[#475467]"], .admin-shell [class*="text-[#667085]"] { color: #a1a1aa; }
+.admin-shell [class*="border-[#e4e7ec]"], .admin-shell [class*="border-[#d0d5dd]"] { border-color: #ffffff18; }
+.admin-shell [class*="bg-[#155eef]"], .admin-shell [class*="bg-[#1a73e8]"] { background-color: #e4e4e7; color: #18181b; }
+.admin-shell [class*="text-[#155eef]"] { color: #e4e4e7; }
+.admin-shell input, .admin-shell textarea, .admin-shell select { color: #f4f4f5; background-color: #202024; border-color: #ffffff26; }
+
+.admin-shell { --background: #101012; --foreground: #f4f4f5; --card: #19191d; --card-border: #ffffff18; --brand: #e4e4e7; --accent: #e4e4e7; }
+.admin-shell [class*="dark:bg-[#182230]"], .admin-shell [class*="dark:bg-[#111827]"] { background-color: #19191d; }

@@ -27,6 +27,8 @@ export async function proxy(request: NextRequest) {
     canonical.pathname = pathname.replace(/^\/techempire/, '/Techempire');
     return NextResponse.redirect(canonical, 308);
   }
+  // Share interstitials have no account data and enforce enabled state themselves.
+  if (/^\/j-[a-f0-9]{16}$/.test(pathname)) return NextResponse.next();
   const isAccountStatusRoute = pathname.startsWith('/account-status');
   const requiresAuth = AUTH_REQUIRED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
