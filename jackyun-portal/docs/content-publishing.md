@@ -10,7 +10,7 @@ The migration enables RLS and grants clients only article reads matching publica
 
 ## Performance and China access
 
-Google Material Icons Round is hosted at `/fonts/material-icons-round.otf` with its Apache license, eliminating the Google CSS/font connection while preserving the icon design. Admin routes have a loading boundary and default partial prefetch. Anonymous redirect pages avoid account queries.
+Google Material Icons Round is hosted at `/fonts/material-icons-round.otf` with its Apache license, eliminating the Google CSS/font connection while preserving the icon design. Admin routes have a loading boundary and default partial prefetch. Anonymous redirect pages avoid account queries. `vercel.json` places functions in Tokyo (`hnd1`), matching the Supabase database in `ap-northeast-1`; the previous function region was Washington (`iad1`).
 
 These changes remove external font dependence and improve navigation feedback. They do not establish mainland latency improvement: test actual mainland networks before making that claim. Hosting is still overseas. A mainland mirror/CDN needs a separate deployment/domain plan and any applicable filing; avoid caching private admin, login, or API responses at a CDN.
 
