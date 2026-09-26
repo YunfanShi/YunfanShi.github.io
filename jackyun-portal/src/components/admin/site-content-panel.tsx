@@ -42,6 +42,7 @@ export default function SiteContentPanel({
       if (result.ok) {
         setArticle(emptyArticle);
         setLink(emptyLink);
+        setPreview(false);
         router.refresh();
       }
     });

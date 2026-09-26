@@ -17,3 +17,12 @@ These changes remove external font dependence and improve navigation feedback. T
 ## Verification
 
 Run `node --test tests/site-content.test.mts`, ESLint and `npm run build`. Verify anonymous public reads, signed-in restricted reads, draft invisibility, denied direct writes, link edits and disabled links against the database and HTTP routes.
+
+### Release verification (2026-09-26)
+
+- Database migration applied; transactional assertions passed for anonymous, signed-in, anonymous-account, and denied-write access.
+- Production admin session: created a draft, rendered Markdown preview, edited and published it, created a random link, changed its name/target while retaining the code, and disabled it.
+- Anonymous HTTP: draft 404; published public article 200 with rendered Markdown; login-only article 307 without body; disabled link 404. Signed-in browser successfully read the restricted article. Test fixtures were removed.
+- Tokyo production deployment Ready, function outputs confirmed `hnd1`, health endpoint returned 200/ok.
+- Build, TypeScript, changed-file ESLint, content tests (2), and existing reader/admin tests (14) passed. Full-repository ESLint still reports five pre-existing plain anchor navigation violations outside this change.
+- Mainland network latency and a physical phone viewport have not been measured in this session.
