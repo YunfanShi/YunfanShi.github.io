@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import BrandLogo from '@/components/brand-logo';
 import FullscreenButton from './fullscreen-button';
 import UserAvatar from '@/components/auth/user-avatar';
 import { useState, useEffect } from 'react';
@@ -93,8 +94,8 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
   };
 
   return (
-    <header className="flex min-h-16 items-center justify-between gap-2 border-b border-[var(--sidebar-border)] bg-[var(--card)] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-6 md:h-16 md:py-0">
-      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+    <header className="flex min-h-16 items-center justify-between gap-1 border-b border-[var(--sidebar-border)] bg-[var(--card)] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-6 md:h-16 md:py-0">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
         <button
           type="button"
           className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] md:hidden"
@@ -104,7 +105,8 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         >
           <span className="material-icons-round">menu</span>
         </button>
-        <div className="min-w-0">
+        <Link href="/dashboard" aria-label="JackYun 主页" className="grid h-11 w-8 shrink-0 place-items-center md:hidden"><BrandLogo size={32} className="h-8 w-8 shrink-0" priority /></Link>
+        <div className="hidden min-w-0 md:block">
           <p className="hidden text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:block">JackYun Workspace</p>
           <div className="mt-0.5 text-base font-medium text-[var(--foreground)]">
             {t('topbar.brand', lang)}
@@ -113,7 +115,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
       </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         {betaActive && (
-          <Link href="/beta" className="rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] sm:text-xs" title="打开 BETA 测试中心">
+          <Link href="/beta" className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] md:inline-flex sm:text-xs" title="打开 BETA 测试中心">
             BETA v{APP_VERSION}
           </Link>
         )}

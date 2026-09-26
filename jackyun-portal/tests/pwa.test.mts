@@ -86,3 +86,12 @@ test('settings links to the standalone Products experience', async () => {
   assert.match(settings, /href="\/products"/);
   assert.match(config, /source:\s*'\/products'[\s\S]*destination:\s*'\/products\.html'/);
 });
+
+
+test('mobile topbar uses a fixed-size logo and hides brand text and the BETA badge', async () => {
+  const topbar = await readFile(new URL('src/components/layout/topbar.tsx', projectDir), 'utf8');
+  assert.match(topbar, /aria-label="JackYun 主页" className="[^"\n]*shrink-0[^"\n]*md:hidden"/);
+  assert.match(topbar, /<BrandLogo size=\{32\} className="h-8 w-8 shrink-0"/);
+  assert.match(topbar, /<div className="hidden min-w-0 md:block">/);
+  assert.match(topbar, /href="\/beta" className="hidden [^"\n]*md:inline-flex/);
+});
