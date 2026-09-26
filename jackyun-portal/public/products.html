@@ -6,6 +6,10 @@
   <meta name="theme-color" content="#050506">
   <meta name="description" content="探索 JackYun PWA 与 JackYun Companion。把学习工作区带到桌面，让浏览器成为专注搭档。">
   <title>JackYun Products</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/Webicon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="JackYun">
   <link rel="icon" href="/Webicon.png" type="image/png">
   <style>
     :root{--ink:#f5f5f7;--muted:#9a9aa2;--line:rgba(255,255,255,.12);--blue:#7db4ff;--amber:#e8a94c;--green:#7ee2b8;--ease:cubic-bezier(.2,.8,.2,1);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","PingFang SC",sans-serif;color-scheme:dark}
@@ -141,7 +145,7 @@
             <h3>打开，直接进入状态。</h3>
             <p>从桌面或主屏幕启动 JackYun。你的任务、复习、阅读与专注工具仍在熟悉的位置，并继续使用本地优先的同步方式。</p>
             <div class="actions"><button class="button blue" id="install-pwa" type="button"><span>安装 JackYun</span><b aria-hidden="true">↓</b></button><a class="button secondary" href="/dashboard">打开网页版 <b aria-hidden="true">↗</b></a></div>
-            <p class="microcopy" id="install-status" role="status">支持 Chrome、Edge，以及 Safari 添加到主屏幕。</p>
+            <p class="microcopy" id="install-status" role="status">Chrome / Edge 电脑与 Android；iPhone / iPad 添加到主屏幕；Mac Safari 添加到程序坞。</p>
             <div class="facts"><div class="fact"><b>全屏</b><span>独立应用窗口</span></div><div class="fact"><b>离线</b><span>断网恢复与本地队列</span></div><div class="fact"><b>自动</b><span>安全更新提醒</span></div></div>
           </div>
           <div class="desktop-scene" aria-label="JackYun PWA 工作区预览">
@@ -185,6 +189,7 @@
   <div class="modal" id="install-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-card"><h4 id="modal-title">安装 JackYun PWA</h4><div id="modal-content"></div><button class="button secondary" id="close-modal" type="button">关闭</button></div></div>
 
   <script>
+    if ('serviceWorker' in navigator && window.isSecureContext) { navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (error) { console.error('[PWA] 注册失败', error); }); }
     let deferredInstallPrompt = null;
     const installButtons = [document.getElementById('install-pwa'), ...document.querySelectorAll('[data-install-pwa]')];
     const installStatus = document.getElementById('install-status');
@@ -194,9 +199,21 @@
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     function openInstructions() {
-      const copy = isIos
-        ? '<p>Safari 会通过系统菜单安装网页应用：</p><ol><li>点击底部工具栏的“分享”按钮</li><li>选择“添加到主屏幕”</li><li>确认名称并点击“添加”</li></ol>'
-        : '<p>当前浏览器没有开放一键安装。你仍可以通过浏览器菜单安装：</p><ol><li>打开浏览器主菜单</li><li>选择“安装 JackYun”或“将页面安装为应用”</li><li>确认安装</li></ol>';
+      const ua = navigator.userAgent;
+      const isAndroid = /Android/.test(ua);
+      const isEdge = /Edg(?:e|A|iOS)?\//.test(ua);
+      const isSafari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|FxiOS/.test(ua);
+      const copy = !window.isSecureContext
+        ? '<p>安装需要 HTTPS。请使用正式网站的 HTTPS 地址后重试。</p>'
+        : isIos
+        ? '<p>iPhone / iPad：</p><ol><li>在浏览器的分享菜单中查找“添加到主屏幕”</li><li>如 Chrome / Edge 没有此选项，请用 Safari 打开同一网址，再点击“分享” → “添加到主屏幕”</li><li>如果显示“作为网页 App 打开”，请保持开启，再点击“添加”</li><li>从主屏幕图标启动 JackYun，减少浏览器工具栏占用</li></ol>'
+        : isSafari
+        ? '<p>Mac Safari（macOS Sonoma 14 或更新版本）：</p><ol><li>打开“文件”或分享菜单</li><li>选择“添加到程序坞”</li><li>点击“添加”，从程序坞启动 JackYun</li></ol><p>较旧的 macOS 可用 Chrome 或 Edge 安装。</p>'
+        : isAndroid
+        ? '<p>Android Chrome / Edge：</p><ol><li>打开浏览器 ⋮ 菜单</li><li>选择“安装应用”或“添加到主屏幕”，按提示安装</li><li>从主屏幕图标启动</li></ol><p>若暂未出现安装选项，请确认使用 HTTPS、退出无痕模式并刷新；浏览器可能尚未准备好安装提示。</p>'
+        : isEdge
+        ? '<p>电脑 Edge：</p><ol><li>点击地址栏的应用安装图标</li><li>或打开 ⋯ →“更多工具” →“应用” →“将此站点安装为应用”（部分版本直接显示“应用”菜单）</li><li>确认安装</li></ol>'
+        : '<p>电脑 Chrome：</p><ol><li>点击地址栏的安装图标</li><li>或打开 ⋮ →“投放、保存和分享” →“将网页安装为应用”</li><li>确认安装</li></ol><p>没有一键提示不代表网站不支持 PWA。菜单名称可能随浏览器版本变化；请使用 HTTPS 并退出无痕模式。</p>';
       modalContent.innerHTML = copy;
       modal.classList.add('open');
     }
@@ -204,14 +221,21 @@
     async function installPwa() {
       if (standalone) { installStatus.textContent = 'JackYun 已经安装在这台设备上。'; return; }
       if (!deferredInstallPrompt) { openInstructions(); return; }
-      await deferredInstallPrompt.prompt();
-      const choice = await deferredInstallPrompt.userChoice;
-      installStatus.textContent = choice.outcome === 'accepted' ? '安装已开始。欢迎使用 JackYun。' : '安装已取消，你可以随时回来。';
+      const prompt = deferredInstallPrompt;
       deferredInstallPrompt = null;
+      try {
+        await prompt.prompt();
+        const choice = await prompt.userChoice;
+        installStatus.textContent = choice.outcome === 'accepted' ? '已接受安装请求；完成后请从桌面或主屏幕启动。' : '安装已取消，你可以随时回来。';
+      } catch {
+        installStatus.textContent = '一键安装暂不可用，请按浏览器菜单中的安装方法操作。';
+        openInstructions();
+      }
+
     }
 
     addEventListener('beforeinstallprompt', function (event) { event.preventDefault(); deferredInstallPrompt = event; installStatus.textContent = '已经准备好安装到这台设备。'; });
-    addEventListener('appinstalled', function () { installStatus.textContent = '安装完成。你现在可以从桌面启动 JackYun。'; });
+    addEventListener('appinstalled', function () { installStatus.textContent = '安装完成。请从桌面或主屏幕启动 JackYun。'; installButtons.forEach(function (button) { button.textContent = '已安装'; button.disabled = true; }); });
     installButtons.forEach(function (button) { button.addEventListener('click', installPwa); });
     document.getElementById('close-modal').addEventListener('click', function () { modal.classList.remove('open'); });
     modal.addEventListener('click', function (event) { if (event.target === modal) modal.classList.remove('open'); });

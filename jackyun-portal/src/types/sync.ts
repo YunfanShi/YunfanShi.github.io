@@ -15,6 +15,7 @@ export interface SyncRecord {
   contentHash: string | null;
   deleted: boolean;
   updatedAt: string;
+  large?: boolean;
 }
 
 export interface SyncOperation {
@@ -38,6 +39,7 @@ export interface SyncConflict {
   localValue: unknown;
   localDeleted: boolean;
   remoteValue: unknown;
+  remoteLarge?: boolean;
   remoteDeleted: boolean;
   remoteHash: string | null;
   remoteRevision: number;

@@ -73,11 +73,12 @@ async function clearStores(): Promise<void> {
 
 export async function bindOfflineWorkspaceUser(userId: string | null): Promise<void> {
   const existing = await transact<{ key: string; value: string } | undefined>('settings', 'readonly', (transaction) => transaction.objectStore('settings').get(USER_KEY));
-  if (!userId) {
-    if (existing) await clearStores();
-    return;
+  // Missing claims or intentional logout must not discard pending work.
+  if (!userId) return;
+  if (existing?.value && existing.value !== userId) {
+    if ((await listOfflineMutations(existing.value)).length) throw new Error('此设备保留着另一账户的离线操作，请先登录原账户同步。');
+    await clearStores();
   }
-  if (existing?.value && existing.value !== userId) await clearStores();
   await transact('settings', 'readwrite', (transaction) => transaction.objectStore('settings').put({ key: USER_KEY, value: userId }));
 }
 

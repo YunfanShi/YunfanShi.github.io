@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createHash } from 'node:crypto';
 import type { DataArchiveV2 } from '@/types/sync';
 import { canonicalJson } from '@/lib/sync/hash';
+import { ALL_BACKUP_PAGES, BACKUP_TABLES, isBackupableLegacyKey, isBackupableSettingKey, legacyBackupPage, normalizeBackupPages, tableBackupPage, type BackupPage, type BackupTable } from '@/lib/backup/pages';
+import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -14,8 +16,8 @@ async function getAuthenticatedUser() {
   return { supabase, user };
 }
 
-const DATA_TABLES = ['vocab_words', 'vocab_stats', 'vocab_settings', 'study_plans', 'study_tasks', 'study_syllabus', 'study_config', 'study_mock_records', 'poems', 'poem_sessions', 'playlists', 'tracks', 'music_songs', 'music_settings', 'countdowns', 'quiz_subjects', 'quiz_sessions', 'quiz_questions', 'quiz_settings', 'review_items', 'review_attempts', 'relax_chat', 'relax_state', 'focus_settings', 'focus_tasks', 'focus_sessions', 'user_settings', 'legacy_sync_data'] as const;
-type DataTable = typeof DATA_TABLES[number];
+const DATA_TABLES = BACKUP_TABLES;
+type DataTable = BackupTable;
 export type DataArchiveV1 = { exported_at: string; version: 1; tables: Partial<Record<DataTable, Record<string, unknown>[]>> };
 export type DataArchive = DataArchiveV1 | DataArchiveV2<DataTable>;
 
@@ -26,29 +28,64 @@ function checksum(tables: DataArchive['tables']): string {
 function assertValidArchive(archive: DataArchive) {
   if (!archive || !archive.tables || (archive.version !== 1 && archive.version !== 2)) throw new Error('Unsupported backup format');
   if (archive.version === 2 && archive.checksum !== checksum(archive.tables)) throw new Error('Backup checksum mismatch');
+  if (typeof archive.tables !== 'object' || Array.isArray(archive.tables)) throw new Error('Backup tables must be an object');
+  for (const [table, rows] of Object.entries(archive.tables)) {
+    if (!DATA_TABLES.includes(table as DataTable) || !Array.isArray(rows) || rows.length > 20_000
+      || rows.some((row) => !row || typeof row !== 'object' || Array.isArray(row))) {
+      throw new Error(`Invalid backup table: ${table}`);
+    }
+    if (table === 'legacy_sync_data' && rows.some((row) => !isBackupableLegacyKey(row.storage_key)
+      || (row.storage_key === SCHEDULE_STORAGE_KEY && !scheduleHasContent(row.storage_value)))) {
+      throw new Error('备份文件含不允许导入的同步键或空 Schedule。');
+    }
+    if (table === 'user_settings' && rows.some((row) => !isBackupableSettingKey(row.key))) {
+      throw new Error('备份文件含不允许导入的设置项。');
+    }
+  }
 }
 
-export async function exportAllUserData(): Promise<DataArchiveV2<DataTable>> {
+export async function exportAllUserData(selectedPages?: BackupPage[]): Promise<DataArchiveV2<DataTable>> {
   const { supabase, user } = await getAuthenticatedUser();
+  const pages = new Set(normalizeBackupPages(selectedPages ?? ALL_BACKUP_PAGES));
   const tables: Partial<Record<DataTable, Record<string, unknown>[]>> = {};
-  await Promise.all(DATA_TABLES.map(async (table) => {
-    const query = supabase.from(table).select('*');
-    if (table === 'quiz_questions') {
-      const { data: sessions, error: sessionsError } = await supabase.from('quiz_sessions').select('id').eq('user_id', user.id);
-      if (sessionsError) throw new Error(`quiz_sessions: ${sessionsError.message}`);
-      const ids = (sessions ?? []).map((session) => session.id);
-      if (!ids.length) {
-        tables[table] = [];
-        return;
+  const readTable = async (table: DataTable, quizSessionIds?: string[]) => {
+    const rows: Record<string, unknown>[] = [];
+    const pageSize = 500;
+    if (table === 'quiz_questions' && !quizSessionIds?.length) return [];
+    const sessionGroups = table === 'quiz_questions'
+      ? Array.from({ length: Math.ceil(quizSessionIds!.length / 100) }, (_, index) => quizSessionIds!.slice(index * 100, (index + 1) * 100))
+      : [null];
+    for (const sessionGroup of sessionGroups) {
+      for (let offset = 0; offset <= 20_000; offset += pageSize) {
+        let query = supabase.from(table).select('*')
+          .order(table === 'focus_settings' || table === 'quiz_settings' ? 'user_id' : table === 'reader_books' ? 'book_id' : 'id')
+          .range(offset, offset + pageSize - 1);
+        if (sessionGroup) query = query.in('session_id', sessionGroup);
+        else query = query.eq('user_id', user.id);
+        const { data, error } = await query;
+        if (error) throw new Error(`${table}: ${error.message}`);
+        rows.push(...(data ?? []) as Record<string, unknown>[]);
+        if (rows.length > 20_000) throw new Error(`${table}: 数据量超过单次备份上限，请按页面分别备份。`);
+        if ((data ?? []).length < pageSize) break;
       }
-      const { data, error } = await query.in('session_id', ids);
-      if (error) throw new Error(`${table}: ${error.message}`);
-      tables[table] = data ?? [];
-    } else {
-      const { data, error } = await query.eq('user_id', user.id);
-      if (error) throw new Error(`${table}: ${error.message}`);
-      tables[table] = data ?? [];
     }
+    return rows;
+  };
+  const selectedTables = DATA_TABLES.filter((table) => table === 'legacy_sync_data' || pages.has(tableBackupPage(table)));
+  let quizSessionIds: string[] = [];
+  if (selectedTables.includes('quiz_questions')) {
+    const sessions = await readTable('quiz_sessions');
+    quizSessionIds = sessions.map((row) => String(row.id));
+    tables.quiz_sessions = sessions;
+  }
+  await Promise.all(selectedTables.map(async (table) => {
+    if (table === 'quiz_sessions' && tables.quiz_sessions) return;
+    const rows = await readTable(table, quizSessionIds);
+    tables[table] = table === 'legacy_sync_data'
+      ? rows.filter((row) => isBackupableLegacyKey(row.storage_key) && pages.has(legacyBackupPage(row.storage_key)))
+      : table === 'user_settings'
+        ? rows.filter((row) => isBackupableSettingKey(row.key))
+        : rows;
   }));
   return { exported_at: new Date().toISOString(), version: 2, schema_version: 'sync-v2', checksum: checksum(tables), tables };
 }
@@ -67,15 +104,18 @@ export async function previewDataImport(archive: DataArchive) {
 
 export async function importSelectedData(archive: DataArchive, selected: DataTable[]): Promise<{ imported: string[]; skipped: string[] }> {
   assertValidArchive(archive);
+  if (!Array.isArray(selected) || selected.some((table) => !DATA_TABLES.includes(table))) throw new Error('导入表选择无效。');
   const { supabase, user } = await getAuthenticatedUser();
   const imported: string[] = []; const skipped: string[] = [];
-  for (const table of selected) {
+  for (const table of new Set(selected)) {
     if (!DATA_TABLES.includes(table) || !Array.isArray(archive.tables?.[table])) { skipped.push(table); continue; }
     const rows = archive.tables[table] ?? [];
     if (!rows.length) { skipped.push(table); continue; }
     const prepared = rows.map((row) => table === 'quiz_questions' ? row : { ...row, user_id: user.id });
-    const { error } = await supabase.from(table).upsert(prepared);
-    if (error) throw new Error(`${table}: ${error.message}`);
+    for (let offset = 0; offset < prepared.length; offset += 200) {
+      const { error } = await supabase.from(table).upsert(prepared.slice(offset, offset + 200));
+      if (error) throw new Error(`${table}: ${error.message}`);
+    }
     imported.push(table);
   }
   return { imported, skipped };

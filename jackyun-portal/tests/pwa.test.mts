@@ -51,10 +51,10 @@ test('offline workspace stores snapshots and queued operations per authenticated
   assert.match(route, /review\.attempt/);
 });
 
-test('logout clears offline API data and uses a local Supabase sign-out scope', async () => {
+test('logout clears service worker cache, retains pending work, and uses local sign-out', async () => {
   const logout = await readFile(new URL('src/components/auth/logout-button.tsx', projectDir), 'utf8');
-  const auth = await readFile(new URL('src/actions/auth.ts', projectDir), 'utf8');
-  assert.match(logout, /clearOfflineWorkspace/);
+  const auth = await readFile(new URL('src/app/api/auth/signout/route.ts', projectDir), 'utf8');
+  assert.doesNotMatch(logout, /clearOfflineWorkspace/);
   assert.match(logout, /CLEAR_USER_CACHE/);
   assert.match(auth, /signOut\(\{ scope: 'local' \}\)/);
 });

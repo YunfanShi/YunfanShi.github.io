@@ -5,7 +5,8 @@ import { boundedByteRange, isValidBvid, normalizeFnval, normalizeQn, validateBil
 import { threeWayMerge } from '../src/lib/sync/merge.ts';
 import { canonicalJson } from '../src/lib/sync/hash.ts';
 import { buildSyncRequest, compactSyncOperations } from '../src/lib/sync/batch.ts';
-import { isSyncableStorageKey } from '../src/lib/local-workspace.ts';
+import { joinSyncParts, splitSyncBody } from '../src/lib/sync/transfer.ts';
+import { MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, syncValueFits } from '../src/lib/local-workspace.ts';
 import { scheduleHasContent, shouldQueueLocalValue, unsafeScheduleReplacement } from '../src/lib/sync/schedule-safety.ts';
 
 test('empty or malformed Schedule cannot replace populated cloud state', () => {
@@ -28,11 +29,13 @@ test('empty or malformed Schedule cannot replace populated cloud state', () => {
 test('Schedule safety is enforced at browser sync, API, and database boundary', async () => {
   const browser = await readFile(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8');
   const route = await readFile(new URL('../src/app/api/sync/v2/route.ts', import.meta.url), 'utf8');
+  const server = await readFile(new URL('../src/lib/sync/server.ts', import.meta.url), 'utf8');
   const migration = await readFile(new URL('../supabase/migrations/20260923235541_schedule_version_backups.sql', import.meta.url), 'utf8');
   assert.match(browser, /shouldQueueLocalValue\(key, current, lastSnapshot\[key\]\)/);
   assert.match(browser, /emptyScheduleNeedsCloud/);
   assert.ok(browser.indexOf('await pull();\n        await flush(deviceId);') > 0);
-  assert.match(route, /unsafeScheduleReplacement/);
+  assert.match(route, /applySyncBody/);
+  assert.match(server, /unsafeScheduleReplacement/);
   assert.match(migration, /before update on public\.legacy_sync_data/i);
   assert.match(migration, /insert into public\.schedule_version_backups/i);
   assert.match(migration, /raise exception 'Empty Schedule cannot replace existing data'/i);
@@ -43,8 +46,34 @@ test('canonical JSON is stable across object key order', () => {
   assert.equal(canonicalJson({ b: 2, a: { d: 4, c: 3 } }), canonicalJson({ a: { c: 3, d: 4 }, b: 2 }));
 });
 
+test('sync value limit measures the JSON sent to the API', () => {
+  assert.equal(syncValueFits('x'.repeat(MAX_SYNC_VALUE_CHARACTERS - 2)), true);
+  assert.equal(syncValueFits('x'.repeat(MAX_SYNC_VALUE_CHARACTERS - 1)), false);
+  assert.equal(syncValueFits('\n'.repeat(200_000)), false);
+});
+
+test('large sync transfer preserves Unicode and rejects data above the cap', () => {
+  const value = { text: '学习📚'.repeat(70_000) };
+  assert.deepEqual(joinSyncParts(splitSyncBody(JSON.stringify(value))), value);
+  assert.throws(() => splitSyncBody('x'.repeat(24_000_001)), /超过单条传输上限/);
+});
+
 test('three-way merge combines independent object changes', () => {
   assert.deepEqual(threeWayMerge({ a: 1, b: 1 }, { a: 2, b: 1 }, { a: 1, b: 3 }), { merged: { a: 2, b: 3 }, conflicts: [] });
+});
+
+test('Cue progress in separate subjects merges without overwriting another subject', () => {
+  const base = { cueStudyDrafts: {} };
+  const physics = { cueStudyDrafts: { physics: { id: 'physics-review', index: 3 } } };
+  const math = { cueStudyDrafts: { math: { id: 'math-review', index: 1 } } };
+  assert.deepEqual(threeWayMerge(base, physics, math), {
+    merged: { cueStudyDrafts: { physics: physics.cueStudyDrafts.physics, math: math.cueStudyDrafts.math } },
+    conflicts: [],
+  });
+  assert.deepEqual(threeWayMerge(physics,
+    { cueStudyDrafts: { physics: { id: 'physics-review', index: 4 } } },
+    { cueStudyDrafts: { physics: { id: 'physics-review', index: 5 } } }).conflicts,
+  ['$.cueStudyDrafts.physics.index']);
 });
 
 test('three-way merge preserves local data and reports same-field conflicts', () => {
@@ -124,8 +153,8 @@ test('answer-sheet sync has no service-role fallback and authenticates every met
 });
 
 test('web sync writes use bounded concurrency instead of a serial database waterfall', async () => {
-  const source = await readFile(new URL('../src/app/api/sync/v2/route.ts', import.meta.url), 'utf8');
-  assert.match(source, /const DATABASE_CONCURRENCY = 8/);
+  const source = await readFile(new URL('../src/lib/sync/server.ts', import.meta.url), 'utf8');
+  assert.match(source, /const DATABASE_CONCURRENCY = 2/);
   assert.match(source, /mapWithConcurrency\(body\.operations/);
   assert.match(source, /DUPLICATE_KEYS/);
   assert.match(source, /error\?\.code === 'PGRST202'/);

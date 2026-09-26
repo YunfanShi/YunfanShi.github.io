@@ -92,11 +92,18 @@ export async function proxy(request: NextRequest) {
     profilePromise,
     whitelistPromise,
   ]);
+  const lookupFailed = profileResult.status === 'rejected'
+    || whitelistResult.status === 'rejected'
+    || Boolean(profileResult.status === 'fulfilled' && profileResult.value.error)
+    || Boolean(whitelistResult.status === 'fulfilled' && 'error' in whitelistResult.value && whitelistResult.value.error);
+  if (lookupFailed) {
+    // Database failure is not a whitelist rejection. Public product shells may
+    // continue in local mode; protected administration fails closed.
+    if (requiresAuth) return new NextResponse('认证服务暂时不可用，请稍后重试。', { status: 503, headers: { 'Retry-After': '30' } });
+    return response;
+  }
   const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null;
   const dbMatch = whitelistResult.status === 'fulfilled' ? whitelistResult.value.data : null;
-  if (profileResult.status === 'rejected' || whitelistResult.status === 'rejected') {
-    console.error('[proxy] Authorization lookup failed');
-  }
 
   // Restricted users retain one authenticated surface for reviewing the
   // decision and talking to support. They cannot reach product data routes.

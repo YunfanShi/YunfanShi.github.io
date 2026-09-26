@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import FullscreenButton from './fullscreen-button';
 import UserAvatar from '@/components/auth/user-avatar';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/components/language-provider';
@@ -31,7 +32,6 @@ const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = 
 export default function Topbar({ user, betaActive = false }: TopbarProps) {
   const { lang } = useLanguage();
   const [showFullscreen, setShowFullscreen] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
@@ -52,10 +52,6 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
 
   useEffect(() => {
     try { queueMicrotask(() => setShowFullscreen(localStorage.getItem('show_fullscreen_btn') !== 'false')); } catch {}
-    const handler = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handler);
 
     // Listen for setting changes from other tabs
     const storageHandler = (e: StorageEvent) => {
@@ -66,7 +62,6 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
     window.addEventListener('storage', storageHandler);
 
     return () => {
-      document.removeEventListener('fullscreenchange', handler);
       window.removeEventListener('storage', storageHandler);
     };
   }, []);
@@ -95,18 +90,6 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
     document.querySelectorAll('iframe').forEach((frame) => {
       frame.contentWindow?.postMessage({ type: 'jackyun-theme', theme: next }, '*');
     });
-  };
-
-  const toggleFullscreen = async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-      // Collapse sidebar by dispatching a custom event
-      window.dispatchEvent(new CustomEvent('toggle-sidebar-collapse', { detail: { collapsed: true } }));
-    } else {
-      await document.exitFullscreen();
-      setIsFullscreen(false);
-    }
   };
 
   return (
@@ -144,17 +127,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         >
           <span className="material-icons-round text-lg">{THEME_META[theme].icon}</span>
         </button>
-        {showFullscreen && (
-          <button
-            onClick={toggleFullscreen}
-            className="hidden h-9 items-center gap-1 rounded-lg px-3 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:flex"
-            title={isFullscreen ? t('topbar.exit-fullscreen', lang) : t('topbar.fullscreen', lang)}
-          >
-            <span className="material-icons-round text-lg">
-              {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-            </span>
-          </button>
-        )}
+        {showFullscreen && <FullscreenButton />}
         {user && <NotificationInbox />}
         {user ? (
           <>
