@@ -132,7 +132,7 @@ test('Cue manager exposes recent results, detailed history, and adaptive review 
   assert.match(component, /测试历史/);
   assert.match(component, /本次排期依据/);
   assert.match(domain, /export function planCueReview/);
-  assert.match(domain, /最近 3 次均为 √/);
+  assert.match(domain, /结合历史权重和实际复习间隔/);
 });
 
 test('Cue manager compares similar prompts side by side with highlighted evidence and deletion choices', async () => {
@@ -152,9 +152,9 @@ test('Cue manager compares similar prompts side by side with highlighted evidenc
   assert.match(component, /答案相似度低于 60%/);
 });
 
-test('Cue ratings advance to the next unassessed Cue and clear the answer state', async () => {
+test('repeated Cue ratings use the reviewed navigation policy and clear the answer state', async () => {
   const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
-  assert.match(component, /findIndex\(\(cue, cueIndex\) => cueIndex > currentIndex && !next\[cue\.id\]\)/);
+  assert.match(component, /const destination = cueRatingDestination\(/);
   assert.match(component, /setRevealed\(false\);\s*setSelectedChoice\(undefined\)/);
   assert.match(component, /activeAssessments/);
   assert.match(component, /event\.key === 'Backspace'/);

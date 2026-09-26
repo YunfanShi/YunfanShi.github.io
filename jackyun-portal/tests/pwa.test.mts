@@ -53,7 +53,7 @@ test('offline workspace stores snapshots and queued operations per authenticated
 
 test('logout preserves pending work, clears worker cache, and uses local sign-out', async () => {
   const logout = await readFile(new URL('src/components/auth/logout-button.tsx', projectDir), 'utf8');
-  const auth = await readFile(new URL('src/actions/auth.ts', projectDir), 'utf8');
+  const auth = await readFile(new URL('src/app/api/auth/signout/route.ts', projectDir), 'utf8');
   assert.match(logout, /saveCurrentLocalBackups/);
   assert.match(logout, /listOfflineMutations/);
   assert.match(logout, /unsent.length \|\| offline.length/);

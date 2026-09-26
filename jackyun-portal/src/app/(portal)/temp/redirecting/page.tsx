@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { decodeRedirectToken } from '@/lib/redirect-token';
 import BrandLogo from '@/components/brand-logo';
 
 interface RedirectInfo {
@@ -24,9 +25,7 @@ export default function RedirectingPage() {
         return;
       }
 
-      // Decode base64
-      const decoded = atob(t);
-      const parsed: RedirectInfo = JSON.parse(decoded);
+      const parsed = decodeRedirectToken(t);
 
       // Security check: only allow http/https
       if (!parsed.url || !/^https?:\/\//i.test(parsed.url)) {

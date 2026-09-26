@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 
 test('ID login resolves credentials on the server without returning account email to the browser', () => {
   const action = readFileSync(new URL('../src/actions/auth.ts', import.meta.url), 'utf8');
@@ -42,8 +44,41 @@ test('temporary Auth and account lookup failures retain offline writes', () => {
   assert.match(syncBinder, /if \(!userId\) return/);
   assert.doesNotMatch(syncBinder, /store\.clear\(\)/);
   assert.match(offlineBinder, /if \(!userId\) return/);
-  assert.doesNotMatch(offlineBinder, /clearStores\(\)/);
+  assert.match(offlineBinder, /listOfflineMutations\(existing.value\)[\s\S]*throw new Error[\s\S]*clearStores\(\)/);
   assert.match(proxy, /if \(lookupFailed\)/);
-  assert.match(proxy, /Account check temporarily unavailable/);
+  assert.match(proxy, /new NextResponse[\s\S]*status: 503/);
   assert.match(syncAuthError, /AuthSessionMissingError/);
+});
+
+
+test('offline account binding retains writes across auth failure and permits only safe account changes', async () => {
+  const workspace = readFileSync(new URL('../src/lib/offline/workspace.ts', import.meta.url), 'utf8');
+  const source = workspace.slice(workspace.indexOf('export async function bindOfflineWorkspaceUser'), workspace.indexOf('export async function clearOfflineWorkspace'));
+  const javascript = ts.transpileModule(source.replace('export async', 'async'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  let owner = 'original';
+  let pending = [{ id: 'unsent', value: 'learning evidence' }];
+  let cleared = 0;
+  const bind = runInNewContext(javascript + '\nbindOfflineWorkspaceUser', {
+    USER_KEY: 'owner',
+    listOfflineMutations: async () => pending,
+    clearStores: async () => { cleared += 1; pending = []; },
+    transact: async (_store: string, mode: string, operation: (transaction: unknown) => unknown) => {
+      if (mode === 'readonly') return { key: 'owner', value: owner };
+      return operation({ objectStore: () => ({ put: (row: { value: string }) => { owner = row.value; } }) });
+    },
+  }) as (userId: string | null) => Promise<void>;
+  await bind(null);
+  assert.equal(cleared, 0);
+  assert.equal(pending[0].value, 'learning evidence');
+  await bind('original');
+  assert.equal(cleared, 0);
+  await assert.rejects(bind('another'), /另一账户/);
+  assert.equal(owner, 'original');
+  assert.equal(pending[0].value, 'learning evidence');
+  pending = [];
+  await bind('another');
+  assert.equal(cleared, 1);
+  assert.equal(owner, 'another');
 });

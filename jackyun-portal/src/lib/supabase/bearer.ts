@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from '@/lib/request-timeout';
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 
@@ -18,7 +19,7 @@ export async function getBearerContext(request: NextRequest): Promise<BearerCont
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
+      global: { fetch: fetchWithTimeout, headers: { Authorization: `Bearer ${token}` } },
     },
   );
   const { data, error } = await supabase.auth.getUser(token);

@@ -1,5 +1,7 @@
 'use client';
 
+import { fetchWithTimeout } from '@/lib/request-timeout';
+import { syncRetryDelay, shouldPauseSync } from '@/lib/sync/retry-policy';
 import { useEffect } from 'react';
 import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
 import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
@@ -107,6 +109,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let cancelled = false;
     let running = false;
     let bound = false;
+    let signingOut = false;
+    let failures = 0;
+    let retryAt = 0;
+    let authPaused = false;
     let lastBackupCheck = 0;
     let lastSnapshot: Record<string, string> = {};
 
@@ -122,6 +128,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const snapshot = localSnapshot(true);
       const metadata = await getMetadata();
       const metadataByKey = new Map(metadata.map((item) => [item.key, item]));
+      const pendingByKey = new Map((await getOutbox()).map((item) => [item.key, item]));
       let legacyTimestamps: Record<string, string> = {};
       try {
         legacyTimestamps = JSON.parse(localStorage.getItem('jackyun_sync_timestamps') || '{}') as Record<string, string>;
@@ -133,7 +140,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const current = snapshot[key];
         const base = metadataByKey.get(key);
         if (!shouldQueueLocalValue(key, current, lastSnapshot[key])) continue;
-        if (current === lastSnapshot[key] && base) continue;
+        const queued = pendingByKey.get(key);
+        if (queued && queued.deleted === (current === undefined)
+            && (queued.deleted || canonicalJson(parseStorageValue(current)) === canonicalJson(queued.value))) continue;
         const matchesCloudBase = base
           && base.deleted === (current === undefined)
           && (base.deleted || canonicalJson(parseStorageValue(current)) === canonicalJson(base.value));
@@ -158,7 +167,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const parts: string[] = [];
       let count = 1;
       for (let part = 0; part < count; part += 1) {
-        const response = await fetch(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
+        const response = await fetchWithTimeout(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
         if (!response.ok) throw new SyncHttpError(`同步分片下载失败 (${response.status})`, response.status);
         const chunk = await response.json() as { count: number; data: string };
         count = chunk.count;
@@ -184,18 +193,18 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const operation = request.operations[0];
         const parts = splitSyncBody(request.body);
         for (let index = 0; index < parts.length; index += 1) {
-          const partResponse = await fetch('/api/sync/v2/large', {
+          const partResponse = await fetchWithTimeout('/api/sync/v2/large', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ uploadId: operation.id, index, count: parts.length, data: parts[index] }),
           });
           if (!partResponse.ok) throw new SyncHttpError(`同步分片上传失败 (${partResponse.status})`, partResponse.status);
         }
-        response = await fetch('/api/sync/v2/large', {
+        response = await fetchWithTimeout('/api/sync/v2/large', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uploadId: operation.id, complete: true }),
         });
       } else {
-        response = await fetch('/api/sync/v2', {
+        response = await fetchWithTimeout('/api/sync/v2', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: request.body,
         });
@@ -260,7 +269,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     async function pull() {
       const [cursor, pending] = await Promise.all([getSetting<string>('cursor'), getOutbox()]);
       const pendingKeys = new Set(pending.map((item) => item.key));
-      const response = await fetch(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
+      const response = await fetchWithTimeout(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
       if (!response.ok) {
         const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
         const detail = failure?.error?.code
@@ -274,7 +283,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       if (!pendingKeys.has(SCHEDULE_STORAGE_KEY)
           && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
           && !records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
-        const scheduleResponse = await fetch(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
+        const scheduleResponse = await fetchWithTimeout(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
         if (!scheduleResponse.ok) throw new SyncHttpError(`Schedule 云端读取失败 (${scheduleResponse.status})`, scheduleResponse.status);
         const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
         records.push(...schedulePayload.records);
@@ -302,8 +311,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       await queueChanges();
     }
 
-    async function sync() {
-      if (running || cancelled || !bound) return;
+    async function sync(onlyPending = false) {
+      if (running || cancelled || signingOut || !bound) return;
+      if (authPaused || Date.now() < retryAt) { await queueChanges(); return; }
       if (!navigator.onLine) {
         await queueChanges();
         if (!cancelled) await publishStatus('offline_pending');
@@ -314,6 +324,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const deviceId = await getOrCreateDeviceId();
         await clearConflicts();
         await queueChanges();
+        if (onlyPending && !(await getOutbox()).length) return;
         for (const operation of await getOutbox()) {
           if (operation.key === SCHEDULE_STORAGE_KEY && !scheduleHasContent(operation.deleted ? null : operation.value)) {
             await removeOperation(operation.id);
@@ -328,8 +339,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           try { await createDueBackupVersions(); }
           catch (error) { console.warn('[Backup] Deferred cloud backup failed', error); }
         }
+        failures = 0;
+        retryAt = 0;
         if (!cancelled) await publishStatus('synced');
       } catch (error) {
+        failures += 1;
+        retryAt = Date.now() + syncRetryDelay(failures);
+        authPaused = shouldPauseSync(error);
         if (!cancelled) await publishStatus(!navigator.onLine ? 'offline_pending' : isServerUnavailable(error, navigator.onLine) ? 'server_unavailable' : 'error', error instanceof Error ? error.message : 'Sync failed');
       } finally { running = false; }
     }
@@ -339,14 +355,19 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       if (!cancelled) void publishStatus('error', error instanceof Error ? error.message : '无法绑定同步账户');
     });
     // Frequent Schedule edits wait briefly so one burst becomes one sync.
-    // The idle poll still pulls changes from other devices.
+    // Idle ticks only capture local changes; no database liveness polling.
     let editTimer: number | null = null;
     const onEdit = () => {
       if (editTimer !== null) window.clearTimeout(editTimer);
       editTimer = window.setTimeout(() => { editTimer = null; void sync(); }, 8_000);
     };
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(); }, 120_000);
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(true); }, 30_000);
     const onSync = () => void sync();
+    const onRetry = () => { authPaused = false; retryAt = 0; void sync(); };
+    const onSignOut = () => { signingOut = true; };
+    const onSignOutCancel = () => { signingOut = false; };
+    window.addEventListener('jackyun-signout-start', onSignOut);
+    window.addEventListener('jackyun-signout-cancel', onSignOutCancel);
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void sync();
       else void queueChanges();
@@ -354,13 +375,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onLeave = () => { void queueChanges(); };
     const onBeforeSignOut = (event: Event) => {
       const complete = (event as CustomEvent<{ complete: () => void }>).detail?.complete;
-      void queueChanges().then(sync).finally(() => complete?.());
+      void queueChanges().then(() => sync()).finally(() => complete?.());
     };
     window.addEventListener('online', onSync);
     window.addEventListener('focus', onSync);
     window.addEventListener('pagehide', onLeave);
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('jackyun-sync-retry', onSync);
+    window.addEventListener('jackyun-sync-retry', onRetry);
     window.addEventListener('jackyun-sync-edit', onEdit);
     window.addEventListener('jackyun-sync-before-signout', onBeforeSignOut);
     return () => {
@@ -371,7 +392,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       window.removeEventListener('focus', onSync);
       window.removeEventListener('pagehide', onLeave);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('jackyun-sync-retry', onSync);
+      window.removeEventListener('jackyun-sync-retry', onRetry);
+      window.removeEventListener('jackyun-signout-start', onSignOut);
+      window.removeEventListener('jackyun-signout-cancel', onSignOutCancel);
       window.removeEventListener('jackyun-sync-edit', onEdit);
       window.removeEventListener('jackyun-sync-before-signout', onBeforeSignOut);
     };

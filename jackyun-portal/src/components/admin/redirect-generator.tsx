@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { encodeRedirectToken } from '@/lib/redirect-token';
 
 export function RedirectGenerator() {
   const [name, setName] = useState('');
@@ -27,8 +28,7 @@ export function RedirectGenerator() {
       return;
     }
 
-    const payload = JSON.stringify({ url: url.trim(), name: name.trim() });
-    const encoded = btoa(payload);
+    const encoded = encodeRedirectToken({ url: url.trim(), name: name.trim() });
     const baseUrl = window.location.origin;
     const redirectUrl = `${baseUrl}/temp/redirecting?t=${encoded}`;
     setGeneratedUrl(redirectUrl);

@@ -103,7 +103,7 @@ export async function proxy(request: NextRequest) {
   const dbMatch = whitelistResult.status === 'fulfilled' ? whitelistResult.value.data : null;
   if (lookupFailed) {
     console.error('[proxy] Authorization lookup failed');
-    return requiresAuth ? new NextResponse('Account check temporarily unavailable', { status: 503 }) : response;
+    return requiresAuth ? new NextResponse('认证服务暂时不可用，请稍后重试。', { status: 503, headers: { 'Retry-After': '30' } }) : response;
   }
 
   // Restricted users retain one authenticated surface for reviewing the
