@@ -10,6 +10,7 @@ import { cuePromptSimilarity, cueSimilarityTerms, findSimilarCuePairs } from '..
 import {
   allCueStudyDrafts,
   applyTemporaryTimetableUpdate,
+  changeTimetableImportRole,
   applyTimetableUpdate,
   applyCueBulkOperations,
   applyCueUnitMappings,
@@ -1133,4 +1134,22 @@ test('completed quizzes enqueue incorrect questions without duplicating existing
   assert.match(action, /\.eq\('is_correct', false\)/);
   assert.match(action, /existingIds = new Set/);
   assert.match(action, /supabase\.from\('review_items'\)\.insert\(newItems\)/);
+});
+
+
+test('user can correct AI timetable classification and replace an incorrect primary import', () => {
+  const current = parseTimetableImport({ version: 1, courses: [{ id: 'physics', name: 'Physics', review: true, sessions: [{ day: 6, start: '08:00', end: '08:45' }] }] });
+  assert.throws(() => applyTemporaryTimetableUpdate(current, current), /没有标记/);
+  const temporary = changeTimetableImportRole(current, 'temporary', '2026-09-26');
+  const updated = applyTemporaryTimetableUpdate(temporary, current);
+  assert.deepEqual(updated.courses, current.courses);
+  assert.equal(updated.dateOverrides?.[0].sessions[0].courseId, 'physics');
+  assert.throws(() => changeTimetableImportRole(current, 'temporary'), /选择调休日期/);
+  assert.throws(() => changeTimetableImportRole(current, 'temporary', '2026-09-27'), /没有课程/);
+  const primary = changeTimetableImportRole(temporary, 'primary');
+  assert.equal(primary.scheduleRole, 'primary');
+  assert.equal(primary.temporaryDate, undefined);
+  const corrected = applyTimetableUpdate({ ...primary, mode: 'replace', courses: [{ id: 'math', name: 'Math', sessions: [{ day: 1, start: '09:00', end: '09:45' }] }], dateOverrides: [] }, updated);
+  assert.deepEqual(corrected.courses.map((course) => course.id), ['math']);
+  assert.deepEqual(corrected.dateOverrides, []);
 });

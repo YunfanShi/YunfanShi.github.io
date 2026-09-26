@@ -663,6 +663,21 @@ export function applyTimetableUpdate(value: unknown, current: TimetableImport | 
   });
 }
 
+/** Explicit user choice overrides AI classification; weekly imports need a dated target. */
+export function changeTimetableImportRole(value: unknown, role: 'primary' | 'temporary', date?: string): Record<string, unknown> {
+  const source = record(value);
+  if (!source) throw new Error('课表必须是 JSON 对象。');
+  if (role === 'primary') return { ...source, scheduleRole: role, temporaryDate: undefined };
+  if (Array.isArray(source.dateOverrides) && source.dateOverrides.length) return { ...source, scheduleRole: role };
+  const target = validDate(date ?? source.temporaryDate, '调休日期');
+  if (!target) throw new Error('请先选择调休日期，再切换为临时换课。');
+  const imported = parseTimetableImport({ ...source, scheduleRole: 'primary' });
+  const day = dateFromKey(target).getDay() || 7;
+  const sessions = imported.courses.flatMap((course) => course.sessions.filter((session) => session.day === day).map(({ start, end, location, teacher }) => ({ courseId: course.id, start, end, location, teacher })));
+  if (!sessions.length) throw new Error('导入课表在该星期没有课程，请在 JSON 中用 dateOverrides 明确填写调休安排。');
+  return { ...source, scheduleRole: role, temporaryDate: target, dateOverrides: [{ date: target, sessions }] };
+}
+
 /** Applies a temporary class change without replacing the primary weekly timetable. */
 export function applyTemporaryTimetableUpdate(value: unknown, current: TimetableImport | null): TimetableImport {
   if (!current) throw new Error('请先导入主课表，再添加临时换课。');
