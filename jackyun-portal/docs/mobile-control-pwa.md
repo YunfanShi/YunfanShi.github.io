@@ -35,3 +35,9 @@ The portal shell now isolates its stacking context so floating tools cannot over
 Math rendering shares one parser for headings, descriptions, answers and list titles. Explicit LaTeX remains authoritative; plain expressions with equality, subscripts, powers, Unicode superscripts and square roots are also rendered with KaTeX. Slash-only terminology such as CSMA/CD and TCP/IP is left unchanged. Ambiguous plain text is not inferred as math; explicit LaTeX is available for complex expressions. Wide expressions scroll locally, and MathML exposes equations to assistive technology.
 
 Verified using a temporary isolated sample (removed before commit): 390x844 and 320x568 phone viewports, Definition/process/choice reveal, long evidence scrolling, correct-choice marking, rating, tools, memo and exit; 1280x900 desktop controls retained. Real physical iPhone Safari/Chrome verification remains outstanding.
+
+## Mobile refresh and Cue editing
+
+The phone topbar provides a dedicated refresh button that reloads the current page. Cue management supports editing subject, unit, subsection, type, display preset, title, subtitle, answer, choices/correct choice and marking points in the existing form, with Save and Cancel actions. Updates retain the Cue ID, creation date, review history and memos; actual content changes increment the existing revision. Optional answer/subtitle/subsection values can be cleared.
+
+Regression tests cover all editable fields, preserved learning state, invalid choices and unchanged-content saves. A temporary local sample at 390x844 verified form backfill, title/answer save, unchanged ID/streak and incremented revision, plus real page reload through the topbar button; the sample was removed before commit.

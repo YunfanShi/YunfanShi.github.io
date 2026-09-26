@@ -132,6 +132,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         {showFullscreen && <FullscreenButton />}
         </div>
         {user && <NotificationInbox />}
+        <button type="button" onClick={() => window.location.reload()} aria-label="刷新网页" title="刷新网页" className="grid h-11 w-11 place-items-center rounded-xl text-[var(--muted-foreground)] md:hidden"><span className="material-icons-round">refresh</span></button>
         <details className="relative md:hidden">
           <summary aria-label="更多页面操作" className="grid h-11 w-11 list-none place-items-center rounded-xl cursor-pointer"><span className="material-icons-round">more_horiz</span></summary>
           <div className="absolute right-0 top-12 z-50 flex min-w-48 flex-col gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-xl">
