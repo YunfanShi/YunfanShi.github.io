@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
+import { getLatestSyncStatus } from '@/lib/sync/status';
 import type { SyncStatusDetail } from '@/types/sync';
 
 const LABELS = {
@@ -12,6 +13,7 @@ const LABELS = {
 export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean }) {
   const [detail, setDetail] = useState<SyncStatusDetail>({ state: signedIn ? 'syncing' : 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
   useEffect(() => {
+    queueMicrotask(() => { const current = getLatestSyncStatus(); if (current) setDetail(current); });
     const listener = (event: Event) => setDetail((event as CustomEvent<SyncStatusDetail>).detail);
     window.addEventListener(LOCAL_SYNC_STATUS_EVENT, listener);
     return () => window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, listener);

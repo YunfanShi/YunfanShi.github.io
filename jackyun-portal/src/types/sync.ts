@@ -53,6 +53,7 @@ export interface SyncStatusDetail {
   conflicts: number;
   lastSyncedAt: string | null;
   error?: string;
+  progress?: string;
 }
 
 export interface DataArchiveV2<TTable extends string = string> {

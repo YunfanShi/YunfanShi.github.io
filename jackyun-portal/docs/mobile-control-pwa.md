@@ -21,3 +21,7 @@
 node --test tests/pwa.test.mts tests/mobile-control-pwa.test.mjs 验证安装配置、浏览器引导分支、提示失败回退和一次性消费。
 
 另需在实际设备与正式 HTTPS 站点验收：安装、从桌面/主屏幕独立启动、长 Cue 答案阅读、键盘弹出时备忘录编辑、全屏进入与退出。用户代理模拟测试不能证明各系统已完成安装。
+
+## 2026-09-26 follow-up
+
+The canonical route is `/schedule`; `/control` permanently redirects and preserves existing links. Cue study is rendered into document.body with an opaque viewport overlay; the portal shell becomes inert and background scrolling is locked until exit. Definition cards retain the same flip control on phone and desktop, with a smaller minimum height on phones.

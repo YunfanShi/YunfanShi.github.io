@@ -1,12 +1,13 @@
+import { SYNC_DATABASE_TIMEOUT_MS } from '@/lib/request-timeout';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { apiError, requestIdFrom } from '@/lib/api-response';
 import { isSyncableStorageKey } from '@/lib/local-workspace';
 import { applySyncBody, UUID, type SyncRequestBody } from '@/lib/sync/server';
-import { MAX_LARGE_SYNC_BYTES, SYNC_PART_BYTES } from '@/lib/sync/transfer';
+import { MAX_LARGE_SYNC_BYTES, SYNC_PART_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from '@/lib/sync/transfer';
 import { syncAuthError } from '@/lib/sync/auth-error';
 
-const MAX_PARTS = 200;
+const MAX_PARTS = MAX_SYNC_PARTS;
 const MAX_PART_BODY_BYTES = 250_000;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (Number(request.headers.get('content-length') ?? 0) > MAX_PART_BODY_BYTES) {
     return apiError(requestId, 'Upload part too large', 413, 'PAYLOAD_TOO_LARGE');
   }
-  const supabase = await createClient();
+  const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (!user) return syncAuthError(requestId, authError);
   const input = await request.json().catch(() => null) as {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(input.index) || !Number.isInteger(input.count)
       || input.count! < 1 || input.count! > MAX_PARTS || input.index! < 0 || input.index! >= input.count!
       || typeof input.data !== 'string' || input.data.length < 1 || input.data.length > 180_000
-      || !BASE64.test(input.data) || Buffer.from(input.data, 'base64').length > SYNC_PART_BYTES) {
+      || !BASE64.test(input.data) || Buffer.from(input.data, 'base64').length > MAX_SYNC_UPLOAD_PART_BYTES) {
     return apiError(requestId, 'Invalid upload part', 400, 'INVALID_PART');
   }
   if (input.index === 0) {
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
       || !Number.isSafeInteger(revision) || revision < 1) {
     return apiError(requestId, 'Invalid download request', 400, 'INVALID_BODY');
   }
-  const supabase = await createClient();
+  const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (!user) return syncAuthError(requestId, authError);
   const { data: row, error } = await supabase.from('legacy_sync_data')
@@ -105,3 +106,5 @@ export async function GET(request: NextRequest) {
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+export const maxDuration = 60;

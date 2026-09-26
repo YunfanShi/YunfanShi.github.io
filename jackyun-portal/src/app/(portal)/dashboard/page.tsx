@@ -78,7 +78,7 @@ const MODULES = [
     description: '系统控制与快捷设置',
     icon: 'tune',
     color: '#34A853',
-    href: '/control',
+    href: '/schedule',
   },
 ];
 

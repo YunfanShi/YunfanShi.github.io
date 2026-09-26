@@ -28,7 +28,6 @@ export default function PwaLifecycle() {
     const register = async () => {
       try {
         registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        (registration.active ?? registration.waiting)?.postMessage({ type: 'WARM_OFFLINE_ROUTES' });
         if (registration.waiting && navigator.serviceWorker.controller) setWaitingWorker(registration.waiting);
         registration.addEventListener('updatefound', () => observeWorker(registration?.installing ?? null));
       } catch (error) {

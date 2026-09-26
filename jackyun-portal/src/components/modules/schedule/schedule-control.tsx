@@ -4,6 +4,7 @@ import FullscreenButton from '@/components/layout/fullscreen-button';
 import styles from './schedule-control.module.css';
 
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import LearningRecordsView from '@/components/modules/schedule/learning-records-view';
@@ -295,8 +296,8 @@ function CuePromptContent({ cue, revealed, selectedChoice, onReveal, onChoice }:
   const definitionCard = cue.type === 'definition' || cue.display === 'definition-card';
   const multipleChoice = cue.type === 'multiple-choice' || cue.display === 'multiple-choice';
   if (definitionCard) {
-    const faceClass = 'col-start-1 row-start-1 flex min-h-[390px] w-full flex-col items-center justify-center overflow-y-auto rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-8 text-center shadow-xl [backface-visibility:hidden]';
-    return <><section className="my-5 min-w-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:hidden"><div className="break-words text-xl font-semibold leading-relaxed"><LatexRenderer content={cue.prompt} /></div>{cue.subtitle && <div className="mt-3 break-words text-sm"><LatexRenderer content={cue.subtitle} /></div>}<button type="button" onClick={onReveal} aria-expanded={revealed} className="mt-4 min-h-11 rounded-xl bg-[var(--brand)] px-4 text-sm font-semibold text-white">{revealed ? '隐藏答案' : '显示答案与判分依据'}</button>{revealed && <div className="mt-5 min-w-0 break-words border-t border-[var(--card-border)] pt-4"><CueEvidence cue={cue} /></div>}</section><section className="my-auto hidden py-8 sm:block"><button type="button" onClick={onReveal} aria-label={revealed ? '翻到题目面' : '翻到定义面'} aria-pressed={revealed} className="mx-auto block min-h-[390px] w-full max-w-4xl [perspective:1200px]"><span className={`relative grid min-h-[390px] w-full transition-transform duration-500 [transform-style:preserve-3d] motion-reduce:transition-none ${revealed ? '[transform:rotateY(180deg)]' : ''}`}><span aria-hidden={revealed} className={faceClass}><span className="text-xs font-bold uppercase tracking-[.16em] text-[var(--muted-foreground)]">Definition · 正面</span><span className="mt-8 text-3xl font-bold leading-tight sm:text-5xl"><LatexRenderer content={cue.prompt} /></span>{cue.subtitle && <span className="mt-4 text-sm font-normal leading-6 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></span>}<span className="mt-auto pt-8 text-xs text-[var(--muted-foreground)]">空格 / Enter 或点击翻面</span></span><span aria-hidden={!revealed} className={`${faceClass} [transform:rotateY(180deg)]`}><span className="w-full text-left"><CueEvidence cue={cue} /></span></span></span></button></section></>;
+    const faceClass = 'col-start-1 row-start-1 flex min-h-[280px] sm:min-h-[390px] w-full flex-col items-center justify-center overflow-y-auto rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-8 text-center shadow-xl [backface-visibility:hidden]';
+    return <section className="my-auto py-5 sm:py-8"><button type="button" onClick={onReveal} aria-label={revealed ? '翻到题目面' : '翻到定义面'} aria-pressed={revealed} className="mx-auto block min-h-[280px] sm:min-h-[390px] w-full max-w-4xl [perspective:1200px]"><span className={`relative grid min-h-[280px] sm:min-h-[390px] w-full transition-transform duration-500 [transform-style:preserve-3d] motion-reduce:transition-none ${revealed ? '[transform:rotateY(180deg)]' : ''}`}><span aria-hidden={revealed} className={faceClass}><span className="text-xs font-bold uppercase tracking-[.16em] text-[var(--muted-foreground)]">Definition · 正面</span><span className="mt-8 text-3xl font-bold leading-tight sm:text-5xl"><LatexRenderer content={cue.prompt} /></span>{cue.subtitle && <span className="mt-4 text-sm font-normal leading-6 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></span>}<span className="mt-auto pt-8 text-xs text-[var(--muted-foreground)]">空格 / Enter 或点击翻面</span></span><span aria-hidden={!revealed} className={`${faceClass} [transform:rotateY(180deg)]`}><span className="w-full text-left"><CueEvidence cue={cue} /></span></span></span></button></section>;
   }
   if (multipleChoice) {
     return <section className="my-auto py-8"><article className="mx-auto max-w-4xl rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-7 shadow-lg"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--brand)]">类型选择 · 按 1–{cue.choices?.length ?? 0}</p><div className="my-7 text-center text-2xl font-bold leading-relaxed sm:text-4xl"><LatexRenderer content={cue.prompt} /></div>{cue.subtitle && <div className="mb-6 text-center text-sm leading-6 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></div>}<div className="space-y-3">{(cue.choices ?? []).map((choice, choiceIndex) => { const correct = choiceIndex === cue.correctChoice; const chosen = choiceIndex === selectedChoice; return <button key={`${choiceIndex}-${choice}`} type="button" disabled={revealed} onClick={() => onChoice(choiceIndex)} className={`w-full rounded-2xl border-2 p-4 text-left text-sm ${revealed && correct ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : revealed && chosen ? 'border-rose-500 bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200' : 'border-[var(--card-border)] hover:border-[var(--brand)]'}`}><kbd className="mr-3 rounded bg-[var(--background)] px-2 py-1 text-xs">{choiceIndex + 1}</kbd><LatexRenderer content={choice} /></button>; })}</div>{revealed && <div className="mt-5 rounded-2xl bg-black/[.035] p-4 text-left dark:bg-white/[.06]"><p className={`font-semibold ${selectedChoice === cue.correctChoice ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'}`}>{selectedChoice === cue.correctChoice ? '选择正确' : '选择错误；正确选项已标出。'}</p>{cue.markingPoints.length > 0 && <div className="mt-2"><CueEvidence cue={{ ...cue, answer: undefined }} /></div>}</div>}</article></section>;
@@ -374,7 +375,20 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
     setSelectedChoice(undefined);
     queueMicrotask(() => studyRef.current?.focus());
   }, [cues.length]);
-  useEffect(() => { queueMicrotask(() => studyRef.current?.focus()); }, []);
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>('[data-portal-shell]');
+    const previousInert = shell?.inert ?? false;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    if (shell) shell.inert = true;
+    document.body.style.overflow = 'hidden';
+    queueMicrotask(() => studyRef.current?.focus());
+    return () => {
+      if (shell) shell.inert = previousInert;
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, []);
   useEffect(() => {
     const rail = document.querySelector('[aria-label="Cue 学习进度"]');
     const item = rail?.children[currentIndex];
@@ -412,8 +426,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [current, memoOpen, move, onClose, rate, revealed]);
-  return (
-    <div ref={studyRef} tabIndex={-1} className="fixed inset-0 z-[75] overflow-x-hidden overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] bg-[var(--background)] outline-none" role="dialog" aria-modal="true" aria-labelledby="cue-study-title">
+  return createPortal(
+    <div ref={studyRef} tabIndex={-1} className={`${styles.studyOverlay} fixed inset-0 z-[150] overflow-x-hidden overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] bg-[var(--background)] outline-none`} role="dialog" aria-modal="true" aria-labelledby="cue-study-title">
       <header className="sticky top-0 z-10 border-b border-[var(--card-border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl sm:px-8 sm:py-4">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-4"><button type="button" onClick={onClose} aria-label="退出 Cue 学习并保存进度" className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">arrow_back</span></button><div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--brand)]">Cue Study · 自动保存</p><h1 id="cue-study-title" className="break-words text-sm font-semibold sm:text-lg">{task.title}</h1></div><button type="button" onClick={toggleShuffle} aria-pressed={shuffled} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${shuffled ? 'border-[var(--brand)] bg-blue-50 text-[var(--brand)] dark:bg-blue-950/40' : 'border-[var(--card-border)]'}`}><span className="material-icons-round mr-1 align-middle text-base">shuffle</span>{shuffled ? "乱序已开启" : "开启乱序"}</button><span className="text-sm font-semibold">{cues.length ? `${Math.min(index + 1, cues.length)} / ${cues.length}` : '0 / 0'}</span></div>
         <div className="mx-auto mt-3 h-1.5 max-w-5xl overflow-hidden rounded-full bg-black/10 dark:bg-white/10"><div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${cues.length ? (assessedCount / cues.length) * 100 : 0}%` }} /></div>
@@ -432,7 +446,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
         <textarea ref={memoRef} value={currentMemo?.content ?? ''} onChange={(event) => onMemoChange(current.id, event.target.value.slice(0, 10_000))} placeholder="记录解题思路、易错点、待确认问题或自己的解释……" className="block min-h-32 w-full shrink-0 resize-y sm:min-h-52 bg-transparent px-5 py-4 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)]/60" />
         <div className="flex items-center justify-between border-t border-amber-200/80 px-4 py-2.5 text-xs text-[var(--muted-foreground)] dark:border-amber-800/70"><span>{currentMemo?.content.length ?? 0} 字符{currentMemo ? ` · 已保存 ${formatReviewTimestamp(currentMemo.updatedAt)}` : ' · 输入后自动保存'}</span><button type="button" disabled={!currentMemo} onClick={() => onMemoChange(current.id, '')} className="rounded-full px-3 py-1.5 font-medium hover:bg-amber-200/60 disabled:opacity-40 dark:hover:bg-amber-900/50">删除本条备忘录</button></div>
       </aside>}
-    </div>
+    </div>, document.body
   );
 }
 

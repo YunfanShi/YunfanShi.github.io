@@ -49,6 +49,7 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      { source: '/control', destination: '/schedule', permanent: true },
       {
         source: '/ielts-reading',
         destination: '/reading',

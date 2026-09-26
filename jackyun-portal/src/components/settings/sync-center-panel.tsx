@@ -2,20 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
+import { fetchSyncWithTimeout } from '@/lib/request-timeout';
+import { getLatestSyncStatus } from '@/lib/sync/status';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { getOrCreateDeviceId } from '@/lib/sync/outbox';
 import type { SyncDevice, SyncStatusDetail } from '@/types/sync';
 
 export default function SyncCenterPanel() {
+  const { signedIn } = useAuthMode();
   const [devices, setDevices] = useState<SyncDevice[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState('');
-  const [detail, setDetail] = useState<SyncStatusDetail>({ state: 'syncing', pending: 0, conflicts: 0, lastSyncedAt: null });
+  const [detail, setDetail] = useState<SyncStatusDetail>({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setError('');
     try {
       const deviceId = await getOrCreateDeviceId();
-      const deviceResponse = await fetch('/api/sync/devices');
+      const deviceResponse = await fetchSyncWithTimeout('/api/sync/devices');
       if (!deviceResponse.ok) {
         const failed = deviceResponse;
         const payload = await failed.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
@@ -29,7 +33,11 @@ export default function SyncCenterPanel() {
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => void load(), 0);
-    const listener = (event: Event) => setDetail((event as CustomEvent<SyncStatusDetail>).detail);
+    const listener = (event: Event) => {
+      const next = (event as CustomEvent<SyncStatusDetail>).detail;
+      setDetail(next);
+    };
+    queueMicrotask(() => { const current = getLatestSyncStatus(); if (current) setDetail(current); });
     window.addEventListener(LOCAL_SYNC_STATUS_EVENT, listener);
     return () => { window.clearTimeout(initialLoad); window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, listener); };
   }, [load]);
@@ -39,17 +47,19 @@ export default function SyncCenterPanel() {
   async function rename(device: SyncDevice) {
     const name = window.prompt('设备名称', device.name)?.trim();
     if (!name) return;
-    const response = await fetch('/api/sync/devices', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id, name }) });
+    const response = await fetchSyncWithTimeout('/api/sync/devices', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id, name }) });
     if (response.ok) await load(); else setError('设备改名失败');
   }
 
   async function revoke(device: SyncDevice) {
     if (device.id === currentDeviceId || !window.confirm(`撤销设备“${device.name}”？`)) return;
-    const response = await fetch('/api/sync/devices', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id }) });
+    const response = await fetchSyncWithTimeout('/api/sync/devices', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id }) });
     if (response.ok) await load(); else setError('撤销设备失败');
   }
 
-  const status = detail.state === 'synced'
+  const status = detail.state === 'guest'
+    ? '当前为本机模式，登录后才能同步'
+    : detail.state === 'synced'
     ? '数据已自动同步'
     : detail.state === 'server_unavailable'
       ? '服务器或数据库暂时无法连接；修改仍保存在本机'
@@ -62,8 +72,9 @@ export default function SyncCenterPanel() {
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-4">
       <div><p className="font-semibold">{status}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">待上传 {detail.pending} 项 · 冲突自动处理{detail.lastSyncedAt ? ` · 最近成功 ${new Date(detail.lastSyncedAt).toLocaleString()}` : ''}</p></div>
-      <button type="button" onClick={() => { window.dispatchEvent(new Event('jackyun-sync-retry')); void load(); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white">立即同步</button>
+      <button type="button" disabled={!signedIn || detail.state === 'syncing'} onClick={() => { setDetail((current) => ({ ...current, state: 'syncing', error: undefined, progress: '已收到立即同步请求…' })); window.dispatchEvent(new Event('jackyun-sync-retry')); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{detail.state === 'syncing' ? '同步中…' : '立即同步'}</button>
     </div>
+    {detail.progress && <p role="status" aria-live="polite" className="text-sm text-[var(--muted-foreground)]">{detail.progress}</p>}
     {error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{error}</p> : null}
     {detail.error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{detail.error}</p> : null}
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">

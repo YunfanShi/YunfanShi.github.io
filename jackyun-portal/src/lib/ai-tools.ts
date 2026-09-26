@@ -68,7 +68,7 @@ export const AI_TOOLS: AiTool[] = [
     handler: async (params) => {
       const pageMap: Record<string, string> = {
         dashboard: '/dashboard',
-        control: '/control',
+        control: '/schedule',
         quiz: '/quiz',
         study: '/study',
         studyplan: '/study',

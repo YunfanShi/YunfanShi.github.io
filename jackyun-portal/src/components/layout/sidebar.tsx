@@ -122,7 +122,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
   }
   function renderItem(item: NavigationItem) {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-    return <Link key={item.id} href={item.href} onClick={() => setMobileOpen(false)} className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${active ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6] dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]'}`}>
+    return <Link key={item.id} href={item.href} prefetch={false} onClick={() => setMobileOpen(false)} className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${active ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6] dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]'}`}>
       <span className={`material-icons-round shrink-0 text-xl ${active ? 'text-[#1a73e8] dark:text-[#8ab4f8]' : 'text-[var(--muted-foreground)]'}`}>{item.icon}</span>
       {(!collapsed || mobileViewport) && <span className="min-w-0 flex-1 truncate">{t(item.labelKey, lang)}</span>}
       {(!collapsed || mobileViewport) && prefs.pinnedItems.includes(item.id) && <span className="material-icons-round text-sm text-[#1a73e8]">push_pin</span>}

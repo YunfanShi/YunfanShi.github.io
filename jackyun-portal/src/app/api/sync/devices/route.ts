@@ -1,3 +1,4 @@
+import { SYNC_DATABASE_TIMEOUT_MS } from '@/lib/request-timeout';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { apiError, requestIdFrom } from '@/lib/api-response';
@@ -6,7 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 export async function GET(request: NextRequest) {
   const requestId = requestIdFrom(request);
-  const supabase = await createClient();
+  const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
   const { data, error } = await supabase.from('web_sync_devices')
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const requestId = requestIdFrom(request);
-  const supabase = await createClient();
+  const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
   const body = await request.json().catch(() => null) as { id?: string; name?: string } | null;
@@ -30,7 +31,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const requestId = requestIdFrom(request);
-  const supabase = await createClient();
+  const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
   const body = await request.json().catch(() => null) as { id?: string } | null;
@@ -40,3 +41,5 @@ export async function DELETE(request: NextRequest) {
   if (error) return apiError(requestId, 'Unable to revoke device', 500, 'DEVICE_REVOKE_FAILED');
   return NextResponse.json({ ok: true, requestId });
 }
+
+export const maxDuration = 60;

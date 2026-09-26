@@ -248,3 +248,8 @@
     min-height: 44px;
   }
 }
+
+.studyOverlay { height: 100dvh; isolation: isolate; }
+@media (max-width: 767px) {
+  .studyOverlay input, .studyOverlay textarea, .studyOverlay select { font-size: 16px; }
+}

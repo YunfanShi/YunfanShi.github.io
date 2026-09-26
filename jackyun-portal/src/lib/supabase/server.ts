@@ -14,14 +14,14 @@ import { cache } from 'react';
  * Middleware must also sync request cookies (see middleware.ts) so that this
  * client never sees a stale session mid-request.
  */
-export const createClient = cache(async (response?: NextResponse) => {
+export const createClient = cache(async (response?: NextResponse, timeoutMs = 8_000) => {
   const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: fetchWithTimeout },
+      global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchWithTimeout(input, init, timeoutMs) },
       cookies: {
         getAll() {
           return cookieStore.getAll();

@@ -1,7 +1,7 @@
 import type { SyncOperation } from '@/types/sync';
 
-const MAX_BATCH_OPERATIONS = 25;
-const MAX_BATCH_BYTES = 900_000;
+const MAX_BATCH_OPERATIONS = 10;
+export const MAX_SYNC_BATCH_BYTES = 250_000;
 
 type DeviceDescription = { name: string; platform: string };
 
@@ -44,7 +44,7 @@ export function buildSyncRequest(
   for (const operation of operations.slice(0, MAX_BATCH_OPERATIONS)) {
     const candidate = [...batch, operation];
     const candidateBody = JSON.stringify({ deviceId, device, operations: candidate });
-    if (new TextEncoder().encode(candidateBody).byteLength > MAX_BATCH_BYTES) {
+    if (new TextEncoder().encode(candidateBody).byteLength > MAX_SYNC_BATCH_BYTES) {
       if (!batch.length) {
         batch.push(operation);
         body = candidateBody;

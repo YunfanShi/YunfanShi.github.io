@@ -1,11 +1,13 @@
 'use client';
 
-import { fetchWithTimeout } from '@/lib/request-timeout';
+import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { syncRetryDelay, shouldPauseSync } from '@/lib/sync/retry-policy';
 import { useEffect } from 'react';
-import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
+import { createSyncRunGate } from '@/lib/sync/run-gate';
+import { announceSyncStatus as announce, getLatestSyncStatus } from '@/lib/sync/status';
+import { CLOUD_STATE_APPLIED_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
 import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
-import { buildSyncRequest } from '@/lib/sync/batch';
+import { buildSyncRequest, MAX_SYNC_BATCH_BYTES } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
 import { joinSyncParts, splitSyncBody } from '@/lib/sync/transfer';
 import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
@@ -14,11 +16,7 @@ import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
 import { backupIsDue, recordBackupChange, type PendingBackup } from '@/lib/backup/cadence';
 import { createDueBackupVersions } from '@/actions/backup-center';
 import { isServerUnavailable, SyncHttpError } from '@/lib/sync/service-error';
-import type { SyncConflict, SyncRecord, SyncStatus, SyncStatusDetail } from '@/types/sync';
-
-function announce(detail: SyncStatusDetail) {
-  window.dispatchEvent(new CustomEvent(LOCAL_SYNC_STATUS_EVENT, { detail }));
-}
+import type { SyncConflict, SyncRecord, SyncStatus } from '@/types/sync';
 
 function localSnapshot(includeLarge = false): Record<string, string> {
   const snapshot: Record<string, string> = {};
@@ -45,9 +43,9 @@ function deviceDescription() {
   };
 }
 
-async function publishStatus(state: SyncStatus, error?: string) {
+async function publishStatus(state: SyncStatus, error?: string, progress?: string) {
   const [pending, lastSyncedAt] = await Promise.all([getOutbox(), getSetting<string>('lastSyncedAt')]);
-  announce({ state, pending: pending.length, conflicts: 0, lastSyncedAt, error });
+  announce({ state, pending: pending.length, conflicts: 0, lastSyncedAt, error, progress });
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
@@ -107,7 +105,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
 
   useEffect(() => {
     let cancelled = false;
-    let running = false;
+    const runGate = createSyncRunGate();
     let bound = false;
     let signingOut = false;
     let failures = 0;
@@ -123,6 +121,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       return;
     }
     localStorage.removeItem('jackyun_guest_mode');
+    void publishStatus('syncing', undefined, '正在初始化同步…');
+    const reportProgress = (progress: string) => {
+      if (cancelled) return;
+      const current = getLatestSyncStatus();
+      announce({ state: 'syncing', pending: current?.pending ?? 0, conflicts: 0, lastSyncedAt: current?.lastSyncedAt ?? null, progress });
+    };
 
     async function queueChanges() {
       const snapshot = localSnapshot(true);
@@ -167,7 +171,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const parts: string[] = [];
       let count = 1;
       for (let part = 0; part < count; part += 1) {
-        const response = await fetchWithTimeout(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
+        reportProgress(`下载分片 ${part + 1} / ${count}`);
+        const response = await fetchSyncWithTimeout(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
         if (!response.ok) throw new SyncHttpError(`同步分片下载失败 (${response.status})`, response.status);
         const chunk = await response.json() as { count: number; data: string };
         count = chunk.count;
@@ -187,24 +192,27 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const oversized = uploadable.find((operation) => !syncValueFits(operation.value));
       const request = buildSyncRequest(deviceId, deviceDescription(), oversized ? [oversized] : uploadable);
       const large = Boolean(oversized)
-        || new TextEncoder().encode(request.body).length > 900_000;
+        || new TextEncoder().encode(request.body).length > MAX_SYNC_BATCH_BYTES;
       let response: Response;
       if (large) {
         const operation = request.operations[0];
         const parts = splitSyncBody(request.body);
         for (let index = 0; index < parts.length; index += 1) {
-          const partResponse = await fetchWithTimeout('/api/sync/v2/large', {
+          reportProgress(`上传分片 ${index + 1} / ${parts.length}`);
+          const partResponse = await fetchSyncWithTimeout('/api/sync/v2/large', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ uploadId: operation.id, index, count: parts.length, data: parts[index] }),
           });
           if (!partResponse.ok) throw new SyncHttpError(`同步分片上传失败 (${partResponse.status})`, partResponse.status);
         }
-        response = await fetchWithTimeout('/api/sync/v2/large', {
+        reportProgress('分片已上传，正在保存到云端…');
+        response = await fetchSyncWithTimeout('/api/sync/v2/large', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uploadId: operation.id, complete: true }),
         });
       } else {
-        response = await fetchWithTimeout('/api/sync/v2', {
+        reportProgress(`上传 ${request.operations.length} 项修改…`);
+        response = await fetchSyncWithTimeout('/api/sync/v2', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: request.body,
         });
@@ -222,6 +230,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         remote: SyncRecord[];
         conflicts: SyncConflict[];
       };
+      const acknowledged = new Set([
+        ...payload.applied.map((item) => item.operationId),
+        ...(payload.remote ?? []).map((item) => request.operations.find((operation) => operation.key === item.key)?.id),
+        ...payload.conflicts.map((item) => item.operationId),
+      ]);
+      if (!request.operations.some((operation) => acknowledged.has(operation.id))) throw new Error('云端没有确认本次修改，待上传数据已保留。');
       const byId = new Map(request.operations.map((operation) => [operation.id, operation]));
       const byKey = new Map(request.operations.map((operation) => [operation.key, operation]));
       const appliedRemoteKeys: string[] = [];
@@ -269,7 +283,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     async function pull() {
       const [cursor, pending] = await Promise.all([getSetting<string>('cursor'), getOutbox()]);
       const pendingKeys = new Set(pending.map((item) => item.key));
-      const response = await fetchWithTimeout(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
+      const response = await fetchSyncWithTimeout(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
       if (!response.ok) {
         const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
         const detail = failure?.error?.code
@@ -283,7 +297,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       if (!pendingKeys.has(SCHEDULE_STORAGE_KEY)
           && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
           && !records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
-        const scheduleResponse = await fetchWithTimeout(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
+        const scheduleResponse = await fetchSyncWithTimeout(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
         if (!scheduleResponse.ok) throw new SyncHttpError(`Schedule 云端读取失败 (${scheduleResponse.status})`, scheduleResponse.status);
         const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
         records.push(...schedulePayload.records);
@@ -311,16 +325,18 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       await queueChanges();
     }
 
-    async function sync(onlyPending = false) {
-      if (running || cancelled || signingOut || !bound) return;
-      if (authPaused || Date.now() < retryAt) { await queueChanges(); return; }
-      if (!navigator.onLine) {
-        await queueChanges();
-        if (!cancelled) await publishStatus('offline_pending');
-        return;
-      }
-      running = true;
+    async function sync(onlyPending = false, manual = false) {
+      if (cancelled || signingOut || !bound) return;
+      if (!runGate.begin(manual)) return;
+      if (manual) { authPaused = false; retryAt = 0; }
       try {
+        if (authPaused || Date.now() < retryAt) { await queueChanges(); return; }
+        if (!navigator.onLine) {
+          await queueChanges();
+          if (!cancelled) await publishStatus('offline_pending');
+          return;
+        }
+        if (!onlyPending) await publishStatus('syncing', undefined, '正在读取云端并检查本机修改…');
         const deviceId = await getOrCreateDeviceId();
         await clearConflicts();
         await queueChanges();
@@ -332,6 +348,16 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         }
         await pull();
         await flush(deviceId);
+        await queueChanges();
+        for (let batch = 1; batch < 100 && !cancelled && (await getOutbox()).length; batch += 1) {
+          await flush(deviceId);
+          await queueChanges();
+        }
+        if (cancelled) return;
+        if ((await getOutbox()).length) {
+          await publishStatus('offline_pending', undefined, '本轮已保存的修改保留在云端，剩余修改将继续同步。');
+          return;
+        }
         const now = new Date().toISOString();
         await setSetting('lastSyncedAt', now);
         if (Date.now() - lastBackupCheck >= 5 * 60_000) {
@@ -347,7 +373,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         retryAt = Date.now() + syncRetryDelay(failures);
         authPaused = shouldPauseSync(error);
         if (!cancelled) await publishStatus(!navigator.onLine ? 'offline_pending' : isServerUnavailable(error, navigator.onLine) ? 'server_unavailable' : 'error', error instanceof Error ? error.message : 'Sync failed');
-      } finally { running = false; }
+      } finally {
+        if (runGate.finish() && !cancelled && !signingOut) void sync(false, true);
+      }
     }
 
     lastSnapshot = localSnapshot(true);
@@ -363,7 +391,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     };
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(true); }, 30_000);
     const onSync = () => void sync();
-    const onRetry = () => { authPaused = false; retryAt = 0; void sync(); };
+    const onRetry = () => { reportProgress('已收到立即同步请求，正在同步…'); void sync(false, true); };
     const onSignOut = () => { signingOut = true; };
     const onSignOutCancel = () => { signingOut = false; };
     window.addEventListener('jackyun-signout-start', onSignOut);

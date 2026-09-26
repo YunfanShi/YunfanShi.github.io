@@ -48,6 +48,8 @@ test('mobile study keeps memo and navigation available and long definitions in d
   const control = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
   assert.match(control, /aria-expanded={memoOpen}[^>]*>CUE 备忘录/);
   assert.match(control, /grid grid-cols-3[^\n]*aria-label="日程视图"/);
-  assert.match(control, /sm:hidden[^\n]*显示答案与判分依据/);
+  assert.match(control, /aria-label=\{revealed \? '翻到题目面' : '翻到定义面'\}/);
+  assert.match(control, /return createPortal/);
+  assert.match(control, /shell.inert = true/);
   assert.match(control, /max-h-\[70dvh\]/);
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { fetchWithTimeout } from '@/lib/request-timeout';
+import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { useEffect, useState } from 'react';
 import { bindOfflineWorkspaceUser, listOfflineMutations, removeOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
 
@@ -19,14 +19,14 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
       try {
         const queued = await listOfflineMutations(userId);
         for (const operation of queued) {
-          const response = await fetchWithTimeout('/api/offline/workspace', {
+          const response = await fetchSyncWithTimeout('/api/offline/workspace', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ kind: operation.kind, payload: operation.payload }),
           });
           if (!response.ok) throw new Error(`Queued operation failed (${response.status})`);
           await removeOfflineMutation(operation.id);
         }
-        const response = await fetchWithTimeout('/api/offline/workspace', { cache: 'no-store' });
+        const response = await fetchSyncWithTimeout('/api/offline/workspace', { cache: 'no-store' });
         if (!response.ok) throw new Error(`Offline snapshot failed (${response.status})`);
         const snapshot = await response.json() as { tasks: unknown; review: unknown; reading: unknown };
         await Promise.all([
