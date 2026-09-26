@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { runInNewContext } from 'node:vm';
+import test from 'node:test';
+import ts from 'typescript';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import katex from 'katex';
+import { splitMathText, normalizeLatexRelations } from '../src/lib/latex-text.ts';
+
+const require = createRequire(import.meta.url);
+function compileComponent(path: string, dependencies: Record<string, unknown>) {
+  const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+  const { outputText } = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } });
+  const compiledModule = { exports: {} as { default: React.ComponentType<Record<string, unknown>> } };
+  runInNewContext(outputText, { module: compiledModule, exports: compiledModule.exports, require: (name: string) => name in dependencies ? dependencies[name] : require(name) });
+  return compiledModule.exports.default;
+}
+const LatexRenderer = compileComponent('../src/components/modules/latex-renderer.tsx', {
+  '@/lib/latex-text': { splitMathText, normalizeLatexRelations },
+  'katex/dist/katex.min.css': {},
+});
+const MobileCard = compileComponent('../src/components/modules/schedule/mobile-cue-card.tsx', {
+  '../latex-renderer': { __esModule: true, default: LatexRenderer },
+  './schedule-control.module.css': { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) },
+});
+const cue = { id: 'test', prompt: 'F_R = kv', subtitle: '2u_y/g', answer: 'Answer', markingPoints: [], type: 'definition' };
+function card(overrides = {}, revealed = false, selectedChoice?: number) {
+  return renderToStaticMarkup(React.createElement(MobileCard, { cue: { ...cue, ...overrides }, revealed, selectedChoice, onReveal() {}, onChoice() {}, evidence: React.createElement('p', null, 'Evidence test') }));
+}
+
+test('plain formula examples render with KaTeX; CSMA/CD remains ordinary text', () => {
+  for (const input of ['2u_y/g', 'F_R = kv', 'a^0 = 1', 'a^(-m) = 1/a^m', 'a^(m/n)', 'x = (-b ± √(b² - 4ac))/(2a).']) {
+    const parts = splitMathText(input);
+    assert.ok(parts.some((part) => part.type === 'latex-inline'), input);
+    for (const part of parts.filter((part) => part.type !== 'text')) assert.doesNotThrow(() => katex.renderToString(part.value, { throwOnError: true }), input);
+    assert.match(renderToStaticMarkup(React.createElement(LatexRenderer, { content: input })), /class="katex"/);
+  }
+  assert.deepEqual(splitMathText('CSMA/CD and TCP/IP use protocol terms.'), [{ type: 'text', value: 'CSMA/CD and TCP/IP use protocol terms.' }]);
+  assert.deepEqual(splitMathText('a^(m/n) can be written using an nth root.'), [{ type: 'latex-inline', value: 'a^{m/n}' }, { type: 'text', value: ' can be written using an nth root.' }]);
+  assert.match(splitMathText('x = (-b ± √(b² - 4ac))/(2a).')[0].value, /\\sqrt\{b\^\{2\} - 4ac\}/);
+});
+
+test('explicit math delimiters and prose retain their original boundaries', () => {
+  assert.deepEqual(splitMathText('Recall \\(F_R=kv\\) and $$a^0=1$$.'), [
+    { type: 'text', value: 'Recall ' }, { type: 'latex-inline', value: 'F_R=kv' },
+    { type: 'text', value: ' and ' }, { type: 'latex-block', value: 'a^0=1' }, { type: 'text', value: '.' },
+  ]);
+});
+
+test('every recall type has a touch reveal and keeps evidence off the question page', () => {
+  for (const type of ['definition', 'process', 'formula', 'calculation', 'explanation', 'proof', 'comparison', 'standard']) {
+    const front = card({ type });
+    assert.match(front, /翻到答案页/);
+    assert.match(front, /class="katex"/);
+    assert.doesNotMatch(front, /Evidence test/);
+    const back = card({ type }, true);
+    assert.match(back, /Evidence test/);
+    assert.match(back, /翻回题目页/);
+  }
+});
+
+test('choice cards require selection and show correct and selected answers on the evidence page', () => {
+  const choice = { type: 'multiple-choice', choices: ['CSMA/CD', 'F_R = kv'], correctChoice: 1 };
+  assert.match(card(choice), /disabled=""/);
+  assert.doesNotMatch(card(choice), /Evidence test/);
+  const back = card(choice, true, 0);
+  assert.match(back, /选择错误/);
+  assert.match(back, /data-correct="true"/);
+  assert.match(back, /data-selected="true"/);
+  assert.match(back, /Evidence test/);
+});
+
+test('the viewport dialog overrides generic height caps and traps background widgets below it', () => {
+  const css = readFileSync(new URL('../src/components/modules/schedule/schedule-control.module.css', import.meta.url), 'utf8');
+  const layout = readFileSync(new URL('../src/app/(portal)/layout.tsx', import.meta.url), 'utf8');
+  assert.match(css, /\.studyOverlay\[role="dialog"\][^{]*\{[^}]*max-height: none/);
+  assert.match(css, /\.studyMain[^}]*overflow-y: auto/);
+  assert.match(css, /\.touchControls[^}]*flex: 0 0 auto/);
+  assert.match(layout, /data-portal-shell className="isolate /);
+});
+
+test('phone filters retain all desktop options and hide desktop keyboard instructions', () => {
+  const source = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
+  assert.match(source, /aria-label="选择学习科目"/);
+  assert.match(source, /aria-label="选择学习单元"/);
+  assert.match(source, /aria-label="选择学习范围"[^\n]*filterOptions\.map/);
+  assert.match(source, /hidden md:block[^\n]*快捷键/);
+  assert.match(source, /aria-label="触屏题目目录"/);
+});

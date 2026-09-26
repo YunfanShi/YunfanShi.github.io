@@ -287,3 +287,17 @@ main, nav, [data-scroll-region], .quiz-scroll {
     bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* Scroll wide mathematics locally instead of widening the phone page. */
+.math-text { overflow-wrap: anywhere; min-width: 0; }
+.math-expression { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; overflow-wrap: normal; }
+.math-expression .katex-display { margin: .5em 0; }
+.math-expression .katex { font-size: 1.05em; }
+
+@media (max-width: 767px) {
+  [data-portal-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  [data-portal-shell] textarea, [data-portal-shell] select,
+  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  [role="dialog"] textarea, [role="dialog"] select { font-size: 16px; max-width: 100%; min-width: 0; }
+  [data-portal-shell] button, [data-portal-shell] a[role="button"] { min-height: 44px; }
+}

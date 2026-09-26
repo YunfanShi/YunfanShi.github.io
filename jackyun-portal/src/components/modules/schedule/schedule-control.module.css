@@ -249,7 +249,47 @@
   }
 }
 
-.studyOverlay { height: 100dvh; isolation: isolate; }
+.studyOverlay[role="dialog"] { height: 100%; max-height: none; isolation: isolate; }
 @media (max-width: 767px) {
   .studyOverlay input, .studyOverlay textarea, .studyOverlay select { font-size: 16px; }
+}
+
+/* Phone study owns the viewport: one card and a thumb-accessible control bar. */
+.studyTools, .touchControls { display: none; }
+.touchCard { min-width: 0; }
+@media (max-width: 767px) {
+  .studyOverlay { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+  .studyHeader { flex: 0 0 auto; }
+  .studyMain { flex: 1 1 0; min-height: 0; width: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
+  .studyTools { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 8px; padding: 12px; max-height: 45dvh; overflow-y: auto; border-bottom: 1px solid var(--card-border); }
+  .studyTools > button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: 12px; }
+  .studyToolDetails { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; font-size: 12px; }
+  .studyTools nav { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .studyTools nav button { min-width: 44px; min-height: 44px; border: 1px solid var(--card-border); border-radius: 10px; }
+  .studyTools nav [aria-current] { border-color: var(--brand); background: var(--card); }
+  .touchPrompt { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 24px; width: 100%; min-height: min(52dvh, 440px); padding: 24px 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: 22px; text-align: center; color: var(--foreground); }
+  .touchTitle { min-width: 0; overflow-wrap: anywhere; font-size: clamp(20px, 5.5vw, 28px); font-weight: 650; line-height: 1.5; }
+  .touchPageLabel { font-size: 12px; color: var(--muted-foreground); font-weight: 600; }
+  .touchSubtitle { font-size: 15px; line-height: 1.7; overflow-wrap: anywhere; }
+  .touchHint { font-size: 13px; color: var(--brand); }
+  .touchAnswer { padding: 20px 16px; border: 1px solid var(--card-border); border-radius: 22px; background: var(--card); overflow-wrap: anywhere; }
+  .touchAnswerTitle { margin-top: 12px; font-size: 17px; line-height: 1.6; font-weight: 600; }
+  .touchEvidence { margin-top: 20px; }
+  .touchBack { margin-top: 20px; min-height: 44px; padding: 8px 12px; color: var(--brand); }
+  .touchChoices { display: grid; gap: 10px; margin-top: 12px; }
+  .touchChoices > button, .touchChoices > div { display: flex; align-items: baseline; gap: 12px; min-height: 48px; padding: 14px; border: 1px solid var(--card-border); border-radius: 14px; text-align: left; background: var(--card); }
+  .touchChoices [data-correct="true"] { border-color: #16a34a; }
+  .touchChoices [data-selected="true"][data-correct="false"] { border-color: #e11d48; }
+  .touchControls { display: grid; flex: 0 0 auto; gap: 8px; padding: 10px 12px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--card-border); background: var(--background); }
+  .touchRatings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .touchRatings button { min-height: 48px; border: 1px solid var(--card-border); border-radius: 12px; font-size: 14px; }
+  .touchRatings [data-rating="stable"] { color: #16a34a; }
+  .touchRatings [data-rating="partial"] { color: #d97706; }
+  .touchRatings [data-rating="unclear"] { color: #e11d48; }
+  .touchRatings [aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: -3px; }
+  .touchNavigation { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 8px; }
+  .touchNavigation button { min-height: 48px; border: 1px solid var(--card-border); border-radius: 12px; }
+  .touchNavigation button:nth-child(2), .touchComplete { background: var(--brand); color: var(--background); font-weight: 600; }
+  .touchNavigation button:disabled { opacity: .4; }
+  .touchComplete { min-height: 44px; border-radius: 12px; }
 }

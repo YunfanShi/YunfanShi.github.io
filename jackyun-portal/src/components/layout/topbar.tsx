@@ -120,7 +120,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
           </Link>
         )}
         <SyncStatusIndicator signedIn={Boolean(user)} />
-        <button
+        <div className="hidden md:flex items-center gap-2">        <button
           type="button"
           onClick={toggleTheme}
           className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:px-3"
@@ -130,11 +130,21 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
           <span className="material-icons-round text-lg">{THEME_META[theme].icon}</span>
         </button>
         {showFullscreen && <FullscreenButton />}
+        </div>
         {user && <NotificationInbox />}
+        <details className="relative md:hidden">
+          <summary aria-label="更多页面操作" className="grid h-11 w-11 list-none place-items-center rounded-xl cursor-pointer"><span className="material-icons-round">more_horiz</span></summary>
+          <div className="absolute right-0 top-12 z-50 flex min-w-48 flex-col gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-xl">
+            <button type="button" onClick={toggleTheme} aria-label={THEME_META[theme].label} className="min-h-11 text-left px-3">{THEME_META[theme].label}</button>
+            {showFullscreen && <FullscreenButton />}
+            {betaActive && <Link href="/beta" className="min-h-11 px-3 py-3">BETA 测试中心</Link>}
+            {user && <LogoutButton />}
+          </div>
+        </details>
         {user ? (
           <>
             <UserAvatar user={user} />
-            <LogoutButton />
+            <div className="hidden md:block"><LogoutButton /></div>
           </>
         ) : (
           <a

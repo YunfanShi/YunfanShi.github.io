@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import katex from 'katex';
-import { normalizeLatexRelations } from '@/lib/latex-text';
+import { normalizeLatexRelations, splitMathText } from '@/lib/latex-text';
 import 'katex/dist/katex.min.css';
 
 interface LatexRendererProps {
@@ -18,47 +18,10 @@ interface LatexRendererProps {
  * Non-LaTeX text is rendered as-is with newline support.
  */
 const LatexRenderer = memo(function LatexRenderer({ content, className }: LatexRendererProps) {
-  // Regex to split on LaTeX inline and block expressions
-  // Matches \[ ... \], \( ... \), $$ ... $$, $ ... $
-  const regex = /(\\\[[\s\S]*?\\\])|(\\\([\s\S]*?\\\))|(\$\$[\s\S]*?\$\$)|(\$[^\$\n]+?\$)/g;
-
-  const parts: { type: 'text' | 'latex-inline' | 'latex-block'; value: string }[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  // Reset regex state
-  regex.lastIndex = 0;
-
-  while ((match = regex.exec(content)) !== null) {
-    // Text before this match
-    if (match.index > lastIndex) {
-      parts.push({ type: 'text', value: content.slice(lastIndex, match.index) });
-    }
-
-    if (match[1]) {
-      // Block LaTeX: \[ ... \]
-      parts.push({ type: 'latex-block', value: match[1].slice(2, -2).trim() });
-    } else if (match[2]) {
-      // Inline LaTeX: \( ... \)
-      parts.push({ type: 'latex-inline', value: match[2].slice(2, -2).trim() });
-    } else if (match[3]) {
-      // Block LaTeX: $$ ... $$
-      parts.push({ type: 'latex-block', value: match[3].slice(2, -2).trim() });
-    } else if (match[4]) {
-      // Inline LaTeX: $ ... $
-      parts.push({ type: 'latex-inline', value: match[4].slice(1, -1).trim() });
-    }
-
-    lastIndex = regex.lastIndex;
-  }
-
-  // Remaining text
-  if (lastIndex < content.length) {
-    parts.push({ type: 'text', value: content.slice(lastIndex) });
-  }
+  const parts = splitMathText(content);
 
   return (
-    <span className={className}>
+    <span className={`math-text ${className ?? ''}`}>
       {parts.map((part, i) => {
         if (part.type === 'text') {
           // Render text with line breaks
@@ -79,11 +42,12 @@ const LatexRenderer = memo(function LatexRenderer({ content, className }: LatexR
           const html = katex.renderToString(normalizeLatexRelations(part.value), {
             displayMode: part.type === 'latex-block',
             throwOnError: false,
-            output: 'html',
+            output: 'htmlAndMathml',
           });
           return (
             <span
               key={i}
+              className="math-expression"
               dangerouslySetInnerHTML={{ __html: html }}
             />
           );

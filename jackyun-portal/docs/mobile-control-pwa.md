@@ -25,3 +25,13 @@ node --test tests/pwa.test.mts tests/mobile-control-pwa.test.mjs 验证安装配
 ## 2026-09-26 follow-up
 
 The canonical route is `/schedule`; `/control` permanently redirects and preserves existing links. Cue study is rendered into document.body with an opaque viewport overlay; the portal shell becomes inert and background scrolling is locked until exit. Definition cards retain the same flip control on phone and desktop, with a smaller minimum height on phones.
+
+## Touch-first study
+
+Below 768px Cue study uses question and evidence pages for all recall types, with tap-to-reveal, persistent bottom navigation, and three inline ratings. Choice cues require selecting an option before evidence; correct and chosen answers remain visible. Long evidence scrolls inside the content region while controls stay visible. Shuffle, jump-to-Cue, memo, fullscreen, content revision and early completion remain in the learning tools menu. Desktop study retains its layout and keyboard controls. Subject/unit/status filters use native selects on phones with identical predicates and options.
+
+The portal shell now isolates its stacking context so floating tools cannot overlay Cue study. The full-screen dialog explicitly overrides the generic mobile dialog height cap that left a 16px gap. The shared phone topbar moves theme/fullscreen/logout into More and retains notifications/account/sync. Portal form fields use 16px type to avoid iOS focus zoom; buttons have a 44px minimum height.
+
+Math rendering shares one parser for headings, descriptions, answers and list titles. Explicit LaTeX remains authoritative; plain expressions with equality, subscripts, powers, Unicode superscripts and square roots are also rendered with KaTeX. Slash-only terminology such as CSMA/CD and TCP/IP is left unchanged. Ambiguous plain text is not inferred as math; explicit LaTeX is available for complex expressions. Wide expressions scroll locally, and MathML exposes equations to assistive technology.
+
+Verified using a temporary isolated sample (removed before commit): 390x844 and 320x568 phone viewports, Definition/process/choice reveal, long evidence scrolling, correct-choice marking, rating, tools, memo and exit; 1280x900 desktop controls retained. Real physical iPhone Safari/Chrome verification remains outstanding.
