@@ -1153,3 +1153,20 @@ test('user can correct AI timetable classification and replace an incorrect prim
   assert.deepEqual(corrected.courses.map((course) => course.id), ['math']);
   assert.deepEqual(corrected.dateOverrides, []);
 });
+
+
+test('phone schedule keeps task actions separate and replaces the wide week grid with a day agenda', () => {
+  const component = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/components/modules/schedule/schedule-control.module.css', import.meta.url), 'utf8');
+  assert.match(component, /styles\.root/);
+  assert.match(component, /styles\.taskBody/);
+  assert.match(component, /styles\.taskActions/);
+  assert.match(component, /styles\.subtaskBody/);
+  assert.match(component, /styles\.weekAgenda/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /\.taskActions\s*\{[^}]*grid-column: 2;[^}]*flex-direction: row;/s);
+  assert.match(css, /\.weekAgenda\s*\{[^}]*min-width: 0;[^}]*flex-direction: column;/s);
+  assert.match(css, /\.root textarea,[^}]*font-size: 16px;/s);
+  assert.match(css, /\.root \[role='dialog'\] > form\s*\{[^}]*height: 100dvh;/s);
+  assert.match(component, /aria-controls="schedule-mobile-tools"/);
+});

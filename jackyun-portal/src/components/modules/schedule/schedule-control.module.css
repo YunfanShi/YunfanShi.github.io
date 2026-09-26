@@ -1,0 +1,250 @@
+.mobileToolsButton,
+.mobileTools {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .root {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  .header > div {
+    padding: 16px;
+  }
+
+  .header h1 {
+    margin-top: 0;
+    font-size: 20px;
+  }
+
+  .headerActions {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .headerActions > button {
+    min-height: 44px;
+    font-size: 14px;
+    padding-inline: 16px;
+  }
+
+  .headerActions .managementAction {
+    display: none;
+  }
+
+  .headerActions .mobileToolsButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted-foreground);
+  }
+
+  .mobileTools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .mobileTools button {
+    min-height: 44px;
+    padding: 8px;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .stats > div {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    padding: 0;
+  }
+
+  .stats strong {
+    margin-top: 0;
+    font-size: 16px;
+  }
+
+  .stats > div:last-child {
+    display: none;
+  }
+
+  .viewNav {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 8px;
+    overscroll-behavior-x: contain;
+  }
+
+  .viewNav > button {
+    flex: 0 0 auto;
+    padding: 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .viewNav > button > span {
+    display: none;
+  }
+
+  .taskBody {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .taskBody > button {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .subtaskBody {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .subtaskBody > button {
+    min-height: 44px;
+  }
+
+  .subtaskBody > button:first-child {
+    width: 44px;
+    height: 44px;
+  }
+
+  .subtaskBody > button:last-child:not(:first-child) {
+    grid-column: 2;
+    justify-self: start;
+    font-size: 14px;
+    padding-inline: 12px;
+  }
+
+  .taskActions {
+    grid-column: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--card-border);
+  }
+
+  .taskActions > button {
+    min-height: 44px;
+    padding-inline: 12px;
+    font-size: 14px;
+  }
+
+  .weekAgenda {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .weekAgenda > button {
+    min-height: 0;
+    width: 100%;
+    padding: 16px;
+    border-left: 0;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .weekAgenda > button > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .weekAgenda > button > div:last-child {
+    margin-top: 8px;
+  }
+
+  .weekAgenda > button > div:last-child > p {
+    padding-top: 4px;
+    text-align: left;
+  }
+
+  .root section,
+  .root aside {
+    min-width: 0;
+  }
+
+  /* 16px controls keep iOS from zooming the page when a field is focused. */
+  .root input:not([type='checkbox']):not([type='radio']),
+  .root textarea,
+  .root select {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  .root section label:has(> select) {
+    flex-wrap: wrap;
+  }
+
+  .root section label > select {
+    width: 100%;
+  }
+
+  .root input[type='date'],
+  .root input[type='time'] {
+    appearance: none;
+  }
+
+  .root [role='dialog'] {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .root [role='dialog'] > div,
+  .root [role='dialog'] > form {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: 100%;
+    border-radius: 0;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .root [role='dialog'] > form {
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .root [role='dialog'] > div > header,
+  .root [role='dialog'] > div > section,
+  .root [role='dialog'] > div > footer {
+    padding: 16px;
+  }
+
+  .root [aria-labelledby='review-dialog-title'] > div {
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .root [aria-labelledby='review-dialog-title'] > div > div:first-child > div:first-child {
+    display: none;
+  }
+
+  .root [role='dialog'] h2 {
+    font-size: 18px;
+  }
+
+  .root [role='dialog'] button {
+    min-height: 44px;
+  }
+}
