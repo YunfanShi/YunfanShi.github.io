@@ -17,7 +17,7 @@ import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/
 import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
 import { backupIsDue, recordBackupChange, type PendingBackup } from '@/lib/backup/cadence';
 import { createDueBackupVersions } from '@/actions/backup-center';
-import { isServerUnavailable, SyncHttpError } from '@/lib/sync/service-error';
+import { syncFailureStatus, SyncHttpError } from '@/lib/sync/service-error';
 import type { SyncConflict, SyncRecord, SyncStatus } from '@/types/sync';
 
 function localSnapshot(includeLarge = false): Record<string, string> {
@@ -45,9 +45,9 @@ function deviceDescription() {
   };
 }
 
-async function publishStatus(state: SyncStatus, error?: string, progress?: string) {
+async function publishStatus(state: SyncStatus, error?: string, progress?: string, consecutiveFailures = 0) {
   const [pending, lastSyncedAt] = await Promise.all([getOutbox(), getSetting<string>('lastSyncedAt')]);
-  announce({ state, pending: pending.length, conflicts: 0, lastSyncedAt, error, progress });
+  announce({ state, pending: pending.length, conflicts: 0, lastSyncedAt, error, progress, consecutiveFailures });
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
@@ -391,7 +391,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         failures += 1;
         retryAt = Date.now() + syncRetryDelay(failures);
         authPaused = shouldPauseSync(error);
-        if (!cancelled) await publishStatus(!navigator.onLine ? 'offline_pending' : isServerUnavailable(error, navigator.onLine) ? 'server_unavailable' : 'error', error instanceof Error ? error.message : 'Sync failed');
+        if (!cancelled) await publishStatus(syncFailureStatus(error, navigator.onLine, failures), error instanceof Error ? error.message : 'Sync failed', undefined, failures);
       } finally {
         if (runGate.finish() && !cancelled && !signingOut) void sync(false, true);
       }
