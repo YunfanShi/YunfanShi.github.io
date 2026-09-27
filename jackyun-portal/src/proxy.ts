@@ -50,7 +50,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const { supabase, response } = await createClient(request);
+  const session = await createClient(request);
+  const { supabase } = session;
+  // Keep rotated cookies on redirects and errors as well as normal responses.
+  function withSessionCookies(target: NextResponse) {
+    session.response.cookies.getAll().forEach((cookie) => target.cookies.set(cookie));
+    for (const header of ['cache-control', 'expires', 'pragma']) {
+      const value = session.response.headers.get(header);
+      if (value) target.headers.set(header, value);
+    }
+    return target;
+  }
 
   // Verify the JWT locally when the project uses asymmetric signing keys.
   // Unlike getUser(), getClaims() does not make an Auth API request on every
@@ -65,13 +75,13 @@ export async function proxy(request: NextRequest) {
   if (!claims && requiresAuth) {
     if (claimsError && claimsError.name !== 'AuthSessionMissingError'
       && claimsError.status !== 401 && claimsError.status !== 403) {
-      return new NextResponse('Authentication temporarily unavailable', { status: 503 });
+      return withSessionCookies(new NextResponse('Authentication temporarily unavailable', { status: 503 }));
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(loginUrl);
+    return withSessionCookies(NextResponse.redirect(loginUrl));
   }
-  if (!claims) return response;
+  if (!claims) return session.response;
 
   // ── Whitelist / Auto-register check ─────────────────────────────────
   const provider = claims.app_metadata?.provider as string | undefined;
@@ -105,18 +115,18 @@ export async function proxy(request: NextRequest) {
   const dbMatch = whitelistResult.status === 'fulfilled' ? whitelistResult.value.data : null;
   if (lookupFailed) {
     console.error('[proxy] Authorization lookup failed');
-    return requiresAuth ? new NextResponse('认证服务暂时不可用，请稍后重试。', { status: 503, headers: { 'Retry-After': '30' } }) : response;
+    return requiresAuth ? withSessionCookies(new NextResponse('认证服务暂时不可用，请稍后重试。', { status: 503, headers: { 'Retry-After': '30' } })) : session.response;
   }
 
   // Restricted users retain one authenticated surface for reviewing the
   // decision and talking to support. They cannot reach product data routes.
   const isRestricted = profile?.account_status === 'suspended' || Boolean(profile?.deleted_at);
   if (isRestricted) {
-    if (isAccountStatusRoute) return response;
-    return NextResponse.redirect(new URL('/account-status', request.url));
+    if (isAccountStatusRoute) return session.response;
+    return withSessionCookies(NextResponse.redirect(new URL('/account-status', request.url)));
   }
   if (isAccountStatusRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return withSessionCookies(NextResponse.redirect(new URL('/dashboard', request.url)));
   }
 
   let isAuthorized = false;
@@ -139,17 +149,17 @@ export async function proxy(request: NextRequest) {
 
   if (!isAuthorized) {
     const unauthorizedUrl = new URL('/unauthorized', request.url);
-    return NextResponse.redirect(unauthorizedUrl);
+    return withSessionCookies(NextResponse.redirect(unauthorizedUrl));
   }
 
   // ── Admin route extra check ──────────────────────────────────────────
   if (pathname.startsWith('/admin')) {
     if (!isAdminIdentity({ email: claims.email }, profile?.role)) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return withSessionCookies(NextResponse.redirect(new URL('/dashboard', request.url)));
     }
   }
 
-  return response;
+  return session.response;
 }
 
 export const config = {

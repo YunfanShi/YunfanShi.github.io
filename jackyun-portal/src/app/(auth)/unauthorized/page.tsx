@@ -10,7 +10,7 @@ export default async function UnauthorizedPage() {
   async function handleSignOut() {
     'use server';
     const supabase = await createClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     redirect('/login');
   }
 

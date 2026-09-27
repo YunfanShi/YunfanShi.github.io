@@ -16,3 +16,13 @@ Supabase 和同步 fetch 的单次网络等待上限为 8 秒，使用 AbortSign
 - https://supabase.com/docs/guides/troubleshooting/http-api-issues
 - https://supabase.com/docs/guides/database/connection-management
 - https://supabase.com/docs/guides/troubleshooting/high-cpu-usage
+
+## 2026-09-27 登录续期排查
+
+已修复 Proxy 会话刷新后仍向下游传递旧 Cookie 的问题：先更新请求 Cookie，再重新构建 NextResponse，并在重定向和 503 响应中保留会话 Cookie。账户状态和访问拒绝页面的普通退出限定为当前设备；删除账户仍撤销全部会话。后台导航禁用预取，避免未打开页面提前触发认证与数据库查询。
+
+验证：`node --test tests/auth-session-cookies.test.mts` 覆盖请求头续期、多个 Cookie 批次、旧分片清除，以及认证失败、授权查询失败和各重定向分支。修复前 8 项失败，修复后通过。
+
+故障证据：用户提供的 Supabase 导出覆盖 UTC 2026-09-26 21:27 至 2026-09-27 02:21（北京时间 05:27 至 10:21），1000 条导出记录中包含 660 条令牌请求 503/504、79 条 SQL statement timeout。这是导出样本，不能据此计算全站请求量或故障率。实时 Auth 日志同时存在 PostgreSQL 连接失败、刷新超时和并发刷新冲突；只读数据库诊断也连接超时。Vercel 导出覆盖 UTC 02:04 至 02:23，含 14 条超时错误和 HeadlessChrome 页面访问，不能代表整晚流量或证明攻击。
+
+结论：数据库/认证服务可用性异常与应用续期缺陷同时存在。尚无证据确定数据库故障属于 CPU、内存、I/O、连接耗尽、锁等待或平台维护。恢复后应检查项目 Observability 及慢查询/锁统计；若持续无法连接，将故障时间和日志提交 Supabase 支持。代码修复不能替代数据库故障处理，真实多设备隔夜登录仍需验证。
