@@ -98,7 +98,7 @@ export default function QuestionBankManager({ bank, catalog, cues, onChange, onC
     onChange(applyQuestionOperations(bank, operations, new Date().toISOString(), () => crypto.randomUUID()));
     setNotice(`已保存 ${operations.length} 项题目变更。`);
   };
-  const clipboard = async (text: string) => { try { await navigator.clipboard.writeText(text); setNotice('已复制。'); } catch { setJson(text); setImportOpen(true); setNotice('请在文本框中手动复制。'); } };
+  const clipboard = async (text: string) => { try { await navigator.clipboard.writeText(text); setNotice('题库专用提示词、目录和当前题目数据已复制；请附上题目资料或出题要求。'); } catch { setJson(text); setImportOpen(true); setNotice('请在文本框中手动复制。'); } };
   const questionHistory = (question: StudyQuestion) => bank.attempts.filter((item) => item.questionId === question.id).toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt));
   return <section className="mt-5 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">题库管理</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">独立题目与作答历史，共用知识 CUE 的科目目录。</p></div><div className="flex flex-wrap gap-2"><button className={studyButtonClass} onClick={onCatalog}>学习目录</button><button className={studyButtonClass} onClick={() => setEditor({ content: { ...blank, subjectId, subjectName: selectedSubject?.name ?? '', unit } })}>新增题目</button><button className={studyButtonClass} onClick={() => { setImportOpen(!importOpen); setPreview(null); }}>批量导入 / 导出</button></div></div>
