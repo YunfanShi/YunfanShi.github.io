@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cueAnalysisKey, cueRatingCandidates, ratingProgressRows, ratingCategory, ratingPhaseLabels, type CueRatingJob, type CueRatingPhase } from '@/lib/learning/cue-rating';
+import { emitDiagnostic, errorDetails } from '@/lib/diagnostic-events';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
 import { cueSkills, cueContentSignature, cueNeedsAiAnalysis, difficultyFactors, difficultyLabels, effectiveCueDifficulty, learningProfile, parseLearningAdvice, type CueDifficulty } from '@/lib/learning/learning-assistance';
 import { dateKey, recalculateLegacyCueSchedules, sessionsForDate, type ScheduleControlState, type StudyCue, type CueReview } from '@/lib/learning/schedule-control';
@@ -106,6 +107,9 @@ export default function LearningAssistant({ state, signedIn, visible, onChange }
         if (needsDaily) attempted.current.add(dailyKey);
         const abort = new AbortController(); controller.current = abort;
         const timeout = window.setTimeout(() => abort.abort(), 90_000);
+        const diagnostic = { requestId: crypto.randomUUID(), feature: 'cue-rating', cueIds: ids };
+        let diagnosticStage = 'request';
+        emitDiagnostic('info', 'CueRating', '开始 CUE 评级批次', { ...diagnostic, count: ids.length, needsDaily });
         updateJobs(ids, 'sending');
         try {
           const request = fetch('/api/llm-proxy', { signal: abort.signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'chat', stream: false, temperature: 0.1, _no_thinking: true, messages: [
@@ -115,19 +119,25 @@ export default function LearningAssistant({ state, signedIn, visible, onChange }
           updateJobs(ids, 'waiting');
           const response = await request;
           updateJobs(ids, 'reading');
-          const content = await readAiResponseContent(response);
+          diagnosticStage = 'read-response';
+          const content = await readAiResponseContent(response, diagnostic);
           updateJobs(ids, 'validating');
-          const parsed = parseLearningAdvice(parseAiJson(content), candidates, new Date().toISOString());
+          diagnosticStage = 'parse-and-validate';
+          const parsed = parseLearningAdvice(parseAiJson(content, diagnostic), candidates, new Date().toISOString());
+          const fallbackIds = Object.entries(parsed.cues).filter(([, advice]) => advice.classificationNote).map(([id]) => id);
+          if (fallbackIds.length) emitDiagnostic('warn', 'CueRating', '可选能力维度被忽略，难度评级仍有效', { ...diagnostic, cueIds: fallbackIds });
           if (!alive.current || !enabled.current || stopped.current || abort.signal.aborted) break;
           if (needsDaily && !parsed.daily) throw new Error('AI 未返回当天容量建议。');
           const freshIds = ids.filter((id) => current.current.cues.some((cue) => cue.id === id && parsed.cues[id]?.signature === cueContentSignature(cue)));
           const apply = (value: ScheduleControlState) => recalculateLegacyCueSchedules({ ...value, cueScheduleRevision: candidates.length ? 0 : value.cueScheduleRevision, cues: value.cues.map((cue) => parsed.cues[cue.id]?.signature === cueContentSignature(cue) ? { ...cue, aiAdvice: parsed.cues[cue.id] } : cue), dailyLearningAdvice: parsed.daily ? { ...parsed.daily, date: today } : value.dailyLearningAdvice });
           current.current = apply(current.current); onChange(apply);
           updateJobs(freshIds, 'rated'); updateJobs(ids.filter((id) => !freshIds.includes(id)), 'stale'); setNotice('');
+          emitDiagnostic('info', 'CueRating', 'CUE 评级已保存', { ...diagnostic, savedIds: freshIds, staleIds: ids.filter((id) => !freshIds.includes(id)) });
         } catch (error) {
           if (!alive.current) break;
           const cancelled = stopped.current || !enabled.current;
-          updateJobs(ids, cancelled ? 'cancelled' : 'failed', cancelled ? undefined : abort.signal.aborted ? '请求超过 90 秒，未保存新评级；可手动重试。' : (error instanceof Error ? error.message : '请求失败').slice(0, 500));
+          emitDiagnostic(cancelled ? 'warn' : 'error', 'CueRating', cancelled ? '评级已取消' : 'CUE 评级失败', { ...diagnostic, stage: diagnosticStage, aborted: abort.signal.aborted, error: errorDetails(error) });
+          updateJobs(ids, cancelled ? 'cancelled' : 'failed', cancelled ? undefined : abort.signal.aborted ? '请求超过 90 秒，未保存新评级；可手动重试。' : `${(error instanceof Error ? error.message : '请求失败').slice(0, 500)}（诊断编号：${diagnostic.requestId}）`);
           if (!cancelled) { stopped.current = true; setPaused(true); setNotice('本批未完成，原评级保留；后续队列已暂停且未发送。可重试失败项或恢复自动评级。'); }
           break;
         } finally { window.clearTimeout(timeout); controller.current = null; activeIds.current = []; }

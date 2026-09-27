@@ -1,3 +1,4 @@
+import { emitDiagnostic, errorDetails, logAiReply, type DiagnosticContext } from './diagnostic-events.ts';
 import { jsonrepair } from 'jsonrepair';
 
 function isLikelyLatexEscape(raw: string, slashIndex: number): boolean {
@@ -90,7 +91,7 @@ function jsonCandidate(raw: string): string {
  * keys, Python constants, code fences, and truncated closing brackets. Feature
  * parsers must still validate the returned shape before using it.
  */
-export function parseAiJson(raw: string): unknown {
+function parseAiJsonInternal(raw: string): unknown {
   const candidate = jsonCandidate(raw);
   const repairable = normalizeStructuralPunctuation(repairStringEscapes(candidate));
   try {
@@ -103,6 +104,11 @@ export function parseAiJson(raw: string): unknown {
       throw new Error(firstError instanceof SyntaxError ? 'AI 返回的 JSON 格式有误，请重试。' : 'AI 返回内容无法读取，请重试。');
     }
   }
+}
+
+export function parseAiJson(raw: string, context: DiagnosticContext = {}): unknown {
+  try { return parseAiJsonInternal(raw); }
+  catch (error) { logAiReply('解析失败的可见正文', raw, context); emitDiagnostic('error', 'AIParse', 'AI JSON 解析失败', { ...context, error: errorDetails(error), characters: raw.length }); throw error; }
 }
 
 export function extractAssistantContent(payload: unknown): string {
@@ -123,18 +129,29 @@ export function extractAssistantContent(payload: unknown): string {
   throw new Error('AI 没有返回可读取的正文，请重试。');
 }
 
-export async function readAiResponseContent(response: Response): Promise<string> {
+async function readAiResponseInternal(response: Response, context: DiagnosticContext): Promise<string> {
   const raw = await response.text();
   let payload: unknown;
   try { payload = JSON.parse(raw) as unknown; }
-  catch { throw new Error(response.ok ? 'AI 服务返回了无效响应，请重试。' : raw || 'AI 请求失败。'); }
+  catch { logAiReply('非 JSON HTTP 响应', raw, context); throw new Error(response.ok ? 'AI 服务返回了无效响应，请重试。' : raw || 'AI 请求失败。'); }
+  logAiReply('HTTP 响应正文（已脱敏）', payload, context);
 
   if (!response.ok) {
     const error = (payload as { error?: unknown })?.error;
     const message = typeof error === 'string' ? error : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string' ? (error as { message: string }).message : '';
     throw new Error(message || 'AI 请求失败。');
   }
-  return extractAssistantContent(payload);
+  const content = extractAssistantContent(payload);
+  logAiReply('AI 可见回复', content, context);
+  return content;
+}
+
+export async function readAiResponseContent(response: Response, context: DiagnosticContext = {}): Promise<string> {
+  context = { requestId: response.headers.get('x-request-id') || crypto.randomUUID(), ...context };
+  const details = { ...context, status: response.status, contentType: response.headers.get('content-type'), serverRequestId: response.headers.get('x-request-id') };
+  emitDiagnostic('info', 'AIResponse', '收到 AI HTTP 响应', details);
+  try { return await readAiResponseInternal(response, context); }
+  catch (error) { emitDiagnostic('error', 'AIResponse', '读取 AI 响应失败', { ...details, error: errorDetails(error) }); throw error; }
 }
 
 export type AiStreamProgress = {
@@ -146,7 +163,7 @@ export type AiStreamProgress = {
  * Callers receive the visible answer accumulated so far and only the size of
  * any reasoning stream, which is enough to render trustworthy progress UI.
  */
-export async function readAiStreamingResponseContent(
+async function readAiStreamingInternal(
   response: Response,
   onProgress?: (progress: AiStreamProgress) => void,
 ): Promise<string> {
@@ -176,7 +193,7 @@ export async function readAiStreamingResponseContent(
       content += visible;
       reasoningCharacters += reasoning.length;
       onProgress?.({ content, reasoningCharacters });
-    } catch { /* Ignore incomplete or provider-specific SSE events. */ }
+    } catch (error) { emitDiagnostic('warn', 'AIStream', '忽略无法解析的流事件', { error: errorDetails(error), eventCharacters: payload.length }); }
   };
 
   while (true) {
@@ -191,4 +208,12 @@ export async function readAiStreamingResponseContent(
   eventBuffer.split('\n').forEach(consumeLine);
   if (!content.trim()) throw new Error('AI 没有返回可读取的正文，请重试。');
   return content;
+}
+
+export async function readAiStreamingResponseContent(response: Response, onProgress?: (progress: AiStreamProgress) => void): Promise<string> {
+  try {
+    const content = await readAiStreamingInternal(response, onProgress);
+    if (response.headers.get('content-type')?.includes('text/event-stream')) logAiReply('AI 流式可见回复', content);
+    return content;
+  } catch (error) { emitDiagnostic('error', 'AIStream', 'AI 流式响应失败', { status: response.status, error: errorDetails(error) }); throw error; }
 }
