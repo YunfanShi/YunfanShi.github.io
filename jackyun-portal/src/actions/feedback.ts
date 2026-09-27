@@ -1,5 +1,7 @@
 'use server';
 
+import { serviceErrorMessage } from '@/lib/service-errors';
+
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { DiagnosticSnapshot } from '@/lib/logger';
@@ -90,8 +92,9 @@ export type TicketDetail = { user: { id: string; email: string | null; display_n
 
 async function requireAdminFeedback() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw new Error(serviceErrorMessage(authError, '认证服务'));
+  if (!user) throw new Error('登录会话已失效，请重新登录。（SESSION_EXPIRED）');
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
   const usernames = (process.env.ADMIN_USERS ?? process.env.AUTHORIZED_GITHUB_USERS ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
   const username = (user.user_metadata?.user_name as string | undefined)?.toLowerCase();

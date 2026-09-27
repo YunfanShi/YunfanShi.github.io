@@ -1,5 +1,7 @@
 'use server';
 
+import { serviceErrorMessage } from '@/lib/service-errors';
+
 import { createClient } from '@/lib/supabase/server';
 import { createHash } from 'node:crypto';
 import type { DataArchiveV2 } from '@/types/sync';
@@ -10,9 +12,10 @@ import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-sa
 async function getAuthenticatedUser() {
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user }, error: authError,
   } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  if (authError) throw new Error(serviceErrorMessage(authError, '认证服务'));
+  if (!user) throw new Error('登录会话已失效，请重新登录。（SESSION_EXPIRED）');
   return { supabase, user };
 }
 

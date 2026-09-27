@@ -1,3 +1,4 @@
+import SessionRecovery from '@/components/auth/session-recovery';
 import Sidebar from '@/components/layout/sidebar';
 import Topbar from '@/components/layout/topbar';
 import LegacyBridge from '@/components/modules/legacy-bridge';
@@ -32,9 +33,9 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims().catch((error) => {
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims().catch((error) => {
     console.error('[portal-layout] Unable to read auth claims; continuing in local mode', error);
-    return { data: null };
+    return { data: null, error };
   });
   const claims = claimsData?.claims;
 
@@ -119,6 +120,7 @@ export default async function PortalLayout({
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
           <ServerFailureNotice />
+          {claimsError && <SessionRecovery />}
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
         <LegacyBridge />

@@ -1,5 +1,7 @@
 'use client';
 
+import { SERVICE_ERROR_EVENT } from '@/lib/service-errors';
+
 /**
  * ========================================
  *  JackYun Portal — 全量客户端日志系统
@@ -279,7 +281,8 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
   const _origFetch = window.fetch.bind(window);
   window.fetch = async (...args: Parameters<typeof fetch>) => {
     const startTime = performance.now();
-    const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : String(args[0]);
+    const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0].url;
+    const sameSite = new URL(url, location.href).origin === location.origin;
     const method = (args[1]?.method || 'GET').toUpperCase();
 
     // 请求日志
@@ -299,6 +302,7 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
       );
       pushEntry(resEntry);
 
+      if (sameSite && (response.status >= 500 || response.status === 408 || response.status === 429)) window.dispatchEvent(new CustomEvent(SERVICE_ERROR_EVENT, { detail: { status: response.status } }));
       return response;
     } catch (err) {
       const duration = Math.round(performance.now() - startTime);
@@ -308,6 +312,7 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
         { url, method, duration },
       );
       pushEntry(errEntry);
+      if (sameSite && !(err instanceof Error && err.name === 'AbortError')) window.dispatchEvent(new CustomEvent(SERVICE_ERROR_EVENT, { detail: err }));
       throw err;
     }
   };

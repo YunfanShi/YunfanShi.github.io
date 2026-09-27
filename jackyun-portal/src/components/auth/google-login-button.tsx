@@ -1,27 +1,35 @@
 'use client';
 
+import { useState } from 'react';
+import { serviceErrorMessage } from '@/lib/service-errors';
 import { createClient } from '@/lib/supabase/client';
 
 export default function GoogleLoginButton() {
+  const [error, setError] = useState<string | null>(null);
   async function handleLogin() {
-    const supabase = createClient();
-    const next = new URLSearchParams(window.location.search).get('next');
-    const callback = new URL('/auth/callback', window.location.origin);
-    if (next?.startsWith('/') && !next.startsWith('//')) callback.searchParams.set('next', next);
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: callback.toString(),
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    setError(null);
+    try {
+      const supabase = createClient();
+      const next = new URLSearchParams(window.location.search).get('next');
+      const callback = new URL('/auth/callback', window.location.origin);
+      if (next?.startsWith('/') && !next.startsWith('//')) callback.searchParams.set('next', next);
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callback.toString(),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    });
+      });
+      if (oauthError) setError(serviceErrorMessage(oauthError, '第三方登录服务'));
+    } catch (error) { setError(serviceErrorMessage(error, '第三方登录服务')); }
   }
 
   return (
-    <button
+    <div><button
+      type="button"
       onClick={handleLogin}
       className="w-full flex items-center justify-center gap-3 rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-4 py-3 text-sm font-medium text-[var(--foreground)] shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
     >
@@ -45,6 +53,6 @@ export default function GoogleLoginButton() {
         />
       </svg>
       使用 Google 账号登录
-    </button>
+    </button>{error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}</div>
   );
 }

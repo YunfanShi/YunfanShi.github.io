@@ -1,6 +1,8 @@
 'use client';
 
+import { serviceErrorMessage } from '@/lib/service-errors';
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { signInWithIdentifier } from '@/actions/auth';
@@ -32,8 +34,8 @@ export default function EmailLoginForm() {
           router.refresh();
           return;
         }
-      } catch {
-        setError('登录服务暂时不可用，请稍后重试。');
+      } catch (error) {
+        setError(serviceErrorMessage(error, '登录服务'));
       }
     } else {
       const emailToUse = identifier.trim();
@@ -42,27 +44,29 @@ export default function EmailLoginForm() {
         setLoading(false);
         return;
       }
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: emailToUse,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+      try {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: emailToUse,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
 
-      if (signUpError) {
-        if (
-          signUpError.message.toLowerCase().includes('user already registered') ||
-          signUpError.message.toLowerCase().includes('already registered')
-        ) {
-          setError('该邮箱已被注册，请直接登录');
+        if (signUpError) {
+          if (
+            signUpError.message.toLowerCase().includes('user already registered') ||
+            signUpError.message.toLowerCase().includes('already registered')
+          ) {
+            setError('该邮箱已被注册，请直接登录');
+          } else {
+            setError(serviceErrorMessage(signUpError, '注册服务'));
+          }
         } else {
-          setError(signUpError.message);
+          setMessage(`📧 注册成功！验证邮件已发送至 ${emailToUse}，请查收邮件并点击验证链接，验证后即可直接登录。`);
+          setMode('login');
         }
-      } else {
-        setMessage(`📧 注册成功！验证邮件已发送至 ${emailToUse}，请查收邮件并点击验证链接，验证后即可直接登录。`);
-        setMode('login');
-      }
+      } catch (error) { setError(serviceErrorMessage(error, '注册服务')); }
     }
 
     setLoading(false);
@@ -147,9 +151,9 @@ export default function EmailLoginForm() {
               注册
             </button>
             {' '}·{' '}
-            <a href="/reset-password" className="text-[#4285F4] hover:underline">
+            <Link href="/reset-password" className="text-[#4285F4] hover:underline">
               忘记密码
-            </a>
+            </Link>
           </>
         ) : (
           <>

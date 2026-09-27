@@ -1,5 +1,7 @@
 'use server';
 
+import { serviceErrorMessage } from '@/lib/service-errors';
+
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -11,8 +13,9 @@ import { splitNovelIntoChapters, type NovelChapter } from '@/lib/novel-reader';
 
 async function requireAdmin() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw new Error(serviceErrorMessage(authError, '认证服务'));
+  if (!user) throw new Error('登录会话已失效，请重新登录。（SESSION_EXPIRED）');
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
   if (!isAdminIdentity(user, profile?.role)) throw new Error('Forbidden: Admin only');
   const admin = createAdminClient();

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { serviceErrorMessage } from '@/lib/service-errors';
 import { redirect } from 'next/navigation';
 
 export async function signOut() {
@@ -17,26 +18,28 @@ export async function signInWithIdentifier(
   const normalized = identifier.trim().toLowerCase();
   if (!normalized || !password) return { success: false, error: '请输入账号和密码。' };
 
-  let email = normalized;
-  if (!normalized.includes('@')) {
-    const admin = createAdminClient();
-    if (!admin) return { success: false, error: 'ID 登录服务暂时不可用，请使用邮箱登录。' };
-    const { data, error } = await admin
-      .from('profiles')
-      .select('email')
-      .ilike('username', normalized)
-      .maybeSingle();
-    if (error || !data?.email) return { success: false, error: '账号或密码错误。' };
-    email = data.email.toLowerCase();
-  }
+  try {
+    let email = normalized;
+    if (!normalized.includes('@')) {
+      const admin = createAdminClient();
+      if (!admin) return { success: false, error: 'ID 登录服务暂时不可用，请使用邮箱登录。' };
+      const { data, error } = await admin
+        .from('profiles')
+        .select('email')
+        .ilike('username', normalized)
+        .maybeSingle();
+      if (error) return { success: false, error: serviceErrorMessage(error, '账号查询服务') };
+      if (!data?.email) return { success: false, error: '账号或密码错误。（INVALID_CREDENTIALS）' };
+      email = data.email.toLowerCase();
+    }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (!error) return { success: true };
-  if (error.message.toLowerCase().includes('email not confirmed')) {
-    return { success: false, error: '邮箱尚未验证，请检查验证邮件。' };
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) return { success: true };
+    return { success: false, error: serviceErrorMessage(error, '登录服务') };
+  } catch (error) {
+    return { success: false, error: serviceErrorMessage(error, '登录服务') };
   }
-  return { success: false, error: '账号或密码错误。' };
 }
 
 export async function syncProfile(
@@ -133,7 +136,7 @@ export async function requestPasswordReset(
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/auth/callback?type=recovery`,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: serviceErrorMessage(error) };
   return { error: null };
 }
 
@@ -152,7 +155,7 @@ export async function updatePasswordWithToken(
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) return { error: error.message };
+  if (error) return { error: serviceErrorMessage(error) };
   return { error: null };
 }
 
@@ -162,19 +165,20 @@ export async function changePassword(
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user }, error: userError,
   } = await supabase.auth.getUser();
-  if (!user || !user.email) return { error: 'Unauthorized' };
+  if (userError) return { error: serviceErrorMessage(userError, '认证服务') };
+  if (!user || !user.email) return { error: '登录会话已失效，请重新登录。（SESSION_EXPIRED）' };
 
   // Re-authenticate with current password first
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: user.email,
     password: currentPassword,
   });
-  if (signInError) return { error: '当前密码不正确' };
+  if (signInError) return { error: serviceErrorMessage(signInError, '密码验证服务') };
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) return { error: error.message };
+  if (error) return { error: serviceErrorMessage(error) };
   return { error: null };
 }
 
@@ -183,7 +187,7 @@ export async function setInitialPassword(
 ): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) return { error: error.message };
+  if (error) return { error: serviceErrorMessage(error) };
   return { error: null };
 }
 

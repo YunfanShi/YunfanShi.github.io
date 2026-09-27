@@ -1,5 +1,7 @@
 'use server';
 
+import { serviceErrorMessage } from '@/lib/service-errors';
+
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { scheduleReview } from '@/lib/learning/review-schedule';
@@ -7,8 +9,9 @@ import type { ReviewStatus } from '@/types/review';
 
 async function currentUser() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw new Error(serviceErrorMessage(authError, '认证服务'));
+  if (!user) throw new Error('登录会话已失效，请重新登录。（SESSION_EXPIRED）');
   return { supabase, user };
 }
 

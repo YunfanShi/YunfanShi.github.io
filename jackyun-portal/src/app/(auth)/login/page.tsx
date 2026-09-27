@@ -1,3 +1,4 @@
+import SessionRecovery from '@/components/auth/session-recovery';
 import LoginButton from '@/components/auth/login-button';
 import GoogleLoginButton from '@/components/auth/google-login-button';
 import EmailLoginForm from '@/components/auth/email-login-form';
@@ -26,6 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           className="space-y-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-7 shadow-[var(--surface-shadow)] sm:p-8"
         >
           {/* Email / Password login */}
+          <SessionRecovery loginPage />
           <EmailLoginForm />
 
           {/* Divider */}
