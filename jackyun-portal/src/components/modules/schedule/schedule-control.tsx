@@ -1407,7 +1407,9 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       return;
     }
     skipInitialEmptySaveRef.current = false;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const serialized = JSON.stringify(state);
+    if (localStorage.getItem(STORAGE_KEY) === serialized) return;
+    localStorage.setItem(STORAGE_KEY, serialized);
     if (signedIn) window.dispatchEvent(new Event('jackyun-sync-edit'));
   }, [ready, signedIn, state]);
   useEffect(() => {

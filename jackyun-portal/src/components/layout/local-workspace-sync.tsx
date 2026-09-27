@@ -3,6 +3,7 @@
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { syncRetryDelay, shouldPauseSync } from '@/lib/sync/retry-policy';
 import { useEffect } from 'react';
+import { remoteRecordIsCurrent } from '@/lib/sync/remote-record';
 import { createSyncRunGate } from '@/lib/sync/run-gate';
 import { announceSyncStatus as announce, getLatestSyncStatus } from '@/lib/sync/status';
 import { CLOUD_STATE_APPLIED_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
@@ -254,9 +255,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           ? current === null
           : current !== null && canonicalJson(parseStorageValue(current)) === canonicalJson(matchingOperation.value);
         if (localHasNotChanged) {
-          if (record.deleted) localStorage.removeItem(record.key);
-          else localStorage.setItem(record.key, storageValueToString(record.value));
-          appliedRemoteKeys.push(record.key);
+          const next = record.deleted ? null : storageValueToString(record.value);
+          if (current !== next) {
+            if (record.deleted) localStorage.removeItem(record.key);
+            else localStorage.setItem(record.key, next!);
+            appliedRemoteKeys.push(record.key);
+          }
         }
         await saveMetadata(record);
         await removeOperation(matchingOperation.id);
@@ -293,10 +297,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         throw new SyncHttpError(detail, response.status);
       }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
-      const records = [...payload.records];
+      const metadataByKey = new Map((await getMetadata()).map((record) => [record.key, record]));
+      const records = payload.records.filter((record) => !remoteRecordIsCurrent(
+        record, metadataByKey.get(record.key), localStorage.getItem(record.key),
+      ));
       if (!pendingKeys.has(SCHEDULE_STORAGE_KEY)
           && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
-          && !records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
+          && !payload.records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
         const scheduleResponse = await fetchSyncWithTimeout(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
         if (!scheduleResponse.ok) throw new SyncHttpError(`Schedule 云端读取失败 (${scheduleResponse.status})`, scheduleResponse.status);
         const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
@@ -314,9 +321,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const emptyScheduleNeedsCloud = record.key === SCHEDULE_STORAGE_KEY
           && !scheduleHasContent(parseStorageValue(current)) && scheduleHasContent(record.value);
         if (current === lastSnapshot[record.key] || emptyScheduleNeedsCloud) {
-          if (record.deleted) localStorage.removeItem(record.key);
-          else localStorage.setItem(record.key, storageValueToString(record.value));
-          appliedRemoteKeys.push(record.key);
+          const next = record.deleted ? undefined : storageValueToString(record.value);
+          if (current !== next) {
+            if (record.deleted) localStorage.removeItem(record.key);
+            else localStorage.setItem(record.key, next!);
+            appliedRemoteKeys.push(record.key);
+          }
         }
         await saveMetadata(record);
       }
@@ -387,7 +397,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let editTimer: number | null = null;
     const onEdit = () => {
       if (editTimer !== null) window.clearTimeout(editTimer);
-      editTimer = window.setTimeout(() => { editTimer = null; void sync(); }, 8_000);
+      editTimer = window.setTimeout(() => { editTimer = null; void sync(true); }, 8_000);
     };
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(true); }, 30_000);
     const onSync = () => void sync();

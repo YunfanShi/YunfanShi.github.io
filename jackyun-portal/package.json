@@ -23,7 +23,7 @@
     "check:companion-sources": "node scripts/sync-companion-hosted-sources.mjs --check",
     "check:study-guide": "node scripts/check-study-guide.mjs",
     "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
-    "test:sync": "node --test tests/sync-v2.test.mts",
+    "test:sync": "node --test tests/sync-v2.test.mts tests/sync-remote-record.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
     "test:learning": "node --test tests/learning-domain.test.mts",
