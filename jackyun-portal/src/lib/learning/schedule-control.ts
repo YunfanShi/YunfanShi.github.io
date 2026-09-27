@@ -66,6 +66,7 @@ export interface TimetableImport {
 }
 
 export interface ScheduleSettings {
+  tutorialSeenVersion?: number;
   mode: ScheduleMode;
   previewEnabled: boolean;
   previewPreferenceSet: boolean;
@@ -399,6 +400,7 @@ export interface ScheduleControlState {
   /** One-time migration marker for existing Cue review plans. */
   cueScheduleRevision?: number;
   dailyLearningAdvice?: DailyLearningAdvice;
+  studyReports?: Array<{ subjectId: string; signature: string; content: string; generatedAt: string }>;
   timetable: TimetableImport | null;
   settings: ScheduleSettings;
   manualTasks: ManualLearningTask[];

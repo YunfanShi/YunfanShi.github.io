@@ -5,6 +5,7 @@ export type QuestionType = 'single' | 'multiple' | 'boolean' | 'written';
 export type StudyMode = 'cue' | 'question' | 'mixed';
 export interface StudyItemRef { kind: 'cue' | 'question'; id: string }
 export interface QuestionImage { id: string; url: string; alt: string; placement: 'prompt' | 'answer' }
+export interface QuestionImageRequest { id: string; description: string; source: string; placement: 'prompt' | 'answer'; imageId?: string }
 export interface StudyQuestion {
   id: string;
   version: number;
@@ -22,6 +23,7 @@ export interface StudyQuestion {
   /** Stable notebook-friendly identity, separate from the original source number. */
   code?: string;
   images?: QuestionImage[];
+  imageRequests?: QuestionImageRequest[];
   source?: string;
   number?: string;
   maxScore?: number;
@@ -113,9 +115,11 @@ export function validateQuestion(value: unknown): QuestionContent {
   const images = raw.images ?? [];
   if (!Array.isArray(images) || images.length > 6 || images.some((image) => !image || typeof image.id !== 'string' || typeof image.alt !== 'string' || !['prompt', 'answer'].includes(image.placement) || typeof image.url !== 'string' || image.url.length > 2_800_000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(image.url))) throw new Error('图片需为 PNG / JPEG / WebP，每张最多 2 MB，每题最多 6 张。');
   if (new Set(images.map((image) => image.id)).size !== images.length) throw new Error('图片 id 重复。');
+  const imageRequests = raw.imageRequests ?? [];
+  if (!Array.isArray(imageRequests) || imageRequests.length > 6 || imageRequests.some((item) => !item || typeof item.id !== 'string' || !item.id.trim() || typeof item.description !== 'string' || !item.description.trim() || item.description.length > 1000 || typeof item.source !== 'string' || item.source.length > 500 || !['prompt', 'answer'].includes(item.placement) || (item.imageId !== undefined && (typeof item.imageId !== 'string' || !images.some((image) => image.id === item.imageId && image.placement === item.placement)))) || new Set(imageRequests.map((item) => item.id)).size !== imageRequests.length) throw new Error('待补图标记需要唯一 id、说明、来源和显示位置；完成标记必须关联对应位置的真实图片。');
   if (text('code') && !/^[A-Z0-9]{1,4}-[A-Z0-9]{3,6}$/.test(text('code'))) throw new Error('短编号格式为科目前缀-序号，例如 MA-001。');
   return {
-    ...(text('code') ? { code: text('code') } : {}), ...(images.length ? { images: images as QuestionImage[] } : {}),
+    ...(text('code') ? { code: text('code') } : {}), ...(images.length ? { images: images as QuestionImage[] } : {}), ...(imageRequests.length ? { imageRequests: imageRequests as QuestionImageRequest[] } : {}),
     subjectId: text('subjectId', true), subjectName: text('subjectName', true), unit: text('unit', true), subsection: text('subsection'), type,
     prompt: text('prompt', true), choices: type === 'written' ? [] : choices, correctChoices: [...correctChoices].sort((a, b) => a - b),
     answer: text('answer'), explanation: text('explanation'), markingPoints: strings(raw.markingPoints ?? [], 'markingPoints'),
@@ -136,7 +140,7 @@ export function parseQuestionImport(input: unknown, bank: QuestionBankState): Qu
     if (!question || updated.has(question.id)) throw new Error('修改 id 不存在或在本次导入中重复。');
     updated.add(question.id);
     const changes = object(operation.changes);
-    const allowed = new Set(['subjectId', 'subjectName', 'unit', 'subsection', 'type', 'prompt', 'choices', 'correctChoices', 'answer', 'explanation', 'markingPoints', 'source', 'number', 'maxScore', 'linkedCueIds', 'sourceCueId', 'images']);
+    const allowed = new Set(['subjectId', 'subjectName', 'unit', 'subsection', 'type', 'prompt', 'choices', 'correctChoices', 'answer', 'explanation', 'markingPoints', 'source', 'number', 'maxScore', 'linkedCueIds', 'sourceCueId', 'images', 'imageRequests']);
     if (Object.keys(changes).some((key) => !allowed.has(key))) throw new Error('changes 包含不支持的字段。');
     validateQuestion({ ...question, ...changes });
     return { action: 'update', id: question.id, changes: changes as Partial<QuestionContent> };
