@@ -1,3 +1,4 @@
+import { difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
 import type { QuestionAttempt } from './question-bank.ts';
 import { scheduleReview } from './review-schedule.ts';
 
@@ -138,6 +139,8 @@ export interface ManualLearningTask {
 }
 
 export interface StudyCue {
+  userDifficulty?: CueDifficulty;
+  aiAdvice?: CueAiAdvice;
   id: string;
   /** Content revision. Legacy Cues without this field are normalized to version 1 when loaded. */
   version?: number;
@@ -395,6 +398,7 @@ export interface ScheduleControlState {
   schemaVersion: 1;
   /** One-time migration marker for existing Cue review plans. */
   cueScheduleRevision?: number;
+  dailyLearningAdvice?: DailyLearningAdvice;
   timetable: TimetableImport | null;
   settings: ScheduleSettings;
   manualTasks: ManualLearningTask[];
@@ -494,7 +498,7 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
 export function createEmptyScheduleState(): ScheduleControlState {
   return {
     schemaVersion: 1,
-    cueScheduleRevision: 4,
+    cueScheduleRevision: 5,
     timetable: null,
     settings: { ...DEFAULT_SCHEDULE_SETTINGS },
     manualTasks: [],
@@ -1000,7 +1004,8 @@ export function applyCueUnitMappings(operations: CueBulkOperation[], mappings: R
 export function normalizeCueMetadata(cue: StudyCue, defaultUpdatedAt: string): StudyCue {
   const version = Number.isInteger(cue.version) && Number(cue.version) >= 1 ? Number(cue.version) : 1;
   const updatedAt = typeof cue.updatedAt === 'string' && !Number.isNaN(Date.parse(cue.updatedAt)) ? cue.updatedAt : defaultUpdatedAt;
-  return { ...cue, version, updatedAt };
+  const ceiling = cue.lastReviewedAt && Number.isFinite(Date.parse(cue.lastReviewedAt)) ? addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) : undefined;
+  return { ...cue, version, updatedAt, ...(ceiling && cue.nextReviewDate && cue.nextReviewDate > ceiling ? { nextReviewDate: ceiling, intervalDays: Math.min(18, cue.intervalDays) } : {}) };
 }
 
 export type CueActivityTag = 'new' | 'updated' | 'due' | 'focus' | 'building' | 'streak' | 'reviewed';
@@ -1011,7 +1016,7 @@ export function cueMatchesStatusFilter(cue: StudyCue, filter: CueStatusFilter, t
   if (filter === 'all') return true;
   if (filter === 'unreviewed') return !cue.lastReviewedAt;
   if (filter === 'due') return (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < today)
-    && (!cue.nextReviewDate || cue.nextReviewDate <= today);
+    && (!cue.nextReviewDate || cue.nextReviewDate <= today || Boolean(cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) <= today));
   if (filter === 'weak') return cue.status === 'partial' || cue.status === 'unclear';
   if (filter === 'unstable' || filter === 'repeated-weak' || filter === 'recovering') {
     const history = reviews.filter((review) => review.cueId === cue.id)
@@ -1349,7 +1354,7 @@ function cueReviewSource(cue: StudyCue, date: string): CueReviewSource | null {
   if (!cue.lastReviewedAt
     || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)
     || !cue.nextReviewDate
-    || cue.nextReviewDate <= date) return 'regular';
+    || cue.nextReviewDate <= date || Boolean(cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) <= date)) return 'regular';
   return null;
 }
 
@@ -1370,11 +1375,13 @@ function compareCueReviewPriority(left: StudyCue, right: StudyCue): number {
   return rank(left) - rank(right) || leftDate.localeCompare(rightDate);
 }
 
-function dailyCueReviewBatchLimit(state: ScheduleControlState, date: Date): number {
-  if (state.settings.mode !== 'term' || !state.timetable) return LIGHT_DAY_CUE_BATCH_LIMIT;
-  return sessionsForDate(state.timetable, date).length >= HEAVY_DAY_SESSION_COUNT
-    ? HEAVY_DAY_CUE_BATCH_LIMIT
-    : LIGHT_DAY_CUE_BATCH_LIMIT;
+function dailyCueReviewBatchLimit(state: ScheduleControlState, date: Date, protectQuestionDeadline = false): number {
+  const hardLimit = state.settings.mode === 'term' && state.timetable && sessionsForDate(state.timetable, date).length >= HEAVY_DAY_SESSION_COUNT ? HEAVY_DAY_CUE_BATCH_LIMIT : LIGHT_DAY_CUE_BATCH_LIMIT;
+  const advice = state.dailyLearningAdvice;
+  // AI can reduce today's workload only inside the existing capacity ceiling.
+  // Overdue content remains visible and cannot be hidden by a stale suggestion.
+  const urgent = state.cues.some((cue) => cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) <= dateKey(date));
+  return !urgent && !protectQuestionDeadline && advice?.date === dateKey(date) && Number.isInteger(advice.batchLimit) ? Math.max(1, Math.min(hardLimit, advice.batchLimit)) : hardLimit;
 }
 
 function courseReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
@@ -1479,7 +1486,11 @@ function weeklyReviewTasks(state: ScheduleControlState, date: Date): LearningTas
 
 function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[] {
   const key = dateKey(date);
-  const due = state.cues.filter((cue) => cueNeedsReview(cue, key)).toSorted(compareCueReviewPriority);
+  const profile = learningProfile(state.cues, state.cueReviews);
+  const weakType = (cue: StudyCue) => profile.find((group) => group.subject === cue.subjectName && group.type === cueProfileType(cue) && group.attempts >= 3 && group.weak / group.attempts >= 0.5);
+  const overdueCeiling = (cue: StudyCue) => Boolean(cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) <= key);
+  const priority = (a: StudyCue, b: StudyCue) => Number(overdueCeiling(b)) - Number(overdueCeiling(a)) || (a.status === b.status ? Number(Boolean(weakType(b))) - Number(Boolean(weakType(a))) : 0) || compareCueReviewPriority(a, b);
+  const due = state.cues.filter((cue) => cueNeedsReview(cue, key)).toSorted(priority);
   const groups = new Map<string, StudyCue[]>();
   for (const cue of due) {
     groups.set(cue.subjectId, [...(groups.get(cue.subjectId) ?? []), cue]);
@@ -1490,7 +1501,7 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
     ? '今天课程较多，只安排 1 个 Cue 复习批次；其余 Cue 自动留在队列。'
     : `今天最多安排 ${batchLimit} 个 Cue 复习批次；其余 Cue 自动留在队列。`;
   return candidates
-    .toSorted((left, right) => compareCueReviewPriority(left.cues[0], right.cues[0]))
+    .toSorted((left, right) => priority(left.cues[0], right.cues[0]))
     .map(({ cues, batchIndex }) => {
       const cueIds = cues.map((cue) => cue.id);
       const unitNames = [...new Set(cues.map((cue) => cue.unit || '未分单元'))];
@@ -1512,7 +1523,7 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
         title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
         detail: `${sourceSummary}。${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成且不重复；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。${capacityNote}`,
         type: 'cue-review' as const,
-        reviewPriority: cues[0].lastReviewedAt && cues[0].updatedAt > cues[0].lastReviewedAt ? 0 : cues[0].status === 'unclear' ? 1 : cues[0].status === 'partial' ? 2 : !cues[0].lastReviewedAt ? 3 : 4,
+        reviewPriority: cues.some(overdueCeiling) ? -1 : cues[0].lastReviewedAt && cues[0].updatedAt > cues[0].lastReviewedAt ? 0 : cues[0].status === 'unclear' ? 1 : cues[0].status === 'partial' ? 2 : !cues[0].lastReviewedAt ? 3 : 4,
         date: key,
         durationMinutes: Math.min(60, Math.max(20, cues.length * 4)),
         subjectId: cues[0].subjectId,
@@ -1656,7 +1667,7 @@ export function tasksForDate(state: ScheduleControlState, date: Date, questionTa
   const reviewBatches = [...cueReviewTasks(state, date), ...questionTasks]
     .filter((task) => !state.completions[task.key] && !state.cancellations[task.key])
     .toSorted((a, b) => (a.reviewPriority ?? 4) - (b.reviewPriority ?? 4) || Number(Boolean(b.overdue)) - Number(Boolean(a.overdue)))
-    .slice(0, dailyCueReviewBatchLimit(state, date));
+    .slice(0, dailyCueReviewBatchLimit(state, date, questionTasks.some((task) => task.reviewPriority === -1)));
   const selectedCueIds = new Set(reviewBatches.flatMap((task) => task.cueIds ?? []));
   const daily = courseReviewTasks(state, date).map((task) => {
     const cueIds = (task.cueIds ?? []).filter((id) => selectedCueIds.has(id));
@@ -1824,9 +1835,10 @@ export function planCueReview(
   const spacedGreens = cueHistory.length
     ? spacedGreenRun(cueHistory, reviewedDate)
     : Math.max(1, Math.min(8, cue.streak + 1));
-  const baseInterval = Math.min(15, 1 + (spacedGreens - 1) * 2);
+  const difficulty = effectiveCueDifficulty(cue, cueHistory);
+  const baseInterval = Math.min(18, (3 + (spacedGreens - 1) * 3) * difficultyFactors[difficulty]);
   const risk = weightedWeakRisk(cueHistory, reviewedDate);
-  let intervalDays = Math.max(1, Math.round(baseInterval / (1 + 1.2 * risk)));
+  let intervalDays = Math.min(18, Math.max(1, Math.round(baseInterval / (1 + 1.2 * risk))));
   // Revising an answer calls for a short confirmation, but does not erase every
   // previous successful retrieval or turn an all-green history into a failure.
   if (updatedSincePreviousReview) intervalDays = Math.min(intervalDays, 3);
@@ -1842,13 +1854,13 @@ export function planCueReview(
     easeFactor: scheduled.easeFactor,
     streak,
     nextReviewDate: addCalendarDays(reviewedDate, intervalDays),
-    scheduleReason: `本次 √，连续通过 ${streak} 次，其中跨天 ${spacedGreens} 次。${risk > 0 ? `历史 ${weakKinds} 的加权风险 ${risk.toFixed(2)}；后续跨天通过会逐步降低影响。` : ''}${updatedSincePreviousReview ? '内容更新后先短间隔确认。' : ''}结合历史权重和实际复习间隔，${intervalDays} 天后再检索（最长 15 天）。`,
+    scheduleReason: `本次 √，连续通过 ${streak} 次，其中跨天 ${spacedGreens} 次。${risk > 0 ? `历史 ${weakKinds} 的加权风险 ${risk.toFixed(2)}；后续跨天通过会逐步降低影响。` : ''}${updatedSincePreviousReview ? '内容更新后先短间隔确认。' : ''}结合历史权重和实际复习间隔，${intervalDays} 天后再检索（难度 ${difficultyLabels[difficulty]}；最长 18 天）。`,
   };
 }
 
 /** Replays old ratings once so existing Cues receive the same plan as newly reviewed Cues. */
 export function recalculateLegacyCueSchedules(state: ScheduleControlState): ScheduleControlState {
-  if ((state.cueScheduleRevision ?? 0) >= 4) return state;
+  if ((state.cueScheduleRevision ?? 0) >= 5) return state;
   const reviewsByCue = new Map<string, CueReview[]>();
   for (const review of state.cueReviews) {
     const history = reviewsByCue.get(review.cueId) ?? [];
@@ -1887,7 +1899,7 @@ export function recalculateLegacyCueSchedules(state: ScheduleControlState): Sche
   });
   return {
     ...state,
-    cueScheduleRevision: 4,
+    cueScheduleRevision: 5,
     cues,
     cueReviews: state.cueReviews.map((review) => {
       const replacement = replacements.get(review.cueId);

@@ -4,6 +4,7 @@ export const QUESTION_BANK_KEY = 'jackyun_schedule_questions_v1';
 export type QuestionType = 'single' | 'multiple' | 'boolean' | 'written';
 export type StudyMode = 'cue' | 'question' | 'mixed';
 export interface StudyItemRef { kind: 'cue' | 'question'; id: string }
+export interface QuestionImage { id: string; url: string; alt: string; placement: 'prompt' | 'answer' }
 export interface StudyQuestion {
   id: string;
   version: number;
@@ -18,6 +19,9 @@ export interface StudyQuestion {
   answer: string;
   explanation: string;
   markingPoints: string[];
+  /** Stable notebook-friendly identity, separate from the original source number. */
+  code?: string;
+  images?: QuestionImage[];
   source?: string;
   number?: string;
   maxScore?: number;
@@ -106,7 +110,12 @@ export function validateQuestion(value: unknown): QuestionContent {
   if (!Array.isArray(correctChoices) || correctChoices.some((index) => !Number.isInteger(index) || index < 0 || index >= choices.length)) throw new Error('正确选项必须使用有效的零起始序号。');
   if (new Set(correctChoices).size !== correctChoices.length || (type !== 'multiple' && correctChoices.length > 1) || (type === 'written' && correctChoices.length)) throw new Error('正确选项数量与题型不符。');
   if (raw.maxScore !== undefined && (typeof raw.maxScore !== 'number' || !Number.isFinite(raw.maxScore) || raw.maxScore <= 0)) throw new Error('满分必须为正数。');
+  const images = raw.images ?? [];
+  if (!Array.isArray(images) || images.length > 6 || images.some((image) => !image || typeof image.id !== 'string' || typeof image.alt !== 'string' || !['prompt', 'answer'].includes(image.placement) || typeof image.url !== 'string' || image.url.length > 2_800_000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(image.url))) throw new Error('图片需为 PNG / JPEG / WebP，每张最多 2 MB，每题最多 6 张。');
+  if (new Set(images.map((image) => image.id)).size !== images.length) throw new Error('图片 id 重复。');
+  if (text('code') && !/^[A-Z0-9]{1,4}-[A-Z0-9]{3,6}$/.test(text('code'))) throw new Error('短编号格式为科目前缀-序号，例如 MA-001。');
   return {
+    ...(text('code') ? { code: text('code') } : {}), ...(images.length ? { images: images as QuestionImage[] } : {}),
     subjectId: text('subjectId', true), subjectName: text('subjectName', true), unit: text('unit', true), subsection: text('subsection'), type,
     prompt: text('prompt', true), choices: type === 'written' ? [] : choices, correctChoices: [...correctChoices].sort((a, b) => a - b),
     answer: text('answer'), explanation: text('explanation'), markingPoints: strings(raw.markingPoints ?? [], 'markingPoints'),
@@ -127,7 +136,7 @@ export function parseQuestionImport(input: unknown, bank: QuestionBankState): Qu
     if (!question || updated.has(question.id)) throw new Error('修改 id 不存在或在本次导入中重复。');
     updated.add(question.id);
     const changes = object(operation.changes);
-    const allowed = new Set(['subjectId', 'subjectName', 'unit', 'subsection', 'type', 'prompt', 'choices', 'correctChoices', 'answer', 'explanation', 'markingPoints', 'source', 'number', 'maxScore', 'linkedCueIds', 'sourceCueId']);
+    const allowed = new Set(['subjectId', 'subjectName', 'unit', 'subsection', 'type', 'prompt', 'choices', 'correctChoices', 'answer', 'explanation', 'markingPoints', 'source', 'number', 'maxScore', 'linkedCueIds', 'sourceCueId', 'images']);
     if (Object.keys(changes).some((key) => !allowed.has(key))) throw new Error('changes 包含不支持的字段。');
     validateQuestion({ ...question, ...changes });
     return { action: 'update', id: question.id, changes: changes as Partial<QuestionContent> };
@@ -137,17 +146,17 @@ export function applyQuestionOperations(bank: QuestionBankState, operations: Que
   let questions = [...bank.questions];
   for (const operation of operations) {
     if (operation.action === 'create') {
-      const question = { ...validateQuestion(operation.question), id: id(), version: 1, createdAt: now, updatedAt: now };
+      const question = { ...validateQuestion(operation.question), code: undefined, id: id(), version: 1, createdAt: now, updatedAt: now };
       if (questions.some((item) => item.id === question.id)) throw new Error('题目 id 重复。');
       questions.push(question);
     } else {
       const prior = questions.find((item) => item.id === operation.id);
       if (!prior) throw new Error('题目已经不存在。');
-      const content = validateQuestion({ ...prior, ...operation.changes });
+      const content = validateQuestion({ ...prior, ...operation.changes, code: prior.code });
       questions = questions.map((item) => item.id === prior.id ? { ...content, id: prior.id, version: prior.version + 1, createdAt: prior.createdAt, updatedAt: now } : item);
     }
   }
-  return { ...bank, questions };
+  return { ...bank, questions: assignQuestionCodes(questions, bank.attempts.map((attempt) => attempt.snapshot)) };
 }
 export function copyCueToQuestion(cue: StudyCue): QuestionContent {
   return {
@@ -191,7 +200,7 @@ export function questionMatchesFilter(question: StudyQuestion, bank: QuestionBan
   const changed = Boolean(review && (question.updatedAt > review.lastReviewedAt || (review.questionVersion !== undefined && review.questionVersion !== question.version)));
   if (filter === 'all') return true;
   if (filter === 'unreviewed') return !review || changed;
-  if (filter === 'due') return (!review || dateKey(new Date(review.lastReviewedAt)) < date) && (!review || changed || review.nextReviewDate <= date || review.status !== 'stable');
+  if (filter === 'due') return (!review || dateKey(new Date(review.lastReviewedAt)) < date) && (!review || changed || review.nextReviewDate <= date || addCalendarDays(dateKey(new Date(review.lastReviewedAt)), 18) <= date || review.status !== 'stable');
   if (filter === 'weak') return review?.status === 'partial' || review?.status === 'unclear';
   if (filter === 'partial' || filter === 'unclear' || filter === 'stable') return review?.status === filter;
   return bank.attempts.filter((item) => item.questionId === question.id).toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).slice(0, 5).filter((item) => item.status !== 'stable').length >= 2;
@@ -265,12 +274,13 @@ export function readQuestionBank(input: unknown): QuestionBankState {
     const latest = attempts.filter((item) => item.questionId === question.id).toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt))[0];
     if (latest) reviews[question.id] = latest.review;
   }
-  return { schemaVersion: 1, questions, attempts, reviews, drafts };
+  return { schemaVersion: 1, questions: assignQuestionCodes(questions, attempts.map((attempt) => attempt.snapshot)), attempts, reviews, drafts };
 }
 export function questionReviewTasks(bank: QuestionBankState, date: Date): LearningTask[] {
   const key = dateKey(date);
   const rank = (question: StudyQuestion) => {
     const review = bank.reviews[question.id];
+    if (review && addCalendarDays(dateKey(new Date(review.lastReviewedAt)), 18) <= key) return -1;
     return review && (question.updatedAt > review.lastReviewedAt || (review.questionVersion !== undefined && review.questionVersion !== question.version)) ? 0 : review?.status === 'unclear' ? 1 : review?.status === 'partial' ? 2 : !review ? 3 : 4;
   };
   const due = bank.questions.filter((item) => questionMatchesFilter(item, bank, 'due', key)).toSorted((a, b) => rank(a) - rank(b) || (bank.reviews[a.id]?.nextReviewDate ?? a.createdAt).localeCompare(bank.reviews[b.id]?.nextReviewDate ?? b.createdAt));
@@ -302,4 +312,20 @@ export function reconcileQuestionSubjects(bank: QuestionBankState, catalog: Lear
     return [id, subject ? { ...draft, task: { ...draft.task, subjectName: subject.name, ...(draft.task.scope?.unit ? { scope: { ...draft.task.scope, unit: resolveUnit(subject, draft.task.scope.unit) } } : {}) } } : draft];
   }));
   return { ...bank, questions, drafts };
+}
+
+/** Allocate once; deletions never reuse identifiers retained in answer history. */
+export function assignQuestionCodes(questions: StudyQuestion[], historical: StudyQuestion[] = []): StudyQuestion[] {
+  const used = new Set([...questions, ...historical].flatMap((question) => question.code ? [question.code] : []));
+  return questions.map((question) => {
+    if (question.code) return { ...question, source: question.source || '来源待补充' };
+    const prefix = question.subjectName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2) || 'Q';
+    let hash = 2166136261;
+    for (const character of question.id) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0;
+    let index = hash % 1679616;
+    while (used.has(`${prefix}-${index.toString(36).toUpperCase().padStart(4, '0')}`)) index += 1;
+    const code = `${prefix}-${index.toString(36).toUpperCase().padStart(4, '0')}`;
+    used.add(code);
+    return { ...question, code, source: question.source || '来源待补充' };
+  });
 }

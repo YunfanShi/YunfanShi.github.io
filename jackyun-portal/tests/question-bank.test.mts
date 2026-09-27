@@ -257,3 +257,39 @@ test('rating an old submitted revision does not mark the revised question as rev
   assert.equal(questionReviewTasks(rated, today).length, 0);
   assert.equal(questionReviewTasks(rated, new Date('2026-09-28T08:00:00.000Z')).length, 1);
 });
+
+test('short question codes survive edits, source changes and strict storage round trips', () => {
+  const bank = bankWith(['q1', 'q2']);
+  assert.match(bank.questions[0].code!, /^PH-[A-Z0-9]{4}$/);
+  assert.notEqual(bank.questions[0].code, bank.questions[1].code);
+  assert.equal(bank.questions[0].source, '来源待补充');
+  const edited = applyQuestionOperations(bank, [{ action: 'update', id: 'q1', changes: { source: 'Textbook 2026', number: '17(b)', subjectName: 'Mathematics' } }], at, () => 'unused');
+  assert.equal(edited.questions[0].code, bank.questions[0].code);
+  assert.equal(readQuestionBank(JSON.parse(JSON.stringify(edited))).questions[0].code, bank.questions[0].code);
+  const freshImport = applyQuestionOperations(bank, [{ action: 'create', question: bank.questions[0] }], at, () => 'new-id');
+  assert.notEqual(freshImport.questions[2].code, bank.questions[0].code);
+});
+
+test('legacy questions receive codes without changing historical answer snapshots', () => {
+  const bank = recordQuestionAttempt(bankWith(), 'q1', 's1', correctResponse, 'stable', at);
+  const priorCode = bank.attempts[0].snapshot.code;
+  delete bank.questions[0].code;
+  const loaded = readQuestionBank(JSON.parse(JSON.stringify(bank)));
+  assert.ok(loaded.questions[0].code);
+  assert.equal(loaded.attempts[0].snapshot.code, priorCode);
+});
+
+test('question images round trip with answer placement and remain frozen in attempts', () => {
+  const image = { id: 'diagram', url: 'data:image/png;base64,iVBORw0KGgo=', alt: 'Forces diagram', placement: 'prompt' as const };
+  const bank = applyQuestionOperations(emptyQuestionBank(), [{ action: 'create', question: { ...content, images: [image, { ...image, id: 'solution', placement: 'answer' }] } }], at, () => 'q1');
+  const submitted = recordQuestionAttempt(bank, 'q1', 's1', correctResponse, 'stable', at);
+  const edited = applyQuestionOperations(submitted, [{ action: 'update', id: 'q1', changes: { images: [] } }], at, () => 'unused');
+  const loaded = readQuestionBank(JSON.parse(JSON.stringify(edited)));
+  assert.equal(loaded.questions[0].images, undefined);
+  assert.equal(loaded.attempts[0].snapshot.images?.length, 2);
+  assert.equal(loaded.attempts[0].snapshot.images?.[1].placement, 'answer');
+  for (const url of ['javascript:alert(1)', 'data:image/svg+xml;base64,PHN2Zz4=', 'https://example.com/a.png']) {
+    assert.throws(() => applyQuestionOperations(bank, [{ action: 'update', id: 'q1', changes: { images: [{ ...image, url }] } }], at, () => 'unused'), /图片/);
+  }
+  assert.throws(() => applyQuestionOperations(bank, [{ action: 'update', id: 'q1', changes: { images: Array.from({ length: 7 }, (_, index) => ({ ...image, id: `${index}` })) } }], at, () => 'unused'), /图片/);
+});
