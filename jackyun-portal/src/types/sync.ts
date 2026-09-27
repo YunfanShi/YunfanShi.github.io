@@ -54,6 +54,7 @@ export interface SyncStatusDetail {
   lastSyncedAt: string | null;
   error?: string;
   progress?: string;
+  consecutiveFailures?: number;
 }
 
 export interface DataArchiveV2<TTable extends string = string> {
