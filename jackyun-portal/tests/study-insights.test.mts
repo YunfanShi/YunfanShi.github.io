@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CUE_RULES, cueImportPrompt, questionExportOperations, questionImportPrompt } from '../src/lib/learning/study-prompts.ts';
+import { CUE_RULES, QUESTION_RULES, cueImportPrompt, questionExportOperations, questionImportPrompt } from '../src/lib/learning/study-prompts.ts';
 import { studyEvidence, studyMetrics, studyReportData } from '../src/lib/learning/study-insights.ts';
 import { applyQuestionOperations, emptyQuestionBank, parseQuestionImport, readQuestionBank, validateQuestion, recordQuestionAttempt, emptyResponse } from '../src/lib/learning/question-bank.ts';
 import { createEmptyScheduleState, type StudyCue } from '../src/lib/learning/schedule-control.ts';
@@ -35,13 +35,21 @@ test('subject charts include independent question snapshots and do not equate gr
   assert.equal(studyMetrics([{ ...evidence[0], subjectId: 'physics', subject: 'Physics' }, evidence[1]], 'unit').length, 2);
 });
 
-test('unified prompt includes rules, real IDs and image protocol while export retains upload data', () => {
+test('separate Cue and question prompts retain their own rules and compatible data', () => {
   const prompt = cueImportPrompt('Math', ['Indices'], [cue]);
-  assert.ok(prompt.includes(CUE_RULES)); assert.ok(prompt.includes('"id":"c1"'));
+  assert.ok(prompt.includes(CUE_RULES)); assert.equal(prompt.includes(QUESTION_RULES), false); assert.ok(prompt.includes('"id":"c1"'));
   assert.ok(prompt.includes('最多 200 条')); assert.ok(prompt.includes('create 不输出 subsection'));
   const bank = applyQuestionOperations(emptyQuestionBank(), parseQuestionImport({ version: 1, operations: [{ action: 'create', question: { ...question, images: [{ id: 'i1', url: 'data:image/png;base64,AAAA', alt: 'diagram', placement: 'prompt' }] } }] }, emptyQuestionBank()), at, () => 'q1');
   const state = createEmptyScheduleState();
   const questionPrompt = questionImportPrompt(state.learningCatalog, [cue], bank.questions);
+  assert.ok(questionPrompt.includes(QUESTION_RULES));
+  assert.equal(questionPrompt.includes(CUE_RULES), false);
+  assert.equal(questionPrompt.includes('CUE RULES'), false);
+  assert.equal(questionPrompt.includes('替代上文'), false);
+  assert.ok(questionPrompt.includes('相关的 (a)/(b)/(c) 小问'));
+  assert.ok(questionPrompt.includes('AI 生成练习'));
+  assert.ok(questionPrompt.includes('每题最多 6 个'));
+  assert.ok(questionPrompt.includes('single、multiple、boolean、written'));
   assert.ok(questionPrompt.includes('imageRequests')); assert.ok(questionPrompt.includes('q1')); assert.ok(questionPrompt.includes('existingImageInfo'));
   assert.equal(questionPrompt.includes('data:image/png;base64'), false);
   const exported = { version: 1, operations: questionExportOperations(bank.questions) };
