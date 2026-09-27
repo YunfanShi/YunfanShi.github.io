@@ -1,5 +1,7 @@
 'use client';
 
+import { DIAGNOSTIC_EVENT, redactDiagnostic, type DiagnosticEvent } from './diagnostic-events.ts';
+
 
 /**
  * ========================================
@@ -13,7 +15,7 @@
  *  - 所有未处理的 Promise 拒绝 (unhandledrejection)
  *
  * 存储策略：
- *  - 内存队列 (最多 2000 条，供实时查看)
+ *  - 内存队列 (最多 1000 条，供实时查看)
  *  - localStorage (最多 500 条，持久化)
  *
  * 使用方式：
@@ -53,10 +55,10 @@ export type DiagnosticSnapshot = { capturedAt: string; page: string; viewport: s
 
 /**
  * 全站后台日志 — 打开网站即启动，持久保存到 localStorage
- * 最多保留 100 条，超出自动覆盖最旧的
+ * 最多保留 500 条（另受 1 MiB 容量限制），超出自动覆盖最旧的
  */
-const MAX_MEMORY = 200;
-const MAX_LOCAL = 100;
+const MAX_MEMORY = 1000;
+const MAX_LOCAL = 500;
 const LOCAL_KEY = 'jackyun_client_logs';
 
 let _idCounter = 0;
@@ -67,11 +69,11 @@ function getTimestamp(): string {
 }
 
 const SENSITIVE_KEY = /authorization|cookie|token|secret|password|api[-_]?key|session/i;
-function sanitizeValue(value: unknown, depth = 0): unknown {
+function sanitizeValue(value: unknown, depth = 0, stringLimit = 800): unknown {
   if (depth > 4) return '[truncated]';
-  if (typeof value === 'string') return value.length > 800 ? `${value.slice(0, 800)}…[truncated]` : value;
-  if (Array.isArray(value)) return value.slice(0, 30).map((item) => sanitizeValue(item, depth + 1));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 40).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? '[redacted]' : sanitizeValue(item, depth + 1)]));
+  if (typeof value === 'string') return value.length > stringLimit ? `${value.slice(0, stringLimit)}…[truncated]` : value;
+  if (Array.isArray(value)) return value.slice(0, 30).map((item) => sanitizeValue(item, depth + 1, stringLimit));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 40).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? '[redacted]' : sanitizeValue(item, depth + 1, stringLimit)]));
   return value;
 }
 function safeUrl(value: string): string { try { const url = new URL(value, window.location.origin); return `${url.origin}${url.pathname}`; } catch { return value.split('?')[0]; } }
@@ -88,12 +90,13 @@ function flushPendingEntries() {
   try {
     const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[];
     const next = existing.concat(entries).slice(-MAX_LOCAL);
+    while (next.length > 1 && new Blob([JSON.stringify(next)]).size > 1_048_576) next.shift();
     localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
   } catch { /* localStorage 不可用 */ }
 }
 
 function schedulePersistence() {
-  if (persistTimer !== null) return;
+  if (typeof window === 'undefined' || persistTimer !== null) return;
   persistTimer = window.setTimeout(flushPendingEntries, 750);
 }
 
@@ -123,7 +126,7 @@ function makeEntry(
     tag,
     level,
     message,
-    data,
+    data: sanitizeValue(redactDiagnostic(data), 0, tag === 'AIReply' ? 6500 : 12_000),
     timestamp: getTimestamp(),
     stack: level === 'error' ? new Error().stack?.split('\n').slice(2).join('\n') : undefined,
     ...extra,
@@ -158,8 +161,8 @@ const logger = {
     _origConsole?.log(`[${tag}] ${message}`, data ?? '');
   },
 
-  /** 获取所有日志 */
-  getLogs: (): LogEntry[] => [..._logs],
+  /** 包含刷新前保存的诊断，不重复显示正在持久化的条目。 */
+  getLogs: (): LogEntry[] => [...new Map([...storedLogs(), ..._logs].map((entry) => [`${entry.timestamp}:${entry.id}`, entry])).values()].slice(-MAX_MEMORY),
 
   /** 按级别过滤 */
   getLogsByLevel: (level: LogLevel): LogEntry[] => _logs.filter(e => e.level === level),
@@ -172,16 +175,16 @@ const logger = {
 
   /** 清空日志 */
   clearLogs: () => {
-    _logs.length = 0;
+    _logs.length = 0; pendingEntries = []; if (persistTimer !== null) window.clearTimeout(persistTimer); persistTimer = null;
     try { localStorage.removeItem(LOCAL_KEY); } catch { }
   },
 
   /** 导出日志为 JSON */
-  exportLogs: (): string => JSON.stringify(_logs, null, 2),
+  exportLogs: (): string => JSON.stringify(logger.getLogs(), null, 2),
 
   /** 反馈附件：仅限最近事件，且所有敏感字段都经过脱敏。 */
   getDiagnosticSnapshot: (): DiagnosticSnapshot => {
-    const entries = [...storedLogs(), ..._logs].slice(-120).map((entry) => ({ ...entry, url: entry.url ? safeUrl(entry.url) : undefined, data: sanitizeValue(entry.data), stack: entry.stack?.slice(0, 2000) }));
+    const entries = logger.getLogs().slice(-120).map((entry) => ({ ...entry, url: entry.url ? safeUrl(entry.url) : undefined, data: sanitizeValue(entry.data, 0, entry.tag === 'AIReply' ? 6500 : 800), stack: entry.stack?.slice(0, 2000) }));
     return { capturedAt: getTimestamp(), page: typeof window === 'undefined' ? '' : safeUrl(window.location.href), viewport: typeof window === 'undefined' ? '' : `${window.innerWidth}×${window.innerHeight}`, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, logs: entries.slice(-80) };
   },
 
@@ -221,6 +224,8 @@ let _origConsole: {
 if (typeof window !== 'undefined' && !(window as unknown as Record<string, unknown>)['__jackyun_logger_booted__']) {
   (window as unknown as Record<string, unknown>)['__jackyun_logger_booted__'] = true;
 
+  window.addEventListener(DIAGNOSTIC_EVENT, (event) => { const detail = (event as CustomEvent<DiagnosticEvent>).detail; pushEntry(makeEntry(detail.level, detail.tag, detail.message, detail.data)); });
+
   // ── 1. 拦截 console ──
   _origConsole = {
     log: console.log.bind(console),
@@ -250,6 +255,8 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
           parts.push(args[0] as string);
         }
       }
+
+      if (args[0] instanceof Error) { parts.push(args[0].message); data = args[0]; }
 
       // 其余参数
       for (let i = 1; i < args.length; i++) {
@@ -292,7 +299,7 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
       const duration = Math.round(performance.now() - startTime);
 
       const resEntry = makeEntry(
-        response.ok ? 'info' : 'warn',
+        response.ok ? 'info' : 'error',
         'Network',
         `${method} ${url} → ${response.status} ${response.statusText} (${duration}ms)`,
         { status: response.status, ok: response.ok, duration },
@@ -300,6 +307,13 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
       );
       pushEntry(resEntry);
 
+      if (!response.ok && safeUrl(url).startsWith(window.location.origin)) {
+        void response.clone().text().then((body) => {
+          let value: unknown = body.slice(0, 12_000);
+          try { value = JSON.parse(body); } catch { /* Non-JSON error body remains readable. */ }
+          pushEntry(makeEntry('error', 'NetworkResponse', 'HTTP 错误响应正文', { status: response.status, body: redactDiagnostic(value), truncated: body.length > 12_000 }, { url: safeUrl(url), method, status: response.status }));
+        }).catch((error) => pushEntry(makeEntry('error', 'NetworkResponse', '无法读取 HTTP 错误正文', error, { url: safeUrl(url) })));
+      }
       return response;
     } catch (err) {
       const duration = Math.round(performance.now() - startTime);
@@ -364,7 +378,8 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
   };
 
   // ── 4. 全局未捕获异常 ──
-  window.addEventListener('error', (e) => {
+  window.addEventListener('error', (e: Event) => {
+    if (!(e instanceof ErrorEvent)) { const target = e.target; pushEntry(makeEntry('error', 'ResourceError', '页面资源加载失败', { element: target instanceof Element ? target.tagName : undefined, url: target instanceof HTMLImageElement || target instanceof HTMLScriptElement ? safeUrl(target.src) : target instanceof HTMLLinkElement ? safeUrl(target.href) : undefined })); return; }
     const message = e.error?.message || e.message || 'Unknown error';
     const entry = makeEntry('unhandled', 'GlobalError', message, {
       filename: e.filename,
@@ -374,7 +389,7 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
     });
     pushEntry(entry);
     // 不阻止默认行为
-  });
+  }, true);
 
   // ── 5. 未处理的 Promise 拒绝 ──
   window.addEventListener('unhandledrejection', (e) => {

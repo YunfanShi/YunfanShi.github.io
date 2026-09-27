@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { formatDiagnosticLog } from '@/lib/diagnostic-events';
 import logger, { type LogEntry, type LogLevel } from '@/lib/logger';
 
 const LEVEL_COLORS: Record<LogLevel, string> = {
@@ -47,7 +48,7 @@ export default function LoggerViewer() {
   useEffect(() => {
     const unsub = logger.subscribe((entry) => {
       if (paused) return;
-      setLogs(prev => [...prev, entry]);
+      setLogs(prev => [...prev, entry].slice(-1000));
     });
 
     // Load existing logs on mount
@@ -98,24 +99,13 @@ export default function LoggerViewer() {
   };
 
   const handleCopyAll = () => {
-    const text = logs.map(entry => {
-      let line = `[${entry.timestamp}] [${entry.tag}] [${entry.level.toUpperCase()}] ${entry.message}`;
-      if (entry.url) line += ` | ${entry.method} ${entry.url}`;
-      if (entry.status != null) line += ` | status=${entry.status}`;
-      if (entry.duration != null) line += ` | ${entry.duration}ms`;
-      return line;
-    }).join('\n');
-    navigator.clipboard.writeText(text).catch(() => {});
+    const text = logs.map(formatDiagnosticLog).join('\n');
+    navigator.clipboard.writeText(text).catch((error) => logger.error('Clipboard', '复制诊断日志失败', error));
   };
 
   const handleCopy = (entry: LogEntry) => {
-    const text = `[${entry.timestamp}] [${entry.tag}] [${entry.level.toUpperCase()}] ${entry.message}` +
-      (entry.data ? `\nData: ${JSON.stringify(entry.data, null, 2)}` : '') +
-      (entry.stack ? `\nStack: ${entry.stack}` : '') +
-      (entry.url ? `\nURL: ${entry.url}` : '') +
-      (entry.status ? `\nStatus: ${entry.status}` : '') +
-      (entry.duration ? `\nDuration: ${entry.duration}ms` : '');
-    navigator.clipboard.writeText(text).catch(() => {});
+    const text = formatDiagnosticLog(entry);
+    navigator.clipboard.writeText(text).catch((error) => logger.error('Clipboard', '复制诊断日志失败', error));
   };
 
   return (

@@ -17,6 +17,7 @@ import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/
 import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
 import { backupIsDue, recordBackupChange, type PendingBackup } from '@/lib/backup/cadence';
 import { createDueBackupVersions } from '@/actions/backup-center';
+import { emitDiagnostic, errorDetails } from '@/lib/diagnostic-events';
 import { syncFailureStatus, SyncHttpError } from '@/lib/sync/service-error';
 import type { SyncConflict, SyncRecord, SyncStatus } from '@/types/sync';
 
@@ -388,6 +389,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         retryAt = 0;
         if (!cancelled) await publishStatus('synced');
       } catch (error) {
+        emitDiagnostic('error', 'WorkspaceSync', '同步操作失败，保留待同步数据', { error: errorDetails(error), failures: failures + 1, online: navigator.onLine });
         failures += 1;
         retryAt = Date.now() + syncRetryDelay(failures);
         authPaused = shouldPauseSync(error);
