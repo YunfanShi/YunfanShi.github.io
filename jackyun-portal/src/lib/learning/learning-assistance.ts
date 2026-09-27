@@ -3,8 +3,8 @@ import type { CueReview, StudyCue } from './schedule-control.ts';
 export type CueDifficulty = 'easy' | 'medium' | 'hard' | 'extreme';
 export const difficultyLabels: Record<CueDifficulty, string> = { easy: '简单', medium: '中等', hard: '难', extreme: '极限' };
 export const difficultyFactors: Record<CueDifficulty, number> = { easy: 1.5, medium: 1, hard: 0.75, extreme: 0.5 };
-export const cueSkills = ['general', 'definition', 'calculate', 'explain', 'proof', 'formula', 'state'] as const;
-export interface CueAiAdvice { skill?: typeof cueSkills[number]; signature: string; difficulty: CueDifficulty; reason: string; qualityIssue?: string; suggestedPrompt?: string; generatedAt: string }
+export const cueSkills = ['general', 'definition', 'calculate', 'explain', 'proof', 'formula', 'state', 'compare', 'process', 'application', 'diagram', 'derivation', 'multiple-choice'] as const;
+export interface CueAiAdvice { skill?: typeof cueSkills[number]; classificationNote?: string; signature: string; difficulty: CueDifficulty; reason: string; qualityIssue?: string; suggestedPrompt?: string; generatedAt: string }
 export interface DailyLearningAdvice { date: string; batchLimit: number; reason: string }
 export function cueContentSignature(cue: StudyCue): string {
   return JSON.stringify([cue.subjectName, cue.unit, cue.type, cue.prompt, cue.subtitle, cue.answer, cue.choices, cue.correctChoice, cue.markingPoints]);
@@ -50,8 +50,9 @@ export function parseLearningAdvice(value: unknown, cues: StudyCue[], now: strin
     const item = row as Record<string, unknown>; const cue = cues.find((cue) => cue.id === item.id);
     if (!cue || results[cue.id] || !Object.hasOwn(difficultyLabels, String(item.difficulty)) || typeof item.reason !== 'string' || !item.reason.trim()) throw new Error('AI 返回了无效 ID、重复 ID 或难度。');
     if ((item.qualityIssue !== undefined && typeof item.qualityIssue !== 'string') || (item.suggestedPrompt !== undefined && typeof item.suggestedPrompt !== 'string')) throw new Error('AI 质量建议必须为文本。');
-    if (item.skill !== undefined && !cueSkills.includes(item.skill as typeof cueSkills[number])) throw new Error('AI 能力维度不在允许范围内。');
-    results[cue.id] = { ...(item.skill ? { skill: item.skill as typeof cueSkills[number] } : {}), signature: cueContentSignature(cue), difficulty: item.difficulty as CueDifficulty, reason: item.reason.slice(0, 500), qualityIssue: String(item.qualityIssue ?? '').slice(0, 500), suggestedPrompt: String(item.suggestedPrompt ?? '').slice(0, 500), generatedAt: now };
+    // Optional classification cannot invalidate a valid difficulty result or its batch.
+    const skill = typeof item.skill === 'string' && cueSkills.includes(item.skill as typeof cueSkills[number]) ? item.skill as typeof cueSkills[number] : undefined;
+    results[cue.id] = { ...(skill ? { skill } : {}), ...(item.skill !== undefined && !skill ? { classificationNote: 'AI 返回的能力维度无效，已忽略；按原 CUE 类型统计。难度评级仍有效。' } : {}), signature: cueContentSignature(cue), difficulty: item.difficulty as CueDifficulty, reason: item.reason.slice(0, 500), qualityIssue: String(item.qualityIssue ?? '').slice(0, 500), suggestedPrompt: String(item.suggestedPrompt ?? '').slice(0, 500), generatedAt: now };
   }
   if (Object.keys(results).length !== cues.length) throw new Error('AI 未完整返回本批 CUE 评级。');
   let daily: DailyLearningAdvice | undefined;
