@@ -9,6 +9,12 @@ export interface DailyLearningAdvice { date: string; batchLimit: number; reason:
 export function cueContentSignature(cue: StudyCue): string {
   return JSON.stringify([cue.subjectName, cue.unit, cue.type, cue.prompt, cue.subtitle, cue.answer, cue.choices, cue.correctChoice, cue.markingPoints]);
 }
+/** Legacy/edited content is automatic; refresh evidence after three new practice days. */
+export function cueNeedsAiAnalysis(cue: StudyCue, reviews: CueReview[] = []): boolean {
+  if (!cue.aiAdvice || cue.aiAdvice.signature !== cueContentSignature(cue)) return true;
+  const newDays = new Set(reviews.filter((review) => review.cueId === cue.id && review.reviewedAt > cue.aiAdvice!.generatedAt).map((review) => review.reviewedAt.slice(0, 10)));
+  return newDays.size >= 3;
+}
 export function effectiveCueDifficulty(cue: StudyCue, reviews: CueReview[] = []): CueDifficulty {
   const candidate = cue.userDifficulty ?? (cue.aiAdvice?.signature === cueContentSignature(cue) ? cue.aiAdvice.difficulty : 'medium');
   const base = Object.hasOwn(difficultyLabels, candidate) ? candidate : 'medium';

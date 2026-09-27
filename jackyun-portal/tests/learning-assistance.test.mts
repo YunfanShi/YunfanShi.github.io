@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cueContentSignature, effectiveCueDifficulty, learningProfile, parseLearningAdvice } from '../src/lib/learning/learning-assistance.ts';
+import { cueContentSignature, cueNeedsAiAnalysis, effectiveCueDifficulty, learningProfile, parseLearningAdvice } from '../src/lib/learning/learning-assistance.ts';
 import { completeCueReviews, createEmptyScheduleState, dateKey, planCueReview, tasksForDate, type CueReview, type StudyCue } from '../src/lib/learning/schedule-control.ts';
 const at = '2026-09-01T08:00:00.000Z';
 const cue: StudyCue = { id: 'c1', subjectId: 'math', subjectName: 'Math', unit: 'Indices', subsection: '', prompt: 'State the index laws.', type: 'state', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: at, updatedAt: at };
@@ -76,4 +76,17 @@ test('eighteen-day question deadlines share the same capacity protection', () =>
   state.dailyLearningAdvice = { date: dateKey(date), batchLimit: 1, reason: 'Rest' };
   const questionTasks = ['q1', 'q2'].map((id) => ({ key: id, title: id, detail: '', type: 'practice' as const, date: dateKey(date), durationMinutes: 8, subjectId: id, questionIds: [id], reviewPriority: -1 }));
   assert.equal(tasksForDate(state, date, questionTasks).filter((task) => task.questionIds?.length).length, 2);
+});
+
+
+test('legacy and edited Cues are analyzed automatically, outcomes refresh after three practice days', () => {
+  assert.equal(cueNeedsAiAnalysis(cue), true);
+  const rated = { ...cue, aiAdvice: advice };
+  assert.equal(cueNeedsAiAnalysis(rated), false);
+  assert.equal(cueNeedsAiAnalysis({ ...rated, prompt: 'Edited' }), true);
+  assert.equal(cueNeedsAiAnalysis(rated, [history('stable', 2), history('stable', 2), history('stable', 2)]), false);
+  assert.equal(cueNeedsAiAnalysis(rated, [history('stable', 2), history('partial', 3)]), false);
+  assert.equal(cueNeedsAiAnalysis(rated, [history('stable', 2), history('partial', 3), history('unclear', 4)]), true);
+  assert.equal(cueNeedsAiAnalysis({ ...rated, aiAdvice: { ...advice, generatedAt: '2026-09-04T09:00:00.000Z' } }, [history('stable', 2), history('partial', 3), history('unclear', 4)]), false);
+  assert.equal(cueNeedsAiAnalysis(rated, [2, 3, 4].map((day) => ({ ...history('unclear', day), cueId: 'another' }))), false);
 });
