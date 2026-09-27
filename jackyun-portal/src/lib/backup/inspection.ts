@@ -66,9 +66,10 @@ export function inspectCloudBackup(
   if (page === 'schedule') {
     const saved = legacy.find((item) => item.storage_key === SCHEDULE_KEY)?.storage_value;
     const inspected = inspectScheduleVersion(saved, currentScheduleValue);
+    const questions = scheduleState(legacy.find((item) => item.storage_key === 'jackyun_schedule_questions_v1')?.storage_value);
     return {
       ...inspected,
-      facts: [...inspected.facts, `课表计划 ${legacy.filter((item) => typeof item.storage_key === 'string' && item.storage_key.startsWith('jack_timetable_plan')).length} 份`, `其他 Schedule 记录 ${nonLegacyCount} 条`],
+      facts: [...inspected.facts, `题库 ${rows(questions, 'questions').length} 题`, `题目作答 ${rows(questions, 'attempts').length} 次`, `学习草稿 ${Object.keys((questions?.drafts as Record<string, unknown>) ?? {}).length} 项`, `课表计划 ${legacy.filter((item) => typeof item.storage_key === 'string' && item.storage_key.startsWith('jack_timetable_plan')).length} 份`, `其他 Schedule 记录 ${nonLegacyCount} 条`],
     };
   }
   return {
