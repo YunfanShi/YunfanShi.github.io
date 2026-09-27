@@ -1,5 +1,7 @@
 'use client';
 
+import { MemoryCueImportDialog } from './memory-cue-import-dialog';
+
 import FullscreenButton from '@/components/layout/fullscreen-button';
 import styles from './schedule-control.module.css';
 import MobileCueCard from './mobile-cue-card';
@@ -58,6 +60,7 @@ import {
   recordCueStudyAssessment,
   recalculateLegacyCueSchedules,
   removeCueStudyDraft,
+  reorderCueStudy,
   saveCueStudyDraft,
   shuffleCueIds,
   preservedReviewCourseIds,
@@ -319,7 +322,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   const memoRef = useRef<HTMLTextAreaElement>(null);
   const [orderedCueIds, setOrderedCueIds] = useState(draft.cueIds);
   const [shuffled, setShuffled] = useState(draft.shuffled === true);
-  const cues = useMemo(() => {
+  const [hiddenCueIds, setHiddenCueIds] = useState<string[]>(draft.hiddenCueIds ?? []);
+  const allCues = useMemo(() => {
     const byId = new Map(sourceCues.map((cue) => [cue.id, cue]));
     const ordered = orderedCueIds.flatMap((id) => {
       const cue = byId.get(id);
@@ -328,6 +332,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
     const selected = new Set(ordered.map((cue) => cue.id));
     return [...ordered, ...sourceCues.filter((cue) => !selected.has(cue.id))];
   }, [orderedCueIds, sourceCues]);
+  const cues = useMemo(() => allCues.filter((cue) => !hiddenCueIds.includes(cue.id)), [allCues, hiddenCueIds]);
   const [index, setIndex] = useState(() => Math.min(Math.max(0, draft.index), Math.max(0, sourceCues.length - 1)));
   const [revealed, setRevealed] = useState(draft.revealed);
   const [selectedChoice, setSelectedChoice] = useState<number | undefined>(draft.selectedChoice);
@@ -338,20 +343,20 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   const current = cues[currentIndex];
   const currentMemo = current ? memos.find((memo) => memo.cueId === current.id) : undefined;
   const priorStatus = current ? Object.hasOwn(draft.priorStatuses ?? {}, current.id) ? draft.priorStatuses?.[current.id] : assessments[current.id] ? undefined : current.status ?? null : null;
-  const activeAssessments = useMemo(() => Object.fromEntries(cues.flatMap((cue) => assessments[cue.id] ? [[cue.id, assessments[cue.id]]] : [])) as Record<string, LearningStatus>, [assessments, cues]);
+  const activeAssessments = useMemo(() => Object.fromEntries(allCues.flatMap((cue) => assessments[cue.id] ? [[cue.id, assessments[cue.id]]] : [])) as Record<string, LearningStatus>, [assessments, allCues]);
   const assessedCount = Object.keys(activeAssessments).length;
   const submit = useCallback((nextAssessments: Record<string, LearningStatus>) => onComplete(
     { studiedContent: '', issue: '', note: '' },
     {
       subjectName: task.subjectName,
-      scope: { ...(task.scope?.unit ? { unit: task.scope.unit } : {}), cueIds: cues.map((cue) => cue.id) },
+      scope: { ...(task.scope?.unit ? { unit: task.scope.unit } : {}), cueIds: allCues.map((cue) => cue.id) },
       materials: task.materials ?? [],
-      cueIds: cues.map((cue) => cue.id),
+      cueIds: allCues.map((cue) => cue.id),
       newCues: [],
-      assessments: cues.map((cue) => ({ cueId: cue.id, status: nextAssessments[cue.id] })),
+      assessments: allCues.map((cue) => ({ cueId: cue.id, status: nextAssessments[cue.id] })),
       cueReviewsAlreadyRecorded: true,
     },
-  ), [cues, onComplete, task]);
+  ), [allCues, onComplete, task]);
   const rate = useCallback((status: LearningStatus) => {
     if (!current) return;
     const destination = cueRatingDestination(cues.map((cue) => cue.id), currentIndex, assessments, status);
@@ -372,10 +377,11 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   const toggleShuffle = () => {
     const next = !shuffled;
     setShuffled(next);
-    setOrderedCueIds(next ? shuffleCueIds(cues.map((cue) => cue.id)) : sourceCues.map((cue) => cue.id));
-    setIndex(0);
-    setRevealed(false);
-    setSelectedChoice(undefined);
+    const order = reorderCueStudy(sourceCues.map((cue) => cue.id), assessments, next, current?.id);
+    setHiddenCueIds(order.hiddenCueIds);
+    setOrderedCueIds(order.cueIds);
+    setIndex(order.index);
+    if (!order.retainedCurrent) { setRevealed(false); setSelectedChoice(undefined); }
     queueMicrotask(() => studyRef.current?.focus());
   };
   const move = useCallback((offset: number) => {
@@ -406,8 +412,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
   }, [currentIndex]);
   useEffect(() => { if (memoOpen) queueMicrotask(() => memoRef.current?.focus()); }, [index, memoOpen]);
   useEffect(() => {
-    onProgress({ id: draft.id, task, cueIds: cues.map((cue) => cue.id), index: currentIndex, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, shuffled, updatedAt: new Date().toISOString() });
-  }, [activeAssessments, cues, currentIndex, draft.id, draft.priorStatuses, onProgress, revealed, selectedChoice, shuffled, task]);
+    onProgress({ id: draft.id, task, cueIds: allCues.map((cue) => cue.id), index: currentIndex, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, shuffled, hiddenCueIds, updatedAt: new Date().toISOString() });
+  }, [activeAssessments, allCues, hiddenCueIds, currentIndex, draft.id, draft.priorStatuses, onProgress, revealed, selectedChoice, shuffled, task]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -440,7 +446,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
     <div ref={studyRef} tabIndex={-1} className={`${styles.studyOverlay} fixed inset-0 z-[150] overflow-x-hidden overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] bg-[var(--background)] outline-none`} role="dialog" aria-modal="true" aria-labelledby="cue-study-title">
       <header className={`${styles.studyHeader} sticky top-0 z-10 border-b border-[var(--card-border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl sm:px-8 sm:py-4`}>
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-4"><button type="button" onClick={onClose} aria-label="退出 Cue 学习并保存进度" className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"><span className="material-icons-round">arrow_back</span></button><div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--brand)]">Cue Study · 自动保存</p><h1 id="cue-study-title" className="break-words text-sm font-semibold sm:text-lg">{task.title}</h1></div><button type="button" onClick={toggleShuffle} aria-pressed={shuffled} className={`hidden md:block shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${shuffled ? 'border-[var(--brand)] bg-blue-50 text-[var(--brand)] dark:bg-blue-950/40' : 'border-[var(--card-border)]'}`}><span className="material-icons-round mr-1 align-middle text-base">shuffle</span>{shuffled ? "乱序已开启" : "开启乱序"}</button><span className="text-sm font-semibold">{cues.length ? `${Math.min(index + 1, cues.length)} / ${cues.length}` : '0 / 0'}</span><button type="button" aria-label="学习工具和题目目录" aria-expanded={studyToolsOpen} onClick={() => setStudyToolsOpen((open) => !open)} className="grid h-11 w-11 place-items-center rounded-xl md:hidden"><span className="material-icons-round">more_horiz</span></button></div>
-        <div className="mx-auto mt-3 h-1.5 max-w-5xl overflow-hidden rounded-full bg-black/10 dark:bg-white/10"><div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${cues.length ? (assessedCount / cues.length) * 100 : 0}%` }} /></div>
+        <div className="mx-auto mt-3 h-1.5 max-w-5xl overflow-hidden rounded-full bg-black/10 dark:bg-white/10"><div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${allCues.length ? (assessedCount / allCues.length) * 100 : 0}%` }} /></div>
         <div className="mx-auto mt-2 hidden md:flex max-w-5xl flex-wrap items-center justify-end gap-2"><FullscreenButton /><button type="button" disabled={!current} onClick={() => setMemoOpen((open) => !open)} aria-expanded={memoOpen} className="min-h-11 rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">CUE 备忘录</button><button type="button" disabled={!assessedCount} onClick={() => submit(activeAssessments)} className="rounded-full border border-[var(--brand)] px-4 py-2 text-xs font-semibold text-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40">结束本轮学习</button></div>
       </header>
       {studyToolsOpen && <div className={styles.studyTools}>
@@ -452,19 +458,19 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, onProgress, onAsse
         <nav aria-label="触屏题目目录">{cues.map((cue, cueIndex) => <button key={cue.id} type="button" aria-current={cueIndex === currentIndex ? 'step' : undefined} onClick={() => { setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); setStudyToolsOpen(false); }}>{cueIndex + 1}{assessments[cue.id] ? ` ${statusMark(assessments[cue.id])}` : ''}</button>)}</nav>
       </div>}
       <main className={`${styles.studyMain} mx-auto flex min-h-[calc(100dvh-110px)] min-w-0 max-w-5xl flex-col px-3 py-4 sm:px-8 sm:py-8`}>
-        {!current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">这个任务暂时没有 Cue</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">请先在 Cue 工作台为“{[task.subjectName, task.scope?.unit].filter(Boolean).join(' → ') || task.title}”添加 Cue，再回来验证。</p><button type="button" onClick={onClose} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">返回 Schedule</button></div> : <>
+        {!current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">{allCues.length ? '本轮已完成' : '这个任务暂时没有 Cue'}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{allCues.length ? '已完成的内容已隐藏，评价和进度仍然保留。' : '请先在 CUE 工作台添加内容，再回来学习。'}</p><button type="button" onClick={() => allCues.length ? submit(activeAssessments) : onClose()} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">{allCues.length ? '完成学习' : '返回 Schedule'}</button></div> : <>
           <div className="mb-4 hidden md:flex gap-2 overflow-x-auto py-1 sm:flex-wrap" aria-label="Cue 学习进度">{cues.map((cue, cueIndex) => { const saved = assessments[cue.id]; return <button key={cue.id} type="button" onClick={() => { setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} aria-label={`第 ${cueIndex + 1} 条${saved ? `，已标记 ${statusMark(saved)}` : '，未标记'}`} className={`grid h-11 min-w-11 shrink-0 place-items-center rounded-full border px-2 text-xs font-bold ${cueIndex === index ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20' : 'border-[var(--card-border)]'} ${saved === 'stable' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : saved === 'partial' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : saved === 'unclear' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{saved ? statusMark(saved) : cueIndex + 1}</button>; })}</div>
           <div className="hidden md:flex flex-wrap items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span><button type="button" onClick={() => setMemoOpen(true)} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${currentMemo ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200' : 'border border-[var(--card-border)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-sm">edit_note</span>{currentMemo ? '查看备忘录' : '添加备忘录'}</button></div><div className="text-right"><div className="flex flex-wrap items-center justify-end gap-2"><CueStatusHistory previous={priorStatus} current={assessments[current.id]} /><CueActivityBadge cue={current} /><span className="text-xs font-semibold text-[var(--foreground)]">{cueRevisionLabel(current)}</span></div><p className="mt-1 text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div></div>
           <CueDifficultyPicker cue={current} reviews={reviews} onChange={(difficulty) => onDifficulty(current.id, difficulty)} />
           <div className="md:hidden"><MobileCueCard cue={current} revealed={revealed} selectedChoice={selectedChoice} onReveal={() => setRevealed((value) => !value)} onChoice={(choiceIndex) => { setSelectedChoice(choiceIndex); setRevealed(true); }} evidence={<CueEvidence cue={current} />} /></div>
           <div className="hidden md:contents">          <CuePromptContent cue={current} revealed={revealed} selectedChoice={selectedChoice} onReveal={() => setRevealed((value) => !value)} onChoice={(choiceIndex) => { setSelectedChoice(choiceIndex); setRevealed(true); }} /></div>
-          <div className="hidden md:block border-t border-[var(--card-border)] pt-5"><p className="mb-3 text-center text-sm font-semibold">这次闭卷检索的状态{assessments[current.id] ? ` · 已保存 ${statusMark(assessments[current.id])}，再次点击相同状态进入下一条` : ''}</p>{revealed ? <div className="grid gap-3 sm:grid-cols-3"><button type="button" onClick={() => rate('stable')} className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-left text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><strong className="text-xl">C / 1 · √ 通过</strong><span className="mt-1 block text-xs">首次保存；再次点击进入下一条</span></button><button type="button" onClick={() => rate('partial')} className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-left text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><strong className="text-xl">P / 2 · △ 部分通过</strong><span className="mt-1 block text-xs">首次保存；再次点击进入下一条</span></button><button type="button" onClick={() => rate('unclear')} className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-left text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"><strong className="text-xl">X / 3 · ○ 未通过</strong><span className="mt-1 block text-xs">首次保存；再次点击进入下一条</span></button></div> : <p className="rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-4 text-center text-sm text-[var(--muted-foreground)]">{current.type === 'multiple-choice' ? `先选择 1–${current.choices?.length ?? 0}，系统核对后再判定状态。` : '空格 / Enter 可反复显示、隐藏答案。'}</p>}{assessedCount === cues.length && cues.length > 0 && <button type="button" onClick={() => submit(assessments)} className="mt-4 w-full rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white dark:text-[#202124]">完成本次 Cue 学习并保存记录</button>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={index === 0} onClick={() => move(-1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">← 上一条</button><span className="text-center text-xs leading-5 text-[var(--muted-foreground)]">{current.type === 'multiple-choice' && !revealed ? `1–${current.choices?.length ?? 0} 选择答案` : '空格 / Enter 显示或隐藏答案'} · <kbd className="rounded bg-black/5 px-1.5 py-0.5 dark:bg-white/10">~ / ·</kbd> 备忘录 · ←/→/↑/↓ 切换 · {revealed ? 'C/P/X 或 1/2/3 首次保存、同状态再按切换 · ' : ''}Esc 退出</span><button type="button" disabled={index >= cues.length - 1} onClick={() => move(1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">下一条 →</button></div></div>
+          <div className="hidden md:block border-t border-[var(--card-border)] pt-5"><p className="mb-3 text-center text-sm font-semibold">这次闭卷检索的状态{assessments[current.id] ? ` · 已保存 ${statusMark(assessments[current.id])}，再次点击相同状态进入下一条` : ''}</p>{revealed ? <div className="grid gap-3 sm:grid-cols-3"><button type="button" onClick={() => rate('stable')} className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-left text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><strong className="text-xl">C / 1 · √ 通过</strong><span className="mt-1 block text-xs">首次保存；再次点击进入下一条</span></button><button type="button" onClick={() => rate('partial')} className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-left text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><strong className="text-xl">P / 2 · △ 部分通过</strong><span className="mt-1 block text-xs">首次保存；再次点击进入下一条</span></button><button type="button" onClick={() => rate('unclear')} className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-left text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"><strong className="text-xl">X / 3 · ○ 未通过</strong><span className="mt-1 block text-xs">首次保存；再次点击进入下一条</span></button></div> : <p className="rounded-2xl border border-dashed border-[var(--card-border)] px-4 py-4 text-center text-sm text-[var(--muted-foreground)]">{current.type === 'multiple-choice' ? `先选择 1–${current.choices?.length ?? 0}，系统核对后再判定状态。` : '空格 / Enter 可反复显示、隐藏答案。'}</p>}{assessedCount === allCues.length && cues.length > 0 && <button type="button" onClick={() => submit(assessments)} className="mt-4 w-full rounded-full bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white dark:text-[#202124]">完成本次 Cue 学习并保存记录</button>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={index === 0} onClick={() => move(-1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">← 上一条</button><span className="text-center text-xs leading-5 text-[var(--muted-foreground)]">{current.type === 'multiple-choice' && !revealed ? `1–${current.choices?.length ?? 0} 选择答案` : '空格 / Enter 显示或隐藏答案'} · <kbd className="rounded bg-black/5 px-1.5 py-0.5 dark:bg-white/10">~ / ·</kbd> 备忘录 · ←/→/↑/↓ 切换 · {revealed ? 'C/P/X 或 1/2/3 首次保存、同状态再按切换 · ' : ''}Esc 退出</span><button type="button" disabled={index >= cues.length - 1} onClick={() => move(1)} className="rounded-full px-4 py-2 text-sm font-medium disabled:opacity-30">下一条 →</button></div></div>
         </>}
       </main>
       {current && <footer className={styles.touchControls}>
         {revealed && <div className={styles.touchRatings} aria-label="判定本次学习状态">{(['stable', 'partial', 'unclear'] as const).map((status) => <button key={status} type="button" data-rating={status} aria-pressed={assessments[current.id] === status} onClick={() => rate(status)}>{status === 'stable' ? '√ 通过' : status === 'partial' ? '△ 部分' : '○ 未通过'}</button>)}</div>}
         <div className={styles.touchNavigation}><button type="button" disabled={currentIndex === 0} onClick={() => move(-1)} aria-label="上一题">←</button><button type="button" disabled={!revealed && (current.type === 'multiple-choice' || current.display === 'multiple-choice')} onClick={() => setRevealed((value) => !value)}>{revealed ? '翻回题目' : current.type === 'multiple-choice' || current.display === 'multiple-choice' ? '请先选择选项' : '翻到答案'}</button><button type="button" disabled={currentIndex >= cues.length - 1} onClick={() => move(1)} aria-label="下一题">→</button></div>
-        {assessedCount === cues.length && <button type="button" className={styles.touchComplete} onClick={() => submit(activeAssessments)}>完成学习并保存记录</button>}
+        {assessedCount === allCues.length && <button type="button" className={styles.touchComplete} onClick={() => submit(activeAssessments)}>完成学习并保存记录</button>}
       </footer>}
       {memoOpen && current && <aside className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-h-[70dvh] w-auto max-w-xl flex-col overflow-y-auto overscroll-contain rounded-3xl border border-amber-300/70 bg-[#fffdf4] shadow-2xl dark:border-amber-700/70 dark:bg-[#27251d] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[min(32rem,calc(100vw-3rem))]" aria-label="Cue 备忘录">
         <div className="flex items-start gap-3 border-b border-amber-200/80 px-4 py-3 dark:border-amber-800/70"><span className="material-icons-round mt-0.5 text-amber-600">edit_note</span><div className="min-w-0 flex-1"><p className="font-semibold">Cue 备忘录</p><p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">CUE {index + 1} · 长期保存并随 Schedule 云同步</p></div><button type="button" onClick={() => { setMemoOpen(false); queueMicrotask(() => studyRef.current?.focus()); }} aria-label="关闭备忘录" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-amber-200/60 dark:hover:bg-amber-900/50"><span className="material-icons-round text-lg">close</span></button></div>
@@ -947,6 +953,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, reminderD
   const [filterStatus, setFilterStatus] = useState<CueStatusFilter>('all');
   const [bulkImport, setBulkImport] = useState(false);
   const [similarityTool, setSimilarityTool] = useState(false);
+  const [memoryImport, setMemoryImport] = useState(false);
   const selectedSubjectConfig = catalog.find((item) => item.name === subjectName);
   const latestCollectionUpdate = collectionUpdates.filter((update) => update.subjectName === subjectName).toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
   const enrichmentCues = cues.filter((cue) => cue.subjectName === subjectName);
@@ -1037,10 +1044,11 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, reminderD
     onChange(updatedCues, nextCatalog, collectionUpdate(now, createdCount, modifiedCount, updatedCues.filter((cue) => cue.subjectName === subjectName).length));
     return { createdCount, modifiedCount };
   };
-  return <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cue-manager-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+  return <div className={`${styles.cueManager} fixed inset-0 z-[70] grid place-items-center bg-black/45 p-2 sm:p-4 backdrop-blur-sm`} role="dialog" aria-modal="true" aria-labelledby="cue-manager-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="grid h-[94dvh] min-h-0 w-full max-w-[1500px] grid-rows-[auto_auto] overflow-y-auto xl:grid-rows-[auto_minmax(0,1fr)] xl:overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl xl:grid-cols-[400px_minmax(0,1fr)] xl:grid-rows-1">
       <form ref={editorRef} tabIndex={-1} onSubmit={createCue} className="min-h-0 xl:overflow-y-auto xl:overscroll-contain border-b border-[var(--card-border)] p-6 xl:max-h-none xl:border-b-0 xl:border-r">
         <div className="flex items-center justify-between"><div><h2 id="cue-manager-title" className="text-xl font-semibold">知识 CUE 管理</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">单条添加时选择大单元；批量 / AI 导入只需先选择学科，每条 Cue 可使用不同大单元。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div>
+        <button type="button" onClick={() => setMemoryImport(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">从 DEFINITIONS / 对比记忆导入</button>
         {editingId && <div className="mt-4 rounded-xl border border-[var(--brand)] p-3 text-sm"><strong>编辑现有 Cue</strong><p className="mt-1 text-xs">修改内容与分类，保留原有学习历史、判定和备忘录。</p></div>}
         {editNotice && <p role="status" className="mt-3 text-sm text-[var(--brand)]">{editNotice}</p>}
         {subjectName && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><strong>整批 Cue 更新：</strong>{latestCollectionUpdate ? `上次 ${formatReviewTimestamp(latestCollectionUpdate.updatedAt)} · 新增 ${latestCollectionUpdate.createdCount} · 修改 ${latestCollectionUpdate.modifiedCount} · 下次提醒 ${nextCueCollectionReminderDate(latestCollectionUpdate.updatedAt, reminderDays)}` : '尚未记录。完成一次批量创建 / 修改后，系统会记录日期并安排下次提醒。'}</div>}
@@ -1050,6 +1058,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, reminderD
       </form>
       <section className="min-h-0 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['全部', cues.length], ['√', cues.filter((cue) => cue.status === 'stable').length], ['△', cues.filter((cue) => cue.status === 'partial').length], ['○', cues.filter((cue) => cue.status === 'unclear').length]].map(([label, value]) => <div key={label} className="rounded-2xl bg-black/[.035] p-3 text-center dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">{label}</p><strong className="mt-1 block text-xl">{value}</strong></div>)}</div><div className="mt-4 grid gap-2 sm:grid-cols-3"><select value={filterSubject} onChange={(event) => { setFilterSubject(event.target.value); setFilterUnit(''); }} aria-label="按学科筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部学科</option>{filterSubjects.map((value) => <option key={value}>{value}</option>)}</select><select value={filterUnit} onChange={(event) => setFilterUnit(event.target.value)} aria-label="按大单元筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部大单元</option>{filterUnits.map((value) => <option key={value}>{value}</option>)}</select><select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value as CueStatusFilter)} aria-label="按状态筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="all">全部 Cue</option><option value="unreviewed">没有最新标记</option><option value="due">今天到期或未排期</option><option value="weak">△ 黄色＋○ 红色</option><option value="unstable">历史不稳定项</option><option value="repeated-weak">近期反复失误</option><option value="recovering">刚转绿待巩固</option><option value="stable">仅 √ 绿色</option><option value="partial">仅 △ 黄色</option><option value="unclear">仅 ○ 红色</option></select></div>{filterStatus === 'unstable' && <p className="mt-2 text-xs text-[var(--muted-foreground)]">包含当前 △ / ○，以及历史失误风险仍高的 √ Cue。</p>}{filterStatus === 'repeated-weak' && <p className="mt-2 text-xs text-[var(--muted-foreground)]">最近 5 次检索中至少 2 次为 △ / ○。</p>}{filterStatus === 'recovering' && <p className="mt-2 text-xs text-[var(--muted-foreground)]">最新为 √，但历史失误风险仍高，需要继续巩固。</p>}<p className="mt-2 text-xs text-[var(--muted-foreground)]">当前显示 {filtered.length} / {cues.length} 条{!showMastered && filterStatus === 'all' ? ' · 设置中已隐藏绿色 Cue，可选“仅 √ 绿色”查看' : ''}</p><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="快速搜索 Cue、答案、学科或单元…" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><CueHierarchy cues={filtered} reviews={reviews} onDifficulty={(id, userDifficulty) => onChange(cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue))} onEdit={editCue} onDelete={(cue) => { deleteCue(cue.id); }} /></section>
     </div>
+    {memoryImport && <MemoryCueImportDialog catalog={catalog} cues={cues} onApply={applyBulkOperations} onClose={() => setMemoryImport(false)} />}
     {bulkImport && <CueBulkImportDialog subjectName={subjectName} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} cues={enrichmentCues} onClose={() => setBulkImport(false)} onApply={applyBulkOperations} saveOnRead />}
     {similarityTool && <SimilarCueToolDialog subjectName={subjectName} cues={enrichmentCues} onDelete={deleteCue} onClose={() => setSimilarityTool(false)} />}
   </div>;

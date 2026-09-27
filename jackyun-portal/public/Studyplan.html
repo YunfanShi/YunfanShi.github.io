@@ -719,7 +719,20 @@
             dialog { max-width:calc(100vw - 16px) !important; max-height:calc(100dvh - 16px) !important; padding:16px !important; overflow-y:auto; }
         }
     </style>
-<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
+<link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script><style>
+.quest-card { background: var(--surface); border-color: var(--border); color: var(--text); }
+.quest-title { color: var(--text); }
+.step-node { background: transparent; opacity: 1; min-width: 0; color: var(--text-secondary); }
+.step-node.active { transform: none; color: var(--primary); }
+.step-node.locked { color: var(--text-secondary); }
+.step-icon { background: var(--surface2); border-color: var(--border); }
+.chain-steps::before { background: var(--border); }
+.quest-action { background: var(--surface2); color: var(--text); border-color: var(--border); }
+html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #fff !important; }
+.quest-action > span[style*="font-size:14px"] { color: var(--text-secondary) !important; }
+@media(max-width:600px) { .quest-card { padding: 18px; } .quest-title { overflow-wrap: anywhere; } .quest-action { flex-wrap: wrap; gap: 12px; } }
+</style>
+</head>
 <body>
 
 <aside id="studyNav">

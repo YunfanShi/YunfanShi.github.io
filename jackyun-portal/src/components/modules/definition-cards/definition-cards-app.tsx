@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
@@ -74,6 +75,7 @@ export default function DefinitionCardsApp() {
   if (!ready) return <div className="grid min-h-[55vh] place-items-center"><span className="material-icons-round animate-spin">progress_activity</span></div>;
   return <div className="mx-auto w-full max-w-6xl pb-12">
     <header className="rounded-[28px] border border-[#d7e3f0] bg-[linear-gradient(125deg,#f0f9ff,#f8fafc_55%,#fff7ed)] p-5 shadow-sm dark:border-[#344054] dark:bg-[linear-gradient(125deg,#102a43,#172033_55%,#322417)] sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#026aa2]">Definition Deck</p><h1 className="mt-3 text-3xl font-bold sm:text-4xl">按卡组学习，按记忆复习</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">科目 → 单元 → 小单元 → 卡组项目。学习时自由翻页，测试时检验掌握，复习时按间隔计划重现。</p></div><button type="button" onClick={() => openImport('standard')} className="min-h-12 rounded-2xl bg-[#1570ef] px-5 text-sm font-bold text-white">+ 新建卡组</button></div></header>
+    <p className="mt-4 text-sm"><Link href="/schedule" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--card-border)] px-4">导入到 CUE</Link><span className="ml-2 text-[var(--muted-foreground)]">在日程的 CUE 管理中预览并选择定义。</span></p>
     <nav className="my-5 flex gap-1 overflow-x-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-1.5">{([['home', 'folder', '卡组'], ['study', 'style', '学习'], ['test', 'quiz', '测试'], ['review', 'history', '复习'], ['library', 'view_list', '卡片库'], ['import', 'upload_file', '导入']] as const).map(([id, icon, label]) => <button key={id} type="button" onClick={() => id === 'study' ? startStudy() : id === 'test' ? startTest() : id === 'review' ? startReview() : id === 'import' ? openImport('standard') : setView(id)} className={`flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold ${view === id ? 'bg-[#eaf2ff] text-[#175cd3] dark:bg-[#17345b]' : 'text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">{icon}</span>{label}</button>)}</nav>
     {message && view !== 'import' && <p role="status" className="mb-5 rounded-2xl border border-[#b2ddff] bg-[#eff8ff] px-4 py-3 text-sm text-[#175cd3] dark:bg-[#102a43]">{message}</p>}
     {(view === 'home' || view === 'library') && <ScopePicker cards={cards} scope={scope} count={scoped.length} onChange={changeScope} />}

@@ -344,6 +344,7 @@ export interface CueStudyDraft {
   assessments: Record<string, LearningStatus>;
   priorStatuses?: Record<string, LearningStatus | null>;
   shuffled?: boolean;
+  hiddenCueIds?: string[];
   /** Legacy per-Cue drafts retained so older saved sessions can be migrated into Cue memos. */
   writtenResponses?: Record<string, string>;
   updatedAt: string;
@@ -359,6 +360,15 @@ export function shuffleCueIds(ids: string[], random: () => number = Math.random)
     shuffled.push(shuffled.shift()!);
   }
   return shuffled;
+}
+
+/** Hide confirmed results before reordering, while keeping the full session for evidence. */
+export function reorderCueStudy(ids: string[], assessments: Record<string, LearningStatus>, shuffled: boolean, currentId?: string, random: () => number = Math.random) {
+  const remaining = ids.filter((id) => !assessments[id]);
+  const ordered = shuffled ? shuffleCueIds(remaining, random) : remaining;
+  const hiddenCueIds = ids.filter((id) => assessments[id]);
+  const index = currentId ? ordered.indexOf(currentId) : -1;
+  return { cueIds: [...ordered, ...hiddenCueIds], hiddenCueIds, index: Math.max(0, index), retainedCurrent: index >= 0 };
 }
 
 export function cueDraftKey(draft: CueStudyDraft): string {

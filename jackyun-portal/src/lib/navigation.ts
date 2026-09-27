@@ -27,6 +27,7 @@ export const NAVIGATION_GROUPS: Array<{ id: NavigationGroupId; label: string; ic
 export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'dashboard', labelKey: 'nav.dashboard', icon: 'dashboard', href: '/dashboard', group: 'home', protected: true },
   { id: 'ai', labelKey: 'nav.ai', icon: 'auto_awesome', href: '/ai', group: 'home', protected: true },
+  { id: 'schedule', labelKey: 'nav.schedule', icon: 'calendar_month', href: '/schedule', group: 'learning' },
   { id: 'study-plan', labelKey: 'nav.study-plan', icon: 'school', href: '/study', group: 'learning' },
   { id: 'goal', labelKey: 'nav.goal', icon: 'flag', href: '/goal', group: 'learning' },
   { id: 'study-guide', labelKey: 'nav.study-guide', icon: 'auto_stories', href: '/study-guide', group: 'learning' },
@@ -44,7 +45,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: 'time-management', labelKey: 'nav.time-management', icon: 'timer', href: '/time-management', group: 'time' },
   { id: 'sleep', labelKey: 'nav.sleep', icon: 'bedtime', href: '/sleep', group: 'time' },
   { id: 'activity', labelKey: 'nav.activity', icon: 'insights', href: '/activity', group: 'time' },
-  { id: 'schedule', labelKey: 'nav.schedule', icon: 'calendar_month', href: '/schedule', group: 'time' },
   { id: 'tools', labelKey: 'nav.tools', icon: 'build', href: '/tools', group: 'tools' },
   { id: 'beta', labelKey: 'nav.beta', icon: 'science', href: '/beta', group: 'tools', protected: true, betaOnly: true },
   { id: 'studio', labelKey: 'nav.studio', icon: 'auto_awesome', href: '/studio', group: 'tools', protected: true, betaOnly: true },
