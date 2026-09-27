@@ -2,6 +2,7 @@
 
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { syncRetryDelay, shouldPauseSync } from '@/lib/sync/retry-policy';
+import { BEFORE_SLEEP_EVENT, LOCAL_SLEEP_SAVE_EVENT, WAKE_EVENT, isWorkspaceSleeping, type SleepRequest } from '@/lib/workspace-idle';
 import { useEffect } from 'react';
 import { remoteRecordIsCurrent } from '@/lib/sync/remote-record';
 import { createSyncRunGate } from '@/lib/sync/run-gate';
@@ -54,6 +55,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let owner = userId ?? 'guest';
     let previous = localSnapshot(true);
     let pending = Promise.resolve();
+    let baselineFailed = false;
     const dirtyPages = new Map<BackupPage, PendingBackup>();
     const capture = () => {
       const current = localSnapshot(true);
@@ -73,7 +75,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const pages = [...dirtyPages].filter(([, pendingPage]) => force || backupIsDue(pendingPage, now));
       for (const [page] of pages) dirtyPages.delete(page);
       const snapshot = previous;
-      if (!pages.length) return;
+      if (!pages.length) return pending;
       pending = pending.then(async () => {
         for (const [page, pendingPage] of pages) {
           try { await saveLocalBackup(owner, page, localPageValues(snapshot, page)); }
@@ -87,21 +89,28 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           }
         }
       });
+      return pending;
     };
     pending = pending.then(async () => {
       owner = userId ?? await getSetting<string>('activeUserId') ?? 'guest';
       for (const page of new Set(Object.keys(previous).filter(isBackupableLegacyKey).map(legacyBackupPage))) {
         await saveLocalBackup(owner, page, localPageValues(previous, page));
       }
-    }).catch((error) => { console.error('[Backup] Local baseline failed', error); });
-    const timer = window.setInterval(() => checkpoint(), 2_000);
+    }).catch((error) => { baselineFailed = true; console.error('[Backup] Local baseline failed', error); });
+    const timer = window.setInterval(() => { if (!isWorkspaceSleeping()) checkpoint(); }, 2_000);
+    const onSleep = (event: Event) => {
+      (event as CustomEvent<SleepRequest>).detail.waitUntil(Promise.resolve(checkpoint(true)).then(() => {
+        if (dirtyPages.size || baselineFailed) throw new Error('Local backup failed');
+      }));
+    };
+    window.addEventListener(LOCAL_SLEEP_SAVE_EVENT, onSleep);
     const onStorage = () => checkpoint();
     const onLeave = () => checkpoint(true);
     const onVisibility = () => { if (document.visibilityState === 'hidden') onLeave(); };
     window.addEventListener('storage', onStorage);
     window.addEventListener('pagehide', onLeave);
     document.addEventListener('visibilitychange', onVisibility);
-    return () => { onLeave(); window.clearInterval(timer); window.removeEventListener('storage', onStorage); window.removeEventListener('pagehide', onLeave); document.removeEventListener('visibilitychange', onVisibility); };
+    return () => { window.removeEventListener(LOCAL_SLEEP_SAVE_EVENT, onSleep); onLeave(); window.clearInterval(timer); window.removeEventListener('storage', onStorage); window.removeEventListener('pagehide', onLeave); document.removeEventListener('visibilitychange', onVisibility); };
   }, [userId]);
 
   useEffect(() => {
@@ -336,7 +345,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
 
     async function sync(onlyPending = false, manual = false) {
-      if (cancelled || signingOut || !bound) return;
+      if (cancelled || signingOut || !bound || isWorkspaceSleeping()) return;
       if (!runGate.begin(manual)) return;
       if (manual) { authPaused = false; retryAt = 0; }
       try {
@@ -415,6 +424,15 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       const complete = (event as CustomEvent<{ complete: () => void }>).detail?.complete;
       void queueChanges().then(() => sync()).finally(() => complete?.());
     };
+    const onSleep = (event: Event) => {
+      (event as CustomEvent<SleepRequest>).detail.waitUntil((async () => {
+        await runGate.waitForIdle();
+        await queueChanges();
+        await sync(true);
+      })());
+    };
+    window.addEventListener(BEFORE_SLEEP_EVENT, onSleep);
+    window.addEventListener(WAKE_EVENT, onSync);
     window.addEventListener('online', onSync);
     window.addEventListener('focus', onSync);
     window.addEventListener('pagehide', onLeave);
@@ -423,6 +441,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     window.addEventListener('jackyun-sync-edit', onEdit);
     window.addEventListener('jackyun-sync-before-signout', onBeforeSignOut);
     return () => {
+      window.removeEventListener(BEFORE_SLEEP_EVENT, onSleep);
+      window.removeEventListener(WAKE_EVENT, onSync);
       cancelled = true;
       window.clearInterval(timer);
       if (editTimer !== null) window.clearTimeout(editTimer);

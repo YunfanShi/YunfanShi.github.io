@@ -13,6 +13,7 @@ import type { SidebarPreferences } from '@/actions/settings';
 import type { Language } from '@/lib/i18n';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
+import WorkspaceIdle from '@/components/layout/workspace-idle';
 import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
 import OfflineWorkspaceSync from '@/components/layout/offline-workspace-sync';
 import AuthModeProvider from '@/components/auth/auth-mode-provider';
@@ -112,6 +113,7 @@ export default async function PortalLayout({
       <CloudSettingsHydrator appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <OfflineWorkspaceSync userId={user?.id ?? null} />
+      <WorkspaceIdle userId={user?.id ?? null} />
       <div data-portal-shell className="isolate flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} betaActive={betaEnrollment?.status === 'accepted'} allowedFeatureKeys={featureSnapshot && Object.keys(featureSnapshot.features).length ? Object.values(featureSnapshot.features).filter((feature) => feature.allowed).map((feature) => feature.key) : ['reading']} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

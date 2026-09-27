@@ -1,5 +1,6 @@
 'use client';
 
+import { BEFORE_SLEEP_EVENT, WAKE_EVENT, isWorkspaceSleeping, type SleepRequest } from '@/lib/workspace-idle';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { useEffect, useState } from 'react';
 import { bindOfflineWorkspaceUser, listOfflineMutations, removeOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
@@ -10,11 +11,12 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
   useEffect(() => {
     let cancelled = false;
     let running = false;
+    let activeWork: Promise<void> = Promise.resolve();
     let bound = false;
     let signingOut = false;
 
     async function refresh() {
-      if (!userId || !bound || signingOut || cancelled || !navigator.onLine || running) return;
+      if (!userId || !bound || signingOut || cancelled || !navigator.onLine || running || isWorkspaceSleeping()) return;
       running = true;
       try {
         const queued = await listOfflineMutations(userId);
@@ -42,18 +44,25 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
       }
     }
 
-    void bindOfflineWorkspaceUser(userId).then(() => { bound = true; return refresh(); }).catch((error) => {
+    void bindOfflineWorkspaceUser(userId).then(() => { bound = true; activeWork = refresh(); return activeWork; }).catch((error) => {
       console.error('[offline-workspace] account binding failed', error);
     });
     const onSignOut = () => { signingOut = true; };
     const onCancel = () => { signingOut = false; };
     window.addEventListener('jackyun-signout-start', onSignOut);
     window.addEventListener('jackyun-signout-cancel', onCancel);
-    const onOnline = () => void refresh();
+    const onOnline = () => { if (!running) activeWork = refresh(); };
+    const onSleep = (event: Event) => {
+      (event as CustomEvent<SleepRequest>).detail.waitUntil(activeWork.then(() => refresh()));
+    };
+    window.addEventListener(BEFORE_SLEEP_EVENT, onSleep);
+    window.addEventListener(WAKE_EVENT, onOnline);
     const onQueued = () => setNotice('已记录，联网后同步');
     window.addEventListener('online', onOnline);
     window.addEventListener('jackyun-offline-queued', onQueued);
     return () => {
+      window.removeEventListener(BEFORE_SLEEP_EVENT, onSleep);
+      window.removeEventListener(WAKE_EVENT, onOnline);
       cancelled = true;
       window.removeEventListener('jackyun-signout-start', onSignOut);
       window.removeEventListener('jackyun-signout-cancel', onCancel);
