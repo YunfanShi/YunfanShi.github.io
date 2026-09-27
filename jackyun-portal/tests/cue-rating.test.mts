@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cueAnalysisKey, cueRatingCandidates, ratingCategory } from '../src/lib/learning/cue-rating.ts';
+import { cueAnalysisKey, cueRatingCandidates, ratingProgressRows, ratingCategory } from '../src/lib/learning/cue-rating.ts';
 import { cueContentSignature } from '../src/lib/learning/learning-assistance.ts';
 import type { StudyCue } from '../src/lib/learning/schedule-control.ts';
 const at = '2026-09-27T08:00:00.000Z';
@@ -20,4 +20,13 @@ test('status distinguishes stale content, in-flight phases and failed rerating w
   for (const phase of ['queued', 'sending', 'waiting', 'reading', 'validating'] as const) assert.equal(ratingCategory(rated, [], { phase, updatedAt: at }), 'active');
   assert.equal(ratingCategory(rated, [], { phase: 'failed', updatedAt: at, error: 'offline' }), 'failed');
   assert.equal(rated.aiAdvice.difficulty, 'easy');
+});
+
+test('progress list prioritizes current requests and failures and excludes unrelated rated history', () => {
+  const cues = [rated, { ...cue, id: 'pending' }, { ...rated, id: 'completed' }, { ...cue, id: 'failed' }, { ...cue, id: 'queued' }, { ...cue, id: 'running' }];
+  const jobs = { completed: { phase: 'rated' as const, updatedAt: at }, failed: { phase: 'failed' as const, updatedAt: at }, queued: { phase: 'queued' as const, updatedAt: at }, running: { phase: 'waiting' as const, updatedAt: at } };
+  // Use valid signatures for both previously rated entries.
+  cues[2].aiAdvice = { ...rated.aiAdvice, signature: cueContentSignature(cues[2]) };
+  assert.deepEqual(ratingProgressRows(cues, [], jobs).map((item) => item.id), ['running', 'failed', 'queued', 'pending', 'completed']);
+  assert.deepEqual(ratingProgressRows([], [], jobs), []);
 });

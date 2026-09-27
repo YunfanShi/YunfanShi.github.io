@@ -15,3 +15,16 @@ export function cueRatingCandidates(cues: StudyCue[], reviews: CueReview[], forc
   const prioritized = [...cues.filter((cue) => forced.has(cue.id)), ...cues.filter((cue) => !forced.has(cue.id) && cueNeedsAiAnalysis(cue, reviews) && !attempted.has(cueAnalysisKey(cue, reviews)))];
   return prioritized.slice(0, 10);
 }
+
+/** Current work first; unrelated historical ratings stay in the library. */
+export function ratingProgressRows(cues: StudyCue[], reviews: CueReview[], jobs: Record<string, CueRatingJob>): StudyCue[] {
+  const priority = (cue: StudyCue) => {
+    const job = jobs[cue.id];
+    if (job && ['sending', 'waiting', 'reading', 'validating'].includes(job.phase)) return 0;
+    if (job?.phase === 'failed') return 1;
+    if (job?.phase === 'queued') return 2;
+    if (cueNeedsAiAnalysis(cue, reviews) && !job) return 3;
+    return 4;
+  };
+  return cues.filter((cue) => Boolean(jobs[cue.id]) || cueNeedsAiAnalysis(cue, reviews)).toSorted((a, b) => priority(a) - priority(b));
+}

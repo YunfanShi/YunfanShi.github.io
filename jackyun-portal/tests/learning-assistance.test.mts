@@ -61,7 +61,10 @@ test('AI skill labels group general Cues into evidence-backed profile dimensions
   const classified = { ...general, aiAdvice: { ...advice, signature: cueContentSignature(general), skill: 'definition' as const } };
   assert.equal(learningProfile([classified], [history('partial', 1)])[0].type, 'definition');
   assert.equal(learningProfile([{ ...classified, prompt: 'Changed task' }], [history('partial', 1)])[0].type, 'general');
-  assert.throws(() => parseLearningAdvice({ cues: [{ id: cue.id, difficulty: 'easy', reason: 'x', skill: 'imaginary' }] }, [cue], at));
+  const unknown = parseLearningAdvice({ cues: [{ id: cue.id, difficulty: 'easy', reason: 'x', skill: 'imaginary' }] }, [cue], at);
+  assert.equal(unknown.cues[cue.id].skill, undefined);
+  assert.match(unknown.cues[cue.id].classificationNote!, /已忽略/);
+  assert.equal(unknown.cues[cue.id].difficulty, 'easy');
 });
 
 test('daily-only advice can refresh without inventing or changing Cue ratings', () => {
@@ -89,4 +92,15 @@ test('legacy and edited Cues are analyzed automatically, outcomes refresh after 
   assert.equal(cueNeedsAiAnalysis(rated, [history('stable', 2), history('partial', 3), history('unclear', 4)]), true);
   assert.equal(cueNeedsAiAnalysis({ ...rated, aiAdvice: { ...advice, generatedAt: '2026-09-04T09:00:00.000Z' } }, [history('stable', 2), history('partial', 3), history('unclear', 4)]), false);
   assert.equal(cueNeedsAiAnalysis(rated, [2, 3, 4].map((day) => ({ ...history('unclear', day), cueId: 'another' }))), false);
+});
+
+test('unsupported optional skill cannot fail ten otherwise valid ratings', () => {
+  const batch = Array.from({ length: 10 }, (_, index) => ({ ...cue, id: `c${index}` }));
+  for (const invalid of ['imaginary', null, 123, { label: 'compare' }]) {
+    const parsed = parseLearningAdvice({ cues: batch.map((item, index) => ({ id: item.id, difficulty: 'easy', reason: 'Basic task', skill: index === 0 ? invalid : 'compare' })) }, batch, at);
+    assert.equal(Object.keys(parsed.cues).length, 10);
+    assert.equal(parsed.cues.c0.skill, undefined);
+    assert.equal(parsed.cues.c1.skill, 'compare');
+    assert.equal(learningProfile([{ ...batch[0], aiAdvice: parsed.cues.c0 }], [{ ...history('stable', 1), cueId: 'c0' }])[0].type, cue.type);
+  }
 });
