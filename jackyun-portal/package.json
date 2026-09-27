@@ -26,7 +26,7 @@
     "test:sync": "node --test tests/sync-v2.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
-    "test:learning": "node --test tests/learning-domain.test.mts",
+    "test:learning": "node --test tests/learning-domain.test.mts tests/question-bank.test.mts",
     "test:integrations": "node --test tests/dida365-integration.test.mts",
     "test:sleep": "node --test tests/sleep-calculator.test.mts",
     "test:property-decks": "node --test tests/property-decks.test.mts",
