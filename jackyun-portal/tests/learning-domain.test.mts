@@ -14,6 +14,7 @@ import {
   applyTimetableUpdate,
   applyCueBulkOperations,
   isCueCollectionBatch,
+  isRecordedCueCollectionBatch,
   applyCueUnitMappings,
   buildCueReviewBatches,
   cancelLearningTask,
@@ -675,6 +676,10 @@ test('only substantial or explicitly marked Cue imports count as collection upda
   assert.equal(isCueCollectionBatch({ createdCount: 2, modifiedCount: 2 }), false);
   assert.equal(isCueCollectionBatch({ createdCount: 2, modifiedCount: 3 }), true);
   assert.equal(isCueCollectionBatch({ createdCount: 0, modifiedCount: 1 }, true), true);
+  const update = { id: 'one', subjectId: 'physics', subjectName: 'Physics', updatedAt: '2026-09-20T08:00:00.000Z', nextReminderDate: '2026-10-20', createdCount: 0, modifiedCount: 1, totalCueCount: 44 };
+  assert.equal(isRecordedCueCollectionBatch(update), false);
+  assert.equal(isRecordedCueCollectionBatch({ ...update, manuallyMarked: true }), true);
+  assert.equal(isRecordedCueCollectionBatch({ ...update, modifiedCount: 0 }), true);
 });
 
 test('Cue bulk operations can update an existing Cue and create a new Cue together', () => {
@@ -1001,6 +1006,11 @@ test('collective Cue maintenance creates one durable reminder and resets after a
   assert.ok(reminder);
   assert.equal(reminder.title, '整批检查 Cue 更新 · 1 科');
   assert.match(reminder.detail, /尚未记录整批更新/);
+
+  state.cueCollectionUpdates = [{
+    id: 'old-single', subjectId: 'physics', subjectName: 'Physics', updatedAt: '2026-09-20T08:00:00.000Z', nextReminderDate: '2026-10-20', createdCount: 0, modifiedCount: 1, totalCueCount: 44,
+  }];
+  assert.match(tasksForDate(state, new Date(2026, 8, 23, 12)).find((task) => task.key.startsWith('cue-maintenance:'))?.detail ?? '', /尚未记录整批更新/);
 
   state.cueCollectionUpdates = [{
     id: 'batch-1',

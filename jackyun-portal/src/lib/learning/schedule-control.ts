@@ -120,6 +120,7 @@ export interface CueCollectionUpdate {
   createdCount: number;
   modifiedCount: number;
   totalCueCount: number;
+  manuallyMarked?: boolean;
 }
 
 export function cueCollectionSummaryForSubject(before: StudyCue[], after: StudyCue[], subjectName: string) {
@@ -136,6 +137,11 @@ export function cueCollectionSummaryForSubject(before: StudyCue[], after: StudyC
 /** A collection reminder tracks substantial work or an explicit full review. */
 export function isCueCollectionBatch(summary: Pick<CueCollectionUpdate, 'createdCount' | 'modifiedCount'>, explicitlyMarked = false): boolean {
   return explicitlyMarked || summary.createdCount + summary.modifiedCount >= 5;
+}
+
+/** Legacy zero-change records came from the explicit "already checked" action. */
+export function isRecordedCueCollectionBatch(update: CueCollectionUpdate): boolean {
+  return isCueCollectionBatch(update, update.manuallyMarked || update.createdCount + update.modifiedCount === 0);
 }
 
 export interface ManualLearningTask {
@@ -1574,12 +1580,10 @@ function cueCollectionMaintenanceTasks(state: ScheduleControlState, date: Date):
   for (const cue of state.cues) subjects.set(cue.subjectId, [...(subjects.get(cue.subjectId) ?? []), cue]);
   const due = [...subjects.entries()].flatMap(([subjectId, cues]) => {
     const latest = state.cueCollectionUpdates
-      .filter((update) => update.subjectId === subjectId)
+      .filter((update) => update.subjectId === subjectId && isRecordedCueCollectionBatch(update))
       .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
-    const newestCueDate = cues
-      .map((cue) => cue.updatedAt || cue.createdAt)
-      .toSorted((left, right) => right.localeCompare(left))[0];
-    const nextReminderDate = nextCueCollectionReminderDate(latest?.updatedAt ?? newestCueDate, state.settings.cueCollectionReminderDays);
+    const firstCueDate = cues.map((cue) => cue.createdAt).toSorted()[0];
+    const nextReminderDate = nextCueCollectionReminderDate(latest?.updatedAt ?? firstCueDate, state.settings.cueCollectionReminderDays);
     if (nextReminderDate > key) return [];
     return [{
       subjectId,
