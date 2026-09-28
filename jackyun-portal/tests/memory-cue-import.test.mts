@@ -46,3 +46,21 @@ test('default navigation puts Schedule immediately before the study plan', async
   assert.equal(learning[0].id, 'schedule');
   assert.equal(learning[1].id, 'study-plan');
 });
+
+test('import maintenance statistics use the dialog target subject, not the manager selection', async () => {
+  const { cueCollectionSummaryForSubject } = await import('../src/lib/learning/schedule-control.ts');
+  const original = [{ id: 'a', subjectName: 'Physics' }] as StudyCue[];
+  const imported = [{ id: 'b', subjectName: 'Computer Science' }] as StudyCue[];
+  const summary = cueCollectionSummaryForSubject(original, [...original, ...imported], 'Computer Science');
+  assert.deepEqual(summary, { subjectName: 'Computer Science', createdCount: 1, modifiedCount: 0, totalCueCount: 1 });
+  assert.equal(cueCollectionSummaryForSubject(original, [...original, ...imported], '').createdCount, 0);
+});
+
+test('old saved sidebar order moves Schedule before Study Plan without changing other learning items', async () => {
+  const { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } = await import('../src/lib/companion.ts');
+  const legacy = coerceNavigationPreferences({ itemOrder: { learning: ['goal', 'study-plan', 'ielts'], time: ['sleep', 'schedule', 'activity'] } });
+  assert.deepEqual(legacy.itemOrder.learning, ['goal', 'schedule', 'study-plan', 'ielts']);
+  assert.deepEqual(legacy.itemOrder.time, ['sleep', 'activity']);
+  assert.deepEqual(DEFAULT_NAVIGATION_PREFERENCES.itemOrder.learning.slice(0, 2), ['schedule', 'study-plan']);
+  assert.deepEqual(coerceNavigationPreferences({ itemOrder: { learning: ['study-plan', 'schedule'], time: [] } }).itemOrder.learning, ['study-plan', 'schedule']);
+});

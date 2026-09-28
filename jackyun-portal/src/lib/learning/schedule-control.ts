@@ -121,6 +121,17 @@ export interface CueCollectionUpdate {
   totalCueCount: number;
 }
 
+export function cueCollectionSummaryForSubject(before: StudyCue[], after: StudyCue[], subjectName: string) {
+  const oldById = new Map(before.map((cue) => [cue.id, cue]));
+  const selected = after.filter((cue) => cue.subjectName === subjectName);
+  return {
+    subjectName,
+    createdCount: selected.filter((cue) => !oldById.has(cue.id)).length,
+    modifiedCount: selected.filter((cue) => oldById.has(cue.id) && oldById.get(cue.id) !== cue).length,
+    totalCueCount: selected.length,
+  };
+}
+
 export interface ManualLearningTask {
   id: string;
   title: string;
