@@ -61,6 +61,16 @@ test('old Cue formulas with decoded JSON control characters render as math', () 
   assert.deepEqual(splitMathText('Read the formula in the notes.'), [{ type: 'text', value: 'Read the formula in the notes.' }]);
 });
 
+test('legacy compact fractions, theta and text commands from saved Cues render cleanly', () => {
+  const broken = 'A=\\\f' + 'rac12r^2\\\t' + 'heta';
+  const parts = splitMathText(broken);
+  assert.deepEqual(parts.at(-1), { type: 'latex-inline', value: String.raw`\frac12r^2\theta` });
+  assert.doesNotThrow(() => katex.renderToString(parts.at(-1)!.value, { throwOnError: true }));
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(LatexRenderer, { content: broken })), /katex-error/);
+  assert.equal(normalizeLegacyLatex('\\\t' + 'ext{degrees}'), String.raw`\text{degrees}`);
+  assert.equal(normalizeLegacyLatex('\\\f' + 'rac1a'), String.raw`\frac1a`);
+});
+
 test('every recall type has a touch reveal and keeps evidence off the question page', () => {
   for (const type of ['definition', 'process', 'formula', 'calculation', 'explanation', 'proof', 'comparison', 'standard']) {
     const front = card({ type });

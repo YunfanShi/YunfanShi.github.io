@@ -6,9 +6,9 @@ export function normalizeLatexRelations(value: string): string {
 /** Repair commands damaged by older JSON imports that decoded f/t/r as controls. */
 export function normalizeLegacyLatex(value: string): string {
   return value
-    .replace(/\\?\u000c(?=rac\b)/gu, String.raw`\f`)
-    .replace(/\\?\u0009(?=imes\b)/gu, String.raw`\t`)
-    .replace(/\\?\u000d(?=ight\b)/gu, String.raw`\r`)
+    .replace(/\\?\u000c(?=rac)/gu, String.raw`\f`)
+    .replace(/\\?\u0009(?=imes|heta|ext)/gu, String.raw`\t`)
+    .replace(/\\?\u000d(?=ight)/gu, String.raw`\r`)
     .replace(/\\ ight\b/gu, String.raw`\right`);
 }
 
@@ -43,7 +43,7 @@ function plainMathParts(text: string): MathTextPart[] {
 /** Older imports may contain a clear LaTeX command but no math delimiters. */
 function unmarkedMathParts(text: string): MathTextPart[] {
   const parts: MathTextPart[] = [];
-  const command = /\\(?:left|frac|sqrt|times|pm|Delta|cdot)\b[^\n\u3400-\u9fff；。]{0,240}/gu;
+  const command = /\\(?:left|frac|sqrt|times|pm|Delta|cdot|theta|text|sin|cos|tan)(?![A-Za-z])[^\n\u3400-\u9fff；。]{0,240}/gu;
   let last = 0;
   for (const match of text.matchAll(command)) {
     const candidate = match[0].split(/\s+[A-Za-z]{3,}(?=\s|[.,;:]|$)/u)[0].trimEnd();
