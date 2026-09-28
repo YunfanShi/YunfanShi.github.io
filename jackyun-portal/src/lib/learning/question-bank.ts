@@ -140,7 +140,12 @@ export function parseQuestionImport(input: unknown, bank: QuestionBankState): Qu
   return raw.operations.map((value, index) => {
     try {
       const operation = object(value);
-      if (operation.action === 'create') return { action: 'create', question: validateQuestion(operation.question) };
+      if (operation.action === 'create') {
+        if (operation.question === undefined) throw new Error(typeof operation.prompt === 'string' && ('display' in operation || 'subtitle' in operation)
+          ? '题库 create 缺少 question 对象。这份操作把 prompt 等字段直接写在顶层，属于知识 CUE 格式；请到 CUE 管理导入，或按题库模板让 AI 重新生成完整练习题。'
+          : '题库 create 缺少 question 对象；请把题型、题干、答案等字段放在 question 内。');
+        return { action: 'create', question: validateQuestion(operation.question) };
+      }
       if (operation.action !== 'update' || typeof operation.id !== 'string') throw new Error('操作必须为 create 或带有效 id 的 update。');
       const question = bank.questions.find((item) => item.id === operation.id);
       if (!question || updated.has(question.id)) throw new Error('修改 id 不存在或在本次导入中重复。');

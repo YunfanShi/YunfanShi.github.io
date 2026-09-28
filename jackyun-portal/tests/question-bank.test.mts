@@ -23,6 +23,7 @@ const correctResponse = { ...emptyResponse(), selectedChoices: [0], submitted: t
 
 test('import preview rejects invalid objective answers and unknown updates without changing state', () => {
   const bank = bankWith();
+  assert.throws(() => parseQuestionImport({ version: 1, operations: [{ action: 'create', subjectName: 'Physics', unit: 'Forces', prompt: 'Define force', type: 'definition', display: 'standard', markingPoints: [] }] }, bank), /第 1 项：题库 create 缺少 question 对象.*知识 CUE 格式/);
   assert.throws(() => parseQuestionImport({ version: 1, operations: [{ action: 'create', question: { ...content, correctChoices: [2] } }] }, bank), /序号/);
   assert.throws(() => parseQuestionImport({ version: 1, operations: [{ action: 'update', id: 'missing', changes: { prompt: 'new' } }] }, bank), /不存在/);
   assert.throws(() => parseQuestionImport({ version: 1, operations: [{ action: 'update', id: 'q1', changes: { version: 9 } }] }, bank), /不支持/);
