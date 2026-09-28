@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CUE_RULES, QUESTION_RULES, cueImportPrompt, questionExportOperations, questionImportPrompt } from '../src/lib/learning/study-prompts.ts';
+import { CUE_RULES, QUESTION_RULES, cueImportPrompt, questionExportOperations, questionImportPrompt, weakQuestionGenerationPrompt } from '../src/lib/learning/study-prompts.ts';
 import { studyEvidence, studyMetrics, studyReportData } from '../src/lib/learning/study-insights.ts';
 import { applyQuestionOperations, emptyQuestionBank, parseQuestionImport, readQuestionBank, validateQuestion, recordQuestionAttempt, emptyResponse } from '../src/lib/learning/question-bank.ts';
 import { createEmptyScheduleState, type StudyCue } from '../src/lib/learning/schedule-control.ts';
@@ -51,6 +51,8 @@ test('separate Cue and question prompts retain their own rules and compatible da
   assert.ok(questionPrompt.includes('每题最多 6 个'));
   assert.ok(questionPrompt.includes('single、multiple、boolean、written'));
   assert.ok(questionPrompt.includes('imageRequests')); assert.ok(questionPrompt.includes('q1')); assert.ok(questionPrompt.includes('existingImageInfo'));
+  assert.ok(questionPrompt.includes('INSTRUCTIONS')); assert.ok(questionPrompt.includes('sourceKind'));
+  assert.ok(weakQuestionGenerationPrompt(state.learningCatalog, [cue], bank.questions, bank.questions).includes('所有新题 sourceKind=ai-generated'));
   assert.equal(questionPrompt.includes('data:image/png;base64'), false);
   const exported = { version: 1, operations: questionExportOperations(bank.questions) };
   const operations = parseQuestionImport(JSON.parse(JSON.stringify(exported)), bank);

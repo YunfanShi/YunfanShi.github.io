@@ -1,7 +1,8 @@
-import { addCalendarDays, dateKey, matchLearningCatalogSubject, planCueReview, type CueReview, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
+import { addCalendarDays, dateKey, matchLearningCatalogSubject, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
 
 export const QUESTION_BANK_KEY = 'jackyun_schedule_questions_v1';
 export type QuestionType = 'single' | 'multiple' | 'boolean' | 'written';
+export type QuestionSourceKind = 'pq-instruction' | 'pq-error' | 'pq-example' | 'ai-generated' | 'other';
 export type StudyMode = 'cue' | 'question' | 'mixed';
 export interface StudyItemRef { kind: 'cue' | 'question'; id: string }
 export interface QuestionImage { id: string; url: string; alt: string; placement: 'prompt' | 'answer' }
@@ -25,6 +26,7 @@ export interface StudyQuestion {
   images?: QuestionImage[];
   imageRequests?: QuestionImageRequest[];
   source?: string;
+  sourceKind?: QuestionSourceKind;
   number?: string;
   maxScore?: number;
   linkedCueIds: string[];
@@ -112,6 +114,7 @@ export function validateQuestion(value: unknown): QuestionContent {
   if (!Array.isArray(correctChoices) || correctChoices.some((index) => !Number.isInteger(index) || index < 0 || index >= choices.length)) throw new Error('正确选项必须使用有效的零起始序号。');
   if (new Set(correctChoices).size !== correctChoices.length || (type !== 'multiple' && correctChoices.length > 1) || (type === 'written' && correctChoices.length)) throw new Error('正确选项数量与题型不符。');
   if (raw.maxScore !== undefined && (typeof raw.maxScore !== 'number' || !Number.isFinite(raw.maxScore) || raw.maxScore <= 0)) throw new Error('满分必须为正数。');
+  if (raw.sourceKind !== undefined && !['pq-instruction', 'pq-error', 'pq-example', 'ai-generated', 'other'].includes(raw.sourceKind as string)) throw new Error('sourceKind 必须是 PQ 注意点 / PQ 错题 / PQ 例题 / AI 生成 / 其他。');
   const images = raw.images ?? [];
   if (!Array.isArray(images) || images.length > 6 || images.some((image) => !image || typeof image.id !== 'string' || typeof image.alt !== 'string' || !['prompt', 'answer'].includes(image.placement) || typeof image.url !== 'string' || image.url.length > 2_800_000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(image.url))) throw new Error('图片需为 PNG / JPEG / WebP，每张最多 2 MB，每题最多 6 张。');
   if (new Set(images.map((image) => image.id)).size !== images.length) throw new Error('图片 id 重复。');
@@ -125,6 +128,7 @@ export function validateQuestion(value: unknown): QuestionContent {
     answer: text('answer'), explanation: text('explanation'), markingPoints: strings(raw.markingPoints ?? [], 'markingPoints'),
     linkedCueIds: [...new Set(strings(raw.linkedCueIds ?? [], 'linkedCueIds'))],
     ...(text('source') ? { source: text('source') } : {}), ...(text('number') ? { number: text('number') } : {}),
+    ...(raw.sourceKind ? { sourceKind: raw.sourceKind as QuestionSourceKind } : {}),
     ...(text('sourceCueId') ? { sourceCueId: text('sourceCueId') } : {}), ...(raw.maxScore !== undefined ? { maxScore: raw.maxScore as number } : {}),
   };
 }
@@ -132,18 +136,21 @@ export function parseQuestionImport(input: unknown, bank: QuestionBankState): Qu
   const raw = object(input);
   if (raw.version !== 1 || !Array.isArray(raw.operations) || !raw.operations.length) throw new Error('需要 version: 1 和非空 operations。');
   const updated = new Set<string>();
-  return raw.operations.map((value) => {
-    const operation = object(value);
-    if (operation.action === 'create') return { action: 'create', question: validateQuestion(operation.question) };
-    if (operation.action !== 'update' || typeof operation.id !== 'string') throw new Error('操作必须为 create 或带有效 id 的 update。');
-    const question = bank.questions.find((item) => item.id === operation.id);
-    if (!question || updated.has(question.id)) throw new Error('修改 id 不存在或在本次导入中重复。');
-    updated.add(question.id);
-    const changes = object(operation.changes);
-    const allowed = new Set(['subjectId', 'subjectName', 'unit', 'subsection', 'type', 'prompt', 'choices', 'correctChoices', 'answer', 'explanation', 'markingPoints', 'source', 'number', 'maxScore', 'linkedCueIds', 'sourceCueId', 'images', 'imageRequests']);
-    if (Object.keys(changes).some((key) => !allowed.has(key))) throw new Error('changes 包含不支持的字段。');
-    validateQuestion({ ...question, ...changes });
-    return { action: 'update', id: question.id, changes: changes as Partial<QuestionContent> };
+  if (raw.operations.length > 200) throw new Error('一次最多导入 200 项，请分批导入。');
+  return raw.operations.map((value, index) => {
+    try {
+      const operation = object(value);
+      if (operation.action === 'create') return { action: 'create', question: validateQuestion(operation.question) };
+      if (operation.action !== 'update' || typeof operation.id !== 'string') throw new Error('操作必须为 create 或带有效 id 的 update。');
+      const question = bank.questions.find((item) => item.id === operation.id);
+      if (!question || updated.has(question.id)) throw new Error('修改 id 不存在或在本次导入中重复。');
+      updated.add(question.id);
+      const changes = object(operation.changes);
+      const allowed = new Set(['subjectId', 'subjectName', 'unit', 'subsection', 'type', 'prompt', 'choices', 'correctChoices', 'answer', 'explanation', 'markingPoints', 'source', 'sourceKind', 'number', 'maxScore', 'linkedCueIds', 'sourceCueId', 'images', 'imageRequests']);
+      if (Object.keys(changes).some((key) => !allowed.has(key))) throw new Error('changes 包含不支持的字段。');
+      validateQuestion({ ...question, ...changes });
+      return { action: 'update', id: question.id, changes: changes as Partial<QuestionContent> };
+    } catch (error) { throw new Error(`第 ${index + 1} 项：${error instanceof Error ? error.message : '格式错误。'}`); }
   });
 }
 export function applyQuestionOperations(bank: QuestionBankState, operations: QuestionOperation[], now: string, id: () => string): QuestionBankState {
@@ -175,9 +182,6 @@ export function checkQuestionAnswer(question: StudyQuestion, response: QuestionR
   const selected = [...new Set(response.selectedChoices)].sort((a, b) => a - b);
   return selected.length === question.correctChoices.length && selected.every((value, index) => value === question.correctChoices[index]);
 }
-function reviewCue(question: StudyQuestion, review?: QuestionReviewState): StudyCue {
-  return { ...question, type: 'general', answer: question.answer, intervalDays: review?.intervalDays ?? 0, easeFactor: review?.easeFactor ?? 2.5, streak: review?.streak ?? 0, status: review?.status, lastReviewedAt: review?.lastReviewedAt, nextReviewDate: review?.nextReviewDate };
-}
 export function recordQuestionAttempt(bank: QuestionBankState, questionId: string, sessionId: string, response: QuestionResponse, status: LearningStatus, at: string, submittedSnapshot?: StudyQuestion): QuestionBankState {
   const question = bank.questions.find((item) => item.id === questionId);
   if (!question) throw new Error('题目已经不存在。');
@@ -191,9 +195,10 @@ export function recordQuestionAttempt(bank: QuestionBankState, questionId: strin
   const reviewedAt = existing?.reviewedAt ?? at;
   const prior = bank.attempts.filter((item) => item.questionId === questionId && item.id !== attemptId);
   const latest = prior.toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt))[0];
-  const history: CueReview[] = prior.map((item) => ({ id: item.id, cueId: questionId, status: item.status, reviewedAt: item.reviewedAt, nextReviewDate: item.review.nextReviewDate, intervalDays: item.review.intervalDays, easeFactor: item.review.easeFactor }));
-  const plan = planCueReview(reviewCue(snapshot, latest?.review), history, status, new Date(reviewedAt));
-  const review: QuestionReviewState = { ...plan, questionVersion: snapshot.version, status, lastReviewedAt: reviewedAt };
+  // Questions test transfer. A successful answer retires this exact question from automatic practice;
+  // weak answers get short repair intervals. New variants can then test the same skill.
+  const intervalDays = status === 'unclear' ? 1 : status === 'partial' ? 3 : 0;
+  const review: QuestionReviewState = { questionVersion: snapshot.version, status, intervalDays, easeFactor: 2.5, streak: status === 'stable' ? (latest?.review.streak ?? 0) + 1 : 0, nextReviewDate: addCalendarDays(dateKey(new Date(reviewedAt)), intervalDays), lastReviewedAt: reviewedAt, scheduleReason: status === 'stable' ? '已巩固；不自动重复原题' : `薄弱题 ${intervalDays} 天后再练` };
   const attempt: QuestionAttempt = { ...response, selectedChoices: [...response.selectedChoices], id: attemptId, sessionId, questionId, questionVersion: snapshot.version, snapshot, correct: checkQuestionAnswer(snapshot, response), status, reviewedAt, review };
   const attempts = [...bank.attempts.filter((item) => item.id !== attemptId), attempt];
   const newest = attempts.filter((item) => item.questionId === questionId).toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt))[0];
@@ -204,7 +209,7 @@ export function questionMatchesFilter(question: StudyQuestion, bank: QuestionBan
   const changed = Boolean(review && (question.updatedAt > review.lastReviewedAt || (review.questionVersion !== undefined && review.questionVersion !== question.version)));
   if (filter === 'all') return true;
   if (filter === 'unreviewed') return !review || changed;
-  if (filter === 'due') return (!review || dateKey(new Date(review.lastReviewedAt)) < date) && (!review || changed || review.nextReviewDate <= date || addCalendarDays(dateKey(new Date(review.lastReviewedAt)), 18) <= date || review.status !== 'stable');
+  if (filter === 'due') return (!review || dateKey(new Date(review.lastReviewedAt)) < date) && (!review || changed || (review.status !== 'stable' && review.nextReviewDate <= date));
   if (filter === 'weak') return review?.status === 'partial' || review?.status === 'unclear';
   if (filter === 'partial' || filter === 'unclear' || filter === 'stable') return review?.status === filter;
   return bank.attempts.filter((item) => item.questionId === question.id).toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).slice(0, 5).filter((item) => item.status !== 'stable').length >= 2;
@@ -284,7 +289,6 @@ export function questionReviewTasks(bank: QuestionBankState, date: Date): Learni
   const key = dateKey(date);
   const rank = (question: StudyQuestion) => {
     const review = bank.reviews[question.id];
-    if (review && addCalendarDays(dateKey(new Date(review.lastReviewedAt)), 18) <= key) return -1;
     return review && (question.updatedAt > review.lastReviewedAt || (review.questionVersion !== undefined && review.questionVersion !== question.version)) ? 0 : review?.status === 'unclear' ? 1 : review?.status === 'partial' ? 2 : !review ? 3 : 4;
   };
   const due = bank.questions.filter((item) => questionMatchesFilter(item, bank, 'due', key)).toSorted((a, b) => rank(a) - rank(b) || (bank.reviews[a.id]?.nextReviewDate ?? a.createdAt).localeCompare(bank.reviews[b.id]?.nextReviewDate ?? b.createdAt));
@@ -295,7 +299,7 @@ export function questionReviewTasks(bank: QuestionBankState, date: Date): Learni
     for (let index = 0; index < questions.length; index += 6) {
       const batch = questions.slice(index, index + 6);
       const questionIds = batch.map((item) => item.id);
-      tasks.push({ key: `question-review:${key}:${batch[0].subjectId}${index ? `:batch-${index / 6 + 1}` : ''}`, title: `${batch[0].subjectName} · 题目复习 · ${batch.length} 题`, detail: '先独立作答，再核对答案、记录错因和 √ / △ / ○；其余内容自动顺延。与知识 CUE 共用每日复习容量。', type: 'practice', date: key, durationMinutes: batch.length * 8, subjectId: batch[0].subjectId, subjectName: batch[0].subjectName, questionIds, scope: { questionIds }, reviewPriority: rank(batch[0]), overdue: batch.some((item) => (bank.reviews[item.id]?.nextReviewDate ?? addCalendarDays(dateKey(new Date(item.createdAt)), 1)) < key) });
+      tasks.push({ key: `question-review:${key}:${batch[0].subjectId}${index ? `:batch-${index / 6 + 1}` : ''}`, title: `${batch[0].subjectName} · 题目练习 · ${batch.length} 题`, detail: '先独立作答，再核对答案、记录错因和 √ / △ / ○；薄弱原题短期修复，已巩固原题退出自动队列。', type: 'practice', date: key, durationMinutes: batch.length * 8, subjectId: batch[0].subjectId, subjectName: batch[0].subjectName, questionIds, scope: { questionIds }, reviewPriority: rank(batch[0]), overdue: batch.some((item) => bank.reviews[item.id]?.status !== 'stable' && (bank.reviews[item.id]?.nextReviewDate ?? addCalendarDays(dateKey(new Date(item.createdAt)), 1)) < key) });
     }
     return tasks;
   });

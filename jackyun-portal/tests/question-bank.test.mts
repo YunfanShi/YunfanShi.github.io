@@ -62,7 +62,7 @@ test('correctness, score and mastery stay separate and repeated ratings update o
   assert.equal(bank.attempts[0].score, 2);
   assert.equal(bank.attempts[0].reviewedAt, at);
   assert.equal(bank.attempts[0].status, 'partial');
-  assert.equal(bank.reviews.q1.nextReviewDate, '2026-09-27');
+  assert.equal(bank.reviews.q1.nextReviewDate, '2026-09-29');
 });
 
 test('invalid score and unsubmitted responses are rejected before recording', () => {
@@ -83,14 +83,25 @@ test('submitted snapshots survive edits before rating and the answer basis is im
   assert.equal(next.questions[0].version, 2);
 });
 
-test('review history belongs to questions and grows only with spaced success', () => {
+test('correctly completed original questions leave automatic practice; weak answers return briefly', () => {
   let bank = bankWith();
   bank = recordQuestionAttempt(bank, 'q1', 's1', correctResponse, 'stable', at);
+  assert.equal(questionReviewTasks(bank, new Date('2026-10-28T08:00:00.000Z')).length, 0);
   bank = recordQuestionAttempt(bank, 'q1', 's2', correctResponse, 'stable', today.toISOString());
-  assert.ok(bank.reviews.q1.intervalDays > 1);
+  assert.equal(bank.reviews.q1.intervalDays, 0);
+  assert.equal(bank.reviews.q1.streak, 2);
   bank = recordQuestionAttempt(bank, 'q1', 's3', correctResponse, 'unclear', '2026-09-28T08:00:00.000Z');
   assert.equal(bank.reviews.q1.intervalDays, 1);
   assert.equal(bank.reviews.q1.nextReviewDate, '2026-09-29');
+  assert.equal(questionReviewTasks(bank, new Date('2026-09-29T08:00:00.000Z')).length, 1);
+});
+
+test('PQ source categories survive import and invalid rows identify their position', () => {
+  const bank = bankWith();
+  const operations = parseQuestionImport({ version: 1, operations: [{ action: 'create', question: { ...content, source: 'PQ - Physics · INSTRUCTIONS', sourceKind: 'pq-instruction' } }] }, bank);
+  const next = applyQuestionOperations(bank, operations, today.toISOString(), () => 'pq1');
+  assert.equal(readQuestionBank(JSON.parse(JSON.stringify(next))).questions[1].sourceKind, 'pq-instruction');
+  assert.throws(() => parseQuestionImport({ version: 1, operations: [{ action: 'create', question: content }, { action: 'create', question: { ...content, sourceKind: 'unknown' } }] }, bank), /第 2 项：sourceKind/);
 });
 
 test('same day attempts stay out of automatic decks but can be selected for manual practice', () => {
