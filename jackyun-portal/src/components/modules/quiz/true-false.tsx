@@ -49,6 +49,7 @@ export default function TrueFalse({
         return (
           <button
             key={opt}
+            data-quiz-option="true"
             onClick={() => !disabled && onSelect(opt)}
             disabled={disabled}
             className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${

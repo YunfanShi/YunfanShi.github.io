@@ -1,11 +1,13 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { getAnalysisPrompt } from '@/lib/quiz/question-analyzer';
 
 interface QuestionInputProps {
   inputText: string;
   setInputText: (text: string) => void;
   onAnalyze: (text: string) => void;
+  onImport: (json: string) => void;
   isAnalyzing: boolean;
   error: string | null;
 }
@@ -14,10 +16,14 @@ export default function QuestionInput({
   inputText,
   setInputText,
   onAnalyze,
+  onImport,
   isAnalyzing,
   error,
 }: QuestionInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [jsonText, setJsonText] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
 
   useEffect(() => {
     if (!isAnalyzing) {
@@ -117,6 +123,23 @@ export default function QuestionInput({
         <span className="text-xs text-[var(--muted-foreground)]">
           or press <kbd className="px-1.5 py-0.5 rounded bg-[var(--background)] border border-[var(--card-border)] font-mono text-[10px]">⌘ + ↵</kbd>
         </span>
+      </div>
+
+      <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4">
+        <p className="text-sm font-semibold">用其他 AI 整理题目</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">复制提示词和上方题目交给 AI，再把生成的 JSON 粘贴或上传到这里。导入前会检查题型、选项和答案。</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" onClick={async () => {
+            try { await navigator.clipboard.writeText(getAnalysisPrompt(inputText.trim() || '请在这里粘贴待分析的题目。')); setCopyStatus('提示词和题目已复制。'); }
+            catch { setCopyStatus('复制失败，请检查浏览器剪贴板权限。'); }
+          }} className="rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm font-medium">复制 AI 提示词{inputText.trim() ? '及题目' : ''}</button>
+          <button type="button" onClick={() => setImportOpen((open) => !open)} className="rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm font-medium">{importOpen ? '收起 JSON 导入' : '导入 AI 生成的 JSON'}</button>
+        </div>
+        {copyStatus && <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{copyStatus}</p>}
+        {importOpen && <div className="mt-3 space-y-2">
+          <textarea value={jsonText} onChange={(event) => setJsonText(event.target.value)} rows={7} placeholder={'粘贴 {"questions":[...]}'} className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs outline-none focus:border-[#4285F4]" />
+          <div className="flex flex-wrap items-center gap-2"><label className="cursor-pointer rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm">选择 JSON 文件<input type="file" accept=".json,application/json" className="hidden" onChange={async (event) => { const file = event.target.files?.[0]; if (file) setJsonText(await file.text()); event.target.value = ''; }} /></label><button type="button" disabled={!jsonText.trim()} onClick={() => onImport(jsonText)} className="rounded-xl bg-[#4285F4] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">检查并导入</button></div>
+        </div>}
       </div>
 
       {/* Error */}

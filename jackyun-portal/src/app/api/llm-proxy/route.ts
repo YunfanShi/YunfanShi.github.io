@@ -557,7 +557,7 @@ export async function POST(req: NextRequest) {
   if (!upstream.ok) {
     const text = await upstream.text();
     if (adminClient) await recordAiModelResult(adminClient, managedCatalogModelId, { success: false, status: upstream.status, detail: text });
-    const explained = explainAiError(upstream.status, text);
+    const explained = explainAiError(upstream.status, text, keySource);
     auditLog({
       userId,
       ip: clientIp,

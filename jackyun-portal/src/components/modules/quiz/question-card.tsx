@@ -15,11 +15,12 @@ interface QuestionCardProps {
   index: number;
   isActive: boolean;
   userAnswer: UserAnswer | undefined;
+  draftAnswer: string;
+  onDraft: (answer: string) => void;
+  onConfirm: () => void;
   onAnswer: (answer: string) => void;
   showResult: boolean;
-  onNext: () => void;
   onFocus: () => void;
-  isLast: boolean;
 }
 
 export default function QuestionCard({
@@ -27,14 +28,15 @@ export default function QuestionCard({
   index,
   isActive,
   userAnswer,
+  draftAnswer,
+  onDraft,
+  onConfirm,
   onAnswer,
   showResult,
-  onNext,
   onFocus,
-  isLast,
 }: QuestionCardProps) {
   const [showExplanation, setShowExplanation] = useState(false);
-  const answered = userAnswer?.answer && userAnswer.answer !== '';
+  const answered = Boolean(userAnswer?.answer && !userAnswer.gradingError);
   const isCorrect = userAnswer?.isCorrect === true;
   const isGrading = userAnswer?.isGrading === true;
   // For essay/fill-blank, don't show result until grading is complete
@@ -122,8 +124,8 @@ export default function QuestionCard({
         {question.type === 'multiple_choice' && question.options && (
           <MultipleChoice
             options={question.options}
-            selectedAnswer={userAnswer?.answer || ''}
-            onSelect={onAnswer}
+            selectedAnswer={userAnswer?.answer || draftAnswer}
+            onSelect={onDraft}
             disabled={!!answered}
             isCorrect={isCorrect}
             correctAnswer={question.correctAnswer}
@@ -153,10 +155,12 @@ export default function QuestionCard({
           />
         )}
 
+        {userAnswer?.gradingError && <p role="alert" className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">评分暂时失败：{userAnswer.gradingError}。答案未判错，可以重新提交。</p>}
+
         {question.type === 'true_false' && (
           <TrueFalse
-            selectedAnswer={userAnswer?.answer || ''}
-            onSelect={onAnswer}
+            selectedAnswer={userAnswer?.answer || draftAnswer}
+            onSelect={onDraft}
             disabled={!!answered}
             isCorrect={isCorrect}
             correctAnswer={question.correctAnswer}
@@ -175,6 +179,8 @@ export default function QuestionCard({
             correctAnswer={question.correctAnswer}
           />
         )}
+
+        {!answered && (question.type === 'multiple_choice' || question.type === 'true_false') && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#4285F4]/20 bg-[#4285F4]/5 p-3"><span className="text-sm text-[var(--muted-foreground)]">{draftAnswer ? '已选中，可修改；确认后才会判题。' : '先选择答案，再确认。'}</span><button type="button" disabled={!draftAnswer} onClick={onConfirm} className="min-h-11 rounded-xl bg-[#4285F4] px-5 text-sm font-semibold text-white disabled:opacity-40">确认答案</button></div>}
 
         {/* Explanation section */}
         {effectiveShowResult && (
@@ -205,18 +211,6 @@ export default function QuestionCard({
         )}
       </div>
 
-      {/* Next button */}
-      {isActive && answered && !isLast && (
-        <div className="px-5 pb-4">
-          <button
-            onClick={(e) => { e.stopPropagation(); onNext(); }}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-sm font-medium text-[var(--foreground)] hover:bg-[#4285F4] hover:text-white hover:border-[#4285F4] active:scale-[0.98] transition-all"
-          >
-            Next Question
-            <span className="material-icons-round text-base">arrow_forward</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 }

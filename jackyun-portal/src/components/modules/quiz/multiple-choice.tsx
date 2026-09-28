@@ -55,6 +55,7 @@ export default function MultipleChoice({
         return (
           <button
             key={optLabel}
+            data-quiz-option="true"
             onClick={() => !disabled && onSelect(`${optLabel}) ${opt.text}`)}
             disabled={disabled}
             className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${

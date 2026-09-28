@@ -367,6 +367,13 @@
 
                     <div id="analyze-error" style="display:none;margin-top:12px;padding:12px;border-radius:var(--radius-sm);background:var(--error-container);border:1px solid var(--error);color:var(--error);font-size:13px;"></div>
 
+                    <div class="card" style="margin-top:16px;padding:16px;">
+                        <p style="font-size:14px;font-weight:600;">用其他 AI 整理题目</p>
+                        <p style="margin-top:4px;font-size:12px;color:var(--on-surface-variant);">复制提示词和题目给 AI，再将返回的 JSON 粘贴或上传；导入前会检查格式。</p>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="App.copyAnalysisPrompt()">复制 AI 提示词及题目</button><button class="btn btn-outline btn-sm" onclick="document.getElementById('json-import-panel').hidden = !document.getElementById('json-import-panel').hidden">导入 AI 生成的 JSON</button></div>
+                        <div id="json-import-panel" hidden style="margin-top:12px;"><textarea id="json-import-text" class="input-area" placeholder='粘贴 {"questions":[...]}'></textarea><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"><label class="btn btn-outline btn-sm">选择 JSON 文件<input type="file" accept=".json,application/json" style="display:none;" onchange="App.readJsonFile(this)"></label><button class="btn btn-primary btn-sm" onclick="App.importQuestions()">检查并导入</button></div></div>
+                    </div>
+
                     <!-- Tips -->
                     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px;">
                         <div class="card" style="padding:16px;text-align:center;">
@@ -430,6 +437,8 @@
 
                     <!-- Question Cards -->
                     <div id="question-cards"></div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="App.jumpTo(App.currentIndex-1)" id="quiz-previous">← 上一题</button><span id="quiz-page-label" style="font-size:13px;color:var(--on-surface-variant);"></span><button class="btn btn-outline btn-sm" onclick="App.jumpTo(App.currentIndex+1)" id="quiz-next">下一题 →</button></div>
+                    <p style="margin-top:10px;text-align:center;font-size:12px;color:var(--on-surface-variant);">← / → 切题；A–D 或 1–4 选项；Enter 确认答案</p>
 
                     <!-- Complete Button -->
                     <div id="complete-section" style="display:none;padding-top:16px;padding-bottom:32px;text-align:center;">
@@ -601,6 +610,7 @@
         view: 'input',
         questions: [],
         userAnswers: [],
+        pendingAnswers: {},
         currentIndex: 0,
         sessionId: null,
         subjectName: '',
@@ -657,7 +667,6 @@
                         this.currentIndex = data.currentIndex || 0;
                         this.subjectName = data.subjectName || '';
                         this.nav(data.view || 'subject');
-                        return;
                     }
                 } catch(e) {}
             }
@@ -727,6 +736,43 @@
         },
 
         // ============ ANALYZE ============
+        async copyAnalysisPrompt() {
+            const text = document.getElementById('input-text').value.trim();
+            const prompt = `你是一位专业学科老师。请把下面题目整理成可导入 QuizWise 的有效 JSON。只返回 JSON，不要 Markdown。格式：{"questions":[{"type":"multiple_choice | fill_blank | essay | true_false","questionText":"题目","options":[{"label":"A","text":"选项"}]或null,"correctAnswer":"标准答案","explanation":"解释"}]}。选择题保留所有选项，标准答案以选项字母开头；判断题的标准答案写“对”或“错”；填空和简答题写出明确答案；不要编造无法确定的答案。\n\n题目：\n${text || '[请在此附上题目]'}`;
+            try { await navigator.clipboard.writeText(prompt); this.toast('提示词和题目已复制'); }
+            catch { this.toast('复制失败，请检查剪贴板权限'); }
+        },
+
+        async readJsonFile(input) {
+            const file = input.files?.[0];
+            if (file) document.getElementById('json-import-text').value = await file.text();
+            input.value = '';
+        },
+
+        importQuestions() {
+            try {
+                const source = document.getElementById('json-import-text').value.trim();
+                let parsed;
+                try { parsed = JSON.parse(source); }
+                catch { parsed = JSON.parse(repairJSON(source)); }
+                if (!Array.isArray(parsed.questions) || !parsed.questions.length) throw new Error('JSON 必须包含非空的 questions 数组');
+                const types = new Set(['multiple_choice','fill_blank','essay','true_false']);
+                const questions = parsed.questions.map((q, i) => {
+                    if (!q || !types.has(q.type) || typeof q.questionText !== 'string' || !q.questionText.trim() || typeof q.correctAnswer !== 'string' || !q.correctAnswer.trim()) throw new Error(`第 ${i + 1} 题缺少有效题型、题目或答案`);
+                    if (q.type === 'multiple_choice' && (!Array.isArray(q.options) || q.options.length < 2 || !q.options.every(o => o && typeof o.label === 'string' && typeof o.text === 'string'))) throw new Error(`第 ${i + 1} 题的选项格式不正确`);
+                    return { type: q.type, questionText: q.questionText.trim(), options: Array.isArray(q.options) ? q.options : null, correctAnswer: q.correctAnswer.trim(), explanation: typeof q.explanation === 'string' ? q.explanation : '' };
+                });
+                this.questions = questions;
+                this.userAnswers = questions.map(() => ({ answer: '', isCorrect: null }));
+                this.pendingAnswers = {};
+                this.currentIndex = 0;
+                this.selectedSubject = '';
+                this.nav('subject');
+                this.saveState('subject');
+                this.toast(`已导入 ${questions.length} 道题目`);
+            } catch (error) { this.toast(error instanceof Error ? error.message : 'JSON 导入失败'); }
+        },
+
         async analyze() {
             const text = document.getElementById('input-text').value.trim();
             if (!text) return this.toast('请输入题目');
@@ -821,7 +867,7 @@ ${text}` },
                 this.analyzeError = msg;
                 const errEl = document.getElementById('analyze-error');
                 errEl.style.display = 'block';
-                errEl.innerHTML = `<span class="material-icons-round" style="font-size:16px;vertical-align:middle;margin-right:4px;">error_outline</span> 分析失败：${msg}`;
+                errEl.textContent = `分析失败：${msg}`;
             }
         },
 
@@ -923,6 +969,7 @@ ${text}` },
             }
             this.subjectName = this.selectedSubject || this.subjectName || '未分类';
             this.userAnswers = this.questions.map(() => ({ answer: '', isCorrect: null }));
+            this.pendingAnswers = {};
             this.currentIndex = 0;
             this.sessionId = 'local_' + Date.now();
             this.nav('quiz');
@@ -934,6 +981,9 @@ ${text}` },
             this.renderProgress();
             this.renderQuestionCards();
             this.updateCompleteButton();
+            document.getElementById('quiz-previous').disabled = this.currentIndex === 0;
+            document.getElementById('quiz-next').disabled = this.currentIndex >= this.questions.length - 1;
+            document.getElementById('quiz-page-label').textContent = `${this.currentIndex + 1} / ${this.questions.length}`;
         },
 
         renderProgress() {
@@ -961,7 +1011,8 @@ ${text}` },
             const container = document.getElementById('question-cards');
             const typeLabels = { multiple_choice: '选择题', fill_blank: '填空题', essay: '大题', true_false: '判断题' };
 
-            container.innerHTML = this.questions.map((q, i) => {
+            container.innerHTML = this.questions.slice(this.currentIndex, this.currentIndex + 1).map((q) => {
+                const i = this.currentIndex;
                 const answer = this.userAnswers[i];
                 const answered = answer && answer.answer !== '';
                 const showResult = this.settings.showAnswerImmediately && answered;
@@ -976,6 +1027,7 @@ ${text}` },
                         <div style="flex:1;">
                             <p class="question-text">${this.escapeHtml(q.questionText)}</p>
                             ${this.renderAnswerSection(q, i, answer, showResult)}
+                            ${!answered && (q.type === 'multiple_choice' || q.type === 'true_false') ? `<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:16px;padding:12px;border:1px solid var(--outline);border-radius:var(--radius-sm);"><span style="font-size:12px;color:var(--on-surface-variant);">${this.pendingAnswers[i] ? '已选中，可修改；确认后才会判题。' : '先选答案，再确认。'}</span><button class="btn btn-primary btn-sm" onclick="App.confirmAnswer(${i})" ${this.pendingAnswers[i] ? '' : 'disabled'}>确认答案</button></div>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -997,7 +1049,7 @@ ${text}` },
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                     ${q.options.map(opt => {
                         let cls = '';
-                        const selectedLabel = (answer?.answer || '').match(/^([A-Da-d])/)?.[1]?.toUpperCase();
+                        const selectedLabel = (answer?.answer || this.pendingAnswers[i] || '').match(/^([A-Da-d])/)?.[1]?.toUpperCase();
                         const correctLabel = (q.correctAnswer || '').match(/^([A-Da-d])/)?.[1]?.toUpperCase();
                         const optLabel = (opt.label || '').toUpperCase();
                         const isSelected = selectedLabel === optLabel;
@@ -1006,7 +1058,7 @@ ${text}` },
                         if (!showResult && isSelected) cls = 'selected';
                         if (showResult && !isSelected && optLabel !== correctLabel) cls = 'dimmed';
                         const answerValue = optLabel + ') ' + opt.text;
-                        return `<button class="option-btn ${cls}" onclick="App.answerQuestion(${i}, '${this.escapeAttr(answerValue)}')" ${answered ? 'disabled' : ''}>
+                        return `<button class="option-btn ${cls}" onclick="App.selectAnswer(${i}, '${this.escapeAttr(answerValue)}')" ${answered ? 'disabled' : ''}>
                             <span class="opt-letter">${opt.label}</span> ${this.escapeHtml(opt.text)}
                             ${showResult && optLabel === correctLabel ? '<span class="material-icons-round" style="color:var(--success);margin-left:auto;">check_circle</span>' : ''}
                             ${showResult && isSelected && !isCorrect ? '<span class="material-icons-round" style="color:var(--error);margin-left:auto;">cancel</span>' : ''}
@@ -1021,13 +1073,13 @@ ${text}` },
                 <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                     ${options.map(opt => {
                         let cls = '';
-                        const isSelected = (answer?.answer || '') === opt.label;
-                        const isCorrectAnswer = q.correctAnswer === opt.label;
+                        const isSelected = (answer?.answer || this.pendingAnswers[i] || '') === opt.label;
+                        const isCorrectAnswer = this.checkObjectiveAnswer(q, opt.label);
                         if (showResult && isCorrectAnswer) cls = 'correct';
                         if (showResult && isSelected && !isCorrect) cls = 'incorrect';
                         if (!showResult && isSelected) cls = 'selected';
                         if (showResult && !isSelected && !isCorrectAnswer) cls = 'dimmed';
-                        return `<button class="option-btn ${cls}" onclick="App.answerQuestion(${i}, '${opt.label}')" ${answered ? 'disabled' : ''}>
+                        return `<button class="option-btn ${cls}" onclick="App.selectAnswer(${i}, '${opt.label}')" ${answered ? 'disabled' : ''}>
                             <span class="opt-letter">${opt.label === '对' ? '✓' : '✗'}</span> ${opt.label}
                             ${showResult && isCorrectAnswer ? '<span class="material-icons-round" style="color:var(--success);margin-left:auto;">check_circle</span>' : ''}
                         </button>`;
@@ -1095,6 +1147,28 @@ ${text}` },
             </div>`;
         },
 
+        selectAnswer(i, answer) {
+            if (this.userAnswers[i]?.answer) return;
+            this.pendingAnswers[i] = answer;
+            this.renderQuizView();
+        },
+
+        confirmAnswer(i) {
+            if (this.pendingAnswers[i]) this.answerQuestion(i, this.pendingAnswers[i]);
+        },
+
+        checkObjectiveAnswer(q, answer) {
+            if (q.type === 'true_false') {
+                const normalize = value => /^(true|正确|对)$/i.test(value.trim()) ? 'true' : /^(false|错误|错)$/i.test(value.trim()) ? 'false' : value.trim().toLowerCase();
+                return normalize(answer) === normalize(q.correctAnswer);
+            }
+            if (q.type === 'multiple_choice') {
+                const label = value => value.trim().match(/^([A-Z])(?:[).、\s]|$)/i)?.[1]?.toUpperCase();
+                return label(answer) && label(answer) === label(q.correctAnswer);
+            }
+            return answer === q.correctAnswer;
+        },
+
         async answerQuestion(i, answer) {
             if (this.userAnswers[i]?.answer) return;
             const q = this.questions[i];
@@ -1103,7 +1177,7 @@ ${text}` },
             let isCorrect = null;
             // For MC and TF, check locally
             if (q.type === 'multiple_choice' || q.type === 'true_false') {
-                isCorrect = answer === q.correctAnswer;
+                isCorrect = this.checkObjectiveAnswer(q, answer);
             }
 
             this.userAnswers[i] = { answer, isCorrect };
@@ -1111,15 +1185,6 @@ ${text}` },
             this.saveState('quiz');
             this.updateCompleteButton();
 
-            // Auto next
-            if (i < this.questions.length - 1) {
-                this.currentIndex = i + 1;
-                this.renderProgress();
-                setTimeout(() => {
-                    const card = document.getElementById('qcard-' + this.currentIndex);
-                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 100);
-            }
         },
 
         async submitEssay(i) {
@@ -1188,11 +1253,6 @@ ${text}` },
 
             if (feedback) this.toast(feedback);
 
-            // Auto next
-            if (i < this.questions.length - 1) {
-                this.currentIndex = i + 1;
-                this.renderProgress();
-            }
         },
 
         submitBlank(i) {
@@ -1268,6 +1328,7 @@ ${text}` },
         },
 
         jumpTo(i) {
+            if (i < 0 || i >= this.questions.length) return;
             this.currentIndex = i;
             this.renderProgress();
             this.renderQuizView();
@@ -1533,30 +1594,17 @@ ${text}` },
                 // Don't intercept when typing in inputs
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
                 if (this.view !== 'quiz') return;
-
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                    if (this.currentIndex > 0) {
-                        this.currentIndex--;
-                        e.preventDefault();
-                    }
-                }
-                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                    if (this.currentIndex < this.questions.length - 1) {
-                        this.currentIndex++;
-                        e.preventDefault();
-                    }
-                }
-                if (this.currentIndex >= 0) {
-                    // Number keys for MCQ
-                    const num = parseInt(e.key);
-                    if (num >= 1 && num <= 9 && this.questions[this.currentIndex]?.type === 'multiple_choice') {
-                        const opts = this.questions[this.currentIndex].options;
-                        if (opts && num <= opts.length) {
-                            const label = opts[num - 1].label;
-                            if (label) this.answerQuestion(this.currentIndex, label.toUpperCase() + ') ' + opts[num - 1].text);
-                            e.preventDefault();
-                        }
-                    }
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); this.jumpTo(this.currentIndex - 1); return; }
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); this.jumpTo(this.currentIndex + 1); return; }
+                if (e.key === 'Enter' && this.pendingAnswers[this.currentIndex]) { e.preventDefault(); this.confirmAnswer(this.currentIndex); return; }
+                const q = this.questions[this.currentIndex];
+                if (!q || this.userAnswers[this.currentIndex]?.answer) return;
+                if (q.type === 'multiple_choice') {
+                    const option = q.options?.find((item, index) => item.label.toLowerCase() === e.key.toLowerCase() || String(index + 1) === e.key);
+                    if (option) { e.preventDefault(); this.selectAnswer(this.currentIndex, option.label.toUpperCase() + ') ' + option.text); }
+                } else if (q.type === 'true_false') {
+                    const choice = e.key === '1' || e.key.toLowerCase() === 't' ? '对' : e.key === '2' || e.key.toLowerCase() === 'f' ? '错' : null;
+                    if (choice) { e.preventDefault(); this.selectAnswer(this.currentIndex, choice); }
                 }
             });
         },

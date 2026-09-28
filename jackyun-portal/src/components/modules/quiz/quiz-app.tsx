@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnalyzedQuestion, QuizQuestion, QuestionOption, QuestionType } from '@/types/quiz';
 import { analyzeQuestions, gradeAnswer, checkMultipleChoice } from '@/lib/quiz/question-analyzer';
+import { parseQuizQuestions } from '@/lib/quiz/question-import';
 import {
   saveCurrentQuestionsSync,
   getCurrentQuestionsSync,
@@ -44,6 +45,7 @@ export interface UserAnswer {
   isCorrect: boolean | null;
   /** Whether this answer is still being graded by AI (essay/fill-blank only) */
   isGrading?: boolean;
+  gradingError?: string;
 }
 
 /** Map AI-returned type strings to valid QuestionType */
@@ -85,7 +87,7 @@ export default function QuizApp() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [settings, setSettings] = useState(() => getQuizSettings());
   const [inputText, setInputText] = useState('');
-  const questionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [draftAnswers, setDraftAnswers] = useState<Record<number, string>>({});
   const quizStartedAtRef = useRef<string | null>(null);
 
   // Restore in-progress quiz on mount
@@ -132,6 +134,21 @@ export default function QuizApp() {
     setView('subject');
   }, []);
 
+  const handleImport = useCallback((json: string) => {
+    try {
+      const imported = parseQuizQuestions(json);
+      setQuestions(imported);
+      setDraftAnswers({});
+      setUserAnswers([]);
+      setSessionId(null);
+      setAnalyzeError(null);
+      saveCurrentQuestionsSync(imported);
+      setView('subject');
+    } catch (error) {
+      setAnalyzeError(error instanceof Error ? error.message : 'JSON 导入失败。');
+    }
+  }, []);
+
   // Consume commands sent by the global/homepage AI assistant. The custom
   // event handles same-page calls; persisted storage handles navigation to /quiz.
   useEffect(() => {
@@ -159,6 +176,7 @@ export default function QuizApp() {
     saveCurrentSession({ id: `local-${crypto.randomUUID()}`, startedAt });
     setSubjectName(subject);
     setUserAnswers(questions.map(() => ({ questionIndex: 0, answer: '', isCorrect: null })));
+    setDraftAnswers({});
     setCurrentIndex(0);
     setView('quiz');
 
@@ -219,14 +237,22 @@ export default function QuizApp() {
         return updated;
       });
 
-      const grade = await gradeAnswer(
+    const grade = await gradeAnswer(
         {
           questionText: questionData.questionText,
           correctAnswer: questionData.correctAnswer,
           type: questionData.type,
         },
         answer,
-      );
+    );
+      if ('error' in grade) {
+        setUserAnswers((previous) => {
+          const updated = [...previous];
+          updated[questionIndex] = { questionIndex, answer, isCorrect: null, isGrading: false, gradingError: grade.error };
+          return updated;
+        });
+        return;
+      }
       if ('isCorrect' in grade) {
         isCorrect = grade.isCorrect;
       }
@@ -249,18 +275,40 @@ export default function QuizApp() {
   // Navigate to next question
   const handleNext = useCallback(() => {
     if (currentIndex < questions.length - 1) {
-      const next = currentIndex + 1;
-      setCurrentIndex(next);
-      // Scroll to next question
-      questionRefs.current.get(next)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setCurrentIndex(currentIndex + 1);
     }
   }, [currentIndex, questions.length]);
 
   // Jump to question
   const handleJumpToQuestion = useCallback((index: number) => {
     setCurrentIndex(index);
-    questionRefs.current.get(index)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
+
+  useEffect(() => {
+    if (view !== 'quiz') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target instanceof HTMLButtonElement && !event.target.dataset.quizOption) return;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); setCurrentIndex((index) => Math.max(0, index - 1)); return; }
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); setCurrentIndex((index) => Math.min(questions.length - 1, index + 1)); return; }
+      const question = questions[currentIndex];
+      if (!question || userAnswers[currentIndex]?.answer) return;
+      if (event.key === 'Enter' && draftAnswers[currentIndex]) {
+        event.preventDefault();
+        void handleAnswer(currentIndex, draftAnswers[currentIndex], question);
+        return;
+      }
+      if (question.type === 'multiple_choice' && question.options) {
+        const option = question.options.find((item, index) => item.label.toLowerCase() === event.key.toLowerCase() || String(index + 1) === event.key);
+        if (option) { event.preventDefault(); setDraftAnswers((current) => ({ ...current, [currentIndex]: `${option.label}) ${option.text}` })); }
+      } else if (question.type === 'true_false') {
+        const answer = event.key === '1' || event.key.toLowerCase() === 't' ? 'True' : event.key === '2' || event.key.toLowerCase() === 'f' ? 'False' : null;
+        if (answer) { event.preventDefault(); setDraftAnswers((current) => ({ ...current, [currentIndex]: answer })); }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [currentIndex, draftAnswers, handleAnswer, questions, userAnswers, view]);
 
   // Complete quiz
   const handleComplete = useCallback(async () => {
@@ -305,14 +353,15 @@ export default function QuizApp() {
   // Retry same questions
   const handleRetry = useCallback(() => {
     setUserAnswers(questions.map(() => ({ questionIndex: 0, answer: '', isCorrect: null })));
+    setDraftAnswers({});
     setCurrentIndex(0);
     setSessionId(null);
     setView('subject');
   }, [questions]);
 
   const correctCount = userAnswers.filter(a => a.isCorrect === true).length;
-  const answeredCount = userAnswers.filter(a => a.answer !== '').length;
-  const allAnswered = questions.length > 0 && answeredCount === questions.length;
+  const answeredCount = userAnswers.filter(a => a.answer && a.isCorrect !== null).length;
+  const allAnswered = questions.length > 0 && answeredCount === questions.length && userAnswers.every((answer) => !answer.isGrading);
 
   return (
     <div className="max-w-[720px] mx-auto h-full flex flex-col">
@@ -358,6 +407,7 @@ export default function QuizApp() {
             inputText={inputText}
             setInputText={setInputText}
             onAnalyze={handleAnalyze}
+            onImport={handleImport}
             isAnalyzing={view === 'analyzing'}
             error={analyzeError}
           />
@@ -385,18 +435,21 @@ export default function QuizApp() {
               userAnswers={userAnswers}
             />
 
-            {/* Questions */}
-            <div className="space-y-2 mt-2">
-              {questions.map((q, i) => (
-                <div
-                  key={i}
-                  ref={(el) => { if (el) questionRefs.current.set(i, el); }}
-                >
+            {/* One question at a time, as in Cue study. */}
+            <div className="mt-4">
+              {questions[currentIndex] && (() => {
+                const q = questions[currentIndex];
+                const i = currentIndex;
+                return (
                   <QuestionCard
+                    key={i}
                     question={q}
                     index={i}
                     isActive={i === currentIndex}
                     userAnswer={userAnswers[i]}
+                    draftAnswer={draftAnswers[i] ?? ''}
+                    onDraft={(answer) => setDraftAnswers((current) => ({ ...current, [i]: answer }))}
+                    onConfirm={() => { if (draftAnswers[i]) void handleAnswer(i, draftAnswers[i], q); }}
                     onAnswer={(answer) => handleAnswer(i, answer, {
                       questionText: q.questionText,
                       correctAnswer: q.correctAnswer,
@@ -404,13 +457,13 @@ export default function QuizApp() {
                       options: q.options,
                     })}
                     showResult={settings.show_answer_immediately && userAnswers[i]?.answer !== ''}
-                    onNext={handleNext}
-                    onFocus={() => setCurrentIndex(i)}
-                    isLast={i === questions.length - 1}
+                    onFocus={() => {}}
                   />
-                </div>
-              ))}
+                );
+              })()}
             </div>
+            <nav aria-label="切换题目" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => index - 1)} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-semibold disabled:opacity-40">← 上一题</button><span className="text-sm text-[var(--muted-foreground)]">{currentIndex + 1} / {questions.length}</span><button type="button" disabled={currentIndex >= questions.length - 1} onClick={handleNext} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-semibold disabled:opacity-40">下一题 →</button></nav>
+            <p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">快捷键：← / → 切题；选择题按 A–D 或 1–4 选中；Enter 确认答案。输入框内保留正常输入。</p>
 
             {/* Complete Button */}
             {allAnswered && (

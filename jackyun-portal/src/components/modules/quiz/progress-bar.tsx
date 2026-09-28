@@ -46,7 +46,7 @@ export default function ProgressBar({
       {/* Progress bar */}
       <div className="flex gap-1">
         {Array.from({ length: total }).map((_, i) => {
-          const answered = userAnswers[i]?.answer && userAnswers[i].answer !== '';
+          const answered = Boolean(userAnswers[i]?.answer && userAnswers[i].isCorrect !== null);
           const isCorrect = userAnswers[i]?.isCorrect === true;
           return (
             <button
@@ -72,7 +72,7 @@ export default function ProgressBar({
       {/* Question numbers (compact) */}
       <div className="flex gap-1 mt-1.5 justify-center">
         {Array.from({ length: total }).map((_, i) => {
-          const answered = userAnswers[i]?.answer !== '';
+          const answered = Boolean(userAnswers[i]?.answer && userAnswers[i].isCorrect !== null);
           const isCorrect = userAnswers[i]?.isCorrect === true;
           return (
             <button

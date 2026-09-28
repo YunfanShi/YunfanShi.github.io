@@ -3,6 +3,7 @@
 import { AnalyzedQuestion, QuestionType } from '@/types/quiz';
 import { callAiApi } from '@/lib/ai-config';
 import { parseAiJson } from '@/lib/ai-json';
+import { parseQuizQuestions } from './question-import';
 
 function getLangPreference(): string {
   if (typeof window !== 'undefined') {
@@ -75,7 +76,7 @@ Rules:
 Questions to analyze:
 {{QUESTIONS}}`;
 
-function getAnalysisPrompt(rawText: string): string {
+export function getAnalysisPrompt(rawText: string): string {
   const lang = getLangPreference();
   const template = lang.startsWith('en') ? ANALYSIS_PROMPT_EN : ANALYSIS_PROMPT_ZH;
   return template.replace('{{QUESTIONS}}', rawText);
@@ -207,7 +208,7 @@ async function callLLM(messages: Array<{ role: string; content: string }>, optio
   max_tokens?: number;
   stream?: boolean;
 } = {}): Promise<string> {
-  const res = await callAiApi(messages, options);
+  const res = await callAiApi(messages, { temperature: options.temperature, stream: options.stream, maxTokens: options.max_tokens });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -237,21 +238,9 @@ export async function analyzeQuestions(
     const content = await callLLM([
       { role: 'system', content: 'You are a precise question analyzer. Always return valid JSON only, no markdown. Ensure all special characters in question text are properly escaped for JSON.' },
       { role: 'user', content: prompt },
-    ], { temperature: 0.1, max_tokens: 10000 });
+    ], { temperature: 0.1, max_tokens: 2000 });
 
-    const parsed = parseAiJson(content) as { questions?: AnalyzedQuestion[] };
-
-    if (!parsed.questions || !Array.isArray(parsed.questions)) {
-      throw new Error('Invalid response format from AI');
-    }
-
-    // Mark each question: MC/TF are pre-analyzed (explanation ready), essay/fill-blank need grading on submit
-    const questions = parsed.questions.map(q => ({
-      ...q,
-      needsGrading: q.type === 'essay' || q.type === 'fill_blank',
-    }));
-
-    return { questions };
+    return { questions: parseQuizQuestions(content) };
   } catch (err) {
     return {
       questions: [],
