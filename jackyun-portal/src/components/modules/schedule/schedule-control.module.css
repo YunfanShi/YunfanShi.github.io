@@ -307,7 +307,7 @@
   .cueManager button, .cueManager select { min-height: 44px; }
   .cueManager :global(.katex-display) { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 }
-@media (max-width: 767px) {
-  .cueManager > div { display: block; }
+@media (max-width: 1279px) {
+  .cueManager > div { display: block; overflow-x: hidden; overflow-y: auto; }
   .cueManager form, .cueManager section { overflow: visible; }
 }
