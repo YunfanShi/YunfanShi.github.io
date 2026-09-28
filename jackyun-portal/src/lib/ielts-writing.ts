@@ -80,6 +80,7 @@ export function isWritingArchiveEntry(value: unknown): value is WritingArchiveEn
 }
 
 export function createWritingArchiveEntry(input: {
+  title?: string;
   essayId: string;
   task: WritingTask;
   question: string;
@@ -87,12 +88,11 @@ export function createWritingArchiveEntry(input: {
   savedAt: string;
   bandEstimate?: string | null;
 }): WritingArchiveEntry {
-  const firstQuestionLine = input.question.split(/\r?\n/u).map((line) => line.trim()).find(Boolean) ?? '';
   const fallbackTitle = `${taskLabel(input.task)} · ${input.savedAt.slice(0, 10)}`;
   return {
     id: input.essayId,
     essayId: input.essayId,
-    title: firstQuestionLine.slice(0, 100) || fallbackTitle,
+    title: input.title?.trim().slice(0, 120) || fallbackTitle,
     task: input.task,
     question: input.question.trim(),
     content: input.content.trim(),

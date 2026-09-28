@@ -48,7 +48,7 @@ test('writes every draft to two copies and recovers from a corrupt primary copy'
 
 test('archives one replaceable final version per essay', () => {
   const first = createWritingArchiveEntry({ essayId: 'essay-a', task: 'task2', question: 'Discuss both views.\nGive reasons.', content: 'One two three.', savedAt: '2026-09-09T10:00:00.000Z', bandEstimate: '6.0–6.5' });
-  assert.equal(first.title, 'Discuss both views.');
+  assert.equal(first.title, 'Task 2 · 2026-09-09');
   assert.equal(first.wordCount, 3);
   const replacement = createWritingArchiveEntry({ essayId: 'essay-a', task: 'task2', question: 'Discuss both views.', content: 'One two three four.', savedAt: '2026-09-09T11:00:00.000Z' });
   assert.deepEqual(upsertWritingArchive([first], replacement), [replacement]);
@@ -162,4 +162,13 @@ test('language upgrade remains available after a reload loses transient feedback
   const upgradeButton = workbench.match(/<button type="button" disabled=\{Boolean\(loadingMode\)\} onClick=\{\(\) => review\('upgrade'\)\}/);
   assert.ok(upgradeButton);
   assert.doesNotMatch(workbench, /disabled=\{Boolean\(loadingMode\) \|\| !feedback\} onClick=\{\(\) => review\('upgrade'\)\}/);
+});
+
+ test('article title is independent from the exam question and survives a final-version resave', () => {
+  const input = { essayId: 'article', task: 'task2' as const, question: 'Discuss both views.', content: 'The essay text.', savedAt: '2026-09-27T10:00:00Z', title: '  Learning at home  ' };
+  const entry = createWritingArchiveEntry(input);
+  assert.equal(entry.title, 'Learning at home');
+  assert.equal(entry.question, input.question);
+  const replacement = createWritingArchiveEntry({ ...input, title: entry.title, content: 'A revised essay.' });
+  assert.equal(upsertWritingArchive([entry], replacement)[0].title, 'Learning at home');
 });

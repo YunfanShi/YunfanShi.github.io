@@ -293,3 +293,21 @@
   .touchNavigation button:disabled { opacity: .4; }
   .touchComplete { min-height: 44px; border-radius: 12px; }
 }
+
+/* Keep long prompts and controls inside the phone viewport. */
+@media (max-width: 767px) {
+  .cueManager > div { max-width: 100%; }
+  .cueManager form, .cueManager section { min-width: 0; padding: 12px; }
+  .cueManager form > div:first-child { align-items: flex-start; gap: 8px; }
+  .cueManager form > div:first-child > div { min-width: 0; }
+  .cueManager form > div:first-child > button { flex-shrink: 0; }
+  .cueManager section div[class*="border-l-2"] { margin-left: 0; padding-left: 8px; }
+  .cueManager article { min-width: 0; padding: 12px; overflow-wrap: anywhere; }
+  .cueManager input, .cueManager select, .cueManager textarea { min-width: 0; max-width: 100%; font-size: 16px; }
+  .cueManager button, .cueManager select { min-height: 44px; }
+  .cueManager :global(.katex-display) { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+}
+@media (max-width: 767px) {
+  .cueManager > div { display: block; }
+  .cueManager form, .cueManager section { overflow: visible; }
+}

@@ -76,9 +76,9 @@ export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferencesV2 = {
   groupOrder: ['home', 'learning', 'practice', 'time', 'tools', 'relax', 'system'],
   itemOrder: {
     home: ['dashboard'],
-    learning: ['study-plan', 'goal', 'study-guide', 'ielts', 'ielts-writing', 'reading', 'learning-resources', 'vocab'],
+    learning: ['schedule', 'study-plan', 'goal', 'study-guide', 'ielts', 'ielts-writing', 'reading', 'learning-resources', 'vocab'],
     practice: ['answer-sheet', 'answer-sheet-sync', 'mock', 'quizwise'],
-    time: ['time-management', 'sleep', 'activity', 'schedule'],
+    time: ['time-management', 'sleep', 'activity'],
     tools: ['tools', 'userscripts'],
     relax: ['music-player', 'music-sync', 'bilibili-sync', 'poem', 'relax'],
     system: ['settings', 'update', 'help-center', 'admin'],
@@ -92,13 +92,17 @@ export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferencesV2 = {
 export function coerceNavigationPreferences(value: unknown): NavigationPreferencesV2 {
   const input = value && typeof value === 'object' ? value as Partial<NavigationPreferencesV2> : {};
   const legacy = input as Partial<NavigationPreferencesV2> & { musicMode?: string; answerSheetMode?: string };
+  const storedOrder = input.itemOrder && typeof input.itemOrder === 'object' ? input.itemOrder : DEFAULT_NAVIGATION_PREFERENCES.itemOrder;
+  const learningOrder = Array.isArray(storedOrder.learning) ? storedOrder.learning.filter((id): id is string => typeof id === 'string') : DEFAULT_NAVIGATION_PREFERENCES.itemOrder.learning;
+  const migratedLearningOrder = learningOrder.includes('schedule') ? learningOrder : [...learningOrder];
+  if (!migratedLearningOrder.includes('schedule')) migratedLearningOrder.splice(Math.max(0, migratedLearningOrder.indexOf('study-plan')), 0, 'schedule');
   return {
     ...DEFAULT_NAVIGATION_PREFERENCES,
     musicMode: legacy.musicMode === 'sync' ? 'sync' : 'player',
     answerSheetMode: legacy.answerSheetMode === 'sync' ? 'sync' : 'standard',
     layoutMode: input.layoutMode === 'flat' ? 'flat' : 'grouped',
     groupOrder: Array.isArray(input.groupOrder) ? input.groupOrder.filter((item): item is string => typeof item === 'string') : [...DEFAULT_NAVIGATION_PREFERENCES.groupOrder],
-    itemOrder: input.itemOrder && typeof input.itemOrder === 'object' ? input.itemOrder : { ...DEFAULT_NAVIGATION_PREFERENCES.itemOrder },
+    itemOrder: { ...storedOrder, learning: migratedLearningOrder, time: (Array.isArray(storedOrder.time) ? storedOrder.time : DEFAULT_NAVIGATION_PREFERENCES.itemOrder.time).filter((id) => id !== 'schedule') },
     hiddenItems: Array.isArray(input.hiddenItems) ? input.hiddenItems.filter((item): item is string => typeof item === 'string') : [],
     pinnedItems: Array.isArray(input.pinnedItems) ? input.pinnedItems.filter((item): item is string => typeof item === 'string') : [],
     collapsedGroups: Array.isArray(input.collapsedGroups) ? input.collapsedGroups.filter((item): item is string => typeof item === 'string') : [],
