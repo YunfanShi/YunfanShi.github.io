@@ -15,6 +15,13 @@ function repairStringEscapes(raw: string): string {
     const next = raw[index + 1] ?? '';
     if (character === '"' && (index === 0 || raw[index - 1] !== '\\')) inDoubleQuotedString = !inDoubleQuotedString;
     if (character === '\\') {
+      // A valid JSON \\ pair already represents one literal LaTeX slash.
+      // Do not inspect its second slash as a new, unescaped command.
+      if (inDoubleQuotedString && next === '\\') {
+        cleaned += '\\\\';
+        index += 1;
+        continue;
+      }
       if (!inDoubleQuotedString && ('{}[]\n\r'.includes(next))) continue;
       if (inDoubleQuotedString && isLikelyLatexEscape(raw, index)) {
         cleaned += '\\\\';

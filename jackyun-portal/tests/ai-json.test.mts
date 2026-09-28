@@ -46,6 +46,13 @@ test('preserves LaTeX commands when an AI forgets to JSON-escape backslashes', (
   assert.equal(/[\b\f]/u.test(parsed.answer), false);
 });
 
+test('preserves already escaped LaTeX commands without turning them into control characters', () => {
+  const expected = String.raw`\(x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}\), \(a\times b\), \left(x+\frac b2\right)`;
+  const parsed = parseAiJson(JSON.stringify({ answer: expected })) as { answer: string };
+  assert.equal(parsed.answer, expected);
+  assert.equal(/[\b\f\r\t]/u.test(parsed.answer), false);
+});
+
 test('reads text from common OpenAI-compatible response shapes', () => {
   assert.equal(extractAssistantContent({ choices: [{ message: { content: [{ type: 'text', text: '{"ok":true}' }] } }] }), '{"ok":true}');
   assert.equal(extractAssistantContent({ output_text: 'done' }), 'done');

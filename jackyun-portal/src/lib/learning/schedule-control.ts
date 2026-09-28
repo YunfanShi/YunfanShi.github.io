@@ -133,6 +133,11 @@ export function cueCollectionSummaryForSubject(before: StudyCue[], after: StudyC
   };
 }
 
+/** A collection reminder tracks substantial work or an explicit full review. */
+export function isCueCollectionBatch(summary: Pick<CueCollectionUpdate, 'createdCount' | 'modifiedCount'>, explicitlyMarked = false): boolean {
+  return explicitlyMarked || summary.createdCount + summary.modifiedCount >= 5;
+}
+
 export interface ManualLearningTask {
   id: string;
   title: string;
@@ -1588,7 +1593,7 @@ function cueCollectionMaintenanceTasks(state: ScheduleControlState, date: Date):
   return [{
     key: `cue-maintenance:${earliest}:${due.map((item) => item.subjectId).toSorted().join(',')}`,
     title: `整批检查 Cue 更新 · ${due.length} 科`,
-    detail: `到期科目：${due.map((item) => `${item.subjectName}（${item.lastUpdatedAt ? `上次整批更新 ${dateKey(new Date(item.lastUpdatedAt))}` : '尚未记录整批更新'}）`).join('；')}。把该科全部 Cue 与最新笔记交给 AI，导回新增 / 修改结果；执行批量导入后自动记录本次日期并重排提醒。`,
+    detail: `到期科目：${due.map((item) => `${item.subjectName}（${item.lastUpdatedAt ? `上次整批更新 ${dateKey(new Date(item.lastUpdatedAt))}` : '尚未记录整批更新'}）`).join('；')}。把该科全部 Cue 与最新笔记交给 AI，导回新增 / 修改结果；一次实际新增或修改至少 5 条时自动记录，也可在导入时手动标记。`,
     type: 'completeness-audit',
     date: key,
     durationMinutes: 20,

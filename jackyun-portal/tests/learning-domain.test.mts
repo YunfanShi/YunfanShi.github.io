@@ -13,6 +13,7 @@ import {
   changeTimetableImportRole,
   applyTimetableUpdate,
   applyCueBulkOperations,
+  isCueCollectionBatch,
   applyCueUnitMappings,
   buildCueReviewBatches,
   cancelLearningTask,
@@ -666,6 +667,14 @@ test('Cue unit reconciliation applies one user choice to create and update opera
   const reconciled = applyCueUnitMappings(operations, { 'Unit 4': 'Chapter 4 Motion' });
   assert.deepEqual(reconciled.map((operation) => operation.unit), ['Chapter 4 Motion', 'Chapter 4 Motion', 'Forces']);
   assert.deepEqual(operations.map((operation) => operation.unit), ['Unit 4', 'Unit 4', 'Forces']);
+});
+
+test('only substantial or explicitly marked Cue imports count as collection updates', () => {
+  assert.equal(isCueCollectionBatch({ createdCount: 0, modifiedCount: 1 }), false);
+  assert.equal(isCueCollectionBatch({ createdCount: 0, modifiedCount: 0 }), false);
+  assert.equal(isCueCollectionBatch({ createdCount: 2, modifiedCount: 2 }), false);
+  assert.equal(isCueCollectionBatch({ createdCount: 2, modifiedCount: 3 }), true);
+  assert.equal(isCueCollectionBatch({ createdCount: 0, modifiedCount: 1 }, true), true);
 });
 
 test('Cue bulk operations can update an existing Cue and create a new Cue together', () => {

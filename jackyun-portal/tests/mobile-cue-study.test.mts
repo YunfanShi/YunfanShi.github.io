@@ -7,7 +7,7 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import katex from 'katex';
-import { splitMathText, normalizeLatexRelations } from '../src/lib/latex-text.ts';
+import { splitMathText, normalizeLatexRelations, normalizeLegacyLatex } from '../src/lib/latex-text.ts';
 
 const require = createRequire(import.meta.url);
 function compileComponent(path: string, dependencies: Record<string, unknown>) {
@@ -18,7 +18,7 @@ function compileComponent(path: string, dependencies: Record<string, unknown>) {
   return compiledModule.exports.default;
 }
 const LatexRenderer = compileComponent('../src/components/modules/latex-renderer.tsx', {
-  '@/lib/latex-text': { splitMathText, normalizeLatexRelations },
+  '@/lib/latex-text': { splitMathText, normalizeLatexRelations, normalizeLegacyLatex },
   'katex/dist/katex.min.css': {},
 });
 const MobileCard = compileComponent('../src/components/modules/schedule/mobile-cue-card.tsx', {
@@ -47,6 +47,18 @@ test('explicit math delimiters and prose retain their original boundaries', () =
     { type: 'text', value: 'Recall ' }, { type: 'latex-inline', value: 'F_R=kv' },
     { type: 'text', value: ' and ' }, { type: 'latex-block', value: 'a^0=1' }, { type: 'text', value: '.' },
   ]);
+});
+
+test('old Cue formulas with decoded JSON control characters render as math', () => {
+  const old = '参考：\\left(\\\f' + 'rac{x_1+x_2}{2},\\\f' + 'rac{y_1+y_2}{2}\\ ight)';
+  const parts = splitMathText(old);
+  assert.equal(parts[0].value, '参考：');
+  assert.equal(parts[1].type, 'latex-inline');
+  assert.equal(parts[1].value, String.raw`\left(\frac{x_1+x_2}{2},\frac{y_1+y_2}{2}\right)`);
+  assert.doesNotThrow(() => katex.renderToString(parts[1].value, { throwOnError: true }));
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(LatexRenderer, { content: old })), /katex-error/);
+  assert.equal(normalizeLegacyLatex('\\\t' + 'imes'), String.raw`\times`);
+  assert.deepEqual(splitMathText('Read the formula in the notes.'), [{ type: 'text', value: 'Read the formula in the notes.' }]);
 });
 
 test('every recall type has a touch reveal and keeps evidence off the question page', () => {
