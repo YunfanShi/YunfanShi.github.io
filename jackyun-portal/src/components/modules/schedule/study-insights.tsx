@@ -10,33 +10,34 @@ import { studyButtonClass, studyInputClass } from './question-bank-manager';
 const chartDimensions: StudyDimension[] = ['unit', 'cueType', 'skill', 'questionType'];
 const chartLabels: Record<string, string> = { unit: '单元', cueType: 'CUE 类型', skill: '知识能力', questionType: '题型' };
 
-function RadarChart({ metrics, kind, firstIndex, maximum }: { metrics: StudyMetric[]; kind: 'stable' | 'attempts'; firstIndex: number; maximum: number }) {
+function RadarChart({ metrics, kind, maximum, dimension }: { metrics: StudyMetric[]; kind: 'stable' | 'attempts'; maximum: number; dimension: StudyDimension }) {
   const [active, setActive] = useState<number | null>(null);
   const value = (item: StudyMetric) => kind === 'stable' ? item.stable / item.attempts : item.attempts / maximum;
   const point = (index: number, radius: number) => {
     const angle = index * Math.PI * 2 / metrics.length - Math.PI / 2;
-    return [240 + Math.cos(angle) * radius, 190 + Math.sin(angle) * radius] as const;
+    return [200 + Math.cos(angle) * radius, 170 + Math.sin(angle) * radius] as const;
   };
   const points = (radius: (item: StudyMetric) => number) => metrics.map((item, index) => point(index, radius(item)).join(',')).join(' ');
   const title = kind === 'stable' ? '√ 比例' : '练习次数';
-  return <figure className="min-w-0 text-center">
-    {metrics.length >= 3 ? <svg viewBox="0 0 480 420" className="mx-auto w-full max-w-[560px]" role="group" aria-label={`${title}维度图：${metrics.map((item) => `${item.label} ${kind === 'stable' ? `${Math.round(value(item) * 100)}%` : `${item.attempts} 次`}`).join('；')}`}>
-      {[0.25, 0.5, 0.75, 1].map((ring) => <polygon key={ring} points={points(() => 145 * ring)} fill="none" stroke="currentColor" strokeDasharray="4 5" className="text-[var(--card-border)]" />)}
-      {metrics.map((item, index) => <line key={item.key} x1="240" y1="190" x2={point(index, 145)[0]} y2={point(index, 145)[1]} stroke="currentColor" className="text-[var(--card-border)]" />)}
-      <polygon points={points((item) => 145 * value(item))} fill="var(--brand)" fillOpacity="0.18" stroke="var(--brand)" strokeWidth="3" />
+  return <figure className="min-w-0 text-center" onMouseLeave={() => setActive(null)}>
+    {metrics.length >= 3 ? <svg viewBox="0 0 400 350" className="mx-auto w-full max-w-[400px]" role="group" aria-label={`${title}维度图：${metrics.map((item) => `${item.label} ${kind === 'stable' ? `${Math.round(value(item) * 100)}%` : `${item.attempts} 次`}`).join('；')}`}>
+      {[0.25, 0.5, 0.75, 1].map((ring) => <polygon key={ring} points={points(() => 105 * ring)} fill="none" stroke="currentColor" strokeDasharray="4 5" className="text-[var(--card-border)]" />)}
+      {metrics.map((item, index) => <line key={item.key} x1="200" y1="170" x2={point(index, 105)[0]} y2={point(index, 105)[1]} stroke="currentColor" className="text-[var(--card-border)]" />)}
+      <polygon points={points((item) => 105 * value(item))} fill="var(--brand)" fillOpacity="0.18" stroke="var(--brand)" strokeWidth="2.5" />
       {metrics.map((item, index) => {
-        const [x, y] = point(index, 145 * value(item));
-        const [labelX, labelY] = point(index, 175);
+        const [x, y] = point(index, 105 * value(item));
+        const [labelX, labelY] = point(index, 139);
+        const axisLabel = dimension === 'unit' && item.label.includes(' · ') ? item.label.split(' · ').slice(1).join(' · ') : item.label;
         const activate = () => setActive(index);
         return <g key={item.key} role="button" tabIndex={0} aria-label={`查看 ${item.label} 的详细数据`} onMouseEnter={activate} onFocus={activate} onClick={activate} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); } }} className="cursor-pointer outline-none">
-          <circle cx={x} cy={y} r="15" fill="transparent" /><circle cx={x} cy={y} r={active === index ? 7 : 5} fill="var(--brand)" />
-          <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="middle" fill="currentColor" fontSize="16" fontWeight="600">{firstIndex + index + 1}</text>
+          <circle cx={x} cy={y} r="12" fill="transparent" /><circle cx={x} cy={y} r={active === index ? 5 : 3.5} fill="var(--brand)" />
+          <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="middle" fill="currentColor" fontSize="12"><title>{item.label}</title>{axisLabel.length > 11 ? `${axisLabel.slice(0, 10)}…` : axisLabel}</text>
         </g>;
       })}
     </svg> : <div className="flex min-h-40 flex-col justify-center gap-4 p-3 text-left">{metrics.map((item) => <div key={item.key}><div className="mb-1 flex flex-wrap justify-between gap-2 text-sm"><strong className="break-words">{item.label}</strong><span>{kind === 'stable' ? `${Math.round(value(item) * 100)}%` : `${item.attempts} 次`}</span></div><div className="h-3 overflow-hidden rounded-full bg-black/10 dark:bg-white/10"><div className="h-full rounded-full bg-[var(--brand)]" style={{ width: `${value(item) * 100}%` }} /></div></div>)}</div>}
-    <figcaption className="text-lg font-semibold">{title}</figcaption>
-    {kind === 'attempts' && <p className="text-sm text-[var(--muted-foreground)]">外圈 = 此维度最多 {maximum} 次</p>}
-    {metrics.length >= 3 && <div className="mt-3 min-h-20 rounded-xl bg-black/5 p-3 text-left text-sm dark:bg-white/5" aria-live="polite">{active === null ? '将鼠标移到数据点上，或点按数据点，查看详细数据。' : <><strong className="block break-words">{firstIndex + active + 1}. {metrics[active].label}</strong><span>√ {metrics[active].stable} · △ {metrics[active].partial} · ○ {metrics[active].unclear} · 共 {metrics[active].attempts} 次 · √ 比例 {Math.round(metrics[active].stable / metrics[active].attempts * 100)}%{metrics[active].objective > 0 ? ` · 客观题答对 ${metrics[active].correct}/${metrics[active].objective}` : ''}</span></>}</div>}
+    <figcaption className="font-semibold">{title}</figcaption>
+    {kind === 'attempts' && <p className="text-xs text-[var(--muted-foreground)]">外圈 = 此维度最多 {maximum} 次</p>}
+    {metrics.length >= 3 && active !== null && <div className="mt-2 rounded-lg bg-black/5 p-2 text-left text-xs dark:bg-white/5" aria-live="polite"><strong className="block break-words">{metrics[active].label}</strong><span>√ {metrics[active].stable} · △ {metrics[active].partial} · ○ {metrics[active].unclear} · 共 {metrics[active].attempts} 次 · √ 比例 {Math.round(metrics[active].stable / metrics[active].attempts * 100)}%{metrics[active].objective > 0 ? ` · 客观题答对 ${metrics[active].correct}/${metrics[active].objective}` : ''}</span></div>}
   </figure>;
 }
 
@@ -45,16 +46,14 @@ function DimensionChart({ dimension, metrics }: { dimension: StudyDimension; met
   const ordered = [...metrics].sort((a, b) => b.attempts - a.attempts || a.label.localeCompare(b.label));
   const pageCount = Math.max(1, Math.ceil(ordered.length / 8));
   const currentPage = Math.min(page, pageCount - 1);
-  const firstIndex = currentPage * 8;
-  const shown = ordered.slice(firstIndex, firstIndex + 8);
+  const shown = ordered.slice(currentPage * 8, currentPage * 8 + 8);
   const maximum = ordered[0]?.attempts ?? 0;
-  return <section className="min-w-0 rounded-2xl border border-[var(--card-border)] bg-black/[.02] p-4 dark:bg-white/[.03] sm:p-6">
-    <h3 className="text-xl font-semibold">{chartLabels[dimension]}</h3>
+  return <section className="min-w-0 rounded-2xl border border-[var(--card-border)] bg-black/[.02] p-4 dark:bg-white/[.03]">
+    <h3 className="text-lg font-semibold">{chartLabels[dimension]}</h3>
     {metrics.length ? <>
-      {pageCount > 1 && <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><button type="button" className={studyButtonClass} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一组</button><span>第 {currentPage + 1} / {pageCount} 组 · 共 {metrics.length} 类</span><button type="button" className={studyButtonClass} disabled={currentPage === pageCount - 1} onClick={() => setPage(currentPage + 1)}>下一组</button></div>}
-      <div className="mt-3 grid gap-6 lg:grid-cols-2"><RadarChart key={`${currentPage}-stable`} metrics={shown} kind="stable" firstIndex={firstIndex} maximum={maximum} /><RadarChart key={`${currentPage}-attempts`} metrics={shown} kind="attempts" firstIndex={firstIndex} maximum={maximum} /></div>
-      <p className="mt-5 text-sm text-[var(--muted-foreground)]">图上编号对应下列分类；全部记录直接显示。</p>
-      <div className="mt-3 space-y-2 text-sm">{ordered.map((item, index) => <div key={item.key} className="grid gap-1 border-t border-[var(--card-border)] pt-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4"><strong className="min-w-0 break-words">{index + 1}. {item.label}</strong><span className="sm:text-right">√ {item.stable} · △ {item.partial} · ○ {item.unclear} · 共 {item.attempts} 次{item.objective > 0 ? ` · 客观题答对 ${item.correct}/${item.objective}` : ''}</span></div>)}</div>
+      {pageCount > 1 && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs"><button type="button" className={studyButtonClass} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一组</button><span>第 {currentPage + 1} / {pageCount} 组</span><button type="button" className={studyButtonClass} disabled={currentPage === pageCount - 1} onClick={() => setPage(currentPage + 1)}>下一组</button></div>}
+      <div className="mt-3 grid gap-4 sm:grid-cols-2"><RadarChart key={`${currentPage}-stable`} metrics={shown} kind="stable" maximum={maximum} dimension={dimension} /><RadarChart key={`${currentPage}-attempts`} metrics={shown} kind="attempts" maximum={maximum} dimension={dimension} /></div>
+      <details className="mt-3 text-sm"><summary className="cursor-pointer text-xs text-[var(--muted-foreground)]">查看全部 {metrics.length} 类完整记录</summary><div className="mt-3 space-y-2">{ordered.map((item) => <div key={item.key} className="flex flex-wrap justify-between gap-x-3 border-t border-[var(--card-border)] pt-2"><strong className="break-words">{item.label}</strong><span>√ {item.stable} · △ {item.partial} · ○ {item.unclear} · 共 {item.attempts} 次{item.objective > 0 ? ` · 客观题答对 ${item.correct}/${item.objective}` : ''}</span></div>)}</div></details>
     </> : <p className="mt-4 text-sm text-[var(--muted-foreground)]">暂无该维度的练习记录。</p>}
   </section>;
 }
@@ -90,7 +89,7 @@ export default function StudyInsights({ state, bank, signedIn, onChange }: { sta
     <label className="block max-w-sm">学科<select aria-label="表现图学科" className={studyInputClass} value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">全部学科</option>{subjects.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
     <p className="text-sm">全部历史 · 当前范围 {reportData.attempts} 次 · <span className="text-emerald-700 dark:text-emerald-300">√ 稳定</span> / <span className="text-amber-700 dark:text-amber-300">△ 部分</span> / <span className="text-rose-700 dark:text-rose-300">○ 未掌握</span></p>
     {!subjectId && <div className="flex flex-wrap gap-2">{subjects.map((item) => <button key={item.key} className={studyButtonClass} onClick={() => setSubjectId(item.key)}>{item.label} · {item.attempts} 次</button>)}</div>}
-    <div className="space-y-4">{chartDimensions.map((dimension) => <DimensionChart key={`${subjectId}-${dimension}`} dimension={dimension} metrics={studyMetrics(evidence, dimension, subjectId)} />)}</div>
+    <div className="grid gap-4 xl:grid-cols-2">{chartDimensions.map((dimension) => <DimensionChart key={`${subjectId}-${dimension}`} dimension={dimension} metrics={studyMetrics(evidence, dimension, subjectId)} />)}</div>
     {issues.length > 0 && <details className="rounded-xl border border-[var(--card-border)] p-3"><summary className="cursor-pointer font-semibold">作答时填写的错因 · {issues.length} 类</summary><div className="mt-3 space-y-2 text-sm">{issues.map((item) => <p key={item.key} className="break-words">{item.label} · {item.attempts} 次</p>)}</div></details>}
     {!evidence.length && <p className="text-sm text-[var(--muted-foreground)]">暂无练习记录，完成一次 CUE 或题目练习后会出现维度图。</p>}
     <p className="text-xs leading-5 text-[var(--muted-foreground)]">CUE 历史按当前分类统计，题目按作答时快照统计；已删除且无法识别的 CUE 不计入。CUE type / 知识能力仅统计知识检索，题型 / 错因仅统计题目。AI 的知识能力分类可供参考。</p>
