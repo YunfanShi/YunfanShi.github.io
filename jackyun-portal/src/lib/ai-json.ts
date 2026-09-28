@@ -99,7 +99,9 @@ function jsonCandidate(raw: string): string {
  * parsers must still validate the returned shape before using it.
  */
 function parseAiJsonInternal(raw: string): unknown {
-  const candidate = jsonCandidate(raw);
+  // ChatGPT may append these display-only citation tokens inside JSON strings.
+  // Their unescaped quotes make otherwise valid JSON impossible to parse.
+  const candidate = jsonCandidate(raw.replace(/:chatgpt-content-reference\{index="\d+"\}/gu, ''));
   const repairable = normalizeStructuralPunctuation(repairStringEscapes(candidate));
   try {
     if (repairable !== candidate) throw new SyntaxError('AI JSON needs escape repair.');
