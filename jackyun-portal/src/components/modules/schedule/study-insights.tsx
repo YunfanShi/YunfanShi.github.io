@@ -2,20 +2,48 @@
 import { useMemo, useRef, useState } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
 import { readAiResponseContent } from '@/lib/ai-json';
-import { dimensionLabels, studyEvidence, studyMetrics, studyReportData, type StudyDimension } from '@/lib/learning/study-insights';
+import { studyEvidence, studyMetrics, studyReportData, type StudyDimension, type StudyMetric } from '@/lib/learning/study-insights';
 import type { ScheduleControlState } from '@/lib/learning/schedule-control';
 import type { QuestionBankState } from '@/lib/learning/question-bank';
 import { studyButtonClass, studyInputClass } from './question-bank-manager';
 
+const chartDimensions: StudyDimension[] = ['unit', 'cueType', 'skill', 'questionType'];
+const chartLabels: Record<string, string> = { unit: '单元', cueType: 'CUE 类型', skill: '知识能力', questionType: '题型' };
+
+function RadarChart({ metrics, kind }: { metrics: StudyMetric[]; kind: 'stable' | 'attempts' }) {
+  const shown = [...metrics].sort((a, b) => b.attempts - a.attempts || a.label.localeCompare(b.label)).slice(0, 8);
+  const maximum = Math.max(...shown.map((item) => item.attempts));
+  const value = (item: StudyMetric) => kind === 'stable' ? item.stable / item.attempts : item.attempts / maximum;
+  const point = (index: number, radius: number) => {
+    const angle = index * Math.PI * 2 / shown.length - Math.PI / 2;
+    return [200 + Math.cos(angle) * radius, 170 + Math.sin(angle) * radius] as const;
+  };
+  const points = (radius: (item: StudyMetric) => number) => shown.map((item, index) => point(index, radius(item)).join(',')).join(' ');
+  const title = kind === 'stable' ? '√ 比例' : '练习次数';
+  return <figure className="min-w-0 text-center">
+    {shown.length >= 3 ? <svg viewBox="0 0 400 350" className="mx-auto w-full max-w-[400px]" role="img" aria-label={`${title}维度图：${shown.map((item) => `${item.label} ${kind === 'stable' ? `${Math.round(value(item) * 100)}%` : `${item.attempts} 次`}`).join('；')}`}>
+      {[0.25, 0.5, 0.75, 1].map((ring) => <polygon key={ring} points={points(() => 105 * ring)} fill="none" stroke="currentColor" strokeDasharray="4 5" className="text-[var(--card-border)]" />)}
+      {shown.map((item, index) => <line key={item.key} x1="200" y1="170" x2={point(index, 105)[0]} y2={point(index, 105)[1]} stroke="currentColor" className="text-[var(--card-border)]" />)}
+      <polygon points={points((item) => 105 * value(item))} fill="var(--brand)" fillOpacity="0.18" stroke="var(--brand)" strokeWidth="2.5" />
+      {shown.map((item, index) => {
+        const [x, y] = point(index, 105 * value(item));
+        const [labelX, labelY] = point(index, 139);
+        return <g key={item.key}><circle cx={x} cy={y} r="3.5" fill="var(--brand)" /><text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="middle" fill="currentColor" fontSize="11"><title>{item.label}</title>{item.label.length > 11 ? `${item.label.slice(0, 10)}…` : item.label}</text></g>;
+      })}
+    </svg> : <div className="flex min-h-40 items-center justify-center text-sm text-[var(--muted-foreground)]">少于 3 个分类，数值见下方明细</div>}
+    <figcaption className="font-semibold">{title}</figcaption>
+    {kind === 'attempts' && <p className="text-xs text-[var(--muted-foreground)]">外圈 = 当前图最多 {maximum} 次；数字是实际次数</p>}
+  </figure>;
+}
+
 export default function StudyInsights({ state, bank, signedIn, onChange }: { state: ScheduleControlState; bank: QuestionBankState; signedIn: boolean; onChange: (updater: (value: ScheduleControlState) => ScheduleControlState) => void }) {
   const [subjectId, setSubjectId] = useState('');
-  const [dimension, setDimension] = useState<StudyDimension>('subject');
   const [busy, setBusy] = useState(false);
   const generating = useRef(false);
   const [error, setError] = useState('');
   const evidence = useMemo(() => studyEvidence(state.cues, state.cueReviews, bank.attempts), [state.cues, state.cueReviews, bank.attempts]);
   const subjects = studyMetrics(evidence, 'subject');
-  const metrics = studyMetrics(evidence, dimension, subjectId);
+  const issues = studyMetrics(evidence, 'issue', subjectId);
   const reportData = studyReportData(evidence, subjectId);
   const signature = JSON.stringify(reportData);
   const report = state.studyReports?.find((item) => item.subjectId === subjectId);
@@ -35,11 +63,18 @@ export default function StudyInsights({ state, bank, signedIn, onChange }: { sta
     finally { generating.current = false; setBusy(false); }
   }
   return <section className="mt-5 space-y-4 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5">
-    <div><h2 className="text-xl font-semibold">学习表现 · 学科维度</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">按实际练习次数统计 √ / △ / ○，默认查看各学科；选择学科后可检查 Unit、CUE type、题型与错因。统计不是考试能力评分。</p></div>
-    <div className="grid gap-3 sm:grid-cols-2"><label>学科<select aria-label="表现图学科" className={studyInputClass} value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">全部学科</option>{subjects.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label><label>查看维度<select aria-label="表现图维度" className={studyInputClass} value={dimension} onChange={(event) => setDimension(event.target.value as StudyDimension)}>{Object.entries(dimensionLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
+    <div><h2 className="text-xl font-semibold">学习表现 · 学科维度图</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">选择学科，按单元、CUE 类型、知识能力和题型查看练习记录。√ 比例来自自评，不代表考试正确率。</p></div>
+    <label className="block max-w-sm">学科<select aria-label="表现图学科" className={studyInputClass} value={subjectId} onChange={(event) => setSubjectId(event.target.value)}><option value="">全部学科</option>{subjects.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
     <p className="text-sm">全部历史 · 当前范围 {reportData.attempts} 次 · <span className="text-emerald-700 dark:text-emerald-300">√ 稳定</span> / <span className="text-amber-700 dark:text-amber-300">△ 部分</span> / <span className="text-rose-700 dark:text-rose-300">○ 未掌握</span></p>
-    <div className="space-y-3">{metrics.map((item) => <article key={item.key} className="rounded-xl border border-[var(--card-border)] p-3"><div className="flex flex-wrap justify-between gap-2 text-sm"><strong className="break-words">{item.label}</strong><span>√ {item.stable} · △ {item.partial} · ○ {item.unclear} · 共 {item.attempts} 次</span></div><div role="img" aria-label={`${item.label}：稳定 ${item.stable} 次，部分 ${item.partial} 次，未掌握 ${item.unclear} 次`} className="mt-2 flex h-4 overflow-hidden rounded-full bg-black/5">{([['stable', 'bg-emerald-500'], ['partial', 'bg-amber-400'], ['unclear', 'bg-rose-500']] as const).map(([status, color]) => <div key={status} className={color} style={{ width: `${item[status] / item.attempts * 100}%` }} />)}</div>{item.objective > 0 && <p className="mt-2 text-xs">有标准答案的客观题：{item.correct} / {item.objective} 答对（{Math.round(item.correct / item.objective * 100)}%）</p>}{dimension === 'subject' && !subjectId && <button className={`${studyButtonClass} mt-2`} onClick={() => { setSubjectId(item.key); setDimension('unit'); }}>查看本学科各维度</button>}</article>)}</div>
-    {!metrics.length && <p className="text-sm text-[var(--muted-foreground)]">这个范围暂无该维度的实际记录。错因需要你在题目作答时填写，系统不会自行推断。</p>}
+    {!subjectId && <div className="flex flex-wrap gap-2">{subjects.map((item) => <button key={item.key} className={studyButtonClass} onClick={() => setSubjectId(item.key)}>{item.label} · {item.attempts} 次</button>)}</div>}
+    <div className="grid gap-4 xl:grid-cols-2">{chartDimensions.map((dimension) => {
+      const metrics = studyMetrics(evidence, dimension, subjectId);
+      return <section key={dimension} className="min-w-0 rounded-2xl border border-[var(--card-border)] bg-black/[.02] p-4 dark:bg-white/[.03]"><h3 className="text-lg font-semibold">{chartLabels[dimension]}</h3>
+        {metrics.length ? <><div className="mt-3 grid gap-4 sm:grid-cols-2"><RadarChart metrics={metrics} kind="stable" /><RadarChart metrics={metrics} kind="attempts" /></div><p className="mt-2 text-xs text-[var(--muted-foreground)]">图中显示练习次数最多的 {Math.min(metrics.length, 8)} 类；完整记录如下。</p><div className="mt-3 max-h-56 space-y-2 overflow-y-auto text-sm">{metrics.map((item) => <div key={item.key} className="flex flex-wrap justify-between gap-x-3 border-t border-[var(--card-border)] pt-2"><strong className="break-words">{item.label}</strong><span>√ {item.stable} · △ {item.partial} · ○ {item.unclear} · 共 {item.attempts} 次{item.objective > 0 ? ` · 客观题答对 ${item.correct}/${item.objective}` : ''}</span></div>)}</div></> : <p className="mt-4 text-sm text-[var(--muted-foreground)]">暂无该维度的练习记录。</p>}
+      </section>;
+    })}</div>
+    {issues.length > 0 && <details className="rounded-xl border border-[var(--card-border)] p-3"><summary className="cursor-pointer font-semibold">作答时填写的错因 · {issues.length} 类</summary><div className="mt-3 space-y-2 text-sm">{issues.map((item) => <p key={item.key} className="break-words">{item.label} · {item.attempts} 次</p>)}</div></details>}
+    {!evidence.length && <p className="text-sm text-[var(--muted-foreground)]">暂无练习记录，完成一次 CUE 或题目练习后会出现维度图。</p>}
     <p className="text-xs leading-5 text-[var(--muted-foreground)]">CUE 历史按当前分类统计，题目按作答时快照统计；已删除且无法识别的 CUE 不计入。CUE type / 知识能力仅统计知识检索，题型 / 错因仅统计题目。AI 的知识能力分类可供参考。</p>
     <button disabled={busy || !signedIn || !reportData.attempts} className={studyButtonClass} onClick={() => void generate()}>{busy ? '正在生成报告…' : '生成个性化学习报告'}</button>{!signedIn && <p className="text-xs">登录后可调用 AI 生成报告；表现图无需 AI。</p>}{error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
     {report && <div className="rounded-xl bg-black/5 p-4 dark:bg-white/5"><p className="mb-3 text-xs text-[var(--muted-foreground)]">AI 辅助报告 · {new Date(report.generatedAt).toLocaleString()}{report.signature !== signature ? ' · 学习数据已变化，可重新生成' : ''}</p><MarkdownRenderer content={report.content} /></div>}
