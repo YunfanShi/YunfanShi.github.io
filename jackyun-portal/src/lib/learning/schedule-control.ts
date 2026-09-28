@@ -1,5 +1,6 @@
 import { difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
 import type { QuestionAttempt } from './question-bank.ts';
+import type { CueSimilarityDecision } from './cue-similarity.ts';
 import { scheduleReview } from './review-schedule.ts';
 
 export type ScheduleMode = 'term' | 'holiday';
@@ -434,6 +435,7 @@ export interface ScheduleControlState {
   learningCatalog: LearningCatalogSubject[];
   learningReminders: LearningReminder[];
   cueCollectionUpdates: CueCollectionUpdate[];
+  cueSimilarityDecisions: CueSimilarityDecision[];
   /** Durable per-Cue notes. They are part of Schedule state and therefore account-syncable. */
   cueMemos: CueMemo[];
   cueStudyDraft?: CueStudyDraft;
@@ -534,6 +536,7 @@ export function createEmptyScheduleState(): ScheduleControlState {
     learningCatalog: [],
     learningReminders: [],
     cueCollectionUpdates: [],
+    cueSimilarityDecisions: [],
     cueMemos: [],
   };
 }

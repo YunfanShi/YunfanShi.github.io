@@ -21,6 +21,46 @@ export interface SimilarCuePair {
   rightTermCount: number;
 }
 
+export interface CueSimilarityDecision {
+  id: string;
+  leftCueId: string;
+  rightCueId: string;
+  leftVersion: number;
+  rightVersion: number;
+  decidedAt: string;
+}
+
+function pairKey(leftId: string, rightId: string): string {
+  return JSON.stringify([leftId, rightId].sort());
+}
+
+export function differentCuePair(left: StudyCue, right: StudyCue, decidedAt: string): CueSimilarityDecision {
+  return {
+    id: `cue-pair:${pairKey(left.id, right.id)}`,
+    leftCueId: left.id,
+    rightCueId: right.id,
+    leftVersion: left.version ?? 1,
+    rightVersion: right.version ?? 1,
+    decidedAt,
+  };
+}
+
+export function reopenCuePair(decisions: CueSimilarityDecision[], leftId: string, rightId: string): CueSimilarityDecision[] {
+  const key = pairKey(leftId, rightId);
+  return decisions.filter((decision) => pairKey(decision.leftCueId, decision.rightCueId) !== key);
+}
+
+export function unreviewedCuePairs(pairs: SimilarCuePair[], decisions: CueSimilarityDecision[]): SimilarCuePair[] {
+  const byKey = new Map(decisions.map((decision) => [pairKey(decision.leftCueId, decision.rightCueId), decision]));
+  return pairs.filter((pair) => {
+    const decision = byKey.get(pairKey(pair.left.id, pair.right.id));
+    if (!decision) return true;
+    return pair.left.id === decision.leftCueId
+      ? (pair.left.version ?? 1) !== decision.leftVersion || (pair.right.version ?? 1) !== decision.rightVersion
+      : (pair.left.version ?? 1) !== decision.rightVersion || (pair.right.version ?? 1) !== decision.leftVersion;
+  });
+}
+
 function stemEnglishWord(word: string): string {
   if (word.length > 5 && word.endsWith('ies')) return `${word.slice(0, -3)}y`;
   if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3).replace(/(.)\1$/u, '$1');

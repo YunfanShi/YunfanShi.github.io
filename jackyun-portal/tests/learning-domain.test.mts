@@ -6,7 +6,7 @@ import { rankLearningCandidates } from '../src/lib/learning/prioritization.ts';
 import { scheduleReview } from '../src/lib/learning/review-schedule.ts';
 import { calendarDayDifference, dateKey } from '../src/lib/learning/timezone.ts';
 import { normalizeLatexRelations } from '../src/lib/latex-text.ts';
-import { cuePromptSimilarity, cueSimilarityTerms, findSimilarCuePairs } from '../src/lib/learning/cue-similarity.ts';
+import { cuePromptSimilarity, cueSimilarityTerms, differentCuePair, findSimilarCuePairs, reopenCuePair, unreviewedCuePairs } from '../src/lib/learning/cue-similarity.ts';
 import {
   allCueStudyDrafts,
   applyTemporaryTimetableUpdate,
@@ -95,6 +95,18 @@ test('Cue similarity ignores common words and detects reordered duplicate prompt
     { ...cue('answer-right', 'chemistry', 'What is terminal velocity?'), answer: 'The maximum speed reached by a falling object.' },
   ]);
   assert.equal(answerMismatch.length, 0);
+});
+
+test('a different judgment excludes only that Cue pair and can be undone or invalidated by an edit', () => {
+  const base = { subjectId: 'science', subjectName: 'Science', unit: 'Unit', subsection: '', type: 'general' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: '2026-09-28T00:00:00Z', updatedAt: '2026-09-28T00:00:00Z' };
+  const cues = ['a', 'b', 'c'].map((id) => ({ ...base, id, prompt: 'Explain how temperature affects chemical reaction rate.' }));
+  const pairs = findSimilarCuePairs(cues);
+  assert.equal(pairs.length, 3);
+  const decision = differentCuePair(cues[0], cues[1], '2026-09-28T01:00:00Z');
+  assert.equal(decision.id, differentCuePair(cues[1], cues[0], '2026-09-28T01:00:00Z').id);
+  assert.deepEqual(unreviewedCuePairs(pairs, [decision]).map((pair) => [pair.left.id, pair.right.id]), [['a', 'c'], ['b', 'c']]);
+  assert.equal(unreviewedCuePairs(pairs, reopenCuePair([decision], 'b', 'a')).length, 3);
+  assert.equal(unreviewedCuePairs(findSimilarCuePairs([cues[0], { ...cues[1], version: 2 }, cues[2]]), [decision]).length, 3);
 });
 
 test('IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired', () => {
