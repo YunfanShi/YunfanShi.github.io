@@ -15,6 +15,11 @@ test('repairs common meaning-preserving model JSON defects', () => {
   assert.equal(parsed.ruleKey, 'subject_verb');
 });
 
+test('removes ChatGPT display citations that break JSON string quoting', () => {
+  const raw = '{"version":1,"operations":[{"source":"PQ - Physics:chatgpt-content-reference{index="0"}"},{"source":"PQ - Math:chatgpt-content-reference{index="1"}"}]}';
+  assert.deepEqual(parseAiJson(raw), { version: 1, operations: [{ source: 'PQ - Physics' }, { source: 'PQ - Math' }] });
+});
+
 test('repairs JSON corrupted by the legacy Companion Markdown serializer', () => {
   const escaped = '\\{\\\n"bandEstimate":"6.5–7.0",\\\n"priorities":\\["Fix grammar"\\],\\\n"issues":\\[{"ruleKey":"verb\\_pattern"}\\]\\\n\\}';
   assert.deepEqual(parseAiJson(escaped), {

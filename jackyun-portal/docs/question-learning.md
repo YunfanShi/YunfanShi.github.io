@@ -49,6 +49,8 @@
 
 “复制当前题目”保留 ID，适合增量修改；“导出当前题目”生成创建操作，导入会创建新题目，不携带历史。
 
+部分 AI 会把 `:chatgpt-content-reference{index="0"}` 一类显示用引用标记塞入 `source`，其中未转义的双引号会破坏 JSON。导入解析会移除这种标记；复制提示词也要求 AI 不输出它们。若目录 ID、科目名或关联 CUE ID 与当前网站数据不一致，预览仍会明确报错，需要用网站复制的最新目录和 CUE 列表重新生成。
+
 ## 数据与兼容
 
 - CUE 继续使用 `jackyun_schedule_control_v1`。题库、题目复习历史与统一学习草稿独立存于 `jackyun_schedule_questions_v1`（schemaVersion 1）。
