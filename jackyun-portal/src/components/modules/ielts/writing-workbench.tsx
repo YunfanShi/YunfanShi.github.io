@@ -5,7 +5,6 @@ import { ArchiveTitleEditor } from './archive-title-editor';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
-import { getIeltsPlanPhase, localDateKey } from '@/lib/ielts-personal-plan';
 import {
   buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, isWritingArchiveEntry, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, taskLabel, updateErrorHistory, upsertWritingArchive, writeRedundantJson,
   type ErrorHistoryEntry, type ReviewMode, type WritingArchiveEntry, type WritingFeedback, type WritingGuidanceMode, type WritingStage, type WritingTask,
@@ -77,7 +76,7 @@ function readStoredDraft(): DraftState | null {
   return readFirstValidJson(localStorage, [DRAFT_KEY, MIRROR_KEY], validDraft);
 }
 
-export default function WritingWorkbench({ personalIeltsPlan = false }: { personalIeltsPlan?: boolean }) {
+export default function WritingWorkbench() {
   const [view, setView] = useState<WritingView>('workbench');
   const [draft, setDraft] = useState<DraftState>(defaultDraft);
   const [hydrated, setHydrated] = useState(false);
@@ -109,7 +108,6 @@ export default function WritingWorkbench({ personalIeltsPlan = false }: { person
   const essayRef = useRef<HTMLTextAreaElement>(null);
   const highlightLayerRef = useRef<HTMLDivElement>(null);
   const c = COPY[uiLanguage];
-  const planPhase = getIeltsPlanPhase(localDateKey());
 
   function persistDraft(next: DraftState, keepSnapshot = false, reportState = true) {
     try {
@@ -265,10 +263,6 @@ export default function WritingWorkbench({ personalIeltsPlan = false }: { person
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="max-w-3xl"><div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[.22em] text-[#7dd3fc]"><span className="grid h-7 w-7 place-items-center rounded-lg bg-white/10"><span className="material-icons-round text-base">edit_note</span></span>IELTS Writing Lab</div><h1 className="text-3xl font-bold tracking-[-.035em] sm:text-[2.4rem]">{c.title}</h1><p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#c7dff0]">{c.subtitle}</p></div>
         <div className="flex flex-wrap items-center gap-3"><button type="button" onClick={toggleLanguage} className="min-h-11 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-bold backdrop-blur hover:bg-white/15"><span className="material-icons-round mr-2 align-middle text-lg">translate</span>{c.language}</button><div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2.5 backdrop-blur"><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: !draft.timerStarted })} className="grid h-11 w-11 place-items-center rounded-xl bg-[#fbbf24] text-[#071b33] shadow-lg shadow-amber-950/20" aria-label={draft.timerStarted ? c.pause : c.start}><span className="material-icons-round">{draft.timerStarted ? 'pause' : 'play_arrow'}</span></button><div className="min-w-20"><p className="font-mono text-2xl font-bold tabular-nums">{formatTime(draft.secondsLeft)}</p><p className="text-[11px] uppercase tracking-wider text-[#a9cce1]">{c.timer}</p></div><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: false, secondsLeft: draft.task === 'task2' ? 2400 : 1200 })} className="grid h-10 w-10 place-items-center rounded-xl text-[#d5e9f5] hover:bg-white/10" aria-label={c.reset}><span className="material-icons-round text-xl">restart_alt</span></button></div></div></div>
     </header>
-
-    {personalIeltsPlan && <section className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-blue-700 dark:text-blue-200">Private plan · {planPhase.title}</p><h2 className="mt-1.5 text-lg font-bold">本阶段写作只推进当前文章的一步</h2><p className="mt-2 text-sm leading-6">首稿 → AI 指出 3–8 个关键问题 → 自己修改 → Language Upgrade → 独立 Transfer。写不完就保留到下一次，不为了打卡开启新题。</p></div><Link href="/study-guide?tab=ielts&subTab=overview" className="rounded-xl border border-blue-300 px-4 py-2.5 text-sm font-bold dark:border-blue-800">查看完整计划</Link></div>
-    </section>
 
     <nav className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2" aria-label={uiLanguage === 'en' ? 'Writing tool views' : '写作工具视图'}>{([{ id: 'workbench', icon: 'edit_note', en: 'Workbench', zh: '写作工作台' }, { id: 'library', icon: 'local_library', en: `Final library ${archive.length}`, zh: `最终稿文库 ${archive.length}` }, { id: 'reader', icon: 'menu_book', en: 'Reader', zh: '阅读器' }] as const).map((item) => <button key={item.id} type="button" onClick={() => item.id === 'reader' && !currentArchive ? setView('library') : setView(item.id)} className={`min-h-12 rounded-xl px-2 text-sm font-bold transition ${view === item.id ? 'bg-[#0e7490] text-white shadow-md' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round mr-1.5 align-middle text-lg">{item.icon}</span>{uiLanguage === 'en' ? item.en : item.zh}</button>)}</nav>
     {view === 'workbench' && <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#a7e2ca] bg-[#effcf7] p-4 dark:border-[#24634d] dark:bg-[#123a2d]"><div><p className="font-bold text-[#147352] dark:text-[#86efac]">{uiLanguage === 'en' ? 'Finished revising?' : '修改完成了吗？'}</p><p className="mt-1 text-sm text-[var(--muted-foreground)]">{uiLanguage === 'en' ? 'Save the current text as this essay’s final version, then read it without editing distractions.' : '把当前内容保存为这篇作文的最终稿，并在无编辑干扰的阅读器中重读。'}</p></div><button type="button" onClick={archiveCurrentEssay} className="min-h-11 rounded-xl bg-[#147352] px-4 text-sm font-bold text-white"><span className="material-icons-round mr-2 align-middle text-lg">bookmark_add</span>{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button></div>}
