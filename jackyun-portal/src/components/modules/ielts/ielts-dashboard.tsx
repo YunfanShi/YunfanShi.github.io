@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import IeltsCycleBoard from '@/components/modules/ielts/ielts-cycle-board';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
+import { getIeltsPlanPhase, IELTS_PERSONAL_PLAN } from '@/lib/ielts-personal-plan';
 import { buildIeltsInsights, IELTS_SKILLS, IELTS_SKILL_LABELS, parseIeltsGoal, parseIeltsPractices, validBand, validDate, type IeltsActivity, type IeltsGoal, type IeltsOutcome, type IeltsPractice, type IeltsSkill } from '@/lib/ielts-plan';
 
 const GOAL_KEY = 'jackyun_ielts_goal_v1';
@@ -57,7 +58,7 @@ function localDate(): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export default function IeltsDashboard() {
+export default function IeltsDashboard({ personalIeltsPlan = false }: { personalIeltsPlan?: boolean }) {
   const [ready, setReady] = useState(false);
   const [goal, setGoal] = useState<IeltsGoal | null>(null);
   const [draft, setDraft] = useState<GoalDraft>(EMPTY_GOAL);
@@ -67,6 +68,7 @@ export default function IeltsDashboard() {
   const [form, setForm] = useState({ skill: 'listening' as IeltsSkill, minutes: '45', band: '', outcome: 'partial' as IeltsOutcome, material: '', issue: '', nextStep: '' });
   const [notice, setNotice] = useState('');
   const today = localDate();
+  const planPhase = getIeltsPlanPhase(today);
 
   useEffect(() => {
     const refresh = () => {
@@ -121,6 +123,11 @@ export default function IeltsDashboard() {
     {(!goal || editingGoal) && <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7"><h2 className="text-xl font-bold">{goal ? '调整备考目标' : '先设定备考目标'}</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">目标用于比较练习记录；单项目标可以与总分目标不同。</p><form onSubmit={saveGoal} className="mt-5 space-y-4"><div className="grid gap-4 sm:grid-cols-3"><label className="text-sm font-semibold">目标总分<input className={INPUT_CLASS} type="number" min="0" max="9" step="0.5" value={draft.overall} onChange={(event) => setDraft({ ...draft, overall: event.target.value })} required /></label><label className="text-sm font-semibold">考试日期<input className={INPUT_CLASS} type="date" min={today} value={draft.examDate} onChange={(event) => setDraft({ ...draft, examDate: event.target.value })} required /></label><label className="text-sm font-semibold">每周可用时间 · 小时<input className={INPUT_CLASS} type="number" min="1" max="40" step="1" value={draft.weeklyHours} onChange={(event) => setDraft({ ...draft, weeklyHours: event.target.value })} required /></label></div><div className="grid gap-4 sm:grid-cols-4">{IELTS_SKILLS.map((skill) => <label key={skill} className="text-sm font-semibold">{IELTS_SKILL_LABELS[skill]}目标<input className={INPUT_CLASS} type="number" min="0" max="9" step="0.5" value={draft.targets[skill]} onChange={(event) => setDraft({ ...draft, targets: { ...draft.targets, [skill]: event.target.value } })} required /></label>)}</div><div className="flex gap-3"><button className="rounded-xl bg-[#0f766e] px-5 py-2.5 font-bold text-white" type="submit">保存目标</button>{goal && <button className="rounded-xl border border-[var(--card-border)] px-4 py-2.5 font-semibold" type="button" onClick={() => setEditingGoal(false)}>取消</button>}</div></form></section>}
 
     {goal && <><section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[{ label: '目标总分', value: goal.overall.toFixed(1), detail: '以正式评分为准' }, { label: '距考试', value: daysLeft !== null && daysLeft >= 0 ? `${daysLeft} 天` : '已过期', detail: goal.examDate }, { label: '每周时间', value: `${goal.weeklyHours} 小时`, detail: '五个弹性模块，未完成可顺延' }, { label: '已记录练习', value: `${practices.length} 次`, detail: `${recordedMinutes} 分钟 · 四科练习` }].map((item) => <article key={item.label} className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><p className="text-sm text-[var(--muted-foreground)]">{item.label}</p><p className="mt-2 text-2xl font-bold">{item.value}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{item.detail}</p></article>)}</section><div className="flex justify-end"><button type="button" onClick={() => setEditingGoal(true)} className="text-sm font-semibold text-[#0f766e] hover:underline">修改目标</button></div>
+
+    {personalIeltsPlan && <section className="rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 text-blue-950 dark:border-blue-900 dark:from-blue-950/40 dark:to-indigo-950/30 dark:text-blue-100 sm:p-7">
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-blue-700 dark:text-blue-200">Private · Admin · Plan v{IELTS_PERSONAL_PLAN.version}</p><h2 className="mt-2 text-xl font-bold">当前阶段：{planPhase.title}</h2><p className="mt-2 text-sm leading-6">{planPhase.focus}</p><p className="mt-1 text-sm leading-6 text-blue-800 dark:text-blue-200">本阶段动作：{planPhase.action}</p></div><span className="rounded-full bg-white/70 px-3 py-2 text-xs font-bold dark:bg-white/10">{planPhase.start} – {planPhase.end}</span></div>
+      <div className="mt-4 flex flex-wrap gap-2"><Link href="/study-guide?tab=ielts&subTab=overview" className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">查看完整私人计划</Link><Link href="/ielts-writing" className="rounded-xl border border-blue-300 px-4 py-2.5 text-sm font-bold dark:border-blue-800">继续写作修改</Link></div>
+    </section>}
 
     <IeltsCycleBoard />
 
