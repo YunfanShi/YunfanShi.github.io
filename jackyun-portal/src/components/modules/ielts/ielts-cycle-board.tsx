@@ -20,6 +20,7 @@ interface CycleState {
 }
 
 const STORAGE_KEY = 'jackyun_ielts_flexible_cycle_v1';
+const HISTORY_KEY = 'jackyun_ielts_flexible_cycle_history_v1';
 const MODULES: Array<{ id: ModuleId; label: string; icon: string; purpose: string }> = [
   { id: 'listening', label: '听力', icon: 'headphones', purpose: '在雅思哥完成练习；网站只记录错因和下一步。' },
   { id: 'reading', label: '阅读', icon: 'article', purpose: '在雅思哥限时完成；同时记录正确但慢的题。' },
@@ -61,12 +62,17 @@ function parseCycle(value: unknown): CycleState | null {
 
 export default function IeltsCycleBoard() {
   const [cycle, setCycle] = useState<CycleState | null>(null);
+  const [history, setHistory] = useState<CycleState[]>([]);
   const [openModule, setOpenModule] = useState<ModuleId | null>(null);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
     let saved: CycleState | null = null;
     try { saved = parseCycle(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')); } catch { saved = null; }
+    try {
+      const rawHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as unknown;
+      setHistory(Array.isArray(rawHistory) ? rawHistory.map(parseCycle).filter((item): item is CycleState => Boolean(item)).slice(-12) : []);
+    } catch { setHistory([]); }
     setCycle(saved ?? initialCycle());
   }, []);
 
@@ -75,6 +81,10 @@ export default function IeltsCycleBoard() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cycle)); } catch { /* The dashboard remains usable if storage is full. */ }
   }, [cycle]);
 
+  useEffect(() => {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-12))); } catch { /* Keep the current cycle usable if storage is full. */ }
+  }, [history]);
+
   const completed = useMemo(() => cycle ? MODULES.filter(({ id }) => cycle.modules[id].status === 'done').length : 0, [cycle]);
 
   function updateModule(id: ModuleId, update: Partial<ModuleState>) {
@@ -82,21 +92,23 @@ export default function IeltsCycleBoard() {
   }
 
   function beginNextCycle() {
-    setCycle((current) => {
-      if (!current) return current;
-      const modules = Object.fromEntries(MODULES.map(({ id }) => {
-        const previous = current.modules[id];
+    if (!cycle) return;
+    setHistory((rows) => [...rows, cycle].slice(-12));
+    setCycle({
+      cycle: cycle.cycle + 1,
+      startedAt: new Date().toISOString(),
+      modules: Object.fromEntries(MODULES.map(({ id }) => {
+        const previous = cycle.modules[id];
         if (previous.status === 'done') return [id, emptyModule()];
         return [id, { ...previous, status: previous.status === 'todo' ? 'todo' : 'active', carried: true }];
-      })) as Record<ModuleId, ModuleState>;
-      return { cycle: current.cycle + 1, startedAt: new Date().toISOString(), modules };
+      })) as Record<ModuleId, ModuleState>,
     });
     setNotice('已开始下一轮；未完成模块和记录已自动顺延。');
   }
 
-  if (!cycle) return <section id="weekly-cycle" className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-sm text-[var(--muted-foreground)]">正在读取本轮计划…</section>;
+  if (!cycle) return <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-sm text-[var(--muted-foreground)]">正在读取本轮计划…</section>;
 
-  return <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7">
+  return <section id="weekly-cycle" className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-bold uppercase tracking-[.18em] text-[#0f766e]">Flexible five-module cycle</p>
@@ -143,6 +155,10 @@ export default function IeltsCycleBoard() {
       <p className="text-xs text-[var(--muted-foreground)]">本轮开始于 {cycle.startedAt.slice(0, 10)}。建议五项完成后再开下一轮；确实来不及时可顺延。</p>
       <button type="button" onClick={beginNextCycle} className="rounded-xl border border-[var(--card-border)] px-4 py-2.5 text-sm font-bold">开始下一轮</button>
     </div>
+    {history.length ? <details className="mt-4 rounded-2xl border border-[var(--card-border)] p-4">
+      <summary className="cursor-pointer text-sm font-bold">查看以前各轮记录（{history.length}）</summary>
+      <div className="mt-4 space-y-3">{[...history].reverse().slice(0, 6).map((saved) => <article key={`${saved.cycle}-${saved.startedAt}`} className="rounded-xl bg-[var(--background)] p-3 text-sm"><div className="flex flex-wrap justify-between gap-2"><strong>第 {saved.cycle} 轮</strong><span className="text-xs text-[var(--muted-foreground)]">{saved.startedAt.slice(0, 10)} · {MODULES.filter(({ id }) => saved.modules[id].status === 'done').length}/5 完成</span></div><ul className="mt-2 space-y-1 text-xs text-[var(--muted-foreground)]">{MODULES.map(({ id, label }) => { const item = saved.modules[id]; return <li key={id}>· {label}：{item.material || item.note || item.nextStep || '无记录'}</li>; })}</ul></article>)}</div>
+    </details> : null}
     {notice ? <p role="status" className="mt-3 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-900 dark:bg-teal-950 dark:text-teal-100">{notice}</p> : null}
   </section>;
 }
