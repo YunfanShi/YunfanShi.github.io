@@ -63,6 +63,7 @@ function parseCycle(value: unknown): CycleState | null {
 export default function IeltsCycleBoard() {
   const [cycle, setCycle] = useState<CycleState | null>(null);
   const [history, setHistory] = useState<CycleState[]>([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const [openModule, setOpenModule] = useState<ModuleId | null>(null);
   const [notice, setNotice] = useState('');
 
@@ -73,6 +74,7 @@ export default function IeltsCycleBoard() {
       const rawHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as unknown;
       setHistory(Array.isArray(rawHistory) ? rawHistory.map(parseCycle).filter((item): item is CycleState => Boolean(item)).slice(-12) : []);
     } catch { setHistory([]); }
+    setHistoryReady(true);
     setCycle(saved ?? initialCycle());
   }, []);
 
@@ -82,8 +84,9 @@ export default function IeltsCycleBoard() {
   }, [cycle]);
 
   useEffect(() => {
+    if (!historyReady) return;
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-12))); } catch { /* Keep the current cycle usable if storage is full. */ }
-  }, [history]);
+  }, [history, historyReady]);
 
   const completed = useMemo(() => cycle ? MODULES.filter(({ id }) => cycle.modules[id].status === 'done').length : 0, [cycle]);
 
@@ -140,7 +143,7 @@ export default function IeltsCycleBoard() {
         const meta = MODULES.find((item) => item.id === openModule)!;
         const row = cycle.modules[openModule];
         return <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold">{meta.label}模块记录</h3><div className="flex gap-2">{(['todo', 'active', 'done'] as const).map((status) => <button key={status} type="button" onClick={() => updateModule(openModule, { status, carried: status === 'done' ? false : row.carried })} className={`rounded-lg px-3 py-2 text-xs font-bold ${row.status === status ? 'bg-[#0f766e] text-white' : 'border border-[var(--card-border)]'}`}>{status === 'todo' ? '未开始' : status === 'active' ? '进行中' : '已完成'}</button>)}</div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold">{meta.label}模块记录</h3><div className="flex gap-2">{(['todo', 'active', 'done'] as const).map((status) => <button key={status} type="button" aria-pressed={row.status === status} onClick={() => updateModule(openModule, { status, carried: status === 'done' ? false : row.carried })} className={`rounded-lg px-3 py-2 text-xs font-bold ${row.status === status ? 'bg-[#0f766e] text-white' : 'border border-[var(--card-border)]'}`}>{status === 'todo' ? '未开始' : status === 'active' ? '进行中' : '已完成'}</button>)}</div></div>
           <div className="grid gap-4 md:grid-cols-3">
             <label className="text-sm font-semibold">雅思哥材料 / 题目<textarea value={row.material} maxLength={200} onChange={(event) => updateModule(openModule, { material: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="例如：听力 Test 3；当季口语 Part 2；Task 2 教育题" /></label>
             <label className="text-sm font-semibold">本次证据 / 具体问题<textarea value={row.note} maxLength={500} onChange={(event) => updateModule(openModule, { note: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="记录分数、用时、错因，或写作/口语的主要问题" /></label>
