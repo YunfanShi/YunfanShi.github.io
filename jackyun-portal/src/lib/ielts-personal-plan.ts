@@ -32,10 +32,11 @@ export const IELTS_PERSONAL_PLAN: {
 };
 
 export function getIeltsPlanPhase(dateKey: string): IeltsPlanPhase {
+  const first = IELTS_PERSONAL_PLAN.phases[0]!;
+  const last = IELTS_PERSONAL_PLAN.phases[IELTS_PERSONAL_PLAN.phases.length - 1]!;
   const phase = IELTS_PERSONAL_PLAN.phases.find((item) => dateKey >= item.start && dateKey <= item.end);
   if (phase) return phase;
-  if (dateKey < IELTS_PERSONAL_PLAN.phases[0].start) return IELTS_PERSONAL_PLAN.phases[0];
-  return IELTS_PERSONAL_PLAN.phases[IELTS_PERSONAL_PLAN.phases.length - 1]!;
+  return dateKey < first.start ? first : last;
 }
 
 export function localDateKey(date = new Date()): string {
