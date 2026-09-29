@@ -7,7 +7,14 @@ export interface IeltsPlanPhase {
   action: string;
 }
 
-export const IELTS_PERSONAL_PLAN = {
+export const IELTS_PERSONAL_PLAN: {
+  version: number;
+  examDate: string;
+  weeklyHours: number;
+  targets: { overall: number; listening: number; reading: number; writing: number; speaking: number };
+  modules: string[];
+  phases: IeltsPlanPhase[];
+} = {
   version: 6,
   examDate: '2026-11-28',
   weeklyHours: 5,
@@ -21,14 +28,14 @@ export const IELTS_PERSONAL_PLAN = {
     { id: 'mock-two', start: '2026-11-15', end: '2026-11-15', title: '第二次完整模考', focus: '验证第一次模考的问题是否改善。', action: '确认阅读、写作能否按时完成以及口语是否稳定。' },
     { id: 'closing', start: '2026-11-16', end: '2026-11-27', title: '收尾与减量', focus: '只修复第二次模考暴露出的两个最大问题。', action: '11月23日起降低强度；11月27日不做完整模考。' },
     { id: 'exam', start: '2026-11-28', end: '2026-11-28', title: '考试日', focus: '按稳定流程完成机考。', action: '不临时更换策略，以完成度和稳定性为先。' },
-  ] satisfies IeltsPlanPhase[],
-} as const;
+  ],
+};
 
 export function getIeltsPlanPhase(dateKey: string): IeltsPlanPhase {
   const phase = IELTS_PERSONAL_PLAN.phases.find((item) => dateKey >= item.start && dateKey <= item.end);
   if (phase) return phase;
   if (dateKey < IELTS_PERSONAL_PLAN.phases[0].start) return IELTS_PERSONAL_PLAN.phases[0];
-  return IELTS_PERSONAL_PLAN.phases[IELTS_PERSONAL_PLAN.phases.length - 1];
+  return IELTS_PERSONAL_PLAN.phases[IELTS_PERSONAL_PLAN.phases.length - 1]!;
 }
 
 export function localDateKey(date = new Date()): string {
