@@ -2021,20 +2021,31 @@
     function renderPersonalIeltsPlan() {
         return `<section class="tool-card personal-ielts-plan" aria-label="私人 IELTS 备考计划">
             <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;">
-                <div><div class="eyebrow" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Private · Admin</div><h3 style="margin-top:5px;">IELTS 备考计划 v5 · 2026.09.16–11.30</h3></div>
+                <div><div class="eyebrow" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Private · Admin</div><h3 style="margin-top:5px;">IELTS 备考计划 v6 · 2026.09.29–11.28</h3></div>
                 <span class="material-icons-round lock-icon">lock</span>
             </div>
-            <p style="margin-top:10px;line-height:1.7;">每周五个弹性模块：Listening、Reading、Writing、Speaking、Weekly Review。每次最多 60 分钟，只推进一个模块；不固定星期，未完成内容正常顺延。</p>
+            <p style="margin-top:10px;line-height:1.7;">目标：总分 7.0；Listening 7.5、Reading 7.0、Writing 6.5、Speaking 6.5。雅思哥负责全部题目与作答；JackYun 只负责规划、证据、复盘和写作持续修改。</p>
             <div class="principle-grid" style="margin-top:12px;">
-                <div class="principle-card"><b>Listening</b><span>连续听，不暂停、不回拨；至少确定一个具体错因。</span></div>
-                <div class="principle-card"><b>Reading</b><span>记录用时，诊断慢在定位、同义替换、证据或作答。</span></div>
-                <div class="principle-card"><b>Writing</b><span>首稿 → 自己修复 → Transfer Test，不追求每周新写一篇。</span></div>
-                <div class="principle-card"><b>Speaking</b><span>首次录音 → 修一个问题 → 换题验证。</span></div>
+                <div class="principle-card"><b>五个弹性模块</b><span>Listening、Reading、Writing、Speaking、Review；每次最多 60 分钟，不固定星期。</span></div>
+                <div class="principle-card"><b>完成标准</b><span>做题后写下材料、证据或具体问题，以及下一次唯一动作；没分析完就保持“进行中”。</span></div>
+                <div class="principle-card"><b>材料策略</b><span>旧材料用于专项修复，新材料留给完整模考；不追求做完整本剑雅。</span></div>
+                <div class="principle-card"><b>Writing</b><span>原稿 → AI指出3–8个关键问题 → 自改 → Upgrade → 独立 Transfer；同一篇可跨多次继续。</span></div>
             </div>
-            <a class="method-link" href="/control" target="_top" style="display:inline-flex;margin-top:14px;text-decoration:none;">到 Schedule 安排本周模块</a>
+            <div style="display:grid;gap:10px;margin-top:16px;">
+                <div class="principle-card"><b>09.29–10.05 · 严格基线</b><span>完成第一轮五模块；听力不暂停回拨，阅读严格计时，写作与口语保留真实首次输出。</span></div>
+                <div class="principle-card"><b>10.06–10.24 · 第一轮专项修复</b><span>完成约三轮；优先 Writing、Speaking 和 Reading 速度，Listening 维持严格条件。</span></div>
+                <div class="principle-card"><b>10.25 · 第一次完整模考</b><span>使用未做过的新材料完整模拟；之后先总结，不立即开启下一套。</span></div>
+                <div class="principle-card"><b>10.26–11.14 · 按模考补缺</b><span>再完成约三轮，只追第一次模考暴露出的最大短板。</span></div>
+                <div class="principle-card"><b>11.15 · 第二次完整模考</b><span>验证阅读和写作能否按时完成，以及口语和听力是否稳定。</span></div>
+                <div class="principle-card"><b>11.16–11.27 · 收尾</b><span>只修两个最大问题；11月23日起减量，11月27日不做完整模考。</span></div>
+            </div>
+            <div class="timeline-actions" style="margin-top:14px;">
+                <a class="method-link" href="/ielts" target="_top" style="text-decoration:none;">打开五模块工作台</a>
+                <a class="method-link" href="/ielts-writing" target="_top" style="text-decoration:none;">继续写作修改</a>
+                <a class="method-link" href="/schedule" target="_top" style="text-decoration:none;">安排时间</a>
+            </div>
         </section>`;
     }
-
     function renderModuleTool(tab, subTab) {
         if (tab === 'procrastination' && subTab === 'plan') return renderTaskWritingTool();
         if (tab === 'practice' && subTab === 'stuck') return renderStuckHintTool();
