@@ -94,7 +94,7 @@ export default function IeltsCycleBoard() {
     setNotice('已开始下一轮；未完成模块和记录已自动顺延。');
   }
 
-  if (!cycle) return <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-sm text-[var(--muted-foreground)]">正在读取本轮计划…</section>;
+  if (!cycle) return <section id="weekly-cycle" className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-sm text-[var(--muted-foreground)]">正在读取本轮计划…</section>;
 
   return <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7">
     <div className="flex flex-wrap items-start justify-between gap-4">
