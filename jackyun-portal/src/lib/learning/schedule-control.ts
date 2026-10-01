@@ -1,3 +1,4 @@
+import { createCueChangeRecord, type CueChangeRecord } from './cue-change-history.ts';
 import { difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
 import type { QuestionAttempt } from './question-bank.ts';
 import type { CueSimilarityDecision } from './cue-similarity.ts';
@@ -446,6 +447,7 @@ export interface ScheduleControlState {
   learningCatalog: LearningCatalogSubject[];
   learningReminders: LearningReminder[];
   cueCollectionUpdates: CueCollectionUpdate[];
+  cueChangeHistory: CueChangeRecord[];
   cueSimilarityDecisions: CueSimilarityDecision[];
   /** Durable per-Cue notes. They are part of Schedule state and therefore account-syncable. */
   cueMemos: CueMemo[];
@@ -547,6 +549,7 @@ export function createEmptyScheduleState(): ScheduleControlState {
     learningCatalog: [],
     learningReminders: [],
     cueCollectionUpdates: [],
+    cueChangeHistory: [],
     cueSimilarityDecisions: [],
     cueMemos: [],
   };
@@ -2181,7 +2184,8 @@ export function completeLearningSession(
       ...(questionAttempts.length ? { summary: `知识 CUE ${recordCues.length} 条；题目 ${questionAttempts.length} 题：√ ${questionAttempts.filter((item) => item.status === 'stable').length}、△ ${questionAttempts.filter((item) => item.status === 'partial').length}、○ ${questionAttempts.filter((item) => item.status === 'unclear').length}。正确性与掌握评价分别记录。`, nextActions: [...createSystemReport(recordCues, status).nextActions, ...questionAttempts.filter((item) => item.status !== 'stable').map((item) => `复习 ${item.snapshot.prompt}：${item.issue || '重新独立作答'}`)] } : {}),
     },
   };
-  return { ...updated, learningRecords: [record, ...updated.learningRecords] };
+  const change = createCueChangeRecord(state.cues, withCues.cues, 'lesson', completedAtIso, `cue-change:${record.id}`);
+  return { ...updated, learningRecords: [record, ...updated.learningRecords], cueChangeHistory: [...(updated.cueChangeHistory ?? []), ...(change ? [change] : [])] };
 }
 
 export function isCueReviewTask(type: LearningTaskType): boolean {

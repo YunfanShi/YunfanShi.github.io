@@ -1,5 +1,7 @@
 'use client';
 
+import CueChangeHistory from './cue-change-history';
+import { createCueChangeRecord, type CueChangeRecord, type CueChangeSource } from '@/lib/learning/cue-change-history';
 import { MemoryCueImportDialog } from './memory-cue-import-dialog';
 
 import FullscreenButton from '@/components/layout/fullscreen-button';
@@ -11,6 +13,7 @@ import StudyInsights from './study-insights';
 import ScheduleGuide from './schedule-guide';
 import LearningAssistant, { CueDifficultyPicker } from './learning-assistant';
 import { difficultyLabels, effectiveCueDifficulty, type CueDifficulty } from '@/lib/learning/learning-assistance';
+import { DEFAULT_STUDY_FILTER, jointCueSubjectName } from '@/lib/learning/joint-cue-study';
 import LearningWorkspace, { LearningSession, estimatedStudyMinutes } from './learning-workspace';
 import { QUESTION_BANK_KEY, buildStudyQueue, emptyQuestionBank, itemKey, questionReviewTasks, readQuestionBank, reconcileQuestionSubjects, reconcileStudyDraft, recordQuestionAttempt, type QuestionBankState, type StudyDraft, type StudyItemRef, type StudyMode } from '@/lib/learning/question-bank';
 
@@ -176,6 +179,7 @@ function loadState(now = new Date()): ScheduleControlState {
       learningCatalog: Array.isArray(parsed.learningCatalog) ? parsed.learningCatalog : [],
       learningReminders: Array.isArray(parsed.learningReminders) ? parsed.learningReminders : [],
       cueCollectionUpdates: Array.isArray(parsed.cueCollectionUpdates) ? parsed.cueCollectionUpdates : [],
+      cueChangeHistory: Array.isArray(parsed.cueChangeHistory) ? parsed.cueChangeHistory : [],
       cueSimilarityDecisions: Array.isArray(parsed.cueSimilarityDecisions) ? parsed.cueSimilarityDecisions.filter((decision) => decision && typeof decision.id === 'string' && typeof decision.leftCueId === 'string' && typeof decision.rightCueId === 'string' && decision.leftCueId !== decision.rightCueId && Number.isInteger(decision.leftVersion) && decision.leftVersion > 0 && Number.isInteger(decision.rightVersion) && decision.rightVersion > 0 && typeof decision.decidedAt === 'string') : [],
       cueMemos: [...memoByCueId.values()],
       cueStudyDraft: parsed.cueStudyDraft && Array.isArray(parsed.cueStudyDraft.cueIds) && parsed.cueStudyDraft.task ? {
@@ -489,7 +493,7 @@ function CueStudyDashboard({ cues, reviews, drafts, onStart, onResume, onDiscard
   const subjects = [...new Set(cues.map((cue) => cue.subjectName))];
   const [subjectName, setSubjectName] = useState(subjects[0] ?? '');
   const [unit, setUnit] = useState('');
-  const [statusFilter, setStatusFilter] = useState<CueStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<CueStatusFilter>(DEFAULT_STUDY_FILTER);
   const [shuffled, setShuffled] = useState(false);
   const today = dateKey(new Date());
   const reviewsByCue = new Map<string, CueReview[]>();
@@ -952,7 +956,7 @@ function SimilarCueToolDialog({ subjectName, cues, decisions, onDecisionsChange,
   </div>;
 }
 
-function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, similarityDecisions, onSimilarityDecisionsChange, reminderDays, initialSubjectName, showMastered, onClose, onChange }: { cues: StudyCue[]; reviews: CueReview[]; catalog: LearningCatalogSubject[]; collectionUpdates: CueCollectionUpdate[]; similarityDecisions: CueSimilarityDecision[]; onSimilarityDecisionsChange: (update: (current: CueSimilarityDecision[]) => CueSimilarityDecision[]) => void; reminderDays: number; initialSubjectName?: string; showMastered: boolean; onClose: () => void; onChange: (cues: StudyCue[], catalog?: LearningCatalogSubject[], batchUpdate?: CueCollectionUpdate) => void }) {
+function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, changeHistory, similarityDecisions, onSimilarityDecisionsChange, reminderDays, initialSubjectName, showMastered, onClose, onChange }: { cues: StudyCue[]; reviews: CueReview[]; catalog: LearningCatalogSubject[]; collectionUpdates: CueCollectionUpdate[]; changeHistory: CueChangeRecord[]; similarityDecisions: CueSimilarityDecision[]; onSimilarityDecisionsChange: (update: (current: CueSimilarityDecision[]) => CueSimilarityDecision[]) => void; reminderDays: number; initialSubjectName?: string; showMastered: boolean; onClose: () => void; onChange: (cues: StudyCue[], catalog?: LearningCatalogSubject[], batchUpdate?: CueCollectionUpdate, source?: CueChangeSource) => void }) {
   const [subjectName, setSubjectName] = useState(() => catalog.some((item) => item.name === initialSubjectName) ? initialSubjectName ?? '' : '');
   const [unit, setUnit] = useState('');
   const [subsection, setSubsection] = useState('');
@@ -974,6 +978,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, similarit
   const [bulkImport, setBulkImport] = useState(false);
   const [similarityTool, setSimilarityTool] = useState(false);
   const [memoryImport, setMemoryImport] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const selectedSubjectConfig = catalog.find((item) => item.name === subjectName);
   const latestCollectionUpdate = collectionUpdates.filter((update) => update.subjectName === subjectName && isRecordedCueCollectionBatch(update)).toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
   const enrichmentCues = cues.filter((cue) => cue.subjectName === subjectName);
@@ -1047,7 +1052,7 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, similarit
       ...(manuallyMarked ? { manuallyMarked: true } : {}),
     };
   };
-  const applyBulkOperations = (operations: CueBulkOperation[], targetSubjectName = subjectName, markAsBatch = false) => {
+  const applyBulkOperations = (operations: CueBulkOperation[], targetSubjectName = subjectName, markAsBatch = false, source: CueChangeSource = 'import') => {
     const now = new Date().toISOString();
     const beforeById = new Map(cues.map((cue) => [cue.id, cue]));
     const appliedCues = applyCueBulkOperations(cues, operations, (item) => makeCue(item, now), now);
@@ -1064,13 +1069,14 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, similarit
       return additions.length ? { ...subject, units: [...subject.units, ...additions.map((name) => ({ name, subsections: [] }))] } : subject;
     });
     const summary = cueCollectionSummaryForSubject(cues, updatedCues, targetSubjectName);
-    onChange(updatedCues, nextCatalog, isCueCollectionBatch(summary, markAsBatch) ? collectionUpdate(now, summary, markAsBatch) : undefined);
+    onChange(updatedCues, nextCatalog, isCueCollectionBatch(summary, markAsBatch) ? collectionUpdate(now, summary, markAsBatch) : undefined, source);
     return { createdCount, modifiedCount };
   };
   return <div className={`${styles.cueManager} fixed inset-0 z-[70] grid place-items-center bg-black/45 p-2 sm:p-4 backdrop-blur-sm`} role="dialog" aria-modal="true" aria-labelledby="cue-manager-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="grid h-[94dvh] min-h-0 w-full max-w-[1500px] grid-rows-[auto_auto] overflow-y-auto xl:grid-rows-[auto_minmax(0,1fr)] xl:overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl xl:grid-cols-[400px_minmax(0,1fr)] xl:grid-rows-1">
       <form ref={editorRef} tabIndex={-1} onSubmit={createCue} className="min-h-0 xl:overflow-y-auto xl:overscroll-contain border-b border-[var(--card-border)] p-6 xl:max-h-none xl:border-b-0 xl:border-r">
         <div className="flex items-center justify-between"><div><h2 id="cue-manager-title" className="text-xl font-semibold">知识 CUE 管理</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">单条添加时选择大单元；批量 / AI 导入只需先选择学科，每条 Cue 可使用不同大单元。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span className="material-icons-round">close</span></button></div>
+        <button type="button" onClick={() => setHistoryOpen(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">修改 / 导入记录（{changeHistory.length}）</button>
         <button type="button" onClick={() => setMemoryImport(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">从 DEFINITIONS / 对比记忆导入</button>
         {editingId && <div className="mt-4 rounded-xl border border-[var(--brand)] p-3 text-sm"><strong>编辑现有 Cue</strong><p className="mt-1 text-xs">修改内容与分类，保留原有学习历史、判定和备忘录。</p></div>}
         {editNotice && <p role="status" className="mt-3 text-sm text-[var(--brand)]">{editNotice}</p>}
@@ -1081,7 +1087,8 @@ function CueManagerDialog({ cues, reviews, catalog, collectionUpdates, similarit
       </form>
       <section className="min-h-0 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[['全部', cues.length], ['√', cues.filter((cue) => cue.status === 'stable').length], ['△', cues.filter((cue) => cue.status === 'partial').length], ['○', cues.filter((cue) => cue.status === 'unclear').length]].map(([label, value]) => <div key={label} className="rounded-2xl bg-black/[.035] p-3 text-center dark:bg-white/[.06]"><p className="text-xs text-[var(--muted-foreground)]">{label}</p><strong className="mt-1 block text-xl">{value}</strong></div>)}</div><div className="mt-4 grid gap-2 sm:grid-cols-3"><select value={filterSubject} onChange={(event) => { setFilterSubject(event.target.value); setFilterUnit(''); }} aria-label="按学科筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部学科</option>{filterSubjects.map((value) => <option key={value}>{value}</option>)}</select><select value={filterUnit} onChange={(event) => setFilterUnit(event.target.value)} aria-label="按大单元筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="">全部大单元</option>{filterUnits.map((value) => <option key={value}>{value}</option>)}</select><select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value as CueStatusFilter)} aria-label="按状态筛选" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm"><option value="all">全部 Cue</option><option value="unreviewed">没有最新标记</option><option value="due">今天到期或未排期</option><option value="weak">△ 黄色＋○ 红色</option><option value="unstable">历史不稳定项</option><option value="repeated-weak">近期反复失误</option><option value="recovering">刚转绿待巩固</option><option value="stable">仅 √ 绿色</option><option value="partial">仅 △ 黄色</option><option value="unclear">仅 ○ 红色</option></select></div>{filterStatus === 'unstable' && <p className="mt-2 text-xs text-[var(--muted-foreground)]">包含当前 △ / ○，以及历史失误风险仍高的 √ Cue。</p>}{filterStatus === 'repeated-weak' && <p className="mt-2 text-xs text-[var(--muted-foreground)]">最近 5 次检索中至少 2 次为 △ / ○。</p>}{filterStatus === 'recovering' && <p className="mt-2 text-xs text-[var(--muted-foreground)]">最新为 √，但历史失误风险仍高，需要继续巩固。</p>}<p className="mt-2 text-xs text-[var(--muted-foreground)]">当前显示 {filtered.length} / {cues.length} 条{!showMastered && filterStatus === 'all' ? ' · 设置中已隐藏绿色 Cue，可选“仅 √ 绿色”查看' : ''}</p><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="快速搜索 Cue、答案、学科或单元…" className="mt-2 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm" /><CueHierarchy cues={filtered} reviews={reviews} onDifficulty={(id, userDifficulty) => onChange(cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue))} onEdit={editCue} onDelete={(cue) => { deleteCue(cue.id); }} /></section>
     </div>
-    {memoryImport && <MemoryCueImportDialog catalog={catalog} cues={cues} onApply={(operations) => applyBulkOperations(operations, operations[0]?.subjectName ?? subjectName)} onClose={() => setMemoryImport(false)} />}
+    {historyOpen && <CueChangeHistory records={changeHistory} legacyUpdates={collectionUpdates} onClose={() => setHistoryOpen(false)} />}
+    {memoryImport && <MemoryCueImportDialog catalog={catalog} cues={cues} onApply={(operations) => applyBulkOperations(operations, operations[0]?.subjectName ?? subjectName, false, 'memory')} onClose={() => setMemoryImport(false)} />}
     {bulkImport && <CueBulkImportDialog subjectName={subjectName} knownUnits={selectedSubjectConfig?.units.map((item) => item.name) ?? []} cues={enrichmentCues} onClose={() => setBulkImport(false)} onApply={(operations, markAsBatch) => applyBulkOperations(operations, subjectName, markAsBatch)} saveOnRead />}
     {similarityTool && <SimilarCueToolDialog subjectName={subjectName} cues={enrichmentCues} decisions={similarityDecisions} onDecisionsChange={onSimilarityDecisionsChange} onDelete={deleteCue} onClose={() => setSimilarityTool(false)} />}
   </div>;
@@ -1705,7 +1712,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     }) }));
   };
   const startUnifiedStudy = (mode: StudyMode, subjectId: string, unit: string, items: StudyItemRef[], sourceTask?: LearningTask) => {
-    const subjectName = state.learningCatalog.find((subject) => subject.id === subjectId)?.name ?? state.cues.find((cue) => cue.subjectId === subjectId)?.subjectName ?? questionBank.questions.find((question) => question.subjectId === subjectId)?.subjectName;
+    const subjectName = !subjectId && mode === 'cue' ? jointCueSubjectName(items.flatMap((item) => { const cue = state.cues.find((cue) => item.kind === 'cue' && cue.id === item.id); return cue ? [cue] : []; })) : state.learningCatalog.find((subject) => subject.id === subjectId)?.name ?? state.cues.find((cue) => cue.subjectId === subjectId)?.subjectName ?? questionBank.questions.find((question) => question.subjectId === subjectId)?.subjectName;
     const id = `study-${taskId()}`;
     const task: LearningTask = sourceTask ?? { key: id, title: `学习 · ${subjectName ?? ''}${unit ? ` · ${unit}` : ''}`, detail: '独立检索与作答，分别保存评价。', type: 'special', date: todayKey, durationMinutes: estimatedStudyMinutes(items), subjectId, subjectName, scope: { ...(unit ? { unit } : {}) } };
     const cueIds = items.filter((item) => item.kind === 'cue').map((item) => item.id);
@@ -1714,6 +1721,11 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [id]: draft } });
     setActiveStudyId(id); setStudyPreviewTask(null);
   };
+  const changeCueDifficulty = (id: string, userDifficulty?: CueDifficulty) => setState((current) => {
+    const cues = current.cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue);
+    const change = createCueChangeRecord(current.cues, cues, 'manual', new Date().toISOString(), taskId());
+    return recalculateLegacyCueSchedules({ ...current, cueScheduleRevision: 0, cues, cueChangeHistory: [...(current.cueChangeHistory ?? []), ...(change ? [change] : [])] });
+  });
   const rateStudyItem = (draft: StudyDraft, item: StudyItemRef, status: LearningStatus) => {
     const at = new Date();
     const nextDraft = { ...draft, assessments: { ...draft.assessments, [itemKey(item)]: status }, updatedAt: at.toISOString() };
@@ -1792,11 +1804,11 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       </div>}
 
       {studyPreviewTask && <StudyTaskPreview task={studyPreviewTask} cues={state.cues} bank={questionBank} onClose={() => setStudyPreviewTask(null)} onStart={(items) => startUnifiedStudy(items.some((item) => item.kind === 'cue') && items.some((item) => item.kind === 'question') ? 'mixed' : items.some((item) => item.kind === 'question') ? 'question' : 'cue', studyPreviewTask.subjectId ?? '', studyPreviewTask.scope?.unit ?? '', items, studyPreviewTask)} />}
-      {activeStudyDraft && <LearningSession reviews={state.cueReviews} draft={activeStudyDraft} onDifficulty={(id, userDifficulty) => setState((value) => recalculateLegacyCueSchedules({ ...value, cueScheduleRevision: 0, cues: value.cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue) }))} cues={state.cues} bank={questionBank} onDraft={(draft) => commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [draft.id]: draft } })} onRate={rateStudyItem} onMemo={saveCueMemo} memos={state.cueMemos} onClose={() => setActiveStudyId(null)} onComplete={finishUnifiedStudy} />}
-      {cueStudyTask && activeCueDraft && <CueStudyPage reviews={state.cueReviews} task={cueStudyTask} onDifficulty={(id, userDifficulty) => setState((value) => recalculateLegacyCueSchedules({ ...value, cueScheduleRevision: 0, cues: value.cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue) }))} cues={cueStudyCues} draft={activeCueDraft} memos={state.cueMemos} onProgress={saveCueStudyProgress} onAssessment={(cueId, status) => saveCueStudyAssessment(cueStudyTask, cueId, status)} onMemoChange={saveCueMemo} onClose={() => { setCueStudyTask(null); setNotice('Cue 状态、学习进度和备忘录均已保存，可随时恢复。'); }} onComplete={(details, evidence) => submitReview(cueStudyTask, details, evidence)} />}
+      {activeStudyDraft && <LearningSession reviews={state.cueReviews} draft={activeStudyDraft} onDifficulty={changeCueDifficulty} cues={state.cues} bank={questionBank} onDraft={(draft) => commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [draft.id]: draft } })} onRate={rateStudyItem} onMemo={saveCueMemo} memos={state.cueMemos} onClose={() => setActiveStudyId(null)} onComplete={finishUnifiedStudy} />}
+      {cueStudyTask && activeCueDraft && <CueStudyPage reviews={state.cueReviews} task={cueStudyTask} onDifficulty={changeCueDifficulty} cues={cueStudyCues} draft={activeCueDraft} memos={state.cueMemos} onProgress={saveCueStudyProgress} onAssessment={(cueId, status) => saveCueStudyAssessment(cueStudyTask, cueId, status)} onMemoChange={saveCueMemo} onClose={() => { setCueStudyTask(null); setNotice('Cue 状态、学习进度和备忘录均已保存，可随时恢复。'); }} onComplete={(details, evidence) => submitReview(cueStudyTask, details, evidence)} />}
       {reviewTask && <ReviewDialog task={reviewTask} cues={reviewCues} catalog={state.learningCatalog} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={(details, evidence) => submitReview(reviewTask, details, evidence)} />}
       {taskDialog && <TaskDialog date={selectedDate} cues={state.cues} catalog={[...state.learningCatalog, ...(state.timetable?.courses ?? []).filter((course) => !matchLearningCatalogSubject(state.learningCatalog, course.name)).map((course) => ({ id: course.id, name: course.name, units: [], materialProgress: {} }))]} onClose={() => setTaskDialog(false)} onSave={(tasks) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, ...tasks] })); setTaskDialog(false); setNotice(`已添加 ${tasks.length} 项任务。`); }} />}
-      {cueManager && <CueManagerDialog cues={state.cues} reviews={state.cueReviews} catalog={state.learningCatalog} collectionUpdates={state.cueCollectionUpdates} similarityDecisions={state.cueSimilarityDecisions} onSimilarityDecisionsChange={(update) => setState((current) => ({ ...current, cueSimilarityDecisions: update(current.cueSimilarityDecisions ?? []) }))} reminderDays={state.settings.cueCollectionReminderDays} initialSubjectName={cueManagerSubject} showMastered={state.settings.cueShowMastered} onClose={() => setCueManager(false)} onChange={(cues, learningCatalog, batchUpdate) => setState((current) => { const cueIds = new Set(cues.map((cue) => cue.id)); return recalculateLegacyCueSchedules({ ...current, cueScheduleRevision: 0, cues, cueMemos: current.cueMemos.filter((memo) => cueIds.has(memo.cueId)), cueSimilarityDecisions: (current.cueSimilarityDecisions ?? []).filter((decision) => cueIds.has(decision.leftCueId) && cueIds.has(decision.rightCueId)), ...(learningCatalog ? { learningCatalog } : {}), ...(batchUpdate ? { cueCollectionUpdates: [...current.cueCollectionUpdates, batchUpdate].slice(-100) } : {}) }); })} />}
+      {cueManager && <CueManagerDialog cues={state.cues} reviews={state.cueReviews} catalog={state.learningCatalog} collectionUpdates={state.cueCollectionUpdates} changeHistory={state.cueChangeHistory} similarityDecisions={state.cueSimilarityDecisions} onSimilarityDecisionsChange={(update) => setState((current) => ({ ...current, cueSimilarityDecisions: update(current.cueSimilarityDecisions ?? []) }))} reminderDays={state.settings.cueCollectionReminderDays} initialSubjectName={cueManagerSubject} showMastered={state.settings.cueShowMastered} onClose={() => setCueManager(false)} onChange={(cues, learningCatalog, batchUpdate, source = 'manual') => setState((current) => { const change = createCueChangeRecord(current.cues, cues, source, new Date().toISOString(), taskId()); const cueIds = new Set(cues.map((cue) => cue.id)); return recalculateLegacyCueSchedules({ ...current, cueScheduleRevision: 0, cues, cueChangeHistory: [...(current.cueChangeHistory ?? []), ...(change ? [change] : [])], cueMemos: current.cueMemos.filter((memo) => cueIds.has(memo.cueId)), cueSimilarityDecisions: (current.cueSimilarityDecisions ?? []).filter((decision) => cueIds.has(decision.leftCueId) && cueIds.has(decision.rightCueId)), ...(learningCatalog ? { learningCatalog } : {}), ...(batchUpdate ? { cueCollectionUpdates: [...current.cueCollectionUpdates, batchUpdate].slice(-100) } : {}) }); })} />}
       {importDialog && <ImportDialog currentTimetable={state.timetable} onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => reconcileScheduleSubjects({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice(signedIn ? '课表已导入；已保留你的手动复习科目设置，正在同步到账号。' : '课表已导入；已保留你的手动复习科目设置。'); }} />}
       {catalogDialog && <LearningCatalogDialog current={state.learningCatalog} onClose={() => setCatalogDialog(false)} onApply={(subjects) => { if (!window.confirm('保存新的学科分类配置吗？系统会按关键词合并课表科目引用；现有学习记录和 Cue 不会删除。')) return; commitQuestionBank(reconcileQuestionSubjects(questionBank, subjects)); setState((current) => reconcileScheduleSubjects({ ...current, learningCatalog: subjects })); setCatalogDialog(false); setNotice('学科分类已保存；课表科目、复习进度和记录已自动归并。'); }} />}
       {guideOpen && <ScheduleGuide onNavigate={setView} onClose={() => { setGuideOpen(false); setState((current) => ({ ...current, settings: { ...current.settings, tutorialSeenVersion: 1 } })); }} />}
