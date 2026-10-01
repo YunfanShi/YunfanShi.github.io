@@ -6,23 +6,23 @@ import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '../
 function player(clock = performance) {
  const html = readFileSync(process.env.MUSIC_SYNC_SOURCE || new URL('../public/MusicPlayerSync.html', import.meta.url), 'utf8');
  const source = html.slice(html.indexOf('const IS_MASTER'), html.indexOf("STATE.audio.addEventListener('timeupdate'"));
- const elements = new Map(); const requests: string[] = [];
- const audio = { src: '', readyState: 1, getAttribute() { return this.src; }, removeAttribute() { this.src = ''; }, currentTime: 0, onended: null, load() {}, pause() {}, play: () => Promise.resolve() };
+ const elements = new Map(); const requests: string[] = []; const timeouts: number[] = [];
+ const audio = { src: '', paused: false, seeking: false, playbackRate: 1, readyState: 4, getAttribute() { return this.src; }, removeAttribute() { this.src = ''; }, currentTime: 0, onended: null, load() {}, pause() {}, play: () => Promise.resolve() };
  elements.set('main-audio', audio);
  const storage = new Map([['mps_role', 'follower']]);
  const documentRoot = {dataset:{musicLayout: undefined}};
- const api = runInNewContext(source + '\n({STATE,Engine,handleIncomingBroadcast,startPolling,ClockSync,PlayerView,Library})', {
+ const api = runInNewContext(source + '\n({STATE,Engine,handleIncomingBroadcast,startPolling,ClockSync,PlayerView,Library,Cali})', {
  localStorage: {getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string,v: string) => storage.set(k,v), removeItem() {}},
  document: {documentElement:documentRoot,getElementById: (id: string) => { if (!elements.has(id)) elements.set(id,{textContent:'',innerText:'',classList:{add(){}},setAttribute(){},querySelector:()=>({innerText:''})}); return elements.get(id); }},
  window: {addEventListener(){}}, console, performance: clock, AbortSignal,
  fetch: async (url: string) => {requests.push(url);return {ok:true,json:async()=>({broadcasts:[]})};},
- setInterval(){return 1;},clearInterval(){},setTimeout(){},requestAnimationFrame(){return 1;},cancelAnimationFrame(){}
+ setInterval(){return 1;},clearInterval(){},setTimeout(_callback: Function, delay: number){timeouts.push(delay);},requestAnimationFrame(){return 1;},cancelAnimationFrame(){}
  });
  api.ClockSync.syncedAt = clock.now();
  api.ClockSync.anchorTime = Date.now();
  api.ClockSync.anchorTick = clock.now();
  const command = (action: string, stamp: number, targetTime=Date.now()+5000) => ({targetTime,timestamp:stamp,payload:{_type:'music',action,songUrl:action+'.mp3',eventTimestamp:stamp}});
- return {...api,audio,requests,command,elements,storage,documentRoot};
+ return {...api,audio,requests,command,elements,storage,documentRoot,timeouts};
 }
 test('follower follows new songs while armed and playing, rejects older commands', async()=>{
  const p=player(); await p.handleIncomingBroadcast(p.command('play',1));
@@ -198,4 +198,77 @@ test('changing layout persists locally without resetting playback or sending com
   assert.equal(p.requests.length, 0);
   p.PlayerView.setLayout('record');
   assert.equal(p.storage.get('mps_layout'), 'record');
+});
+
+test('a slightly lagging device catches up gradually without another seek', () => {
+  const p = player();
+  p.STATE.status = 'PLAYING';
+  p.STATE.targetTime = p.ClockSync.getPreciseTime() - 1000;
+  p.audio.currentTime = 0.9;
+  p.Engine.correctDrift();
+  assert.equal(p.audio.currentTime, 0.9);
+  assert.ok(p.audio.playbackRate > 1 && p.audio.playbackRate <= 1.03);
+});
+
+test('a device ahead slows down, while a stalled device seeks to the timeline', () => {
+  const p = player();
+  p.STATE.status = 'PLAYING';
+  p.STATE.targetTime = p.ClockSync.getPreciseTime() - 1000;
+  p.audio.currentTime = 1.1;
+  p.Engine.correctDrift();
+  assert.ok(p.audio.playbackRate < 1 && p.audio.playbackRate >= 0.97);
+  p.audio.currentTime = 0;
+  p.Engine.correctDrift();
+  assert.ok(p.audio.currentTime >= 1);
+  assert.equal(p.audio.playbackRate, 1);
+});
+
+test('device output compensation updates playback immediately and remains local', () => {
+  const p = player();
+  p.STATE.status = 'PLAYING';
+  p.STATE.targetTime = p.ClockSync.getPreciseTime() - 1000;
+  p.audio.currentTime = 1;
+  p.Engine.adjustManual(-100);
+  assert.equal(p.STATE.manualOffset, -100);
+  assert.ok(p.audio.currentTime >= 1.1);
+  assert.equal(p.requests.length, 0);
+  assert.equal(p.storage.get('v45_manual'), -100);
+});
+
+test('drift correction waits through an active seek or buffer starvation', () => {
+  const p = player();
+  p.STATE.status = 'PLAYING';
+  p.STATE.targetTime = p.ClockSync.getPreciseTime() - 10000;
+  p.audio.currentTime = 2;
+  p.audio.seeking = true;
+  p.Engine.correctDrift();
+  assert.equal(p.audio.currentTime, 2);
+  p.audio.seeking = false;
+  p.audio.readyState = 1;
+  p.Engine.correctDrift();
+  assert.equal(p.audio.currentTime, 2);
+});
+
+test('tracking restores normal speed when aligned and is removed on reset', () => {
+  const p = player();
+  p.STATE.status = 'PLAYING';
+  p.STATE.targetTime = p.ClockSync.getPreciseTime() - 1000;
+  p.audio.currentTime = 1;
+  p.audio.playbackRate = 1.02;
+  p.Engine.correctDrift();
+  assert.equal(p.audio.playbackRate, 1);
+  p.Engine.startTracking();
+  assert.notEqual(p.Engine.driftTimer, null);
+  p.Engine.reset(false);
+  assert.equal(p.Engine.driftTimer, null);
+  assert.equal(p.audio.playbackRate, 1);
+});
+
+test('negative output compensation keeps the calibration metronome scheduled in the future', () => {
+  const p = player();
+  p.ClockSync.getPreciseTime = () => 1950;
+  p.STATE.manualOffset = -100;
+  p.Cali.isRunning = true;
+  p.Cali.loop();
+  assert.equal(p.timeouts[0], 950);
 });

@@ -120,13 +120,18 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classi
 <div id="cali-modal" class="modal">
     <div class="card">
         <h3>声音延迟校准 <span onclick="toggleModal('cali-modal'); Cali.stop();" style="cursor:pointer">&times;</span></h3>
-        <p style="font-size:12px; color:var(--text-sec);">调整偏移，让声音与闪光同时出现。</p>
+        <p style="font-size:12px; color:var(--text-sec);">两台设备播放同一段音乐，调整这台设备，直到听不到前后重影。</p>
         <div id="metro-visual" class="metro-box">
             <span style="font-weight:900; font-size:24px;">TICK</span>
         </div>
         <div style="text-align:center; font-family:'Roboto Mono'; color:var(--accent); margin-bottom:15px;">
             当前偏移： <span id="cali-offset-disp">0</span> ms
         </div>
+        <div class="settings-row" style="margin:12px 0"><button class="btn-sec" onclick="Engine.adjustManual(-100)">提前 100ms</button><button class="btn-sec" onclick="Engine.adjustManual(100)">延后 100ms</button></div>
+        <div class="settings-row" style="margin:12px 0"><button class="btn-sec" onclick="Engine.adjustManual(-20)">提前 20ms</button><button class="btn-sec" onclick="Engine.adjustManual(20)">延后 20ms</button></div>
+        <label class="layout-setting">本机播放偏移（ms）<input id="manual-offset-input" aria-label="本机播放偏移（ms）" type="number" min="-2000" max="2000" step="20" value="0" onchange="Engine.setManual(this.value)"></label>
+        <p class="settings-note">这台声音慢：点「提前」；这台声音快：点「延后」。调整立即生效，仅保存在本机。负数提前，正数延后。</p>
+        <button class="btn-sec" onclick="Engine.setManual(0)" style="width:100%;margin-bottom:12px">恢复 0ms</button>
         <button class="btn-pri" onclick="Cali.toggle()">开始 / 停止节拍器</button>
     </div>
 </div>
@@ -145,7 +150,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classi
             <details id="add-song"><summary>通过网易云歌曲 ID 添加</summary><div class="panel"><input id="inp-name" aria-label="歌曲名称" placeholder="歌曲名称"><input id="inp-id" aria-label="网易云歌曲 ID" placeholder="网易云歌曲 ID，例如 186016"><button class="btn-pri" onclick="Library.add()">加入歌单</button><button class="btn-sec" onclick="if(confirm('清空整个歌单？')) Library.clear()">清空歌单</button></div></details>
         </div>
         <div id="followerPanel" style="display:none"><div class="follower-card"><span class="material-icons-round" style="font-size:32px;color:var(--music-accent)">headphones</span><h3>一起听同一首歌</h3><p>主设备负责选歌和切歌，<br>这台设备跟随播放。</p><button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button><p id="followerAudioHint">首次使用请点击启用声音，并保持页面在前台。</p><div class="now-playing" id="followerNowPlaying"><div id="followerSongName">等待主设备选歌</div></div></div></div>
-        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><label class="layout-setting">界面风格<select aria-label="界面风格" id="music-layout" onchange="PlayerView.setLayout(this.value)"><option value="record">唱片模式（默认）</option><option value="classic">经典模式 · 大倒计时</option></select></label><p class="settings-note" style="margin:0">界面选择仅保存在这台设备，切换不会中断播放。</p><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准</button></div></details>
+        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><label class="layout-setting">界面风格<select aria-label="界面风格" id="music-layout" onchange="PlayerView.setLayout(this.value)"><option value="record">唱片模式（默认）</option><option value="classic">经典模式 · 大倒计时</option></select></label><p class="settings-note" style="margin:0">界面选择仅保存在这台设备，切换不会中断播放。</p><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><div class="stats">本机播放进度偏差 <span id="playback-drift">--</span> ms</div><p class="settings-note" style="margin:0">播放中自动纠偏；进度偏差不包含扬声器的实际输出延迟。</p><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准 · 提前 / 延后</button></div></details>
     </aside>
     <main>
         <p class="eyebrow">LISTEN TOGETHER</p>
@@ -401,6 +406,7 @@ async function handleIncomingBroadcast(data) {
     console.log('[Sync] Music broadcast:', p.action, 'target:', data.targetTime);
 
     if (p.action === 'play' || p.action === 'next' || p.action === 'prev') {
+        Engine.stopTracking();
         STATE.audio.src = p.songUrl;
         STATE.audio.load();
         STATE.targetTime = data.targetTime;
@@ -528,6 +534,49 @@ function setRole(role) {
 
 const Engine = {
     animFrame: null,
+    driftTimer: null,
+    nextClockCheck: 0,
+
+    desiredPosition() {
+        return Math.max(0, (ClockSync.getPreciseTime() - STATE.targetTime - STATE.manualOffset) / 1000);
+    },
+
+    correctDrift(force = false) {
+        const audio = STATE.audio;
+        if (STATE.status !== 'PLAYING' || !STATE.targetTime || audio.paused || audio.seeking || audio.readyState < 2) return;
+        const desired = this.desiredPosition();
+        if (Number.isFinite(audio.duration) && desired >= audio.duration) return;
+        const error = desired - audio.currentTime;
+        document.getElementById('playback-drift').textContent = (error * 1000).toFixed(0);
+        // Avoid small repeated seeks: they introduce their own buffering delay.
+        if (force || Math.abs(error) > 0.35) {
+            audio.playbackRate = 1;
+            audio.currentTime = desired;
+        } else if (Math.abs(error) > 0.02) {
+            audio.playbackRate = Math.max(0.97, Math.min(1.03, 1 + error * 0.2));
+        } else {
+            audio.playbackRate = 1;
+        }
+    },
+
+    startTracking() {
+        this.stopTracking();
+        this.nextClockCheck = performance.now() + 60000;
+        this.driftTimer = setInterval(() => {
+            this.correctDrift();
+            // Recalibrate long sessions without overlapping batches or database writes.
+            if (ClockSync.syncedAt !== null && performance.now() >= this.nextClockCheck && !ClockSync.pending) {
+                this.nextClockCheck = performance.now() + 60000;
+                ClockSync.calibrate().catch(() => {});
+            }
+        }, 250);
+    },
+
+    stopTracking() {
+        if (this.driftTimer !== null) clearInterval(this.driftTimer);
+        this.driftTimer = null;
+        STATE.audio.playbackRate = 1;
+    },
 
     toggleSystem() {
         if (localStorage.getItem('mps_role') === 'follower' && (STATE.status === 'IDLE' || STATE.status === 'BLOCKED')) {
@@ -561,6 +610,7 @@ const Engine = {
 
         const s = STATE.songs[STATE.curIdx];
         const songUrl = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
+        this.stopTracking();
         STATE.audio.src = songUrl;
         STATE.audio.load();
 
@@ -600,13 +650,14 @@ const Engine = {
             STATE.audio.play()
                 .then(() => {
                     if (STATE.targetTime !== targetTime) return;
-                    STATE.audio.currentTime = Math.max(0, (ClockSync.getPreciseTime() - targetTime - STATE.manualOffset) / 1000);
+                    if (Math.abs(this.desiredPosition() - STATE.audio.currentTime) > 0.08) STATE.audio.currentTime = this.desiredPosition();
                     document.getElementById('timer').innerText = "0.000";
                     UI.setSync('online', 'PLAYING');
                     STATE.status = 'PLAYING';
+                    this.startTracking();
                     UI.updatePlayBtn('PLAYING');
                 })
-                .catch(() => { this.reset(); alert("Auto-play blocked"); });
+                .catch(() => { if (STATE.targetTime === targetTime) { this.reset(); alert("Auto-play blocked"); } });
 
             STATE.audio.onended = () => {
                 this.reset();
@@ -630,7 +681,7 @@ const Engine = {
             const targetTime = STATE.targetTime;
             const seek = () => {
                 if (STATE.targetTime !== targetTime) return;
-                STATE.audio.currentTime = Math.max(0, (ClockSync.getPreciseTime() - targetTime - STATE.manualOffset) / 1000);
+                if (Math.abs(this.desiredPosition() - STATE.audio.currentTime) > 0.08) STATE.audio.currentTime = this.desiredPosition();
             };
             if (STATE.audio.readyState >= 1) seek();
             else STATE.audio.onloadedmetadata = seek;
@@ -641,6 +692,7 @@ const Engine = {
                     seek();
                     UI.setSync('online', 'FOLLOWING');
                     STATE.status = 'PLAYING';
+                    this.startTracking();
                     UI.updatePlayBtn('PLAYING');
                 })
                 .catch(() => {
@@ -677,9 +729,9 @@ const Engine = {
                     this.followerLoop();
                 } else {
                     STATE.status = 'PLAYING';
+                    this.startTracking();
                     UI.updatePlayBtn('PLAYING');
                     UI.setSync('online', 'FOLLOWING');
-                    UI.updatePlayBtn('PLAYING');
                 }
             } else {
                 STATE.audio.pause();
@@ -692,6 +744,7 @@ const Engine = {
     },
 
     reset(shouldBroadcast = true) {
+        this.stopTracking();
         STATE.status = 'IDLE';
         STATE.audio.pause();
         STATE.audio.currentTime = 0;
@@ -703,6 +756,7 @@ const Engine = {
         UI.setSync('online', 'READY');
         UI.updatePlayBtn('IDLE');
         PlayerView.progress();
+        document.getElementById('playback-drift').textContent = '--';
 
         if (shouldBroadcast && localStorage.getItem('mps_role') !== 'follower') broadcastEvent(ClockSync.getPreciseTime() + 1000, {
             _type: 'music',
@@ -717,8 +771,17 @@ const Engine = {
     },
 
     adjustManual(ms) {
-        STATE.manualOffset += ms;
+        this.setManual(STATE.manualOffset + ms);
+    },
+
+    setManual(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return;
+        STATE.manualOffset = Math.max(-2000, Math.min(2000, Math.round(number)));
         localStorage.setItem('v45_manual', STATE.manualOffset);
+        document.getElementById('cali-offset-disp').textContent = STATE.manualOffset;
+        document.getElementById('manual-offset-input').value = STATE.manualOffset;
+        this.correctDrift(true);
     }
 };
 
@@ -791,6 +854,7 @@ const Library = {
         while (target - now < leadTime) target += STATE.interval;
 
                 const s = STATE.songs[STATE.curIdx];
+                Engine.stopTracking();
                 STATE.audio.src = `https://music.163.com/song/media/outer/url?id=${s.id}.mp3`;
                 STATE.audio.load();
                 STATE.targetTime = target;
@@ -848,7 +912,7 @@ const Cali = {
     loop() {
         if(!this.isRunning) return;
         const now = ClockSync.getPreciseTime();
-        const nextSec = Math.ceil(now / 1000) * 1000;
+        const nextSec = (Math.floor((now - STATE.manualOffset) / 1000) + 1) * 1000;
         const delay = (nextSec + STATE.manualOffset) - now;
         this.timer = setTimeout(() => {
             this.beep();
@@ -915,9 +979,11 @@ window.addEventListener('keydown', (e) => {
 let storedLayout = 'record';
 try { storedLayout = localStorage.getItem('mps_layout') || 'record'; } catch (e) {}
 PlayerView.setLayout(storedLayout, false);
+Engine.setManual(STATE.manualOffset);
 
 STATE.audio.addEventListener('timeupdate', () => PlayerView.progress());
 STATE.audio.addEventListener('loadedmetadata', () => PlayerView.progress());
+window.addEventListener('pagehide', () => { Engine.stopTracking(); stopPolling(); });
 
 Library.render();
 UI.updateStats();
