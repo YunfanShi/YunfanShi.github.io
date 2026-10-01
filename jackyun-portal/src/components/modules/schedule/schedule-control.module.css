@@ -311,3 +311,66 @@
   .cueManager > div { display: block; overflow-x: hidden; overflow-y: auto; }
   .cueManager form, .cueManager section { overflow: visible; }
 }
+
+.answerCard {
+  position: fixed;
+  z-index: 170;
+  inset: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) auto;
+  width: min(720px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  background: var(--background);
+  box-shadow: 0 12px 60px #0005;
+}
+.answerInput {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 16px;
+  resize: vertical;
+}
+.answerComparison { min-width: 0; }
+.touchAnswerButton {
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ratingFeedback, .roundComplete {
+  padding: 6px 16px;
+  text-align: center;
+  font-size: 13px;
+  background: var(--card);
+}
+.ratingFeedback[data-rating="stable"] { color: var(--brand); }
+.roundComplete { color: var(--brand); }
+@keyframes cueArrive {
+  from { opacity: .4; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cueReveal {
+  from { opacity: .4; transform: perspective(900px) rotateX(-8deg); }
+  to { opacity: 1; transform: perspective(900px) rotateX(0); }
+}
+@keyframes cueFeedback {
+  from { opacity: .4; transform: scale(.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.studyOverlay[data-animations="true"] .studyTransition { animation: cueArrive .22s ease-out; }
+.studyOverlay[data-animations="true"] .studyTransition[data-revealed="true"] { animation: cueReveal .28s ease-out; }
+.studyOverlay[data-animations="true"] .answerComparison,
+.studyOverlay[data-animations="true"] .ratingFeedback,
+.studyOverlay[data-animations="true"] .roundComplete { animation: cueFeedback .25s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .studyOverlay[data-animations="true"] .studyTransition,
+  .studyOverlay[data-animations="true"] .answerComparison,
+  .studyOverlay[data-animations="true"] .ratingFeedback,
+  .studyOverlay[data-animations="true"] .roundComplete { animation: none !important; }
+}

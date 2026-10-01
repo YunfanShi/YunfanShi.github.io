@@ -128,3 +128,22 @@ test('mean formulas from legacy JSON repair backspace and compact bar commands w
   assert.equal(normalizeLegacyLatex(String.raw`\bar{x} and \barista`), String.raw`\bar{x} and \barista`);
   assert.deepEqual(splitMathText('CSMA/CD and TCP/IP'), [{ type: 'text', value: 'CSMA/CD and TCP/IP' }]);
 });
+
+const AnswerPanel = compileComponent('../src/components/modules/schedule/cue-answer-card.tsx', {
+  '../latex-renderer': { __esModule: true, default: LatexRenderer },
+  './schedule-control.module.css': { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) },
+});
+test('optional answer card hides comparison for blank responses and preserves old memos', () => {
+  const props = { cue, inputRef: { current: null }, previousCards: [], legacyMemo: 'Old note', onText() {}, onCompare() {}, onCheck() {}, onClose() {} };
+  const blank = renderToStaticMarkup(React.createElement(AnswerPanel, props));
+  assert.match(blank, /disabled=""/);
+  assert.doesNotMatch(blank, /aria-label="作答对照"/);
+  assert.match(blank, /Old note/);
+  const filled = renderToStaticMarkup(React.createElement(AnswerPanel, { ...props, card: { text: 'My answer', comparison: { version: 1, answer: 'Reference', markingPoints: ['Point'], checkedPoints: [0] } } }));
+  assert.match(filled, /aria-label="作答对照"/);
+  assert.match(filled, /My answer/);
+  assert.match(filled, /Reference/);
+  assert.match(filled, /checked=""/);
+  const erased = renderToStaticMarkup(React.createElement(AnswerPanel, { ...props, card: { text: ' ', comparison: { answer: 'Reference' } } }));
+  assert.doesNotMatch(erased, /aria-label="作答对照"/);
+});

@@ -1,3 +1,4 @@
+import type { CueAnswerCard } from './cue-answer-card.ts';
 import { createCueChangeRecord, type CueChangeRecord } from './cue-change-history.ts';
 import { difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
 import type { QuestionAttempt } from './question-bank.ts';
@@ -451,6 +452,7 @@ export interface ScheduleControlState {
   cueSimilarityDecisions: CueSimilarityDecision[];
   /** Durable per-Cue notes. They are part of Schedule state and therefore account-syncable. */
   cueMemos: CueMemo[];
+  cueAnswerCards: CueAnswerCard[];
   cueStudyDraft?: CueStudyDraft;
   cueStudyDrafts?: Record<string, CueStudyDraft>;
   importedAt?: string;
@@ -552,6 +554,7 @@ export function createEmptyScheduleState(): ScheduleControlState {
     cueChangeHistory: [],
     cueSimilarityDecisions: [],
     cueMemos: [],
+    cueAnswerCards: [],
   };
 }
 
