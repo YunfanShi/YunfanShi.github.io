@@ -5,14 +5,14 @@ import test from 'node:test';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '../src/lib/companion.ts';
 function player(clock = performance) {
  const html = readFileSync(process.env.MUSIC_SYNC_SOURCE || new URL('../public/MusicPlayerSync.html', import.meta.url), 'utf8');
- const source = html.slice(html.indexOf('const IS_MASTER'), html.indexOf('\nLibrary.render();\nUI.updateStats();'));
+ const source = html.slice(html.indexOf('const IS_MASTER'), html.indexOf("STATE.audio.addEventListener('timeupdate'"));
  const elements = new Map(); const requests: string[] = [];
  const audio = { src: '', readyState: 1, getAttribute() { return this.src; }, removeAttribute() { this.src = ''; }, currentTime: 0, onended: null, load() {}, pause() {}, play: () => Promise.resolve() };
  elements.set('main-audio', audio);
  const storage = new Map([['mps_role', 'follower']]);
- const api = runInNewContext(source + '\n({STATE,Engine,handleIncomingBroadcast,startPolling,ClockSync})', {
+ const api = runInNewContext(source + '\n({STATE,Engine,handleIncomingBroadcast,startPolling,ClockSync,PlayerView,Library})', {
  localStorage: {getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string,v: string) => storage.set(k,v), removeItem() {}},
- document: {getElementById: (id: string) => { if (!elements.has(id)) elements.set(id,{textContent:'',innerText:'',classList:{add(){}},querySelector:()=>({innerText:''})}); return elements.get(id); }},
+ document: {getElementById: (id: string) => { if (!elements.has(id)) elements.set(id,{textContent:'',innerText:'',classList:{add(){}},setAttribute(){},querySelector:()=>({innerText:''})}); return elements.get(id); }},
  window: {addEventListener(){}}, console, performance: clock, AbortSignal,
  fetch: async (url: string) => {requests.push(url);return {ok:true,json:async()=>({broadcasts:[]})};},
  setInterval(){return 1;},clearInterval(){},setTimeout(){},requestAnimationFrame(){return 1;},cancelAnimationFrame(){}
@@ -141,6 +141,37 @@ test('master also catches up if audio starts after the shared target time', asyn
   p.STATE.status = 'ARMED';
   p.STATE.targetTime = p.ClockSync.getPreciseTime() - 4000;
   p.Engine.loop();
+  await Promise.resolve();
+  assert.equal(p.STATE.status, 'PLAYING');
+  assert.ok(p.audio.currentTime >= 4);
+});
+
+test('player progress displays actual audio time and duration', () => {
+  const p = player();
+  p.audio.currentTime = 65;
+  p.audio.duration = 130;
+  p.PlayerView.progress();
+  assert.equal(p.elements.get('track-progress').value, 50);
+  assert.equal(p.elements.get('elapsed-time').textContent, '1:05');
+  assert.equal(p.elements.get('duration-time').textContent, '2:10');
+});
+
+test('playlist escapes imported names and IDs rather than inserting markup', () => {
+  const p = player();
+  p.STATE.songs = [{ name: '<img src=x onerror=alert(1)>', id: '<script>' }];
+  p.Library.render();
+  const html = p.elements.get('list-el').innerHTML;
+  assert.match(html, /&lt;img/);
+  assert.doesNotMatch(html, /<img|<script>/);
+});
+
+test('follower player button resumes the last song on its shared timeline', async () => {
+  const p = player();
+  await p.handleIncomingBroadcast(p.command('play', 1, Date.now() - 4000));
+  await Promise.resolve();
+  p.Engine.toggleSystem();
+  assert.equal(p.STATE.status, 'IDLE');
+  p.Engine.toggleSystem();
   await Promise.resolve();
   assert.equal(p.STATE.status, 'PLAYING');
   assert.ok(p.audio.currentTime >= 4);

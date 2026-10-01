@@ -3,186 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jack's Sync | Multi-Device Music Player</title>
+    <title>一起听 · JackYun 同步音乐</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
-    <style>
-        :root {
-            --primary: #6366f1; --primary-hover: #4f46e5;
-            --bg: #0b0e14; --surface: #151921;
-            --text-main: #f8fafc; --text-sec: #94a3b8; --border: #2d3748;
-            --accent: #22d3ee; --success: #10b981; --warn: #f59e0b;
-        }
-        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text-main); height: 100vh; overflow: hidden; user-select: none; }
-        
-        header { height: 64px; background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); }
-        .brand { font-weight: 900; font-size: 18px; letter-spacing: -0.5px; display: flex; gap: 10px; align-items: center; color: white; }
-        .tag { font-size: 10px; background: var(--primary); padding: 3px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px; }
-        .header-right { display: flex; align-items: center; gap: 15px; }
-
-        .sync-trigger {
-            background: #1e293b; color: var(--accent); border: 1px solid #334155;
-            padding: 8px 16px; border-radius: 20px; font-family: 'Roboto Mono'; font-size: 12px; font-weight: 700;
-            cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;
-        }
-        .sync-trigger:hover { background: #334155; border-color: var(--accent); color: white; }
-        .sync-trigger:active { transform: scale(0.95); }
-        .sync-trigger.syncing { color: var(--warn); border-color: var(--warn); animation: pulse 1s infinite; }
-
-        .btn-icon { background: transparent; border: none; color: var(--text-sec); cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; display: flex; }
-        .btn-icon:hover { background: rgba(255,255,255,0.1); color: white; }
-
-        .container { display: flex; height: calc(100vh - 65px); }
-        aside { width: 340px; background: #11141a; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-
-        .panel { padding: 20px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
-
-        .input-row { display: flex; gap: 10px; }
-        input { 
-            background: var(--bg); border: 1px solid var(--border); color: white; padding: 10px; 
-            border-radius: 6px; outline: none; font-family: 'Inter'; font-size: 12px; transition: 0.2s;
-        }
-        input:focus { border-color: var(--primary); }
-        #inp-id { flex: 1; font-family: 'Roboto Mono'; }
-        #inp-name { flex: 1.5; }
-
-        .btn-pri { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; width: 100%; }
-        .btn-pri:hover { background: var(--primary-hover); }
-        
-        .btn-sec { background: transparent; border: 1px solid var(--border); color: var(--text-sec); padding: 8px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 11px; flex: 1; }
-        .btn-sec:hover { border-color: var(--text-main); color: var(--text-main); }
-        
-        #masterPanel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-        .list { flex: 1; overflow-y: auto; min-height: 0; }
-        .item { padding: 12px 20px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.1s; }
-        .item:hover { background: #1e2430; }
-        .item.active { background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--primary); }
-        .item-info { display: flex; flex-direction: column; overflow: hidden; }
-        .item-title { font-size: 13px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-id { font-size: 10px; color: var(--text-sec); font-family: 'Roboto Mono'; margin-top: 2px; }
-        .btn-del { color: #ef4444; cursor: pointer; padding: 4px; opacity: 0; transition: 0.2s; }
-        .item:hover .btn-del { opacity: 1; }
-
-        main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-        
-        .timer-huge { 
-            font-size: 160px; font-family: 'Roboto Mono'; font-weight: 700; 
-            font-variant-numeric: tabular-nums; line-height: 1.2; height: 190px;
-            margin-bottom: 20px; color: var(--text-main); letter-spacing: -8px;
-            text-shadow: 0 0 50px rgba(99, 102, 241, 0.2);
-            display: flex; align-items: center;
-        }
-        
-        .status-pill { 
-            background: #1e2430; border: 1px solid var(--border); padding: 8px 20px; 
-            border-radius: 30px; font-size: 12px; color: var(--accent); font-weight: 600;
-            letter-spacing: 1px; display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
-        }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-sec); }
-        .dot.syncing { background: var(--warn); animation: blink 0.5s infinite; }
-        .dot.online { background: var(--success); box-shadow: 0 0 10px rgba(16,185,129,0.4); }
-
-        .player-bar {
-            display: flex; gap: 15px; align-items: center; background: var(--surface);
-            padding: 15px 30px; border-radius: 16px; border: 1px solid var(--border);
-            margin-top: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        }
-        .ctrl-btn {
-            background: #2d3748; color: white; width: 48px; height: 48px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
-        }
-        .ctrl-btn:hover { background: #4a5568; transform: scale(1.05); }
-        .ctrl-btn.huge { width: 64px; height: 64px; background: var(--primary); box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
-        .ctrl-btn.huge:hover { background: var(--primary-hover); }
-        .ctrl-btn.huge.active { background: #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
-
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
-        .modal.open { display: flex; }
-        .card { background: var(--surface); width: 500px; padding: 25px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .card h3 { margin-top: 0; font-size: 16px; margin-bottom: 15px; color: white; display: flex; justify-content: space-between; align-items: center; }
-
-        .paste-area {
-            width: 100%; height: 120px; background: #0b0e14; border: 2px dashed var(--border);
-            color: var(--accent); font-family: 'Roboto Mono'; font-size: 11px; padding: 15px;
-            box-sizing: border-box; border-radius: 8px; resize: none; outline: none; margin-bottom: 15px;
-        }
-        .paste-area:focus { border-color: var(--primary); }
-
-        .metro-box { display: flex; align-items: center; justify-content: center; height: 80px; background: #0b0e14; border-radius: 8px; border: 2px solid var(--border); margin-bottom: 15px; }
-        .metro-box.flash { background: #22d3ee; border-color: #22d3ee; }
-
-        .role-badge {
-            background: #334155; color: white; padding: 4px 12px; border-radius: 20px;
-            font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
-        }
-        .role-badge.master { background: #7c3aed; }
-        .role-badge.follower { background: #f59e0b; }
-
-        .now-playing { font-size: 14px; color: var(--accent); margin-top: 10px; display: none; }
-        .now-playing.show { display: block; }
-
-        @keyframes pulse { 50% { opacity: 0.5; } }
-        @keyframes rotate { 100% { transform: rotate(360deg); } }
-        .spin { animation: rotate 1s linear infinite; }
-
-        @media (max-width: 767px) {
-            body { min-height: 100dvh; height: auto; overflow-y: auto; }
-            header { height: auto; min-height: 64px; padding: 10px 12px; gap: 8px; }
-            .brand { min-width: 0; font-size: 14px; }
-            .brand .tag { display: none; }
-            .header-right { gap: 5px !important; }
-            .sync-trigger { min-width: 44px; min-height: 44px; padding: 8px 10px; justify-content: center; }
-            #sync-main-txt { display: none; }
-            .header-right .stats { display: none !important; }
-            .container { display: flex; height: auto; min-height: calc(100dvh - 64px); flex-direction: column; }
-            aside { width: 100%; min-height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid var(--border); }
-            #masterPanel { min-height: auto; }
-            .panel { padding: 14px 12px; }
-            .input-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-            input { min-width: 0; width: 100%; }
-            .list { max-height: 32dvh; flex: none; }
-            main { min-height: 390px; padding: 28px 12px calc(24px + env(safe-area-inset-bottom)); justify-content: flex-start; }
-            .status-pill { margin-bottom: 28px; }
-            .timer-huge { height: auto; min-height: 76px; margin-bottom: 12px; font-size: clamp(48px, 17vw, 76px); letter-spacing: -4px; }
-            .player-bar { width: 100%; max-width: 430px; justify-content: space-between; gap: 6px; margin-top: 28px; padding: 12px; }
-            .ctrl-btn { width: 44px; height: 44px; flex: none; }
-            .ctrl-btn.huge { width: 60px; height: 60px; }
-            .card { width: calc(100% - 20px); max-height: calc(100dvh - 20px); overflow-y: auto; padding: 20px 16px; }
-        }
-    </style>
 <link rel="stylesheet" href="/jackyun-theme.css">
-<style id="jackyun-music-sync-three-themes">
-html[data-jy-theme="light"] body,
-html[data-jy-theme="light"] main { background:var(--background); color:var(--text); }
-html[data-jy-theme="light"] header,
-html[data-jy-theme="light"] aside,
-html[data-jy-theme="light"] .panel,
-html[data-jy-theme="light"] .player-bar,
-html[data-jy-theme="light"] .card { background:var(--surface); color:var(--text); border-color:var(--border); }
-html[data-jy-theme="light"] .list { background:var(--surface2); }
-html[data-jy-theme="light"] .brand,
-html[data-jy-theme="light"] .item-title,
-html[data-jy-theme="light"] .card h3 { color:var(--text); }
-html[data-jy-theme="light"] input,
-html[data-jy-theme="light"] .paste-area,
-html[data-jy-theme="light"] .metro-box { background:var(--surface2); color:var(--text); }
-html[data-jy-theme="light"] .sync-trigger,
-html[data-jy-theme="light"] .status-pill,
-html[data-jy-theme="light"] .ctrl-btn,
-html[data-jy-theme="light"] .modal .card > div[style*="background:#1e2430"] { background:var(--surface3) !important; color:var(--text); border-color:var(--border); }
-html[data-jy-theme="light"] .panel[style*="background:#1e1b4b"] { background:var(--surface2) !important; border-bottom-color:var(--border) !important; }
-html[data-jy-theme="light"] .panel[style*="background:#1e1b4b"] .btn-sec[style*="background:#7c3aed"] { background:var(--primary) !important; border-color:var(--primary) !important; }
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) aside,
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .list,
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #masterPanel,
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) #followerPanel { background:var(--surface) !important; }
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .panel[style*="background:#1e1b4b"] { background:var(--surface2) !important; border-bottom-color:var(--border2) !important; }
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .panel[style*="background:#1e1b4b"] .btn-sec[style*="background:#7c3aed"] { background:var(--surface3) !important; border-color:var(--border2) !important; color:var(--text) !important; }
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge,
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge.master,
-html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge.follower { background:var(--surface3); color:var(--text); }
+<style>
+:root { --music-accent:#087f73; --music-soft:#dff4ed; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:Inter,system-ui,sans-serif; background:var(--background); color:var(--text); }
+button,input,textarea { font:inherit; } button { cursor:pointer; } button:focus-visible,summary:focus-visible,input:focus-visible { outline:3px solid var(--music-accent); outline-offset:3px; }
+header { max-width:1240px; margin:auto; padding:26px 36px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.brand { display:flex; align-items:center; gap:12px; font-size:18px; font-weight:700; letter-spacing:-.6px; }
+.brand-mark { display:grid; place-items:center; width:40px; height:40px; border-radius:14px; background:var(--music-accent); color:white; }
+.brand small { display:block; color:var(--text-sec); font-size:11px; font-weight:400; letter-spacing:1px; margin-top:4px; }
+.header-right { display:flex; align-items:center; gap:10px; }
+.role-badge { font-size:12px; padding:8px 12px; border-radius:30px; background:var(--surface2); color:var(--text-sec); }
+.btn-icon { display:grid; place-items:center; background:var(--surface2); border:0; color:var(--text); width:44px; height:44px; border-radius:50%; }
+.container { max-width:1240px; margin:0 auto; padding:12px 36px 40px; display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:48px; }
+main { grid-column:1; grid-row:1; min-width:0; text-align:center; display:flex; flex-direction:column; align-items:center; padding:24px 24px 0; }
+aside { grid-column:2; grid-row:1; min-width:0; border-left:1px solid var(--border); padding-left:28px; }
+.eyebrow { font-size:10px; font-weight:600; letter-spacing:3px; color:var(--text-sec); margin:0 0 20px; }
+.record-art { flex:none; width:min(100%,340px); aspect-ratio:1; border-radius:26px; background:linear-gradient(140deg,#cfe9dc,#8abcb0 55%,#345e56); display:grid; place-items:center; position:relative; overflow:hidden; box-shadow:0 24px 50px -30px #194d4d80; }
+.record-art:before { content:''; position:absolute; inset:18px; border:1px solid #ffffff50; border-radius:16px; }
+.record { width:76%; aspect-ratio:1; border-radius:50%; background:repeating-radial-gradient(circle at center,#232b2b 0px,#232b2b 2px,#343c3b 3px,#171f1e 4px); display:grid; place-items:center; box-shadow:10px 14px 24px #163a3950; animation:record-turn 18s linear infinite; animation-play-state:paused; }
+.record-art.playing .record { animation-play-state:running; }
+.record-label { width:34%; aspect-ratio:1; border-radius:50%; background:#d6efdf; color:#194e43; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:8px; letter-spacing:2px; gap:7px; border:1px solid #9abfb0; }
+.record-label:after { content:''; width:8px; height:8px; background:#243e35; border-radius:50%; }
+.record-label .material-icons-round { font-size:22px; }
+.art-caption { position:absolute; bottom:27px; right:30px; color:#e5f3e9; font-size:9px; letter-spacing:2px; }
+.track-copy { width:100%; margin:26px 0 18px; }
+.track-copy h1 { margin:0; font-size:clamp(23px,3vw,32px); font-weight:600; letter-spacing:-1px; line-height:1.35; overflow-wrap:anywhere; }
+.track-copy p { margin:9px 0 0; font-size:12px; color:var(--text-sec); }
+.progress-area { width:100%; max-width:380px; }
+progress { width:100%; height:4px; display:block; border:0; border-radius:8px; overflow:hidden; background:var(--border); accent-color:var(--music-accent); }
+progress::-webkit-progress-bar { background:var(--border); } progress::-webkit-progress-value { background:var(--music-accent); border-radius:8px; }
+.time-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--text-sec); font-variant-numeric:tabular-nums; margin-top:9px; }
+.playback-controls { display:flex; align-items:center; justify-content:center; gap:22px; margin:18px 0; }
+.ctrl-btn { display:grid; place-items:center; width:44px; height:44px; border:0; border-radius:50%; color:var(--text); background:transparent; transition:background .2s,transform .2s; }
+.ctrl-btn:hover { background:var(--surface2); transform:translateY(-1px); }
+.ctrl-btn:disabled { opacity:.35; cursor:default; }
+.ctrl-btn.huge { width:66px; height:66px; background:var(--music-accent); color:white; box-shadow:0 8px 18px #087f7328; }
+.ctrl-btn.huge.active { background:var(--music-accent); }
+.volume-row { display:flex; align-items:center; gap:10px; color:var(--text-sec); margin:0 0 20px; }
+.volume-row .material-icons-round { font-size:18px; } input[type=range] { width:90px; accent-color:var(--music-accent); }
+.status-pill { display:flex; gap:7px; align-items:center; justify-content:center; color:var(--text-sec); font-size:11px; flex-wrap:wrap; padding:10px 14px; border-radius:14px; background:var(--surface2); }
+.dot { width:6px; height:6px; border-radius:50%; background:var(--text-sec); flex:none; } .dot.online { background:var(--music-accent); } .dot.syncing { background:var(--warn); }
+.sync-countdown { font-size:11px; font-variant-numeric:tabular-nums; color:var(--music-accent); padding-left:8px; border-left:1px solid var(--border); }
+.queue-heading { display:flex; align-items:center; justify-content:space-between; margin:12px 0 8px; } .queue-heading h2 { font-size:19px; letter-spacing:-.5px; margin:0; } .queue-heading span { font-size:11px; color:var(--text-sec); }
+.queue-caption { margin:0 0 20px; color:var(--text-sec); font-size:12px; }
+.list { max-height:420px; overflow:auto; } .empty-queue { padding:45px 15px; border:1px dashed var(--border); border-radius:16px; text-align:center; color:var(--text-sec); font-size:12px; line-height:1.9; } .empty-queue .material-icons-round { display:block; font-size:28px; margin-bottom:12px; }
+.item { display:flex; align-items:center; gap:12px; padding:12px 10px; margin-bottom:4px; border-radius:12px; cursor:pointer; }
+.item:hover { background:var(--surface2); } .item.active { background:var(--music-soft); color:#145a4d; }
+.track-number { width:20px; flex:none; font-size:11px; color:var(--text-sec); text-align:center; }
+.item-info { flex:1; min-width:0; } .item-title { font-size:13px; font-weight:600; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; } .item-id { font-size:10px; color:var(--text-sec); margin-top:5px; }
+.btn-del { color:var(--text-sec); border:0; background:transparent; padding:8px; border-radius:8px; } .item .btn-del { opacity:0; } .item:hover .btn-del,.item:focus-within .btn-del { opacity:1; }
+.panel { display:flex; flex-direction:column; gap:12px; padding:16px 0; } .input-row { display:flex; gap:8px; } input:not([type=range]),textarea { min-width:0; width:100%; padding:12px; color:var(--text); background:var(--surface2); border:1px solid var(--border); border-radius:10px; font-size:13px; }
+.btn-pri { background:var(--music-accent); color:white; border:0; padding:12px 16px; border-radius:10px; font-size:12px; font-weight:600; }
+.btn-sec { background:var(--surface2); color:var(--text); border:1px solid var(--border); padding:10px 12px; border-radius:10px; font-size:12px; }
+.queue-actions { display:flex; gap:8px; margin:18px 0; } .queue-actions .btn-sec { flex:1; } details { border-top:1px solid var(--border); margin-top:16px; } summary { padding:18px 0; cursor:pointer; font-size:12px; color:var(--text-sec); }
+.settings-row { display:flex; gap:8px; } .settings-row button { flex:1; } .settings-note { font-size:11px; color:var(--text-sec); line-height:1.7; }
+.sync-trigger { display:flex; align-items:center; justify-content:center; gap:8px; background:var(--surface2); color:var(--text); border:1px solid var(--border); padding:12px; border-radius:10px; font-size:12px; } .stats { color:var(--text-sec); font-size:11px; }
+.now-playing { display:none; } .now-playing.show { display:block; } .follower-card { padding:24px 16px; border-radius:16px; background:var(--surface2); text-align:center; } .follower-card p { font-size:12px; color:var(--text-sec); line-height:1.8; } .follower-card h3 { font-size:16px; }
+.modal { display:none; position:fixed; inset:0; background:#071a1766; backdrop-filter:blur(8px); z-index:100; align-items:center; justify-content:center; padding:16px; } .modal.open { display:flex; }
+.card { width:460px; max-width:100%; max-height:calc(100dvh - 32px); overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:22px; padding:26px; box-shadow:0 25px 70px #071a1730; } .card h3 { display:flex; justify-content:space-between; font-size:18px; margin:0 0 20px; } .paste-area { height:130px; margin:15px 0; resize:vertical; }
+.metro-box { display:grid; place-items:center; height:80px; border-radius:12px; background:var(--surface2); margin:16px 0; } .metro-box.flash { background:var(--music-soft); }
+html:is([data-jy-theme=gray],[data-jy-theme=dark]) { --music-soft:#183e36; --music-accent:#70cdb6; } html:is([data-jy-theme=gray],[data-jy-theme=dark]) .item.active { color:#b3edda; } html:is([data-jy-theme=gray],[data-jy-theme=dark]) .btn-pri,html:is([data-jy-theme=gray],[data-jy-theme=dark]) .ctrl-btn.huge { color:#102e26; }
+@keyframes record-turn { to { transform:rotate(360deg); } } @media(prefers-reduced-motion:reduce) { .record { animation:none; } }
+@media(max-width:900px) { .container { gap:24px; padding:8px 24px 32px; grid-template-columns:minmax(0,1fr) 290px; } header { padding:20px 24px; } aside { padding-left:20px; } main { padding:20px 0; } }
+@media(max-width:640px) { header { padding:18px 20px; } .brand { font-size:16px; } .brand small { font-size:9px; } .container { display:flex; flex-direction:column; padding:0 20px 24px; gap:30px; } main { order:0; padding:10px 0 0; } aside { order:1; padding:22px 0 0; border-left:0; border-top:1px solid var(--border); } .record-art { flex:none; width:min(76vw,290px); } .eyebrow { margin-bottom:16px; } .track-copy { margin-top:22px; } .playback-controls { gap:18px; } .list { max-height:320px; } .item .btn-del { opacity:1; } input:not([type=range]),textarea { font-size:16px; } .role-badge { font-size:10px; } .brand-mark { width:34px; height:34px; } }
 </style>
 <script src="/jackyun-theme.js"></script></head>
 <body>
@@ -202,117 +92,49 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge.follower { b
 
 <div id="cali-modal" class="modal">
     <div class="card">
-        <h3>Latency Check <span onclick="toggleModal('cali-modal'); Cali.stop();" style="cursor:pointer">&times;</span></h3>
-        <p style="font-size:12px; color:var(--text-sec);">Adjust Offset until the sound matches the visual flash.</p>
+        <h3>声音延迟校准 <span onclick="toggleModal('cali-modal'); Cali.stop();" style="cursor:pointer">&times;</span></h3>
+        <p style="font-size:12px; color:var(--text-sec);">调整偏移，让声音与闪光同时出现。</p>
         <div id="metro-visual" class="metro-box">
             <span style="font-weight:900; font-size:24px;">TICK</span>
         </div>
         <div style="text-align:center; font-family:'Roboto Mono'; color:var(--accent); margin-bottom:15px;">
-            Current Offset: <span id="cali-offset-disp">0</span> ms
+            当前偏移： <span id="cali-offset-disp">0</span> ms
         </div>
-        <button class="btn-pri" onclick="Cali.toggle()">Start/Stop Metronome</button>
+        <button class="btn-pri" onclick="Cali.toggle()">开始 / 停止节拍器</button>
     </div>
 </div>
 
 <header>
-    <div class="brand">
-        <span class="material-icons-round" style="color:var(--primary)">dns</span>
-        JACK'S SYNC <span class="tag">V5.0 SYNC</span>
-    </div>
-    
-    <div class="header-right" style="display:flex;align-items:center;gap:12px;">
-        <span id="roleBadge" class="role-badge">主设备</span>
-        
-        <button class="sync-trigger" onclick="testConnection()" id="sync-main-btn">
-            <span class="material-icons-round" style="font-size:16px;">speed</span>
-            <span id="sync-main-txt">TEST</span>
-        </button>
-
-        <div class="stats" style="display:flex;align-items:center;gap:8px;font-size:11px;font-family:'Roboto Mono';">
-            <span style="color:var(--text-sec);">⏱</span>
-            <span id="st-offset" style="color:var(--accent);">0</span>
-        </div>
-        <button class="btn-icon" onclick="toggleModal('cali-modal')" title="Check Latency">
-            <span class="material-icons-round">speed</span>
-        </button>
-    </div>
+    <div class="brand"><span class="brand-mark material-icons-round">graphic_eq</span><div>一起听<small>JACKYUN · SYNC MUSIC</small></div></div>
+    <div class="header-right"><span id="roleBadge" class="role-badge">主设备</span><button class="btn-icon" onclick="document.getElementById('sync-settings').open=true;document.getElementById('sync-settings').scrollIntoView({behavior:'smooth'})" aria-label="同步设置"><span class="material-icons-round">tune</span></button></div>
 </header>
-
 <div class="container">
     <aside>
-        <!-- ══ SYNC ROLE PANEL ══ -->
-        <div class="panel" style="background:#1e1b4b;border-bottom:2px solid var(--primary);">
-            <div style="display:flex;gap:8px;">
-                <button class="btn-sec" style="flex:1;background:#7c3aed;color:white;border-color:#7c3aed;" onclick="setRole('master')">🔊 主设备</button>
-                <button class="btn-sec" style="flex:1;" onclick="setRole('follower')">📻 副设备</button>
-            </div>
-            <div style="font-size:10px;color:var(--text-sec);text-align:center;" id="syncStatusText">等待设置角色...</div>
-        </div>
-
-        <!-- ══ MASTER PANEL ══ -->
+        <div class="queue-heading"><h2>你的歌单</h2><span id="song-count">0 首歌曲</span></div>
+        <p class="queue-caption">选一首喜欢的，让音乐在设备间流动。</p>
         <div id="masterPanel">
-            <div class="panel">
-                <div class="input-row">
-                    <input id="inp-id" placeholder="ID (e.g. 186016)">
-                    <input id="inp-name" placeholder="Song Name">
-                </div>
-                <button class="btn-pri" onclick="Library.add()">添加单曲 (Add Song)</button>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-sec" onclick="toggleModal('import-modal')">批量导入</button>
-                    <button class="btn-sec btn-del" onclick="Library.clear()">清空</button>
-                </div>
-            </div>
             <div id="list-el" class="list"></div>
+            <div class="queue-actions"><button class="btn-sec" onclick="document.getElementById('add-song').open=!document.getElementById('add-song').open"><span aria-hidden="true">＋</span> 添加歌曲</button><button class="btn-sec" onclick="toggleModal('import-modal')">导入歌单</button></div>
+            <details id="add-song"><summary>通过网易云歌曲 ID 添加</summary><div class="panel"><input id="inp-name" aria-label="歌曲名称" placeholder="歌曲名称"><input id="inp-id" aria-label="网易云歌曲 ID" placeholder="网易云歌曲 ID，例如 186016"><button class="btn-pri" onclick="Library.add()">加入歌单</button><button class="btn-sec" onclick="if(confirm('清空整个歌单？')) Library.clear()">清空歌单</button></div></details>
         </div>
-
-        <!-- ══ FOLLOWER PANEL ══ -->
-        <div id="followerPanel" style="display:none;">
-            <div class="panel" style="text-align:center;padding:30px 20px;">
-                <div style="font-size:40px;margin-bottom:12px;animation:pulse 2s infinite;">📡</div>
-                <div style="font-size:14px;font-weight:600;color:var(--text-main);margin-bottom:8px;">等待主设备播放...</div>
-                <div style="font-size:11px;color:var(--text-sec);">连接同步信号后将自动播放同一首歌</div>
-                <button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button>
-                <div id="followerAudioHint" style="font-size:11px;color:var(--text-sec);">首次使用请点击启用声音；请保持页面在前台。</div>
-                <div class="now-playing" id="followerNowPlaying">
-                    <div style="font-size:12px;color:var(--text-sec);margin-bottom:4px;">当前播放</div>
-                    <div id="followerSongName" style="font-size:16px;font-weight:700;color:var(--accent);">--</div>
-                </div>
-            </div>
-        </div>
+        <div id="followerPanel" style="display:none"><div class="follower-card"><span class="material-icons-round" style="font-size:32px;color:var(--music-accent)">headphones</span><h3>一起听同一首歌</h3><p>主设备负责选歌和切歌，<br>这台设备跟随播放。</p><button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button><p id="followerAudioHint">首次使用请点击启用声音，并保持页面在前台。</p><div class="now-playing" id="followerNowPlaying"><div id="followerSongName">等待主设备选歌</div></div></div></div>
+        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准</button></div></details>
     </aside>
-
     <main>
-        <div class="status-pill">
-            <div id="sync-dot" class="dot"></div>
-            <span id="sync-msg">INITIALIZING...</span>
+        <p class="eyebrow">LISTEN TOGETHER</p>
+        <div class="record-art" id="record-art" aria-hidden="true"><div class="record"><div class="record-label"><span class="material-icons-round">music_note</span>TOGETHER</div></div><span class="art-caption">SIDE A / JACKYUN</span></div>
+        <div class="track-copy"><h1 id="masterSongName">让喜欢的音乐响起来</h1><p id="track-subtitle">添加歌曲，开启一起听</p></div>
+        <div id="masterNowPlaying" class="now-playing"></div>
+        <div class="progress-area"><progress id="track-progress" value="0" max="100" aria-label="歌曲播放进度"></progress><div class="time-labels"><span id="elapsed-time">0:00</span><span id="duration-time">--:--</span></div></div>
+        <div class="playback-controls">
+            <button class="ctrl-btn" onclick="Library.toggleMode()" id="btn-mode" aria-label="切换播放模式" title="顺序播放"><span class="material-icons-round">repeat</span></button>
+            <button class="ctrl-btn master-control" onclick="Library.prev()" aria-label="上一首"><span class="material-icons-round">skip_previous</span></button>
+            <button class="ctrl-btn huge" id="btn-play" onclick="Engine.toggleSystem()" aria-label="播放"><span class="material-icons-round" style="font-size:32px">play_arrow</span></button>
+            <button class="ctrl-btn master-control" onclick="Library.next()" aria-label="下一首"><span class="material-icons-round">skip_next</span></button>
+            <button class="ctrl-btn" onclick="PlayerView.toggleMute()" id="btn-mute" aria-label="静音"><span class="material-icons-round">volume_up</span></button>
         </div>
-
-        <div id="timer" class="timer-huge">--.---</div>
-        
-        <!-- Now playing name for master -->
-        <div class="now-playing" id="masterNowPlaying">🎵 <span id="masterSongName"></span></div>
-        
-        <div class="player-bar">
-            <div class="ctrl-btn" onclick="Library.toggleMode()" id="btn-mode" title="Play Mode">
-                <span class="material-icons-round">repeat</span>
-            </div>
-            
-            <div class="ctrl-btn" onclick="Library.prev()">
-                <span class="material-icons-round">skip_previous</span>
-            </div>
-
-            <div class="ctrl-btn huge" id="btn-play" onclick="Engine.toggleSystem()">
-                <span class="material-icons-round" style="font-size:32px">play_arrow</span>
-            </div>
-
-            <div class="ctrl-btn" onclick="Library.next()">
-                <span class="material-icons-round">skip_next</span>
-            </div>
-
-            <div class="ctrl-btn" onclick="toggleModal('cali-modal')" title="Check Latency">
-                <span class="material-icons-round">speed</span>
-            </div>
-        </div>
+        <div class="volume-row"><span class="material-icons-round" aria-hidden="true">volume_down</span><input type="range" min="0" max="1" step="0.01" value="1" aria-label="音量" oninput="PlayerView.setVolume(this.value)"></div>
+        <div class="status-pill" role="status"><div id="sync-dot" class="dot"></div><span id="sync-msg">准备一起听</span><span id="timer" class="sync-countdown" aria-label="同步播放倒计时">--.---</span></div>
     </main>
 </div>
 
@@ -560,7 +382,8 @@ async function handleIncomingBroadcast(data) {
         UI.setSync('syncing', `SYNC ${p.songName || ''}`);
 
         const el = document.getElementById('followerSongName');
-        if (el) el.textContent = p.songName || 'Unknown Track';
+        if (el) el.textContent = p.songName || '未命名歌曲';
+        PlayerView.track(p.songName || '未命名歌曲', '跟随主设备 · 网易云音乐');
         document.getElementById('followerNowPlaying').classList.add('show');
 
         Engine.followerLoop();
@@ -573,10 +396,38 @@ async function handleIncomingBroadcast(data) {
 // 4. UI
 // ═══════════════════════════════════════════════
 
+const PlayerView = {
+    track(name, subtitle) {
+        document.getElementById('masterSongName').textContent = name;
+        document.getElementById('track-subtitle').textContent = subtitle;
+    },
+    progress() {
+        const audio = STATE.audio;
+        const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        const format = seconds => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+        document.getElementById('track-progress').value = duration ? audio.currentTime / duration * 100 : 0;
+        document.getElementById('elapsed-time').textContent = format(audio.currentTime || 0);
+        document.getElementById('duration-time').textContent = duration ? format(duration) : '--:--';
+    },
+    setVolume(value) {
+        STATE.audio.volume = Number(value);
+        STATE.audio.muted = false;
+        document.getElementById('btn-mute').querySelector('span').innerText = 'volume_up';
+        document.getElementById('btn-mute').setAttribute('aria-label', '静音');
+    },
+    toggleMute() {
+        STATE.audio.muted = !STATE.audio.muted;
+        const button = document.getElementById('btn-mute');
+        button.querySelector('span').innerText = STATE.audio.muted ? 'volume_off' : 'volume_up';
+        button.setAttribute('aria-label', STATE.audio.muted ? '取消静音' : '静音');
+    }
+};
+
 const UI = {
     setSync: (status, msg) => {
         document.getElementById('sync-dot').className = `dot ${status}`;
-        document.getElementById('sync-msg').innerText = msg;
+        const labels = { READY: '准备一起听', PLAYING: '正在播放 · 所有设备同步', FOLLOWING: '正在跟随主设备播放' };
+        document.getElementById('sync-msg').innerText = labels[msg] || msg;
     },
     updateStats: () => {
         document.getElementById('st-offset').innerText = STATE.netOffset.toFixed(0);
@@ -585,12 +436,15 @@ const UI = {
             el.className = val === STATE.interval ? 'radio-opt selected' : 'radio-opt';
         });
         const modeIcon = document.querySelector('#btn-mode span');
+        document.getElementById('btn-mode').title = { sequence: '顺序播放', loop_one: '单曲循环', random: '随机播放' }[STATE.playMode];
         if (STATE.playMode === 'sequence') modeIcon.innerText = 'repeat';
         if (STATE.playMode === 'loop_one') modeIcon.innerText = 'repeat_one';
         if (STATE.playMode === 'random') modeIcon.innerText = 'shuffle';
     },
     updatePlayBtn: (state) => {
+        document.getElementById('record-art').className = state === 'PLAYING' ? 'record-art playing' : 'record-art';
         const btn = document.getElementById('btn-play');
+        btn.setAttribute('aria-label', state === 'PLAYING' || state === 'ARMED' ? '停止播放' : '播放');
         const icon = btn.querySelector('span');
         if (state === 'PLAYING' || state === 'ARMED') {
             btn.className = "ctrl-btn huge active";
@@ -615,18 +469,19 @@ function setRole(role) {
 
     document.getElementById('masterPanel').style.display = isMaster ? '' : 'none';
     document.getElementById('followerPanel').style.display = isMaster ? 'none' : '';
-    document.querySelectorAll('.role-btn').forEach(b => b.className = 'btn-sec');
+    document.querySelectorAll('.master-control, #btn-mode').forEach(b => b.disabled = !isMaster);
 
     const badge = document.getElementById('roleBadge');
     if (isMaster) {
-        badge.textContent = '🔊 主设备';
+        badge.textContent = '主设备';
         badge.className = 'role-badge master';
         document.getElementById('syncStatusText').textContent = '管理歌单，点击播放控制所有设备';
         Library.render();
     } else {
-        badge.textContent = '📻 副设备';
+        badge.textContent = '跟随设备';
         badge.className = 'role-badge follower';
         document.getElementById('syncStatusText').textContent = '等待主设备播放...';
+        PlayerView.track('等待主设备选歌', '连接后，音乐会在这里继续');
         startPolling();
     }
 }
@@ -640,6 +495,10 @@ const Engine = {
     animFrame: null,
 
     toggleSystem() {
+        if (localStorage.getItem('mps_role') === 'follower' && (STATE.status === 'IDLE' || STATE.status === 'BLOCKED')) {
+            this.enableFollowerAudio();
+            return;
+        }
         if (STATE.status === 'IDLE') {
             this.start();
         } else {
@@ -680,7 +539,7 @@ const Engine = {
         const sec = new Date(target).getSeconds();
         UI.setSync('syncing', `ARMED: :${sec.toString().padStart(2,'0')}`);
 
-        document.getElementById('masterSongName').textContent = s.name || `Track ${s.id}`;
+        PlayerView.track(s.name || `Track ${s.id}`, '正在一起听 · 网易云音乐');
         document.getElementById('masterNowPlaying').classList.add('show');
 
         broadcastEvent(target, {
@@ -710,6 +569,7 @@ const Engine = {
                     document.getElementById('timer').innerText = "0.000";
                     UI.setSync('online', 'PLAYING');
                     STATE.status = 'PLAYING';
+                    UI.updatePlayBtn('PLAYING');
                 })
                 .catch(() => { this.reset(); alert("Auto-play blocked"); });
 
@@ -746,10 +606,12 @@ const Engine = {
                     seek();
                     UI.setSync('online', 'FOLLOWING');
                     STATE.status = 'PLAYING';
+                    UI.updatePlayBtn('PLAYING');
                 })
                 .catch(() => {
                     if (STATE.targetTime !== targetTime) return;
                     STATE.status = 'BLOCKED';
+                    UI.updatePlayBtn('BLOCKED');
                     UI.setSync('syncing', '播放被阻止，请点击启用声音');
                     document.getElementById('followerAudioHint').textContent = '浏览器未允许播放，点击上方按钮重试同步。';
                 });
@@ -764,6 +626,9 @@ const Engine = {
 
     enableFollowerAudio() {
         if (localStorage.getItem('mps_role') !== 'follower') return;
+        if (!STATE.targetTime && RECEIVED_BROADCAST && ['play', 'next', 'prev'].includes(RECEIVED_BROADCAST.payload.action)) {
+            STATE.targetTime = RECEIVED_BROADCAST.targetTime;
+        }
         // A silent WAV permits explicit audio activation before any song arrives.
         const warmingUp = !STATE.audio.getAttribute('src');
         if (warmingUp) STATE.audio.src = 'data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA';
@@ -777,7 +642,9 @@ const Engine = {
                     this.followerLoop();
                 } else {
                     STATE.status = 'PLAYING';
+                    UI.updatePlayBtn('PLAYING');
                     UI.setSync('online', 'FOLLOWING');
+                    UI.updatePlayBtn('PLAYING');
                 }
             } else {
                 STATE.audio.pause();
@@ -800,6 +667,7 @@ const Engine = {
         document.getElementById('timer').innerText = "--.---";
         UI.setSync('online', 'READY');
         UI.updatePlayBtn('IDLE');
+        PlayerView.progress();
 
         if (shouldBroadcast && localStorage.getItem('mps_role') !== 'follower') broadcastEvent(ClockSync.getPreciseTime() + 1000, {
             _type: 'music',
@@ -838,15 +706,22 @@ const Library = {
     save() { localStorage.setItem('v45_songs', JSON.stringify(STATE.songs)); },
     render() {
         const el = document.getElementById('list-el');
-        el.innerHTML = STATE.songs.map((s,i) => `
-            <div class="item ${i===STATE.curIdx?'active':''}" onclick="Library.sel(${i})">
-                <div class="item-info">
-                    <div class="item-title">${s.name}</div>
-                    <div class="item-id">${s.id}</div>
-                </div>
-                <div class="material-icons-round btn-del" onclick="Library.remove(${i}, event)">delete</div>
+        document.getElementById('song-count').textContent = `${STATE.songs.length} 首歌曲`;
+        const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        el.innerHTML = STATE.songs.length ? STATE.songs.map((s,i) => `
+            <div class="item ${i===STATE.curIdx?'active':''}">
+                <span class="track-number">${(i + 1).toString().padStart(2, '0')}</span>
+                <button class="item-info" style="border:0;background:none;text-align:left;color:inherit;padding:4px 0;cursor:pointer" onclick="Library.sel(${i})">
+                    <div class="item-title">${escape(s.name)}</div>
+                    <div class="item-id">网易云 · ${escape(s.id)}</div>
+                </button>
+                <button class="material-icons-round btn-del" aria-label="删除歌曲" onclick="Library.remove(${i}, event)">close</button>
             </div>
-        `).join('');
+        `).join('') : '<div class="empty-queue"><span class="material-icons-round">queue_music</span>这里还没有歌曲<br>添加一首，或导入你的歌单</div>';
+        if (STATE.status === 'IDLE' && localStorage.getItem('mps_role') !== 'follower') {
+            const song = STATE.songs[STATE.curIdx];
+            PlayerView.track(song ? song.name || `Track ${song.id}` : '让喜欢的音乐响起来', song ? '网易云音乐 · 准备播放' : '添加歌曲，开启一起听');
+        }
     },
     sel(i) { 
         if(STATE.status === 'IDLE') { STATE.curIdx = i; this.render(); }
@@ -896,7 +771,7 @@ const Library = {
                     curIdx: STATE.curIdx,
                 });
 
-                document.getElementById('masterSongName').textContent = s.name || `Track ${s.id}`;
+                PlayerView.track(s.name || `Track ${s.id}`, '正在一起听 · 网易云音乐');
                 Engine.loop();
             } else {
                 this.reset();
@@ -1002,6 +877,9 @@ window.addEventListener('keydown', (e) => {
 // 9. INIT
 // ═══════════════════════════════════════════════
 
+STATE.audio.addEventListener('timeupdate', () => PlayerView.progress());
+STATE.audio.addEventListener('loadedmetadata', () => PlayerView.progress());
+
 Library.render();
 UI.updateStats();
 ClockSync.forceSync();
@@ -1010,6 +888,7 @@ setTimeout(function() {
     var role = localStorage.getItem('mps_role') || 'master';
     setRole(role);
     if (localStorage.getItem('mps_role') === 'follower') {
+        PlayerView.track('等待主设备选歌', '连接后，音乐会在这里继续');
         startPolling();
     }
 }, 0);
