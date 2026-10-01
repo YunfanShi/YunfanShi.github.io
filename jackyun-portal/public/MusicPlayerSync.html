@@ -271,6 +271,8 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .role-badge.follower { b
                 <div style="font-size:40px;margin-bottom:12px;animation:pulse 2s infinite;">📡</div>
                 <div style="font-size:14px;font-weight:600;color:var(--text-main);margin-bottom:8px;">等待主设备播放...</div>
                 <div style="font-size:11px;color:var(--text-sec);">连接同步信号后将自动播放同一首歌</div>
+                <button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button>
+                <div id="followerAudioHint" style="font-size:11px;color:var(--text-sec);">首次使用请点击启用声音；请保持页面在前台。</div>
                 <div class="now-playing" id="followerNowPlaying">
                     <div style="font-size:12px;color:var(--text-sec);margin-bottom:4px;">当前播放</div>
                     <div id="followerSongName" style="font-size:16px;font-weight:700;color:var(--accent);">--</div>
@@ -344,7 +346,9 @@ const STATE = {
 let RECEIVED_BROADCAST = null;
 let _pollTimer = null;
 let _pollStarted = false;
-let _pollBackoff = 0;
+let _pollInFlight = false;
+let _pollSince = Date.now() - 15000;
+let _lastEventTimestamp = 0;
 
 // ═══════════════════════════════════════════════
 // 2. SUNING TIME SYNC
@@ -423,28 +427,31 @@ function startPolling() {
     if (_pollStarted) return;
     _pollStarted = true;
     
-    _pollTimer = setInterval(async () => {
+    _pollSince = Date.now() - 15000;
+    const poll = async () => {
+        if (_pollInFlight || !_pollStarted) return;
+        _pollInFlight = true;
+        const requestedAt = Date.now();
         try {
-            const since = Date.now() - 3000;
-            const res = await fetch(`/api/answer-sheet-sync?since=${since}`);
+            const res = await fetch(`/api/answer-sheet-sync?since=${_pollSince}&self=${encodeURIComponent(DEVICE_ID)}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            if (data.broadcasts && data.broadcasts.length > 0) {
-                for (const b of data.broadcasts) {
-                    if (b.payload && typeof b.payload === 'string') {
-                        try { b.payload = JSON.parse(b.payload); } catch(e) { b.payload = {}; }
-                    }
-                    if (b.senderDeviceId === DEVICE_ID) continue;
-                    if (b.payload && b.payload._type === 'music') {
-                        handleIncomingBroadcast({
-                            targetTime: b.targetTime,
-                            payload: b.payload,
-                            senderDeviceId: b.senderDeviceId
-                        });
-                    }
+            if (!_pollStarted) return;
+            for (const b of (data.broadcasts || []).slice().reverse()) {
+                const payload = normalizePayload(b.payload);
+                if (b.senderDeviceId !== DEVICE_ID && payload._type === 'music') {
+                    await handleIncomingBroadcast({ ...b, payload });
                 }
             }
-        } catch(e) {}
-    }, 1500);
+            _pollSince = requestedAt - 15000;
+        } catch (e) {
+            UI.setSync('syncing', '同步连接失败，正在重试');
+        } finally {
+            _pollInFlight = false;
+        }
+    };
+    poll();
+    _pollTimer = setInterval(poll, 1500);
 }
 
 function stopPolling() {
@@ -454,16 +461,18 @@ function stopPolling() {
 
 async function broadcastEvent(targetTime, payload) {
     const sessionId = getTimeBasedSession();
+    payload = { ...payload, eventTimestamp: Date.now() };
     const broadcastData = { targetTime, payload, senderDeviceId: DEVICE_ID, sessionId, timestamp: Date.now() };
 
     // POST to API
     try {
-        await fetch('/api/answer-sheet-sync', {
+        const response = await fetch('/api/answer-sheet-sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId, senderDeviceId: DEVICE_ID, targetTime, payload }),
         });
-    } catch(e) {}
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch(e) { UI.setSync('syncing', '指令发送失败，请重试'); }
 
     // BroadcastChannel (same browser, different tabs)
     if (_bc) { try { _bc.postMessage(broadcastData); } catch(e) {} }
@@ -487,23 +496,13 @@ async function handleIncomingBroadcast(data) {
     const p = data.payload;
     if (!p || p._type !== 'music') return;
 
-    // Dedup: same targetTime already processed
-    if (RECEIVED_BROADCAST && RECEIVED_BROADCAST.targetTime === data.targetTime) return;
-
-    // Anti-flood: if already PLAYING or ARMED, ignore new play/next/prev
-    if (STATE.status === 'PLAYING' || STATE.status === 'ARMED') {
-        if (p.action === 'play' || p.action === 'next' || p.action === 'prev') {
-            console.log('[Sync] Ignoring broadcast while already playing/armed:', p.action);
-            return;
-        }
-    }
-
-    // Discard stale broadcasts
+    if (localStorage.getItem('mps_role') !== 'follower') return;
+    const eventTimestamp = p.eventTimestamp || Date.parse(data.createdAt || '') || data.timestamp || data.targetTime;
+    if (eventTimestamp <= _lastEventTimestamp) return;
     const now = SuningSync.getPreciseTime();
-    if (data.targetTime && data.targetTime < now - 5000) {
-        console.log('[Sync] Discarding stale broadcast (targetTime too old):', data.targetTime, 'vs now', now);
-        return;
-    }
+    if (!Number.isFinite(data.targetTime) || data.targetTime < now - 15000) return;
+    _lastEventTimestamp = eventTimestamp;
+    Engine.reset(false);
 
     RECEIVED_BROADCAST = data;
     console.log('[Sync] Music broadcast:', p.action, 'target:', data.targetTime);
@@ -522,7 +521,7 @@ async function handleIncomingBroadcast(data) {
 
         Engine.followerLoop();
     } else if (p.action === 'stop') {
-        Engine.reset();
+        Engine.reset(false);
     }
 }
 
@@ -568,7 +567,7 @@ function setRole(role) {
     const isMaster = role === 'master';
 
     stopPolling();
-    Engine.reset();
+    Engine.reset(false);
 
     document.getElementById('masterPanel').style.display = isMaster ? '' : 'none';
     document.getElementById('followerPanel').style.display = isMaster ? 'none' : '';
@@ -677,20 +676,29 @@ const Engine = {
         const remaining = (STATE.targetTime + STATE.manualOffset) - now;
 
         if (remaining <= 0) {
-            if (remaining < -2000) {
-                console.log('[Follower] targetTime expired by >2s, discarding');
-                this.reset();
-                return;
-            }
+            const targetTime = STATE.targetTime;
+            const seek = () => {
+                if (STATE.targetTime !== targetTime) return;
+                STATE.audio.currentTime = Math.max(0, (SuningSync.getPreciseTime() - targetTime - STATE.manualOffset) / 1000);
+            };
+            if (STATE.audio.readyState >= 1) seek();
+            else STATE.audio.onloadedmetadata = seek;
             STATE.audio.play()
                 .then(() => {
                     document.getElementById('timer').innerText = "0.000";
+                    if (STATE.targetTime !== targetTime) return;
+                    seek();
                     UI.setSync('online', 'FOLLOWING');
                     STATE.status = 'PLAYING';
                 })
-                .catch(() => { this.reset(); });
+                .catch(() => {
+                    if (STATE.targetTime !== targetTime) return;
+                    STATE.status = 'BLOCKED';
+                    UI.setSync('syncing', '播放被阻止，请点击启用声音');
+                    document.getElementById('followerAudioHint').textContent = '浏览器未允许播放，点击上方按钮重试同步。';
+                });
             
-            STATE.audio.onended = () => { this.reset(); };
+            STATE.audio.onended = () => { this.reset(false); };
             return;
         }
 
@@ -698,16 +706,46 @@ const Engine = {
         this.animFrame = requestAnimationFrame(() => this.followerLoop());
     },
 
-    reset() {
+    enableFollowerAudio() {
+        if (localStorage.getItem('mps_role') !== 'follower') return;
+        // A silent WAV permits explicit audio activation before any song arrives.
+        const warmingUp = !STATE.audio.getAttribute('src');
+        if (warmingUp) STATE.audio.src = 'data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA';
+        // Call play directly in the click handler to retain browser user activation.
+        STATE.audio.play().then(() => {
+            if (RECEIVED_BROADCAST && STATE.targetTime) {
+                STATE.audio.currentTime = Math.max(0, (SuningSync.getPreciseTime() - STATE.targetTime - STATE.manualOffset) / 1000);
+                if (SuningSync.getPreciseTime() < STATE.targetTime + STATE.manualOffset) {
+                    STATE.audio.pause();
+                    STATE.status = 'ARMED';
+                    this.followerLoop();
+                } else {
+                    STATE.status = 'PLAYING';
+                    UI.setSync('online', 'FOLLOWING');
+                }
+            } else {
+                STATE.audio.pause();
+            }
+            if (warmingUp && STATE.audio.getAttribute('src').startsWith('data:audio/wav;')) STATE.audio.removeAttribute('src');
+            document.getElementById('followerAudioHint').textContent = '声音已启用；如再次被浏览器阻止，请点击重试。';
+        }).catch(() => {
+            document.getElementById('followerAudioHint').textContent = '尚未启用声音；收到歌曲后点击重试。如仍失败，请检查歌曲链接。';
+        });
+    },
+
+    reset(shouldBroadcast = true) {
         STATE.status = 'IDLE';
         STATE.audio.pause();
         STATE.audio.currentTime = 0;
+        STATE.targetTime = 0;
+        STATE.audio.onended = null;
+        STATE.audio.onloadedmetadata = null;
         cancelAnimationFrame(this.animFrame);
         document.getElementById('timer').innerText = "--.---";
         UI.setSync('online', 'READY');
         UI.updatePlayBtn('IDLE');
 
-        broadcastEvent(Date.now() + 1000, {
+        if (shouldBroadcast && localStorage.getItem('mps_role') !== 'follower') broadcastEvent(SuningSync.getPreciseTime() + 1000, {
             _type: 'music',
             action: 'stop',
         });

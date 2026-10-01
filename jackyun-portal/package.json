@@ -14,7 +14,7 @@
     "test:safeguard": "node --test tests/safeguard-rules.test.mjs",
     "test:adblock": "node --test tests/adblock.test.mjs",
     "test:companion-performance": "node --test tests/companion-performance.test.mjs",
-    "test:legacy-ui": "node --test tests/legacy-ui.test.mts",
+    "test:legacy-ui": "node --test tests/legacy-ui.test.mts tests/music-sync.test.mts",
     "test:pwa": "node --test tests/pwa.test.mts",
     "test:reader-admin": "node --test tests/admin-novel-management.test.mts tests/redemption.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",

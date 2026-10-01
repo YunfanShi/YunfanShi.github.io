@@ -70,7 +70,7 @@ export interface NavigationPreferencesV2 {
 
 export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferencesV2 = {
   version: 2,
-  musicMode: 'player',
+  musicMode: 'sync',
   answerSheetMode: 'standard',
   layoutMode: 'grouped',
   groupOrder: ['home', 'learning', 'practice', 'time', 'tools', 'relax', 'system'],
@@ -98,7 +98,7 @@ export function coerceNavigationPreferences(value: unknown): NavigationPreferenc
   if (!migratedLearningOrder.includes('schedule')) migratedLearningOrder.splice(Math.max(0, migratedLearningOrder.indexOf('study-plan')), 0, 'schedule');
   return {
     ...DEFAULT_NAVIGATION_PREFERENCES,
-    musicMode: legacy.musicMode === 'sync' ? 'sync' : 'player',
+    musicMode: legacy.musicMode === 'player' ? 'player' : 'sync',
     answerSheetMode: legacy.answerSheetMode === 'sync' ? 'sync' : 'standard',
     layoutMode: input.layoutMode === 'flat' ? 'flat' : 'grouped',
     groupOrder: Array.isArray(input.groupOrder) ? input.groupOrder.filter((item): item is string => typeof item === 'string') : [...DEFAULT_NAVIGATION_PREFERENCES.groupOrder],
