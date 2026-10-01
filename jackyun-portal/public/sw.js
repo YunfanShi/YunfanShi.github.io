@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
@@ -14,6 +14,14 @@ const PRECACHE_URLS = [
 const STATIC_PATH_PREFIXES = ['/_next/static/'];
 const STATIC_FILE_PATTERN = /\.(?:css|js|mjs|woff2?|ttf|otf|png|jpg|jpeg|gif|webp|svg|ico)$/i;
 const OFFLINE_APP_ROUTES = new Set(['/dashboard', '/study/tasks', '/reading', '/review']);
+
+function validStaticResponse(response, pathname) {
+  if (!response?.ok) return false;
+  const mime = response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase();
+  if (/\.css$/i.test(pathname)) return mime === 'text/css';
+  if (/\.(?:js|mjs)$/i.test(pathname)) return /^(?:application|text)\/(?:javascript|ecmascript)$/.test(mime ?? '');
+  return true;
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)));
@@ -54,8 +62,10 @@ self.addEventListener('fetch', (event) => {
       try {
         const response = await fetch(request);
         if (response.ok && OFFLINE_APP_ROUTES.has(url.pathname)) {
-          const cache = await caches.open(NAVIGATION_CACHE);
-          await cache.put(routeKey, response.clone());
+          try {
+            const cache = await caches.open(NAVIGATION_CACHE);
+            await cache.put(routeKey, response.clone());
+          } catch {}
         }
         return response;
       } catch {
@@ -75,15 +85,27 @@ self.addEventListener('fetch', (event) => {
   if (!cacheableStaticAsset) return;
 
   event.respondWith((async () => {
-    const cached = await caches.match(request);
+    // Device storage can be unavailable or full; caching must not break delivery.
+    let cached;
+    try {
+      cached = await caches.match(request);
+      if (cached && !validStaticResponse(cached, url.pathname)) {
+        cached = undefined;
+        const cache = await caches.open(STATIC_CACHE);
+        await cache.delete(request);
+      }
+    } catch {}
     if (immutableNextAsset && cached) return cached;
 
     try {
       const response = await fetch(request);
-      if (response.ok && response.type === 'basic') {
-        const cache = await caches.open(STATIC_CACHE);
-        await cache.put(request, response.clone());
+      if (validStaticResponse(response, url.pathname) && response.type === 'basic') {
+        try {
+          const cache = await caches.open(STATIC_CACHE);
+          await cache.put(request, response.clone());
+        } catch {}
       }
+      if (!validStaticResponse(response, url.pathname) && cached) return cached;
       return response;
     } catch (error) {
       if (cached) return cached;
