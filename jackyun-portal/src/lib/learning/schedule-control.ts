@@ -924,7 +924,9 @@ export function matchLearningCatalogSubject(catalog: LearningCatalogSubject[], c
 /** Rewrites current subject references to catalog identities while leaving historical task titles intact. */
 export function reconcileScheduleSubjects(state: ScheduleControlState): ScheduleControlState {
   if (!state.learningCatalog.length) return state;
-  const resolve = (name?: string, id?: string) => {
+  const cueSubjectById = new Map(state.cues.map((cue) => [cue.id, cue.subjectId]));
+  const resolve = (name?: string, id?: string, cueIds?: string[]) => {
+    if (cueIds && new Set(cueIds.map((cueId) => cueSubjectById.get(cueId)).filter(Boolean)).size > 1) return undefined;
     if (id) {
       const exact = state.learningCatalog.find((subject) => subject.id === id);
       if (exact) return exact;
@@ -947,12 +949,12 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
     ...state,
     learningCatalog: state.learningCatalog.map((subject) => ({ ...subject, units: subject.units.map((unit) => ({ name: unit.name, subsections: [...unit.subsections] })) })),
     manualTasks: state.manualTasks.map((task) => { const subject = resolve(task.subject, task.subjectId); return subject ? { ...task, subjectId: subject.id, subject: subject.name, ...(task.scope ? { scope: { ...task.scope, ...(task.scope.unit ? { unit: resolveUnit(subject, task.scope.unit) } : {}) } } : {}) } : task; }),
-    completions: Object.fromEntries(Object.entries(state.completions).map(([key, completion]) => { const subject = resolve(completion.subjectName); return [key, subject ? { ...completion, subjectName: subject.name, ...(completion.scope ? { scope: { ...completion.scope, ...(completion.scope.unit ? { unit: resolveUnit(subject, completion.scope.unit) } : {}) } } : {}) } : completion]; })),
+    completions: Object.fromEntries(Object.entries(state.completions).map(([key, completion]) => { const subject = resolve(completion.subjectName, undefined, completion.cueIds ?? completion.scope?.cueIds); return [key, subject ? { ...completion, subjectName: subject.name, ...(completion.scope ? { scope: { ...completion.scope, ...(completion.scope.unit ? { unit: resolveUnit(subject, completion.scope.unit) } : {}) } } : {}) } : completion]; })),
     reviewProgress,
     cues: state.cues.map((cue) => { const subject = resolve(cue.subjectName, cue.subjectId); return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name, unit: resolveUnit(subject, cue.unit) ?? cue.unit } : cue; }),
     cueCollectionUpdates: state.cueCollectionUpdates.map((update) => { const subject = resolve(update.subjectName, update.subjectId); return subject ? { ...update, subjectId: subject.id, subjectName: subject.name } : update; }),
     learningRecords: state.learningRecords.map((record) => {
-      const subject = resolve(record.subjectName);
+      const subject = new Set(record.cues.map((cue) => cue.subjectName)).size > 1 ? undefined : resolve(record.subjectName);
       return {
         ...record,
         ...(subject ? { subjectName: subject.name, ...(record.scope?.unit ? { scope: { ...record.scope, unit: resolveUnit(subject, record.scope.unit) } } : {}) } : {}),
@@ -961,7 +963,7 @@ export function reconcileScheduleSubjects(state: ScheduleControlState): Schedule
     }),
     cueStudyDraft: undefined,
     cueStudyDrafts: Object.fromEntries(Object.values(allCueStudyDrafts(state)).map((draft) => {
-      const subject = resolve(draft.task.subjectName, draft.task.subjectId);
+      const subject = resolve(draft.task.subjectName, draft.task.subjectId, draft.cueIds);
       const normalized = { ...draft, task: { ...draft.task, ...(subject ? { subjectId: subject.id, subjectName: subject.name } : {}), ...(draft.task.scope?.unit ? { scope: { ...draft.task.scope, unit: resolveUnit(subject, draft.task.scope.unit) } } : {}) } };
       return [cueDraftKey(normalized), normalized];
     })),

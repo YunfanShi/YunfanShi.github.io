@@ -111,3 +111,20 @@ test('phone filters retain all desktop options and hide desktop keyboard instruc
   assert.match(source, /hidden md:block[^\n]*快捷键/);
   assert.match(source, /aria-label="触屏题目目录"/);
 });
+
+test('mean formulas from legacy JSON repair backspace and compact bar commands without visible slash errors', () => {
+  const legacy = 'For raw data, \\' + '\u0008' + String.raw`arx=\frac{\sum x}{n}. For a frequency table, ` + '\u0008' + String.raw`arx=\frac{\sum fx}{\sum f}.`;
+  for (const input of [legacy, String.raw`\(\barx=\frac{\sum x}{n}\)`, String.raw`\bar{x}=\frac{\sum fx}{\sum f}`]) {
+    const parts = splitMathText(input);
+    assert.equal(parts.filter((part) => part.type === 'latex-inline').length, input === legacy ? 2 : 1);
+    assert.ok(parts.filter((part) => part.type === 'text').every((part) => !part.value.includes('\\')));
+    assert.ok(parts.filter((part) => part.type !== 'text').every((part) => !part.value.includes('\u0008')));
+    for (const part of parts.filter((part) => part.type !== 'text')) assert.doesNotThrow(() => katex.renderToString(part.value, { throwOnError: true }));
+    const html = renderToStaticMarkup(React.createElement(LatexRenderer, { content: input }));
+    assert.match(html, /class="katex"/);
+    assert.match(html, /accent/);
+    assert.doesNotMatch(html, /katex-error|\\barx|\u0008/);
+  }
+  assert.equal(normalizeLegacyLatex(String.raw`\bar{x} and \barista`), String.raw`\bar{x} and \barista`);
+  assert.deepEqual(splitMathText('CSMA/CD and TCP/IP'), [{ type: 'text', value: 'CSMA/CD and TCP/IP' }]);
+});

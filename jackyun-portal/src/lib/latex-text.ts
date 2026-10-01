@@ -3,13 +3,15 @@ export function normalizeLatexRelations(value: string): string {
   return value.replace(/\\([<>])/gu, '$1');
 }
 
-/** Repair commands damaged by older JSON imports that decoded f/t/r as controls. */
+/** Repair commands damaged by older JSON imports that decoded b/f/t/r as controls. */
 export function normalizeLegacyLatex(value: string): string {
   return value
+    .replace(/\\?\u0008(?=ar|eta|oldsymbol|ig|egin|oxed)/gu, String.raw`\b`)
     .replace(/\\?\u000c(?=rac)/gu, String.raw`\f`)
     .replace(/\\?\u0009(?=imes|heta|ext)/gu, String.raw`\t`)
     .replace(/\\?\u000d(?=ight)/gu, String.raw`\r`)
-    .replace(/\\ ight\b/gu, String.raw`\right`);
+    .replace(/\\ ight\b/gu, String.raw`\right`)
+    .replace(/\\bar([A-Za-z])(?=[^A-Za-z]|$)/gu, String.raw`\bar{$1}`);
 }
 
 export type MathTextPart = { type: 'text' | 'latex-inline' | 'latex-block'; value: string };
@@ -43,14 +45,16 @@ function plainMathParts(text: string): MathTextPart[] {
 /** Older imports may contain a clear LaTeX command but no math delimiters. */
 function unmarkedMathParts(text: string): MathTextPart[] {
   const parts: MathTextPart[] = [];
-  const command = /\\(?:left|frac|sqrt|times|pm|Delta|cdot|theta|text|sin|cos|tan)(?![A-Za-z])[^\n\u3400-\u9fff；。]{0,240}/gu;
+  const command = /\\(?:left|frac|sqrt|times|pm|Delta|cdot|theta|text|sin|cos|tan|bar|beta|boldsymbol|big|begin|boxed|sum)(?![A-Za-z])[^\n\u3400-\u9fff；。]{0,240}/gu;
   let last = 0;
-  for (const match of text.matchAll(command)) {
+  for (let match = command.exec(text); match; match = command.exec(text)) {
     const candidate = match[0].split(/\s+[A-Za-z]{3,}(?=\s|[.,;:]|$)/u)[0].trimEnd();
     if (!candidate) continue;
     if (match.index! > last) parts.push(...plainMathParts(text.slice(last, match.index)));
     parts.push({ type: 'latex-inline', value: candidate });
-    last = match.index! + candidate.length;
+    last = match.index + candidate.length;
+    // The broad match may span later formulas; resume after the actual candidate.
+    command.lastIndex = last;
   }
   if (last < text.length) parts.push(...plainMathParts(text.slice(last)));
   return parts;

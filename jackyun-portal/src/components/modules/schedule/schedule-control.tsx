@@ -13,7 +13,7 @@ import StudyInsights from './study-insights';
 import ScheduleGuide from './schedule-guide';
 import LearningAssistant, { CueDifficultyPicker } from './learning-assistant';
 import { difficultyLabels, effectiveCueDifficulty, type CueDifficulty } from '@/lib/learning/learning-assistance';
-import { DEFAULT_STUDY_FILTER, jointCueSubjectName } from '@/lib/learning/joint-cue-study';
+import { DEFAULT_STUDY_FILTER, jointCueSubjectName, legacyCueStudyDraft } from '@/lib/learning/joint-cue-study';
 import LearningWorkspace, { LearningSession, estimatedStudyMinutes } from './learning-workspace';
 import { QUESTION_BANK_KEY, buildStudyQueue, emptyQuestionBank, itemKey, questionReviewTasks, readQuestionBank, reconcileQuestionSubjects, reconcileStudyDraft, recordQuestionAttempt, type QuestionBankState, type StudyDraft, type StudyItemRef, type StudyMode } from '@/lib/learning/question-bank';
 
@@ -1715,11 +1715,27 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const subjectName = !subjectId && mode === 'cue' ? jointCueSubjectName(items.flatMap((item) => { const cue = state.cues.find((cue) => item.kind === 'cue' && cue.id === item.id); return cue ? [cue] : []; })) : state.learningCatalog.find((subject) => subject.id === subjectId)?.name ?? state.cues.find((cue) => cue.subjectId === subjectId)?.subjectName ?? questionBank.questions.find((question) => question.subjectId === subjectId)?.subjectName;
     const id = `study-${taskId()}`;
     const task: LearningTask = sourceTask ?? { key: id, title: `学习 · ${subjectName ?? ''}${unit ? ` · ${unit}` : ''}`, detail: '独立检索与作答，分别保存评价。', type: 'special', date: todayKey, durationMinutes: estimatedStudyMinutes(items), subjectId, subjectName, scope: { ...(unit ? { unit } : {}) } };
+    if (mode === 'cue') { startCueStudy({ ...task, cueIds: items.map((item) => item.id), scope: { ...task.scope, cueIds: items.map((item) => item.id) } }); return; }
     const cueIds = items.filter((item) => item.kind === 'cue').map((item) => item.id);
     const questionIds = items.filter((item) => item.kind === 'question').map((item) => item.id);
     const draft: StudyDraft = { id, mode, task: { ...task, cueIds, questionIds, scope: { ...task.scope, cueIds, questionIds } }, items, index: 0, revealed: {}, responses: {}, assessments: {}, updatedAt: new Date().toISOString() };
     commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [id]: draft } });
     setActiveStudyId(id); setStudyPreviewTask(null);
+  };
+  const resumeUnifiedStudy = (id: string) => {
+    const saved = questionBank.drafts[id];
+    if (!saved) return;
+    const migrated = legacyCueStudyDraft(saved, state.cues);
+    if (!migrated) { setActiveStudyId(id); return; }
+    const existing = allCueStudyDrafts(state)[migrated.task.subjectId || migrated.task.subjectName || '未分类'];
+    if (existing && existing.task.key !== migrated.task.key && !window.confirm('这个范围已有未完成的 Cue 学习进度。恢复旧进度会替换它，是否继续？')) return;
+    const nextState = saveCueStudyDraft(state, migrated);
+    // Save the destination before removing the old resumable draft.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+    setState(nextState);
+    const drafts = { ...questionBank.drafts }; delete drafts[id];
+    commitQuestionBank({ ...questionBank, drafts });
+    setCueStudyTask(migrated.task);
   };
   const changeCueDifficulty = (id: string, userDifficulty?: CueDifficulty) => setState((current) => {
     const cues = current.cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue);
@@ -1786,7 +1802,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       <LearningAssistant state={state} signedIn={signedIn} visible={view === 'records'} onChange={setState} />
       {view === 'cue' && !questionBankError && <>
         <div className="mt-4">      <CueStudyDashboard cues={state.cues} reviews={state.cueReviews} drafts={cueDrafts} onStart={startSpecialCueStudy} onResume={(draft) => setCueStudyTask(draft.task)} onDiscard={(draft) => { if (!window.confirm(`确定放弃 ${draft.task.subjectName || '未分类'} 的这次 Cue 学习进度吗？`)) return; setState((current) => removeCueStudyDraft(current, draft)); setNotice('该学科未完成的 Cue 学习进度已放弃。'); }} /></div>
-        <LearningWorkspace cues={state.cues} reviews={state.cueReviews} bank={{ ...questionBank, drafts: Object.fromEntries(Object.entries(questionBank.drafts).map(([id, draft]) => [id, reconcileStudyDraft(draft, state.cues, questionBank.questions)])) }} catalog={state.learningCatalog} onStart={startUnifiedStudy} onResume={setActiveStudyId} onDiscard={(id) => { const drafts = { ...questionBank.drafts }; delete drafts[id]; commitQuestionBank({ ...questionBank, drafts }); }} onManage={() => setView('questions')} />
+        <LearningWorkspace cues={state.cues} reviews={state.cueReviews} bank={{ ...questionBank, drafts: Object.fromEntries(Object.entries(questionBank.drafts).map(([id, draft]) => [id, reconcileStudyDraft(draft, state.cues, questionBank.questions)])) }} catalog={state.learningCatalog} onStart={startUnifiedStudy} onResume={resumeUnifiedStudy} onDiscard={(id) => { const drafts = { ...questionBank.drafts }; delete drafts[id]; commitQuestionBank({ ...questionBank, drafts }); }} onManage={() => setView('questions')} />
       </>}
       {view === 'questions' && !questionBankError && <QuestionBankManager bank={questionBank} catalog={state.learningCatalog} cues={state.cues} onChange={changeQuestionBank} onCatalog={() => setCatalogDialog(true)} />}
       {questionBankError && <p role="alert" className="mt-4 rounded-xl border border-rose-300 p-4 text-sm text-rose-600">{questionBankError}。请通过备份中心检查或恢复题库数据。</p>}
