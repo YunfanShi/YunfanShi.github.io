@@ -10,9 +10,10 @@ function player(clock = performance) {
  const audio = { src: '', readyState: 1, getAttribute() { return this.src; }, removeAttribute() { this.src = ''; }, currentTime: 0, onended: null, load() {}, pause() {}, play: () => Promise.resolve() };
  elements.set('main-audio', audio);
  const storage = new Map([['mps_role', 'follower']]);
+ const documentRoot = {dataset:{musicLayout: undefined}};
  const api = runInNewContext(source + '\n({STATE,Engine,handleIncomingBroadcast,startPolling,ClockSync,PlayerView,Library})', {
  localStorage: {getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string,v: string) => storage.set(k,v), removeItem() {}},
- document: {getElementById: (id: string) => { if (!elements.has(id)) elements.set(id,{textContent:'',innerText:'',classList:{add(){}},setAttribute(){},querySelector:()=>({innerText:''})}); return elements.get(id); }},
+ document: {documentElement:documentRoot,getElementById: (id: string) => { if (!elements.has(id)) elements.set(id,{textContent:'',innerText:'',classList:{add(){}},setAttribute(){},querySelector:()=>({innerText:''})}); return elements.get(id); }},
  window: {addEventListener(){}}, console, performance: clock, AbortSignal,
  fetch: async (url: string) => {requests.push(url);return {ok:true,json:async()=>({broadcasts:[]})};},
  setInterval(){return 1;},clearInterval(){},setTimeout(){},requestAnimationFrame(){return 1;},cancelAnimationFrame(){}
@@ -21,7 +22,7 @@ function player(clock = performance) {
  api.ClockSync.anchorTime = Date.now();
  api.ClockSync.anchorTick = clock.now();
  const command = (action: string, stamp: number, targetTime=Date.now()+5000) => ({targetTime,timestamp:stamp,payload:{_type:'music',action,songUrl:action+'.mp3',eventTimestamp:stamp}});
- return {...api,audio,requests,command,elements,storage};
+ return {...api,audio,requests,command,elements,storage,documentRoot};
 }
 test('follower follows new songs while armed and playing, rejects older commands', async()=>{
  const p=player(); await p.handleIncomingBroadcast(p.command('play',1));
@@ -175,4 +176,26 @@ test('follower player button resumes the last song on its shared timeline', asyn
   await Promise.resolve();
   assert.equal(p.STATE.status, 'PLAYING');
   assert.ok(p.audio.currentTime >= 4);
+});
+
+test('layout defaults to record and rejects unknown stored values', () => {
+  const p = player();
+  assert.equal(p.documentRoot.dataset.musicLayout, 'record');
+  assert.equal(p.elements.get('music-layout').value, 'record');
+  p.PlayerView.setLayout('unknown');
+  assert.equal(p.documentRoot.dataset.musicLayout, 'record');
+});
+
+test('changing layout persists locally without resetting playback or sending commands', () => {
+  const p = player();
+  p.STATE.status = 'PLAYING';
+  p.audio.currentTime = 65;
+  p.PlayerView.setLayout('classic');
+  assert.equal(p.documentRoot.dataset.musicLayout, 'classic');
+  assert.equal(p.storage.get('mps_layout'), 'classic');
+  assert.equal(p.STATE.status, 'PLAYING');
+  assert.equal(p.audio.currentTime, 65);
+  assert.equal(p.requests.length, 0);
+  p.PlayerView.setLayout('record');
+  assert.equal(p.storage.get('mps_layout'), 'record');
 });

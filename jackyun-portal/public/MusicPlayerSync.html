@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>一起听 · JackYun 同步音乐</title>
+    <title>Sync Music</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -73,6 +73,33 @@ html:is([data-jy-theme=gray],[data-jy-theme=dark]) { --music-soft:#183e36; --mus
 @keyframes record-turn { to { transform:rotate(360deg); } } @media(prefers-reduced-motion:reduce) { .record { animation:none; } }
 @media(max-width:900px) { .container { gap:24px; padding:8px 24px 32px; grid-template-columns:minmax(0,1fr) 290px; } header { padding:20px 24px; } aside { padding-left:20px; } main { padding:20px 0; } }
 @media(max-width:640px) { header { padding:18px 20px; } .brand { font-size:16px; } .brand small { font-size:9px; } .container { display:flex; flex-direction:column; padding:0 20px 24px; gap:30px; } main { order:0; padding:10px 0 0; } aside { order:1; padding:22px 0 0; border-left:0; border-top:1px solid var(--border); } .record-art { flex:none; width:min(76vw,290px); } .eyebrow { margin-bottom:16px; } .track-copy { margin-top:22px; } .playback-controls { gap:18px; } .list { max-height:320px; } .item .btn-del { opacity:1; } input:not([type=range]),textarea { font-size:16px; } .role-badge { font-size:10px; } .brand-mark { width:34px; height:34px; } }
+
+/* Both views share the same player and sync engine; switching is purely visual. */
+.layout-setting { display:flex; flex-direction:column; gap:8px; font-size:12px; color:var(--text); }
+.layout-setting select { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); color:var(--text); font:inherit; }
+html[data-music-layout="classic"] { --music-accent:#6366f1; --music-soft:#e9e9ff; }
+html[data-music-layout="classic"] .container { grid-template-columns:340px minmax(0,1fr); gap:24px; }
+html[data-music-layout="classic"] aside { grid-column:1; border-left:0; border-right:1px solid var(--border); padding:0 24px 0 0; }
+html[data-music-layout="classic"] main { grid-column:2; min-height:calc(100dvh - 160px); justify-content:center; }
+html[data-music-layout="classic"] .record-art,html[data-music-layout="classic"] .eyebrow { display:none; }
+html[data-music-layout="classic"] .track-copy { order:0; }
+html[data-music-layout="classic"] .status-pill { order:1; background:transparent; flex-direction:column; gap:14px; width:100%; }
+html[data-music-layout="classic"] .status-pill .dot { display:none; }
+html[data-music-layout="classic"] .sync-countdown { order:-1; font-family:'Roboto Mono',monospace; font-size:clamp(60px,9vw,132px); line-height:1.2; letter-spacing:-6px; border:0; padding:0; color:var(--text); }
+html[data-music-layout="classic"] .playback-controls { order:2; padding:14px 20px; background:var(--surface2); border:1px solid var(--border); border-radius:18px; }
+html[data-music-layout="classic"] .progress-area { order:3; margin:14px 0; }
+html[data-music-layout="classic"] .volume-row { order:4; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classic"] { --music-accent:#a6a8ff; --music-soft:#303052; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classic"] .item.active { color:#d6d7ff; }
+html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classic"] .btn-pri,html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classic"] .ctrl-btn.huge { color:#202044; }
+@media(max-width:900px) { html[data-music-layout="classic"] .container { grid-template-columns:290px minmax(0,1fr); } }
+@media(max-width:640px) {
+    .layout-setting select { font-size:16px; }
+    html[data-music-layout="classic"] main { min-height:380px; padding:20px 0 0; }
+    html[data-music-layout="classic"] aside { padding:22px 0 0; border-right:0; }
+    html[data-music-layout="classic"] .sync-countdown { font-size:clamp(50px,18vw,88px); letter-spacing:-4px; }
+    html[data-music-layout="classic"] .playback-controls { gap:12px; padding:12px; }
+}
 </style>
 <script src="/jackyun-theme.js"></script></head>
 <body>
@@ -105,7 +132,7 @@ html:is([data-jy-theme=gray],[data-jy-theme=dark]) { --music-soft:#183e36; --mus
 </div>
 
 <header>
-    <div class="brand"><span class="brand-mark material-icons-round">graphic_eq</span><div>一起听<small>JACKYUN · SYNC MUSIC</small></div></div>
+    <div class="brand"><span class="brand-mark material-icons-round">graphic_eq</span><div>Sync Music<small>让音乐同步，和你一起听</small></div></div>
     <div class="header-right"><span id="roleBadge" class="role-badge">主设备</span><button class="btn-icon" onclick="document.getElementById('sync-settings').open=true;document.getElementById('sync-settings').scrollIntoView({behavior:'smooth'})" aria-label="同步设置"><span class="material-icons-round">tune</span></button></div>
 </header>
 <div class="container">
@@ -118,11 +145,11 @@ html:is([data-jy-theme=gray],[data-jy-theme=dark]) { --music-soft:#183e36; --mus
             <details id="add-song"><summary>通过网易云歌曲 ID 添加</summary><div class="panel"><input id="inp-name" aria-label="歌曲名称" placeholder="歌曲名称"><input id="inp-id" aria-label="网易云歌曲 ID" placeholder="网易云歌曲 ID，例如 186016"><button class="btn-pri" onclick="Library.add()">加入歌单</button><button class="btn-sec" onclick="if(confirm('清空整个歌单？')) Library.clear()">清空歌单</button></div></details>
         </div>
         <div id="followerPanel" style="display:none"><div class="follower-card"><span class="material-icons-round" style="font-size:32px;color:var(--music-accent)">headphones</span><h3>一起听同一首歌</h3><p>主设备负责选歌和切歌，<br>这台设备跟随播放。</p><button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button><p id="followerAudioHint">首次使用请点击启用声音，并保持页面在前台。</p><div class="now-playing" id="followerNowPlaying"><div id="followerSongName">等待主设备选歌</div></div></div></div>
-        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准</button></div></details>
+        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><label class="layout-setting">界面风格<select aria-label="界面风格" id="music-layout" onchange="PlayerView.setLayout(this.value)"><option value="record">唱片模式（默认）</option><option value="classic">经典模式 · 大倒计时</option></select></label><p class="settings-note" style="margin:0">界面选择仅保存在这台设备，切换不会中断播放。</p><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准</button></div></details>
     </aside>
     <main>
         <p class="eyebrow">LISTEN TOGETHER</p>
-        <div class="record-art" id="record-art" aria-hidden="true"><div class="record"><div class="record-label"><span class="material-icons-round">music_note</span>TOGETHER</div></div><span class="art-caption">SIDE A / JACKYUN</span></div>
+        <div class="record-art" id="record-art" aria-hidden="true"><div class="record"><div class="record-label"><span class="material-icons-round">music_note</span>TOGETHER</div></div><span class="art-caption">SIDE A / SYNC MUSIC</span></div>
         <div class="track-copy"><h1 id="masterSongName">让喜欢的音乐响起来</h1><p id="track-subtitle">添加歌曲，开启一起听</p></div>
         <div id="masterNowPlaying" class="now-playing"></div>
         <div class="progress-area"><progress id="track-progress" value="0" max="100" aria-label="歌曲播放进度"></progress><div class="time-labels"><span id="elapsed-time">0:00</span><span id="duration-time">--:--</span></div></div>
@@ -397,6 +424,14 @@ async function handleIncomingBroadcast(data) {
 // ═══════════════════════════════════════════════
 
 const PlayerView = {
+    setLayout(value, persist = true) {
+        const layout = value === 'classic' ? 'classic' : 'record';
+        document.documentElement.dataset.musicLayout = layout;
+        document.getElementById('music-layout').value = layout;
+        if (persist) {
+            try { localStorage.setItem('mps_layout', layout); } catch (e) { /* The view remains usable without storage. */ }
+        }
+    },
     track(name, subtitle) {
         document.getElementById('masterSongName').textContent = name;
         document.getElementById('track-subtitle').textContent = subtitle;
@@ -876,6 +911,10 @@ window.addEventListener('keydown', (e) => {
 // ═══════════════════════════════════════════════
 // 9. INIT
 // ═══════════════════════════════════════════════
+
+let storedLayout = 'record';
+try { storedLayout = localStorage.getItem('mps_layout') || 'record'; } catch (e) {}
+PlayerView.setLayout(storedLayout, false);
 
 STATE.audio.addEventListener('timeupdate', () => PlayerView.progress());
 STATE.audio.addEventListener('loadedmetadata', () => PlayerView.progress());

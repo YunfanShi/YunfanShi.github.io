@@ -33,7 +33,7 @@ const translations: TranslationMap = {
   'nav.memory':               { zh: '记忆 Memory',          en: 'Memory' },
   'nav.definitions':          { zh: '定义卡片',             en: 'Definition Cards' },
   'nav.music-player':         { zh: '音乐播放器',           en: 'Music Player' },
-  'nav.music-sync':           { zh: '同步音乐',             en: 'Sync Music' },
+  'nav.music-sync':           { zh: 'Sync Music',           en: 'Sync Music' },
   'nav.bilibili-sync':        { zh: 'B站同步',              en: 'Bilibili Sync' },
   'nav.poem':                 { zh: '诗词天地',             en: 'Poetry' },
   'nav.countdown':            { zh: '倒计日',               en: 'Countdown' },
