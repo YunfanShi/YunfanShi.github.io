@@ -196,6 +196,9 @@ export interface CueReview {
   id: string;
   cueId: string;
   taskKey?: string;
+  /** Preserve constellation attribution after Cue edits or deletion. */
+  subjectId?: string;
+  subjectName?: string;
   status: LearningStatus;
   note?: string;
   reviewedAt: string;
@@ -1971,6 +1974,8 @@ export function completeCueReviews(
     reviews.push({
       id: `${cue.id}:${reviewedAt}`,
       cueId: cue.id,
+      subjectId: cue.subjectId,
+      subjectName: cue.subjectName,
       ...(taskKey ? { taskKey } : {}),
       status: assessment.status,
       ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : {}),

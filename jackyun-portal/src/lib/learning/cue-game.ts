@@ -1,4 +1,4 @@
-import { dateKey, type CueReview } from './schedule-control.ts';
+import { dateKey, dateFromKey, type CueReview, type StudyCue, type LearningRecord, type LearningStatus } from './schedule-control.ts';
 
 export const CUE_GAME_XP = 10;
 export const CUE_LEVEL_XP = 100;
@@ -36,4 +36,49 @@ export function cueGameProgress(reviews: CueReview[], now = new Date()) {
   return { count, todayCount, xp, level, levelXp: xp % CUE_LEVEL_XP,
     defeats: Math.floor(count / CUE_ENEMY_HITS), enemyHits: count % CUE_ENEMY_HITS,
     unlocked, ship: unlocked.at(-1)!, nextUnlock: CUE_GAME_UNLOCKS.find((item) => item.level > level) };
+}
+
+export type CueStar = { id: string; cueId: string; day: string; subjectId: string; subjectName: string; status: LearningStatus; reviewedAt: string };
+export type CueStarFeedback = { id: number; cueId: string; status: LearningStatus };
+export const CUE_STAR_COLORS = { stable: '#6ee7b7', partial: '#fcd34d', unclear: '#fda4af' } as const;
+
+/** The album is reconstructed from syncable evidence, rather than a second counter. */
+export function cueStarAlbum(reviews: CueReview[], cues: StudyCue[], records: LearningRecord[] = [], now = new Date()): CueStar[] {
+  const byId = new Map(cues.map((cue) => [cue.id, cue]));
+  const historical = new Map<string, string>();
+  for (const record of records) for (const cue of record.cues) historical.set(JSON.stringify([cue.cueId, dateKey(new Date(record.completedAt))]), cue.subjectName);
+  const stars = new Map<string, CueStar>();
+  for (const review of reviews) {
+    const at = new Date(review.reviewedAt);
+    if (!review.cueId || !Number.isFinite(at.getTime()) || at > now) continue;
+    const day = dateKey(at);
+    const id = JSON.stringify([review.cueId, day]);
+    const previous = stars.get(id);
+    if (previous && Date.parse(previous.reviewedAt) > at.getTime()) continue;
+    const cue = byId.get(review.cueId);
+    const subjectName = review.subjectName || historical.get(id) || cue?.subjectName || '未分类';
+    stars.set(id, { id, cueId: review.cueId, day, subjectId: review.subjectId || cue?.subjectId || subjectName, subjectName, status: review.status, reviewedAt: review.reviewedAt });
+  }
+  return [...stars.values()].sort((a, b) => a.day.localeCompare(b.day) || a.subjectId.localeCompare(b.subjectId) || a.id.localeCompare(b.id));
+}
+
+export function cueStarPosition(id: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619) >>> 0;
+  return { x: 12 + hash % 176, y: 12 + Math.floor(hash / 176) % 126 };
+}
+export function cueStarWeek(day: string) {
+  const at = dateFromKey(day);
+  at.setDate(at.getDate() - (at.getDay() + 6) % 7);
+  return dateKey(at);
+}
+export function cueConstellations(stars: CueStar[]) {
+  const groups = new Map<string, CueStar[]>();
+  for (const star of stars) {
+    const key = star.day;
+    const group = groups.get(key) ?? [];
+    group.push(star);
+    groups.set(key, group);
+  }
+  return [...groups.values()].flatMap((items) => { const group = [...items].sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt) || a.id.localeCompare(b.id)); return Array.from({ length: Math.floor(group.length / 5) }, (_, i) => group.slice(i * 5, i * 5 + 5)); });
 }

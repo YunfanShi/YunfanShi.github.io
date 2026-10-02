@@ -20,3 +20,15 @@ export function useCueStudyPreferences() {
   try { return cueStudyPreferences(raw ? JSON.parse(raw) : null); }
   catch { return cueStudyPreferences(null); }
 }
+
+function desktopSnapshot() { return window.matchMedia('(min-width: 1024px)').matches; }
+function desktopSubscribe(callback: () => void) {
+  const media = window.matchMedia('(min-width: 1024px)');
+  media.addEventListener('change', callback);
+  return () => media.removeEventListener('change', callback);
+}
+export function useCueUniverseEnabled() {
+  const { cueGameEnabled } = useCueStudyPreferences();
+  const desktop = useSyncExternalStore(desktopSubscribe, desktopSnapshot, () => false);
+  return cueGameEnabled && desktop;
+}

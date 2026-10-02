@@ -53,7 +53,7 @@ test('default shuffle leaves source order intact; switching off restores origina
   assert.equal(ordered.retainedCurrent, true);
 });
 
-test('battle UI renders real history, accessible bars and reduced-motion control', async () => {
+test('desktop sidebar renders real star history, accessible experience and reduced-motion control', async () => {
   const { readFileSync } = await import('node:fs');
   const { createRequire } = await import('node:module');
   const { runInNewContext } = await import('node:vm');
@@ -65,15 +65,47 @@ test('battle UI renders real history, accessible bars and reduced-motion control
   const { outputText } = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } });
   const compiled = { exports: {} as { default: React.ComponentType<Record<string, unknown>> } };
   const game = await import('../src/lib/learning/cue-game.ts');
+  const schedule = await import('../src/lib/learning/schedule-control.ts');
   const styles = new Proxy({}, { get: (_target, key) => String(key) });
-  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/lib/learning/cue-game' ? game : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
   const html = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: false }));
   assert.match(html, /data-motion="false"/);
   assert.match(html, /紫晶巡航舰/);
   assert.match(html, /aria-label="等级经验"[^>]*aria-valuenow="30"/);
-  assert.match(html, /aria-label="敌人生命"[^>]*aria-valuenow="2"/);
-  assert.match(html, /Lv\.5 解锁 黄金远征舰/);
+  assert.match(html, /已点亮 23 颗星的学习星空/);
+  assert.doesNotMatch(html, /敌人生命/);
+  assert.match(html, /星空收藏/);
   assert.doesNotMatch(html, /LEVEL UP/);
+});
+
+test('star album keeps all ratings, deduplicates daily stars and survives Cue deletion and sync', async () => {
+  const { cueStarAlbum, cueConstellations, cueStarWeek, cueStarPosition } = await import('../src/lib/learning/cue-game.ts');
+  const { createEmptyScheduleState, recordCueStudyAssessment } = await import('../src/lib/learning/schedule-control.ts');
+  const cues = [{ id: 'a', subjectId: 'physics', subjectName: 'Physics', unit: 'U1', subsection: '', prompt: 'Recall', type: 'definition' as const, markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: now.toISOString(), updatedAt: now.toISOString() }];
+  let state = recordCueStudyAssessment({ ...createEmptyScheduleState(), cues }, { cueId: 'a', status: 'partial' }, now, 'session');
+  state = recordCueStudyAssessment(state, { cueId: 'a', status: 'unclear' }, now, 'session');
+  assert.equal(state.cueReviews.length, 1);
+  assert.equal(state.cueReviews[0].subjectName, 'Physics');
+  const stored = JSON.parse(JSON.stringify(state.cueReviews));
+  const album = cueStarAlbum([...stored, ...stored], [], [], now);
+  assert.equal(album.length, 1);
+  assert.equal(album[0].status, 'unclear');
+  assert.equal(album[0].subjectId, 'physics');
+  assert.equal(album[0].subjectName, 'Physics');
+  assert.equal(cueStarWeek('2026-10-04'), '2026-09-28');
+  assert.equal(cueStarWeek('2026-10-05'), '2026-10-05');
+  const all = cueStarAlbum(Array.from({length: 10}, (_, i) => ({...review(`star-${i}`, i % 2 ? 'partial' : 'stable'), subjectId: i % 2 ? 'physics' : 'cs', subjectName: i % 2 ? 'Physics' : 'CS'})), [], [], now);
+  assert.equal(cueConstellations(all).length, 2);
+  assert.equal(all.filter(x=>x.subjectId==='physics').length, 5);
+  assert.deepEqual(cueStarPosition(album[0].id), cueStarPosition(album[0].id));
+  assert.ok(all.every(star => { const p=cueStarPosition(star.id); return p.x>=12 && p.x<=187 && p.y>=12 && p.y<=137; }));
+});
+
+test('legacy review attribution can use saved learning records even after Cue removal', async () => {
+  const { cueStarAlbum } = await import('../src/lib/learning/cue-game.ts');
+  const record = { completedAt: now.toISOString(), cues: [{cueId:'a',subjectName:'History'}] } as import('../src/lib/learning/schedule-control.ts').LearningRecord;
+  assert.equal(cueStarAlbum([review('a')],[],[record],now)[0].subjectName,'History');
+  assert.equal(cueStarAlbum([review('unknown')],[],[],now)[0].subjectName,'未分类');
 });

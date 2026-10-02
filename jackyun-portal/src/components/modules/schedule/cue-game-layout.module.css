@@ -1,0 +1,6 @@
+@media (min-width: 1024px) {
+  .session[data-cue-universe='true'] > main[data-cue-study-content] { width: min(1024px, calc(100% - 432px)); margin-inline: auto; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .session[data-cue-universe='true'] > main[data-cue-study-content] { width: calc(100% - 360px); }
+}

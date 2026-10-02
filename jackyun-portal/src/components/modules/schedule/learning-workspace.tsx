@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CueGamePanel from './cue-game-panel';
-import { useCueStudyPreferences } from './use-cue-study-preferences';
+import type { CueStarFeedback } from '@/lib/learning/cue-game';
+import universeStyles from './cue-game-layout.module.css';
+import { useCueUniverseEnabled, useCueStudyPreferences } from './use-cue-study-preferences';
 import { CueDifficultyPicker } from './learning-assistant';
 import type { CueDifficulty } from '@/lib/learning/learning-assistance';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
-import { cueMatchesStatusFilter, dateKey, type CueReview, type CueStatusFilter, type LearningCatalogSubject, type LearningStatus, type StudyCue } from '@/lib/learning/schedule-control';
+import { cueMatchesStatusFilter, dateKey, type CueReview, type CueStatusFilter, type LearningCatalogSubject, type LearningRecord, type LearningStatus, type StudyCue } from '@/lib/learning/schedule-control';
 import {
   buildStudyQueue, checkQuestionAnswer, emptyResponse, itemKey, questionMatchesFilter,
   type QuestionBankState, type QuestionFilter, type QuestionResponse, type StudyDraft, type StudyItemRef, type StudyMode, type StudyQuestion,
@@ -81,8 +83,9 @@ export default function LearningWorkspace({ cues, reviews, bank, catalog, onStar
   </section>;
 }
 
-export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, memos, onDifficulty, reviews, onClose, onComplete }: { reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; draft: StudyDraft; cues: StudyCue[]; bank: QuestionBankState; onDraft: (draft: StudyDraft) => void; onRate: (draft: StudyDraft, item: StudyItemRef, status: LearningStatus) => void; onMemo: (cueId: string, content: string) => void; memos: Array<{ cueId: string; content: string }>; onClose: () => void; onComplete: (draft: StudyDraft) => void }) {
-  const { cueGameEnabled } = useCueStudyPreferences();
+export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, memos, onDifficulty, reviews, starRecords, onClose, onComplete }: { starRecords: LearningRecord[]; reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; draft: StudyDraft; cues: StudyCue[]; bank: QuestionBankState; onDraft: (draft: StudyDraft) => void; onRate: (draft: StudyDraft, item: StudyItemRef, status: LearningStatus) => void; onMemo: (cueId: string, content: string) => void; memos: Array<{ cueId: string; content: string }>; onClose: () => void; onComplete: (draft: StudyDraft) => void }) {
+  const cueGameEnabled = useCueUniverseEnabled();
+  const [starFeedback, setStarFeedback] = useState<CueStarFeedback>();
   const rootRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const [linkedPreviewId, setLinkedPreviewId] = useState('');
@@ -101,7 +104,7 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
   const update = (changes: Partial<StudyDraft>) => onDraft({ ...draft, ...changes, updatedAt: new Date().toISOString() });
   const updateResponse = (changes: Partial<QuestionResponse>) => update({ responses: { ...draft.responses, [key]: { ...response, ...changes } } });
   const move = (offset: number) => { setLinkedPreviewId(''); setError(''); update({ index: Math.max(0, Math.min(draft.items.length - 1, index + offset)) }); };
-  const rate = (status: LearningStatus) => { if (!item) return; try { onRate(draft, item, status); setError(''); } catch (error) { setError(error instanceof Error ? error.message : '保存失败。'); } };
+  const rate = (status: LearningStatus) => { if (!item) return; try { onRate(draft, item, status); if (item.kind === 'cue') setStarFeedback((previous) => ({ id: (previous?.id ?? 0) + 1, cueId: item.id, status })); setError(''); } catch (error) { setError(error instanceof Error ? error.message : '保存失败。'); } };
   useEffect(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
@@ -114,7 +117,7 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
   }, []);
   const correct = question ? checkQuestionAnswer(question, response) : null;
   const linkedCue = cues.find((cue) => cue.id === linkedPreviewId);
-  return createPortal(<div ref={rootRef} role="dialog" aria-modal="true" aria-label="学习会话" tabIndex={-1} className="fixed inset-0 z-[100] flex flex-col bg-[var(--background)] outline-none" onKeyDown={(event) => {
+  return createPortal(<div ref={rootRef} role="dialog" aria-modal="true" aria-label="学习会话" tabIndex={-1} data-cue-universe={cueGameEnabled && draft.items.some((item) => item.kind === 'cue')} className={`${universeStyles.session} fixed inset-0 z-[100] flex flex-col bg-[var(--background)] outline-none`} onKeyDown={(event) => {
     if (event.key === 'Escape') { onClose(); return; }
     if (event.key === 'Tab') {
       const focusable = [...(rootRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select, summary, [tabindex="0"]') ?? [])].filter((element) => element.getClientRects().length > 0);
@@ -127,8 +130,8 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
     if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
   }}>
     <header className="shrink-0 border-b border-[var(--card-border)] px-4 py-3"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{draft.task.subjectName} · {modes[draft.mode]}</h2><p className="text-xs text-[var(--muted-foreground)]">{draft.items.length ? index + 1 : 0} / {draft.items.length} · 已评价 {assessedCount} 项 · 进度自动保存</p></div><button className={studyButtonClass} onClick={onClose}>退出并保存</button></div></header>
-    <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5"><div className="mx-auto max-w-4xl space-y-4">
-      {cueGameEnabled && draft.items.some((item) => item.kind === 'cue') && <CueGamePanel reviews={reviews} />}
+    <main data-cue-study-content className="min-h-0 flex-1 overflow-y-auto px-4 py-5"><div className="mx-auto max-w-4xl space-y-4">
+      {cueGameEnabled && draft.items.some((item) => item.kind === 'cue') && <CueGamePanel reviews={reviews} cues={cues} records={starRecords} feedback={starFeedback} />}
       {!content && <p className="rounded-xl border border-[var(--card-border)] p-6">队列中的内容已移除。退出后重新选择学习内容。</p>}
       {content && <><div className="flex flex-wrap items-center gap-2 text-sm"><span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">{cue ? '知识 CUE' : questionTypeLabels[question!.type]}</span><span>{content.subjectName} · {content.unit}{content.subsection ? ` / ${content.subsection}` : ''}</span><span className="text-[var(--muted-foreground)]">历史状态 {studyStatusMark(cue?.status ?? (question ? bank.reviews[question.id]?.status : undefined))}</span>{question && <span className="text-[var(--muted-foreground)]">{question.code} · {questionSourceLabels[question.sourceKind ?? 'other']} · {question.source} {question.number} · v{question.version}</span>}</div>
       <article className="min-w-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-6"><MarkdownRenderer content={content.prompt} />{question && <QuestionImages question={question} placement="prompt" />}{cue?.subtitle && <div className="mt-3 text-sm text-[var(--muted-foreground)]"><MarkdownRenderer content={cue.subtitle} /></div>}</article>

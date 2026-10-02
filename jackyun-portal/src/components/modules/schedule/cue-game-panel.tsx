@@ -1,51 +1,83 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { cueGameProgress, CUE_GAME_UNLOCKS, CUE_GAME_XP, CUE_LEVEL_XP, CUE_ENEMY_HITS } from '@/lib/learning/cue-game';
-import type { CueReview } from '@/lib/learning/schedule-control';
+import { cueGameProgress, cueStarAlbum, cueStarPosition, cueStarWeek, cueConstellations, CUE_STAR_COLORS, CUE_LEVEL_XP, type CueStar, type CueStarFeedback } from '@/lib/learning/cue-game';
+import { dateKey, type CueReview, type StudyCue, type LearningRecord } from '@/lib/learning/schedule-control';
 import styles from './cue-game-panel.module.css';
 
-type Reward = { id: number; xp: number; levelUp: boolean; defeated: boolean };
-const enemies = ['陨晶守卫', '虚空猎手', '星环巨兽'];
+export function CueStarSky({ stars, highlight }: { stars: CueStar[]; highlight?: string }) {
+  return <svg className={styles.sky} viewBox="0 0 200 150" role="img" aria-label={`已点亮 ${stars.length} 颗星的学习星空`}>
+    <defs><radialGradient id="cue-star-nebula"><stop stopColor="#6877ab" stopOpacity=".25" /><stop offset="1" stopColor="#101727" stopOpacity="0" /></radialGradient></defs>
+    <ellipse cx="104" cy="78" rx="92" ry="60" fill="url(#cue-star-nebula)" />
+    {cueConstellations(stars).map((group) => <polyline key={group[0].id} points={group.map((star) => { const point = cueStarPosition(star.id); return `${point.x},${point.y}`; }).join(' ')} fill="none" stroke="#95b5e2" strokeOpacity=".45" strokeWidth=".6" />)}
+    {stars.map((star) => { const point = cueStarPosition(star.id); return <g key={star.id} className={highlight === star.cueId ? styles.newStar : undefined} style={{ '--star-color': CUE_STAR_COLORS[star.status] } as CSSProperties}><circle cx={point.x} cy={point.y} r="4" fill={CUE_STAR_COLORS[star.status]} opacity=".12" /><circle cx={point.x} cy={point.y} r="1.7" fill={CUE_STAR_COLORS[star.status]} /><title>{star.subjectName} · {star.day} · {star.status === 'stable' ? '√' : star.status === 'partial' ? '△' : '○'}</title></g>; })}
+    {!stars.length && <text x="100" y="78" textAnchor="middle" fill="#91a2bb" fontSize="9">今天的第一颗星，等你点亮</text>}
+  </svg>;
+}
 
-export default function CueGamePanel({ reviews, animations = true }: { reviews: CueReview[]; animations?: boolean }) {
+type Celebration = { id: number; cueId: string; status: CueStarFeedback['status']; milestone: boolean; gained: number };
+const emptyCues: StudyCue[] = [];
+const emptyRecords: LearningRecord[] = [];
+export default function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, animations = true, feedback, summary = false, initialAlbumOpen = false, onDismiss }: { reviews: CueReview[]; cues?: StudyCue[]; records?: LearningRecord[]; animations?: boolean; feedback?: CueStarFeedback; summary?: boolean; initialAlbumOpen?: boolean; onDismiss?: () => void }) {
   const progress = useMemo(() => cueGameProgress(reviews), [reviews]);
-  const { xp, level, defeats } = progress;
-  const previous = useRef({ xp, level, defeats });
-  const [reward, setReward] = useState<Reward | null>(null);
-  const [collectionOpen, setCollectionOpen] = useState(false);
+  const stars = useMemo(() => cueStarAlbum(reviews, cues, records), [reviews, cues, records]);
+  const today = dateKey(new Date());
+  const todayStars = stars.filter((star) => star.day === today);
+  const previous = useRef({ xp: progress.xp, count: progress.todayCount });
+  const handled = useRef<number | undefined>(feedback?.id);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const albumButton = useRef<HTMLButtonElement>(null);
+  const closeAlbum = () => { setAlbumOpen(false); queueMicrotask(() => albumButton.current?.focus()); };
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const [albumOpen, setAlbumOpen] = useState(initialAlbumOpen);
+  const [subject, setSubject] = useState('');
+  const [period, setPeriod] = useState<'day' | 'week'>('day');
   useEffect(() => {
     const before = previous.current;
-    previous.current = { xp, level, defeats };
-    if (xp <= before.xp) return;
-    // Restoring a session never replays its rewards. Only new reviews animate.
-    const next = { id: xp, xp: xp - before.xp, levelUp: level > before.level, defeated: defeats > before.defeats };
-    let active = true;
-    queueMicrotask(() => { if (active) setReward(next); });
-    const timer = window.setTimeout(() => setReward(null), next.levelUp ? 1800 : 1000);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [xp, level, defeats]);
-  const enemy = enemies[progress.defeats % enemies.length];
-  const remaining = CUE_ENEMY_HITS - progress.enemyHits;
-  return <section className={styles.panel} data-cue-game data-motion={animations} style={{ '--ship-color': progress.ship.color } as CSSProperties} aria-label="CUE 宇宙冒险">
-    <div className={styles.top}>
-      <div className={styles.identity}><span className={styles.level}>Lv.<strong>{progress.level}</strong></span><div><span className={styles.eyebrow}>STAR VOYAGER</span><h2>{progress.ship.name}</h2></div></div>
-      <button type="button" className={styles.collectionButton} onClick={() => setCollectionOpen((open) => !open)} aria-expanded={collectionOpen}>舰队 {progress.unlocked.length} / {CUE_GAME_UNLOCKS.length}<span aria-hidden="true"> ↗</span></button>
+    previous.current = { xp: progress.xp, count: progress.todayCount };
+    if (!feedback || handled.current === feedback.id) return;
+    handled.current = feedback.id;
+    const next = { ...feedback, gained: Math.max(0, progress.xp - before.xp), milestone: Math.floor(progress.todayCount / 5) > Math.floor(before.count / 5) };
+    if (timer.current) clearTimeout(timer.current);
+    queueMicrotask(() => setCelebration(next));
+    timer.current = setTimeout(() => setCelebration(null), next.milestone ? 1600 : 800);
+  }, [feedback, progress.xp, progress.todayCount]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const scopedStars = subject ? stars.filter((star) => star.subjectId === subject) : stars;
+  const groups = new Map<string, CueStar[]>();
+  for (const star of scopedStars) {
+    const key = period === 'week' ? cueStarWeek(star.day) : star.day;
+    groups.set(key, [...(groups.get(key) ?? []), star]);
+  }
+  const subjects = [...new Map(stars.map((star) => [star.subjectId, star.subjectName])).entries()];
+  return <aside className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} aria-label="CUE 星空侧栏" style={{ '--star-color': celebration ? CUE_STAR_COLORS[celebration.status] : '#a5b4fc' } as CSSProperties}>
+    <div className={styles.panel} data-milestone={celebration?.milestone || undefined}>
+      <div className={styles.top}><span className={styles.eyebrow}>STAR JOURNAL</span>{onDismiss && <button type="button" onClick={onDismiss} aria-label="收起学习成果">×</button>}</div>
+      <h2>{summary ? `今天完成 ${progress.todayCount} 条` : '今日星空'}</h2>
+      <div className={styles.count} key={progress.todayCount}><strong>{progress.todayCount}</strong><span>颗星已点亮</span></div>
+      <CueStarSky stars={todayStars} highlight={celebration?.cueId} />
+      <div className={styles.legend}><span style={{ color: CUE_STAR_COLORS.stable }}>√</span><span style={{ color: CUE_STAR_COLORS.partial }}>△</span><span style={{ color: CUE_STAR_COLORS.unclear }}>○</span><small>每种努力都留下一颗星</small></div>
+      <div className={styles.xpRow}><span>Lv.{progress.level}</span><span>{progress.levelXp} / {CUE_LEVEL_XP} XP</span></div>
+      <div className={styles.xpTrack} role="progressbar" aria-label="等级经验" aria-valuemin={0} aria-valuemax={CUE_LEVEL_XP} aria-valuenow={progress.levelXp}><div style={{ width: `${progress.levelXp}%` }} /></div>
+      <p className={styles.ship}>{progress.ship.name}</p>
+      <button type="button" ref={albumButton} className={styles.albumButton} onClick={() => setAlbumOpen(true)}>星空收藏 · {new Set(stars.map((star) => star.day)).size} 天</button>
+      <p className={styles.rule}>每 5 条连接一组星座<br />记录保留，休息一天也不会消失</p>
+      {celebration && <div key={celebration.id} className={styles.celebration} role="status"><span>{celebration.milestone ? '✦ 新星座已点亮' : celebration.gained ? `+${celebration.gained} XP · 星光已收下` : '评价已更新，星光保留'}</span><button type="button" onClick={() => setCelebration(null)}>跳过动画</button></div>}
     </div>
-    <div className={styles.xpRow}><span>等级经验</span><strong>{progress.levelXp} <span>/ {CUE_LEVEL_XP} XP</span></strong></div>
-    <div className={styles.xpTrack} role="progressbar" aria-label="等级经验" aria-valuemin={0} aria-valuemax={CUE_LEVEL_XP} aria-valuenow={progress.levelXp}><div style={{ width: `${progress.levelXp}%` }} /></div>
-    <div className={styles.arena} data-hit={reward ? 'true' : 'false'}>
-      <div className={styles.orbit} aria-hidden="true" />
-      <div className={styles.ship} aria-hidden="true"><svg viewBox="0 0 140 100"><defs><linearGradient id="cue-ship-hull" x2="1" y2="1"><stop stopColor="#f8fafc" /><stop offset="1" stopColor="#64748b" /></linearGradient></defs><path className={styles.exhaust} d="M24 40 L0 50 L24 60Z" fill="var(--ship-color)" /><path d="M20 34 L78 13 L119 50 L78 87 L20 66 L42 50Z" fill="url(#cue-ship-hull)" stroke="#e2e8f0" strokeWidth="1.5" /><path d="M45 37 L80 25 L106 50 L80 75 L45 63 L66 50Z" fill="#111b35" /><path d="M74 37 L94 50 L74 63 L64 50Z" fill="var(--ship-color)" /><path d="M26 34 L58 7 L71 20 M26 66 L58 93 L71 80" fill="none" stroke="var(--ship-color)" strokeWidth={progress.level >= 3 ? 6 : 3} />{progress.level >= 5 && <path d="M40 27 L28 10 L76 15 M40 73 L28 90 L76 85" fill="none" stroke="var(--ship-color)" strokeWidth="3" />}</svg></div>
-      {reward && <div key={reward.id} className={styles.attack} aria-hidden="true"><span className={styles.beam} /><span className={styles.impact} /><span className={styles.damage}>−{reward.xp}</span><span className={styles.xpGain}>+{reward.xp} XP</span></div>}
-      <div className={styles.enemy} key={progress.defeats} aria-hidden="true"><svg viewBox="0 0 120 120"><path d="M60 4 L85 20 L110 40 L102 78 L83 108 L47 114 L16 89 L6 55 L28 21Z" fill="#30264c" stroke="#b9a2e4" strokeWidth="2" /><path d="M60 4 L69 45 L110 40 M69 45 L102 78 M69 45 L47 114 M69 45 L28 21 M47 114 L39 61 L6 55" fill="none" stroke="#6d588c" strokeWidth="2" /><path d="M31 50 L49 56 L43 65 L27 60 M89 50 L71 56 L77 65 L93 60" fill="#fb7185" /><path d="M44 83 L60 74 L76 83" fill="none" stroke="#fb7185" strokeWidth="3" /></svg><span className={styles.enemyHalo} /></div>
-      <div className={styles.enemyInfo}><span>{enemy} · 第 {progress.defeats + 1} 战</span><div role="progressbar" aria-label="敌人生命" aria-valuemin={0} aria-valuemax={CUE_ENEMY_HITS} aria-valuenow={remaining}><div style={{ width: `${remaining / CUE_ENEMY_HITS * 100}%` }} /></div><small>再完成 {remaining} 条即可击败</small></div>
-      {reward?.defeated && !reward.levelUp && <div key={`defeat-${reward.id}`} className={styles.victory} aria-hidden="true">✦ 敌人已击败 · 下一战</div>}
-      {reward?.levelUp && <div key={`level-${reward.id}`} className={styles.levelUp} aria-hidden="true"><span>LEVEL UP</span><strong>Lv. {progress.level}</strong><small>{progress.ship.name}</small></div>}
-    </div>
-    <div className={styles.bottom}><span>今日 <strong>{progress.todayCount}</strong> 条 · 击败 <strong>{progress.defeats}</strong> 只</span><span>{progress.nextUnlock ? `Lv.${progress.nextUnlock.level} 解锁 ${progress.nextUnlock.name}` : '全部舰船已解锁'}</span></div>
-    <p className={styles.rule}>每条每日首次复习 +{CUE_GAME_XP} XP · √ / △ / ○ 奖励相同</p>
-    <span className={styles.srOnly} role="status" aria-live="polite">{reward ? `获得 ${reward.xp} 经验${reward.defeated ? '，敌人已击败' : ''}${reward.levelUp ? `，升级到 ${progress.level} 级` : ''}` : ''}</span>
-    {collectionOpen && <div className={styles.collection}>{CUE_GAME_UNLOCKS.map((ship) => <div key={ship.level} data-unlocked={ship.level <= progress.level}><span aria-hidden="true" style={{ color: ship.color }}>✦</span><strong>{ship.name}</strong><small>{ship.level <= progress.level ? '已解锁' : `Lv.${ship.level} 解锁`}</small></div>)}<p>等级代表复习投入；已有复习记录也计入经验。关闭冒险后，复习记录仍保留。</p></div>}
-  </section>;
+    {celebration && <div key={`flight-${celebration.id}`} className={`${styles.flight} ${styles[celebration.status]}`} aria-hidden="true"><span className={styles.cardGhost}>{celebration.status === 'stable' ? '√' : celebration.status === 'partial' ? '△' : '○'}</span><span className={styles.comet} /></div>}
+    {albumOpen && <div className={styles.album} role="dialog" aria-modal="true" aria-label="星空收藏册" tabIndex={-1} onKeyDown={(event) => {
+      event.stopPropagation();
+      if (event.key === 'Escape') closeAlbum();
+      if (event.key === 'Tab') {
+        const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button, select')];
+        if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
+        else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0]?.focus(); }
+      }
+    }}>
+      <div className={styles.albumHeader}><div><span className={styles.eyebrow}>YOUR CONSTELLATIONS</span><h2>星空收藏册</h2></div><button type="button" autoFocus onClick={closeAlbum}>关闭收藏</button></div>
+      <div className={styles.filters}><label>时间视图<select value={period} onChange={(event) => setPeriod(event.target.value as 'day' | 'week')}><option value="day">每天</option><option value="week">每周</option></select></label><label>学科<select value={subject} onChange={(event) => setSubject(event.target.value)}><option value="">全部学科</option>{subjects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>
+      <p className={styles.albumNote}>复习记录生成的真实成果 · √ / △ / ○ 同样计入 · 随学习记录同步</p>
+      <div className={styles.pages}>{[...groups].sort(([a], [b]) => b.localeCompare(a)).map(([day, items]) => <article key={day}><div><strong>{period === 'week' ? `${day} 起的一周` : day}</strong><span>{items.length} 颗星</span></div><CueStarSky stars={items} /><p>{[...new Set(items.map((star) => star.subjectName))].join(' · ')}</p></article>)}{!groups.size && <p>完成复习后，第一幅星空就会保存在这里。</p>}</div>
+    </div>}
+  </aside>;
 }
