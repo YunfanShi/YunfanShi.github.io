@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCuePractice, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
+import { emptyCuePractice, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
 import { createEmptyScheduleState, recordCueStudyAssessment, planCueReview, saveCueStudyDraft, reorderCueStudy, type StudyCue, type CueStudyDraft } from '../src/lib/learning/schedule-control.ts';
 import { cueGameProgress } from '../src/lib/learning/cue-game.ts';
 import { bufferedCueAnswer } from '../src/lib/learning/cue-answer-card.ts';
 const at = new Date(2026, 9, 2, 12);
 const cue = { id: 'a', subjectName: 'Physics', subjectId: 'physics', unit: 'U1', subsection: '', prompt: 'Recall', type: 'formula', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: at.toISOString(), updatedAt: at.toISOString() } as StudyCue;
 
-test('red waits for three other retrievals, yellow for five; edits cannot manufacture a gap', () => {
-  for (const [status, gap] of [['unclear', 3], ['partial', 5]] as const) {
-    let state = rateCuePractice(emptyCuePractice(), 'a', status, true, 0);
+test('red waits for four other retrievals, yellow for six; edits cannot manufacture a gap', () => {
+  for (const [status, gap] of [['unclear', 4], ['partial', 6]] as const) {
+    let state = rateCuePractice(emptyCuePractice(), 'a', status, true, 0, () => 0);
     assert.equal(dueCuePractice(state, 0), undefined);
     state = rateCuePractice(state, 'a', 'stable', false, 0);
     assert.equal(state.pending.length, 1);
@@ -21,18 +21,18 @@ test('red waits for three other retrievals, yellow for five; edits cannot manufa
   }
 });
 test('small decks use time, never immediately show the same Cue; retry failures reschedule', () => {
-  let state = rateCuePractice(emptyCuePractice(), 'a', 'unclear', true, 0);
-  assert.equal(dueCuePractice(state, 59_999), undefined);
-  assert.equal(dueCuePractice(state, 60_000)?.cueId, 'a');
-  assert.equal(dueCuePractice(state, 60_000, 'a'), undefined);
-  state = enterCuePractice(state, 60_000);
+  let state = rateCuePractice(emptyCuePractice(), 'a', 'unclear', true, 0, () => 0);
+  assert.equal(dueCuePractice(state, 299_999), undefined);
+  assert.equal(dueCuePractice(state, 300_000)?.cueId, 'a');
+  assert.equal(dueCuePractice(state, 300_000, 'a'), undefined);
+  state = enterCuePractice(state, 300_000);
   assert.equal(state.rating, undefined);
-  state = rateCuePractice(state, 'a', 'partial', true, 60_000);
+  state = rateCuePractice(state, 'a', 'partial', true, 300_000, () => 0);
   assert.equal(state.completed, 2);
-  assert.equal(state.pending[0].after, 7);
-  assert.equal(state.pending[0].availableAt, 150_000);
-  state = enterCuePractice(state, 150_000);
-  state = rateCuePractice(state, 'a', 'stable', true, 150_000);
+  assert.equal(state.pending[0].after, 8);
+  assert.equal(state.pending[0].availableAt, 600_000);
+  state = enterCuePractice(state, 600_000);
+  state = rateCuePractice(state, 'a', 'stable', true, 600_000);
   assert.equal(state.pending.length, 0);
 });
 test('delayed practice persists with the draft; shuffle preserves all session evidence', () => {
@@ -111,4 +111,28 @@ test('a repaired red retains more next-day risk than a repaired yellow', () => {
     return planCueReview(state.cues[0],state.cueReviews,'stable',new Date(2026,9,3,12)).intervalDays;
   });
   assert.ok(intervals[1] < intervals[0]);
+});
+
+ test('random windows include both bounds and edits or reloads do not reroll them', () => {
+  for (const [status, gaps] of [['unclear', [4,6]], ['partial', [6,10]]] as const) {
+    for (const [random, gap, time] of [[0,gaps[0],300_000],[.999999,gaps[1],600_000]]) {
+      const state=rateCuePractice(emptyCuePractice(),'a',status,true,0,()=>random);
+      assert.equal(state.pending[0].after,1+gap); assert.equal(state.pending[0].availableAt,time);
+      assert.deepEqual(normalizeCuePractice(state,{},100,()=>0),state);
+      assert.deepEqual(rateCuePractice(state,'a','partial',false,200,()=>0).pending,state.pending);
+    }
+  }
+  const legacy=normalizeCuePractice({completed:3,pending:[{cueId:'a',after:4,availableAt:60_000}]},{a:'unclear'},100,()=>0);
+  assert.equal(legacy.pending[0].after,7); assert.equal(legacy.pending[0].availableAt,300_100);
+});
+test('retry returns to the same unreviewed Cue after shuffle and can leave an exhausted queue', () => {
+  let state=rateCuePractice(emptyCuePractice(),'a','unclear',true,0,()=>0);
+  state=enterCuePractice(state,300_000,undefined,'c');
+  const order=reorderCueStudy(['a','b','c','d'],{a:'unclear',b:'stable'},true,state.returnCueId,()=>0);
+  const visible=order.cueIds.filter(id=>!order.hiddenCueIds.includes(id));
+  assert.equal(visible[cuePracticeReturnIndex(state,visible)],'c');
+  state=rateCuePractice(state,'a','stable',true,300_000);
+  assert.equal(state.pending.length,0);
+  assert.equal(enterCuePractice(state,300_000,'a').active,undefined);
+  assert.equal(cuePracticeReturnIndex(state,[]),0);
 });

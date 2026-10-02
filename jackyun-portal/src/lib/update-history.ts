@@ -18,14 +18,20 @@ export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与�
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
   {
-    version: APP_VERSION,
+    version: APP_VERSION, date: '2026-10-02', dateLabel: '2026 年 10 月 2 日',
+    title: '更从容的重练，更完整的星光',
+    summary: '重练按时间或题数到期；切换乱序能返回本轮，粒子庆祝升级为完整的汇聚与释放。',
+    categories: ['学习体验', '稳定性'], accent: 'violet', featured: true,
+    highlights: ['○ 隔 4–6 条、△ 隔 6–10 条，或等待 5–10 分钟，满足任一条件即可重练；随机间隔随会话保存。', '按 CUE 身份保留重练返回位置，乱序及主队列已完成时也能退出重练。', '星核诞生、星环共鸣、极光绽放三套粒子覆盖独立播放，继续做题不会提前截断，支持跳过。'],
+  },
+  {
+    version: '3.18.0',
     date: '2026-10-02',
     dateLabel: '2026 年 10 月 2 日',
     title: '让薄弱 CUE 真正练起来',
     summary: '黄红 CUE 在本轮延后重练，当天转绿保留次日确认；认真检索有可积累的记录与两种庆祝。',
     categories: ['学习体验'],
     accent: 'violet',
-    featured: true,
     highlights: ['○ 隔 3 条、△ 隔 5 条再闭卷回忆；小队列可稍后进入到期重练，随进度保存。', '黄红转绿不抹掉薄弱风险，次日短间隔确认，重练不虚增跨天掌握证据。', '每 4 次检索出现答题区粒子覆盖，较高门槛触发全局场景；三种状态都积累成果。', '答题卡输入独立更新并批量保存，随机切换保留完整会话与累计记录。'],
   },
   {
