@@ -43,15 +43,15 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
       const x = Math.cos(angle) * point.radius;
       const y = Math.sin(angle) * point.radius;
       const depth = 1 / (1.6 + y * .3 + point.z * .15);
-      const scale = Math.max(width * .65, height * .92);
-      return { x: width * .57 + (x * .93 - y * .24) * scale * depth, y: height * .54 + (y * .54 + point.z) * scale * depth, depth };
+      const scale = Math.max(width * 1.16, height * 1.1);
+      return { x: width * .5 + (x * .93 - y * .24) * scale * depth, y: height * .51 + (y * .54 + point.z) * scale * depth, depth };
     };
     const paint = (now: number) => {
       context.fillStyle = '#040810'; context.fillRect(0, 0, width, height);
-      const haze = context.createRadialGradient(width * .57, height * .54, 0, width * .57, height * .54, Math.max(width, height) * .6);
+      const haze = context.createRadialGradient(width * .5, height * .51, 0, width * .5, height * .51, Math.max(width, height) * .6);
       haze.addColorStop(0, '#1b294249'); haze.addColorStop(.35, '#111d3038'); haze.addColorStop(1, '#04081000');
       context.fillStyle = haze; context.fillRect(0, 0, width, height);
-      const core = context.createRadialGradient(width * .57, height * .54, 0, width * .57, height * .54, height * .2);
+      const core = context.createRadialGradient(width * .5, height * .51, 0, width * .5, height * .51, height * .2);
       core.addColorStop(0, '#b5c8ef24'); core.addColorStop(.2, '#5c77aa16'); core.addColorStop(1, '#04081000');
       context.fillStyle = core; context.fillRect(0, 0, width, height);
       const elapsed = Math.min(100, now - (previousPaint.current ?? now));
@@ -60,19 +60,19 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
       const phase = phaseRef.current;
       context.globalCompositeOperation = 'lighter';
       context.fillStyle = '#afc7ed';
-      context.globalAlpha = .3;
+      context.globalAlpha = .52;
       context.beginPath();
       for (const point of dust) { const p = project(point, phase); context.moveTo(p.x + point.size, p.y); context.arc(p.x, p.y, point.size * p.depth, 0, Math.PI * 2); }
       context.fill();
       for (let i = 0; i < dust.length; i += 19) {
-        const p = project(dust[i], phase); const size = 9 + dust[i].size * 5;
-        context.globalAlpha = .35; context.drawImage(sprites.dust, p.x - size / 2, p.y - size / 2, size, size);
+        const p = project(dust[i], phase); const size = 12 + dust[i].size * 6;
+        context.globalAlpha = .6; context.drawImage(sprites.dust, p.x - size / 2, p.y - size / 2, size, size);
       }
       for (const point of points) {
         const p = project(point, phase);
         const age = moving() && point.arrivedAt !== undefined ? Math.min(1, (now - point.arrivedAt) / 1200) : 1;
         const arrival = Math.sin(age * Math.PI) * (point.arrivedAt !== undefined ? 12 : 0);
-        const size = (22 + point.size * 6 + arrival) * p.depth;
+        const size = (30 + point.size * 9 + arrival) * p.depth;
         context.globalAlpha = .35 + age * .6;
         context.drawImage(sprites[point.star.status], p.x - size / 2, p.y - size / 2, size, size);
         context.fillStyle = CUE_STAR_COLORS[point.star.status];
@@ -89,7 +89,7 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
         context.lineWidth = .6;
         context.beginPath();
         const radius = (35 + age * 110) * (1 + celebration.variant * .2);
-        context.ellipse(width * .57, height * .54, radius * 2, radius * .8, -.25 + celebration.variant * .3, 0, Math.PI * 2); context.stroke();
+        context.ellipse(width * .5, height * .51, radius * 2, radius * .8, -.25 + celebration.variant * .3, 0, Math.PI * 2); context.stroke();
       }
       context.globalAlpha = 1; context.globalCompositeOperation = 'source-over';
     };

@@ -93,10 +93,18 @@ export function cueConstellations(stars: CueStar[]) {
   return [...groups.values()].flatMap((items) => { const group = [...items].sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt) || a.id.localeCompare(b.id)); return Array.from({ length: Math.floor(group.length / 5) }, (_, i) => group.slice(i * 5, i * 5 + 5)); });
 }
 
-export type CueAnimationSituation = LearningStatus | 'updated' | 'constellation' | 'level' | 'finish';
+export type CueAnimationSituation = LearningStatus | 'updated' | 'constellation' | 'level' | 'finish' | 'streak' | 'flow';
 /** Rotate within each situation so mixed ratings do not repeatedly pick the same animation. */
 export function cueAnimationPlan(situation: CueAnimationSituation, occurrence: number) {
   const variant = ((occurrence % 3) + 3) % 3;
-  const duration = situation === 'finish' ? 2200 : situation === 'level' ? 1900 : situation === 'constellation' ? 1600 : 1000;
+  const duration = ['streak', 'flow', 'finish'].includes(situation) ? 2200 : situation === 'level' ? 1900 : situation === 'constellation' ? 1600 : 1000;
   return { situation, variant, duration };
+}
+
+/** Session encouragement only counts distinct Cues, never edits to a saved rating. */
+export function cueEncouragement(count: number, streak: number, levelUp: boolean, constellation: boolean): CueAnimationSituation | null {
+  if (streak > 0 && streak % 3 === 0) return 'streak';
+  if (levelUp) return 'level';
+  if (constellation) return 'constellation';
+  return count > 0 && count % 3 === 0 ? 'flow' : null;
 }

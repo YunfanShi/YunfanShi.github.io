@@ -20,3 +20,25 @@
 @media (min-width: 1024px) and (max-width: 1279px) {
   .session[data-cue-universe='true'] > main[data-cue-study-content] { width: calc(100% - 360px); }
 }
+
+/* Use the actual header height; prompt and ratings form one centered study stage. */
+@media (min-width: 768px) {
+  .session:has(> main[data-cue-study-page]) { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  .session:has(> main[data-cue-study-page]) > header { flex-shrink: 0; }
+  .session > main[data-cue-study-page] { flex: 1; min-height: 0; overflow-y: auto; padding-block: 16px; }
+  .session > main[data-cue-study-page] > nav,
+  .session > main[data-cue-study-page] > div[aria-label='Cue 学习进度'] { flex-wrap: nowrap; flex-shrink: 0; }
+  .session [data-cue-study-stage] { margin-block: auto; flex-shrink: 0; width: 100%; }
+  .session [data-cue-study-stage] > section { margin-block: 0; padding-block: 16px; }
+  .session [data-cue-evidence] { max-height: min(24dvh, 240px); overflow-y: auto; margin-top: 24px; }
+  .session [data-cue-study-ratings] { padding-top: 12px; }
+  .session [data-cue-study-ratings] button strong { font-size: 18px; }
+}
+
+@media (min-width: 768px) {
+  .session [data-cue-rating-feedback], .session [data-cue-round-complete] { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 30; border-radius: 20px; width: auto; max-width: 65vw; pointer-events: none; }
+  .session [data-cue-recall] > div:nth-child(2) { margin-top: 12px; }
+  .session [data-cue-study-page][data-revealed='true'] [data-cue-recall] > div:nth-child(2) { font-size: clamp(24px, 2.6vw, 38px); }
+  .session [data-cue-study-ratings] > p { margin-bottom: 8px; }
+  .session [data-cue-study-ratings] > div:last-child { margin-top: 8px; }
+}

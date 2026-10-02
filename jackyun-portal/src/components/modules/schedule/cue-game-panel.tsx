@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { cueAnimationPlan, cueGameProgress, cueStarAlbum, cueStarPosition, cueStarWeek, cueConstellations, CUE_STAR_COLORS, CUE_LEVEL_XP, type CueStar, type CueStarFeedback, type CueAnimationSituation } from '@/lib/learning/cue-game';
+import { cueEncouragement, cueAnimationPlan, cueGameProgress, cueStarAlbum, cueStarPosition, cueStarWeek, cueConstellations, CUE_STAR_COLORS, CUE_LEVEL_XP, type CueStar, type CueStarFeedback, type CueAnimationSituation } from '@/lib/learning/cue-game';
 import { dateKey, type CueReview, type StudyCue, type LearningRecord } from '@/lib/learning/schedule-control';
 import CueUniverseBackdrop from './cue-universe-backdrop';
 import styles from './cue-game-panel.module.css';
@@ -16,7 +16,7 @@ export function CueStarSky({ stars, highlight }: { stars: CueStar[]; highlight?:
   </svg>;
 }
 
-type Celebration = { id: number; cueId: string; status: CueStarFeedback['status']; milestone: boolean; gained: number } & ReturnType<typeof cueAnimationPlan>;
+type Celebration = { id: number; cueId: string; status: CueStarFeedback['status']; milestone: boolean; gained: number; streak?: number; completed?: number } & ReturnType<typeof cueAnimationPlan>;
 const emptyCues: StudyCue[] = [];
 const emptyRecords: LearningRecord[] = [];
 export default function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, animations = true, feedback, summary = false, initialAlbumOpen = false, onDismiss }: { reviews: CueReview[]; cues?: StudyCue[]; records?: LearningRecord[]; animations?: boolean; feedback?: CueStarFeedback; summary?: boolean; initialAlbumOpen?: boolean; onDismiss?: () => void }) {
@@ -26,6 +26,7 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
   const todayStars = useMemo(() => stars.filter((star) => star.day === today), [stars, today]);
   const previous = useRef({ xp: progress.xp, count: progress.todayCount, level: progress.level });
   const variants = useRef(new Map<CueAnimationSituation, number>());
+  const session = useRef({ seen: new Set<string>(), count: 0, streak: 0 });
   const handled = useRef<number | undefined>(feedback?.id);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const albumButton = useRef<HTMLButtonElement>(null);
@@ -41,10 +42,17 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
     handled.current = feedback.id;
     const gained = Math.max(0, progress.xp - before.xp);
     const milestone = Math.floor(progress.todayCount / 5) > Math.floor(before.count / 5);
-    const situation = progress.level > before.level ? 'level' : milestone ? 'constellation' : !gained ? 'updated' : feedback.status;
+    const fresh = !session.current.seen.has(feedback.cueId);
+    if (fresh) {
+      session.current.seen.add(feedback.cueId);
+      session.current.count++;
+      session.current.streak = feedback.status === 'stable' ? session.current.streak + 1 : 0;
+    } else if (feedback.status !== 'stable') session.current.streak = 0;
+    const encouragement = fresh ? cueEncouragement(session.current.count, session.current.streak, progress.level > before.level, milestone) : null;
+    const situation = encouragement ?? (!gained ? 'updated' : feedback.status);
     const occurrence = variants.current.get(situation) ?? 0;
     variants.current.set(situation, occurrence + 1);
-    const next = { ...feedback, gained, milestone, ...cueAnimationPlan(situation, occurrence) };
+    const next = { ...feedback, gained, milestone, streak: session.current.streak, completed: session.current.count, ...cueAnimationPlan(situation, occurrence) };
     if (timer.current) clearTimeout(timer.current);
     queueMicrotask(() => setCelebration(next));
     timer.current = setTimeout(() => setCelebration(null), next.duration);
@@ -64,7 +72,12 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
     groups.set(key, [...(groups.get(key) ?? []), star]);
   }
   const subjects = [...new Map(stars.map((star) => [star.subjectId, star.subjectName])).entries()];
-  return <>{!summary && <CueUniverseBackdrop stars={todayStars} animations={animations} highlight={celebration?.cueId} celebration={celebration ?? undefined} />}<aside className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} data-situation={celebration?.situation} data-variant={celebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': celebration ? CUE_STAR_COLORS[celebration.status] : '#a5b4fc' } as CSSProperties}>
+  const globalTitle = celebration?.situation === 'streak' ? `连续 ${celebration.streak} 条通过` : celebration?.situation === 'flow' ? `认真完成 ${celebration.completed} 条复习` : celebration?.situation === 'level' ? `升至 Lv.${progress.level}` : '新星座已点亮';
+  const globalCelebration = celebration && ['streak', 'flow', 'level', 'constellation'].includes(celebration.situation);
+  return <>{globalCelebration && animations && <div key={`global-${celebration.id}`} className={styles.globalCelebration} data-cue-global-celebration data-motion={animations} data-situation={celebration.situation} data-variant={celebration.variant} aria-hidden="true">
+    <div className={styles.aurora} /><svg className={styles.globalSky} viewBox="0 0 1000 700" preserveAspectRatio="none"><ellipse className={styles.globalOrbit} cx="500" cy="350" rx="430" ry="260" /><ellipse className={styles.globalOrbit} cx="500" cy="350" rx="370" ry="210" />{Array.from({ length: 18 }, (_, i) => <path key={i} className={styles.globalMeteor} d={`M${i % 2 ? 900 : 100} ${30 + i * 36} l${i % 2 ? -90 : 90} -45`} style={{ '--spark-delay': `${i * 45}ms` } as CSSProperties} />)}</svg>
+    <div className={styles.globalTitle}><span>✦</span><strong>{globalTitle}</strong><small>{celebration.situation === 'streak' ? '你正在建立扎实的掌握' : '每一次认真回忆，都留下星光'}</small></div>
+  </div>}{!summary && <CueUniverseBackdrop stars={todayStars} animations={animations} highlight={celebration?.cueId} celebration={celebration ?? undefined} />}<aside className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} data-situation={celebration?.situation} data-variant={celebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': celebration ? CUE_STAR_COLORS[celebration.status] : '#a5b4fc' } as CSSProperties}>
     <div className={styles.panel} data-milestone={celebration?.milestone || undefined}>
       <div className={styles.top}><span className={styles.eyebrow}>STAR JOURNAL</span>{onDismiss && <button type="button" onClick={onDismiss} aria-label="收起学习成果">×</button>}</div>
       <h2>{summary ? `今天完成 ${progress.todayCount} 条` : '今日星空'}</h2>
@@ -78,7 +91,7 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
       <p className={styles.ship}>{progress.ship.name}</p>
       <button type="button" ref={albumButton} className={styles.albumButton} onClick={() => setAlbumOpen(true)}>星空收藏 · {new Set(stars.map((star) => star.day)).size} 天</button>
       <p className={styles.rule}>每 5 条连接一组星座<br />记录保留，休息一天也不会消失</p>
-      {celebration && <div key={`celebration-${celebration.id}`} className={styles.celebration} role="status"><span>{celebration.situation === 'finish' ? '✦ 今天的星光已珍藏' : celebration.situation === 'level' ? `✦ 升至 Lv.${progress.level}` : celebration.milestone ? '✦ 新星座已点亮' : celebration.gained ? `+${celebration.gained} XP · 星光已收下` : '评价已更新，星光保留'}</span><button type="button" onClick={() => setCelebration(null)}>跳过动画</button></div>}
+      {celebration && <div key={`celebration-${celebration.id}`} className={styles.celebration} role="status"><span>{globalCelebration ? `✦ ${globalTitle}` : celebration.situation === 'finish' ? '✦ 今天的星光已珍藏' : celebration.situation === 'level' ? `✦ 升至 Lv.${progress.level}` : celebration.milestone ? '✦ 新星座已点亮' : celebration.gained ? `+${celebration.gained} XP · 星光已收下` : '评价已更新，星光保留'}</span><button type="button" onClick={() => setCelebration(null)}>跳过动画</button></div>}
     </div>
     {celebration && celebration.situation !== 'finish' && <div key={`flight-${celebration.id}`} className={`${styles.flight} ${styles[celebration.status]}`} aria-hidden="true"><span className={styles.cardGhost}>{celebration.status === 'stable' ? '√' : celebration.status === 'partial' ? '△' : '○'}</span><span className={styles.comet}>{Array.from({ length: 6 }, (_, i) => <i key={i} style={{ '--dust-x': `${Math.cos(i * Math.PI / 3) * 18}px`, '--dust-y': `${Math.sin(i * Math.PI / 3) * 18}px`, '--spark-delay': `${i * 30}ms` } as CSSProperties} />)}</span></div>}
     {albumOpen && <div className={styles.album} role="dialog" aria-modal="true" aria-label="星空收藏册" tabIndex={-1} onKeyDown={(event) => {

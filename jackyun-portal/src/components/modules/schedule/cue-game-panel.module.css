@@ -100,7 +100,7 @@
 
 .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 60% 55%, #17243c, #040810 70%); }
 .backdrop canvas { width: 100%; height: 100%; display: block; }
-.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 57% 54%, transparent 25%, #03070c55 75%, #03070ca6 100%); }
+.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 51%, transparent 45%, #03070c20 80%, #03070c55 100%); }
 @media (min-width: 1024px) {
   .dock:not([data-summary='true']) { top: auto; bottom: 28px; max-height: calc(100dvh - 230px); }
   .dock:not([data-summary='true']) .panel { background: linear-gradient(145deg, #112035a8, #070e19ce); border-color: #b4c7e52b; backdrop-filter: blur(18px); box-shadow: 0 12px 48px #0003, inset 0 1px #ffffff08; }
@@ -109,3 +109,26 @@
   .dock:not([data-summary='true']) .rule { display: none; }
 }
 .pages article { background: radial-gradient(ellipse at 55% 54%, #1e2c463b, #050b16); box-shadow: inset 0 1px #ffffff05; }
+
+.globalCelebration { position: fixed; inset: 0; z-index: 12; pointer-events: none; overflow: hidden; color: #c7d9ff; }
+.globalSky { width: 100%; height: 100%; overflow: visible; }
+.globalOrbit { fill: none; stroke: #afcaff; stroke-width: 1; transform-origin: center; animation: universeWave 2.2s ease-out both; }
+.globalOrbit + .globalOrbit { animation-delay: .16s; stroke: #d4bcff; }
+.globalMeteor { fill: none; stroke: #d3e5ff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; filter: drop-shadow(0 0 6px #9bc3ff); animation: meteorSweep 1.4s var(--spark-delay) ease-out both; }
+.aurora { position: absolute; inset: 0; background: radial-gradient(ellipse at 0% 50%, #5794ff65, transparent 34%), radial-gradient(ellipse at 100% 45%, #c39bff55, transparent 34%); animation: auroraBloom 2.2s ease-out both; }
+.globalTitle { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); text-align: center; text-shadow: 0 0 24px #7ba7ff, 0 2px 8px #000; animation: encouragementIn 2.2s ease-out both; }
+.globalTitle span { display: block; font-size: 28px; }
+.globalTitle strong { display: block; font-size: clamp(20px, 2.2vw, 36px); letter-spacing: .1em; }
+.globalTitle small { display: block; margin-top: 8px; color: #d5def0; }
+.globalCelebration[data-situation='streak'] { color: #b4f7d9; }
+.globalCelebration[data-situation='streak'] .aurora { background: radial-gradient(ellipse at 0% 50%, #34d39965, transparent 36%), radial-gradient(ellipse at 100% 50%, #8fe9ca55, transparent 36%); }
+.globalCelebration[data-variant='1'] .globalSky { transform: rotate(180deg); }
+.globalCelebration[data-variant='1'] .globalOrbit { stroke-dasharray: 8 12; }
+.globalCelebration[data-variant='2'] .globalOrbit { transform-origin: 50% 50%; stroke-width: 2; stroke-dasharray: 2 18; }
+.globalCelebration[data-variant='2'] .aurora { transform: scaleY(.7) rotate(-12deg); }
+@keyframes universeWave { 0% { opacity: 0; transform: scale(.65); } 25% { opacity: .8; } 100% { opacity: 0; transform: scale(1.35); } }
+@keyframes meteorSweep { 0% { opacity: 0; stroke-dashoffset: 100; } 25% { opacity: .85; } 65% { stroke-dashoffset: -100; } 100% { opacity: 0; stroke-dashoffset: -200; } }
+@keyframes auroraBloom { 0%, 100% { opacity: 0; } 30% { opacity: .8; } }
+@keyframes encouragementIn { 0% { opacity: 0; translate: 0 12px; } 20%, 70% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 0 -8px; } }
+:global(html[data-reduced-motion='true']) .globalCelebration { display: none; }
+@media (prefers-reduced-motion: reduce), (max-width: 1023px) { .globalCelebration { display: none; } }

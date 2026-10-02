@@ -130,7 +130,7 @@ test('legacy review attribution can use saved learning records even after Cue re
 
 test('each learning situation has three rotating variants with bounded nonblocking durations', async () => {
   const { cueAnimationPlan } = await import('../src/lib/learning/cue-game.ts');
-  for (const situation of ['stable', 'partial', 'unclear', 'updated', 'constellation', 'level', 'finish'] as const) {
+  for (const situation of ['stable', 'partial', 'unclear', 'updated', 'constellation', 'level', 'finish', 'streak', 'flow'] as const) {
     const plans = Array.from({ length: 6 }, (_, occurrence) => cueAnimationPlan(situation, occurrence));
     assert.deepEqual(plans.map((plan) => plan.variant), [0, 1, 2, 0, 1, 2]);
     assert.ok(plans.every((plan) => plan.situation === situation && plan.duration >= 1000 && plan.duration <= 2200));
@@ -150,4 +150,22 @@ test('galaxy stars retain deterministic coordinates and status colors as learnin
     assert.ok(point.x > 10 && point.x < 190 && point.y > 10 && point.y < 140);
   }
   assert.equal(new Set(Object.values(CUE_STAR_COLORS)).size, 3);
+});
+
+test('encouragement is frequent and all-status completion is independent of correctness', async () => {
+  const { cueEncouragement } = await import('../src/lib/learning/cue-game.ts');
+  assert.equal(cueEncouragement(1, 1, false, false), null);
+  assert.equal(cueEncouragement(3, 0, false, false), 'flow');
+  assert.equal(cueEncouragement(3, 3, false, false), 'streak');
+  assert.equal(cueEncouragement(6, 6, false, false), 'streak');
+  assert.equal(cueEncouragement(5, 0, false, true), 'constellation');
+  assert.equal(cueEncouragement(10, 0, true, true), 'level');
+});
+test('desktop prompt and ratings share a viewport-sized centered stage', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const component = await readFile(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../src/components/modules/schedule/cue-game-layout.module.css', import.meta.url), 'utf8');
+  assert.match(component, /data-cue-study-stage[^]*CuePromptContent[^]*data-cue-study-ratings/);
+  assert.match(css, /main\[data-cue-study-page\] \{[^}]*flex: 1; min-height: 0/);
+  assert.match(css, /\[data-cue-study-stage\] \{ margin-block: auto/);
 });
