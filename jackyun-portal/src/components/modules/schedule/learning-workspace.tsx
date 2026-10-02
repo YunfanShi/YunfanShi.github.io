@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import CueGamePanel from './cue-game-panel';
+import { useCueStudyPreferences } from './use-cue-study-preferences';
 import { CueDifficultyPicker } from './learning-assistant';
 import type { CueDifficulty } from '@/lib/learning/learning-assistance';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
@@ -18,7 +20,10 @@ const modes: Record<StudyMode, string> = { cue: '知识 CUE', question: '题目'
 const filters = { all: '全部', unreviewed: '未学习 / 已修改', due: '今天到期', weak: '△ / ○', partial: '仅 △', unclear: '仅 ○', stable: '仅 √', 'repeated-weak': '近期反复失误' };
 export function estimatedStudyMinutes(items: StudyItemRef[]): number { return items.reduce((total, item) => total + (item.kind === 'cue' ? 4 : 8), 0); }
 
-export default function LearningWorkspace({ cues, reviews, bank, catalog, onStart, onResume, onDiscard, onManage }: { cues: StudyCue[]; reviews: CueReview[]; bank: QuestionBankState; catalog: LearningCatalogSubject[]; onStart: (mode: StudyMode, subjectId: string, unit: string, items: StudyItemRef[]) => void; onResume: (id: string) => void; onDiscard: (id: string) => void; onManage: () => void }) {
+export default function LearningWorkspace({ cues, reviews, bank, catalog, onStart, onResume, onDiscard, onManage }: { cues: StudyCue[]; reviews: CueReview[]; bank: QuestionBankState; catalog: LearningCatalogSubject[]; onStart: (mode: StudyMode, subjectId: string, unit: string, items: StudyItemRef[], sourceTask?: undefined, shuffled?: boolean) => void; onResume: (id: string) => void; onDiscard: (id: string) => void; onManage: () => void }) {
+  const { cueShuffle } = useCueStudyPreferences();
+  const [shuffleOverride, setShuffleOverride] = useState<boolean | null>(null);
+  const shuffled = shuffleOverride ?? cueShuffle;
   const [joint, setJoint] = useState(false);
   const [jointSelection, setJointSelection] = useState<JointCueSelection>({});
   const [subjectSearch, setSubjectSearch] = useState('');
@@ -68,14 +73,16 @@ export default function LearningWorkspace({ cues, reviews, bank, catalog, onStar
       <div className="grid gap-3 sm:grid-cols-2"><label>科目<select aria-label="学习科目" className={studyInputClass} value={subjectId} onChange={(event) => { setSubjectId(event.target.value); setUnit(''); reset(); }}><option value="">请选择科目</option>{subjects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label><label>单元<select aria-label="学习单元" className={studyInputClass} value={unit} onChange={(event) => { setUnit(event.target.value); reset(); }}><option value="">全部单元</option>{units.map((value) => <option key={value}>{value}</option>)}</select></label></div>
       </> }
       <label className="mt-4 block">学习范围<select aria-label="学习内容筛选" className={studyInputClass} value={filter} onChange={(event) => { setFilter(event.target.value as typeof filter); reset(); }}>{Object.entries(filters).map(([value, label]) => <option key={value} value={value}>{label}</option>)}{mode === 'cue' && <><option value="unstable">历史不稳定项</option><option value="recovering">刚转绿待巩固</option></>}</select></label>
+      {mode === 'cue' && <label className="mt-3 flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={shuffled} onChange={(event) => setShuffleOverride(event.target.checked)} />乱序学习 · 关闭后按原顺序</label>}
       {mode === 'mixed' && <p className="mt-3 text-sm text-[var(--muted-foreground)]">按知识关联排列：知识 CUE → 相关题目。关联仅组织已选内容，不自动加入额外 CUE。</p>}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm">已选 {selectedItems.filter((item) => item.kind === 'cue').length} 条 CUE、{selectedItems.filter((item) => item.kind === 'question').length} 题 · 预计 {estimatedStudyMinutes(selectedItems)} 分钟</p><button disabled={!selectedItems.length} className={`${studyButtonClass} bg-[var(--brand)] text-white`} onClick={() => onStart(mode, joint ? '' : subjectId, joint ? '' : unit, selectedItems)}>开始学习</button></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm">已选 {selectedItems.filter((item) => item.kind === 'cue').length} 条 CUE、{selectedItems.filter((item) => item.kind === 'question').length} 题 · 预计 {estimatedStudyMinutes(selectedItems)} 分钟</p><button disabled={!selectedItems.length} className={`${studyButtonClass} bg-[var(--brand)] text-white`} onClick={() => onStart(mode, joint ? '' : subjectId, joint ? '' : unit, selectedItems, undefined, shuffled)}>开始学习</button></div>
       <div className="mt-4 max-h-[480px] space-y-2 overflow-y-auto">{preview.map((item) => { const content = item.kind === 'cue' ? cues.find((cue) => cue.id === item.id) : bank.questions.find((question) => question.id === item.id); return <label key={itemKey(item)} className="flex items-start gap-3 rounded-xl border border-[var(--card-border)] p-3"><input type="checkbox" className="mt-1 h-4 w-4" checked={!excluded.includes(itemKey(item))} onChange={(event) => setExcluded((current) => event.target.checked ? current.filter((key) => key !== itemKey(item)) : [...current, itemKey(item)])} /><div className="min-w-0"><p className="mb-1 text-xs text-[var(--muted-foreground)]">{item.kind === 'cue' ? '知识 CUE' : `题目 ${(content as StudyQuestion)?.code ?? ''}`} · {content?.subjectName} · {content?.unit || '未分单元'}</p><MarkdownRenderer content={content?.prompt ?? ''} /></div></label>; })}{!preview.length && <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">{(joint ? Object.keys(jointSelection).length > 0 : subjectId) ? '当前筛选下没有内容，可切换到“全部”或添加内容。' : '先选择科目，再查看本次学习内容。'}</p>}</div>
     </div>
   </section>;
 }
 
 export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, memos, onDifficulty, reviews, onClose, onComplete }: { reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; draft: StudyDraft; cues: StudyCue[]; bank: QuestionBankState; onDraft: (draft: StudyDraft) => void; onRate: (draft: StudyDraft, item: StudyItemRef, status: LearningStatus) => void; onMemo: (cueId: string, content: string) => void; memos: Array<{ cueId: string; content: string }>; onClose: () => void; onComplete: (draft: StudyDraft) => void }) {
+  const { cueGameEnabled } = useCueStudyPreferences();
   const rootRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const [linkedPreviewId, setLinkedPreviewId] = useState('');
@@ -121,6 +128,7 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
   }}>
     <header className="shrink-0 border-b border-[var(--card-border)] px-4 py-3"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{draft.task.subjectName} · {modes[draft.mode]}</h2><p className="text-xs text-[var(--muted-foreground)]">{draft.items.length ? index + 1 : 0} / {draft.items.length} · 已评价 {assessedCount} 项 · 进度自动保存</p></div><button className={studyButtonClass} onClick={onClose}>退出并保存</button></div></header>
     <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5"><div className="mx-auto max-w-4xl space-y-4">
+      {cueGameEnabled && draft.items.some((item) => item.kind === 'cue') && <CueGamePanel reviews={reviews} />}
       {!content && <p className="rounded-xl border border-[var(--card-border)] p-6">队列中的内容已移除。退出后重新选择学习内容。</p>}
       {content && <><div className="flex flex-wrap items-center gap-2 text-sm"><span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">{cue ? '知识 CUE' : questionTypeLabels[question!.type]}</span><span>{content.subjectName} · {content.unit}{content.subsection ? ` / ${content.subsection}` : ''}</span><span className="text-[var(--muted-foreground)]">历史状态 {studyStatusMark(cue?.status ?? (question ? bank.reviews[question.id]?.status : undefined))}</span>{question && <span className="text-[var(--muted-foreground)]">{question.code} · {questionSourceLabels[question.sourceKind ?? 'other']} · {question.source} {question.number} · v{question.version}</span>}</div>
       <article className="min-w-0 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-6"><MarkdownRenderer content={content.prompt} />{question && <QuestionImages question={question} placement="prompt" />}{cue?.subtitle && <div className="mt-3 text-sm text-[var(--muted-foreground)]"><MarkdownRenderer content={cue.subtitle} /></div>}</article>

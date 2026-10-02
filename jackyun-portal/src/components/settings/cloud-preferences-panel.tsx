@@ -49,6 +49,7 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
       localStorage.setItem(`${localKey}__updated_at`, new Date().toISOString());
     } catch {}
     applySavedAppearance();
+    if (sectionKey === 'learning_preferences') window.dispatchEvent(new Event('jackyun-learning-preferences'));
     if (!signedIn) { setStatus('已保存到本机；登录后自动同步'); return; }
     const result = await saveSettingsSection(sectionKey, value);
     setStatus(result.error ? '已保存到本机；云同步暂时不可用' : '已保存到本机并同步到云端');

@@ -49,7 +49,7 @@ export default async function PortalLayout({
           .from('user_settings')
           .select('key, value, updated_at')
           .eq('user_id', claims.sub)
-          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences', 'interface_customization']),
+          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences', 'interface_customization', 'learning_preferences']),
         supabase
           .from('navigation_usage_daily')
           .select('activity_date, nav_item_id, opens')
@@ -73,6 +73,8 @@ export default async function PortalLayout({
   let language: Language = 'zh';
   let appearancePreferences: Record<string, unknown> = {};
   let appearanceUpdatedAt: string | null = null;
+  let learningPreferences: Record<string, unknown> = {};
+  let learningUpdatedAt: string | null = null;
   let interfaceCustomization: Record<string, unknown> = {};
   for (const setting of settings ?? []) {
     if (setting.key === 'sidebar_preferences') {
@@ -83,6 +85,9 @@ export default async function PortalLayout({
     } else if (setting.key === 'appearance_preferences') {
       appearancePreferences = setting.value as Record<string, unknown>;
       appearanceUpdatedAt = setting.updated_at;
+    } else if (setting.key === 'learning_preferences') {
+      learningPreferences = setting.value as Record<string, unknown>;
+      learningUpdatedAt = setting.updated_at;
     } else if (setting.key === 'interface_customization') {
       interfaceCustomization = setting.value as Record<string, unknown>;
     }
@@ -111,7 +116,7 @@ export default async function PortalLayout({
     <AuthModeProvider signedIn={Boolean(user)} userId={user?.id ?? null}>
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
-      <CloudSettingsHydrator appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
+      <CloudSettingsHydrator learning={learningPreferences} learningUpdatedAt={learningUpdatedAt} appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <OfflineWorkspaceSync userId={user?.id ?? null} />
       <WorkspaceIdle userId={user?.id ?? null} />

@@ -1,0 +1,58 @@
+.panel { position: relative; isolation: isolate; overflow: hidden; border: 1px solid #59689166; border-radius: 22px; padding: 18px 22px 12px; color: #e2e8f0; background: radial-gradient(ellipse at 76% 30%, #52367050, transparent 60%), radial-gradient(ellipse at 10% 80%, #155e7550, transparent 60%), #0b1225; box-shadow: 0 12px 36px #0b122522, inset 0 1px 0 #ffffff12; }
+.panel::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .6; background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px), radial-gradient(circle, #8bb9d5 1px, transparent 1px); background-size: 79px 67px, 131px 109px; background-position: 15px 7px, 48px 40px; pointer-events: none; }
+.top, .identity, .xpRow, .bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.identity { justify-content: flex-start; }
+.level { display: flex; align-items: baseline; gap: 3px; border: 1px solid color-mix(in srgb, var(--ship-color) 50%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--ship-color) 10%, transparent); padding: 6px 10px; font-size: 11px; color: var(--ship-color); }
+.level strong { font-size: 24px; line-height: 1; }
+.eyebrow { font-size: 9px; letter-spacing: .22em; color: #94a3b8; }
+.identity h2 { margin: 2px 0 0; font-size: 14px; font-weight: 700; }
+.collectionButton { min-height: 44px; border: 1px solid #94a3b833; border-radius: 10px; padding: 0 12px; background: #ffffff08; font-size: 11px; white-space: nowrap; }
+.collectionButton:focus-visible { outline: 2px solid var(--ship-color); outline-offset: 3px; }
+.xpRow { margin: 12px 0 6px; font-size: 10px; color: #94a3b8; }
+.xpRow strong { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.xpRow strong span { color: #94a3b8; font-weight: 400; }
+.xpTrack { height: 9px; overflow: hidden; border-radius: 20px; background: #ffffff0c; box-shadow: inset 0 1px 4px #0005; }
+.xpTrack > div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0ea5e9, var(--ship-color)); box-shadow: 0 0 14px var(--ship-color); transition: width .5s ease-out; }
+.arena { position: relative; height: 132px; overflow: hidden; }
+.orbit { position: absolute; width: 210px; height: 210px; border: 1px solid #94a3b811; border-radius: 50%; top: -40px; left: 20%; transform: rotateX(55deg) rotateZ(-25deg); }
+.ship { position: absolute; width: 110px; left: 5%; top: 22px; filter: drop-shadow(0 0 12px #67e8f933); }
+.ship svg, .enemy svg { width: 100%; height: auto; }
+.exhaust { transform-origin: 24px 50px; animation: exhaust 1.5s ease-in-out infinite alternate; }
+.enemy { position: absolute; width: 78px; right: 12%; top: 12px; filter: drop-shadow(0 0 10px #a78bfa33); }
+.enemyHalo { position: absolute; inset: -8px; border-radius: 50%; border: 1px solid #a78bfa22; }
+.enemyInfo { position: absolute; bottom: 0; right: 5%; width: 150px; text-align: center; font-size: 10px; }
+.enemyInfo > div { height: 5px; border-radius: 10px; margin: 5px 0; overflow: hidden; background: #ffffff10; }
+.enemyInfo > div > div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f43f5e, #fda4af); transition: width .3s; }
+.enemyInfo small { font-size: 9px; color: #94a3b8; }
+.attack { position: absolute; inset: 0; pointer-events: none; }
+.beam { position: absolute; top: 56px; left: 22%; right: 20%; height: 3px; border-radius: 20px; background: white; box-shadow: 0 0 8px 2px var(--ship-color), 0 0 20px var(--ship-color); animation: beam .4s ease-out both; transform-origin: left; }
+.impact { position: absolute; width: 72px; height: 72px; right: 12%; top: 16px; border-radius: 50%; background: radial-gradient(circle, #fff, var(--ship-color) 15%, transparent 65%); animation: impact .6s ease-out both; }
+.damage { position: absolute; right: 17%; top: 12px; font-weight: 900; color: #fda4af; font-size: 20px; text-shadow: 0 2px 8px #000; animation: reward 1s ease-out both; }
+.xpGain { position: absolute; left: 15%; top: 8px; color: var(--ship-color); font-size: 14px; font-weight: 800; animation: reward 1s ease-out both; }
+.arena[data-hit='true'] .enemy { animation: hit .35s ease-out; }
+.levelUp { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse, #0b1225f0 20%, #0b122588 60%, transparent); animation: upgrade 1.8s ease-out both; }
+.levelUp span { color: var(--ship-color); font-size: 10px; letter-spacing: .3em; }
+.levelUp strong { font-size: 34px; line-height: 1.2; color: #fff; text-shadow: 0 0 30px var(--ship-color); }
+.levelUp small { color: var(--ship-color); font-size: 11px; }
+.bottom { margin-top: 10px; font-size: 10px; color: #94a3b8; flex-wrap: wrap; gap: 4px; }
+.bottom strong { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.rule { margin: 8px 0 0; font-size: 9px; color: #94a3b8; }
+.collection { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; border-top: 1px solid #ffffff16; padding-top: 12px; }
+.collection > div { border: 1px solid #ffffff12; background: #ffffff04; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 4px; opacity: .5; }
+.collection > div[data-unlocked='true'] { opacity: 1; border-color: #94a3b850; }
+.collection strong { font-size: 10px; }
+.collection small { font-size: 9px; color: #94a3b8; }
+.collection p { grid-column: 1 / -1; font-size: 10px; color: #94a3b8; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@keyframes beam { 0% { transform: scaleX(0); opacity: 0; } 25% { opacity: 1; } 70% { transform: scaleX(1); opacity: 1; } 100% { opacity: 0; } }
+@keyframes impact { 0%, 30% { transform: scale(.1); opacity: 0; } 45% { opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+@keyframes hit { 30% { transform: translateX(5px) rotate(6deg); filter: brightness(2); } 70% { transform: translateX(-2px); } }
+@keyframes reward { 0% { opacity: 0; transform: translateY(15px); } 20%, 65% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); } }
+@keyframes upgrade { 0% { opacity: 0; transform: scale(.85); } 18%, 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes exhaust { from { transform: scaleX(.7); opacity: .5; } to { transform: scaleX(1.1); opacity: .9; } }
+.panel[data-motion='false'] *, :global(html[data-reduced-motion='true']) .panel * { animation: none !important; transition: none !important; }
+.panel[data-motion='false'] .beam, .panel[data-motion='false'] .impact, :global(html[data-reduced-motion='true']) .beam, :global(html[data-reduced-motion='true']) .impact { display: none; }
+@media (prefers-reduced-motion: reduce) { .panel * { animation: none !important; transition: none !important; } .beam, .impact { display: none; } }
+@media (max-width: 767px) { .panel { padding: 10px 14px; border-radius: 16px; } .level strong { font-size: 20px; } .identity h2 { font-size: 12px; } .xpRow { margin-top: 6px; } .arena { height: 102px; } .ship { width: 82px; left: 0; top: 17px; } .enemy { width: 55px; right: 13%; top: 5px; } .enemyInfo { width: 122px; right: 0; } .beam { top: 48px; } .impact { width: 50px; height: 50px; } .bottom { margin-top: 6px; } .collection { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.victory { position: absolute; left: 25%; right: 25%; top: 38px; text-align: center; color: var(--ship-color); font-size: 13px; font-weight: 800; padding: 10px; border-radius: 12px; background: #0b1225e8; animation: reward 1s ease-out both; }

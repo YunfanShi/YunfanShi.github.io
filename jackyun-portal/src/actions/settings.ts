@@ -130,6 +130,8 @@ function sanitizeSettingsSection(key: SettingsKey, value: Record<string, unknown
   if (key === 'appearance_preferences') return { theme: oneOf(value.theme, ['light', 'gray', 'dark'], 'light'), density: oneOf(value.density, ['comfortable', 'compact'], 'comfortable'), reducedMotion: value.reducedMotion === true, showFullscreen: value.showFullscreen !== false };
   if (key === 'companion_preferences') return { enabled: value.enabled !== false, countAI: value.countAI !== false, idleSeconds: Number(oneOf(String(value.idleSeconds ?? ''), ['30', '60', '120', '300'], '60')), goalMinutes: integer(value.goalMinutes, 10, 1440, 120), retentionDays: Number(oneOf(String(value.retentionDays ?? ''), ['30', '90', '180', '365'], '365')), savePageTitles: value.savePageTitles === true };
   if (key === 'learning_preferences') return {
+    cueGameEnabled: value.cueGameEnabled === true,
+    cueShuffle: value.cueShuffle !== false,
     streakReminder: value.streakReminder !== false,
     focusNotifications: value.focusNotifications !== false,
     quizUiLanguage: oneOf(value.quizUiLanguage, ['zh', 'en'], 'zh'),

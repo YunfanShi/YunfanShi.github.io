@@ -5,7 +5,24 @@ import { useEffect } from 'react';
 const LOCAL_KEY = 'jackyun_settings_appearance_preferences';
 const LOCAL_UPDATED_KEY = `${LOCAL_KEY}__updated_at`;
 
-export default function CloudSettingsHydrator({ appearance, interfaceCustomization = {}, updatedAt, signedIn }: { appearance: Record<string, unknown>; interfaceCustomization?: Record<string, unknown>; updatedAt: string | null; signedIn: boolean }) {
+export default function CloudSettingsHydrator({ appearance, interfaceCustomization = {}, learning = {}, learningUpdatedAt, updatedAt, signedIn }: { learning?: Record<string, unknown>; learningUpdatedAt?: string | null; appearance: Record<string, unknown>; interfaceCustomization?: Record<string, unknown>; updatedAt: string | null; signedIn: boolean }) {
+  useEffect(() => {
+    if (!signedIn || !Object.keys(learning).length) return;
+    const key = 'jackyun_settings_learning_preferences';
+    try {
+      const local = localStorage.getItem(key);
+      const timestamp = localStorage.getItem(`${key}__updated_at`);
+      const localTime = timestamp ? Date.parse(timestamp) : 0;
+      const cloudTime = learningUpdatedAt ? Date.parse(learningUpdatedAt) : 0;
+      if (local && (!timestamp || !Number.isFinite(localTime))) {
+        localStorage.setItem(`${key}__updated_at`, new Date().toISOString());
+      } else if (!local || localTime <= cloudTime) {
+        localStorage.setItem(key, JSON.stringify(learning));
+        if (learningUpdatedAt) localStorage.setItem(`${key}__updated_at`, learningUpdatedAt);
+      }
+      window.dispatchEvent(new Event('jackyun-learning-preferences'));
+    } catch {}
+  }, [learning, learningUpdatedAt, signedIn]);
   useEffect(() => {
     if (!signedIn || Object.keys(appearance).length === 0) return;
     let resolved = appearance;
