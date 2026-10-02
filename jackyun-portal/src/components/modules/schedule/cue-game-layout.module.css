@@ -42,3 +42,28 @@
   .session [data-cue-study-ratings] > p { margin-bottom: 8px; }
   .session [data-cue-study-ratings] > div:last-child { margin-top: 8px; }
 }
+@media (min-width:768px) {
+ .session:has(>main[data-cue-study-page])>header {padding:8px 16px;}
+ .session:has(>main[data-cue-study-page])>header h1 {font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+ .session:has(>main[data-cue-study-page])>header>div:nth-child(2){margin-top:6px;}
+ .session:has(>main[data-cue-study-page])>header>div:nth-child(3){margin-top:4px;}
+ .session:has(>main[data-cue-study-page])>header>div:nth-child(3)>button {min-height:30px;font-size:12px;}
+ .session>main[data-cue-study-page] {min-height:0;overflow:hidden;padding-block:8px;}
+ .session [aria-label='Cue 学习进度'] {margin-bottom:8px;}
+ .session [aria-label='Cue 学习进度'] button {height:32px;min-width:32px;}
+ .session [data-cue-study-meta] {gap:6px;font-size:11px;}
+ .session [data-cue-study-meta]>div {gap:4px;}
+ .session [data-cue-study-meta] p {display:none;}
+ .session [data-cue-study-stage] {flex:1;min-height:0;margin-block:8px 0;overflow:hidden;}
+ .session [data-cue-study-stage]>section {flex:1;min-height:0;overflow:auto;padding-block:8px;display:flex;flex-direction:column;justify-content:safe center;}
+ .session [data-cue-study-ratings] {flex-shrink:0;padding-top:8px;}
+ .session [data-cue-study-ratings] button {padding:10px 12px;}
+ .session [data-cue-study-ratings]>div:last-child {margin-top:4px;}
+ .session [data-cue-definition]>button,.session [data-cue-definition]>button>span,.session [data-cue-definition]>button>span>span {height:100%;min-height:0;}
+ .session [data-cue-definition]>button>span>span {padding:20px;justify-content:safe center;}
+ .session [data-cue-definition]>button>span>span>span:nth-child(2) {margin-top:16px;font-size:clamp(22px,2.3vw,36px);}
+ .session [data-cue-definition]>button>span>span>span:last-child {padding-top:12px;}
+ .session:has(>main[data-cue-study-page])>section {flex-shrink:0;position:relative;z-index:12;margin-block:0;padding-block:4px;display:flex;align-items:center;justify-content:center;gap:12px;}
+ .session [data-cue-practice-directory] {margin-top:0;font-size:11px;}
+ .session [data-cue-practice-directory]>nav {position:absolute;top:100%;left:50%;transform:translateX(-50%);width:min(700px,85vw);max-height:35vh;background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:12px;box-shadow:0 16px 48px #0008;}
+}

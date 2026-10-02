@@ -6,7 +6,7 @@ import type { LearningStatus } from '@/lib/learning/schedule-control';
 import styles from './cue-game-panel.module.css';
 
 export const CUE_PARTICLE_DURATION = 3600;
-const names = ['星核诞生', '星环共鸣', '极光绽放'];
+const names = ['星核诞生', '星环共鸣', '极光绽放', '日冕爆发', '曲速跃迁', '星云织光', '双星共舞', '棱镜星阵', '银河回响'];
 
 /** Inspired by the sync answer sheet: gather → tighten → release, without blocking input. */
 export default function CuePracticeBurst({ variant, status, count }: { variant: number; status: LearningStatus; count: number }) {
@@ -36,6 +36,12 @@ export default function CuePracticeBurst({ variant, status, count }: { variant: 
       const compression=1-Math.pow(gather,2.2);
       const r=radius*p.distance*(compression + .045 + (1-Math.pow(1-release,3))*1.4);
       const angle=p.angle+gather*2.8+(variant===1?p.lane*.15:variant===2?Math.sin(p.angle*3)*gather*.5:0);
+      if(variant===3) return {x:cx+Math.cos(p.angle)*r*(1+.28*Math.sin(p.lane)),y:cy+Math.sin(p.angle)*r*.8};
+      if(variant===4) { const depth=Math.max(.12,1-gather*.93+release*1.2); return {x:cx+Math.cos(p.angle)*radius*p.distance*depth*1.5,y:cy+Math.sin(p.angle)*radius*p.distance*depth}; }
+      if(variant===5) return {x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle*2+p.lane*.5)*r*.4};
+      if(variant===6) return {x:cx+Math.cos(angle)*r*.58+Math.cos(t*2+(p.lane%2)*Math.PI)*radius*.4*compression,y:cy+Math.sin(angle)*r*.38+Math.sin(t*2+(p.lane%2)*Math.PI)*radius*.24*compression};
+      if(variant===7) {const a=Math.round(angle/(Math.PI/3))*(Math.PI/3);return {x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*.75};}
+      if(variant===8) return {x:cx+Math.cos(angle+p.distance*5+p.lane)*r,y:cy+Math.sin(angle+p.distance*5+p.lane)*r*.48};
       if(variant===2) return {x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r*.55+Math.sin(angle*3+t)*r*.2};
       return {x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r*(variant===1?.36:.72)};
     };
@@ -85,5 +91,5 @@ export default function CuePracticeBurst({ variant, status, count }: { variant: 
     frame=requestAnimationFrame(draw);
     return ()=>cancelAnimationFrame(frame);
   },[variant,status,count]);
-  return <div className={styles.practiceBurst} data-cue-practice-burst data-variant={variant} aria-hidden="true"><canvas ref={ref}/><span><small>{names[variant % 3]}</small><strong>{count}</strong><small>次认真检索 · 每次努力都留下星光</small></span></div>;
+  return <div className={styles.practiceBurst} data-cue-practice-burst data-variant={variant} aria-hidden="true"><canvas ref={ref}/><span><small>{names[variant % names.length]}</small><strong>{count}</strong><small>次认真检索 · 每次努力都留下星光</small></span></div>;
 }

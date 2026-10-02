@@ -5,7 +5,7 @@ export const BETA_FEATURES = [
   {
     id: 'browser-ai',
     name: '本地网页 AI',
-    version: 'Portal 3.18.2',
+    version: 'Portal 3.19.0',
     status: '测试中',
     description: '不需要 API Key，把站内 AI 请求交给你已登录的 ChatGPT、Claude、Gemini、DeepSeek、通义千问或 Perplexity。',
     testPoints: ['在设置中选择“本地网页 AI”', '完成一次手动复制、粘贴和导入', '检查结构化回复能否继续原任务'],
@@ -23,7 +23,7 @@ export const BETA_FEATURES = [
   {
     id: 'site-studio',
     name: 'AI 网站工作室',
-    version: 'Portal 3.18.2',
+    version: 'Portal 3.19.0',
     status: '测试中',
     description: '用自然语言生成个人小站，在本地编辑组件，并按需备份到云端。',
     testPoints: ['生成一个包含标题、任务和进度的网站', '调整主题与组件顺序', '刷新页面并检查本地数据是否保留'],

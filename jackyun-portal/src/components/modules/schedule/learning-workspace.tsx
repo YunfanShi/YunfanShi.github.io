@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CueGamePanel from './cue-game-panel';
+import type { CueGameAccount, CueShopAction } from '@/lib/learning/cue-shop';
 import type { CueStarFeedback } from '@/lib/learning/cue-game';
 import universeStyles from './cue-game-layout.module.css';
 import { useCueUniverseEnabled, useCueStudyPreferences } from './use-cue-study-preferences';
@@ -83,7 +84,7 @@ export default function LearningWorkspace({ cues, reviews, bank, catalog, onStar
   </section>;
 }
 
-export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, memos, onDifficulty, reviews, starRecords, onClose, onComplete }: { starRecords: LearningRecord[]; reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; draft: StudyDraft; cues: StudyCue[]; bank: QuestionBankState; onDraft: (draft: StudyDraft) => void; onRate: (draft: StudyDraft, item: StudyItemRef, status: LearningStatus) => void; onMemo: (cueId: string, content: string) => void; memos: Array<{ cueId: string; content: string }>; onClose: () => void; onComplete: (draft: StudyDraft) => void }) {
+export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, memos, onDifficulty, reviews, starRecords, gameAccount, onShopAction, onClose, onComplete }: { gameAccount?: CueGameAccount; onShopAction?: (action: CueShopAction)=>void; starRecords: LearningRecord[]; reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; draft: StudyDraft; cues: StudyCue[]; bank: QuestionBankState; onDraft: (draft: StudyDraft) => void; onRate: (draft: StudyDraft, item: StudyItemRef, status: LearningStatus) => void; onMemo: (cueId: string, content: string) => void; memos: Array<{ cueId: string; content: string }>; onClose: () => void; onComplete: (draft: StudyDraft) => void }) {
   const cueGameEnabled = useCueUniverseEnabled();
   const [starFeedback, setStarFeedback] = useState<CueStarFeedback>();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -130,7 +131,7 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
     if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
   }}>
     <header className="shrink-0 border-b border-[var(--card-border)] px-4 py-3"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{draft.task.subjectName} · {modes[draft.mode]}</h2><p className="text-xs text-[var(--muted-foreground)]">{draft.items.length ? index + 1 : 0} / {draft.items.length} · 已评价 {assessedCount} 项 · 进度自动保存</p></div><button className={studyButtonClass} onClick={onClose}>退出并保存</button></div></header>
-      {cueGameEnabled && draft.items.some((item) => item.kind === 'cue') && <CueGamePanel reviews={reviews} cues={cues} records={starRecords} feedback={starFeedback} />}
+      {cueGameEnabled && draft.items.some((item) => item.kind === 'cue') && <CueGamePanel account={gameAccount} onShopAction={onShopAction} sessionKey={draft.id} sessionCount={draft.items.filter(item=>item.kind==='cue'&&draft.assessments[itemKey(item)]).length} reviews={reviews} cues={cues} records={starRecords} feedback={starFeedback} />}
     <main data-cue-study-content className="min-h-0 flex-1 overflow-y-auto px-4 py-5"><div className="mx-auto max-w-4xl space-y-4">
       {!content && <p className="rounded-xl border border-[var(--card-border)] p-6">队列中的内容已移除。退出后重新选择学习内容。</p>}
       {content && <><div className="flex flex-wrap items-center gap-2 text-sm"><span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">{cue ? '知识 CUE' : questionTypeLabels[question!.type]}</span><span>{content.subjectName} · {content.unit}{content.subsection ? ` / ${content.subsection}` : ''}</span><span className="text-[var(--muted-foreground)]">历史状态 {studyStatusMark(cue?.status ?? (question ? bank.reviews[question.id]?.status : undefined))}</span>{question && <span className="text-[var(--muted-foreground)]">{question.code} · {questionSourceLabels[question.sourceKind ?? 'other']} · {question.source} {question.number} · v{question.version}</span>}</div>

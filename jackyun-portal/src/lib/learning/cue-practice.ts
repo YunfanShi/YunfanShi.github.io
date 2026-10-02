@@ -55,3 +55,8 @@ export function cuePracticeLabel(state: CuePracticeState, cueId: string, now: nu
 export function latestCuePracticeAttempt(reviews: CueReview[], cueId: string) {
   return reviews.filter(review => review.cueId === cueId).toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt))[0]?.practiceAttempts?.at(-1);
 }
+
+/** An inserted retry returns to its saved normal Cue immediately on success. */
+export function finishAutomaticCuePractice(state: CuePracticeState, status: LearningStatus): CuePracticeState {
+  return state.active && !state.mode && status === 'stable' ? { ...state, active: undefined, rating: undefined, returnCueId: undefined } : state;
+}

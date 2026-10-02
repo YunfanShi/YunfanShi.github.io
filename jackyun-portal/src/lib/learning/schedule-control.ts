@@ -1,3 +1,4 @@
+import type { CueGameAccount } from './cue-shop.ts';
 import type { CuePracticeState } from './cue-practice.ts';
 import type { CueAnswerCard } from './cue-answer-card.ts';
 import { createCueChangeRecord, type CueChangeRecord } from './cue-change-history.ts';
@@ -369,6 +370,7 @@ export interface CueBulkImport {
 }
 
 export interface CueStudyDraft {
+  startedAt?: string;
   id: string;
   task: LearningTask;
   cueIds: string[];
@@ -385,7 +387,7 @@ export interface CueStudyDraft {
   updatedAt: string;
 }
 
-export function shuffleCueIds(ids: string[], random: () => number = Math.random): string[] {
+export function shuffleCueIds(ids: string[], random: () => number = Math.random, cues?: Pick<StudyCue, 'id' | 'subjectName' | 'unit'>[]): string[] {
   const shuffled = [...ids];
   for (let index = shuffled.length - 1; index > 0; index--) {
     const swapIndex = Math.floor(random() * (index + 1));
@@ -394,13 +396,31 @@ export function shuffleCueIds(ids: string[], random: () => number = Math.random)
   if (shuffled.length > 1 && shuffled.every((id, index) => id === ids[index])) {
     shuffled.push(shuffled.shift()!);
   }
-  return shuffled;
+  if (!cues) return shuffled;
+  const byId = new Map(cues.map(cue => [cue.id, cue]));
+  const pending = [...shuffled], result: string[] = [];
+  const lastUnits = new Map<string, string>();
+  let previousSubject: string | undefined;
+  while (pending.length) {
+    const counts = new Map<string, number>();
+    for (const id of pending) { const subject=byId.get(id)?.subjectName ?? id; counts.set(subject,(counts.get(subject)??0)+1); }
+    const alternatives = pending.filter(id => (byId.get(id)?.subjectName ?? id) !== previousSubject);
+    const pool = alternatives.length ? alternatives : pending;
+    const largest = Math.max(...pool.map(id => counts.get(byId.get(id)?.subjectName ?? id)!));
+    const subjectId = pool.find(id => counts.get(byId.get(id)?.subjectName ?? id) === largest)!;
+    const subject = byId.get(subjectId)?.subjectName ?? subjectId;
+    const sameSubject = pending.filter(id => (byId.get(id)?.subjectName ?? id) === subject);
+    const units = sameSubject.filter(id => byId.get(id)?.unit !== lastUnits.get(subject));
+    const selected = (units.length ? units : sameSubject)[0];
+    result.push(selected);pending.splice(pending.indexOf(selected),1);previousSubject=subject;lastUnits.set(subject,byId.get(selected)?.unit ?? '');
+  }
+  return result;
 }
 
 /** Hide confirmed results before reordering, while keeping the full session for evidence. */
-export function reorderCueStudy(ids: string[], assessments: Record<string, LearningStatus>, shuffled: boolean, currentId?: string, random: () => number = Math.random) {
+export function reorderCueStudy(ids: string[], assessments: Record<string, LearningStatus>, shuffled: boolean, currentId?: string, random: () => number = Math.random, cues?: StudyCue[]) {
   const remaining = ids.filter((id) => !assessments[id]);
-  const ordered = shuffled ? shuffleCueIds(remaining, random) : remaining;
+  const ordered = shuffled ? shuffleCueIds(remaining, random, cues) : remaining;
   const hiddenCueIds = ids.filter((id) => assessments[id]);
   const index = currentId ? ordered.indexOf(currentId) : -1;
   return { cueIds: [...ordered, ...hiddenCueIds], hiddenCueIds, index: Math.max(0, index), retainedCurrent: index >= 0 };
@@ -454,6 +474,7 @@ export interface ScheduleControlState {
   reviewProgress: Record<string, ReviewProgress>;
   cues: StudyCue[];
   cueReviews: CueReview[];
+  cueGameAccount?: CueGameAccount;
   learningRecords: LearningRecord[];
   learningCatalog: LearningCatalogSubject[];
   learningReminders: LearningReminder[];
