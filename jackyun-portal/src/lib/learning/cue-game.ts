@@ -20,26 +20,35 @@ export function cueGameProgress(reviews: CueReview[], now = new Date()) {
   const days = new Set<string>();
   const today = dateKey(now);
   let todayCount = 0;
+  const retrievals = new Map<string, CueReview>();
   for (const review of reviews) {
     const at = new Date(review.reviewedAt);
     if (!review.cueId || !Number.isFinite(at.getTime()) || at > now) continue;
     const day = dateKey(at);
+    const retrievalKey = JSON.stringify([review.cueId, day, review.taskKey ?? 'legacy']);
+    retrievals.set(retrievalKey, review);
     const key = JSON.stringify([review.cueId, day]);
     if (days.has(key)) continue;
     days.add(key);
     if (day === today) todayCount++;
   }
+  let effortCount = 0, todayEffortCount = 0;
+  for (const review of retrievals.values()) {
+    const attempts = 1 + (review.practiceAttempts ?? []).filter((attempt) => ['stable', 'partial', 'unclear'].includes(attempt.status) && Number.isFinite(Date.parse(attempt.reviewedAt)) && Date.parse(attempt.reviewedAt) <= now.getTime()).length;
+    effortCount += attempts;
+    if (dateKey(new Date(review.reviewedAt)) === today) todayEffortCount += attempts;
+  }
   const count = days.size;
   const xp = count * CUE_GAME_XP;
   const level = Math.floor(xp / CUE_LEVEL_XP) + 1;
   const unlocked = CUE_GAME_UNLOCKS.filter((item) => item.level <= level);
-  return { count, todayCount, xp, level, levelXp: xp % CUE_LEVEL_XP,
+  return { count, todayCount, effortCount, todayEffortCount, xp, level, levelXp: xp % CUE_LEVEL_XP,
     defeats: Math.floor(count / CUE_ENEMY_HITS), enemyHits: count % CUE_ENEMY_HITS,
     unlocked, ship: unlocked.at(-1)!, nextUnlock: CUE_GAME_UNLOCKS.find((item) => item.level > level) };
 }
 
 export type CueStar = { id: string; cueId: string; day: string; subjectId: string; subjectName: string; status: LearningStatus; reviewedAt: string };
-export type CueStarFeedback = { id: number; cueId: string; status: LearningStatus };
+export type CueStarFeedback = { id: number; cueId: string; status: LearningStatus; retrieval?: boolean };
 export const CUE_STAR_COLORS = { stable: '#6ee7b7', partial: '#fcd34d', unclear: '#fda4af' } as const;
 
 /** The album is reconstructed from syncable evidence, rather than a second counter. */
@@ -97,14 +106,14 @@ export type CueAnimationSituation = LearningStatus | 'updated' | 'constellation'
 /** Rotate within each situation so mixed ratings do not repeatedly pick the same animation. */
 export function cueAnimationPlan(situation: CueAnimationSituation, occurrence: number) {
   const variant = ((occurrence % 3) + 3) % 3;
-  const duration = ['streak', 'flow', 'finish'].includes(situation) ? 2200 : situation === 'level' ? 1900 : situation === 'constellation' ? 1600 : 1000;
+  const duration = ['streak', 'flow', 'finish', 'level', 'constellation'].includes(situation) ? 2200 : 1000;
   return { situation, variant, duration };
 }
 
-/** Session encouragement only counts distinct Cues, never edits to a saved rating. */
+/** Scene celebrations are rarer than the four-retrieval particle show; rating edits do not advance either. */
 export function cueEncouragement(count: number, streak: number, levelUp: boolean, constellation: boolean): CueAnimationSituation | null {
-  if (streak > 0 && streak % 3 === 0) return 'streak';
+  if (streak > 0 && streak % 8 === 0) return 'streak';
   if (levelUp) return 'level';
   if (constellation) return 'constellation';
-  return count > 0 && count % 3 === 0 ? 'flow' : null;
+  return count > 0 && count % 10 === 0 ? 'flow' : null;
 }

@@ -1,3 +1,4 @@
+import type { CuePracticeState } from './cue-practice.ts';
 import type { CueAnswerCard } from './cue-answer-card.ts';
 import { createCueChangeRecord, type CueChangeRecord } from './cue-change-history.ts';
 import { difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
@@ -203,6 +204,10 @@ export interface CueReview {
   note?: string;
   reviewedAt: string;
   nextReviewDate: string;
+  /** Real delayed retrievals, distinct from editing the original rating. */
+  practiceAttempts?: { status: LearningStatus; reviewedAt: string }[];
+  sameDayWeak?: boolean;
+  weakestStatus?: 'partial' | 'unclear';
   /** Snapshot of the adaptive plan created by this review. Optional for legacy records. */
   intervalDays?: number;
   easeFactor?: number;
@@ -373,6 +378,7 @@ export interface CueStudyDraft {
   priorStatuses?: Record<string, LearningStatus | null>;
   shuffled?: boolean;
   hiddenCueIds?: string[];
+  practice?: CuePracticeState;
   /** Legacy per-Cue drafts retained so older saved sessions can be migrated into Cue memos. */
   writtenResponses?: Record<string, string>;
   updatedAt: string;
@@ -1787,7 +1793,7 @@ function trailingStableReviews(reviews: CueReview[]): number {
   const ordered = [...reviews].toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt));
   let count = 0;
   for (const review of ordered) {
-    if (review.status !== 'stable') break;
+    if (review.status !== 'stable' || review.sameDayWeak) break;
     count += 1;
   }
   return count;
@@ -1810,7 +1816,7 @@ function calendarDaysBetween(earlier: string, later: string): number {
 function spacedGreenRun(history: CueReview[], reviewedDate: string): number {
   const days = new Set<string>([reviewedDate]);
   for (let index = history.length - 1; index >= 0; index -= 1) {
-    if (history[index].status !== 'stable') break;
+    if (history[index].status !== 'stable' || history[index].sameDayWeak) break;
     days.add(history[index].reviewedAt.slice(0, 10));
   }
   return days.size;
@@ -1825,11 +1831,11 @@ function weightedWeakRisk(history: CueReview[], reviewedDate: string): number {
   let risk = 0;
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const review = history[index];
-    if (review.status === 'stable') {
+    if (review.status === 'stable' && !review.sameDayWeak) {
       successfulDays.add(review.reviewedAt.slice(0, 10));
       continue;
     }
-    const severity = review.status === 'unclear' ? 1.5 : 0.8;
+    const severity = (review.weakestStatus ?? review.status) === 'unclear' ? 1.5 : 0.8;
     risk += severity * decayPerGreenDay ** successfulDays.size;
   }
   return risk;
@@ -2009,8 +2015,9 @@ export function recordCueStudyAssessment(
   assessment: CueAssessment,
   reviewedAt: Date,
   sessionKey: string,
+  practice = false,
 ): ScheduleControlState {
-  const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey);
+  const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey && dateKey(new Date(review.reviewedAt)) === dateKey(reviewedAt));
   if (!existing) return completeCueReviews(state, [assessment], reviewedAt, sessionKey);
   const cue = state.cues.find((item) => item.id === assessment.cueId);
   if (!cue) throw new Error('评估中包含不存在的 Cue。');
@@ -2024,11 +2031,20 @@ export function recordCueStudyAssessment(
     status: latestPrior?.status,
     lastReviewedAt: latestPrior?.reviewedAt,
   };
-  const plan = planCueReview(baselineCue, priorReviews, assessment.status, new Date(existing.reviewedAt));
+  const weakStatuses = [existing.weakestStatus, existing.status, assessment.status];
+  const weakestStatus = weakStatuses.includes('unclear') ? 'unclear' as const : weakStatuses.includes('partial') ? 'partial' as const : undefined;
+  const sameDayWeak = Boolean(existing.sameDayWeak || existing.status !== 'stable' || assessment.status !== 'stable');
+  const practiceAttempts = practice ? [...(existing.practiceAttempts ?? []), { status: assessment.status, reviewedAt: reviewedAt.toISOString() }] : existing.practiceAttempts;
+  const plan = planCueReview(baselineCue, priorReviews, assessment.status, reviewedAt);
+  if (assessment.status === 'stable' && sameDayWeak) {
+    plan.intervalDays = 1;
+    plan.nextReviewDate = addCalendarDays(dateKey(reviewedAt), 1);
+    plan.scheduleReason = '本轮曾为 △ / ○：当天转绿可能受瞬时记忆影响，明天短间隔闭卷确认；本轮重练不增加跨天通过证据。';
+  }
   return {
     ...state,
     cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: assessment.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
-    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, status: assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
+    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, sameDayWeak, ...(weakestStatus ? { weakestStatus } : {}), ...(practiceAttempts ? { practiceAttempts } : {}), status: assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
   };
 }
 

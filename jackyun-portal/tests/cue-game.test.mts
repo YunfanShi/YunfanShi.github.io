@@ -79,7 +79,7 @@ test('desktop background renders real star history, accessible experience and re
     return jsx.jsxs(type, props, key);
   } };
   const react = { ...require('react'), useState: (initial: unknown) => React.useState(initial === null ? { id: 23, cueId: 'render-22', status: 'partial', gained: 10, milestone: true, situation: 'constellation', variant: 1, duration: 1600 } : initial) };
-  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === './cue-practice-burst' ? { __esModule: true, default: () => null } : name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
   const html = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: false }));
@@ -155,9 +155,9 @@ test('galaxy stars retain deterministic coordinates and status colors as learnin
 test('encouragement is frequent and all-status completion is independent of correctness', async () => {
   const { cueEncouragement } = await import('../src/lib/learning/cue-game.ts');
   assert.equal(cueEncouragement(1, 1, false, false), null);
-  assert.equal(cueEncouragement(3, 0, false, false), 'flow');
-  assert.equal(cueEncouragement(3, 3, false, false), 'streak');
-  assert.equal(cueEncouragement(6, 6, false, false), 'streak');
+  assert.equal(cueEncouragement(4, 0, false, false), null);
+  assert.equal(cueEncouragement(8, 8, false, false), 'streak');
+  assert.equal(cueEncouragement(10, 0, false, false), 'flow');
   assert.equal(cueEncouragement(5, 0, false, true), 'constellation');
   assert.equal(cueEncouragement(10, 0, true, true), 'level');
 });

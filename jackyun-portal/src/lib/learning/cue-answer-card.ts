@@ -44,3 +44,21 @@ export function cueAnswerInput(previous: string, next: string, inserted?: string
   }
   return { text: next, close: false };
 }
+
+/** Batch parent persistence while keeping the textarea immediate. Flush at every exit boundary. */
+export function bufferedCueAnswer(save: (text: string) => void, delay = 450, timers = { set: (callback: () => void, wait: number) => setTimeout(callback, wait), clear: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle) }) {
+  let writer = save;
+  let pending: string | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    if (timer !== undefined) timers.clear(timer);
+    timer = undefined;
+    if (pending !== undefined) { const text = pending; pending = undefined; writer(text); }
+  };
+  return {
+    setSave(next: (text: string) => void) { writer = next; },
+    write(text: string) { pending = text; if (timer !== undefined) timers.clear(timer); timer = timers.set(flush, delay); },
+    flush,
+    get pending() { return pending !== undefined; },
+  };
+}
