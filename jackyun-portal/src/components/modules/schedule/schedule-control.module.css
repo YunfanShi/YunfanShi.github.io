@@ -315,8 +315,10 @@
 .answerCard {
   position: fixed;
   z-index: 170;
-  inset: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) auto;
-  width: min(720px, calc(100vw - 24px));
+  right: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: min(32rem, calc(100vw - 48px));
+  max-height: 70dvh;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--card-border);
@@ -334,6 +336,11 @@
   background: var(--card);
   font-size: 16px;
   resize: vertical;
+}
+.answerCard > header { flex-shrink: 0; }
+.answerCard > div { min-height: 0; overscroll-behavior: contain; }
+@media (max-width: 639px) {
+  .answerCard { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: calc(100vw - 24px); }
 }
 .answerComparison { min-width: 0; }
 .touchAnswerButton {

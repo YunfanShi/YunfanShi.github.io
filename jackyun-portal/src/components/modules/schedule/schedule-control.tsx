@@ -4,7 +4,7 @@ import CueGamePanel from './cue-game-panel';
 import type { CueStarFeedback } from '@/lib/learning/cue-game';
 import { useCueUniverseEnabled, useCueStudyPreferences } from './use-cue-study-preferences';
 import CueAnswerCardPanel from './cue-answer-card';
-import { cueAnswerCardId, editCueAnswerCard, compareCueAnswerCard, checkCueAnswerPoint, type CueAnswerCard } from '@/lib/learning/cue-answer-card';
+import { isCueAnswerShortcut, cueAnswerCardId, editCueAnswerCard, compareCueAnswerCard, checkCueAnswerPoint, type CueAnswerCard } from '@/lib/learning/cue-answer-card';
 import CueChangeHistory from './cue-change-history';
 import { createCueChangeRecord, type CueChangeRecord, type CueChangeSource } from '@/lib/learning/cue-change-history';
 import { MemoryCueImportDialog } from './memory-cue-import-dialog';
@@ -441,13 +441,13 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   }, [activeAssessments, allCues, hiddenCueIds, currentIndex, draft.id, draft.priorStatuses, onProgress, revealed, selectedChoice, shuffled, task]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey) return;
       const editing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement;
       if (editing) {
         if (event.key === 'Escape' && memoOpen) { event.preventDefault(); setMemoOpen(false); queueMicrotask(() => studyRef.current?.focus()); }
         return;
       }
-      if (event.key === '`' || event.key === '~' || event.key === '～' || event.key === '·') { event.preventDefault(); setMemoOpen((open) => !open); return; }
+      if (isCueAnswerShortcut(event.key)) { event.preventDefault(); if (!event.repeat) { setMemoOpen((open) => !open); if (memoOpen) queueMicrotask(() => studyRef.current?.focus()); } return; }
       if (event.key === 'Escape' && memoOpen) { event.preventDefault(); setMemoOpen(false); queueMicrotask(() => studyRef.current?.focus()); return; }
       if (event.key === 'Backspace') { event.preventDefault(); if (window.confirm('确定结束这次 Cue 学习吗？当前进度已经自动保存。')) onClose(); return; }
       if (event.key === 'Escape') { event.preventDefault(); onClose(); }

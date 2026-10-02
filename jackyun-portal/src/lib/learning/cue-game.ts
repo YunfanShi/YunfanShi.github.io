@@ -82,3 +82,11 @@ export function cueConstellations(stars: CueStar[]) {
   }
   return [...groups.values()].flatMap((items) => { const group = [...items].sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt) || a.id.localeCompare(b.id)); return Array.from({ length: Math.floor(group.length / 5) }, (_, i) => group.slice(i * 5, i * 5 + 5)); });
 }
+
+export type CueAnimationSituation = LearningStatus | 'updated' | 'constellation' | 'level' | 'finish';
+/** Rotate within each situation so mixed ratings do not repeatedly pick the same animation. */
+export function cueAnimationPlan(situation: CueAnimationSituation, occurrence: number) {
+  const variant = ((occurrence % 3) + 3) % 3;
+  const duration = situation === 'finish' ? 2200 : situation === 'level' ? 1900 : situation === 'constellation' ? 1600 : 1000;
+  return { situation, variant, duration };
+}

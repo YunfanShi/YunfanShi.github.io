@@ -32,3 +32,18 @@ test('answers persist per session with unambiguous identities and bounded input'
   const restored = JSON.parse(JSON.stringify({ ...createEmptyScheduleState(), cueAnswerCards: cards }));
   assert.deepEqual(restored.cueAnswerCards, cards);
 });
+
+test('single answer-card shortcut insertions close without changing saved answers', async () => {
+  const { cueAnswerInput, isCueAnswerShortcut } = await import('../src/lib/learning/cue-answer-card.ts');
+  for (const symbol of ['~', '～', '·', '`']) {
+    assert.equal(isCueAnswerShortcut(symbol), true);
+    assert.deepEqual(cueAnswerInput('answer', `a${symbol}r`, symbol), { text: 'answer', close: true });
+    assert.deepEqual(cueAnswerInput('answer', symbol), { text: 'answer', close: true });
+    for (const [before, after] of [['', symbol], ['answer', `ans${symbol}wer`], ['answer', `answer${symbol}`]])
+      assert.deepEqual(cueAnswerInput(before, after), { text: before, close: true });
+  }
+  for (const text of ['a · b', 'some ~ text', '整段答案～', 'normal answer'])
+    assert.deepEqual(cueAnswerInput('', text), { text, close: false });
+  assert.deepEqual(cueAnswerInput('a·b', 'ab'), { text: 'ab', close: false });
+  assert.deepEqual(cueAnswerInput('a·b', 'a·b'), { text: 'a·b', close: false });
+});

@@ -32,3 +32,15 @@ export function checkCueAnswerPoint(cards: CueAnswerCard[], id: string, index: n
     return { ...card, updatedAt: at, comparison: { ...card.comparison, checkedPoints: checked ? [...checkedPoints, index].sort((a, b) => a - b) : checkedPoints } };
   });
 }
+
+/** Treat a single shortcut insertion as a command; keep ordinary text and pasted answers. */
+export const isCueAnswerShortcut = (key: string) => ['`', '~', '～', '·'].includes(key);
+export function cueAnswerInput(previous: string, next: string, inserted?: string | null) {
+  if ((inserted && isCueAnswerShortcut(inserted)) || (next !== previous && isCueAnswerShortcut(next))) return { text: previous, close: true };
+  if (next.length === previous.length + 1) {
+    let index = 0;
+    while (index < previous.length && previous[index] === next[index]) index++;
+    if (isCueAnswerShortcut(next[index]) && previous.slice(index) === next.slice(index + 1)) return { text: previous, close: true };
+  }
+  return { text: next, close: false };
+}

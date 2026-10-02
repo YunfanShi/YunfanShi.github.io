@@ -67,7 +67,14 @@ test('desktop sidebar renders real star history, accessible experience and reduc
   const game = await import('../src/lib/learning/cue-game.ts');
   const schedule = await import('../src/lib/learning/schedule-control.ts');
   const styles = new Proxy({}, { get: (_target, key) => String(key) });
-  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  const jsx = require('react/jsx-runtime');
+  const runtime = { ...jsx, jsxs: (type: unknown, props: { children?: React.ReactNode[] }, key: unknown) => {
+    const keys = (Array.isArray(props.children) ? props.children : []).filter(React.isValidElement).map((child) => child.key).filter((key) => key !== null);
+    assert.equal(new Set(keys).size, keys.length, 'animated counters, sky and celebrations must have distinct sibling identities');
+    return jsx.jsxs(type, props, key);
+  } };
+  const react = { ...require('react'), useState: (initial: unknown) => React.useState(initial === null ? { id: 23, cueId: 'render-22', status: 'partial', gained: 10, milestone: true, situation: 'constellation', variant: 1, duration: 1600 } : initial) };
+  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
   const html = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: false }));
@@ -78,6 +85,9 @@ test('desktop sidebar renders real star history, accessible experience and reduc
   assert.doesNotMatch(html, /敌人生命/);
   assert.match(html, /星空收藏/);
   assert.doesNotMatch(html, /LEVEL UP/);
+  assert.match(html, /data-situation="constellation"/);
+  assert.match(html, /data-variant="1"/);
+  assert.match(html, /跳过动画/);
 });
 
 test('star album keeps all ratings, deduplicates daily stars and survives Cue deletion and sync', async () => {
@@ -108,4 +118,14 @@ test('legacy review attribution can use saved learning records even after Cue re
   const record = { completedAt: now.toISOString(), cues: [{cueId:'a',subjectName:'History'}] } as import('../src/lib/learning/schedule-control.ts').LearningRecord;
   assert.equal(cueStarAlbum([review('a')],[],[record],now)[0].subjectName,'History');
   assert.equal(cueStarAlbum([review('unknown')],[],[],now)[0].subjectName,'未分类');
+});
+
+test('each learning situation has three rotating variants with bounded nonblocking durations', async () => {
+  const { cueAnimationPlan } = await import('../src/lib/learning/cue-game.ts');
+  for (const situation of ['stable', 'partial', 'unclear', 'updated', 'constellation', 'level', 'finish'] as const) {
+    const plans = Array.from({ length: 6 }, (_, occurrence) => cueAnimationPlan(situation, occurrence));
+    assert.deepEqual(plans.map((plan) => plan.variant), [0, 1, 2, 0, 1, 2]);
+    assert.ok(plans.every((plan) => plan.situation === situation && plan.duration >= 1000 && plan.duration <= 2200));
+  }
+  assert.ok(cueAnimationPlan('level', 0).duration > cueAnimationPlan('stable', 0).duration);
 });
