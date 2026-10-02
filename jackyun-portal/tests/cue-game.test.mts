@@ -53,7 +53,7 @@ test('default shuffle leaves source order intact; switching off restores origina
   assert.equal(ordered.retainedCurrent, true);
 });
 
-test('desktop sidebar renders real star history, accessible experience and reduced-motion control', async () => {
+test('desktop background renders real star history, accessible experience and reduced-motion control', async () => {
   const { readFileSync } = await import('node:fs');
   const { createRequire } = await import('node:module');
   const { runInNewContext } = await import('node:vm');
@@ -65,8 +65,13 @@ test('desktop sidebar renders real star history, accessible experience and reduc
   const { outputText } = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } });
   const compiled = { exports: {} as { default: React.ComponentType<Record<string, unknown>> } };
   const game = await import('../src/lib/learning/cue-game.ts');
+  const backdropModule = { exports: {} as { default: React.ComponentType<Record<string, unknown>> } };
+  const backdropSource = readFileSync(new URL('../src/components/modules/schedule/cue-universe-backdrop.tsx', import.meta.url), 'utf8');
+  const backdropOutput = ts.transpileModule(backdropSource, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
+
   const schedule = await import('../src/lib/learning/schedule-control.ts');
   const styles = new Proxy({}, { get: (_target, key) => String(key) });
+  runInNewContext(backdropOutput, { module: backdropModule, exports: backdropModule.exports, require: (name: string) => name === '@/lib/learning/cue-game' ? game : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const jsx = require('react/jsx-runtime');
   const runtime = { ...jsx, jsxs: (type: unknown, props: { children?: React.ReactNode[] }, key: unknown) => {
     const keys = (Array.isArray(props.children) ? props.children : []).filter(React.isValidElement).map((child) => child.key).filter((key) => key !== null);
@@ -74,11 +79,14 @@ test('desktop sidebar renders real star history, accessible experience and reduc
     return jsx.jsxs(type, props, key);
   } };
   const react = { ...require('react'), useState: (initial: unknown) => React.useState(initial === null ? { id: 23, cueId: 'render-22', status: 'partial', gained: 10, milestone: true, situation: 'constellation', variant: 1, duration: 1600 } : initial) };
-  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
   const html = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: false }));
   assert.match(html, /data-motion="false"/);
+  assert.match(html, /data-cue-universe-background/);
+  assert.match(html, /data-stars="23"/);
+  assert.match(html, /<canvas[^>]*aria-hidden="true"/);
   assert.match(html, /紫晶巡航舰/);
   assert.match(html, /aria-label="等级经验"[^>]*aria-valuenow="30"/);
   assert.match(html, /已点亮 23 颗星的学习星空/);
@@ -128,4 +136,18 @@ test('each learning situation has three rotating variants with bounded nonblocki
     assert.ok(plans.every((plan) => plan.situation === situation && plan.duration >= 1000 && plan.duration <= 2200));
   }
   assert.ok(cueAnimationPlan('level', 0).duration > cueAnimationPlan('stable', 0).duration);
+});
+
+test('galaxy stars retain deterministic coordinates and status colors as learning grows', async () => {
+  const { cueGalaxyPoint, cueStarPosition, CUE_STAR_COLORS } = await import('../src/lib/learning/cue-game.ts');
+  const before = Array.from({ length: 200 }, (_, i) => cueGalaxyPoint(`star-${i}`));
+  const after = Array.from({ length: 300 }, (_, i) => cueGalaxyPoint(`star-${i}`));
+  assert.deepEqual(after.slice(0, 200), before);
+  assert.equal(new Set(before.map((point) => JSON.stringify(point))).size, 200);
+  for (let i = 0; i < before.length; i++) {
+    assert.ok(before[i].radius >= .12 && before[i].radius <= .95);
+    const point = cueStarPosition(`star-${i}`);
+    assert.ok(point.x > 10 && point.x < 190 && point.y > 10 && point.y < 140);
+  }
+  assert.equal(new Set(Object.values(CUE_STAR_COLORS)).size, 3);
 });

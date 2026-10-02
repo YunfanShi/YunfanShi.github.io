@@ -62,10 +62,20 @@ export function cueStarAlbum(reviews: CueReview[], cues: StudyCue[], records: Le
   return [...stars.values()].sort((a, b) => a.day.localeCompare(b.day) || a.subjectId.localeCompare(b.subjectId) || a.id.localeCompare(b.id));
 }
 
+/** Stable spiral-arm coordinates: adding or rerating one Cue never rearranges existing stars. */
+export function cueGalaxyPoint(id: string) {
+  let seed = 2166136261;
+  for (let i = 0; i < id.length; i++) seed = Math.imul(seed ^ id.charCodeAt(i), 16777619) >>> 0;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  const radius = .12 + Math.sqrt(random()) * .83;
+  const angle = radius * 7.8 + Math.floor(random() * 3) * Math.PI * 2 / 3 + (random() - .5) * .42;
+  return { radius, angle, z: (random() - .5) * .12, size: .35 + random() * 1.15 };
+}
 export function cueStarPosition(id: string) {
-  let hash = 2166136261;
-  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619) >>> 0;
-  return { x: 12 + hash % 176, y: 12 + Math.floor(hash / 176) % 126 };
+  const point = cueGalaxyPoint(id);
+  const x = Math.cos(point.angle - .55) * point.radius;
+  const y = Math.sin(point.angle - .55) * point.radius;
+  return { x: 100 + (x * .93 - y * .24) * 85, y: 75 + (y * .54 + point.z) * 90 };
 }
 export function cueStarWeek(day: string) {
   const at = dateFromKey(day);

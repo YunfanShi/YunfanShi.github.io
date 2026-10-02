@@ -1,5 +1,21 @@
 @media (min-width: 1024px) {
-  .session[data-cue-universe='true'] > main[data-cue-study-content] { width: min(1024px, calc(100% - 432px)); margin-inline: auto; }
+  .session[data-cue-universe='true'] {
+    isolation: isolate;
+    --background: #070e19;
+    --foreground: #edf2fb;
+    --muted-foreground: #a5b2c9;
+    --card: #111c2dea;
+    --card-border: #a5b9d32e;
+    --brand: #98baff;
+    background: #040810;
+    color: var(--foreground);
+  }
+  .session[data-cue-universe='true'] > header { position: relative; z-index: 2; background: linear-gradient(#070e19ef, #070e1999); }
+  .session[data-cue-universe='true'] > main[data-cue-study-content] {
+    position: relative; z-index: 1; width: min(1024px, calc(100% - 432px)); margin-inline: auto;
+    background: radial-gradient(ellipse at 50% 48%, #070e19eb 0%, #070e19a6 44%, #070e1930 72%, transparent 100%);
+    text-shadow: 0 2px 16px #0009;
+  }
 }
 @media (min-width: 1024px) and (max-width: 1279px) {
   .session[data-cue-universe='true'] > main[data-cue-study-content] { width: calc(100% - 360px); }

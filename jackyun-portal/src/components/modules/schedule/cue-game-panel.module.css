@@ -97,3 +97,15 @@
 @keyframes starLift { 10% { opacity: 1; } 35% { transform: translate(4vw, -15vh) scale(.6); } 75% { opacity: 1; } 100% { transform: translate(calc(50vw - 108px), calc(260px - 46vh)); opacity: 0; } }
 @keyframes starGather { 0% { transform: scale(2); } 15% { opacity: 1; transform: scale(.6); } 50% { transform: translate(18vw, 5vh) scale(1); } 75% { opacity: 1; } 100% { transform: translate(calc(50vw - 108px), calc(260px - 46vh)); opacity: 0; } }
 @keyframes starGentle { 10% { opacity: .7; } 50% { transform: translate(20vw, 0) scale(.7); } 80% { opacity: .7; } 100% { transform: translate(calc(50vw - 108px), calc(260px - 46vh)) scale(.4); opacity: 0; } }
+
+.backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 60% 55%, #17243c, #040810 70%); }
+.backdrop canvas { width: 100%; height: 100%; display: block; }
+.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 57% 54%, transparent 25%, #03070c55 75%, #03070ca6 100%); }
+@media (min-width: 1024px) {
+  .dock:not([data-summary='true']) { top: auto; bottom: 28px; max-height: calc(100dvh - 230px); }
+  .dock:not([data-summary='true']) .panel { background: linear-gradient(145deg, #112035a8, #070e19ce); border-color: #b4c7e52b; backdrop-filter: blur(18px); box-shadow: 0 12px 48px #0003, inset 0 1px #ffffff08; }
+  .dock:not([data-summary='true']) .panel::before { background: none; }
+  .dock:not([data-summary='true']) .count { margin-bottom: 14px; }
+  .dock:not([data-summary='true']) .rule { display: none; }
+}
+.pages article { background: radial-gradient(ellipse at 55% 54%, #1e2c463b, #050b16); box-shadow: inset 0 1px #ffffff05; }

@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { cueAnimationPlan, cueGameProgress, cueStarAlbum, cueStarPosition, cueStarWeek, cueConstellations, CUE_STAR_COLORS, CUE_LEVEL_XP, type CueStar, type CueStarFeedback, type CueAnimationSituation } from '@/lib/learning/cue-game';
 import { dateKey, type CueReview, type StudyCue, type LearningRecord } from '@/lib/learning/schedule-control';
+import CueUniverseBackdrop from './cue-universe-backdrop';
 import styles from './cue-game-panel.module.css';
 
 export function CueStarSky({ stars, highlight }: { stars: CueStar[]; highlight?: string }) {
   return <svg className={styles.sky} viewBox="0 0 200 150" role="img" aria-label={`已点亮 ${stars.length} 颗星的学习星空`}>
     <defs><radialGradient id="cue-star-nebula"><stop stopColor="#6877ab" stopOpacity=".25" /><stop offset="1" stopColor="#101727" stopOpacity="0" /></radialGradient></defs>
     <ellipse cx="104" cy="78" rx="92" ry="60" fill="url(#cue-star-nebula)" />
-    {cueConstellations(stars).map((group) => <polyline key={group[0].id} points={group.map((star) => { const point = cueStarPosition(star.id); return `${point.x},${point.y}`; }).join(' ')} fill="none" stroke="#95b5e2" strokeOpacity=".45" strokeWidth=".6" />)}
-    {stars.map((star) => { const point = cueStarPosition(star.id); return <g key={star.id} className={highlight === star.cueId ? styles.newStar : undefined} style={{ '--star-color': CUE_STAR_COLORS[star.status] } as CSSProperties}><circle cx={point.x} cy={point.y} r="4" fill={CUE_STAR_COLORS[star.status]} opacity=".12" /><circle cx={point.x} cy={point.y} r="1.7" fill={CUE_STAR_COLORS[star.status]} /><title>{star.subjectName} · {star.day} · {star.status === 'stable' ? '√' : star.status === 'partial' ? '△' : '○'}</title></g>; })}
+    {cueConstellations(stars).map((group) => <polyline key={group[0].id} points={group.map((star) => { const point = cueStarPosition(star.id); return `${point.x},${point.y}`; }).join(' ')} fill="none" stroke="#95b5e2" strokeOpacity=".18" strokeWidth=".6" />)}
+    {stars.map((star) => { const point = cueStarPosition(star.id); return <g key={star.id} className={highlight === star.cueId ? styles.newStar : undefined} style={{ '--star-color': CUE_STAR_COLORS[star.status] } as CSSProperties}><circle cx={point.x} cy={point.y} r="6" fill={CUE_STAR_COLORS[star.status]} opacity=".08" /><circle cx={point.x} cy={point.y} r="1.2" fill={CUE_STAR_COLORS[star.status]} /><title>{star.subjectName} · {star.day} · {star.status === 'stable' ? '√' : star.status === 'partial' ? '△' : '○'}</title></g>; })}
     {!stars.length && <text x="100" y="78" textAnchor="middle" fill="#91a2bb" fontSize="9">今天的第一颗星，等你点亮</text>}
   </svg>;
 }
@@ -22,7 +23,7 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
   const progress = useMemo(() => cueGameProgress(reviews), [reviews]);
   const stars = useMemo(() => cueStarAlbum(reviews, cues, records), [reviews, cues, records]);
   const today = dateKey(new Date());
-  const todayStars = stars.filter((star) => star.day === today);
+  const todayStars = useMemo(() => stars.filter((star) => star.day === today), [stars, today]);
   const previous = useRef({ xp: progress.xp, count: progress.todayCount, level: progress.level });
   const variants = useRef(new Map<CueAnimationSituation, number>());
   const handled = useRef<number | undefined>(feedback?.id);
@@ -63,14 +64,14 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
     groups.set(key, [...(groups.get(key) ?? []), star]);
   }
   const subjects = [...new Map(stars.map((star) => [star.subjectId, star.subjectName])).entries()];
-  return <aside className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} data-situation={celebration?.situation} data-variant={celebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': celebration ? CUE_STAR_COLORS[celebration.status] : '#a5b4fc' } as CSSProperties}>
+  return <>{!summary && <CueUniverseBackdrop stars={todayStars} animations={animations} highlight={celebration?.cueId} celebration={celebration ?? undefined} />}<aside className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} data-situation={celebration?.situation} data-variant={celebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': celebration ? CUE_STAR_COLORS[celebration.status] : '#a5b4fc' } as CSSProperties}>
     <div className={styles.panel} data-milestone={celebration?.milestone || undefined}>
       <div className={styles.top}><span className={styles.eyebrow}>STAR JOURNAL</span>{onDismiss && <button type="button" onClick={onDismiss} aria-label="收起学习成果">×</button>}</div>
       <h2>{summary ? `今天完成 ${progress.todayCount} 条` : '今日星空'}</h2>
       <div className={styles.count} key={`count-${progress.todayCount}`}><strong>{progress.todayCount}</strong><span>颗星已点亮</span></div>
-      <div className={styles.skyFrame} key={`sky-${celebration?.id ?? 'rest'}`}><CueStarSky stars={todayStars} highlight={celebration?.cueId} />
+      {summary && (<div className={styles.skyFrame} key={`sky-${celebration?.id ?? 'rest'}`}><CueStarSky stars={todayStars} highlight={celebration?.cueId} />
         {celebration?.milestone && <svg className={styles.burst} viewBox="0 0 200 150" aria-hidden="true"><circle className={styles.halo} cx="100" cy="75" r="42" /><ellipse className={styles.orbit} cx="100" cy="75" rx="72" ry="30" /><path className={styles.crown} d="M100 28 L110 62 L145 75 L110 86 L100 122 L90 86 L55 75 L90 62 Z" />{Array.from({length: 12}, (_, i) => { const angle = i * Math.PI / 6; return <circle key={i} className={styles.spark} cx={100 + Math.cos(angle) * 60} cy={75 + Math.sin(angle) * 50} r={i % 3 === 0 ? 2 : 1} style={{ '--spark-delay': `${i * 25}ms` } as CSSProperties} />; })}</svg>}
-      </div>
+      </div>)}
       <div className={styles.legend}><span style={{ color: CUE_STAR_COLORS.stable }}>√</span><span style={{ color: CUE_STAR_COLORS.partial }}>△</span><span style={{ color: CUE_STAR_COLORS.unclear }}>○</span><small>每种努力都留下一颗星</small></div>
       <div className={styles.xpRow}><span>Lv.{progress.level}</span><span>{progress.levelXp} / {CUE_LEVEL_XP} XP</span></div>
       <div className={styles.xpTrack} role="progressbar" aria-label="等级经验" aria-valuemin={0} aria-valuemax={CUE_LEVEL_XP} aria-valuenow={progress.levelXp}><div style={{ width: `${progress.levelXp}%` }} /></div>
@@ -94,5 +95,5 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
       <p className={styles.albumNote}>复习记录生成的真实成果 · √ / △ / ○ 同样计入 · 随学习记录同步</p>
       <div className={styles.pages}>{[...groups].sort(([a], [b]) => b.localeCompare(a)).map(([day, items]) => <article key={day}><div><strong>{period === 'week' ? `${day} 起的一周` : day}</strong><span>{items.length} 颗星</span></div><CueStarSky stars={items} /><p>{[...new Set(items.map((star) => star.subjectName))].join(' · ')}</p></article>)}{!groups.size && <p>完成复习后，第一幅星空就会保存在这里。</p>}</div>
     </div>}
-  </aside>;
+  </aside></>;
 }

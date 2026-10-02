@@ -19,13 +19,28 @@ export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与�
 export const UPDATE_HISTORY: UpdateEntry[] = [
   {
     version: APP_VERSION,
+    date: '2026-10-02',
+    dateLabel: '2026 年 10 月 2 日',
+    title: '让认真复习留下自己的星空',
+    summary: 'CUE 宇宙冒险升级为有纵深的学习背景，每次认真复习点亮一颗星，三种状态都留下成果。',
+    categories: ['学习体验'],
+    accent: 'violet',
+    featured: true,
+    highlights: [
+      '电脑端可开启旋臂星场背景，薄荷绿、暖金和玫瑰色对应三种复习状态。',
+      '每条 CUE 的星星拥有固定位置；积累、学科和每周成果保留在星空收藏中。',
+      '轻巧打标反馈、多种阶段庆祝和右下角答题卡，支持关闭动画。',
+      '宇宙冒险默认关闭，手机继续使用简洁的学习界面。',
+    ],
+  },
+  {
+    version: '3.16.0',
     date: '2026-09-21',
     dateLabel: '2026 年 9 月 21 日',
     title: '学习闭环，完整发生在一个空间里',
     summary: '本次更新把计划、学习、复习证据与 Cue 串成连续体验，也让 JackYun 在桌面与浏览器里更像一套完整产品。',
     categories: ['学习体验', '平台体验'],
     accent: 'blue',
-    featured: true,
     highlights: [
       '日程支持合并同学科任务，并保留每项任务的实际完成结果。',
       '学习任务可直接进入 Cue 练习；完成记录会保存资料范围、证据与复习状态。',
