@@ -205,6 +205,7 @@ export interface CueReview {
   reviewedAt: string;
   nextReviewDate: string;
   /** Real delayed retrievals, distinct from editing the original rating. */
+  practiceOnly?: boolean;
   practiceAttempts?: { status: LearningStatus; reviewedAt: string }[];
   sameDayWeak?: boolean;
   weakestStatus?: 'partial' | 'unclear';
@@ -2016,9 +2017,16 @@ export function recordCueStudyAssessment(
   reviewedAt: Date,
   sessionKey: string,
   practice = false,
+  editPractice = false,
 ): ScheduleControlState {
   const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey && dateKey(new Date(review.reviewedAt)) === dateKey(reviewedAt));
-  if (!existing) return completeCueReviews(state, [assessment], reviewedAt, sessionKey);
+  if (!existing) {
+    if (!practice) return completeCueReviews(state, [assessment], reviewedAt, sessionKey);
+    const originalStatus = state.cues.find(item => item.id === assessment.cueId)?.status ?? assessment.status;
+    const created = completeCueReviews(state, [{ ...assessment, status: originalStatus }], reviewedAt, sessionKey);
+    created.cueReviews = created.cueReviews.map(review => review.cueId === assessment.cueId && review.reviewedAt === reviewedAt.toISOString() ? { ...review, practiceOnly: true } : review);
+    return recordCueStudyAssessment(created, assessment, reviewedAt, sessionKey, true, false);
+  }
   const cue = state.cues.find((item) => item.id === assessment.cueId);
   if (!cue) throw new Error('评估中包含不存在的 Cue。');
   const priorReviews = state.cueReviews.filter((review) => review.cueId === cue.id && review.id !== existing.id);
@@ -2034,17 +2042,18 @@ export function recordCueStudyAssessment(
   const weakStatuses = [existing.weakestStatus, existing.status, assessment.status];
   const weakestStatus = weakStatuses.includes('unclear') ? 'unclear' as const : weakStatuses.includes('partial') ? 'partial' as const : undefined;
   const sameDayWeak = Boolean(existing.sameDayWeak || existing.status !== 'stable' || assessment.status !== 'stable');
-  const practiceAttempts = practice ? [...(existing.practiceAttempts ?? []), { status: assessment.status, reviewedAt: reviewedAt.toISOString() }] : existing.practiceAttempts;
+  const attempts = existing.practiceAttempts ?? [];
+  const practiceAttempts = !practice ? existing.practiceAttempts : editPractice && attempts.length ? attempts.map((attempt, index) => index === attempts.length - 1 ? { ...attempt, status: assessment.status } : attempt) : [...attempts, { status: assessment.status, reviewedAt: reviewedAt.toISOString() }];
   const plan = planCueReview(baselineCue, priorReviews, assessment.status, reviewedAt);
   if (assessment.status === 'stable' && sameDayWeak) {
     plan.intervalDays = 1;
     plan.nextReviewDate = addCalendarDays(dateKey(reviewedAt), 1);
-    plan.scheduleReason = '本轮曾为 △ / ○：当天转绿可能受瞬时记忆影响，明天短间隔闭卷确认；本轮重练不增加跨天通过证据。';
+    plan.scheduleReason = practice ? '本轮曾为 △ / ○：重练通过单独记录并保留原评价，明天短间隔闭卷确认；本轮重练不增加跨天通过证据。' : '本轮曾为 △ / ○：当天转绿可能受瞬时记忆影响，明天短间隔闭卷确认；本轮重练不增加跨天通过证据。';
   }
   return {
     ...state,
-    cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: assessment.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
-    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, sameDayWeak, ...(weakestStatus ? { weakestStatus } : {}), ...(practiceAttempts ? { practiceAttempts } : {}), status: assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
+    cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: practice ? item.status : assessment.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: practice ? item.streak : plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
+    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, sameDayWeak, ...(weakestStatus ? { weakestStatus } : {}), ...(practiceAttempts ? { practiceAttempts } : {}), status: practice ? existing.status : assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
   };
 }
 

@@ -19,9 +19,16 @@ export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与�
 export const UPDATE_HISTORY: UpdateEntry[] = [
   {
     version: APP_VERSION, date: '2026-10-02', dateLabel: '2026 年 10 月 2 日',
+    title: '重练轮换与独立通过标记',
+    summary: '到期重练覆盖完整队列，失败项延后轮换；通过结果独立保存，保留原红黄评价。',
+    categories: ['学习体验', '稳定性'], accent: 'violet', featured: true,
+    highlights: ['失败或跳过后轮换其他 CUE，原有时间与题数间隔继续生效。', '重练目录显示全部待重练、等待间隔和已通过项，乱序和恢复会话保留完整队列。', '重练判定不覆盖原评价，CUE 工作台和历史详情单独显示重练结果。', '同次重练改色不重复计数，跨天恢复按真实检索次数记录，重练不虚增连续通过。'],
+  },
+  {
+    version: '3.18.1', date: '2026-10-02', dateLabel: '2026 年 10 月 2 日',
     title: '更从容的重练，更完整的星光',
     summary: '重练按时间或题数到期；切换乱序能返回本轮，粒子庆祝升级为完整的汇聚与释放。',
-    categories: ['学习体验', '稳定性'], accent: 'violet', featured: true,
+    categories: ['学习体验', '稳定性'], accent: 'violet',
     highlights: ['○ 隔 4–6 条、△ 隔 6–10 条，或等待 5–10 分钟，满足任一条件即可重练；随机间隔随会话保存。', '按 CUE 身份保留重练返回位置，乱序及主队列已完成时也能退出重练。', '星核诞生、星环共鸣、极光绽放三套粒子覆盖独立播放，继续做题不会提前截断，支持跳过。'],
   },
   {

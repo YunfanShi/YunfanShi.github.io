@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCuePractice, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
+import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
 import { createEmptyScheduleState, recordCueStudyAssessment, planCueReview, saveCueStudyDraft, reorderCueStudy, type StudyCue, type CueStudyDraft } from '../src/lib/learning/schedule-control.ts';
 import { cueGameProgress } from '../src/lib/learning/cue-game.ts';
 import { bufferedCueAnswer } from '../src/lib/learning/cue-answer-card.ts';
@@ -135,4 +135,83 @@ test('retry returns to the same unreviewed Cue after shuffle and can leave an ex
   assert.equal(state.pending.length,0);
   assert.equal(enterCuePractice(state,300_000,'a').active,undefined);
   assert.equal(cuePracticeReturnIndex(state,[]),0);
+});
+
+
+test('a failed retry rotates through every other due item, retaining passed items in the directory', () => {
+  let state=emptyCuePractice();
+  const ids=Array.from({length:12},(_,i)=>`cue-${i}`);
+  for (const id of ids) state=rateCuePractice(state,id,'unclear',true,0,()=>0);
+  state=enterCuePractice(state,600_000,undefined,'normal',true);
+  assert.equal(state.active,ids[0]);
+  state=rateCuePractice(state,ids[0],'unclear',true,600_000,()=>0);
+  const visited=[ids[0]];
+  for(const id of ids.slice(1)){
+    state=enterCuePractice(state,600_000,state.active);
+    assert.equal(state.active,id);visited.push(id);
+    state=rateCuePractice(state,id,'stable',true,600_000);
+  }
+  assert.deepEqual(visited,ids);
+  assert.equal(state.pending.length,1);
+  assert.equal(cuePracticeDirectory(state).length,12);
+  assert.equal(cuePracticeLabel(state,ids[1],600_000),'重练已通过');
+  assert.equal(state.results?.[ids[0]].status,'unclear');
+});
+test('the most recently practiced item waits when other queued items are not due', () => {
+  let state=rateCuePractice(emptyCuePractice(),'a','unclear',true,0,()=>0);
+  state=rateCuePractice(state,'b','partial',true,0,()=>.999999);
+  state=enterCuePractice(state,300_000,undefined,'normal',true);
+  state=rateCuePractice(state,'a','unclear',true,300_000,()=>0);
+  state=enterCuePractice(state,599_999,'a');
+  assert.equal(state.active,undefined);assert.equal(state.mode,true);assert.equal(state.returnCueId,'normal');
+  assert.equal(dueCuePractice({...state,completed:100},599_999)?.cueId,'b');
+  assert.equal(dueCuePractice(state,599_999),undefined);
+  state=enterCuePractice(state,600_000);
+  assert.equal(state.active,'b');
+});
+test('retry recoloring edits one attempt, preserves primary red and records a passed marker after reload', () => {
+  let record=recordCueStudyAssessment({...createEmptyScheduleState(),cues:[cue]},{cueId:'a',status:'unclear'},at,'s');
+  let practice=rateCuePractice(emptyCuePractice(),'a','unclear',true,at.getTime(),()=>0);
+  practice=enterCuePractice(practice,at.getTime()+300_000,undefined,'b',true);
+  record=recordCueStudyAssessment(record,{cueId:'a',status:'partial'},at,'s',true);
+  practice=rateCuePractice(practice,'a','partial',true,at.getTime());
+  record=recordCueStudyAssessment(record,{cueId:'a',status:'stable'},at,'s',true,true);
+  practice=rateCuePractice(practice,'a','stable',false,at.getTime());
+  assert.equal(record.cues[0].status,'unclear');assert.equal(record.cueReviews[0].status,'unclear');assert.equal(record.cues[0].streak,0);
+  assert.equal(record.cueReviews[0].practiceAttempts?.length,1);
+  assert.equal(record.cueReviews[0].practiceAttempts?.[0].status,'stable');
+  assert.equal(cueGameProgress(record.cueReviews,at).todayEffortCount,2);
+  assert.equal(practice.pending.length,0);assert.equal(practice.results?.a.attempts,1);
+  const restored=JSON.parse(JSON.stringify(practice));
+  assert.equal(cuePracticeLabel(restored,'a',at.getTime()),'重练已通过');
+  assert.deepEqual(cuePracticeDirectory(restored),['a']);
+  assert.equal(enterCuePractice(restored,at.getTime(),'a').mode,true);
+  // A normal primary rating still changes the primary color.
+  record=recordCueStudyAssessment(record,{cueId:'a',status:'stable'},at,'s');
+  assert.equal(record.cues[0].status,'stable');
+});
+test('a retry continued on a new day preserves primary color and counts only its actual attempt', () => {
+  let record=recordCueStudyAssessment({...createEmptyScheduleState(),cues:[cue]},{cueId:'a',status:'partial'},at,'s');
+  const tomorrow=new Date(2026,9,3,12);
+  record=recordCueStudyAssessment(record,{cueId:'a',status:'stable'},tomorrow,'s',true);
+  assert.equal(record.cues[0].status,'partial');assert.equal(record.cueReviews[1].status,'partial');
+  assert.equal(record.cueReviews[1].practiceOnly,true);
+  const progress=cueGameProgress(record.cueReviews,tomorrow);
+  assert.equal(progress.effortCount,2);assert.equal(progress.todayEffortCount,1);assert.equal(progress.todayCount,1);
+});
+
+test('persistent practice badges follow the latest review and do not inherit an outdated pass', () => {
+  let record=recordCueStudyAssessment({...createEmptyScheduleState(),cues:[cue]},{cueId:'a',status:'partial'},at,'s');
+  record=recordCueStudyAssessment(record,{cueId:'a',status:'stable'},at,'s',true);
+  assert.equal(latestCuePracticeAttempt(JSON.parse(JSON.stringify(record.cueReviews)),'a')?.status,'stable');
+  record=recordCueStudyAssessment(record,{cueId:'a',status:'unclear'},new Date(2026,9,3,12),'next');
+  assert.equal(latestCuePracticeAttempt(record.cueReviews,'a'),undefined);
+});
+
+test('skipping an ungraded retry also visits the full queue rather than bouncing between two Cues', () => {
+  let state=emptyCuePractice();
+  for (const id of ['a','b','c','d']) state=rateCuePractice(state,id,'unclear',true,0,()=>0);
+  const visited=[];
+  for(let i=0;i<4;i++) { state=enterCuePractice(state,600_000,state.active,undefined,true);visited.push(state.active); }
+  assert.deepEqual(visited,['a','b','c','d']);assert.equal(state.completed,4);
 });

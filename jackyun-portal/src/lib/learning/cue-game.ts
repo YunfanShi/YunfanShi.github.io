@@ -34,7 +34,7 @@ export function cueGameProgress(reviews: CueReview[], now = new Date()) {
   }
   let effortCount = 0, todayEffortCount = 0;
   for (const review of retrievals.values()) {
-    const attempts = 1 + (review.practiceAttempts ?? []).filter((attempt) => ['stable', 'partial', 'unclear'].includes(attempt.status) && Number.isFinite(Date.parse(attempt.reviewedAt)) && Date.parse(attempt.reviewedAt) <= now.getTime()).length;
+    const attempts = Number(!review.practiceOnly) + (review.practiceAttempts ?? []).filter((attempt) => ['stable', 'partial', 'unclear'].includes(attempt.status) && Number.isFinite(Date.parse(attempt.reviewedAt)) && Date.parse(attempt.reviewedAt) <= now.getTime()).length;
     effortCount += attempts;
     if (dateKey(new Date(review.reviewedAt)) === today) todayEffortCount += attempts;
   }
