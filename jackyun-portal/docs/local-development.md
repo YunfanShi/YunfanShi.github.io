@@ -1,4 +1,4 @@
-# Windows 本地开发（3.19.1）
+# Windows 本地开发（3.19.2）
 
 ## 前置环境
 
@@ -55,6 +55,30 @@ npm run test:sync
 安装后验证：修改文件的 ESLint、密钥检查、远端 URL 启动拦截，以及同步回归 33/33 通过。`npx next typegen` 生成路由类型后，`npx tsc --noEmit` 通过。全仓库 `npm run lint` 存在 16 个既有错误和 1 个警告（旧页面链接、effect 内状态更新和旧测试类型），本次未修改这些业务代码。
 
 ## 停止与重建
+
+### 重启后 Docker 仍提示虚拟机平台未启用
+
+先在管理员 PowerShell 核对实际状态，不要仅凭 Docker 提示重复启用功能：
+
+```powershell
+Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
+Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+Get-Service vmcompute,hns -ErrorAction SilentlyContinue
+Test-Path C:\Windows\System32\vmcompute.exe
+```
+
+本机首次重启后，两个功能均为 Enabled，固件虚拟化已开启，但 vmcompute/hns 服务和 vmcompute.exe 缺失，Docker 重启仍失败。DISM 扫描另检出可修复的组件存储损坏；这并不证明该损坏就是服务缺失的原因。
+
+可按 [微软 Windows 映像修复说明](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/repair-a-windows-image?view=windows-11) 使用管理员 PowerShell 扫描，检测到可修复损坏时执行修复：
+
+```powershell
+DISM.exe /Online /Cleanup-Image /ScanHealth
+DISM.exe /Online /Cleanup-Image /RestoreHealth
+```
+
+修复结束后仍需检查计算服务、Docker 引擎及 `npm run db:check`。若功能重装提示 RestartNeeded，应再次重启；不能把功能状态 Enabled 或安装命令成功视为数据库已运行。
+
+### 停止数据库
 
 ```powershell
 npm run db:stop
