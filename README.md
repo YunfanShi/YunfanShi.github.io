@@ -4,11 +4,15 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.19.3**
+> 当前版本：**v3.19.4**
 
 ---
 
 ## 本地开发与独立测试数据库
+
+Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围及验证条件见
+[Azure 数据库可行性研究](jackyun-portal/docs/azure-database-feasibility.md)。
+该研究尚未切换正式数据库，Azure 的性能和免费资格需在账号开通后实测。
 
 安装 Node.js 24 LTS、Docker Desktop（Windows 使用 WSL 2 后端），启动 Docker Desktop 后，在 `jackyun-portal/` 执行：
 
