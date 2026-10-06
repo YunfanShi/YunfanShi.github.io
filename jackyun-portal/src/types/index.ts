@@ -1,3 +1,5 @@
+import type { AnnouncementOptions } from '../lib/announcements';
+
 export interface Profile {
   id: string;
   github_username: string | null;
@@ -135,12 +137,13 @@ export interface WhitelistInfo {
   emails: string[];
 }
 
-export interface SiteNotification {
+export interface SiteNotification extends AnnouncementOptions {
   id: string;
   title: string;
   content: string;
   content_type: 'html' | 'markdown';
-  delivery_type: 'notice' | 'message';
+  delivery_type: 'notice' | 'message' | 'banner';
+  is_read?: boolean;
   is_active: boolean;
   start_time: string | null;
   end_time: string | null;

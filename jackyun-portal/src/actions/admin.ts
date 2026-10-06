@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { SiteNotification, WhitelistEmail, WhitelistUsername } from '@/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
+import { announcementMatchesPath, announcementPhase, sortAnnouncements, validateAnnouncement, type AnnouncementOptions } from '@/lib/announcements';
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -579,11 +580,11 @@ export async function forceAccountMerge(
 
 // ===== Site Notifications =====
 
-export interface NotificationInput {
+export interface NotificationInput extends AnnouncementOptions {
   title: string;
   content: string;
   content_type: 'html' | 'markdown';
-  delivery_type: 'notice' | 'message';
+  delivery_type: 'notice' | 'message' | 'banner';
   is_active: boolean;
   start_time: string | null;
   end_time: string | null;
@@ -593,7 +594,7 @@ export interface NotificationInput {
  * 获取当前用户待展示的活跃通知（未过期、未关闭）
  * 用于全站弹窗：只在 portal 页面加载时调用
  */
-export async function getActiveNotifications(): Promise<SiteNotification[]> {
+export async function getActiveNotifications(pathname = '/'): Promise<SiteNotification[]> {
   const { supabase } = await getAuthenticatedUser();
   const now = new Date().toISOString();
 
@@ -602,7 +603,8 @@ export async function getActiveNotifications(): Promise<SiteNotification[]> {
     .from('site_notifications')
     .select('*')
     .eq('is_active', true)
-    .eq('delivery_type', 'notice')
+    .in('delivery_type', ['notice', 'banner'])
+    .is('recipient_user_id', null)
     .or(`start_time.is.null,start_time.lte.${now}`)
     .or(`end_time.is.null,end_time.gte.${now}`)
     .order('created_at', { ascending: true });
@@ -612,17 +614,18 @@ export async function getActiveNotifications(): Promise<SiteNotification[]> {
 
   // 2. 过滤掉该用户已关闭的通知
   const ids = notifications.map((n) => n.id);
-  const { data: dismissals } = await supabase
+  const { data: dismissals, error: dismissalError } = await supabase
     .from('notification_dismissals')
     .select('notification_id')
     .in('notification_id', ids);
+  if (dismissalError) throw new Error(dismissalError.message);
 
   const dismissedIds = new Set((dismissals ?? []).map((d) => d.notification_id));
-  return notifications.filter((n) => !dismissedIds.has(n.id)) as SiteNotification[];
+  return sortAnnouncements((notifications as SiteNotification[]).filter((n) => !dismissedIds.has(n.id) && announcementMatchesPath(n, pathname) && announcementPhase(n) === 'live'));
 }
 
 /** Active announcements for the persistent notification center. */
-export async function getNotificationInbox(): Promise<SiteNotification[]> {
+export async function getNotificationInbox(pathname = '/', includeRead = false): Promise<SiteNotification[]> {
   const { supabase } = await getAuthenticatedUser();
   const { data, error } = await supabase
     .from('site_notifications')
@@ -640,13 +643,18 @@ export async function getNotificationInbox(): Promise<SiteNotification[]> {
   // Old rapid retries may have produced identical support messages. Show only
   // the newest copy; deleting it hides the entire duplicate group for this user.
   const seenMessages = new Set<string>();
-  return notifications.filter((item) => {
-    if (item.delivery_type !== 'message') return !dismissed.has(item.id);
+  const visible = notifications.filter((item) => {
+    if (!item.recipient_user_id) {
+      const phase = announcementPhase(item);
+      if (!announcementMatchesPath(item, pathname) || phase === 'disabled' || phase === 'scheduled' || (!includeRead && phase === 'expired')) return false;
+    }
+    if (item.delivery_type !== 'message' || !item.recipient_user_id) return includeRead || !dismissed.has(item.id);
     const key = `${item.title}\u0000${item.content}\u0000${item.recipient_user_id ?? ''}`;
     if (seenMessages.has(key)) return false;
     seenMessages.add(key);
-    return !dismissed.has(item.id);
+    return includeRead || !dismissed.has(item.id);
   });
+  return sortAnnouncements(visible.map(item => ({ ...item, is_read: dismissed.has(item.id) })));
 }
 
 /**
@@ -673,17 +681,9 @@ export async function createNotification(
 ): Promise<{ success: boolean; error?: string }> {
   const { supabase } = await requireAdmin();
 
-  const { error } = await supabase.rpc('create_site_notification', {
-    payload: {
-      title: input.title.trim(),
-      content: input.content,
-      content_type: input.content_type,
-      delivery_type: input.delivery_type,
-      is_active: input.is_active,
-      start_time: input.start_time || null,
-      end_time: input.end_time || null,
-    },
-  });
+  let payload;
+  try { payload = validateAnnouncement(input); } catch (error) { return { success: false, error: error instanceof Error ? error.message : '无效的公告' }; }
+  const { error } = await supabase.rpc('create_site_notification', { payload });
 
   if (error) return { success: false, error: error.message };
   revalidatePath('/admin');
@@ -701,17 +701,11 @@ export async function updateNotification(
 ): Promise<{ success: boolean; error?: string }> {
   const { supabase } = await requireAdmin();
 
+  let payload;
+  try { payload = validateAnnouncement(input); } catch (error) { return { success: false, error: error instanceof Error ? error.message : '无效的公告' }; }
   const { error } = await supabase.rpc('update_site_notification', {
     p_id: id,
-    payload: {
-      title: input.title.trim(),
-      content: input.content,
-      content_type: input.content_type,
-      delivery_type: input.delivery_type,
-      is_active: input.is_active,
-      start_time: input.start_time || null,
-      end_time: input.end_time || null,
-    },
+    payload,
   });
 
   if (error) return { success: false, error: error.message };

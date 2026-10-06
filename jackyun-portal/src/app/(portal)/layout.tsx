@@ -125,6 +125,7 @@ export default async function PortalLayout({
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
           <ServerFailureNotice />
+          <SiteNotificationModal />
           {claimsError && <SessionRecovery />}
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
@@ -133,7 +134,6 @@ export default async function PortalLayout({
         <DeferredAiChat />
         <MiniPlayer />
         <FlyingTimer />
-        <SiteNotificationModal />
         <BetaExperience status={(betaEnrollment?.status as BetaEnrollmentStatus | undefined) ?? null} />
         <BrowserAiBridge />
       </div>
