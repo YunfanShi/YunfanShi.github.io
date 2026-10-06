@@ -381,3 +381,7 @@
   .studyOverlay[data-animations="true"] .ratingFeedback,
   .studyOverlay[data-animations="true"] .roundComplete { animation: none !important; }
 }
+
+.studyOverlay[data-animations="false"] *,
+.studyOverlay[data-animations="false"] *::before,
+.studyOverlay[data-animations="false"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

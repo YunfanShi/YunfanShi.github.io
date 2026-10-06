@@ -7,6 +7,27 @@ import { bufferedCueAnswer } from '../src/lib/learning/cue-answer-card.ts';
 const at = new Date(2026, 9, 2, 12);
 const cue = { id: 'a', subjectName: 'Physics', subjectId: 'physics', unit: 'U1', subsection: '', prompt: 'Recall', type: 'formula', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: at.toISOString(), updatedAt: at.toISOString() } as StudyCue;
 
+test('a completed small round opens weak Cues immediately and rotates failed retries', () => {
+  let state = rateCuePractice(emptyCuePractice(), 'a', 'unclear', true, 0, () => 0);
+  state = rateCuePractice(state, 'b', 'partial', true, 0, () => 0);
+  assert.equal(dueCuePractice(state, 0), undefined);
+  assert.equal(cuePracticeLabel(state, 'b', 0, true), '待重练');
+  state = enterCuePractice(state, 0, undefined, undefined, true, true);
+  assert.equal(state.active, 'a');
+  state = rateCuePractice(state, 'a', 'unclear', true, 0, () => 0);
+  state = enterCuePractice(state, 0, 'a', undefined, true, true);
+  assert.equal(state.active, 'b');
+  state = rateCuePractice(state, 'b', 'stable', true, 0);
+  state = enterCuePractice(state, 0, 'b', undefined, true, true);
+  assert.equal(state.active, 'a');
+  state = rateCuePractice(state, 'a', 'partial', true, 0, () => 0);
+  state = enterCuePractice(JSON.parse(JSON.stringify(state)), 0, 'a', undefined, true, true);
+  assert.equal(state.active, 'a', 'the sole remaining weak Cue is accessible after finishing the round');
+  state = rateCuePractice(state, 'a', 'stable', true, 0);
+  assert.equal(dueCuePractice(state, 0, undefined, true), undefined);
+  assert.equal(cuePracticeDirectory(state).length, 2);
+});
+
 test('red waits for four other retrievals, yellow for six; edits cannot manufacture a gap', () => {
   for (const [status, gap] of [['unclear', 4], ['partial', 6]] as const) {
     let state = rateCuePractice(emptyCuePractice(), 'a', status, true, 0, () => 0);

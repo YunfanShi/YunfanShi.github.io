@@ -1088,10 +1088,14 @@ export type CueActivityTag = 'new' | 'updated' | 'due' | 'focus' | 'building' | 
 
 export type CueStatusFilter = 'all' | 'unreviewed' | 'due' | 'weak' | 'unstable' | 'repeated-weak' | 'recovering' | LearningStatus;
 
+function cueChangedSinceReview(cue: StudyCue): boolean {
+  return Boolean(cue.lastReviewedAt && Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt));
+}
+
 export function cueMatchesStatusFilter(cue: StudyCue, filter: CueStatusFilter, today: string, reviews: CueReview[] = []): boolean {
   if (filter === 'all') return true;
   if (filter === 'unreviewed') return !cue.lastReviewedAt;
-  if (filter === 'due') return (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < today)
+  if (filter === 'due') return cueChangedSinceReview(cue) || (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < today)
     && (!cue.nextReviewDate || cue.nextReviewDate <= today || Boolean(cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) <= today));
   if (filter === 'weak') return cue.status === 'partial' || cue.status === 'unclear';
   if (filter === 'unstable' || filter === 'repeated-weak' || filter === 'recovering') {
@@ -1424,6 +1428,7 @@ export function buildCueReviewBatches(cues: StudyCue[]): StudyCue[][] {
 type CueReviewSource = 'regular' | 'weak' | 'today';
 
 function cueReviewSource(cue: StudyCue, date: string): CueReviewSource | null {
+  if (cueChangedSinceReview(cue)) return 'regular';
   if (cue.lastReviewedAt && dateKey(new Date(cue.lastReviewedAt)) >= date) return null;
   if (dateKey(new Date(cue.createdAt)) === date) return 'today';
   if (cue.status === 'partial' || cue.status === 'unclear') return 'weak';
@@ -1583,6 +1588,9 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
       const unitNames = [...new Set(cues.map((cue) => cue.unit || '未分单元'))];
       const sameScope = unitNames.length === 1;
       const batchSuffix = batchIndex ? `:batch-${batchIndex + 1}` : '';
+      // A completed task for the previous content must not hide today's revised deck.
+      const latestContentUpdate = cues.filter(cueChangedSinceReview).map(cue => cue.updatedAt).toSorted().at(-1);
+      const revisionSuffix = latestContentUpdate ? `:updated-${encodeURIComponent(latestContentUpdate)}` : '';
       const reviewMode = sameScope ? `单元复习 · ${unitNames[0]}` : `组合复习 · ${unitNames.join(' + ')}`;
       const sourceCounts = cues.reduce<Record<CueReviewSource, number>>((counts, cue) => {
         const source = cueReviewSource(cue, key);
@@ -1595,7 +1603,7 @@ function cueReviewTasks(state: ScheduleControlState, date: Date): LearningTask[]
         sourceCounts.today ? `今日新增 ${sourceCounts.today}` : '',
       ].filter(Boolean).join(' · ')}`;
       return {
-        key: `cue-review:${key}:${cues[0].subjectId}${batchSuffix}`,
+        key: `cue-review:${key}:${cues[0].subjectId}${revisionSuffix}${batchSuffix}`,
         title: `${cues[0].subjectName} · ${reviewMode} · ${cues.length} 条 Cue`,
         detail: `${sourceSummary}。${sameScope ? '保持单元上下文' : '按数量合并较小单元'}，闭卷完成且不重复；结束后修订不准确、过时或反复为 △ / ○ 的旧 Cue。${capacityNote}`,
         type: 'cue-review' as const,
@@ -2040,7 +2048,9 @@ export function recordCueStudyAssessment(
   practice = false,
   editPractice = false,
 ): ScheduleControlState {
-  const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey && dateKey(new Date(review.reviewedAt)) === dateKey(reviewedAt));
+  const cue = state.cues.find((item) => item.id === assessment.cueId);
+  if (!cue) throw new Error('评估中包含不存在的 Cue。');
+  const existing = state.cueReviews.find((review) => review.cueId === assessment.cueId && review.taskKey === sessionKey && dateKey(new Date(review.reviewedAt)) === dateKey(reviewedAt) && Date.parse(review.reviewedAt) >= Date.parse(cue.updatedAt));
   if (!existing) {
     if (!practice) return completeCueReviews(state, [assessment], reviewedAt, sessionKey);
     const originalStatus = state.cues.find(item => item.id === assessment.cueId)?.status ?? assessment.status;
@@ -2048,8 +2058,6 @@ export function recordCueStudyAssessment(
     created.cueReviews = created.cueReviews.map(review => review.cueId === assessment.cueId && review.reviewedAt === reviewedAt.toISOString() ? { ...review, practiceOnly: true } : review);
     return recordCueStudyAssessment(created, assessment, reviewedAt, sessionKey, true, false);
   }
-  const cue = state.cues.find((item) => item.id === assessment.cueId);
-  if (!cue) throw new Error('评估中包含不存在的 Cue。');
   const priorReviews = state.cueReviews.filter((review) => review.cueId === cue.id && review.id !== existing.id);
   const latestPrior = priorReviews.toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt))[0];
   const baselineCue: StudyCue = {
@@ -2091,7 +2099,7 @@ export function cuesForLearningTask(cues: StudyCue[], task: LearningTask): Study
   const reviewTask = new Set<LearningTask['type']>(['course-review', 'interval-review', 'weekly-review', 'cue-review', 'unit-review', 'cumulative-review']).has(task.type);
   const reviewDate = task.date;
   const eligibleForReview = (cue: StudyCue) => !reviewTask || !reviewDate || (
-    (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < reviewDate)
+    (cueChangedSinceReview(cue) || !cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < reviewDate)
     && (cue.status === 'partial' || cue.status === 'unclear'
       || !cue.lastReviewedAt || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt) || !cue.nextReviewDate || cue.nextReviewDate <= reviewDate)
   );

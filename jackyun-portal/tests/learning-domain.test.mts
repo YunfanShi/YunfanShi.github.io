@@ -273,6 +273,39 @@ test('a Cue assessed today is not scheduled or offered for review until tomorrow
   assert.deepEqual(cuesForLearningTask(reviewed.cues, reviewTask), []);
 });
 
+test('edited Cues reopen today after completion and close again after reviewing the new content', () => {
+  const morning = new Date(2026, 8, 21, 9);
+  const editedAt = new Date(2026, 8, 21, 12);
+  const afternoon = new Date(2026, 8, 21, 15);
+  let state = createEmptyScheduleState();
+  state.cues = [{ id: 'edited-today', subjectId: 'physics', subjectName: 'Physics', unit: 'Motion', subsection: '', prompt: 'Old content', type: 'general', markingPoints: [], version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: '2026-09-20T08:00:00.000Z', updatedAt: '2026-09-20T08:00:00.000Z' }];
+  const task = tasksForDate(state, morning).find(task => task.cueIds?.includes('edited-today'))!;
+  state = recordCueStudyAssessment(state, { cueId: 'edited-today', status: 'stable' }, morning, task.key);
+  state = completeReview(state, task, 'stable', { studiedContent: 'Old content', issue: '', note: '' }, morning);
+  assert.equal(tasksForDate(state, afternoon).some(task => task.cueIds?.includes('edited-today')), false);
+  state.cues = applyCueBulkOperations(state.cues, [{ action: 'update', id: 'edited-today', prompt: 'New content', answer: 'New answer' }], () => { throw new Error('must only edit'); }, editedAt.toISOString());
+  assert.equal(cueMatchesStatusFilter(state.cues[0], 'due', '2026-09-21'), true);
+  assert.equal(cueActivityTag(state.cues[0], '2026-09-21'), 'updated');
+  const revisedTask = tasksForDate(state, afternoon).find(task => task.cueIds?.includes('edited-today'))!;
+  assert.ok(revisedTask);
+  assert.notEqual(revisedTask.key, task.key);
+  assert.deepEqual(cuesForLearningTask(state.cues, revisedTask).map(cue => cue.id), ['edited-today']);
+  assert.ok(state.completions[task.key], 'the previous completion remains in history');
+  // Even resuming the same session must preserve the old content's rating as a separate review.
+  state = recordCueStudyAssessment(state, { cueId: 'edited-today', status: 'partial' }, afternoon, task.key);
+  assert.equal(state.cueReviews.length, 2);
+  assert.equal(state.cueReviews[0].status, 'stable');
+  assert.equal(state.cueReviews[1].status, 'partial');
+  assert.equal(state.cues[0].lastReviewedAt, afternoon.toISOString());
+  state = recordCueStudyAssessment(state, { cueId: 'edited-today', status: 'unclear' }, new Date(2026, 8, 21, 15, 1), task.key);
+  assert.equal(state.cueReviews.length, 2, 'recoloring the current content corrects only its latest review');
+  assert.equal(state.cueReviews[0].status, 'stable');
+  assert.equal(state.cueReviews[1].status, 'unclear');
+  assert.equal(cueMatchesStatusFilter(state.cues[0], 'due', '2026-09-21'), false);
+  assert.equal(tasksForDate(state, afternoon).some(task => task.cueIds?.includes('edited-today')), false);
+  assert.deepEqual(cuesForLearningTask(state.cues, revisedTask), []);
+});
+
 test('existing same-day red plans are moved to tomorrow on the next schedule scan', () => {
   const state = createEmptyScheduleState();
   state.cueScheduleRevision = 3;
