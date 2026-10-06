@@ -21,6 +21,20 @@ export function useCueStudyPreferences() {
   catch { return cueStudyPreferences(null); }
 }
 
+function motionSnapshot() {
+  return document.documentElement.dataset.reducedMotion === 'true' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function motionSubscribe(callback: () => void) {
+  const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-reduced-motion'] });
+  media.addEventListener('change', callback);
+  return () => { observer.disconnect(); media.removeEventListener('change', callback); };
+}
+export function useCueReducedMotion() {
+  return useSyncExternalStore(motionSubscribe, motionSnapshot, () => false);
+}
+
 function desktopSnapshot() { return window.matchMedia('(min-width: 1024px)').matches; }
 function desktopSubscribe(callback: () => void) {
   const media = window.matchMedia('(min-width: 1024px)');

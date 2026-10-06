@@ -25,11 +25,13 @@ export function rateCuePractice(state: CuePracticeState, cueId: string, status: 
   return { ...state, completed, pending, ...(state.active === cueId ? { rating: status, results: { ...state.results, [cueId]: { status, attempts: (result?.attempts ?? 0) + Number(fresh), reviewedAt: now } } } : {}) };
 }
 /** Either enough other retrievals or enough time makes a practice due. */
-export function dueCuePractice(state: CuePracticeState, now: number, exclude?: string) {
+export function dueCuePractice(state: CuePracticeState, now: number, exclude?: string, roundComplete = false) {
+  // Once all primary Cues are rated, rotate the remaining weak items without a dead-end wait.
+  if (roundComplete) return state.pending.find(item => item.cueId !== exclude) ?? state.pending[0];
   return state.pending.find(item => item.cueId !== exclude && (state.pending.length <= 1 || item.cueId !== state.lastCueId) && (state.completed >= item.after || now >= item.availableAt));
 }
-export function enterCuePractice(state: CuePracticeState, now: number, exclude?: string, returnCueId?: string, mode = state.mode ?? false): CuePracticeState {
-  const item = dueCuePractice(state, now, exclude);
+export function enterCuePractice(state: CuePracticeState, now: number, exclude?: string, returnCueId?: string, mode = state.mode ?? false, roundComplete = false): CuePracticeState {
+  const item = dueCuePractice(state, now, exclude, roundComplete);
   return { ...state, pending: item ? [...state.pending.filter(candidate => candidate.cueId !== item.cueId), item] : state.pending, mode, active: item?.cueId, lastCueId: item?.cueId ?? state.lastCueId, rating: undefined, returnCueId: item || mode ? state.returnCueId ?? returnCueId : undefined };
 }
 /** Resolve by identity after shuffling/filtering, including an exhausted main queue. */
@@ -42,12 +44,12 @@ export function cuePracticeReturnIndex(state: CuePracticeState, cueIds: string[]
 export function cuePracticeDirectory(state: CuePracticeState) {
   return [...new Set([...state.pending.map(item => item.cueId), ...Object.keys(state.results ?? {})])];
 }
-export function cuePracticeLabel(state: CuePracticeState, cueId: string, now: number): string {
+export function cuePracticeLabel(state: CuePracticeState, cueId: string, now: number, roundComplete = false): string {
   if (state.active === cueId && state.rating === undefined) return '正在重练';
   if (state.results?.[cueId]?.status === 'stable') return '重练已通过';
   const item = state.pending.find(item => item.cueId === cueId);
   if (!item) return '仍需重练';
-  const due = state.completed >= item.after || now >= item.availableAt;
+  const due = roundComplete || state.completed >= item.after || now >= item.availableAt;
   return due ? '待重练' : state.results?.[cueId] ? '仍需重练 · 等待间隔' : '等待间隔';
 }
 
