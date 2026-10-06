@@ -4,9 +4,22 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.16.0**
+> 当前版本：**v3.19.1**
 
 ---
+
+## 本地开发与独立测试数据库
+
+安装 Node.js 24 LTS、Docker Desktop（Windows 使用 WSL 2 后端），启动 Docker Desktop 后，在 `jackyun-portal/` 执行：
+
+```powershell
+npm ci
+npm run db:start
+npm run db:check
+npm run dev:local
+```
+
+本地 Supabase 项目为 `jackyun-portal-test`，使用独立 Docker 数据卷和仓库迁移，不需要登录或关联线上 Supabase。网站位于 http://localhost:3000，Studio 位于 http://127.0.0.1:54323。启动脚本自动生成被 Git 忽略的 `.env.local`，并拒绝覆盖指向远端数据库的配置。详见 [Windows 开发环境说明](jackyun-portal/docs/local-development.md)。
 
 ## 项目架构
 

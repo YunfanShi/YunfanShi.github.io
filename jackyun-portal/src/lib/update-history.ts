@@ -1,5 +1,3 @@
-import { APP_VERSION } from './utils.ts';
-
 export type UpdateCategory = '学习体验' | '阅读与内容' | '平台体验' | '稳定性';
 
 export interface UpdateEntry {
@@ -18,7 +16,7 @@ export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与�
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
   {
-    version: APP_VERSION, date: '2026-10-02', dateLabel: '2026 年 10 月 2 日',
+    version: '3.19.0', date: '2026-10-02', dateLabel: '2026 年 10 月 2 日',
     title: '把认真学习留成星空与收藏',
     summary: '本轮进度与额外奖励清晰分开，历史检索积累可兑换的星空点；新商店、全屏星空和更完整的答题区上线。',
     categories: ['学习体验', '稳定性'], accent: 'violet', featured: true,

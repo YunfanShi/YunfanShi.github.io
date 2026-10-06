@@ -1,9 +1,17 @@
 {
   "name": "jackyun-portal",
-  "version": "3.19.0",
+  "version": "3.19.1",
   "private": true,
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
+    "db:start": "node scripts/local-supabase.mjs start",
+    "db:stop": "node scripts/local-supabase.mjs stop",
+    "db:status": "node scripts/local-supabase.mjs status",
+    "db:check": "node scripts/local-supabase.mjs check",
+    "db:test": "node scripts/local-supabase.mjs test",
+    "dev:local": "node scripts/local-supabase.mjs dev",
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
@@ -72,6 +80,7 @@
     "eslint": "^9.39.3",
     "eslint-config-next": "16.3.1",
     "postcss": "^8.5.28",
+    "supabase": "2.119.0",
     "tailwindcss": "^3.4.17",
     "typescript": "5.9.3"
   },

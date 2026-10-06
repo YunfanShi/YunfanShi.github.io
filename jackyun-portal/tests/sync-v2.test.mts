@@ -27,7 +27,7 @@ test('empty or malformed Schedule cannot replace populated cloud state', () => {
 });
 
 test('Schedule safety is enforced at browser sync, API, and database boundary', async () => {
-  const browser = await readFile(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8');
+  const browser = (await readFile(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
   const route = await readFile(new URL('../src/app/api/sync/v2/route.ts', import.meta.url), 'utf8');
   const server = await readFile(new URL('../src/lib/sync/server.ts', import.meta.url), 'utf8');
   const migration = await readFile(new URL('../supabase/migrations/20260923235541_schedule_version_backups.sql', import.meta.url), 'utf8');

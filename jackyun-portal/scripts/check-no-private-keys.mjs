@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const pemMarker = ['BEGIN', '(?:RSA |EC |OPENSSH )?PRIVATE KEY'].join(' ');
 const forbidden = new RegExp(pemMarker);
 const ignored = new Set(['node_modules', '.next', '.git', 'scripts']);
