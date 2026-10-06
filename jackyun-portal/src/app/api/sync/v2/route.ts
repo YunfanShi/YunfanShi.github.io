@@ -16,28 +16,25 @@ export async function GET(request: NextRequest) {
   const exactKey = request.nextUrl.searchParams.get('key');
   if (exactKey && !isSyncableStorageKey(exactKey)) return apiError(requestId, 'Invalid storage key', 400, 'INVALID_KEY');
   const cursor = rawCursor && Number.isFinite(Date.parse(rawCursor)) ? new Date(rawCursor).toISOString() : null;
-  let query = supabase
-    .from('legacy_sync_data')
-    .select('storage_key, storage_value, revision, content_hash, deleted_at, updated_at, client_updated_at')
-    .eq('user_id', user.id)
-    .order('updated_at')
-    .order('id')
-    .limit(500);
-  if (exactKey) query = query.eq('storage_key', exactKey);
-  else if (cursor) query = query.gt('updated_at', cursor);
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc('list_web_sync_records', {
+    p_cursor: cursor, p_storage_key: exactKey,
+  });
   if (error) return apiError(requestId, 'Unable to read sync records', 500, 'SYNC_READ_FAILED');
 
-  const nextCursor = data?.length ? data[data.length - 1].updated_at : new Date().toISOString();
+  const rows = (data ?? []) as Array<{
+    storage_key: string; storage_value: unknown; revision: number; content_hash: string;
+    deleted_at: string | null; updated_at: string; client_updated_at: string | null; large: boolean;
+  }>;
+  const nextCursor = rows.length ? rows[rows.length - 1].updated_at : new Date().toISOString();
   return NextResponse.json({
     ok: true,
-    records: (data ?? []).filter((row) => isSyncableStorageKey(row.storage_key)).map((row) => ({
+    records: rows.filter((row) => isSyncableStorageKey(row.storage_key)).map((row) => ({
       key: row.storage_key,
       value: row.deleted_at || !syncValueFits(row.storage_value) ? null : row.storage_value,
       revision: Number(row.revision),
       contentHash: row.content_hash,
       deleted: Boolean(row.deleted_at),
-      large: !row.deleted_at && !syncValueFits(row.storage_value),
+      large: !row.deleted_at && (row.large || !syncValueFits(row.storage_value)),
       updatedAt: row.client_updated_at ?? row.updated_at,
     })),
     cursor: nextCursor,

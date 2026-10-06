@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { apiError, requestIdFrom } from '@/lib/api-response';
 import { isSyncableStorageKey } from '@/lib/local-workspace';
 import { applySyncBody, UUID, type SyncRequestBody } from '@/lib/sync/server';
-import { MAX_LARGE_SYNC_BYTES, SYNC_PART_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from '@/lib/sync/transfer';
+import { MAX_LARGE_SYNC_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from '@/lib/sync/transfer';
 import { syncAuthError } from '@/lib/sync/auth-error';
 
 const MAX_PARTS = MAX_SYNC_PARTS;
@@ -80,26 +80,28 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const requestId = requestIdFrom(request);
   const key = request.nextUrl.searchParams.get('key');
-  const part = Number(request.nextUrl.searchParams.get('part'));
-  const revision = Number(request.nextUrl.searchParams.get('revision'));
-  if (!key || !isSyncableStorageKey(key) || !Number.isInteger(part) || part < 0
+  const rawPart = request.nextUrl.searchParams.get('part');
+  const rawRevision = request.nextUrl.searchParams.get('revision');
+  const part = Number(rawPart);
+  const revision = Number(rawRevision);
+  if (!key || !isSyncableStorageKey(key) || !rawPart || !rawRevision || !Number.isInteger(part) || part < 0
       || !Number.isSafeInteger(revision) || revision < 1) {
     return apiError(requestId, 'Invalid download request', 400, 'INVALID_BODY');
   }
   const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (!user) return syncAuthError(requestId, authError);
-  const { data: row, error } = await supabase.from('legacy_sync_data')
-    .select('storage_value, revision, deleted_at').eq('user_id', user.id).eq('storage_key', key).maybeSingle();
+  const { data: chunk, error } = await supabase.rpc('get_web_sync_record_part', {
+    p_storage_key: key, p_revision: revision, p_part: part,
+  });
   if (error) return apiError(requestId, 'Unable to read sync record', 500, 'SYNC_READ_FAILED');
-  if (!row || Number(row.revision) !== revision) return apiError(requestId, 'Sync record changed', 409, 'REVISION_CHANGED');
-  const bytes = Buffer.from(JSON.stringify(row.deleted_at ? null : row.storage_value));
-  if (bytes.length > MAX_LARGE_SYNC_BYTES) return apiError(requestId, 'Sync record too large', 413, 'PAYLOAD_TOO_LARGE');
-  const count = Math.ceil(bytes.length / SYNC_PART_BYTES);
-  if (part >= count) return apiError(requestId, 'Invalid download part', 400, 'INVALID_PART');
+  if (!chunk || chunk.error === 'REVISION_CHANGED') return apiError(requestId, 'Sync record changed', 409, 'REVISION_CHANGED');
+  if (chunk.error === 'UNAUTHORIZED') return apiError(requestId, 'Unauthorized', 401, 'UNAUTHORIZED');
+  if (chunk.error === 'PAYLOAD_TOO_LARGE') return apiError(requestId, 'Sync record too large', 413, 'PAYLOAD_TOO_LARGE');
+  if (chunk.error) return apiError(requestId, 'Invalid download part', 400, 'INVALID_PART');
   return NextResponse.json({
-    ok: true, revision, part, count,
-    data: bytes.subarray(part * SYNC_PART_BYTES, (part + 1) * SYNC_PART_BYTES).toString('base64'),
+    ok: true, revision, part, count: chunk.count,
+    data: chunk.data,
     requestId,
   });
 }

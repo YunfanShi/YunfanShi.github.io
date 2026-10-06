@@ -16,6 +16,13 @@ export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与�
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
   {
+    version: '3.19.3', date: '2026-10-06', dateLabel: '2026 年 10 月 6 日',
+    title: '减少大数据同步的流量消耗',
+    summary: '优化计划表等大数据的云端传输，减少重复读取，保留现有数据与同步方式。',
+    categories: ['稳定性'], accent: 'mint',
+    highlights: ['大数据按需传输，减少分片下载时的重复流量。', '同步列表只返回大数据的版本信息，已保存的数据仍保持完整。'],
+  },
+  {
     version: '3.19.0', date: '2026-10-02', dateLabel: '2026 年 10 月 2 日',
     title: '把认真学习留成星空与收藏',
     summary: '本轮进度与额外奖励清晰分开，历史检索积累可兑换的星空点；新商店、全屏星空和更完整的答题区上线。',
