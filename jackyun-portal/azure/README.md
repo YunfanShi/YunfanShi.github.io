@@ -2,12 +2,15 @@
 
 `foundation.json` 是资源组级 ARM 模板，仅创建文件和机密的基础设施；不迁移数据、不部署占位后台、不切换网站。
 部署目标：Azure for Students / JackYun / East Asia。
-用户要求尽量不付费；具体单价、免费边界和余额核查结果见 [费用核查](cost-review.md)。赠金余额目前未能核实，尚未最终创建。
+用户要求尽量不付费；具体单价、免费边界和余额核查结果见 [费用核查](cost-review.md)。用户认可已核查价格；赠金余额目前未能核实。
 
 资源：Standard_LRS、StorageV2、Hot 存储账号；5 个私有容器 attachments/exports/backups/avatars/novels；Standard Key Vault；用户分配身份 jackyun-api-identity。
 账号与保管库默认名包含资源组派生后缀，避免全球名称冲突；保存实际名称供后续后台配置使用。
-本次门户使用 `foundation.parameters.json` 的具体名称：jackyunassets9d26b2cc、jackyun-kv-9d26b2cc；名称能否创建以门户预验证为准。
-2026-10-07 门户已接收此模板及参数，最终验证结束后“创建”按钮可用，未显示验证错误；尚未点击创建，资源仍未部署。部署和数据平面访问需要后续实际验证。
+本次门户使用 `foundation.parameters.json` 的具体名称：jackyunassets9d26b2cc、jackyun-kv-9d26b2cc。
+2026-10-07用户完成创建后，门户实查部署 `CustomDeployment-20261007115534` 显示“部署完成”。资源组现有4项资源：原PostgreSQL及3项基础资源，全部East Asia。
+输出：Blob `https://jackyunassets9d26b2cc.blob.core.windows.net/`；Key Vault `https://jackyun-kv-9d26b2cc.vault.azure.net/`；身份principalId `d60884e5-e2db-47e7-9150-a27410656c20`。
+实际存储概述确认Standard LRS/StorageV2/Hot、成功、匿名和Shared Key禁用、HTTPS/TLS1.2、Blob和容器软删除7天。
+容器列表确认5个目标容器全部专用；另有专用系统容器 `$logs`，存在不证明日志采集或字节占用情况。数据平面读写及应用接入仍须实际验证。
 
 - Blob 禁止匿名访问与 Shared Key；仅允许 HTTPS、TLS 1.2。公网服务端点用于鉴权后的浏览器直传，不等于文件公开。
 - CORS 仅允许 https://jackyun.top；临时预览域名和本地开发需要单独审核加入，不允许通配域名。
