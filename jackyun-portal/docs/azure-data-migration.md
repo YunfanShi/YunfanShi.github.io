@@ -1,7 +1,7 @@
 # Supabase → Azure 数据迁移交付记录
 
 日期：2026-10-07。用户已授权按平台计划实施，并明确要求迁移 Supabase 数据。
-状态：已完成源端盘点和逐表校验工具；尚未导出备份、导入 Azure 或切换生产。
+状态：已完成源端盘点、逐表校验和文件导出工具；已保存文件元数据清单，尚未下载文件字节、导出数据库备份、导入 Azure 或切换生产。
 
 ## 已实查的数据范围
 
@@ -45,6 +45,35 @@ MD5 是意外损坏检测指纹，不是抗攻击的备份真实性证明。备�
 清单与备份统一放 .migration-private（已加入 Git 忽略）；另外设置操作系统访问权限与加密保存。
 
 ## 接下来按此顺序执行
+
+### 文件独立备份工具
+
+[只读文件清单 SQL](../scripts/storage-migration-inventory.sql) 记录原桶、公开性、对象ID、路径、归属、大小、更新时间和原元数据。
+2026-10-07通过源项目MCP执行，得到2个桶、30个对象、24,882,492字节；实际清单保存在本机被Git忽略的 `.migration-private/storage-inventory.json`，不发布到仓库。
+这只是元数据备份，不是30个文件字节已经备份。
+
+[文件导出工具](../scripts/export-supabase-storage.mjs) 从清单逐个下载原文件，核对大小并计算SHA-256，保留归属和公开性。
+本地用桶/路径组合的哈希作为文件名，原对象名不能跳出备份目录。输出目录必须不存在，避免覆盖之前的完整或失败备份。
+任何下载/大小失败都不生成完成清单；只有全部成功才写 `manifest.json` 并重新读取校验。
+
+```powershell
+# 先在本机安全配置 SUPABASE_SERVICE_ROLE_KEY，不写进命令、聊天或仓库。
+# 清单由上述 SQL 导出；Node.js 24，从 jackyun-portal 目录运行。
+node scripts/export-supabase-storage.mjs export .migration-private/storage-inventory.json .migration-private/storage-backup-20261007
+if ($LASTEXITCODE -ne 0) { throw '文件备份失败，禁止迁移切换' }
+node scripts/export-supabase-storage.mjs verify .migration-private/storage-backup-20261007
+if ($LASTEXITCODE -ne 0) { throw '文件备份校验失败' }
+```
+
+该工具读取源文件，不上传Azure、不删除Supabase文件、不修改生产。下载会使用Supabase出站额度。
+备份目录须由操作员设置Windows访问权限并加密；Node的POSIX mode不等同Windows ACL。备份包含私人路径和文件内容。
+最终下载应在写入冻结后重新生成清单，以防清单和文件版本不一致；相同大小不能证明源文件从未变更。
+SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字节；完整备份还应保存到独立受保护的位置。
+单个文件下载使用SDK返回的内存Blob，当前约25MB文件集适用；未来大文件须改成有界流式下载再运行。
+文件映射和哈希供后续Blob上传核对使用；旧私有小说不得因迁移而公开。
+6项导出/校验测试覆盖同尺寸损坏、下载失败、重复清单、归属变更、路径穿越和备份覆盖，均通过。
+
+### 数据、身份和文件切换
 
 1. 备份：完整数据库逻辑备份、角色/扩展/函数/策略/触发器/定时任务清单；文件另行下载。
    pg_dump 的数据库备份不包含 Storage 文件字节。文件清单记录桶、路径、大小、SHA-256、可见性和归属；逐个检查可下载与复制后的字节一致。
