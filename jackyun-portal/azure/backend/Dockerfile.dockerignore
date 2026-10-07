@@ -1,0 +1,14 @@
+**
+!azure/
+!azure/backend/
+!azure/backend/*.mjs
+!azure/backend/package.json
+!azure/backend/package-lock.json
+!azure/backend/shared-package.json
+!src/
+!src/lib/
+!src/lib/local-workspace.ts
+!src/lib/sync/
+!src/lib/sync/hash.ts
+!src/lib/sync/schedule-safety.ts
+!src/lib/sync/transfer.ts

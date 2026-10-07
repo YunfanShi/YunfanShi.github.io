@@ -1,0 +1,9 @@
+{
+  "name": "jackyun-azure-sync-api",
+  "version": "3.21.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "start": "node server.mjs", "test": "node --test tests/*.test.mjs" },
+  "dependencies": { "jose": "6.2.12", "pg": "8.23.1" }
+}
