@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "eastasia" },
+    "storageAccountName": { "value": "jackyunassets9d26b2cc" },
+    "vaultName": { "value": "jackyun-kv-9d26b2cc" },
+    "identityName": { "value": "jackyun-api-identity" },
+    "containers": { "value": ["attachments", "exports", "backups", "avatars", "novels"] }
+  }
+}
