@@ -1,0 +1,67 @@
+# Supabase → Azure 数据迁移交付记录
+
+日期：2026-10-07。用户已授权按平台计划实施，并明确要求迁移 Supabase 数据。
+状态：已完成源端盘点和逐表校验工具；尚未导出备份、导入 Azure 或切换生产。
+
+## 已实查的数据范围
+
+源项目 gdcwwlnzylrzrqhaaljq，PostgreSQL 17，ACTIVE_HEALTHY。
+只读查询确认：82 张 public 业务表、8 个 auth.users 账号、30 条 Storage 对象记录。
+avatars 为公开桶，novel-files 为私有桶；对象记录不证明对应文件字节仍可下载。
+数据库约 110 MiB（115,723,411 字节，包含索引与系统数据，不是备份文件大小）。
+业务表存在 84 个引用 auth schema 的外键；34 个 public 函数文本引用 auth.*。
+这些是迁移依赖线索，不能代替完整函数、触发器和策略依赖审计。
+扩展包括 pgcrypto、uuid-ossp、pg_stat_statements、plpgsql、supabase_vault。
+Azure 不具备完整 Supabase 托管服务；不能把 public schema dump 直接恢复后宣布网站可用。
+MCP list_tables 的 rows 与实际 COUNT 有明显差异，不作为最终验收依据。
+
+## 可执行的逐表验收
+
+[清单 SQL](../scripts/azure-migration-manifest.sql) 在只读、可重复读事务内扫描所有 public 普通表和分区根表。
+输出真实记录数、列名/类型/可空性和排序后的整行 JSONB 指纹；不会输出行原文。
+固定 UTC、日期、浮点及 bytea 格式；重复行保留在指纹计算中，读取顺序不影响结果。
+操作账号必须具备所有表读取与 RLS bypass，row_security=off 会让受策略过滤的读取报错，不能静默输出局部数据。
+超时或权限错误时禁止把不完整文件当清单。
+
+源端完整 SQL 已通过 Supabase MCP 实查执行，返回全部 82 张表的计数、列定义和指纹。
+本机暂未安装 psql/pg_dump；下列 CLI 命令尚未在本机运行。需要 PostgreSQL 17 客户端和可信的连接配置。
+连接信息放在操作员本机受保护的 pg_service.conf/pgpass 中，分别命名 jackyun_source、jackyun_target；密码不写命令、仓库或聊天。
+
+```powershell
+# 在 jackyun-portal 目录，使用可信的全表读取角色。
+New-Item -ItemType Directory -Force .migration-private | Out-Null
+psql 'service=jackyun_source' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-migration-manifest.sql -o .migration-private/source.json
+if ($LASTEXITCODE -ne 0) { throw '源清单失败' }
+psql 'service=jackyun_target' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-migration-manifest.sql -o .migration-private/target.json
+if ($LASTEXITCODE -ne 0) { throw '目标清单失败' }
+node scripts/compare-azure-migration.mjs .migration-private/source.json .migration-private/target.json
+if ($LASTEXITCODE -ne 0) { throw '数据不一致或清单无效，禁止切换' }
+```
+
+比较器成功退出仅说明所采集 public 表的列、计数和内容指纹匹配；不是完整迁移成功。
+MD5 是意外损坏检测指纹，不是抗攻击的备份真实性证明。备份另做 SHA-256 与恢复演练。
+两个快照若处于不同写入状态会产生正常差异；正式验收需冻结旧库写入、排空在途操作和队列、停相关定时任务，再导出和采集同一冻结状态。
+不要直接重跑覆盖差异；区分源端后续写入和导入遗漏，完成追平后重新验收。
+清单与备份统一放 .migration-private（已加入 Git 忽略）；另外设置操作系统访问权限与加密保存。
+
+## 接下来按此顺序执行
+
+1. 备份：完整数据库逻辑备份、角色/扩展/函数/策略/触发器/定时任务清单；文件另行下载。
+   pg_dump 的数据库备份不包含 Storage 文件字节。文件清单记录桶、路径、大小、SHA-256、可见性和归属；逐个检查可下载与复制后的字节一致。
+2. Azure 试验库：先验证 TLS 与扩展允许列表，再建独立暂存数据库；保留旧 Supabase 服务作为迁移期间唯一写入源。
+   未完成身份适配前不把 auth.users 外键替换为空表；先建立保持原 UUID 的应用身份映射。
+3. 数据导入：按模块保留全部历史和 ID。同步数据同时迁设备、操作去重、删除标记、冲突和备份；不能只迁可见的当前计划。
+   序列 nextval、外键、唯一约束、索引、触发器、RLS、函数分别验收；加密值需要原加密密钥和版本，否则复制密文仍不可用。
+4. Blob：复制 30 个现有文件对象并核对字节；公开头像与私有小说权限分别处理。
+   私有下载保留用户鉴权，记录旧路径到新对象的映射；应用切换读取并实查旧文件链接兼容后才允许停用旧文件服务。
+5. 账号：初期 Supabase Auth 保留，业务数据使用原用户 UUID；后续 Entra 身份绑定到同一 app_user_id。
+   验证全部 8 个账号的数据归属，用户互相不可读写；管理员、封禁、授权、恢复路径不能遗漏。
+6. 切换：写入冻结、最终备份、最后追平、逐表校验、文件校验和应用全流程验证后，逐模块改为 Azure 唯一写入。
+   包括离线修改、重复操作、并发、删除后重连、登录切换、历史备份恢复和大计划表。
+7. 回退：先冻结 Azure 写入，把切换后新记录和删除追平到旧库，再切回；禁止仅换回连接串导致新数据丢失。
+   旧库与旧对象在观察期保留，退役前重新核对无旧写入及恢复证据。
+
+当前下一步的外部前提是 Azure 应用连接与运行身份配置。没有读取或要求用户在聊天里提供数据库密码。
+源端指纹扫描与 5 项比较器测试已通过；Azure 导入、文件复制、身份迁移和网站切换均未验证。
+
+参考：[PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[XML 查询映射](https://www.postgresql.org/docs/17/functions-xml.html)。
