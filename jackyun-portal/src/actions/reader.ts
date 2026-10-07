@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasPlanAccess, normalizeRedemptionCode } from '@/lib/redemption';
+import { getNovelSignedLinks } from '@/lib/novel-signed-links';
 
 export interface FeatureAccess {
   key: string;
@@ -98,22 +99,25 @@ export async function getReaderBootstrap(): Promise<ReaderBootstrap> {
   const entitlementImportState = new Map((unlockedResult.data ?? []).map((row: { novel_id: string; reader_added_at: string | null }) => [row.novel_id, row.reader_added_at]));
   const unlockedIds = new Set(entitlementImportState.keys());
   const visibleRows = features.novel_store?.allowed ? (catalogResult.data ?? []) : (catalogResult.data ?? []).filter((row) => unlockedIds.has(row.id));
-  const catalog = await Promise.all(visibleRows.map(async (row) => {
+  const authorizedPaths = visibleRows.flatMap((row) => [
+    ...(hasPlanAccess(plan, row.minimum_plan) || unlockedIds.has(row.id) ? [row.storage_path] : []),
+    ...(row.cover_path ? [row.cover_path] : []),
+  ]);
+  const links = await getNovelSignedLinks(admin.storage.from('novel-files'), authorizedPaths);
+  const catalog = visibleRows.map((row) => {
     const owned = unlockedIds.has(row.id);
     const unlocked = hasPlanAccess(plan, row.minimum_plan) || owned;
-    const [fileResult, coverResult] = await Promise.all([
-      unlocked ? admin.storage.from('novel-files').createSignedUrl(row.storage_path, 3600) : Promise.resolve({ data: null }),
-      row.cover_path ? admin.storage.from('novel-files').createSignedUrl(row.cover_path, 3600) : Promise.resolve({ data: null }),
-    ]);
     return {
       id: row.id, title: row.title, author: row.author, description: row.description, category: row.category ?? '未分类', tags: Array.isArray(row.tags) ? row.tags : [],
       language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name,
       fileSize: Number(row.file_size), featured: row.featured, publishedAt: row.published_at,
-      owned, needsReaderImport: owned && !entitlementImportState.get(row.id), unlocked, downloadUrl: fileResult.data?.signedUrl ?? null, coverUrl: coverResult.data?.signedUrl ?? null,
+      owned, needsReaderImport: owned && !entitlementImportState.get(row.id), unlocked,
+      downloadUrl: unlocked ? links.get(row.storage_path) ?? null : null,
+      coverUrl: row.cover_path ? links.get(row.cover_path) ?? null : null,
       contentRevision: Number(row.content_revision ?? 1), chaptersReady: Boolean(row.chapters_ready), contentUpdatedAt: row.content_updated_at ?? row.updated_at,
       coverUpdatedAt: row.cover_updated_at ?? null,
     } satisfies CatalogNovel;
-  }));
+  });
   return { signedIn, userId, plan, betaActive, features, catalog };
 }
 
