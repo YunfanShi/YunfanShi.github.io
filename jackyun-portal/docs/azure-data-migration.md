@@ -1,7 +1,7 @@
 # Supabase → Azure 数据迁移交付记录
 
 日期：2026-10-07。用户已授权按平台计划实施，并明确要求迁移 Supabase 数据。
-状态：已完成源端盘点、逐表校验和文件导出工具；已保存文件元数据清单，尚未下载文件字节、导出数据库备份、导入 Azure 或切换生产。
+状态：已完成源端盘点、逐表校验和文件备份工具；30个文件字节已下载并完成本地校验，Azure基础资源已部署。尚未导出数据库备份、上传Azure文件、导入数据库或切换生产。
 
 ## 已实查的数据范围
 
@@ -50,7 +50,18 @@ MD5 是意外损坏检测指纹，不是抗攻击的备份真实性证明。备�
 
 [只读文件清单 SQL](../scripts/storage-migration-inventory.sql) 记录原桶、公开性、对象ID、路径、归属、大小、更新时间和原元数据。
 2026-10-07通过源项目MCP执行，得到2个桶、30个对象、24,882,492字节；实际清单保存在本机被Git忽略的 `.migration-private/storage-inventory.json`，不发布到仓库。
-这只是元数据备份，不是30个文件字节已经备份。
+随后通过已登录的Supabase门户下载catalog、users和头像目录ZIP，保存在本机 `.migration-private` 中。
+使用 [门户ZIP导入工具](../scripts/import-storage-downloads.mjs) 校验ZIP CRC与清单覆盖、拒绝未知/重复/不安全路径，复用下述导出器生成独立备份。
+实查完成30个文件、24,882,492字节的备份，目录 `.migration-private/storage-backup-20261007`；逐个大小、SHA-256及元数据映射重新读取校验通过。
+没有Azure上传或数据库导入；备份清单保留原来的公开性不表示Azure头像已经公开。
+
+```powershell
+# 适用于已从门户下载的文件夹ZIP，不需要在终端获取service_role密钥。
+node scripts/import-storage-downloads.mjs .migration-private/storage-inventory.json .migration-private/NEW-BACKUP avatars=.migration-private/avatars.zip novel-files=.migration-private/catalog.zip novel-files=.migration-private/users.zip
+node scripts/export-supabase-storage.mjs verify .migration-private/NEW-BACKUP
+```
+
+ZIP按原桶和对象路径匹配，不直接解压用户路径到磁盘。该方式与API方式一样需要冻结写入后的最终清单和备份；本次是在线准备备份，不是切换时的最终冻结快照。
 
 [文件导出工具](../scripts/export-supabase-storage.mjs) 从清单逐个下载原文件，核对大小并计算SHA-256，保留归属和公开性。
 本地用桶/路径组合的哈希作为文件名，原对象名不能跳出备份目录。输出目录必须不存在，避免覆盖之前的完整或失败备份。
@@ -91,6 +102,6 @@ SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字�
    旧库与旧对象在观察期保留，退役前重新核对无旧写入及恢复证据。
 
 当前下一步的外部前提是 Azure 应用连接与运行身份配置。没有读取或要求用户在聊天里提供数据库密码。
-源端指纹扫描与 5 项比较器测试已通过；Azure 导入、文件复制、身份迁移和网站切换均未验证。
+源端指纹扫描和14项表清单/文件备份/ZIP导入测试已通过；Azure上传、数据库导入、身份迁移和网站切换均未验证。
 
 参考：[PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[XML 查询映射](https://www.postgresql.org/docs/17/functions-xml.html)。
