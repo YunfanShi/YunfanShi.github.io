@@ -32,6 +32,31 @@ az deployment group what-if --resource-group JackYun --template-file azure/found
 ```
 
 本机已在Git忽略目录安装并登录官方Azure CLI 2.91.0，完成文件上传和下载校验；上述模板validate/what-if命令尚未运行。部署实际状态记录在数据迁移文档中，不以模板存在代表已接入。
-后续：部署真实 Container Apps 后台与托管身份最小权限 →配置应用机密 →数据库连接/暂存导入 →Blob迁移和附件接口 →应用试点。
+数据库已完成独立暂存恢复与逐表核对，Blob已有文件已复制并下载回读验证。后续：后台网络与费用配置 →真实Container Apps服务和登录身份 →应用机密及文件授权接口 →应用试点与最终数据追平。
+
+## 同步角色配置与演练
+
+2026-10-07：[sync-runtime.sql](sync-runtime.sql) 已在jackyun_migration_20261007执行并验证可重复应用。[实际RPC演练](tests/sync-runtime.sql) 执行成功，全部测试写入和临时对象回滚；测试前后83张应用表的列、行数和内容指纹一致。
+两个脚本仅接受jackyun_migration_YYYYMMDD名称的隔离库，错误地指向默认postgres库时已实测拒绝并回滚。不要更改守卫后直接在Supabase或正式数据库运行。
+
+角色jackyun_sync_runtime为NOLOGIN、非超级用户、无BYPASSRLS/建库/建角色权限，不拥有表、函数、schema或数据库。继承authenticated仅用于匹配原行策略，不能SET ROLE authenticated或管理角色；未授予后台登录身份或密码。
+授权仅覆盖legacy_sync_data、web_sync_devices、web_sync_upload_chunks、sync_operations、sync_conflicts的必要操作，以及auth.uid、normalize_web_sync_value、apply_web_sync_operation、list_web_sync_records、get_web_sync_record_part的执行。没有auth.users读取、profiles更新、私有备份读取、管理员RPC或schema创建权限。
+恢复时省略ACL会留下函数的默认PUBLIC执行权限，本配置在应用/auth/私有schema撤销这些权限，再明确授予上述函数。当前迁移操作员未来创建函数的默认PUBLIC执行也已撤销，并以事务内临时函数实测；其他对象创建角色的默认权限仍须分别配置。
+
+实测覆盖：初次写入与匹配版本更新、同一操作重试不重复、较旧离线修改返回远端状态、跨用户插入/改归属失败、另一用户无法读取记录和操作历史/使用他人设备、大值列表不返回正文、中文/emoji全部分块重组、过期版本/越界分块、删除标记、旧修改不能复活删除、撤销设备拒写，以及缺少身份时拒绝读写。
+验证使用现有的两个auth账号UUID，结果不输出用户标识或私人行；依赖实际恢复的函数、策略和触发器。不是HTTP服务、登录令牌验证、连接池并发或全模块生产验收。
+
+```powershell
+# 使用已安全配置的凭据；不要把密码粘贴到命令里。
+psql "service=jackyun_target dbname=jackyun_migration_20261007 options='-c default_transaction_read_only=off'" -X -v ON_ERROR_STOP=1 -f azure/sync-runtime.sql
+if ($LASTEXITCODE -ne 0) { throw '同步角色配置失败' }
+psql "service=jackyun_target dbname=jackyun_migration_20261007 options='-c default_transaction_read_only=off'" -X -v ON_ERROR_STOP=1 -f azure/tests/sync-runtime.sql
+if ($LASTEXITCODE -ne 0) { throw '同步RPC演练失败' }
+```
+
+后续后台必须先验证令牌、账号状态与设备，再在每个数据库事务内设置经过验证的身份，事务结束清除上下文；不得接受浏览器提供的user_id作为身份。普通执行角色需要绑定独立登录身份，线上连接不能使用迁移管理员。
+应用对象与SECURITY DEFINER函数仍归迁移管理员所有，部署前还需专用owner与逐函数执行范围审计。此次未创建Container App、放宽防火墙、迁移身份服务或切换网站，未增加计算资源。
+
+参考：[PostgreSQL角色授权](https://www.postgresql.org/docs/17/sql-grant.html)、[默认权限](https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html)、[SET ROLE](https://www.postgresql.org/docs/17/sql-set-role.html)。
 
 依据：[Storage ARM](https://learn.microsoft.com/en-us/azure/templates/microsoft.storage/2023-05-01/storageaccounts)、[Key Vault ARM](https://learn.microsoft.com/en-us/azure/templates/microsoft.keyvault/2023-07-01/vaults)、[托管身份 ARM](https://learn.microsoft.com/en-us/azure/templates/microsoft.managedidentity/2023-01-31/userassignedidentities)。
