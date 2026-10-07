@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.21.1**
+> 当前版本：**v3.21.2**
 
 ---
 
@@ -17,10 +17,10 @@ Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围�
 文件存储、密钥、Azure登录与Passkeys、通知和页面性能的分阶段实施见 [平台改造计划](jackyun-portal/docs/azure-platform-roadmap.md)。
 Supabase 数据、账号关联和文件的搬迁进度、逐表校验与文件独立备份命令见 [数据迁移记录](jackyun-portal/docs/azure-data-migration.md)。30个文件已复制到Azure，并下载回本机逐个核对路径、大小和SHA-256，全部一致（24,882,492字节）。数据库已恢复到Azure独立迁移库，83张应用表的列定义、行数和内容指纹与源端采样一致；网站尚未切换生产。
 两个数据库的密码和客户端TLS已验证；迁移库保留8个账号、30条文件记录以及应用函数、触发器和访问策略。同步表的两个用户读取隔离检查通过；一项约束括号格式差异已单独核对。全模块运行权限、后端接入、网站同步读写与最终冻结追平仍待完成，迁移库不能直接当生产使用。
-迁移库已配置限定5张同步表与6个函数的普通同步执行角色，并绑定独立普通登录身份。[独立同步后台](jackyun-portal/azure/backend/README.md) 已在本机通过HTTP访问Azure演练：并发重试、跨账号隔离、设备撤销和中文/emoji分块往返通过，测试清理后83表指纹保持一致。身份测试使用受控测试签名，真实Supabase登录、云端容器部署和浏览器切换仍待验证。后台不使用迁移管理员连接；此阶段没有新增云计算资源。
+迁移库已配置限定5张同步表与6个函数的普通同步执行角色，并绑定独立普通登录身份。[独立同步后台](jackyun-portal/azure/backend/README.md) 已在本机通过HTTP访问Azure演练：并发重试、跨账号隔离、设备撤销和中文/emoji分块往返通过，测试清理后83表指纹保持一致。身份测试使用受控测试签名，真实Supabase登录和浏览器切换仍待验证。后台不使用迁移管理员连接；Functions Flex后台已部署；真实存活检查200、未登录401。
 小说商店已将已授权图书与封面的短时链接合并请求，按每批最多100个去重路径处理；保持原有解锁权限，不跨用户缓存。20个路径的SDK请求验证从20次减少到1次，这不代表已验证生产速度或3GB流量成因。
 首批文件存储、Key Vault与后台身份的可部署配置见 [Azure基础设施](jackyun-portal/azure/README.md)；模板不包含生产数据库切换。
-后台镜像已在本机实际构建并确认普通用户、可信CA和共享模块。数据库私网模板通过Azure预验证及what-if；固定网络约$7.70–7.94/月，尚未创建。Container Apps自建网络还有公网IP和负载均衡费，正优先验证Functions Flex承载同一业务后台；香港Node24资格已实查。[部署与收费审阅](jackyun-portal/azure/backend-deployment-review.md) 列出公开meter及不同执行量情景，不保证学生计算免费量生效。
+后台镜像已在本机实际构建并确认普通用户、可信CA和共享模块。数据库私网模板通过Azure预验证及what-if；固定网络约$7.70–7.94/月，已获认可并创建。Container Apps自建网络还有公网IP和负载均衡费，Functions Flex已承载同一后台（香港Node24、按需2GB、最多1实例、无常驻实例）；运行密码使用单项Key Vault引用。[部署与收费审阅](jackyun-portal/azure/backend-deployment-review.md) 列出公开meter及不同执行量情景，不保证学生计算免费量生效。
 
 安装 Node.js 24 LTS、Docker Desktop（Windows 使用 WSL 2 后端），启动 Docker Desktop 后，在 `jackyun-portal/` 执行：
 
@@ -1036,3 +1036,5 @@ sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals a
 Private — JackYun Personal Portal，仅供个人使用。
 
 ---
+
+Azure同步接入(v3.21.2)：网页四个v2同步接口与旧页面兼容接口支持服务端AZURE_SYNC_API_URL转发。未配置该变量时仍走原数据库；配置后只写Azure，不在失败时转写Supabase。最终五表追平、真实登录和读写验收按后台文档执行。

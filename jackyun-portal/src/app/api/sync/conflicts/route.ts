@@ -1,3 +1,4 @@
+import { forwardAzureSync } from '@/lib/sync/azure-proxy';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
@@ -8,6 +9,8 @@ import { canonicalJson } from '@/lib/sync/hash';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   const requestId = requestIdFrom(request);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,6 +28,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   const requestId = requestIdFrom(request);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

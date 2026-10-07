@@ -75,6 +75,38 @@ export function createSyncApi(database) {
     const route = url.pathname;
     const write = method !== 'GET';
     return database.withUser(identity, async client => {
+      if (route === '/api/legacy-sync') {
+        if (method === 'GET') {
+          const rows = (await client.query(`SELECT storage_key,storage_value,updated_at FROM public.legacy_sync_data
+            WHERE user_id=$1 AND deleted_at IS NULL AND octet_length(storage_value::text)<=400000
+            ORDER BY updated_at,id LIMIT 500`, [identity.sub])).rows;
+          const data = Object.create(null), timestamps = Object.create(null);
+          for (const row of rows) if (isSyncableStorageKey(row.storage_key)) {
+            data[row.storage_key] = row.storage_value; timestamps[row.storage_key] = iso(row.updated_at);
+          }
+          return { ok: true, data, timestamps };
+        }
+        if (!['POST', 'PUT', 'DELETE'].includes(method)) fail(405, 'METHOD_NOT_ALLOWED');
+        const entries = method === 'DELETE' ? [{ key: body?.key, value: null }]
+          : Array.isArray(body?.entries) ? body.entries : [{ key: body?.key, value: body?.value }];
+        if (!entries.length || entries.length > 200 || new Set(entries.map(e => e?.key)).size !== entries.length) fail(400, 'INVALID_ENTRIES');
+        const operations = [];
+        for (const entry of entries) {
+          if (typeof entry?.key !== 'string' || !isSyncableStorageKey(entry.key)) fail(400, 'INVALID_KEY');
+          let value = entry.value;
+          if (typeof value === 'string') { try { value = JSON.parse(value); } catch { /* Plain legacy strings are valid. */ } }
+          if (json(value).length > 100_000) fail(413, 'PAYLOAD_TOO_LARGE');
+          const current = (await client.query('SELECT revision,content_hash,storage_value FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2', [identity.sub, entry.key])).rows[0];
+          operations.push({ id: randomUUID(), key: entry.key, value, deleted: method === 'DELETE',
+            baseRevision: Number(current?.revision ?? 0), baseHash: current?.content_hash ?? null,
+            baseValue: current?.storage_value ?? null, clientUpdatedAt: new Date().toISOString() });
+        }
+        for (let start = 0; start < operations.length; start += 100) {
+          await applyBody(client, identity, { deviceId: identity.session_id,
+            device: { name: 'Legacy compatibility', platform: 'web' }, operations: operations.slice(start, start + 100) });
+        }
+        return { ok: true, count: operations.length, timestamp: new Date().toISOString() };
+      }
       if (route === '/api/sync/v2') {
         if (method === 'POST') return applyBody(client, identity, body);
         if (method !== 'GET') fail(405, 'METHOD_NOT_ALLOWED');

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "type": "string", "defaultValue": "eastasia", "allowedValues": ["eastasia"] },
+    "appName": { "type": "string", "defaultValue": "jackyun-sync-9d26b2cc", "allowedValues": ["jackyun-sync-9d26b2cc"] },
+    "runtimeStorageName": { "type": "string", "defaultValue": "jackyunfn9d26b2cc", "allowedValues": ["jackyunfn9d26b2cc"] },
+    "identityName": { "type": "string", "defaultValue": "jackyun-api-identity", "allowedValues": ["jackyun-api-identity"] },
+    "vaultName": { "type": "string", "defaultValue": "jackyun-kv-9d26b2cc", "allowedValues": ["jackyun-kv-9d26b2cc"] }
+  },
+  "variables": {
+    "identityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('identityName'))]",
+    "storageId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('runtimeStorageName'))]",
+    "secretId": "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('vaultName'), 'jackyun-sync-db-password')]",
+    "blobOwner": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
+    "secretReader": "4633458b-17de-408a-b874-0445c86b69e6"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts", "apiVersion": "2023-05-01",
+      "name": "[parameters('runtimeStorageName')]", "location": "[parameters('location')]",
+      "kind": "StorageV2", "sku": { "name": "Standard_LRS" },
+      "properties": { "accessTier": "Hot", "allowBlobPublicAccess": false, "allowSharedKeyAccess": false,
+        "supportsHttpsTrafficOnly": true, "minimumTlsVersion": "TLS1_2", "defaultToOAuthAuthentication": true }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers", "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('runtimeStorageName'), '/default/deployments')]",
+      "dependsOn": ["[variables('storageId')]"], "properties": { "publicAccess": "None" }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments", "apiVersion": "2022-04-01",
+      "name": "[guid(variables('storageId'), variables('identityId'), variables('blobOwner'))]",
+      "scope": "[variables('storageId')]", "dependsOn": ["[variables('storageId')]"],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('blobOwner'))]",
+        "principalId": "[reference(variables('identityId'), '2023-01-31').principalId]", "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments", "apiVersion": "2022-04-01",
+      "name": "[guid(variables('secretId'), variables('identityId'), variables('secretReader'))]",
+      "scope": "[variables('secretId')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('secretReader'))]",
+        "principalId": "[reference(variables('identityId'), '2023-01-31').principalId]", "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms", "apiVersion": "2024-11-01",
+      "name": "jackyun-sync-flex", "location": "[parameters('location')]", "kind": "functionapp",
+      "sku": { "name": "FC1", "tier": "FlexConsumption" }, "properties": { "reserved": true }
+    },
+    {
+      "type": "Microsoft.Web/sites", "apiVersion": "2024-11-01",
+      "name": "[parameters('appName')]", "location": "[parameters('location')]", "kind": "functionapp,linux",
+      "identity": { "type": "UserAssigned", "userAssignedIdentities": { "[variables('identityId')]": {} } },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', 'jackyun-sync-flex')]",
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', parameters('runtimeStorageName'), 'default', 'deployments')]",
+        "[extensionResourceId(variables('storageId'), 'Microsoft.Authorization/roleAssignments', guid(variables('storageId'), variables('identityId'), variables('blobOwner')))]",
+        "[extensionResourceId(variables('secretId'), 'Microsoft.Authorization/roleAssignments', guid(variables('secretId'), variables('identityId'), variables('secretReader')))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', 'jackyun-sync-flex')]",
+        "httpsOnly": true, "publicNetworkAccess": "Enabled", "keyVaultReferenceIdentity": "[variables('identityId')]",
+        "virtualNetworkSubnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'jackyun-backend-vnet', 'backend')]",
+        "functionAppConfig": {
+          "runtime": { "name": "node", "version": "24" },
+          "deployment": { "storage": { "type": "blobContainer",
+            "value": "[concat('https://', parameters('runtimeStorageName'), '.blob.core.windows.net/deployments')]",
+            "authentication": { "type": "UserAssignedIdentity", "userAssignedIdentityResourceId": "[variables('identityId')]" }
+          } },
+          "scaleAndConcurrency": { "instanceMemoryMB": 2048, "maximumInstanceCount": 1,
+            "alwaysReady": [], "triggers": { "http": { "perInstanceConcurrency": 4 } } }
+        },
+        "siteConfig": {
+          "minTlsVersion": "1.2", "scmMinTlsVersion": "1.2", "ftpsState": "Disabled",
+          "appSettings": [
+            { "name": "AzureWebJobsStorage__accountName", "value": "[parameters('runtimeStorageName')]" },
+            { "name": "AzureWebJobsStorage__credential", "value": "managedidentity" },
+            { "name": "AzureWebJobsStorage__clientId", "value": "[reference(variables('identityId'), '2023-01-31').clientId]" },
+            { "name": "FUNCTIONS_REQUEST_BODY_SIZE_LIMIT", "value": "1000000" },
+            { "name": "PGHOST", "value": "jackyunasia.postgres.database.azure.com" },
+            { "name": "PGDATABASE", "value": "jackyun_migration_20261007" },
+            { "name": "PGUSER", "value": "jackyun_sync_login" },
+            { "name": "PGPASSWORD", "value": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('vaultName'), '.vault.azure.net/secrets/jackyun-sync-db-password/)')]" },
+            { "name": "PGSSLROOTCERT", "value": "/etc/ssl/certs/ca-certificates.crt" },
+            { "name": "SUPABASE_URL", "value": "https://gdcwwlnzylrzrqhaaljq.supabase.co" }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": { "functionUrl": { "type": "string", "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('appName')), '2024-11-01').defaultHostName)]" } }
+}

@@ -1,6 +1,6 @@
 # Azure 独立同步后台
 
-版本3.21.1。保留现有同步接口契约，通过普通PostgreSQL登录访问Azure迁移库。此阶段仅在本机启动演练，网站仍使用Supabase；没有创建Container Apps或新增云计算资源。
+版本3.21.2。保留现有同步接口契约，通过普通PostgreSQL登录访问Azure迁移库。已部署Azure Functions Flex，网站转发由服务端AZURE_SYNC_API_URL启用；未启用时保留原连接。正式启用前必须追平同步数据并验证真实登录。
 
 接口：`/api/sync/v2`、`/api/sync/v2/large`、`/api/sync/devices`、`/api/sync/conflicts`。`GET /health/live`仅检查进程存活，不证明数据库可用。HTTPS入口由最终云端服务提供；容器监听8080。
 
@@ -9,7 +9,7 @@
 - Bearer令牌必须由指定Supabase项目验证：ES256/RS256使用该项目JWKS；旧HS256调用Auth的`/user`确认，不分发签名密钥。验证issuer、audience、角色、有效期、账号UUID与session_id，拒绝匿名及service_role；不使用可编辑metadata或请求里的user_id。
 - 本机验证使用受控测试签名，未验证真实线上签发令牌。JWT不是即时会话撤销检查；当前账号状态门禁来自迁移库profiles，切换前需追平资料，敏感操作的即时撤销策略仍需落实。
 - 连接显式配置可信CA并校验证书；连接池最多4条。登录拒绝超级用户、BYPASSRLS、建库、建角色、复制权限。每个事务在同一连接SET LOCAL普通执行角色和已验证身份，检查当前active资料；写操作按用户加事务锁，提交/回滚清除上下文。
-- SQL权限由上级目录的`sync-runtime.sql`配置，脚本仅接受隔离迁移库。普通登录仅有连接和SET ROLE执行角色权限；不得使用迁移管理员作为运行登录。SECURITY DEFINER对象owner仍需部署前审计。
+- SQL权限由上级目录的`sync-runtime.sql`配置，脚本仅接受隔离迁移库。普通登录仅有连接和SET ROLE执行角色权限；不得使用迁移管理员作为运行登录。四个原同步函数已确认SECURITY INVOKER。唯一账号状态SECURITY DEFINER查询由无登录专用角色持有，只能通过行权限读取当前用户id、account_status、deleted_at三列；执行角色不能SET ROLE该owner。见sync-identity-owner.sql。
 - 普通请求正文最多1MB；上传每段正文250KB、解码120KB，总上传24MB；设备撤销、计划清空保护、冲突及删除规则沿用现有同步实现。CORS默认仅`https://jackyun.top`；CORS不替代令牌验证。错误日志只有请求ID和错误代码，不记录令牌、数据库错误详情或同步正文。
 
 ## 配置与运行
@@ -36,6 +36,14 @@ Dockerfile专用ignore采用白名单，仅包含后台依赖与4个纯同步规
 
 按用户批准的Windows路径，修改前MAIN的生产构建3.20.12已备份到`C:\Users\syf26\Desktop\JACKYUN\Backup\v3.20.12`，附文件大小和SHA-256清单；这是本机MAIN生产构建，未验证与线上Vercel产物逐字节相同。本次属于用户无感的迁移准备，依仓库例外不添加更新中心产品公告。
 
-数据库私网模板已通过Azure预验证与what-if，尚未创建收费资源。Container Apps自建网络还有公网IP和负载均衡开支，当前改为优先验证Functions Flex托管同一同步后台；香港已确认支持Node24。[具体配置及费用](../backend-deployment-review.md) 包括固定网络和后台执行情景。随后完成Functions入口、运行身份与Key Vault、真实登录验收及浏览器试点；全模块迁移和最终冻结追平另行验收。
+数据库私网与Functions运行模板已经用户认可费用并创建Succeeded。Container Apps自建网络还有公网IP和负载均衡开支，当前改为优先验证Functions Flex托管同一同步后台；香港已确认支持Node24。[具体配置及费用](../backend-deployment-review.md) 包括固定网络和后台执行情景。Functions入口、运行身份与Key Vault已接入；当前仍需真实登录、最终同步增量和浏览器验收。其他模块迁移另行验收。
 
 依据：[Supabase JWT验证](https://supabase.com/docs/guides/auth/jwts)、[node-postgres事务](https://node-postgres.com/features/transactions)、[TLS配置](https://node-postgres.com/features/ssl)。
+
+## Functions 与网站接入
+
+运行入口为functions.mjs，host.json保留完整/api前缀。SDK请求流复用普通HTTP处理器；额外提供/api/legacy-sync兼容原页面，新旧写入都推进同一条记录版本与内容哈希。旧接口列表不下载大于400KB的正文，大值继续走新版分块同步。
+
+从应用目录执行npm run build:azure-functions；脚本只打包11个指定源码、host.json、锁定的生产依赖，不包含环境文件、备份或整个Next.js应用。发布配置见../functions-runtime.json；密码使用Key Vault引用，连接原数据库域名并严格验证TLS。部署存储与运行存储使用托管身份，没有SharedKey。
+
+网站仅配置服务端AZURE_SYNC_API_URL=https://jackyun-sync-9d26b2cc.azurewebsites.net。不将数据库密码给Vercel或浏览器，不跨数据库重试写操作。scripts/azure-sync-cutover.mjs是显式操作员命令，核对账号集合及源ACL，冻结旧库五张同步表写入、备份两端、事务内追平五表与账号状态并比较内容指纹；失败回滚并恢复旧库写权限。成功后旧库保留为只读副本，回退必须先回灌Azure新写入。

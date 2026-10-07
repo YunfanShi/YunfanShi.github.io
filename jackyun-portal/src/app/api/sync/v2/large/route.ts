@@ -1,3 +1,4 @@
+import { forwardAzureSync } from '@/lib/sync/azure-proxy';
 import { SYNC_DATABASE_TIMEOUT_MS } from '@/lib/request-timeout';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -12,6 +13,8 @@ const MAX_PART_BODY_BYTES = 250_000;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 export async function POST(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   const requestId = requestIdFrom(request);
   if (Number(request.headers.get('content-length') ?? 0) > MAX_PART_BODY_BYTES) {
     return apiError(requestId, 'Upload part too large', 413, 'PAYLOAD_TOO_LARGE');
@@ -78,6 +81,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   const requestId = requestIdFrom(request);
   const key = request.nextUrl.searchParams.get('key');
   const rawPart = request.nextUrl.searchParams.get('part');

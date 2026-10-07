@@ -35,9 +35,9 @@ async function readBody(request, limit) {
   });
 }
 
-export function createApiServer({ authenticate, handle, allowedOrigins = ['https://jackyun.top'], logger = console }) {
-  const paths = new Set(['/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts']);
-  const server = createServer(async (request, response) => {
+export function createApiHandler({ authenticate, handle, allowedOrigins = ['https://jackyun.top'], logger = console }) {
+  const paths = new Set(['/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync']);
+  return async (request, response) => {
     const requestId = randomUUID();
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
@@ -52,13 +52,13 @@ export function createApiServer({ authenticate, handle, allowedOrigins = ['https
       if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_DENIED');
       if (origin) { response.setHeader('Access-Control-Allow-Origin', origin); response.setHeader('Vary', 'Origin'); }
       if (request.method === 'OPTIONS') {
-        response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+        response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
         response.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
         response.writeHead(204); response.end(); return;
       }
       const identity = await authenticate(request.headers.authorization);
       let body = null;
-      if (['POST', 'PATCH', 'DELETE'].includes(request.method)) {
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
         if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) throw new ApiError(415, 'JSON_REQUIRED');
         body = await readBody(request, url.pathname.endsWith('/large') ? 250_000 : 1_000_000);
       }
@@ -74,7 +74,11 @@ export function createApiServer({ authenticate, handle, allowedOrigins = ['https
       if (!response.headersSent) send(status, { ok: false, error: code, code });
       else response.end();
     }
-  });
+  };
+}
+
+export function createApiServer(options) {
+  const server = createServer(createApiHandler(options));
   server.headersTimeout = 10_000;
   server.requestTimeout = 30_000;
   return server;
