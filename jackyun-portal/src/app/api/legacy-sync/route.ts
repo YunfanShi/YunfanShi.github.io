@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardAzureSync } from '@/lib/sync/azure-proxy';
 import { createClient } from '@/lib/supabase/server';
 import { isSyncableStorageKey } from '@/lib/local-workspace';
 
@@ -13,7 +14,9 @@ function apiError(message: string, status: number, detail?: unknown) {
 // GET /api/legacy-sync — load all legacy data for the current user
 // Each value is wrapped with its updated_at timestamp so the client can
 // decide whether the cloud copy is newer than the local copy.
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   try {
     const supabase = await createClient();
     const {
@@ -45,6 +48,8 @@ export async function GET() {
 
 // POST /api/legacy-sync — upsert a single key/value
 export async function POST(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   try {
     const supabase = await createClient();
     const {
@@ -77,6 +82,8 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/legacy-sync — upsert a single key/value (alias for POST)
 export async function PUT(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   try {
     const supabase = await createClient();
     const {
@@ -115,6 +122,8 @@ export async function PUT(request: NextRequest) {
 
 // DELETE /api/legacy-sync — remove a single key
 export async function DELETE(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   try {
     const supabase = await createClient();
     const {

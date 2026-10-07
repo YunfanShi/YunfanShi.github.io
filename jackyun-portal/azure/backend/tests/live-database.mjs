@@ -26,12 +26,13 @@ const jwk = { ...await exportJWK(pair.publicKey), alg: 'ES256', kid: 'live-test'
 const project = 'https://gdcwwlnzylrzrqhaaljq.supabase.co';
 let users;
 let markerSnapshots;
+const sessions = [randomUUID(), randomUUID(), randomUUID()];
 try {
   await admin.connect();
   users = (await admin.query("SELECT id FROM public.profiles WHERE account_status='active' AND deleted_at IS NULL ORDER BY id LIMIT 2")).rows.map(row => row.id);
   assert.equal(users.length, 2, 'Two active copied accounts required');
   markerSnapshots = (await admin.query("SELECT to_jsonb(d) AS snapshot FROM jackyun_private.backup_dirty_pages d WHERE user_id=ANY($1::uuid[]) AND page=jackyun_private.backup_page_for_key($2)", [users, key])).rows.map(row => row.snapshot);
-  const tokens = await Promise.all([...users, randomUUID()].map(sub => new SignJWT({ sub, role: 'authenticated', session_id: randomUUID() })
+  const tokens = await Promise.all([...users, randomUUID()].map((sub, index) => new SignJWT({ sub, role: 'authenticated', session_id: sessions[index] })
     .setProtectedHeader({ alg: 'ES256', kid: 'live-test' }).setIssuer(`${project}/auth/v1`)
     .setAudience('authenticated').setIssuedAt().setExpirationTime('10m').sign(pair.privateKey)));
   server = createApiServer({ authenticate: createAuthenticator({ supabaseUrl: project,
@@ -83,17 +84,25 @@ try {
   assert.equal((await call('/api/sync/conflicts')).status, 200);
   assert.equal((await call('/api/sync/devices', { method: 'DELETE', body: { id: device } })).status, 200);
   assert.equal((await post(operation({}, 3))).status, 403);
+  const legacy = await call('/api/legacy-sync', { method: 'POST', body: { key, value: JSON.stringify({ legacy: '学习📚' }) } });
+  assert.equal(legacy.status, 200);
+  assert.deepEqual((await call('/api/legacy-sync')).data.data[key], { legacy: '学习📚' });
+  assert.deepEqual((await call('/api/legacy-sync', { user: 1 })).data.data[key], { second: true }, 'Legacy read preserves the second user own value');
+  const legacyRevision = (await call(`/api/sync/v2?key=${key}`)).data.records[0].revision;
+  assert.equal(legacyRevision, 4, 'Legacy write also advances modern revision');
+  assert.equal((await call('/api/legacy-sync', { method: 'DELETE', body: { key } })).status, 200);
+  assert.equal((await call(`/api/sync/v2?key=${key}`)).data.records[0].deleted, true);
   assert.equal(errors.length, 0, 'No unexpected server errors');
   console.log(JSON.stringify({ ordinaryLoginHttpToAzurePassed: true, concurrentRetryPassed: true,
     twoUserPoolIsolationPassed: true, unicodeChunkRoundTripPassed: true, uploadParts: upload.length,
-    testIssuerKeysOnly: true, productionAuthAndBrowserCutover: false }));
+    legacyCompatibilityPassed: true, testIssuerKeysOnly: true, productionAuthAndBrowserCutover: false }));
 } finally {
   if (server) { await new Promise(resolve => server.close(resolve)); }
   await database.close();
   if (users?.length) {
     await admin.query('BEGIN');
     await admin.query('DELETE FROM public.legacy_sync_data WHERE storage_key=$1 AND user_id=ANY($2::uuid[])', [key, users]);
-    await admin.query('DELETE FROM public.web_sync_devices WHERE id=ANY($1::uuid[])', [[device, secondDevice]]);
+    await admin.query('DELETE FROM public.web_sync_devices WHERE id=ANY($1::uuid[])', [[device, secondDevice, ...sessions]]);
     await admin.query('DELETE FROM jackyun_private.backup_dirty_pages WHERE user_id=ANY($1::uuid[]) AND page=jackyun_private.backup_page_for_key($2)', [users, key]);
     await admin.query('INSERT INTO jackyun_private.backup_dirty_pages SELECT * FROM jsonb_populate_recordset(NULL::jackyun_private.backup_dirty_pages,$1::jsonb)', [JSON.stringify(markerSnapshots)]);
     await admin.query('COMMIT');

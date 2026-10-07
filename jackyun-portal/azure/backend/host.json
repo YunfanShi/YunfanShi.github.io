@@ -1,0 +1,6 @@
+{
+  "version": "2.0",
+  "functionTimeout": "00:01:00",
+  "extensions": { "http": { "routePrefix": "" } },
+  "logging": { "logLevel": { "default": "Warning", "Function": "Warning" } }
+}

@@ -1,3 +1,4 @@
+import { forwardAzureSync } from '@/lib/sync/azure-proxy';
 import { SYNC_DATABASE_TIMEOUT_MS } from '@/lib/request-timeout';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -7,6 +8,8 @@ import { applySyncBody, MAX_BODY_BYTES, type SyncRequestBody } from '@/lib/sync/
 import { syncAuthError } from '@/lib/sync/auth-error';
 
 export async function GET(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   const requestId = requestIdFrom(request);
   const supabase = await createClient(undefined, SYNC_DATABASE_TIMEOUT_MS);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -44,6 +47,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const azureResponse = await forwardAzureSync(request);
+  if (azureResponse) return azureResponse;
   const requestId = requestIdFrom(request);
   const declaredLength = Number(request.headers.get('content-length') ?? 0);
   if (declaredLength > MAX_BODY_BYTES) return apiError(requestId, 'Request body too large', 413, 'PAYLOAD_TOO_LARGE');

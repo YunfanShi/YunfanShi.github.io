@@ -1,0 +1,9 @@
+{
+  "name": "jackyun-sync-functions",
+  "version": "3.21.2",
+  "private": true,
+  "type": "module",
+  "main": "azure/backend/functions.mjs",
+  "engines": { "node": ">=24" },
+  "dependencies": { "@azure/functions": "4.16.5", "jose": "6.2.12", "pg": "8.23.1" }
+}
