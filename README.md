@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.21.0**
+> 当前版本：**v3.21.1**
 
 ---
 
@@ -20,6 +20,7 @@ Supabase 数据、账号关联和文件的搬迁进度、逐表校验与文件�
 迁移库已配置限定5张同步表与6个函数的普通同步执行角色，并绑定独立普通登录身份。[独立同步后台](jackyun-portal/azure/backend/README.md) 已在本机通过HTTP访问Azure演练：并发重试、跨账号隔离、设备撤销和中文/emoji分块往返通过，测试清理后83表指纹保持一致。身份测试使用受控测试签名，真实Supabase登录、云端容器部署和浏览器切换仍待验证。后台不使用迁移管理员连接；此阶段没有新增云计算资源。
 小说商店已将已授权图书与封面的短时链接合并请求，按每批最多100个去重路径处理；保持原有解锁权限，不跨用户缓存。20个路径的SDK请求验证从20次减少到1次，这不代表已验证生产速度或3GB流量成因。
 首批文件存储、Key Vault与后台身份的可部署配置见 [Azure基础设施](jackyun-portal/azure/README.md)；模板不包含生产数据库切换。
+后台镜像已在本机实际构建并确认普通用户、可信CA和共享模块。数据库私网模板通过Azure预验证及what-if；固定网络约$7.70–7.94/月，尚未创建。Container Apps自建网络还有公网IP和负载均衡费，正优先验证Functions Flex承载同一业务后台；香港Node24资格已实查。[部署与收费审阅](jackyun-portal/azure/backend-deployment-review.md) 列出公开meter及不同执行量情景，不保证学生计算免费量生效。
 
 安装 Node.js 24 LTS、Docker Desktop（Windows 使用 WSL 2 后端），启动 Docker Desktop 后，在 `jackyun-portal/` 执行：
 

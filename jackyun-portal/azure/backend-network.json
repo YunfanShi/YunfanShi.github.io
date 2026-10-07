@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "type": "string", "defaultValue": "eastasia", "allowedValues": ["eastasia"] },
+    "vnetName": { "type": "string", "defaultValue": "jackyun-backend-vnet", "allowedValues": ["jackyun-backend-vnet"] },
+    "postgresServerName": { "type": "string", "defaultValue": "jackyunasia", "allowedValues": ["jackyunasia"] }
+  },
+  "variables": {
+    "appsSubnet": "10.42.0.0/24",
+    "endpointSubnet": "10.42.1.0/27",
+    "endpointName": "jackyun-postgres-private",
+    "nsgName": "jackyun-postgres-private-nsg",
+    "dnsZone": "privatelink.postgres.database.azure.com"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups", "apiVersion": "2024-05-01",
+      "name": "[variables('nsgName')]", "location": "[parameters('location')]",
+      "properties": { "securityRules": [
+        { "name": "AllowBackendPostgres", "properties": {
+          "priority": 100, "direction": "Inbound", "access": "Allow", "protocol": "Tcp",
+          "sourcePortRange": "*", "destinationPortRange": "5432",
+          "sourceAddressPrefix": "[variables('appsSubnet')]", "destinationAddressPrefix": "[variables('endpointSubnet')]"
+        } },
+        { "name": "DenyOtherInbound", "properties": {
+          "priority": 200, "direction": "Inbound", "access": "Deny", "protocol": "*",
+          "sourcePortRange": "*", "destinationPortRange": "*",
+          "sourceAddressPrefix": "*", "destinationAddressPrefix": "*"
+        } }
+      ] }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks", "apiVersion": "2024-05-01",
+      "name": "[parameters('vnetName')]", "location": "[parameters('location')]",
+      "dependsOn": ["[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"],
+      "properties": {
+        "addressSpace": { "addressPrefixes": ["10.42.0.0/16"] },
+        "subnets": [
+          { "name": "backend", "properties": {
+            "addressPrefix": "[variables('appsSubnet')]",
+            "delegations": [{ "name": "backend", "properties": { "serviceName": "Microsoft.App/environments" } }]
+          } },
+          { "name": "postgres-private", "properties": {
+            "addressPrefix": "[variables('endpointSubnet')]", "privateEndpointNetworkPolicies": "Enabled",
+            "networkSecurityGroup": { "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]" }
+          } }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones", "apiVersion": "2020-06-01",
+      "name": "[variables('dnsZone')]", "location": "global", "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks", "apiVersion": "2020-06-01",
+      "name": "[concat(variables('dnsZone'), '/jackyun-backend')]", "location": "global",
+      "dependsOn": ["[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZone'))]", "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"],
+      "properties": { "registrationEnabled": false, "virtualNetwork": { "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]" } }
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints", "apiVersion": "2024-05-01",
+      "name": "[variables('endpointName')]", "location": "[parameters('location')]",
+      "dependsOn": ["[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"],
+      "properties": {
+        "subnet": { "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'postgres-private')]" },
+        "privateLinkServiceConnections": [{ "name": "postgres", "properties": {
+          "privateLinkServiceId": "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('postgresServerName'))]",
+          "groupIds": ["postgresqlServer"]
+        } }]
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups", "apiVersion": "2024-05-01",
+      "name": "[concat(variables('endpointName'), '/default')]",
+      "dependsOn": ["[resourceId('Microsoft.Network/privateEndpoints', variables('endpointName'))]", "[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZone'))]"],
+      "properties": { "privateDnsZoneConfigs": [{ "name": "postgres", "properties": {
+        "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('dnsZone'))]"
+      } }] }
+    }
+  ],
+  "outputs": {
+    "backendSubnetId": { "type": "string", "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'backend')]" },
+    "postgresHost": { "type": "string", "value": "[concat(parameters('postgresServerName'), '.postgres.database.azure.com')]" },
+    "privateEndpointId": { "type": "string", "value": "[resourceId('Microsoft.Network/privateEndpoints', variables('endpointName'))]" }
+  }
+}

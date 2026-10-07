@@ -16,6 +16,7 @@
 
 直接查询微软 Retail Prices API：armRegionName=eastasia、priceType=Consumption，结果无下一页；对拟用产品/SKU核对如下。
 这些是优惠以外的公开零售价，不是个人订阅最终报价，不含税、汇率、其他功能或网络费用。
+新增后台和数据库私网的独立收费审阅见 [后台部署费用](backend-deployment-review.md)。原基础资源价格认可以及本文件中的目标零费，不涵盖新增私有终结点固定收费；此次网络尚未创建。
 
 | 项目 | meter/SKU | 单价 | 收费触发条件 |
 | --- | --- | --- | --- |
