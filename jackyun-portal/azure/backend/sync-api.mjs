@@ -114,6 +114,32 @@ export function createSyncApi(database) {
         }
         return { ok: true, count: operations.length, timestamp: new Date().toISOString() };
       }
+      if (route === '/api/sync/export') {
+        if (method !== 'GET') fail(405, 'METHOD_NOT_ALLOWED');
+        const after = url.searchParams.get('after') ?? '';
+        if (after.length > 120 || (after && !isSyncableStorageKey(after))) fail(400, 'INVALID_CURSOR');
+        const visible = []; let position = after;
+        // Fill one page with authorized sync keys without exposing blocked key
+        // names in cursors. The database scan is bounded independently of output.
+        for (let scanned=0;scanned<20000 && visible.length<21;scanned+=21) {
+          const rows = (await client.query(`SELECT storage_key,revision,content_hash,deleted_at,updated_at,client_updated_at,
+            CASE WHEN deleted_at IS NOT NULL OR octet_length(storage_value::text)>400000 THEN NULL ELSE storage_value END AS storage_value,
+            deleted_at IS NULL AND octet_length(storage_value::text)>400000 AS large
+            FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key COLLATE "C">$2 COLLATE "C"
+            ORDER BY storage_key COLLATE "C" LIMIT 21`,[identity.sub,position])).rows;
+          for (const row of rows) if (isSyncableStorageKey(row.storage_key)) visible.push(row);
+          if (rows.length<21 || visible.length>=21) break;
+          const next = rows.at(-1).storage_key;
+          if (Buffer.compare(Buffer.from(next),Buffer.from(position))<=0) fail(503,'EXPORT_CURSOR_INVALID');
+          position=next;
+          if (scanned+21>=20000) fail(413,'EXPORT_SCAN_LIMIT');
+        }
+        const page = visible.slice(0,20);
+        return { ok:true,records:page.filter(row=>isSyncableStorageKey(row.storage_key)).map(row=>({
+          key:row.storage_key,value:row.storage_value,revision:Number(row.revision),contentHash:row.content_hash,
+          deleted:Boolean(row.deleted_at),large:Boolean(row.large),updatedAt:iso(row.client_updated_at ?? row.updated_at),
+        })),next:visible.length>20?page.at(-1).storage_key:null };
+      }
       if (route === '/api/sync/v2') {
         if (method === 'POST') return applyBody(client, identity, body);
         if (method !== 'GET') fail(405, 'METHOD_NOT_ALLOWED');

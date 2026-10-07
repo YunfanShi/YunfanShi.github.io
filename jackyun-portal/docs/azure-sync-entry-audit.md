@@ -6,12 +6,13 @@
 | --- | --- | --- |
 | /api/sync/v2 GET POST | 优先Azure转发；未配置时Supabase | 真实读写、去重与离线验收 |
 | /api/sync/v2/large GET POST | 优先Azure转发；保留分块 | 中文大值、删除及409重试验收 |
+| /api/sync/export GET | 候选用户隔离分页导出，每页20项 | 本机SQL及传输通过，真实读取及部署待完成 |
 | /api/sync/devices GET PATCH DELETE | 优先Azure转发 | 设备撤销与两用户隔离 |
 | /api/sync/conflicts GET POST | 优先Azure转发 | 旧冲突恢复与去重 |
 | /api/legacy-sync 四种方法 | 优先转发Azure兼容实现 | 旧页面实际验收 |
 | actions/schedule-backups.ts restoreScheduleBackup | 直接更新Supabase legacy_sync_data；恢复前旧库备份 | 尚未适配Azure，禁止据五个API宣称覆盖全部写入 |
-| actions/export.ts importSelectedData | 按表直接Supabase upsert，包含legacy_sync_data | 必须让同步项经同一Azure写入口，保留大值与恢复语义 |
-| actions/export.ts exportAllUserData previewDataImport | 同步项仍读Supabase | 必须读取Azure当前值，不能导出过期快照 |
+| actions/export.ts importSelectedData | 候选代码：同步项经Azure当前版本及分块API；其他表保留Supabase | 8项传输回归通过，真实导入、失败恢复及发布待完成 |
+| actions/export.ts exportAllUserData previewDataImport | 候选代码：同步项读取Azure分页及分块，完整导出后再次核对版本清单 | 530条及同时间戳分页、中文游标和真实本机RLS通过；生产验收待完成 |
 | actions/backup-center.ts restoreBackupVersion | Supabase restore_backup_page间接写旧同步表 | 必须适配完整恢复流程和跨来源备份关联 |
 | actions/backup-center.ts createBackupVersion createDueBackupVersions inspectBackupVersion | Supabase RPC或直接读取旧同步表 | 尚未验证Azure备份路由，不能生成旧同步值的“最新”备份 |
 | schedule_version_backups与backup_center_versions相关触发器和RPC | 部分已复制到迁移库，但其他业务仍在Supabase | 函数存在不等于备份来源一致，需逐项实查 |

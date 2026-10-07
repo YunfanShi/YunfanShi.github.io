@@ -3,6 +3,7 @@
 import { serviceErrorMessage } from '@/lib/service-errors';
 
 import { createClient } from '@/lib/supabase/server';
+import { azureBackupSource } from '@/lib/sync/azure-backup-source';
 import { createHash } from 'node:crypto';
 import type { DataArchiveV2 } from '@/types/sync';
 import { canonicalJson } from '@/lib/sync/hash';
@@ -49,9 +50,15 @@ function assertValidArchive(archive: DataArchive) {
 
 export async function exportAllUserData(selectedPages?: BackupPage[]): Promise<DataArchiveV2<DataTable>> {
   const { supabase, user } = await getAuthenticatedUser();
+  const azure = await azureBackupSource(supabase);
   const pages = new Set(normalizeBackupPages(selectedPages ?? ALL_BACKUP_PAGES));
   const tables: Partial<Record<DataTable, Record<string, unknown>[]>> = {};
-  const readTable = async (table: DataTable, quizSessionIds?: string[]) => {
+  const readTable = async (table: DataTable, quizSessionIds?: string[]): Promise<Record<string, unknown>[]> => {
+    if (table === 'legacy_sync_data' && azure) {
+      return (await azure.list({ include: key => isBackupableLegacyKey(key) && pages.has(legacyBackupPage(key)) })).map(r=>({ user_id:user.id,storage_key:r.key,storage_value:r.value,
+        revision:r.revision,content_hash:r.contentHash,deleted_at:r.deleted?r.updatedAt:null,
+        client_updated_at:r.updatedAt,updated_at:r.updatedAt }));
+    }
     const rows: Record<string, unknown>[] = [];
     const pageSize = 500;
     if (table === 'quiz_questions' && !quizSessionIds?.length) return [];
@@ -96,9 +103,11 @@ export async function exportAllUserData(selectedPages?: BackupPage[]): Promise<D
 export async function previewDataImport(archive: DataArchive) {
   assertValidArchive(archive);
   const { supabase, user } = await getAuthenticatedUser();
+  const azure = await azureBackupSource(supabase);
+  const azureCount = azure && Array.isArray(archive.tables.legacy_sync_data) ? (await azure.list({ values: false })).length : null;
   return Promise.all(DATA_TABLES.filter((table) => Array.isArray(archive.tables?.[table])).map(async (table) => {
     const incoming = archive.tables?.[table] ?? [];
-    const local = table === 'quiz_questions'
+    const local = table === 'legacy_sync_data' && azureCount !== null ? azureCount : table === 'quiz_questions'
       ? 0
       : (await supabase.from(table).select('*', { count: 'exact', head: true }).eq('user_id', user.id)).count ?? 0;
     return { table, incoming: incoming.length, local, changed: incoming.length > 0 };
@@ -109,11 +118,16 @@ export async function importSelectedData(archive: DataArchive, selected: DataTab
   assertValidArchive(archive);
   if (!Array.isArray(selected) || selected.some((table) => !DATA_TABLES.includes(table))) throw new Error('导入表选择无效。');
   const { supabase, user } = await getAuthenticatedUser();
+  const azure = await azureBackupSource(supabase);
   const imported: string[] = []; const skipped: string[] = [];
   for (const table of new Set(selected)) {
     if (!DATA_TABLES.includes(table) || !Array.isArray(archive.tables?.[table])) { skipped.push(table); continue; }
     const rows = archive.tables[table] ?? [];
     if (!rows.length) { skipped.push(table); continue; }
+    if (table === 'legacy_sync_data' && azure) {
+      for (const row of rows) await azure.write(String(row.storage_key),row.storage_value,Boolean(row.deleted_at));
+      imported.push(table); continue;
+    }
     const prepared = rows.map((row) => table === 'quiz_questions' ? row : { ...row, user_id: user.id });
     for (let offset = 0; offset < prepared.length; offset += 200) {
       const { error } = await supabase.from(table).upsert(prepared.slice(offset, offset + 200));
