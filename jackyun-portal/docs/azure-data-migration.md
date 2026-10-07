@@ -1,7 +1,7 @@
 # Supabase → Azure 数据迁移交付记录
 
 日期：2026-10-07。用户已授权按平台计划实施，并明确要求迁移 Supabase 数据。
-状态：已完成源端盘点、逐表校验和文件备份工具；30个文件已备份并复制到Azure，全部从Azure下载回本机核对路径、大小和SHA-256一致。完整数据库逻辑归档和不含角色密码的角色定义已导出并进行归档检查；尚未导入Azure数据库或切换生产。
+状态：30个文件已备份并复制到Azure，下载回读校验通过。完整数据库逻辑归档已成功恢复到Azure独立迁移库；83张应用表的列定义、行数和内容指纹匹配，结构与同步表两用户读取隔离已核对。尚未接入生产后端或切换网站，最终冻结追平仍待完成。
 
 ## 已实查的数据范围
 
@@ -26,15 +26,15 @@ MCP list_tables 的 rows 与实际 COUNT 有明显差异，不作为最终验收
 新版SQL通过Supabase MCP实查执行，返回全部83张应用表的计数、列定义和指纹；私有 `backup_dirty_pages` 有1条待备份页面记录，不能只迁public而遗漏它。
 结果保存在本机 `.migration-private/source-application-manifest.json`，不是数据库行备份。
 新版格式 `jackyun-application-manifest-v2` 明确声明两个schema；比较器保留旧public-only v1读取能力，但禁止把v1和v2混比当成完整验收。
-本机已在Git忽略目录安装官方PostgreSQL 17.11客户端，psql/pg_dump/pg_restore版本检查通过；源端密码已通过会话池实际登录验证，客户端TLS verify-full/TLSv1.3与显式READ ONLY事务验证通过。目标数据库连接曾超时，仍需验证网络与凭据。完整数据库归档CLI已执行；下列逐表清单CLI和数据库导入尚未运行。
-连接信息放在操作员本机受保护的 pg_service.conf/pgpass 中，分别命名 jackyun_source、jackyun_target；密码不写命令、仓库或聊天。
+本机已安装官方PostgreSQL 17.11客户端；源端会话池及Azure实际登录均成功，客户端TLS verify-full/TLSv1.3与显式READ ONLY事务验证通过。完整归档、独立Azure迁移库恢复以及双方逐表清单CLI已执行。
+连接配置在受保护的pg_service.conf中，密码以Windows DPAPI保存，仅解密到PostgreSQL子进程的临时环境；不写明文pgpass、命令、仓库或聊天。服务名分别为jackyun_source、jackyun_target，目标验收须明确指定dbname=jackyun_migration_20261007，不能误查默认postgres库。
 
 ```powershell
 # 在 jackyun-portal 目录，使用可信的全表读取角色。
 New-Item -ItemType Directory -Force .migration-private | Out-Null
 psql 'service=jackyun_source' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-migration-manifest.sql -o .migration-private/source.json
 if ($LASTEXITCODE -ne 0) { throw '源清单失败' }
-psql 'service=jackyun_target' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-migration-manifest.sql -o .migration-private/target.json
+psql 'service=jackyun_target dbname=jackyun_migration_20261007' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-migration-manifest.sql -o .migration-private/target.json
 if ($LASTEXITCODE -ne 0) { throw '目标清单失败' }
 node scripts/compare-azure-migration.mjs .migration-private/source.json .migration-private/target.json
 if ($LASTEXITCODE -ne 0) { throw '数据不一致或清单无效，禁止切换' }
@@ -76,6 +76,24 @@ pg_restore --list核对82张public表、1张私有应用表以及auth.users、st
 归档解析/解压和记录数证明备份可读取及当前覆盖范围，不能代替实际恢复演练或源目标逐表内容指纹核对。Vault扩展数据段已纳入归档；加密数据的外部主密钥、角色密码、平台控制面配置和Storage文件字节不属于此数据库归档。
 本次是在线初始快照，不是最终冻结快照；源端后续写入仍须在切换前追平。Supabase托管schema、扩展、owner/角色及服务依赖不能原样恢复到Azure后就宣布网站可用；需适配并完成身份/权限和应用恢复验证。
 
+### Azure独立数据库恢复的实查结果
+
+2026-10-07：在现有jackyunasia服务器创建jackyun_migration_20261007，撤销PUBLIC数据库连接权限。未新增服务器、计算规格或付费服务；该库仍占用现有服务器的存储和备份用量，不代表无限免费。
+Azure允许列表已配置pgcrypto、uuid-ossp、pg_stat_statements；目标实际安装这三项及plpgsql。Azure不提供supabase_vault，本次归档Vault secrets为0条，应用函数未发现Vault文本引用；这不替代后续动态依赖审计。
+从完整归档的TOC选择public、jackyun_private、auth、storage、extensions及上述扩展，保留83张应用表、auth/storage数据和所有70个应用函数。排除Supabase控制面schema与托管实时发布配置，不原样导入16个源角色的超级用户属性和成员关系。
+仅创建anon/authenticated两个NOLOGIN策略兼容角色。以--no-owner和--no-privileges恢复，对象归迁移管理员所有；源owner/ACL仍保存在完整归档。运行角色、最小权限、SECURITY DEFINER所有者与可执行范围必须另外适配，禁止管理员作为线上API账号。
+首次单事务恢复因answer_sheet_broadcasts引用缺失的supabase_realtime发布而失败；已确认所有应用对象回滚为0。排除这一条托管发布成员后再次以--single-transaction/--exit-on-error恢复，退出0、日志无警告。业务广播表仍保留；Azure实时推送链路未实现，不能认为旧订阅在Azure可用。
+
+验收证据保存在本机受保护备份目录的azure-staging-verification.json及相关日志：
+
+- 源清单采集09:08 UTC，目标09:15 UTC：全部83张应用表的列定义、8153条记录计数和逐表内容指纹一致；未输出私人行。
+- 87个关系、185个索引、70个函数、37个自定义触发器、128条策略、4个序列核对一致。结构比较明确排除owner/ACL、默认权限和角色成员关系；这些仍需运行权限审计。
+- 405个约束全部存在且validated。唯一原始定义差异是web_sync_upload_chunks_check的AND表达式括号展平；81组边界/空值比较没有行为差异，保留原始比较失败及明确的等价核对记录，不泛化忽略其他约束差异。
+- 目标auth.users为8条、storage.objects为30条；恢复身份数据不等于迁移Supabase Auth服务或证明所有会话可用。
+- 在事务内临时授予同步表读取并SET ROLE authenticated（无BYPASSRLS），两个有数据账号各自只读自己的legacy_sync_data，缺失身份读到0条。全部临时授权回滚，确认authenticated没有数据库连接或同步表读取权限。此检查覆盖同步表读取，不能代替全模块写入、RPC及身份令牌验收。
+
+本次是在线初始恢复与采样对比，没有冻结旧写入，也未验证后台API、同步操作、删除/重试、文件授权或生产切换。旧Supabase仍是网站唯一写入来源；最终切换必须重新冻结、备份、追平和验收。
+
 ### 文件独立备份工具
 
 [只读文件清单 SQL](../scripts/storage-migration-inventory.sql) 记录原桶、公开性、对象ID、路径、归属、大小、更新时间和原元数据。
@@ -83,7 +101,7 @@ pg_restore --list核对82张public表、1张私有应用表以及auth.users、st
 随后通过已登录的Supabase门户下载catalog、users和头像目录ZIP，保存在本机 `.migration-private` 中。
 使用 [门户ZIP导入工具](../scripts/import-storage-downloads.mjs) 校验ZIP CRC与清单覆盖、拒绝未知/重复/不安全路径，复用下述导出器生成独立备份。
 实查完成30个文件、24,882,492字节的备份，目录 `.migration-private/storage-backup-20261007`；逐个大小、SHA-256及元数据映射重新读取校验通过。
-Azure文件复制及下载回读校验已完成；没有数据库导入，Azure头像容器仍为私有。
+Azure文件复制及下载回读校验已完成，独立数据库恢复见上节；Azure头像容器仍为私有，网站尚未接入。
 
 ```powershell
 # 适用于已从门户下载的文件夹ZIP，不需要在终端获取service_role密钥。
@@ -140,8 +158,8 @@ SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字�
 7. 回退：先冻结 Azure 写入，把切换后新记录和删除追平到旧库，再切回；禁止仅换回连接串导致新数据丢失。
    旧库与旧对象在观察期保留，退役前重新核对无旧写入及恢复证据。
 
-源端和目标密码已由用户在本机隐藏输入并以Windows DPAPI加密保存，凭据文件限定当前用户、SYSTEM与管理员访问，未进入Git。等待后重新验证，Supabase共享会话池登录成功，密码有效，客户端TLS及显式只读事务已核实；此前连接池认证失败的具体原因未最终确认。Azure连接仍超时，门户显示当前出口IP与现有防火墙单IP规则不一致，目标密码尚未验证。
-下一步等待用户确认Azure临时单IP放行，再继续目标网络、密码、恢复及应用接入验证；不扩大为全IP访问，不自动重置密码。密码不在聊天、命令文本或仓库中提供。
-源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure文件上传及30个对象的下载回读SHA-256校验已通过；数据库逻辑归档、角色配置导出及归档数据段检查已通过；Azure数据库导入、身份迁移和网站切换仍未验证。
+源端和目标密码已由用户在本机隐藏输入并以Windows DPAPI加密保存，凭据文件限定当前用户、SYSTEM与管理员访问，未进入Git。等待后重新验证，Supabase共享会话池登录成功，密码有效，客户端TLS及显式只读事务已核实；此前连接池认证失败的具体原因未最终确认。用户添加当前出口单IP规则后，Azure管理员实际登录成功，PostgreSQL 17.11及客户端verify-full/TLSv1.3已核实。
+防火墙仅保留两个客户端单IP规则，没有全IP或所有Azure服务放行。密码不在聊天、命令文本或仓库中提供。旧源库仍是网站的唯一写入来源；隔离迁移库恢复和后续应用接入分别验收。
+源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure文件下载回读校验、数据库逻辑归档与隔离库实际恢复、83表双方内容核对及同步表两用户读取隔离已通过。运行权限适配、身份服务迁移、应用读写和网站切换仍未验证。
 
 参考：[PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[XML 查询映射](https://www.postgresql.org/docs/17/functions-xml.html)。
