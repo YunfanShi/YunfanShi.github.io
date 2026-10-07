@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.20.9**
+> 当前版本：**v3.20.10**
 
 ---
 
@@ -16,7 +16,7 @@ Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围�
 全部85个目录条目的用途与优先级见 [Azure服务清单](jackyun-portal/docs/azure-service-catalog.md)，
 文件存储、密钥、Azure登录与Passkeys、通知和页面性能的分阶段实施见 [平台改造计划](jackyun-portal/docs/azure-platform-roadmap.md)。
 Supabase 数据、账号关联和文件的搬迁进度、逐表校验与文件独立备份命令见 [数据迁移记录](jackyun-portal/docs/azure-data-migration.md)。30个文件已复制到Azure，并下载回本机逐个核对路径、大小和SHA-256，全部一致（24,882,492字节）；数据库尚未迁入，网站尚未切换生产。
-数据库验收清单现覆盖83张应用表（包含私有待备份记录）；源端结构与权限定义已保存供迁移适配，完整数据库备份和Azure恢复仍待执行。
+Supabase密码和客户端TLS已验证；完整数据库逻辑归档已导出，数据段解压覆盖83张应用表、8个账号和30条文件记录，另存16个角色配置（不含角色密码）。Azure连接、实际恢复及最终切换仍待完成。
 小说商店已将已授权图书与封面的短时链接合并请求，按每批最多100个去重路径处理；保持原有解锁权限，不跨用户缓存。20个路径的SDK请求验证从20次减少到1次，这不代表已验证生产速度或3GB流量成因。
 首批文件存储、Key Vault与后台身份的可部署配置见 [Azure基础设施](jackyun-portal/azure/README.md)；模板不包含生产数据库切换。
 

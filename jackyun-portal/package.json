@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.20.9",
+  "version": "3.20.10",
   "private": true,
   "engines": {
     "node": ">=22.0.0"

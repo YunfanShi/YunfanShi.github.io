@@ -1,7 +1,7 @@
 # Supabase → Azure 数据迁移交付记录
 
 日期：2026-10-07。用户已授权按平台计划实施，并明确要求迁移 Supabase 数据。
-状态：已完成源端盘点、逐表校验和文件备份工具；30个文件已备份并复制到Azure，全部从Azure下载回本机核对路径、大小和SHA-256一致。尚未导出完整数据库备份、导入数据库或切换生产。
+状态：已完成源端盘点、逐表校验和文件备份工具；30个文件已备份并复制到Azure，全部从Azure下载回本机核对路径、大小和SHA-256一致。完整数据库逻辑归档和不含角色密码的角色定义已导出并进行归档检查；尚未导入Azure数据库或切换生产。
 
 ## 已实查的数据范围
 
@@ -26,7 +26,7 @@ MCP list_tables 的 rows 与实际 COUNT 有明显差异，不作为最终验收
 新版SQL通过Supabase MCP实查执行，返回全部83张应用表的计数、列定义和指纹；私有 `backup_dirty_pages` 有1条待备份页面记录，不能只迁public而遗漏它。
 结果保存在本机 `.migration-private/source-application-manifest.json`，不是数据库行备份。
 新版格式 `jackyun-application-manifest-v2` 明确声明两个schema；比较器保留旧public-only v1读取能力，但禁止把v1和v2混比当成完整验收。
-本机已在Git忽略目录安装官方PostgreSQL 17.11客户端，psql/pg_dump/pg_restore版本检查通过；源端会话池连接已通过TLS verify-full检查，但尚缺数据库密码。目标数据库连接曾超时，仍需验证网络与凭据。下列数据库导出/导入CLI命令尚未运行。
+本机已在Git忽略目录安装官方PostgreSQL 17.11客户端，psql/pg_dump/pg_restore版本检查通过；源端密码已通过会话池实际登录验证，客户端TLS verify-full/TLSv1.3与显式READ ONLY事务验证通过。目标数据库连接曾超时，仍需验证网络与凭据。完整数据库归档CLI已执行；下列逐表清单CLI和数据库导入尚未运行。
 连接信息放在操作员本机受保护的 pg_service.conf/pgpass 中，分别命名 jackyun_source、jackyun_target；密码不写命令、仓库或聊天。
 
 ```powershell
@@ -64,6 +64,17 @@ Azure适配仍要核对函数身份上下文、策略、auth触发器、扩展�
 psql 'service=jackyun_source' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-schema-catalog.sql -o .migration-private/source-application-schema-catalog.json
 if ($LASTEXITCODE -ne 0) { throw '源结构目录失败' }
 ```
+
+### 完整数据库逻辑归档的实查结果
+
+2026-10-07：官方pg_dump 17.11经共享会话池导出自定义格式的完整数据库归档，使用serializable-deferrable一致事务快照及30秒锁等待限制，退出0、没有警告。未按schema裁剪或剥离对象owner/ACL，不修改源业务数据。
+文件大小43,161,215字节，SHA-256为 `1E9426E90C505789C15244D3A98BE0A23490CBBEAD73CED5AC44DCFCEE7C2467`。
+本机目录 `.migration-private/database-backup-20261007-164521` 已设为仅当前Windows用户、SYSTEM和管理员可访问，备份与日志均被Git忽略。
+pg_restore --list核对82张public表、1张私有应用表以及auth.users、storage.objects/buckets的数据段。随后将全部数据段流式解压而不执行SQL、不保存或输出行明文，退出0、无警告；逐表COPY计数覆盖全部83张应用表，共8153条应用记录、8个auth用户、30条Storage对象记录。
+另以pg_dumpall --roles-only --no-role-passwords导出16个角色的定义和成员关系，5,686字节；刻意不导出数据库角色密码。归档验收与逐表行数报告保存在同一受保护目录的archive-verification.json。
+客户端conninfo确认TLSv1.3/TLS_AES_256_GCM_SHA384；显式BEGIN READ ONLY事务内transaction_read_only=on。共享池没有把连接options中的默认只读参数转交为后端默认状态，因此不能单凭pg_service.conf的options保证任意SQL只读，应在事务内显式声明。
+归档解析/解压和记录数证明备份可读取及当前覆盖范围，不能代替实际恢复演练或源目标逐表内容指纹核对。Vault扩展数据段已纳入归档；加密数据的外部主密钥、角色密码、平台控制面配置和Storage文件字节不属于此数据库归档。
+本次是在线初始快照，不是最终冻结快照；源端后续写入仍须在切换前追平。Supabase托管schema、扩展、owner/角色及服务依赖不能原样恢复到Azure后就宣布网站可用；需适配并完成身份/权限和应用恢复验证。
 
 ### 文件独立备份工具
 
@@ -129,8 +140,8 @@ SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字�
 7. 回退：先冻结 Azure 写入，把切换后新记录和删除追平到旧库，再切回；禁止仅换回连接串导致新数据丢失。
    旧库与旧对象在观察期保留，退役前重新核对无旧写入及恢复证据。
 
-源端和目标密码已由用户在本机隐藏输入并以Windows DPAPI加密保存，凭据文件限定当前用户、SYSTEM与管理员访问，未进入Git。只读连接验收尚未通过：Supabase共享会话池仍返回密码认证失败，直连在认证结果返回前被关闭；Azure连接超时，门户显示当前出口IP与现有防火墙单IP规则不一致。不能据用户认为密码正确或凭据保存成功宣布连接有效。
-下一步等待用户确认临时单IP放行及源密码是否刚重置，再继续网络与数据库认证验证；不扩大为全IP访问，不自动重置密码。密码不在聊天、命令文本或仓库中提供。
-源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure文件上传及30个对象的下载回读SHA-256校验已通过；数据库导入、身份迁移和网站切换仍未验证。
+源端和目标密码已由用户在本机隐藏输入并以Windows DPAPI加密保存，凭据文件限定当前用户、SYSTEM与管理员访问，未进入Git。等待后重新验证，Supabase共享会话池登录成功，密码有效，客户端TLS及显式只读事务已核实；此前连接池认证失败的具体原因未最终确认。Azure连接仍超时，门户显示当前出口IP与现有防火墙单IP规则不一致，目标密码尚未验证。
+下一步等待用户确认Azure临时单IP放行，再继续目标网络、密码、恢复及应用接入验证；不扩大为全IP访问，不自动重置密码。密码不在聊天、命令文本或仓库中提供。
+源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure文件上传及30个对象的下载回读SHA-256校验已通过；数据库逻辑归档、角色配置导出及归档数据段检查已通过；Azure数据库导入、身份迁移和网站切换仍未验证。
 
 参考：[PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[XML 查询映射](https://www.postgresql.org/docs/17/functions-xml.html)。
