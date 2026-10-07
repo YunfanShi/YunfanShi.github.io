@@ -21,7 +21,7 @@ export type SyncRequestBody = {
 } | null;
 
 type SyncRpcError = { code?: string; message: string; details?: string | null; hint?: string | null };
-type SyncRpcResult = { status?: string; revision?: number; contentHash?: string; updatedAt?: string; remoteValue?: unknown; remoteDeleted?: boolean; remoteHash?: string | null; remoteUpdatedAt?: string };
+type SyncRpcResult = { status?: string; revision?: number; contentHash?: string; updatedAt?: string; remoteValue?: unknown; remoteLarge?: boolean; remoteDeleted?: boolean; remoteHash?: string | null; remoteUpdatedAt?: string };
 type SyncOutcome = { operation: SyncOperation; result: SyncRpcResult } | { operation: SyncOperation; error: SyncRpcError };
 
 function logSyncFailure(requestId: string, userId: string, operation: SyncOperation, error: SyncRpcError) {
@@ -149,6 +149,18 @@ export async function applySyncBody(
       return { operation, error: error as SyncRpcError };
     }
     const result = data as SyncRpcResult;
+    // Idempotency results preserve the write decision, but their remote value
+    // can reference a revision that no longer exists for chunk downloads.
+    if (result.status === 'remote' || result.status === 'conflict') {
+      const latest = await supabase.rpc('list_web_sync_records', { p_cursor: null, p_storage_key: operation.key });
+      const row = latest.data?.[0];
+      if (latest.error || !row || row.storage_key !== operation.key) {
+        return { operation, error: { message: 'Unable to refresh remote sync record' } };
+      }
+      return { operation, result: { ...result, revision: Number(row.revision),
+        remoteValue: row.storage_value, remoteLarge: Boolean(row.large), remoteDeleted: Boolean(row.deleted_at),
+        remoteHash: row.content_hash, remoteUpdatedAt: row.client_updated_at ?? row.updated_at } };
+    }
     return { operation, result };
   });
   const firstFailure = outcomes.find((outcome) => 'error' in outcome);
@@ -164,7 +176,7 @@ export async function applySyncBody(
       if (operation.resolvesOperationId) resolvedOperationIds.push(operation.resolvesOperationId);
     } else if (result.status === 'remote') {
       if (operation.resolvesOperationId) resolvedOperationIds.push(operation.resolvesOperationId);
-      const large = !result.remoteDeleted && !syncValueFits(result.remoteValue);
+      const large = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       remote.push({
         key: operation.key,
         value: large ? null : result.remoteValue,
@@ -175,7 +187,7 @@ export async function applySyncBody(
         large,
       });
     } else {
-      const remoteLarge = !result.remoteDeleted && !syncValueFits(result.remoteValue);
+      const remoteLarge = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       conflicts.push({
         operationId: operation.id,
         key: operation.key,

@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.21.2**
+> 当前版本：**v3.21.3**
 
 ---
 
@@ -1038,3 +1038,7 @@ Private — JackYun Personal Portal，仅供个人使用。
 ---
 
 Azure同步接入(v3.21.2)：网页四个v2同步接口与旧页面兼容接口支持服务端AZURE_SYNC_API_URL转发。未配置该变量时仍走原数据库；配置后只写Azure，不在失败时转写Supabase。最终五表追平、真实登录和读写验收按后台文档执行。
+
+Azure切换安全准备(v3.21.3候选)：切换工具默认只读预检，生产执行需备份、真实身份验收和回退证据；精确恢复权限与触发器状态，提交结果不明时保持冻结并要求核查。Azure后台增加Supabase权威账号状态检查，来源不可用时拒绝受保护请求。macOS检查文件在`jackyun-portal/scripts/azure-preflight.command`，单账号只读验收在`azure-real-login-check.command`，两端备份在`azure-cutover-backup.command`。2026年10月8日实查两端均83张应用表、8个账号，14张表存在数据差异；网站切换与第二阶段请求优化仍未完成。详细说明见`jackyun-portal/docs/azure-cutover-and-database-access-plan.docx`。全仓库lint已有16个错误，未将其标记为通过。
+
+切换前入口审计发现日程恢复、导入和云端备份仍访问旧同步表，尚需适配；详见[同步入口审计](jackyun-portal/docs/azure-sync-entry-audit.md)。生产转发保持未启用。

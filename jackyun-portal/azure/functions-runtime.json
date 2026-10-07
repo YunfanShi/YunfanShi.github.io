@@ -6,7 +6,8 @@
     "appName": { "type": "string", "defaultValue": "jackyun-sync-9d26b2cc", "allowedValues": ["jackyun-sync-9d26b2cc"] },
     "runtimeStorageName": { "type": "string", "defaultValue": "jackyunfn9d26b2cc", "allowedValues": ["jackyunfn9d26b2cc"] },
     "identityName": { "type": "string", "defaultValue": "jackyun-api-identity", "allowedValues": ["jackyun-api-identity"] },
-    "vaultName": { "type": "string", "defaultValue": "jackyun-kv-9d26b2cc", "allowedValues": ["jackyun-kv-9d26b2cc"] }
+    "vaultName": { "type": "string", "defaultValue": "jackyun-kv-9d26b2cc", "allowedValues": ["jackyun-kv-9d26b2cc"] },
+    "supabasePublishableKey": { "type": "secureString", "metadata": { "description": "Existing project publishable or anon key for user-scoped authoritative account-state checks" } }
   },
   "variables": {
     "identityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('identityName'))]",
@@ -86,7 +87,8 @@
             { "name": "PGUSER", "value": "jackyun_sync_login" },
             { "name": "PGPASSWORD", "value": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('vaultName'), '.vault.azure.net/secrets/jackyun-sync-db-password/)')]" },
             { "name": "PGSSLROOTCERT", "value": "/etc/ssl/certs/ca-certificates.crt" },
-            { "name": "SUPABASE_URL", "value": "https://gdcwwlnzylrzrqhaaljq.supabase.co" }
+            { "name": "SUPABASE_URL", "value": "https://gdcwwlnzylrzrqhaaljq.supabase.co" },
+            { "name": "SUPABASE_PUBLISHABLE_KEY", "value": "[parameters('supabasePublishableKey')]" }
           ]
         }
       }

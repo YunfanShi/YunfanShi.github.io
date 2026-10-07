@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { createAuthenticator } from './auth.mjs';
+import { createAccountStateVerifier } from './account-state.mjs';
 import { createDatabase } from './database.mjs';
 import { createSyncApi } from './sync-api.mjs';
 import { ApiError } from './errors.mjs';
@@ -88,7 +89,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const database = createDatabase({ host: process.env.PGHOST, database: process.env.PGDATABASE,
     user: process.env.PGUSER, password: process.env.PGPASSWORD, caPath: process.env.PGSSLROOTCERT });
   const authenticate = createAuthenticator({ supabaseUrl: process.env.SUPABASE_URL,
-    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY });
+    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+    verifyAccount: createAccountStateVerifier({ supabaseUrl: process.env.SUPABASE_URL,
+      publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY }) });
   const server = createApiServer({ authenticate, handle: createSyncApi(database) });
   server.listen(Number(process.env.PORT ?? 8080), '0.0.0.0', () => console.log('Azure sync API listening'));
   const stop = () => {

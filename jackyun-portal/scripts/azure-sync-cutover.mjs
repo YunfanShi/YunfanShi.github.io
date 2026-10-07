@@ -1,89 +1,76 @@
-// Explicit operator-only cutover. Credentials come from a protected child environment.
+// Defaults to read-only preflight. Never put credentials in command arguments.
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import path from 'node:path';
-const { Client } = createRequire(new URL('../azure/backend/package.json', import.meta.url))('pg');
-const root = path.resolve(import.meta.dirname, '..');
-const tables = ['web_sync_devices', 'legacy_sync_data', 'sync_operations', 'sync_conflicts', 'web_sync_upload_chunks'];
-const qualified = tables.map(t => `public.${t}`).join(',');
-const roles = 'anon, authenticated, service_role';
-const privateRoot = path.join(root, '.migration-private');
-const archive = path.join(privateRoot, `sync-cutover-${Date.now()}`);
-const source = new Client({ host: 'aws-1-ap-northeast-1.pooler.supabase.com', port: 5432,
-  user: 'postgres.gdcwwlnzylrzrqhaaljq', database: 'postgres', password: process.env.SOURCEPGPASSWORD,
-  ssl: { rejectUnauthorized: true, ca: readFileSync(path.join(privateRoot, 'supabase-prod-ca-2021.crt'), 'utf8') },
-  statement_timeout: 120_000 });
-const target = new Client({ host: 'jackyunasia.postgres.database.azure.com', port: 5432,
-  user: 'jackyun_admin', database: 'jackyun_migration_20261007', password: process.env.TARGETPGPASSWORD,
-  ssl: { rejectUnauthorized: true, ca: readFileSync(path.join(privateRoot, 'windows-trusted-roots.pem'), 'utf8') },
-  statement_timeout: 120_000 });
-async function rows(client, table) {
-  return (await client.query(`SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]'::jsonb) AS data FROM public.${table} r`)).rows[0].data;
+import { readFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { inspectCutover, applyCutover, privateArchive, validateEvidence } from './lib/azure-cutover.mjs';
+import { compareManifests } from './compare-azure-migration.mjs';
+import { atStage, safeDiagnostic } from './lib/azure-cutover-diagnostics.mjs';
+
+export async function main(args = process.argv.slice(2), env = process.env) {
+  if (args.some(arg => !['--apply', '--preflight'].includes(arg)) || new Set(args).size > 1) throw Error('Choose --preflight (default) or --apply');
+  const root = resolve(import.meta.dirname, '..');
+  const { Client } = createRequire(new URL('../azure/backend/package.json', import.meta.url))('pg');
+  function connection(side) {
+    const source = side === 'SOURCE';
+    const password = env[`${side}PGPASSWORD`];
+    const caPath = env[`${side}PGSSLROOTCERT`];
+    if (!password || !caPath) throw Error('Password and trusted CA must be provided in a protected environment');
+    return new Client({ host: source ? 'aws-1-ap-northeast-1.pooler.supabase.com' : 'jackyunasia.postgres.database.azure.com',
+      port: 5432, database: source ? 'postgres' : 'jackyun_migration_20261007',
+      user: source ? 'postgres.gdcwwlnzylrzrqhaaljq' : 'jackyun_admin', password,
+      ssl: { rejectUnauthorized: true, ca: readFileSync(caPath, 'utf8') },
+      connectionTimeoutMillis: 10_000, statement_timeout: 120_000, application_name: 'jackyun-sync-cutover' });
+  }
+  const source = await atStage('source_configuration',()=>connection('SOURCE'));
+  const target = await atStage('target_configuration',()=>connection('TARGET'));
+  try {
+    console.log('步骤 1/4：连接 Supabase 数据库…');
+    await atStage('source_connect',()=>source.connect());
+    console.log('步骤 2/4：连接 Azure 数据库…');
+    await atStage('target_connect',()=>target.connect());
+    console.log('步骤 3/4：检查迁移库结构、账号与权限…');
+    const report = await inspectCutover(source, target);
+    if (!args.includes('--apply')) {
+      const sql = readFileSync(join(root, 'scripts/azure-migration-manifest.sql'), 'utf8');
+      const manifest = async client => {
+        const results = await client.query(sql);
+        const result = (Array.isArray(results) ? results : [results]).flatMap(item => item.rows)
+          .map(row => Object.values(row)[0]).find(value => value?.format === 'jackyun-application-manifest-v2');
+        if (!result) throw Error('Application manifest incomplete');
+        return result;
+      };
+      console.log('步骤 4/4：读取并比较两边的应用表指纹…');
+      const from = await atStage('source_manifest',()=>manifest(source));
+      const to = await atStage('target_manifest',()=>manifest(target));
+      const comparison = await atStage('compare_manifest',()=>compareManifests(from,to));
+      const archive = await atStage('archive',()=>privateArchive(join(root, '.migration-private')));
+      archive.write('source-manifest.json',from); archive.write('target-manifest.json',to);
+      // Do not print private IDs, profile data or connection credentials.
+      const summary = { ok: true, operation: 'preflight', writesPerformed: false,
+        capturedAt: new Date().toISOString(), accountCount: report.source.ids.length,
+        sourceApplicationTables: from.tables.length, targetApplicationTables: to.tables.length,
+        applicationMatches: comparison.matches, differences: comparison.differences,
+        profileStatesMatch: JSON.stringify(report.source.profiles) === JSON.stringify(report.target.profiles),
+        syncTables: 5, targetDatabase: report.target.database, archive: archive.directory };
+      archive.write('summary.json',summary);
+      console.log(JSON.stringify(summary)); return summary;
+    }
+    const evidence = validateEvidence(env.AZURE_CUTOVER_EVIDENCE, report);
+    const archive = privateArchive(join(root, '.migration-private'));
+    const result = await applyCutover({ source, target, report, evidence, archive });
+    console.log(JSON.stringify(result)); return result;
+  } finally { await source.end().catch(() => {}); await target.end().catch(() => {}); }
 }
-async function fingerprint(client, table) {
-  return (await client.query(`SELECT count(*)::text AS count, md5(coalesce(string_agg(h,'' ORDER BY h COLLATE "C"),'')) AS hash
-    FROM (SELECT md5(to_jsonb(r)::text) AS h FROM public.${table} r) hashes`)).rows[0];
-}
-let frozen = false;
-let committed = false;
-try {
-  if (!process.env.SOURCEPGPASSWORD || !process.env.TARGETPGPASSWORD) throw Error('Credentials required');
-  await source.connect(); await target.connect();
-  const identities = async client => (await client.query('SELECT id::text FROM auth.users ORDER BY id')).rows.map(x => x.id).join(',');
-  if (await identities(source) !== await identities(target)) throw Error('Auth identities differ; full auth delta required');
-  const profileIds = async client => (await client.query('SELECT id::text FROM public.profiles ORDER BY id')).rows.map(x => x.id).join(',');
-  if (await profileIds(source) !== await profileIds(target)) throw Error('Profile identities differ');
-  // Guard the exact ACL that the rollback restores; never guess privileges.
-  const acl = (await source.query(`SELECT c.relname,c.relacl::text AS acl FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='public' AND c.relname=ANY($1)`, [tables])).rows;
-  const expected = '{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}';
-  if (acl.length !== 5 || acl.some(x => x.acl !== expected)) throw Error('Source ACL changed; review rollback first');
-  mkdirSync(archive, { recursive: false });
-  writeFileSync(path.join(archive, 'restore-source-writes.sql'), `GRANT INSERT,UPDATE,DELETE,TRUNCATE ON ${qualified} TO ${roles};\n`);
-  await source.query('BEGIN');
-  await source.query("SET LOCAL lock_timeout='10s'");
-  await source.query(`LOCK TABLE ${qualified} IN ACCESS EXCLUSIVE MODE`);
-  await source.query(`REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON ${qualified} FROM ${roles}`);
-  await source.query('COMMIT'); frozen = true;
-  await source.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-  const snapshot = {};
-  const expectedHashes = {};
-  for (const table of tables) { snapshot[table] = await rows(source, table); expectedHashes[table] = await fingerprint(source, table); }
-  const profiles = (await source.query('SELECT id::text,account_status,deleted_at::text FROM public.profiles')).rows;
-  await source.query('COMMIT');
-  writeFileSync(path.join(archive, 'source-sync.json'), JSON.stringify({ snapshot, profiles }));
-  await target.query('BEGIN');
-  await target.query("SET LOCAL lock_timeout='10s'");
-  await target.query(`LOCK TABLE ${qualified},public.profiles IN ACCESS EXCLUSIVE MODE`);
-  const before = {};
-  for (const table of tables) before[table] = await rows(target, table);
-  before.profiles = await rows(target, 'profiles');
-  writeFileSync(path.join(archive, 'target-before.json'), JSON.stringify(before));
-  await target.query('ALTER TABLE public.legacy_sync_data DISABLE TRIGGER USER');
-  await target.query('ALTER TABLE public.profiles DISABLE TRIGGER USER');
-  await target.query(`TRUNCATE ${qualified}`);
-  for (const table of tables) {
-    await target.query(`INSERT INTO public.${table} SELECT * FROM jsonb_populate_recordset(NULL::public.${table},$1::jsonb)`, [JSON.stringify(snapshot[table])]);
-  }
-  for (const profile of profiles) {
-    await target.query('UPDATE public.profiles SET account_status=$2,deleted_at=$3::timestamptz WHERE id=$1::uuid',
-      [profile.id, profile.account_status, profile.deleted_at]);
-  }
-  await target.query('ALTER TABLE public.legacy_sync_data ENABLE TRIGGER USER');
-  await target.query('ALTER TABLE public.profiles ENABLE TRIGGER USER');
-  for (const table of tables) {
-    if (JSON.stringify(await fingerprint(target, table)) !== JSON.stringify(expectedHashes[table])) throw Error('Delta fingerprint mismatch');
-  }
-  await target.query('COMMIT'); committed = true;
-  const evidence = { migratedSyncTables: 5, fingerprintsMatch: true, sourceWritesFrozen: true,
-    targetRows: Object.fromEntries(tables.map(t => [t, expectedHashes[t].count])), archive };
-  writeFileSync(path.join(archive, 'verification.json'), JSON.stringify(evidence, null, 2));
-  console.log(JSON.stringify(evidence));
-} catch {
-  await target.query('ROLLBACK').catch(() => {});
-  await source.query('ROLLBACK').catch(() => {});
-  if (frozen && !committed) await source.query(`GRANT INSERT,UPDATE,DELETE,TRUNCATE ON ${qualified} TO ${roles}`);
-  throw Error('Sync cutover failed; target transaction rolled back and original source writes restored');
-} finally {
-  await source.end().catch(() => {}); await target.end().catch(() => {});
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(error => {
+    const diagnostic = safeDiagnostic(error);
+    try {
+      const archive = privateArchive(resolve(import.meta.dirname,'../.migration-private'));
+      archive.write('diagnostic.json',diagnostic); diagnostic.diagnosticArchive = archive.directory;
+    } catch { /* Console diagnosis is still available if the archive is unwritable. */ }
+    console.error(JSON.stringify(diagnostic));
+    process.exitCode = 1;
+  });
 }

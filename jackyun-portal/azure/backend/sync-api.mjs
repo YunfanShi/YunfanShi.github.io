@@ -50,14 +50,21 @@ async function applyBody(client, identity, body, large = false) {
   if (recent + body.operations.length > 600) fail(429, 'RATE_LIMITED');
   const applied = [], remote = [], conflicts = [];
   for (const op of body.operations) {
-    const result = await applyOperation(client, op, body.deviceId);
+    let result = await applyOperation(client, op, body.deviceId);
+    if (result.status === 'remote' || result.status === 'conflict') {
+      const row = (await client.query('SELECT * FROM public.list_web_sync_records(NULL,$1)',[op.key])).rows[0];
+      if (!row || row.storage_key !== op.key) fail(503,'SYNC_REMOTE_UNAVAILABLE');
+      result = { ...result,revision:Number(row.revision),remoteValue:row.storage_value,
+        remoteLarge:Boolean(row.large),remoteDeleted:Boolean(row.deleted_at),
+        remoteHash:row.content_hash,remoteUpdatedAt:iso(row.client_updated_at ?? row.updated_at) };
+    }
     if (result.status === 'applied') applied.push({ operationId: op.id, key: op.key, revision: Number(result.revision), contentHash: result.contentHash, updatedAt: result.updatedAt ?? op.clientUpdatedAt });
     else if (result.status === 'remote') {
-      const large = !result.remoteDeleted && !syncValueFits(result.remoteValue);
+      const large = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       remote.push({ key: op.key, value: large ? null : result.remoteValue, revision: Number(result.revision ?? 0),
         contentHash: result.remoteHash ?? null, deleted: Boolean(result.remoteDeleted), updatedAt: result.remoteUpdatedAt, large });
     } else {
-      const remoteLarge = !result.remoteDeleted && !syncValueFits(result.remoteValue);
+      const remoteLarge = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       conflicts.push({ operationId: op.id, key: op.key, baseRevision: op.baseRevision, baseValue: op.baseValue,
         localValue: op.deleted ? null : op.value, localDeleted: op.deleted, remoteValue: remoteLarge ? null : result.remoteValue,
         remoteLarge, remoteDeleted: Boolean(result.remoteDeleted), remoteHash: result.remoteHash,

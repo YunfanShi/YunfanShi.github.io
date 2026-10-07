@@ -8,7 +8,7 @@ import JSZip from 'jszip';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const privateRoot = join(root, '.migration-private');
 const selected = [
-  'azure/backend/errors.mjs', 'azure/backend/auth.mjs', 'azure/backend/database.mjs',
+  'azure/backend/errors.mjs', 'azure/backend/auth.mjs', 'azure/backend/account-state.mjs', 'azure/backend/database.mjs',
   'azure/backend/sync-api.mjs', 'azure/backend/server.mjs', 'azure/backend/functions-adapter.mjs',
   'azure/backend/functions.mjs', 'src/lib/local-workspace.ts', 'src/lib/sync/hash.ts',
   'src/lib/sync/schedule-safety.ts', 'src/lib/sync/transfer.ts',
