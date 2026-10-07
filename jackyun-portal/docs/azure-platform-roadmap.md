@@ -10,7 +10,7 @@
 - 本地工作分支与对应远程一致，已执行 git pull origin main；当前工作分支含 main 之外的变更，计划 PR 以当前分支为基线。
 - Azure 门户实查：JackYun 资源组有一个 PostgreSQL 灵活服务器 jackyunasia，Ready，East Asia，17.11，B1ms，32 GiB，高可用未启用。
 - Supabase连接器同日实查：现有项目ACTIVE_HEALTHY，东京，PostgreSQL 17；健康状态不证明组织出站额度已恢复或网站同步成功。
-- 终结点：jackyunasia.postgres.database.azure.com。未做 SQL 连接、数据导入或网站读写验证；Ready 不能证明应用可用。
+- 终结点：jackyunasia.postgres.database.azure.com。用户添加当前出口的单IP规则后，实际SQL登录成功，管理员密码及客户端verify-full/TLSv1.3连接已验证。独立迁移库恢复与验收进度见 [数据迁移记录](azure-data-migration.md)；网站读写和生产切换尚未验证。
 - 订阅区域策略允许 eastasia、malaysiawest、uaenorth、centralindia、indiasouthcentral。每种服务的区域和 SKU 仍须分别验证。
 - 当前 package.json 使用 Next.js 16.3.1、React 19.2.8。src/app/api 有 29 个 route.ts，portal 下有 19 个引用 LegacyFrame 的文件。
 - [页面外壳](../src/app/(portal)/layout.tsx) 已有服务器身份读取、数据库查询、React 客户端组件。
