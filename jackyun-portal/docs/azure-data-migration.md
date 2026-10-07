@@ -1,7 +1,7 @@
 # Supabase → Azure 数据迁移交付记录
 
 日期：2026-10-07。用户已授权按平台计划实施，并明确要求迁移 Supabase 数据。
-状态：已完成源端盘点、逐表校验和文件备份工具；30个文件字节已下载并完成本地校验，Azure基础资源已部署。尚未导出数据库备份、上传Azure文件、导入数据库或切换生产。
+状态：已完成源端盘点、逐表校验和文件备份工具；30个文件已备份并复制到Azure，全部从Azure下载回本机核对路径、大小和SHA-256一致。尚未导出完整数据库备份、导入数据库或切换生产。
 
 ## 已实查的数据范围
 
@@ -26,7 +26,7 @@ MCP list_tables 的 rows 与实际 COUNT 有明显差异，不作为最终验收
 新版SQL通过Supabase MCP实查执行，返回全部83张应用表的计数、列定义和指纹；私有 `backup_dirty_pages` 有1条待备份页面记录，不能只迁public而遗漏它。
 结果保存在本机 `.migration-private/source-application-manifest.json`，不是数据库行备份。
 新版格式 `jackyun-application-manifest-v2` 明确声明两个schema；比较器保留旧public-only v1读取能力，但禁止把v1和v2混比当成完整验收。
-本机暂未安装 psql/pg_dump；下列 CLI 命令尚未在本机运行。需要 PostgreSQL 17 客户端和可信的连接配置。
+本机已在Git忽略目录安装官方PostgreSQL 17.11客户端，psql/pg_dump/pg_restore版本检查通过；源端会话池连接已通过TLS verify-full检查，但尚缺数据库密码。目标数据库连接曾超时，仍需验证网络与凭据。下列数据库导出/导入CLI命令尚未运行。
 连接信息放在操作员本机受保护的 pg_service.conf/pgpass 中，分别命名 jackyun_source、jackyun_target；密码不写命令、仓库或聊天。
 
 ```powershell
@@ -72,7 +72,7 @@ if ($LASTEXITCODE -ne 0) { throw '源结构目录失败' }
 随后通过已登录的Supabase门户下载catalog、users和头像目录ZIP，保存在本机 `.migration-private` 中。
 使用 [门户ZIP导入工具](../scripts/import-storage-downloads.mjs) 校验ZIP CRC与清单覆盖、拒绝未知/重复/不安全路径，复用下述导出器生成独立备份。
 实查完成30个文件、24,882,492字节的备份，目录 `.migration-private/storage-backup-20261007`；逐个大小、SHA-256及元数据映射重新读取校验通过。
-没有Azure上传或数据库导入；备份清单保留原来的公开性不表示Azure头像已经公开。
+Azure文件复制及下载回读校验已完成；没有数据库导入，Azure头像容器仍为私有。
 
 ```powershell
 # 适用于已从门户下载的文件夹ZIP，不需要在终端获取service_role密钥。
@@ -103,6 +103,15 @@ SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字�
 文件映射和哈希供后续Blob上传核对使用；旧私有小说不得因迁移而公开。
 6项导出/校验测试覆盖同尺寸损坏、下载失败、重复清单、归属变更、路径穿越和备份覆盖，均通过。
 
+### Azure文件复制的实查结果
+
+2026-10-07：avatars的2个头像由用户从门户上传，novels的28个小说文件通过官方Azure CLI 2.91.0、Entra登录和容器范围RBAC上传。上传未覆盖目标对象，也未删除Supabase源文件。
+目标账号为jackyunassets9d26b2cc，保留原对象路径；原novel-files映射到novels，avatars映射到avatars。
+从Azure重新下载两个容器的全部对象，核对对象数30、总大小24,882,492字节，以及每个路径、大小和SHA-256，全部一致。验收报告保存在本机被Git忽略的 `.migration-private/azure-roundtrip-verification.json`。
+这验证了当前文件字节复制和操作员数据平面读写；原归属、缓存等元数据保留在本机清单中，尚未完成应用元数据接入。两个容器仍为私有，后台运行身份未附加、没有文件权限，网站仍读取Supabase。
+用户授权的临时Storage Blob Data Contributor仅授予当前操作员的avatars和novels容器范围，尚未移除；最终追平并完成迁移后撤销。没有授予存储账号级访问或新增其他容器权限。
+本次为在线初始快照；正式切换还须冻结旧写入并核对最终清单和增量，不能将此次校验当作最终切换验收。
+
 ### 数据、身份和文件切换
 
 1. 备份：完整数据库逻辑备份、角色/扩展/函数/策略/触发器/定时任务清单；文件另行下载。
@@ -120,7 +129,7 @@ SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字�
 7. 回退：先冻结 Azure 写入，把切换后新记录和删除追平到旧库，再切回；禁止仅换回连接串导致新数据丢失。
    旧库与旧对象在观察期保留，退役前重新核对无旧写入及恢复证据。
 
-当前下一步的外部前提是 Azure 应用连接与运行身份配置。没有读取或要求用户在聊天里提供数据库密码。
-源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure上传、数据库导入、身份迁移和网站切换均未验证。
+当前下一步需要源端和目标数据库的安全本机凭据配置、目标网络验证，以及Azure应用连接与运行身份配置。密码不在聊天、命令文本或仓库中提供。
+源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure文件上传及30个对象的下载回读SHA-256校验已通过；数据库导入、身份迁移和网站切换仍未验证。
 
 参考：[PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[XML 查询映射](https://www.postgresql.org/docs/17/functions-xml.html)。
