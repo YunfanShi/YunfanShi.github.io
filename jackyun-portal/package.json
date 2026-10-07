@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.20.8",
+  "version": "3.20.9",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -17,14 +17,14 @@
     "start": "next start",
     "lint": "eslint .",
     "test:network-access": "node --test tests/network-access.test.mts",
-    "test:security": "node --test tests/llm-endpoint.test.mts",
+    "test:security": "node --test tests/llm-endpoint.test.mts tests/private-key-check.test.mjs",
     "test:tr3000": "node --test tests/tr3000-manager.test.mts",
     "test:safeguard": "node --test tests/safeguard-rules.test.mjs",
     "test:adblock": "node --test tests/adblock.test.mjs",
     "test:companion-performance": "node --test tests/companion-performance.test.mjs",
     "test:legacy-ui": "node --test tests/legacy-ui.test.mts tests/music-sync.test.mts",
     "test:pwa": "node --test tests/pwa.test.mts tests/pwa-assets.test.mts tests/css-compatibility.test.mts",
-    "test:reader-admin": "node --test tests/admin-novel-management.test.mts tests/redemption.test.mts tests/novel-export.test.mts",
+    "test:reader-admin": "node --test tests/admin-novel-management.test.mts tests/redemption.test.mts tests/novel-export.test.mts tests/novel-signed-links.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",
     "check:companion": "node scripts/check-companion-package.mjs",
     "sync:companion-sources": "node scripts/sync-companion-hosted-sources.mjs",
