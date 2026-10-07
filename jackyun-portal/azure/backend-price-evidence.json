@@ -1,0 +1,193 @@
+{
+  "capturedAtUtc": "2026-10-07T10:19:00.6588681Z",
+  "source": "Microsoft Retail Prices API",
+  "queries": [
+    {
+      "queryUrl": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27eastasia%27%20and%20serviceName%20eq%20%27Functions%27%20and%20priceType%20eq%20%27Consumption%27",
+      "items": [
+        {
+          "productName": "Flex Consumption",
+          "skuName": "On Demand",
+          "meterName": "On Demand Total Executions",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "10",
+          "retailPrice": 0.0,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2024-12-01T00:00:00Z",
+          "meterId": "ae4b2fda-3fc8-53b6-a802-7dad4a333ee7"
+        },
+        {
+          "productName": "Flex Consumption",
+          "skuName": "On Demand",
+          "meterName": "On Demand Total Executions",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "10",
+          "retailPrice": 4E-06,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 25000.0,
+          "effectiveStartDate": "2024-12-01T00:00:00Z",
+          "meterId": "ae4b2fda-3fc8-53b6-a802-7dad4a333ee7"
+        },
+        {
+          "productName": "Flex Consumption",
+          "skuName": "On Demand",
+          "meterName": "On Demand Execution Time",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "1 GB Second",
+          "retailPrice": 0.0,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2024-12-01T00:00:00Z",
+          "meterId": "fde13434-e299-5289-a7e5-6dc53fde8164"
+        },
+        {
+          "productName": "Flex Consumption",
+          "skuName": "On Demand",
+          "meterName": "On Demand Execution Time",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "1 GB Second",
+          "retailPrice": 3.7E-05,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 100000.0,
+          "effectiveStartDate": "2024-12-01T00:00:00Z",
+          "meterId": "fde13434-e299-5289-a7e5-6dc53fde8164"
+        }
+      ]
+    },
+    {
+      "queryUrl": "https://prices.azure.com/api/retail/prices?$filter=productName%20eq%20%27Virtual%20Network%20Private%20Link%27%20and%20armRegionName%20eq%20%27Global%27%20and%20priceType%20eq%20%27Consumption%27",
+      "items": [
+        {
+          "productName": "Virtual Network Private Link",
+          "skuName": "Standard",
+          "meterName": "Standard Data Processed - Ingress",
+          "armRegionName": "Global",
+          "unitOfMeasure": "1 GB",
+          "retailPrice": 0.01,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2021-11-01T00:00:00Z",
+          "meterId": "10caa28b-6479-4852-9eb7-610870cb6417"
+        },
+        {
+          "productName": "Virtual Network Private Link",
+          "skuName": "Standard",
+          "meterName": "Standard Private Endpoint",
+          "armRegionName": "Global",
+          "unitOfMeasure": "1 Hour",
+          "retailPrice": 0.01,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2020-02-01T00:00:00Z",
+          "meterId": "e6ab7238-e433-4fe0-a2b2-2b2564df2cdb"
+        },
+        {
+          "productName": "Virtual Network Private Link",
+          "skuName": "Standard",
+          "meterName": "Standard Data Processed - Egress",
+          "armRegionName": "Global",
+          "unitOfMeasure": "1 GB",
+          "retailPrice": 0.01,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2021-11-01T00:00:00Z",
+          "meterId": "e7f162f6-7cb8-4cea-ad4f-12cdb5dda25b"
+        }
+      ]
+    },
+    {
+      "queryUrl": "https://prices.azure.com/api/retail/prices?$filter=skuName%20eq%20%27Private%27%20and%20serviceName%20eq%20%27Azure%20DNS%27%20and%20armRegionName%20eq%20%27Zone%202%27%20and%20priceType%20eq%20%27Consumption%27",
+      "items": [
+        {
+          "productName": "Azure DNS",
+          "skuName": "Private",
+          "meterName": "Private Zone",
+          "armRegionName": "Zone 2",
+          "unitOfMeasure": "1",
+          "retailPrice": 0.5,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2019-12-01T00:00:00Z",
+          "meterId": "0b608a26-f611-4232-8192-ce81b6b57194"
+        },
+        {
+          "productName": "Azure DNS",
+          "skuName": "Private",
+          "meterName": "Private Queries",
+          "armRegionName": "Zone 2",
+          "unitOfMeasure": "1M",
+          "retailPrice": 0.4,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2019-12-01T00:00:00Z",
+          "meterId": "46cff9cb-4b15-4af0-bf41-25143827fef8"
+        }
+      ]
+    },
+    {
+      "queryUrl": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27eastasia%27%20and%20serviceName%20eq%20%27Azure%20Container%20Apps%27%20and%20priceType%20eq%20%27Consumption%27",
+      "items": [
+        {
+          "productName": "Azure Container Apps",
+          "skuName": "Standard",
+          "meterName": "Standard Memory Active Usage",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "1 GiB Second",
+          "retailPrice": 3E-06,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2022-06-01T00:00:00Z",
+          "meterId": "c21827b7-fe3e-506f-aba6-2fc4dc954826"
+        },
+        {
+          "productName": "Azure Container Apps",
+          "skuName": "Standard",
+          "meterName": "Standard vCPU Active Usage",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "1 Second",
+          "retailPrice": 2.4E-05,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2022-06-01T00:00:00Z",
+          "meterId": "c6ae6aa1-7d61-5e5b-8111-e8a0fab86f7b"
+        }
+      ]
+    },
+    {
+      "queryUrl": "https://prices.azure.com/api/retail/prices?$filter=armRegionName%20eq%20%27eastasia%27%20and%20serviceName%20eq%20%27Virtual%20Network%27%20and%20priceType%20eq%20%27Consumption%27",
+      "items": [
+        {
+          "productName": "IP Addresses",
+          "skuName": "Standard",
+          "meterName": "Standard IPv4 Static Public IP",
+          "armRegionName": "eastasia",
+          "unitOfMeasure": "1 Hour",
+          "retailPrice": 0.005,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2018-06-01T00:00:00Z",
+          "meterId": "9c150bf9-2bad-430e-a53c-c213804f49ef"
+        }
+      ]
+    },
+    {
+      "queryUrl": "https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20%27Load%20Balancer%27%20and%20armRegionName%20eq%20%27Global%27%20and%20priceType%20eq%20%27Consumption%27",
+      "items": [
+        {
+          "productName": "Load Balancer",
+          "skuName": "Standard",
+          "meterName": "Standard Included LB Rules and Outbound Rules",
+          "armRegionName": "Global",
+          "unitOfMeasure": "1 Hour",
+          "retailPrice": 0.025,
+          "currencyCode": "USD",
+          "tierMinimumUnits": 0.0,
+          "effectiveStartDate": "2018-04-11T00:00:00Z",
+          "meterId": "27827eb0-7f60-4928-940b-f5fe15e7a4cb"
+        }
+      ]
+    }
+  ],
+  "accountFreeGrantVerified": false
+}

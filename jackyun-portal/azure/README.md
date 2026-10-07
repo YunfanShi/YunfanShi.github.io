@@ -32,7 +32,7 @@ az deployment group what-if --resource-group JackYun --template-file azure/found
 ```
 
 本机已在Git忽略目录安装并登录官方Azure CLI 2.91.0，完成文件上传和下载校验；上述模板validate/what-if命令尚未运行。部署实际状态记录在数据迁移文档中，不以模板存在代表已接入。
-数据库已完成独立暂存恢复与逐表核对，Blob已有文件已复制并下载回读验证。后续：后台网络与费用配置 →真实Container Apps服务和登录身份 →应用机密及文件授权接口 →应用试点与最终数据追平。
+数据库已完成独立暂存恢复与逐表核对，Blob已有文件已复制并下载回读验证。[数据库私网模板](backend-network.json)已通过Azure预验证及what-if，尚未部署；原四项资源均Ignore、六项网络Create。后台托管正在比较Functions Flex：Container Apps自建网络还附带IP和负载均衡费用，[详细费用与部署审阅](backend-deployment-review.md)包括明确meter与用量情景。后续：费用确认和网络 →真实云端后台及登录验收 →应用机密及文件授权接口 →应用试点与最终数据追平。
 
 ## 同步角色配置与演练
 

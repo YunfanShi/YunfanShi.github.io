@@ -1,6 +1,6 @@
 # Azure 独立同步后台
 
-版本3.21.0。保留现有同步接口契约，通过普通PostgreSQL登录访问Azure迁移库。此阶段仅在本机启动演练，网站仍使用Supabase；没有创建Container Apps或新增云计算资源。
+版本3.21.1。保留现有同步接口契约，通过普通PostgreSQL登录访问Azure迁移库。此阶段仅在本机启动演练，网站仍使用Supabase；没有创建Container Apps或新增云计算资源。
 
 接口：`/api/sync/v2`、`/api/sync/v2/large`、`/api/sync/devices`、`/api/sync/conflicts`。`GET /health/live`仅检查进程存活，不证明数据库可用。HTTPS入口由最终云端服务提供；容器监听8080。
 
@@ -24,7 +24,7 @@
 docker build -f azure/backend/Dockerfile -t jackyun-sync-api:3.21.0 .
 ```
 
-Dockerfile专用ignore采用白名单，仅包含后台依赖与4个纯同步规则源文件；备份、环境文件、整个Next.js应用和node_modules不进入构建上下文。镜像使用普通node用户。当前未实际构建镜像或验证云端运行，不能以Dockerfile存在代表部署成功。
+Dockerfile专用ignore采用白名单，仅包含后台依赖与4个纯同步规则源文件；备份、环境文件、整个Next.js应用和node_modules不进入构建上下文。3.21.0镜像已实际构建，上下文38.47KB；离线镜像运行确认uid1000、可信CA存在、共享同步模块加载成功。尚未发布镜像或验证云端运行。
 
 ## 验证与数据保护
 
@@ -36,6 +36,6 @@ Dockerfile专用ignore采用白名单，仅包含后台依赖与4个纯同步规
 
 按用户批准的Windows路径，修改前MAIN的生产构建3.20.12已备份到`C:\Users\syf26\Desktop\JACKYUN\Backup\v3.20.12`，附文件大小和SHA-256清单；这是本机MAIN生产构建，未验证与线上Vercel产物逐字节相同。本次属于用户无感的迁移准备，依仓库例外不添加更新中心产品公告。
 
-下一步需先确定云端数据库连接方式与明确费用，再完成镜像/网络部署、运行身份与Key Vault、真实登录验收及浏览器试点；全模块迁移和最终冻结追平另行验收。
+数据库私网模板已通过Azure预验证与what-if，尚未创建收费资源。Container Apps自建网络还有公网IP和负载均衡开支，当前改为优先验证Functions Flex托管同一同步后台；香港已确认支持Node24。[具体配置及费用](../backend-deployment-review.md) 包括固定网络和后台执行情景。随后完成Functions入口、运行身份与Key Vault、真实登录验收及浏览器试点；全模块迁移和最终冻结追平另行验收。
 
 依据：[Supabase JWT验证](https://supabase.com/docs/guides/auth/jwts)、[node-postgres事务](https://node-postgres.com/features/transactions)、[TLS配置](https://node-postgres.com/features/ssl)。
