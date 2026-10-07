@@ -2,6 +2,7 @@
 
 `foundation.json` 是资源组级 ARM 模板，仅创建文件和机密的基础设施；不迁移数据、不部署占位后台、不切换网站。
 部署目标：Azure for Students / JackYun / East Asia。
+用户要求尽量不付费；具体单价、免费边界和余额核查结果见 [费用核查](cost-review.md)。赠金余额目前未能核实，尚未最终创建。
 
 资源：Standard_LRS、StorageV2、Hot 存储账号；5 个私有容器 attachments/exports/backups/avatars/novels；Standard Key Vault；用户分配身份 jackyun-api-identity。
 账号与保管库默认名包含资源组派生后缀，避免全球名称冲突；保存实际名称供后续后台配置使用。
