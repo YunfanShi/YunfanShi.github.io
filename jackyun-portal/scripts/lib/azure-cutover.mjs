@@ -6,6 +6,7 @@ import { atStage } from './azure-cutover-diagnostics.mjs';
 export const TABLES = ['web_sync_devices', 'legacy_sync_data', 'sync_operations', 'sync_conflicts', 'web_sync_upload_chunks'];
 const relations = TABLES.map(t => `public.${t}`).join(',');
 const fence = 'jackyun_cutover_write_fence';
+const restoreBackupSource = "UPDATE jackyun_private.sync_source_control SET sync_backend='supabase' WHERE singleton AND guard_version=1;";
 const quote = value => `"${String(value).replaceAll('"', '""')}"`;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const columnsCatalog = `SELECT c.relname,a.attnum,a.attname,format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull
@@ -72,11 +73,17 @@ async function inspect(client) {
     const ids = (await client.query('SELECT id::text FROM auth.users ORDER BY id')).rows.map(r => r.id);
     const profiles = (await client.query('SELECT id::text,account_status,deleted_at::text FROM public.profiles ORDER BY id')).rows;
     const background = (await client.query("SELECT to_regclass('cron.job')::text AS cron, to_regclass('jackyun_private.backup_dirty_pages')::text AS dirty")).rows[0];
+    const control = (await client.query("SELECT to_regclass('jackyun_private.sync_source_control')::text AS control")).rows[0]?.control;
+    const backupSource = control ? (await client.query('SELECT sync_backend,guard_version FROM jackyun_private.sync_source_control WHERE singleton')).rows[0] ?? null : null;
+    const guardedBackupRPCs = control ? (await client.query(`SELECT count(*)::int AS count FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.oid=ANY(ARRAY[to_regprocedure('public.create_backup_page(text)'),
+      to_regprocedure('public.create_due_backup_pages()'),to_regprocedure('public.restore_backup_page(bigint)')])
+      AND p.prosecdef AND pg_get_functiondef(p.oid) LIKE '%jackyun_private.require_supabase_backup_source()%'`)).rows[0].count : 0;
     const jobs = background.cron ? (await client.query('SELECT jobid,active FROM cron.job ORDER BY jobid')).rows : [];
     const prepared = (await client.query('SELECT count(*)::int AS count FROM pg_prepared_xacts WHERE database=current_database()')).rows[0].count;
     if (prepared || jobs.some(j => j.active)) throw Error('Drain prepared transactions and pause jobs first');
     await client.query('COMMIT');
-    return { ...database, tables, columns, grants, triggers, ids, profiles, jobs, dirtyTable: Boolean(background.dirty) };
+    return { ...database, tables, columns, grants, triggers, ids, profiles, jobs, dirtyTable: Boolean(background.dirty), backupSource, guardedBackupRPCs };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
 }
 
@@ -115,15 +122,19 @@ export async function applyCutover({ source, target, report, evidence, archive }
   let frozen = false; let committed = false; let uncertain = false;
   const locks = []; const restore = restorationSQL(report);
   try {
+    if (report.source.backupSource?.sync_backend !== 'supabase' || report.source.backupSource?.guard_version !== 1
+      || report.source.guardedBackupRPCs !== 3) throw Object.assign(Error('Legacy backup source guards required'),{cutoverCode:'BACKUP_SOURCE_GUARDS_REQUIRED'});
     for (const client of [source,target]) {
       if (!(await client.query("SELECT pg_try_advisory_lock(hashtextextended('jackyun-sync-cutover',0)) AS acquired")).rows[0].acquired) throw Error('Migration already running');
       locks.push(client);
     }
     if (!same(await inspectCutover(source,target),report)) throw Error('Preflight changed');
     archive.write('preflight.json',{ report,evidence });
-    archive.write('restore-source-writes.sql', `-- Only before target commit or after verified reverse copy.\nBEGIN;\n${TABLES.map(t => `DROP TRIGGER ${fence} ON public.${t};`).join('\n')}\nDROP FUNCTION jackyun_private.${fence}();\n${restore}\nCOMMIT;\n`);
+    archive.write('restore-source-writes.sql', `-- Only before target commit or after verified reverse copy.\nBEGIN;\n${TABLES.map(t => `DROP TRIGGER ${fence} ON public.${t};`).join('\n')}\nDROP FUNCTION jackyun_private.${fence}();\n${restore}\n${restoreBackupSource}\nCOMMIT;\n`);
     await source.query('BEGIN');
     await source.query("SET LOCAL lock_timeout='10s'");
+    const lockedBackupSource = (await source.query('SELECT sync_backend,guard_version FROM jackyun_private.sync_source_control WHERE singleton FOR UPDATE')).rows[0];
+    if (!same(lockedBackupSource,report.source.backupSource)) throw Error('Backup source changed during cutover');
     await source.query(`LOCK TABLE ${relations} IN ACCESS EXCLUSIVE MODE`);
     await source.query(`CREATE FUNCTION jackyun_private.${fence}() RETURNS trigger LANGUAGE plpgsql
       SET search_path='' AS $$ BEGIN RAISE EXCEPTION 'Sync migration write freeze' USING ERRCODE='55000'; END $$`);
@@ -135,6 +146,7 @@ export async function applyCutover({ source, target, report, evidence, archive }
         .map(g => g.grantee === 'PUBLIC' ? 'PUBLIC' : quote(g.grantee)))];
       if (grantees.length) await source.query(`REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON public.${quote(table.relname)} FROM ${grantees.join(',')}`);
     }
+    await source.query("UPDATE jackyun_private.sync_source_control SET sync_backend='azure' WHERE singleton AND guard_version=1");
     uncertain = true; await source.query('COMMIT'); frozen = true; uncertain = false;
     await source.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
     await source.query("SET LOCAL timezone='UTC'");
@@ -173,11 +185,11 @@ export async function applyCutover({ source, target, report, evidence, archive }
     uncertain = true; await target.query('COMMIT'); committed = true; uncertain = false;
     const result = { ok:true,committed,sourceFrozen:true,migratedSyncTables:5,fingerprintsMatch:true,archive:archive.directory,websiteSwitched:false };
     archive.write('verification.json',result); return result;
-  } catch {
+  } catch (error) {
     await target.query('ROLLBACK').catch(() => {}); await source.query('ROLLBACK').catch(() => {});
-    let code = committed ? 'COMMITTED_EVIDENCE_FAILED' : uncertain ? 'COMMIT_OUTCOME_UNKNOWN' : 'CUTOVER_ROLLED_BACK';
+    let code = committed ? 'COMMITTED_EVIDENCE_FAILED' : uncertain ? 'COMMIT_OUTCOME_UNKNOWN' : error.cutoverCode ?? 'CUTOVER_ROLLED_BACK';
     if (frozen && !committed && !uncertain) {
-      try { await source.query('BEGIN'); await dropFence(source); if (restore) await source.query(restore); await source.query('COMMIT'); frozen = false; }
+      try { await source.query('BEGIN'); await dropFence(source); if (restore) await source.query(restore); await source.query(restoreBackupSource); await source.query('COMMIT'); frozen = false; }
       catch { await source.query('ROLLBACK').catch(() => {}); code = 'SOURCE_RECOVERY_REQUIRED'; }
     }
     const state = { code,committed,sourceFrozen:frozen || uncertain,recoveryArchive:archive.directory };

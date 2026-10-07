@@ -24,6 +24,7 @@ const stages = {
   evidence:'验证生产切换证据',apply:'执行数据库切换',
 };
 const validation = {
+  'Legacy backup source guards required':['BACKUP_SOURCE_GUARDS_REQUIRED','源端旧备份入口的切换保护未安装或状态不符，不能冻结并追平。'],
   'Missing tables or RLS':['SYNC_TABLES_OR_RLS_MISSING','同步表不齐全或未启用行权限。'],
   'Sync columns missing':['SYNC_SCHEMA_MISSING','未能读取同步表的列结构。'],
   'Sync columns differ':['SYNC_SCHEMA_MISMATCH','两边同步表的列结构不同，不能执行追平。'],

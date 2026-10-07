@@ -212,8 +212,33 @@ try{
   assert.equal((await target.query('SELECT count(*)::int AS n FROM jackyun_private.backup_dirty_pages WHERE user_id=$1',[a])).rows[0].n,0);
   assert.equal((await target.query('SELECT count(*)::int AS n FROM jackyun_private.backup_dirty_pages WHERE user_id=$1',[b])).rows[0].n,1);
   assert.equal((await client.query('SELECT storage_value FROM public.legacy_sync_data WHERE user_id=$1',[a])).rows[0].storage_value.text,'stale-source');
+  // Install the real source cadence functions and guard wrappers. Azure-aware
+  // snapshot capture remains available; old RPCs cannot save stale snapshots.
+  await client.query(cadence.slice(cadence.indexOf('create or replace function public.create_due_backup_pages')));
+  const restoreGrant='grant execute on function public.restore_backup_page(bigint) to authenticated;';
+  await client.query(initial.slice(initial.indexOf('create function public.restore_backup_page'),initial.indexOf(restoreGrant)+restoreGrant.length));
+  await client.query('GRANT EXECUTE ON FUNCTION public.create_backup_page(text),public.create_due_backup_pages() TO authenticated');
+  await assert.rejects(target.query(migration('20261007235000_guard_legacy_backup_source.sql')),/Only Supabase source/);
+  assert.equal((await target.query("SELECT to_regclass('jackyun_private.sync_source_control') AS control")).rows[0].control,null);
+  await client.query(migration('20261007235000_guard_legacy_backup_source.sql'));
+  await client.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[a]);
+  await client.query('SET ROLE authenticated');
+  const legacyId=(await client.query("SELECT public.create_backup_page('schedule') AS id")).rows[0].id;
+  await client.query('RESET ROLE');
+  assert.ok(Number(legacyId)>0,'guard keeps Supabase mode compatible');
+  await client.query("UPDATE jackyun_private.sync_source_control SET sync_backend='azure'");
+  const countBefore=(await client.query('SELECT count(*)::int AS n FROM public.backup_center_versions')).rows[0].n;
+  await client.query('SET ROLE authenticated');
+  for(const sql of ["SELECT public.create_backup_page('schedule')",'SELECT public.create_due_backup_pages()',`SELECT public.restore_backup_page(${legacyId})`]) {
+    await assert.rejects(client.query(sql),{code:'55000'});
+  }
+  await assert.rejects(client.query('SELECT * FROM jackyun_private.sync_source_control'),{code:'42501'});
+  await assert.rejects(client.query("SELECT jackyun_private.source_create_backup_page('schedule')"),{code:'42501'});
+  await client.query('RESET ROLE');
+  assert.equal((await client.query('SELECT count(*)::int AS n FROM public.backup_center_versions')).rows[0].n,countBefore);
+  await call([row]); // Current Azure-supplied values can still be saved.
   console.log(JSON.stringify({ok:true,localOnly:true,realSQL:true,combinedSnapshot:true,noFrozenSyncWrites:true,
-    dirtyMarkerPreserved:true,automaticBackupReceiptRetry:true,twoDatabaseSDKFlow:true,generationRaceProtected:true,ownershipPageValidation:true,suspendedDeletedRejected:true,anonymousRejected:true,productionMigration:false}));
+    dirtyMarkerPreserved:true,automaticBackupReceiptRetry:true,legacyRPCSourceGuard:true,twoDatabaseSDKFlow:true,generationRaceProtected:true,ownershipPageValidation:true,suspendedDeletedRejected:true,anonymousRejected:true,productionMigration:false}));
 }finally{
   await target?.end();await client?.end();if(started)run('pg_ctl',['-D',data,'-m','immediate','-w','stop']);rmSync(root,{recursive:true,force:true});
 }

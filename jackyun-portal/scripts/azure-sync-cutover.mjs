@@ -52,6 +52,7 @@ export async function main(args = process.argv.slice(2), env = process.env) {
         sourceApplicationTables: from.tables.length, targetApplicationTables: to.tables.length,
         applicationMatches: comparison.matches, differences: comparison.differences,
         profileStatesMatch: JSON.stringify(report.source.profiles) === JSON.stringify(report.target.profiles),
+        legacyBackupGuardsReady: report.source.backupSource?.sync_backend === 'supabase' && report.source.backupSource?.guard_version === 1 && report.source.guardedBackupRPCs === 3,
         syncTables: 5, targetDatabase: report.target.database, archive: archive.directory };
       archive.write('summary.json',summary);
       console.log(JSON.stringify(summary)); return summary;

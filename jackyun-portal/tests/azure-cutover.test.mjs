@@ -21,7 +21,7 @@ test('diagnostics identify connection failures without exposing database error d
   assert.doesNotMatch(JSON.stringify(unknown),/private query|token/);
 });
 
-function fixture({ failTargetWrite=false,unknownTargetCommit=false,unknownSourceCommit=false,failEvidence=false,recoveryFails=false }={}) {
+function fixture({ failTargetWrite=false,unknownTargetCommit=false,unknownSourceCommit=false,failEvidence=false,recoveryFails=false,missingBackupGuards=false }={}) {
   const commands = []; const files = new Map(); const profile = {id:'test-user',account_status:'active',deleted_at:null};
   function client(side) {
     let fenced = false; let targetWritten = false;
@@ -43,6 +43,9 @@ function fixture({ failTargetWrite=false,unknownTargetCommit=false,unknownSource
       if (sql.includes('SELECT id::text FROM auth.users')) return {rows:[{id:'test-user'}]};
       if (sql.startsWith('SELECT id::text,account_status')) return {rows:[profile]};
       if (sql.includes("to_regclass('cron.job')")) return {rows:[{cron:null,dirty:null}]};
+      if (sql.includes("to_regclass('jackyun_private.sync_source_control')")) return {rows:[{control:side==='source'&&!missingBackupGuards?'jackyun_private.sync_source_control':null}]};
+      if (sql.startsWith('SELECT sync_backend,guard_version')) return {rows:[{sync_backend:'supabase',guard_version:1}]};
+      if (sql.includes("pg_get_functiondef(p.oid) LIKE")) return {rows:[{count:3}]};
       if (sql.includes('pg_prepared_xacts')) return {rows:[{count:0}]};
       if (sql.includes('jsonb_agg(to_jsonb(r)')) return {rows:[{data:[]}]};
       if (sql.includes("AS hash")) return {rows:[{count:'0',hash:'same'}]};
@@ -64,6 +67,9 @@ test('preflight only executes read-only transactions and catalogue queries',asyn
 });
 test('success fences every write path, preserves trigger states and leaves old writes frozen',async()=>{
   const f=fixture();const result=await execute(f);
+  assert.ok(f.commands.findIndex(x=>x.side==='source'&&x.sql.includes('FOR UPDATE')) < f.commands.findIndex(x=>x.side==='source'&&x.sql.startsWith('LOCK TABLE')));
+  assert.ok(f.commands.some(x=>x.side==='source'&&x.sql.includes("sync_backend='azure'")));
+  assert.match(f.files.get('restore-source-writes.sql'),/sync_backend='supabase'/);
   assert.equal(result.committed,true);assert.equal(result.websiteSwitched,false);
   assert.equal(f.commands.filter(x=>x.side==='source'&&x.sql.startsWith('CREATE TRIGGER')).length,5);
   assert.equal(f.commands.filter(x=>x.side==='source'&&x.sql.includes('ENABLE ALWAYS TRIGGER')).length,5);
@@ -75,6 +81,7 @@ test('success fences every write path, preserves trigger states and leaves old w
 test('target failure rolls back and restores exactly recorded source write grants',async()=>{
   const f=fixture({failTargetWrite:true});
   await assert.rejects(execute(f),{cutoverCode:'CUTOVER_ROLLED_BACK',committed:false,sourceFrozen:false});
+  assert.ok(f.commands.some(x=>x.side==='source'&&x.sql.includes("sync_backend='supabase'")));
   assert.equal(f.commands.filter(x=>x.side==='source'&&x.sql.startsWith('DROP TRIGGER')).length,5);
   assert.ok(f.commands.some(x=>x.side==='source'&&x.sql.startsWith('GRANT INSERT')&&x.sql.includes('WITH GRANT OPTION')));
 });
@@ -109,4 +116,10 @@ test('protected archives do not overwrite files; evidence validates age, scope a
   assert.ok(validateEvidence(file,report));evidence.checks.realLogin=false;save();assert.throws(()=>validateEvidence(file,report));
   evidence.checks.realLogin=true;evidence.verifiedAt='2020-01-01';save();assert.throws(()=>validateEvidence(file,report));
   evidence.verifiedAt=new Date().toISOString();evidence.liveReport={...ref,sha256:'0'.repeat(64)};save();assert.throws(()=>validateEvidence(file,report));
+});
+
+test('uninstalled backup guards fail before any production mutation',async()=>{
+  const f=fixture({missingBackupGuards:true});
+  await assert.rejects(execute(f),{cutoverCode:'BACKUP_SOURCE_GUARDS_REQUIRED',sourceFrozen:false});
+  assert.ok(f.commands.every(({sql})=>/^(BEGIN.*READ ONLY|SELECT|SET LOCAL|COMMIT|ROLLBACK)/.test(sql)));
 });
