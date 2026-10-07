@@ -8,6 +8,7 @@ import { ApiError } from './errors.mjs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const BACKUP_PAGES = new Set(['schedule','study','definitions','ielts','vocabulary','quiz','poetry','music','countdown','relax','reader','sites','settings','other']);
 const fail = (status, code) => { throw new ApiError(status, code); };
 const json = value => JSON.stringify(value ?? null);
 const iso = value => value instanceof Date ? value.toISOString() : value;
@@ -87,11 +88,32 @@ async function applyBody(client, identity, body, large = false) {
   return { ok: true, applied, remote, conflicts, cursor: new Date().toISOString(), serverTime: new Date().toISOString() };
 }
 
-export function createSyncApi(database) {
-  return async function handle(method, url, body, identity) {
+export function createSyncApi(database, { verifyBackupCapture } = {}) {
+  return async function handle(method, url, body, identity, token) {
     const route = url.pathname;
     const write = method !== 'GET';
+    // Verify a committed source receipt before opening the Azure transaction.
+    // User-controlled HTTP calls cannot clear an unsaved backup generation.
+    if (route === '/api/sync/backup-markers' && method === 'POST') {
+      if (!body || !BACKUP_PAGES.has(body.page) || !UUID.test(body.generation ?? '')
+        || !Number.isSafeInteger(body.versionId) || body.versionId < 1 || json(body).length > 512) fail(400,'INVALID_BACKUP_MARKER');
+      if (!verifyBackupCapture) fail(503,'BACKUP_CAPTURE_VERIFICATION_UNAVAILABLE');
+      await verifyBackupCapture(identity,token,body);
+    }
     return database.withUser(identity, async client => {
+      if (route === '/api/sync/backup-markers') {
+        if (method === 'GET') {
+          const markers = (await client.query('SELECT public.sync_backup_markers() AS markers')).rows[0]?.markers;
+          if (!Array.isArray(markers) || markers.length > BACKUP_PAGES.size
+            || markers.some(r=>!r || !BACKUP_PAGES.has(r.page) || !UUID.test(r.generation ?? '') || typeof r.due !== 'boolean')
+            || new Set(markers.map(r=>r.page)).size !== markers.length) fail(503,'BACKUP_MARKERS_UNAVAILABLE');
+          return { ok:true,markers };
+        }
+        if (method !== 'POST') fail(405,'METHOD_NOT_ALLOWED');
+        const acknowledged = (await client.query('SELECT public.ack_sync_backup_marker($1,$2::uuid) AS acknowledged',[body.page,body.generation])).rows[0]?.acknowledged;
+        if (typeof acknowledged !== 'boolean') fail(503,'BACKUP_ACK_UNAVAILABLE');
+        return { ok:true,acknowledged };
+      }
       if (route === '/api/legacy-sync') {
         if (method === 'GET') {
           const rows = (await client.query(`SELECT storage_key,storage_value,updated_at FROM public.legacy_sync_data

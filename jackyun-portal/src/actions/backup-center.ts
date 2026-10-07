@@ -8,6 +8,7 @@ import { inspectCloudBackup, type BackupInspection } from '@/lib/backup/inspecti
 import type { DataArchiveV2, SyncRecord } from '@/types/sync';
 import { azureBackupSource } from '@/lib/sync/azure-backup-source';
 import { saveAzurePageBackup } from '@/lib/backup/azure-page-backup';
+import { createAzureDueBackups } from '@/lib/backup/azure-automatic-backup';
 
 async function context() {
   const supabase = await createClient();
@@ -47,8 +48,11 @@ export async function createBackupVersion(page: BackupPage): Promise<number> {
 }
 
 export async function createDueBackupVersions(): Promise<number> {
-  const { supabase } = await context();
-  if (process.env.AZURE_SYNC_API_URL) throw Error('Azure 自动备份协调尚未启用，当前改动标记会保留；请先使用手动页面备份。');
+  const { supabase,user } = await context();
+  const azure = await azureBackupSource(supabase);
+  if (azure) return createAzureDueBackups(azure,user.id,
+    async()=>await supabase.rpc('list_backup_change_markers'),
+    async args=>await supabase.rpc('create_automatic_backup_with_sync',args));
   const { data, error } = await supabase.rpc('create_due_backup_pages');
   if (error) throw new Error(`自动备份失败：${error.message}`);
   return Number(data ?? 0);

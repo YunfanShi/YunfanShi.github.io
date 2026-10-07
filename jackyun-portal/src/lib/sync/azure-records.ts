@@ -3,6 +3,8 @@ import { canonicalJson } from './hash.ts';
 import { joinSyncParts, splitSyncBody, MAX_SYNC_PARTS } from './transfer.ts';
 import { syncValueFits, isSyncableStorageKey } from '../local-workspace.ts';
 import type { SyncRecord, SyncOperation } from '../../types/sync.ts';
+import { validateBackupMarkers, type BackupChangeMarker } from '../backup/markers.ts';
+import type { BackupPage } from '../backup/pages.ts';
 
 const afterKey = (a: string, b: string) => Buffer.compare(Buffer.from(a), Buffer.from(b)) > 0;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -103,6 +105,14 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
   }
   const manifest = (rows: SyncRecord[]) => JSON.stringify(rows.map(r=>[r.key,r.revision,r.contentHash,r.deleted,r.updatedAt]));
   return {
+    async backupMarkers(): Promise<BackupChangeMarker[]> {
+      return validateBackupMarkers((await request('/api/sync/backup-markers')).markers);
+    },
+    async acknowledgeBackup(page: BackupPage, generation: string, versionId: number): Promise<boolean> {
+      const result = await request('/api/sync/backup-markers', { page,generation,versionId });
+      if (typeof result.acknowledged !== 'boolean') throw Error('备份确认响应无效，改动标记需重新检查。');
+      return result.acknowledged;
+    },
     async list({ values = true, include = () => true }: { values?: boolean; include?: (key: string) => boolean } = {}): Promise<SyncRecord[]> {
       if (!values) return collect(false,include);
       // Confirm revisions after assembling values. A changing source produces

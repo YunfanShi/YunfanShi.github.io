@@ -44,6 +44,15 @@ Dockerfile专用ignore采用白名单，仅包含后台依赖与4个纯同步规
 
 运行入口为functions.mjs，host.json保留完整/api前缀。SDK请求流复用普通HTTP处理器；额外提供/api/legacy-sync兼容原页面，新旧写入都推进同一条记录版本与内容哈希。旧接口列表不下载大于400KB的正文，大值继续走新版分块同步。
 
-从应用目录执行npm run build:azure-functions；脚本只打包11个指定源码、host.json、锁定的生产依赖，不包含环境文件、备份或整个Next.js应用。发布配置见../functions-runtime.json；密码使用Key Vault引用，连接原数据库域名并严格验证TLS。部署存储与运行存储使用托管身份，没有SharedKey。
+从应用目录执行npm run build:azure-functions；脚本只打包13个指定源码、host.json、锁定的生产依赖，不包含环境文件、备份或整个Next.js应用。发布配置见../functions-runtime.json；密码使用Key Vault引用，连接原数据库域名并严格验证TLS。部署存储与运行存储使用托管身份，没有SharedKey。
 
 网站仅配置服务端AZURE_SYNC_API_URL=https://jackyun-sync-9d26b2cc.azurewebsites.net。不将数据库密码给Vercel或浏览器，不跨数据库重试写操作。scripts/azure-sync-cutover.mjs是显式操作员命令，核对账号集合及源ACL，冻结旧库五张同步表写入、备份两端、事务内追平五表与账号状态并比较内容指纹；失败回滚并恢复旧库写权限。成功后旧库保留为只读副本，回退必须先回灌Azure新写入。
+
+
+### 候选自动备份协调（尚未部署）
+
+新增GET/POST `/api/sync/backup-markers`；分页导出 `/api/sync/export` 也已加入共享HTTP入口允许列表，Azure SDK回归验证其可达且保持鉴权。源端按Supabase迁移顺序应用备份桥接及自动协调文件；它们会拒绝Azure迁移库名称，不能对Azure应用。目标端在既有 `sync-runtime.sql` 之后单独应用 `azure/sync-backup-markers.sql`，再部署候选后台，最后配置网站入口并真实验收。目标附加脚本仅接受隔离迁移库；勿在附加脚本后重新执行会撤销全部函数权限的原运行角色脚本。
+
+两端改动表增加每次更新都变化的UUID编号，保持4MiB或15分钟节奏。源端保存Azure当前同步值与源端业务表，并记录当前用户的版本回执；只确认捕获的源端编号。网站提交Azure确认时携带版本编号，后台以同一已验证用户令牌调用源端confirm_backup_capture，核对已提交回执，再在Azure事务中仅清除匹配编号。网络失败保留标记，重试复用回执；新改动编号不被旧确认清除。运行角色只增加两个限定函数执行权，没有直接私有表权限。
+
+70项同步回归、16项后台回归以及临时两库PostgreSQL + Azure SDK完整自动备份流程通过：失败确认重试、并发新改动、跨账号隔离、源端旧表冻结而不写入。测试身份为本机夹具，不能替代真实Supabase登录。源端旧备份RPC的切换状态拦截、整页恢复协调及生产验收仍待完成，禁止先开启生产变量。

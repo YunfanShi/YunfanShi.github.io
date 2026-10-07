@@ -1,3 +1,9 @@
+-- Source history/control belongs on Supabase, never on the Azure copy.
+DO $$ BEGIN
+  IF current_database() ~ '^jackyun_migration_[0-9]{8}$' THEN
+    RAISE EXCEPTION 'Only Supabase source backup migrations are allowed';
+  END IF;
+END $$;
 -- Candidate only: apply to the Supabase source before enabling Azure routing.
 -- Application tables and version history stay on Supabase; sync values come from
 -- the authenticated Azure read. Never write the frozen legacy_sync_data table.
@@ -16,7 +22,7 @@ begin
   if not found then raise exception 'Active account required'; end if;
   if target_page is null or target_page not in
     ('schedule','study','definitions','ielts','vocabulary','quiz','poetry','music','countdown','relax','reader','sites','settings','other')
-    or backup_reason is null or backup_reason not in ('manual','before_restore') then
+    or backup_reason is null or backup_reason not in ('manual','before_restore','automatic') then
     raise exception 'Invalid backup page or reason';
   end if;
   if sync_records is null or pg_catalog.jsonb_typeof(sync_records) <> 'array' then

@@ -12,7 +12,7 @@
 
 Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围及验证条件见
 [Azure 数据库可行性研究](jackyun-portal/docs/azure-database-feasibility.md)。
-截至2026-10-08，Azure香港PostgreSQL已部署；网站尚未切换正式数据库，应用连接、真实性能和最终计费仍需验证。候选3.21.3已补数据导出/导入与日程恢复的Azure路由，手动页面备份桥接RPC仅在隔离本机数据库验证、尚未应用生产；自动备份和整页恢复协调仍待完成。详细结果见[切换实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。
+截至2026-10-08，Azure香港PostgreSQL已部署；网站尚未切换正式数据库，应用连接、真实性能和最终计费仍需验证。候选3.21.3已补数据导出/导入与日程恢复的Azure路由，手动页面备份桥接RPC仅在隔离本机数据库验证、尚未应用生产；自动备份协调已通过本机两库与Azure SDK完整路径测试；旧备份RPC拦截、整页恢复及生产验收仍待完成。详细结果见[切换实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。
 全部85个目录条目的用途与优先级见 [Azure服务清单](jackyun-portal/docs/azure-service-catalog.md)，
 文件存储、密钥、Azure登录与Passkeys、通知和页面性能的分阶段实施见 [平台改造计划](jackyun-portal/docs/azure-platform-roadmap.md)。
 Supabase 数据、账号关联和文件的搬迁进度、逐表校验与文件独立备份命令见 [数据迁移记录](jackyun-portal/docs/azure-data-migration.md)。30个文件已复制到Azure，并下载回本机逐个核对路径、大小和SHA-256，全部一致（24,882,492字节）。数据库已恢复到Azure独立迁移库，83张应用表的列定义、行数和内容指纹与源端采样一致；网站尚未切换生产。

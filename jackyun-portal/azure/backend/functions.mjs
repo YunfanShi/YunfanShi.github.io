@@ -1,6 +1,7 @@
 import { app } from '@azure/functions';
 import { createAuthenticator } from './auth.mjs';
 import { createAccountStateVerifier } from './account-state.mjs';
+import { createBackupCaptureVerifier } from './backup-capture.mjs';
 import { createDatabase } from './database.mjs';
 import { createSyncApi } from './sync-api.mjs';
 import { createFunctionHandler, registerFunctions } from './functions-adapter.mjs';
@@ -11,4 +12,5 @@ const authenticate = createAuthenticator({ supabaseUrl: process.env.SUPABASE_URL
   publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
   verifyAccount: createAccountStateVerifier({ supabaseUrl: process.env.SUPABASE_URL,
     publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY }) });
-registerFunctions(app, createFunctionHandler({ authenticate, handle: createSyncApi(database) }));
+registerFunctions(app, createFunctionHandler({ authenticate, handle: createSyncApi(database, {
+  verifyBackupCapture:createBackupCaptureVerifier({ supabaseUrl:process.env.SUPABASE_URL,publishableKey:process.env.SUPABASE_PUBLISHABLE_KEY }) }) }));
