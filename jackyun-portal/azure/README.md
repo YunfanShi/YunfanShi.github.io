@@ -39,8 +39,8 @@ az deployment group what-if --resource-group JackYun --template-file azure/found
 2026-10-07：[sync-runtime.sql](sync-runtime.sql) 已在jackyun_migration_20261007执行并验证可重复应用。[实际RPC演练](tests/sync-runtime.sql) 执行成功，全部测试写入和临时对象回滚；测试前后83张应用表的列、行数和内容指纹一致。
 两个脚本仅接受jackyun_migration_YYYYMMDD名称的隔离库，错误地指向默认postgres库时已实测拒绝并回滚。不要更改守卫后直接在Supabase或正式数据库运行。
 
-角色jackyun_sync_runtime为NOLOGIN、非超级用户、无BYPASSRLS/建库/建角色权限，不拥有表、函数、schema或数据库。继承authenticated仅用于匹配原行策略，不能SET ROLE authenticated或管理角色；未授予后台登录身份或密码。
-授权仅覆盖legacy_sync_data、web_sync_devices、web_sync_upload_chunks、sync_operations、sync_conflicts的必要操作，以及auth.uid、normalize_web_sync_value、apply_web_sync_operation、list_web_sync_records、get_web_sync_record_part的执行。没有auth.users读取、profiles更新、私有备份读取、管理员RPC或schema创建权限。
+角色jackyun_sync_runtime为NOLOGIN、非超级用户、无BYPASSRLS/建库/建角色权限，不拥有表、函数、schema或数据库。继承authenticated仅用于匹配原行策略，不能SET ROLE authenticated或管理角色。独立普通登录jackyun_sync_login仅能SET ROLE该执行角色，不能继承其权限或管理角色；随机密码仅存本机受保护的DPAPI文件，尚未写入Key Vault或云端服务。
+授权仅覆盖legacy_sync_data、web_sync_devices、web_sync_upload_chunks、sync_operations、sync_conflicts的必要操作，以及auth.uid、sync_identity_allowed、normalize_web_sync_value、apply_web_sync_operation、list_web_sync_records、get_web_sync_record_part的执行。sync_identity_allowed只返回当前身份是否有未删除的active资料，不接受其他用户ID。没有auth.users读取、profiles更新、私有备份读取、管理员RPC或schema创建权限。
 恢复时省略ACL会留下函数的默认PUBLIC执行权限，本配置在应用/auth/私有schema撤销这些权限，再明确授予上述函数。当前迁移操作员未来创建函数的默认PUBLIC执行也已撤销，并以事务内临时函数实测；其他对象创建角色的默认权限仍须分别配置。
 
 实测覆盖：初次写入与匹配版本更新、同一操作重试不重复、较旧离线修改返回远端状态、跨用户插入/改归属失败、另一用户无法读取记录和操作历史/使用他人设备、大值列表不返回正文、中文/emoji全部分块重组、过期版本/越界分块、删除标记、旧修改不能复活删除、撤销设备拒写，以及缺少身份时拒绝读写。
@@ -54,7 +54,7 @@ psql "service=jackyun_target dbname=jackyun_migration_20261007 options='-c defau
 if ($LASTEXITCODE -ne 0) { throw '同步RPC演练失败' }
 ```
 
-后续后台必须先验证令牌、账号状态与设备，再在每个数据库事务内设置经过验证的身份，事务结束清除上下文；不得接受浏览器提供的user_id作为身份。普通执行角色需要绑定独立登录身份，线上连接不能使用迁移管理员。
+独立后台已实现先验证令牌，再在同一连接的数据库事务内设置最小身份、核对账号状态和设备；提交或回滚清除上下文。并发写入按用户加事务锁；不会接受浏览器提供的user_id作为身份。普通登录的实际HTTP演练通过，账号不存在时403、连接池跨用户隔离、相同操作并发重试均已验证，测试清理后83表指纹与基线相同。代码、配置与验证边界见 [后台说明](backend/README.md)。
 应用对象与SECURITY DEFINER函数仍归迁移管理员所有，部署前还需专用owner与逐函数执行范围审计。此次未创建Container App、放宽防火墙、迁移身份服务或切换网站，未增加计算资源。
 
 参考：[PostgreSQL角色授权](https://www.postgresql.org/docs/17/sql-grant.html)、[默认权限](https://www.postgresql.org/docs/17/sql-alterdefaultprivileges.html)、[SET ROLE](https://www.postgresql.org/docs/17/sql-set-role.html)。

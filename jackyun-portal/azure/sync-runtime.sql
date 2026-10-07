@@ -40,12 +40,20 @@ REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public, auth, jackyun_private FROM PUBLIC,
 -- This affects only future functions created by the current migration operator.
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
+-- Exposes only the verified caller's status, never the profile row or another ID.
+CREATE OR REPLACE FUNCTION public.sync_identity_allowed()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = (SELECT auth.uid())
+    AND p.deleted_at IS NULL AND p.account_status = 'active');
+$$;
+REVOKE ALL ON FUNCTION public.sync_identity_allowed() FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE ON SCHEMA public, auth TO jackyun_sync_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.legacy_sync_data,
   public.web_sync_devices, public.web_sync_upload_chunks TO jackyun_sync_runtime;
 GRANT SELECT, INSERT ON public.sync_operations TO jackyun_sync_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.sync_conflicts TO jackyun_sync_runtime;
-GRANT EXECUTE ON FUNCTION auth.uid(), public.normalize_web_sync_value(jsonb),
+GRANT EXECUTE ON FUNCTION auth.uid(), public.sync_identity_allowed(), public.normalize_web_sync_value(jsonb),
   public.apply_web_sync_operation(uuid, uuid, text, bigint, text, jsonb, jsonb, text, boolean, timestamptz),
   public.list_web_sync_records(timestamptz, text),
   public.get_web_sync_record_part(text, bigint, integer) TO jackyun_sync_runtime;
