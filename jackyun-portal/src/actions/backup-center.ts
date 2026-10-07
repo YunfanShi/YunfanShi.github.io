@@ -6,6 +6,8 @@ import { ALL_BACKUP_PAGES, normalizeBackupPages, type BackupPage, type BackupTab
 import { canonicalJson } from '@/lib/sync/hash';
 import { inspectCloudBackup, type BackupInspection } from '@/lib/backup/inspection';
 import type { DataArchiveV2, SyncRecord } from '@/types/sync';
+import { azureBackupSource } from '@/lib/sync/azure-backup-source';
+import { saveAzurePageBackup } from '@/lib/backup/azure-page-backup';
 
 async function context() {
   const supabase = await createClient();
@@ -35,7 +37,10 @@ export async function listBackupVersions(page: BackupPage): Promise<BackupVersio
 
 export async function createBackupVersion(page: BackupPage): Promise<number> {
   normalizeBackupPages([page]);
-  const { supabase } = await context();
+  const { supabase, user } = await context();
+  const azure = await azureBackupSource(supabase);
+  if (azure) return saveAzurePageBackup(azure, user.id, page,
+    async args => await supabase.rpc('create_backup_page_with_sync', args));
   const { data, error } = await supabase.rpc('create_backup_page', { target_page: page });
   if (error || typeof data !== 'number') throw new Error(`创建备份失败：${error?.message ?? '未返回版本编号'}`);
   return data;
@@ -43,6 +48,7 @@ export async function createBackupVersion(page: BackupPage): Promise<number> {
 
 export async function createDueBackupVersions(): Promise<number> {
   const { supabase } = await context();
+  if (process.env.AZURE_SYNC_API_URL) throw Error('Azure 自动备份协调尚未启用，当前改动标记会保留；请先使用手动页面备份。');
   const { data, error } = await supabase.rpc('create_due_backup_pages');
   if (error) throw new Error(`自动备份失败：${error.message}`);
   return Number(data ?? 0);
@@ -67,9 +73,13 @@ export async function inspectBackupVersion(id: number): Promise<BackupInspection
   if (error || !data) throw new Error(`无法查看这个版本：${error?.message ?? '版本不存在'}`);
   let currentSchedule: unknown;
   if (data.page === 'schedule') {
-    const current = await supabase.from('legacy_sync_data').select('storage_value')
-      .eq('user_id', user.id).eq('storage_key', 'jackyun_schedule_control_v1').maybeSingle();
-    if (!current.error) currentSchedule = current.data?.storage_value;
+    const azure = await azureBackupSource(supabase);
+    if (azure) currentSchedule = (await azure.read('jackyun_schedule_control_v1'))?.value;
+    else {
+      const current = await supabase.from('legacy_sync_data').select('storage_value')
+        .eq('user_id', user.id).eq('storage_key', 'jackyun_schedule_control_v1').maybeSingle();
+      if (!current.error) currentSchedule = current.data?.storage_value;
+    }
   }
   return inspectCloudBackup(data.page, data.snapshot as Record<string, Record<string, unknown>[]>, currentSchedule);
 }
@@ -77,6 +87,7 @@ export async function inspectBackupVersion(id: number): Promise<BackupInspection
 export async function restoreBackupVersion(id: number): Promise<{ page: BackupPage; legacyRecords: SyncRecord[] }> {
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error('备份编号无效。');
   const { supabase } = await context();
+  if (process.env.AZURE_SYNC_API_URL) throw Error('Azure 云端页面恢复协调尚未启用，恢复未执行；请下载此版本并使用按项导入。');
   const { data, error } = await supabase.rpc('restore_backup_page', { backup_id: id });
   if (error || !data || typeof data !== 'object') throw new Error(`恢复失败：${error?.message ?? '没有返回恢复结果'}`);
   const result = data as { page: BackupPage; legacyRecords: SyncRecord[] };

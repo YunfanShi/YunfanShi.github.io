@@ -116,7 +116,7 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
     async read(key: string): Promise<SyncRecord | null> {
       const r = await metadata(key); return r ? materialize(r) : null;
     },
-    async write(key: string, value: unknown, deleted = false): Promise<SyncRecord> {
+    async write(key: string, value: unknown, deleted = false, expected?: SyncRecord | null): Promise<SyncRecord> {
       if (!isSyncableStorageKey(key)) throw Error('导入同步键无效。');
       // A session ID is transported as the device identifier; it is never used
       // as authentication. The backend verifies the complete bearer token.
@@ -125,10 +125,15 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
       catch { throw Error('登录会话格式无效。'); }
       if (typeof sessionId !== 'string' || !UUID.test(sessionId)) throw Error('登录会话无效。');
       const current = await metadata(key);
+      if (expected !== undefined && (current?.revision !== expected?.revision
+        || current?.contentHash !== expected?.contentHash || current?.deleted !== expected?.deleted)) {
+        throw Error('云端数据在恢复前备份后发生变化，恢复未执行；请重新检查。');
+      }
       const timestamp = new Date().toISOString();
       const op: SyncOperation = { id: randomUUID(), key, baseRevision: current?.revision ?? 0,
         baseHash: current?.contentHash ?? null, baseValue: null, value: deleted ? null : value, deleted, clientUpdatedAt: timestamp };
-      const body = { deviceId: sessionId, device: { name: '数据恢复与导入', platform: 'web' }, operations: [op] };
+      const body = { deviceId: sessionId, device: { name: '数据恢复与导入', platform: 'web' }, operations: [op],
+        ...(expected !== undefined ? { requireCurrentVersion: true } : {}) };
       let result: Record<string, unknown>;
       if (!syncValueFits(op.value) || Buffer.byteLength(JSON.stringify(body)) > 900_000) {
         const parts = splitSyncBody(JSON.stringify(body));

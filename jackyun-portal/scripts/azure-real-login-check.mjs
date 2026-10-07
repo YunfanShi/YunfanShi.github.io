@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { spawnSync } from 'node:child_process';
 import { privateArchive } from './lib/azure-cutover.mjs';
 import { resolve } from 'node:path';
+import { loginDiagnostic, LOGIN_HINTS } from './lib/azure-login-diagnostics.mjs';
 
 const project='https://gdcwwlnzylrzrqhaaljq.supabase.co';
 const backend='https://jackyun-sync-9d26b2cc.azurewebsites.net';
@@ -11,11 +12,12 @@ const key=lookup.status===0?lookup.stdout.trim():'';
 if(!key||!process.env.AZURE_TEST_EMAIL||!process.env.AZURE_TEST_PASSWORD){
   console.error('缺少本机 Azure 登录、公开 API 配置或测试账号输入。');process.exit(1);
 }
-const client=createClient(project,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+const client=createClient(project,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+  global:{fetch:(input,options)=>fetch(input,{...options,redirect:'error',signal:AbortSignal.timeout(30_000)})}});
 let session;
 try{
   const login=await client.auth.signInWithPassword({email:process.env.AZURE_TEST_EMAIL,password:process.env.AZURE_TEST_PASSWORD});
-  if(login.error||!login.data.session)throw Error('REAL_LOGIN_FAILED');
+  if(login.error||!login.data.session)throw Error(loginDiagnostic(login.error));
   session=login.data.session;
   const checks=[];
   for(const path of ['/api/sync/v2','/api/sync/devices','/api/sync/conflicts','/api/legacy-sync']){
@@ -33,8 +35,8 @@ try{
   archive.write('real-login-read.json',report);
   console.log(JSON.stringify({...report,archive:archive.directory}));
 }catch(error){
-  const code=/^(REAL_LOGIN_FAILED|AZURE_READ_FAILED_\d{3}|INVALID_TOKEN_NOT_REJECTED)$/.test(error.message)?error.message:'REAL_LOGIN_CHECK_FAILED';
-  console.error(JSON.stringify({ok:false,code,writesPerformed:false,productionCutover:false}));process.exitCode=1;
+  const code=Object.hasOwn(LOGIN_HINTS,error.message)||/^(AZURE_READ_FAILED_\d{3}|INVALID_TOKEN_NOT_REJECTED)$/.test(error.message)?error.message:'REAL_LOGIN_CHECK_FAILED';
+  console.error(JSON.stringify({ok:false,code,...(LOGIN_HINTS[code]?{hint:LOGIN_HINTS[code]}:{}),writesPerformed:false,productionCutover:false}));process.exitCode=1;
 }finally{
   if(session)await client.auth.signOut({scope:'local'}).catch(()=>{});
 }

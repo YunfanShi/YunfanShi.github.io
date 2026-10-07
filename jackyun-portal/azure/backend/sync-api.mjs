@@ -34,6 +34,16 @@ async function applyBody(client, identity, body, large = false) {
   if (!Array.isArray(body.operations) || body.operations.length > 100 || !body.operations.every(op => validOperation(op, large))) fail(400, 'INVALID_OPERATIONS');
   if (new Set(body.operations.map(op => op.key)).size !== body.operations.length) fail(400, 'DUPLICATE_KEYS');
   if (new Set(body.operations.map(op => op.id)).size !== body.operations.length) fail(400, 'DUPLICATE_OPERATION_IDS');
+  if (Object.hasOwn(body, 'requireCurrentVersion') && typeof body.requireCurrentVersion !== 'boolean') fail(400, 'INVALID_BODY');
+  // Restores must not use last-write-wins across a newer change. This check runs
+  // in the same transaction and user write lock as the following mutation,
+  // including when the request has been reassembled from large-value chunks.
+  if (body.requireCurrentVersion) {
+    for (const op of body.operations) {
+      const current = (await client.query('SELECT revision,content_hash FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub, op.key])).rows[0];
+      if (Number(current?.revision ?? 0) !== op.baseRevision || (current?.content_hash ?? null) !== op.baseHash) fail(409, 'RESTORE_VERSION_CHANGED');
+    }
+  }
   const schedule = body.operations.find(op => op.key === SCHEDULE_STORAGE_KEY);
   if (schedule) {
     const current = (await client.query('SELECT storage_value,deleted_at FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub, SCHEDULE_STORAGE_KEY])).rows[0];
