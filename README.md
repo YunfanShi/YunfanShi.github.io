@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.20.1**
+> 当前版本：**v3.20.2**
 
 ---
 
@@ -15,6 +15,7 @@ Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围�
 截至2026-10-07，Azure香港PostgreSQL已部署；网站尚未切换正式数据库，应用连接、真实性能和最终计费仍需验证。
 全部85个目录条目的用途与优先级见 [Azure服务清单](jackyun-portal/docs/azure-service-catalog.md)，
 文件存储、密钥、Azure登录与Passkeys、通知和页面性能的分阶段实施见 [平台改造计划](jackyun-portal/docs/azure-platform-roadmap.md)。
+Supabase 数据、账号关联和文件的搬迁进度及逐表校验命令见 [数据迁移记录](jackyun-portal/docs/azure-data-migration.md)。目前仅完成源端实查和校验工具，尚未切换生产。
 
 安装 Node.js 24 LTS、Docker Desktop（Windows 使用 WSL 2 后端），启动 Docker Desktop 后，在 `jackyun-portal/` 执行：
 
