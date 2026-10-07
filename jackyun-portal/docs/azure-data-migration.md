@@ -6,10 +6,10 @@
 ## 已实查的数据范围
 
 源项目 gdcwwlnzylrzrqhaaljq，PostgreSQL 17，ACTIVE_HEALTHY。
-只读查询确认：82 张 public 业务表、8 个 auth.users 账号、30 条 Storage 对象记录。
+只读查询确认：82 张 public 业务表、1 张 jackyun_private 私有应用表、8 个 auth.users 账号、30 条 Storage 对象记录。
 avatars 为公开桶，novel-files 为私有桶；对象记录不证明对应文件字节仍可下载。
 数据库约 110 MiB（115,723,411 字节，包含索引与系统数据，不是备份文件大小）。
-业务表存在 84 个引用 auth schema 的外键；34 个 public 函数文本引用 auth.*。
+引用 auth schema 的外键全库合计84个：public 59个、jackyun_private 1个、auth内部24个；此前把全库84个称作业务表外键不准确。34个public函数文本引用auth.*。
 这些是迁移依赖线索，不能代替完整函数、触发器和策略依赖审计。
 扩展包括 pgcrypto、uuid-ossp、pg_stat_statements、plpgsql、supabase_vault。
 Azure 不具备完整 Supabase 托管服务；不能把 public schema dump 直接恢复后宣布网站可用。
@@ -17,13 +17,15 @@ MCP list_tables 的 rows 与实际 COUNT 有明显差异，不作为最终验收
 
 ## 可执行的逐表验收
 
-[清单 SQL](../scripts/azure-migration-manifest.sql) 在只读、可重复读事务内扫描所有 public 普通表和分区根表。
+[清单 SQL](../scripts/azure-migration-manifest.sql) 在只读、可重复读事务内扫描 public 和 jackyun_private 的所有普通表和分区根表。
 输出真实记录数、列名/类型/可空性和排序后的整行 JSONB 指纹；不会输出行原文。
 固定 UTC、日期、浮点及 bytea 格式；重复行保留在指纹计算中，读取顺序不影响结果。
 操作账号必须具备所有表读取与 RLS bypass，row_security=off 会让受策略过滤的读取报错，不能静默输出局部数据。
 超时或权限错误时禁止把不完整文件当清单。
 
-源端完整 SQL 已通过 Supabase MCP 实查执行，返回全部 82 张表的计数、列定义和指纹。
+新版SQL通过Supabase MCP实查执行，返回全部83张应用表的计数、列定义和指纹；私有 `backup_dirty_pages` 有1条待备份页面记录，不能只迁public而遗漏它。
+结果保存在本机 `.migration-private/source-application-manifest.json`，不是数据库行备份。
+新版格式 `jackyun-application-manifest-v2` 明确声明两个schema；比较器保留旧public-only v1读取能力，但禁止把v1和v2混比当成完整验收。
 本机暂未安装 psql/pg_dump；下列 CLI 命令尚未在本机运行。需要 PostgreSQL 17 客户端和可信的连接配置。
 连接信息放在操作员本机受保护的 pg_service.conf/pgpass 中，分别命名 jackyun_source、jackyun_target；密码不写命令、仓库或聊天。
 
@@ -38,13 +40,30 @@ node scripts/compare-azure-migration.mjs .migration-private/source.json .migrati
 if ($LASTEXITCODE -ne 0) { throw '数据不一致或清单无效，禁止切换' }
 ```
 
-比较器成功退出仅说明所采集 public 表的列、计数和内容指纹匹配；不是完整迁移成功。
+比较器成功退出仅说明两个清单声明范围内的表列、计数和内容指纹匹配；不是完整迁移成功，也不是账号、Storage服务或全数据库备份校验。
 MD5 是意外损坏检测指纹，不是抗攻击的备份真实性证明。备份另做 SHA-256 与恢复演练。
 两个快照若处于不同写入状态会产生正常差异；正式验收需冻结旧库写入、排空在途操作和队列、停相关定时任务，再导出和采集同一冻结状态。
 不要直接重跑覆盖差异；区分源端后续写入和导入遗漏，完成追平后重新验收。
 清单与备份统一放 .migration-private（已加入 Git 忽略）；另外设置操作系统访问权限与加密保存。
 
 ## 接下来按此顺序执行
+
+### 已保存的应用结构与依赖定义
+
+[结构目录SQL](../scripts/azure-schema-catalog.sql) 在只读事务内采集 public 和 jackyun_private 的关系/列、约束、索引、函数、触发器、策略、序列、枚举/域类型、扩展、默认权限和catalog依赖。
+包含作用在auth表上、但调用应用函数的触发器；不会读取数据库行、密码哈希、服务端文件或执行导出的定义。
+源端执行成功并保存为 `.migration-private/source-application-schema-catalog.json`；重新读取解析确认范围，文件SHA-256已在本机计算。
+实查：87个关系（83张应用表、4个序列）、405个约束、185个索引、70个函数/过程、37个自定义触发器、128个策略、1608条catalog依赖。
+这些定义保存在被Git忽略的本机目录中，函数体可能含敏感应用文字，不公开其内容。
+
+此目录是依赖审计输入，不是可直接运行的恢复SQL，也不是pg_dump的替代。
+没有保存完整auth/storage托管schema、所有数据库对象或表内数据；catalog依赖也不能发现所有动态SQL/过程体中的字符串引用。
+Azure适配仍要核对函数身份上下文、策略、auth触发器、扩展、序列当前值/is_called、角色权限和用户归属，并进行真实恢复与应用读写验证。
+
+```powershell
+psql 'service=jackyun_source' -X -q -A -t -v ON_ERROR_STOP=1 -f scripts/azure-schema-catalog.sql -o .migration-private/source-application-schema-catalog.json
+if ($LASTEXITCODE -ne 0) { throw '源结构目录失败' }
+```
 
 ### 文件独立备份工具
 
@@ -102,6 +121,6 @@ SHA-256检查检测意外损坏，不能抵御攻击者同时篡改清单和字�
    旧库与旧对象在观察期保留，退役前重新核对无旧写入及恢复证据。
 
 当前下一步的外部前提是 Azure 应用连接与运行身份配置。没有读取或要求用户在聊天里提供数据库密码。
-源端指纹扫描和14项表清单/文件备份/ZIP导入测试已通过；Azure上传、数据库导入、身份迁移和网站切换均未验证。
+源端83表指纹扫描、应用结构目录采集和16项表清单/文件备份/ZIP导入测试已通过；Azure上传、数据库导入、身份迁移和网站切换均未验证。
 
 参考：[PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[XML 查询映射](https://www.postgresql.org/docs/17/functions-xml.html)。

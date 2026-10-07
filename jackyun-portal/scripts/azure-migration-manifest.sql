@@ -1,5 +1,5 @@
 -- Run with psql -X -q -A -t -v ON_ERROR_STOP=1 -f this-file.sql.
--- Requires a trusted operator role with SELECT and RLS bypass on ALL public tables.
+-- Requires SELECT and RLS bypass on ALL public and jackyun_private tables.
 -- This is a read-only verification manifest, NOT a backup or migration.
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL statement_timeout = '120s';
@@ -14,7 +14,7 @@ SET LOCAL bytea_output = 'hex';
 WITH tables AS MATERIALIZED (
   SELECT c.oid, n.nspname AS schema_name, c.relname AS table_name
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition
+  WHERE n.nspname IN ('public', 'jackyun_private') AND c.relkind IN ('r', 'p') AND NOT c.relispartition
 ), snapshots AS MATERIALIZED (
   SELECT t.*, query_to_xml(format(
     'SELECT count(*)::text AS rows, md5(coalesce(string_agg(h, '''' ORDER BY h COLLATE "C"), '''')) AS fingerprint FROM (SELECT md5(to_jsonb(r)::text) AS h FROM %I.%I r) hashes',
@@ -22,10 +22,10 @@ WITH tables AS MATERIALIZED (
   FROM tables t
 )
 SELECT jsonb_build_object(
-  'format', 'jackyun-public-manifest-v1',
+  'format', 'jackyun-application-manifest-v2',
   'captured_at', transaction_timestamp(),
   'database', current_database(),
-  'scope', 'public',
+  'scope', jsonb_build_array('public', 'jackyun_private'),
   'algorithm', 'md5-sorted-row-jsonb-v1',
   'tables', coalesce(jsonb_agg(jsonb_build_object(
     'name', schema_name || '.' || table_name,
