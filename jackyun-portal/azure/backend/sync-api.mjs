@@ -8,6 +8,7 @@ import { ApiError } from './errors.mjs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const BACKUP_PAGES = new Set(['schedule','study','definitions','ielts','vocabulary','quiz','poetry','music','countdown','relax','reader','sites','settings','other']);
 const fail = (status, code) => { throw new ApiError(status, code); };
 const json = value => JSON.stringify(value ?? null);
 const iso = value => value instanceof Date ? value.toISOString() : value;
@@ -34,6 +35,21 @@ async function applyBody(client, identity, body, large = false) {
   if (!Array.isArray(body.operations) || body.operations.length > 100 || !body.operations.every(op => validOperation(op, large))) fail(400, 'INVALID_OPERATIONS');
   if (new Set(body.operations.map(op => op.key)).size !== body.operations.length) fail(400, 'DUPLICATE_KEYS');
   if (new Set(body.operations.map(op => op.id)).size !== body.operations.length) fail(400, 'DUPLICATE_OPERATION_IDS');
+  if (Object.hasOwn(body, 'requireCurrentVersion') && typeof body.requireCurrentVersion !== 'boolean') fail(400, 'INVALID_BODY');
+  // Restores must not use last-write-wins across a newer change. This check runs
+  // in the same transaction and user write lock as the following mutation,
+  // including when the request has been reassembled from large-value chunks.
+  if (body.requireCurrentVersion) {
+    for (const op of body.operations) {
+      const prior = (await client.query('SELECT storage_key,result FROM public.sync_operations WHERE user_id=$1 AND id=$2', [identity.sub,op.id])).rows[0];
+      if (prior) {
+        if (prior.storage_key !== op.key || prior.result?.status !== 'applied' || prior.result.contentHash !== hash(op.value,op.deleted)) fail(409,'RESTORE_OPERATION_MISMATCH');
+        continue;
+      }
+      const current = (await client.query('SELECT revision,content_hash FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub, op.key])).rows[0];
+      if (Number(current?.revision ?? 0) !== op.baseRevision || (current?.content_hash ?? null) !== op.baseHash) fail(409, 'RESTORE_VERSION_CHANGED');
+    }
+  }
   const schedule = body.operations.find(op => op.key === SCHEDULE_STORAGE_KEY);
   if (schedule) {
     const current = (await client.query('SELECT storage_value,deleted_at FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub, SCHEDULE_STORAGE_KEY])).rows[0];
@@ -50,14 +66,21 @@ async function applyBody(client, identity, body, large = false) {
   if (recent + body.operations.length > 600) fail(429, 'RATE_LIMITED');
   const applied = [], remote = [], conflicts = [];
   for (const op of body.operations) {
-    const result = await applyOperation(client, op, body.deviceId);
+    let result = await applyOperation(client, op, body.deviceId);
+    if (result.status === 'remote' || result.status === 'conflict') {
+      const row = (await client.query('SELECT * FROM public.list_web_sync_records(NULL,$1)',[op.key])).rows[0];
+      if (!row || row.storage_key !== op.key) fail(503,'SYNC_REMOTE_UNAVAILABLE');
+      result = { ...result,revision:Number(row.revision),remoteValue:row.storage_value,
+        remoteLarge:Boolean(row.large),remoteDeleted:Boolean(row.deleted_at),
+        remoteHash:row.content_hash,remoteUpdatedAt:iso(row.client_updated_at ?? row.updated_at) };
+    }
     if (result.status === 'applied') applied.push({ operationId: op.id, key: op.key, revision: Number(result.revision), contentHash: result.contentHash, updatedAt: result.updatedAt ?? op.clientUpdatedAt });
     else if (result.status === 'remote') {
-      const large = !result.remoteDeleted && !syncValueFits(result.remoteValue);
+      const large = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       remote.push({ key: op.key, value: large ? null : result.remoteValue, revision: Number(result.revision ?? 0),
         contentHash: result.remoteHash ?? null, deleted: Boolean(result.remoteDeleted), updatedAt: result.remoteUpdatedAt, large });
     } else {
-      const remoteLarge = !result.remoteDeleted && !syncValueFits(result.remoteValue);
+      const remoteLarge = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       conflicts.push({ operationId: op.id, key: op.key, baseRevision: op.baseRevision, baseValue: op.baseValue,
         localValue: op.deleted ? null : op.value, localDeleted: op.deleted, remoteValue: remoteLarge ? null : result.remoteValue,
         remoteLarge, remoteDeleted: Boolean(result.remoteDeleted), remoteHash: result.remoteHash,
@@ -70,11 +93,32 @@ async function applyBody(client, identity, body, large = false) {
   return { ok: true, applied, remote, conflicts, cursor: new Date().toISOString(), serverTime: new Date().toISOString() };
 }
 
-export function createSyncApi(database) {
-  return async function handle(method, url, body, identity) {
+export function createSyncApi(database, { verifyBackupCapture } = {}) {
+  return async function handle(method, url, body, identity, token) {
     const route = url.pathname;
     const write = method !== 'GET';
+    // Verify a committed source receipt before opening the Azure transaction.
+    // User-controlled HTTP calls cannot clear an unsaved backup generation.
+    if (route === '/api/sync/backup-markers' && method === 'POST') {
+      if (!body || !BACKUP_PAGES.has(body.page) || !UUID.test(body.generation ?? '')
+        || !Number.isSafeInteger(body.versionId) || body.versionId < 1 || json(body).length > 512) fail(400,'INVALID_BACKUP_MARKER');
+      if (!verifyBackupCapture) fail(503,'BACKUP_CAPTURE_VERIFICATION_UNAVAILABLE');
+      await verifyBackupCapture(identity,token,body);
+    }
     return database.withUser(identity, async client => {
+      if (route === '/api/sync/backup-markers') {
+        if (method === 'GET') {
+          const markers = (await client.query('SELECT public.sync_backup_markers() AS markers')).rows[0]?.markers;
+          if (!Array.isArray(markers) || markers.length > BACKUP_PAGES.size
+            || markers.some(r=>!r || !BACKUP_PAGES.has(r.page) || !UUID.test(r.generation ?? '') || typeof r.due !== 'boolean')
+            || new Set(markers.map(r=>r.page)).size !== markers.length) fail(503,'BACKUP_MARKERS_UNAVAILABLE');
+          return { ok:true,markers };
+        }
+        if (method !== 'POST') fail(405,'METHOD_NOT_ALLOWED');
+        const acknowledged = (await client.query('SELECT public.ack_sync_backup_marker($1,$2::uuid) AS acknowledged',[body.page,body.generation])).rows[0]?.acknowledged;
+        if (typeof acknowledged !== 'boolean') fail(503,'BACKUP_ACK_UNAVAILABLE');
+        return { ok:true,acknowledged };
+      }
       if (route === '/api/legacy-sync') {
         if (method === 'GET') {
           const rows = (await client.query(`SELECT storage_key,storage_value,updated_at FROM public.legacy_sync_data
@@ -106,6 +150,32 @@ export function createSyncApi(database) {
             device: { name: 'Legacy compatibility', platform: 'web' }, operations: operations.slice(start, start + 100) });
         }
         return { ok: true, count: operations.length, timestamp: new Date().toISOString() };
+      }
+      if (route === '/api/sync/export') {
+        if (method !== 'GET') fail(405, 'METHOD_NOT_ALLOWED');
+        const after = url.searchParams.get('after') ?? '';
+        if (after.length > 120 || (after && !isSyncableStorageKey(after))) fail(400, 'INVALID_CURSOR');
+        const visible = []; let position = after;
+        // Fill one page with authorized sync keys without exposing blocked key
+        // names in cursors. The database scan is bounded independently of output.
+        for (let scanned=0;scanned<20000 && visible.length<21;scanned+=21) {
+          const rows = (await client.query(`SELECT storage_key,revision,content_hash,deleted_at,updated_at,client_updated_at,
+            CASE WHEN deleted_at IS NOT NULL OR octet_length(storage_value::text)>400000 THEN NULL ELSE storage_value END AS storage_value,
+            deleted_at IS NULL AND octet_length(storage_value::text)>400000 AS large
+            FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key COLLATE "C">$2 COLLATE "C"
+            ORDER BY storage_key COLLATE "C" LIMIT 21`,[identity.sub,position])).rows;
+          for (const row of rows) if (isSyncableStorageKey(row.storage_key)) visible.push(row);
+          if (rows.length<21 || visible.length>=21) break;
+          const next = rows.at(-1).storage_key;
+          if (Buffer.compare(Buffer.from(next),Buffer.from(position))<=0) fail(503,'EXPORT_CURSOR_INVALID');
+          position=next;
+          if (scanned+21>=20000) fail(413,'EXPORT_SCAN_LIMIT');
+        }
+        const page = visible.slice(0,20);
+        return { ok:true,records:page.filter(row=>isSyncableStorageKey(row.storage_key)).map(row=>({
+          key:row.storage_key,value:row.storage_value,revision:Number(row.revision),contentHash:row.content_hash,
+          deleted:Boolean(row.deleted_at),large:Boolean(row.large),updatedAt:iso(row.client_updated_at ?? row.updated_at),
+        })),next:visible.length>20?page.at(-1).storage_key:null };
       }
       if (route === '/api/sync/v2') {
         if (method === 'POST') return applyBody(client, identity, body);

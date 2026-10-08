@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { canonicalJson } from '@/lib/sync/hash';
 import { SCHEDULE_STORAGE_KEY, scheduleHasContent } from '@/lib/sync/schedule-safety';
+import { azureBackupSource } from '@/lib/sync/azure-backup-source';
+import { restoreAzureSchedule } from '@/lib/backup/azure-page-backup';
 
 async function context() {
   const supabase = await createClient();
@@ -38,6 +40,12 @@ export async function downloadScheduleBackup(id: number) {
 
 export async function restoreScheduleBackup(id: number) {
   const { supabase, user, backup } = await getBackup(id);
+  const azure = await azureBackupSource(supabase);
+  if (azure) {
+    const restored = await restoreAzureSchedule(azure, user.id, backup.storage_value,
+      async args => await supabase.rpc('create_backup_page_with_sync', args));
+    return { value: restored.value, revision: restored.revision, contentHash: restored.contentHash, updatedAt: restored.updatedAt };
+  }
   const timestamp = new Date().toISOString();
   const contentHash = createHash('sha256').update(canonicalJson(backup.storage_value)).digest('hex');
   const { data: current, error: readError } = await supabase.from('legacy_sync_data')

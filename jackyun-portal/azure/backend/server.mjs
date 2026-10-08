@@ -2,6 +2,8 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { createAuthenticator } from './auth.mjs';
+import { createAccountStateVerifier } from './account-state.mjs';
+import { createBackupCaptureVerifier } from './backup-capture.mjs';
 import { createDatabase } from './database.mjs';
 import { createSyncApi } from './sync-api.mjs';
 import { ApiError } from './errors.mjs';
@@ -36,7 +38,7 @@ async function readBody(request, limit) {
 }
 
 export function createApiHandler({ authenticate, handle, allowedOrigins = ['https://jackyun.top'], logger = console }) {
-  const paths = new Set(['/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync']);
+  const paths = new Set(['/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
   return async (request, response) => {
     const requestId = randomUUID();
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -62,7 +64,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
         if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) throw new ApiError(415, 'JSON_REQUIRED');
         body = await readBody(request, url.pathname.endsWith('/large') ? 250_000 : 1_000_000);
       }
-      const result = await handle(request.method, url, body, identity);
+      const result = await handle(request.method, url, body, identity, request.headers.authorization.slice(7));
       send(200, result);
     } catch (error) {
       const expected = error instanceof ApiError;
@@ -88,8 +90,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const database = createDatabase({ host: process.env.PGHOST, database: process.env.PGDATABASE,
     user: process.env.PGUSER, password: process.env.PGPASSWORD, caPath: process.env.PGSSLROOTCERT });
   const authenticate = createAuthenticator({ supabaseUrl: process.env.SUPABASE_URL,
-    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY });
-  const server = createApiServer({ authenticate, handle: createSyncApi(database) });
+    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+    verifyAccount: createAccountStateVerifier({ supabaseUrl: process.env.SUPABASE_URL,
+      publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY }) });
+  const server = createApiServer({ authenticate, handle: createSyncApi(database, {
+    verifyBackupCapture:createBackupCaptureVerifier({ supabaseUrl:process.env.SUPABASE_URL,publishableKey:process.env.SUPABASE_PUBLISHABLE_KEY }) }) });
   server.listen(Number(process.env.PORT ?? 8080), '0.0.0.0', () => console.log('Azure sync API listening'));
   const stop = () => {
     server.close(() => { void database.close(); });

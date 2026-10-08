@@ -3,7 +3,7 @@ import { ApiError } from './errors.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function createAuthenticator({ supabaseUrl, publishableKey, keyResolver, fetchImpl = fetch }) {
+export function createAuthenticator({ supabaseUrl, publishableKey, keyResolver, fetchImpl = fetch, verifyAccount }) {
   const origin = new URL(supabaseUrl);
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.search || origin.hash
       || origin.pathname !== '/' || !/^[a-z0-9]+\.supabase\.co$/.test(origin.hostname)) {
@@ -75,6 +75,8 @@ export function createAuthenticator({ supabaseUrl, publishableKey, keyResolver, 
       throw new ApiError(401, 'UNAUTHORIZED');
     }
     // Never pass editable user metadata, a client user_id or arbitrary DB roles to SQL.
-    return { sub: claims.sub, session_id: claims.session_id, role: 'authenticated' };
+    const identity = { sub: claims.sub, session_id: claims.session_id, role: 'authenticated' };
+    if (verifyAccount) await verifyAccount(identity,token);
+    return identity;
   };
 }

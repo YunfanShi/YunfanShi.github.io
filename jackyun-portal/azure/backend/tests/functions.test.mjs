@@ -47,3 +47,18 @@ test('Functions registration streams input and preserves exact public route pref
   assert.equal(definitions[2].route, 'health/live');
   assert.equal(definitions[1].handler, handler);
 });
+
+test('export and backup marker routes reach the shared HTTP handler and retain authentication',async()=>{
+  const seen=[];
+  const handler=createFunctionHandler({authenticate,handle:async(method,url,body,identity,token)=>{
+    seen.push({method,path:url.pathname,body,identity,token});return {ok:true};
+  }});
+  for(const path of ['/api/sync/export?after=jackyun_theme','/api/sync/backup-markers']){
+    assert.equal((await handler(request(path))).status,401);
+    assert.equal((await handler(request(path,{headers:{authorization:'Bearer verified'}}))).status,200);
+  }
+  const body={page:'schedule',generation:'00000000-0000-4000-8000-000000000003',versionId:42};
+  assert.equal((await handler(request('/api/sync/backup-markers',{method:'POST',headers:{authorization:'Bearer verified','content-type':'application/json'},body:{string:JSON.stringify(body)}}))).status,200);
+  assert.deepEqual(seen.map(s=>s.path),['/api/sync/export','/api/sync/backup-markers','/api/sync/backup-markers']);
+  assert.ok(seen.every(s=>s.token==='verified'&&s.identity.sub==='verified'));assert.deepEqual(seen.at(-1).body,body);
+});
