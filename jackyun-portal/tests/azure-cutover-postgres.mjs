@@ -52,7 +52,7 @@ try{
     CREATE FUNCTION public.create_backup_page(target_page text) RETURNS bigint LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$SELECT 7::bigint$$;
     CREATE FUNCTION public.create_due_backup_pages() RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$SELECT 3$$;
     CREATE FUNCTION public.restore_backup_page(backup_id bigint) RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$SELECT '{}'::jsonb$$;`);
-  await source.query(readFileSync(new URL('../supabase/migrations/20261008000909_guard_legacy_backup_source.sql',import.meta.url),'utf8'));
+  await source.query(readFileSync(new URL('../supabase/migrations/20261008014450_guard_legacy_backup_source.sql',import.meta.url),'utf8'));
   await source.query("SELECT set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false)");
   await source.query('SET ROLE authenticated');
   assert.equal((await source.query("SELECT public.create_backup_page('schedule') AS id")).rows[0].id,'7');
@@ -60,6 +60,17 @@ try{
   await assert.rejects(source.query("SELECT jackyun_private.source_create_backup_page('schedule')"),{code:'42501'});
   await source.query('RESET ROLE');
   const report=await inspectCutover(source,target);
+  const baselineArchive=privateArchive(join(root,'baseline'));
+  const baseline=await applyCutover({source,target,report,acceptAzureBaseline:true,
+    evidence:{localTest:true,mode:'accept-azure-baseline',discardSourceIncrement:true},archive:baselineArchive});
+  assert.equal(baseline.migratedSyncTables,0);assert.equal(baseline.targetSyncDataPreserved,true);
+  for(const table of TABLES){
+    assert.equal((await target.query(`SELECT payload->>'value' AS value FROM public.${table}`)).rows[0].value,'old','Azure migration baseline is preserved');
+    await assert.rejects(source.query(`UPDATE public.${table} SET payload='{}'::jsonb`),{code:'55000'});
+  }
+  // Local drill only: no website has switched and no target data was changed.
+  await source.query(readFileSync(join(baselineArchive.directory,'restore-source-writes.sql'),'utf8'));
+  assert.deepEqual(await inspectCutover(source,target),report);
   // Inject a real SQL failure after target truncation and verify committed source
   // ACL/fence recovery rather than merely mocking PostgreSQL responses.
   const targetQuery=target.query.bind(target);let fail=true;

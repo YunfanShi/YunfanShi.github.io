@@ -31,7 +31,7 @@ export function privateArchive(root) {
 }
 
 // Operator evidence is required; unit-test signatures are not live-login evidence.
-export function validateEvidence(file, report, now = Date.now()) {
+export function validateEvidence(file, report, now = Date.now(), { acceptAzureBaseline = false } = {}) {
   if (!file) throw Error('Protected live verification and backup evidence is required');
   const evidenceStats = lstatSync(file);
   if (!evidenceStats.isFile() || evidenceStats.isSymbolicLink() || (process.platform !== 'win32' && (evidenceStats.mode & 0o077))) throw Error('Evidence must be private regular files');
@@ -43,14 +43,17 @@ export function validateEvidence(file, report, now = Date.now()) {
     'sourceWritersPaused', 'targetWritersPaused', 'backupRoutingVerified']) {
     if (evidence.checks?.[check] !== true) throw Error(`Missing ${check} verification`);
   }
-  for (const name of ['sourceBackup', 'targetBackup', 'liveReport', 'rollbackReport']) {
+  if (acceptAzureBaseline && (evidence.mode !== 'accept-azure-baseline' || evidence.discardSourceIncrement !== true
+      || evidence.checks?.backupRestoreDrill !== true)) throw Error('Explicit Azure baseline and restored target backup required');
+  for (const name of [...(acceptAzureBaseline ? [] : ['sourceBackup']), 'targetBackup', 'liveReport', 'rollbackReport']) {
     const ref = evidence[name];
     if (!ref?.file || !/^[a-f0-9]{64}$/i.test(ref.sha256)) throw Error('Missing protected evidence file');
     const path = resolve(dirname(file), ref.file); const stats = lstatSync(path);
     if (!stats.isFile() || stats.isSymbolicLink() || (process.platform !== 'win32' && (stats.mode & 0o077))) throw Error('Evidence must be private regular files');
     if (!stats.size || createHash('sha256').update(readFileSync(path)).digest('hex') !== ref.sha256.toLowerCase()) throw Error('Evidence checksum mismatch');
   }
-  return { verifiedAt: evidence.verifiedAt, checks: evidence.checks };
+  return { verifiedAt: evidence.verifiedAt, checks: evidence.checks,
+    ...(acceptAzureBaseline ? { mode: evidence.mode, discardSourceIncrement: true } : {}) };
 }
 
 async function inspect(client, allowSourceFence = false) {
@@ -121,10 +124,13 @@ async function fingerprint(client, table) {
     FROM (SELECT md5(to_jsonb(r)::text) AS h FROM public.${table} r) hashes`)).rows[0];
 }
 
-export async function applyCutover({ source, target, report, evidence, archive }) {
+export async function applyCutover({ source, target, report, evidence, archive, acceptAzureBaseline = false }) {
   let frozen = false; let committed = false; let uncertain = false;
   const locks = []; const restore = restorationSQL(report);
   try {
+    if (acceptAzureBaseline && (evidence?.mode !== 'accept-azure-baseline' || evidence.discardSourceIncrement !== true)) {
+      throw Object.assign(Error('Explicit Azure baseline acceptance required'),{cutoverCode:'BASELINE_ACCEPTANCE_REQUIRED'});
+    }
     if (report.source.backupSource?.sync_backend !== 'supabase' || report.source.backupSource?.guard_version !== 1
       || report.source.guardedBackupRPCs !== 3) throw Object.assign(Error('Legacy backup source guards required'),{cutoverCode:'BACKUP_SOURCE_GUARDS_REQUIRED'});
     for (const client of [source,target]) {
@@ -151,6 +157,23 @@ export async function applyCutover({ source, target, report, evidence, archive }
     }
     await source.query("UPDATE jackyun_private.sync_source_control SET sync_backend='azure' WHERE singleton AND guard_version=1");
     uncertain = true; await source.query('COMMIT'); frozen = true; uncertain = false;
+    if (acceptAzureBaseline) {
+      // Intentionally preserve the migrated Azure data. Never read/copy source
+      // sync rows or replace target rows in this explicitly authorized mode.
+      await target.query('BEGIN');
+      await target.query("SET LOCAL timezone='UTC'");
+      await target.query("SET LOCAL lock_timeout='10s'");
+      await target.query(`LOCK TABLE ${relations} IN SHARE MODE`);
+      const hashes = {};
+      for (const table of TABLES) hashes[table] = await fingerprint(target,table);
+      archive.write('accepted-azure-baseline.json',{mode:'accept-azure-baseline',discardSourceIncrement:true,hashes});
+      if (!same((await target.query(triggersCatalog,[[...TABLES,'profiles']])).rows,report.target.triggers)) throw Error('Target trigger state changed');
+      await target.query('COMMIT');
+      committed = true;
+      const result = {ok:true,committed,sourceFrozen:true,mode:'accept-azure-baseline',discardSourceIncrement:true,
+        migratedSyncTables:0,targetSyncDataPreserved:true,fingerprintsMatch:null,archive:archive.directory,websiteSwitched:false};
+      archive.write('verification.json',result);return result;
+    }
     await source.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
     await source.query("SET LOCAL timezone='UTC'");
     const snapshot = {}; const hashes = {};

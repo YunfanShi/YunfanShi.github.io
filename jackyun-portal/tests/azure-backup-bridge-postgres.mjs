@@ -45,7 +45,7 @@ try{
   await client.query(initial.slice(initial.indexOf('create function jackyun_private.backup_page_for_key'),initial.indexOf('create function jackyun_private.save_backup_page')));
   const save=migration('20260925100034_preserve_preincident_backup_versions.sql');
   await client.query(save.slice(save.indexOf('create or replace function')));
-  await client.query(migration('20261007174145_azure_sync_backup_bridge.sql'));
+  await client.query(migration('20261008014421_azure_sync_backup_bridge.sql'));
   await client.query("INSERT INTO public.profiles VALUES ($1,'active',null),($2,'active',null);",[a,b]);
   await client.query('ALTER TABLE public.legacy_sync_data DISABLE TRIGGER frozen');
   await client.query("INSERT INTO public.legacy_sync_data(user_id,storage_key,storage_value,revision,updated_at) VALUES ($1,'jackyun_schedule_control_v1','{\"text\":\"stale-source\"}',1,now()),($2,'jackyun_schedule_control_v1','{\"text\":\"other-private\"}',1,now())",[a,b]);
@@ -83,7 +83,7 @@ try{
   await assert.rejects(client.query("SELECT public.create_backup_page_with_sync('schedule','[]'::jsonb)"),/permission denied/);
   await client.query('RESET ROLE');
   await client.query("UPDATE public.profiles SET deleted_at=null WHERE id=$1",[a]);
-  await client.query(migration('20261007175839_azure_automatic_backup_coordination.sql'));
+  await client.query(migration('20261008014435_azure_automatic_backup_coordination.sql'));
   await client.query("INSERT INTO jackyun_private.backup_dirty_pages(user_id,page,change_bytes) VALUES ($1,'schedule',4194304)",[b]);
   const initialGeneration=(await client.query("SELECT generation FROM jackyun_private.backup_dirty_pages WHERE user_id=$1",[a])).rows[0].generation;
   await client.query("UPDATE jackyun_private.backup_dirty_pages SET change_bytes=change_bytes WHERE user_id=$1",[a]);
@@ -220,9 +220,9 @@ try{
   const restoreGrant='grant execute on function public.restore_backup_page(bigint) to authenticated;';
   await client.query(initial.slice(initial.indexOf('create function public.restore_backup_page'),initial.indexOf(restoreGrant)+restoreGrant.length));
   await client.query('GRANT EXECUTE ON FUNCTION public.create_backup_page(text),public.create_due_backup_pages() TO authenticated');
-  await assert.rejects(target.query(migration('20261008000909_guard_legacy_backup_source.sql')),/Only Supabase source/);
+  await assert.rejects(target.query(migration('20261008014450_guard_legacy_backup_source.sql')),/Only Supabase source/);
   assert.equal((await target.query("SELECT to_regclass('jackyun_private.sync_source_control') AS control")).rows[0].control,null);
-  await client.query(migration('20261008000909_guard_legacy_backup_source.sql'));
+  await client.query(migration('20261008014450_guard_legacy_backup_source.sql'));
   await client.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[a]);
   await client.query('SET ROLE authenticated');
   const legacyId=(await client.query("SELECT public.create_backup_page('schedule') AS id")).rows[0].id;
@@ -239,9 +239,9 @@ try{
   await client.query('RESET ROLE');
   assert.equal((await client.query('SELECT count(*)::int AS n FROM public.backup_center_versions')).rows[0].n,countBefore);
   await call([row]); // Current Azure-supplied values can still be saved.
-  await client.query('CREATE TABLE auth.users(id uuid PRIMARY KEY); INSERT INTO auth.users SELECT id FROM public.profiles; ALTER TABLE public.timetable_hub_data ADD PRIMARY KEY(id)');
-  await client.query(migration('20261008002507_azure_page_restore_coordination.sql'));
-  await assert.rejects(target.query(migration('20261008002507_azure_page_restore_coordination.sql')),/Source restore migration only/);
+  await client.query('CREATE TABLE auth.users(id uuid PRIMARY KEY); INSERT INTO auth.users SELECT id FROM public.profiles; ALTER TABLE public.timetable_hub_data ADD PRIMARY KEY(id); ALTER TABLE public.timetable_hub_data ADD UNIQUE(user_id)');
+  await client.query(migration('20261008014506_azure_page_restore_coordination.sql'));
+  await assert.rejects(target.query(migration('20261008014506_azure_page_restore_coordination.sql')),/Source restore migration only/);
   const restoreRequest='00000000-0000-4000-8000-000000000021';
   const prepareRestore=()=>sourceRPC('SELECT public.prepare_azure_page_restore($1,$2::jsonb,$3::uuid) AS result',[id,JSON.stringify([row]),restoreRequest]);
   const preparedRestore=(await prepareRestore()).data;

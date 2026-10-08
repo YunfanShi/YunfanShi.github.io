@@ -8,7 +8,9 @@ import { compareManifests } from './compare-azure-migration.mjs';
 import { atStage, safeDiagnostic } from './lib/azure-cutover-diagnostics.mjs';
 
 export async function main(args = process.argv.slice(2), env = process.env) {
-  if (args.some(arg => !['--apply', '--preflight'].includes(arg)) || new Set(args).size > 1) throw Error('Choose --preflight (default) or --apply');
+  if (args.some(arg => !['--apply', '--preflight','--accept-azure-baseline'].includes(arg))
+      || (args.includes('--apply') && args.includes('--preflight')) || new Set(args).size !== args.length) throw Error('Choose --preflight (default) or --apply; optionally --accept-azure-baseline');
+  const acceptAzureBaseline = args.includes('--accept-azure-baseline');
   const root = resolve(import.meta.dirname, '..');
   const { Client } = createRequire(new URL('../azure/backend/package.json', import.meta.url))('pg');
   function connection(side) {
@@ -32,6 +34,13 @@ export async function main(args = process.argv.slice(2), env = process.env) {
     console.log('步骤 3/4：检查迁移库结构、账号与权限…');
     const report = await inspectCutover(source, target);
     if (!args.includes('--apply')) {
+      if (acceptAzureBaseline) {
+        const archive = privateArchive(join(root,'.migration-private'));
+        const summary = {ok:true,operation:'preflight',mode:'accept-azure-baseline',writesPerformed:false,
+          capturedAt:new Date().toISOString(),accountCount:report.target.ids.length,syncTables:5,targetDatabase:report.target.database,
+          sourceDataComparisonSkipped:true,discardSourceIncrement:true,archive:archive.directory};
+        archive.write('preflight.json',report);archive.write('summary.json',summary);console.log(JSON.stringify(summary));return summary;
+      }
       const sql = readFileSync(join(root, 'scripts/azure-migration-manifest.sql'), 'utf8');
       const manifest = async client => {
         const results = await client.query(sql);
@@ -57,9 +66,9 @@ export async function main(args = process.argv.slice(2), env = process.env) {
       archive.write('summary.json',summary);
       console.log(JSON.stringify(summary)); return summary;
     }
-    const evidence = validateEvidence(env.AZURE_CUTOVER_EVIDENCE, report);
+    const evidence = validateEvidence(env.AZURE_CUTOVER_EVIDENCE, report, Date.now(), {acceptAzureBaseline});
     const archive = privateArchive(join(root, '.migration-private'));
-    const result = await applyCutover({ source, target, report, evidence, archive });
+    const result = await applyCutover({ source, target, report, evidence, archive, acceptAzureBaseline });
     console.log(JSON.stringify(result)); return result;
   } finally { await source.end().catch(() => {}); await target.end().catch(() => {}); }
 }

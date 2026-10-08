@@ -132,6 +132,14 @@ test('protected archives do not overwrite files; evidence validates age, scope a
   const file=join(archive.directory,'evidence.json');const report={target:{database:evidence.targetDatabase}};
   const save=()=>writeFileSync(file,JSON.stringify(evidence),{mode:0o600});save();
   assert.ok(validateEvidence(file,report));evidence.checks.realLogin=false;save();assert.throws(()=>validateEvidence(file,report));
+  evidence.checks.realLogin=true;
+  const baseline={...evidence,mode:'accept-azure-baseline',discardSourceIncrement:true,
+    checks:{...evidence.checks,backupRestoreDrill:true}};delete baseline.sourceBackup;
+  writeFileSync(file,JSON.stringify(baseline),{mode:0o600});
+  assert.equal(validateEvidence(file,report,Date.now(),{acceptAzureBaseline:true}).discardSourceIncrement,true);
+  assert.throws(()=>validateEvidence(file,report),/Missing protected evidence/);
+  baseline.checks.backupRestoreDrill=false;writeFileSync(file,JSON.stringify(baseline),{mode:0o600});
+  assert.throws(()=>validateEvidence(file,report,Date.now(),{acceptAzureBaseline:true}),/restored target backup/);
   evidence.checks.realLogin=true;evidence.verifiedAt='2020-01-01';save();assert.throws(()=>validateEvidence(file,report));
   evidence.verifiedAt=new Date().toISOString();evidence.liveReport={...ref,sha256:'0'.repeat(64)};save();assert.throws(()=>validateEvidence(file,report));
 });
@@ -140,4 +148,19 @@ test('uninstalled backup guards fail before any production mutation',async()=>{
   const f=fixture({missingBackupGuards:true});
   await assert.rejects(execute(f),{cutoverCode:'BACKUP_SOURCE_GUARDS_REQUIRED',sourceFrozen:false});
   assert.ok(f.commands.every(({sql})=>/^(BEGIN.*READ ONLY|SELECT|SET LOCAL|COMMIT|ROLLBACK)/.test(sql)));
+});
+
+test('accepted Azure baseline freezes source without copying, truncating or updating target data',async()=>{
+  const f=fixture();const report=await inspectCutover(f.source,f.target);f.commands.length=0;
+  const result=await applyCutover({...f,report,acceptAzureBaseline:true,evidence:{mode:'accept-azure-baseline',discardSourceIncrement:true}});
+  assert.equal(result.targetSyncDataPreserved,true);assert.equal(result.migratedSyncTables,0);assert.equal(result.fingerprintsMatch,null);
+  assert.equal(result.sourceFrozen,true);
+  assert.ok(!f.commands.some(x=>x.side==='target'&&/^(INSERT|UPDATE|DELETE|TRUNCATE|ALTER)/.test(x.sql)));
+  assert.ok(!f.commands.some(x=>x.side==='source'&&x.sql.includes('jsonb_agg(to_jsonb(r)')));
+  assert.ok(f.files.has('accepted-azure-baseline.json'));
+});
+test('baseline acceptance is explicit and target data cannot be modified by an accidental mode switch',async()=>{
+  const f=fixture();const report=await inspectCutover(f.source,f.target);f.commands.length=0;
+  await assert.rejects(applyCutover({...f,report,acceptAzureBaseline:true,evidence:{}}),{cutoverCode:'BASELINE_ACCEPTANCE_REQUIRED'});
+  assert.ok(!f.commands.some(x=>x.sql.startsWith('CREATE TRIGGER')));
 });

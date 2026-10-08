@@ -31,7 +31,7 @@ try{
     GRANT USAGE ON SCHEMA public,auth TO jackyun_sync_runtime;
     GRANT EXECUTE ON FUNCTION auth.uid(),public.sync_identity_allowed() TO jackyun_sync_runtime;`);
   await client.query(readFileSync(new URL('../azure/sync-backup-markers.sql',import.meta.url),'utf8'));
-  await assert.rejects(client.query(readFileSync(new URL('../supabase/migrations/20261007174145_azure_sync_backup_bridge.sql',import.meta.url),'utf8')),/Only Supabase source backup migrations/);
+  await assert.rejects(client.query(readFileSync(new URL('../supabase/migrations/20261008014421_azure_sync_backup_bridge.sql',import.meta.url),'utf8')),/Only Supabase source backup migrations/);
   await client.query("INSERT INTO public.profiles VALUES($1,'active',null),($2,'active',null)",[a,b]);
   await client.query("INSERT INTO jackyun_private.backup_dirty_pages(user_id,page,change_bytes) VALUES($1,'schedule',4194304),($2,'schedule',4194304)",[a,b]);
   const invoke=async(user,sql,args=[])=>{

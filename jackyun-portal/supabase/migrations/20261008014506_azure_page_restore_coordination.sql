@@ -68,13 +68,17 @@ begin
     end if;
     conflict_column := case
       when table_name = 'reader_books' then 'user_id, book_id'
+      when table_name = 'vocab_stats' then 'user_id, date'
+      when table_name = 'study_syllabus' then 'user_id, subject_name'
+      when table_name = 'user_settings' then 'user_id, key'
+      when table_name in ('vocab_settings','study_config','music_settings','relax_state','timetable_hub_data') then 'user_id'
       when table_name in ('focus_settings','quiz_settings') then 'user_id'
       else 'id' end;
     select pg_catalog.string_agg(pg_catalog.format('%I = excluded.%I', a.attname, a.attname), ', ')
       into assignments from pg_catalog.pg_attribute a
       where a.attrelid = pg_catalog.format('public.%I', table_name)::pg_catalog.regclass
-        and a.attnum > 0 and not a.attisdropped and a.attname <> conflict_column
-        and not (table_name = 'reader_books' and a.attname in ('user_id','book_id'))
+        and a.attnum > 0 and not a.attisdropped and a.attname <> 'id'
+        and a.attname <> all(pg_catalog.string_to_array(pg_catalog.replace(conflict_column,' ',''),','))
         and a.attgenerated = '' and a.attname <> 'user_id';
     execute pg_catalog.format(
       'insert into public.%I select * from pg_catalog.jsonb_populate_recordset(null::public.%I, $1) on conflict (%s) do update set %s',

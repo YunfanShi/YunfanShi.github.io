@@ -12,7 +12,7 @@
 
 Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围及验证条件见
 [Azure 数据库可行性研究](jackyun-portal/docs/azure-database-feasibility.md)。
-截至2026-10-08，Azure香港PostgreSQL已部署；网站尚未切换正式数据库，应用连接、真实性能和最终计费仍需验证。候选3.21.3已补数据导出/导入与日程恢复的Azure路由，手动页面备份桥接RPC仅在隔离本机数据库验证、尚未应用生产；自动备份协调已通过本机两库与Azure SDK完整路径测试；旧备份RPC切换保护已本机验证，整页恢复持久协调和失败重试已接入并经本机SQL及传输测试，全部页面完整路径及生产验收仍待完成。详细结果见[切换实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。
+截至2026-10-08，Azure香港PostgreSQL及Functions 3.21.3候选已部署，存活检查200，新同步/导出/备份接口未登录返回401；Supabase侧四项备份、恢复及旧入口保护迁移已安装，真实浏览器登录已恢复。按用户最新授权，切换以Azure已迁移数据为基线，放弃随后Supabase的新增、修改及删除，不再追平；设备通过正常同步补回本地数据。显式`--accept-azure-baseline`模式保留目标五表，不复制或清空目标记录。网站生产同步入口尚未切换，Azure基线实际备份恢复及真实读写验收仍待完成。目标库准备使用[隐藏输入命令](jackyun-portal/scripts/azure-baseline-prepare.command)，只需Azure数据库密码。详细结果见[切换实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。
 全部85个目录条目的用途与优先级见 [Azure服务清单](jackyun-portal/docs/azure-service-catalog.md)，
 文件存储、密钥、Azure登录与Passkeys、通知和页面性能的分阶段实施见 [平台改造计划](jackyun-portal/docs/azure-platform-roadmap.md)。
 Supabase 数据、账号关联和文件的搬迁进度、逐表校验与文件独立备份命令见 [数据迁移记录](jackyun-portal/docs/azure-data-migration.md)。30个文件已复制到Azure，并下载回本机逐个核对路径、大小和SHA-256，全部一致（24,882,492字节）。数据库已恢复到Azure独立迁移库，83张应用表的列定义、行数和内容指纹与源端采样一致；网站尚未切换生产。
@@ -1037,7 +1037,7 @@ Private — JackYun Personal Portal，仅供个人使用。
 
 ---
 
-Azure同步接入(v3.21.2)：网页四个v2同步接口与旧页面兼容接口支持服务端AZURE_SYNC_API_URL转发。未配置该变量时仍走原数据库；配置后只写Azure，不在失败时转写Supabase。最终五表追平、真实登录和读写验收按后台文档执行。
+Azure同步接入(v3.21.3候选)：网页v2同步接口与旧页面兼容接口支持服务端AZURE_SYNC_API_URL转发。未配置该变量时仍走原数据库；配置后只写Azure，不在失败时转写Supabase。当前直接切换取消最终五表追平；保留Azure基线、目标备份恢复、真实读写及旧入口冻结仍需分别验收。
 
 Azure切换安全准备(v3.21.3候选)：切换工具默认只读预检，生产执行需备份、真实身份验收和回退证据；精确恢复权限与触发器状态，提交结果不明时保持冻结并要求核查。Azure后台增加Supabase权威账号状态检查，来源不可用时拒绝受保护请求。macOS检查文件在`jackyun-portal/scripts/azure-preflight.command`，单账号只读验收在`azure-real-login-check.command`，两端备份在`azure-cutover-backup.command`。2026年10月8日实查两端均83张应用表、8个账号，14张表存在数据差异；网站切换与第二阶段请求优化仍未完成。详细说明见`jackyun-portal/docs/azure-cutover-and-database-access-plan.docx`。全仓库lint已有16个错误，未将其标记为通过。
 

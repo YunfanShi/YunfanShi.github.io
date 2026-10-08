@@ -1,0 +1,2639 @@
+{
+  "capturedAt": "2026-10-08",
+  "source": "Supabase system catalogs; schema only; no user rows",
+  "tables": [
+    {
+      "relname": "companion_learning_queue",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "url",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "hostname",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((char_length(category) >= 1) AND (char_length(category) <= 40)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((hostname ~ '^[a-z0-9][a-z0-9.-]{0,252}$'::text))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((char_length(note) <= 2000))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((status = ANY (ARRAY['unread'::text, 'in_progress'::text, 'done'::text, 'archived'::text])))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((char_length(title) >= 1) AND (char_length(title) <= 300)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((char_length(url) >= 8) AND (char_length(url) <= 2048)))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "countdowns",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "target_date",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "focus_sessions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "task_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration_seconds",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "device_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "resource_key",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "study_task_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "planned_seconds",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "outcome",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "session_note",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "client_operation_id",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (device_id) REFERENCES companion_devices(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((duration_seconds >= 60) AND (duration_seconds <= 21600)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((session_note IS NULL) OR (char_length(session_note) <= 500)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((client_operation_id IS NULL) OR ((char_length(client_operation_id) >= 1) AND (char_length(client_operation_id) <= 128))))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((outcome IS NULL) OR (outcome = ANY (ARRAY['completed'::text, 'partial'::text, 'interrupted'::text]))))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((planned_seconds IS NULL) OR ((planned_seconds >= 60) AND (planned_seconds <= 21600))))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((source = ANY (ARRAY['portal'::text, 'companion'::text])))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (study_task_id) REFERENCES study_tasks(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (task_id) REFERENCES focus_tasks(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id, client_operation_id)"
+        }
+      ]
+    },
+    {
+      "relname": "focus_settings",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "pomodoro_min",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "short_break_min",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "long_break_min",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "long_break_interval",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sound_enabled",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "notifications_enabled",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((long_break_interval >= 2) AND (long_break_interval <= 8)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((long_break_min >= 10) AND (long_break_min <= 60)))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (user_id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((pomodoro_min >= 10) AND (pomodoro_min <= 90)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((short_break_min >= 3) AND (short_break_min <= 30)))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "focus_tasks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "estimated_pomodoros",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completed_pomodoros",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_completed",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "study_task_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK ((completed_pomodoros >= 0))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((estimated_pomodoros >= 1) AND (estimated_pomodoros <= 99)))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (study_task_id) REFERENCES study_tasks(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (study_task_id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((char_length(TRIM(BOTH FROM title)) >= 1) AND (char_length(TRIM(BOTH FROM title)) <= 140)))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "music_settings",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "manual_offset",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "interval_ms",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "play_mode",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id)"
+        }
+      ]
+    },
+    {
+      "relname": "music_songs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "netease_id",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "personal_sites",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "schema_version",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "definition",
+          "type": "jsonb",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80)))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "playlists",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "poem_sessions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "poem_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "time_seconds",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "retreats",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "study_mode_used",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completed",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (poem_id) REFERENCES poems(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "poems",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "author",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "mastery_level",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "best_time",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completion_count",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "last_progress",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((mastery_level >= 0) AND (mastery_level <= 5)))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "quiz_questions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "session_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "question_text",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "question_type",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "options",
+          "type": "jsonb",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "correct_answer",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_answer",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_correct",
+          "type": "boolean",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "explanation",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "answered_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "order_index",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (session_id) REFERENCES quiz_sessions(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "quiz_sessions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject_name",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "total_questions",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "correct_count",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "accuracy",
+          "type": "numeric(5,2)",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration_seconds",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (subject_id) REFERENCES quiz_subjects(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "quiz_settings",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "show_answer_immediately",
+          "type": "boolean",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "auto_submit_on_enter",
+          "type": "boolean",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "default_subject_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "selected_subjects",
+          "type": "uuid[]",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quiz_version_preference",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (user_id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "quiz_subjects",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_custom",
+          "type": "boolean",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id, name)"
+        }
+      ]
+    },
+    {
+      "relname": "reader_books",
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "book_id",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "metadata",
+          "type": "jsonb",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "storage_path",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content_hash",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content_source",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "on_shelf",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((char_length(book_id) >= 1) AND (char_length(book_id) <= 120)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((char_length(content_hash) <= 128))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((content_source = ANY (ARRAY['local'::text, 'store'::text])))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (user_id, book_id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((((content_source = 'local'::text) AND (storage_path = (((('users/'::text || (user_id)::text) || '/'::text) || book_id) || '.json'::text)) AND (content_hash IS NOT NULL)) OR ((content_source = 'store'::text) AND ((storage_path IS NULL) OR (storage_path = (((('users/'::text || (user_id)::text) || '/'::text) || book_id) || '.json'::text))))))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "relax_chat",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text])))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "relax_state",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "water_count",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "water_date",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "theme",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id)"
+        }
+      ]
+    },
+    {
+      "relname": "review_attempts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "review_item_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "answer",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "is_correct",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quality",
+          "type": "smallint",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration_seconds",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "attempted_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((duration_seconds IS NULL) OR ((duration_seconds >= 0) AND (duration_seconds <= 21600))))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((quality >= 0) AND (quality <= 5)))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (review_item_id) REFERENCES review_items(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "review_items",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "quiz_question_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "question_text",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "question_type",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "options",
+          "type": "jsonb",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "correct_answer",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "last_user_answer",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "explanation",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "knowledge_point",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "error_type",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "next_review_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "interval_days",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "ease_factor",
+          "type": "numeric(3,2)",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "streak",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((ease_factor >= 1.30) AND (ease_factor <= 3.00)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((error_type = ANY (ARRAY['concept'::text, 'calculation'::text, 'reading'::text, 'careless'::text, 'expression'::text, 'unknown'::text])))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((interval_days >= 1) AND (interval_days <= 3650)))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (quiz_question_id) REFERENCES quiz_questions(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'mastered'::text, 'archived'::text])))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((streak >= 0) AND (streak <= 10000)))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id, quiz_question_id)"
+        }
+      ]
+    },
+    {
+      "relname": "study_config",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "school_date",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "exam_date",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "emergency_subjects",
+          "type": "text[]",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "emergency_deadline",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "emergency_note",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id)"
+        }
+      ]
+    },
+    {
+      "relname": "study_mock_records",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "paper",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "score",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "max_score",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration_minutes",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "study_plans",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "start_date",
+          "type": "date",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "end_date",
+          "type": "date",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "study_syllabus",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject_name",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "units",
+          "type": "jsonb",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id, subject_name)"
+        }
+      ]
+    },
+    {
+      "relname": "study_tasks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "plan_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completed",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "due_date",
+          "type": "date",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "estimated_minutes",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "priority",
+          "type": "smallint",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "scheduled_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK (((estimated_minutes >= 10) AND (estimated_minutes <= 360)))"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (plan_id) REFERENCES study_plans(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((priority >= 1) AND (priority <= 5)))"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK (((subject IS NULL) OR ((char_length(TRIM(BOTH FROM subject)) >= 1) AND (char_length(TRIM(BOTH FROM subject)) <= 80))))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "timetable_hub_data",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "th_state",
+          "type": "jsonb",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "th_config",
+          "type": "jsonb",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id)"
+        }
+      ]
+    },
+    {
+      "relname": "tracks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "playlist_id",
+          "type": "uuid",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "artist",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "url",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "duration_seconds",
+          "type": "integer",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "sort_order",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE SET NULL"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "user_settings",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "key",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "value",
+          "type": "jsonb",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id, key)"
+        }
+      ]
+    },
+    {
+      "relname": "vocab_settings",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "tts",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "rate",
+          "type": "real",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "theme",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id)"
+        }
+      ]
+    },
+    {
+      "relname": "vocab_stats",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "today_time",
+          "type": "real",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "today_learned",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "today_reviewed",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "date",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (user_id, date)"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
+      "relname": "vocab_words",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "word",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "meaning",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "mastered",
+          "type": "boolean",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "review_count",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "ex",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "cn",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "stage",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "next_review",
+          "type": "bigint",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "interval_minutes",
+          "type": "integer",
+          "notNull": true,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "name": "learned_date",
+          "type": "text",
+          "notNull": false,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "type": "c",
+          "definition": "CHECK ((status = ANY (ARRAY['new'::text, 'learning'::text, 'review'::text, 'mastered'::text])))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+        }
+      ]
+    }
+  ]
+}
