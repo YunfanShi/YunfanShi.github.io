@@ -41,6 +41,11 @@ async function applyBody(client, identity, body, large = false) {
   // including when the request has been reassembled from large-value chunks.
   if (body.requireCurrentVersion) {
     for (const op of body.operations) {
+      const prior = (await client.query('SELECT storage_key,result FROM public.sync_operations WHERE user_id=$1 AND id=$2', [identity.sub,op.id])).rows[0];
+      if (prior) {
+        if (prior.storage_key !== op.key || prior.result?.status !== 'applied' || prior.result.contentHash !== hash(op.value,op.deleted)) fail(409,'RESTORE_OPERATION_MISMATCH');
+        continue;
+      }
       const current = (await client.query('SELECT revision,content_hash FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub, op.key])).rows[0];
       if (Number(current?.revision ?? 0) !== op.baseRevision || (current?.content_hash ?? null) !== op.baseHash) fail(409, 'RESTORE_VERSION_CHANGED');
     }

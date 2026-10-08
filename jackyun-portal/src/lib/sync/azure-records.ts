@@ -126,8 +126,12 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
     async read(key: string): Promise<SyncRecord | null> {
       const r = await metadata(key); return r ? materialize(r) : null;
     },
-    async write(key: string, value: unknown, deleted = false, expected?: SyncRecord | null): Promise<SyncRecord> {
+    async write(key: string, value: unknown, deleted = false, expected?: SyncRecord | null,
+      retry?: { operationId: string; clientUpdatedAt: string }): Promise<SyncRecord> {
       if (!isSyncableStorageKey(key)) throw Error('导入同步键无效。');
+      if (retry && (expected === undefined || !UUID.test(retry.operationId) || !Number.isFinite(Date.parse(retry.clientUpdatedAt)))) {
+        throw Error('恢复重试元数据无效。');
+      }
       // A session ID is transported as the device identifier; it is never used
       // as authentication. The backend verifies the complete bearer token.
       let sessionId: unknown;
@@ -135,13 +139,14 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
       catch { throw Error('登录会话格式无效。'); }
       if (typeof sessionId !== 'string' || !UUID.test(sessionId)) throw Error('登录会话无效。');
       const current = await metadata(key);
-      if (expected !== undefined && (current?.revision !== expected?.revision
+      if (!retry && expected !== undefined && (current?.revision !== expected?.revision
         || current?.contentHash !== expected?.contentHash || current?.deleted !== expected?.deleted)) {
         throw Error('云端数据在恢复前备份后发生变化，恢复未执行；请重新检查。');
       }
-      const timestamp = new Date().toISOString();
-      const op: SyncOperation = { id: randomUUID(), key, baseRevision: current?.revision ?? 0,
-        baseHash: current?.contentHash ?? null, baseValue: null, value: deleted ? null : value, deleted, clientUpdatedAt: timestamp };
+      const timestamp = retry?.clientUpdatedAt ?? new Date().toISOString();
+      const baseRecord = retry ? expected : current;
+      const op: SyncOperation = { id: retry?.operationId ?? randomUUID(), key, baseRevision: baseRecord?.revision ?? 0,
+        baseHash: baseRecord?.contentHash ?? null, baseValue: null, value: deleted ? null : value, deleted, clientUpdatedAt: timestamp };
       const body = { deviceId: sessionId, device: { name: '数据恢复与导入', platform: 'web' }, operations: [op],
         ...(expected !== undefined ? { requireCurrentVersion: true } : {}) };
       let result: Record<string, unknown>;
@@ -155,7 +160,10 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
       const acknowledgments = Array.isArray(result.applied) ? result.applied : [];
       const ack = acknowledgments[0] as Record<string, unknown> | undefined;
       const expectedHash = createHash('sha256').update(deleted ? '__deleted__' : canonicalJson(value)).digest('hex');
-      if (!ack || !Number.isSafeInteger(ack.revision) || Number(ack.revision) <= op.baseRevision || ack.contentHash !== expectedHash || ack.operationId !== op.id || ack.key !== key || acknowledgments.length !== 1
+      // The SQL RPC keeps the revision when the requested value is already
+      // current. Accept that only when our base has the identical hash/state.
+      const unchanged = Number(ack?.revision) === op.baseRevision && baseRecord?.contentHash === expectedHash && baseRecord.deleted === deleted;
+      if (!ack || !Number.isSafeInteger(ack.revision) || Number(ack.revision)<1 || (Number(ack.revision) <= op.baseRevision && !unchanged) || ack.contentHash !== expectedHash || ack.operationId !== op.id || ack.key !== key || acknowledgments.length !== 1
         || (Array.isArray(result.remote) && result.remote.length) || (Array.isArray(result.conflicts) && result.conflicts.length)) {
         throw Error('云端数据已变化，导入未确认；请保留原始文件并重新检查。');
       }

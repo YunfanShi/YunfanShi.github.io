@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { createAzureRecordClient } from '../src/lib/sync/azure-records.ts';
 import { createAzureDueBackups } from '../src/lib/backup/azure-automatic-backup.ts';
+import { restoreAzurePage } from '../src/lib/backup/azure-page-restore.ts';
 import { canonicalJson } from '../src/lib/sync/hash.ts';
 import { createSyncApi } from '../azure/backend/sync-api.mjs';
 import { createFunctionHandler } from '../azure/backend/functions-adapter.mjs';
@@ -164,15 +165,16 @@ try{
       await target.query("SELECT set_config('request.jwt.claim.sub',$1,true)",[identity.sub]);
       if(write)await target.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[identity.sub]);
       const result=await work(target);await target.query('COMMIT');return result;
-    }catch(error){await target.query('ROLLBACK');throw error;}
+    }catch(error){await target.query('ROLLBACK');if(process.env.DEBUG_LOCAL_SQL)console.error(error);throw error;}
   }};
+  const restoreToken=`fixture.${Buffer.from(JSON.stringify({session_id:'00000000-0000-4000-8000-000000000024'})).toString('base64url')}.signature`;
   const handler=createFunctionHandler({authenticate:async authorization=>{
-    assert.equal(authorization,'Bearer fixture-token');return {sub:a,role:'authenticated'};
+    assert.ok(['Bearer fixture-token',`Bearer ${restoreToken}`].includes(authorization));return {sub:a,role:'authenticated'};
   },handle:createSyncApi(database,{verifyBackupCapture:async(identity,token,body)=>{
     assert.equal(identity.sub,a);assert.equal(token,'fixture-token');
     const proof=await sourceRPC("SELECT public.confirm_backup_capture($1,$2,$3) AS result",[body.page,body.generation,body.versionId]);
     assert.equal(proof.data,true,'source receipt committed before Azure SQL acknowledgment');
-  }}),logger:{error:()=>{}}});
+  }}),logger:{error:error=>{if(process.env.DEBUG_LOCAL_SQL)console.error(error);}}});
   let failAcknowledgment=true,concurrentChange=false;
   const source=createAzureRecordClient({endpoint:'https://jackyun-sync-9d26b2cc.azurewebsites.net',token:'fixture-token',fetchImpl:async(url,options)=>{
     if(options.method==='POST'&&failAcknowledgment){failAcknowledgment=false;return Response.json({}, {status:503});}
@@ -237,8 +239,77 @@ try{
   await client.query('RESET ROLE');
   assert.equal((await client.query('SELECT count(*)::int AS n FROM public.backup_center_versions')).rows[0].n,countBefore);
   await call([row]); // Current Azure-supplied values can still be saved.
+  await client.query('CREATE TABLE auth.users(id uuid PRIMARY KEY); INSERT INTO auth.users SELECT id FROM public.profiles; ALTER TABLE public.timetable_hub_data ADD PRIMARY KEY(id)');
+  await client.query(migration('20261008002507_azure_page_restore_coordination.sql'));
+  await assert.rejects(target.query(migration('20261008002507_azure_page_restore_coordination.sql')),/Source restore migration only/);
+  const restoreRequest='00000000-0000-4000-8000-000000000021';
+  const prepareRestore=()=>sourceRPC('SELECT public.prepare_azure_page_restore($1,$2::jsonb,$3::uuid) AS result',[id,JSON.stringify([row]),restoreRequest]);
+  const preparedRestore=(await prepareRestore()).data;
+  assert.equal(preparedRestore.page,'schedule');assert.equal(preparedRestore.plan.length,1);
+  assert.equal(preparedRestore.plan[0].expected.revision,7);
+  assert.equal((await prepareRestore()).data.beforeId,preparedRestore.beforeId,'retry reuses durable before-restore backup');
+  const beforeRestoreCount=(await client.query('SELECT count(*)::int AS n FROM public.backup_center_versions')).rows[0].n;
+  await client.query("UPDATE public.timetable_hub_data SET value='{\"changed\":true}' WHERE user_id=$1",[a]);
+  const finishRestore=()=>sourceRPC('SELECT public.finish_azure_page_restore($1::uuid,$2::jsonb) AS result',[preparedRestore.id,JSON.stringify([row])]);
+  assert.equal((await finishRestore()).data.completed,true);
+  const finalCheckpoint=(await client.query('SELECT final_before_id FROM jackyun_private.page_restore_jobs WHERE id=$1',[preparedRestore.id])).rows[0].final_before_id;
+  assert.deepEqual((await client.query('SELECT snapshot FROM public.backup_center_versions WHERE id=$1',[finalCheckpoint])).rows[0].snapshot.timetable_hub_data[0].value,{changed:true},'source changes during Azure restoration have a recovery checkpoint');
+  assert.equal((await finishRestore()).data.completed,true);
+  assert.deepEqual((await client.query('SELECT value FROM public.timetable_hub_data WHERE user_id=$1',[a])).rows[0].value,{source:'current-source'});
+  assert.equal((await prepareRestore()).data.id,preparedRestore.id,'lost completion response reuses original operation IDs');
+  assert.equal((await client.query('SELECT count(*)::int AS n FROM public.backup_center_versions')).rows[0].n,beforeRestoreCount+1);
+  await client.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[b]);
+  await assert.rejects(finishRestore(),/Restore not found/);
+  await client.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[a]);
+  // A snapshot's user field cannot authorize overwriting another user's ID.
+  const malicious={legacy_sync_data:[],timetable_hub_data:[{id:b,user_id:a,value:{bad:true}}]};
+  const badId=(await client.query("INSERT INTO public.backup_center_versions(user_id,page,reason,snapshot) VALUES($1,'schedule','manual',$2::jsonb) RETURNING id",[a,JSON.stringify(malicious)])).rows[0].id;
+  const badRequest='00000000-0000-4000-8000-000000000022';
+  const badJob=(await sourceRPC('SELECT public.prepare_azure_page_restore($1,$2::jsonb,$3::uuid) AS result',[badId,JSON.stringify([row]),badRequest])).data;
+  await assert.rejects(sourceRPC('SELECT public.finish_azure_page_restore($1::uuid,$2::jsonb) AS result',[badJob.id,JSON.stringify([row])]),/another account/);
+  assert.deepEqual((await client.query('SELECT value FROM public.timetable_hub_data WHERE user_id=$1',[b])).rows[0].value,{source:'other-private'});
+  assert.equal((await sourceRPC('SELECT public.cancel_azure_page_restore($1::uuid) AS result',[badRequest])).data,true);
+  await assert.rejects(sourceRPC('SELECT public.finish_azure_page_restore($1::uuid,$2::jsonb) AS result',[badJob.id,JSON.stringify([row])]),/cancelled/);
+  await client.query('SET ROLE authenticated');
+  await assert.rejects(client.query('SELECT * FROM jackyun_private.page_restore_jobs'),{code:'42501'});
+  await client.query('RESET ROLE');
+  // Run the full restore coordinator through the real Azure SQL mutation and
+  // SDK adapter, including a committed write whose HTTP response is lost.
+  await target.query('CREATE TABLE auth.users(id uuid PRIMARY KEY); INSERT INTO auth.users SELECT id FROM public.profiles');
+  const secure=migration('20260902021137_secure_sync_v2.sql');
+  await target.query(secure.slice(0,secure.indexOf('create or replace function public.apply_web_sync_operation')));
+  const repair=migration('20260906121742_sync_beta_admin_repair.sql');
+  await target.query(repair.slice(0,repair.indexOf('create or replace function public.admin_set_beta_invitation')));
+  await target.query(migration('20261006072459_reduce_sync_egress.sql'));
+  await target.query(`GRANT authenticated TO jackyun_sync_runtime WITH INHERIT TRUE, SET FALSE, ADMIN FALSE;
+    GRANT USAGE ON SEQUENCE public.legacy_sync_data_id_seq TO jackyun_sync_runtime;
+    CREATE UNIQUE INDEX own_sync_key ON public.legacy_sync_data(user_id,storage_key);`);
+  const retryRequest='00000000-0000-4000-8000-000000000023';
+  const restoreValue={timetable:{text:'恢复后的中文课表📚'}};
+  const fullBackupId=Number(await call([{...row,storage_value:restoreValue,content_hash:contentHash(restoreValue)}]));
+  let loseCommittedResponse=true;
+  const restoreSource=createAzureRecordClient({endpoint:'https://jackyun-sync-9d26b2cc.azurewebsites.net',token:restoreToken,fetchImpl:async(url,options)=>{
+    const result=await handler(new HttpRequest({method:options.method,url:String(url),headers:options.headers,
+      ...(options.body?{body:{string:options.body}}:{})}));
+    if(process.env.DEBUG_LOCAL_SQL&&result.status!==200)console.error({status:result.status,body:result.body});
+    if(options.method==='POST'&&result.status===200&&loseCommittedResponse){loseCommittedResponse=false;throw Error('Simulated lost committed response');}
+    return new Response(result.body,{status:result.status,headers:result.headers});
+  }});
+  const prepareFull=args=>sourceRPC('SELECT public.prepare_azure_page_restore($1,$2::jsonb,$3::uuid) AS result',[args.backup_id,JSON.stringify(args.current_sync_records),args.request_id]);
+  const finishFull=args=>sourceRPC('SELECT public.finish_azure_page_restore($1::uuid,$2::jsonb) AS result',[args.restore_id,JSON.stringify(args.restored_sync_records)]);
+  await assert.rejects(restoreAzurePage(restoreSource,a,fullBackupId,'schedule',retryRequest,prepareFull,finishFull),/恢复尚未完成/);
+  assert.equal(loseCommittedResponse,false,'failure occurs after a real Azure SQL commit');
+  const operationCount=(await target.query('SELECT count(*)::int AS n FROM public.sync_operations')).rows[0].n;
+  const completed=await restoreAzurePage(restoreSource,a,fullBackupId,'schedule',retryRequest,prepareFull,finishFull);
+  assert.equal(completed.page,'schedule');assert.deepEqual(completed.legacyRecords[0].value,restoreValue);
+  assert.equal((await target.query('SELECT count(*)::int AS n FROM public.sync_operations')).rows[0].n,operationCount,'retry reuses the committed SQL operation');
+  const unchangedRevision=completed.legacyRecords[0].revision;
+  const unchanged=await restoreAzurePage(restoreSource,a,fullBackupId,'schedule','00000000-0000-4000-8000-000000000025',prepareFull,finishFull);
+  assert.equal(unchanged.legacyRecords[0].revision,unchangedRevision,'already-current restoration accepts a verified SQL no-op');
+  assert.deepEqual((await target.query('SELECT storage_value FROM public.legacy_sync_data WHERE user_id=$1',[b])).rows[0].storage_value,{private:true});
+  assert.equal((await client.query('SELECT storage_value FROM public.legacy_sync_data WHERE user_id=$1',[a])).rows[0].storage_value.text,'stale-source');
   console.log(JSON.stringify({ok:true,localOnly:true,realSQL:true,combinedSnapshot:true,noFrozenSyncWrites:true,
-    dirtyMarkerPreserved:true,automaticBackupReceiptRetry:true,legacyRPCSourceGuard:true,twoDatabaseSDKFlow:true,generationRaceProtected:true,ownershipPageValidation:true,suspendedDeletedRejected:true,anonymousRejected:true,productionMigration:false}));
+    dirtyMarkerPreserved:true,automaticBackupReceiptRetry:true,legacyRPCSourceGuard:true,twoDatabaseSDKFlow:true,generationRaceProtected:true,ownershipPageValidation:true,suspendedDeletedRejected:true,anonymousRejected:true,durablePageRestore:true,sourceConcurrentCheckpoint:true,restoreCollisionRejected:true,restoreCancellation:true,realSQLRestoreRetry:true,productionMigration:false}));
 }finally{
   await target?.end();await client?.end();if(started)run('pg_ctl',['-D',data,'-m','immediate','-w','stop']);rmSync(root,{recursive:true,force:true});
 }

@@ -13,7 +13,7 @@
 | actions/schedule-backups.ts restoreScheduleBackup | 候选Azure路径：当前快照保存成功后按原版本写Azure | 6项恢复回归和隔离SQL通过；桥接RPC尚未应用，真实恢复待验收 |
 | actions/export.ts importSelectedData | 候选代码：同步项经Azure当前版本及分块API；其他表保留Supabase | 8项传输回归通过，真实导入、失败恢复及发布待完成 |
 | actions/export.ts exportAllUserData previewDataImport | 候选代码：同步项读取Azure分页及分块，完整导出后再次核对版本清单 | 530条及同时间戳分页、中文游标和真实本机RLS通过；生产验收待完成 |
-| actions/backup-center.ts restoreBackupVersion | Azure配置存在时明确拒绝旧RPC；未配置保留旧路径 | 完整跨来源整页恢复协调仍待实施，禁止提前切换 |
+| actions/backup-center.ts restoreBackupVersion | 候选持久恢复计划、固定操作重试、最终源端业务事务及前后检查点；没有旧同步表写入 | 源端SQL和传输回归已验证；真实完整路径和全部页面矩阵仍待验收，禁止提前切换 |
 | actions/backup-center.ts createBackupVersion createDueBackupVersions inspectBackupVersion | 候选手动备份读取Azure并在源端合并其他表；检查课表读取Azure；自动备份候选合并两端标记和已提交回执 | 迁移尚未应用；自动协调本机已验证，切换保护本机已验证，生产待完成，只确认已捕获改动 |
 | schedule_version_backups与backup_center_versions相关触发器和RPC | 部分已复制到迁移库，但其他业务仍在Supabase | 函数存在不等于备份来源一致，需逐项实查 |
 | cron.job与prepared transactions | 只读预检检查活动任务和准备事务 | 切换窗口重新核对，并保存应用停写与排空证据 |
@@ -25,4 +25,4 @@
 
 本轮桥接RPC不写旧同步表，要求当前用户身份、权威active且未删除账号、同账号同页面的合法同步键；恢复前版本保留免于普通清理。快照同步项上限20,000条、64MiB，超过即拒绝，不能标为完整备份。双方改动标记均不消费。跨来源读取不提供跨数据库原子快照。Mac锁屏使本轮浏览器真实验收无法继续。
 
-自动备份候选已完成网站→Azure SDK HTTP入口→两库SQL→已提交回执→条件确认的隔离本机验证；不是线上真实身份验收。另发现共享HTTP入口漏列导出路径，已补齐导出和改动标记路径并做SDK回归。源端旧create_backup_page/create_due_backup_pages/restore_backup_page RPC现已通过候选私有状态保护，避免历史或外部调用生成过期快照；整页恢复协调仍待完成。因此生产变量仍禁止启用。
+自动备份候选已完成网站→Azure SDK HTTP入口→两库SQL→已提交回执→条件确认的隔离本机验证；不是线上真实身份验收。另发现共享HTTP入口漏列导出路径，已补齐导出和改动标记路径并做SDK回归。源端旧create_backup_page/create_due_backup_pages/restore_backup_page RPC现已通过候选私有状态保护，避免历史或外部调用生成过期快照；整页恢复协调候选已接入，源端持久作业和传输重试已本机验证；真实身份、全部页面完整路径和生产安装尚未完成。因此生产变量仍禁止启用。

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { createBackupVersion, downloadBackupVersion, inspectBackupVersion, listBackupVersions, restoreBackupVersion, type BackupVersion } from '@/actions/backup-center';
+import { cancelBackupRestore, createBackupVersion, downloadBackupVersion, inspectBackupVersion, listBackupVersions, restoreBackupVersion, type BackupVersion } from '@/actions/backup-center';
 import { BACKUP_PAGES, isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
 import { CLOUD_STATE_APPLIED_EVENT, storageValueToString } from '@/lib/local-workspace';
 import { getOutbox, getSetting, removeOperation, saveMetadata } from '@/lib/sync/outbox';
@@ -44,6 +44,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [pendingRestore,setPendingRestore]=useState<{requestId:string;key:string}|null>(null);
 
   const load = useCallback(async () => {
     const owner = userId === 'guest' ? await getSetting<string>('activeUserId').catch(() => null) ?? 'guest' : userId;
@@ -98,16 +99,31 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   async function restore(id: number) {
     if (!window.confirm('将这个页面的备份数据合并回当前账户？系统会先保存当前页面版本，新增于备份之后的记录会保留。')) return;
     await run(async () => {
-      const result = await restoreBackupVersion(id);
+      const values:Record<string,string>={};
+      for(let n=0;n<localStorage.length;n++){const key=localStorage.key(n);if(key)values[key]=localStorage.getItem(key)??'';}
+      await saveLocalBackup(localOwner,page,localPageValues(values,page));
+      const originalPending=await getOutbox();
+      const requestKey=`backup-restore:${userId}:${id}`;
+      const requestId=sessionStorage.getItem(requestKey)??crypto.randomUUID();
+      sessionStorage.setItem(requestKey,requestId);
+      setPendingRestore({requestId,key:requestKey});
+      const result = await restoreBackupVersion(id,requestId);
+      const activeOwner=await getSetting<string>('activeUserId');
+      if(activeOwner&&activeOwner!==userId) throw Error('云端恢复已完成，账号已切换，本机数据未修改。');
       const pending = await getOutbox();
       const keys: string[] = [];
       for (const record of result.legacyRecords) {
+        // Preserve edits made while the cloud restore was running.
+        if(localStorage.getItem(record.key)!==(values[record.key]??null)
+          ||pending.some(operation=>operation.key===record.key&&!originalPending.some(old=>old.id===operation.id))) continue;
         for (const operation of pending) if (operation.key === record.key) await removeOperation(operation.id);
         if (record.deleted) localStorage.removeItem(record.key);
         else localStorage.setItem(record.key, storageValueToString(record.value));
         await saveMetadata(record);
         keys.push(record.key);
       }
+      sessionStorage.removeItem(requestKey);
+      setPendingRestore(null);
       if (keys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
       setMessage(`已恢复${BACKUP_PAGES.find((item) => item.id === result.page)?.label ?? '页面'}，恢复前版本已保存。刷新页面可查看结果。`);
       await load();
@@ -205,6 +221,10 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       {localVersions.length ? <div className="max-h-60 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">{localVersions.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>{new Date(item.createdAt).toLocaleString()}</strong>{scheduleSummary(item.values[SCHEDULE_STORAGE_KEY]) ? ` · ${scheduleSummary(item.values[SCHEDULE_STORAGE_KEY])}` : ` · ${Object.keys(item.values).length} 份数据`}</span><button type="button" disabled={busy} onClick={() => inspectLocal(item)} className="font-medium text-[var(--brand)] disabled:opacity-50">对比当前设备</button><button type="button" disabled={busy} onClick={() => downloadLocal(item)} className="text-[var(--brand)] disabled:opacity-50">下载</button><button type="button" disabled={busy} onClick={() => void restoreLocal(item)} className="text-[var(--brand)] disabled:opacity-50">恢复</button></div>)}</div> : <p className="text-sm text-[var(--muted-foreground)]">此设备暂无该页面的本地版本。</p>}</div>
     {preview?.source === 'local' && <InspectionPanel title={`本地版本 #${preview.id} · 与此设备当前数据比较`} value={preview.inspection} />}
     {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
+    {pendingRestore&&error&&<button type="button" disabled={busy} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={()=>{
+      if(!window.confirm('停止重试本次恢复？已经恢复的云端数据和后来的修改会保留，恢复前版本也会保留；这不会自动回滚。'))return;
+      void run(async()=>{await cancelBackupRestore(pendingRestore.requestId);sessionStorage.removeItem(pendingRestore.key);setPendingRestore(null);setMessage('本次恢复已停止，当前数据和恢复前版本已保留。');});
+    }}>停止本次恢复</button>}
     {message && <p className="rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-700">{message}</p>}
   </div>;
 }
