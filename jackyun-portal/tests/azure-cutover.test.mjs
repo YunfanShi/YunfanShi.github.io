@@ -6,6 +6,24 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { TABLES,inspectCutover,applyCutover,restorationSQL,privateArchive,validateEvidence } from '../scripts/lib/azure-cutover.mjs';
 import { atStage,safeDiagnostic } from '../scripts/lib/azure-cutover-diagnostics.mjs';
+import { validateReverseEvidence } from '../scripts/lib/azure-reverse-copy.mjs';
+
+test('reverse evidence rejects missing restore proof, stale reports and changed backups',t=>{
+  const root=mkdtempSync(join(tmpdir(),'azure-reverse-evidence-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const now=Date.now(),file=join(root,'evidence.json'),report={target:{database:'jackyun_migration_20261007'}};
+  const evidence={verifiedAt:new Date(now).toISOString(),sourceProject:'gdcwwlnzylrzrqhaaljq',targetDatabase:report.target.database,
+    checks:{sourceWritersPaused:true,targetWritersPaused:true,backupsVerified:true,backupRestoreDrill:true}};
+  for(const name of ['sourceBackup','targetBackup','writersReport','restoreReport']) {
+    writeFileSync(join(root,name),'protected local fixture',{mode:0o600});
+    evidence[name]={file:name,sha256:createHash('sha256').update('protected local fixture').digest('hex')};
+  }
+  const save=()=>writeFileSync(file,JSON.stringify(evidence),{mode:0o600});save();
+  assert.equal(validateReverseEvidence(file,report,now).checks.backupRestoreDrill,true);
+  evidence.checks.backupRestoreDrill=false;save();assert.throws(()=>validateReverseEvidence(file,report,now),/backupRestoreDrill/);
+  evidence.checks.backupRestoreDrill=true;save();assert.throws(()=>validateReverseEvidence(file,report,now+86_400_001),/Stale/);
+  writeFileSync(join(root,'targetBackup'),'changed',{mode:0o600});assert.throws(()=>validateReverseEvidence(file,report,now),/checksum/);
+});
 
 test('diagnostics identify connection failures without exposing database error details',async()=>{
   const error=Object.assign(Error('private password and connection information'),{code:'28P01'});

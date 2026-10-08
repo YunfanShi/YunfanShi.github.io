@@ -218,9 +218,9 @@ try{
   const restoreGrant='grant execute on function public.restore_backup_page(bigint) to authenticated;';
   await client.query(initial.slice(initial.indexOf('create function public.restore_backup_page'),initial.indexOf(restoreGrant)+restoreGrant.length));
   await client.query('GRANT EXECUTE ON FUNCTION public.create_backup_page(text),public.create_due_backup_pages() TO authenticated');
-  await assert.rejects(target.query(migration('20261007235000_guard_legacy_backup_source.sql')),/Only Supabase source/);
+  await assert.rejects(target.query(migration('20261008000909_guard_legacy_backup_source.sql')),/Only Supabase source/);
   assert.equal((await target.query("SELECT to_regclass('jackyun_private.sync_source_control') AS control")).rows[0].control,null);
-  await client.query(migration('20261007235000_guard_legacy_backup_source.sql'));
+  await client.query(migration('20261008000909_guard_legacy_backup_source.sql'));
   await client.query("SELECT set_config('request.jwt.claim.sub',$1,false)",[a]);
   await client.query('SET ROLE authenticated');
   const legacyId=(await client.query("SELECT public.create_backup_page('schedule') AS id")).rows[0].id;

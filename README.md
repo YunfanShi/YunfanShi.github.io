@@ -1044,3 +1044,5 @@ Azure切换安全准备(v3.21.3候选)：切换工具默认只读预检，生产
 切换前入口审计发现日程恢复、导入和云端备份仍访问旧同步表，尚需适配；详见[同步入口审计](jackyun-portal/docs/azure-sync-entry-audit.md)。生产转发保持未启用。
 
 候选代码继续补齐导出、导入预览和同步项导入的Azure来源，支持分页和大值分块，源版本持续变化时不生成成功备份。日程恢复与云端版本备份仍待适配，生产尚未切换。
+
+Azure 3.21.3候选补齐[反向回灌工具](jackyun-portal/scripts/azure-sync-reverse-copy.mjs)及[只读回退预检](jackyun-portal/scripts/azure-reverse-preflight.command)：先冻结Azure、回灌新增和删除、校验指纹并保留源端账号状态；默认不修改数据库，apply需要私有备份与恢复证据。回灌后两端保持冻结，入口恢复独立执行。隔离PG17演练通过，生产切换仍未完成，详见[实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。

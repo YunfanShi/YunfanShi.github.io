@@ -53,7 +53,7 @@ export function validateEvidence(file, report, now = Date.now()) {
   return { verifiedAt: evidence.verifiedAt, checks: evidence.checks };
 }
 
-async function inspect(client) {
+async function inspect(client, allowSourceFence = false) {
   await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
   try {
     await client.query("SET LOCAL statement_timeout='30s'");
@@ -69,7 +69,10 @@ async function inspect(client) {
       CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
       WHERE n.nspname='public' AND c.relname=ANY($1) ORDER BY c.relname,grantee,a.privilege_type`, [TABLES])).rows;
     const triggers = (await client.query(triggersCatalog, [[...TABLES, 'profiles']])).rows;
-    if (triggers.some(t => t.tgname === fence)) throw Error('Existing fence requires explicit recovery');
+    const fences=triggers.filter(t=>t.tgname===fence);
+    if (allowSourceFence ? fences.length!==5 || fences.some(t=>!TABLES.includes(t.table_name)||t.tgenabled!=='A') : fences.length>0) {
+      throw Error('Existing fence requires explicit recovery');
+    }
     const ids = (await client.query('SELECT id::text FROM auth.users ORDER BY id')).rows.map(r => r.id);
     const profiles = (await client.query('SELECT id::text,account_status,deleted_at::text FROM public.profiles ORDER BY id')).rows;
     const background = (await client.query("SELECT to_regclass('cron.job')::text AS cron, to_regclass('jackyun_private.backup_dirty_pages')::text AS dirty")).rows[0];
@@ -87,8 +90,8 @@ async function inspect(client) {
   } catch (error) { await client.query('ROLLBACK'); throw error; }
 }
 
-export async function inspectCutover(source, target) {
-  const from = await atStage('source_catalog',()=>inspect(source));
+export async function inspectCutover(source, target, { sourceFrozen = false } = {}) {
+  const from = await atStage('source_catalog',()=>inspect(source,sourceFrozen));
   const to = await atStage('target_catalog',()=>inspect(target));
   return atStage('compare_catalog',()=>{
   if (from.database !== 'postgres' || !/^jackyun_migration_\d{8}$/.test(to.database)) throw Error('Unexpected database');
