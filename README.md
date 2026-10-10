@@ -4,7 +4,7 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.21.3**
+> 当前版本：**v3.21.4**
 
 ---
 
@@ -12,7 +12,7 @@
 
 Azure 与 Supabase 混合数据库的方案、学生免费额度、迁移范围及验证条件见
 [Azure 数据库可行性研究](jackyun-portal/docs/azure-database-feasibility.md)。
-截至2026-10-08，Azure香港PostgreSQL及Functions 3.21.3候选已部署，存活检查200，新同步/导出/备份接口未登录返回401；Supabase侧四项备份、恢复及旧入口保护迁移已安装，真实浏览器登录已恢复。按用户最新授权，切换以Azure已迁移数据为基线，放弃随后Supabase的新增、修改及删除，不再追平；设备通过正常同步补回本地数据。显式`--accept-azure-baseline`模式保留目标五表，不复制或清空目标记录。网站生产同步入口尚未切换，Azure基线实际备份恢复及真实读写验收仍待完成。目标库准备使用[隐藏输入命令](jackyun-portal/scripts/azure-baseline-prepare.command)，只需Azure数据库密码。详细结果见[切换实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。
+截至2026-10-10，本机与 Mac 的 MAIN 已同步。Azure 目标库的新备份已在本机隔离 PostgreSQL 17 实际恢复，110 张表指纹通过；Azure 备份标记函数已安装。生产同步入口仍为 Supabase，源库写入未冻结。当前按保留 Supabase 最新数据准备最终追平，不根据旧文档执行舍弃增量。v3.21.4 合并公告与收件箱快照，跨标签页协调 60 秒刷新，隐藏或离线暂停；历史分页，客服/后台刷新防重入，自动同步恢复事件限频。通知快照函数已安装到 Supabase，保持调用者 RLS。模拟四标签页一小时共 61 次快照请求；实际生产流量降幅与 Azure 真实身份验收需继续核实。
 全部85个目录条目的用途与优先级见 [Azure服务清单](jackyun-portal/docs/azure-service-catalog.md)，
 文件存储、密钥、Azure登录与Passkeys、通知和页面性能的分阶段实施见 [平台改造计划](jackyun-portal/docs/azure-platform-roadmap.md)。
 Supabase 数据、账号关联和文件的搬迁进度、逐表校验与文件独立备份命令见 [数据迁移记录](jackyun-portal/docs/azure-data-migration.md)。30个文件已复制到Azure，并下载回本机逐个核对路径、大小和SHA-256，全部一致（24,882,492字节）。数据库已恢复到Azure独立迁移库，83张应用表的列定义、行数和内容指纹与源端采样一致；网站尚未切换生产。

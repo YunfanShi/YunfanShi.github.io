@@ -55,6 +55,7 @@ test('page banners disappear immediately on navigation and do not render a modal
     react: { ...React, useState: () => [{ userId: 'tester', items: [item] }, () => {}], useEffect: () => {} },
     'next/navigation': { usePathname: () => path },
     '@/components/auth/auth-mode-provider': { useAuthMode: () => ({ signedIn: true, userId: 'tester' }) },
+    '@/lib/notification-client': { useNotificationSnapshot: () => ({ snapshot: { items: [item] } }) },
     '@/lib/announcements': domain, './announcement-content': badges, './markdown-renderer': markdown, '@/actions/admin': {},
   }).default;
   const banner = renderToStaticMarkup(React.createElement(component));
@@ -63,23 +64,17 @@ test('page banners disappear immediately on navigation and do not render a modal
   path = '/scheduler'; assert.equal(renderToStaticMarkup(React.createElement(component)), '');
 });
 
-test('inbox refresh retains public announcements when no support ticket is open', async () => {
-  const effects: Array<() => void> = [];
+test('shared inbox retains public announcements when no support ticket is open', () => {
   let stateIndex = 0;
-  let loaded: unknown[] = [];
   const component = load('../src/components/modules/notification-inbox.tsx', {
-    react: { ...React, useEffect: (effect: () => void) => effects.push(effect), useState: (initial: unknown) => {
-      const index = stateIndex++;
-      return [initial, index === 2 ? (value: unknown[]) => { loaded = value; } : () => {}];
-    } },
+    react: { ...React, useEffect: () => {}, useState: (initial: unknown) => [stateIndex++ === 1 ? true : initial, () => {}] },
     'next/dynamic': { __esModule: true, default: () => () => null },
     'next/navigation': { usePathname: () => '/schedule' },
+    '@/components/auth/auth-mode-provider': { useAuthMode: () => ({ userId: 'tester' }) },
+    '@/lib/notification-client': { useNotificationSnapshot: () => ({ snapshot: { items: [{ ...item, related_ticket_id: null, is_read: false }] }, refresh: () => {} }) },
     '@/lib/announcements': domain, './announcement-content': badges,
-    '@/actions/admin': { getNotificationInbox: async () => [{ ...item, related_ticket_id: null, is_read: false }] },
+    '@/actions/admin': {},
   }, { window: { setInterval: () => 1, addEventListener: () => {}, removeEventListener: () => {}, clearInterval: () => {} } }).default;
-  renderToStaticMarkup(React.createElement(component));
-  effects[0]();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(loaded.length, 1);
-  assert.equal((loaded[0] as typeof item).id, item.id);
+  const html = renderToStaticMarkup(React.createElement(component));
+  assert.match(html, /CUE 功能暂时维护/);
 });

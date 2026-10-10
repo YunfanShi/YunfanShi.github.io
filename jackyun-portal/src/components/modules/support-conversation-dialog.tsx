@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { dismissTicketNotifications } from '@/actions/admin';
 import { addMyTicketMessage, getMyRemoteAssistanceRequest, getMyTicketConversation, respondRemoteAssistance, type MyTicketConversation } from '@/actions/feedback';
 import Link from 'next/link';
+import { startVisiblePoll } from '@/lib/visible-poll';
 
 interface Props {
   ticketId: string;
@@ -26,22 +27,23 @@ export default function SupportConversationDialog({ ticketId, fallbackTitle = '�
   const [minimized, setMinimized] = useState(false);
   const [pending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const acknowledged = useRef('');
 
   const refresh = useCallback(() => {
-    getMyTicketConversation(ticketId)
+    return getMyTicketConversation(ticketId)
       .then((value) => {
         setConversation(value);
-        getMyRemoteAssistanceRequest(ticketId).then(setRemoteRequest).catch(() => {});
-        if (value && !minimized) dismissTicketNotifications(ticketId).catch(() => {});
+        const version = value ? `${ticketId}:${value.messages.map(message => `${message.id}:${message.updated_at}`).join(',')}` : '';
+        const acknowledge = value && !minimized && version !== acknowledged.current
+          ? dismissTicketNotifications(ticketId).then(result => { if (result.success) acknowledged.current = version; }) : Promise.resolve();
         if (!value) setNotice('无法读取这条客服对话。');
+        return Promise.all([getMyRemoteAssistanceRequest(ticketId).then(setRemoteRequest), acknowledge]);
       })
-      .catch(() => setNotice('对话加载失败，请稍后重试。'));
+      .catch(() => { setNotice('对话加载失败，请稍后重试。'); throw new Error('Conversation refresh failed'); });
   }, [minimized, ticketId]);
 
   useEffect(() => {
-    refresh();
-    const timer = window.setInterval(refresh, 20_000);
-    return () => window.clearInterval(timer);
+    return startVisiblePoll(refresh);
   }, [refresh]);
 
   useEffect(() => {

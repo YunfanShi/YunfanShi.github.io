@@ -5,25 +5,14 @@ import { createClient } from '@/lib/supabase/server';
 import type { SiteNotification, WhitelistEmail, WhitelistUsername } from '@/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminIdentity } from '@/lib/admin-auth';
+import { getRequestIdentity, getRequestProfile } from '@/lib/request-context';
 import { announcementMatchesPath, announcementPhase, sortAnnouncements, validateAnnouncement, type AnnouncementOptions } from '@/lib/announcements';
 
-async function getAuthenticatedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error || !user) throw new Error('Unauthorized');
-  return { supabase, user };
-}
+const getAuthenticatedUser = getRequestIdentity;
 
 async function requireAdmin() {
   const { supabase, user } = await getAuthenticatedUser();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
+  const profile = await getRequestProfile();
   // Database role is authoritative; a verified admin email can bootstrap it.
   if (!isAdminIdentity(user, profile?.role)) {
     throw new Error('Forbidden: Admin only');

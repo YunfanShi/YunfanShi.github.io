@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.21.3",
+  "version": "3.21.4",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -33,6 +33,7 @@
     "check:study-guide": "node scripts/check-study-guide.mjs",
     "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
     "test:sync": "node --test tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts",
+    "test:notification-polling": "node --test tests/notification-polling.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
     "test:learning": "node --test tests/learning-domain.test.mts tests/question-bank.test.mts tests/learning-assistance.test.mts tests/study-insights.test.mts tests/cue-rating.test.mts tests/cue-game.test.mts tests/cue-shop.test.mts tests/cue-practice.test.mts tests/memory-cue-import.test.mts tests/joint-cue-study.test.mts tests/cue-change-history.test.mts tests/mobile-cue-study.test.mts tests/cue-answer-card.test.mts",
