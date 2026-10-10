@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync, readFileSync, lstatSync, realpathSync } from 
 import { join, resolve, dirname } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { atStage } from './azure-cutover-diagnostics.mjs';
+import { encodedRows as rows, insertEncodedRows } from './azure-table-copy.mjs';
 
 export const TABLES = ['web_sync_devices', 'legacy_sync_data', 'sync_operations', 'sync_conflicts', 'web_sync_upload_chunks'];
 const relations = TABLES.map(t => `public.${t}`).join(',');
@@ -116,9 +117,6 @@ async function dropFence(client) {
   for (const table of TABLES) await client.query(`DROP TRIGGER ${fence} ON public.${table}`);
   await client.query(`DROP FUNCTION jackyun_private.${fence}()`);
 }
-async function rows(client, table, schema = 'public') {
-  return (await client.query(`SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text COLLATE "C"),'[]'::jsonb) AS data FROM ${schema}.${table} r`)).rows[0].data;
-}
 async function fingerprint(client, table) {
   return (await client.query(`SELECT count(*)::text AS count, md5(coalesce(string_agg(h,'' ORDER BY h COLLATE "C"),'')) AS hash
     FROM (SELECT md5(to_jsonb(r)::text) AS h FROM public.${table} r) hashes`)).rows[0];
@@ -191,11 +189,11 @@ export async function applyCutover({ source, target, report, evidence, archive, 
     archive.write('target-before.json',before);
     for (const t of report.target.triggers) await target.query(`ALTER TABLE public.${quote(t.table_name)} DISABLE TRIGGER ${quote(t.tgname)}`);
     await target.query(`TRUNCATE ${relations}`);
-    for (const table of TABLES) await target.query(`INSERT INTO public.${table} SELECT * FROM jsonb_populate_recordset(NULL::public.${table},$1::jsonb)`,[JSON.stringify(snapshot[table])]);
+    for (const table of TABLES) await insertEncodedRows(target,table,snapshot[table]);
     for (const p of profiles) await target.query('UPDATE public.profiles SET account_status=$2,deleted_at=$3::timestamptz WHERE id=$1::uuid',[p.id,p.account_status,p.deleted_at]);
-    if (dirty) await target.query(`INSERT INTO jackyun_private.backup_dirty_pages SELECT * FROM jsonb_populate_recordset(NULL::jackyun_private.backup_dirty_pages,$1::jsonb)
+    if (dirty) await insertEncodedRows(target,'backup_dirty_pages',dirty,'jackyun_private',`
       ON CONFLICT(user_id,page) DO UPDATE SET changed_at=greatest(backup_dirty_pages.changed_at,excluded.changed_at),
-      first_changed_at=least(backup_dirty_pages.first_changed_at,excluded.first_changed_at),change_bytes=greatest(backup_dirty_pages.change_bytes,excluded.change_bytes)`,[JSON.stringify(dirty)]);
+      first_changed_at=least(backup_dirty_pages.first_changed_at,excluded.first_changed_at),change_bytes=greatest(backup_dirty_pages.change_bytes,excluded.change_bytes)`);
     for (const t of report.target.triggers) {
       const command = { O:'ENABLE',D:'DISABLE',R:'ENABLE REPLICA',A:'ENABLE ALWAYS' }[t.tgenabled];
       if (!command) throw Error('Unknown trigger state');
