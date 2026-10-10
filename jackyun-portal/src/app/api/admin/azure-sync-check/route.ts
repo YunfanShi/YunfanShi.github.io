@@ -40,13 +40,19 @@ export async function POST(request: Request) {
   const token = await authorize();
   if (!token) return new Response('Unavailable', { status: 404, headers });
   const id = randomUUID(), deviceId = randomUUID(), key = `cutover-check-${id}`;
-  const report: Record<string, unknown> = { requestId: id, checkedAt: new Date().toISOString(), realLogin: true };
+  const httpChecks: Array<{ path: string; status: number; code?: string }> = [];
+  const report: Record<string, unknown> = { requestId: id, checkedAt: new Date().toISOString(), realLogin: true, httpChecks };
   const call = async (path: string, method = 'GET', body?: unknown, bearer = token) => {
     const response = await fetch(endpoint + path, { method, headers: {
       Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json',
     }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(20000) });
+    const check = { path: path.split('?')[0], status: response.status, code: undefined as string | undefined };
+    httpChecks.push(check);
     const data = await response.json();
+    const knownCodes = new Set(['UNAUTHORIZED', 'ACCOUNT_DISABLED', 'AUTH_UNAVAILABLE', 'ACCOUNT_STATE_UNAVAILABLE',
+      'SYNC_UNAVAILABLE', 'SYNC_FORBIDDEN', 'UNSAFE_DATABASE_LOGIN', 'DEVICE_REVOKED', 'RATE_LIMITED']);
+    if (knownCodes.has(data.code)) check.code = data.code;
     return { status: response.status, data };
   };
   let revision = 0, contentHash: string | null = null;
