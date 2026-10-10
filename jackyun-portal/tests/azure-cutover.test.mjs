@@ -51,6 +51,7 @@ function fixture({ failTargetWrite=false,unknownTargetCommit=false,unknownSource
       if (side === 'target' && sql === 'COMMIT' && targetWritten && unknownTargetCommit) throw Error('connection lost');
       if (side === 'source' && sql.startsWith('DROP TRIGGER') && recoveryFails) throw Error('recovery failed');
       if (sql.includes('AS acquired')) return {rows:[{acquired:true}]};
+      if (sql.includes('AS copy_column')) return {rows:[{copy_column:'id',copy_type:'uuid'}]};
       if (sql.includes('current_database() AS database')) return {rows:[{database:side==='source'?'postgres':'jackyun_migration_20261007',operator:'owner'}]};
       if (sql.includes('c.relacl::text AS acl')) return {rows:TABLES.map(relname=>({relname,owner:'owner',rls:true,acl:'recorded'}))};
       if (sql.includes('a.attnum,a.attname')) return {rows:TABLES.map(relname=>({relname,attnum:1,attname:'id',type:'uuid',attnotnull:true}))};

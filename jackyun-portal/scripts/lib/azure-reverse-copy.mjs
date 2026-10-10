@@ -3,11 +3,11 @@ import { TABLES, inspectCutover } from './azure-cutover.mjs';
 import { readFileSync,lstatSync } from 'node:fs';
 import { resolve,dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { encodedRows as rows, insertEncodedRows } from './azure-table-copy.mjs';
 const relations=TABLES.map(t=>`public.${t}`).join(',');
 const fence='jackyun_rollback_write_fence';
 const quote=v=>`"${String(v).replaceAll('"','""')}"`;
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const rows=async(c,t,schema='public')=>(await c.query(`SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text COLLATE "C"),'[]'::jsonb) AS data FROM ${schema}.${t} r`)).rows[0].data;
 const fingerprint=async(c,t)=>(await c.query(`SELECT count(*)::text AS count, md5(coalesce(string_agg(h,'' ORDER BY h COLLATE "C"),'')) AS hash FROM (SELECT md5(to_jsonb(r)::text) AS h FROM public.${t} r) hashes`)).rows[0];
 
 export function validateReverseEvidence(file,report,now=Date.now()) {
@@ -81,9 +81,9 @@ export async function applyReverseCopy({source,target,report,evidence,archive}) 
     const sourceTriggers=report.source.triggers.filter(t=>TABLES.includes(t.table_name));
     for(const t of sourceTriggers) await source.query(`ALTER TABLE public.${quote(t.table_name)} DISABLE TRIGGER ${quote(t.tgname)}`);
     await source.query(`TRUNCATE ${relations}`);
-    for(const table of TABLES) await source.query(`INSERT INTO public.${table} SELECT * FROM jsonb_populate_recordset(NULL::public.${table},$1::jsonb)`,[JSON.stringify(snapshot[table])]);
-    if(dirty) await source.query(`INSERT INTO jackyun_private.backup_dirty_pages SELECT * FROM jsonb_populate_recordset(NULL::jackyun_private.backup_dirty_pages,$1::jsonb)
-      ON CONFLICT(user_id,page) DO UPDATE SET changed_at=greatest(backup_dirty_pages.changed_at,excluded.changed_at),first_changed_at=least(backup_dirty_pages.first_changed_at,excluded.first_changed_at),change_bytes=greatest(backup_dirty_pages.change_bytes,excluded.change_bytes)`,[JSON.stringify(dirty)]);
+    for(const table of TABLES) await insertEncodedRows(source,table,snapshot[table]);
+    if(dirty) await insertEncodedRows(source,'backup_dirty_pages',dirty,'jackyun_private',`
+      ON CONFLICT(user_id,page) DO UPDATE SET changed_at=greatest(backup_dirty_pages.changed_at,excluded.changed_at),first_changed_at=least(backup_dirty_pages.first_changed_at,excluded.first_changed_at),change_bytes=greatest(backup_dirty_pages.change_bytes,excluded.change_bytes)`);
     for(const t of sourceTriggers) {
       const command={O:'ENABLE',D:'DISABLE',R:'ENABLE REPLICA',A:'ENABLE ALWAYS'}[t.tgenabled];
       if(!command) throw Error('Unknown trigger state');

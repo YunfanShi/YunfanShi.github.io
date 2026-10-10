@@ -38,11 +38,14 @@ try{
       CREATE TRIGGER backup_dirty_generation BEFORE UPDATE ON jackyun_private.backup_dirty_pages FOR EACH ROW EXECUTE FUNCTION jackyun_private.advance_generation();
       CREATE FUNCTION public.fixture_trigger() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;`);
     for(const [index,table] of TABLES.entries()){
-      await client.query(`CREATE TABLE public.${table}(id integer PRIMARY KEY,user_id uuid REFERENCES auth.users,payload jsonb,changed_at timestamptz,deleted_at timestamptz);
+      await client.query(`CREATE TABLE public.${table}(id integer PRIMARY KEY,user_id uuid REFERENCES auth.users,payload jsonb,changed_at timestamptz,deleted_at timestamptz,
+        required_json jsonb NOT NULL DEFAULT 'null'::jsonb,nullable_json jsonb);
         ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;
         GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE ON public.${table} TO authenticated;
         CREATE TRIGGER existing_trigger BEFORE INSERT ON public.${table} FOR EACH ROW EXECUTE FUNCTION public.fixture_trigger();`);
-      await client.query(`INSERT INTO public.${table} VALUES($1,'00000000-0000-4000-8000-000000000001',$2::jsonb,'2026-10-07T16:00:00Z',NULL)`,[index,JSON.stringify({value:targetSide?'old':'学习📚'})]);
+      await client.query(`INSERT INTO public.${table}(id,user_id,payload,changed_at,deleted_at) VALUES($1,'00000000-0000-4000-8000-000000000001',$2::jsonb,'2026-10-07T16:00:00Z',NULL)`,[index,JSON.stringify({value:targetSide?'old':'学习📚',nested:null})]);
+      if(index===0)await client.query(`UPDATE public.${table} SET nullable_json='null'::jsonb`);
+      if(index===1)await client.query(`UPDATE public.${table} SET nullable_json='{"large":9007199254740993,"scaled":1.00,"nested":null}'::jsonb`);
       await client.query(`ALTER TABLE public.${table} ${['DISABLE','ENABLE','ENABLE REPLICA','ENABLE ALWAYS','ENABLE'][index]} TRIGGER existing_trigger`);
     }
   };
@@ -111,13 +114,14 @@ try{
   await source.query('RESET ROLE');
   for(const table of TABLES){
     assert.equal((await target.query(`SELECT payload->>'value' AS value FROM public.${table}`)).rows[0].value,'学习📚');
+    assert.equal((await target.query(`SELECT required_json IS NOT NULL AND required_json='null'::jsonb AS preserved FROM public.${table}`)).rows[0].preserved,true);
     await assert.rejects(source.query(`UPDATE public.${table} SET payload='{}'::jsonb`),{code:'55000'});
     await assert.rejects(source.query(`TRUNCATE public.${table}`),{code:'55000'});
   }
   assert.deepEqual((await target.query(`SELECT c.relname AS table_name,t.tgname,t.tgenabled FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE NOT t.tgisinternal AND n.nspname='public' ORDER BY c.relname,t.tgname`)).rows,report.target.triggers);
   for(const [index,table] of TABLES.entries()) {
     await target.query(`UPDATE public.${table} SET payload=$1::jsonb,deleted_at='2026-10-08T00:00:00Z'`,[JSON.stringify({deleted:true,value:'Azure更新📚'})]);
-    await target.query(`INSERT INTO public.${table} VALUES($1,'00000000-0000-4000-8000-000000000002',$2::jsonb,now(),NULL)`,[index+100,JSON.stringify({value:'Azure新增🐈'})]);
+    await target.query(`INSERT INTO public.${table}(id,user_id,payload,changed_at,deleted_at) VALUES($1,'00000000-0000-4000-8000-000000000002',$2::jsonb,now(),NULL)`,[index+100,JSON.stringify({value:'Azure新增🐈'})]);
   }
   await source.query("UPDATE public.profiles SET account_status='suspended' WHERE id='00000000-0000-4000-8000-000000000002'");
   await source.query("UPDATE jackyun_private.backup_dirty_pages SET change_bytes=10000");
@@ -150,7 +154,7 @@ try{
   const merged=(await source.query('SELECT page,change_bytes,generation FROM jackyun_private.backup_dirty_pages ORDER BY page')).rows;
   assert.equal(merged.length,2);assert.equal(merged[1].change_bytes,'20000');assert.notEqual(merged[1].generation,sourceGeneration);
   await assert.rejects(target.query('DELETE FROM jackyun_private.backup_dirty_pages'),{code:'55000'});
-  console.log(JSON.stringify({ok:true,postgresVersion:17,localOnly:true,targetRollback:true,sourceACLRestored:true,fiveTableCopy:true,unicodePreserved:true,sourceUpdateAndTruncateFenced:true,triggerStatesRestored:true,legacyBackupRPCsGuarded:true,inFlightLegacyRPCDrained:true,backupSourceRolledBack:true,reverseFiveTableCopy:true,reverseFailureRolledBack:true,reverseKeepsBothSidesFenced:true,sourceAuthorityPreserved:true,productionCutover:false}));
+  console.log(JSON.stringify({ok:true,postgresVersion:17,localOnly:true,targetRollback:true,sourceACLRestored:true,fiveTableCopy:true,unicodePreserved:true,jsonNullAndSQLNullPreserved:true,largeJsonNumbersAndDecimalScalePreserved:true,sourceUpdateAndTruncateFenced:true,triggerStatesRestored:true,legacyBackupRPCsGuarded:true,inFlightLegacyRPCDrained:true,backupSourceRolledBack:true,reverseFiveTableCopy:true,reverseFailureRolledBack:true,reverseKeepsBothSidesFenced:true,sourceAuthorityPreserved:true,productionCutover:false}));
 }finally{
   for(const client of clients)await client.end().catch(()=>{});
   if(started)run('pg_ctl',['-D',data,'-m','immediate','-w','stop']);
