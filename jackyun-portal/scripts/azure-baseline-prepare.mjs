@@ -1,10 +1,10 @@
 // Password is supplied only by the local hidden-input wrapper. No source access.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, chmodSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { readFileSync, chmodSync, mkdtempSync, mkdirSync, rmSync, copyFileSync, realpathSync, lstatSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import { tmpdir, userInfo } from 'node:os';
 import { createRequire } from 'node:module';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { privateArchive, TABLES } from './lib/azure-cutover.mjs';
 import { backupFailureCategory, privateBackupDetail } from './lib/azure-backup-diagnostics.mjs';
 const {Client}=createRequire(new URL('../azure/backend/package.json',import.meta.url))('pg');
@@ -15,10 +15,11 @@ if(!password||!process.env.TARGETPGSSLROOTCERT)throw Error('Protected Azure pass
 const env={...process.env,PGHOST:'jackyunasia.postgres.database.azure.com',PGPORT:'5432',PGUSER:'jackyun_admin',PGDATABASE:'jackyun_migration_20261007',PGPASSWORD:password,PGSSLMODE:'verify-full',PGSSLROOTCERT:process.env.TARGETPGSSLROOTCERT,PGCONNECT_TIMEOUT:'10',PGAPPNAME:'jackyun-baseline-prepare'};
 delete env.TARGETPGPASSWORD;delete env.SOURCEPGPASSWORD;
 const remote=new Client({host:env.PGHOST,port:5432,user:env.PGUSER,database:env.PGDATABASE,password,ssl:{rejectUnauthorized:true,ca:readFileSync(env.PGSSLROOTCERT,'utf8')},connectionTimeoutMillis:10000,statement_timeout:120000});
-let local,started=false,work;let installed=false;
+let local,started=false,work,container;let installed=false;
 function run(name,args,options={}){
- const result=spawnSync(join(bin,name),args,{encoding:'utf8',timeout:600000,...options});
- if(result.status!==0){archive.write(`${name}-error.json`,{category:backupFailureCategory(result),...privateBackupDetail(result,[password])});throw Error(`${name.toUpperCase()}_FAILED`);}
+ const executable=name==='docker'?'docker':join(bin,process.platform==='win32'?`${name}.exe`:name);
+ const result=spawnSync(executable,args,{encoding:'utf8',timeout:600000,windowsHide:true,...options});
+ if(result.status!==0){archive.write(`${name.replaceAll('_','-')}-error.json`,{category:backupFailureCategory(result),...privateBackupDetail(result,[password])});throw Error(`${name.toUpperCase()}_FAILED`);}
  return result;
 }
 const digest=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -38,17 +39,35 @@ try{
  const roles=(await remote.query("select rolname from pg_roles where rolname not like 'pg_%' order by rolname")).rows;
  console.log('步骤 2/5：保护 Azure 当前数据…');
  const dump=join(archive.directory,'target.dump');
- run('pg_dump',['--format=custom','--schema=public','--schema=auth','--schema=jackyun_private','--file',dump,'--no-password'],{env});chmodSync(dump,0o600);
+ if(process.env.PG_TARGET_BACKUP_FILE){
+  const existing=process.env.PG_TARGET_BACKUP_FILE,privateRoot=realpathSync(join(root,'.migration-private'));
+  if(!lstatSync(existing).isFile()||lstatSync(existing).isSymbolicLink()||!realpathSync(existing).startsWith(privateRoot+sep))throw Error('INVALID_BACKUP_PATH');
+  copyFileSync(existing,dump);
+ }else run('pg_dump',['--format=custom','--schema=public','--schema=auth','--schema=jackyun_private','--file',dump,'--no-password'],{env});
+ chmodSync(dump,0o600);
  run('pg_restore',['--list',dump]);
  console.log('步骤 3/5：在本机隔离数据库实际恢复备份…');
  work=mkdtempSync(join(tmpdir(),'jackyun-baseline-restore-'));chmodSync(work,0o700);const socket=join(work,'socket');mkdirSync(socket,{mode:0o700});
  const localEnv={...process.env};for(const k of Object.keys(localEnv))if(k.startsWith('PG')||k.includes('PGPASSWORD'))delete localEnv[k];
- run('initdb',['-D',join(work,'data'),'--no-locale','--encoding=UTF8','--auth-local=trust','--auth-host=scram-sha-256'],{env:localEnv});
- run('pg_ctl',['-D',join(work,'data'),'-l',join(work,'server.log'),'-o',`-k ${socket} -h '' -p 15442`,'-w','start'],{env:localEnv});started=true;
- local=new Client({host:socket,port:15442,user:userInfo().username,database:'postgres'});await local.connect();
- for(const {rolname} of roles)if(rolname!==userInfo().username)await local.query(`CREATE ROLE "${rolname.replaceAll('"','""')}" NOLOGIN`);
- await local.query('CREATE SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;');
- run('pg_restore',['--host',socket,'--port','15442','--username',userInfo().username,'--dbname','postgres','--no-owner','--no-privileges','--exit-on-error',dump],{env:localEnv});
+ let localHost=socket,localUser=userInfo().username;
+ if(process.platform==='win32'){
+  container=`jackyun-restore-${randomUUID()}`;
+  const localPassword=randomBytes(32).toString('hex');
+  run('docker',['run','--detach','--name',container,'--publish','127.0.0.1:15442:5432','--env','POSTGRES_PASSWORD','postgres:17'],{env:{...localEnv,POSTGRES_PASSWORD:localPassword}});started=true;
+  localHost='127.0.0.1';localUser='postgres';localEnv.PGPASSWORD=localPassword;
+  for(let attempt=0;attempt<40;attempt++){
+   const candidate=new Client({host:localHost,port:15442,user:localUser,database:'postgres',password:localPassword,connectionTimeoutMillis:1000});
+   try{await candidate.connect();local=candidate;break;}catch{await candidate.end().catch(()=>{});await new Promise(resolve=>setTimeout(resolve,500));}
+  }
+  if(!local)throw Error('LOCAL_RESTORE_SERVER_UNAVAILABLE');
+ }else{
+  run('initdb',['-D',join(work,'data'),'--no-locale','--encoding=UTF8','--auth-local=trust','--auth-host=scram-sha-256'],{env:localEnv});
+  run('pg_ctl',['-D',join(work,'data'),'-l',join(work,'server.log'),'-o',`-k ${socket} -h '' -p 15442`,'-w','start'],{env:localEnv});started=true;
+  local=new Client({host:socket,port:15442,user:localUser,database:'postgres'});await local.connect();
+ }
+ for(const {rolname} of roles)if(rolname!==localUser)await local.query(`CREATE ROLE "${rolname.replaceAll('"','""')}" NOLOGIN`);
+ await local.query('DROP SCHEMA public; CREATE SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;');
+ run('pg_restore',['--host',localHost,'--port','15442','--username',localUser,'--dbname','postgres','--no-owner','--no-privileges','--exit-on-error',dump],{env:localEnv});
  const restored=await hashes(local);const current=await hashes(remote);
  if(JSON.stringify(restored)!==JSON.stringify(current))throw Error('Baseline changed during backup; rerun with target writers paused');
  archive.write('restored-fingerprints.json',restored);
@@ -59,11 +78,11 @@ try{
  const allowed=(await remote.query("select has_function_privilege('jackyun_sync_runtime','public.sync_backup_markers()','EXECUTE') and has_function_privilege('jackyun_sync_runtime','public.ack_sync_backup_marker(text,uuid)','EXECUTE') as allowed")).rows[0].allowed;
  if(!allowed)throw Error('Marker runtime permissions missing');
  console.log('步骤 5/5：保存可验证的基线准备报告…');
- const report={ok:true,operation:'azure-baseline-prepare',capturedAt:new Date().toISOString(),targetDatabase:env.PGDATABASE,sourceAccessed:false,sourceIncrementDiscarded:true,restoreDrillPassed:true,restoredTables:restored.length,backup:{file:dump,sha256:digest(dump)},markerFunctionsReady:true,markerInstalled:installed,productionCutover:false,archive:archive.directory};
+ const report={ok:true,operation:'azure-baseline-prepare',capturedAt:new Date().toISOString(),targetDatabase:env.PGDATABASE,sourceAccessed:false,sourceIncrementDiscarded:false,restoreDrillPassed:true,restoredTables:restored.length,backup:{file:dump,sha256:digest(dump)},markerFunctionsReady:true,markerInstalled:installed,productionCutover:false,archive:archive.directory};
  archive.write('baseline-prepare-report.json',report);console.log(JSON.stringify(report));
 }catch(error){
  archive.write('prepare-error.json',{databaseCode:error.code??null,...privateBackupDetail({stderr:error.message},[password])});
  const code=/^[A-Z][A-Z_]{2,80}$/.test(error.message??'')?error.message:'BASELINE_PREPARE_FAILED';
  console.error(JSON.stringify({ok:false,code,markerInstalled:installed,sourceAccessed:false,productionCutover:false,archive:archive.directory}));process.exitCode=1;
 }
-finally{await remote.end().catch(()=>{});if(local)await local.end().catch(()=>{});if(started)spawnSync(join(bin,'pg_ctl'),['-D',join(work,'data'),'-m','immediate','-w','stop'],{encoding:'utf8'});if(work)rmSync(work,{recursive:true,force:true});}
+finally{await remote.end().catch(()=>{});if(local)await local.end().catch(()=>{});if(container){const cleanup=spawnSync('docker',['rm','--force',container],{encoding:'utf8',windowsHide:true});if(cleanup.status!==0)console.error('Local restore container cleanup requires attention');}else if(started)spawnSync(join(bin,'pg_ctl'),['-D',join(work,'data'),'-m','immediate','-w','stop'],{encoding:'utf8'});if(work)rmSync(work,{recursive:true,force:true});}

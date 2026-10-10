@@ -5,7 +5,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AnnouncementBadge, AnnouncementAction } from './announcement-content';
 import { announcementMatchesPath, announcementPhase } from '@/lib/announcements';
-import { dismissNotification, dismissNotifications, getNotificationInbox } from '@/actions/admin';
+import { dismissNotification, dismissNotifications } from '@/actions/admin';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
+import { useNotificationSnapshot } from '@/lib/notification-client';
+import type { NotificationSnapshot } from '@/lib/notification-snapshot';
 import type { SiteNotification } from '@/types';
 
 const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
@@ -21,56 +24,67 @@ function preview(content: string) {
 
 export default function NotificationInbox() {
   const pathname = usePathname();
+  const { userId } = useAuthMode();
+  const { snapshot, refresh: refreshSnapshot } = useNotificationSnapshot(userId);
   const [history, setHistory] = useState(false);
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<SiteNotification[]>([]);
+  const [historyPage, setHistoryPage] = useState<(NotificationSnapshot & { userId: string }) | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [selected, setSelected] = useState<SiteNotification | null>(null);
   const [chatTicket, setChatTicket] = useState<{ id: string; title: string } | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
   const knownIds = useRef(new Set<string>());
-  const latestRequest = useRef(0);
-  const activeTicketId = useRef<string | null>(null);
-  const scopedItems = items.filter(item => item.recipient_user_id || announcementMatchesPath(item, pathname));
-  const unread = scopedItems.filter(item => !item.is_read).length;
+  const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
+  const historyController = useRef<AbortController | null>(null);
+  const items = history ? (historyPage?.userId === userId ? historyPage.items : []) : snapshot.items;
+  const scopedItems = items.filter(item => !activeTicketId || item.related_ticket_id !== activeTicketId).filter(item => item.recipient_user_id || announcementMatchesPath(item, pathname));
+  const unread = snapshot.items.filter(item => !item.is_read && (item.recipient_user_id || announcementMatchesPath(item, pathname))).length;
 
-  const refresh = useCallback((announceNew = false) => {
-    const request = ++latestRequest.current;
-    return getNotificationInbox(pathname, history)
-    .then((all) => {
-      if (request !== latestRequest.current) return;
-      const visible = all.filter((item) => !activeTicketId.current || item.related_ticket_id !== activeTicketId.current);
-      const newMessages = announceNew && !history ? visible.filter((item) => item.delivery_type === 'message' && !knownIds.current.has(item.id)) : [];
-      setItems(visible); visible.forEach((item) => knownIds.current.add(item.id));
-      if (newMessages.length && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        const latest = newMessages[0]; new Notification('JackYun 新消息', { body: latest.title, icon: '/Webicon.png' });
-      }
-    }).catch(() => {});
-  }, [pathname, history]);
+  const loadHistory = useCallback(async (offset = 0) => {
+    if (historyController.current || !userId) return;
+    const controller = new AbortController(); historyController.current = controller;
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(`/api/notifications/snapshot?history=1&offset=${offset}&reason=history`, { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) return;
+      const result = await response.json();
+      if (result.userId !== userId || controller.signal.aborted) return;
+      setHistoryPage(current => ({ ...result, items: offset ? [...(current?.items ?? []), ...result.items] : result.items }));
+    } catch { /* Keep the loaded page on connection failure. */ }
+    finally { if (historyController.current === controller) { historyController.current = null; setLoadingHistory(false); } }
+  }, [userId]);
 
   useEffect(() => {
-    refresh();
-    const timer = window.setInterval(() => refresh(true), 60_000);
+    const known = knownIds.current;
+    const newMessages = known.size ? snapshot.items.filter(item => item.delivery_type === 'message' && !known.has(item.id) && item.related_ticket_id !== activeTicketId) : [];
+    snapshot.items.forEach(item => known.add(item.id));
+    if (newMessages.length && document.visibilityState === 'visible' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification('JackYun 新消息', { body: newMessages[0].title, icon: '/Webicon.png' });
+    }
+  }, [snapshot, activeTicketId]);
+  useEffect(() => {
+    const timer = open && history ? window.setTimeout(() => void loadHistory(), 0) : undefined;
+    return () => { window.clearTimeout(timer); historyController.current?.abort(); historyController.current = null; };
+  }, [open, history, loadHistory]);
+  useEffect(() => { knownIds.current = new Set(); }, [userId]);
+  useEffect(() => {
     const handleSupportState = (event: Event) => {
       const detail = (event as CustomEvent<{ ticketId: string; open: boolean }>).detail;
-      activeTicketId.current = detail.open ? detail.ticketId : null;
-      if (detail.open) {
-        setItems((current) => {
-          const next = current.filter((item) => item.related_ticket_id !== detail.ticketId);
-          return next;
-        });
-      } else {
-        refresh();
-      }
+      setActiveTicketId(detail.open ? detail.ticketId : null);
+      if (!detail.open) void refreshSnapshot();
     };
     window.addEventListener('jackyun:support-state', handleSupportState);
-    const handleDismissal = () => refresh();
+    const handleDismissal = (event: Event) => {
+      const ids = (event as CustomEvent<string | string[]>).detail;
+      const dismissed = new Set(Array.isArray(ids) ? ids : [ids]);
+      setHistoryPage(current => current ? { ...current, items: current.items.map(item => dismissed.has(item.id) ? { ...item, is_read: true } : item) } : null);
+    };
     window.addEventListener('jackyun:notification-dismissed', handleDismissal);
     return () => {
-      window.clearInterval(timer);
       window.removeEventListener('jackyun:support-state', handleSupportState);
       window.removeEventListener('jackyun:notification-dismissed', handleDismissal);
     };
-  }, [refresh]);
+  }, [refreshSnapshot]);
 
   const openMessage = (item: SiteNotification) => {
     if (item.related_ticket_id) setChatTicket({ id: item.related_ticket_id, title: item.title });
@@ -126,6 +140,7 @@ export default function NotificationInbox() {
                 <button type="button" onClick={() => removeMessage(item)} aria-label={`标为已读：${item.title}`} title="标为已读" className="mr-2 self-center rounded-lg p-2 text-[var(--muted-foreground)] hover:bg-[#eff4ff] hover:text-[#155eef] dark:hover:bg-blue-500/10"><span className="material-icons-round text-lg">done</span></button>
               </div>
             )) : <p className="p-8 text-center text-sm text-[var(--muted-foreground)]">暂无未读通知</p>}
+            {history && historyPage?.hasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(historyPage.nextOffset)} className="w-full p-3 text-sm text-[var(--brand)]">{loadingHistory ? '加载中…' : '加载更多历史'}</button>}
           </div>
         </div>
       )}

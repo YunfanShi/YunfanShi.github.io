@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
+import { startVisiblePoll } from '@/lib/visible-poll';
 import { addTicketMessage, clearTicketLegacySync, closeBugReport, exportTicketUserData, getAdminBugReports, getBugReportDetail, getRemoteAssistanceSnapshot, recordTicketOperation, repairTicketPreferences, requestRemoteAssistance, resolveAccountAppeal, restoreTicketUserAccount, sendTicketPasswordReset, updateBugReportType, updateRemoteAssistancePreference, type BugReport, type TicketDetail } from '@/actions/feedback';
 
 const types: { value: BugReport['ticket_type']; label: string }[] = [
@@ -27,9 +28,7 @@ export default function BugReportsPanel({ reports, initialTicketId }: { reports:
     if (id) setDetail(await getBugReportDetail(id));
   }, [id]);
   useEffect(() => {
-    const initial = window.setTimeout(() => load().catch(() => setNotice('无法加载工单。')), 0);
-    const timer = window.setInterval(() => load().catch(() => {}), 20_000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    return startVisiblePoll(async () => { try { await load(); } catch { setNotice('无法加载工单。'); throw new Error('Ticket refresh failed'); } });
   }, [load]);
 
   const run = (operation: () => Promise<{ success: boolean; error?: string }>, successMessage: string) => startTransition(async () => {

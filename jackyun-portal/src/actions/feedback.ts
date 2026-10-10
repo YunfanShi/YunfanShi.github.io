@@ -4,6 +4,7 @@ import { serviceErrorMessage } from '@/lib/service-errors';
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { getRequestIdentity } from '@/lib/request-context';
 import type { DiagnosticSnapshot } from '@/lib/logger';
 
 export type TicketType = 'bug' | 'suggestion' | 'usage_help' | 'account_security' | 'suspension_appeal' | 'deletion_recovery';
@@ -41,9 +42,9 @@ export async function getMyBugReports(): Promise<UserBugReport[]> {
   return (data ?? []) as UserBugReport[];
 }
 export async function getMyTicketMessages(reportId: string): Promise<TicketMessage[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const identity = await getRequestIdentity().catch(() => null);
+  if (!identity) return [];
+  const { supabase, user } = identity;
   const { data, error } = await supabase.from('support_replies').select('id, body, author_id, message_kind, system_result, created_at, updated_at').eq('report_id', reportId).order('created_at');
   if (error) throw new Error(error.message);
   // The client only needs an ownership marker to decide whether to show Edit;
@@ -58,9 +59,9 @@ export type MyTicketConversation = {
   messages: TicketMessage[];
 };
 export async function getMyTicketConversation(reportId: string): Promise<MyTicketConversation | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  const identity = await getRequestIdentity().catch(() => null);
+  if (!identity) return null;
+  const { supabase, user } = identity;
   const { data: ticket, error } = await supabase
     .from('bug_reports')
     .select('id, title, status, ticket_type')

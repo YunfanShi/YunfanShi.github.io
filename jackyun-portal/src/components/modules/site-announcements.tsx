@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { getActiveNotifications, dismissNotification } from '@/actions/admin';
+import { dismissNotification } from '@/actions/admin';
+import { useNotificationSnapshot } from '@/lib/notification-client';
 import type { SiteNotification } from '@/types';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { announcementDismissalKey, announcementMatchesPath, announcementPhase, safeAnnouncementLink } from '@/lib/announcements';
@@ -13,7 +14,8 @@ import MarkdownRenderer from './markdown-renderer';
 export default function SiteAnnouncements() {
   const { signedIn, userId } = useAuthMode();
   const pathname = usePathname();
-  const [loaded, setLoaded] = useState<{ userId: string | null; items: SiteNotification[] }>({ userId: null, items: [] });
+  const { snapshot } = useNotificationSnapshot(signedIn ? userId : null);
+  const [dismissalRevision, setDismissalRevision] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const storageKey = `site_notification_dismissed:${userId}`;
   const localDismissed = useCallback((): Set<string> => {
@@ -21,32 +23,22 @@ export default function SiteAnnouncements() {
   }, [storageKey]);
   useEffect(() => {
     if (!signedIn) return;
-    let cancelled = false;
-    const refresh = async () => {
-      try {
-        const items = await getActiveNotifications(pathname);
-        if (!cancelled) { const hidden = localDismissed(); setLoaded({ userId, items: items.filter(item => !hidden.has(announcementDismissalKey(item))) }); }
-      } catch { /* Keep loaded notices during a short connection failure. */ }
-    };
-    void refresh();
-    const timer = window.setInterval(refresh, 60_000);
-    const dismissed = (event: Event) => {
-      const detail = (event as CustomEvent<string | string[]>).detail;
-      const ids = new Set(Array.isArray(detail) ? detail : [detail]);
-      setLoaded(state => ({ ...state, items: state.items.filter(item => !ids.has(item.id)) }));
-    };
+    const dismissed = () => setDismissalRevision(value => value + 1);
+    const storage = (event: StorageEvent) => { if (event.key === storageKey) dismissed(); };
     window.addEventListener('jackyun:notification-dismissed', dismissed);
-    window.addEventListener('storage', refresh);
-    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener('jackyun:notification-dismissed', dismissed); window.removeEventListener('storage', refresh); };
-  }, [signedIn, userId, pathname, localDismissed]);
-  const visible = signedIn && loaded.userId === userId ? loaded.items.filter(item => announcementMatchesPath(item, pathname) && announcementPhase(item) === 'live') : [];
+    window.addEventListener('storage', storage);
+    return () => { window.removeEventListener('jackyun:notification-dismissed', dismissed); window.removeEventListener('storage', storage); };
+  }, [signedIn, storageKey]);
+  void dismissalRevision;
+  const hidden = localDismissed();
+  const visible = signedIn ? snapshot.items.filter(item => !item.recipient_user_id && !item.is_read && !hidden.has(announcementDismissalKey(item)) && announcementMatchesPath(item, pathname) && announcementPhase(item) === 'live') : [];
   const notices = visible.filter(item => item.delivery_type === 'notice');
   const banners = visible.filter(item => item.delivery_type === 'banner');
   const current = notices[0];
   const close = useCallback((item: SiteNotification) => {
     const hidden = localDismissed(); hidden.add(announcementDismissalKey(item));
     try { localStorage.setItem(storageKey, JSON.stringify([...hidden].slice(-1000))); } catch { /* Session state still hides the notice. */ }
-    setLoaded(state => ({ ...state, items: state.items.filter(entry => entry.id !== item.id) }));
+    setDismissalRevision(value => value + 1);
     window.dispatchEvent(new CustomEvent('jackyun:notification-dismissed', { detail: item.id }));
     void dismissNotification(item.id).catch(() => {});
   }, [localDismissed, storageKey]);

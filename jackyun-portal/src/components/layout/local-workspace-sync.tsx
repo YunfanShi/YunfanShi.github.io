@@ -123,6 +123,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let retryAt = 0;
     let authPaused = false;
     let lastBackupCheck = 0;
+    let lastAutomaticPull = 0;
     let lastSnapshot: Record<string, string> = {};
 
     if (!userId) {
@@ -368,6 +369,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         }
         await pull();
         await flush(deviceId);
+        lastAutomaticPull = Date.now();
         await queueChanges();
         for (let batch = 1; batch < 100 && !cancelled && (await getOutbox()).length; batch += 1) {
           await flush(deviceId);
@@ -411,14 +413,14 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       editTimer = window.setTimeout(() => { editTimer = null; void sync(true); }, 8_000);
     };
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(true); }, 30_000);
-    const onSync = () => void sync();
+    const onSync = () => { if (Date.now() - lastAutomaticPull >= 60_000) void sync(); };
     const onRetry = () => { reportProgress('已收到立即同步请求，正在同步…'); void sync(false, true); };
     const onSignOut = () => { signingOut = true; };
     const onSignOutCancel = () => { signingOut = false; };
     window.addEventListener('jackyun-signout-start', onSignOut);
     window.addEventListener('jackyun-signout-cancel', onSignOutCancel);
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') void sync();
+      if (document.visibilityState === 'visible') onSync();
       else void queueChanges();
     };
     const onLeave = () => { void queueChanges(); };
