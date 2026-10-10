@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import * as domain from '../src/lib/notification-snapshot.ts';
+import { isSyncableStorageKey } from '../src/lib/local-workspace.ts';
 
 const flush = async () => { for (let i=0;i<5;i++) await new Promise(resolve => setImmediate(resolve)); };
 function harness() {
@@ -44,13 +45,15 @@ function harness() {
     const stop=store.subscribe(()=>{});
     const result={document,navigator,callbacks,store,stop};tabs.push(result);return result;
   }
-  return {tab,tabs,get calls(){return calls;},set blocked(value:boolean){blocked=value;},release:()=>release?.(),advance:(ms:number)=>{now+=ms;for(const tab of tabs)for(const callback of tab.callbacks)callback();}};
+  return {tab,tabs,shared,get calls(){return calls;},set blocked(value:boolean){blocked=value;},release:()=>release?.(),advance:(ms:number)=>{now+=ms;for(const tab of tabs)for(const callback of tab.callbacks)callback();}};
 }
 
 test('four foreground tabs share at most 61 snapshots in one idle hour',async()=>{
   const h=harness();for(let i=0;i<4;i++){h.tab();await flush();}
   for(let elapsed=5000;elapsed<=3_600_000;elapsed+=5000){h.advance(5000);await flush();}
   assert.equal(h.calls,61);
+  assert.ok([...h.shared.keys()].length>0);
+  for(const key of h.shared.keys())assert.equal(isSyncableStorageKey(key),false,'coordination metadata must never trigger cloud sync');
   for(const tab of h.tabs){assert.equal(tab.store.getSnapshot().items.length,1);tab.stop();}
 });
 test('hidden/offline clients pause; recovery and focus storms cannot overlap requests',async()=>{

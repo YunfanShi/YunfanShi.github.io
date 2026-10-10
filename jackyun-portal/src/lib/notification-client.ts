@@ -5,7 +5,7 @@ import { EMPTY_NOTIFICATION_SNAPSHOT, notificationRefreshDue, type NotificationS
 
 type Reason = 'initial' | 'interval' | 'resume' | 'mutation';
 type Listener = () => void;
-type Message = { type: 'request' | 'snapshot'; userId: string; snapshot?: NotificationSnapshot };
+type Message = { type: 'request' | 'snapshot'; userId: string; snapshot?: NotificationSnapshot; attemptedAt?: number };
 
 class NotificationStore {
   private value = EMPTY_NOTIFICATION_SNAPSHOT;
@@ -22,7 +22,8 @@ class NotificationStore {
     this.value = snapshot;
     this.listeners.forEach(listener => listener());
   };
-  private metadataKey = () => `jackyun:notification-poll:v1:${this.userId}`;
+  // The existing sync exclusion for "broadcast" also applies on the deployed Azure backend.
+  private metadataKey = () => `jackyun:notification-broadcast:v1:${this.userId}`;
   private sharedAttempt = () => {
     try { return Number(localStorage.getItem(this.metadataKey())) || -Infinity; } catch { return this.lastAttempt; }
   };
@@ -30,8 +31,9 @@ class NotificationStore {
     const message = event.data;
     if (message?.userId !== this.userId) return;
     if (message.type === 'request' && this.value !== EMPTY_NOTIFICATION_SNAPSHOT) {
-      this.channel?.postMessage({ type: 'snapshot', userId: this.userId, snapshot: this.value });
+      this.channel?.postMessage({ type: 'snapshot', userId: this.userId, snapshot: this.value, attemptedAt: this.lastAttempt });
     } else if (message.type === 'snapshot' && message.snapshot && Array.isArray(message.snapshot.items)) {
+      if (Number.isFinite(message.attemptedAt)) this.lastAttempt = Math.max(this.lastAttempt, message.attemptedAt!);
       this.publish(message.snapshot);
     }
   };
@@ -41,7 +43,7 @@ class NotificationStore {
     const ids = new Set(Array.isArray(detail) ? detail : [detail]);
     const remaining = this.value.items.filter(item => !ids.has(item.id));
     this.publish({ ...this.value, items: remaining, unreadCount: Math.max(0, this.value.unreadCount - this.value.items.filter(item => ids.has(item.id) && !item.is_read).length) });
-    this.channel?.postMessage({ type: 'snapshot', userId: this.userId, snapshot: this.value });
+    this.channel?.postMessage({ type: 'snapshot', userId: this.userId, snapshot: this.value, attemptedAt: this.lastAttempt });
   };
   subscribe = (listener: Listener) => {
     this.listeners.add(listener);
@@ -99,7 +101,7 @@ class NotificationStore {
         if (this.stopped || result.userId !== this.userId || !Array.isArray(result.items)) return;
         const snapshot: NotificationSnapshot = { items: result.items, unreadCount: result.unreadCount, hasMore: result.hasMore, nextOffset: result.nextOffset };
         this.publish(snapshot);
-        this.channel?.postMessage({ type: 'snapshot', userId: this.userId, snapshot });
+        this.channel?.postMessage({ type: 'snapshot', userId: this.userId, snapshot, attemptedAt: this.lastAttempt });
       } catch { /* Keep existing notices; the next bounded tick retries. */ }
       finally { clearTimeout(timeout); if (this.controller === controller) this.controller = null; }
     };
@@ -118,8 +120,8 @@ class NotificationStore {
           await new Promise(resolve => setTimeout(resolve, 50));
           acquired = JSON.parse(localStorage.getItem(key) ?? 'null')?.token === token;
           if (acquired) await request();
-        } finally {
-          if (acquired && JSON.parse(localStorage.getItem(key) ?? 'null')?.token === token) localStorage.removeItem(key);
+        } catch { await request(); } finally {
+          try { if (acquired && JSON.parse(localStorage.getItem(key) ?? 'null')?.token === token) localStorage.removeItem(key); } catch { /* Private browsing can disable storage. */ }
         }
       }
     } finally { this.pending = false; }
