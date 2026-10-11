@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
 import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -140,8 +141,8 @@ export default function AiPlatformPanel({ initial }: { initial: AdminData }) {
     if (result.success) setModels((items) => items.map((item) => item.id === model.id ? { ...item, enabled, ...(enabled ? { consecutive_failures: 0, last_failure_detail: null, last_failure_at: null, auto_disabled_at: null, auto_disabled_reason: null } : {}) } : item));
   });
 
-  const removeModel = (model: AdminAiModel) => {
-    if (!window.confirm(`确定永久删除模型“${model.display_name}”吗？套餐授权与用量关联会一并解除，此操作不可撤销。`)) return;
+  const removeModel = async (model: AdminAiModel) => {
+    if (!(await siteConfirm(`确定永久删除模型“${model.display_name}”吗？套餐授权与用量关联会一并解除，此操作不可撤销。`))) return;
     startTransition(async () => {
       const result = await deleteAiModel(model.id);
       showNotice(result.success, result.success ? '模型已永久删除。' : result.error ?? '删除失败。');

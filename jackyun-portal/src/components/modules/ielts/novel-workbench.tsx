@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { acknowledgeCatalogNovelImport, getReaderBootstrap, type CatalogNovel, type ReaderBootstrap } from '@/actions/reader';
 import { callAiApi } from '@/lib/ai-config';
@@ -824,7 +825,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   async function removeChapterFromBook(chapterIndex: number) {
     if (editorChapters.length <= 1) { setMessage('一本书至少需要保留一个章节。'); return; }
     const target = editorChapters[chapterIndex];
-    if (!window.confirm(`确定删除章节“${target.title}”吗？`)) return;
+    if (!(await siteConfirm(`确定删除章节“${target.title}”吗？`))) return;
     const book = books.find((item) => item.id === editingBookId);
     const nextBookmarks = (book?.bookmarks ?? []).flatMap((bookmark) => bookmark.chapterIndex === chapterIndex ? [] : [{ ...bookmark, chapterIndex: bookmark.chapterIndex > chapterIndex ? bookmark.chapterIndex - 1 : bookmark.chapterIndex }]);
     await commitChapterCollection(editorChapters.filter((item) => item.index !== chapterIndex), `已删除章节“${target.title}”。`, true, nextBookmarks);
@@ -835,7 +836,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     const book = books.find((item) => item.id === editingBookId);
     if (!book) return;
     if (/\.epub$/iu.test(book.sourceFileName)) { setMessage('EPUB 已按书内目录导入，无需重新扫描文本标题。'); return; }
-    if (!window.confirm('重新扫描会按照新规则重建章节目录，并重置本书阅读进度。继续吗？')) return;
+    if (!(await siteConfirm('重新扫描会按照新规则重建章节目录，并重置本书阅读进度。继续吗？'))) return;
     const source = editorChapters.map((item) => item.title === '卷首' ? item.content : `${item.title}\n${item.content}`).join('\n\n');
     const rescanned = splitNovelIntoChapters(source);
     if (!rescanned.length) { setMessage('重新扫描后没有找到可读取的正文。'); return; }
@@ -856,7 +857,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
 
   async function removeBook(book: NovelBook) {
     const storeBook = isStoreBook(book);
-    if (!window.confirm(storeBook ? `确定把《${book.title}》移出书架吗？阅读进度会保留。` : `确定删除《${book.title}》及全部章节吗？此操作无法撤销。`)) return;
+    if (!(await siteConfirm(storeBook ? `确定把《${book.title}》移出书架吗？阅读进度会保留。` : `确定删除《${book.title}》及全部章节吗？此操作无法撤销。`))) return;
     await deleteNovelBook(book.id);
     pendingCloudBooksRef.current.delete(book.id);
     if (bootstrap.userId) {

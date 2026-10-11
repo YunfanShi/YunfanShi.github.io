@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useState } from 'react';
 import type { DidaAccountView, DidaProject } from '@/lib/integrations/dida365';
 
@@ -43,7 +44,7 @@ export default function AccountConnectionsPanel() {
     finally { setBusy(false); }
   };
   const disconnect = async (account: DidaAccountView) => {
-    if (!window.confirm(`解除“${account.displayName}”的关联吗？已添加到滴答清单的任务不会被删除。`)) return;
+    if (!(await siteConfirm(`解除“${account.displayName}”的关联吗？已添加到滴答清单的任务不会被删除。`))) return;
     setBusy(true); setMessage('');
     try { await readJson(await fetch(`/api/integrations/dida365/accounts/${account.id}`, { method: 'DELETE' })); await load(); setMessage('账户关联已解除。'); }
     catch (error) { setMessage(error instanceof Error ? error.message : '解除关联失败。'); }

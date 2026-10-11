@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jack's Exam Countdown</title>
@@ -781,7 +782,7 @@
             const color = document.getElementById('new-color').value;
 
             if (!title || !dateVal) {
-                alert("Please enter both a title and a date.");
+                JackyunDialog.alert("Please enter both a title and a date.");
                 return;
             }
 
@@ -811,7 +812,7 @@
 
         function deleteEvent(index) {
             if (events.length <= 1) {
-                alert("You must keep at least one event.");
+                JackyunDialog.alert("You must keep at least one event.");
                 return;
             }
             const deletedId = events[index].id;

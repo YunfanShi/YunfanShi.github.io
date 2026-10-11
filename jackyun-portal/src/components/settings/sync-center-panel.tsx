@@ -1,5 +1,6 @@
 'use client';
 
+import { sitePrompt, siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
@@ -47,14 +48,14 @@ export default function SyncCenterPanel() {
   const openDevices = useMemo(() => devices.filter((device) => !device.revokedAt), [devices]);
 
   async function rename(device: SyncDevice) {
-    const name = window.prompt('设备名称', device.name)?.trim();
+    const name = (await sitePrompt('设备名称', device.name))?.trim();
     if (!name) return;
     const response = await fetchSyncWithTimeout('/api/sync/devices', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id, name }) });
     if (response.ok) await load(); else setError('设备改名失败');
   }
 
   async function revoke(device: SyncDevice) {
-    if (device.id === currentDeviceId || !window.confirm(`撤销设备“${device.name}”？`)) return;
+    if (device.id === currentDeviceId || !(await siteConfirm(`撤销设备“${device.name}”？`))) return;
     const response = await fetchSyncWithTimeout('/api/sync/devices', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id }) });
     if (response.ok) await load(); else setError('撤销设备失败');
   }
@@ -86,7 +87,7 @@ export default function SyncCenterPanel() {
       {conflict.paths?.length ? <p className="mt-1 text-xs">需要选择的字段：{conflict.paths.slice(0,8).join('、')}{conflict.paths.length>8?'…':''}</p>:null}
       <div className="mt-3 flex flex-wrap gap-3">
         <button type="button" className="underline" onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(conflict,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='jackyun-sync-conflict.json';link.click();URL.revokeObjectURL(url);}}>下载两份内容对比</button>
-        {(['local','remote'] as const).map(choice=><button type="button" key={choice} disabled={!signedIn || detail.state==='syncing'} className="rounded-lg border px-3 py-2 disabled:opacity-50" onClick={()=>{if(!window.confirm(choice==='local'?'保留本机冲突字段，并合并云端独有记录？操作前会保存本机版本。':'采用此云端版本？本机原始版本会先保存。'))return;setDetail(current=>({...current,state:'syncing',error:undefined}));window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:{operationId:conflict.operationId,choice}}));}}>{choice==='local'?'保留本机差异并合并':'采用云端版本'}</button>)}
+        {(['local','remote'] as const).map(choice=><button type="button" key={choice} disabled={!signedIn || detail.state==='syncing'} className="rounded-lg border px-3 py-2 disabled:opacity-50" onClick={async ()=>{if(!(await siteConfirm(choice==='local'?'保留本机冲突字段，并合并云端独有记录？操作前会保存本机版本。':'采用此云端版本？本机原始版本会先保存。')))return;setDetail(current=>({...current,state:'syncing',error:undefined}));window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:{operationId:conflict.operationId,choice}}));}}>{choice==='local'?'保留本机差异并合并':'采用云端版本'}</button>)}
       </div>
     </div>)}
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">

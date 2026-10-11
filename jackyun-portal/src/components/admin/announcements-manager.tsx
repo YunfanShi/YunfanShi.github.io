@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useState } from 'react';
 import { createNotification, deleteNotification, getAllNotifications, updateNotification, type NotificationInput } from '@/actions/admin';
 import type { SiteNotification } from '@/types';
@@ -52,7 +53,7 @@ export function NotificationManagerPanel() {
     try { const result = await updateNotification(item.id, { ...toInput(toForm(item)), is_active: !item.is_active }); if (!result.success) throw new Error(result.error); await load(); } catch (error) { setError(error instanceof Error ? error.message : '操作失败'); }
   };
   const remove = async (item: SiteNotification) => {
-    if (!window.confirm('删除后不可恢复。保留历史请使用“停用”。确定删除？')) return;
+    if (!(await siteConfirm('删除后不可恢复。保留历史请使用“停用”。确定删除？'))) return;
     setError('');
     try { const result = await deleteNotification(item.id); if (!result.success) throw new Error(result.error); await load(); } catch (error) { setError(error instanceof Error ? error.message : '删除失败'); }
   };

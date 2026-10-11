@@ -1,5 +1,6 @@
 'use client';
 
+import { siteAlert } from '@/lib/site-dialog';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -58,8 +59,8 @@ export default function NotificationInbox() {
     const known = knownIds.current;
     const newMessages = known.size ? snapshot.items.filter(item => item.delivery_type === 'message' && !known.has(item.id) && item.related_ticket_id !== activeTicketId) : [];
     snapshot.items.forEach(item => known.add(item.id));
-    if (newMessages.length && document.visibilityState === 'visible' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification('JackYun 新消息', { body: newMessages[0].title, icon: '/Webicon.png' });
+    if (newMessages.length && document.visibilityState === 'visible') {
+      void siteAlert(newMessages[0].title, { title: '新消息', confirmLabel: '知道了' });
     }
   }, [snapshot, activeTicketId]);
   useEffect(() => {
@@ -125,7 +126,6 @@ export default function NotificationInbox() {
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setHistory(value => !value)} className="min-h-9 text-xs text-[#155eef]">{history ? '未读' : '历史'}</button>
               {unread > 0 && <button type="button" disabled={markingAll} onClick={markAllRead} className="min-h-9 rounded-lg px-2 text-xs font-medium text-[#155eef] hover:bg-[#eff4ff] disabled:opacity-50">{markingAll ? '处理中…' : '一键全读'}</button>}
-              {typeof Notification !== 'undefined' && Notification.permission === 'default' && <button type="button" onClick={() => Notification.requestPermission()} className="min-h-9 text-xs font-medium text-[#155eef]">开启提醒</button>}
             </div>
           </div>
           <div className="max-h-96 overflow-y-auto">

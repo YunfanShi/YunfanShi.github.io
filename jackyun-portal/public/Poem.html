@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>沉浸背诵</title>
@@ -706,11 +707,11 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-line:hover .mask {
                 item.className = 'poem-list-item';
                 item.innerHTML = `${renderStatusTag(hist)}<strong>${p.title}</strong><small>[${p.category}] ${p.author}</small>`;
                 
-                item.onclick = () => {
+                item.onclick = async () => {
                     poemInput.value = `${p.title}\n${p.author}\n\n${p.content}`;
                     let loadIndex = hist.progress;
                     if (hist.status === 'completed') {
-                        if(!confirm(`《${p.title}》已背诵完成，是否重新开始？`)) return;
+                        if(!(await JackyunDialog.confirm(`《${p.title}》已背诵完成，是否重新开始？`))) return;
                         loadIndex = -1;
                     }
                     directStartPoem(p.title, p.content, loadIndex);
@@ -769,7 +770,7 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-line:hover .mask {
 
         function startPoemFromInput() {
             const text = poemInput.value.trim();
-            if(!text) return alert("请先选择古诗或粘贴文本");
+            if(!text) return JackyunDialog.alert("请先选择古诗或粘贴文本");
             const lines = parsePoemLines(text);
             if(lines.length > 0) {
                 currentPoemTitle = lines[0];
@@ -1053,8 +1054,8 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-line:hover .mask {
             renderMain();
         }
 
-        function exitMidSession() {
-            if(confirm("确定退出？(进度已保存)")) {
+        async function exitMidSession() {
+            if((await JackyunDialog.confirm("确定退出？(进度已保存)"))) {
                 if(!isStudyMode && !isPaused) {
                     const currentTime = (Date.now() - startTime) / 1000;
                     saveOrUpdateHistory(currentPoemTitle, currentPoemContent, currentIndex, 'in-progress', currentTime, lineStats);
@@ -1091,14 +1092,14 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-line:hover .mask {
             document.body.classList.toggle('is-reciting', pct > 0 && !reset);
         }
         
-        function clearHistory() {
-             if(confirm("确定清空所有历史记录？")) { 
+        async function clearHistory() {
+             if((await JackyunDialog.confirm("确定清空所有历史记录？"))) {
                 localStorage.removeItem('poemHistory'); 
                 renderMain(); 
             }
         }
-        function restartCurrentPoem() {
-            if(confirm("确定重新开始？")) { startRecitation(currentPoemTitle+'\n'+currentPoemContent, -1); }
+        async function restartCurrentPoem() {
+            if((await JackyunDialog.confirm("确定重新开始？"))) { startRecitation(currentPoemTitle+'\n'+currentPoemContent, -1); }
         }
 
         // --- 事件绑定 ---
@@ -1119,12 +1120,12 @@ html:is([data-jy-theme="gray"], [data-jy-theme="dark"]) .poem-line:hover .mask {
         });
         
         // 键盘控制
-        document.addEventListener('keydown', e => {
+        document.addEventListener('keydown', async e => {
             if(poemViewContainer.style.display !== 'flex' || isMobile() || isStudyMode || isPaused) return; 
             if(completionView.style.display === 'flex') return;
             if(['ArrowRight', 'ArrowDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); revealNext(); }
             else if(['ArrowLeft', 'ArrowUp', 'Backspace'].includes(e.key)) { e.preventDefault(); hidePrev(); }
-            else if(e.key === 'Escape') exitMidSession();
+            else if(e.key === 'Escape') (await exitMidSession());
         });
         // 鼠标控制
         document.addEventListener('contextmenu', e => {

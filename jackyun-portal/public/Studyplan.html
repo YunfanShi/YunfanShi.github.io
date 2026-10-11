@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CAIE 考试局 | Jack's Dashboard</title>
@@ -1388,8 +1389,8 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
     }
 
     // 回退知识点：清除"已掌握"标记和所有步骤进度，让用户重新审计（红绿灯颜色保留）
-    function revertUnit(subject, unit) {
-        if (!confirm(`确定要回退知识点 "${unit}" 吗？\n\n回退后需要重新完成 Notes 和红绿灯审计。`)) return;
+    async function revertUnit(subject, unit) {
+        if (!(await JackyunDialog.confirm(`确定要回退知识点 "${unit}" 吗？\n\n回退后需要重新完成 Notes 和红绿灯审计。`))) return;
         // 清除已掌握标记
         delete progressDB[`${subject}|${unit}|FINAL|unit_done`];
         // 清除所有步骤进度（note, traffic 等）
@@ -1403,8 +1404,8 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
     }
 
     // 回退红绿灯步骤：清除审计步骤完成标记，允许重新选择红/黄/绿（颜色保留）
-    function revertTraffic(subject, unit) {
-        if (!confirm(`确定要重新审计 "${unit}" 吗？`)) return;
+    async function revertTraffic(subject, unit) {
+        if (!(await JackyunDialog.confirm(`确定要重新审计 "${unit}" 吗？`))) return;
         delete progressDB[`${subject}|${unit}|traffic`];
         localStorage.setItem('caie_progress_v2_1', JSON.stringify(progressDB));
         renderMainView(subject);
@@ -1433,7 +1434,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         const trafficKey = `${TRAFFIC_PREFIX}${subject}|${unit}`;
         const raw = localStorage.getItem(trafficKey);
         if (!raw) {
-            alert('请先选择红/黄/绿灯状态，再点击确认审计');
+            JackyunDialog.alert('请先选择红/黄/绿灯状态，再点击确认审计');
             return;
         }
         // 标记红绿灯步骤完成（保存进度）
@@ -1550,7 +1551,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
     function confirmStartMock() {
         const code = document.getElementById('mock-code-input').value;
         const dur = document.getElementById('mock-duration-input').value;
-        if(!code) return alert("Code required!");
+        if(!code) return JackyunDialog.alert("Code required!");
         currentMockDuration = parseInt(dur) * 60; 
         
         if(!mockDB[currentMockSubject]) mockDB[currentMockSubject] = [];
@@ -1577,8 +1578,8 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         document.getElementById('mock-btn-toggle').innerText = "START";
     }
 
-    function exitMockMode() {
-        if(confirm("Exit exam mode? Timer will stop.")) {
+    async function exitMockMode() {
+        if((await JackyunDialog.confirm("Exit exam mode? Timer will stop."))) {
             clearInterval(mockTimerInterval);
             document.getElementById('mock-fs-overlay').style.display = 'none';
             if (document.exitFullscreen) document.exitFullscreen();
@@ -1597,7 +1598,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
                     updateMockTimerDisplay();
                 } else {
                     clearInterval(mockTimerInterval);
-                    alert("TIME IS UP! PENS DOWN.");
+                    JackyunDialog.alert("TIME IS UP! PENS DOWN.");
                 }
             }, 1000);
         } else {
@@ -1612,12 +1613,12 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         document.getElementById('mock-timer-display').innerText = `${h}:${m}:${s}`;
     }
 
-    function finishMockExam() {
+    async function finishMockExam() {
         if(mockDB[currentMockSubject].length > 0) {
             mockDB[currentMockSubject][0].tasks.qp = true;
             localStorage.setItem('caie_mock_v2_1', JSON.stringify(mockDB));
         }
-        exitMockMode();
+        (await exitMockMode());
     }
     
     function toggleMockTask(subject, idx, taskKey) {
@@ -2014,7 +2015,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
             link.download = 'jackyun-studyplan-schedule.json';
             link.click();
             setTimeout(() => URL.revokeObjectURL(link.href), 0);
-        } catch (error) { alert(error.message || '无法导出配置'); }
+        } catch (error) { JackyunDialog.alert(error.message || '无法导出配置'); }
     }
 
     function importScheduleConfig(event) {
@@ -2028,8 +2029,8 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
                 document.getElementById('schedule-start').value = config.start;
                 document.getElementById('schedule-end').value = config.end;
                 document.getElementById('schedule-breaks').value = scheduleBreaksToText(config.breaks);
-                alert('排程配置已导入，点击生成后保存并应用');
-            } catch (error) { alert(error.message || '配置文件无效'); }
+                JackyunDialog.alert('排程配置已导入，点击生成后保存并应用');
+            } catch (error) { JackyunDialog.alert(error.message || '配置文件无效'); }
             event.target.value = '';
         };
         reader.readAsText(file);
@@ -2047,13 +2048,13 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         }
 
         if (!tasksPool.length) {
-            alert('请先导入至少一个科目，或添加一个自定义任务');
+            JackyunDialog.alert('请先导入至少一个科目，或添加一个自定义任务');
             return;
         }
 
         let scheduleConfig;
         try { scheduleConfig = getScheduleConfigFromInputs(); }
-        catch (error) { alert(error.message || '排程配置无效'); return; }
+        catch (error) { JackyunDialog.alert(error.message || '排程配置无效'); return; }
         settings.schedule = scheduleConfig;
         localStorage.setItem('caie_settings_v2_1', JSON.stringify(settings));
 
@@ -2066,7 +2067,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         const nowMin = now.getHours() * 60 + now.getMinutes();
         let cursorMin = Math.max(startMin, Math.ceil(nowMin / 15) * 15);
         if (cursorMin >= endMin) {
-            alert('今天的可排时间已经结束，请延后结束时间或改用明天的计划');
+            JackyunDialog.alert('今天的可排时间已经结束，请延后结束时间或改用明天的计划');
             return;
         }
         const breaks = scheduleConfig.breaks.map(item => ({
@@ -2184,7 +2185,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
     }
 
     function saveStepsConfig() {
-        if (!stepsEditorDraft.length) { alert('至少需要保留一个步骤'); return; }
+        if (!stepsEditorDraft.length) { JackyunDialog.alert('至少需要保留一个步骤'); return; }
         localStorage.setItem('caie_studyplan_config', JSON.stringify({ questSteps: stepsEditorDraft }));
         location.reload();
     }
@@ -2266,12 +2267,12 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         const select = document.getElementById('built-in-syllabus-plan');
         const presets = window.STUDYPLAN_SYLLABUS_PRESETS;
         if (!select || !presets) {
-            alert('内置大纲数据未加载，请刷新页面后重试');
+            JackyunDialog.alert('内置大纲数据未加载，请刷新页面后重试');
             return;
         }
         const plan = presets.plans[select.value];
         if (!plan) {
-            alert('请先选择一个内置方案');
+            JackyunDialog.alert('请先选择一个内置方案');
             return;
         }
 
@@ -2526,7 +2527,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
     // ××× 正则匹配解析（根据考试局选择） ×××
     function regexParseSyllabus() {
         const raw = document.getElementById('import-syllabus-text').value;
-        if (!raw.trim()) { alert('请先粘贴考纲文本'); return; }
+        if (!raw.trim()) { JackyunDialog.alert('请先粘贴考纲文本'); return; }
         let result;
         if (currentExamBoard === 'caie') {
             result = regexParseCAIE(raw);
@@ -2555,9 +2556,9 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
     // ××× AI 解析（prompt 根据考试局不同） ×××
     async function aiParseSyllabus() {
         const raw = document.getElementById('import-syllabus-text').value.trim();
-        if (!raw) { alert('请先粘贴或输入大纲文本'); return; }
+        if (!raw) { JackyunDialog.alert('请先粘贴或输入大纲文本'); return; }
         const cfg = getPlanAiConfig();
-        if (!cfg || !cfg.baseUrl || !cfg.apiKey) { alert('请先在设置页面配置 AI API Key（⚙ 设置 → AI 配置）'); return; }
+        if (!cfg || !cfg.baseUrl || !cfg.apiKey) { JackyunDialog.alert('请先在设置页面配置 AI API Key（⚙ 设置 → AI 配置）'); return; }
         const btn = event.target; btn.disabled = true; btn.textContent = '🤖 AI 解析中…';
         try {
             let prompt;
@@ -2572,7 +2573,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
             document.getElementById('import-syllabus-text').value = reply.trim();
             previewImportSyllabus();
         } catch (e) {
-            alert('AI 解析失败：' + (e.message || e));
+            JackyunDialog.alert('AI 解析失败：' + (e.message || e));
         } finally {
             btn.disabled = false; btn.textContent = '🤖 AI 解析';
         }
@@ -2767,10 +2768,10 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
                 }));
             }
         }
-        if (!importPreviewData.length) { alert('没有可导入的大纲，请先解析或粘贴'); return; }
+        if (!importPreviewData.length) { JackyunDialog.alert('没有可导入的大纲，请先解析或粘贴'); return; }
         const selectedCount = importPreviewData.reduce((total, subject) =>
             total + subject.units.filter(unit => unit.selected && unit.name && unit.name.trim()).length, 0);
-        if (!selectedCount) { alert('请至少选择一个要导入的知识点'); return; }
+        if (!selectedCount) { JackyunDialog.alert('请至少选择一个要导入的知识点'); return; }
         let added = 0, merged = 0, skipped = 0, addedSubs = 0;
         importPreviewData.forEach(p => {
             if (!p.subject || !p.subject.trim()) return;
@@ -2818,7 +2819,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         renderUnitEditorList();
         renderSidebar();
         renderTrafficDashboard();
-        alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点${addedSubs ? `，补充 ${addedSubs} 个小单元` : ''}（合并 ${skipped} 个已存在项）`);
+        JackyunDialog.alert(`✅ 导入完成：${merged} 个科目，新增 ${added} 个知识点${addedSubs ? `，补充 ${addedSubs} 个小单元` : ''}（合并 ${skipped} 个已存在项）`);
     }
 
     // 辅助：获取单元显示名（兼容 string 和 {name, subs} 对象）
@@ -2919,7 +2920,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         }
     }
 
-    function deleteCurrentSyllabus() {
+    async function deleteCurrentSyllabus() {
         const select = document.getElementById('editor-subject-select');
         const subject = select ? select.value : '';
         if (!subject || !syllabusDB[subject]) return;
@@ -2927,7 +2928,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         const warning = clearProgress
             ? `确定删除“${subject}”整份大纲，并清除任务进度、红绿灯和 Mock 记录吗？\n\n删除后可在 10 秒内撤销。`
             : `确定删除“${subject}”整份大纲吗？\n\n学习进度和红绿灯会保留，重新导入同名大纲后可继续使用。删除后可在 10 秒内撤销。`;
-        if (!confirm(warning)) return;
+        if (!(await JackyunDialog.confirm(warning))) return;
 
         const syllabusSnapshot = JSON.parse(JSON.stringify(syllabusDB[subject]));
         const learningSnapshot = clearProgress ? captureSubjectLearningData(subject) : null;
@@ -2943,7 +2944,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         resetMainViewAfterSyllabusDelete(subject);
         showSyllabusUndo(`已删除“${subject}”${clearProgress ? '及其学习记录' : '大纲（学习记录已保留）'}`, () => {
             if (syllabusDB[subject]) {
-                alert('同名大纲已经存在，无法直接撤销覆盖');
+                JackyunDialog.alert('同名大纲已经存在，无法直接撤销覆盖');
                 return;
             }
             syllabusDB[subject] = syllabusSnapshot;
@@ -3015,9 +3016,9 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         renderMainView(sub); // Refresh view if open
     }
 
-    function deleteUnit(sub, idx) {
+    async function deleteUnit(sub, idx) {
         const unitName = getUnitName(syllabusDB[sub].units[idx]);
-        if(confirm(`确定从大纲中删除“${unitName}”吗？\n\n该知识点的进度和红绿灯会保留，重新添加同名知识点后可继续使用。`)) {
+        if((await JackyunDialog.confirm(`确定从大纲中删除“${unitName}”吗？\n\n该知识点的进度和红绿灯会保留，重新添加同名知识点后可继续使用。`))) {
             const removedUnit = syllabusDB[sub].units.splice(idx, 1)[0];
             saveSyllabus();
             renderUnitEditorList();
@@ -3026,7 +3027,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
             renderTrafficDashboard();
             showSyllabusUndo(`已从“${sub}”删除“${unitName}”`, () => {
                 if (!syllabusDB[sub]) {
-                    alert('该科目大纲已不存在，无法撤销知识点删除');
+                    JackyunDialog.alert('该科目大纲已不存在，无法撤销知识点删除');
                     return;
                 }
                 const insertAt = Math.min(idx, syllabusDB[sub].units.length);
@@ -3050,7 +3051,7 @@ html[data-jy-theme] .quest-action .btn-primary { background: #1a73e8; color: #ff
         if (sub && name) {
             const exists = syllabusDB[sub].units.some(unit => getUnitName(unit).toLowerCase() === name.toLowerCase());
             if (exists) {
-                alert('当前大纲中已经有同名知识点');
+                JackyunDialog.alert('当前大纲中已经有同名知识点');
                 input.focus();
                 return;
             }

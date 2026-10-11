@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useState, useTransition } from 'react';
 import { toggleMastered, deleteWord } from '@/actions/vocab';
 
@@ -34,8 +35,8 @@ export default function WordList({ words }: WordListProps) {
     startTransition(() => toggleMastered(id));
   }
 
-  function handleDelete(id: string, word: string) {
-    if (!confirm(`确定删除词汇「${word}」吗？`)) return;
+  async function handleDelete(id: string, word: string) {
+    if (!(await siteConfirm(`确定删除词汇「${word}」吗？`))) return;
     startTransition(() => deleteWord(id));
   }
 
@@ -162,7 +163,7 @@ export default function WordList({ words }: WordListProps) {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button
-                      onClick={() => handleDelete(w.id, w.word)}
+                      onClick={async () => (await handleDelete(w.id, w.word))}
                       disabled={isPending}
                       title="删除"
                       className="text-[var(--muted-foreground)] hover:text-[#EA4335] transition-colors disabled:opacity-40"

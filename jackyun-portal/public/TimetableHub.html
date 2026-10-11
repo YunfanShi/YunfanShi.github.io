@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>时间表编辑器 · Timetable Hub v2.0</title>
@@ -1078,9 +1079,9 @@ function clonePlan(id){
   plans.push({id:nid,name:cp.name,color:cp.color,createdAt:cp.createdAt});localStorage.setItem(LS_PLANS+nid,JSON.stringify(cp));
   saveNow(false);renderPlans();switchPlan(nid);msg('已复制方案');
 }
-function delPlan(id){
+async function delPlan(id){
   if(plans.length<=1){msg('至少保留一个方案');return}
-  if(!confirm('删除该方案？'))return;
+  if(!(await JackyunDialog.confirm('删除该方案？')))return;
   plans=plans.filter(p=>p.id!==id);localStorage.removeItem(LS_PLANS+id);
   if(planId===id){const n=plans[0].id;loadPlan(n)}
   saveNow(false);renderPlans();msg('已删除')
@@ -1209,8 +1210,8 @@ function setTaskProgress(id,v,e){
   t.progress=Math.max(0,Math.min(100,parseInt(v)||0));
   saveNow(false);renderTaskPool();renderGrid();
 }
-function delTask(id){
-  if(!confirm('删除任务？'))return;
+async function delTask(id){
+  if(!(await JackyunDialog.confirm('删除任务？')))return;
   plan.tasks=plan.tasks.filter(t=>t.id!==id);
   // remove from fixed block bindings
   for(const fb of plan.fixedBlocks||[])fb.tasks=fb.tasks.filter(x=>x.taskId!==id);
@@ -1309,7 +1310,7 @@ function saveDetail(){
   if(t.sched){t.sched.startMin=st;t.sched.durMin=t.duration;}
   saveNow(false);cM('detailModal');renderAll();msg('✅ 已保存')
 }
-function delDetailTask(){if(detailTaskId)delTask(detailTaskId);cM('detailModal')}
+async function delDetailTask(){if(detailTaskId)(await delTask(detailTaskId));cM('detailModal')}
 
 // ===== FIXED BLOCK =====
 function renderFbList(){
@@ -2375,8 +2376,8 @@ function impD(e){
   r.readAsText(f);
   e.target.value='';
 }
-function clrAll(){
-  if(!confirm('清除当前方案的全部任务和固定块？不可恢复！'))return;
+async function clrAll(){
+  if(!(await JackyunDialog.confirm('清除当前方案的全部任务和固定块？不可恢复！')))return;
   plan.tasks=[];plan.fixedBlocks=[];
   saveNow(true);renderAll();
 }
@@ -2437,17 +2438,17 @@ function batchClear(){
   renderTaskPool();
   updateBatchCount();
 }
-function batchDelete(){
+async function batchDelete(){
   if(selectedTaskIds.size===0){msg('请先选择任务');return}
-  if(!confirm(`删除选中的 ${selectedTaskIds.size} 个任务？`))return;
+  if(!(await JackyunDialog.confirm(`删除选中的 ${selectedTaskIds.size} 个任务？`)))return;
   plan.tasks=plan.tasks.filter(t=>!selectedTaskIds.has(t.id));
   for(const fb of plan.fixedBlocks||[])fb.tasks=fb.tasks.filter(x=>!selectedTaskIds.has(x.taskId));
   selectedTaskIds.clear();
   saveNow(false);renderAll();msg('✅ 已批量删除');
 }
-function batchDelay(){
+async function batchDelay(){
   if(selectedTaskIds.size===0){msg('请先选择任务');return}
-  const v=prompt(`为选中的 ${selectedTaskIds.size} 个任务统一延迟多少分钟？`,'30');
+  const v=(await JackyunDialog.prompt(`为选中的 ${selectedTaskIds.size} 个任务统一延迟多少分钟？`,'30'));
   if(v===null)return;
   const off=parseInt(v)||0;
   if(!off){msg('无效的分钟数');return}
@@ -2463,9 +2464,9 @@ function batchDelay(){
   else{msg(`✅ 已统一延迟 ${Math.abs(off)} 分钟（${n} 个任务）`)}
   saveNow(false);renderAll();renderTaskPool();
 }
-function batchEdit(){
+async function batchEdit(){
   if(selectedTaskIds.size===0){msg('请先选择任务');return}
-  const v=prompt('统一设置的优先级（1=低 2=中低 3=普通 4=高 5=紧急）','3');
+  const v=(await JackyunDialog.prompt('统一设置的优先级（1=低 2=中低 3=普通 4=高 5=紧急）','3'));
   if(v===null)return;
   const p=parseInt(v)||3;
   if(p<1||p>5){msg('优先级需在 1-5 之间');return}

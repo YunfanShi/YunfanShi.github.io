@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUserAccount, inviteUserAccount, sendPasswordResetForUser, setAccountStatus, setUserRole, type ManagedUser } from '@/actions/admin';
@@ -114,9 +115,9 @@ export default function UserOperationsPanel({ users, currentUserId, isSuperAdmin
     setNotice(`${user.display_name || user.email || user.id} 已降级为普通用户。`);
   });
 
-  const resetQuota = (user: ManagedUser, scope: 'daily' | 'monthly') => {
+  const resetQuota = async (user: ManagedUser, scope: 'daily' | 'monthly') => {
     const label = scope === 'daily' ? '每日' : '每月';
-    if (!window.confirm(`确定重置 ${user.display_name || user.email || '该用户'} 的${label} AI 额度吗？用户会收到消息。`)) return;
+    if (!(await siteConfirm(`确定重置 ${user.display_name || user.email || '该用户'} 的${label} AI 额度吗？用户会收到消息。`))) return;
     startTransition(async () => {
       setNotice('');
       const result = await resetUserAiQuota(user.id, scope);
@@ -201,8 +202,8 @@ export default function UserOperationsPanel({ users, currentUserId, isSuperAdmin
                   <button type="button" disabled={pending || Boolean(user.deleted_at)} onClick={() => { setChatTarget(user); setChatSubject('管理员联系'); setChatBody(''); }} className="rounded-lg bg-[#155eef] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">发消息</button>
                   <details className="text-left"><summary className="list-none cursor-pointer rounded-lg border border-[#d0d5dd] px-3 py-2 text-xs font-semibold">更多操作</summary><div className="ml-auto mt-2 grid w-52 gap-1 rounded-xl border border-[#d0d5dd] bg-white p-2 shadow-lg dark:border-white/15 dark:bg-[#182230]">
                     {!user.deleted_at && (betaByUser.get(user.id)?.status === 'accepted' || betaByUser.get(user.id)?.status === 'invited' ? <button type="button" disabled={pending} onClick={() => updateBeta(user, false)} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">撤销 BETA</button> : <button type="button" disabled={pending} onClick={() => updateBeta(user, true)} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">邀请 BETA</button>)}
-                    <button type="button" disabled={pending} onClick={() => resetQuota(user, 'daily')} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">重置每日 AI 额度</button>
-                    <button type="button" disabled={pending} onClick={() => resetQuota(user, 'monthly')} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">重置每月 AI 额度</button>
+                    <button type="button" disabled={pending} onClick={async () => (await resetQuota(user, 'daily'))} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">重置每日 AI 额度</button>
+                    <button type="button" disabled={pending} onClick={async () => (await resetQuota(user, 'monthly'))} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">重置每月 AI 额度</button>
                     {isSuperAdmin && !user.deleted_at && user.role !== 'admin' && <button type="button" disabled={pending} onClick={() => promote(user)} className="rounded-lg px-3 py-2 text-left text-xs text-[#174ea6] hover:bg-[#e8f0fe]">提权为 ADMIN</button>}
                     {isSuperAdmin && user.role === 'admin' && !user.is_super_admin && <button type="button" disabled={pending} onClick={() => demote(user)} className="rounded-lg px-3 py-2 text-left text-xs text-[#b54708] hover:bg-[#fffaeb]">降级为普通用户</button>}
                     {user.email && <button type="button" disabled={pending} onClick={() => setResetTarget(user)} className="rounded-lg px-3 py-2 text-left text-xs hover:bg-[#f2f4f7] dark:hover:bg-white/10">发送密码重置邮件</button>}

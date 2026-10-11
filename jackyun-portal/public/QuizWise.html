@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuizWise 刷题</title>
@@ -963,9 +964,9 @@ ${text}` },
         },
 
         // ============ START QUIZ ============
-        startQuiz() {
+        async startQuiz() {
             if (!this.subjectName && !this.selectedSubject) {
-                this.subjectName = prompt('请输入科目名称：') || '未分类';
+                this.subjectName = (await JackyunDialog.prompt('请输入科目名称：')) || '未分类';
             }
             this.subjectName = this.selectedSubject || this.subjectName || '未分类';
             this.userAnswers = this.questions.map(() => ({ answer: '', isCorrect: null }));
@@ -1509,8 +1510,8 @@ ${text}` },
             `;
         },
 
-        deleteHistory(idx) {
-            if (confirm('确定删除这条历史记录？')) {
+        async deleteHistory(idx) {
+            if ((await JackyunDialog.confirm('确定删除这条历史记录？'))) {
                 this.history.splice(idx, 1);
                 localStorage.setItem('quizwise_history', JSON.stringify(this.history));
                 this.syncToPortal('quizwise_history', this.history);
@@ -1519,8 +1520,8 @@ ${text}` },
             }
         },
 
-        clearHistory() {
-            if (confirm('确定清除所有历史记录？此操作不可撤销。')) {
+        async clearHistory() {
+            if ((await JackyunDialog.confirm('确定清除所有历史记录？此操作不可撤销。'))) {
                 this.history = [];
                 localStorage.setItem('quizwise_history', JSON.stringify(this.history));
                 this.syncToPortal('quizwise_history', this.history);
@@ -1542,8 +1543,8 @@ ${text}` },
             this.renderSettings();
         },
 
-        resetData() {
-            if (confirm('确定清除所有本地数据？这将删除所有历史记录和设置。')) {
+        async resetData() {
+            if ((await JackyunDialog.confirm('确定清除所有本地数据？这将删除所有历史记录和设置。'))) {
                 localStorage.removeItem('quizwise_settings');
                 localStorage.removeItem('quizwise_history');
                 localStorage.removeItem('quizwise_current_questions');

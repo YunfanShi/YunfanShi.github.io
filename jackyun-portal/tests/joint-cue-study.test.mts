@@ -65,7 +65,7 @@ test('pure Cue starts and old Cue resumes reuse the original Cue study entry poi
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
   const start = source.slice(source.indexOf('  const startUnifiedStudy ='), source.indexOf('  const resumeUnifiedStudy ='));
-  assert.match(start, /if \(mode === 'cue'\) \{ startCueStudy\(/);
+  assert.match(start, /if \(mode === 'cue'\) \{ \(await startCueStudy\(/);
   assert.match(source, /onStart=\{startUnifiedStudy\} onResume=\{resumeUnifiedStudy\}/);
 });
 

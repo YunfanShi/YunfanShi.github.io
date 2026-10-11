@@ -668,7 +668,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const completedAt = new Date().toISOString();
     const entry = { id: stored.focus.id, durationSeconds: stored.focus.minutes * 60, startedAt: stored.focus.startedAt, completedAt };
     await local.set({ focus: null, pendingFocus: [...(stored.pendingFocus || []), entry] });
-    chrome.notifications.create({ type: 'basic', iconUrl: 'icon128.png', title: 'JackYun 专注完成', message: `已完成 ${stored.focus.minutes} 分钟专注。` });
+    try {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tabs[0]?.id) await chrome.tabs.sendMessage(tabs[0].id, { type: 'FOCUS_COMPLETE_REMINDER', message: `已完成 ${stored.focus.minutes} 分钟专注。` });
+    } catch { /* A closed or restricted tab cannot display an in-page reminder. Focus records remain queued. */ }
     try { await syncNow(); } catch { /* Offline queue is retained. */ }
   }
 });

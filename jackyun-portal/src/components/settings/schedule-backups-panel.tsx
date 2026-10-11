@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useEffect, useState } from 'react';
 import { downloadScheduleBackup, listScheduleBackups, restoreScheduleBackup } from '@/actions/schedule-backups';
 import { getOutbox, removeOperation, saveMetadata } from '@/lib/sync/outbox';
@@ -37,7 +38,7 @@ export default function ScheduleBackupsPanel() {
   }
 
   async function restore(id: number) {
-    if (!window.confirm('恢复这个 Schedule 版本？当前云端版本会先自动备份，然后替换为所选版本。')) return;
+    if (!(await siteConfirm('恢复这个 Schedule 版本？当前云端版本会先自动备份，然后替换为所选版本。'))) return;
     setBusy(true); setError('');
     try {
       const result = await restoreScheduleBackup(id);

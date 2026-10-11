@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useState } from 'react';
 import { addAdmin, removeAdmin } from '@/actions/admin';
 
@@ -39,7 +40,7 @@ export function AdminManagerPanel({ admins, currentUserId, isSuperAdmin }: Admin
   }
 
   async function handleRemove(id: string, display: string) {
-    if (!confirm(`确定要移除管理员 "${display}" 的权限吗？`)) return;
+    if (!(await siteConfirm(`确定要移除管理员 "${display}" 的权限吗？`))) return;
     setRemovingId(id);
     setError(null);
     setSuccess(null);

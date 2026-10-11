@@ -28,7 +28,7 @@ export default function MobileCueCard({ cue, revealed, selectedChoice, onReveal,
       <p className={styles.touchPageLabel}>答案与判分依据</p>
       <div className={styles.touchAnswerTitle}><LatexRenderer content={cue.prompt} /></div>
       {multipleChoice && <div className={styles.touchChoices}>
-        <p role="status">{selectedChoice === cue.correctChoice ? '选择正确' : '选择错误；正确选项已标出'}</p>
+        <p role="status">{selectedChoice === undefined ? '已显示正确选项，请核对自评' : selectedChoice === cue.correctChoice ? '选择正确' : '选择错误；正确选项已标出'}</p>
         {(cue.choices ?? []).map((choice, index) => <div key={index} data-correct={index === cue.correctChoice} data-selected={index === selectedChoice}><strong>{index === cue.correctChoice ? '√' : index === selectedChoice ? '○' : index + 1}</strong><LatexRenderer content={choice} /></div>)}
       </div>}
       <div className={styles.touchEvidence}>{evidence}</div>

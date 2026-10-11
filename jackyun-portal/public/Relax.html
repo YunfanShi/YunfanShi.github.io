@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>放松空间 | JackYun Portal</title>
@@ -747,8 +748,8 @@ Example (Chat=Chinese, TTS=Japanese):
         });
     }
 
-    function clearChat() {
-        if(confirm("确定要清除所有记忆吗？")) {
+    async function clearChat() {
+        if((await JackyunDialog.confirm("确定要清除所有记忆吗？"))) {
             state.chatHistory = [];
             saveState();
             renderChat();
@@ -863,7 +864,7 @@ Example (Chat=Chinese, TTS=Japanese):
             const gain = context.createGain(); gain.gain.value = kind === 'rain' ? 0.055 : 0.075;
             source.connect(filter).connect(gain).connect(context.destination); source.start();
             ambient = { kind, context, source }; button.classList.add('active');
-        } catch (error) { stopAmbient(); alert(error.message || '无法播放环境声'); }
+        } catch (error) { stopAmbient(); JackyunDialog.alert(error.message || '无法播放环境声'); }
     }
     function saveMood(mood, button) {
         const entry = { mood, at: new Date().toISOString() };
@@ -942,7 +943,7 @@ Example (Chat=Chinese, TTS=Japanese):
             
             if (seconds <= 0) {
                 clearInterval(interval);
-                alert("Task Complete!");
+                JackyunDialog.alert("Task Complete!");
                 display.style.display = 'none';
                 circle.style.display = 'block';
                 txt.style.display = 'block';
@@ -990,7 +991,7 @@ Example (Chat=Chinese, TTS=Japanese):
         recognition.onresult = e => { document.getElementById('user-msg').value = e.results[0][0].transcript; document.getElementById('mic-btn').classList.remove('recording'); };
         recognition.onend = () => document.getElementById('mic-btn').classList.remove('recording');
     }
-    function startDictation() { if(recognition) { document.getElementById('mic-btn').classList.add('recording'); recognition.start(); } else alert("Browser not supported"); }
+    function startDictation() { if(recognition) { document.getElementById('mic-btn').classList.add('recording'); recognition.start(); } else JackyunDialog.alert("Browser not supported"); }
     function stopDictation() { if(recognition) recognition.stop(); }
 
     </script>

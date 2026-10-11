@@ -13,7 +13,7 @@ function load(path: string, mocks: Record<string, unknown>, globals = {}) {
   const compiled = { exports: {} as Record<string, React.ComponentType> };
   const source = readFileSync(new URL(path, import.meta.url), 'utf8');
   const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
-  runInNewContext(output, { module: compiled, exports: compiled.exports, require: (name: string) => mocks[name] ?? require(name), ...globals });
+  runInNewContext(output, { module: compiled, exports: compiled.exports, require: (name: string) => mocks[name] ?? (name === '@/lib/site-dialog' ? { siteAlert: async () => {}, siteConfirm: async () => true } : require(name)), ...globals });
   return compiled.exports;
 }
 const badges = load('../src/components/modules/announcement-content.tsx', { '@/lib/announcements': domain });

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LexiFlow Pro</title>
@@ -970,8 +971,8 @@
             // --- UTILS ---
             startSession(mode, date) { Session.start(mode, date); },
             exitSession() { Session.end(); },
-            killWord() {
-                if(confirm("确定斩词？（永久掌握，不再复习）")) {
+            async killWord() {
+                if((await JackyunDialog.confirm("确定斩词？（永久掌握，不再复习）"))) {
                     const w = Session.currentWord;
                     const dbWord = DB.data.words.find(x=>x.id===w.id);
                     if(dbWord) {
@@ -983,8 +984,8 @@
                     Session.next();
                 }
             },
-            deleteWord(id) {
-                if(confirm("删除此单词？")) {
+            async deleteWord(id) {
+                if((await JackyunDialog.confirm("删除此单词？"))) {
                     DB.deleteWord(id);
                     this.renderLibrary('all');
                 }
@@ -1035,8 +1036,8 @@
                 };
                 r.readAsText(f);
             },
-            resetData() {
-                if(confirm("⚠️ 确定清空所有数据？此操作不可撤销。")) {
+            async resetData() {
+                if((await JackyunDialog.confirm("⚠️ 确定清空所有数据？此操作不可撤销。"))) {
                     localStorage.removeItem(DB.key);
                     location.reload();
                 }

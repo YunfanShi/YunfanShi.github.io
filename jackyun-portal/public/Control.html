@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jack's Warden | V10.4 Focus</title>
@@ -1098,9 +1099,9 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
     function addSongToPool() {
         const name = document.getElementById('songNameInput').value.trim();
         const id = document.getElementById('songIdInput').value.trim();
-        if (!name || !id || isNaN(id)) { alert('请填写歌曲名称和有效的网易云歌曲 ID'); return; }
+        if (!name || !id || isNaN(id)) { JackyunDialog.alert('请填写歌曲名称和有效的网易云歌曲 ID'); return; }
         const pool = getSongPool();
-        if (pool.find(s => s.id === id)) { alert('歌曲 ID 已存在'); return; }
+        if (pool.find(s => s.id === id)) { JackyunDialog.alert('歌曲 ID 已存在'); return; }
         pool.push({ id, name }); saveSongPool(pool);
         document.getElementById('songNameInput').value = ''; document.getElementById('songIdInput').value = '';
         renderSongPool();
@@ -1110,25 +1111,25 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
     // Batch import from NetEase Music playlist (ported from MusicPlayerSync)
     function copyNetEaseScript() {
         const SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
-        navigator.clipboard.writeText(SCRIPT).then(() => {
-            const confirmed = confirm("✅ 脚本已复制到剪贴板！\n\n下一步：\n1. 打开 music.163.com\n2. 进入你的歌单页面\n3. 按 F12 打开开发者工具\n4. 切换到 Console（控制台）\n5. 粘贴脚本并按回车\n6. 复制输出的 JSON\n\n是否现在打开网易云音乐？");
+        navigator.clipboard.writeText(SCRIPT).then(async () => {
+            const confirmed = (await JackyunDialog.confirm("✅ 脚本已复制到剪贴板！\n\n下一步：\n1. 打开 music.163.com\n2. 进入你的歌单页面\n3. 按 F12 打开开发者工具\n4. 切换到 Console（控制台）\n5. 粘贴脚本并按回车\n6. 复制输出的 JSON\n\n是否现在打开网易云音乐？"));
             if (confirmed) window.open("https://music.163.com", "_blank");
         }).catch(() => {
-            alert("无法自动复制，请手动复制以下脚本：\n\n" + SCRIPT);
+            JackyunDialog.alert("无法自动复制，请手动复制以下脚本：\n\n" + SCRIPT);
         });
     }
     
     function runBatchImport() {
         const area = document.getElementById('batchImportArea');
         let val = area.value.trim();
-        if (!val) { alert('请先粘贴 JSON 数据'); return; }
+        if (!val) { JackyunDialog.alert('请先粘贴 JSON 数据'); return; }
         try {
             // Try parsing as array
             if (!val.startsWith('[')) {
                 val = '[' + val + ']';
             }
             const data = JSON.parse(val);
-            if (!Array.isArray(data)) { alert('JSON 格式错误，需要一个数组'); return; }
+            if (!Array.isArray(data)) { JackyunDialog.alert('JSON 格式错误，需要一个数组'); return; }
             const pool = getSongPool();
             let added = 0;
             data.forEach(item => {
@@ -1143,12 +1144,12 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
                 saveSongPool(pool);
                 renderSongPool();
                 area.value = '';
-                alert(`✅ 成功导入 ${added} 首歌曲！`);
+                JackyunDialog.alert(`✅ 成功导入 ${added} 首歌曲！`);
             } else {
-                alert('没有新歌曲可导入（可能已全部存在）');
+                JackyunDialog.alert('没有新歌曲可导入（可能已全部存在）');
             }
         } catch (e) {
-            alert('JSON 解析错误：' + e.message + '\n\n请确保格式为：[{"id":"186001","name":"晴天"}]');
+            JackyunDialog.alert('JSON 解析错误：' + e.message + '\n\n请确保格式为：[{"id":"186001","name":"晴天"}]');
         }
     }
     
@@ -1221,14 +1222,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
             // 页面内 Toast
             const toast = document.getElementById('focus-reminder-toast');
             if (toast) { toast.textContent = msgText; toast.classList.add('active'); setTimeout(() => toast.classList.remove('active'), 8000); }
-            // 系统通知（如已授权）
-            try {
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('日程提醒', { body: msgText });
-                } else if ('Notification' in window && Notification.permission !== 'denied') {
-                    Notification.requestPermission();
-                }
-            } catch(e) {}
+            JackyunDialog.alert(msgText, {title:'日程提醒'});
             // TTS 朗读
             try { speak(msgText); } catch(e) {}
         }
@@ -1857,9 +1851,9 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
 
     /* ======================== UTILITY ======================== */
     function changePlaylist(id) { document.getElementById('music-iframe').src = `https://music.163.com/outchain/player?type=0&id=${id}&auto=0&height=430`; }
-    function addCustomPlaylist() {
-        const id = prompt("Enter NetEase Playlist ID:");
-        if (id && !isNaN(id)) { const name = prompt("Enter Name:", "Custom List"); STATE.customPlaylists.push({ id, name: name || "Custom" }); localStorage.setItem('w3_playlists', JSON.stringify(STATE.customPlaylists)); loadCustomPlaylists(); }
+    async function addCustomPlaylist() {
+        const id = (await JackyunDialog.prompt("Enter NetEase Playlist ID:"));
+        if (id && !isNaN(id)) { const name = (await JackyunDialog.prompt("Enter Name:", "Custom List")); STATE.customPlaylists.push({ id, name: name || "Custom" }); localStorage.setItem('w3_playlists', JSON.stringify(STATE.customPlaylists)); loadCustomPlaylists(); }
     }
     function loadCustomPlaylists() {
         const select = document.getElementById('playlist-picker');
@@ -2389,7 +2383,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
     function addCustomTask(idx) {
         const name = document.getElementById('custom-name-' + idx).value.trim();
         const dur = parseInt(document.getElementById('custom-dur-' + idx).value);
-        if (!name || !dur || dur < 1) { alert('请填写任务名和时长'); return; }
+        if (!name || !dur || dur < 1) { JackyunDialog.alert('请填写任务名和时长'); return; }
         // Insert after current slot
         const slot = STATE.schedule[idx];
         const endM = timeToMinutes(slot.end);

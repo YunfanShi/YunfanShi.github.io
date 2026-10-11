@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Jack's Warden: Mock Portal</title>
@@ -1849,8 +1850,8 @@ function exportPaperConfig() {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-function resetPaperConfig() {
-  if (!confirm('恢复默认卷库？已导入的卷库配置会被移除，但学习进度不会删除。')) return;
+async function resetPaperConfig() {
+  if (!(await JackyunDialog.confirm('恢复默认卷库？已导入的卷库配置会被移除，但学习进度不会删除。'))) return;
   localStorage.removeItem(PAPER_CONFIG_KEY);
   paperDB = buildPaperDatabase(); refreshDynamicCatalog(); FILTER_DEFS.forEach(def => { state.filters[def.key] = []; }); renderFilterPanel(); applyFilters(); updateFilterPanelVisibility(); updateSettingsUI();
   showToast('✅ 已恢复默认卷库');
@@ -2804,9 +2805,9 @@ function removeFromCart(id) {
   if (el) { const p = paperDB.find(x=>x.id===id); if (p) el.replaceWith(makeCard(p)); }
 }
 
-function clearCart() {
+async function clearCart() {
   if (state.cart.length===0) return;
-  if (!confirm(`确定清空清单中的 ${state.cart.length} 张卷子吗？`)) return;
+  if (!(await JackyunDialog.confirm(`确定清空清单中的 ${state.cart.length} 张卷子吗？`))) return;
   const ids=[...state.cart]; state.cart=[]; saveState(); updateCartBar(); renderCartList();
   ids.forEach(id=>{ const el=document.querySelector(`[data-id="${id}"]`); if(el){const p=paperDB.find(x=>x.id===id);if(p)el.replaceWith(makeCard(p));} });
   showToast('🗑️ 清单已清空');
@@ -3421,8 +3422,8 @@ function closeExam() {
   state.cart=[]; saveState(); updateCartBar(); renderCards(); updateProgress();
 }
 
-function confirmExitExam() {
-  if(confirm('确定要提前结束模考吗？当前进度将被保存。')){
+async function confirmExitExam() {
+  if((await JackyunDialog.confirm('确定要提前结束模考吗？当前进度将被保存。'))){
     clearInterval(examState.timer);
     const id=examState.queue[examState.currentIdx];
     if(id){const spent=examState.totalTime-examState.timeLeft;recordResult(id,spent);}
@@ -3722,8 +3723,8 @@ function updateSettingsUI() {
 
 function setMode(m) { state.settings.mode=m; saveState(); updateSettingsUI(); showToast(m==='strict'?'⚡ 严格模式已启用':'🎓 练习模式已启用'); }
 
-function confirmReset() {
-  if(confirm('⚠️ 确定要重置所有进度吗？此操作不可撤销！')){
+async function confirmReset() {
+  if((await JackyunDialog.confirm('⚠️ 确定要重置所有进度吗？此操作不可撤销！'))){
     state.paperStatus={}; state.paperTimes={}; state.paperScores={}; state.cart=[];
     saveState(); updateCartBar(); renderCards(); updateProgress(); updateSettingsUI(); closeSettings(); showToast('✅ 所有进度已重置');
   }
@@ -4867,8 +4868,8 @@ function aiRefreshCtx(){
   if(el) el.textContent=aiBuildCtx();
 }
  
-function aiClearHistory(){
-  if(confirm('确定清除 AI 会话历史？（不影响模考进度数据）')){
+async function aiClearHistory(){
+  if((await JackyunDialog.confirm('确定清除 AI 会话历史？（不影响模考进度数据）'))){
     showToast('✅ AI 历史已清除');
   }
 }

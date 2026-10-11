@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useState, useEffect, useCallback } from 'react';
 import { QuizSession, QuizSessionWithQuestions, QuizQuestion } from '@/types/quiz';
 import { getSessionHistory, getSessionQuestions, deleteSession, getQuizStats } from '@/actions/quiz';
@@ -62,7 +63,7 @@ export default function QuizHistory({ onClose }: QuizHistoryProps) {
   };
 
   const handleDelete = async (sessionId: string) => {
-    if (!confirm('Delete this quiz session?')) return;
+    if (!(await siteConfirm('Delete this quiz session?'))) return;
     if (sessionId.startsWith('local-')) {
       deleteLocalQuizHistory(sessionId);
       setSessions((current) => current.filter((session) => session.id !== sessionId));

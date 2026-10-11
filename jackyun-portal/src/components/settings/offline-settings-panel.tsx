@@ -1,4 +1,5 @@
 'use client';
+import { siteConfirm } from '@/lib/site-dialog';
 import { useEffect, useState } from 'react';
 
 export default function OfflineSettingsPanel() {
@@ -15,7 +16,7 @@ export default function OfflineSettingsPanel() {
   }
   useEffect(() => { queueMicrotask(() => { void refresh(); }); }, []);
   async function clear() {
-    if (!confirm('清除离线页面缓存？学习数据与待同步修改会保留。')) return;
+    if (!(await siteConfirm('清除离线页面缓存？学习数据与待同步修改会保留。'))) return;
     const worker = navigator.serviceWorker?.controller;
     if (!worker) return;
     setBusy(true);

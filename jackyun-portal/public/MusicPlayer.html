@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jack's Sync | V4.5 Ultimate Fix</title>
@@ -437,7 +438,7 @@ const Engine = {
     },
 
     async start() {
-        if(STATE.songs.length === 0) return alert("Playlist Empty! Add ID and Name first.");
+        if(STATE.songs.length === 0) return JackyunDialog.alert("Playlist Empty! Add ID and Name first.");
         
         if(STATE.netOffset === 0) await SuningSync.forceSync();
 
@@ -483,7 +484,7 @@ const Engine = {
                     UI.setSync('online', 'PLAYING');
                     STATE.status = 'PLAYING';
                 })
-                .catch(() => { this.reset(); alert("Auto-play blocked"); });
+                .catch(() => { this.reset(); JackyunDialog.alert("Auto-play blocked"); });
             
             STATE.audio.onended = () => { 
                 this.reset(); 
@@ -516,7 +517,7 @@ const Library = {
         const idVal = document.getElementById('inp-id').value.trim();
         const nameVal = document.getElementById('inp-name').value.trim();
         
-        if(!idVal) return alert("请输入 ID");
+        if(!idVal) return JackyunDialog.alert("请输入 ID");
         // 如果不填名字，自动叫 Track + ID
         const finalName = nameVal || `Track ${idVal}`;
         
@@ -605,8 +606,8 @@ const Cali = {
 
 function copyScript() {
     const SMART_SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
-    navigator.clipboard.writeText(SMART_SCRIPT).then(() => {
-        if(confirm("Script Copied! Open NetEase Music?")) window.open("https://music.163.com", "_blank");
+    navigator.clipboard.writeText(SMART_SCRIPT).then(async () => {
+        if((await JackyunDialog.confirm("Script Copied! Open NetEase Music?"))) window.open("https://music.163.com", "_blank");
     });
 }
 function runImport() {
@@ -614,7 +615,7 @@ function runImport() {
         const val = document.getElementById('import-area').value;
         const d = JSON.parse(val);
         if(Array.isArray(d)) { STATE.songs = [...STATE.songs, ...d]; Library.save(); Library.render(); toggleModal('import-modal'); }
-    } catch(e) { alert("Invalid JSON or empty!"); }
+    } catch(e) { JackyunDialog.alert("Invalid JSON or empty!"); }
 }
 function toggleModal(id) { document.getElementById(id).classList.toggle('open'); }
 

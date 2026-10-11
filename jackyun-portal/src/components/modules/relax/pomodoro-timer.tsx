@@ -1,5 +1,6 @@
 'use client';
 
+import { siteAlert } from '@/lib/site-dialog';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 type Mode = 'focus' | 'break';
@@ -30,11 +31,7 @@ export default function PomodoroTimer() {
 
   const notify = useCallback((msg: string) => {
     if (typeof window === 'undefined') return;
-    if (Notification.permission === 'granted') {
-      new Notification('番茄钟', { body: msg, icon: '/Webicon.png' });
-    } else {
-      // Fallback: simple alert-like banner handled by state
-    }
+    void siteAlert(msg, { title: '番茄钟', confirmLabel: '知道了' });
   }, []);
 
   const tick = useCallback(() => {
@@ -65,9 +62,6 @@ export default function PomodoroTimer() {
   }, [clearTimer, notify]);
 
   const handleStart = useCallback(() => {
-    if (typeof window !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
     intervalRef.current = setInterval(tick, 1000);
     setRunning(true);
   }, [tick]);

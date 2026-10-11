@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import Script from 'next/script';
 import ThemeProvider from '@/components/theme-provider';
 import DeploymentRecovery from '@/components/layout/deployment-recovery';
 import PwaLifecycle from '@/components/layout/pwa-lifecycle';
@@ -32,7 +33,7 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="512x512" href="/Webicon.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/Webicon.png" />
       </head>
-      <body><DeploymentRecovery /><PwaLifecycle /><ThemeProvider>{children}</ThemeProvider></body>
+      <body><Script src="/shared/site-dialog.js" strategy="beforeInteractive" /><DeploymentRecovery /><PwaLifecycle /><ThemeProvider>{children}</ThemeProvider></body>
     </html>
   );
 }

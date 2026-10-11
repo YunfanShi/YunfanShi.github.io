@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>帮助中心 | JackYun Portal</title>
@@ -2445,7 +2446,7 @@ function openAiChat() {
         window.parent.postMessage({ type: 'jackyun-open-ai', page: 'helpcenter' }, '*');
     } catch(e) {
         // 如果不在 iframe 中（直接打开 HTML），尝试兜底提示
-        alert('请在 JackYun Portal 中使用 AI 客服。窗口右上角可手动打开 AI 助手。');
+        JackyunDialog.alert('请在 JackYun Portal 中使用 AI 客服。窗口右上角可手动打开 AI 助手。');
     }
 }
 

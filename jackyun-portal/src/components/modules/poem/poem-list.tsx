@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useState, useTransition } from 'react';
 import { deletePoem } from '@/actions/poem';
 import ReciteMode from './recite-mode';
@@ -41,8 +42,8 @@ export default function PoemList({ poems }: PoemListProps) {
   const [reciting, setReciting] = useState<Poem | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleDelete(poem: Poem) {
-    if (!confirm(`确定删除「${poem.title}」吗？`)) return;
+  async function handleDelete(poem: Poem) {
+    if (!(await siteConfirm(`确定删除「${poem.title}」吗？`))) return;
     startTransition(() => deletePoem(poem.id));
   }
 
@@ -146,7 +147,7 @@ export default function PoemList({ poems }: PoemListProps) {
                         背诵
                       </button>
                       <button
-                        onClick={() => handleDelete(poem)}
+                        onClick={async () => (await handleDelete(poem))}
                         disabled={isPending}
                         title="删除"
                         className="rounded-[8px] p-1.5 text-[var(--muted-foreground)] hover:text-[#EA4335] hover:bg-[#EA433515] transition-colors disabled:opacity-40"

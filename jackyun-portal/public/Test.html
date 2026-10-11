@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Goal Tracker</title>
@@ -741,8 +742,8 @@ function openDetail(id){
 }
 
 /* DELETE */
-function delGoal(id){
-  if(!confirm('确定删除此目标？'))return;
+async function delGoal(id){
+  if(!(await JackyunDialog.confirm('确定删除此目标？')))return;
   goals=goals.filter(x=>x.id!==id);
   save();render();toast('目标已删除');
 }

@@ -430,6 +430,10 @@
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'FOCUS_COMPLETE_REMINDER') {
+      void window.JackyunDialog.alert(String(message.message || '专注已完成'), { title: '专注完成', confirmLabel: '知道了' });
+      sendResponse({ ok: true }); return false;
+    }
     if (message.type === 'AI_AUTOMATION_STATUS' && isAiPage) {
       renderAutomationOverlay(message);
       sendResponse({ ok: true });

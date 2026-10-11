@@ -1,4 +1,4 @@
-import { addCalendarDays, dateKey, matchLearningCatalogSubject, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
+import { isCueMasteryPaused, addCalendarDays, dateKey, matchLearningCatalogSubject, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
 
 export const QUESTION_BANK_KEY = 'jackyun_schedule_questions_v1';
 export type QuestionType = 'single' | 'multiple' | 'boolean' | 'written';
@@ -220,7 +220,8 @@ export function questionMatchesFilter(question: StudyQuestion, bank: QuestionBan
   return bank.attempts.filter((item) => item.questionId === question.id).toSorted((a, b) => b.reviewedAt.localeCompare(a.reviewedAt)).slice(0, 5).filter((item) => item.status !== 'stable').length >= 2;
 }
 /** Orders only the selected items. Links never expand a learning session. */
-export function buildStudyQueue(cues: StudyCue[], questions: StudyQuestion[]): StudyItemRef[] {
+export function buildStudyQueue(cues: StudyCue[], questions: StudyQuestion[], date = dateKey(new Date())): StudyItemRef[] {
+  cues = cues.filter(cue => !isCueMasteryPaused(cue, date));
   const result: StudyItemRef[] = [];
   const usedCues = new Set<string>();
   const usedQuestions = new Set<string>();

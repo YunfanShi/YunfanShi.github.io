@@ -2,7 +2,7 @@ import type { CueGameAccount } from './cue-shop.ts';
 import type { CuePracticeState } from './cue-practice.ts';
 import type { CueAnswerCard } from './cue-answer-card.ts';
 import { createCueChangeRecord, type CueChangeRecord } from './cue-change-history.ts';
-import { difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
+import { cueContentSignature, difficultyFactors, difficultyLabels, effectiveCueDifficulty, cueProfileType, learningProfile, type CueAiAdvice, type CueDifficulty, type DailyLearningAdvice } from './learning-assistance.ts';
 import type { QuestionAttempt } from './question-bank.ts';
 import type { CueSimilarityDecision } from './cue-similarity.ts';
 import { scheduleReview } from './review-schedule.ts';
@@ -167,6 +167,8 @@ export interface ManualLearningTask {
 }
 
 export interface StudyCue {
+  masteredIntervalDays?: number;
+  masterySignature?: string;
   userDifficulty?: CueDifficulty;
   aiAdvice?: CueAiAdvice;
   id: string;
@@ -1428,6 +1430,7 @@ export function buildCueReviewBatches(cues: StudyCue[]): StudyCue[][] {
 type CueReviewSource = 'regular' | 'weak' | 'today';
 
 function cueReviewSource(cue: StudyCue, date: string): CueReviewSource | null {
+  if (isCueMasteryPaused(cue, date)) return null;
   if (cueChangedSinceReview(cue)) return 'regular';
   if (cue.lastReviewedAt && dateKey(new Date(cue.lastReviewedAt)) >= date) return null;
   if (dateKey(new Date(cue.createdAt)) === date) return 'today';
@@ -1911,6 +1914,11 @@ export function planCueReview(
     };
   }
 
+  if (cue.masteredIntervalDays && cue.masterySignature === cueContentSignature(cue) && !updatedSincePreviousReview) {
+    const elapsed = cue.lastReviewedAt ? calendarDaysBetween(dateKey(new Date(cue.lastReviewedAt)), reviewedDate) : 0;
+    const intervalDays = Math.min(18, Math.max(10, cue.masteredIntervalDays) + (elapsed >= cue.masteredIntervalDays ? 2 : 0));
+    return { intervalDays, easeFactor: scheduled.easeFactor, streak: priorStableStreak + 1, nextReviewDate: addCalendarDays(reviewedDate, intervalDays), scheduleReason: '已熟练掌握：到期答对后延长 2 天，上限 18 天；提前练习不增加间隔。' };
+  }
   const streak = priorStableStreak + 1;
   // Only successful retrievals on distinct dates grow the interval. All weak
   // history contributes to risk, decaying after later spaced green retrievals.
@@ -2024,6 +2032,8 @@ export function completeCueReviews(
     return {
       ...cue,
       status: assessment.status,
+      masteredIntervalDays: assessment.status === 'stable' && cue.masterySignature === cueContentSignature(cue) ? cue.masteredIntervalDays ? plan.intervalDays : undefined : undefined,
+      masterySignature: assessment.status === 'stable' && cue.masterySignature === cueContentSignature(cue) ? cue.masterySignature : undefined,
       intervalDays: plan.intervalDays,
       easeFactor: plan.easeFactor,
       streak: plan.streak,
@@ -2081,7 +2091,7 @@ export function recordCueStudyAssessment(
   }
   return {
     ...state,
-    cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: practice ? item.status : assessment.status, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: practice ? item.streak : plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
+    cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: practice ? item.status : assessment.status, masteredIntervalDays: assessment.status === 'stable' && !sameDayWeak && cue.masterySignature === cueContentSignature(cue) ? cue.masteredIntervalDays ? plan.intervalDays : undefined : undefined, masterySignature: assessment.status === 'stable' && !sameDayWeak ? cue.masterySignature : undefined, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: practice ? item.streak : plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
     cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, sameDayWeak, ...(weakestStatus ? { weakestStatus } : {}), ...(practiceAttempts ? { practiceAttempts } : {}), status: practice ? existing.status : assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
   };
 }
@@ -2094,15 +2104,30 @@ export function deriveLearningStatus(cueIds: string[], assessments: CueAssessmen
 }
 
 /** Resolves the Cue deck for a scheduled task, preferring explicit Cue ids over its subject/unit scope. */
+/** Explicit mastery is independent of AI difficulty and persists in the synced Cue record. */
+export function isCueMasteryPaused(cue: StudyCue, date: string): boolean {
+  return Boolean(cue.masteredIntervalDays && cue.masterySignature === cueContentSignature(cue) && cue.status === 'stable' && cue.nextReviewDate && cue.nextReviewDate > date && !cueChangedSinceReview(cue));
+}
+export function markCueMastered(state: ScheduleControlState, cueId: string, at: Date, sessionKey: string): ScheduleControlState {
+  const cue = state.cues.find(item => item.id === cueId);
+  if (!cue) throw new Error('Cue 已不存在');
+  // Repeated K in the same cooldown never extends it or creates more evidence.
+  if (isCueMasteryPaused(cue, dateKey(at))) return state;
+  const next = recordCueStudyAssessment(state, { cueId, status: 'stable', note: '用户标记为已熟练掌握' }, at, sessionKey);
+  const intervalDays = cue.masteredIntervalDays && cue.masterySignature === cueContentSignature(cue) ? Math.min(18, Math.max(10, next.cues.find(item => item.id === cueId)!.intervalDays)) : 10;
+  const nextReviewDate = addCalendarDays(dateKey(at), intervalDays);
+  return { ...next, cues: next.cues.map(item => item.id === cueId ? { ...item, masteredIntervalDays: intervalDays, masterySignature: cueContentSignature(item), intervalDays, nextReviewDate, lastReviewedAt: at.toISOString() } : item), cueReviews: next.cueReviews.map(review => review.cueId === cueId && review.taskKey === sessionKey && dateKey(new Date(review.reviewedAt)) === dateKey(at) ? { ...review, intervalDays, nextReviewDate, scheduleReason: '用户明确标记熟练掌握，10 天后闭卷确认。' } : review) };
+}
+
 export function cuesForLearningTask(cues: StudyCue[], task: LearningTask): StudyCue[] {
   const explicitIds = task.cueIds ?? task.scope?.cueIds;
   const reviewTask = new Set<LearningTask['type']>(['course-review', 'interval-review', 'weekly-review', 'cue-review', 'unit-review', 'cumulative-review']).has(task.type);
   const reviewDate = task.date;
-  const eligibleForReview = (cue: StudyCue) => !reviewTask || !reviewDate || (
+  const eligibleForReview = (cue: StudyCue) => !isCueMasteryPaused(cue, reviewDate || dateKey(new Date())) && (!reviewTask || !reviewDate || (
     (cueChangedSinceReview(cue) || !cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < reviewDate)
     && (cue.status === 'partial' || cue.status === 'unclear'
       || !cue.lastReviewedAt || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt) || !cue.nextReviewDate || cue.nextReviewDate <= reviewDate)
-  );
+  ));
   if (explicitIds !== undefined) {
     const order = new Map(explicitIds.map((id, index) => [id, index]));
     return cues

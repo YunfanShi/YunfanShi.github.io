@@ -1,3 +1,4 @@
+import { siteAlert } from '@/lib/site-dialog';
 /**
  * AI 助手工具注册表 —— 定义每个 AI 助手可用的工具 + 完整使用手册
  *
@@ -668,15 +669,7 @@ export const AI_TOOLS: AiTool[] = [
       const delay = parseInt(params.delay || '60');
       if (delay < 10) return '延迟时间不能少于10秒';
       setTimeout(() => {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('JackYun Portal', { body: title, icon: '/Webicon.png' });
-        } else if ('Notification' in window && Notification.permission !== 'denied') {
-          Notification.requestPermission().then(perm => {
-            if (perm === 'granted') {
-              new Notification('JackYun Portal', { body: title, icon: '/Webicon.png' });
-            }
-          });
-        }
+        void siteAlert(title, { title: '定时提醒', confirmLabel: '知道了' });
       }, delay * 1000);
       const minutes = Math.round(delay / 60);
       return `⏰ 已设置提醒"${title}"，将在${minutes > 0 ? `${minutes}分钟后` : `${delay}秒后`}通知你`;

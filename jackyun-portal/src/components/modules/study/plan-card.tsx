@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useState, useRef } from 'react';
 import StartStudyButton from './start-study-button';
 
@@ -59,8 +60,8 @@ export default function PlanCard({ plan, onToggleTask, onDeleteTask, onCreateTas
     onDeleteTask(taskId);
   }
 
-  function handleDeletePlan() {
-    if (!confirm(`确定删除计划「${plan.title}」及其所有任务吗？`)) return;
+  async function handleDeletePlan() {
+    if (!(await siteConfirm(`确定删除计划「${plan.title}」及其所有任务吗？`))) return;
     onDeletePlan(plan.id);
   }
 

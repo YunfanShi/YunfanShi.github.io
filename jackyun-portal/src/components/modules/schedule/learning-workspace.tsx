@@ -1,5 +1,7 @@
 'use client';
+import { isCueMasteryPaused } from '@/lib/learning/schedule-control';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CueGamePanel from './cue-game-panel';
@@ -39,7 +41,7 @@ export default function LearningWorkspace({ cues, reviews, bank, catalog, onStar
   const subjects = [...new Map([...catalog.map((item) => [item.id, item.name] as const), ...cues.map((item) => [item.subjectId, item.subjectName] as const), ...bank.questions.map((item) => [item.subjectId, item.subjectName] as const)]).entries()];
   const scopedCues = joint ? selectJointCues(cues, jointSelection, filter as CueStatusFilter, date, reviews) : cues.filter((cue) => cue.subjectId === subjectId && (!unit || cue.unit === unit));
   const scopedQuestions = bank.questions.filter((question) => question.subjectId === subjectId && (!unit || question.unit === unit));
-  const selectedCues = mode === 'question' ? [] : joint ? scopedCues : scopedCues.filter((cue) => (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < date) && cueMatchesStatusFilter(cue, filter as CueStatusFilter, date, reviews.filter((review) => review.cueId === cue.id)));
+  const selectedCues = mode === 'question' ? [] : (joint ? scopedCues : scopedCues.filter((cue) => (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < date) && cueMatchesStatusFilter(cue, filter as CueStatusFilter, date, reviews.filter((review) => review.cueId === cue.id)))).filter(cue => !isCueMasteryPaused(cue, date));
   const selectedQuestions = mode === 'cue' ? [] : scopedQuestions.filter((question) => questionMatchesFilter(question, bank, filter === 'unstable' || filter === 'recovering' ? 'weak' : filter, date));
   const preview = buildStudyQueue(selectedCues, selectedQuestions);
   const selectedItems = preview.filter((item) => !excluded.includes(itemKey(item)));
@@ -47,7 +49,7 @@ export default function LearningWorkspace({ cues, reviews, bank, catalog, onStar
   const reset = () => setExcluded([]);
   return <section className="mt-5 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">题目与统一学习</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">题目与统一学习 · 先看各科到期、薄弱和未学内容，再按单元挑选。联合 CUE 可一次选择多个科目与单元。</p></div><button className={studyButtonClass} onClick={onManage}>题库管理</button></div>
-    {Object.values(bank.drafts).length > 0 && <div className="space-y-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><h3 className="font-semibold">继续未完成的学习</h3>{Object.values(bank.drafts).map((draft) => <div key={draft.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-black/5 p-3 dark:bg-white/5"><div className="text-sm">{draft.task.subjectName} · {modes[draft.mode]} · 已评价 {Object.keys(draft.assessments).length} / {draft.items.length}</div><div className="flex gap-2"><button className={studyButtonClass} onClick={() => onResume(draft.id)}>继续</button><button className={studyButtonClass} onClick={() => { if (window.confirm('放弃这次学习进度？已经保存的评价与作答历史会保留。')) onDiscard(draft.id); }}>放弃进度</button></div></div>)}</div>}
+    {Object.values(bank.drafts).length > 0 && <div className="space-y-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><h3 className="font-semibold">继续未完成的学习</h3>{Object.values(bank.drafts).map((draft) => <div key={draft.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-black/5 p-3 dark:bg-white/5"><div className="text-sm">{draft.task.subjectName} · {modes[draft.mode]} · 已评价 {Object.keys(draft.assessments).length} / {draft.items.length}</div><div className="flex gap-2"><button className={studyButtonClass} onClick={() => onResume(draft.id)}>继续</button><button className={studyButtonClass} onClick={async () => { if ((await siteConfirm('放弃这次学习进度？已经保存的评价与作答历史会保留。'))) onDiscard(draft.id); }}>放弃进度</button></div></div>)}</div>}
     <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-6">
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="学习模式">{Object.entries(modes).map(([value, label]) => <button key={value} aria-pressed={!joint && mode === value} className={`${studyButtonClass} ${!joint && mode === value ? 'bg-[var(--brand)] text-white' : ''}`} onClick={() => { setJoint(false); setMode(value as StudyMode); if (filter === 'unstable' || filter === 'recovering') setFilter(DEFAULT_STUDY_FILTER); reset(); }}>{label}</button>)}<button aria-pressed={joint} className={`${studyButtonClass} ${joint ? 'bg-[var(--brand)] text-white' : ''}`} onClick={() => { setJoint(true); setMode('cue'); reset(); }}>联合 CUE 学习</button></div>
       {joint ? <div className="space-y-3">

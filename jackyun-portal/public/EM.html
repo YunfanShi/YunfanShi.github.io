@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Warden | V23 CONTEXT AWARE</title>
@@ -742,7 +743,7 @@ INSTRUCTION: You are a WeChat Study Buddy. Keep replies SHORT (1-2 sentences), c
         }
         function saveSettings() {
             localStorage.setItem('llm_key', document.getElementById('llm-key').value); localStorage.setItem('llm_url', document.getElementById('llm-url').value); localStorage.setItem('llm_model', document.getElementById('llm-model').value);
-            alert("Configuration Saved."); closeSettings();
+            JackyunDialog.alert("Configuration Saved."); closeSettings();
         }
 
         function toggleFocus(subject) {

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Goal Tracker × AI</title>
@@ -2737,7 +2738,7 @@ function openSettings(){
   openM('settingsModal');
 }
 
-function migrateFrom(key, mode){
+async function migrateFrom(key, mode){
   const raw=localStorage.getItem(key);
   if(!raw){toast('找不到 '+key+' 的数据');return;}
   let data;
@@ -2763,7 +2764,7 @@ function migrateFrom(key, mode){
   });
 
   const verb=mode==='merge'?'合并':'替换';
-  if(!confirm(`确定要${verb}数据吗？\n来源：${key}（${normalized.length} 条）\n${mode==='replace'?'当前 '+goals.length+' 条数据将被清空！':'将与当前 '+goals.length+' 条数据合并'}`)){return;}
+  if(!(await JackyunDialog.confirm(`确定要${verb}数据吗？\n来源：${key}（${normalized.length} 条）\n${mode==='replace'?'当前 '+goals.length+' 条数据将被清空！':'将与当前 '+goals.length+' 条数据合并'}`))){return;}
 
   if(mode==='replace'){
     goals=normalized;
@@ -3188,8 +3189,8 @@ function openDetail(id){
 }
 
 /* ===================== DELETE ===================== */
-function delGoal(id){
-  if(!confirm('确定删除此目标？（子任务也会一并删除）'))return;
+async function delGoal(id){
+  if(!(await JackyunDialog.confirm('确定删除此目标？（子任务也会一并删除）')))return;
   const idsToDelete=[id,...goals.filter(g=>g.parentId===id).map(g=>g.id)];
   goals=goals.filter(g=>!idsToDelete.includes(g.id));
   idsToDelete.forEach(i=>{delete aiPreds[i];});
@@ -3219,9 +3220,9 @@ function editHistoryNote(id, idx){
     else if(e.key==='Escape'){ openDetail(id); }
   });
 }
-function deleteHistoryEntry(id, idx){
+async function deleteHistoryEntry(id, idx){
   const g=goals.find(x=>x.id===id); if(!g||!g.history) return;
-  if(!confirm('确定删除这条更新记录？')) return;
+  if(!(await JackyunDialog.confirm('确定删除这条更新记录？'))) return;
   g.history.splice(idx,1);
   delete aiPreds[id]; savePreds();
   save(); openDetail(id);
@@ -3278,7 +3279,7 @@ function detectHistoricalData(importedGoals){
 function doImport(e){
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
-  r.onload=ev=>{
+  r.onload=async ev=>{
     try{
       const d=JSON.parse(ev.target.result);
       let importedGoals;
@@ -3291,9 +3292,9 @@ function doImport(e){
         // Ask the user whether these big jumps are historical bulk data.
         const list=suspects.slice(0,5).map(s=>`• ${s.g.name}: ${s.date} 单次 +${s.jump}${s.g.unit||''} → ${s.curDone}/${s.total}`).join('\n');
         const extra=suspects.length>5?`\n… 等共 ${suspects.length} 处大额记录`:'';
-        const isHistorical=confirm(
+        const isHistorical=(await JackyunDialog.confirm(
           `检测到可能的历史累积数据：\n${list}${extra}\n\n这些单次大幅增加（超过总量40%）的记录，很可能是你一次性补录的过去累积数据，而不是当天实际完成的。\n\n点击「确定」：将标记为历史数据（AI 预测时会按时间跨度计算，不会误判为一天完成）\n点击「取消」：按普通每日记录导入`
-        );
+        ));
         if(isHistorical){
           const targetDates=new Set(suspects.map(s=>s.date));
           importedGoals.forEach(g=>{

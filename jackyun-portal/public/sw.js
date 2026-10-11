@@ -1,11 +1,12 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
   OFFLINE_URL,
+  '/shared/site-dialog.js',
   '/Webicon.png',
   '/jackyun-icon-192.png',
   '/jackyun-logo.png',

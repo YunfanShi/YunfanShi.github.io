@@ -1,5 +1,6 @@
 'use client';
 
+import { siteAlert } from '@/lib/site-dialog';
 import { useState, useRef, useCallback, useMemo } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
 import {
@@ -311,11 +312,11 @@ export default function MarkdownToWord() {
   /** 上传文件 */
   const handleFile = useCallback((file: File) => {
     if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown') && !file.name.endsWith('.txt')) {
-      alert('请上传 .md 或 .markdown 文件');
+      siteAlert('请上传 .md 或 .markdown 文件');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert('文件大小不能超过 10MB');
+      siteAlert('文件大小不能超过 10MB');
       return;
     }
     setFileName(file.name);
@@ -330,7 +331,7 @@ export default function MarkdownToWord() {
   /** 下载为 .docx */
   const handleDownloadDocx = useCallback(async () => {
     if (!mdContent.trim()) {
-      alert('请输入 Markdown 内容');
+      siteAlert('请输入 Markdown 内容');
       return;
     }
     setConverting(true);
@@ -374,7 +375,7 @@ export default function MarkdownToWord() {
       saveAs(blob, `${safeName}.docx`);
     } catch (err) {
       console.error('DOCX 生成失败:', err);
-      alert('文档生成失败，请检查 Markdown 格式');
+      siteAlert('文档生成失败，请检查 Markdown 格式');
     } finally {
       setConverting(false);
     }
@@ -383,7 +384,7 @@ export default function MarkdownToWord() {
   /** 复制为 Word 格式 */
   const handleCopyForWord = useCallback(async () => {
     if (!mdContent.trim()) {
-      alert('请输入 Markdown 内容');
+      siteAlert('请输入 Markdown 内容');
       return;
     }
 
@@ -404,7 +405,7 @@ export default function MarkdownToWord() {
         setCopiedForWord(true);
         setTimeout(() => setCopiedForWord(false), 2500);
       } catch {
-        alert('复制失败，请手动复制');
+        siteAlert('复制失败，请手动复制');
       }
     }
   }, [mdContent]);

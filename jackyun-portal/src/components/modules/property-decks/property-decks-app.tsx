@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
@@ -139,8 +140,8 @@ export default function PropertyDecksApp() {
     setSelectedId(id);
   }
 
-  function deleteDeck() {
-    if (!deck || !confirm(`确定删除「${deck.title}」吗？`)) return;
+  async function deleteDeck() {
+    if (!deck || !(await siteConfirm(`确定删除「${deck.title}」吗？`))) return;
     const next = decks.filter((entry) => entry.id !== deck.id);
     setDecks(next);
     setSelectedId(next[0]?.id ?? '');

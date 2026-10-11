@@ -1,5 +1,6 @@
 'use client';
 
+import { siteAlert } from '@/lib/site-dialog';
 import { useState, useRef, useCallback, useMemo } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel as DocxHeadingLevel, Table, TableRow, TableCell, WidthType, AlignmentType, convertInchesToTwip } from 'docx';
@@ -358,10 +359,10 @@ export default function Md2WordPage() {
 
   const handleFile = useCallback((file: File) => {
     if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown') && !file.name.endsWith('.txt')) {
-      alert('请上传 .md 或 .markdown 文件');
+      siteAlert('请上传 .md 或 .markdown 文件');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) { alert('文件大小不能超过 10MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { siteAlert('文件大小不能超过 10MB'); return; }
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => setMdContent(e.target?.result as string);
@@ -369,7 +370,7 @@ export default function Md2WordPage() {
   }, []);
 
   const handleDownloadDocx = useCallback(async () => {
-    if (!mdContent.trim()) { alert('请输入 Markdown 内容'); return; }
+    if (!mdContent.trim()) { siteAlert('请输入 Markdown 内容'); return; }
     setConverting(true);
     try {
       const elements = mdToDocxElements(mdContent);
@@ -393,12 +394,12 @@ export default function Md2WordPage() {
       setShowCopied(true); setTimeout(() => setShowCopied(false), 2000);
     } catch (err) {
       console.error(err);
-      alert('文档生成失败，请检查 Markdown 格式');
+      siteAlert('文档生成失败，请检查 Markdown 格式');
     } finally { setConverting(false); }
   }, [mdContent, fileName]);
 
   const handleCopyForWord = useCallback(async () => {
-    if (!mdContent.trim()) { alert('请输入 Markdown 内容'); return; }
+    if (!mdContent.trim()) { siteAlert('请输入 Markdown 内容'); return; }
     const html = simpleMdToHtml(mdContent);
     try {
       const blob = new Blob([html], { type: 'text/html' });
@@ -406,7 +407,7 @@ export default function Md2WordPage() {
       setCopiedForWord(true); setTimeout(() => setCopiedForWord(false), 2500);
     } catch {
       try { await navigator.clipboard.writeText(mdContent); setCopiedForWord(true); setTimeout(() => setCopiedForWord(false), 2500); }
-      catch { alert('复制失败，请手动复制'); }
+      catch { siteAlert('复制失败，请手动复制'); }
     }
   }, [mdContent]);
 

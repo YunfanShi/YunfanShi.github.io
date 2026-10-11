@@ -1,5 +1,6 @@
 'use client';
 
+import { siteAlert } from '@/lib/site-dialog';
 import { useMemo, useState } from 'react';
 import { USERSCRIPTS, type ScriptCategory, type ScriptSafety } from '@/lib/userscripts';
 
@@ -63,7 +64,7 @@ export default function UserscriptLibrary() {
       setCopiedId(id);
       window.setTimeout(() => setCopiedId((current) => current === id ? null : current), 1800);
     } catch {
-      window.alert('复制失败，请改用下载按钮。');
+      siteAlert('复制失败，请改用下载按钮。');
     }
   }
 

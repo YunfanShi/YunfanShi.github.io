@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<script src="/shared/site-dialog.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -586,7 +587,7 @@ function renderQuizView() {
 }
 
 // Global keyboard handler - bound once at init
-function handleKeys(e) {
+async function handleKeys(e) {
   if (STATE.view !== 'quiz') return;
   const q = STATE.questions[STATE.currentIdx];
   if (!q) return;
@@ -595,7 +596,7 @@ function handleKeys(e) {
   // Enter key: go next if submitted, submit fill if not
   if (e.key === 'Enter') {
     if (q.type === 'fill' && !submitted) { e.preventDefault(); submitFill(); return; }
-    if (submitted) { nextQ(); return; }
+    if (submitted) { (await nextQ()); return; }
     return;
   }
   
@@ -612,7 +613,7 @@ function handleKeys(e) {
   }
   // Arrow keys navigation
   if (e.key === 'ArrowLeft') prevQ();
-  if (e.key === 'ArrowRight' && submitted) nextQ();
+  if (e.key === 'ArrowRight' && submitted) (await nextQ());
 }
 
 function buildFeedback(q, ans, showResult) {
@@ -1113,12 +1114,12 @@ Give a clear, educational explanation.`;
   if (STATE.currentIdx === idx) render();
 }
 
-function nextQ() {
+async function nextQ() {
   if (STATE.currentIdx < STATE.questions.length - 1) {
     STATE.currentIdx++;
     render();
   } else {
-    finishQuiz();
+    (await finishQuiz());
   }
 }
 
@@ -1132,12 +1133,12 @@ function jumpTo(i) {
   render();
 }
 
-function finishQuiz() {
+async function finishQuiz() {
   const total = STATE.questions.length;
   const answered = Object.keys(STATE.answers).length;
   const unanswered = total - answered;
   
-  if (unanswered > 0 && !confirm(`You have ${unanswered} unanswered question${unanswered>1?'s':''}. Finish anyway?`)) return;
+  if (unanswered > 0 && !(await JackyunDialog.confirm(`You have ${unanswered} unanswered question${unanswered>1?'s':''}. Finish anyway?`))) return;
 
   let correct = 0;
   STATE.questions.forEach((q, i) => {
@@ -1263,8 +1264,8 @@ function removeCustom(s) {
   render();
 }
 
-function clearHistory() {
-  if (confirm('Clear all quiz history?')) {
+async function clearHistory() {
+  if ((await JackyunDialog.confirm('Clear all quiz history?'))) {
     STATE.history = [];
     localStorage.removeItem('qw_history');
     render();

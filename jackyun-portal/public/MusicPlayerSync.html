@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script src="/shared/site-dialog.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sync Music</title>
@@ -147,7 +148,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classi
         <div id="masterPanel">
             <div id="list-el" class="list"></div>
             <div class="queue-actions"><button class="btn-sec" onclick="document.getElementById('add-song').open=!document.getElementById('add-song').open"><span aria-hidden="true">＋</span> 添加歌曲</button><button class="btn-sec" onclick="toggleModal('import-modal')">导入歌单</button></div>
-            <details id="add-song"><summary>通过网易云歌曲 ID 添加</summary><div class="panel"><input id="inp-name" aria-label="歌曲名称" placeholder="歌曲名称"><input id="inp-id" aria-label="网易云歌曲 ID" placeholder="网易云歌曲 ID，例如 186016"><button class="btn-pri" onclick="Library.add()">加入歌单</button><button class="btn-sec" onclick="if(confirm('清空整个歌单？')) Library.clear()">清空歌单</button></div></details>
+            <details id="add-song"><summary>通过网易云歌曲 ID 添加</summary><div class="panel"><input id="inp-name" aria-label="歌曲名称" placeholder="歌曲名称"><input id="inp-id" aria-label="网易云歌曲 ID" placeholder="网易云歌曲 ID，例如 186016"><button class="btn-pri" onclick="Library.add()">加入歌单</button><button class="btn-sec" onclick="(async()=>{if((await JackyunDialog.confirm('清空整个歌单？'))) Library.clear()})()">清空歌单</button></div></details>
         </div>
         <div id="followerPanel" style="display:none"><div class="follower-card"><span class="material-icons-round" style="font-size:32px;color:var(--music-accent)">headphones</span><h3>一起听同一首歌</h3><p>主设备负责选歌和切歌，<br>这台设备跟随播放。</p><button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button><p id="followerAudioHint">首次使用请点击启用声音，并保持页面在前台。</p><div class="now-playing" id="followerNowPlaying"><div id="followerSongName">等待主设备选歌</div></div></div></div>
         <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><label class="layout-setting">界面风格<select aria-label="界面风格" id="music-layout" onchange="PlayerView.setLayout(this.value)"><option value="record">唱片模式（默认）</option><option value="classic">经典模式 · 大倒计时</option></select></label><p class="settings-note" style="margin:0">界面选择仅保存在这台设备，切换不会中断播放。</p><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><div class="stats">本机播放进度偏差 <span id="playback-drift">--</span> ms</div><p class="settings-note" style="margin:0">播放中自动纠偏；进度偏差不包含扬声器的实际输出延迟。</p><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准 · 提前 / 延后</button></div></details>
@@ -594,7 +595,7 @@ const Engine = {
         const isMaster = localStorage.getItem('mps_role') !== 'follower';
         if (!isMaster) return;
 
-        if (STATE.songs.length === 0) return alert("Playlist Empty! Add ID and Name first.");
+        if (STATE.songs.length === 0) return JackyunDialog.alert("Playlist Empty! Add ID and Name first.");
         if (STATE.status === 'CALIBRATING') return;
         STATE.status = 'CALIBRATING';
         UI.setSync('syncing', '播放前校准时钟...');
@@ -657,7 +658,7 @@ const Engine = {
                     this.startTracking();
                     UI.updatePlayBtn('PLAYING');
                 })
-                .catch(() => { if (STATE.targetTime === targetTime) { this.reset(); alert("Auto-play blocked"); } });
+                .catch(() => { if (STATE.targetTime === targetTime) { this.reset(); JackyunDialog.alert("Auto-play blocked"); } });
 
             STATE.audio.onended = () => {
                 this.reset();
@@ -793,7 +794,7 @@ const Library = {
     add() {
         const idVal = document.getElementById('inp-id').value.trim();
         const nameVal = document.getElementById('inp-name').value.trim();
-        if(!idVal) return alert("请输入 ID");
+        if(!idVal) return JackyunDialog.alert("请输入 ID");
         const finalName = nameVal || `Track ${idVal}`;
         STATE.songs.push({id: idVal, name: finalName});
         this.save(); this.render();
@@ -943,8 +944,8 @@ async function testConnection() {
 
 function copyScript() {
     const SCRIPT = `(function(){var d=document;var f=d.getElementById('g_iframe');if(f)d=f.contentWindow.document;var r=d.querySelectorAll('.m-table tbody tr');if(!r.length)return alert('No songs!');var l=[];r.forEach(x=>{var i=x.querySelector('.ply')?.getAttribute('data-res-id');var n=x.querySelector('.ttc .txt b')?.getAttribute('title')||'Unknown';if(i)l.push({id:i,name:n})});console.log(JSON.stringify(l));alert('Copied '+l.length+' songs to console!');})();`;
-    navigator.clipboard.writeText(SCRIPT).then(() => {
-        if(confirm("Script Copied! Open NetEase Music?")) window.open("https://music.163.com", "_blank");
+    navigator.clipboard.writeText(SCRIPT).then(async () => {
+        if((await JackyunDialog.confirm("Script Copied! Open NetEase Music?"))) window.open("https://music.163.com", "_blank");
     });
 }
 
@@ -956,7 +957,7 @@ function runImport() {
         }
         const d = JSON.parse(val);
         if(Array.isArray(d)) { STATE.songs = [...STATE.songs, ...d]; Library.save(); Library.render(); toggleModal('import-modal'); }
-    } catch(e) { alert("JSON 格式错误！请确保格式为: [{\"id\":\"...\",\"name\":\"...\"}]"); }
+    } catch(e) { JackyunDialog.alert("JSON 格式错误！请确保格式为: [{\"id\":\"...\",\"name\":\"...\"}]"); }
 }
 
 function toggleModal(id) { document.getElementById(id).classList.toggle('open'); }

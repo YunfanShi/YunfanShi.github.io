@@ -1,5 +1,6 @@
 'use client';
 
+import { siteConfirm } from '@/lib/site-dialog';
 import { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import type { PoemRecord } from '@/types/poem';
 import { savePoemSession, deletePoem, updateMastery } from '@/actions/poem';
@@ -120,8 +121,8 @@ function ListView({
       (p.author ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
-  function handleDelete(poem: PoemRecord) {
-    if (!confirm(`确定删除「${poem.title}」吗？`)) return;
+  async function handleDelete(poem: PoemRecord) {
+    if (!(await siteConfirm(`确定删除「${poem.title}」吗？`))) return;
     startTransition(async () => {
       await deletePoem(poem.id);
       onDelete(poem.id);
@@ -232,7 +233,7 @@ function ListView({
                         开始背诵
                       </button>
                       <button
-                        onClick={() => handleDelete(poem)}
+                        onClick={async () => (await handleDelete(poem))}
                         disabled={isPending}
                         title="删除"
                         className="rounded-[8px] p-1.5 text-[var(--muted-foreground)] hover:text-[#EA4335] hover:bg-[#EA433515] transition-colors disabled:opacity-40"
