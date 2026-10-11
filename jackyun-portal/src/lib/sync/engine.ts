@@ -100,8 +100,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     const snapshot = e.snapshot();
     const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>!captured || observed[key]!==snapshot[key]);
     if (!captured) for (const legacy of await store.getOutbox()) if (legacy.sequence === undefined) await store.replaceOperation(legacy,{...legacy,id:e.uuid(),sequence:0});
-    captured=true;
-    if(!changed.length)return;
+    if(!changed.length){captured=true;return;}
     const metadata = new Map((await store.getMetadata()).map(r=>[r.key,r]));
     const pending = new Map((await store.getOutbox()).map(op=>[op.key,op]));
     for (const key of changed) {
@@ -160,9 +159,9 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       ...pending,id:e.uuid(),baseRevision:record.revision,baseHash:record.contentHash,baseValue:record.deleted ? null : record.value,baseDeleted:record.deleted,
       value:merged.merged ?? null,deleted:merged.merged === undefined,clientUpdatedAt:new Date(e.now()).toISOString(),resolvesOperationId:pending.id,
     };
+    if (!await applyLocal(record.key,merged.merged,expected,true)) { await capture(); return; }
     if (!await store.replaceOperation(pending,next)) return;
     await store.saveMetadata(record);
-    if (!await applyLocal(record.key,merged.merged,expected,true)) { await capture(); return; }
     await store.removeConflict(pending.id);
   }
   async function pull() {
@@ -260,9 +259,9 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     const next: SyncOperation | null = same(chosen,valueOf(remote)) ? null : {...operation,id:e.uuid(),baseRevision:remote.revision,
       baseHash:remote.contentHash,baseValue:remote.deleted ? null : remote.value,baseDeleted:remote.deleted,value:chosen ?? null,deleted:chosen === undefined,
       resolvesOperationId:operationId,clientUpdatedAt:new Date(e.now()).toISOString()};
-    if (!await store.replaceOperation(operation,next)) throw Error('另一个标签页刚有修改，选择未应用。');
-    await store.saveMetadata(remote);
     if (!await applyLocal(conflict.key,chosen,current,true)) { await capture(); throw Error('本机又有修改，已保留待上传。'); }
+    if (!await store.replaceOperation(operation,next)) throw Error('另一个标签页刚有修改，选择未完成；请重新查看本机内容。');
+    await store.saveMetadata(remote);
     await store.removeConflict(operationId);
   }
   return {capture,pull,flush,resolve};

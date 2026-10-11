@@ -78,3 +78,19 @@ test('stale React snapshot cannot erase another tab additions and conflicting dr
   await assert.rejects(persistLocalEdit(storage,key,base,{cues:[{id:'a',text:'local'}]}),LocalEditConflict);
   assert.ok(storage.getItem(LOCAL_CONFLICT_PREFIX+key));assert.equal((parseLocalValue(storage.getItem(key)) as Page).cues[0].text,'other');
 });
+
+test('failed startup metadata read is retried without forgetting initial local intent',async()=>{
+ const cloud=remote({cues:[{id:'a',text:'base'}]}),backend=server(cloud),d=device(backend,cloud);d.set({cues:[{id:'a',text:'local'}]});const retry=d.restart();
+ const original=d.store.getMetadata;let first=true;d.store.getMetadata=async()=>{if(first){first=false;throw Error('IDB read failed');}return original();};
+ await assert.rejects(retry.capture(),/IDB/);await retry.capture();assert.equal((await d.store.getOutbox()).length,1);
+});
+test('a failed local application preserves the pending operation and its baseline',async()=>{
+ const base=remote({a:1}),backend=server(base),d=device(backend,base);d.set({a:2});await d.engine.capture();backend.cloud=remote({a:1,b:3},2);
+ d.environment.write=()=>{throw Error('storage full');};await assert.rejects(d.engine.pull(),/storage full/);
+ assert.equal((await d.store.getOutbox()).length,1);assert.equal((await d.store.getMetadata())[0].revision,1);assert.deepEqual(d.value,{a:2});
+});
+test('remote conflict choice cannot discard intent when local storage rejects the write',async()=>{
+ const base=remote({a:1}),backend=server(base),d=device(backend,base);d.set({a:2});await d.engine.capture();backend.cloud=remote({a:3},2);await d.engine.pull();
+ const conflict=(await d.store.getConflicts())[0];d.environment.write=()=>{throw Error('storage full');};await assert.rejects(d.engine.resolve(conflict.operationId,'remote'),/storage full/);
+ assert.equal((await d.store.getOutbox()).length,1);assert.equal((await d.store.getConflicts()).length,1);assert.deepEqual(d.value,{a:2});
+});
