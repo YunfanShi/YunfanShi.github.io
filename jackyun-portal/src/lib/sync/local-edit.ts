@@ -32,3 +32,22 @@ export function persistLocalEditNow(storage:LocalEditStorage,key:string,base:unk
     if(storage.getItem(key)!==serialized)storage.setItem(key,serialized);
     return result.merged;
 }
+
+/** Queue UI intents using the preceding UI candidate, rather than a base
+ * captured while an earlier save is waiting. Merged remote-only fields are
+ * preserved when the following candidate predates its predecessor's render. */
+export function createLocalEditWriter(storage:LocalEditStorage,key:string,
+  lock?: <T>(name:string,work:()=>Promise<T>)=>Promise<T>) {
+  let submitted:unknown,initialized=false,pending=0;
+  let tail:Promise<unknown>=Promise.resolve();
+  return {
+    write(base:unknown,next:unknown):Promise<unknown> {
+      const previous=initialized?submitted:base;
+      submitted=next;initialized=true;pending++;
+      const job=tail.catch(()=>{}).then(()=>persistLocalEdit(storage,key,previous,next,lock));
+      tail=job;
+      return job.finally(()=>{pending--;});
+    },
+    reset(base:unknown) {if(!pending){submitted=base;initialized=true;}},
+  };
+}

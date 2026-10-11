@@ -4,7 +4,7 @@ import test from 'node:test';
 import {device,key,remote,server} from './sync-engine-fixture.mts';
 import {createRecordDelta,applyRecordDelta} from '../src/lib/sync/delta.ts';
 import {threeWayMerge} from '../src/lib/sync/merge.ts';
-import {persistLocalEdit,parseLocalValue,LOCAL_CONFLICT_PREFIX,LocalEditConflict} from '../src/lib/sync/local-edit.ts';
+import {persistLocalEdit,createLocalEditWriter,parseLocalValue,LOCAL_CONFLICT_PREFIX,LocalEditConflict} from '../src/lib/sync/local-edit.ts';
 
 test('stale device with year 2999 clock retains additions on both devices',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),a=device(cloud,base),b=device(cloud,base);
@@ -93,4 +93,20 @@ test('remote conflict choice cannot discard intent when local storage rejects th
  const base=remote({a:1}),backend=server(base),d=device(backend,base);d.set({a:2});await d.engine.capture();backend.cloud=remote({a:3},2);await d.engine.pull();
  const conflict=(await d.store.getConflicts())[0];d.environment.write=()=>{throw Error('storage full');};await assert.rejects(d.engine.resolve(conflict.operationId,'remote'),/storage full/);
  assert.equal((await d.store.getOutbox()).length,1);assert.equal((await d.store.getConflicts()).length,1);assert.deepEqual(d.value,{a:2});
+});
+
+
+test('queued same-tab edits retain latest text and remote-only fields after a held lock',async()=>{
+  const base={text:'B',other:0};let raw=JSON.stringify({...base,other:1});let release!:()=>void;
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  const writer=createLocalEditWriter({getItem:()=>raw,setItem:(_key,value)=>{raw=value;}},key,async(_name,work)=>{await held;return work();});
+  const a=writer.write(base,{...base,text:'A'}),ab=writer.write(base,{...base,text:'AB'});release();await a;await ab;
+  assert.deepEqual(JSON.parse(raw),{text:'AB',other:1});
+});
+test('accepting remote conflict sends an acknowledged resolution operation to the server',async()=>{
+  const base=remote({a:1}),backend=server(base),d=device(backend,base);d.set({a:2});await d.engine.capture();backend.cloud=remote({a:3},2);await d.engine.pull();
+  const conflict=(await d.store.getConflicts())[0],sent:Array<{resolvesOperationId?:string}>=[];const request=d.environment.request;
+  d.environment.request=async(url,init)=>{if(init?.method==='POST')sent.push(...JSON.parse(String(init.body)).operations);return request(url,init);};
+  await d.engine.resolve(conflict.operationId,'remote');assert.equal((await d.store.getOutbox()).length,1);await d.engine.flush();
+  assert.equal(sent[0].resolvesOperationId,conflict.operationId);assert.equal((await d.store.getOutbox()).length,0);assert.deepEqual(d.value,{a:3});
 });

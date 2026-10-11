@@ -256,7 +256,9 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     const chosen = choice === 'remote' ? valueOf(remote) : threeWayMerge(baseOf(conflict),local,valueOf(remote)).merged;
     await e.backup(conflict.key);
     if (e.cancelled() || e.read(conflict.key) !== current) throw Error('本机数据刚有修改，选择未应用。');
-    const next: SyncOperation | null = same(chosen,valueOf(remote)) ? null : {...operation,id:e.uuid(),baseRevision:remote.revision,
+    // Even accepting remote data needs an acknowledged no-op to close the
+    // server conflict, not just remove this device's copy of it.
+    const next: SyncOperation = {...operation,id:e.uuid(),baseRevision:remote.revision,
       baseHash:remote.contentHash,baseValue:remote.deleted ? null : remote.value,baseDeleted:remote.deleted,value:chosen ?? null,deleted:chosen === undefined,
       resolvesOperationId:operationId,clientUpdatedAt:new Date(e.now()).toISOString()};
     if (!await applyLocal(conflict.key,chosen,current,true)) { await capture(); throw Error('本机又有修改，已保留待上传。'); }

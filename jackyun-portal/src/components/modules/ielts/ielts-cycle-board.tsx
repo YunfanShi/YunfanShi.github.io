@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import {parseLocalValue,persistLocalEditNow} from '@/lib/sync/local-edit';
+import {canonicalJson} from '@/lib/sync/hash';
+import {threeWayMerge} from '@/lib/sync/merge';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type ModuleId = 'listening' | 'reading' | 'writing' | 'speaking' | 'review';
@@ -86,12 +88,20 @@ export default function IeltsCycleBoard() {
 
   useEffect(() => {
     if (!cycle) return;
-    try {cycleBase.current=persistLocalEditNow(localStorage,STORAGE_KEY,cycleBase.current,cycle);} catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'保存失败，原计划已保留。'));}
+    try {
+      const merged=persistLocalEditNow(localStorage,STORAGE_KEY,cycleBase.current,cycle) as CycleState;
+      if(canonicalJson(merged)===canonicalJson(cycle))cycleBase.current=merged;
+      else queueMicrotask(()=>setCycle(current=>{cycleBase.current=merged;return threeWayMerge(cycle,current,merged).merged as CycleState;}));
+    } catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'保存失败，原计划已保留。'));}
   }, [cycle]);
 
   useEffect(() => {
     if (!historyReady) return;
-    try {historyBase.current=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history.slice(-12));} catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'历史保存失败，原历史已保留。'));}
+    try {
+      const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history.slice(-12)) as CycleState[];
+      if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;
+      else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as CycleState[];}));
+    } catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'历史保存失败，原历史已保留。'));}
   }, [history, historyReady]);
 
   const completed = useMemo(() => cycle ? MODULES.filter(({ id }) => cycle.modules[id].status === 'done').length : 0, [cycle]);

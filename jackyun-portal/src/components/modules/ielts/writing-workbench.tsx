@@ -5,6 +5,8 @@ import { ArchiveTitleEditor } from './archive-title-editor';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseLocalValue, persistLocalEditNow } from '@/lib/sync/local-edit';
+import {canonicalJson} from '@/lib/sync/hash';
+import {threeWayMerge} from '@/lib/sync/merge';
 import { callAiApi } from '@/lib/ai-config';
 import {
   buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, isWritingArchiveEntry, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, taskLabel, updateErrorHistory, upsertWritingArchive, writeRedundantJson,
@@ -114,19 +116,21 @@ export default function WritingWorkbench() {
   const c = COPY[uiLanguage];
 
   function persistDraft(next: DraftState, keepSnapshot = false, reportState = true) {
+    let saved=next;
     try {
       const merged = persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,next) as DraftState;
-      draftBase.current=merged;
+      saved=merged;draftBase.current=merged;
       writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
       if (keepSnapshot) {
         const existing = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[];
-        const snapshots = [{ savedAt: new Date().toISOString(), draft: next }, ...(Array.isArray(existing) ? existing : [])].slice(0, 5);
+        const snapshots = [{ savedAt: new Date().toISOString(), draft: merged }, ...(Array.isArray(existing) ? existing : [])].slice(0, 5);
         localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
       }
       if (reportState) setSaveState('saved');
-    } catch (error) { if (reportState) setSaveState('error');setMessage(error instanceof Error?error.message:'保存失败，草稿已保留。'); }
+      return merged;
+    } catch (error) { if (reportState) setSaveState('error');setMessage(error instanceof Error?error.message:'保存失败，草稿已保留。');return saved; }
   }
-  function commitDraft(next: DraftState, keepSnapshot = false) { if (hydrated) persistDraft(next, keepSnapshot); setDraft(next); }
+  function commitDraft(next: DraftState, keepSnapshot = false) { setDraft(hydrated ? persistDraft(next,keepSnapshot) : next); }
   function editField(field: 'question' | 'essay', value: string) { editCount.current += 1; commitDraft({ ...draft, [field]: value }, editCount.current % 25 === 0); }
 
   useEffect(() => {
@@ -140,13 +144,15 @@ export default function WritingWorkbench() {
     try {
       const previous=draftBase.current as DraftState | undefined;
       if(previous && ['essayId','task','question','essay','originalEssay','timerStarted'].every(key=>previous[key as keyof DraftState]===draft[key as keyof DraftState]) && Math.floor(previous.secondsLeft/10)===Math.floor(draft.secondsLeft/10)) return;
-      const merged=persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,draft);draftBase.current=merged;
+      const merged=persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,draft) as DraftState;
       writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
+      if(canonicalJson(merged)===canonicalJson(draft))draftBase.current=merged;
+      else queueMicrotask(()=>setDraft(current=>{draftBase.current=merged;return threeWayMerge(draft,current,merged).merged as DraftState;}));
     } catch (error) { queueMicrotask(()=>{setSaveState('error');setMessage(error instanceof Error?error.message:'草稿保存失败。');}); }
     // Immediate event handlers are primary; this covers timer and programmatic updates.
   }, [draft, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { historyBase.current=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history); } catch { /* Draft copies remain available. */ } }, [history, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { archiveBase.current=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive); } catch { /* The active draft remains protected by its redundant copies. */ } }, [archive, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history) as ErrorHistoryEntry[];if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as ErrorHistoryEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作历史未保存，原历史已保留。'));} }, [history, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive) as WritingArchiveEntry[];if(canonicalJson(merged)===canonicalJson(archive))archiveBase.current=merged;else queueMicrotask(()=>setArchive(current=>{archiveBase.current=merged;return threeWayMerge(archive,current,merged).merged as WritingArchiveEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作归档未保存，原归档已保留。'));} }, [archive, hydrated]);
   useEffect(() => {
     if (!draft.timerStarted || draft.secondsLeft <= 0) return;
     const interval = window.setInterval(() => setDraft((current) => ({ ...current, secondsLeft: Math.max(0, current.secondsLeft - 1), timerStarted: current.secondsLeft > 1 })), 1000);

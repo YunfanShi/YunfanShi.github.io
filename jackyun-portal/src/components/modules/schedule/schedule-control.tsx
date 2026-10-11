@@ -32,7 +32,7 @@ import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import LearningRecordsView from '@/components/modules/schedule/learning-records-view';
 import LatexRenderer from '@/components/modules/latex-renderer';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
-import { parseLocalValue, persistLocalEdit, LOCAL_CONFLICT_PREFIX } from '@/lib/sync/local-edit';
+import { parseLocalValue, createLocalEditWriter, LOCAL_CONFLICT_PREFIX } from '@/lib/sync/local-edit';
 import { threeWayMerge } from '@/lib/sync/merge';
 import { canonicalJson } from '@/lib/sync/hash';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
@@ -1488,6 +1488,12 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const skipInitialEmptySaveRef = useRef(false);
   const scheduleBaseRef = useRef<unknown>(undefined);
   const questionBaseRef = useRef<unknown>(undefined);
+  const localWritersRef=useRef(new Map<string,ReturnType<typeof createLocalEditWriter>>());
+  const localWriter=useCallback((key:string)=>{
+    let writer=localWritersRef.current.get(key);
+    if(!writer){writer=createLocalEditWriter(localStorage,key,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined);localWritersRef.current.set(key,writer);}
+    return writer;
+  },[]);
   const [persistenceError, setPersistenceError] = useState('');
   const [aiReportBusyId, setAiReportBusyId] = useState('');
   const [reminderTitle, setReminderTitle] = useState('');
@@ -1523,27 +1529,25 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     }
     skipInitialEmptySaveRef.current = false;
     const candidate = state;
-    const base = scheduleBaseRef.current;
-    void persistLocalEdit(localStorage, STORAGE_KEY, base, candidate,
-      navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined).then(merged=>{
+    void localWriter(STORAGE_KEY).write(scheduleBaseRef.current,candidate).then(merged=>{
       scheduleBaseRef.current=merged;
       setPersistenceError('');
       if(canonicalJson(merged)!==canonicalJson(candidate))setState(current=>threeWayMerge(candidate,current,merged).merged as ScheduleControlState);
       if(signedIn)window.dispatchEvent(new Event('jackyun-sync-edit'));
     }).catch(error=>setPersistenceError(error instanceof Error?error.message:'页面保存失败，原始内容已保留。'));
-  }, [ready, signedIn, state]);
+  }, [ready, signedIn, state,localWriter]);
   useEffect(() => {
     const reload = (keys?: string[]) => {
       if(!keys || keys.includes(STORAGE_KEY)) {
         const incoming=parseLocalValue(localStorage.getItem(STORAGE_KEY));
         const base=scheduleBaseRef.current;
-        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length)scheduleBaseRef.current=incoming;return (result.merged ?? loadState()) as ScheduleControlState;});
+        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}return (result.merged ?? loadState()) as ScheduleControlState;});
       }
       if(!keys || keys.includes(QUESTION_BANK_KEY)) {
         try {
           const incoming=parseLocalValue(localStorage.getItem(QUESTION_BANK_KEY));
           const base=questionBaseRef.current;
-          setQuestionBank(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length)questionBaseRef.current=incoming;return readQuestionBank(result.merged ?? emptyQuestionBank());});setQuestionBankError('');
+          setQuestionBank(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){questionBaseRef.current=incoming;localWriter(QUESTION_BANK_KEY).reset(incoming);}return readQuestionBank(result.merged ?? emptyQuestionBank());});setQuestionBankError('');
         } catch(error){setQuestionBankError(error instanceof Error?error.message:'题库读取失败，原始内容已保留。');}
       }
     };
@@ -1552,7 +1556,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     window.addEventListener(CLOUD_STATE_APPLIED_EVENT,cloud);
     window.addEventListener('storage',storage);
     return()=>{window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,cloud);window.removeEventListener('storage',storage);};
-  }, []);
+  }, [localWriter]);
   useEffect(() => {
     const timer = window.setInterval(() => {
       const current = new Date();
@@ -1800,10 +1804,11 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     if (questionBankError) throw new Error(questionBankError);
     const drafts = Object.fromEntries(Object.entries(next.drafts).map(([id, draft]) => [id, reconcileStudyDraft(draft, state.cues, next.questions)]));
     const reconciled = { ...next, drafts };
+    setQuestionBank(reconciled);
     let saved: QuestionBankState;
-    try { saved = await persistLocalEdit(localStorage,QUESTION_BANK_KEY,questionBaseRef.current,reconciled,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined) as QuestionBankState;questionBaseRef.current=saved; }
+    try { saved = await localWriter(QUESTION_BANK_KEY).write(questionBaseRef.current,reconciled) as QuestionBankState;questionBaseRef.current=saved; }
     catch (error) { setPersistenceError(error instanceof Error?error.message:'题库保存失败，原始数据保留。');return false; }
-    setQuestionBank(saved);
+    setQuestionBank(current=>threeWayMerge(reconciled,current,saved).merged as QuestionBankState);
     if (signedIn) window.dispatchEvent(new Event('jackyun-sync-edit'));
     return true;
   };
@@ -1834,7 +1839,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     if (existing && existing.task.key !== migrated.task.key && !window.confirm('这个范围已有未完成的 Cue 学习进度。恢复旧进度会替换它，是否继续？')) return;
     const nextState = saveCueStudyDraft(state, migrated);
     // Save the destination before removing the old resumable draft.
-    const savedState = await persistLocalEdit(localStorage,STORAGE_KEY,scheduleBaseRef.current,nextState,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined) as ScheduleControlState;
+    const savedState = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current,nextState) as ScheduleControlState;
     scheduleBaseRef.current=savedState;setState(savedState);
     const drafts = { ...questionBank.drafts }; delete drafts[id];
     if (!await commitQuestionBank({ ...questionBank, drafts })) return;
@@ -1863,7 +1868,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const taskForRecord = { ...draft.task, cueIds, questionIds, scope: { ...draft.task.scope, cueIds, questionIds } };
     const updated = completeLearningSession(state, taskForRecord, { studiedContent: '', issue: '', note: '' }, evidence, new Date());
     // Persist the record before removing the resumable draft. Retrying uses sessionId.
-    const savedState = await persistLocalEdit(localStorage,STORAGE_KEY,scheduleBaseRef.current,updated,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined) as ScheduleControlState;
+    const savedState = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current,updated) as ScheduleControlState;
     scheduleBaseRef.current=savedState;setState(savedState);
     const drafts = { ...questionBank.drafts }; delete drafts[draft.id];
     if (!await commitQuestionBank({ ...questionBank, drafts })) return;
