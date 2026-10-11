@@ -599,7 +599,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
     setSaving(true);
     const created: SyllabusSubject[] = [];
     for (const d of DEFAULT_SUBJECTS) {
-      await upsertSubject(d.subject_name, d.color, d.units,subjects.find(s=>s.subject_name===d.subject_name)?.units ?? null);
+      await upsertSubject(d.subject_name, d.color, d.units,subjects.find(s=>s.subject_name===d.subject_name)?.units ?? null,subjects.find(s=>s.subject_name===d.subject_name)?.color);
       created.push({ id: d.subject_name, user_id: '', subject_name: d.subject_name, color: d.color, units: d.units });
     }
     setSubjects(created);
@@ -627,7 +627,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
   const handleImportSyllabus = async (data: SyllabusSubject[]) => {
     setSaving(true);
     for (const s of data) {
-      await upsertSubject(s.subject_name, s.color, s.units,subjects.find(row=>row.subject_name===s.subject_name)?.units ?? null);
+      await upsertSubject(s.subject_name, s.color, s.units,subjects.find(row=>row.subject_name===s.subject_name)?.units ?? null,subjects.find(row=>row.subject_name===s.subject_name)?.color);
     }
     setSubjects(data);
     setSaving(false);
@@ -648,7 +648,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
       if (i !== activeIdx) return s;
       return { ...s, units: [...s.units, newUnit] };
     });
-    try {await upsertSubject(activeSubject.subject_name, activeSubject.color, updated[activeIdx].units,activeSubject.units);setSubjects(updated);} catch (error) {setSaveError(error instanceof Error?error.message:'未保存，云端原计划已保留。');}
+    try {await upsertSubject(activeSubject.subject_name, activeSubject.color, updated[activeIdx].units,activeSubject.units,activeSubject.color);setSubjects(updated);} catch (error) {setSaveError(error instanceof Error?error.message:'未保存，云端原计划已保留。');}
   };
 
   const handleSaveMockRecord = async (rec: Omit<MockRecord, 'id' | 'created_at'>) => {

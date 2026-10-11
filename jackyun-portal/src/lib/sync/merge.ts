@@ -51,8 +51,22 @@ export function threeWayMerge(base: unknown, local: unknown, remote: unknown, pa
     const localOrder=order(localMap),remoteOrder=order(remoteMap);
     const localChanged=!equal(common,localOrder),remoteChanged=!equal(common,remoteOrder);
     if(localChanged&&remoteChanged&&!equal(localOrder,remoteOrder))conflicts.push(`${path}.$order`);
-    const preferred=localChanged?localMap:remoteChanged?remoteMap:baseMap;
-    const merged=[...new Set([...preferred.keys(),...localMap.keys(),...remoteMap.keys()])].filter(id=>mergedMap.has(id)).map(id=>mergedMap.get(id));
+    const preferred=localChanged?localMap:remoteChanged?remoteMap:localMap;
+    const mergedOrder=[...preferred.keys()].filter(id=>mergedMap.has(id));
+    // Keep each insertion beside its surviving neighbors, including insertions
+    // from the side whose existing records did not change order.
+    for(const source of [localMap,remoteMap]) {
+      const sourceOrder=[...source.keys()].filter(id=>mergedMap.has(id));
+      for(let index=0;index<sourceOrder.length;index++) {
+        const id=sourceOrder[index];
+        if(mergedOrder.includes(id))continue;
+        const next=sourceOrder.slice(index+1).find(candidate=>mergedOrder.includes(candidate));
+        const previous=sourceOrder.slice(0,index).reverse().find(candidate=>mergedOrder.includes(candidate));
+        const position=next!==undefined?mergedOrder.indexOf(next):previous!==undefined?mergedOrder.indexOf(previous)+1:mergedOrder.length;
+        mergedOrder.splice(position,0,id);
+      }
+    }
+    const merged=mergedOrder.map(id=>mergedMap.get(id));
     return { merged, conflicts };
   }
 

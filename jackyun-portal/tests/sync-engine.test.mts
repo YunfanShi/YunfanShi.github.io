@@ -4,6 +4,18 @@ import test from 'node:test';
 import {device,key,remote,server} from './sync-engine-fixture.mts';
 import {createRecordDelta,applyRecordDelta} from '../src/lib/sync/delta.ts';
 import {threeWayMerge} from '../src/lib/sync/merge.ts';
+
+test('concurrent field edits preserve insertion anchors on either device',()=>{
+ const base=[{id:'a',x:0},{id:'b',x:0}];
+ for(const inserted of [[{id:'x',x:0},...base],[base[0],{id:'x',x:0},base[1]],[...base,{id:'x',x:0}]]) {
+  const edited=[base[0],{...base[1],x:1}];
+  for(const [local,remote] of [[inserted,edited],[edited,inserted]]) {
+   const result=threeWayMerge(base,local,remote);
+   assert.deepEqual((result.merged as typeof base).map(row=>row.id),inserted.map(row=>row.id));
+   assert.equal((result.merged as typeof base).find(row=>row.id==='b')?.x,1);assert.deepEqual(result.conflicts,[]);
+  }
+ }
+});
 import {persistLocalEdit,createLocalEditWriter,parseLocalValue,LOCAL_CONFLICT_PREFIX,LocalEditConflict} from '../src/lib/sync/local-edit.ts';
 
 test('stale device with year 2999 clock retains additions on both devices',async()=>{

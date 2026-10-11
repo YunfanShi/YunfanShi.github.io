@@ -229,12 +229,15 @@ export async function upsertSubject(
   color: string,
   units: SyllabusUnit[],
   expectedUnits?: SyllabusUnit[] | null,
+  expectedColor?: string,
 ): Promise<void> {
   const { supabase, user } = await getAuthenticatedUser();
   const payload={user_id:user.id,subject_name:subjectName,color,units,updated_at:new Date().toISOString()};
   const result=expectedUnits == null
     ? await supabase.from('study_syllabus').insert(payload).select('id')
-    : await supabase.from('study_syllabus').update(payload).eq('user_id',user.id).eq('subject_name',subjectName).eq('units',JSON.stringify(expectedUnits)).select('id');
+    : expectedColor === undefined
+      ? {error:null,data:[]}
+      : await supabase.from('study_syllabus').update(payload).eq('user_id',user.id).eq('subject_name',subjectName).eq('units',JSON.stringify(expectedUnits)).eq('color',expectedColor).select('id');
   if(result.error)throw new Error(result.error.message);
   if(!result.data?.length)throw new Error('学习计划已被另一台设备修改，请刷新后合并；未覆盖云端内容。');
   revalidatePath('/study');
