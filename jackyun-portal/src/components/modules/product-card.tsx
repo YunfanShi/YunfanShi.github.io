@@ -19,6 +19,7 @@ export default function ProductCard({
   return (
     <Link
       href={href}
+      prefetch={false}
       className="group relative flex min-h-52 flex-col overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)]"
     >
       {/* Top color bar */}
