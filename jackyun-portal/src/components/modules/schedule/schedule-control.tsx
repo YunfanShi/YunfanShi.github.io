@@ -32,6 +32,9 @@ import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import LearningRecordsView from '@/components/modules/schedule/learning-records-view';
 import LatexRenderer from '@/components/modules/latex-renderer';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
+import { parseLocalValue, persistLocalEdit, LOCAL_CONFLICT_PREFIX } from '@/lib/sync/local-edit';
+import { threeWayMerge } from '@/lib/sync/merge';
+import { canonicalJson } from '@/lib/sync/hash';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 import { scheduleHasContent } from '@/lib/sync/schedule-safety';
 import { cueRatingDestination } from '@/lib/schedule/cue-study-navigation';
@@ -1483,6 +1486,9 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const [sendingTaskKey, setSendingTaskKey] = useState('');
   const autoDidaAttemptedRef = useRef(new Set<string>());
   const skipInitialEmptySaveRef = useRef(false);
+  const scheduleBaseRef = useRef<unknown>(undefined);
+  const questionBaseRef = useRef<unknown>(undefined);
+  const [persistenceError, setPersistenceError] = useState('');
   const [aiReportBusyId, setAiReportBusyId] = useState('');
   const [reminderTitle, setReminderTitle] = useState('');
   const [reminderDate, setReminderDate] = useState('');
@@ -1496,6 +1502,8 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       setNow(current);
       setSelectedDate(dateKey(current));
       skipInitialEmptySaveRef.current = localStorage.getItem(STORAGE_KEY) === null;
+      scheduleBaseRef.current = parseLocalValue(localStorage.getItem(STORAGE_KEY));
+      questionBaseRef.current = parseLocalValue(localStorage.getItem(QUESTION_BANK_KEY));
       const loadedState = loadState(current);
       setState(loadedState);
       setGuideOpen((loadedState.settings.tutorialSeenVersion ?? 0) < 1);
@@ -1514,22 +1522,36 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       return;
     }
     skipInitialEmptySaveRef.current = false;
-    const serialized = JSON.stringify(state);
-    if (localStorage.getItem(STORAGE_KEY) === serialized) return;
-    localStorage.setItem(STORAGE_KEY, serialized);
-    if (signedIn) window.dispatchEvent(new Event('jackyun-sync-edit'));
+    const candidate = state;
+    const base = scheduleBaseRef.current;
+    void persistLocalEdit(localStorage, STORAGE_KEY, base, candidate,
+      navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined).then(merged=>{
+      scheduleBaseRef.current=merged;
+      setPersistenceError('');
+      if(canonicalJson(merged)!==canonicalJson(candidate))setState(current=>threeWayMerge(candidate,current,merged).merged as ScheduleControlState);
+      if(signedIn)window.dispatchEvent(new Event('jackyun-sync-edit'));
+    }).catch(error=>setPersistenceError(error instanceof Error?error.message:'页面保存失败，原始内容已保留。'));
   }, [ready, signedIn, state]);
   useEffect(() => {
-    const reloadCloudState = (event: Event) => {
-      const keys = (event as CustomEvent<{ keys?: string[] }>).detail?.keys;
-      if (keys?.includes(STORAGE_KEY)) setState(loadState());
-      if (!keys || keys.includes(QUESTION_BANK_KEY)) {
-        try { const stored = localStorage.getItem(QUESTION_BANK_KEY); setQuestionBank(stored ? readQuestionBank(JSON.parse(stored)) : emptyQuestionBank()); setQuestionBankError(''); }
-        catch (error) { setQuestionBankError(`题库读取失败，原数据已保留：${error instanceof Error ? error.message : '格式错误'}`); }
+    const reload = (keys?: string[]) => {
+      if(!keys || keys.includes(STORAGE_KEY)) {
+        const incoming=parseLocalValue(localStorage.getItem(STORAGE_KEY));
+        const base=scheduleBaseRef.current;
+        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length)scheduleBaseRef.current=incoming;return (result.merged ?? loadState()) as ScheduleControlState;});
+      }
+      if(!keys || keys.includes(QUESTION_BANK_KEY)) {
+        try {
+          const incoming=parseLocalValue(localStorage.getItem(QUESTION_BANK_KEY));
+          const base=questionBaseRef.current;
+          setQuestionBank(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length)questionBaseRef.current=incoming;return readQuestionBank(result.merged ?? emptyQuestionBank());});setQuestionBankError('');
+        } catch(error){setQuestionBankError(error instanceof Error?error.message:'题库读取失败，原始内容已保留。');}
       }
     };
-    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, reloadCloudState);
-    return () => window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, reloadCloudState);
+    const cloud=(event:Event)=>reload((event as CustomEvent<{keys?:string[]}>).detail?.keys);
+    const storage=(event:StorageEvent)=>{if(event.storageArea===localStorage && (event.key===STORAGE_KEY || event.key===QUESTION_BANK_KEY))reload([event.key]);};
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT,cloud);
+    window.addEventListener('storage',storage);
+    return()=>{window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,cloud);window.removeEventListener('storage',storage);};
   }, []);
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1774,14 +1796,16 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     }
   };
 
-  const commitQuestionBank = (next: QuestionBankState) => {
+  const commitQuestionBank = async (next: QuestionBankState) => {
     if (questionBankError) throw new Error(questionBankError);
     const drafts = Object.fromEntries(Object.entries(next.drafts).map(([id, draft]) => [id, reconcileStudyDraft(draft, state.cues, next.questions)]));
     const reconciled = { ...next, drafts };
-    try { localStorage.setItem(QUESTION_BANK_KEY, JSON.stringify(reconciled)); }
-    catch { throw new Error('题库保存失败：本机存储空间不足。请导出备份后再继续。'); }
-    setQuestionBank(reconciled);
+    let saved: QuestionBankState;
+    try { saved = await persistLocalEdit(localStorage,QUESTION_BANK_KEY,questionBaseRef.current,reconciled,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined) as QuestionBankState;questionBaseRef.current=saved; }
+    catch (error) { setPersistenceError(error instanceof Error?error.message:'题库保存失败，原始数据保留。');return false; }
+    setQuestionBank(saved);
     if (signedIn) window.dispatchEvent(new Event('jackyun-sync-edit'));
+    return true;
   };
   const changeQuestionBank = (next: QuestionBankState) => {
     commitQuestionBank(next);
@@ -1801,7 +1825,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [id]: draft } });
     setActiveStudyId(id); setStudyPreviewTask(null);
   };
-  const resumeUnifiedStudy = (id: string) => {
+  const resumeUnifiedStudy = async (id: string) => {
     const saved = questionBank.drafts[id];
     if (!saved) return;
     const migrated = legacyCueStudyDraft(saved, state.cues);
@@ -1810,10 +1834,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     if (existing && existing.task.key !== migrated.task.key && !window.confirm('这个范围已有未完成的 Cue 学习进度。恢复旧进度会替换它，是否继续？')) return;
     const nextState = saveCueStudyDraft(state, migrated);
     // Save the destination before removing the old resumable draft.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-    setState(nextState);
+    const savedState = await persistLocalEdit(localStorage,STORAGE_KEY,scheduleBaseRef.current,nextState,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined) as ScheduleControlState;
+    scheduleBaseRef.current=savedState;setState(savedState);
     const drafts = { ...questionBank.drafts }; delete drafts[id];
-    commitQuestionBank({ ...questionBank, drafts });
+    if (!await commitQuestionBank({ ...questionBank, drafts })) return;
     setCueStudyTask(migrated.task);
   };
   const changeCueDifficulty = (id: string, userDifficulty?: CueDifficulty) => setState((current) => {
@@ -1828,7 +1852,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     commitQuestionBank({ ...next, drafts: { ...next.drafts, [draft.id]: nextDraft } });
     if (item.kind === 'cue') setState((current) => recordCueStudyAssessment(current, { cueId: item.id, status }, at, draft.id));
   };
-  const finishUnifiedStudy = (draft: StudyDraft) => {
+  const finishUnifiedStudy = async (draft: StudyDraft) => {
     const live = reconcileStudyDraft(draft, state.cues, questionBank.questions);
     if (!live.items.length || live.items.some((item) => !live.assessments[itemKey(item)])) throw new Error('请完成本次全部内容的评价。');
     const cueIds = live.items.filter((item) => item.kind === 'cue').map((item) => item.id);
@@ -1839,10 +1863,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const taskForRecord = { ...draft.task, cueIds, questionIds, scope: { ...draft.task.scope, cueIds, questionIds } };
     const updated = completeLearningSession(state, taskForRecord, { studiedContent: '', issue: '', note: '' }, evidence, new Date());
     // Persist the record before removing the resumable draft. Retrying uses sessionId.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setState(updated);
+    const savedState = await persistLocalEdit(localStorage,STORAGE_KEY,scheduleBaseRef.current,updated,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined) as ScheduleControlState;
+    scheduleBaseRef.current=savedState;setState(savedState);
     const drafts = { ...questionBank.drafts }; delete drafts[draft.id];
-    commitQuestionBank({ ...questionBank, drafts });
+    if (!await commitQuestionBank({ ...questionBank, drafts })) return;
     setActiveStudyId(null);
     if (universeEnabled && cueIds.length) setStarSummary('summary');
     setNotice(`学习记录已保存 · ${cueIds.length} 条 CUE、${questionIds.length} 题；未掌握内容按各自历史继续安排。`);
@@ -1855,6 +1879,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
   return (
     <div className={`${styles.root} mx-auto min-w-0 max-w-[1500px] break-words pb-10`}>
+      {persistenceError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4"><p>{persistenceError}</p><button type="button" className="mt-2 underline" onClick={()=>downloadStudyJson({schedule:parseLocalValue(localStorage.getItem(LOCAL_CONFLICT_PREFIX+STORAGE_KEY))??state,questions:parseLocalValue(localStorage.getItem(LOCAL_CONFLICT_PREFIX+QUESTION_BANK_KEY))??questionBank},'jackyun-unsaved-edits.json')}>下载两份内容与未保存修改</button></div>}
       <header className={`${styles.header} overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]`}>
         <div className="relative px-4 py-4 sm:px-7 sm:py-6">
           <div className="pointer-events-none absolute -right-12 -top-20 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />

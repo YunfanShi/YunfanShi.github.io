@@ -8,7 +8,7 @@ const TAG = 'API/LegacySync';
 /** Helper to log and return error */
 function apiError(message: string, status: number, detail?: unknown) {
   console.error(`[${TAG}] ${message}`, detail ?? '');
-  return NextResponse.json({ ok: false, error: message, detail, timestamp: new Date().toISOString() }, { status });
+  return NextResponse.json({ ok: false, error: message, timestamp: new Date().toISOString() }, { status });
 }
 
 // GET /api/legacy-sync — load all legacy data for the current user
@@ -47,104 +47,10 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/legacy-sync — upsert a single key/value
-export async function POST(request: NextRequest) {
-  const azureResponse = await forwardAzureSync(request);
-  if (azureResponse) return azureResponse;
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return apiError('Unauthorized', 401);
-
-    const body = await request.json() as { key?: string; value?: unknown; entries?: Array<{ key?: string; value?: unknown }> };
-    const entries = Array.isArray(body.entries) ? body.entries : [{ key: body.key, value: body.value }];
-    if (!entries.length || entries.length > 200) return apiError('Invalid entry count', 400);
-    const now = new Date().toISOString();
-    const rows = entries.map(({ key, value }) => {
-      if (!key || !isSyncableStorageKey(key)) throw new Error('Storage key is not syncable');
-      const storageValue = typeof value === 'string'
-        ? (() => { try { return JSON.parse(value); } catch { return value; } })()
-        : value;
-      if ((JSON.stringify(storageValue) ?? 'null').length > 100_000) throw new Error('Storage value is too large');
-      return { user_id: user.id, storage_key: key, storage_value: storageValue, updated_at: now, client_updated_at: now };
-    });
-
-    const { error } = await supabase.from('legacy_sync_data').upsert(rows, { onConflict: 'user_id,storage_key' });
-
-    if (error) return apiError('Database upsert failed', 500, error);
-
-    return NextResponse.json({ ok: true, timestamp: now, count: rows.length });
-  } catch (err) {
-    return apiError('Internal server error', 500, err instanceof Error ? err.message : String(err));
-  }
+export async function POST() {
+  return NextResponse.json({ok:false,error:{code:'SYNC_UPGRADE_REQUIRED',message:'Use versioned workspace sync; local changes are retained.'}},{status:426});
 }
-
-// PUT /api/legacy-sync — upsert a single key/value (alias for POST)
-export async function PUT(request: NextRequest) {
-  const azureResponse = await forwardAzureSync(request);
-  if (azureResponse) return azureResponse;
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return apiError('Unauthorized', 401);
-
-    const body = await request.json();
-    const { key, value } = body as { key: string; value: unknown };
-    if (!key || !isSyncableStorageKey(key)) return apiError('Storage key is not syncable', 400);
-
-    const storageValue =
-      typeof value === 'string'
-        ? (() => { try { return JSON.parse(value); } catch { return value; } })()
-        : value;
-
-    const now = new Date().toISOString();
-    const { error } = await supabase.from('legacy_sync_data').upsert(
-      {
-        user_id: user.id,
-        storage_key: key,
-        storage_value: storageValue,
-        updated_at: now,
-        client_updated_at: now,
-      },
-      { onConflict: 'user_id,storage_key' },
-    );
-
-    if (error) return apiError('Database upsert failed', 500, error);
-
-    return NextResponse.json({ ok: true, timestamp: now });
-  } catch (err) {
-    return apiError('Internal server error', 500, err instanceof Error ? err.message : String(err));
-  }
-}
-
-// DELETE /api/legacy-sync — remove a single key
-export async function DELETE(request: NextRequest) {
-  const azureResponse = await forwardAzureSync(request);
-  if (azureResponse) return azureResponse;
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return apiError('Unauthorized', 401);
-
-    const body = await request.json();
-    const { key } = body as { key: string };
-    if (!key || !isSyncableStorageKey(key)) return apiError('Storage key is not syncable', 400);
-
-    const { error } = await supabase
-      .from('legacy_sync_data')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('storage_key', key);
-
-    if (error) return apiError('Database delete failed', 500, error);
-
-    return NextResponse.json({ ok: true, timestamp: new Date().toISOString() });
-  } catch (err) {
-    return apiError('Internal server error', 500, err instanceof Error ? err.message : String(err));
-  }
-}
+export const PUT=POST;
+export const DELETE=POST;
+export const dynamic='force-dynamic';
+export const runtime='nodejs';

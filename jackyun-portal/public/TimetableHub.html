@@ -1018,75 +1018,12 @@ function setCloudStatus(s,cls){
   }
 }
 // 云端同步：把当前方案（含 th_state / th_config）上传到 Supabase，其他设备可从云端读取
-let cloudSyncTimer=null;
-let cloudSyncRetryCount=0;
+// The portal's versioned queue owns cloud reads, writes and bounded retries.
 function pushCloudSync(){
-  if(!plan)return;
-  // 防抖：短时间多次保存只推送一次
-  if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
-  cloudSyncTimer=setTimeout(()=>{
-    try{
-      const payload={
-        th_state:{plan,plans,activePlanId:planId,dayRange:getDayRange(),updatedAt:new Date().toISOString()},
-        th_config:{dayRange:getDayRange()}
-      };
-      setCloudStatus('⏳ 同步中');
-      fetch('/api/timetable-sync',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload),
-        credentials:'same-origin'
-      }).then(res=>{
-        if(res.ok){
-          cloudSyncRetryCount=0;
-          setCloudStatus('☁️ 已同步','ok');
-        }else{
-          setCloudStatus('⚠️ 同步失败','err');
-        }
-      }).catch(()=>{
-        setCloudStatus('⚠️ 同步失败','err');
-        // 失败后自动重试一次（2 秒后），提升跨设备同步可靠性
-        if(cloudSyncRetryCount<1){
-          cloudSyncRetryCount++;
-          setTimeout(()=>{cloudSyncRetryCount=0;pushCloudSync()},2000);
-        }
-      });
-    }catch(e){}
-  },400);
+  try{if(window.parent!==window)window.parent.dispatchEvent(new Event('jackyun-sync-edit'));}catch(e){}
+  setCloudStatus('已保存本机 · 同步状态见门户顶部','ok');
 }
-// 从云端拉取方案（登录用户打开页面时调用，覆盖本地旧数据）
-async function pullCloudSync(){
-  try{
-    const res=await fetch('/api/timetable-sync',{
-      method:'GET',
-      credentials:'same-origin'
-    });
-    if(!res.ok)return;
-    const data=await res.json();
-    if(data.ok&&data.th_state&&data.th_state.plan){
-      const cloudPlan=data.th_state.plan;
-      const cloudPlans=data.th_state.plans||[];
-      const cloudActive=data.th_state.activePlanId;
-      const cloudDayRange=data.th_state.dayRange;
-      // 云端数据比本地新才覆盖（避免本地刚编辑的数据被旧云端覆盖）
-      const localUpdated=plan&&plan.updatedAt?new Date(plan.updatedAt).getTime():0;
-      const cloudUpdated=cloudPlan.updatedAt?new Date(cloudPlan.updatedAt).getTime():0;
-      if(cloudUpdated>=localUpdated){
-        if(Array.isArray(cloudPlans)&&cloudPlans.length)plans=cloudPlans;
-        if(cloudDayRange)localStorage.setItem('th2_day_range',JSON.stringify(cloudDayRange));
-        if(cloudActive){
-          planId=cloudActive;
-          localStorage.setItem(LS_ACTIVE,cloudActive);
-        }
-        try{localStorage.setItem(LS_PLANS+cloudPlan.id,JSON.stringify(cloudPlan))}catch(e){}
-        try{localStorage.setItem(LS_PLANS,JSON.stringify(plans))}catch(e){}
-        // 主题方案已在 plans 中时，直接加载
-        loadPlan(cloudPlan.id,false);
-        msg('📥 已从云端同步最新日程');
-      }
-    }
-  }catch(e){}
-}
+async function pullCloudSync(){ /* Shared origin storage is updated by the portal. */ }
 // 保存时同时推送云端
 const _origSaveNow=saveNow;
 saveNow=function(showMsg){

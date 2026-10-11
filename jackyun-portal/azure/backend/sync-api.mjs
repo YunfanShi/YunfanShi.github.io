@@ -4,6 +4,7 @@ import { canonicalJson } from '../../src/lib/sync/hash.ts';
 import { SCHEDULE_STORAGE_KEY, unsafeScheduleReplacement } from '../../src/lib/sync/schedule-safety.ts';
 import { MAX_LARGE_SYNC_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from '../../src/lib/sync/transfer.ts';
 import { ApiError } from './errors.mjs';
+import { applyRecordDelta } from '../../src/lib/sync/delta.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
@@ -17,7 +18,7 @@ const validOperation = (op, large) => op && typeof op === 'object' && UUID.test(
   && typeof op.key === 'string' && isSyncableStorageKey(op.key)
   && Number.isSafeInteger(op.baseRevision) && op.baseRevision >= 0
   && (op.baseHash === null || (typeof op.baseHash === 'string' && HASH.test(op.baseHash)))
-  && typeof op.deleted === 'boolean' && (op.deleted || Object.hasOwn(op, 'value'))
+  && typeof op.deleted === 'boolean' && (op.deleted || Object.hasOwn(op, 'value') || Array.isArray(op.patch))
   && typeof op.clientUpdatedAt === 'string' && Number.isFinite(Date.parse(op.clientUpdatedAt))
   && (!op.resolvesOperationId || UUID.test(op.resolvesOperationId))
   && (large || (syncValueFits(op.value) && syncValueFits(op.baseValue)));
@@ -31,6 +32,7 @@ async function applyOperation(client, op, deviceId) {
 }
 
 async function applyBody(client, identity, body, large = false) {
+  if (body?.syncProtocol !== 3 && body?.requireCurrentVersion !== true) fail(426, 'SYNC_UPGRADE_REQUIRED');
   if (!body || !UUID.test(body.deviceId ?? '') || json(body).length > (large ? MAX_LARGE_SYNC_BYTES : 1_000_000)) fail(400, 'INVALID_BODY');
   if (!Array.isArray(body.operations) || body.operations.length > 100 || !body.operations.every(op => validOperation(op, large))) fail(400, 'INVALID_OPERATIONS');
   if (new Set(body.operations.map(op => op.key)).size !== body.operations.length) fail(400, 'DUPLICATE_KEYS');
@@ -39,9 +41,9 @@ async function applyBody(client, identity, body, large = false) {
   // Restores must not use last-write-wins across a newer change. This check runs
   // in the same transaction and user write lock as the following mutation,
   // including when the request has been reassembled from large-value chunks.
-  if (body.requireCurrentVersion) {
+  if (body.requireCurrentVersion && body.syncProtocol !== 3) {
     for (const op of body.operations) {
-      const prior = (await client.query('SELECT storage_key,result FROM public.sync_operations WHERE user_id=$1 AND id=$2', [identity.sub,op.id])).rows[0];
+      const prior = (await client.query('SELECT storage_key,result,(SELECT request_hash FROM public.sync_v3_receipts r WHERE r.user_id=$1 AND r.operation_id=$2) AS request_hash FROM public.sync_operations WHERE user_id=$1 AND id=$2', [identity.sub,op.id])).rows[0];
       if (prior) {
         if (prior.storage_key !== op.key || prior.result?.status !== 'applied' || prior.result.contentHash !== hash(op.value,op.deleted)) fail(409,'RESTORE_OPERATION_MISMATCH');
         continue;
@@ -51,7 +53,7 @@ async function applyBody(client, identity, body, large = false) {
     }
   }
   const schedule = body.operations.find(op => op.key === SCHEDULE_STORAGE_KEY);
-  if (schedule) {
+  if (schedule && !Object.hasOwn(schedule,'patch')) {
     const current = (await client.query('SELECT storage_value,deleted_at FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub, SCHEDULE_STORAGE_KEY])).rows[0];
     if (!current?.deleted_at && unsafeScheduleReplacement(current?.storage_value, schedule.deleted ? null : schedule.value)) fail(409, 'SCHEDULE_EMPTY_REPLACEMENT');
   }
@@ -65,14 +67,42 @@ async function applyBody(client, identity, body, large = false) {
   const recent = (await client.query("SELECT count(*)::integer AS count FROM public.sync_operations WHERE user_id=$1 AND created_at>=now()-interval '1 minute'", [identity.sub])).rows[0].count;
   if (recent + body.operations.length > 600) fail(429, 'RATE_LIMITED');
   const applied = [], remote = [], conflicts = [];
-  for (const op of body.operations) {
-    let result = await applyOperation(client, op, body.deviceId);
+  for (const incoming of body.operations) {
+    const requestHash = createHash('sha256').update(canonicalJson(incoming)).digest('hex');
+    const prior = (await client.query('SELECT storage_key,result,(SELECT request_hash FROM public.sync_v3_receipts r WHERE r.user_id=$1 AND r.operation_id=$2) AS request_hash FROM public.sync_operations WHERE user_id=$1 AND id=$2', [identity.sub,incoming.id])).rows[0];
+    const current = prior ? undefined : (await client.query('SELECT * FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub,incoming.key])).rows[0];
+    let op = incoming;
+    let result;
+    if (prior) {
+      if (prior.storage_key !== incoming.key || ((prior.request_hash ?? prior.result.requestHash) ? (prior.request_hash ?? prior.result.requestHash) !== requestHash : prior.result.status === 'applied' && (Object.hasOwn(incoming,'patch') || prior.result.contentHash !== hash(incoming.value,incoming.deleted)))) fail(409,'OPERATION_ID_REUSED');
+      result = prior.result;
+    } else if (Number(current?.revision ?? 0) !== incoming.baseRevision || (current?.content_hash ?? null) !== incoming.baseHash) {
+      result = {status:'conflict',revision:Number(current?.revision ?? 0),remoteValue:current?.storage_value ?? null,
+        remoteDeleted:!current || Boolean(current.deleted_at),remoteHash:current?.content_hash ?? null,
+        remoteUpdatedAt:iso(current?.updated_at)};
+      await client.query(`INSERT INTO public.sync_conflicts(user_id,device_id,operation_id,storage_key,base_revision,base_value,local_value,local_deleted,remote_value,remote_deleted,remote_hash,remote_revision)
+        VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10,$11,$12) ON CONFLICT(user_id,operation_id) DO NOTHING`,
+        [identity.sub,body.deviceId,op.id,op.key,op.baseRevision,json(op.baseValue),json(op.patch ? {syncDelta:op.patch} : op.value),op.deleted,json(result.remoteValue),result.remoteDeleted,result.remoteHash,result.revision]);
+      await client.query('INSERT INTO public.sync_operations(id,user_id,device_id,storage_key,result) VALUES($1,$2,$3,$4,$5::jsonb)',
+        [op.id,identity.sub,body.deviceId,op.key,json({...result,requestHash})]);
+    } else {
+      if (Object.hasOwn(op,'patch')) {
+        try { op = {...op,value:op.deleted ? null : applyRecordDelta(current?.deleted_at ? undefined : current?.storage_value,op.patch)}; }
+        catch { fail(400,'INVALID_DELTA'); }
+      }
+      if (!op.deleted && op.value === undefined) fail(400,'INVALID_DELTA');
+      if (json(op.value).length > MAX_LARGE_SYNC_BYTES) fail(413,'PAYLOAD_TOO_LARGE');
+      if (op.key === SCHEDULE_STORAGE_KEY && !current?.deleted_at && unsafeScheduleReplacement(current?.storage_value,op.deleted ? null : op.value)) fail(409,'SCHEDULE_EMPTY_REPLACEMENT');
+      result = await applyOperation(client,op,body.deviceId);
+      await client.query('INSERT INTO public.sync_v3_receipts(user_id,operation_id,request_hash) VALUES($1,$2,$3)',[identity.sub,op.id,requestHash]);
+    }
     if (result.status === 'remote' || result.status === 'conflict') {
       const row = (await client.query('SELECT * FROM public.list_web_sync_records(NULL,$1)',[op.key])).rows[0];
-      if (!row || row.storage_key !== op.key) fail(503,'SYNC_REMOTE_UNAVAILABLE');
-      result = { ...result,revision:Number(row.revision),remoteValue:row.storage_value,
+      if (!row && Number(result.revision) !== 0) fail(503,'SYNC_REMOTE_UNAVAILABLE');
+      if (row && row.storage_key !== op.key) fail(503,'SYNC_REMOTE_UNAVAILABLE');
+      if (row) result = { ...result,revision:Number(row.revision),remoteValue:row.storage_value,
         remoteLarge:Boolean(row.large),remoteDeleted:Boolean(row.deleted_at),
-        remoteHash:row.content_hash,remoteUpdatedAt:iso(row.client_updated_at ?? row.updated_at) };
+        remoteHash:row.content_hash,remoteUpdatedAt:iso(row.updated_at) };
     }
     if (result.status === 'applied') applied.push({ operationId: op.id, key: op.key, revision: Number(result.revision), contentHash: result.contentHash, updatedAt: result.updatedAt ?? op.clientUpdatedAt });
     else if (result.status === 'remote') {
@@ -82,7 +112,7 @@ async function applyBody(client, identity, body, large = false) {
     } else {
       const remoteLarge = !result.remoteDeleted && (Boolean(result.remoteLarge) || !syncValueFits(result.remoteValue));
       conflicts.push({ operationId: op.id, key: op.key, baseRevision: op.baseRevision, baseValue: op.baseValue,
-        localValue: op.deleted ? null : op.value, localDeleted: op.deleted, remoteValue: remoteLarge ? null : result.remoteValue,
+        localValue: op.deleted ? null : op.value ?? {syncDelta:op.patch}, localDeleted: op.deleted, remoteValue: remoteLarge ? null : result.remoteValue,
         remoteLarge, remoteDeleted: Boolean(result.remoteDeleted), remoteHash: result.remoteHash,
         remoteRevision: Number(result.revision ?? 0), remoteUpdatedAt: result.remoteUpdatedAt });
     }
@@ -94,7 +124,7 @@ async function applyBody(client, identity, body, large = false) {
 }
 
 export function createSyncApi(database, { verifyBackupCapture } = {}) {
-  return async function handle(method, url, body, identity, token) {
+  return async function handle(method, url, body, identity, token, context={}) {
     const route = url.pathname;
     const write = method !== 'GET';
     // Verify a committed source receipt before opening the Azure transaction.
@@ -131,25 +161,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           return { ok: true, data, timestamps };
         }
         if (!['POST', 'PUT', 'DELETE'].includes(method)) fail(405, 'METHOD_NOT_ALLOWED');
-        const entries = method === 'DELETE' ? [{ key: body?.key, value: null }]
-          : Array.isArray(body?.entries) ? body.entries : [{ key: body?.key, value: body?.value }];
-        if (!entries.length || entries.length > 200 || new Set(entries.map(e => e?.key)).size !== entries.length) fail(400, 'INVALID_ENTRIES');
-        const operations = [];
-        for (const entry of entries) {
-          if (typeof entry?.key !== 'string' || !isSyncableStorageKey(entry.key)) fail(400, 'INVALID_KEY');
-          let value = entry.value;
-          if (typeof value === 'string') { try { value = JSON.parse(value); } catch { /* Plain legacy strings are valid. */ } }
-          if (json(value).length > 100_000) fail(413, 'PAYLOAD_TOO_LARGE');
-          const current = (await client.query('SELECT revision,content_hash,storage_value FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2', [identity.sub, entry.key])).rows[0];
-          operations.push({ id: randomUUID(), key: entry.key, value, deleted: method === 'DELETE',
-            baseRevision: Number(current?.revision ?? 0), baseHash: current?.content_hash ?? null,
-            baseValue: current?.storage_value ?? null, clientUpdatedAt: new Date().toISOString() });
-        }
-        for (let start = 0; start < operations.length; start += 100) {
-          await applyBody(client, identity, { deviceId: identity.session_id,
-            device: { name: 'Legacy compatibility', platform: 'web' }, operations: operations.slice(start, start + 100) });
-        }
-        return { ok: true, count: operations.length, timestamp: new Date().toISOString() };
+        fail(426,'SYNC_UPGRADE_REQUIRED');
       }
       if (route === '/api/sync/export') {
         if (method !== 'GET') fail(405, 'METHOD_NOT_ALLOWED');
@@ -174,8 +186,28 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         const page = visible.slice(0,20);
         return { ok:true,records:page.filter(row=>isSyncableStorageKey(row.storage_key)).map(row=>({
           key:row.storage_key,value:row.storage_value,revision:Number(row.revision),contentHash:row.content_hash,
-          deleted:Boolean(row.deleted_at),large:Boolean(row.large),updatedAt:iso(row.client_updated_at ?? row.updated_at),
+          deleted:Boolean(row.deleted_at),large:Boolean(row.large),updatedAt:iso(row.updated_at),
         })),next:visible.length>20?page.at(-1).storage_key:null };
+      }
+      if (route === '/api/sync/v3') {
+        if (method !== 'GET') fail(405,'METHOD_NOT_ALLOWED');
+        const after = url.searchParams.get('after') ?? '';
+        if (after && !isSyncableStorageKey(after)) fail(400,'INVALID_CURSOR');
+        const visible=[];let position=after;
+        for(let scanned=0;scanned<20000 && visible.length<101;scanned+=101){
+          const rows=(await client.query(`SELECT storage_key,revision,content_hash,deleted_at,client_updated_at,updated_at
+            FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key COLLATE "C" > $2 COLLATE "C"
+            ORDER BY storage_key COLLATE "C" LIMIT 101`,[identity.sub,position])).rows;
+          for(const row of rows)if(isSyncableStorageKey(row.storage_key))visible.push(row);
+          if(rows.length<101 || visible.length>=101)break;
+          const next=rows.at(-1).storage_key;
+          if(Buffer.compare(Buffer.from(next),Buffer.from(position))<=0)fail(503,'MANIFEST_CURSOR_INVALID');
+          position=next;
+          if(scanned+101>=20000)fail(413,'MANIFEST_SCAN_LIMIT');
+        }
+        const page=visible.slice(0,100);
+        return {ok:true,syncProtocol:3,records:page.map(row=>({key:row.storage_key,revision:Number(row.revision),contentHash:row.content_hash,
+          deleted:Boolean(row.deleted_at),updatedAt:iso(row.updated_at)})),next:visible.length>100?page.at(-1).storage_key:null};
       }
       if (route === '/api/sync/v2') {
         if (method === 'POST') return applyBody(client, identity, body);
@@ -188,7 +220,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         return { ok: true, records: rows.filter(row => isSyncableStorageKey(row.storage_key)).map(row => ({
           key: row.storage_key, value: row.deleted_at || !syncValueFits(row.storage_value) ? null : row.storage_value,
           revision: Number(row.revision), contentHash: row.content_hash, deleted: Boolean(row.deleted_at),
-          large: !row.deleted_at && (row.large || !syncValueFits(row.storage_value)), updatedAt: iso(row.client_updated_at ?? row.updated_at),
+          large: !row.deleted_at && (row.large || !syncValueFits(row.storage_value)), updatedAt: iso(row.updated_at),
         })), cursor: rows.length ? iso(rows.at(-1).updated_at) : new Date().toISOString(), serverTime: new Date().toISOString() };
       }
       if (route === '/api/sync/v2/large') {
@@ -257,12 +289,12 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         const op = { id: randomUUID(), key: conflict.storage_key, baseRevision: Number(conflict.remote_revision),
           baseHash: conflict.remote_hash, baseValue: conflict.remote_value, value: body.value,
           deleted: body.deleted === true, clientUpdatedAt: new Date().toISOString() };
-        const result = await applyOperation(client, op, body.deviceId);
-        if (result.status !== 'applied') fail(409, 'CONFLICT_CHANGED');
+        const response = await applyBody(client,identity,{syncProtocol:3,deviceId:body.deviceId,operations:[op]});
+        if (response.applied.length !== 1) fail(409, 'CONFLICT_CHANGED');
         await client.query('UPDATE public.sync_conflicts SET resolved_at=now() WHERE id=$1 AND user_id=$2', [conflict.id, identity.sub]);
-        return { ok: true, operationId: op.id, revision: Number(result.revision) };
+        return { ok: true, operationId: op.id, revision: response.applied[0].revision };
       }
       fail(404, 'NOT_FOUND');
-    }, { write });
+    }, { write,onMetrics:metrics=>Object.assign(context,metrics) });
   };
 }

@@ -46,8 +46,10 @@ test('forced logout skips remote auth and UI preserves pending data', () => {
   assert.doesNotMatch(ui, /clearOfflineWorkspace|await signOut/);
   assert.match(ui, /if \(!force\) \{[\s\S]*saveCurrentLocalBackups[\s\S]*listOfflineMutations/);
   const sync = readFileSync(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8');
-  assert.match(sync, /onlyPending && !\(await getOutbox\(\)\)\.length/);
+  assert.match(sync, /engine\.capture/);
+  assert.match(sync, /syncStore\.getOutbox/);
   assert.doesNotMatch(sync, /\/api\/health/);
   assert.doesNotMatch(sync, /current === lastSnapshot\[key\] && base/);
-  assert.match(sync, /pendingByKey/);
+  const engine=readFileSync(new URL('../src/lib/sync/engine.ts',import.meta.url),'utf8');
+  assert.match(engine,/operationMatchesStorage/);
 });

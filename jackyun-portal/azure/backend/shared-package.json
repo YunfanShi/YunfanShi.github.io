@@ -1,1 +1,5 @@
-{"private":true,"type":"module"}
+{
+  "private": true,
+  "type": "module",
+  "version": "4.0.0"
+}

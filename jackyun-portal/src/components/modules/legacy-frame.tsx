@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { useLanguage } from '@/components/language-provider';
+import {CLOUD_STATE_APPLIED_EVENT,isSyncableStorageKey} from '@/lib/local-workspace';
+import {legacyStorageBridge} from '@/lib/sync/legacy-storage';
 import { legacyLanguageBridge } from '@/lib/legacy-i18n';
 
 interface LegacyFrameProps {
@@ -412,210 +414,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 `;
         html = html.replace(/<\/head>/i, `${interceptScript}</head>`);
 
-        // Inject localStorage sync script
-        const syncScript = `
-<script>
-(function() {
-  'use strict';
-
-  // ═══════════════════════════════════════════
-  // localStorage ↔ Supabase sync bridge
-  // ═══════════════════════════════════════════
-  // Explicit keys plus portal-owned prefixes are synced to cloud. This covers
-  // legacy modules without copying browser-only/system keys or API placeholders.
-  var SYNC_KEYS = [
-    // Control / TimetableHub
-    'jackyun_control_events',
-    'w3_schedule',
-    'th2_plans',
-    'th2_active_plan_id',
-    'th2_plan_',
-    // Goal
-    'jackyun_goal_data',
-    'gt_v6',
-    // IGCountdown / Exam Countdown
-    'jackyun_igcountdown',
-    // Countdown (倒计日)
-    'jackyun_countdown_data',
-    // Study (学习计划)
-    'caie_schedule_current',
-    'caie_progress_v2_1',
-    'caie_syllabus_v3',
-    'caie_settings_v2_1',
-    'jackyun_syllabus_audit',
-    'jackyun_traffic_',
-    'jackyun_study_notes',
-    // StudyGuide
-    'studyguide_progress',
-    // Mock / Quiz
-    'mock_records',
-    'quizwise_current_questions',
-    // Bilibili
-    'bilibili_sync_config',
-    // Music
-    'jackyun_music_playlists',
-    // Vocab
-    'jackyun_vocab_data',
-    // Pomodoro
-    'jackyun_pomodoro_tasks',
-    'jackyun_pomodoro_settings',
-    // Schedule flow (Goal → TimetableHub → Control)
-    'jackyun_schedule_output',
-    'jackyun_schedule_results',
-  ];
-  var SYNC_PREFIXES = ['jackyun_', 'th2_', 'gt_', 'w3_', 'caie_', 'studyguide_', 'mock_', 'quizwise_', 'bilibili_', 'igcse_'];
-  function isSyncKey(key) {
-    if (SYNC_KEYS.indexOf(key) !== -1) return true;
-    for (var i = 0; i < SYNC_PREFIXES.length; i++) if (String(key).indexOf(SYNC_PREFIXES[i]) === 0) return true;
-    return false;
-  }
-
-  var _origSetItem = localStorage.setItem.bind(localStorage);
-  var _origGetItem = localStorage.getItem.bind(localStorage);
-  var _syncQueue = {};
-  var _syncTimer = null;
-
-  // ── Timestamp ledger ──────────────────────────────────────────
-  // Records the last-known timestamp per sync key so we can decide
-  // whether the cloud copy is newer than the local copy. Stored in
-  // localStorage so it survives page reloads.
-  var TS_KEY = 'jackyun_sync_timestamps';
-  var _localTs = {};
-  function loadLocalTs() {
-    try { var raw = _origGetItem(TS_KEY); if (raw) _localTs = JSON.parse(raw); } catch(e) { _localTs = {}; }
-  }
-  function setLocalTs(key, ts) {
-    if (!key || typeof ts !== 'string' || !ts) return;
-    _localTs[key] = ts;
-    try { _origSetItem(TS_KEY, JSON.stringify(_localTs)); } catch(e) {}
-  }
-
-  // Attempt to load cloud data on every open. The cloud is authoritative so a
-  // second device always receives the newest successfully synced state.
-  function initSync() {
-    fetch('/api/legacy-sync', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(result) {
-        if (!result || !result.ok || !result.data) return;
-        var cloudData = result.data;
-        var cloudTs = result.timestamps || {};
-        var keys = Object.keys(cloudData);
-        var pulled = 0;
-        for (var i = 0; i < keys.length; i++) {
-          var k = keys[i];
-          if (!isSyncKey(k)) continue;
-          var cloudVal = cloudData[k];
-          if (cloudVal == null) continue;
-          // Cloud state is intentionally authoritative on page open.
-          var cTs = cloudTs[k];
-          try {
-            var strVal = typeof cloudVal === 'string' ? cloudVal : JSON.stringify(cloudVal);
-            _origSetItem(k, strVal);
-            if (cTs) setLocalTs(k, cTs);
-            pulled++;
-          } catch(e) {}
-        }
-        if (pulled > 0) console.log('[LegacySync] Cloud data loaded:', pulled, 'keys');
-        // Notify the page (and any embedded app) that cloud data arrived,
-        // so it can re-initialize from the freshest copy.
-        try { window.dispatchEvent(new CustomEvent('jackyun-cloud-synced', { detail: { pulled: pulled } })); } catch(e) {}
-      })
-      .catch(function() { /* not logged in or offline — ignore */ });
-  }
-
-  // Debounced push to server
-  function flushSync() {
-    if (_syncTimer) clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(function() {
-      var keys = Object.keys(_syncQueue);
-      if (keys.length === 0) return;
-      var data = {};
-      for (var i = 0; i < keys.length; i++) {
-        data[keys[i]] = _syncQueue[keys[i]];
-      }
-      _syncQueue = {};
-
-      // Push each key individually
-      var pushNext = function(idx) {
-        if (idx >= keys.length) return;
-        var key = keys[idx];
-        fetch('/api/legacy-sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: key, value: data[key] }),
-        }).then(function(r) {
-          // Record server timestamp so a later refresh won't clobber it
-          if (r && r.ok) {
-            r.json().then(function(j) { if (j && j.timestamp) setLocalTs(key, j.timestamp); })
-             .catch(function() {});
-          }
-          pushNext(idx + 1);
-        }).catch(function() { pushNext(idx + 1); });
-      };
-      pushNext(0);
-    }, 2000); // 2s debounce — user asked for refresh-based sync, not realtime
-  }
-
-  // Do not lose a final edit when a user closes or switches away from a legacy page.
-  function flushBeforeLeave() {
-    if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; }
-    var keys = Object.keys(_syncQueue);
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      try {
-        fetch('/api/legacy-sync', {
-          method: 'POST', keepalive: true,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: key, value: _syncQueue[key] }),
-        });
-      } catch(e) {}
-    }
-    _syncQueue = {};
-  }
-
-  // Override setItem to intercept sync keys
-  localStorage.setItem = function(key, value) {
-    _origSetItem(key, value);
-    if (isSyncKey(key)) {
-      try {
-        _syncQueue[key] = typeof value === 'string' ? JSON.parse(value) : value;
-      } catch(e) {
-        _syncQueue[key] = value;
-      }
-      setLocalTs(key, new Date().toISOString());
-      flushSync();
-    }
-  };
-
-  // Also intercept removeItem for sync keys
-  var _origRemoveItem = localStorage.removeItem.bind(localStorage);
-  localStorage.removeItem = function(key) {
-    _origRemoveItem(key);
-    if (isSyncKey(key)) {
-      _syncQueue[key] = null;
-      setLocalTs(key, new Date().toISOString());
-      flushSync();
-    }
-  };
-
-  window.addEventListener('pagehide', flushBeforeLeave);
-
-  // Load the timestamp ledger before anything else
-  loadLocalTs();
-
-  // Pull latest cloud data when the page opens.
-  if (document.readyState === 'complete') {
-    setTimeout(initSync, 100);
-  } else {
-    document.addEventListener('DOMContentLoaded', function() { setTimeout(initSync, 100); });
-  }
-})();
-</script>
-`;
-        const useLegacyDirectSync = false; // Sync v2 polls the shared origin storage and owns retry/conflict handling.
-        if (signedIn && useLegacyDirectSync) {
-          html = html.replace(/<\/head>/i, `${syncScript}</head>`);
-        }
+        html = html.replace(/<\/head>/i, `${legacyStorageBridge}</head>`);
 
         if (!cancelled) {
           setSrcdoc(html);
@@ -631,6 +430,20 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     load();
     return () => { cancelled = true; };
   }, [src, userName, lang, signedIn, runtimeContext]);
+
+  useEffect(()=>{
+    const edit=(event:MessageEvent)=>{
+      if(event.source!==iframeRef.current?.contentWindow || event.origin!==location.origin)return;
+      if(event.data?.type==='jackyun-storage-edit' && typeof event.data.key==='string' && isSyncableStorageKey(event.data.key))window.dispatchEvent(new Event('jackyun-sync-edit'));
+    };
+    const applied=(event:Event)=>{
+      const keys=(event as CustomEvent<{keys?:string[]}>).detail?.keys??[];
+      const child=iframeRef.current?.contentWindow;
+      if(child)for(const key of keys)child.dispatchEvent(new StorageEvent('storage',{key,storageArea:localStorage,newValue:localStorage.getItem(key)}));
+    };
+    window.addEventListener('message',edit);window.addEventListener(CLOUD_STATE_APPLIED_EVENT,applied);
+    return()=>{window.removeEventListener('message',edit);window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,applied);};
+  },[]);
 
   if (error) {
     return (

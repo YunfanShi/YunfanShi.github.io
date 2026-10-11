@@ -11,12 +11,9 @@ export default function CloudSettingsHydrator({ appearance, interfaceCustomizati
     const key = 'jackyun_settings_learning_preferences';
     try {
       const local = localStorage.getItem(key);
-      const timestamp = localStorage.getItem(`${key}__updated_at`);
-      const localTime = timestamp ? Date.parse(timestamp) : 0;
-      const cloudTime = learningUpdatedAt ? Date.parse(learningUpdatedAt) : 0;
-      if (local && (!timestamp || !Number.isFinite(localTime))) {
-        localStorage.setItem(`${key}__updated_at`, new Date().toISOString());
-      } else if (!local || localTime <= cloudTime) {
+      // Bootstrap only missing data. Versioned sync owns later reconciliation;
+      // neither a server render nor a device clock may overwrite local edits.
+      if (local === null) {
         localStorage.setItem(key, JSON.stringify(learning));
         if (learningUpdatedAt) localStorage.setItem(`${key}__updated_at`, learningUpdatedAt);
       }
@@ -28,15 +25,7 @@ export default function CloudSettingsHydrator({ appearance, interfaceCustomizati
     let resolved = appearance;
     try {
       const localRaw = localStorage.getItem(LOCAL_KEY);
-      const localUpdatedAt = localStorage.getItem(LOCAL_UPDATED_KEY);
-      let localTime = localUpdatedAt ? Date.parse(localUpdatedAt) : 0;
-      if (localRaw && (!localUpdatedAt || !Number.isFinite(localTime))) {
-        const migratedAt = new Date().toISOString();
-        localStorage.setItem(LOCAL_UPDATED_KEY, migratedAt);
-        localTime = Date.parse(migratedAt);
-      }
-      const cloudTime = updatedAt ? Date.parse(updatedAt) : 0;
-      if (localRaw && localTime > cloudTime) {
+      if (localRaw !== null) {
         const parsed = JSON.parse(localRaw);
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) resolved = { ...appearance, ...parsed };
       } else {
@@ -54,11 +43,13 @@ export default function CloudSettingsHydrator({ appearance, interfaceCustomizati
     document.documentElement.dataset.density = resolved.density === 'compact' ? 'compact' : 'comfortable';
     document.documentElement.dataset.reducedMotion = resolved.reducedMotion === true ? 'true' : 'false';
     if (Object.keys(interfaceCustomization).length) {
-      const accent = ['green', 'purple', 'orange'].includes(String(interfaceCustomization.accent)) ? String(interfaceCustomization.accent) : 'blue';
-      const cornerStyle = interfaceCustomization.cornerStyle === 'soft' ? 'soft' : 'rounded';
+      let customization=interfaceCustomization;
+      try { const raw=localStorage.getItem('jackyun_interface_customization');if(raw!==null) customization=JSON.parse(raw); } catch { return; }
+      const accent = ['green', 'purple', 'orange'].includes(String(customization?.accent)) ? String(customization.accent) : 'blue';
+      const cornerStyle = customization?.cornerStyle === 'soft' ? 'soft' : 'rounded';
       document.documentElement.dataset.accent = accent;
       document.documentElement.dataset.cornerStyle = cornerStyle;
-      localStorage.setItem('jackyun_interface_customization', JSON.stringify({ accent, cornerStyle }));
+      if(localStorage.getItem('jackyun_interface_customization')===null)localStorage.setItem('jackyun_interface_customization', JSON.stringify({ accent, cornerStyle }));
       localStorage.removeItem('jackyun_hide_homepage_ai');
     }
   }, [appearance, interfaceCustomization, signedIn, updatedAt]);

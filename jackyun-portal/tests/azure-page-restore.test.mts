@@ -43,8 +43,8 @@ test('optimistic restore replays a matching prior operation without overwriting 
  }});}});
  const body={deviceId:device,requireCurrentVersion:true,operations:[{id:opId,key,baseRevision:7,baseHash:hash(before),baseValue:null,value:desired,deleted:false,clientUpdatedAt:time}]};
  const response=await api('POST',new URL('https://example.test/api/sync/v2'),body,{sub:user,role:'authenticated'});
- assert.equal(response.applied[0].revision,8);assert.equal(applied,1);
+ assert.equal(response.applied[0].revision,8);assert.equal(applied,0);
  body.operations[0].value={text:'修改了重试请求'};
  await assert.rejects(api('POST',new URL('https://example.test/api/sync/v2'),body,{sub:user,role:'authenticated'}),/RESTORE_OPERATION_MISMATCH/);
- assert.equal(applied,1);
+ assert.equal(applied,0);
 });

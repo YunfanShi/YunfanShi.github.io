@@ -39,15 +39,6 @@ export default function ProfileEditor({ initialName, initialAvatar, userId }: { 
         throw new Error(result.error || '保存失败');
       }
 
-      // Also sync to legacy-sync for backward compatibility
-      fetch('/api/legacy-sync', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'profile', value: { display_name: displayName.trim(), avatar_url: nextAvatarUrl } }),
-      }).catch(() => {
-        logger.warn(TAG, 'Legacy sync fallback failed (non-critical)');
-      });
-
       setMessage('✅ 资料已保存');
       setAvatarUrl(nextAvatarUrl);
       setAvatarFile(null);

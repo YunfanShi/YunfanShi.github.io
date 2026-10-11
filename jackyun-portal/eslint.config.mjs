@@ -7,6 +7,7 @@ const eslintConfig = [
   {
     ignores: [
       "node_modules/**",
+      ".migration-private/**",
       ".next/**",
       "out/**",
       "build/**",

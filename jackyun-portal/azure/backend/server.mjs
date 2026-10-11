@@ -38,16 +38,17 @@ async function readBody(request, limit) {
 }
 
 export function createApiHandler({ authenticate, handle, allowedOrigins = ['https://jackyun.top'], logger = console }) {
-  const paths = new Set(['/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
+  const paths = new Set(['/api/sync/v3', '/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
   return async (request, response) => {
-    const requestId = randomUUID();
+    const requestId = randomUUID(),started=performance.now(),metrics={};
+    let route='unknown',httpStatus=200;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('X-Request-Id', requestId);
-    const send = (status, value) => { response.writeHead(status); response.end(JSON.stringify({ ...value, requestId })); };
+    const send = (status, value) => { httpStatus=status;response.writeHead(status); response.end(JSON.stringify({ ...value, requestId })); };
     try {
-      const url = new URL(request.url, 'http://localhost');
+      const url = new URL(request.url, 'http://localhost');route=url.pathname;
       if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true }); return; }
       if (!paths.has(url.pathname)) throw new ApiError(404, 'NOT_FOUND');
       const origin = request.headers.origin;
@@ -56,7 +57,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
       if (request.method === 'OPTIONS') {
         response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
         response.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
-        response.writeHead(204); response.end(); return;
+        httpStatus=204;response.writeHead(204); response.end(); return;
       }
       const identity = await authenticate(request.headers.authorization);
       let body = null;
@@ -64,7 +65,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
         if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) throw new ApiError(415, 'JSON_REQUIRED');
         body = await readBody(request, url.pathname.endsWith('/large') ? 250_000 : 1_000_000);
       }
-      const result = await handle(request.method, url, body, identity, request.headers.authorization.slice(7));
+      const result = await handle(request.method, url, body, identity, request.headers.authorization.slice(7),metrics);
       send(200, result);
     } catch (error) {
       const expected = error instanceof ApiError;
@@ -75,6 +76,10 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
       request.resume();
       if (!response.headersSent) send(status, { ok: false, error: code, code });
       else response.end();
+    } finally {
+      if(route.startsWith('/api/'))logger.info?.(JSON.stringify({service:'azure-sync-api',requestId,route,status:httpStatus,
+        reason:['manual','periodic','edit','online','resume'].includes(request.headers['x-sync-reason'])?request.headers['x-sync-reason']:'unspecified',
+        backendCalls:1,durationMs:Math.round(performance.now()-started),...metrics}));
     }
   };
 }

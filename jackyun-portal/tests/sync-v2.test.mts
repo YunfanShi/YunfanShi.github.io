@@ -31,9 +31,8 @@ test('Schedule safety is enforced at browser sync, API, and database boundary', 
   const route = await readFile(new URL('../src/app/api/sync/v2/route.ts', import.meta.url), 'utf8');
   const server = await readFile(new URL('../src/lib/sync/server.ts', import.meta.url), 'utf8');
   const migration = await readFile(new URL('../supabase/migrations/20260923235541_schedule_version_backups.sql', import.meta.url), 'utf8');
-  assert.match(browser, /shouldQueueLocalValue\(key, current, lastSnapshot\[key\]\)/);
-  assert.match(browser, /emptyScheduleNeedsCloud/);
-  assert.match(browser, /await pull\(\);\s+await flush\(deviceId\);/);
+  assert.match(browser, /createWorkspaceSync/);
+  assert.match(browser, /await engine.pull\(\);\s+await engine.flush\(\);/);
   assert.match(route, /applySyncBody/);
   assert.match(server, /unsafeScheduleReplacement/);
   assert.match(migration, /before update on public\.legacy_sync_data/i);
@@ -94,7 +93,7 @@ test('sync batches deduplicate keys while preserving the oldest base and newest 
   const first = { id: '00000000-0000-4000-8000-000000000001', key: 'study', baseRevision: 2, baseHash: 'a'.repeat(64), baseValue: { value: 1 }, value: { value: 2 }, deleted: false, clientUpdatedAt: '2026-09-04T00:00:00.000Z' };
   const latest = { ...first, id: '00000000-0000-4000-8000-000000000002', baseRevision: 3, baseHash: 'b'.repeat(64), baseValue: { value: 2 }, value: { value: 4 }, clientUpdatedAt: '2026-09-04T00:01:00.000Z' };
   const middle = { ...latest, id: '00000000-0000-4000-8000-000000000003', value: { value: 3 }, clientUpdatedAt: '2026-09-04T00:00:30.000Z' };
-  assert.deepEqual(compactSyncOperations([latest, middle, first]), [{ ...latest, id: first.id, baseRevision: first.baseRevision, baseHash: first.baseHash, baseValue: first.baseValue }]);
+  assert.deepEqual(compactSyncOperations([latest, middle, first]), [{ ...latest, id: latest.id, baseDeleted:undefined,baseRevision: first.baseRevision, baseHash: first.baseHash, baseValue: first.baseValue }]);
 });
 
 test('sync request batching stays below the server byte and operation limits', () => {
@@ -169,7 +168,7 @@ test('repair migration recreates the production sync RPC and preserves invoker s
   assert.match(sql, /on conflict \(id\) do nothing/i);
 });
 
-test('automatic sync excludes its timestamp ledger and removes manual conflict choices', async () => {
+test('automatic sync excludes its timestamp ledger and preserves explicit conflict choices', async () => {
   assert.equal(isSyncableStorageKey('jackyun_sync_timestamps'), false);
   assert.equal(isSyncableStorageKey('jackyun-ai-config'), false);
   assert.equal(isSyncableStorageKey('jackyun_definition_learning_session_v1'), true);
@@ -178,8 +177,9 @@ test('automatic sync excludes its timestamp ledger and removes manual conflict c
   assert.equal(isSyncableStorageKey('jackyun_goal_data'), true);
   assert.equal(isSyncableStorageKey('jackyun_schedule_control_v1'), true);
   const panel = await readFile(new URL('../src/components/settings/sync-center-panel.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(panel, /保留本机|保留云端|提交编辑结果|待处理冲突/);
-  assert.match(panel, /冲突自动处理/);
+  assert.match(panel, /保留本机差异并合并/);
+  assert.match(panel, /待处理冲突/);
+  assert.doesNotMatch(panel, /冲突自动处理/);
 });
 
 test('sync migration normalizes legacy JSON and resolves concurrent edits by per-key time', async () => {

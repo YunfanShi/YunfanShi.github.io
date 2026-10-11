@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import {parseLocalValue,persistLocalEditNow} from '@/lib/sync/local-edit';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type ModuleId = 'listening' | 'reading' | 'writing' | 'speaking' | 'review';
 type ModuleStatus = 'todo' | 'active' | 'done';
@@ -66,9 +68,12 @@ export default function IeltsCycleBoard() {
   const [historyReady, setHistoryReady] = useState(false);
   const [openModule, setOpenModule] = useState<ModuleId | null>(null);
   const [notice, setNotice] = useState('');
+  const cycleBase=useRef<unknown>(undefined),historyBase=useRef<unknown>(undefined);
 
   useEffect(() => {
+    queueMicrotask(()=>{
     let saved: CycleState | null = null;
+    try {cycleBase.current=parseLocalValue(localStorage.getItem(STORAGE_KEY));historyBase.current=parseLocalValue(localStorage.getItem(HISTORY_KEY));} catch { /* Preserve corrupt storage for manual recovery. */ }
     try { saved = parseCycle(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')); } catch { saved = null; }
     try {
       const rawHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as unknown;
@@ -76,16 +81,17 @@ export default function IeltsCycleBoard() {
     } catch { setHistory([]); }
     setHistoryReady(true);
     setCycle(saved ?? initialCycle());
+    });
   }, []);
 
   useEffect(() => {
     if (!cycle) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cycle)); } catch { /* The dashboard remains usable if storage is full. */ }
+    try {cycleBase.current=persistLocalEditNow(localStorage,STORAGE_KEY,cycleBase.current,cycle);} catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'保存失败，原计划已保留。'));}
   }, [cycle]);
 
   useEffect(() => {
     if (!historyReady) return;
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-12))); } catch { /* Keep the current cycle usable if storage is full. */ }
+    try {historyBase.current=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history.slice(-12));} catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'历史保存失败，原历史已保留。'));}
   }, [history, historyReady]);
 
   const completed = useMemo(() => cycle ? MODULES.filter(({ id }) => cycle.modules[id].status === 'done').length : 0, [cycle]);
@@ -149,7 +155,7 @@ export default function IeltsCycleBoard() {
             <label className="text-sm font-semibold">本次证据 / 具体问题<textarea value={row.note} maxLength={500} onChange={(event) => updateModule(openModule, { note: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="记录分数、用时、错因，或写作/口语的主要问题" /></label>
             <label className="text-sm font-semibold">下一次只做什么<textarea value={row.nextStep} maxLength={500} onChange={(event) => updateModule(openModule, { nextStep: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="只写一个可执行动作；没有完成就继续本模块" /></label>
           </div>
-          {openModule === 'writing' ? <a href="/ielts-writing" className="inline-flex rounded-xl bg-[#0f766e] px-4 py-2.5 text-sm font-bold text-white">打开写作持续修改工具</a> : <p className="text-xs text-[var(--muted-foreground)]">真题和录音在雅思哥完成；这里不复制题库，只保留训练证据。</p>}
+          {openModule === 'writing' ? <Link prefetch={false} href="/ielts-writing" className="inline-flex rounded-xl bg-[#0f766e] px-4 py-2.5 text-sm font-bold text-white">打开写作持续修改工具</Link> : <p className="text-xs text-[var(--muted-foreground)]">真题和录音在雅思哥完成；这里不复制题库，只保留训练证据。</p>}
         </div>;
       })()}
     </div> : null}

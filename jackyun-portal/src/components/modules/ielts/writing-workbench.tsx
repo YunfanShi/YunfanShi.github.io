@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArchiveTitleEditor } from './archive-title-editor';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { parseLocalValue, persistLocalEditNow } from '@/lib/sync/local-edit';
 import { callAiApi } from '@/lib/ai-config';
 import {
   buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, isWritingArchiveEntry, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, taskLabel, updateErrorHistory, upsertWritingArchive, writeRedundantJson,
@@ -103,6 +104,9 @@ export default function WritingWorkbench() {
   const [readerFontSize, setReaderFontSize] = useState(19);
   const [readerLineHeight, setReaderLineHeight] = useState(1.9);
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>('paper');
+  const draftBase = useRef<unknown>(undefined);
+  const historyBase = useRef<unknown>(undefined);
+  const archiveBase = useRef<unknown>(undefined);
   const editCount = useRef(0);
   const originalRef = useRef<HTMLDivElement>(null);
   const essayRef = useRef<HTMLTextAreaElement>(null);
@@ -111,14 +115,16 @@ export default function WritingWorkbench() {
 
   function persistDraft(next: DraftState, keepSnapshot = false, reportState = true) {
     try {
-      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, next);
+      const merged = persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,next) as DraftState;
+      draftBase.current=merged;
+      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
       if (keepSnapshot) {
         const existing = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[];
         const snapshots = [{ savedAt: new Date().toISOString(), draft: next }, ...(Array.isArray(existing) ? existing : [])].slice(0, 5);
         localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
       }
       if (reportState) setSaveState('saved');
-    } catch { if (reportState) setSaveState('error'); }
+    } catch (error) { if (reportState) setSaveState('error');setMessage(error instanceof Error?error.message:'保存失败，草稿已保留。'); }
   }
   function commitDraft(next: DraftState, keepSnapshot = false) { if (hydrated) persistDraft(next, keepSnapshot); setDraft(next); }
   function editField(field: 'question' | 'essay', value: string) { editCount.current += 1; commitDraft({ ...draft, [field]: value }, editCount.current % 25 === 0); }
@@ -126,17 +132,21 @@ export default function WritingWorkbench() {
   useEffect(() => {
     let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
     try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; } catch { /* Start clean when all local copies are unavailable. */ }
+    try {draftBase.current=parseLocalValue(localStorage.getItem(DRAFT_KEY));historyBase.current=parseLocalValue(localStorage.getItem(HISTORY_KEY));archiveBase.current=parseLocalValue(localStorage.getItem(ARCHIVE_KEY));} catch { /* Corrupt originals remain untouched; guarded saves report conflicts. */ }
     queueMicrotask(() => { if (storedDraft) setDraft(storedDraft); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(storedStage ?? (storedDraft?.originalEssay ? 1 : 0)); setGuidanceMode(storedGuidance); setHydrated(true); });
   }, []);
   useEffect(() => {
     if (!hydrated) return;
     try {
-      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, draft);
-    } catch { /* Immediate handlers report storage errors to the UI. */ }
+      const previous=draftBase.current as DraftState | undefined;
+      if(previous && ['essayId','task','question','essay','originalEssay','timerStarted'].every(key=>previous[key as keyof DraftState]===draft[key as keyof DraftState]) && Math.floor(previous.secondsLeft/10)===Math.floor(draft.secondsLeft/10)) return;
+      const merged=persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,draft);draftBase.current=merged;
+      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
+    } catch (error) { queueMicrotask(()=>{setSaveState('error');setMessage(error instanceof Error?error.message:'草稿保存失败。');}); }
     // Immediate event handlers are primary; this covers timer and programmatic updates.
   }, [draft, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch { /* Draft copies remain available. */ } }, [history, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive)); } catch { /* The active draft remains protected by its redundant copies. */ } }, [archive, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { historyBase.current=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history); } catch { /* Draft copies remain available. */ } }, [history, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { archiveBase.current=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive); } catch { /* The active draft remains protected by its redundant copies. */ } }, [archive, hydrated]);
   useEffect(() => {
     if (!draft.timerStarted || draft.secondsLeft <= 0) return;
     const interval = window.setInterval(() => setDraft((current) => ({ ...current, secondsLeft: Math.max(0, current.secondsLeft - 1), timerStarted: current.secondsLeft > 1 })), 1000);

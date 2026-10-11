@@ -563,6 +563,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
   const [showSettings, setShowSettings] = useState(false);
   const [addUnitFor, setAddUnitFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError,setSaveError]=useState('');
 
   const activeSubject = subjects[activeIdx] ?? null;
 
@@ -589,8 +590,8 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
     setSubjects(updated);
     setSaving(true);
     try {
-      await updateStepDone(activeSubject.subject_name, unitIndex, stepIndex, done);
-    } catch { /* optimistic, ignore */ }
+      await updateStepDone(activeSubject.subject_name, unitIndex, stepIndex, done,activeSubject.units);
+    } catch (error) {setSaveError(error instanceof Error?error.message:'未保存，原始云端数据已保留。');setSubjects(subjects);}
     setSaving(false);
   }, [activeSubject, activeIdx, subjects]);
 
@@ -598,7 +599,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
     setSaving(true);
     const created: SyllabusSubject[] = [];
     for (const d of DEFAULT_SUBJECTS) {
-      await upsertSubject(d.subject_name, d.color, d.units);
+      await upsertSubject(d.subject_name, d.color, d.units,subjects.find(s=>s.subject_name===d.subject_name)?.units ?? null);
       created.push({ id: d.subject_name, user_id: '', subject_name: d.subject_name, color: d.color, units: d.units });
     }
     setSubjects(created);
@@ -626,7 +627,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
   const handleImportSyllabus = async (data: SyllabusSubject[]) => {
     setSaving(true);
     for (const s of data) {
-      await upsertSubject(s.subject_name, s.color, s.units);
+      await upsertSubject(s.subject_name, s.color, s.units,subjects.find(row=>row.subject_name===s.subject_name)?.units ?? null);
     }
     setSubjects(data);
     setSaving(false);
@@ -647,8 +648,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
       if (i !== activeIdx) return s;
       return { ...s, units: [...s.units, newUnit] };
     });
-    setSubjects(updated);
-    await upsertSubject(activeSubject.subject_name, activeSubject.color, updated[activeIdx].units);
+    try {await upsertSubject(activeSubject.subject_name, activeSubject.color, updated[activeIdx].units,activeSubject.units);setSubjects(updated);} catch (error) {setSaveError(error instanceof Error?error.message:'未保存，云端原计划已保留。');}
   };
 
   const handleSaveMockRecord = async (rec: Omit<MockRecord, 'id' | 'created_at'>) => {
@@ -666,6 +666,7 @@ export default function StudyApp({ initialSubjects, initialConfig, initialMockRe
   return (
     <>
       <style>{CSS_VARS}</style>
+      {saveError && <p role="alert" className="rounded-xl border border-amber-500 p-3 text-sm">{saveError}</p>}
 
       {mockSubject && (
         <MockTimerOverlay subject={mockSubject} onClose={() => setMockSubject(null)} onSave={handleSaveMockRecord} />

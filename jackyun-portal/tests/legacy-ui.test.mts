@@ -94,11 +94,11 @@ test('relax starts with the optional zen overlay closed', async () => {
   assert.match(zenRule, /display:\s*none/);
 });
 
-test('appearance sync migrates undated local settings without permanently blocking cloud updates', async () => {
+test('appearance bootstrap preserves existing preferences and defers reconciliation to versioned sync', async () => {
   const source = await readFile(new URL('src/components/layout/cloud-settings-hydrator.tsx', projectDir), 'utf8');
   assert.doesNotMatch(source, /Number\.MAX_SAFE_INTEGER/);
-  assert.match(source, /localStorage\.setItem\(LOCAL_UPDATED_KEY, migratedAt\)/);
-  assert.match(source, /localTime > cloudTime/);
+  assert.match(source, /if \(localRaw !== null\)/);
+  assert.doesNotMatch(source, /localTime > cloudTime|localTime <= cloudTime/);
 });
 
 test('Cue notes are a durable Schedule memo system rather than an experimental session draft', async () => {

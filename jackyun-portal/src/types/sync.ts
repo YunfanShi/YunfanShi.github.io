@@ -24,10 +24,12 @@ export interface SyncOperation {
   baseRevision: number;
   baseHash: string | null;
   baseValue: unknown;
+  baseDeleted?: boolean;
   value: unknown;
   deleted: boolean;
   clientUpdatedAt: string;
   resolvesOperationId?: string;
+  sequence?: number;
 }
 
 export interface SyncConflict {
@@ -36,6 +38,7 @@ export interface SyncConflict {
   key: string;
   baseRevision: number;
   baseValue: unknown;
+  baseDeleted?: boolean;
   localValue: unknown;
   localDeleted: boolean;
   remoteValue: unknown;
@@ -45,6 +48,7 @@ export interface SyncConflict {
   remoteRevision: number;
   remoteUpdatedAt?: string;
   createdAt?: string;
+  paths?: string[];
 }
 
 export interface SyncStatusDetail {

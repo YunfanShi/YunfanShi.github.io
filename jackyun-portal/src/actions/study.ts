@@ -2,9 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { cache } from 'react';
+import {canonicalJson} from '@/lib/sync/hash';
 import type { SyllabusSubject, SyllabusUnit, StudyConfig, MockRecord } from '@/types/study';
 
-async function getAuthenticatedUser() {
+const getAuthenticatedUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -12,7 +14,7 @@ async function getAuthenticatedUser() {
   } = await supabase.auth.getUser();
   if (error || !user) throw new Error('Unauthorized');
   return { supabase, user };
-}
+});
 
 export async function createPlan(formData: FormData) {
   const { supabase, user } = await getAuthenticatedUser();
@@ -129,7 +131,7 @@ export async function toggleTask(taskId: string) {
 
   if (fetchError || !task) throw new Error('Task not found');
 
-  const { error } = await supabase
+  const { error, data: saved } = await supabase
     .from('study_tasks')
     .update({
       completed: !task.completed,
@@ -137,9 +139,11 @@ export async function toggleTask(taskId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', taskId)
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .eq('completed',task.completed).select('id');
 
   if (error) throw new Error(error.message);
+  if(!saved?.length)throw new Error('任务状态已经改变，请刷新后重试。');
   revalidatePath('/study');
   revalidatePath('/study/tasks');
 }
@@ -224,19 +228,15 @@ export async function upsertSubject(
   subjectName: string,
   color: string,
   units: SyllabusUnit[],
+  expectedUnits?: SyllabusUnit[] | null,
 ): Promise<void> {
   const { supabase, user } = await getAuthenticatedUser();
-  const { error } = await supabase.from('study_syllabus').upsert(
-    {
-      user_id: user.id,
-      subject_name: subjectName,
-      color,
-      units,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,subject_name' },
-  );
-  if (error) throw new Error(error.message);
+  const payload={user_id:user.id,subject_name:subjectName,color,units,updated_at:new Date().toISOString()};
+  const result=expectedUnits == null
+    ? await supabase.from('study_syllabus').insert(payload).select('id')
+    : await supabase.from('study_syllabus').update(payload).eq('user_id',user.id).eq('subject_name',subjectName).eq('units',JSON.stringify(expectedUnits)).select('id');
+  if(result.error)throw new Error(result.error.message);
+  if(!result.data?.length)throw new Error('学习计划已被另一台设备修改，请刷新后合并；未覆盖云端内容。');
   revalidatePath('/study');
 }
 
@@ -245,26 +245,30 @@ export async function updateStepDone(
   unitIndex: number,
   stepIndex: number,
   done: boolean,
+  expectedUnits: SyllabusUnit[],
 ): Promise<void> {
   const { supabase, user } = await getAuthenticatedUser();
   const { data, error: fetchError } = await supabase
     .from('study_syllabus')
-    .select('units')
+    .select('units, updated_at')
     .eq('user_id', user.id)
     .eq('subject_name', subjectName)
     .single();
   if (fetchError || !data) throw new Error('Subject not found');
 
+  if(canonicalJson(data.units)!==canonicalJson(expectedUnits))throw new Error('学习计划已被另一台设备修改，请刷新后重试。');
   const units = data.units as SyllabusUnit[];
   if (!units[unitIndex]?.steps[stepIndex]) throw new Error('Step not found');
   units[unitIndex].steps[stepIndex].done = done;
 
-  const { error } = await supabase
+  const { error, data: saved } = await supabase
     .from('study_syllabus')
     .update({ units, updated_at: new Date().toISOString() })
     .eq('user_id', user.id)
-    .eq('subject_name', subjectName);
+    .eq('subject_name', subjectName)
+    .eq('updated_at',data.updated_at).select('id');
   if (error) throw new Error(error.message);
+  if(!saved?.length)throw new Error('学习步骤已被另一台设备修改，请刷新后重试。');
   revalidatePath('/study');
 }
 
@@ -327,8 +331,8 @@ export async function addMockRecord(
 ): Promise<void> {
   const { supabase, user } = await getAuthenticatedUser();
   const { error } = await supabase.from('study_mock_records').insert({
-    user_id: user.id,
     ...record,
+    user_id: user.id,
   });
   if (error) throw new Error(error.message);
   revalidatePath('/study');

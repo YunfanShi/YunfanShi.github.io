@@ -16,7 +16,7 @@ function player(clock = performance) {
  document: {documentElement:documentRoot,getElementById: (id: string) => { if (!elements.has(id)) elements.set(id,{textContent:'',innerText:'',classList:{add(){}},setAttribute(){},querySelector:()=>({innerText:''})}); return elements.get(id); }},
  window: {addEventListener(){}}, console, performance: clock, AbortSignal,
  fetch: async (url: string) => {requests.push(url);return {ok:true,json:async()=>({broadcasts:[]})};},
- setInterval(){return 1;},clearInterval(){},setTimeout(_callback: Function, delay: number){timeouts.push(delay);},requestAnimationFrame(){return 1;},cancelAnimationFrame(){}
+ setInterval(){return 1;},clearInterval(){},setTimeout(_callback: (...args: unknown[]) => unknown, delay: number){timeouts.push(delay);},requestAnimationFrame(){return 1;},cancelAnimationFrame(){}
  });
  api.ClockSync.syncedAt = clock.now();
  api.ClockSync.anchorTime = Date.now();

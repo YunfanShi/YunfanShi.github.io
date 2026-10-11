@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- VM fixtures expose dynamically evaluated browser globals. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
@@ -41,36 +42,5 @@ test('deleted and string records are compared without converting their represent
   assert.equal(isCurrent(text, text, 'plain text'), true);
 });
 
-test('repeated cloud pulls of the same revision do not download or notify Schedule again', async () => {
-  const component = readFileSync(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8');
-  const pullSource = component.slice(component.indexOf('    async function pull()'), component.indexOf('    async function sync('));
-  let metadata: any[] = [];
-  let current: string | null = null;
-  let downloads = 0;
-  let notifications = 0;
-  const context = {
-    remoteRecordIsCurrent: isCurrent,
-    getSetting: async () => null,
-    getOutbox: async () => [],
-    getMetadata: async () => metadata,
-    syncFetch: async () => ({ ok: true, json: async () => ({ records: [{ ...remote }], cursor: 'cursor' }) }),
-    cancelled: false, signingOut: false, scheduleChecked: false,
-    localStorage: { getItem: () => current, setItem: (_key: string, val: string) => { current = val; }, removeItem: () => { current = null; } },
-    SCHEDULE_STORAGE_KEY: base.key,
-    scheduleHasContent: (val: unknown) => Boolean(val),
-    parseStorageValue: (val: string | undefined) => val ? JSON.parse(val) : null,
-    loadLargeValue: async () => { downloads++; return value; },
-    saveMetadata: async (record: any) => { metadata = [{ ...record }]; },
-    storageValueToString: JSON.stringify,
-    setSetting: async () => {},
-    queueChanges: async () => { context.lastSnapshot = { [base.key]: current! }; },
-    lastSnapshot: {} as Record<string, string>,
-    window: { dispatchEvent: () => { notifications++; } },
-    CustomEvent: class {}, CLOUD_STATE_APPLIED_EVENT: 'cloud', console,
-  };
-  const pull = runInNewContext(ts.transpileModule(pullSource + '\npull', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
-  for (let tick = 0; tick < 100; tick++) await pull();
-  assert.equal(downloads, 1);
-  assert.equal(notifications, 1);
-  assert.deepEqual(JSON.parse(current!), value);
-});
+// The v3 engine behavior is exercised end-to-end in sync-engine.test.mts:
+// 100 manifest pulls, one full-value download, one local notification.
