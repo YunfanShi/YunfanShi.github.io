@@ -2,6 +2,7 @@
 
 import type { SyncConflict, SyncOperation, SyncRecord } from '@/types/sync';
 import { compactSyncOperations } from '@/lib/sync/batch';
+import { reconcileAcknowledgment } from '@/lib/sync/acknowledgment';
 
 const DB_NAME = 'jackyun-sync-v2';
 const DB_VERSION = 1;
@@ -81,6 +82,21 @@ export async function queueOperation(operation: SyncOperation): Promise<void> {
 
 export async function removeOperation(id: string): Promise<void> {
   await storeRequest('outbox', 'readwrite', (store) => store.delete(id));
+}
+
+/** Atomically acknowledge only the uploaded edit, retaining concurrent edits. */
+export async function acknowledgeOperation(sent: SyncOperation, cloud: SyncRecord, resolvesOperationId?: string): Promise<boolean> {
+  let removed = false;
+  await updateOutbox((store, operations) => {
+    const current = operations.find((operation) => operation.id === sent.id);
+    if (!current) return operations;
+    const replacement = reconcileAcknowledgment(current, sent, cloud, crypto.randomUUID(), resolvesOperationId);
+    store.delete(sent.id);
+    if (replacement) store.put(replacement);
+    removed = !replacement;
+    return operations.filter((operation) => operation.id !== sent.id).concat(replacement ? [replacement] : []);
+  });
+  return removed;
 }
 
 export function getMetadata(): Promise<SyncMetadata[]> {
