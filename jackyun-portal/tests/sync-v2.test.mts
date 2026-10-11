@@ -33,7 +33,7 @@ test('Schedule safety is enforced at browser sync, API, and database boundary', 
   const migration = await readFile(new URL('../supabase/migrations/20260923235541_schedule_version_backups.sql', import.meta.url), 'utf8');
   assert.match(browser, /shouldQueueLocalValue\(key, current, lastSnapshot\[key\]\)/);
   assert.match(browser, /emptyScheduleNeedsCloud/);
-  assert.ok(browser.indexOf('await pull();\n        await flush(deviceId);') > 0);
+  assert.match(browser, /await pull\(\);\s+await flush\(deviceId\);/);
   assert.match(route, /applySyncBody/);
   assert.match(server, /unsafeScheduleReplacement/);
   assert.match(migration, /before update on public\.legacy_sync_data/i);

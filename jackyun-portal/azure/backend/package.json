@@ -1,6 +1,6 @@
 {
   "name": "jackyun-azure-sync-api",
-  "version": "3.21.8",
+  "version": "3.21.9",
   "private": true,
   "type": "module",
   "engines": {

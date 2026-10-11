@@ -6,9 +6,10 @@ import { BEFORE_SLEEP_EVENT, LOCAL_SLEEP_SAVE_EVENT, WAKE_EVENT, isWorkspaceSlee
 import { useEffect } from 'react';
 import { remoteRecordIsCurrent } from '@/lib/sync/remote-record';
 import { createSyncRunGate } from '@/lib/sync/run-gate';
+import { operationMatchesStorage } from '@/lib/sync/acknowledgment';
 import { announceSyncStatus as announce, getLatestSyncStatus } from '@/lib/sync/status';
 import { CLOUD_STATE_APPLIED_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
-import { bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
+import { acknowledgeOperation, bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
 import { buildSyncRequest, MAX_SYNC_BATCH_BYTES } from '@/lib/sync/batch';
 import { canonicalJson } from '@/lib/sync/hash';
 import { joinSyncParts, splitSyncBody } from '@/lib/sync/transfer';
@@ -124,7 +125,14 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let authPaused = false;
     let lastBackupCheck = 0;
     let lastAutomaticPull = 0;
+    let scheduleChecked = false;
     let lastSnapshot: Record<string, string> = {};
+    const controller = new AbortController();
+    const syncFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await fetchSyncWithTimeout(input, { ...init, signal: controller.signal });
+      if (cancelled || signingOut) throw new DOMException('Sync cancelled', 'AbortError');
+      return response;
+    };
 
     if (!userId) {
       // A failed token refresh is not a confirmed sign-out. Retain the local
@@ -184,7 +192,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       let count = 1;
       for (let part = 0; part < count; part += 1) {
         reportProgress(`下载分片 ${part + 1} / ${count}`);
-        const response = await fetchSyncWithTimeout(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
+        const response = await syncFetch(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
         if (!response.ok) throw new SyncHttpError(`同步分片下载失败 (${response.status})`, response.status);
         const chunk = await response.json() as { count: number; data: string };
         count = chunk.count;
@@ -211,20 +219,20 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const parts = splitSyncBody(request.body);
         for (let index = 0; index < parts.length; index += 1) {
           reportProgress(`上传分片 ${index + 1} / ${parts.length}`);
-          const partResponse = await fetchSyncWithTimeout('/api/sync/v2/large', {
+          const partResponse = await syncFetch('/api/sync/v2/large', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ uploadId: operation.id, index, count: parts.length, data: parts[index] }),
           });
           if (!partResponse.ok) throw new SyncHttpError(`同步分片上传失败 (${partResponse.status})`, partResponse.status);
         }
         reportProgress('分片已上传，正在保存到云端…');
-        response = await fetchSyncWithTimeout('/api/sync/v2/large', {
+        response = await syncFetch('/api/sync/v2/large', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uploadId: operation.id, complete: true }),
         });
       } else {
         reportProgress(`上传 ${request.operations.length} 项修改…`);
-        response = await fetchSyncWithTimeout('/api/sync/v2', {
+        response = await syncFetch('/api/sync/v2', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: request.body,
         });
@@ -242,6 +250,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         remote: SyncRecord[];
         conflicts: SyncConflict[];
       };
+      if (cancelled || signingOut) return;
       const acknowledged = new Set([
         ...payload.applied.map((item) => item.operationId),
         ...(payload.remote ?? []).map((item) => request.operations.find((operation) => operation.key === item.key)?.id),
@@ -254,17 +263,17 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       for (const applied of payload.applied) {
         const operation = byId.get(applied.operationId);
         if (!operation) continue;
-        await saveMetadata({ key: operation.key, value: operation.value, revision: applied.revision, contentHash: applied.contentHash, deleted: operation.deleted, updatedAt: applied.updatedAt ?? operation.clientUpdatedAt });
-        await removeOperation(applied.operationId);
+        const cloud = { key: operation.key, value: operation.value, revision: applied.revision, contentHash: applied.contentHash, deleted: operation.deleted, updatedAt: applied.updatedAt ?? operation.clientUpdatedAt };
+        await saveMetadata(cloud);
+        await acknowledgeOperation(operation, cloud);
       }
       for (const record of payload.remote ?? []) {
         const matchingOperation = byKey.get(record.key);
         if (!matchingOperation) continue;
         if (record.large) record.value = await loadLargeValue(record.key, record.revision);
+        if (cancelled || signingOut) return;
         const current = localStorage.getItem(record.key);
-        const localHasNotChanged = matchingOperation.deleted
-          ? current === null
-          : current !== null && canonicalJson(parseStorageValue(current)) === canonicalJson(matchingOperation.value);
+        const localHasNotChanged = operationMatchesStorage(matchingOperation, current);
         if (localHasNotChanged) {
           const next = record.deleted ? null : storageValueToString(record.value);
           if (current !== next) {
@@ -274,20 +283,26 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           }
         }
         await saveMetadata(record);
-        await removeOperation(matchingOperation.id);
+        await acknowledgeOperation(matchingOperation, record);
       }
       for (const conflict of payload.conflicts) {
         const operation = byId.get(conflict.operationId);
         if (!operation) continue;
         if (conflict.remoteLarge) conflict.remoteValue = await loadLargeValue(conflict.key, conflict.remoteRevision);
-        await removeOperation(operation.id);
+        if (cancelled || signingOut) return;
+        const cloud: SyncRecord = { key: operation.key, value: conflict.remoteValue, revision: conflict.remoteRevision, contentHash: conflict.remoteHash, deleted: conflict.remoteDeleted, updatedAt: conflict.remoteUpdatedAt ?? operation.clientUpdatedAt };
+        await saveMetadata(cloud);
+        const removed = await acknowledgeOperation(operation, cloud, conflict.operationId);
+        const localHasNotChanged = operationMatchesStorage(operation, localStorage.getItem(operation.key));
+        // Never replace a newer local edit with the reply to an older upload.
+        // queueChanges below rebases that edit onto the freshly saved cloud state.
+        if (!localHasNotChanged || !removed) continue;
         const remoteIsNewer = conflict.remoteUpdatedAt
           && Date.parse(conflict.remoteUpdatedAt) > Date.parse(operation.clientUpdatedAt);
         if (remoteIsNewer) {
           if (conflict.remoteDeleted) localStorage.removeItem(operation.key);
           else localStorage.setItem(operation.key, storageValueToString(conflict.remoteValue));
           appliedRemoteKeys.push(operation.key);
-          await saveMetadata({ key: operation.key, value: conflict.remoteValue, revision: conflict.remoteRevision, contentHash: conflict.remoteHash, deleted: conflict.remoteDeleted, updatedAt: conflict.remoteUpdatedAt! });
         } else {
           await queueOperation({ ...operation, id: crypto.randomUUID(), baseRevision: conflict.remoteRevision, baseHash: conflict.remoteHash, baseValue: conflict.remoteValue, resolvesOperationId: conflict.operationId });
         }
@@ -298,7 +313,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     async function pull() {
       const [cursor, pending] = await Promise.all([getSetting<string>('cursor'), getOutbox()]);
       const pendingKeys = new Set(pending.map((item) => item.key));
-      const response = await fetchSyncWithTimeout(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
+      const response = await syncFetch(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
       if (!response.ok) {
         const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
         const detail = failure?.error?.code
@@ -308,18 +323,20 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         throw new SyncHttpError(detail, response.status);
       }
       const payload = await response.json() as { records: SyncRecord[]; cursor: string };
+      if (cancelled || signingOut) return;
       const metadataByKey = new Map((await getMetadata()).map((record) => [record.key, record]));
       const records = payload.records.filter((record) => !remoteRecordIsCurrent(
         record, metadataByKey.get(record.key), localStorage.getItem(record.key),
       ));
-      if (!pendingKeys.has(SCHEDULE_STORAGE_KEY)
+      if (!scheduleChecked && !pendingKeys.has(SCHEDULE_STORAGE_KEY)
           && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
           && !payload.records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
-        const scheduleResponse = await fetchSyncWithTimeout(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
+        const scheduleResponse = await syncFetch(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
         if (!scheduleResponse.ok) throw new SyncHttpError(`Schedule 云端读取失败 (${scheduleResponse.status})`, scheduleResponse.status);
         const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
         records.push(...schedulePayload.records);
       }
+      scheduleChecked = true;
       for (const record of records) {
         if (!record.large || pendingKeys.has(record.key)) continue;
         record.value = await loadLargeValue(record.key, record.revision);
@@ -327,6 +344,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       }
       const appliedRemoteKeys: string[] = [];
       for (const record of records) {
+        if (cancelled || signingOut) return;
         if (pendingKeys.has(record.key)) continue;
         const current = localStorage.getItem(record.key) ?? undefined;
         const emptyScheduleNeedsCloud = record.key === SCHEDULE_STORAGE_KEY
@@ -346,51 +364,76 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       await queueChanges();
     }
 
-    async function sync(onlyPending = false, manual = false) {
+    async function sync(onlyPending = false, manual = false, allowHidden = false) {
       if (cancelled || signingOut || !bound || isWorkspaceSleeping()) return;
+      if (!manual && !allowHidden && document.visibilityState !== 'visible') { await queueChanges(); return; }
       if (!runGate.begin(manual)) return;
-      if (manual) { authPaused = false; retryAt = 0; }
+      if (manual) { authPaused = false; retryAt = 0; scheduleChecked = false; }
       try {
-        if (authPaused || Date.now() < retryAt) { await queueChanges(); return; }
-        if (!navigator.onLine) {
-          await queueChanges();
-          if (!cancelled) await publishStatus('offline_pending');
-          return;
-        }
-        if (!onlyPending) await publishStatus('syncing', undefined, '正在读取云端并检查本机修改…');
-        const deviceId = await getOrCreateDeviceId();
-        await clearConflicts();
-        await queueChanges();
-        if (onlyPending && !(await getOutbox()).length) return;
-        for (const operation of await getOutbox()) {
-          if (operation.key === SCHEDULE_STORAGE_KEY && !scheduleHasContent(operation.deleted ? null : operation.value)) {
-            await removeOperation(operation.id);
+        const work = async () => {
+          if (cancelled || signingOut) return;
+          if (authPaused || Date.now() < retryAt) { await queueChanges(); return; }
+          if (!navigator.onLine) {
+            await queueChanges();
+            if (!cancelled) await publishStatus('offline_pending');
+            return;
           }
-        }
-        await pull();
-        await flush(deviceId);
-        lastAutomaticPull = Date.now();
-        await queueChanges();
-        for (let batch = 1; batch < 100 && !cancelled && (await getOutbox()).length; batch += 1) {
-          await flush(deviceId);
+          const deviceId = await getOrCreateDeviceId();
+          await clearConflicts();
           await queueChanges();
-        }
-        if (cancelled) return;
-        if ((await getOutbox()).length) {
-          await publishStatus('offline_pending', undefined, '本轮已保存的修改保留在云端，剩余修改将继续同步。');
-          return;
-        }
-        const now = new Date().toISOString();
-        await setSetting('lastSyncedAt', now);
-        if (Date.now() - lastBackupCheck >= 5 * 60_000) {
-          lastBackupCheck = Date.now();
-          try { await createDueBackupVersions(); }
-          catch (error) { console.warn('[Backup] Deferred cloud backup failed', error); }
-        }
-        failures = 0;
-        retryAt = 0;
-        if (!cancelled) await publishStatus('synced');
+          const sharedPull = await getSetting<number>('lastAutomaticPull') ?? 0;
+          if (onlyPending && !(await getOutbox()).length) {
+            if (sharedPull > lastAutomaticPull && !failures) {
+              lastAutomaticPull = sharedPull;
+              await publishStatus('synced');
+            }
+            return;
+          }
+          if (!manual && Date.now() - sharedPull < 60_000 && !(await getOutbox()).length) {
+            lastAutomaticPull = sharedPull;
+            await publishStatus('synced');
+            return;
+          }
+          if (!onlyPending) await publishStatus('syncing', undefined, '正在读取云端并检查本机修改…');
+          for (const operation of await getOutbox()) {
+            if (operation.key === SCHEDULE_STORAGE_KEY && !scheduleHasContent(operation.deleted ? null : operation.value)) {
+              await removeOperation(operation.id);
+            }
+          }
+          await pull();
+          await flush(deviceId);
+          lastAutomaticPull = Date.now();
+          await setSetting('lastAutomaticPull', lastAutomaticPull);
+          await queueChanges();
+          for (let batch = 1; batch < 100 && !cancelled && (await getOutbox()).length; batch += 1) {
+            await flush(deviceId);
+            await queueChanges();
+          }
+          if (cancelled) return;
+          if ((await getOutbox()).length) {
+            await publishStatus('offline_pending', undefined, '本轮已保存的修改保留在云端，剩余修改将继续同步。');
+            return;
+          }
+          const now = new Date().toISOString();
+          await setSetting('lastSyncedAt', now);
+          if (Date.now() - lastBackupCheck >= 5 * 60_000) {
+            lastBackupCheck = Date.now();
+            try { await createDueBackupVersions(); }
+            catch (error) { console.warn('[Backup] Deferred cloud backup failed', error); }
+          }
+          failures = 0;
+          retryAt = 0;
+          if (!cancelled) await publishStatus('synced');
+        };
+        // Outbox and metadata are shared by same-origin tabs. Serialize their
+        // network turns and recheck the shared pull time inside the lock.
+        if (navigator.locks) {
+          await navigator.locks.request(`jackyun:workspace-sync:${userId}`, manual ? { signal: controller.signal } : { ifAvailable: true }, async (lock) => {
+            if (lock) await work();
+          });
+        } else await work();
       } catch (error) {
+        if (cancelled || signingOut) return;
         emitDiagnostic('error', 'WorkspaceSync', '同步操作失败，保留待同步数据', { error: errorDetails(error), failures: failures + 1, online: navigator.onLine });
         failures += 1;
         retryAt = Date.now() + syncRetryDelay(failures);
@@ -406,14 +449,22 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       if (!cancelled) void publishStatus('error', error instanceof Error ? error.message : '无法绑定同步账户');
     });
     // Frequent Schedule edits wait briefly so one burst becomes one sync.
-    // Idle ticks only capture local changes; no database liveness polling.
+    // Local checks run every 30 seconds; cloud deltas run at most once per
+    // minute across idle foreground tabs. Neither is database liveness polling.
     let editTimer: number | null = null;
     const onEdit = () => {
       if (editTimer !== null) window.clearTimeout(editTimer);
       editTimer = window.setTimeout(() => { editTimer = null; void sync(true); }, 8_000);
     };
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void sync(true); }, 30_000);
-    const onSync = () => { if (Date.now() - lastAutomaticPull >= 60_000) void sync(); };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void sync(Date.now() - lastAutomaticPull < 60_000);
+    }, 30_000);
+    const onSync = () => {
+      // Even a recent cloud read must not defer local edits when returning online.
+      void sync(Date.now() - lastAutomaticPull < 60_000);
+    };
+    const onOnline = () => { retryAt = 0; onSync(); };
+    const onOffline = () => { if (!cancelled) void publishStatus('offline_pending'); };
     const onRetry = () => { reportProgress('已收到立即同步请求，正在同步…'); void sync(false, true); };
     const onSignOut = () => { signingOut = true; };
     const onSignOutCancel = () => { signingOut = false; };
@@ -426,18 +477,19 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onLeave = () => { void queueChanges(); };
     const onBeforeSignOut = (event: Event) => {
       const complete = (event as CustomEvent<{ complete: () => void }>).detail?.complete;
-      void queueChanges().then(() => sync()).finally(() => complete?.());
+      void queueChanges().then(() => sync(false, false, true)).finally(() => complete?.());
     };
     const onSleep = (event: Event) => {
       (event as CustomEvent<SleepRequest>).detail.waitUntil((async () => {
         await runGate.waitForIdle();
         await queueChanges();
-        await sync(true);
+        await sync(true, false, true);
       })());
     };
     window.addEventListener(BEFORE_SLEEP_EVENT, onSleep);
     window.addEventListener(WAKE_EVENT, onSync);
-    window.addEventListener('online', onSync);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
     window.addEventListener('focus', onSync);
     window.addEventListener('pagehide', onLeave);
     document.addEventListener('visibilitychange', onVisibility);
@@ -448,9 +500,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       window.removeEventListener(BEFORE_SLEEP_EVENT, onSleep);
       window.removeEventListener(WAKE_EVENT, onSync);
       cancelled = true;
+      controller.abort();
       window.clearInterval(timer);
       if (editTimer !== null) window.clearTimeout(editTimer);
-      window.removeEventListener('online', onSync);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
       window.removeEventListener('focus', onSync);
       window.removeEventListener('pagehide', onLeave);
       document.removeEventListener('visibilitychange', onVisibility);
