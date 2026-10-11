@@ -39,3 +39,12 @@
 .previewSurface {position:absolute;inset:0;isolation:isolate;}
 .preview>button {position:absolute;bottom:28px;left:50%;transform:translateX(-50%);z-index:40;background:#17223a;}
 @media(max-height:720px) {.overlay{inset:16px max(20px,calc((100vw - 1040px)/2));padding:16px;}.wallet{margin-top:10px;}.art{height:80px;}}
+
+@media(max-width:640px) {
+ .overlay[role='dialog'] {max-height:none;inset:0; padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom)); border-radius:0; border:0;}
+ .wallet {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;}
+ .wallet strong {font-size:20px;}.wallet>div{padding:9px;}
+ .overlay button {min-height:44px;}.overlay header{gap:8px;}.overlay h2{font-size:22px;}
+ .grid{grid-template-columns:minmax(0,1fr);}.item{min-width:0;}.art{height:75px;}
+ .overlay nav{gap:6px;}.note{font-size:12px;}.history li{gap:6px;}
+}

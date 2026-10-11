@@ -1,4 +1,5 @@
 import SessionRecovery from '@/components/auth/session-recovery';
+import PagePreferences from '@/components/layout/page-preferences';
 import Sidebar from '@/components/layout/sidebar';
 import Topbar from '@/components/layout/topbar';
 import MobileViewport from '@/components/layout/mobile-viewport';
@@ -50,7 +51,7 @@ export default async function PortalLayout({
           .from('user_settings')
           .select('key, value, updated_at')
           .eq('user_id', claims.sub)
-          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences', 'interface_customization', 'learning_preferences']),
+          .in('key', ['sidebar_preferences', 'language_preference', 'appearance_preferences', 'interface_customization', 'learning_preferences', 'page_preferences']),
         supabase
           .from('navigation_usage_daily')
           .select('activity_date, nav_item_id, opens')
@@ -74,6 +75,7 @@ export default async function PortalLayout({
   let language: Language = 'zh';
   let appearancePreferences: Record<string, unknown> = {};
   let appearanceUpdatedAt: string | null = null;
+  let pagePreferences: Record<string, unknown> = {};
   let learningPreferences: Record<string, unknown> = {};
   let learningUpdatedAt: string | null = null;
   let interfaceCustomization: Record<string, unknown> = {};
@@ -86,6 +88,8 @@ export default async function PortalLayout({
     } else if (setting.key === 'appearance_preferences') {
       appearancePreferences = setting.value as Record<string, unknown>;
       appearanceUpdatedAt = setting.updated_at;
+    } else if (setting.key === 'page_preferences') {
+      pagePreferences = setting.value as Record<string, unknown>;
     } else if (setting.key === 'learning_preferences') {
       learningPreferences = setting.value as Record<string, unknown>;
       learningUpdatedAt = setting.updated_at;
@@ -118,6 +122,7 @@ export default async function PortalLayout({
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
       <MobileViewport />
+      <PagePreferences initialValue={pagePreferences} signedIn={Boolean(user)} />
       <CloudSettingsHydrator learning={learningPreferences} learningUpdatedAt={learningUpdatedAt} appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <OfflineWorkspaceSync userId={user?.id ?? null} />

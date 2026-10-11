@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SidebarPreferences } from '@/actions/settings';
 import { saveSidebarPreferences } from '@/actions/settings';
@@ -9,6 +9,7 @@ import { useLanguage } from '@/components/language-provider';
 import { t } from '@/lib/i18n';
 import { NAVIGATION_GROUPS, NAVIGATION_ITEMS, navigationIdFromPath, type NavigationGroupId, type NavigationItem } from '@/lib/navigation';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
+import { PAGE_PREFERENCE_KEY } from '@/lib/page-preferences';
 import BrandLogo from '@/components/brand-logo';
 
 interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; initialIsAdmin?: boolean; betaActive?: boolean; allowedFeatureKeys?: string[]; }
@@ -19,6 +20,23 @@ const LOCAL_PREFS_KEY = 'jackyun_sidebar_preferences';
 export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAdmin = false, betaActive = false, allowedFeatureKeys = [] }: Props) {
   const { signedIn } = useAuthMode();
   const pathname = usePathname();
+  const router = useRouter();
+  const [navigation, setNavigation] = useState<{ href: string; from: string } | null>(null);
+  const [slow, setSlow] = useState(false);
+  const pendingHref = navigation?.from === pathname && navigation.href !== pathname ? navigation.href : null;
+  useEffect(() => {
+    if (!pendingHref) return;
+    const timer = window.setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(timer);
+  }, [pendingHref]);
+  const prepare = (href: string) => {
+    if (!navigator.onLine) return;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType || '')) return;
+    try { if (JSON.parse(localStorage.getItem(PAGE_PREFERENCE_KEY) || '{}').intentPrefetch === false) return; } catch {}
+    router.prefetch(href);
+  };
+  const navigate = (href: string) => { setSlow(false); setNavigation({ href, from: pathname }); setMobileOpen(false); };
   const { lang } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -144,7 +162,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
   }
   function renderItem(item: NavigationItem) {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-    return <Link key={item.id} href={item.href} aria-current={active ? 'page' : undefined} prefetch={false} onClick={() => setMobileOpen(false)} className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${active ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6] dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]'}`}>
+    return <Link key={item.id} href={item.href} aria-current={active ? 'page' : undefined} prefetch={false} onMouseEnter={() => prepare(item.href)} onFocus={() => prepare(item.href)} onNavigate={() => navigate(item.href)} className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${active ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6] dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043]'}`}>
       <span className={`material-icons-round shrink-0 text-xl ${active ? 'text-[#1a73e8] dark:text-[#8ab4f8]' : 'text-[var(--muted-foreground)]'}`}>{item.icon}</span>
       {(!collapsed || mobileViewport) && <span className="min-w-0 flex-1 truncate">{t(item.labelKey, lang)}</span>}
       {(!collapsed || mobileViewport) && prefs.pinnedItems.includes(item.id) && <span className="material-icons-round text-sm text-[#1a73e8]">push_pin</span>}
@@ -152,6 +170,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
   }
 
   return <>
+    {pendingHref && <div role="status" className="fixed left-1/2 top-20 z-[70] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 text-sm shadow-xl"><span aria-hidden="true" className="material-icons-round animate-spin text-[var(--brand)]">progress_activity</span><span>{slow ? '连接较慢，正在打开页面…' : '正在打开页面…'}</span>{slow && <a className="shrink-0 rounded-lg bg-[var(--brand)] px-3 py-2 text-white" href={pendingHref}>重新打开</a>}<button type="button" aria-label="关闭导航提示" onClick={() => setNavigation(null)} className="min-h-11 min-w-11">×</button></div>}
     <button type="button" tabIndex={-1} aria-hidden="true" className={`fixed inset-0 z-[80] bg-black/45 backdrop-blur-[1px] transition-opacity lg:hidden ${mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} onClick={() => setMobileOpen(false)} />
     <aside ref={drawerRef} id="portal-navigation" aria-label={lang === 'en' ? 'All modules' : '全部功能'} role={mobileViewport && mobileOpen ? 'dialog' : undefined} aria-modal={mobileViewport && mobileOpen ? true : undefined} inert={mobileViewport && !mobileOpen ? true : undefined} className={`portal-drawer fixed inset-y-0 left-0 z-[90] flex w-[min(20rem,calc(100vw-3rem))] flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shadow-2xl transition-[transform,width] duration-200 lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}>
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--sidebar-border)] px-4">{(!collapsed || mobileViewport) && <div className="flex items-center gap-3"><BrandLogo size={32} className="h-8 w-8 shrink-0" priority /><div><p className="text-sm font-semibold text-[var(--foreground)]">JackYun</p><p className="text-[10px] uppercase tracking-[.12em] text-[var(--muted-foreground)]">Workspace</p></div></div>}<button type="button" onClick={() => setCollapsed(!collapsed)} className="ml-auto hidden h-11 w-11 place-items-center rounded-lg hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] lg:grid" aria-label="折叠侧边栏"><span className="material-icons-round text-xl text-[var(--muted-foreground)]">{collapsed ? 'menu_open' : 'menu'}</span></button></div>
@@ -168,7 +187,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
       </nav>
     </aside>
     <nav aria-label={lang === 'en' ? 'Quick navigation' : '快捷导航'} className="portal-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[var(--card-border)] bg-[var(--card)] px-1 pt-1 lg:hidden" inert={mobileOpen ? true : undefined}>
-      {['dashboard', 'study-plan', 'schedule', 'settings'].map((id) => items.find((item) => item.id === id)).map((item, index) => item ? <Link key={item.id} href={item.href} prefetch={false} aria-current={navigationIdFromPath(pathname) === item.id ? 'page' : undefined} className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium ${navigationIdFromPath(pathname) === item.id ? 'bg-[var(--brand)]/10 text-[var(--brand)]' : 'text-[var(--muted-foreground)]'}`}><span aria-hidden="true" className="material-icons-round text-[22px]">{item.icon}</span><span>{lang === 'en' ? ['Home', 'Study', 'Schedule', 'Settings'][index] : ['首页', '学习', '日程', '设置'][index]}</span></Link> : <span key={index} />)}
+      {['dashboard', 'study-plan', 'schedule', 'settings'].map((id) => items.find((item) => item.id === id)).map((item, index) => item ? <Link key={item.id} href={item.href} prefetch={false} onMouseEnter={() => prepare(item.href)} onFocus={() => prepare(item.href)} onNavigate={() => navigate(item.href)} aria-current={navigationIdFromPath(pathname) === item.id ? 'page' : undefined} className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium ${navigationIdFromPath(pathname) === item.id ? 'bg-[var(--brand)]/10 text-[var(--brand)]' : 'text-[var(--muted-foreground)]'}`}><span aria-hidden="true" className="material-icons-round text-[22px]">{item.icon}</span><span>{lang === 'en' ? ['Home', 'Study', 'Schedule', 'Settings'][index] : ['首页', '学习', '日程', '设置'][index]}</span></Link> : <span key={index} />)}
       <button type="button" aria-controls="portal-navigation" aria-expanded={mobileOpen} onClick={() => { setQuery(''); setMobileOpen(true); }} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-medium text-[var(--muted-foreground)]"><span aria-hidden="true" className="material-icons-round text-[22px]">apps</span><span>{lang === 'en' ? 'All' : '全部'}</span></button>
     </nav>
   </>;

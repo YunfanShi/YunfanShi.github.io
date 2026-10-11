@@ -1,5 +1,6 @@
 'use server';
 
+import { sanitizePagePreferences } from '@/lib/page-preferences';
 import { serviceErrorMessage } from '@/lib/service-errors';
 
 import { revalidatePath } from 'next/cache';
@@ -120,12 +121,13 @@ export async function getSidebarPreferences(): Promise<SidebarPreferences> {
   }
 }
 
-export type SettingsKey = 'general_preferences' | 'appearance_preferences' | 'companion_preferences' | 'learning_preferences' | 'advanced_preferences';
-const SETTINGS_KEYS: SettingsKey[] = ['general_preferences', 'appearance_preferences', 'companion_preferences', 'learning_preferences', 'advanced_preferences'];
+export type SettingsKey = 'general_preferences' | 'appearance_preferences' | 'companion_preferences' | 'learning_preferences' | 'advanced_preferences' | 'page_preferences';
+const SETTINGS_KEYS: SettingsKey[] = ['general_preferences', 'appearance_preferences', 'companion_preferences', 'learning_preferences', 'advanced_preferences', 'page_preferences'];
 
 function oneOf(value: unknown, allowed: readonly string[], fallback: string) { return typeof value === 'string' && allowed.includes(value) ? value : fallback; }
 function integer(value: unknown, min: number, max: number, fallback: number) { const parsed = Math.round(Number(value)); return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback; }
 function sanitizeSettingsSection(key: SettingsKey, value: Record<string, unknown>): Record<string, unknown> {
+  if (key === 'page_preferences') return sanitizePagePreferences(value);
   if (key === 'general_preferences') return { startPage: oneOf(value.startPage, ['dashboard', 'study', 'time-management'], 'dashboard'), timezone: oneOf(value.timezone, ['auto', 'Asia/Shanghai'], 'auto'), notifications: value.notifications !== false };
   if (key === 'appearance_preferences') return { theme: oneOf(value.theme, ['light', 'gray', 'dark'], 'light'), density: oneOf(value.density, ['comfortable', 'compact'], 'comfortable'), reducedMotion: value.reducedMotion === true, showFullscreen: value.showFullscreen !== false };
   if (key === 'companion_preferences') return { enabled: value.enabled !== false, countAI: value.countAI !== false, idleSeconds: Number(oneOf(String(value.idleSeconds ?? ''), ['30', '60', '120', '300'], '60')), goalMinutes: integer(value.goalMinutes, 10, 1440, 120), retentionDays: Number(oneOf(String(value.retentionDays ?? ''), ['30', '90', '180', '365'], '365')), savePageTitles: value.savePageTitles === true };
@@ -142,14 +144,15 @@ function sanitizeSettingsSection(key: SettingsKey, value: Record<string, unknown
   return { diagnostics: value.diagnostics === true, releaseChannel, betaFeatures: releaseChannel === 'preview' };
 }
 
-export async function saveSettingsSection(key: SettingsKey, value: Record<string, unknown>): Promise<{ error: string | null }> {
+export async function saveSettingsSection(key: SettingsKey, value: Record<string, unknown>, fields?: string[]): Promise<{ error: string | null }> {
   if (!SETTINGS_KEYS.includes(key)) return { error: '不支持的设置分类' };
   try {
-    const { supabase, user } = await getAuthenticatedUser();
+    const { supabase } = await getAuthenticatedUser();
     const sanitized = sanitizeSettingsSection(key, value);
-    const serialized = JSON.stringify(sanitized);
+    const patch = fields ? Object.fromEntries(Object.entries(sanitized).filter(([field]) => fields.includes(field))) : sanitized;
+    const serialized = JSON.stringify(patch);
     if (serialized.length > 20000) return { error: '设置数据过大' };
-    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, key, value: sanitized, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    const { error } = await supabase.rpc('save_settings_patch', { p_key: key, p_value: patch });
     if (!error) { revalidatePath('/'); revalidatePath('/settings'); }
     return { error: error?.message ?? null };
   } catch (error) {
@@ -168,15 +171,7 @@ export async function getSettingsSection(key: SettingsKey): Promise<Record<strin
 
 export async function saveSettingsField(key: SettingsKey, field: string, value: unknown): Promise<{ error: string | null }> {
   if (!SETTINGS_KEYS.includes(key) || !/^[a-z][a-zA-Z0-9]{0,63}$/.test(field)) return { error: '不支持的设置字段' };
-  try {
-    const { supabase, user } = await getAuthenticatedUser();
-    const { data } = await supabase.from('user_settings').select('value').eq('user_id', user.id).eq('key', key).maybeSingle();
-    const current = data?.value && typeof data.value === 'object' ? data.value as Record<string, unknown> : {};
-    const sanitized = sanitizeSettingsSection(key, { ...current, [field]: value });
-    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, key, value: sanitized, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
-    if (!error) { revalidatePath('/'); revalidatePath('/settings'); }
-    return { error: error?.message ?? null };
-  } catch (error) { return { error: error instanceof Error ? error.message : '保存设置失败' }; }
+  return saveSettingsSection(key, { [field]: value }, [field]);
 }
 
 export async function revokeCompanionDevice(deviceId: string): Promise<{ error: string | null }> {

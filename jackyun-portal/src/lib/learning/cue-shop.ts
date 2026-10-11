@@ -1,5 +1,5 @@
 import { dateKey, type CueReview, type LearningStatus } from './schedule-control.ts';
-export type CueShopCategory = 'effect' | 'theme' | 'title' | 'frame';
+export type CueShopCategory = 'effect' | 'theme' | 'title' | 'frame' | 'credit';
 export type CueShopItem = {
     id: string;
     name: string;
@@ -29,6 +29,18 @@ export const CUE_SHOP_ITEMS: CueShopItem[] = [
     { id: 'frame-orbit', name: '银环仪表', category: 'frame', level: 2, stars: 12, xp: 0, value: 'orbit', description: '侧栏带细银环与角落标记。' },
     { id: 'frame-prism', name: '紫晶舷窗', category: 'frame', level: 4, stars: 35, xp: 0, value: 'prism', description: '紫晶边缘与渐变舷窗。' },
     { id: 'frame-solar', name: '日耀舰桥', category: 'frame', level: 8, stars: 0, xp: 420, value: 'solar', description: '温暖金色的舰桥仪表框。' },
+    { id: 'credit-small', name: '启航积分包', category: 'credit', level: 2, stars: 0, xp: 80, value: 12, description: '兑换 12 站内星空积分，每个账号限领一次；不影响累计等级。' },
+    { id: 'credit-medium', name: '探索积分包', category: 'credit', level: 5, stars: 0, xp: 220, value: 38, description: '兑换 38 站内星空积分，可购买商店装饰，限领一次。' },
+    { id: 'credit-large', name: '远征积分包', category: 'credit', level: 10, stars: 0, xp: 500, value: 90, description: '兑换 90 站内星空积分，可购买商店装饰，限领一次。' },
+    { id: 'theme-aurora', name: '极光海岸', category: 'theme', level: 2, stars: 16, xp: 0, value: 'aurora', description: '青绿色极光与海蓝星尘。' },
+    { id: 'theme-midnight', name: '午夜观测站', category: 'theme', level: 3, stars: 25, xp: 0, value: 'midnight', description: '深靛蓝背景与低亮度星尘。' },
+    { id: 'theme-pearl', name: '月光珍珠', category: 'theme', level: 4, stars: 34, xp: 0, value: 'pearl', description: '银灰星尘与柔和的月光薄雾。' },
+    { id: 'frame-aurora', name: '极光舷窗', category: 'frame', level: 3, stars: 22, xp: 0, value: 'aurora', description: '青绿渐变仪表边框。' },
+    { id: 'frame-midnight', name: '静夜舰桥', category: 'frame', level: 6, stars: 48, xp: 0, value: 'midnight', description: '深蓝玻璃质感的舰桥仪表。' },
+    { id: 'title-curious', name: '好奇心飞行员', category: 'title', level: 1, stars: 8, xp: 0, value: '好奇心飞行员', description: '把每天的一个问题变成下一次启航。' },
+    { id: 'title-repair', name: '记忆修补师', category: 'title', level: 3, stars: 24, xp: 0, value: '记忆修补师', description: '为认真重练的你准备的学习称号。' },
+    { id: 'title-night', name: '夜航记录员', category: 'title', level: 6, stars: 50, xp: 0, value: '夜航记录员', description: '在星空收藏中展示你的旅程。' },
+
 ];
 export type CueGameEarning = {
     id: string;
@@ -118,7 +130,8 @@ export function reconcileCueGameAccount(value: CueGameAccount | undefined, revie
 }
 export function cueShopBalance(account: CueGameAccount) {
     const earnedStars = account.earnings.reduce((sum, entry) => sum + entry.stars, 0), earnedXP = account.earnings.reduce((sum, entry) => sum + entry.xp, 0);
-    return { stars: earnedStars - account.purchases.reduce((sum, entry) => sum + entry.stars, 0), xp: earnedXP - account.purchases.reduce((sum, entry) => sum + entry.xp, 0), earnedStars, earnedXP, level: Math.floor(earnedXP / 100) + 1 };
+    const credits = account.purchases.reduce((sum, purchase) => { const item = CUE_SHOP_ITEMS.find(item => item.id === purchase.itemId && item.category === 'credit'); return sum + (item ? Number(item.value) : 0); }, 0);
+    return { stars: earnedStars + credits - account.purchases.reduce((sum, entry) => sum + entry.stars, 0), xp: earnedXP - account.purchases.reduce((sum, entry) => sum + entry.xp, 0), earnedStars, earnedXP, level: Math.floor(earnedXP / 100) + 1 };
 }
 export function purchaseCueShopItem(account: CueGameAccount, itemId: string, now = new Date()): {
     account: CueGameAccount;
@@ -138,7 +151,7 @@ export function purchaseCueShopItem(account: CueGameAccount, itemId: string, now
 }
 export function equipCueShopItem(account: CueGameAccount, itemId: string) {
     const item = CUE_SHOP_ITEMS.find(item => item.id === itemId);
-    return !item || !account.purchases.some(purchase => purchase.itemId === itemId) ? account : { ...account, equipment: { ...account.equipment, [item.category]: item.id } };
+    return !item || item.category === 'credit' || !account.purchases.some(purchase => purchase.itemId === itemId) ? account : { ...account, equipment: { ...account.equipment, [item.category]: item.id } };
 }
 export function cueEquippedValue(account: CueGameAccount, category: CueShopCategory) { return CUE_SHOP_ITEMS.find(item => item.id === account.equipment[category] && account.purchases.some(purchase => purchase.itemId === item.id))?.value; }
 export type CueShopAction = {

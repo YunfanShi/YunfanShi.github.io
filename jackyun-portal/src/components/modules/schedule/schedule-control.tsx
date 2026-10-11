@@ -1,6 +1,7 @@
 'use client';
 
 import { finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
+import dynamic from 'next/dynamic';
 import CueGamePanel from './cue-game-panel';
 import { reconcileCueGameAccount, purchaseCueShopItem, equipCueShopItem, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
 import type { CueStarFeedback } from '@/lib/learning/cue-game';
@@ -113,6 +114,7 @@ import {
   type TimetableImport,
   type StudyCue,
 } from '@/lib/learning/schedule-control';
+const StandaloneCueShop = dynamic(() => import('./cue-star-shop'), { ssr: false });
 
 const STORAGE_KEY = 'jackyun_schedule_control_v1';
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -1452,6 +1454,7 @@ function StudyTaskPreview({ task, cues, bank, onClose, onStart }: { task: Learni
 export default function ScheduleControl({ personalIeltsPlan = false }: { personalIeltsPlan?: boolean }) {
   const { cueShuffle } = useCueStudyPreferences();
   const universeEnabled = useCueUniverseEnabled();
+  const [standaloneShopOpen, setStandaloneShopOpen] = useState(false);
   const [starSummary, setStarSummary] = useState<'summary' | 'album' | null>(null);
   const { signedIn } = useAuthMode();
   const [state, setState] = useState<ScheduleControlState>(() => createEmptyScheduleState());
@@ -1911,6 +1914,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {view === 'records' && <StudyInsights state={state} bank={questionBank} signedIn={signedIn} onChange={setState} />}
       <LearningAssistant state={state} signedIn={signedIn} visible={view === 'records'} onChange={setState} />
       {view === 'cue' && !questionBankError && <>
+        <button data-cue-shop-open type="button" onClick={() => setStandaloneShopOpen(true)} className="mt-4 min-h-11 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white">✦ CUE 星空商店</button>
         {universeEnabled && <button type="button" onClick={() => setStarSummary('album')} className="mt-4 rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm">✦ 我的星空收藏</button>}
         <div className="mt-4">      <CueStudyDashboard cues={state.cues} reviews={state.cueReviews} drafts={cueDrafts} onStart={startSpecialCueStudy} onResume={(draft) => setCueStudyTask(draft.task)} onDiscard={(draft) => { if (!window.confirm(`确定放弃 ${draft.task.subjectName || '未分类'} 的这次 Cue 学习进度吗？`)) return; setState((current) => removeCueStudyDraft(current, draft)); setNotice('该学科未完成的 Cue 学习进度已放弃。'); }} /></div>
         <LearningWorkspace cues={state.cues} reviews={state.cueReviews} bank={{ ...questionBank, drafts: Object.fromEntries(Object.entries(questionBank.drafts).map(([id, draft]) => [id, reconcileStudyDraft(draft, state.cues, questionBank.questions)])) }} catalog={state.learningCatalog} onStart={startUnifiedStudy} onResume={resumeUnifiedStudy} onDiscard={(id) => { const drafts = { ...questionBank.drafts }; delete drafts[id]; commitQuestionBank({ ...questionBank, drafts }); }} onManage={() => setView('questions')} />
@@ -1931,6 +1935,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       </div>}
 
       {studyPreviewTask && <StudyTaskPreview task={studyPreviewTask} cues={state.cues} bank={questionBank} onClose={() => setStudyPreviewTask(null)} onStart={(items) => startUnifiedStudy(items.some((item) => item.kind === 'cue') && items.some((item) => item.kind === 'question') ? 'mixed' : items.some((item) => item.kind === 'question') ? 'question' : 'cue', studyPreviewTask.subjectId ?? '', studyPreviewTask.scope?.unit ?? '', items, studyPreviewTask)} />}
+      {standaloneShopOpen && <StandaloneCueShop account={gameAccount} onAction={shopAction} animations={universeEnabled} onClose={() => { setStandaloneShopOpen(false); document.querySelector<HTMLButtonElement>('[data-cue-shop-open]')?.focus(); }} />}
       {starSummary && universeEnabled && !cueStudyTask && !activeStudyDraft && <CueGamePanel account={gameAccount} onShopAction={shopAction} key={starSummary} initialAlbumOpen={starSummary === 'album'} summary reviews={state.cueReviews} cues={state.cues} records={state.learningRecords} onDismiss={() => setStarSummary(null)} />}
       {activeStudyDraft && <LearningSession gameAccount={gameAccount} onShopAction={shopAction} starRecords={state.learningRecords} reviews={state.cueReviews} draft={activeStudyDraft} onDifficulty={changeCueDifficulty} cues={state.cues} bank={questionBank} onDraft={(draft) => commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [draft.id]: draft } })} onRate={rateStudyItem} onMemo={saveCueMemo} memos={state.cueMemos} onClose={() => { setActiveStudyId(null); if (universeEnabled && activeStudyDraft.items.some((item) => item.kind === 'cue' && activeStudyDraft.assessments[itemKey(item)])) setStarSummary('summary'); }} onComplete={finishUnifiedStudy} />}
       {cueStudyTask && activeCueDraft && <CueStudyPage gameAccount={gameAccount} onShopAction={shopAction} starCues={state.cues} starRecords={state.learningRecords} reviews={state.cueReviews} task={cueStudyTask} onDifficulty={changeCueDifficulty} cues={cueStudyCues} draft={activeCueDraft} memos={state.cueMemos} onProgress={saveCueStudyProgress} onAssessment={(cueId, status, practice, editPractice) => saveCueStudyAssessment(cueStudyTask, cueId, status, practice, editPractice)} answerCards={state.cueAnswerCards} onAnswerText={(cueId, text) => setState((current) => ({ ...current, cueAnswerCards: editCueAnswerCard(current.cueAnswerCards, activeCueDraft.id, cueId, text, new Date().toISOString()) }))} onAnswerCompare={(cue) => setState((current) => ({ ...current, cueAnswerCards: compareCueAnswerCard(current.cueAnswerCards, activeCueDraft.id, cue, new Date().toISOString()) }))} onAnswerCheck={(id, index, checked) => setState((current) => ({ ...current, cueAnswerCards: checkCueAnswerPoint(current.cueAnswerCards, id, index, checked, new Date().toISOString()) }))} onClose={() => { setCueStudyTask(null); if (universeEnabled && Object.keys(activeCueDraft.assessments).length) setStarSummary('summary'); setNotice('Cue 状态、学习进度和答题卡均已保存，可随时恢复。'); }} onComplete={(details, evidence) => submitReview(cueStudyTask, details, evidence)} />}

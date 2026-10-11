@@ -40,6 +40,7 @@ export default function BrowserAiBridge() {
       }, 20_000);
     };
     const activateRequest = (next: BrowserAiRequest) => {
+      if (next.automation && localStorage.getItem('jackyun_beta_active') !== 'true') { next.reject(new Error('插件自动填写需要 BETA 资格')); return; }
       setReply('');
       setNotice('');
       setRequest(next);
@@ -83,7 +84,7 @@ export default function BrowserAiBridge() {
     const legacyListener = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== 'JACKYUN_BROWSER_AI_REQUEST') return;
       const config = getAiConfig();
-      if (config.providerMode !== 'browser' || localStorage.getItem('jackyun_beta_active') !== 'true') return;
+      if (config.providerMode !== 'browser') return;
       const messages = Array.isArray(event.data.messages) ? event.data.messages.filter((item: unknown) => item && typeof item === 'object' && typeof (item as { content?: unknown }).content === 'string') : [];
       const requestId = String(event.data.requestId || crypto.randomUUID());
       const source = event.source;

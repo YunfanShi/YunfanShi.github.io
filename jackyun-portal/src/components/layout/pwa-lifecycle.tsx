@@ -1,8 +1,10 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 export default function PwaLifecycle() {
+  const pathname = usePathname();
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const reloadRequested = useRef(false);
@@ -47,10 +49,20 @@ export default function PwaLifecycle() {
   }, []);
 
   useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const timer = window.setTimeout(() => {
+      const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      if (!navigator.onLine || document.hidden || connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType || '')) return;
+      navigator.serviceWorker.controller?.postMessage({ type: 'WARM_VISITED_ROUTE', url: window.location.href });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [pathname]);
+
+  useEffect(() => {
     const followCachedRoute = (event: MouseEvent) => {
       if (navigator.onLine || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null;
-      if (!anchor || anchor.origin !== window.location.origin || !['/dashboard', '/study/tasks', '/reading', '/review'].includes(anchor.pathname)) return;
+      if (!anchor || anchor.origin !== window.location.origin || !['/dashboard', '/study/tasks', '/reading', '/review', '/schedule', '/study', '/goal', '/study-guide', '/vocab', '/memory', '/time-management', '/tools', '/sleep', '/relax', '/help', '/update'].includes(anchor.pathname)) return;
       event.preventDefault();
       window.location.assign(anchor.href);
     };
@@ -61,7 +73,7 @@ export default function PwaLifecycle() {
   if (!waitingWorker || dismissed) return null;
 
   return (
-    <div role="status" className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[100] flex w-[min(calc(100%-2rem),30rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-2xl">
+    <div role="status" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-4 left-1/2 z-[100] flex w-[min(calc(100%-2rem),30rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-2xl">
       <span className="material-icons-round grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f0fe] text-[#1a73e8] dark:bg-[#174ea6]/40 dark:text-[#aecbfa]">system_update</span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-[var(--foreground)]">JackYun 已有新版本</p>

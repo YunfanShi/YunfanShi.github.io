@@ -239,7 +239,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 
     try {
       var savedConfig = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
-      if (savedConfig.providerMode === 'browser' && localStorage.getItem('jackyun_beta_active') === 'true') {
+      if (savedConfig.providerMode === 'browser') {
         var requestId = crypto.randomUUID();
         var requestBody = JSON.parse(proxyOptions.body || '{}');
         return new Promise(function(resolve, reject) {
@@ -431,6 +431,22 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     return () => { cancelled = true; };
   }, [src, userName, lang, signedIn, runtimeContext]);
 
+  useEffect(() => {
+    const main = document.querySelector<HTMLElement>('[data-portal-main]');
+    const apply = () => {
+      const doc = iframeRef.current?.contentDocument;
+      if (!doc || !main) return;
+      let style = doc.getElementById('jackyun-page-presentation') as HTMLStyleElement | null;
+      if (!style) { style = doc.createElement('style'); style.id = 'jackyun-page-presentation'; doc.head.appendChild(style); }
+      style.textContent = `${main.dataset.pageSize === 'large' ? 'body,p,li,label,td{font-size:18px!important;line-height:1.7!important}' : ''}${main.dataset.pageMotion === 'false' ? '*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}' : ''}`;
+    };
+    const frame = iframeRef.current;
+    frame?.addEventListener('load', apply);
+    const observer = new MutationObserver(apply);
+    if (main) observer.observe(main, { attributes: true, attributeFilter: ['data-page-size', 'data-page-motion'] });
+    apply();
+    return () => { observer.disconnect(); frame?.removeEventListener('load', apply); };
+  }, []);
   useEffect(()=>{
     const edit=(event:MessageEvent)=>{
       if(event.source!==iframeRef.current?.contentWindow || event.origin!==location.origin)return;

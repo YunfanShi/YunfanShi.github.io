@@ -148,3 +148,6 @@
 .dock[data-frame='solar'] .panel {border-color:#e6bc7777;background:radial-gradient(ellipse at 80% 0%,#7a4d2445,transparent 70%),#101727;}
 .receiptSlot { min-height: 32px; display: flex; align-items: center; }
 .receipt { font-size: 11px; color: #cab9ef; pointer-events: none; font-variant-numeric: tabular-nums; }
+
+.dock[data-frame='aurora'] .panel {border-color:#78dfcc88;background:linear-gradient(145deg,#153a3a,#101727 75%);}
+.dock[data-frame='midnight'] .panel {border-color:#7188ba88;background:linear-gradient(145deg,#172649,#080e1e 75%);}

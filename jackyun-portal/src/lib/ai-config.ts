@@ -174,7 +174,7 @@ export async function syncAiConfigToServer(): Promise<{ error: string | null }> 
 /** 检查是否有有效的 AI 配置（baseUrl 和 apiKey 都不为空） */
 export function hasValidAiConfig(): boolean {
   const config = getAiConfig();
-  if (config.providerMode === 'browser') return localStorage.getItem('jackyun_beta_active') === 'true';
+  if (config.providerMode === 'browser') return true;
   if (config.providerMode === 'cloud') return true;
   return config.baseUrl.trim().length > 0 && config.apiKey.trim().length > 0;
 }
@@ -218,7 +218,7 @@ export async function callAiApi(
   const model = options.model || config.model;
 
   if (config.providerMode === 'browser') {
-    if (localStorage.getItem('jackyun_beta_active') !== 'true') throw new Error('本地网页 AI 仅对 BETA 账户开放');
+    if (config.companionAutomation && localStorage.getItem('jackyun_beta_active') !== 'true') throw new Error('插件自动填写需要 BETA 资格，请关闭自动处理后使用手动模式');
     return requestBrowserAi(messages, config.browserProvider ?? 'chatgpt', config.companionAutomation === true, options.stream ?? false, options.model);
   }
 

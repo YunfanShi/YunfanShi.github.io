@@ -108,9 +108,9 @@ export async function POST(req: NextRequest) {
     const baseUrl = requestedBaseUrl ? normalizeLlmBaseUrl(requestedBaseUrl) : '';
     const model = typeof body.model === 'string' ? body.model.trim().slice(0, 160) : '';
     const providerMode = body.providerMode === 'cloud' ? 'cloud' : body.providerMode === 'browser' ? 'browser' : 'personal';
-    if (providerMode === 'browser') {
+    if (providerMode === 'browser' && body.companionAutomation === true) {
       const { data: enrollment } = await supabase.from('beta_enrollments').select('status').eq('user_id', user.id).maybeSingle();
-      if (enrollment?.status !== 'accepted') return NextResponse.json({ error: '本地网页 AI 仅对 BETA 账户开放' }, { status: 403 });
+      if (enrollment?.status !== 'accepted') return NextResponse.json({ error: '插件自动填写仅对 BETA 账户开放' }, { status: 403 });
     }
     const browserProvider = typeof body.browserProvider === 'string' && ['chatgpt', 'deepseek', 'claude', 'gemini', 'qwen', 'perplexity'].includes(body.browserProvider) ? body.browserProvider : 'chatgpt';
     if (requestedBaseUrl && !baseUrl) return NextResponse.json({ error: 'AI 服务地址不在服务器允许列表中' }, { status: 400 });

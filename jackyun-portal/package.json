@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -24,8 +24,12 @@
     "test:adblock": "node --test tests/adblock.test.mjs",
     "test:companion-performance": "node --test tests/companion-performance.test.mjs",
     "test:legacy-ui": "node --test tests/legacy-ui.test.mts tests/music-sync.test.mts",
+    "test:workspace-pages": "node tests/workspace-pages.browser.mjs",
+    "test:workspace-features": "node tests/workspace-features.browser.mjs",
+    "build:mock-styles": "node scripts/build-mock-portal-css.mjs",
+    "test:preferences": "node --test tests/page-preferences.test.mts",
     "test:mobile-ui": "node tests/mobile-navigation.browser.mjs",
-    "test:pwa": "node --test tests/pwa.test.mts tests/pwa-assets.test.mts tests/css-compatibility.test.mts",
+    "test:pwa": "node --test tests/pwa.test.mts tests/pwa-assets.test.mts tests/pwa-navigation.test.mts tests/css-compatibility.test.mts",
     "test:reader-admin": "node --test tests/admin-novel-management.test.mts tests/redemption.test.mts tests/novel-export.test.mts tests/novel-signed-links.test.mts",
     "check:secrets": "node scripts/check-no-private-keys.mjs",
     "check:companion": "node scripts/check-companion-package.mjs",

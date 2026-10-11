@@ -1,0 +1,595 @@
+{
+  "mode": "guest, production build, phone viewport; protected pages may redirect to login",
+  "count": 98,
+  "failures": 0,
+  "routes": [
+    {
+      "route": "/login",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/oauth/consent",
+      "status": 200,
+      "finalPath": "/oauth/consent",
+      "errors": []
+    },
+    {
+      "route": "/reset-password",
+      "status": 200,
+      "finalPath": "/reset-password",
+      "errors": []
+    },
+    {
+      "route": "/unauthorized",
+      "status": 200,
+      "finalPath": "/unauthorized",
+      "errors": []
+    },
+    {
+      "route": "/update-password",
+      "status": 200,
+      "finalPath": "/update-password",
+      "errors": []
+    },
+    {
+      "route": "/activity",
+      "status": 200,
+      "finalPath": "/activity",
+      "errors": []
+    },
+    {
+      "route": "/admin/test",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/test-ai",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/ai",
+      "status": 200,
+      "finalPath": "/ai",
+      "errors": []
+    },
+    {
+      "route": "/answer-sheet",
+      "status": 200,
+      "finalPath": "/answer-sheet",
+      "errors": []
+    },
+    {
+      "route": "/answer-sheet-sync",
+      "status": 200,
+      "finalPath": "/answer-sheet-sync",
+      "errors": []
+    },
+    {
+      "route": "/beta",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/bilibili-sync",
+      "status": 200,
+      "finalPath": "/bilibili-sync",
+      "errors": []
+    },
+    {
+      "route": "/control/focus",
+      "status": 200,
+      "finalPath": "/control/focus",
+      "errors": []
+    },
+    {
+      "route": "/countdown",
+      "status": 200,
+      "finalPath": "/countdown",
+      "errors": []
+    },
+    {
+      "route": "/dashboard",
+      "status": 200,
+      "finalPath": "/dashboard",
+      "errors": []
+    },
+    {
+      "route": "/definitions",
+      "status": 200,
+      "finalPath": "/definitions",
+      "errors": []
+    },
+    {
+      "route": "/examcountdown",
+      "status": 200,
+      "finalPath": "/examcountdown",
+      "errors": []
+    },
+    {
+      "route": "/goal",
+      "status": 200,
+      "finalPath": "/goal",
+      "errors": []
+    },
+    {
+      "route": "/help",
+      "status": 200,
+      "finalPath": "/help",
+      "errors": []
+    },
+    {
+      "route": "/ielts",
+      "status": 200,
+      "finalPath": "/ielts",
+      "errors": []
+    },
+    {
+      "route": "/ielts-writing",
+      "status": 200,
+      "finalPath": "/ielts-writing",
+      "errors": []
+    },
+    {
+      "route": "/igcountdown",
+      "status": 200,
+      "finalPath": "/igcountdown",
+      "errors": []
+    },
+    {
+      "route": "/md2word",
+      "status": 200,
+      "finalPath": "/md2word",
+      "errors": []
+    },
+    {
+      "route": "/memory",
+      "status": 200,
+      "finalPath": "/memory",
+      "errors": []
+    },
+    {
+      "route": "/mock-portal",
+      "status": 200,
+      "finalPath": "/mock-portal",
+      "errors": []
+    },
+    {
+      "route": "/music",
+      "status": 200,
+      "finalPath": "/music",
+      "errors": []
+    },
+    {
+      "route": "/music-sync",
+      "status": 200,
+      "finalPath": "/music-sync",
+      "errors": []
+    },
+    {
+      "route": "/poem",
+      "status": 200,
+      "finalPath": "/poem",
+      "errors": []
+    },
+    {
+      "route": "/pomodoro",
+      "status": 200,
+      "finalPath": "/pomodoro",
+      "errors": []
+    },
+    {
+      "route": "/properties",
+      "status": 200,
+      "finalPath": "/properties",
+      "errors": []
+    },
+    {
+      "route": "/quiz",
+      "status": 200,
+      "finalPath": "/quiz",
+      "errors": []
+    },
+    {
+      "route": "/reading",
+      "status": 200,
+      "finalPath": "/reading",
+      "errors": []
+    },
+    {
+      "route": "/relax",
+      "status": 200,
+      "finalPath": "/relax",
+      "errors": []
+    },
+    {
+      "route": "/resources",
+      "status": 200,
+      "finalPath": "/resources",
+      "errors": []
+    },
+    {
+      "route": "/review",
+      "status": 200,
+      "finalPath": "/review",
+      "errors": []
+    },
+    {
+      "route": "/schedule",
+      "status": 200,
+      "finalPath": "/schedule",
+      "errors": []
+    },
+    {
+      "route": "/server-failure",
+      "status": 200,
+      "finalPath": "/server-failure",
+      "errors": []
+    },
+    {
+      "route": "/settings",
+      "status": 200,
+      "finalPath": "/settings",
+      "errors": []
+    },
+    {
+      "route": "/sleep",
+      "status": 200,
+      "finalPath": "/sleep",
+      "errors": []
+    },
+    {
+      "route": "/studio",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/study",
+      "status": 200,
+      "finalPath": "/study",
+      "errors": []
+    },
+    {
+      "route": "/study/tasks",
+      "status": 200,
+      "finalPath": "/study/tasks",
+      "errors": []
+    },
+    {
+      "route": "/study-guide",
+      "status": 200,
+      "finalPath": "/study-guide",
+      "errors": []
+    },
+    {
+      "route": "/temp/redirecting",
+      "status": 200,
+      "finalPath": "/temp/redirecting",
+      "errors": []
+    },
+    {
+      "route": "/time-management",
+      "status": 200,
+      "finalPath": "/time-management",
+      "errors": []
+    },
+    {
+      "route": "/timetable-hub",
+      "status": 200,
+      "finalPath": "/timetable-hub",
+      "errors": []
+    },
+    {
+      "route": "/tools",
+      "status": 200,
+      "finalPath": "/tools",
+      "errors": []
+    },
+    {
+      "route": "/update",
+      "status": 200,
+      "finalPath": "/update",
+      "errors": []
+    },
+    {
+      "route": "/userscripts",
+      "status": 200,
+      "finalPath": "/userscripts",
+      "errors": []
+    },
+    {
+      "route": "/vocab",
+      "status": 200,
+      "finalPath": "/vocab",
+      "errors": []
+    },
+    {
+      "route": "/account-status",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/access",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/ai",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/ai/test",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/announcements",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/content/library",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/content",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/enforcer",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/network",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/system",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/tickets",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/update-hub",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/admin/users",
+      "status": 200,
+      "finalPath": "/login",
+      "errors": []
+    },
+    {
+      "route": "/articles",
+      "status": 200,
+      "finalPath": "/articles",
+      "errors": []
+    },
+    {
+      "route": "/network-access",
+      "status": 200,
+      "finalPath": "/network-access",
+      "errors": []
+    },
+    {
+      "route": "/",
+      "status": 200,
+      "finalPath": "/dashboard",
+      "errors": []
+    },
+    {
+      "route": "/Techempire",
+      "status": 200,
+      "finalPath": "/Techempire",
+      "errors": []
+    },
+    {
+      "route": "/AnswerSheet.html",
+      "status": 200,
+      "finalPath": "/AnswerSheet.html",
+      "errors": []
+    },
+    {
+      "route": "/AnswerSheetSync.html",
+      "status": 200,
+      "finalPath": "/AnswerSheetSync.html",
+      "errors": []
+    },
+    {
+      "route": "/BilibiliSync.html",
+      "status": 200,
+      "finalPath": "/BilibiliSync.html",
+      "errors": []
+    },
+    {
+      "route": "/Control.html",
+      "status": 200,
+      "finalPath": "/Control.html",
+      "errors": []
+    },
+    {
+      "route": "/Countdown.html",
+      "status": 200,
+      "finalPath": "/Countdown.html",
+      "errors": []
+    },
+    {
+      "route": "/EM.html",
+      "status": 200,
+      "finalPath": "/EM.html",
+      "errors": []
+    },
+    {
+      "route": "/Goal.html",
+      "status": 200,
+      "finalPath": "/Goal.html",
+      "errors": []
+    },
+    {
+      "route": "/HelpCenter.html",
+      "status": 200,
+      "finalPath": "/HelpCenter.html",
+      "errors": []
+    },
+    {
+      "route": "/IGCountdown.html",
+      "status": 200,
+      "finalPath": "/IGCountdown.html",
+      "errors": []
+    },
+    {
+      "route": "/index.html",
+      "status": 200,
+      "finalPath": "/index.html",
+      "errors": []
+    },
+    {
+      "route": "/Jump.html",
+      "status": 200,
+      "finalPath": "/Jump.html",
+      "errors": []
+    },
+    {
+      "route": "/JumpMusic.html",
+      "status": 200,
+      "finalPath": "/JumpMusic.html",
+      "errors": []
+    },
+    {
+      "route": "/MockPortal.html",
+      "status": 200,
+      "finalPath": "/MockPortal.html",
+      "errors": []
+    },
+    {
+      "route": "/MusicPlayer.html",
+      "status": 200,
+      "finalPath": "/MusicPlayer.html",
+      "errors": []
+    },
+    {
+      "route": "/MusicPlayerSync.html",
+      "status": 200,
+      "finalPath": "/MusicPlayerSync.html",
+      "errors": []
+    },
+    {
+      "route": "/offline.html",
+      "status": 200,
+      "finalPath": "/offline.html",
+      "errors": []
+    },
+    {
+      "route": "/Poem.html",
+      "status": 200,
+      "finalPath": "/Poem.html",
+      "errors": []
+    },
+    {
+      "route": "/Pomodoro.html",
+      "status": 200,
+      "finalPath": "/Pomodoro.html",
+      "errors": []
+    },
+    {
+      "route": "/products.html",
+      "status": 200,
+      "finalPath": "/products.html",
+      "errors": []
+    },
+    {
+      "route": "/quiz.html",
+      "status": 200,
+      "finalPath": "/quiz.html",
+      "errors": []
+    },
+    {
+      "route": "/QuizWise.html",
+      "status": 200,
+      "finalPath": "/QuizWise.html",
+      "errors": []
+    },
+    {
+      "route": "/Relax.html",
+      "status": 200,
+      "finalPath": "/Relax.html",
+      "errors": []
+    },
+    {
+      "route": "/StudyGuide.html",
+      "status": 200,
+      "finalPath": "/StudyGuide.html",
+      "errors": []
+    },
+    {
+      "route": "/Studyplan.html",
+      "status": 200,
+      "finalPath": "/Studyplan.html",
+      "errors": []
+    },
+    {
+      "route": "/Test.html",
+      "status": 200,
+      "finalPath": "/Test.html",
+      "errors": []
+    },
+    {
+      "route": "/Time.html",
+      "status": 200,
+      "finalPath": "/Time.html",
+      "errors": []
+    },
+    {
+      "route": "/TimetableHub.html",
+      "status": 200,
+      "finalPath": "/TimetableHub.html",
+      "errors": []
+    },
+    {
+      "route": "/UpdateHub.html",
+      "status": 200,
+      "finalPath": "/UpdateHub.html",
+      "errors": []
+    },
+    {
+      "route": "/Vocab.html",
+      "status": 200,
+      "finalPath": "/Vocab.html",
+      "errors": []
+    }
+  ]
+}

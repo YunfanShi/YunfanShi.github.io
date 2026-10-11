@@ -10,7 +10,7 @@ function worker({ cached, response, quotaError = false }: { cached?: Response; r
   let writes = 0;
   let deletes = 0;
   runInNewContext(source, {
-    URL, Request, Response,
+    URL, Request, Response, Headers, AbortController, setTimeout, clearTimeout,
     self: { location: { origin: 'https://example.com' }, addEventListener: (name: string, handler: (event: unknown) => void) => listeners.set(name, handler) },
     caches: {
       match: async () => cached,
@@ -46,7 +46,7 @@ test('a successful CSS download survives a full device cache', async () => {
 });
 
 test('an online page still opens when its offline cache is full', async () => {
-  const sw = worker({ response: new Response('<html>dashboard</html>'), quotaError: true });
+  const sw = worker({ response: new Response('<html>dashboard</html>', { headers: { 'Content-Type': 'text/html' } }), quotaError: true });
   assert.equal(await (await sw.get(true)).text(), '<html>dashboard</html>');
 });
 

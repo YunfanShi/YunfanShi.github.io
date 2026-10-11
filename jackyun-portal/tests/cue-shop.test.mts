@@ -31,7 +31,7 @@ test('exchange enforces level, balances, ownership and spending does not remove 
  assert.equal(purchaseCueShopItem(account,'title-explorer',now).account,account);assert.equal(equipCueShopItem(account,'effect-solar'),account);
  account=equipCueShopItem(account,'title-explorer');assert.equal(cueEquippedValue(account,'title'),'星际探索者');
  const bought=purchaseCueShopItem(account,'effect-solar',now).account;assert.equal(cueShopBalance(bought).stars,initial.stars-18);assert.equal(bought.purchases.length,2);
- assert.equal(CUE_SHOP_ITEMS.length,18);assert.ok(CUE_SHOP_ITEMS.some(item=>item.category==='effect'&&item.xp>0));assert.ok(CUE_SHOP_ITEMS.some(item=>item.stars>0&&item.stars<10));assert.ok(CUE_SHOP_ITEMS.some(item=>item.stars>=200));
+ assert.ok(CUE_SHOP_ITEMS.length >= 29);assert.ok(CUE_SHOP_ITEMS.some(item=>item.category==='effect'&&item.xp>0));assert.ok(CUE_SHOP_ITEMS.some(item=>item.stars>0&&item.stars<10));assert.ok(CUE_SHOP_ITEMS.some(item=>item.stars>=200));
 });
 test('shuffle interleaves balanced subjects and rotates units while preserving all identities',()=>{
  const cues=Array.from({length:24},(_,i)=>({id:String(i),subjectName:`S${Math.floor(i/8)}`,unit:`U${Math.floor((i%8)/4)}`}));const ids=cues.map(cue=>cue.id);
@@ -41,4 +41,16 @@ test('skip rotates weak items; automatic pass returns to normal while explicit m
  let state=emptyCuePractice();state=rateCuePractice(state,'weak-a','unclear',true,0,()=>0);state=rateCuePractice(state,'weak-b','partial',true,0,()=>0);
  state=enterCuePractice(state,600000,undefined,'normal-next');assert.equal(state.active,'weak-a');state=enterCuePractice(state,600000,state.active,'normal-next');assert.equal(state.active,'weak-b');assert.equal(state.returnCueId,'normal-next');assert.equal(cuePracticeReturnIndex(state,['normal-before','normal-next']),1);
  state=rateCuePractice(state,'weak-b','stable',true,600000);const automatic=finishAutomaticCuePractice(state,'stable');assert.equal(automatic.active,undefined);assert.equal(automatic.pending[0].cueId,'weak-a');assert.equal(automatic.results?.['weak-b'].status,'stable');assert.equal(finishAutomaticCuePractice({...state,mode:true},'stable').active,'weak-b');
+});
+
+test('credit packs convert expendable XP once without changing cumulative level', () => {
+ const account = reconcileCueGameAccount(undefined, reviews(20), now);
+ const before = cueShopBalance(account);
+ const pack = purchaseCueShopItem(account, 'credit-small', now);
+ assert.equal(pack.error, undefined);
+ assert.equal(cueShopBalance(pack.account).stars, before.stars + 12);
+ assert.equal(cueShopBalance(pack.account).xp, before.xp - 80);
+ assert.equal(cueShopBalance(pack.account).level, before.level);
+ assert.equal(purchaseCueShopItem(pack.account, 'credit-small', now).account, pack.account);
+ assert.equal(equipCueShopItem(pack.account, 'credit-small'), pack.account);
 });

@@ -34,7 +34,7 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
     });
     knownStars.current = new Set(stars.map((star) => star.id));
     const dust = Array.from({ length: 3600 }, (_, i) => cueGalaxyPoint(`ambient-${i}`));
-    const sprites = { stable: lightSprite(CUE_STAR_COLORS.stable), partial: lightSprite(CUE_STAR_COLORS.partial), unclear: lightSprite(CUE_STAR_COLORS.unclear), dust: lightSprite(theme === 'violet' ? '#c5a7ee' : theme === 'rose' ? '#eeb5cb' : theme === 'amber' ? '#edc68b' : '#a9bddb') };
+    const sprites = { stable: lightSprite(CUE_STAR_COLORS.stable), partial: lightSprite(CUE_STAR_COLORS.partial), unclear: lightSprite(CUE_STAR_COLORS.unclear), dust: lightSprite(theme === 'aurora' ? '#99efd7' : theme === 'midnight' ? '#809ac9' : theme === 'pearl' ? '#dadfec' : theme === 'violet' ? '#c5a7ee' : theme === 'rose' ? '#eeb5cb' : theme === 'amber' ? '#edc68b' : '#a9bddb') };
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     let width = 0, height = 0, frame = 0, lastFrame = 0;
     const moving = () => animations && !reduced.matches && document.documentElement.dataset.reducedMotion !== 'true';
@@ -49,7 +49,7 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
     const paint = (now: number) => {
       context.fillStyle = '#040810'; context.fillRect(0, 0, width, height);
       const haze = context.createRadialGradient(width * .5, height * .51, 0, width * .5, height * .51, Math.max(width, height) * .6);
-      haze.addColorStop(0, theme === 'violet' ? '#623f8049' : theme === 'rose' ? '#773b5549' : theme === 'amber' ? '#71553149' : '#1b294249'); haze.addColorStop(.35, '#111d3038'); haze.addColorStop(1, '#04081000');
+      haze.addColorStop(0, theme === 'aurora' ? '#235f6049' : theme === 'midnight' ? '#13234a49' : theme === 'pearl' ? '#59617449' : theme === 'violet' ? '#623f8049' : theme === 'rose' ? '#773b5549' : theme === 'amber' ? '#71553149' : '#1b294249'); haze.addColorStop(.35, '#111d3038'); haze.addColorStop(1, '#04081000');
       context.fillStyle = haze; context.fillRect(0, 0, width, height);
       const core = context.createRadialGradient(width * .5, height * .51, 0, width * .5, height * .51, height * .2);
       core.addColorStop(0, '#b5c8ef24'); core.addColorStop(.2, '#5c77aa16'); core.addColorStop(1, '#04081000');
