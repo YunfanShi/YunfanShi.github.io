@@ -20,6 +20,6 @@ export function reconcileAcknowledgment(
       && canonicalJson(current.value) === canonicalJson(sent.value)) return null;
   return {
     ...current, id: newId, baseRevision: cloud.revision, baseHash: cloud.contentHash,
-    baseValue: cloud.deleted ? null : cloud.value, resolvesOperationId,
+    baseValue: cloud.deleted ? null : cloud.value, baseDeleted: cloud.deleted, resolvesOperationId,
   };
 }

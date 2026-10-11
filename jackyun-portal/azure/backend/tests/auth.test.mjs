@@ -74,7 +74,7 @@ test('one operation ID cannot acknowledge writes to two different keys', async (
   let queried = false;
   const handle = createSyncApi({ withUser: async (_identity, work) => work({ query: async () => { queried = true; throw new Error('Unexpected mutation'); } }) });
   const op = { id: randomUUID(), baseRevision: 0, baseHash: null, baseValue: null, value: {}, deleted: false, clientUpdatedAt: new Date().toISOString() };
-  await assert.rejects(handle('POST', new URL('http://localhost/api/sync/v2'), { deviceId: randomUUID(),
+  await assert.rejects(handle('POST', new URL('http://localhost/api/sync/v2'), { syncProtocol:3,deviceId: randomUUID(),
     operations: [{ ...op, key: 'azure_test_a' }, { ...op, key: 'azure_test_b' }] }, identity), { status: 400, code: 'DUPLICATE_OPERATION_IDS' });
   assert.equal(queried, false, 'Validation rejects the ambiguous batch before any device or record mutation');
 });

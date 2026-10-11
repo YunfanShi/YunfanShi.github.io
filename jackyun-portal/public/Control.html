@@ -1188,30 +1188,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
     /* ======================== CLOUD SYNC (TimetableHub ↔ Control) ======================== */
     // 启动时从云端拉取最新日程：优先使用 Supabase 中的 timetable_hub_data，
     // 拉到后写入本地 all key 并刷新。未登录/网络失败时静默降级到本地数据。
-    async function pullCloudSync() {
-        try {
-            const res = await fetch('/api/timetable-sync', { method: 'GET', credentials: 'same-origin' });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.ok && data.th_state && data.th_state.plan) {
-                const plan = data.th_state.plan;
-                const plans = data.th_state.plans || [];
-                const activeId = data.th_state.activePlanId;
-                const dayRange = data.th_state.dayRange;
-                // 写入 localStorage 的 th2_* keys，让 loadSchedule 能读到
-                if (Array.isArray(plans) && plans.length) localStorage.setItem('th2_plans', JSON.stringify(plans));
-                if (activeId) localStorage.setItem('th2_active_plan_id', activeId);
-                if (dayRange) localStorage.setItem('th2_day_range', JSON.stringify(dayRange));
-                localStorage.setItem('th2_plans' + plan.id, JSON.stringify(plan));
-                // 刷新徽章和日程
-                updatePlanBadge();
-                if (viewDayOffset === 0) { loadSchedule(); }
-                // 显示同步提示（仅当确实拉到云端数据时）
-                const badge = document.getElementById('plan-badge');
-                if (badge) { badge.textContent = '☁️ ' + (plan.name || '云端日程'); badge.style.display = 'inline-block'; }
-            }
-        } catch (e) { /* 未登录或网络异常：保持本地数据 */ }
-    }
+    async function pullCloudSync() { /* Portal sync owns shared storage; never replace it with a legacy snapshot. */ }
     // 计算下一个任务（study 类型且未完成）开始前的剩余分钟数；无任务返回 null
     function getMinutesUntilNextTask() {
         if (!STATE.schedule.length) return null;
@@ -1912,15 +1889,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"]) .date-badge { background:
                         localStorage.setItem('th2_plans' + activeId, JSON.stringify(p));
                         // 触发 TimetableHub 的 storage 监听（同窗口用自定义事件跨 iframe）
                         try { window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + activeId })); } catch (e) {}
-                        // 推送完成状态到云端，让其他设备也能看到
-                        try {
-                            fetch('/api/timetable-sync', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ th_state: { plan: p, plans: JSON.parse(localStorage.getItem('th2_plans') || '[]'), activePlanId: activeId, updatedAt: new Date().toISOString() } }),
-                                credentials: 'same-origin'
-                            }).catch(() => {});
-                        } catch (e) {}
+                        try { if(window.parent!==window)window.parent.dispatchEvent(new Event('jackyun-sync-edit')); } catch(e) {}
                     }
                 }
             }

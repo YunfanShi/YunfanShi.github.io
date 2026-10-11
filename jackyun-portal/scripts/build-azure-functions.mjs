@@ -11,7 +11,7 @@ const selected = [
   'azure/backend/errors.mjs', 'azure/backend/auth.mjs', 'azure/backend/account-state.mjs', 'azure/backend/backup-capture.mjs', 'azure/backend/database.mjs',
   'azure/backend/sync-api.mjs', 'azure/backend/server.mjs', 'azure/backend/functions-adapter.mjs',
   'azure/backend/functions.mjs', 'src/lib/local-workspace.ts', 'src/lib/sync/hash.ts',
-  'src/lib/sync/schedule-safety.ts', 'src/lib/sync/transfer.ts',
+  'src/lib/sync/schedule-safety.ts', 'src/lib/sync/delta.ts', 'src/lib/sync/transfer.ts',
 ];
 
 export async function buildFunctionPackage(outputDirectory = privateRoot) {

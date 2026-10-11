@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- These navigation controls deliberately reload the auth or embedded-document context. */
 'use client';
 
 import Link from 'next/link';

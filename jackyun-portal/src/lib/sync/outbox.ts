@@ -73,11 +73,27 @@ export async function compactOutbox(): Promise<SyncOperation[]> {
 export async function queueOperation(operation: SyncOperation): Promise<void> {
   await updateOutbox((store, operations) => {
     const matching = operations.filter((item) => item.key === operation.key);
-    const next = compactSyncOperations([...matching, operation])[0];
+    const sequence = Math.max(0,...operations.map(item=>item.sequence ?? 0))+1;
+    const next = compactSyncOperations([...matching, {...operation,sequence}])[0];
     for (const previous of matching) store.delete(previous.id);
     store.put(next);
     return [next];
   });
+}
+
+/** CAS for local intent: a different tab's newer edit cannot be acknowledged away. */
+export async function replaceOperation(sent: SyncOperation, next: SyncOperation | null): Promise<boolean> {
+  let replaced = false;
+  await updateOutbox((store,operations) => {
+    const current = operations.find(op=>op.id === sent.id);
+    if (!current || current.baseRevision !== sent.baseRevision || current.baseHash !== sent.baseHash || current.sequence !== sent.sequence
+      || reconcileAcknowledgment(current,sent,{key:sent.key,value:null,revision:0,contentHash:null,deleted:false,updatedAt:sent.clientUpdatedAt},'unused')) return operations;
+    store.delete(sent.id);
+    if (next) store.put({...next,sequence:next.sequence ?? current.sequence});
+    replaced = true;
+    return operations.filter(op=>op.id !== sent.id).concat(next ? [next] : []);
+  });
+  return replaced;
 }
 
 export async function removeOperation(id: string): Promise<void> {
@@ -88,13 +104,14 @@ export async function removeOperation(id: string): Promise<void> {
 export async function acknowledgeOperation(sent: SyncOperation, cloud: SyncRecord, resolvesOperationId?: string): Promise<boolean> {
   let removed = false;
   await updateOutbox((store, operations) => {
-    const current = operations.find((operation) => operation.id === sent.id);
+    const current = operations.find((operation) => operation.id === sent.id)
+      ?? operations.find(operation=>operation.key===sent.key && operation.baseRevision===sent.baseRevision && operation.baseHash===sent.baseHash);
     if (!current) return operations;
     const replacement = reconcileAcknowledgment(current, sent, cloud, crypto.randomUUID(), resolvesOperationId);
-    store.delete(sent.id);
+    store.delete(current.id);
     if (replacement) store.put(replacement);
     removed = !replacement;
-    return operations.filter((operation) => operation.id !== sent.id).concat(replacement ? [replacement] : []);
+    return operations.filter((operation) => operation.id !== current.id).concat(replacement ? [replacement] : []);
   });
   return removed;
 }

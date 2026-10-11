@@ -1,26 +1,22 @@
 'use client';
 
-import { fetchSyncWithTimeout } from '@/lib/request-timeout';
-import { syncRetryDelay, shouldPauseSync } from '@/lib/sync/retry-policy';
-import { BEFORE_SLEEP_EVENT, LOCAL_SLEEP_SAVE_EVENT, WAKE_EVENT, isWorkspaceSleeping, type SleepRequest } from '@/lib/workspace-idle';
-import { useEffect } from 'react';
-import { remoteRecordIsCurrent } from '@/lib/sync/remote-record';
-import { createSyncRunGate } from '@/lib/sync/run-gate';
-import { operationMatchesStorage } from '@/lib/sync/acknowledgment';
-import { announceSyncStatus as announce, getLatestSyncStatus } from '@/lib/sync/status';
-import { CLOUD_STATE_APPLIED_EVENT, MAX_SYNC_VALUE_CHARACTERS, isSyncableStorageKey, storageValueToString, syncValueFits } from '@/lib/local-workspace';
-import { acknowledgeOperation, bindSyncUser, clearConflicts, compactOutbox, getMetadata, getOrCreateDeviceId, getOutbox, getSetting, queueOperation, removeOperation, saveMetadata, setSetting } from '@/lib/sync/outbox';
-import { buildSyncRequest, MAX_SYNC_BATCH_BYTES } from '@/lib/sync/batch';
-import { canonicalJson } from '@/lib/sync/hash';
-import { joinSyncParts, splitSyncBody } from '@/lib/sync/transfer';
-import { SCHEDULE_STORAGE_KEY, scheduleHasContent, shouldQueueLocalValue } from '@/lib/sync/schedule-safety';
-import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
-import { localPageValues, saveLocalBackup } from '@/lib/backup/local';
-import { backupIsDue, recordBackupChange, type PendingBackup } from '@/lib/backup/cadence';
-import { createDueBackupVersions } from '@/actions/backup-center';
-import { emitDiagnostic, errorDetails } from '@/lib/diagnostic-events';
-import { syncFailureStatus, SyncHttpError } from '@/lib/sync/service-error';
-import type { SyncConflict, SyncRecord, SyncStatus } from '@/types/sync';
+import {useEffect} from 'react';
+import {fetchSyncWithTimeout} from '@/lib/request-timeout';
+import {syncRetryDelay,shouldPauseSync} from '@/lib/sync/retry-policy';
+import {BEFORE_SLEEP_EVENT,LOCAL_SLEEP_SAVE_EVENT,WAKE_EVENT,isWorkspaceSleeping,type SleepRequest} from '@/lib/workspace-idle';
+import {createSyncRunGate} from '@/lib/sync/run-gate';
+import {announceSyncStatus as announce,getLatestSyncStatus} from '@/lib/sync/status';
+import {CLOUD_STATE_APPLIED_EVENT,MAX_SYNC_VALUE_CHARACTERS,isSyncableStorageKey} from '@/lib/local-workspace';
+import * as syncStore from '@/lib/sync/outbox';
+import {getSetting} from '@/lib/sync/outbox';
+import {createWorkspaceSync} from '@/lib/sync/engine';
+import {isBackupableLegacyKey,legacyBackupPage,type BackupPage} from '@/lib/backup/pages';
+import {localPageValues,saveLocalBackup} from '@/lib/backup/local';
+import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/cadence';
+import {createDueBackupVersions} from '@/actions/backup-center';
+import {emitDiagnostic,errorDetails} from '@/lib/diagnostic-events';
+import {syncFailureStatus} from '@/lib/sync/service-error';
+import type {SyncStatus} from '@/types/sync';
 
 function localSnapshot(includeLarge = false): Record<string, string> {
   const snapshot: Record<string, string> = {};
@@ -33,23 +29,9 @@ function localSnapshot(includeLarge = false): Record<string, string> {
   return snapshot;
 }
 
-function parseStorageValue(value: string | undefined): unknown {
-  if (value === undefined) return null;
-  try { return JSON.parse(value); } catch { return value; }
-}
-
 function deviceDescription() {
-  const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const standalone = window.matchMedia('(display-mode: standalone)').matches;
-  return {
-    name: `${mobile ? 'Mobile' : 'Desktop'} ${standalone ? 'PWA' : 'Browser'}`,
-    platform: standalone ? 'pwa' : mobile ? 'mobile-web' : 'web',
-  };
-}
-
-async function publishStatus(state: SyncStatus, error?: string, progress?: string, consecutiveFailures = 0) {
-  const [pending, lastSyncedAt] = await Promise.all([getOutbox(), getSetting<string>('lastSyncedAt')]);
-  announce({ state, pending: pending.length, conflicts: 0, lastSyncedAt, error, progress, consecutiveFailures });
+  const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent), standalone=window.matchMedia('(display-mode: standalone)').matches;
+  return {name:`${mobile?'Mobile':'Desktop'} ${standalone?'PWA':'Browser'}`,platform:standalone?'pwa':mobile?'mobile-web':'web'};
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
@@ -122,405 +104,88 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
   }, [userId]);
 
   useEffect(() => {
-    let cancelled = false;
-    const runGate = createSyncRunGate();
-    let bound = false;
-    let signingOut = false;
-    let failures = 0;
-    let retryAt = 0;
-    let authPaused = false;
-    let lastBackupCheck = 0;
-    let lastAutomaticPull = 0;
-    let scheduleChecked = false;
-    let lastSnapshot: Record<string, string> = {};
-    const controller = new AbortController();
-    const syncFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const response = await fetchSyncWithTimeout(input, { ...init, signal: controller.signal });
-      if (cancelled || signingOut) throw new DOMException('Sync cancelled', 'AbortError');
-      return response;
+    if (!userId) { announce({state:'guest',pending:0,conflicts:0,lastSyncedAt:null}); return; }
+    let cancelled=false, signingOut=false, bound=false, failures=0, retryAt=0, authPaused=false, lastBackupCheck=0;
+    const controller=new AbortController(), gate=createSyncRunGate();
+    const publish=async (state:SyncStatus,error?:string,progress?:string) => {
+      const [pending,conflicts,lastSyncedAt]=await Promise.all([syncStore.getOutbox(),syncStore.getConflicts(),getSetting<string>('lastSyncedAt')]);
+      if(cancelled) return;
+      announce({state:conflicts.length && state!=='syncing' && state!=='error' && state!=='server_unavailable' ? 'conflict' : state==='synced' && pending.length ? 'offline_pending' : state,
+        pending:pending.length,conflicts:conflicts.length,lastSyncedAt,error,progress,consecutiveFailures:failures});
     };
-
-    if (!userId) {
-      // A failed token refresh is not a confirmed sign-out. Retain the local
-      // outbox and account marker until this account is available again.
-      announce({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
-      return;
+    let requestReason='periodic';
+    const engine=createWorkspaceSync({store:syncStore,snapshot:()=>localSnapshot(true),read:key=>localStorage.getItem(key),
+      write:(key,value)=>{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);},
+      backup:async key=>{if(isBackupableLegacyKey(key))await saveLocalBackup(userId,legacyBackupPage(key),localPageValues(localSnapshot(true),legacyBackupPage(key)));},
+      changed:keys=>window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{keys,source:'cloud'}})),
+      request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason},signal:controller.signal}),
+      progress:progress=>{if(!cancelled){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},progress});}},
+      deviceId:syncStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut,now:Date.now,uuid:()=>crypto.randomUUID(),
+    });
+    let queuedResolution: {operationId:string;choice:'local'|'remote'} | undefined;
+    async function sync(manual=false,allowHidden=false,resolution?:{operationId:string;choice:'local'|'remote'},reason=manual?'manual':'periodic') {
+      if(cancelled||signingOut||!bound||isWorkspaceSleeping())return;
+      if(!manual&&!allowHidden&&document.visibilityState!=='visible'){await engine.capture();return;}
+      if(resolution)queuedResolution=resolution;
+      if(!gate.begin(manual))return;
+      requestReason=reason;
+      if(manual){authPaused=false;retryAt=0;}
+      try {
+        const work=async()=>{
+          if(cancelled||signingOut)return;
+          await engine.capture();
+          if(!navigator.onLine){await publish('offline_pending');return;}
+          if(authPaused||Date.now()<retryAt)return;
+          const [pending,conflicts,lastRead]=await Promise.all([syncStore.getOutbox(),syncStore.getConflicts(),getSetting<number>('lastAutomaticPull')]);
+          const blocked=new Set(conflicts.map(c=>c.key));
+          if(!manual&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<60_000){await publish('synced');return;}
+          await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
+          if(queuedResolution){const choice=queuedResolution;queuedResolution=undefined;await engine.resolve(choice.operationId,choice.choice);}
+          await engine.pull();
+          await engine.flush();
+          await engine.capture();
+          await syncStore.setSetting('lastAutomaticPull',Date.now());
+          const remaining=await syncStore.getOutbox(), unresolved=await syncStore.getConflicts();
+          if(!remaining.length&&!unresolved.length)await syncStore.setSetting('lastSyncedAt',new Date().toISOString());
+          failures=0;retryAt=0;
+          if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();try{await createDueBackupVersions();}catch{console.warn('[Backup] Cloud backup deferred');}}
+          await publish(unresolved.length?'conflict':remaining.length?'offline_pending':'synced',undefined,
+            unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
+        };
+        if(navigator.locks)await navigator.locks.request('jackyun:workspace-sync:'+userId,manual?{signal:controller.signal}:{ifAvailable:true},async lock=>{if(lock)await work();});
+        else await work();
+      } catch(error) {
+        if(cancelled||signingOut)return;
+        failures++;retryAt=Date.now()+syncRetryDelay(failures);
+        authPaused=shouldPauseSync(error)||(error as {status?:number}).status===426;
+        emitDiagnostic('error','WorkspaceSync','同步未确认，原始内容与待上传修改保留',{error:errorDetails(error),failures,online:navigator.onLine});
+        await publish(syncFailureStatus(error,navigator.onLine,failures),error instanceof Error?error.message:'同步失败');
+      } finally {if(gate.finish()&&!cancelled&&!signingOut)void sync(true);}
     }
     localStorage.removeItem('jackyun_guest_mode');
-    void publishStatus('syncing', undefined, '正在初始化同步…');
-    const reportProgress = (progress: string) => {
-      if (cancelled) return;
-      const current = getLatestSyncStatus();
-      announce({ state: 'syncing', pending: current?.pending ?? 0, conflicts: 0, lastSyncedAt: current?.lastSyncedAt ?? null, progress });
-    };
-
-    async function queueChanges() {
-      const snapshot = localSnapshot(true);
-      const metadata = await getMetadata();
-      const metadataByKey = new Map(metadata.map((item) => [item.key, item]));
-      const pendingByKey = new Map((await getOutbox()).map((item) => [item.key, item]));
-      let legacyTimestamps: Record<string, string> = {};
-      try {
-        legacyTimestamps = JSON.parse(localStorage.getItem('jackyun_sync_timestamps') || '{}') as Record<string, string>;
-      } catch {}
-      // Metadata keys are required here: if the tab closes after localStorage
-      // deletion but before the polling tick, startup must still enqueue a tombstone.
-      const keys = new Set([...Object.keys(lastSnapshot), ...Object.keys(snapshot), ...metadataByKey.keys()]);
-      for (const key of keys) {
-        const current = snapshot[key];
-        const base = metadataByKey.get(key);
-        if (!shouldQueueLocalValue(key, current, lastSnapshot[key])) continue;
-        const queued = pendingByKey.get(key);
-        if (queued && queued.deleted === (current === undefined)
-            && (queued.deleted || canonicalJson(parseStorageValue(current)) === canonicalJson(queued.value))) continue;
-        const matchesCloudBase = base
-          && base.deleted === (current === undefined)
-          && (base.deleted || canonicalJson(parseStorageValue(current)) === canonicalJson(base.value));
-        if (matchesCloudBase) continue;
-        const legacyTimestamp = !base && Number.isFinite(Date.parse(legacyTimestamps[key]))
-          ? new Date(legacyTimestamps[key]).toISOString()
-          : null;
-        await queueOperation({
-          id: crypto.randomUUID(), key,
-          baseRevision: base?.revision ?? 0,
-          baseHash: base?.contentHash ?? null,
-          baseValue: base?.deleted ? null : base?.value ?? null,
-          value: parseStorageValue(current),
-          deleted: current === undefined,
-          clientUpdatedAt: legacyTimestamp ?? new Date().toISOString(),
-        });
-      }
-      lastSnapshot = snapshot;
-    }
-
-    async function loadLargeValue(key: string, revision: number): Promise<unknown> {
-      const parts: string[] = [];
-      let count = 1;
-      for (let part = 0; part < count; part += 1) {
-        reportProgress(`下载分片 ${part + 1} / ${count}`);
-        const response = await syncFetch(`/api/sync/v2/large?key=${encodeURIComponent(key)}&revision=${revision}&part=${part}`, { cache: 'no-store' });
-        if (!response.ok) throw new SyncHttpError(`同步分片下载失败 (${response.status})`, response.status);
-        const chunk = await response.json() as { count: number; data: string };
-        count = chunk.count;
-        parts.push(chunk.data);
-      }
-      return joinSyncParts(parts);
-    }
-
-    async function flush(deviceId: string): Promise<void> {
-      const operations = await compactOutbox();
-      if (!operations.length) return;
-      await publishStatus('syncing');
-      // The current RPC compares revision/hash, not baseValue. Old cloud data
-      // can exceed today's limit; omit that unused field for the upload.
-      const uploadable = operations.map((operation) => syncValueFits(operation.baseValue)
-        ? operation : { ...operation, baseValue: null });
-      const oversized = uploadable.find((operation) => !syncValueFits(operation.value));
-      const request = buildSyncRequest(deviceId, deviceDescription(), oversized ? [oversized] : uploadable);
-      const large = Boolean(oversized)
-        || new TextEncoder().encode(request.body).length > MAX_SYNC_BATCH_BYTES;
-      let response: Response;
-      if (large) {
-        const operation = request.operations[0];
-        const parts = splitSyncBody(request.body);
-        for (let index = 0; index < parts.length; index += 1) {
-          reportProgress(`上传分片 ${index + 1} / ${parts.length}`);
-          const partResponse = await syncFetch('/api/sync/v2/large', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uploadId: operation.id, index, count: parts.length, data: parts[index] }),
-          });
-          if (!partResponse.ok) throw new SyncHttpError(`同步分片上传失败 (${partResponse.status})`, partResponse.status);
-        }
-        reportProgress('分片已上传，正在保存到云端…');
-        response = await syncFetch('/api/sync/v2/large', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uploadId: operation.id, complete: true }),
-        });
-      } else {
-        reportProgress(`上传 ${request.operations.length} 项修改…`);
-        response = await syncFetch('/api/sync/v2', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: request.body,
-        });
-      }
-      if (!response.ok) {
-        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
-        const detail = failure?.error?.code
-          ? `${failure.error.message ?? '同步写入失败'} (${failure.error.code})${failure.requestId ? ` · ${failure.requestId}` : ''}`
-          : `同步写入失败 (${response.status})`;
-        console.error('[Sync/BETA diagnostics] Write failed', { status: response.status, code: failure?.error?.code, requestId: failure?.requestId, pending: request.operations.length });
-        throw new SyncHttpError(detail, response.status);
-      }
-      const payload = await response.json() as {
-        applied: Array<{ operationId: string; key: string; revision: number; contentHash: string; updatedAt?: string }>;
-        remote: SyncRecord[];
-        conflicts: SyncConflict[];
-      };
-      if (cancelled || signingOut) return;
-      const acknowledged = new Set([
-        ...payload.applied.map((item) => item.operationId),
-        ...(payload.remote ?? []).map((item) => request.operations.find((operation) => operation.key === item.key)?.id),
-        ...payload.conflicts.map((item) => item.operationId),
-      ]);
-      if (!request.operations.some((operation) => acknowledged.has(operation.id))) throw new Error('云端没有确认本次修改，待上传数据已保留。');
-      const byId = new Map(request.operations.map((operation) => [operation.id, operation]));
-      const byKey = new Map(request.operations.map((operation) => [operation.key, operation]));
-      const appliedRemoteKeys: string[] = [];
-      for (const applied of payload.applied) {
-        const operation = byId.get(applied.operationId);
-        if (!operation) continue;
-        const cloud = { key: operation.key, value: operation.value, revision: applied.revision, contentHash: applied.contentHash, deleted: operation.deleted, updatedAt: applied.updatedAt ?? operation.clientUpdatedAt };
-        await saveMetadata(cloud);
-        await acknowledgeOperation(operation, cloud);
-      }
-      for (const record of payload.remote ?? []) {
-        const matchingOperation = byKey.get(record.key);
-        if (!matchingOperation) continue;
-        if (record.large) record.value = await loadLargeValue(record.key, record.revision);
-        if (cancelled || signingOut) return;
-        const current = localStorage.getItem(record.key);
-        const localHasNotChanged = operationMatchesStorage(matchingOperation, current);
-        if (localHasNotChanged) {
-          const next = record.deleted ? null : storageValueToString(record.value);
-          if (current !== next) {
-            if (record.deleted) localStorage.removeItem(record.key);
-            else localStorage.setItem(record.key, next!);
-            appliedRemoteKeys.push(record.key);
-          }
-        }
-        await saveMetadata(record);
-        await acknowledgeOperation(matchingOperation, record);
-      }
-      for (const conflict of payload.conflicts) {
-        const operation = byId.get(conflict.operationId);
-        if (!operation) continue;
-        if (conflict.remoteLarge) conflict.remoteValue = await loadLargeValue(conflict.key, conflict.remoteRevision);
-        if (cancelled || signingOut) return;
-        const cloud: SyncRecord = { key: operation.key, value: conflict.remoteValue, revision: conflict.remoteRevision, contentHash: conflict.remoteHash, deleted: conflict.remoteDeleted, updatedAt: conflict.remoteUpdatedAt ?? operation.clientUpdatedAt };
-        await saveMetadata(cloud);
-        const removed = await acknowledgeOperation(operation, cloud, conflict.operationId);
-        const localHasNotChanged = operationMatchesStorage(operation, localStorage.getItem(operation.key));
-        // Never replace a newer local edit with the reply to an older upload.
-        // queueChanges below rebases that edit onto the freshly saved cloud state.
-        if (!localHasNotChanged || !removed) continue;
-        const remoteIsNewer = conflict.remoteUpdatedAt
-          && Date.parse(conflict.remoteUpdatedAt) > Date.parse(operation.clientUpdatedAt);
-        if (remoteIsNewer) {
-          if (conflict.remoteDeleted) localStorage.removeItem(operation.key);
-          else localStorage.setItem(operation.key, storageValueToString(conflict.remoteValue));
-          appliedRemoteKeys.push(operation.key);
-        } else {
-          await queueOperation({ ...operation, id: crypto.randomUUID(), baseRevision: conflict.remoteRevision, baseHash: conflict.remoteHash, baseValue: conflict.remoteValue, resolvesOperationId: conflict.operationId });
-        }
-      }
-      if (appliedRemoteKeys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: appliedRemoteKeys } }));
-    }
-
-    async function pull() {
-      const [cursor, pending] = await Promise.all([getSetting<string>('cursor'), getOutbox()]);
-      const pendingKeys = new Set(pending.map((item) => item.key));
-      const response = await syncFetch(`/api/sync/v2${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, { cache: 'no-store' });
-      if (!response.ok) {
-        const failure = await response.json().catch(() => null) as { error?: { code?: string; message?: string }; requestId?: string } | null;
-        const detail = failure?.error?.code
-          ? `${failure.error.message ?? '同步读取失败'} (${failure.error.code})${failure.requestId ? ` · ${failure.requestId}` : ''}`
-          : `同步读取失败 (${response.status})`;
-        console.error('[Sync/BETA diagnostics] Read failed', { status: response.status, code: failure?.error?.code, requestId: failure?.requestId });
-        throw new SyncHttpError(detail, response.status);
-      }
-      const payload = await response.json() as { records: SyncRecord[]; cursor: string };
-      if (cancelled || signingOut) return;
-      const metadataByKey = new Map((await getMetadata()).map((record) => [record.key, record]));
-      const records = payload.records.filter((record) => !remoteRecordIsCurrent(
-        record, metadataByKey.get(record.key), localStorage.getItem(record.key),
-      ));
-      if (!scheduleChecked && !pendingKeys.has(SCHEDULE_STORAGE_KEY)
-          && !scheduleHasContent(parseStorageValue(localStorage.getItem(SCHEDULE_STORAGE_KEY) ?? undefined))
-          && !payload.records.some((record) => record.key === SCHEDULE_STORAGE_KEY)) {
-        const scheduleResponse = await syncFetch(`/api/sync/v2?key=${encodeURIComponent(SCHEDULE_STORAGE_KEY)}`, { cache: 'no-store' });
-        if (!scheduleResponse.ok) throw new SyncHttpError(`Schedule 云端读取失败 (${scheduleResponse.status})`, scheduleResponse.status);
-        const schedulePayload = await scheduleResponse.json() as { records: SyncRecord[] };
-        records.push(...schedulePayload.records);
-      }
-      scheduleChecked = true;
-      for (const record of records) {
-        if (!record.large || pendingKeys.has(record.key)) continue;
-        record.value = await loadLargeValue(record.key, record.revision);
-        record.large = false;
-      }
-      const appliedRemoteKeys: string[] = [];
-      for (const record of records) {
-        if (cancelled || signingOut) return;
-        if (pendingKeys.has(record.key)) continue;
-        const current = localStorage.getItem(record.key) ?? undefined;
-        const emptyScheduleNeedsCloud = record.key === SCHEDULE_STORAGE_KEY
-          && !scheduleHasContent(parseStorageValue(current)) && scheduleHasContent(record.value);
-        if (current === lastSnapshot[record.key] || emptyScheduleNeedsCloud) {
-          const next = record.deleted ? undefined : storageValueToString(record.value);
-          if (current !== next) {
-            if (record.deleted) localStorage.removeItem(record.key);
-            else localStorage.setItem(record.key, next!);
-            appliedRemoteKeys.push(record.key);
-          }
-        }
-        await saveMetadata(record);
-      }
-      if (appliedRemoteKeys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: appliedRemoteKeys } }));
-      await setSetting('cursor', payload.cursor);
-      await queueChanges();
-    }
-
-    async function sync(onlyPending = false, manual = false, allowHidden = false) {
-      if (cancelled || signingOut || !bound || isWorkspaceSleeping()) return;
-      if (!manual && !allowHidden && document.visibilityState !== 'visible') { await queueChanges(); return; }
-      if (!runGate.begin(manual)) return;
-      if (manual) { authPaused = false; retryAt = 0; scheduleChecked = false; }
-      try {
-        const work = async () => {
-          if (cancelled || signingOut) return;
-          if (authPaused || Date.now() < retryAt) { await queueChanges(); return; }
-          if (!navigator.onLine) {
-            await queueChanges();
-            if (!cancelled) await publishStatus('offline_pending');
-            return;
-          }
-          const deviceId = await getOrCreateDeviceId();
-          await clearConflicts();
-          await queueChanges();
-          const sharedPull = await getSetting<number>('lastAutomaticPull') ?? 0;
-          if (onlyPending && !(await getOutbox()).length) {
-            if (sharedPull > lastAutomaticPull && !failures) {
-              lastAutomaticPull = sharedPull;
-              await publishStatus('synced');
-            }
-            return;
-          }
-          if (!manual && Date.now() - sharedPull < 60_000 && !(await getOutbox()).length) {
-            lastAutomaticPull = sharedPull;
-            await publishStatus('synced');
-            return;
-          }
-          if (!onlyPending) await publishStatus('syncing', undefined, '正在读取云端并检查本机修改…');
-          for (const operation of await getOutbox()) {
-            if (operation.key === SCHEDULE_STORAGE_KEY && !scheduleHasContent(operation.deleted ? null : operation.value)) {
-              await removeOperation(operation.id);
-            }
-          }
-          await pull();
-          await flush(deviceId);
-          lastAutomaticPull = Date.now();
-          await setSetting('lastAutomaticPull', lastAutomaticPull);
-          await queueChanges();
-          for (let batch = 1; batch < 100 && !cancelled && (await getOutbox()).length; batch += 1) {
-            await flush(deviceId);
-            await queueChanges();
-          }
-          if (cancelled) return;
-          if ((await getOutbox()).length) {
-            await publishStatus('offline_pending', undefined, '本轮已保存的修改保留在云端，剩余修改将继续同步。');
-            return;
-          }
-          const now = new Date().toISOString();
-          await setSetting('lastSyncedAt', now);
-          if (Date.now() - lastBackupCheck >= 5 * 60_000) {
-            lastBackupCheck = Date.now();
-            try { await createDueBackupVersions(); }
-            catch (error) { console.warn('[Backup] Deferred cloud backup failed', error); }
-          }
-          failures = 0;
-          retryAt = 0;
-          if (!cancelled) await publishStatus('synced');
-        };
-        // Outbox and metadata are shared by same-origin tabs. Serialize their
-        // network turns and recheck the shared pull time inside the lock.
-        if (navigator.locks) {
-          await navigator.locks.request(`jackyun:workspace-sync:${userId}`, manual ? { signal: controller.signal } : { ifAvailable: true }, async (lock) => {
-            if (lock) await work();
-          });
-        } else await work();
-      } catch (error) {
-        if (cancelled || signingOut) return;
-        emitDiagnostic('error', 'WorkspaceSync', '同步操作失败，保留待同步数据', { error: errorDetails(error), failures: failures + 1, online: navigator.onLine });
-        failures += 1;
-        retryAt = Date.now() + syncRetryDelay(failures);
-        authPaused = shouldPauseSync(error);
-        if (!cancelled) await publishStatus(syncFailureStatus(error, navigator.onLine, failures), error instanceof Error ? error.message : 'Sync failed', undefined, failures);
-      } finally {
-        if (runGate.finish() && !cancelled && !signingOut) void sync(false, true);
-      }
-    }
-
-    lastSnapshot = localSnapshot(true);
-    void bindSyncUser(userId).then(() => { bound = true; return sync(); }).catch((error) => {
-      if (!cancelled) void publishStatus('error', error instanceof Error ? error.message : '无法绑定同步账户');
-    });
-    // Frequent Schedule edits wait briefly so one burst becomes one sync.
-    // Local checks run every 30 seconds; cloud deltas run at most once per
-    // minute across idle foreground tabs. Neither is database liveness polling.
-    let editTimer: number | null = null;
-    const onEdit = () => {
-      if (editTimer !== null) window.clearTimeout(editTimer);
-      editTimer = window.setTimeout(() => { editTimer = null; void sync(true); }, 8_000);
-    };
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void sync(Date.now() - lastAutomaticPull < 60_000);
-    }, 30_000);
-    const onSync = () => {
-      // Even a recent cloud read must not defer local edits when returning online.
-      void sync(Date.now() - lastAutomaticPull < 60_000);
-    };
-    const onOnline = () => { retryAt = 0; onSync(); };
-    const onOffline = () => { if (!cancelled) void publishStatus('offline_pending'); };
-    const onRetry = () => { reportProgress('已收到立即同步请求，正在同步…'); void sync(false, true); };
-    const onSignOut = () => { signingOut = true; };
-    const onSignOutCancel = () => { signingOut = false; };
-    window.addEventListener('jackyun-signout-start', onSignOut);
-    window.addEventListener('jackyun-signout-cancel', onSignOutCancel);
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') onSync();
-      else void queueChanges();
-    };
-    const onLeave = () => { void queueChanges(); };
-    const onBeforeSignOut = (event: Event) => {
-      const complete = (event as CustomEvent<{ complete: () => void }>).detail?.complete;
-      void queueChanges().then(() => sync(false, false, true)).finally(() => complete?.());
-    };
-    const onSleep = (event: Event) => {
-      (event as CustomEvent<SleepRequest>).detail.waitUntil((async () => {
-        await runGate.waitForIdle();
-        await queueChanges();
-        await sync(true, false, true);
-      })());
-    };
-    window.addEventListener(BEFORE_SLEEP_EVENT, onSleep);
-    window.addEventListener(WAKE_EVENT, onSync);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    window.addEventListener('focus', onSync);
-    window.addEventListener('pagehide', onLeave);
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('jackyun-sync-retry', onRetry);
-    window.addEventListener('jackyun-sync-edit', onEdit);
-    window.addEventListener('jackyun-sync-before-signout', onBeforeSignOut);
-    return () => {
-      window.removeEventListener(BEFORE_SLEEP_EVENT, onSleep);
-      window.removeEventListener(WAKE_EVENT, onSync);
-      cancelled = true;
-      controller.abort();
-      window.clearInterval(timer);
-      if (editTimer !== null) window.clearTimeout(editTimer);
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-      window.removeEventListener('focus', onSync);
-      window.removeEventListener('pagehide', onLeave);
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('jackyun-sync-retry', onRetry);
-      window.removeEventListener('jackyun-signout-start', onSignOut);
-      window.removeEventListener('jackyun-signout-cancel', onSignOutCancel);
-      window.removeEventListener('jackyun-sync-edit', onEdit);
-      window.removeEventListener('jackyun-sync-before-signout', onBeforeSignOut);
-    };
-  }, [userId]);
-
+    void publish('syncing',undefined,'正在初始化版本同步…');
+    void syncStore.bindSyncUser(userId).then(()=>{bound=true;return sync();}).catch(error=>void publish('error',error instanceof Error?error.message:'无法绑定账号'));
+    let editTimer:number|null=null;
+    const onEdit=()=>{if(editTimer!==null)window.clearTimeout(editTimer);editTimer=window.setTimeout(()=>{editTimer=null;void sync(false,false,undefined,'edit');},8_000);};
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void sync();},30_000);
+    const onOnline=()=>{retryAt=0;void sync(false,false,undefined,'online');};
+    const onWake=()=>void sync(false,false,undefined,'resume');
+    const onOffline=()=>void publish('offline_pending');
+    const onRetry=()=>void sync(true);
+    const onResolve=(event:Event)=>{const detail=(event as CustomEvent<{operationId:string;choice:'local'|'remote'}>).detail;if(detail?.operationId&&['local','remote'].includes(detail.choice))void sync(true,false,detail);};
+    const onVisibility=()=>{if(document.visibilityState==='visible')void sync();else void engine.capture();};
+    const onLeave=()=>void engine.capture();
+    const onSignOut=()=>{signingOut=true;};
+    const onCancel=()=>{signingOut=false;};
+    const onBeforeSignOut=(event:Event)=>{const complete=(event as CustomEvent<{complete:()=>void}>).detail?.complete;void engine.capture().then(()=>sync(false,true)).finally(()=>complete?.());};
+    const onSleep=(event:Event)=>(event as CustomEvent<SleepRequest>).detail.waitUntil((async()=>{await gate.waitForIdle();await engine.capture();await sync(false,true);})());
+    const listeners:[string,EventListener][]=[['online',onOnline],['offline',onOffline],['focus',onWake],['pagehide',onLeave],
+      ['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-edit',onEdit],['jackyun-signout-start',onSignOut],
+      ['jackyun-signout-cancel',onCancel],['jackyun-sync-before-signout',onBeforeSignOut],[BEFORE_SLEEP_EVENT,onSleep],[WAKE_EVENT,onWake]];
+    for(const [name,listener]of listeners)window.addEventListener(name,listener);
+    document.addEventListener('visibilitychange',onVisibility);
+    return()=>{cancelled=true;controller.abort();window.clearInterval(timer);if(editTimer!==null)window.clearTimeout(editTimer);
+      for(const [name,listener]of listeners)window.removeEventListener(name,listener);document.removeEventListener('visibilitychange',onVisibility);};
+  },[userId]);
   return null;
 }

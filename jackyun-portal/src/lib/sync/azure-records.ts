@@ -147,7 +147,7 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
       const baseRecord = retry ? expected : current;
       const op: SyncOperation = { id: retry?.operationId ?? randomUUID(), key, baseRevision: baseRecord?.revision ?? 0,
         baseHash: baseRecord?.contentHash ?? null, baseValue: null, value: deleted ? null : value, deleted, clientUpdatedAt: timestamp };
-      const body = { deviceId: sessionId, device: { name: '数据恢复与导入', platform: 'web' }, operations: [op],
+      const body = { syncProtocol:3, deviceId: sessionId, device: { name: '数据恢复与导入', platform: 'web' }, operations: [op],
         ...(expected !== undefined ? { requireCurrentVersion: true } : {}) };
       let result: Record<string, unknown>;
       if (!syncValueFits(op.value) || Buffer.byteLength(JSON.stringify(body)) > 900_000) {

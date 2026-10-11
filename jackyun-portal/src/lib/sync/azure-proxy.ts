@@ -26,6 +26,8 @@ export async function forwardAzureSync(request: NextRequest): Promise<NextRespon
     return apiError(requestId, 'Request body too large', 413, 'PAYLOAD_TOO_LARGE');
   }
   const headers = new Headers({ Authorization: `Bearer ${session.access_token}` });
+  const reason=request.headers.get('x-sync-reason');
+  if(reason && ['manual','periodic','edit','online','resume'].includes(reason))headers.set('X-Sync-Reason',reason);
   const contentType = request.headers.get('content-type');
   const origin = request.headers.get('origin');
   if (contentType) headers.set('Content-Type', contentType);

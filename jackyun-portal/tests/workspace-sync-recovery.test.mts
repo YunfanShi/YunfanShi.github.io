@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- VM fixture modules use dynamic exports; production sync retains strict types. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash, webcrypto } from 'node:crypto';
+import {createWorkspaceSync} from '../src/lib/sync/engine.ts';
+import {applyRecordDelta} from '../src/lib/sync/delta.ts';
 import ts from 'typescript';
 import { reconcileAcknowledgment, operationMatchesStorage } from '../src/lib/sync/acknowledgment.ts';
 import { createSyncRunGate } from '../src/lib/sync/run-gate.ts';
@@ -11,6 +14,7 @@ import { buildSyncRequest, compactSyncOperations } from '../src/lib/sync/batch.t
 import { syncRetryDelay, shouldPauseSync } from '../src/lib/sync/retry-policy.ts';
 import type { SyncOperation, SyncRecord } from '../src/types/sync.ts';
 
+const digest=(value:unknown,deleted=false)=>createHash('sha256').update(deleted?'__deleted__':canonicalJson(value)).digest('hex');
 const sent: SyncOperation = { id: 'op', key: 'study', value: { text: 'old' }, deleted: false,
   baseRevision: 1, baseHash: 'base', baseValue: { text: 'base' }, clientUpdatedAt: '2026-10-10T00:00:00Z' };
 const cloud: SyncRecord = { key: sent.key, value: sent.value, revision: 2, contentHash: 'cloud', deleted: false, updatedAt: sent.clientUpdatedAt };
@@ -18,7 +22,7 @@ const cloud: SyncRecord = { key: sent.key, value: sent.value, revision: 2, conte
 test('acknowledgment retains a newer edit compacted into the uploaded ID and rebases its retry', () => {
   const newer = { ...sent, value: { text: 'new' }, clientUpdatedAt: '2026-10-10T00:01:00Z' };
   const retry = reconcileAcknowledgment(newer, sent, cloud, 'new-id');
-  assert.deepEqual(retry, { ...newer, id: 'new-id', baseRevision: 2, baseHash: 'cloud', baseValue: cloud.value, resolvesOperationId: undefined });
+  assert.deepEqual(retry, { ...newer, id: 'new-id', baseRevision: 2, baseHash: 'cloud', baseValue: cloud.value, baseDeleted:false,resolvesOperationId: undefined });
   assert.equal(reconcileAcknowledgment(sent, { ...sent, baseValue: null }, cloud, 'unused'), null);
   assert.equal(reconcileAcknowledgment({ ...newer, deleted: true, value: null }, sent, cloud, 'delete')?.deleted, true);
 });
@@ -33,7 +37,7 @@ test('in-flight edits and deletions never match an older upload, including JSON 
   assert.equal(operationMatchesStorage({ ...sent, deleted: true }, 'new'), false);
 });
 
-const settle = async () => { for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve)); };
+const settle = async () => { await new Promise(resolve=>setTimeout(resolve,15));for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve)); };
 const compiled = ts.transpileModule(readFileSync(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -44,7 +48,7 @@ function harness() {
   let release: (() => void) | undefined;
   const values = new Map<string, string>(), settings = new Map<string, unknown>();
   const metadata = new Map<string, SyncRecord>();
-  let outbox: SyncOperation[] = [];
+  let outbox: SyncOperation[] = [];let conflicts:any[]=[];let sequence=0;
   const requests: { method: string; url: string; body?: { operations: SyncOperation[] } }[] = [];
   const locks = new Set<string>();
   const tabs: { win: EventTarget; doc: EventTarget & { visibilityState: string }; nav: { onLine: boolean }; ticks: (() => void)[]; stop: () => void; status: any }[] = [];
@@ -56,13 +60,15 @@ function harness() {
     setSetting: async (key: string, value: unknown) => { settings.set(key, value); },
     getMetadata: async () => [...metadata.values()], saveMetadata: async (record: SyncRecord) => { metadata.set(record.key, record); },
     getOutbox: async () => [...outbox], compactOutbox: async () => (outbox = compactSyncOperations(outbox)),
-    queueOperation: async (operation: SyncOperation) => { outbox = compactSyncOperations([...outbox, operation]); },
+    queueOperation: async (operation: SyncOperation) => { outbox = compactSyncOperations([...outbox, {...operation,sequence:++sequence}]); },
+    getConflicts:async()=>[...conflicts],saveConflict:async(value:any)=>{conflicts=conflicts.filter(c=>c.operationId!==value.operationId).concat(value);},removeConflict:async(id:string)=>{conflicts=conflicts.filter(c=>c.operationId!==id);},
+    replaceOperation:async(sent:SyncOperation,next:SyncOperation|null)=>{const current=outbox.find(op=>op.id===sent.id);if(!current||canonicalJson(current)!==canonicalJson(sent))return false;outbox=outbox.filter(op=>op.id!==sent.id).concat(next?[next]:[]);return true;},
     removeOperation: async (id: string) => { outbox = outbox.filter(item => item.id !== id); },
     acknowledgeOperation: async (operation: SyncOperation, record: SyncRecord, resolves?: string) => {
-      const current = outbox.find(item => item.id === operation.id);
+      const current = outbox.find(item => item.id === operation.id)??outbox.find(item=>item.key===operation.key&&item.baseRevision===operation.baseRevision&&item.baseHash===operation.baseHash);
       if (!current) return false;
       const replacement = reconcileAcknowledgment(current, operation, record, randomUUID(), resolves);
-      outbox = outbox.filter(item => item.id !== operation.id);
+      outbox = outbox.filter(item => item.id !== current.id);
       if (replacement) outbox.push(replacement);
       return !replacement;
     },
@@ -80,6 +86,9 @@ function harness() {
     const exports: Record<string, any> = {};
     const modules: Record<string, unknown> = {
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect) },
+      '@/lib/sync/engine':{createWorkspaceSync},
+      '@/lib/backup/pages':{isBackupableLegacyKey:()=>true,legacyBackupPage:()=> 'study'},
+      '@/lib/backup/local':{localPageValues:(values:unknown)=>values,saveLocalBackup:async()=>{}},
       '@/lib/sync/run-gate': { createSyncRunGate }, '@/lib/sync/retry-policy': { syncRetryDelay, shouldPauseSync },
       '@/lib/sync/acknowledgment': { reconcileAcknowledgment, operationMatchesStorage }, '@/lib/sync/outbox': outboxApi,
       '@/lib/sync/hash': { canonicalJson }, '@/lib/sync/batch': { buildSyncRequest, MAX_SYNC_BATCH_BYTES: 250_000 },
@@ -104,17 +113,28 @@ function harness() {
           });
         }
         if (init?.signal?.aborted) throw new DOMException('cancelled', 'AbortError');
-        if (method === 'GET') return { ok: true, status: 200, json: async () => ({ records: cloudRecords.map(record => ({ ...record })), cursor: 'cursor' }) };
-        const operations = body.operations as SyncOperation[];
-        const conflicts = conflict ? operations.map(operation => ({ operationId: operation.id, key: operation.key, remoteValue: { text: 'remote' },
-          remoteRevision: 8, remoteHash: 'remote', remoteDeleted: false, remoteUpdatedAt: '2999-01-01T00:00:00Z' })) : [];
-        conflict = false;
-        return { ok: true, status: 200, json: async () => ({ remote: [], conflicts,
-          applied: conflicts.length ? [] : operations.map(operation => ({ operationId: operation.id, revision: 9, contentHash: 'new' })) }) };
+        if (method === 'GET') {
+          const key=new URL(url,'https://test.local').searchParams.get('key');
+          return Response.json({ok:true,syncProtocol:3,records:key?cloudRecords.filter(record=>record.key===key):cloudRecords.map(({value,...descriptor})=>descriptor),next:null});
+        }
+        const operations = body.operations as Array<SyncOperation & {patch:any[]}>;
+        if(conflict){
+          cloudRecords=[{key:'study',value:{text:'remote'},revision:8,contentHash:digest({text:'remote'}),deleted:false,updatedAt:'2999-01-01T00:00:00Z'}];
+          conflict=false;
+          return Response.json({ok:true,remote:[],applied:[],conflicts:operations.map(operation=>({operationId:operation.id,key:operation.key,remoteValue:{text:'remote'},remoteRevision:8,remoteHash:digest({text:'remote'}),remoteDeleted:false,remoteUpdatedAt:'2999-01-01T00:00:00Z'}))});
+        }
+        const applied=operations.map(operation=>{
+          const previous=cloudRecords.find(row=>row.key===operation.key);
+          const value=operation.deleted?null:applyRecordDelta(previous?.deleted?undefined:previous?.value,operation.patch);
+          const record={key:operation.key,value,revision:(previous?.revision??0)+1,contentHash:digest(value,operation.deleted),deleted:operation.deleted,updatedAt:operation.clientUpdatedAt};
+          cloudRecords=cloudRecords.filter(row=>row.key!==operation.key).concat(record);
+          return {operationId:operation.id,key:record.key,revision:record.revision,contentHash:record.contentHash};
+        });
+        return Response.json({ok:true,remote:[],conflicts:[],applied});
       } },
     };
     runInNewContext(compiled, { exports, require: (name: string) => modules[name] ?? {}, window: win, document: doc, navigator: nav,
-      localStorage: storage, crypto: { randomUUID }, AbortController, DOMException, CustomEvent, TextEncoder, console,
+      localStorage: storage, crypto: { randomUUID,subtle:webcrypto.subtle }, AbortController, DOMException, CustomEvent, TextEncoder, console,
       Date: class extends Date { static now() { return now; } } });
     exports.default({ userId: 'alice' });
     // The independent first effect manages local backups, not cloud sync.
@@ -127,7 +147,7 @@ function harness() {
     release() { blocked = false; release?.(); }, advance(ms: number) { now += ms; tabs.forEach(tab => tab.ticks.forEach(tick => tick())); } };
 }
 
-test('four tabs idle for an hour share 61 cloud reads and only one empty Schedule probe per tab', async () => {
+test('four tabs idle for an hour share 61 cloud reads and no full-value downloads or uploads', async () => {
   const h = harness(); for (let i = 0; i < 4; i++) { h.tab(); await settle(); }
   for (let i = 0; i < 120; i++) { h.advance(30_000); await settle(); }
   assert.equal(h.requests.filter(request => request.method === 'GET' && !request.url.includes('?key=')).length, 61);
@@ -151,17 +171,15 @@ test('hidden and offline pages pause automatic requests; network recovery upload
   tab.stop();
 });
 
-test('a newer local edit made during a conflict reply is preserved and uploaded against the current cloud base', async () => {
+test('a newer local edit during a conflict reply is preserved and requires an explicit choice', async () => {
   const h = harness(), tab = h.tab(); await settle();
   h.storage.setItem('study', '{"text":"old"}'); h.blocked = true; h.conflict = true;
   tab.win.dispatchEvent(new Event('jackyun-sync-retry')); await settle();
   h.storage.setItem('study', '{"text":"newer"}'); h.release(); await settle();
   assert.equal(h.storage.getItem('study'), '{"text":"newer"}');
   const writes = h.requests.filter(request => request.method === 'POST');
-  assert.equal(writes.length, 2);
-  assert.equal(writes[1].body!.operations[0].baseRevision, 8);
-  assert.deepEqual(writes[1].body!.operations[0].value, { text: 'newer' });
-  assert.equal(h.outbox.length, 0); tab.stop();
+  assert.equal(writes.length, 1);assert.equal(h.outbox.length,1);assert.equal(tab.status.state,'conflict');
+  assert.equal((await h.outboxApi.getConflicts())[0].localValue.text,'newer');tab.stop();
 });
 
 test('component unmount aborts an outstanding request without acknowledging its pending edit', async () => {
@@ -183,7 +201,7 @@ test('idle read failures retry after backoff and resume without any local edits'
 
 test('a stationary foreground page receives another device edit without focus or local activity', async () => {
   const h = harness(), tab = h.tab(); await settle();
-  h.cloudRecords = [{ ...cloud, value: { text: 'another device' } }];
+  h.cloudRecords = [{ ...cloud, contentHash:digest({text:'another device'}),value: { text: 'another device' } }];
   h.advance(60_000); await settle();
   assert.equal(h.storage.getItem('study'), '{"text":"another device"}');
   assert.equal(h.requests.filter(request => request.method === 'POST').length, 0);
