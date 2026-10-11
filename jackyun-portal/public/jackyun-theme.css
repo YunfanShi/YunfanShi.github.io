@@ -396,7 +396,8 @@ pre, code, .katex-display { max-width: 100%; overflow-x: auto; }
 
 @media (max-width: 767px) {
   body { min-height: 100dvh; }
-  [role="button"], a.btn { min-height: 40px; }
+  button, [role="button"], a.btn { min-height: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select { font-size: 16px !important; }
 
   :is(.modal, .modal-content, .modal-box, .panel-sheet, dialog, [role="dialog"]) {
     max-width: calc(100vw - 16px) !important;

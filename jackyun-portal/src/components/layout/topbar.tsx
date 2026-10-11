@@ -2,10 +2,11 @@
 'use client';
 
 import Link from 'next/link';
-import BrandLogo from '@/components/brand-logo';
 import FullscreenButton from './fullscreen-button';
 import UserAvatar from '@/components/auth/user-avatar';
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { NAVIGATION_ITEMS, navigationIdFromPath } from '@/lib/navigation';
 import { useLanguage } from '@/components/language-provider';
 import { saveSettingsField } from '@/actions/settings';
 import { t } from '@/lib/i18n';
@@ -33,8 +34,16 @@ const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = 
 
 export default function Topbar({ user, betaActive = false }: TopbarProps) {
   const { lang } = useLanguage();
+  const pathname = usePathname();
+  const currentItem = NAVIGATION_ITEMS.find((item) => item.id === navigationIdFromPath(pathname));
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(true);
   const [theme, setTheme] = useState<Theme>('light');
+  useEffect(() => {
+    const listener = (event: Event) => setNavigationOpen(Boolean((event as CustomEvent<{ open: boolean }>).detail.open));
+    window.addEventListener('mobile-sidebar-state', listener);
+    return () => window.removeEventListener('mobile-sidebar-state', listener);
+  }, []);
 
   useEffect(() => {
     // Expose the signed-in user's display name to legacy (iframe) HTML pages
@@ -95,19 +104,20 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
   };
 
   return (
-    <header className="flex min-h-16 items-center justify-between gap-1 border-b border-[var(--sidebar-border)] bg-[var(--card)] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-6 md:h-16 md:py-0">
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+    <header className="flex min-h-16 shrink-0 items-center justify-between gap-1 border-b border-[var(--sidebar-border)] bg-[var(--card)] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-6 lg:h-16 lg:py-0">
+      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
         <button
           type="button"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] md:hidden"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] lg:hidden"
           aria-label="打开导航菜单"
           aria-controls="portal-navigation"
+          aria-expanded={navigationOpen}
           onClick={() => window.dispatchEvent(new Event('toggle-mobile-sidebar'))}
         >
           <span className="material-icons-round">menu</span>
         </button>
-        <Link href="/dashboard" aria-label="JackYun 主页" className="grid h-11 w-8 shrink-0 place-items-center md:hidden"><BrandLogo size={32} className="h-8 w-8 shrink-0" priority /></Link>
-        <div className="hidden min-w-0 md:block">
+        <span className="truncate text-sm font-semibold lg:hidden">{currentItem ? t(currentItem.labelKey, lang) : 'JackYun'}</span>
+        <div className="hidden min-w-0 lg:block">
           <p className="hidden text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:block">JackYun Workspace</p>
           <div className="mt-0.5 text-base font-medium text-[var(--foreground)]">
             {t('topbar.brand', lang)}
@@ -116,12 +126,12 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
       </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         {betaActive && (
-          <Link href="/beta" className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] md:inline-flex sm:text-xs" title="打开 BETA 测试中心">
+          <Link href="/beta" className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] lg:inline-flex sm:text-xs" title="打开 BETA 测试中心">
             BETA v{APP_VERSION}
           </Link>
         )}
         <SyncStatusIndicator signedIn={Boolean(user)} />
-        <div className="hidden md:flex items-center gap-2">        <button
+        <div className="hidden lg:flex items-center gap-2">        <button
           type="button"
           onClick={toggleTheme}
           className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:px-3"
@@ -133,10 +143,10 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         {showFullscreen && <FullscreenButton />}
         </div>
         {user && <NotificationInbox />}
-        <button type="button" onClick={() => window.location.reload()} aria-label="刷新网页" title="刷新网页" className="grid h-11 w-11 place-items-center rounded-xl text-[var(--muted-foreground)] md:hidden"><span className="material-icons-round">refresh</span></button>
-        <details className="relative md:hidden">
+        <details className="relative lg:hidden">
           <summary aria-label="更多页面操作" className="grid h-11 w-11 list-none place-items-center rounded-xl cursor-pointer"><span className="material-icons-round">more_horiz</span></summary>
           <div className="absolute right-0 top-12 z-50 flex min-w-48 flex-col gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-xl">
+            <button type="button" onClick={() => window.location.reload()} className="min-h-11 px-3 text-left">{lang === 'en' ? 'Refresh page' : '刷新网页'}</button>
             <button type="button" onClick={toggleTheme} aria-label={THEME_META[theme].label} className="min-h-11 text-left px-3">{THEME_META[theme].label}</button>
             {showFullscreen && <FullscreenButton />}
             {betaActive && <Link href="/beta" className="min-h-11 px-3 py-3">BETA 测试中心</Link>}
@@ -146,7 +156,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         {user ? (
           <>
             <UserAvatar user={user} />
-            <div className="hidden md:block"><LogoutButton /></div>
+            <div className="hidden lg:block"><LogoutButton /></div>
           </>
         ) : (
           <a

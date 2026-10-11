@@ -266,7 +266,38 @@ main, nav, [data-scroll-region], .quiz-scroll {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
+  :root { --portal-nav-height: calc(4rem + 1px + env(safe-area-inset-bottom)); }
+  [data-portal-shell] { height: var(--portal-viewport-height, 100dvh); }
+  [data-portal-content] { padding-bottom: var(--portal-nav-height); }
+  [data-portal-main]:not(:has(> .portal-legacy-frame)) { padding-bottom: 5rem; }
+  .portal-mobile-nav { padding-bottom: calc(0.25rem + env(safe-area-inset-bottom)); }
+  .portal-drawer {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    max-height: none;
+    height: var(--portal-viewport-height, 100dvh);
+  }
+  .portal-mobile-ai-launcher {
+    left: auto !important; top: auto !important; right: 12px !important;
+    bottom: calc(var(--portal-nav-height) + 12px) !important;
+    translate: none !important;
+    width: 48px !important; height: 48px !important; border-radius: 50% !important;
+    justify-content: center !important; padding-inline: 0 !important;
+  }
+  .portal-mobile-ai-panel {
+    animation: none;
+    inset: 0 !important;
+    width: 100% !important;
+    height: var(--portal-viewport-height, 100dvh) !important;
+    translate: none !important;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 70;
+  }
+  html[data-portal-keyboard="true"] [data-portal-content] { padding-bottom: 0; }
+  html[data-portal-keyboard="true"] :where(.portal-mobile-nav, .portal-mobile-ai-launcher, .mobile-floating-player, .mobile-floating-timer) { display: none !important; }
   [role="dialog"] {
     max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
@@ -278,14 +309,22 @@ main, nav, [data-scroll-region], .quiz-scroll {
     left: auto !important;
     right: 8px !important;
     top: auto !important;
-    bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
+    bottom: calc(var(--portal-nav-height) + 76px) !important;
+    max-height: calc(100dvh - var(--portal-nav-height) - 150px);
+    overflow-y: auto;
+    z-index: 45 !important;
   }
 
   .mobile-floating-timer {
     left: 8px !important;
     top: auto !important;
-    bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
+    bottom: calc(var(--portal-nav-height) + 12px) !important;
+    width: min(210px, calc(100vw - 84px)) !important;
+    max-height: 60px;
+    z-index: 45 !important;
+    padding: 6px 10px !important;
   }
+  .mobile-floating-timer > button { min-width: 44px; min-height: 44px; }
 }
 
 /* Scroll wide mathematics locally instead of widening the phone page. */
@@ -294,7 +333,7 @@ main, nav, [data-scroll-region], .quiz-scroll {
 .math-expression .katex-display { margin: .5em 0; }
 .math-expression .katex { font-size: 1.05em; }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   [data-portal-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   [data-portal-shell] textarea, [data-portal-shell] select,
   [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),

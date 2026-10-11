@@ -860,7 +860,7 @@ export default function AiChatFab({
   }, [clampFabPosition, fabPosition, getPanelPosition]);
 
   const startFabDrag = useCallback((event: React.PointerEvent) => {
-    if (embedded || !fabPosition) return;
+    if (embedded || !fabPosition || window.matchMedia('(max-width: 1023px)').matches) return;
     const isFabHandle = event.currentTarget === fabRef.current;
     if (!isFabHandle && (event.target as HTMLElement).closest('button, input, textarea, select, a')) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -2020,7 +2020,7 @@ export default function AiChatFab({
       {open && (
         <div
           ref={panelRef}
-          className={`${containerClass} ${embedded ? '' : 'animate-ai-panel-in'} ${isDraggingFab ? 'transition-none' : 'transition-[translate,opacity,scale] duration-200 ease-[cubic-bezier(0.2,0,0,1)]'}`}
+          className={`${containerClass} ${embedded ? '' : 'portal-mobile-ai-panel animate-ai-panel-in'} ${isDraggingFab ? 'transition-none' : 'transition-[translate,opacity,scale] duration-200 ease-[cubic-bezier(0.2,0,0,1)]'}`}
           style={embedded ? { height: '100%' } : panelPosition ? {
             width: panelPosition.width,
             height: panelPosition.height,
@@ -2079,6 +2079,7 @@ export default function AiChatFab({
               {!embedded && (
                 <button
                   onClick={() => setOpen(false)}
+                  aria-label="关闭 AI 对话窗口"
                   className="p-1 rounded hover:bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   <span className="material-icons-round text-base">close</span>
@@ -2396,13 +2397,14 @@ export default function AiChatFab({
           }}
           onPointerDown={startFabDrag}
           style={fabPosition ? { left: 0, top: 0, translate: `${fabPosition.x}px ${fabPosition.y}px` } : undefined}
-          className={`fixed z-50 flex h-12 w-12 touch-none select-none items-center justify-center bg-[#4285F4] text-white shadow-lg will-change-transform hover:bg-[#3367d6] hover:shadow-xl active:scale-95 ${fabPosition ? '' : 'bottom-[max(1rem,env(safe-area-inset-bottom))] right-4'} ${isDraggingFab ? 'cursor-grabbing scale-105 transition-none' : 'cursor-grab transition-[translate,scale,background-color,box-shadow,border-radius] duration-200 ease-[cubic-bezier(0.2,0,0,1)]'} ${fabPosition?.dock === 'left' ? 'rounded-r-full rounded-l-none justify-end pr-2' : fabPosition?.dock === 'right' ? 'rounded-l-full rounded-r-none justify-start pl-2' : 'rounded-full'}`}
+          className={`portal-mobile-ai-launcher fixed z-50 flex h-12 w-12 touch-none select-none items-center justify-center bg-[#4285F4] text-white shadow-lg will-change-transform hover:bg-[#3367d6] hover:shadow-xl active:scale-95 ${fabPosition ? '' : 'bottom-[max(1rem,env(safe-area-inset-bottom))] right-4'} ${isDraggingFab ? 'cursor-grabbing scale-105 transition-none' : 'cursor-grab transition-[translate,scale,background-color,box-shadow,border-radius] duration-200 ease-[cubic-bezier(0.2,0,0,1)]'} ${fabPosition?.dock === 'left' ? 'rounded-r-full rounded-l-none justify-end pr-2' : fabPosition?.dock === 'right' ? 'rounded-l-full rounded-r-none justify-start pl-2' : 'rounded-full'}`}
           title="AI 助手（拖动可贴边收起）"
           aria-label={open ? '关闭 AI 助手' : '打开 AI 助手'}
         >
-          <span className="material-icons-round text-xl">
+          <span className="lg:hidden"><span className="material-icons-round text-xl">{open ? 'close' : 'smart_toy'}</span></span>
+          <span className="hidden lg:inline-block"><span className="material-icons-round text-xl">
             {open ? 'close' : fabPosition?.dock === 'left' ? 'chevron_right' : fabPosition?.dock === 'right' ? 'chevron_left' : 'smart_toy'}
-          </span>
+          </span></span>
         </button>
       )}
 

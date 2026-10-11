@@ -462,7 +462,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
   }
 
   return (
-    <div className="-m-3 h-[calc(100%+1.5rem)] min-h-0 overflow-hidden sm:-m-6 sm:h-[calc(100%+3rem)] lg:-m-8 lg:h-[calc(100%+4rem)]">
+    <div className="portal-legacy-frame -m-3 h-[calc(100%+1.5rem)] min-h-0 overflow-hidden sm:-m-6 sm:h-[calc(100%+3rem)] lg:-m-8 lg:h-[calc(100%+4rem)]">
       <iframe
         ref={iframeRef}
         srcDoc={srcdoc}

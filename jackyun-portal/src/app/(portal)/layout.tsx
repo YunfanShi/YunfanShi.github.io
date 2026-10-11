@@ -1,6 +1,7 @@
 import SessionRecovery from '@/components/auth/session-recovery';
 import Sidebar from '@/components/layout/sidebar';
 import Topbar from '@/components/layout/topbar';
+import MobileViewport from '@/components/layout/mobile-viewport';
 import LegacyBridge from '@/components/modules/legacy-bridge';
 import KeyboardShortcuts from '@/components/layout/keyboard-shortcuts';
 import DeferredAiChat from '@/components/modules/deferred-ai-chat';
@@ -116,18 +117,19 @@ export default async function PortalLayout({
     <AuthModeProvider signedIn={Boolean(user)} userId={user?.id ?? null}>
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
       <ClientLoggerBoot />
+      <MobileViewport />
       <CloudSettingsHydrator learning={learningPreferences} learningUpdatedAt={learningUpdatedAt} appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
       <LocalWorkspaceSync userId={user?.id ?? null} />
       <OfflineWorkspaceSync userId={user?.id ?? null} />
       <WorkspaceIdle userId={user?.id ?? null} />
       <div data-portal-shell className="isolate flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} betaActive={betaEnrollment?.status === 'accepted'} allowedFeatureKeys={featureSnapshot && Object.keys(featureSnapshot.features).length ? Object.values(featureSnapshot.features).filter((feature) => feature.allowed).map((feature) => feature.key) : ['reading']} />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div data-portal-content className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
           <ServerFailureNotice />
           <SiteNotificationModal />
           {claimsError && <SessionRecovery />}
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
+          <main data-portal-main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
         <LegacyBridge />
         <KeyboardShortcuts />

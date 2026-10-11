@@ -248,14 +248,14 @@ export default function MiniPlayer() {
   // 折叠状态：只显示一个小圆点
   if (!expanded) {
     return (
-      <div
-        className="mobile-floating-player fixed z-[60] w-10 h-10 rounded-full bg-[#c20c0c] shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform animate-pulse"
+      <button type="button" aria-label="展开音乐播放器"
+        className="mobile-floating-player fixed z-[60] w-11 h-11 rounded-full bg-[#c20c0c] shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
         style={{ left: position.x, top: position.y }}
         onClick={handleIconClick}
         title={`播放中${songName ? ': ' + songName : ''}`}
       >
         <span className="material-icons-round text-white text-lg">music_note</span>
-      </div>
+      </button>
     );
   }
 
