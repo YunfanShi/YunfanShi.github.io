@@ -248,14 +248,14 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
             reject(new Error('本地网页 AI 等待超时'));
           }, 600000);
           function receive(event) {
-            if (event.origin !== location.origin || event.data?.type !== 'JACKYUN_BROWSER_AI_RESPONSE' || event.data.requestId !== requestId) return;
+            if (event.origin !== window.parent.location.origin || event.data?.type !== 'JACKYUN_BROWSER_AI_RESPONSE' || event.data.requestId !== requestId) return;
             clearTimeout(timeout);
             window.removeEventListener('message', receive);
             if (!event.data.ok) return reject(new Error(event.data.error || '本地网页 AI 已取消'));
             resolve(new Response(event.data.body, { status: 200, headers: { 'Content-Type': event.data.stream ? 'text/event-stream; charset=utf-8' : 'application/json; charset=utf-8' } }));
           }
           window.addEventListener('message', receive);
-          window.parent.postMessage({ type: 'JACKYUN_BROWSER_AI_REQUEST', requestId: requestId, messages: requestBody.messages || [], stream: requestBody.stream === true }, location.origin);
+          window.parent.postMessage({ type: 'JACKYUN_BROWSER_AI_REQUEST', requestId: requestId, messages: requestBody.messages || [], stream: requestBody.stream === true }, window.parent.location.origin);
         });
       }
     } catch(e) {}

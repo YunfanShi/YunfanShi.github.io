@@ -9,6 +9,19 @@ try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto(base + '/resources');
+  await page.evaluate(() => {
+    const opaque = document.createElement('iframe'); opaque.id = 'opaque-adapter'; opaque.sandbox = 'allow-scripts';
+    opaque.srcdoc = `<script>parent.postMessage({source:'supabase-adapter',type:'request-init',requestId:'opaque-probe'},'*')<\/script>`;
+    document.body.appendChild(opaque);
+    const trusted = document.createElement('iframe'); trusted.id = 'trusted-adapter';
+    trusted.srcdoc = `<body>waiting<script>addEventListener('message',e=>{if(e.data?.type==='ready-ack')document.body.textContent='acknowledged'});parent.postMessage({source:'supabase-adapter',type:'request-init',requestId:'trusted-probe'},parent.location.origin)<\/script>`;
+    document.body.appendChild(trusted);
+  });
+  await page.frameLocator('#trusted-adapter').getByText('acknowledged', { exact: true }).waitFor();
+  assert.deepEqual(errors, [], 'opaque frames must be ignored; trusted handshake must work');
+  await page.evaluate(() => { document.getElementById('opaque-adapter')?.remove(); document.getElementById('trusted-adapter')?.remove(); });
+  console.log('PASS opaque-origin rejection and trusted legacy handshake');
   await page.goto(base + '/settings?section=pages');
   await page.getByRole('combobox', { name: '选择页面' }).waitFor();
   await page.getByRole('combobox', { name: /阅读字号/ }).selectOption('large');
@@ -23,6 +36,7 @@ try {
   const pending = await page.evaluate(() => JSON.parse(JSON.parse(localStorage.getItem('jackyun_settings_pending_v1')).guest.page_preferences));
   assert.ok(pending.fields.includes('dashboard:size')); assert.ok(pending.fields.includes('schedule:motion'));
   await page.reload();
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('label')).find(label => label.textContent.includes('阅读字号'))?.querySelector('select')?.value === 'large');
   assert.equal(await page.getByRole('combobox', { name: /阅读字号/ }).inputValue(), 'large');
   await mkdir('../docs/screenshots', { recursive: true });
   await page.screenshot({ animations: 'disabled', path: '../docs/screenshots/workspace-3.5-pages-mobile.png' });

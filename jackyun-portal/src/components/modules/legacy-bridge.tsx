@@ -10,6 +10,9 @@ import { useEffect } from 'react';
 export default function LegacyBridge() {
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
+      // Sandboxed/foreign frames can send opaque-origin messages during route
+      // changes. Only our same-origin adapter is eligible for a handshake.
+      if (event.origin !== window.location.origin || !event.source) return;
       const msg = event.data;
       if (!msg || msg.source !== 'supabase-adapter') return;
 
@@ -18,7 +21,7 @@ export default function LegacyBridge() {
       if (type === 'request-init') {
         (event.source as WindowProxy)?.postMessage(
           { source: 'supabase-bridge', type: 'ready-ack', payload: null, requestId },
-          event.origin || '*',
+          event.origin,
         );
       }
 
