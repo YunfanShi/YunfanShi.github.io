@@ -181,7 +181,7 @@ export default async function DashboardPage() {
             <h1 className="text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">你好，{username}</h1>
             <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">让每一次专注都有迹可循，把学习、计划与灵感沉淀为你的长期能力。</p>
           </div>
-          <Link href="/study" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1a73e8] px-4 text-sm font-medium text-white transition-colors hover:bg-[#185abc] dark:bg-[#8ab4f8] dark:text-[#202124] dark:hover:bg-[#aecbfa]">
+          <Link prefetch={false} href="/study" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1a73e8] px-4 text-sm font-medium text-white transition-colors hover:bg-[#185abc] dark:bg-[#8ab4f8] dark:text-[#202124] dark:hover:bg-[#aecbfa]">
             继续学习 <span className="material-icons-round text-lg">arrow_forward</span>
           </Link>
         </div>
@@ -202,8 +202,8 @@ export default async function DashboardPage() {
             </form>
           </div>
           <div className="relative grid w-full grid-cols-2 gap-2 sm:w-auto">
-            <Link href="/ai?mode=chat" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
-            <Link href="/ai?mode=agent" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+            <Link prefetch={false} href="/ai?mode=chat" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
+            <Link prefetch={false} href="/ai?mode=agent" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v3" /><circle cx="12" cy="2" r="1" /><rect x="4" y="6" width="16" height="14" rx="4" /><path d="M8 11h.01M16 11h.01M8 16h8" /></svg>
               Agent
             </Link>
@@ -227,22 +227,22 @@ export default async function DashboardPage() {
       </div>
 
       <section className="mb-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Link href="/study/tasks" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
+        <Link prefetch={false} href="/study/tasks" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
           <p className="text-xs text-[var(--muted-foreground)]">今日任务</p>
           <strong className="mt-2 block text-2xl">{todayCompleted}/{todayTasks.length}</strong>
           <span className="mt-2 block text-xs text-[#1a73e8]">查看和开始任务 →</span>
         </Link>
-        <Link href="/review" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
+        <Link prefetch={false} href="/review" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
           <p className="text-xs text-[var(--muted-foreground)]">到期错题复习</p>
           <strong className="mt-2 block text-2xl">{reviewResult?.count ?? 0}</strong>
           <span className="mt-2 block text-xs text-[#1a73e8]">开始复习 →</span>
         </Link>
-        <Link href="/pomodoro" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
+        <Link prefetch={false} href="/pomodoro" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
           <p className="text-xs text-[var(--muted-foreground)]">今日专注</p>
           <strong className="mt-2 block text-2xl">{focusTodayMinutes}m</strong>
           <span className="mt-2 block text-xs text-[#1a73e8]">打开番茄钟 →</span>
         </Link>
-        <Link href="/countdown" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
+        <Link prefetch={false} href="/countdown" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
           <p className="truncate text-xs text-[var(--muted-foreground)]">{nextCountdown?.title ?? '最近倒计日'}</p>
           <strong className="mt-2 block text-2xl">{countdownDays == null ? '—' : `${countdownDays}天`}</strong>
           <span className="mt-2 block text-xs text-[#1a73e8]">管理重要日期 →</span>
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
             <h2 className="mt-1 text-xl font-semibold tracking-[-.025em]">接下来学什么</h2>
             <p className="mt-1 text-sm text-[var(--muted-foreground)]">按照截止时间与任务优先级排序，点击后直接进入专注计时。</p>
           </div>
-          <Link href="/study/tasks" className="text-sm font-semibold text-[#1a73e8] hover:underline">管理云端任务</Link>
+          <Link prefetch={false} href="/study/tasks" className="text-sm font-semibold text-[#1a73e8] hover:underline">管理云端任务</Link>
         </div>
         {nextTasks.length > 0 ? (
           <ol className="divide-y divide-[var(--card-border)]">
@@ -292,7 +292,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mb-10 overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-7"><div><div className="flex items-center gap-3"><span className="material-icons-round grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">JackYun Companion</p><h2 className="text-xl font-semibold">浏览器学习活动</h2></div></div><p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">跨学习网站记录有效时间，只保存域名级聚合。扩展离线时会在恢复网络后继续同步。</p><Link href="/activity" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">查看完整活动报告<span className="material-icons-round text-lg">arrow_forward</span></Link></div><div className="grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日</p><strong className="mt-2 block text-2xl">{Math.round(companionTodaySeconds / 60)}m</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">七日</p><strong className="mt-2 block text-2xl">{Math.round(companionWeekSeconds / 3600 * 10) / 10}h</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">设备</p><strong className="mt-2 block text-2xl">{deviceResult?.count ?? 0}</strong></div></div></div>
+        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-7"><div><div className="flex items-center gap-3"><span className="material-icons-round grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">JackYun Companion</p><h2 className="text-xl font-semibold">浏览器学习活动</h2></div></div><p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">跨学习网站记录有效时间，只保存域名级聚合。扩展离线时会在恢复网络后继续同步。</p><Link prefetch={false} href="/activity" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">查看完整活动报告<span className="material-icons-round text-lg">arrow_forward</span></Link></div><div className="grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日</p><strong className="mt-2 block text-2xl">{Math.round(companionTodaySeconds / 60)}m</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">七日</p><strong className="mt-2 block text-2xl">{Math.round(companionWeekSeconds / 3600 * 10) / 10}h</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">设备</p><strong className="mt-2 block text-2xl">{deviceResult?.count ?? 0}</strong></div></div></div>
       </section>
 
       <div className="mb-4 flex items-end justify-between gap-4">

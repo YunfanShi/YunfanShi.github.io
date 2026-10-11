@@ -99,14 +99,20 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         await saveLocalBackup(owner, page, localPageValues(previous, page));
       }
     }).catch((error) => { baselineFailed = true; console.error('[Backup] Local baseline failed', error); });
-    const timer = window.setInterval(() => { if (!isWorkspaceSleeping()) checkpoint(); }, 2_000);
+    // localStorage already persists edits immediately. This fallback discovers
+    // changes for version backups; exits and sleep still force a checkpoint.
+    const timer = window.setInterval(() => {
+      if (!isWorkspaceSleeping() && document.visibilityState === 'visible') checkpoint();
+    }, 15_000);
     const onSleep = (event: Event) => {
       (event as CustomEvent<SleepRequest>).detail.waitUntil(Promise.resolve(checkpoint(true)).then(() => {
         if (dirtyPages.size || baselineFailed) throw new Error('Local backup failed');
       }));
     };
     window.addEventListener(LOCAL_SLEEP_SAVE_EVENT, onSleep);
-    const onStorage = () => checkpoint();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || isBackupableLegacyKey(event.key)) checkpoint();
+    };
     const onLeave = () => checkpoint(true);
     const onVisibility = () => { if (document.visibilityState === 'hidden') onLeave(); };
     window.addEventListener('storage', onStorage);

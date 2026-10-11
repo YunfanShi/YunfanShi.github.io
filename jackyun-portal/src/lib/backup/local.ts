@@ -39,18 +39,31 @@ export function getLocalBackupLimit(): number {
   return 10;
 }
 
+function samePageValues(left: Record<string, string>, right: Record<string, string>): boolean {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
+}
+
 export function pruneLocalBackups(userId: string): Promise<void> {
   return transaction<void>('readwrite', (store, finish) => {
-    const request = store.getAll();
+    // Retention needs only ownership and primary keys, never snapshot contents.
+    const request = store.index('ownerPage').openKeyCursor();
+    const byPage = new Map<BackupPage, number[]>();
     request.onsuccess = () => {
-      const byPage = new Map<BackupPage, LocalBackup[]>();
-      for (const item of request.result as LocalBackup[]) {
-        if (item.userId !== userId) continue;
-        byPage.set(item.page, [...(byPage.get(item.page) ?? []), item]);
+      const cursor = request.result;
+      if (cursor) {
+        const [owner, page] = cursor.key as [string, BackupPage];
+        if (owner === userId) {
+          const ids = byPage.get(page) ?? [];
+          ids.push(cursor.primaryKey as number);
+          byPage.set(page, ids);
+        }
+        cursor.continue();
+        return;
       }
-      for (const versions of byPage.values()) {
-        versions.sort((a, b) => b.id - a.id);
-        for (const old of versions.slice(getLocalBackupLimit())) store.delete(old.id);
+      for (const ids of byPage.values()) {
+        ids.sort((a, b) => b - a);
+        for (const id of ids.slice(getLocalBackupLimit())) store.delete(id);
       }
       finish();
     };
@@ -72,14 +85,19 @@ export function listLocalBackups(userId: string, page: BackupPage): Promise<Loca
 export async function saveLocalBackup(userId: string, page: BackupPage, values: Record<string, string>): Promise<void> {
   if (!Object.keys(values).length) return;
   await transaction<void>('readwrite', (store, finish) => {
-    const request = store.index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
+    const index = store.index('ownerPage');
+    const range = IDBKeyRange.only([userId, page]);
+    const request = index.openCursor(range, 'prev');
     request.onsuccess = () => {
-      const previous = (request.result as LocalBackup[])
-        .sort((a, b) => b.id - a.id);
-      if (previous[0] && JSON.stringify(previous[0].values) === JSON.stringify(values)) { finish(); return; }
-      store.add({ userId, page, values, createdAt: new Date().toISOString() });
-      for (const old of previous.slice(Math.max(0, getLocalBackupLimit() - 1))) store.delete(old.id);
-      finish();
+      const latest = request.result?.value as LocalBackup | undefined;
+      if (latest && samePageValues(latest.values, values)) { finish(); return; }
+      const keys = index.getAllKeys(range);
+      keys.onsuccess = () => {
+        const ids = (keys.result as number[]).sort((a, b) => b - a);
+        store.add({ userId, page, values, createdAt: new Date().toISOString() });
+        for (const id of ids.slice(Math.max(0, getLocalBackupLimit() - 1))) store.delete(id);
+        finish();
+      };
     };
   });
 }

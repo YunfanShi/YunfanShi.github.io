@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.21.9",
+  "version": "3.21.10",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -32,7 +32,7 @@
     "check:companion-sources": "node scripts/sync-companion-hosted-sources.mjs --check",
     "check:study-guide": "node scripts/check-study-guide.mjs",
     "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
-    "test:sync": "node --test tests/workspace-sync-recovery.test.mts tests/sync-performance.test.mts tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts",
+    "test:sync": "node --test tests/workspace-sync-recovery.test.mts tests/sync-performance.test.mts tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts tests/backup-center.test.mts tests/local-backup-performance.test.mts",
     "test:notification-polling": "node --test tests/notification-polling.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
@@ -60,7 +60,7 @@
     "jsonrepair": "^3.15.0",
     "jszip": "^3.10.1",
     "katex": "^0.17.0",
-    "next": "16.3.1",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
@@ -80,7 +80,8 @@
     "@types/react-dom": "19.2.4",
     "autoprefixer": "^10.6.1",
     "eslint": "^9.39.3",
-    "eslint-config-next": "16.3.1",
+    "eslint-config-next": "16.3.8",
+    "fake-indexeddb": "6.2.5",
     "postcss": "^8.5.28",
     "supabase": "2.119.0",
     "tailwindcss": "^3.4.17",
