@@ -394,7 +394,7 @@ img, video, canvas, svg, iframe { max-width: 100%; }
 input, textarea, select { min-width: 0; max-width: 100%; }
 pre, code, .katex-display { max-width: 100%; overflow-x: auto; }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px), (pointer: coarse) {
   body { min-height: 100dvh; }
   button, [role="button"], a.btn { min-height: 44px; }
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select { font-size: 16px !important; }

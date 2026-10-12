@@ -266,7 +266,7 @@ main, nav, [data-scroll-region], .quiz-scroll {
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1023px), (pointer: coarse) {
   :root { --portal-nav-height: calc(4rem + 1px + env(safe-area-inset-bottom)); }
   [data-portal-shell] { height: var(--portal-viewport-height, 100dvh); }
   [data-portal-content] { padding-bottom: var(--portal-nav-height); }
@@ -333,7 +333,7 @@ main, nav, [data-scroll-region], .quiz-scroll {
 .math-expression .katex-display { margin: .5em 0; }
 .math-expression .katex { font-size: 1.05em; }
 
-@media (max-width: 1023px) {
+@media (max-width: 1023px), (pointer: coarse) {
   [data-portal-shell] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   [data-portal-shell] textarea, [data-portal-shell] select,
   [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),

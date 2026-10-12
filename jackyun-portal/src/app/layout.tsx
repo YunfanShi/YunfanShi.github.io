@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './device-workspace.css';
 import Script from 'next/script';
 import ThemeProvider from '@/components/theme-provider';
 import DeploymentRecovery from '@/components/layout/deployment-recovery';

@@ -108,7 +108,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
         <button
           type="button"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] lg:hidden"
+          className="portal-touch-menu grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] lg:hidden"
           aria-label="打开导航菜单"
           aria-controls="portal-navigation"
           aria-expanded={navigationOpen}
@@ -131,7 +131,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
           </Link>
         )}
         <SyncStatusIndicator signedIn={Boolean(user)} />
-        <div className="hidden lg:flex items-center gap-2">        <button
+        <div className="portal-desktop-actions hidden lg:flex items-center gap-2">        <button
           type="button"
           onClick={toggleTheme}
           className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:px-3"
@@ -143,7 +143,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         {showFullscreen && <FullscreenButton />}
         </div>
         {user && <NotificationInbox />}
-        <details className="relative lg:hidden">
+        <details className="portal-touch-actions relative lg:hidden">
           <summary aria-label="更多页面操作" className="grid h-11 w-11 list-none place-items-center rounded-xl cursor-pointer"><span className="material-icons-round">more_horiz</span></summary>
           <div className="absolute right-0 top-12 z-50 flex min-w-48 flex-col gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-xl">
             <button type="button" onClick={() => window.location.reload()} className="min-h-11 px-3 text-left">{lang === 'en' ? 'Refresh page' : '刷新网页'}</button>

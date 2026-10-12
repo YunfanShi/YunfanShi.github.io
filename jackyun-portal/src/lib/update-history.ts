@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.11.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手机与平板拥有自己的工作区', summary: '沿用原有风格，按屏幕空间与主要输入方式适配导航、课表和学习。', categories: ['平台体验', '学习体验'], accent: 'blue', highlights: ['宽屏触控平板也使用抽屉与底部导航，触屏电脑的主要指针仍按实际能力判断。', '手机先看当前课程，平板双栏；周课表按日展示，日程常用入口直接可见。', '触控学习采用底栏评价，软键盘改变可用高度时保持设备布局，旧模块共享触控适配。'] },
   { version: '3.10.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '今日课表显示实时上课进度', summary: '当前课程、时段和时长集中显示，逐秒倒计时直到下课。', categories: ['学习体验'], accent: 'blue', highlights: ['上课显示已上时长、进度与下课倒计时。', '课间显示下一节及上课倒计时，边界自动切换。', '保留原有课表风格，假日及其他日期不显示实时上课状态。'] },
   { version: '3.9.1', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: 'CUE 回到接下来学什么', summary: '首页沿用原有风格，CUE 与下一项学习任务放在同一卡片中。', categories: ['平台体验'], accent: 'blue', highlights: ['问候、AI 和学习概览恢复原有位置。', 'CUE 使用紧凑统计与分隔行，学科保留一个学习入口。', '统计说明可展开查看，草稿、预算与学习规则继续沿用。'] },
   { version: '3.9.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '按今天可用时间安排 CUE', summary: '15、30、60 分钟预算先预览，确认后开始或加入日程。', categories: ['学习体验'], accent: 'violet', highlights: ['默认 30 分钟，先到期再新增修改，同组优先薄弱内容。', '超出预算的内容保留在待学列表，可手动加选。', '已有草稿优先继续，明确确认才写入日程，同范围避免重复安排。'] },

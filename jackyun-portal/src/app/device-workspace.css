@@ -1,0 +1,39 @@
+/* Phone and tablet interactions are driven by primary pointer capability too.
+   A touch-enabled laptop with a fine primary pointer keeps desktop navigation. */
+@media (pointer: coarse) and (min-width: 1024px) {
+  .portal-touch-backdrop { display: block; }
+  .portal-touch-menu, .portal-touch-close { display: grid; }
+  .portal-touch-search { display: flex; }
+  .portal-touch-actions { display: block; }
+  .portal-desktop-control, .portal-desktop-actions { display: none; }
+  .portal-mobile-nav { display: grid; }
+  .portal-drawer {
+    position: fixed;
+    z-index: 90;
+    width: min(20rem, calc(100vw - 3rem));
+    translate: -100% 0;
+    box-shadow: 0 20px 30px #0003;
+  }
+  .portal-drawer[data-open="true"] { translate: 0 0; }
+  [data-portal-main] { padding: 24px; }
+  .portal-legacy-frame { margin: -24px; height: calc(100% + 48px); }
+}
+@media (max-width: 1023px), (pointer: coarse) {
+  [data-portal-main] { scrollbar-gutter: stable; }
+  [data-portal-shell] :where(button, a[role="button"], summary),
+  body > [role="dialog"] :where(button, summary) { min-height: 44px; touch-action: manipulation; }
+  [data-portal-shell] :where(input, select, textarea) { scroll-margin-block: 96px; }
+  [data-portal-shell] input[type="checkbox"], [data-portal-shell] input[type="radio"],
+  body > [role="dialog"] input[type="checkbox"], body > [role="dialog"] input[type="radio"] { min-width: 22px; min-height: 22px; }
+  [data-portal-main] :where(h1, h2, h3, p, label) { overflow-wrap: anywhere; }
+  [data-portal-main] :where(img, video, canvas) { max-width: 100%; }
+  [data-portal-main] :where(pre, .katex-display) { overflow-x: auto; overscroll-behavior-inline: contain; }
+}
+@media (max-width: 767px) {
+  [data-portal-main] { padding: 12px; }
+  .portal-legacy-frame { margin: -12px; height: calc(100% + 24px); }
+}
+/* Android and iOS keyboards both shrink the usable overlay, not just the shell. */
+html[data-portal-keyboard="true"] [data-responsive-study] {
+  height: var(--portal-viewport-height, 100dvh);
+}

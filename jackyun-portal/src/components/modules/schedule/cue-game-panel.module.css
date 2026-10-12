@@ -1,5 +1,5 @@
 .dock { display: none; }
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (pointer: fine) {
   .dock { display: block; position: fixed; top: 190px; right: 16px; width: 184px; z-index: 25; max-height: calc(100dvh - 210px); overflow-y: auto; scrollbar-width: thin; }
   .dock[data-summary='true'] { z-index: 180; top: 100px; }
 }
@@ -51,7 +51,7 @@
 .dock[data-motion='false'] *, :global(html[data-reduced-motion='true']) .dock * { animation: none !important; transition: none !important; }
 .dock[data-motion='false'] .flight, :global(html[data-reduced-motion='true']) .flight { display: none; }
 @media (prefers-reduced-motion: reduce) { .dock * { animation: none !important; transition: none !important; } .flight { display: none; } }
-@media (min-width: 1024px) and (max-width: 1279px) { .dock { width: 152px; } .panel { padding: 10px; } .legend small { font-size: 10px; } }
+@media (min-width: 1024px) and (max-width: 1279px) and (pointer: fine) { .dock { width: 152px; } .panel { padding: 10px; } .legend small { font-size: 10px; } }
 
 .panel[data-milestone='true'] .sky { animation: constellationExpand 1.2s ease-out; }
 .panel[data-milestone='true'] .sky polyline { stroke-dasharray: 300; animation: constellationTrace 1.1s ease-out; }
@@ -101,7 +101,7 @@
 .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 60% 55%, #17243c, #040810 70%); }
 .backdrop canvas { width: 100%; height: 100%; display: block; }
 .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 51%, transparent 45%, #03070c20 80%, #03070c55 100%); }
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (pointer: fine) {
   .dock:not([data-summary='true']) { top: auto; bottom: 28px; max-height: calc(100dvh - 230px); }
   .dock:not([data-summary='true']) .panel { background: linear-gradient(145deg, #112035a8, #070e19ce); border-color: #b4c7e52b; backdrop-filter: blur(18px); box-shadow: 0 12px 48px #0003, inset 0 1px #ffffff08; }
   .dock:not([data-summary='true']) .panel::before { background: none; }
@@ -131,7 +131,7 @@
 @keyframes auroraBloom { 0%, 100% { opacity: 0; } 30% { opacity: .8; } }
 @keyframes encouragementIn { 0% { opacity: 0; translate: 0 12px; } 20%, 70% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 0 -8px; } }
 :global(html[data-reduced-motion='true']) .globalCelebration { display: none; }
-@media (prefers-reduced-motion: reduce), (max-width: 1023px) { .globalCelebration { display: none; } }
+@media (prefers-reduced-motion: reduce), (max-width: 1023px), (pointer: coarse) { .globalCelebration { display: none; } }
 .effort { margin-top: 8px; font-size: 10px; color: #bbcce5; font-variant-numeric: tabular-nums; }
 .practiceBurst { position: fixed; inset: 0; z-index: 14; pointer-events: none; overflow: hidden; }
 .practiceBurst canvas { width: 100%; height: 100%; }
@@ -140,7 +140,7 @@
 .practiceBurst > span small { font-size: 13px; letter-spacing: .2em; }
 @keyframes particleResult { 0%, 56% { opacity: 0; transform: translateY(12px) scale(.96); } 68%, 82% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-6px) scale(1); } }
 :global(html[data-reduced-motion='true']) .practiceBurst { display: none; }
-@media (prefers-reduced-motion: reduce), (max-width: 1023px) { .practiceBurst { display: none; } }
+@media (prefers-reduced-motion: reduce), (max-width: 1023px), (pointer: coarse) { .practiceBurst { display: none; } }
 .extra {font-size:10px;color:#cab9ef;margin:8px 0;}.extra strong{font-size:15px;margin-left:5px;}
 .dayView {display:block;width:100%;cursor:zoom-in;border-radius:12px;}.dayView:hover{background:#b8c8ff0d;}
 .dock[data-frame='orbit'] .panel {border-color:#cedbee77;box-shadow:inset 0 0 0 4px #c5d9ff0a,0 0 25px #b7d4ff18;}

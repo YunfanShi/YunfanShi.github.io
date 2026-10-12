@@ -1,4 +1,4 @@
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (pointer: fine) {
   .session[data-cue-universe='true'] {
     isolation: isolate;
     --background: #070e19;
@@ -17,12 +17,12 @@
     text-shadow: 0 2px 16px #0009;
   }
 }
-@media (min-width: 1024px) and (max-width: 1279px) {
+@media (min-width: 1024px) and (max-width: 1279px) and (pointer: fine) {
   .session[data-cue-universe='true'] > main[data-cue-study-content] { width: calc(100% - 360px); }
 }
 
 /* Use the actual header height; prompt and ratings form one centered study stage. */
-@media (min-width: 768px) {
+@media (min-width: 1024px) and (pointer: fine) {
   .session:has(> main[data-cue-study-page]) { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
   .session:has(> main[data-cue-study-page]) > header { flex-shrink: 0; }
   .session > main[data-cue-study-page] { flex: 1; min-height: 0; overflow-y: auto; padding-block: 16px; }
@@ -35,14 +35,14 @@
   .session [data-cue-study-ratings] button strong { font-size: 18px; }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) and (pointer: fine) {
   .session [data-cue-rating-feedback], .session [data-cue-round-complete] { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 30; border-radius: 20px; width: auto; max-width: 65vw; pointer-events: none; }
   .session [data-cue-recall] > div:nth-child(2) { margin-top: 12px; }
   .session [data-cue-study-page][data-revealed='true'] [data-cue-recall] > div:nth-child(2) { font-size: clamp(24px, 2.6vw, 38px); }
   .session [data-cue-study-ratings] > p { margin-bottom: 8px; }
   .session [data-cue-study-ratings] > div:last-child { margin-top: 8px; }
 }
-@media (min-width:768px) {
+@media (min-width:1024px) and (pointer:fine) {
  .session:has(>main[data-cue-study-page])>header {padding:8px 16px;}
  .session:has(>main[data-cue-study-page])>header h1 {font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
  .session:has(>main[data-cue-study-page])>header>div:nth-child(2){margin-top:6px;}

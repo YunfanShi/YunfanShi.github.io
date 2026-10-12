@@ -1227,7 +1227,7 @@ test('phone schedule keeps task actions separate and replaces the wide week grid
   assert.match(component, /styles\.taskActions/);
   assert.match(component, /styles\.subtaskBody/);
   assert.match(component, /styles\.weekAgenda/);
-  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /@media \(max-width: 1023px\), \(pointer: coarse\)/);
   assert.match(css, /\.taskActions\s*\{[^}]*grid-column: 2;[^}]*flex-direction: row;/s);
   assert.match(css, /\.weekAgenda\s*\{[^}]*min-width: 0;[^}]*flex-direction: column;/s);
   assert.match(css, /\.root textarea,[^}]*font-size: 16px;/s);

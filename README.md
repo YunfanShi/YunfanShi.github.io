@@ -4,7 +4,9 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.10.0**
+> 当前版本：**v3.11.0**
+
+2026-10-13 手机与平板工作区（v3.11.0）：按屏幕空间与主要指针能力区分电脑、手机、平板；全站触控导航、旧模块触控适配、Schedule 今日/周课表导航与学习底栏专门适配。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.11.0-Device-Workspace-20261013.docx)。
 
 2026-10-12 实时课程时间线（v3.10.0）：参照 [ClassIsland](https://github.com/ClassIsland/ClassIsland) 的当前课程显示思路，今日课表新增当前课程、开始结束时间、总时长、已上时长和逐秒下课倒计时；课间显示下一节，沿用原有页面风格。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.10.0-Class-Timeline-20261012.docx)。
 

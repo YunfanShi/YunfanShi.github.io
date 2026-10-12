@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { browserWorkspaceLayout } from '@/lib/workspace-layout';
 
 /** Keep the phone workspace inside the visible viewport when a keyboard opens. */
 export default function MobileViewport() {
@@ -9,6 +10,23 @@ export default function MobileViewport() {
   useEffect(() => {
     document.querySelector<HTMLElement>('[data-portal-main]')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname]);
+  useEffect(() => {
+    const root = document.documentElement;
+    const pointer = window.matchMedia('(pointer: coarse)');
+    const updateLayout = () => {
+      root.dataset.workspaceLayout = browserWorkspaceLayout();
+      root.dataset.workspaceInput = pointer.matches ? 'touch' : 'pointer';
+    };
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    pointer.addEventListener('change', updateLayout);
+    return () => {
+      window.removeEventListener('resize', updateLayout);
+      pointer.removeEventListener('change', updateLayout);
+      delete root.dataset.workspaceLayout;
+      delete root.dataset.workspaceInput;
+    };
+  }, []);
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;

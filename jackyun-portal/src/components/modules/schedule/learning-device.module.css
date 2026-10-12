@@ -1,0 +1,17 @@
+.touchRatings { display: none; }
+@media (max-width: 1023px), (pointer: coarse) {
+  .session { height: var(--portal-viewport-height, 100dvh); }
+  .session header { padding: 10px 12px; }
+  .session main { padding: 16px 12px; overscroll-behavior: contain; }
+  .session main article { font-size: 18px; line-height: 1.7; }
+  .session textarea, .session input, .session select { font-size: 16px; }
+  .inlineRatings { display: none; }
+  .touchRatings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 896px; margin: 0 auto 10px; }
+  .touchRatings button { padding: 10px 4px; font-size: 13px; }
+  .footer { padding-inline: 12px; }
+  .footer > div:last-child { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .footer button { min-height: 44px; }
+}
+@media (pointer: coarse) and (min-width: 768px) {
+  .session main article { padding: 28px; font-size: 22px; }
+}

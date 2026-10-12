@@ -3,7 +3,7 @@
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px), (pointer: coarse) {
   .root {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
@@ -250,14 +250,14 @@
 }
 
 .studyOverlay[role="dialog"] { height: 100%; max-height: none; isolation: isolate; }
-@media (max-width: 767px) {
+@media (max-width: 1023px), (pointer: coarse) {
   .studyOverlay input, .studyOverlay textarea, .studyOverlay select { font-size: 16px; }
 }
 
 /* Phone study owns the viewport: one card and a thumb-accessible control bar. */
 .studyTools, .touchControls { display: none; }
 .touchCard { min-width: 0; }
-@media (max-width: 767px) {
+@media (max-width: 1023px), (pointer: coarse) {
   .studyOverlay { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
   .studyHeader { flex: 0 0 auto; }
   .studyMain { flex: 1 1 0; min-height: 0; width: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 12px; }
@@ -295,7 +295,7 @@
 }
 
 /* Keep long prompts and controls inside the phone viewport. */
-@media (max-width: 767px) {
+@media (max-width: 1023px), (pointer: coarse) {
   .cueManager > div { max-width: 100%; }
   .cueManager form, .cueManager section { min-width: 0; padding: 12px; }
   .cueManager form > div:first-child { align-items: flex-start; gap: 8px; }
@@ -385,3 +385,52 @@
 .studyOverlay[data-animations="false"] *,
 .studyOverlay[data-animations="false"] *::before,
 .studyOverlay[data-animations="false"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+
+
+/* Everyday destinations stay visible without horizontally scrolling seven tabs. */
+.touchViewNav { display: none; }
+@media (max-width: 1023px), (pointer: coarse) {
+  .viewNav { display: none; }
+  .touchViewNav { display: block; border-top: 1px solid var(--card-border); }
+  .touchViewPrimary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 6px; gap: 4px; }
+  .touchViewPrimary button { min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; font-size: 14px; color: var(--muted-foreground); }
+  .touchViewPrimary [aria-current], .touchViewSecondary [aria-current] { color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); font-weight: 600; }
+  .touchViewSecondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px 12px 12px; }
+  .touchViewSecondary button { min-height: 44px; border: 1px solid var(--card-border); border-radius: 10px; font-size: 14px; }
+  .root { padding-bottom: 1rem; }
+  .todayLayout { grid-template-columns: minmax(0, 1fr); }
+  .root button { touch-action: manipulation; }
+  .root :global(.h-10) { min-height: 44px; }
+}
+@media (min-width: 768px) and (max-width: 1023px), (min-width: 768px) and (pointer: coarse) {
+  .todayLayout { grid-template-columns: minmax(0, 1.25fr) minmax(280px, .85fr); align-items: start; gap: 16px; }
+  .todayLayout > section, .todaySidebar > section { padding: 18px; }
+  .weekAgenda { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; overflow: visible; }
+  .weekAgenda > button { min-height: 220px; border-left: 0; border-bottom: 1px solid var(--card-border); padding: 16px; }
+  .weekAgenda > button > div:first-child { display: flex; gap: 8px; align-items: center; text-align: left; }
+  .weekAgenda > button > div:last-child > p { text-align: left; padding-top: 8px; }
+}
+:global(html[data-workspace-layout='phone']) .todayLayout { display: flex; flex-direction: column; gap: 12px; }
+:global(html[data-workspace-layout='phone']) .todaySidebar { display: contents; }
+:global(html[data-workspace-layout='phone']) .todaySidebar > section { order: -1; }
+:global(html[data-workspace-layout='phone']) .todaySidebar > div { order: 2; }
+:global(html[data-workspace-layout='phone']) .weekAgenda { display: flex; flex-direction: column; min-width: 0; }
+:global(html[data-workspace-layout='phone']) .weekAgenda > button { min-height: 0; width: 100%; padding: 16px; }
+:global(html[data-workspace-layout='phone']) .touchViewPrimary button { flex-direction: column; gap: 3px; font-size: 12px; }
+@media (max-width: 1023px), (pointer: coarse) {
+  .keyboardHint { display: none; }
+  .studyOverlay { display: flex; flex-direction: column; height: var(--portal-viewport-height, 100dvh); overflow: hidden; padding-bottom: 0; }
+  .studyMain { min-height: 0; flex: 1 1 0; width: 100%; overflow-y: auto; padding: 16px; }
+  .studyHeader { flex: 0 0 auto; }
+  .touchStudyOnly { display: block; }
+  .pointerStudyOnly, .studyOverlay [data-cue-study-stage], .studyOverlay [data-cue-study-meta], .studyOverlay [aria-label='Cue 学习进度'] { display: none; }
+  .studyHeader [aria-label='学习工具和题目目录'] { display: grid; }
+  .studyHeader button[aria-pressed] { display: none; }
+  .studyHeader > div:last-child { display: none; }
+}
+@media (min-width: 768px) and (pointer: coarse) {
+  .studyMain { max-width: 900px; }
+  .touchPrompt { min-height: min(45dvh, 460px); }
+  .touchTitle { font-size: 28px; }
+  .touchControls { width: 100%; padding-inline: max(24px, calc((100vw - 880px) / 2)); }
+}

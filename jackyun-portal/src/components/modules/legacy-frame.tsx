@@ -67,6 +67,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
           /<head([^>]*)>/i,
           `<head$1><base href="${src}">`
         );
+        html = html.replace(/<html([^>]*)>/i, '<html$1 data-legacy-workspace>');
+        html = html.replace(/<\/head>/i, '<link rel="stylesheet" href="/shared/device-workspace.css"></head>');
 
         // Inject a language bridge before page scripts so every legacy page uses
         // the same persisted language preference as the React portal.
@@ -435,7 +437,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     const main = document.querySelector<HTMLElement>('[data-portal-main]');
     const apply = () => {
       const doc = iframeRef.current?.contentDocument;
-      if (!doc || !main) return;
+      if (!doc?.head || !main) return;
       let style = doc.getElementById('jackyun-page-presentation') as HTMLStyleElement | null;
       if (!style) { style = doc.createElement('style'); style.id = 'jackyun-page-presentation'; doc.head.appendChild(style); }
       style.textContent = `${main.dataset.pageSize === 'large' ? 'body,p,li,label,td{font-size:18px!important;line-height:1.7!important}' : ''}${main.dataset.pageMotion === 'false' ? '*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}' : ''}`;
@@ -446,7 +448,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     if (main) observer.observe(main, { attributes: true, attributeFilter: ['data-page-size', 'data-page-motion'] });
     apply();
     return () => { observer.disconnect(); frame?.removeEventListener('load', apply); };
-  }, []);
+  }, [srcdoc]);
   useEffect(()=>{
     const edit=(event:MessageEvent)=>{
       if(event.source!==iframeRef.current?.contentWindow || event.origin!==location.origin)return;
