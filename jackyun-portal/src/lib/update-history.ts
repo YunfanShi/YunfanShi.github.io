@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.9.1', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: 'CUE 回到接下来学什么', summary: '首页沿用原有风格，CUE 与下一项学习任务放在同一卡片中。', categories: ['平台体验'], accent: 'blue', highlights: ['问候、AI 和学习概览恢复原有位置。', 'CUE 使用紧凑统计与分隔行，学科保留一个学习入口。', '统计说明可展开查看，草稿、预算与学习规则继续沿用。'] },
   { version: '3.9.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '按今天可用时间安排 CUE', summary: '15、30、60 分钟预算先预览，确认后开始或加入日程。', categories: ['学习体验'], accent: 'violet', highlights: ['默认 30 分钟，先到期再新增修改，同组优先薄弱内容。', '超出预算的内容保留在待学列表，可手动加选。', '已有草稿优先继续，明确确认才写入日程，同范围避免重复安排。'] },
   { version: '3.8.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '复习总数与学习反馈更清楚', summary: '错题分批复习，完成后看结果，从表现图直接进入薄弱练习。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['到期总数独立统计，每批最多 50 题，联网复核后才提示全部完成。', '离线记录和待同步状态明确区分，数量随操作更新。', '学习完成展示自评、剩余待学和复习日期；表现支持 7 天、30 天和全部历史。'] },
   { version: '3.7.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '首页直接看今天的 CUE', summary: '按学科看待学与薄弱内容，确认后开始或恢复原进度。', categories: ['学习体验'], accent: 'blue', highlights: ['首页优先展示 CUE 状态，分类按 ID 去重。', '查看预览不创建任务，草稿优先恢复。', '读取失败保留原数据，复用已有同步和冷却规则。'] },

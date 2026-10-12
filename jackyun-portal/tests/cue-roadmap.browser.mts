@@ -20,7 +20,8 @@ try {
     await page.goto(base + '/dashboard');
     const board = page.getByRole('region', { name: '今天的 CUE' });
     await board.getByText('待学 2 · 新增／修改 2 · 薄弱 2', { exact: true }).waitFor();
-    assert.ok((await board.boundingBox()).y < 230, 'CUE is above the AI section');
+    assert.ok(await board.evaluate(element => Boolean(element.closest('section[aria-labelledby="next-action-heading"]'))), 'CUE belongs to Next action');
+    assert.ok((await page.getByRole('heading', { name: /你好，/ }).boundingBox()).y < (await board.boundingBox()).y, 'greeting remains before CUE');
     if (width === 390) {
       const second = await context.newPage(); await second.goto(base + '/resources');
       await second.evaluate(() => { const s = JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!); s.cues[0].lastReviewedAt = new Date().toISOString(); s.cues[0].updatedAt = s.cues[0].lastReviewedAt; s.cues[0].nextReviewDate = '2099-01-01'; localStorage.setItem('jackyun_schedule_control_v1', JSON.stringify(s)); });
@@ -28,8 +29,8 @@ try {
       await second.evaluate(seed => localStorage.setItem('jackyun_schedule_control_v1', JSON.stringify(seed)), state);
       await board.getByText('今日待学', { exact: true }).locator('..').getByText('3', { exact: true }).waitFor(); await second.close();
     }
-    await page.screenshot({ path: `${screenshots}/dashboard-${width}.png`, animations: 'disabled' });
-    await board.getByRole('link', { name: '查看待学', exact: true }).first().click();
+    await page.locator('section[aria-labelledby="next-action-heading"]').screenshot({ path: `${screenshots}/dashboard-${width}.png`, animations: 'disabled' });
+    await board.getByRole('link', { name: '开始学习 →', exact: true }).first().click();
     const preview = page.getByRole('region', { name: 'CUE 学习预览' });
     await preview.getByText('当前范围 2 条 CUE · 预计 8 分钟。', { exact: true }).waitFor();
     const before = await page.evaluate(() => JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!).cueStudyDrafts);

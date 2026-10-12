@@ -175,7 +175,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="page-enter mx-auto max-w-[1440px]">
-      <CueDashboard />
       <section className="mb-10 border-b border-[var(--card-border)] pb-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -260,15 +259,16 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="mb-10 overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]">
+      <section aria-labelledby="next-action-heading" className="mb-10 overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]">
         <div className="flex flex-col gap-3 border-b border-[var(--card-border)] p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#1a73e8]">Next action</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-[-.025em]">接下来学什么</h2>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">按照截止时间与任务优先级排序，点击后直接进入专注计时。</p>
+            <h2 id="next-action-heading" className="mt-1 text-xl font-semibold tracking-[-.025em]">接下来学什么</h2>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">查看今天的 CUE，或按截止时间与优先级开始学习任务。</p>
           </div>
           <Link prefetch={false} href="/study/tasks" className="text-sm font-semibold text-[#1a73e8] hover:underline">管理云端任务</Link>
         </div>
+        <CueDashboard />
         {nextTasks.length > 0 ? (
           <ol className="divide-y divide-[var(--card-border)]">
             {nextTasks.map(({ item: task, reasons }, index) => (

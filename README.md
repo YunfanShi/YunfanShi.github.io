@@ -4,7 +4,9 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.9.0**
+> 当前版本：**v3.9.1**
+
+2026-10-12 首页 CUE 布局修复（v3.9.1）：CUE 移入“接下来学什么”，沿用原有卡片、分隔行和文字入口，收紧统计并去掉重复按钮。问候、AI 和学习概览保持原有顺序。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.9.1-Dashboard-CUE-Layout-20261012.docx)。
 
 2026-10-12 每日学习预算（v3.9.0）：支持15、30、60分钟的CUE学习预览，默认30分钟；到期优先、薄弱优先，允许加选，明确确认后开始或加入日程，优先恢复草稿并避免重复安排。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.9.0-Learning-Roadmap-20261012.docx)。
 
