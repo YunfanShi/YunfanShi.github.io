@@ -24,7 +24,7 @@ STAGES = {
   ('排序与剩余内容', '先安排已复习且到期的 CUE，再安排未学或修改后待学内容；同组内按薄弱程度优先。遵守已有当日复习和熟练冷却规则，按 ID 去重。超出预算内容明确显示并允许逐条手动加入，实际预计时长随选择更新。'),
   ('确认与日程', '已有草稿优先恢复。开始学习需明确确认；加入日程使用当前范围生成一项手动学习任务，携带准确 CUE ID，防止重复点击生成等价任务。取消预览不写入日程。任务开始时仍校验内容是否存在和是否处于冷却。'),
   ('发布及回退', '三个阶段都沿用现有学习与同步能力，不重构平台。版本依次为 3.7.0、3.8.0、3.9.0，并同步更新清单、锁文件、站内版本、更新记录和 README。回退使用相应提交的 git revert，保留用户 CUE、评价和草稿数据，避免恢复旧数据覆盖新记录。'),
- ], '详见本次最终验收记录。预算和筛选测试必须与学习、同步、离线及完整仓库检查一起复核。', 'budget-390.png'),
+ ], '新增路线图规则测试 15 项全部通过，学习领域 186 项、同步 112 项及 PWA 22 项全部通过。生产模式手机和桌面浏览器验证了预算切换、手动超预算加选、精确范围开始、明确加入日程、重复点击去重、草稿优先、损坏数据保留及键盘焦点。实际复习组件覆盖 0、50、51、120 题、下一批读取失败重试、离线空缓存及真实 IndexedDB 队列联网恢复。完整检查共运行 552 项 Node 测试：547 项通过，5 项既有静态断言失败；并非完整检查全部通过。生产构建、TypeScript、零错误 lint 与敏感信息检查通过。', 'budget-390.png'),
 }
 
 def build(version):
@@ -40,6 +40,10 @@ def build(version):
  doc.styles['Normal'].font.size = Pt(11); doc.styles['Normal'].paragraph_format.space_after = Pt(8)
  doc.styles['Normal'].paragraph_format.line_spacing = 1.2
  doc.styles['Title'].font.size = Pt(24); doc.styles['Heading 1'].font.size = Pt(15)
+ if version == '3.9.0':
+  doc.styles['Heading 1'].paragraph_format.space_before = Pt(12)
+  doc.styles['Heading 1'].paragraph_format.space_after = Pt(6)
+  doc.styles['Normal'].paragraph_format.line_spacing = 1.15
  doc.add_paragraph(f'JackYun {title}实施说明', 'Title')
  doc.add_paragraph(f'版本 {version}    日期 2026 年 10 月 12 日')
  doc.add_paragraph('本说明面向项目使用者与后续维护者，记录学习体验路线图的具体实现、统计含义、操作流程、验证证据及发布限制。核心目标是从首页知道今天要学什么，确认后快速进入现有学习流程。')
@@ -58,7 +62,7 @@ def build(version):
  if image.exists():
   doc.add_page_break(); doc.add_heading('界面验证截图', 1)
   doc.add_paragraph('以下为隔离测试数据下的手机视口，用于核对布局与交互入口。')
-  doc.add_picture(str(image), width=Cm(7.2))
+  doc.add_picture(str(image), width=Cm(10 if version == '3.9.0' else 7.2))
  footer = sec.footer.paragraphs[0]; footer.add_run(f'JackYun {version}   ')
  field = OxmlElement('w:fldSimple'); field.set(qn('w:instr'), 'PAGE'); footer._p.append(field)
  out = Path('docs') / f'JackYun-{version}-Learning-Roadmap-20261012.docx'

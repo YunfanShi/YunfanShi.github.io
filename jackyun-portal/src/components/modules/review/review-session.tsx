@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { runOfflineMutation, saveOfflineSnapshot, readOfflineSnapshot, listOfflineMutations } from '@/lib/offline/workspace';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
+import { dateKey } from '@/lib/learning/timezone';
 import { advanceReviewSnapshot, reviewCompletion } from '@/lib/learning/review-queue';
 import type { ReviewSnapshot } from '@/types/review';
 
@@ -23,17 +24,21 @@ export default function ReviewSession({ userId, initialSnapshot }: { userId: str
     void Promise.all([readOfflineSnapshot<ReviewSnapshot>(userId, 'review'), listOfflineMutations(userId)]).then(([cached, pending]) => {
       if (cancelled) return;
       const queued = pending.some(item => item.kind.startsWith('review.'));
-      if (cached && (!navigator.onLine || queued)) accept({ ...cached, pendingLocal: queued || cached.pendingLocal });
+      if (cached && (!navigator.onLine || queued)) accept({ ...cached, verifiedAt: navigator.onLine ? cached.verifiedAt : undefined, pendingLocal: queued || cached.pendingLocal });
       else if (!queued && navigator.onLine) void saveOfflineSnapshot(userId, 'review', initialSnapshot);
       else if (queued) accept({ ...initialSnapshot, dueItems: initialSnapshot.dueItems.filter(item => !pending.some(op => op.payload.reviewItemId === item.id)), pendingLocal: true, verifiedAt: undefined });
+      else if (!navigator.onLine) accept({ ...initialSnapshot, verifiedAt: undefined });
       setCacheReady(true);
     }).catch(() => { if (!cancelled) { setError('本机复习缓存读取失败，请保留页面并重试。'); } });
     const update = (event: Event) => {
       const detail = (event as CustomEvent<{ userId?: string; scope: string; value: ReviewSnapshot }>).detail;
       if (detail.scope === 'review' && (!detail.userId || detail.userId === userId)) accept(detail.value);
     };
+    const offline = () => setSnapshot(current => ({ ...current, verifiedAt: undefined }));
+    const timer = window.setInterval(() => setSnapshot(current => current.verifiedAt && dateKey(new Date(current.verifiedAt), 'Asia/Shanghai') !== dateKey(new Date(), 'Asia/Shanghai') ? { ...current, verifiedAt: undefined } : current), 60_000);
+    window.addEventListener('offline', offline);
     window.addEventListener('jackyun-offline-snapshot', update);
-    return () => { cancelled = true; window.removeEventListener('jackyun-offline-snapshot', update); };
+    return () => { cancelled = true; clearInterval(timer); window.removeEventListener('offline', offline); window.removeEventListener('jackyun-offline-snapshot', update); };
   }, [userId, initialSnapshot]);
   const items = snapshot.dueItems;
   const [answer, setAnswer] = useState('');

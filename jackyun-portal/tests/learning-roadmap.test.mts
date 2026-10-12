@@ -27,18 +27,18 @@ for (const size of [0, 50, 51, 120]) test(`review total ${size} stays distinct f
   let batches = 0;
   while (snapshot.dueItems.length) {
     for (const row of [...snapshot.dueItems]) { snapshot = advanceReviewSnapshot(snapshot, row, null, false, at); rows.find(x => x.id === row.id)!.status = 'archived'; }
-    assert.notEqual(reviewCompletion(snapshot), 'complete'); batches++;
+    assert.notEqual(reviewCompletion(snapshot, at), 'complete'); batches++;
     snapshot = await fetchReviewSnapshot(db.client, 'owner', at.toISOString());
   }
-  assert.equal(reviewCompletion(snapshot), 'complete'); assert.equal(batches, Math.ceil(size / 50));
+  assert.equal(reviewCompletion(snapshot, at), 'complete'); assert.equal(batches, Math.ceil(size / 50));
   assert.ok(db.calls.every(call => call.user === 'owner'));
   assert.ok(db.calls.filter(call => !call.head).every(call => call.orders.join() === 'next_review_at,id'));
 });
 test('offline batches and incomplete legacy snapshots never claim cloud completion', () => {
   const row = item('one'); const initial: ReviewSnapshot = { dueItems: [row], dueCount: 1, activeCount: 1, masteredCount: 0, verifiedAt: at.toISOString() };
   const pending = advanceReviewSnapshot(initial, row, null, true, at);
-  assert.equal(pending.activeCount, 0); assert.equal(pending.pendingLocal, true); assert.equal(reviewCompletion(pending), 'verify');
-  assert.equal(reviewCompletion({ ...pending, pendingLocal: false, dueCount: null }), 'verify');
+  assert.equal(pending.activeCount, 0); assert.equal(pending.pendingLocal, true); assert.equal(reviewCompletion(pending, at), 'verify');
+  assert.equal(reviewCompletion({ ...pending, pendingLocal: false, dueCount: null }, at), 'verify');
 });
 test('review fetch failures reject and mastery adjusts both counts immediately', async () => {
   await assert.rejects(() => fetchReviewSnapshot(mockDatabase([], true).client, 'owner', at.toISOString()));
@@ -52,3 +52,5 @@ test('7 and 30 day evidence boundaries use local dates and exclude future or inv
   assert.equal(evidenceInRange(evidence, '30', at).length, 3);
   assert.equal(evidenceInRange(evidence, 'all', at).length, 4);
 });
+
+test('yesterday completion must be verified again after the local date changes', () => { assert.equal(reviewCompletion({ dueItems: [], dueCount: 0, activeCount: 0, masteredCount: 0, verifiedAt: '2026-10-11T04:00:00Z' }, at), 'verify'); });

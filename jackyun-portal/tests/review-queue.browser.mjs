@@ -44,6 +44,15 @@ try {
     await page.getByRole('heading', { name: '今天的复习完成了' }).waitFor();
     console.log(`PASS mounted ReviewSession ${total} items, batches, authoritative completion and retry`); await context.close();
   }
+  const emptyOfflineContext = await browser.newContext(); const emptyOfflinePage = await emptyOfflineContext.newPage();
+  await emptyOfflinePage.addInitScript(() => {
+    Object.defineProperty(navigator, 'onLine', { get: () => false });
+    window.snapshot = { dueItems: [], dueCount: 0, activeCount: 0, masteredCount: 0, verifiedAt: new Date().toISOString() };
+  });
+  await emptyOfflinePage.goto(base);
+  await emptyOfflinePage.getByRole('button', { name: '复核剩余复习' }).waitFor();
+  assert.equal(await emptyOfflinePage.getByRole('heading', { name: '今天的复习完成了' }).count(), 0, 'offline startup without cache cannot certify cloud completion');
+  console.log('PASS offline startup without cache does not certify completion'); await emptyOfflineContext.close();
   const context = await browser.newContext(); const page = await context.newPage();
   await page.addInitScript(seed => window.snapshot = seed, { dueItems: [reviewItem('offline')], dueCount: 1, activeCount: 1, masteredCount: 0, verifiedAt: new Date().toISOString() });
   await page.goto(base); await page.getByRole('button', { name: '暂不复习' }).waitFor();

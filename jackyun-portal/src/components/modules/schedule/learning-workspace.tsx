@@ -41,7 +41,7 @@ export default function LearningWorkspace({ cues, reviews, bank, catalog, onStar
   const subjects = [...new Map([...catalog.map((item) => [item.id, item.name] as const), ...cues.map((item) => [item.subjectId, item.subjectName] as const), ...bank.questions.map((item) => [item.subjectId, item.subjectName] as const)]).entries()];
   const scopedCues = joint ? selectJointCues(cues, jointSelection, filter as CueStatusFilter, date, reviews) : cues.filter((cue) => cue.subjectId === subjectId && (!unit || cue.unit === unit));
   const scopedQuestions = bank.questions.filter((question) => question.subjectId === subjectId && (!unit || question.unit === unit));
-  const selectedCues = mode === 'question' ? [] : (joint ? scopedCues : scopedCues.filter((cue) => (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < date) && cueMatchesStatusFilter(cue, filter as CueStatusFilter, date, reviews.filter((review) => review.cueId === cue.id)))).filter(cue => !isCueMasteryPaused(cue, date));
+  const selectedCues = mode === 'question' ? [] : (joint ? scopedCues : scopedCues.filter((cue) => (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < date || Date.parse(cue.updatedAt) > Date.parse(cue.lastReviewedAt)) && cueMatchesStatusFilter(cue, filter as CueStatusFilter, date, reviews.filter((review) => review.cueId === cue.id)))).filter(cue => !isCueMasteryPaused(cue, date));
   const selectedQuestions = mode === 'cue' ? [] : scopedQuestions.filter((question) => questionMatchesFilter(question, bank, filter === 'unstable' || filter === 'recovering' ? 'weak' : filter, date));
   const preview = buildStudyQueue(selectedCues, selectedQuestions);
   const selectedItems = preview.filter((item) => !excluded.includes(itemKey(item)));

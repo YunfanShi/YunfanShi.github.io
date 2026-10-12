@@ -23,6 +23,7 @@ import { cueExportOperations, cueImportPrompt, downloadStudyJson } from '@/lib/l
 import StudyInsights from './study-insights';
 import CueEntryPreview from './cue-entry-preview';
 import LearningCompletion, { type LearningCompletionData } from './learning-completion';
+import { addCueBudgetTask } from '@/lib/learning/cue-budget';
 import { summarizeLearningCompletion } from '@/lib/learning/learning-completion';
 import ScheduleGuide from './schedule-guide';
 import LearningAssistant, { CueDifficultyPicker } from './learning-assistant';
@@ -1824,6 +1825,15 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     if (!await commitQuestionBank({ ...questionBank, drafts })) return;
     setCueStudyTask(migrated.task);
   };
+  const scheduleCueBudget = async (cueIds: string[]) => {
+    const result = addCueBudgetTask(state, cueIds, new Date(), `manual-${taskId()}`);
+    if (!result.created) { setNotice(result.count ? '同范围任务已在今日日程中。' : '这些内容当前不再待学，请刷新范围。'); return; }
+    const saved = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current, result.state) as ScheduleControlState;
+    scheduleBaseRef.current = saved;
+    setState(current => threeWayMerge(state, current, saved).merged as ScheduleControlState);
+    if (signedIn) window.dispatchEvent(new Event('jackyun-sync-edit'));
+    setNotice(`已加入今日日程 · ${result.count} 条 CUE`);
+  };
   const changeCueDifficulty = (id: string, userDifficulty?: CueDifficulty) => setState((current) => {
     const cues = current.cues.map((cue) => cue.id === id ? { ...cue, userDifficulty } : cue);
     const change = createCueChangeRecord(current.cues, cues, 'manual', new Date().toISOString(), taskId());
@@ -1857,7 +1867,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   };
   const activeStudyDraft = activeStudyId && questionBank.drafts[activeStudyId] ? reconcileStudyDraft(questionBank.drafts[activeStudyId], state.cues, questionBank.questions) : null;
 
-  if (!ready || !now || !selectedDate) return <div className="mx-auto max-w-[1500px] animate-pulse"><div className="h-28 rounded-3xl bg-black/5 dark:bg-white/5" /><div className="mt-5 grid gap-5 lg:grid-cols-3"><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5 lg:col-span-2" /><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5" /></div></div>;
+  if (!ready || !now || !selectedDate) return <div className="mx-auto max-w-[1500px]">{persistenceError && <p role="alert" className="mb-4 rounded-xl border border-amber-500 p-4">{persistenceError} 原数据已保留，请检查同步中心或导出备份。</p>}<div className="h-28 rounded-3xl bg-black/5 dark:bg-white/5" /><div className="mt-5 grid gap-5 lg:grid-cols-3"><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5 lg:col-span-2" /><div className="h-80 rounded-3xl bg-black/5 dark:bg-white/5" /></div></div>;
   const cueDrafts = Object.values(allCueStudyDrafts(state));
   const activeCueDraft = cueStudyTask ? cueDrafts.find((draft) => draft.task.key === cueStudyTask.key) : undefined;
 
@@ -1889,7 +1899,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
       {view === 'records' && <StudyInsights state={state} bank={questionBank} signedIn={signedIn} onChange={setState} />}
       <LearningAssistant state={state} signedIn={signedIn} visible={view === 'records'} onChange={setState} />
-      {view === 'cue' && ready && <CueEntryPreview state={state} bank={questionBank} onStart={(items, subject, unit) => startUnifiedStudy(items.some(item => item.kind === 'question') ? items.some(item => item.kind === 'cue') ? 'mixed' : 'question' : 'cue', subject, unit, items)} onResumeCue={(draft) => setCueStudyTask(draft.task)} onResumeMixed={resumeUnifiedStudy} />}
+      {view === 'cue' && ready && <CueEntryPreview key={entryParams} state={state} bank={questionBank} onStart={(items, subject, unit) => startUnifiedStudy(items.some(item => item.kind === 'question') ? items.some(item => item.kind === 'cue') ? 'mixed' : 'question' : 'cue', subject, unit, items)} onResumeCue={(draft) => setCueStudyTask(draft.task)} onResumeMixed={resumeUnifiedStudy} onSchedule={scheduleCueBudget} />}
       {view === 'cue' && !questionBankError && <>
         <button data-cue-shop-open type="button" onClick={() => setStandaloneShopOpen(true)} className="mt-4 min-h-11 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white">✦ CUE 星空商店</button>
         {universeEnabled && <button type="button" onClick={() => setStarSummary('album')} className="mt-4 rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm">✦ 我的星空收藏</button>}

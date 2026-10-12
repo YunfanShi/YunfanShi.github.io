@@ -1,4 +1,5 @@
 import { scheduleReview } from './review-schedule.ts';
+import { dateKey } from './timezone.ts';
 import type { ReviewItem, ReviewSnapshot } from '../../types/review.ts';
 
 export function advanceReviewSnapshot(snapshot: ReviewSnapshot, item: ReviewItem, quality: number | null, queued: boolean, at = new Date()): ReviewSnapshot {
@@ -14,7 +15,7 @@ export function advanceReviewSnapshot(snapshot: ReviewSnapshot, item: ReviewItem
   };
 }
 
-export function reviewCompletion(snapshot: ReviewSnapshot): 'more' | 'verify' | 'complete' {
+export function reviewCompletion(snapshot: ReviewSnapshot, now = new Date()): 'more' | 'verify' | 'complete' {
   if (snapshot.dueItems.length || (snapshot.dueCount ?? 0) > 0) return 'more';
-  return snapshot.dueCount === 0 && snapshot.verifiedAt && !snapshot.pendingLocal ? 'complete' : 'verify';
+  return snapshot.dueCount === 0 && snapshot.verifiedAt && Number.isFinite(Date.parse(snapshot.verifiedAt)) && dateKey(new Date(snapshot.verifiedAt), 'Asia/Shanghai') === dateKey(now, 'Asia/Shanghai') && !snapshot.pendingLocal ? 'complete' : 'verify';
 }

@@ -38,7 +38,7 @@ export default function CueDashboard() {
     return () => { clearInterval(timer); window.removeEventListener('storage', storage); window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, refresh); window.removeEventListener('jackyun-sync-edit', refresh); window.removeEventListener('focus', refresh); };
   }, []);
   return <section aria-label="今天的 CUE" className="mb-8 space-y-4 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-7">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-semibold">今天的 CUE</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">先看今天要学什么，再继续你的学习。</p></div><Link className={actionClass} href={cueEntryHref()} prefetch={false}>查看今日待学</Link></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-semibold">今天的 CUE</h2><p className="mt-1 text-sm text-[var(--muted-foreground)]">先看今天要学什么，再继续你的学习。</p></div><Link className={actionClass} href={cueEntryHref()} prefetch={false}>查看今日待学</Link><Link className={actionClass} href={cueEntryHref()}>按时间安排学习</Link></div>
     {error ? <p role="alert">{error} 请保留原数据，在同步中心检查后重试。</p> : !summary ? <p role="status">正在读取 CUE 状态…</p> : <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{[['今日待学', summary.due], ['今日已学', summary.learned], ['未学／已修改', summary.fresh], ['薄弱', summary.weak], ['熟练冷却中', summary.cooling]].map(([label, count]) => <div key={label} className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">{label}</p><strong className="mt-2 block text-3xl">{count}</strong></div>)}</div>
       <p className="text-xs text-[var(--muted-foreground)]">按 CUE 去重；分类存在重叠，请勿相加。今日已学后修改的内容重新待学；熟练冷却中的内容到期后再出现。</p>
