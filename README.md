@@ -4,7 +4,9 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.9.1**
+> 当前版本：**v3.10.0**
+
+2026-10-12 实时课程时间线（v3.10.0）：参照 [ClassIsland](https://github.com/ClassIsland/ClassIsland) 的当前课程显示思路，今日课表新增当前课程、开始结束时间、总时长、已上时长和逐秒下课倒计时；课间显示下一节，沿用原有页面风格。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.10.0-Class-Timeline-20261012.docx)。
 
 2026-10-12 首页 CUE 布局修复（v3.9.1）：CUE 移入“接下来学什么”，沿用原有卡片、分隔行和文字入口，收紧统计并去掉重复按钮。问候、AI 和学习概览保持原有顺序。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.9.1-Dashboard-CUE-Layout-20261012.docx)。
 
