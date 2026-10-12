@@ -1,3 +1,4 @@
+import { fetchReviewSnapshot } from '@/lib/review-snapshot-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getReaderBootstrap } from '@/actions/reader';
@@ -9,19 +10,17 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const now = new Date().toISOString();
-  const [plans, inbox, dueItems, activeCount, masteredCount, reading] = await Promise.all([
+  const [plans, inbox, review, reading] = await Promise.all([
     supabase.from('study_plans').select('id, user_id, title, description, start_date, end_date, created_at, updated_at, tasks:study_tasks(id, user_id, plan_id, title, completed, due_date, subject, estimated_minutes, priority, scheduled_at, completed_at, created_at, updated_at)').eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('study_tasks').select('id, title, completed, due_date, estimated_minutes').eq('user_id', user.id).is('plan_id', null).order('created_at', { ascending: false }),
-    supabase.from('review_items').select('*').eq('user_id', user.id).eq('status', 'active').lte('next_review_at', now).order('next_review_at').limit(50),
-    supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
-    supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'mastered'),
+    fetchReviewSnapshot(supabase, user.id, now),
     getReaderBootstrap(),
   ]);
-  const error = plans.error ?? inbox.error ?? dueItems.error ?? activeCount.error ?? masteredCount.error;
+  const error = plans.error ?? inbox.error;
   if (error) return NextResponse.json({ error: 'Unable to build offline snapshot' }, { status: 500 });
   return NextResponse.json({
     tasks: { plans: plans.data ?? [], inboxTasks: inbox.data ?? [] },
-    review: { dueItems: dueItems.data ?? [], activeCount: activeCount.count ?? 0, masteredCount: masteredCount.count ?? 0 },
+    review,
     reading,
     cachedAt: new Date().toISOString(),
   });

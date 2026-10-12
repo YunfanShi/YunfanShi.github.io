@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import ScheduleControl from '@/components/modules/schedule/schedule-control';
 import { isAdminIdentity } from '@/lib/admin-auth';
 import { createClient } from '@/lib/supabase/server';
@@ -13,5 +14,5 @@ export default async function ControlPage() {
   const { data: profile } = user
     ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     : { data: null };
-  return <ScheduleControl personalIeltsPlan={Boolean(user && isAdminIdentity(user, profile?.role))} />;
+  return <Suspense fallback={<p role="status">正在读取学习日程…</p>}><ScheduleControl personalIeltsPlan={Boolean(user && isAdminIdentity(user, profile?.role))} /></Suspense>;
 }

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import ReviewSession from '@/components/modules/review/review-session';
-import type { ReviewItem } from '@/types/review';
+import { fetchReviewSnapshot } from '@/lib/review-snapshot-server';
 
 export const metadata = { title: '错题复习 · JackYun Portal' };
 
@@ -19,13 +19,7 @@ export default async function ReviewPage() {
     );
   }
 
-  const now = new Date().toISOString();
-  const [{ data: dueItems, error }, { count: activeCount }, { count: masteredCount }] = await Promise.all([
-    supabase.from('review_items').select('*').eq('user_id', user.id).eq('status', 'active').lte('next_review_at', now).order('next_review_at').limit(50),
-    supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
-    supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'mastered'),
-  ]);
-  if (error) throw new Error(error.message);
+  const snapshot = await fetchReviewSnapshot(supabase, user.id);
 
   return (
     <div className="page-enter mx-auto max-w-4xl pb-12">
@@ -34,12 +28,7 @@ export default async function ReviewPage() {
         <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">错题复习</h1>
         <p className="mt-2 text-sm text-[var(--muted-foreground)]">答错的题目会自动进入队列，根据每次自评安排下一次复习。</p>
       </header>
-      <section className="my-6 grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日到期</p><strong className="mt-2 block text-2xl">{dueItems?.length ?? 0}</strong></div>
-        <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><p className="text-xs text-[var(--muted-foreground)]">学习中</p><strong className="mt-2 block text-2xl">{activeCount ?? 0}</strong></div>
-        <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4"><p className="text-xs text-[var(--muted-foreground)]">已掌握</p><strong className="mt-2 block text-2xl">{masteredCount ?? 0}</strong></div>
-      </section>
-      <ReviewSession userId={user.id} initialSnapshot={{ dueItems: (dueItems ?? []) as ReviewItem[], activeCount: activeCount ?? 0, masteredCount: masteredCount ?? 0 }} />
+      <ReviewSession userId={user.id} initialSnapshot={snapshot} />
     </div>
   );
 }

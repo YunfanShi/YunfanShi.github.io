@@ -1,6 +1,17 @@
 import { cueProfileType } from './learning-assistance.ts';
 import type { CueReview, LearningStatus, StudyCue } from './schedule-control.ts';
 import type { QuestionAttempt } from './question-bank.ts';
+import { addCalendarDays, dateKey } from './schedule-control.ts';
+export type StudyRange = '7' | '30' | 'all';
+export function evidenceInRange(evidence: StudyEvidence[], range: StudyRange, now = new Date()): StudyEvidence[] {
+  const today = dateKey(now);
+  const first = range === 'all' ? '' : addCalendarDays(today, range === '7' ? -6 : -29);
+  return evidence.filter(item => {
+    if (!Number.isFinite(Date.parse(item.at))) return false;
+    const day = dateKey(new Date(item.at));
+    return day <= today && (!first || day >= first);
+  });
+}
 export type StudyDimension = 'subject' | 'unit' | 'cueType' | 'skill' | 'questionType' | 'issue';
 export const dimensionLabels: Record<StudyDimension, string> = { subject: '学科', unit: 'Unit', cueType: 'CUE type', skill: '知识能力', questionType: '题型', issue: '错因' };
 export interface StudyEvidence { subjectId: string; subject: string; unit: string; cueType?: string; skill?: string; questionType?: string; issue?: string; status: LearningStatus; at: string; correct?: boolean | null }

@@ -4,7 +4,9 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.7.0**
+> 当前版本：**v3.8.0**
+
+2026-10-12 复习反馈与学习分析（v3.8.0）：到期总数独立统计，错题按50题分批并联网确认完成；学习结束展示记录和下一步，表现图支持7天、30天及薄弱练习入口。186项学习、112项同步、7项路线图测试与实际组件离线浏览器验证通过。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.8.0-Learning-Roadmap-20261012.docx)。
 
 2026-10-12 CUE 首页看板（v3.7.0）：首屏展示今日待学、已学、新增修改、薄弱和熟练冷却状态，按学科查看并确认开始；复用草稿、只读加载及现有复习规则。10项规则测试及手机桌面浏览器验证通过。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.7.0-Learning-Roadmap-20261012.docx)。
 

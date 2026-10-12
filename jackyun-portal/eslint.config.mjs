@@ -6,6 +6,7 @@ const eslintConfig = [
   ...nextTypescript,
   {
     ignores: [
+      "artifacts/verification/cue-roadmap/**",
       "node_modules/**",
       ".migration-private/**",
       ".next/**",

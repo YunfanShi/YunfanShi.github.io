@@ -89,7 +89,7 @@ export async function clearOfflineWorkspace(): Promise<void> {
 export async function saveOfflineSnapshot<T>(userId: string, scope: OfflineScope, value: T): Promise<void> {
   const row: SnapshotRow<T> = { id: `${userId}:${scope}`, userId, scope, value, updatedAt: new Date().toISOString() };
   await transact('snapshots', 'readwrite', (transaction) => transaction.objectStore('snapshots').put(row));
-  window.dispatchEvent(new CustomEvent('jackyun-offline-snapshot', { detail: { scope, value } }));
+  window.dispatchEvent(new CustomEvent('jackyun-offline-snapshot', { detail: { userId, scope, value } }));
 }
 
 export async function readOfflineSnapshot<T>(userId: string, scope: OfflineScope): Promise<T | null> {

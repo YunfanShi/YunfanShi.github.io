@@ -22,6 +22,8 @@ import QuestionBankManager from './question-bank-manager';
 import { cueExportOperations, cueImportPrompt, downloadStudyJson } from '@/lib/learning/study-prompts';
 import StudyInsights from './study-insights';
 import CueEntryPreview from './cue-entry-preview';
+import LearningCompletion, { type LearningCompletionData } from './learning-completion';
+import { summarizeLearningCompletion } from '@/lib/learning/learning-completion';
 import ScheduleGuide from './schedule-guide';
 import LearningAssistant, { CueDifficultyPicker } from './learning-assistant';
 import { difficultyLabels, effectiveCueDifficulty, type CueDifficulty } from '@/lib/learning/learning-assistance';
@@ -30,6 +32,7 @@ import LearningWorkspace, { LearningSession, estimatedStudyMinutes } from './lea
 import { QUESTION_BANK_KEY, buildStudyQueue, emptyQuestionBank, itemKey, questionReviewTasks, readQuestionBank, reconcileQuestionSubjects, reconcileStudyDraft, recordQuestionAttempt, type QuestionBankState, type StudyDraft, type StudyItemRef, type StudyMode } from '@/lib/learning/question-bank';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
@@ -328,7 +331,12 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const activeAssessments = useMemo(() => Object.fromEntries(allCues.flatMap((cue) => assessments[cue.id] ? [[cue.id, assessments[cue.id]]] : [])) as Record<string, LearningStatus>, [assessments, allCues]);
   const assessedCount = Object.keys(activeAssessments).length;
   const roundComplete = allCues.length > 0 && assessedCount === allCues.length;
-  const submit = useCallback((nextAssessments: Record<string, LearningStatus>) => onComplete(
+  const savingRef = useRef(false);
+  const [saveError, setSaveError] = useState('');
+  const submit = useCallback(async (nextAssessments: Record<string, LearningStatus>) => {
+    if (savingRef.current) return;
+    savingRef.current = true; setSaveError('');
+    try { await onComplete(
     { studiedContent: '', issue: '', note: '' },
     {
       subjectName: task.subjectName,
@@ -339,7 +347,9 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
       assessments: allCues.map((cue) => ({ cueId: cue.id, status: nextAssessments[cue.id] })),
       cueReviewsAlreadyRecorded: true,
     },
-  ), [allCues, onComplete, task]);
+  ); } catch (error) { setSaveError(error instanceof Error ? error.message : '记录保存失败，进度已保留，请重试。'); }
+    finally { savingRef.current = false; }
+  }, [allCues, onComplete, task]);
   const advance = useCallback((destination: number) => {
     const target = practice.active ? cuePracticeReturnIndex(practice, cues.map(cue => cue.id), destination) : destination;
     setPractice((state) => enterCuePractice(state, Date.now(), current?.id, cues[target]?.id, state.mode || roundComplete, roundComplete));
@@ -480,6 +490,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
       </section>}
 
       <main data-cue-study-page data-cue-study-content key={`${current?.id}:${practice.active ?? "initial"}`} data-revealed={revealed} className={`${styles.studyMain} ${styles.studyTransition} mx-auto flex min-h-[calc(100dvh-110px)] min-w-0 max-w-5xl flex-col px-3 py-4 sm:px-8 sm:py-8`}>
+        {saveError && <p role="alert" className="p-3">{saveError}</p>}
         {!current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">{practice.mode ? practice.pending.length ? '等待其他 CUE 到期' : '本轮重练全部通过' : allCues.length ? '本轮已完成' : '这个任务暂时没有 Cue'}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{practice.mode ? practice.pending.length ? '本轮学习中按间隔开放重练；全部 CUE 评价完成后，可直接重练未掌握项。原评价和重练结果均已保存。' : '重练通过已单独标记，原来的黄色 / 红色继续保留。' : allCues.length ? '已完成的内容已隐藏，评价和进度仍然保留。' : '请先在 CUE 工作台添加内容，再回来学习。'}</p><button type="button" onClick={() => practice.mode ? returnToRound() : allCues.length ? submit(activeAssessments) : onClose()} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">{practice.mode ? '返回本轮' : allCues.length ? '完成学习' : '返回 Schedule'}</button></div> : <>
           <div className={`${practice.mode ? 'hidden' : 'hidden md:flex'} mb-4 gap-2 overflow-x-auto py-1 sm:flex-wrap`} aria-label="Cue 学习进度">{cues.map((cue, cueIndex) => { const saved = assessments[cue.id]; return <button key={cue.id} type="button" onClick={() => { setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined })); setRatingFeedback(null); setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} aria-label={`第 ${cueIndex + 1} 条${saved ? `，已标记 ${statusMark(saved)}` : '，未标记'}`} className={`grid h-11 min-w-11 shrink-0 place-items-center rounded-full border px-2 text-xs font-bold ${cue.id === current.id ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20' : 'border-[var(--card-border)]'} ${saved === 'stable' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : saved === 'partial' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : saved === 'unclear' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{saved ? statusMark(saved) : cueIndex + 1}</button>; })}</div>
           <div data-cue-study-meta className="hidden md:flex flex-wrap items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span><button type="button" onClick={() => setMemoOpen(true)} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${currentMemo ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200' : 'border border-[var(--card-border)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-sm">edit_note</span>{currentAnswer?.text.trim() ? '查看作答' : '填写答题卡'}</button></div><div className="text-right"><div className="flex flex-wrap items-center justify-end gap-2"><CueStatusHistory previous={priorStatus} current={assessments[current.id]} /><CueActivityBadge cue={current} /><span className="text-xs font-semibold text-[var(--foreground)]">{cueRevisionLabel(current)}</span></div><p className="mt-1 text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div></div>
@@ -1414,6 +1425,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const [state, setState] = useState<ScheduleControlState>(() => createEmptyScheduleState());
   const [questionBank, setQuestionBank] = useState<QuestionBankState>(emptyQuestionBank);
   const [questionBankError, setQuestionBankError] = useState('');
+  const [learningResult, setLearningResult] = useState<LearningCompletionData | null>(null);
   const [activeStudyId, setActiveStudyId] = useState<string | null>(null);
   const [studyPreviewTask, setStudyPreviewTask] = useState<LearningTask | null>(null);
   const [ready, setReady] = useState(false);
@@ -1427,6 +1439,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const [guideOpen, setGuideOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
+  const entryParams = useSearchParams().toString();
   const [view, setView] = useState<'today' | 'week' | 'cue' | 'questions' | 'records' | 'memos' | 'settings'>('today');
   const [reviewTask, setReviewTask] = useState<LearningTask | null>(null);
   const [cueStudyTask, setCueStudyTask] = useState<LearningTask | null>(null);
@@ -1518,6 +1531,9 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     window.addEventListener('storage',storage);
     return()=>{window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,cloud);window.removeEventListener('storage',storage);};
   }, [localWriter]);
+  useEffect(() => {
+    if (ready && new URLSearchParams(entryParams).get('view') === 'cue') queueMicrotask(() => { setView('cue'); setGuideOpen(false); });
+  }, [entryParams, ready]);
   useEffect(() => {
     const timer = window.setInterval(() => {
       const current = new Date();
@@ -1714,13 +1730,14 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const progressChanges = evidence.materials.filter((material) => material.progress?.trim() && subject?.materialProgress[material.code] !== material.progress.trim());
     const updateMaterials = Boolean(subject && progressChanges.length && (await siteConfirm(`要更新 ${subject.name} 的资料位置吗？\n${progressChanges.map((material) => `${material.code}: ${subject.materialProgress[material.code] ?? '未记录'} → ${material.progress}`).join('\n')}`)));
     const status = deriveLearningStatus(evidence.cueIds, evidence.assessments);
-    setState((current) => {
-      let updated = completeLearningSession(current, task, details, evidence, completedAt);
-      const activeDraft = Object.values(allCueStudyDrafts(updated)).find((draft) => draft.task.key === task.key);
-      if (activeDraft) updated = removeCueStudyDraft(updated, activeDraft);
-      if (updateMaterials) updated = { ...updated, learningCatalog: updateSubjectMaterialProgress(updated.learningCatalog, subjectName, progressChanges) };
-      return updated;
-    });
+    let updated = completeLearningSession(state, task, details, evidence, completedAt);
+    const activeDraft = Object.values(allCueStudyDrafts(updated)).find(draft => draft.task.key === task.key);
+    if (activeDraft) updated = removeCueStudyDraft(updated, activeDraft);
+    if (updateMaterials) updated = { ...updated, learningCatalog: updateSubjectMaterialProgress(updated.learningCatalog, subjectName, progressChanges) };
+    const saved = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current, updated) as ScheduleControlState;
+    scheduleBaseRef.current = saved;
+    setState(current => threeWayMerge(state, current, saved).merged as ScheduleControlState);
+    setLearningResult(summarizeLearningCompletion(saved, evidence.cueIds, evidence.questionAttempts?.length ?? 0, evidence.assessments.map(item => item.status), completedAt));
     setReviewTask(null);
     setCueStudyTask(null);
     if (universeEnabled && evidence.cueIds.length) setStarSummary('summary');
@@ -1835,7 +1852,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const drafts = { ...questionBank.drafts }; delete drafts[draft.id];
     if (!await commitQuestionBank({ ...questionBank, drafts })) return;
     setActiveStudyId(null);
-    if (universeEnabled && cueIds.length) setStarSummary('summary');
+    setLearningResult(summarizeLearningCompletion(savedState, cueIds, questionIds.length, Object.values(live.assessments)));
     setNotice(`学习记录已保存 · ${cueIds.length} 条 CUE、${questionIds.length} 题；未掌握内容按各自历史继续安排。`);
   };
   const activeStudyDraft = activeStudyId && questionBank.drafts[activeStudyId] ? reconcileStudyDraft(questionBank.drafts[activeStudyId], state.cues, questionBank.questions) : null;
@@ -1872,7 +1889,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
       {view === 'records' && <StudyInsights state={state} bank={questionBank} signedIn={signedIn} onChange={setState} />}
       <LearningAssistant state={state} signedIn={signedIn} visible={view === 'records'} onChange={setState} />
-      {view === 'cue' && ready && <CueEntryPreview state={state} bank={questionBank} onStart={(items, subject, unit) => startUnifiedStudy('cue', subject, unit, items)} onResumeCue={(draft) => setCueStudyTask(draft.task)} onResumeMixed={resumeUnifiedStudy} />}
+      {view === 'cue' && ready && <CueEntryPreview state={state} bank={questionBank} onStart={(items, subject, unit) => startUnifiedStudy(items.some(item => item.kind === 'question') ? items.some(item => item.kind === 'cue') ? 'mixed' : 'question' : 'cue', subject, unit, items)} onResumeCue={(draft) => setCueStudyTask(draft.task)} onResumeMixed={resumeUnifiedStudy} />}
       {view === 'cue' && !questionBankError && <>
         <button data-cue-shop-open type="button" onClick={() => setStandaloneShopOpen(true)} className="mt-4 min-h-11 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white">✦ CUE 星空商店</button>
         {universeEnabled && <button type="button" onClick={() => setStarSummary('album')} className="mt-4 rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm">✦ 我的星空收藏</button>}
@@ -1898,6 +1915,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {standaloneShopOpen && <StandaloneCueShop account={gameAccount} onAction={shopAction} animations={universeEnabled} onClose={() => { setStandaloneShopOpen(false); document.querySelector<HTMLButtonElement>('[data-cue-shop-open]')?.focus(); }} />}
       {starSummary && universeEnabled && !cueStudyTask && !activeStudyDraft && <CueGamePanel account={gameAccount} onShopAction={shopAction} key={starSummary} initialAlbumOpen={starSummary === 'album'} summary reviews={state.cueReviews} cues={state.cues} records={state.learningRecords} onDismiss={() => setStarSummary(null)} />}
       {activeStudyDraft && <LearningSession gameAccount={gameAccount} onShopAction={shopAction} starRecords={state.learningRecords} reviews={state.cueReviews} draft={activeStudyDraft} onDifficulty={changeCueDifficulty} cues={state.cues} bank={questionBank} onDraft={(draft) => commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [draft.id]: draft } })} onRate={rateStudyItem} onMemo={saveCueMemo} memos={state.cueMemos} onClose={() => { setActiveStudyId(null); if (universeEnabled && activeStudyDraft.items.some((item) => item.kind === 'cue' && activeStudyDraft.assessments[itemKey(item)])) setStarSummary('summary'); }} onComplete={finishUnifiedStudy} />}
+      {learningResult && <LearningCompletion result={learningResult} onClose={() => setLearningResult(null)} />}
       {cueStudyTask && activeCueDraft && <CueStudyPage gameAccount={gameAccount} onShopAction={shopAction} starCues={state.cues} starRecords={state.learningRecords} reviews={state.cueReviews} task={cueStudyTask} onDifficulty={changeCueDifficulty} cues={cueStudyCues} draft={activeCueDraft} memos={state.cueMemos} onProgress={saveCueStudyProgress} onMastered={(cueId) => setState(current => markCueMastered(current, cueId, new Date(), cueStudyTask.key))} onAssessment={(cueId, status, practice, editPractice) => saveCueStudyAssessment(cueStudyTask, cueId, status, practice, editPractice)} answerCards={state.cueAnswerCards} onAnswerText={(cueId, text) => setState((current) => ({ ...current, cueAnswerCards: editCueAnswerCard(current.cueAnswerCards, activeCueDraft.id, cueId, text, new Date().toISOString()) }))} onAnswerCompare={(cue) => setState((current) => ({ ...current, cueAnswerCards: compareCueAnswerCard(current.cueAnswerCards, activeCueDraft.id, cue, new Date().toISOString()) }))} onAnswerCheck={(id, index, checked) => setState((current) => ({ ...current, cueAnswerCards: checkCueAnswerPoint(current.cueAnswerCards, id, index, checked, new Date().toISOString()) }))} onClose={() => { setCueStudyTask(null); if (universeEnabled && Object.keys(activeCueDraft.assessments).length) setStarSummary('summary'); setNotice('Cue 状态、学习进度和答题卡均已保存，可随时恢复。'); }} onComplete={async (details, evidence) => (await submitReview(cueStudyTask, details, evidence))} />}
       {reviewTask && <ReviewDialog task={reviewTask} cues={reviewCues} catalog={state.learningCatalog} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={async (details, evidence) => (await submitReview(reviewTask, details, evidence))} />}
       {taskDialog && <TaskDialog date={selectedDate} cues={state.cues} catalog={[...state.learningCatalog, ...(state.timetable?.courses ?? []).filter((course) => !matchLearningCatalogSubject(state.learningCatalog, course.name)).map((course) => ({ id: course.id, name: course.name, units: [], materialProgress: {} }))]} onClose={() => setTaskDialog(false)} onSave={(tasks) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, ...tasks] })); setTaskDialog(false); setNotice(`已添加 ${tasks.length} 项任务。`); }} />}

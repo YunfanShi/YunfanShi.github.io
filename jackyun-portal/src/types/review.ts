@@ -24,3 +24,12 @@ export interface ReviewItem {
   created_at: string;
   updated_at: string;
 }
+export interface ReviewSnapshot {
+  dueItems: ReviewItem[];
+  /** null means an older/incomplete cache, never authoritative completion. */
+  dueCount: number | null;
+  activeCount: number;
+  masteredCount: number;
+  pendingLocal?: boolean;
+  verifiedAt?: string;
+}
