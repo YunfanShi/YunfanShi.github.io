@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.7.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '首页直接看今天的 CUE', summary: '按学科看待学与薄弱内容，确认后开始或恢复原进度。', categories: ['学习体验'], accent: 'blue', highlights: ['首页优先展示 CUE 状态，分类按 ID 去重。', '查看预览不创建任务，草稿优先恢复。', '读取失败保留原数据，复用已有同步和冷却规则。'] },
   {
     version: '3.4.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日',
     title: '手机操作更顺手',

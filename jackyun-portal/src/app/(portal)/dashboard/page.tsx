@@ -1,3 +1,4 @@
+import CueDashboard from '@/components/modules/schedule/cue-dashboard';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import ProductCard from '@/components/modules/product-card';
@@ -174,6 +175,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="page-enter mx-auto max-w-[1440px]">
+      <CueDashboard />
       <section className="mb-10 border-b border-[var(--card-border)] pb-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>

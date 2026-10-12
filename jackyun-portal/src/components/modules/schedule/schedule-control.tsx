@@ -1,5 +1,6 @@
 'use client';
 
+import { readScheduleState, SCHEDULE_STORAGE_KEY } from '@/lib/learning/workspace-reader';
 import { siteConfirm, isSiteDialogOpen } from '@/lib/site-dialog';
 import { finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
 import dynamic from 'next/dynamic';
@@ -20,6 +21,7 @@ import MobileCueCard from './mobile-cue-card';
 import QuestionBankManager from './question-bank-manager';
 import { cueExportOperations, cueImportPrompt, downloadStudyJson } from '@/lib/learning/study-prompts';
 import StudyInsights from './study-insights';
+import CueEntryPreview from './cue-entry-preview';
 import ScheduleGuide from './schedule-guide';
 import LearningAssistant, { CueDifficultyPicker } from './learning-assistant';
 import { difficultyLabels, effectiveCueDifficulty, type CueDifficulty } from '@/lib/learning/learning-assistance';
@@ -70,9 +72,7 @@ import {
   matchLearningCatalogSubject,
   mergeLearningCatalog,
   mergeLearningCatalogUnits,
-  migrateIeltsWeekTaskDates,
   nextCueCollectionReminderDate,
-  normalizeCueMetadata,
   parseLearningCatalogImport,
   parseLearningUnitOutline,
   parseCueBulkImport,
@@ -85,7 +85,6 @@ import {
   saveCueStudyDraft,
   shuffleCueIds,
   preservedReviewCourseIds,
-  parseTimetableImport,
   postponeLearningTask,
   reconcileScheduleSubjects,
   rollOverManualTasks,
@@ -119,7 +118,7 @@ import {
 } from '@/lib/learning/schedule-control';
 const StandaloneCueShop = dynamic(() => import('./cue-star-shop'), { ssr: false });
 
-const STORAGE_KEY = 'jackyun_schedule_control_v1';
+const STORAGE_KEY = SCHEDULE_STORAGE_KEY;
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const REVIEW_TYPES = new Set<LearningTask['type']>(['course-review', 'interval-review', 'weekly-review', 'cue-review', 'unit-review', 'cumulative-review']);
 const TYPE_META: Record<LearningTask['type'], { label: string; icon: string; tone: string }> = {
@@ -153,67 +152,6 @@ const CUE_DISPLAY_OPTIONS: ReadonlyArray<{ value: CueDisplayPreset; label: strin
   { value: 'definition-card', label: 'Definition 翻卡', hint: '正面术语，背面定义' }, { value: 'multiple-choice', label: '类型选择', hint: '选项式自动核对' },
 ];
 
-function loadState(now = new Date()): ScheduleControlState {
-  const empty = createEmptyScheduleState();
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<ScheduleControlState> | null;
-    if (!parsed || parsed.schemaVersion !== 1) return empty;
-    const storedSettings = parsed.settings as Partial<ScheduleControlState['settings']> | undefined;
-    const previewPreferenceSet = storedSettings?.previewPreferenceSet === true;
-    const storedMemos = Array.isArray(parsed.cueMemos) ? parsed.cueMemos.flatMap((memo): CueMemo[] => (
-      memo && typeof memo === 'object' && typeof memo.cueId === 'string' && typeof memo.content === 'string' && memo.content.trim()
-        ? [{ cueId: memo.cueId, content: memo.content.slice(0, 10_000), updatedAt: typeof memo.updatedAt === 'string' ? memo.updatedAt : now.toISOString() }]
-        : []
-    )) : [];
-    const memoByCueId = new Map(storedMemos.map((memo) => [memo.cueId, memo]));
-    if (parsed.cueStudyDraft?.writtenResponses && typeof parsed.cueStudyDraft.writtenResponses === 'object') {
-      for (const [cueId, content] of Object.entries(parsed.cueStudyDraft.writtenResponses)) {
-        if (!memoByCueId.has(cueId) && typeof content === 'string' && content.trim()) {
-          memoByCueId.set(cueId, { cueId, content: content.slice(0, 10_000), updatedAt: parsed.cueStudyDraft.updatedAt ?? now.toISOString() });
-        }
-      }
-    }
-    const loaded: ScheduleControlState = {
-      ...empty,
-      ...parsed,
-      cueScheduleRevision: parsed.cueScheduleRevision ?? 0,
-      studyReports: Array.isArray(parsed.studyReports) ? parsed.studyReports.filter((report) => report && typeof report.subjectId === 'string' && typeof report.signature === 'string' && typeof report.content === 'string' && Number.isFinite(Date.parse(report.generatedAt))).slice(0, 20) : [],
-      settings: {
-        ...empty.settings,
-        ...storedSettings,
-        cueCollectionReminderDays: Number.isInteger(storedSettings?.cueCollectionReminderDays) ? Math.max(1, Math.min(365, storedSettings?.cueCollectionReminderDays ?? 30)) : empty.settings.cueCollectionReminderDays,
-        previewEnabled: previewPreferenceSet && storedSettings?.previewEnabled === true,
-        previewPreferenceSet,
-      },
-      manualTasks: Array.isArray(parsed.manualTasks) ? migrateIeltsWeekTaskDates(parsed.manualTasks) : [],
-      completions: parsed.completions && typeof parsed.completions === 'object' ? parsed.completions : {},
-      cancellations: parsed.cancellations && typeof parsed.cancellations === 'object' ? parsed.cancellations : {},
-      reviewProgress: parsed.reviewProgress && typeof parsed.reviewProgress === 'object' ? parsed.reviewProgress : {},
-      cues: Array.isArray(parsed.cues) ? parsed.cues.map((cue) => normalizeCueMetadata(cue, now.toISOString())) : [],
-      cueReviews: Array.isArray(parsed.cueReviews) ? parsed.cueReviews : [],
-      learningRecords: Array.isArray(parsed.learningRecords) ? parsed.learningRecords : [],
-      learningCatalog: Array.isArray(parsed.learningCatalog) ? parsed.learningCatalog : [],
-      learningReminders: Array.isArray(parsed.learningReminders) ? parsed.learningReminders : [],
-      cueCollectionUpdates: Array.isArray(parsed.cueCollectionUpdates) ? parsed.cueCollectionUpdates : [],
-      cueChangeHistory: Array.isArray(parsed.cueChangeHistory) ? parsed.cueChangeHistory : [],
-      cueSimilarityDecisions: Array.isArray(parsed.cueSimilarityDecisions) ? parsed.cueSimilarityDecisions.filter((decision) => decision && typeof decision.id === 'string' && typeof decision.leftCueId === 'string' && typeof decision.rightCueId === 'string' && decision.leftCueId !== decision.rightCueId && Number.isInteger(decision.leftVersion) && decision.leftVersion > 0 && Number.isInteger(decision.rightVersion) && decision.rightVersion > 0 && typeof decision.decidedAt === 'string') : [],
-      cueMemos: [...memoByCueId.values()],
-      cueAnswerCards: Array.isArray(parsed.cueAnswerCards) ? parsed.cueAnswerCards : [],
-      cueStudyDraft: parsed.cueStudyDraft && Array.isArray(parsed.cueStudyDraft.cueIds) && parsed.cueStudyDraft.task ? {
-        ...parsed.cueStudyDraft,
-        writtenResponses: {},
-      } : undefined,
-      cueStudyDrafts: Object.fromEntries(Object.entries(parsed.cueStudyDrafts ?? {}).filter((entry): entry is [string, CueStudyDraft] => {
-        const draft = entry[1];
-        return Boolean(draft && typeof draft === 'object' && Array.isArray(draft.cueIds) && draft.task && typeof draft.updatedAt === 'string');
-      })),
-      timetable: parsed.timetable ? parseTimetableImport(parsed.timetable) : null,
-    };
-    return reconcileScheduleSubjects(rollOverManualTasks(recalculateLegacyCueSchedules(loaded), dateKey(now), now.toISOString()));
-  } catch {
-    return empty;
-  }
-}
 
 function formatLongDate(date: Date): string {
   return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(date);
@@ -1523,13 +1461,14 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
   useEffect(() => {
     queueMicrotask(() => {
+      try {
       const current = new Date();
       setNow(current);
       setSelectedDate(dateKey(current));
       skipInitialEmptySaveRef.current = localStorage.getItem(STORAGE_KEY) === null;
       scheduleBaseRef.current = parseLocalValue(localStorage.getItem(STORAGE_KEY));
       questionBaseRef.current = parseLocalValue(localStorage.getItem(QUESTION_BANK_KEY));
-      const loadedState = loadState(current);
+      const loadedState = readScheduleState(localStorage, current);
       setState(loadedState);
       setGuideOpen((loadedState.settings.tutorialSeenVersion ?? 0) < 1);
       const storedQuestions = localStorage.getItem(QUESTION_BANK_KEY);
@@ -1537,7 +1476,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
         try { setQuestionBank(readQuestionBank(JSON.parse(storedQuestions))); }
         catch (error) { setQuestionBankError(`题库读取失败，原数据已保留：${error instanceof Error ? error.message : '格式错误'}`); }
       }
+      const requestedView = new URLSearchParams(window.location.search).get('view');
+      if (requestedView === 'cue') { setView('cue'); setGuideOpen(false); }
       setReady(true);
+      } catch (error) { setPersistenceError(error instanceof Error ? error.message : '学习数据读取失败'); }
     });
   }, []);
   useEffect(() => {
@@ -1560,7 +1502,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       if(!keys || keys.includes(STORAGE_KEY)) {
         const incoming=parseLocalValue(localStorage.getItem(STORAGE_KEY));
         const base=scheduleBaseRef.current;
-        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}return (result.merged ?? loadState()) as ScheduleControlState;});
+        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}return (result.merged ?? readScheduleState(localStorage)) as ScheduleControlState;});
       }
       if(!keys || keys.includes(QUESTION_BANK_KEY)) {
         try {
@@ -1930,6 +1872,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
       {view === 'records' && <StudyInsights state={state} bank={questionBank} signedIn={signedIn} onChange={setState} />}
       <LearningAssistant state={state} signedIn={signedIn} visible={view === 'records'} onChange={setState} />
+      {view === 'cue' && ready && <CueEntryPreview state={state} bank={questionBank} onStart={(items, subject, unit) => startUnifiedStudy('cue', subject, unit, items)} onResumeCue={(draft) => setCueStudyTask(draft.task)} onResumeMixed={resumeUnifiedStudy} />}
       {view === 'cue' && !questionBankError && <>
         <button data-cue-shop-open type="button" onClick={() => setStandaloneShopOpen(true)} className="mt-4 min-h-11 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white">✦ CUE 星空商店</button>
         {universeEnabled && <button type="button" onClick={() => setStarSummary('album')} className="mt-4 rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm">✦ 我的星空收藏</button>}
