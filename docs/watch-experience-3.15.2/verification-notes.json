@@ -1,0 +1,17 @@
+{
+  "fullVerifyFailures": [
+    "legacy-ui:4",
+    "reader-admin:1"
+  ],
+  "companionPackage": "unzip unavailable; not verified",
+  "companionSources": "Bundled source catalog is stale",
+  "remainingPassed": [
+    "pwa",
+    "study-guide",
+    "studyplan-import",
+    "private-key-marker-check"
+  ],
+  "nativeFinalBuild": "build-unicode-final.log: success; 13 unit tests; lint 0 errors, 21 warnings",
+  "roundSquare": "native touch, bounded window, search, auto-scroll pause, bookmark/jump/resume and paged fallback passed",
+  "docxQA": "5 pages rendered by Word SaveAs2 and Poppler after packaged renderer reported missing LibreOffice; every page visually checked"
+}

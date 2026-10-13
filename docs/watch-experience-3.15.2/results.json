@@ -1,0 +1,41 @@
+{
+  "watchVersion": "1.5.0-beta.1",
+  "portalVersion": "3.15.2",
+  "apkBytes": 354343,
+  "sha256": "b970fb4c380b0b4effbe11905ee0a3b5ea773aa9b9289db00b3615a486d17873",
+  "certificateSha256": "13999b2f6572ad54168e8798d7b336cc543e63875b070c24eb682cb92cf30b6a",
+  "nativeUnitTests": 13,
+  "lintErrors": 0,
+  "lintWarnings": 21,
+  "round": {
+    "nativeDrag": "passed",
+    "continuousBoundedContent": 18000,
+    "maximumWindowCharacters": 18000,
+    "resumeCharacter": 23896,
+    "autoScrollPause": "passed",
+    "themesFontBookmarkJumpResume": "passed",
+    "pagedFallback": "passed"
+  },
+  "square": {
+    "nativeDrag": "passed",
+    "continuousBoundedContent": 18000,
+    "maximumWindowCharacters": 18000,
+    "resumeCharacter": 23865,
+    "autoScrollPause": "passed",
+    "themesFontBookmarkJumpResume": "passed",
+    "pagedFallback": "passed"
+  },
+  "webWatchTests": 11,
+  "webBuild": "passed",
+  "webFullVerify": "failed at four existing legacy-ui assertions",
+  "otherChecks": {
+    "pwa": "passed",
+    "readerAdmin": "one existing failure",
+    "companionPackage": "see verification notes",
+    "companionSources": "existing stale bundled catalog",
+    "studyGuide": "passed",
+    "studyPlanImport": "passed",
+    "privateKeyMarkers": "passed"
+  },
+  "physicalWatch": "not tested"
+}
