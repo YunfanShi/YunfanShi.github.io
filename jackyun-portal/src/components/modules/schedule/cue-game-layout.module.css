@@ -1,5 +1,7 @@
-@media (min-width: 1024px) and (pointer: fine) {
-  .session[data-cue-universe='true'] {
+/* Each study overlay keeps decorative backgrounds behind its content. */
+.session { isolation: isolate; }
+
+.session[data-cue-universe='true'] {
     isolation: isolate;
     --background: #070e19;
     --foreground: #edf2fb;
@@ -9,7 +11,9 @@
     --brand: #98baff;
     background: #040810;
     color: var(--foreground);
-  }
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
   .session[data-cue-universe='true'] > header { position: relative; z-index: 2; background: linear-gradient(#070e19ef, #070e1999); }
   .session[data-cue-universe='true'] > main[data-cue-study-content] {
     position: relative; z-index: 1; width: min(1024px, calc(100% - 432px)); margin-inline: auto;

@@ -1,0 +1,14 @@
+{
+  "version": "3.14.1",
+  "date": "2026-10-13",
+  "mainBase": "71ed138",
+  "baseline": "Production build with CUE universe enabled reproduced background covering content at 1024x768 and 1366x1024 touch viewports. Regression failed before fix at 1024px.",
+  "fix": "Isolate study sessions, paint decorative backdrop at z-index -1, and apply universe foreground/card colors to touch sessions too.",
+  "unitRegression": { "passed": 68, "failed": 0, "suites": ["cue-game", "mobile-cue-study", "cue-practice", "cue-study-navigation", "question-bank"] },
+  "productionBuild": "passed; isolated Main plus task changes; tracing root adjusted only in verification snapshot for dependency junction",
+  "browser": "passed; seven CUE viewports including rotation and resume; two mixed study landscape workflows; no page runtime errors",
+  "browserEnvironment": "Edge with simulated touch and viewport; physical tablet and Safari not tested",
+  "lint": "new browser regression script passed",
+  "docx": "two pages visually inspected with docx-preview 0.4.1; bundled LibreOffice unavailable; Word pagination not verified",
+  "scope": "other existing uncommitted workspace edits preserved and excluded"
+}

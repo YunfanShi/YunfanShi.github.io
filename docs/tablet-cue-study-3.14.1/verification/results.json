@@ -1,0 +1,118 @@
+[
+  {
+    "mode": "cue",
+    "width": 768,
+    "height": 1024,
+    "touch": true,
+    "geometry": {
+      "mainHeight": 748,
+      "cardDisplay": "block",
+      "stageDisplay": "none"
+    },
+    "touchCardVisible": true,
+    "desktopVisible": false,
+    "errors": []
+  },
+  {
+    "mode": "cue",
+    "width": 820,
+    "height": 1180,
+    "touch": true,
+    "geometry": {
+      "mainHeight": 904,
+      "cardDisplay": "block",
+      "stageDisplay": "none"
+    },
+    "touchCardVisible": true,
+    "desktopVisible": false,
+    "errors": []
+  },
+  {
+    "mode": "cue",
+    "width": 1024,
+    "height": 768,
+    "touch": true,
+    "geometry": {
+      "mainHeight": 492.0000305175781,
+      "cardDisplay": "block",
+      "stageDisplay": "none"
+    },
+    "touchCardVisible": true,
+    "desktopVisible": false,
+    "errors": []
+  },
+  {
+    "mode": "mixed",
+    "width": 1024,
+    "height": 768,
+    "touch": true,
+    "contentAboveBackground": true,
+    "cueAndQuestionAssessmentsSaved": true,
+    "errors": []
+  },
+  {
+    "mode": "cue",
+    "width": 1366,
+    "height": 1024,
+    "touch": true,
+    "geometry": {
+      "mainHeight": 748,
+      "cardDisplay": "block",
+      "stageDisplay": "none"
+    },
+    "touchCardVisible": true,
+    "desktopVisible": false,
+    "errors": []
+  },
+  {
+    "mode": "mixed",
+    "width": 1366,
+    "height": 1024,
+    "touch": true,
+    "contentAboveBackground": true,
+    "cueAndQuestionAssessmentsSaved": true,
+    "errors": []
+  },
+  {
+    "mode": "cue",
+    "width": 900,
+    "height": 900,
+    "touch": false,
+    "geometry": {
+      "mainHeight": 624,
+      "cardDisplay": "block",
+      "stageDisplay": "none"
+    },
+    "touchCardVisible": true,
+    "desktopVisible": false,
+    "errors": []
+  },
+  {
+    "mode": "cue",
+    "width": 390,
+    "height": 844,
+    "touch": true,
+    "geometry": {
+      "mainHeight": 584,
+      "cardDisplay": "block",
+      "stageDisplay": "none"
+    },
+    "touchCardVisible": true,
+    "desktopVisible": false,
+    "errors": []
+  },
+  {
+    "mode": "cue",
+    "width": 1440,
+    "height": 900,
+    "touch": false,
+    "geometry": {
+      "mainHeight": 719,
+      "cardDisplay": "none",
+      "stageDisplay": "flex"
+    },
+    "touchCardVisible": false,
+    "desktopVisible": true,
+    "errors": []
+  }
+]

@@ -1,11 +1,12 @@
 {
   "name": "jackyun-portal",
-  "version": "3.14.0",
+  "version": "3.14.1",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
   },
   "scripts": {
+    "test:tablet-cue-ui": "node tests/tablet-cue-study.browser.mts",
     "test:timed-practice": "node --test tests/timed-practice.test.mts",
     "test:watch": "node --test tests/watch-domain.test.mts tests/watch-features.test.mts",
     "test:watch-ui": "node tests/watch-login.browser.mjs",
