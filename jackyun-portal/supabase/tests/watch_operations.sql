@@ -1,0 +1,35 @@
+begin;
+select set_config('watch.test_uid',gen_random_uuid()::text,true);
+select set_config('watch.test_task',gen_random_uuid()::text,true);
+select set_config('watch.test_op',gen_random_uuid()::text,true);
+insert into auth.users(id,email,raw_user_meta_data) values(current_setting('watch.test_uid')::uuid,current_setting('watch.test_uid')||'@watch-test.invalid','{}');
+insert into public.study_tasks(id,user_id,title,updated_at) values(current_setting('watch.test_task')::uuid,current_setting('watch.test_uid')::uuid,'Watch rollback test',now()-interval '1 hour');
+insert into public.watch_pairings(id,code,claim_hash,name,expires_at,payload) values(gen_random_uuid(),'test:'||gen_random_uuid(),repeat('a',64),'rollback',now()+interval '5 minutes','sealed-fixture');
+do $$declare p uuid;begin
+ select id into p from public.watch_pairings where payload='sealed-fixture';
+ if public.watch_claim_pair(p,repeat('b',64)) is not null then raise exception 'wrong claim accepted'; end if;
+ if public.watch_claim_pair(p,repeat('a',64))<>'sealed-fixture' then raise exception 'claim failed'; end if;
+ if public.watch_claim_pair(p,repeat('a',64)) is not null then raise exception 'claim replay accepted'; end if;
+ if not public.watch_rate_limit('rollback-test',1) or public.watch_rate_limit('rollback-test',1) then raise exception 'rate limit failed'; end if;
+end $$;
+select set_config('request.jwt.claim.sub',current_setting('watch.test_uid'),true);
+select set_config('request.jwt.claims',json_build_object('sub',current_setting('watch.test_uid'),'role','authenticated')::text,true);
+set local role authenticated;
+do $$declare t uuid=current_setting('watch.test_task')::uuid;op uuid=current_setting('watch.test_op')::uuid;v timestamptz;f uuid=gen_random_uuid();detail jsonb;begin
+ select updated_at into v from public.study_tasks where id=t;
+ perform public.watch_apply_operation(op,'hash1','task',t,v,'{"completed":true}');
+ perform public.watch_apply_operation(op,'hash1','task',t,v,'{"completed":true}');
+ if not (select completed from public.study_tasks where id=t) then raise exception 'task completion failed';end if;
+ if (select count(*) from public.watch_operation_receipts where operation_id=op)<>1 then raise exception 'duplicate receipt';end if;
+ begin perform public.watch_apply_operation(op,'changed','task',t,v,'{"completed":false}');raise exception 'hash mismatch accepted';exception when others then if SQLERRM<>'OPERATION_REUSED' then raise;end if;end;
+ begin perform public.watch_apply_operation(gen_random_uuid(),'stale','task',t,v,'{"completed":false}');raise exception 'stale accepted';exception when others then if SQLERRM<>'VERSION_CONFLICT' then raise;end if;end;
+ begin perform public.watch_apply_operation(gen_random_uuid(),'missing','task',gen_random_uuid(),v,'{"completed":true}');raise exception 'foreign accepted';exception when others then if SQLERRM<>'VERSION_CONFLICT' then raise;end if;end;
+ detail=jsonb_build_object('durationSeconds',60,'startedAt',extract(epoch from now()-interval '2 minutes')*1000,'completedAt',extract(epoch from now()-interval '1 minute')*1000,'plannedSeconds',1500);
+ perform public.watch_apply_operation(f,'focus-hash','focus',null,null,detail);
+ perform public.watch_apply_operation(f,'focus-hash','focus',null,null,detail);
+ if (select count(*) from public.focus_sessions where client_operation_id=f::text)<>1 then raise exception 'duplicate focus';end if;
+ begin perform public.watch_apply_operation(gen_random_uuid(),'bad-focus','focus',null,null,detail||'{"durationSeconds":59}');raise exception 'invalid focus accepted';exception when others then if SQLERRM<>'INVALID_OPERATION' then raise;end if;end;
+end $$;
+reset role;
+select 'PASS: atomic claim, replay rejection, rate limit, task completion, idempotency, payload mismatch, stale version, missing target, focus deduplication, invalid focus; all fixture writes rolled back' as result;
+rollback;

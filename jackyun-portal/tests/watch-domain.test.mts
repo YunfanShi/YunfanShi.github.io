@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { digest, sameHash, seal, unseal, validateOperation } from '../src/lib/watch/policy.ts';
+import { calendarDate, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
+
+test('pair payload encryption authenticates its key and ciphertext',()=>{
+  const payload={session:{accessToken:'test-only-token'}},encrypted=seal(payload,'test-only-key');
+  assert.deepEqual(unseal(encrypted,'test-only-key'),payload);
+  assert.equal(encrypted.includes('test-only-token'),false);
+  assert.throws(()=>unseal(encrypted,'wrong-key'));
+  const parts=encrypted.split('.');parts[1]=(parts[1][0]==='A'?'B':'A')+parts[1].slice(1);assert.throws(()=>unseal(parts.join('.'),'test-only-key'));
+});
+test('watch credential hash rejects missing and mismatching values',()=>{
+  assert.equal(sameHash('secret',digest('secret')),true);assert.equal(sameHash('other',digest('secret')),false);assert.equal(sameHash('secret','invalid'),false);
+});
+test('operations whitelist target types and reject invalid task versions',()=>{
+  const value={operationId:randomUUID(),kind:'task',targetId:randomUUID(),version:'2026-10-13T00:00:00Z',details:{completed:true}};
+  assert.deepEqual(validateOperation(value),{completed:true});
+  for(const patch of [{kind:'delete-account'},{operationId:'invalid'},{targetId:'invalid'},{version:'invalid'},{details:{completed:'true'}}])assert.throws(()=>validateOperation({...value,...patch}));
+});
+test('focus records exclude invalid or fabricated active duration',()=>{
+  const now=Date.now(),value={operationId:randomUUID(),kind:'focus',details:{durationSeconds:60,plannedSeconds:1500,startedAt:now-60000,completedAt:now}};
+  assert.doesNotThrow(()=>validateOperation(value));
+  for(const details of [{...value.details,durationSeconds:59},{...value.details,completedAt:now+600000},{...value.details,startedAt:now},{...value.details,plannedSeconds:30}])assert.throws(()=>validateOperation({...value,details}));
+});
+test('calendar uses China midnight independently of server timezone',()=>{
+  assert.equal(calendarDate(new Date('2026-10-12T16:00:00Z')),'2026-10-13');
+  assert.equal(zonedEpoch('2026-10-13','09:00'),Date.parse('2026-10-13T01:00:00Z'));
+  assert.equal(zonedEpoch('2026-07-01','09:00','America/New_York'),Date.parse('2026-07-01T13:00:00Z'));
+});
+test('empty synchronized schedule is a valid empty result',()=>{
+  const summary=scheduleSnapshot(createEmptyScheduleState(),new Date('2026-10-13T00:00:00Z'));
+  assert.equal(summary.lessons.length,0);assert.equal(summary.cue.due,0);
+  assert.throws(()=>scheduleSnapshot({schemaVersion:900,cues:[]}));
+});
+test('date overrides including a removed lesson match existing timetable rules',()=>{
+  const state=createEmptyScheduleState();state.timetable={version:1,name:'test',courses:[{id:'math',name:'Math',color:'#123456',review:false,sessions:[{day:2,start:'09:00',end:'10:00'}]}],dateOverrides:[{date:'2026-10-13',sessions:[]},{date:'2026-10-14',sessions:[{courseId:'math',start:'11:00',end:'12:00',location:'A'}]}]};
+  const result=scheduleSnapshot(state,new Date('2026-10-13T00:00:00Z'));
+  assert.equal(result.lessons.some(item=>item.id.startsWith('2026-10-13')),false);
+  const replaced=result.lessons.find(item=>item.id.startsWith('2026-10-14'))!;
+  assert.equal(replaced.startsAt,Date.parse('2026-10-14T03:00:00Z'));assert.equal(replaced.location,'A');
+});
+test('CUE reviewed after UTC midnight remains learned in its account day',()=>{
+  const state=createEmptyScheduleState();state.cues=[{id:'a',subjectId:'s',subjectName:'Math',unit:'U',subsection:'',prompt:'P',answer:'A',type:'general',status:'stable',streak:1,createdAt:'2026-10-12T00:00:00Z',updatedAt:'2026-10-12T16:10:00Z',lastReviewedAt:'2026-10-12T16:20:00Z',nextReviewDate:'2026-10-14'}] as typeof state.cues;
+  const result=scheduleSnapshot(state,new Date('2026-10-12T16:30:00Z'));
+  assert.equal(result.cue.learned,1);assert.equal(result.cue.due,0);
+  state.cues[0].updatedAt='2026-10-12T16:25:00Z';assert.equal(scheduleSnapshot(state,new Date('2026-10-12T16:30:00Z')).cue.due,1);
+});

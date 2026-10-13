@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
           { key: 'Vary', value: 'Origin' },
         ],
       },
+      {
+        source: '/settings/watch',
+        headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
+      },
     ];
   },
   async redirects() {
