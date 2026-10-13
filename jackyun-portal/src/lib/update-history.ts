@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.16.0', date: '2026-10-14', dateLabel: '2026 年 10 月 14 日', title: '练习计时器关联课表与简洁工作台', summary: '按课表科目识别 A Level 配置，未知名称关联一次记住；设置、题型和备注集中在弹窗。', categories: ['学习体验', '平台体验'], accent: 'mint', highlights: ['科目仅来自课表，练习与汇总记录保存课程 ID，改名后仍归于同一科目。', '各科基础选择和大题可直接选，补全特色题，通过更多题型搜索。', '设置分科目关联、题型时间、动效声音；打开面板暂停计时，主界面专注倒计时与题号。'] },
   { version: '3.15.2', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手表视觉与滚动阅读更新', summary: 'Products 提供原生图标导航与上下滚动阅读的微软云测试包。', categories: ['平台体验'], accent: 'blue', highlights: ['手表 1.5.0 beta 1：图标卡片、课表进度与书架封面。', '默认上下滚动，支持自动滚动、正文搜索、书签和续读。', '微软云下载直接获取新版测试 APK。'] },
   { version: '3.15.1', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: 'CUE 搜索与 A Level 配时修复', summary: '搜索按标题、答案与 MS 相关度排序，数学使用 Edexcel IAL，其他已核对科目使用 CAIE 配时。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['精确搜索优先，高亮命中内容；没有直接结果时再扩展到单元、组合关键词和近似拼写。', '纯数、力学、统计按 Edexcel IAL 卷面节奏；物理、计算机等按 CAIE 卷别和代表分值推算。', '保留用户自定义时间及历史练习限时，未识别科目需填写真实限时。'] },
   { version: '3.15.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '练习计时器与学习报告', summary: '独立 HTML 工作台逐题记录用时，连接 Schedule 的新题训练与薄弱项诊断。', categories: ['学习体验', '平台体验'], accent: 'mint', highlights: ['总用时与逐题倒计时同步暂停，支持题号导航、空格和题型快捷键。', '按科目提供宽松、普通、模考三档预设，百分比颜色提醒与超时记录。', '批改自动形成三种状态，报告、草稿与时间设置沿用账号同步和备份。', '登录页更新为宽屏双栏、手机单栏布局。'] },

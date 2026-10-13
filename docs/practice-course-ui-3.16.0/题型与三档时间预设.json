@@ -1,0 +1,2776 @@
+{
+  "math": {
+    "label": "纯数 · Edexcel IAL",
+    "types": [
+      {
+        "id": "alevel-math-0",
+        "name": "短计算 · 3分",
+        "description": "代数、三角、函数小问 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 216,
+          "normal": 259,
+          "relaxed": 324
+        }
+      },
+      {
+        "id": "alevel-math-1",
+        "name": "常规计算 · 5分",
+        "description": "微积分、数列、坐标几何 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 5,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 360,
+          "normal": 432,
+          "relaxed": 540
+        }
+      },
+      {
+        "id": "alevel-math-2",
+        "name": "推导证明 · 6分",
+        "description": "恒等式、证明、show that · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-math-3",
+        "name": "结构整题 · 8分",
+        "description": "多小问结构题 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-math-4",
+        "name": "长综合 · 12分",
+        "description": "建模与跨章节整题 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 864,
+          "normal": 1037,
+          "relaxed": 1296
+        }
+      },
+      {
+        "id": "alevel-math-5",
+        "name": "函数与图像",
+        "description": "复合、反函数、变换与定义域 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-math-6",
+        "name": "三角方程与恒等式",
+        "description": "弧度、解方程与恒等变形 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-math-7",
+        "name": "数列与二项展开",
+        "description": "递推、求和、展开与近似 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-math-8",
+        "name": "指数与对数",
+        "description": "模型、方程与线性化 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-math-9",
+        "name": "微分与最优化",
+        "description": "导数、切线、变化率与极值 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-math-10",
+        "name": "积分与微分方程",
+        "description": "面积、换元、分部积分与可分离方程 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-math-11",
+        "name": "坐标几何与向量",
+        "description": "直线、圆、空间位置与夹角 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-math-12",
+        "name": "数值方法与证明",
+        "description": "迭代、根的定位、反证与演绎 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-math-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-math-basic-long",
+        "name": "基础大题",
+        "description": "多小问结构题 · Edexcel IAL P1–P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "math",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      }
+    ]
+  },
+  "mechanics": {
+    "label": "力学 · Edexcel IAL",
+    "types": [
+      {
+        "id": "alevel-mechanics-0",
+        "name": "短计算 · 3分",
+        "description": "力、速度、能量小问 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 216,
+          "normal": 259,
+          "relaxed": 324
+        }
+      },
+      {
+        "id": "alevel-mechanics-1",
+        "name": "受力建模 · 5分",
+        "description": "受力图、平衡、连接体 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 5,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 360,
+          "normal": 432,
+          "relaxed": 540
+        }
+      },
+      {
+        "id": "alevel-mechanics-2",
+        "name": "常规整题 · 8分",
+        "description": "运动学、动力学、动量 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-3",
+        "name": "综合整题 · 12分",
+        "description": "多阶段运动、功与能 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 864,
+          "normal": 1037,
+          "relaxed": 1296
+        }
+      },
+      {
+        "id": "alevel-mechanics-4",
+        "name": "运动学与图像",
+        "description": "匀变速、速度时间图与微积分 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-5",
+        "name": "牛顿定律与连接体",
+        "description": "摩擦、斜面、滑轮与约束 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-6",
+        "name": "平衡与力矩",
+        "description": "共点力、杆与支点 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-7",
+        "name": "动量与碰撞",
+        "description": "冲量、恢复系数与多阶段碰撞 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-8",
+        "name": "功、能与功率",
+        "description": "能量守恒与阻力 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-9",
+        "name": "抛体运动",
+        "description": "二维运动与轨迹 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-10",
+        "name": "质心与稳定性",
+        "description": "复合体、悬挂与倾覆 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-mechanics-11",
+        "name": "圆周、简谐与弹性",
+        "description": "M3 圆周运动、振动、弹簧与弹性绳 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-mechanics-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-mechanics-basic-long",
+        "name": "基础大题",
+        "description": "运动学、动力学、动量 · Edexcel IAL M1–M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "mechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      }
+    ]
+  },
+  "statistics": {
+    "label": "统计 · Edexcel IAL",
+    "types": [
+      {
+        "id": "alevel-statistics-0",
+        "name": "短计算 · 3分",
+        "description": "数据摘要、概率小问 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 216,
+          "normal": 259,
+          "relaxed": 324
+        }
+      },
+      {
+        "id": "alevel-statistics-1",
+        "name": "分布计算 · 5分",
+        "description": "排列组合、二项、正态 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 5,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 360,
+          "normal": 432,
+          "relaxed": 540
+        }
+      },
+      {
+        "id": "alevel-statistics-2",
+        "name": "结构整题 · 8分",
+        "description": "S1 概率建模或 S2/S3 推断 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-statistics-3",
+        "name": "长综合 · 12分",
+        "description": "抽样、检验、估计、多步骤 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 864,
+          "normal": 1037,
+          "relaxed": 1296
+        }
+      },
+      {
+        "id": "alevel-statistics-4",
+        "name": "数据、相关与回归",
+        "description": "摘要、编码、离散程度与解释 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-statistics-5",
+        "name": "排列组合与条件概率",
+        "description": "计数、树图、独立性与贝叶斯 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-statistics-6",
+        "name": "随机变量与分布",
+        "description": "期望、方差、二项与泊松 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-statistics-7",
+        "name": "正态与连续分布",
+        "description": "标准化、密度、分布函数与近似 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-statistics-8",
+        "name": "抽样与估计",
+        "description": "抽样分布、无偏估计与置信区间 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-statistics-9",
+        "name": "假设检验",
+        "description": "单尾双尾、显著性与结论 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-statistics-10",
+        "name": "卡方与相关检验",
+        "description": "拟合优度、独立性与相关 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-statistics-11",
+        "name": "双样本推断",
+        "description": "S3 均值、比例与差值推断 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-statistics-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-statistics-basic-long",
+        "name": "基础大题",
+        "description": "S1 概率建模或 S2/S3 推断 · Edexcel IAL S1–S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "statistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      }
+    ]
+  },
+  "further": {
+    "label": "进一步纯数 · Edexcel IAL",
+    "types": [
+      {
+        "id": "alevel-further-0",
+        "name": "短推导 · 4分",
+        "description": "矩阵、复数、向量 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 4,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 288,
+          "normal": 346,
+          "relaxed": 432
+        }
+      },
+      {
+        "id": "alevel-further-1",
+        "name": "常规题 · 6分",
+        "description": "级数、微分方程、积分 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-further-2",
+        "name": "证明整题 · 10分",
+        "description": "进一步纯数结构题 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-further-3",
+        "name": "长综合 · 15分",
+        "description": "多步骤证明与应用 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 1080,
+          "normal": 1296,
+          "relaxed": 1620
+        }
+      },
+      {
+        "id": "alevel-further-4",
+        "name": "复数与矩阵",
+        "description": "极形式、根、变换与逆矩阵 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-further-5",
+        "name": "级数与归纳证明",
+        "description": "递推、求和与数学归纳 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-further-6",
+        "name": "微分方程与极坐标",
+        "description": "一阶二阶方程、极坐标曲线 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-further-7",
+        "name": "双曲函数与进一步积分",
+        "description": "反函数、代换与递推积分 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-further-8",
+        "name": "向量与几何",
+        "description": "平面、直线、距离与交点 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-further-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-further-basic-long",
+        "name": "基础大题",
+        "description": "进一步纯数结构题 · Edexcel IAL FP1–FP3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "further",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      }
+    ]
+  },
+  "furtherMechanics": {
+    "label": "进一步力学 · Edexcel IAL",
+    "types": [
+      {
+        "id": "alevel-furtherMechanics-0",
+        "name": "短计算 · 4分",
+        "description": "圆周、转动、平衡 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 4,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 288,
+          "normal": 346,
+          "relaxed": 432
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-1",
+        "name": "常规整题 · 8分",
+        "description": "碰撞、简谐、动力学 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-2",
+        "name": "长综合 · 12分",
+        "description": "进一步力学整题 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 864,
+          "normal": 1037,
+          "relaxed": 1296
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-3",
+        "name": "运动学与图像",
+        "description": "匀变速、速度时间图与微积分 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-4",
+        "name": "牛顿定律与连接体",
+        "description": "摩擦、斜面、滑轮与约束 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-5",
+        "name": "平衡与力矩",
+        "description": "共点力、杆与支点 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-6",
+        "name": "动量与碰撞",
+        "description": "冲量、恢复系数与多阶段碰撞 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-7",
+        "name": "功、能与功率",
+        "description": "能量守恒与阻力 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-8",
+        "name": "抛体运动",
+        "description": "二维运动与轨迹 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-9",
+        "name": "质心与稳定性",
+        "description": "复合体、悬挂与倾覆 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-10",
+        "name": "圆周、简谐与弹性",
+        "description": "M3 圆周运动、振动、弹簧与弹性绳 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-furtherMechanics-basic-long",
+        "name": "基础大题",
+        "description": "碰撞、简谐、动力学 · Edexcel IAL M2/M3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherMechanics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      }
+    ]
+  },
+  "furtherStatistics": {
+    "label": "进一步统计 · Edexcel IAL",
+    "types": [
+      {
+        "id": "alevel-furtherStatistics-0",
+        "name": "短计算 · 4分",
+        "description": "分布、期望、方差 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 4,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 288,
+          "normal": 346,
+          "relaxed": 432
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-1",
+        "name": "推断整题 · 8分",
+        "description": "检验与估计 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-2",
+        "name": "长综合 · 12分",
+        "description": "进一步统计整题 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 864,
+          "normal": 1037,
+          "relaxed": 1296
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-3",
+        "name": "数据、相关与回归",
+        "description": "摘要、编码、离散程度与解释 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-4",
+        "name": "排列组合与条件概率",
+        "description": "计数、树图、独立性与贝叶斯 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-5",
+        "name": "随机变量与分布",
+        "description": "期望、方差、二项与泊松 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-6",
+        "name": "正态与连续分布",
+        "description": "标准化、密度、分布函数与近似 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-7",
+        "name": "抽样与估计",
+        "description": "抽样分布、无偏估计与置信区间 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-8",
+        "name": "假设检验",
+        "description": "单尾双尾、显著性与结论 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-9",
+        "name": "卡方与相关检验",
+        "description": "拟合优度、独立性与相关 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-10",
+        "name": "双样本推断",
+        "description": "S3 均值、比例与差值推断 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-furtherStatistics-basic-long",
+        "name": "基础大题",
+        "description": "检验与估计 · Edexcel IAL S2/S3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "furtherStatistics",
+        "minutesPerMark": 1.2,
+        "source": "https://qualifications.pearson.com/content/dam/pdf/International%20Advanced%20Level/Mathematics/2018/Specification-and-Sample-Assessment/international-a-level-maths-spec.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      }
+    ]
+  },
+  "physics": {
+    "label": "物理 · CAIE 9702",
+    "types": [
+      {
+        "id": "alevel-physics-0",
+        "name": "选择题 · 1分",
+        "description": "P1 单道 MCQ · 9702/9701/9700 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "scienceMCQ",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-physics-1",
+        "name": "AS 小问 · 3分",
+        "description": "定义、解释、图像或计算 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 225,
+          "normal": 270,
+          "relaxed": 338
+        }
+      },
+      {
+        "id": "alevel-physics-2",
+        "name": "AS 整题 · 8分",
+        "description": "P2 结构问答 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-physics-3",
+        "name": "A2 整题 · 10分",
+        "description": "P4 多小问结构题 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-physics-4",
+        "name": "实验操作 · 20分",
+        "description": "P3 半份实验卷；含操作时间 · 9702/9701/9700 P3 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "sciencePractical",
+        "minutesPerMark": 3,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 3600,
+          "normal": 4320,
+          "relaxed": 5400
+        }
+      },
+      {
+        "id": "alevel-physics-5",
+        "name": "实验设计 · 15分",
+        "description": "P5 计划、数据、不确定度 · 9702/9701/9700 P5 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "sciencePlanning",
+        "minutesPerMark": 2.5,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2250,
+          "normal": 2700,
+          "relaxed": 3375
+        }
+      },
+      {
+        "id": "alevel-physics-6",
+        "name": "定义与解释",
+        "description": "精确定义、因果链与物理过程 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 4,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 300,
+          "normal": 360,
+          "relaxed": 450
+        }
+      },
+      {
+        "id": "alevel-physics-7",
+        "name": "图像与数据计算",
+        "description": "斜率、面积、单位、估计与规律 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 450,
+          "normal": 540,
+          "relaxed": 675
+        }
+      },
+      {
+        "id": "alevel-physics-8",
+        "name": "力学与材料",
+        "description": "运动、受力、能量、弹性与流体 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-physics-9",
+        "name": "电路与电磁",
+        "description": "电路、电场、磁场与感应 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-physics-10",
+        "name": "波与光学",
+        "description": "干涉、衍射、驻波与多普勒 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-physics-11",
+        "name": "热学与气体",
+        "description": "气体、热力学与动理论 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-physics-12",
+        "name": "引力、振动与场",
+        "description": "轨道、势能、简谐与场的比较 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-physics-13",
+        "name": "量子、核与医学",
+        "description": "光子、衰变、成像与粒子 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-physics-14",
+        "name": "天文与宇宙",
+        "description": "距离、红移与宇宙模型 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-physics-15",
+        "name": "不确定度与实验评价",
+        "description": "误差传播、作图、改进与局限 · 9702/9701/9700 P5 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "sciencePlanning",
+        "minutesPerMark": 2.5,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 900,
+          "normal": 1080,
+          "relaxed": 1350
+        }
+      },
+      {
+        "id": "alevel-physics-basic-choice",
+        "name": "基础选择题",
+        "description": "单道选择题 · 9702/9701/9700 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "scienceMCQ",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-physics-basic-long",
+        "name": "基础大题",
+        "description": "P2 结构问答 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664565-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      }
+    ]
+  },
+  "cs": {
+    "label": "计算机 · CAIE 9618",
+    "types": [
+      {
+        "id": "alevel-cs-0",
+        "name": "理论短答 · 3分",
+        "description": "P1/P3 定义、比较、数据表示 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 216,
+          "normal": 259,
+          "relaxed": 324
+        }
+      },
+      {
+        "id": "alevel-cs-1",
+        "name": "理论解释 · 6分",
+        "description": "P1/P3 网络、安全、系统 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-2",
+        "name": "代码跟踪 · 5分",
+        "description": "P2 trace、逻辑、输出 · 9618 P2 · 卷面平均配时",
+        "marks": 5,
+        "paperId": "csAlgorithm",
+        "minutesPerMark": 1.6,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 480,
+          "normal": 576,
+          "relaxed": 720
+        }
+      },
+      {
+        "id": "alevel-cs-3",
+        "name": "伪代码算法 · 10分",
+        "description": "P2 算法、数据结构 · 9618 P2 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "csAlgorithm",
+        "minutesPerMark": 1.6,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 960,
+          "normal": 1152,
+          "relaxed": 1440
+        }
+      },
+      {
+        "id": "alevel-cs-4",
+        "name": "上机实现 · 15分",
+        "description": "P4 完整代码与测试证据 · 9618 P4 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "csPractical",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1800,
+          "normal": 2160,
+          "relaxed": 2700
+        }
+      },
+      {
+        "id": "alevel-cs-5",
+        "name": "数据表示与编码",
+        "description": "进制、补码、浮点、图像、声音与压缩 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-6",
+        "name": "逻辑电路与布尔代数",
+        "description": "真值表、逻辑门与化简 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-7",
+        "name": "硬件、处理器与操作系统",
+        "description": "体系结构、存储、调度与虚拟内存 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-8",
+        "name": "网络、通信与安全",
+        "description": "协议、拓扑、路由、加密与风险 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-9",
+        "name": "数据库与 SQL",
+        "description": "关系建模、规范化、查询与事务 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 576,
+          "normal": 691,
+          "relaxed": 864
+        }
+      },
+      {
+        "id": "alevel-cs-10",
+        "name": "软件开发与测试",
+        "description": "生命周期、翻译、测试与调试 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-11",
+        "name": "数据结构与算法",
+        "description": "数组、链表、栈、队列、树、查找与排序 · 9618 P2 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "csAlgorithm",
+        "minutesPerMark": 1.6,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 960,
+          "normal": 1152,
+          "relaxed": 1440
+        }
+      },
+      {
+        "id": "alevel-cs-12",
+        "name": "递归与面向对象",
+        "description": "递归跟踪、类、继承与多态 · 9618 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "csPractical",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1200,
+          "normal": 1440,
+          "relaxed": 1800
+        }
+      },
+      {
+        "id": "alevel-cs-13",
+        "name": "文件处理与异常",
+        "description": "文本二进制文件、输入校验与异常 · 9618 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "csPractical",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1200,
+          "normal": 1440,
+          "relaxed": 1800
+        }
+      },
+      {
+        "id": "alevel-cs-14",
+        "name": "完整程序与测试证据",
+        "description": "实现、边界测试与结果验证 · 9618 P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "csPractical",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 2400,
+          "normal": 2880,
+          "relaxed": 3600
+        }
+      },
+      {
+        "id": "alevel-cs-15",
+        "name": "人工智能与伦理",
+        "description": "机器学习、自动化、隐私与社会影响 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 6,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 432,
+          "normal": 518,
+          "relaxed": 648
+        }
+      },
+      {
+        "id": "alevel-cs-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · 9618 P1/P3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "csTheory",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 72,
+          "normal": 86,
+          "relaxed": 108
+        }
+      },
+      {
+        "id": "alevel-cs-basic-long",
+        "name": "基础大题",
+        "description": "P4 完整代码与测试证据 · 9618 P4 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "csPractical",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697372-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1800,
+          "normal": 2160,
+          "relaxed": 2700
+        }
+      }
+    ]
+  },
+  "chemistry": {
+    "label": "化学 · CAIE 9701",
+    "types": [
+      {
+        "id": "alevel-chemistry-0",
+        "name": "选择题 · 1分",
+        "description": "P1 单道 MCQ · 9702/9701/9700 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "scienceMCQ",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-chemistry-1",
+        "name": "AS 小问 · 3分",
+        "description": "方程、计量、解释 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 225,
+          "normal": 270,
+          "relaxed": 338
+        }
+      },
+      {
+        "id": "alevel-chemistry-2",
+        "name": "AS 整题 · 8分",
+        "description": "P2 结构问答 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-chemistry-3",
+        "name": "A2 整题 · 10分",
+        "description": "P4 机理、平衡、综合 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-chemistry-4",
+        "name": "实验操作 · 20分",
+        "description": "P3 半份实验卷；含操作时间 · 9702/9701/9700 P3 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "sciencePractical",
+        "minutesPerMark": 3,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 3600,
+          "normal": 4320,
+          "relaxed": 5400
+        }
+      },
+      {
+        "id": "alevel-chemistry-5",
+        "name": "实验设计 · 15分",
+        "description": "P5 计划、分析、评价 · 9702/9701/9700 P5 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "sciencePlanning",
+        "minutesPerMark": 2.5,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2250,
+          "normal": 2700,
+          "relaxed": 3375
+        }
+      },
+      {
+        "id": "alevel-chemistry-6",
+        "name": "计量与物理化学",
+        "description": "物质的量、热化学、速率与平衡 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-chemistry-7",
+        "name": "无机与周期性",
+        "description": "结构、键合、周期与过渡金属 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-chemistry-8",
+        "name": "有机机理与合成",
+        "description": "反应机理、路线设计与官能团 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-chemistry-9",
+        "name": "分析与谱图",
+        "description": "质谱、红外、NMR 与鉴定 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-chemistry-10",
+        "name": "电化学与离子平衡",
+        "description": "电极电势、酸碱与溶度积 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-chemistry-basic-choice",
+        "name": "基础选择题",
+        "description": "单道选择题 · 9702/9701/9700 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "scienceMCQ",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-chemistry-basic-long",
+        "name": "基础大题",
+        "description": "P2 结构问答 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664563-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      }
+    ]
+  },
+  "biology": {
+    "label": "生物 · CAIE 9700",
+    "types": [
+      {
+        "id": "alevel-biology-0",
+        "name": "选择题 · 1分",
+        "description": "P1 单道 MCQ · 9702/9701/9700 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "scienceMCQ",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-biology-1",
+        "name": "AS 小问 · 3分",
+        "description": "定义、过程、结构功能 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 3,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 225,
+          "normal": 270,
+          "relaxed": 338
+        }
+      },
+      {
+        "id": "alevel-biology-2",
+        "name": "AS 整题 · 8分",
+        "description": "P2 结构问答 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-biology-3",
+        "name": "A2 整题 · 10分",
+        "description": "P4 遗传、机制、数据联系 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-biology-4",
+        "name": "实验操作 · 20分",
+        "description": "P3 半份实验卷；含操作时间 · 9702/9701/9700 P3 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "sciencePractical",
+        "minutesPerMark": 3,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 3600,
+          "normal": 4320,
+          "relaxed": 5400
+        }
+      },
+      {
+        "id": "alevel-biology-5",
+        "name": "实验设计 · 15分",
+        "description": "P5 计划、分析、评价 · 9702/9701/9700 P5 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "sciencePlanning",
+        "minutesPerMark": 2.5,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2250,
+          "normal": 2700,
+          "relaxed": 3375
+        }
+      },
+      {
+        "id": "alevel-biology-6",
+        "name": "细胞、分子与酶",
+        "description": "结构功能、膜运输与酶 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-biology-7",
+        "name": "运输、免疫与交换",
+        "description": "植物动物运输、病原与气体交换 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      },
+      {
+        "id": "alevel-biology-8",
+        "name": "遗传与生物技术",
+        "description": "遗传计算、调控、测序与工程 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-biology-9",
+        "name": "能量与稳态",
+        "description": "光合、呼吸、神经激素与稳态 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-biology-10",
+        "name": "生态、进化与数据",
+        "description": "种群、选择、生物多样性与统计 · 9702/9701/9700 P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "scienceA2",
+        "minutesPerMark": 1.2,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-biology-basic-choice",
+        "name": "基础选择题",
+        "description": "单道选择题 · 9702/9701/9700 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "scienceMCQ",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-biology-basic-long",
+        "name": "基础大题",
+        "description": "P2 结构问答 · 9702/9701/9700 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "scienceAS",
+        "minutesPerMark": 1.25,
+        "source": "https://www.cambridgeinternational.org/Images/664560-2025-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      }
+    ]
+  },
+  "economics": {
+    "label": "经济 · CAIE 9708",
+    "types": [
+      {
+        "id": "alevel-economics-0",
+        "name": "AS 选择 · 1分",
+        "description": "P1 单道 MCQ · 9708 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "econMCQ",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 120,
+          "normal": 144,
+          "relaxed": 180
+        }
+      },
+      {
+        "id": "alevel-economics-1",
+        "name": "A2 选择 · 1分",
+        "description": "P3 单道 MCQ · 9708 P3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "econA2MCQ",
+        "minutesPerMark": 2.5,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 150,
+          "normal": 180,
+          "relaxed": 225
+        }
+      },
+      {
+        "id": "alevel-economics-2",
+        "name": "数据小问 · 4分",
+        "description": "P2/P4 数据、图形、解释 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 4,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 480,
+          "normal": 576,
+          "relaxed": 720
+        }
+      },
+      {
+        "id": "alevel-economics-3",
+        "name": "分析小问 · 8分",
+        "description": "分析因果与图形 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 960,
+          "normal": 1152,
+          "relaxed": 1440
+        }
+      },
+      {
+        "id": "alevel-economics-4",
+        "name": "评价小问 · 12分",
+        "description": "权衡、结论与评价 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1440,
+          "normal": 1728,
+          "relaxed": 2160
+        }
+      },
+      {
+        "id": "alevel-economics-5",
+        "name": "论述整题 · 20分",
+        "description": "完整论述或数据题组 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 2400,
+          "normal": 2880,
+          "relaxed": 3600
+        }
+      },
+      {
+        "id": "alevel-economics-6",
+        "name": "图形与计算",
+        "description": "弹性、成本、市场和宏观图形 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 960,
+          "normal": 1152,
+          "relaxed": 1440
+        }
+      },
+      {
+        "id": "alevel-economics-7",
+        "name": "微观政策评价",
+        "description": "市场失灵、干预、企业与效率 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1440,
+          "normal": 1728,
+          "relaxed": 2160
+        }
+      },
+      {
+        "id": "alevel-economics-8",
+        "name": "宏观与国际评价",
+        "description": "增长、通胀、贸易、汇率与发展 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1440,
+          "normal": 1728,
+          "relaxed": 2160
+        }
+      },
+      {
+        "id": "alevel-economics-basic-choice",
+        "name": "基础选择题",
+        "description": "单道选择题 · 9708 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "econMCQ",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 120,
+          "normal": 144,
+          "relaxed": 180
+        }
+      },
+      {
+        "id": "alevel-economics-basic-long",
+        "name": "基础大题",
+        "description": "完整论述或数据题组 · 9708 P2/P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "economics",
+        "minutesPerMark": 2,
+        "source": "https://www.cambridgeinternational.org/Images/697423-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 2400,
+          "normal": 2880,
+          "relaxed": 3600
+        }
+      }
+    ]
+  },
+  "business": {
+    "label": "商业 · CAIE 9609",
+    "types": [
+      {
+        "id": "alevel-business-0",
+        "name": "AS 短答 · 5分",
+        "description": "P1 完整短答题 · 9609 P1 · 卷面平均配时",
+        "marks": 5,
+        "paperId": "businessAS",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 563,
+          "normal": 675,
+          "relaxed": 844
+        }
+      },
+      {
+        "id": "alevel-business-1",
+        "name": "数据小问 · 8分",
+        "description": "P2 应用、分析与计算 · 9609 P2 · 卷面平均配时",
+        "marks": 8,
+        "paperId": "businessData",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 720,
+          "normal": 864,
+          "relaxed": 1080
+        }
+      },
+      {
+        "id": "alevel-business-2",
+        "name": "AS 论述 · 20分",
+        "description": "P1 完整两部分论述 · 9609 P1 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "businessAS",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 2250,
+          "normal": 2700,
+          "relaxed": 3375
+        }
+      },
+      {
+        "id": "alevel-business-3",
+        "name": "决策分析 · 12分",
+        "description": "P3 案例中的分析评价 · 9609 P3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "businessDecision",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1260,
+          "normal": 1512,
+          "relaxed": 1890
+        }
+      },
+      {
+        "id": "alevel-business-4",
+        "name": "战略论述 · 20分",
+        "description": "P4 一道完整案例论述 · 9609 P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "businessStrategy",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 2250,
+          "normal": 2700,
+          "relaxed": 3375
+        }
+      },
+      {
+        "id": "alevel-business-5",
+        "name": "财务与定量分析",
+        "description": "比率、投资评价、预测与决策 · 9609 P3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "businessDecision",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1260,
+          "normal": 1512,
+          "relaxed": 1890
+        }
+      },
+      {
+        "id": "alevel-business-6",
+        "name": "市场与运营案例",
+        "description": "营销、生产、质量与供应链 · 9609 P3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "businessDecision",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1260,
+          "normal": 1512,
+          "relaxed": 1890
+        }
+      },
+      {
+        "id": "alevel-business-7",
+        "name": "组织与人力资源",
+        "description": "管理、激励、组织与变革 · 9609 P3 · 卷面平均配时",
+        "marks": 12,
+        "paperId": "businessDecision",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 1260,
+          "normal": 1512,
+          "relaxed": 1890
+        }
+      },
+      {
+        "id": "alevel-business-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · 9609 P1 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "businessAS",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-business-basic-long",
+        "name": "基础大题",
+        "description": "P4 一道完整案例论述 · 9609 P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "businessStrategy",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697371-2026-2028-syllabus.pdf",
+        "seconds": {
+          "exam": 2250,
+          "normal": 2700,
+          "relaxed": 3375
+        }
+      }
+    ]
+  },
+  "history": {
+    "label": "历史 · CAIE 9489",
+    "types": [
+      {
+        "id": "alevel-history-0",
+        "name": "材料比较 · 15分",
+        "description": "P1 两份材料比较 · 9489 P1/P3 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "historySource",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 1688,
+          "normal": 2025,
+          "relaxed": 2531
+        }
+      },
+      {
+        "id": "alevel-history-1",
+        "name": "材料评价 · 25分",
+        "description": "P1 多来源证据评价 · 9489 P1/P3 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "historySource",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2813,
+          "normal": 3375,
+          "relaxed": 4219
+        }
+      },
+      {
+        "id": "alevel-history-2",
+        "name": "纲要解释 · 10分",
+        "description": "P2 两部分题的解释小问 · 9489 P2/P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "historyEssay",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 1050,
+          "normal": 1260,
+          "relaxed": 1575
+        }
+      },
+      {
+        "id": "alevel-history-3",
+        "name": "纲要论述 · 20分",
+        "description": "P2 论述小问 · 9489 P2/P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "historyEssay",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2100,
+          "normal": 2520,
+          "relaxed": 3150
+        }
+      },
+      {
+        "id": "alevel-history-4",
+        "name": "深度论述 · 30分",
+        "description": "P4 一道完整论述 · 9489 P2/P4 · 卷面平均配时",
+        "marks": 30,
+        "paperId": "historyEssay",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 3150,
+          "normal": 3780,
+          "relaxed": 4725
+        }
+      },
+      {
+        "id": "alevel-history-5",
+        "name": "史学解释 · 40分",
+        "description": "P3 完整解释题 · 9489 P1/P3 · 卷面平均配时",
+        "marks": 40,
+        "paperId": "historySource",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 4500,
+          "normal": 5400,
+          "relaxed": 6750
+        }
+      },
+      {
+        "id": "alevel-history-6",
+        "name": "来源可靠性与效用",
+        "description": "作者、背景、目的、互证与局限 · 9489 P1/P3 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "historySource",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2813,
+          "normal": 3375,
+          "relaxed": 4219
+        }
+      },
+      {
+        "id": "alevel-history-7",
+        "name": "因果与重要性评价",
+        "description": "解释原因、结果与相对作用 · 9489 P2/P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "historyEssay",
+        "minutesPerMark": 1.75,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 2100,
+          "normal": 2520,
+          "relaxed": 3150
+        }
+      },
+      {
+        "id": "alevel-history-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · 9489 P1/P3 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "historySource",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 113,
+          "normal": 135,
+          "relaxed": 169
+        }
+      },
+      {
+        "id": "alevel-history-basic-long",
+        "name": "基础大题",
+        "description": "P3 完整解释题 · 9489 P1/P3 · 卷面平均配时",
+        "marks": 40,
+        "paperId": "historySource",
+        "minutesPerMark": 1.875,
+        "source": "https://www.cambridgeinternational.org/Images/697368-2026-2027-syllabus.pdf",
+        "seconds": {
+          "exam": 4500,
+          "normal": 5400,
+          "relaxed": 6750
+        }
+      }
+    ]
+  },
+  "geography": {
+    "label": "地理 · CAIE 9696",
+    "types": [
+      {
+        "id": "alevel-geography-0",
+        "name": "数据小问 · 4分",
+        "description": "图表、地图、解释 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 4,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 360,
+          "normal": 432,
+          "relaxed": 540
+        }
+      },
+      {
+        "id": "alevel-geography-1",
+        "name": "数据整题 · 10分",
+        "description": "P1/P2 数据或 P3/P4 结构题 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 900,
+          "normal": 1080,
+          "relaxed": 1350
+        }
+      },
+      {
+        "id": "alevel-geography-2",
+        "name": "评价论述 · 20分",
+        "description": "P3/P4 一道论述 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1800,
+          "normal": 2160,
+          "relaxed": 2700
+        }
+      },
+      {
+        "id": "alevel-geography-3",
+        "name": "结构整题 · 30分",
+        "description": "P1/P2 Section B · 9696 P1–P4 · 卷面平均配时",
+        "marks": 30,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 2700,
+          "normal": 3240,
+          "relaxed": 4050
+        }
+      },
+      {
+        "id": "alevel-geography-4",
+        "name": "自然过程与案例",
+        "description": "水文、地貌、气候、风险与环境 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1800,
+          "normal": 2160,
+          "relaxed": 2700
+        }
+      },
+      {
+        "id": "alevel-geography-5",
+        "name": "人文与发展案例",
+        "description": "人口、迁移、城市、全球化与发展 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 20,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1800,
+          "normal": 2160,
+          "relaxed": 2700
+        }
+      },
+      {
+        "id": "alevel-geography-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 90,
+          "normal": 108,
+          "relaxed": 135
+        }
+      },
+      {
+        "id": "alevel-geography-basic-long",
+        "name": "基础大题",
+        "description": "P1/P2 数据或 P3/P4 结构题 · 9696 P1–P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "geography",
+        "minutesPerMark": 1.5,
+        "source": "https://www.cambridgeinternational.org/Images/664556-2025-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 900,
+          "normal": 1080,
+          "relaxed": 1350
+        }
+      }
+    ]
+  },
+  "english": {
+    "label": "英语语言 · CAIE 9093",
+    "types": [
+      {
+        "id": "alevel-english-0",
+        "name": "阅读写作 · 10分",
+        "description": "P1 定向写作小问 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1620,
+          "normal": 1944,
+          "relaxed": 2430
+        }
+      },
+      {
+        "id": "alevel-english-1",
+        "name": "比较分析 · 15分",
+        "description": "P1 比较小问 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 2430,
+          "normal": 2916,
+          "relaxed": 3645
+        }
+      },
+      {
+        "id": "alevel-english-2",
+        "name": "反思评论 · 10分",
+        "description": "P2 写作评论 · 9093 P2 · 卷面平均配时",
+        "marks": 10,
+        "paperId": "englishWriting",
+        "minutesPerMark": 2.4,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 1440,
+          "normal": 1728,
+          "relaxed": 2160
+        }
+      },
+      {
+        "id": "alevel-english-3",
+        "name": "短篇写作 · 15分",
+        "description": "P2 定向写作 · 9093 P2 · 卷面平均配时",
+        "marks": 15,
+        "paperId": "englishWriting",
+        "minutesPerMark": 2.4,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 2160,
+          "normal": 2592,
+          "relaxed": 3240
+        }
+      },
+      {
+        "id": "alevel-english-4",
+        "name": "长篇写作 · 25分",
+        "description": "P2 连续写作 · 9093 P2 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "englishWriting",
+        "minutesPerMark": 2.4,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 3600,
+          "normal": 4320,
+          "relaxed": 5400
+        }
+      },
+      {
+        "id": "alevel-english-5",
+        "name": "语言分析 · 25分",
+        "description": "P1/P3/P4 完整分析或论述 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 4050,
+          "normal": 4860,
+          "relaxed": 6075
+        }
+      },
+      {
+        "id": "alevel-english-6",
+        "name": "文本形式与语域",
+        "description": "受众、目的、结构与语言选择 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 4050,
+          "normal": 4860,
+          "relaxed": 6075
+        }
+      },
+      {
+        "id": "alevel-english-7",
+        "name": "语言习得与变化",
+        "description": "理论、数据、全球英语与演变 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 4050,
+          "normal": 4860,
+          "relaxed": 6075
+        }
+      },
+      {
+        "id": "alevel-english-basic-choice",
+        "name": "基础选择题",
+        "description": "自测选择；本卷无独立选择题，以 1 分卷面平均节奏估算 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 1,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 162,
+          "normal": 194,
+          "relaxed": 243
+        }
+      },
+      {
+        "id": "alevel-english-basic-long",
+        "name": "基础大题",
+        "description": "P1/P3/P4 完整分析或论述 · 9093 P1/P3/P4 · 卷面平均配时",
+        "marks": 25,
+        "paperId": "englishReading",
+        "minutesPerMark": 2.7,
+        "source": "https://www.cambridgeinternational.org/Images/635901-2024-2026-syllabus.pdf",
+        "seconds": {
+          "exam": 4050,
+          "normal": 4860,
+          "relaxed": 6075
+        }
+      }
+    ]
+  },
+  "custom": {
+    "label": "自定义考试配置",
+    "types": [
+      {
+        "id": "custom-basic-choice",
+        "name": "基础选择题",
+        "description": "请按你的考试卷别调整时间",
+        "seconds": {
+          "exam": 120,
+          "normal": 144,
+          "relaxed": 180
+        }
+      },
+      {
+        "id": "custom-basic-long",
+        "name": "基础大题",
+        "description": "请按实际分值与卷面配时调整",
+        "seconds": {
+          "exam": 600,
+          "normal": 720,
+          "relaxed": 900
+        }
+      }
+    ]
+  }
+}

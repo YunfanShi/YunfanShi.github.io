@@ -9,13 +9,19 @@ export interface PracticeQuestion {
 }
 export interface PracticeSession {
   id: string; date: string; subject: string; source: TimedPracticeRecord['source'];
+  courseId?: string; presetFamily?: string;
   independent: boolean; scope: string; mode: 'relaxed' | 'normal' | 'exam';
   index: number; updatedAt: number; finished: boolean; questions: PracticeQuestion[];
 }
 export interface PracticeType { id: string; name: string; description: string; seconds: { relaxed: number; normal: number; exam: number } }
-export interface PracticeConfig { subjects: Record<string, PracticeType[]>; green: number; red: number; effects?: boolean; sound?: boolean; volume?: number }
+export interface PracticeConfig { subjects: Record<string, PracticeType[]>; green: number; red: number; effects?: boolean; sound?: boolean; volume?: number;
+  courseBindings?: Record<string, { family: string; name: string; source: 'auto' | 'manual' }>;
+  courseTypes?: Record<string, PracticeType[]>;
+}
+const families = ['math','mechanics','statistics','further','furtherMechanics','furtherStatistics','physics','chemistry','biology','cs','economics','business','history','geography','english','custom'];
 export function validateSession(value: unknown): PracticeSession {
   const s = value as PracticeSession;
+  if (s && ((s.courseId !== undefined && (typeof s.courseId !== 'string' || !s.courseId || s.courseId.length > 150)) || (s.presetFamily !== undefined && !families.includes(s.presetFamily)))) throw Error('课表科目关联无效，原记录已保留。');
   if (!s || typeof s.id !== 'string' || !s.id || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || !Number.isFinite(Date.parse(s.date))
     || typeof s.subject !== 'string' || !s.subject.trim() || s.subject.length > 100 || typeof s.scope !== 'string' || s.scope.length > 200
     || !['A','B','C','homework'].includes(s.source) || !['relaxed','normal','exam'].includes(s.mode)
@@ -36,8 +42,13 @@ export function validateConfig(value: unknown): PracticeConfig {
   const c = value as PracticeConfig;
   if (c && ((c.effects !== undefined && typeof c.effects !== 'boolean') || (c.sound !== undefined && typeof c.sound !== 'boolean') || (c.volume !== undefined && (!Number.isFinite(c.volume) || c.volume < 0 || c.volume > 1)))) throw Error('动画、音效或音量设置无效。');
   if (!c || !Number.isFinite(c.green) || !Number.isFinite(c.red) || c.green <= c.red || c.green >= 100 || c.red <= 0 || !c.subjects || typeof c.subjects !== 'object' || Array.isArray(c.subjects)) throw Error('颜色阈值必须满足 0 < 红色 < 黄色 < 100。');
-  for (const [name, types] of Object.entries(c.subjects)) {
-    if (!name.trim() || name.length > 100 || !Array.isArray(types) || !types.length || types.length > 40) throw Error('科目与题型设置无效。');
+  if (c.courseBindings !== undefined) {
+    if (!c.courseBindings || typeof c.courseBindings !== 'object' || Array.isArray(c.courseBindings)) throw Error('课表关联设置无效。');
+    for (const [id,binding] of Object.entries(c.courseBindings)) if (!id || id.length > 150 || !binding || !families.includes(binding.family) || typeof binding.name !== 'string' || !binding.name.trim() || binding.name.length > 100 || !['auto','manual'].includes(binding.source)) throw Error('课表科目关联无效。');
+  }
+  if (c.courseTypes !== undefined && (!c.courseTypes || typeof c.courseTypes !== 'object' || Array.isArray(c.courseTypes))) throw Error('课表题型设置无效。');
+  for (const [name, types] of [...Object.entries(c.subjects),...Object.entries(c.courseTypes ?? {})]) {
+    if (!name.trim() || name.length > 200 || !Array.isArray(types) || !types.length || types.length > 80) throw Error('科目与题型设置无效。');
     const ids = new Set<string>();
     for (const type of types) {
       if (!type || typeof type.id !== 'string' || !type.id || ids.has(type.id) || typeof type.name !== 'string' || !type.name.trim() || type.name.length > 100 || typeof type.description !== 'string' || type.description.length > 300 || !type.seconds || !['relaxed','normal','exam'].every(mode => Number.isFinite(type.seconds[mode as keyof PracticeType['seconds']]) && type.seconds[mode as keyof PracticeType['seconds']] >= 10 && type.seconds[mode as keyof PracticeType['seconds']] <= 86400)) throw Error('每种题型的三档时间必须为 10 秒至 24 小时。');
@@ -54,7 +65,7 @@ export function practiceEvidence(s: PracticeSession): TimedPracticeRecord | null
   const failed = attempted.filter(q => q.result !== 'correct');
   const causes = new Map<string,number>();
   attempted.forEach(q => { if (q.cause) causes.set(q.cause,(causes.get(q.cause) ?? 0)+1); });
-  return { id: `timer-${s.id}`, date: s.date, subject: s.subject, source: s.source, reference: s.scope || `练习计时器 · ${attempted.length} 题`, independent: s.independent,
+  return { id: `timer-${s.id}`, date: s.date, subject: s.subject, courseId:s.courseId, presetFamily:s.presetFamily, source: s.source, reference: s.scope || `练习计时器 · ${attempted.length} 题`, independent: s.independent,
     minutes: attempted.reduce((n,q)=>n+q.elapsedMs,0)/60000,
     onTime: attempted.filter(q=>q.result==='correct'&&!isSlow(q)).length,
     overtime: attempted.filter(q=>q.result==='correct'&&isSlow(q)).length,

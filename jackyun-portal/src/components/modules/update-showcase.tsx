@@ -139,7 +139,7 @@ export default function UpdateShowcase() {
                 {visibleEntries.map((entry) => {
                   const accent = accentStyles[entry.accent];
                   return (
-                    <article key={entry.version} className="relative grid pl-8 sm:grid-cols-[11rem_1fr] sm:pl-0">
+                    <article key={`${entry.date}-${entry.version}-${entry.title}`} className="relative grid pl-8 sm:grid-cols-[11rem_1fr] sm:pl-0">
                       <div className="hidden pr-8 pt-6 text-right sm:block">
                         <time dateTime={entry.date} className="text-xs text-[#777982]">{entry.dateLabel}</time>
                       </div>

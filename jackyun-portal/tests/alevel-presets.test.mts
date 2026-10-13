@@ -9,7 +9,7 @@ type Type=PracticeType&{marks:number;paperId:string;source:string};
 const E=context.PracticeEngine as {presets:(s:string)=>Type[];papers:Record<string,{minutes:number;marks:number}>;upgradeConfig:(s:PracticeConfig)=>{config:PracticeConfig;changed:boolean}};
 test('Mixed Edexcel and CAIE presets calculate exact seconds from paper duration and representative marks',()=>{
   for(const name of ['Pure Math','Mechanics','Statistics','Further Mathematics','Further Mechanics','Further Statistics','Physics','Chemistry','Biology','Computer Science','Economics','Business','History','Geography','English Language']){
-    const types=E.presets(name);assert.ok(types.length>0&&types.length<=6);
+    const types=E.presets(name);assert.ok(types.length>=7&&types.length<=80);assert.ok(types.some(t=>t.name==='基础选择题'));assert.ok(types.some(t=>t.name==='基础大题'));
     for(const t of types){const p=E.papers[t.paperId];assert.equal(t.seconds.exam,Math.round(t.marks*p.minutes/p.marks*60));assert.equal(t.seconds.normal,Math.round(t.marks*p.minutes/p.marks*60*1.2));assert.equal(t.seconds.relaxed,Math.round(t.marks*p.minutes/p.marks*60*1.5));assert.match(t.source,/^https:\/\/(www.cambridgeinternational.org|qualifications.pearson.com)\//);}
   }
   assert.equal(E.presets('Pure Math')[3].seconds.exam,576);assert.equal(E.presets('Mechanics')[2].seconds.exam,576);assert.equal(E.presets('Computer Science')[4].seconds.exam,1800);

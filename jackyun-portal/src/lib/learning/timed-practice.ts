@@ -6,6 +6,8 @@ export interface TimedPracticeRecord {
   id: string;
   date: string;
   subject: PracticeSubject;
+  courseId?: string;
+  presetFamily?: string;
   source: 'A' | 'B' | 'C' | 'homework';
   reference: string;
   independent: boolean;
@@ -63,7 +65,7 @@ export function weeklyPracticeSummary(records: TimedPracticeRecord[], date: stri
     overtime: entries.reduce((total, item) => total + item.overtime + (item.failedOvertime ?? 0), 0),
     blocked: entries.reduce((total, item) => total + item.blocked, 0),
     bottlenecks: [...bottlenecks.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([name]) => name),
-    creditedSubjects: new Set(entries.filter(item => item.minutes >= 20).map(item => item.subject)),
+    creditedSubjects: new Set(entries.filter(item => item.minutes >= 20).flatMap(item => [item.subject, ...({math:['Pure Math'],mechanics:['Mechanics'],statistics:['Statistics'],physics:['Physics'],cs:['Computer Science']}[item.presetFamily ?? ''] ?? [])])),
   };
 }
 
