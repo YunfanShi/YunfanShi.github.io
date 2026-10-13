@@ -8,7 +8,7 @@ import type { AiQuotaSummary } from '@/components/settings/ai-quota-card';
 import type { BrowserAiProvider } from '@/lib/browser-ai';
 import { getFeatureAccessSnapshot } from '@/actions/reader';
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ section?: string; pair?: string }> }) {
   // Wrap ALL async calls in try/catch to prevent page crash
   let hasPassword = false;
   let aiConfig: { baseUrl: string; apiKey: string; model: string; providerMode: 'cloud' | 'personal' | 'browser'; browserProvider: BrowserAiProvider; companionAutomation: boolean } = { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud', browserProvider: 'chatgpt', companionAutomation: false };
@@ -19,6 +19,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   let cloudSettings: Record<string, Record<string, unknown>> = {};
   let companionDevices: CompanionDeviceView[] = [];
   let section: string | undefined;
+  let pair: string | undefined;
   let aiQuota: AiQuotaSummary = { plan: 'free', dailyLimit: 20000, monthlyLimit: 300000, dailyUsed: 0, monthlyUsed: 0, maxOutput: 8000, siteGenerations: 0, siteGenerationLimit: 5 };
   let betaActive = false;
   let redemptionAccess: import('@/actions/reader').FeatureAccess | null = null;
@@ -30,7 +31,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     getSidebarPreferences(),
     getFeatureAccessSnapshot(),
   ]);
-  if (searchResult.status === 'fulfilled') section = searchResult.value.section;
+  if (searchResult.status === 'fulfilled') { section = searchResult.value.section; pair = searchResult.value.pair; }
   if (passwordResult.status === 'fulfilled') hasPassword = passwordResult.value;
   if (aiResult.status === 'fulfilled') aiConfig = aiResult.value;
   if (sidebarResult.status === 'fulfilled') sidebarPrefs = sidebarResult.value;
@@ -72,6 +73,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       cloudSettings={cloudSettings}
       companionDevices={companionDevices}
       initialSection={section}
+      initialWatchPair={pair}
       aiQuota={aiQuota}
       betaActive={betaActive}
       redemptionAccess={redemptionAccess}

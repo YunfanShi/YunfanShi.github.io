@@ -28,6 +28,7 @@ import AiVisibilityControl from '@/components/settings/ai-visibility-control';
 import RedemptionCenter from '@/components/settings/redemption-center';
 import type { FeatureAccess } from '@/actions/reader';
 import BrandLogo from '@/components/brand-logo';
+import WatchSettingsPanel from '@/components/settings/watch-settings-panel';
 import AccountConnectionsPanel from '@/components/settings/account-connections-panel';
 
 const categories = [
@@ -35,6 +36,7 @@ const categories = [
   { id: 'pages', label: '各页面偏好', icon: 'dashboard_customize', keywords: '页面 字号 阅读 宽度 密度 动画 网络 预加载' },
   { id: 'offline', label: '离线与 PWA', icon: 'offline_bolt', keywords: '缓存 下载 网络 离线 PWA 安装' },
   { id: 'account', label: '账户与安全', icon: 'manage_accounts', keywords: '头像 密码 个人资料 登录' },
+  { id: 'watch', label: '手表与设备', icon: 'watch', keywords: 'Watch 华为 手表 扫码 配对 登录 设备 APK' },
   { id: 'connections', label: '账户关联', icon: 'link', keywords: '滴答清单 Dida365 第三方 任务 同步' },
   { id: 'redemption', label: '兑换码', icon: 'redeem', keywords: '兑换码 图书 会员 Plus Pro Ultra' },
   { id: 'appearance', label: '外观', icon: 'palette', keywords: '主题 动画 密度 全屏' },
@@ -62,6 +64,7 @@ interface Props {
   cloudSettings: Record<string, Record<string, unknown>>;
   companionDevices: CompanionDeviceView[];
   initialSection?: string;
+  initialWatchPair?: string;
   aiQuota: AiQuotaSummary;
   betaActive: boolean;
   redemptionAccess: FeatureAccess | null;
@@ -94,7 +97,8 @@ export default function SettingsContent(props: Props) {
         {active === 'pages' && <Panel title="各页面偏好" description="每个页面独立调整；保存后立即生效，并在登录后同步到云端。"><PagePreferencesPanel initialValue={settings.page_preferences || {}} learning={settings.learning_preferences || {}} companion={settings.companion_preferences || {}} /></Panel>}
         {active === 'offline' && <Panel title="离线工作区" description="访问过的本地工作页面可在短时断网时继续使用。AI、云端图书与账号管理需要联网。"><OfflineSettingsPanel /></Panel>}
         {active === 'general' && <><Panel title="空闲休眠"><WorkspaceIdleSettings /></Panel><Panel title="语言"><LanguageSwitcher /></Panel><Panel title="常规" description="控制启动、通知和时间显示。"><CloudPreferencesPanel sectionKey="general_preferences" initialValue={{ startPage: 'dashboard', timezone: 'auto', notifications: true, ...(settings.general_preferences || {}) }} fields={[{ key: 'startPage', label: '登录后的启动页面', description: '完成登录后默认打开的模块', type: 'select', options: [{ value: 'dashboard', label: 'Dashboard' }, { value: 'study', label: '学习计划' }, { value: 'time-management', label: '时间管理' }] }, { key: 'timezone', label: '时区', description: '自动跟随浏览器，或固定使用中国标准时间', type: 'select', options: [{ value: 'auto', label: '自动' }, { value: 'Asia/Shanghai', label: 'Asia/Shanghai' }] }, { key: 'notifications', label: '网站通知', description: '允许任务、专注和同步状态提醒', type: 'boolean' }]} /></Panel></>}
-        {active === 'account' && (isGuest ? <Panel title="账户与安全" description="游客没有云端账户资料。"><Link href="/login?next=/settings" className="inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white"><span className="material-icons-round text-lg">login</span>登录或注册</Link></Panel> : <><Panel title="个人资料"><ProfileEditor initialName={props.displayName} initialAvatar={props.avatarUrl} userId={props.userId} /></Panel><Panel title="手表登录与设备管理" description="扫码授权自己的手表，或撤销已连接设备。"><button type="button" onClick={() => window.location.assign("/settings/watch")} className="inline-flex min-h-11 items-center rounded-xl border border-[var(--card-border)] px-4 py-2.5 text-sm font-semibold">扫码登录手表与管理设备</button></Panel><Panel title="账户安全"><ChangePasswordPanel hasPassword={props.hasPassword} /><Link href="/reset-password" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#1a73e8]"><span className="material-icons-round text-lg">email</span>通过邮件重置密码</Link></Panel></>)}
+        {active === 'watch' && <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-6"><WatchSettingsPanel initialPair={props.initialWatchPair ?? ''} /><Link href="/products#watch" className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-[#1a73e8]">了解 JackYun Watch 与获取测试安装包 →</Link></div>}
+        {active === 'account' && (isGuest ? <Panel title="账户与安全" description="游客没有云端账户资料。"><Link href="/login?next=/settings" className="inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white"><span className="material-icons-round text-lg">login</span>登录或注册</Link></Panel> : <><Panel title="个人资料"><ProfileEditor initialName={props.displayName} initialAvatar={props.avatarUrl} userId={props.userId} /></Panel><Panel title="账户安全"><ChangePasswordPanel hasPassword={props.hasPassword} /><Link href="/reset-password" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#1a73e8]"><span className="material-icons-round text-lg">email</span>通过邮件重置密码</Link></Panel></>)}
         {active === 'connections' && (isGuest ? <Panel title="账户关联" description="登录后才能安全地保存第三方账户令牌。"><Link href="/login?next=/settings?section=connections" className="inline-flex rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">登录后关联账户</Link></Panel> : <Panel title="账户关联" description="集中管理可供 JackYun 调用的外部账户；每次发送任务仍由你手动确认。"><AccountConnectionsPanel /></Panel>)}
         {active === 'redemption' && redemptionVisible && <Panel title="兑换码" description="兑换图书或会员权益；成功后会自动同步到同一账号的所有设备。"><RedemptionCenter signedIn={!isGuest} /></Panel>}
         {active === 'appearance' && <><Panel title="外观" description="修改会先保留为草稿，点击保存后才应用并同步。"><CloudPreferencesPanel sectionKey="appearance_preferences" initialValue={{ theme: 'light', density: 'comfortable', reducedMotion: false, showFullscreen: true, ...(settings.appearance_preferences || {}) }} fields={[{ key: 'theme', label: '主题', description: '选择亮色、灰色或深色界面', type: 'select', options: [{ value: 'light', label: '亮色' }, { value: 'gray', label: '灰色' }, { value: 'dark', label: '深色' }] }, { key: 'density', label: '界面密度', description: '调整列表和卡片的间距', type: 'select', options: [{ value: 'comfortable', label: '舒适' }, { value: 'compact', label: '紧凑' }] }, { key: 'reducedMotion', label: '减少动态效果', description: '减少页面转场和悬浮动画；默认关闭', type: 'boolean' }, { key: 'showFullscreen', label: '全屏按钮', description: '在顶栏显示全屏切换按钮；新设备默认开启', type: 'boolean' }]} /></Panel><Panel title="AI 界面微调" description="让 AI 输出安全的界面状态来改变外观，不控制 AI 助手的显示。"><AiVisibilityControl /></Panel></>}

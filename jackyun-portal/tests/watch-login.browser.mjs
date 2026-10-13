@@ -22,6 +22,10 @@ try{
   });
   const response=await page.goto(base+'/settings/watch',{waitUntil:'domcontentloaded',timeout:60000});
   assert.equal(response.status(),200);assert.match(response.headers()['permissions-policy'],/camera=\(self\)/);
+  await page.waitForURL(url=>url.pathname==='/settings' && url.searchParams.get('section')==='watch');
+  assert.equal(new URL(page.url()).searchParams.get('section'),'watch');
+  if(width<1024) assert.equal(await page.getByRole('combobox',{name:'设置分类'}).inputValue(),'watch');
+  else await page.getByRole('button',{name:'手表与设备',exact:false}).waitFor();
   await page.getByRole('heading',{name:'手表登录与设备管理'}).waitFor();
   await page.getByText('WATCH 4 测试设备',{exact:true}).waitFor();
   await page.getByRole('textbox',{name:'配对码或登录二维码内容'}).fill('12345678');
@@ -34,6 +38,15 @@ try{
   await page.getByRole('status').filter({hasText:'授权已撤销'}).waitFor();assert.equal(revoked,1);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.deepEqual(errors,[]);results.push({width,explicitApproval:true,revocation:true,noOverflow:true,errors});
+  await page.goto(base+'/products#watch');
+  await page.locator('#watch').scrollIntoViewIfNeeded();
+  await page.locator('#watch a[href="/settings?section=watch"]').waitFor();
+  assert.equal(await page.locator('#watch a').count(),2);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:`${out}/watch-product-${width}.png`,fullPage:false});
+  await page.goto(base+'/settings/watch?pair=12345678');
+  await page.waitForURL(url=>url.pathname==='/settings' && url.searchParams.get('pair')==='12345678');
+  assert.equal(new URL(page.url()).searchParams.get('pair'),'12345678');
   await context.close();
  }
 }finally{await browser.close();await writeFile(out+'/browser-results.json',JSON.stringify(results,null,2));}

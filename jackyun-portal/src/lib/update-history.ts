@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.12.1', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手表设置与产品入口', summary: '手表管理成为独立设置分类，Products 增加 JackYun Watch。', categories: ['平台体验'], accent: 'blue', highlights: ['电脑、平板和手机均可从手表与设备分类扫码或输入配对码。', '旧二维码链接自动进入新分类并保留配对信息。', '产品页提供功能介绍、测试安装包与登录管理入口。'] },
   { version: '3.12.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '连接 JackYun Watch', summary: '扫码或账号密码登录原生手表客户端，查看课表和基础学习信息。', categories: ['平台体验'], accent: 'blue', highlights: ['账户设置增加扫码授权、配对码和手表撤销管理。', '手表使用独立设备凭证，真实账号会话仅保存在服务端。', '新增版本化课表、任务、通知、倒计日与 CUE 概览接口，离线操作去重并检查冲突。'] },
   { version: '3.11.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手机与平板拥有自己的工作区', summary: '沿用原有风格，按屏幕空间与主要输入方式适配导航、课表和学习。', categories: ['平台体验', '学习体验'], accent: 'blue', highlights: ['宽屏触控平板也使用抽屉与底部导航，触屏电脑的主要指针仍按实际能力判断。', '手机先看当前课程，平板双栏；周课表按日展示，日程常用入口直接可见。', '触控学习采用底栏评价，软键盘改变可用高度时保持设备布局，旧模块共享触控适配。'] },
   { version: '3.10.0', date: '2026-10-12', dateLabel: '2026 年 10 月 12 日', title: '今日课表显示实时上课进度', summary: '当前课程、时段和时长集中显示，逐秒倒计时直到下课。', categories: ['学习体验'], accent: 'blue', highlights: ['上课显示已上时长、进度与下课倒计时。', '课间显示下一节及上课倒计时，边界自动切换。', '保留原有课表风格，假日及其他日期不显示实时上课状态。'] },

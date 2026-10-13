@@ -46,6 +46,10 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/settings',
+        headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
+      },
+      {
         source: '/settings/watch',
         headers: [{ key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' }],
       },

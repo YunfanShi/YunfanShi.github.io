@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#050506">
-  <meta name="description" content="探索 JackYun PWA 与 JackYun Companion。把学习工作区带到桌面，让浏览器成为专注搭档。">
+  <meta name="description" content="探索 JackYun PWA、Companion 与 Watch。把学习空间带到桌面、浏览器与手腕。">
   <title>JackYun Products</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/Webicon.png">
@@ -14,7 +14,7 @@
   <style>
     :root{--ink:#f5f5f7;--muted:#9a9aa2;--line:rgba(255,255,255,.12);--blue:#7db4ff;--amber:#e8a94c;--green:#7ee2b8;--ease:cubic-bezier(.2,.8,.2,1);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","PingFang SC",sans-serif;color-scheme:dark}
     *{box-sizing:border-box}
-    html{scroll-behavior:smooth;background:#050506}
+    html{scroll-behavior:smooth;background:#050506;overflow-x:clip}
     body{margin:0;background:#050506;color:var(--ink);overflow-x:hidden;-webkit-font-smoothing:antialiased}
     a{color:inherit;text-decoration:none}
     button{font:inherit}
@@ -118,7 +118,7 @@
   <div class="ambient" aria-hidden="true"></div>
   <nav class="nav" aria-label="Products 导航">
     <a class="brand" href="#top"><img src="/jackyun-logo.png" alt=""><span>JackYun Products</span></a>
-    <div class="nav-links"><a href="#pwa">PWA</a><a href="#companion">Companion</a><a href="#together">协同</a></div>
+    <div class="nav-links"><a href="#pwa">PWA</a><a href="#companion">Companion</a><a href="#watch">Watch</a><a href="#together">协同</a></div>
     <a class="nav-home" href="/settings"><span>返回设置</span><b aria-hidden="true">↗</b></a>
   </nav>
 
@@ -127,11 +127,12 @@
       <div class="hero-inner">
         <span class="eyebrow">JackYun Product Family</span>
         <h1><span>让专注，拥有自己的形态。</span></h1>
-        <p class="hero-copy">一个住进你的设备，一个守在你的浏览器。学习、专注与灵感，从此不再局限于某一个标签页。</p>
-        <div class="hero-products" aria-label="JackYun 两款产品">
+        <p class="hero-copy">学习空间住进设备，浏览器记录专注，手表带来课表与提醒。学习、专注与灵感，从此不再局限于某一个标签页。</p>
+        <div class="hero-products" aria-label="JackYun PWA 与 Companion">
           <a class="hero-tile" href="#pwa"><img class="app-mark" src="/jackyun-logo.png" alt="JackYun PWA"><span class="tile-label">JackYun PWA</span></a>
           <a class="hero-tile" href="#companion"><img class="companion-mark" src="/jackyun-logo.png" alt="JackYun Companion"><span class="tile-label">JackYun Companion</span></a>
         </div>
+        <div class="actions" style="justify-content:center;margin-top:24px"><a class="button secondary" href="#watch">探索 JackYun Watch ↓</a></div>
         <span class="scroll-cue"><i></i> Explore the family</span>
       </div>
     </section>
@@ -179,8 +180,18 @@
       </div>
     </section>
 
+    <section class="chapter" id="watch">
+      <div class="chapter-inner">
+        <header class="chapter-head reveal"><span class="kicker">JackYun Watch</span><h2>抬起手腕，<br>看见下一件事。</h2><p class="chapter-lead">原生手表客户端，把课表、提醒与基础操作放在手边。面向 HUAWEI WATCH 4 的独立联网测试版。</p></header>
+        <div class="stage companion-stage reveal">
+          <div class="product-copy"><span class="product-number">PRODUCT 03 / NATIVE WATCH APP</span><h3>为手腕上的操作而设计。</h3><p>横向切换栏目，纵向浏览卡片。圆屏和方屏提供相同的基础功能；缓存课表，断网时也能查看课程和使用专注计时。</p><div class="actions"><a class="button blue" href="/settings?section=watch">扫码登录与管理手表 <b aria-hidden="true">↗</b></a><a class="button secondary" href="https://github.com/YunfanShi/JackYun-Watch/blob/main/releases/JackYun-Watch-1.1.0-beta.1.apk" target="_blank" rel="noopener">获取测试 APK <b aria-hidden="true">↓</b></a></div><p class="microcopy">1.1.0-beta.1 · 原生 Android APK · 测试包在私有仓库，需仓库访问权限。WATCH 4 的安装、锁屏提醒与耗电仍需真机验证。</p></div>
+          <div class="feature-row"><article class="feature"><span class="feature-index">01</span><h4>课表与提醒</h4><p>当前课程、下一节课、上下课时间和倒计时，配合本地提醒。</p></article><article class="feature"><span class="feature-index">02</span><h4>任务与通知</h4><p>查看今日任务、完成或撤销完成，阅读账号通知并标记已读。</p></article><article class="feature"><span class="feature-index">03</span><h4>专注与倒计日</h4><p>开始、暂停或继续专注计时，查看重要日期还有多少天。</p></article><article class="feature"><span class="feature-index">04</span><h4>CUE 与同步</h4><p>查看待学数量和学科分布，离线操作在恢复联网后提交。</p></article></div>
+        </div>
+      </div>
+    </section>
+
     <section class="ecosystem" id="together">
-      <div class="ecosystem-inner reveal"><span class="kicker">Better together</span><h2>不是两个工具。<br>是同一个学习系统的两种存在。</h2><p>PWA 负责你的学习空间，Companion 连接浏览器里的每一次行动。账号、专注与进度在它们之间自然流动。</p><div class="orbit" aria-hidden="true"><div class="orbit-core"><img src="/jackyun-logo.png" alt=""></div><span class="orbit-product pwa">PWA · Your workspace</span><span class="orbit-product companion">Companion · Your browser</span><span class="orbit-product cloud">Sync · Your progress</span></div><div class="closing-actions"><button class="button blue" type="button" data-install-pwa>安装 PWA</button><a class="button amber" href="/downloads/jackyun-companion-v1.7.8.zip" download>下载 Companion</a></div></div>
+      <div class="ecosystem-inner reveal"><span class="kicker">Better together</span><h2>同一个学习空间。<br>在不同设备上陪伴你。</h2><p>PWA 负责完整学习空间，Companion 记录浏览器中的专注，Watch 将课表与提醒带到手腕。它们连接同一个 JackYun 账号。</p><div class="orbit" aria-hidden="true"><div class="orbit-core"><img src="/jackyun-logo.png" alt=""></div><span class="orbit-product pwa">PWA · Your workspace</span><span class="orbit-product companion">Companion · Your browser</span><span class="orbit-product cloud">Sync · Your progress</span></div><div class="closing-actions"><button class="button blue" type="button" data-install-pwa>安装 PWA</button><a class="button amber" href="/downloads/jackyun-companion-v1.7.8.zip" download>下载 Companion</a></div></div>
     </section>
   </main>
 
