@@ -1,0 +1,90 @@
+{
+  "id": 38375671900,
+  "head_sha": "0762333b6c4268378f10a961ad3136b64acce381",
+  "status": "completed",
+  "conclusion": "success",
+  "html_url": "https://github.com/YunfanShi/JackYun-Watch/actions/runs/38375671900",
+  "jobs": [
+    {
+      "id": 115223290855,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Run actions/setup-java@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Install required Android SDK packages",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Run gradle/actions/setup-gradle@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Read application version",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Build and verify optimized watch APK",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Upload validation reports",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Post Run gradle/actions/setup-gradle@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Post Run actions/setup-java@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "JackYun-Watch-1.3.0-beta.1-ci",
+      "size_in_bytes": 328098
+    },
+    {
+      "name": "watch-validation-38375671900",
+      "size_in_bytes": 27308
+    }
+  ]
+}

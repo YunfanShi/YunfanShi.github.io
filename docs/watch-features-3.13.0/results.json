@@ -1,0 +1,20 @@
+{
+  "watchVersion": "1.3.0-beta.1",
+  "portalVersion": "3.13.0",
+  "apkBytes": 333775,
+  "sha256": "b7268a5992e23d4ec7aad4b6fdbd0a018d30ecd021d4d899d0ca76a9bbff15ef",
+  "androidUnitTests": 9,
+  "androidLintErrors": 0,
+  "androidLintWarnings": 17,
+  "webFeatureTests": 13,
+  "webBuild": "passed",
+  "emulator": "400 x 400 round and square offline UI passed; native reader clipping assertion passed",
+  "physicalWatch": "not measured",
+  "incompleteChecks": [
+    "legacy-ui 4 existing assertions failed",
+    "reader-admin 1 existing assertion failed",
+    "Companion hosted catalog stale",
+    "Companion preview archive stale"
+  ],
+  "securityScan": "passed in original Git checkout"
+}

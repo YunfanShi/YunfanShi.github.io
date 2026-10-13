@@ -1,0 +1,26 @@
+{
+  "deploymentId": "dpl_EKTbiqKo4jzE4jYyQjvZdBZdGPYP",
+  "portalCommit": "eac4d1533da96160ae12a61a680e5291b993f9ff",
+  "watchCommit": "0762333b6c4268378f10a961ad3136b64acce381",
+  "ciUrl": "https://github.com/YunfanShi/JackYun-Watch/actions/runs/38375671900",
+  "state": "READY",
+  "ci": "success",
+  "liveChecks": [
+    {
+      "route": "reader/list",
+      "status": 401,
+      "body": "{\"error\":\"请重新登录\",\"code\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "route": "ai",
+      "status": 401,
+      "body": "{\"error\":\"请重新登录\",\"code\":\"UNAUTHORIZED\"}"
+    },
+    {
+      "route": "products",
+      "status": 200,
+      "versionLink": true
+    }
+  ],
+  "alias": "jackyun.top"
+}
