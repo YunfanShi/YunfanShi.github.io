@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { studyButtonClass } from './question-bank-manager';
 const steps = [
+  { title: '先安排本周限时新题', text: '主科各一次 20–30 分钟，Statistics / CS 轮换约 20 分钟。新作业题首次独立计时可抵扣；先做题，再修 Cue/PQ。今日与周视图的限时新题卡片可安排训练并记录首次用时、✓ / △ / ○ 和主要卡点；熟题 A 与整卷 C 单独保留，不计新题正确率。', target: 'today' },
   { title: 'Schedule：先看今天需要做什么', text: '今天和周视图汇总课程、手动任务与到期复习。先配置学习目录，再导入课表；无课表也能直接学习。课程较多时自动减少批次，剩余复习顺延。', target: 'today' },
   { title: '知识 CUE 和题库分别管理', text: '知识 CUE 用于检索核心概念；题库用于日常练习，保存来源、短编号、答案解析和独立历史。它们共用学科和 Unit，题目可以关联 CUE。', target: 'questions' },
   { title: '把笔记交给 AI，再预览导入', text: '在批量导入中点“复制提示词及数据”，附上当前笔记和要求交给 AI。将 JSON 导回并检查；修改使用真实 ID。“导出当前数据”保存当前范围内容，完整历史恢复请使用账户备份。AI 标记缺图后，在题库编辑上传并关联图片。', target: 'questions' },

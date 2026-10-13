@@ -7,7 +7,7 @@ export function scheduleHasContent(value: unknown): boolean {
   if (state.timetable != null) return true;
   if (typeof state.importedAt === 'string' && state.importedAt.length > 0) return true;
   return ['manualTasks', 'completions', 'cancellations', 'reviewProgress', 'cues',
-    'cueReviews', 'learningRecords', 'learningCatalog', 'learningReminders',
+    'timedPracticeRecords', 'cueReviews', 'learningRecords', 'learningCatalog', 'learningReminders',
     'cueCollectionUpdates', 'cueChangeHistory', 'cueMemos', 'cueAnswerCards', 'cueSimilarityDecisions'].some((key) => {
       const item = state[key];
       return Array.isArray(item) ? item.length > 0 : Boolean(item && typeof item === 'object' && Object.keys(item).length > 0);

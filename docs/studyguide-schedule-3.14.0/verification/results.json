@@ -1,0 +1,28 @@
+[
+  {
+    "width": 390,
+    "passed": true,
+    "checked": [
+      "plan once",
+      "homework credit",
+      "first-attempt metrics",
+      "reload",
+      "repair exclusion",
+      "guide deep link",
+      "no overflow"
+    ]
+  },
+  {
+    "width": 1440,
+    "passed": true,
+    "checked": [
+      "plan once",
+      "homework credit",
+      "first-attempt metrics",
+      "reload",
+      "repair exclusion",
+      "guide deep link",
+      "no overflow"
+    ]
+  }
+]

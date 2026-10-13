@@ -1,0 +1,15 @@
+{
+  "version": "3.14.0",
+  "date": "2026-10-13",
+  "baseMainCommit": "eac4d15",
+  "source": "User-provided 2026-10-13 current revision in chat; linked Google Docs requires login",
+  "contentCheck": "passed: StudyGuide content, legacy progress compatibility, IELTS and revised exam date boundaries",
+  "domainRegression": { "passed": 140, "failed": 0, "suites": ["timed-practice", "learning-domain", "question-bank", "sync-v2", "workspace-sync-recovery", "watch-domain", "watch-features"] },
+  "lint": "passed for modified learning, Schedule and test files",
+  "typecheck": "passed",
+  "productionBuild": "passed on latest Main with only this task's staged changes",
+  "buildEnvironment": "Isolated copy shares repository node_modules via junction; outputFileTracingRoot set to workspace for that copy only. No deployment configuration change.",
+  "browser": "Production build tested at 390 and 1440 pixels; see results.json",
+  "docx": { "pages": 4, "browserPreview": "all pages visually inspected without overflow", "renderer": "docx-preview 0.4.1", "limitation": "Canonical render_docx.py could not run because bundled LibreOffice is unavailable on Windows. Native Word/LibreOffice pagination has not been verified." },
+  "scope": "Only StudyGuide, Schedule timed practice, compatibility fields, version, tests and documentation. Other pre-existing workspace changes preserved."
+}

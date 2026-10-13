@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.14.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '独立限时新题成为固定训练', summary: 'StudyGuide 与 Schedule 对齐当前执行版，先动笔，再修主要卡点。', categories: ['学习体验'], accent: 'blue', highlights: ['三门主科每周训练，Statistics / CS 轮换；首次独立计时的新作业题可抵扣。', '训练记录区分新题、熟题修复与整卷模拟，显示按时正确率、超时和卡点。', '修复后换新题验证，考前按剩余天数调整，时间不足时优先作业与新题。'] },
   { version: '3.13.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: 'Watch 阅读与日常功能', summary: '手表加入原生阅读、日程、计划、睡眠逆向、学习活动、工具箱和 JackYun AI。', categories: ['平台体验'], accent: 'blue', highlights: ['当前课程与下一节课同时显示，保留上下课倒计时。', '阅读器分段载入正文，原生分页、字号、目录和本机续读。', '日程复用 Schedule，AI 使用现有账号权限与平台配额。'] },
   { version: '3.12.2', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: 'Watch 轻量测试版', summary: 'Products 更新手表测试包，减少切换和长列表的负担。', categories: ['平台体验'], accent: 'blue', highlights: ['手表栏目复用页面并保留滚动位置，长列表每页显示十二条。', '首页提供任务、通知、专注、CUE 与重要日期快捷入口。', '原生安装包启用代码与资源裁剪，实际流畅度仍需真机验收。'] },
   { version: '3.12.1', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手表设置与产品入口', summary: '手表管理成为独立设置分类，Products 增加 JackYun Watch。', categories: ['平台体验'], accent: 'blue', highlights: ['电脑、平板和手机均可从手表与设备分类扫码或输入配对码。', '旧二维码链接自动进入新分类并保留配对信息。', '产品页提供功能介绍、测试安装包与登录管理入口。'] },

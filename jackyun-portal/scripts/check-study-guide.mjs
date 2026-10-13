@@ -5,7 +5,7 @@ const html = readFileSync('public/StudyGuide.html', 'utf8');
 
 const required = [
   '执行中心', '学习', '习题', '考试', '学习闭环', '执行与专注', 'IELTS 专项',
-  '内容版本 2026-09-19', 'studyguide_progress',
+  '内容版本 2026-10-13', 'studyguide_progress',
   '今日', '本周', '每两周', '当前没有考试叠加计划',
   'Preview Once', 'Class Learning → Write Cue → Textbook Check', 'Need Extra Verification?', 'Homework → Update from Evidence', 'Cue Recall → √ / △ / ○',
   '检查本周 Notes', '对照资料补 Notes 与 Cue', '逐条 Cue Retrieval', 'Evidence Review → Targeted Repair', '安排后续复习范围',
@@ -55,7 +55,7 @@ const required = [
   'dashboardPeriod', 'moduleGranule', 'activeExamPlan', 'weeklyReviewDay',
   'getISOWeekKey', 'studyguide_last_retention_review', 'navigateToMethod',
   '查看详细说明', 'renderExpandedDetails',
-  '14d879P1Li640upWdYp6ngxyK_XH00aZge_03Ep4GO4c',
+  '1UwFnXLYsxqOnAzKGhg65JtCJrVH7i9w1GeTrJJ75PCI',
   'BV1tibi6xEN4', 'BV1EhB9BLEHs', 'BV1MCZjB3EzQ',
   'BV1UL9uBrEyk', 'BV155djBVEva', 'BV1SSGn6kEUb',
   'onkeydown="if(event.key===\'Enter\'||event.key===\' \'',
@@ -123,8 +123,8 @@ vm.runInNewContext(`${script};globalThis.__studyGuideTest = {
 
 const runtime = sandbox.__studyGuideTest;
 for (const period of ['daily', 'weekly', 'biweekly']) {
-  if (runtime.getTimelineItems(period).length !== 5) {
-    throw new Error(`Execution Center ${period} period must contain five focused steps`);
+  if (runtime.getTimelineItems(period).length !== (period === 'biweekly' ? 5 : 6)) {
+    throw new Error(`Execution Center ${period} period has an unexpected step count`);
   }
 }
 if (runtime.getISOWeekKey(new Date(2026, 7, 24)) !== 'week:2026-W35') {
@@ -144,7 +144,7 @@ if (!runtime.renderToday().includes('执行中心')) {
 }
 const expectedTabs = {
   learn: ['preview', 'cornell', 'review', 'traffic', 'selfstudy'],
-  practice: ['general', 'types', 'diagnose', 'stuck'],
+  practice: ['timed', 'general', 'types', 'diagnose', 'stuck'],
   exam: ['school', 'major', 'strategy'],
   workflow: ['loop'],
   procrastination: ['plan', 'start', 'focus'],
@@ -276,6 +276,14 @@ const modern = runtime.getExamPlanAdvice({ date: examDate(7) }, baseDate);
 const legacy = runtime.getExamPlanAdvice({ date: examDate(7), kind: '3week' }, baseDate);
 if (JSON.stringify(modern) !== JSON.stringify(legacy)) {
   throw new Error('Legacy activeExamPlan.kind must be ignored safely');
+}
+
+const timed = runtime.renderModuleFor('practice', 'timed');
+for (const text of ['三门主科固定训练', '首次接触且独立计时', '✓ 正确且按时', '△ 正确但超时', 'A / B / C', '约 90 秒', '70% 新内容 + 30%', '新题 Transfer']) {
+  if (!timed.includes(text)) throw new Error(`Timed new-question guide is missing: ${text}`);
+}
+for (const [days, expected] of [[1, '动笔热身'], [2, '混合限时小测'], [3, '混合限时小测'], [4, '陌生新题'], [7, '陌生新题']]) {
+  if (!runtime.getExamPlanAdvice({ date: examDate(days) }, baseDate).current.includes(expected)) throw new Error(`Revised exam advice failed for ${days} days`);
 }
 
 console.log('Study Guide content, compatibility, and IELTS module checks passed.');

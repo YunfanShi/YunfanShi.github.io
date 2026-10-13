@@ -1,3 +1,4 @@
+import type { TimedPracticeRecord } from './timed-practice.ts';
 import type { CueGameAccount } from './cue-shop.ts';
 import type { CuePracticeState } from './cue-practice.ts';
 import type { CueAnswerCard } from './cue-answer-card.ts';
@@ -464,6 +465,7 @@ export interface CueMemo {
 
 export interface ScheduleControlState {
   schemaVersion: 1;
+  timedPracticeRecords?: TimedPracticeRecord[];
   /** One-time migration marker for existing Cue review plans. */
   cueScheduleRevision?: number;
   dailyLearningAdvice?: DailyLearningAdvice;
@@ -535,6 +537,11 @@ export const LEARNING_MATERIALS: ReadonlyArray<{ code: LearningMaterialCode; lab
 ];
 
 export const LEARNING_TASK_PRESETS: ReadonlyArray<LearningTaskPreset> = [
+  { id: 'timed-new-pure-math', label: '限时新题 · Pure Math', group: '练习与修复', type: 'practice', durationMinutes: 25, title: '限时新题 · Pure Math', note: '选未见 B 类新题，从读题起独立计时；首次接触的独立计时作业可抵扣。首次 ✓ / △ / ○ → 只修主要卡点 → 换新题复测。', guide: { tab: 'practice', subTab: 'timed' } },
+  { id: 'timed-new-mechanics', label: '限时新题 · Mechanics', group: '练习与修复', type: 'practice', durationMinutes: 25, title: '限时新题 · Mechanics', note: '选未见 B 类新题，从读题起独立计时；首次接触的独立计时作业可抵扣。首次 ✓ / △ / ○ → 只修主要卡点 → 换新题复测。', guide: { tab: 'practice', subTab: 'timed' } },
+  { id: 'timed-new-physics', label: '限时新题 · Physics', group: '练习与修复', type: 'practice', durationMinutes: 25, title: '限时新题 · Physics', note: '选未见 B 类新题，从读题起独立计时；首次接触的独立计时作业可抵扣。首次 ✓ / △ / ○ → 只修主要卡点 → 换新题复测。', guide: { tab: 'practice', subTab: 'timed' } },
+  { id: 'timed-new-statistics', label: '限时新题 · Statistics', group: '练习与修复', type: 'practice', durationMinutes: 20, title: '限时新题 · Statistics', note: '选未见 B 类新题，从读题起独立计时；首次接触的独立计时作业可抵扣。首次 ✓ / △ / ○ → 只修主要卡点 → 换新题复测。', guide: { tab: 'practice', subTab: 'timed' } },
+  { id: 'timed-new-computer-science', label: '限时新题 · Computer Science', group: '练习与修复', type: 'practice', durationMinutes: 20, title: '限时新题 · Computer Science', note: '选未见 B 类新题，从读题起独立计时；首次接触的独立计时作业可抵扣。首次 ✓ / △ / ○ → 只修主要卡点 → 换新题复测。', guide: { tab: 'practice', subTab: 'timed' } },
   { id: 'learn-content', label: '学习新内容', group: '常规学习', type: 'study', durationMinutes: 45, title: '学习新内容', note: '记录实际学到的范围，并为需要检索的内容建立 Cue。', guide: { tab: 'learn', subTab: 'cornell' } },
   { id: 'after-class-cues', label: '课后整理 Notes + Cue', group: '常规学习', type: 'study', durationMinutes: 30, title: '整理 Notes 并创建 Cue', note: '只补课堂留下的缺口；Cue 按大单元整理。', guide: { tab: 'learn', subTab: 'cornell' } },
   { id: 'self-study', label: '自学未理解内容', group: '常规学习', type: 'self-study', durationMinutes: 50, title: '自学未理解内容', note: '定位最小知识缺口，学习后用一个 Cue 或代表任务验证。', guide: { tab: 'learn', subTab: 'selfstudy' } },
@@ -572,6 +579,7 @@ export function createEmptyScheduleState(): ScheduleControlState {
   return {
     schemaVersion: 1,
     cueScheduleRevision: 5,
+    timedPracticeRecords: [],
     timetable: null,
     settings: { ...DEFAULT_SCHEDULE_SETTINGS },
     manualTasks: [],
