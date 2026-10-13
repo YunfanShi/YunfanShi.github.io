@@ -17,3 +17,7 @@ test('agenda follows existing completion and cancellation rules',()=>{
   assert.ok(!snapshot.agenda.some(task=>task.title==='Done'));
   assert.ok(snapshot.learningRecords.length===0);
 });
+test('reader jump starts before an emoji instead of splitting its surrogate pair',()=>{
+  const segment=readerSegment('ab😀cd',3);
+  assert.equal(segment.offset,2);assert.equal(segment.content,'😀cd');
+});
