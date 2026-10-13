@@ -1,0 +1,39 @@
+body.focus{overflow:hidden}
+.focus .shell{padding:0;max-width:none}
+.focus .shell>header,.focus #notice,.focus #settings,.focus #history,.focus #setup,.focus aside,.focus #workspace .layout>div>.card:not(.hero){display:none!important}
+.focus .hero{position:fixed;inset:0;border:0;border-radius:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 24px 85px;min-height:0;background:radial-gradient(ellipse at center,#ffffff55,transparent 70%),var(--wash)}
+.focus .hero::before{width:85vmin;height:85vmin;left:calc(50% - 42.5vmin);top:calc(50% - 42.5vmin);border-color:#ffffff30}
+.focus .total{position:absolute;top:24px;right:30px;border:0;padding:0;gap:14px}
+.focus .total strong{font-size:24px}.focus .total .small{display:none}
+.focus #questionLabel{position:absolute;top:22px;left:30%;right:30%;margin:0!important;font-size:13px;color:var(--muted)}
+.focus .dial{width:min(48vmin,460px);height:min(48vmin,460px);min-width:210px;min-height:210px;margin:0 0 22px;padding:6px;flex-shrink:0}
+.focus .clock{font-size:clamp(64px,13vmin,130px);letter-spacing:-5px;font-weight:400}
+.focus .badge{font-size:12px;color:var(--muted)}.focus #used{margin-top:10px}
+.focus #encouragement{font-size:14px;color:var(--muted)}
+.focus .hero .actions{position:relative;margin-top:22px}
+.focus .hero .actions button{background:#ffffff70;border-color:#18352f15;font-size:13px;min-height:42px}
+.focus .hero .actions button.primary{background:var(--accent);color:#fff}
+.focus #enterFocus,.focus #stuckHint{display:none!important}
+.focus #focusTools{position:absolute;left:26px;top:22px;text-align:left;max-width:280px;z-index:2}
+.focus #focusTypeTrigger{min-height:36px;padding:5px 10px;border:1px solid transparent;background:#ffffff40;font-size:12px;color:var(--muted)}
+.focus #focusTypeMenu{border:1px solid #18352f15;border-radius:18px;background:#fffffff5;box-shadow:0 10px 40px #18352f10;margin-top:8px;padding:10px}
+.focus #focusTypes{grid-template-columns:1fr;margin:0;max-height:60vh;overflow:auto}
+.focus #focusTypes .type{min-height:40px;background:transparent;font-size:12px}
+.focus #focusTypes .selected{background:#e4f1ea}.focus #focusTypes small{max-width:230px}
+.focus #exitFocus{position:absolute;right:25px;bottom:24px;border-color:transparent;background:transparent;color:var(--muted);font-size:12px;min-height:36px}
+.focus .hero>.small{position:absolute;bottom:24px;left:26px;text-align:left;max-width:70%;font-size:11px;margin:0}
+@media(max-width:600px){
+  .focus .total{top:22px;right:16px;gap:7px;flex-direction:column;align-items:flex-end}
+  .focus .total strong{font-size:21px}.focus .total .eyebrow{font-size:9px;letter-spacing:1px}
+  .focus #focusTools{left:12px;top:18px;max-width:220px}
+  .focus #questionLabel{top:82px;left:15%;right:15%;font-size:12px}
+  .focus .hero{padding:115px 12px 95px}
+  .focus .hero .actions{gap:5px;flex-wrap:wrap;max-width:330px}.focus .hero .actions button{padding:8px 12px}
+  .focus .hero>.small{left:16px;bottom:65px;max-width:calc(100% - 32px);text-align:center;font-size:10px}
+  .focus #exitFocus{right:16px;bottom:15px}.focus .clock{letter-spacing:-3px}.focus #encouragement{font-size:12px;max-width:320px}
+}
+@media(max-height:520px) and (min-width:601px){
+  .focus .hero{padding:60px 20px}.focus .dial{width:40vh;height:40vh;min-width:135px;min-height:135px;margin-bottom:8px}
+  .focus .clock{font-size:48px;letter-spacing:-2px}.focus .hero .actions{margin-top:10px}
+  .focus .hero>.small{bottom:12px}.focus #exitFocus{bottom:10px}.focus #used{font-size:10px;margin:0}
+}

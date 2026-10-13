@@ -1,0 +1,18 @@
+.page{min-height:100dvh;display:grid;place-items:center;padding:36px 24px;background:radial-gradient(ellipse at 8% 5%,#c5e5d640,transparent 50%),radial-gradient(ellipse at 95% 95%,#dce0ff50,transparent 45%),var(--background)}
+.layout{width:100%;max-width:1100px;display:grid;grid-template-columns:1.1fr 1fr;gap:72px;align-items:center}
+.story{padding:30px 0;color:var(--foreground)}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:70px;font-size:14px;letter-spacing:1px}
+.story h2{font-size:clamp(38px,4.5vw,60px);line-height:1.15;letter-spacing:-2.8px;font-weight:500;margin:0 0 22px}
+.story p{max-width:360px;font-size:15px;line-height:1.9;color:var(--muted-foreground)}
+.scene{margin-top:36px;border:1px solid var(--card-border);border-radius:24px;padding:24px;background:var(--card);box-shadow:0 18px 50px #18372d08;transform:rotate(-2deg)}
+.sceneHeader{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted-foreground)}
+.orbit{display:grid;grid-template-columns:80px 1fr;gap:20px;align-items:center;margin-top:24px}
+.ring{height:80px;border:5px solid #d8e9df;border-top-color:#488876;border-right-color:#488876;border-radius:50%;display:grid;place-items:center;font-size:25px;color:#488876}
+.lines span{display:block;height:7px;background:var(--card-border);border-radius:10px;margin:12px 0}
+.lines span:first-child{width:75%;background:#74aa963a}.lines span:last-child{width:48%}
+.chips{display:flex;gap:8px;margin-top:22px;font-size:11px;color:var(--muted-foreground)}.chips span{border:1px solid var(--card-border);border-radius:20px;padding:6px 10px}
+.form{width:100%;max-width:430px;justify-self:end}.intro{margin-bottom:26px}.intro h1{font-size:30px;font-weight:500;letter-spacing:-1px;margin:10px 0}.intro p{font-size:14px;color:var(--muted-foreground)}
+.card{padding:30px;border:1px solid var(--card-border);border-radius:26px;background:var(--card);box-shadow:0 15px 65px #18372d08}
+.footer{text-align:center;font-size:11px;color:var(--muted-foreground);line-height:1.8;margin:18px 0}.mobileBrand{display:none}
+@media(max-width:850px){.layout{grid-template-columns:1fr;gap:0;max-width:430px}.story{display:none}.form{justify-self:center}.mobileBrand{display:block;margin-bottom:22px}.page{padding:24px 16px}.card{padding:25px}.intro{text-align:center}}
+@media(prefers-reduced-motion:reduce){.scene{transform:none}}

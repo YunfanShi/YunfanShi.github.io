@@ -1,0 +1,165 @@
+(node:63680) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/learning/metrics.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ task presets cover audits, self-study, cue review, and IELTS without fixing weekdays (3.929ms)
+✔ selecting and clearing a Cue subgroup preserves selections outside that subgroup (1.5454ms)
+✔ Cue similarity ignores common words and detects reordered duplicate prompts (4.8322ms)
+✔ a different judgment excludes only that Cue pair and can be undone or invalidated by an edit (23.2567ms)
+✔ IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired (8.4369ms)
+✔ cancelled manual tasks stay out of the due task list (3.5572ms)
+✔ manual tasks can be rescheduled to tomorrow without retaining a stale start time (0.4803ms)
+✔ overdue manual tasks roll into today and merge with an equivalent task already due today (3.1689ms)
+✔ generated tasks can be postponed and keep their context (1.5929ms)
+✔ cues keep independent review states and due dates (4.1311ms)
+✔ Cue review intervals expand with repeated green results and contract after unstable results (2.3533ms)
+✔ Cue review history distinguishes yellow recovery, red recovery, and early repeat reviews (2.2117ms)
+✔ a Cue assessed today is not scheduled or offered for review until tomorrow (1.4278ms)
+✔ edited Cues reopen today after completion and close again after reviewing the new content (4.5408ms)
+✔ existing same-day red plans are moved to tomorrow on the next schedule scan (1.1027ms)
+✔ an edited Cue with two green reviews retains its evidence without a false red label (3.1087ms)
+✔ green interval needs spaced evidence and recovers gradually from yellow and red history (1.028ms)
+✔ Cue status filters share study semantics for manager views (0.2911ms)
+✔ history filters include recovered but unstable Cues and exclude consistently green Cues (0.5734ms)
+✔ old Cue plans are recalculated from saved ratings once without changing unrelated Cues (1.342ms)
+✔ Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope (1.0843ms)
+✔ a class keeps one three-step review sheet and folds its Cue queue into it (11.2852ms)
+✔ subject-level interval review yields to Cue-level scheduling (0.6398ms)
+✔ same-subject review tasks merge across carried and newly generated Cue reviews (2.7906ms)
+✔ every learning task can record actual materials, scope, linked cues, and reviewed cues (1.3889ms)
+✔ learning status is derived only from selected Cue evidence (0.3463ms)
+✔ date keys respect the user time zone around UTC midnight (21.5176ms)
+✔ learning metrics ignore invalid durations and calculate real elapsed time (0.4594ms)
+✔ overdue and due review work is ranked above an ordinary high-priority task (0.6918ms)
+✔ review scheduling grows after success and resets after failure (0.333ms)
+✔ timetable imports are validated without relying on private sample data (2.2255ms)
+✔ learning catalog imports preserve free-text material positions and validate hierarchy (1.8501ms)
+✔ learning catalog imports accept units without subsections (0.2794ms)
+✔ partial catalog imports merge existing data without deleting untouched content (1.7088ms)
+✔ a partial unit rename preserves the rest of the catalog and updates existing Cue references (1.8993ms)
+✔ merging duplicate units keeps the chosen target and migrates every Cue alias (1.1833ms)
+✔ rename import coalesces an existing source and target unit instead of creating duplicates (0.4903ms)
+✔ timetable course names reconcile with learning subjects by meaningful keywords (1.5453ms)
+✔ Cue bulk import accepts mixed create and update operations with explicit actions (1.4944ms)
+✔ Cue unit reconciliation applies one user choice to create and update operations (0.3689ms)
+✔ only substantial or explicitly marked Cue imports count as collection updates (0.4275ms)
+✔ Cue bulk operations can update an existing Cue and create a new Cue together (1.1109ms)
+✔ legacy Cue metadata defaults to version 1 and the supplied current time (0.1936ms)
+✔ Cue activity tags prioritize unseen and changed content before review state (0.1915ms)
+✔ Cue review batching combines small units and splits large units into manageable sessions (0.6313ms)
+✔ daily Cue review creates separate numbered tasks for a large due unit (1.113ms)
+✔ a heavy class day schedules only the highest-priority Cue batch and keeps the backlog queued (5.1897ms)
+✔ daily Cue review is the deduplicated union of regular, weak, and today-created Cues (0.6152ms)
+✔ a changed Cue is reviewed again even when its old interval date is still in the future (0.3748ms)
+✔ full Cue update can change subject, unit, prompt, answer, formula, and display properties (0.3394ms)
+✔ Cue study ratings save immediately, can be corrected, and are not duplicated at completion (0.6033ms)
+✔ Cue LaTeX accepts commonly escaped comparison symbols (0.2406ms)
+✔ review subjects are saved only from the user selection (0.4011ms)
+✔ timetable import preserves manual choices without auto-selecting matching learning subjects (0.4302ms)
+✔ partial timetable update preserves choices and handles a moved class and weekend makeup day (1.353ms)
+✔ temporary timetable updates keep the primary timetable and replace only a dated override (0.4086ms)
+✔ Cue study drafts survive across subjects and replace only the same subject (0.7356ms)
+✔ shuffle mode changes Cue order without losing or duplicating a Cue (0.5945ms)
+✔ per-subject Cue draft keeps shuffled order and prior statuses when another subject saves (0.3555ms)
+✔ collective Cue maintenance creates one durable reminder and resets after a recorded batch check (1.3015ms)
+✔ cancelling a generated checklist task removes the visible parent and every folded child (0.6256ms)
+✔ course reviews, previews, holiday mode, and review follow-ups are deterministic (1.1279ms)
+✔ green reviews wait several days while red reviews cannot complete the task (0.5925ms)
+✔ learning-session migration enforces ownership and idempotency (1.3213ms)
+✔ legacy Pomodoro bridge records linked sessions through the authenticated adapter (2.2719ms)
+✔ review queue migration is private, durable, and Data API-ready (0.9489ms)
+✔ completed quizzes enqueue incorrect questions without duplicating existing items (3.4199ms)
+✔ user can correct AI timetable classification and replace an incorrect primary import (1.3628ms)
+✔ phone schedule keeps task actions separate and replaces the wide week grid with a day agenda (6.7348ms)
+(node:65172) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/learning/review-queue.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ review total 0 stays distinct from 50-item batches and completes only after a fresh read (55.9836ms)
+✔ review total 50 stays distinct from 50-item batches and completes only after a fresh read (1.6817ms)
+✔ review total 51 stays distinct from 50-item batches and completes only after a fresh read (0.8736ms)
+✔ review total 120 stays distinct from 50-item batches and completes only after a fresh read (1.2958ms)
+✔ offline batches and incomplete legacy snapshots never claim cloud completion (0.4774ms)
+✔ review fetch failures reject and mastery adjusts both counts immediately (1.0355ms)
+✔ 7 and 30 day evidence boundaries use local dates and exclude future or invalid timestamps (0.5585ms)
+✔ yesterday completion must be verified again after the local date changes (0.3397ms)
+(node:25568) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/learning/cue-answer-card.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ plain formula examples render with KaTeX; CSMA/CD remains ordinary text (116.4611ms)
+✔ explicit math delimiters and prose retain their original boundaries (0.8773ms)
+✔ old Cue formulas with decoded JSON control characters render as math (18.3857ms)
+✔ legacy compact fractions, theta and text commands from saved Cues render cleanly (4.6458ms)
+✔ every recall type has a touch reveal and keeps evidence off the question page (36.162ms)
+✔ choice cards require selection and show correct and selected answers on the evidence page (11.5261ms)
+✔ the viewport dialog overrides generic height caps and traps background widgets below it (6.1974ms)
+✔ phone filters retain all desktop options and expose named keyboard help (3.5668ms)
+✔ mean formulas from legacy JSON repair backspace and compact bar commands without visible slash errors (15.2362ms)
+✔ optional answer card hides comparison for blank responses and preserves old memos (21.2599ms)
+(node:61128) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pause, revisit, and switch preserve independent question time and total (5.343ms)
+✔ remaining percentage thresholds and overtime are separate from correctness (0.6056ms)
+✔ pending results persist without corrupting weekly first-attempt metrics (10.724ms)
+✔ custom subjects, preset durations and read/merge/safety survive Schedule storage (5.4507ms)
+✔ malformed sessions and configurations never overwrite good records (1.6327ms)
+✔ concurrent session edits merge independent fields and preserve conflicting evidence (2.4829ms)
+(node:22036) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/sync/hash.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual study action rejects a stale full syllabus instead of overwriting concurrent units (300.7118ms)
+✔ color-only concurrent changes cannot be overwritten by a stale units edit (106.7416ms)
+✔ actual step action rejects a change between its read and conditional write (82.8868ms)
+(node:69432) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/learning/study-prompts.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ image requirements survive imports, storage and historical attempts independently (18.2043ms)
+✔ subject charts include independent question snapshots and do not equate green with objective correctness (4.9798ms)
+✔ separate Cue and question prompts retain their own rules and compatible data (3.4005ms)
+(node:37856) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/bilibili-security.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ empty or malformed Schedule cannot replace populated cloud state (7.6498ms)
+✔ Schedule safety is enforced at browser sync, API, and database boundary (27.1412ms)
+✔ canonical JSON is stable across object key order (1.3038ms)
+✔ sync value limit measures the JSON sent to the API (8.7492ms)
+✔ large sync transfer preserves Unicode and rejects data above the cap (251.3149ms)
+✔ three-way merge combines independent object changes (1.3905ms)
+✔ Cue progress in separate subjects merges without overwriting another subject (0.9636ms)
+✔ three-way merge preserves local data and reports same-field conflicts (0.6225ms)
+✔ stable-id arrays merge records while anonymous arrays conflict (1.0559ms)
+✔ delete and edit is preserved as an explicit conflict (0.5253ms)
+✔ sync batches deduplicate keys while preserving the oldest base and newest value (0.6754ms)
+✔ sync request batching stays below the server byte and operation limits (9.4957ms)
+✔ Bilibili validation blocks SSRF and bounds media ranges (0.9901ms)
+✔ security migration uses tenant RLS and restricted RPC grants (7.3319ms)
+✔ legacy iframe bridge cannot bypass the durable v2 outbox (4.9806ms)
+✔ answer-sheet sync has no service-role fallback and authenticates every method (4.772ms)
+✔ web sync writes use bounded concurrency instead of a serial database waterfall (2.4757ms)
+✔ repair migration recreates the production sync RPC and preserves invoker security (3.947ms)
+✔ automatic sync excludes its timestamp ledger and preserves explicit conflict choices (3.8913ms)
+✔ sync migration normalizes legacy JSON and resolves concurrent edits by per-key time (3.6509ms)
+✔ topbar avatar bypasses the image proxy and falls back after a load error (4.0313ms)
+(node:32220) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/YunfanShi.github.io/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\YunfanShi.github.io\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ week boundaries include Sunday, cross years and rotate subjects deterministically (9.8977ms)
+✔ first-attempt metrics include failed attempts but exclude familiar repair, mocks, assisted and other weeks (1.2611ms)
+✔ invalid results and duplicate IDs cannot corrupt persisted evidence (1.5869ms)
+✔ planning deduplicates and reopens cancelled work; homework credit and ticks are distinct (4.411ms)
+✔ old data loads, new evidence survives reload and protects cloud replacement (4.14ms)
+ℹ tests 125
+ℹ suites 0
+ℹ pass 125
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2127.357

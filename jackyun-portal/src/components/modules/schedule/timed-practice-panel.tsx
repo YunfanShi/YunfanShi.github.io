@@ -12,6 +12,13 @@ const emptyForm = (date: string): TimedPracticeRecord => ({ id: '', date, subjec
 export default function TimedPracticePanel({ state, date, onChange }: { state: ScheduleControlState; date: string; onChange: Dispatch<SetStateAction<ScheduleControlState>> }) {
   const records = state.timedPracticeRecords ?? [];
   const summary = weeklyPracticeSummary(records, date);
+  const timerSessions = (state.practiceSessions ?? []).filter(item => item.finished);
+  const weakTypes = new Map<string, { count: number; slow: number; failed: number }>();
+  timerSessions.forEach(session => session.questions.filter(q=>q.elapsedMs>0).forEach(q=>{
+    const key = `${session.subject} · ${q.typeName}`;
+    const value = weakTypes.get(key) ?? { count:0, slow:0, failed:0 };
+    value.count++; value.slow += Number(q.elapsedMs>q.limitSeconds*1000); value.failed += Number(q.result==='wrong'||q.result==='help'); weakTypes.set(key,value);
+  }));
   const subjects = weeklyPracticeSubjects(date);
   const [form, setForm] = useState<TimedPracticeRecord>(() => emptyForm(date));
   const [open, setOpen] = useState(false);
@@ -22,6 +29,8 @@ export default function TimedPracticePanel({ state, date, onChange }: { state: S
     setNotice(`已检查 ${subject} 本周安排；已有任务或训练证据时不会重复添加。`);
   };
   return <section aria-labelledby="timed-practice-title" className="mt-5 min-w-0 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5">
+    <Link href="/practice-timer" className="mb-4 flex min-h-14 items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"><span><strong>练习计时器</strong><span className="ml-3 text-xs">逐题倒计时 · 三档节奏 · 做题报告</span></span><span aria-hidden="true">↗</span></Link>
+    {timerSessions.length > 0 && <details className="mb-4 rounded-xl border border-[var(--card-border)] p-3 text-sm"><summary className="cursor-pointer font-semibold">逐题报告与薄弱题型 · {timerSessions.length} 次练习</summary><p className="mt-2 text-xs text-[var(--muted-foreground)]">全部练习的诊断线索（包含熟题与模考）；样本少时先观察。新题周指标仍单独按独立 B / 首次作业筛选。</p><div className="mt-3 space-y-2">{[...weakTypes].filter(([,v])=>v.slow||v.failed).sort((a,b)=>(b[1].slow+b[1].failed)-(a[1].slow+a[1].failed)).slice(0,5).map(([name,value])=><p key={name}>{name} · {value.count} 题 · 超时 {value.slow} / 错误求助 {value.failed}</p>)}{timerSessions.slice(-5).reverse().map(item=><Link key={item.id} href={`/practice-timer?session=${encodeURIComponent(item.id)}`} className="block text-[var(--brand)]">{item.date} · {item.subject} · {item.scope||'逐题练习'} · {item.questions.filter(q=>q.elapsedMs>0).length} 题 → 查看或补批改</Link>)}</div></details>}
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="timed-practice-title" className="font-semibold">本周限时新题</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{summary.start} — {summary.end} · 2026-10-13 执行版</p></div><button type="button" className={buttonClass} onClick={() => { setForm(emptyForm(date)); setOpen(true); }}>记录训练或作业抵扣</button></div>
     <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">Pure Math、Mechanics、Physics 各一次 20–30 分钟；Statistics 与 Computer Science 每周轮换一次约 20 分钟。首次接触且独立计时的作业可抵扣。先做新题，再修少量 Cue/PQ；繁忙周先保三门主科。</p>
     <div className="mt-3 grid gap-2 sm:grid-cols-2">{subjects.map(subject => {

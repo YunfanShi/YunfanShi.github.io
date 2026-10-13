@@ -1,7 +1,7 @@
 import { addCalendarDays, dateKey, type ManualLearningTask, type ScheduleControlState } from './schedule-control.ts';
 
 export const PRACTICE_SUBJECTS = ['Pure Math', 'Mechanics', 'Physics', 'Statistics', 'Computer Science'] as const;
-export type PracticeSubject = typeof PRACTICE_SUBJECTS[number];
+export type PracticeSubject = string;
 export interface TimedPracticeRecord {
   id: string;
   date: string;
@@ -27,7 +27,7 @@ export function normalizeTimedPractice(value: unknown): TimedPracticeRecord[] {
       && typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date)
       && Number.isFinite(Date.parse(`${item.date}T00:00:00Z`))
       && new Date(`${item.date}T00:00:00Z`).toISOString().slice(0, 10) === item.date
-      && PRACTICE_SUBJECTS.includes(item.subject) && ['A', 'B', 'C', 'homework'].includes(item.source)
+      && typeof item.subject === 'string' && item.subject.trim().length > 0 && item.subject.length <= 100 && ['A', 'B', 'C', 'homework'].includes(item.source)
       && typeof item.reference === 'string' && item.reference.trim().length > 0
       && typeof item.independent === 'boolean' && Number.isFinite(item.minutes) && item.minutes > 0 && item.minutes <= 1440
       && ['onTime', 'overtime', 'failed', 'blocked'].every(key => Number.isInteger(item[key]) && item[key] >= 0 && item[key] <= 1000)

@@ -1,4 +1,5 @@
 import type { TimedPracticeRecord } from './timed-practice.ts';
+import type { PracticeSession, PracticeConfig } from './practice-timer.ts';
 import type { CueGameAccount } from './cue-shop.ts';
 import type { CuePracticeState } from './cue-practice.ts';
 import type { CueAnswerCard } from './cue-answer-card.ts';
@@ -466,6 +467,8 @@ export interface CueMemo {
 export interface ScheduleControlState {
   schemaVersion: 1;
   timedPracticeRecords?: TimedPracticeRecord[];
+  practiceSessions?: PracticeSession[];
+  practiceTimerConfig?: PracticeConfig;
   /** One-time migration marker for existing Cue review plans. */
   cueScheduleRevision?: number;
   dailyLearningAdvice?: DailyLearningAdvice;

@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.15.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '练习计时器与学习报告', summary: '独立 HTML 工作台逐题记录用时，连接 Schedule 的新题训练与薄弱项诊断。', categories: ['学习体验', '平台体验'], accent: 'mint', highlights: ['总用时与逐题倒计时同步暂停，支持题号导航、空格和题型快捷键。', '按科目提供宽松、普通、模考三档预设，百分比颜色提醒与超时记录。', '批改自动形成三种状态，报告、草稿与时间设置沿用账号同步和备份。', '登录页更新为宽屏双栏、手机单栏布局。'] },
   { version: '3.14.2', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手表阅读体验更新', summary: 'Products 提供新版原生阅读器，修复章节进度跳转的 Unicode 边界。', categories: ['平台体验'], accent: 'blue', highlights: ['沉浸阅读、原生菜单、三种主题、书签和章节进度跳转。', '分页与保存放到后台，快速翻页复用已有排版。', '同步更新手表 1.4.0 beta 1 安装入口。'] },
   { version: '3.14.1', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '平板横屏 CUE 学习恢复显示', summary: '星空背景保持在题目与操作区下方，横竖屏切换继续学习。', categories: ['稳定性'], accent: 'blue', highlights: ['修复开启 CUE 宇宙时，平板横屏只显示背景的问题。', '独立学习与混合学习统一隔离背景层，保留翻面、评价和自动保存。'] },
   { version: '3.14.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '独立限时新题成为固定训练', summary: 'StudyGuide 与 Schedule 对齐当前执行版，先动笔，再修主要卡点。', categories: ['学习体验'], accent: 'blue', highlights: ['三门主科每周训练，Statistics / CS 轮换；首次独立计时的新作业题可抵扣。', '训练记录区分新题、熟题修复与整卷模拟，显示按时正确率、超时和卡点。', '修复后换新题验证，考前按剩余天数调整，时间不足时优先作业与新题。'] },

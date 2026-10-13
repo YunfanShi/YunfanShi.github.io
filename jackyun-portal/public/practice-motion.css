@@ -1,0 +1,34 @@
+@property --progress {syntax:'<percentage>';inherits:false;initial-value:100%}
+.dial{position:relative;isolation:isolate;transition:--progress .28s linear,box-shadow .7s ease}
+.dial-inner{position:relative;z-index:2}
+.dial::before,.dial::after{content:'';position:absolute;border-radius:50%;pointer-events:none;z-index:0;opacity:0;transition:opacity .7s ease}
+.dial::before{inset:-11px;background:conic-gradient(from 0deg,transparent 0 70%,var(--ring) 91%,transparent 100%);mask:radial-gradient(farthest-side,transparent calc(100% - 1.5px),#000 calc(100% - 1px));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 1.5px),#000 calc(100% - 1px))}
+.dial::after{inset:-22px;border:1px solid var(--ring)}
+body[data-running=true][data-tone=green] .dial{animation:practice-breathe 6s ease-in-out infinite}
+body[data-running=true][data-tone=green] .dial::after{animation:practice-ripple 6s ease-out infinite}
+body[data-running=true][data-tone=yellow] .dial::before{opacity:.30;animation:practice-orbit 9s linear infinite}
+body[data-running=true][data-tone=yellow] .dial::after{opacity:.07;animation:practice-amber 4s ease-in-out infinite}
+body[data-running=true][data-tone=red] .dial::before{opacity:.44;animation:practice-orbit 2.2s linear infinite;background:conic-gradient(transparent 0 24%,var(--ring) 33%,transparent 38% 76%,var(--ring) 90%,transparent 95%)}
+body[data-running=true][data-tone=red] .dial::after{animation:practice-red 1.8s ease-in-out infinite}
+body[data-running=true][data-tone=overtime] .dial::before{opacity:.2;animation:practice-orbit 12s linear infinite}
+body[data-running=false] .dial,body[data-running=false] .dial::before,body[data-running=false] .dial::after{animation-play-state:paused}
+.hero.question-arrive .dial-inner{animation:practice-arrive .32s cubic-bezier(.16,1,.3,1)}
+.hero.action-feedback .actions{animation:practice-action .24s ease-out}
+button{transition:background .18s,border-color .18s,box-shadow .18s,transform .15s}
+button:active:not(:disabled){transform:scale(.97)}
+#focusTypeMenu{transform-origin:top left;animation:practice-menu .18s ease-out}
+#encouragement{transition:color .3s}
+#focusStatus{position:absolute;bottom:54px;font-size:11px;max-width:85%;color:#95620a}
+@keyframes practice-breathe{0%,100%{box-shadow:0 0 0 0 #4a9b7200}50%{box-shadow:0 0 35px 7px #4a9b7210}}
+@keyframes practice-ripple{0%{opacity:0;transform:scale(.98)}18%{opacity:.12}80%,100%{opacity:0;transform:scale(1.10)}}
+@keyframes practice-orbit{to{transform:rotate(360deg)}}
+@keyframes practice-amber{0%,100%{transform:scale(1);opacity:.04}50%{transform:scale(1.025);opacity:.13}}
+@keyframes practice-red{0%,100%{opacity:.07;transform:scale(1)}50%{opacity:.19;transform:scale(1.018)}}
+@keyframes practice-arrive{from{opacity:.55;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes practice-action{from{opacity:.7;transform:translateY(2px)}to{opacity:1;transform:none}}
+@keyframes practice-menu{from{opacity:0;transform:translateY(-3px) scale(.98)}to{opacity:1;transform:none}}
+body[data-effects=false] .dial,body[data-effects=false] .dial::before,body[data-effects=false] .dial::after,body[data-effects=false] .hero.question-arrive .dial-inner,body[data-effects=false] .hero.action-feedback .actions,body[data-effects=false] #focusTypeMenu{animation:none!important}
+body[data-effects=false] .dial::before,body[data-effects=false] .dial::after{opacity:0!important}
+body[data-effects=false] .dial{transition:none!important}
+body[data-effects=false] button:active{transform:none}
+@media(prefers-reduced-motion:reduce){.dial,.dial::before,.dial::after,.hero.question-arrive .dial-inner,.hero.action-feedback .actions,#focusTypeMenu{animation:none!important;transition:none!important}.dial::before,.dial::after{opacity:0!important}button:active{transform:none!important}}

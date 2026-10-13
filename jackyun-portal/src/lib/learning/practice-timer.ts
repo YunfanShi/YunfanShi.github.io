@@ -1,0 +1,81 @@
+import type { ScheduleControlState } from './schedule-control.ts';
+import type { TimedPracticeRecord } from './timed-practice.ts';
+import { threeWayMerge } from '../sync/merge.ts';
+
+export interface PracticeQuestion {
+  id: string; name: string; typeId: string; typeName: string; limitSeconds: number;
+  elapsedMs: number; startedAt: number | null; result: 'pending' | 'correct' | 'wrong' | 'help';
+  blocked: boolean; node: string; cause: string; retest: string;
+}
+export interface PracticeSession {
+  id: string; date: string; subject: string; source: TimedPracticeRecord['source'];
+  independent: boolean; scope: string; mode: 'relaxed' | 'normal' | 'exam';
+  index: number; updatedAt: number; finished: boolean; questions: PracticeQuestion[];
+}
+export interface PracticeType { id: string; name: string; description: string; seconds: { relaxed: number; normal: number; exam: number } }
+export interface PracticeConfig { subjects: Record<string, PracticeType[]>; green: number; red: number; effects?: boolean; sound?: boolean; volume?: number }
+export function validateSession(value: unknown): PracticeSession {
+  const s = value as PracticeSession;
+  if (!s || typeof s.id !== 'string' || !s.id || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || !Number.isFinite(Date.parse(s.date))
+    || typeof s.subject !== 'string' || !s.subject.trim() || s.subject.length > 100 || typeof s.scope !== 'string' || s.scope.length > 200
+    || !['A','B','C','homework'].includes(s.source) || !['relaxed','normal','exam'].includes(s.mode)
+    || typeof s.independent !== 'boolean' || typeof s.finished !== 'boolean' || !Number.isFinite(s.updatedAt)
+    || !Array.isArray(s.questions) || s.questions.length < 1 || s.questions.length > 300
+    || !Number.isInteger(s.index) || s.index < 0 || s.index >= s.questions.length) throw Error('练习记录格式无效，原数据已保留。');
+  const ids = new Set<string>();
+  for (const q of s.questions) {
+    if (!q || typeof q.id !== 'string' || !q.id || ids.has(q.id) || !['name','typeId','typeName','node','cause','retest'].every(key => typeof q[key as keyof PracticeQuestion] === 'string' && String(q[key as keyof PracticeQuestion]).length <= 300)
+      || !Number.isFinite(q.limitSeconds) || q.limitSeconds < 10 || q.limitSeconds > 86400
+      || !Number.isFinite(q.elapsedMs) || q.elapsedMs < 0 || q.elapsedMs > 86400000
+      || (q.startedAt !== null && !Number.isFinite(q.startedAt)) || !['pending','correct','wrong','help'].includes(q.result) || typeof q.blocked !== 'boolean') throw Error('逐题数据无效，原数据已保留。');
+    ids.add(q.id);
+  }
+  return structuredClone(s);
+}
+export function validateConfig(value: unknown): PracticeConfig {
+  const c = value as PracticeConfig;
+  if (c && ((c.effects !== undefined && typeof c.effects !== 'boolean') || (c.sound !== undefined && typeof c.sound !== 'boolean') || (c.volume !== undefined && (!Number.isFinite(c.volume) || c.volume < 0 || c.volume > 1)))) throw Error('动画、音效或音量设置无效。');
+  if (!c || !Number.isFinite(c.green) || !Number.isFinite(c.red) || c.green <= c.red || c.green >= 100 || c.red <= 0 || !c.subjects || typeof c.subjects !== 'object' || Array.isArray(c.subjects)) throw Error('颜色阈值必须满足 0 < 红色 < 黄色 < 100。');
+  for (const [name, types] of Object.entries(c.subjects)) {
+    if (!name.trim() || name.length > 100 || !Array.isArray(types) || !types.length || types.length > 40) throw Error('科目与题型设置无效。');
+    const ids = new Set<string>();
+    for (const type of types) {
+      if (!type || typeof type.id !== 'string' || !type.id || ids.has(type.id) || typeof type.name !== 'string' || !type.name.trim() || type.name.length > 100 || typeof type.description !== 'string' || type.description.length > 300 || !type.seconds || !['relaxed','normal','exam'].every(mode => Number.isFinite(type.seconds[mode as keyof PracticeType['seconds']]) && type.seconds[mode as keyof PracticeType['seconds']] >= 10 && type.seconds[mode as keyof PracticeType['seconds']] <= 86400)) throw Error('每种题型的三档时间必须为 10 秒至 24 小时。');
+      ids.add(type.id);
+    }
+  }
+  return c;
+}
+/** A derived record keeps weekly metrics and first-attempt evidence together. */
+export function practiceEvidence(s: PracticeSession): TimedPracticeRecord | null {
+  const attempted = s.questions.filter(q => q.elapsedMs > 0);
+  if (!attempted.length || attempted.some(q => q.result === 'pending')) return null;
+  const isSlow = (q: PracticeQuestion) => q.elapsedMs > q.limitSeconds * 1000;
+  const failed = attempted.filter(q => q.result !== 'correct');
+  const causes = new Map<string,number>();
+  attempted.forEach(q => { if (q.cause) causes.set(q.cause,(causes.get(q.cause) ?? 0)+1); });
+  return { id: `timer-${s.id}`, date: s.date, subject: s.subject, source: s.source, reference: s.scope || `练习计时器 · ${attempted.length} 题`, independent: s.independent,
+    minutes: attempted.reduce((n,q)=>n+q.elapsedMs,0)/60000,
+    onTime: attempted.filter(q=>q.result==='correct'&&!isSlow(q)).length,
+    overtime: attempted.filter(q=>q.result==='correct'&&isSlow(q)).length,
+    failed: failed.length, failedOvertime: failed.filter(isSlow).length, blocked: failed.filter(q=>q.blocked).length,
+    bottleneck: [...causes].sort((a,b)=>b[1]-a[1])[0]?.[0] || '' };
+}
+export function applyPracticeSession(state: ScheduleControlState, value: unknown): ScheduleControlState {
+  const session = validateSession(value);
+  const existing = (state.practiceSessions ?? []).find(s=>s.id===session.id);
+  if (existing && existing.updatedAt > session.updatedAt) throw Error('已发现更新的练习记录，请重新打开记录，原始数据已保留。');
+  if (existing?.finished && !session.finished) throw Error('这次训练已结束，请刷新查看报告。');
+  const record = session.finished ? practiceEvidence(session) : null;
+  return { ...state, practiceSessions: [...(state.practiceSessions ?? []).filter(s=>s.id!==session.id), session],
+    timedPracticeRecords: session.finished ? [...(state.timedPracticeRecords ?? []).filter(r=>r.id!==`timer-${session.id}`), ...(record?[record]:[])] : state.timedPracticeRecords };
+}
+/** Merge from the last submitted UI snapshot, preserving remote-only edits. */
+export function mergePracticeSession(base: PracticeSession | undefined, value: unknown, remote: PracticeSession | undefined): PracticeSession {
+  const next = validateSession(value);
+  if (!remote) return next;
+  if (!base) throw Error('这次练习已有记录，请重新打开后编辑。');
+  const result = threeWayMerge({ ...base, updatedAt:0 }, { ...next, updatedAt:0 }, { ...remote, updatedAt:0 });
+  if (result.conflicts.length) throw Error('另一设备修改了同一题的数据，已保留原记录。请导出当前内容，再重新打开记录。');
+  return validateSession({ ...(result.merged as PracticeSession), updatedAt:Math.max(next.updatedAt,remote.updatedAt) });
+}

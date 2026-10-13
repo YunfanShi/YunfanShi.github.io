@@ -5,26 +5,33 @@ import EmailLoginForm from '@/components/auth/email-login-form';
 import AppleLoginButton from '@/components/auth/apple-login-button';
 import BrandLogo from '@/components/brand-logo';
 import Link from 'next/link';
+import styles from './login.module.css';
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const requested = (await searchParams).next;
   const guestTarget = requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard';
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-5">
-      <div className="w-full max-w-sm py-10">
+    <div className={styles.page}><div className={styles.layout}>
+      <aside className={styles.story}>
+        <div className={styles.brand}><BrandLogo size={36} priority /><span>JackYun Workspace</span></div>
+        <h2>专注于今天，<br />积累每一步。</h2>
+        <p>把计划、练习和复习留在同一个工作区。<br />从一个清晰的小目标开始。</p>
+        <div className={styles.scene} aria-hidden="true"><div className={styles.sceneHeader}><span>YOUR NEXT CHAPTER</span><span>◷</span></div><div className={styles.orbit}><div className={styles.ring}>✓</div><div className={styles.lines}><span /><span /><span /></div></div><div className={styles.chips}><span>计划</span><span>独立练习</span><span>新题验证</span></div></div>
+      </aside>
+      <div className={styles.form}>
         {/* Logo / Title */}
-        <div className="text-center mb-8">
-          <BrandLogo size={48} className="mx-auto mb-5 h-12 w-12" priority />
+        <div className={styles.intro}>
+          <div className={styles.mobileBrand}><BrandLogo size={42} className="mx-auto" priority /></div>
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">JackYun Workspace</p>
           <h1 className="mt-2 text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)]">欢迎回来</h1>
           <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-            登录以继续使用
+            继续你的学习与生活工作区
           </p>
         </div>
 
         {/* Card */}
         <div
-          className="space-y-6 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-7 shadow-[var(--surface-shadow)] sm:p-8"
+          className={`${styles.card} space-y-5`}
         >
           {/* Email / Password login */}
           <SessionRecovery loginPage />
@@ -56,10 +63,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="text-center text-xs leading-5 text-[var(--muted-foreground)]">游客数据只保存在当前设备；之后登录会自动合并并开启云同步。</p>
         </div>
 
-        <p className="mt-5 text-center text-xs text-[var(--muted-foreground)]">
+        <p className={styles.footer}>
           登录用户可跨设备同步，游客可直接使用全部本地功能
         </p>
       </div>
-    </div>
+    </div></div>
   );
 }

@@ -14,6 +14,7 @@ interface ToolCard {
 }
 
 const TOOLS: ToolCard[] = [
+  { id: 'practice-timer', title: '练习计时器', description: '逐题限时 · 独立用时 · 薄弱项报告', icon: 'timer', emoji: '◷', color: '#167267', bgColor: '#e1f4ed', href: '/practice-timer' },
   {
     id: 'pomodoro',
     title: '番茄钟',
