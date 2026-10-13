@@ -73,6 +73,7 @@ export interface TimetableImport {
 }
 
 export interface ScheduleSettings {
+  automaticTasksEnabled: boolean;
   tutorialSeenVersion?: number;
   mode: ScheduleMode;
   previewEnabled: boolean;
@@ -569,6 +570,7 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
   previewPreferenceSet: false,
   postClassTasksEnabled: true,
   didaAutoSyncPostClass: false,
+  automaticTasksEnabled: true,
   weekendReviewDay: 6,
   defaultRecordView: 'calendar',
   recordReminderEnabled: true,
@@ -1769,7 +1771,7 @@ export function tasksForDate(state: ScheduleControlState, date: Date, questionTa
     const cueIds = (task.cueIds ?? []).filter((id) => selectedCueIds.has(id));
     return { ...task, cueIds, scope: { ...task.scope, cueIds } };
   });
-  const automatic = [
+  const automatic = state.settings.automaticTasksEnabled === false ? [] : [
     ...reviewBatches,
     ...cueCollectionMaintenanceTasks(state, date),
     ...intervalReviewTasks(state, date),

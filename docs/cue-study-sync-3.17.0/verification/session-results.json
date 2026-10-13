@@ -1,0 +1,19 @@
+[
+  {
+    "automatic": false,
+    "insertedExpectedCue": true,
+    "noticeRetained": true,
+    "sessionOnly": true,
+    "errors": []
+  },
+  {
+    "automatic": true,
+    "insertedExpectedCue": true,
+    "noticeRetained": true,
+    "sessionOnly": true,
+    "errors": []
+  },
+  {
+    "dailyTaskSettingPersists": true
+  }
+]
