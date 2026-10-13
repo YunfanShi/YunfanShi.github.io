@@ -14,9 +14,13 @@
   "rollbackFixturesRemaining": 0,
   "deviceSessionColumnVisibleToAccount": false,
   "pairClaimExecutableByAccountOrAnonymous": false,
-  "productionDeployed": false,
-  "productionApprovalPending": true,
+  "productionDeployed": true,
+  "productionApprovalPending": false,
   "realDeviceTested": false,
   "realAccountOnlineFlowTested": false,
-  "summary": "网页提交 da8453e 的 Vercel 预览已 READY，扫码页 HTTP 200，摄像头仅本站；预览接口按设计未启用。生产发布被自动审批拒绝，待用户明确授权；真实登录、刷新、扫码领取和撤销尚未线上验收。"
+  "summary": "生产 3.12.0 已发布至 jackyun.top，状态 READY，扫码页 HTTP 200。九项线上检查通过，包括二维码创建、取消、错误领取凭证、错误密码和未登录请求拒绝。真实账号授权、同步及手表真机仍需验收。",
+  "productionDeployment": "dpl_9K3QJ2TVbJJZszswq7jkw8Zk36Tn",
+  "productionCommit": "5756f882356ce9a30e6f71913cba3598d3bd0ff8",
+  "productionPageStatus": 200,
+  "productionSmokeChecksPassed": 9
 }

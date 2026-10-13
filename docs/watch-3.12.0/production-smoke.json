@@ -1,0 +1,38 @@
+[
+  {
+    "passed": true,
+    "name": "create_pair"
+  },
+  {
+    "passed": true,
+    "name": "qr_contains_no_claim_secret"
+  },
+  {
+    "passed": true,
+    "name": "unapproved_pair_does_not_issue_session"
+  },
+  {
+    "passed": true,
+    "name": "wrong_claim_rejected"
+  },
+  {
+    "passed": true,
+    "name": "cancel_pair"
+  },
+  {
+    "passed": true,
+    "name": "cancelled_pair_cannot_be_claimed"
+  },
+  {
+    "passed": true,
+    "name": "invalid_password_rejected"
+  },
+  {
+    "passed": true,
+    "name": "unknown_device_rejected"
+  },
+  {
+    "passed": true,
+    "name": "anonymous_snapshot_rejected"
+  }
+]
