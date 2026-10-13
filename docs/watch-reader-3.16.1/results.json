@@ -1,0 +1,64 @@
+{
+  "watchVersion": "1.5.1-beta.1",
+  "versionCode": 8,
+  "portalVersion": "3.16.1",
+  "unitTests": 16,
+  "lintErrors": 0,
+  "lintWarnings": 21,
+  "round": {
+    "viewportWidth": 288,
+    "viewportHeight": 268,
+    "menuOverlap": "none",
+    "nativeDrag": "passed",
+    "continuousBoundedContent": 18000,
+    "maximumWindowCharacters": 18000,
+    "resumeCharacter": 23859,
+    "autoScrollPause": "passed",
+    "themesFontBookmarkJumpResume": "passed",
+    "pagedFallback": "passed"
+  },
+  "square": {
+    "viewportWidth": 376,
+    "viewportHeight": 312,
+    "menuOverlap": "none",
+    "nativeDrag": "passed",
+    "continuousBoundedContent": 18000,
+    "maximumWindowCharacters": 18000,
+    "resumeCharacter": 23849,
+    "autoScrollPause": "passed",
+    "themesFontBookmarkJumpResume": "passed",
+    "pagedFallback": "passed"
+  },
+  "highDensity": {
+    "viewportWidth": 337,
+    "viewportHeight": 192,
+    "menuOverlap": "none",
+    "nativeDrag": "passed",
+    "continuousBoundedContent": 18000,
+    "maximumWindowCharacters": 18000,
+    "resumeCharacter": 23964,
+    "autoScrollPause": "passed",
+    "themesFontBookmarkJumpResume": "passed",
+    "pagedFallback": "passed"
+  },
+  "webBuild": "passed",
+  "watchTests": 11,
+  "webFullVerify": "4 unchanged legacy-ui assertion failures",
+  "remainingChecks": {
+    "pwa": "passed",
+    "readerAdmin": "1 unchanged failure",
+    "companion": "unzip missing ENOENT",
+    "companionSources": "stale bundled catalog",
+    "studyGuide": "passed",
+    "studyplanImport": "passed",
+    "privateKeyMarkers": "passed"
+  },
+  "physicalWatch": "not tested",
+  "cloud": {
+    "sha256": "577611884baee0e3b4389b01fb80565a1f6ed9334ab240a882b5a3dbd362cd4d",
+    "bytes": 355068,
+    "temporaryRoleRemoved": true,
+    "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.5.1-beta.1.apk",
+    "httpStatus": 200
+  }
+}
