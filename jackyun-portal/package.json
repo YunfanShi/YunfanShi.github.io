@@ -1,12 +1,12 @@
 {
   "name": "jackyun-portal",
-  "version": "3.12.2",
+  "version": "3.13.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
   },
   "scripts": {
-    "test:watch": "node --test tests/watch-domain.test.mts",
+    "test:watch": "node --test tests/watch-domain.test.mts tests/watch-features.test.mts",
     "test:watch-ui": "node tests/watch-login.browser.mjs",
     "build:azure-functions": "node scripts/build-azure-functions.mjs",
     "db:start": "node scripts/local-supabase.mjs start",

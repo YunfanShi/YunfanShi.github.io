@@ -1,4 +1,8 @@
-import { body, browserContext, fail, pairing, passwordLogin, refresh, verifyMfa, watchContext, WatchError } from '@/lib/watch/server';
+import { body, browserContext, fail, limit, pairing, passwordLogin, refresh, verifyMfa, watchContext, WatchError } from '@/lib/watch/server';
+import { watchReader } from '@/lib/watch/reader';
+import { POST as llmProxy } from '@/app/api/llm-proxy/route';
+import { NextRequest } from 'next/server';
+import { extractCompletionText } from '@/lib/ai-smart-selection';
 import { snapshot } from '@/lib/watch/snapshot';
 import { digest, validateOperation, UUID } from '@/lib/watch/policy';
 
@@ -24,6 +28,17 @@ async function handle(request:Request,context:RouteContext) {
       const {error}=await auth.admin.from('watch_devices').update({revoked_at:new Date().toISOString()}).eq('id',value.id).eq('user_id',auth.user.id);if(error)fail(503,'DEVICE_WRITE_FAILED','撤销失败');return reply({ok:true});
     }
     const auth=await watchContext(request);
+    if(action.startsWith('reader/'))return reply(await watchReader(auth,action,value));
+    if(action==='ai'){
+      await limit(request,'watch-ai',15);
+      const prompt=typeof value.prompt==='string'?value.prompt.trim():'';
+      if(!prompt||prompt.length>2000)fail(400,'INVALID_PROMPT','请输入 1–2000 字的问题');
+      const response=await llmProxy(new NextRequest(request.url,{method:'POST',headers:request.headers,body:JSON.stringify({messages:[{role:'system',content:'你是 JackYun 手表助手。用适合小屏幕的简短段落回答，不执行任务或改变学习状态。'},{role:'user',content:prompt}],providerMode:'cloud',stream:false,max_tokens:600,feature:'chat',workspaceMode:'chat'})}));
+      const result=await response.json();
+      if(!response.ok)return reply({error:typeof result.error==='string'?result.error:result.error?.message??'AI 暂不可用',code:'AI_UNAVAILABLE'},response.status);
+      const text=extractCompletionText(result);if(!text)fail(503,'AI_EMPTY','AI 没有返回正文，请重试');
+      return reply({text:text.slice(0,12000)});
+    }
     if(action==='logout') {const {error}=await auth.admin.from('watch_devices').update({revoked_at:new Date().toISOString()}).eq('id',auth.device.id).eq('user_id',auth.user.id);if(error)fail(503,'DEVICE_WRITE_FAILED','撤销失败');await auth.admin.auth.admin.signOut(auth.token,'local');return reply({ok:true});}
     if(action==='operations') {
       let details:Record<string,unknown>;try{details=validateOperation(value);}catch{fail(422,'INVALID_OPERATION','操作格式无效');}

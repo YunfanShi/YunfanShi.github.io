@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.13.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: 'Watch 阅读与日常功能', summary: '手表加入原生阅读、日程、计划、睡眠逆向、学习活动、工具箱和 JackYun AI。', categories: ['平台体验'], accent: 'blue', highlights: ['当前课程与下一节课同时显示，保留上下课倒计时。', '阅读器分段载入正文，原生分页、字号、目录和本机续读。', '日程复用 Schedule，AI 使用现有账号权限与平台配额。'] },
   { version: '3.12.2', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: 'Watch 轻量测试版', summary: 'Products 更新手表测试包，减少切换和长列表的负担。', categories: ['平台体验'], accent: 'blue', highlights: ['手表栏目复用页面并保留滚动位置，长列表每页显示十二条。', '首页提供任务、通知、专注、CUE 与重要日期快捷入口。', '原生安装包启用代码与资源裁剪，实际流畅度仍需真机验收。'] },
   { version: '3.12.1', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '手表设置与产品入口', summary: '手表管理成为独立设置分类，Products 增加 JackYun Watch。', categories: ['平台体验'], accent: 'blue', highlights: ['电脑、平板和手机均可从手表与设备分类扫码或输入配对码。', '旧二维码链接自动进入新分类并保留配对信息。', '产品页提供功能介绍、测试安装包与登录管理入口。'] },
   { version: '3.12.0', date: '2026-10-13', dateLabel: '2026 年 10 月 13 日', title: '连接 JackYun Watch', summary: '扫码或账号密码登录原生手表客户端，查看课表和基础学习信息。', categories: ['平台体验'], accent: 'blue', highlights: ['账户设置增加扫码授权、配对码和手表撤销管理。', '手表使用独立设备凭证，真实账号会话仅保存在服务端。', '新增版本化课表、任务、通知、倒计日与 CUE 概览接口，离线操作去重并检查冲突。'] },

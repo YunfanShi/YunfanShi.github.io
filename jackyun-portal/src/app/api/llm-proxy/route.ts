@@ -9,6 +9,7 @@ import { resolveManagedAiModel, resolveSmartAiRouting, type AiWorkspaceMode } fr
 import { buildSmartSelectionMessages, extractCompletionText, parseSmartSelection } from '@/lib/ai-smart-selection';
 import { normalizeAiModelCapabilities, type AiModelCapability } from '@/lib/ai-model-capabilities';
 import { recordAiModelResult } from '@/lib/ai-model-health';
+import { watchContext, WatchError } from '@/lib/watch/server';
 
 // Cloud configuration — only accessible server-side
 const CLOUD_API_URL = process.env.CLOUD_LLM_API_URL || '';
@@ -95,6 +96,14 @@ export async function POST(req: NextRequest) {
   }
   if (JSON.stringify(body).length > 1_000_000) {
     return NextResponse.json({ error: { message: '请求内容过大' } }, { status: 413 });
+  }
+  let watchAuth: Awaited<ReturnType<typeof watchContext>> | undefined;
+  if(req.headers.has('x-watch-device') || req.headers.has('x-watch-secret')) {
+    try { watchAuth=await watchContext(req); } catch(error) {
+      return NextResponse.json({error:{message:error instanceof WatchError?error.message:'手表认证失败'}},{status:error instanceof WatchError?error.status:503});
+    }
+    // Watch requests always use the metered cloud path; configuration and tools stay on the website.
+    body={messages:Array.isArray(body.messages)?body.messages.slice(-2).map(message=>({role:message.role==='system'?'system':'user',content:String(message.content??'').slice(0,2500)})):[],providerMode:'cloud',stream:false,max_tokens:600,feature:'chat',workspaceMode:'chat'};
   }
 
   // Check if this is a config-save request
@@ -210,9 +219,9 @@ export async function POST(req: NextRequest) {
     keySource = 'client';
   } else {
     // 回退到云端配置 → 需要验证用户身份
-    const supabase = await createClient();
-    const { data: claimsData } = await supabase.auth.getClaims();
-    const authenticatedUserId = typeof claimsData?.claims.sub === 'string' ? claimsData.claims.sub : undefined;
+    const supabase = watchAuth?.supabase ?? await createClient();
+    const { data: claimsData } = watchAuth ? {data:null} : await supabase.auth.getClaims();
+    const authenticatedUserId = watchAuth?.user.id ?? (typeof claimsData?.claims.sub === 'string' ? claimsData.claims.sub : undefined);
     if (!authenticatedUserId) {
       auditLog({ ip: clientIp, model: 'unknown', keySource: 'cloud', status: 401, durationMs: Date.now() - startTime, error: 'Unauthenticated' });
       return NextResponse.json(

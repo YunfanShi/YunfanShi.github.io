@@ -1,6 +1,6 @@
 import { cueDashboard } from '../learning/cue-dashboard.ts';
 import { readScheduleState, SCHEDULE_STORAGE_KEY } from '../learning/workspace-reader.ts';
-import { sessionsForDate } from '../learning/schedule-control.ts';
+import { sessionsForDate, tasksForDate } from '../learning/schedule-control.ts';
 import { createAzureRecordClient } from '../sync/azure-records.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -39,7 +39,13 @@ export function scheduleSnapshot(value:unknown,now=new Date(),timezone='Asia/Sha
     for(const session of sessionsForDate(state.timetable,day))lessons.push({id:`${key}:${session.course.id}:${session.start}`,title:session.course.name,
       startsAt:zonedEpoch(key,session.start,timezone),endsAt:zonedEpoch(key,session.end,timezone),location:session.location??'',teacher:session.teacher??''});
   }
-  return {lessons,cue:{due:summary.due,learned:summary.learned,weak:summary.weak,subjects:summary.subjects}};
+  const agenda=[];
+  for(let offset=0;offset<7;offset++) {
+    const day=new Date(localNow);day.setDate(day.getDate()+offset);
+    const shownDate=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+    for(const task of tasksForDate(state,day)) agenda.push({id:`${shownDate}:${task.key}`,title:task.title,date:shownDate,sourceDate:task.date,start:task.start??'',minutes:task.durationMinutes,subject:task.subjectName??'',detail:task.detail});
+  }
+  return {lessons,agenda:agenda.slice(0,300),agendaHasMore:agenda.length>300,learningRecords:state.learningRecords.slice(0,30).map(record=>({id:record.id,title:record.taskTitle,subject:record.subjectName??'',completedAt:record.completedAt,status:record.status})),cue:{due:summary.due,learned:summary.learned,weak:summary.weak,subjects:summary.subjects}};
 }
 export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date()) {
   const result:Record<string,unknown>={apiVersion:1,timezone:'Asia/Shanghai',generatedAt:now.toISOString()};
@@ -56,16 +62,29 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
           const {data,error}=await supabase.from('legacy_sync_data').select('storage_value,deleted_at').eq('user_id',userId).eq('storage_key',SCHEDULE_STORAGE_KEY).maybeSingle();
           if(error)throw Error('Schedule unavailable');value=data&&!data.deleted_at?data.storage_value:null;
         }
-        if(value==null){modules.timetable='not_synced';modules.cue='not_synced';return;}
-        Object.assign(result,scheduleSnapshot(value,now));modules.timetable='ready';modules.cue='ready';
-      }catch{modules.timetable='error';modules.cue='error';}
+        if(value==null){for(const name of ['timetable','cue','agenda','learning'])modules[name]='not_synced';return;}
+        Object.assign(result,scheduleSnapshot(value,now));for(const name of ['timetable','cue','agenda','learning'])modules[name]='ready';
+      }catch{for(const name of ['timetable','cue','agenda','learning'])modules[name]='error';}
     })(),
     load('tasks',async()=>{
-      const {data,error}=await supabase.from('study_tasks').select('id,title,completed,due_date,scheduled_at,priority,updated_at').eq('user_id',userId).order('completed').order('priority').order('due_date',{nullsFirst:false}).limit(500);
-      if(error)throw error;result.tasks=(data??[]).map(task=>({id:task.id,title:task.title,completed:task.completed,version:task.updated_at,
+      const {data,error}=await supabase.from('study_tasks').select('id,plan_id,title,completed,due_date,scheduled_at,priority,updated_at').eq('user_id',userId).order('completed').order('priority').order('due_date',{nullsFirst:false}).limit(500);
+      if(error)throw error;result.tasks=(data??[]).map(task=>({id:task.id,planId:task.plan_id,title:task.title,completed:task.completed,version:task.updated_at,
         dueLabel:task.due_date??'无截止时间',dueAt:task.due_date?zonedEpoch(task.due_date,'20:00'):0,priority:['最高','较高','普通','较低','最低'][Math.max(0,Math.min(4,Number(task.priority??3)-1))]}));
     }),
     load('countdowns',async()=>{const {data,error}=await supabase.from('countdowns').select('id,title,target_date').eq('user_id',userId).order('target_date').limit(200);if(error)throw error;result.countdowns=(data??[]).map(item=>({id:item.id,title:item.title,targetAt:Date.parse(item.target_date)}));}),
+    load('plans',async()=>{
+      const {data,error}=await supabase.from('study_plans').select('id,title,description,start_date,end_date').eq('user_id',userId).order('created_at',{ascending:false}).limit(100);
+      if(error)throw error;
+      result.plans=(data??[]).map(plan=>({...plan,description:String(plan.description??'').slice(0,2000)}));
+    }),
+    load('activity',async()=>{
+      const since=new Date(now.getTime()-6*86400000),today=calendarDate(now);
+      const {data,error}=await supabase.from('companion_activity_daily').select('activity_date,hostname,active_seconds').eq('user_id',userId).gte('activity_date',calendarDate(since)).lte('activity_date',today).limit(5001);
+      if(error)throw error;
+      const rows=data??[],domains=new Map<string,number>();let todaySeconds=0,weekSeconds=0;
+      for(const row of rows.slice(0,5000)){const seconds=Math.max(0,Number(row.active_seconds)||0);weekSeconds+=seconds;if(row.activity_date===today)todaySeconds+=seconds;domains.set(row.hostname,(domains.get(row.hostname)??0)+seconds);}
+      result.activity={todaySeconds,weekSeconds,partial:rows.length>5000,domains:[...domains].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([name,seconds])=>({name,seconds}))};
+    }),
     load('notifications',async()=>{
       const {data,error}=await supabase.rpc('notification_snapshot',{include_history:true,page_offset:0});if(error)throw error;
       result.unreadCount=data?.unreadCount??0;result.notificationHasMore=Boolean(data?.hasMore);
