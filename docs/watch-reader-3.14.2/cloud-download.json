@@ -1,0 +1,9 @@
+{
+  "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.4.0-beta.1.apk",
+  "description": "2026-10-13 已公开上传 Azure 专用静态下载空间。匿名 GET 返回 200，339227 字节，下载后的 SHA256 与发布包一致；仅此 APK 公开，临时容器上传权限已移除。链接没有 SAS 到期时间，保留该文件时可持续使用。",
+  "httpStatus": 200,
+  "contentType": "application/vnd.android.package-archive",
+  "bytes": 339227,
+  "sha256": "85c01e695ffceb542b7018977cc8c17fd6846382ac4addcfa886d30a9098bc98",
+  "temporaryUploadRoleRemoved": true
+}

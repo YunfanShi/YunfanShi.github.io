@@ -1,0 +1,44 @@
+{
+  "watchVersion": "1.4.0-beta.1",
+  "portalVersion": "3.14.2",
+  "apkBytes": 339227,
+  "sha256": "85c01e695ffceb542b7018977cc8c17fd6846382ac4addcfa886d30a9098bc98",
+  "nativeTests": 12,
+  "lintErrors": 0,
+  "lintWarnings": 17,
+  "webTests": 11,
+  "productionBuild": "passed",
+  "targetedEslint": "passed",
+  "round": {
+    "rapidPageTurns": 20,
+    "dispatchAndIdleMs": 17,
+    "sameSegmentLayoutBuilds": 1,
+    "clipping": "passed",
+    "themesFontBookmarkJumpResume": "passed"
+  },
+  "square": {
+    "rapidPageTurns": 20,
+    "dispatchAndIdleMs": 18,
+    "sameSegmentLayoutBuilds": 1,
+    "clipping": "passed",
+    "themesFontBookmarkJumpResume": "passed"
+  },
+  "fullVerify": "stopped at four unchanged legacy-ui assertions; remaining checks also executed",
+  "failedChecks": [
+    "legacy-ui:4",
+    "reader-admin:1",
+    "Companion preview ZIP hosted-sources/catalog.json stale",
+    "Companion bundled source catalog stale"
+  ],
+  "passedRemainingChecks": [
+    "PWA",
+    "secrets in original checkout",
+    "StudyGuide",
+    "study plan import"
+  ],
+  "limitations": [
+    "No WATCH 4 physical FPS, battery or crown acceptance",
+    "Cloud account access unchanged and not tested with a real account",
+    "TXT up to 2MB; one local book; hosted cloud chapters; no PDF, TTS, whole-book download or cross-device position sync"
+  ]
+}
