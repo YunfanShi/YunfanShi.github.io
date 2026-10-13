@@ -1,0 +1,23 @@
+[
+  {
+    "width": 390,
+    "explicitApproval": true,
+    "revocation": true,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "width": 800,
+    "explicitApproval": true,
+    "revocation": true,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "explicitApproval": true,
+    "revocation": true,
+    "noOverflow": true,
+    "errors": []
+  }
+]
