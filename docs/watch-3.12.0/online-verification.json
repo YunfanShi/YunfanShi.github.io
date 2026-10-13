@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-13",
+  "portalVersion": "3.12.0",
+  "watchVersion": "1.1.0-beta.1",
+  "verifiedPortalCommit": "da8453efdec6630ab05d2582fee161391dfe569f",
+  "previewDeployment": "dpl_6niBwwUqUXCyWFG1WfddXEWr1wp2",
+  "previewUrl": "https://jackyun-portal-mwiyfszei-yunfanshis-projects.vercel.app/settings/watch",
+  "previewState": "READY",
+  "previewPageStatus": 200,
+  "previewCameraPolicy": "camera=(self), microphone=(), geolocation=()",
+  "previewApiStatus": 503,
+  "previewApiCode": "WATCH_NOT_ENABLED",
+  "databaseMigrationApplied": true,
+  "rollbackFixturesRemaining": 0,
+  "deviceSessionColumnVisibleToAccount": false,
+  "pairClaimExecutableByAccountOrAnonymous": false,
+  "productionDeployed": false,
+  "productionApprovalPending": true,
+  "realDeviceTested": false,
+  "realAccountOnlineFlowTested": false,
+  "summary": "网页提交 da8453e 的 Vercel 预览已 READY，扫码页 HTTP 200，摄像头仅本站；预览接口按设计未启用。生产发布被自动审批拒绝，待用户明确授权；真实登录、刷新、扫码领取和撤销尚未线上验收。"
+}
