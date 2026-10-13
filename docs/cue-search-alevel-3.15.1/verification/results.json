@@ -1,0 +1,42 @@
+[
+  {
+    "width": 1440,
+    "passed": true,
+    "checks": [
+      "timer-only fullscreen",
+      "hidden metadata",
+      "corner type menu",
+      "fullscreen keyboard and Escape",
+      "pause/switch independence",
+      "percentage colors",
+      "yellow/red animation",
+      "animation and sound settings",
+      "overtime",
+      "refresh recovery",
+      "Schedule metrics",
+      "retest dedup",
+      "custom presets",
+      "login layout"
+    ]
+  },
+  {
+    "width": 390,
+    "passed": true,
+    "checks": [
+      "timer-only fullscreen",
+      "hidden metadata",
+      "corner type menu",
+      "fullscreen keyboard and Escape",
+      "pause/switch independence",
+      "percentage colors",
+      "yellow/red animation",
+      "animation and sound settings",
+      "overtime",
+      "refresh recovery",
+      "Schedule metrics",
+      "retest dedup",
+      "custom presets",
+      "login layout"
+    ]
+  }
+]

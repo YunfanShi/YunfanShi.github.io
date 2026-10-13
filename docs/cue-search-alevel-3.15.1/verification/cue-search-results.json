@@ -1,0 +1,28 @@
+[
+  {
+    "width": 1440,
+    "passed": true,
+    "checks": [
+      "priority order",
+      "MS search",
+      "literal highlighting",
+      "no biomass substring",
+      "fallback typo",
+      "all-token requirement",
+      "clear query"
+    ]
+  },
+  {
+    "width": 390,
+    "passed": true,
+    "checks": [
+      "priority order",
+      "MS search",
+      "literal highlighting",
+      "no biomass substring",
+      "fallback typo",
+      "all-token requirement",
+      "clear query"
+    ]
+  }
+]

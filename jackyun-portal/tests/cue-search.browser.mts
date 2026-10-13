@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {createEmptyScheduleState,type StudyCue} from '../src/lib/learning/schedule-control.ts';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
+const base=process.env.JACKYUN_TEST_URL||'http://localhost:3215',out=process.env.JACKYUN_SCREENSHOT_DIR||'artifacts/verification/cue-search';await mkdir(out,{recursive:true});
+const now=new Date().toISOString();
+const cue=(id:string,values:Partial<StudyCue>):StudyCue=>({id,subjectId:'physics',subjectName:'Physics',unit:'Kinematics',subsection:'',prompt:'Unknown',type:'general',markingPoints:[],intervalDays:0,easeFactor:2.5,streak:0,status:'unclear',createdAt:now,updatedAt:now,...values});
+const seed=createEmptyScheduleState();seed.settings.tutorialSeenVersion=1;seed.cues=[cue('ms',{prompt:'MS-only card',markingPoints:['change in velocity']}),cue('answer',{prompt:'Answer-only card',answer:'velocity is a vector'}),cue('subtitle',{prompt:'Subtitle-only card',subtitle:'recall velocity'}),cue('title',{prompt:'Velocity'}),cue('place',{prompt:'Location-only card',unit:'Velocity'}),cue('typo',{prompt:'Velocitty'}),cue('mass',{prompt:'Mass'}),cue('biomass',{prompt:'Biomass'})];
+const browser=await chromium.launch({headless:true,channel:'msedge'}),results:unknown[]=[];
+try{for(const width of [1440,390]){
+ const context=await browser.newContext({viewport:{width,height:1000},timezoneId:'Asia/Shanghai'});await context.addInitScript(seed=>localStorage.setItem('jackyun_schedule_control_v1',JSON.stringify(seed)),seed);
+ const page=await context.newPage(),errors:string[]=[];page.on('pageerror',(e:Error)=>errors.push(e.message));await page.goto(base+'/schedule');await page.getByRole('button',{name:/Cue 管理/}).click({timeout:90000});
+ const dialog=page.getByRole('dialog',{name:'知识 CUE 管理'}),query=dialog.getByRole('searchbox',{name:'搜索 Cue 管理'});
+ await query.fill('velocity');await dialog.locator('article').nth(3).waitFor();assert.equal(await dialog.locator('article').count(),4);const cards=await dialog.locator('article').allTextContents();assert.match(cards[0],/命中大标题/);assert.match(cards[1],/命中小标题/);assert.match(cards[2],/命中答案/);assert.match(cards[3],/命中MS/);assert.equal(await dialog.locator('mark').count(),4);
+ await page.screenshot({path:out+'/cue-search-'+width+'.png'});await query.fill('mass');assert.equal(await dialog.locator('article').count(),1);assert.match(await dialog.locator('article').textContent(),/Mass/);
+ await query.fill('veloctiy');await dialog.getByRole('status').filter({hasText:'已扩大'}).waitFor();assert.ok(await dialog.locator('article').count()>0);assert.ok(await dialog.locator('mark').count()>0);
+ await query.fill('velocity energy');assert.equal(await dialog.locator('article').count(),0);await dialog.getByText('还没有匹配的 Cue。',{exact:true}).waitFor();await query.fill('');assert.equal(await dialog.locator('article').count(),8);
+ assert.equal(errors.length,0,errors.join('\n'));results.push({width,passed:true,checks:['priority order','MS search','literal highlighting','no biomass substring','fallback typo','all-token requirement','clear query']});await context.close();
+}}finally{await browser.close();}await writeFile(out+'/cue-search-results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));

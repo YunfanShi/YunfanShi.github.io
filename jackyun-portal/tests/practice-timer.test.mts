@@ -27,12 +27,13 @@ test('remaining percentage thresholds and overtime are separate from correctness
 test('pending results persist without corrupting weekly first-attempt metrics',()=>{
   const s=session();s.finished=true;s.questions[0].elapsedMs=60000;assert.equal(practiceEvidence(s),null);let state=applyPracticeSession(createEmptyScheduleState(),s);assert.equal(state.timedPracticeRecords?.length,0);
   s.questions[0].result='correct';state=applyPracticeSession(state,s);state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.length,1);assert.equal(weeklyPracticeSummary(state.timedPracticeRecords!,'2026-10-13').attempted,1);
-  s.questions[0].result='help';s.questions[0].blocked=true;s.questions[0].elapsedMs=180000;s.questions[0].cause='方法选择';state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.[0].failedOvertime,1);assert.equal(state.timedPracticeRecords?.[0].blocked,1);
+  s.questions[0].result='help';s.questions[0].blocked=true;s.questions[0].elapsedMs=(s.questions[0].limitSeconds+1)*1000;s.questions[0].cause='方法选择';state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.[0].failedOvertime,1);assert.equal(state.timedPracticeRecords?.[0].blocked,1);
   s.source='A';state=applyPracticeSession(state,s);assert.equal(weeklyPracticeSummary(state.timedPracticeRecords!,'2026-10-13').attempted,0);
 });
 test('custom subjects, preset durations and read/merge/safety survive Schedule storage',()=>{
-  for(const name of ['Physics','Mechanics','Statistics','Computer Science','Chemistry','Biology','IELTS','Custom'])assert.ok(E.presets(name).length>=4);
-  const times=E.presets('Physics')[0].seconds;assert.equal(times.exam,120);assert.equal(times.normal,144);assert.equal(times.relaxed,180);
+  for(const name of ['Physics','Mechanics','Statistics','Computer Science','Chemistry','Biology','Economics','History','English Language'])assert.ok(E.presets(name).length>=4);
+  assert.equal(E.presets('IELTS').length,0);assert.equal(E.presets('Custom').length,0);
+  const times=E.presets('Physics')[0].seconds;assert.equal(times.exam,113);assert.equal(times.normal,135);assert.equal(times.relaxed,169);
   const s=session();s.subject='自定义科目';s.finished=true;s.questions[0].elapsedMs=1200000;s.questions[0].result='correct';const state=applyPracticeSession(createEmptyScheduleState(),s);
   const loaded=readScheduleState({getItem:()=>JSON.stringify(state)});assert.equal(loaded.practiceSessions?.[0].subject,s.subject);assert.equal(loaded.timedPracticeRecords?.[0].subject,s.subject);assert.ok(scheduleHasContent({practiceSessions:[s]}));
   const second=structuredClone(s);second.id='second';const base=createEmptyScheduleState();const merged=threeWayMerge(base,state,applyPracticeSession(base,second));assert.equal(merged.conflicts.length,0);assert.equal((merged.merged as typeof state).practiceSessions?.length,2);
