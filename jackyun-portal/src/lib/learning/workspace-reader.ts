@@ -1,5 +1,6 @@
 import { createEmptyScheduleState, migrateIeltsWeekTaskDates, normalizeCueMetadata, parseTimetableImport, reconcileScheduleSubjects, rollOverManualTasks, recalculateLegacyCueSchedules, dateKey, type ScheduleControlState, type CueMemo, type CueStudyDraft } from './schedule-control.ts';
-import { normalizeTimedPractice } from './timed-practice.ts';
+import { normalizeTimedPractice, normalizePracticeFrequencies } from './timed-practice.ts';
+import { readDiagnoses } from './exam-diagnosis.ts';
 export const SCHEDULE_STORAGE_KEY = 'jackyun_schedule_control_v1';
 export function readScheduleState(storage: Pick<Storage, 'getItem'>, now = new Date()): ScheduleControlState {
   const empty = createEmptyScheduleState();
@@ -41,6 +42,8 @@ export function readScheduleState(storage: Pick<Storage, 'getItem'>, now = new D
       cues: Array.isArray(parsed.cues) ? parsed.cues.map((cue) => normalizeCueMetadata(cue, now.toISOString())) : [],
       cueReviews: Array.isArray(parsed.cueReviews) ? parsed.cueReviews : [],
       timedPracticeRecords: normalizeTimedPractice(parsed.timedPracticeRecords),
+      examDiagnoses: readDiagnoses(parsed.examDiagnoses),
+      practiceFrequencies: normalizePracticeFrequencies(parsed.practiceFrequencies),
       learningRecords: Array.isArray(parsed.learningRecords) ? parsed.learningRecords : [],
       learningCatalog: Array.isArray(parsed.learningCatalog) ? parsed.learningCatalog : [],
       learningReminders: Array.isArray(parsed.learningReminders) ? parsed.learningReminders : [],

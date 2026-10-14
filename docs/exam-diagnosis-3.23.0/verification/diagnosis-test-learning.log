@@ -1,0 +1,292 @@
+(node:42352) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-answer-card.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ comparison automatically checks local matches once and preserves manual adjustments (2.4301ms)
+✔ blank answers never create comparisons or records (0.1588ms)
+✔ comparison snapshots reference and self checks; editing invalidates it (0.1888ms)
+✔ answers persist per session with unambiguous identities and bounded input (0.2018ms)
+✔ single answer-card shortcut insertions close without changing saved answers (0.3485ms)
+(node:73240) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-change-history.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ one import records actual creates, updates, deletions and immutable field differences (1.351ms)
+✔ no-op imports are recorded, no-op manual saves and review-only changes are ignored (0.2992ms)
+✔ deletion history survives serialization and concurrent records merge by ID (1.8443ms)
+✔ new CUEs submitted with a learning record produce one content history event (4.3441ms)
+(node:916) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-game.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ game is opt-in and new Cue sessions default to shuffle, including legacy preferences (1.2302ms)
+✔ rating edits, duplicate sync records and repeated sessions do not farm XP (0.7479ms)
+✔ calendar days give new rewards; malformed and future dates are excluded (0.1909ms)
+✔ defeat, level boundary and permanent cosmetics reconstruct from review history (0.9166ms)
+✔ default shuffle leaves source order intact; switching off restores original remaining order (9.517ms)
+✖ desktop background renders real star history, accessible experience and reduced-motion control (411.331ms)
+✔ star album keeps all ratings, deduplicates daily stars and survives Cue deletion and sync (8.2511ms)
+✔ legacy review attribution can use saved learning records even after Cue removal (0.244ms)
+✔ each learning situation has three rotating variants with bounded nonblocking durations (0.3077ms)
+✔ galaxy stars retain deterministic coordinates and status colors as learning grows (0.9171ms)
+✔ encouragement is frequent and all-status completion is independent of correctness (0.1449ms)
+✔ desktop prompt and ratings share a viewport-sized centered stage (7.8202ms)
+(node:56036) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/question-bank.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mastery pauses all study starts for ten days and repeated K does not extend the cooldown (1.9903ms)
+✔ successful due retrievals grow 10 12 14 16 18 and stop at eighteen (8.0612ms)
+✔ early practice does not extend mastery; wrong or changed content returns to ordinary review (0.4104ms)
+✔ mastery survives the persisted schedule JSON and legacy metadata normalization (0.3441ms)
+✔ mixed learning queues also respect the mastery cooldown (0.733ms)
+(node:72380) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-practice.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a completed small round opens weak Cues immediately and rotates failed retries (0.9769ms)
+✔ red waits for four other retrievals, yellow for six; edits cannot manufacture a gap (0.1975ms)
+✔ small decks use time, never immediately show the same Cue; retry failures reschedule (0.161ms)
+✔ delayed practice persists with the draft; shuffle preserves all session evidence (0.8587ms)
+✔ same-day red to green keeps a next-day confirmation and weak risk, no XP farming (1.1436ms)
+✔ simple recoloring is not another retrieval and cannot erase prior red history (0.2369ms)
+✔ continuing a session the next day adds a new calendar review instead of overwriting yesterday (0.2858ms)
+✔ typing bursts persist once and flush the latest draft at close or compare, including empty answers (0.333ms)
+✖ default buffering calls browser timers with their native receiver, not the adapter object (268.4444ms)
+✔ a repaired red retains more next-day risk than a repaired yellow (0.663ms)
+✔ random windows include both bounds and edits or reloads do not reroll them (0.3544ms)
+✔ retry returns to the same unreviewed Cue after shuffle and can leave an exhausted queue (0.2643ms)
+✔ a failed retry rotates through every other due item, retaining passed items in the directory (0.2903ms)
+✔ the most recently practiced item waits when other queued items are not due (0.161ms)
+✔ retry recoloring edits one attempt, preserves primary red and records a passed marker after reload (0.4111ms)
+✔ a retry continued on a new day preserves primary color and counts only its actual attempt (0.2576ms)
+✔ persistent practice badges follow the latest review and do not inherit an outdated pass (6.8597ms)
+✔ skipping an ungraded retry also visits the full queue rather than bouncing between two Cues (0.2273ms)
+(node:27752) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-rating.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual rerating includes already-rated Cues and ignores stale or repeated queue IDs (1.0338ms)
+✔ status distinguishes stale content, in-flight phases and failed rerating with a preserved result (0.1408ms)
+✔ progress list prioritizes current requests and failures and excludes unrelated rated history (0.9058ms)
+✔ partial batch preserves valid rows, rejects invented/duplicate IDs and isolates invalid difficulty (0.7437ms)
+✔ automatic retries only include failed items, stop after two follow-ups and ignore deletions (0.3466ms)
+(node:68840) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-shop.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ historical credits accrue once and survive recolor, deletion and JSON reload (18.5019ms)
+✔ real retries earn points; recovering a weak item earns EXTRA, not duplicated XP (0.363ms)
+✔ three colors reward effort; future and practice-only records cannot create phantom points (0.1976ms)
+✔ exchange enforces level, balances, ownership and spending does not remove lifetime levels (1.3893ms)
+✔ shuffle interleaves balanced subjects and rotates units while preserving all identities (1.1684ms)
+✔ skip rotates weak items; automatic pass returns to normal while explicit mode retains its directory (0.4002ms)
+✔ credit packs convert expendable XP once without changing cumulative level (0.4527ms)
+(node:38012) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/joint-cue-study.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ joint selection scopes units by subject even when unit names are identical (1.2878ms)
+✔ due includes overdue and new items, excludes future and completed today; all still excludes today (3.546ms)
+✔ cross subject draft reloads and completes with independent ratings and all selected evidence (2.1362ms)
+✔ old cue-only joint drafts migrate into the normal Cue page without losing progress (0.7373ms)
+✔ pure Cue starts and old Cue resumes reuse the original Cue study entry point (3.2716ms)
+✔ catalog reconciliation cannot fold a joint Cue draft into its longest matching subject (1.1705ms)
+(node:56264) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/learning-assistance.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ difficulty is auxiliary, actual weak results always need a one-day repair (4.632ms)
+✔ repeated failures raise effective difficulty using distinct days (7.1952ms)
+✔ stable easy Cues stop daily repetition but never get an interval above eighteen days (3.2946ms)
+✔ AI cannot bypass capacity or hide an eighteen-day deadline (0.759ms)
+✔ AI suggestions validate IDs, difficulty, completeness and bounded capacity (0.5048ms)
+✔ learner profile counts actual evidence by subject and Cue type (1.1283ms)
+✔ AI skill labels group general Cues into evidence-backed profile dimensions (0.2979ms)
+✔ daily-only advice can refresh without inventing or changing Cue ratings (0.3026ms)
+✔ eighteen-day question deadlines share the same capacity protection (0.5138ms)
+✔ legacy and edited Cues are analyzed automatically, outcomes refresh after three practice days (0.3975ms)
+✔ unsupported optional skill cannot fail ten otherwise valid ratings (0.3931ms)
+(node:66104) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/metrics.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ task presets cover audits, self-study, cue review, and IELTS without fixing weekdays (1.1477ms)
+✔ selecting and clearing a Cue subgroup preserves selections outside that subgroup (0.5713ms)
+✔ Cue similarity ignores common words and detects reordered duplicate prompts (1.2732ms)
+✔ a different judgment excludes only that Cue pair and can be undone or invalidated by an edit (7.5316ms)
+✔ IELTS weekly tasks are spread across weekdays and legacy Monday-only weeks are repaired (2.8756ms)
+✔ cancelled manual tasks stay out of the due task list (0.7169ms)
+✔ manual tasks can be rescheduled to tomorrow without retaining a stale start time (0.1334ms)
+✔ overdue manual tasks roll into today and merge with an equivalent task already due today (0.7412ms)
+✔ generated tasks can be postponed and keep their context (0.2716ms)
+✔ cues keep independent review states and due dates (1.6071ms)
+✔ Cue review intervals expand with repeated green results and contract after unstable results (1.079ms)
+✔ Cue review history distinguishes yellow recovery, red recovery, and early repeat reviews (0.5639ms)
+✔ a Cue assessed today is not scheduled or offered for review until tomorrow (0.4079ms)
+✔ edited Cues reopen today after completion and close again after reviewing the new content (1.0014ms)
+✔ existing same-day red plans are moved to tomorrow on the next schedule scan (0.2816ms)
+✔ an edited Cue with two green reviews retains its evidence without a false red label (0.8863ms)
+✔ green interval needs spaced evidence and recovers gradually from yellow and red history (0.436ms)
+✔ Cue status filters share study semantics for manager views (0.0925ms)
+✔ history filters include recovered but unstable Cues and exclude consistently green Cues (0.2005ms)
+✔ old Cue plans are recalculated from saved ratings once without changing unrelated Cues (0.4269ms)
+✔ Cue study resolves explicit task Cues first and otherwise uses subject plus unit scope (0.2493ms)
+✔ a class keeps one three-step review sheet and folds its Cue queue into it (2.7196ms)
+✔ subject-level interval review yields to Cue-level scheduling (0.207ms)
+✔ same-subject review tasks merge across carried and newly generated Cue reviews (0.5055ms)
+✔ every learning task can record actual materials, scope, linked cues, and reviewed cues (0.4514ms)
+✔ learning status is derived only from selected Cue evidence (0.1069ms)
+✔ date keys respect the user time zone around UTC midnight (10.9985ms)
+✔ learning metrics ignore invalid durations and calculate real elapsed time (0.2664ms)
+✔ overdue and due review work is ranked above an ordinary high-priority task (0.3444ms)
+✔ review scheduling grows after success and resets after failure (0.1721ms)
+✔ timetable imports are validated without relying on private sample data (1.135ms)
+✔ learning catalog imports preserve free-text material positions and validate hierarchy (0.7612ms)
+✔ learning catalog imports accept units without subsections (0.1106ms)
+✔ partial catalog imports merge existing data without deleting untouched content (0.6134ms)
+✔ a partial unit rename preserves the rest of the catalog and updates existing Cue references (0.4867ms)
+✔ merging duplicate units keeps the chosen target and migrates every Cue alias (0.4335ms)
+✔ rename import coalesces an existing source and target unit instead of creating duplicates (0.1723ms)
+✔ timetable course names reconcile with learning subjects by meaningful keywords (0.5613ms)
+✔ Cue bulk import accepts mixed create and update operations with explicit actions (0.4572ms)
+✔ Cue unit reconciliation applies one user choice to create and update operations (0.1399ms)
+✔ only substantial or explicitly marked Cue imports count as collection updates (0.1334ms)
+✔ Cue bulk operations can update an existing Cue and create a new Cue together (0.3275ms)
+✔ legacy Cue metadata defaults to version 1 and the supplied current time (0.0689ms)
+✔ Cue activity tags prioritize unseen and changed content before review state (0.093ms)
+✔ Cue review batching combines small units and splits large units into manageable sessions (0.3109ms)
+✔ daily Cue review creates separate numbered tasks for a large due unit (0.4999ms)
+✔ a heavy class day schedules only the highest-priority Cue batch and keeps the backlog queued (1.8058ms)
+✔ daily Cue review is the deduplicated union of regular, weak, and today-created Cues (0.2172ms)
+✔ a changed Cue is reviewed again even when its old interval date is still in the future (0.1357ms)
+✔ full Cue update can change subject, unit, prompt, answer, formula, and display properties (0.1518ms)
+✔ Cue study ratings save immediately, can be corrected, and are not duplicated at completion (0.2493ms)
+✔ Cue LaTeX accepts commonly escaped comparison symbols (0.1083ms)
+✔ review subjects are saved only from the user selection (0.1434ms)
+✔ timetable import preserves manual choices without auto-selecting matching learning subjects (0.1581ms)
+✔ partial timetable update preserves choices and handles a moved class and weekend makeup day (0.5211ms)
+✔ temporary timetable updates keep the primary timetable and replace only a dated override (0.1895ms)
+✔ Cue study drafts survive across subjects and replace only the same subject (0.2086ms)
+✔ shuffle mode changes Cue order without losing or duplicating a Cue (0.183ms)
+✔ per-subject Cue draft keeps shuffled order and prior statuses when another subject saves (0.0967ms)
+✔ collective Cue maintenance creates one durable reminder and resets after a recorded batch check (0.3886ms)
+✔ cancelling a generated checklist task removes the visible parent and every folded child (0.2365ms)
+✔ course reviews, previews, holiday mode, and review follow-ups are deterministic (0.4526ms)
+✔ green reviews wait several days while red reviews cannot complete the task (0.2236ms)
+✔ learning-session migration enforces ownership and idempotency (3.4514ms)
+✔ legacy Pomodoro bridge records linked sessions through the authenticated adapter (6.9294ms)
+✔ review queue migration is private, durable, and Data API-ready (3.0041ms)
+✔ completed quizzes enqueue incorrect questions without duplicating existing items (2.1137ms)
+✔ user can correct AI timetable classification and replace an incorrect primary import (0.5449ms)
+✔ phone schedule keeps task actions separate and replaces the wide week grid with a day agenda (5.0963ms)
+(node:72736) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/definition-cards.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ memory import makes independent definitions and complete comparisons without transferring review state (5.4969ms)
+✔ shuffle changes only remaining Cues, preserves all evidence and current unfinished Cue (0.6628ms)
+✔ default navigation puts Schedule immediately before the study plan (5.2683ms)
+✔ import maintenance statistics use the dialog target subject, not the manager selection (0.5239ms)
+✔ old saved sidebar order moves Schedule before Study Plan without changing other learning items (5.4308ms)
+(node:73508) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/cue-answer-card.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ plain formula examples render with KaTeX; CSMA/CD remains ordinary text (16.6864ms)
+✔ explicit math delimiters and prose retain their original boundaries (0.1659ms)
+✔ old Cue formulas with decoded JSON control characters render as math (2.7646ms)
+✔ legacy compact fractions, theta and text commands from saved Cues render cleanly (0.8323ms)
+✔ every recall type has a touch reveal and keeps evidence off the question page (8.8676ms)
+✔ choice cards require selection and show correct and selected answers on the evidence page (2.4487ms)
+✔ the viewport dialog overrides generic height caps and traps background widgets below it (4.564ms)
+✔ phone filters retain all desktop options and hide desktop keyboard instructions (1.3317ms)
+✔ mean formulas from legacy JSON repair backspace and compact bar commands without visible slash errors (3.3553ms)
+✔ optional answer card hides comparison for blank responses and preserves old memos (6.5423ms)
+(node:41416) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/question-bank.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ import preview rejects invalid objective answers and unknown updates without changing state (1.4957ms)
+✔ incremental import edits only supplied fields and preserves identities and evidence (3.5691ms)
+✔ objective checking uses selected sets while missing answers, subjective and paper work remain self assessed (0.1841ms)
+✔ correctness, score and mastery stay separate and repeated ratings update one attempt (0.2848ms)
+✔ invalid score and unsubmitted responses are rejected before recording (0.2246ms)
+✔ submitted snapshots survive edits before rating and the answer basis is immutable (0.2026ms)
+✔ correctly completed original questions leave automatic practice; weak answers return briefly (6.1457ms)
+✔ PQ source categories survive import and invalid rows identify their position (0.4818ms)
+✔ same day attempts stay out of automatic decks but can be selected for manual practice (0.1912ms)
+✔ multi-link questions follow every selected related Cue without adding unselected content (0.7972ms)
+✔ typed references isolate matching Cue and question IDs (0.1208ms)
+✔ draft reconciliation restores answers and removes deleted item ratings with stable current position (0.3238ms)
+✔ deleting questions retains historic snapshots but removes draft membership (0.2321ms)
+✔ copying a Cue creates a new question without transferring learning history (0.1758ms)
+✔ questions and Cues share light-day capacity and heavy days limit both to one batch (3.254ms)
+✔ merged same-subject learning deduplicates question references and preserves them on postponement (0.4968ms)
+✔ mixed completion persists independent results, snapshots and is idempotent (1.2373ms)
+✔ question-only completion can pass without inventing Cue evidence (0.2007ms)
+✔ question bank, attempts and mixed draft survive serialized sync/backup roundtrip (43.4393ms)
+✔ three-way sync preserves independent question changes and attempts (1.0171ms)
+✔ malformed saved data raises an error instead of resetting a populated bank (0.2336ms)
+✔ an empty explicit Cue deck cannot expand to the entire subject outside daily capacity (0.1576ms)
+✔ catalog renames update live question scope but preserve historical snapshots (0.256ms)
+✔ rating an old submitted revision does not mark the revised question as reviewed (0.1622ms)
+✔ short question codes survive edits, source changes and strict storage round trips (0.3012ms)
+✔ legacy questions receive codes without changing historical answer snapshots (0.1959ms)
+✔ question images round trip with answer placement and remain frozen in attempts (0.478ms)
+(node:74828) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/study-prompts.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ image requirements survive imports, storage and historical attempts independently (3.7869ms)
+✔ subject charts include independent question snapshots and do not equate green with objective correctness (0.8982ms)
+✔ separate Cue and question prompts retain their own rules and compatible data (0.6468ms)
+ℹ tests 187
+ℹ suites 0
+ℹ pass 185
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1085.1337
+
+✖ failing tests:
+
+test at tests\cue-game.test.mts:56:1
+✖ desktop background renders real star history, accessible experience and reduced-motion control (411.331ms)
+  node:internal/modules/cjs/loader:1520
+    throw err;
+    ^
+
+  Error: Cannot find module '@/hooks/use-workspace-layout'
+  Require stack:
+  - C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\tests\cue-game.test.mts
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
+      at Module._load (node:internal/modules/cjs/loader:1294:5)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1617:12)
+      at require (node:internal/modules/helpers:153:16)
+      at require (file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/tests/cue-game.test.mts:83:744)
+      at evalmachine.<anonymous>:42:30 {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\syf26\\Desktop\\JACKYUN\\exam-diagnosis-work\\jackyun-portal\\tests\\cue-game.test.mts' ]
+  }
+
+test at tests\cue-practice.test.mts:112:1
+✖ default buffering calls browser timers with their native receiver, not the adapter object (268.4444ms)
+  evalmachine.<anonymous>:29
+  var cue_self_check_ts_1 = require("./cue-self-check.ts");
+                            ^
+
+  ReferenceError: require is not defined
+      at evalmachine.<anonymous>:29:27
+      at Script.runInContext (node:vm:149:12)
+      at Script.runInNewContext (node:vm:154:17)
+      at runInNewContext (node:vm:310:38)
+      at TestContext.<anonymous> (file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/tests/cue-practice.test.mts:121:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

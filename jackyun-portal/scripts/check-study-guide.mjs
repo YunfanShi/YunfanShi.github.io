@@ -279,7 +279,7 @@ if (JSON.stringify(modern) !== JSON.stringify(legacy)) {
 }
 
 const timed = runtime.renderModuleFor('practice', 'timed');
-for (const text of ['三门主科固定训练', '首次接触且独立计时', '✓ 正确且按时', '△ 正确但超时', 'A / B / C', '约 90 秒', '70% 新内容 + 30%', '新题 Transfer']) {
+for (const text of ['按近期考试诊断设置学科频率', 'Computer Science 两次', '首次接触且独立计时', '✓ 正确且按时', '△ 正确但超时', 'A / B / C', '约 90 秒', '70% 新内容 + 30%', '新题 Transfer']) {
   if (!timed.includes(text)) throw new Error(`Timed new-question guide is missing: ${text}`);
 }
 for (const [days, expected] of [[1, '动笔热身'], [2, '混合限时小测'], [3, '混合限时小测'], [4, '陌生新题'], [7, '陌生新题']]) {

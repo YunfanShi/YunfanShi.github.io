@@ -1322,7 +1322,7 @@
             subTabLabels: { timed: '限时新题', general: '难题怎么拆', types: '学科 / 题型怎么做', diagnose: '错题诊断', stuck: '卡题怎么办' },
             content: {
                 timed: methodPage('限时新题：先独立动笔，再修最高影响卡点', 'timer', '2026-10-13 当前执行版：解决看错题时会、动笔时慢、陌生题突然卡住。预习、康奈尔、Cue、PQ、费曼法保留；不要先清空全部复习才能做新题。', '每周固定新题训练；新题先完整限时尝试，卡住后才打开拆题工具。', '留下首次真实作答与用时，按 ✓ / △ / ○ 批改；只修主要卡点，再换另一道新题复测。', [
-                    step('每周', '三门主科固定训练 + 一门轮换', 'Pure Math、Mechanics、Physics 各一次 20–30 分钟；Statistics 与 Computer Science 轮换一次约 20 分钟。', '<b>作业可抵扣：</b>首次接触且独立计时的学校作业直接算，不叠加同类任务。繁忙周先完成三门主科，按作业量弹性调整。到 Schedule 的“本周限时新题”卡片安排和记录。'),
+                    step('每周', '按近期考试诊断设置学科频率', '默认 Pure Math、Mechanics、Physics 各一次 25 分钟；Computer Science 两次 20 分钟；Statistics 以新作业维持。Schedule 可自定义次数和时长。', '<b>作业可抵扣：</b>首次接触且独立计时的学校作业直接算，不叠加同类任务。繁忙周先完成三门主科，按作业量弹性调整。到 Schedule 的“本周限时新题”卡片安排和记录。'),
                     step('①', '新题先独立限时完整作答', '选没做过、没看过答案的新题；从读题起计时，独立写完或到时停笔。', '<b>不要先猜题型标签或看提示：</b>先圈条件、画草图、写目标或第一式。保留原始作答；求助后会做不能改成首次独立成功。'),
                     step('②', '三类首次结果', '✓ 正确且按时；△ 正确但超时；○ 错误、无思路或求助。', '<b>与 Cue 评价分别看：</b>Cue 的 √ / △ / ○ 是检索完整性；新题的 ✓ / △ / ○ 记录准确性和时间。按时正确率 = ✓ ÷ 全部首次新题数，熟题不进入分母。'),
                     step('③', 'Repair → 新题 Transfer', '只针对主要问题复习少量 Cue/PQ，再换另一道新题独立复测。', '<b>PQ 的角色：</b>口头费曼解释原理、公式变量和单位、边界条件、执行轨迹，用于 Repair。反复做熟的 PQ 不能用作模拟题，也不能替代新题迁移验证。'),
@@ -1748,7 +1748,7 @@
         const periodLabels = { daily: '今日', weekly: '本周', biweekly: '每两周' };
         const periodDescriptions = {
             daily: '先保护必交作业与本周限时新题；预习、Notes、Cue 和到期修复按需安排，不要求清空复习后才做题。',
-            weekly: '主科各一次限时新题，Statistics / CS 轮换；只看四项指标，修最高影响卡点。知识树和全量检查按余力安排。',
+            weekly: '主科各一次限时新题，CS 两次、Statistics 按需（可自定义）；只看四项指标，修最高影响卡点。知识树和全量检查按余力安排。',
             biweekly: '只检查长期留存：随机抽测已掌握内容，更新状态并调整复习策略。'
         };
 
@@ -1787,7 +1787,7 @@
     }
 
     function renderCurrentRevision() {
-        return `<div class="execution-note"><span class="material-icons-round">timer</span><div><strong>2026-10-13 当前执行版 · 独立限时做新题</strong>必交作业 → 本周限时新题 → 相关红/黄 Cue、PQ 修复 → 其他检查。先真实动笔，再修最高影响卡点；不等复习清空。主科各一次 20–30 分钟，Statistics / CS 轮换约 20 分钟；首次接触且独立计时的作业可抵扣。<div class="timeline-actions"><button class="method-link" onclick="navigateToMethod('practice', 'timed')">查看限时新题方法</button><a class="method-link" href="/schedule" target="_top">前往 Schedule 安排与记录</a></div></div></div>`;
+        return `<div class="execution-note"><span class="material-icons-round">timer</span><div><strong>2026-10-13 当前执行版 · 独立限时做新题</strong>必交作业 → 本周限时新题 → 相关红/黄 Cue、PQ 修复 → 其他检查。先真实动笔，再修最高影响卡点；不等复习清空。主科各一次约 25 分钟，CS 两次各约 20 分钟，Statistics 按需；可在 Schedule 调整；首次接触且独立计时的作业可抵扣。<div class="timeline-actions"><button class="method-link" onclick="navigateToMethod('practice', 'timed')">查看限时新题方法</button><a class="method-link" href="/schedule" target="_top">前往 Schedule 安排与记录</a><a class="method-link" href="/schedule#exam-diagnosis" target="_top">考试诊断与新题验证</a><a class="method-link" href="/practice-timer" target="_top">练习计时器</a></div></div></div>`;
     }
 
     function renderWeeklyDaySetting() {
@@ -1850,11 +1850,11 @@
                 { time: '课中 → 小节结束', icon: 'edit_note', title: 'Class Learning → Write Cue → Textbook Check', desc: '课中 Record；一个 subsection 学完后写 Cue，再用教材 Locate → Compare → Fill Gaps → Leave。', detail: '<b>分层处理：</b>Notes 跟课堂走，Cue 跟 subsection 走。Cue 优先当天、最迟隔天；教材只补缺口，不重学整节。', checkKey: 'school_record', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Cornell Learning”' } },
                 { time: '教材核对后 · 按需', icon: 'rule', title: 'Need Extra Verification?', desc: '清楚且 homework 足够就 Skip；不确定能否独立做时，只做 1–2 道代表题。', detail: '<b>这是选做 decision：</b>教材题用于验证，不用于凑工作量。做不出时只修最小缺口，再换一道代表题验证。', checkKey: 'school_process', required: false, method: { tab: 'learn', subTab: 'cornell', label: '查看“教材题何时可跳过”' } },
                 { time: '放学后', icon: 'assignment', title: 'Homework → Update from Evidence', desc: '把作业当作 Application + Verification；只把暴露的问题补进 Notes、红笔易错点或 Problematic Questions。', detail: '<b>避免重复：</b>作业已充分验证的知识不再机械加题。红笔写学到的短提醒；Problematic Questions 保存以后要重测的题，两者不要重复。', checkKey: 'school_homework', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Update from Evidence”' } },
-                { time: '本周固定时段', icon: 'timer', title: '独立限时新题 → 修复 → 换新题', desc: '先做未见新题，记录 ✓ / △ / ○ 与用时；学校首次接触且独立计时的作业可抵扣。', detail: '不要先清空 Cue/PQ。主科各一次 20–30 分钟，Statistics / CS 轮换约 20 分钟；只修最高影响卡点。', checkKey: 'timed_new_attempt', required: false, priorityLabel: '周内固定', method: { tab: 'practice', subTab: 'timed', label: '查看限时新题闭环' } },
+                { time: '本周固定时段', icon: 'timer', title: '独立限时新题 → 修复 → 换新题', desc: '先做未见新题，记录 ✓ / △ / ○ 与用时；学校首次接触且独立计时的作业可抵扣。', detail: '不要先清空 Cue/PQ。主科各一次约 25 分钟，CS 两次各约 20 分钟，Statistics 按需；可在 Schedule 调整；只修最高影响卡点。', checkKey: 'timed_new_attempt', required: false, priorityLabel: '周内固定', method: { tab: 'practice', subTab: 'timed', label: '查看限时新题闭环' } },
                 { time: '次日 / 到期时', icon: 'sync_alt', title: 'Cue Recall → √ / △ / ○', desc: '第一次正式闭卷检索可以在第二天；之后只处理到期内容和 △ / ○ 的最小缺口。', detail: '<b>Day 1：</b>learn + Cue + textbook + homework。<b>Day 2：</b>cover Notes → read Cue → answer from memory → classify。没有到期内容时不必随便找旧笔记重看。', checkKey: 'due_review', required: true, method: { tab: 'learn', subTab: 'review', label: '查看“学习 → Active Recall & Spacing”' } }
             ],
             weekly: [
-                { time: '本周固定', icon: 'timer', title: '三门主科 + Statistics / CS 轮换', desc: 'Pure Math、Mechanics、Physics 各一次 20–30 分钟；轮换科约 20 分钟。', detail: '只看四项：真正动笔、按时正确率、超时/无法起步、主要 1–2 个卡点。作业可抵扣，繁忙周先保三门主科。', checkKey: 'weekly_timed_new', required: true, method: { tab: 'practice', subTab: 'timed', label: '查看新题与每周指标' } },
+                { time: '本周固定', icon: 'timer', title: '三门主科固定训练与可调学科频率', desc: 'Pure Math、Mechanics、Physics 各一次 20–30 分钟；CS 两次约 20 分钟；Statistics 以首次新作业维持。', detail: '只看四项：真正动笔、按时正确率、超时/无法起步、主要 1–2 个卡点。作业可抵扣，繁忙周先保三门主科。', checkKey: 'weekly_timed_new', required: true, method: { tab: 'practice', subTab: 'timed', label: '查看新题与每周指标' } },
                 { time: 'Friday · 1', icon: 'fact_check', title: '检查本周 Notes', desc: '按 Unit / subsection 翻本周 Notes，确认 Information 是否完整、课堂标记是否已经处理。', detail: '<b>这是 Completeness Audit，不是闭卷复习。</b>先保证之后用于 Recall 的材料本身完整。', checkKey: 'weekly_signals', required: false },
                 { time: 'Friday · 2', icon: 'library_books', title: '对照资料补 Notes 与 Cue', desc: '对照 Textbook、PPT、Blackboard Writing 补缺口，并为新内容建立可检索的 Cue。', detail: '<b>新 Cue 当天只检查质量：</b>问题是否清晰、答案边界是否正确；真正闭卷判定放到之后。', checkKey: 'weekly_scope', required: false, method: { tab: 'learn', subTab: 'cornell', label: '查看 Friday Completeness Audit' } },
                 { time: 'Weekend · 1', icon: 'psychology', title: '逐条 Cue Retrieval', desc: '遮住 Notes，按单条 Cue 回答并分别记录 √ / △ / ○；Definitions / Properties 使用严格关键词标准。', detail: '<b>不要给整个学科一个总状态。</b>每一条 Cue 都保留自己的检索证据。稳定的 √ 不必机械重做。', checkKey: 'weekly_gaps', required: true, method: { tab: 'learn', subTab: 'review', label: '查看 Active Recall & Spacing' } },
@@ -2551,7 +2551,7 @@
 - 学习闭环位于考试下面，只解释理解 → 连接 → 检索 → 应用，以及失败时应去哪个模块；不包含学校日、自学、复习或卡题子页。
 - 执行与专注处理计划、启动、环境和注意力。计划写到“可以直接开始”即可，默认动作 + 范围，只有完成含义不清时才补完成标准。
 - TickTick等任务管理器负责What、When、Scope、Deadline、Priority和时间安排；StudyGuide负责How、诊断与修复。不要把任务标题写成方法说明书。
-- 2026-10-13 当前执行版优先：作业→固定限时新题→相关红/黄 Cue/PQ 修复→其他。主科各一次20–30分钟，Statistics/CS轮换约20分钟，首次接触且独立计时作业可抵扣。新题先独立完整作答并记✓/△/○，再修最高影响卡点、换新题复测；熟PQ不计新题正确率。考前7–4天陌生新题，3–2天混合小测，前一天基础中等题热身。不要建议先清空全部复习或强制每周两套整卷。
+- 2026-10-13 当前执行版优先：作业→固定限时新题→相关红/黄 Cue/PQ 修复→其他。主科各一次20–30分钟，CS每周两次各约20分钟、Statistics按需，Schedule可自定义，首次接触且独立计时作业可抵扣。新题先独立完整作答并记✓/△/○，再修最高影响卡点、换新题复测；熟PQ不计新题正确率。考前7–4天陌生新题，3–2天混合小测，前一天基础中等题热身。不要建议先清空全部复习或强制每周两套整卷。
 
 回答顺序：
 1. 先确认学科、具体主题，以及任务类型或指令词（计算、Explain、Compare、Evaluate、材料分析、实验、Trace、Pseudocode等）。信息足够时不要重复追问。
