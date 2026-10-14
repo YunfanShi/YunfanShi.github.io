@@ -1,0 +1,20 @@
+{
+  "renderer": "docx-preview browser fallback; LibreOffice unavailable",
+  "pages": [
+    {
+      "height": 1123,
+      "scrollHeight": 1123,
+      "textLength": 729
+    },
+    {
+      "height": 1123,
+      "scrollHeight": 1123,
+      "textLength": 788
+    },
+    {
+      "height": 1123,
+      "scrollHeight": 1123,
+      "textLength": 888
+    }
+  ]
+}

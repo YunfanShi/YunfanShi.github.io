@@ -1,4 +1,5 @@
 import type { StudyCue } from './schedule-control.ts';
+import { localCueSelfCheck } from './cue-self-check.ts';
 
 export interface CueAnswerCard {
   id: string;
@@ -22,7 +23,10 @@ export function compareCueAnswerCard(cards: CueAnswerCard[], sessionId: string, 
   const id = cueAnswerCardId(sessionId, cue.id);
   const card = cards.find((item) => item.id === id);
   if (!card?.text.trim()) return cards;
-  return cards.map((item) => item.id === id ? { ...item, updatedAt: at, comparison: { at, version: cue.version ?? 1, prompt: cue.prompt, answer: cue.answer ?? '', markingPoints: [...cue.markingPoints], checkedPoints: [] } } : item);
+  const result = localCueSelfCheck(card.text, cue.answer ?? '', cue.markingPoints);
+  const sameReference = card.comparison && card.comparison.version === (cue.version ?? 1) && card.comparison.answer === (cue.answer ?? '') && JSON.stringify(card.comparison.markingPoints) === JSON.stringify(cue.markingPoints);
+  const checkedPoints = sameReference ? [...card.comparison!.checkedPoints] : result?.points.filter(point => point.covered).map(point => point.index) ?? [];
+  return cards.map((item) => item.id === id ? { ...item, updatedAt: at, comparison: { at, version: cue.version ?? 1, prompt: cue.prompt, answer: cue.answer ?? '', markingPoints: [...cue.markingPoints], checkedPoints } } : item);
 }
 
 export function checkCueAnswerPoint(cards: CueAnswerCard[], id: string, index: number, checked: boolean, at: string): CueAnswerCard[] {

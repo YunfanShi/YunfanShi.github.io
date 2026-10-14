@@ -8,6 +8,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import katex from 'katex';
 import * as answerFunctions from '../src/lib/learning/cue-answer-card.ts';
+import * as selfCheckFunctions from '../src/lib/learning/cue-self-check.ts';
 import { splitMathText, normalizeLatexRelations, normalizeLegacyLatex } from '../src/lib/latex-text.ts';
 
 const require = createRequire(import.meta.url);
@@ -132,6 +133,9 @@ test('mean formulas from legacy JSON repair backspace and compact bar commands w
 
 const AnswerPanel = compileComponent('../src/components/modules/schedule/cue-answer-card.tsx', {
   '@/lib/learning/cue-answer-card': answerFunctions,
+  '@/lib/learning/cue-self-check': selfCheckFunctions,
+  '@/lib/ai-config': { callAiApi: async () => { throw new Error('Not used in static rendering'); } },
+  '@/lib/ai-json': {},
   '../latex-renderer': { __esModule: true, default: LatexRenderer },
   './schedule-control.module.css': { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) },
 });

@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { editCueAnswerCard, compareCueAnswerCard, checkCueAnswerPoint, cueAnswerCardId } from '../src/lib/learning/cue-answer-card.ts';
 import { createEmptyScheduleState, type StudyCue } from '../src/lib/learning/schedule-control.ts';
 const cue = { id: 'c', prompt: 'Mean?', answer: 'sum / n', markingPoints: ['Sum values', 'Divide by count'], version: 2 } as StudyCue;
+test('comparison automatically checks local matches once and preserves manual adjustments', () => {
+  let cards = compareCueAnswerCard(editCueAnswerCard([], 's', 'c', 'Sum values and divide by count', 't1'), 's', cue, 't2');
+  assert.deepEqual(cards[0].comparison?.checkedPoints, [0, 1]);
+  cards = checkCueAnswerPoint(cards, cards[0].id, 0, false, 't3');
+  assert.deepEqual(compareCueAnswerCard(cards, 's', cue, 't4')[0].comparison?.checkedPoints, [1]);
+  cards = editCueAnswerCard(cards, 's', 'c', 'Sum values', 't5');
+  assert.deepEqual(compareCueAnswerCard(cards, 's', cue, 't6')[0].comparison?.checkedPoints, [0]);
+});
 test('blank answers never create comparisons or records', () => {
   const empty = [];
   assert.equal(editCueAnswerCard(empty, 's', 'c', '  ', 'now'), empty);
