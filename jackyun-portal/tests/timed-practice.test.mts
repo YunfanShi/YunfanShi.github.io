@@ -26,6 +26,22 @@ test('first-attempt metrics include failed attempts but exclude familiar repair,
   assert.equal(weeklyPracticeSummary([], '2026-10-13').onTimeRate, null);
   assert.equal(weeklyPracticeSummary([record({ minutes: 19 })], '2026-10-13').creditedSubjects.size, 0);
 });
+test('all-training metrics include mocks, repair and unmarked independence without granting new-training credit', () => {
+  const rows = [record({ id: 'actual', minutes: 18.134, independent: false, onTime: 3, overtime: 0, failed: 0, blocked: 0 }), record({ id: 'mock', source: 'C' }), record({ id: 'repair', source: 'A' }), record({ id: 'short-new', minutes: 10 })];
+  const all = weeklyPracticeSummary(rows, '2026-10-14', 'all');
+  assert.equal(all.attempted, 15); assert.equal(all.onTimeRate, 60); assert.equal(all.entries.length, 4);
+  assert.equal(all.creditedSubjects.size, 0);
+  assert.equal(weeklyPracticeSummary(rows, '2026-10-14').attempted, 4);
+  assert.equal(weeklyPracticeSummary(rows, '2026-10-14').creditedSubjects.size, 0);
+});
+test('structured content preserves legacy references and validates optional details', () => {
+  const old = record();
+  const detailed = record({ id: 'details', contentType: 'homework', reference: '  Mechanics Homework 8  ', questionRange: ' Q1–3 ', retestPlan: ' 两道新题 ' });
+  const valid = normalizeTimedPractice([old, detailed]);
+  assert.equal(valid.length, 2); assert.equal(valid[0].reference, old.reference);
+  assert.equal(valid[1].contentType, 'homework'); assert.equal(valid[1].questionRange, 'Q1–3'); assert.equal(valid[1].retestPlan, '两道新题');
+  assert.deepEqual(normalizeTimedPractice([{ ...old, contentType: 'invalid' }, { ...old, questionRange: 42 }, { ...old, retestPlan: 'x'.repeat(201) }]), []);
+});
 test('invalid results and duplicate IDs cannot corrupt persisted evidence', () => {
   const bad = [null, {}, record({ failedOvertime: 2 }), record({ blocked: 2 }), record({ minutes: -1 }), record({ date: '2026-02-31' }), record({ onTime: .5 }), record({ onTime: 0, overtime: 0, failed: 0, blocked: 0 })];
   assert.deepEqual(normalizeTimedPractice(bad), []);

@@ -1,0 +1,50 @@
+[
+  {
+    "width": 390,
+    "passed": true,
+    "checks": [
+      "legacy 18.1 minute record counted",
+      "new-scope explanation",
+      "timer content edit",
+      "selection before name",
+      "optional form details",
+      "all/new metrics",
+      "subject/unit/subsection breakdowns",
+      "reload",
+      "no overflow",
+      "no page errors"
+    ]
+  },
+  {
+    "width": 1024,
+    "passed": true,
+    "checks": [
+      "legacy 18.1 minute record counted",
+      "new-scope explanation",
+      "timer content edit",
+      "selection before name",
+      "optional form details",
+      "all/new metrics",
+      "subject/unit/subsection breakdowns",
+      "reload",
+      "no overflow",
+      "no page errors"
+    ]
+  },
+  {
+    "width": 1440,
+    "passed": true,
+    "checks": [
+      "legacy 18.1 minute record counted",
+      "new-scope explanation",
+      "timer content edit",
+      "selection before name",
+      "optional form details",
+      "all/new metrics",
+      "subject/unit/subsection breakdowns",
+      "reload",
+      "no overflow",
+      "no page errors"
+    ]
+  }
+]

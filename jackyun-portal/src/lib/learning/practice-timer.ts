@@ -1,16 +1,19 @@
 import type { ScheduleControlState } from './schedule-control.ts';
-import type { TimedPracticeRecord } from './timed-practice.ts';
+import { PRACTICE_CONTENT_TYPES, type PracticeContentType, type TimedPracticeRecord } from './timed-practice.ts';
 import { threeWayMerge } from '../sync/merge.ts';
 
 export interface PracticeQuestion {
   id: string; name: string; typeId: string; typeName: string; limitSeconds: number;
   elapsedMs: number; startedAt: number | null; result: 'pending' | 'correct' | 'wrong' | 'help';
   blocked: boolean; node: string; cause: string; retest: string;
+  unit?: string; subsection?: string;
 }
 export interface PracticeSession {
   id: string; date: string; subject: string; source: TimedPracticeRecord['source'];
   courseId?: string; presetFamily?: string;
   independent: boolean; scope: string; mode: 'relaxed' | 'normal' | 'exam';
+  contentType?: PracticeContentType; questionRange?: string;
+  unit?: string; subsection?: string;
   index: number; updatedAt: number; finished: boolean; questions: PracticeQuestion[];
 }
 export interface PracticeType { id: string; name: string; description: string; seconds: { relaxed: number; normal: number; exam: number } }
@@ -21,6 +24,8 @@ export interface PracticeConfig { subjects: Record<string, PracticeType[]>; gree
 const families = ['math','mechanics','statistics','further','furtherMechanics','furtherStatistics','physics','chemistry','biology','cs','economics','business','history','geography','english','custom'];
 export function validateSession(value: unknown): PracticeSession {
   const s = value as PracticeSession;
+  if (s && ['unit','subsection'].some(key => s[key as 'unit' | 'subsection'] !== undefined && (typeof s[key as 'unit' | 'subsection'] !== 'string' || s[key as 'unit' | 'subsection']!.length > 200))) throw Error('单元或小节格式无效，原记录已保留。');
+  if (s && ((s.contentType !== undefined && !Object.hasOwn(PRACTICE_CONTENT_TYPES, s.contentType)) || (s.questionRange !== undefined && (typeof s.questionRange !== 'string' || s.questionRange.length > 200)))) throw Error('练习内容类型或题号无效，原记录已保留。');
   if (s && ((s.courseId !== undefined && (typeof s.courseId !== 'string' || !s.courseId || s.courseId.length > 150)) || (s.presetFamily !== undefined && !families.includes(s.presetFamily)))) throw Error('课表科目关联无效，原记录已保留。');
   if (!s || typeof s.id !== 'string' || !s.id || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || !Number.isFinite(Date.parse(s.date))
     || typeof s.subject !== 'string' || !s.subject.trim() || s.subject.length > 100 || typeof s.scope !== 'string' || s.scope.length > 200
@@ -30,6 +35,7 @@ export function validateSession(value: unknown): PracticeSession {
     || !Number.isInteger(s.index) || s.index < 0 || s.index >= s.questions.length) throw Error('练习记录格式无效，原数据已保留。');
   const ids = new Set<string>();
   for (const q of s.questions) {
+    if (q && ['unit','subsection'].some(key => q[key as 'unit' | 'subsection'] !== undefined && (typeof q[key as 'unit' | 'subsection'] !== 'string' || q[key as 'unit' | 'subsection']!.length > 200))) throw Error('逐题单元或小节格式无效，原数据已保留。');
     if (!q || typeof q.id !== 'string' || !q.id || ids.has(q.id) || !['name','typeId','typeName','node','cause','retest'].every(key => typeof q[key as keyof PracticeQuestion] === 'string' && String(q[key as keyof PracticeQuestion]).length <= 300)
       || !Number.isFinite(q.limitSeconds) || q.limitSeconds < 10 || q.limitSeconds > 86400
       || !Number.isFinite(q.elapsedMs) || q.elapsedMs < 0 || q.elapsedMs > 86400000
@@ -59,13 +65,14 @@ export function validateConfig(value: unknown): PracticeConfig {
 }
 /** A derived record keeps weekly metrics and first-attempt evidence together. */
 export function practiceEvidence(s: PracticeSession): TimedPracticeRecord | null {
-  const attempted = s.questions.filter(q => q.elapsedMs > 0);
-  if (!attempted.length || attempted.some(q => q.result === 'pending')) return null;
+  const attempted = s.questions.filter(q => q.elapsedMs > 0 && q.result !== 'pending');
+  if (!attempted.length) return null;
   const isSlow = (q: PracticeQuestion) => q.elapsedMs > q.limitSeconds * 1000;
   const failed = attempted.filter(q => q.result !== 'correct');
   const causes = new Map<string,number>();
   attempted.forEach(q => { if (q.cause) causes.set(q.cause,(causes.get(q.cause) ?? 0)+1); });
-  return { id: `timer-${s.id}`, date: s.date, subject: s.subject, courseId:s.courseId, presetFamily:s.presetFamily, source: s.source, reference: s.scope || `练习计时器 · ${attempted.length} 题`, independent: s.independent,
+  return { id: `timer-${s.id}`, date: s.date, subject: s.subject, courseId:s.courseId, presetFamily:s.presetFamily, source: s.source, reference: s.scope || `练习计时器 · ${attempted.length} 题`, ...(s.contentType ? {contentType:s.contentType} : {}), ...(s.questionRange !== undefined ? {questionRange:s.questionRange} : {}), independent: s.independent,
+    ...(s.unit !== undefined ? {unit:s.unit} : {}), ...(s.subsection !== undefined ? {subsection:s.subsection} : {}),
     minutes: attempted.reduce((n,q)=>n+q.elapsedMs,0)/60000,
     onTime: attempted.filter(q=>q.result==='correct'&&!isSlow(q)).length,
     overtime: attempted.filter(q=>q.result==='correct'&&isSlow(q)).length,

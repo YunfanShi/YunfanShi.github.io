@@ -30,6 +30,19 @@ test('pending results persist without corrupting weekly first-attempt metrics',(
   s.questions[0].result='help';s.questions[0].blocked=true;s.questions[0].elapsedMs=(s.questions[0].limitSeconds+1)*1000;s.questions[0].cause='方法选择';state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.[0].failedOvertime,1);assert.equal(state.timedPracticeRecords?.[0].blocked,1);
   s.source='A';state=applyPracticeSession(state,s);assert.equal(weeklyPracticeSummary(state.timedPracticeRecords!,'2026-10-13').attempted,0);
 });
+test('graded questions contribute progressively and structured session content survives evidence updates',()=>{
+  const s=session();s.finished=true;s.contentType='textbook';s.scope='Mechanics Textbook Chapter 4';s.questionRange='Exercise 4B Q1–2';
+  s.questions[0].elapsedMs=60000;s.questions[0].result='correct';
+  const pending=structuredClone(s.questions[0]);pending.id='pending-question';pending.result='pending';pending.elapsedMs=30000;s.questions.push(pending);
+  let state=applyPracticeSession(createEmptyScheduleState(),s);
+  assert.equal(state.timedPracticeRecords?.[0].onTime,1);assert.equal(state.timedPracticeRecords?.[0].minutes,1);
+  assert.equal(state.timedPracticeRecords?.[0].contentType,'textbook');assert.equal(state.timedPracticeRecords?.[0].questionRange,s.questionRange);
+  s.questions[1].result='wrong';s.updatedAt+=1;state=applyPracticeSession(state,s);
+  assert.equal(state.timedPracticeRecords?.length,1);assert.equal(state.timedPracticeRecords?.[0].failed,1);
+  s.contentType='exam';s.scope='May 2026 P1';s.updatedAt+=1;state=applyPracticeSession(state,s);
+  assert.equal(state.timedPracticeRecords?.[0].contentType,'exam');assert.equal(state.timedPracticeRecords?.[0].reference,s.scope);
+  assert.throws(()=>validateSession({...s,contentType:'invalid'}));assert.throws(()=>validateSession({...s,questionRange:42}));
+});
 test('custom subjects, preset durations and read/merge/safety survive Schedule storage',()=>{
   for(const name of ['Physics','Mechanics','Statistics','Computer Science','Chemistry','Biology','Economics','History','English Language'])assert.ok(E.presets(name).length>=4);
   assert.equal(E.presets('IELTS').length,0);assert.equal(E.presets('Custom').length,0);

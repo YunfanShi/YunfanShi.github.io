@@ -1,17 +1,18 @@
 {
   "name": "jackyun-portal",
-  "version": "3.21.1",
+  "version": "3.22.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
   },
   "scripts": {
+    "test:practice-record-ui": "node tests/practice-record-content.browser.mts",
     "test:error-ui": "node tests/error-notices.browser.mjs",
     "test:error-system": "node --test tests/error-codes.test.mts",
     "check:error-system": "node scripts/build-error-system.mjs --check",
     "build:error-system": "node scripts/build-error-system.mjs",
     "test:tablet-cue-ui": "node tests/tablet-cue-study.browser.mts",
-    "test:timed-practice": "node --test tests/timed-practice.test.mts tests/practice-timer.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts",
+    "test:timed-practice": "node --test tests/timed-practice.test.mts tests/practice-timer.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts tests/practice-insights.test.mts",
     "test:watch": "node --test tests/watch-domain.test.mts tests/watch-features.test.mts",
     "test:watch-ui": "node tests/watch-login.browser.mjs",
     "build:azure-functions": "node scripts/build-azure-functions.mjs",

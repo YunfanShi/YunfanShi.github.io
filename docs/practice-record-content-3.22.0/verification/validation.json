@@ -1,0 +1,22 @@
+{
+  "version": "3.22.0",
+  "date": "2026-10-14",
+  "mainBase": "d18eaac",
+  "unitTests": {
+    "passed": 21,
+    "failed": 0,
+    "suites": [
+      "timed-practice",
+      "practice-timer",
+      "practice-course-binding",
+      "alevel-presets",
+      "practice-insights"
+    ]
+  },
+  "productionBuild": "passed; isolated latest Main plus task changes; outputFileTracingRoot adjusted only for dependency junction in verification snapshot",
+  "browserContentAndMetrics": "passed at 390, 1024 and 1440 pixels; legacy record, metadata edit, minimal startup, optional form data, all/new metrics, subject/unit/subsection breakdowns, reload, no overflow or page errors",
+  "browserRegression": "timed-practice and practice-timer existing workflows passed at 390 and 1440 pixels",
+  "lintAndTypes": "changed domain/component and new regression tests lint passed; TypeScript passed in production build",
+  "docx": "three pages visually inspected with docx-preview 0.4.1; packaged LibreOffice unavailable; Word pagination not verified",
+  "scope": "existing uncommitted changes from other tasks preserved and excluded; latest Main global error-notices script retained in PracticeTimer"
+}
