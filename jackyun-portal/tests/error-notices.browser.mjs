@@ -22,7 +22,7 @@ const results=[];
 try{
   for(const width of [1440,390]){
     const context=await browser.newContext({viewport:{width,height:900},permissions:['clipboard-read','clipboard-write']});
-    const page=await context.newPage();await page.goto(base+'/fixture');
+    const page=await context.newPage();await page.clock.install();await page.clock.pauseAt(Date.now()+1000);await page.goto(base+'/fixture');
     await page.locator('#draft').fill('保留的输入');await page.locator('#draft').focus();
     await page.evaluate(async()=>{await fetch('/api/test?token=private-value');});
     const card=page.locator('[data-code="JY-2102"]');await card.waitFor();
@@ -42,8 +42,28 @@ try{
     await storage.getByRole('button',{name:'关闭错误提示'}).click();assert.equal(await storage.count(),0);
     await page.evaluate(async()=>{try{await fetch('/api/test',{signal:AbortSignal.abort()});}catch{}});
     assert.equal(await page.locator('[role="alert"]').count(),1);
+    await page.clock.fastForward(9000);
+    await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/test'}));
+    await page.clock.fastForward(9000);await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/test'}));
+    await page.clock.fastForward(11999);assert.equal(await page.locator('[role="alert"]').count(),1);
+    await page.clock.fastForward(1);assert.equal(await page.locator('[role="alert"]').count(),0);
+    await page.evaluate(()=>window.JackyunErrors.report({code:'STORAGE_FAILED'}));
+    // Headless Chromium emulates every tab as focused; exercise native event
+    // listeners with controlled visibility instead of relying on tab focus.
+    await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});
+    assert.equal(await page.locator('[role="alert"]').count(),0);
+    await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',message:'background-marker'}));
+    assert.equal(await page.locator('[role="alert"]').count(),0);
+    await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));});
+    assert.equal(await page.locator('[role="alert"]').count(),0);
+    await page.evaluate(()=>window.JackyunErrors.report({code:'STORAGE_FAILED'}));
+    const foreground=page.locator('[data-code="JY-3101"]');await foreground.getByRole('button',{name:'复制日志',exact:true}).click();
+    assert.match(await foreground.getByRole('textbox',{name:'可复制的错误日志'}).inputValue(),/background-marker/);
+    await page.evaluate(()=>{Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new Event('blur'));window.JackyunErrors.report({code:'STORAGE_FAILED'});});
+    assert.equal(await page.locator('[role="alert"]').count(),0);
+    await page.evaluate(()=>{delete document.hasFocus;});
     await page.goto(base+'/docs/errors.html');assert.equal(await page.locator('tbody tr').count(),25);
-    results.push({width,message:true,code:true,copy:true,redaction:true,clipboardFallback:true,focusPreserved:true,boundedRepeatedErrors:true,abortSilent:true,docs:true});
+    results.push({width,message:true,code:true,copy:true,redaction:true,clipboardFallback:true,focusPreserved:true,boundedRepeatedErrors:true,abortSilent:true,autoHide30Seconds:true,retriesDoNotExtend:true,backgroundSilent:true,noReplay:true,backgroundLogsPreserved:true,docs:true});
     await context.close();
   }
   await writeFile(new URL('results.json',out),JSON.stringify(results,null,2));console.log(JSON.stringify(results));

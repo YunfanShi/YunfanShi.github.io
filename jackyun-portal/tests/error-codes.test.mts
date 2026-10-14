@@ -28,7 +28,7 @@ test('browser bundle and TypeScript resolve identical codes and repeated errors 
   window.fetch=async()=>Response.json({ok:true});
   const xhr=function(){};xhr.prototype={open(){},send(){}};
   const console={error(){}};
-  const context={window,parent:window,document,location:new URL('https://test/schedule?token=private'),XMLHttpRequest:xhr,crypto,URL,Response,Error,console,Date,ErrorEvent:class{},navigator:{}};
+  const context={window,parent:window,document,location:new URL('https://test/schedule?token=private'),XMLHttpRequest:xhr,crypto,URL,Response,Error,console,Date,ErrorEvent:class{},navigator:{},setTimeout:()=>0,clearTimeout:()=>{}};
   runInNewContext(readFileSync(new URL('../public/shared/error-notices.js',import.meta.url),'utf8'),context);
   const resolver=window.JackyunResolveErrorCode as typeof resolveErrorCode;
   for(const code of Object.keys(ERROR_CODES))assert.equal(resolver({code}),resolveErrorCode({code}));
@@ -40,6 +40,32 @@ test('browser bundle and TypeScript resolve identical codes and repeated errors 
   assert.equal(api.getNotices().length,3);
   api.report({name:'AbortError',code:'FETCH_FAILED'});assert.equal(api.getNotices().length,3);
   const raw=JSON.stringify(api.getNotices());assert.doesNotMatch(raw,/token=private|other=value/);
+});
+
+test('notices expire after 30 seconds without extending on retries and never replay background errors',()=>{
+  let now=0,focused=true,id=0;
+  const timers=new Map<number,{at:number;callback:()=>void}>();
+  const window=new EventTarget() as EventTarget & Record<string,unknown>;
+  const document=new EventTarget() as EventTarget & Record<string,unknown>;
+  document.body=null;document.visibilityState='visible';document.hasFocus=()=>focused;
+  window.fetch=async()=>Response.json({ok:true});
+  const xhr=function(){};xhr.prototype={open(){},send(){}};
+  const date=class extends Date{static now(){return now;}};
+  runInNewContext(readFileSync(new URL('../public/shared/error-notices.js',import.meta.url),'utf8'),{
+    window,parent:window,document,location:new URL('https://test/'),XMLHttpRequest:xhr,crypto,URL,Response,Error,Date:date,ErrorEvent:class{},navigator:{},console:{error(){}},
+    setTimeout:(callback:()=>void,delay:number)=>{timers.set(++id,{callback,at:now+delay});return id;},clearTimeout:(timer:number)=>timers.delete(timer),
+  });
+  const api=window.JackyunErrors as {report(input:unknown):void;getNotices():unknown[]};
+  const advance=(time:number)=>{now=time;for(const [id,timer] of [...timers])if(timer.at<=now){timers.delete(id);timer.callback();}};
+  api.report({code:'SYNC_WRITE_FAILED'});advance(9000);api.report({code:'SYNC_WRITE_FAILED'});
+  advance(18000);api.report({code:'SYNC_WRITE_FAILED'});assert.equal(api.getNotices().length,1);
+  advance(29999);assert.equal(api.getNotices().length,1);advance(30000);assert.equal(api.getNotices().length,0);
+  api.report({code:'STORAGE_FAILED'});document.visibilityState='hidden';document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(api.getNotices().length,0);api.report({code:'SYNC_WRITE_FAILED'});assert.equal(api.getNotices().length,0);
+  document.visibilityState='visible';document.dispatchEvent(new Event('visibilitychange'));assert.equal(api.getNotices().length,0);
+  focused=false;api.report({code:'STORAGE_FAILED'});assert.equal(api.getNotices().length,0);
+  focused=true;api.report({code:'STORAGE_FAILED'});assert.equal(api.getNotices().length,1);
+  window.dispatchEvent(new Event('blur'));assert.equal(api.getNotices().length,0);assert.equal(timers.size,0);
 });
 
 test('every standalone HTML page loads shared errors directly or through its dialog runtime',()=>{

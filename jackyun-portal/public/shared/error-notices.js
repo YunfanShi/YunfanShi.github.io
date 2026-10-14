@@ -31,8 +31,12 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
   'use strict';
   if(window.JackyunErrors)return;
   const catalog=window.JackyunErrorCatalog,resolve=window.JackyunResolveErrorCode;
-  let host,shadow,logProvider;
+  let host,shadow,logProvider,expiryTimer,activityEpoch=0;
   const notices=[],recent=[];
+  const NOTICE_DURATION=30000;
+  function foreground(){return document.visibilityState!=='hidden' && (typeof document.hasFocus!=='function'||document.hasFocus());}
+  function clearNotices(){activityEpoch++;notices.length=0;clearTimeout(expiryTimer);expiryTimer=undefined;shadow?.replaceChildren();}
+  function expire(){const now=Date.now();for(let i=notices.length-1;i>=0;i--)if(notices[i].expiresAt<=now)notices.splice(i,1);}
   function clean(value,depth=0){
     if(depth>6)return '[truncated]';
     if(value instanceof Error)return clean({name:value.name,message:value.message,stack:value.stack},depth+1);
@@ -56,11 +60,15 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
     if(parent!==window){try{if(parent.JackyunErrors && parent.document.fullscreenElement?.tagName!=='IFRAME'){parent.JackyunErrors.report({...input,source:path(location.href)});return;}}catch{/* Cross-origin frames report locally. */}}
     const code=resolve(input),now=Date.now(),source=path(input.url||input.source||location.href);
     const fingerprint=code+'|'+source;
-    const existing=notices.find(item=>item.fingerprint===fingerprint && now-item.lastAt<10000);
+    const existing=notices.find(item=>item.fingerprint===fingerprint && item.expiresAt>now);
     const detail=clean({...input,apiCode:input.apiCode||input.code,code,source,timestamp:new Date(now).toISOString()});
     recent.push(detail);if(recent.length>80)recent.shift();
-    if(existing){existing.count++;existing.lastAt=now;existing.detail=detail;}else{
-      notices.push({id:crypto.randomUUID(),fingerprint,code,detail,count:1,lastAt:now});
+    // Background errors remain in diagnostics, but never queue a later popup.
+    if(!foreground()){clearNotices();return;}
+    if(input.silent===true)return;
+    expire();
+    if(existing && notices.includes(existing)){existing.count++;existing.lastAt=now;existing.detail=detail;}else{
+      notices.push({id:crypto.randomUUID(),fingerprint,code,detail,count:1,lastAt:now,expiresAt:now+NOTICE_DURATION});
       if(notices.length>3)notices.shift();
     }
     render();
@@ -78,6 +86,9 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
     return true;
   }
   function render(){
+    if(!foreground()){clearNotices();return;}
+    expire();clearTimeout(expiryTimer);expiryTimer=undefined;
+    if(notices.length)expiryTimer=setTimeout(render,Math.max(0,Math.min(...notices.map(notice=>notice.expiresAt))-Date.now()));
     if(!ensureHost())return;
     shadow.replaceChildren();
     const style=document.createElement('style');
@@ -118,9 +129,10 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
     try{
       const response=await fetch(...args);
       if(!response.ok || response.headers.get('content-type')?.includes('application/json')){
-        const basic={tag:url.includes('/sync/')?'Sync':'Network',url,status:response.status,requestId:response.headers.get('x-request-id')||undefined};
+        const responseEpoch=activityEpoch;
+        const basic={tag:url.includes('/sync/')?'Sync':'Network',url,status:response.status,requestId:response.headers.get('x-request-id')||undefined,silent:!foreground()};
         if(response.headers.get('content-type')?.includes('json')){
-          void responseError(response).then(body=>{if(!response.ok||body?.ok===false||body?.success===false)report({...basic,code:body?.error?.siteCode||body?.siteCode||body?.error?.code||body?.code,apiCode:body?.error?.code||body?.code,message:typeof body?.error==='string'?body.error:body?.error?.message||body?.message,requestId:body?.requestId||basic.requestId});}).catch(()=>{if(!response.ok)report(basic);});
+          void responseError(response).then(body=>{if(!response.ok||body?.ok===false||body?.success===false)report({...basic,silent:basic.silent||responseEpoch!==activityEpoch,code:body?.error?.siteCode||body?.siteCode||body?.error?.code||body?.code,apiCode:body?.error?.code||body?.code,message:typeof body?.error==='string'?body.error:body?.error?.message||body?.message,requestId:body?.requestId||basic.requestId});}).catch(()=>{if(!response.ok)report({...basic,silent:basic.silent||responseEpoch!==activityEpoch});});
         }else if(!response.ok)report(basic);
       }
       return response;
@@ -131,4 +143,6 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
   XMLHttpRequest.prototype.send=function(...args){this.__jyCancelled=false;this.addEventListener('abort',()=>{this.__jyCancelled=true;},{once:true});this.addEventListener('loadend',()=>{if(!this.__jyCancelled && (this.status>=400 || this.status===0)){let body;try{body=this.responseType==='json'?this.response:JSON.parse(this.responseText);}catch{/* Non-JSON errors use HTTP classification. */}report({tag:'XHR',url:this.__jyErrorUrl,status:this.status,code:body?.error?.code||body?.code,requestId:body?.requestId});}},{once:true});this.addEventListener('timeout',()=>{this.__jyCancelled=true;report({code:'TIMEOUT',url:this.__jyErrorUrl});},{once:true});return xhrSend.apply(this,args);};
   document.addEventListener('DOMContentLoaded',render,{once:true});
   document.addEventListener('fullscreenchange',render);
+  document.addEventListener('visibilitychange',()=>{if(!foreground())clearNotices();});
+  window.addEventListener('blur',clearNotices);
 })();
