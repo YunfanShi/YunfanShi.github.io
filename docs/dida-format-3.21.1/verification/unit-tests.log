@@ -1,0 +1,86 @@
+(node:65824) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/learning/cue-practice.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ question policy waits for five other retrievals even after the clock deadline (2.5868ms)
+✔ time policy ignores retrieval count and opens exactly at the selected minute (0.3224ms)
+✔ switching policy resets pending windows without losing passed history (1.1953ms)
+✔ manual completed-round retry avoids a dead end and returns by identity (0.4744ms)
+✔ turning automatic tasks off retains manual work, Cues and evidence (26.0618ms)
+✔ auto-task preference survives reload; legacy snapshots keep their prior behavior (2.0292ms)
+✔ remote tasks respect account task time zone and reject mismatched projects (15.8729ms)
+✔ completed, overdue and undated tasks remain distinguishable on the timeline (1.9839ms)
+✔ completed overdue tasks are hidden on every day (1.0805ms)
+(node:76172) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/integrations/dida-schedule.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ sync requires authenticated owner and does not contact remote data on rejection (93.9263ms)
+✔ GET reads only unfinished selected tasks without querying completed history (48.3571ms)
+✔ PUT validates list ownership and preserves outbound project settings (25.9959ms)
+✔ empty selected lists disable task polling without deleting the account (16.381ms)
+✔ PATCH completes exactly the selected task and checks the resulting remote status (18.7238ms)
+✔ PATCH can reopen a task without stripping content or recurring metadata (19.4165ms)
+✔ unselected projects and injected paths cannot trigger remote mutations (23.9883ms)
+✔ unconfirmed changes and remote errors never produce a successful checkbox response (30.0435ms)
+(node:64440) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/integrations/dida-schedule.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ normalization preserves nested task links and distinguishes checklist status (30.2187ms)
+✔ due child includes future parent as context without counting parent or undated future sibling (1.5629ms)
+✔ missing and completed ancestors do not hide unfinished children, cycles terminate (2.0443ms)
+✔ task links never cross lists and notes do not become actionable todos (1.1807ms)
+✔ API excludes completed rows even when returned by active project endpoint (70.6051ms)
+(node:17540) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/integrations/dida365.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 联合任务映射为一个滴答任务，并保留各子任务提示 (1.8573ms)
+✔ 课后学习闭环在滴答清单使用下课时间，并生成可勾选子任务 (1.7121ms)
+✔ 来源键与合并顺序无关，避免重复创建任务 (0.3822ms)
+✔ 只接受边界明确的 Schedule 任务数据 (0.3413ms)
+✔ 账户令牌加密保存，关联表启用按用户隔离的 RLS (18.8732ms)
+(node:37040) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/integrations/dida-schedule.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ native task envelopes accept Dida references but never for notifications (99.2997ms)
+✔ selected Dida tasks are returned with stable references and native-compatible fields (45.8375ms)
+✔ watch completes, reopens and acknowledges a repeated operation exactly once (43.4246ms)
+✔ receipt content cannot be changed by reusing its operation ID (36.4076ms)
+✔ a stale remote version cannot overwrite a newer different state (44.1315ms)
+✔ lost receipt response can be retried without repeating a completed remote mutation (34.0951ms)
+✔ different users and disabled synchronization cannot mutate remote tasks (31.9771ms)
+✔ unconfirmed remote completion leaves a pending receipt and rejects success (34.8825ms)
+✔ Dida agenda rows coexist with lessons and internal tasks, including no timetable (3.5822ms)
+✔ watch gateway routes external task operations to Dida and keeps the internal RPC (101.5768ms)
+✔ a deleted remote task produces a permanent conflict instead of endless retries (19.602ms)
+✔ watch preserves parent context, inherited dates and only unfinished checklist contents (33.8669ms)
+(node:35548) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/watch/policy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pair payload encryption authenticates its key and ciphertext (3.9076ms)
+✔ watch credential hash rejects missing and mismatching values (0.3488ms)
+✔ operations whitelist target types and reject invalid task versions (1.0916ms)
+✔ focus records exclude invalid or fabricated active duration (0.8323ms)
+✔ calendar uses China midnight independently of server timezone (31.1993ms)
+✔ empty synchronized schedule is a valid empty result (4.6396ms)
+✔ date overrides including a removed lesson match existing timetable rules (4.1818ms)
+✔ CUE reviewed after UTC midnight remains learned in its account day (5.0037ms)
+(node:57312) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/dida-format-3.21.1/jackyun-portal/src/lib/watch/reader-policy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\dida-format-3.21.1\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ reader chunks preserve emoji and have no gaps (1.6226ms)
+✔ agenda follows existing completion and cancellation rules (30.3602ms)
+✔ reader jump starts before an emoji instead of splitting its surrogate pair (0.5408ms)
+ℹ tests 50
+ℹ suites 0
+ℹ pass 50
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1734.1592

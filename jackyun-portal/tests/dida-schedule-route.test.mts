@@ -7,11 +7,11 @@ test('sync requires authenticated owner and does not contact remote data on reje
   assert.equal(response.status,401);assert.equal(h.calls.length,0);
   const missing=harness({account:false});assert.equal((await missing.exports.GET(missing.request('GET'))).status,404);
 });
-test('GET reads selected lists and recently completed tasks; ownership filters cover secrets',async()=>{
+test('GET reads only unfinished selected tasks without querying completed history',async()=>{
   const h=harness();const response=await h.exports.GET(h.request('GET'));const data=await response.json();
-  assert.equal(response.status,200);assert.equal(data.tasks.length,2);assert.equal(data.tasks[1].completed,true);
+  assert.equal(response.status,200);assert.equal(data.tasks.length,1);assert.equal(data.tasks[0].completed,false);
   assert.ok(h.filters.some(([key,value])=>key==='user_id'&&value==='owner'));assert.ok(h.filters.some(([key,value])=>key==='account_id'&&value===accountId));
-  assert.deepEqual(h.calls.find(call=>call.path==='/task/completed')?.body?.projectIds,['p']);
+  assert.equal(h.calls.some(call=>call.path==='/task/completed'),false);
   assert.equal(response.headers.get('cache-control'),'private, no-store');
 });
 test('PUT validates list ownership and preserves outbound project settings',async()=>{

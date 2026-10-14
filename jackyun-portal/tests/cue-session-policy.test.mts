@@ -58,11 +58,11 @@ test('remote tasks respect account task time zone and reject mismatched projects
 });
 test('completed, overdue and undated tasks remain distinguishable on the timeline', () => {
   const tasks = normalizeDidaTasks([{id:'a',projectId:'p',title:'Overdue',startDate:'2026-10-13T00:00:00+0800',isAllDay:true,status:0},{id:'b',projectId:'p',title:'Completed',startDate:'2026-10-14T00:00:00+0800',isAllDay:true,status:2},{id:'c',projectId:'p',title:'No date',status:0},{id:'d',projectId:'p',title:'Future',startDate:'2026-10-15T00:00:00+0800',status:0}], 'p');
-  assert.deepEqual(didaTasksForDate(tasks,'2026-10-14').map(task=>task.id),['a','c','b']);
+  assert.deepEqual(didaTasksForDate(tasks,'2026-10-14').map(task=>task.id),['a','c']);
   assert.equal(tasks[0].start,undefined);assert.equal(tasks[1].completed,true);
 });
-test('completing an overdue task keeps it on the completion day for undo', () => {
+test('completed overdue tasks are hidden on every day', () => {
   const tasks=normalizeDidaTasks([{id:'overdue',projectId:'p',title:'Done today',startDate:'2026-10-10T00:00:00+0800',completedTime:'2026-10-13T20:00:00Z',timeZone:'Asia/Shanghai',status:2},{id:'abandoned',projectId:'p',title:'Excluded',status:-1}], 'p');
   assert.equal(tasks.length,1);assert.equal(tasks[0].completedDate,'2026-10-14');
-  assert.equal(didaTasksForDate(tasks,'2026-10-14').length,1);assert.equal(didaTasksForDate(tasks,'2026-10-15').length,0);
+  assert.equal(didaTasksForDate(tasks,'2026-10-14').length,0);assert.equal(didaTasksForDate(tasks,'2026-10-15').length,0);
 });

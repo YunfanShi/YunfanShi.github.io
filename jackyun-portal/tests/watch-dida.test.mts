@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { harness } from './helpers/dida-schedule-harness.mts';
+import * as didaSchedule from '../src/lib/integrations/dida-schedule.ts';
 import * as refs from '../src/lib/integrations/dida-task-reference.ts';
 import { digest, validateOperation } from '../src/lib/watch/policy.ts';
 import { mergeWatchDidaTasks } from '../src/lib/watch/snapshot.ts';
 const require=createRequire(import.meta.url),ts=require('typescript');
 const account='11111111-1111-4111-8111-111111111111';
 const operation='22222222-2222-4222-8222-222222222222';
-function watchHarness(refuseChange=false) {
- const h=harness({refuseChange});const receipts:Record<string,Record<string,unknown>>={};let failReceipt=false;
+function watchHarness(refuseChange=false,rows?:Record<string,unknown>[]) {
+ const h=harness({refuseChange,rows});const receipts:Record<string,Record<string,unknown>>={};let failReceipt=false;
  const filters:[string,string,unknown][]=[];
  const tables:Record<string,Record<string,unknown>[]>= {
   external_accounts:[{id:account,user_id:'owner',provider:'dida365',status:'active',settings:h.getSettings()}],
@@ -28,7 +29,7 @@ function watchHarness(refuseChange=false) {
  }};
  const ApiError=h.DidaApiError;
  const exports:Record<string,Function>={};const code=ts.transpileModule(readFileSync(new URL('../src/lib/watch/dida-tasks.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const mocks:Record<string,unknown>={'server-only':{},'@/lib/integrations/dida-sync-service':h.service,'@/lib/integrations/dida-task-reference':refs,'@/lib/integrations/dida365-server':{DidaApiError:ApiError},'./policy':{digest}};
+ const mocks:Record<string,unknown>={'server-only':{},'@/lib/integrations/dida-sync-service':h.service,'@/lib/integrations/dida-task-reference':refs,'@/lib/integrations/dida365-server':{DidaApiError:ApiError},'./policy':{digest},'@/lib/integrations/dida-schedule':didaSchedule};
  new Function('require','exports',code)((name:string)=>mocks[name]??(()=>{throw Error(name)})(),exports);
  const value=(completed=true,version=refs.didaTaskVersion(h.task,'p'),id=operation)=>({operationId:id,kind:'task',targetId:refs.didaTarget(account,'p','task'),version,details:{completed}});
  return {...h,db,receipts,filters,watch:exports,value,failNextReceipt:()=>{failReceipt=true;}};
@@ -40,7 +41,7 @@ test('native task envelopes accept Dida references but never for notifications',
 });
 test('selected Dida tasks are returned with stable references and native-compatible fields',async()=>{
  const h=watchHarness();const result=await h.watch.watchDidaSnapshot(h.db,'owner','2026-10-14');
- assert.equal(result.tasks.length,2);assert.equal(result.tasks[0].id,h.value().targetId);assert.equal(result.tasks[0].title,'滴答 · Own task');assert.equal(result.tasks[0].date,'2026-10-14');assert.ok(refs.isDidaVersion(result.tasks[0].version));
+ assert.equal(result.tasks.length,1);assert.equal(result.tasks[0].id,h.value().targetId);assert.equal(result.tasks[0].title,'滴答 · Own task');assert.equal(result.tasks[0].date,'2026-10-14');assert.ok(refs.isDidaVersion(result.tasks[0].version));
  const foreign=await h.watch.watchDidaSnapshot(h.db,'other-user','2026-10-14');assert.equal(foreign.tasks.length,0);
 });
 test('watch completes, reopens and acknowledges a repeated operation exactly once',async()=>{
@@ -93,4 +94,9 @@ test('a deleted remote task produces a permanent conflict instead of endless ret
  const exports:Record<string,Function>={};const code=ts.transpileModule(readFileSync(new URL('../src/lib/integrations/dida365-server.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  new Function('require','exports','fetch',code)((name:string)=>name==='server-only'?{}:{DIDA365_API_BASE:'https://api.dida365.com/open/v1'},exports,async()=>new Response('',{status:404}));
  await assert.rejects(()=>exports.didaRequest('not-disclosed','/project/p/task/deleted'),(error:unknown)=>(error as {status:number}).status===404);
+});
+
+test('watch preserves parent context, inherited dates and only unfinished checklist contents',async()=>{
+ const h=watchHarness(false,[{id:'parent',projectId:'p',title:'Parent',status:0,startDate:'2026-10-15T00:00:00+0800',isAllDay:true},{id:'task',projectId:'p',title:'Child',parentId:'parent',status:0,items:[{id:'a',title:'Pending item',status:0},{id:'b',title:'Completed item',status:1}]},{id:'done',projectId:'p',title:'Completed task',status:2}]);
+ const result=await h.watch.watchDidaSnapshot(h.db,'owner','2026-10-14');assert.equal(result.tasks.length,2);const child=result.tasks.find((task:{title:string})=>task.title==='滴答 · Child');assert.equal(child.date,'2026-10-15');assert.match(child.detail,/所属任务：Parent/);assert.match(child.detail,/Pending item/);assert.doesNotMatch(child.detail,/Completed item/);
 });

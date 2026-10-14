@@ -26,14 +26,12 @@ export async function readDidaSnapshot(context: DidaContext, now = new Date()) {
     const raw = Array.isArray(rows) ? rows : [];
     return tasks.map(task => ({ ...task, version: didaTaskVersion(raw.find(row => row?.id === task.id && row?.projectId === id), id) }));
   };
-  const [batches, completed] = await Promise.all([
-    Promise.all(selectedProjectIds.map(async id => { const data = await didaRequest<{ tasks?: unknown }>(context.token, `/project/${encodeURIComponent(id)}/data`); return normalize(data?.tasks, id); })),
-    selectedProjectIds.length ? didaRequest<unknown>(context.token, '/task/completed', { method: 'POST', body: JSON.stringify({ projectIds: selectedProjectIds, startDate: new Date(now.getTime() - 30 * 86_400_000).toISOString(), endDate: now.toISOString() }) }) : Promise.resolve([]),
-  ]);
-  if (!Array.isArray(completed)) throw new DidaApiError('无法读取已完成任务。');
-  const completedTasks = selectedProjectIds.flatMap(id => normalize(completed, id));
-  const tasks = [...new Map([...batches.flat(), ...completedTasks].map(task => [`${task.projectId}:${task.id}`, task])).values()];
-  return { projects, selectedProjectIds, tasks, completedLimitReached: completedTasks.length >= 200, syncedAt: now.toISOString() };
+  const batches = await Promise.all(selectedProjectIds.map(async id => {
+    const data = await didaRequest<{ tasks?: unknown }>(context.token, '/project/' + encodeURIComponent(id) + '/data');
+    return normalize(data?.tasks, id).filter(task => !task.completed);
+  }));
+  const tasks = [...new Map(batches.flat().map(task => [task.projectId + ':' + task.id, task])).values()];
+  return { projects, selectedProjectIds, tasks, syncedAt: now.toISOString() };
 }
 export async function setDidaTaskCompletion(context: DidaContext, project: unknown, id: unknown, completed: unknown, version?: unknown) {
   if (!remoteId(project) || !remoteId(id) || typeof completed !== 'boolean' || (version !== undefined && !isDidaVersion(version))) throw new DidaApiError('无效的任务操作。', 400);

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadDidaAccount, readDidaSnapshot, setDidaTaskCompletion } from '@/lib/integrations/dida-sync-service';
 import { didaTarget, parseDidaTarget } from '@/lib/integrations/dida-task-reference';
 import { DidaApiError } from '@/lib/integrations/dida365-server';
+import { didaTaskContexts } from '@/lib/integrations/dida-schedule';
 import { digest } from './policy';
 
 export async function watchDidaSnapshot(supabase: SupabaseClient, userId: string, today: string) {
@@ -12,10 +13,10 @@ export async function watchDidaSnapshot(supabase: SupabaseClient, userId: string
   const results = await Promise.allSettled(accounts.map(async account => {
     const context = await loadDidaAccount(supabase, userId, account.id);
     const snapshot = await readDidaSnapshot(context);
-    return snapshot.tasks.map(task => ({
+    return didaTaskContexts(snapshot.tasks).filter(({ task }) => !task.completed && task.kind !== 'NOTE').map(({ task, ancestors }) => ({
       id: didaTarget(account.id, task.projectId, task.id), title: `滴答 · ${task.title}`, completed: task.completed, version: task.version!, source: 'dida365',
       date: task.date ?? today, start: task.start ?? '', dueLabel: `${snapshot.projects.find(project => project.id === task.projectId)?.name ?? '滴答清单'} · ${task.date ?? '无截止时间'}${task.start ? ' ' + task.start : ''}`, dueAt: 0, priority: '普通', minutes: 0,
-      subject: '滴答清单', detail: `${task.content}\n可在手表待办中完成或取消完成。`,
+      subject: '滴答清单', detail: [ancestors.filter(parent => !parent.completed).length ? '所属任务：' + ancestors.filter(parent => !parent.completed).map(parent => parent.title).join(' › ') : '', task.content, ...(task.items ?? []).filter(item => !item.completed).map(item => '○ ' + item.title), '可在手表待办中完成任务；检查项请在滴答清单中勾选。'].filter(Boolean).join('\n'),
     }));
   }));
   const tasks = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);

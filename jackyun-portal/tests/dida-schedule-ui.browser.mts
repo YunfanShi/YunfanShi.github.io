@@ -11,7 +11,7 @@ for(const [name,file] of Object.entries({'@/lib/integrations/dida-schedule':'../
 const browser=await chromium.launch({headless:true,channel:'msedge'});const checks=[];
 try {
  for(const refuseChange of [false,true]){
-  const h=harness({refuseChange});const context=await browser.newContext({viewport:{width:820,height:1180}});const page=await context.newPage();const errors:string[]=[];page.on('pageerror',(error:Error)=>errors.push(error.message));
+  const h=harness({refuseChange,rows:[{id:'parent',projectId:'p',title:'Parent plan',status:0,startDate:'2026-10-15T00:00:00+0800',isAllDay:true},{id:'task',projectId:'p',title:'Own task',parentId:'parent',status:0,startDate:'2026-10-14T00:00:00+0800',isAllDay:true,items:[{id:'pending-check',title:'Pending checklist item',status:0},{id:'done-check',title:'Hidden completed checklist item',status:1}]},{id:'finished',projectId:'p',title:'Hidden completed task',status:2}]});const context=await browser.newContext({viewport:{width:820,height:1180}});const page=await context.newPage();const errors:string[]=[];page.on('pageerror',(error:Error)=>errors.push(error.message));
   await page.route('http://schedule.test/**',async route=>{
    const request=route.request();const url=new URL(request.url());
    if(url.pathname.startsWith('/api/')){
@@ -24,12 +24,13 @@ try {
    const cache:Record<string,{exports:unknown}>={};const load=(name:string):any=>{if(cache[name])return cache[name].exports;const module={exports:{}};cache[name]=module;new Function('module','exports','require','process',sources[name])(module,module.exports,load,{env:{NODE_ENV:'development'}});return module.exports;};
    const React=load('react');const root=load('react-dom/client').createRoot(document.getElementById('root'));root.render(React.createElement(load('component').default,{accounts:[{id:'11111111-1111-4111-8111-111111111111',displayName:'Test Dida',provider:'dida365',status:'active'}],selectedDate:'2026-10-14',onTaskCount:(count:number)=>document.getElementById('root')!.setAttribute('data-pending-count',String(count))}));
   },modules);
-  const complete=page.getByRole('button',{name:'完成 Own task',exact:true});await complete.waitFor();assert.equal(await page.locator('#root').getAttribute('data-pending-count'),'1');await complete.click();
+  const complete=page.getByRole('button',{name:'完成 Own task',exact:true});await complete.waitFor();assert.equal(await page.getByRole('button',{name:'完成 Parent plan',exact:true}).isDisabled(),true);assert.equal(await page.getByText('Pending checklist item',{exact:true}).count(),1);assert.equal(await page.getByText('Hidden completed checklist item',{exact:true}).count(),0);assert.equal(await page.getByText('Hidden completed task',{exact:true}).count(),0);assert.equal(await complete.locator('..').getAttribute('data-depth'),'1');assert.equal(await page.locator('#root').getAttribute('data-pending-count'),'1');await complete.click();
   if(refuseChange){await page.getByRole('status').filter({hasText:'滴答尚未确认'}).waitFor();assert.equal(await complete.getAttribute('aria-pressed'),'false');checks.push({failedRemoteDoesNotMarkComplete:true});}
   else {
-   const undo=page.getByRole('button',{name:'取消完成 Own task',exact:true});await undo.waitFor();assert.equal(h.task.status,2);await page.waitForFunction(()=>document.getElementById('root')!.getAttribute('data-pending-count')==='0');await undo.click();await complete.waitFor();assert.equal(h.task.status,0);await page.waitForFunction(()=>document.getElementById('root')!.getAttribute('data-pending-count')==='1');
+   await page.waitForFunction(()=>document.getElementById('root')!.getAttribute('data-pending-count')==='0');
+   assert.equal(h.task.status,2);assert.equal(await complete.count(),0);assert.equal(await page.getByText('Previously completed',{exact:true}).count(),0);
    await page.getByRole('button',{name:'同步范围'}).click();const list=page.getByRole('checkbox',{name:'My list',exact:true});await list.uncheck();await page.getByRole('button',{name:'保存同步范围'}).click();await page.getByText('点击同步范围，选择要同步的滴答清单。').waitFor();assert.deepEqual(h.getSettings().syncProjectIds,[]);
-   checks.push({completeAndReopen:true,selectionSaved:true,noCheckboxBeforeConfirmation:true});
+   checks.push({completedTaskHidden:true,selectionSaved:true,noCheckboxBeforeConfirmation:true});
   }
   assert.deepEqual(errors,[]);await page.screenshot({path:`${out}/${refuseChange?'failure':'success'}.png`});await context.close();
  }
