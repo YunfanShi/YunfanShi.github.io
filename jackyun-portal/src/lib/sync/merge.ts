@@ -70,5 +70,18 @@ export function threeWayMerge(base: unknown, local: unknown, remote: unknown, pa
     return { merged, conflicts };
   }
 
+  // Primitive lists can merge concurrent append-only changes. Removals and
+  // reordering remain conflicts; concatenation would silently resurrect data.
+  if (Array.isArray(base) && Array.isArray(local) && Array.isArray(remote)
+      && [...base,...local,...remote].every(item=>item===null || ['string','number','boolean'].includes(typeof item))
+      && [base,local,remote].every(items=>new Set(items.map(canonicalJson)).size===items.length)
+      && local.length>=base.length && remote.length>=base.length
+      && base.every((item,index)=>equal(item,local[index]) && equal(item,remote[index]))) {
+    const additions=[...local.slice(base.length),...remote.slice(base.length)];
+    const unique=new Map(additions.map(item=>[canonicalJson(item),item]));
+    // Canonical order gives both devices the same result, independent of who syncs first.
+    return {merged:[...base,...[...unique].sort(([a],[b])=>a<b?-1:a>b?1:0).map(([,value])=>value)],conflicts:[]};
+  }
+
   return { merged: local, conflicts: [path] };
 }

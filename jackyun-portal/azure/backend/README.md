@@ -1,5 +1,11 @@
 # Azure 独立同步后台
 
+## 当前源码包 3.4.0
+
+配合网站 3.18.0，大值上传支持先 Gzip 压缩再 Base64 分片；版本目录声明 `transferEncoding: "gzip"`，旧客户端继续使用原格式。大值下载仅在 `encoding=gzip` 时按原分片独立压缩。解压后仍执行原有身份、版本与哈希检查，输出大小受既有 24MB 上限保护。无需数据库迁移。
+
+发布顺序为后台再前端。本次已生成并检查 Functions 包，尚未发布到生产 Azure；下方部署说明与演练记录保留历史版本编号。完整设计和验证见仓库 `docs/smart-sync-3.18.0/` 的 DOCX。
+
 版本3.21.2。保留现有同步接口契约，通过普通PostgreSQL登录访问Azure迁移库。已部署Azure Functions Flex，网站转发由服务端AZURE_SYNC_API_URL启用；未启用时保留原连接。正式启用前必须追平同步数据并验证真实登录。
 
 接口：`/api/sync/v2`、`/api/sync/v2/large`、`/api/sync/devices`、`/api/sync/conflicts`。`GET /health/live`仅检查进程存活，不证明数据库可用。HTTPS入口由最终云端服务提供；容器监听8080。

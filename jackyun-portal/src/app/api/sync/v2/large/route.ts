@@ -7,6 +7,7 @@ import { isSyncableStorageKey } from '@/lib/local-workspace';
 import { applySyncBody, UUID, type SyncRequestBody } from '@/lib/sync/server';
 import { MAX_LARGE_SYNC_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from '@/lib/sync/transfer';
 import { syncAuthError } from '@/lib/sync/auth-error';
+import { decodeSyncUpload, compressSyncPart } from '@/lib/sync/compression';
 
 const MAX_PARTS = MAX_SYNC_PARTS;
 const MAX_PART_BODY_BYTES = 250_000;
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     const bytes = Buffer.concat(rows.map((row) => Buffer.from(row.data, 'base64')));
     if (bytes.length > MAX_LARGE_SYNC_BYTES) return apiError(requestId, 'Upload too large', 413, 'PAYLOAD_TOO_LARGE');
     let body: SyncRequestBody;
-    try { body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as SyncRequestBody; }
+    try { body = decodeSyncUpload(bytes) as SyncRequestBody; }
     catch { return apiError(requestId, 'Invalid uploaded JSON', 400, 'INVALID_BODY'); }
     if (!body || !Array.isArray(body.operations) || body.operations.length !== 1
         || (body.operations[0] as { id?: string } | null)?.id !== input.uploadId) {
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
   if (chunk.error) return apiError(requestId, 'Invalid download part', 400, 'INVALID_PART');
   return NextResponse.json({
     ok: true, revision, part, count: chunk.count,
-    data: chunk.data,
+    ...compressSyncPart(chunk.data,request.nextUrl.searchParams.get('encoding')==='gzip'),
     requestId,
   });
 }

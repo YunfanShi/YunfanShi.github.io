@@ -12,3 +12,5 @@
 !src/lib/sync/hash.ts
 !src/lib/sync/schedule-safety.ts
 !src/lib/sync/transfer.ts
+!src/lib/sync/delta.ts
+!src/lib/sync/compression.ts

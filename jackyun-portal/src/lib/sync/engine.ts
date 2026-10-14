@@ -3,7 +3,7 @@ import { createRecordDelta } from './delta.ts';
 import { threeWayMerge } from './merge.ts';
 import { storageValueToString, isSyncableStorageKey } from '../local-workspace.ts';
 import { operationMatchesStorage } from './acknowledgment.ts';
-import { joinSyncParts, splitSyncBody, MAX_SYNC_PARTS } from './transfer.ts';
+import { joinSyncParts, splitSyncBody, splitCompressedSyncBody, decodeSyncPart, MAX_SYNC_PARTS } from './transfer.ts';
 import type { SyncOperation, SyncRecord, SyncConflict } from '../../types/sync.ts';
 
 export interface SyncStore {
@@ -56,6 +56,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   const e = environment, store = e.store;
   let observed = e.snapshot();
   let captured=false;
+  let compressedUploads=false;
   async function json(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
     const response = await e.request(url,init);
     if (e.cancelled()) throw new DOMException('Sync cancelled','AbortError');
@@ -78,10 +79,10 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     const parts: string[] = []; let count = 1;
     for (let part = 0; part < count; part++) {
       e.progress(`下载分片 ${part+1} / ${count}`);
-      const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}`);
+      const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}${typeof DecompressionStream === 'function' ? '&encoding=gzip' : ''}`);
       if (chunk.revision !== record.revision || chunk.part !== part || !Number.isInteger(chunk.count) || Number(chunk.count) < 1 || Number(chunk.count) > MAX_SYNC_PARTS
         || typeof chunk.data !== 'string' || (part > 0 && chunk.count !== count)) throw Error('同步分片不完整，原始数据已保留。');
-      count = Number(chunk.count); parts.push(chunk.data);
+      count = Number(chunk.count); parts.push(await decodeSyncPart(chunk.data,chunk.encoding));
     }
     const value = joinSyncParts(parts);
     const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)));
@@ -108,7 +109,8 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       if (current === undefined && observed[key] === undefined) continue; // Missing startup data is not a deletion.
       const operation = pending.get(key), base = metadata.get(key);
       if (operation && operationMatchesStorage(operation,current ?? null)) continue;
-      if (base && same(parse(current),valueOf(base))) continue;
+      // An undo is also intent: the previous queued edit may already be in flight.
+      if (!operation && base && same(parse(current),valueOf(base))) continue;
       await store.queueOperation({id:e.uuid(),key,baseRevision:base?.revision ?? 0,baseHash:base?.contentHash ?? null,
         baseValue:base?.deleted ? null : base?.value ?? null,baseDeleted:base?.deleted ?? true,value:parse(current) ?? null,deleted:current === undefined,
         clientUpdatedAt:new Date(e.now()).toISOString()});
@@ -130,12 +132,12 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     await capture();
     const expected = e.read(record.key), local = parse(expected);
     const pending = (await store.getOutbox()).find(op=>op.key === record.key);
+    const metadata = (await store.getMetadata()).find(row=>row.key===record.key);
+    if (record.revision < Math.max(metadata?.revision ?? 0,pending?.baseRevision ?? 0)) {
+      throw Error('云端版本发生回退，本机修改和同步基准已保留。');
+    }
     const blocked = (await store.getConflicts()).find(c=>c.key === record.key);
-    if (blocked) {
-      // Refresh only the conflict's remote side. Never erase a persisted local choice.
-      if (blocked.remoteRevision !== record.revision || blocked.remoteHash !== record.contentHash) {
-        await store.saveConflict({...blocked,remoteValue:record.value,remoteDeleted:record.deleted,remoteRevision:record.revision,remoteHash:record.contentHash,remoteUpdatedAt:record.updatedAt});
-      }
+    if (blocked && !pending) {
       return;
     }
     if (!pending) {
@@ -148,21 +150,24 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (merged.conflicts.length) {
       await e.backup(record.key);
       if (e.cancelled() || e.read(record.key) !== expected) return;
-      await store.saveConflict({operationId:pending.id,key:record.key,baseRevision:pending.baseRevision,baseValue:pending.baseValue,baseDeleted:pending.baseDeleted,
+      await store.saveConflict({operationId:blocked?.operationId ?? pending.id,key:record.key,baseRevision:pending.baseRevision,baseValue:pending.baseValue,baseDeleted:pending.baseDeleted,
         localValue:local ?? null,localDeleted:local === undefined,remoteValue:record.value,remoteDeleted:record.deleted,
         remoteRevision:record.revision,remoteHash:record.contentHash,remoteUpdatedAt:record.updatedAt,paths:merged.conflicts});
       return;
     }
     await e.backup(record.key);
     if (e.cancelled() || e.read(record.key) !== expected) { await capture(); return; }
-    const next: SyncOperation | null = same(merged.merged,valueOf(record)) ? null : {
+    // Persist a no-op resolution so the server closes its conflict too.
+    const needsResolution=Boolean(blocked) || pending.baseRevision!==record.revision || pending.baseHash!==record.contentHash;
+    const next: SyncOperation | null = !needsResolution && same(merged.merged,valueOf(record)) ? null : {
       ...pending,id:e.uuid(),baseRevision:record.revision,baseHash:record.contentHash,baseValue:record.deleted ? null : record.value,baseDeleted:record.deleted,
-      value:merged.merged ?? null,deleted:merged.merged === undefined,clientUpdatedAt:new Date(e.now()).toISOString(),resolvesOperationId:pending.id,
+      value:merged.merged ?? null,deleted:merged.merged === undefined,clientUpdatedAt:new Date(e.now()).toISOString(),resolvesOperationId:blocked?.operationId ?? pending.id,
     };
     if (!await applyLocal(record.key,merged.merged,expected,true)) { await capture(); return; }
     if (!await store.replaceOperation(pending,next)) return;
     await store.saveMetadata(record);
     await store.removeConflict(pending.id);
+    if (blocked && blocked.operationId !== pending.id) await store.removeConflict(blocked.operationId);
   }
   async function pull() {
     let after = ''; let scanned = 0;
@@ -171,6 +176,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     for (;;) {
       const page = await json(`/api/sync/v3${after ? `?after=${encodeURIComponent(after)}` : ''}`);
       if (page.syncProtocol !== 3 || !Array.isArray(page.records) || page.records.length > 100) throw Error('同步协议不兼容，原始数据已保留。');
+      compressedUploads=page.transferEncoding==='gzip';
       let previous = after;
       for (const descriptor of page.records as SyncRecord[]) {
         validate(descriptor);
@@ -206,7 +212,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       const body = JSON.stringify({syncProtocol:3,requireCurrentVersion:true,deviceId:await e.deviceId(),device:e.device(),operations:wire});
       let response: Record<string,unknown>;
       if (new TextEncoder().encode(body).length > 250_000) {
-        const parts = splitSyncBody(body), uploadId = sent[0].id;
+        const parts = compressedUploads ? await splitCompressedSyncBody(body) : splitSyncBody(body), uploadId = sent[0].id;
         for (let part = 0; part < parts.length; part++) {
           e.progress(`上传分片 ${part+1} / ${parts.length}`);
           await json('/api/sync/v2/large',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uploadId,index:part,count:parts.length,data:parts[part]})});

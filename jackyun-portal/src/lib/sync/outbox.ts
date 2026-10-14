@@ -43,15 +43,26 @@ export function getOutbox(): Promise<SyncOperation[]> {
   return storeRequest('outbox', 'readonly', (store) => store.getAll());
 }
 
-async function updateOutbox(action: (store: IDBObjectStore, operations: SyncOperation[]) => SyncOperation[]): Promise<SyncOperation[]> {
+async function updateOutbox(action: (store: IDBObjectStore, operations: SyncOperation[], lastSequence: number) => SyncOperation[]): Promise<SyncOperation[]> {
   const db = await openDatabase();
   try {
     return await new Promise<SyncOperation[]>((resolve, reject) => {
-      const transaction = db.transaction('outbox', 'readwrite');
+      const transaction = db.transaction(['outbox','settings'], 'readwrite');
       const store = transaction.objectStore('outbox');
+      const settings = transaction.objectStore('settings');
       const request = store.getAll();
       let result: SyncOperation[] = [];
-      request.onsuccess = () => { result = action(store, request.result); };
+      request.onsuccess = () => {
+        const counter=settings.get('operationSequence');
+        counter.onsuccess=()=>{
+          try {
+            const lastSequence=Math.max(counter.result?.value ?? 0,0,...request.result.map((op:SyncOperation)=>op.sequence ?? 0));
+            result = action(store, request.result,lastSequence);
+            settings.put({key:'operationSequence',value:Math.max(lastSequence,...result.map(op=>op.sequence ?? 0))});
+          } catch(error) { transaction.abort();reject(error); }
+        };
+        counter.onerror=()=>reject(counter.error);
+      };
       request.onerror = () => reject(request.error);
       transaction.oncomplete = () => resolve(result);
       transaction.onerror = () => reject(transaction.error);
@@ -71,9 +82,10 @@ export async function compactOutbox(): Promise<SyncOperation[]> {
 }
 
 export async function queueOperation(operation: SyncOperation): Promise<void> {
-  await updateOutbox((store, operations) => {
+  await updateOutbox((store, operations,lastSequence) => {
     const matching = operations.filter((item) => item.key === operation.key);
-    const sequence = Math.max(0,...operations.map(item=>item.sequence ?? 0))+1;
+    const sequence = lastSequence+1;
+    if(!Number.isSafeInteger(sequence))throw Error('同步操作编号超过上限');
     const next = compactSyncOperations([...matching, {...operation,sequence}])[0];
     for (const previous of matching) store.delete(previous.id);
     store.put(next);

@@ -5,6 +5,7 @@ import { SCHEDULE_STORAGE_KEY, unsafeScheduleReplacement } from '../../src/lib/s
 import { MAX_LARGE_SYNC_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from '../../src/lib/sync/transfer.ts';
 import { ApiError } from './errors.mjs';
 import { applyRecordDelta } from '../../src/lib/sync/delta.ts';
+import { decodeSyncUpload, compressSyncPart } from '../../src/lib/sync/compression.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
@@ -206,7 +207,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           if(scanned+101>=20000)fail(413,'MANIFEST_SCAN_LIMIT');
         }
         const page=visible.slice(0,100);
-        return {ok:true,syncProtocol:3,records:page.map(row=>({key:row.storage_key,revision:Number(row.revision),contentHash:row.content_hash,
+        return {ok:true,syncProtocol:3,transferEncoding:'gzip',records:page.map(row=>({key:row.storage_key,revision:Number(row.revision),contentHash:row.content_hash,
           deleted:Boolean(row.deleted_at),updatedAt:iso(row.updated_at)})),next:visible.length>100?page.at(-1).storage_key:null};
       }
       if (route === '/api/sync/v2') {
@@ -233,7 +234,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           if (chunk.error === 'UNAUTHORIZED') fail(401, 'UNAUTHORIZED');
           if (chunk.error === 'PAYLOAD_TOO_LARGE') fail(413, 'PAYLOAD_TOO_LARGE');
           if (chunk.error) fail(400, 'INVALID_PART');
-          return { ok: true, revision, part, count: chunk.count, data: chunk.data };
+          return { ok: true, revision, part, count: chunk.count, ...compressSyncPart(chunk.data,url.searchParams.get('encoding')==='gzip') };
         }
         if (method !== 'POST') fail(405, 'METHOD_NOT_ALLOWED');
         if (!body || !UUID.test(body.uploadId ?? '') || json(body).length > 250_000) fail(400, 'INVALID_BODY');
@@ -244,7 +245,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           const byteCount = rows.reduce((sum, row) => sum + Buffer.byteLength(row.data, 'base64'), 0);
           if (byteCount > MAX_LARGE_SYNC_BYTES) fail(413, 'PAYLOAD_TOO_LARGE');
           let upload;
-          try { upload = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(rows.map(row => Buffer.from(row.data, 'base64'))))); }
+          try { upload = decodeSyncUpload(Buffer.concat(rows.map(row => Buffer.from(row.data, 'base64')))); }
           catch { fail(400, 'INVALID_BODY'); }
           if (!Array.isArray(upload?.operations) || upload.operations.length !== 1 || upload.operations[0]?.id !== body.uploadId) fail(400, 'INVALID_OPERATIONS');
           const result = await applyBody(client, identity, upload, true);
