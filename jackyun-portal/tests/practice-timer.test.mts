@@ -27,7 +27,7 @@ test('remaining percentage thresholds and overtime are separate from correctness
 test('pending results persist without corrupting weekly first-attempt metrics',()=>{
   const s=session();s.finished=true;s.questions[0].elapsedMs=60000;assert.equal(practiceEvidence(s),null);let state=applyPracticeSession(createEmptyScheduleState(),s);assert.equal(state.timedPracticeRecords?.length,0);
   s.questions[0].result='correct';state=applyPracticeSession(state,s);state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.length,1);assert.equal(weeklyPracticeSummary(state.timedPracticeRecords!,'2026-10-13').attempted,1);
-  s.questions[0].result='help';s.questions[0].blocked=true;s.questions[0].elapsedMs=(s.questions[0].limitSeconds+1)*1000;s.questions[0].cause='方法选择';state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.[0].failedOvertime,1);assert.equal(state.timedPracticeRecords?.[0].blocked,1);
+  s.questions[0].result='help';s.questions[0].blocked=true;s.questions[0].elapsedMs=(s.questions[0].limitSeconds+1)*1000;s.questions[0].cause='方法选择';state=applyPracticeSession(state,s);assert.equal(state.timedPracticeRecords?.[0].failedOvertime,0);assert.equal(state.timedPracticeRecords?.[0].blocked,0);assert.equal(state.practiceSessions?.[0].questions[0].result,'help');assert.equal(state.practiceSessions?.[0].questions[0].firstAttempt?.result,'correct');
   s.source='A';state=applyPracticeSession(state,s);assert.equal(weeklyPracticeSummary(state.timedPracticeRecords!,'2026-10-13').attempted,0);
 });
 test('graded questions contribute progressively and structured session content survives evidence updates',()=>{

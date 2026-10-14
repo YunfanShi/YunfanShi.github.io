@@ -89,7 +89,7 @@ export async function applySyncBody(
       .select('storage_value, deleted_at').eq('user_id', userId).eq('storage_key', SCHEDULE_STORAGE_KEY).maybeSingle();
     if (scheduleError) return apiError(requestId, 'Unable to validate Schedule', 500, 'SCHEDULE_CHECK_FAILED');
     if (!currentSchedule?.deleted_at && unsafeScheduleReplacement(currentSchedule?.storage_value, scheduleOperation.deleted ? null : scheduleOperation.value)) {
-      return apiError(requestId, 'Empty Schedule cannot replace existing data', 409, 'SCHEDULE_EMPTY_REPLACEMENT');
+      return apiError(requestId, 'Schedule reset or immutable evidence loss cannot replace existing data', 409, 'SCHEDULE_EMPTY_REPLACEMENT');
     }
   }
 

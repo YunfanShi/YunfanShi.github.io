@@ -7,6 +7,17 @@ export interface PracticeQuestion {
   elapsedMs: number; startedAt: number | null; result: 'pending' | 'correct' | 'wrong' | 'help';
   blocked: boolean; node: string; cause: string; retest: string;
   unit?: string; subsection?: string;
+  firstAttempt?: { result: PracticeQuestion['result']; elapsedMs: number; limitSeconds: number; blocked: boolean };
+}
+export function firstPracticeOutcome(q: PracticeQuestion) { return q.firstAttempt ?? q; }
+export function currentPracticeRecords(state: ScheduleControlState): TimedPracticeRecord[] {
+  const sessions=new Map((state.practiceSessions ?? []).filter(s=>s.finished).map(s=>[s.id,s]));
+  return (state.timedPracticeRecords ?? []).flatMap(record=>{
+    const session=record.id.startsWith('timer-')?sessions.get(record.id.slice(6)):undefined;
+    if(!session) return [record];
+    const evidence=practiceEvidence(session);
+    return evidence?[evidence]:[];
+  });
 }
 export interface PracticeSession {
   id: string; date: string; subject: string; source: TimedPracticeRecord['source'];
@@ -35,6 +46,7 @@ export function validateSession(value: unknown): PracticeSession {
     || !Number.isInteger(s.index) || s.index < 0 || s.index >= s.questions.length) throw Error('练习记录格式无效，原数据已保留。');
   const ids = new Set<string>();
   for (const q of s.questions) {
+    if (q.firstAttempt && (!['correct','wrong','help'].includes(q.firstAttempt.result) || !Number.isFinite(q.firstAttempt.elapsedMs) || q.firstAttempt.elapsedMs < 0 || q.firstAttempt.elapsedMs > 86400000 || !Number.isFinite(q.firstAttempt.limitSeconds) || q.firstAttempt.limitSeconds < 10 || q.firstAttempt.limitSeconds > 86400 || typeof q.firstAttempt.blocked !== 'boolean')) throw Error('首次作答快照无效。');
     if (q && ['unit','subsection'].some(key => q[key as 'unit' | 'subsection'] !== undefined && (typeof q[key as 'unit' | 'subsection'] !== 'string' || q[key as 'unit' | 'subsection']!.length > 200))) throw Error('逐题单元或小节格式无效，原数据已保留。');
     if (!q || typeof q.id !== 'string' || !q.id || ids.has(q.id) || !['name','typeId','typeName','node','cause','retest'].every(key => typeof q[key as keyof PracticeQuestion] === 'string' && String(q[key as keyof PracticeQuestion]).length <= 300)
       || !Number.isFinite(q.limitSeconds) || q.limitSeconds < 10 || q.limitSeconds > 86400
@@ -65,17 +77,17 @@ export function validateConfig(value: unknown): PracticeConfig {
 }
 /** A derived record keeps weekly metrics and first-attempt evidence together. */
 export function practiceEvidence(s: PracticeSession): TimedPracticeRecord | null {
-  const attempted = s.questions.filter(q => q.elapsedMs > 0 && q.result !== 'pending');
+  const attempted = s.questions.map(q => ({...q,...firstPracticeOutcome(q)})).filter(q => q.elapsedMs > 0 && q.result !== 'pending');
   if (!attempted.length) return null;
   const isSlow = (q: PracticeQuestion) => q.elapsedMs > q.limitSeconds * 1000;
-  const failed = attempted.filter(q => q.result !== 'correct');
+  const failed = attempted.filter(q => q.result !== 'correct' || q.blocked);
   const causes = new Map<string,number>();
   attempted.forEach(q => { if (q.cause) causes.set(q.cause,(causes.get(q.cause) ?? 0)+1); });
   return { id: `timer-${s.id}`, date: s.date, subject: s.subject, courseId:s.courseId, presetFamily:s.presetFamily, source: s.source, reference: s.scope || `练习计时器 · ${attempted.length} 题`, ...(s.contentType ? {contentType:s.contentType} : {}), ...(s.questionRange !== undefined ? {questionRange:s.questionRange} : {}), independent: s.independent,
     ...(s.unit !== undefined ? {unit:s.unit} : {}), ...(s.subsection !== undefined ? {subsection:s.subsection} : {}),
     minutes: attempted.reduce((n,q)=>n+q.elapsedMs,0)/60000,
-    onTime: attempted.filter(q=>q.result==='correct'&&!isSlow(q)).length,
-    overtime: attempted.filter(q=>q.result==='correct'&&isSlow(q)).length,
+    onTime: attempted.filter(q=>q.result==='correct'&&!q.blocked&&!isSlow(q)).length,
+    overtime: attempted.filter(q=>q.result==='correct'&&!q.blocked&&isSlow(q)).length,
     failed: failed.length, failedOvertime: failed.filter(isSlow).length, blocked: failed.filter(q=>q.blocked).length,
     bottleneck: [...causes].sort((a,b)=>b[1]-a[1])[0]?.[0] || '' };
 }
@@ -84,6 +96,16 @@ export function applyPracticeSession(state: ScheduleControlState, value: unknown
   const existing = (state.practiceSessions ?? []).find(s=>s.id===session.id);
   if (existing && existing.updatedAt > session.updatedAt) throw Error('已发现更新的练习记录，请重新打开记录，原始数据已保留。');
   if (existing?.finished && !session.finished) throw Error('这次训练已结束，请刷新查看报告。');
+  for (const q of session.questions) {
+    const old = existing?.questions.find(x => x.id === q.id);
+    if (old?.firstAttempt) {
+      if (q.firstAttempt && JSON.stringify(old.firstAttempt) !== JSON.stringify(q.firstAttempt)) throw Error('首次作答不可覆盖。');
+      q.firstAttempt = structuredClone(old.firstAttempt);
+    } else if (old && old.result !== 'pending') {
+      q.firstAttempt = {result:old.result, elapsedMs:old.elapsedMs, limitSeconds:old.limitSeconds, blocked:old.blocked};
+    } else if (q.result !== 'pending') q.firstAttempt = {result:q.result, elapsedMs:q.elapsedMs, limitSeconds:q.limitSeconds, blocked:q.blocked};
+  }
+  if (existing?.questions.some(q => q.firstAttempt && !session.questions.some(x => x.id === q.id))) throw Error('首次作答题目不可删除。');
   const record = session.finished ? practiceEvidence(session) : null;
   return { ...state, practiceSessions: [...(state.practiceSessions ?? []).filter(s=>s.id!==session.id), session],
     timedPracticeRecords: session.finished ? [...(state.timedPracticeRecords ?? []).filter(r=>r.id!==`timer-${session.id}`), ...(record?[record]:[])] : state.timedPracticeRecords };

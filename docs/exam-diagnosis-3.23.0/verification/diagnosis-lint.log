@@ -1,0 +1,20 @@
+
+C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\tests\cue-practice.test.mts
+  121:104  warning  'callback' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\tests\dida-schedule-ui.browser.mts
+  24:77   error  Unexpected any. Specify a different type                                                                 @typescript-eslint/no-explicit-any
+  24:125  error  Do not assign to the variable `module`. See: https://nextjs.org/docs/messages/no-assign-module-variable  @next/next/no-assign-module-variable
+
+C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\tests\watch-dida.test.mts
+  31:30  error  The `Function` type accepts any function-like value.
+Prefer explicitly defining any function parameters and return type  @typescript-eslint/no-unsafe-function-type
+  78:69  error  The `Function` type accepts any function-like value.
+Prefer explicitly defining any function parameters and return type  @typescript-eslint/no-unsafe-function-type
+  94:30  error  The `Function` type accepts any function-like value.
+Prefer explicitly defining any function parameters and return type  @typescript-eslint/no-unsafe-function-type
+
+C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\tests\workspace-sync-recovery.test.mts
+  118:133  warning  'value' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 7 problems (5 errors, 2 warnings)

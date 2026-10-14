@@ -1,0 +1,87 @@
+(node:50944) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-baseline/jackyun-portal/src/lib/learning/cue-game.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-baseline\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ game is opt-in and new Cue sessions default to shuffle, including legacy preferences (1.3146ms)
+✔ rating edits, duplicate sync records and repeated sessions do not farm XP (0.6389ms)
+✔ calendar days give new rewards; malformed and future dates are excluded (0.1246ms)
+✔ defeat, level boundary and permanent cosmetics reconstruct from review history (0.5967ms)
+✔ default shuffle leaves source order intact; switching off restores original remaining order (0.3292ms)
+✖ desktop background renders real star history, accessible experience and reduced-motion control (305.7133ms)
+✔ star album keeps all ratings, deduplicates daily stars and survives Cue deletion and sync (7.3263ms)
+✔ legacy review attribution can use saved learning records even after Cue removal (0.2151ms)
+✔ each learning situation has three rotating variants with bounded nonblocking durations (0.2858ms)
+✔ galaxy stars retain deterministic coordinates and status colors as learning grows (0.9ms)
+✔ encouragement is frequent and all-status completion is independent of correctness (0.138ms)
+✔ desktop prompt and ratings share a viewport-sized centered stage (5.5192ms)
+(node:49268) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-baseline/jackyun-portal/src/lib/learning/cue-practice.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-baseline\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a completed small round opens weak Cues immediately and rotates failed retries (0.9747ms)
+✔ red waits for four other retrievals, yellow for six; edits cannot manufacture a gap (0.1833ms)
+✔ small decks use time, never immediately show the same Cue; retry failures reschedule (0.1401ms)
+✔ delayed practice persists with the draft; shuffle preserves all session evidence (0.7589ms)
+✔ same-day red to green keeps a next-day confirmation and weak risk, no XP farming (1.0169ms)
+✔ simple recoloring is not another retrieval and cannot erase prior red history (0.2042ms)
+✔ continuing a session the next day adds a new calendar review instead of overwriting yesterday (0.2222ms)
+✔ typing bursts persist once and flush the latest draft at close or compare, including empty answers (0.2383ms)
+✖ default buffering calls browser timers with their native receiver, not the adapter object (185.572ms)
+✔ a repaired red retains more next-day risk than a repaired yellow (0.5035ms)
+✔ random windows include both bounds and edits or reloads do not reroll them (0.2637ms)
+✔ retry returns to the same unreviewed Cue after shuffle and can leave an exhausted queue (0.1767ms)
+✔ a failed retry rotates through every other due item, retaining passed items in the directory (0.2161ms)
+✔ the most recently practiced item waits when other queued items are not due (0.0999ms)
+✔ retry recoloring edits one attempt, preserves primary red and records a passed marker after reload (0.3439ms)
+✔ a retry continued on a new day preserves primary color and counts only its actual attempt (0.2199ms)
+✔ persistent practice badges follow the latest review and do not inherit an outdated pass (6.5561ms)
+✔ skipping an ungraded retry also visits the full queue rather than bouncing between two Cues (0.1818ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 28
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 525.4121
+
+✖ failing tests:
+
+test at tests\cue-game.test.mts:56:1
+✖ desktop background renders real star history, accessible experience and reduced-motion control (305.7133ms)
+  node:internal/modules/cjs/loader:1520
+    throw err;
+    ^
+
+  Error: Cannot find module '@/hooks/use-workspace-layout'
+  Require stack:
+  - C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-baseline\jackyun-portal\tests\cue-game.test.mts
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
+      at Module._load (node:internal/modules/cjs/loader:1294:5)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1617:12)
+      at require (node:internal/modules/helpers:153:16)
+      at require (file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-baseline/jackyun-portal/tests/cue-game.test.mts:83:744)
+      at evalmachine.<anonymous>:42:30 {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\syf26\\Desktop\\JACKYUN\\exam-diagnosis-baseline\\jackyun-portal\\tests\\cue-game.test.mts' ]
+  }
+
+test at tests\cue-practice.test.mts:112:1
+✖ default buffering calls browser timers with their native receiver, not the adapter object (185.572ms)
+  evalmachine.<anonymous>:29
+  var cue_self_check_ts_1 = require("./cue-self-check.ts");
+                            ^
+
+  ReferenceError: require is not defined
+      at evalmachine.<anonymous>:29:27
+      at Script.runInContext (node:vm:149:12)
+      at Script.runInNewContext (node:vm:154:17)
+      at runInNewContext (node:vm:310:38)
+      at TestContext.<anonymous> (file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-baseline/jackyun-portal/tests/cue-practice.test.mts:121:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

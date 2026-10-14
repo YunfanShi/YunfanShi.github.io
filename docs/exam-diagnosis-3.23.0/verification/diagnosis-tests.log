@@ -1,0 +1,66 @@
+✔ Mixed Edexcel and CAIE presets calculate exact seconds from paper duration and representative marks (1.5465ms)
+✔ legacy defaults migrate once while personalized times and custom types remain intact (0.972ms)
+(node:57092) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ A and B scenarios separate facts and potential causes and validate scores / dates (4.6697ms)
+✔ original answers and source identities are immutable, manual correction appends review history (1.4318ms)
+✔ manual equivalent wording, uncertain points and capped alternatives never produce keyword grading (0.3168ms)
+✔ practice-linked creation avoids re-entry and first failure survives later correct marking (2.0259ms)
+✔ repair then new independent question validates transfer and retains recurrence timeline (8.027ms)
+✔ familiar repair, complete papers, assisted or original questions never qualify for transfer (0.3963ms)
+✔ CS full-score retest requires an actual marking review and uncertain points block verification (0.7441ms)
+✔ correct overtime transfers are speed issues; planned transfer cannot precede repair/date (0.3254ms)
+✔ legacy reload defaults, malformed diagnoses fail without silent removal and export round trip (0.9172ms)
+✔ independent device changes merge; conflicting same field edits fail and preserve remote (1.5599ms)
+✔ server safety rejects stale omissions or edited history even with a fresh sync revision (0.8913ms)
+✔ only two recommendations, high confirmed knowledge loss can be prioritised and tasks are idempotent (0.3576ms)
+✔ school homework credits configurable CS frequency, duplicate IDs do not inflate statistics (1.4309ms)
+✔ manual summaries retain first results and correction history rather than overwriting a failed attempt (2.6562ms)
+✔ new / repair / mock scopes stay separate and graph errors show an improvement sequence (0.6899ms)
+✔ old-client derived summaries cannot alter first-attempt metrics while question snapshots survive (0.2349ms)
+✔ an initially empty answer can be completed later, then becomes immutable (0.3666ms)
+(node:8460) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ names and unit abbreviations infer mixed exam boards; unknown names stay unbound (1.8452ms)
+✔ manual association and personalized timings survive rename without leaking between courses (0.7686ms)
+✔ Schedule evidence retains course identity and credits renamed courses by preset family (3.988ms)
+(node:36944) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ grouping expands timer questions once, inherits session units and excludes pending questions (10.991ms)
+✔ manual evidence and missing unit metadata group separately; new-scope criteria match weekly metrics (0.9135ms)
+(node:43340) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pause, revisit, and switch preserve independent question time and total (1.3373ms)
+✔ remaining percentage thresholds and overtime are separate from correctness (0.1616ms)
+✔ pending results persist without corrupting weekly first-attempt metrics (4.4214ms)
+✔ graded questions contribute progressively and structured session content survives evidence updates (0.6163ms)
+✔ custom subjects, preset durations and read/merge/safety survive Schedule storage (2.3988ms)
+✔ malformed sessions and configurations never overwrite good records (0.7549ms)
+✔ concurrent session edits merge independent fields and preserve conflicting evidence (0.6615ms)
+(node:24640) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/exam-diagnosis-work/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\exam-diagnosis-work\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ week boundaries include Sunday, cross years and rotate subjects deterministically (2.8645ms)
+✔ first-attempt metrics include failed attempts but exclude familiar repair, mocks, assisted and other weeks (0.7138ms)
+✔ all-training metrics include mocks, repair and unmarked independence without granting new-training credit (0.2356ms)
+✔ structured content preserves legacy references and validates optional details (0.1672ms)
+✔ invalid results and duplicate IDs cannot corrupt persisted evidence (0.17ms)
+✔ planning deduplicates and reopens cancelled work; homework credit and ticks are distinct (1.0532ms)
+✔ old data loads, new evidence survives reload and protects cloud replacement (1.3988ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 457.5196

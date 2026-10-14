@@ -1,7 +1,32 @@
 import { addCalendarDays, dateKey, type ManualLearningTask, type ScheduleControlState } from './schedule-control.ts';
+import { threeWayMerge } from '../sync/merge.ts';
+import { currentPracticeRecords } from './practice-timer.ts';
 
 export const PRACTICE_SUBJECTS = ['Pure Math', 'Mechanics', 'Physics', 'Statistics', 'Computer Science'] as const;
 export type PracticeSubject = string;
+export type PracticeMetricScope = 'new' | 'all' | 'repair' | 'mock';
+export function inPracticeScope(record:TimedPracticeRecord, scope:PracticeMetricScope):boolean {
+  return scope==='all' || (scope==='new' ? !newPracticeExclusion(record) : record.source===(scope==='repair'?'A':'C'));
+}
+export interface PracticeFrequency { id: string; subject: string; sessions: number; minutes: number }
+export const DEFAULT_PRACTICE_FREQUENCIES: PracticeFrequency[] = PRACTICE_SUBJECTS.map(subject => ({id:subject,subject,sessions:subject === 'Statistics' ? 0 : subject === 'Computer Science' ? 2 : 1, minutes:subject === 'Statistics' || subject === 'Computer Science' ? 20 : 25}));
+export function normalizePracticeFrequencies(value: unknown): PracticeFrequency[] {
+  if (value === undefined) return DEFAULT_PRACTICE_FREQUENCIES.map(x => ({...x}));
+  if (!Array.isArray(value) || value.length > 50 || value.some(x => !x || typeof x.id !== 'string' || !x.id || typeof x.subject !== 'string' || !x.subject.trim() || x.subject.length > 100 || !Number.isInteger(x.sessions) || x.sessions < 0 || x.sessions > 7 || !Number.isInteger(x.minutes) || x.minutes < 5 || x.minutes > 120) || new Set(value.map(x => x.id)).size !== value.length || new Set(value.map(x => x.subject)).size !== value.length) throw Error('每周频率格式无效，原设置已保留。');
+  return value;
+}
+export function weeklyTrainingCredit(state: ScheduleControlState, date: string, frequency: PracticeFrequency): number {
+  const entries = weeklyPracticeSummary(currentPracticeRecords(state),date).entries;
+  const family = { 'Pure Math':'math', Mechanics:'mechanics', Physics:'physics', Statistics:'statistics', 'Computer Science':'cs' }[frequency.subject];
+  return entries.filter(r => (r.subject === frequency.subject || (family && r.presetFamily === family)) && r.minutes >= frequency.minutes).length;
+}
+export function planWeeklyTraining(state: ScheduleControlState, date: string, frequency: PracticeFrequency, id: string): ScheduleControlState {
+  const week = practiceWeek(date), presetId = `timed-new-${frequency.subject.toLowerCase().replaceAll(' ', '-')}`;
+  const credit = weeklyTrainingCredit(state,date,frequency);
+  const planned = state.manualTasks.filter(t => t.presetId === presetId && t.date >= week.start && t.date <= week.end && !state.cancellations[t.id] && !state.completions[t.id]).length;
+  if (credit + planned >= frequency.sessions) return state;
+  return {...state, manualTasks:[...state.manualTasks,{id,date,presetId,type:'practice',subject:frequency.subject,durationMinutes:frequency.minutes,title:`限时新题 · ${frequency.subject}`,note:'独立 B 新题或首次学校作业；计时器报告自动记证据，不重复录入。只修主要卡点，再换新题验证。',scope:{cueIds:[],questionIds:[]},guide:{tab:'practice',subTab:'timed'}}]};
+}
 export const PRACTICE_CONTENT_TYPES = { textbook: 'TEXTBOOK 教材', homework: 'HOMEWORK 作业', exam: 'EXAM 考试', pastPaper: 'PAST PAPER 历年卷', worksheet: 'WORKSHEET 练习单', other: 'OTHER 其他' } as const;
 export type PracticeContentType = keyof typeof PRACTICE_CONTENT_TYPES;
 export interface TimedPracticeRecord {
@@ -25,10 +50,30 @@ export interface TimedPracticeRecord {
   failedOvertime?: number;
   blocked: number;
   bottleneck: string;
+  firstResults?: { minutes:number; onTime:number; overtime:number; failed:number; blocked:number; failedOvertime:number };
+  corrections?: Array<{id:string; results:NonNullable<TimedPracticeRecord['firstResults']>}>;
+}
+export function originalPracticeRecord(r: TimedPracticeRecord): TimedPracticeRecord { return {...r,...r.firstResults}; }
+export function saveManualPractice(state: ScheduleControlState, next:TimedPracticeRecord, base?:TimedPracticeRecord): ScheduleControlState {
+  if (next.id.startsWith('timer-') || !normalizeTimedPractice([next]).length) throw Error('请在逐题报告修改计时器记录，或检查手动记录格式。');
+  const current=state.timedPracticeRecords?.find(r=>r.id===next.id);
+  if(current && !base) throw Error('记录已存在，请重新打开。');
+  const result={minutes:next.minutes,onTime:next.onTime,overtime:next.overtime,failed:next.failed,blocked:next.blocked,failedOvertime:next.failedOvertime ?? 0};
+  const first=base?.firstResults ?? (base ? {minutes:base.minutes,onTime:base.onTime,overtime:base.overtime,failed:base.failed,blocked:base.blocked,failedOvertime:base.failedOvertime ?? 0} : result);
+  const candidate={...next,firstResults:first,corrections:base?[...(base.corrections ?? []),{id:crypto.randomUUID(),results:result}] : []};
+  const merged=current?threeWayMerge(base,candidate,current):{merged:candidate,conflicts:[]};
+  if(merged.conflicts.length) throw Error('另一设备修改了同一记录，请导出并重新打开。');
+  return {...state,timedPracticeRecords:normalizeTimedPractice([...(state.timedPracticeRecords ?? []).filter(r=>r.id!==next.id),merged.merged])};
 }
 
 export function normalizeTimedPractice(value: unknown): TimedPracticeRecord[] {
   if (!Array.isArray(value)) return [];
+  const validSnapshot = (v:unknown) => {const s=v as NonNullable<TimedPracticeRecord['firstResults']>;return s && Number.isFinite(s.minutes) && s.minutes>0 && s.minutes<=1440 && ['onTime','overtime','failed','blocked','failedOvertime'].every(k=>Number.isInteger(s[k as keyof typeof s])&&s[k as keyof typeof s]>=0&&s[k as keyof typeof s]<=1000)&&s.onTime+s.overtime+s.failed>0&&s.blocked<=s.failed&&s.failedOvertime<=s.failed;};
+  for (const raw of value) {
+    const item=raw as TimedPracticeRecord;
+    if(item?.firstResults !== undefined && !validSnapshot(item.firstResults)) throw Error('首次训练结果快照格式无效，原记录已保留。');
+    if(item?.corrections !== undefined && (!Array.isArray(item.corrections)||item.corrections.some(c=>!c||typeof c.id!=='string'||!c.id||!validSnapshot(c.results))||new Set(item.corrections.map(c=>c.id)).size!==item.corrections.length)) throw Error('训练修正历史格式无效，原记录已保留。');
+  }
   const ids = new Set<string>();
   return value.filter((item): item is TimedPracticeRecord => {
     if (!item || typeof item !== 'object') return false;
@@ -73,9 +118,9 @@ export function weeklyPracticeSubjects(date: string): PracticeSubject[] {
   return ['Pure Math', 'Mechanics', 'Physics', weeks % 2 === 0 ? 'Statistics' : 'Computer Science'];
 }
 
-export function weeklyPracticeSummary(records: TimedPracticeRecord[], date: string, scope: 'new' | 'all' = 'new') {
+export function weeklyPracticeSummary(records: TimedPracticeRecord[], date: string, scope: PracticeMetricScope = 'new') {
   const week = practiceWeek(date);
-  const entries = records.filter(item => item.date >= week.start && item.date <= week.end && (scope === 'all' || !newPracticeExclusion(item)));
+  const entries = normalizeTimedPractice(records).map(originalPracticeRecord).filter(item => item.date >= week.start && item.date <= week.end && inPracticeScope(item,scope));
   const attempted = entries.reduce((total, item) => total + item.onTime + item.overtime + item.failed, 0);
   const onTime = entries.reduce((total, item) => total + item.onTime, 0);
   const bottlenecks = new Map<string, number>();

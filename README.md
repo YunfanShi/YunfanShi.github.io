@@ -1075,3 +1075,6 @@ Azure切换安全准备(v3.21.3候选)：切换工具默认只读预检，生产
 候选代码继续补齐导出、导入预览和同步项导入的Azure来源，支持分页和大值分块，源版本持续变化时不生成成功备份。日程恢复与云端版本备份仍待适配，生产尚未切换。
 
 Azure 3.21.3候选补齐[反向回灌工具](jackyun-portal/scripts/azure-sync-reverse-copy.mjs)及[只读回退预检](jackyun-portal/scripts/azure-reverse-preflight.command)：先冻结Azure、回灌新增和删除、校验指纹并保留源端账号状态；默认不修改数据库，apply需要私有备份与恢复证据。回灌后两端保持冻结，入口恢复独立执行。隔离PG17演练通过，生产切换仍未完成，详见[实施说明](jackyun-portal/docs/azure-cutover-and-database-access-plan.docx)。
+
+
+2026-10-15 考试诊断学习闭环（v3.23.0）：Schedule 新增考试诊断与人工 CS 评分点对照，保留原始答案、首次结果和修复/新题验证历史。新题、熟题和完整模拟分开统计，周频率可调整，默认 CS 两次、Statistics 按需，学校新题作业可抵扣。38 项诊断与计时测试、125 项同步测试以及手机/桌面流程通过；完整学习测试的两项失败和 Lint 五个错误均在未修改 main 复现。上线还需确认并同步发布含新证据保护的 Azure 后端（3.5.1）。详见[详细 DOCX 开发说明](docs/exam-diagnosis-3.23.0/JackYun-3.23.0-Exam-Diagnosis-20261015.docx)与[架构及操作说明](docs/exam-diagnosis-3.23.0/implementation.md)。

@@ -1,0 +1,33 @@
+{
+  "appVersion": "3.23.0",
+  "syncBackendVersion": "3.5.1",
+  "baseCommit": "1d6b73f",
+  "productionStatus": "HTTP 200 from Vercel; deployed app version not verified",
+  "databaseChanges": false,
+  "productionDeployed": false,
+  "unitTests": 38,
+  "syncTests": 125,
+  "learningTests": {
+    "passed": 185,
+    "failed": 2,
+    "baselineReproduced": true
+  },
+  "lint": {
+    "changedFiles": "passed",
+    "fullErrors": 5,
+    "fullWarnings": 2,
+    "baselineReproduced": true
+  },
+  "browserWidths": [
+    390,
+    1440
+  ],
+  "existingTimerWidths": [
+    390,
+    1024,
+    1440
+  ],
+  "docxPages": 7,
+  "docxRenderer": "docx-preview fallback after missing soffice.exe",
+  "realAccountCrossDeviceTest": false
+}

@@ -1,4 +1,6 @@
 import type { TimedPracticeRecord } from './timed-practice.ts';
+import type { PracticeFrequency } from './timed-practice.ts';
+import type { ExamDiagnosis } from './exam-diagnosis.ts';
 import type { PracticeSession, PracticeConfig } from './practice-timer.ts';
 import type { CueGameAccount } from './cue-shop.ts';
 import type { CuePracticeState } from './cue-practice.ts';
@@ -468,6 +470,8 @@ export interface CueMemo {
 export interface ScheduleControlState {
   schemaVersion: 1;
   timedPracticeRecords?: TimedPracticeRecord[];
+  examDiagnoses?: ExamDiagnosis[];
+  practiceFrequencies?: PracticeFrequency[];
   practiceSessions?: PracticeSession[];
   practiceTimerConfig?: PracticeConfig;
   /** One-time migration marker for existing Cue review plans. */
