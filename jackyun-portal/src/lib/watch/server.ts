@@ -78,10 +78,10 @@ export async function verifyMfa(request:Request,value:Record<string,unknown>) {
   return {session:await issueDevice(admin,session!,payload.name)};
 }
 export async function watchContext(request:Request) {
-  const admin=adminClient();
   const token=/^Bearer ([A-Za-z0-9_.-]{1,8192})$/.exec(request.headers.get('authorization')??'')?.[1];
   const id=request.headers.get('x-watch-device')??'', credential=request.headers.get('x-watch-secret')??'';
   if(!token||!UUID.test(id)||credential.length>100) fail(401,'UNAUTHORIZED','请重新登录');
+  const admin=adminClient();
   const {data:device,error}=await admin.from('watch_devices').select('*').eq('id',id).maybeSingle();
   if(error) fail(503,'DEVICE_CHECK_FAILED','设备状态读取失败');
   if(!device||device.revoked_at||!sameHash(credential,device.secret_hash)) fail(401,'DEVICE_REVOKED','手表授权已撤销，请重新登录');

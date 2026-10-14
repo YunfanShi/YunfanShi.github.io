@@ -22,12 +22,12 @@ try {
   await page.goto('http://schedule.test/');
   await page.evaluate(sources=>{
    const cache:Record<string,{exports:unknown}>={};const load=(name:string):any=>{if(cache[name])return cache[name].exports;const module={exports:{}};cache[name]=module;new Function('module','exports','require','process',sources[name])(module,module.exports,load,{env:{NODE_ENV:'development'}});return module.exports;};
-   const React=load('react');const root=load('react-dom/client').createRoot(document.getElementById('root'));root.render(React.createElement(load('component').default,{accounts:[{id:'11111111-1111-4111-8111-111111111111',displayName:'Test Dida',provider:'dida365',status:'active'}],selectedDate:'2026-10-14'}));
+   const React=load('react');const root=load('react-dom/client').createRoot(document.getElementById('root'));root.render(React.createElement(load('component').default,{accounts:[{id:'11111111-1111-4111-8111-111111111111',displayName:'Test Dida',provider:'dida365',status:'active'}],selectedDate:'2026-10-14',onTaskCount:(count:number)=>document.getElementById('root')!.setAttribute('data-pending-count',String(count))}));
   },modules);
-  const complete=page.getByRole('button',{name:'完成 Own task',exact:true});await complete.waitFor();await complete.click();
+  const complete=page.getByRole('button',{name:'完成 Own task',exact:true});await complete.waitFor();assert.equal(await page.locator('#root').getAttribute('data-pending-count'),'1');await complete.click();
   if(refuseChange){await page.getByRole('status').filter({hasText:'滴答尚未确认'}).waitFor();assert.equal(await complete.getAttribute('aria-pressed'),'false');checks.push({failedRemoteDoesNotMarkComplete:true});}
   else {
-   const undo=page.getByRole('button',{name:'取消完成 Own task',exact:true});await undo.waitFor();assert.equal(h.task.status,2);await undo.click();await complete.waitFor();assert.equal(h.task.status,0);
+   const undo=page.getByRole('button',{name:'取消完成 Own task',exact:true});await undo.waitFor();assert.equal(h.task.status,2);await page.waitForFunction(()=>document.getElementById('root')!.getAttribute('data-pending-count')==='0');await undo.click();await complete.waitFor();assert.equal(h.task.status,0);await page.waitForFunction(()=>document.getElementById('root')!.getAttribute('data-pending-count')==='1');
    await page.getByRole('button',{name:'同步范围'}).click();const list=page.getByRole('checkbox',{name:'My list',exact:true});await list.uncheck();await page.getByRole('button',{name:'保存同步范围'}).click();await page.getByText('点击同步范围，选择要同步的滴答清单。').waitFor();assert.deepEqual(h.getSettings().syncProjectIds,[]);
    checks.push({completeAndReopen:true,selectionSaved:true,noCheckboxBeforeConfirmation:true});
   }

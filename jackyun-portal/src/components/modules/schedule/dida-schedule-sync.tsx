@@ -8,7 +8,7 @@ type Snapshot = { projects: DidaProject[]; selectedProjectIds: string[]; tasks: 
 const empty: Snapshot = { projects: [], selectedProjectIds: [], tasks: [], syncedAt: '' };
 const api = '/api/integrations/dida365/schedule-sync';
 
-export default function DidaScheduleSync({ accounts, selectedDate }: { accounts: DidaAccountView[]; selectedDate: string }) {
+export default function DidaScheduleSync({ accounts, selectedDate, onTaskCount }: { accounts: DidaAccountView[]; selectedDate: string; onTaskCount?: (count: number) => void }) {
   const [selectedAccount, setSelectedAccount] = useState('');
   const accountId = accounts.some(account => account.id === selectedAccount) ? selectedAccount : accounts[0]?.id ?? '';
   const [snapshot, setSnapshot] = useState<Snapshot>(empty);
@@ -61,7 +61,7 @@ export default function DidaScheduleSync({ accounts, selectedDate }: { accounts:
     const key = `${task.projectId}:${task.id}`; const owner = accountId;
     setPending(key); setNotice(''); generation.current++;
     try {
-      const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId, projectId: task.projectId, taskId: task.id, completed: !task.completed }) });
+      const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId, projectId: task.projectId, taskId: task.id, completed: !task.completed, version: task.version }) });
       const data = await response.json();
       if (accountRef.current !== owner) return;
       if (!response.ok || !data.task) throw new Error(data.error || '状态未同步，请刷新后重试。');
@@ -70,10 +70,12 @@ export default function DidaScheduleSync({ accounts, selectedDate }: { accounts:
     } catch (error) { if (accountRef.current === owner) setNotice(error instanceof Error ? error.message : '同步失败。'); }
     finally { setPending(''); }
   }
-  if (!accountId) return null;
   const tasks = didaTasksForDate(snapshot.tasks, selectedDate);
+  const pendingCount = accountId ? tasks.filter(task => !task.completed).length : 0;
+  useEffect(() => { onTaskCount?.(pendingCount); }, [onTaskCount, pendingCount]);
+  if (!accountId) return null;
   return <section aria-label="滴答任务时间线" className="mb-4 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5">
-    <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold text-[var(--muted-foreground)]">Dida · Schedule</p><h2 className="mt-1 text-lg font-semibold">清单时间线</h2></div><button type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(value => !value)} disabled={Boolean(pending) || busy} className="min-h-11 rounded-full border border-[var(--card-border)] px-3 text-xs">同步范围</button></div>
+    <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold text-[var(--muted-foreground)]">Dida · Schedule</p><h2 className="mt-1 text-lg font-semibold">滴答待办 · {pendingCount} 项待完成</h2></div><button type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(value => !value)} disabled={Boolean(pending) || busy} className="min-h-11 rounded-full border border-[var(--card-border)] px-3 text-xs">同步范围</button></div>
     {accounts.length > 1 && <label className="mt-3 block text-xs">同步账户<select aria-label="同步账户" disabled={busy || Boolean(pending)} value={accountId} onChange={event => setSelectedAccount(event.target.value)} className="ml-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2">{accounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}</select></label>}
     {settingsOpen && <div className="mt-3 rounded-2xl bg-[var(--background)] p-3"><p className="mb-2 text-xs leading-5">选择要显示的清单。网站与滴答同步完成状态；取消全部勾选即可关闭同步。</p><div className="max-h-64 space-y-2 overflow-y-auto">{snapshot.projects.map(project => <label key={project.id} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" checked={projectIds.includes(project.id)} disabled={busy} onChange={event => setProjectIds(ids => event.target.checked ? [...ids, project.id] : ids.filter(id => id !== project.id))} className="h-4 w-4 accent-[var(--brand)]" />{project.name}</label>)}</div><button type="button" onClick={() => void saveProjects()} disabled={busy || !snapshot.syncedAt} className="mt-3 min-h-10 rounded-full bg-[var(--brand)] px-4 text-sm text-white disabled:opacity-50">{busy ? '保存中…' : '保存同步范围'}</button></div>}
     {notice && <p role="status" className="mt-3 text-xs leading-5">{notice}</p>}

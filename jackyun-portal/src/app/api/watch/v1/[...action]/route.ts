@@ -5,6 +5,9 @@ import { NextRequest } from 'next/server';
 import { extractCompletionText } from '@/lib/ai-smart-selection';
 import { snapshot } from '@/lib/watch/snapshot';
 import { digest, validateOperation, UUID } from '@/lib/watch/policy';
+import { parseDidaTarget } from '@/lib/integrations/dida-task-reference';
+import { applyWatchDidaOperation } from '@/lib/watch/dida-tasks';
+import { DidaApiError } from '@/lib/integrations/dida365-server';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -42,6 +45,7 @@ async function handle(request:Request,context:RouteContext) {
     if(action==='logout') {const {error}=await auth.admin.from('watch_devices').update({revoked_at:new Date().toISOString()}).eq('id',auth.device.id).eq('user_id',auth.user.id);if(error)fail(503,'DEVICE_WRITE_FAILED','撤销失败');await auth.admin.auth.admin.signOut(auth.token,'local');return reply({ok:true});}
     if(action==='operations') {
       let details:Record<string,unknown>;try{details=validateOperation(value);}catch{fail(422,'INVALID_OPERATION','操作格式无效');}
+      if(value.kind==='task' && parseDidaTarget(value.targetId))return reply(await applyWatchDidaOperation(auth.supabase,auth.user.id,value,details!));
       const {data,error}=await auth.supabase.rpc('watch_apply_operation',{p_operation:value.operationId,p_hash:digest(JSON.stringify({kind:value.kind,targetId:value.targetId,version:value.version,details:details!})),p_kind:value.kind,p_target:value.kind==='focus'?null:value.targetId,p_version:value.kind==='task'?value.version:null,p_details:details!});
       if(error){if(error.message.includes('VERSION_CONFLICT')||error.message.includes('OPERATION_REUSED'))fail(409,'VERSION_CONFLICT','内容已改变，请保留云端数据');if(error.message.includes('NOT_FOUND'))fail(404,'NOT_FOUND','内容已删除');if(error.message.includes('INVALID_OPERATION'))fail(422,'INVALID_OPERATION','操作内容无效');fail(503,'OPERATION_FAILED','操作暂未确认，可稍后重试');}
       return reply(data??{ok:true});
@@ -49,6 +53,7 @@ async function handle(request:Request,context:RouteContext) {
     return fail(404,'NOT_FOUND','接口不存在');
   } catch(error) {
     if(error instanceof WatchError)return reply({error:error.message,code:error.code},error.status);
+    if(error instanceof DidaApiError)return reply({error:error.message,code:error.status===409?'VERSION_CONFLICT':error.status===403||error.status===404?'NOT_FOUND':'DIDA_UNAVAILABLE'},error.status===403?404:error.status===400?503:error.status);
     return reply({error:'手表服务暂不可用',code:'WATCH_UNAVAILABLE'},503);
   }
 }

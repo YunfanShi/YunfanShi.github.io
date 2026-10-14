@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { parseDidaTarget, isDidaVersion } from '../integrations/dida-task-reference.ts';
 export const WATCH_API_VERSION = 1;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const secret = () => randomBytes(32).toString('base64url');
@@ -23,8 +24,9 @@ export function unseal(value: string, master: string): unknown {
 export function validateOperation(value: Record<string, unknown>) {
   const details = value.details as Record<string, unknown> | null;
   if (!UUID.test(String(value.operationId)) || !['task','notification','focus'].includes(String(value.kind)) || !details || typeof details!=='object' || Array.isArray(details)) throw Error('INVALID_OPERATION');
-  if (value.kind!=='focus' && !UUID.test(String(value.targetId))) throw Error('INVALID_OPERATION');
-  if (value.kind==='task' && (typeof details.completed!=='boolean' || !Number.isFinite(Date.parse(String(value.version))))) throw Error('INVALID_OPERATION');
+  const dida = value.kind === 'task' && parseDidaTarget(value.targetId);
+  if (value.kind!=='focus' && !UUID.test(String(value.targetId)) && !dida) throw Error('INVALID_OPERATION');
+  if (value.kind==='task' && (typeof details.completed!=='boolean' || (dida ? !isDidaVersion(value.version) : !Number.isFinite(Date.parse(String(value.version)))))) throw Error('INVALID_OPERATION');
   if (value.kind==='focus') {
     const duration = Number(details.durationSeconds), planned = Number(details.plannedSeconds), started=Number(details.startedAt), finished=Number(details.completedAt);
     if (!Number.isInteger(duration)||duration<60||duration>21600||!Number.isInteger(planned)||planned<60||planned>21600||!Number.isFinite(started)||!Number.isFinite(finished)||finished-started<duration*1000||finished>Date.now()+300000||duration>planned) throw Error('INVALID_OPERATION');

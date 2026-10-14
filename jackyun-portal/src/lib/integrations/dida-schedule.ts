@@ -1,6 +1,6 @@
 export type DidaScheduleTask = {
   id: string; projectId: string; title: string; content: string;
-  date?: string; start?: string; completed: boolean; completedDate?: string;
+  date?: string; start?: string; completed: boolean; completedDate?: string; version?: string;
 };
 
 /** Calendar fields follow the task's own time zone; overdue tasks remain actionable. */

@@ -13,6 +13,7 @@ export async function didaRequest<T>(token: string, path: string, init?: Request
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
   if (!response.ok) {
+    if (response.status === 404) throw new DidaApiError('滴答任务或清单已删除，请刷新后重试。', 404);
     if (response.status === 401 || response.status === 403) throw new DidaApiError('滴答清单令牌无效或权限不足。', 400);
     throw new DidaApiError(`滴答清单暂时无法完成请求（${response.status}）。`);
   }

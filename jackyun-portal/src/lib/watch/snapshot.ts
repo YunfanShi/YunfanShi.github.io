@@ -50,8 +50,15 @@ export function scheduleSnapshot(value:unknown,now=new Date(),timezone='Asia/Sha
 export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date()) {
   const result:Record<string,unknown>={apiVersion:1,timezone:'Asia/Shanghai',generatedAt:now.toISOString()};
   const modules:Record<string,string>={};result.modules=modules;
-  async function load(name:string,action:()=>Promise<void>){try{await action();modules[name]='ready';}catch{modules[name]='error';}}
+  let didaTasks: Array<{id:string;title:string;completed:boolean;version:string;date:string;start:string;minutes:number;subject:string;detail:string;source:string}> = [];
+  async function load(name:string,action:()=>Promise<void>){try{await action();if(modules[name]!=='partial')modules[name]='ready';}catch{modules[name]='error';}}
   await Promise.all([
+    load('dida',async()=>{
+      const { watchDidaSnapshot } = await import('./dida-tasks');
+      const remote = await watchDidaSnapshot(supabase,userId,calendarDate(now));
+      didaTasks=remote.tasks; result.didaHasMore=remote.hasMore;
+      if(remote.failed)modules.dida='partial';
+    }),
     (async()=>{
       try {
         let value:unknown;
@@ -91,5 +98,17 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
       result.notifications=(data?.items??[]).map((item:Record<string,unknown>)=>({id:item.id,title:item.title,read:item.is_read,version:item.updated_at,text:String(item.content??'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').slice(0,12000)}));
     }),
   ]);
+  return mergeWatchDidaTasks(result,modules,didaTasks,now);
+}
+export function mergeWatchDidaTasks(result:Record<string,unknown>, modules:Record<string,string>, didaTasks:Array<{id:string;title:string;completed:boolean;version:string;date:string;start:string;minutes:number;subject:string;detail:string;source:string}>, now=new Date()) {
+  const localTasks=Array.isArray(result.tasks)?result.tasks:[];
+  result.tasks=[...localTasks,...didaTasks];
+  if(modules.tasks!=='ready' && didaTasks.length)modules.tasks='ready';
+  const agenda=Array.isArray(result.agenda)?result.agenda:[];
+  const today=calendarDate(now), end=calendarDate(new Date(now.getTime()+6*86400000));
+  const externalAgenda=didaTasks.filter(task=>!task.completed&&task.date<=end).map(task=>({...task,date:task.date<today?today:task.date,sourceDate:task.date}));
+  const merged=[...agenda,...externalAgenda].sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.start??'').localeCompare(String(b.start??'')));
+  result.agenda=merged.slice(0,300);result.agendaHasMore=Boolean(result.agendaHasMore)||merged.length>300;
+  if(modules.agenda!=='ready' && externalAgenda.length)modules.agenda='ready';
   return result;
 }

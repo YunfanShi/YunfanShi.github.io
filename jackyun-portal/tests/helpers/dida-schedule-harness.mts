@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { normalizeDidaTasks } from '../../src/lib/integrations/dida-schedule.ts';
+import * as references from '../../src/lib/integrations/dida-task-reference.ts';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const accountId = '11111111-1111-4111-8111-111111111111';
@@ -28,7 +29,12 @@ export function harness(options: { signedIn?: boolean; account?: boolean; select
     throw Error('Unexpected '+path);
   };
   const exports:Record<string,(req:Request)=>Promise<Response>>={};
-  new Function('require','exports',routeCode)((name:string)=>name==='@/lib/supabase/server'?{createClient:async()=>db}:name==='@/lib/secret-crypto'?{decryptSecret:()=> 'server-only-token'}:name==='@/lib/integrations/dida365-server'?{didaRequest:remote,DidaApiError:ApiError,getDidaProjects:async()=>[{id:'p',name:'My list'},{id:'q',name:'Other list'}]}:name==='@/lib/integrations/dida-schedule'?{normalizeDidaTasks}:(()=>{throw Error(name)})(),exports);
+  const mocks:Record<string,unknown>={ 'server-only':{}, '@/lib/supabase/server':{createClient:async()=>db}, '@/lib/secret-crypto':{decryptSecret:()=> 'server-only-token'}, '@/lib/integrations/dida365-server':{didaRequest:remote,DidaApiError:ApiError,getDidaProjects:async()=>[{id:'p',name:'My list'},{id:'q',name:'Other list'}]}, './dida-schedule':{normalizeDidaTasks}, './dida-task-reference':references };
+  mocks['./dida365-server']=mocks['@/lib/integrations/dida365-server'];
+  const service:Record<string,unknown>={};const serviceCode=ts.transpileModule(readFileSync(new URL('../../src/lib/integrations/dida-sync-service.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const load=(name:string)=>{if(name in mocks)return mocks[name];throw Error(name);};
+  new Function('require','exports',serviceCode)(load,service);mocks['@/lib/integrations/dida-sync-service']=service;
+  new Function('require','exports',routeCode)(load,exports);
   const request=(method:string,body?:Record<string,unknown>)=>new Request(`http://localhost/api/integrations/dida365/schedule-sync?accountId=${accountId}`,{method,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify({accountId,...body})}:{})});
-  return {exports,request,calls,filters,task,getSettings:()=>settings};
+  return {exports,request,calls,filters,task,getSettings:()=>settings,service,DidaApiError:ApiError};
 }
