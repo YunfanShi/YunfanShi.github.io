@@ -1,9 +1,13 @@
 (function () {
   'use strict';
   if (window.JackyunDialog) return;
+  if(!window.JackyunErrors && !document.querySelector('script[src="/shared/error-notices.js"]')){
+    const errors=document.createElement('script');errors.src='/shared/error-notices.js';errors.async=false;document.head.appendChild(errors);
+  }
   let tail = Promise.resolve();
   const api = {};
   function open(kind, message, options = {}) {
+    if(kind==='alert' && /失败|错误|无法|异常/i.test(String(message)))window.JackyunErrors?.report({tag:'Dialog',message:String(message)});
     try {
       if (parent !== window && parent.JackyunDialog && parent.document.fullscreenElement?.tagName !== 'IFRAME') return parent.JackyunDialog[kind](message, options);
     } catch { /* Standalone or sandboxed page: render locally. */ }

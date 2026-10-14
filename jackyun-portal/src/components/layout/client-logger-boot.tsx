@@ -6,7 +6,10 @@ export default function ClientLoggerBoot() {
   useEffect(() => {
     let cancelled = false;
     const start = () => {
-      if (!cancelled) void import('@/lib/logger');
+      if (!cancelled) void import('@/lib/logger').then(({default:logger})=>{
+        const errors=(window as unknown as {JackyunErrors?:{setLogProvider(provider:()=>unknown):void}}).JackyunErrors;
+        errors?.setLogProvider(()=>logger.getDiagnosticSnapshot());
+      });
     };
 
     const idleApi = window as unknown as {

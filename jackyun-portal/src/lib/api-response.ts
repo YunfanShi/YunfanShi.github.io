@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import { resolveErrorCode } from './error-codes';
 
 export function apiError(requestId: string, message: string, status: number, code = 'REQUEST_FAILED') {
-  return NextResponse.json({ ok: false, error: { code, message }, requestId }, { status });
+  return NextResponse.json({ ok: false, error: { code, message, siteCode:resolveErrorCode({code,status}) }, requestId }, { status });
 }
 
 export function requestIdFrom(request: Request): string {

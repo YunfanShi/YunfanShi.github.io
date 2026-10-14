@@ -5,6 +5,7 @@ import Script from 'next/script';
 import ThemeProvider from '@/components/theme-provider';
 import DeploymentRecovery from '@/components/layout/deployment-recovery';
 import PwaLifecycle from '@/components/layout/pwa-lifecycle';
+import ClientLoggerBoot from '@/components/layout/client-logger-boot';
 
 export const metadata: Metadata = {
   title: 'JackYun Portal',
@@ -34,7 +35,7 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="512x512" href="/Webicon.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/Webicon.png" />
       </head>
-      <body><Script src="/shared/site-dialog.js" strategy="beforeInteractive" /><DeploymentRecovery /><PwaLifecycle /><ThemeProvider>{children}</ThemeProvider></body>
+      <body><Script src="/shared/error-notices.js" strategy="beforeInteractive" /><Script src="/shared/site-dialog.js" strategy="beforeInteractive" /><ClientLoggerBoot /><DeploymentRecovery /><PwaLifecycle /><ThemeProvider>{children}</ThemeProvider></body>
     </html>
   );
 }

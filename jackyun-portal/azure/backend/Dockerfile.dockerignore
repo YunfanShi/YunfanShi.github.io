@@ -8,6 +8,7 @@
 !src/
 !src/lib/
 !src/lib/local-workspace.ts
+!src/lib/error-codes.ts
 !src/lib/sync/
 !src/lib/sync/hash.ts
 !src/lib/sync/schedule-safety.ts

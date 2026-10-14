@@ -7,6 +7,7 @@ import { createBackupCaptureVerifier } from './backup-capture.mjs';
 import { createDatabase } from './database.mjs';
 import { createSyncApi } from './sync-api.mjs';
 import { ApiError } from './errors.mjs';
+import { resolveErrorCode } from '../../src/lib/error-codes.ts';
 
 async function readBody(request, limit) {
   if (Number(request.headers['content-length'] ?? 0) > limit) {
@@ -49,7 +50,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
     const send = (status, value) => { httpStatus=status;response.writeHead(status); response.end(JSON.stringify({ ...value, requestId })); };
     try {
       const url = new URL(request.url, 'http://localhost');route=url.pathname;
-      if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true }); return; }
+      if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true,version:'3.5.0',syncProtocol:3,transferEncoding:'gzip',legacyEncoding:'identity' }); return; }
       if (!paths.has(url.pathname)) throw new ApiError(404, 'NOT_FOUND');
       const origin = request.headers.origin;
       if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_DENIED');
@@ -74,7 +75,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
       // Database messages/details can contain payloads, IDs or credentials. Never log them.
       if (status >= 500) logger.error(JSON.stringify({ service: 'azure-sync-api', requestId, code }));
       request.resume();
-      if (!response.headersSent) send(status, { ok: false, error: code, code });
+      if (!response.headersSent) send(status, { ok: false, error: code, code,siteCode:resolveErrorCode({code,status}) });
       else response.end();
     } finally {
       if(route.startsWith('/api/'))logger.info?.(JSON.stringify({service:'azure-sync-api',requestId,route,status:httpStatus,

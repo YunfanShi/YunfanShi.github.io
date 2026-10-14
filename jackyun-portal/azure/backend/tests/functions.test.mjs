@@ -7,6 +7,16 @@ import { createFunctionHandler, registerFunctions } from '../functions-adapter.m
 const request = (path, options = {}) => new HttpRequest({ method: 'GET', url: `https://test.azurewebsites.net${path}`, ...options });
 const authenticate = async value => { if (value !== 'Bearer verified') throw new ApiError(401, 'UNAUTHORIZED'); return { sub: 'verified' }; };
 
+test('runtime metadata proves the deployed version and original error codes remain compatible',async()=>{
+  const handler=createFunctionHandler({authenticate,handle:async()=>({ok:true})});
+  const health=await handler(request('/health/live'));
+  assert.equal(health.status,200);
+  const metadata=JSON.parse(health.body);
+  assert.equal(metadata.version,'3.5.0');assert.equal(metadata.transferEncoding,'gzip');assert.equal(metadata.legacyEncoding,'identity');
+  const denied=JSON.parse((await handler(request('/api/sync/v3'))).body);
+  assert.equal(denied.code,'UNAUTHORIZED');assert.equal(denied.siteCode,'JY-1001');assert.ok(denied.requestId);
+});
+
 test('Azure SDK request preserves routes, query, identity and JSON across the shared handler', async () => {
   let called;
   const handler = createFunctionHandler({ authenticate, handle: async (method, url, body, identity) => {
