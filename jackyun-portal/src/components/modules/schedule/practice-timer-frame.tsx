@@ -44,7 +44,16 @@ export default function PracticeTimerFrame() {
             const id = `practice-retest-${session.id}`;
             if (!state.manualTasks.some(t=>t.id===id)) next = { ...state, manualTasks: [...state.manualTasks, { id, date: session.date, type: 'practice', subject: session.subject, durationMinutes: 20, title: `新题复测 · ${session.subject}`, note: `先修主要卡点，再换未见题独立计时。范围：${session.scope || '本次薄弱题型'}。原始结果保留。`, scope: {cueIds:[],questionIds:[]}, guide:{tab:'practice',subTab:'stuck'} }] };
           } else {
-            if (message.session) next = applyPracticeSession(next, mergePracticeSession(sessionBases.get(message.session.id), message.session, state.practiceSessions?.find(s=>s.id===message.session.id)));
+            if (message.session) {
+              if (message.controllerId) {
+                const response = await fetch('/api/practice-timer/live', { cache:'no-store', signal:AbortSignal.timeout(8000) });
+                const live = await response.json();
+                if (!response.ok) throw Error('无法确认云端计时控制权，原记录已保留。');
+                if (live.ownerId !== message.controllerId) { send({type:'practice-control-lost'}); return; }
+                // The server owns device arbitration; this single session replaces its stale Schedule replica.
+                next = applyPracticeSession(next, message.session);
+              } else next = applyPracticeSession(next, mergePracticeSession(sessionBases.get(message.session.id), message.session, state.practiceSessions?.find(s=>s.id===message.session.id)));
+            }
             if (message.config) {
               const local=validateConfig(message.config), merged=threeWayMerge(configBase,local,state.practiceTimerConfig);
               if(merged.conflicts.length) throw Error('另一设备修改了相同时间设置，请重新打开页面；原设置已保留。');

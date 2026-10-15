@@ -1,0 +1,47 @@
+✔ Mixed Edexcel and CAIE presets calculate exact seconds from paper duration and representative marks (1.8981ms)
+✔ legacy defaults migrate once while personalized times and custom types remain intact (1.1719ms)
+(node:18024) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-cloud-3.24.0/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-cloud-3.24.0\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cloud timer requires sign in and never trusts client user identifiers (67.6453ms)
+✔ claims require a valid owner and session reference (15.4385ms)
+✔ cross origin mutations and malformed saves cannot reach the database (11.4979ms)
+✔ server conflicts are explicit and service errors never expose raw database details (8.7474ms)
+(node:70956) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-cloud-3.24.0/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-cloud-3.24.0\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ names and unit abbreviations infer mixed exam boards; unknown names stay unbound (2.0814ms)
+✔ manual association and personalized timings survive rename without leaking between courses (1.1707ms)
+✔ Schedule evidence retains course identity and credits renamed courses by preset family (5.0336ms)
+(node:26440) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-cloud-3.24.0/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-cloud-3.24.0\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pause, revisit, and switch preserve independent question time and total (1.5357ms)
+✔ remaining percentage thresholds and overtime are separate from correctness (0.1896ms)
+✔ pending results persist without corrupting weekly first-attempt metrics (3.7557ms)
+✔ graded questions contribute progressively and structured session content survives evidence updates (1.3215ms)
+✔ custom subjects, preset durations and read/merge/safety survive Schedule storage (2.0291ms)
+✔ malformed sessions and configurations never overwrite good records (0.4417ms)
+✔ concurrent session edits merge independent fields and preserve conflicting evidence (0.7186ms)
+(node:38892) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-cloud-3.24.0/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-cloud-3.24.0\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ week boundaries include Sunday, cross years and rotate subjects deterministically (3.8421ms)
+✔ first-attempt metrics include failed attempts but exclude familiar repair, mocks, assisted and other weeks (0.7985ms)
+✔ all-training metrics include mocks, repair and unmarked independence without granting new-training credit (0.2571ms)
+✔ structured content preserves legacy references and validates optional details (0.1716ms)
+✔ invalid results and duplicate IDs cannot corrupt persisted evidence (0.1712ms)
+✔ planning deduplicates and reopens cancelled work; homework credit and ticks are distinct (1.094ms)
+✔ old data loads, new evidence survives reload and protects cloud replacement (1.4971ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 612.7974

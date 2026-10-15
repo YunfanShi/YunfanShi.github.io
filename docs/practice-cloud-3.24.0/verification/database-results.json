@@ -1,0 +1,13 @@
+{
+  "project": "gdcwwlnzylrzrqhaaljq",
+  "migrationApplied": true,
+  "transactionRolledBack": true,
+  "oldOwnerFenced": true,
+  "staleRevisionFenced": true,
+  "activeSessionProtected": true,
+  "accountIsolation": true,
+  "rlsOwnRowOnly": true,
+  "rlsEnabled": true,
+  "directAuthenticatedWrite": false,
+  "anonymousRpcAllowed": false
+}
