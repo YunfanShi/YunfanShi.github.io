@@ -1,0 +1,58 @@
+✔ Mixed Edexcel and CAIE presets calculate exact seconds from paper duration and representative marks (1.8426ms)
+✔ legacy defaults migrate once while personalized times and custom types remain intact (1.0572ms)
+(node:71432) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-offline-3.24.2/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-offline-3.24.2\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Schedule bridge keeps offline checkpoints private and only exits on confirmed other owner (129.7851ms)
+✔ network errors and expired local deadlines preserve clock ownership (28.5315ms)
+✔ reconnect automatically uploads the latest local elapsed time (43.7173ms)
+✔ a lost acknowledgement revision is recovered without exiting or force claiming (3.4573ms)
+✔ only an explicit server takeover conflict exits the timer (2.3269ms)
+✔ a finished offline session is uploaded before deferred release (5.2852ms)
+(node:61492) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-offline-3.24.2/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-offline-3.24.2\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cloud timer requires sign in and never trusts client user identifiers (65.7388ms)
+✔ claims require a valid owner and session reference (17.6855ms)
+✔ cross origin mutations and malformed saves cannot reach the database (12.8951ms)
+✔ server conflicts are explicit and service errors never expose raw database details (10.1663ms)
+✔ authentication outages never downgrade a signed-in timer to guest mode (18.6922ms)
+(node:61420) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-offline-3.24.2/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-offline-3.24.2\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ names and unit abbreviations infer mixed exam boards; unknown names stay unbound (1.8252ms)
+✔ manual association and personalized timings survive rename without leaking between courses (0.5515ms)
+✔ Schedule evidence retains course identity and credits renamed courses by preset family (4.5371ms)
+(node:54000) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-offline-3.24.2/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-offline-3.24.2\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pause, revisit, and switch preserve independent question time and total (1.5868ms)
+✔ remaining percentage thresholds and overtime are separate from correctness (0.2427ms)
+✔ pending results persist without corrupting weekly first-attempt metrics (4.1652ms)
+✔ graded questions contribute progressively and structured session content survives evidence updates (1.1904ms)
+✔ custom subjects, preset durations and read/merge/safety survive Schedule storage (2.0805ms)
+✔ malformed sessions and configurations never overwrite good records (0.448ms)
+✔ concurrent session edits merge independent fields and preserve conflicting evidence (0.7398ms)
+(node:37956) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/practice-offline-3.24.2/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\practice-offline-3.24.2\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ week boundaries include Sunday, cross years and rotate subjects deterministically (4.3072ms)
+✔ first-attempt metrics include failed attempts but exclude familiar repair, mocks, assisted and other weeks (0.788ms)
+✔ all-training metrics include mocks, repair and unmarked independence without granting new-training credit (0.26ms)
+✔ structured content preserves legacy references and validates optional details (0.1788ms)
+✔ invalid results and duplicate IDs cannot corrupt persisted evidence (0.1751ms)
+✔ planning deduplicates and reopens cancelled work; homework credit and ticks are distinct (1.0852ms)
+✔ old data loads, new evidence survives reload and protects cloud replacement (1.7425ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 733.8846

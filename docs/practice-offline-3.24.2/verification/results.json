@@ -1,0 +1,10 @@
+{
+  "minuteCheckpoint": true,
+  "nextTypeAutoStart": true,
+  "pauseFrozen": true,
+  "deviceHandoff": true,
+  "offlineContinues": true,
+  "reconnectUploads": true,
+  "offlineTakeoverFenced": true,
+  "errors": []
+}

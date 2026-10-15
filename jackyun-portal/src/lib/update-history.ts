@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.24.2', date: '2026-10-15', dateLabel: '2026 年 10 月 15 日', title: '计时器断线继续', summary: '断线时继续本机计时，恢复连接后自动补传；只有明确被接管才退出。', categories: ['稳定性'], accent: 'mint', highlights: ['网络错误和心跳超时不再暂停或退出，断线检查点单独保留。', '同一设备重连可恢复控制确认并上传离线用时，旧令牌仍不能覆盖接管设备。'] },
   { version: '3.24.1', date: '2026-10-15', dateLabel: '2026 年 10 月 15 日', title: '计时登录连接复核', summary: '登录验证服务暂不可用时暂停连接，不把已登录计时误降为本机模式。', categories: ['稳定性'], accent: 'mint', highlights: ['区分未登录与验证网络失败，避免绕过账号计时接管。'] },
   { version: '3.24.0', date: '2026-10-15', dateLabel: '2026 年 10 月 15 日', title: '逐题计时与设备接续', summary: '下一题先选题型后自动开始，云端每分钟保存并支持同账号安全接管。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['选题型时显示介绍与当前档位时长，常用六类优先。', '运行和暂停状态明确，三色阶段同时显示文字与剩余比例。', '账号级控制权与版本检查，另一设备接管后旧设备退出计时，断网暂停。'] },
   {version:'3.23.0',date:'2026-10-15',dateLabel:'2026 年 10 月 15 日',title:'考试诊断驱动学习闭环',summary:'从考试失分定位卡点，人工对照 CS 评分点，修复后关联另一道新题验证。',categories:['学习体验','稳定性'],accent:'mint',highlights:['错误事实与潜在原因分开，最多关注两项；新题验证保留历史。','原始答案和首次练习结果不覆盖，人工 MS 对照支持等效表达。','每周频率可调整，CS 默认两次、统计按需；学校作业抵扣，沿用同步与备份。']},

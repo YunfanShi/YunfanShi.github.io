@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { readScheduleState, SCHEDULE_STORAGE_KEY } from '@/lib/learning/workspace-reader';
-import { applyPracticeSession, mergePracticeSession, validateConfig, type PracticeSession, type PracticeConfig } from '@/lib/learning/practice-timer';
+import { applyPracticeSession, mergePracticeSession, validateSession, validateConfig, type PracticeSession, type PracticeConfig } from '@/lib/learning/practice-timer';
 import { threeWayMerge } from '@/lib/sync/merge';
 import { createLocalEditWriter, parseLocalValue } from '@/lib/sync/local-edit';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
@@ -22,6 +22,7 @@ export default function PracticeTimerFrame() {
     const writer = createLocalEditWriter(localStorage, SCHEDULE_STORAGE_KEY, navigator.locks ? async (name, work) => navigator.locks.request(name, work) : undefined);
     const send = (data: unknown) => ref.current?.contentWindow?.postMessage(data, location.origin);
     let queue = Promise.resolve();
+    let liveRetryAt = 0;
     const sessionBases = new Map<string, PracticeSession>();
     let configBase: PracticeConfig | undefined;
     const handler = (event: MessageEvent) => {
@@ -46,9 +47,21 @@ export default function PracticeTimerFrame() {
           } else {
             if (message.session) {
               if (message.controllerId) {
-                const response = await fetch('/api/practice-timer/live', { cache:'no-store', signal:AbortSignal.timeout(8000) });
-                const live = await response.json();
-                if (!response.ok) throw Error('无法确认云端计时控制权，原记录已保留。');
+                let live;
+                try {
+                  if (Date.now() < liveRetryAt) throw Error('Cloud retry pending');
+                  const response = await fetch('/api/practice-timer/live', { cache:'no-store', signal:AbortSignal.timeout(4000) });
+                  if (!response.ok) throw Error('Cloud unavailable');
+                  live = await response.json();
+                  if (!live?.ownerId) throw Error('Ownership not confirmed');
+                  liveRetryAt = 0;
+                } catch {
+                  if (Date.now() >= liveRetryAt) liveRetryAt = Date.now() + 10000;
+                  const recovery = validateSession(message.session);
+                  localStorage.setItem('jackyun_debug_unsaved_edit:practice-timer:' + recovery.id, JSON.stringify({session:recovery,config:message.config}));
+                  send({type:'practice-saved', requestId:message.requestId, localOnly:true});
+                  return;
+                }
                 if (live.ownerId !== message.controllerId) { send({type:'practice-control-lost'}); return; }
                 // The server owns device arbitration; this single session replaces its stale Schedule replica.
                 next = applyPracticeSession(next, message.session);

@@ -1,0 +1,7 @@
+{
+  "migrationApplied": true,
+  "expiredSameOwnerAccepted": true,
+  "offlineSaveAccepted": true,
+  "takeoverFenced": true,
+  "transactionRolledBack": true
+}
