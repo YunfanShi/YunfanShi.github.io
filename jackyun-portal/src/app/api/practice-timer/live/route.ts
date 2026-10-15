@@ -13,7 +13,8 @@ export async function POST(request: Request) {
 }
 async function control(value?: Record<string, unknown>) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError && authError.name !== 'AuthSessionMissingError' && authError.status !== 401) return Response.json({ error: '暂时无法验证登录状态，请恢复连接后重试。' }, { status: 503, headers });
   if (!user) return Response.json({ error: '未登录，仅在本机记录。' }, { status: 401, headers });
   const action = value?.action ?? 'read';
   if (!['read','claim','save','touch','release'].includes(String(action)) || (action !== 'read' && (!uuid.test(String(value?.owner)) || (action !== 'claim' && !uuid.test(String(value?.token)))))) return Response.json({ error: '计时控制参数无效。' }, { status: 400, headers });

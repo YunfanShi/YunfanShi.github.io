@@ -1,0 +1,8 @@
+{
+  "minuteCheckpoint": true,
+  "nextTypeAutoStart": true,
+  "pauseFrozen": true,
+  "deviceHandoff": true,
+  "offlineStops": true,
+  "errors": []
+}
